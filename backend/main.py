@@ -7,7 +7,7 @@ Ana FastAPI Uygulaması
 from typing import Optional, Dict, Any, List
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -18,6 +18,8 @@ from backend.api.alignment_engine import compute_alignment
 from backend.api.advisor import generate_advice, generate_rewritten_answer
 from backend.api.narrative_engine import NarrativeEngine
 from backend.api.reasoning_shield import ReasoningShield
+from backend.api.report_builder import ReportBuilder
+from backend.api.identity_block import IdentityBlock
 from backend.api.utils.model_runner import (
     call_single_model,
     call_multi_models,
@@ -54,6 +56,14 @@ if not hasattr(app.state, "narrative_engine"):
 # --- ReasoningShield v5.0: Initialize central decision layer ---
 if not hasattr(app.state, "reasoning_shield"):
     app.state.reasoning_shield = ReasoningShield()
+
+# --- EZA Professional Reporting Layer v3.2: Initialize report builder ---
+if not hasattr(app.state, "report_builder"):
+    app.state.report_builder = ReportBuilder()
+
+# --- EZA IdentityBlock v3.0: Initialize identity protection layer ---
+if not hasattr(app.state, "identity_block"):
+    app.state.identity_block = IdentityBlock()
 
 # --- Middleware Katmanı ---
 app.add_middleware(RequestLoggerMiddleware)
@@ -183,11 +193,92 @@ async def analyze(req: AnalyzeRequest, request: Request):
     # 1) Input analizi (niyet + risk + duygu)
     input_scores: Dict[str, Any] = analyze_input(text)
     
-    # EZA-NarrativeEngine v4.0: Analyze conversation flow
+    # EZA-NarrativeEngine v3.0: Analyze context patterns in single text
+    narrative_context_results = request.app.state.narrative_engine.analyze(text)
+    
+    # Add narrative context risk to input analysis
+    if narrative_context_results.get("risk_score", 0.0) > 0.3:
+        if "risk_flags" not in input_scores:
+            input_scores["risk_flags"] = []
+        input_scores["risk_flags"].extend(narrative_context_results.get("risk_flags", []))
+        input_scores["risk_flags"] = list(set(input_scores["risk_flags"]))  # Unique
+        # Update risk score if narrative context risk is higher
+        current_risk = input_scores.get("risk_score", 0.0)
+        narrative_context_risk = narrative_context_results.get("risk_score", 0.0)
+        input_scores["risk_score"] = max(current_risk, narrative_context_risk)
+    
+    # EZA-NarrativeEngine v4.0: Analyze conversation flow (multi-turn)
     narrative_info = request.app.state.narrative_engine.analyze_flow()
     
     # Add narrative info to analysis
     input_scores["analysis"]["narrative"] = narrative_info
+    
+    # EZA-ReasoningShield v5.0: Analyze reasoning patterns (deception, unfair-persuasion, coercion, legal-risk)
+    reasoning_results = request.app.state.reasoning_shield.analyze(
+        text=text,
+        intent_analysis=input_scores.get("intent_engine"),
+        narrative=narrative_context_results,
+    )
+    
+    # Add reasoning shield risk to input analysis
+    if reasoning_results.get("risk_score", 0.0) > 0.3:
+        if "risk_flags" not in input_scores:
+            input_scores["risk_flags"] = []
+        input_scores["risk_flags"].extend(reasoning_results.get("risk_flags", []))
+        input_scores["risk_flags"] = list(set(input_scores["risk_flags"]))  # Unique
+        # Update risk score if reasoning risk is higher
+        current_risk = input_scores.get("risk_score", 0.0)
+        reasoning_risk = reasoning_results.get("risk_score", 0.0)
+        input_scores["risk_score"] = max(current_risk, reasoning_risk)
+    
+    # EZA-IdentityBlock v3.0: Analyze identity and personal data risks (with intent and reasoning context)
+    identity_results = request.app.state.identity_block.analyze(
+        text=text,
+        intent=input_scores.get("intent_engine"),
+        reasoning=reasoning_results,
+    )
+    
+    # Add identity risk to input analysis
+    if identity_results.get("risk_score", 0.0) > 0.3:
+        if "risk_flags" not in input_scores:
+            input_scores["risk_flags"] = []
+        input_scores["risk_flags"].extend(identity_results.get("risk_flags", []))
+        input_scores["risk_flags"] = list(set(input_scores["risk_flags"]))  # Unique
+        # Update risk score if identity risk is higher
+        current_risk = input_scores.get("risk_score", 0.0)
+        identity_risk = identity_results.get("risk_score", 0.0)
+        input_scores["risk_score"] = max(current_risk, identity_risk)
+    
+    # EZA-NarrativeEngine v2.2: Analyze long conversation context (risk accumulation, intent drift, escalation)
+    narrative_v2_results = request.app.state.narrative_engine.analyze_narrative(text)
+    
+    # Add narrative v2.2 risk to input analysis
+    if narrative_v2_results.get("risk_score", 0.0) > 0.3:
+        if "risk_flags" not in input_scores:
+            input_scores["risk_flags"] = []
+        # Add narrative-specific flags
+        signals = narrative_v2_results.get("signals", {})
+        if signals.get("escalation"):
+            if "narrative-escalation" not in input_scores["risk_flags"]:
+                input_scores["risk_flags"].append("narrative-escalation")
+        if signals.get("intent_drift"):
+            if "narrative-drift" not in input_scores["risk_flags"]:
+                input_scores["risk_flags"].append("narrative-drift")
+        if signals.get("hidden_agenda"):
+            if "narrative-hidden-agenda" not in input_scores["risk_flags"]:
+                input_scores["risk_flags"].append("narrative-hidden-agenda")
+        # Update risk score if narrative v2.2 risk is higher
+        current_risk = input_scores.get("risk_score", 0.0)
+        narrative_v2_risk = narrative_v2_results.get("risk_score", 0.0)
+        input_scores["risk_score"] = max(current_risk, narrative_v2_risk)
+    
+    # EZA-NarrativeEngine v2.2: Add current analysis to history
+    request.app.state.narrative_engine.add(
+        text=text,
+        intent=input_scores.get("intent_engine", {}),
+        identity=identity_results,
+        reasoning=reasoning_results,
+    )
     
     # Risk birleştirme: narrative score'u risk_score'a ekle
     current_risk_score = input_scores.get("risk_score", 0.0)
@@ -323,23 +414,48 @@ async def analyze(req: AnalyzeRequest, request: Request):
         "issues": shield_issues,
     }
 
-    # 7) Response JSON
-    return {
-        "language": input_scores.get("language"),
-        "intents": input_scores.get("intent"),
-        "risk_level": risk_level,
-        "risk_flags": risk_flags,
-
-        "input_scores": input_scores,
-        "model_outputs": model_outputs,
-        "output_scores": output_scores,
-
-        "alignment": alignment_label,      # UI burada sadece label'ı gösteriyor
-        "alignment_meta": alignment_meta,  # Gelişmiş bilgi (debug / ilerisi için)
-        "eza_alignment": eza_alignment,    # EZA-ReasoningShield v5.0: Central alignment score
+    # EZA Professional Reporting Layer v3.2: Build comprehensive report
+    advisor_data = {
         "advice": advice_text,
         "rewritten_text": rewritten_text,
+        "alignment_label": alignment_label,
     }
+    
+    report = request.app.state.report_builder.build(
+        input_data=input_scores,
+        output_data=output_scores,
+        intent_data=input_scores.get("intent_engine", {}),
+        narrative_data=input_scores.get("analysis", {}).get("narrative", {}),
+        shield_data=shield_result,
+        advisor_data=advisor_data,
+    )
+    
+    # EZA-IdentityBlock v3.0: Add identity analysis to report
+    report["identity"] = identity_results
+    
+    # EZA-NarrativeEngine v3.0: Add context analysis to report
+    report["narrative_context"] = narrative_context_results
+    
+    # EZA-NarrativeEngine v2.2: Add long-context narrative analysis to report
+    report["narrative_v2"] = narrative_v2_results
+    
+    # EZA-ReasoningShield v5.0: Add reasoning analysis to report
+    report["reasoning_shield"] = reasoning_results
+    
+    # Add legacy fields for backward compatibility
+    report["language"] = input_scores.get("language")
+    report["intents"] = input_scores.get("intent")
+    report["risk_level"] = risk_level
+    report["risk_flags"] = risk_flags
+    report["model_outputs"] = model_outputs
+    report["alignment"] = alignment_label
+    report["alignment_meta"] = alignment_meta
+    report["eza_alignment"] = eza_alignment
+    report["advice"] = advice_text
+    report["rewritten_text"] = rewritten_text
+
+    # 7) Return standardized JSON report
+    return JSONResponse(report)
 
 
 # -------------------------------------------------
