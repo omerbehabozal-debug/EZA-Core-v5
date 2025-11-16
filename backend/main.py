@@ -16,6 +16,7 @@ from backend.api.input_analyzer import analyze_input
 from backend.api.output_analyzer import analyze_output, evaluate_output
 from backend.api.alignment_engine import compute_alignment
 from backend.api.advisor import generate_advice, generate_rewritten_answer
+from backend.api.narrative_engine import NarrativeEngine
 from backend.api.utils.model_runner import (
     call_single_model,
     call_multi_models,
@@ -44,6 +45,10 @@ from backend.middleware.error_handler import (
 
 
 app = FastAPI(title="EZA-Core v4.0")
+
+# --- NarrativeEngine v4.0: Initialize conversation memory ---
+if not hasattr(app.state, "narrative_engine"):
+    app.state.narrative_engine = NarrativeEngine(max_memory=10)
 
 # --- Middleware Katmanı ---
 app.add_middleware(RequestLoggerMiddleware)
@@ -160,12 +165,36 @@ async def index(request: Request):
 # -------------------------------------------------
 
 @app.post("/analyze")
-async def analyze(req: AnalyzeRequest):
+async def analyze(req: AnalyzeRequest, request: Request):
     text = req.text or req.query or ""
     model = (req.model or "chatgpt").lower()
 
+    # EZA-NarrativeEngine v4.0: Add user message to conversation memory
+    if not hasattr(request.app.state, "narrative_engine"):
+        request.app.state.narrative_engine = NarrativeEngine(max_memory=10)
+    
+    request.app.state.narrative_engine.add_message("user", text)
+
     # 1) Input analizi (niyet + risk + duygu)
     input_scores: Dict[str, Any] = analyze_input(text)
+    
+    # EZA-NarrativeEngine v4.0: Analyze conversation flow
+    narrative_info = request.app.state.narrative_engine.analyze_flow()
+    
+    # Add narrative info to analysis
+    input_scores["analysis"]["narrative"] = narrative_info
+    
+    # Risk birleştirme: narrative score'u risk_score'a ekle
+    current_risk_score = input_scores.get("risk_score", 0.0)
+    narrative_score = narrative_info.get("narrative_score", 0.0)
+    input_scores["risk_score"] = max(current_risk_score, narrative_score)
+    
+    # Risk flags'e narrative-risk ekle
+    if narrative_score > 0.5:
+        if "risk_flags" not in input_scores:
+            input_scores["risk_flags"] = []
+        if "narrative-risk" not in input_scores["risk_flags"]:
+            input_scores["risk_flags"].append("narrative-risk")
 
     # 2) Model cevabını al (simülasyon)
     if model == "multi":
@@ -222,6 +251,10 @@ async def analyze(req: AnalyzeRequest):
         raw_answer = model_outputs.get("chatgpt") or str(model_outputs)
     else:
         raw_answer = str(model_outputs)
+
+    # EZA-NarrativeEngine v4.0: Add assistant response to memory
+    if hasattr(request.app.state, "narrative_engine"):
+        request.app.state.narrative_engine.add_message("assistant", raw_answer)
 
     advice_text = generate_advice(input_scores, output_scores, alignment_meta)
     rewritten_text = generate_rewritten_answer(raw_answer, advice_text, alignment_meta)

@@ -24,6 +24,7 @@ from backend.intent_engine.dictionaries import (
 )
 from backend.risk_engine import compute_risk_and_alignment
 from backend.api.reasoning_shield import analyze_reasoning_patterns
+from backend.api.identity_block import analyze_identity_risk
 from data_store.event_logger import log_event
 
 
@@ -227,6 +228,9 @@ def analyze_input(text: str) -> Dict[str, Any]:
         # EZA-ReasoningShield v5.0: Analyze reasoning patterns
         reasoning_result = analyze_reasoning_patterns(text)
         
+        # EZA-IdentityBlock v3.0: Analyze identity risk
+        identity_info = analyze_identity_risk(text)
+        
         # Extract values from risk_result
         primary_intent = risk_result["primary"]
         risk_score = risk_result["risk_score"]
@@ -242,6 +246,11 @@ def analyze_input(text: str) -> Dict[str, Any]:
         if reasoning_result.get("red_flags"):
             risk_flags.extend(reasoning_result["red_flags"])
             risk_flags = list(set(risk_flags))  # Remove duplicates
+        
+        # EZA-IdentityBlock v3.0: Add identity risk to risk flags and score
+        if identity_info.get("identity_risk_score", 0.0) > 0.5:
+            risk_flags.append("identity-risk")
+            risk_score = max(risk_score, identity_info["identity_risk_score"])
         
         # Secondary intents (all except primary with score >= 0.4)
         secondary = [intent for intent, score in intent_scores.items() 
@@ -264,6 +273,7 @@ def analyze_input(text: str) -> Dict[str, Any]:
             "policy_violations": [],
             "summary": "Level-4 intent engine: action–target–purpose + stealth + modal + weighted matrix.",
             "alignment_score": alignment_score,
+            "identity": identity_info,  # EZA-IdentityBlock v3.0
         }
 
         result = {
@@ -292,6 +302,8 @@ def analyze_input(text: str) -> Dict[str, Any]:
             },
             # EZA-ReasoningShield v5.0 metadata
             "reasoning_shield": reasoning_result,
+            # EZA-IdentityBlock v3.0 metadata
+            "identity_block": identity_info,
         }
 
         log_event("input_analyzed_v11", result)

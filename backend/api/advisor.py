@@ -111,6 +111,26 @@ def generate_advice(
     """
     Alignment sonucuna ve risklere göre etik tavsiye metnini üretir.
     """
+    # EZA-IdentityBlock v3.0: Check identity risk first (highest priority)
+    identity_info = input_analysis.get("identity_block") or input_analysis.get("analysis", {}).get("identity", {})
+    if identity_info and isinstance(identity_info, dict):
+        identity_risk = identity_info.get("identity_risk_score", 0.0)
+        if identity_risk > 0.5:
+            return (
+                "Bu içerik yüz tanıma, kimlik çıkarımı veya kişisel bilgi tespiti riski içerdiğinden yardımcı olamam. "
+                "Kişisel verilerin korunması ve gizlilik hakları önceliklidir."
+            )
+    
+    # EZA-NarrativeEngine v4.0: Check narrative risk
+    narrative_info = input_analysis.get("analysis", {}).get("narrative", {})
+    if narrative_info and isinstance(narrative_info, dict):
+        narrative_score = narrative_info.get("narrative_score", 0.0)
+        if narrative_score > 0.5:
+            return (
+                "Konuşma akışında risk artışı veya manipülatif bir gelişim tespit edildi. "
+                "Bu nedenle yardımcı olamam."
+            )
+    
     category = _pick_dominant_category(alignment_meta)
 
     if category == "self-harm":

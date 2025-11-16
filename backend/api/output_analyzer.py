@@ -25,6 +25,7 @@ import re
 from backend.risk_dictionaries.loader import load_core_dicts
 from backend.score_engine.scoring_engine import EzaScoringEngine
 from backend.api.reasoning_shield import analyze_reasoning_patterns
+from backend.api.identity_block import analyze_identity_risk
 from data_store.event_logger import log_event
 
 
@@ -291,6 +292,9 @@ def analyze_output(output_text: str, model: str = "unknown", input_analysis: Dic
         coercion_level = output_reasoning.get("coercion_level", 0.0)
         fiction_risk = output_reasoning.get("fiction_risk", 0.0)
         
+        # EZA-IdentityBlock v3.0: Analyze output identity risk
+        output_identity_info = analyze_identity_risk(text)
+        
         # Self-harm priority rule (v9.1 - do NOT change)
         if input_intent == "self-harm" or "self-harm" in categories:
             score = 1.0
@@ -338,6 +342,10 @@ def analyze_output(output_text: str, model: str = "unknown", input_analysis: Dic
             policy_violations.append("coercive-advice")
         if fiction_risk > 0.5:
             policy_violations.append("fictional-scenario-risk")
+        
+        # EZA-IdentityBlock v3.0: Add identity risk policy violations
+        if output_identity_info.get("identity_risk_score", 0.0) > 0.5:
+            policy_violations.append("identity-recognition")
 
         analysis = {
             "quality_score": quality_info["quality_score"],
