@@ -33,17 +33,25 @@ export default function ChatInput() {
 
         if (j.ok) {
           const analyzed = j.data;
+          // Backend'den gelen raw data'yı da analysis'e ekle
+          const fullAnalysis = {
+            ...analyzed,
+            _raw: analyzed._raw || analyzed
+          };
+          
           const assistant =
             analyzed.cleaned_output ||
             analyzed.output ||
+            analyzed._raw?.rewritten_text ||
+            analyzed._raw?.model_outputs?.chatgpt ||
             "EZA bir yanıt üretti.";
 
           addMessage({ role: "assistant", text: assistant });
-          setAnalysis(analyzed);
+          setAnalysis(fullAnalysis);
         } else {
           addMessage({
             role: "assistant",
-            text: "Hata: EZA-Core analiz API yanıt vermedi."
+            text: `Hata: ${j.error || "EZA-Core analiz API yanıt vermedi."}`
           });
         }
       } else {
