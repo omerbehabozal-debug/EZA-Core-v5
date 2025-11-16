@@ -46,13 +46,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(data.error || "Beklenmeyen bir hata oluştu.");
             }
 
+            // Güvenlik filtresi
+            const safe = (v) => v ?? "—";
+            
             // Pipeline sonuçlarını UI'ya basıyoruz
             modelOutputs.textContent = JSON.stringify(data.model_outputs || "—", null, 2);
             inputScores.textContent = JSON.stringify(data.input_scores || "—", null, 2);
             outputScores.textContent = JSON.stringify(data.output_scores || "—", null, 2);
-            alignmentScore.textContent = JSON.stringify(data.alignment || "—", null, 2);
-            adviceText.textContent = data.advice || "—";
-            rewrittenText.textContent = data.final || "—";
+            
+            // Alignment bilgilerini düzgün formatla
+            alignmentScore.textContent = safe(data.alignment);
+            
+            adviceText.textContent = safe(data.advice);
+            rewrittenText.textContent = safe(data.rewritten_text);
 
             resultBox.style.display = "block";
 

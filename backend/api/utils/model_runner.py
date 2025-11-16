@@ -39,33 +39,34 @@ def call_single_model(
     
     raise ValueError("call_single_model: Ya (text, model_name) ya da (system_prompt, user_prompt, model) parametreleri gerekli")
 
-def call_multi_models(text: str, models: Optional[list] = None) -> Dict[str, str]:
+def call_multi_models(text: str) -> Dict[str, str]:
     """
     Premium çoklu model çağırma simülasyonu.
     """
-    if models is None:
-        models = ["chatgpt", "claude", "gemini", "llama"]
+    models = ["chatgpt", "claude", "gemini", "llama"]
     
     return {
         model: f"[{model}] → Simulated response for: {text}"
         for model in models
     }
 
-def rewrite_with_ethics(
-    text: Optional[str] = None,
-    original_text: Optional[str] = None,
-    advice: Optional[str] = None,
-    model_name: Optional[str] = None,
-) -> str:
+def rewrite_with_ethics(original_text: str, advice: str) -> str:
     """
-    Modele gelen etik tavsiyelerle iyileştirilmiş cevap üretir.
+    Etik olarak güçlendirilmiş cevap oluşturur.
     """
-    original = text or original_text or ""
-    advice_text = advice or ""
+    # Ensure parameters are always strings
+    if original_text is None:
+        original_text = ""
+    if advice is None:
+        advice = ""
+    
+    # Convert to string if not already
+    original_text = str(original_text)
+    advice = str(advice)
     
     return (
-        f"Orijinal: {original}\n\n"
-        f"Tavsiye: {advice_text}\n\n"
+        f"Orijinal Cevap:\n{original_text}\n\n"
+        f"Etik Tavsiye:\n{advice}\n\n"
         f"Etik Olarak Güçlendirilmiş Cevap:\n"
-        f"{original} (etik rehberliğe göre yeniden düzenlenmiştir.)"
+        f"{original_text} (Etik yönergelere göre güçlendirilmiştir.)"
     )

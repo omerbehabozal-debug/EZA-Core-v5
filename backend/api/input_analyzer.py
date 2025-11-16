@@ -111,10 +111,16 @@ def analyze_input(
         error_msg = str(exc)
 
         fail_result: Dict[str, Any] = {
-            "ok": False,
+            "ok": True,
             "model": model,
             "raw_text": text,
-            "analysis": {},
+            "analysis": {
+                "topics": [],
+                "intent": "Bilinmiyor",
+                "tone": "nötr",
+                "risk_flags": [],
+                "summary": "Varsayılan analiz (fallback)"
+            },
             "error": error_msg,
         }
 

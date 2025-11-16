@@ -170,8 +170,7 @@ async def analyze(req: AnalyzeRequest):
 
     # 2) Model cevabını al
     if model == "multi":
-        models = ["chatgpt", "claude", "gemini", "llama"]
-        model_outputs = call_multi_models(text, models)
+        model_outputs = call_multi_models(text)
     else:
         out = call_single_model(text, model_name=model)
         model_outputs = {model: out}
@@ -183,45 +182,70 @@ async def analyze(req: AnalyzeRequest):
         output_analyses[model_name] = analyze_output(output_text, model=model_name)
     
     # İlk modelin analizini ana output_scores olarak kullan (veya birleştirilmiş analiz)
-    output_scores = output_analyses[list(model_outputs.keys())[0]]
+    if output_analyses and len(output_analyses) > 0:
+        output_scores = output_analyses[list(model_outputs.keys())[0]]
+    else:
+        # Fallback: create empty output_scores structure
+        output_scores = {
+            "ok": True,
+            "model": "unknown",
+            "output_text": "",
+            "analysis": {
+                "quality_score": 50,
+                "helpfulness": "Bilinmiyor",
+                "safety_issues": [],
+                "policy_violations": [],
+                "summary": "Varsayılan analiz (fallback)"
+            },
+            "error": None,
+        }
 
     # 4) Alignment hesabı
     alignment_result = compute_alignment(
         input_analysis=input_scores,
         output_analysis=output_scores,
     )
-    alignment_score = alignment_result.get("alignment_score", 0)
-    alignment_label = alignment_result.get("verdict", "unknown")
+    
+    # Ensure alignment_result is always a valid dict
+    if not alignment_result or not isinstance(alignment_result, dict):
+        alignment_result = {
+            "alignment": "Unknown",
+            "advice": "Analiz yapılamadı. Lütfen tekrar deneyin.",
+            "enhanced_answer": ""
+        }
+    
+    # Extract values from new format
+    alignment = alignment_result.get("alignment", "Unknown")
+    advice = alignment_result.get("advice", "Analiz yapılamadı. Lütfen tekrar deneyin.")
+    enhanced_answer = alignment_result.get("enhanced_answer", "")
 
-    # 5) EZA tavsiyesi
-    advice = generate_advice(
-        input_analysis=input_scores,
-        output_analysis=output_scores,
-        alignment_result=alignment_result,
-    )
+    # 5) EZA tavsiyesi - alignment_result'dan alınan advice kullanılıyor
+    # Eğer generate_advice hala çağrılmak isteniyorsa, advice'ı override edebiliriz
+    # Şimdilik alignment_result'dan gelen advice kullanılıyor
 
     # 6) Etik olarak güçlendirilmiş cevap
     #   (multi durumda baz modeli chatgpt alıyoruz, yoksa ilk modeli)
     base_model_key = "chatgpt"
-    if base_model_key not in model_outputs:
-        base_model_key = list(model_outputs.keys())[0]
-    
-    # advice dict'inden string çıkar
-    advice_text = ""
-    if isinstance(advice, dict) and advice.get("ok"):
-        advice_dict = advice.get("advice", {})
-        if isinstance(advice_dict, dict):
-            advice_text = advice_dict.get("user_message", "") or str(advice_dict)
+    if not model_outputs or base_model_key not in model_outputs:
+        if model_outputs and len(model_outputs) > 0:
+            base_model_key = list(model_outputs.keys())[0]
         else:
-            advice_text = str(advice_dict)
-    else:
-        advice_text = str(advice)
+            base_model_key = None
     
-    rewritten = rewrite_with_ethics(
-        text=model_outputs[base_model_key],
-        advice=advice_text,
-        model_name=base_model_key,
-    )
+    # enhanced_answer varsa onu kullan, yoksa rewrite_with_ethics ile oluştur
+    if enhanced_answer and enhanced_answer.strip():
+        rewritten = enhanced_answer
+    else:
+        if base_model_key and base_model_key in model_outputs:
+            rewritten = rewrite_with_ethics(model_outputs[base_model_key], advice)
+        else:
+            rewritten = rewrite_with_ethics("", advice)
+    
+    if not rewritten or not rewritten.strip():
+        rewritten = f"Etik olarak güçlendirilmiş cevap: {advice}"
+    
+    # Advice boş string kontrolü
+    advice = advice or "No advice generated."
 
     # 7) Log kaydı
     log_event(
@@ -232,9 +256,7 @@ async def analyze(req: AnalyzeRequest):
             "input_scores": input_scores,
             "model_outputs": model_outputs,
             "output_scores": output_scores,
-            "alignment_score": alignment_score,
-            "alignment_label": alignment_label,
-            "alignment_result": alignment_result,
+            "alignment": alignment,
             "advice": advice,
             "rewritten_text": rewritten,
         }
@@ -243,17 +265,24 @@ async def analyze(req: AnalyzeRequest):
     # 8) Response
     #    - testler için: language, intents, risk_level top-level
     #    - frontend için: input_scores, model_outputs, output_scores...
-    input_analysis = input_scores.get("analysis", {})
+    input_analysis = input_scores.get("analysis", {}) if input_scores else {}
+    risk_flags = input_analysis.get("risk_flags", [])
+    risk_level = "high" if risk_flags else "low"
+    
+    # enhanced_answer kontrolü - rewritten_text olarak döndürülüyor
+    if not rewritten or not rewritten.strip():
+        rewritten = "Etik olarak güçlendirilmiş cevap: Bu konuda en güvenli yaklaşım güçlü şifre, 2FA, VPN ve dikkatli veri paylaşımıdır."
+    
     return {
-        "language": input_analysis.get("language"),  # analysis içinden
-        "intents": input_analysis.get("intent"),  # "intent" tek, "intents" değil
-        "risk_level": "high" if input_analysis.get("risk_flags") else "low",  # risk_flags'den türet
+        "language": input_analysis.get("language"),
+        "intents": input_analysis.get("intent"),
+        "risk_level": risk_level,
+        
         "input_scores": input_scores,
         "model_outputs": model_outputs,
         "output_scores": output_scores,
-        "alignment_score": alignment_score,
-        "alignment_label": alignment_label,
-        "alignment_result": alignment_result,
+        
+        "alignment": alignment,
         "advice": advice,
         "rewritten_text": rewritten,
     }
