@@ -27,6 +27,7 @@ from backend.api.utils.model_runner import (
 )
 
 from backend.api.pipeline import router as pipeline_router
+from diagnostics.eza_status import router as diagnostics_router
 
 
 from data_store.event_logger import log_event
@@ -52,6 +53,10 @@ app = FastAPI(title="EZA-Core v4.0")
 # --- NarrativeEngine v4.0: Initialize conversation memory ---
 if not hasattr(app.state, "narrative_engine"):
     app.state.narrative_engine = NarrativeEngine(max_memory=10)
+
+# --- EZA-NarrativeEngine v2.2: Initialize long-context narrative engine ---
+if not hasattr(app.state, "narrative"):
+    app.state.narrative = NarrativeEngine()
 
 # --- ReasoningShield v5.0: Initialize central decision layer ---
 if not hasattr(app.state, "reasoning_shield"):
@@ -81,8 +86,14 @@ app.add_exception_handler(Exception, generic_exception_handler)
 templates = Jinja2Templates(directory="frontend/templates")
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
+# Mount lab static files
+import os
+if os.path.exists("frontend/lab"):
+    app.mount("/lab/static", StaticFiles(directory="frontend/lab"), name="lab_static")
+
 # --- API Route Katmanı ---
 app.include_router(pipeline_router)
+app.include_router(diagnostics_router)
 
 
 
@@ -250,7 +261,7 @@ async def analyze(req: AnalyzeRequest, request: Request):
         input_scores["risk_score"] = max(current_risk, identity_risk)
     
     # EZA-NarrativeEngine v2.2: Analyze long conversation context (risk accumulation, intent drift, escalation)
-    narrative_v2_results = request.app.state.narrative_engine.analyze_narrative(text)
+    narrative_v2_results = request.app.state.narrative.analyze_narrative(text)
     
     # Add narrative v2.2 risk to input analysis
     if narrative_v2_results.get("risk_score", 0.0) > 0.3:
@@ -272,8 +283,8 @@ async def analyze(req: AnalyzeRequest, request: Request):
         narrative_v2_risk = narrative_v2_results.get("risk_score", 0.0)
         input_scores["risk_score"] = max(current_risk, narrative_v2_risk)
     
-    # EZA-NarrativeEngine v2.2: Add current analysis to history
-    request.app.state.narrative_engine.add(
+    # EZA-NarrativeEngine v2.2: Add current analysis to history (AFTER analysis, BEFORE adding to report)
+    request.app.state.narrative.add(
         text=text,
         intent=input_scores.get("intent_engine", {}),
         identity=identity_results,
@@ -437,7 +448,8 @@ async def analyze(req: AnalyzeRequest, request: Request):
     report["narrative_context"] = narrative_context_results
     
     # EZA-NarrativeEngine v2.2: Add long-context narrative analysis to report
-    report["narrative_v2"] = narrative_v2_results
+    report["narrative"] = narrative_v2_results
+    report["narrative_v2"] = narrative_v2_results  # Also keep for backward compatibility
     
     # EZA-ReasoningShield v5.0: Add reasoning analysis to report
     report["reasoning_shield"] = reasoning_results
@@ -454,7 +466,22 @@ async def analyze(req: AnalyzeRequest, request: Request):
     report["advice"] = advice_text
     report["rewritten_text"] = rewritten_text
 
-    # 7) Return standardized JSON report
+    # 7) Log risk report to file
+    import json
+    import os
+    
+    # Ensure logs directory exists
+    os.makedirs("logs", exist_ok=True)
+    
+    # Append to risk log file
+    try:
+        with open("logs/eza_risk_log.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(report, ensure_ascii=False) + "\n")
+    except Exception as e:
+        # Log error but don't fail the request
+        print(f"Warning: Could not write to risk log: {e}")
+    
+    # 8) Return standardized JSON report
     return JSONResponse(report)
 
 
@@ -497,3 +524,26 @@ async def dashboard(request: Request):
     </html>
     """
     return HTMLResponse(content=html)
+
+
+# -------------------------------------------------
+# /lab – EZA LAB Dashboard (Web Panel)
+# -------------------------------------------------
+
+@app.get("/lab", response_class=HTMLResponse)
+async def lab_dashboard(request: Request):
+    """Serve EZA LAB Dashboard"""
+    import os
+    lab_path = os.path.join("frontend", "lab", "index.html")
+    
+    try:
+        with open(lab_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>EZA LAB Dashboard not found</h1><p>Please ensure frontend/lab/index.html exists.</p>",
+            status_code=404
+        )
+
+

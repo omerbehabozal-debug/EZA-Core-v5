@@ -354,6 +354,13 @@ class NarrativeEngine:
                 "recent_intents": intents,
             },
         }
+    
+    def analyze_v2(self, current_text: str) -> Dict[str, Any]:
+        """
+        EZA-NarrativeEngine v2.2: Analyze long conversation context.
+        Alias for analyze_narrative() for compatibility.
+        """
+        return self.analyze_narrative(current_text)
 
     def analyze(self, text: str) -> Dict[str, Any]:
         """
