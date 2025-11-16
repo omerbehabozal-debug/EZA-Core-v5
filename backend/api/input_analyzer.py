@@ -23,6 +23,7 @@ from backend.intent_engine.dictionaries import (
     toxicity_signals,
 )
 from backend.risk_engine import compute_risk_and_alignment
+from backend.api.reasoning_shield import analyze_reasoning_patterns
 from data_store.event_logger import log_event
 
 
@@ -223,6 +224,9 @@ def analyze_input(text: str) -> Dict[str, Any]:
         # EZA-Core v11.0: Risk Engine - centralized risk and alignment calculation
         risk_result = compute_risk_and_alignment(intent_scores, text)
         
+        # EZA-ReasoningShield v5.0: Analyze reasoning patterns
+        reasoning_result = analyze_reasoning_patterns(text)
+        
         # Extract values from risk_result
         primary_intent = risk_result["primary"]
         risk_score = risk_result["risk_score"]
@@ -233,6 +237,11 @@ def analyze_input(text: str) -> Dict[str, Any]:
         # Determine risk flags (intents with score >= 0.4)
         risk_flags = [intent for intent, score in intent_scores.items() 
                      if score >= 0.4 and intent != "information"]
+        
+        # Add reasoning shield red flags to risk_flags
+        if reasoning_result.get("red_flags"):
+            risk_flags.extend(reasoning_result["red_flags"])
+            risk_flags = list(set(risk_flags))  # Remove duplicates
         
         # Secondary intents (all except primary with score >= 0.4)
         secondary = [intent for intent, score in intent_scores.items() 
@@ -264,7 +273,7 @@ def analyze_input(text: str) -> Dict[str, Any]:
             "language": language,
             "intent": intent,
             "emotional_tone": tone,
-            "risk_flags": [category] if category != "information" else [],
+            "risk_flags": risk_flags,
             "risk_score": risk_score,
             "risk_level": risk_level,
             "analysis": analysis,
@@ -274,13 +283,15 @@ def analyze_input(text: str) -> Dict[str, Any]:
                 "primary": primary_intent,
                 "secondary": secondary,
                 "intent_scores": intent_scores,
-                "risk_flags": [category] if category != "information" else [],
+                "risk_flags": risk_flags,
                 "risk_score": risk_score,
                 "risk_level": risk_level,
                 "meta": {
                     "features": feature_metadata,
                 },
             },
+            # EZA-ReasoningShield v5.0 metadata
+            "reasoning_shield": reasoning_result,
         }
 
         log_event("input_analyzed_v11", result)

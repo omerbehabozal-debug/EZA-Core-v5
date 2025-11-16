@@ -24,6 +24,7 @@ import re
 
 from backend.risk_dictionaries.loader import load_core_dicts
 from backend.score_engine.scoring_engine import EzaScoringEngine
+from backend.api.reasoning_shield import analyze_reasoning_patterns
 from data_store.event_logger import log_event
 
 
@@ -284,11 +285,22 @@ def analyze_output(output_text: str, model: str = "unknown", input_analysis: Dic
                 elif manipulation_score_from_engine >= 0.6:
                     manipulation_from_engine = True
         
+        # EZA-ReasoningShield v5.0: Analyze output reasoning patterns
+        output_reasoning = analyze_reasoning_patterns(text)
+        reasoning_score = output_reasoning.get("reasoning_score", 0.0)
+        coercion_level = output_reasoning.get("coercion_level", 0.0)
+        fiction_risk = output_reasoning.get("fiction_risk", 0.0)
+        
         # Self-harm priority rule (v9.1 - do NOT change)
         if input_intent == "self-harm" or "self-harm" in categories:
             score = 1.0
             risk_level = "critical"
             summary = "Self-harm Priority Rule Active"
+        # EZA-ReasoningShield v5.0: High reasoning score → high risk
+        elif reasoning_score > 0.75:
+            score = max(score, 0.75)
+            risk_level = "high"
+            summary = "ReasoningShield v5.0: High reasoning risk detected"
         # Wifi-illegal detection (v9.2: output text or input intent)
         elif is_wifi_illegal or (input_intent == "illegal" and "sensitive-data" in categories):
             score = max(score, 0.85)
@@ -320,6 +332,12 @@ def analyze_output(output_text: str, model: str = "unknown", input_analysis: Dic
         quality_info = _estimate_quality(text)
         tone = _detect_emotional_tone(text)
         policy_violations = _detect_policy_violations(categories)
+        
+        # EZA-ReasoningShield v5.0: Add policy violations
+        if coercion_level > 0.5:
+            policy_violations.append("coercive-advice")
+        if fiction_risk > 0.5:
+            policy_violations.append("fictional-scenario-risk")
 
         analysis = {
             "quality_score": quality_info["quality_score"],

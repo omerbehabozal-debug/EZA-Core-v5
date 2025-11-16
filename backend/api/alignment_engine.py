@@ -41,6 +41,11 @@ def _extract_risk_data(
     """
     in_flags: List[str] = input_analysis.get("risk_flags") or []
     out_flags: List[str] = output_analysis.get("risk_flags") or []
+    
+    # EZA-ReasoningShield v5.0: Add reasoning shield red flags
+    reasoning_shield = input_analysis.get("reasoning_shield", {})
+    if reasoning_shield and reasoning_shield.get("red_flags"):
+        in_flags.extend(reasoning_shield["red_flags"])
 
     merged_flags = list(sorted(set(in_flags + out_flags)))
 
