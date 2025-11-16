@@ -23,6 +23,13 @@ from backend.api.identity_block import IdentityBlock
 from backend.api.drift_matrix import DriftMatrix
 from backend.api.eza_score import EZAScore
 from backend.api.verdict_engine import VerdictEngine
+from backend.api.deception_engine import DeceptionEngine
+from backend.api.psych_pressure_detector import PsychologicalPressureDetector
+from backend.api.legal_risk_engine import LegalRiskEngine
+from backend.api.context_graph import ContextSafetyGraph
+from backend.api.ethical_gradient import EthicalGradientEngine
+from backend.api.behavior_correlation import BehaviorCorrelationModel
+from backend.api.critical_bias_engine import CriticalBiasEngine
 from backend.api.utils.model_runner import (
     call_single_model,
     call_multi_models,
@@ -81,6 +88,24 @@ if not hasattr(app.state, "eza_score"):
     app.state.eza_score = EZAScore()
 if not hasattr(app.state, "verdict"):
     app.state.verdict = VerdictEngine()
+
+# --- EZA Level-6 Upgrade: Initialize new safety layers ---
+if not hasattr(app.state, "deception_engine"):
+    app.state.deception_engine = DeceptionEngine()
+if not hasattr(app.state, "psych_pressure"):
+    app.state.psych_pressure = PsychologicalPressureDetector()
+if not hasattr(app.state, "legal_risk"):
+    app.state.legal_risk = LegalRiskEngine()
+if not hasattr(app.state, "context_graph"):
+    app.state.context_graph = ContextSafetyGraph()
+if not hasattr(app.state, "ethical_gradient"):
+    app.state.ethical_gradient = EthicalGradientEngine()
+if not hasattr(app.state, "behavior_correlation"):
+    app.state.behavior_correlation = BehaviorCorrelationModel()
+
+# --- LEVEL 7 – Critical Bias Engine ---
+if not hasattr(app.state, "critical_bias_engine"):
+    app.state.critical_bias_engine = CriticalBiasEngine()
 
 # --- Middleware Katmanı ---
 app.add_middleware(RequestLoggerMiddleware)
@@ -532,15 +557,157 @@ async def analyze(req: AnalyzeRequest, request: Request):
     report["advice"] = advice_text
     report["rewritten_text"] = rewritten_text
 
-    # EZA Level-5 Upgrade: Compute drift matrix, EZA score, and final verdict
-    # Get memory from narrative engine
+    # EZA Level-6 Upgrade: Run new safety layers
+    # Get memory from narrative engine for Level-6 modules
     narrative_memory = []
     if hasattr(request.app.state, "narrative") and request.app.state.narrative is not None:
         narrative_memory = getattr(request.app.state.narrative, "memory", [])
-        # Enhance memory entries with report data for drift analysis
-        # If memory entries don't have report data, add current report to enable drift tracking
-        if narrative_memory and "report" not in narrative_memory[-1]:
-            narrative_memory[-1]["report"] = report
+    
+    # a) Deception Engine
+    try:
+        deception = request.app.state.deception_engine.analyze(
+            text=text,
+            report=report,
+            memory=narrative_memory
+        )
+        report["deception"] = deception
+    except Exception as e:
+        print(f"Warning: DeceptionEngine analysis failed: {e}")
+        report["deception"] = {
+            "ok": False,
+            "error": str(e),
+            "score": 0.0,
+            "level": "unknown",
+            "flags": [],
+            "summary": "Deception analysis failed."
+        }
+    
+    # b) Psychological Pressure Detector
+    try:
+        psychological_pressure = request.app.state.psych_pressure.analyze(
+            text=text,
+            memory=narrative_memory
+        )
+        report["psychological_pressure"] = psychological_pressure
+    except Exception as e:
+        print(f"Warning: PsychologicalPressureDetector analysis failed: {e}")
+        report["psychological_pressure"] = {
+            "ok": False,
+            "error": str(e),
+            "score": 0.0,
+            "level": "unknown",
+            "patterns": [],
+            "summary": "Psychological pressure analysis failed."
+        }
+    
+    # c) Legal Risk Engine (needs deception and psychological_pressure in report)
+    try:
+        legal_risk = request.app.state.legal_risk.analyze(report)
+        report["legal_risk"] = legal_risk
+    except Exception as e:
+        print(f"Warning: LegalRiskEngine analysis failed: {e}")
+        report["legal_risk"] = {
+            "ok": False,
+            "error": str(e),
+            "score": 0.0,
+            "level": "unknown",
+            "categories": [],
+            "summary": "Legal risk analysis failed."
+        }
+    
+    # d) Context Safety Graph
+    try:
+        context_graph = request.app.state.context_graph.build(report)
+        report["context_graph"] = context_graph
+    except Exception as e:
+        print(f"Warning: ContextSafetyGraph analysis failed: {e}")
+        report["context_graph"] = {
+            "ok": False,
+            "error": str(e),
+            "nodes": {},
+            "edges": [],
+            "summary": "Context graph building failed."
+        }
+    
+    # e) Behavior Correlation Model
+    try:
+        behavior_corr = request.app.state.behavior_correlation.analyze(
+            memory=narrative_memory,
+            report=report
+        )
+        report["behavior_correlation"] = behavior_corr
+    except Exception as e:
+        print(f"Warning: BehaviorCorrelationModel analysis failed: {e}")
+        report["behavior_correlation"] = {
+            "ok": False,
+            "error": str(e),
+            "trend_score": 0.0,
+            "level": "unknown",
+            "flags": [],
+            "summary": "Behavior correlation analysis failed."
+        }
+    
+    # f) Ethical Gradient Engine (needs all previous Level-6 modules)
+    try:
+        ethical = request.app.state.ethical_gradient.compute(report)
+        report["ethical_gradient"] = ethical
+    except Exception as e:
+        print(f"Warning: EthicalGradientEngine computation failed: {e}")
+        report["ethical_gradient"] = {
+            "ok": False,
+            "error": str(e),
+            "ethical_score": 50.0,
+            "grade": "C",
+            "dimensions": {
+                "individual_harm": 0.0,
+                "societal_harm": 0.0,
+                "consent": 0.0,
+                "privacy": 0.0,
+                "legal": 0.0
+            },
+            "summary": "Ethical gradient computation failed."
+        }
+
+    # LEVEL 7 – Critical Bias Engine
+    try:
+        critical_bias_engine = request.app.state.critical_bias_engine
+
+        # Mevcut verileri toparla
+        input_text = report.get("input", {}).get("raw_text", text)  # text değişkeni varsa kullan
+        model_outputs = report.get("model_outputs", {})
+
+        intent_engine = report.get("intent_engine") or report.get("intent")
+        context_graph = report.get("context_graph")
+
+        critical_bias = critical_bias_engine.analyze(
+            input_text=input_text,
+            model_outputs=model_outputs,
+            intent_engine=intent_engine,
+            context_graph=context_graph,
+        )
+    except Exception as exc:  # güvenlik fallback
+        critical_bias = {
+            "bias_score": 0.0,
+            "level": "low",
+            "dimensions": {
+                "gender": 0.0,
+                "culture": 0.0,
+                "religion": 0.0,
+                "socioeconomic": 0.0,
+                "identity": 0.0,
+                "political": 0.0,
+            },
+            "flags": ["critical-bias-engine-error"],
+            "summary": f"CriticalBiasEngine çalışırken hata oluştu: {exc}",
+        }
+
+    report["critical_bias"] = critical_bias
+
+    # EZA Level-5 Upgrade: Compute drift matrix, EZA score, and final verdict
+    # Enhance memory entries with report data for drift analysis
+    # If memory entries don't have report data, add current report to enable drift tracking
+    if narrative_memory and "report" not in narrative_memory[-1]:
+        narrative_memory[-1]["report"] = report
     
     drift = request.app.state.drift.compute(narrative_memory)
     score = request.app.state.eza_score.compute(report, drift)
