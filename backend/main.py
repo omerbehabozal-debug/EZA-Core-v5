@@ -17,6 +17,7 @@ from backend.api.output_analyzer import analyze_output, evaluate_output
 from backend.api.alignment_engine import compute_alignment
 from backend.api.advisor import generate_advice, generate_rewritten_answer
 from backend.api.narrative_engine import NarrativeEngine
+from backend.api.reasoning_shield import ReasoningShield
 from backend.api.utils.model_runner import (
     call_single_model,
     call_multi_models,
@@ -49,6 +50,10 @@ app = FastAPI(title="EZA-Core v4.0")
 # --- NarrativeEngine v4.0: Initialize conversation memory ---
 if not hasattr(app.state, "narrative_engine"):
     app.state.narrative_engine = NarrativeEngine(max_memory=10)
+
+# --- ReasoningShield v5.0: Initialize central decision layer ---
+if not hasattr(app.state, "reasoning_shield"):
+    app.state.reasoning_shield = ReasoningShield()
 
 # --- Middleware Katmanı ---
 app.add_middleware(RequestLoggerMiddleware)
@@ -242,6 +247,36 @@ async def analyze(req: AnalyzeRequest, request: Request):
     
     # Frontend geriye sadece kısa label bekliyor, ama metayı da JSON'da dönebiliriz
     alignment_label = alignment_meta.get("label", "Unknown")
+    
+    # EZA-ReasoningShield v5.0: Central decision layer
+    intent_engine_data = input_scores.get("intent_engine") or input_scores.get("intent_engine_data")
+    narrative_info = input_scores.get("analysis", {}).get("narrative") or {}
+    
+    shield_result = request.app.state.reasoning_shield.evaluate(
+        input_analysis=input_scores,
+        output_analysis=output_scores,
+        intent_engine=intent_engine_data,
+        narrative_info=narrative_info,
+    )
+    
+    # Add shield result to analysis
+    input_scores["analysis"]["shield"] = shield_result
+    
+    # Genel risk skorunu shield ile senkronize et
+    shield_score = shield_result.get("alignment_score", 100)
+    current_risk_score = input_scores.get("risk_score", 0.0)
+    
+    # alignment_score düşükse, risk_score'u yukarı çek
+    if shield_score <= 20:
+        input_scores["risk_score"] = max(current_risk_score, 0.9)
+        input_scores["risk_level"] = "critical"
+    elif shield_score <= 50:
+        input_scores["risk_score"] = max(current_risk_score, 0.6)
+        if input_scores.get("risk_level") not in ["critical", "high"]:
+            input_scores["risk_level"] = "high"
+    elif shield_score <= 70:
+        if input_scores.get("risk_level") not in ["critical", "high"]:
+            input_scores["risk_level"] = "medium"
 
     # 5) Model cevabını ve tavsiyeyi üret
     # Burada örnek olarak tek model (chatgpt) çıktısını kullanıyoruz.
@@ -276,6 +311,17 @@ async def analyze(req: AnalyzeRequest, request: Request):
 
     risk_flags = input_scores.get("risk_flags", []) or []
     risk_level = input_scores.get("risk_level", "low")
+    
+    # EZA-ReasoningShield v5.0: Add eza_alignment to response
+    shield_level = shield_result.get("level", "safe")
+    shield_alignment_score = shield_result.get("alignment_score", 100)
+    shield_issues = shield_result.get("issues", [])
+    
+    eza_alignment = {
+        "level": shield_level,
+        "alignment_score": shield_alignment_score,
+        "issues": shield_issues,
+    }
 
     # 7) Response JSON
     return {
@@ -290,6 +336,7 @@ async def analyze(req: AnalyzeRequest, request: Request):
 
         "alignment": alignment_label,      # UI burada sadece label'ı gösteriyor
         "alignment_meta": alignment_meta,  # Gelişmiş bilgi (debug / ilerisi için)
+        "eza_alignment": eza_alignment,    # EZA-ReasoningShield v5.0: Central alignment score
         "advice": advice_text,
         "rewritten_text": rewritten_text,
     }

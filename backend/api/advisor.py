@@ -131,6 +131,25 @@ def generate_advice(
                 "Bu nedenle yardımcı olamam."
             )
     
+    # EZA-ReasoningShield v5.0: Check shield result
+    shield = input_analysis.get("analysis", {}).get("shield", {})
+    if shield and isinstance(shield, dict):
+        level = shield.get("level")
+        alignment_score = shield.get("alignment_score", 100)
+        issues = shield.get("issues", [])
+        
+        if level == "critical":
+            return (
+                "Bu içerikte ciddi etik ve güvenlik riskleri tespit edildi. "
+                "EZA, yasa dışı, şiddet içeren, kendine veya başkalarına zarar verme "
+                "veya gizli manipülasyon içeren isteklere destek vermez."
+            )
+        elif level == "caution":
+            return (
+                "Bu istekte bazı riskli öğeler ve tartışmalı ifadeler bulundu. "
+                "Lütfen başkalarının haklarına, mahremiyetine ve güvenliğine saygı göstererek hareket edin."
+            )
+    
     category = _pick_dominant_category(alignment_meta)
 
     if category == "self-harm":
