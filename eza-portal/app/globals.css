@@ -7,10 +7,11 @@
 }
 
 body {
-  @apply bg-[#0D0F12] text-white;
+  @apply bg-bg text-text;
   margin: 0;
   padding: 0;
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Smooth scrolling */
@@ -25,15 +26,57 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0D0F12;
+  background: #0d0d0f;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1F2226;
+  background: #1a1a1c;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2A2E35;
+  background: #2a2a2c;
+}
+
+/* Glass effect utility */
+.glass {
+  backdrop-filter: blur(12px);
+  background: rgba(22, 24, 28, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-strong {
+  backdrop-filter: blur(16px);
+  background: rgba(22, 24, 28, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Premium animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.12s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.12s ease-out;
 }
 
