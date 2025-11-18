@@ -59,7 +59,11 @@ def compute_risk_and_alignment(intent_scores: Dict[str, float], raw_text: str) -
             primary_score = float(intent_scores[primary])
     
     # 3) Risk seviyesi
-    if primary_score >= RISK_THRESHOLDS["critical"]:
+    # IMPORTANT: greeting and information intents are always low risk
+    if primary in ["greeting", "information"]:
+        risk_level = "low"
+        primary_score = 0.0  # Force low risk score for safe intents
+    elif primary_score >= RISK_THRESHOLDS["critical"]:
         risk_level = "critical"
     elif primary_score >= RISK_THRESHOLDS["high"]:
         risk_level = "high"

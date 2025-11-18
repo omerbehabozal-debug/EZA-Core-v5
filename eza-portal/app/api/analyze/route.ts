@@ -29,13 +29,29 @@ export async function POST(req: NextRequest) {
       output: backendData.rewritten_text || backendData.model_outputs?.chatgpt || "",
       
       // EZA Score (frontend eza_score bekliyor)
-      eza_score: backendData.eza_alignment?.alignment_score || backendData.reasoning_shield?.alignment_score || null,
+      // Priority: eza_score.eza_score (0-100) > eza_alignment.alignment_score > reasoning_shield.alignment_score > alignment_meta.score
+      // Note: eza_score.final_score is 0-1 range, eza_score.eza_score is 0-100 range
+      eza_score: (backendData.eza_score?.eza_score !== undefined && backendData.eza_score?.eza_score !== null) ? backendData.eza_score.eza_score :
+                 (backendData.eza_score?.final_score !== undefined && backendData.eza_score?.final_score !== null) ? (backendData.eza_score.final_score * 100) :
+                 backendData.eza_alignment?.alignment_score ?? 
+                 backendData.reasoning_shield?.alignment_score ?? 
+                 backendData.alignment_meta?.score ?? 
+                 null,
       
       // Intent (frontend intent.level ve intent.summary bekliyor)
       intent: backendData.intent ? {
-        level: backendData.intent.primary || backendData.risk_level || "unknown",
-        summary: backendData.intent.primary || "Intent analysis completed"
-      } : null,
+        level: backendData.intent.primary || backendData.intent_engine?.primary || backendData.risk_level || "unknown",
+        summary: backendData.intent.primary || backendData.intent_engine?.primary || "Intent analysis completed",
+        score: backendData.intent_score || backendData.intent_engine?.risk_score || 0.0
+      } : (backendData.intent_engine ? {
+        level: backendData.intent_engine.primary || "unknown",
+        summary: backendData.intent_engine.primary || "Intent analysis completed",
+        score: backendData.intent_engine.risk_score || 0.0
+      } : null),
+      
+      // Bias and Safety for message bubble labels
+      bias: backendData.bias || backendData.critical_bias?.level || "low",
+      safety: backendData.safety || backendData.reasoning_shield?.final_risk_level || backendData.risk_level || "low",
       
       // LEVEL 7 – Critical Bias Engine (backend'den geliyor)
       critical_bias: backendData.critical_bias || null,

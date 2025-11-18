@@ -603,13 +603,33 @@ async def analyze(req: AnalyzeRequest, request: Request):
     # Add legacy fields for backward compatibility
     report["language"] = input_scores.get("language")
     report["intents"] = input_scores.get("intent")
+    report["intent"] = input_scores.get("intent")  # Also add as "intent" for frontend
+    report["intent_engine"] = input_scores.get("intent_engine")  # Full intent engine data
     report["risk_level"] = risk_level
     report["risk_flags"] = risk_flags
     report["model_outputs"] = model_outputs
     report["alignment"] = alignment_label
-    report["alignment_meta"] = alignment_meta
+    report["alignment_meta"] = alignment_meta  # Ensure alignment_meta is always present
     report["eza_alignment"] = eza_alignment
     report["advice"] = advice_text_temp  # Temporary advice, will be updated later
+    
+    # Frontend UI compatibility fields
+    # Intent score for UI display
+    report["intent_score"] = input_scores.get("intent_engine", {}).get("risk_score", 0.0) if isinstance(input_scores.get("intent_engine"), dict) else 0.0
+    
+    # Bias level (from critical_bias, will be added later in Level-7 section)
+    # Safety level (from reasoning_shield final_risk_level, will be added after shield_result)
+    
+    # Ensure alignment_meta is not None/empty
+    if not alignment_meta or not isinstance(alignment_meta, dict):
+        alignment_meta = {
+            "label": alignment_label,
+            "score": eza_alignment.get("alignment_score", 100),
+            "primary_intent": input_scores.get("intent", {}).get("primary", "information"),
+            "master_risk_score": input_scores.get("risk_score", 0.0),
+            "master_risk_level": risk_level,
+        }
+        report["alignment_meta"] = alignment_meta
     # NOTE: rewritten_text will be updated later after build_standalone_response() is called
     # report["rewritten_text"] = rewritten_text  # OLD - removed, will be set at line 862
 
@@ -875,6 +895,11 @@ async def analyze(req: AnalyzeRequest, request: Request):
         narrative_memory[-1]["report"] = report
     
     drift = request.app.state.drift.compute(narrative_memory)
+    
+    # EZA Score v2.0: Add input_analysis to report for score calculation
+    # Score is calculated ONLY from user message (input), not from EZA response (output)
+    report["input_analysis"] = input_scores
+    
     score = request.app.state.eza_score.compute(report, drift)
     final_verdict = request.app.state.verdict.generate(report, score, drift)
     
@@ -914,6 +939,25 @@ async def analyze(req: AnalyzeRequest, request: Request):
     
     # CRITICAL: Update report["rewritten_text"] with the new value
     report["rewritten_text"] = rewritten_text
+    
+    # Frontend UI compatibility: Add safety and bias fields
+    # Safety level from reasoning_shield (use "low" as default for safe intents)
+    safety_level = shield_result.get("final_risk_level") or shield_result.get("level") or risk_level
+    # If intent is greeting/information and no risk detected, force "low"
+    primary_intent = input_scores.get("intent", {}).get("primary", "information")
+    if primary_intent in ["greeting", "information"] and risk_level == "low":
+        safety_level = "low"
+    report["safety"] = safety_level if safety_level != "none" else "low"
+    
+    # Bias level from critical_bias (if available)
+    if "critical_bias" in report and report["critical_bias"]:
+        bias_data = report["critical_bias"]
+        if isinstance(bias_data, dict):
+            report["bias"] = bias_data.get("level", "low")
+        else:
+            report["bias"] = "low"
+    else:
+        report["bias"] = "low"  # Default to low if no bias detected
 
     # 7) Log risk report to file
     import json

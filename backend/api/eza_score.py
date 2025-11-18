@@ -1,247 +1,184 @@
 # -*- coding: utf-8 -*-
 """
-EZAScore – EZA Level-5 Upgrade
-Tüm katmanlardan gelen veriyi 18 parametrelik ağırlıklı
-tek bir etik skor haline getirir.
+EZAScore – EZA Level-5 Upgrade (v2.0)
+Kullanıcı mesajından (input) hesaplanan etik skor.
+EZA cevabı skoru etkilemez.
 """
 
 
 class EZAScore:
     """
-    Tüm katmanlardan gelen veriyi 18 parametrelik ağırlıklı
-    tek bir etik skor haline getirir.
+    EZA Score v2.0: Sadece kullanıcı mesajından (input) hesaplanır.
+    EZA cevabı skoru etkilemez.
     """
 
     def __init__(self):
-        self.weights = {
-            "intent": 0.20,
-            "identity": 0.12,
-            "reasoning": 0.12,
-            "narrative": 0.08,
-            "drift": 0.12,
-            "output": 0.16,
-            # Level-6 new fields (optional, backward compatible)
-            "deception": 0.08,
-            "psychological_pressure": 0.06,
-            "legal_risk": 0.06,
-            # LEVEL 7 – Critical Bias Engine
-            "critical_bias": 0.07,
-            # LEVEL 8 – Moral Compass Engine
-            "moral_compass": 0.10,
-            # LEVEL 9 – Abuse & Coercion Engine
-            "abuse": 0.10,
-            # LEVEL 10 – Memory Consistency Engine
-            "memory_consistency": 0.08
+        # Intent ağırlıkları (max puanlar)
+        self.intent_weights = {
+            "illegal": 10,      # max 10 puan
+            "violence": 20,     # max 20 puan
+            "self-harm": 15,    # max 15 puan
+            "manipulation": 25, # max 25 puan
+            "sensitive-data": 10, # max 10 puan
+            "toxicity": 30,     # max 30 puan
+            "information": 100, # max 100 puan
+            "greeting": 100,    # max 100 puan
         }
+        
+        # Risk level ağırlıkları (max puanlar)
+        self.risk_weights = {
+            "critical": 0,   # max 0 puan
+            "high": 10,      # max 10 puan
+            "medium": 30,    # max 30 puan
+            "low": 70,       # max 70 puan
+            "none": 100,     # max 100 puan
+        }
+        
+        # Safety bonus/penalty
+        self.safety_bonus = 10   # Safety OK ise +10
+        self.safety_penalty = -20  # Safety OK değilse -20
 
     def compute(self, report, drift_matrix):
-        # Extract intent data from various possible locations
-        intent_data = report.get("intent_engine") or report.get("intent") or report.get("input", {}).get("intent_engine", {})
-        intent_score = self._to_score(intent_data)
+        """
+        EZA Score hesaplama - sadece input (kullanıcı mesajı) üzerinden.
         
-        # Extract identity block data
-        identity_data = report.get("identity_block", {})
-        identity_score = self._simple(identity_data)
-        
-        # Extract reasoning shield data
-        reasoning_data = report.get("reasoning_shield", {}) or report.get("shield", {})
-        reasoning_score = self._simple(reasoning_data)
-        
-        # Extract narrative data
-        narrative_data = report.get("narrative", {})
-        narrative_score = self._simple(narrative_data)
-        
-        # Extract drift score and normalize to 0-1 range
-        # Drift score can be negative (decreasing risk) or positive (increasing risk)
-        raw_drift = drift_matrix.get("score", 0)
-        # Normalize: clamp to reasonable range first, then map to 0-1
-        # Assuming max drift per window is around 5 (6 entries * 0.8 max change)
-        clamped_drift = max(-5.0, min(5.0, raw_drift))
-        # Map to 0-1 range: -5 -> 0, 0 -> 0.5, +5 -> 1.0
-        drift_score = max(0.0, min(1.0, (clamped_drift + 5.0) / 10.0))
-        
-        # Extract output data from various possible locations
-        output_data = report.get("output_analysis") or report.get("output") or report.get("output_data", {})
-        output_score = self._to_score(output_data)
-
-        # Level-6: Extract new safety layer scores (optional, backward compatible)
-        deception_data = report.get("deception", {})
-        deception_score = 0.0
-        if deception_data and isinstance(deception_data, dict):
-            deception_score_raw = deception_data.get("score", 0.0)
-            # Convert 0-1 score to risk level equivalent
-            if deception_score_raw >= 0.7:
-                deception_score = 1.0
-            elif deception_score_raw >= 0.4:
-                deception_score = 0.5
-            else:
-                deception_score = 0.2
-        
-        psych_pressure_data = report.get("psychological_pressure", {})
-        pressure_score = 0.0
-        if psych_pressure_data and isinstance(psych_pressure_data, dict):
-            pressure_score_raw = psych_pressure_data.get("score", 0.0)
-            if pressure_score_raw >= 0.7:
-                pressure_score = 1.0
-            elif pressure_score_raw >= 0.4:
-                pressure_score = 0.5
-            else:
-                pressure_score = 0.2
-        
-        legal_risk_data = report.get("legal_risk", {})
-        legal_score = 0.0
-        if legal_risk_data and isinstance(legal_risk_data, dict):
-            legal_level = legal_risk_data.get("level", "low")
-            legal_score = self._to_score({"risk_level": legal_level})
-
-        # LEVEL 7 – Critical Bias Engine
-        critical_bias = report.get("critical_bias") or {}
-        critical_bias_score = float(critical_bias.get("bias_score", 0.0))
-
-        # LEVEL 8 – Moral Compass Engine
-        moral_compass = report.get("moral_compass") or {}
-        moral_compass_score = float(moral_compass.get("score", 0.0))
-
-        # LEVEL 9 – Abuse & Coercion Engine
-        abuse = report.get("abuse") or {}
-        abuse_score = float(abuse.get("score", 0.0))
-
-        # LEVEL 10 – Memory Consistency Engine
-        mem = report.get("memory_consistency") or {}
-        mem_score = float(mem.get("score", 0.0))
-
-        # Compute final score with optional Level-6, Level-7, Level-8, Level-9, and Level-10 fields
-        # If new fields are missing, use original weights (backward compatible)
-        has_level6 = (deception_data or psych_pressure_data or legal_risk_data)
-        has_level7 = critical_bias and isinstance(critical_bias, dict) and critical_bias.get("bias_score") is not None
-        has_level8 = moral_compass and isinstance(moral_compass, dict) and moral_compass.get("score") is not None
-        has_level9 = abuse and isinstance(abuse, dict) and abuse.get("score") is not None
-        has_level10 = mem and isinstance(mem, dict) and mem.get("score") is not None
-        
-        if has_level6 or has_level7 or has_level8 or has_level9 or has_level10:
-            # Use updated weights with Level-6, Level-7, Level-8, Level-9, and Level-10 fields
-            total_score = (
-                intent_score * self.weights["intent"]
-                + identity_score * self.weights["identity"]
-                + reasoning_score * self.weights["reasoning"]
-                + narrative_score * self.weights["narrative"]
-                + drift_score * self.weights["drift"]
-                + output_score * self.weights["output"]
-                + deception_score * self.weights["deception"]
-                + pressure_score * self.weights["psychological_pressure"]
-                + legal_score * self.weights["legal_risk"]
-            )
+        Args:
+            report: Analiz raporu (input_analysis içermeli)
+            drift_matrix: Drift matrisi (kullanılmıyor, backward compatibility için)
             
-            # Add critical_bias if available
-            if has_level7:
-                total_score += critical_bias_score * self.weights["critical_bias"]
-            
-            # Add moral_compass if available
-            if has_level8:
-                total_score += moral_compass_score * self.weights["moral_compass"]
-            
-            # Add abuse if available
-            if has_level9:
-                total_score += abuse_score * self.weights["abuse"]
-            
-            # Add memory_consistency if available
-            if has_level10:
-                total_score += mem_score * self.weights["memory_consistency"]
-            
-            # Normalize by total weight used (for backward compatibility)
-            total_weight = (
-                self.weights["intent"]
-                + self.weights["identity"]
-                + self.weights["reasoning"]
-                + self.weights["narrative"]
-                + self.weights["drift"]
-                + self.weights["output"]
-                + self.weights["deception"]
-                + self.weights["psychological_pressure"]
-                + self.weights["legal_risk"]
-            )
-            if has_level7:
-                total_weight += self.weights["critical_bias"]
-            if has_level8:
-                total_weight += self.weights["moral_compass"]
-            if has_level9:
-                total_weight += self.weights["abuse"]
-            if has_level10:
-                total_weight += self.weights["memory_consistency"]
-            
-            # Normalize to keep score in 0-1 range
-            if total_weight > 0:
-                final = total_score / total_weight
-            else:
-                final = total_score
-        else:
-            # Backward compatible: use original weights
-            final = (
-                intent_score * 0.25
-                + identity_score * 0.15
-                + reasoning_score * 0.15
-                + narrative_score * 0.10
-                + drift_score * 0.15
-                + output_score * 0.20
-            )
-
+        Returns:
+            {
+                "eza_score": float (0-100),
+                "final_score": float (0-1),
+                "risk_grade": str,
+                "components": {
+                    "intent_weight": float,
+                    "risk_weight": float,
+                    "safety_bonus": float,
+                }
+            }
+        """
+        # 1) Input analizinden veri çek
+        input_analysis = report.get("input_analysis") or report.get("input") or {}
+        intent_data = report.get("intent_engine") or report.get("intent") or input_analysis.get("intent", {})
+        risk_level = input_analysis.get("risk_level") or report.get("risk_level") or "none"
+        
+        # 2) Primary intent'i bul
+        primary_intent = intent_data.get("primary") if isinstance(intent_data, dict) else None
+        if not primary_intent:
+            # Fallback: report'tan intent çek
+            primary_intent = report.get("intent", {}).get("primary") if isinstance(report.get("intent"), dict) else "information"
+        
+        # 3) Intent weight hesapla
+        intent_weight = self._compute_intent_weight(primary_intent)
+        
+        # 4) Risk weight hesapla
+        risk_weight = self._compute_risk_weight(risk_level)
+        
+        # 5) Safety bonus/penalty hesapla
+        safety_bonus = self._compute_safety_bonus(report, input_analysis)
+        
+        # 6) Final score: EZA_SCORE = (intent_weight + risk_weight + safety_bonus)
+        # Her birinin max değerini al, sonra normalize et
+        raw_score = intent_weight + risk_weight + safety_bonus
+        
+        # Normalize: max possible score = 100 (information intent) + 100 (none risk) + 10 (safety bonus) = 210
+        # Min possible score = 0 (illegal intent) + 0 (critical risk) - 20 (safety penalty) = -20
+        # Map to 0-100 range: (raw_score - min) / (max - min) * 100
+        min_score = -20  # worst case
+        max_score = 210  # best case
+        normalized_score = max(0, min(100, ((raw_score - min_score) / (max_score - min_score)) * 100))
+        
+        # Convert to 0-1 range for final_score
+        final_score_0_1 = normalized_score / 100.0
+        
         result = {
-            "final_score": round(final, 3),
-            "risk_grade": self._grade(final)
+            "eza_score": round(normalized_score, 1),  # 0-100 range for UI
+            "final_score": round(final_score_0_1, 3),  # 0-1 range for internal use
+            "risk_grade": self._grade(final_score_0_1),
+            "components": {
+                "intent_weight": round(intent_weight, 1),
+                "risk_weight": round(risk_weight, 1),
+                "safety_bonus": round(safety_bonus, 1),
+                "primary_intent": primary_intent,
+                "risk_level": risk_level,
+            }
         }
         
-        # Add component scores for debugging
-        if has_level6 or has_level7 or has_level8 or has_level9 or has_level10:
-            result["components"] = {
-                "intent": round(intent_score, 4),
-                "identity": round(identity_score, 4),
-                "reasoning": round(reasoning_score, 4),
-                "narrative": round(narrative_score, 4),
-                "drift": round(drift_score, 4),
-                "output": round(output_score, 4),
-                "deception": round(deception_score, 4),
-                "psychological_pressure": round(pressure_score, 4),
-                "legal_risk": round(legal_score, 4),
-            }
-            if has_level7:
-                result["components"]["critical_bias"] = round(critical_bias_score, 4)
-            if has_level8:
-                result["components"]["moral_compass"] = round(moral_compass_score, 4)
-            if has_level9:
-                result["components"]["abuse"] = round(abuse_score, 4)
-            if has_level10:
-                result["components"]["memory_consistency"] = round(mem_score, 4)
-
         return result
 
-    def _to_score(self, block):
-        if not block:
-            return 0
-        lvl = block.get("risk_level") or block.get("risk")
-        return {
-            "low": 0.2,
-            "medium": 0.5,
-            "high": 0.8,
-            "critical": 1.0
-        }.get(lvl, 0.3)
+    def _compute_intent_weight(self, primary_intent):
+        """
+        Intent'e göre weight hesapla.
+        
+        Returns:
+            float: Intent weight (0-100 arası)
+        """
+        if not primary_intent:
+            return 50  # Default
+        
+        # Intent weight'ini al
+        weight = self.intent_weights.get(primary_intent, 50)  # Default 50 for unknown intents
+        
+        return float(weight)
 
-    def _simple(self, block):
-        if not block:
-            return 0
-        # Try to extract risk_level if available
-        risk_level = block.get("risk_level") or block.get("risk") or block.get("final_risk_level")
-        if risk_level:
-            return self._to_score({"risk_level": risk_level})
-        # If block exists but no risk_level, return default 0.5
-        return 0.5
+    def _compute_risk_weight(self, risk_level):
+        """
+        Risk level'a göre weight hesapla.
+        
+        Returns:
+            float: Risk weight (0-100 arası)
+        """
+        if not risk_level:
+            return 100  # Default to none (safest)
+        
+        # Risk weight'ini al
+        weight = self.risk_weights.get(risk_level.lower(), 100)  # Default to none (safest)
+        
+        return float(weight)
+
+    def _compute_safety_bonus(self, report, input_analysis):
+        """
+        Safety durumuna göre bonus/penalty hesapla.
+        
+        Returns:
+            float: Safety bonus (+10) veya penalty (-20)
+        """
+        # Safety bilgisini bul
+        safety = report.get("safety") or input_analysis.get("safety")
+        
+        # Reasoning shield'den safety bilgisi
+        if not safety:
+            reasoning_shield = report.get("reasoning_shield") or {}
+            safety = reasoning_shield.get("level") or reasoning_shield.get("final_risk_level")
+        
+        # Alignment meta'dan safety bilgisi
+        if not safety:
+            alignment_meta = report.get("alignment_meta") or {}
+            if alignment_meta.get("label") == "Safe":
+                safety = "OK"
+        
+        # Safety OK kontrolü
+        if safety and (safety == "OK" or safety == "safe" or safety == "low" or safety == "none"):
+            return self.safety_bonus  # +10 bonus
+        else:
+            return self.safety_penalty  # -20 penalty
 
     def _grade(self, score):
-        if score < 0.3:
+        """
+        Score'a göre grade hesapla.
+        
+        Args:
+            score: 0-1 arası score
+            
+        Returns:
+            str: Grade (A, B, C, D)
+        """
+        if score >= 0.8:
             return "A (Safe)"
-        elif score < 0.55:
+        elif score >= 0.6:
             return "B (Caution)"
-        elif score < 0.8:
+        elif score >= 0.4:
             return "C (High Risk)"
         else:
             return "D (Critical)"
-
