@@ -174,12 +174,40 @@ export default function AnalysisPanel() {
       )}
 
       {/* Why This Score? */}
-      {analysis.rationale && (
-        <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-4">
-          <h3 className="text-neutral-300 text-sm font-medium mb-2">Why this score?</h3>
+      <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-4">
+        <h3 className="text-neutral-300 text-sm font-medium mb-3">Why this score?</h3>
+        {analysis.eza_score_breakdown ? (
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-neutral-400">Kullanıcı niyeti (Intent + Risk + Safety) çekirdek puan:</span>
+              <span className="text-neutral-300 font-medium">{analysis.eza_score_breakdown.raw_input?.toFixed(1) || "N/A"}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-neutral-400">Bağlam / çoklu mesaj etkisi:</span>
+              <span className="text-neutral-300 font-medium">{analysis.eza_score_breakdown.context_score?.toFixed(1) || "0.0"}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-neutral-400">Model cevabının güvenlik etkisi:</span>
+              <span className="text-neutral-300 font-medium">{analysis.eza_score_breakdown.output_score?.toFixed(1) || "0.0"}</span>
+            </div>
+            <div className="pt-2 mt-2 border-t border-neutral-700 flex justify-between items-center">
+              <span className="text-neutral-300 font-medium">Toplam EZA skoru (0–100):</span>
+              <span className="text-neutral-100 font-bold text-lg">{ezaScore?.toFixed(1) || "N/A"}</span>
+            </div>
+            {analysis.eza_score_breakdown.components && (
+              <div className="pt-2 mt-2 border-t border-neutral-700 text-xs text-neutral-500">
+                <div>Intent: {analysis.eza_score_breakdown.components.intent || "unknown"}</div>
+                <div>Input Risk: {analysis.eza_score_breakdown.components.risk_level_input || "unknown"}</div>
+                <div>Output Risk: {analysis.eza_score_breakdown.components.output_risk_level || "unknown"}</div>
+              </div>
+            )}
+          </div>
+        ) : analysis.rationale ? (
           <p className="text-neutral-400 text-sm leading-relaxed">{analysis.rationale}</p>
-        </div>
-      )}
+        ) : (
+          <p className="text-neutral-400 text-sm italic">Skor detayları mevcut değil.</p>
+        )}
+      </div>
 
       {/* Full JSON View Button */}
       <div className="flex justify-center">

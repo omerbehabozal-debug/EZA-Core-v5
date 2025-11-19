@@ -100,7 +100,10 @@ export default function ChatInput() {
           bias: backendData.bias || "low",
           safety: backendData.safety || "low",
           rationale: backendData.analysis?.final?.explanation || backendData.analysis?.final?.reason,
-          flags: backendData.risk_flags || []
+          flags: backendData.risk_flags || [],
+          // Add EZA Score v2.1 breakdown
+          eza_score_breakdown: backendData.analysis?.eza_score_breakdown || backendData.analysis?.eza_score?.breakdown,
+          eza_score_meta: backendData.analysis?.eza_score_meta || backendData.analysis?.eza_score?.meta,
         };
 
         // Update user message with analysis

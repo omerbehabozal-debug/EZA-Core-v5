@@ -128,22 +128,46 @@ async def run_pipeline(
             narrative_info=narrative_info,
         )
         
-        # 6) Build report for EZA Score
+        # 6) Get narrative analysis (if available)
+        narrative_flow = {}
+        narrative_long = {}
+        if hasattr(request.app.state, "narrative_engine") and request.app.state.narrative_engine is not None:
+            try:
+                narrative_flow = request.app.state.narrative_engine.analyze_flow(text)
+            except:
+                pass
+            try:
+                narrative_long = request.app.state.narrative_engine.analyze_narrative(text)
+            except:
+                pass
+        
+        # 6.1) Get drift matrix (if available)
+        drift_matrix = {}
+        if hasattr(request.app.state, "drift_matrix"):
+            try:
+                drift_matrix = request.app.state.drift_matrix.compute(
+                    memory=request.app.state.narrative_engine.memory if hasattr(request.app.state, "narrative_engine") else []
+                )
+                # Add overall_drift_score for EZA Score v2.1
+                if "score" in drift_matrix:
+                    drift_matrix["overall_drift_score"] = abs(drift_matrix.get("score", 0.0))
+            except:
+                pass
+        
+        # 6.2) Build comprehensive report for EZA Score v2.1
         report_for_score = {
+            "mode": mode,
             "input_analysis": input_scores,
+            "output_analysis": output_scores,  # Add output analysis
             "alignment_meta": alignment_meta,
             "final_verdict": {"level": shield_result.get("level", "safe")},
             "reasoning_shield": shield_result,
+            "narrative_flow": narrative_flow,
+            "narrative_long": narrative_long,
+            "intent_engine": intent_engine_data,
         }
         
-        # 7) EZA Score
-        drift_matrix = {}
-        eza_score_result = request.app.state.eza_score.compute(report_for_score, drift_matrix)
-        
-        # 8) Final Verdict
-        final_verdict = request.app.state.verdict.generate(report_for_score, eza_score_result, drift_matrix)
-        
-        # 9) Advanced Analysis (Level 6-10) - Skip if fast mode
+        # 7) Advanced Analysis (Level 6-10) - Skip if fast mode
         advanced_analysis = {}
         
         if run_full_analysis or mode == "proxy_deep":
@@ -170,6 +194,17 @@ async def run_pipeline(
                     )
                 except:
                     advanced_analysis["psychological_pressure"] = {"ok": False, "summary": "Skipped"}
+                
+                # Legal Risk (if available)
+                try:
+                    if hasattr(request.app.state, "legal_risk_engine"):
+                        advanced_analysis["legal_risk"] = request.app.state.legal_risk_engine.analyze(
+                            text=text,
+                            intent_engine=intent_engine_data,
+                            memory=narrative_memory
+                        )
+                except:
+                    pass
             
             # Level 7: Critical Bias
             if 7 not in skip_levels:
@@ -226,6 +261,16 @@ async def run_pipeline(
                 except:
                     advanced_analysis["memory_consistency"] = {"score": 0.0, "level": "low", "summary": "Skipped"}
         
+        # 7.1) Update report_for_score with advanced analysis (for EZA Score v2.1)
+        if advanced_analysis:
+            report_for_score.update(advanced_analysis)
+        
+        # 8) EZA Score v2.1 (with all available data)
+        eza_score_result = request.app.state.eza_score.compute(report_for_score, drift_matrix)
+        
+        # 9) Final Verdict
+        final_verdict = request.app.state.verdict.generate(report_for_score, eza_score_result, drift_matrix)
+        
         # 10) Add assistant response to memory
         if llm_output:
             try:
@@ -256,6 +301,8 @@ async def run_pipeline(
                 "alignment": alignment_meta,
                 "final": final_verdict,
                 "eza_score": eza_score_result,
+                "eza_score_breakdown": eza_score_result.get("breakdown"),  # Add breakdown
+                "eza_score_meta": eza_score_result.get("meta"),  # Add meta
                 "reasoning_shield": shield_result,
                 **advanced_analysis
             },
