@@ -1,3 +1,4 @@
+import os
 import time
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
@@ -11,6 +12,10 @@ class CircuitBreakerMiddleware(BaseHTTPMiddleware):
     opened_until = 0
 
     async def dispatch(self, request, call_next):
+        # Test ortamında circuit breaker'ı devre dışı bırak
+        if os.getenv("EZA_TEST_MODE") == "true":
+            return await call_next(request)
+        
         now = time.time()
 
         # Eğer devre açık ise

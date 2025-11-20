@@ -258,6 +258,9 @@ async def analyze(req: AnalyzeRequest, request: Request):
     text = req.text or req.query or ""
     model = (req.model or "chatgpt").lower()
     mode = (req.mode or "standalone").lower()
+    
+    # Determine if full analysis should run (skip for proxy_fast mode)
+    run_full_analysis = mode != "proxy_fast"
 
     # EZA-NarrativeEngine: Initialize narrative engine if not exists (single instance)
     if not hasattr(request.app.state, "narrative_engine"):
