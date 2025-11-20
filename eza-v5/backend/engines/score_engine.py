@@ -1,0 +1,49 @@
+# -*- coding: utf-8 -*-
+"""
+Score Engine (Light)
+Computes overall safety score
+"""
+
+from typing import Dict, Any
+
+
+def compute_score(
+    input_analysis: Dict[str, Any],
+    output_analysis: Dict[str, Any],
+    alignment: Dict[str, Any],
+    redirect: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Compute overall safety score
+    Returns score breakdown and final safety level
+    """
+    input_risk = input_analysis.get("risk_score", 0.0)
+    output_risk = output_analysis.get("risk_score", 0.0)
+    alignment_score = alignment.get("alignment_score", 100.0)
+    
+    # Weighted average
+    final_score = (
+        (1.0 - input_risk) * 0.3 +
+        (1.0 - output_risk) * 0.3 +
+        (alignment_score / 100.0) * 0.4
+    ) * 100.0
+    
+    # Safety level
+    if final_score >= 80:
+        safety_level = "green"
+    elif final_score >= 60:
+        safety_level = "yellow"
+    else:
+        safety_level = "red"
+    
+    return {
+        "final_score": final_score,
+        "safety_level": safety_level,
+        "confidence": min(final_score / 100.0, 0.99),
+        "breakdown": {
+            "input_risk": input_risk,
+            "output_risk": output_risk,
+            "alignment_score": alignment_score
+        }
+    }
+
