@@ -4,11 +4,11 @@ Deep Learning Tasks (Async Background Jobs)
 """
 
 from typing import Dict, Any
-from backend.engines.deception_engine import analyze_deception
-from backend.engines.psych_pressure import analyze_psychological_pressure
-from backend.engines.safety_graph import build_safety_graph
-from backend.engines.drift_detector import detect_drift
-from backend.engines.legal_risk import analyze_legal_risk
+from backend.core.engines.deception_engine import analyze_deception
+from backend.core.engines.psych_pressure import analyze_psychological_pressure
+from backend.core.engines.safety_graph import build_safety_graph
+from backend.core.engines.drift_detector import detect_drift
+from backend.core.engines.legal_risk import analyze_legal_risk
 from backend.learning.extractor import extract_patterns
 from backend.learning.trainer import update_risk_model
 

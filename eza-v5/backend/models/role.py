@@ -5,7 +5,7 @@ Role Model
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from backend.utils.dependencies import Base
+from backend.core.utils.dependencies import Base
 
 
 class Role(Base):

@@ -6,7 +6,7 @@ User Model
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from backend.utils.dependencies import Base
+from backend.core.utils.dependencies import Base
 
 
 class User(Base):

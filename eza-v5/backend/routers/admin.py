@@ -5,7 +5,7 @@ Admin panel endpoints
 """
 
 from fastapi import APIRouter, Depends
-from backend.utils.dependencies import require_role
+from backend.core.utils.dependencies import require_role
 
 router = APIRouter()
 

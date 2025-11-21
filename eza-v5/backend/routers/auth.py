@@ -5,9 +5,9 @@ Authentication Router
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.schemas.auth import LoginRequest, TokenResponse
-from backend.services.auth_service import authenticate_user, create_token_response
-from backend.utils.dependencies import get_db
+from backend.core.schemas.auth import LoginRequest, TokenResponse
+from backend.core.services.auth_service import authenticate_user, create_token_response
+from backend.core.utils.dependencies import get_db
 
 router = APIRouter()
 

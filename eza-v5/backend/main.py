@@ -17,8 +17,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from backend.routers import auth, standalone, proxy, proxy_lite, admin
-from backend.utils.dependencies import init_db, init_redis, init_vector_db
+from backend.routers import auth, standalone, proxy, proxy_lite, admin, media, autonomy
+from backend.core.utils.dependencies import init_db, init_redis, init_vector_db
 from backend.learning.vector_store import VectorStore
 
 # Configure logging
@@ -87,6 +87,8 @@ app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalon
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])
 app.include_router(proxy_lite.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(media.router, prefix="/api/media", tags=["Media"])
+app.include_router(autonomy.router, prefix="/api/autonomy", tags=["Autonomy"])
 
 
 @app.get("/health")

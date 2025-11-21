@@ -7,14 +7,14 @@ Only returns: answer, safety, confidence
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.schemas.standalone import StandaloneChatRequest, StandaloneChatResponse
-from backend.utils.dependencies import get_db
-from backend.engines.input_analyzer import analyze_input
-from backend.engines.model_router import route_model, LLMProviderError
-from backend.engines.output_analyzer import analyze_output
-from backend.engines.alignment_engine import compute_alignment
-from backend.engines.safe_rewrite import safe_rewrite
-from backend.utils.rate_limit import check_rate_limit
+from backend.core.schemas.standalone import StandaloneChatRequest, StandaloneChatResponse
+from backend.core.utils.dependencies import get_db
+from backend.core.engines.input_analyzer import analyze_input
+from backend.core.engines.model_router import route_model, LLMProviderError
+from backend.core.engines.output_analyzer import analyze_output
+from backend.core.engines.alignment_engine import compute_alignment
+from backend.core.engines.safe_rewrite import safe_rewrite
+from backend.core.utils.rate_limit import check_rate_limit
 
 router = APIRouter()
 

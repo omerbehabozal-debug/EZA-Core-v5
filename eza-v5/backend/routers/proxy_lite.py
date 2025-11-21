@@ -6,13 +6,13 @@ Audit reports only - no raw data
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from backend.utils.dependencies import require_institution_auditor
-from backend.engines.input_analyzer import analyze_input
-from backend.engines.output_analyzer import analyze_output
-from backend.engines.alignment_engine import compute_alignment
-from backend.engines.legal_risk import analyze_legal_risk
-from backend.engines.deception_engine import analyze_deception
-from backend.engines.psych_pressure import analyze_psychological_pressure
+from backend.core.utils.dependencies import require_institution_auditor
+from backend.core.engines.input_analyzer import analyze_input
+from backend.core.engines.output_analyzer import analyze_output
+from backend.core.engines.alignment_engine import compute_alignment
+from backend.core.engines.legal_risk import analyze_legal_risk
+from backend.core.engines.deception_engine import analyze_deception
+from backend.core.engines.psych_pressure import analyze_psychological_pressure
 
 router = APIRouter()
 

@@ -5,7 +5,7 @@ Tracks learning statistics and model performance
 """
 
 from typing import Dict, Any
-from backend.utils.dependencies import get_redis
+from backend.core.utils.dependencies import get_redis
 
 
 async def track_analysis(
@@ -14,7 +14,7 @@ async def track_analysis(
     alignment_score: float
 ):
     """Track analysis statistics"""
-    from backend.utils.dependencies import get_redis
+    from backend.core.utils.dependencies import get_redis
     redis = await get_redis()
     
     # Increment counters
@@ -32,7 +32,7 @@ async def track_analysis(
 
 async def get_statistics() -> Dict[str, Any]:
     """Get aggregated statistics"""
-    from backend.utils.dependencies import get_redis
+    from backend.core.utils.dependencies import get_redis
     redis = await get_redis()
     
     total_analyses = await redis.get("stats:analysis:count") or 0

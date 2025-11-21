@@ -1,0 +1,173 @@
+{
+  "removed_files": [
+    "backend/",
+    "eza_core/",
+    "frontend/",
+    "data_store/",
+    "diagnostics/",
+    "tests/",
+    "eza-portal/",
+    "run_eza_tests.py",
+    "EZA_CODE_ANALYSIS_REPORT.md",
+    "EZA_CORE_ARCHITECTURE_REPORT.md",
+    "FIXES_APPLIED_REPORT.md",
+    "LLM_CLIENT_SETUP_COMPLETE.md",
+    "eza-v5/backend/engines/",
+    "eza-v5/backend/schemas/",
+    "eza-v5/backend/services/",
+    "eza-v5/backend/utils/"
+  ],
+  "moved_files": [
+    {
+      "from": "eza-v5/backend/engines/",
+      "to": "eza-v5/backend/core/engines/",
+      "files": [
+        "alignment_engine.py",
+        "deception_engine.py",
+        "drift_detector.py",
+        "input_analyzer.py",
+        "legal_risk.py",
+        "model_router.py",
+        "output_analyzer.py",
+        "psych_pressure.py",
+        "redirect_engine.py",
+        "safe_rewrite.py",
+        "safety_graph.py",
+        "score_engine.py"
+      ]
+    },
+    {
+      "from": "eza-v5/backend/schemas/",
+      "to": "eza-v5/backend/core/schemas/",
+      "files": [
+        "auth.py",
+        "standalone.py",
+        "user.py"
+      ]
+    },
+    {
+      "from": "eza-v5/backend/services/",
+      "to": "eza-v5/backend/core/services/",
+      "files": [
+        "auth_service.py"
+      ]
+    },
+    {
+      "from": "eza-v5/backend/utils/",
+      "to": "eza-v5/backend/core/utils/",
+      "files": [
+        "dependencies.py",
+        "queue.py",
+        "rate_limit.py",
+        "security.py",
+        "telemetry.py"
+      ]
+    }
+  ],
+  "new_structure": {
+    "backend": [
+      "main.py",
+      "run.py",
+      "requirements.txt",
+      "Dockerfile",
+      "core/",
+      "  engines/",
+      "    alignment_engine.py",
+      "    deception_engine.py",
+      "    drift_detector.py",
+      "    input_analyzer.py",
+      "    legal_risk.py",
+      "    model_router.py",
+      "    output_analyzer.py",
+      "    psych_pressure.py",
+      "    redirect_engine.py",
+      "    safe_rewrite.py",
+      "    safety_graph.py",
+      "    score_engine.py",
+      "  schemas/",
+      "    auth.py",
+      "    standalone.py",
+      "    user.py",
+      "  services/",
+      "    auth_service.py",
+      "  utils/",
+      "    dependencies.py",
+      "    queue.py",
+      "    rate_limit.py",
+      "    security.py",
+      "    telemetry.py",
+      "routers/",
+      "  auth.py",
+      "  standalone.py",
+      "  proxy.py",
+      "  proxy_lite.py",
+      "  admin.py",
+      "  media.py (skeleton)",
+      "  autonomy.py (skeleton)",
+      "models/",
+      "  user.py",
+      "  role.py",
+      "  api_key.py",
+      "  institution.py",
+      "learning/",
+      "  extractor.py",
+      "  statistics.py",
+      "  trainer.py",
+      "  vector_store.py",
+      "worker/",
+      "  deep_tasks.py",
+      "scripts/",
+      "  init_db.py"
+    ],
+    "frontend": [
+      "eza-v5/frontend/",
+      "  pages/",
+      "    standalone/",
+      "    proxy/",
+      "    proxy-lite/",
+      "    admin/",
+      "  components/",
+      "    standalone/",
+      "    proxy/",
+      "    proxy-lite/"
+    ]
+  },
+  "updated_imports": [
+    "eza-v5/backend/routers/proxy.py",
+    "eza-v5/backend/routers/standalone.py",
+    "eza-v5/backend/routers/proxy_lite.py",
+    "eza-v5/backend/routers/auth.py",
+    "eza-v5/backend/routers/admin.py",
+    "eza-v5/backend/main.py",
+    "eza-v5/backend/worker/deep_tasks.py",
+    "eza-v5/backend/services/auth_service.py",
+    "eza-v5/backend/scripts/init_db.py",
+    "eza-v5/backend/engines/model_router.py",
+    "eza-v5/backend/core/utils/dependencies.py",
+    "eza-v5/backend/core/utils/queue.py",
+    "eza-v5/backend/learning/statistics.py",
+    "eza-v5/backend/models/*.py"
+  ],
+  "created_files": [
+    "eza-v5/backend/routers/media.py",
+    "eza-v5/backend/routers/autonomy.py",
+    "eza-v5/backend/core/__init__.py",
+    "eza-v5/backend/core/engines/__init__.py",
+    "eza-v5/backend/core/schemas/__init__.py",
+    "eza-v5/backend/core/services/__init__.py",
+    "eza-v5/backend/core/utils/__init__.py"
+  ],
+  "warnings": [
+    "V4 backend/ folder removed - eza-portal was connecting to it, but eza-portal was also removed as it's V4 frontend",
+    "All imports updated to use core/ structure",
+    "Backend import test passed successfully"
+  ],
+  "status": "cleanup_complete",
+  "verification": {
+    "backend_imports": "OK",
+    "structure_normalized": "OK",
+    "duplicates_removed": "OK",
+    "v4_folders_removed": "OK"
+  }
+}
+

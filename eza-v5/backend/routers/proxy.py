@@ -8,17 +8,17 @@ Production-ready with detailed error reporting for EZA team
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional, Literal, Dict, Any
-from backend.utils.dependencies import require_internal
-from backend.engines.input_analyzer import analyze_input
-from backend.engines.model_router import route_model, LLMProviderError
-from backend.engines.output_analyzer import analyze_output
-from backend.engines.alignment_engine import compute_alignment
-from backend.engines.redirect_engine import should_redirect
-from backend.engines.score_engine import compute_score
-from backend.engines.deception_engine import analyze_deception
-from backend.engines.psych_pressure import analyze_psychological_pressure
-from backend.engines.legal_risk import analyze_legal_risk
-from backend.engines.safe_rewrite import safe_rewrite
+from backend.core.utils.dependencies import require_internal
+from backend.core.engines.input_analyzer import analyze_input
+from backend.core.engines.model_router import route_model, LLMProviderError
+from backend.core.engines.output_analyzer import analyze_output
+from backend.core.engines.alignment_engine import compute_alignment
+from backend.core.engines.redirect_engine import should_redirect
+from backend.core.engines.score_engine import compute_score
+from backend.core.engines.deception_engine import analyze_deception
+from backend.core.engines.psych_pressure import analyze_psychological_pressure
+from backend.core.engines.legal_risk import analyze_legal_risk
+from backend.core.engines.safe_rewrite import safe_rewrite
 
 router = APIRouter()
 
