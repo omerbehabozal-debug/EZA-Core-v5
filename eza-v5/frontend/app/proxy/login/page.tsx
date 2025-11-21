@@ -10,9 +10,11 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { login } from '@/lib/auth';
+import { useTenantStore } from '@/lib/tenantStore';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setTenant } = useTenantStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,6 +27,8 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
+      // Set default tenant (rtuk) after successful login
+      setTenant('rtuk');
       router.push('/proxy/select-portal');
     } catch (err: any) {
       setError(err.message || 'Giriş başarısız. Lütfen tekrar deneyin.');

@@ -2,12 +2,11 @@
  * Case Table Component
  */
 
-import { CaseItem } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
-import { getRiskLevelColor } from '@/lib/utils';
+import type { RegulatorCase } from '@/mock/regulator';
 
 interface CaseTableProps {
-  cases: CaseItem[];
+  cases: RegulatorCase[];
   onReview: (caseId: string) => void;
 }
 

@@ -31,3 +31,14 @@ export function analyzeProxyLite(
   );
 }
 
+/**
+ * Analyze Lite - SWR compatible fetcher function
+ * Used for hybrid mock + live backend mode
+ */
+export async function analyzeLite(
+  message: string,
+  outputText: string
+): Promise<ProxyLiteAnalyzeResponse> {
+  return analyzeProxyLite(message, outputText);
+}
+

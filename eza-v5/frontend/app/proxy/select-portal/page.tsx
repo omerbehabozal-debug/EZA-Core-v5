@@ -7,6 +7,7 @@
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Network, Building2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
+import { useTenantStore } from '@/lib/tenantStore';
 
 const portals = [
   {
@@ -15,6 +16,7 @@ const portals = [
     description: 'Resmi denetleyici kurumlar için.',
     icon: ShieldCheck,
     route: '/proxy/regulator',
+    tenantId: 'rtuk', // Default regulator tenant
     color: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
   },
   {
@@ -23,6 +25,7 @@ const portals = [
     description: 'İçerik platformları ve API entegrasyonları.',
     icon: Network,
     route: '/proxy/platform',
+    tenantId: 'platform',
     color: 'bg-green-50 border-green-200 hover:bg-green-100',
   },
   {
@@ -31,12 +34,14 @@ const portals = [
     description: 'Şirket içi AI denetimi ve güvenlik.',
     icon: Building2,
     route: '/proxy/corporate',
+    tenantId: 'corporate',
     color: 'bg-purple-50 border-purple-200 hover:bg-purple-100',
   },
 ];
 
 export default function SelectPortalPage() {
   const router = useRouter();
+  const { setTenant } = useTenantStore();
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -57,7 +62,10 @@ export default function SelectPortalPage() {
               <Card
                 key={portal.id}
                 className={`cursor-pointer transition-all duration-200 hover:scale-105 ${portal.color}`}
-                onClick={() => router.push(portal.route)}
+                onClick={() => {
+                  setTenant(portal.tenantId);
+                  router.push(`${portal.route}?tenant=${portal.tenantId}`);
+                }}
               >
                 <CardHeader>
                   <div className="flex items-center justify-center mb-4">

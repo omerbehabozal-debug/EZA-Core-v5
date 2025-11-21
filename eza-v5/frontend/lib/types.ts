@@ -50,3 +50,13 @@ export interface WorkflowNode {
   config: Record<string, any>;
 }
 
+export interface CorporateAudit {
+  id: string;
+  ai_agent: string;
+  risk_score: number;
+  flags: string[];
+  reviewer: string;
+  status: 'pending' | 'approved' | 'flagged';
+  timestamp: string;
+}
+

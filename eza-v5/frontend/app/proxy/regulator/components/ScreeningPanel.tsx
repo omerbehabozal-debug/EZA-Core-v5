@@ -4,10 +4,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Button } from '@/components/ui/Button';
-import { CaseItem } from '@/lib/types';
+import type { RegulatorCase } from '@/mock/regulator';
 
 interface ScreeningPanelProps {
-  caseItem: CaseItem | null;
+  caseItem: RegulatorCase | null;
   onClose: () => void;
   onApprove: (id: string) => void;
   onWarning: (id: string) => void;
@@ -38,7 +38,7 @@ export default function ScreeningPanel({
           <div>
             <h4 className="text-sm font-semibold text-gray-900 mb-2">Model Output</h4>
             <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
-              {caseItem.content_id}
+              {caseItem.content_preview || caseItem.content_id}
             </div>
           </div>
 

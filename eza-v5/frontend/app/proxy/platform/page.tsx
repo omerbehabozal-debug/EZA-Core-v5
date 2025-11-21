@@ -1,62 +1,104 @@
 /**
- * Platform Portal Page
+ * Platform Portal Page - Multi-Tenant
  */
 
 'use client';
 
-import { useState } from 'react';
-import Layout from '@/components/Layout';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import useSWR from 'swr';
+import DashboardLayout from '@/components/Layout/DashboardLayout';
 import ApiKeyCard from './components/ApiKeyCard';
 import ContentStream from './components/ContentStream';
 import TrendHeatmap from './components/TrendHeatmap';
-import { ApiKey, ContentItem } from '@/lib/types';
-
-// Mock data
-const mockApiKeys: ApiKey[] = [
-  {
-    id: '1',
-    name: 'Production Key',
-    key: 'eza_live_sk_test_1234567890abcdef',
-    created_at: new Date().toISOString(),
-    last_used: new Date().toISOString(),
-    status: 'active',
-  },
-];
-
-const mockContent: ContentItem[] = [
-  {
-    id: '1',
-    content: 'Sample content for moderation...',
-    score: 75,
-    risk_level: 'medium',
-    timestamp: new Date().toISOString(),
-  },
-];
-
-const mockTrendData = [
-  { hour: 0, risk: 0.3 },
-  { hour: 8, risk: 0.6 },
-  { hour: 12, risk: 0.8 },
-  { hour: 18, risk: 0.5 },
-];
+import { useTenantStore } from '@/lib/tenantStore';
+import { fetchPlatformApiKeys, fetchPlatformContent, fetchPlatformTrend, generateApiKey, revokeApiKey } from '@/api/platform';
+import { MOCK_PLATFORM_API_KEYS, MOCK_PLATFORM_CONTENT, MOCK_PLATFORM_TREND } from '@/mock/platform';
+import type { ApiKey, ContentItem } from '@/lib/types';
+import type { TrendData } from '@/mock/platform';
 
 export default function PlatformPage() {
-  const [apiKeys, setApiKeys] = useState(mockApiKeys);
-  const [contentItems, setContentItems] = useState(mockContent);
+  const searchParams = useSearchParams();
+  const { setTenant, getTenant } = useTenantStore();
+  const tenant = getTenant();
 
-  const handleGenerateKey = () => {
-    const newKey: ApiKey = {
-      id: Date.now().toString(),
-      name: `Key ${apiKeys.length + 1}`,
-      key: `eza_live_sk_${Math.random().toString(36).substring(7)}`,
-      created_at: new Date().toISOString(),
-      status: 'active',
-    };
-    setApiKeys([...apiKeys, newKey]);
+  // Initialize tenant from URL
+  useEffect(() => {
+    const tenantParam = searchParams.get('tenant');
+    if (tenantParam && tenantParam !== tenant.id) {
+      setTenant(tenantParam);
+    }
+  }, [searchParams, tenant.id, setTenant]);
+
+  // SWR with hybrid mock + live backend
+  const { data: apiKeys = MOCK_PLATFORM_API_KEYS, mutate: mutateApiKeys } = useSWR(
+    'platform-api-keys',
+    fetchPlatformApiKeys,
+    {
+      fallbackData: MOCK_PLATFORM_API_KEYS,
+      revalidateOnMount: true,
+      shouldRetryOnError: false,
+      errorRetryCount: 0,
+    }
+  );
+
+  const { data: contentItems = MOCK_PLATFORM_CONTENT } = useSWR(
+    'platform-content',
+    fetchPlatformContent,
+    {
+      fallbackData: MOCK_PLATFORM_CONTENT,
+      revalidateOnMount: true,
+      shouldRetryOnError: false,
+      errorRetryCount: 0,
+    }
+  );
+
+  const { data: trendData = MOCK_PLATFORM_TREND } = useSWR(
+    'platform-trend',
+    fetchPlatformTrend,
+    {
+      fallbackData: MOCK_PLATFORM_TREND,
+      revalidateOnMount: true,
+      shouldRetryOnError: false,
+      errorRetryCount: 0,
+    }
+  );
+
+  const handleGenerateKey = async () => {
+    try {
+      const newKey = await generateApiKey(`Key ${(apiKeys?.length || 0) + 1}`);
+      // Optimistic update
+      mutateApiKeys([...(apiKeys || []), newKey], false);
+    } catch (error) {
+      console.info('[Mock Mode] Using optimistic UI for key generation');
+      // Fallback to optimistic UI
+      const newKey: ApiKey = {
+        id: Date.now().toString(),
+        name: `Key ${(apiKeys?.length || 0) + 1}`,
+        key: `eza_live_sk_${Math.random().toString(36).substring(7)}`,
+        created_at: new Date().toISOString(),
+        status: 'active',
+      };
+      mutateApiKeys([...(apiKeys || []), newKey], false);
+    }
   };
 
-  const handleRevoke = (id: string) => {
-    setApiKeys(apiKeys.map(k => k.id === id ? { ...k, status: 'revoked' as const } : k));
+  const handleRevoke = async (id: string) => {
+    try {
+      await revokeApiKey(id);
+      // Optimistic update
+      mutateApiKeys(
+        (apiKeys || []).map(k => k.id === id ? { ...k, status: 'revoked' as const } : k),
+        false
+      );
+    } catch (error) {
+      console.info('[Mock Mode] Using optimistic UI for key revocation');
+      // Fallback to optimistic UI
+      mutateApiKeys(
+        (apiKeys || []).map(k => k.id === id ? { ...k, status: 'revoked' as const } : k),
+        false
+      );
+    }
   };
 
   const handleCopy = (key: string) => {
@@ -64,19 +106,19 @@ export default function PlatformPage() {
   };
 
   return (
-    <Layout>
+    <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-semibold text-gray-900 mb-2">
-            Platform Portal
+            Platform Moderasyon Paneli
           </h1>
           <p className="text-gray-600">
-            İçerik platformları ve API entegrasyonları
+            {tenant.description}
           </p>
         </div>
 
         <ApiKeyCard
-          apiKeys={apiKeys}
+          apiKeys={apiKeys || MOCK_PLATFORM_API_KEYS}
           onGenerate={handleGenerateKey}
           onRevoke={handleRevoke}
           onCopy={handleCopy}
@@ -84,15 +126,15 @@ export default function PlatformPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ContentStream
-            items={contentItems}
-            onAnalyze={(id) => console.log('Analyze:', id)}
-            onLoadMore={() => console.log('Load more')}
+            items={contentItems || MOCK_PLATFORM_CONTENT}
+            onAnalyze={(id) => console.info('[Mock Mode] Analyze content:', id)}
+            onLoadMore={() => console.info('[Mock Mode] Load more content')}
             hasMore={true}
           />
-          <TrendHeatmap data={mockTrendData} />
+          <TrendHeatmap data={trendData || MOCK_PLATFORM_TREND} />
         </div>
       </div>
-    </Layout>
+    </DashboardLayout>
   );
 }
 

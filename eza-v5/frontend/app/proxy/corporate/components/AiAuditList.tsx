@@ -5,19 +5,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import RiskLevelTag from '@/app/proxy-lite/components/RiskLevelTag';
 import { formatDate } from '@/lib/utils';
-
-interface AuditItem {
-  id: string;
-  ai_agent: string;
-  risk_score: number;
-  flags: string[];
-  reviewer: string;
-  status: 'pending' | 'approved' | 'flagged';
-  timestamp: string;
-}
+import type { CorporateAudit } from '@/lib/types';
 
 interface AiAuditListProps {
-  items: AuditItem[];
+  items: CorporateAudit[];
 }
 
 export default function AiAuditList({ items }: AiAuditListProps) {

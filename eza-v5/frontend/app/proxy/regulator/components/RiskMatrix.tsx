@@ -7,9 +7,26 @@ import { cn } from '@/lib/utils';
 
 interface RiskMatrixProps {
   data: Array<{ x: number; y: number; value: number; label: string }>;
+  tenantId?: string;
 }
 
-export default function RiskMatrix({ data }: RiskMatrixProps) {
+export default function RiskMatrix({ data, tenantId = 'rtuk' }: RiskMatrixProps) {
+  // Tenant-specific tooltip labels
+  const getTenantLabel = (x: number, y: number, value: number, defaultLabel: string) => {
+    if (tenantId === 'rtuk') {
+      const labels = ['Çocuk İçeriği', 'Aile İçeriği', 'Şiddet İçeriği'];
+      return `${labels[x] || 'Risk'}: ${Math.round(value * 100)}%`;
+    }
+    if (tenantId === 'btk') {
+      const labels = ['İletişim Güvenliği', 'Erişim Güvenliği', 'Veri Güvenliği'];
+      return `${labels[x] || 'Risk'}: ${Math.round(value * 100)}%`;
+    }
+    if (tenantId === 'eu_ai') {
+      const labels = ['Yüksek Risk Sınıfı', 'Kullanım Alanı', 'Uyumluluk'];
+      return `${labels[x] || 'Risk'}: ${Math.round(value * 100)}%`;
+    }
+    return defaultLabel || `Risk: ${Math.round(value * 100)}%`;
+  };
   // Generate 3x3 grid
   const grid = Array.from({ length: 9 }, (_, i) => {
     const x = Math.floor(i / 3);
@@ -40,7 +57,7 @@ export default function RiskMatrix({ data }: RiskMatrixProps) {
                 'aspect-square rounded-lg flex items-center justify-center text-white text-xs font-semibold transition-all hover:scale-110 cursor-pointer',
                 getColor(item.value)
               )}
-              title={item.label || `Risk: ${Math.round(item.value * 100)}%`}
+              title={getTenantLabel(item.x, item.y, item.value, item.label)}
             >
               {item.value > 0 ? Math.round(item.value * 100) : ''}
             </div>
