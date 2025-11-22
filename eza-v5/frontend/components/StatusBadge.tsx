@@ -1,6 +1,6 @@
 /**
  * Status Badge Component
- * Shows data source status (Live/Preview/Loading)
+ * Shows data source status (Live/Loading/Backend Offline)
  */
 
 'use client';
@@ -29,8 +29,8 @@ export default function StatusBadge({ loading, live, className }: StatusBadgePro
   }
 
   return (
-    <div className={`text-yellow-600 font-semibold ${className || ''}`}>
-      🟡 Preview data (backend offline)
+    <div className={`text-red-600 font-semibold ${className || ''}`}>
+      🔴 Backend offline
     </div>
   );
 }

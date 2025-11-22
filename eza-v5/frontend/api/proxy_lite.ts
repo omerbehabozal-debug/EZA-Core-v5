@@ -42,21 +42,10 @@ export function analyzeProxyLite(
 }
 
 /**
- * Analyze Lite - SWR compatible fetcher function
- * Used for hybrid mock + live backend mode
+ * Analyze Lite - Real Backend Integration
+ * Only calls backend, returns null on error (no mock, no fallback)
  */
-export async function analyzeLite(
-  message: string,
-  outputText: string
-): Promise<ProxyLiteAnalyzeResponse> {
-  return analyzeProxyLite(message, outputText);
-}
-
-/**
- * Real Backend Integration - EZA Gateway test-call endpoint
- * Returns null on error (for fallback to mock)
- */
-export async function analyzeLiteReal(text: string): Promise<ProxyLiteRealResult | null> {
+export async function analyzeLite(text: string): Promise<ProxyLiteRealResult | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/gateway/test-call`, {
       method: "POST",
@@ -64,21 +53,42 @@ export async function analyzeLiteReal(text: string): Promise<ProxyLiteRealResult
       body: JSON.stringify({ text, provider: "openai" }),
     });
 
-    if (!res.ok) throw new Error("Backend error");
+    if (!res.ok) return null;
 
     const data = await res.json();
 
+    // Only return if we have valid analysis data
+    if (!data.analysis && !data.gateway) {
+      return null;
+    }
+
+    // Extract risk_score from analysis
+    const riskScore = data.analysis?.eza_score?.final_score ?? data.analysis?.risk_score;
+    if (riskScore === undefined || riskScore === null) {
+      return null; // No valid risk score from backend
+    }
+    
+    const riskLevel = data.analysis?.risk_level;
+    if (!riskLevel) {
+      return null; // No valid risk level from backend
+    }
+
+    const output = data.output || data.gateway?.output;
+    if (!output) {
+      return null; // No valid output from backend
+    }
+
     return {
       live: true,
-      risk_score: data.analysis?.risk_score ?? 50,
-      risk_level: data.analysis?.risk_level ?? "medium",
-      output: data.gateway?.output ?? data.analysis?.output?.summary ?? "",
-      flags: data.analysis?.risk_flags ?? [],
+      risk_score: riskScore,
+      risk_level: riskLevel,
+      output: output,
+      flags: data.analysis?.risk_flags || [],
       raw: data,
     };
   } catch (e) {
-    console.info("Proxy-Lite: Backend offline, using fallback.");
-    return null; // fallback için sinyal
+    console.info("Proxy-Lite: Backend offline.");
+    return null;
   }
 }
 
