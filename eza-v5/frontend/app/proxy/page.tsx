@@ -15,6 +15,7 @@ import SafetyAnalysisTab from '@/components/proxy/tabs/SafetyAnalysisTab';
 import ContextGraphTab from '@/components/proxy/tabs/ContextGraphTab';
 import TimingsLogsTab from '@/components/proxy/tabs/TimingsLogsTab';
 import RawJsonTab from '@/components/proxy/tabs/RawJsonTab';
+import { MultimodalTab } from '@/components/proxy/tabs/MultimodalTab';
 import {
   runInternalProxy,
   getInternalProxySession,
@@ -108,6 +109,7 @@ export default function ProxyPage() {
                   <TabsTrigger value="context-graph">Context Graph</TabsTrigger>
                   <TabsTrigger value="timings-logs">Timings & Logs</TabsTrigger>
                   <TabsTrigger value="raw-json">Raw JSON</TabsTrigger>
+                  <TabsTrigger value="multimodal">Multimodal Debug</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -136,6 +138,10 @@ export default function ProxyPage() {
 
                 <TabsContent value="raw-json">
                   <RawJsonTab data={currentSession} />
+                </TabsContent>
+
+                <TabsContent value="multimodal">
+                  <MultimodalTab />
                 </TabsContent>
               </Tabs>
             </div>

@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 from backend.routers import (
     auth, standalone, proxy, proxy_lite, admin, media, autonomy,
     institution, gateway, regulator_router, btk_router, eu_ai_router,
-    platform_router, corporate_router, internal_proxy
+    platform_router, corporate_router, internal_proxy, multimodal
 )
 from backend.core.utils.dependencies import init_db, init_redis, init_vector_db
 from backend.learning.vector_store import VectorStore
@@ -99,6 +99,7 @@ app.include_router(autonomy.router, prefix="/api/autonomy", tags=["Autonomy"])
 app.include_router(institution.router, prefix="/api/institution", tags=["Institution"])
 app.include_router(gateway.router, prefix="/api/gateway", tags=["Gateway"])
 app.include_router(internal_proxy.router, tags=["Proxy-Internal"])
+app.include_router(multimodal.router, tags=["Multimodal"])
 
 # EZA-Regulation-API v1.0 routers
 app.include_router(regulator_router.router, prefix="/api/regulator", tags=["Regulator (RTÜK)"])

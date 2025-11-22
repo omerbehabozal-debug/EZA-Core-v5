@@ -16,6 +16,10 @@ import { useTenantStore } from '@/lib/tenantStore';
 import { fetchCorporateAudit, fetchCorporatePolicy, updateCorporatePolicy } from '@/api/corporate';
 import { MOCK_CORPORATE_AUDIT, MOCK_CORPORATE_POLICY } from '@/mock/corporate';
 import type { PolicyConfig as PolicyConfigType, CorporateAudit } from '@/lib/types';
+import { uploadMultimodalFile, MultimodalAnalysisResult } from '@/api/multimodal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 function getStatusType(isLoading: boolean, error: any, data: any, fallback: any): StatusType {
   if (isLoading) return 'loading';
@@ -66,6 +70,11 @@ export default function CorporatePage() {
   const auditStatus = getStatusType(auditLoading, auditError, auditItems, MOCK_CORPORATE_AUDIT);
   const policyStatus = getStatusType(policyLoading, policyError, policyConfig, MOCK_CORPORATE_POLICY);
 
+  // Multimodal state
+  const [videoResult, setVideoResult] = useState<MultimodalAnalysisResult | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+
   const handleSavePolicy = async (config: PolicyConfigType) => {
     try {
       await updateCorporatePolicy(tenant.id, config);
@@ -73,6 +82,33 @@ export default function CorporatePage() {
     } catch (error) {
       console.info('[Preview Mode] Policy save failed, using local state');
       mutatePolicy(config, false);
+    }
+  };
+
+  const handleVideoUpload = async (file: File | null) => {
+    if (!file) return;
+    setVideoError(null);
+    setVideoLoading(true);
+    try {
+      const result = await uploadMultimodalFile('video', file);
+      setVideoResult(result);
+    } catch (e: any) {
+      setVideoError(e?.message || 'Video analysis failed');
+      if (e?.message?.includes('503') || e?.message?.includes('disabled')) {
+        setVideoError('Multimodal analysis is currently disabled in this environment.');
+      }
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+
+  const getRiskBadgeVariant = (risk: string) => {
+    switch (risk.toLowerCase()) {
+      case 'low': return 'success';
+      case 'medium': return 'warning';
+      case 'high': return 'danger';
+      case 'critical': return 'danger';
+      default: return 'default';
     }
   };
 
@@ -110,6 +146,73 @@ export default function CorporatePage() {
           </div>
           <WorkflowBuilder />
         </div>
+
+        {/* Video Safety Check (Beta) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Video Safety Check (Beta)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <Input
+                type="file"
+                accept="video/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleVideoUpload(file);
+                }}
+                disabled={videoLoading}
+              />
+              <Button
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'video/*';
+                  input.onchange = (e: any) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleVideoUpload(file);
+                  };
+                  input.click();
+                }}
+                disabled={videoLoading}
+                className="w-full"
+              >
+                {videoLoading ? 'Analyzing...' : 'Upload Video'}
+              </Button>
+            </div>
+
+            {videoError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-700">{videoError}</p>
+              </div>
+            )}
+
+            {videoResult && (
+              <div className="space-y-3 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-gray-600">Risk Level:</span>
+                  <Badge variant={getRiskBadgeVariant(videoResult.global_risk_level)}>
+                    {videoResult.global_risk_level.toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-gray-600">Score:</span>
+                  <span className="text-lg font-semibold">
+                    {videoResult.eza_multimodal_score.overall_score.toFixed(1)}
+                  </span>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Summary:</h4>
+                  <p className="text-sm text-gray-700">
+                    {videoResult.recommended_actions.length > 0
+                      ? videoResult.recommended_actions.slice(0, 2).join('. ')
+                      : 'Analysis completed successfully.'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

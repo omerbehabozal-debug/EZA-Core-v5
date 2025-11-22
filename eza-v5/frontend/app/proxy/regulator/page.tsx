@@ -19,6 +19,10 @@ import { MOCK_REGULATOR_CASES, MOCK_REGULATOR_RISK_MATRIX, MOCK_REGULATOR_REPORT
 import type { RegulatorCase, RiskMatrixResponse, ReportResponse } from '@/mock/regulator';
 import { cn } from '@/lib/utils';
 import { getTenantTabClasses } from '@/lib/tenantColors';
+import { uploadMultimodalFile, MultimodalAnalysisResult } from '@/api/multimodal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 const tabs = [
   { id: 'risk', label: 'Risk Sınıflandırma', module: 'risk_matrix' },
@@ -48,6 +52,11 @@ export default function RegulatorPage() {
   const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabParam || 'risk');
   const [selectedCase, setSelectedCase] = useState<RegulatorCase | null>(null);
+  
+  // Multimodal state
+  const [videoResult, setVideoResult] = useState<MultimodalAnalysisResult | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -110,6 +119,33 @@ export default function RegulatorPage() {
   };
 
   const handleClose = () => setSelectedCase(null);
+
+  const handleVideoUpload = async (file: File | null) => {
+    if (!file) return;
+    setVideoError(null);
+    setVideoLoading(true);
+    try {
+      const result = await uploadMultimodalFile('video', file);
+      setVideoResult(result);
+    } catch (e: any) {
+      setVideoError(e?.message || 'Video analysis failed');
+      if (e?.message?.includes('503') || e?.message?.includes('disabled')) {
+        setVideoError('Multimodal analysis is currently disabled in this environment.');
+      }
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+
+  const getRiskBadgeVariant = (risk: string) => {
+    switch (risk.toLowerCase()) {
+      case 'low': return 'success';
+      case 'medium': return 'warning';
+      case 'high': return 'danger';
+      case 'critical': return 'danger';
+      default: return 'default';
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -199,59 +235,130 @@ export default function RegulatorPage() {
         )}
 
         {activeTab === 'reports' && tenant.enabledModules.includes('reports') && (
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Uygunluk Raporları</CardTitle>
-                <StatusBadge status={reportsStatus} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {reports ? (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold mb-2">Özet</h3>
-                    <p className="text-gray-600">{reports.content.summary}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">Öneriler</h3>
-                    <ul className="list-disc list-inside space-y-1 text-gray-600">
-                      {reports.content.recommendations.map((rec, idx) => (
-                        <li key={idx}>{rec}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">İstatistikler</h3>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <div className="text-2xl font-bold text-red-600">
-                          {reports.metadata.statistics.high_risk_count}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Uygunluk Raporları</CardTitle>
+                  <StatusBadge status={reportsStatus} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {reports ? (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-semibold mb-2">Özet</h3>
+                      <p className="text-gray-600">{reports.content.summary}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-2">Öneriler</h3>
+                      <ul className="list-disc list-inside space-y-1 text-gray-600">
+                        {reports.content.recommendations.map((rec, idx) => (
+                          <li key={idx}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-2">İstatistikler</h3>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <div className="text-2xl font-bold text-red-600">
+                            {reports.metadata.statistics.high_risk_count}
+                          </div>
+                          <div className="text-sm text-gray-600">Yüksek Risk</div>
                         </div>
-                        <div className="text-sm text-gray-600">Yüksek Risk</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-yellow-600">
-                          {reports.metadata.statistics.medium_risk_count}
+                        <div>
+                          <div className="text-2xl font-bold text-yellow-600">
+                            {reports.metadata.statistics.medium_risk_count}
+                          </div>
+                          <div className="text-sm text-gray-600">Orta Risk</div>
                         </div>
-                        <div className="text-sm text-gray-600">Orta Risk</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-green-600">
-                          {reports.metadata.statistics.low_risk_count}
+                        <div>
+                          <div className="text-2xl font-bold text-green-600">
+                            {reports.metadata.statistics.low_risk_count}
+                          </div>
+                          <div className="text-sm text-gray-600">Düşük Risk</div>
                         </div>
-                        <div className="text-sm text-gray-600">Düşük Risk</div>
                       </div>
                     </div>
                   </div>
+                ) : (
+                  <p className="text-gray-600 text-center py-8">
+                    Rapor yükleniyor...
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Multimodal Video Analysis */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Multimodal / Video Analysis</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <Input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleVideoUpload(file);
+                    }}
+                    disabled={videoLoading}
+                  />
+                  <Button
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'video/*';
+                      input.onchange = (e: any) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleVideoUpload(file);
+                      };
+                      input.click();
+                    }}
+                    disabled={videoLoading}
+                    className="w-full"
+                  >
+                    {videoLoading ? 'Analyzing...' : 'Analyze Video (Multimodal)'}
+                  </Button>
                 </div>
-              ) : (
-                <p className="text-gray-600 text-center py-8">
-                  Rapor yükleniyor...
-                </p>
-              )}
-            </CardContent>
-          </Card>
+
+                {videoError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-700">{videoError}</p>
+                  </div>
+                )}
+
+                {videoResult && (
+                  <div className="space-y-3 pt-4 border-t border-gray-200">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-gray-600">Global Risk:</span>
+                      <Badge variant={getRiskBadgeVariant(videoResult.global_risk_level)}>
+                        {videoResult.global_risk_level.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-gray-600">Overall Score:</span>
+                      <span className="text-lg font-semibold">
+                        {videoResult.eza_multimodal_score.overall_score.toFixed(1)}
+                      </span>
+                    </div>
+                    {videoResult.recommended_actions.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold mb-2">Top 3 Recommended Actions:</h4>
+                        <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
+                          {videoResult.recommended_actions.slice(0, 3).map((action, idx) => (
+                            <li key={idx}>{action}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         <ScreeningPanel
