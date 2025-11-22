@@ -17,7 +17,7 @@ class Case(Base):
     risk_score = Column(Float, nullable=False, default=0.0)
     risk_level = Column(String(50), nullable=False, default="low")  # low, medium, high, critical
     source = Column(String(50), nullable=False, index=True)  # rtuk, btk, corporate, eu-ai, platform
-    metadata = Column(Text, nullable=True)  # JSON string for additional data
+    meta_data = Column(Text, nullable=True)  # JSON string for additional data (renamed from metadata to avoid SQLAlchemy conflict)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     

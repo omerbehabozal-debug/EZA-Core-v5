@@ -76,7 +76,7 @@ async def get_cases(
                 risk_score=case.risk_score,
                 risk_level=case.risk_level,
                 source=case.source,
-                metadata=json.loads(case.metadata) if case.metadata else None,
+                metadata=json.loads(case.meta_data) if case.meta_data else None,
                 created_at=case.created_at.isoformat() if case.created_at else ""
             )
             for case in cases

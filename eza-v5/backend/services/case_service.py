@@ -9,10 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from backend.models.case import Case
 from backend.core.engines.eza_risk_engine import compute_risk
-from backend.core.engines.eza_score_engine import compute_score
-from backend.core.engines.input_analyzer import analyze_input
-from backend.core.engines.output_analyzer import analyze_output
-from backend.core.engines.alignment_engine import compute_alignment
 import json
 
 
@@ -43,7 +39,7 @@ async def create_case(
         risk_score=risk_result["risk_score"],
         risk_level=risk_result["risk_level"],
         source=source,
-        metadata=json.dumps(metadata) if metadata else None
+        meta_data=json.dumps(metadata) if metadata else None
     )
     
     db.add(case)

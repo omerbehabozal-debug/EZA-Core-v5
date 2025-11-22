@@ -4,7 +4,7 @@ API Key Service (Platform)
 Handles API key generation and management
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.models.api_key import APIKey

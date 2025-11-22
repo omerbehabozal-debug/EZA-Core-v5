@@ -39,7 +39,7 @@ async def generate_rtuk_report(
             "risk_score": case.risk_score,
             "risk_level": case.risk_level,
             "source": case.source,
-            "metadata": json.loads(case.metadata) if case.metadata else {},
+            "metadata": json.loads(case.meta_data) if case.meta_data else {},
             "created_at": case.created_at.isoformat() if case.created_at else None
         }
         for case in cases
