@@ -3,7 +3,8 @@
 ## ✅ Fixed Conflicts
 
 ### Removed:
-- `pages/proxy-lite/index.tsx` - **DELETED** (conflict with `app/proxy-lite/page.tsx`)
+- `pages/proxy-lite/` - **DELETED** (entire folder - conflict with `app/proxy-lite/page.tsx`)
+- `pages/proxy/` - **DELETED** (entire folder - conflict with `app/proxy/page.tsx` - Internal Proxy Portal)
 
 ## Current Route Structure
 
@@ -15,6 +16,7 @@ app/
 │   ├── page.tsx                  → /proxy-lite
 │   └── components/
 ├── proxy/
+│   ├── page.tsx                  → /proxy (Internal Proxy Portal)
 │   ├── login/
 │   │   └── page.tsx              → /proxy/login
 │   ├── select-portal/
@@ -42,8 +44,6 @@ pages/
 ├── login.tsx                     → /login (different from /proxy/login)
 ├── unauthorized.tsx               → /unauthorized
 ├── connection_test.tsx            → /connection_test
-├── proxy/
-│   └── index.tsx                 → /proxy (Proxy Lab - different from app routes)
 ├── standalone/
 │   └── index.tsx                 → /standalone
 └── admin/
@@ -64,17 +64,18 @@ pages/
 
 ### ⚠️ Different Routes (No Conflict):
 - `/login` (pages) vs `/proxy/login` (app) - Different routes
-- `/proxy` (pages) vs `/proxy/*` (app) - Different routes
 - `/standalone` (pages) - No app equivalent
 - `/admin` (pages) - No app equivalent
 
 ## Status
 
 ✅ **Route conflict resolved**
-- `pages/proxy-lite/` removed
+- `pages/proxy-lite/` folder completely removed
+- `pages/proxy/` folder completely removed
+- All proxy routes now use App Router (`app/proxy/*`)
 - No import breakages detected
 - App Router is primary routing system
-- Pages Router remains for legacy routes (standalone, admin, connection_test)
+- Pages Router remains for legacy routes (standalone, admin, connection_test, login, unauthorized)
 
 ## Next Steps (Optional)
 

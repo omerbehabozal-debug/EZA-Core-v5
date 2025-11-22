@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import InternalProxyLayout from '@/components/proxy/InternalProxyLayout';
 import InternalProxySidebar from '@/components/proxy/InternalProxySidebar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
@@ -59,15 +59,15 @@ export default function ProxyPage() {
 
   return (
     <InternalProxyLayout
-      currentRiskLevel={currentSession?.flags.risk_level}
+      currentRiskLevel={currentSession?.flags?.risk_level}
     >
       <div className="flex h-full">
-        {/* Left Sidebar */}
-        <InternalProxySidebar
-          onSessionSelect={handleSessionSelect}
-          onRunPipeline={handleRunPipeline}
-          selectedSessionId={selectedSessionId}
-        />
+          {/* Left Sidebar */}
+          <InternalProxySidebar
+            onSessionSelect={handleSessionSelect}
+            onRunPipeline={handleRunPipeline}
+            selectedSessionId={selectedSessionId}
+          />
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-hidden flex flex-col">

@@ -50,7 +50,7 @@ export async function analyzeLite(text: string): Promise<ProxyLiteRealResult | n
     const res = await fetch(`${API_BASE_URL}/api/gateway/test-call`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, provider: "openai" }),
+      body: JSON.stringify({ prompt: text, provider: "openai" }),
     });
 
     if (!res.ok) return null;

@@ -51,7 +51,7 @@ export default function InternalProxySidebar({
   };
 
   return (
-    <aside className="w-[340px] border-r border-gray-200 bg-gray-50 flex flex-col h-screen">
+    <aside className="w-[340px] border-r border-gray-200 bg-gray-50 flex flex-col" style={{ height: '100%' }}>
       {/* History Section */}
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="px-4 py-3 border-b border-gray-200 bg-white">

@@ -43,7 +43,17 @@ const fetcher = async <T>(url: string, fallback: T, method: string = 'GET', body
 
 export async function fetchCorporateAudit(limit: number = 100, offset: number = 0): Promise<CorporateAudit[]> {
   const url = `/api/corporate/audit?limit=${limit}&offset=${offset}`;
-  const response = await fetcher<CorporateAuditApiResponse[]>(url, MOCK_CORPORATE_AUDIT);
+  // Create mock API response format
+  const mockApiResponse: CorporateAuditApiResponse[] = MOCK_CORPORATE_AUDIT.map(audit => ({
+    id: parseInt(audit.id),
+    endpoint: audit.ai_agent,
+    method: 'POST',
+    risk_score: audit.risk_score,
+    eza_score: audit.risk_score,
+    action_taken: audit.status === 'flagged' ? 'blocked' : null,
+    created_at: audit.timestamp,
+  }));
+  const response = await fetcher<CorporateAuditApiResponse[]>(url, mockApiResponse);
   return response.map(audit => ({
     id: audit.id.toString(),
     ai_agent: audit.endpoint,
