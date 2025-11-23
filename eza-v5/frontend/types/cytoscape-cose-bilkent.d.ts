@@ -3,9 +3,7 @@
  */
 
 declare module 'cytoscape-cose-bilkent' {
-  import cytoscape from 'cytoscape';
-  
-  const coseBilkent: cytoscape.Ext;
+  const coseBilkent: any;
   export default coseBilkent;
 }
 
