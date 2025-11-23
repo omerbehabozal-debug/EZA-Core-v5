@@ -76,6 +76,9 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const hostname = getHostname(request);
   
+  // Debug: log for troubleshooting (remove in production if needed)
+  // console.log('Middleware:', { hostname, pathname });
+  
   // Allow global paths for all domains
   if (isGloballyAllowed(pathname)) {
     return NextResponse.next();
