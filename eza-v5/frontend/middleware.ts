@@ -30,6 +30,7 @@ const DOMAIN_ROUTES: Record<string, string[]> = {
  */
 const GLOBAL_ALLOWED_PATHS = [
   '/_next',
+  '/api',
   '/favicon.ico',
   '/robots.txt',
   '/sitemap.xml',
@@ -101,5 +102,15 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/:path*',
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files (already handled by GLOBAL_ALLOWED_PATHS)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 };
