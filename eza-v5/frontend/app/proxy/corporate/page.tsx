@@ -6,7 +6,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -30,7 +30,7 @@ function getStatusType(isLoading: boolean, error: any, data: any, fallback: any)
   return 'live';
 }
 
-export default function CorporatePage() {
+function CorporatePageContent() {
   const searchParams = useSearchParams();
   const { setTenant, getTenant } = useTenantStore();
   const tenant = getTenant();
@@ -219,5 +219,13 @@ export default function CorporatePage() {
         </Card>
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function CorporatePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CorporatePageContent />
+    </Suspense>
   );
 }

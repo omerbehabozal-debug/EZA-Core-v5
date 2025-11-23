@@ -26,7 +26,7 @@ function getStatusType(isLoading: boolean, error: any, data: any, fallback: any)
   return 'live';
 }
 
-export default function PlatformPage() {
+function PlatformPageContent() {
   const searchParams = useSearchParams();
   const { setTenant, getTenant } = useTenantStore();
   const tenant = getTenant();
@@ -145,5 +145,13 @@ export default function PlatformPage() {
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function PlatformPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PlatformPageContent />
+    </Suspense>
   );
 }

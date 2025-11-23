@@ -6,7 +6,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -38,7 +38,7 @@ function getStatusType(isLoading: boolean, error: any, data: any, fallback: any)
   return 'live';
 }
 
-export default function RegulatorPage() {
+function RegulatorPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTenant, getTenant } = useTenantStore();
@@ -387,5 +387,13 @@ export default function RegulatorPage() {
         />
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function RegulatorPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RegulatorPageContent />
+    </Suspense>
   );
 }
