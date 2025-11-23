@@ -6,7 +6,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
