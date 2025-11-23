@@ -65,11 +65,19 @@ function isPathAllowedForDomain(pathname: string, domain: string): boolean {
 /**
  * Get clean hostname from request headers
  * Removes port number if present
+ * Also handles Vercel preview deployments (e.g., "project-name-abc123.vercel.app")
  */
 function getHostname(request: NextRequest): string {
   const host = request.headers.get('host') || '';
   // Remove port number if present (e.g., "proxy.ezacore.ai:3000" -> "proxy.ezacore.ai")
-  return host.split(':')[0];
+  const hostname = host.split(':')[0];
+  
+  // If it's a Vercel deployment domain, allow all paths (development/preview mode)
+  if (hostname.includes('.vercel.app') || hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+    return '*'; // Special marker for development/preview
+  }
+  
+  return hostname;
 }
 
 export function middleware(request: NextRequest) {
@@ -78,6 +86,11 @@ export function middleware(request: NextRequest) {
   
   // Debug: log for troubleshooting (remove in production if needed)
   // console.log('Middleware:', { hostname, pathname });
+  
+  // Allow all paths for Vercel preview/development domains
+  if (hostname === '*') {
+    return NextResponse.next();
+  }
   
   // Allow global paths for all domains
   if (isGloballyAllowed(pathname)) {
