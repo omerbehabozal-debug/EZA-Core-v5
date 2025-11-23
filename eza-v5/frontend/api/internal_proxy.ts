@@ -46,6 +46,15 @@ export interface FullPipelineDebugResponse {
     eza_score_raw?: Record<string, any> | null;
     all_logs?: Array<Record<string, any>> | null;
   };
+  // Optional fallback properties for context graph
+  context_graph?: {
+    nodes?: any[];
+    edges?: any[];
+  } | null;
+  graph?: {
+    nodes?: any[];
+    edges?: any[];
+  } | null;
 }
 
 export interface HistoryItem {
