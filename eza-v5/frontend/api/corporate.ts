@@ -67,7 +67,21 @@ export async function fetchCorporateAudit(limit: number = 100, offset: number = 
 
 export async function fetchCorporatePolicy(tenant: string): Promise<PolicyConfig> {
   const url = `/api/corporate/policy?tenant=${tenant}`;
-  const response = await fetcher<CorporatePolicyApiResponse>(url, MOCK_CORPORATE_POLICY);
+  // Create mock API response format
+  const mockApiResponse: CorporatePolicyApiResponse = {
+    id: 1,
+    tenant: tenant,
+    rules: {
+      high_risk_topics: MOCK_CORPORATE_POLICY.high_risk_topics || [],
+      illegal_use_cases: MOCK_CORPORATE_POLICY.illegal_use_cases || [],
+      custom_rules: MOCK_CORPORATE_POLICY.custom_rules || [],
+    },
+    policy_type: 'default',
+    is_active: 'true',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  const response = await fetcher<CorporatePolicyApiResponse>(url, mockApiResponse);
   return {
     high_risk_topics: response.rules.high_risk_topics || [],
     illegal_use_cases: response.rules.illegal_use_cases || [],
@@ -82,7 +96,21 @@ export async function updateCorporatePolicy(
 ): Promise<PolicyConfig> {
   const url = `/api/corporate/policy?tenant=${tenant}`;
   const requestBody: PolicyUpdateRequest = { rules, policy_type };
-  const response = await fetcher<CorporatePolicyApiResponse>(url, MOCK_CORPORATE_POLICY, 'POST', requestBody);
+  // Create mock API response format
+  const mockApiResponse: CorporatePolicyApiResponse = {
+    id: 1,
+    tenant: tenant,
+    rules: {
+      high_risk_topics: rules.high_risk_topics || MOCK_CORPORATE_POLICY.high_risk_topics || [],
+      illegal_use_cases: rules.illegal_use_cases || MOCK_CORPORATE_POLICY.illegal_use_cases || [],
+      custom_rules: rules.custom_rules || MOCK_CORPORATE_POLICY.custom_rules || [],
+    },
+    policy_type: policy_type,
+    is_active: 'true',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  const response = await fetcher<CorporatePolicyApiResponse>(url, mockApiResponse, 'POST', requestBody);
   return {
     high_risk_topics: response.rules.high_risk_topics || [],
     illegal_use_cases: response.rules.illegal_use_cases || [],
