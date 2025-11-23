@@ -13,11 +13,16 @@ export default function HomePage() {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       
+      // Debug: log hostname
+      console.log('Current hostname:', hostname);
+      
       // Check if it's proxy domain
       if (hostname === 'proxy.ezacore.ai' || hostname.includes('proxy')) {
+        console.log('Redirecting to /proxy');
         window.location.href = '/proxy';
       } else {
         // Default: redirect to standalone
+        console.log('Redirecting to /standalone');
         window.location.href = '/standalone';
       }
     }
