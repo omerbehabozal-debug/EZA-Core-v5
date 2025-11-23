@@ -11,7 +11,7 @@ import { formatDate } from '@/lib/utils';
 
 interface InternalProxySidebarProps {
   onSessionSelect: (sessionId: string) => void;
-  onRunPipeline: (text: string) => void;
+  onRunPipeline: (text: string) => Promise<any>;
   selectedSessionId?: string;
 }
 
@@ -40,13 +40,35 @@ export default function InternalProxySidebar({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Refresh history function (exposed for parent component)
+  const refreshHistory = async () => {
+    await loadHistory();
+  };
+
+  // Expose refreshHistory to parent via callback
+  useEffect(() => {
+    // Store refreshHistory in a way parent can access it
+    // For now, we'll handle it in handleSubmit
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (inputText.trim()) {
-      onRunPipeline(inputText.trim());
+      const textToAnalyze = inputText.trim();
       setInputText('');
-      // Reload history after a short delay
-      setTimeout(loadHistory, 1000);
+      
+      // Call pipeline and wait for result
+      try {
+        const result = await onRunPipeline(textToAnalyze);
+        // After pipeline completes, refresh history
+        await refreshHistory();
+        // Then select the new session
+        if (result?.request_id) {
+          onSessionSelect(result.request_id);
+        }
+      } catch (err) {
+        console.error('Pipeline error:', err);
+      }
     }
   };
 

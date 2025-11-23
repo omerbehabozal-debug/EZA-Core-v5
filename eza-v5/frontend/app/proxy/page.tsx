@@ -35,9 +35,12 @@ export default function ProxyPage() {
       const result = await runInternalProxy({ text });
       setCurrentSession(result);
       setSelectedSessionId(result.request_id);
+      // Return result so sidebar can use it
+      return result;
     } catch (err: any) {
       setError(err.message || 'Failed to run pipeline');
       console.error('Pipeline error:', err);
+      throw err; // Re-throw so sidebar can handle it
     } finally {
       setIsLoading(false);
     }
