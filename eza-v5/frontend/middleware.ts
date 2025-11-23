@@ -80,6 +80,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   
+  // Handle root path redirects
+  if (pathname === '/') {
+    const allowedPaths = DOMAIN_ROUTES[hostname];
+    if (allowedPaths && allowedPaths.length > 0) {
+      // Redirect to first allowed path
+      return NextResponse.redirect(new URL(allowedPaths[0], request.url));
+    }
+    // Unknown domain - deny access
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+  
   // Check if path is allowed for this domain
   if (isPathAllowedForDomain(pathname, hostname)) {
     return NextResponse.next();
