@@ -20,6 +20,7 @@ import { uploadMultimodalFile, MultimodalAnalysisResult } from '@/api/multimodal
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 function getStatusType(isLoading: boolean, error: any, data: any, fallback: any): StatusType {
   if (isLoading) return 'loading';
