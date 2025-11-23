@@ -1,44 +1,94 @@
 /**
- * Next.js Middleware - Domain-based routing
- * Handles routing based on domain before page loads
+ * Next.js Middleware - Domain-based Access Control
+ * 
+ * This middleware enforces domain-specific path access rules.
+ * Each domain can only access its allowed paths, all other paths return 403 Forbidden.
  */
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
-  const hostname = request.headers.get('host') || '';
+/**
+ * Domain → Allowed Paths Mapping
+ * Each domain can only access paths listed in its array
+ */
+const DOMAIN_ROUTES: Record<string, string[]> = {
+  'standalone.ezacore.ai': ['/standalone'],
+  'proxy.ezacore.ai': ['/proxy', '/proxy-lite'],
+  'proxy-lite.ezacore.ai': ['/proxy-lite'],
+  'admin.ezacore.ai': ['/admin'],
+  'corporate.ezacore.ai': ['/proxy/corporate'],
+  'eu-ai.ezacore.ai': ['/proxy/eu-ai'],
+  'platform.ezacore.ai': ['/proxy/platform'],
+  'regulator.ezacore.ai': ['/proxy/regulator'],
+  'select.ezacore.ai': ['/proxy/select-portal'],
+};
+
+/**
+ * Global allowed paths - accessible from any domain
+ * These paths are always allowed regardless of domain restrictions
+ */
+const GLOBAL_ALLOWED_PATHS = [
+  '/_next',
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
+];
+
+/**
+ * Check if a path is globally allowed
+ */
+function isGloballyAllowed(pathname: string): boolean {
+  return GLOBAL_ALLOWED_PATHS.some(allowedPath => 
+    pathname === allowedPath || pathname.startsWith(allowedPath + '/')
+  );
+}
+
+/**
+ * Check if a path is allowed for a specific domain
+ */
+function isPathAllowedForDomain(pathname: string, domain: string): boolean {
+  const allowedPaths = DOMAIN_ROUTES[domain];
   
-  // Check if it's proxy domain
-  if (hostname === 'proxy.ezacore.ai' || hostname.includes('proxy')) {
-    // If already on /proxy, allow it
-    if (request.nextUrl.pathname.startsWith('/proxy')) {
-      return NextResponse.next();
-    }
-    // Redirect root to /proxy
-    if (request.nextUrl.pathname === '/') {
-      return NextResponse.redirect(new URL('/proxy', request.url));
-    }
-  } else {
-    // For standalone domain or default, redirect root to /standalone
-    if (request.nextUrl.pathname === '/') {
-      return NextResponse.redirect(new URL('/standalone', request.url));
-    }
+  if (!allowedPaths) {
+    // Unknown domain - deny access
+    return false;
   }
   
-  return NextResponse.next();
+  // Check if path matches any allowed path (exact or prefix match)
+  return allowedPaths.some(allowedPath => 
+    pathname === allowedPath || pathname.startsWith(allowedPath + '/')
+  );
+}
+
+/**
+ * Get clean hostname from request headers
+ * Removes port number if present
+ */
+function getHostname(request: NextRequest): string {
+  const host = request.headers.get('host') || '';
+  // Remove port number if present (e.g., "proxy.ezacore.ai:3000" -> "proxy.ezacore.ai")
+  return host.split(':')[0];
+}
+
+export function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const hostname = getHostname(request);
+  
+  // Allow global paths for all domains
+  if (isGloballyAllowed(pathname)) {
+    return NextResponse.next();
+  }
+  
+  // Check if path is allowed for this domain
+  if (isPathAllowedForDomain(pathname, hostname)) {
+    return NextResponse.next();
+  }
+  
+  // Path not allowed for this domain - return 403 Forbidden
+  return new NextResponse('Forbidden', { status: 403 });
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: '/:path*',
 };
-
