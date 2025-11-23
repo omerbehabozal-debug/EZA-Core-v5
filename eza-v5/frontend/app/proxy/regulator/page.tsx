@@ -43,13 +43,14 @@ export default function RegulatorPage() {
   const tenant = getTenant();
   
   useEffect(() => {
+    if (!searchParams) return;
     const tenantParam = searchParams.get('tenant');
     if (tenantParam && tenantParam !== tenant.id) {
       setTenant(tenantParam);
     }
   }, [searchParams, tenant.id, setTenant]);
 
-  const tabParam = searchParams.get('tab');
+  const tabParam = searchParams?.get('tab');
   const [activeTab, setActiveTab] = useState(tabParam || 'risk');
   const [selectedCase, setSelectedCase] = useState<RegulatorCase | null>(null);
   
@@ -59,6 +60,7 @@ export default function RegulatorPage() {
   const [videoError, setVideoError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!searchParams) return;
     const tab = searchParams.get('tab');
     if (tab && tabs.find(t => t.id === tab)) {
       setActiveTab(tab);
@@ -169,7 +171,7 @@ export default function RegulatorPage() {
                 key={tab.id}
                 onClick={() => {
                   setActiveTab(tab.id);
-                  const currentTenant = searchParams.get('tenant') || tenant.id;
+                  const currentTenant = searchParams?.get('tenant') || tenant.id;
                   router.push(`/proxy/regulator?tenant=${currentTenant}&tab=${tab.id}`);
                 }}
                 className={cn(

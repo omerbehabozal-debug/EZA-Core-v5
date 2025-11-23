@@ -30,6 +30,7 @@ export default function PlatformPage() {
   const tenant = getTenant();
 
   useEffect(() => {
+    if (!searchParams) return;
     const tenantParam = searchParams.get('tenant');
     if (tenantParam && tenantParam !== tenant.id) {
       setTenant(tenantParam);
