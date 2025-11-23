@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import InternalProxyLayout from '@/components/proxy/InternalProxyLayout';
 import InternalProxySidebar from '@/components/proxy/InternalProxySidebar';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import OverviewTab from '@/components/proxy/tabs/OverviewTab';
 import InputRoutingTab from '@/components/proxy/tabs/InputRoutingTab';
 import ModelsOutputsTab from '@/components/proxy/tabs/ModelsOutputsTab';
