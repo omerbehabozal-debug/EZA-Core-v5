@@ -262,6 +262,17 @@ async def run_full_pipeline(
             score_adjustment = calculate_score_adjustment(all_policy_violations, total_policy_risk)
             adjusted_score = max(0.0, min(100.0, base_score + score_adjustment))
             
+            # Re-apply minimum score guarantees after policy adjustment
+            input_risk_level = input_analysis.get("risk_level", "low")
+            input_risk = input_analysis.get("risk_score", 0.0)
+            
+            if input_risk_level == "low":
+                # Low risk inputs should have minimum score of 70 (even after policy adjustment)
+                adjusted_score = max(70.0, adjusted_score)
+            elif input_risk_level == "medium" and 0.3 <= input_risk <= 0.7:
+                # Gray area (medium risk) should have minimum score of 50
+                adjusted_score = max(50.0, adjusted_score)
+            
             # Update score breakdown with policy information
             eza_score_result["policy_adjustment"] = score_adjustment
             eza_score_result["base_score"] = base_score
@@ -273,8 +284,20 @@ async def run_full_pipeline(
         except Exception as e:
             logger.error(f"EZA Score calculation failed: {str(e)}")
             # Don't fail the entire request, just log the error
-            response["eza_score"] = None
-            response["eza_score_breakdown"] = None
+            # Set a default score based on input risk level
+            input_risk_level = input_analysis.get("risk_level", "low")
+            if input_risk_level == "low":
+                default_score = 70.0
+            elif input_risk_level == "medium":
+                default_score = 50.0
+            else:
+                default_score = 30.0
+            response["eza_score"] = default_score
+            response["eza_score_breakdown"] = {
+                "error": str(e),
+                "final_score": default_score,
+                "safety_level": "yellow" if default_score >= 60 else "orange"
+            }
         
         # Step 9: Build mode-specific response data
         if mode == "standalone":

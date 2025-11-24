@@ -44,9 +44,9 @@ def analyze_input(text: str) -> Dict[str, Any]:
     
     # Gray area detection: if risk patterns exist but text contains masking/legitimate context
     masking_patterns = [
-        r"\b(writing|novel|story|book|research|study|educational|academic|researcher|security.researcher|kitap|roman|hikaye|araştırma|eğitim|araştırmacı|güvenlik.araştırmacısı)\b",
+        r"\b(writing|novel|story|book|research|study|educational|academic|researcher|security.researcher|writing.a.story|kitap|roman|hikaye|araştırma|eğitim|araştırmacı|güvenlik.araştırmacısı|hikaye.yazıyorum)\b",
         r"\b(character|fictional|hypothetical|theoretical|karakter|kurgusal|varsayımsal|teorik)\b",
-        r"\b(understand|learn|explain|how.works|common.vulnerabilities|anlamak|öğrenmek|açıkla|nasıl.çalışır|yaygın.güvenlik.açıkları)\b"
+        r"\b(understand|learn|explain|how.works|how.do|security.systems|common.vulnerabilities|anlamak|öğrenmek|açıkla|nasıl.çalışır|güvenlik.sistemleri|yaygın.güvenlik.açıkları)\b"
     ]
     
     has_masking = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in masking_patterns)
@@ -56,6 +56,20 @@ def analyze_input(text: str) -> Dict[str, Any]:
         if re.search(r"\b(vulnerabilities|security.systems|güvenlik.açıkları|güvenlik.sistemleri)\b", text_lower, re.IGNORECASE):
             # This is gray area - legitimate research context
             risk_score = 0.5  # Medium risk for gray area
+            if "gray_area" not in risk_flags:
+                risk_flags.append("gray_area")
+    
+    # Gray area: if masking patterns exist with security-related content, set medium risk
+    if has_masking and risk_score < 0.3:
+        # Check if text mentions security, hacking, bypass, etc. (potentially risky topics)
+        security_keywords = [
+            r"\b(security|hack|bypass|exploit|vulnerability|güvenlik|sızma|atlama|güvenlik.açığı)\b"
+        ]
+        has_security_keyword = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in security_keywords)
+        
+        if has_security_keyword:
+            # This is gray area - masking + security topic = medium risk
+            risk_score = 0.5
             if "gray_area" not in risk_flags:
                 risk_flags.append("gray_area")
     

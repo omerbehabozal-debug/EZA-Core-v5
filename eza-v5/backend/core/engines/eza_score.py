@@ -69,9 +69,33 @@ def compute_eza_score_v21(
     penalty = sum(deep_penalties) if deep_penalties else 0.0
     final_score = max(0.0, base_score - (penalty * 100.0))
     
+    # Minimum score guarantees based on input risk level (BEFORE redirect penalty)
+    input_risk_level = input_analysis.get("risk_level", "low")
+    min_score = None
+    
+    if input_risk_level == "low":
+        # Low risk inputs should have minimum score of 70
+        min_score = 70.0
+    elif input_risk_level == "medium" and 0.3 <= input_risk <= 0.7:
+        # Gray area (medium risk) should have minimum score of 50
+        min_score = 50.0
+    
+    # Apply minimum score guarantee
+    if min_score is not None:
+        final_score = max(min_score, final_score)
+    
     # Redirect penalty (if redirect is recommended)
+    # But don't apply full penalty for gray area (medium risk)
     if redirect.get("redirect", False):
-        final_score = max(0.0, final_score - 20.0)
+        # For gray area (medium risk), apply reduced penalty
+        if input_risk_level == "medium" and 0.3 <= input_risk <= 0.7:
+            final_score = max(min_score if min_score else 0.0, final_score - 10.0)  # Reduced penalty for gray area
+        else:
+            # For low risk, don't apply redirect penalty if it would go below minimum
+            if min_score is not None:
+                final_score = max(min_score, final_score - 20.0)
+            else:
+                final_score = max(0.0, final_score - 20.0)
     
     # Ensure score is in valid range
     final_score = min(100.0, max(0.0, final_score))
