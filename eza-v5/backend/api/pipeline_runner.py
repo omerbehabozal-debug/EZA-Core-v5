@@ -17,6 +17,7 @@ from backend.core.engines.eza_score import compute_eza_score_v21
 from backend.core.engines.deception_engine import analyze_deception
 from backend.core.engines.legal_risk import analyze_legal_risk
 from backend.core.engines.psych_pressure import analyze_psychological_pressure
+from backend.policy_engine.evaluator import evaluate_policies, get_policy_flags, calculate_score_adjustment
 from backend.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,18 @@ async def run_full_pipeline(
     }
     
     try:
-        # Step 1: Input analysis
+        # Step 1: Policy evaluation (input)
+        input_policy_violations = []
+        input_policy_risk = 0.0
+        try:
+            input_policy_violations, input_policy_risk = evaluate_policies(user_input)
+            logger.debug(f"Input policy evaluation: {len(input_policy_violations)} violations")
+        except Exception as e:
+            logger.warning(f"Policy evaluation failed: {str(e)}")
+            input_policy_violations = []
+            input_policy_risk = 0.0
+        
+        # Step 2: Input analysis
         try:
             input_analysis = analyze_input(user_input)
             logger.debug(f"Input analysis completed: {input_analysis.get('risk_level', 'unknown')}")
@@ -213,6 +225,25 @@ async def run_full_pipeline(
                 logger.warning(f"Deep analysis failed: {str(e)}")
                 # Continue without deep analysis
         
+        # Step 7.5: Policy evaluation (output)
+        try:
+            output_policy_violations, output_policy_risk = evaluate_policies(
+                user_input,
+                raw_llm_output or ""
+            )
+            logger.debug(f"Output policy evaluation: {len(output_policy_violations)} violations")
+        except Exception as e:
+            logger.warning(f"Output policy evaluation failed: {str(e)}")
+            output_policy_violations = []
+            output_policy_risk = 0.0
+        
+        # Combine policy violations
+        all_policy_violations = list(set(input_policy_violations + output_policy_violations))
+        total_policy_risk = max(input_policy_risk, output_policy_risk)
+        
+        # Get policy flags for alignment
+        policy_flags = get_policy_flags(all_policy_violations)
+        
         # Step 8: EZA Score v2.1 calculation
         try:
             eza_score_result = compute_eza_score_v21(
@@ -225,9 +256,20 @@ async def run_full_pipeline(
                 psych_pressure=psych_pressure
             )
             
-            response["eza_score"] = eza_score_result.get("final_score")
+            base_score = eza_score_result.get("final_score", 0.0)
+            
+            # Apply policy score adjustment
+            score_adjustment = calculate_score_adjustment(all_policy_violations, total_policy_risk)
+            adjusted_score = max(0.0, min(100.0, base_score + score_adjustment))
+            
+            # Update score breakdown with policy information
+            eza_score_result["policy_adjustment"] = score_adjustment
+            eza_score_result["base_score"] = base_score
+            eza_score_result["final_score"] = adjusted_score
+            
+            response["eza_score"] = adjusted_score
             response["eza_score_breakdown"] = eza_score_result
-            logger.debug(f"EZA Score computed: {response['eza_score']}")
+            logger.debug(f"EZA Score computed: {response['eza_score']} (base: {base_score}, adjustment: {score_adjustment})")
         except Exception as e:
             logger.error(f"EZA Score calculation failed: {str(e)}")
             # Don't fail the entire request, just log the error
@@ -236,9 +278,10 @@ async def run_full_pipeline(
         
         # Step 9: Build mode-specific response data
         if mode == "standalone":
-            # Standalone: only safe_answer
+            # Standalone: only safe_answer (but include policy violations if critical)
             response["data"] = {
-                "safe_answer": safe_answer or "Üzgünüm, şu anda yanıt veremiyorum."
+                "safe_answer": safe_answer or "Üzgünüm, şu anda yanıt veremiyorum.",
+                "policy_violations": all_policy_violations if policy_flags.get("has_critical") else []
             }
         
         elif mode == "proxy":
@@ -251,6 +294,8 @@ async def run_full_pipeline(
                 "alignment": alignment,
                 "redirect": redirect,
                 "safety_label": alignment.get("label", "Safe"),
+                "policy_violations": all_policy_violations,
+                "policy_flags": policy_flags,
                 "deep_analysis": {
                     "deception": deception,
                     "legal_risk": legal_risk,

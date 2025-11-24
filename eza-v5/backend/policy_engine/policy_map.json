@@ -1,0 +1,166 @@
+{
+  "policies": [
+    {
+      "id": "N1",
+      "category": "N",
+      "name": "Physical Harm Prevention",
+      "rule": "Prevent generation of content that could cause physical harm, including instructions for creating weapons, explosives, or dangerous substances",
+      "severity": "CRITICAL",
+      "triggers": ["bomb", "explosive", "weapon", "poison", "kill", "murder", "harm", "violence", "bomba", "silah", "zehir", "öldür", "zarar"],
+      "actions": ["block", "safe_reframe", "explain"],
+      "risk_modifier": 0.8
+    },
+    {
+      "id": "N2",
+      "category": "N",
+      "name": "Self-Harm Prevention",
+      "rule": "Prevent content that encourages or provides methods for self-harm or suicide",
+      "severity": "CRITICAL",
+      "triggers": ["suicide", "self-harm", "kill yourself", "end your life", "intihar", "kendine zarar", "kendini öldür"],
+      "actions": ["block", "safe_reframe", "provide_resources"],
+      "risk_modifier": 0.9
+    },
+    {
+      "id": "N3",
+      "category": "N",
+      "name": "Violence Against Others",
+      "rule": "Prevent content that promotes, encourages, or provides methods for violence against individuals or groups",
+      "severity": "CRITICAL",
+      "triggers": ["attack", "violence", "assault", "hurt someone", "harm others", "saldır", "şiddet", "zarar ver"],
+      "actions": ["block", "safe_reframe", "explain"],
+      "risk_modifier": 0.85
+    },
+    {
+      "id": "N4",
+      "category": "N",
+      "name": "Dangerous Activities",
+      "rule": "Prevent content that provides instructions for dangerous activities that could result in injury or death",
+      "severity": "HIGH",
+      "triggers": ["dangerous", "risky", "unsafe", "life-threatening", "tehlikeli", "riskli", "hayati tehlike"],
+      "actions": ["block", "safe_reframe", "warn"],
+      "risk_modifier": 0.7
+    },
+    {
+      "id": "F1",
+      "category": "F",
+      "name": "Fraud Prevention",
+      "rule": "Prevent content that facilitates fraud, scams, or financial deception",
+      "severity": "HIGH",
+      "triggers": ["fraud", "scam", "phishing", "steal money", "trick", "deceive", "dolandırıcılık", "aldat", "hile"],
+      "actions": ["block", "safe_reframe", "explain"],
+      "risk_modifier": 0.75
+    },
+    {
+      "id": "F2",
+      "category": "F",
+      "name": "Identity Theft Prevention",
+      "rule": "Prevent content that facilitates identity theft or unauthorized access to personal information",
+      "severity": "HIGH",
+      "triggers": ["identity theft", "steal identity", "impersonate", "fake identity", "kimlik hırsızlığı", "taklit et"],
+      "actions": ["block", "safe_reframe", "explain"],
+      "risk_modifier": 0.8
+    },
+    {
+      "id": "F3",
+      "category": "F",
+      "name": "Deceptive Practices",
+      "rule": "Prevent content that uses deception, manipulation, or false information to mislead users",
+      "severity": "HIGH",
+      "triggers": ["deceive", "mislead", "false information", "lie", "manipulate", "aldat", "yanılt", "yalan", "manipüle et"],
+      "actions": ["block", "safe_reframe", "explain"],
+      "risk_modifier": 0.7
+    },
+    {
+      "id": "Z1",
+      "category": "Z",
+      "name": "Privacy Protection",
+      "rule": "Protect user privacy and prevent unauthorized access to or sharing of personal information",
+      "severity": "HIGH",
+      "triggers": ["personal data", "private information", "unauthorized access", "breach privacy", "kişisel veri", "gizlilik ihlali"],
+      "actions": ["block", "safe_reframe", "warn"],
+      "risk_modifier": 0.75
+    },
+    {
+      "id": "Z2",
+      "category": "Z",
+      "name": "Data Security",
+      "rule": "Prevent content that facilitates unauthorized access to systems, data breaches, or security violations",
+      "severity": "CRITICAL",
+      "triggers": ["hack", "breach", "unauthorized access", "security violation", "data breach", "hackla", "güvenlik ihlali", "yetkisiz erişim"],
+      "actions": ["block", "safe_reframe", "explain"],
+      "risk_modifier": 0.85
+    },
+    {
+      "id": "Z3",
+      "category": "Z",
+      "name": "Personal Information Exposure",
+      "rule": "Prevent content that could lead to exposure of sensitive personal information (PII)",
+      "severity": "HIGH",
+      "triggers": ["social security", "credit card", "bank account", "password", "SSN", "PII", "gizli bilgi", "şifre", "banka hesabı"],
+      "actions": ["block", "safe_reframe", "warn"],
+      "risk_modifier": 0.7
+    },
+    {
+      "id": "Z4",
+      "category": "Z",
+      "name": "Surveillance and Monitoring",
+      "rule": "Prevent content that facilitates unauthorized surveillance or monitoring of individuals",
+      "severity": "HIGH",
+      "triggers": ["surveillance", "spy", "monitor", "track", "stalk", "gözetle", "izle", "takip et"],
+      "actions": ["block", "safe_reframe", "warn"],
+      "risk_modifier": 0.7
+    },
+    {
+      "id": "A1",
+      "category": "A",
+      "name": "Autonomy Respect",
+      "rule": "Respect user autonomy and prevent content that manipulates or coerces users into decisions",
+      "severity": "HIGH",
+      "triggers": ["force", "coerce", "manipulate", "pressure", "must do", "have to", "zorla", "baskı yap", "manipüle et"],
+      "actions": ["block", "safe_reframe", "explain"],
+      "risk_modifier": 0.7
+    },
+    {
+      "id": "A2",
+      "category": "A",
+      "name": "Informed Consent",
+      "rule": "Ensure users have informed consent and prevent content that withholds information or uses deception",
+      "severity": "HIGH",
+      "triggers": ["withhold", "hide information", "secret", "don't tell", "bilgi sakla", "gizle", "söyleme"],
+      "actions": ["block", "safe_reframe", "explain"],
+      "risk_modifier": 0.65
+    },
+    {
+      "id": "A3",
+      "category": "A",
+      "name": "Psychological Manipulation",
+      "rule": "Prevent content that uses psychological manipulation, emotional coercion, or undue influence",
+      "severity": "HIGH",
+      "triggers": ["guilt trip", "emotional manipulation", "pressure", "coerce", "suçluluk", "duygusal manipülasyon", "baskı"],
+      "actions": ["block", "safe_reframe", "explain"],
+      "risk_modifier": 0.7
+    },
+    {
+      "id": "A4",
+      "category": "A",
+      "name": "Free Will Protection",
+      "rule": "Protect user free will and prevent content that restricts or undermines autonomous decision-making",
+      "severity": "MEDIUM",
+      "triggers": ["control", "restrict", "limit choice", "no choice", "kontrol et", "kısıtla", "seçenek yok"],
+      "actions": ["block", "safe_reframe", "warn"],
+      "risk_modifier": 0.6
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2024-01-01",
+    "total_policies": 15,
+    "categories": {
+      "N": "Physical Harm Prevention",
+      "F": "Fraud and Deception Prevention",
+      "Z": "Privacy and Data Security",
+      "A": "Autonomy and Manipulation Prevention"
+    }
+  }
+}
+
