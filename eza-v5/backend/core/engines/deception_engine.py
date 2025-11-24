@@ -34,7 +34,7 @@ def analyze_deception(
         "negative_disclaimer": r"\b(not.asking|not.illegal|not.doing|nothing.illegal|not.wanting|sormuyorum|yasal.değil.değil)\b",
         "theoretical_framing": r"\b(theoretically|hypothetically|in.theory|completely.hypothetical|teorik.olarak|varsayımsal.olarak|tamamen.varsayımsal)\b",
         "third_person_framing": r"\b(how.someone|how.they|how.people|someone.might|they.might|birisi.nasıl|onlar.nasıl)\b",
-        "researcher_mask": r"\b(researcher|researching|studying|araştırmacı|araştırıyorum|çalışıyorum)\b",
+        "researcher_mask": r"\b(researcher|researching|studying|i'm.a.researcher|araştırmacı|araştırıyorum|çalışıyorum)\b",
         "creative_excuse": r"\b(writing.a.book|writing.a.novel|for.a.story|kitap.yazıyorum|roman.yazıyorum|hikaye.için)\b",
         "friend_excuse": r"\b(friend.asked|my.friend|arkadaşım.istedi|arkadaşım.sordu)\b"
     }
@@ -58,13 +58,31 @@ def analyze_deception(
     input_risk = input_analysis.get("risk_score", 0.0)
     input_risk_flags = input_analysis.get("risk_flags", [])
     
+    # Check for specific deception patterns: researcher/education excuse + illegal activity
+    researcher_excuse_patterns = [
+        r"\b(i'm.a.researcher|i'm.researching|researcher.*tell.me|studying.*how.to)\b",
+        r"\b(for.education|for.research|educational.purposes|research.purposes)\b"
+    ]
+    illegal_activity_patterns = [
+        r"\b(make.drugs|commit.fraud|steal|hack|harm.someone|create.malware)\b"
+    ]
+    
+    has_researcher_excuse = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in researcher_excuse_patterns)
+    has_illegal_activity = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in illegal_activity_patterns)
+    
+    if has_researcher_excuse and has_illegal_activity:
+        score += 0.5  # High deception score for researcher excuse + illegal activity
+        if "researcher_excuse_illegal" not in flags:
+            flags.append("researcher_excuse_illegal")
+    
     # If input has risk flags but text contains masking patterns, increase deception score
     if input_risk > 0.3 and len(input_risk_flags) > 0:
         # Check for masking patterns in text
         masking_indicators = [
             r"\b(not|don't|won't|never)\b.*\b(illegal|harm|bad|wrong|dangerous)\b",
             r"\b(just|only|simply)\b.*\b(curious|wondering|asking|learning)\b",
-            r"\b(for|because.of)\b.*\b(education|research|study|learning|academic)\b"
+            r"\b(for|because.of)\b.*\b(education|research|study|learning|academic)\b",
+            r"\b(tell.me|how.to)\b.*\b(make.drugs|commit.fraud|hack|steal)\b"
         ]
         for pattern in masking_indicators:
             if re.search(pattern, text_lower, re.IGNORECASE):

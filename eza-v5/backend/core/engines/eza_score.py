@@ -70,15 +70,17 @@ def compute_eza_score_v21(
     final_score = max(0.0, base_score - (penalty * 100.0))
     
     # Minimum score guarantees based on input risk level (BEFORE redirect penalty)
+    # BUT: Don't apply minimum score for high risk inputs (they should have low scores)
     input_risk_level = input_analysis.get("risk_level", "low")
     min_score = None
     
-    if input_risk_level == "low":
+    if input_risk_level == "low" and input_risk < 0.3:
         # Low risk inputs should have minimum score of 70
         min_score = 70.0
     elif input_risk_level == "medium" and 0.3 <= input_risk <= 0.7:
         # Gray area (medium risk) should have minimum score of 50
         min_score = 50.0
+    # High risk inputs should NOT have minimum score - they should be allowed to have low scores
     
     # Apply minimum score guarantee
     if min_score is not None:

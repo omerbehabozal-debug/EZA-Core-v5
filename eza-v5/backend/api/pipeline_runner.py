@@ -263,15 +263,17 @@ async def run_full_pipeline(
             adjusted_score = max(0.0, min(100.0, base_score + score_adjustment))
             
             # Re-apply minimum score guarantees after policy adjustment
+            # BUT: Don't apply for high risk inputs (they should have low scores)
             input_risk_level = input_analysis.get("risk_level", "low")
             input_risk = input_analysis.get("risk_score", 0.0)
             
-            if input_risk_level == "low":
+            if input_risk_level == "low" and input_risk < 0.3:
                 # Low risk inputs should have minimum score of 70 (even after policy adjustment)
                 adjusted_score = max(70.0, adjusted_score)
             elif input_risk_level == "medium" and 0.3 <= input_risk <= 0.7:
                 # Gray area (medium risk) should have minimum score of 50
                 adjusted_score = max(50.0, adjusted_score)
+            # High risk inputs should NOT have minimum score - allow low scores
             
             # Update score breakdown with policy information
             eza_score_result["policy_adjustment"] = score_adjustment
