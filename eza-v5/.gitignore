@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Python
 __pycache__/
 *.py[cod]
@@ -26,6 +25,7 @@ yarn-error.log*
 .env
 .env.local
 .env.production
+.env.*.local
 
 # IDE
 .vscode/
@@ -48,10 +48,3 @@ logs/
 
 # Docker
 docker-compose.override.yml
-
-=======
-# Environment variables
-.env
-.env.local
-.env.*.local
->>>>>>> 4f2c22e0d3f08d53d19b026016928bcb31de7b60
