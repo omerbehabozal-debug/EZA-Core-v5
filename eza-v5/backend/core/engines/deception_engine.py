@@ -20,12 +20,17 @@ def analyze_deception(
     flags = []
     score = 0.0
     
-    # Deception patterns
+    # Deception patterns (English and Turkish)
     deception_patterns = {
-        "false_urgency": r"\b(urgent|immediately|now|limited.time)\b",
-        "authority_claim": r"\b(official|government|verified|certified)\b",
-        "emotional_manipulation": r"\b(you.must|you.should|everyone.is)\b",
-        "withholding_info": r"\b(secret|confidential|don't.tell)\b"
+        "false_urgency": r"\b(urgent|immediately|now|limited.time|acil|hemen|şimdi)\b",
+        "authority_claim": r"\b(official|government|verified|certified|resmi|hükümet|doğrulanmış)\b",
+        "emotional_manipulation": r"\b(you.must|you.should|everyone.is|yapmalısın|herkes)\b",
+        "withholding_info": r"\b(secret|confidential|don't.tell|gizli|söyleme)\b",
+        "reverse_questioning": r"\b(tersinden|reverse|opposite|ters)\b",
+        "innocent_masking": r"\b(masum|innocent|just.for.education|sadece.eğitim|for.research|araştırma.için|kötü.bir.şey.yapmayacağım|won't.do.anything.bad)\b",
+        "indirect_intent": r"\b(dolaylı|indirect|implicit|dolaylı.olarak|implicitly)\b",
+        "education_excuse": r"\b(just.for.education|for.research|educational|eğitim.için|araştırma|academic)\b",
+        "reassurance": r"\b(kötü.bir.şey.yapmayacağım|won't.harm|just.curious|sadece.merak|harmless|zararsız)\b"
     }
     
     text_lower = text.lower()
@@ -34,7 +39,11 @@ def analyze_deception(
         matches = len(re.findall(pattern, text_lower, re.IGNORECASE))
         if matches > 0:
             flags.append(pattern_name)
-            score += matches * 0.2
+            # Higher weight for specific deception patterns
+            if pattern_name in ["reverse_questioning", "innocent_masking", "indirect_intent", "education_excuse", "reassurance"]:
+                score += matches * 0.3  # Higher weight for these patterns
+            else:
+                score += matches * 0.2
     
     # Check consistency with memory
     if memory:

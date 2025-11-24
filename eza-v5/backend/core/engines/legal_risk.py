@@ -20,12 +20,17 @@ def analyze_legal_risk(
     risk_categories = []
     risk_score = 0.0
     
-    # Check for illegal content patterns
+    # Check for illegal content patterns (English and Turkish)
     illegal_patterns = {
-        "copyright": r"\b(copyright|pirate|illegal.download)\b",
-        "privacy": r"\b(personal.data|gdpr|privacy.violation)\b",
-        "defamation": r"\b(defame|slander|libel)\b",
-        "fraud": r"\b(fraud|scam|phishing)\b"
+        "copyright": r"\b(copyright|pirate|illegal.download|telif|korsan)\b",
+        "privacy": r"\b(personal.data|gdpr|privacy.violation|kişisel.veri|gizlilik.ihlali)\b",
+        "defamation": r"\b(defame|slander|libel|iftira|karalama)\b",
+        "fraud": r"\b(fraud|scam|phishing|dolandırıcılık|aldatma|hile)\b",
+        "hacking": r"\b(hack|hacking|unauthorized.access|break.into|bypass|exploit|sızma|hackleme|yetkisiz.erişim|kırma|atlama)\b",
+        "drug_production": r"\b(drug|drugs|illegal.drugs|drug.production|make.drugs|produce.drugs|ilaç.üretimi|uyuşturucu|uyuşturucu.üretimi|ilaç.yapımı)\b",
+        "violence": r"\b(kill|murder|harm|attack|violence|öldür|cinayet|zarar|saldırı|şiddet)\b",
+        "weapons": r"\b(weapon|weapons|bomb|explosive|silah|bomba|patlayıcı)\b",
+        "theft": r"\b(steal|theft|robbery|çal|hırsızlık|soygun)\b"
     }
     
     input_text = report.get("input", {}).get("raw_text", "")
@@ -36,7 +41,13 @@ def analyze_legal_risk(
     for category, pattern in illegal_patterns.items():
         if re.search(pattern, combined_text, re.IGNORECASE):
             risk_categories.append(category)
-            risk_score = max(risk_score, 0.5)
+            # Higher risk scores for serious illegal activities
+            if category in ["hacking", "drug_production", "violence", "weapons"]:
+                risk_score = max(risk_score, 0.8)  # High risk for these
+            elif category in ["fraud", "theft"]:
+                risk_score = max(risk_score, 0.6)  # Medium-high risk
+            else:
+                risk_score = max(risk_score, 0.5)  # Medium risk
     
     # Check for personal data exposure
     # Simplified check - in production, use proper PII detection

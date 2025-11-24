@@ -15,20 +15,31 @@ def analyze_input(text: str) -> Dict[str, Any]:
     risk_flags: List[str] = []
     risk_score = 0.0
     
-    # Basic risk patterns (lightweight)
+    # Basic risk patterns (lightweight) - English and Turkish
     risk_patterns = {
-        "violence": [r"\b(kill|murder|harm|attack|violence)\b", 0.7],
-        "illegal": [r"\b(illegal|drug|weapon|hack|steal)\b", 0.6],
-        "harmful": [r"\b(suicide|self.harm|dangerous)\b", 0.8],
-        "manipulation": [r"\b(manipulate|trick|deceive|scam)\b", 0.5],
+        "violence": [r"\b(kill|murder|harm|attack|violence|öldür|cinayet|zarar|saldırı|şiddet)\b", 0.7],
+        "illegal": [r"\b(illegal|drug|weapon|hack|steal|yasal.değil|uyuşturucu|ilaç|silah|hackleme|çal)\b", 0.6],
+        "harmful": [r"\b(suicide|self.harm|dangerous|intihar|kendine.zarar|tehlikeli)\b", 0.8],
+        "manipulation": [r"\b(manipulate|trick|deceive|scam|manipüle|aldat|hile|dolandır)\b", 0.5],
+        "hacking": [r"\b(hack|hacking|unauthorized.access|break.into|bypass|exploit|sızma|hackleme|yetkisiz.erişim|kırma|atlama)\b", 0.7],
+        "drug_production": [r"\b(drug|drugs|make.drugs|produce.drugs|drug.production|uyuşturucu|ilaç.üretimi|uyuşturucu.üretimi|ilaç.yapımı)\b", 0.8],
     }
     
     text_lower = text.lower()
     
+    # Calculate risk score - accumulate scores for multiple patterns
+    pattern_scores = []
     for pattern_name, (pattern, score) in risk_patterns.items():
         if re.search(pattern, text_lower, re.IGNORECASE):
             risk_flags.append(pattern_name)
-            risk_score = max(risk_score, score)
+            pattern_scores.append(score)
+    
+    # Risk score calculation: use max as base, but add penalty for multiple patterns
+    if pattern_scores:
+        risk_score = max(pattern_scores)
+        # Add penalty for multiple risk patterns (up to 0.2 additional)
+        if len(pattern_scores) > 1:
+            risk_score = min(1.0, risk_score + (len(pattern_scores) - 1) * 0.1)
     
     # Intent detection (simplified)
     intent = "information"

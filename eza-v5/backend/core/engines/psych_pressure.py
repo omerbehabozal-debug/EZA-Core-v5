@@ -19,13 +19,15 @@ def analyze_psychological_pressure(
     patterns = []
     score = 0.0
     
-    # Pressure patterns
+    # Pressure patterns (English and Turkish)
     pressure_patterns = {
-        "guilt_trip": r"\b(you.owe|you.should.feel|disappointed)\b",
-        "fear_appeal": r"\b(danger|threat|consequences|punishment)\b",
-        "social_proof": r"\b(everyone.is|all.people|most.users)\b",
-        "scarcity": r"\b(limited|only.few|last.chance)\b",
-        "reciprocity": r"\b(I.did.for.you|I.helped.you)\b"
+        "guilt_trip": r"\b(you.owe|you.should.feel|disappointed|borçlusun|hayal.kırıklığı)\b",
+        "fear_appeal": r"\b(danger|threat|consequences|punishment|tehlike|tehdit|sonuç|ceza)\b",
+        "social_proof": r"\b(everyone.is|all.people|most.users|herkes|tüm.insanlar|çoğu.kullanıcı)\b",
+        "scarcity": r"\b(limited|only.few|last.chance|sınırlı|az|son.şans)\b",
+        "reciprocity": r"\b(I.did.for.you|I.helped.you|senin.için.yaptım|yardım.ettim)\b",
+        "urgency": r"\b(urgent|immediately|now|acil|hemen|şimdi|lütfen.acil|please.urgent)\b",
+        "reassurance": r"\b(kötü.bir.şey.yapmayacağım|won't.do.anything.bad|zararsız|harmless|just.curious|sadece.merak)\b"
     }
     
     text_lower = text.lower()
@@ -37,7 +39,11 @@ def analyze_psychological_pressure(
                 "type": pattern_name,
                 "count": matches
             })
-            score += matches * 0.15
+            # Higher weight for urgency and reassurance patterns
+            if pattern_name in ["urgency", "reassurance"]:
+                score += matches * 0.25  # Higher weight for these patterns
+            else:
+                score += matches * 0.15
     
     score = min(score, 1.0)
     
