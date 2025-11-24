@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 async def run_full_pipeline(
     user_input: str,
     mode: Literal["standalone", "proxy", "proxy-lite"],
-    output_text: Optional[str] = None
+    output_text: Optional[str] = None,
+    llm_override: Optional[Any] = None
 ) -> Dict[str, Any]:
     """
     Run full EZA pipeline for a given user input and mode.
@@ -42,6 +43,7 @@ async def run_full_pipeline(
         user_input: User input text to process
         mode: Pipeline mode - "standalone", "proxy", or "proxy-lite"
         output_text: Optional pre-analyzed output text (for proxy-lite mode)
+        llm_override: Optional LLM override for testing (must have async generate() method)
     
     Returns:
         Dictionary with unified response format:
@@ -87,6 +89,18 @@ async def run_full_pipeline(
         if output_text:
             raw_llm_output = output_text
             logger.debug(f"Using provided output_text: {len(raw_llm_output)} chars")
+        elif llm_override:  # Use override LLM for testing
+            try:
+                raw_llm_output = await llm_override.generate(user_input)
+                logger.debug(f"LLM override response received: {len(raw_llm_output) if raw_llm_output else 0} chars")
+            except Exception as e:
+                logger.error(f"LLM override failed: {str(e)}")
+                response["ok"] = False
+                response["error"] = {
+                    "error_code": "LLM_OVERRIDE_ERROR",
+                    "error_message": f"LLM override failed: {str(e)}"
+                }
+                return response
         elif mode != "proxy-lite":  # proxy-lite might receive pre-analyzed output
             try:
                 # Determine depth based on mode
