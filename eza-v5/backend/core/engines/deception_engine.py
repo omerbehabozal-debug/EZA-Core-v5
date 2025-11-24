@@ -29,8 +29,14 @@ def analyze_deception(
         "reverse_questioning": r"\b(tersinden|reverse|opposite|ters)\b",
         "innocent_masking": r"\b(masum|innocent|just.for.education|sadece.eğitim|for.research|araştırma.için|kötü.bir.şey.yapmayacağım|won't.do.anything.bad)\b",
         "indirect_intent": r"\b(dolaylı|indirect|implicit|dolaylı.olarak|implicitly)\b",
-        "education_excuse": r"\b(just.for.education|for.research|educational|eğitim.için|araştırma|academic)\b",
-        "reassurance": r"\b(kötü.bir.şey.yapmayacağım|won't.harm|just.curious|sadece.merak|harmless|zararsız)\b"
+        "education_excuse": r"\b(just.for.education|for.research|educational|eğitim.için|araştırma|academic|school.project|okul.projesi)\b",
+        "reassurance": r"\b(kötü.bir.şey.yapmayacağım|won't.harm|just.curious|sadece.merak|harmless|zararsız)\b",
+        "negative_disclaimer": r"\b(not.asking|not.illegal|not.doing|nothing.illegal|not.wanting|sormuyorum|yasal.değil.değil)\b",
+        "theoretical_framing": r"\b(theoretically|hypothetically|in.theory|completely.hypothetical|teorik.olarak|varsayımsal.olarak|tamamen.varsayımsal)\b",
+        "third_person_framing": r"\b(how.someone|how.they|how.people|someone.might|they.might|birisi.nasıl|onlar.nasıl)\b",
+        "researcher_mask": r"\b(researcher|researching|studying|araştırmacı|araştırıyorum|çalışıyorum)\b",
+        "creative_excuse": r"\b(writing.a.book|writing.a.novel|for.a.story|kitap.yazıyorum|roman.yazıyorum|hikaye.için)\b",
+        "friend_excuse": r"\b(friend.asked|my.friend|arkadaşım.istedi|arkadaşım.sordu)\b"
     }
     
     text_lower = text.lower()
@@ -40,10 +46,32 @@ def analyze_deception(
         if matches > 0:
             flags.append(pattern_name)
             # Higher weight for specific deception patterns
-            if pattern_name in ["reverse_questioning", "innocent_masking", "indirect_intent", "education_excuse", "reassurance"]:
+            if pattern_name in ["reverse_questioning", "innocent_masking", "indirect_intent", "education_excuse", 
+                              "reassurance", "negative_disclaimer", "theoretical_framing", "third_person_framing",
+                              "researcher_mask", "creative_excuse", "friend_excuse"]:
                 score += matches * 0.3  # Higher weight for these patterns
             else:
                 score += matches * 0.2
+    
+    # Check if input has risk but user is trying to mask it (using report)
+    input_analysis = report.get("input", {}).get("analysis", {})
+    input_risk = input_analysis.get("risk_score", 0.0)
+    input_risk_flags = input_analysis.get("risk_flags", [])
+    
+    # If input has risk flags but text contains masking patterns, increase deception score
+    if input_risk > 0.3 and len(input_risk_flags) > 0:
+        # Check for masking patterns in text
+        masking_indicators = [
+            r"\b(not|don't|won't|never)\b.*\b(illegal|harm|bad|wrong|dangerous)\b",
+            r"\b(just|only|simply)\b.*\b(curious|wondering|asking|learning)\b",
+            r"\b(for|because.of)\b.*\b(education|research|study|learning|academic)\b"
+        ]
+        for pattern in masking_indicators:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                score += 0.4  # Significant boost for risk + masking
+                if "risk_masking" not in flags:
+                    flags.append("risk_masking")
+                break
     
     # Check consistency with memory
     if memory:

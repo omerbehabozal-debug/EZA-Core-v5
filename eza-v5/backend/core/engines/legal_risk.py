@@ -23,7 +23,7 @@ def analyze_legal_risk(
     # Check for illegal content patterns (English and Turkish)
     illegal_patterns = {
         "copyright": r"\b(copyright|pirate|illegal.download|telif|korsan)\b",
-        "privacy": r"\b(personal.data|gdpr|privacy.violation|kişisel.veri|gizlilik.ihlali)\b",
+        "privacy": r"\b(personal.data|gdpr|privacy.violation|private.messages|without.permission|unauthorized.access|kişisel.veri|gizlilik.ihlali|özel.mesajlar|izin.olmadan|yetkisiz.erişim)\b",
         "defamation": r"\b(defame|slander|libel|iftira|karalama)\b",
         "fraud": r"\b(fraud|scam|phishing|dolandırıcılık|aldatma|hile)\b",
         "hacking": r"\b(hack|hacking|unauthorized.access|break.into|bypass|exploit|sızma|hackleme|yetkisiz.erişim|kırma|atlama)\b",
