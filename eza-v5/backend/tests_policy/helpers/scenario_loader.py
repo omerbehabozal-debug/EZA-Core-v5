@@ -10,13 +10,18 @@ from typing import Dict, Any, List
 
 def load_policy_scenarios() -> Dict[str, Any]:
     """Load policy test scenarios from JSON"""
-    path = Path(__file__).parent / "policy_scenarios.json"
+    # Try extended first, fallback to original
+    extended_path = Path(__file__).parent / "policy_scenarios_extended.json"
+    original_path = Path(__file__).parent / "policy_scenarios.json"
     
-    if not path.exists():
-        raise FileNotFoundError(f"Policy scenarios not found: {path}")
-    
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    if extended_path.exists():
+        with open(extended_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    elif original_path.exists():
+        with open(original_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    else:
+        raise FileNotFoundError(f"Policy scenarios not found")
 
 
 def get_scenarios_by_policy(policy_id: str) -> List[Dict[str, Any]]:
