@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     FALLBACK_LLM_PROVIDER: str = "openai"
     LLM_MODEL: str = "gpt-4o-mini"  # Default model for LLM calls
     
+    # LLM Timeout Settings
+    LLM_TIMEOUT_SECONDS: float = 12.0  # Timeout for LLM API calls
+    LLM_CONNECT_TIMEOUT_SECONDS: float = 4.0  # Connection timeout
+    
+    # Pipeline Settings
+    PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout
+    STANDALONE_MAX_TOKENS: int = 180  # Max tokens for standalone mode
+    PROXY_MAX_TOKENS: int = 512  # Max tokens for proxy mode
+    
     # Regulation
     DEFAULT_POLICY_PACK: str = "eu_ai"  # rtuk, btk, eu_ai, oecd
     

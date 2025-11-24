@@ -13,7 +13,7 @@ backend_dir = Path(__file__).parent
 project_root = backend_dir.parent
 sys.path.insert(0, str(project_root))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
@@ -25,6 +25,10 @@ from backend.routers import (
 from backend.core.utils.dependencies import init_db, init_redis, init_vector_db
 from backend.learning.vector_store import VectorStore
 from backend.config import get_settings
+from backend.api.pipeline_runner import run_full_pipeline
+from backend.core.schemas.pipeline import (
+    PipelineResponse, StandaloneRequest, ProxyRequest, ProxyLiteRequest
+)
 
 # Configure logging
 logging.basicConfig(
@@ -131,3 +135,48 @@ async def root():
             "audit-logging"
         ]
     }
+
+
+# ============================================================================
+# Unified Pipeline Endpoints
+# ============================================================================
+
+@app.post("/api/standalone", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
+async def standalone_endpoint(request: StandaloneRequest):
+    """
+    Standalone mode endpoint - Unified pipeline
+    
+    Returns only safe_answer in data field.
+    """
+    result = await run_full_pipeline(user_input=request.text, mode="standalone")
+    # Always return 200, even if ok=False (for frontend convenience)
+    return result
+
+
+@app.post("/api/proxy", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
+async def proxy_endpoint(request: ProxyRequest):
+    """
+    Proxy mode endpoint - Unified pipeline
+    
+    Returns raw outputs, scores, and detailed analysis report in data field.
+    """
+    result = await run_full_pipeline(user_input=request.message, mode="proxy")
+    # Always return 200, even if ok=False (for frontend convenience)
+    return result
+
+
+@app.post("/api/proxy-lite", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
+async def proxy_lite_endpoint(request: ProxyLiteRequest):
+    """
+    Proxy-Lite mode endpoint - Unified pipeline
+    
+    Returns concise summary with risk levels and recommendations in data field.
+    """
+    # For proxy-lite, if output_text is provided, pass it to the pipeline
+    result = await run_full_pipeline(
+        user_input=request.message,
+        mode="proxy-lite",
+        output_text=request.output_text
+    )
+    # Always return 200, even if ok=False (for frontend convenience)
+    return result

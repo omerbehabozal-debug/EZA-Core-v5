@@ -90,7 +90,7 @@ async def _call_openai_chat(
     *,
     temperature: float = 0.2,
     max_tokens: int = 512,
-    timeout_seconds: float = 12.0,
+    timeout_seconds: Optional[float] = None,
     mode: str = "standalone",
 ) -> str:
     """
@@ -110,6 +110,14 @@ async def _call_openai_chat(
             message="OPENAI_API_KEY not configured in .env file or environment variables.",
             is_retryable=False
         )
+    
+    # Use config timeout if not provided
+    if timeout_seconds is None:
+        settings = get_settings()
+        timeout_seconds = settings.LLM_TIMEOUT_SECONDS
+        connect_timeout = settings.LLM_CONNECT_TIMEOUT_SECONDS
+    else:
+        connect_timeout = 4.0
 
     headers = {
         "Authorization": f"Bearer {LLM_API_KEY}",
@@ -125,7 +133,7 @@ async def _call_openai_chat(
         "max_tokens": max_tokens,
     }
 
-    timeout = httpx.Timeout(timeout_seconds, connect=4.0)
+    timeout = httpx.Timeout(timeout_seconds, connect=connect_timeout)
     
     # Start timing
     t0 = time.perf_counter()
