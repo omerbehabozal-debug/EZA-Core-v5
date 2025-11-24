@@ -1,7 +1,7 @@
 /**
- * Next.js Middleware - Domain-based Access Control
+ * Next.js Middleware - EZA Domain-based Access Control
  * 
- * This middleware enforces domain-specific path access rules.
+ * Enforces domain-specific path access rules.
  * Each domain can only access its allowed paths, all other paths return 403 Forbidden.
  */
 
@@ -30,7 +30,6 @@ const DOMAIN_ROUTES: Record<string, string[]> = {
  */
 const GLOBAL_ALLOWED_PATHS = [
   '/_next',
-  '/api',
   '/favicon.ico',
   '/robots.txt',
   '/sitemap.xml',
@@ -52,7 +51,6 @@ function isPathAllowedForDomain(pathname: string, domain: string): boolean {
   const allowedPaths = DOMAIN_ROUTES[domain];
   
   if (!allowedPaths) {
-    // Unknown domain - deny access
     return false;
   }
   
@@ -63,34 +61,17 @@ function isPathAllowedForDomain(pathname: string, domain: string): boolean {
 }
 
 /**
- * Get clean hostname from request headers
- * Removes port number if present
- * Also handles Vercel preview deployments (e.g., "project-name-abc123.vercel.app")
+ * Get clean hostname from request headers (lowercase)
  */
 function getHostname(request: NextRequest): string {
-  const host = request.headers.get('host') || '';
-  // Remove port number if present (e.g., "proxy.ezacore.ai:3000" -> "proxy.ezacore.ai")
-  const hostname = host.split(':')[0];
-  
-  // If it's a Vercel deployment domain, allow all paths (development/preview mode)
-  if (hostname.includes('.vercel.app') || hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
-    return '*'; // Special marker for development/preview
-  }
-  
-  return hostname;
+  const host = request.headers.get('host')?.toLowerCase() || '';
+  // Remove port number if present
+  return host.split(':')[0];
 }
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const hostname = getHostname(request);
-  
-  // Debug: log for troubleshooting (remove in production if needed)
-  // console.log('Middleware:', { hostname, pathname });
-  
-  // Allow all paths for Vercel preview/development domains
-  if (hostname === '*') {
-    return NextResponse.next();
-  }
   
   // Allow global paths for all domains
   if (isGloballyAllowed(pathname)) {
@@ -104,8 +85,8 @@ export function middleware(request: NextRequest) {
       // Redirect to first allowed path
       return NextResponse.redirect(new URL(allowedPaths[0], request.url));
     }
-    // Unknown domain - deny access
-    return new NextResponse('Forbidden', { status: 403 });
+    // Unknown domain - return 403 Forbidden
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   
   // Check if path is allowed for this domain
@@ -113,20 +94,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   
-  // Path not allowed for this domain - return 403 Forbidden
-  return new NextResponse('Forbidden', { status: 403 });
+  // Path not allowed for this domain - return 403 Forbidden JSON
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (already handled by GLOBAL_ALLOWED_PATHS)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: '/:path*',
 };
