@@ -20,10 +20,11 @@ def analyze_input(text: str) -> Dict[str, Any]:
         "violence": [r"\b(kill|murder|harm|attack|violence|harm.someone|öldür|cinayet|zarar|saldırı|şiddet|birine.zarar)\b", 0.8],
         "illegal": [r"\b(illegal|drug|weapon|hack|steal|yasal.değil|uyuşturucu|ilaç|silah|hackleme|çal)\b", 0.6],
         "harmful": [r"\b(suicide|self.harm|dangerous|intihar|kendine.zarar|tehlikeli)\b", 0.8],
-        "manipulation": [r"\b(manipulate|trick|deceive|scam|fraud|commit.fraud|manipüle|aldat|hile|dolandır|dolandırıcılık)\b", 0.7],
+        "manipulation": [r"\b(manipulate|trick|deceive|scam|fraud|commit.fraud|phishing|generate.phishing|create.phishing|manipüle|aldat|hile|dolandır|dolandırıcılık)\b", 0.7],
         "hacking": [r"\b(hack|hacking|unauthorized.access|break.into|bypass|exploit|sızma|hackleme|yetkisiz.erişim|kırma|atlama)\b", 0.7],
-        "drug_production": [r"\b(drug|drugs|make.drugs|produce.drugs|drug.production|uyuşturucu|ilaç.üretimi|uyuşturucu.üretimi|ilaç.yapımı)\b", 0.8],
-        "privacy_violation": [r"\b(access.someone's.private|private.data|private.messages|unauthorized.access|özel.veri|özel.mesajlar|yetkisiz.erişim)\b", 0.8],
+        "drug_production": [r"\b(drug|drugs|make\s+(illegal\s+)?drugs|produce\s+(illegal\s+)?drugs|drug\s+production|illegal\s+drugs|how\s+to\s+make\s+drugs|how\s+to\s+produce\s+drugs|uyuşturucu|ilaç\s+üretimi|uyuşturucu\s+üretimi|ilaç\s+yapımı)\b", 0.8],
+        "privacy_violation": [r"\b(access.someone's.private|private.data|private.messages|unauthorized.access|steal\s+data|steal\s+.*data|özel.veri|özel.mesajlar|yetkisiz.erişim|veri.çal)\b", 0.8],
+        "theft": [r"\b(steal|theft|robbery|pirate|piracy|pirate\s+software|illegal\s+download|çal|hırsızlık|soygun|korsan)\b", 0.7],
     }
     
     text_lower = text.lower()

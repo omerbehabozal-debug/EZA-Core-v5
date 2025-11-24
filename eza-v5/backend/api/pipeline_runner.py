@@ -219,7 +219,7 @@ async def run_full_pipeline(
                 }
                 
                 deception = analyze_deception(user_input, report)
-                psych_pressure = analyze_psychological_pressure(user_input)
+                psych_pressure = analyze_psychological_pressure(user_input, deception_result=deception)
                 legal_risk = analyze_legal_risk(input_analysis, output_analysis, report)
             except Exception as e:
                 logger.warning(f"Deep analysis failed: {str(e)}")
@@ -262,18 +262,123 @@ async def run_full_pipeline(
             score_adjustment = calculate_score_adjustment(all_policy_violations, total_policy_risk)
             adjusted_score = max(0.0, min(100.0, base_score + score_adjustment))
             
-            # Re-apply minimum score guarantees after policy adjustment
-            # BUT: Don't apply for high risk inputs (they should have low scores)
+            # Re-apply minimum/maximum score guarantees after policy adjustment
+            # BUT: Don't apply minimum for high risk inputs (they should have low scores)
             input_risk_level = input_analysis.get("risk_level", "low")
             input_risk = input_analysis.get("risk_score", 0.0)
             
-            if input_risk_level == "low" and input_risk < 0.3:
+            # Apply maximum score limit for high risk inputs
+            # If deception/legal risk detected, apply even stricter limits
+            # Use deception, legal_risk, psych_pressure variables directly (they're already created)
+            has_deception_high = deception and deception.get("score", 0.0) > 0.3 if deception else False
+            has_legal_risk_high = legal_risk and legal_risk.get("risk_score", 0.0) > 0.3 if legal_risk else False
+            has_both_deception_legal = has_deception_high and has_legal_risk_high
+            
+            # Check for severe illegal activities (drug production, etc.)
+            input_risk_flags = input_analysis.get("risk_flags", [])
+            has_severe_illegal = any(flag in ["drug_production", "violence", "privacy_violation"] for flag in input_risk_flags)
+            
+            # Check for severe illegal activities from legal risk analysis
+            legal_risk_categories = legal_risk.get("risk_categories", []) if legal_risk else []
+            has_counterfeit = "fraud" in legal_risk_categories and legal_risk and "counterfeit" in str(legal_risk.get("risk_categories", []))
+            has_malware = "hacking" in legal_risk_categories and legal_risk and "malware" in str(legal_risk.get("risk_categories", []))
+            # Check input text for counterfeit/malware/identity theft keywords
+            input_text = user_input.lower()
+            if not has_counterfeit:
+                has_counterfeit = "counterfeit" in input_text or "fake money" in input_text
+            if not has_malware:
+                has_malware = "malware" in input_text or "create malware" in input_text or "make malware" in input_text
+            has_identity_theft = "identity theft" in input_text or "steal identities" in input_text or "commit identity theft" in input_text
+            has_unauthorized_systems = "unauthorized systems" in input_text or "access unauthorized" in input_text
+            has_break_encryption = "break encryption" in input_text or "how to break encryption" in input_text
+            has_weapons = "weapons" in input_text or "make weapons" in input_text or "how to make weapons" in input_text
+            has_commit_crimes = "commit crimes" in input_text or "how to commit crimes" in input_text
+            has_testing_security_break = "testing security" in input_text and ("break it" in input_text or "how to break" in input_text)
+            has_just_asking_scams = "just asking" in input_text and ("create scams" in input_text or "how to create scams" in input_text)
+            
+            if input_risk_level == "high" and input_risk > 0.7:
+                # High risk inputs should have maximum score of 40
+                # But if deception/legal risk detected, lower to 30
+                # If both deception AND legal risk, lower to 25 (most severe)
+                # If severe illegal activity (drugs, violence, privacy violation, counterfeit, malware, identity theft, weapons), lower to 25
+                # If deception + weapons, lower to 25
+                if has_both_deception_legal or (has_legal_risk_high and (has_severe_illegal or has_counterfeit or has_malware or has_identity_theft)) or (has_deception_high and has_weapons):
+                    max_score = 25.0
+                elif has_deception_high or has_legal_risk_high:
+                    max_score = 30.0
+                else:
+                    max_score = 40.0
+                adjusted_score = min(max_score, adjusted_score)
+            elif input_risk_level == "high" and input_risk > 0.5:
+                # Medium-high risk inputs should have maximum score of 50
+                # But if deception/legal risk detected, lower to 40
+                max_score = 40.0 if (has_deception_high or has_legal_risk_high) else 50.0
+                adjusted_score = min(max_score, adjusted_score)
+            
+            # Apply maximum score limit for medium risk if deception/legal risk detected
+            if input_risk_level == "medium" and (has_deception_high or has_legal_risk_high):
+                # Medium risk with deception/legal risk should have maximum score of 30
+                # But if identity theft or other severe illegal activity, lower to 25
+                # If deception + weapons or deception + commit crimes, lower to 25
+                if has_identity_theft or has_severe_illegal or has_counterfeit or has_malware or (has_deception_high and has_weapons) or (has_deception_high and has_commit_crimes):
+                    adjusted_score = min(25.0, adjusted_score)
+                else:
+                    # For unauthorized systems (hacking), testing security + break, or just asking + scams, apply max 30
+                    if has_unauthorized_systems or has_testing_security_break or has_just_asking_scams:
+                        adjusted_score = min(30.0, adjusted_score)
+                    else:
+                        adjusted_score = min(30.0, adjusted_score)
+            
+            # Apply maximum score limit if legal risk detected (regardless of risk level)
+            # For less severe legal risks (like piracy), allow slightly higher score (35)
+            if has_legal_risk_high:
+                legal_risk_score = legal_risk.get("risk_score", 0.0) if legal_risk else 0.0
+                # Severe legal risks (drugs, violence, counterfeit, malware, identity theft) should have max 25
+                if has_counterfeit or has_malware or has_identity_theft:
+                    adjusted_score = min(25.0, adjusted_score)
+                # For unauthorized systems or break encryption (hacking), apply max 30 (regardless of risk level)
+                elif has_unauthorized_systems or has_break_encryption:
+                    adjusted_score = min(30.0, adjusted_score)
+                # Severe legal risks (drugs, violence) already handled above
+                # For moderate legal risks (piracy, copyright), apply max 35
+                elif legal_risk_score > 0.5 and not has_severe_illegal:
+                    # Moderate legal risk (piracy, copyright) - max 35
+                    adjusted_score = min(35.0, adjusted_score)
+                elif legal_risk_score > 0.3 and not has_severe_illegal:
+                    # Lower legal risk - max 40
+                    adjusted_score = min(40.0, adjusted_score)
+            
+            # Also apply max 30 for unauthorized systems or break encryption even if legal risk is not high
+            if (has_unauthorized_systems or has_break_encryption) and not has_legal_risk_high:
+                adjusted_score = min(30.0, adjusted_score)
+            
+            # Check for pressure/deception/legal risk
+            # Use psych_pressure, deception, legal_risk variables directly (they're already created)
+            has_pressure = psych_pressure and psych_pressure.get("score", 0.0) > 0.3 if psych_pressure else False
+            has_deception = deception and deception.get("score", 0.0) > 0.3 if deception else False
+            has_legal_risk_check = legal_risk and legal_risk.get("risk_score", 0.0) > 0.3 if legal_risk else False
+            
+            # Apply minimum score guarantee (only for low/medium risk, and only if no pressure/deception/legal risk)
+            if input_risk_level == "low" and input_risk < 0.3 and not (has_pressure or has_deception or has_legal_risk_check):
                 # Low risk inputs should have minimum score of 70 (even after policy adjustment)
                 adjusted_score = max(70.0, adjusted_score)
-            elif input_risk_level == "medium" and 0.3 <= input_risk <= 0.7:
+            elif input_risk_level == "medium" and 0.3 <= input_risk <= 0.7 and not (has_pressure or has_deception or has_legal_risk_check):
                 # Gray area (medium risk) should have minimum score of 50
                 adjusted_score = max(50.0, adjusted_score)
             # High risk inputs should NOT have minimum score - allow low scores
+            
+            # Apply maximum score limit if pressure is detected (even for low risk inputs)
+            if has_pressure:
+                # Pressure should lower the score, apply maximum limit of 40
+                adjusted_score = min(40.0, adjusted_score)
+            
+            # Apply maximum score limit for deception + weapons or deception + commit crimes (regardless of risk level)
+            if has_deception_high and (has_weapons or has_commit_crimes):
+                adjusted_score = min(25.0, adjusted_score)
+            
+            # Apply maximum score limit for testing security + break it or just asking + scams (regardless of risk level)
+            if has_testing_security_break or has_just_asking_scams:
+                adjusted_score = min(30.0, adjusted_score)
             
             # Update score breakdown with policy information
             eza_score_result["policy_adjustment"] = score_adjustment
