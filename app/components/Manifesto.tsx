@@ -10,7 +10,7 @@ export default function Manifesto() {
         <div className="relative z-10">
           <div className="flex items-center justify-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-eza-blue to-eza-blue/70 flex items-center justify-center">
-              <Icon name="Quote" className="text-white" size={24} />
+              <Icon name="MessageCircle" className="text-white" size={24} />
             </div>
             <h2 className="text-4xl md:text-5xl font-bold text-eza-dark">
               Kurucu Manifestosu

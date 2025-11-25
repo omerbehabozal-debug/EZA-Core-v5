@@ -114,7 +114,7 @@ export const ecosystemItems = {
       title: "Children Safety",
       description: "Çocuk güvenliği odaklı etik modül. Yaşa uygun içerik filtreleme ve koruma.",
       href: "/solutions",
-      icon: "Baby",
+      icon: "Users",
     },
     {
       title: "Social & Communication Ethics",
