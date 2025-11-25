@@ -1,3 +1,5 @@
+"use client";
+
 import * as Icons from "lucide-react";
 import { LucideIcon } from "lucide-react";
 
@@ -13,8 +15,8 @@ export default function Icon({ name, className = "", size = 24 }: IconProps) {
   const IconComponent = Icons[normalizedName] as LucideIcon | undefined;
   
   if (!IconComponent) {
-    // Development'ta console'a uyarı ver (production'da sessizce null döner)
-    if (process.env.NODE_ENV === 'development') {
+    // Development'ta console'a uyarı ver
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       console.warn(`Icon "${name}" not found in lucide-react`);
     }
     return null;

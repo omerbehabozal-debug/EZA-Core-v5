@@ -30,34 +30,29 @@ export default function TabbedEcosystem() {
 
   return (
     <div className="relative">
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-[0.02] pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,_currentColor_1px,_transparent_0)] bg-[length:40px_40px]" />
-      </div>
-      
-      <div className="relative z-10">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
         <FadeIn>
-          <div className="text-center mb-20">
-            <h2 className="text-5xl md:text-6xl font-semibold text-eza-text mb-6 tracking-tight">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-semibold text-eza-text mb-4">
               EZA Ekosistemi
             </h2>
-            <p className="text-2xl text-eza-text-secondary font-light max-w-2xl mx-auto">
+            <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto">
               Teknolojinin etik kullanımı için kapsamlı platform ve araçlar
             </p>
           </div>
         </FadeIn>
 
         {/* Tabs */}
-        <div className="flex justify-center mb-16">
-          <div className="inline-flex bg-white rounded-full p-1.5 shadow-sm border border-gray-200/50">
+        <div className="flex justify-center mb-12">
+          <div className="inline-flex bg-white rounded-lg p-1 border border-gray-200">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-8 py-3 rounded-full font-medium transition-all duration-300 flex items-center gap-2 ${
+                className={`px-6 py-2 rounded-md font-medium transition-colors flex items-center gap-2 ${
                   activeTab === tab.id
-                    ? "bg-eza-text text-white shadow-sm"
-                    : "text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray/50"
+                    ? "bg-eza-blue text-white"
+                    : "text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray"
                 }`}
               >
                 <Icon name={tab.icon} size={18} />
@@ -68,33 +63,30 @@ export default function TabbedEcosystem() {
         </div>
 
         {/* Content */}
-        <div className="min-h-[500px]">
+        <div className="min-h-[400px]">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {getActiveItems().map((item, index) => (
-              <FadeIn key={item.title} delay={index * 100}>
+              <FadeIn key={item.title} delay={index * 50}>
                 <Link
                   href={item.href}
-                  className="group block bg-white rounded-2xl p-8 border border-gray-200/50 hover:border-gray-300 hover:shadow-xl transition-all duration-300 h-full relative overflow-hidden"
+                  className="block bg-white rounded-lg p-6 border border-gray-200 hover:border-eza-blue hover:shadow-md transition-all h-full"
                 >
-                  {/* Hover gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-eza-blue/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  
-                  <div className="relative z-10">
-                    <div className="mb-6">
-                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-eza-blue/10 to-eza-blue/5 mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                        <Icon name={item.icon} className="text-eza-blue" size={32} />
-                      </div>
-                      <h3 className="text-2xl font-semibold text-eza-text mb-3 group-hover:text-eza-blue transition-colors">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-eza-blue/10 flex items-center justify-center">
+                      <Icon name={item.icon} className="text-eza-blue" size={24} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-eza-text mb-2">
                         {item.title}
                       </h3>
-                      <p className="text-eza-text-secondary leading-relaxed text-base">
+                      <p className="text-eza-text-secondary leading-relaxed text-sm">
                         {item.description}
                       </p>
                     </div>
-                    <div className="flex items-center text-eza-blue font-medium text-sm group-hover:gap-2 gap-1 transition-all">
-                      Daha fazla bilgi
-                      <Icon name="ArrowRight" size={16} />
-                    </div>
+                  </div>
+                  <div className="flex items-center text-eza-blue font-medium text-sm mt-4">
+                    Daha fazla bilgi
+                    <Icon name="ArrowRight" size={16} className="ml-1" />
                   </div>
                 </Link>
               </FadeIn>

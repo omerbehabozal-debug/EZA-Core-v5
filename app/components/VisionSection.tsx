@@ -21,21 +21,21 @@ const features = [
 
 export default function VisionSection() {
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
       <FadeIn>
-        <div className="text-center mb-24">
-          <h2 className="text-5xl md:text-6xl font-semibold text-eza-text mb-6 tracking-tight">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-semibold text-eza-text mb-4">
             EZA Vizyonu
           </h2>
-          <p className="text-2xl text-eza-text-secondary font-light max-w-2xl mx-auto">
+          <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto">
             Teknolojinin etik gelişimi için rehberlik
           </p>
         </div>
       </FadeIn>
 
-      <div className="grid md:grid-cols-2 gap-20 items-center mb-24">
+      <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
         <FadeIn>
-          <div className="space-y-8 text-xl text-eza-text-secondary leading-relaxed font-light">
+          <div className="space-y-6 text-lg text-eza-text-secondary leading-relaxed">
             <p>
               Teknoloji hızla gelişiyor. Her gün yeni AI modelleri, yeni platformlar, 
               yeni sistemler ortaya çıkıyor. Ancak bu hızlı gelişimin yanında, 
@@ -55,22 +55,19 @@ export default function VisionSection() {
         </FadeIn>
 
         <FadeIn delay={200}>
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-4">
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="group bg-white rounded-2xl p-8 border border-gray-200/50 hover:border-gray-300 hover:shadow-lg transition-all duration-300 relative overflow-hidden"
+                className="bg-white rounded-lg p-6 border border-gray-200 hover:border-eza-blue transition-colors"
               >
-                {/* Subtle background gradient on hover */}
-                <div className="absolute inset-0 bg-gradient-to-br from-eza-blue/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                
-                <div className="relative z-10 flex items-start gap-5">
-                  <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br from-eza-blue/10 to-eza-blue/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <Icon name={feature.icon} className="text-eza-blue" size={28} />
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-eza-blue/10 flex items-center justify-center">
+                    <Icon name={feature.icon} className="text-eza-blue" size={24} />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-eza-text text-xl mb-2">{feature.title}</h3>
-                    <p className="text-eza-text-secondary text-base leading-relaxed">{feature.description}</p>
+                    <h3 className="font-semibold text-eza-text text-lg mb-1">{feature.title}</h3>
+                    <p className="text-eza-text-secondary text-sm leading-relaxed">{feature.description}</p>
                   </div>
                 </div>
               </div>
