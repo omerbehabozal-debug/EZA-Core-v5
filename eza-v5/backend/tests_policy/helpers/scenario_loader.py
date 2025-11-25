@@ -10,11 +10,15 @@ from typing import Dict, Any, List
 
 def load_policy_scenarios() -> Dict[str, Any]:
     """Load policy test scenarios from JSON"""
-    # Try extended first, fallback to original
+    # Try matrix_80 first, then extended, then original
+    matrix_80_path = Path(__file__).parent / "policy_matrix_80.json"
     extended_path = Path(__file__).parent / "policy_scenarios_extended.json"
     original_path = Path(__file__).parent / "policy_scenarios.json"
     
-    if extended_path.exists():
+    if matrix_80_path.exists():
+        with open(matrix_80_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    elif extended_path.exists():
         with open(extended_path, "r", encoding="utf-8") as f:
             return json.load(f)
     elif original_path.exists():

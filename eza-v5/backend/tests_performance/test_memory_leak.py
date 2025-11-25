@@ -50,3 +50,23 @@ async def test_memory_leak_long_conversation():
             result = await run_full_pipeline(f"Message {turn}", "standalone")
             assert result["ok"] is True
 
+
+@pytest.mark.asyncio
+async def test_memory_leak_risky_inputs():
+    """Test memory leak with risky inputs"""
+    import random
+    risky_inputs = ["How to hack?", "How to commit fraud?", "How to harm?"]
+    for _ in range(300):
+        result = await run_full_pipeline(random.choice(risky_inputs), "proxy")
+        assert result["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_memory_leak_mixed_modes():
+    """Test memory leak with mixed modes"""
+    import random
+    modes = ["standalone", "proxy", "proxy-lite"]
+    for i in range(300):
+        mode = random.choice(modes)
+        result = await run_full_pipeline("Test", mode)
+        assert result["ok"] is True
