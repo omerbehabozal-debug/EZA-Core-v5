@@ -9,18 +9,29 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        "eza-dark": "#0A2342",
-        "eza-blue": "#1746A2",
-        "eza-gray": "#F5F7FA",
-        "eza-gold": "#F1C40F",
-        "eza-green": "#1abc9c",
+        "eza-dark": "#1d1d1f",
+        "eza-blue": "#0071e3",
+        "eza-gray": "#f5f5f7",
+        "eza-gold": "#f5f5f7",
+        "eza-green": "#30d158",
+        "eza-text": "#1d1d1f",
+        "eza-text-secondary": "#86868b",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+      },
+      fontSize: {
+        "display": ["80px", { lineHeight: "1.05", letterSpacing: "-0.02em" }],
+        "display-md": ["56px", { lineHeight: "1.07", letterSpacing: "-0.02em" }],
+        "display-sm": ["48px", { lineHeight: "1.08", letterSpacing: "-0.01em" }],
+      },
+      spacing: {
+        "18": "4.5rem",
+        "88": "22rem",
+        "128": "32rem",
       },
     },
   },
   plugins: [],
 };
 export default config;
-

@@ -2,15 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   body {
-    @apply font-sans antialiased text-gray-900;
+    @apply font-sans antialiased bg-white;
+    color: #1d1d1f;
+    font-feature-settings: "kern" 1;
+    text-rendering: optimizeLegibility;
   }
 
   * {
@@ -24,29 +29,29 @@
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - minimal */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1746A2;
-  border-radius: 5px;
+  background: #d2d2d7;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #0A2342;
+  background: #86868b;
 }
 
 /* Smooth animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(30px);
   }
   to {
     opacity: 1;
@@ -55,21 +60,21 @@
 }
 
 .animate-in {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fade-in {
-  animation: fadeIn 0.5s ease-out;
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .slide-in-from-top-2 {
-  animation: slideInFromTop 0.3s ease-out;
+  animation: slideInFromTop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes slideInFromTop {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-20px);
   }
   to {
     opacity: 1;

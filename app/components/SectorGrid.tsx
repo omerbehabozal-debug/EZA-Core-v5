@@ -7,15 +7,11 @@ export default function SectorGrid() {
   return (
     <div>
       <FadeIn>
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-eza-blue/10 rounded-full mb-6">
-            <Icon name="Briefcase" className="text-eza-blue" size={20} />
-            <span className="text-sm font-semibold text-eza-blue">Sektörler</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-eza-dark mb-4">
+        <div className="text-center mb-20">
+          <h2 className="text-5xl md:text-6xl font-semibold text-eza-text mb-6 tracking-tight">
             Sektör Çözümleri
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <p className="text-2xl text-eza-text-secondary font-light max-w-2xl mx-auto">
             Her sektör için özelleştirilmiş etik çözümler
           </p>
         </div>
@@ -26,23 +22,22 @@ export default function SectorGrid() {
           <FadeIn key={sector.title} delay={index * 50}>
             <Link
               href={sector.href}
-              className="group relative aspect-square bg-gradient-to-br from-white to-eza-gray/50 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 overflow-hidden"
+              className="group relative aspect-square bg-white rounded-2xl p-6 border border-gray-200/50 hover:border-gray-300 hover:shadow-lg transition-all duration-300 overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-eza-blue/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="relative z-10 h-full flex flex-col justify-between">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-eza-blue/10 to-eza-blue/5 mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <Icon name={sector.icon} className="text-eza-blue" size={28} />
+              <div className="h-full flex flex-col justify-between">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-eza-gray mb-4 group-hover:bg-eza-gray/80 transition-colors duration-300">
+                  <Icon name={sector.icon} className="text-eza-text" size={24} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-eza-dark mb-2 group-hover:text-eza-blue transition-colors">
+                  <h3 className="text-lg font-semibold text-eza-text mb-2 group-hover:text-eza-blue transition-colors">
                     {sector.title}
                   </h3>
-                  <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">
+                  <p className="text-xs text-eza-text-secondary leading-relaxed line-clamp-3">
                     {sector.description}
                   </p>
                 </div>
                 <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Icon name="ArrowRight" className="text-eza-blue" size={20} />
+                  <Icon name="ArrowRight" className="text-eza-blue" size={18} />
                 </div>
               </div>
             </Link>
@@ -52,4 +47,3 @@ export default function SectorGrid() {
     </div>
   );
 }
-

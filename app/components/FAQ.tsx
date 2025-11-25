@@ -11,40 +11,36 @@ export default function FAQ() {
   return (
     <div className="max-w-4xl mx-auto">
       <FadeIn>
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-eza-blue/10 rounded-full mb-6">
-            <Icon name="HelpCircle" className="text-eza-blue" size={20} />
-            <span className="text-sm font-semibold text-eza-blue">SSS</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-eza-dark mb-4">
+        <div className="text-center mb-20">
+          <h2 className="text-5xl md:text-6xl font-semibold text-eza-text mb-6 tracking-tight">
             Sık Sorulan Sorular
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <p className="text-2xl text-eza-text-secondary font-light max-w-2xl mx-auto">
             EZA hakkında merak ettikleriniz
           </p>
         </div>
       </FadeIn>
-      <div className="space-y-4">
+      <div className="space-y-3">
         {faqItems.map((item, index) => (
           <FadeIn key={index} delay={index * 100}>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-2xl border border-gray-200/50 hover:border-gray-300 overflow-hidden transition-all duration-300">
               <button
                 onClick={() => setOpenIndex(openIndex === index ? null : index)}
-                className="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-eza-gray/50 transition-colors group"
+                className="w-full px-8 py-6 text-left flex justify-between items-center hover:bg-eza-gray/30 transition-colors group"
               >
-                <span className="font-semibold text-eza-dark text-lg pr-4 group-hover:text-eza-blue transition-colors">
+                <span className="font-semibold text-eza-text text-lg pr-4 group-hover:text-eza-blue transition-colors">
                   {item.question}
                 </span>
-                <div className={`flex-shrink-0 w-8 h-8 rounded-full bg-eza-blue/10 flex items-center justify-center transition-transform ${openIndex === index ? 'rotate-180' : ''}`}>
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full bg-eza-gray flex items-center justify-center transition-transform duration-300 ${openIndex === index ? 'rotate-180' : ''}`}>
                   <Icon 
                     name="ChevronDown" 
-                    className="text-eza-blue" 
+                    className="text-eza-text" 
                     size={20} 
                   />
                 </div>
               </button>
               {openIndex === index && (
-                <div className="px-6 py-5 bg-eza-gray/30 text-gray-700 leading-relaxed border-t border-gray-100 animate-in fade-in">
+                <div className="px-8 py-6 bg-eza-gray/30 text-eza-text-secondary leading-relaxed border-t border-gray-200/50 animate-in fade-in text-base">
                   {item.answer}
                 </div>
               )}

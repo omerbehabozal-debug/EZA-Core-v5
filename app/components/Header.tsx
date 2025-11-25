@@ -55,15 +55,12 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+    <header className="bg-white/80 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/50">
+      <nav className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
+        <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-eza-blue to-eza-blue/70 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Icon name="Shield" className="text-white" size={24} />
-              </div>
-              <span className="text-2xl font-bold text-eza-dark">EZA.global</span>
+              <span className="text-xl font-semibold text-eza-text">EZA.global</span>
             </Link>
           </div>
 
@@ -86,19 +83,19 @@ export default function Header() {
                       if (item.name === "Solutions") setSolutionsOpen(false);
                     }}
                   >
-                    <button className="px-4 py-2 text-eza-dark hover:text-eza-blue hover:bg-eza-gray/50 rounded-lg transition-all font-medium flex items-center gap-1">
+                    <button className="px-4 py-2 text-eza-text-secondary hover:text-eza-text transition-colors text-sm font-medium flex items-center gap-1">
                       {item.name}
-                      <Icon name="ChevronDown" size={16} />
+                      <Icon name="ChevronDown" size={14} />
                     </button>
                     {(item.name === "Products" && productsOpen) ||
                     (item.name === "Panels" && panelsOpen) ||
                     (item.name === "Solutions" && solutionsOpen) ? (
-                      <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-in fade-in slide-in-from-top-2">
+                      <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200/50 py-2 animate-in fade-in slide-in-from-top-2">
                         {item.children.map((child) => (
                           <Link
                             key={child.name}
                             href={child.href}
-                            className="block px-4 py-3 text-sm text-eza-dark hover:bg-eza-gray hover:text-eza-blue transition-colors rounded-lg mx-2"
+                            className="block px-4 py-2.5 text-sm text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray/50 transition-colors rounded-lg mx-1"
                           >
                             {child.name}
                           </Link>
@@ -118,7 +115,7 @@ export default function Header() {
                       handleScrollTo(item.href);
                     }
                   }}
-                  className="px-4 py-2 text-eza-dark hover:text-eza-blue hover:bg-eza-gray/50 rounded-lg transition-all font-medium"
+                  className="px-4 py-2 text-eza-text-secondary hover:text-eza-text transition-colors text-sm font-medium"
                 >
                   {item.name}
                 </Link>
@@ -128,7 +125,7 @@ export default function Header() {
 
           {/* Mobile Menu Button */}
           <button
-            className="lg:hidden text-eza-dark p-2 hover:bg-eza-gray/50 rounded-lg transition-colors"
+            className="lg:hidden text-eza-text p-2 hover:bg-eza-gray/50 rounded-lg transition-colors"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? (
@@ -141,19 +138,19 @@ export default function Header() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="lg:hidden py-4 space-y-1 border-t border-gray-100 mt-2">
+          <div className="lg:hidden py-4 space-y-1 border-t border-gray-200/50 mt-2">
             {navigation.map((item) => {
               if (item.children) {
                 return (
                   <div key={item.name} className="space-y-1">
-                    <div className="text-eza-dark font-semibold px-3 py-2">
+                    <div className="text-eza-text font-medium px-3 py-2 text-sm">
                       {item.name}
                     </div>
                     {item.children.map((child) => (
                       <Link
                         key={child.name}
                         href={child.href}
-                        className="block px-6 py-2 text-sm text-eza-dark hover:bg-eza-gray rounded-lg transition-colors"
+                        className="block px-6 py-2 text-sm text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray/50 rounded-lg transition-colors"
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         {child.name}
@@ -173,7 +170,7 @@ export default function Header() {
                     }
                     setMobileMenuOpen(false);
                   }}
-                  className="block px-3 py-2 text-eza-dark hover:bg-eza-gray rounded-lg transition-colors font-medium"
+                  className="block px-3 py-2 text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray/50 rounded-lg transition-colors text-sm font-medium"
                 >
                   {item.name}
                 </Link>

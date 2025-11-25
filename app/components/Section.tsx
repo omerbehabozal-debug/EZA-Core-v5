@@ -16,7 +16,7 @@ export default function Section({
   const content = (
     <section
       id={id}
-      className={`py-16 md:py-24 px-4 sm:px-6 lg:px-8 ${className}`}
+      className={`py-24 md:py-32 lg:py-40 px-6 sm:px-8 lg:px-12 ${className}`}
     >
       {children}
     </section>
@@ -28,4 +28,3 @@ export default function Section({
 
   return content;
 }
-

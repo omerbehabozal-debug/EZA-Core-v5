@@ -23,23 +23,19 @@ export default function VisionSection() {
   return (
     <div className="max-w-6xl mx-auto">
       <FadeIn>
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-eza-blue/10 rounded-full mb-6">
-            <Icon name="Target" className="text-eza-blue" size={20} />
-            <span className="text-sm font-semibold text-eza-blue">Vizyonumuz</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-eza-dark mb-4">
+        <div className="text-center mb-24">
+          <h2 className="text-5xl md:text-6xl font-semibold text-eza-text mb-6 tracking-tight">
             EZA Vizyonu
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <p className="text-2xl text-eza-text-secondary font-light max-w-2xl mx-auto">
             Teknolojinin etik gelişimi için rehberlik
           </p>
         </div>
       </FadeIn>
 
-      <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
+      <div className="grid md:grid-cols-2 gap-20 items-center mb-24">
         <FadeIn>
-          <div className="space-y-6 text-lg text-gray-700 leading-relaxed">
+          <div className="space-y-8 text-xl text-eza-text-secondary leading-relaxed font-light">
             <p>
               Teknoloji hızla gelişiyor. Her gün yeni AI modelleri, yeni platformlar, 
               yeni sistemler ortaya çıkıyor. Ancak bu hızlı gelişimin yanında, 
@@ -60,18 +56,18 @@ export default function VisionSection() {
 
         <FadeIn delay={200}>
           <div className="grid grid-cols-1 gap-6">
-            {features.map((feature, index) => (
+            {features.map((feature) => (
               <div
                 key={feature.title}
-                className="bg-gradient-to-br from-white to-eza-gray/30 rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all"
+                className="bg-white rounded-2xl p-8 border border-gray-200/50 hover:border-gray-300 transition-colors duration-300"
               >
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-eza-blue/10 to-eza-blue/5 flex items-center justify-center">
-                    <Icon name={feature.icon} className="text-eza-blue" size={24} />
+                <div className="flex items-start gap-5">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-eza-gray flex items-center justify-center">
+                    <Icon name={feature.icon} className="text-eza-text" size={24} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-eza-dark mb-2">{feature.title}</h3>
-                    <p className="text-gray-600 text-sm">{feature.description}</p>
+                    <h3 className="font-semibold text-eza-text text-lg mb-2">{feature.title}</h3>
+                    <p className="text-eza-text-secondary text-base leading-relaxed">{feature.description}</p>
                   </div>
                 </div>
               </div>
@@ -82,4 +78,3 @@ export default function VisionSection() {
     </div>
   );
 }
-
