@@ -37,6 +37,7 @@ export default function Header() {
         { name: "Healthcare", href: "/solutions/healthcare" },
         { name: "Corporate", href: "/solutions/corporate" },
         { name: "Autonomous", href: "/solutions/autonomous" },
+        { name: "Humanoid Robots", href: "/solutions/humanoid-robots" },
         { name: "Media", href: "/solutions/media" },
         { name: "Public Sector", href: "/solutions/public-sector" },
       ],

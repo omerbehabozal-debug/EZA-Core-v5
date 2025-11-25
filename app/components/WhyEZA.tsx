@@ -18,6 +18,11 @@ const whyNeeded = [
     description: 'EZA, bu alanlarda "insana göre daha iyi davranış" önerileri sunar.',
   },
   {
+    icon: "Cpu",
+    title: "İnsansı robotlar ile insanlığın etik iletişimi",
+    description: "EZA, insansı robotların insanlarla etkileşiminde saygılı, anlaşılır ve güvenli bir iletişim ortamı sağlar.",
+  },
+  {
     icon: "Video",
     title: "Medya akışı çok hızlı",
     description: 'EZA "yasaklama" değil, daha sağlıklı içerik sunumu için iyileştirme önerileri geliştirir.',
@@ -69,6 +74,11 @@ const contributions = [
     description: "Yanlış yorum risklerini azaltan öneriler üretir.",
   },
   {
+    icon: "Cpu",
+    title: "İnsansı Robotlar ile Etik İletişim",
+    description: "İnsansı robotların insanlarla etkileşiminde saygılı, anlaşılır ve güvenli bir iletişim ortamı sağlar.",
+  },
+  {
     icon: "Monitor",
     title: "Daha Güvenilir İçerik",
     description: "Çocuklara, ailelere ve topluma uygun içeriklerin görünürlüğünü artırır.",
@@ -83,7 +93,8 @@ const contributions = [
 const targetAudience = [
   "Teknoloji geliştiricileri",
   "Medya kuruluşları",
-  "Otonom araç / robot üreticileri",
+  "Otonom araç üreticileri",
+  "İnsansı robot üreticileri",
   "Devlet kurumları",
   "Eğitim dünyası",
   "Aileler",

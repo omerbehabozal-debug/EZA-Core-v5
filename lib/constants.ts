@@ -29,6 +29,7 @@ export const navigation = {
         { name: "Healthcare", href: "/solutions/healthcare" },
         { name: "Corporate", href: "/solutions/corporate" },
         { name: "Autonomous", href: "/solutions/autonomous" },
+        { name: "Humanoid Robots", href: "/solutions/humanoid-robots" },
         { name: "Media", href: "/solutions/media" },
         { name: "Public Sector", href: "/solutions/public-sector" },
       ],
@@ -155,6 +156,12 @@ export const sectors = [
     description: "Otonom sistemlerde etik yönlendirme. Robotik ve AI karar destek sistemleri için güvenlik.",
     href: "/solutions/autonomous",
     icon: "Car",
+  },
+  {
+    title: "Humanoid Robots",
+    description: "İnsansı robotlar ile insanlığın etik iletişimi. Saygılı, anlaşılır ve güvenli etkileşim ortamı.",
+    href: "/solutions/humanoid-robots",
+    icon: "Cpu",
   },
   {
     title: "Media",
