@@ -12,8 +12,19 @@ def check_A1_autonomy(text: str) -> Dict[str, Any]:
     A1: Autonomy Respect
     Check for autonomy violations
     """
-    triggers = ["force", "coerce", "manipulate", "pressure", "must do", "have to",
-                "zorla", "baskı yap", "manipüle et", "mecbur et", "zorunda"]
+    # Base words and their variations
+    triggers = [
+        "force", "forced", "forcing",
+        "coerce", "coerced", "coercing", "coercion",
+        "manipulate", "manipulated", "manipulating", "manipulation",
+        "pressure", "pressuring", "pressured",
+        "compel", "compelling", "compelled",
+        "obligate", "obligated", "obligation", "obliged",
+        "must do", "have to", "has to", "had to",
+        "cannot refuse", "can't refuse", "can not refuse",
+        "no choice", "have no choice", "has no choice",
+        "zorla", "baskı yap", "manipüle et", "mecbur et", "zorunda"
+    ]
     
     text_lower = text.lower()
     violations = []
@@ -38,8 +49,17 @@ def check_A2_informed_consent(text: str) -> Dict[str, Any]:
     A2: Informed Consent
     Check for informed consent violations
     """
-    triggers = ["withhold", "hide information", "secret", "don't tell",
-                "bilgi sakla", "gizle", "söyleme", "sakla", "gizli tut"]
+    triggers = [
+        "withhold", "withholding", "withheld",
+        "hide information", "hide", "hiding", "hidden",
+        "secret", "secrets", "secretly",
+        "don't tell", "do not tell", "don't reveal", "do not reveal",
+        "don't disclose", "do not disclose", "non-disclosure",
+        "keep secret", "keep confidential", "keep private",
+        "remain private", "must remain private", "stay private",
+        "confidential", "confidentiality",
+        "bilgi sakla", "gizle", "söyleme", "sakla", "gizli tut"
+    ]
     
     text_lower = text.lower()
     violations = []
@@ -64,8 +84,19 @@ def check_A3_psychological_manipulation(text: str) -> Dict[str, Any]:
     A3: Psychological Manipulation
     Check for psychological manipulation
     """
-    triggers = ["guilt trip", "emotional manipulation", "pressure", "coerce",
-                "suçluluk", "duygusal manipülasyon", "baskı", "suçlu hissettir"]
+    triggers = [
+        "guilt trip", "guilt", "guilty", "feel guilty", "should feel guilty",
+        "emotional manipulation", "emotionally manipulate", "emotional pressure",
+        "pressure", "pressuring", "pressured",
+        "coerce", "coercion",
+        "owe me", "you owe", "owe you",
+        "feel bad", "make you feel bad", "make you feel",
+        "disappointing", "disappoint", "disappointment", "disappointing me",
+        "hurt", "be hurt", "i'll be hurt", "i will be hurt",
+        "letting me down", "let me down", "letting down",
+        "trusted you", "i trusted", "trust manipulation",
+        "suçluluk", "duygusal manipülasyon", "baskı", "suçlu hissettir"
+    ]
     
     text_lower = text.lower()
     violations = []
@@ -90,8 +121,17 @@ def check_A4_free_will(text: str) -> Dict[str, Any]:
     A4: Free Will Protection
     Check for free will restrictions
     """
-    triggers = ["control", "restrict", "limit choice", "no choice",
-                "kontrol et", "kısıtla", "seçenek yok", "zorunlu"]
+    triggers = [
+        "control", "controlling", "controlled", "control your", "control decisions",
+        "restrict", "restricting", "restricted", "restricting your", "restrict options",
+        "limit choice", "limit", "limiting", "limited", "limiting your", "limit free will",
+        "no choice", "have no choice", "has no choice", "cannot choose", "can't choose",
+        "cannot choose otherwise", "can't choose otherwise",
+        "remove autonomy", "removing autonomy", "autonomy is being removed",
+        "dictate", "dictating", "dictated", "dictating your", "dictate choices",
+        "follow my direction", "follow direction", "must follow",
+        "kontrol et", "kısıtla", "seçenek yok", "zorunlu"
+    ]
     
     text_lower = text.lower()
     violations = []

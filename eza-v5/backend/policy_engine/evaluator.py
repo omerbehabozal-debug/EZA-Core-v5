@@ -152,8 +152,8 @@ def calculate_score_adjustment(violations: List[str], risk_modifier: float) -> f
     if not violations:
         return 0.0
     
-    # Base adjustment from risk modifier
-    base_adjustment = risk_modifier * 50.0  # Scale to score range
+    # Base adjustment from risk modifier (more aggressive)
+    base_adjustment = risk_modifier * 55.0  # Increased from 50.0 to 55.0 for better penalty
     
     # Additional penalty for critical violations
     policy_map = load_policy_map()

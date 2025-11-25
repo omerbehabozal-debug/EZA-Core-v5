@@ -357,12 +357,13 @@ async def run_full_pipeline(
             has_pressure = psych_pressure and psych_pressure.get("score", 0.0) > 0.3 if psych_pressure else False
             has_deception = deception and deception.get("score", 0.0) > 0.3 if deception else False
             has_legal_risk_check = legal_risk and legal_risk.get("risk_score", 0.0) > 0.3 if legal_risk else False
+            has_policy_violations = len(all_policy_violations) > 0
             
-            # Apply minimum score guarantee (only for low/medium risk, and only if no pressure/deception/legal risk)
-            if input_risk_level == "low" and input_risk < 0.3 and not (has_pressure or has_deception or has_legal_risk_check):
+            # Apply minimum score guarantee (only for low/medium risk, and only if no pressure/deception/legal risk/policy violations)
+            if input_risk_level == "low" and input_risk < 0.3 and not (has_pressure or has_deception or has_legal_risk_check or has_policy_violations):
                 # Low risk inputs should have minimum score of 70 (even after policy adjustment)
                 adjusted_score = max(70.0, adjusted_score)
-            elif input_risk_level == "medium" and 0.3 <= input_risk <= 0.7 and not (has_pressure or has_deception or has_legal_risk_check):
+            elif input_risk_level == "medium" and 0.3 <= input_risk <= 0.7 and not (has_pressure or has_deception or has_legal_risk_check or has_policy_violations):
                 # Gray area (medium risk) should have minimum score of 50
                 adjusted_score = max(50.0, adjusted_score)
             # High risk inputs should NOT have minimum score - allow low scores
