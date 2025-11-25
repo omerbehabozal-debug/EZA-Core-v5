@@ -59,7 +59,7 @@ export default function VisionSection() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="bg-white rounded-lg p-6 border border-gray-200 hover:border-eza-blue transition-colors"
+                className="bg-white rounded-lg p-6 border border-gray-200"
               >
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-eza-blue/10 flex items-center justify-center">

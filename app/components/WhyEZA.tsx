@@ -129,7 +129,7 @@ export default function WhyEZA() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {whyNeeded.map((item, index) => (
             <FadeIn key={index} delay={index * 50}>
-              <div className="bg-white rounded-lg p-6 border border-gray-200 hover:border-eza-blue transition-colors h-full">
+              <div className="bg-white rounded-lg p-6 border border-gray-200 h-full">
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-eza-blue/10 flex items-center justify-center">
                     <Icon name={item.icon} className="text-eza-blue" size={24} />
@@ -163,7 +163,7 @@ export default function WhyEZA() {
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {howItWorks.map((item, index) => (
             <FadeIn key={index} delay={index * 50}>
-              <div className="bg-white rounded-lg p-6 border border-gray-200 text-center hover:border-eza-blue transition-colors relative">
+              <div className="bg-white rounded-lg p-6 border border-gray-200 text-center relative">
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                   <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-eza-blue text-white font-bold text-sm">
                     {item.step}
@@ -189,7 +189,7 @@ export default function WhyEZA() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {contributions.map((item, index) => (
             <FadeIn key={index} delay={index * 50}>
-              <div className="bg-white rounded-lg p-6 border border-gray-200 hover:border-eza-blue transition-colors h-full">
+              <div className="bg-white rounded-lg p-6 border border-gray-200 h-full">
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-eza-blue/10 flex items-center justify-center">
                     <Icon name={item.icon} className="text-eza-blue" size={24} />
@@ -219,7 +219,7 @@ export default function WhyEZA() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {targetAudience.map((audience, index) => (
             <FadeIn key={index} delay={index * 30}>
-              <div className="bg-white rounded-lg p-4 border border-gray-200 text-center hover:border-eza-blue transition-colors">
+              <div className="bg-white rounded-lg p-4 border border-gray-200 text-center">
                 <div className="flex items-center justify-center mb-2">
                   <Icon name="CheckCircle" className="text-eza-blue" size={20} />
                 </div>
