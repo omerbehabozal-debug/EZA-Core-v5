@@ -23,7 +23,7 @@ export default function FAQ() {
       <div className="space-y-3">
         {faqItems.map((item, index) => (
           <FadeIn key={index} delay={index * 100}>
-            <div className="bg-white rounded-2xl border border-gray-200/50 hover:border-gray-300 overflow-hidden transition-all duration-300">
+            <div className="bg-white rounded-2xl border border-gray-200/50 hover:border-gray-300 hover:shadow-lg overflow-hidden transition-all duration-300">
               <button
                 onClick={() => setOpenIndex(openIndex === index ? null : index)}
                 className="w-full px-8 py-6 text-left flex justify-between items-center hover:bg-eza-gray/30 transition-colors group"
@@ -31,16 +31,16 @@ export default function FAQ() {
                 <span className="font-semibold text-eza-text text-lg pr-4 group-hover:text-eza-blue transition-colors">
                   {item.question}
                 </span>
-                <div className={`flex-shrink-0 w-8 h-8 rounded-full bg-eza-gray flex items-center justify-center transition-transform duration-300 ${openIndex === index ? 'rotate-180' : ''}`}>
+                <div className={`flex-shrink-0 w-10 h-10 rounded-full bg-eza-gray flex items-center justify-center transition-all duration-300 ${openIndex === index ? 'rotate-180 bg-eza-blue/10' : 'group-hover:bg-eza-gray/80'}`}>
                   <Icon 
                     name="ChevronDown" 
-                    className="text-eza-text" 
+                    className={openIndex === index ? "text-eza-blue" : "text-eza-text"} 
                     size={20} 
                   />
                 </div>
               </button>
               {openIndex === index && (
-                <div className="px-8 py-6 bg-eza-gray/30 text-eza-text-secondary leading-relaxed border-t border-gray-200/50 animate-in fade-in text-base">
+                <div className="px-8 py-6 bg-gradient-to-br from-eza-gray/50 to-white text-eza-text-secondary leading-relaxed border-t border-gray-200/50 animate-in fade-in text-base">
                   {item.answer}
                 </div>
               )}

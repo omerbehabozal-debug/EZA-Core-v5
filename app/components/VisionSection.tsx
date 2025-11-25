@@ -59,14 +59,17 @@ export default function VisionSection() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="bg-white rounded-2xl p-8 border border-gray-200/50 hover:border-gray-300 transition-colors duration-300"
+                className="group bg-white rounded-2xl p-8 border border-gray-200/50 hover:border-gray-300 hover:shadow-lg transition-all duration-300 relative overflow-hidden"
               >
-                <div className="flex items-start gap-5">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-eza-gray flex items-center justify-center">
-                    <Icon name={feature.icon} className="text-eza-text" size={24} />
+                {/* Subtle background gradient on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-eza-blue/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                <div className="relative z-10 flex items-start gap-5">
+                  <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br from-eza-blue/10 to-eza-blue/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <Icon name={feature.icon} className="text-eza-blue" size={28} />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-eza-text text-lg mb-2">{feature.title}</h3>
+                    <h3 className="font-semibold text-eza-text text-xl mb-2">{feature.title}</h3>
                     <p className="text-eza-text-secondary text-base leading-relaxed">{feature.description}</p>
                   </div>
                 </div>
