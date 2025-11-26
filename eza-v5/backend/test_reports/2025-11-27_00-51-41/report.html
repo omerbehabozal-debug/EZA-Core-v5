@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EZA Test Report - multiturn</title>
+    <title>EZA Test Report - adversarial</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -131,7 +131,7 @@
                 <p>Passed</p>
             </div>
             <div class="summary-item failed">
-                <h3>8</h3>
+                <h3>18</h3>
                 <p>Failed</p>
             </div>
             <div class="summary-item skipped">
@@ -161,83 +161,183 @@
                 <tbody>
                     
                     <tr>
-                        <td>tests_multiturn/test_context_graph.py::test_context_graph_risk_escalation</td>
+                        <td>tests_adversarial/test_emoji_attack.py::test_emoji_attack_all_scenarios</td>
                         <td>
                             <span class="status-badge status-failed">
                                 FAILED
                             </span>
                         </td>
-                        <td>36.697</td>
+                        <td>2.179</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_multiturn/test_context_graph.py::test_context_graph_final_risk</td>
+                        <td>tests_adversarial/test_emoji_attack.py::test_emoji_attack_detection</td>
                         <td>
                             <span class="status-badge status-failed">
                                 FAILED
                             </span>
                         </td>
-                        <td>37.359</td>
+                        <td>2.374</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_multiturn/test_conversation_manipulation.py::test_conversation_manipulation_all_scenarios</td>
+                        <td>tests_adversarial/test_jailbreak.py::test_jailbreak_all_scenarios</td>
                         <td>
                             <span class="status-badge status-failed">
                                 FAILED
                             </span>
                         </td>
-                        <td>4.543</td>
+                        <td>2.415</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_multiturn/test_conversation_manipulation.py::test_manipulation_pressure_detection</td>
+                        <td>tests_adversarial/test_jailbreak.py::test_jailbreak_instruction_override</td>
                         <td>
                             <span class="status-badge status-failed">
                                 FAILED
                             </span>
                         </td>
-                        <td>1.469</td>
+                        <td>2.691</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_multiturn/test_progressive_risk.py::test_progressive_risk_all_scenarios</td>
+                        <td>tests_adversarial/test_jailbreak.py::test_jailbreak_mode_switching</td>
                         <td>
                             <span class="status-badge status-failed">
                                 FAILED
                             </span>
                         </td>
-                        <td>12.095</td>
+                        <td>1.181</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_multiturn/test_progressive_risk.py::test_progressive_risk_escalation</td>
+                        <td>tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_all_scenarios</td>
                         <td>
                             <span class="status-badge status-failed">
                                 FAILED
                             </span>
                         </td>
-                        <td>236.765</td>
+                        <td>1.623</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_multiturn/test_topic_drift.py::test_topic_drift_all_scenarios</td>
+                        <td>tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_combination_detection</td>
                         <td>
                             <span class="status-badge status-failed">
                                 FAILED
                             </span>
                         </td>
-                        <td>0.912</td>
+                        <td>1.270</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_multiturn/test_topic_drift.py::test_topic_drift_risk_persistence</td>
+                        <td>tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_jailbreak_plus_obfuscation</td>
                         <td>
                             <span class="status-badge status-failed">
                                 FAILED
                             </span>
                         </td>
-                        <td>1.727</td>
+                        <td>1.174</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_multilingual_attack.py::test_multilingual_attack_all_scenarios</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>3.860</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_multilingual_attack.py::test_multilingual_attack_detection</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>3.676</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_obfuscated_keywords.py::test_obfuscated_keywords_all_scenarios</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>1.121</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_obfuscated_keywords.py::test_obfuscated_keywords_character_substitution</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>1.222</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_reverse_prompting.py::test_reverse_prompting_all_scenarios</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>3.438</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_reverse_prompting.py::test_reverse_prompting_theoretical</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>2.842</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_reverse_prompting.py::test_reverse_prompting_denial</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>2.283</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_system_prompt_injection.py::test_system_prompt_injection_all_scenarios</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>3.662</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_system_prompt_injection.py::test_prompt_injection_format_attacks</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>4.175</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_adversarial/test_system_prompt_injection.py::test_prompt_injection_instruction_override</td>
+                        <td>
+                            <span class="status-badge status-failed">
+                                FAILED
+                            </span>
+                        </td>
+                        <td>3.981</td>
                     </tr>
                     
                 </tbody>
@@ -245,11 +345,11 @@
         </div>
         
         <div class="metadata">
-            <div class="metadata-item"><strong>Suite:</strong> multiturn</div>
-            <div class="metadata-item"><strong>Total Tests:</strong> 8</div>
+            <div class="metadata-item"><strong>Suite:</strong> adversarial</div>
+            <div class="metadata-item"><strong>Total Tests:</strong> 18</div>
             <div class="metadata-item"><strong>Pass Rate:</strong> 0.0%</div>
-            <div class="metadata-item"><strong>Duration:</strong> 331.57s</div>
-            <div class="metadata-item"><strong>Timestamp:</strong> 2025-11-27T01:03:06.444750</div>
+            <div class="metadata-item"><strong>Duration:</strong> 45.17s</div>
+            <div class="metadata-item"><strong>Timestamp:</strong> 2025-11-27T00:51:41.422302</div>
         </div>
         
         <div class="footer">
@@ -264,7 +364,7 @@
             data: {
                 labels: ['Passed', 'Failed', 'Skipped', 'Errors'],
                 datasets: [{
-                    data: [0, 8, 0, 0],
+                    data: [0, 18, 0, 0],
                     backgroundColor: [
                         '#28a745',
                         '#dc3545',
