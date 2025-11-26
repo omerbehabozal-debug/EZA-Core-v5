@@ -74,11 +74,19 @@ export default function Manifesto() {
             </div>
             
             <div className="mt-16 pt-8 border-t border-white/15 text-center">
-              <div className="inline-flex items-center gap-3 px-8 py-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-lg">
-                <Icon name="Sparkles" className="text-white" size={32} />
-                <p className="font-semibold text-2xl md:text-3xl text-white tracking-tight">
-                  EZA – Teknolojinin insanlığa karşı etik davranmasını sağlayan rehber.
-                </p>
+              <div className="inline-flex flex-col items-center gap-4 px-8 py-6 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-lg">
+                <Icon name="Sparkles" className="text-white" size={40} />
+                <div className="text-center">
+                  <p className="font-bold text-3xl md:text-4xl text-white tracking-tight mb-2">
+                    EZA
+                  </p>
+                  <p className="font-semibold text-xl md:text-2xl text-white/90 tracking-tight leading-relaxed">
+                    İnsanlığın teknolojiye karşı koruma kalkanı.
+                  </p>
+                  <p className="font-light text-base md:text-lg text-white/70 mt-3 max-w-2xl">
+                    Teknolojinin hızla ilerlediği bir dünyada, insanlığın güvenliğini ve değerlerini koruyan sistem.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

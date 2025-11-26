@@ -114,7 +114,7 @@ export default function WhyEZA() {
             <span className="text-eza-blue font-semibold text-xl">"İnsanlık için emniyet kemeri"</span>
           </div>
           <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto">
-            Teknolojinin insanlığa karşı etik davranmasını sağlayan rehber
+            Teknolojinin hızla geliştiği bir dünyada, insanlığı koruyan ve güvende tutan güvenlik katmanı
           </p>
         </div>
       </FadeIn>

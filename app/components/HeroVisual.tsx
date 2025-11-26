@@ -3,87 +3,87 @@
 export default function HeroVisual() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      {/* Premium gradient mesh background */}
+      {/* Premium layered gradient background - Apple style */}
       <div className="absolute inset-0">
-        {/* Primary gradient - soft blue from center */}
+        {/* Primary soft gradient - top center */}
         <div 
-          className="absolute inset-0 opacity-40"
+          className="absolute inset-0"
           style={{
-            background: 'radial-gradient(ellipse 100% 80% at 50% 20%, rgba(0, 113, 227, 0.08) 0%, transparent 60%)',
+            background: 'radial-gradient(ellipse 120% 100% at 50% 0%, rgba(0, 113, 227, 0.06) 0%, transparent 70%)',
           }}
         />
         
-        {/* Secondary gradient - subtle accent */}
+        {/* Secondary accent - bottom right */}
         <div 
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0"
           style={{
-            background: 'radial-gradient(ellipse 80% 60% at 20% 80%, rgba(0, 113, 227, 0.06) 0%, transparent 50%)',
+            background: 'radial-gradient(ellipse 80% 70% at 100% 100%, rgba(0, 119, 237, 0.04) 0%, transparent 60%)',
           }}
         />
         
-        {/* Tertiary gradient - complementary */}
+        {/* Tertiary accent - top left */}
         <div 
-          className="absolute inset-0 opacity-25"
+          className="absolute inset-0"
           style={{
-            background: 'radial-gradient(ellipse 70% 50% at 80% 60%, rgba(0, 119, 237, 0.05) 0%, transparent 50%)',
+            background: 'radial-gradient(ellipse 60% 60% at 0% 0%, rgba(0, 113, 227, 0.03) 0%, transparent 50%)',
           }}
         />
       </div>
 
-      {/* Animated gradient orbs - very subtle */}
+      {/* Premium animated orbs - subtle and elegant */}
       <div className="absolute inset-0">
-        {/* Large orb - top center */}
+        {/* Large primary orb - top center */}
         <div 
-          className="absolute w-[600px] h-[600px] rounded-full blur-[120px] opacity-20"
+          className="absolute w-[800px] h-[800px] rounded-full blur-[150px]"
           style={{
-            background: 'radial-gradient(circle, rgba(0, 113, 227, 0.15) 0%, transparent 70%)',
-            top: '-20%',
+            background: 'radial-gradient(circle, rgba(0, 113, 227, 0.08) 0%, transparent 70%)',
+            top: '-30%',
             left: '50%',
             transform: 'translateX(-50%)',
-            animation: 'heroOrbFloat 20s ease-in-out infinite'
+            animation: 'heroOrbFloat 25s ease-in-out infinite'
           }}
         />
         
-        {/* Medium orb - bottom right */}
+        {/* Medium secondary orb - bottom right */}
         <div 
-          className="absolute w-[400px] h-[400px] rounded-full blur-[100px] opacity-15"
+          className="absolute w-[500px] h-[500px] rounded-full blur-[120px]"
           style={{
-            background: 'radial-gradient(circle, rgba(0, 119, 237, 0.12) 0%, transparent 70%)',
-            bottom: '-10%',
-            right: '-5%',
-            animation: 'heroOrbFloat 25s ease-in-out infinite 5s'
+            background: 'radial-gradient(circle, rgba(0, 119, 237, 0.06) 0%, transparent 70%)',
+            bottom: '-15%',
+            right: '-10%',
+            animation: 'heroOrbFloat 30s ease-in-out infinite 8s'
           }}
         />
         
-        {/* Small orb - top left */}
+        {/* Small accent orb - top left */}
         <div 
-          className="absolute w-[300px] h-[300px] rounded-full blur-[80px] opacity-12"
+          className="absolute w-[350px] h-[350px] rounded-full blur-[100px]"
           style={{
-            background: 'radial-gradient(circle, rgba(0, 113, 227, 0.1) 0%, transparent 70%)',
-            top: '10%',
-            left: '-5%',
-            animation: 'heroOrbFloat 18s ease-in-out infinite 10s'
+            background: 'radial-gradient(circle, rgba(0, 113, 227, 0.05) 0%, transparent 70%)',
+            top: '15%',
+            left: '-8%',
+            animation: 'heroOrbFloat 22s ease-in-out infinite 15s'
           }}
         />
       </div>
 
-      {/* Minimal geometric pattern - bridge concept */}
-      <div className="absolute inset-0 flex items-center justify-center opacity-[0.12]">
+      {/* Premium bridge visualization - elegant and minimal */}
+      <div className="absolute inset-0 flex items-center justify-center">
         <svg 
           viewBox="0 0 1200 600" 
           fill="none" 
           xmlns="http://www.w3.org/2000/svg" 
-          className="w-full max-w-6xl h-full"
+          className="w-full max-w-6xl h-full opacity-[0.25]"
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
-            <linearGradient id="heroBridgeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#0071e3" stopOpacity="0.3" />
-              <stop offset="50%" stopColor="#0071e3" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#0071e3" stopOpacity="0.3" />
+            <linearGradient id="premiumBridgeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#0071e3" stopOpacity="0.4" />
+              <stop offset="50%" stopColor="#0071e3" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#0071e3" stopOpacity="0.4" />
             </linearGradient>
-            <filter id="heroGlow">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <filter id="premiumGlow">
+              <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
               <feMerge>
                 <feMergeNode in="coloredBlur"/>
                 <feMergeNode in="SourceGraphic"/>
@@ -91,71 +91,63 @@ export default function HeroVisual() {
             </filter>
           </defs>
           
-          {/* Elegant bridge arc */}
+          {/* Elegant bridge arc - premium stroke */}
           <path
             d="M100 450 Q600 150 1100 450"
-            stroke="url(#heroBridgeGradient)"
-            strokeWidth="2"
+            stroke="url(#premiumBridgeGradient)"
+            strokeWidth="1.5"
             fill="none"
-            filter="url(#heroGlow)"
+            strokeLinecap="round"
+            filter="url(#premiumGlow)"
             style={{
               strokeDasharray: '2000',
               strokeDashoffset: '2000',
-              animation: 'drawLine 10s ease-in-out forwards'
+              animation: 'drawLine 12s cubic-bezier(0.16, 1, 0.3, 1) forwards'
             }}
           />
           
-          {/* Minimal connection nodes */}
+          {/* Premium connection nodes - refined */}
           <circle 
             cx="200" 
             cy="450" 
-            r="4" 
+            r="3.5" 
             fill="#0071e3" 
-            opacity="0.4"
+            opacity="0.5"
             style={{
-              animation: 'pulseSubtle 4s ease-in-out infinite'
+              animation: 'premiumPulse 5s ease-in-out infinite'
             }}
           />
           <circle 
             cx="600" 
             cy="250" 
-            r="5" 
+            r="4" 
             fill="#0071e3" 
-            opacity="0.5"
+            opacity="0.6"
             style={{
-              animation: 'pulseSubtle 4s ease-in-out infinite 1.5s'
+              animation: 'premiumPulse 5s ease-in-out infinite 1.5s'
             }}
           />
           <circle 
             cx="1000" 
             cy="450" 
-            r="4" 
+            r="3.5" 
             fill="#0071e3" 
-            opacity="0.4"
+            opacity="0.5"
             style={{
-              animation: 'pulseSubtle 4s ease-in-out infinite 3s'
+              animation: 'premiumPulse 5s ease-in-out infinite 3s'
             }}
           />
         </svg>
       </div>
 
-      {/* Premium mesh overlay for depth */}
+      {/* Premium depth overlay - sophisticated */}
       <div 
         className="absolute inset-0"
         style={{
           background: `
-            radial-gradient(at 30% 20%, rgba(0, 113, 227, 0.04) 0%, transparent 50%),
-            radial-gradient(at 70% 80%, rgba(0, 119, 237, 0.03) 0%, transparent 50%),
-            radial-gradient(at 50% 50%, rgba(0, 113, 227, 0.02) 0%, transparent 50%)
+            radial-gradient(at 25% 25%, rgba(0, 113, 227, 0.02) 0%, transparent 50%),
+            radial-gradient(at 75% 75%, rgba(0, 119, 237, 0.015) 0%, transparent 50%)
           `,
-        }}
-      />
-
-      {/* Subtle noise texture for premium feel */}
-      <div 
-        className="absolute inset-0 opacity-[0.015]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
         }}
       />
     </div>

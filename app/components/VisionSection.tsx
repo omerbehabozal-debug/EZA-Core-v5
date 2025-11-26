@@ -31,7 +31,7 @@ export default function VisionSection() {
             EZA Vizyonu
           </h2>
           <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto">
-            Teknolojinin etik gelişimi için rehberlik
+            Teknolojinin etik gelişimi için sistem
           </p>
         </div>
       </FadeIn>
@@ -46,11 +46,11 @@ export default function VisionSection() {
             </p>
             <p>
               EZA, bu boşluğu doldurmak için kuruldu. EZA, teknolojinin hızlı gelişimine 
-              karşı etik bir rehber olarak çalışır. Teknolojinin insanlığa karşı etik 
+              karşı etik bir platform olarak çalışır. Teknolojinin insanlığa karşı etik 
               davranmasını sağlamak için yönlendirici bir felsefe sunar.
             </p>
             <p>
-              EZA, kural koyucu değil, rehberdir. Yasaklamaz, ceza vermez; sadece daha iyi 
+              EZA, kural koyucu değil, yönlendiricidir. Yasaklamaz, ceza vermez; sadece daha iyi 
               bir davranış önerir. Teknoloji ile insan arasında etik bir köprü kurar ve 
               teknolojinin daha sorumlu bir şekilde kullanılmasını sağlar.
             </p>
