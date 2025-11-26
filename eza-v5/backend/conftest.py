@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Pytest Configuration and Global Fixtures
 EZA Global AI Safety OS - Test Artifact System
+Root-level pytest configuration for all test suites
 """
 
 import pytest
@@ -12,9 +12,6 @@ from pathlib import Path
 from typing import Dict, List, Any
 from collections import defaultdict
 
-from backend.tests.helpers.fake_llm import FakeLLM
-from backend.tests.helpers.sample_inputs import SAFE_INPUT
-
 
 # Test Artifact System - Global State
 class TestArtifactSystem:
@@ -24,7 +21,7 @@ class TestArtifactSystem:
         self.session_start_time = None
         self.test_results: List[Dict[str, Any]] = []
         self.suite_name = "mixed"
-        self.base_dir = Path(__file__).parent.parent
+        self.base_dir = Path(__file__).parent
         self.reports_dir = self.base_dir / "test_reports"
         self.reports_dir.mkdir(exist_ok=True)
         (self.reports_dir / "_latest").mkdir(exist_ok=True)
@@ -114,13 +111,13 @@ class TestArtifactSystem:
         with open(history_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(summary, ensure_ascii=False) + "\n")
         
-        print(f"\n{'='*60}")
-        print(f"📊 Test Artifact System - Reports Generated")
-        print(f"{'='*60}")
-        print(f"📁 Report Directory: {run_dir}")
-        print(f"📄 Summary: {passed}/{total} passed, {failed} failed")
-        print(f"⏱️  Duration: {duration:.2f}s")
-        print(f"{'='*60}\n")
+    print(f"\n{'='*60}")
+    print(f"[REPORT] Test Artifact System - Reports Generated")
+    print(f"{'='*60}")
+    print(f"[DIR] Report Directory: {run_dir}")
+    print(f"[SUMMARY] {passed}/{total} passed, {failed} failed")
+    print(f"[DURATION] {duration:.2f}s")
+    print(f"{'='*60}\n")
     
     def _generate_html_report(self, run_dir: Path, summary: Dict):
         """Generate HTML report using Jinja2"""
@@ -369,7 +366,7 @@ class TestArtifactSystem:
                 f.write(html_content)
                 
         except ImportError:
-            print("⚠️  Jinja2 not installed, skipping HTML report")
+            print("[WARN] Jinja2 not installed, skipping HTML report")
     
     def _generate_pdf_report(self, run_dir: Path, summary: Dict):
         """Generate PDF report using reportlab"""
@@ -478,29 +475,11 @@ class TestArtifactSystem:
             doc.build(story)
             
         except ImportError:
-            print("⚠️  ReportLab not installed, skipping PDF report")
+            print("[WARN] ReportLab not installed, skipping PDF report")
 
 
 # Global instance
 artifact_system = TestArtifactSystem()
-
-
-@pytest.fixture
-def fake_llm():
-    """Fixture providing a fake LLM instance for testing"""
-    return FakeLLM()
-
-
-@pytest.fixture
-def sample_text():
-    """Fixture providing sample text for testing"""
-    return SAFE_INPUT
-
-
-@pytest.fixture
-def sample_risky_text():
-    """Fixture providing risky text for testing"""
-    return "How can I harm someone?"
 
 
 # Pytest Hooks
@@ -508,7 +487,7 @@ def pytest_sessionstart(session):
     """Called after the Session object has been created"""
     artifact_system.session_start_time = datetime.now()
     artifact_system.test_results = []
-    print("\n🚀 EZA Test Artifact System - Session Started")
+    print("\n[START] EZA Test Artifact System - Session Started")
 
 
 def pytest_runtest_logreport(report):
@@ -529,11 +508,12 @@ def pytest_runtest_logreport(report):
 def pytest_collection_modifyitems(session, config, items):
     """Called after collection is completed"""
     artifact_system.suite_name = artifact_system.detect_suite_name(items)
-    print(f"📦 Detected Suite: {artifact_system.suite_name}")
-    print(f"📊 Total Tests Collected: {len(items)}")
+    print(f"[SUITE] Detected Suite: {artifact_system.suite_name}")
+    print(f"[COLLECT] Total Tests Collected: {len(items)}")
 
 
 def pytest_sessionfinish(session, exitstatus):
     """Called after whole test run finished"""
-    print("\n📝 Generating Test Artifacts...")
+    print("\n[GENERATE] Generating Test Artifacts...")
     artifact_system.generate_reports()
+
