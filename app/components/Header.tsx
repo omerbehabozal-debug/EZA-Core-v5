@@ -22,7 +22,8 @@ export default function Header() {
         { name: "Standalone", href: "/products/standalone" },
         { name: "Proxy", href: "/products/proxy" },
         { name: "Proxy-Lite", href: "/products/proxy-lite" },
-        { name: "EZA Score", href: "/products" },
+        { name: "EZA Score Engine", href: "/products/score-engine" },
+        { name: "Advisor", href: "/products/advisor" },
         { name: "Developer Console", href: "/panels/developer" },
       ],
     },
@@ -77,6 +78,11 @@ export default function Header() {
           <div className="hidden lg:flex items-center space-x-1">
             {navigation.map((item) => {
               if (item.children) {
+                const isOpen = 
+                  (item.name === "EZA-Core Platform" && ezaCoreOpen) ||
+                  (item.name === "Panels" && panelsOpen) ||
+                  (item.name === "Solutions" && solutionsOpen);
+
                 return (
                   <div
                     key={item.name}
@@ -96,32 +102,44 @@ export default function Header() {
                       {item.name}
                       <Icon name="ChevronDown" size={14} />
                     </button>
-                    {(item.name === "EZA-Core Platform" && ezaCoreOpen) ||
-                    (item.name === "Panels" && panelsOpen) ||
-                    (item.name === "Solutions" && solutionsOpen) ? (
-                      <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200/50 py-2 animate-in fade-in slide-in-from-top-2">
-                        {item.external && (
-                          <Link
-                            href={item.href || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block px-4 py-2.5 text-sm font-semibold text-eza-blue hover:bg-eza-blue/5 transition-colors rounded-lg mx-1 border-b border-gray-200/50 mb-1"
-                          >
-                            <span className="flex items-center gap-2">
-                              EZA-Core Platformu
-                              <Icon name="ExternalLink" size={14} />
-                            </span>
-                          </Link>
-                        )}
-                        {item.children?.map((child) => (
-                          <Link
-                            key={child.name}
-                            href={child.href}
-                            className="block px-4 py-2.5 text-sm text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray/50 transition-colors rounded-lg mx-1"
-                          >
-                            {child.name}
-                          </Link>
-                        ))}
+                    {isOpen ? (
+                      <div 
+                        className="absolute top-full left-0 pt-2 w-64 z-50"
+                        onMouseEnter={() => {
+                          if (item.name === "EZA-Core Platform") setEzaCoreOpen(true);
+                          if (item.name === "Panels") setPanelsOpen(true);
+                          if (item.name === "Solutions") setSolutionsOpen(true);
+                        }}
+                        onMouseLeave={() => {
+                          if (item.name === "EZA-Core Platform") setEzaCoreOpen(false);
+                          if (item.name === "Panels") setPanelsOpen(false);
+                          if (item.name === "Solutions") setSolutionsOpen(false);
+                        }}
+                      >
+                        <div className="bg-white rounded-xl shadow-xl border border-gray-200/50 py-2 animate-in fade-in slide-in-from-top-2">
+                          {item.external && (
+                            <Link
+                              href={item.href || "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block px-4 py-2.5 text-sm font-semibold text-eza-blue hover:bg-eza-blue/5 transition-colors rounded-lg mx-1 border-b border-gray-200/50 mb-1"
+                            >
+                              <span className="flex items-center gap-2">
+                                EZA-Core Platformu
+                                <Icon name="ExternalLink" size={14} />
+                              </span>
+                            </Link>
+                          )}
+                          {item.children?.map((child) => (
+                            <Link
+                              key={child.name}
+                              href={child.href}
+                              className="block px-4 py-2.5 text-sm text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray/50 transition-colors rounded-lg mx-1"
+                            >
+                              {child.name}
+                            </Link>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
                   </div>
