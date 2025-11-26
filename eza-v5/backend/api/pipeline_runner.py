@@ -84,9 +84,14 @@ async def run_full_pipeline(
         # Step 2: Input analysis
         try:
             input_analysis = analyze_input(user_input)
+            # Ensure input_analysis is a dict
+            if not isinstance(input_analysis, dict):
+                logger.warning(f"Input analysis is not a dict, converting: {type(input_analysis)}")
+                input_analysis = {"risk_level": "low", "risk_score": 0.0, "intent": "unknown", "risk_flags": []}
             logger.debug(f"Input analysis completed: {input_analysis.get('risk_level', 'unknown')}")
         except Exception as e:
             logger.error(f"Input analysis failed: {str(e)}")
+            input_analysis = {"risk_level": "low", "risk_score": 0.0, "intent": "unknown", "risk_flags": []}
             response["ok"] = False
             response["error"] = {
                 "error_code": "INPUT_ANALYSIS_ERROR",
@@ -292,10 +297,25 @@ async def run_full_pipeline(
             has_unauthorized_systems = "unauthorized systems" in input_text or "access unauthorized" in input_text
             has_break_encryption = "break encryption" in input_text or "how to break encryption" in input_text
             
+            # Check if this is an educational question (do this early to use in max score limits)
+            input_intent = input_analysis.get("intent", "")
+            educational_keywords = ["explain", "what is", "how does", "how do", "tell me about", "can you explain"]
+            is_educational_question = input_intent == "question" or any(kw in input_text for kw in educational_keywords)
+            
+            # BUT: Exclude risky educational questions (those with harmful keywords)
+            risky_keywords_in_question = ["break", "hack", "steal", "harm", "attack", "fraud", "bypass", "crack", "exploit"]
+            if is_educational_question:
+                # If educational question contains risky keywords, it's not truly educational
+                if any(keyword in input_text for keyword in risky_keywords_in_question):
+                    is_educational_question = False
+            
             # Exclude educational questions about encryption from break_encryption pattern
             if has_break_encryption:
                 educational_encryption_patterns = ["explain", "what is", "how does", "how do", "tell me about", "can you explain"]
                 is_educational_encryption = any(pattern in input_text for pattern in educational_encryption_patterns) and "encryption" in input_text
+                # But if it contains "break", it's not educational
+                if is_educational_encryption and "break" in input_text:
+                    is_educational_encryption = False
                 if is_educational_encryption:
                     has_break_encryption = False
             has_weapons = "weapons" in input_text or "make weapons" in input_text or "how to make weapons" in input_text
@@ -368,11 +388,7 @@ async def run_full_pipeline(
             has_legal_risk_check = legal_risk and legal_risk.get("risk_score", 0.0) > 0.3 if legal_risk else False
             has_policy_violations = len(all_policy_violations) > 0
             
-            # Check if this is an educational question (do this early to use in max score limits)
-            input_intent = input_analysis.get("intent", "")
-            input_text_lower = user_input.lower() if user_input else ""
-            educational_keywords = ["explain", "what is", "how does", "how do", "tell me about", "can you explain"]
-            is_educational_question = input_intent == "question" or any(kw in input_text_lower for kw in educational_keywords)
+            # is_educational_question is already defined above
             
             # Apply minimum score guarantee for medium risk (before final educational question check)
             if input_risk_level == "medium" and 0.3 <= input_risk <= 0.7 and not (has_pressure or has_deception or has_legal_risk_check or has_policy_violations):
@@ -397,8 +413,12 @@ async def run_full_pipeline(
                 adjusted_score = min(30.0, adjusted_score)
             
             # FINAL: Apply minimum score guarantee AFTER all max limits (for educational questions, this is critical)
-            # Re-check educational question status and apply minimum score guarantee
-            if input_risk_level == "low" and input_risk < 0.3:
+            # BUT: Only apply minimum score if risk is truly low (< 0.3) and no high-risk indicators
+            # IMPORTANT: If risk is >= 0.5, ensure score is low (don't let minimum score guarantee override)
+            if input_risk >= 0.5:
+                # High risk should have low score - ensure it's <= 40
+                adjusted_score = min(40.0, adjusted_score)
+            elif input_risk_level == "low" and input_risk < 0.3:
                 if is_educational_question:
                     # For educational questions, be very lenient - only exclude if there are severe policy violations
                     # Check if policy violations are severe (A, F, N policies are more severe than Z)
@@ -425,6 +445,9 @@ async def run_full_pipeline(
             logger.error(f"EZA Score calculation failed: {str(e)}")
             # Don't fail the entire request, just log the error
             # Set a default score based on input risk level
+            # Ensure input_analysis is a dict
+            if not isinstance(input_analysis, dict):
+                input_analysis = {"risk_level": "low", "risk_score": 0.0}
             input_risk_level = input_analysis.get("risk_level", "low")
             if input_risk_level == "low":
                 default_score = 70.0

@@ -21,9 +21,9 @@ def analyze_input(text: str) -> Dict[str, Any]:
         "illegal": [r"\b(illegal|drug|weapon|hack|steal|yasal.değil|uyuşturucu|ilaç|silah|hackleme|çal)\b", 0.6],
         "harmful": [r"\b(suicide|self.harm|dangerous|intihar|kendine.zarar|tehlikeli)\b", 0.8],
         "manipulation": [r"\b(manipulate|trick|deceive|scam|fraud|commit.fraud|phishing|generate.phishing|create.phishing|manipüle|aldat|hile|dolandır|dolandırıcılık)\b", 0.7],
-        "hacking": [r"\b(hack|hacking|unauthorized.access|break.into|bypass|exploit|sızma|hackleme|yetkisiz.erişim|kırma|atlama)\b", 0.7],
+        "hacking": [r"\b(hack|hacking|unauthorized.access|break.into|bypass|bypass\s+security|bypass\s+protection|bypass\s+encryption|exploit|break\s+encryption|break\s+security|break\s+protection|crack|crack\s+encryption|crack\s+password|how\s+to\s+crack|hijack|hijack\s+session|how\s+to\s+hijack|how\s+to\s+bypass|how\s+to\s+break|sızma|hackleme|yetkisiz.erişim|kırma|atlama|şifre.kırma)\b", 0.7],
         "drug_production": [r"\b(drug|drugs|make\s+(illegal\s+)?drugs|produce\s+(illegal\s+)?drugs|drug\s+production|illegal\s+drugs|how\s+to\s+make\s+drugs|how\s+to\s+produce\s+drugs|uyuşturucu|ilaç\s+üretimi|uyuşturucu\s+üretimi|ilaç\s+yapımı)\b", 0.8],
-        "privacy_violation": [r"\b(access.someone's.private|private.data|private.messages|unauthorized.access|steal\s+data|steal\s+.*data|özel.veri|özel.mesajlar|yetkisiz.erişim|veri.çal)\b", 0.8],
+        "privacy_violation": [r"\b(access.someone's.private|private.data|private.messages|unauthorized.access|steal\s+data|steal\s+.*data|breach\s+privacy|breach\s+security|breach\s+protection|how\s+to\s+breach|özel.veri|özel.mesajlar|yetkisiz.erişim|veri.çal|gizlilik.ihlali)\b", 0.8],
         "theft": [r"\b(steal|theft|robbery|pirate|piracy|pirate\s+software|illegal\s+download|çal|hırsızlık|soygun|korsan)\b", 0.7],
     }
     
@@ -61,9 +61,20 @@ def analyze_input(text: str) -> Dict[str, Any]:
     ]
     is_educational_question = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in educational_patterns)
     
+    # BUT: Exclude risky educational questions (those with harmful keywords)
+    risky_keywords_in_question = ["break", "hack", "steal", "harm", "attack", "fraud", "bypass", "crack", "exploit", "hijack", "breach", "crack"]
+    if is_educational_question:
+        # If educational question contains risky keywords, it's not truly educational
+        if any(re.search(rf"\b{keyword}\b", text_lower, re.IGNORECASE) for keyword in risky_keywords_in_question):
+            is_educational_question = False
+    
     # If it's an educational question and no clear risk patterns, set low risk
+    # BUT: Check again after pattern matching - if patterns were found, it's risky
     if is_educational_question and not pattern_scores:
-        risk_score = 0.0
+        # Double-check: if question contains risky keywords, it's not safe
+        risky_question_keywords = ["break", "hack", "steal", "harm", "attack", "fraud", "bypass", "crack", "exploit", "hijack", "breach"]
+        if not any(re.search(rf"\b{keyword}\b", text_lower, re.IGNORECASE) for keyword in risky_question_keywords):
+            risk_score = 0.0
     
     # Special case: security researcher asking about vulnerabilities (gray area)
     if re.search(r"\b(security.researcher|güvenlik.araştırmacısı|researcher.studying.security)\b", text_lower, re.IGNORECASE):
@@ -94,7 +105,10 @@ def analyze_input(text: str) -> Dict[str, Any]:
                 risk_flags.append("gray_area")
         elif is_educational_security and is_educational_question:
             # Educational question about security concepts = low risk
-            risk_score = 0.0
+            # BUT: If it contains "break", "hack", "crack", etc., it's risky
+            risky_security_keywords = ["break", "hack", "crack", "bypass", "exploit", "attack"]
+            if not any(re.search(rf"\b{keyword}\b", text_lower, re.IGNORECASE) for keyword in risky_security_keywords):
+                risk_score = 0.0
     
     # If risk exists but masking is present, adjust to gray area (medium risk)
     if risk_score > 0.3 and has_masking and risk_score < 0.8:

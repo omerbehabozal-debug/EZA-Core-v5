@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-11-27T02:06:15.179654",
+  "suite": "multiturn",
+  "total": 100,
+  "passed": 95,
+  "failed": 5,
+  "skipped": 0,
+  "errors": 0,
+  "duration": "427.84s",
+  "duration_seconds": 427.84362689987756,
+  "pass_rate": "95.0%"
+}

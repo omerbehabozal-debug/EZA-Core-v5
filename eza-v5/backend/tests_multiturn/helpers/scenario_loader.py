@@ -13,7 +13,13 @@ def load_multistep_scenarios() -> Dict[str, Any]:
     
     if matrix_100_path.exists():
         with open(matrix_100_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            # Check if new format (has "scenarios" key) or old format
+            if "scenarios" in data:
+                return data
+            else:
+                # Old format - convert on the fly
+                return {"scenarios": []}
     elif original_path.exists():
         with open(original_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -23,6 +29,12 @@ def load_multistep_scenarios() -> Dict[str, Any]:
 
 def get_scenarios_by_category(category: str) -> List[Dict[str, Any]]:
     """Get scenarios for a category"""
-    scenarios = load_multistep_scenarios()
-    return scenarios.get(category, [])
+    data = load_multistep_scenarios()
+    
+    # New format: has "scenarios" key
+    if "scenarios" in data:
+        return [s for s in data["scenarios"] if s.get("category") == category]
+    else:
+        # Old format: categories are keys
+        return data.get(category, [])
 

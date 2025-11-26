@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_multiturn/test_multiturn_progressive.py::test_progressive_risk_scenario[MT-005]",
+    "status": "failed",
+    "duration": 2.3158388999290764,
+    "message": "tests_multiturn\\test_multiturn_progressive.py:81: in test_progressive_risk_scenario\n    assert last_risk > 0.5, f\"Scenario {scenario['id']}: Last message should be high risk (risk={last_risk})\"\nE   AssertionError: Scenario MT-005: Last message should be high risk (risk=0.0)\nE   assert 0.0 > 0.5"
+  }
+]

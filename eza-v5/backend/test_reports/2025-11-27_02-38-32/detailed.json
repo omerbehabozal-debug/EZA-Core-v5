@@ -1,0 +1,12 @@
+[
+  {
+    "name": "tests_multiturn/test_multiturn_progressive.py::test_progressive_risk_scenario[MT-017]",
+    "status": "passed",
+    "duration": 12.250046900007874
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_risk_escalation.py::test_risk_escalation_scenario[MT-083]",
+    "status": "passed",
+    "duration": 15.32860869995784
+  }
+]

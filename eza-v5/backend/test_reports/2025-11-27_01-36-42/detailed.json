@@ -1,0 +1,25 @@
+[
+  {
+    "name": "tests_performance/test_burst_1000.py::test_burst_1000_basic",
+    "status": "failed",
+    "duration": 465.80713420000393,
+    "message": "E   AssertionError: Too many failures: 347\n    assert 653 >= 950"
+  },
+  {
+    "name": "tests_performance/test_burst_1000.py::test_burst_1000_error_rate",
+    "status": "failed",
+    "duration": 438.35148480010685,
+    "message": "E   AssertionError: Error rate too high: 0.102\n    assert 0.102 < 0.05"
+  },
+  {
+    "name": "tests_performance/test_burst_1000.py::test_burst_1000_throughput",
+    "status": "failed",
+    "duration": 510.6852299000602,
+    "message": "E   AssertionError: Throughput too low: 1.9581632469603318 req/s\n    assert 1.9581632469603318 >= 10"
+  },
+  {
+    "name": "tests_performance/test_burst_1000.py::test_burst_1000_score_distribution",
+    "status": "passed",
+    "duration": 543.403588199988
+  }
+]
