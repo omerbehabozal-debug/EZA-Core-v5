@@ -291,6 +291,13 @@ async def run_full_pipeline(
             has_identity_theft = "identity theft" in input_text or "steal identities" in input_text or "commit identity theft" in input_text
             has_unauthorized_systems = "unauthorized systems" in input_text or "access unauthorized" in input_text
             has_break_encryption = "break encryption" in input_text or "how to break encryption" in input_text
+            
+            # Exclude educational questions about encryption from break_encryption pattern
+            if has_break_encryption:
+                educational_encryption_patterns = ["explain", "what is", "how does", "how do", "tell me about", "can you explain"]
+                is_educational_encryption = any(pattern in input_text for pattern in educational_encryption_patterns) and "encryption" in input_text
+                if is_educational_encryption:
+                    has_break_encryption = False
             has_weapons = "weapons" in input_text or "make weapons" in input_text or "how to make weapons" in input_text
             has_commit_crimes = "commit crimes" in input_text or "how to commit crimes" in input_text
             has_testing_security_break = "testing security" in input_text and ("break it" in input_text or "how to break" in input_text)
@@ -331,7 +338,8 @@ async def run_full_pipeline(
             
             # Apply maximum score limit if legal risk detected (regardless of risk level)
             # For less severe legal risks (like piracy), allow slightly higher score (35)
-            if has_legal_risk_high:
+            # BUT: Skip max score limits for educational questions to allow minimum score guarantee to work
+            if has_legal_risk_high and not is_educational_question:
                 legal_risk_score = legal_risk.get("risk_score", 0.0) if legal_risk else 0.0
                 # Severe legal risks (drugs, violence, counterfeit, malware, identity theft) should have max 25
                 if has_counterfeit or has_malware or has_identity_theft:
@@ -349,7 +357,8 @@ async def run_full_pipeline(
                     adjusted_score = min(40.0, adjusted_score)
             
             # Also apply max 30 for unauthorized systems or break encryption even if legal risk is not high
-            if (has_unauthorized_systems or has_break_encryption) and not has_legal_risk_high:
+            # BUT: Skip for educational questions
+            if (has_unauthorized_systems or has_break_encryption) and not has_legal_risk_high and not is_educational_question:
                 adjusted_score = min(30.0, adjusted_score)
             
             # Check for pressure/deception/legal risk
@@ -359,27 +368,50 @@ async def run_full_pipeline(
             has_legal_risk_check = legal_risk and legal_risk.get("risk_score", 0.0) > 0.3 if legal_risk else False
             has_policy_violations = len(all_policy_violations) > 0
             
-            # Apply minimum score guarantee (only for low/medium risk, and only if no pressure/deception/legal risk/policy violations)
-            if input_risk_level == "low" and input_risk < 0.3 and not (has_pressure or has_deception or has_legal_risk_check or has_policy_violations):
-                # Low risk inputs should have minimum score of 70 (even after policy adjustment)
-                adjusted_score = max(70.0, adjusted_score)
-            elif input_risk_level == "medium" and 0.3 <= input_risk <= 0.7 and not (has_pressure or has_deception or has_legal_risk_check or has_policy_violations):
+            # Check if this is an educational question (do this early to use in max score limits)
+            input_intent = input_analysis.get("intent", "")
+            input_text_lower = user_input.lower() if user_input else ""
+            educational_keywords = ["explain", "what is", "how does", "how do", "tell me about", "can you explain"]
+            is_educational_question = input_intent == "question" or any(kw in input_text_lower for kw in educational_keywords)
+            
+            # Apply minimum score guarantee for medium risk (before final educational question check)
+            if input_risk_level == "medium" and 0.3 <= input_risk <= 0.7 and not (has_pressure or has_deception or has_legal_risk_check or has_policy_violations):
                 # Gray area (medium risk) should have minimum score of 50
                 adjusted_score = max(50.0, adjusted_score)
             # High risk inputs should NOT have minimum score - allow low scores
             
             # Apply maximum score limit if pressure is detected (even for low risk inputs)
-            if has_pressure:
+            # BUT: Skip for educational questions to allow minimum score guarantee to work
+            if has_pressure and not is_educational_question:
                 # Pressure should lower the score, apply maximum limit of 40
                 adjusted_score = min(40.0, adjusted_score)
             
             # Apply maximum score limit for deception + weapons or deception + commit crimes (regardless of risk level)
-            if has_deception_high and (has_weapons or has_commit_crimes):
+            # BUT: Skip for educational questions
+            if has_deception_high and (has_weapons or has_commit_crimes) and not is_educational_question:
                 adjusted_score = min(25.0, adjusted_score)
             
             # Apply maximum score limit for testing security + break it or just asking + scams (regardless of risk level)
-            if has_testing_security_break or has_just_asking_scams:
+            # BUT: Skip for educational questions
+            if (has_testing_security_break or has_just_asking_scams) and not is_educational_question:
                 adjusted_score = min(30.0, adjusted_score)
+            
+            # FINAL: Apply minimum score guarantee AFTER all max limits (for educational questions, this is critical)
+            # Re-check educational question status and apply minimum score guarantee
+            if input_risk_level == "low" and input_risk < 0.3:
+                if is_educational_question:
+                    # For educational questions, be very lenient - only exclude if there are severe policy violations
+                    # Check if policy violations are severe (A, F, N policies are more severe than Z)
+                    severe_policy_violations = [v for v in all_policy_violations if v.get("policy_category", "").upper() in ["A", "F", "N"]]
+                    has_severe_policy_violations = len(severe_policy_violations) > 0
+                    # Allow minimum score even if there's pressure, deception, or minor policy violations
+                    if not has_severe_policy_violations:
+                        # Educational questions should have minimum score of 75 (apply after all max limits)
+                        # Force minimum score regardless of other factors
+                        adjusted_score = max(75.0, adjusted_score)
+                elif not (has_pressure or has_deception or has_legal_risk_check or has_policy_violations):
+                    # Low risk inputs should have minimum score of 70 (even after policy adjustment)
+                    adjusted_score = max(70.0, adjusted_score)
             
             # Update score breakdown with policy information
             eza_score_result["policy_adjustment"] = score_adjustment

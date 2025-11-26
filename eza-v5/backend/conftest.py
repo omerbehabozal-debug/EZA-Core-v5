@@ -111,13 +111,13 @@ class TestArtifactSystem:
         with open(history_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(summary, ensure_ascii=False) + "\n")
         
-    print(f"\n{'='*60}")
-    print(f"[REPORT] Test Artifact System - Reports Generated")
-    print(f"{'='*60}")
-    print(f"[DIR] Report Directory: {run_dir}")
-    print(f"[SUMMARY] {passed}/{total} passed, {failed} failed")
-    print(f"[DURATION] {duration:.2f}s")
-    print(f"{'='*60}\n")
+        print(f"\n{'='*60}")
+        print(f"[REPORT] Test Artifact System - Reports Generated")
+        print(f"{'='*60}")
+        print(f"[DIR] Report Directory: {run_dir}")
+        print(f"[SUMMARY] {passed}/{total} passed, {failed} failed")
+        print(f"[DURATION] {duration:.2f}s")
+        print(f"{'='*60}\n")
     
     def _generate_html_report(self, run_dir: Path, summary: Dict):
         """Generate HTML report using Jinja2"""

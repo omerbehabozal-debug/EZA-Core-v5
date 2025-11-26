@@ -115,11 +115,11 @@ class TestArtifactSystem:
             f.write(json.dumps(summary, ensure_ascii=False) + "\n")
         
         print(f"\n{'='*60}")
-        print(f"📊 Test Artifact System - Reports Generated")
+        print(f"[REPORT] Test Artifact System - Reports Generated")
         print(f"{'='*60}")
-        print(f"📁 Report Directory: {run_dir}")
-        print(f"📄 Summary: {passed}/{total} passed, {failed} failed")
-        print(f"⏱️  Duration: {duration:.2f}s")
+        print(f"[DIR] Report Directory: {run_dir}")
+        print(f"[SUMMARY] {passed}/{total} passed, {failed} failed")
+        print(f"[DURATION] {duration:.2f}s")
         print(f"{'='*60}\n")
     
     def _generate_html_report(self, run_dir: Path, summary: Dict):
@@ -369,7 +369,7 @@ class TestArtifactSystem:
                 f.write(html_content)
                 
         except ImportError:
-            print("⚠️  Jinja2 not installed, skipping HTML report")
+            print("[WARN] Jinja2 not installed, skipping HTML report")
     
     def _generate_pdf_report(self, run_dir: Path, summary: Dict):
         """Generate PDF report using reportlab"""
@@ -478,7 +478,7 @@ class TestArtifactSystem:
             doc.build(story)
             
         except ImportError:
-            print("⚠️  ReportLab not installed, skipping PDF report")
+            print("[WARN] ReportLab not installed, skipping PDF report")
 
 
 # Global instance
@@ -508,7 +508,7 @@ def pytest_sessionstart(session):
     """Called after the Session object has been created"""
     artifact_system.session_start_time = datetime.now()
     artifact_system.test_results = []
-    print("\n🚀 EZA Test Artifact System - Session Started")
+    print("\n[START] EZA Test Artifact System - Session Started")
 
 
 def pytest_runtest_logreport(report):
@@ -529,11 +529,11 @@ def pytest_runtest_logreport(report):
 def pytest_collection_modifyitems(session, config, items):
     """Called after collection is completed"""
     artifact_system.suite_name = artifact_system.detect_suite_name(items)
-    print(f"📦 Detected Suite: {artifact_system.suite_name}")
-    print(f"📊 Total Tests Collected: {len(items)}")
+    print(f"[SUITE] Detected Suite: {artifact_system.suite_name}")
+    print(f"[COLLECT] Total Tests Collected: {len(items)}")
 
 
 def pytest_sessionfinish(session, exitstatus):
     """Called after whole test run finished"""
-    print("\n📝 Generating Test Artifacts...")
+    print("\n[GENERATE] Generating Test Artifacts...")
     artifact_system.generate_reports()

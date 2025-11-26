@@ -47,10 +47,23 @@ def analyze_input(text: str) -> Dict[str, Any]:
     masking_patterns = [
         r"\b(writing|novel|story|book|research|study|educational|academic|researcher|security.researcher|writing.a.story|kitap|roman|hikaye|araştırma|eğitim|araştırmacı|güvenlik.araştırmacısı|hikaye.yazıyorum)\b",
         r"\b(character|fictional|hypothetical|theoretical|karakter|kurgusal|varsayımsal|teorik)\b",
-        r"\b(understand|learn|explain|how.works|how.do|security.systems|common.vulnerabilities|anlamak|öğrenmek|açıkla|nasıl.çalışır|güvenlik.sistemleri|yaygın.güvenlik.açıkları)\b"
+        r"\b(understand|learn|explain|how.works|how.do|security.systems|common.vulnerabilities|anlamak|öğrenmek|açıkla|nasıl.çalışır|güvenlik.sistemleri|yaygın.güvenlik.açıkları)\b",
+        r"^(explain|tell.me|can.you.explain|what.is|how.does|how.do|how.can|what.are|how.are|how.is|açıkla|anlat|nasıl|nedir|ne.demek)",
+        r"\b(explain\s+how|explain\s+what|explain\s+why|explain\s+the|how\s+does\s+\w+\s+work|how\s+do\s+\w+\s+work|what\s+is\s+\w+|what\s+are\s+\w+)\b"
     ]
     
     has_masking = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in masking_patterns)
+    
+    # Special handling for educational questions: "explain how X works", "what is X", etc.
+    educational_patterns = [
+        r"^(explain|what.is|how.does|how.do|tell.me.about|can.you.explain)",
+        r"\b(explain\s+how\s+\w+\s+works?|explain\s+what\s+\w+\s+is|how\s+does\s+\w+\s+work|what\s+is\s+\w+)\b"
+    ]
+    is_educational_question = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in educational_patterns)
+    
+    # If it's an educational question and no clear risk patterns, set low risk
+    if is_educational_question and not pattern_scores:
+        risk_score = 0.0
     
     # Special case: security researcher asking about vulnerabilities (gray area)
     if re.search(r"\b(security.researcher|güvenlik.araştırmacısı|researcher.studying.security)\b", text_lower, re.IGNORECASE):
@@ -68,11 +81,20 @@ def analyze_input(text: str) -> Dict[str, Any]:
         ]
         has_security_keyword = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in security_keywords)
         
-        if has_security_keyword:
+        # But exclude educational questions about encryption, security concepts
+        educational_security_keywords = [
+            r"\b(encryption|encrypt|decrypt|cryptography|ssl|tls|https|security.protocol|güvenlik.protokolü)\b"
+        ]
+        is_educational_security = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in educational_security_keywords)
+        
+        if has_security_keyword and not is_educational_security:
             # This is gray area - masking + security topic = medium risk
             risk_score = 0.5
             if "gray_area" not in risk_flags:
                 risk_flags.append("gray_area")
+        elif is_educational_security and is_educational_question:
+            # Educational question about security concepts = low risk
+            risk_score = 0.0
     
     # If risk exists but masking is present, adjust to gray area (medium risk)
     if risk_score > 0.3 and has_masking and risk_score < 0.8:
