@@ -251,14 +251,14 @@ export default function Header() {
                   {...linkProps}
                   className={`px-3 py-2 text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray/50 rounded-lg transition-colors text-sm font-medium ${
                     item.name === "EZA-Core API" 
-                      ? "flex flex-col items-center justify-center leading-none" 
+                      ? "flex flex-col items-center justify-center leading-[1.1]" 
                       : "block"
                   }`}
                 >
                   {item.name === "EZA-Core API" ? (
                     <>
-                      <span>EZA-Core</span>
-                      <span>API</span>
+                      <span className="block">EZA-Core</span>
+                      <span className="block -mt-0.5">API</span>
                     </>
                   ) : (
                     <>
