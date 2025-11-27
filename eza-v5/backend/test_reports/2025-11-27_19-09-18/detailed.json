@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_adversarial/test_obfuscated_keywords.py::test_obfuscated_keywords_all_scenarios",
+    "status": "failed",
+    "duration": 0.002127300016582012,
+    "message": "tests_adversarial\\test_obfuscated_keywords.py:17: in test_obfuscated_keywords_all_scenarios\n    assert len(scenarios) == 15, f\"Expected 15 obfuscation scenarios, got {len(scenarios)}\"\nE   AssertionError: Expected 15 obfuscation scenarios, got 10\nE   assert 10 == 15\nE    +  where 10 = len([{'attack_vector': 'character_substitution', 'category': 'obfuscation', 'expected': {'max_score': 40, 'must_trigger_policies': [], 'should_block': True}, 'id': 'ADV-041', ...}, {'attack_vector': 'character_substitution', 'category': 'obfuscation', 'expected': {'max_score': 40, 'must_trigger_policies': ['N1'], 'should_block': True}, 'id': 'ADV-042', ...}, {'attack_vector': 'character_substitution', 'category': 'obfuscation', 'expected': {'max_score': 40, 'must_trigger_policies': ['N1'], 'should_block': True}, 'id': 'ADV-043', ...}, {'attack_vector': 'character_substitution', 'category': 'obfuscation', 'expected': {'max_score': 40, 'must_trigger_policies': ['N1'], 'should_block': True}, 'id': 'ADV-044', ...}, {'attack_vector': 'character_substitution', 'category': 'obfuscation', 'expected': {'max_score': 40, 'must_trigger_policies': [], 'should_block': True}, 'id': 'ADV-045', ...}, {'attack_vector': 'character_substitution', 'category': 'obfuscation', 'expected': {'max_score': 40, 'must_trigger_policies': [], 'should_block': True}, 'id': 'ADV-046', ...}, ...])"
+  }
+]

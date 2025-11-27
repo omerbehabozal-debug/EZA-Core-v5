@@ -24,5 +24,9 @@ def load_redteam_matrix() -> Dict[str, Any]:
 def get_scenarios_by_category(category: str) -> List[Dict[str, Any]]:
     """Get scenarios for a category"""
     matrix = load_redteam_matrix()
+    # New format: {"scenarios": [...]}
+    if "scenarios" in matrix:
+        return [s for s in matrix["scenarios"] if s.get("category") == category]
+    # Old format: {"jailbreak": [...], ...}
     return matrix.get(category, [])
 

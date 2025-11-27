@@ -19,6 +19,8 @@ from backend.core.engines.legal_risk import analyze_legal_risk
 from backend.core.engines.psych_pressure import analyze_psychological_pressure
 from backend.policy_engine.evaluator import evaluate_policies, get_policy_flags, calculate_score_adjustment
 from backend.config import get_settings
+from backend.core.llm.model_router import ModelRouter
+from backend.core.llm.output_merger import merge_ensemble_outputs
 
 logger = logging.getLogger(__name__)
 
@@ -120,18 +122,76 @@ async def run_full_pipeline(
                 return response
         elif mode != "proxy-lite":  # proxy-lite might receive pre-analyzed output
             try:
-                # Determine depth based on mode
-                depth = "fast" if mode == "standalone" else "fast"  # Can be "deep" for proxy
                 max_tokens = 180 if mode == "standalone" else 512
                 
-                raw_llm_output = await route_model(
-                    prompt=user_input,
-                    depth=depth,
-                    temperature=0.2,
-                    max_tokens=max_tokens,
-                    mode=mode,
-                )
-                logger.debug(f"LLM response received: {len(raw_llm_output) if raw_llm_output else 0} chars")
+                # Use new ModelRouter for multi-model support
+                llm_router = ModelRouter()
+                
+                if mode == "standalone":
+                    # Standalone: single model (openai-gpt4o-mini)
+                    model_name = "openai-gpt4o-mini"
+                    result = await llm_router.generate(
+                        prompt=user_input,
+                        model_name=model_name,
+                        temperature=0.2,
+                        max_tokens=max_tokens,
+                        timeout=12.0,
+                        retries=2
+                    )
+                    
+                    if not result.get("ok"):
+                        logger.error(f"Model router error: {result.get('error')}")
+                        response["ok"] = False
+                        response["error"] = {
+                            "error_code": "LLM_PROVIDER_ERROR",
+                            "error_message": result.get("error", "Unknown error"),
+                            "provider": result.get("provider", "unknown"),
+                            "retryable": False
+                        }
+                        return response
+                    
+                    raw_llm_output = result.get("output", "")
+                    logger.debug(f"LLM response received: {len(raw_llm_output) if raw_llm_output else 0} chars")
+                
+                elif mode == "proxy":
+                    # Proxy: ensemble mode (3 models)
+                    ensemble_models = [
+                        "openai-gpt4o-mini",
+                        "groq-llama3-70b",
+                        "mistral-small"
+                    ]
+                    
+                    # Get responses from all models in parallel
+                    ensemble_results = await llm_router.generate_ensemble(
+                        prompt=user_input,
+                        model_names=ensemble_models,
+                        temperature=0.2,
+                        max_tokens=max_tokens,
+                        timeout=12.0
+                    )
+                    
+                    # Merge outputs using output merger
+                    raw_llm_output = merge_ensemble_outputs(
+                        user_input=user_input,
+                        model_results=ensemble_results,
+                        input_analysis=input_analysis
+                    )
+                    
+                    logger.debug(f"Ensemble response merged: {len(raw_llm_output) if raw_llm_output else 0} chars")
+                    logger.debug(f"Ensemble results: {len([r for r in ensemble_results if r.get('ok')])}/{len(ensemble_results)} successful")
+                
+                else:
+                    # Fallback to legacy route_model for other modes
+                    depth = "fast"
+                    raw_llm_output = await route_model(
+                        prompt=user_input,
+                        depth=depth,
+                        temperature=0.2,
+                        max_tokens=max_tokens,
+                        mode=mode,
+                    )
+                    logger.debug(f"LLM response received (legacy): {len(raw_llm_output) if raw_llm_output else 0} chars")
+                    
             except LLMProviderError as e:
                 logger.error(f"LLM provider error: {str(e)}")
                 response["ok"] = False

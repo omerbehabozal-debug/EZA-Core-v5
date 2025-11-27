@@ -4,7 +4,7 @@ EZA V6 - Centralized Configuration
 """
 
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, Dict
 from functools import lru_cache
 
 
@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
     LOCAL_LLM_URL: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
+    MISTRAL_API_KEY: Optional[str] = None
     
     # Security
     JWT_SECRET: str = "supersecretkey"
@@ -54,6 +56,23 @@ class Settings(BaseSettings):
     
     # Regulation
     DEFAULT_POLICY_PACK: str = "eu_ai"  # rtuk, btk, eu_ai, oecd
+    
+    # Supported Models Mapping
+    SUPPORTED_MODELS: Dict[str, str] = {
+        # OpenAI
+        "openai-gpt4o-mini": "gpt-4o-mini",
+        "openai-gpt4.1": "gpt-4.1",
+        
+        # Groq
+        "groq-llama3-70b": "llama3-70b-8192",
+        "groq-mixtral-8x7b": "mixtral-8x7b-32768",
+        "groq-qwen-32b": "qwen-2-72b",
+        
+        # Mistral
+        "mistral-medium": "mistral-medium-latest",
+        "mistral-small": "mistral-small-latest",
+        "mistral-7b": "mistral-tiny"
+    }
     
     class Config:
         env_file = ".env"

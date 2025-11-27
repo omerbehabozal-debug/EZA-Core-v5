@@ -22,7 +22,21 @@ def load_model_consistency_matrix() -> Dict[str, Any]:
 
 
 def get_test_inputs() -> List[Dict[str, Any]]:
-    """Get all test inputs"""
+    """Get all test inputs (legacy format support)"""
     matrix = load_model_consistency_matrix()
+    # New format: {"scenarios": [...]}
+    if "scenarios" in matrix:
+        return matrix["scenarios"]
+    # Old format: {"test_inputs": [...]}
     return matrix.get("test_inputs", [])
+
+
+def get_scenarios_by_category(category: str) -> List[Dict[str, Any]]:
+    """Get scenarios for a specific category"""
+    matrix = load_model_consistency_matrix()
+    # New format: {"scenarios": [...]}
+    if "scenarios" in matrix:
+        return [s for s in matrix["scenarios"] if s.get("category") == category]
+    # Old format doesn't have categories
+    return []
 
