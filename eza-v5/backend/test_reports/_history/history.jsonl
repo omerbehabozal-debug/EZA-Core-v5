@@ -86,3 +86,7 @@
 {"timestamp": "2025-11-30T00:15:55.708299", "suite": "multimodel", "total": 30, "passed": 27, "failed": 0, "skipped": 3, "errors": 0, "duration": "323.21s", "duration_seconds": 323.2062062001787, "pass_rate": "90.0%"}
 {"timestamp": "2025-11-30T00:21:30.499481", "suite": "multimodel", "total": 1, "passed": 0, "failed": 0, "skipped": 1, "errors": 0, "duration": "13.42s", "duration_seconds": 13.416154199978337, "pass_rate": "0.0%"}
 {"timestamp": "2025-11-30T00:27:59.698554", "suite": "multimodel", "total": 30, "passed": 30, "failed": 0, "skipped": 0, "errors": 0, "duration": "328.04s", "duration_seconds": 328.0381272005616, "pass_rate": "100.0%"}
+{"timestamp": "2025-11-30T00:33:23.225555", "suite": "performance", "total": 52, "passed": 47, "failed": 5, "skipped": 0, "errors": 0, "duration": "30.19s", "duration_seconds": 30.19350600009784, "pass_rate": "90.4%"}
+{"timestamp": "2025-11-30T00:34:36.972850", "suite": "performance", "total": 52, "passed": 51, "failed": 1, "skipped": 0, "errors": 0, "duration": "31.50s", "duration_seconds": 31.50269950029906, "pass_rate": "98.1%"}
+{"timestamp": "2025-11-30T00:35:19.122680", "suite": "performance", "total": 52, "passed": 52, "failed": 0, "skipped": 0, "errors": 0, "duration": "30.70s", "duration_seconds": 30.697413900052197, "pass_rate": "100.0%"}
+{"timestamp": "2025-11-30T00:36:16.032467", "suite": "performance", "total": 52, "passed": 52, "failed": 0, "skipped": 0, "errors": 0, "duration": "31.87s", "duration_seconds": 31.874569399980828, "pass_rate": "100.0%"}
