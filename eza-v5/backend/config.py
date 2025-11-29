@@ -3,9 +3,20 @@
 EZA V6 - Centralized Configuration
 """
 
+import os
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 from typing import Optional, Dict
 from functools import lru_cache
+
+# Load .env file ONCE at module import time
+# This ensures all os.getenv() calls throughout the application can access .env variables
+load_dotenv()
+
+# Debug: Log .env loading status
+print("[ENV] .env loaded — GROQ_API_KEY =", bool(os.getenv("GROQ_API_KEY")))
+print("[ENV] .env loaded — MISTRAL_API_KEY =", bool(os.getenv("MISTRAL_API_KEY")))
+print("[ENV] .env loaded — OPENAI_API_KEY =", bool(os.getenv("OPENAI_API_KEY")))
 
 
 class Settings(BaseSettings):

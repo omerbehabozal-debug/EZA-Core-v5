@@ -12,9 +12,8 @@ from typing import List, Optional
 from datetime import datetime
 import redis.asyncio as redis
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+# Load .env via config.py (ensures single load_dotenv() call)
+from backend.config import get_settings  # This will trigger load_dotenv() in config.py
 
 # Database
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost/eza_v5")

@@ -2,151 +2,151 @@
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-021]",
     "status": "passed",
-    "duration": 10.912078500026837
+    "duration": 11.815716599929146
   },
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-022]",
     "status": "passed",
-    "duration": 11.193310500006191
+    "duration": 13.084606599994004
   },
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-023]",
     "status": "passed",
-    "duration": 10.380801899940707
+    "duration": 12.83496040001046
   },
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-024]",
     "status": "passed",
-    "duration": 13.317515400005504
+    "duration": 11.999540199991316
   },
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-025]",
     "status": "passed",
-    "duration": 12.960677499999292
+    "duration": 12.735287399962544
   },
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-026]",
-    "status": "passed",
-    "duration": 11.653473499929532
+    "status": "skipped",
+    "duration": 13.282193699968047
   },
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-027]",
     "status": "passed",
-    "duration": 12.086035599932075
+    "duration": 10.702882699901238
   },
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-028]",
     "status": "passed",
-    "duration": 10.85202960006427
+    "duration": 11.69293210003525
   },
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-029]",
     "status": "passed",
-    "duration": 11.855410700081848
+    "duration": 11.184408499975689
   },
   {
     "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-030]",
     "status": "passed",
-    "duration": 10.979879399994388
+    "duration": 11.49763580004219
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-001]",
     "status": "passed",
-    "duration": 1.8168574000010267
+    "duration": 1.821134699974209
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-002]",
     "status": "passed",
-    "duration": 12.54865500004962
+    "duration": 12.342932999948971
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-003]",
     "status": "passed",
-    "duration": 9.454115400090814
+    "duration": 9.050012500025332
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-004]",
     "status": "passed",
-    "duration": 12.083475799998268
+    "duration": 12.562391099985689
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-005]",
     "status": "passed",
-    "duration": 2.2603900999529287
+    "duration": 2.369286499917507
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-006]",
     "status": "passed",
-    "duration": 13.062955400091596
+    "duration": 12.591995600028895
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-007]",
     "status": "passed",
-    "duration": 12.446339900023304
+    "duration": 10.371593000018038
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-008]",
     "status": "passed",
-    "duration": 12.757473900099285
+    "duration": 13.190023600007407
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-009]",
-    "status": "passed",
-    "duration": 13.120400400017388
+    "status": "skipped",
+    "duration": 13.247323700110428
   },
   {
     "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-010]",
-    "status": "passed",
-    "duration": 13.420542699983343
+    "status": "skipped",
+    "duration": 13.399865300045349
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-011]",
     "status": "passed",
-    "duration": 13.319862600066699
+    "duration": 12.401256500044838
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-012]",
     "status": "passed",
-    "duration": 10.473418800043873
+    "duration": 11.128225399996154
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-013]",
     "status": "passed",
-    "duration": 13.321362600079738
+    "duration": 10.540481200092472
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-014]",
     "status": "passed",
-    "duration": 12.867735899984837
+    "duration": 11.613904400030151
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-015]",
-    "status": "passed",
-    "duration": 11.839765700045973
+    "status": "skipped",
+    "duration": 13.3463946999982
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-016]",
     "status": "passed",
-    "duration": 6.740863799932413
+    "duration": 7.7033424999099225
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-017]",
     "status": "passed",
-    "duration": 12.097150700050406
+    "duration": 11.867675899993628
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-018]",
     "status": "passed",
-    "duration": 10.307255299994722
+    "duration": 12.317126499954611
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-019]",
     "status": "passed",
-    "duration": 7.1958411000669
+    "duration": 6.808976999949664
   },
   {
     "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-020]",
     "status": "passed",
-    "duration": 10.712452100007795
+    "duration": 13.003521199920215
   }
 ]
