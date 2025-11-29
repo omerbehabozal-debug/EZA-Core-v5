@@ -35,6 +35,22 @@ def compute_eza_score_v21(
     if redirect is None:
         redirect = {}
     
+    # Ensure all parameters are dicts (handle string/None cases)
+    if not isinstance(alignment, dict):
+        alignment = {"alignment_score": 100.0, "verdict": "aligned", "label": "Safe"}
+    if not isinstance(input_analysis, dict):
+        input_analysis = {"risk_score": 0.0, "risk_level": "low", "intent": "unknown", "risk_flags": []}
+    if not isinstance(output_analysis, dict):
+        output_analysis = {"risk_score": 0.0, "risk_level": "low", "risk_flags": []}
+    if not isinstance(redirect, dict):
+        redirect = {}
+    if deception is not None and not isinstance(deception, dict):
+        deception = None
+    if legal_risk is not None and not isinstance(legal_risk, dict):
+        legal_risk = None
+    if psych_pressure is not None and not isinstance(psych_pressure, dict):
+        psych_pressure = None
+    
     # Core components (always available)
     input_risk = input_analysis.get("risk_score", 0.0)
     output_risk = output_analysis.get("risk_score", 0.0)
