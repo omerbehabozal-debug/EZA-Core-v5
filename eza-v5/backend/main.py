@@ -20,7 +20,8 @@ from contextlib import asynccontextmanager
 from backend.routers import (
     auth, standalone, proxy, proxy_lite, admin, media, autonomy,
     institution, gateway, regulator_router, btk_router, eu_ai_router,
-    platform_router, corporate_router, internal_proxy, multimodal
+    platform_router, corporate_router, internal_proxy, multimodal,
+    test_results
 )
 from backend.core.utils.dependencies import init_db, init_redis, init_vector_db
 from backend.learning.vector_store import VectorStore
@@ -111,6 +112,9 @@ app.include_router(btk_router.router, prefix="/api/btk", tags=["BTK"])
 app.include_router(eu_ai_router.router, prefix="/api/eu-ai", tags=["EU AI Act"])
 app.include_router(platform_router.router, prefix="/api/platform", tags=["Platform"])
 app.include_router(corporate_router.router, prefix="/api/corporate", tags=["Corporate"])
+
+# Test Results API
+app.include_router(test_results.router, prefix="/api/test-results", tags=["Test Results"])
 
 
 @app.get("/health")
