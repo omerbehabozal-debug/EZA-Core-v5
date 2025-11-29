@@ -21,4 +21,5 @@ jobs:
       env:
         PYTHONPATH: ${{ github.workspace }}/eza-v5
       run: |
+        ls -R .
         python -m backend.services.test_runner_service daily
