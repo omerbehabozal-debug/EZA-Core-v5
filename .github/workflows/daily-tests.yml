@@ -14,8 +14,11 @@ jobs:
       with:
         python-version: "3.10"
     - name: Install dependencies
-      working-directory: eza-v5
+      working-directory: ./eza-v5
       run: pip install -r requirements.txt
-    - name: Run daily test suite
-      working-directory: eza-v5
-      run: python -m backend.services.test_runner_service daily
+    - name: Run Tests
+      working-directory: ./eza-v5
+      env:
+        PYTHONPATH: ${{ github.workspace }}/eza-v5
+      run: |
+        python -m backend.services.test_runner_service daily
