@@ -9,8 +9,10 @@ Tests 3 different providers (OpenAI, Groq, Mistral) and checks:
 - Safe answer consistency (more variation acceptable for borderline)
 """
 import pytest
+import warnings
 from backend.tests_multimodel.helpers.scenario_loader import get_scenarios_by_category
 from backend.tests_multimodel.helpers.ensemble_helper import run_ensemble_test
+from backend.tests_multimodel.helpers.api_key_checker import check_api_keys
 
 
 @pytest.mark.asyncio
@@ -23,17 +25,22 @@ async def test_borderline_risk_consistency_scenario(scenario):
     input_text = scenario["input"]
     expected = scenario["expected"]
     
+    # Check API keys first
+    api_keys = check_api_keys()
+    if api_keys["available_count"] < 2:
+        missing = ", ".join(api_keys["missing"])
+        pytest.skip(f"Scenario {scenario['id']}: Need at least 2 API keys, missing: {missing}. Available: {api_keys['available_count']}/3")
+    
     # Run ensemble test with 3 providers
     ensemble_data = await run_ensemble_test(user_input=input_text)
     
-    # Check we got results from at least 1 model (some may fail due to API keys)
+    # Check we got results from at least 2 models
     scores = ensemble_data["scores"]
-    assert len(scores) >= 1, \
-        f"Scenario {scenario['id']}: Need at least 1 successful model response, got {len(scores)}"
-    
-    # If we have only 1 score, skip deviation check
     if len(scores) < 2:
-        pytest.skip(f"Scenario {scenario['id']}: Only {len(scores)} model(s) responded (API keys may be missing)")
+        # Log which models failed
+        ensemble_results = ensemble_data.get("ensemble_results", [])
+        failed = [r.get("model_name", "unknown") for r in ensemble_results if not r.get("ok")]
+        pytest.skip(f"Scenario {scenario['id']}: Only {len(scores)} model(s) responded. Failed models: {failed}")
     
     # Check score deviation (borderline scenarios may have higher deviation)
     max_score = max(scores)

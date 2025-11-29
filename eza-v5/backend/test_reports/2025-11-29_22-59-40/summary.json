@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-11-29T22:59:40.740704",
+  "suite": "multimodel",
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "errors": 0,
+  "duration": "2.55s",
+  "duration_seconds": 2.546517000067979,
+  "pass_rate": "100.0%"
+}

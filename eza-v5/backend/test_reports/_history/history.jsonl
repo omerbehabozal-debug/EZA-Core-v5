@@ -79,3 +79,5 @@
 {"timestamp": "2025-11-27T19:33:27.800740", "suite": "adversarial", "total": 132, "passed": 132, "failed": 0, "skipped": 0, "errors": 0, "duration": "415.26s", "duration_seconds": 415.26275950006675, "pass_rate": "100.0%"}
 {"timestamp": "2025-11-29T22:48:36.602590", "suite": "multimodel", "total": 30, "passed": 18, "failed": 12, "skipped": 0, "errors": 0, "duration": "349.93s", "duration_seconds": 349.93119680020027, "pass_rate": "60.0%"}
 {"timestamp": "2025-11-29T22:54:51.017291", "suite": "multimodel", "total": 30, "passed": 21, "failed": 9, "skipped": 0, "errors": 0, "duration": "313.01s", "duration_seconds": 313.0111504998058, "pass_rate": "70.0%"}
+{"timestamp": "2025-11-29T22:59:40.740704", "suite": "multimodel", "total": 1, "passed": 1, "failed": 0, "skipped": 0, "errors": 0, "duration": "2.55s", "duration_seconds": 2.546517000067979, "pass_rate": "100.0%"}
+{"timestamp": "2025-11-29T23:05:40.731526", "suite": "multimodel", "total": 30, "passed": 23, "failed": 0, "skipped": 7, "errors": 0, "duration": "351.07s", "duration_seconds": 351.0709754000418, "pass_rate": "76.7%"}

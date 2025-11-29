@@ -51,6 +51,23 @@ async def run_ensemble_test(
         timeout=12.0
     )
     
+    # Log which models failed and why
+    failed_models = []
+    for result in ensemble_results:
+        if not result.get("ok"):
+            failed_models.append({
+                "model": result.get("model_name", "unknown"),
+                "provider": result.get("provider", "unknown"),
+                "error": result.get("error", "unknown error")
+            })
+    
+    # Log API key issues
+    if failed_models:
+        import warnings
+        for fm in failed_models:
+            if "not configured" in fm.get("error", "").lower() or "api key" in fm.get("error", "").lower():
+                warnings.warn(f"API key missing for {fm['provider']} ({fm['model']}): {fm['error']}")
+    
     # Analyze each output
     analyzed_outputs = []
     scores = []
