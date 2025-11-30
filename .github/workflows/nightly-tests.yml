@@ -2,40 +2,39 @@ name: Nightly Backend Tests
 
 on:
   schedule:
-    # Her gece 02:00 UTC (Türkiye saati ile 05:00)
-    - cron: "0 2 * * *"
-  workflow_dispatch:  # Manuel tetikleme için
+    - cron: "0 2 * * *"   # 02:00 UTC → 05:00 Türkiye
+  workflow_dispatch:
 
 jobs:
   nightly-backend-tests:
     runs-on: ubuntu-latest
-    
+
     defaults:
       run:
         working-directory: eza-v5/backend
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: 'pip'
-      
+          cache: pip
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r eza-v5/backend/requirements.txt
-      
+          pip install -r requirements.txt   # ← DOĞRU
+
       - name: Run full backend test suite
         env:
           EZA_ENV: "ci"
         run: |
           echo "Running full backend test suite (excluding requires_real_llm tests)..."
           pytest -vv -m "not requires_real_llm" --tb=short
-      
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,7 +43,7 @@ jobs:
           path: eza-v5/backend/test_reports/
           if-no-files-found: ignore
           retention-days: 7
-      
+
       - name: Upload test summary
         if: always()
         uses: actions/upload-artifact@v4
@@ -53,7 +52,3 @@ jobs:
           path: eza-v5/backend/test_reports/*/summary.json
           if-no-files-found: ignore
           retention-days: 30
-      
-      # TODO: requires_real_llm testleri için ayrı bir workflow oluşturulabilir
-      # Bu testler gerçek LLM API'leri gerektirdiği için ayrı bir ortam ve API key'ler gerektirir
-
