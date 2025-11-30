@@ -1,44 +1,107 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const hostname = req.headers.get("host") || "";
 
+  /* ------------------------------
+   * 1) STANDALONE
+   * ------------------------------ */
   if (hostname === "standalone.ezacore.ai") {
-    return NextResponse.redirect(new URL("/standalone", req.url));
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/standalone";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
   }
 
+  /* ------------------------------
+   * 2) PROXY
+   * ------------------------------ */
   if (hostname === "proxy.ezacore.ai") {
-    return NextResponse.redirect(new URL("/panels/proxy", req.url));
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/panels/proxy";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
   }
 
+  /* ------------------------------
+   * 3) PROXY-LITE
+   * ------------------------------ */
   if (hostname === "proxy-lite.ezacore.ai") {
-    return NextResponse.redirect(new URL("/panels/proxy-lite", req.url));
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/panels/proxy-lite";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
   }
 
+  /* ------------------------------
+   * 4) ADMIN
+   * ------------------------------ */
   if (hostname === "admin.ezacore.ai") {
-    return NextResponse.redirect(new URL("/panels/admin", req.url));
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/panels/admin";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
   }
 
+  /* ------------------------------
+   * 5) CORPORATE
+   * ------------------------------ */
   if (hostname === "corporate.ezacore.ai") {
-    return NextResponse.redirect(new URL("/panels/corporate", req.url));
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/panels/corporate";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
   }
 
+  /* ------------------------------
+   * 6) PLATFORM
+   * ------------------------------ */
   if (hostname === "platform.ezacore.ai") {
-    return NextResponse.redirect(new URL("/panels/platform", req.url));
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/panels/platform";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
   }
 
+  /* ------------------------------
+   * 7) REGULATOR
+   * ------------------------------ */
   if (hostname === "regulator.ezacore.ai") {
-    return NextResponse.redirect(new URL("/panels/regulator", req.url));
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/panels/regulator";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
   }
 
+  /* ------------------------------
+   * 8) EU-AI
+   * ------------------------------ */
   if (hostname === "eu-ai.ezacore.ai") {
-    return NextResponse.redirect(new URL("/panels/eu-ai", req.url));
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/panels/eu-ai";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
   }
 
+  /* ------------------------------
+   * 9) SELECT
+   * ------------------------------ */
   if (hostname === "select.ezacore.ai") {
-    return NextResponse.redirect(new URL("/panels/select", req.url));
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/panels/select";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();
