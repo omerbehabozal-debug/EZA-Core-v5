@@ -72,7 +72,7 @@ export default function StandalonePage() {
       }
 
       // response.data artık net tipte
-      const data: StandaloneApiData = response.data;
+      const data = response.data as StandaloneApiData;
 
       // FINAL SAFE ANSWER LOGIC — backend sadece safe_answer döndürüyor
       const safeAnswer =
