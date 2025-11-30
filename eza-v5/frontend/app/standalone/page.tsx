@@ -64,7 +64,10 @@ export default function StandalonePage() {
         throw new Error(response.error?.error_message || 'Request failed');
       }
 
-      const data = response.data;
+      const data = response.data.data;
+      if (!data) {
+        throw new Error('No data received from server');
+      }
       const safeAnswer = data.safe_answer || 'No response available';
 
       const ezaMessage: Message = {
