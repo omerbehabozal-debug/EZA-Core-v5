@@ -9,20 +9,22 @@ jobs:
   run-daily-tests:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      working-directory: ${{ github.workspace }}/eza-v5
-      run: |
-        pip install -r eza-v5/backend/requirements.txt
-    - name: Run Tests
-      working-directory: ${{ github.workspace }}/eza-v5
-      env:
-        PYTHONPATH: ${{ github.workspace }}/eza-v5
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-      run: |
-        python backend/run_tests.py daily
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        working-directory: ${{ github.workspace }}/eza-v5
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Run Tests
+        working-directory: ${{ github.workspace }}/eza-v5
+        env:
+          PYTHONPATH: ${{ github.workspace }}/eza-v5
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+        run: |
+          python backend/run_tests.py daily
