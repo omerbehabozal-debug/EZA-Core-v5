@@ -22,6 +22,8 @@ class PipelineResponse(BaseModel):
     mode: Literal["standalone", "proxy", "proxy-lite"] = Field(..., description="Pipeline mode")
     eza_score: Optional[float] = Field(None, description="EZA Score v2.1 (0-100)")
     eza_score_breakdown: Optional[Dict[str, Any]] = Field(None, description="Detailed EZA score breakdown")
+    policy_violations: Optional[list] = Field(None, description="List of policy violations detected")
+    risk_level: Optional[str] = Field(None, description="Risk level: low, medium, high")
     data: Optional[Dict[str, Any]] = Field(None, description="Mode-specific response data")
     error: Optional[PipelineError] = Field(None, description="Error information if ok=False")
 

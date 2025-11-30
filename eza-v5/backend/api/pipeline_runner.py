@@ -8,7 +8,6 @@ from typing import Literal, Dict, Any, Optional
 import logging
 
 from backend.core.engines.input_analyzer import analyze_input
-from backend.core.engines.model_router import route_model, LLMProviderError
 from backend.core.engines.output_analyzer import analyze_output
 from backend.core.engines.alignment_engine import compute_alignment
 from backend.core.engines.safe_rewrite import safe_rewrite
@@ -19,7 +18,7 @@ from backend.core.engines.legal_risk import analyze_legal_risk
 from backend.core.engines.psych_pressure import analyze_psychological_pressure
 from backend.policy_engine.evaluator import evaluate_policies, get_policy_flags, calculate_score_adjustment
 from backend.config import get_settings
-from backend.core.llm.model_router import ModelRouter
+from backend.core.utils.model_router import ModelRouter
 from backend.core.llm.output_merger import merge_ensemble_outputs
 
 logger = logging.getLogger(__name__)
@@ -61,12 +60,14 @@ async def run_full_pipeline(
     """
     settings = get_settings()
     
-    # Initialize response structure
+    # Initialize response structure (unified format)
     response: Dict[str, Any] = {
         "ok": True,
         "mode": mode,
         "eza_score": None,
         "eza_score_breakdown": None,
+        "policy_violations": None,
+        "risk_level": None,
         "data": None,
         "error": None
     }
@@ -122,55 +123,39 @@ async def run_full_pipeline(
                 return response
         elif mode != "proxy-lite":  # proxy-lite might receive pre-analyzed output
             try:
-                max_tokens = 180 if mode == "standalone" else 512
+                max_tokens = settings.STANDALONE_MAX_TOKENS if mode == "standalone" else settings.PROXY_MAX_TOKENS
+                timeout = settings.LLM_TIMEOUT_SECONDS
                 
-                # Use new ModelRouter for multi-model support
+                # Use ModelRouter for mode-based routing
+                # Routing rules:
+                # - standalone: ensemble (OpenAI + Mistral + Groq)
+                # - proxy: OpenAI tek
+                # - proxy-lite: OpenAI tek
                 llm_router = ModelRouter()
                 
-                if mode == "standalone":
-                    # Standalone: single model (openai-gpt4o-mini)
-                    model_name = "openai-gpt4o-mini"
-                    result = await llm_router.generate(
-                        prompt=user_input,
-                        model_name=model_name,
-                        temperature=0.2,
-                        max_tokens=max_tokens,
-                        timeout=12.0,
-                        retries=2
-                    )
-                    
-                    if not result.get("ok"):
-                        logger.error(f"Model router error: {result.get('error')}")
-                        response["ok"] = False
-                        response["error"] = {
-                            "error_code": "LLM_PROVIDER_ERROR",
-                            "error_message": result.get("error", "Unknown error"),
-                            "provider": result.get("provider", "unknown"),
-                            "retryable": False
-                        }
-                        return response
-                    
-                    raw_llm_output = result.get("output", "")
-                    logger.debug(f"LLM response received: {len(raw_llm_output) if raw_llm_output else 0} chars")
+                # Route by mode
+                router_result = await llm_router.route_by_mode(
+                    prompt=user_input,
+                    mode=mode,
+                    temperature=0.2,
+                    max_tokens=max_tokens,
+                    timeout=timeout
+                )
                 
-                elif mode == "proxy":
-                    # Proxy: ensemble mode (3 models)
-                    ensemble_models = [
-                        "openai-gpt4o-mini",
-                        "groq-llama3-70b",
-                        "mistral-small"
-                    ]
+                # Log skipped and used models
+                skipped_models = router_result.get("skipped_models", [])
+                used_models = router_result.get("used_models", [])
+                
+                if skipped_models:
+                    logger.warning(f"Skipped models (no API key): {skipped_models}")
+                if used_models:
+                    logger.info(f"Used models: {used_models}")
+                
+                # Handle ensemble results (standalone mode)
+                if mode == "standalone" and router_result.get("ensemble_results"):
+                    ensemble_results = router_result.get("ensemble_results", [])
                     
-                    # Get responses from all models in parallel
-                    ensemble_results = await llm_router.generate_ensemble(
-                        prompt=user_input,
-                        model_names=ensemble_models,
-                        temperature=0.2,
-                        max_tokens=max_tokens,
-                        timeout=12.0
-                    )
-                    
-                    # Merge outputs using output merger
+                    # Merge ensemble outputs
                     raw_llm_output = merge_ensemble_outputs(
                         user_input=user_input,
                         model_results=ensemble_results,
@@ -178,30 +163,40 @@ async def run_full_pipeline(
                     )
                     
                     logger.debug(f"Ensemble response merged: {len(raw_llm_output) if raw_llm_output else 0} chars")
-                    logger.debug(f"Ensemble results: {len([r for r in ensemble_results if r.get('ok')])}/{len(ensemble_results)} successful")
+                    logger.debug(f"Ensemble: {len(used_models)}/{len(ensemble_results)} successful, {len(skipped_models)} skipped")
+                
+                elif router_result.get("ok"):
+                    # Single model result (proxy or proxy-lite)
+                    raw_llm_output = router_result.get("output", "")
+                    logger.debug(f"LLM response received: {len(raw_llm_output) if raw_llm_output else 0} chars from {router_result.get('provider')}")
                 
                 else:
-                    # Fallback to legacy route_model for other modes
-                    depth = "fast"
-                    raw_llm_output = await route_model(
-                        prompt=user_input,
-                        depth=depth,
-                        temperature=0.2,
-                        max_tokens=max_tokens,
-                        mode=mode,
-                    )
-                    logger.debug(f"LLM response received (legacy): {len(raw_llm_output) if raw_llm_output else 0} chars")
+                    # All models failed or skipped
+                    error_msg = router_result.get("error", "Unknown error")
+                    logger.error(f"Model router error: {error_msg}")
                     
-            except LLMProviderError as e:
-                logger.error(f"LLM provider error: {str(e)}")
-                response["ok"] = False
-                response["error"] = {
-                    "error_code": "LLM_PROVIDER_ERROR",
-                    "error_message": str(e),
-                    "provider": e.provider,
-                    "retryable": e.is_retryable
-                }
-                return response
+                    # If all models skipped, return graceful error
+                    if skipped_models and not used_models:
+                        response["ok"] = False
+                        response["error"] = {
+                            "error_code": "NO_MODELS_AVAILABLE",
+                            "error_message": "No LLM models available (API keys missing)",
+                            "skipped_models": skipped_models
+                        }
+                        return response
+                    
+                    # If models failed (not skipped), return error
+                    response["ok"] = False
+                    response["error"] = {
+                        "error_code": "LLM_PROVIDER_ERROR",
+                        "error_message": error_msg,
+                        "provider": router_result.get("provider", "unknown"),
+                        "skipped_models": skipped_models,
+                        "used_models": used_models,
+                        "retryable": "timeout" in error_msg.lower() or "rate limit" in error_msg.lower()
+                    }
+                    return response
+                    
             except Exception as e:
                 logger.error(f"LLM call failed: {str(e)}")
                 response["ok"] = False
@@ -522,12 +517,24 @@ async def run_full_pipeline(
                 "safety_level": "yellow" if default_score >= 60 else "orange"
             }
         
-        # Step 9: Build mode-specific response data
+        # Step 9: Set risk_level and policy_violations in response (all modes)
+        # Calculate risk_level from input_analysis
+        input_risk_score = input_analysis.get("risk_score", 0.0)
+        if input_risk_score > 0.6:
+            risk_level = "high"
+        elif input_risk_score > 0.3:
+            risk_level = "medium"
+        else:
+            risk_level = "low"
+        
+        response["risk_level"] = risk_level
+        response["policy_violations"] = all_policy_violations if all_policy_violations else []
+        
+        # Step 10: Build mode-specific response data
         if mode == "standalone":
             # Standalone: only safe_answer (but include policy violations if critical)
             response["data"] = {
-                "safe_answer": safe_answer or "Üzgünüm, şu anda yanıt veremiyorum.",
-                "policy_violations": all_policy_violations if policy_flags.get("has_critical") else []
+                "safe_answer": safe_answer or "Üzgünüm, şu anda yanıt veremiyorum."
             }
         
         elif mode == "proxy":
@@ -540,7 +547,6 @@ async def run_full_pipeline(
                 "alignment": alignment,
                 "redirect": redirect,
                 "safety_label": alignment.get("label", "Safe"),
-                "policy_violations": all_policy_violations,
                 "policy_flags": policy_flags,
                 "deep_analysis": {
                     "deception": deception,
@@ -552,10 +558,8 @@ async def run_full_pipeline(
         elif mode == "proxy-lite":
             # Proxy-lite: concise summary + risk levels
             safety_level = eza_score_result.get("safety_level", "unknown") if response.get("eza_score_breakdown") else "unknown"
-            risk_level = "high" if input_analysis.get("risk_score", 0.0) > 0.6 else "medium" if input_analysis.get("risk_score", 0.0) > 0.3 else "low"
             
             response["data"] = {
-                "risk_level": risk_level,
                 "safety_level": safety_level,
                 "summary": f"Risk assessment: {risk_level} risk, {safety_level} safety",
                 "recommendation": _get_recommendation(risk_level, safety_level)

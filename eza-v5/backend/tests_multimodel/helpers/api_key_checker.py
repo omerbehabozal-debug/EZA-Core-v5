@@ -3,7 +3,6 @@
 API Key Checker for Multi-Model Tests
 Checks which API keys are available
 """
-import os
 from backend.config import get_settings
 
 
@@ -22,9 +21,10 @@ def check_api_keys() -> dict:
     """
     settings = get_settings()
     
-    openai_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
-    groq_key = settings.GROQ_API_KEY or os.getenv("GROQ_API_KEY")
-    mistral_key = settings.MISTRAL_API_KEY or os.getenv("MISTRAL_API_KEY")
+    # Get API keys from settings (config.py already loaded .env)
+    openai_key = settings.OPENAI_API_KEY
+    groq_key = settings.GROQ_API_KEY
+    mistral_key = settings.MISTRAL_API_KEY
     
     result = {
         "openai": bool(openai_key),

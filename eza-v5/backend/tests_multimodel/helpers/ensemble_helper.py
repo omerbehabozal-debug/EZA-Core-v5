@@ -3,7 +3,7 @@
 Helper for testing multi-model ensemble consistency
 """
 from typing import List, Dict, Any
-from backend.core.llm.model_router import ModelRouter
+from backend.core.utils.model_router import ModelRouter
 from backend.core.engines.input_analyzer import analyze_input
 from backend.core.engines.output_analyzer import analyze_output
 from backend.core.engines.alignment_engine import compute_alignment
@@ -32,10 +32,11 @@ async def run_ensemble_test(
         }
     """
     if ensemble_models is None:
+        # Use new model ID format: provider/model-name
         ensemble_models = [
-            "openai-gpt4o-mini",
-            "groq-llama3-70b",
-            "mistral-small"
+            "openai/gpt-4o-mini",
+            "groq/llama3-8b-tool-use",
+            "mistral/mistral-7b-instruct"
         ]
     
     # Analyze input once
@@ -45,7 +46,7 @@ async def run_ensemble_test(
     router = ModelRouter()
     ensemble_results = await router.generate_ensemble(
         prompt=user_input,
-        model_names=ensemble_models,
+        model_ids=ensemble_models,  # Changed from model_names to model_ids
         temperature=0.2,
         max_tokens=512,
         timeout=12.0
@@ -94,7 +95,7 @@ async def run_ensemble_test(
             "output_analysis": output_analysis,
             "alignment": alignment,
             "provider": result.get("provider", "unknown"),
-            "model_name": result.get("model_name", "unknown"),
+            "model_id": result.get("model_id", "unknown"),
             "eza_score": pipeline_result.get("eza_score"),
             "safe_answer": pipeline_result.get("data", {}).get("safe_answer")
         })

@@ -11,18 +11,21 @@ from sqlalchemy import select
 from typing import List, Optional
 from datetime import datetime
 import redis.asyncio as redis
-import os
-# Load .env via config.py (ensures single load_dotenv() call)
-from backend.config import get_settings  # This will trigger load_dotenv() in config.py
 
-# Database
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost/eza_v5")
+# Config import - load_dotenv() is called ONLY in config.py
+from backend.config import get_settings
+
+# Get settings (config.py already loaded .env)
+settings = get_settings()
+
+# Database - Get from settings (config.py loads .env)
+DATABASE_URL = settings.DATABASE_URL
 engine = create_async_engine(DATABASE_URL, echo=True)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
 
-# Redis
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+# Redis - Get from settings
+REDIS_URL = settings.REDIS_URL or "redis://localhost:6379"
 redis_client: Optional[redis.Redis] = None
 
 # Security
@@ -188,4 +191,3 @@ async def init_vector_db():
     """Initialize vector database (Weaviate/Qdrant)"""
     # Will be implemented with actual vector DB client
     pass
-

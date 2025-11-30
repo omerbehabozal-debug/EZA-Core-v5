@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 EZA V6 - Centralized Configuration
+.env yükleme burada tek kez yapılır, tüm modüller buradan config alır.
 """
 
 import os
@@ -13,10 +14,18 @@ from functools import lru_cache
 # This ensures all os.getenv() calls throughout the application can access .env variables
 load_dotenv()
 
-# Debug: Log .env loading status
-print("[ENV] .env loaded — GROQ_API_KEY =", bool(os.getenv("GROQ_API_KEY")))
-print("[ENV] .env loaded — MISTRAL_API_KEY =", bool(os.getenv("MISTRAL_API_KEY")))
-print("[ENV] .env loaded — OPENAI_API_KEY =", bool(os.getenv("OPENAI_API_KEY")))
+# Debug: Log .env loading status - hangi key'ler yüklendi
+_loaded_keys = []
+if os.getenv("OPENAI_API_KEY"):
+    _loaded_keys.append("OPENAI_API_KEY")
+if os.getenv("GROQ_API_KEY"):
+    _loaded_keys.append("GROQ_API_KEY")
+if os.getenv("MISTRAL_API_KEY"):
+    _loaded_keys.append("MISTRAL_API_KEY")
+if os.getenv("ANTHROPIC_API_KEY"):
+    _loaded_keys.append("ANTHROPIC_API_KEY")
+
+print("[ENV] LOADED:", ", ".join(_loaded_keys) if _loaded_keys else "No API keys loaded")
 
 
 class Settings(BaseSettings):
@@ -31,7 +40,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost/eza_v6"
     REDIS_URL: Optional[str] = "redis://localhost:6379"
     
-    # AI Gateway providers
+    # AI Gateway providers - Tüm LLM anahtarları expose ediliyor
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
     LOCAL_LLM_URL: Optional[str] = None
@@ -69,17 +78,22 @@ class Settings(BaseSettings):
     DEFAULT_POLICY_PACK: str = "eu_ai"  # rtuk, btk, eu_ai, oecd
     
     # Supported Models Mapping
+    # Model ID format: provider/model-name
+    # Kullanım: openai/gpt-4o-mini, groq/llama3-8b-tool-use, mistral/mistral-7b-instruct
     SUPPORTED_MODELS: Dict[str, str] = {
         # OpenAI
-        "openai-gpt4o-mini": "gpt-4o-mini",
+        "openai/gpt-4o-mini": "gpt-4o-mini",
+        "openai-gpt4o-mini": "gpt-4o-mini",  # Legacy support
         "openai-gpt4.1": "gpt-4.1",
         
         # Groq
+        "groq/llama3-8b-tool-use": "llama3-8b-8192",
         "groq-llama3-70b": "llama3-70b-8192",
         "groq-mixtral-8x7b": "mixtral-8x7b-32768",
         "groq-qwen-32b": "qwen-2-72b",
         
         # Mistral
+        "mistral/mistral-7b-instruct": "mistral-tiny",
         "mistral-medium": "mistral-medium-latest",
         "mistral-small": "mistral-small-latest",
         "mistral-7b": "mistral-tiny"
@@ -95,4 +109,3 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get settings singleton"""
     return Settings()
-
