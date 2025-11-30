@@ -62,7 +62,7 @@ def write_results(results: TestResultsResponse) -> None:
     with open(DEFAULT_RESULTS_PATH, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     
-    print(f"✓ Test results written to {DEFAULT_RESULTS_PATH}")
+    print(f"Test results written to {DEFAULT_RESULTS_PATH}")
 
 
 def read_results() -> Optional[TestResultsResponse]:
@@ -94,7 +94,7 @@ def read_results() -> Optional[TestResultsResponse]:
             suites=suites
         )
     except (json.JSONDecodeError, KeyError, ValueError) as e:
-        print(f"⚠ Error reading test results: {e}")
+        print(f"Error reading test results: {e}")
         return None
 
 

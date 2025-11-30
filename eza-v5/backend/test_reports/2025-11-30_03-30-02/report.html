@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EZA Test Report - performance</title>
+    <title>EZA Test Report - core</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -127,11 +127,11 @@
         
         <div class="summary-bar">
             <div class="summary-item passed">
-                <h3>52</h3>
+                <h3>47</h3>
                 <p>Passed</p>
             </div>
             <div class="summary-item failed">
-                <h3>0</h3>
+                <h3>3</h3>
                 <p>Failed</p>
             </div>
             <div class="summary-item skipped">
@@ -161,523 +161,503 @@
                 <tbody>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_20_basic</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_safe_alignment</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.375</td>
+                        <td>0.009</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_50_basic</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_risky_output</td>
                         <td>
-                            <span class="status-badge status-passed">
-                                PASSED
+                            <span class="status-badge status-failed">
+                                FAILED
                             </span>
                         </td>
-                        <td>0.901</td>
+                        <td>0.002</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_error_rate</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_risk_delta</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.321</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_throughput</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_label_types</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.408</td>
+                        <td>0.003</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_response_time</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_alignment_score_range</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.236</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_proxy_mode</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_verdict_types</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>1.120</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_mixed_modes</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_input_risk_tracking</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.690</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_risky_input</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_output_risk_tracking</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>1.805</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_data_integrity</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_consistency</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.369</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_stability</td>
+                        <td>tests_core/test_alignment_engine.py::test_alignment_engine_edge_cases</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.543</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_score_distribution</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_llm_failure</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.301</td>
+                        <td>0.028</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_burst_throughput.py::test_burst_concurrent_safety</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_empty_input</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>1.725</td>
+                        <td>1.145</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_10_basic</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_invalid_mode</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.210</td>
+                        <td>1.107</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_20_basic</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_network_timeout</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.367</td>
+                        <td>0.005</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_no_deadlock</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_response_structure</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.223</td>
+                        <td>0.005</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_mixed_modes</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_graceful_degradation</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.419</td>
+                        <td>0.003</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_risky_inputs</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_all_modes</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.936</td>
+                        <td>0.008</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_response_ordering</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_retryable_flag</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.097</td>
+                        <td>0.003</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_error_isolation</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_partial_failure</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.029</td>
+                        <td>2.587</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_resource_contention</td>
+                        <td>tests_core/test_error_handling.py::test_error_handling_error_logging</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.107</td>
+                        <td>0.010</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_throughput</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_safe_input</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.138</td>
+                        <td>0.001</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_batch_processing</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_risky_input</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.131</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_score_consistency</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_intent_detection</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.129</td>
+                        <td>0.001</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_concurrency.py::test_concurrency_stress</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_risk_flags</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.426</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_standalone_basic</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_empty_input</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.011</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_proxy_basic</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_long_input</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.092</td>
+                        <td>0.006</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_proxy_lite</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_special_characters</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.021</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_risky_input</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_unicode</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.067</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_long_input</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_risk_score_range</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.095</td>
+                        <td>0.001</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_complex_analysis</td>
+                        <td>tests_core/test_input_analyzer.py::test_input_analyzer_consistency</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.067</td>
+                        <td>0.001</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_consistency</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_safe_output</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.110</td>
+                        <td>0.001</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_p50_p95_p99</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_risky_output</td>
                         <td>
-                            <span class="status-badge status-passed">
-                                PASSED
+                            <span class="status-badge status-failed">
+                                FAILED
                             </span>
                         </td>
-                        <td>0.189</td>
+                        <td>0.001</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_all_modes</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_quality_score</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.085</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_input_analysis</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_risk_flags</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.011</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_output_analysis</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_empty_output</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.054</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_latency.py::test_latency_score_calculation</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_output_length</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.019</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_memory.py::test_memory_basic_usage</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_without_input_analysis</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.495</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_memory.py::test_memory_proxy_mode</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_risk_escalation</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>2.178</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_memory.py::test_memory_concurrent</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_consistency</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.518</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_memory.py::test_memory_policy_evaluation</td>
+                        <td>tests_core/test_output_analyzer.py::test_output_analyzer_risk_score_range</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>2.385</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_memory.py::test_memory_long_conversation</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_safe_scenario</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.627</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_memory.py::test_memory_risky_inputs</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_risky_scenario</td>
                         <td>
-                            <span class="status-badge status-passed">
-                                PASSED
+                            <span class="status-badge status-failed">
+                                FAILED
                             </span>
                         </td>
-                        <td>7.154</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_memory.py::test_memory_mixed_modes</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_score_range</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>1.413</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_memory.py::test_memory_stability</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_safety_levels</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.862</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_stability_longrun.py::test_stability_100_requests</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_confidence</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.851</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_stability_longrun.py::test_stability_200_requests</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_breakdown</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>1.702</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_stability_longrun.py::test_stability_error_recovery</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_with_redirect</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>1.359</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_stability_longrun.py::test_stability_score_consistency</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_without_redirect</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>1.079</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_stability_longrun.py::test_stability_policy_consistency</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_consistency</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>6.236</td>
+                        <td>0.000</td>
                     </tr>
                     
                     <tr>
-                        <td>tests_performance/test_stability_longrun.py::test_stability_response_schema</td>
+                        <td>tests_core/test_score_engine.py::test_score_engine_weighted_average</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.985</td>
-                    </tr>
-                    
-                    <tr>
-                        <td>tests_performance/test_stability_longrun.py::test_stability_throughput_consistency</td>
-                        <td>
-                            <span class="status-badge status-passed">
-                                PASSED
-                            </span>
-                        </td>
-                        <td>0.577</td>
-                    </tr>
-                    
-                    <tr>
-                        <td>tests_performance/test_stability_longrun.py::test_stability_all_modes</td>
-                        <td>
-                            <span class="status-badge status-passed">
-                                PASSED
-                            </span>
-                        </td>
-                        <td>3.149</td>
+                        <td>0.000</td>
                     </tr>
                     
                 </tbody>
@@ -685,11 +665,11 @@
         </div>
         
         <div class="metadata">
-            <div class="metadata-item"><strong>Suite:</strong> performance</div>
-            <div class="metadata-item"><strong>Total Tests:</strong> 52</div>
-            <div class="metadata-item"><strong>Pass Rate:</strong> 100.0%</div>
-            <div class="metadata-item"><strong>Duration:</strong> 44.40s</div>
-            <div class="metadata-item"><strong>Timestamp:</strong> 2025-11-30T03:30:48.157911</div>
+            <div class="metadata-item"><strong>Suite:</strong> core</div>
+            <div class="metadata-item"><strong>Total Tests:</strong> 50</div>
+            <div class="metadata-item"><strong>Pass Rate:</strong> 94.0%</div>
+            <div class="metadata-item"><strong>Duration:</strong> 4.94s</div>
+            <div class="metadata-item"><strong>Timestamp:</strong> 2025-11-30T03:30:02.259643</div>
         </div>
         
         <div class="footer">
@@ -704,7 +684,7 @@
             data: {
                 labels: ['Passed', 'Failed', 'Skipped', 'Errors'],
                 datasets: [{
-                    data: [52, 0, 0, 0],
+                    data: [47, 3, 0, 0],
                     backgroundColor: [
                         '#28a745',
                         '#dc3545',

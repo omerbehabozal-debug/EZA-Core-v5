@@ -25,7 +25,4 @@ jobs:
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
       run: |
-        pwd
-        ls -la
-        python -c "import sys; print('Python path:', sys.path)"
-        python backend/services/test_runner_service.py monthly
+        python backend/run_tests.py monthly

@@ -1,0 +1,27 @@
+{
+  "timestamp": "2025-11-30T00:30:48.562827Z",
+  "total_tests": 152,
+  "passed": 149,
+  "failed": 3,
+  "success_rate": 98.03,
+  "suites": [
+    {
+      "name": "Core",
+      "tests": 53,
+      "passed": 50,
+      "failed": 3,
+      "rate": 94.33962264150944,
+      "type": "Fake LLM",
+      "description": "Temel fonksiyonellik, pipeline ve skor hesaplama testleri."
+    },
+    {
+      "name": "Performance",
+      "tests": 99,
+      "passed": 99,
+      "failed": 0,
+      "rate": 100.0,
+      "type": "Fake LLM",
+      "description": "Response time, burst load, concurrency, memory ve stability testleri."
+    }
+  ]
+}

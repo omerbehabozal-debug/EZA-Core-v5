@@ -197,12 +197,12 @@ def run_daily_tests() -> TestResultsResponse:
     Returns:
         TestResultsResponse with daily test results
     """
-    print("🚀 Running daily tests (Core, Performance)...")
+    print("Running daily tests (Core, Performance)...")
     
     suites_results = []
     
     # Run Core tests
-    print("\n📦 Running Core tests...")
+    print("\nRunning Core tests...")
     core_config = TEST_SUITES["core"]
     core_results = run_pytest_suite(core_config["path"])
     suites_results.append({
@@ -216,7 +216,7 @@ def run_daily_tests() -> TestResultsResponse:
     })
     
     # Run Performance tests
-    print("\n📦 Running Performance tests...")
+    print("\nRunning Performance tests...")
     perf_config = TEST_SUITES["performance"]
     perf_results = run_pytest_suite(perf_config["path"])
     suites_results.append({
@@ -248,7 +248,7 @@ def run_daily_tests() -> TestResultsResponse:
         suites=suites
     )
     
-    print(f"\n✅ Daily tests completed: {total_passed}/{total_tests} passed ({success_rate:.2f}%)")
+    print(f"\nDaily tests completed: {total_passed}/{total_tests} passed ({success_rate:.2f}%)")
     return response
 
 
@@ -260,12 +260,12 @@ def run_weekly_tests() -> TestResultsResponse:
     Returns:
         TestResultsResponse with weekly test results
     """
-    print("🚀 Running weekly tests (Behavioral Extended, Policy, Multi-Turn)...")
+    print("Running weekly tests (Behavioral Extended, Policy, Multi-Turn)...")
     
     suites_results = []
     
     # Run Behavioral Extended tests
-    print("\n📦 Running Behavioral Extended tests...")
+    print("\nRunning Behavioral Extended tests...")
     behavioral_config = TEST_SUITES["behavioral_extended"]
     behavioral_results = run_pytest_suite(behavioral_config["path"])
     suites_results.append({
@@ -279,7 +279,7 @@ def run_weekly_tests() -> TestResultsResponse:
     })
     
     # Run Policy tests
-    print("\n📦 Running Policy tests...")
+    print("\nRunning Policy tests...")
     policy_config = TEST_SUITES["policy"]
     policy_results = run_pytest_suite(policy_config["path"])
     suites_results.append({
@@ -293,7 +293,7 @@ def run_weekly_tests() -> TestResultsResponse:
     })
     
     # Run Multi-Turn tests
-    print("\n📦 Running Multi-Turn tests...")
+    print("\nRunning Multi-Turn tests...")
     multiturn_config = TEST_SUITES["multiturn"]
     multiturn_results = run_pytest_suite(multiturn_config["path"])
     suites_results.append({
@@ -325,7 +325,7 @@ def run_weekly_tests() -> TestResultsResponse:
         suites=suites
     )
     
-    print(f"\n✅ Weekly tests completed: {total_passed}/{total_tests} passed ({success_rate:.2f}%)")
+    print(f"\nWeekly tests completed: {total_passed}/{total_tests} passed ({success_rate:.2f}%)")
     return response
 
 
@@ -337,12 +337,12 @@ def run_monthly_tests() -> TestResultsResponse:
     Returns:
         TestResultsResponse with monthly test results
     """
-    print("🚀 Running monthly tests (Adversarial, Multi-Model)...")
+    print("Running monthly tests (Adversarial, Multi-Model)...")
     
     suites_results = []
     
     # Run Adversarial tests
-    print("\n📦 Running Adversarial tests...")
+    print("\nRunning Adversarial tests...")
     adversarial_config = TEST_SUITES["adversarial"]
     adversarial_results = run_pytest_suite(adversarial_config["path"])
     suites_results.append({
@@ -356,7 +356,7 @@ def run_monthly_tests() -> TestResultsResponse:
     })
     
     # Run Multi-Model tests
-    print("\n📦 Running Multi-Model tests...")
+    print("\nRunning Multi-Model tests...")
     multimodel_config = TEST_SUITES["multimodel"]
     multimodel_results = run_pytest_suite(multimodel_config["path"])
     suites_results.append({
@@ -388,7 +388,7 @@ def run_monthly_tests() -> TestResultsResponse:
         suites=suites
     )
     
-    print(f"\n✅ Monthly tests completed: {total_passed}/{total_tests} passed ({success_rate:.2f}%)")
+    print(f"\nMonthly tests completed: {total_passed}/{total_tests} passed ({success_rate:.2f}%)")
     return response
 
 
@@ -418,7 +418,7 @@ def main():
     
     # Write results to JSON
     write_results(results)
-    print(f"\n💾 Results saved to test_results.json")
+    print(f"\nResults saved to test_results.json")
     
     # Exit with appropriate code
     sys.exit(0 if results.failed == 0 else 1)
