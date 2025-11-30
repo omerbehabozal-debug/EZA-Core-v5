@@ -1,27 +1,42 @@
 /**
  * Next.js Middleware - EZA Domain-based Access Control
  * 
- * Enforces domain-specific path access rules using rewrite.
- * Each domain rewrites to its allowed paths.
+ * Her domain tek bir sayfaya yönlendirir.
+ * Temiz ve profesyonel bir yapı için her panel/ürün için tek domain.
  */
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
+ * Domain → Target Path Mapping
+ * Her domain tek bir sayfaya yönlendirir
+ */
+const DOMAIN_ROUTES: Record<string, string> = {
+  'standalone.ezacore.ai': '/standalone',
+  'proxy.ezacore.ai': '/proxy',
+  'proxy-lite.ezacore.ai': '/proxy-lite',
+  'admin.ezacore.ai': '/admin',
+  'corporate.ezacore.ai': '/corporate',
+  'platform.ezacore.ai': '/proxy/platform',
+  'regulator.ezacore.ai': '/regulator',
+  'eu-ai.ezacore.ai': '/proxy/eu-ai',
+  'select.ezacore.ai': '/proxy/select-portal',
+};
+
+/**
  * Statik yollar — ASLA rewrite edilmeyecek
- * Global allowed paths - accessible from any domain
  */
 const PUBLIC_PATHS = [
-  '/_next',         // Next.js statik dosyalar
+  '/_next',
   '/favicon.ico',
   '/robots.txt',
   '/sitemap.xml',
   '/manifest.json',
   '/assets',
   '/images',
-  '/api',           // API çağrıları
-  '/auth',          // Auth endpoints
+  '/api',
+  '/auth',
 ];
 
 /**
@@ -44,121 +59,30 @@ export function middleware(request: NextRequest) {
   const pathname = url.pathname;
   const hostname = getHostname(request);
 
-  // Eğer statik dosyalardan biri çağrılıyorsa → rewrite etme
+  // Statik dosyalar ve API'ler → rewrite etme
   if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
-  /* ---------------------------------------------------
-   * 1) STANDALONE
-   * standalone.ezacore.ai → /standalone
-   ---------------------------------------------------- */
-  if (hostname === 'standalone.ezacore.ai') {
-    if (!pathname.startsWith('/standalone') && pathname !== '/login') {
-      url.pathname = '/standalone';
-      return NextResponse.rewrite(url);
-    }
+  // Domain mapping'de yoksa → normal çalışsın (localhost, unknown domains)
+  const targetPath = DOMAIN_ROUTES[hostname];
+  if (!targetPath) {
     return NextResponse.next();
   }
 
-  /* ---------------------------------------------------
-   * 2) PROXY
-   * proxy.ezacore.ai → /proxy
-   ---------------------------------------------------- */
-  if (hostname === 'proxy.ezacore.ai') {
-    if (!pathname.startsWith('/proxy') && pathname !== '/login' && pathname !== '/proxy-lite') {
-      url.pathname = '/proxy';
-      return NextResponse.rewrite(url);
-    }
+  // Login sayfası → her zaman erişilebilir
+  if (pathname === '/login') {
     return NextResponse.next();
   }
 
-  /* ---------------------------------------------------
-   * 3) PROXY-LITE
-   * proxy-lite.ezacore.ai → /proxy-lite
-   ---------------------------------------------------- */
-  if (hostname === 'proxy-lite.ezacore.ai') {
-    if (!pathname.startsWith('/proxy-lite') && pathname !== '/login') {
-      url.pathname = '/proxy-lite';
-      return NextResponse.rewrite(url);
-    }
+  // Zaten target path'teyse → rewrite etme
+  if (pathname === targetPath || pathname.startsWith(targetPath + '/')) {
     return NextResponse.next();
   }
 
-  /* ---------------------------------------------------
-   * 4) ADMIN
-   * admin.ezacore.ai → /admin
-   ---------------------------------------------------- */
-  if (hostname === 'admin.ezacore.ai') {
-    if (!pathname.startsWith('/admin') && pathname !== '/login') {
-      url.pathname = '/admin';
-      return NextResponse.rewrite(url);
-    }
-    return NextResponse.next();
-  }
-
-  /* ---------------------------------------------------
-   * 5) CORPORATE
-   * corporate.ezacore.ai → /corporate
-   ---------------------------------------------------- */
-  if (hostname === 'corporate.ezacore.ai') {
-    if (!pathname.startsWith('/corporate') && !pathname.startsWith('/proxy/corporate') && pathname !== '/login') {
-      url.pathname = '/corporate';
-      return NextResponse.rewrite(url);
-    }
-    return NextResponse.next();
-  }
-
-  /* ---------------------------------------------------
-   * 6) PLATFORM
-   * platform.ezacore.ai → /proxy/platform
-   ---------------------------------------------------- */
-  if (hostname === 'platform.ezacore.ai') {
-    if (!pathname.startsWith('/proxy/platform') && pathname !== '/login') {
-      url.pathname = '/proxy/platform';
-      return NextResponse.rewrite(url);
-    }
-    return NextResponse.next();
-  }
-
-  /* ---------------------------------------------------
-   * 7) REGULATOR
-   * regulator.ezacore.ai → /regulator
-   ---------------------------------------------------- */
-  if (hostname === 'regulator.ezacore.ai') {
-    if (!pathname.startsWith('/regulator') && !pathname.startsWith('/proxy/regulator') && pathname !== '/login') {
-      url.pathname = '/regulator';
-      return NextResponse.rewrite(url);
-    }
-    return NextResponse.next();
-  }
-
-  /* ---------------------------------------------------
-   * 8) EU-AI
-   * eu-ai.ezacore.ai → /proxy/eu-ai
-   ---------------------------------------------------- */
-  if (hostname === 'eu-ai.ezacore.ai') {
-    if (!pathname.startsWith('/proxy/eu-ai') && pathname !== '/login') {
-      url.pathname = '/proxy/eu-ai';
-      return NextResponse.rewrite(url);
-    }
-    return NextResponse.next();
-  }
-
-  /* ---------------------------------------------------
-   * 9) SELECT PORTAL
-   * select.ezacore.ai → /proxy/select-portal
-   ---------------------------------------------------- */
-  if (hostname === 'select.ezacore.ai') {
-    if (!pathname.startsWith('/proxy/select-portal') && pathname !== '/login') {
-      url.pathname = '/proxy/select-portal';
-      return NextResponse.rewrite(url);
-    }
-    return NextResponse.next();
-  }
-
-  // Diğer her şey normal çalışsın (localhost, unknown domains)
-  return NextResponse.next();
+  // Diğer tüm path'ler → target path'e rewrite et
+  url.pathname = targetPath;
+  return NextResponse.rewrite(url);
 }
 
 export const config = {
