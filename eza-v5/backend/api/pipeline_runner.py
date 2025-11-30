@@ -20,6 +20,7 @@ from backend.policy_engine.evaluator import evaluate_policies, get_policy_flags,
 from backend.config import get_settings
 from backend.core.utils.model_router import ModelRouter
 from backend.core.llm.output_merger import merge_ensemble_outputs
+from backend.telemetry.service import record_telemetry_event
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,8 @@ async def run_full_pipeline(
     user_input: str,
     mode: Literal["standalone", "proxy", "proxy-lite"],
     output_text: Optional[str] = None,
-    llm_override: Optional[Any] = None
+    llm_override: Optional[Any] = None,
+    db_session: Optional[Any] = None
 ) -> Dict[str, Any]:
     """
     Run full EZA pipeline for a given user input and mode.
@@ -564,6 +566,21 @@ async def run_full_pipeline(
                 "summary": f"Risk assessment: {risk_level} risk, {safety_level} safety",
                 "recommendation": _get_recommendation(risk_level, safety_level)
             }
+        
+        # Record telemetry event (non-blocking - don't fail pipeline if telemetry fails)
+        if db_session:
+            try:
+                source = f"{mode}-api"
+                await record_telemetry_event(
+                    pipeline_result=response,
+                    mode=mode,
+                    source=source,
+                    db_session=db_session,
+                    user_input=user_input
+                )
+            except Exception as e:
+                logger.exception(f"Telemetry record failed (non-blocking): {str(e)}")
+                # Don't modify response - telemetry failure should not affect pipeline
         
         return response
     

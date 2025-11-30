@@ -1,5 +1,81 @@
 # EZA Global AI Safety OS - Test Framework
 
+## Live Telemetry & Monitor API
+
+### Overview
+
+EZA-Core includes a live telemetry system that records all pipeline executions for real-time monitoring by corporate and regulator panels. Every request to `/api/standalone`, `/api/proxy`, or `/api/proxy-lite` endpoints is automatically logged as a telemetry event.
+
+### What is Telemetry?
+
+Telemetry events capture:
+- **User input**: The original user query
+- **Pipeline mode**: standalone, proxy, or proxy-lite
+- **EZA Score**: The computed safety score (0-100)
+- **Risk level**: low, medium, or high
+- **Policy violations**: List of detected policy violations
+- **Model usage**: Which LLM providers/models were used
+- **Metadata**: Alignment scores, deep analysis summaries, safety labels
+
+### Endpoints
+
+#### 1. `/api/monitor/live-feed`
+General live feed for monitoring all pipeline events.
+
+**Query Parameters:**
+- `limit` (int, default: 50): Maximum number of events to return (1-500)
+- `mode` (str, optional): Filter by mode: `standalone`, `proxy`, or `proxy-lite`
+
+**Example:**
+```bash
+GET /api/monitor/live-feed?limit=100&mode=standalone
+```
+
+#### 2. `/api/monitor/corporate-feed`
+Corporate panel feed for business monitoring.
+
+**Query Parameters:**
+- `limit` (int, default: 50): Maximum number of events
+- `mode` (str, optional): Filter by mode
+
+#### 3. `/api/monitor/regulator-feed`
+Regulator panel feed (RTÜK, etc.) for compliance monitoring.
+
+**Query Parameters:**
+- `limit` (int, default: 100): Maximum number of events
+
+**Filters Applied:**
+- Only `standalone` and `proxy` modes (excludes `proxy-lite`)
+- Events with policy violations
+- High/medium risk events
+
+### How Corporate/Regulator Panels Use These Endpoints
+
+1. **Polling Strategy**: Frontend polls the endpoint every 5-10 seconds
+2. **Incremental Updates**: Use `newest_timestamp` to fetch only new events
+3. **Real-time Dashboard**: Display events with EZA Score, risk level, and policy violations
+
+### Database Schema
+
+Telemetry events are stored in the `telemetry_events` table with indexed fields for efficient querying.
+
+### Architecture
+
+Pipeline requests → `run_full_pipeline()` → `record_telemetry_event()` (non-blocking) → Database → Monitor API → Corporate/Regulator Panels
+
+### Security (Future)
+
+Currently open for development. In production: authentication, role-based access control, rate limiting.
+
+### Testing
+
+Run telemetry tests:
+```bash
+pytest backend/tests_monitor/test_monitor_api.py -v
+```
+
+---
+
 **7 Katman, 500+ Test Paketi - Full Automation**
 
 ## 📊 Test Framework Özeti

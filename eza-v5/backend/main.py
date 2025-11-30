@@ -13,7 +13,7 @@ backend_dir = Path(__file__).parent
 project_root = backend_dir.parent
 sys.path.insert(0, str(project_root))
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
@@ -21,9 +21,9 @@ from backend.routers import (
     auth, standalone, proxy, proxy_lite, admin, media, autonomy,
     institution, gateway, regulator_router, btk_router, eu_ai_router,
     platform_router, corporate_router, internal_proxy, multimodal,
-    test_results
+    test_results, monitor
 )
-from backend.core.utils.dependencies import init_db, init_redis, init_vector_db
+from backend.core.utils.dependencies import init_db, init_redis, init_vector_db, get_db
 from backend.learning.vector_store import VectorStore
 from backend.config import get_settings
 from backend.api.pipeline_runner import run_full_pipeline
@@ -116,6 +116,9 @@ app.include_router(corporate_router.router, prefix="/api/corporate", tags=["Corp
 # Test Results API
 app.include_router(test_results.router, prefix="/api/test-results", tags=["Test Results"])
 
+# Monitor API (Live Telemetry)
+app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitor"])
+
 
 @app.get("/health")
 async def health_check():
@@ -146,31 +149,31 @@ async def root():
 # ============================================================================
 
 @app.post("/api/standalone", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
-async def standalone_endpoint(request: StandaloneRequest):
+async def standalone_endpoint(request: StandaloneRequest, db=Depends(get_db)):
     """
     Standalone mode endpoint - Unified pipeline
     
     Returns only safe_answer in data field.
     """
-    result = await run_full_pipeline(user_input=request.text, mode="standalone")
+    result = await run_full_pipeline(user_input=request.text, mode="standalone", db_session=db)
     # Always return 200, even if ok=False (for frontend convenience)
     return result
 
 
 @app.post("/api/proxy", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
-async def proxy_endpoint(request: ProxyRequest):
+async def proxy_endpoint(request: ProxyRequest, db=Depends(get_db)):
     """
     Proxy mode endpoint - Unified pipeline
     
     Returns raw outputs, scores, and detailed analysis report in data field.
     """
-    result = await run_full_pipeline(user_input=request.message, mode="proxy")
+    result = await run_full_pipeline(user_input=request.message, mode="proxy", db_session=db)
     # Always return 200, even if ok=False (for frontend convenience)
     return result
 
 
 @app.post("/api/proxy-lite", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
-async def proxy_lite_endpoint(request: ProxyLiteRequest):
+async def proxy_lite_endpoint(request: ProxyLiteRequest, db=Depends(get_db)):
     """
     Proxy-Lite mode endpoint - Unified pipeline
     
@@ -180,7 +183,8 @@ async def proxy_lite_endpoint(request: ProxyLiteRequest):
     result = await run_full_pipeline(
         user_input=request.message,
         mode="proxy-lite",
-        output_text=request.output_text
+        output_text=request.output_text,
+        db_session=db
     )
     # Always return 200, even if ok=False (for frontend convenience)
     return result
