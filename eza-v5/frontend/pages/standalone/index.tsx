@@ -30,7 +30,6 @@ export default function StandalonePage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleSend = async (text: string) => {
-    // Add user message immediately
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       text,
@@ -42,7 +41,6 @@ export default function StandalonePage() {
     setIsLoading(true);
 
     try {
-      // Call backend API (no auth required)
       const response = await apiClient.post<{
         ok: boolean;
         data?: {
@@ -56,7 +54,7 @@ export default function StandalonePage() {
         };
       }>('/api/standalone', {
         body: { text },
-        auth: false, // Public endpoint
+        auth: false,
       });
 
       if (!response.ok || !response.data) {
@@ -65,9 +63,9 @@ export default function StandalonePage() {
 
       const data = response.data;
 
-      // FINAL SAFE ANSWER LOGIC — No "answer" field anymore
+      // 🔥 FINAL CORRECT LOGIC
       const safeAnswer =
-        data.safe_answer ||
+        data.safe_answer ??
         'No response available';
 
       const ezaMessage: Message = {
@@ -88,8 +86,6 @@ export default function StandalonePage() {
 
       setMessages((prev) => [...prev, ezaMessage]);
     } catch (error: any) {
-      console.error('Error:', error);
-
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
         text:
@@ -112,7 +108,10 @@ export default function StandalonePage() {
       <TopBar onSettingsClick={() => setIsSettingsOpen(true)} />
       <MessageList messages={messages} isLoading={isLoading} />
       <InputBar onSend={handleSend} isLoading={isLoading} />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 }
