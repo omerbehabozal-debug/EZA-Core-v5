@@ -13,8 +13,18 @@ from datetime import datetime, timezone
 # Add parent directory to Python path for imports
 # This allows the script to be run from any directory
 _script_dir = Path(__file__).parent.parent.parent
-if str(_script_dir) not in sys.path:
-    sys.path.insert(0, str(_script_dir))
+_script_dir_str = str(_script_dir.resolve())
+if _script_dir_str not in sys.path:
+    sys.path.insert(0, _script_dir_str)
+# Also add current working directory's parent if different
+import os
+_cwd = os.getcwd()
+if _cwd != _script_dir_str and _cwd not in sys.path:
+    # If we're in eza-v5/backend, add eza-v5 to path
+    if _cwd.endswith('/backend') or _cwd.endswith('\\backend'):
+        _parent = str(Path(_cwd).parent.resolve())
+        if _parent not in sys.path:
+            sys.path.insert(0, _parent)
 
 from backend.services.test_results_service import (
     TestResultsResponse,
