@@ -30,7 +30,7 @@ export default function StandalonePage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleSend = async (text: string) => {
-    // Add user message immediately
+    // Add user message instantly
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       text,
@@ -42,10 +42,11 @@ export default function StandalonePage() {
     setIsLoading(true);
 
     try {
-      // Call backend API (no auth required)
+      // Call backend API
       const response = await apiClient.post<{
         ok: boolean;
         data?: {
+          answer?: string;
           safe_answer?: string;
           eza_score?: number;
           risk_level?: string;
@@ -56,7 +57,7 @@ export default function StandalonePage() {
         };
       }>('/api/standalone', {
         body: { text },
-        auth: false, // Public endpoint
+        auth: false,
       });
 
       if (!response.ok || !response.data) {
@@ -64,13 +65,22 @@ export default function StandalonePage() {
       }
 
       const data = response.data;
-      const safeAnswer = data.safe_answer || 'No response available';
+
+      const safeAnswer =
+        data.answer ||
+        data.safe_answer || // backward compatibility
+        'No response available';
 
       const ezaMessage: Message = {
         id: `eza-${Date.now()}`,
         text: safeAnswer,
         isUser: false,
-        safety: data.risk_level === 'high' ? 'Blocked' : data.risk_level === 'medium' ? 'Warning' : 'Safe',
+        safety:
+          data.risk_level === 'high'
+            ? 'Blocked'
+            : data.risk_level === 'medium'
+            ? 'Warning'
+            : 'Safe',
         ezaScore: data.eza_score,
         riskLevel: data.risk_level,
         policyViolations: data.policy_violations,
@@ -79,12 +89,14 @@ export default function StandalonePage() {
 
       setMessages((prev) => [...prev, ezaMessage]);
     } catch (error: any) {
-      console.error('Error:', error);
-      
-      // Show error message to user
+      console.error('Standalone Error:', error);
+
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
-        text: error.message || error.error?.error_message || 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.',
+        text:
+          error?.message ||
+          error?.error?.error_message ||
+          'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.',
         isUser: false,
         safety: 'Warning',
         timestamp: new Date(),
@@ -101,7 +113,10 @@ export default function StandalonePage() {
       <TopBar onSettingsClick={() => setIsSettingsOpen(true)} />
       <MessageList messages={messages} isLoading={isLoading} />
       <InputBar onSend={handleSend} isLoading={isLoading} />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 }
