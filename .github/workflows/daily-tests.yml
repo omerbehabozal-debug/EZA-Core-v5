@@ -14,12 +14,16 @@ jobs:
       with:
         python-version: "3.10"
     - name: Install dependencies
-      working-directory: ./eza-v5
-      run: pip install -r requirements.txt
+      working-directory: ${{ github.workspace }}/eza-v5
+      run: |
+        pip install -r requirements.txt
     - name: Run Tests
-      working-directory: ./eza-v5
+      working-directory: ${{ github.workspace }}/eza-v5
       env:
         PYTHONPATH: ${{ github.workspace }}/eza-v5
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
       run: |
-        ls -R .
+        ls -R ${{ github.workspace }}
         python -m backend.services.test_runner_service daily
