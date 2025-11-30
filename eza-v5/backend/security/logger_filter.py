@@ -45,8 +45,8 @@ class SensitiveDataFilter(logging.Filter):
         Returns:
             True to allow the record
         """
-        # In production, mask sensitive data
-        if self.settings.ENV == "prod":
+        # In production or CI, mask sensitive data
+        if self.settings.ENV in ["prod", "ci"]:
             # Mask in message
             if hasattr(record, "msg") and record.msg:
                 record.msg = self._mask_sensitive(str(record.msg))
@@ -152,8 +152,11 @@ def setup_security_logging():
         root_logger.setLevel(logging.INFO)
         # Disable debug logs in production
         logging.getLogger("backend").setLevel(logging.INFO)
+    elif settings.ENV == "ci":
+        root_logger.setLevel(logging.WARNING)  # CI: minimal logging (warnings and errors only)
+        logging.getLogger("backend").setLevel(logging.WARNING)
     else:
-        root_logger.setLevel(logging.DEBUG)
+        root_logger.setLevel(logging.DEBUG)  # dev/staging: detailed logging
     
     logging.info("Security logging configured")
 

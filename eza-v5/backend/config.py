@@ -33,7 +33,8 @@ class Settings(BaseSettings):
     
     # Core
     PROJECT_NAME: str = "EZA-Core V6"
-    ENV: str = "dev"  # dev / staging / prod
+    ENV: str = "dev"  # dev / staging / prod / ci
+    EZA_ENV: Optional[str] = None  # Override ENV if set (takes precedence)
     DEBUG: bool = True
     
     # Database & Redis
@@ -115,4 +116,18 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """Get settings singleton"""
-    return Settings()
+    settings = Settings()
+    
+    # EZA_ENV override ENV if set (takes precedence)
+    if settings.EZA_ENV:
+        settings.ENV = settings.EZA_ENV
+    
+    # Set DEBUG based on ENV
+    if settings.ENV == "prod":
+        settings.DEBUG = False
+    elif settings.ENV == "ci":
+        settings.DEBUG = False  # CI mode: minimal logging
+    else:
+        settings.DEBUG = True  # dev/staging: detailed logging
+    
+    return settings
