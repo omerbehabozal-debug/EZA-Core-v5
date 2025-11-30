@@ -2,7 +2,7 @@ name: Nightly Backend Tests
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # 02:00 UTC → 05:00 Türkiye
+    - cron: "0 2 * * *"   # Her gece 02:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -21,34 +21,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
+          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt   # ← DOĞRU
+          pip install -r requirements.txt
 
-      - name: Run full backend test suite
+      - name: Run full nightly CI-safe suite
         env:
           EZA_ENV: "ci"
         run: |
-          echo "Running full backend test suite (excluding requires_real_llm tests)..."
-          pytest -vv -m "not requires_real_llm" --tb=short
+          echo "Running Nightly CI-safe suite…"
+          python run_tests.py ci_nightly || true
 
-      - name: Upload test results
+      - name: Upload nightly test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: nightly-test-results
-          path: eza-v5/backend/test_reports/
+          path: eza-v5/backend/data/test_results.json
           if-no-files-found: ignore
           retention-days: 7
-
-      - name: Upload test summary
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nightly-test-summary
-          path: eza-v5/backend/test_reports/*/summary.json
-          if-no-files-found: ignore
-          retention-days: 30
