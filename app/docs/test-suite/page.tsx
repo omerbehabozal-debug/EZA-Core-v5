@@ -2,6 +2,7 @@ import { generatePageMetadata } from "@/lib/seo";
 import Section from "@/app/components/Section";
 import FadeIn from "@/app/components/FadeIn";
 import Icon from "@/app/components/Icon";
+import ComplianceMatrix from "@/app/components/ComplianceMatrix";
 
 export const metadata = generatePageMetadata(
   "EZA Test & Safety Benchmarks",
@@ -635,6 +636,9 @@ export default async function TestSuitePage() {
 
       {/* Test Ekosistemi Mimarisi */}
       <TestEcosystemArchitecture />
+
+      {/* Regülasyon Uyum Matrisi */}
+      <ComplianceMatrix />
 
       {/* Test Frekansı Takvimi */}
       <TestFrequencyCalendar />
