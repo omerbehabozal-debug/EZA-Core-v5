@@ -50,8 +50,15 @@ class Settings(BaseSettings):
     # Security
     JWT_SECRET: str = "supersecretkey"
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
+    EZA_JWT_SECRET: Optional[str] = None  # Production JWT secret (from env)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    
+    # API Keys
+    EZA_ADMIN_API_KEY: Optional[str] = None  # Admin API key for internal endpoints
+    
+    # Redis (for rate limiting)
+    EZA_REDIS_URL: Optional[str] = None  # Redis URL for rate limiting (falls back to REDIS_URL)
     
     # Multi-tenant
     DEFAULT_INSTITUTION_ID: Optional[int] = None

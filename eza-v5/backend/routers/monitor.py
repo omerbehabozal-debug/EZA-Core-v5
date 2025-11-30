@@ -16,7 +16,8 @@ from backend.telemetry.repository import (
     get_events_for_corporate
 )
 from backend.telemetry.schemas import TelemetryEventRead, TelemetryListResponse
-from backend.core.utils.dependencies import require_internal  # For future auth
+from backend.auth.deps import require_admin, require_corporate_or_admin, require_regulator_or_admin
+from backend.security.rate_limit import rate_limit_regulator_feed
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,8 @@ router = APIRouter()
 async def get_live_feed(
     limit: int = Query(50, ge=1, le=500, description="Maximum number of events to return"),
     mode: Optional[str] = Query(None, description="Filter by mode: standalone, proxy, proxy-lite"),
-    db: AsyncSession = Depends(get_db)
-    # TODO: Add authentication when ready
-    # current_user = Depends(require_internal())
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_admin())  # Admin only
 ):
     """
     Get live telemetry feed
@@ -82,9 +82,8 @@ async def get_live_feed(
 async def get_corporate_feed(
     limit: int = Query(50, ge=1, le=500, description="Maximum number of events to return"),
     mode: Optional[str] = Query(None, description="Filter by mode: standalone, proxy, proxy-lite"),
-    db: AsyncSession = Depends(get_db)
-    # TODO: Add corporate authentication when ready
-    # current_user = Depends(require_corporate_user())
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_corporate_or_admin())  # Corporate or admin
 ):
     """
     Get corporate telemetry feed
@@ -136,9 +135,9 @@ async def get_corporate_feed(
 @router.get("/regulator-feed", response_model=TelemetryListResponse)
 async def get_regulator_feed(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of events to return"),
-    db: AsyncSession = Depends(get_db)
-    # TODO: Add regulator authentication when ready
-    # current_user = Depends(require_regulator_user())
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_regulator_or_admin()),  # Regulator or admin
+    __: None = Depends(rate_limit_regulator_feed)  # Rate limiting
 ):
     """
     Get regulator telemetry feed

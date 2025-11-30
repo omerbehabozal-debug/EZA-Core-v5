@@ -24,12 +24,20 @@ from backend.routers import (
     test_results, monitor, monitor_ws
 )
 from backend.core.utils.dependencies import init_db, init_redis, init_vector_db, get_db
+from backend.security.logger_filter import setup_security_logging
 from backend.learning.vector_store import VectorStore
 from backend.config import get_settings
 from backend.api.pipeline_runner import run_full_pipeline
 from backend.core.schemas.pipeline import (
     PipelineResponse, StandaloneRequest, ProxyRequest, ProxyLiteRequest
 )
+from backend.auth.deps import require_admin, require_corporate_or_admin, require_regulator_or_admin
+from backend.security.rate_limit import (
+    rate_limit_standalone,
+    rate_limit_proxy,
+    rate_limit_regulator_feed
+)
+from backend.auth.api_key import require_api_key
 
 # Configure logging
 logging.basicConfig(
@@ -84,14 +92,28 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS middleware with domain whitelist
+allowed_origins = [
+    "https://standalone.ezacore.ai",
+    "https://proxy.ezacore.ai",
+    "https://corporate.ezacore.ai",
+    "https://regulator.ezacore.ai",
+    "https://platform.ezacore.ai",
+    "https://admin.ezacore.ai",
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Setup security logging
+setup_security_logging()
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -152,11 +174,17 @@ async def root():
 # ============================================================================
 
 @app.post("/api/standalone", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
-async def standalone_endpoint(request: StandaloneRequest, db=Depends(get_db)):
+async def standalone_endpoint(
+    request: StandaloneRequest,
+    db=Depends(get_db),
+    _: None = Depends(rate_limit_standalone)  # Rate limiting (no auth required)
+):
     """
     Standalone mode endpoint - Unified pipeline
     
     Returns only safe_answer in data field.
+    
+    Note: Public endpoint, no authentication required.
     """
     result = await run_full_pipeline(user_input=request.text, mode="standalone", db_session=db)
     # Always return 200, even if ok=False (for frontend convenience)
@@ -164,11 +192,18 @@ async def standalone_endpoint(request: StandaloneRequest, db=Depends(get_db)):
 
 
 @app.post("/api/proxy", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
-async def proxy_endpoint(request: ProxyRequest, db=Depends(get_db)):
+async def proxy_endpoint(
+    request: ProxyRequest,
+    db=Depends(get_db),
+    _: dict = Depends(require_admin()),  # Admin only
+    __: None = Depends(rate_limit_proxy)  # Rate limiting
+):
     """
     Proxy mode endpoint - Unified pipeline
     
     Returns raw outputs, scores, and detailed analysis report in data field.
+    
+    Requires: admin role
     """
     result = await run_full_pipeline(user_input=request.message, mode="proxy", db_session=db)
     # Always return 200, even if ok=False (for frontend convenience)
@@ -176,11 +211,17 @@ async def proxy_endpoint(request: ProxyRequest, db=Depends(get_db)):
 
 
 @app.post("/api/proxy-lite", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
-async def proxy_lite_endpoint(request: ProxyLiteRequest, db=Depends(get_db)):
+async def proxy_lite_endpoint(
+    request: ProxyLiteRequest,
+    db=Depends(get_db),
+    _: dict = Depends(require_corporate_or_admin())  # Corporate or admin
+):
     """
     Proxy-Lite mode endpoint - Unified pipeline
     
     Returns concise summary with risk levels and recommendations in data field.
+    
+    Requires: corporate or admin role
     """
     # For proxy-lite, if output_text is provided, pass it to the pipeline
     result = await run_full_pipeline(

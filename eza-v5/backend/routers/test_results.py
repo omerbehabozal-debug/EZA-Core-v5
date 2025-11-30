@@ -11,6 +11,7 @@ from backend.services.test_results_service import (
     get_latest_test_results,
     TestResultsResponse
 )
+from backend.auth.api_key import require_api_key
 
 router = APIRouter()
 
@@ -23,7 +24,9 @@ router = APIRouter()
     description="Returns the latest test suite results including all test categories and their success rates.",
     response_description="Test results with timestamp, totals, and individual suite details"
 )
-async def get_latest_test_results_endpoint():
+async def get_latest_test_results_endpoint(
+    _: str = require_api_key()  # API key required
+):
     """
     Get latest test results.
     
