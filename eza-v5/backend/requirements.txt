@@ -7,7 +7,7 @@ python-multipart==0.0.6
 
 # Database
 sqlalchemy
-aiosqlite[asyncio]==2.0.23
+aiosqlite==0.21.0
 asyncpg==0.29.0
 psycopg2-binary==2.9.9  # Required for Alembic (synchronous migrations)
 alembic==1.12.1
