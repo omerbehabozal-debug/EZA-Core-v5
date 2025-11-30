@@ -613,24 +613,6 @@ export default async function TestSuitePage() {
         </div>
       </Section>
 
-      {/* Test Suite Özeti */}
-      <Section className="bg-white">
-        <div className="max-w-7xl mx-auto">
-          <FadeIn>
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-eza-text mb-4">
-                Test Suite Özeti
-              </h2>
-              <p className="text-lg text-eza-text-secondary max-w-2xl mx-auto">
-                7 farklı test paketi ile EZA'nın güvenilirliği ve performansı kapsamlı şekilde değerlendirilmektedir.
-              </p>
-            </div>
-          </FadeIn>
-
-          <TestSuiteGrid />
-        </div>
-      </Section>
-
       {/* Regülasyon Uyumluluk Haritası */}
       <RegulationCompliance />
 

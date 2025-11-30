@@ -114,6 +114,14 @@ export default function Footer() {
               </li>
               <li>
                 <Link
+                  href="/docs/test-suite"
+                  className="text-eza-text-secondary hover:text-eza-text transition-colors text-sm"
+                >
+                  Test & Safety Benchmarks
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/whitepaper"
                   className="text-eza-text-secondary hover:text-eza-text transition-colors text-sm"
                 >

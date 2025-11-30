@@ -95,6 +95,17 @@ const documentationSections = [
     ],
   },
   {
+    title: "Test & Benchmarks",
+    icon: "CheckCircle",
+    items: [
+      {
+        title: "Test & Safety Benchmarks",
+        description: "EZA test sonuçları, regülasyon uyumluluğu ve güvenlik metrikleri",
+        href: "/docs/test-suite",
+      },
+    ],
+  },
+  {
     title: "Entegrasyon",
     icon: "Plug",
     items: [
