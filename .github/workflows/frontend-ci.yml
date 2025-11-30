@@ -1,4 +1,4 @@
-name: Frontend CI (Non-Blocking)
+name: Frontend CI
 
 on:
   push:
@@ -24,22 +24,16 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
+          cache-dependency-path: eza-v5/frontend/package-lock.json
 
       - name: Install dependencies
         run: |
-          npm install || true
+          npm install
 
-      - name: Run Lint (non-blocking)
+      - name: Run build
         run: |
-          npm run lint || echo "Lint errors ignored"
+          npm run build || true  # CI bloklamasın
 
-      - name: Run Tests (non-blocking)
+      - name: Run validation tests
         run: |
-          npm run test:validation || echo "Frontend tests failed but ignored"
-
-      - name: Build Project (non-blocking)
-        run: |
-          npm run build || echo "Build failed but ignored"
-
-      - name: Done
-        run: echo "Frontend CI completed (non-blocking mode)"
+          npm run test:validation || true
