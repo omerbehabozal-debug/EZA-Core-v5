@@ -33,6 +33,7 @@ const GLOBAL_ALLOWED_PATHS = [
   '/favicon.ico',
   '/robots.txt',
   '/sitemap.xml',
+  '/api', // API routes
 ];
 
 /**

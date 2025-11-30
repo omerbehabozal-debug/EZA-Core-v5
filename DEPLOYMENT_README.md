@@ -146,15 +146,27 @@ Same as Railway (see above)
 
 ### Step 2: Import Project
 1. Click "Add New" → "Project"
-2. Import Git Repository: `EZA-Core-v4.0`
-3. Select repository and branch: `main`
+2. Import Git Repository: `EZA-Core-v4.0` (or `EZA-Core-v5` if different)
+3. Select repository and branch: `main` (or `eza-global` if that's your production branch)
 
 ### Step 3: Configure Project
 - **Framework Preset**: Next.js (auto-detected)
-- **Root Directory**: `eza-v5/frontend`
+- **Root Directory**: 
+  - If frontend is at root level: Leave empty or set to `/`
+  - If frontend is in `eza-v5/frontend`: Set to `eza-v5/frontend`
+  - If frontend is in `frontend`: Set to `frontend`
+  - **⚠️ IMPORTANT**: Check your repository structure first!
 - **Build Command**: `npm run build` (default)
 - **Install Command**: `npm ci` (default)
 - **Output Directory**: `.next` (default)
+
+**How to find the correct Root Directory:**
+1. Check your repository structure on GitHub
+2. Look for `package.json` file - that's your frontend root
+3. Common locations:
+   - `frontend/` (if at root level)
+   - `eza-v5/frontend/` (if nested)
+   - `/` (if frontend files are at repository root)
 
 ### Step 4: Environment Variables
 Add in Vercel dashboard → Settings → Environment Variables:
