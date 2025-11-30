@@ -76,6 +76,176 @@ pytest backend/tests_monitor/test_monitor_api.py -v
 
 ---
 
+## WebSocket Real-Time Telemetry
+
+### Overview
+
+EZA-Core provides WebSocket-based real-time telemetry feeds for instant event delivery without polling. This replaces or complements the HTTP polling mechanism for better performance and lower latency.
+
+### WebSocket Endpoints
+
+#### 1. `/ws/live`
+Real-time feed for all telemetry events (standalone, proxy, proxy-lite).
+
+**Connection:**
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws/live');
+
+ws.onopen = () => {
+  console.log('Connected to live telemetry feed');
+};
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === 'connected') {
+    console.log('Connection confirmed:', data.message);
+  } else if (data.type === 'heartbeat') {
+    // Heartbeat to keep connection alive
+  } else {
+    // Telemetry event
+    console.log('New event:', data);
+  }
+};
+
+ws.onerror = (error) => {
+  console.error('WebSocket error:', error);
+};
+
+ws.onclose = () => {
+  console.log('WebSocket closed');
+};
+```
+
+#### 2. `/ws/corporate`
+Real-time feed for corporate panel monitoring.
+
+**Connection:**
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws/corporate');
+// Same usage as /ws/live
+```
+
+#### 3. `/ws/regulator`
+Real-time feed for regulator panel (RTÜK, etc.).
+
+**Filters Applied:**
+- Only `standalone` and `proxy` modes (excludes `proxy-lite`)
+- Events with policy violations, OR
+- Events with high/medium risk level
+
+**Connection:**
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws/regulator');
+// Same usage as /ws/live
+```
+
+### Event Format
+
+WebSocket messages are JSON objects:
+
+```json
+{
+  "id": "uuid",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "mode": "standalone",
+  "source": "standalone-api",
+  "user_input": "What is AI safety?",
+  "safe_answer": "AI safety is...",
+  "eza_score": 85.0,
+  "risk_level": "low",
+  "policy_violations": null,
+  "model_votes": {
+    "used_models": ["openai/gpt-4o-mini"],
+    "skipped_models": []
+  },
+  "meta": {
+    "alignment": {
+      "verdict": "aligned",
+      "alignment_score": 0.9
+    }
+  }
+}
+```
+
+### Control Messages
+
+**Connection Confirmation:**
+```json
+{
+  "type": "connected",
+  "channel": "live",
+  "message": "Connected to live telemetry feed"
+}
+```
+
+**Heartbeat:**
+```json
+{
+  "type": "heartbeat",
+  "timestamp": 1234567890.123
+}
+```
+
+**Ping/Pong:**
+- Client sends: `"ping"`
+- Server responds: `"pong"`
+
+### Which Panel Uses Which WebSocket?
+
+| Panel | WebSocket Endpoint | Purpose |
+|-------|-------------------|---------|
+| **Corporate Dashboard** | `/ws/corporate` | Business monitoring, all events |
+| **Regulator Panel (RTÜK)** | `/ws/regulator` | Compliance monitoring, filtered events |
+| **Admin/General** | `/ws/live` | All events, general monitoring |
+
+### Architecture
+
+```
+Pipeline Request
+    ↓
+run_full_pipeline()
+    ↓
+record_telemetry_event()
+    ↓
+Database (telemetry_events table)
+    ↓
+LiveTelemetryHub.broadcast()
+    ↓
+WebSocket Clients (live/corporate/regulator channels)
+```
+
+### Advantages Over HTTP Polling
+
+1. **Real-time**: Events delivered instantly (no polling delay)
+2. **Efficient**: No repeated HTTP requests
+3. **Lower Latency**: Push-based delivery
+4. **Reduced Server Load**: No constant polling requests
+5. **Bidirectional**: Can send ping/pong for connection health
+
+### Security (Future)
+
+Currently, WebSocket endpoints are open for development. In production:
+- Add JWT authentication in WebSocket handshake
+- Use role-based access control
+- Implement origin validation
+- Add rate limiting per connection
+
+### Testing
+
+Run WebSocket tests:
+```bash
+pytest backend/tests_monitor/test_monitor_ws.py -v
+```
+
+Test coverage:
+- WebSocket connection and disconnection
+- Event broadcasting to channels
+- Regulator channel filtering
+- Heartbeat mechanism
+- Ping/pong functionality
+
+---
+
 **7 Katman, 500+ Test Paketi - Full Automation**
 
 ## 📊 Test Framework Özeti

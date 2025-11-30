@@ -18,6 +18,7 @@ from backend.telemetry.repository import (
     get_events_for_corporate
 )
 from backend.telemetry.service import record_telemetry_event
+from backend.telemetry.realtime import LiveTelemetryHub, telemetry_hub
 
 __all__ = [
     "TelemetryEvent",
@@ -29,5 +30,7 @@ __all__ = [
     "get_latest_events",
     "get_events_for_regulator",
     "get_events_for_corporate",
-    "record_telemetry_event"
+    "record_telemetry_event",
+    "LiveTelemetryHub",
+    "telemetry_hub"
 ]

@@ -21,7 +21,7 @@ from backend.routers import (
     auth, standalone, proxy, proxy_lite, admin, media, autonomy,
     institution, gateway, regulator_router, btk_router, eu_ai_router,
     platform_router, corporate_router, internal_proxy, multimodal,
-    test_results, monitor
+    test_results, monitor, monitor_ws
 )
 from backend.core.utils.dependencies import init_db, init_redis, init_vector_db, get_db
 from backend.learning.vector_store import VectorStore
@@ -116,8 +116,11 @@ app.include_router(corporate_router.router, prefix="/api/corporate", tags=["Corp
 # Test Results API
 app.include_router(test_results.router, prefix="/api/test-results", tags=["Test Results"])
 
-# Monitor API (Live Telemetry)
+# Monitor API (Live Telemetry - HTTP)
 app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitor"])
+
+# Monitor WebSocket (Real-time Telemetry)
+app.include_router(monitor_ws.router, prefix="/ws", tags=["Monitor WebSocket"])
 
 
 @app.get("/health")

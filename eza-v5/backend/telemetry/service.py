@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
 from backend.telemetry.repository import create_event
-from backend.telemetry.schemas import TelemetryEventCreate
+from backend.telemetry.schemas import TelemetryEventCreate, TelemetryEventRead
+from backend.telemetry.realtime import telemetry_hub
 
 logger = logging.getLogger(__name__)
 
@@ -132,8 +133,33 @@ async def record_telemetry_event(
             meta=meta if meta else None
         )
         
-        await create_event(db_session, event_data)
+        # Create event in database
+        created_event = await create_event(db_session, event_data)
         logger.debug(f"Telemetry event recorded: {mode} from {source}")
+        
+        # Broadcast to WebSocket clients (non-blocking)
+        try:
+            # Convert to TelemetryEventRead for broadcast
+            event_read = TelemetryEventRead(
+                id=created_event.id,
+                timestamp=created_event.created_at,
+                mode=created_event.mode,
+                source=created_event.source,
+                user_input=created_event.user_input,
+                safe_answer=created_event.safe_answer,
+                eza_score=created_event.eza_score,
+                risk_level=created_event.risk_level,
+                policy_violations=created_event.policy_violations,
+                model_votes=created_event.model_votes,
+                meta=created_event.meta
+            )
+            
+            # Broadcast to WebSocket hub (fire and forget)
+            await telemetry_hub.broadcast(event_read)
+            logger.debug(f"Telemetry event broadcasted to WebSocket clients")
+        except Exception as broadcast_error:
+            # Don't fail the entire telemetry recording if broadcast fails
+            logger.warning(f"Failed to broadcast telemetry event to WebSocket: {str(broadcast_error)}")
         
     except Exception as e:
         logger.error(f"Failed to record telemetry event: {str(e)}")
