@@ -13,15 +13,15 @@ import type { NextRequest } from 'next/server';
  * Each domain can only access paths listed in its array
  */
 const DOMAIN_ROUTES: Record<string, string[]> = {
-  'standalone.ezacore.ai': ['/standalone'],
-  'proxy.ezacore.ai': ['/proxy', '/proxy-lite'],
-  'proxy-lite.ezacore.ai': ['/proxy-lite'],
-  'admin.ezacore.ai': ['/admin'],
-  'corporate.ezacore.ai': ['/proxy/corporate'],
-  'eu-ai.ezacore.ai': ['/proxy/eu-ai'],
-  'platform.ezacore.ai': ['/proxy/platform'],
-  'regulator.ezacore.ai': ['/proxy/regulator'],
-  'select.ezacore.ai': ['/proxy/select-portal'],
+  'standalone.ezacore.ai': ['/standalone', '/login'],
+  'proxy.ezacore.ai': ['/proxy', '/proxy-lite', '/login'],
+  'proxy-lite.ezacore.ai': ['/proxy-lite', '/login'],
+  'admin.ezacore.ai': ['/admin', '/login'],
+  'corporate.ezacore.ai': ['/corporate', '/proxy/corporate', '/login'],
+  'eu-ai.ezacore.ai': ['/proxy/eu-ai', '/login'],
+  'platform.ezacore.ai': ['/proxy/platform', '/login'],
+  'regulator.ezacore.ai': ['/regulator', '/proxy/regulator', '/login'],
+  'select.ezacore.ai': ['/proxy/select-portal', '/login'],
 };
 
 /**

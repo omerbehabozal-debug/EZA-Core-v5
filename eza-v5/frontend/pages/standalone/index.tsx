@@ -1,14 +1,16 @@
 /**
- * Standalone Chat Page - Apple Premium UI
+ * Standalone Chat Page - Public Access
+ * No authentication required
  */
 
+'use client';
+
 import { useState } from 'react';
-import AuthGuard from '@/components/AuthGuard';
 import TopBar from '@/components/standalone/TopBar';
 import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import SettingsModal from '@/components/standalone/SettingsModal';
-import { askStandalone } from '@/api/standalone';
+import { apiClient } from '@/lib/apiClient';
 
 interface Message {
   id: string;
@@ -17,6 +19,9 @@ interface Message {
   safety?: 'Safe' | 'Warning' | 'Blocked';
   confidence?: number;
   timestamp: Date;
+  ezaScore?: number;
+  riskLevel?: string;
+  policyViolations?: string[];
 }
 
 export default function StandalonePage() {
@@ -37,14 +42,38 @@ export default function StandalonePage() {
     setIsLoading(true);
 
     try {
-      const response = await askStandalone(text);
+      // Call backend API (no auth required)
+      const response = await apiClient.post<{
+        ok: boolean;
+        data?: {
+          safe_answer?: string;
+          eza_score?: number;
+          risk_level?: string;
+          policy_violations?: string[];
+        };
+        error?: {
+          error_message?: string;
+        };
+      }>('/api/standalone', {
+        body: { text },
+        auth: false, // Public endpoint
+      });
+
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.error_message || 'Request failed');
+      }
+
+      const data = response.data;
+      const safeAnswer = data.safe_answer || 'No response available';
 
       const ezaMessage: Message = {
         id: `eza-${Date.now()}`,
-        text: response.answer,
+        text: safeAnswer,
         isUser: false,
-        safety: response.safety,
-        confidence: response.confidence,
+        safety: data.risk_level === 'high' ? 'Blocked' : data.risk_level === 'medium' ? 'Warning' : 'Safe',
+        ezaScore: data.eza_score,
+        riskLevel: data.risk_level,
+        policyViolations: data.policy_violations,
         timestamp: new Date(),
       };
 
@@ -55,7 +84,7 @@ export default function StandalonePage() {
       // Show error message to user
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
-        text: error.message || 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.',
+        text: error.message || error.error?.error_message || 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.',
         isUser: false,
         safety: 'Warning',
         timestamp: new Date(),
@@ -68,13 +97,11 @@ export default function StandalonePage() {
   };
 
   return (
-    <AuthGuard allowedRoles={['public_user', 'corporate_client', 'admin']}>
-      <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
-        <TopBar onSettingsClick={() => setIsSettingsOpen(true)} />
-        <MessageList messages={messages} isLoading={isLoading} />
-        <InputBar onSend={handleSend} isLoading={isLoading} />
-        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-      </div>
-    </AuthGuard>
+    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+      <TopBar onSettingsClick={() => setIsSettingsOpen(true)} />
+      <MessageList messages={messages} isLoading={isLoading} />
+      <InputBar onSend={handleSend} isLoading={isLoading} />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+    </div>
   );
 }
