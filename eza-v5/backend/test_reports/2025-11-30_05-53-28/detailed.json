@@ -1,0 +1,7 @@
+[
+  {
+    "name": "tests_validation/test_predeployment.py::test_standalone_endpoint_public_access",
+    "status": "passed",
+    "duration": 6.04981749993749
+  }
+]

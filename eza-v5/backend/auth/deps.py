@@ -4,7 +4,7 @@ Authentication Dependencies
 FastAPI dependencies for JWT authentication and role-based access control
 """
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Dict, Any
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
