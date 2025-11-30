@@ -26,8 +26,4 @@ jobs:
         MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
       run: |
         export PYTHONPATH=${{ github.workspace }}/eza-v5:$PYTHONPATH
-        pwd
-        ls -la
-        ls -la backend/ || echo "backend not found"
-        python -c "import sys; sys.path.insert(0, '${{ github.workspace }}/eza-v5'); import backend; print('backend module found')"
-        python -m backend.services.test_runner_service daily
+        python backend/services/test_runner_service.py daily
