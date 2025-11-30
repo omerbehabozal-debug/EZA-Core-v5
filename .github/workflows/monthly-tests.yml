@@ -25,5 +25,4 @@ jobs:
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
       run: |
-        export PYTHONPATH=${{ github.workspace }}/eza-v5:$PYTHONPATH
         python backend/services/test_runner_service.py monthly

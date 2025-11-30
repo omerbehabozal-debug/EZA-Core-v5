@@ -10,6 +10,12 @@ from pathlib import Path
 from typing import Dict, List, Any
 from datetime import datetime, timezone
 
+# Add parent directory to Python path for imports
+# This allows the script to be run from any directory
+_script_dir = Path(__file__).parent.parent.parent
+if str(_script_dir) not in sys.path:
+    sys.path.insert(0, str(_script_dir))
+
 from backend.services.test_results_service import (
     TestResultsResponse,
     TestSuiteResult
