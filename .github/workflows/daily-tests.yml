@@ -18,12 +18,14 @@ jobs:
       run: |
         pip install -r requirements.txt
     - name: Run Tests
-      working-directory: ${{ github.workspace }}/eza-v5
       env:
         PYTHONPATH: ${{ github.workspace }}/eza-v5
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
       run: |
-        ls -R ${{ github.workspace }}
+        cd ${{ github.workspace }}/eza-v5
+        export PYTHONPATH=${{ github.workspace }}/eza-v5
+        ls -la
+        pwd
         python -m backend.services.test_runner_service daily
