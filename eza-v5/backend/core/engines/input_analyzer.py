@@ -148,6 +148,7 @@ def analyze_input(text: str) -> Dict[str, Any]:
         "risk_flags": risk_flags,
         "intent": intent,
         "text_length": len(text),
-        "language": "en"  # Simplified
+        "language": "en",  # Simplified
+        "raw_text": text  # Store original text for score calculation
     }
 

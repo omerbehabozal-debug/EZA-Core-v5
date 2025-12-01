@@ -198,7 +198,7 @@ async def standalone_endpoint(
     Note: Public endpoint, no authentication required.
     """
     result = await run_full_pipeline(
-        user_input=request.text, 
+        user_input=request.query_value, 
         mode="standalone", 
         db_session=db,
         safe_only=request.safe_only or False
@@ -207,7 +207,12 @@ async def standalone_endpoint(
     return result
 
 
-@app.post("/api/standalone/stream", tags=["Standalone"])
+@app.post(
+    "/api/standalone/stream",
+    tags=["Standalone"],
+    response_class=StreamingResponse,
+    include_in_schema=True  # Explicitly include in OpenAPI schema
+)
 async def standalone_stream_endpoint(
     request: StandaloneRequest,
     _: None = Depends(rate_limit_standalone)  # Rate limiting (no auth required)
@@ -225,7 +230,7 @@ async def standalone_stream_endpoint(
     """
     return StreamingResponse(
         stream_standalone_response(
-            user_input=request.text,
+            query=request.query_value,
             safe_only=request.safe_only or False
         ),
         media_type="text/event-stream",

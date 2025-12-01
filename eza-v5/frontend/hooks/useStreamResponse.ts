@@ -42,8 +42,17 @@ export function useStreamResponse(): UseStreamResponseReturn {
     abortControllerRef.current = abortController;
 
     try {
-      const baseURL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
-      const fullUrl = `${baseURL}${url}`;
+      // For Next.js API routes, use relative path (client-side)
+      // For direct backend calls, use full URL
+      let fullUrl: string;
+      if (typeof window !== 'undefined' && url.startsWith('/api/')) {
+        // Client-side API route - use relative path
+        fullUrl = url;
+      } else {
+        // Direct backend call or server-side
+        const baseURL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
+        fullUrl = `${baseURL}${url}`;
+      }
 
       const response = await fetch(fullUrl, {
         method: 'POST',
@@ -55,8 +64,29 @@ export function useStreamResponse(): UseStreamResponseReturn {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.error_message || errorData.detail || `HTTP ${response.status}`);
+        // Handle 404 specifically
+        if (response.status === 404) {
+          throw new Error('Backend endpoint bulunamadı. Backend çalışıyor mu ve /api/standalone/stream endpoint\'i mevcut mu kontrol edin.');
+        }
+        
+        // Try to parse error response
+        let errorData: any = {};
+        try {
+          const text = await response.text();
+          if (text) {
+            errorData = JSON.parse(text);
+          }
+        } catch {
+          // If not JSON, use status text
+          errorData = { detail: response.statusText };
+        }
+        
+        throw new Error(
+          errorData.error?.error_message || 
+          errorData.detail || 
+          errorData.message || 
+          `Backend hatası: HTTP ${response.status}`
+        );
       }
 
       // Check if response is streaming (text/event-stream or application/x-ndjson)

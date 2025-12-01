@@ -6,6 +6,7 @@ Unified pipeline for all EZA modes (standalone, proxy, proxy-lite)
 
 from typing import Literal, Dict, Any, Optional
 import logging
+import re
 
 from backend.core.engines.input_analyzer import analyze_input
 from backend.core.engines.output_analyzer import analyze_output
@@ -576,11 +577,38 @@ async def run_full_pipeline(
         
         # Step 10: Build mode-specific response data
         if mode == "standalone":
+            # Ensure raw_llm_output is a clean string (no token objects, no debug info)
+            if raw_llm_output:
+                # Convert to string if it's not already
+                if not isinstance(raw_llm_output, str):
+                    logger.warning(f"raw_llm_output is not a string, type: {type(raw_llm_output)}, converting...")
+                    # If it's a dict/list, try to extract text content
+                    if isinstance(raw_llm_output, dict):
+                        # Try common keys
+                        raw_llm_output = raw_llm_output.get("content", raw_llm_output.get("text", raw_llm_output.get("output", str(raw_llm_output))))
+                    elif isinstance(raw_llm_output, list):
+                        # If it's a list, join string elements
+                        raw_llm_output = " ".join(str(item) for item in raw_llm_output if isinstance(item, str))
+                    else:
+                        raw_llm_output = str(raw_llm_output)
+                # Clean any potential token debug strings
+                # Remove any JSON-like token debug patterns
+                # Remove patterns like ["token": "..."] or {"token": "..."}
+                raw_llm_output = re.sub(r'\["token"\s*:\s*"[^"]*"\]', '', raw_llm_output)
+                raw_llm_output = re.sub(r'\{"token"\s*:\s*"[^"]*"\}', '', raw_llm_output)
+                # Strip and clean
+                raw_llm_output = raw_llm_output.strip()
+            
             if safe_only:
                 # SAFE-only mode: return rewritten answer with mode indicator
+                clean_safe_answer = safe_answer or "Üzgünüm, şu anda yanıt veremiyorum."
+                # Ensure it's a clean string
+                if not isinstance(clean_safe_answer, str):
+                    clean_safe_answer = str(clean_safe_answer)
+                
                 response["data"] = {
-                    "assistant_answer": safe_answer or "Üzgünüm, şu anda yanıt veremiyorum.",
-                    "safe_answer": safe_answer or "Üzgünüm, şu anda yanıt veremiyorum.",
+                    "assistant_answer": clean_safe_answer,
+                    "safe_answer": clean_safe_answer,
                     "mode": "safe-only"
                 }
             else:
@@ -590,18 +618,45 @@ async def run_full_pipeline(
                 user_score = max(0, min(100, round((1.0 - input_risk_score) * 100)))
                 
                 # Assistant score = EZA safety score (already a safety score, higher = safer)
-                eza_safety_score = response.get("eza_score", 0.0)
-                assistant_score = max(0, min(100, round(eza_safety_score)))
+                eza_safety_score = response.get("eza_score")
+                assistant_score = None
+                if eza_safety_score is not None:
+                    assistant_score = max(0, min(100, round(eza_safety_score)))
+                    # Only include if it's a valid score (not 0 unless it's truly 0)
+                    if assistant_score == 0 and eza_safety_score == 0:
+                        # It's a real 0, keep it
+                        pass
+                    elif assistant_score == 0:
+                        # It's a default 0, don't include it
+                        assistant_score = None
                 
                 # Get risk_level from response (already calculated above)
                 risk_level = response.get("risk_level", "low")
                 
-                response["data"] = {
-                    "assistant_answer": raw_llm_output or "Üzgünüm, şu anda yanıt veremiyorum.",
-                    "user_score": user_score,
-                    "assistant_score": assistant_score,
+                # Clean assistant_answer
+                clean_assistant_answer = raw_llm_output or "Üzgünüm, şu anda yanıt veremiyorum."
+                if not isinstance(clean_assistant_answer, str):
+                    clean_assistant_answer = str(clean_assistant_answer)
+                
+                # Build response data - only include scores if they're not None
+                data = {
+                    "assistant_answer": clean_assistant_answer,
                     "risk_level": risk_level  # Include risk_level in data for frontend
                 }
+                
+                # Only add scores if they're valid (not None)
+                if user_score is not None:
+                    data["user_score"] = user_score
+                if assistant_score is not None:
+                    data["assistant_score"] = assistant_score
+                
+                response["data"] = data
+                
+                # Log for debugging
+                logger.debug(f"Standalone response - assistant_answer length: {len(clean_assistant_answer)}, user_score: {user_score}, assistant_score: {assistant_score}")
+                # Verify no token debug info in assistant_answer
+                if '"token"' in clean_assistant_answer or '["token"' in clean_assistant_answer:
+                    logger.warning(f"WARNING: Token debug info found in assistant_answer! Content preview: {clean_assistant_answer[:200]}")
         
         elif mode == "proxy":
             # Proxy: raw outputs + scores + detailed report

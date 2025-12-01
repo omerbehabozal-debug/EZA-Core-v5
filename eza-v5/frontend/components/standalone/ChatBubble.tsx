@@ -36,7 +36,7 @@ export default function ChatBubble({
             {/* Score Badge - Show placeholder (gray) if score is undefined, actual score when available */}
             {!safeOnlyMode && (
               <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 z-10">
-                {userScore !== undefined ? (
+                {userScore !== undefined && userScore !== null ? (
                   <ScoreBadge score={userScore} />
                 ) : (
                   <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center shadow-sm animate-pulse">
@@ -71,7 +71,7 @@ export default function ChatBubble({
             </div>
           ) : !safeOnlyMode ? (
             <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 z-10">
-              {assistantScore !== undefined ? (
+              {assistantScore !== undefined && assistantScore !== null ? (
                 <ScoreBadge score={assistantScore} />
               ) : (
                 // Placeholder badge - will be replaced when score arrives

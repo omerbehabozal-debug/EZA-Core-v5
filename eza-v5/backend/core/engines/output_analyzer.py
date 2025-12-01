@@ -98,6 +98,7 @@ def analyze_output(output_text: str, input_analysis: Dict[str, Any] = None) -> D
         "risk_level": "high" if risk_score > 0.7 else "medium" if risk_score > 0.4 else "low",
         "risk_flags": risk_flags,
         "quality_score": quality_score,
-        "output_length": len(output_text)
+        "output_length": len(output_text),
+        "raw_text": output_text  # Store original text for score calculation
     }
 

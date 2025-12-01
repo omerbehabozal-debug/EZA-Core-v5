@@ -4,7 +4,7 @@ Pipeline Response Schemas
 Unified response format for all EZA pipeline modes
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, Dict, Any, Literal
 
 
@@ -30,8 +30,23 @@ class PipelineResponse(BaseModel):
 
 class StandaloneRequest(BaseModel):
     """Request schema for standalone mode"""
-    text: str = Field(..., description="User input text", min_length=1)
+    query: Optional[str] = Field(None, description="User input query", min_length=1)
+    text: Optional[str] = Field(None, description="User input text (deprecated, use query)", min_length=1)
     safe_only: Optional[bool] = Field(False, description="Enable SAFE-only mode (rewrite enabled, scores hidden)")
+    
+    @model_validator(mode='before')
+    @classmethod
+    def validate_query_or_text(cls, data: Any) -> Any:
+        """Validate that either query or text is provided"""
+        if isinstance(data, dict):
+            if not data.get('query') and not data.get('text'):
+                raise ValueError("Either 'query' or 'text' parameter is required")
+        return data
+    
+    @property
+    def query_value(self) -> str:
+        """Get query value from either 'query' or 'text' field"""
+        return self.query or self.text or ""
 
 
 class ProxyRequest(BaseModel):

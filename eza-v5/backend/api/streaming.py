@@ -4,6 +4,7 @@ Streaming utilities for EZA Standalone
 """
 
 import json
+import re
 import httpx
 from typing import AsyncGenerator, Optional, Dict, Any
 from backend.core.engines.input_analyzer import analyze_input
@@ -16,7 +17,7 @@ from backend.core.engines.model_router import LLM_API_KEY, LLM_MODEL, OPENAI_BAS
 
 
 async def stream_standalone_response(
-    user_input: str,
+    query: str,
     safe_only: bool = False
 ) -> AsyncGenerator[str, None]:
     """
@@ -32,45 +33,82 @@ async def stream_standalone_response(
     
     try:
         # Step 1: Input analysis (fast, non-blocking)
-        input_analysis = analyze_input(user_input)
+        input_analysis = analyze_input(query)
         input_risk_score = input_analysis.get("risk_score", 0.0)
         user_score = max(0, min(100, round((1.0 - input_risk_score) * 100)))
         
         # Step 2: Stream LLM response
         if safe_only:
             # SAFE-only mode: Get full response first, then rewrite and stream
-            raw_llm_output = await _get_llm_response(user_input, settings)
+            raw_llm_output = await _get_llm_response(query, settings)
+            # Ensure raw_llm_output is a clean string
+            if not isinstance(raw_llm_output, str):
+                raw_llm_output = str(raw_llm_output)
+            # Clean any potential token debug strings
+            raw_llm_output = re.sub(r'\["token"\s*:\s*"[^"]*"\]', '', raw_llm_output)
+            raw_llm_output = re.sub(r'\{"token"\s*:\s*"[^"]*"\}', '', raw_llm_output)
+            raw_llm_output = raw_llm_output.strip()
+            
             safe_answer = safe_rewrite(raw_llm_output, input_analysis)
+            # Ensure safe_answer is a clean string
+            if not isinstance(safe_answer, str):
+                safe_answer = str(safe_answer)
             
             # Stream safe answer word by word
             words = safe_answer.split()
             for word in words:
-                yield f'data: {{"token": "{word} "}}\n\n'
+                # Use json.dumps to properly escape JSON
+                token_data = {"token": f"{word} "}
+                yield f'data: {json.dumps(token_data)}\n\n'
             
             # Send completion with SAFE badge info
             yield f'data: {{"done": true, "mode": "safe-only"}}\n\n'
         else:
             # Score mode: Stream raw LLM tokens directly and accumulate for scoring
             accumulated_text = ""
-            async for token in _stream_llm_response(user_input, settings):
+            async for token in _stream_llm_response(query, settings):
                 accumulated_text += token
-                yield f'data: {{"token": "{token}"}}\n\n'
+                # Use json.dumps to properly escape JSON (prevents token debug garbage)
+                token_data = {"token": token}
+                yield f'data: {json.dumps(token_data)}\n\n'
             
             # After streaming completes, compute scores using accumulated text
+            assistant_score = None
             if accumulated_text:
-                output_analysis = analyze_output(accumulated_text, input_analysis)
-                alignment = compute_alignment(input_analysis, output_analysis)
-                eza_score_data = compute_eza_score_v21(
-                    input_analysis=input_analysis,
-                    output_analysis=output_analysis,
-                    alignment=alignment
-                )
-                assistant_score = max(0, min(100, round(eza_score_data.get("eza_score", 0.0))))
-            else:
-                assistant_score = 0
+                # Clean accumulated text (remove any potential token debug info)
+                clean_text = accumulated_text.strip()
+                # Remove patterns like ["token": "..."] or {"token": "..."}
+                clean_text = re.sub(r'\["token"\s*:\s*"[^"]*"\]', '', clean_text)
+                clean_text = re.sub(r'\{"token"\s*:\s*"[^"]*"\}', '', clean_text)
+                clean_text = clean_text.strip()
+                
+                if clean_text:
+                    try:
+                        output_analysis = analyze_output(clean_text, input_analysis)
+                        alignment = compute_alignment(input_analysis, output_analysis)
+                        eza_score_data = compute_eza_score_v21(
+                            input_analysis=input_analysis,
+                            output_analysis=output_analysis,
+                            alignment=alignment
+                        )
+                        final_score = eza_score_data.get("final_score")
+                        if final_score is not None:
+                            assistant_score = max(0, min(100, round(final_score)))
+                    except Exception as e:
+                        # If score calculation fails, don't fail the request
+                        # assistant_score will remain None
+                        assistant_score = None
+            
+            # Build completion data - always include scores
+            completion_data = {"done": True}
+            # Always include user_score (it's always calculated)
+            completion_data["user_score"] = user_score
+            # Include assistant_score if calculated
+            if assistant_score is not None:
+                completion_data["assistant_score"] = assistant_score
             
             # Send completion with scores
-            yield f'data: {{"done": true, "assistant_score": {assistant_score}, "user_score": {user_score}}}\n\n'
+            yield f'data: {json.dumps(completion_data)}\n\n'
     
     except Exception as e:
         # Send error

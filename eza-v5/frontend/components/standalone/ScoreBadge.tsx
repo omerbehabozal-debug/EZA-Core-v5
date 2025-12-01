@@ -13,6 +13,11 @@ interface ScoreBadgeProps {
 }
 
 export default function ScoreBadge({ score }: ScoreBadgeProps) {
+  // Don't show badge if score is undefined or null (0 is a valid score)
+  if (score === undefined || score === null) {
+    return null;
+  }
+  
   // Clamp score to 0-100
   const clampedScore = Math.max(0, Math.min(100, Math.round(score)));
   

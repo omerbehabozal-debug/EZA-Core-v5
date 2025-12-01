@@ -28,8 +28,40 @@ class ApiClient {
   private wsBaseURL: string;
 
   constructor() {
+    // Use relative paths for Next.js API routes (client-side)
+    // Use full URL for server-side or direct backend calls
     this.baseURL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
     this.wsBaseURL = process.env.NEXT_PUBLIC_EZA_WS_URL || 'ws://localhost:8000';
+  }
+  
+  /**
+   * Check if path is a Next.js API route (should use relative path)
+   */
+  private isApiRoute(path: string): boolean {
+    return path.startsWith('/api/');
+  }
+  
+  /**
+   * Get full URL for request
+   */
+  private getRequestUrl(path: string, params?: Record<string, string>): string {
+    // For API routes on client-side, use relative path (Next.js route handlers)
+    if (typeof window !== 'undefined' && this.isApiRoute(path)) {
+      let url = path;
+      if (params) {
+        const searchParams = new URLSearchParams(params);
+        url += `?${searchParams.toString()}`;
+      }
+      return url;
+    }
+    
+    // For direct backend calls or server-side, use full URL
+    let url = `${this.baseURL}${path}`;
+    if (params) {
+      const searchParams = new URLSearchParams(params);
+      url += `?${searchParams.toString()}`;
+    }
+    return url;
   }
 
   /**
@@ -59,12 +91,8 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const { body, params, auth = false, headers = {} } = options;
 
-    // Build URL
-    let url = `${this.baseURL}${path}`;
-    if (params) {
-      const searchParams = new URLSearchParams(params);
-      url += `?${searchParams.toString()}`;
-    }
+    // Build URL (use relative path for Next.js API routes on client-side)
+    const url = this.getRequestUrl(path, params);
 
     // Build headers
     const requestHeaders: HeadersInit = {

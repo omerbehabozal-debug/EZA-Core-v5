@@ -168,65 +168,162 @@ export default function StandalonePage() {
     setIsLoading(true);
 
     try {
-      // Start streaming
-      const result = await startStream(
-        '/api/standalone/stream',
-        { text, safe_only: safeOnlyMode },
-        {
-          onToken: (token: string) => {
-            // Update assistant message with streaming text
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessageId
-                  ? { ...msg, text: (msg.text || '') + token }
-                  : msg
-              )
-            );
-            // Hide typing indicator once first token arrives
-            if (isTyping) {
-              setIsTyping(false);
-            }
-          },
-          onDone: (data: any) => {
-            setIsTyping(false);
-            setIsLoading(false);
-            
-            // Update user message with score immediately
-            if (data.userScore !== undefined) {
+      // Try streaming first, fallback to normal endpoint if it fails
+      let useNormalEndpoint = false;
+      
+      try {
+        const result = await startStream(
+          '/api/standalone/stream',
+          { query: text, safe_only: safeOnlyMode },
+          {
+            onToken: (token: string) => {
+              // Update assistant message with streaming text
               setMessages((prev) =>
                 prev.map((msg) =>
-                  msg.id === userMessageId
-                    ? { ...msg, userScore: data.userScore }
+                  msg.id === assistantMessageId
+                    ? { ...msg, text: (msg.text || '') + token }
                     : msg
                 )
               );
-            }
-            
-            // Update assistant message with score after 0.4s delay
-            if (data.assistantScore !== undefined) {
-              assistantScoreTimeoutRef.current = setTimeout(() => {
+              // Hide typing indicator once first token arrives
+              if (isTyping) {
+                setIsTyping(false);
+              }
+            },
+            onDone: (data: any) => {
+              setIsTyping(false);
+              setIsLoading(false);
+              
+              // Update user message with score immediately
+              if (data.userScore !== undefined) {
                 setMessages((prev) =>
                   prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, assistantScore: data.assistantScore }
+                    msg.id === userMessageId
+                      ? { ...msg, userScore: data.userScore }
                       : msg
                   )
                 );
-              }, 400); // 0.4 seconds delay
+              }
+              
+              // Update assistant message with score after 0.4s delay
+              if (data.assistantScore !== undefined) {
+                assistantScoreTimeoutRef.current = setTimeout(() => {
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, assistantScore: data.assistantScore }
+                        : msg
+                    )
+                  );
+                }, 400); // 0.4 seconds delay
+              }
+              
+              // Increment daily count
+              incrementDailyCount();
             }
-            
-            // Increment daily count
-            incrementDailyCount();
           }
-        }
-      );
+        );
 
-      if (result.error) {
-        throw new Error(result.error);
+        if (result.error) {
+          throw new Error(result.error);
+        }
+      } catch (streamError: any) {
+        // If streaming fails (404 or other error), fallback to normal endpoint
+        // Silently fallback - no console warning needed
+        setIsTyping(false);
+        useNormalEndpoint = true;
+      }
+
+      // Fallback to normal endpoint if streaming failed
+      if (useNormalEndpoint) {
+        // Remove placeholder assistant message
+        setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId));
+        
+        // Use normal endpoint
+        const { apiClient } = await import('@/lib/apiClient');
+        const response = await apiClient.post<{
+          ok: boolean;
+          data?: {
+            assistant_answer?: string;
+            user_score?: number;
+            assistant_score?: number;
+            safe_answer?: string;
+            mode?: string;
+          };
+          error?: {
+            error_message?: string;
+          };
+        }>('/api/standalone', {
+          body: { 
+            query: text,
+            safe_only: safeOnlyMode 
+          },
+          auth: false,
+        });
+
+        if (!response.ok) {
+          throw new Error(response.error?.error_message || response.error?.message || 'Request failed');
+        }
+
+        const data = response.data;
+        if (!data) {
+          throw new Error('No data received from server');
+        }
+
+        // Increment daily count
+        incrementDailyCount();
+
+        // Handle response based on mode
+        if (safeOnlyMode && data.mode === 'safe-only') {
+          const ezaMessage: Message = {
+            id: assistantMessageId,
+            text: data.safe_answer || data.assistant_answer || 'No response available',
+            isUser: false,
+            safety: 'Safe',
+            safeOnlyMode: true,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, ezaMessage]);
+        } else {
+          const ezaMessage: Message = {
+            id: assistantMessageId,
+            text: data.assistant_answer || 'No response available',
+            isUser: false,
+            assistantScore: data.assistant_score,
+            safeOnlyMode: false,
+            timestamp: new Date(),
+          };
+          
+          // Update user message with score
+          setMessages((prev) => 
+            prev.map((msg) => 
+              msg.id === userMessageId 
+                ? { ...msg, userScore: data.user_score }
+                : msg
+            )
+          );
+          
+          // Show assistant score after 0.4s delay
+          if (data.assistant_score !== undefined) {
+            assistantScoreTimeoutRef.current = setTimeout(() => {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, assistantScore: data.assistant_score }
+                    : msg
+                )
+              );
+            }, 400);
+          }
+          
+          setMessages((prev) => [...prev, ezaMessage]);
+        }
+        
+        setIsLoading(false);
       }
 
     } catch (error: any) {
-      console.error('Streaming Error:', error);
+      // Error already handled in fallback logic above
       setIsTyping(false);
       setIsLoading(false);
       
@@ -239,6 +336,8 @@ export default function StandalonePage() {
       if (error.message) {
         if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
           errorText = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
+        } else if (error.message.includes('404') || error.message.includes('bulunamadı')) {
+          errorText = 'Backend endpoint bulunamadı. Lütfen backend\'in çalıştığından ve /api/standalone/stream endpoint\'inin mevcut olduğundan emin olun.';
         } else {
           errorText = error.message;
         }
