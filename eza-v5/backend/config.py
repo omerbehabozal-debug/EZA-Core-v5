@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     
     # Pipeline Settings
     PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout
-    STANDALONE_MAX_TOKENS: int = 180  # Max tokens for standalone mode
+    STANDALONE_MAX_TOKENS: int = 2048  # Max tokens for standalone mode (increased for full responses)
     PROXY_MAX_TOKENS: int = 512  # Max tokens for proxy mode
     
     # Regulation

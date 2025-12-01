@@ -31,6 +31,7 @@ class PipelineResponse(BaseModel):
 class StandaloneRequest(BaseModel):
     """Request schema for standalone mode"""
     text: str = Field(..., description="User input text", min_length=1)
+    safe_only: Optional[bool] = Field(False, description="Enable SAFE-only mode (rewrite enabled, scores hidden)")
 
 
 class ProxyRequest(BaseModel):

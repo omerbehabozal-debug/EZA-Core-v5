@@ -17,14 +17,18 @@ def analyze_input(text: str) -> Dict[str, Any]:
     
     # Basic risk patterns (lightweight) - English and Turkish
     risk_patterns = {
-        "violence": [r"\b(kill|murder|harm|attack|violence|harm.someone|öldür|cinayet|zarar|saldırı|şiddet|birine.zarar)\b", 0.8],
-        "illegal": [r"\b(illegal|drug|weapon|hack|steal|yasal.değil|uyuşturucu|ilaç|silah|hackleme|çal)\b", 0.6],
-        "harmful": [r"\b(suicide|self.harm|dangerous|intihar|kendine.zarar|tehlikeli)\b", 0.8],
-        "manipulation": [r"\b(manipulate|trick|deceive|scam|fraud|commit.fraud|phishing|generate.phishing|create.phishing|manipüle|aldat|hile|dolandır|dolandırıcılık)\b", 0.7],
-        "hacking": [r"\b(hack|hacking|unauthorized.access|break.into|bypass|bypass\s+security|bypass\s+protection|bypass\s+encryption|exploit|break\s+encryption|break\s+security|break\s+protection|crack|crack\s+encryption|crack\s+password|how\s+to\s+crack|hijack|hijack\s+session|how\s+to\s+hijack|how\s+to\s+bypass|how\s+to\s+break|sızma|hackleme|yetkisiz.erişim|kırma|atlama|şifre.kırma)\b", 0.7],
-        "drug_production": [r"\b(drug|drugs|make\s+(illegal\s+)?drugs|produce\s+(illegal\s+)?drugs|drug\s+production|illegal\s+drugs|how\s+to\s+make\s+drugs|how\s+to\s+produce\s+drugs|uyuşturucu|ilaç\s+üretimi|uyuşturucu\s+üretimi|ilaç\s+yapımı)\b", 0.8],
-        "privacy_violation": [r"\b(access.someone's.private|private.data|private.messages|unauthorized.access|steal\s+data|steal\s+.*data|breach\s+privacy|breach\s+security|breach\s+protection|how\s+to\s+breach|özel.veri|özel.mesajlar|yetkisiz.erişim|veri.çal|gizlilik.ihlali)\b", 0.8],
-        "theft": [r"\b(steal|theft|robbery|pirate|piracy|pirate\s+software|illegal\s+download|çal|hırsızlık|soygun|korsan)\b", 0.7],
+        "violence": [r"\b(kill|murder|harm|attack|violence|harm.someone|hurt.someone|injure|öldür|cinayet|zarar|saldırı|şiddet|birine.zarar|birini.yarala|birini.öldür)\b", 0.8],
+        "illegal": [r"\b(illegal|drug|weapon|hack|steal|yasal.değil|uyuşturucu|ilaç|silah|hackleme|çal|yasadışı)\b", 0.6],
+        "harmful": [r"\b(suicide|self.harm|dangerous|intihar|kendine.zarar|tehlikeli|kendini.öldür)\b", 0.8],
+        "manipulation": [r"\b(manipulate|trick|deceive|scam|fraud|commit.fraud|phishing|generate.phishing|create.phishing|manipüle|aldat|hile|dolandır|dolandırıcılık|sahte|fake)\b", 0.7],
+        "hacking": [r"\b(hack|hacking|unauthorized.access|break.into|bypass|bypass\s+security|bypass\s+protection|bypass\s+encryption|exploit|break\s+encryption|break\s+security|break\s+protection|crack|crack\s+encryption|crack\s+password|how\s+to\s+crack|hijack|hijack\s+session|how\s+to\s+hijack|how\s+to\s+bypass|how\s+to\s+break|sızma|hackleme|yetkisiz.erişim|kırma|atlama|şifre.kırma|bilgisayar.sızmak|sisteme.sızmak|başkasının.bilgisayarına|başkasının.sistemine)\b", 0.7],
+        "drug_production": [r"\b(drug|drugs|make\s+(illegal\s+)?drugs|produce\s+(illegal\s+)?drugs|drug\s+production|illegal\s+drugs|how\s+to\s+make\s+drugs|how\s+to\s+produce\s+drugs|uyuşturucu|ilaç\s+üretimi|uyuşturucu\s+üretimi|ilaç\s+yapımı|uyuşturucu.yapmak|uyuşturucu.üretmek)\b", 0.8],
+        "privacy_violation": [r"\b(access.someone's.private|private.data|private.messages|unauthorized.access|steal\s+data|steal\s+.*data|breach\s+privacy|breach\s+security|breach\s+protection|how\s+to\s+breach|özel.veri|özel.mesajlar|yetkisiz.erişim|veri.çal|gizlilik.ihlali|başkasının.verilerine|başkasının.bilgilerine)\b", 0.8],
+        "theft": [r"\b(steal|theft|robbery|pirate|piracy|pirate\s+software|illegal\s+download|çal|hırsızlık|soygun|korsan|çalmak|hırsızlık.yapmak)\b", 0.7],
+        # Additional patterns for common risky question formats
+        "risky_question": [r"\b(how\s+to\s+(hack|steal|harm|attack|break|bypass|crack|exploit|kill|murder)|nasıl\s+(hack|çal|zarar|saldır|kır|atlama|öldür|cinayet)|how\s+can\s+i\s+(hack|steal|harm|attack|break|bypass)|nasıl\s+yapabilirim\s+(hack|çal|zarar|saldır))\b", 0.75],
+        # Hacker-related questions (medium risk - could be educational but also risky)
+        "hacker_question": [r"\b(how\s+to\s+become\s+a\s+hacker|how\s+to\s+be\s+a\s+hacker|nasıl\s+hacker\s+olurum|nasıl\s+hacker\s+olunur|hacker\s+olmak|hacker\s+olurum|hacker\s+nasıl\s+olunur)\b", 0.6],
     }
     
     text_lower = text.lower()

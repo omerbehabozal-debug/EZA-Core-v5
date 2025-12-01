@@ -102,6 +102,10 @@ allowed_origins = [
     "https://admin.ezacore.ai",
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://localhost:3008",  # Additional dev port
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3008",
 ]
 
 app.add_middleware(
@@ -117,7 +121,8 @@ setup_security_logging()
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
+# standalone.router removed - using direct endpoint in main.py instead
+# app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])
 app.include_router(proxy_lite.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
@@ -173,7 +178,7 @@ async def root():
 # Unified Pipeline Endpoints
 # ============================================================================
 
-@app.post("/api/standalone", response_model=PipelineResponse, status_code=status.HTTP_200_OK)
+@app.post("/api/standalone", response_model=PipelineResponse, status_code=status.HTTP_200_OK, tags=["Standalone"])
 async def standalone_endpoint(
     request: StandaloneRequest,
     db=Depends(get_db),
@@ -182,11 +187,18 @@ async def standalone_endpoint(
     """
     Standalone mode endpoint - Unified pipeline
     
-    Returns only safe_answer in data field.
+    Returns:
+    - Score mode (safe_only=False): assistant_answer, user_score, assistant_score
+    - SAFE-only mode (safe_only=True): assistant_answer, safe_answer, mode="safe-only"
     
     Note: Public endpoint, no authentication required.
     """
-    result = await run_full_pipeline(user_input=request.text, mode="standalone", db_session=db)
+    result = await run_full_pipeline(
+        user_input=request.text, 
+        mode="standalone", 
+        db_session=db,
+        safe_only=request.safe_only or False
+    )
     # Always return 200, even if ok=False (for frontend convenience)
     return result
 

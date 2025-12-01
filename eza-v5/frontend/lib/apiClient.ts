@@ -91,8 +91,27 @@ class ApiClient {
     }
 
     try {
+      console.log('API Request:', { method, url, body: body ? JSON.stringify(body).substring(0, 100) : null });
+      
       const response = await fetch(url, config);
+      
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text.substring(0, 200));
+        return {
+          ok: false,
+          error: {
+            error_code: 'INVALID_RESPONSE',
+            error_message: 'Server returned non-JSON response',
+            message: text.substring(0, 100),
+          },
+        };
+      }
+      
       const data = await response.json();
+      console.log('API Response:', { status: response.status, data });
 
       // Handle HTTP errors
       if (!response.ok) {
@@ -106,18 +125,39 @@ class ApiClient {
         };
       }
 
+      // Backend response format: { ok: true, data: {...}, mode: "...", eza_score: ... }
+      // We want to preserve the structure but make data easily accessible
       return {
         ok: true,
-        ...data,
-        data: data.data || data,
+        ...data,  // Spread all fields (mode, eza_score, etc.)
+        data: data.data,  // Extract the data field (this contains assistant_answer, user_score, etc.)
       };
     } catch (error: any) {
+      console.error('API Request Error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack?.substring(0, 200)
+      });
+      
+      // More specific error messages
+      let errorMessage = 'Network request failed';
+      if (error.message) {
+        if (error.message.includes('fetch')) {
+          errorMessage = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Backend bağlantı hatası. CORS veya network sorunu olabilir.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       return {
         ok: false,
         error: {
           error_code: 'NETWORK_ERROR',
-          error_message: error.message || 'Network request failed',
-          message: error.message || 'Network request failed',
+          error_message: errorMessage,
+          message: errorMessage,
         },
       };
     }
