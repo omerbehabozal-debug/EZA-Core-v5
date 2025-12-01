@@ -601,15 +601,34 @@ async def run_full_pipeline(
             
             if safe_only:
                 # SAFE-only mode: return rewritten answer with mode indicator
-                clean_safe_answer = safe_answer or "Üzgünüm, şu anda yanıt veremiyorum."
+                # safe_rewrite always returns a non-empty response, but keep fallback just in case
+                clean_safe_answer = safe_answer if safe_answer and safe_answer.strip() else (raw_llm_output if raw_llm_output and raw_llm_output.strip() else "Üzgünüm, şu anda yanıt veremiyorum.")
                 # Ensure it's a clean string
                 if not isinstance(clean_safe_answer, str):
                     clean_safe_answer = str(clean_safe_answer)
                 
+                # Determine safety level based on input risk
+                input_risk_level = input_analysis.get("risk_level", "low")
+                input_risk = input_analysis.get("risk_score", 0.0)
+                
+                # Map risk level to safety badge
+                if input_risk >= 0.7 or input_risk_level == "high" or input_risk_level == "critical":
+                    safety = "Blocked"
+                elif input_risk >= 0.3 or input_risk_level == "medium":
+                    safety = "Warning"
+                else:
+                    safety = "Safe"
+                
+                # Calculate user score for safe-only mode
+                user_score_raw = (1.0 - input_risk) * 100.0
+                user_score = max(0.0, min(100.0, round(user_score_raw, 1)))
+                
                 response["data"] = {
                     "assistant_answer": clean_safe_answer,
                     "safe_answer": clean_safe_answer,
-                    "mode": "safe-only"
+                    "mode": "safe-only",
+                    "safety": safety,
+                    "user_score": user_score  # Include user score even in safe-only mode
                 }
             else:
                 # Score mode: return SAFETY scores for both user and assistant (0-100, higher = safer)

@@ -153,15 +153,15 @@ export default function StandalonePage() {
 
     // Create assistant message placeholder for streaming
     const assistantMessageId = `eza-${Date.now()}`;
-    const assistantMessage: Message = {
-      id: assistantMessageId,
-      text: '',
-      isUser: false,
-      assistantScore: undefined, // Will be shown 0.4s after streaming completes
-      safeOnlyMode: safeOnlyMode,
-      safety: safeOnlyMode ? 'Safe' : undefined,
-      timestamp: new Date(),
-    };
+    const       assistantMessage: Message = {
+        id: assistantMessageId,
+        text: '',
+        isUser: false,
+        assistantScore: undefined, // Will be shown 0.4s after streaming completes
+        safeOnlyMode: safeOnlyMode,
+        safety: safeOnlyMode ? 'Safe' : undefined, // Default to Safe in safe-only mode, will be updated from backend
+        timestamp: new Date(),
+      };
     
     setMessages((prev) => [...prev, assistantMessage]);
     currentAssistantMessageRef.current = assistantMessageId;
@@ -216,6 +216,19 @@ export default function StandalonePage() {
                     )
                   );
                 }, 400); // 0.4 seconds delay
+              }
+              
+              // Update assistant message with safety badge (for safe-only mode)
+              // Always update safety if in safe-only mode, even if backend doesn't send it (default to Safe)
+              if (safeOnlyMode) {
+                const safety = data.safety || 'Safe'; // Default to Safe if not provided
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, safety: safety as 'Safe' | 'Warning' | 'Blocked' }
+                      : msg
+                  )
+                );
               }
               
               // Increment daily count
@@ -275,11 +288,13 @@ export default function StandalonePage() {
 
         // Handle response based on mode
         if (safeOnlyMode && data.mode === 'safe-only') {
+          // Determine safety badge from backend response or default to Safe
+          const safety = (data as any).safety || 'Safe';
           const ezaMessage: Message = {
             id: assistantMessageId,
             text: data.safe_answer || data.assistant_answer || 'No response available',
             isUser: false,
-            safety: 'Safe',
+            safety: safety as 'Safe' | 'Warning' | 'Blocked',
             safeOnlyMode: true,
             timestamp: new Date(),
           };

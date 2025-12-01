@@ -19,7 +19,7 @@ def analyze_input(text: str) -> Dict[str, Any]:
     risk_patterns = {
         "violence": [r"\b(kill|murder|harm|attack|violence|harm.someone|hurt.someone|injure|öldür|cinayet|zarar|saldırı|şiddet|birine.zarar|birini.yarala|birini.öldür)\b", 0.8],
         "illegal": [r"\b(illegal|drug|weapon|hack|steal|yasal.değil|uyuşturucu|ilaç|silah|hackleme|çal|yasadışı)\b", 0.6],
-        "harmful": [r"\b(suicide|self.harm|dangerous|intihar|kendine.zarar|tehlikeli|kendini.öldür)\b", 0.8],
+        "harmful": [r"\b(suicide|self.harm|dangerous|intihar|kendine.zarar|kendime.zarar|zarar.vermek|zarar.ver|tehlikeli|kendini.öldür|kendimi.öldür)\b", 0.8],
         "manipulation": [r"\b(manipulate|trick|deceive|scam|fraud|commit.fraud|phishing|generate.phishing|create.phishing|manipüle|aldat|hile|dolandır|dolandırıcılık|sahte|fake)\b", 0.7],
         "offensive_content": [r"\b(offensive|insult|insulting|rude|vulgar|obscene|profanity|swear|curse|bad.joke|insulting.joke|offensive.joke|kötü|kötü.şaka|hakaret|hakaret.dolu|küfür|kaba|edepsiz|müstehcen|küfürlü|küfürlü.şaka|hakaret.et|kötü.söz)\b", 0.7],
         "hate_speech": [r"\b(hate|hatred|discriminate|discrimination|racist|racism|sexist|sexism|homophobic|transphobic|nefret|ayrımcılık|ırkçı|ırkçılık|cinsiyetçi|cinsiyetçilik)\b", 0.8],

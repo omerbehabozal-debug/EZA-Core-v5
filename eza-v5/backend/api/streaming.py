@@ -53,20 +53,54 @@ async def stream_standalone_response(
             raw_llm_output = re.sub(r'\{"token"\s*:\s*"[^"]*"\}', '', raw_llm_output)
             raw_llm_output = raw_llm_output.strip()
             
-            safe_answer = safe_rewrite(raw_llm_output, input_analysis)
-            # Ensure safe_answer is a clean string
+            # Analyze output and alignment for safe_rewrite
+            output_analysis = analyze_output(raw_llm_output, input_analysis)
+            alignment = compute_alignment(input_analysis, output_analysis)
+            
+            # Call safe_rewrite with all required parameters
+            # safe_rewrite always returns a non-empty response
+            safe_answer = safe_rewrite(
+                user_message=query,
+                llm_output=raw_llm_output,
+                input_analysis=input_analysis,
+                output_analysis=output_analysis,
+                alignment=alignment
+            )
+            # Ensure safe_answer is a clean string (should never be empty due to safe_rewrite logic)
             if not isinstance(safe_answer, str):
                 safe_answer = str(safe_answer)
+            # Final safety check - should never trigger but just in case
+            if not safe_answer or safe_answer.strip() == "":
+                safe_answer = raw_llm_output if raw_llm_output and raw_llm_output.strip() else "Üzgünüm, şu anda yanıt veremiyorum."
             
-            # Stream safe answer word by word
-            words = safe_answer.split()
-            for word in words:
-                # Use json.dumps to properly escape JSON
-                token_data = {"token": f"{word} "}
-                yield f'data: {json.dumps(token_data)}\n\n'
+            # Determine safety level based on input risk
+            input_risk_level = input_analysis.get("risk_level", "low")
+            input_risk = input_analysis.get("risk_score", 0.0)
             
-            # Send completion with SAFE badge info
-            yield f'data: {{"done": true, "mode": "safe-only"}}\n\n'
+            # Map risk level to safety badge
+            if input_risk >= 0.7 or input_risk_level == "high" or input_risk_level == "critical":
+                safety = "Blocked"
+            elif input_risk >= 0.3 or input_risk_level == "medium":
+                safety = "Warning"
+            else:
+                safety = "Safe"
+            
+            # Stream safe answer word by word (only if not empty)
+            if safe_answer and safe_answer.strip():
+                words = safe_answer.split()
+                for word in words:
+                    # Use json.dumps to properly escape JSON
+                    token_data = {"token": f"{word} "}
+                    yield f'data: {json.dumps(token_data)}\n\n'
+            
+            # Send completion with SAFE badge info, safety level, and user score
+            completion_data = {
+                "done": True,
+                "mode": "safe-only",
+                "safety": safety,
+                "user_score": user_score  # Include user score even in safe-only mode
+            }
+            yield f'data: {json.dumps(completion_data)}\n\n'
         else:
             # Score mode: Stream raw LLM tokens directly and accumulate for scoring
             accumulated_text = ""

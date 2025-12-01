@@ -65,11 +65,11 @@ export default function ChatBubble({
       <div className="max-w-[85%] xs:max-w-[80%] sm:max-w-[75%] md:max-w-[65%] flex flex-col items-start">
         <div className="bg-white border border-gray-200 rounded-[18px] sm:rounded-[20px] rounded-tl-[4px] px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm relative inline-block">
           {/* Badge - SAFE-only mode shows SAFE badge, otherwise shows score (with placeholder) */}
-          {safeOnlyMode && safety ? (
+          {safeOnlyMode ? (
             <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 z-10">
-              <SafetyBadge safety={safety} />
+              <SafetyBadge safety={safety || 'Safe'} />
             </div>
-          ) : !safeOnlyMode ? (
+          ) : (
             <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 z-10">
               {assistantScore !== undefined && assistantScore !== null ? (
                 <ScoreBadge score={assistantScore} />
@@ -80,7 +80,7 @@ export default function ChatBubble({
                 </div>
               )}
             </div>
-          ) : null}
+          )}
           <p className="text-gray-900 text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap break-words">
             {message}
           </p>
