@@ -35,7 +35,11 @@ async def stream_standalone_response(
         # Step 1: Input analysis (fast, non-blocking)
         input_analysis = analyze_input(query)
         input_risk_score = input_analysis.get("risk_score", 0.0)
-        user_score = max(0, min(100, round((1.0 - input_risk_score) * 100)))
+        # More precise user score calculation - use 1 decimal place instead of rounding to integer
+        # This preserves small differences in risk scores
+        user_score_raw = (1.0 - input_risk_score) * 100.0
+        # Round to 1 decimal place for display, but keep precision in calculation
+        user_score = max(0.0, min(100.0, round(user_score_raw, 1)))
         
         # Step 2: Stream LLM response
         if safe_only:
@@ -93,7 +97,8 @@ async def stream_standalone_response(
                         )
                         final_score = eza_score_data.get("final_score")
                         if final_score is not None:
-                            assistant_score = max(0, min(100, round(final_score)))
+                            # Round to 1 decimal place instead of integer to preserve precision
+                            assistant_score = max(0.0, min(100.0, round(final_score, 1)))
                     except Exception as e:
                         # If score calculation fails, don't fail the request
                         # assistant_score will remain None

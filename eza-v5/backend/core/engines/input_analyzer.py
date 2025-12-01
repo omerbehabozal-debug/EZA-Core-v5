@@ -21,6 +21,8 @@ def analyze_input(text: str) -> Dict[str, Any]:
         "illegal": [r"\b(illegal|drug|weapon|hack|steal|yasal.değil|uyuşturucu|ilaç|silah|hackleme|çal|yasadışı)\b", 0.6],
         "harmful": [r"\b(suicide|self.harm|dangerous|intihar|kendine.zarar|tehlikeli|kendini.öldür)\b", 0.8],
         "manipulation": [r"\b(manipulate|trick|deceive|scam|fraud|commit.fraud|phishing|generate.phishing|create.phishing|manipüle|aldat|hile|dolandır|dolandırıcılık|sahte|fake)\b", 0.7],
+        "offensive_content": [r"\b(offensive|insult|insulting|rude|vulgar|obscene|profanity|swear|curse|bad.joke|insulting.joke|offensive.joke|kötü|kötü.şaka|hakaret|hakaret.dolu|küfür|kaba|edepsiz|müstehcen|küfürlü|küfürlü.şaka|hakaret.et|kötü.söz)\b", 0.7],
+        "hate_speech": [r"\b(hate|hatred|discriminate|discrimination|racist|racism|sexist|sexism|homophobic|transphobic|nefret|ayrımcılık|ırkçı|ırkçılık|cinsiyetçi|cinsiyetçilik)\b", 0.8],
         "hacking": [r"\b(hack|hacking|unauthorized.access|break.into|bypass|bypass\s+security|bypass\s+protection|bypass\s+encryption|exploit|break\s+encryption|break\s+security|break\s+protection|crack|crack\s+encryption|crack\s+password|how\s+to\s+crack|hijack|hijack\s+session|how\s+to\s+hijack|how\s+to\s+bypass|how\s+to\s+break|sızma|hackleme|yetkisiz.erişim|kırma|atlama|şifre.kırma|bilgisayar.sızmak|sisteme.sızmak|başkasının.bilgisayarına|başkasının.sistemine)\b", 0.7],
         "drug_production": [r"\b(drug|drugs|make\s+(illegal\s+)?drugs|produce\s+(illegal\s+)?drugs|drug\s+production|illegal\s+drugs|how\s+to\s+make\s+drugs|how\s+to\s+produce\s+drugs|uyuşturucu|ilaç\s+üretimi|uyuşturucu\s+üretimi|ilaç\s+yapımı|uyuşturucu.yapmak|uyuşturucu.üretmek)\b", 0.8],
         "privacy_violation": [r"\b(access.someone's.private|private.data|private.messages|unauthorized.access|steal\s+data|steal\s+.*data|breach\s+privacy|breach\s+security|breach\s+protection|how\s+to\s+breach|özel.veri|özel.mesajlar|yetkisiz.erişim|veri.çal|gizlilik.ihlali|başkasının.verilerine|başkasının.bilgilerine)\b", 0.8],
@@ -66,7 +68,7 @@ def analyze_input(text: str) -> Dict[str, Any]:
     is_educational_question = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in educational_patterns)
     
     # BUT: Exclude risky educational questions (those with harmful keywords)
-    risky_keywords_in_question = ["break", "hack", "steal", "harm", "attack", "fraud", "bypass", "crack", "exploit", "hijack", "breach", "crack"]
+    risky_keywords_in_question = ["break", "hack", "steal", "harm", "attack", "fraud", "bypass", "crack", "exploit", "hijack", "breach", "kötü", "hakaret", "offensive", "insult", "rude", "vulgar"]
     if is_educational_question:
         # If educational question contains risky keywords, it's not truly educational
         if any(re.search(rf"\b{keyword}\b", text_lower, re.IGNORECASE) for keyword in risky_keywords_in_question):
@@ -74,11 +76,41 @@ def analyze_input(text: str) -> Dict[str, Any]:
     
     # If it's an educational question and no clear risk patterns, set low risk
     # BUT: Check again after pattern matching - if patterns were found, it's risky
-    if is_educational_question and not pattern_scores:
+    # IMPORTANT: Only apply educational question logic if NO risk patterns were found
+    # If risk patterns exist, ignore educational question logic (it's risky regardless)
+    if is_educational_question and not pattern_scores and risk_score == 0.0:
         # Double-check: if question contains risky keywords, it's not safe
-        risky_question_keywords = ["break", "hack", "steal", "harm", "attack", "fraud", "bypass", "crack", "exploit", "hijack", "breach"]
+        risky_question_keywords = ["break", "hack", "steal", "harm", "attack", "fraud", "bypass", "crack", "exploit", "hijack", "breach", "kötü", "hakaret", "offensive", "insult", "rude", "vulgar", "bad", "joke"]
         if not any(re.search(rf"\b{keyword}\b", text_lower, re.IGNORECASE) for keyword in risky_question_keywords):
-            risk_score = 0.0
+            # Add variations based on text characteristics for score diversity
+            # Use a wider range to create more noticeable score differences
+            text_length = len(text)
+            word_count = len(text.split())
+            
+            # Create more variation: 0.01 to 0.15 range based on text characteristics
+            # Shorter questions get slightly higher risk (0.08-0.15)
+            # Longer questions get lower risk (0.01-0.08)
+            if text_length < 30:
+                # Very short questions
+                base_risk = 0.12
+                length_factor = min(0.03, (30 - text_length) / 1000.0)
+            elif text_length < 100:
+                # Short questions
+                base_risk = 0.08
+                length_factor = min(0.04, (100 - text_length) / 2000.0)
+            elif text_length < 200:
+                # Medium questions
+                base_risk = 0.04
+                length_factor = min(0.03, (200 - text_length) / 5000.0)
+            else:
+                # Long questions
+                base_risk = 0.01
+                length_factor = min(0.02, text_length / 10000.0)
+            
+            # Add word count variation
+            word_factor = min(0.02, word_count / 1000.0)
+            risk_score = base_risk + length_factor + word_factor
+            risk_score = min(0.15, max(0.01, risk_score))  # Clamp to 0.01-0.15 range
     
     # Special case: security researcher asking about vulnerabilities (gray area)
     if re.search(r"\b(security.researcher|güvenlik.araştırmacısı|researcher.studying.security)\b", text_lower, re.IGNORECASE):
@@ -112,7 +144,15 @@ def analyze_input(text: str) -> Dict[str, Any]:
             # BUT: If it contains "break", "hack", "crack", etc., it's risky
             risky_security_keywords = ["break", "hack", "crack", "bypass", "exploit", "attack"]
             if not any(re.search(rf"\b{keyword}\b", text_lower, re.IGNORECASE) for keyword in risky_security_keywords):
-                risk_score = 0.0
+                # Add variations for score diversity - wider range
+                text_length = len(text)
+                if text_length < 50:
+                    risk_score = 0.06
+                elif text_length < 150:
+                    risk_score = 0.03
+                else:
+                    risk_score = 0.01
+                risk_score = min(0.10, max(0.01, risk_score))
     
     # If risk exists but masking is present, adjust to gray area (medium risk)
     if risk_score > 0.3 and has_masking and risk_score < 0.8:

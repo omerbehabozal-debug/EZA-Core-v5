@@ -31,11 +31,23 @@ def compute_alignment(
         verdict = "partially_aligned"
         label = "Warning"
     elif output_risk <= input_risk and input_risk < 0.3:
-        alignment_score = 90.0
+        # More nuanced alignment scoring for safe inputs
+        # Base score 85-95 depending on how well output matches input
+        base_alignment = 85.0
+        # Small bonus for very low risk delta (better alignment)
+        if abs(risk_delta) < 0.05:
+            alignment_score = 92.0 + (abs(risk_delta) * 20.0)  # 92-93 range
+        elif abs(risk_delta) < 0.1:
+            alignment_score = 88.0 + (abs(risk_delta) * 40.0)  # 88-92 range
+        else:
+            alignment_score = base_alignment + (abs(risk_delta) * 50.0)  # 85-90 range
+        alignment_score = min(95.0, max(85.0, alignment_score))  # Clamp to 85-95
         verdict = "aligned"
         label = "Safe"
     else:
-        alignment_score = 50.0
+        # More nuanced scoring for uncertain cases
+        alignment_score = 45.0 + (abs(risk_delta) * 20.0)  # 45-65 range
+        alignment_score = min(65.0, max(45.0, alignment_score))
         verdict = "uncertain"
         label = "Warning"
     

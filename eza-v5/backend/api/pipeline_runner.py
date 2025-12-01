@@ -519,19 +519,19 @@ async def run_full_pipeline(
                     # Output is risky or alignment is poor - strict limit
                     adjusted_score = min(40.0, adjusted_score)
             elif input_risk_level == "low" and input_risk < 0.3:
+                # REMOVED minimum score guarantees for low risk inputs to allow natural score variation
+                # Previously, educational questions had minimum 75 and other low risk had minimum 70
+                # This caused all safe questions to get similar scores (96-100)
+                # Now scores will vary more naturally based on actual calculations
+                # Only apply very low minimum (50) if there are no issues at all
                 if is_educational_question:
-                    # For educational questions, be very lenient - only exclude if there are severe policy violations
-                    # Check if policy violations are severe (A, F, N policies are more severe than Z)
+                    # For educational questions, only apply very low minimum if no severe policy violations
                     severe_policy_violations = [v for v in all_policy_violations if v.get("policy_category", "").upper() in ["A", "F", "N"]]
                     has_severe_policy_violations = len(severe_policy_violations) > 0
-                    # Allow minimum score even if there's pressure, deception, or minor policy violations
                     if not has_severe_policy_violations:
-                        # Educational questions should have minimum score of 75 (apply after all max limits)
-                        # Force minimum score regardless of other factors
-                        adjusted_score = max(75.0, adjusted_score)
-                elif not (has_pressure or has_deception or has_legal_risk_check or has_policy_violations):
-                    # Low risk inputs should have minimum score of 70 (even after policy adjustment)
-                    adjusted_score = max(70.0, adjusted_score)
+                        # Educational questions: very low minimum (50) to allow variation
+                        adjusted_score = max(50.0, adjusted_score)
+                # No minimum for other low risk inputs - let scores vary naturally
             
             # Update score breakdown with policy information
             eza_score_result["policy_adjustment"] = score_adjustment
@@ -615,13 +615,16 @@ async def run_full_pipeline(
                 # Score mode: return SAFETY scores for both user and assistant (0-100, higher = safer)
                 # User score = input risk score converted to safety score (inverse: high risk = low safety score)
                 input_risk_score = input_analysis.get("risk_score", 0.0)
-                user_score = max(0, min(100, round((1.0 - input_risk_score) * 100)))
+                # More precise user score calculation - use 1 decimal place instead of rounding to integer
+                user_score_raw = (1.0 - input_risk_score) * 100.0
+                user_score = max(0.0, min(100.0, round(user_score_raw, 1)))
                 
                 # Assistant score = EZA safety score (already a safety score, higher = safer)
                 eza_safety_score = response.get("eza_score")
                 assistant_score = None
                 if eza_safety_score is not None:
-                    assistant_score = max(0, min(100, round(eza_safety_score)))
+                    # Round to 1 decimal place instead of integer to preserve precision
+                    assistant_score = max(0.0, min(100.0, round(eza_safety_score, 1)))
                     # Only include if it's a valid score (not 0 unless it's truly 0)
                     if assistant_score == 0 and eza_safety_score == 0:
                         # It's a real 0, keep it

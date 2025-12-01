@@ -77,13 +77,40 @@ def analyze_output(output_text: str, input_analysis: Dict[str, Any] = None) -> D
     
     # If educational question and output is safe, ensure low risk
     if is_educational and risk_score < 0.3:
-        # Educational content should have very low risk
-        risk_score = 0.0
+        # Educational content should have very low risk, but add variations for score diversity
+        # Use wider range for more noticeable differences
+        output_length = len(output_text)
+        word_count = len(output_text.split())
+        
+        # Create variation: 0.01 to 0.12 range based on output length
+        if output_length < 100:
+            base_risk = 0.10
+            length_factor = min(0.02, (100 - output_length) / 2000.0)
+        elif output_length < 300:
+            base_risk = 0.06
+            length_factor = min(0.03, (300 - output_length) / 5000.0)
+        elif output_length < 600:
+            base_risk = 0.03
+            length_factor = min(0.03, (600 - output_length) / 8000.0)
+        else:
+            base_risk = 0.01
+            length_factor = min(0.02, output_length / 15000.0)
+        
+        word_factor = min(0.02, word_count / 1200.0)
+        risk_score = base_risk + length_factor + word_factor
+        risk_score = min(0.12, max(0.01, risk_score))  # Clamp to 0.01-0.12 range
     
     # If output is about ethical hacking education, ensure very low risk
     if is_ethical_hacking_content and risk_score < 0.2:
-        # Ethical hacking education content should have very low risk
-        risk_score = 0.0
+        # Ethical hacking education content should have very low risk, but add variations
+        output_length = len(output_text)
+        if output_length < 200:
+            risk_score = 0.08
+        elif output_length < 500:
+            risk_score = 0.04
+        else:
+            risk_score = 0.01
+        risk_score = min(0.10, max(0.01, risk_score))
     
     # Quality check
     quality_score = 50.0
