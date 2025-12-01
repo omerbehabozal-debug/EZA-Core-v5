@@ -50,8 +50,16 @@ export default function InputBar({ onSend, isLoading, disabled = false }: InputB
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  handleSubmit(e);
+                  // Only send if message is not empty, not loading, and not disabled (limit not reached)
+                  if (message.trim() && !isLoading && !disabled) {
+                    onSend(message.trim());
+                    setMessage('');
+                    if (textareaRef.current) {
+                      textareaRef.current.style.height = '48px';
+                    }
+                  }
                 }
+                // Shift + Enter allows new line (default behavior, no preventDefault)
               }}
               placeholder={disabled ? "Günlük limit doldu" : "Mesaj yaz…"}
               rows={1}

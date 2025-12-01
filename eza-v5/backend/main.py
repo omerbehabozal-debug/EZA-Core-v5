@@ -15,7 +15,10 @@ sys.path.insert(0, str(project_root))
 
 from fastapi import FastAPI, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
+import json
+import asyncio
 
 from backend.routers import (
     auth, standalone, proxy, proxy_lite, admin, media, autonomy,
@@ -28,6 +31,7 @@ from backend.security.logger_filter import setup_security_logging
 from backend.learning.vector_store import VectorStore
 from backend.config import get_settings
 from backend.api.pipeline_runner import run_full_pipeline
+from backend.api.streaming import stream_standalone_response
 from backend.core.schemas.pipeline import (
     PipelineResponse, StandaloneRequest, ProxyRequest, ProxyLiteRequest
 )
@@ -201,6 +205,36 @@ async def standalone_endpoint(
     )
     # Always return 200, even if ok=False (for frontend convenience)
     return result
+
+
+@app.post("/api/standalone/stream", tags=["Standalone"])
+async def standalone_stream_endpoint(
+    request: StandaloneRequest,
+    _: None = Depends(rate_limit_standalone)  # Rate limiting (no auth required)
+):
+    """
+    Standalone mode streaming endpoint
+    
+    Streams response token by token:
+    - data: {"token": "<word>"}
+    - data: {"token": "<word>"}
+    - ...
+    - data: {"done": true, "assistant_score": 42, "user_score": 85}
+    
+    Note: Public endpoint, no authentication required.
+    """
+    return StreamingResponse(
+        stream_standalone_response(
+            user_input=request.text,
+            safe_only=request.safe_only or False
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
 
 
 @app.post("/api/proxy", response_model=PipelineResponse, status_code=status.HTTP_200_OK)

@@ -13,12 +13,12 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import TopBar from '@/components/standalone/TopBar';
 import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import SettingsModal from '@/components/standalone/SettingsModal';
-import { apiClient } from '@/lib/apiClient';
+import { useStreamResponse } from '@/hooks/useStreamResponse';
 
 interface Message {
   id: string;
@@ -34,7 +34,8 @@ interface Message {
 // Daily limit constants
 const DAILY_LIMIT_SOFT = 40; // Soft limit (start throttling)
 const DAILY_LIMIT_HARD = 50; // Hard limit (block completely)
-const THROTTLE_DELAY_MS = 2000; // 2 seconds delay when throttling
+const THROTTLE_DELAY_MIN = 0; // Min throttle delay (ms)
+const THROTTLE_DELAY_MAX = 300; // Max throttle delay (ms) - typing indicator süresinde
 
 // localStorage keys
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
@@ -44,11 +45,14 @@ const STORAGE_KEY_LAST_DATE = 'eza_standalone_last_date';
 export default function StandalonePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
   const [dailyCount, setDailyCount] = useState(0);
   const [isLimitReached, setIsLimitReached] = useState(false);
-  const [throttleDelay, setThrottleDelay] = useState(0);
+  const { startStream, reset: resetStream } = useStreamResponse();
+  const currentAssistantMessageRef = useRef<string | null>(null);
+  const assistantScoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -81,17 +85,15 @@ export default function StandalonePage() {
     localStorage.setItem(STORAGE_KEY_SAFE_ONLY, safeOnlyMode.toString());
   }, [safeOnlyMode]);
 
-  // Update throttle delay based on daily count
+  // Cleanup on unmount
   useEffect(() => {
-    if (dailyCount >= DAILY_LIMIT_SOFT && dailyCount < DAILY_LIMIT_HARD) {
-      // Soft limit - apply throttle
-      const excess = dailyCount - DAILY_LIMIT_SOFT;
-      const delay = Math.min(THROTTLE_DELAY_MS * (1 + excess / 10), 10000); // Max 10s
-      setThrottleDelay(delay);
-    } else {
-      setThrottleDelay(0);
-    }
-  }, [dailyCount]);
+    return () => {
+      if (assistantScoreTimeoutRef.current) {
+        clearTimeout(assistantScoreTimeoutRef.current);
+      }
+      resetStream();
+    };
+  }, [resetStream]);
 
   const incrementDailyCount = useCallback(() => {
     const newCount = dailyCount + 1;
@@ -112,125 +114,134 @@ export default function StandalonePage() {
   }, [dailyCount]);
 
   const handleSend = async (text: string) => {
-    // Check hard limit
+    // Check hard limit - show message immediately without typing indicator
     if (isLimitReached || dailyCount >= DAILY_LIMIT_HARD) {
+      const limitMessage: Message = {
+        id: `limit-${Date.now()}`,
+        text: 'Bugünkü skor analizlerin tamamlandı. Yarın tekrar görüşebiliriz.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, limitMessage]);
       return;
     }
 
-    // Apply throttle delay if in soft limit range
-    if (throttleDelay > 0) {
-      await new Promise(resolve => setTimeout(resolve, throttleDelay));
-    }
-
-    // Add user message immediately
+    // Add user message immediately with placeholder score (gray badge)
+    const userMessageId = `user-${Date.now()}`;
     const userMessage: Message = {
-      id: `user-${Date.now()}`,
+      id: userMessageId,
       text,
       isUser: true,
+      userScore: undefined, // Will be updated when score arrives
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    
+    // Soft limit: Apply random throttle delay (0-300ms) during typing indicator
+    const throttleDelay = dailyCount >= DAILY_LIMIT_SOFT && dailyCount < DAILY_LIMIT_HARD
+      ? Math.floor(Math.random() * (THROTTLE_DELAY_MAX - THROTTLE_DELAY_MIN + 1)) + THROTTLE_DELAY_MIN
+      : 0;
+
+    // Show typing indicator
+    setIsTyping(true);
+    
+    // Apply throttle delay during typing indicator (user won't notice)
+    if (throttleDelay > 0) {
+      await new Promise(resolve => setTimeout(resolve, throttleDelay));
+    }
+
+    // Create assistant message placeholder for streaming
+    const assistantMessageId = `eza-${Date.now()}`;
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      text: '',
+      isUser: false,
+      assistantScore: undefined, // Will be shown 0.4s after streaming completes
+      safeOnlyMode: safeOnlyMode,
+      safety: safeOnlyMode ? 'Safe' : undefined,
+      timestamp: new Date(),
+    };
+    
+    setMessages((prev) => [...prev, assistantMessage]);
+    currentAssistantMessageRef.current = assistantMessageId;
     setIsLoading(true);
 
     try {
-      // Call backend API with safeOnlyMode parameter
-      const response = await apiClient.post<{
-        ok: boolean;
-        data?: {
-          assistant_answer?: string;
-          user_score?: number;
-          assistant_score?: number;
-          safe_answer?: string; // For safe-only mode
-          mode?: string;
-        };
-        error?: {
-          error_message?: string;
-        };
-      }>('/api/standalone', {
-        body: { 
-          text,
-          safe_only: safeOnlyMode 
-        },
-        auth: false, // Public endpoint
-      });
+      // Start streaming
+      const result = await startStream(
+        '/api/standalone/stream',
+        { text, safe_only: safeOnlyMode },
+        {
+          onToken: (token: string) => {
+            // Update assistant message with streaming text
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, text: (msg.text || '') + token }
+                  : msg
+              )
+            );
+            // Hide typing indicator once first token arrives
+            if (isTyping) {
+              setIsTyping(false);
+            }
+          },
+          onDone: (data: any) => {
+            setIsTyping(false);
+            setIsLoading(false);
+            
+            // Update user message with score immediately
+            if (data.userScore !== undefined) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === userMessageId
+                    ? { ...msg, userScore: data.userScore }
+                    : msg
+                )
+              );
+            }
+            
+            // Update assistant message with score after 0.4s delay
+            if (data.assistantScore !== undefined) {
+              assistantScoreTimeoutRef.current = setTimeout(() => {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, assistantScore: data.assistantScore }
+                      : msg
+                  )
+                );
+              }, 400); // 0.4 seconds delay
+            }
+            
+            // Increment daily count
+            incrementDailyCount();
+          }
+        }
+      );
 
-      if (!response.ok) {
-        throw new Error(response.error?.error_message || response.error?.message || 'Request failed');
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      // API client returns: { ok: true, data: {...}, mode: "...", eza_score: ... }
-      // response.data contains: { assistant_answer, user_score, assistant_score } or { safe_answer, mode: "safe-only" }
-      console.log('Full API Response:', JSON.stringify(response, null, 2));
-      const data = response.data;
-      console.log('Extracted data object:', JSON.stringify(data, null, 2));
-      
-      if (!data) {
-        console.error('No data in response!');
-        throw new Error('No data received from server');
-      }
-      
-      // Debug: Check if scores are present
-      console.log('User score:', data.user_score);
-      console.log('Assistant score:', data.assistant_score);
-      console.log('Assistant answer:', data.assistant_answer);
-
-      // Increment daily count
-      incrementDailyCount();
-
-      // Handle response based on mode
-      if (safeOnlyMode && data.mode === 'safe-only') {
-        // SAFE-only mode: show rewritten answer with SAFE badge
-        const ezaMessage: Message = {
-          id: `eza-${Date.now()}`,
-          text: data.safe_answer || data.assistant_answer || 'No response available',
-          isUser: false,
-          safety: 'Safe',
-          safeOnlyMode: true,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, ezaMessage]);
-      } else {
-        // Score mode: show scores for both user and assistant
-        const ezaMessage: Message = {
-          id: `eza-${Date.now()}`,
-          text: data.assistant_answer || 'No response available',
-          isUser: false,
-          assistantScore: data.assistant_score,
-          safeOnlyMode: false,
-          timestamp: new Date(),
-        };
-        
-        // Update user message with score
-        setMessages((prev) => 
-          prev.map((msg) => 
-            msg.id === userMessage.id 
-              ? { ...msg, userScore: data.user_score }
-              : msg
-          )
-        );
-        
-        setMessages((prev) => [...prev, ezaMessage]);
-      }
     } catch (error: any) {
-      console.error('Standalone API Error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        error: error.error,
-        stack: error.stack
-      });
+      console.error('Streaming Error:', error);
+      setIsTyping(false);
+      setIsLoading(false);
       
-      // Show error message to user with more details
+      // Remove placeholder assistant message
+      setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId));
+      
+      // Show error message
       let errorText = 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.';
       
       if (error.message) {
-        if (error.message.includes('fetch')) {
+        if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
           errorText = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
         } else {
           errorText = error.message;
         }
-      } else if (error.error?.error_message) {
-        errorText = error.error.error_message;
       }
       
       const errorMessage: Message = {
@@ -241,15 +252,13 @@ export default function StandalonePage() {
       };
 
       setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden safe-area-inset">
       <TopBar onSettingsClick={() => setIsSettingsOpen(true)} />
-      <MessageList messages={messages} isLoading={isLoading} />
+      <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
       <InputBar 
         onSend={handleSend} 
         isLoading={isLoading}

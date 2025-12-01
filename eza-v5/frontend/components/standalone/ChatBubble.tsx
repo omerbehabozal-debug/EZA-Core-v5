@@ -33,10 +33,16 @@ export default function ChatBubble({
       <div className="flex justify-end mb-4 sm:mb-5 px-2 sm:px-4">
         <div className="max-w-[85%] xs:max-w-[80%] sm:max-w-[75%] md:max-w-[65%] flex flex-col items-end">
           <div className="bg-[#EEF2FF] border border-indigo-100 rounded-[18px] sm:rounded-[20px] rounded-tr-[4px] px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm relative inline-block">
-            {/* Score Badge - Only show if safeOnlyMode is false and score exists */}
-            {!safeOnlyMode && userScore !== undefined && (
+            {/* Score Badge - Show placeholder (gray) if score is undefined, actual score when available */}
+            {!safeOnlyMode && (
               <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 z-10">
-                <ScoreBadge score={userScore} />
+                {userScore !== undefined ? (
+                  <ScoreBadge score={userScore} />
+                ) : (
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center shadow-sm animate-pulse">
+                    <span className="text-[10px] sm:text-xs font-semibold text-gray-400">--</span>
+                  </div>
+                )}
               </div>
             )}
             <p className="text-gray-900 text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap break-words">
@@ -58,14 +64,21 @@ export default function ChatBubble({
     <div className="flex justify-start mb-4 sm:mb-5 px-2 sm:px-4">
       <div className="max-w-[85%] xs:max-w-[80%] sm:max-w-[75%] md:max-w-[65%] flex flex-col items-start">
         <div className="bg-white border border-gray-200 rounded-[18px] sm:rounded-[20px] rounded-tl-[4px] px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm relative inline-block">
-          {/* Badge - SAFE-only mode shows SAFE badge, otherwise shows score */}
+          {/* Badge - SAFE-only mode shows SAFE badge, otherwise shows score (with placeholder) */}
           {safeOnlyMode && safety ? (
             <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 z-10">
               <SafetyBadge safety={safety} />
             </div>
-          ) : !safeOnlyMode && assistantScore !== undefined ? (
+          ) : !safeOnlyMode ? (
             <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 z-10">
-              <ScoreBadge score={assistantScore} />
+              {assistantScore !== undefined ? (
+                <ScoreBadge score={assistantScore} />
+              ) : (
+                // Placeholder badge - will be replaced when score arrives
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center shadow-sm opacity-50">
+                  <span className="text-[10px] sm:text-xs font-semibold text-gray-400">--</span>
+                </div>
+              )}
             </div>
           ) : null}
           <p className="text-gray-900 text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap break-words">

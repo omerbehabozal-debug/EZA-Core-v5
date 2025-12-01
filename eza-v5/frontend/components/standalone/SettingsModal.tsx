@@ -266,6 +266,9 @@ export default function SettingsModal({
               <p className="text-[10px] sm:text-xs text-gray-600 leading-relaxed">
                 Risk skorlarının nasıl hesaplandığını merak ediyorsanız, Proxy-Lite modunda detaylı analizleri inceleyebilirsiniz.
               </p>
+              <p className="text-[10px] sm:text-xs text-gray-600 leading-relaxed mt-2">
+                Tarayıcıdan: proxy-lite.ezacore.ai
+              </p>
             </div>
           </div>
           
