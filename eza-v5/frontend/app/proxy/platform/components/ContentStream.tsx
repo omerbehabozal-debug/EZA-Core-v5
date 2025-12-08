@@ -4,7 +4,7 @@
 
 import { ContentItem } from '@/lib/types';
 import { Card, CardContent } from '@/components/Card';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import RiskLevelTag from '@/app/proxy-lite/components/RiskLevelTag';
 import { formatDate } from '@/lib/utils';
 

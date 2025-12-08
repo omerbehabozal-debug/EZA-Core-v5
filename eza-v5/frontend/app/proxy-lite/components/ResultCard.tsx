@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import ScoreBadge from './ScoreBadge';
 import RiskLevelTag from './RiskLevelTag';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { ProxyLiteResult } from '@/lib/types';
 
 interface ResultCardProps {

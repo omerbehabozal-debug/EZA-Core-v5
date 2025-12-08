@@ -221,7 +221,7 @@ export default function StandalonePage() {
               // Update assistant message with safety badge (for safe-only mode)
               // Always update safety if in safe-only mode, even if backend doesn't send it (default to Safe)
               if (safeOnlyMode) {
-                const safety = data.safety || 'Safe'; // Default to Safe if not provided
+                const safety = (data as any).safety || 'Safe'; // Default to Safe if not provided
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMessageId
@@ -287,12 +287,12 @@ export default function StandalonePage() {
         incrementDailyCount();
 
         // Handle response based on mode
-        if (safeOnlyMode && data.mode === 'safe-only') {
+        if (safeOnlyMode && (data as any).mode === 'safe-only') {
           // Determine safety badge from backend response or default to Safe
           const safety = (data as any).safety || 'Safe';
           const ezaMessage: Message = {
             id: assistantMessageId,
-            text: data.safe_answer || data.assistant_answer || 'No response available',
+            text: (data as any).safe_answer || (data as any).assistant_answer || 'No response available',
             isUser: false,
             safety: safety as 'Safe' | 'Warning' | 'Blocked',
             safeOnlyMode: true,
@@ -302,9 +302,9 @@ export default function StandalonePage() {
         } else {
           const ezaMessage: Message = {
             id: assistantMessageId,
-            text: data.assistant_answer || 'No response available',
+            text: (data as any).assistant_answer || 'No response available',
             isUser: false,
-            assistantScore: data.assistant_score,
+            assistantScore: (data as any).assistant_score,
             safeOnlyMode: false,
             timestamp: new Date(),
           };
@@ -313,18 +313,18 @@ export default function StandalonePage() {
           setMessages((prev) => 
             prev.map((msg) => 
               msg.id === userMessageId 
-                ? { ...msg, userScore: data.user_score }
+                ? { ...msg, userScore: (data as any).user_score }
                 : msg
             )
           );
           
           // Show assistant score after 0.4s delay
-          if (data.assistant_score !== undefined) {
+          if ((data as any).assistant_score !== undefined) {
             assistantScoreTimeoutRef.current = setTimeout(() => {
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantMessageId
-                    ? { ...msg, assistantScore: data.assistant_score }
+                    ? { ...msg, assistantScore: (data as any).assistant_score }
                     : msg
                 )
               );

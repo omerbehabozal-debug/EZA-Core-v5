@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { PolicyConfig as PolicyConfigType } from '@/lib/types';
 import { X, Plus } from 'lucide-react';
 

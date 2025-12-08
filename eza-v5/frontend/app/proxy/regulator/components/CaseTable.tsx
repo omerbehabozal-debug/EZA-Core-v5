@@ -2,7 +2,7 @@
  * Case Table Component
  */
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import type { RegulatorCase } from '@/mock/regulator';
 
 interface CaseTableProps {
