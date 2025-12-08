@@ -19,7 +19,7 @@ import { fetchCorporateAudit, fetchCorporatePolicy, updateCorporatePolicy } from
 import { MOCK_CORPORATE_AUDIT, MOCK_CORPORATE_POLICY } from '@/mock/corporate';
 import type { PolicyConfig as PolicyConfigType, CorporateAudit } from '@/lib/types';
 import { uploadMultimodalFile, MultimodalAnalysisResult } from '@/api/multimodal';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';

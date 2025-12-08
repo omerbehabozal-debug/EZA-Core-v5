@@ -7,9 +7,7 @@
 
 import React, { useState } from 'react';
 import { uploadMultimodalFile, MultimodalAnalysisResult } from '@/api/multimodal';
-import { Button } from '@/components/ui/Button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Button, Card, CardHeader, CardTitle, CardContent, Input } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 

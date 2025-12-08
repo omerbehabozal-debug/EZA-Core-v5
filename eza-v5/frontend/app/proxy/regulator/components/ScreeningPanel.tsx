@@ -3,7 +3,7 @@
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui';
 import type { RegulatorCase } from '@/mock/regulator';
 
 interface ScreeningPanelProps {
