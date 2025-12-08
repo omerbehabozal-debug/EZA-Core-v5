@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get backend URL from environment
-    const backendUrl = process.env.EZA_BACKEND_URL || process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
+    const backendUrl = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
     
     // Ensure no double slashes
     const backendEndpoint = `${backendUrl.replace(/\/$/, '')}/api/standalone/stream`;

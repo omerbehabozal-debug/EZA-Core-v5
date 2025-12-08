@@ -110,6 +110,7 @@ allowed_origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:3008",
+    "https://*.ezacore.ai",  # Wildcard for all ezacore.ai subdomains
 ]
 
 app.add_middleware(
