@@ -1,6 +1,7 @@
 /**
  * UI Components Barrel Export
  * Centralized exports for all UI components to avoid case-sensitivity issues
+ * Updated: 2025-12-09 - Fixed case-sensitivity for Linux/Vercel deployment
  */
 
 export { Button } from './button';
