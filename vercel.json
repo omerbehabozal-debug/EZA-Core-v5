@@ -2,7 +2,6 @@
   "buildCommand": "cd eza-v5/frontend && npm install && npm run build",
   "outputDirectory": "eza-v5/frontend/.next",
   "installCommand": "cd eza-v5/frontend && npm install",
-  "framework": "nextjs",
-  "rootDirectory": "eza-v5/frontend"
+  "framework": "nextjs"
 }
 
