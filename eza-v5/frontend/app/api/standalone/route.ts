@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const backendUrl = process.env.EZA_BACKEND_URL || process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
     
     // Ensure no double slashes
-    const backendEndpoint = `${backendUrl.replace(/\/$/, '')}/api/standalone/standalone_chat`;
+    const backendEndpoint = `${backendUrl.replace(/\/$/, '')}/api/standalone`;
 
     // Forward request to backend
     const backendResponse = await fetch(backendEndpoint, {
