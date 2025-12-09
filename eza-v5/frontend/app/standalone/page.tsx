@@ -19,7 +19,6 @@ import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import SettingsModal from '@/components/standalone/SettingsModal';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
-import { getApiUrl } from '@/lib/apiUrl';
 
 interface Message {
   id: string;
@@ -174,7 +173,7 @@ export default function StandalonePage() {
       
       try {
         const result = await startStream(
-          `${getApiUrl()}/api/standalone/stream`,
+          '/api/standalone/stream',
           { query: text, safe_only: safeOnlyMode },
           {
             onToken: (token: string) => {
@@ -267,7 +266,7 @@ export default function StandalonePage() {
           error?: {
             error_message?: string;
           };
-        }>(`${getApiUrl()}/api/standalone`, {
+        }>('/api/standalone', {
           body: { 
             query: text,
             safe_only: safeOnlyMode 
