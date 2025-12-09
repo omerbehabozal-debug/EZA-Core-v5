@@ -4,8 +4,9 @@
 
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { getApiUrl } from './apiUrl';
 
-const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = getApiUrl();
 
 export interface LoginCredentials {
   email: string;

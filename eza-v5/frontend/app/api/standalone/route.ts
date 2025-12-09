@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getApiUrl } from '@/lib/apiUrl';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,8 +18,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get backend URL from environment
-    const backendUrl = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
+    // Get backend URL from environment (required, no fallback)
+    const backendUrl = getApiUrl();
     
     // Ensure no double slashes
     const backendEndpoint = `${backendUrl.replace(/\/$/, '')}/api/standalone`;

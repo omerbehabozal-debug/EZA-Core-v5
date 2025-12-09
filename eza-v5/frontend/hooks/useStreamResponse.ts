@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
+import { getApiUrl } from '@/lib/apiUrl';
 
 interface StreamResponse {
   text: string;
@@ -50,7 +51,7 @@ export function useStreamResponse(): UseStreamResponseReturn {
         fullUrl = url;
       } else {
         // Direct backend call or server-side
-        const baseURL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
+        const baseURL = getApiUrl();
         fullUrl = `${baseURL}${url}`;
       }
 
