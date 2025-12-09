@@ -11,6 +11,9 @@
     "test:validation": "vitest tests/predeployment"
   },
   "dependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.0",
     "axios": "^1.6.0",
     "clsx": "^2.0.0",
@@ -26,16 +29,13 @@
     "swr": "^2.2.4",
     "tailwind-merge": "^2.2.0",
     "tailwindcss": "^3.3.0",
+    "typescript": "^5.9.3",
     "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.1.0",
     "@testing-library/react": "^14.0.0",
-    "@types/node": "^24.10.1",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
     "jsdom": "^23.0.0",
-    "typescript": "^5.9.3",
     "vitest": "^1.0.0"
   }
 }
