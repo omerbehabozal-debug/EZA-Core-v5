@@ -21,6 +21,7 @@ def analyze_input(text: str) -> Dict[str, Any]:
         "illegal": [r"\b(illegal|drug|weapon|hack|steal|yasal.değil|uyuşturucu|ilaç|silah|hackleme|çal|yasadışı)\b", 0.6],
         "harmful": [r"\b(suicide|self.harm|dangerous|intihar|kendine.zarar|kendime.zarar|zarar.vermek|zarar.ver|tehlikeli|kendini.öldür|kendimi.öldür)\b", 0.8],
         "manipulation": [r"\b(manipulate|trick|deceive|scam|fraud|commit.fraud|phishing|generate.phishing|create.phishing|manipüle|aldat|hile|dolandır|dolandırıcılık|sahte|fake)\b", 0.7],
+        "academic_dishonesty": [r"\b(cheat|cheating|plagiarism|plagiarize|copy\s+work|copy\s+homework|copy\s+assignment|copy\s+exam|copy\s+test|copy\s+answer|copy\s+answers|academic\s+dishonesty|academic\s+fraud|kopya|kopya\s+çek|kopya\s+çekme|kopya\s+çekmek|intihal|ödev\s+kopyala|sınav\s+kopyala|kopya\s+uzmanlığı|kopya\s+uzmanı|nasıl\s+kopya\s+çek|kopya\s+çekmeyi\s+öğret|kopya\s+çekmeyi\s+öğren)\b", 0.7],
         "offensive_content": [r"\b(offensive|insult|insulting|rude|vulgar|obscene|profanity|swear|curse|bad.joke|insulting.joke|offensive.joke|kötü|kötü.şaka|hakaret|hakaret.dolu|küfür|kaba|edepsiz|müstehcen|küfürlü|küfürlü.şaka|hakaret.et|kötü.söz)\b", 0.7],
         "hate_speech": [r"\b(hate|hatred|discriminate|discrimination|racist|racism|sexist|sexism|homophobic|transphobic|nefret|ayrımcılık|ırkçı|ırkçılık|cinsiyetçi|cinsiyetçilik)\b", 0.8],
         "hacking": [r"\b(hack|hacking|unauthorized.access|break.into|bypass|bypass\s+security|bypass\s+protection|bypass\s+encryption|exploit|break\s+encryption|break\s+security|break\s+protection|crack|crack\s+encryption|crack\s+password|how\s+to\s+crack|hijack|hijack\s+session|how\s+to\s+hijack|how\s+to\s+bypass|how\s+to\s+break|sızma|hackleme|yetkisiz.erişim|kırma|atlama|şifre.kırma|bilgisayar.sızmak|sisteme.sızmak|başkasının.bilgisayarına|başkasının.sistemine)\b", 0.7],
@@ -28,7 +29,7 @@ def analyze_input(text: str) -> Dict[str, Any]:
         "privacy_violation": [r"\b(access.someone's.private|private.data|private.messages|unauthorized.access|steal\s+data|steal\s+.*data|breach\s+privacy|breach\s+security|breach\s+protection|how\s+to\s+breach|özel.veri|özel.mesajlar|yetkisiz.erişim|veri.çal|gizlilik.ihlali|başkasının.verilerine|başkasının.bilgilerine)\b", 0.8],
         "theft": [r"\b(steal|theft|robbery|pirate|piracy|pirate\s+software|illegal\s+download|çal|hırsızlık|soygun|korsan|çalmak|hırsızlık.yapmak)\b", 0.7],
         # Additional patterns for common risky question formats
-        "risky_question": [r"\b(how\s+to\s+(hack|steal|harm|attack|break|bypass|crack|exploit|kill|murder)|nasıl\s+(hack|çal|zarar|saldır|kır|atlama|öldür|cinayet)|how\s+can\s+i\s+(hack|steal|harm|attack|break|bypass)|nasıl\s+yapabilirim\s+(hack|çal|zarar|saldır))\b", 0.75],
+        "risky_question": [r"\b(how\s+to\s+(hack|steal|harm|attack|break|bypass|crack|exploit|kill|murder|cheat)|nasıl\s+(hack|çal|zarar|saldır|kır|atlama|öldür|cinayet|kopya\s+çek)|how\s+can\s+i\s+(hack|steal|harm|attack|break|bypass|cheat)|nasıl\s+yapabilirim\s+(hack|çal|zarar|saldır|kopya\s+çek))\b", 0.75],
         # Hacker-related questions (medium risk - could be educational but also risky)
         "hacker_question": [r"\b(how\s+to\s+become\s+a\s+hacker|how\s+to\s+be\s+a\s+hacker|nasıl\s+hacker\s+olurum|nasıl\s+hacker\s+olunur|hacker\s+olmak|hacker\s+olurum|hacker\s+nasıl\s+olunur)\b", 0.6],
     }
