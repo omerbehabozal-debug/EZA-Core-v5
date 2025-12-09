@@ -19,6 +19,7 @@ import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import SettingsModal from '@/components/standalone/SettingsModal';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
+import { getApiUrl } from '@/lib/apiUrl';
 
 interface Message {
   id: string;
@@ -173,7 +174,7 @@ export default function StandalonePage() {
       
       try {
         const result = await startStream(
-          '/api/standalone/stream',
+          `${getApiUrl()}/api/standalone/stream`,
           { query: text, safe_only: safeOnlyMode },
           {
             onToken: (token: string) => {
@@ -266,7 +267,7 @@ export default function StandalonePage() {
           error?: {
             error_message?: string;
           };
-        }>('/api/standalone', {
+        }>(`${getApiUrl()}/api/standalone`, {
           body: { 
             query: text,
             safe_only: safeOnlyMode 
@@ -352,7 +353,7 @@ export default function StandalonePage() {
         if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
           errorText = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
         } else if (error.message.includes('404') || error.message.includes('bulunamadı')) {
-          errorText = 'Backend endpoint bulunamadı. Lütfen backend\'in çalıştığından ve /api/standalone/stream endpoint\'inin mevcut olduğundan emin olun.';
+          errorText = 'Backend endpoint bulunamadı. Lütfen backend\'in çalıştığından emin olun.';
         } else {
           errorText = error.message;
         }

@@ -43,17 +43,9 @@ export function useStreamResponse(): UseStreamResponseReturn {
     abortControllerRef.current = abortController;
 
     try {
-      // For Next.js API routes, use relative path (client-side)
-      // For direct backend calls, use full URL
-      let fullUrl: string;
-      if (typeof window !== 'undefined' && url.startsWith('/api/')) {
-        // Client-side API route - use relative path
-        fullUrl = url;
-      } else {
-        // Direct backend call or server-side
-        const baseURL = getApiUrl();
-        fullUrl = `${baseURL}${url}`;
-      }
+      // Always use direct backend URL (no local proxy routes)
+      const baseURL = getApiUrl();
+      const fullUrl = `${baseURL}${url}`;
 
       const response = await fetch(fullUrl, {
         method: 'POST',
@@ -67,7 +59,7 @@ export function useStreamResponse(): UseStreamResponseReturn {
       if (!response.ok) {
         // Handle 404 specifically
         if (response.status === 404) {
-          throw new Error('Backend endpoint bulunamadı. Backend çalışıyor mu ve /api/standalone/stream endpoint\'i mevcut mu kontrol edin.');
+          throw new Error('Backend endpoint bulunamadı. Backend çalışıyor mu kontrol edin.');
         }
         
         // Try to parse error response
