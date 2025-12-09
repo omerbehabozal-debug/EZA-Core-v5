@@ -6,6 +6,9 @@
 import { NextRequest } from 'next/server';
 import { getApiUrl } from '@/lib/apiUrl';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const { query, safe_only } = await req.json();
