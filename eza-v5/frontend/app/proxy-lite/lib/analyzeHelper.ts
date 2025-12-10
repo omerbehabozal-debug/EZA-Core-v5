@@ -71,40 +71,47 @@ export async function convertToParagraphAnalysis(
 ): Promise<ProxyLiteAnalysisResponse> {
   const paragraphs = splitIntoParagraphs(text);
   const overallScore = legacyResult.risk_score || 0;
-  const overallLevel = getRiskLabel(overallScore);
   const detectedCategories = (legacyResult.flags || []).map(getTurkishLabel);
   
   const paragraphAnalyses: ParagraphAnalysis[] = paragraphs.map((para) => {
     // Use same flags for all paragraphs for now (in real implementation, backend would analyze each)
     const flags = legacyResult.flags || [];
     const { score } = calculateParagraphRisk(flags);
-    const riskLabel = getRiskLabel(score) as "Düşük Risk" | "Orta Risk" | "Yüksek Risk";
+    const turkishFlags = flags.map(getTurkishLabel);
+    
+    // Generate suggestion if score < 100
+    const suggestion = score < 100 ? generateParagraphSuggestion(para, turkishFlags) : null;
     
     return {
-      text: para.trim(),
+      original: para.trim(),
       ethical_score: score,
-      risk_label: riskLabel,
-      flags: flags.map(getTurkishLabel),
+      flags: turkishFlags,
+      suggestion,
     };
   });
   
-  // Generate bulk rewrite if needed (if any paragraph has medium or high risk)
-  const hasRiskyParagraphs = paragraphAnalyses.some(p => 
-    p.risk_label === 'Orta Risk' || p.risk_label === 'Yüksek Risk'
-  );
-  const rewriteSuggestion = hasRiskyParagraphs ? await generateBulkRewrite(text, detectedCategories) : null;
+  // Generate global rewrite if overall score < 100
+  const globalSuggestion = overallScore < 100 ? await generateBulkRewrite(text, detectedCategories) : null;
   
   return {
+    success: true,
+    input_text: text,
     ethical_score: overallScore,
-    risk_label: overallLevel,
     paragraphs: paragraphAnalyses,
-    rewrite_suggestion: rewriteSuggestion,
-    flags: detectedCategories,
+    global_suggestion: globalSuggestion,
   };
 }
 
 /**
- * Generate bulk rewrite for entire text
+ * Generate suggestion for a single paragraph
+ */
+function generateParagraphSuggestion(original: string, flags: string[]): string {
+  // Placeholder - in production, backend would generate this
+  return `[Daha Etik Hâle Getirilmiş Öneri: ${original.substring(0, 100)}...]`;
+}
+
+/**
+ * Generate global rewrite for entire text
  */
 async function generateBulkRewrite(text: string, flags: string[]): Promise<string | null> {
   // In real implementation, this would call backend rewrite endpoint
@@ -112,6 +119,6 @@ async function generateBulkRewrite(text: string, flags: string[]): Promise<strin
   if (flags.length === 0) return null;
   
   // Placeholder - in production, call /api/proxy-lite/rewrite
-  return `[Güvenli versiyon: Bu içerik daha etik bir şekilde yeniden yazılmıştır. Orijinal mesajınızın anlamını koruyarak, tespit edilen risk kategorilerini (${flags.join(', ')}) dikkate alarak güvenli bir alternatif sunulmuştur.]`;
+  return `[Toplu Güvenli Öneri: Bu içerik daha etik bir şekilde yeniden yazılmıştır. Orijinal mesajınızın anlamını koruyarak, tespit edilen etik sorunları (${flags.join(', ')}) dikkate alarak güvenli bir alternatif sunulmuştur.]`;
 }
 

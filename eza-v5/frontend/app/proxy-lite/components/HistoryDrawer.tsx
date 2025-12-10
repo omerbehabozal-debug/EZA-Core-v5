@@ -24,16 +24,6 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
     }
   }, [isOpen]);
 
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString('tr-TR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   if (!isOpen) return null;
 
@@ -72,7 +62,6 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
             ) : (
               <>
                 {history.map((entry) => {
-                  const result = entry.result as ProxyLiteAnalysisResponse | null;
                   return (
                     <div
                       key={entry.id}
@@ -87,22 +76,30 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
                         border: '1px solid #1A1F2E'
                       }}
                     >
-                      <h3 className="text-white font-medium mb-2 line-clamp-2">{entry.title}</h3>
-                      <p className="text-gray-400 text-xs mb-2">{formatDate(entry.timestamp)}</p>
-                      {result && (
-                        <div className="flex items-center gap-2">
-                          <span 
-                            className="text-lg font-bold"
-                            style={{ 
-                              color: result.ethical_score >= 90 ? '#39FF88' : 
-                                     result.ethical_score >= 70 ? '#FFC93C' : '#FF3B3B'
-                            }}
-                          >
-                            {Math.round(result.ethical_score)}
-                          </span>
-                          <span className="text-xs text-gray-500">{result.risk_label}</span>
-                        </div>
-                      )}
+                      <h3 className="text-white font-medium mb-2 line-clamp-2">
+                        {entry.text.substring(0, 50)}{entry.text.length > 50 ? '...' : ''}
+                      </h3>
+                      <p className="text-gray-400 text-xs mb-2">
+                        {new Date(entry.date).toLocaleString('tr-TR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span 
+                          className="text-lg font-bold"
+                          style={{ 
+                            color: entry.ethical_score >= 90 ? '#39FF88' : 
+                                   entry.ethical_score >= 70 ? '#FFC93C' : '#FF3B3B'
+                          }}
+                        >
+                          {Math.round(entry.ethical_score)}
+                        </span>
+                        <span className="text-xs text-gray-500">Etik Skor</span>
+                      </div>
                     </div>
                   );
                 })}

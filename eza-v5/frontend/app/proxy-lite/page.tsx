@@ -13,7 +13,6 @@ import { convertToParagraphAnalysis } from "./lib/analyzeHelper";
 import { saveAnalysis } from "./lib/storage";
 import { getScoreColor } from "./lib/scoringUtils";
 import ScoreGauge from "./components/ScoreGauge";
-import RiskBadge from "./components/RiskBadge";
 import FlagsPills from "./components/FlagsPills";
 import ParagraphAnalysis from "./components/ParagraphAnalysis";
 import Tabs, { TabList, Tab, TabPanel } from "./components/Tabs";
@@ -169,25 +168,6 @@ export default function ProxyLitePage() {
           </div>
         </div>
 
-        {/* Proxy CTA */}
-        <div 
-          className="rounded-xl p-4 text-center border"
-          style={{
-            backgroundColor: '#111726',
-            borderColor: '#1A1F2E',
-            borderRadius: '12px'
-          }}
-        >
-          <p className="text-gray-400 text-sm">
-            Daha gelişmiş analiz için{' '}
-            <a 
-              href="/proxy/login" 
-              className="text-[#0066FF] hover:text-[#4FC3FF] transition-colors font-medium"
-            >
-              Proxy moduna geç →
-            </a>
-          </p>
-        </div>
 
         {/* Input Section */}
         <div 
@@ -321,69 +301,67 @@ export default function ProxyLitePage() {
                 </TabList>
 
                 <TabPanel value="general">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
-                    {/* Left: Score Gauge */}
-                    <div className="flex justify-center md:justify-start">
+                  <div className="mt-6 space-y-6">
+                    {/* Score Gauge - Centered */}
+                    <div className="flex justify-center">
                       <ScoreGauge score={result.ethical_score} />
                     </div>
 
-                    {/* Right: Risk Badge & Categories */}
-                    <div className="space-y-6">
+                    {/* Flags */}
+                    {result.paragraphs.some(p => p.flags && p.flags.length > 0) && (
                       <div>
-                        <p className="text-sm text-gray-400 mb-3">Risk Seviyesi</p>
-                        <RiskBadge level={result.risk_label.split(' ')[0].toLowerCase()} />
+                        <p className="text-sm text-gray-400 mb-3 text-center">Tespit Edilen Etik Sorunlar</p>
+                        <div className="flex justify-center">
+                          <FlagsPills flags={result.paragraphs.flatMap(p => p.flags || [])} />
+                        </div>
                       </div>
+                    )}
 
-                      {result.flags.length > 0 && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-3">Tespit Edilen Risk Kategorileri</p>
-                          <FlagsPills flags={result.flags} />
-                        </div>
-                      )}
-
-                      {/* Bulk Rewrite Section */}
-                      {result.rewrite_suggestion && (
-                        <div>
-                          {!showRewrite ? (
-                            <button
-                              type="button"
-                              onClick={() => setShowRewrite(true)}
-                              className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg"
-                              style={{ 
-                                backgroundColor: '#0066FF',
-                                boxShadow: '0 4px 12px rgba(0, 102, 255, 0.3)',
-                                borderRadius: '12px'
-                              }}
-                            >
-                              Daha Etik Hâle Getir →
-                            </button>
-                          ) : (
-                            <div 
-                              className="rounded-xl p-4 border"
-                              style={{ 
-                                backgroundColor: '#1A1F2E',
-                                borderColor: '#39FF88',
-                                borderRadius: '12px'
-                              }}
-                            >
-                              <div className="flex items-center justify-between mb-3">
-                                <p className="text-sm font-semibold text-[#39FF88]">Güvenli Versiyon</p>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowRewrite(false)}
-                                  className="text-gray-400 hover:text-white text-sm"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                              <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
-                                {result.rewrite_suggestion}
-                              </p>
+                    {/* Global Rewrite Section */}
+                    {result.global_suggestion && (
+                      <div>
+                        {!showRewrite ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowRewrite(true)}
+                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg"
+                            style={{ 
+                              backgroundColor: '#0066FF',
+                              boxShadow: '0 4px 12px rgba(0, 102, 255, 0.3)',
+                              borderRadius: '12px'
+                            }}
+                          >
+                            Toplu Güvenli Öneri →
+                          </button>
+                        ) : (
+                          <div 
+                            className="rounded-xl p-4 border"
+                            style={{ 
+                              backgroundColor: '#1A1F2E',
+                              borderColor: '#39FF88',
+                              borderRadius: '12px'
+                            }}
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-sm font-semibold text-[#39FF88]">Toplu Güvenli Öneri</p>
+                              <button
+                                type="button"
+                                onClick={() => setShowRewrite(false)}
+                                className="text-gray-400 hover:text-white text-sm"
+                              >
+                                ✕
+                              </button>
                             </div>
-                          )}
-                        </div>
-                      )}
+                            <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                              {result.global_suggestion}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
+                    {/* Proxy CTA - Only if score < 100 */}
+                    {result.ethical_score < 100 && (
                       <div 
                         className="rounded-xl p-4 text-center border"
                         style={{
@@ -393,16 +371,16 @@ export default function ProxyLitePage() {
                         }}
                       >
                         <p className="text-gray-400 text-sm">
-                          Ayrıntılı analiz için{' '}
+                          Tam güvenli değil →{' '}
                           <a 
                             href="/proxy/login" 
                             className="text-[#0066FF] hover:text-[#4FC3FF] transition-colors font-medium"
                           >
-                            Proxy moduna geç →
+                            Proxy moduna geç
                           </a>
                         </p>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </TabPanel>
 

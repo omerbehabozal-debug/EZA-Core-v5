@@ -29,18 +29,18 @@ export interface ProxyLiteRealResult {
 
 // New paragraph-based analysis types
 export interface ParagraphAnalysis {
-  text: string;
-  ethical_score: number;
-  risk_label: "Düşük Risk" | "Orta Risk" | "Yüksek Risk";
-  flags?: string[];
+  original: string;
+  ethical_score: number; // 0-100
+  flags: string[]; // Turkish flags: ["yanıltıcı", "genelleme", "bilimsel dayanak yok", "zararlı teşvik"]
+  suggestion: string | null; // Only if ethical_score < 100
 }
 
 export interface ProxyLiteAnalysisResponse {
-  ethical_score: number; // 0-100
-  risk_label: string; // Turkish: "Düşük Risk", "Orta Risk", "Yüksek Risk"
+  success: boolean;
+  input_text: string;
+  ethical_score: number; // 0-100 (only ethical score, no risk level)
   paragraphs: ParagraphAnalysis[];
-  rewrite_suggestion: string | null;
-  flags: string[]; // Turkish risk flags
+  global_suggestion: string | null; // Only if ethical_score < 100
 }
 
 export function analyzeProxyLite(
@@ -58,11 +58,11 @@ export function analyzeProxyLite(
 }
 
 /**
- * Analyze Lite - Text endpoint
+ * Analyze Lite - Main analyze endpoint
  */
 export async function analyzeText(text: string): Promise<ProxyLiteAnalysisResponse | null> {
   try {
-    const url = `${API_BASE_URL}/api/proxy-lite/text`;
+    const url = `${API_BASE_URL}/api/proxy-lite/analyze`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -70,9 +70,10 @@ export async function analyzeText(text: string): Promise<ProxyLiteAnalysisRespon
     });
 
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    return data;
   } catch (e) {
-    console.error("Proxy-Lite: Text analysis failed", e);
+    console.error("Proxy-Lite: Analysis failed", e);
     return null;
   }
 }

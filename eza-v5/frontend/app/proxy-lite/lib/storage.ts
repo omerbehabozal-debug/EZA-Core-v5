@@ -4,9 +4,10 @@
 
 export interface AnalysisHistory {
   id: string;
-  title: string;
-  timestamp: number;
-  result: any; // Full analysis result
+  text: string;
+  date: string; // ISO date string
+  ethical_score: number;
+  result?: any; // Optional: full analysis result for detail view
 }
 
 const STORAGE_KEY = 'proxy-lite-history';
@@ -15,16 +16,16 @@ const MAX_HISTORY = 50; // Keep last 50 analyses
 /**
  * Save analysis to history
  */
-export function saveAnalysis(result: any, inputText: string): void {
+export function saveAnalysis(result: ProxyLiteAnalysisResponse, inputText: string): void {
   try {
     const history = getHistory();
-    const title = inputText.substring(0, 25) + (inputText.length > 25 ? '...' : '');
     
     const newEntry: AnalysisHistory = {
-      id: Date.now().toString(),
-      title,
-      timestamp: Date.now(),
-      result,
+      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+      text: inputText,
+      date: new Date().toISOString(),
+      ethical_score: result.ethical_score,
+      result, // Store full result for detail view
     };
 
     // Add to beginning and limit size
