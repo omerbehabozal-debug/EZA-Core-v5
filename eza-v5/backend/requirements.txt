@@ -54,3 +54,11 @@ reportlab==4.0.7
 # Logging
 structlog==23.2.0
 
+# Media Processing
+Pillow==10.1.0
+pytesseract==0.3.10
+# Note: ffmpeg must be installed separately on the system
+# For Windows: Download from https://ffmpeg.org/download.html
+# For Linux: sudo apt-get install ffmpeg
+# For macOS: brew install ffmpeg
+

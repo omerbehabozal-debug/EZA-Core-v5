@@ -7,7 +7,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Clock, Settings as SettingsIcon, Mic, Camera, Loader2 } from "lucide-react";
+import { Clock, Settings as SettingsIcon } from "lucide-react";
 import { analyzeLite, LiteAnalysisResponse, rewriteLite } from "@/api/proxy_lite";
 import { saveAnalysis, getHistory, LiteHistoryItem } from "./lib/storage";
 import { getEthicalScoreColor, getRiskLabelFromLevel } from "./lib/scoringUtils";
@@ -18,12 +18,16 @@ import Tabs, { TabList, Tab, TabPanel } from "./components/Tabs";
 import Settings from "./components/Settings";
 import HistoryDrawer from "./components/HistoryDrawer";
 import Toast from "./components/Toast";
+import MediaUploadTabs from "./components/MediaUploadTabs";
+import ContextSelector from "./components/ContextSelector";
+import TargetAudienceSelector from "./components/TargetAudienceSelector";
+import ToneSelector from "./components/ToneSelector";
+import EnhancedScoreDisplay from "./components/EnhancedScoreDisplay";
+import { useAnalysisStore } from "./store/useAnalysisStore";
 
 export default function ProxyLitePage() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [processingImage, setProcessingImage] = useState(false);
-  const [processingAudio, setProcessingAudio] = useState(false);
   const [result, setResult] = useState<LiteAnalysisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -32,9 +36,17 @@ export default function ProxyLitePage() {
   const [paragraphRewrites, setParagraphRewrites] = useState<Map<number, string>>(new Map());
   const [showBulkRewrite, setShowBulkRewrite] = useState(false);
   const [isBulkRewriting, setIsBulkRewriting] = useState(false);
+  const [isRewriting, setIsRewriting] = useState(false);
+  const [rewriteResult, setRewriteResult] = useState<LiteAnalysisResponse | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const audioInputRef = useRef<HTMLInputElement>(null);
+  
+  const { context, targetAudience, tone, originalText, setOriginalText, setAnalysisResult } = useAnalysisStore();
+
+  // Sync text with store
+  const handleTextChange = (newText: string) => {
+    setText(newText);
+    setOriginalText(newText);
+  };
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,17 +54,19 @@ export default function ProxyLitePage() {
 
     setLoading(true);
     setResult(null);
+    setRewriteResult(null);
     setError(null);
     setParagraphRewrites(new Map());
     setShowBulkRewrite(false);
 
     try {
       console.log('[Proxy-Lite] Starting analysis...');
-      const analysisResult = await analyzeLite(text.trim(), 'tr');
+      const analysisResult = await analyzeLite(text.trim(), 'tr', undefined, context || undefined, targetAudience || undefined, tone || undefined);
       
       if (analysisResult) {
         console.log('[Proxy-Lite] Analysis completed successfully');
         setResult(analysisResult);
+        setAnalysisResult(analysisResult);
         setIsLive(true);
         saveAnalysis(analysisResult, text.trim());
       } else {
@@ -68,30 +82,6 @@ export default function ProxyLitePage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setProcessingImage(true);
-    setError(null);
-    // TODO: Implement image OCR
-    alert("Yakında: Görsel analizi");
-    setProcessingImage(false);
-    if (imageInputRef.current) imageInputRef.current.value = '';
-  };
-
-  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setProcessingAudio(true);
-    setError(null);
-    // TODO: Implement audio STT
-    alert("Yakında: Ses analizi");
-    setProcessingAudio(false);
-    if (audioInputRef.current) audioInputRef.current.value = '';
   };
 
   const handleHistorySelect = (entry: LiteHistoryItem) => {
@@ -113,63 +103,51 @@ export default function ProxyLitePage() {
     setParagraphRewrites(newRewrites);
   };
 
-  const handleBulkRewrite = async () => {
-    if (!result || isBulkRewriting) return;
+  const handleFullRewrite = async () => {
+    if (!result || isRewriting) return;
     
-    setIsBulkRewriting(true);
-    setShowBulkRewrite(false);
+    setIsRewriting(true);
+    setRewriteResult(null);
+    setError(null);
     
     try {
-      // Collect all rewrites: use existing rewrite if available, otherwise rewrite the paragraph
-      const rewritePromises = result.paragraphs.map(async (para, idx) => {
-        // If rewrite already exists, use it
-        const existingRewrite = paragraphRewrites.get(idx);
-        if (existingRewrite) {
-          return existingRewrite;
-        }
-        
-        // Otherwise, rewrite this paragraph
-        // Only rewrite if it needs rewrite (score < 76)
-        if (para.score >= 76) {
-          return para.original; // Already safe, no rewrite needed
-        }
-        
-        try {
-          const rewriteResult = await rewriteLite(
-            para.original,
-            para.issues,
-            'tr'
-          );
-          
-          if (rewriteResult && rewriteResult.rewritten_text) {
-            // Store the rewrite for future use
-            const newRewrites = new Map(paragraphRewrites);
-            newRewrites.set(idx, rewriteResult.rewritten_text);
-            setParagraphRewrites(newRewrites);
-            
-            return rewriteResult.rewritten_text;
-          } else {
-            // If rewrite failed, use original
-            return para.original;
-          }
-        } catch (error) {
-          console.error(`[Proxy-Lite] Error rewriting paragraph ${idx + 1}:`, error);
-          return para.original; // Fallback to original on error
-        }
-      });
+      // Rewrite the full text (not paragraph by paragraph)
+      const fullText = result.paragraphs.map(p => p.original).join('\n\n');
+      const allIssues = result.unique_issues;
       
-      // Wait for all rewrites to complete
-      const rewrittenParagraphs = await Promise.all(rewritePromises);
-      const combinedText = rewrittenParagraphs.join('\n\n');
+      const rewriteResponse = await rewriteLite(fullText, allIssues, 'tr');
       
-      setShowBulkRewrite(true);
-      // Store in a ref or state for easy copying
-      (window as any).__bulkRewriteText = combinedText;
+      if (rewriteResponse && rewriteResponse.rewritten_text) {
+        // Auto re-analyze the rewritten text
+        const reAnalysisResult = await analyzeLite(
+          rewriteResponse.rewritten_text,
+          'tr',
+          undefined,
+          context || undefined,
+          targetAudience || undefined,
+          tone || undefined
+        );
+        
+        if (reAnalysisResult) {
+          setRewriteResult(reAnalysisResult);
+          setShowBulkRewrite(true);
+          (window as any).__bulkRewriteText = rewriteResponse.rewritten_text;
+          setToast({ 
+            message: `Yeniden yazma tamamlandı! Orijinal: ${result.ethics_score} → Yeni: ${reAnalysisResult.ethics_score} (${reAnalysisResult.ethics_score > result.ethics_score ? '+' : ''}${reAnalysisResult.ethics_score - result.ethics_score})`, 
+            type: 'success' 
+          });
+        } else {
+          setError("Yeniden yazılmış metin analiz edilemedi");
+        }
+      } else {
+        setError("Yeniden yazma başarısız oldu");
+      }
     } catch (error) {
-      console.error('[Proxy-Lite] Error in bulk rewrite:', error);
-      setToast({ message: 'Toplu yeniden yazma işlemi başarısız oldu', type: 'error' });
+      console.error('[Proxy-Lite] Error in full rewrite:', error);
+      setError("Yeniden yazma hatası");
+      setToast({ message: 'Yeniden yazma işlemi başarısız oldu', type: 'error' });
     } finally {
-      setIsBulkRewriting(false);
+      setIsRewriting(false);
     }
   };
 
@@ -255,11 +233,15 @@ export default function ProxyLitePage() {
           }}
         >
           <form onSubmit={handleAnalyze} className="space-y-4">
+            {/* Media Upload Tabs */}
+            <MediaUploadTabs onTextExtracted={(text) => handleTextChange(text)} />
+            
+            {/* Text Input */}
             <textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => handleTextChange(e.target.value)}
               placeholder="Metninizi buraya yazın veya yapıştırın..."
-              disabled={loading || processingAudio || processingImage}
+              disabled={loading}
               className="w-full min-h-[320px] px-4 py-3 rounded-[14px] resize-y transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#007AFF] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
                 backgroundColor: '#F8F9FB',
@@ -270,68 +252,18 @@ export default function ProxyLitePage() {
                 fontSize: '15px',
               }}
             />
-
-            {/* Upload buttons */}
-            <div className="flex items-center gap-3">
-              <input
-                ref={audioInputRef}
-                type="file"
-                accept="audio/*"
-                onChange={handleAudioUpload}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => audioInputRef.current?.click()}
-                disabled={processingAudio || loading || processingImage}
-                className="w-12 h-12 rounded-[14px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ 
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E3E3E7',
-                }}
-                title="Yakında: Ses analizi"
-                disabled
-              >
-                {processingAudio ? (
-                  <Loader2 size={18} style={{ color: '#6E6E73' }} strokeWidth={2} className="animate-spin" />
-                ) : (
-                  <Mic size={18} style={{ color: '#3A3A3C' }} strokeWidth={2} />
-                )}
-              </button>
-
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => imageInputRef.current?.click()}
-                disabled={processingImage || loading || processingAudio}
-                className="w-12 h-12 rounded-[14px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ 
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E3E3E7',
-                }}
-                title="Yakında: Görsel analizi"
-                disabled
-              >
-                {processingImage ? (
-                  <Loader2 size={18} style={{ color: '#6E6E73' }} strokeWidth={2} className="animate-spin" />
-                ) : (
-                  <Camera size={18} style={{ color: '#3A3A3C' }} strokeWidth={2} />
-                )}
-              </button>
-
-              <div className="flex-1" />
+            
+            {/* Context, Target Audience and Tone Selectors */}
+            <div className="grid grid-cols-3 gap-4">
+              <ContextSelector />
+              <TargetAudienceSelector />
+              <ToneSelector />
             </div>
 
             {/* CTA Button */}
             <button
               type="submit"
-              disabled={!text.trim() || loading || processingAudio || processingImage}
+              disabled={!text.trim() || loading}
               className="w-full py-4 px-6 rounded-[14px] font-semibold text-white transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
               style={{
                 backgroundColor: '#007AFF',
@@ -421,10 +353,8 @@ export default function ProxyLitePage() {
 
                 <TabPanel value="general">
                   <div className="mt-6 space-y-6">
-                    {/* Score Gauge - Centered */}
-                    <div className="flex justify-center">
-                      <ScoreGauge score={result.ethics_score} />
-                    </div>
+                    {/* Enhanced Score Display */}
+                    <EnhancedScoreDisplay result={result} />
 
                     {/* Ethics Level Badge */}
                     <div className="flex justify-center">
@@ -445,7 +375,7 @@ export default function ProxyLitePage() {
                     {result.unique_issues && result.unique_issues.length > 0 && (
                       <div>
                         <p className="text-sm mb-3 text-center" style={{ color: '#6E6E73' }}>
-                          Etik Sorun Etiketleri
+                          Etik Bulgular
                         </p>
                         <div className="flex justify-center flex-wrap gap-2">
                           <FlagsPills flags={result.unique_issues} />
@@ -473,14 +403,14 @@ export default function ProxyLitePage() {
                       />
                     ))}
                     
-                    {/* Bulk Rewrite Button */}
+                    {/* Full Rewrite Button */}
                     {result.paragraphs.length > 0 && (
                       <div className="mt-6 pt-6 border-t" style={{ borderColor: '#E3E3E7' }}>
                         {!showBulkRewrite ? (
                           <button
                             type="button"
-                            onClick={handleBulkRewrite}
-                            disabled={isBulkRewriting}
+                            onClick={handleFullRewrite}
+                            disabled={isRewriting}
                             className="w-full py-4 px-6 rounded-[14px] font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{
                               backgroundColor: '#007AFF',
@@ -489,23 +419,23 @@ export default function ProxyLitePage() {
                               boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
                             }}
                           >
-                            {isBulkRewriting ? (
+                            {isRewriting ? (
                               <span className="flex items-center justify-center gap-2">
                                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Tüm paragraflar yeniden yazılıyor...
+                                Daha Etik Hale Getiriliyor...
                               </span>
                             ) : (
-                              'Tümünü Etik Hale Getir →'
+                              'Daha Etik Hale Getir →'
                             )}
                           </button>
                         ) : (
                           <div>
                             <div className="flex items-center justify-between mb-3">
                               <p className="text-sm font-semibold" style={{ color: '#22BF55' }}>
-                                Tümünü Etik Hale Getirilmiş Metin
+                                Güvenli ifade önerisi
                               </p>
                               <button
                                 type="button"
@@ -515,6 +445,33 @@ export default function ProxyLitePage() {
                                 ✕
                               </button>
                             </div>
+                            
+                            {/* Score Comparison */}
+                            {rewriteResult && (
+                              <div className="mb-4 p-4 rounded-[12px] bg-[#F8F9FB]">
+                                <div className="grid grid-cols-3 gap-4 text-center">
+                                  <div>
+                                    <p className="text-xs text-[#6E6E73] mb-1">Orijinal Skor</p>
+                                    <p className="text-2xl font-bold" style={{ color: getEthicalScoreColor(result.ethics_score) }}>
+                                      {result.ethics_score}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-[#6E6E73] mb-1">Yeni Skor</p>
+                                    <p className="text-2xl font-bold" style={{ color: getEthicalScoreColor(rewriteResult.ethics_score) }}>
+                                      {rewriteResult.ethics_score}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-[#6E6E73] mb-1">Fark</p>
+                                    <p className={`text-2xl font-bold ${rewriteResult.ethics_score > result.ethics_score ? 'text-[#22BF55]' : 'text-[#E84343]'}`}>
+                                      {rewriteResult.ethics_score > result.ethics_score ? '+' : ''}{rewriteResult.ethics_score - result.ethics_score}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
                             <div 
                               className="rounded-[14px] p-4 border mb-3"
                               style={{ 

@@ -28,6 +28,9 @@ class AnalyzeRequest(BaseModel):
     text: str
     locale: Literal["tr", "en"] = "tr"
     provider: Optional[Literal["openai", "groq", "mistral"]] = "openai"
+    context: Optional[Literal["social_media", "corporate_professional", "legal_official", "educational_informative", "personal_blog"]] = None
+    target_audience: Optional[Literal["general_public", "clients_consultants", "students", "children_youth", "colleagues", "regulators_public"]] = None
+    tone: Optional[Literal["neutral", "professional", "friendly", "funny", "persuasive", "strict_warning"]] = None
 
 
 class ParagraphAnalysisResponse(BaseModel):
@@ -35,11 +38,17 @@ class ParagraphAnalysisResponse(BaseModel):
     score: int  # 0-100, ethical score
     issues: List[str]  # Turkish issue labels
     rewrite: Optional[str] = None  # Rewritten version if available
+    neutrality_score: Optional[int] = None  # 0-100, neutrality score
+    writing_quality_score: Optional[int] = None  # 0-100, writing quality score
+    platform_fit_score: Optional[int] = None  # 0-100, platform fit score
 
 
 class AnalyzeResponse(BaseModel):
     ethics_score: int  # 0-100, overall
     ethics_level: Literal["low", "medium", "high"]
+    neutrality_score: int  # 0-100, overall neutrality
+    writing_quality_score: int  # 0-100, overall writing quality
+    platform_fit_score: int  # 0-100, overall platform fit
     paragraphs: List[ParagraphAnalysisResponse]
     unique_issues: List[str]  # Unique issue labels (no duplicates)
     provider: str = "EZA-Core"
@@ -133,10 +142,50 @@ def get_risk_level(score: int) -> Literal["low", "medium", "high"]:
         return "high"
 
 
-def build_judge_prompt(paragraph: str, locale: str = "tr") -> str:
+def build_judge_prompt(paragraph: str, locale: str = "tr", context: Optional[str] = None, target_audience: Optional[str] = None) -> str:
     """Build the judge prompt for paragraph analysis"""
+    
+    # Context mapping
+    context_map = {
+        "social_media": "Sosyal Medya",
+        "corporate_professional": "Kurumsal / Profesyonel",
+        "legal_official": "Hukuki / Resmî",
+        "educational_informative": "Eğitici / Bilgilendirici",
+        "personal_blog": "Kişisel Blog / Günlük"
+    }
+    
+    # Target audience mapping
+    audience_map = {
+        "general_public": "Genel Halk",
+        "clients_consultants": "Müşteriler / Danışanlar",
+        "students": "Öğrenciler",
+        "children_youth": "Çocuklar / Gençler",
+        "colleagues": "Meslektaşlar",
+        "regulators_public": "Regülatörler / Kamu"
+    }
+    
+    context_info = ""
+    if context and context in context_map:
+        context_info = f"\n\nYAYIN AMACI: {context_map[context]}"
+        if context == "legal_official":
+            context_info += "\n- Hukuki içeriklerde daha sıkı standartlar uygula"
+        elif context == "educational_informative":
+            context_info += "\n- Eğitici içeriklerde doğruluk ve tarafsızlık kritik"
+        elif context == "social_media":
+            context_info += "\n- Sosyal medya içeriklerinde etkileşim ve erişim dikkate alınmalı"
+    
+    audience_info = ""
+    if target_audience and target_audience in audience_map:
+        audience_info = f"\n\nHEDEF KİTLE: {audience_map[target_audience]}"
+        if target_audience == "children_youth":
+            audience_info += "\n- Çocuklar/Gençlere yönelik içeriklerde risk katsayısı YÜKSEK (daha sıkı kontrol)"
+        elif target_audience == "regulators_public":
+            audience_info += "\n- Regülatörler/Kamu için içeriklerde yasal uyumluluk kritik"
+        elif target_audience == "clients_consultants":
+            audience_info += "\n- Müşteriler/Danışanlar için profesyonel standartlar önemli"
+    
     if locale == "tr":
-        return f"""Sen EZA adlı bir etik ve güvenlik analiz motorusun. Görevin, verilen Türkçe metni etik, güvenlik ve yanıltıcılık açısından değerlendirmek ve 0-100 arasında bir 'ethic_score' üretmektir. 0 etik açıdan çok sorunlu, 100 ise etik açıdan çok güvenli demektir.
+        return f"""Sen EZA adlı bir etik ve güvenlik analiz motorusun. Görevin, verilen Türkçe metni etik, güvenlik ve yanıltıcılık açısından değerlendirmek ve 0-100 arasında bir 'ethic_score' üretmektir. 0 etik açıdan çok sorunlu, 100 ise etik açıdan çok güvenli demektir.{context_info}{audience_info}
 
 ÖNEMLİ KURALLAR:
 1. SORU FORMATI: Eğer metin bir soru ise (?, nasıl, ne, neden, hangi, kim vb. ile bitiyorsa), bu bir soru sorma eylemidir, risk içermez. Sorular genelde 80-100 arası skor almalı ve risk_tags boş olmalıdır.
@@ -153,6 +202,11 @@ def build_judge_prompt(paragraph: str, locale: str = "tr") -> str:
    - Nötr ifadeler: 70-90
    - Risk içeren iddialar: 0-69 (iddianın şiddetine göre)
 
+5. EK SKORLAR:
+   - neutrality_score (0-100): Metnin tarafsızlık seviyesi. Yüksek skor = tarafsız, düşük skor = taraflı/yönlendirici
+   - writing_quality_score (0-100): Yazım kalitesi, dilbilgisi, akıcılık. Yüksek skor = kaliteli yazım
+   - platform_fit_score (0-100): Platform uygunluğu (TikTok/Instagram/YouTube/Blog/LinkedIn). Yüksek skor = platforma uygun
+
 Özellikle şu tür risklere dikkat et (SADECE METİNDE AÇIKÇA VARSA):
 - Sağlıkla ilgili abartılı veya garanti veren iddialar (sorular değil, iddialar)
 - Finansal kazanç konusunda hızlı, garanti, risksiz vaatler
@@ -168,6 +222,9 @@ Cevabın mutlaka şu JSON formatında olsun (başka açıklama yapma, sadece JSO
 
 {{
   "ethic_score": number,
+  "neutrality_score": number,
+  "writing_quality_score": number,
+  "platform_fit_score": number,
   "risk_tags": ["Sağlık iddiası", "Yanıltıcı garanti", "Bilimsel kanıt yok", "Aşırı yönlendirme", "Reklam / Gizli satış", "Hedef kitle hassasiyeti", ...]
 }}
 
@@ -181,7 +238,45 @@ risk_tags örnekleri (SADECE METİNDE AÇIKÇA VARSA):
 
 Etiketler kısa, Türkçe ve açıklayıcı olmalı. Soru formatında ise risk_tags boş array olmalı."""
     else:
-        return f"""You are EZA, an ethical and security analysis engine. Your task is to evaluate the given text for ethical, security, and misleading content, and produce an 'ethic_score' between 0-100. 0 means very problematic ethically, 100 means very safe ethically.
+        # English context/audience mappings
+        context_map_en = {
+            "social_media": "Social Media",
+            "corporate_professional": "Corporate / Professional",
+            "legal_official": "Legal / Official",
+            "educational_informative": "Educational / Informative",
+            "personal_blog": "Personal Blog / Diary"
+        }
+        
+        audience_map_en = {
+            "general_public": "General Public",
+            "clients_consultants": "Clients / Consultants",
+            "students": "Students",
+            "children_youth": "Children / Youth",
+            "colleagues": "Colleagues",
+            "regulators_public": "Regulators / Public"
+        }
+        
+        context_info_en = ""
+        if context and context in context_map_en:
+            context_info_en = f"\n\nPUBLICATION CONTEXT: {context_map_en[context]}"
+            if context == "legal_official":
+                context_info_en += "\n- Apply stricter standards for legal content"
+            elif context == "educational_informative":
+                context_info_en += "\n- Accuracy and neutrality are critical in educational content"
+            elif context == "social_media":
+                context_info_en += "\n- Consider engagement and reach in social media content"
+        
+        audience_info_en = ""
+        if target_audience and target_audience in audience_map_en:
+            audience_info_en = f"\n\nTARGET AUDIENCE: {audience_map_en[target_audience]}"
+            if target_audience == "children_youth":
+                audience_info_en += "\n- Content for Children/Youth requires HIGHER risk coefficient (stricter control)"
+            elif target_audience == "regulators_public":
+                audience_info_en += "\n- Legal compliance is critical for Regulators/Public content"
+            elif target_audience == "clients_consultants":
+                audience_info_en += "\n- Professional standards are important for Clients/Consultants"
+        
+        return f"""You are EZA, an ethical and security analysis engine. Your task is to evaluate the given text for ethical, security, and misleading content, and produce an 'ethic_score' between 0-100. 0 means very problematic ethically, 100 means very safe ethically.{context_info_en}{audience_info_en}
 
 IMPORTANT RULES:
 1. QUESTION FORMAT: If the text is a question (ends with ?, starts with how, what, why, which, who, where, when), this is an act of asking, not a risk. Questions should generally score 80-100 and have empty risk_tags.
@@ -198,6 +293,11 @@ IMPORTANT RULES:
    - Neutral statements: 70-90
    - Risk-containing claims: 0-69 (based on severity of claim)
 
+5. ADDITIONAL SCORES:
+   - neutrality_score (0-100): Level of neutrality in the text. High score = neutral, low score = biased/directive
+   - writing_quality_score (0-100): Writing quality, grammar, fluency. High score = quality writing
+   - platform_fit_score (0-100): Platform suitability (TikTok/Instagram/YouTube/Blog/LinkedIn). High score = platform-appropriate
+
 Pay special attention to (ONLY IF EXPLICITLY PRESENT IN TEXT):
 - Exaggerated or guarantee-making health claims (not questions, but claims)
 - Fast, guaranteed, risk-free financial gain promises
@@ -213,6 +313,9 @@ Your response must be in this JSON format (no explanations, only JSON):
 
 {{
   "ethic_score": number,
+  "neutrality_score": number,
+  "writing_quality_score": number,
+  "platform_fit_score": number,
   "risk_tags": ["health claim", "misleading guarantee", "no scientific evidence", "excessive guidance", "advertising / hidden sales", "target audience sensitivity", ...]
 }}
 
@@ -268,14 +371,15 @@ async def analyze_paragraph(
     paragraph: str,
     locale: str,
     provider: str,
-    settings
+    settings,
+    platform: Optional[str] = None
 ) -> ParagraphAnalysisResponse:
     """Analyze a single paragraph using the judge prompt"""
     import logging
     logger = logging.getLogger(__name__)
     
     try:
-        prompt = build_judge_prompt(paragraph, locale)
+        prompt = build_judge_prompt(paragraph, locale, context, target_audience)
         logger.debug(f"[Proxy-Lite] Analyzing paragraph (length={len(paragraph)})")
         
         # Call LLM provider
@@ -300,15 +404,21 @@ async def analyze_paragraph(
             
             # Validate and ensure risk_level matches score
             ethical_score = int(data.get("ethic_score", 50))
+            neutrality_score = int(data.get("neutrality_score", 50))
+            writing_quality_score = int(data.get("writing_quality_score", 50))
+            platform_fit_score = int(data.get("platform_fit_score", 50))
             risk_tags = data.get("risk_tags", [])
             
-            logger.debug(f"[Proxy-Lite] Parsed response: score={ethical_score}, tags={risk_tags}")
+            logger.debug(f"[Proxy-Lite] Parsed response: score={ethical_score}, neutrality={neutrality_score}, writing={writing_quality_score}, platform={platform_fit_score}, tags={risk_tags}")
             
             return ParagraphAnalysisResponse(
                 original=paragraph,
                 score=ethical_score,
                 issues=risk_tags,
-                rewrite=None  # Will be filled by rewrite endpoint if requested
+                rewrite=None,  # Will be filled by rewrite endpoint if requested
+                neutrality_score=neutrality_score,
+                writing_quality_score=writing_quality_score,
+                platform_fit_score=platform_fit_score
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.error(f"[Proxy-Lite] JSON parse error: {str(e)}, response_text={response_text[:200]}")
@@ -317,7 +427,10 @@ async def analyze_paragraph(
                 original=paragraph,
                 score=50,
                 issues=["analiz_hatası"],
-                rewrite=None
+                rewrite=None,
+                neutrality_score=50,
+                writing_quality_score=50,
+                platform_fit_score=50
             )
     except Exception as e:
         logger.error(f"[Proxy-Lite] Error in analyze_paragraph: {str(e)}", exc_info=True)
@@ -326,7 +439,10 @@ async def analyze_paragraph(
             original=paragraph,
             score=50,
             issues=["llm_hatası"],
-            rewrite=None
+            rewrite=None,
+            neutrality_score=50,
+            writing_quality_score=50,
+            platform_fit_score=50
         )
 
 
@@ -372,7 +488,7 @@ async def analyze_ethical_content(
             
             try:
                 analysis = await analyze_paragraph(
-                    para, request.locale, request.provider or "openai", settings
+                    para, request.locale, request.provider or "openai", settings, request.context, request.target_audience
                 )
                 
                 # Post-process: If it's clearly a question but got low score, adjust
@@ -391,15 +507,27 @@ async def analyze_ethical_content(
                     original=para,
                     score=50,
                     issues=["analiz_hatası"],
-                    rewrite=None
+                    rewrite=None,
+                    neutrality_score=50,
+                    writing_quality_score=50,
+                    platform_fit_score=50
                 ))
         
-        # Calculate simple average for overall score
+        # Calculate simple average for overall scores
         if paragraph_analyses:
             overall_score = sum(p.score for p in paragraph_analyses) / len(paragraph_analyses)
             overall_score = int(round(overall_score))
+            overall_neutrality = sum(p.neutrality_score or 50 for p in paragraph_analyses) / len(paragraph_analyses)
+            overall_neutrality = int(round(overall_neutrality))
+            overall_writing = sum(p.writing_quality_score or 50 for p in paragraph_analyses) / len(paragraph_analyses)
+            overall_writing = int(round(overall_writing))
+            overall_platform = sum(p.platform_fit_score or 50 for p in paragraph_analyses) / len(paragraph_analyses)
+            overall_platform = int(round(overall_platform))
         else:
             overall_score = 50
+            overall_neutrality = 50
+            overall_writing = 50
+            overall_platform = 50
         
         overall_ethics_level = get_risk_level(overall_score)
         
@@ -414,6 +542,9 @@ async def analyze_ethical_content(
         return AnalyzeResponse(
             ethics_score=overall_score,
             ethics_level=overall_ethics_level,
+            neutrality_score=overall_neutrality,
+            writing_quality_score=overall_writing,
+            platform_fit_score=overall_platform,
             paragraphs=paragraph_analyses,
             unique_issues=unique_issues,
             provider="EZA-Core"

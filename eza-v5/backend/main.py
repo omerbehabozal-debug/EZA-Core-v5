@@ -26,6 +26,7 @@ from backend.routers import (
     platform_router, corporate_router, internal_proxy, multimodal,
     test_results, monitor, monitor_ws
 )
+from backend.routers import proxy_lite_media
 from backend.core.utils.dependencies import init_db, init_redis, init_vector_db, get_db
 from backend.security.logger_filter import setup_security_logging
 from backend.learning.vector_store import VectorStore
@@ -130,6 +131,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])
 app.include_router(proxy_lite.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
+app.include_router(proxy_lite_media.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(media.router, prefix="/api/media", tags=["Media"])
 app.include_router(autonomy.router, prefix="/api/autonomy", tags=["Autonomy"])

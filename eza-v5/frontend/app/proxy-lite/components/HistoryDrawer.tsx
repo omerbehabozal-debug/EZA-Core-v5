@@ -127,19 +127,40 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
                           minute: '2-digit',
                         })}
                       </p>
-                      <div className="flex items-center gap-2">
-                        <span 
-                          className="text-lg font-bold"
-                          style={{ 
-                            color,
-                            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-                            fontWeight: 700
-                          }}
-                        >
-                          {Math.round(score)}
-                        </span>
-                        <span className="text-xs" style={{ color: '#6E6E73' }}>Etik Skor</span>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span 
+                            className="text-lg font-bold"
+                            style={{ 
+                              color,
+                              fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                              fontWeight: 700
+                            }}
+                          >
+                            {Math.round(score)}
+                          </span>
+                          <span className="text-xs" style={{ color: '#6E6E73' }}>Etik Skor</span>
+                        </div>
                       </div>
+                      
+                      {/* Tags */}
+                      {entry.tags && entry.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {entry.tags.map((tag, idx) => (
+                            <span
+                              key={idx}
+                              className="text-xs px-2 py-1 rounded-full"
+                              style={{
+                                backgroundColor: '#F8F9FB',
+                                color: '#007AFF',
+                                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                              }}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
