@@ -7,7 +7,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Clock, Settings as SettingsIcon } from "lucide-react";
+import { Clock, Settings as SettingsIcon, Mic, Camera, Loader2 } from "lucide-react";
 import { analyzeLite, LiteAnalysisResponse, rewriteLite } from "@/api/proxy_lite";
 import { saveAnalysis, getHistory, LiteHistoryItem } from "./lib/storage";
 import { getEthicalScoreColor, getRiskLabelFromLevel } from "./lib/scoringUtils";
@@ -284,7 +284,7 @@ export default function ProxyLitePage() {
                 type="button"
                 onClick={() => audioInputRef.current?.click()}
                 disabled={processingAudio || loading || processingImage}
-                className="w-12 h-12 rounded-[14px] flex items-center justify-center text-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-12 h-12 rounded-[14px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
                   backgroundColor: '#FFFFFF',
                   border: '1px solid #E3E3E7',
@@ -292,7 +292,11 @@ export default function ProxyLitePage() {
                 title="Yakında: Ses analizi"
                 disabled
               >
-                {processingAudio ? '⏳' : '🎤'}
+                {processingAudio ? (
+                  <Loader2 size={18} style={{ color: '#6E6E73' }} strokeWidth={2} className="animate-spin" />
+                ) : (
+                  <Mic size={18} style={{ color: '#3A3A3C' }} strokeWidth={2} />
+                )}
               </button>
 
               <input
@@ -306,7 +310,7 @@ export default function ProxyLitePage() {
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
                 disabled={processingImage || loading || processingAudio}
-                className="w-12 h-12 rounded-[14px] flex items-center justify-center text-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-12 h-12 rounded-[14px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
                   backgroundColor: '#FFFFFF',
                   border: '1px solid #E3E3E7',
@@ -314,7 +318,11 @@ export default function ProxyLitePage() {
                 title="Yakında: Görsel analizi"
                 disabled
               >
-                {processingImage ? '⏳' : '📷'}
+                {processingImage ? (
+                  <Loader2 size={18} style={{ color: '#6E6E73' }} strokeWidth={2} className="animate-spin" />
+                ) : (
+                  <Camera size={18} style={{ color: '#3A3A3C' }} strokeWidth={2} />
+                )}
               </button>
 
               <div className="flex-1" />
