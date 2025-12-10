@@ -7,6 +7,7 @@ Deep analysis, rewrite, telemetry for corporate clients
 import logging
 import hashlib
 import uuid
+import time
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from typing import List, Optional, Literal, Dict, Any
@@ -136,6 +137,9 @@ async def proxy_analyze(
         # Generate analysis ID
         analysis_id = str(uuid.uuid4())
         
+        # Start timing for latency measurement
+        start_time = time.time()
+        
         # Deep analysis
         analysis_result = await analyze_content_deep(
             content=request.content,
@@ -143,6 +147,9 @@ async def proxy_analyze(
             policies=request.policies,
             provider=request.provider
         )
+        
+        # Calculate latency
+        latency_ms = (time.time() - start_time) * 1000
         
         # Convert risk locations to RiskFlagSeverity model
         risk_flags_severity = []
@@ -189,7 +196,10 @@ async def proxy_analyze(
                 if valid_policies:
                     request.policies = valid_policies
         
-        # Create audit entry
+        # Estimate token usage (mock, in production get from LLM response)
+        estimated_tokens = len(request.content.split()) * 1.3  # Rough estimate
+        
+        # Create audit entry with metadata
         create_audit_entry(
             analysis_id=analysis_id,
             content=request.content,
@@ -197,7 +207,13 @@ async def proxy_analyze(
             risk_flags=risk_flags_severity,
             policy_trace=policy_trace,
             justification=justification,
-            org_id=org_id
+            org_id=org_id,
+            metadata={
+                "token_usage": int(estimated_tokens),
+                "llm_provider": request.provider,
+                "latency_ms": latency_ms,
+                "pipeline_steps": 4,  # Input -> LLM -> Risk Engine -> Policy -> Output
+            }
         )
         
         # Update telemetry

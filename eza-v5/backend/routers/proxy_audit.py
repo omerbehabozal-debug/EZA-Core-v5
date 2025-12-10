@@ -114,7 +114,8 @@ def create_audit_entry(
     risk_flags: List[RiskFlagSeverity],
     policy_trace: List[Dict[str, Any]],
     justification: List[DecisionJustification],
-    org_id: Optional[str] = None
+    org_id: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """Create audit entry with hash and signature"""
     audit_data = {
@@ -125,7 +126,8 @@ def create_audit_entry(
         "risk_flags": [flag.dict() for flag in risk_flags],
         "policy_trace": policy_trace,
         "justification": [j.dict() for j in justification],
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
+        "metadata": metadata or {}
     }
     
     audit_json = json.dumps(audit_data, sort_keys=True)

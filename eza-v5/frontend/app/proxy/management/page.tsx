@@ -5,15 +5,16 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Tabs, { TabList, Tab, TabPanel } from "../components/Tabs";
 import ApiKeyManagement from "./components/ApiKeyManagement";
 import PolicyPackEditor from "./components/PolicyPackEditor";
 import RolesTeam from "./components/RolesTeam";
 import AuditLogSearch from "./components/AuditLogSearch";
+import AnalyticsBilling from "./components/AnalyticsBilling";
 
 export default function ProxyManagementPage() {
-  const [activeTab, setActiveTab] = useState<'api-keys' | 'policies' | 'roles' | 'audit'>('api-keys');
+  const [activeTab, setActiveTab] = useState<'api-keys' | 'policies' | 'roles' | 'audit' | 'analytics'>('api-keys');
   const [orgId, setOrgId] = useState<string | null>(null);
 
   // Get org_id from user context (in production, from auth)
@@ -62,6 +63,9 @@ export default function ProxyManagementPage() {
             <Tab id="audit" activeTab={activeTab} setActiveTab={setActiveTab}>
               📋 Denetim Logları
             </Tab>
+            <Tab id="analytics" activeTab={activeTab} setActiveTab={setActiveTab}>
+              📊 Analytics & Billing
+            </Tab>
           </TabList>
 
           {/* API Keys Tab */}
@@ -89,6 +93,13 @@ export default function ProxyManagementPage() {
           <TabPanel id="audit" activeTab={activeTab}>
             <div className="mt-6">
               <AuditLogSearch orgId={orgId} />
+            </div>
+          </TabPanel>
+
+          {/* Analytics & Billing Tab */}
+          <TabPanel id="analytics" activeTab={activeTab}>
+            <div className="mt-6">
+              <AnalyticsBilling orgId={orgId} />
             </div>
           </TabPanel>
         </Tabs>
