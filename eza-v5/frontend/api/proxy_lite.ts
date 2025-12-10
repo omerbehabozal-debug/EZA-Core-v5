@@ -47,47 +47,106 @@ export function analyzeProxyLite(
  */
 export async function analyzeLite(text: string): Promise<ProxyLiteRealResult | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/gateway/test-call`, {
+    const url = `${API_BASE_URL}/api/gateway/test-call`;
+    console.log('[Proxy-Lite] API URL:', url);
+    console.log('[Proxy-Lite] API_BASE_URL:', API_BASE_URL);
+    
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: text, provider: "openai" }),
     });
 
-    if (!res.ok) return null;
-
-    const data = await res.json();
-
-    // Only return if we have valid analysis data
-    if (!data.analysis && !data.gateway) {
+    console.log('[Proxy-Lite] Response status:', res.status);
+    if (!res.ok) {
+      // Clone response to read body without consuming it
+      const clonedRes = res.clone();
+      try {
+        const errorText = await clonedRes.text();
+        console.error('[Proxy-Lite] Response not OK:', res.status, res.statusText);
+        console.error('[Proxy-Lite] Error details:', errorText);
+        // Try to parse as JSON for better formatting
+        try {
+          const errorJson = JSON.parse(errorText);
+          console.error('[Proxy-Lite] Error JSON:', errorJson);
+        } catch {
+          // Not JSON, that's okay
+        }
+      } catch (e) {
+        console.error('[Proxy-Lite] Could not read error response:', e);
+      }
       return null;
     }
 
-    // Extract risk_score from analysis
-    const riskScore = data.analysis?.eza_score?.final_score ?? data.analysis?.risk_score;
-    if (riskScore === undefined || riskScore === null) {
-      return null; // No valid risk score from backend
-    }
-    
-    const riskLevel = data.analysis?.risk_level;
-    if (!riskLevel) {
-      return null; // No valid risk level from backend
+    const data = await res.json();
+    console.log('[Proxy-Lite] Response data:', data);
+    console.log('[Proxy-Lite] Analysis structure:', {
+      hasAnalysis: !!data.analysis,
+      analysisKeys: data.analysis ? Object.keys(data.analysis) : [],
+      ezaScore: data.analysis?.eza_score,
+      inputAnalysis: data.analysis?.input,
+      outputAnalysis: data.analysis?.output,
+    });
+
+    // Only return if we have valid analysis data
+    if (!data.analysis) {
+      console.warn('[Proxy-Lite] No analysis data in response');
+      return null;
     }
 
-    const output = data.output || data.gateway?.output;
-    if (!output) {
-      return null; // No valid output from backend
+    // Extract risk_score from eza_score or input_analysis
+    // Backend returns: analysis.eza_score.final_score or analysis.input.risk_score
+    const riskScore = data.analysis?.eza_score?.final_score 
+      ?? data.analysis?.input?.risk_score 
+      ?? data.analysis?.risk_score;
+    
+    console.log('[Proxy-Lite] Extracted risk_score:', riskScore);
+    
+    if (riskScore === undefined || riskScore === null) {
+      console.warn('[Proxy-Lite] No valid risk score found');
+      return null;
     }
+    
+    // Extract risk_level from input_analysis or eza_score
+    const riskLevel = data.analysis?.input?.risk_level 
+      ?? data.analysis?.eza_score?.risk_level
+      ?? data.analysis?.risk_level;
+    
+    console.log('[Proxy-Lite] Extracted risk_level:', riskLevel);
+    
+    if (!riskLevel) {
+      console.warn('[Proxy-Lite] No valid risk level found');
+      return null;
+    }
+
+    const output = data.output;
+    if (!output) {
+      console.warn('[Proxy-Lite] No output found');
+      return null;
+    }
+
+    // Extract risk flags from input_analysis
+    const flags = data.analysis?.input?.risk_flags 
+      ?? data.analysis?.risk_flags 
+      ?? [];
+
+    console.log('[Proxy-Lite] Final result:', {
+      risk_score: riskScore,
+      risk_level: riskLevel,
+      output_length: output.length,
+      flags_count: flags.length,
+    });
 
     return {
       live: true,
       risk_score: riskScore,
       risk_level: riskLevel,
       output: output,
-      flags: data.analysis?.risk_flags || [],
+      flags: flags,
       raw: data,
     };
   } catch (e) {
-    console.info("Proxy-Lite: Backend offline.");
+    console.error("Proxy-Lite: Backend offline. Error:", e);
     return null;
   }
 }

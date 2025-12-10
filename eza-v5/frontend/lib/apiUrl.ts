@@ -10,19 +10,18 @@
  */
 export function getApiUrl(): string {
   const apiUrl = process.env.NEXT_PUBLIC_EZA_API_URL;
+  const isProduction = process.env.NODE_ENV === 'production';
   
   if (!apiUrl) {
-    const isProduction = process.env.NODE_ENV === 'production';
-    
     if (isProduction) {
       const error = 'NEXT_PUBLIC_EZA_API_URL environment variable is required in production';
       console.error('[API URL]', error);
       throw new Error(error);
     }
     
-    // Development: warn but don't throw
-    console.warn('[API URL] NEXT_PUBLIC_EZA_API_URL is not set. This will fail in production.');
-    throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is required');
+    // Development: use localhost fallback
+    console.warn('[API URL] NEXT_PUBLIC_EZA_API_URL is not set. Using localhost fallback for development.');
+    return 'http://127.0.0.1:8000';
   }
   
   // Log the URL being used for validation
@@ -33,6 +32,9 @@ export function getApiUrl(): string {
   } else if (process.env.NODE_ENV === 'production') {
     // Client-side production
     console.log('[API URL] Production backend URL:', apiUrl);
+  } else {
+    // Development
+    console.log('[API URL] Development backend URL:', apiUrl);
   }
   
   return apiUrl;
