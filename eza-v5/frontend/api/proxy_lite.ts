@@ -27,18 +27,40 @@ export interface ProxyLiteRealResult {
   raw?: any;
 }
 
-// New paragraph-based analysis types
+// New paragraph-based analysis types - Backend format
+export interface BackendParagraphAnalysis {
+  index: number;
+  text: string;
+  ethical_score: number; // 0-100
+  risk_label_tr: "Düşük Risk" | "Orta Risk" | "Yüksek Risk";
+  risk_tags_tr: string[]; // Turkish flags
+  needs_rewrite: boolean;
+  improved_text_tr: string;
+}
+
+export interface BackendOverallAnalysis {
+  ethical_score: number; // 0-100
+  risk_label_tr: "Düşük Risk" | "Orta Risk" | "Yüksek Risk";
+  summary_tr: string;
+}
+
+export interface BackendAnalyzeResponse {
+  overall: BackendOverallAnalysis;
+  paragraphs: BackendParagraphAnalysis[];
+}
+
+// Frontend format (converted from backend)
 export interface ParagraphAnalysis {
   original: string;
   ethical_score: number; // 0-100
-  flags: string[]; // Turkish flags: ["yanıltıcı", "genelleme", "bilimsel dayanak yok", "zararlı teşvik"]
-  suggestion: string | null; // Only if ethical_score < 100
+  flags: string[]; // Turkish flags
+  suggestion: string | null; // Only if ethical_score < 80
 }
 
 export interface ProxyLiteAnalysisResponse {
   success: boolean;
   input_text: string;
-  ethical_score: number; // 0-100 (only ethical score, no risk level)
+  ethical_score: number; // 0-100
   paragraphs: ParagraphAnalysis[];
   global_suggestion: string | null; // Only if ethical_score < 100
 }
@@ -59,6 +81,7 @@ export function analyzeProxyLite(
 
 /**
  * Analyze Lite - Main analyze endpoint
+ * Converts backend format to frontend format
  */
 export async function analyzeText(text: string): Promise<ProxyLiteAnalysisResponse | null> {
   try {
@@ -70,8 +93,29 @@ export async function analyzeText(text: string): Promise<ProxyLiteAnalysisRespon
     });
 
     if (!res.ok) return null;
-    const data = await res.json();
-    return data;
+    const backendData: BackendAnalyzeResponse = await res.json();
+    
+    // Convert backend format to frontend format
+    const paragraphs: ParagraphAnalysis[] = backendData.paragraphs.map(p => ({
+      original: p.text,
+      ethical_score: p.ethical_score,
+      flags: p.risk_tags_tr,
+      suggestion: p.needs_rewrite ? p.improved_text_tr : null,
+    }));
+    
+    // Generate global suggestion from paragraphs that need rewrite
+    const paragraphsNeedingRewrite = backendData.paragraphs.filter(p => p.needs_rewrite);
+    const globalSuggestion = paragraphsNeedingRewrite.length > 0
+      ? paragraphsNeedingRewrite.map(p => p.improved_text_tr).join('\n\n')
+      : null;
+    
+    return {
+      success: true,
+      input_text: text,
+      ethical_score: backendData.overall.ethical_score,
+      paragraphs,
+      global_suggestion: globalSuggestion,
+    };
   } catch (e) {
     console.error("Proxy-Lite: Analysis failed", e);
     return null;
