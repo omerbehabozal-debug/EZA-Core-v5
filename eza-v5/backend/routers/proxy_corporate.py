@@ -20,6 +20,7 @@ from backend.services.proxy_rewrite_engine import rewrite_content
 from backend.services.proxy_telemetry import log_analysis, log_rewrite, get_telemetry_metrics, get_regulator_data
 from backend.routers.proxy_audit import RiskFlagSeverity, DecisionJustification, create_audit_entry
 from backend.routers.proxy_websocket import update_telemetry_state
+from backend.routers.policy_management import get_enabled_policies_for_org
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -175,6 +176,19 @@ async def proxy_analyze(
                 severity=severity_value
             ))
         
+        # Get org_id from API key or user context
+        org_id = current_user.get("org_id") or current_user.get("company_id")
+        
+        # Get enabled policies for org (if org_id exists)
+        if org_id:
+            enabled_policies = get_enabled_policies_for_org(org_id)
+            # Override request.policies with org-specific enabled policies
+            if enabled_policies:
+                # Filter to only valid policy IDs
+                valid_policies = [p for p in enabled_policies if p in ["TRT", "FINTECH", "HEALTH"]]
+                if valid_policies:
+                    request.policies = valid_policies
+        
         # Create audit entry
         create_audit_entry(
             analysis_id=analysis_id,
@@ -182,7 +196,8 @@ async def proxy_analyze(
             scores=analysis_result["overall_scores"],
             risk_flags=risk_flags_severity,
             policy_trace=policy_trace,
-            justification=justification
+            justification=justification,
+            org_id=org_id
         )
         
         # Update telemetry

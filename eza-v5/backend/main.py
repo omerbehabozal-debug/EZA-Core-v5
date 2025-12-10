@@ -82,6 +82,13 @@ async def lifespan(app: FastAPI):
         logging.warning(f"Vector store initialization failed (optional): {e}")
         app.state.vector_store = None
     
+    # Seed demo organization
+    try:
+        seed_demo_organization()
+        logging.info("Demo organization seeded")
+    except Exception as e:
+        logging.warning(f"Seed data initialization failed (optional): {e}")
+    
     yield
     
     # Shutdown
@@ -130,11 +137,13 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 # standalone.router removed - using direct endpoint in main.py instead
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])
-from backend.routers import proxy_corporate, proxy_websocket, proxy_audit, proxy_pipeline
+from backend.routers import proxy_corporate, proxy_websocket, proxy_audit, proxy_pipeline, organization, policy_management
 app.include_router(proxy_corporate.router, prefix="/api/proxy", tags=["Proxy-Corporate"])
 app.include_router(proxy_audit.router, prefix="/api/proxy", tags=["Proxy-Audit"])
 app.include_router(proxy_pipeline.router, prefix="/api/proxy", tags=["Proxy-Pipeline"])
 app.include_router(proxy_websocket.router, tags=["Proxy-WebSocket"])
+app.include_router(organization.router, prefix="/api/org", tags=["Organization"])
+app.include_router(policy_management.router, prefix="/api/policy", tags=["Policy"])
 app.include_router(proxy_lite.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
 app.include_router(proxy_lite_media.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])

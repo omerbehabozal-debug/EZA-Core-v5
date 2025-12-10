@@ -38,11 +38,22 @@ async def require_proxy_auth(
             detail="API key required (X-Api-Key header)"
         )
     
-    # Validate API key
-    try:
-        validated_key = validate_api_key(api_key)
-    except HTTPException:
-        raise
+    # Check if it's an organization API key (ezak_ prefix)
+    org_id_from_key = None
+    if api_key.startswith("ezak_"):
+        from backend.routers.organization import validate_api_key_and_get_org
+        org_id_from_key = validate_api_key_and_get_org(api_key)
+        if not org_id_from_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid organization API key"
+            )
+    else:
+        # Validate admin API key
+        try:
+            validated_key = validate_api_key(api_key)
+        except HTTPException:
+            raise
     
     # Require JWT token
     if not credentials:
@@ -62,17 +73,20 @@ async def require_proxy_auth(
             detail="Invalid or expired token"
         )
     
-    # Check role (corp_user, dev, admin)
+    # Check role (admin, reviewer, auditor, readonly)
     user_role = user_info.get("role", "")
-    if user_role not in ["corp_user", "dev", "admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Corporate access required. Roles: corp_user, dev, admin"
-        )
+    if user_role not in ["admin", "reviewer", "auditor", "readonly"]:
+        # Allow legacy roles for backward compatibility
+        if user_role not in ["corp_user", "dev", "admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Corporate access required. Roles: admin, reviewer, auditor, readonly"
+            )
     
     return {
         **user_info,
-        "api_key": validated_key,
-        "company_id": user_info.get("company_id")  # From JWT payload
+        "api_key": api_key if not api_key.startswith("ezak_") else "org_key",
+        "company_id": org_id_from_key or user_info.get("company_id"),  # From API key or JWT
+        "org_id": org_id_from_key or user_info.get("org_id"),  # Alias for org_id
     }
 

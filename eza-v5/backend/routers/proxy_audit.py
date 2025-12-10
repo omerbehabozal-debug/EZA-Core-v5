@@ -24,6 +24,52 @@ logger = logging.getLogger(__name__)
 # In-memory audit store (in production, use database)
 audit_store: Dict[str, Dict[str, Any]] = {}
 
+# Helper function to search audit logs
+def search_audit_logs(
+    org_id: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    risk_level: Optional[str] = None,
+    flag: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Search audit logs with filters"""
+    results = []
+    
+    for analysis_id, entry in audit_store.items():
+        # Filter by org_id
+        if org_id and entry.get("raw_data", {}).get("org_id") != org_id:
+            continue
+        
+        # Filter by date range
+        entry_date = entry.get("timestamp", "")
+        if from_date and entry_date < from_date:
+            continue
+        if to_date and entry_date > to_date:
+            continue
+        
+        # Filter by risk level (based on scores)
+        if risk_level:
+            scores = entry.get("raw_data", {}).get("scores", {})
+            ethical_score = scores.get("ethical_index", 50)
+            if risk_level == "high" and ethical_score >= 50:
+                continue
+            if risk_level == "medium" and (ethical_score < 50 or ethical_score >= 80):
+                continue
+            if risk_level == "low" and ethical_score < 80:
+                continue
+        
+        # Filter by flag
+        if flag:
+            risk_flags = entry.get("risk_flags", [])
+            if not any(f.get("flag") == flag for f in risk_flags):
+                continue
+        
+        results.append(entry)
+    
+    # Sort by timestamp descending
+    results.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return results
+
 
 class RiskFlagSeverity(BaseModel):
     flag: str
@@ -67,11 +113,13 @@ def create_audit_entry(
     scores: Dict[str, int],
     risk_flags: List[RiskFlagSeverity],
     policy_trace: List[Dict[str, Any]],
-    justification: List[DecisionJustification]
+    justification: List[DecisionJustification],
+    org_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Create audit entry with hash and signature"""
     audit_data = {
         "analysis_id": analysis_id,
+        "org_id": org_id,
         "content_hash": generate_sha256_hash(content),
         "scores": scores,
         "risk_flags": [flag.dict() for flag in risk_flags],
@@ -99,11 +147,39 @@ def create_audit_entry(
     return entry
 
 
+@router.get("/audit/search")
+async def search_audit(
+    org_id: Optional[str] = Query(None, description="Organization ID"),
+    from_date: Optional[str] = Query(None, description="From date (ISO format)"),
+    to_date: Optional[str] = Query(None, description="To date (ISO format)"),
+    risk_level: Optional[str] = Query(None, description="Risk level: low, medium, high"),
+    flag: Optional[str] = Query(None, description="Risk flag type"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_permission("audit.read"))
+):
+    """
+    Search audit logs with filters
+    """
+    results = search_audit_logs(
+        org_id=org_id,
+        from_date=from_date,
+        to_date=to_date,
+        risk_level=risk_level,
+        flag=flag
+    )
+    
+    return {
+        "ok": True,
+        "count": len(results),
+        "results": results
+    }
+
+
 @router.get("/audit", response_model=AuditResponse)
 async def get_audit(
     analysis_id: str = Query(..., description="Analysis UUID"),
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth),
+    current_user: Dict[str, Any] = Depends(require_permission("audit.read")),
     _: None = Depends(rate_limit_proxy_corporate)
 ):
     """
