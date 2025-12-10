@@ -77,7 +77,7 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
             ) : (
               <>
                 {history.map((entry) => {
-                  const score = entry.analysis.overall_ethical_score;
+                  const score = entry.analysis.ethics_score;
                   const color = getEthicalScoreColor(score);
                   
                   return (

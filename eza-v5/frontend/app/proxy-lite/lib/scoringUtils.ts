@@ -38,27 +38,27 @@ export function getEthicalScoreColor(score: number): string {
 /**
  * Get risk level category (backend format)
  */
-export function getRiskLevel(score: number): 'dusuk' | 'orta' | 'yuksek' {
-  if (score >= 70) return 'dusuk';
-  if (score >= 40) return 'orta';
-  return 'yuksek';
+export function getRiskLevel(score: number): 'low' | 'medium' | 'high' {
+  if (score >= 70) return 'low';
+  if (score >= 40) return 'medium';
+  return 'high';
 }
 
 /**
- * Get risk label from backend risk_level
+ * Get risk label from backend ethics_level
  */
-export function getRiskLabelFromLevel(level: 'dusuk' | 'orta' | 'yuksek'): string {
-  if (level === 'dusuk') return ETHICAL_SCORE_RANGES.LOW_RISK.label;
-  if (level === 'orta') return ETHICAL_SCORE_RANGES.MEDIUM_RISK.label;
+export function getRiskLabelFromLevel(level: 'low' | 'medium' | 'high'): string {
+  if (level === 'low') return ETHICAL_SCORE_RANGES.LOW_RISK.label;
+  if (level === 'medium') return ETHICAL_SCORE_RANGES.MEDIUM_RISK.label;
   return ETHICAL_SCORE_RANGES.HIGH_RISK.label;
 }
 
 /**
- * Get color from backend risk_level
+ * Get color from backend ethics_level
  */
-export function getColorFromLevel(level: 'dusuk' | 'orta' | 'yuksek'): string {
-  if (level === 'dusuk') return ETHICAL_SCORE_RANGES.LOW_RISK.color;
-  if (level === 'orta') return ETHICAL_SCORE_RANGES.MEDIUM_RISK.color;
+export function getColorFromLevel(level: 'low' | 'medium' | 'high'): string {
+  if (level === 'low') return ETHICAL_SCORE_RANGES.LOW_RISK.color;
+  if (level === 'medium') return ETHICAL_SCORE_RANGES.MEDIUM_RISK.color;
   return ETHICAL_SCORE_RANGES.HIGH_RISK.color;
 }
 

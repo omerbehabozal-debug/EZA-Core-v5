@@ -1,34 +1,33 @@
 /**
  * Paragraph Analysis Component
- * Shows paragraph-by-paragraph analysis with ethical score and suggestions
+ * Shows paragraph-by-paragraph analysis with ethical score and rewrite suggestions
+ * NO HIGHLIGHTS - plain text only
  */
 
 'use client';
 
 import { useState } from 'react';
 import { ParagraphAnalysis as ParagraphAnalysisType, rewriteLite } from '@/api/proxy_lite';
-import { cn } from '@/lib/utils';
-import { getColorFromLevel, getRiskLabelFromLevel } from '../lib/scoringUtils';
+import { getEthicalScoreColor, getRiskLabel } from '../lib/scoringUtils';
 import FlagsPills from './FlagsPills';
-import HighlightText from './HighlightText';
 
 interface ParagraphAnalysisProps {
   paragraph: ParagraphAnalysisType;
   index: number;
+  onRewriteUpdate?: (index: number, rewrite: string | null) => void;
 }
 
-export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysisProps) {
+export default function ParagraphAnalysis({ paragraph, index, onRewriteUpdate }: ParagraphAnalysisProps) {
   const [showRewrite, setShowRewrite] = useState(false);
   const [isRewriting, setIsRewriting] = useState(false);
-  const [rewriteResult, setRewriteResult] = useState<{
-    text: string;
-    score: number;
-    riskLevel: 'dusuk' | 'orta' | 'yuksek';
-  } | null>(null);
+  const [rewriteText, setRewriteText] = useState<string | null>(paragraph.rewrite || null);
   
-  const color = getColorFromLevel(paragraph.risk_level);
-  const label = getRiskLabelFromLevel(paragraph.risk_level);
-  const needsRewrite = paragraph.risk_level !== 'dusuk'; // Only show rewrite for medium/high risk
+  const score = paragraph.score;
+  const color = getEthicalScoreColor(score);
+  const label = getRiskLabel(score);
+  const needsRewrite = score < 70; // Only show rewrite for medium/high risk
+
+  const [rewriteResult, setRewriteResult] = useState<{ text: string; improved: boolean; originalScore: number; newScore: number } | null>(null);
 
   const handleRewrite = async () => {
     if (isRewriting) return;
@@ -36,20 +35,26 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
     setIsRewriting(true);
     try {
       const result = await rewriteLite(
-        paragraph.original_text,
-        paragraph.risk_labels,
+        paragraph.original,
+        paragraph.issues,
         'tr'
       );
       
-      if (result && result.new_ethical_score > result.original_ethical_score) {
+      if (result) {
+        setRewriteText(result.rewritten_text);
         setRewriteResult({
           text: result.rewritten_text,
-          score: result.new_ethical_score,
-          riskLevel: result.risk_level_after,
+          improved: result.improved,
+          originalScore: result.original_ethical_score,
+          newScore: result.new_ethical_score
         });
         setShowRewrite(true);
+        // Notify parent component
+        if (onRewriteUpdate) {
+          onRewriteUpdate(index, result.rewritten_text);
+        }
       } else {
-        alert('Bu öneri daha güvenli değil, lütfen metni gözden geçirin.');
+        alert('Yeniden yazma işlemi başarısız oldu. Lütfen tekrar deneyin.');
       }
     } catch (error) {
       console.error('Rewrite failed:', error);
@@ -61,13 +66,13 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
 
   return (
     <div 
-      className="rounded-xl p-6 mb-4"
-      style={{ backgroundColor: '#1A1F2E', borderRadius: '12px' }}
+      className="rounded-2xl p-6 mb-4 shadow-lg"
+      style={{ backgroundColor: '#111726' }}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-medium text-gray-400">Paragraf {paragraph.index}</span>
+            <span className="text-sm font-medium text-slate-400">Paragraf {index + 1}</span>
             <span 
               className="px-3 py-1 rounded-full text-xs font-semibold"
               style={{
@@ -75,31 +80,27 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
                 color: color,
               }}
             >
-              Etik Skor: {paragraph.ethical_score} ({label})
+              Etik Skor: {score} ({label})
             </span>
           </div>
           
-          {paragraph.risk_labels && paragraph.risk_labels.length > 0 && (
+          {paragraph.issues && paragraph.issues.length > 0 && (
             <div className="mb-3">
-              <FlagsPills flags={paragraph.risk_labels} />
+              <FlagsPills flags={paragraph.issues} />
             </div>
           )}
         </div>
       </div>
 
-      {/* Original Text */}
+      {/* Original Text - Plain text, NO highlights */}
       <div className="mb-4">
-        <p className="text-xs text-gray-400 mb-2">Orijinal Metin</p>
+        <p className="text-xs text-slate-400 mb-2">Orijinal Metin</p>
         <div 
-          className="rounded-lg p-4"
-          style={{ backgroundColor: '#111726', borderRadius: '12px' }}
+          className="rounded-xl p-4"
+          style={{ backgroundColor: '#1A1F2E' }}
         >
-          <p className="text-white text-sm leading-relaxed">
-            <HighlightText
-              text={paragraph.original_text}
-              spans={paragraph.highlighted_spans}
-              riskLevel={paragraph.risk_level}
-            />
+          <p className="text-slate-50 text-sm leading-relaxed">
+            {paragraph.original}
           </p>
         </div>
       </div>
@@ -114,23 +115,24 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
               disabled={isRewriting}
               className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
-                backgroundColor: '#0066FF',
-                boxShadow: '0 4px 12px rgba(0, 102, 255, 0.3)',
-                borderRadius: '12px'
+                backgroundColor: '#3A82F7',
+                boxShadow: '0 4px 12px rgba(58, 130, 247, 0.3)',
               }}
             >
               {isRewriting ? 'Yeniden yazılıyor...' : 'Daha Etik Hâle Getirilmiş Öneri →'}
             </button>
-          ) : rewriteResult ? (
+          ) : rewriteText ? (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-xs font-semibold text-[#39FF88]">
-                    Daha Etik Hâle Getirilmiş Öneri
+                  <p className={`text-xs font-semibold ${rewriteResult?.improved ? 'text-[#30E171]' : 'text-[#F6A302]'}`}>
+                    {rewriteResult?.improved ? 'Daha Etik Hâle Getirilmiş Öneri' : 'Yeniden Yazılmış Metin'}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Önce: {paragraph.ethical_score} → Sonra: {rewriteResult.score}
-                  </p>
+                  {rewriteResult && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      Önce: {rewriteResult.originalScore} → Sonra: {rewriteResult.newScore}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -138,21 +140,27 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
                     setShowRewrite(false);
                     setRewriteResult(null);
                   }}
-                  className="text-gray-400 hover:text-white text-sm"
+                  className="text-slate-400 hover:text-slate-50 text-sm"
                 >
                   ✕
                 </button>
               </div>
+              {!rewriteResult?.improved && (
+                <div className="mb-2 p-2 rounded-lg bg-[#F6A302]20 border border-[#F6A302]">
+                  <p className="text-xs text-[#F6A302]">
+                    ⚠️ Bu öneri etik skorunu iyileştirmedi. Metni gözden geçirmeniz önerilir.
+                  </p>
+                </div>
+              )}
               <div 
-                className="rounded-lg p-4 border"
+                className="rounded-xl p-4 border"
                 style={{ 
-                  backgroundColor: '#111726',
-                  borderColor: '#39FF88',
-                  borderRadius: '12px'
+                  backgroundColor: '#1A1F2E',
+                  borderColor: rewriteResult?.improved ? '#30E171' : '#F6A302',
                 }}
               >
-                <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
-                  {rewriteResult.text}
+                <p className="text-slate-50 text-sm leading-relaxed whitespace-pre-wrap">
+                  {rewriteText}
                 </p>
               </div>
             </div>
