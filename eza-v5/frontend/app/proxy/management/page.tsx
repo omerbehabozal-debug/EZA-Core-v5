@@ -18,10 +18,10 @@ export default function ProxyManagementPage() {
   const [orgId, setOrgId] = useState<string | null>(null);
 
   // Get org_id from user context (in production, from auth)
-  useState(() => {
+  useEffect(() => {
     // For now, use demo org
     setOrgId("demo-media-group");
-  });
+  }, []);
 
   return (
     <div
@@ -99,7 +99,7 @@ export default function ProxyManagementPage() {
           {/* Analytics & Billing Tab */}
           <TabPanel id="analytics" activeTab={activeTab}>
             <div className="mt-6">
-              <AnalyticsBilling orgId={orgId} />
+              <AnalyticsBilling orgId={orgId} userRole="admin" />
             </div>
           </TabPanel>
         </Tabs>
