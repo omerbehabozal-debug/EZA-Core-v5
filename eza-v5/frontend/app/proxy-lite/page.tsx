@@ -11,7 +11,7 @@ import { analyzeText, analyzeImage, analyzeAudio, ProxyLiteAnalysisResponse } fr
 import { analyzeLite } from "@/api/proxy_lite"; // Legacy fallback
 import { convertToParagraphAnalysis } from "./lib/analyzeHelper";
 import { saveAnalysis } from "./lib/storage";
-import { getScoreColor } from "./lib/scoringUtils";
+import { getEthicalScoreColor, getRiskLabelFromLevel } from "./lib/scoringUtils";
 import ScoreGauge from "./components/ScoreGauge";
 import FlagsPills from "./components/FlagsPills";
 import ParagraphAnalysis from "./components/ParagraphAnalysis";
@@ -304,64 +304,34 @@ export default function ProxyLitePage() {
                   <div className="mt-6 space-y-6">
                     {/* Score Gauge - Centered */}
                     <div className="flex justify-center">
-                      <ScoreGauge score={result.ethical_score} />
+                      <ScoreGauge score={result.ethic_score} />
+                    </div>
+                    
+                    {/* Risk Level Badge */}
+                    <div className="flex justify-center">
+                      <span 
+                        className="px-4 py-2 rounded-full text-sm font-semibold"
+                        style={{
+                          backgroundColor: `${getEthicalScoreColor(result.ethic_score)}20`,
+                          color: getEthicalScoreColor(result.ethic_score),
+                        }}
+                      >
+                        {getRiskLabelFromLevel(result.risk_level)}
+                      </span>
                     </div>
 
                     {/* Flags */}
-                    {result.paragraphs.some(p => p.flags && p.flags.length > 0) && (
+                    {result.flags && result.flags.length > 0 && (
                       <div>
                         <p className="text-sm text-gray-400 mb-3 text-center">Tespit Edilen Etik Sorunlar</p>
                         <div className="flex justify-center">
-                          <FlagsPills flags={result.paragraphs.flatMap(p => p.flags || [])} />
+                          <FlagsPills flags={result.flags} />
                         </div>
                       </div>
                     )}
 
-                    {/* Global Rewrite Section */}
-                    {result.global_suggestion && (
-                      <div>
-                        {!showRewrite ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowRewrite(true)}
-                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg"
-                            style={{ 
-                              backgroundColor: '#0066FF',
-                              boxShadow: '0 4px 12px rgba(0, 102, 255, 0.3)',
-                              borderRadius: '12px'
-                            }}
-                          >
-                            Toplu Güvenli Öneri →
-                          </button>
-                        ) : (
-                          <div 
-                            className="rounded-xl p-4 border"
-                            style={{ 
-                              backgroundColor: '#1A1F2E',
-                              borderColor: '#39FF88',
-                              borderRadius: '12px'
-                            }}
-                          >
-                            <div className="flex items-center justify-between mb-3">
-                              <p className="text-sm font-semibold text-[#39FF88]">Toplu Güvenli Öneri</p>
-                              <button
-                                type="button"
-                                onClick={() => setShowRewrite(false)}
-                                className="text-gray-400 hover:text-white text-sm"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                            <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
-                              {result.global_suggestion}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
                     {/* Proxy CTA - Only if score < 100 */}
-                    {result.ethical_score < 100 && (
+                    {result.ethic_score < 100 && (
                       <div 
                         className="rounded-xl p-4 text-center border"
                         style={{
@@ -386,11 +356,11 @@ export default function ProxyLitePage() {
 
                 <TabPanel value="paragraphs">
                   <div className="mt-6 space-y-4">
-                    {result.paragraphs.map((paragraph, index) => (
+                    {result.paragraphs.map((para) => (
                       <ParagraphAnalysis
-                        key={index}
-                        paragraph={paragraph}
-                        index={index}
+                        key={para.index}
+                        paragraph={para}
+                        index={para.index}
                       />
                     ))}
                   </div>

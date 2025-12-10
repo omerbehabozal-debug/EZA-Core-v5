@@ -92,11 +92,11 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
                         <span 
                           className="text-lg font-bold"
                           style={{ 
-                            color: entry.ethical_score >= 90 ? '#39FF88' : 
-                                   entry.ethical_score >= 70 ? '#FFC93C' : '#FF3B3B'
+                            color: entry.ethic_score >= 70 ? '#39FF88' : 
+                                   entry.ethic_score >= 40 ? '#FFC93C' : '#FF3B3B'
                           }}
                         >
-                          {Math.round(entry.ethical_score)}
+                          {Math.round(entry.ethic_score)}
                         </span>
                         <span className="text-xs text-gray-500">Etik Skor</span>
                       </div>

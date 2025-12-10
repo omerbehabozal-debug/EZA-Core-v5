@@ -27,42 +27,62 @@ export interface ProxyLiteRealResult {
   raw?: any;
 }
 
-// New paragraph-based analysis types - Backend format
+// New backend format (matching backend API)
 export interface BackendParagraphAnalysis {
   index: number;
   text: string;
-  ethical_score: number; // 0-100
-  risk_label_tr: "Düşük Risk" | "Orta Risk" | "Yüksek Risk";
-  risk_tags_tr: string[]; // Turkish flags
-  needs_rewrite: boolean;
-  improved_text_tr: string;
-}
-
-export interface BackendOverallAnalysis {
-  ethical_score: number; // 0-100
-  risk_label_tr: "Düşük Risk" | "Orta Risk" | "Yüksek Risk";
-  summary_tr: string;
+  ethic_score: number; // 0-100
+  risk_level: "dusuk" | "orta" | "yuksek";
+  risk_tags: string[]; // Turkish flags
+  highlights: number[][]; // [[start, end], ...] character indices
 }
 
 export interface BackendAnalyzeResponse {
-  overall: BackendOverallAnalysis;
+  ethic_score: number; // 0-100, overall
+  risk_level: "dusuk" | "orta" | "yuksek";
   paragraphs: BackendParagraphAnalysis[];
+  flags: string[]; // General ethical flags
+  raw?: any;
 }
 
 // Frontend format (converted from backend)
 export interface ParagraphAnalysis {
+  index: number;
   original: string;
-  ethical_score: number; // 0-100
+  ethic_score: number; // 0-100
+  risk_level: "dusuk" | "orta" | "yuksek";
   flags: string[]; // Turkish flags
-  suggestion: string | null; // Only if ethical_score < 80
+  highlights: number[][]; // [[start, end], ...] character indices
+  rewritten?: {
+    text: string;
+    score: number;
+    improved: boolean;
+  };
 }
 
 export interface ProxyLiteAnalysisResponse {
   success: boolean;
   input_text: string;
-  ethical_score: number; // 0-100
+  ethic_score: number; // 0-100
+  risk_level: "dusuk" | "orta" | "yuksek";
   paragraphs: ParagraphAnalysis[];
-  global_suggestion: string | null; // Only if ethical_score < 100
+  flags: string[];
+}
+
+// Rewrite endpoint types
+export interface RewriteRequest {
+  paragraph: string;
+  locale?: "tr" | "en";
+  target_min_score?: number;
+  provider?: "openai" | "groq" | "mistral" | null;
+}
+
+export interface RewriteResponse {
+  original_score: number;
+  new_text: string;
+  new_score: number;
+  improved: boolean;
+  risk_level: "dusuk" | "orta" | "yuksek";
 }
 
 export function analyzeProxyLite(
@@ -83,41 +103,84 @@ export function analyzeProxyLite(
  * Analyze Lite - Main analyze endpoint
  * Converts backend format to frontend format
  */
-export async function analyzeText(text: string): Promise<ProxyLiteAnalysisResponse | null> {
+export async function analyzeText(
+  text: string,
+  locale: "tr" | "en" = "tr",
+  provider?: "openai" | "groq" | "mistral" | null
+): Promise<ProxyLiteAnalysisResponse | null> {
   try {
     const url = `${API_BASE_URL}/api/proxy-lite/analyze`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ 
+        text,
+        locale,
+        provider: provider || "openai"
+      }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("Proxy-Lite: Analysis failed", res.status, res.statusText);
+      return null;
+    }
+    
     const backendData: BackendAnalyzeResponse = await res.json();
     
     // Convert backend format to frontend format
     const paragraphs: ParagraphAnalysis[] = backendData.paragraphs.map(p => ({
+      index: p.index,
       original: p.text,
-      ethical_score: p.ethical_score,
-      flags: p.risk_tags_tr,
-      suggestion: p.needs_rewrite ? p.improved_text_tr : null,
+      ethic_score: p.ethic_score,
+      risk_level: p.risk_level,
+      flags: p.risk_tags,
+      highlights: p.highlights,
     }));
-    
-    // Generate global suggestion from paragraphs that need rewrite
-    const paragraphsNeedingRewrite = backendData.paragraphs.filter(p => p.needs_rewrite);
-    const globalSuggestion = paragraphsNeedingRewrite.length > 0
-      ? paragraphsNeedingRewrite.map(p => p.improved_text_tr).join('\n\n')
-      : null;
     
     return {
       success: true,
       input_text: text,
-      ethical_score: backendData.overall.ethical_score,
+      ethic_score: backendData.ethic_score,
+      risk_level: backendData.risk_level,
       paragraphs,
-      global_suggestion: globalSuggestion,
+      flags: backendData.flags,
     };
   } catch (e) {
     console.error("Proxy-Lite: Analysis failed", e);
+    return null;
+  }
+}
+
+/**
+ * Rewrite paragraph to be more ethical
+ */
+export async function rewriteParagraph(
+  paragraph: string,
+  locale: "tr" | "en" = "tr",
+  target_min_score: number = 80,
+  provider?: "openai" | "groq" | "mistral" | null
+): Promise<RewriteResponse | null> {
+  try {
+    const url = `${API_BASE_URL}/api/proxy-lite/rewrite`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        paragraph,
+        locale,
+        target_min_score,
+        provider: provider || "openai"
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("Proxy-Lite: Rewrite failed", res.status, res.statusText);
+      return null;
+    }
+    
+    return await res.json();
+  } catch (e) {
+    console.error("Proxy-Lite: Rewrite failed", e);
     return null;
   }
 }

@@ -6,7 +6,7 @@ Ethical analysis endpoint for individual users and SMEs
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Literal
 import json
 import re
 from backend.core.utils.dependencies import require_internal, require_institution_auditor
@@ -22,44 +22,263 @@ from backend.core.engines.psych_pressure import analyze_psychological_pressure
 router = APIRouter()
 
 
+# ========== NEW ANALYZE ENDPOINT ==========
+
+class AnalyzeRequest(BaseModel):
+    text: str
+    locale: Literal["tr", "en"] = "tr"
+    provider: Optional[Literal["openai", "groq", "mistral"]] = "openai"
+
+
+class ParagraphAnalysisResponse(BaseModel):
+    index: int
+    text: str
+    ethic_score: int  # 0-100
+    risk_level: Literal["dusuk", "orta", "yuksek"]
+    risk_tags: List[str]  # Turkish tags
+    highlights: List[List[int]]  # [[start, end], ...] character indices
+
+
+class AnalyzeResponse(BaseModel):
+    ethic_score: int  # 0-100, overall
+    risk_level: Literal["dusuk", "orta", "yuksek"]
+    paragraphs: List[ParagraphAnalysisResponse]
+    flags: List[str]  # General ethical flags
+    raw: Optional[dict] = None
+
+
+# ========== REWRITE ENDPOINT ==========
+
+class RewriteRequest(BaseModel):
+    paragraph: str
+    locale: Literal["tr", "en"] = "tr"
+    target_min_score: int = 80
+    provider: Optional[Literal["openai", "groq", "mistral"]] = "openai"
+
+
+class RewriteResponse(BaseModel):
+    original_score: int
+    new_text: str
+    new_score: int
+    improved: bool
+    risk_level: Literal["dusuk", "orta", "yuksek"]
+
+
+# ========== LEGACY REPORT ENDPOINT ==========
+
 class ProxyLiteReportRequest(BaseModel):
     message: str
-    output_text: str  # Pre-analyzed output
+    output_text: str
 
 
 class ProxyLiteReportResponse(BaseModel):
-    risk_level: str  # low, medium, high, critical
+    risk_level: str
     risk_category: str
     violated_rule_count: int
     summary: str
     recommendation: str
 
 
-# New analyze endpoint models
-class AnalyzeRequest(BaseModel):
-    text: str
+# ========== HELPER FUNCTIONS ==========
+
+def split_into_paragraphs(text: str, max_length: int = 1000) -> List[str]:
+    """
+    Split text into paragraphs:
+    - First by double newlines (\n\n)
+    - If paragraph is too long (>max_length), split by sentences
+    - Skip empty paragraphs
+    """
+    # Trim and split by double newlines
+    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+    
+    # If no double newlines, try single newline
+    if len(paragraphs) == 1:
+        paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+    
+    # If still one paragraph and too long, split by sentences
+    result = []
+    for para in paragraphs:
+        if len(para) <= max_length:
+            result.append(para)
+        else:
+            # Split by sentences (., !, ?)
+            sentences = re.split(r'([.!?]+\s+)', para)
+            current = ""
+            for i in range(0, len(sentences), 2):
+                sentence = sentences[i] + (sentences[i+1] if i+1 < len(sentences) else "")
+                if len(current) + len(sentence) <= max_length:
+                    current += sentence
+                else:
+                    if current:
+                        result.append(current.strip())
+                    current = sentence
+            if current:
+                result.append(current.strip())
+    
+    return result
 
 
-class ParagraphAnalysis(BaseModel):
-    index: int
-    text: str
-    ethical_score: int  # 0-100
-    risk_label_tr: str  # "Düşük Risk" | "Orta Risk" | "Yüksek Risk"
-    risk_tags_tr: List[str]
-    needs_rewrite: bool
-    improved_text_tr: str
+def get_risk_level(score: int) -> Literal["dusuk", "orta", "yuksek"]:
+    """Convert ethic_score to risk_level"""
+    if score >= 70:
+        return "dusuk"
+    elif score >= 40:
+        return "orta"
+    else:
+        return "yuksek"
 
 
-class OverallAnalysis(BaseModel):
-    ethical_score: int  # 0-100
-    risk_label_tr: str  # "Düşük Risk" | "Orta Risk" | "Yüksek Risk"
-    summary_tr: str
+def build_judge_prompt(paragraph: str, locale: str = "tr") -> str:
+    """Build the judge prompt for paragraph analysis"""
+    if locale == "tr":
+        return f"""Sen EZA adlı bir etik ve güvenlik analiz motorusun. Görevin, verilen Türkçe metni etik, güvenlik ve yanıltıcılık açısından değerlendirmek ve 0-100 arasında bir 'ethic_score' üretmektir. 0 etik açıdan çok sorunlu, 100 ise etik açıdan çok güvenli demektir.
+
+Özellikle şu tür risklere dikkat et:
+- Sağlıkla ilgili abartılı veya garanti veren iddialar
+- Finansal kazanç konusunda hızlı, garanti, risksiz vaatler
+- Nefret söylemi, ayrımcılık, hakaret
+- Şiddet, kendine zarar verme, başkasına zarar verme
+- Manipülatif, baskıcı, psikolojik baskı içeren ifadeler
+- Yanlış yönlendirme, eksik bilgiyle yönlendirme
+
+METNİ ANALİZ ET:
+{paragraph}
+
+Cevabın mutlaka şu JSON formatında olsun (başka açıklama yapma, sadece JSON):
+
+{{
+  "ethic_score": number,
+  "risk_level": "dusuk" | "orta" | "yuksek",
+  "risk_tags": ["sağlık iddiası", "yanıltıcı garanti", ...],
+  "highlights": [[start, end], ...]
+}}
+
+risk_level belirleme:
+- 0-39 → "yuksek"
+- 40-69 → "orta"
+- 70-100 → "dusuk"
+
+highlights: metindeki riskli kısımların karakter indexleri (başlangıç, bitiş). Örnek: "Bu ürün kesin kilo verdirir" metninde "kesin kilo verdirir" kısmı riskliyse, o kısmın başlangıç ve bitiş indexlerini ver."""
+    else:
+        return f"""You are EZA, an ethical and security analysis engine. Your task is to evaluate the given text for ethical, security, and misleading content, and produce an 'ethic_score' between 0-100. 0 means very problematic ethically, 100 means very safe ethically.
+
+Pay special attention to:
+- Exaggerated or guarantee-making health claims
+- Fast, guaranteed, risk-free financial gain promises
+- Hate speech, discrimination, insults
+- Violence, self-harm, harm to others
+- Manipulative, coercive, psychologically pressuring expressions
+- Misleading or incomplete information
+
+ANALYZE THIS TEXT:
+{paragraph}
+
+Your response must be in this JSON format (no explanations, only JSON):
+
+{{
+  "ethic_score": number,
+  "risk_level": "dusuk" | "orta" | "yuksek",
+  "risk_tags": ["health claim", "misleading guarantee", ...],
+  "highlights": [[start, end], ...]
+}}
+
+risk_level determination:
+- 0-39 → "yuksek"
+- 40-69 → "orta"
+- 70-100 → "dusuk"
+
+highlights: character indices (start, end) of risky parts in the text."""
 
 
-class AnalyzeResponse(BaseModel):
-    overall: OverallAnalysis
-    paragraphs: List[ParagraphAnalysis]
+def build_rewrite_prompt(paragraph: str, locale: str = "tr") -> str:
+    """Build the rewrite prompt"""
+    if locale == "tr":
+        return f"""Sen EZA'nın 'Daha Etik Hâle Getir' motorusun. Sana verilen paragrafı anlamını mümkün olduğunca koruyarak, ama etik ve güvenlik açısından daha güvenli hale getirmen gerekiyor.
 
+Kurallar:
+- Sağlık, finans, hukuk ve benzeri alanlarda kesin, garanti veren iddialardan kaçın.
+- Gerekirse 'kişiden kişiye değişebilir', 'uzmana danışmak önemlidir', 'herkes için uygun olmayabilir' gibi yumuşatıcı ifadeler kullan.
+- Nefret söylemi, hakaret, ayrımcı veya aşağılayıcı ifadeleri tamamen kaldır veya nötrle.
+- Manipülatif, baskıcı veya tehditkar tonda yazma.
+- Cevabın sadece yeniden yazılmış paragraf olsun. Başına veya sonuna açıklama, başlık, köşeli parantez veya meta bilgi ekleme.
+
+Hedef:
+- EZA etik skorunun 0-100 aralığında en az 80'e çıkmasını hedefle.
+
+PARAGRAFI YENİDEN YAZ:
+{paragraph}"""
+    else:
+        return f"""You are EZA's 'Make More Ethical' engine. You need to rewrite the given paragraph, preserving its meaning as much as possible, but making it safer from an ethical and security perspective.
+
+Rules:
+- Avoid definitive, guarantee-making claims in health, finance, law, and similar fields.
+- Use softening expressions like 'may vary from person to person', 'consulting an expert is important', 'may not be suitable for everyone' when necessary.
+- Completely remove or neutralize hate speech, insults, discriminatory or degrading expressions.
+- Do not write in a manipulative, coercive, or threatening tone.
+- Your response should only be the rewritten paragraph. Do not add explanations, titles, brackets, or meta information at the beginning or end.
+
+Goal:
+- Aim for EZA ethical score to reach at least 80 in the 0-100 range.
+
+REWRITE THIS PARAGRAPH:
+{paragraph}"""
+
+
+async def analyze_paragraph(
+    paragraph: str,
+    index: int,
+    locale: str,
+    provider: str,
+    settings
+) -> ParagraphAnalysisResponse:
+    """Analyze a single paragraph using the judge prompt"""
+    prompt = build_judge_prompt(paragraph, locale)
+    
+    # Call LLM provider
+    response_text = await call_llm_provider(
+        provider_name=provider,
+        prompt=prompt,
+        settings=settings,
+        model="gpt-4o-mini" if provider == "openai" else None,
+        temperature=0.3,
+        max_tokens=1000
+    )
+    
+    # Parse JSON response
+    try:
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            data = json.loads(json_match.group())
+        else:
+            data = json.loads(response_text)
+        
+        # Validate and ensure risk_level matches score
+        ethic_score = int(data.get("ethic_score", 50))
+        risk_level = get_risk_level(ethic_score)  # Override with calculated value
+        risk_tags = data.get("risk_tags", [])
+        highlights = data.get("highlights", [])
+        
+        return ParagraphAnalysisResponse(
+            index=index,
+            text=paragraph,
+            ethic_score=ethic_score,
+            risk_level=risk_level,
+            risk_tags=risk_tags,
+            highlights=highlights
+        )
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        # Fallback: use basic analysis
+        return ParagraphAnalysisResponse(
+            index=index,
+            text=paragraph,
+            ethic_score=50,
+            risk_level="orta",
+            risk_tags=["analiz_hatası"],
+            highlights=[]
+        )
+
+
+# ========== ENDPOINTS ==========
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_ethical_content(
@@ -68,145 +287,124 @@ async def analyze_ethical_content(
 ):
     """
     Proxy-Lite Ethical Analysis Endpoint
-    Analyzes text for ethical issues and provides paragraph-by-paragraph suggestions
+    Analyzes text paragraph-by-paragraph and returns ethical scores
     """
     try:
         settings = get_settings()
         
         # Split text into paragraphs
-        paragraphs = [p.strip() for p in request.text.split('\n\n') if p.strip()]
+        paragraphs = split_into_paragraphs(request.text)
         if not paragraphs:
             paragraphs = [request.text]
         
-        # Build comprehensive prompt for OpenAI
-        prompt = f"""Sen EZA Proxy-Lite için çalışan bir etik analiz ve rehberlik motorusun.
-
-HEDEFİN:
-- Kullanıcının yazdığı metni etik, güvenlik ve regülasyon açısından analiz etmek,
-- 0–100 arası bir "ETİK SKOR" üretmek (100 = çok güvenli, 0 = çok sorunlu),
-- Metni PARAGRAF bazında inceleyip her paragraf için ayrı etik skor vermek,
-- Riskli paragraflar için, aynı mesajı koruyan ama daha etik ve dengeli bir "Daha Etik Hâle Getirilmiş Öneri" üretmek,
-- Tüm sonuçları, FRONTEND'in doğrudan kullanabileceği TÜRKÇE açıklamalarla birlikte, geçerli JSON formatında döndürmek.
-
-METNİ ANALİZ ET:
-{request.text}
-
-PARAGRAFLAR (boş satırlara göre ayrılmış):
-{chr(10).join([f"{i+1}. {p}" for i, p in enumerate(paragraphs)])}
-
-KURALLAR – SKORLAMA:
-- Etik skor 0 ile 100 arasında olmalıdır.
-- Yüksek skor = güvenli, düşük skor = riskli.
-- Skor aralıklarını şöyle kullan:
-  - 80–100  → "Düşük Risk" (yeşil)
-  - 50–79   → "Orta Risk"  (sarı)
-  - 0–49    → "Yüksek Risk" (kırmızı)
-- "overall.ethical_score" her zaman PARAGRAF skorlarıyla TUTARLI olmalıdır:
-  - Önce tüm paragrafların etik skorlarını hesapla.
-  - Genel etik skoru hesaplarken KORUMACI ol:
-    - ÖNERİ: overall.ethical_score = paragraf skorlarının minimumu ile ortalamasının arasında, ama hiçbir zaman en riskli paragraftan daha yüksek olmasın.
-    - Örnek: paragraf skorları [25, 33, 90] ise genel skor 25–40 bandında olmalı, asla 90 gibi yüksek bir değer verme.
-  - Genel risk etiketi ("risk_label_tr") da bu genel skora göre belirlenir (aynı aralıklarla).
-
-KURALLAR – ANALİZ:
-Aşağıdaki risk türlerine özellikle dikkat et:
-- Sağlık / zayıflama / tedavi iddiaları
-- Aşırı kesin ifadeler ("kesin", "garanti", "herkeste işe yarar", "yanlış kullandın" gibi)
-- Manipülatif dil, korku veya suçluluk duygusunu tetikleyen cümleler
-- Hassas gruplara yönelik hedefleme (çocuklar, gençler, hasta kişiler vb.)
-- Nefret söylemi, ayrımcılık
-- Tehlikeli veya yasa dışı davranış teşviki
-- Yanıltıcı ekonomik / finansal vaatler
-
-"risk_tags_tr" alanında bunları KISA ve TÜRKÇE etiketler halinde yaz:
-Örnekler:
-- "sağlık iddiası"
-- "aşırı kesin ifade"
-- "yanıltıcı pazarlama"
-- "hassas grup hedefleme"
-- "riskli davranış teşviki"
-Gerekirse yeni etiketler türetebilirsin ama daima TÜRKÇE ve kısa olmalı.
-
-KURALLAR – PARAGRAF BAZLI DEĞERLENDİRME:
-- Her paragrafı ayrı değerlendir:
-  - Paragraf içinde riskli kısımlar olsa bile skor paragraf geneli için tek bir sayı.
-  - Etik skor 80 ve üzerindeyse: "needs_rewrite": false ve "improved_text_tr": "" (boş string) bırak.
-  - Etik skor 80'in ALTINDA ise: "needs_rewrite": true ve mutlaka "improved_text_tr" alanını doldur.
-
-KURALLAR – YENİDEN YAZIM (improved_text_tr):
-- "improved_text_tr" asla eksik, yarım veya "..." ile biten bir metin olmasın.
-- Paragrafın TAMAMINI yeniden yaz:
-  - Aynı ana mesajı koru (ürün, konu, teklif aynı kalsın),
-  - Ama dili daha dengeli, etik, gerçekçi ve uyarıcı hale getir.
-- Kesin, garantici ifadeleri yumuşat ve koşullara bağla:
-  - "Kesin kilo verirsiniz" yerine
-    "Birçok kişide işe yarasa da, herkes için aynı sonucu garanti etmek mümkün değildir" gibi.
-- Asla "[Daha Etik Hâle Getirilmiş Öneri]" gibi başlıklar veya köşeli parantez kullanma.
-  Sadece düz paragraf yaz.
-- Kullanıcıya saldırma, onu suçlama; sakin, bilgilendirici ve sorumluluk sahibi bir ton kullan.
-- Sağlık / hukuki / finansal konularda gerektiğinde doktora, uzmana, profesyonele danışma önerisi ekleyebilirsin.
-
-KURALLAR – TUTARLILIK:
-- "overall.ethical_score" ile paragraf skorları birbirini mantıksal olarak desteklemeli.
-  Örneğin tüm paragraflar düşük skorluysa, genel skor yüksek çıkamaz.
-- "overall.risk_label_tr" her zaman "overall.ethical_score" ile aynı aralık mantığına uymalı.
-  Örneğin etik skor 48 ise "Yüksek Risk" diyebilirsin, "Düşük Risk" diyemezsin.
-
-DİL:
-- Tüm açıklamalar, özetler, risk etiketleri ve yeniden yazılmış paragraflar TÜRKÇE olmalıdır.
-
-SADECE GEÇERLİ JSON DÖN, başka açıklama yapma, yorum yazma, Markdown kullanma. Format:
-
-{{
-  "overall": {{
-    "ethical_score": number,
-    "risk_label_tr": "Düşük Risk" | "Orta Risk" | "Yüksek Risk",
-    "summary_tr": "kısa Türkçe özet, 1-2 cümle"
-  }},
-  "paragraphs": [
-    {{
-      "index": number,
-      "text": string,
-      "ethical_score": number,
-      "risk_label_tr": "Düşük Risk" | "Orta Risk" | "Yüksek Risk",
-      "risk_tags_tr": ["etiket1", "etiket2"],
-      "needs_rewrite": boolean,
-      "improved_text_tr": string
-    }}
-  ]
-}}"""
-
-        # Call OpenAI
-        response_text = await call_llm_provider(
-            provider_name="openai",
-            prompt=prompt,
-            settings=settings,
-            model="gpt-4o-mini",
-            temperature=0.3,
-            max_tokens=4000
-        )
-        
-        # Parse JSON response
-        try:
-            # Extract JSON from response (in case there's extra text)
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                response_json = json.loads(json_match.group())
-            else:
-                response_json = json.loads(response_text)
-        except json.JSONDecodeError as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to parse AI response as JSON: {str(e)}"
+        # Analyze each paragraph
+        paragraph_analyses = []
+        for i, para in enumerate(paragraphs):
+            analysis = await analyze_paragraph(
+                para, i + 1, request.locale, request.provider or "openai", settings
             )
+            paragraph_analyses.append(analysis)
         
-        # Validate and return response
-        return AnalyzeResponse(**response_json)
+        # Calculate weighted average for overall score
+        total_length = sum(len(p.text) for p in paragraph_analyses)
+        if total_length > 0:
+            overall_score = sum(
+                p.ethic_score * len(p.text) for p in paragraph_analyses
+            ) / total_length
+            overall_score = int(round(overall_score))
+        else:
+            overall_score = 50
+        
+        overall_risk_level = get_risk_level(overall_score)
+        
+        # Collect all flags
+        all_flags = []
+        for p in paragraph_analyses:
+            all_flags.extend(p.risk_tags)
+        unique_flags = list(set(all_flags))
+        
+        return AnalyzeResponse(
+            ethic_score=overall_score,
+            risk_level=overall_risk_level,
+            paragraphs=paragraph_analyses,
+            flags=unique_flags,
+            raw=None
+        )
         
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error analyzing content: {str(e)}"
+        )
+
+
+@router.post("/rewrite", response_model=RewriteResponse)
+async def rewrite_paragraph(
+    request: RewriteRequest,
+    current_user = Depends(require_internal())
+):
+    """
+    Rewrite paragraph to be more ethical
+    """
+    try:
+        settings = get_settings()
+        
+        # First, analyze original paragraph
+        original_analysis = await analyze_paragraph(
+            request.paragraph,
+            0,
+            request.locale,
+            request.provider or "openai",
+            settings
+        )
+        original_score = original_analysis.ethic_score
+        
+        # Get rewrite prompt
+        rewrite_prompt = build_rewrite_prompt(request.paragraph, request.locale)
+        
+        # Call LLM for rewrite
+        new_text = await call_llm_provider(
+            provider_name=request.provider or "openai",
+            prompt=rewrite_prompt,
+            settings=settings,
+            model="gpt-4o-mini" if (request.provider or "openai") == "openai" else None,
+            temperature=0.5,
+            max_tokens=1000
+        )
+        
+        # Clean up new_text (remove any markdown or extra formatting)
+        new_text = new_text.strip()
+        new_text = re.sub(r'^```json\s*', '', new_text)
+        new_text = re.sub(r'^```\s*', '', new_text)
+        new_text = re.sub(r'```\s*$', '', new_text)
+        new_text = new_text.strip()
+        
+        # Analyze the rewritten text
+        new_analysis = await analyze_paragraph(
+            new_text,
+            0,
+            request.locale,
+            request.provider or "openai",
+            settings
+        )
+        new_score = new_analysis.ethic_score
+        
+        # Check if improved
+        target_score = max(original_score, request.target_min_score)
+        improved = new_score >= target_score
+        
+        return RewriteResponse(
+            original_score=original_score,
+            new_text=new_text,
+            new_score=new_score,
+            improved=improved,
+            risk_level=get_risk_level(new_score)
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error rewriting paragraph: {str(e)}"
         )
 
 
@@ -305,4 +503,3 @@ async def proxy_lite_report(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generating audit report: {str(e)}"
         )
-

@@ -2,12 +2,14 @@
  * Local Storage Management for Proxy-Lite History
  */
 
+import { ProxyLiteAnalysisResponse } from '@/api/proxy_lite';
+
 export interface AnalysisHistory {
   id: string;
   text: string;
   date: string; // ISO date string
-  ethical_score: number;
-  result?: any; // Optional: full analysis result for detail view
+  ethic_score: number;
+  result?: ProxyLiteAnalysisResponse; // Optional: full analysis result for detail view
 }
 
 const STORAGE_KEY = 'proxy-lite-history';
@@ -24,7 +26,7 @@ export function saveAnalysis(result: ProxyLiteAnalysisResponse, inputText: strin
       id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
       text: inputText,
       date: new Date().toISOString(),
-      ethical_score: result.ethical_score,
+      ethic_score: result.ethic_score,
       result, // Store full result for detail view
     };
 
