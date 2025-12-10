@@ -6,10 +6,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ParagraphAnalysis as ParagraphAnalysisType, rewriteParagraph } from '@/api/proxy_lite';
+import { ParagraphAnalysis as ParagraphAnalysisType, rewriteLite } from '@/api/proxy_lite';
 import { cn } from '@/lib/utils';
 import { getColorFromLevel, getRiskLabelFromLevel } from '../lib/scoringUtils';
 import FlagsPills from './FlagsPills';
+import HighlightText from './HighlightText';
 
 interface ParagraphAnalysisProps {
   paragraph: ParagraphAnalysisType;
@@ -22,76 +23,37 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
   const [rewriteResult, setRewriteResult] = useState<{
     text: string;
     score: number;
-    improved: boolean;
+    riskLevel: 'dusuk' | 'orta' | 'yuksek';
   } | null>(null);
   
   const color = getColorFromLevel(paragraph.risk_level);
   const label = getRiskLabelFromLevel(paragraph.risk_level);
-  const needsRewrite = paragraph.ethic_score < 70;
-
-  // Highlight risky parts based on backend highlights
-  const highlightText = (text: string) => {
-    if (!paragraph.highlights || paragraph.highlights.length === 0) {
-      return <span className="text-white">{text}</span>;
-    }
-
-    // Sort highlights by start position
-    const sortedHighlights = [...paragraph.highlights].sort((a, b) => a[0] - b[0]);
-    
-    const parts: JSX.Element[] = [];
-    let lastIndex = 0;
-
-    sortedHighlights.forEach(([start, end], idx) => {
-      // Add text before highlight
-      if (start > lastIndex) {
-        parts.push(
-          <span key={`text-${idx}`} className="text-white">
-            {text.substring(lastIndex, start)}
-          </span>
-        );
-      }
-
-      // Add highlighted text
-      parts.push(
-        <span
-          key={`highlight-${idx}`}
-          className="px-1 rounded bg-[#FF3B3B]/30 text-[#FF3B3B]"
-        >
-          {text.substring(start, Math.min(end, text.length))}
-        </span>
-      );
-
-      lastIndex = Math.max(lastIndex, end);
-    });
-
-    // Add remaining text
-    if (lastIndex < text.length) {
-      parts.push(
-        <span key="text-end" className="text-white">
-          {text.substring(lastIndex)}
-        </span>
-      );
-    }
-
-    return <>{parts}</>;
-  };
+  const needsRewrite = paragraph.risk_level !== 'dusuk'; // Only show rewrite for medium/high risk
 
   const handleRewrite = async () => {
     if (isRewriting) return;
     
     setIsRewriting(true);
     try {
-      const result = await rewriteParagraph(paragraph.original, 'tr', 80);
-      if (result) {
+      const result = await rewriteLite(
+        paragraph.original_text,
+        paragraph.risk_labels,
+        'tr'
+      );
+      
+      if (result && result.new_ethical_score > result.original_ethical_score) {
         setRewriteResult({
-          text: result.new_text,
-          score: result.new_score,
-          improved: result.improved,
+          text: result.rewritten_text,
+          score: result.new_ethical_score,
+          riskLevel: result.risk_level_after,
         });
         setShowRewrite(true);
+      } else {
+        alert('Bu öneri daha güvenli değil, lütfen metni gözden geçirin.');
       }
     } catch (error) {
       console.error('Rewrite failed:', error);
+      alert('Yeniden yazma işlemi başarısız oldu.');
     } finally {
       setIsRewriting(false);
     }
@@ -113,13 +75,13 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
                 color: color,
               }}
             >
-              Etik Skor: {paragraph.ethic_score} ({label})
+              Etik Skor: {paragraph.ethical_score} ({label})
             </span>
           </div>
           
-          {paragraph.flags && paragraph.flags.length > 0 && (
+          {paragraph.risk_labels && paragraph.risk_labels.length > 0 && (
             <div className="mb-3">
-              <FlagsPills flags={paragraph.flags} />
+              <FlagsPills flags={paragraph.risk_labels} />
             </div>
           )}
         </div>
@@ -133,7 +95,11 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
           style={{ backgroundColor: '#111726', borderRadius: '12px' }}
         >
           <p className="text-white text-sm leading-relaxed">
-            {highlightText(paragraph.original)}
+            <HighlightText
+              text={paragraph.original_text}
+              spans={paragraph.highlighted_spans}
+              riskLevel={paragraph.risk_level}
+            />
           </p>
         </div>
       </div>
@@ -153,20 +119,18 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
                 borderRadius: '12px'
               }}
             >
-              {isRewriting ? 'Yeniden yazılıyor...' : 'Daha Etik Hâle Getir →'}
+              {isRewriting ? 'Yeniden yazılıyor...' : 'Daha Etik Hâle Getirilmiş Öneri →'}
             </button>
           ) : rewriteResult ? (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-xs font-semibold" style={{ color: rewriteResult.improved ? '#39FF88' : '#FFC93C' }}>
+                  <p className="text-xs font-semibold text-[#39FF88]">
                     Daha Etik Hâle Getirilmiş Öneri
                   </p>
-                  {rewriteResult.improved && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Yeni Etik Skor: {rewriteResult.score} ({getRiskLabelFromLevel(getRiskLevel(rewriteResult.score))})
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Önce: {paragraph.ethical_score} → Sonra: {rewriteResult.score}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -183,20 +147,13 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
                 className="rounded-lg p-4 border"
                 style={{ 
                   backgroundColor: '#111726',
-                  borderColor: rewriteResult.improved ? '#39FF88' : '#FFC93C',
+                  borderColor: '#39FF88',
                   borderRadius: '12px'
                 }}
               >
                 <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
                   {rewriteResult.text}
                 </p>
-                {!rewriteResult.improved && (
-                  <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: '#FFC93C20' }}>
-                    <p className="text-xs text-[#FFC93C]">
-                      ⚠️ Bu metin hâlâ tam güvenli değil. Ayrıntılı düzeltme için Proxy moduna geç.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           ) : null}
@@ -204,11 +161,4 @@ export default function ParagraphAnalysis({ paragraph, index }: ParagraphAnalysi
       )}
     </div>
   );
-}
-
-// Helper function to get risk level from score
-function getRiskLevel(score: number): 'dusuk' | 'orta' | 'yuksek' {
-  if (score >= 70) return 'dusuk';
-  if (score >= 40) return 'orta';
-  return 'yuksek';
 }

@@ -6,7 +6,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getScoreColor, getRiskLabel } from '../lib/scoringUtils';
+import { getEthicalScoreColor, getRiskLabel } from '../lib/scoringUtils';
 import { cn } from '@/lib/utils';
 
 interface ScoreGaugeProps {
@@ -27,7 +27,7 @@ export default function ScoreGauge({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (animatedScore / 100) * circumference;
-  const color = getScoreColor(score);
+  const color = getEthicalScoreColor(score);
   const label = getRiskLabel(score);
 
   useEffect(() => {

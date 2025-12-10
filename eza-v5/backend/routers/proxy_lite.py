@@ -32,36 +32,40 @@ class AnalyzeRequest(BaseModel):
 
 class ParagraphAnalysisResponse(BaseModel):
     index: int
-    text: str
-    ethic_score: int  # 0-100
+    original_text: str
+    ethical_score: int  # 0-100, higher = safer
     risk_level: Literal["dusuk", "orta", "yuksek"]
-    risk_tags: List[str]  # Turkish tags
-    highlights: List[List[int]]  # [[start, end], ...] character indices
+    risk_labels: List[str]  # Turkish labels
+    highlighted_spans: List[dict]  # [{"start": int, "end": int, "reason": str}, ...]
+    suggested_rewrite: Optional[str] = None  # "Daha Etik Hâle Getirilmiş Öneri"
 
 
 class AnalyzeResponse(BaseModel):
-    ethic_score: int  # 0-100, overall
-    risk_level: Literal["dusuk", "orta", "yuksek"]
-    paragraphs: List[ParagraphAnalysisResponse]
-    flags: List[str]  # General ethical flags
+    ok: bool = True
+    provider: Literal["openai", "groq", "mistral"]
+    overall_ethical_score: int  # 0-100, overall (weighted average)
+    overall_risk_level: Literal["dusuk", "orta", "yuksek"]
+    overall_message: str  # Short Turkish summary message
+    paragraph_analyses: List[ParagraphAnalysisResponse]
     raw: Optional[dict] = None
 
 
 # ========== REWRITE ENDPOINT ==========
 
 class RewriteRequest(BaseModel):
-    paragraph: str
-    locale: Literal["tr", "en"] = "tr"
-    target_min_score: int = 80
+    text: str
+    risk_labels: Optional[List[str]] = None
+    language: Literal["tr", "en"] = "tr"
     provider: Optional[Literal["openai", "groq", "mistral"]] = "openai"
 
 
 class RewriteResponse(BaseModel):
-    original_score: int
-    new_text: str
-    new_score: int
-    improved: bool
-    risk_level: Literal["dusuk", "orta", "yuksek"]
+    original_text: str
+    rewritten_text: str
+    original_ethical_score: int
+    new_ethical_score: int
+    risk_level_before: Literal["dusuk", "orta", "yuksek"]
+    risk_level_after: Literal["dusuk", "orta", "yuksek"]
 
 
 # ========== LEGACY REPORT ENDPOINT ==========
@@ -85,15 +89,20 @@ def split_into_paragraphs(text: str, max_length: int = 1000) -> List[str]:
     """
     Split text into paragraphs:
     - First by double newlines (\n\n)
+    - If user hasn't used any empty lines, keep entire text as single paragraph
     - If paragraph is too long (>max_length), split by sentences
     - Skip empty paragraphs
     """
-    # Trim and split by double newlines
+    text = text.strip()
+    if not text:
+        return []
+    
+    # Split by double newlines
     paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
     
-    # If no double newlines, try single newline
-    if len(paragraphs) == 1:
-        paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+    # If no double newlines found, keep entire text as single paragraph
+    if len(paragraphs) == 1 and '\n\n' not in text:
+        return [text]
     
     # If still one paragraph and too long, split by sentences
     result = []
@@ -115,7 +124,7 @@ def split_into_paragraphs(text: str, max_length: int = 1000) -> List[str]:
             if current:
                 result.append(current.strip())
     
-    return result
+    return result if result else [text]
 
 
 def get_risk_level(score: int) -> Literal["dusuk", "orta", "yuksek"]:
@@ -253,28 +262,40 @@ async def analyze_paragraph(
             data = json.loads(response_text)
         
         # Validate and ensure risk_level matches score
-        ethic_score = int(data.get("ethic_score", 50))
-        risk_level = get_risk_level(ethic_score)  # Override with calculated value
+        ethical_score = int(data.get("ethic_score", 50))
+        risk_level = get_risk_level(ethical_score)  # Override with calculated value
         risk_tags = data.get("risk_tags", [])
         highlights = data.get("highlights", [])
         
+        # Convert highlights to highlighted_spans format
+        highlighted_spans = []
+        for h in highlights:
+            if isinstance(h, list) and len(h) >= 2:
+                highlighted_spans.append({
+                    "start": int(h[0]),
+                    "end": int(h[1]),
+                    "reason": h[2] if len(h) > 2 else "riskli_ifade"
+                })
+        
         return ParagraphAnalysisResponse(
             index=index,
-            text=paragraph,
-            ethic_score=ethic_score,
+            original_text=paragraph,
+            ethical_score=ethical_score,
             risk_level=risk_level,
-            risk_tags=risk_tags,
-            highlights=highlights
+            risk_labels=risk_tags,
+            highlighted_spans=highlighted_spans,
+            suggested_rewrite=None
         )
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         # Fallback: use basic analysis
         return ParagraphAnalysisResponse(
             index=index,
-            text=paragraph,
-            ethic_score=50,
+            original_text=paragraph,
+            ethical_score=50,
             risk_level="orta",
-            risk_tags=["analiz_hatası"],
-            highlights=[]
+            risk_labels=["analiz_hatası"],
+            highlighted_spans=[],
+            suggested_rewrite=None
         )
 
 
@@ -305,29 +326,38 @@ async def analyze_ethical_content(
             )
             paragraph_analyses.append(analysis)
         
-        # Calculate weighted average for overall score
-        total_length = sum(len(p.text) for p in paragraph_analyses)
-        if total_length > 0:
-            overall_score = sum(
-                p.ethic_score * len(p.text) for p in paragraph_analyses
-            ) / total_length
+        # Calculate simple average for overall score (not weighted, as per requirements)
+        if paragraph_analyses:
+            overall_score = sum(p.ethical_score for p in paragraph_analyses) / len(paragraph_analyses)
             overall_score = int(round(overall_score))
         else:
             overall_score = 50
         
         overall_risk_level = get_risk_level(overall_score)
         
+        # Generate overall message based on score
+        if overall_score >= 80:
+            overall_message = "Metniniz genel olarak düşük riskli. Etik açıdan güvenli ifadeler kullanıyorsunuz."
+        elif overall_score >= 50:
+            overall_message = "Metninizde bazı orta seviyeli riskler tespit edildi. Sağlık ve sonuç garantisi içeren ifadeleri dikkatle kullanın."
+        else:
+            overall_message = "Metninizde yüksek seviyeli riskler tespit edildi. Manipülatif ifadeler, kesin iddialar ve sağlık/finansal garanti içeren cümleleri gözden geçirmeniz önerilir."
+        
         # Collect all flags
         all_flags = []
         for p in paragraph_analyses:
-            all_flags.extend(p.risk_tags)
+            all_flags.extend(p.risk_labels)
         unique_flags = list(set(all_flags))
         
+        provider = request.provider or "openai"
+        
         return AnalyzeResponse(
-            ethic_score=overall_score,
-            risk_level=overall_risk_level,
-            paragraphs=paragraph_analyses,
-            flags=unique_flags,
+            ok=True,
+            provider=provider,
+            overall_ethical_score=overall_score,
+            overall_risk_level=overall_risk_level,
+            overall_message=overall_message,
+            paragraph_analyses=paragraph_analyses,
             raw=None
         )
         
@@ -348,26 +378,31 @@ async def rewrite_paragraph(
     """
     try:
         settings = get_settings()
+        provider = request.provider or "openai"
+        locale = request.language
         
         # First, analyze original paragraph
         original_analysis = await analyze_paragraph(
-            request.paragraph,
+            request.text,
             0,
-            request.locale,
-            request.provider or "openai",
+            locale,
+            provider,
             settings
         )
-        original_score = original_analysis.ethic_score
+        original_score = original_analysis.ethical_score
+        risk_level_before = original_analysis.risk_level
         
-        # Get rewrite prompt
-        rewrite_prompt = build_rewrite_prompt(request.paragraph, request.locale)
+        # Build rewrite prompt with risk labels if provided
+        rewrite_prompt = build_rewrite_prompt(request.text, locale)
+        if request.risk_labels:
+            rewrite_prompt += f"\n\nÖzellikle şu risk etiketlerine dikkat et: {', '.join(request.risk_labels)}"
         
         # Call LLM for rewrite
         new_text = await call_llm_provider(
-            provider_name=request.provider or "openai",
+            provider_name=provider,
             prompt=rewrite_prompt,
             settings=settings,
-            model="gpt-4o-mini" if (request.provider or "openai") == "openai" else None,
+            model="gpt-4o-mini" if provider == "openai" else None,
             temperature=0.5,
             max_tokens=1000
         )
@@ -383,24 +418,31 @@ async def rewrite_paragraph(
         new_analysis = await analyze_paragraph(
             new_text,
             0,
-            request.locale,
-            request.provider or "openai",
+            locale,
+            provider,
             settings
         )
-        new_score = new_analysis.ethic_score
+        new_score = new_analysis.ethical_score
+        risk_level_after = new_analysis.risk_level
         
-        # Check if improved
-        target_score = max(original_score, request.target_min_score)
-        improved = new_score >= target_score
+        # Validate: new_score must be > original_score, otherwise reject
+        if new_score <= original_score:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Bu öneri daha güvenli değil, lütfen metni gözden geçirin."
+            )
         
         return RewriteResponse(
-            original_score=original_score,
-            new_text=new_text,
-            new_score=new_score,
-            improved=improved,
-            risk_level=get_risk_level(new_score)
+            original_text=request.text,
+            rewritten_text=new_text,
+            original_ethical_score=original_score,
+            new_ethical_score=new_score,
+            risk_level_before=risk_level_before,
+            risk_level_after=risk_level_after
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

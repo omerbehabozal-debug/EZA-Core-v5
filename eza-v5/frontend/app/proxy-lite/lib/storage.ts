@@ -2,35 +2,39 @@
  * Local Storage Management for Proxy-Lite History
  */
 
-import { ProxyLiteAnalysisResponse } from '@/api/proxy_lite';
+import { LiteAnalysisResponse } from '@/api/proxy_lite';
 
-export interface AnalysisHistory {
-  id: string;
-  text: string;
-  date: string; // ISO date string
-  ethic_score: number;
-  result?: ProxyLiteAnalysisResponse; // Optional: full analysis result for detail view
+export interface LiteHistoryItem {
+  id: string; // uuid
+  createdAt: string; // ISO date
+  title: string; // First line of text or optional user title
+  text: string; // Original full text
+  analysis: LiteAnalysisResponse;
 }
 
-const STORAGE_KEY = 'proxy-lite-history';
-const MAX_HISTORY = 50; // Keep last 50 analyses
+const STORAGE_KEY = 'eza_proxy_lite_history';
+const MAX_HISTORY = 20; // Keep last 20 analyses
 
 /**
  * Save analysis to history
  */
-export function saveAnalysis(result: ProxyLiteAnalysisResponse, inputText: string): void {
+export function saveAnalysis(result: LiteAnalysisResponse, inputText: string): void {
   try {
     const history = getHistory();
     
-    const newEntry: AnalysisHistory = {
+    // Generate title from first line of text
+    const firstLine = inputText.split('\n')[0].trim();
+    const title = firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;
+    
+    const newEntry: LiteHistoryItem = {
       id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      title: title || 'Analiz',
       text: inputText,
-      date: new Date().toISOString(),
-      ethic_score: result.ethic_score,
-      result, // Store full result for detail view
+      analysis: result,
     };
 
-    // Add to beginning and limit size
+    // Add to beginning and limit size (FIFO)
     const updated = [newEntry, ...history].slice(0, MAX_HISTORY);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
@@ -41,8 +45,9 @@ export function saveAnalysis(result: ProxyLiteAnalysisResponse, inputText: strin
 /**
  * Get all history entries
  */
-export function getHistory(): AnalysisHistory[] {
+export function getHistory(): LiteHistoryItem[] {
   try {
+    if (typeof window === 'undefined') return [];
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
     return JSON.parse(stored);
@@ -55,7 +60,7 @@ export function getHistory(): AnalysisHistory[] {
 /**
  * Get single history entry by ID
  */
-export function getHistoryEntry(id: string): AnalysisHistory | null {
+export function getHistoryEntry(id: string): LiteHistoryItem | null {
   const history = getHistory();
   return history.find(entry => entry.id === id) || null;
 }
@@ -65,9 +70,9 @@ export function getHistoryEntry(id: string): AnalysisHistory | null {
  */
 export function clearHistory(): void {
   try {
+    if (typeof window === 'undefined') return;
     localStorage.removeItem(STORAGE_KEY);
   } catch (error) {
     console.error('Failed to clear history:', error);
   }
 }
-
