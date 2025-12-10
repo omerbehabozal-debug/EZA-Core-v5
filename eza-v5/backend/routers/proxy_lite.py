@@ -138,8 +138,23 @@ def build_judge_prompt(paragraph: str, locale: str = "tr") -> str:
     if locale == "tr":
         return f"""Sen EZA adlı bir etik ve güvenlik analiz motorusun. Görevin, verilen Türkçe metni etik, güvenlik ve yanıltıcılık açısından değerlendirmek ve 0-100 arasında bir 'ethic_score' üretmektir. 0 etik açıdan çok sorunlu, 100 ise etik açıdan çok güvenli demektir.
 
-Özellikle şu tür risklere dikkat et:
-- Sağlıkla ilgili abartılı veya garanti veren iddialar
+ÖNEMLİ KURALLAR:
+1. SORU FORMATI: Eğer metin bir soru ise (?, nasıl, ne, neden, hangi, kim vb. ile bitiyorsa), bu bir soru sorma eylemidir, risk içermez. Sorular genelde 80-100 arası skor almalı ve risk_tags boş olmalıdır.
+
+2. BAĞLAM EKSİKLİĞİ: Eğer metin çok kısa (tek cümle) ve bağlam eksikse, sadece metinde AÇIKÇA görünen risklere göre değerlendir. Varsayım yapma, sadece metinde yazılı olanı analiz et.
+
+3. ETİKET ATAMA: risk_tags sadece metinde AÇIKÇA görünen riskler için atanmalı. Örnek:
+   - "Bu çay zayıflatıyor" → "Sağlık iddiası" ✓
+   - "Bu çay zayıflatıyor mu?" → risk_tags: [] (soru formatı, risk yok)
+   - "Gerçek dışı dil kullanıyor mu?" → risk_tags: [] (soru formatı, risk yok)
+
+4. SKORLAMA:
+   - Sorular: 80-100 (soru sormak etik açıdan sorunlu değil)
+   - Nötr ifadeler: 70-90
+   - Risk içeren iddialar: 0-69 (iddianın şiddetine göre)
+
+Özellikle şu tür risklere dikkat et (SADECE METİNDE AÇIKÇA VARSA):
+- Sağlıkla ilgili abartılı veya garanti veren iddialar (sorular değil, iddialar)
 - Finansal kazanç konusunda hızlı, garanti, risksiz vaatler
 - Nefret söylemi, ayrımcılık, hakaret
 - Şiddet, kendine zarar verme, başkasına zarar verme
@@ -156,20 +171,35 @@ Cevabın mutlaka şu JSON formatında olsun (başka açıklama yapma, sadece JSO
   "risk_tags": ["Sağlık iddiası", "Yanıltıcı garanti", "Bilimsel kanıt yok", "Aşırı yönlendirme", "Reklam / Gizli satış", "Hedef kitle hassasiyeti", ...]
 }}
 
-risk_tags örnekleri:
-- "Sağlık iddiası"
-- "Yanıltıcı garanti"
-- "Bilimsel kanıt yok"
-- "Aşırı yönlendirme"
-- "Reklam / Gizli satış"
-- "Hedef kitle hassasiyeti"
+risk_tags örnekleri (SADECE METİNDE AÇIKÇA VARSA):
+- "Sağlık iddiası" (sadece iddia varsa, soru değilse)
+- "Yanıltıcı garanti" (sadece garanti varsa)
+- "Bilimsel kanıt yok" (sadece bilimsel iddia varsa)
+- "Aşırı yönlendirme" (sadece yönlendirme varsa)
+- "Reklam / Gizli satış" (sadece satış çağrısı varsa)
+- "Hedef kitle hassasiyeti" (sadece hassas kitleye yönelik içerik varsa)
 
-Etiketler kısa, Türkçe ve açıklayıcı olmalı."""
+Etiketler kısa, Türkçe ve açıklayıcı olmalı. Soru formatında ise risk_tags boş array olmalı."""
     else:
         return f"""You are EZA, an ethical and security analysis engine. Your task is to evaluate the given text for ethical, security, and misleading content, and produce an 'ethic_score' between 0-100. 0 means very problematic ethically, 100 means very safe ethically.
 
-Pay special attention to:
-- Exaggerated or guarantee-making health claims
+IMPORTANT RULES:
+1. QUESTION FORMAT: If the text is a question (ends with ?, starts with how, what, why, which, who, where, when), this is an act of asking, not a risk. Questions should generally score 80-100 and have empty risk_tags.
+
+2. CONTEXT LACK: If the text is very short (single sentence) and lacks context, evaluate only based on risks EXPLICITLY visible in the text. Don't assume, only analyze what's written.
+
+3. TAG ASSIGNMENT: risk_tags should only be assigned for risks EXPLICITLY visible in the text. Examples:
+   - "This tea helps you lose weight" → "health claim" ✓
+   - "Does this tea help you lose weight?" → risk_tags: [] (question format, no risk)
+   - "Does it use unrealistic language?" → risk_tags: [] (question format, no risk)
+
+4. SCORING:
+   - Questions: 80-100 (asking questions is not ethically problematic)
+   - Neutral statements: 70-90
+   - Risk-containing claims: 0-69 (based on severity of claim)
+
+Pay special attention to (ONLY IF EXPLICITLY PRESENT IN TEXT):
+- Exaggerated or guarantee-making health claims (not questions, but claims)
 - Fast, guaranteed, risk-free financial gain promises
 - Hate speech, discrimination, insults
 - Violence, self-harm, harm to others
@@ -186,7 +216,15 @@ Your response must be in this JSON format (no explanations, only JSON):
   "risk_tags": ["health claim", "misleading guarantee", "no scientific evidence", "excessive guidance", "advertising / hidden sales", "target audience sensitivity", ...]
 }}
 
-risk_tags should be short, descriptive labels in the appropriate language."""
+risk_tags examples (ONLY IF EXPLICITLY PRESENT):
+- "health claim" (only if there's a claim, not a question)
+- "misleading guarantee" (only if there's a guarantee)
+- "no scientific evidence" (only if there's a scientific claim)
+- "excessive guidance" (only if there's guidance)
+- "advertising / hidden sales" (only if there's a sales call)
+- "target audience sensitivity" (only if there's content targeting sensitive audience)
+
+risk_tags should be short, descriptive labels in the appropriate language. If in question format, risk_tags should be an empty array."""
 
 
 def build_rewrite_prompt(paragraph: str, locale: str = "tr") -> str:
@@ -317,16 +355,35 @@ async def analyze_ethical_content(
         
         logger.info(f"[Proxy-Lite] Split into {len(paragraphs)} paragraphs")
         
-        # Analyze each paragraph
+        # Analyze each paragraph with context awareness
         paragraph_analyses = []
         for i, para in enumerate(paragraphs):
-            logger.info(f"[Proxy-Lite] Analyzing paragraph {i+1}/{len(paragraphs)}")
+            logger.info(f"[Proxy-Lite] Analyzing paragraph {i+1}/{len(paragraphs)} (length={len(para)})")
+            
+            # Check if paragraph is a question (simple heuristic)
+            para_stripped = para.strip()
+            is_question = (
+                para_stripped.endswith('?') or 
+                any(para_stripped.startswith(q) for q in ['Nasıl', 'Ne', 'Neden', 'Hangi', 'Kim', 'Nerede', 'Ne zaman', 'Nereye', 'nasıl', 'ne', 'neden', 'hangi', 'kim', 'nerede', 'ne zaman', 'nereye'])
+            )
+            
+            if is_question:
+                logger.info(f"[Proxy-Lite] Paragraph {i+1} detected as question format")
+            
             try:
                 analysis = await analyze_paragraph(
                     para, request.locale, request.provider or "openai", settings
                 )
+                
+                # Post-process: If it's clearly a question but got low score, adjust
+                if is_question and analysis.score < 70:
+                    logger.info(f"[Proxy-Lite] Paragraph {i+1} is a question but got low score ({analysis.score}), adjusting to 85 and clearing irrelevant tags")
+                    analysis.score = 85
+                    # Remove irrelevant tags for questions (questions don't contain risks, they just ask)
+                    analysis.issues = []
+                
                 paragraph_analyses.append(analysis)
-                logger.info(f"[Proxy-Lite] Paragraph {i+1} analyzed: score={analysis.score}")
+                logger.info(f"[Proxy-Lite] Paragraph {i+1} analyzed: score={analysis.score}, tags={len(analysis.issues)}")
             except Exception as para_error:
                 logger.error(f"[Proxy-Lite] Error analyzing paragraph {i+1}: {str(para_error)}")
                 # Add fallback paragraph

@@ -1,12 +1,14 @@
 /**
- * Proxy-Lite Page - Final Apple Premium Design
+ * Proxy-Lite Page - Apple Soft Light Theme (SAAD)
  * Ethical scoring, paragraph analysis, bulk rewrite
+ * Premium, clean, simple, human, and reassuring experience
  */
 
 "use client";
 
 import { useState, useRef } from "react";
-import { analyzeLite, LiteAnalysisResponse } from "@/api/proxy_lite";
+import { Clock, Settings as SettingsIcon } from "lucide-react";
+import { analyzeLite, LiteAnalysisResponse, rewriteLite } from "@/api/proxy_lite";
 import { saveAnalysis, getHistory, LiteHistoryItem } from "./lib/storage";
 import { getEthicalScoreColor, getRiskLabelFromLevel } from "./lib/scoringUtils";
 import ScoreGauge from "./components/ScoreGauge";
@@ -15,6 +17,7 @@ import ParagraphAnalysis from "./components/ParagraphAnalysis";
 import Tabs, { TabList, Tab, TabPanel } from "./components/Tabs";
 import Settings from "./components/Settings";
 import HistoryDrawer from "./components/HistoryDrawer";
+import Toast from "./components/Toast";
 
 export default function ProxyLitePage() {
   const [text, setText] = useState("");
@@ -28,6 +31,8 @@ export default function ProxyLitePage() {
   const [isLive, setIsLive] = useState(false);
   const [paragraphRewrites, setParagraphRewrites] = useState<Map<number, string>>(new Map());
   const [showBulkRewrite, setShowBulkRewrite] = useState(false);
+  const [isBulkRewriting, setIsBulkRewriting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
@@ -108,25 +113,75 @@ export default function ProxyLitePage() {
     setParagraphRewrites(newRewrites);
   };
 
-  const handleBulkRewrite = () => {
-    if (!result) return;
+  const handleBulkRewrite = async () => {
+    if (!result || isBulkRewriting) return;
     
-    // Collect all rewrites: use rewrite if available, otherwise use original
-    const combinedText = result.paragraphs.map((para, idx) => {
-      const rewrite = paragraphRewrites.get(idx);
-      return rewrite || para.original;
-    }).join('\n\n');
+    setIsBulkRewriting(true);
+    setShowBulkRewrite(false);
     
-    setShowBulkRewrite(true);
-    // Store in a ref or state for easy copying
-    (window as any).__bulkRewriteText = combinedText;
+    try {
+      // Collect all rewrites: use existing rewrite if available, otherwise rewrite the paragraph
+      const rewritePromises = result.paragraphs.map(async (para, idx) => {
+        // If rewrite already exists, use it
+        const existingRewrite = paragraphRewrites.get(idx);
+        if (existingRewrite) {
+          return existingRewrite;
+        }
+        
+        // Otherwise, rewrite this paragraph
+        // Only rewrite if it needs rewrite (score < 76)
+        if (para.score >= 76) {
+          return para.original; // Already safe, no rewrite needed
+        }
+        
+        try {
+          const rewriteResult = await rewriteLite(
+            para.original,
+            para.issues,
+            'tr'
+          );
+          
+          if (rewriteResult && rewriteResult.rewritten_text) {
+            // Store the rewrite for future use
+            const newRewrites = new Map(paragraphRewrites);
+            newRewrites.set(idx, rewriteResult.rewritten_text);
+            setParagraphRewrites(newRewrites);
+            
+            return rewriteResult.rewritten_text;
+          } else {
+            // If rewrite failed, use original
+            return para.original;
+          }
+        } catch (error) {
+          console.error(`[Proxy-Lite] Error rewriting paragraph ${idx + 1}:`, error);
+          return para.original; // Fallback to original on error
+        }
+      });
+      
+      // Wait for all rewrites to complete
+      const rewrittenParagraphs = await Promise.all(rewritePromises);
+      const combinedText = rewrittenParagraphs.join('\n\n');
+      
+      setShowBulkRewrite(true);
+      // Store in a ref or state for easy copying
+      (window as any).__bulkRewriteText = combinedText;
+    } catch (error) {
+      console.error('[Proxy-Lite] Error in bulk rewrite:', error);
+      setToast({ message: 'Toplu yeniden yazma işlemi başarısız oldu', type: 'error' });
+    } finally {
+      setIsBulkRewriting(false);
+    }
   };
 
-  const copyBulkRewrite = () => {
+  const copyBulkRewrite = async () => {
     const text = (window as any).__bulkRewriteText;
     if (text) {
-      navigator.clipboard.writeText(text);
-      alert('Metin kopyalandı!');
+      try {
+        await navigator.clipboard.writeText(text);
+        setToast({ message: 'Metin kopyalandı!', type: 'success' });
+      } catch (err) {
+        setToast({ message: 'Kopyalama başarısız oldu', type: 'error' });
+      }
     }
   };
 
@@ -134,7 +189,7 @@ export default function ProxyLitePage() {
     <div 
       className="min-h-screen"
       style={{ 
-        backgroundColor: '#0A0F1F',
+        backgroundColor: '#F8F9FB',
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
       }}
     >
@@ -142,10 +197,17 @@ export default function ProxyLitePage() {
         {/* Header Section */}
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <h1 className="text-4xl font-bold text-white mb-2">
+            <h1 
+              className="text-4xl font-bold mb-2"
+              style={{ 
+                color: '#1C1C1E',
+                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                fontWeight: 600
+              }}
+            >
               EZA Proxy-Lite
             </h1>
-            <p className="text-[#D4D9E5] text-sm">
+            <p className="text-sm" style={{ color: '#6E6E73' }}>
               Hızlı ve temel etik kontrol
             </p>
           </div>
@@ -153,35 +215,44 @@ export default function ProxyLitePage() {
             <button
               type="button"
               onClick={() => setShowHistory(true)}
-              className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-all hover:scale-105 shadow-lg backdrop-blur-sm"
-              style={{ backgroundColor: 'rgba(26, 31, 46, 0.8)' }}
+              className="w-10 h-10 rounded-[16px] flex items-center justify-center"
+              style={{ 
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
+              }}
               title="Geçmiş"
             >
-              📜
+              <Clock size={18} style={{ color: '#3A3A3C' }} strokeWidth={2} />
             </button>
             <button
               type="button"
               onClick={() => setShowSettings(true)}
-              className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-all hover:scale-105 shadow-lg backdrop-blur-sm"
-              style={{ backgroundColor: 'rgba(26, 31, 46, 0.8)' }}
+              className="w-10 h-10 rounded-[16px] flex items-center justify-center"
+              style={{ 
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
+              }}
               title="Ayarlar"
             >
-              ⚙️
+              <SettingsIcon size={18} style={{ color: '#3A3A3C' }} strokeWidth={2} />
             </button>
           </div>
         </div>
 
         {/* Info Bar */}
         <div className="text-center">
-          <p className="text-[#D4D9E5] text-xs">
+          <p className="text-xs" style={{ color: '#6E6E73' }}>
             Bağımsız, yapay zeka destekli temel etik kontrol
           </p>
         </div>
 
         {/* Input Card */}
         <div 
-          className="rounded-2xl p-6 shadow-lg backdrop-blur-sm"
-          style={{ backgroundColor: 'rgba(26, 31, 46, 0.8)' }}
+          className="rounded-[16px] p-6"
+          style={{ 
+            backgroundColor: '#FFFFFF',
+            boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
+          }}
         >
           <form onSubmit={handleAnalyze} className="space-y-4">
             <textarea
@@ -189,10 +260,14 @@ export default function ProxyLitePage() {
               onChange={(e) => setText(e.target.value)}
               placeholder="Metninizi buraya yazın veya yapıştırın..."
               disabled={loading || processingAudio || processingImage}
-              className="w-full h-40 px-4 py-3 rounded-xl text-white placeholder-[#D4D9E5] resize-none transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#3A82F7] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full min-h-[320px] px-4 py-3 rounded-[14px] resize-y transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#007AFF] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
-                backgroundColor: '#1A1F2E',
-                border: '1px solid rgba(58, 130, 247, 0.2)',
+                backgroundColor: '#F8F9FB',
+                border: '1px solid #E3E3E7',
+                color: '#1C1C1E',
+                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                lineHeight: '1.5',
+                fontSize: '15px',
               }}
             />
 
@@ -209,8 +284,11 @@ export default function ProxyLitePage() {
                 type="button"
                 onClick={() => audioInputRef.current?.click()}
                 disabled={processingAudio || loading || processingImage}
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: '#1A1F2E' }}
+                className="w-12 h-12 rounded-[14px] flex items-center justify-center text-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ 
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E3E3E7',
+                }}
                 title="Yakında: Ses analizi"
                 disabled
               >
@@ -228,8 +306,11 @@ export default function ProxyLitePage() {
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
                 disabled={processingImage || loading || processingAudio}
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: '#1A1F2E' }}
+                className="w-12 h-12 rounded-[14px] flex items-center justify-center text-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ 
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E3E3E7',
+                }}
                 title="Yakında: Görsel analizi"
                 disabled
               >
@@ -243,10 +324,12 @@ export default function ProxyLitePage() {
             <button
               type="submit"
               disabled={!text.trim() || loading || processingAudio || processingImage}
-              className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              className="w-full py-4 px-6 rounded-[14px] font-semibold text-white transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
               style={{
-                backgroundColor: '#3A82F7',
-                boxShadow: loading ? '0 0 20px rgba(58, 130, 247, 0.5)' : '0 4px 12px rgba(58, 130, 247, 0.3)',
+                backgroundColor: '#007AFF',
+                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                fontWeight: 500,
+                boxShadow: loading ? '0 0 20px rgba(0, 122, 255, 0.5)' : '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
               }}
             >
               {loading ? (
@@ -267,23 +350,48 @@ export default function ProxyLitePage() {
         {/* Status Row */}
         {result && (
           <div className="flex items-center justify-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-[#30E171]' : 'bg-[#FF3B3B]'} animate-pulse`}></div>
-            <span className="text-sm text-[#D4D9E5]">
+            <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-[#22BF55]' : 'bg-[#E84343]'} animate-pulse`}></div>
+            <span className="text-sm" style={{ color: '#6E6E73' }}>
               {isLive ? 'Canlı veri yüklendi' : 'Şu anda offline, örnek analiz gösteriliyor'}
             </span>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {result && isLive && (
+          <div 
+            className="rounded-[16px] p-4 border shadow-lg"
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderColor: '#22BF55',
+              boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span style={{ color: '#22BF55' }}>✓</span>
+              <p className="text-sm font-medium" style={{ color: '#22BF55' }}>
+                Analiz tamamlandı — sonuçlar hazır
+              </p>
+            </div>
           </div>
         )}
 
         {/* Error Toast */}
         {error && (
           <div 
-            className="rounded-xl p-4 border shadow-lg"
+            className="rounded-[16px] p-4 border shadow-lg"
             style={{
-              backgroundColor: 'rgba(26, 31, 46, 0.8)',
-              borderColor: '#FF3B3B',
+              backgroundColor: '#FFFFFF',
+              borderColor: '#E84343',
+              boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
             }}
           >
-            <p className="text-[#FF3B3B] text-sm font-medium">{error}</p>
+            <div className="flex items-center gap-2">
+              <span style={{ color: '#E84343' }}>⚠️</span>
+              <p className="text-sm font-medium" style={{ color: '#E84343' }}>
+                {error}
+              </p>
+            </div>
           </div>
         )}
 
@@ -291,8 +399,11 @@ export default function ProxyLitePage() {
         {result && (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div 
-              className="rounded-2xl p-8 shadow-lg backdrop-blur-sm"
-              style={{ backgroundColor: 'rgba(26, 31, 46, 0.8)' }}
+              className="rounded-[16px] p-8"
+              style={{ 
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
+              }}
             >
               <Tabs defaultTab="general">
                 <TabList>
@@ -312,8 +423,10 @@ export default function ProxyLitePage() {
                       <span 
                         className="px-4 py-2 rounded-full text-sm font-semibold"
                         style={{
-                          backgroundColor: `${getEthicalScoreColor(result.ethics_score)}20`,
+                          backgroundColor: `${getEthicalScoreColor(result.ethics_score)}15`,
                           color: getEthicalScoreColor(result.ethics_score),
+                          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                          fontWeight: 500,
                         }}
                       >
                         {getRiskLabelFromLevel(result.ethics_level)}
@@ -323,7 +436,9 @@ export default function ProxyLitePage() {
                     {/* Unique Issues */}
                     {result.unique_issues && result.unique_issues.length > 0 && (
                       <div>
-                        <p className="text-sm text-[#D4D9E5] mb-3 text-center">Etik Sorun Etiketleri</p>
+                        <p className="text-sm mb-3 text-center" style={{ color: '#6E6E73' }}>
+                          Etik Sorun Etiketleri
+                        </p>
                         <div className="flex justify-center flex-wrap gap-2">
                           <FlagsPills flags={result.unique_issues} />
                         </div>
@@ -332,7 +447,7 @@ export default function ProxyLitePage() {
 
                     {/* Provider Info */}
                     <div className="text-center">
-                      <p className="text-xs text-[#D4D9E5]">
+                      <p className="text-xs" style={{ color: '#6E6E73' }}>
                         Analiz {result.provider} tarafından yapılmıştır.
                       </p>
                     </div>
@@ -351,54 +466,72 @@ export default function ProxyLitePage() {
                     ))}
                     
                     {/* Bulk Rewrite Button */}
-                    {paragraphRewrites.size > 0 && (
-                      <div className="mt-6 pt-6 border-t" style={{ borderColor: 'rgba(58, 130, 247, 0.2)' }}>
+                    {result.paragraphs.length > 0 && (
+                      <div className="mt-6 pt-6 border-t" style={{ borderColor: '#E3E3E7' }}>
                         {!showBulkRewrite ? (
                           <button
                             type="button"
                             onClick={handleBulkRewrite}
-                            className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all hover:shadow-lg shadow-lg"
+                            disabled={isBulkRewriting}
+                            className="w-full py-4 px-6 rounded-[14px] font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{
-                              backgroundColor: '#3A82F7',
-                              boxShadow: '0 4px 12px rgba(58, 130, 247, 0.3)',
+                              backgroundColor: '#007AFF',
+                              fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                              fontWeight: 500,
+                              boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
                             }}
                           >
-                            Tümünü Etik Hale Getir
+                            {isBulkRewriting ? (
+                              <span className="flex items-center justify-center gap-2">
+                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Tüm paragraflar yeniden yazılıyor...
+                              </span>
+                            ) : (
+                              'Tümünü Etik Hale Getir →'
+                            )}
                           </button>
                         ) : (
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <p className="text-sm font-semibold text-[#30E171]">
+                              <p className="text-sm font-semibold" style={{ color: '#22BF55' }}>
                                 Tümünü Etik Hale Getirilmiş Metin
                               </p>
                               <button
                                 type="button"
                                 onClick={() => setShowBulkRewrite(false)}
-                                className="text-[#D4D9E5] hover:text-white text-sm"
+                                className="text-[#6E6E73] text-sm"
                               >
                                 ✕
                               </button>
                             </div>
                             <div 
-                              className="rounded-xl p-4 border mb-3"
+                              className="rounded-[14px] p-4 border mb-3"
                               style={{ 
-                                backgroundColor: '#1A1F2E',
-                                borderColor: '#30E171',
+                                backgroundColor: '#F8F9FB',
+                                borderColor: '#22BF55',
+                                borderWidth: '1px',
                               }}
                             >
-                              <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                              <p className="text-sm leading-[1.4] whitespace-pre-wrap" style={{ color: '#1C1C1E', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                                 {(window as any).__bulkRewriteText || ''}
                               </p>
                             </div>
                             <button
                               type="button"
                               onClick={copyBulkRewrite}
-                              className="w-full py-2 px-4 rounded-xl text-sm font-medium text-white transition-all"
-                              style={{ backgroundColor: '#3A82F7' }}
+                              className="w-full py-2 px-4 rounded-[14px] text-sm font-medium text-white transition-opacity duration-200 hover:opacity-90"
+                              style={{ 
+                                backgroundColor: '#007AFF',
+                                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                                fontWeight: 500,
+                              }}
                             >
                               Kopyala
                             </button>
-                            <p className="text-xs text-[#D4D9E5] mt-2 text-center">
+                            <p className="text-xs mt-2 text-center" style={{ color: '#6E6E73' }}>
                               Bu öneriler yalnızca etik yönlendirme amaçlıdır.
                             </p>
                           </div>
@@ -422,6 +555,15 @@ export default function ProxyLitePage() {
         onClose={() => setShowHistory(false)}
         onSelect={handleHistorySelect}
       />
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

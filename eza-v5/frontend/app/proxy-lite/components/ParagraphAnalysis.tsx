@@ -1,7 +1,7 @@
 /**
- * Paragraph Analysis Component
+ * Paragraph Analysis Component - Apple Soft Light Theme
  * Shows paragraph-by-paragraph analysis with ethical score and rewrite suggestions
- * NO HIGHLIGHTS - plain text only
+ * NO HIGHLIGHTS - plain text only, frame color changes based on risk
  */
 
 'use client';
@@ -25,7 +25,7 @@ export default function ParagraphAnalysis({ paragraph, index, onRewriteUpdate }:
   const score = paragraph.score;
   const color = getEthicalScoreColor(score);
   const label = getRiskLabel(score);
-  const needsRewrite = score < 70; // Only show rewrite for medium/high risk
+  const needsRewrite = score < 76; // Show rewrite for medium/high risk (0-75)
 
   const [rewriteResult, setRewriteResult] = useState<{ text: string; improved: boolean; originalScore: number; newScore: number } | null>(null);
 
@@ -64,23 +64,38 @@ export default function ParagraphAnalysis({ paragraph, index, onRewriteUpdate }:
     }
   };
 
+  // Determine frame border color based on score
+  const getFrameBorderColor = () => {
+    if (score >= 76) return '#22BF55'; // Green for low risk
+    if (score >= 51) return '#F4A72F'; // Orange for medium risk
+    return '#E84343'; // Red for high risk
+  };
+
   return (
     <div 
-      className="rounded-2xl p-6 mb-4 shadow-lg"
-      style={{ backgroundColor: '#111726' }}
+      className="rounded-[16px] p-6 mb-4"
+      style={{ 
+        backgroundColor: '#FFFFFF',
+        boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
+        border: `1px solid ${getFrameBorderColor()}40`,
+      }}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-medium text-slate-400">Paragraf {index + 1}</span>
+            <span className="text-sm font-medium text-[#6E6E73]" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+              Paragraf {index + 1}
+            </span>
             <span 
               className="px-3 py-1 rounded-full text-xs font-semibold"
               style={{
-                backgroundColor: `${color}20`,
+                backgroundColor: `${color}15`,
                 color: color,
+                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                fontWeight: 700,
               }}
             >
-              Etik Skor: {score} ({label})
+              Etik Skor: {score}
             </span>
           </div>
           
@@ -92,14 +107,20 @@ export default function ParagraphAnalysis({ paragraph, index, onRewriteUpdate }:
         </div>
       </div>
 
-      {/* Original Text - Plain text, NO highlights */}
+      {/* Original Text - Plain text, NO highlights, frame color based on risk */}
       <div className="mb-4">
-        <p className="text-xs text-slate-400 mb-2">Orijinal Metin</p>
+        <p className="text-xs text-[#6E6E73] mb-2" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+          Orijinal Metin
+        </p>
         <div 
-          className="rounded-xl p-4"
-          style={{ backgroundColor: '#1A1F2E' }}
+          className="rounded-[14px] p-4 border"
+          style={{ 
+            backgroundColor: '#F8F9FB',
+            borderColor: getFrameBorderColor(),
+            borderWidth: '1px',
+          }}
         >
-          <p className="text-slate-50 text-sm leading-relaxed">
+          <p className="text-[#1C1C1E] text-sm leading-[1.4]" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
             {paragraph.original}
           </p>
         </div>
@@ -113,10 +134,12 @@ export default function ParagraphAnalysis({ paragraph, index, onRewriteUpdate }:
               type="button"
               onClick={handleRewrite}
               disabled={isRewriting}
-              className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-[14px] text-sm font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
-                backgroundColor: '#3A82F7',
-                boxShadow: '0 4px 12px rgba(58, 130, 247, 0.3)',
+                backgroundColor: '#007AFF',
+                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                fontWeight: 500,
+                boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
               }}
             >
               {isRewriting ? 'Yeniden yazılıyor...' : 'Daha Etik Hâle Getirilmiş Öneri →'}
@@ -125,11 +148,14 @@ export default function ParagraphAnalysis({ paragraph, index, onRewriteUpdate }:
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className={`text-xs font-semibold ${rewriteResult?.improved ? 'text-[#30E171]' : 'text-[#F6A302]'}`}>
+                  <p 
+                    className={`text-xs font-semibold ${rewriteResult?.improved ? 'text-[#22BF55]' : 'text-[#F4A72F]'}`}
+                    style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif', fontWeight: 500 }}
+                  >
                     {rewriteResult?.improved ? 'Daha Etik Hâle Getirilmiş Öneri' : 'Yeniden Yazılmış Metin'}
                   </p>
                   {rewriteResult && (
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-[#6E6E73] mt-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                       Önce: {rewriteResult.originalScore} → Sonra: {rewriteResult.newScore}
                     </p>
                   )}
@@ -140,26 +166,27 @@ export default function ParagraphAnalysis({ paragraph, index, onRewriteUpdate }:
                     setShowRewrite(false);
                     setRewriteResult(null);
                   }}
-                  className="text-slate-400 hover:text-slate-50 text-sm"
+                  className="text-[#6E6E73] text-sm"
                 >
                   ✕
                 </button>
               </div>
               {!rewriteResult?.improved && (
-                <div className="mb-2 p-2 rounded-lg bg-[#F6A302]20 border border-[#F6A302]">
-                  <p className="text-xs text-[#F6A302]">
+                <div className="mb-2 p-2 rounded-lg" style={{ backgroundColor: '#F4A72F15', border: '1px solid #F4A72F40' }}>
+                  <p className="text-xs text-[#F4A72F]" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                     ⚠️ Bu öneri etik skorunu iyileştirmedi. Metni gözden geçirmeniz önerilir.
                   </p>
                 </div>
               )}
               <div 
-                className="rounded-xl p-4 border"
+                className="rounded-[14px] p-4 border"
                 style={{ 
-                  backgroundColor: '#1A1F2E',
-                  borderColor: rewriteResult?.improved ? '#30E171' : '#F6A302',
+                  backgroundColor: '#F8F9FB',
+                  borderColor: rewriteResult?.improved ? '#22BF55' : '#F4A72F',
+                  borderWidth: '1px',
                 }}
               >
-                <p className="text-slate-50 text-sm leading-relaxed whitespace-pre-wrap">
+                <p className="text-[#1C1C1E] text-sm leading-[1.4] whitespace-pre-wrap" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                   {rewriteText}
                 </p>
               </div>

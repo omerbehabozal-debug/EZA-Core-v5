@@ -1,5 +1,5 @@
 /**
- * History Drawer Component
+ * History Drawer Component - Apple Soft Light Theme
  * Side panel for viewing analysis history
  */
 
@@ -37,31 +37,45 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="fixed inset-0 z-40"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         onClick={onClose}
       />
       
       {/* Drawer */}
       <div
         className="fixed right-0 top-0 h-full w-full max-w-md z-50 transform transition-transform duration-300 ease-out"
-        style={{ backgroundColor: '#111726' }}
+        style={{ 
+          backgroundColor: '#FFFFFF',
+          boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
+        }}
       >
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#1A1F2E' }}>
-            <h2 className="text-xl font-bold text-slate-50">Analiz Geçmişi</h2>
+          <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#E3E3E7' }}>
+            <h2 
+              className="text-xl font-bold"
+              style={{ 
+                color: '#1C1C1E',
+                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                fontWeight: 600
+              }}
+            >
+              Analiz Geçmişi
+            </h2>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleClear}
-                className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                className="text-xs"
+                style={{ color: '#6E6E73' }}
               >
                 Temizle
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="text-slate-400 hover:text-slate-50 transition-colors"
+                style={{ color: '#6E6E73' }}
               >
                 ✕
               </button>
@@ -72,7 +86,7 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {history.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-slate-400">Henüz analiz geçmişi yok</p>
+                <p style={{ color: '#6E6E73' }}>Henüz analiz geçmişi yok</p>
               </div>
             ) : (
               <>
@@ -87,16 +101,24 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
                         onSelect(entry);
                         onClose();
                       }}
-                      className="rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] shadow-lg"
+                      className="rounded-[16px] p-4 cursor-pointer"
                       style={{ 
-                        backgroundColor: '#1A1F2E',
-                        border: '1px solid #1A1F2E'
+                        backgroundColor: '#FFFFFF',
+                        border: '1px solid #E3E3E7',
+                        boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
                       }}
                     >
-                      <h3 className="text-slate-50 font-medium mb-2 line-clamp-2">
+                      <h3 
+                        className="font-medium mb-2 line-clamp-2"
+                        style={{ 
+                          color: '#1C1C1E',
+                          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                          fontWeight: 500
+                        }}
+                      >
                         {entry.title}
                       </h3>
-                      <p className="text-slate-400 text-xs mb-2">
+                      <p className="text-xs mb-2" style={{ color: '#6E6E73' }}>
                         {new Date(entry.createdAt).toLocaleString('tr-TR', {
                           day: '2-digit',
                           month: '2-digit',
@@ -108,11 +130,15 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
                       <div className="flex items-center gap-2">
                         <span 
                           className="text-lg font-bold"
-                          style={{ color }}
+                          style={{ 
+                            color,
+                            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                            fontWeight: 700
+                          }}
                         >
                           {Math.round(score)}
                         </span>
-                        <span className="text-xs text-slate-400">Etik Skor</span>
+                        <span className="text-xs" style={{ color: '#6E6E73' }}>Etik Skor</span>
                       </div>
                     </div>
                   );

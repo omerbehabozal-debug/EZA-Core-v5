@@ -1,5 +1,5 @@
 /**
- * Score Gauge Component
+ * Score Gauge Component - Apple Soft Light Theme
  * Modern circular gauge with ethical scoring colors
  */
 
@@ -72,7 +72,7 @@ export default function ScoreGauge({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="#1A1F2E"
+            stroke="#E3E3E7"
             strokeWidth={strokeWidth}
             fill="none"
           />
@@ -96,25 +96,29 @@ export default function ScoreGauge({
         {/* Score text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span 
-            className="text-5xl font-bold text-white" 
+            className="text-5xl font-bold" 
             style={{ 
-              fontFamily: 'Inter, system-ui, sans-serif',
+              fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+              fontWeight: 700,
               color: color
             }}
           >
             {Math.round(animatedScore)}
           </span>
-          <span className="text-sm text-gray-400 mt-1">Etik Skor</span>
+          <span className="text-sm text-[#6E6E73] mt-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Etik Skor</span>
         </div>
       </div>
       {/* Risk label */}
       <p 
         className="mt-4 text-sm font-semibold"
-        style={{ color: color }}
+        style={{ 
+          color: color,
+          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+          fontWeight: 500
+        }}
       >
         {label}
       </p>
     </div>
   );
 }
-

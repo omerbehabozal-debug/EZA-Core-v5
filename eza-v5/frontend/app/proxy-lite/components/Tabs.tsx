@@ -1,5 +1,5 @@
 /**
- * Tabs Component for General Result and Paragraph Analysis
+ * Tabs Component - Apple Soft Light Theme
  */
 
 'use client';
@@ -31,7 +31,7 @@ export default function Tabs({ children, defaultTab = 'general' }: TabsProps) {
 
 export function TabList({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 border-b" style={{ borderColor: '#1A1F2E' }}>
+    <div className="flex gap-2 border-b" style={{ borderColor: '#E3E3E7' }}>
       {children}
     </div>
   );
@@ -50,9 +50,10 @@ export function Tab({ value, children }: { value: string; children: React.ReactN
       className={cn(
         'px-6 py-3 text-sm font-medium transition-colors border-b-2',
         isActive
-          ? 'text-[#0066FF] border-[#0066FF]'
-          : 'text-gray-400 border-transparent hover:text-gray-300'
+          ? 'text-[#007AFF] border-[#007AFF]'
+          : 'text-[#6E6E73] border-transparent'
       )}
+      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif', fontWeight: 500 }}
     >
       {children}
     </button>
@@ -67,4 +68,3 @@ export function TabPanel({ value, children }: { value: string; children: React.R
 
   return <div className="mt-6">{children}</div>;
 }
-
