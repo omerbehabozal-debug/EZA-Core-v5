@@ -27,6 +27,22 @@ export interface ProxyLiteRealResult {
   raw?: any;
 }
 
+// New paragraph-based analysis types
+export interface ParagraphAnalysis {
+  text: string;
+  ethical_score: number;
+  risk_label: "Düşük Risk" | "Orta Risk" | "Yüksek Risk";
+  flags?: string[];
+}
+
+export interface ProxyLiteAnalysisResponse {
+  ethical_score: number; // 0-100
+  risk_label: string; // Turkish: "Düşük Risk", "Orta Risk", "Yüksek Risk"
+  paragraphs: ParagraphAnalysis[];
+  rewrite_suggestion: string | null;
+  flags: string[]; // Turkish risk flags
+}
+
 export function analyzeProxyLite(
   message: string,
   outputText: string
@@ -42,7 +58,74 @@ export function analyzeProxyLite(
 }
 
 /**
- * Analyze Lite - Real Backend Integration
+ * Analyze Lite - Text endpoint
+ */
+export async function analyzeText(text: string): Promise<ProxyLiteAnalysisResponse | null> {
+  try {
+    const url = `${API_BASE_URL}/api/proxy-lite/text`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    console.error("Proxy-Lite: Text analysis failed", e);
+    return null;
+  }
+}
+
+/**
+ * Analyze Lite - Image endpoint
+ */
+export async function analyzeImage(imageFile: File): Promise<{ text: string; analysis: ProxyLiteAnalysisResponse | null }> {
+  try {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    
+    const url = `${API_BASE_URL}/api/proxy-lite/image`;
+    const res = await fetch(url, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) return { text: '', analysis: null };
+    const data = await res.json();
+    return { text: data.text || '', analysis: data.analysis || null };
+  } catch (e) {
+    console.error("Proxy-Lite: Image analysis failed", e);
+    return { text: '', analysis: null };
+  }
+}
+
+/**
+ * Analyze Lite - Audio endpoint
+ */
+export async function analyzeAudio(audioFile: File): Promise<{ text: string; analysis: ProxyLiteAnalysisResponse | null }> {
+  try {
+    const formData = new FormData();
+    formData.append('audio', audioFile);
+    
+    const url = `${API_BASE_URL}/api/proxy-lite/audio`;
+    const res = await fetch(url, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) return { text: '', analysis: null };
+    const data = await res.json();
+    return { text: data.text || '', analysis: data.analysis || null };
+  } catch (e) {
+    console.error("Proxy-Lite: Audio analysis failed", e);
+    return { text: '', analysis: null };
+  }
+}
+
+
+/**
+ * Analyze Lite - Real Backend Integration (Legacy - kept for compatibility)
  * Only calls backend, returns null on error (no mock, no fallback)
  */
 export async function analyzeLite(text: string): Promise<ProxyLiteRealResult | null> {

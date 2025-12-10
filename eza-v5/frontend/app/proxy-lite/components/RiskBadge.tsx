@@ -17,21 +17,21 @@ export default function RiskBadge({ level, className }: RiskBadgeProps) {
   
   const variants = {
     low: {
-      bg: 'bg-[#4CAF50]/20',
-      text: 'text-[#4CAF50]',
-      border: 'border-[#4CAF50]/30',
+      bg: 'bg-[#39FF88]/20',
+      text: 'text-[#39FF88]',
+      border: 'border-[#39FF88]/30',
       label: 'Düşük Risk'
     },
     medium: {
-      bg: 'bg-[#FFC107]/20',
-      text: 'text-[#FFC107]',
-      border: 'border-[#FFC107]/30',
+      bg: 'bg-[#FFC93C]/20',
+      text: 'text-[#FFC93C]',
+      border: 'border-[#FFC93C]/30',
       label: 'Orta Risk'
     },
     high: {
-      bg: 'bg-[#F44336]/20',
-      text: 'text-[#F44336]',
-      border: 'border-[#F44336]/30',
+      bg: 'bg-[#FF3B3B]/20',
+      text: 'text-[#FF3B3B]',
+      border: 'border-[#FF3B3B]/30',
       label: 'Yüksek Risk'
     }
   };

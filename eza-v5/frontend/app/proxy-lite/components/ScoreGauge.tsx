@@ -1,63 +1,63 @@
 /**
- * Circular Risk Score Component
- * Animated circular progress meter for risk score
+ * Score Gauge Component
+ * Modern circular gauge with ethical scoring colors
  */
 
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getScoreColor, getRiskLabel } from '../lib/scoringUtils';
 import { cn } from '@/lib/utils';
 
-interface CircularRiskScoreProps {
+interface ScoreGaugeProps {
   score: number;
   size?: number;
   strokeWidth?: number;
   className?: string;
 }
 
-export default function CircularRiskScore({ 
+export default function ScoreGauge({ 
   score, 
   size = 200, 
   strokeWidth = 12,
   className 
-}: CircularRiskScoreProps) {
+}: ScoreGaugeProps) {
   const [animatedScore, setAnimatedScore] = useState(0);
   
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (animatedScore / 100) * circumference;
-  
-  const getColor = () => {
-    if (score >= 90) return '#39FF88'; // Low risk green
-    if (score >= 70) return '#FFC93C'; // Medium risk yellow
-    return '#FF3B3B'; // High risk red
-  };
+  const color = getScoreColor(score);
+  const label = getRiskLabel(score);
 
   useEffect(() => {
-    // Animate score from 0 to target
-    const duration = 1000; // 1 second
+    // Smooth animation with easing
+    const duration = 1500;
     const steps = 60;
     const increment = score / steps;
     let current = 0;
+    let startTime: number | null = null;
     
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= score) {
-        setAnimatedScore(score);
-        clearInterval(timer);
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function (ease-out)
+      const eased = 1 - Math.pow(1 - progress, 3);
+      current = score * eased;
+      
+      setAnimatedScore(current);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
       } else {
-        setAnimatedScore(current);
+        setAnimatedScore(score);
       }
-    }, duration / steps);
-
-    return () => clearInterval(timer);
+    };
+    
+    requestAnimationFrame(animate);
   }, [score]);
-
-  const getRiskLabel = () => {
-    if (score >= 90) return 'Düşük Risk';
-    if (score >= 70) return 'Orta Risk';
-    return 'Yüksek Risk';
-  };
 
   return (
     <div className={cn('flex flex-col items-center justify-center', className)}>
@@ -81,26 +81,38 @@ export default function CircularRiskScore({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={getColor()}
+            stroke={color}
             strokeWidth={strokeWidth}
             fill="none"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             strokeLinecap="round"
-            className="transition-all duration-1000 ease-out"
+            className="transition-all duration-300 ease-out"
+            style={{
+              filter: `drop-shadow(0 0 8px ${color}40)`,
+            }}
           />
         </svg>
         {/* Score text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-5xl font-bold text-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+          <span 
+            className="text-5xl font-bold text-white" 
+            style={{ 
+              fontFamily: 'Inter, system-ui, sans-serif',
+              color: color
+            }}
+          >
             {Math.round(animatedScore)}
           </span>
-          <span className="text-sm text-gray-400 mt-1">/ 100</span>
+          <span className="text-sm text-gray-400 mt-1">Etik Skor</span>
         </div>
       </div>
       {/* Risk label */}
-      <p className="mt-4 text-sm font-medium text-gray-300">
-        {getRiskLabel()}
+      <p 
+        className="mt-4 text-sm font-semibold"
+        style={{ color: color }}
+      >
+        {label}
       </p>
     </div>
   );
