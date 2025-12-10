@@ -142,6 +142,81 @@ def get_risk_level(score: int) -> Literal["low", "medium", "high"]:
         return "high"
 
 
+def apply_context_audience_adjustments(
+    base_score: int,
+    context: Optional[str],
+    target_audience: Optional[str],
+    tone: Optional[str] = None
+) -> int:
+    """
+    Apply risk coefficient adjustments based on context, target audience, and tone.
+    Returns adjusted score (0-100).
+    
+    Risk coefficients:
+    - Higher risk contexts/audiences/tones → lower score (stricter)
+    - Lower risk contexts/audiences/tones → higher score (more lenient)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    adjusted_score = float(base_score)
+    original_score = base_score
+    
+    # Context-based adjustments (risk multipliers)
+    context_multipliers = {
+        "legal_official": 0.85,  # Stricter: -15% (legal content needs higher standards)
+        "educational_informative": 0.90,  # Stricter: -10% (educational content must be accurate)
+        "corporate_professional": 0.95,  # Slightly stricter: -5%
+        "social_media": 1.0,  # No adjustment (baseline)
+        "personal_blog": 1.05,  # Slightly more lenient: +5%
+    }
+    
+    # Target audience-based adjustments (risk multipliers)
+    audience_multipliers = {
+        "children_youth": 0.75,  # Much stricter: -25% (highest risk, needs strictest control)
+        "regulators_public": 0.80,  # Stricter: -20% (legal compliance critical)
+        "students": 0.90,  # Stricter: -10% (educational context)
+        "clients_consultants": 0.95,  # Slightly stricter: -5% (professional standards)
+        "colleagues": 1.0,  # No adjustment (baseline)
+        "general_public": 1.0,  # No adjustment (baseline)
+    }
+    
+    # Tone-based adjustments (risk multipliers)
+    tone_multipliers = {
+        "strict_warning": 0.88,  # Stricter: -12% (strict/warning tone can be risky, needs careful review)
+        "persuasive": 0.92,  # Slightly stricter: -8% (persuasive content can be manipulative)
+        "professional": 1.0,  # No adjustment (baseline, professional tone is standard)
+        "neutral": 1.0,  # No adjustment (baseline, neutral tone is standard)
+        "friendly": 1.02,  # Slightly more lenient: +2% (friendly tone is generally safe)
+        "funny": 1.03,  # Slightly more lenient: +3% (humor is generally acceptable, but still monitored)
+    }
+    
+    # Apply context multiplier
+    if context and context in context_multipliers:
+        multiplier = context_multipliers[context]
+        adjusted_score *= multiplier
+        logger.info(f"[Proxy-Lite] Applied context multiplier {multiplier} for context '{context}': {adjusted_score/multiplier:.1f} → {adjusted_score:.1f}")
+    
+    # Apply target audience multiplier
+    if target_audience and target_audience in audience_multipliers:
+        multiplier = audience_multipliers[target_audience]
+        adjusted_score *= multiplier
+        logger.info(f"[Proxy-Lite] Applied audience multiplier {multiplier} for audience '{target_audience}': {adjusted_score/multiplier:.1f} → {adjusted_score:.1f}")
+    
+    # Apply tone multiplier
+    if tone and tone in tone_multipliers:
+        multiplier = tone_multipliers[tone]
+        adjusted_score *= multiplier
+        logger.info(f"[Proxy-Lite] Applied tone multiplier {multiplier} for tone '{tone}': {adjusted_score/multiplier:.1f} → {adjusted_score:.1f}")
+    
+    # Ensure score stays within 0-100 range
+    adjusted_score = max(0, min(100, adjusted_score))
+    
+    logger.info(f"[Proxy-Lite] Final score adjustment: {original_score} → {int(round(adjusted_score))} (context={context}, audience={target_audience}, tone={tone})")
+    
+    return int(round(adjusted_score))
+
+
 def build_judge_prompt(paragraph: str, locale: str = "tr", context: Optional[str] = None, target_audience: Optional[str] = None) -> str:
     """Build the judge prompt for paragraph analysis"""
     
@@ -529,7 +604,16 @@ async def analyze_ethical_content(
             overall_writing = 50
             overall_platform = 50
         
-        overall_ethics_level = get_risk_level(overall_score)
+        # Apply context, target audience, and tone adjustments to ethical score
+        # These adjustments make the scoring stricter based on context, audience, and tone
+        adjusted_score = apply_context_audience_adjustments(
+            overall_score,
+            request.context,
+            request.target_audience,
+            request.tone
+        )
+        
+        overall_ethics_level = get_risk_level(adjusted_score)
         
         # Collect all unique issues (no duplicates)
         all_issues = []
@@ -537,10 +621,10 @@ async def analyze_ethical_content(
             all_issues.extend(p.issues)
         unique_issues = list(dict.fromkeys(all_issues))  # Preserve order, remove duplicates
         
-        logger.info(f"[Proxy-Lite] Analysis complete: overall_score={overall_score}, ethics_level={overall_ethics_level}, unique_issues={len(unique_issues)}")
+        logger.info(f"[Proxy-Lite] Analysis complete: base_score={overall_score}, adjusted_score={adjusted_score}, ethics_level={overall_ethics_level}, unique_issues={len(unique_issues)}")
         
         return AnalyzeResponse(
-            ethics_score=overall_score,
+            ethics_score=adjusted_score,
             ethics_level=overall_ethics_level,
             neutrality_score=overall_neutrality,
             writing_quality_score=overall_writing,
