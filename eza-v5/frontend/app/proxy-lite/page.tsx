@@ -1,195 +1,227 @@
 /**
- * Proxy-Lite Page - Real Backend Only (No Mock)
+ * Proxy-Lite Page - Premium Modern UX/UI
+ * Dark theme with Apple + Anthropic inspired design
  */
 
 "use client";
 
 import { useState } from "react";
 import { analyzeLite, ProxyLiteRealResult } from "@/api/proxy_lite";
-import StatusBadge from "@/components/StatusBadge";
-import ScoreBadge from "./components/ScoreBadge";
-import RiskLevelTag from "./components/RiskLevelTag";
+import CircularRiskScore from "./components/CircularRiskScore";
+import RiskBadge from "./components/RiskBadge";
+import FlagsPills from "./components/FlagsPills";
+import FileUploadButton from "./components/FileUploadButton";
 
 export default function ProxyLitePage() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ProxyLiteRealResult | null>(null);
   const [hasAttempted, setHasAttempted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() || loading) return;
 
     setLoading(true);
     setResult(null);
+    setError(null);
     setHasAttempted(true);
 
     try {
       const res = await analyzeLite(text.trim());
-      setResult(res);
+      if (res) {
+        setResult(res);
+      } else {
+        setError("Sunucu ile bağlantı kurulamadı");
+      }
     } catch (err) {
       console.error("Analysis error:", err);
-      setResult(null);
+      setError("Sunucu ile bağlantı kurulamadı");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="px-4 md:px-10 py-10 max-w-4xl mx-auto">
-      <h1 className="text-center text-3xl font-bold">EZA Proxy-Lite</h1>
-      <p className="text-center text-gray-500 mb-8">Hızlı ve temel etik kontrol.</p>
-
-      <form onSubmit={handleAnalyze}>
-        <textarea 
-          className="w-full border rounded-lg p-4"
-          placeholder="Analiz etmek istediğiniz içeriği yazın..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          disabled={loading}
-        />
-
-        <button 
-          type="submit"
-          className="mt-4 w-full bg-blue-600 text-white font-semibold rounded-lg p-3 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={!text.trim() || loading}
-        >
-          {loading ? "Analiz Ediliyor..." : "Analiz Et"}
-        </button>
-      </form>
-
-      {/* Backend Offline Warning */}
-      {result === null && !loading && hasAttempted && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600 text-sm font-medium">
-            Backend şu anda devre dışı. Analiz yapılamadı.
+    <div 
+      className="min-h-screen"
+      style={{ 
+        backgroundColor: '#0A0F1F',
+        fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+      }}
+    >
+      <div className="max-w-[720px] mx-auto px-4 py-12 space-y-8">
+        {/* Header Section */}
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-bold text-white">
+            EZA Proxy-Lite
+          </h1>
+          <p className="text-gray-400 text-lg">
+            Hızlı ve temel etik kontrol
           </p>
         </div>
-      )}
 
-      {/* Status Badge */}
-      {(loading || result) && (
-        <div className="mt-6">
-          <StatusBadge
-            loading={loading}
-            live={result?.live}
-          />
+        {/* Input Section */}
+        <div 
+          className="rounded-2xl p-6 shadow-2xl"
+          style={{ backgroundColor: '#111726' }}
+        >
+          <form onSubmit={handleAnalyze} className="space-y-4">
+            {/* Textarea with floating label effect */}
+            <div className="relative">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Analiz etmek istediğiniz içeriği yazın..."
+                disabled={loading}
+                className="w-full h-40 px-4 py-3 rounded-xl text-white placeholder-gray-500 resize-none transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#0066FF] disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ 
+                  backgroundColor: '#1A1F2E',
+                  border: '1px solid #1A1F2E'
+                }}
+              />
+            </div>
+
+            {/* Upload buttons row */}
+            <div className="flex items-center gap-3">
+              <FileUploadButton type="audio" />
+              <FileUploadButton type="image" />
+              <div className="flex-1" />
+            </div>
+
+            {/* CTA Button */}
+            <button
+              type="submit"
+              disabled={!text.trim() || loading}
+              className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+              style={{
+                backgroundColor: '#0066FF',
+                boxShadow: loading ? '0 0 20px rgba(0, 102, 255, 0.5)' : '0 4px 12px rgba(0, 102, 255, 0.3)'
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.boxShadow = '0 0 30px rgba(0, 102, 255, 0.6)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 102, 255, 0.3)';
+                }
+              }}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Analiz Ediliyor...
+                </span>
+              ) : (
+                'Analiz Et'
+              )}
+            </button>
+          </form>
         </div>
-      )}
 
-      {/* Result - Only show when we have real backend data */}
-      {result && result.live && (
-        <div className="mt-6 space-y-6">
-          {/* Main Score Card */}
-          <div className="bg-white shadow-lg p-6 rounded-xl">
-            <h2 className="font-semibold mb-6 text-xl">Analiz Sonucu</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-3">Etik Skor</p>
-                <ScoreBadge score={Math.round(result.risk_score)} />
-              </div>
-              <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-3">Risk Seviyesi</p>
-                <RiskLevelTag 
-                  level={(result.risk_level.toLowerCase() as 'low' | 'medium' | 'high' | 'critical') || 'low'} 
-                />
-              </div>
-            </div>
+        {/* Status Row */}
+        {(loading || result) && (
+          <div className="flex items-center justify-center gap-2">
+            {loading ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-[#4FC3FF] animate-pulse"></div>
+                <span className="text-sm text-gray-400">İşleniyor...</span>
+              </>
+            ) : result?.live ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-[#4CAF50]"></div>
+                <span className="text-sm text-[#4CAF50]">Canlı veri yüklendi</span>
+              </>
+            ) : null}
+          </div>
+        )}
 
-            {/* LLM Output */}
-            <div className="mb-6">
-              <h3 className="font-semibold text-sm text-gray-900 mb-2">Model Yanıtı</h3>
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{result.output}</p>
-              </div>
-            </div>
+        {/* Error Toast */}
+        {error && (
+          <div 
+            className="rounded-xl p-4 border"
+            style={{
+              backgroundColor: '#1A1F2E',
+              borderColor: '#F44336'
+            }}
+          >
+            <p className="text-[#F44336] text-sm font-medium">{error}</p>
+          </div>
+        )}
 
-            {/* Risk Flags */}
-            {result.flags && result.flags.length > 0 && (
-              <div className="mb-6">
-                <h3 className="font-semibold text-sm text-gray-900 mb-3">Tespit Edilen Riskler</h3>
-                <div className="flex flex-wrap gap-2">
-                  {result.flags.map((flag, idx) => (
-                    <span 
-                      key={idx}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200"
+        {/* Results Section */}
+        {result && result.live && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Main Results Card */}
+            <div 
+              className="rounded-2xl p-8 shadow-2xl"
+              style={{ backgroundColor: '#111726' }}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left: Circular Risk Score */}
+                <div className="flex justify-center md:justify-start">
+                  <CircularRiskScore score={result.risk_score} />
+                </div>
+
+                {/* Right: Risk Badge & Output */}
+                <div className="space-y-6">
+                  {/* Risk Badge */}
+                  <div>
+                    <p className="text-sm text-gray-400 mb-3">Risk Kategorisi</p>
+                    <RiskBadge level={result.risk_level} />
+                  </div>
+
+                  {/* Output Message */}
+                  <div>
+                    <p className="text-sm text-gray-400 mb-3">Filtrelenmiş Yanıt</p>
+                    <div 
+                      className="rounded-xl p-4"
+                      style={{ backgroundColor: '#1A1F2E' }}
                     >
-                      {flag}
-                    </span>
-                  ))}
+                      <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                        {result.output}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Risk Flags */}
+                  {result.flags && result.flags.length > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-400 mb-3">Tespit Edilen Riskler</p>
+                      <FlagsPills flags={result.flags} />
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Detailed Analysis from Backend */}
-            {result.raw?.analysis && (
-              <div className="space-y-4 border-t pt-6">
-                <h3 className="font-semibold text-sm text-gray-900 mb-3">Detaylı Analiz</h3>
-                
-                {/* Input Analysis */}
-                {result.raw.analysis.input && (
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <h4 className="font-semibold text-xs text-blue-900 mb-2">Girdi Analizi</h4>
-                    <div className="text-xs text-blue-800 space-y-1">
-                      {result.raw.analysis.input.risk_score !== undefined && (
-                        <p>Risk Skoru: {result.raw.analysis.input.risk_score.toFixed(2)}</p>
-                      )}
-                      {result.raw.analysis.input.intent && (
-                        <p>Niyet: {result.raw.analysis.input.intent}</p>
-                      )}
-                      {result.raw.analysis.input.text_length && (
-                        <p>Metin Uzunluğu: {result.raw.analysis.input.text_length} karakter</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* EZA Score Details */}
-                {result.raw.analysis.eza_score && (
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                    <h4 className="font-semibold text-xs text-green-900 mb-2">EZA Skor Detayları</h4>
-                    <div className="text-xs text-green-800 space-y-1">
-                      {result.raw.analysis.eza_score.final_score !== undefined && (
-                        <p>Final Skor: {result.raw.analysis.eza_score.final_score.toFixed(2)}</p>
-                      )}
-                      {result.raw.analysis.eza_score.user_score !== undefined && (
-                        <p>Kullanıcı Skoru: {result.raw.analysis.eza_score.user_score.toFixed(2)}</p>
-                      )}
-                      {result.raw.analysis.eza_score.output_score !== undefined && (
-                        <p>Çıktı Skoru: {result.raw.analysis.eza_score.output_score.toFixed(2)}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Policy Result */}
-                {result.raw.policy_result && (
-                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                    <h4 className="font-semibold text-xs text-purple-900 mb-2">Politika Değerlendirmesi</h4>
-                    <div className="text-xs text-purple-800 space-y-1">
-                      {result.raw.policy_result.violated_rules && result.raw.policy_result.violated_rules.length > 0 && (
-                        <div>
-                          <p className="font-semibold mb-1">İhlal Edilen Kurallar ({result.raw.policy_result.violated_rules.length}):</p>
-                          <ul className="list-disc list-inside ml-2">
-                            {result.raw.policy_result.violated_rules.map((rule: any, idx: number) => (
-                              <li key={idx}>{rule.rule_name || rule}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {result.raw.policy_result.compliance_score !== undefined && (
-                        <p>Uyum Skoru: {(result.raw.policy_result.compliance_score * 100).toFixed(1)}%</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Footer Panel */}
+            <div 
+              className="rounded-xl p-4 border text-center"
+              style={{
+                backgroundColor: '#111726',
+                borderColor: '#1A1F2E'
+              }}
+            >
+              <p className="text-gray-400 text-sm">
+                Daha detaylı analiz için{' '}
+                <a 
+                  href="/proxy/login" 
+                  className="text-[#0066FF] hover:text-[#4FC3FF] transition-colors font-medium"
+                >
+                  Proxy moduna geç →
+                </a>
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
-
