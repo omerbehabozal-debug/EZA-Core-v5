@@ -216,6 +216,95 @@ async def proxy_analyze(
             }
         )
         
+        # Publish telemetry message
+        from backend.routers.telemetry_websocket import publish_telemetry_message
+        
+        # Convert risk flags to telemetry format
+        telemetry_flags = []
+        for flag in risk_flags_severity:
+            # Map severity to High/Medium/Low
+            severity_map = {0.7: "High", 0.4: "Medium", 0.3: "Low"}
+            severity_str = "Medium"
+            if flag.severity >= 0.7:
+                severity_str = "High"
+            elif flag.severity >= 0.4:
+                severity_str = "Medium"
+            else:
+                severity_str = "Low"
+            
+            telemetry_flags.append({
+                "type": flag.flag,
+                "severity": severity_str,
+            })
+        
+        # Determine fail-safe status
+        ethical_score = analysis_result["overall_scores"].get("ethical_index", 50)
+        fail_safe_triggered = ethical_score < 50
+        fail_reason = None
+        if fail_safe_triggered:
+            # Find highest severity flag
+            if risk_flags_severity:
+                highest_flag = max(risk_flags_severity, key=lambda f: f.severity)
+                fail_reason = f"{highest_flag.flag}-Risk"
+        
+        # Estimate token usage breakdown
+        token_usage_breakdown = {
+            "input": int(len(request.content.split()) * 1.3 * 0.7),
+            "output": int(len(request.content.split()) * 1.3 * 0.3),
+        }
+        
+        publish_telemetry_message(
+            org_id=org_id or "unknown",
+            content_id=analysis_id,
+            risk_score=ethical_score,
+            flags=telemetry_flags,
+            latency_ms=latency_ms,
+            token_usage=token_usage_breakdown,
+            provider=request.provider,
+            fail_safe_triggered=fail_safe_triggered,
+            fail_reason=fail_reason,
+        )
+        
+        # Create fail-safe alert if triggered
+        if fail_safe_triggered:
+            from backend.services.alerting_service import create_alert_event
+            import asyncio
+            try:
+                # Fire and forget async task
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(create_alert_event(
+                        org_id=org_id or "unknown",
+                        alert_type="FAIL_SAFE",
+                        severity="critical",
+                        message=f"Fail-safe triggered: {fail_reason or 'High risk content detected'}",
+                        details={
+                            "org_id": org_id,
+                            "content_id": analysis_id,
+                            "risk_score": ethical_score,
+                            "fail_reason": fail_reason,
+                            "provider": request.provider,
+                            "suggested_action": "Review content",
+                        }
+                    ))
+                else:
+                    loop.run_until_complete(create_alert_event(
+                        org_id=org_id or "unknown",
+                        alert_type="FAIL_SAFE",
+                        severity="critical",
+                        message=f"Fail-safe triggered: {fail_reason or 'High risk content detected'}",
+                        details={
+                            "org_id": org_id,
+                            "content_id": analysis_id,
+                            "risk_score": ethical_score,
+                            "fail_reason": fail_reason,
+                            "provider": request.provider,
+                            "suggested_action": "Review content",
+                        }
+                    ))
+            except Exception as e:
+                logger.error(f"[Alerting] Error creating fail-safe alert: {e}")
+        
         # Update telemetry
         update_telemetry_state(
             risk_flag_distribution={flag.flag: flag.severity for flag in risk_flags_severity},

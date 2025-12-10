@@ -12,9 +12,11 @@ import PolicyPackEditor from "./components/PolicyPackEditor";
 import RolesTeam from "./components/RolesTeam";
 import AuditLogSearch from "./components/AuditLogSearch";
 import AnalyticsBilling from "./components/AnalyticsBilling";
+import AlertsPanel from "./components/AlertsPanel";
+import AlertBanner from "../components/AlertBanner";
 
 export default function ProxyManagementPage() {
-  const [activeTab, setActiveTab] = useState<'api-keys' | 'policies' | 'roles' | 'audit' | 'analytics'>('api-keys');
+  const [activeTab, setActiveTab] = useState<'api-keys' | 'policies' | 'roles' | 'audit' | 'analytics' | 'alerts'>('api-keys');
   const [orgId, setOrgId] = useState<string | null>(null);
 
   // Get org_id from user context (in production, from auth)
@@ -32,6 +34,9 @@ export default function ProxyManagementPage() {
       }}
     >
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        {/* Alert Banner */}
+        <AlertBanner orgId={orgId} userRole="admin" />
+        
         {/* Header */}
         <div className="border-b pb-6" style={{ borderColor: '#1C1C1E' }}>
           <h1
@@ -65,6 +70,9 @@ export default function ProxyManagementPage() {
             </Tab>
             <Tab id="analytics" activeTab={activeTab} setActiveTab={setActiveTab}>
               📊 Analytics & Billing
+            </Tab>
+            <Tab id="alerts" activeTab={activeTab} setActiveTab={setActiveTab}>
+              🔔 Alerting & Webhooks
             </Tab>
           </TabList>
 
@@ -100,6 +108,13 @@ export default function ProxyManagementPage() {
           <TabPanel id="analytics" activeTab={activeTab}>
             <div className="mt-6">
               <AnalyticsBilling orgId={orgId} userRole="admin" />
+            </div>
+          </TabPanel>
+
+          {/* Alerts Tab */}
+          <TabPanel id="alerts" activeTab={activeTab}>
+            <div className="mt-6">
+              <AlertsPanel orgId={orgId} userRole="admin" />
             </div>
           </TabPanel>
         </Tabs>

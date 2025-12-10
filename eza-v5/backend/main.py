@@ -137,11 +137,18 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 # standalone.router removed - using direct endpoint in main.py instead
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])
-from backend.routers import proxy_corporate, proxy_websocket, proxy_audit, proxy_pipeline, organization, policy_management, usage_analytics, billing, sla_monitoring
+from backend.routers import proxy_corporate, proxy_websocket, proxy_audit, proxy_pipeline, organization, policy_management, usage_analytics, billing, sla_monitoring, telemetry_websocket, alerting
 app.include_router(proxy_corporate.router, prefix="/api/proxy", tags=["Proxy-Corporate"])
 app.include_router(proxy_audit.router, prefix="/api/proxy", tags=["Proxy-Audit"])
 app.include_router(proxy_pipeline.router, prefix="/api/proxy", tags=["Proxy-Pipeline"])
 app.include_router(proxy_websocket.router, tags=["Proxy-WebSocket"])
+
+# Telemetry WebSocket endpoints
+from backend.routers import telemetry_websocket
+app.include_router(telemetry_websocket.router, prefix="/ws", tags=["Telemetry-WebSocket"])
+
+# Alerting endpoints
+app.include_router(alerting.router, prefix="/api/org", tags=["Alerting"])
 app.include_router(organization.router, prefix="/api/org", tags=["Organization"])
 app.include_router(policy_management.router, prefix="/api/policy", tags=["Policy"])
 app.include_router(usage_analytics.router, prefix="/api/org", tags=["Usage-Analytics"])
