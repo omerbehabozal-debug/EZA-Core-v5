@@ -7,13 +7,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getHistory, AnalysisHistory } from '../lib/storage';
-import { ProxyLiteAnalysisResponse } from '@/api/proxy_lite';
+import { getHistory, LiteHistoryItem } from '../lib/storage';
 
 export default function HistoryPage() {
   const router = useRouter();
-  const [history, setHistory] = useState<AnalysisHistory[]>([]);
-  const [selectedEntry, setSelectedEntry] = useState<AnalysisHistory | null>(null);
+  const [history, setHistory] = useState<LiteHistoryItem[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState<LiteHistoryItem | null>(null);
 
   useEffect(() => {
     setHistory(getHistory());
@@ -79,11 +78,11 @@ export default function HistoryPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h3 className="text-white font-medium mb-1">{entry.title}</h3>
-                    <p className="text-gray-400 text-xs">{formatDate(entry.timestamp)}</p>
-                    {entry.result && (
+                    <p className="text-gray-400 text-xs">{formatDate(new Date(entry.createdAt).getTime())}</p>
+                    {entry.analysis && (
                       <p className="text-gray-500 text-xs mt-1">
-                        Skor: {entry.result.overall_score?.toFixed(1) || 'N/A'} | 
-                        {' '}{entry.result.overall_label || 'N/A'}
+                        Skor: {entry.analysis.ethics_score?.toFixed(1) || 'N/A'} | 
+                        {' '}{entry.analysis.ethics_level || 'N/A'}
                       </p>
                     )}
                   </div>
@@ -119,17 +118,17 @@ export default function HistoryPage() {
               
               <div>
                 <p className="text-sm text-gray-400 mb-2">Tarih</p>
-                <p className="text-white">{formatDate(selectedEntry.timestamp)}</p>
+                <p className="text-white">{formatDate(new Date(selectedEntry.createdAt).getTime())}</p>
               </div>
 
-              {selectedEntry.result && (
+              {selectedEntry.analysis && (
                 <div>
                   <p className="text-sm text-gray-400 mb-2">Genel Skor</p>
                   <p className="text-white text-2xl font-bold">
-                    {selectedEntry.result.overall_score?.toFixed(1) || 'N/A'}
+                    {selectedEntry.analysis.ethics_score?.toFixed(1) || 'N/A'}
                   </p>
                   <p className="text-gray-400 text-sm mt-1">
-                    {selectedEntry.result.overall_label || 'N/A'}
+                    {selectedEntry.analysis.ethics_level || 'N/A'}
                   </p>
                 </div>
               )}

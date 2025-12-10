@@ -2,7 +2,7 @@
  * Helper functions for analysis processing
  */
 
-import { ProxyLiteAnalysisResponse, ParagraphAnalysis } from '@/api/proxy_lite';
+import { LiteAnalysisResponse, ParagraphAnalysis } from '@/api/proxy_lite';
 import { getTurkishLabel } from './riskLabels';
 import { getRiskLabel } from './scoringUtils';
 
@@ -68,7 +68,7 @@ async function generateRewrite(original: string, flags: string[]): Promise<strin
 export async function convertToParagraphAnalysis(
   text: string,
   legacyResult: any
-): Promise<ProxyLiteAnalysisResponse> {
+): Promise<LiteAnalysisResponse> {
   const paragraphs = splitIntoParagraphs(text);
   const overallScore = legacyResult.risk_score || 0;
   const detectedCategories = (legacyResult.flags || []).map(getTurkishLabel);
@@ -84,9 +84,9 @@ export async function convertToParagraphAnalysis(
     
     return {
       original: para.trim(),
-      ethical_score: score,
-      flags: turkishFlags,
-      suggestion,
+      score: score,
+      issues: turkishFlags,
+      rewrite: suggestion,
     };
   });
   
@@ -94,11 +94,14 @@ export async function convertToParagraphAnalysis(
   const globalSuggestion = overallScore < 100 ? await generateBulkRewrite(text, detectedCategories) : null;
   
   return {
-    success: true,
-    input_text: text,
-    ethical_score: overallScore,
+    ethics_score: overallScore,
+    ethics_level: overallScore >= 70 ? 'high' : overallScore >= 40 ? 'medium' : 'low',
+    neutrality_score: 50,
+    writing_quality_score: 50,
+    platform_fit_score: 50,
     paragraphs: paragraphAnalyses,
-    global_suggestion: globalSuggestion,
+    unique_issues: detectedCategories,
+    provider: 'EZA-Core',
   };
 }
 

@@ -130,6 +130,11 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 # standalone.router removed - using direct endpoint in main.py instead
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])
+from backend.routers import proxy_corporate, proxy_websocket, proxy_audit, proxy_pipeline
+app.include_router(proxy_corporate.router, prefix="/api/proxy", tags=["Proxy-Corporate"])
+app.include_router(proxy_audit.router, prefix="/api/proxy", tags=["Proxy-Audit"])
+app.include_router(proxy_pipeline.router, prefix="/api/proxy", tags=["Proxy-Pipeline"])
+app.include_router(proxy_websocket.router, tags=["Proxy-WebSocket"])
 app.include_router(proxy_lite.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
 app.include_router(proxy_lite_media.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])

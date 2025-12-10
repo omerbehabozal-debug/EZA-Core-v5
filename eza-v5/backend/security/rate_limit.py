@@ -148,3 +148,7 @@ async def rate_limit_ws_handshake(request: Request) -> None:
     """Rate limit for WebSocket handshake: 20 requests / 120s"""
     await rate_limit(request, limit=20, window=120, key_prefix="ws_handshake")
 
+
+async def rate_limit_proxy_corporate(request: Request) -> None:
+    """Rate limit for EZA Proxy corporate endpoint: 5 requests / 60s (strict)"""
+    await rate_limit(request, limit=5, window=60, key_prefix="proxy_corporate")
