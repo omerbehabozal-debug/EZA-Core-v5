@@ -31,8 +31,12 @@ async def require_proxy_auth(
     Returns:
         Dict with user info and company_id
     """
-    # Require API key
-    if not api_key:
+    # Require API key (optional in development)
+    from backend.config import get_settings
+    settings = get_settings()
+    is_dev = settings.ENV in ["dev", "development"] or settings.DEBUG
+    
+    if not api_key and not is_dev:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API key required (X-Api-Key header)"

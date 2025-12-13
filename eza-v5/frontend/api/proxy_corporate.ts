@@ -146,6 +146,11 @@ function getAuthHeaders(): HeadersInit {
     throw new Error('Not authenticated. Please login first.');
   }
   
+  // If no API key, throw error with helpful message
+  if (!apiKey) {
+    throw new Error('API key required. Please create an API key in the Management panel (/proxy/management) or contact your administrator.');
+  }
+  
   return headers;
 }
 
