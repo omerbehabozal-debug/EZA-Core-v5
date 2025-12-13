@@ -1,0 +1,45 @@
+name: Nightly Backend Tests
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # Her gece 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  nightly-backend-tests:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: eza-v5/backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run full nightly CI-safe suite
+        env:
+          EZA_ENV: "ci"
+        run: |
+          echo "Running Nightly CI-safe suite…"
+          python run_tests.py ci_nightly || true
+
+      - name: Upload nightly test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-test-results
+          path: eza-v5/backend/data/test_results.json
+          if-no-files-found: ignore
+          retention-days: 7

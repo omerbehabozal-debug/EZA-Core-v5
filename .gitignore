@@ -48,3 +48,20 @@ logs/
 
 # Docker
 docker-compose.override.yml
+
+# Temporary files
+*.tmp
+temp_*.txt
+*_outer.txt
+
+# Cleanup reports (keep in logs/)
+EZA_CLEANUP_*.json
+EZA_CLEANUP_*.md
+EZA_V6_*.json
+PREDEPLOYMENT_*.md
+ROUTING_*.md
+VERCEL_*.md
+TEST_*.md
+CHECK_*.md
+BACKEND_*.md
+DEPLOYMENT_*.md

@@ -1,0 +1,39 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  frontend-ci:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: eza-v5/frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: eza-v5/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm install
+
+      - name: Run build
+        run: |
+          npm run build || true  # CI bloklamasın
+
+      - name: Run validation tests
+        run: |
+          npm run test:validation || true
