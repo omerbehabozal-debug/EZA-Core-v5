@@ -70,9 +70,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Login sayfası → her zaman erişilebilir
-  if (pathname === '/login') {
+  // Login sayfaları → her zaman erişilebilir
+  if (pathname === '/login' || pathname.startsWith('/proxy/login') || pathname.startsWith('/corporate/login')) {
     return NextResponse.next();
+  }
+
+  // Root path (/) için target path'e yönlendir
+  if (pathname === '/') {
+    url.pathname = targetPath;
+    return NextResponse.rewrite(url);
   }
 
   // Zaten target path'teyse → rewrite etme
