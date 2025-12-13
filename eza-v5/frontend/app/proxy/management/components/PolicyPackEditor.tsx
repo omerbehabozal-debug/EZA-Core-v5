@@ -16,7 +16,7 @@ interface PolicyInfo {
   enabled: boolean;
   weight: number;
   is_global: boolean;
-  is_custom?: bool;
+  is_custom?: boolean;
 }
 
 interface PolicyPackEditorProps {
