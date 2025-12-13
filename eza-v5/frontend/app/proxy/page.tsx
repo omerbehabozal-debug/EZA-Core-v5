@@ -32,6 +32,13 @@ export default function ProxyCorporatePage() {
   const [policies, setPolicies] = useState<('TRT' | 'FINTECH' | 'HEALTH')[]>([]);
   const [rewriteMode, setRewriteMode] = useState<'strict_compliance' | 'neutral_rewrite' | 'policy_bound' | 'autonomous_safety' | 'corporate_voice'>('neutral_rewrite');
 
+  // Wrapper function to handle tab changes from Tabs component
+  const handleTabChange = (tab: string) => {
+    if (tab === 'analiz' || tab === 'telemetry' || tab === 'pipeline' || tab === 'audit') {
+      setActiveTab(tab);
+    }
+  };
+
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || loading) return;
@@ -245,12 +252,12 @@ export default function ProxyCorporatePage() {
         </div>
 
         {/* Tabs Navigation */}
-        <Tabs defaultTab={activeTab} onTabChange={setActiveTab}>
-          <TabList activeTab={activeTab} setActiveTab={setActiveTab}>
-            <Tab id="analiz" activeTab={activeTab} setActiveTab={setActiveTab}>Analiz</Tab>
-            <Tab id="telemetry" activeTab={activeTab} setActiveTab={setActiveTab}>Durum & Telemetri</Tab>
-            <Tab id="pipeline" activeTab={activeTab} setActiveTab={setActiveTab}>AI Güvenlik Akışı</Tab>
-            <Tab id="audit" activeTab={activeTab} setActiveTab={setActiveTab}>Denetim & Raporlama</Tab>
+        <Tabs defaultTab={activeTab} onTabChange={handleTabChange}>
+          <TabList activeTab={activeTab} setActiveTab={handleTabChange}>
+            <Tab id="analiz" activeTab={activeTab} setActiveTab={handleTabChange}>Analiz</Tab>
+            <Tab id="telemetry" activeTab={activeTab} setActiveTab={handleTabChange}>Durum & Telemetri</Tab>
+            <Tab id="pipeline" activeTab={activeTab} setActiveTab={handleTabChange}>AI Güvenlik Akışı</Tab>
+            <Tab id="audit" activeTab={activeTab} setActiveTab={handleTabChange}>Denetim & Raporlama</Tab>
           </TabList>
 
           {/* Analiz Tab */}
