@@ -1,0 +1,50 @@
+[
+  {
+    "name": "tests_multiturn/test_context_graph.py::test_context_graph_risk_escalation",
+    "status": "failed",
+    "duration": 36.69735999999102,
+    "message": "E   AssertionError: Scenario 2: Risk should not decrease significantly from turn 2 to 3\n    assert 0.0 >= (0.5 - 0.1)"
+  },
+  {
+    "name": "tests_multiturn/test_context_graph.py::test_context_graph_final_risk",
+    "status": "failed",
+    "duration": 37.359277899959125,
+    "message": "E   AssertionError: Scenario 2: Final message should have highest or near-highest risk\n    assert 0.0 >= (0.5 - 0.2)\n     +  where 0.5 = max([0.5, 0.5, 0.0])"
+  },
+  {
+    "name": "tests_multiturn/test_conversation_manipulation.py::test_conversation_manipulation_all_scenarios",
+    "status": "failed",
+    "duration": 4.542815099935979,
+    "message": "E   AssertionError: Scenario 1: Manipulation should be detected in message 3\n    assert (0.0 > 0.2 or 0.0 > 0.2)"
+  },
+  {
+    "name": "tests_multiturn/test_conversation_manipulation.py::test_manipulation_pressure_detection",
+    "status": "failed",
+    "duration": 1.4692103000124916,
+    "message": "E   AssertionError: Scenario 1: Pressure should be detected in final message\n    assert 0.0 > 0.2"
+  },
+  {
+    "name": "tests_multiturn/test_progressive_risk.py::test_progressive_risk_all_scenarios",
+    "status": "failed",
+    "duration": 12.095006600022316,
+    "message": "E   AssertionError: Scenario 2, message failed: {'error_code': 'LLM_PROVIDER_ERROR', 'error_message': \"[openai] openai API error: Server error '502 Bad Gateway' for url 'https://api.openai.com/v1/chat/completions'\\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502\", 'provider': 'openai', 'retryable': True}\n    assert False is True"
+  },
+  {
+    "name": "tests_multiturn/test_progressive_risk.py::test_progressive_risk_escalation",
+    "status": "failed",
+    "duration": 236.765003999928,
+    "message": "E   assert False is True"
+  },
+  {
+    "name": "tests_multiturn/test_topic_drift.py::test_topic_drift_all_scenarios",
+    "status": "failed",
+    "duration": 0.9123980000149459,
+    "message": "E   AssertionError: Scenario 1 failed: {'error_code': 'LLM_PROVIDER_ERROR', 'error_message': '[openai] openai API error: Rate limit reached for gpt-4o-mini in organization org-ZUlCet4QHtXn1E7nekU47m7k on requests per min (RPM): Limit 500, Used 500, Requested 1. Please try again in 120ms. Visit https://platform.openai.com/account/rate-limits to learn more.', 'provider': 'openai', 'retryable': False}\n    assert False is True"
+  },
+  {
+    "name": "tests_multiturn/test_topic_drift.py::test_topic_drift_risk_persistence",
+    "status": "failed",
+    "duration": 1.7268112000310794,
+    "message": "E   assert False is True"
+  }
+]

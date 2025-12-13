@@ -1,0 +1,168 @@
+{
+  "obsolete": [
+    "backend/",
+    "eza_core/",
+    "frontend/",
+    "data_store/",
+    "diagnostics/",
+    "backend/ai/",
+    "backend/infra/",
+    "backend/intent_engine/",
+    "backend/middleware/",
+    "backend/risk_dictionaries/",
+    "backend/score_engine/",
+    "backend/api/",
+    "backend/policy_config.py",
+    "backend/risk_engine.py",
+    "backend/sensitive_data_patterns.py",
+    "backend/message_templates.py",
+    "run_eza_tests.py",
+    "tests/",
+    "EZA_CODE_ANALYSIS_REPORT.md",
+    "EZA_CORE_ARCHITECTURE_REPORT.md",
+    "FIXES_APPLIED_REPORT.md",
+    "LLM_CLIENT_SETUP_COMPLETE.md"
+  ],
+  "duplicates": [
+    {
+      "file": "eza-v5/backend/engines/alignment_engine.py",
+      "duplicates": [
+        "backend/api/alignment_engine.py"
+      ],
+      "note": "V5 version is current, V4 version in backend/api/ is obsolete"
+    },
+    {
+      "file": "eza-v5/backend/engines/input_analyzer.py",
+      "duplicates": [
+        "backend/api/input_analyzer.py",
+        "eza_core/analyzers/input_analyzer.py"
+      ],
+      "note": "V5 version is current, V4 versions are obsolete"
+    },
+    {
+      "file": "eza-v5/backend/engines/output_analyzer.py",
+      "duplicates": [
+        "backend/api/output_analyzer.py",
+        "eza_core/analyzers/output_analyzer.py"
+      ],
+      "note": "V5 version is current, V4 versions are obsolete"
+    },
+    {
+      "file": "eza-v5/backend/engines/deception_engine.py",
+      "duplicates": [
+        "backend/api/deception_engine.py"
+      ],
+      "note": "V5 version is current, V4 version is obsolete"
+    },
+    {
+      "file": "eza-v5/backend/engines/psych_pressure.py",
+      "duplicates": [
+        "backend/api/psych_pressure_detector.py"
+      ],
+      "note": "V5 version renamed, V4 version is obsolete"
+    },
+    {
+      "file": "eza-v5/backend/engines/legal_risk.py",
+      "duplicates": [
+        "backend/api/legal_risk_engine.py"
+      ],
+      "note": "V5 version renamed, V4 version is obsolete"
+    },
+    {
+      "file": "eza-v5/backend/engines/drift_detector.py",
+      "duplicates": [
+        "backend/api/drift_matrix.py"
+      ],
+      "note": "V5 version renamed, V4 version is obsolete"
+    },
+    {
+      "file": "eza-v5/backend/engines/score_engine.py",
+      "duplicates": [
+        "backend/api/eza_score.py",
+        "backend/score_engine/"
+      ],
+      "note": "V5 version is current, V4 versions are obsolete"
+    }
+  ],
+  "unused": [
+    "backend/api/abuse_engine.py",
+    "backend/api/advisor.py",
+    "backend/api/behavior_correlation.py",
+    "backend/api/context_graph.py",
+    "backend/api/critical_bias_engine.py",
+    "backend/api/ethical_gradient.py",
+    "backend/api/identity_block.py",
+    "backend/api/memory_consistency_engine.py",
+    "backend/api/moral_compass_engine.py",
+    "backend/api/narrative_engine.py",
+    "backend/api/pipeline.py",
+    "backend/api/pipeline_runner.py",
+    "backend/api/reasoning_shield.py",
+    "backend/api/report_builder.py",
+    "backend/api/verdict_engine.py",
+    "backend/api/utils/",
+    "backend/ai/knowledge_engine.py",
+    "backend/ai/model_client.py",
+    "backend/ai/response_composer.py",
+    "eza_core/alignment/",
+    "eza_core/models/",
+    "eza_core/main.py",
+    "eza_core/analyzers/text_preprocess.py",
+    "eza-portal/",
+    "frontend/lab/",
+    "frontend/static/",
+    "frontend/templates/"
+  ],
+  "frontend_mess": [
+    "frontend/",
+    "eza-portal/",
+    "eza-v5/frontend/pages/unauthorized.tsx"
+  ],
+  "v5_structure_issues": [
+    {
+      "issue": "Engines not in core/engines/",
+      "current": "eza-v5/backend/engines/",
+      "target": "eza-v5/backend/core/engines/",
+      "files_affected": [
+        "eza-v5/backend/engines/*.py"
+      ]
+    },
+    {
+      "issue": "Schemas not in core/schemas/",
+      "current": "eza-v5/backend/schemas/",
+      "target": "eza-v5/backend/core/schemas/",
+      "files_affected": [
+        "eza-v5/backend/schemas/*.py"
+      ]
+    },
+    {
+      "issue": "Services not in core/services/",
+      "current": "eza-v5/backend/services/",
+      "target": "eza-v5/backend/core/services/",
+      "files_affected": [
+        "eza-v5/backend/services/*.py"
+      ]
+    },
+    {
+      "issue": "Utils not in core/utils/",
+      "current": "eza-v5/backend/utils/",
+      "target": "eza-v5/backend/core/utils/",
+      "files_affected": [
+        "eza-v5/backend/utils/*.py"
+      ]
+    },
+    {
+      "issue": "Missing routers: media.py, autonomy.py",
+      "note": "Should create skeleton files"
+    }
+  ],
+  "migration_required": true,
+  "summary": {
+    "v4_folders_to_remove": 12,
+    "duplicate_engines": 8,
+    "unused_python_files": 25,
+    "frontend_folders_to_clean": 3,
+    "structure_normalizations": 5
+  }
+}
+

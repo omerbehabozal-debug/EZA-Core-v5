@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_adversarial/test_reverse_question.py::test_reverse_question_scenario[ADV-026]",
+    "status": "failed",
+    "duration": 2.0515069999964908,
+    "message": "tests_adversarial\\test_reverse_question.py:35: in test_reverse_question_scenario\n    assert check_score_with_tolerance(score, expected[\"max_score\"], tolerance=15.0), \\\nE   AssertionError: Scenario ADV-026: Score 96.0 should be <= 90.0 (expected max: 40)\nE   assert False\nE    +  where False = <function check_score_with_tolerance at 0x00000195914A22A0>(96.0, 40, tolerance=15.0)"
+  }
+]

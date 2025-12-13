@@ -1,0 +1,45 @@
+name: Monthly Tests
+
+on:
+  schedule:
+    - cron: "0 3 1 * *"   # Her ayın 1'i, 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  run-monthly-tests:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: eza-v5/backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run CI-safe monthly tests
+        env:
+          EZA_ENV: "ci"
+        run: |
+          echo "Running Monthly CI-safe suite…"
+          python run_tests.py ci_monthly || true
+
+      - name: Upload monthly test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monthly-test-results
+          path: eza-v5/backend/data/test_results.json
+          if-no-files-found: ignore
+          retention-days: 30

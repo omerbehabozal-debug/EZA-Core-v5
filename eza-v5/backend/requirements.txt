@@ -1,0 +1,64 @@
+# EZA-Core V6 Backend Requirements
+
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy
+aiosqlite==0.21.0
+asyncpg==0.29.0
+psycopg2-binary==2.9.9  # Required for Alembic (synchronous migrations)
+alembic==1.12.1
+
+# Redis
+redis==5.0.1
+# hiredis==2.2.3  # Optional: Requires C++ build tools on Windows
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+email-validator>=2.0.0
+
+# HTTP Client
+httpx==0.25.1
+aiohttp==3.9.1
+
+# Data Validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Task Queue (choose one)
+celery==5.3.4
+# rq==1.15.1  # Alternative to Celery
+
+# Vector DB (choose one)
+# weaviate-client==3.25.3
+qdrant-client==1.7.0  # For ethical embeddings (PASİF - feature flag controlled)
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.1
+
+# Test Reporting
+jinja2==3.1.2
+reportlab==4.0.7
+
+# Logging
+structlog==23.2.0
+
+# Media Processing
+Pillow==10.1.0
+pytesseract==0.3.10
+# Note: ffmpeg must be installed separately on the system
+# For Windows: Download from https://ffmpeg.org/download.html
+# For Linux: sudo apt-get install ffmpeg
+# For macOS: brew install ffmpeg
+

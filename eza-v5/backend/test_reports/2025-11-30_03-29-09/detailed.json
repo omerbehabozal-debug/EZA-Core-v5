@@ -1,0 +1,262 @@
+[
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_20_basic",
+    "status": "passed",
+    "duration": 0.27085030009038746
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_50_basic",
+    "status": "passed",
+    "duration": 0.5093468999257311
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_error_rate",
+    "status": "passed",
+    "duration": 0.2898758000228554
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_throughput",
+    "status": "passed",
+    "duration": 0.42334599990863353
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_response_time",
+    "status": "passed",
+    "duration": 0.2439387000631541
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_proxy_mode",
+    "status": "passed",
+    "duration": 1.1491422000108287
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_mixed_modes",
+    "status": "passed",
+    "duration": 0.6337823000503704
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_risky_input",
+    "status": "passed",
+    "duration": 1.154943999950774
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_data_integrity",
+    "status": "passed",
+    "duration": 0.28802390000782907
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_stability",
+    "status": "passed",
+    "duration": 0.4989944000262767
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_score_distribution",
+    "status": "passed",
+    "duration": 0.2752492999425158
+  },
+  {
+    "name": "tests_performance/test_burst_throughput.py::test_burst_concurrent_safety",
+    "status": "passed",
+    "duration": 1.4858947999309748
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_10_basic",
+    "status": "passed",
+    "duration": 0.13730219996068627
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_20_basic",
+    "status": "passed",
+    "duration": 0.24069190002046525
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_no_deadlock",
+    "status": "passed",
+    "duration": 0.18333009991329163
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_mixed_modes",
+    "status": "passed",
+    "duration": 0.5042400000384077
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_risky_inputs",
+    "status": "passed",
+    "duration": 1.0498108000028878
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_response_ordering",
+    "status": "passed",
+    "duration": 0.14922869997099042
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_error_isolation",
+    "status": "passed",
+    "duration": 0.041460599983111024
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_resource_contention",
+    "status": "passed",
+    "duration": 0.1339420999865979
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_throughput",
+    "status": "passed",
+    "duration": 0.16214480006601661
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_batch_processing",
+    "status": "passed",
+    "duration": 0.1661080999765545
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_score_consistency",
+    "status": "passed",
+    "duration": 0.1183162999805063
+  },
+  {
+    "name": "tests_performance/test_concurrency.py::test_concurrency_stress",
+    "status": "passed",
+    "duration": 0.26788719999603927
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_standalone_basic",
+    "status": "passed",
+    "duration": 0.01042190007865429
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_proxy_basic",
+    "status": "passed",
+    "duration": 0.05970850004814565
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_proxy_lite",
+    "status": "passed",
+    "duration": 0.019708600011654198
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_risky_input",
+    "status": "passed",
+    "duration": 0.06004680006299168
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_long_input",
+    "status": "passed",
+    "duration": 0.09288010001182556
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_complex_analysis",
+    "status": "passed",
+    "duration": 0.07181440002750605
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_consistency",
+    "status": "passed",
+    "duration": 0.11429579998366535
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_p50_p95_p99",
+    "status": "passed",
+    "duration": 0.20889669994357973
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_all_modes",
+    "status": "passed",
+    "duration": 0.08509750000666827
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_input_analysis",
+    "status": "passed",
+    "duration": 0.012154299998655915
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_output_analysis",
+    "status": "passed",
+    "duration": 0.05723020003642887
+  },
+  {
+    "name": "tests_performance/test_latency.py::test_latency_score_calculation",
+    "status": "passed",
+    "duration": 0.019789299927651882
+  },
+  {
+    "name": "tests_performance/test_memory.py::test_memory_basic_usage",
+    "status": "passed",
+    "duration": 0.5383933000266552
+  },
+  {
+    "name": "tests_performance/test_memory.py::test_memory_proxy_mode",
+    "status": "passed",
+    "duration": 2.1154829000588506
+  },
+  {
+    "name": "tests_performance/test_memory.py::test_memory_concurrent",
+    "status": "passed",
+    "duration": 0.49578029999975115
+  },
+  {
+    "name": "tests_performance/test_memory.py::test_memory_policy_evaluation",
+    "status": "passed",
+    "duration": 2.703032699995674
+  },
+  {
+    "name": "tests_performance/test_memory.py::test_memory_long_conversation",
+    "status": "passed",
+    "duration": 0.6116734000388533
+  },
+  {
+    "name": "tests_performance/test_memory.py::test_memory_risky_inputs",
+    "status": "passed",
+    "duration": 6.803190800012089
+  },
+  {
+    "name": "tests_performance/test_memory.py::test_memory_mixed_modes",
+    "status": "passed",
+    "duration": 1.321396200102754
+  },
+  {
+    "name": "tests_performance/test_memory.py::test_memory_stability",
+    "status": "passed",
+    "duration": 0.9117019000696018
+  },
+  {
+    "name": "tests_performance/test_stability_longrun.py::test_stability_100_requests",
+    "status": "passed",
+    "duration": 0.8910460999468341
+  },
+  {
+    "name": "tests_performance/test_stability_longrun.py::test_stability_200_requests",
+    "status": "passed",
+    "duration": 1.6867222000146285
+  },
+  {
+    "name": "tests_performance/test_stability_longrun.py::test_stability_error_recovery",
+    "status": "passed",
+    "duration": 1.777659000013955
+  },
+  {
+    "name": "tests_performance/test_stability_longrun.py::test_stability_score_consistency",
+    "status": "passed",
+    "duration": 2.4289836999960244
+  },
+  {
+    "name": "tests_performance/test_stability_longrun.py::test_stability_policy_consistency",
+    "status": "passed",
+    "duration": 5.167013400001451
+  },
+  {
+    "name": "tests_performance/test_stability_longrun.py::test_stability_response_schema",
+    "status": "passed",
+    "duration": 1.1439446000149474
+  },
+  {
+    "name": "tests_performance/test_stability_longrun.py::test_stability_throughput_consistency",
+    "status": "passed",
+    "duration": 0.46626829996239394
+  },
+  {
+    "name": "tests_performance/test_stability_longrun.py::test_stability_all_modes",
+    "status": "passed",
+    "duration": 2.1668414999730885
+  }
+]

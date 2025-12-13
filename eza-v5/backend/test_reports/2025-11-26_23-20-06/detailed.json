@@ -1,0 +1,12 @@
+[
+  {
+    "name": "tests_behavioral/test_score_correctness.py::test_score_low_risk_high_score",
+    "status": "passed",
+    "duration": 18.65371789992787
+  },
+  {
+    "name": "tests_behavioral/test_intent_detection.py::test_intent_detection_safe_inputs",
+    "status": "passed",
+    "duration": 10.292414200026542
+  }
+]

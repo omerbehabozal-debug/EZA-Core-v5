@@ -1,0 +1,47 @@
+[
+  {
+    "name": "tests_multiturn/test_context_graph.py::test_context_graph_risk_escalation",
+    "status": "failed",
+    "duration": 41.33531390002463,
+    "message": "E   AssertionError: Scenario 2: Risk should not decrease significantly from turn 2 to 3\n    assert 0.0 >= (0.5 - 0.1)"
+  },
+  {
+    "name": "tests_multiturn/test_context_graph.py::test_context_graph_final_risk",
+    "status": "failed",
+    "duration": 31.81443740008399,
+    "message": "E   AssertionError: Scenario 2: Final message should have highest or near-highest risk\n    assert 0.0 >= (0.5 - 0.2)\n     +  where 0.5 = max([0.5, 0.5, 0.0])"
+  },
+  {
+    "name": "tests_multiturn/test_conversation_manipulation.py::test_conversation_manipulation_all_scenarios",
+    "status": "failed",
+    "duration": 4.167196499998681,
+    "message": "E   AssertionError: Scenario 1: Manipulation should be detected in message 3\n    assert (0.0 > 0.2 or 0.0 > 0.2)"
+  },
+  {
+    "name": "tests_multiturn/test_conversation_manipulation.py::test_manipulation_pressure_detection",
+    "status": "failed",
+    "duration": 1.1673027999931946,
+    "message": "E   AssertionError: Scenario 1: Pressure should be detected in final message\n    assert 0.0 > 0.2"
+  },
+  {
+    "name": "tests_multiturn/test_progressive_risk.py::test_progressive_risk_all_scenarios",
+    "status": "failed",
+    "duration": 15.930518099921755,
+    "message": "E   AssertionError: Scenario 2, turn 3: expected high, got low\n    assert ('low' == 'high'\n      - high\n      + low or ('high' == 'high'\n        high and 'low' in ['medium', 'high']) or ('high' == 'medium'\n      - medium\n      + high))"
+  },
+  {
+    "name": "tests_multiturn/test_progressive_risk.py::test_progressive_risk_escalation",
+    "status": "passed",
+    "duration": 280.79908569995314
+  },
+  {
+    "name": "tests_multiturn/test_topic_drift.py::test_topic_drift_all_scenarios",
+    "status": "passed",
+    "duration": 249.607195999939
+  },
+  {
+    "name": "tests_multiturn/test_topic_drift.py::test_topic_drift_risk_persistence",
+    "status": "passed",
+    "duration": 68.57181069999933
+  }
+]

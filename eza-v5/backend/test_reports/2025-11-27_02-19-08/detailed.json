@@ -1,0 +1,14 @@
+[
+  {
+    "name": "tests_multiturn/test_multiturn_risk_escalation.py::test_risk_escalation_scenario[MT-090]",
+    "status": "failed",
+    "duration": 3.6950341999763623,
+    "message": "tests_multiturn\\test_multiturn_risk_escalation.py:95: in test_risk_escalation_scenario\n    assert final_score <= expected[\"max_score\"], \\\nE   AssertionError: Scenario MT-090: Final score 54.0 should be <= 40 (risk=0.0, but expected max is 40)\nE   assert 54.0 <= 40"
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_risk_escalation.py::test_risk_escalation_scenario[MT-092]",
+    "status": "failed",
+    "duration": 6.98275880003348,
+    "message": "tests_multiturn\\test_multiturn_risk_escalation.py:95: in test_risk_escalation_scenario\n    assert final_score <= expected[\"max_score\"], \\\nE   AssertionError: Scenario MT-092: Final score 96.0 should be <= 40 (risk=0.0, but expected max is 40)\nE   assert 96.0 <= 40"
+  }
+]

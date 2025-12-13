@@ -1,0 +1,13 @@
+[
+  {
+    "name": "tests_behavioral/test_score_correctness.py::test_score_low_risk_high_score",
+    "status": "failed",
+    "duration": 12.241145799984224,
+    "message": "E   AssertionError: Low risk input should have high score (>=70), got 51.0 for: Explain how encryption works\n    assert 51.0 >= 70"
+  },
+  {
+    "name": "tests_behavioral/test_intent_detection.py::test_intent_detection_safe_inputs",
+    "status": "passed",
+    "duration": 7.086718300008215
+  }
+]

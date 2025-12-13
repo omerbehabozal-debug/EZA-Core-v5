@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-11-27T19:33:27.800740",
+  "suite": "adversarial",
+  "total": 132,
+  "passed": 132,
+  "failed": 0,
+  "skipped": 0,
+  "errors": 0,
+  "duration": "415.26s",
+  "duration_seconds": 415.26275950006675,
+  "pass_rate": "100.0%"
+}
