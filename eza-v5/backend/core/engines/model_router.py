@@ -1,5 +1,5 @@
 """
-EZA v5 - Model Router
+EZA-Core V6 - Model Router
 
 Şu an için tek sağlayıcı: OpenAI
 

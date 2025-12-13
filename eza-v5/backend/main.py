@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-EZA v5 - Ethical Zekâ Altyapısı
+EZA-Core V6 - Ethical Zekâ Altyapısı
 Main FastAPI Application
 """
 
