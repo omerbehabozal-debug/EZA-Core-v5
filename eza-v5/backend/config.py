@@ -68,6 +68,14 @@ class Settings(BaseSettings):
     ENABLE_TELEMETRY: bool = True
     TELEMETRY_SAMPLE_RATE: float = 1.0
     
+    # Learning & Vector DB (PASİF - Feature Flags)
+    VECTOR_DB_ENABLED: bool = False  # Default: disabled, no-op
+    VECTOR_DB_URL: Optional[str] = "http://localhost:6333"  # Qdrant default
+    VECTOR_DB_API_KEY: Optional[str] = None
+    ETHICAL_EMBEDDING_ENABLED: bool = False  # Default: disabled, no-op
+    LEARNING_PIPELINE_ENABLED: bool = False  # Default: disabled, no-op
+    AUTO_POLICY_UPDATE_ENABLED: bool = False  # Default: disabled, no-op
+    
     # Gateway
     DEFAULT_LLM_PROVIDER: str = "openai"  # openai, anthropic, local
     FALLBACK_LLM_PROVIDER: str = "openai"

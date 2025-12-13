@@ -1,0 +1,71 @@
+{
+  "dataset_schema": {
+    "version": "1.0.0",
+    "description": "EZA Ethical Training Dataset Schema (KAPALI)",
+    "fields": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "description": "Unique identifier"
+      },
+      {
+        "name": "anonymized_text",
+        "type": "text",
+        "description": "Anonymized input text (PII removed)"
+      },
+      {
+        "name": "risk_level",
+        "type": "string",
+        "enum": ["low", "medium", "high", "critical"],
+        "description": "Risk level classification"
+      },
+      {
+        "name": "triggered_policies",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of policy IDs that triggered"
+      },
+      {
+        "name": "embedding_vector",
+        "type": "array",
+        "items": {
+          "type": "float"
+        },
+        "description": "Embedding vector (1536 dimensions for OpenAI)"
+      },
+      {
+        "name": "n_score",
+        "type": "float",
+        "description": "Negative content score"
+      },
+      {
+        "name": "f_score",
+        "type": "float",
+        "description": "Freedom score"
+      },
+      {
+        "name": "z_score",
+        "type": "float",
+        "description": "Harm prevention score"
+      },
+      {
+        "name": "a_score",
+        "type": "float",
+        "description": "Discrimination score"
+      },
+      {
+        "name": "is_trainable",
+        "type": "boolean",
+        "description": "Whether this case is trainable (default: false)"
+      }
+    ],
+    "constraints": {
+      "min_trainable_cases": 10000,
+      "require_balanced_distribution": true,
+      "require_anonymization": true
+    }
+  }
+}
+

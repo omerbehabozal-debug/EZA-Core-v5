@@ -525,8 +525,7 @@ async def analyze_paragraph(
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_ethical_content(
-    request: AnalyzeRequest,
-    current_user = Depends(require_internal())
+    request: AnalyzeRequest
 ):
     """
     Proxy-Lite Ethical Analysis Endpoint
@@ -644,8 +643,7 @@ async def analyze_ethical_content(
 
 @router.post("/rewrite", response_model=RewriteResponse)
 async def rewrite_paragraph(
-    request: RewriteRequest,
-    current_user = Depends(require_internal())
+    request: RewriteRequest
 ):
     """
     Rewrite paragraph to be more ethical

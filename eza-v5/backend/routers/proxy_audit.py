@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth import require_proxy_auth
+from backend.auth.rbac import require_permission
 from backend.security.rate_limit import rate_limit_proxy_corporate
 
 router = APIRouter()
