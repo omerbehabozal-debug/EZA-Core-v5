@@ -98,6 +98,8 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const [accessDenied, setAccessDenied] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<'TRY' | 'USD'>('TRY');
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
 
   // Check admin access
   useEffect(() => {
