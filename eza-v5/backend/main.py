@@ -108,6 +108,7 @@ app = FastAPI(
 allowed_origins = [
     "https://standalone.ezacore.ai",
     "https://proxy.ezacore.ai",
+    "https://proxy-lite.ezacore.ai",  # Proxy-Lite domain
     "https://corporate.ezacore.ai",
     "https://regulator.ezacore.ai",
     "https://platform.ezacore.ai",
