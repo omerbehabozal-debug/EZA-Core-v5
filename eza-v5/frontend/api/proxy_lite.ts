@@ -59,11 +59,27 @@ export async function analyzeLite(
   tone?: 'neutral' | 'professional' | 'friendly' | 'funny' | 'persuasive' | 'strict_warning' | null
 ): Promise<LiteAnalysisResponse | null> {
   try {
+    if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+      throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured. Please set it in Vercel project settings.');
+    }
+    
     const defaultProvider = process.env.NEXT_PUBLIC_LITE_DEFAULT_PROVIDER || 'openai';
     const url = `${API_BASE_URL}/api/proxy-lite/analyze`;
     
-    console.log('[Proxy-Lite] Sending request to:', url);
-    console.log('[Proxy-Lite] Request body:', { text: text.trim().substring(0, 50) + '...', locale, provider: provider || defaultProvider });
+    // Log detailed information for debugging
+    console.group('[Proxy-Lite] Request Details');
+    console.log('API_BASE_URL:', API_BASE_URL);
+    console.log('Full URL:', url);
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('NEXT_PUBLIC_EZA_API_URL:', process.env.NEXT_PUBLIC_EZA_API_URL);
+    console.log('Request body:', { text: text.trim().substring(0, 50) + '...', locale, provider: provider || defaultProvider });
+    console.groupEnd();
+    
+    // Validate URL before making request
+    if (!url || url.includes('undefined') || url.includes('null')) {
+      console.error('[Proxy-Lite] Invalid URL:', url);
+      throw new Error('Backend URL yapılandırılmamış. Lütfen NEXT_PUBLIC_EZA_API_URL environment variable\'ını kontrol edin.');
+    }
     
     // Create AbortController for timeout
     const controller = new AbortController();

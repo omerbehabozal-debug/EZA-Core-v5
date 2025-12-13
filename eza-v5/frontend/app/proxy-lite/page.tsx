@@ -71,7 +71,7 @@ export default function ProxyLitePage() {
         saveAnalysis(analysisResult, text.trim());
       } else {
         console.error('[Proxy-Lite] Analysis returned null');
-        setError("Analiz tamamlanamadı. Backend yanıt vermedi. Lütfen backend'in çalıştığından emin olun (http://localhost:8000/docs).");
+        setError("Analiz tamamlanamadı. Backend yanıt vermedi. Lütfen backend'in çalıştığından ve erişilebilir olduğundan emin olun.");
         setIsLive(false);
       }
     } catch (err: any) {
@@ -80,14 +80,16 @@ export default function ProxyLitePage() {
       
       // More specific error messages
       let userFriendlyMessage = errorMessage;
-      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        userFriendlyMessage = 'Backend\'e bağlanılamıyor. Backend\'in çalıştığından emin olun (http://localhost:8000).';
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+        userFriendlyMessage = 'Backend\'e bağlanılamıyor. Backend sunucusunun çalıştığından ve erişilebilir olduğundan emin olun.';
       } else if (errorMessage.includes('timeout') || errorMessage.includes('zaman aşımı')) {
         userFriendlyMessage = 'İstek zaman aşımına uğradı. Lütfen daha kısa bir metin deneyin veya tekrar deneyin.';
       } else if (errorMessage.includes('HTTP 404')) {
         userFriendlyMessage = 'Backend endpoint bulunamadı. Backend API\'sinin doğru yapılandırıldığından emin olun.';
       } else if (errorMessage.includes('HTTP 500')) {
         userFriendlyMessage = 'Backend sunucu hatası. Backend loglarını kontrol edin.';
+      } else if (errorMessage.includes('NEXT_PUBLIC_EZA_API_URL')) {
+        userFriendlyMessage = 'Backend URL yapılandırılmamış. Lütfen sistem yöneticisine başvurun.';
       }
       
       setError(`Analiz hatası: ${userFriendlyMessage}`);

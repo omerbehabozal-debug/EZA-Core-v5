@@ -14,9 +14,15 @@ export function getApiUrl(): string {
   
   if (!apiUrl) {
     if (isProduction) {
-      const error = 'NEXT_PUBLIC_EZA_API_URL environment variable is required in production';
+      const error = 'NEXT_PUBLIC_EZA_API_URL environment variable is required in production. Please configure it in Vercel project settings.';
       console.error('[API URL]', error);
-      throw new Error(error);
+      // In production, we should still return a value to prevent app crash
+      // But log the error clearly
+      if (typeof window !== 'undefined') {
+        console.error('[API URL] Production deployment is missing NEXT_PUBLIC_EZA_API_URL. Please add it in Vercel project settings → Environment Variables.');
+      }
+      // Return empty string to trigger fetch errors that can be handled
+      return '';
     }
     
     // Development: use localhost fallback
