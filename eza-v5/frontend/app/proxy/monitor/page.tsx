@@ -37,6 +37,13 @@ export default function MonitorPage() {
     }
   }, [activeTab]);
 
+  // Wrapper function to handle tab changes from Tabs component
+  const handleTabChange = (tab: string) => {
+    if (tab === 'corporate' || tab === 'regulator') {
+      setActiveTab(tab);
+    }
+  };
+
   return (
     <div
       className="min-h-screen"
@@ -66,12 +73,12 @@ export default function MonitorPage() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultTab={activeTab} onTabChange={setActiveTab}>
-          <TabList activeTab={activeTab} setActiveTab={setActiveTab}>
-            <Tab id="corporate" activeTab={activeTab} setActiveTab={setActiveTab}>
+        <Tabs defaultTab={activeTab} onTabChange={handleTabChange}>
+          <TabList activeTab={activeTab} setActiveTab={handleTabChange}>
+            <Tab id="corporate" activeTab={activeTab} setActiveTab={handleTabChange}>
               📊 Corporate SLA Monitor
             </Tab>
-            <Tab id="regulator" activeTab={activeTab} setActiveTab={setActiveTab}>
+            <Tab id="regulator" activeTab={activeTab} setActiveTab={handleTabChange}>
               🔒 Regulator Telemetry
             </Tab>
           </TabList>
