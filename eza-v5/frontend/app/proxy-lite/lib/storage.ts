@@ -123,6 +123,20 @@ export function getHistoryEntry(id: string): LiteHistoryItem | null {
 }
 
 /**
+ * Delete a single history entry by ID
+ */
+export function deleteHistoryEntry(id: string): void {
+  try {
+    if (typeof window === 'undefined') return;
+    const history = getHistory();
+    const updated = history.filter(entry => entry.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (error) {
+    console.error('Failed to delete history entry:', error);
+  }
+}
+
+/**
  * Clear all history
  */
 export function clearHistory(): void {

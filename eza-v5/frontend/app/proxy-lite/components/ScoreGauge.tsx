@@ -108,17 +108,6 @@ export default function ScoreGauge({
           <span className="text-sm text-[#6E6E73] mt-1" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>Etik Skor</span>
         </div>
       </div>
-      {/* Risk label */}
-      <p 
-        className="mt-4 text-sm font-semibold"
-        style={{ 
-          color: color,
-          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-          fontWeight: 500
-        }}
-      >
-        {label}
-      </p>
     </div>
   );
 }

@@ -7,7 +7,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getHistory, LiteHistoryItem } from '../lib/storage';
+import { getHistory, deleteHistoryEntry, LiteHistoryItem } from '../lib/storage';
+import { Trash2, X } from 'lucide-react';
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -17,6 +18,25 @@ export default function HistoryPage() {
   useEffect(() => {
     setHistory(getHistory());
   }, []);
+
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening detail view
+    if (confirm('Bu analizi silmek istediğinize emin misiniz?')) {
+      deleteHistoryEntry(id);
+      setHistory(getHistory());
+      if (selectedEntry?.id === id) {
+        setSelectedEntry(null);
+      }
+    }
+  };
+
+  const handleClearAll = () => {
+    if (confirm('Tüm analiz geçmişini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
+      localStorage.removeItem('eza_proxy_lite_history');
+      setHistory([]);
+      setSelectedEntry(null);
+    }
+  };
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -44,14 +64,26 @@ export default function HistoryPage() {
             <h1 className="text-3xl font-bold text-white mb-2">Analiz Geçmişi</h1>
             <p className="text-gray-400 text-sm">{history.length} kayıt</p>
           </div>
-          <button
-            type="button"
-            onClick={() => router.push('/proxy-lite')}
-            className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-all"
-            style={{ backgroundColor: '#0066FF' }}
-          >
-            ← Geri
-          </button>
+          <div className="flex gap-2">
+            {history.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-all hover:opacity-80"
+                style={{ backgroundColor: '#E84343' }}
+              >
+                Tümünü Temizle
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => router.push('/proxy-lite')}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-all hover:opacity-80"
+              style={{ backgroundColor: '#0066FF' }}
+            >
+              ← Geri
+            </button>
+          </div>
         </div>
 
         {/* History List */}
@@ -86,7 +118,18 @@ export default function HistoryPage() {
                       </p>
                     )}
                   </div>
-                  <span className="text-gray-400">→</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => handleDelete(entry.id, e)}
+                      className="p-2 rounded-lg transition-all hover:bg-red-500/20"
+                      style={{ color: '#E84343' }}
+                      title="Sil"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                    <span className="text-gray-400">→</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -104,9 +147,9 @@ export default function HistoryPage() {
               <button
                 type="button"
                 onClick={() => setSelectedEntry(null)}
-                className="text-gray-400 hover:text-white"
+                className="p-2 rounded-lg transition-all hover:bg-gray-800 text-gray-400 hover:text-white"
               >
-                ✕
+                <X size={20} />
               </button>
             </div>
             

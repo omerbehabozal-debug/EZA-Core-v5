@@ -447,7 +447,8 @@ async def analyze_paragraph(
     locale: str,
     provider: str,
     settings,
-    platform: Optional[str] = None
+    context: Optional[str] = None,
+    target_audience: Optional[str] = None
 ) -> ParagraphAnalysisResponse:
     """Analyze a single paragraph using the judge prompt"""
     import logging
@@ -562,7 +563,12 @@ async def analyze_ethical_content(
             
             try:
                 analysis = await analyze_paragraph(
-                    para, request.locale, request.provider or "openai", settings, request.context, request.target_audience
+                    paragraph=para,
+                    locale=request.locale,
+                    provider=request.provider or "openai",
+                    settings=settings,
+                    context=request.context,
+                    target_audience=request.target_audience
                 )
                 
                 # Post-process: If it's clearly a question but got low score, adjust
@@ -655,10 +661,12 @@ async def rewrite_paragraph(
         
         # First, analyze original paragraph
         original_analysis = await analyze_paragraph(
-            request.text,
-            locale,
-            provider,
-            settings
+            paragraph=request.text,
+            locale=locale,
+            provider=provider,
+            settings=settings,
+            context=None,
+            target_audience=None
         )
         original_score = original_analysis.score
         risk_level_before = get_risk_level(original_score)
@@ -687,10 +695,12 @@ async def rewrite_paragraph(
         
         # Analyze the rewritten text
         new_analysis = await analyze_paragraph(
-            new_text,
-            locale,
-            provider,
-            settings
+            paragraph=new_text,
+            locale=locale,
+            provider=provider,
+            settings=settings,
+            context=None,
+            target_audience=None
         )
         new_score = new_analysis.score
         risk_level_after = get_risk_level(new_score)

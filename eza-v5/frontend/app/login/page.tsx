@@ -16,27 +16,68 @@ export default function LoginPage() {
   const { setAuth } = useAuth();
   const router = useRouter();
 
+  // Decode JWT token to extract role
+  const decodeToken = (token: string): UserRole | null => {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        console.warn('Invalid token format');
+        return null;
+      }
+      
+      // Decode base64 (handle padding)
+      let payloadJson = parts[1];
+      payloadJson = payloadJson.replace(/-/g, '+').replace(/_/g, '/');
+      const padding = 4 - (payloadJson.length % 4);
+      if (padding !== 4) {
+        payloadJson += '='.repeat(padding);
+      }
+      
+      const payload = JSON.parse(atob(payloadJson));
+      const tokenRole = payload.role;
+      
+      console.log('Decoded token role:', tokenRole);
+      
+      // Map token role to UserRole type
+      if (tokenRole === 'admin' || tokenRole === 'corporate' || tokenRole === 'regulator') {
+        return tokenRole as UserRole;
+      }
+      console.warn('Unknown role in token:', tokenRole);
+      return null;
+    } catch (error) {
+      console.error('Failed to decode token:', error);
+      return null;
+    }
+  };
+
   const handleLogin = () => {
     if (!token.trim()) {
       setError('Please enter a JWT token');
       return;
     }
 
-    if (!role) {
-      setError('Please select a role');
+    // Try to decode role from token
+    const tokenRole = decodeToken(token.trim());
+    const finalRole = tokenRole || role;
+
+    console.log('Token role:', tokenRole, 'Selected role:', role, 'Final role:', finalRole);
+
+    if (!finalRole) {
+      setError('Could not determine role from token. Please select a role manually.');
       return;
     }
 
-    // Set auth
-    setAuth(token.trim(), role);
+    // Set auth with token role (or fallback to selected role)
+    console.log('Setting auth with role:', finalRole);
+    setAuth(token.trim(), finalRole);
     setError(null);
 
     // Redirect based on role
-    if (role === 'admin') {
+    if (finalRole === 'admin') {
       router.push('/proxy'); // or /corporate
-    } else if (role === 'corporate') {
+    } else if (finalRole === 'corporate') {
       router.push('/corporate');
-    } else if (role === 'regulator') {
+    } else if (finalRole === 'regulator') {
       router.push('/regulator');
     } else {
       router.push('/');
@@ -71,13 +112,14 @@ export default function LoginPage() {
               rows={4}
             />
             <p className="mt-1 text-xs text-gray-500">
-              Get your JWT token from the backend (e.g., via Swagger or API)
+              Get your JWT token from the backend (e.g., via Swagger or API). 
+              Role will be automatically detected from token, or select manually below.
             </p>
           </div>
 
           <div>
             <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-              Role
+              Role (Fallback - auto-detected from token if available)
             </label>
             <select
               id="role"
@@ -101,6 +143,19 @@ export default function LoginPage() {
           <div className="text-center text-sm text-gray-500">
             <p>This is a demo login. In production, use proper authentication.</p>
           </div>
+
+          <button
+            onClick={() => {
+              localStorage.removeItem('eza_auth');
+              setToken('');
+              setRole('admin');
+              setError(null);
+              alert('LocalStorage cleared! Please login again.');
+            }}
+            className="w-full py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors text-sm"
+          >
+            Clear Storage & Reset
+          </button>
         </div>
       </div>
     </div>

@@ -12,39 +12,41 @@
  */
 
 // Apple Soft Light Theme Colors
+// Backend aralıkları ile uyumlu: 70-100 (low), 40-69 (medium), 0-39 (high)
 export const ETHICAL_SCORE_RANGES = {
-  LOW_RISK: { min: 76, max: 100, label: 'Düşük Risk', color: '#22BF55', level: 'dusuk' as const },
-  MEDIUM_RISK: { min: 51, max: 75, label: 'Orta Risk', color: '#F4A72F', level: 'orta' as const },
-  HIGH_RISK: { min: 0, max: 50, label: 'Yüksek Risk', color: '#E84343', level: 'yuksek' as const },
+  LOW_RISK: { min: 70, max: 100, label: 'Düşük Risk', color: '#22BF55', level: 'low' as const },
+  MEDIUM_RISK: { min: 40, max: 69, label: 'Orta Risk', color: '#F4A72F', level: 'medium' as const },
+  HIGH_RISK: { min: 0, max: 39, label: 'Yüksek Risk', color: '#E84343', level: 'high' as const },
 };
 
 /**
  * Get risk label based on ethical score
- * Updated ranges: 76-100 (Low), 51-75 (Medium), 0-50 (High)
+ * Backend uyumlu aralıklar: 70-100 (Low), 40-69 (Medium), 0-39 (High)
  */
 export function getRiskLabel(score: number): string {
-  if (score >= 76) return ETHICAL_SCORE_RANGES.LOW_RISK.label;
-  if (score >= 51) return ETHICAL_SCORE_RANGES.MEDIUM_RISK.label;
+  if (score >= 70) return ETHICAL_SCORE_RANGES.LOW_RISK.label;
+  if (score >= 40) return ETHICAL_SCORE_RANGES.MEDIUM_RISK.label;
   return ETHICAL_SCORE_RANGES.HIGH_RISK.label;
 }
 
 /**
  * Get color based on ethical score
  * Apple Soft Light Theme: #22BF55 (green), #F4A72F (orange), #E84343 (red)
+ * Backend uyumlu aralıklar: 70-100 (Low), 40-69 (Medium), 0-39 (High)
  */
 export function getEthicalScoreColor(score: number): string {
-  if (score >= 76) return ETHICAL_SCORE_RANGES.LOW_RISK.color;
-  if (score >= 51) return ETHICAL_SCORE_RANGES.MEDIUM_RISK.color;
+  if (score >= 70) return ETHICAL_SCORE_RANGES.LOW_RISK.color;
+  if (score >= 40) return ETHICAL_SCORE_RANGES.MEDIUM_RISK.color;
   return ETHICAL_SCORE_RANGES.HIGH_RISK.color;
 }
 
 /**
  * Get risk level category (backend format)
- * Updated ranges: 76-100 (low), 51-75 (medium), 0-50 (high)
+ * Backend uyumlu aralıklar: 70-100 (low), 40-69 (medium), 0-39 (high)
  */
 export function getRiskLevel(score: number): 'low' | 'medium' | 'high' {
-  if (score >= 76) return 'low';
-  if (score >= 51) return 'medium';
+  if (score >= 70) return 'low';
+  if (score >= 40) return 'medium';
   return 'high';
 }
 

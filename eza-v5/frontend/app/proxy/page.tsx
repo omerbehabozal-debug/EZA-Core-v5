@@ -54,10 +54,23 @@ export default function ProxyCorporatePage() {
       if (result) {
         setAnalysisResult(result);
       } else {
-        setError("Analiz tamamlanamadı. API yanıt vermedi.");
+        setError("Analiz tamamlanamadı. Backend yanıt vermedi. Backend'in çalıştığından emin olun (http://localhost:8000/docs).");
       }
     } catch (err: any) {
-      setError(`Analiz hatası: ${err?.message || 'Bilinmeyen hata'}`);
+      const errorMessage = err?.message || 'Bilinmeyen hata';
+      let userFriendlyMessage = errorMessage;
+      
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        userFriendlyMessage = 'Backend\'e bağlanılamıyor. Backend\'in çalıştığından emin olun (http://localhost:8000).';
+      } else if (errorMessage.includes('HTTP 404')) {
+        userFriendlyMessage = 'Backend endpoint bulunamadı. Backend API\'sinin doğru yapılandırıldığından emin olun.';
+      } else if (errorMessage.includes('HTTP 500')) {
+        userFriendlyMessage = 'Backend sunucu hatası. Backend loglarını kontrol edin.';
+      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        userFriendlyMessage = 'Yetkilendirme hatası. Lütfen giriş yapın.';
+      }
+      
+      setError(`Analiz hatası: ${userFriendlyMessage}`);
     } finally {
       setLoading(false);
     }
@@ -83,10 +96,21 @@ export default function ProxyCorporatePage() {
       if (result) {
         setRewriteResult(result);
       } else {
-        setError("Yeniden yazma tamamlanamadı.");
+        setError("Yeniden yazma tamamlanamadı. Backend yanıt vermedi.");
       }
     } catch (err: any) {
-      setError(`Yeniden yazma hatası: ${err?.message || 'Bilinmeyen hata'}`);
+      const errorMessage = err?.message || 'Bilinmeyen hata';
+      let userFriendlyMessage = errorMessage;
+      
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        userFriendlyMessage = 'Backend\'e bağlanılamıyor. Backend\'in çalıştığından emin olun.';
+      } else if (errorMessage.includes('HTTP 404')) {
+        userFriendlyMessage = 'Backend endpoint bulunamadı.';
+      } else if (errorMessage.includes('HTTP 500')) {
+        userFriendlyMessage = 'Backend sunucu hatası. Backend loglarını kontrol edin.';
+      }
+      
+      setError(`Yeniden yazma hatası: ${userFriendlyMessage}`);
     } finally {
       setRewriting(false);
     }

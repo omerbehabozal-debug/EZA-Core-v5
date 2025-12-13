@@ -88,8 +88,15 @@ export async function analyzeLite(
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.error('[Proxy-Lite] Analysis failed:', res.status, res.statusText, errorText);
-        return null;
+        let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.detail || errorJson.message || errorMessage;
+        } catch {
+          if (errorText) errorMessage = errorText.substring(0, 200);
+        }
+        console.error('[Proxy-Lite] Analysis failed:', res.status, res.statusText, errorMessage);
+        throw new Error(errorMessage);
       }
 
       const data: LiteAnalysisResponse = await res.json();
@@ -99,14 +106,21 @@ export async function analyzeLite(
       clearTimeout(timeoutId);
       if (e.name === 'AbortError') {
         console.error('[Proxy-Lite] Request timeout (60s)');
+        throw new Error('İstek zaman aşımına uğradı (60 saniye). Lütfen tekrar deneyin.');
+      } else if (e.message) {
+        // Re-throw with original error message
+        throw e;
       } else {
         console.error('[Proxy-Lite] Analysis error:', e);
+        throw new Error(`Backend bağlantı hatası: ${e.message || 'Bilinmeyen hata'}`);
       }
-      return null;
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error('[Proxy-Lite] Analysis error:', e);
-    return null;
+    if (e.message) {
+      throw e;
+    }
+    throw new Error(`Backend hatası: ${e.message || 'Bilinmeyen hata'}`);
   }
 }
 

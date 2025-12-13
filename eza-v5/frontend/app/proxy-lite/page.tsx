@@ -71,13 +71,26 @@ export default function ProxyLitePage() {
         saveAnalysis(analysisResult, text.trim());
       } else {
         console.error('[Proxy-Lite] Analysis returned null');
-        setError("Analiz tamamlanamadı. Backend yanıt vermedi. Lütfen backend loglarını kontrol edin.");
+        setError("Analiz tamamlanamadı. Backend yanıt vermedi. Lütfen backend'in çalıştığından emin olun (http://localhost:8000/docs).");
         setIsLive(false);
       }
     } catch (err: any) {
       console.error("[Proxy-Lite] Analysis error:", err);
       const errorMessage = err?.message || err?.toString() || "Bilinmeyen hata";
-      setError(`Analiz hatası: ${errorMessage}. Backend loglarını kontrol edin.`);
+      
+      // More specific error messages
+      let userFriendlyMessage = errorMessage;
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        userFriendlyMessage = 'Backend\'e bağlanılamıyor. Backend\'in çalıştığından emin olun (http://localhost:8000).';
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('zaman aşımı')) {
+        userFriendlyMessage = 'İstek zaman aşımına uğradı. Lütfen daha kısa bir metin deneyin veya tekrar deneyin.';
+      } else if (errorMessage.includes('HTTP 404')) {
+        userFriendlyMessage = 'Backend endpoint bulunamadı. Backend API\'sinin doğru yapılandırıldığından emin olun.';
+      } else if (errorMessage.includes('HTTP 500')) {
+        userFriendlyMessage = 'Backend sunucu hatası. Backend loglarını kontrol edin.';
+      }
+      
+      setError(`Analiz hatası: ${userFriendlyMessage}`);
       setIsLive(false);
     } finally {
       setLoading(false);

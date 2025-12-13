@@ -6,8 +6,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getHistory, LiteHistoryItem, clearHistory } from '../lib/storage';
+import { getHistory, LiteHistoryItem, clearHistory, deleteHistoryEntry } from '../lib/storage';
 import { getEthicalScoreColor } from '../lib/scoringUtils';
+import { Trash2, X } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
+import Toast from './Toast';
 
 interface HistoryDrawerProps {
   isOpen: boolean;
@@ -17,6 +20,12 @@ interface HistoryDrawerProps {
 
 export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDrawerProps) {
   const [history, setHistory] = useState<LiteHistoryItem[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string | null }>({
+    isOpen: false,
+    id: null,
+  });
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -25,10 +34,28 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
   }, [isOpen]);
 
   const handleClear = () => {
-    if (confirm('Tüm geçmişi silmek istediğinize emin misiniz?')) {
-      clearHistory();
-      setHistory([]);
+    setClearConfirm(true);
+  };
+
+  const handleConfirmClear = () => {
+    clearHistory();
+    setHistory([]);
+    setClearConfirm(false);
+    setToast({ message: 'Tüm geçmiş temizlendi', type: 'success' });
+  };
+
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening entry
+    setDeleteConfirm({ isOpen: true, id });
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteConfirm.id) {
+      deleteHistoryEntry(deleteConfirm.id);
+      setHistory(getHistory());
+      setToast({ message: 'Analiz silindi', type: 'success' });
     }
+    setDeleteConfirm({ isOpen: false, id: null });
   };
 
   if (!isOpen) return null;
@@ -75,9 +102,10 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
               <button
                 type="button"
                 onClick={onClose}
+                className="p-1 rounded-lg transition-all hover:bg-gray-100"
                 style={{ color: '#6E6E73' }}
               >
-                ✕
+                <X size={20} />
               </button>
             </div>
           </div>
@@ -97,49 +125,67 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
                   return (
                     <div
                       key={entry.id}
-                      onClick={() => {
-                        onSelect(entry);
-                        onClose();
-                      }}
-                      className="rounded-[16px] p-4 cursor-pointer"
+                      className="rounded-[16px] p-4 relative group"
                       style={{ 
                         backgroundColor: '#FFFFFF',
                         border: '1px solid #E3E3E7',
                         boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
                       }}
                     >
-                      <h3 
-                        className="font-medium mb-2 line-clamp-2"
+                      {/* Delete button - appears on hover */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleDelete(entry.id, e)}
+                        className="absolute top-3 right-3 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 hover:bg-red-50"
                         style={{ 
-                          color: '#1C1C1E',
-                          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-                          fontWeight: 500
+                          color: '#E84343',
+                          zIndex: 10
                         }}
+                        title="Sil"
                       >
-                        {entry.title}
-                      </h3>
-                      <p className="text-xs mb-2" style={{ color: '#6E6E73' }}>
-                        {new Date(entry.createdAt).toLocaleString('tr-TR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span 
-                            className="text-lg font-bold"
-                            style={{ 
-                              color,
-                              fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-                              fontWeight: 700
-                            }}
-                          >
-                            {Math.round(score)}
-                          </span>
-                          <span className="text-xs" style={{ color: '#6E6E73' }}>Etik Skor</span>
+                        <Trash2 size={16} />
+                      </button>
+
+                      <div
+                        onClick={() => {
+                          onSelect(entry);
+                          onClose();
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <h3 
+                          className="font-medium mb-2 line-clamp-2 pr-8"
+                          style={{ 
+                            color: '#1C1C1E',
+                            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                            fontWeight: 500
+                          }}
+                        >
+                          {entry.title}
+                        </h3>
+                        <p className="text-xs mb-2" style={{ color: '#6E6E73' }}>
+                          {new Date(entry.createdAt).toLocaleString('tr-TR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span 
+                              className="text-lg font-bold"
+                              style={{ 
+                                color,
+                                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                                fontWeight: 700
+                              }}
+                            >
+                              {Math.round(score)}
+                            </span>
+                            <span className="text-xs" style={{ color: '#6E6E73' }}>Etik Skor</span>
+                          </div>
                         </div>
                       </div>
                       
@@ -169,6 +215,39 @@ export default function HistoryDrawer({ isOpen, onClose, onSelect }: HistoryDraw
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title="Analizi Sil"
+        message="Bu analizi silmek istediğinize emin misiniz? Bu işlem geri alınamaz."
+        confirmText="Sil"
+        cancelText="İptal"
+        type="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirm({ isOpen: false, id: null })}
+      />
+
+      {/* Clear All Confirmation Modal */}
+      <ConfirmModal
+        isOpen={clearConfirm}
+        title="Tüm Geçmişi Temizle"
+        message="Tüm analiz geçmişini silmek istediğinize emin misiniz? Bu işlem geri alınamaz."
+        confirmText="Tümünü Sil"
+        cancelText="İptal"
+        type="danger"
+        onConfirm={handleConfirmClear}
+        onCancel={() => setClearConfirm(false)}
+      />
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </>
   );
 }

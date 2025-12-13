@@ -12,10 +12,12 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'EZA Proxy UI System',
   description: 'EZA Proxy UI System - V1.0',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'EZA Standalone',
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
   },
 };
 
