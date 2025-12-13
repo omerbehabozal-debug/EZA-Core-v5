@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse } from "@/api/proxy_corporate";
+import RequireAuth from "@/components/auth/RequireAuth";
 import ScoreBars from "./components/ScoreBars";
 import ComplianceMetrics from "./components/ComplianceMetrics";
 import RiskFlags from "./components/RiskFlags";
@@ -18,7 +19,7 @@ import DecisionJustification from "./components/DecisionJustification";
 import AuditPanel from "./components/AuditPanel";
 import PipelineDiagram from "./components/PipelineDiagram";
 
-export default function ProxyCorporatePage() {
+function ProxyCorporatePageContent() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [rewriting, setRewriting] = useState(false);
@@ -80,14 +81,16 @@ export default function ProxyCorporatePage() {
         userFriendlyMessage = 'Backend endpoint bulunamadı. Backend API\'sinin doğru yapılandırıldığından emin olun.';
       } else if (errorMessage.includes('HTTP 500')) {
         userFriendlyMessage = 'Backend sunucu hatası. Backend loglarını kontrol edin.';
-      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('Not authenticated')) {
         userFriendlyMessage = 'Yetkilendirme hatası. Lütfen giriş yapın.';
+        // Redirect to login after showing error
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
       } else if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
         userFriendlyMessage = 'CORS hatası. Backend CORS ayarlarını kontrol edin.';
       } else if (errorMessage.includes('NEXT_PUBLIC_EZA_API_URL')) {
         userFriendlyMessage = 'Backend URL yapılandırılmamış. Lütfen sistem yöneticisine başvurun.';
-      } else if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
-        userFriendlyMessage = 'CORS hatası. Backend CORS ayarlarını kontrol edin.';
       }
       
       setError(`Analiz hatası: ${userFriendlyMessage}`);
@@ -459,5 +462,13 @@ export default function ProxyCorporatePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ProxyCorporatePage() {
+  return (
+    <RequireAuth allowedRoles={['admin', 'corporate']}>
+      <ProxyCorporatePageContent />
+    </RequireAuth>
   );
 }
