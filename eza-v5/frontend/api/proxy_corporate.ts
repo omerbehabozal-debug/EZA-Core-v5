@@ -136,7 +136,15 @@ export async function analyzeProxy(
   request: ProxyAnalyzeRequest
 ): Promise<ProxyAnalyzeResponse | null> {
   try {
+    if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+      throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured. Please set it in Vercel project settings.');
+    }
+    
     const url = `${API_BASE_URL}/api/proxy/analyze`;
+    
+    console.log('[Proxy] API_BASE_URL:', API_BASE_URL);
+    console.log('[Proxy] Full URL:', url);
+    console.log('[Proxy] Request:', { content: request.content.substring(0, 50) + '...', policies: request.policies, domain: request.domain });
     
     const res = await fetch(url, {
       method: 'POST',
@@ -146,15 +154,25 @@ export async function analyzeProxy(
     
     if (!res.ok) {
       const errorText = await res.text();
-      console.error('[Proxy] Analysis failed:', res.status, errorText);
-      return null;
+      let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.detail || errorJson.message || errorMessage;
+      } catch {
+        if (errorText) errorMessage = errorText.substring(0, 200);
+      }
+      console.error('[Proxy] Analysis failed:', res.status, errorMessage);
+      throw new Error(errorMessage);
     }
     
     const data: ProxyAnalyzeResponse = await res.json();
     return data;
-  } catch (e) {
+  } catch (e: any) {
     console.error('[Proxy] Analysis error:', e);
-    return null;
+    if (e.message) {
+      throw e;
+    }
+    throw new Error(`Backend bağlantı hatası: ${e.message || 'Bilinmeyen hata'}`);
   }
 }
 

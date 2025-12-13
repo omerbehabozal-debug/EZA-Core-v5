@@ -68,20 +68,26 @@ export default function ProxyCorporatePage() {
       if (result) {
         setAnalysisResult(result);
       } else {
-        setError("Analiz tamamlanamadı. Backend yanıt vermedi. Backend'in çalıştığından emin olun (http://localhost:8000/docs).");
+        setError("Analiz tamamlanamadı. Backend yanıt vermedi. Lütfen backend'in çalıştığından ve erişilebilir olduğundan emin olun.");
       }
     } catch (err: any) {
       const errorMessage = err?.message || 'Bilinmeyen hata';
       let userFriendlyMessage = errorMessage;
       
-      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        userFriendlyMessage = 'Backend\'e bağlanılamıyor. Backend\'in çalıştığından emin olun (http://localhost:8000).';
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+        userFriendlyMessage = 'Backend\'e bağlanılamıyor. Backend sunucusunun çalıştığından ve erişilebilir olduğundan emin olun.';
       } else if (errorMessage.includes('HTTP 404')) {
         userFriendlyMessage = 'Backend endpoint bulunamadı. Backend API\'sinin doğru yapılandırıldığından emin olun.';
       } else if (errorMessage.includes('HTTP 500')) {
         userFriendlyMessage = 'Backend sunucu hatası. Backend loglarını kontrol edin.';
       } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
         userFriendlyMessage = 'Yetkilendirme hatası. Lütfen giriş yapın.';
+      } else if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
+        userFriendlyMessage = 'CORS hatası. Backend CORS ayarlarını kontrol edin.';
+      } else if (errorMessage.includes('NEXT_PUBLIC_EZA_API_URL')) {
+        userFriendlyMessage = 'Backend URL yapılandırılmamış. Lütfen sistem yöneticisine başvurun.';
+      } else if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
+        userFriendlyMessage = 'CORS hatası. Backend CORS ayarlarını kontrol edin.';
       }
       
       setError(`Analiz hatası: ${userFriendlyMessage}`);
