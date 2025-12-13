@@ -25,6 +25,13 @@ export default function ProxyManagementPage() {
     setOrgId("demo-media-group");
   }, []);
 
+  // Wrapper function to handle tab changes from Tabs component
+  const handleTabChange = (tab: string) => {
+    if (tab === 'api-keys' || tab === 'policies' || tab === 'roles' || tab === 'audit' || tab === 'analytics' || tab === 'alerts') {
+      setActiveTab(tab);
+    }
+  };
+
   return (
     <div
       className="min-h-screen"
@@ -54,7 +61,7 @@ export default function ProxyManagementPage() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultTab={activeTab} onTabChange={setActiveTab}>
+        <Tabs defaultTab={activeTab} onTabChange={handleTabChange}>
           <TabList activeTab={activeTab} setActiveTab={setActiveTab}>
             <Tab id="api-keys" activeTab={activeTab} setActiveTab={setActiveTab}>
               🔑 API Anahtarları
