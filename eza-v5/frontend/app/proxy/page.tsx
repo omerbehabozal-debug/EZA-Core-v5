@@ -7,6 +7,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse } from "@/api/proxy_corporate";
 import RequireAuth from "@/components/auth/RequireAuth";
 import ScoreBars from "./components/ScoreBars";
@@ -87,6 +88,14 @@ function ProxyCorporatePageContent() {
         setTimeout(() => {
           window.location.href = '/login';
         }, 2000);
+      } else if (errorMessage.includes('API key required') || errorMessage.includes('X-Api-Key')) {
+        userFriendlyMessage = 'API anahtarı gerekli. Lütfen Yönetim panelinden (/proxy/management) bir API anahtarı oluşturun veya yöneticinize başvurun.';
+        // Optionally redirect to management page
+        setTimeout(() => {
+          if (confirm('API anahtarı oluşturmak için Yönetim paneline yönlendirilsin mi?')) {
+            window.location.href = '/proxy/management';
+          }
+        }, 2000);
       } else if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
         userFriendlyMessage = 'CORS hatası. Backend CORS ayarlarını kontrol edin.';
       } else if (errorMessage.includes('NEXT_PUBLIC_EZA_API_URL')) {
@@ -150,18 +159,57 @@ function ProxyCorporatePageContent() {
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Header */}
         <div className="border-b pb-6" style={{ borderColor: '#1C1C1E' }}>
-          <h1
-            className="text-4xl font-bold mb-2"
-            style={{
-              color: '#E5E5EA',
-              fontWeight: 700,
-            }}
-          >
-            EZA Proxy
-          </h1>
-          <p className="text-sm" style={{ color: '#8E8E93' }}>
-            Kurumsal içerik analizi ve güvenlik katmanı
-          </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1
+                className="text-4xl font-bold mb-2"
+                style={{
+                  color: '#E5E5EA',
+                  fontWeight: 700,
+                }}
+              >
+                EZA Proxy
+              </h1>
+              <p className="text-sm" style={{ color: '#8E8E93' }}>
+                Kurumsal içerik analizi ve güvenlik katmanı
+              </p>
+            </div>
+            {/* Navigation Links */}
+            <div className="flex items-center gap-3">
+              <Link
+                href="/proxy/management"
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: '#007AFF',
+                  color: '#FFFFFF',
+                }}
+              >
+                🔧 Yönetim
+              </Link>
+              <Link
+                href="/proxy/monitor"
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: '#2C2C2E',
+                  color: '#E5E5EA',
+                  border: '1px solid #3A3A3C',
+                }}
+              >
+                📈 Telemetri
+              </Link>
+              <Link
+                href="/corporate"
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: '#2C2C2E',
+                  color: '#E5E5EA',
+                  border: '1px solid #3A3A3C',
+                }}
+              >
+                📊 Corporate
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* Input Section */}
