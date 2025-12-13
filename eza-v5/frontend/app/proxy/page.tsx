@@ -39,6 +39,13 @@ export default function ProxyCorporatePage() {
     }
   };
 
+  // Wrapper function to handle rewrite mode changes from RewriteOptions component
+  const handleModeChange = (mode: string) => {
+    if (mode === 'strict_compliance' || mode === 'neutral_rewrite' || mode === 'policy_bound' || mode === 'autonomous_safety' || mode === 'corporate_voice') {
+      setRewriteMode(mode);
+    }
+  };
+
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || loading) return;
@@ -313,7 +320,7 @@ export default function ProxyCorporatePage() {
               
               <RewriteOptions
                 selectedMode={rewriteMode}
-                onModeChange={setRewriteMode}
+                onModeChange={handleModeChange}
               />
 
               <button
