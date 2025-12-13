@@ -15,7 +15,7 @@ export interface CaseItem {
   id: string;
   content_id: string;
   risk_score: number;
-  eu_ai_class: string;
+  eu_ai_class?: string;
   status: 'pending' | 'reviewed' | 'approved' | 'flagged';
   created_at: string;
 }

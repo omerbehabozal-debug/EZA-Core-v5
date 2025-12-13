@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_multiturn/test_multiturn_progressive.py::test_progressive_risk_scenario[MT-001]",
+    "status": "failed",
+    "duration": 1.4210856000427157,
+    "message": "tests_multiturn\\test_multiturn_progressive.py:48: in test_progressive_risk_scenario\n    assert expected[\"min_score\"] <= score <= expected[\"max_score\"], \\\nE   AssertionError: Scenario MT-001: Score 96.0 not in range [0, 40]\nE   assert 96.0 <= 40"
+  }
+]

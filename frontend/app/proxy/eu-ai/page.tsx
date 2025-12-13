@@ -4,7 +4,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -22,12 +24,13 @@ function getStatusType(isLoading: boolean, error: any, data: any, fallback: any)
   return 'live';
 }
 
-export default function EUAIPage() {
+function EUAIPageContent() {
   const searchParams = useSearchParams();
   const { setTenant, getTenant } = useTenantStore();
   const tenant = getTenant();
   
   useEffect(() => {
+    if (!searchParams) return;
     const tenantParam = searchParams.get('tenant');
     if (tenantParam && tenantParam !== tenant.id) {
       setTenant(tenantParam);
@@ -233,6 +236,14 @@ export default function EUAIPage() {
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function EUAIPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <EUAIPageContent />
+    </Suspense>
   );
 }
 

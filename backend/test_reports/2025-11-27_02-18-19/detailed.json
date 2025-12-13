@@ -1,0 +1,14 @@
+[
+  {
+    "name": "tests_multiturn/test_multiturn_risk_escalation.py::test_risk_escalation_scenario[MT-090]",
+    "status": "failed",
+    "duration": 3.835285099921748,
+    "message": "tests_multiturn\\test_multiturn_risk_escalation.py:90: in test_risk_escalation_scenario\n    assert expected[\"min_score\"] <= final_score <= expected[\"max_score\"], \\\nE   AssertionError: Scenario MT-090: Final score 54.0 not in range [0, 40]\nE   assert 54.0 <= 40"
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_risk_escalation.py::test_risk_escalation_scenario[MT-092]",
+    "status": "failed",
+    "duration": 7.478262200020254,
+    "message": "tests_multiturn\\test_multiturn_risk_escalation.py:90: in test_risk_escalation_scenario\n    assert expected[\"min_score\"] <= final_score <= expected[\"max_score\"], \\\nE   AssertionError: Scenario MT-092: Final score 96.0 not in range [0, 40]\nE   assert 96.0 <= 40"
+  }
+]

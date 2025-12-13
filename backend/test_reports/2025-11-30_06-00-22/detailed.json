@@ -1,0 +1,107 @@
+[
+  {
+    "name": "tests_validation/test_predeployment.py::test_websocket_corporate_with_corporate_token",
+    "status": "passed",
+    "duration": 4.064879200072028
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_websocket_corporate_with_regulator_token_denied",
+    "status": "passed",
+    "duration": 4.093774100067094
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_websocket_regulator_with_regulator_token",
+    "status": "passed",
+    "duration": 4.065437700017355
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_websocket_live_with_admin_token",
+    "status": "passed",
+    "duration": 4.057960200007074
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_websocket_live_with_corporate_token_denied",
+    "status": "passed",
+    "duration": 4.0499540999298915
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_regulator_feed_filters_low_risk_events",
+    "status": "passed",
+    "duration": 4.097770600114018
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_regulator_feed_includes_high_risk_events",
+    "status": "passed",
+    "duration": 4.0982158000115305
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_standalone_endpoint_public_access",
+    "status": "passed",
+    "duration": 5.938443100079894
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_proxy_endpoint_requires_auth",
+    "status": "passed",
+    "duration": 0.005753499921411276
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_proxy_endpoint_with_corporate_token_denied",
+    "status": "passed",
+    "duration": 0.009933499968610704
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_proxy_endpoint_with_admin_token_allowed",
+    "status": "passed",
+    "duration": 5.091888100025244
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_corporate_feed_with_corporate_token_allowed",
+    "status": "passed",
+    "duration": 0.007479799911379814
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_corporate_feed_with_regulator_token_denied",
+    "status": "passed",
+    "duration": 0.0055108999367803335
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_admin_access_all_endpoints",
+    "status": "passed",
+    "duration": 9.99587700003758
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_standalone_endpoint_no_auth_required",
+    "status": "passed",
+    "duration": 5.859695199993439
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_standalone_endpoint_with_auth_still_works",
+    "status": "passed",
+    "duration": 5.704825899912976
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_standalone_rate_limit",
+    "status": "passed",
+    "duration": 243.51000579993706
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_proxy_rate_limit",
+    "status": "passed",
+    "duration": 84.03849980002269
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_cors_whitelisted_origin",
+    "status": "passed",
+    "duration": 0.008367200032807887
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_cors_blocked_origin",
+    "status": "passed",
+    "duration": 0.006204099976457655
+  },
+  {
+    "name": "tests_validation/test_predeployment.py::test_jwt_websocket_api_flow",
+    "status": "passed",
+    "duration": 4.220395600073971
+  }
+]

@@ -1,0 +1,153 @@
+[
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-026]",
+    "status": "passed",
+    "duration": 1.340746899950318
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-027]",
+    "status": "passed",
+    "duration": 1.280815799953416
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-028]",
+    "status": "passed",
+    "duration": 1.1241814999375492
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-029]",
+    "status": "passed",
+    "duration": 1.326842000009492
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-030]",
+    "status": "passed",
+    "duration": 1.1719945000950247
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-031]",
+    "status": "passed",
+    "duration": 1.0775918998988345
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-032]",
+    "status": "passed",
+    "duration": 1.15955700003542
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-033]",
+    "status": "passed",
+    "duration": 1.0550035999622196
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-034]",
+    "status": "passed",
+    "duration": 1.338912000064738
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-035]",
+    "status": "passed",
+    "duration": 1.4440700999693945
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-036]",
+    "status": "passed",
+    "duration": 1.1804836000083014
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-037]",
+    "status": "passed",
+    "duration": 1.2569850999861956
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-038]",
+    "status": "passed",
+    "duration": 1.0776867000386119
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-039]",
+    "status": "passed",
+    "duration": 1.1289828999433666
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-040]",
+    "status": "passed",
+    "duration": 1.0872123999288306
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-041]",
+    "status": "passed",
+    "duration": 1.1682005000766367
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-042]",
+    "status": "passed",
+    "duration": 1.0658970000222325
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-043]",
+    "status": "passed",
+    "duration": 1.2370362000074238
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-044]",
+    "status": "passed",
+    "duration": 1.3471558999735862
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-045]",
+    "status": "passed",
+    "duration": 1.3240334999281913
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-046]",
+    "status": "passed",
+    "duration": 2.613914299989119
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-047]",
+    "status": "passed",
+    "duration": 1.4010070000076666
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-048]",
+    "status": "passed",
+    "duration": 1.1353393999161199
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-049]",
+    "status": "passed",
+    "duration": 1.437601700075902
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_manipulation.py::test_manipulation_scenario[MT-050]",
+    "status": "passed",
+    "duration": 1.3431977001018822
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_progressive.py::test_progressive_risk_scenario[MT-001]",
+    "status": "passed",
+    "duration": 2.6361160998931155
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_progressive.py::test_progressive_risk_scenario[MT-002]",
+    "status": "passed",
+    "duration": 2.744556299992837
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_progressive.py::test_progressive_risk_scenario[MT-003]",
+    "status": "passed",
+    "duration": 7.522192000062205
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_progressive.py::test_progressive_risk_scenario[MT-004]",
+    "status": "passed",
+    "duration": 2.4930238999659196
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_progressive.py::test_progressive_risk_scenario[MT-005]",
+    "status": "failed",
+    "duration": 2.383171300054528,
+    "message": "E   AssertionError: Scenario MT-005: Last message should be high risk (risk=0.0)\n    assert 0.0 > 0.5"
+  }
+]

@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_multiturn/test_multiturn_risk_escalation.py::test_risk_escalation_scenario[MT-078]",
+    "status": "failed",
+    "duration": 7.022398400004022,
+    "message": "tests_multiturn\\test_multiturn_risk_escalation.py:84: in test_risk_escalation_scenario\n    assert final_score <= max(expected[\"max_score\"], 50), \\\nE   AssertionError: Scenario MT-078: Final score 59.0 should be <= 50 (risk=0.7)\nE   assert 59.0 <= 50\nE    +  where 50 = max(40, 50)"
+  }
+]

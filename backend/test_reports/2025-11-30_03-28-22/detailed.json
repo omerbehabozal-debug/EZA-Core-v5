@@ -1,0 +1,255 @@
+[
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_safe_alignment",
+    "status": "passed",
+    "duration": 0.0071706000017002225
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_risky_output",
+    "status": "failed",
+    "duration": 0.001123800058849156,
+    "message": "tests_core\\test_alignment_engine.py:29: in test_alignment_engine_risky_output\n    assert result[\"alignment_score\"] < 60\nE   assert 90.0 < 60"
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_risk_delta",
+    "status": "passed",
+    "duration": 0.0003754999488592148
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_label_types",
+    "status": "passed",
+    "duration": 0.0018350000027567148
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_alignment_score_range",
+    "status": "passed",
+    "duration": 0.00030750001315027475
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_verdict_types",
+    "status": "passed",
+    "duration": 0.0002785000251606107
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_input_risk_tracking",
+    "status": "passed",
+    "duration": 0.00028719997499138117
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_output_risk_tracking",
+    "status": "passed",
+    "duration": 0.0002839999506250024
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_consistency",
+    "status": "passed",
+    "duration": 0.0003130000550299883
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_edge_cases",
+    "status": "passed",
+    "duration": 0.00022139993961900473
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_llm_failure",
+    "status": "passed",
+    "duration": 0.025214700028300285
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_empty_input",
+    "status": "passed",
+    "duration": 1.7369676999514922
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_invalid_mode",
+    "status": "passed",
+    "duration": 2.0469658999936655
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_network_timeout",
+    "status": "passed",
+    "duration": 0.0027098999125882983
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_response_structure",
+    "status": "passed",
+    "duration": 0.0028345000464469194
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_graceful_degradation",
+    "status": "passed",
+    "duration": 0.004542500013485551
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_all_modes",
+    "status": "passed",
+    "duration": 0.008259300026111305
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_retryable_flag",
+    "status": "passed",
+    "duration": 0.0027691000141203403
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_partial_failure",
+    "status": "passed",
+    "duration": 3.2077488999348134
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_error_logging",
+    "status": "passed",
+    "duration": 0.028055200004018843
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_safe_input",
+    "status": "passed",
+    "duration": 0.00315869995392859
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_risky_input",
+    "status": "passed",
+    "duration": 0.0008963999571278691
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_intent_detection",
+    "status": "passed",
+    "duration": 0.001459200051613152
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_risk_flags",
+    "status": "passed",
+    "duration": 0.0007535000331699848
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_empty_input",
+    "status": "passed",
+    "duration": 0.0007154000923037529
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_long_input",
+    "status": "passed",
+    "duration": 0.014181499951519072
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_special_characters",
+    "status": "passed",
+    "duration": 0.001053099986165762
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_unicode",
+    "status": "passed",
+    "duration": 0.0006334000499919057
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_risk_score_range",
+    "status": "passed",
+    "duration": 0.0022839000448584557
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_consistency",
+    "status": "passed",
+    "duration": 0.0008547999896109104
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_safe_output",
+    "status": "passed",
+    "duration": 0.0018026999896392226
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_risky_output",
+    "status": "failed",
+    "duration": 0.001698700012639165,
+    "message": "tests_core\\test_output_analyzer.py:28: in test_output_analyzer_risky_output\n    assert result[\"risk_level\"] in [\"medium\", \"high\"]\nE   AssertionError: assert 'low' in ['medium', 'high']"
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_quality_score",
+    "status": "passed",
+    "duration": 0.00083430006634444
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_risk_flags",
+    "status": "passed",
+    "duration": 0.0008911000331863761
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_empty_output",
+    "status": "passed",
+    "duration": 0.000749400001950562
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_output_length",
+    "status": "passed",
+    "duration": 0.0007236000383272767
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_without_input_analysis",
+    "status": "passed",
+    "duration": 0.0004512999439612031
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_risk_escalation",
+    "status": "passed",
+    "duration": 0.0010746000334620476
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_consistency",
+    "status": "passed",
+    "duration": 0.0007736000698059797
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_risk_score_range",
+    "status": "passed",
+    "duration": 0.0008929999312385917
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_safe_scenario",
+    "status": "passed",
+    "duration": 0.0008265000069513917
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_risky_scenario",
+    "status": "failed",
+    "duration": 0.0008877000072970986,
+    "message": "tests_core\\test_score_engine.py:31: in test_score_engine_risky_scenario\n    assert result[\"final_score\"] < 50\nE   assert 56.00000000000001 < 50"
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_score_range",
+    "status": "passed",
+    "duration": 0.0006631000433117151
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_safety_levels",
+    "status": "passed",
+    "duration": 0.0010117999045178294
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_confidence",
+    "status": "passed",
+    "duration": 0.00058230001013726
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_breakdown",
+    "status": "passed",
+    "duration": 0.000601499923504889
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_with_redirect",
+    "status": "passed",
+    "duration": 0.0006017000414431095
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_without_redirect",
+    "status": "passed",
+    "duration": 0.0007115000626072288
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_consistency",
+    "status": "passed",
+    "duration": 0.0007610999746248126
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_weighted_average",
+    "status": "passed",
+    "duration": 0.00042539997957646847
+  }
+]

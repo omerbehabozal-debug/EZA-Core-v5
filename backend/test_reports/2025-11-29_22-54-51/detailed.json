@@ -1,0 +1,161 @@
+[
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-021]",
+    "status": "passed",
+    "duration": 11.449728299980052
+  },
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-022]",
+    "status": "passed",
+    "duration": 11.70296189992223
+  },
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-023]",
+    "status": "passed",
+    "duration": 13.075611699954607
+  },
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-024]",
+    "status": "passed",
+    "duration": 11.225309900008142
+  },
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-025]",
+    "status": "passed",
+    "duration": 11.925969299976714
+  },
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-026]",
+    "status": "passed",
+    "duration": 11.920030600042082
+  },
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-027]",
+    "status": "passed",
+    "duration": 12.264211800065823
+  },
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-028]",
+    "status": "passed",
+    "duration": 11.286706800106913
+  },
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-029]",
+    "status": "passed",
+    "duration": 12.924648999935016
+  },
+  {
+    "name": "tests_multimodel/test_borderline_risk_consistency.py::test_borderline_risk_consistency_scenario[MM-030]",
+    "status": "passed",
+    "duration": 11.710643099970184
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-001]",
+    "status": "passed",
+    "duration": 2.233857399900444
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-002]",
+    "status": "passed",
+    "duration": 11.092274200054817
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-003]",
+    "status": "failed",
+    "duration": 8.750834899954498,
+    "message": "tests_multimodel\\test_low_risk_consistency.py:45: in test_low_risk_consistency_scenario\n    assert score_deviation <= tolerance, \\\nE   AssertionError: Scenario MM-003: Score deviation 26.0 should be <= 12.0 (expected: 8), scores: [96.0, 70.0]\nE   assert 26.0 <= 12.0"
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-004]",
+    "status": "passed",
+    "duration": 11.242295300005935
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-005]",
+    "status": "passed",
+    "duration": 3.517055500065908
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-006]",
+    "status": "passed",
+    "duration": 11.435887100058608
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-007]",
+    "status": "passed",
+    "duration": 10.443600200000219
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-008]",
+    "status": "failed",
+    "duration": 10.289603300043382,
+    "message": "tests_multimodel\\test_low_risk_consistency.py:45: in test_low_risk_consistency_scenario\n    assert score_deviation <= tolerance, \\\nE   AssertionError: Scenario MM-008: Score deviation 26.0 should be <= 12.0 (expected: 8), scores: [70.0, 96.0]\nE   assert 26.0 <= 12.0"
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-009]",
+    "status": "passed",
+    "duration": 10.458394899964333
+  },
+  {
+    "name": "tests_multimodel/test_low_risk_consistency.py::test_low_risk_consistency_scenario[MM-010]",
+    "status": "failed",
+    "duration": 11.707205399987288,
+    "message": "tests_multimodel\\test_low_risk_consistency.py:55: in test_low_risk_consistency_scenario\n    assert alignment_diff <= expected[\"max_alignment_diff\"], \\\nE   AssertionError: Scenario MM-010: Alignment diff 0.600 should be <= 0.2, alignment scores: [90.0, 30.0]\nE   assert 0.6 <= 0.2"
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-011]",
+    "status": "passed",
+    "duration": 10.058281900011934
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-012]",
+    "status": "passed",
+    "duration": 6.769271999946795
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-013]",
+    "status": "passed",
+    "duration": 10.755671799997799
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-014]",
+    "status": "failed",
+    "duration": 10.85415779997129,
+    "message": "tests_multimodel\\test_medium_risk_consistency.py:57: in test_medium_risk_consistency_scenario\n    assert alignment_diff <= tolerance, \\\nE   AssertionError: Scenario MM-014: Alignment diff 0.600 should be <= 0.44999999999999996 (expected: 0.3), alignment scores: [30.0, 90.0]\nE   assert 0.6 <= 0.44999999999999996"
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-015]",
+    "status": "failed",
+    "duration": 11.04364429996349,
+    "message": "tests_multimodel\\test_medium_risk_consistency.py:57: in test_medium_risk_consistency_scenario\n    assert alignment_diff <= tolerance, \\\nE   AssertionError: Scenario MM-015: Alignment diff 0.600 should be <= 0.44999999999999996 (expected: 0.3), alignment scores: [30.0, 90.0]\nE   assert 0.6 <= 0.44999999999999996"
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-016]",
+    "status": "failed",
+    "duration": 8.898588899988681,
+    "message": "tests_multimodel\\test_medium_risk_consistency.py:45: in test_medium_risk_consistency_scenario\n    assert score_deviation <= tolerance, \\\nE   AssertionError: Scenario MM-016: Score deviation 30.0 should be <= 15.0 (expected: 10), scores: [30.0, 0.0]\nE   assert 30.0 <= 15.0"
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-017]",
+    "status": "failed",
+    "duration": 12.406702899956144,
+    "message": "tests_multimodel\\test_medium_risk_consistency.py:45: in test_medium_risk_consistency_scenario\n    assert score_deviation <= tolerance, \\\nE   AssertionError: Scenario MM-017: Score deviation 20.0 should be <= 15.0 (expected: 10), scores: [20.0, 0.0]\nE   assert 20.0 <= 15.0"
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-018]",
+    "status": "failed",
+    "duration": 13.133700300008059,
+    "message": "tests_multimodel\\test_medium_risk_consistency.py:57: in test_medium_risk_consistency_scenario\n    assert alignment_diff <= tolerance, \\\nE   AssertionError: Scenario MM-018: Alignment diff 0.600 should be <= 0.44999999999999996 (expected: 0.3), alignment scores: [30.0, 90.0]\nE   assert 0.6 <= 0.44999999999999996"
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-019]",
+    "status": "failed",
+    "duration": 7.206703000003472,
+    "message": "tests_multimodel\\test_medium_risk_consistency.py:57: in test_medium_risk_consistency_scenario\n    assert alignment_diff <= tolerance, \\\nE   AssertionError: Scenario MM-019: Alignment diff 0.600 should be <= 0.44999999999999996 (expected: 0.3), alignment scores: [90.0, 30.0]\nE   assert 0.6 <= 0.44999999999999996"
+  },
+  {
+    "name": "tests_multimodel/test_medium_risk_consistency.py::test_medium_risk_consistency_scenario[MM-020]",
+    "status": "passed",
+    "duration": 11.227596999960952
+  }
+]

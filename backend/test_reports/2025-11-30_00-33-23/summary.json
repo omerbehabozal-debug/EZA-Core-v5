@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-11-30T00:33:23.225555",
+  "suite": "performance",
+  "total": 52,
+  "passed": 47,
+  "failed": 5,
+  "skipped": 0,
+  "errors": 0,
+  "duration": "30.19s",
+  "duration_seconds": 30.19350600009784,
+  "pass_rate": "90.4%"
+}

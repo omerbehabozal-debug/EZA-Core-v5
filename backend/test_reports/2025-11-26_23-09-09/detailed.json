@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_behavioral/test_score_correctness.py::test_score_low_risk_high_score",
+    "status": "failed",
+    "duration": 14.610550599987619,
+    "message": "tests_behavioral\\test_score_correctness.py:90: in test_score_low_risk_high_score\n    assert score >= 70, \\\nE   AssertionError: Low risk input should have high score (>=70), got 51.0 for: Explain how encryption works\nE   assert 51.0 >= 70"
+  }
+]

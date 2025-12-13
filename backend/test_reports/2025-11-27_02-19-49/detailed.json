@@ -1,0 +1,12 @@
+[
+  {
+    "name": "tests_multiturn/test_multiturn_risk_escalation.py::test_risk_escalation_scenario[MT-090]",
+    "status": "passed",
+    "duration": 5.129050399991684
+  },
+  {
+    "name": "tests_multiturn/test_multiturn_risk_escalation.py::test_risk_escalation_scenario[MT-092]",
+    "status": "passed",
+    "duration": 6.666183599969372
+  }
+]

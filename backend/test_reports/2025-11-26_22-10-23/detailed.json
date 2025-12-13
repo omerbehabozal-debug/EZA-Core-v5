@@ -1,0 +1,97 @@
+[
+  {
+    "name": "tests/test_error_handling.py::test_pipeline_error_handling",
+    "status": "passed",
+    "duration": 0.02718149998690933
+  },
+  {
+    "name": "tests/test_error_handling.py::test_pipeline_error_response_structure",
+    "status": "passed",
+    "duration": 0.0025626999558880925
+  },
+  {
+    "name": "tests/test_error_handling.py::test_pipeline_does_not_crash_on_error",
+    "status": "passed",
+    "duration": 0.002764899982139468
+  },
+  {
+    "name": "tests/test_error_handling.py::test_pipeline_error_with_different_modes",
+    "status": "passed",
+    "duration": 0.007447399897500873
+  },
+  {
+    "name": "tests/test_pipeline_proxy.py::test_proxy_pipeline",
+    "status": "passed",
+    "duration": 0.022015599999576807
+  },
+  {
+    "name": "tests/test_pipeline_proxy.py::test_proxy_pipeline_detailed_analysis",
+    "status": "passed",
+    "duration": 0.009125200100243092
+  },
+  {
+    "name": "tests/test_pipeline_proxy.py::test_proxy_pipeline_with_risky_input",
+    "status": "passed",
+    "duration": 0.0110319999512285
+  },
+  {
+    "name": "tests/test_pipeline_proxy_lite.py::test_proxy_lite_pipeline",
+    "status": "passed",
+    "duration": 0.009099999908357859
+  },
+  {
+    "name": "tests/test_pipeline_proxy_lite.py::test_proxy_lite_pipeline_with_output_text",
+    "status": "passed",
+    "duration": 0.007631500018760562
+  },
+  {
+    "name": "tests/test_pipeline_proxy_lite.py::test_proxy_lite_pipeline_concise_output",
+    "status": "passed",
+    "duration": 0.008361299987882376
+  },
+  {
+    "name": "tests/test_pipeline_standalone.py::test_standalone_pipeline",
+    "status": "passed",
+    "duration": 0.00811469997279346
+  },
+  {
+    "name": "tests/test_pipeline_standalone.py::test_standalone_pipeline_with_risky_input",
+    "status": "passed",
+    "duration": 0.01035490003414452
+  },
+  {
+    "name": "tests/test_pipeline_standalone.py::test_standalone_pipeline_empty_input",
+    "status": "passed",
+    "duration": 0.009900499950163066
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_format",
+    "status": "passed",
+    "duration": 0.02457679994404316
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_validation",
+    "status": "passed",
+    "duration": 0.00893839995842427
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_all_modes",
+    "status": "passed",
+    "duration": 0.027320499997586012
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_field_types",
+    "status": "passed",
+    "duration": 0.008174700080417097
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_eza_score_range",
+    "status": "passed",
+    "duration": 0.00903620000462979
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_mode_values",
+    "status": "passed",
+    "duration": 0.026698900037445128
+  }
+]

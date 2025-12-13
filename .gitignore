@@ -25,6 +25,7 @@ yarn-error.log*
 .env
 .env.local
 .env.production
+.env.*.local
 
 # IDE
 .vscode/
@@ -47,4 +48,3 @@ logs/
 
 # Docker
 docker-compose.override.yml
-

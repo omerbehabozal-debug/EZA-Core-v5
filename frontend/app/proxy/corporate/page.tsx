@@ -4,7 +4,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -17,9 +19,10 @@ import { fetchCorporateAudit, fetchCorporatePolicy, updateCorporatePolicy } from
 import { MOCK_CORPORATE_AUDIT, MOCK_CORPORATE_POLICY } from '@/mock/corporate';
 import type { PolicyConfig as PolicyConfigType, CorporateAudit } from '@/lib/types';
 import { uploadMultimodalFile, MultimodalAnalysisResult } from '@/api/multimodal';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 function getStatusType(isLoading: boolean, error: any, data: any, fallback: any): StatusType {
   if (isLoading) return 'loading';
@@ -27,12 +30,13 @@ function getStatusType(isLoading: boolean, error: any, data: any, fallback: any)
   return 'live';
 }
 
-export default function CorporatePage() {
+function CorporatePageContent() {
   const searchParams = useSearchParams();
   const { setTenant, getTenant } = useTenantStore();
   const tenant = getTenant();
 
   useEffect(() => {
+    if (!searchParams) return;
     const tenantParam = searchParams.get('tenant');
     if (tenantParam && tenantParam !== tenant.id) {
       setTenant(tenantParam);
@@ -215,5 +219,13 @@ export default function CorporatePage() {
         </Card>
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function CorporatePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CorporatePageContent />
+    </Suspense>
   );
 }

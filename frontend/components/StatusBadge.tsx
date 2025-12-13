@@ -5,14 +5,20 @@
 
 'use client';
 
+export type StatusType = 'loading' | 'live' | 'preview';
+
 interface StatusBadgeProps {
+  status?: StatusType;
   loading?: boolean;
   live?: boolean;
   className?: string;
 }
 
-export default function StatusBadge({ loading, live, className }: StatusBadgeProps) {
-  if (loading) {
+export default function StatusBadge({ status, loading, live, className }: StatusBadgeProps) {
+  // Support both old API (loading/live) and new API (status)
+  let currentStatus: StatusType = status || (loading ? 'loading' : live ? 'live' : 'preview');
+
+  if (currentStatus === 'loading') {
     return (
       <div className={`text-blue-600 font-semibold ${className || ''}`}>
         🔵 Loading…
@@ -20,7 +26,7 @@ export default function StatusBadge({ loading, live, className }: StatusBadgePro
     );
   }
 
-  if (live) {
+  if (currentStatus === 'live') {
     return (
       <div className={`text-green-600 font-semibold ${className || ''}`}>
         🟢 Live data loaded

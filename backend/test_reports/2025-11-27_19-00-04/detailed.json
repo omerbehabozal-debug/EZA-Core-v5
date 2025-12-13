@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_adversarial/test_obfuscation.py::test_obfuscation_scenario[ADV-042]",
+    "status": "failed",
+    "duration": 2.1190767000662163,
+    "message": "tests_adversarial\\test_obfuscation.py:36: in test_obfuscation_scenario\n    assert check_score_with_tolerance(score, expected[\"max_score\"], tolerance=15.0), \\\nE   AssertionError: Scenario ADV-042: Score 96.0 should be <= 90.0 (expected max: 40)\nE   assert False\nE    +  where False = <function check_score_with_tolerance at 0x000001E324196200>(96.0, 40, tolerance=15.0)"
+  }
+]

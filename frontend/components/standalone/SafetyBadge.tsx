@@ -6,10 +6,9 @@ import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 
 interface SafetyBadgeProps {
   safety: 'Safe' | 'Warning' | 'Blocked';
-  confidence?: number;
 }
 
-export default function SafetyBadge({ safety, confidence }: SafetyBadgeProps) {
+export default function SafetyBadge({ safety }: SafetyBadgeProps) {
   const badgeConfig = {
     Safe: {
       bg: 'bg-green-50/80',
@@ -38,16 +37,9 @@ export default function SafetyBadge({ safety, confidence }: SafetyBadgeProps) {
   const Icon = config.icon;
 
   return (
-    <div className="inline-flex items-center gap-1.5">
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1 min-h-[26px] rounded-full text-xs font-medium border backdrop-blur-md shadow-sm ${config.bg} ${config.text} ${config.border}`}>
-        <Icon className="w-3.5 h-3.5" />
-        {config.label}
-      </span>
-      {confidence !== undefined && (
-        <span className="text-xs text-gray-500 font-medium">
-          {Math.round(confidence * 100)}%
-        </span>
-      )}
-    </div>
+    <span className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 min-h-[24px] sm:min-h-[26px] rounded-full text-[11px] sm:text-xs font-semibold border backdrop-blur-md shadow-sm whitespace-nowrap ${config.bg} ${config.text} ${config.border}`}>
+      <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+      <span>{config.label}</span>
+    </span>
   );
 }

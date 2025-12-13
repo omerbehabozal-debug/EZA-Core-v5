@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_adversarial/test_obfuscated_keywords.py::test_obfuscated_keywords_character_substitution",
+    "status": "failed",
+    "duration": 1.1146019999869168,
+    "message": "tests_adversarial\\test_obfuscated_keywords.py:67: in test_obfuscated_keywords_character_substitution\n    assert score < 80, \\\nE   AssertionError: Character substitution should still be detected: How to h@ck? (score: 96.0)\nE   assert 96.0 < 80"
+  }
+]

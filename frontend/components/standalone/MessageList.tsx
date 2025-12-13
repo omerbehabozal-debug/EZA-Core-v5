@@ -5,52 +5,65 @@
 import { useEffect, useRef } from 'react';
 import ChatBubble from './ChatBubble';
 import LoadingDots from './LoadingDots';
+import TypingIndicator from './TypingIndicator';
 import EmptyState from './EmptyState';
 
 interface Message {
   id: string;
   text: string;
   isUser: boolean;
+  // Score mode (Standalone default)
+  userScore?: number; // 0-100 for user message
+  assistantScore?: number; // 0-100 for assistant message
+  // Safe-only mode
   safety?: 'Safe' | 'Warning' | 'Blocked';
-  confidence?: number;
+  safeOnlyMode?: boolean;
   timestamp: Date;
 }
 
 interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
+  isTyping?: boolean;
 }
 
-export default function MessageList({ messages, isLoading }: MessageListProps) {
+export default function MessageList({ messages, isLoading, isTyping = false }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Auto-scroll to bottom when new messages arrive
+    // Auto-scroll to bottom when new messages arrive or typing indicator appears
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isTyping]);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50">
-      <div className="max-w-4xl mx-auto py-6">
+    <div className="flex-1 overflow-y-auto bg-gray-50 overscroll-contain">
+      <div className="max-w-4xl mx-auto py-4 sm:py-6 w-full">
         {/* Empty State */}
         {messages.length === 0 && !isLoading && <EmptyState />}
 
         {/* Messages */}
-        {messages.map((message) => (
-          <ChatBubble
-            key={message.id}
-            message={message.text}
-            isUser={message.isUser}
-            safety={message.safety}
-            confidence={message.confidence}
-            timestamp={message.timestamp}
-          />
-        ))}
+        <div className="w-full">
+          {messages.map((message) => (
+            <ChatBubble
+              key={message.id}
+              message={message.text}
+              isUser={message.isUser}
+              userScore={message.userScore}
+              assistantScore={message.assistantScore}
+              safety={message.safety}
+              safeOnlyMode={message.safeOnlyMode}
+              timestamp={message.timestamp}
+            />
+          ))}
+        </div>
 
-        {/* Loading Indicator */}
-        {isLoading && (
-          <div className="flex justify-start mb-5 px-4">
-            <div className="bg-white border border-gray-200 rounded-[20px] rounded-tl-[4px] shadow-sm">
+        {/* Typing Indicator - Shows before streaming starts */}
+        {isTyping && <TypingIndicator />}
+
+        {/* Loading Indicator - Legacy fallback (not used with streaming) */}
+        {isLoading && !isTyping && (
+          <div className="flex justify-start mb-4 sm:mb-5 px-2 sm:px-4">
+            <div className="bg-white border border-gray-200 rounded-[18px] sm:rounded-[20px] rounded-tl-[4px] shadow-sm">
               <LoadingDots />
             </div>
           </div>

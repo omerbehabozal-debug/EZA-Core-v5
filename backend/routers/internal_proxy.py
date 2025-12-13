@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.core.utils.dependencies import require_internal
+from backend.auth.api_key import require_api_key
 from backend.gateway.router_adapter import call_llm_provider
 from backend.config import get_settings
 from backend.regulation.policy_packs.rtuk_pack import RTUKPolicyPack
@@ -26,7 +26,7 @@ from backend.core.engines.psych_pressure import analyze_psychological_pressure
 from backend.core.engines.legal_risk import analyze_legal_risk
 from backend.core.engines.safety_graph import build_safety_graph
 
-router = APIRouter(prefix="/api/proxy/internal", tags=["proxy-internal"])
+router = APIRouter(prefix="/api/internal", tags=["proxy-internal"])
 
 # In-memory session storage (TODO: Replace with database in production)
 session_store: Dict[str, Dict[str, Any]] = {}
@@ -278,7 +278,7 @@ async def run_debug_pipeline(
 @router.post("/run", response_model=ProxyInternalResponse)
 async def run_proxy_internal(
     req: ProxyInternalRequest,
-    current_user = Depends(require_internal())
+    _: str = require_api_key()  # API key required
 ):
     """
     Full Internal Proxy API
@@ -300,7 +300,7 @@ async def run_proxy_internal(
 @router.get("/history")
 async def list_proxy_internal_history(
     limit: int = 20,
-    current_user = Depends(require_internal())
+    _: str = require_api_key()  # API key required
 ):
     """
     Return last N internal proxy sessions (for sidebar history list).
@@ -326,7 +326,7 @@ async def list_proxy_internal_history(
 @router.get("/session/{session_id}")
 async def get_proxy_internal_session(
     session_id: str,
-    current_user = Depends(require_internal())
+    _: str = require_api_key()  # API key required
 ):
     """
     Return full debug data for a specific session.

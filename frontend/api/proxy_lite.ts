@@ -1,94 +1,248 @@
 /**
  * Proxy-Lite API Client
+ * Final architecture: EZA-Core ethical scoring
  */
 
-import { apiRequest } from "./api_client";
 import { API_BASE_URL } from "./config";
 
-export interface ProxyLiteAnalyzeRequest {
-  message: string;
-  output_text: string;
+// ========== TYPES ==========
+
+export interface ParagraphAnalysis {
+  original: string;
+  score: number; // 0-100, ethical score
+  issues: string[]; // Turkish issue labels
+  rewrite: string | null; // Rewritten version if available
+  neutrality_score?: number; // 0-100, neutrality score
+  writing_quality_score?: number; // 0-100, writing quality score
+  platform_fit_score?: number; // 0-100, platform fit score
 }
 
-export interface ProxyLiteAnalyzeResponse {
-  risk_level: string;
-  risk_category: string;
-  violated_rule_count: number;
-  summary: string;
-  recommendation: string;
+export interface LiteAnalysisResponse {
+  ethics_score: number; // 0-100, overall
+  ethics_level: "low" | "medium" | "high";
+  neutrality_score: number; // 0-100, overall neutrality
+  writing_quality_score: number; // 0-100, overall writing quality
+  platform_fit_score: number; // 0-100, overall platform fit
+  paragraphs: ParagraphAnalysis[];
+  unique_issues: string[]; // Unique issue labels (no duplicates)
+  provider: string; // "EZA-Core"
 }
 
-export interface ProxyLiteRealResult {
-  live: boolean;
-  risk_score: number;
-  risk_level: string;
-  output: string;
-  flags: string[];
-  raw?: any;
+export interface RewriteRequest {
+  text: string;
+  risk_labels?: string[];
+  language?: 'tr' | 'en';
+  provider?: 'openai' | 'groq' | 'mistral' | null;
 }
 
-export function analyzeProxyLite(
-  message: string,
-  outputText: string
-): Promise<ProxyLiteAnalyzeResponse> {
-  return apiRequest<ProxyLiteAnalyzeResponse>(
-    "/api/proxy-lite/report",
-    "POST",
-    {
-      message,
-      output_text: outputText,
-    }
-  );
+export interface RewriteResponse {
+  original_text: string;
+  rewritten_text: string;
+  original_ethical_score: number;
+  new_ethical_score: number;
+  risk_level_before: 'low' | 'medium' | 'high';
+  risk_level_after: 'low' | 'medium' | 'high';
+  improved: boolean; // True if new_score > original_score
 }
+
+// ========== API FUNCTIONS ==========
 
 /**
- * Analyze Lite - Real Backend Integration
- * Only calls backend, returns null on error (no mock, no fallback)
+ * Analyze text using Proxy-Lite
  */
-export async function analyzeLite(text: string): Promise<ProxyLiteRealResult | null> {
+export async function analyzeLite(
+  text: string,
+  locale: 'tr' | 'en' = 'tr',
+  provider?: 'openai' | 'groq' | 'mistral' | null,
+  context?: 'social_media' | 'corporate_professional' | 'legal_official' | 'educational_informative' | 'personal_blog' | null,
+  targetAudience?: 'general_public' | 'clients_consultants' | 'students' | 'children_youth' | 'colleagues' | 'regulators_public' | null,
+  tone?: 'neutral' | 'professional' | 'friendly' | 'funny' | 'persuasive' | 'strict_warning' | null
+): Promise<LiteAnalysisResponse | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/gateway/test-call`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: text, provider: "openai" }),
-    });
+    const defaultProvider = process.env.NEXT_PUBLIC_LITE_DEFAULT_PROVIDER || 'openai';
+    const url = `${API_BASE_URL}/api/proxy-lite/analyze`;
+    
+    console.log('[Proxy-Lite] Sending request to:', url);
+    console.log('[Proxy-Lite] Request body:', { text: text.trim().substring(0, 50) + '...', locale, provider: provider || defaultProvider });
+    
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text.trim(),
+          locale,
+          provider: provider || defaultProvider,
+          context: context || null,
+          target_audience: targetAudience || null,
+          tone: tone || null,
+        }),
+        signal: controller.signal,
+      });
 
-    if (!res.ok) return null;
+      clearTimeout(timeoutId);
 
-    const data = await res.json();
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[Proxy-Lite] Analysis failed:', res.status, res.statusText, errorText);
+        return null;
+      }
 
-    // Only return if we have valid analysis data
-    if (!data.analysis && !data.gateway) {
+      const data: LiteAnalysisResponse = await res.json();
+      console.log('[Proxy-Lite] Analysis success:', data);
+      return data;
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      if (e.name === 'AbortError') {
+        console.error('[Proxy-Lite] Request timeout (60s)');
+      } else {
+        console.error('[Proxy-Lite] Analysis error:', e);
+      }
       return null;
     }
-
-    // Extract risk_score from analysis
-    const riskScore = data.analysis?.eza_score?.final_score ?? data.analysis?.risk_score;
-    if (riskScore === undefined || riskScore === null) {
-      return null; // No valid risk score from backend
-    }
-    
-    const riskLevel = data.analysis?.risk_level;
-    if (!riskLevel) {
-      return null; // No valid risk level from backend
-    }
-
-    const output = data.output || data.gateway?.output;
-    if (!output) {
-      return null; // No valid output from backend
-    }
-
-    return {
-      live: true,
-      risk_score: riskScore,
-      risk_level: riskLevel,
-      output: output,
-      flags: data.analysis?.risk_flags || [],
-      raw: data,
-    };
   } catch (e) {
-    console.info("Proxy-Lite: Backend offline.");
+    console.error('[Proxy-Lite] Analysis error:', e);
     return null;
   }
 }
 
+/**
+ * Rewrite paragraph to be more ethical
+ */
+export async function rewriteLite(
+  text: string,
+  risk_labels?: string[],
+  language: 'tr' | 'en' = 'tr',
+  provider?: 'openai' | 'groq' | 'mistral' | null
+): Promise<RewriteResponse | null> {
+  try {
+    const defaultProvider = process.env.NEXT_PUBLIC_LITE_DEFAULT_PROVIDER || 'openai';
+    const url = `${API_BASE_URL}/api/proxy-lite/rewrite`;
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text.trim(),
+        risk_labels,
+        language,
+        provider: provider || defaultProvider,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[Proxy-Lite] Rewrite failed:', res.status, errorText);
+      return null;
+    }
+
+    const data: RewriteResponse = await res.json();
+    return data;
+  } catch (e) {
+    console.error('[Proxy-Lite] Rewrite error:', e);
+    return null;
+  }
+}
+
+// ========== MEDIA ENDPOINTS ==========
+
+export interface MediaTextResponse {
+  text_from_audio?: string | null;
+  text_from_image?: string | null;
+  text_from_video?: string | null;
+  error?: string | null;
+  provider: string;
+}
+
+/**
+ * Process audio file: Extract text using STT
+ */
+export async function processAudio(file: File): Promise<MediaTextResponse | null> {
+  try {
+    const url = `${API_BASE_URL}/api/proxy-lite/audio`;
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[Proxy-Lite] Audio processing failed:', res.status, errorText);
+      return null;
+    }
+    
+    const data: MediaTextResponse = await res.json();
+    return data;
+  } catch (e) {
+    console.error('[Proxy-Lite] Audio processing error:', e);
+    return null;
+  }
+}
+
+/**
+ * Process image file: Extract text using OCR
+ */
+export async function processImage(file: File): Promise<MediaTextResponse | null> {
+  try {
+    const url = `${API_BASE_URL}/api/proxy-lite/image`;
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[Proxy-Lite] Image processing failed:', res.status, errorText);
+      return null;
+    }
+    
+    const data: MediaTextResponse = await res.json();
+    return data;
+  } catch (e) {
+    console.error('[Proxy-Lite] Image processing error:', e);
+    return null;
+  }
+}
+
+/**
+ * Process video file: Extract text using STT + OCR
+ */
+export async function processVideo(file: File): Promise<MediaTextResponse | null> {
+  try {
+    const url = `${API_BASE_URL}/api/proxy-lite/video`;
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[Proxy-Lite] Video processing failed:', res.status, errorText);
+      return null;
+    }
+    
+    const data: MediaTextResponse = await res.json();
+    return data;
+  } catch (e) {
+    console.error('[Proxy-Lite] Video processing error:', e);
+    return null;
+  }
+}
+
+// Legacy function for backward compatibility
+export async function analyzeText(text: string): Promise<LiteAnalysisResponse | null> {
+  return analyzeLite(text);
+}
