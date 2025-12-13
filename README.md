@@ -1,4 +1,4 @@
-# EZA v5 — Ethical Zekâ Altyapısı
+# EZA-Core V6 — Ethical Zekâ Altyapısı
 
 Global ölçekte çalışan, üç moddan oluşan (Standalone, Proxy, Proxy-Lite) bir etik karar yönlendirme altyapısı.
 

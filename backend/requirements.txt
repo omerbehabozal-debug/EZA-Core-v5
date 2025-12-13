@@ -1,4 +1,4 @@
-# EZA v5 Backend Requirements
+# EZA-Core V6 Backend Requirements
 
 # Web Framework
 fastapi==0.104.1
