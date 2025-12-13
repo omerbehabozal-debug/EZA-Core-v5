@@ -62,23 +62,23 @@ export default function ProxyManagementPage() {
 
         {/* Tabs */}
         <Tabs defaultTab={activeTab} onTabChange={handleTabChange}>
-          <TabList activeTab={activeTab} setActiveTab={setActiveTab}>
-            <Tab id="api-keys" activeTab={activeTab} setActiveTab={setActiveTab}>
+          <TabList activeTab={activeTab} setActiveTab={handleTabChange}>
+            <Tab id="api-keys" activeTab={activeTab} setActiveTab={handleTabChange}>
               🔑 API Anahtarları
             </Tab>
-            <Tab id="policies" activeTab={activeTab} setActiveTab={setActiveTab}>
+            <Tab id="policies" activeTab={activeTab} setActiveTab={handleTabChange}>
               🛡️ Politika Paketleri
             </Tab>
-            <Tab id="roles" activeTab={activeTab} setActiveTab={setActiveTab}>
+            <Tab id="roles" activeTab={activeTab} setActiveTab={handleTabChange}>
               👥 Roller & Ekip
             </Tab>
-            <Tab id="audit" activeTab={activeTab} setActiveTab={setActiveTab}>
+            <Tab id="audit" activeTab={activeTab} setActiveTab={handleTabChange}>
               📋 Denetim Logları
             </Tab>
-            <Tab id="analytics" activeTab={activeTab} setActiveTab={setActiveTab}>
+            <Tab id="analytics" activeTab={activeTab} setActiveTab={handleTabChange}>
               📊 Analytics & Billing
             </Tab>
-            <Tab id="alerts" activeTab={activeTab} setActiveTab={setActiveTab}>
+            <Tab id="alerts" activeTab={activeTab} setActiveTab={handleTabChange}>
               🔔 Alerting & Webhooks
             </Tab>
           </TabList>
