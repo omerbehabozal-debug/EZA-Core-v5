@@ -991,7 +991,12 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
               </button>
               <button
                 type="button"
-                onClick={() => handlePlanUpgrade(selectedPlan, displayCurrency)}
+                onClick={() => {
+                  if (selectedPlan) {
+                    handlePlanUpgrade(selectedPlan);
+                    setShowPlanModal(false);
+                  }
+                }}
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-medium"
                 style={{
                   background: 'linear-gradient(135deg, #007AFF 0%, #3B7CFF 100%)',
