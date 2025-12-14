@@ -44,7 +44,7 @@ async def require_proxy_auth(
     
     # Check if it's an organization API key (ezak_ prefix)
     org_id_from_key = None
-    if api_key.startswith("ezak_"):
+    if api_key and api_key.startswith("ezak_"):
         from backend.routers.organization import validate_api_key_and_get_org
         org_id_from_key = validate_api_key_and_get_org(api_key)
         if not org_id_from_key:
@@ -52,7 +52,7 @@ async def require_proxy_auth(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid organization API key"
             )
-    else:
+    elif api_key:
         # Validate admin API key
         try:
             validated_key = validate_api_key(api_key)
@@ -77,15 +77,24 @@ async def require_proxy_auth(
             detail="Invalid or expired token"
         )
     
-    # Check role (admin, reviewer, auditor, readonly)
+    # Check role - support both Proxy and Platform roles
     user_role = user_info.get("role", "")
-    if user_role not in ["admin", "reviewer", "auditor", "readonly"]:
-        # Allow legacy roles for backward compatibility
-        if user_role not in ["corp_user", "dev", "admin"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Corporate access required. Roles: admin, reviewer, auditor, readonly"
-            )
+    
+    # Proxy roles (operational desk)
+    proxy_roles = ["admin", "reviewer", "auditor", "readonly", "proxy_user"]
+    
+    # Platform roles (control plane)
+    platform_roles = ["admin", "org_admin", "ops", "finance", "auditor"]
+    
+    # Legacy roles for backward compatibility
+    legacy_roles = ["corp_user", "dev", "corporate", "regulator"]
+    
+    # Allow if role is in any of the allowed role sets
+    if user_role not in proxy_roles and user_role not in platform_roles and user_role not in legacy_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied. Allowed roles: {', '.join(set(proxy_roles + platform_roles + legacy_roles))}"
+        )
     
     return {
         **user_info,

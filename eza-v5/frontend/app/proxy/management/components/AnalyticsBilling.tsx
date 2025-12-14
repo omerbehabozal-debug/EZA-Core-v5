@@ -155,8 +155,8 @@ export default function AnalyticsBilling({ orgId, userRole: userRoleProp }: Anal
       
       if (!monthlyRes.ok) {
         if (monthlyRes.status === 403) {
-          console.warn('[Analytics] Access denied (403) - Admin role required');
-          setAccessDenied(true);
+          console.warn('[Analytics] Access denied (403) - Check token and API key');
+          // Don't set accessDenied here - it's computed from role
           return;
         }
         throw new Error(`HTTP ${monthlyRes.status}: ${monthlyRes.statusText}`);
@@ -275,7 +275,8 @@ export default function AnalyticsBilling({ orgId, userRole: userRoleProp }: Anal
         localStorage.removeItem('auth_token');
         window.location.href = '/login';
       } else if (err.message?.includes('403') || err.message?.includes('Forbidden')) {
-        setAccessDenied(true);
+        console.warn('[Analytics] 403 Forbidden - Check backend authentication');
+        // accessDenied is computed from role, no need to set it
       }
     } finally {
       setLoading(false);
