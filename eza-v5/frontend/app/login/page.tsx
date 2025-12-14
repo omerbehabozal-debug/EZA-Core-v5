@@ -39,7 +39,14 @@ export default function LoginPage() {
       console.log('Decoded token role:', tokenRole);
       
       // Map token role to UserRole type
-      if (tokenRole === 'admin' || tokenRole === 'corporate' || tokenRole === 'regulator') {
+      // Support all roles: proxy, platform, and legacy
+      const validRoles = [
+        'admin', 'org_admin', 'ops', 'finance', // Platform roles
+        'proxy_user', 'reviewer', 'auditor', // Proxy roles
+        'corporate', 'regulator' // Legacy roles
+      ];
+      
+      if (validRoles.includes(tokenRole)) {
         return tokenRole as UserRole;
       }
       console.warn('Unknown role in token:', tokenRole);

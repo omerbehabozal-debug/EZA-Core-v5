@@ -6,6 +6,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/apiUrl";
 import {
   Chart as ChartJS,
@@ -87,7 +88,8 @@ interface SLAStatus {
   alerts: any[];
 }
 
-export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingProps) {
+export default function AnalyticsBilling({ orgId, userRole: userRoleProp }: AnalyticsBillingProps) {
+  const { role: contextRole } = useAuth();
   const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([]);
   const [topFlags, setTopFlags] = useState<any[]>([]);
   const [providerUsage, setProviderUsage] = useState<Record<string, number>>({});
@@ -100,14 +102,32 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
 
+  // Use prop role if provided, otherwise use context role
+  const userRole = userRoleProp || contextRole;
+
   // Check platform access (admin, org_admin, ops, finance)
   const PLATFORM_ROLES = ['admin', 'org_admin', 'ops', 'finance'];
   
   useEffect(() => {
-    if (userRole && !PLATFORM_ROLES.includes(userRole)) {
+    // Reset access denied state first
+    setAccessDenied(false);
+    
+    // If userRole is provided, check if it's a platform role
+    if (userRole) {
+      const normalizedRole = String(userRole).toLowerCase().trim();
+      if (PLATFORM_ROLES.includes(normalizedRole)) {
+        setAccessDenied(false); // User has access
+        console.log('[AnalyticsBilling] Access granted for role:', normalizedRole);
+      } else {
+        console.warn('[AnalyticsBilling] Access denied for role:', userRole, 'Expected one of:', PLATFORM_ROLES);
+        setAccessDenied(true); // User doesn't have access
+      }
+    } else {
+      // If no userRole provided, deny access by default
+      console.warn('[AnalyticsBilling] No userRole provided. Prop:', userRoleProp, 'Context:', contextRole);
       setAccessDenied(true);
     }
-  }, [userRole]);
+  }, [userRole, userRoleProp, contextRole]);
 
   useEffect(() => {
     if (orgId && !accessDenied) {
