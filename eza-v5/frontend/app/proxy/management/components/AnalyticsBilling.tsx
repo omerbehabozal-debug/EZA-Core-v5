@@ -169,7 +169,7 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
         } catch (simError: any) {
           console.error('[Analytics] Simulation error:', simError);
           // Fallback: use real data without simulation
-          setDailyUsage(realData.map(d => ({ ...d, simulated: false })));
+          setDailyUsage(realData.map((d: DailyUsage) => ({ ...d, simulated: false })));
         }
       }
 
