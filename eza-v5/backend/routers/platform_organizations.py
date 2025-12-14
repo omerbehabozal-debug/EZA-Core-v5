@@ -19,8 +19,9 @@ from backend.routers.organization import organizations
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# In-memory organization_users store (in production, use database)
-organization_users: Dict[str, List[Dict[str, Any]]] = {}  # org_id -> [user records]
+# Import organization_users store from middleware
+from backend.middleware.organization_guard import get_organization_users_store
+organization_users_store = get_organization_users_store()
 
 
 class CreateOrganizationRequest(BaseModel):
@@ -111,14 +112,14 @@ async def create_organization(
     organizations[org_id] = org_data
     
     # Add creator as admin to organization_users
-    if org_id not in organization_users:
-        organization_users[org_id] = []
+    if org_id not in organization_users_store:
+        organization_users_store[org_id] = {}
     
-    organization_users[org_id].append({
-        "user_id": user_id,
+    organization_users_store[org_id][user_id] = {
         "role": "org_admin",
+        "status": "active",
         "joined_at": datetime.utcnow().isoformat(),
-    })
+    }
     
     # Log audit event
     await _log_audit(
@@ -157,8 +158,8 @@ async def list_organizations(
     else:
         # Regular users see only organizations they're members of
         user_orgs = []
-        for org_id, users in organization_users.items():
-            if any(u.get("user_id") == user_id for u in users):
+        for org_id, users in organization_users_store.items():
+            if user_id in users:
                 if org_id in organizations:
                     org = organizations[org_id]
                     if org.get("status") != "archived":
@@ -202,18 +203,13 @@ async def update_organization(
     
     # Check if user is member (for org_admin)
     if user_role == "org_admin":
-        if org_id not in organization_users:
+        if org_id not in organization_users_store:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not a member of this organization"
             )
         
-        user_membership = [
-            u for u in organization_users[org_id]
-            if u.get("user_id") == user_id
-        ]
-        
-        if not user_membership:
+        if user_id not in organization_users_store[org_id]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not a member of this organization"

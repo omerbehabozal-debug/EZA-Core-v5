@@ -131,6 +131,10 @@ app.add_middleware(
 # Setup security logging
 setup_security_logging()
 
+# Organization Guard Middleware (Enterprise Lock)
+from backend.middleware.organization_guard import OrganizationGuardMiddleware
+app.add_middleware(OrganizationGuardMiddleware)
+
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 # standalone.router removed - using direct endpoint in main.py instead
