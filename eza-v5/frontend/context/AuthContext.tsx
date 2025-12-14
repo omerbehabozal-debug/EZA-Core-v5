@@ -7,7 +7,17 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-export type UserRole = 'admin' | 'corporate' | 'regulator' | null;
+// Proxy roles (operational users)
+export type ProxyRole = 'proxy_user' | 'reviewer' | 'auditor';
+
+// Platform roles (management users)
+export type PlatformRole = 'org_admin' | 'ops' | 'finance' | 'admin';
+
+// Legacy roles (for backward compatibility)
+export type LegacyRole = 'corporate' | 'regulator';
+
+// Combined role type
+export type UserRole = ProxyRole | PlatformRole | LegacyRole | null;
 
 interface AuthState {
   token: string | null;

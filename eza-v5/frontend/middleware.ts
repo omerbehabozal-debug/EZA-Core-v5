@@ -18,7 +18,7 @@ const DOMAIN_ROUTES: Record<string, string> = {
   'proxy-lite.ezacore.ai': '/proxy-lite',
   'admin.ezacore.ai': '/admin',
   'corporate.ezacore.ai': '/corporate',
-  'platform.ezacore.ai': '/proxy/platform',
+  'platform.ezacore.ai': '/platform',
   'regulator.ezacore.ai': '/regulator',
   'eu-ai.ezacore.ai': '/proxy/eu-ai',
   'select.ezacore.ai': '/proxy/select-portal',

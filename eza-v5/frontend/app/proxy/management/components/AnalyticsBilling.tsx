@@ -7,7 +7,6 @@
 
 import { useState, useEffect } from "react";
 import { getApiUrl } from "@/lib/apiUrl";
-const API_BASE_URL = getApiUrl();
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -119,6 +118,13 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
 
     setLoading(true);
     try {
+      const API_BASE_URL = getApiUrl();
+      if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+        console.error('[Analytics] API_BASE_URL is not configured');
+        setLoading(false);
+        return;
+      }
+
       const token = localStorage.getItem('auth_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       const headers: Record<string, string> = {
@@ -131,6 +137,16 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
       const now = new Date();
       const month = now.toISOString().slice(0, 7);
       const monthlyRes = await fetch(`${API_BASE_URL}/api/org/${orgId}/usage/monthly?month=${month}`, { headers });
+      
+      if (!monthlyRes.ok) {
+        if (monthlyRes.status === 403) {
+          console.warn('[Analytics] Access denied (403) - Admin role required');
+          setAccessDenied(true);
+          return;
+        }
+        throw new Error(`HTTP ${monthlyRes.status}: ${monthlyRes.statusText}`);
+      }
+      
       const monthlyData = await monthlyRes.json();
       
       if (DEBUG_MODE) {
@@ -139,20 +155,33 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
 
       if (monthlyData.ok) {
         const realData = monthlyData.days || [];
-        const daysActive = calculateDaysActive(realData);
-        const simulatedData = simulateGrowth(realData, daysActive);
-        
-        if (DEBUG_MODE) {
-          console.log('[Analytics] Real data:', realData.length, 'samples');
-          console.log('[Analytics] Days active:', daysActive);
-          console.log('[Analytics] Simulated data:', simulatedData);
+        try {
+          const daysActive = calculateDaysActive(realData);
+          const simulatedData = simulateGrowth(realData, daysActive);
+          
+          if (DEBUG_MODE) {
+            console.log('[Analytics] Real data:', realData.length, 'samples');
+            console.log('[Analytics] Days active:', daysActive);
+            console.log('[Analytics] Simulated data:', simulatedData);
+          }
+          
+          setDailyUsage(simulatedData);
+        } catch (simError: any) {
+          console.error('[Analytics] Simulation error:', simError);
+          // Fallback: use real data without simulation
+          setDailyUsage(realData.map(d => ({ ...d, simulated: false })));
         }
-        
-        setDailyUsage(simulatedData);
       }
 
       // Load top flags
       const flagsRes = await fetch(`${API_BASE_URL}/api/org/${orgId}/usage/top-flags?period=${selectedPeriod}`, { headers });
+      if (!flagsRes.ok) {
+        if (flagsRes.status === 403) {
+          console.warn('[Analytics] Access denied (403) for top-flags');
+          return;
+        }
+        throw new Error(`HTTP ${flagsRes.status}: ${flagsRes.statusText}`);
+      }
       const flagsData = await flagsRes.json();
       
       if (DEBUG_MODE) {
@@ -165,6 +194,13 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
 
       // Load pipeline metrics
       const metricsRes = await fetch(`${API_BASE_URL}/api/org/${orgId}/usage/pipeline-metrics?period=${selectedPeriod}`, { headers });
+      if (!metricsRes.ok) {
+        if (metricsRes.status === 403) {
+          console.warn('[Analytics] Access denied (403) for pipeline-metrics');
+          return;
+        }
+        throw new Error(`HTTP ${metricsRes.status}: ${metricsRes.statusText}`);
+      }
       const metricsData = await metricsRes.json();
       
       if (DEBUG_MODE) {
@@ -177,6 +213,13 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
 
       // Load billing
       const billingRes = await fetch(`${API_BASE_URL}/api/org/${orgId}/billing`, { headers });
+      if (!billingRes.ok) {
+        if (billingRes.status === 403) {
+          console.warn('[Analytics] Access denied (403) for billing');
+          return;
+        }
+        throw new Error(`HTTP ${billingRes.status}: ${billingRes.statusText}`);
+      }
       const billingData = await billingRes.json();
       
       if (DEBUG_MODE) {
@@ -193,6 +236,13 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
 
       // Load SLA status
       const slaRes = await fetch(`${API_BASE_URL}/api/org/${orgId}/sla/status`, { headers });
+      if (!slaRes.ok) {
+        if (slaRes.status === 403) {
+          console.warn('[Analytics] Access denied (403) for SLA status');
+          return;
+        }
+        throw new Error(`HTTP ${slaRes.status}: ${slaRes.statusText}`);
+      }
       const slaData = await slaRes.json();
       
       if (DEBUG_MODE) {
@@ -205,10 +255,12 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
     } catch (err: any) {
       console.error('[Analytics] Load error:', err);
       
-      // Check if token expired
+      // Check if token expired or access denied
       if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
         localStorage.removeItem('auth_token');
         window.location.href = '/login';
+      } else if (err.message?.includes('403') || err.message?.includes('Forbidden')) {
+        setAccessDenied(true);
       }
     } finally {
       setLoading(false);
@@ -219,6 +271,12 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
     if (!orgId) return;
 
     try {
+      const API_BASE_URL = getApiUrl();
+      if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+        console.error('[Billing] API_BASE_URL is not configured');
+        return;
+      }
+
       const token = localStorage.getItem('auth_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
@@ -245,6 +303,13 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
     if (!orgId) return;
 
     try {
+      const API_BASE_URL = getApiUrl();
+      if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+        console.error('[Billing] API_BASE_URL is not configured');
+        alert('Backend URL yapılandırılmamış.');
+        return;
+      }
+
       const token = localStorage.getItem('auth_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
@@ -277,7 +342,7 @@ Organizasyon: ${orgId}
 Dönem: ${data.period}
 Para Birimi: ${data.currency}
 
-TOPLAM: ${currencySymbol}${data.amount.toFixed(2)}
+TOPLAM: ${currencySymbol}${(data?.amount ?? 0).toFixed(2)}
 
 Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
 `;
@@ -376,12 +441,19 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
     },
   };
 
-  // Chart data
+  // Chart data (with null safety)
+  const safeDailyUsage = dailyUsage || [];
   const dailyRequestChart = {
-    labels: dailyUsage.map(d => new Date(d.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })),
+    labels: safeDailyUsage.map(d => {
+      try {
+        return new Date(d.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+      } catch {
+        return d.date || '';
+      }
+    }),
     datasets: [{
       label: 'Günlük İstek Sayısı',
-      data: dailyUsage.map(d => d.request_count),
+      data: safeDailyUsage.map(d => d.request_count || 0),
       borderColor: '#3B7CFF',
       backgroundColor: '#3B7CFF20',
       fill: true,
@@ -392,10 +464,16 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
   };
 
   const riskAvgChart = {
-    labels: dailyUsage.map(d => new Date(d.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })),
+    labels: safeDailyUsage.map(d => {
+      try {
+        return new Date(d.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+      } catch {
+        return d.date || '';
+      }
+    }),
     datasets: [{
       label: 'Risk Ortalaması',
-      data: dailyUsage.map(d => d.risk_avg),
+      data: safeDailyUsage.map(d => d.risk_avg || 0),
       borderColor: '#E84343',
       backgroundColor: '#E8434320',
       fill: true,
@@ -406,10 +484,16 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
   };
 
   const failRateChart = {
-    labels: dailyUsage.map(d => new Date(d.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })),
+    labels: safeDailyUsage.map(d => {
+      try {
+        return new Date(d.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+      } catch {
+        return d.date || '';
+      }
+    }),
     datasets: [{
       label: 'Başarısızlık Oranı (%)',
-      data: dailyUsage.map(d => d.fail_rate),
+      data: safeDailyUsage.map(d => d.fail_rate || 0),
       backgroundColor: '#FFB800',
       borderRadius: 4,
     }],
@@ -733,11 +817,11 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
           {/* Plan Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {(['free', 'pro', 'enterprise'] as const).map((planKey) => {
-              const isCurrentPlan = billing.plan === planKey;
-              const priceTable = billing.price_table[displayCurrency];
-              const planPrice = priceTable.plan_price;
-              const overagePrice = priceTable.overage_price;
-              const quota = billing.quota;
+              const isCurrentPlan = billing?.plan === planKey;
+              const priceTable = billing?.price_table?.[displayCurrency];
+              const planPrice = priceTable?.plan_price ?? 0;
+              const overagePrice = priceTable?.overage_price ?? 0;
+              const quota = billing?.quota ?? 0;
               const currencySymbol = displayCurrency === 'TRY' ? '₺' : '$';
               
               return (
@@ -787,7 +871,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                       <span style={{ color: '#E5E5EA' }}>{quota.toLocaleString('tr-TR')}</span> istek/ay
                     </p>
                     <p className="text-sm" style={{ color: '#8E8E93' }}>
-                      Overage: <span style={{ color: '#E5E5EA' }}>{currencySymbol}{overagePrice.toFixed(displayCurrency === 'TRY' ? 2 : 4)}</span> / istek
+                      Overage: <span style={{ color: '#E5E5EA' }}>{currencySymbol}{(overagePrice ?? 0).toFixed(displayCurrency === 'TRY' ? 2 : 4)}</span> / istek
                     </p>
                   </div>
                   
@@ -844,7 +928,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
             <div className="mb-4">
               <div className="flex justify-between text-sm mb-2" style={{ color: '#8E8E93' }}>
                 <span>Kullanım</span>
-                <span>{billing.request_count.toLocaleString('tr-TR')} / {billing.quota.toLocaleString('tr-TR')}</span>
+                <span>{(billing?.request_count || 0).toLocaleString('tr-TR')} / {(billing?.quota || 0).toLocaleString('tr-TR')}</span>
               </div>
               
               {/* Quota Progress Bar */}
@@ -855,9 +939,9 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                 <div
                   className="h-full transition-all duration-500"
                   style={{
-                    width: `${Math.min(100, (billing.request_count / billing.quota) * 100)}%`,
+                    width: `${Math.min(100, ((billing?.request_count || 0) / (billing?.quota || 1)) * 100)}%`,
                     backgroundColor: (() => {
-                      const usagePercent = (billing.request_count / billing.quota) * 100;
+                      const usagePercent = ((billing?.request_count || 0) / (billing?.quota || 1)) * 100;
                       if (usagePercent < 70) return '#22BF55';
                       if (usagePercent < 90) return '#FFB800';
                       return '#E84343';
@@ -868,7 +952,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
               
               {/* Quota Warnings */}
               {(() => {
-                const usagePercent = (billing.request_count / billing.quota) * 100;
+                const usagePercent = ((billing?.request_count || 0) / (billing?.quota || 1)) * 100;
                 if (usagePercent >= 90) {
                   return (
                     <div className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: '#E8434320', border: '1px solid #E84343' }}>
@@ -893,19 +977,19 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
             </div>
             
             {/* Overage Breakdown */}
-            {billing.overage_count > 0 && (
+            {(billing?.overage_count || 0) > 0 && (
               <div className="mt-4 p-4 rounded" style={{ backgroundColor: '#2C2C2E' }}>
                 <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>
-                  Bu ay <span style={{ color: '#E5E5EA', fontWeight: 'bold' }}>{billing.request_count.toLocaleString('tr-TR')}</span> istek yaptınız.
+                  Bu ay <span style={{ color: '#E5E5EA', fontWeight: 'bold' }}>{(billing?.request_count || 0).toLocaleString('tr-TR')}</span> istek yaptınız.
                 </p>
                 <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>
-                  Plan kotanız: <span style={{ color: '#E5E5EA' }}>{billing.quota.toLocaleString('tr-TR')}</span>
+                  Plan kotanız: <span style={{ color: '#E5E5EA' }}>{(billing?.quota || 0).toLocaleString('tr-TR')}</span>
                 </p>
                 <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>
-                  Overage: <span style={{ color: '#E5E5EA', fontWeight: 'bold' }}>{billing.overage_count.toLocaleString('tr-TR')}</span> istek
+                  Overage: <span style={{ color: '#E5E5EA', fontWeight: 'bold' }}>{(billing?.overage_count || 0).toLocaleString('tr-TR')}</span> istek
                 </p>
                 <p className="text-sm font-bold" style={{ color: '#E5E5EA' }}>
-                  Tahmini maliyet: {displayCurrency === 'TRY' ? '₺' : '$'}{billing.price_table[displayCurrency].plan_price.toFixed(2)} plan + {displayCurrency === 'TRY' ? '₺' : '$'}{(billing.overage_count * billing.price_table[displayCurrency].overage_price).toFixed(2)} overage = {displayCurrency === 'TRY' ? '₺' : '$'}{billing.monthly_cost[displayCurrency].toFixed(2)} / ay
+                  Tahmini maliyet: {displayCurrency === 'TRY' ? '₺' : '$'}{(billing?.price_table?.[displayCurrency]?.plan_price || 0).toFixed(2)} plan + {displayCurrency === 'TRY' ? '₺' : '$'}{((billing?.overage_count || 0) * (billing?.price_table?.[displayCurrency]?.overage_price || 0)).toFixed(2)} overage = {displayCurrency === 'TRY' ? '₺' : '$'}{(billing?.monthly_cost?.[displayCurrency] || 0).toFixed(2)} / ay
                 </p>
               </div>
             )}
@@ -972,7 +1056,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
               <div>
                 <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Tahmini Yeni Aylık Maliyet</p>
                 <p className="text-lg font-bold" style={{ color: '#22BF55' }}>
-                  {displayCurrency === 'TRY' ? '₺' : '$'}{billing.price_table[displayCurrency].plan_price.toFixed(2)} / ay
+                  {displayCurrency === 'TRY' ? '₺' : '$'}{(billing?.price_table?.[displayCurrency]?.plan_price || 0).toFixed(2)} / ay
                 </p>
               </div>
             </div>
@@ -1035,36 +1119,36 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
               <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Uptime</p>
               <p
                 className="text-2xl font-bold"
-                style={{ color: getStatusColor(slaStatus.uptime, 99.5) }}
+                style={{ color: getStatusColor(slaStatus?.uptime || 0, 99.5) }}
               >
-                {slaStatus.uptime.toFixed(2)}%
+                {(slaStatus?.uptime || 0).toFixed(2)}%
               </p>
             </div>
             <div>
               <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Ortalama Latency</p>
               <p
                 className="text-2xl font-bold"
-                style={{ color: getStatusColor(slaStatus.avg_latency, 500, true) }}
+                style={{ color: getStatusColor(slaStatus?.avg_latency || 0, 500, true) }}
               >
-                {slaStatus.avg_latency.toFixed(0)}ms
+                {(slaStatus?.avg_latency || 0).toFixed(0)}ms
               </p>
             </div>
             <div>
               <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Error Rate</p>
               <p
                 className="text-2xl font-bold"
-                style={{ color: getStatusColor(slaStatus.error_rate, 5, true) }}
+                style={{ color: getStatusColor(slaStatus?.error_rate || 0, 5, true) }}
               >
-                {slaStatus.error_rate.toFixed(2)}%
+                {(slaStatus?.error_rate || 0).toFixed(2)}%
               </p>
             </div>
             <div>
               <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Fail-Safe</p>
               <p
                 className="text-2xl font-bold"
-                style={{ color: slaStatus.fail_safe_triggers === 0 ? '#22BF55' : '#E84343' }}
+                style={{ color: (slaStatus?.fail_safe_triggers || 0) === 0 ? '#22BF55' : '#E84343' }}
               >
-                {slaStatus.fail_safe_triggers}
+                {slaStatus?.fail_safe_triggers || 0}
               </p>
             </div>
           </div>
@@ -1087,7 +1171,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
           )}
 
           {/* Recent Alerts */}
-          {slaStatus.alerts && slaStatus.alerts.length > 0 && (
+          {slaStatus?.alerts && slaStatus.alerts.length > 0 && (
             <div>
               <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>Son Uyarılar</p>
               <div className="space-y-2">

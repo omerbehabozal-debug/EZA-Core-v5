@@ -7,9 +7,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse } from "@/api/proxy_corporate";
 import RequireAuth from "@/components/auth/RequireAuth";
+import UserProfileDropdown from "@/components/UserProfileDropdown";
 import ScoreBars from "./components/ScoreBars";
 import ComplianceMetrics from "./components/ComplianceMetrics";
 import RiskFlags from "./components/RiskFlags";
@@ -89,11 +89,12 @@ function ProxyCorporatePageContent() {
           window.location.href = '/login';
         }, 2000);
       } else if (errorMessage.includes('API key required') || errorMessage.includes('X-Api-Key')) {
-        userFriendlyMessage = 'API anahtarı gerekli. Lütfen Yönetim panelinden (/proxy/management) bir API anahtarı oluşturun veya yöneticinize başvurun.';
-        // Optionally redirect to management page
+        userFriendlyMessage = 'API anahtarı gerekli. Lütfen Platform\'dan (platform.ezacore.ai) bir API anahtarı oluşturun veya yöneticinize başvurun.';
+        // Optionally redirect to platform
+        const platformUrl = process.env.NEXT_PUBLIC_PLATFORM_URL || 'https://platform.ezacore.ai';
         setTimeout(() => {
-          if (confirm('API anahtarı oluşturmak için Yönetim paneline yönlendirilsin mi?')) {
-            window.location.href = '/proxy/management';
+          if (confirm('API anahtarı oluşturmak için Platform\'a yönlendirilsin mi?')) {
+            window.location.href = platformUrl;
           }
         }, 2000);
       } else if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
@@ -171,44 +172,11 @@ function ProxyCorporatePageContent() {
                 EZA Proxy
               </h1>
               <p className="text-sm" style={{ color: '#8E8E93' }}>
-                Kurumsal içerik analizi ve güvenlik katmanı
+                Operational AI Safety Interface
               </p>
             </div>
-            {/* Navigation Links */}
-            <div className="flex items-center gap-3">
-              <Link
-                href="/proxy/management"
-                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: '#007AFF',
-                  color: '#FFFFFF',
-                }}
-              >
-                🔧 Yönetim
-              </Link>
-              <Link
-                href="/proxy/monitor"
-                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: '#2C2C2E',
-                  color: '#E5E5EA',
-                  border: '1px solid #3A3A3C',
-                }}
-              >
-                📈 Telemetri
-              </Link>
-              <Link
-                href="/corporate"
-                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: '#2C2C2E',
-                  color: '#E5E5EA',
-                  border: '1px solid #3A3A3C',
-                }}
-              >
-                📊 Corporate
-              </Link>
-            </div>
+            {/* User Profile Dropdown */}
+            <UserProfileDropdown />
           </div>
         </div>
 

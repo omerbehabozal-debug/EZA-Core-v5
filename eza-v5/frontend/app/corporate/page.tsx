@@ -6,8 +6,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import RequireAuth from '@/components/auth/RequireAuth';
+import UserProfileDropdown from '@/components/UserProfileDropdown';
 import { apiClient } from '@/lib/apiClient';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
@@ -113,27 +113,8 @@ export default function CorporatePage() {
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Corporate Panel</h1>
             <div className="flex items-center gap-4">
-              {/* Navigation Links */}
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/proxy/management"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                  🔧 Yönetim Paneli
-                </Link>
-                <Link
-                  href="/proxy"
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
-                >
-                  📊 Proxy Analiz
-                </Link>
-                <Link
-                  href="/proxy/monitor"
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
-                >
-                  📈 Telemetri
-                </Link>
-              </div>
+              {/* User Profile Dropdown */}
+              <UserProfileDropdown />
               <div className="flex items-center gap-2">
                 <div
                   className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}
