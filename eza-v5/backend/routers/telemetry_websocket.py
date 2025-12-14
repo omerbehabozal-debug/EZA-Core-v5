@@ -171,12 +171,34 @@ def publish_telemetry_message(
     provider: str,
     fail_safe_triggered: bool = False,
     fail_reason: Optional[str] = None,
+    user_id: Optional[str] = None,
+    source: str = "api",  # "proxy_ui" | "api"
+    data_type: str = "real",  # "real" | "simulated"
 ):
-    """Publish telemetry message to all relevant channels"""
+    """
+    Publish telemetry message to all relevant channels
+    
+    Args:
+        org_id: Organization ID (required)
+        content_id: Content/request ID
+        risk_score: Risk score (0-100)
+        flags: Risk flags
+        latency_ms: Latency in milliseconds
+        token_usage: Token usage dict
+        provider: LLM provider
+        fail_safe_triggered: Whether fail-safe was triggered
+        fail_reason: Fail reason if triggered
+        user_id: User ID (optional)
+        source: Source of data ("proxy_ui" | "api")
+        data_type: Data type ("real" | "simulated")
+    """
     message = {
         "id": str(uuid.uuid4()),
         "timestamp": datetime.utcnow().isoformat(),
         "org_id": org_id,
+        "user_id": user_id,
+        "source": source,
+        "data_type": data_type,
         "content_id": content_id,
         "risk_score": risk_score,
         "flags": flags,
@@ -199,17 +221,19 @@ def publish_telemetry_message(
     # Broadcast to /ws/corporate (org-specific)
     asyncio.create_task(corporate_manager.broadcast("corporate", message, org_id))
     
-    # Broadcast to /ws/regulator (only if high risk)
-    if fail_safe_triggered or risk_score >= 70:
+    # Broadcast to /ws/regulator (only if high risk AND real data)
+    # Simulated data should NOT trigger regulator alerts
+    if data_type == "real" and (fail_safe_triggered or risk_score >= 70):
         asyncio.create_task(regulator_manager.broadcast("regulator", message))
     
-    # Update SLA metrics
-    # Get plan from org_billing (would need to import, but for now use default)
-    plan = "free"  # TODO: Get from org_billing
-    sla_metrics[org_id] = calculate_sla_metrics(org_id, plan)
+    # Update SLA metrics (only for real data)
+    if data_type == "real":
+        # Get plan from org_billing (would need to import, but for now use default)
+        plan = "free"  # TODO: Get from org_billing
+        sla_metrics[org_id] = calculate_sla_metrics(org_id, plan)
     
-    # Evaluate alerts if fail-safe triggered
-    if fail_safe_triggered:
+    # Evaluate alerts if fail-safe triggered (only for real data)
+    if fail_safe_triggered and data_type == "real":
         from backend.services.alerting_service import create_alert_event
         import asyncio
         try:

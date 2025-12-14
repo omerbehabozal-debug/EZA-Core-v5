@@ -82,12 +82,8 @@ async def lifespan(app: FastAPI):
         logging.warning(f"Vector store initialization failed (optional): {e}")
         app.state.vector_store = None
     
-    # Seed demo organization
-    try:
-        seed_demo_organization()
-        logging.info("Demo organization seeded")
-    except Exception as e:
-        logging.warning(f"Seed data initialization failed (optional): {e}")
+    # Demo organization seeding removed - production mode
+    # Organizations must be created through API
     
     yield
     
@@ -172,6 +168,8 @@ app.include_router(regulator_router.router, prefix="/api/regulator", tags=["Regu
 app.include_router(btk_router.router, prefix="/api/btk", tags=["BTK"])
 app.include_router(eu_ai_router.router, prefix="/api/eu-ai", tags=["EU AI Act"])
 app.include_router(platform_router.router, prefix="/api/platform", tags=["Platform"])
+from backend.routers import platform_organizations
+app.include_router(platform_organizations.router, prefix="/api/platform", tags=["Platform-Organizations"])
 app.include_router(corporate_router.router, prefix="/api/corporate", tags=["Corporate"])
 
 # Test Results API

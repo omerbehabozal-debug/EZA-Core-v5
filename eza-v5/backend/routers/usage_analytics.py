@@ -14,6 +14,7 @@ from collections import Counter
 
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth import require_proxy_auth
+from backend.auth.organization_guard import require_organization_access
 from backend.auth.rbac import require_permission
 from backend.routers.proxy_audit import audit_store
 
@@ -89,17 +90,19 @@ async def get_daily_usage(
     org_id: str,
     date: str = Query(..., description="Date in YYYY-MM-DD format"),
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_permission("dashboard.read"))
+    request: Request = None,
+    current_user: Dict[str, Any] = Depends(require_organization_access)
 ):
     """
     Get daily usage statistics for organization
+    Organization guard ensures x-org-id header matches org_id
     """
-    # Verify org access
-    user_org_id = current_user.get("org_id") or current_user.get("company_id")
-    if user_org_id != org_id and current_user.get("role") != "admin":
+    # Organization guard already verified access
+    # Ensure org_id in path matches x-org-id header
+    if current_user.get("org_id") != org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this organization"
+            detail="org_id mismatch: path org_id does not match x-org-id header"
         )
     
     # Get entries for the date
@@ -164,17 +167,17 @@ async def get_monthly_usage(
     org_id: str,
     month: str = Query(..., description="Month in YYYY-MM format"),
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_permission("dashboard.read"))
+    current_user: Dict[str, Any] = Depends(require_organization_access)
 ):
     """
     Get monthly usage statistics for organization
+    Organization guard ensures x-org-id header matches org_id
     """
-    # Verify org access
-    user_org_id = current_user.get("org_id") or current_user.get("company_id")
-    if user_org_id != org_id and current_user.get("role") != "admin":
+    # Organization guard already verified access
+    if current_user.get("org_id") != org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this organization"
+            detail="org_id mismatch: path org_id does not match x-org-id header"
         )
     
     # Get entries for the month
@@ -258,17 +261,17 @@ async def get_top_flags(
     org_id: str,
     period: str = Query("30d", description="Period: 7d, 30d, 90d"),
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_permission("dashboard.read"))
+    current_user: Dict[str, Any] = Depends(require_organization_access)
 ):
     """
     Get top risk flags for organization
+    Organization guard ensures x-org-id header matches org_id
     """
-    # Verify org access
-    user_org_id = current_user.get("org_id") or current_user.get("company_id")
-    if user_org_id != org_id and current_user.get("role") != "admin":
+    # Organization guard already verified access
+    if current_user.get("org_id") != org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this organization"
+            detail="org_id mismatch: path org_id does not match x-org-id header"
         )
     
     # Calculate date range
@@ -315,17 +318,17 @@ async def get_pipeline_metrics(
     org_id: str,
     period: str = Query("30d", description="Period: 7d, 30d, 90d"),
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_permission("dashboard.read"))
+    current_user: Dict[str, Any] = Depends(require_organization_access)
 ):
     """
     Get pipeline metrics for organization
+    Organization guard ensures x-org-id header matches org_id
     """
-    # Verify org access
-    user_org_id = current_user.get("org_id") or current_user.get("company_id")
-    if user_org_id != org_id and current_user.get("role") != "admin":
+    # Organization guard already verified access
+    if current_user.get("org_id") != org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this organization"
+            detail="org_id mismatch: path org_id does not match x-org-id header"
         )
     
     # Calculate date range

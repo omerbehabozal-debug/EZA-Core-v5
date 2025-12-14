@@ -50,7 +50,8 @@ def seed_demo_organization():
     
     return demo_org_id
 
-# Auto-seed on module import
-if __name__ != "__main__":
-    seed_demo_organization()
+# Auto-seed disabled - production mode
+# Organizations must be created through API
+# if __name__ != "__main__":
+#     seed_demo_organization()
 

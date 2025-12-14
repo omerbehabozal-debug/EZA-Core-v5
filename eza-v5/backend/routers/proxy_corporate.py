@@ -253,6 +253,9 @@ async def proxy_analyze(
             "output": int(len(request.content.split()) * 1.3 * 0.3),
         }
         
+        # Get user_id from current_user if available
+        user_id = current_user.get("user_id") or current_user.get("sub")
+        
         publish_telemetry_message(
             org_id=org_id or "unknown",
             content_id=analysis_id,
@@ -263,6 +266,9 @@ async def proxy_analyze(
             provider=request.provider,
             fail_safe_triggered=fail_safe_triggered,
             fail_reason=fail_reason,
+            user_id=user_id,
+            source="proxy_ui",  # From Proxy UI
+            data_type="real",  # Real analysis data
         )
         
         # Create fail-safe alert if triggered
