@@ -52,24 +52,24 @@ function PlatformPageContent() {
 
   if (!hasPlatformAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#000000' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--platform-bg-primary)' }}>
         <div className="text-center p-8">
           <div className="text-4xl mb-4">🔒</div>
-          <h1 className="text-2xl font-bold mb-4" style={{ color: '#E5E5EA' }}>
+          <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--platform-text-primary)' }}>
             Erişim Reddedildi
           </h1>
-          <p className="text-sm mb-6" style={{ color: '#8E8E93' }}>
+          <p className="text-sm mb-6" style={{ color: 'var(--platform-text-secondary)' }}>
             Bu alan yalnızca yöneticiler, operasyon ve finans ekipleri içindir.
           </p>
-          <p className="text-xs mb-6" style={{ color: '#8E8E93' }}>
+          <p className="text-xs mb-6" style={{ color: 'var(--platform-text-muted)' }}>
             Mevcut rolünüz: {role || 'belirtilmemiş'}
           </p>
           <button
             type="button"
             onClick={() => window.location.href = '/proxy'}
-            className="px-6 py-2 rounded-lg text-sm font-medium"
+            className="px-6 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
             style={{
-              backgroundColor: '#007AFF',
+              backgroundColor: 'var(--platform-action-primary)',
               color: '#FFFFFF',
             }}
           >
@@ -84,7 +84,7 @@ function PlatformPageContent() {
     <div
       className="min-h-screen"
       style={{
-        backgroundColor: '#000000',
+        backgroundColor: 'var(--platform-bg-primary)',
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
       }}
     >
@@ -93,19 +93,19 @@ function PlatformPageContent() {
         <AlertBanner orgId={orgId} userRole={role || 'admin'} />
 
         {/* Header */}
-        <div className="border-b pb-6" style={{ borderColor: '#1C1C1E' }}>
+        <div className="border-b pb-6" style={{ borderColor: 'var(--platform-border)' }}>
           <div className="flex items-start justify-between">
             <div>
               <h1
                 className="text-4xl font-bold mb-2"
                 style={{
-                  color: '#E5E5EA',
+                  color: 'var(--platform-text-primary)',
                   fontWeight: 700,
                 }}
               >
                 EZA Platform
               </h1>
-              <p className="text-sm" style={{ color: '#8E8E93' }}>
+              <p className="text-sm" style={{ color: 'var(--platform-text-secondary)' }}>
                 AI Safety Platform — Management & Compliance Console
               </p>
             </div>
@@ -170,44 +170,44 @@ function PlatformPageContent() {
               <div className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div
-                    className="rounded-xl p-6"
+                    className="rounded-xl p-6 transition-colors hover:bg-[var(--platform-surface-hover)]"
                     style={{
-                      backgroundColor: '#1C1C1E',
-                      border: '1px solid #2C2C2E',
+                      backgroundColor: 'var(--platform-surface)',
+                      border: '1px solid var(--platform-border)',
                     }}
                   >
-                    <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>
+                    <p className="text-sm mb-2" style={{ color: 'var(--platform-text-secondary)' }}>
                       Toplam Organizasyon
                     </p>
-                    <p className="text-3xl font-bold" style={{ color: '#E5E5EA' }}>
+                    <p className="text-3xl font-bold" style={{ color: 'var(--platform-text-primary)' }}>
                       1
                     </p>
                   </div>
                   <div
-                    className="rounded-xl p-6"
+                    className="rounded-xl p-6 transition-colors hover:bg-[var(--platform-surface-hover)]"
                     style={{
-                      backgroundColor: '#1C1C1E',
-                      border: '1px solid #2C2C2E',
+                      backgroundColor: 'var(--platform-surface)',
+                      border: '1px solid var(--platform-border)',
                     }}
                   >
-                    <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>
+                    <p className="text-sm mb-2" style={{ color: 'var(--platform-text-secondary)' }}>
                       Aktif API Keys
                     </p>
-                    <p className="text-3xl font-bold" style={{ color: '#E5E5EA' }}>
+                    <p className="text-3xl font-bold" style={{ color: 'var(--platform-text-primary)' }}>
                       -
                     </p>
                   </div>
                   <div
-                    className="rounded-xl p-6"
+                    className="rounded-xl p-6 transition-colors hover:bg-[var(--platform-surface-hover)]"
                     style={{
-                      backgroundColor: '#1C1C1E',
-                      border: '1px solid #2C2C2E',
+                      backgroundColor: 'var(--platform-surface)',
+                      border: '1px solid var(--platform-border)',
                     }}
                   >
-                    <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>
+                    <p className="text-sm mb-2" style={{ color: 'var(--platform-text-secondary)' }}>
                       SLA Compliance
                     </p>
-                    <p className="text-3xl font-bold" style={{ color: '#22BF55' }}>
+                    <p className="text-3xl font-bold" style={{ color: 'var(--platform-success)' }}>
                       100%
                     </p>
                   </div>
@@ -217,15 +217,15 @@ function PlatformPageContent() {
           )}
 
           {/* Organizations Tab */}
-          {canSeeAll && (
-            <TabPanel id="organizations" activeTab={activeTab}>
-              <div className="mt-6">
-                <p className="text-sm" style={{ color: '#8E8E93' }}>
-                  Organization management coming soon...
-                </p>
-              </div>
-            </TabPanel>
-          )}
+            {canSeeAll && (
+              <TabPanel id="organizations" activeTab={activeTab}>
+                <div className="mt-6">
+                  <p className="text-sm" style={{ color: 'var(--platform-text-secondary)' }}>
+                    Organization management coming soon...
+                  </p>
+                </div>
+              </TabPanel>
+            )}
 
           {/* API & Integrations Tab */}
           {canSeeAll && (
@@ -282,15 +282,15 @@ function PlatformPageContent() {
           )}
 
           {/* Reports Tab */}
-          {canSeeAll && (
-            <TabPanel id="reports" activeTab={activeTab}>
-              <div className="mt-6">
-                <p className="text-sm" style={{ color: '#8E8E93' }}>
-                  Reports coming soon...
-                </p>
-              </div>
-            </TabPanel>
-          )}
+            {canSeeAll && (
+              <TabPanel id="reports" activeTab={activeTab}>
+                <div className="mt-6">
+                  <p className="text-sm" style={{ color: 'var(--platform-text-secondary)' }}>
+                    Reports coming soon...
+                  </p>
+                </div>
+              </TabPanel>
+            )}
         </Tabs>
       </div>
     </div>

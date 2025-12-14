@@ -153,25 +153,25 @@ function ProxyCorporatePageContent() {
     <div
       className="min-h-screen"
       style={{
-        backgroundColor: '#000000',
+        backgroundColor: 'var(--proxy-bg-primary)',
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
       }}
     >
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Header */}
-        <div className="border-b pb-6" style={{ borderColor: '#1C1C1E' }}>
+        <div className="border-b pb-6" style={{ borderColor: 'var(--proxy-border-soft)' }}>
           <div className="flex items-start justify-between">
             <div>
               <h1
                 className="text-4xl font-bold mb-2"
                 style={{
-                  color: '#E5E5EA',
-                  fontWeight: 700,
+                  color: 'var(--proxy-text-primary)',
+                  fontWeight: 600,
                 }}
               >
                 EZA Proxy
               </h1>
-              <p className="text-sm" style={{ color: '#8E8E93' }}>
+              <p className="text-sm" style={{ color: 'var(--proxy-text-secondary)' }}>
                 Operational AI Safety Interface
               </p>
             </div>
@@ -182,16 +182,16 @@ function ProxyCorporatePageContent() {
 
         {/* Input Section */}
         <div
-          className="rounded-2xl p-6"
+          className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
           style={{
-            backgroundColor: '#1C1C1E',
-            border: '1px solid #2C2C2E',
+            backgroundColor: 'var(--proxy-surface)',
+            border: '1px solid var(--proxy-border-soft)',
           }}
         >
           <form onSubmit={handleAnalyze} className="space-y-6">
             {/* Content Input */}
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: '#E5E5EA' }}>
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--proxy-text-primary)' }}>
                 İçerik
               </label>
               <textarea
@@ -199,31 +199,33 @@ function ProxyCorporatePageContent() {
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Analiz edilecek içeriği buraya yazın..."
                 disabled={loading}
-                className="w-full min-h-[200px] px-4 py-3 rounded-xl resize-y transition-all focus:outline-none focus:ring-2 focus:ring-[#007AFF] disabled:opacity-50"
+                className="w-full min-h-[200px] px-4 py-3 rounded-xl resize-y transition-all focus:outline-none focus:ring-2 disabled:opacity-50"
                 style={{
-                  backgroundColor: '#000000',
-                  border: '1px solid #2C2C2E',
-                  color: '#E5E5EA',
+                  backgroundColor: 'var(--proxy-bg-secondary)',
+                  border: '1px solid var(--proxy-border-soft)',
+                  color: 'var(--proxy-text-primary)',
                   fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-                }}
+                  '--tw-ring-color': 'var(--proxy-action-primary)',
+                } as React.CSSProperties}
               />
             </div>
 
             {/* Configuration */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#E5E5EA' }}>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--proxy-text-primary)' }}>
                   Sektör
                 </label>
                 <select
                   value={domain}
                   onChange={(e) => setDomain(e.target.value as any || '')}
-                  className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#007AFF]"
+                  className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2"
                   style={{
-                    backgroundColor: '#000000',
-                    border: '1px solid #2C2C2E',
-                    color: '#E5E5EA',
-                  }}
+                    backgroundColor: 'var(--proxy-bg-secondary)',
+                    border: '1px solid var(--proxy-border-soft)',
+                    color: 'var(--proxy-text-primary)',
+                    '--tw-ring-color': 'var(--proxy-action-primary)',
+                  } as React.CSSProperties}
                 >
                   <option value="">Seçiniz</option>
                   <option value="finance">Finans</option>
@@ -235,17 +237,21 @@ function ProxyCorporatePageContent() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#E5E5EA' }}>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--proxy-text-primary)' }}>
                   Politikalar
                 </label>
                 <div className="flex gap-2 flex-wrap">
                   {(['TRT', 'FINTECH', 'HEALTH'] as const).map((policy) => (
                     <label
                       key={policy}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer"
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors"
                       style={{
-                        backgroundColor: policies.includes(policy) ? '#007AFF20' : '#000000',
-                        border: `1px solid ${policies.includes(policy) ? '#007AFF' : '#2C2C2E'}`,
+                        backgroundColor: policies.includes(policy) 
+                          ? 'rgba(37, 99, 235, 0.15)' 
+                          : 'var(--proxy-bg-secondary)',
+                        border: `1px solid ${policies.includes(policy) 
+                          ? 'var(--proxy-action-primary)' 
+                          : 'var(--proxy-border-soft)'}`,
                       }}
                     >
                       <input
@@ -259,9 +265,9 @@ function ProxyCorporatePageContent() {
                           }
                         }}
                         className="w-4 h-4"
-                        style={{ accentColor: '#007AFF' }}
+                        style={{ accentColor: 'var(--proxy-action-primary)' }}
                       />
-                      <span className="text-sm" style={{ color: '#E5E5EA' }}>{policy}</span>
+                      <span className="text-sm" style={{ color: 'var(--proxy-text-primary)' }}>{policy}</span>
                     </label>
                   ))}
                 </div>
@@ -272,9 +278,9 @@ function ProxyCorporatePageContent() {
             <button
               type="submit"
               disabled={!content.trim() || loading}
-              className="w-full py-4 px-6 rounded-xl font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+              className="w-full py-4 px-6 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
               style={{
-                backgroundColor: '#007AFF',
+                backgroundColor: 'var(--proxy-action-primary)',
                 color: '#FFFFFF',
               }}
             >
@@ -299,13 +305,13 @@ function ProxyCorporatePageContent() {
               <div className="space-y-6 mt-6">
             {/* Score Bars */}
             <div
-              className="rounded-2xl p-6"
+              className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
               style={{
-                backgroundColor: '#1C1C1E',
-                border: '1px solid #2C2C2E',
+                backgroundColor: 'var(--proxy-surface)',
+                border: '1px solid var(--proxy-border-soft)',
               }}
             >
-              <h2 className="text-2xl font-bold mb-6" style={{ color: '#E5E5EA' }}>
+              <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
                 Analiz Sonuçları
               </h2>
               <ScoreBars scores={analysisResult.overall_scores} />
@@ -319,10 +325,10 @@ function ProxyCorporatePageContent() {
 
             {/* Risk Flags */}
             <div
-              className="rounded-2xl p-6"
+              className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
               style={{
-                backgroundColor: '#1C1C1E',
-                border: '1px solid #2C2C2E',
+                backgroundColor: 'var(--proxy-surface)',
+                border: '1px solid var(--proxy-border-soft)',
               }}
             >
               <RiskFlags
@@ -333,13 +339,13 @@ function ProxyCorporatePageContent() {
 
             {/* Rewrite Section */}
             <div
-              className="rounded-2xl p-6"
+              className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
               style={{
-                backgroundColor: '#1C1C1E',
-                border: '1px solid #2C2C2E',
+                backgroundColor: 'var(--proxy-surface)',
+                border: '1px solid var(--proxy-border-soft)',
               }}
             >
-              <h2 className="text-2xl font-bold mb-6" style={{ color: '#E5E5EA' }}>
+              <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
                 Yeniden Yazma
               </h2>
               
@@ -352,9 +358,9 @@ function ProxyCorporatePageContent() {
                 type="button"
                 onClick={handleRewrite}
                 disabled={rewriting}
-                className="w-full mt-6 py-4 px-6 rounded-xl font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+                className="w-full mt-6 py-4 px-6 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
                 style={{
-                  backgroundColor: '#007AFF',
+                  backgroundColor: 'var(--proxy-action-primary)',
                   color: '#FFFFFF',
                 }}
               >
@@ -365,28 +371,28 @@ function ProxyCorporatePageContent() {
             {/* Rewrite Result */}
             {rewriteResult && (
               <div
-                className="rounded-2xl p-6"
+                className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
                 style={{
-                  backgroundColor: '#1C1C1E',
-                  border: '1px solid #2C2C2E',
+                  backgroundColor: 'var(--proxy-surface)',
+                  border: '1px solid var(--proxy-border-soft)',
                 }}
               >
-                <h3 className="text-xl font-bold mb-4" style={{ color: '#E5E5EA' }}>
+                <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
                   Yeniden Yazılmış İçerik
                 </h3>
                 
                 {/* Score Comparison */}
                 {rewriteResult.improvement && (
-                  <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: '#000000' }}>
+                  <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: 'var(--proxy-bg-secondary)' }}>
                     <div className="grid grid-cols-5 gap-4 text-center">
                       {Object.entries(rewriteResult.improvement).map(([key, value]) => (
                         <div key={key}>
-                          <div className="text-xs mb-1" style={{ color: '#8E8E93' }}>
+                          <div className="text-xs mb-1" style={{ color: 'var(--proxy-text-muted)' }}>
                             {key.replace('_', ' ')}
                           </div>
                           <div
                             className={`text-lg font-bold ${
-                              value > 0 ? 'text-[#22BF55]' : value < 0 ? 'text-[#E84343]' : 'text-[#8E8E93]'
+                              value > 0 ? 'text-[var(--proxy-success)]' : value < 0 ? 'text-[var(--proxy-danger)]' : 'text-[var(--proxy-text-muted)]'
                             }`}
                           >
                             {value > 0 ? '+' : ''}{value}
@@ -400,11 +406,11 @@ function ProxyCorporatePageContent() {
                 <div
                   className="p-4 rounded-xl mb-4"
                   style={{
-                    backgroundColor: '#000000',
-                    border: '1px solid #2C2C2E',
+                    backgroundColor: 'var(--proxy-bg-secondary)',
+                    border: '1px solid var(--proxy-border-soft)',
                   }}
                 >
-                  <p className="text-sm whitespace-pre-wrap" style={{ color: '#E5E5EA' }}>
+                  <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--proxy-text-primary)' }}>
                     {rewriteResult.rewritten_content}
                   </p>
                 </div>
@@ -412,10 +418,11 @@ function ProxyCorporatePageContent() {
                 <button
                   type="button"
                   onClick={() => navigator.clipboard.writeText(rewriteResult.rewritten_content)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-[var(--proxy-surface-hover)]"
                   style={{
-                    backgroundColor: '#2C2C2E',
-                    color: '#E5E5EA',
+                    backgroundColor: 'var(--proxy-surface)',
+                    color: 'var(--proxy-text-primary)',
+                    border: '1px solid var(--proxy-border-soft)',
                   }}
                 >
                   Kopyala
@@ -428,13 +435,13 @@ function ProxyCorporatePageContent() {
             {/* Decision Justification Layer */}
             {analysisResult?.justification && analysisResult.justification.length > 0 && (
               <div
-                className="rounded-2xl p-6 mt-6"
+                className="rounded-2xl p-6 mt-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
                 style={{
-                  backgroundColor: '#1C1C1E',
-                  border: '1px solid #2C2C2E',
+                  backgroundColor: 'var(--proxy-surface)',
+                  border: '1px solid var(--proxy-border-soft)',
                 }}
               >
-                <h2 className="text-2xl font-bold mb-6" style={{ color: '#E5E5EA' }}>
+                <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
                   Karar Gerekçesi
                 </h2>
                 <DecisionJustification justification={analysisResult.justification} />
@@ -469,11 +476,11 @@ function ProxyCorporatePageContent() {
           <div
             className="rounded-xl p-4"
             style={{
-              backgroundColor: '#E8434320',
-              border: '1px solid #E84343',
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid var(--proxy-danger)',
             }}
           >
-            <p className="text-sm" style={{ color: '#E84343' }}>{error}</p>
+            <p className="text-sm" style={{ color: 'var(--proxy-danger)' }}>{error}</p>
           </div>
         )}
       </div>

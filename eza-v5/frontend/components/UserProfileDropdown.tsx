@@ -62,27 +62,38 @@ export default function UserProfileDropdown() {
     return roleMap[role || ''] || role || 'Kullanıcı';
   };
 
+  // Detect if we're on Platform or Proxy
+  const isPlatform = typeof window !== 'undefined' && window.location.pathname.includes('/platform');
+  const bgColor = isPlatform ? 'var(--platform-surface)' : 'var(--proxy-surface)';
+  const bgHover = isPlatform ? 'var(--platform-surface-hover)' : 'var(--proxy-surface-hover)';
+  const borderColor = isPlatform ? 'var(--platform-border)' : 'var(--proxy-border-soft)';
+  const textPrimary = isPlatform ? 'var(--platform-text-primary)' : 'var(--proxy-text-primary)';
+  const textSecondary = isPlatform ? 'var(--platform-text-secondary)' : 'var(--proxy-text-secondary)';
+  const actionColor = isPlatform ? 'var(--platform-action-primary)' : 'var(--proxy-action-primary)';
+  const dangerColor = isPlatform ? 'var(--platform-danger)' : 'var(--proxy-danger)';
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Avatar Button */}
+
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors hover:bg-[#2C2C2E]"
+        className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
         style={{
-          backgroundColor: isOpen ? '#2C2C2E' : 'transparent',
+          backgroundColor: isOpen ? bgHover : 'transparent',
         }}
       >
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
           style={{
-            backgroundColor: '#007AFF',
+            backgroundColor: actionColor,
             color: '#FFFFFF',
           }}
         >
           {role ? role.charAt(0).toUpperCase() : 'U'}
         </div>
-        <span className="text-sm font-medium" style={{ color: '#E5E5EA' }}>
+        <span className="text-sm font-medium" style={{ color: textPrimary }}>
           {getRoleLabel(role)}
         </span>
       </button>
@@ -92,27 +103,27 @@ export default function UserProfileDropdown() {
         <div
           className="absolute right-0 mt-2 w-64 rounded-xl shadow-lg z-50"
           style={{
-            backgroundColor: '#1C1C1E',
-            border: '1px solid #2C2C2E',
+            backgroundColor: bgColor,
+            border: `1px solid ${borderColor}`,
             boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.4)',
           }}
         >
-          <div className="p-4 border-b" style={{ borderColor: '#2C2C2E' }}>
+          <div className="p-4 border-b" style={{ borderColor: borderColor }}>
             <div className="flex items-center gap-3">
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium"
                 style={{
-                  backgroundColor: '#007AFF',
+                  backgroundColor: actionColor,
                   color: '#FFFFFF',
                 }}
               >
                 {role ? role.charAt(0).toUpperCase() : 'U'}
               </div>
               <div>
-                <p className="text-sm font-medium" style={{ color: '#E5E5EA' }}>
+                <p className="text-sm font-medium" style={{ color: textPrimary }}>
                   Kullanıcı
                 </p>
-                <p className="text-xs" style={{ color: '#8E8E93' }}>
+                <p className="text-xs" style={{ color: textSecondary }}>
                   {getRoleLabel(role)}
                 </p>
               </div>
@@ -125,10 +136,19 @@ export default function UserProfileDropdown() {
               <button
                 type="button"
                 onClick={handlePlatformRedirect}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-[#2C2C2E] text-left"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left"
+                style={{
+                  '--hover-bg': bgHover,
+                } as React.CSSProperties}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = bgHover;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
               >
-                <Settings size={16} style={{ color: '#007AFF' }} />
-                <span className="text-sm" style={{ color: '#E5E5EA' }}>
+                <Settings size={16} style={{ color: actionColor }} />
+                <span className="text-sm" style={{ color: textPrimary }}>
                   Yönetim Paneline Git
                 </span>
               </button>
@@ -138,10 +158,16 @@ export default function UserProfileDropdown() {
             <button
               type="button"
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-[#2C2C2E] text-left mt-1"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left mt-1"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = bgHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
             >
-              <LogOut size={16} style={{ color: '#E84343' }} />
-              <span className="text-sm" style={{ color: '#E5E5EA' }}>
+              <LogOut size={16} style={{ color: dangerColor }} />
+              <span className="text-sm" style={{ color: textPrimary }}>
                 Çıkış Yap
               </span>
             </button>

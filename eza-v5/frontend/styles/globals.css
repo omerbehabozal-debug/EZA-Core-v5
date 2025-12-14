@@ -4,6 +4,64 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* ============================================
+   EZA PROXY UI - OPERATIONAL DARK THEME
+   Soft Dark: Charcoal/Graphite tones
+   Purpose: Daily work, focus, attention
+   ============================================ */
+:root {
+  /* Proxy - Background */
+  --proxy-bg-primary: #0F1115;      /* Charcoal Black */
+  --proxy-bg-secondary: #151A21;    /* Graphite */
+  
+  /* Proxy - Surface */
+  --proxy-surface: #1C222B;
+  --proxy-surface-hover: #232A35;
+  
+  /* Proxy - Border */
+  --proxy-border-soft: rgba(255, 255, 255, 0.06);
+  
+  /* Proxy - Text */
+  --proxy-text-primary: #E6EAF0;
+  --proxy-text-secondary: #9AA3B2;
+  --proxy-text-muted: #6B7280;
+  
+  /* Proxy - Actions */
+  --proxy-action-primary: #2563EB;   /* Calm Blue */
+  --proxy-success: #22C55E;          /* Muted Green */
+  --proxy-warning: #F59E0B;          /* Amber */
+  --proxy-danger: #EF4444;           /* Red - only for real risk */
+}
+
+/* ============================================
+   EZA PLATFORM UI - CONTROL PLANE DARK
+   Hard Dark: Deeper black tones
+   Purpose: Authority, control, system ownership
+   ============================================ */
+:root {
+  /* Platform - Background */
+  --platform-bg-primary: #0B0E14;   /* Deeper Black */
+  --platform-bg-secondary: #121722;
+  
+  /* Platform - Surface */
+  --platform-surface: #181F2B;
+  --platform-surface-hover: #1F2937;
+  
+  /* Platform - Border */
+  --platform-border: rgba(255, 255, 255, 0.08);
+  
+  /* Platform - Text */
+  --platform-text-primary: #F1F5F9;
+  --platform-text-secondary: #A1AAB8;
+  --platform-text-muted: #64748B;
+  
+  /* Platform - Actions */
+  --platform-action-primary: #3B82F6;  /* Brighter Blue */
+  --platform-success: #16A34A;
+  --platform-warning: #EAB308;
+  --platform-danger: #DC2626;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
