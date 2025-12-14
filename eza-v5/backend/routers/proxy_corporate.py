@@ -253,8 +253,9 @@ async def proxy_analyze(
             "output": int(len(request.content.split()) * 1.3 * 0.3),
         }
         
-        # Get user_id from current_user if available
-        user_id = current_user.get("user_id") or current_user.get("sub")
+        # Get user_id from current_user if available (convert to string)
+        user_id_raw = current_user.get("user_id") or current_user.get("sub")
+        user_id = str(user_id_raw) if user_id_raw is not None else None
         
         publish_telemetry_message(
             org_id=org_id or "unknown",
@@ -268,7 +269,7 @@ async def proxy_analyze(
             fail_reason=fail_reason,
             user_id=user_id,
             source="proxy_ui",  # From Proxy UI
-            data_type="real",  # Real analysis data
+            data_type="real",  # Real analysis data (CRITICAL: Only real data affects SLA/Alerting)
         )
         
         # Create fail-safe alert if triggered

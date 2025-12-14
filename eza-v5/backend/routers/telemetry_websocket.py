@@ -96,7 +96,11 @@ SLA_THRESHOLDS = {
 
 
 def calculate_sla_metrics(org_id: str, plan: str = "free") -> Dict[str, Any]:
-    """Calculate real-time SLA metrics"""
+    """
+    Calculate real-time SLA metrics
+    CRITICAL: Only considers data_type = "real" events
+    Simulated data does NOT affect SLA calculations
+    """
     threshold = SLA_THRESHOLDS.get(plan, SLA_THRESHOLDS["free"])
     
     if org_id not in message_history or len(message_history[org_id]) == 0:
@@ -107,22 +111,37 @@ def calculate_sla_metrics(org_id: str, plan: str = "free") -> Dict[str, Any]:
             "compliance": "compliant",
         }
     
-    messages = list(message_history[org_id])
-    total = len(messages)
+    # Filter for real events only (CRITICAL RULE)
+    all_messages = list(message_history[org_id])
+    real_messages = [m for m in all_messages if m.get("data_type") == "real"]
     
-    # Calculate uptime (1-minute sliding window)
+    if len(real_messages) == 0:
+        # No real events yet, return compliant status
+        return {
+            "uptime": 100.0,
+            "avg_latency": 0.0,
+            "error_rate": 0.0,
+            "compliance": "compliant",
+        }
+    
+    total = len(real_messages)
+    
+    # Calculate uptime (1-minute sliding window for real messages only)
     now = datetime.utcnow()
-    recent_messages = [m for m in messages if (now - datetime.fromisoformat(m["timestamp"])).total_seconds() < 60]
-    recent_total = len(recent_messages)
-    recent_failures = sum(1 for m in recent_messages if m.get("fail_safe_triggered", False))
+    recent_real_messages = [
+        m for m in real_messages 
+        if (now - datetime.fromisoformat(m["timestamp"])).total_seconds() < 60
+    ]
+    recent_total = len(recent_real_messages)
+    recent_failures = sum(1 for m in recent_real_messages if m.get("fail_safe_triggered", False))
     uptime = ((recent_total - recent_failures) / recent_total * 100) if recent_total > 0 else 100.0
     
-    # Calculate average latency (last 20 messages)
-    latencies = [m.get("latency_ms", 0) for m in messages[-20:]]
+    # Calculate average latency (last 20 real messages only)
+    latencies = [m.get("latency_ms", 0) for m in real_messages[-20:]]
     avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
     
-    # Calculate error rate
-    failures = sum(1 for m in messages if m.get("fail_safe_triggered", False))
+    # Calculate error rate (real messages only)
+    failures = sum(1 for m in real_messages if m.get("fail_safe_triggered", False))
     error_rate = (failures / total * 100) if total > 0 else 0.0
     
     # Determine compliance
