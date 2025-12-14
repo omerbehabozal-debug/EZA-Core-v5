@@ -100,9 +100,11 @@ export default function AnalyticsBilling({ orgId, userRole }: AnalyticsBillingPr
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
 
-  // Check admin access
+  // Check platform access (admin, org_admin, ops, finance)
+  const PLATFORM_ROLES = ['admin', 'org_admin', 'ops', 'finance'];
+  
   useEffect(() => {
-    if (userRole && userRole !== 'admin') {
+    if (userRole && !PLATFORM_ROLES.includes(userRole)) {
       setAccessDenied(true);
     }
   }, [userRole]);
@@ -369,23 +371,28 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
         <div
           className="rounded-xl p-8 max-w-md text-center"
           style={{
-            backgroundColor: '#1C1C1E',
-            border: '1px solid #2C2C2E',
+            backgroundColor: 'var(--platform-surface)',
+            border: '1px solid var(--platform-border)',
           }}
         >
           <div className="text-4xl mb-4">🔒</div>
-          <h3 className="text-xl font-bold mb-2" style={{ color: '#E5E5EA' }}>
+          <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--platform-text-primary)' }}>
             Erişim Reddedildi
           </h3>
-          <p className="text-sm mb-6" style={{ color: '#8E8E93' }}>
-            Bu alan yöneticiler içindir.
+          <p className="text-sm mb-6" style={{ color: 'var(--platform-text-secondary)' }}>
+            Bu alan yalnızca yöneticiler, operasyon ve finans ekipleri içindir.
+          </p>
+          <p className="text-xs mb-6" style={{ color: 'var(--platform-text-muted)' }}>
+            Gerekli roller: admin, org_admin, ops, finance
+            <br />
+            Mevcut rolünüz: {userRole || 'belirtilmemiş'}
           </p>
           <button
             type="button"
             onClick={() => window.location.href = '/proxy'}
-            className="px-6 py-2 rounded-lg text-sm font-medium"
+            className="px-6 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
             style={{
-              backgroundColor: '#007AFF',
+              backgroundColor: 'var(--platform-action-primary)',
               color: '#FFFFFF',
             }}
           >
