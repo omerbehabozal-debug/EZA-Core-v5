@@ -97,7 +97,6 @@ export default function AnalyticsBilling({ orgId, userRole: userRoleProp }: Anal
   const [slaStatus, setSlaStatus] = useState<SLAStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d'>('30d');
-  const [accessDenied, setAccessDenied] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<'TRY' | 'USD'>('TRY');
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -108,26 +107,20 @@ export default function AnalyticsBilling({ orgId, userRole: userRoleProp }: Anal
   // Check platform access (admin, org_admin, ops, finance)
   const PLATFORM_ROLES = ['admin', 'org_admin', 'ops', 'finance'];
   
-  useEffect(() => {
-    // Reset access denied state first
-    setAccessDenied(false);
-    
-    // If userRole is provided, check if it's a platform role
-    if (userRole) {
-      const normalizedRole = String(userRole).toLowerCase().trim();
-      if (PLATFORM_ROLES.includes(normalizedRole)) {
-        setAccessDenied(false); // User has access
-        console.log('[AnalyticsBilling] Access granted for role:', normalizedRole);
-      } else {
-        console.warn('[AnalyticsBilling] Access denied for role:', userRole, 'Expected one of:', PLATFORM_ROLES);
-        setAccessDenied(true); // User doesn't have access
-      }
-    } else {
-      // If no userRole provided, deny access by default
-      console.warn('[AnalyticsBilling] No userRole provided. Prop:', userRoleProp, 'Context:', contextRole);
-      setAccessDenied(true);
-    }
-  }, [userRole, userRoleProp, contextRole]);
+  // Calculate access directly (no state needed)
+  const normalizedRole = userRole ? String(userRole).toLowerCase().trim() : '';
+  const hasAccess = normalizedRole && PLATFORM_ROLES.includes(normalizedRole);
+  const accessDenied = !hasAccess;
+  
+  console.log('[AnalyticsBilling] Access check:', {
+    userRoleProp,
+    contextRole,
+    userRole,
+    normalizedRole,
+    hasAccess,
+    accessDenied,
+    PLATFORM_ROLES
+  });
 
   useEffect(() => {
     if (orgId && !accessDenied) {

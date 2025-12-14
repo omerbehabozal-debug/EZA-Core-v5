@@ -258,7 +258,7 @@ function PlatformPageContent() {
           {canSeeBilling && (
             <TabPanel id="billing" activeTab={activeTab}>
               <div className="mt-6">
-                <AnalyticsBilling orgId={orgId} userRole={role || undefined} />
+                <AnalyticsBilling orgId={orgId} userRole={role || 'admin'} />
               </div>
             </TabPanel>
           )}
