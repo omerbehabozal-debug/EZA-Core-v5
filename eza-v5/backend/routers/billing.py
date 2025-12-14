@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth import require_proxy_auth
+from backend.auth.organization_guard import require_organization_access
 from backend.auth.rbac import require_role
 from backend.routers.proxy_audit import audit_store
 
