@@ -17,24 +17,23 @@ import AnalyticsBilling from '../proxy/management/components/AnalyticsBilling';
 import AlertsPanel from '../proxy/management/components/AlertsPanel';
 import AlertBanner from '../proxy/components/AlertBanner';
 import UserProfileDropdown from '@/components/UserProfileDropdown';
+import OrganizationSelector from '@/components/OrganizationSelector';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 
 // Platform roles
 const PLATFORM_ROLES = ['admin', 'org_admin', 'ops', 'finance'];
 
 function PlatformPageContent() {
   const { role } = useAuth();
+  const { currentOrganization } = useOrganization();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'organizations' | 'api' | 'policies' | 'users' | 'billing' | 'sla' | 'audit' | 'reports'>('dashboard');
-  const [orgId, setOrgId] = useState<string | null>(null);
 
   // Check if user has platform access
   const hasPlatformAccess = role && PLATFORM_ROLES.includes(role);
 
-  // Get org_id from user context (in production, from auth)
-  useEffect(() => {
-    // For now, use demo org
-    setOrgId('demo-media-group');
-  }, []);
+  // Use current organization ID
+  const orgId = currentOrganization?.id || null;
 
   // Wrapper function to handle tab changes
   const handleTabChange = (tab: string) => {
@@ -109,8 +108,12 @@ function PlatformPageContent() {
                 AI Safety Platform — Management & Compliance Console
               </p>
             </div>
-            {/* User Profile Dropdown */}
-            <UserProfileDropdown />
+            <div className="flex items-center gap-3">
+              {/* Organization Selector */}
+              <OrganizationSelector />
+              {/* User Profile Dropdown */}
+              <UserProfileDropdown />
+            </div>
           </div>
         </div>
 
@@ -220,9 +223,19 @@ function PlatformPageContent() {
             {canSeeAll && (
               <TabPanel id="organizations" activeTab={activeTab}>
                 <div className="mt-6">
-                  <p className="text-sm" style={{ color: 'var(--platform-text-secondary)' }}>
-                    Organization management coming soon...
+                  <p className="text-sm mb-4" style={{ color: 'var(--platform-text-secondary)' }}>
+                    Organization management page. Redirecting...
                   </p>
+                  <a
+                    href="/platform/organizations"
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90 inline-block"
+                    style={{
+                      backgroundColor: 'var(--platform-action-primary)',
+                      color: 'white',
+                    }}
+                  >
+                    Open Organizations Page
+                  </a>
                 </div>
               </TabPanel>
             )}
