@@ -79,39 +79,18 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           if (!currentOrganization && data.organizations.length > 0) {
             setCurrentOrganization(data.organizations[0]);
           }
+        } else {
+          // No organizations found - user needs to create one
+          setOrganizations([]);
         }
       } else {
-        // Fallback: use demo organization if API fails
-        const demoOrg: Organization = {
-          id: 'demo-media-group',
-          name: 'Demo Media Group',
-          plan: 'pro',
-          status: 'active',
-          proxy_access: true,
-          base_currency: 'TRY',
-          created_at: new Date().toISOString(),
-        };
-        setOrganizations([demoOrg]);
-        if (!currentOrganization) {
-          setCurrentOrganization(demoOrg);
-        }
+        // API failed - don't use fallback, let user create organization
+        setOrganizations([]);
       }
     } catch (error) {
       console.error('Failed to load organizations:', error);
-      // Fallback: use demo organization
-      const demoOrg: Organization = {
-        id: 'demo-media-group',
-        name: 'Demo Media Group',
-        plan: 'pro',
-        status: 'active',
-        proxy_access: true,
-        base_currency: 'TRY',
-        created_at: new Date().toISOString(),
-      };
-      setOrganizations([demoOrg]);
-      if (!currentOrganization) {
-        setCurrentOrganization(demoOrg);
-      }
+      // Don't use fallback - let user create organization
+      setOrganizations([]);
     } finally {
       setIsLoading(false);
     }

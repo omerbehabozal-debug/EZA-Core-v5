@@ -26,28 +26,46 @@ const PLATFORM_ROLES = ['admin', 'org_admin', 'ops', 'finance'];
 
 function PlatformPageContent() {
   const { role } = useAuth();
-  const { currentOrganization } = useOrganization();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'organizations' | 'api' | 'policies' | 'users' | 'billing' | 'sla' | 'audit' | 'reports'>('dashboard');
+  const { currentOrganization, organizations, isLoading } = useOrganization();
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'organizations' | 'api' | 'policies' | 'users' | 'billing' | 'sla' | 'audit' | 'reports'>('organizations');
 
   // Check if user has platform access
   const hasPlatformAccess = role && PLATFORM_ROLES.includes(role);
+  
+  // If no organization selected, force organizations tab
+  const hasOrganization = !!currentOrganization;
 
   // Use current organization ID
   const orgId = currentOrganization?.id || null;
 
   // Wrapper function to handle tab changes
   const handleTabChange = (tab: string) => {
+    // If no organization, only allow organizations tab
+    if (!hasOrganization && tab !== 'organizations') {
+      return;
+    }
+    
     const validTabs = ['dashboard', 'organizations', 'api', 'policies', 'users', 'billing', 'sla', 'audit', 'reports'];
     if (validTabs.includes(tab)) {
       setActiveTab(tab as any);
     }
   };
+  
+  // Force organizations tab if no organization selected
+  useEffect(() => {
+    if (!hasOrganization && !isLoading && activeTab !== 'organizations') {
+      setActiveTab('organizations');
+    }
+  }, [hasOrganization, isLoading, activeTab]);
 
   // Role-based visibility
-  const canSeeBilling = role === 'finance' || role === 'admin' || role === 'org_admin';
-  const canSeeSLA = role === 'ops' || role === 'admin' || role === 'org_admin';
-  const canSeeAudit = role === 'ops' || role === 'admin' || role === 'org_admin' || role === 'auditor';
-  const canSeeAll = role === 'admin' || role === 'org_admin';
+  const canSeeBilling = (role === 'finance' || role === 'admin' || role === 'org_admin') && hasOrganization;
+  const canSeeSLA = (role === 'ops' || role === 'admin' || role === 'org_admin') && hasOrganization;
+  const canSeeAudit = (role === 'ops' || role === 'admin' || role === 'org_admin' || role === 'auditor') && hasOrganization;
+  const canSeeAll = (role === 'admin' || role === 'org_admin') && hasOrganization;
+  
+  // If no organization, only show organizations tab
+  const showOnlyOrganizations = !hasOrganization && !isLoading;
 
   if (!hasPlatformAccess) {
     return (
@@ -120,14 +138,16 @@ function PlatformPageContent() {
         {/* Tabs */}
         <Tabs defaultTab={activeTab} onTabChange={handleTabChange}>
           <TabList activeTab={activeTab} setActiveTab={handleTabChange}>
+            {/* Always show Organizations tab for org_admin/admin */}
+            {(role === 'admin' || role === 'org_admin') && (
+              <Tab id="organizations" activeTab={activeTab} setActiveTab={handleTabChange}>
+                🏢 Organizations
+              </Tab>
+            )}
+            {/* Other tabs only visible if organization is selected */}
             {canSeeAll && (
               <Tab id="dashboard" activeTab={activeTab} setActiveTab={handleTabChange}>
                 📊 Dashboard
-              </Tab>
-            )}
-            {canSeeAll && (
-              <Tab id="organizations" activeTab={activeTab} setActiveTab={handleTabChange}>
-                🏢 Organizations
               </Tab>
             )}
             {canSeeAll && (
@@ -220,22 +240,55 @@ function PlatformPageContent() {
           )}
 
           {/* Organizations Tab */}
-            {canSeeAll && (
+            {(role === 'admin' || role === 'org_admin') && (
               <TabPanel id="organizations" activeTab={activeTab}>
                 <div className="mt-6">
-                  <p className="text-sm mb-4" style={{ color: 'var(--platform-text-secondary)' }}>
-                    Organization management page. Redirecting...
-                  </p>
-                  <a
-                    href="/platform/organizations"
-                    className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90 inline-block"
-                    style={{
-                      backgroundColor: 'var(--platform-action-primary)',
-                      color: 'white',
-                    }}
-                  >
-                    Open Organizations Page
-                  </a>
+                  {showOnlyOrganizations && (
+                    <div
+                      className="rounded-xl p-6 mb-6"
+                      style={{
+                        backgroundColor: 'var(--platform-surface)',
+                        border: '1px solid var(--platform-border)',
+                      }}
+                    >
+                      <div className="text-center">
+                        <div className="text-4xl mb-4">🏢</div>
+                        <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--platform-text-primary)' }}>
+                          Organization Gerekli
+                        </h3>
+                        <p className="text-sm mb-6" style={{ color: 'var(--platform-text-secondary)' }}>
+                          Platform'u kullanmak için önce bir organizasyon oluşturmalı veya mevcut bir organizasyona erişim almalısınız.
+                        </p>
+                        <a
+                          href="/platform/organizations"
+                          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90 inline-block"
+                          style={{
+                            backgroundColor: 'var(--platform-action-primary)',
+                            color: 'white',
+                          }}
+                        >
+                          Organizations Sayfasına Git
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  {!showOnlyOrganizations && (
+                    <div className="mt-6">
+                      <p className="text-sm mb-4" style={{ color: 'var(--platform-text-secondary)' }}>
+                        Organization management page. Redirecting...
+                      </p>
+                      <a
+                        href="/platform/organizations"
+                        className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90 inline-block"
+                        style={{
+                          backgroundColor: 'var(--platform-action-primary)',
+                          color: 'white',
+                        }}
+                      >
+                        Open Organizations Page
+                      </a>
+                    </div>
+                  )}
                 </div>
               </TabPanel>
             )}
