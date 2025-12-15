@@ -16,7 +16,7 @@ from backend.core.utils.dependencies import get_db
 
 logger = logging.getLogger(__name__)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # Don't auto-raise on missing token (for bootstrap in dev mode)
 
 
 async def require_proxy_auth(
@@ -73,12 +73,32 @@ async def require_proxy_auth(
         except HTTPException:
             raise
     
-    # Require JWT token
+    # Require JWT token (optional in development mode or with valid admin API key for bootstrap)
     if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="JWT token required (Authorization header)"
+        # Check if we have a valid admin API key (allows bootstrap operations)
+        admin_api_key = getattr(settings, "EZA_ADMIN_API_KEY", None)
+        is_valid_admin_key = (
+            (is_dev and (api_key == "dev-key" or (admin_api_key and api_key == admin_api_key))) or
+            (not is_dev and admin_api_key and api_key == admin_api_key)
         )
+        
+        if is_valid_admin_key:
+            # Allow bootstrap operations with valid admin API key (dev or prod)
+            logger.info(f"[ProxyAuth] Bootstrap mode: Valid admin API key provided, using bootstrap context (ENV={env_value})")
+            return {
+                "user_id": "bootstrap",
+                "role": "admin",
+                "sub": "bootstrap",
+                "bootstrap_mode": True,
+                "api_key": api_key if not api_key.startswith("ezak_") else "org_key",
+                "company_id": org_id_from_key,
+                "org_id": org_id_from_key,
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="JWT token required (Authorization header) or valid admin API key for bootstrap"
+            )
     
     # Get user from JWT token directly
     from backend.auth.jwt import get_user_from_token
