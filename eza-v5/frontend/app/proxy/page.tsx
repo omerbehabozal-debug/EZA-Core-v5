@@ -490,7 +490,7 @@ function ProxyCorporatePageContent() {
 
 export default function ProxyCorporatePage() {
   return (
-    <RequireAuth allowedRoles={['admin', 'corporate']}>
+    <RequireAuth allowedRoles={['admin', 'corporate', 'proxy_user', 'reviewer', 'auditor', 'org_admin', 'ops']}>
       <ProxyCorporatePageContent />
     </RequireAuth>
   );

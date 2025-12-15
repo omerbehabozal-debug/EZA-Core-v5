@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from collections import Counter
@@ -90,7 +91,6 @@ async def get_daily_usage(
     org_id: str,
     date: str = Query(..., description="Date in YYYY-MM-DD format"),
     db: AsyncSession = Depends(get_db),
-    request: Request = None,
     current_user: Dict[str, Any] = Depends(require_organization_access)
 ):
     """

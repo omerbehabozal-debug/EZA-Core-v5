@@ -112,10 +112,12 @@ allowed_origins = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:3002",  # Frontend dev port
+    "http://localhost:3003",  # Additional frontend dev port
     "http://localhost:3008",  # Additional dev port
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:3002",  # Frontend dev port
+    "http://127.0.0.1:3003",  # Additional frontend dev port
     "http://127.0.0.1:3008",
     "https://*.ezacore.ai",  # Wildcard for all ezacore.ai subdomains
 ]

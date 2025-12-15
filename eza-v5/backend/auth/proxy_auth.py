@@ -34,12 +34,26 @@ async def require_proxy_auth(
     # Require API key (optional in development)
     from backend.config import get_settings
     settings = get_settings()
-    is_dev = settings.ENV in ["dev", "development"] or settings.DEBUG
+    # Check ENV (with EZA_ENV override) and DEBUG flag
+    env_value = settings.EZA_ENV if settings.EZA_ENV else settings.ENV
+    # More aggressive development mode check
+    is_dev = (
+        env_value.lower() in ["dev", "development", "local", "test"] 
+        or settings.DEBUG 
+        or "localhost" in str(env_value).lower()
+    )
+    
+    # Log for debugging
+    if not api_key:
+        logger.info(f"[ProxyAuth] No API key provided. ENV={env_value}, DEBUG={settings.DEBUG}, is_dev={is_dev}")
+        if is_dev:
+            logger.info("[ProxyAuth] Development mode detected - API key check bypassed")
     
     if not api_key and not is_dev:
+        logger.warning(f"[ProxyAuth] API key required but not provided. ENV={env_value}, DEBUG={settings.DEBUG}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key required (X-Api-Key header)"
+            detail="API key required (X-Api-Key header). In development mode, API key is optional."
         )
     
     # Check if it's an organization API key (ezak_ prefix)
