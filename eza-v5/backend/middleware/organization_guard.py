@@ -134,8 +134,37 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
         if not is_protected_path(request.url.path):
             return await call_next(request)
         
-        # 1. Check x-org-id header
+        # 1. Try to get org_id from header first
         x_org_id = request.headers.get("x-org-id") or request.headers.get("X-Org-Id")
+        
+        # 2. If not in header, try to extract from path parameter
+        # Pattern: /api/org/{org_id}/...
+        path_org_id = None
+        import re
+        path_match = re.match(r'^/api/org/([^/]+)', request.url.path)
+        if path_match:
+            path_org_id = path_match.group(1)
+        
+        # Use path org_id if header is missing
+        if not x_org_id and path_org_id:
+            x_org_id = path_org_id
+            logger.debug(f"[OrgGuard] Extracted org_id from path: {x_org_id}")
+        
+        # If both exist, they must match
+        if x_org_id and path_org_id and x_org_id != path_org_id:
+            asyncio.create_task(log_audit_event(
+                action="ORG_ACCESS_DENIED",
+                user_id=None,
+                org_id=x_org_id,
+                endpoint=request.url.path,
+                method=request.method,
+                reason=f"Organization mismatch: header={x_org_id}, path={path_org_id}"
+            ))
+            logger.warning(f"[OrgGuard] Organization mismatch: header={x_org_id}, path={path_org_id}")
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"error": "Organization mismatch", "detail": f"x-org-id header ({x_org_id}) does not match path parameter ({path_org_id})"}
+            )
         
         if not x_org_id:
             # Log audit event (async, non-blocking)
