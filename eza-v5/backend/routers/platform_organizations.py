@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth import require_proxy_auth
+from backend.auth.bootstrap import require_bootstrap_auth
 from backend.routers.organization import organizations
 
 router = APIRouter()
@@ -63,16 +64,22 @@ class UpdateOrganizationRequest(BaseModel):
 async def create_organization(
     request: CreateOrganizationRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+    current_user: Dict[str, Any] = Depends(require_bootstrap_auth)
 ):
     """
     Create a new organization
-    Only admin role can create organizations
+    
+    Development mode: Only requires X-Api-Key (EZA_ADMIN_API_KEY or "dev-key")
+    Production mode: Requires both JWT (admin role) + X-Api-Key
+    
+    This endpoint allows platform bootstrap before any users exist.
     """
     user_role = current_user.get("role", "")
     user_id = current_user.get("user_id") or current_user.get("sub")
+    is_bootstrap = current_user.get("bootstrap_mode", False)
     
-    if user_role not in ["admin", "org_admin"]:
+    # In production, verify admin role (already checked in require_bootstrap_auth)
+    if not is_bootstrap and user_role not in ["admin", "org_admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admin and org_admin roles can create organizations"
@@ -111,25 +118,26 @@ async def create_organization(
     
     organizations[org_id] = org_data
     
-    # Add creator as admin to organization_users
-    if org_id not in organization_users_store:
-        organization_users_store[org_id] = {}
-    
-    organization_users_store[org_id][user_id] = {
-        "role": "org_admin",
-        "status": "active",
-        "joined_at": datetime.utcnow().isoformat(),
-    }
+    # Add creator as admin to organization_users (skip if bootstrap mode)
+    if not is_bootstrap:
+        if org_id not in organization_users_store:
+            organization_users_store[org_id] = {}
+        
+        organization_users_store[org_id][user_id] = {
+            "role": "org_admin",
+            "status": "active",
+            "joined_at": datetime.utcnow().isoformat(),
+        }
     
     # Log audit event
     await _log_audit(
         action="ORG_CREATED",
-        user_id=user_id,
+        user_id=user_id if not is_bootstrap else "bootstrap",
         org_id=org_id,
-        metadata={"name": request.name, "plan": request.plan}
+        metadata={"name": request.name, "plan": request.plan, "bootstrap_mode": is_bootstrap}
     )
     
-    logger.info(f"[Org] Created organization: {request.name} (ID: {org_id}) by user {user_id}")
+    logger.info(f"[Org] Created organization: {request.name} (ID: {org_id}) by {'bootstrap' if is_bootstrap else f'user {user_id}'}")
     
     return {
         "ok": True,
