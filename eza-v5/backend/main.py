@@ -100,6 +100,44 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Add API key documentation to OpenAPI schema
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    from fastapi.openapi.utils import get_openapi
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    
+    # Add API key security scheme
+    openapi_schema["components"]["securitySchemes"] = {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-Api-Key",
+            "description": "API Key for authentication. Use either:\n"
+                          "- Admin API Key: Set via EZA_ADMIN_API_KEY environment variable\n"
+                          "- Organization API Key: Format 'ezak_<random>' (created via /api/org/{org_id}/api-key/create)\n"
+                          "- Development: Optional in dev mode (ENV=dev)"
+        },
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "JWT token for user authentication"
+        }
+    }
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 # CORS middleware with domain whitelist
 allowed_origins = [
     "https://standalone.ezacore.ai",
