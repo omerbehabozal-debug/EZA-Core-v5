@@ -8,7 +8,8 @@ import logging
 import hashlib
 import uuid
 import time
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
+from starlette.requests import Request
 from pydantic import BaseModel
 from typing import List, Optional, Literal, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession

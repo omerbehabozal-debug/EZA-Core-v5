@@ -5,7 +5,8 @@ Fast Core Pipeline - Production-ready minimal response
 Only returns: answer, safety, confidence
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
+from starlette.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.schemas.standalone import StandaloneChatRequest, StandaloneChatResponse
 from backend.core.utils.dependencies import get_db

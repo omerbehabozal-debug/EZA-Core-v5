@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi import Request
+from starlette.requests import Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from collections import Counter
