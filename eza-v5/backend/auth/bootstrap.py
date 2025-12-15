@@ -26,22 +26,34 @@ async def require_bootstrap_auth(
     """
     Bootstrap-friendly authentication for organization creation
     
+    Bootstrap is ONLY allowed when:
+    - No users exist in DB
+    - No organizations exist in DB
+    
     Development mode (ENV == "dev"):
     - Skip JWT authentication entirely
     - Accept X-Api-Key == "dev-key" OR EZA_ADMIN_API_KEY
-    - Return bootstrap auth context:
-      {
-        user_id: "bootstrap",
-        role: "admin",
-        bootstrap_mode: true
-      }
+    - Return bootstrap auth context
     
     Production mode:
     - Require BOTH:
       - Valid JWT with role "admin" or "org_admin"
       - X-Api-Key == EZA_ADMIN_API_KEY
     - Reject otherwise
+    
+    Once users/orgs exist, bootstrap is disabled.
     """
+    from backend.services.production_auth import check_bootstrap_allowed
+    
+    # Check if bootstrap is still allowed
+    bootstrap_allowed = await check_bootstrap_allowed(db)
+    
+    if not bootstrap_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bootstrap already completed. Use regular authentication."
+        )
+    
     settings = get_settings()
     env_value = settings.EZA_ENV if settings.EZA_ENV else settings.ENV
     is_dev = env_value.lower() in ["dev", "development", "local", "test"]
@@ -63,7 +75,7 @@ async def require_bootstrap_auth(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid API key. In dev mode, use EZA_ADMIN_API_KEY or 'dev-key'"
             )
-        logger.info("[BootstrapAuth] Dev mode: API key validated, skipping JWT")
+        logger.info("[BootstrapAuth] Dev mode: Bootstrap allowed, API key validated, skipping JWT")
         # Return bootstrap user info (no JWT required)
         return {
             "user_id": "bootstrap",
@@ -105,6 +117,6 @@ async def require_bootstrap_auth(
                 detail="Only admin and org_admin roles can create organizations in production"
             )
         
-        logger.info(f"[BootstrapAuth] Production mode: API key + JWT validated for user {user_info.get('user_id')}")
+        logger.info(f"[BootstrapAuth] Production mode: Bootstrap allowed, API key + JWT validated for user {user_info.get('user_id')}")
         return user_info
 

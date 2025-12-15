@@ -42,9 +42,26 @@ async def get_db() -> AsyncSession:
 
 
 async def init_db():
-    """Initialize database tables"""
+    """Initialize database tables (including production models)"""
+    import logging
+    from backend.models.production import (
+        User, Organization, OrganizationUser, ApiKey, 
+        AuditLog, TelemetryEvent, AlertEvent
+    )
+    
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Log production mode status
+    settings = get_settings()
+    env_value = settings.EZA_ENV if settings.EZA_ENV else settings.ENV
+    logger = logging.getLogger(__name__)
+    
+    # Always log production mode (database is persistent)
+    logger.info("=" * 60)
+    logger.info("EZA running in PRODUCTION MODE with persistent DB")
+    logger.info(f"Database: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'configured'}")
+    logger.info("=" * 60)
 
 
 async def init_redis():

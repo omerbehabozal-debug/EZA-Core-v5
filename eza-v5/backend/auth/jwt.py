@@ -95,20 +95,23 @@ def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
         token: JWT token string
     
     Returns:
-        Dict with user_id and role, or None if invalid
+        Dict with user_id (UUID string) and role, or None if invalid
     """
     payload = decode_jwt(token)
     if payload is None:
         return None
     
-    user_id = payload.get("sub")
+    user_id = payload.get("sub") or payload.get("user_id")
     role = payload.get("role")
     
     if not user_id or not role:
         return None
     
+    # Return UUID as string (no conversion to int)
     return {
-        "user_id": int(user_id),
-        "role": role
+        "user_id": str(user_id),
+        "sub": str(user_id),  # Alias for compatibility
+        "role": role,
+        "email": payload.get("email")  # Optional
     }
 

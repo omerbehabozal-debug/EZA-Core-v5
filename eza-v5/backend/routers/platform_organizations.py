@@ -15,14 +15,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth import require_proxy_auth
 from backend.auth.bootstrap import require_bootstrap_auth
-from backend.routers.organization import organizations
+from backend.services.production_org import (
+    create_organization as db_create_organization,
+    get_organization as db_get_organization,
+    list_organizations as db_list_organizations,
+    update_organization as db_update_organization,
+    archive_organization as db_archive_organization
+)
+from backend.services.production_auth import get_user_by_id
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-# Import organization_users store from middleware
-from backend.middleware.organization_guard import get_organization_users_store
-organization_users_store = get_organization_users_store()
 
 
 class CreateOrganizationRequest(BaseModel):
@@ -99,49 +102,44 @@ async def create_organization(
             detail="Base currency must be TRY or USD"
         )
     
-    # Generate organization ID
-    org_id = str(uuid.uuid4())
+    # Create organization in database
+    created_by_user_id = None if is_bootstrap else user_id
     
-    # Create organization
-    org_data = {
-        "id": org_id,
-        "name": request.name,
-        "plan": request.plan,
-        "status": "active",
-        "proxy_access": request.proxy_access,
-        "base_currency": request.base_currency,
-        "sla_tier": request.sla_tier,
-        "default_policy_set": request.default_policy_set,
-        "created_at": datetime.utcnow().isoformat(),
-        "created_by": user_id,
-    }
-    
-    organizations[org_id] = org_data
-    
-    # Add creator as admin to organization_users (skip if bootstrap mode)
-    if not is_bootstrap:
-        if org_id not in organization_users_store:
-            organization_users_store[org_id] = {}
-        
-        organization_users_store[org_id][user_id] = {
-            "role": "org_admin",
-            "status": "active",
-            "joined_at": datetime.utcnow().isoformat(),
-        }
+    org = await db_create_organization(
+        db=db,
+        name=request.name,
+        plan=request.plan,
+        base_currency=request.base_currency,
+        proxy_access=request.proxy_access,
+        sla_tier=request.sla_tier,
+        default_policy_set=request.default_policy_set,
+        created_by_user_id=created_by_user_id
+    )
     
     # Log audit event
-    await _log_audit(
+    await _log_audit_db(
+        db=db,
         action="ORG_CREATED",
-        user_id=user_id if not is_bootstrap else "bootstrap",
-        org_id=org_id,
+        user_id=user_id if not is_bootstrap else None,
+        org_id=str(org.id),
         metadata={"name": request.name, "plan": request.plan, "bootstrap_mode": is_bootstrap}
     )
     
-    logger.info(f"[Org] Created organization: {request.name} (ID: {org_id}) by {'bootstrap' if is_bootstrap else f'user {user_id}'}")
+    logger.info(f"[Org] Created organization: {request.name} (ID: {org.id}) by {'bootstrap' if is_bootstrap else f'user {user_id}'}")
     
     return {
         "ok": True,
-        "organization": OrganizationResponse(**org_data)
+        "organization": OrganizationResponse(
+            id=str(org.id),
+            name=org.name,
+            plan=org.plan,
+            status=org.status,
+            proxy_access=org.proxy_access,
+            base_currency=org.base_currency,
+            sla_tier=org.sla_tier,
+            default_policy_set=org.default_policy_set,
+            created_at=org.created_at.isoformat()
+        )
     }
 
 
@@ -156,24 +154,30 @@ async def list_organizations(
     user_id = current_user.get("user_id") or current_user.get("sub")
     user_role = current_user.get("role", "")
     
-    # Admin can see all organizations
-    if user_role in ["admin"]:
-        org_list = [
-            OrganizationResponse(**org)
-            for org in organizations.values()
-            if org.get("status") != "archived"
-        ]
-    else:
-        # Regular users see only organizations they're members of
-        user_orgs = []
-        for org_id, users in organization_users_store.items():
-            if user_id in users:
-                if org_id in organizations:
-                    org = organizations[org_id]
-                    if org.get("status") != "archived":
-                        user_orgs.append(OrganizationResponse(**org))
-        
-        org_list = user_orgs
+    # Convert user_id to string if needed
+    user_id_str = str(user_id) if user_id else None
+    
+    # Get organizations from database
+    orgs = await db_list_organizations(
+        db=db,
+        user_id=user_id_str,
+        user_role=user_role
+    )
+    
+    org_list = [
+        OrganizationResponse(
+            id=str(org.id),
+            name=org.name,
+            plan=org.plan,
+            status=org.status,
+            proxy_access=org.proxy_access,
+            base_currency=org.base_currency,
+            sla_tier=org.sla_tier,
+            default_policy_set=org.default_policy_set,
+            created_at=org.created_at.isoformat()
+        )
+        for org in orgs
+    ]
     
     return OrganizationListResponse(
         ok=True,
@@ -192,8 +196,11 @@ async def update_organization(
     Update organization
     Only admin can update organizations
     """
+    from backend.services.production_org import check_user_organization_membership
+    
     user_role = current_user.get("role", "")
     user_id = current_user.get("user_id") or current_user.get("sub")
+    user_id_str = str(user_id) if user_id else None
     
     if user_role not in ["admin", "org_admin"]:
         raise HTTPException(
@@ -201,29 +208,24 @@ async def update_organization(
             detail="Only admin and org_admin roles can update organizations"
         )
     
-    if org_id not in organizations:
+    # Check organization exists
+    org = await db_get_organization(db, org_id)
+    if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
     
-    org = organizations[org_id]
-    
     # Check if user is member (for org_admin)
-    if user_role == "org_admin":
-        if org_id not in organization_users_store:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User is not a member of this organization"
-            )
-        
-        if user_id not in organization_users_store[org_id]:
+    if user_role == "org_admin" and user_id_str:
+        is_member = await check_user_organization_membership(db, user_id_str, org_id)
+        if not is_member:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not a member of this organization"
             )
     
-    # Update fields
+    # Build updates dict
     updates = {}
     if request.name is not None:
         updates["name"] = request.name
@@ -248,14 +250,19 @@ async def update_organization(
     if request.default_policy_set is not None:
         updates["default_policy_set"] = request.default_policy_set
     
-    # Apply updates
-    org.update(updates)
-    organizations[org_id] = org
+    # Update in database
+    updated_org = await db_update_organization(db, org_id, updates)
+    if not updated_org:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update organization"
+        )
     
     # Log audit event
-    await _log_audit(
+    await _log_audit_db(
+        db=db,
         action="ORG_UPDATED",
-        user_id=user_id,
+        user_id=user_id_str,
         org_id=org_id,
         metadata=updates
     )
@@ -264,7 +271,17 @@ async def update_organization(
     
     return {
         "ok": True,
-        "organization": OrganizationResponse(**org)
+        "organization": OrganizationResponse(
+            id=str(updated_org.id),
+            name=updated_org.name,
+            plan=updated_org.plan,
+            status=updated_org.status,
+            proxy_access=updated_org.proxy_access,
+            base_currency=updated_org.base_currency,
+            sla_tier=updated_org.sla_tier,
+            default_policy_set=updated_org.default_policy_set,
+            created_at=updated_org.created_at.isoformat()
+        )
     }
 
 
@@ -280,6 +297,7 @@ async def delete_organization(
     """
     user_role = current_user.get("role", "")
     user_id = current_user.get("user_id") or current_user.get("sub")
+    user_id_str = str(user_id) if user_id else None
     
     if user_role != "admin":
         raise HTTPException(
@@ -287,24 +305,29 @@ async def delete_organization(
             detail="Only admin role can delete organizations"
         )
     
-    if org_id not in organizations:
+    # Check organization exists
+    org = await db_get_organization(db, org_id)
+    if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
     
-    org = organizations[org_id]
-    
-    # Soft delete: set status to archived
-    org["status"] = "archived"
-    organizations[org_id] = org
+    # Archive organization
+    success = await db_archive_organization(db, org_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to archive organization"
+        )
     
     # Log audit event
-    await _log_audit(
+    await _log_audit_db(
+        db=db,
         action="ORG_ARCHIVED",
-        user_id=user_id,
+        user_id=user_id_str,
         org_id=org_id,
-        metadata={"name": org.get("name")}
+        metadata={"name": org.name}
     )
     
     logger.info(f"[Org] Archived organization {org_id} by user {user_id}")
@@ -315,21 +338,27 @@ async def delete_organization(
     }
 
 
-async def _log_audit(action: str, user_id: str, org_id: str, metadata: Dict[str, Any]):
-    """Log audit event"""
+async def _log_audit_db(
+    db: AsyncSession,
+    action: str,
+    user_id: Optional[str],
+    org_id: str,
+    metadata: Dict[str, Any]
+):
+    """Log audit event to database"""
     try:
-        from backend.routers.proxy_audit import audit_store
+        from backend.models.production import AuditLog
         
-        audit_entry = {
-            "action": action,
-            "user_id": user_id,
-            "org_id": org_id,
-            "metadata": metadata,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-        
-        audit_store.append(audit_entry)
+        audit_entry = AuditLog(
+            org_id=uuid.UUID(org_id) if org_id else None,
+            user_id=uuid.UUID(user_id) if user_id else None,
+            action=action,
+            metadata=metadata
+        )
+        db.add(audit_entry)
+        await db.commit()
         logger.info(f"[Audit] {action}: user={user_id}, org={org_id}")
     except Exception as e:
         logger.error(f"[Audit] Failed to log {action}: {e}")
+        await db.rollback()
 

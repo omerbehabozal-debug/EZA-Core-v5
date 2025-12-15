@@ -15,13 +15,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth import require_proxy_auth
+from backend.services.production_api_key import (
+    create_api_key as db_create_api_key,
+    validate_api_key as db_validate_api_key,
+    list_api_keys as db_list_api_keys
+)
+from backend.services.production_org import get_organization as db_get_organization
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# In-memory store (in production, use database)
-organizations: Dict[str, Dict[str, Any]] = {}
-api_keys: Dict[str, Dict[str, Any]] = {}  # key -> {org_id, created_at, name, last_used}
+# In-memory stores removed - all data now in PostgreSQL database
 
 
 class CreateOrgRequest(BaseModel):
@@ -59,9 +63,11 @@ async def create_organization(
     current_user: Dict[str, Any] = Depends(require_proxy_auth)
 ):
     """
-    Create a new organization
+    Create a new organization (DEPRECATED - use /api/platform/organizations)
     Only admins can create organizations
     """
+    from backend.services.production_org import create_organization as db_create_organization
+    
     user_role = current_user.get("role", "")
     if user_role != "admin":
         raise HTTPException(
@@ -69,23 +75,26 @@ async def create_organization(
             detail="Only admins can create organizations"
         )
     
-    import uuid
-    org_id = str(uuid.uuid4())
+    user_id = current_user.get("user_id") or current_user.get("sub")
+    user_id_str = str(user_id) if user_id else None
     
-    organizations[org_id] = {
-        "id": org_id,
-        "name": request.name,
-        "created_at": datetime.utcnow().isoformat(),
-        "created_by": current_user.get("user_id"),
-    }
+    # Create organization in database
+    org = await db_create_organization(
+        db=db,
+        name=request.name,
+        plan="free",
+        base_currency="TRY",
+        proxy_access=True,
+        created_by_user_id=user_id_str
+    )
     
-    logger.info(f"[Org] Created organization: {request.name} (ID: {org_id})")
+    logger.info(f"[Org] Created organization: {request.name} (ID: {org.id})")
     
     return CreateOrgResponse(
         ok=True,
-        org_id=org_id,
-        name=request.name,
-        message=f"Organization '{request.name}' created successfully"
+        org_id=str(org.id),
+        name=org.name,
+        message=f"Organization '{org.name}' created successfully"
     )
 
 
@@ -98,48 +107,48 @@ async def create_api_key(
 ):
     """
     Create API key for organization
+    
+    Uses database-backed storage.
     """
     user_role = current_user.get("role", "")
-    if user_role not in ["admin", "reviewer"]:
+    user_id = current_user.get("user_id") or current_user.get("sub")
+    user_id_str = str(user_id) if user_id else None
+    
+    if user_role not in ["admin", "reviewer", "org_admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins and reviewers can create API keys"
+            detail="Only admins, reviewers, and org_admins can create API keys"
         )
     
-    if org_id not in organizations:
+    # Verify organization exists in database
+    org = await db_get_organization(db, org_id)
+    if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
     
-    # Generate API key
-    key_prefix = "ezak_"
-    random_part = secrets.token_urlsafe(32)
-    api_key = f"{key_prefix}{random_part}"
+    if org.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Organization is {org.status}"
+        )
     
-    # Hash for storage
-    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-    key_id = key_hash[:16]
-    
-    api_keys[key_hash] = {
-        "key_id": key_id,
-        "org_id": org_id,
-        "name": request.name,
-        "key_hash": key_hash,
-        "created_at": datetime.utcnow().isoformat(),
-        "created_by": current_user.get("user_id"),
-        "last_used": None,
-    }
-    
-    logger.info(f"[Org] Created API key for org {org_id}: {request.name}")
-    
-    return {
-        "ok": True,
-        "api_key": api_key,  # Only shown once
-        "key_id": key_id,
-        "name": request.name,
-        "message": "API key created. Save it securely - it won't be shown again."
-    }
+    # Create API key in database
+    try:
+        result = await db_create_api_key(
+            db=db,
+            org_id=org_id,
+            name=request.name,
+            user_id=user_id_str
+        )
+        logger.info(f"[Org] Created API key for org {org_id}: {request.name}")
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 @router.get("/{org_id}/api-keys", response_model=ApiKeyListResponse)
@@ -149,25 +158,35 @@ async def list_api_keys(
     current_user: Dict[str, Any] = Depends(require_proxy_auth)
 ):
     """
-    List all API keys for an organization
+    List all API keys for an organization (database-backed)
     """
     user_role = current_user.get("role", "")
-    if user_role not in ["admin", "reviewer", "auditor"]:
+    if user_role not in ["admin", "reviewer", "auditor", "org_admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions"
         )
     
+    # Verify organization exists
+    org = await db_get_organization(db, org_id)
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+    
+    # Get API keys from database
+    keys = await db_list_api_keys(db, org_id)
+    
     org_keys = [
         ApiKeyInfo(
-            key_id=key_data["key_id"],
-            name=key_data["name"],
-            masked_key=f"ezak_****{key_data['key_id'][-4:]}",
-            created_at=key_data["created_at"],
-            last_used=key_data.get("last_used")
+            key_id=key["key_id"],
+            name=key["name"],
+            masked_key=key["masked_key"],
+            created_at=key["created_at"],
+            last_used=key["last_used"]
         )
-        for key_hash, key_data in api_keys.items()
-        if key_data["org_id"] == org_id
+        for key in keys
     ]
     
     return ApiKeyListResponse(ok=True, api_keys=org_keys)
@@ -180,47 +199,50 @@ async def delete_api_key(
     current_user: Dict[str, Any] = Depends(require_proxy_auth)
 ):
     """
-    Delete an API key
+    Revoke an API key (database-backed)
     """
+    from backend.services.production_api_key import revoke_api_key as db_revoke_api_key
+    
     user_role = current_user.get("role", "")
-    if user_role not in ["admin", "reviewer"]:
+    if user_role not in ["admin", "reviewer", "org_admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins and reviewers can delete API keys"
+            detail="Only admins, reviewers, and org_admins can revoke API keys"
         )
     
-    # Find and delete key
-    key_to_delete = None
-    for key_hash, key_data in api_keys.items():
-        if key_data["key_id"] == key_id:
-            key_to_delete = key_hash
-            break
-    
-    if not key_to_delete:
+    # Revoke key in database
+    success = await db_revoke_api_key(db, key_id)
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="API key not found"
         )
     
-    del api_keys[key_to_delete]
-    logger.info(f"[Org] Deleted API key: {key_id}")
+    logger.info(f"[Org] Revoked API key: {key_id}")
     
     return {
         "ok": True,
-        "message": "API key deleted successfully"
+        "message": "API key revoked successfully"
     }
 
 
-# Helper function to validate API key and get org_id
-def validate_api_key_and_get_org(api_key: str) -> Optional[str]:
-    """Validate API key and return organization ID"""
-    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+# Helper function to validate API key and get org_id (async, database-backed)
+async def validate_api_key_and_get_org(api_key: str, db: Optional[AsyncSession] = None) -> Optional[str]:
+    """
+    Validate API key and return organization ID (database-backed)
     
-    if key_hash in api_keys:
-        key_data = api_keys[key_hash]
-        # Update last_used
-        key_data["last_used"] = datetime.utcnow().isoformat()
-        return key_data["org_id"]
-    
-    return None
+    Note: db parameter is optional for backward compatibility.
+    If not provided, creates a new session (not recommended for production).
+    """
+    if db is None:
+        from backend.core.utils.dependencies import AsyncSessionLocal
+        async_db = AsyncSessionLocal()
+        try:
+            result = await db_validate_api_key(async_db, api_key)
+            return result.get("org_id") if result else None
+        finally:
+            await async_db.close()
+    else:
+        result = await db_validate_api_key(db, api_key)
+        return result.get("org_id") if result else None
 

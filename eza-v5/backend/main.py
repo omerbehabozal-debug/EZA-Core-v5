@@ -177,6 +177,8 @@ app.add_middleware(OrganizationGuardMiddleware)
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+from backend.routers import production_auth
+app.include_router(production_auth.router, prefix="/api/auth", tags=["Production Auth"])
 # standalone.router removed - using direct endpoint in main.py instead
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])

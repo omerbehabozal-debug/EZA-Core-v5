@@ -13,7 +13,8 @@ from fastapi import status
 import asyncio
 
 from backend.auth.jwt import get_user_from_token
-from backend.routers.organization import organizations
+from backend.services.production_org import get_organization as db_get_organization
+from backend.services.production_org import check_user_organization_membership as db_check_membership
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +39,6 @@ EXCLUDED_PATHS = [
 ]
 
 
-# In-memory organization_users store (in production, use database)
-# Format: {org_id: {user_id: {role, status, joined_at}}}
-organization_users: Dict[str, Dict[str, Dict[str, Any]]] = {}
-
-
 def is_protected_path(path: str) -> bool:
     """Check if path requires organization guard"""
     # Check exclusions first
@@ -61,31 +57,7 @@ def is_protected_path(path: str) -> bool:
     return False
 
 
-async def check_user_organization_membership(
-    user_id: str,
-    org_id: str
-) -> bool:
-    """
-    Check if user is a member of the organization
-    
-    In production, this should query database:
-    SELECT * FROM organization_users WHERE user_id = ? AND org_id = ? AND status = 'active'
-    """
-    # Check in-memory store
-    if org_id in organization_users:
-        org_users = organization_users[org_id]
-        if user_id in org_users:
-            user_data = org_users[user_id]
-            # Check if user is active
-            if user_data.get("status") == "active":
-                return True
-    
-    # Fallback: allow admin/org_admin roles (for now)
-    # In production, this should be removed and only DB check should be used
-    return False
-
-
-async def log_audit_event(
+async def log_audit_event_db(
     action: str,
     user_id: Optional[str],
     org_id: Optional[str],
@@ -94,31 +66,33 @@ async def log_audit_event(
     reason: Optional[str] = None
 ):
     """
-    Log audit event asynchronously (non-blocking)
+    Log audit event to database (non-blocking)
     """
     try:
-        from backend.routers.proxy_audit import audit_store
-        from datetime import datetime
-        
-        audit_entry = {
-            "action": action,
-            "user_id": user_id,
-            "org_id": org_id,
-            "endpoint": endpoint,
-            "method": method,
-            "reason": reason,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-        
-        # Store audit entry (in-memory, in production use DB)
-        # Use a unique key for the audit entry
+        from backend.models.production import AuditLog
+        from backend.core.utils.dependencies import AsyncSessionLocal
         import uuid
-        audit_key = f"org_access_denied_{uuid.uuid4()}"
-        audit_store[audit_key] = audit_entry
         
-        logger.warning(f"[Audit] {action}: user={user_id}, org={org_id}, endpoint={endpoint}, reason={reason}")
+        async_db = AsyncSessionLocal()
+        try:
+            audit_entry = AuditLog(
+                org_id=uuid.UUID(org_id) if org_id else None,
+                user_id=uuid.UUID(user_id) if user_id else None,
+                action=action,
+                metadata={"endpoint": endpoint, "method": method, "reason": reason},
+                endpoint=endpoint,
+                method=method
+            )
+            async_db.add(audit_entry)
+            await async_db.commit()
+            logger.warning(f"[Audit] {action}: user={user_id}, org={org_id}, endpoint={endpoint}, reason={reason}")
+        except Exception as e:
+            await async_db.rollback()
+            logger.error(f"[Audit] Failed to log {action}: {e}")
+        finally:
+            await async_db.close()
     except Exception as e:
-        logger.error(f"[Audit] Failed to log {action}: {e}")
+        logger.error(f"[Audit] Failed to create audit log entry: {e}")
 
 
 class OrganizationGuardMiddleware(BaseHTTPMiddleware):
@@ -152,7 +126,7 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
         
         # If both exist, they must match
         if x_org_id and path_org_id and x_org_id != path_org_id:
-            asyncio.create_task(log_audit_event(
+            asyncio.create_task(log_audit_event_db(
                 action="ORG_ACCESS_DENIED",
                 user_id=None,
                 org_id=x_org_id,
@@ -168,7 +142,7 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
         
         if not x_org_id:
             # Log audit event (async, non-blocking)
-            asyncio.create_task(log_audit_event(
+            asyncio.create_task(log_audit_event_db(
                 action="ORG_ACCESS_DENIED",
                 user_id=None,
                 org_id=None,
@@ -183,41 +157,56 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
                 content={"error": "Organization context required", "detail": "x-org-id header is required"}
             )
         
-        # 2. Validate organization exists
-        if x_org_id not in organizations:
-            asyncio.create_task(log_audit_event(
-                action="ORG_ACCESS_DENIED",
-                user_id=None,
-                org_id=x_org_id,
-                endpoint=request.url.path,
-                method=request.method,
-                reason="Organization not found"
-            ))
-            
-            logger.warning(f"[OrgGuard] Organization not found: {x_org_id}")
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content={"error": "Organization not found", "detail": f"Organization {x_org_id} does not exist"}
-            )
+        # 2. Validate organization exists (database)
+        # Use request-scoped DB session if available, otherwise create new one
+        from backend.core.utils.dependencies import AsyncSessionLocal
+        async_db = None
+        org = None
         
-        org = organizations[x_org_id]
+        # Try to get DB from request state (if available from dependency injection)
+        if hasattr(request.state, "db"):
+            async_db = request.state.db
+        else:
+            async_db = AsyncSessionLocal()
         
-        # 3. Check organization status
-        if org.get("status") != "active":
-            asyncio.create_task(log_audit_event(
-                action="ORG_ACCESS_DENIED",
-                user_id=None,
-                org_id=x_org_id,
-                endpoint=request.url.path,
-                method=request.method,
-                reason=f"Organization status: {org.get('status')}"
-            ))
+        try:
+            org = await db_get_organization(async_db, x_org_id)
+            if not org:
+                asyncio.create_task(log_audit_event_db(
+                    action="ORG_ACCESS_DENIED",
+                    user_id=None,
+                    org_id=x_org_id,
+                    endpoint=request.url.path,
+                    method=request.method,
+                    reason="Organization not found"
+                ))
+                
+                logger.warning(f"[OrgGuard] Organization not found: {x_org_id}")
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"error": "Organization not found", "detail": f"Organization {x_org_id} does not exist"}
+                )
             
-            logger.warning(f"[OrgGuard] Organization not active: {x_org_id} (status: {org.get('status')})")
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content={"error": f"Organization is {org.get('status')}", "detail": "Only active organizations can be accessed"}
-            )
+            # 3. Check organization status
+            if org.status != "active":
+                asyncio.create_task(log_audit_event_db(
+                    action="ORG_ACCESS_DENIED",
+                    user_id=None,
+                    org_id=x_org_id,
+                    endpoint=request.url.path,
+                    method=request.method,
+                    reason=f"Organization status: {org.status}"
+                ))
+                
+                logger.warning(f"[OrgGuard] Organization not active: {x_org_id} (status: {org.status})")
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"error": f"Organization is {org.status}", "detail": "Only active organizations can be accessed"}
+                )
+        finally:
+            # Only close if we created the session
+            if not hasattr(request.state, "db") and async_db:
+                await async_db.close()
         
         # 4. Extract user from JWT token
         user_id = None
@@ -237,34 +226,47 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
                 user_id = None
                 user_role = None
         
-        # 5. Check user-organization membership
+        # 5. Check user-organization membership (database)
         if user_id:
-            is_member = await check_user_organization_membership(user_id, x_org_id)
+            # Use same DB session
+            if async_db is None:
+                async_db = AsyncSessionLocal() if not hasattr(request.state, "db") else request.state.db
             
-            # Allow admin/org_admin roles to bypass membership check (for now)
-            # In production, even admins should be in organization_users table
-            if not is_member and user_role not in ["admin", "org_admin"]:
-                asyncio.create_task(log_audit_event(
-                    action="ORG_ACCESS_DENIED",
-                    user_id=user_id,
-                    org_id=x_org_id,
-                    endpoint=request.url.path,
-                    method=request.method,
-                    reason="User not authorized for this organization"
-                ))
+            try:
+                is_member = await db_check_membership(async_db, user_id, x_org_id)
                 
-                logger.warning(f"[OrgGuard] User {user_id} not member of org {x_org_id}")
-                return JSONResponse(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    content={"error": "User not authorized for this organization", "detail": f"User {user_id} is not a member of organization {x_org_id}"}
-                )
+                # Allow admin/org_admin roles to bypass membership check
+                if not is_member and user_role not in ["admin", "org_admin"]:
+                    asyncio.create_task(log_audit_event_db(
+                        action="ORG_ACCESS_DENIED",
+                        user_id=user_id,
+                        org_id=x_org_id,
+                        endpoint=request.url.path,
+                        method=request.method,
+                        reason="User not authorized for this organization"
+                    ))
+                    
+                    logger.warning(f"[OrgGuard] User {user_id} not member of org {x_org_id}")
+                    return JSONResponse(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content={"error": "User not authorized for this organization", "detail": f"User {user_id} is not a member of organization {x_org_id}"}
+                    )
+            finally:
+                # Only close if we created the session
+                if not hasattr(request.state, "db") and async_db and async_db != request.state.get("db"):
+                    await async_db.close()
         else:
             # No user ID - allow request but log warning
             logger.warning(f"[OrgGuard] No user ID found for org {x_org_id} on {request.url.path}")
         
         # 6. Add organization context to request state
         request.state.org_id = x_org_id
-        request.state.organization = org
+        request.state.organization = {
+            "id": str(org.id),
+            "name": org.name,
+            "status": org.status,
+            "plan": org.plan
+        }
         if user_id:
             request.state.user_id = user_id
         
@@ -278,8 +280,6 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Helper function to get organization_users store (for platform_organizations.py)
-def get_organization_users_store() -> Dict[str, Dict[str, Dict[str, Any]]]:
-    """Get the organization_users store (for use in other modules)"""
-    return organization_users
+# Legacy function removed - use database queries instead
+# Use backend.services.production_org.check_user_organization_membership
 

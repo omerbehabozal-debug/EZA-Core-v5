@@ -59,8 +59,10 @@ async def require_proxy_auth(
     # Check if it's an organization API key (ezak_ prefix)
     org_id_from_key = None
     if api_key and api_key.startswith("ezak_"):
-        from backend.routers.organization import validate_api_key_and_get_org
-        org_id_from_key = validate_api_key_and_get_org(api_key)
+        from backend.services.production_api_key import validate_api_key as db_validate_api_key
+        result = await db_validate_api_key(db, api_key)
+        if result:
+            org_id_from_key = result.get("org_id")
         if not org_id_from_key:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
