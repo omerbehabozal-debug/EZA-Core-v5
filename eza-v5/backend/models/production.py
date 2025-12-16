@@ -27,7 +27,7 @@ class User(Base):
     
     # Relationships
     organization_users = relationship("OrganizationUser", back_populates="user", cascade="all, delete-orphan")
-    audit_logs = relationship("AuditLog", back_populates="user")
+    audit_logs = relationship("backend.models.production.AuditLog", back_populates="user")
     api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
 
 
@@ -67,7 +67,7 @@ class OrganizationUser(Base):
     
     # Relationships
     organization = relationship("Organization", back_populates="organization_users")
-    user = relationship("User", back_populates="organization_users")
+    user = relationship("backend.models.production.User", back_populates="organization_users")
     
     # Unique constraint: user can only have one role per organization
     __table_args__ = (
@@ -91,7 +91,7 @@ class ApiKey(Base):
     
     # Relationships
     organization = relationship("Organization", back_populates="api_keys")
-    user = relationship("User", back_populates="api_keys")
+    user = relationship("backend.models.production.User", back_populates="api_keys")
 
 
 class AuditLog(Base):
@@ -109,7 +109,7 @@ class AuditLog(Base):
     
     # Relationships
     organization = relationship("Organization", back_populates="audit_logs")
-    user = relationship("User", back_populates="audit_logs")
+    user = relationship("backend.models.production.User", back_populates="audit_logs")
 
 
 class TelemetryEvent(Base):
