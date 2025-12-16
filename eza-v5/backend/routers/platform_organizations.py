@@ -369,13 +369,18 @@ async def _log_audit_db(
                     metadata["user_id_legacy"] = user_id
                 pass
         
-        audit_entry = AuditLog(
+        # Create AuditLog without triggering relationship resolution
+        # Use direct table insert to avoid User model conflict
+        from sqlalchemy import insert
+        
+        # Insert directly to avoid relationship resolution issues
+        stmt = insert(AuditLog).values(
             org_id=org_uuid,
             user_id=user_uuid,
             action=action,
             context=metadata
         )
-        db.add(audit_entry)
+        await db.execute(stmt)
         await db.commit()
         logger.info(f"[Audit] {action}: user={user_id}, org={org_id}")
     except Exception as e:

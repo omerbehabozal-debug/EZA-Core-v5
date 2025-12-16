@@ -17,6 +17,9 @@ from backend.core.utils.dependencies import Base
 class User(Base):
     """User model with UUID primary key"""
     __tablename__ = "production_users"
+    __mapper_args__ = {
+        "polymorphic_identity": "production_user"
+    }
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
@@ -47,11 +50,12 @@ class Organization(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    organization_users = relationship("OrganizationUser", back_populates="organization", cascade="all, delete-orphan")
-    api_keys = relationship("ApiKey", back_populates="organization", cascade="all, delete-orphan")
-    audit_logs = relationship("AuditLog", back_populates="organization")
-    telemetry_events = relationship("TelemetryEvent", back_populates="organization")
-    alert_events = relationship("AlertEvent", back_populates="organization")
+    # Use fully qualified paths to avoid conflicts
+    organization_users = relationship("backend.models.production.OrganizationUser", back_populates="organization", cascade="all, delete-orphan")
+    api_keys = relationship("backend.models.production.ApiKey", back_populates="organization", cascade="all, delete-orphan")
+    audit_logs = relationship("backend.models.production.AuditLog", back_populates="organization")
+    telemetry_events = relationship("backend.models.production.TelemetryEvent", back_populates="organization")
+    alert_events = relationship("backend.models.production.AlertEvent", back_populates="organization")
 
 
 class OrganizationUser(Base):
@@ -66,7 +70,7 @@ class OrganizationUser(Base):
     status = Column(String(50), nullable=False, default="active")  # active, suspended
     
     # Relationships
-    organization = relationship("Organization", back_populates="organization_users")
+    organization = relationship("backend.models.production.Organization", back_populates="organization_users")
     user = relationship("backend.models.production.User", back_populates="organization_users")
     
     # Unique constraint: user can only have one role per organization
@@ -90,7 +94,7 @@ class ApiKey(Base):
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
-    organization = relationship("Organization", back_populates="api_keys")
+    organization = relationship("backend.models.production.Organization", back_populates="api_keys")
     user = relationship("backend.models.production.User", back_populates="api_keys")
 
 
@@ -108,7 +112,7 @@ class AuditLog(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     
     # Relationships
-    organization = relationship("Organization", back_populates="audit_logs")
+    organization = relationship("backend.models.production.Organization", back_populates="audit_logs")
     user = relationship("backend.models.production.User", back_populates="audit_logs")
 
 
@@ -131,7 +135,7 @@ class TelemetryEvent(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     
     # Relationships
-    organization = relationship("Organization", back_populates="telemetry_events")
+    organization = relationship("backend.models.production.Organization", back_populates="telemetry_events")
 
 
 class AlertEvent(Base):
@@ -147,5 +151,5 @@ class AlertEvent(Base):
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
-    organization = relationship("Organization", back_populates="alert_events")
+    organization = relationship("backend.models.production.Organization", back_populates="alert_events")
 

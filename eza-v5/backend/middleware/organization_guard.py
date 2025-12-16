@@ -99,7 +99,13 @@ async def log_audit_event_db(
             if user_id and not user_uuid:
                 context_data["user_id_legacy"] = user_id
             
-            audit_entry = AuditLog(
+            # Create AuditLog without triggering relationship resolution
+            # Use direct table insert to avoid User model conflict
+            from sqlalchemy import insert
+            from backend.models.production import AuditLog
+            
+            # Insert directly to avoid relationship resolution issues
+            stmt = insert(AuditLog).values(
                 org_id=org_uuid,
                 user_id=user_uuid,
                 action=action,
@@ -107,7 +113,7 @@ async def log_audit_event_db(
                 endpoint=endpoint,
                 method=method
             )
-            async_db.add(audit_entry)
+            await async_db.execute(stmt)
             await async_db.commit()
             logger.warning(f"[Audit] {action}: user={user_id}, org={org_id}, endpoint={endpoint}, reason={reason}")
         except Exception as e:
