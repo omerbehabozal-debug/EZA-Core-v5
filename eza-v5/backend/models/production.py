@@ -102,7 +102,7 @@ class AuditLog(Base):
     org_id = Column(UUID(as_uuid=True), ForeignKey("production_organizations.id", ondelete="SET NULL"), nullable=True, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("production_users.id", ondelete="SET NULL"), nullable=True, index=True)
     action = Column(String(100), nullable=False, index=True)  # ORG_CREATED, ORG_UPDATED, etc.
-    metadata = Column(JSON, nullable=True)  # Additional action metadata
+    context = Column(JSON, nullable=True)  # Additional action context (renamed from metadata to avoid SQLAlchemy conflict)
     endpoint = Column(String(500), nullable=True)
     method = Column(String(10), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)

@@ -79,7 +79,7 @@ async def log_audit_event_db(
                 org_id=uuid.UUID(org_id) if org_id else None,
                 user_id=uuid.UUID(user_id) if user_id else None,
                 action=action,
-                metadata={"endpoint": endpoint, "method": method, "reason": reason},
+                context={"endpoint": endpoint, "method": method, "reason": reason},
                 endpoint=endpoint,
                 method=method
             )

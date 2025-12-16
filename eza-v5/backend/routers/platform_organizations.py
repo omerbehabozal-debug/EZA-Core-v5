@@ -353,7 +353,7 @@ async def _log_audit_db(
             org_id=uuid.UUID(org_id) if org_id else None,
             user_id=uuid.UUID(user_id) if user_id else None,
             action=action,
-            metadata=metadata
+            context=metadata
         )
         db.add(audit_entry)
         await db.commit()
