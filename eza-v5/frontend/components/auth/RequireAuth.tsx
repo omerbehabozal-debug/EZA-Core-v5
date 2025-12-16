@@ -26,7 +26,10 @@ export default function RequireAuth({
   useEffect(() => {
     // Redirect to login if not authenticated
     if (!isAuthenticated || !token) {
-      router.push('/login');
+      // Determine login path based on current location
+      const isPlatform = typeof window !== 'undefined' && window.location.pathname.includes('/platform');
+      const loginPath = isPlatform ? '/platform/login' : '/login';
+      router.push(loginPath);
       return;
     }
 
