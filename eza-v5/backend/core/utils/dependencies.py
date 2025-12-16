@@ -20,6 +20,15 @@ settings = get_settings()
 
 # Database - Get from settings (config.py loads .env)
 DATABASE_URL = settings.DATABASE_URL
+
+# Normalize DATABASE_URL to use asyncpg driver
+# Railway and other providers often give postgresql:// but we need postgresql+asyncpg://
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+# If already has +asyncpg, keep it as is
+
 engine = create_async_engine(DATABASE_URL, echo=True)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
