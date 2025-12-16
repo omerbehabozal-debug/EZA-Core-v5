@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import select
 from backend.models.role import Role
-from backend.models.user import User
+from backend.models.user import LegacyUser as User
 from backend.core.utils.security import get_password_hash
 from backend.core.utils.dependencies import Base, DATABASE_URL
 

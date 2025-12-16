@@ -7,7 +7,7 @@ from fastapi import Request, Header
 from pydantic import BaseModel
 from typing import Optional
 from backend.core.utils.dependencies import get_current_user
-from backend.models.user import User
+from backend.models.user import LegacyUser as User
 
 
 class TenantContext(BaseModel):

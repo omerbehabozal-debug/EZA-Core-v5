@@ -92,7 +92,7 @@ async def get_current_user(
 ):
     """Get current authenticated user from JWT token"""
     from backend.core.utils.security import decode_access_token
-    from backend.models.user import User
+    from backend.models.user import LegacyUser as User
     from backend.models.role import Role
     
     token = credentials.credentials
@@ -171,7 +171,7 @@ async def get_api_key_user(
 ):
     """Get user from API key (for B2B corporate clients)"""
     from backend.models.api_key import APIKey
-    from backend.models.user import User
+    from backend.models.user import LegacyUser as User
     from backend.core.utils.security import hash_api_key
     
     # Hash the provided key and search

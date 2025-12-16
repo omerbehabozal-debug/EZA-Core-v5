@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-User Model
+Legacy User Model (for backward compatibility)
+Use backend.models.production.User for new code
 """
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
@@ -9,7 +10,7 @@ from sqlalchemy.sql import func
 from backend.core.utils.dependencies import Base
 
 
-class User(Base):
+class LegacyUser(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -27,4 +28,6 @@ class User(Base):
     role = relationship("Role", back_populates="users")
     institution = relationship("Institution", back_populates="users")
     api_keys = relationship("APIKey", back_populates="user", cascade="all, delete-orphan")
+    
+    __mapper_args__ = {"polymorphic_identity": "legacy_user"}
 

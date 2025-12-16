@@ -6,7 +6,7 @@ Authentication Service
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import timedelta
-from backend.models.user import User
+from backend.models.user import LegacyUser as User
 from backend.models.role import Role
 from backend.core.utils.security import verify_password, create_access_token, get_password_hash
 from backend.core.schemas.auth import LoginRequest, TokenResponse
