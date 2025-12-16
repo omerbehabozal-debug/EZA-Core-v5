@@ -22,7 +22,7 @@ class Institution(Base):
     code = Column(String, unique=True, nullable=True, index=True)  # Institution code
     
     # Relationships
-    users = relationship("User", back_populates="institution")
+    users = relationship("LegacyUser", back_populates="institution")
     api_keys = relationship("APIKey", back_populates="institution")
     applications = relationship("Application", back_populates="institution")
 
