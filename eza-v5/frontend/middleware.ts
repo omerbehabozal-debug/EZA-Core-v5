@@ -71,7 +71,10 @@ export function middleware(request: NextRequest) {
   }
 
   // Login sayfaları → her zaman erişilebilir
-  if (pathname === '/login' || pathname.startsWith('/proxy/login') || pathname.startsWith('/corporate/login')) {
+  if (pathname === '/login' || 
+      pathname.startsWith('/proxy/login') || 
+      pathname.startsWith('/corporate/login') ||
+      pathname.startsWith('/platform/login')) {
     return NextResponse.next();
   }
 
