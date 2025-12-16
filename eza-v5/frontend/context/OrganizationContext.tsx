@@ -60,7 +60,22 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
-      const token = localStorage.getItem('auth_token');
+      
+      // Get token from eza_auth storage
+      let token: string | null = null;
+      const authStorage = localStorage.getItem('eza_auth');
+      if (authStorage) {
+        try {
+          const auth = JSON.parse(authStorage);
+          token = auth.token;
+        } catch {
+          // Fallback to old storage key
+          token = localStorage.getItem('auth_token');
+        }
+      } else {
+        token = localStorage.getItem('auth_token');
+      }
+      
       const apiKey = localStorage.getItem('proxy_api_key');
 
       const res = await fetch(`${API_BASE_URL}/api/platform/organizations`, {
@@ -120,8 +135,22 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const createOrganization = async (orgData: Partial<Organization>): Promise<Organization | null> => {
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
-      const token = localStorage.getItem('auth_token');
-      const apiKey = localStorage.getItem('proxy_api_key');
+      
+      // Get token from eza_auth storage
+      let token: string | null = null;
+      const authStorage = localStorage.getItem('eza_auth');
+      if (authStorage) {
+        try {
+          const auth = JSON.parse(authStorage);
+          token = auth.token;
+        } catch {
+          token = localStorage.getItem('auth_token');
+        }
+      } else {
+        token = localStorage.getItem('auth_token');
+      }
+      
+      const apiKey = localStorage.getItem('proxy_api_key') || 'dev-key';
 
       const res = await fetch(`${API_BASE_URL}/api/platform/organizations`, {
         method: 'POST',
@@ -153,7 +182,21 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const updateOrganization = async (orgId: string, updates: Partial<Organization>): Promise<boolean> => {
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
-      const token = localStorage.getItem('auth_token');
+      
+      // Get token from eza_auth storage
+      let token: string | null = null;
+      const authStorage = localStorage.getItem('eza_auth');
+      if (authStorage) {
+        try {
+          const auth = JSON.parse(authStorage);
+          token = auth.token;
+        } catch {
+          token = localStorage.getItem('auth_token');
+        }
+      } else {
+        token = localStorage.getItem('auth_token');
+      }
+      
       const apiKey = localStorage.getItem('proxy_api_key');
 
       const res = await fetch(`${API_BASE_URL}/api/platform/organizations/${orgId}`, {
