@@ -24,6 +24,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     role: str = "user"  # admin, org_admin, user, ops, regulator
+    full_name: str | None = None  # Optional full name (not stored in DB yet)
 
 
 class LoginRequest(BaseModel):
@@ -83,9 +84,16 @@ async def register(
             email=user.email
         )
     except ValueError as e:
+        logger.error(f"Register validation error: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
+        )
+    except Exception as e:
+        logger.exception(f"Register error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
         )
 
 
