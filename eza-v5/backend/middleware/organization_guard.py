@@ -75,11 +75,35 @@ async def log_audit_event_db(
         
         async_db = AsyncSessionLocal()
         try:
+            # Safely convert org_id and user_id to UUID (skip if invalid format)
+            org_uuid = None
+            if org_id:
+                try:
+                    org_uuid = uuid.UUID(org_id)
+                except (ValueError, TypeError):
+                    # Legacy string IDs (e.g., "demo-media-group") are not UUIDs
+                    # Store in context instead
+                    pass
+            
+            user_uuid = None
+            if user_id:
+                try:
+                    user_uuid = uuid.UUID(user_id)
+                except (ValueError, TypeError):
+                    pass
+            
+            # Include non-UUID org_id/user_id in context for reference
+            context_data = {"endpoint": endpoint, "method": method, "reason": reason}
+            if org_id and not org_uuid:
+                context_data["org_id_legacy"] = org_id
+            if user_id and not user_uuid:
+                context_data["user_id_legacy"] = user_id
+            
             audit_entry = AuditLog(
-                org_id=uuid.UUID(org_id) if org_id else None,
-                user_id=uuid.UUID(user_id) if user_id else None,
+                org_id=org_uuid,
+                user_id=user_uuid,
                 action=action,
-                context={"endpoint": endpoint, "method": method, "reason": reason},
+                context=context_data,
                 endpoint=endpoint,
                 method=method
             )

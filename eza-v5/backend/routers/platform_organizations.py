@@ -349,9 +349,29 @@ async def _log_audit_db(
     try:
         from backend.models.production import AuditLog
         
+        # Safely convert org_id and user_id to UUID (skip if invalid format)
+        org_uuid = None
+        if org_id:
+            try:
+                org_uuid = uuid.UUID(org_id)
+            except (ValueError, TypeError):
+                # Legacy string IDs are not UUIDs - store in context instead
+                if isinstance(metadata, dict):
+                    metadata["org_id_legacy"] = org_id
+                pass
+        
+        user_uuid = None
+        if user_id:
+            try:
+                user_uuid = uuid.UUID(user_id)
+            except (ValueError, TypeError):
+                if isinstance(metadata, dict):
+                    metadata["user_id_legacy"] = user_id
+                pass
+        
         audit_entry = AuditLog(
-            org_id=uuid.UUID(org_id) if org_id else None,
-            user_id=uuid.UUID(user_id) if user_id else None,
+            org_id=org_uuid,
+            user_id=user_uuid,
             action=action,
             context=metadata
         )
