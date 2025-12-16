@@ -12,7 +12,7 @@ import logging
 
 from backend.auth.jwt import get_user_from_token
 from backend.core.utils.dependencies import get_db
-from backend.routers.organization import organizations
+from backend.services.production_org import get_organization as db_get_organization, check_user_organization_membership as db_check_membership
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +49,9 @@ async def require_organization_access(
             detail="x-org-id header is required"
         )
     
-    # 2. Validate organization exists
-    if x_org_id not in organizations:
+    # 2. Validate organization exists (database)
+    org = await db_get_organization(db, x_org_id)
+    if not org:
         logger.warning(f"[OrgGuard] Organization not found: {x_org_id}")
         await _log_access_denied(
             user_id=None,
@@ -63,20 +64,18 @@ async def require_organization_access(
             detail="Organization not found"
         )
     
-    org = organizations[x_org_id]
-    
     # 3. Check organization status
-    if org.get("status") != "active":
-        logger.warning(f"[OrgGuard] Organization not active: {x_org_id} (status: {org.get('status')})")
+    if org.status != "active":
+        logger.warning(f"[OrgGuard] Organization not active: {x_org_id} (status: {org.status})")
         await _log_access_denied(
             user_id=None,
             org_id=x_org_id,
             endpoint="unknown",
-            reason=f"Organization status: {org.get('status')}"
+            reason=f"Organization status: {org.status}"
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Organization is {org.get('status')}"
+            detail=f"Organization is {org.status}"
         )
     
     # 4. Require JWT token
@@ -111,35 +110,39 @@ async def require_organization_access(
         )
     
     user_id = user_info.get("user_id") or user_info.get("sub")
+    user_id_str = str(user_id) if user_id else None
     
-    # 6. Check user membership (in production, check database)
-    # For now, allow if user is admin or org_admin
+    # 6. Check user membership (database)
     user_role = user_info.get("role", "")
     is_admin = user_role in ["admin", "org_admin"]
     
-    # TODO: In production, check organization_users table
-    # For now, allow admin/org_admin roles
-    if not is_admin:
-        # Check if user is member of organization
-        # This should query organization_users table in production
-        logger.warning(f"[OrgGuard] User {user_id} not member of org {x_org_id}")
-        await _log_access_denied(
-            user_id=user_id,
-            org_id=x_org_id,
-            endpoint="unknown",
-            reason="User not member of organization"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a member of this organization"
-        )
+    # Check if user is member of organization (unless admin)
+    if not is_admin and user_id_str:
+        is_member = await db_check_membership(db, user_id_str, x_org_id)
+        if not is_member:
+            logger.warning(f"[OrgGuard] User {user_id} not member of org {x_org_id}")
+            await _log_access_denied(
+                user_id=user_id_str,
+                org_id=x_org_id,
+                endpoint="unknown",
+                reason="User not member of organization"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of this organization"
+            )
     
     logger.info(f"[OrgGuard] Access granted: user {user_id} -> org {x_org_id}")
     
     return {
         **user_info,
         "org_id": x_org_id,
-        "organization": org,
+        "organization": {
+            "id": str(org.id),
+            "name": org.name,
+            "status": org.status,
+            "plan": org.plan
+        },
     }
 
 
@@ -150,23 +153,31 @@ async def _log_access_denied(
     reason: str
 ):
     """
-    Log access denied event to audit log
+    Log access denied event to audit log (database)
     """
     try:
-        from backend.routers.proxy_audit import audit_store
+        from backend.models.production import AuditLog
+        from backend.core.utils.dependencies import AsyncSessionLocal
+        import uuid
         
-        audit_entry = {
-            "action": "ORG_ACCESS_DENIED",
-            "user_id": user_id,
-            "org_id": org_id,
-            "endpoint": endpoint,
-            "reason": reason,
-            "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
-        }
-        
-        # Store in audit log
-        audit_store.append(audit_entry)
-        logger.warning(f"[Audit] {audit_entry}")
+        async_db = AsyncSessionLocal()
+        try:
+            audit_entry = AuditLog(
+                org_id=uuid.UUID(org_id) if org_id else None,
+                user_id=uuid.UUID(user_id) if user_id else None,
+                action="ORG_ACCESS_DENIED",
+                context={"endpoint": endpoint, "reason": reason},
+                endpoint=endpoint,
+                method="UNKNOWN"
+            )
+            async_db.add(audit_entry)
+            await async_db.commit()
+            logger.warning(f"[Audit] ORG_ACCESS_DENIED: user={user_id}, org={org_id}, endpoint={endpoint}, reason={reason}")
+        except Exception as e:
+            await async_db.rollback()
+            logger.error(f"[Audit] Failed to log access denied: {e}")
+        finally:
+            await async_db.close()
     except Exception as e:
-        logger.error(f"[Audit] Failed to log access denied: {e}")
+        logger.error(f"[Audit] Failed to create audit log entry: {e}")
 
