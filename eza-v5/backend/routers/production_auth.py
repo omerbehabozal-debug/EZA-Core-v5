@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.utils.dependencies import get_db
 from backend.services.production_auth import (
-    create_user, authenticate_user, create_access_token, check_bootstrap_allowed
+    create_user, authenticate_user, create_access_token, check_bootstrap_allowed,
+    hash_password, reset_user_password
 )
 from backend.services.production_org import create_organization
 
@@ -42,6 +43,11 @@ class TokenResponse(BaseModel):
 
 class LogoutRequest(BaseModel):
     pass  # JWT is stateless, logout is client-side (token removal)
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -139,4 +145,32 @@ async def logout():
     This endpoint exists for API contract consistency.
     """
     return {"message": "Logged out successfully"}
+
+
+@router.post("/reset-password")
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reset user password by email
+    NOTE: In production, this should require email verification or admin access
+    For now, this is a simple reset endpoint for development/testing
+    """
+    try:
+        success = await reset_user_password(db, request.email, request.new_password)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        return {"message": "Password reset successfully"}
+    except Exception as e:
+        logger.exception(f"Password reset error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Password reset failed: {str(e)}"
+        )
 

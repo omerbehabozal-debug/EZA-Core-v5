@@ -5,34 +5,35 @@
 
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
 
-export default function PlatformLoginPage() {
+function PlatformLoginPageContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showRegisteredMessage, setShowRegisteredMessage] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { setAuth } = useAuth();
 
-  // Check if redirected from registration
+  // Check if redirected from registration using window.location
   useEffect(() => {
-    if (searchParams?.get('registered') === 'true') {
-      // Show success message
-      const timer = setTimeout(() => {
-        // Message will be shown via a success state if needed
-      }, 100);
-      return () => clearTimeout(timer);
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('registered') === 'true') {
+        setShowRegisteredMessage(true);
+      }
     }
-  }, [searchParams]);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +76,7 @@ export default function PlatformLoginPage() {
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.message.includes('401') || err.message.includes('Incorrect')) {
-        setError('Geçersiz e-posta veya şifre');
+        setError('Geçersiz e-posta veya şifre. Şifrenizi unuttuysanız şifre sıfırlama sayfasını kullanabilirsiniz.');
       } else if (err.message.includes('Network') || err.message.includes('fetch')) {
         setError('Ağ hatası. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
       } else {
@@ -117,7 +118,7 @@ export default function PlatformLoginPage() {
           }}
         >
           {/* Success message from registration */}
-          {searchParams?.get('registered') === 'true' && (
+          {showRegisteredMessage && (
             <div 
               className="p-4 rounded-xl text-sm flex items-start gap-3 mb-6"
               style={{
@@ -331,4 +332,8 @@ export default function PlatformLoginPage() {
       </div>
     </div>
   );
+}
+
+export default function PlatformLoginPage() {
+  return <PlatformLoginPageContent />;
 }

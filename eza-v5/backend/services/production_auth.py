@@ -88,6 +88,27 @@ async def get_user_by_id(db: AsyncSession, user_id: str) -> Optional[User]:
     return result.scalar_one_or_none()
 
 
+async def reset_user_password(
+    db: AsyncSession,
+    email: str,
+    new_password: str
+) -> bool:
+    """Reset user password by email"""
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        return False
+    
+    # Update password hash
+    user.password_hash = hash_password(new_password)
+    await db.commit()
+    await db.refresh(user)
+    
+    logger.info(f"Password reset for user: {email}")
+    return True
+
+
 async def check_bootstrap_allowed(db: AsyncSession) -> bool:
     """Check if bootstrap is allowed (no users or orgs exist)"""
     # Check if any users exist
