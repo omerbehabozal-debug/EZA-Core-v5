@@ -62,11 +62,11 @@ export default function PlatformLoginPage() {
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.message.includes('401') || err.message.includes('Incorrect')) {
-        setError('Invalid email or password');
+        setError('Geçersiz e-posta veya şifre');
       } else if (err.message.includes('Network') || err.message.includes('fetch')) {
-        setError('Network error. Please check your connection and try again.');
+        setError('Ağ hatası. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
       } else {
-        setError(err.message || 'Login failed. Please try again.');
+        setError(err.message || 'Giriş başarısız. Lütfen tekrar deneyin.');
       }
     } finally {
       setLoading(false);
@@ -88,10 +88,10 @@ export default function PlatformLoginPage() {
             <span className="text-2xl font-bold text-white">EZA</span>
           </div>
           <h1 className="text-3xl font-semibold mb-2" style={{ color: '#F1F5F9' }}>
-            Welcome back
+            Tekrar hoş geldiniz
           </h1>
           <p className="text-sm" style={{ color: '#94A3B8' }}>
-            Sign in to your EZA platform
+            EZA platformunuza giriş yapın
           </p>
         </div>
 
@@ -128,7 +128,7 @@ export default function PlatformLoginPage() {
                   color: '#F1F5F9',
                   fontSize: '15px',
                 }}
-                placeholder="you@example.com"
+                placeholder="ornek@email.com"
                 onFocus={(e) => {
                   e.target.style.borderColor = '#3B82F6';
                   e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
@@ -192,7 +192,7 @@ export default function PlatformLoginPage() {
                   }}
                 />
                 <span className="ml-2 text-sm" style={{ color: '#94A3B8' }}>
-                  Remember me
+                  Beni hatırla
                 </span>
               </label>
               <Link
@@ -200,7 +200,7 @@ export default function PlatformLoginPage() {
                 className="text-sm hover:underline transition-colors"
                 style={{ color: '#3B82F6' }}
               >
-                Forgot password?
+                Şifremi unuttum
               </Link>
             </div>
 
@@ -247,10 +247,10 @@ export default function PlatformLoginPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <span>Signing in...</span>
+                  <span>Giriş yapılıyor...</span>
                 </>
               ) : (
-                'Sign In'
+                'Giriş Yap'
               )}
             </button>
           </form>
@@ -258,13 +258,13 @@ export default function PlatformLoginPage() {
           {/* Register Link */}
           <div className="mt-6 text-center">
             <p className="text-sm" style={{ color: '#64748B' }}>
-              Don't have an account?{' '}
+              Hesabınız yok mu?{' '}
               <Link 
                 href="/platform/register" 
                 className="font-medium hover:underline transition-colors"
                 style={{ color: '#3B82F6' }}
               >
-                Create an account
+                Hesap oluşturun
               </Link>
             </p>
           </div>

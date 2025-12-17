@@ -28,17 +28,17 @@ export default function PlatformRegisterPage() {
 
     // Validation
     if (!email.trim() || !password || !confirmPassword) {
-      setError('Please fill in all required fields');
+      setError('Lütfen tüm zorunlu alanları doldurun');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Şifreler eşleşmiyor');
       return;
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError('Şifre en az 8 karakter olmalıdır');
       return;
     }
 
@@ -81,11 +81,11 @@ export default function PlatformRegisterPage() {
     } catch (err: any) {
       console.error('Register error:', err);
       if (err.message.includes('already exists') || err.message.includes('duplicate')) {
-        setError('An account with this email already exists');
+        setError('Bu e-posta adresi ile zaten bir hesap mevcut');
       } else if (err.message.includes('Network') || err.message.includes('fetch')) {
-        setError('Network error. Please check your connection and try again.');
+        setError('Ağ hatası. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
       } else {
-        setError(err.message || 'Registration failed. Please try again.');
+        setError(err.message || 'Kayıt başarısız. Lütfen tekrar deneyin.');
       }
     } finally {
       setLoading(false);
@@ -107,10 +107,10 @@ export default function PlatformRegisterPage() {
             <span className="text-2xl font-bold text-white">EZA</span>
           </div>
           <h1 className="text-3xl font-semibold mb-2" style={{ color: '#F1F5F9' }}>
-            Create your EZA account
+            EZA hesabınızı oluşturun
           </h1>
           <p className="text-sm" style={{ color: '#94A3B8' }}>
-            Start using ethical AI infrastructure
+            Etik AI altyapısını kullanmaya başlayın
           </p>
         </div>
 
@@ -130,7 +130,7 @@ export default function PlatformRegisterPage() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: '#E2E8F0' }}
               >
-                Full Name <span className="text-xs" style={{ color: '#64748B' }}>(Optional)</span>
+                Ad Soyad <span className="text-xs" style={{ color: '#64748B' }}>(İsteğe Bağlı)</span>
               </label>
               <input
                 id="fullName"
@@ -146,7 +146,7 @@ export default function PlatformRegisterPage() {
                   color: '#F1F5F9',
                   fontSize: '15px',
                 }}
-                placeholder="John Doe"
+                placeholder="Ahmet Yılmaz"
                 onFocus={(e) => {
                   e.target.style.borderColor = '#3B82F6';
                   e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
@@ -182,7 +182,7 @@ export default function PlatformRegisterPage() {
                   color: '#F1F5F9',
                   fontSize: '15px',
                 }}
-                placeholder="you@example.com"
+                placeholder="ornek@email.com"
                 onFocus={(e) => {
                   e.target.style.borderColor = '#3B82F6';
                   e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
@@ -201,7 +201,7 @@ export default function PlatformRegisterPage() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: '#E2E8F0' }}
               >
-                Password
+                Şifre
               </label>
               <input
                 id="password"
@@ -230,7 +230,7 @@ export default function PlatformRegisterPage() {
                 }}
               />
               <p className="mt-1.5 text-xs" style={{ color: '#64748B' }}>
-                Minimum 8 characters
+                En az 8 karakter
               </p>
             </div>
 
@@ -241,7 +241,7 @@ export default function PlatformRegisterPage() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: '#E2E8F0' }}
               >
-                Confirm Password
+                Şifre Tekrar
               </label>
               <input
                 id="confirmPassword"
@@ -314,10 +314,10 @@ export default function PlatformRegisterPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <span>Creating account...</span>
+                  <span>Hesap oluşturuluyor...</span>
                 </>
               ) : (
-                'Create Account'
+                'Hesap Oluştur'
               )}
             </button>
           </form>
@@ -325,13 +325,13 @@ export default function PlatformRegisterPage() {
           {/* Login Link */}
           <div className="mt-6 text-center">
             <p className="text-sm" style={{ color: '#64748B' }}>
-              Already have an account?{' '}
+              Zaten hesabınız var mı?{' '}
               <Link 
                 href="/platform/login" 
                 className="font-medium hover:underline transition-colors"
                 style={{ color: '#3B82F6' }}
               >
-                Sign in
+                Giriş yapın
               </Link>
             </p>
           </div>

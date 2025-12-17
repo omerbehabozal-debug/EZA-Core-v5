@@ -22,10 +22,10 @@ export default function ForgotPasswordPage() {
             <span className="text-2xl font-bold text-white">EZA</span>
           </div>
           <h1 className="text-3xl font-semibold mb-2" style={{ color: '#F1F5F9' }}>
-            Reset Password
+            Şifre Sıfırlama
           </h1>
           <p className="text-sm" style={{ color: '#94A3B8' }}>
-            Password reset functionality coming soon
+            Şifre sıfırlama özelliği yakında eklenecek
           </p>
         </div>
 
@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
           }}
         >
           <p className="text-sm mb-6" style={{ color: '#94A3B8' }}>
-            Please contact your administrator to reset your password.
+            Şifrenizi sıfırlamak için lütfen yöneticinizle iletişime geçin.
           </p>
           <Link
             href="/platform/login"
@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
               color: '#FFFFFF',
             }}
           >
-            Back to Login
+            Giriş Sayfasına Dön
           </Link>
         </div>
       </div>
