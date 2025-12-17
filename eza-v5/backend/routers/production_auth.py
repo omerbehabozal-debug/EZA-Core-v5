@@ -18,6 +18,7 @@ from backend.services.production_auth import (
 from backend.models.production import User
 from sqlalchemy import select, func
 from backend.services.production_org import create_organization
+from backend.config import get_settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -117,10 +118,16 @@ async def register(
             detail=str(e)
         )
     except Exception as e:
+        import traceback
+        settings = get_settings()
+        error_trace = traceback.format_exc()
         logger.exception(f"Register error: {e}")
+        logger.error(f"Register error traceback: {error_trace}")
+        # Return more detailed error in development, generic in production
+        error_detail = str(e) if getattr(settings, "ENV", "production") == "dev" else "Registration failed. Please check server logs."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+            detail=error_detail
         )
 
 

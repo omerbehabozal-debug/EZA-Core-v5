@@ -228,27 +228,35 @@ async def check_bootstrap_allowed(db: AsyncSession) -> bool:
 
 def create_access_token(user: User, expires_in_hours: int = 8) -> str:
     """Create JWT access token for user"""
-    settings = get_settings()
-    jwt_secret = getattr(settings, "EZA_JWT_SECRET", None) or settings.JWT_SECRET
-    
-    expire = datetime.utcnow() + timedelta(hours=expires_in_hours)
-    
-    payload = {
-        "sub": str(user.id),  # UUID as string
-        "user_id": str(user.id),
-        "role": user.role,
-        "email": user.email,
-        "exp": expire,
-        "iat": datetime.utcnow(),
-        "type": "access"
-    }
-    
-    encoded_jwt = jwt.encode(
-        payload,
-        jwt_secret,
-        algorithm="HS256"
-    )
-    
-    logger.debug(f"JWT token created for user {user.id} with role {user.role}")
-    return encoded_jwt
+    try:
+        settings = get_settings()
+        jwt_secret = getattr(settings, "EZA_JWT_SECRET", None) or getattr(settings, "JWT_SECRET", None)
+        
+        if not jwt_secret:
+            logger.error("JWT_SECRET is not configured! Cannot create access token.")
+            raise ValueError("JWT_SECRET is not configured in environment variables")
+        
+        expire = datetime.utcnow() + timedelta(hours=expires_in_hours)
+        
+        payload = {
+            "sub": str(user.id),  # UUID as string
+            "user_id": str(user.id),
+            "role": user.role,
+            "email": user.email,
+            "exp": expire,
+            "iat": datetime.utcnow(),
+            "type": "access"
+        }
+        
+        encoded_jwt = jwt.encode(
+            payload,
+            jwt_secret,
+            algorithm="HS256"
+        )
+        
+        logger.debug(f"JWT token created for user {user.id} with role {user.role}")
+        return encoded_jwt
+    except Exception as e:
+        logger.exception(f"Error creating access token: {e}")
+        raise
 
