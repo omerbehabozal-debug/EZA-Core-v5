@@ -84,7 +84,9 @@ async def register(
             )
     
     try:
-        logger.info(f"[Register] Creating user with email: {request.email}, role: {final_role}")
+        logger.info(f"[Register] Step 1: Starting registration for email: {request.email}, role: {final_role}")
+        logger.info(f"[Register] Step 2: Calling create_user...")
+        
         user = await create_user(
             db=db,
             email=request.email,
@@ -92,25 +94,35 @@ async def register(
             role=final_role
         )
         
+        logger.info(f"[Register] Step 3: User created successfully. User ID: {user.id}, Email: {user.email}")
+        
         # Immediately test login with the same credentials
-        logger.info(f"[Register] Testing login immediately after registration...")
+        logger.info(f"[Register] Step 4: Testing login immediately after registration...")
         test_user = await authenticate_user(db, request.email, request.password)
         if test_user:
-            logger.info(f"[Register] ✓ Login test successful immediately after registration")
+            logger.info(f"[Register] Step 5: ✓ Login test successful immediately after registration")
         else:
-            logger.error(f"[Register] ✗ CRITICAL: Login test FAILED immediately after registration!")
+            logger.error(f"[Register] Step 5: ✗ CRITICAL: Login test FAILED immediately after registration!")
             logger.error(f"[Register] This indicates a password hashing/verification issue")
         
         # Create JWT token
-        access_token = create_access_token(user)
+        logger.info(f"[Register] Step 6: Creating JWT access token...")
+        try:
+            access_token = create_access_token(user)
+            logger.info(f"[Register] Step 7: JWT token created successfully (length: {len(access_token)})")
+        except Exception as jwt_error:
+            logger.error(f"[Register] Step 7: ✗ JWT token creation failed: {jwt_error}")
+            raise
         
-        logger.info(f"[Register] User created successfully: {user.email} (role: {user.role})")
-        return TokenResponse(
+        logger.info(f"[Register] Step 8: Preparing response...")
+        response = TokenResponse(
             access_token=access_token,
             user_id=str(user.id),
             role=user.role,
             email=user.email
         )
+        logger.info(f"[Register] Step 9: ✓ Registration completed successfully for {user.email} (role: {user.role})")
+        return response
     except ValueError as e:
         logger.error(f"Register validation error: {e}")
         raise HTTPException(

@@ -43,41 +43,60 @@ async def create_user(
     role: str = "user"
 ) -> User:
     """Create a new user"""
-    # Normalize email (lowercase and trim)
-    normalized_email = normalize_email(email)
-    
-    # Check if user already exists
-    result = await db.execute(select(User).where(User.email == normalized_email))
-    existing = result.scalar_one_or_none()
-    if existing:
-        raise ValueError(f"User with email {normalized_email} already exists")
-    
-    # Hash password
-    password_hash = hash_password(password)
-    logger.info(f"[Register] Hashing password for user: {normalized_email}")
-    logger.info(f"[Register] Password hash length: {len(password_hash)}")
-    logger.info(f"[Register] Password hash starts with: {password_hash[:20]}...")
-    
-    # Create user
-    user = User(
-        email=normalized_email,
-        password_hash=password_hash,
-        role=role
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    
-    # Verify the password was saved correctly
-    test_verify = verify_password(password, user.password_hash)
-    logger.info(f"[Register] Password verification test after save: {test_verify}")
-    if not test_verify:
-        logger.error(f"[Register] CRITICAL: Password hash verification failed immediately after user creation!")
-        logger.error(f"[Register] Original hash: {password_hash[:50]}...")
-        logger.error(f"[Register] Saved hash: {user.password_hash[:50] if user.password_hash else 'None'}...")
-    
-    logger.info(f"Created user: {normalized_email} with role {role}")
-    return user
+    try:
+        logger.info(f"[create_user] Step 1: Normalizing email: {email}")
+        # Normalize email (lowercase and trim)
+        normalized_email = normalize_email(email)
+        logger.info(f"[create_user] Step 2: Normalized email: {normalized_email}")
+        
+        # Check if user already exists
+        logger.info(f"[create_user] Step 3: Checking if user already exists...")
+        result = await db.execute(select(User).where(User.email == normalized_email))
+        existing = result.scalar_one_or_none()
+        if existing:
+            logger.warning(f"[create_user] User already exists: {normalized_email}")
+            raise ValueError(f"User with email {normalized_email} already exists")
+        logger.info(f"[create_user] Step 4: User does not exist, proceeding...")
+        
+        # Hash password
+        logger.info(f"[create_user] Step 5: Hashing password...")
+        password_hash = hash_password(password)
+        logger.info(f"[create_user] Step 6: Password hashed. Length: {len(password_hash)}, Starts with: {password_hash[:20]}...")
+        
+        # Create user
+        logger.info(f"[create_user] Step 7: Creating User object...")
+        user = User(
+            email=normalized_email,
+            password_hash=password_hash,
+            role=role
+        )
+        logger.info(f"[create_user] Step 8: Adding user to database session...")
+        db.add(user)
+        logger.info(f"[create_user] Step 9: Committing to database...")
+        await db.commit()
+        logger.info(f"[create_user] Step 10: Refreshing user from database...")
+        await db.refresh(user)
+        logger.info(f"[create_user] Step 11: User refreshed. ID: {user.id}")
+        
+        # Verify the password was saved correctly
+        logger.info(f"[create_user] Step 12: Verifying password hash...")
+        test_verify = verify_password(password, user.password_hash)
+        logger.info(f"[create_user] Step 13: Password verification result: {test_verify}")
+        if not test_verify:
+            logger.error(f"[create_user] CRITICAL: Password hash verification failed immediately after user creation!")
+            logger.error(f"[create_user] Original hash: {password_hash[:50]}...")
+            logger.error(f"[create_user] Saved hash: {user.password_hash[:50] if user.password_hash else 'None'}...")
+        else:
+            logger.info(f"[create_user] Step 14: ✓ Password verification successful")
+        
+        logger.info(f"[create_user] ✓ Created user: {normalized_email} with role {role}, ID: {user.id}")
+        return user
+    except ValueError:
+        # Re-raise ValueError as-is
+        raise
+    except Exception as e:
+        logger.exception(f"[create_user] ✗ Error creating user: {e}")
+        raise
 
 
 async def authenticate_user(
