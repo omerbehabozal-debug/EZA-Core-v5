@@ -99,13 +99,22 @@ async def authenticate_user(
             return None
         
         # Verify password
-        logger.debug(f"Verifying password for user: {normalized_email}")
-        logger.debug(f"Password hash length: {len(user.password_hash) if user.password_hash else 0}")
-        password_valid = verify_password(password, user.password_hash)
+        logger.info(f"[Auth] Verifying password for user: {normalized_email}")
+        logger.info(f"[Auth] Password hash length: {len(user.password_hash) if user.password_hash else 0}")
+        logger.info(f"[Auth] Password hash starts with: {user.password_hash[:20] if user.password_hash else 'None'}...")
+        
+        try:
+            password_valid = verify_password(password, user.password_hash)
+            logger.info(f"[Auth] Password verification result: {password_valid}")
+        except Exception as verify_err:
+            logger.error(f"[Auth] Password verification exception: {verify_err}")
+            logger.error(f"[Auth] Hash format may be invalid. Hash: {user.password_hash[:50] if user.password_hash else 'None'}...")
+            return None
         
         if not password_valid:
-            logger.warning(f"Authentication failed: Invalid password for email {normalized_email}")
-            logger.debug(f"Password verification failed - hash may be incorrect or password doesn't match")
+            logger.warning(f"[Auth] Authentication failed: Invalid password for email {normalized_email}")
+            logger.warning(f"[Auth] Password verification failed - hash may be incorrect or password doesn't match")
+            logger.warning(f"[Auth] Consider using password reset endpoint to set a new password")
             return None
         
         logger.info(f"Authentication successful for user: {normalized_email} (role: {user.role})")
