@@ -1,17 +1,17 @@
 /**
  * RequireAuth Component
- * Protects routes that require authentication
+ * Production-ready route protection
  */
 
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth, UserRole } from '@/context/AuthContext';
 
 interface RequireAuthProps {
   children: React.ReactNode;
-  allowedRoles: UserRole[];
+  allowedRoles?: UserRole[];
   fallback?: React.ReactNode;
 }
 
@@ -22,23 +22,31 @@ export default function RequireAuth({
 }: RequireAuthProps) {
   const { token, role, isAuthenticated } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     // Redirect to login if not authenticated
     if (!isAuthenticated || !token) {
       // Determine login path based on current location
-      const isPlatform = typeof window !== 'undefined' && window.location.pathname.includes('/platform');
-      const loginPath = isPlatform ? '/platform/login' : '/login';
+      const isPlatform = pathname?.includes('/platform');
+      const isProxy = pathname?.includes('/proxy');
+      const isCorporate = pathname?.includes('/corporate');
+      
+      let loginPath = '/platform/login';
+      if (isProxy) loginPath = '/proxy/login';
+      else if (isCorporate) loginPath = '/corporate/login';
+      else if (isPlatform) loginPath = '/platform/login';
+      
       router.push(loginPath);
       return;
     }
 
-    // Check role
-    if (role && !allowedRoles.includes(role)) {
+    // Check role if specified
+    if (allowedRoles && role && !allowedRoles.includes(role)) {
       // Role not allowed - stay on page but show access denied
       // (fallback will be shown)
     }
-  }, [isAuthenticated, token, role, allowedRoles, router]);
+  }, [isAuthenticated, token, role, allowedRoles, router, pathname]);
 
   // Not authenticated - redirect will happen in useEffect
   if (!isAuthenticated || !token) {
@@ -46,66 +54,31 @@ export default function RequireAuth({
   }
 
   // Authenticated but wrong role
-  if (role && !allowedRoles.includes(role)) {
+  if (allowedRoles && role && !allowedRoles.includes(role)) {
     // Detect if we're on Platform or Proxy for theme
-    const isPlatform = typeof window !== 'undefined' && window.location.pathname.includes('/platform');
+    const isPlatform = pathname?.includes('/platform');
     const bgColor = isPlatform ? 'var(--platform-bg-primary)' : 'var(--proxy-bg-primary)';
     const surfaceColor = isPlatform ? 'var(--platform-surface)' : 'var(--proxy-surface)';
-    const textPrimary = isPlatform ? 'var(--platform-text-primary)' : 'var(--proxy-text-primary)';
-    const textSecondary = isPlatform ? 'var(--platform-text-secondary)' : 'var(--proxy-text-secondary)';
-    const actionColor = isPlatform ? 'var(--platform-action-primary)' : 'var(--proxy-action-primary)';
+    const textColor = isPlatform ? 'var(--platform-text-primary)' : 'var(--proxy-text-primary)';
     
-    return (
-      fallback || (
-        <div 
-          className="flex items-center justify-center min-h-screen"
-          style={{ backgroundColor: bgColor }}
-        >
-          <div 
-            className="text-center p-8 rounded-xl"
-            style={{
-              backgroundColor: surfaceColor,
-              border: `1px solid ${isPlatform ? 'var(--platform-border)' : 'var(--proxy-border-soft)'}`,
-            }}
-          >
-            <div className="text-4xl mb-4">🔒</div>
-            <h1 
-              className="text-2xl font-bold mb-4"
-              style={{ color: textPrimary }}
-            >
-              Access Denied
-            </h1>
-            <p 
-              className="mb-6"
-              style={{ color: textSecondary }}
-            >
-              You don't have permission to access this page.
-            </p>
-            <p 
-              className="text-sm mb-6"
-              style={{ color: textSecondary }}
-            >
-              Required roles: {allowedRoles.join(', ')}
-              <br />
-              Your role: {role || 'none'}
-            </p>
-            <button
-              onClick={() => router.push('/login')}
-              className="mt-6 px-6 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-              style={{
-                backgroundColor: actionColor,
-                color: '#FFFFFF',
-              }}
-            >
-              Go to Login
-            </button>
-          </div>
+    return fallback || (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: bgColor }}>
+        <div className="text-center p-8 rounded-2xl" style={{ backgroundColor: surfaceColor }}>
+          <div className="text-4xl mb-4">🔒</div>
+          <h1 className="text-2xl font-bold mb-4" style={{ color: textColor }}>
+            Access Denied
+          </h1>
+          <p className="text-sm mb-6" style={{ color: isPlatform ? 'var(--platform-text-secondary)' : 'var(--proxy-text-secondary)' }}>
+            You don't have permission to access this page.
+          </p>
+          <p className="text-xs" style={{ color: isPlatform ? 'var(--platform-text-secondary)' : 'var(--proxy-text-secondary)' }}>
+            Required roles: {allowedRoles.join(', ')}
+          </p>
         </div>
-      )
+      </div>
     );
   }
 
-  // Authenticated and role matches
+  // Authenticated and authorized
   return <>{children}</>;
 }
-

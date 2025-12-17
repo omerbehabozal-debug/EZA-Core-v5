@@ -111,21 +111,8 @@ export interface ProxyRewriteResponse {
  * Get auth headers (JWT + API Key)
  */
 function getAuthHeaders(): HeadersInit {
-  // Try to get token from AuthContext storage first, then fallback to auth_token
-  const authStorage = localStorage.getItem('eza_auth');
-  let token: string | null = null;
-  
-  if (authStorage) {
-    try {
-      const auth = JSON.parse(authStorage);
-      token = auth.token;
-    } catch {
-      // Fallback to old storage key
-      token = localStorage.getItem('auth_token');
-    }
-  } else {
-    token = localStorage.getItem('auth_token');
-  }
+  // Get token from production storage (eza_token)
+  const token = localStorage.getItem('eza_token');
   
   const apiKey = localStorage.getItem('proxy_api_key'); // API Key
   

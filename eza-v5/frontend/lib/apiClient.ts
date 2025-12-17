@@ -54,15 +54,8 @@ class ApiClient {
   private getToken(): string | null {
     if (typeof window === 'undefined') return null;
     
-    try {
-      const authData = localStorage.getItem('eza_auth');
-      if (!authData) return null;
-      
-      const parsed = JSON.parse(authData);
-      return parsed.token || null;
-    } catch {
-      return null;
-    }
+    // Get token from production storage (eza_token)
+    return localStorage.getItem('eza_token');
   }
 
   /**

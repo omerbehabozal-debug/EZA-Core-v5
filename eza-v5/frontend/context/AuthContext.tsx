@@ -1,6 +1,6 @@
 /**
  * Auth Context
- * JWT authentication state management
+ * Production-ready JWT authentication state management
  */
 
 'use client';
@@ -19,24 +19,33 @@ export type LegacyRole = 'corporate' | 'regulator';
 // Combined role type
 export type UserRole = ProxyRole | PlatformRole | LegacyRole | null;
 
+interface UserInfo {
+  email: string;
+  role: string;
+  user_id: string;
+}
+
 interface AuthState {
   token: string | null;
+  user: UserInfo | null;
   role: UserRole;
 }
 
 interface AuthContextType extends AuthState {
-  setAuth: (token: string, role: UserRole) => void;
+  setAuth: (token: string, user: UserInfo) => void;
   logout: () => void;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_STORAGE_KEY = 'eza_auth';
+const TOKEN_STORAGE_KEY = 'eza_token';
+const USER_STORAGE_KEY = 'eza_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
     token: null,
+    user: null,
     role: null,
   });
 
@@ -44,28 +53,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
+        const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+        const userStr = localStorage.getItem(USER_STORAGE_KEY);
+        
+        if (token && userStr) {
+          const user = JSON.parse(userStr);
           setAuthState({
-            token: parsed.token || null,
-            role: parsed.role || null,
+            token,
+            user,
+            role: (user.role as UserRole) || null,
           });
         }
       } catch (error) {
         console.error('Failed to load auth from localStorage:', error);
+        // Clear corrupted data
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        localStorage.removeItem(USER_STORAGE_KEY);
       }
     }
   }, []);
 
-  const setAuth = (token: string, role: UserRole) => {
-    const newState = { token, role };
+  const setAuth = (token: string, user: UserInfo) => {
+    const newState = {
+      token,
+      user,
+      role: (user.role as UserRole) || null,
+    };
     setAuthState(newState);
     
     // Persist to localStorage
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newState));
+        localStorage.setItem(TOKEN_STORAGE_KEY, token);
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
       } catch (error) {
         console.error('Failed to save auth to localStorage:', error);
       }
@@ -73,12 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    setAuthState({ token: null, role: null });
+    setAuthState({ token: null, user: null, role: null });
     
     // Clear localStorage
     if (typeof window !== 'undefined') {
       try {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        localStorage.removeItem(USER_STORAGE_KEY);
+        // Also clear legacy storage keys for backward compatibility
+        localStorage.removeItem('eza_auth');
       } catch (error) {
         console.error('Failed to clear auth from localStorage:', error);
       }
@@ -105,4 +128,3 @@ export function useAuth(): AuthContextType {
   }
   return context;
 }
-

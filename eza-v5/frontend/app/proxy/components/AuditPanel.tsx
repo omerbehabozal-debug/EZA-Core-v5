@@ -21,7 +21,7 @@ export default function AuditPanel({ analysisId }: AuditPanelProps) {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(
@@ -47,7 +47,7 @@ export default function AuditPanel({ analysisId }: AuditPanelProps) {
     if (!analysisId) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(
@@ -75,7 +75,7 @@ export default function AuditPanel({ analysisId }: AuditPanelProps) {
     if (!analysisId) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(

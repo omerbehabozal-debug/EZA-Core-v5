@@ -140,7 +140,7 @@ export default function AnalyticsBilling({ orgId, userRole: userRoleProp }: Anal
         return;
       }
 
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       const headers: Record<string, string> = {
         'Authorization': `Bearer ${token || ''}`,
@@ -293,7 +293,7 @@ export default function AnalyticsBilling({ orgId, userRole: userRoleProp }: Anal
         return;
       }
 
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/org/${orgId}/billing/plan/update?plan=${newPlan}`, {
@@ -326,7 +326,7 @@ export default function AnalyticsBilling({ orgId, userRole: userRoleProp }: Anal
         return;
       }
 
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/org/${orgId}/billing/invoice/generate`, {

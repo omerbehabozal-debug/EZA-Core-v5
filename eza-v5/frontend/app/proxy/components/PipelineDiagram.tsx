@@ -34,7 +34,7 @@ export default function PipelineDiagram() {
   useEffect(() => {
     const fetchDiagram = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
+        const token = localStorage.getItem('eza_token');
         const apiKey = localStorage.getItem('proxy_api_key');
         
         const res = await fetch(`${API_BASE_URL}/api/proxy/pipeline/diagram`, {

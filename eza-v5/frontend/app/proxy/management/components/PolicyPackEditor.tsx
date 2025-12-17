@@ -42,7 +42,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/policy/org/${orgId}/policy`, {
@@ -70,7 +70,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
 
     setSaving({ ...saving, [policyId]: true });
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/policy/org/${orgId}/policy/${policyId}/enable`, {
@@ -101,7 +101,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
 
     setSaving({ ...saving, [policyId]: true });
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/policy/org/${orgId}/policy/${policyId}/weight`, {

@@ -59,7 +59,7 @@ export default function AlertsPanel({ orgId, userRole }: AlertsPanelProps) {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       const headers: Record<string, string> = {
         'Authorization': `Bearer ${token || ''}`,
@@ -97,7 +97,7 @@ export default function AlertsPanel({ orgId, userRole }: AlertsPanelProps) {
     setRules(updatedRules);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/org/${orgId}/alerts/rules/update`, {
@@ -130,7 +130,7 @@ export default function AlertsPanel({ orgId, userRole }: AlertsPanelProps) {
     if (!orgId || !webhookUrl) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/org/${orgId}/alerts/webhook`, {
@@ -164,7 +164,7 @@ export default function AlertsPanel({ orgId, userRole }: AlertsPanelProps) {
     if (!orgId) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/org/${orgId}/alerts/webhook/test`, {

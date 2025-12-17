@@ -61,20 +61,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
       
-      // Get token from eza_auth storage
-      let token: string | null = null;
-      const authStorage = localStorage.getItem('eza_auth');
-      if (authStorage) {
-        try {
-          const auth = JSON.parse(authStorage);
-          token = auth.token;
-        } catch {
-          // Fallback to old storage key
-          token = localStorage.getItem('auth_token');
-        }
-      } else {
-        token = localStorage.getItem('auth_token');
-      }
+      // Get token from production storage (eza_token)
+      const token = localStorage.getItem('eza_token');
       
       const apiKey = localStorage.getItem('proxy_api_key');
 
@@ -136,19 +124,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
       
-      // Get token from eza_auth storage
-      let token: string | null = null;
-      const authStorage = localStorage.getItem('eza_auth');
-      if (authStorage) {
-        try {
-          const auth = JSON.parse(authStorage);
-          token = auth.token;
-        } catch {
-          token = localStorage.getItem('auth_token');
-        }
-      } else {
-        token = localStorage.getItem('auth_token');
-      }
+      // Get token from production storage (eza_token)
+      const token = localStorage.getItem('eza_token');
       
       const apiKey = localStorage.getItem('proxy_api_key') || 'dev-key';
 
@@ -183,19 +160,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
       
-      // Get token from eza_auth storage
-      let token: string | null = null;
-      const authStorage = localStorage.getItem('eza_auth');
-      if (authStorage) {
-        try {
-          const auth = JSON.parse(authStorage);
-          token = auth.token;
-        } catch {
-          token = localStorage.getItem('auth_token');
-        }
-      } else {
-        token = localStorage.getItem('auth_token');
-      }
+      // Get token from production storage (eza_token)
+      const token = localStorage.getItem('eza_token');
       
       const apiKey = localStorage.getItem('proxy_api_key');
 

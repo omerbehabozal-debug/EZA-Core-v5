@@ -39,7 +39,7 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/org/${orgId}/api-keys`, {
@@ -68,7 +68,7 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
     setError(null);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/org/${orgId}/api-key/create`, {
@@ -101,7 +101,7 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
     if (!confirm("Bu API anahtarını silmek istediğinizden emin misiniz?")) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
       const res = await fetch(`${API_BASE_URL}/api/org/api-key/${keyId}`, {

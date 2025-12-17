@@ -15,7 +15,7 @@ const PLATFORM_URL = process.env.NEXT_PUBLIC_PLATFORM_URL || 'https://platform.e
 const PLATFORM_ROLES = ['admin', 'org_admin', 'ops', 'finance'];
 
 export default function UserProfileDropdown() {
-  const { role, logout } = useAuth();
+  const { role, user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +40,17 @@ export default function UserProfileDropdown() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = '/login';
+    // Determine login path based on current location
+    const isPlatform = typeof window !== 'undefined' && window.location.pathname.includes('/platform');
+    const isProxy = typeof window !== 'undefined' && window.location.pathname.includes('/proxy');
+    const isCorporate = typeof window !== 'undefined' && window.location.pathname.includes('/corporate');
+    
+    let loginPath = '/platform/login';
+    if (isProxy) loginPath = '/proxy/login';
+    else if (isCorporate) loginPath = '/corporate/login';
+    else if (isPlatform) loginPath = '/platform/login';
+    
+    window.location.href = loginPath;
   };
 
   const handlePlatformRedirect = () => {
@@ -121,7 +131,7 @@ export default function UserProfileDropdown() {
               </div>
               <div>
                 <p className="text-sm font-medium" style={{ color: textPrimary }}>
-                  Kullanıcı
+                  {user?.email || 'User'}
                 </p>
                 <p className="text-xs" style={{ color: textSecondary }}>
                   {getRoleLabel(role)}

@@ -34,7 +34,7 @@ export default function AlertBanner({ orgId, userRole }: AlertBannerProps) {
 
     const loadRecentAlerts = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
+        const token = localStorage.getItem('eza_token');
         const apiKey = localStorage.getItem('proxy_api_key');
         const headers: Record<string, string> = {
           'Authorization': `Bearer ${token || ''}`,
