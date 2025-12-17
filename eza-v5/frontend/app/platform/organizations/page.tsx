@@ -35,6 +35,11 @@ function OrganizationsPageContent() {
     status: 'active',
   });
 
+  // Load organizations on mount
+  useEffect(() => {
+    loadOrganizations();
+  }, []);
+
   // Only org_admin and admin can access
   if (role !== 'org_admin' && role !== 'admin') {
     return (

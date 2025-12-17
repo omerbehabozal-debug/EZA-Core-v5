@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth, UserRole } from '@/context/AuthContext';
 
@@ -23,33 +23,50 @@ export default function RequireAuth({
   const { token, role, isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Redirect to login if not authenticated
-    if (!isAuthenticated || !token) {
-      // Determine login path based on current location
-      const isPlatform = pathname?.includes('/platform');
-      const isProxy = pathname?.includes('/proxy');
-      const isCorporate = pathname?.includes('/corporate');
+    // Give a moment for AuthContext to load from localStorage
+    const checkAuth = () => {
+      // Check localStorage directly as fallback
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('eza_token') : null;
+      const hasToken = token || storedToken;
       
-      let loginPath = '/platform/login';
-      if (isProxy) loginPath = '/proxy/login';
-      else if (isCorporate) loginPath = '/corporate/login';
-      else if (isPlatform) loginPath = '/platform/login';
-      
-      router.push(loginPath);
-      return;
-    }
+      if (!hasToken) {
+        // Determine login path based on current location
+        const isPlatform = pathname?.includes('/platform');
+        const isProxy = pathname?.includes('/proxy');
+        const isCorporate = pathname?.includes('/corporate');
+        
+        let loginPath = '/platform/login';
+        if (isProxy) loginPath = '/proxy/login';
+        else if (isCorporate) loginPath = '/corporate/login';
+        else if (isPlatform) loginPath = '/platform/login';
+        
+        router.push(loginPath);
+        return;
+      }
 
-    // Check role if specified
-    if (allowedRoles && role && !allowedRoles.includes(role)) {
-      // Role not allowed - stay on page but show access denied
-      // (fallback will be shown)
-    }
+      setIsChecking(false);
+    };
+
+    // Initial check
+    checkAuth();
+
+    // Also check after a short delay to allow AuthContext to initialize
+    const timer = setTimeout(checkAuth, 100);
+
+    return () => clearTimeout(timer);
   }, [isAuthenticated, token, role, allowedRoles, router, pathname]);
 
+  // Still checking - show nothing to prevent flash
+  if (isChecking) {
+    return null;
+  }
+
   // Not authenticated - redirect will happen in useEffect
-  if (!isAuthenticated || !token) {
+  const storedToken = typeof window !== 'undefined' ? localStorage.getItem('eza_token') : null;
+  if (!isAuthenticated && !token && !storedToken) {
     return null;
   }
 
