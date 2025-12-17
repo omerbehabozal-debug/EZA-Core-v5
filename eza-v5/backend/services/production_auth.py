@@ -99,12 +99,16 @@ async def authenticate_user(
             return None
         
         # Verify password
+        logger.debug(f"Verifying password for user: {normalized_email}")
+        logger.debug(f"Password hash length: {len(user.password_hash) if user.password_hash else 0}")
         password_valid = verify_password(password, user.password_hash)
+        
         if not password_valid:
             logger.warning(f"Authentication failed: Invalid password for email {normalized_email}")
+            logger.debug(f"Password verification failed - hash may be incorrect or password doesn't match")
             return None
         
-        logger.debug(f"Authentication successful for user: {normalized_email}")
+        logger.info(f"Authentication successful for user: {normalized_email} (role: {user.role})")
         return user
     except Exception as e:
         logger.exception(f"Authentication error for {email}: {e}")

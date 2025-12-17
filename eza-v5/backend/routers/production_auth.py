@@ -119,13 +119,36 @@ async def login(
     db: AsyncSession = Depends(get_db)
 ):
     """User login with email and password"""
-    user = await authenticate_user(db, request.email, request.password)
+    normalized_email = normalize_email(request.email)
+    logger.info(f"[Login] Attempting login for email: {normalized_email} (original: {request.email})")
     
-    if not user:
+    # Check if user exists (for better error messages)
+    result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
+    user_exists = result.scalar_one_or_none()
+    
+    if not user_exists:
+        logger.warning(f"[Login] User not found: {normalized_email}")
+        # Try to find similar emails for debugging
+        all_users_result = await db.execute(select(User.email, User.role).limit(10))
+        all_emails = [(row[0], row[1]) for row in all_users_result.all()]
+        logger.warning(f"[Login] Available users in DB (sample): {all_emails}")
+        logger.warning(f"[Login] Searched for normalized email: '{normalized_email}'")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
+    
+    # Authenticate
+    user = await authenticate_user(db, request.email, request.password)
+    
+    if not user:
+        logger.warning(f"[Login] Authentication failed for: {normalized_email} (user exists but password incorrect)")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    logger.info(f"[Login] Successful login for: {normalized_email} (role: {user.role})")
     
     # Create JWT token
     access_token = create_access_token(user)
@@ -196,18 +219,40 @@ async def debug_check_email(
     result = await db.execute(select(User).where(func.lower(User.email) == normalized))
     case_insensitive_user = result.scalar_one_or_none()
     
-    # Get all users with similar email (for debugging)
+    # Get all users (for debugging)
     result = await db.execute(
         select(User.email, User.role, User.created_at)
-        .where(func.lower(User.email).like(f"%{normalized.split('@')[0]}%"))
-        .limit(5)
+        .order_by(User.created_at.desc())
+        .limit(50)
     )
-    similar_emails = result.all()
+    all_users = result.all()
+    
+    # Get total user count
+    count_result = await db.execute(select(func.count(User.id)))
+    total_users = count_result.scalar() or 0
     
     return {
         "normalized_email": normalized,
-        "exact_match": exact_user.email if exact_user else None,
-        "case_insensitive_match": case_insensitive_user.email if case_insensitive_user else None,
-        "similar_emails": [{"email": row[0], "role": row[1], "created_at": str(row[2])} for row in similar_emails]
+        "original_email": email,
+        "total_users_in_db": total_users,
+        "exact_match": {
+            "found": exact_user is not None,
+            "email": exact_user.email if exact_user else None,
+            "role": exact_user.role if exact_user else None,
+            "user_id": str(exact_user.id) if exact_user else None
+        },
+        "case_insensitive_match": {
+            "found": case_insensitive_user is not None,
+            "email": case_insensitive_user.email if case_insensitive_user else None,
+            "role": case_insensitive_user.role if case_insensitive_user else None,
+            "user_id": str(case_insensitive_user.id) if case_insensitive_user else None
+        },
+        "all_users_in_db": [
+            {
+                "email": row[0], 
+                "role": row[1], 
+                "created_at": str(row[2])
+            } for row in all_users
+        ]
     }
 
