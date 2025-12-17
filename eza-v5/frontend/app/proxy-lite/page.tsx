@@ -200,8 +200,11 @@ export default function ProxyLitePage() {
             >
               EZA Proxy-Lite
             </h1>
-            <p className="text-sm" style={{ color: '#6E6E73' }}>
+            <p className="text-sm mb-2" style={{ color: '#6E6E73' }}>
               Hızlı ve temel etik kontrol
+            </p>
+            <p className="text-xs" style={{ color: '#6E6E73', maxWidth: '500px', lineHeight: '1.5' }}>
+              Proxy Lite, yapay zekâ çıktıları başta olmak üzere makale, reklam ve dijital içerikleri paylaşmadan önce hızlıca kontrol etmek için tasarlanmıştır.
             </p>
           </div>
           <div className="flex items-center gap-3">

@@ -159,8 +159,11 @@ function RegulatorPageContent() {
             <h1 className={cn('text-3xl font-semibold text-gray-900 mb-2')}>
               {tenant.label}
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-2">
               {tenant.description}
+            </p>
+            <p className="text-sm text-gray-500 max-w-2xl">
+              Bu panel yalnızca yüksek riskli içerikleri gösterir. Listelenen olaylar, regülasyon gereği izlenmesi gereken analizlerdir ve denetim amaçlı sunulur.
             </p>
           </div>
           <StatusBadge status={casesStatus} />

@@ -171,8 +171,11 @@ function ProxyCorporatePageContent() {
               >
                 EZA Proxy
               </h1>
-              <p className="text-sm" style={{ color: 'var(--proxy-text-secondary)' }}>
+              <p className="text-sm mb-2" style={{ color: 'var(--proxy-text-secondary)' }}>
                 Operational AI Safety Interface
+              </p>
+              <p className="text-xs" style={{ color: 'var(--proxy-text-muted)', maxWidth: '600px', lineHeight: '1.5' }}>
+                Bu panel, yapay zekâ sistemlerini yöneten uzman kullanıcılar için tasarlanmıştır. Burada yapılan analizler, yapay zekâ çıktılarının etik, güvenlik ve risk durumunu detaylı şekilde değerlendirir.
               </p>
             </div>
             {/* User Profile Dropdown */}

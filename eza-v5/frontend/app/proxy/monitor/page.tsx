@@ -67,8 +67,11 @@ export default function MonitorPage() {
           >
             Telemetri & SLA İzleme
           </h1>
-          <p className="text-sm" style={{ color: '#8E8E93' }}>
+          <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>
             Gerçek zamanlı risk, performans ve güvenlik telemetrisi
+          </p>
+          <p className="text-xs" style={{ color: '#8E8E93', maxWidth: '600px', lineHeight: '1.5' }}>
+            Bu ekran, EZA sisteminin teknik sağlık durumunu ve sürekliliğini izlemek için kullanılır. Performans, gecikme ve otomatik koruma mekanizmaları buradan takip edilir.
           </p>
         </div>
 

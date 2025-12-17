@@ -111,7 +111,12 @@ export default function CorporatePage() {
       <div className="min-h-screen bg-gray-50 p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Corporate Panel</h1>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Corporate Panel</h1>
+              <p className="text-sm text-gray-600 max-w-2xl">
+                Bu ekran, kurumunuza ait yapay zekâ kullanımının genel risk durumunu özetler. Gösterilen veriler son analizlere dayanır ve yöneticiler için hızlı karar desteği sağlar.
+              </p>
+            </div>
             <div className="flex items-center gap-4">
               {/* User Profile Dropdown */}
               <UserProfileDropdown />
