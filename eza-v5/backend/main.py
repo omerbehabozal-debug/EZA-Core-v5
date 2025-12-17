@@ -13,12 +13,15 @@ backend_dir = Path(__file__).parent
 project_root = backend_dir.parent
 sys.path.insert(0, str(project_root))
 
-from fastapi import FastAPI, HTTPException, status, Depends
+from fastapi import FastAPI, HTTPException, status, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
 import json
 import asyncio
+import traceback
 
 from backend.routers import (
     standalone, proxy, proxy_lite, admin, media, autonomy,
@@ -157,7 +160,8 @@ allowed_origins = [
     "http://127.0.0.1:3002",  # Frontend dev port
     "http://127.0.0.1:3003",  # Additional frontend dev port
     "http://127.0.0.1:3008",
-    "https://*.ezacore.ai",  # Wildcard for all ezacore.ai subdomains
+    # Note: FastAPI CORSMiddleware doesn't support wildcards
+    # All subdomains must be explicitly listed
 ]
 
 app.add_middleware(
@@ -166,10 +170,55 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Setup security logging
 setup_security_logging()
+
+# Exception handlers to ensure CORS headers are always sent
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Handle HTTP exceptions with CORS headers"""
+    origin = request.headers.get("origin")
+    # Check if origin is in allowed list
+    if origin in allowed_origins:
+        cors_origin = origin
+    else:
+        cors_origin = allowed_origins[0] if allowed_origins else "*"
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": cors_origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle all exceptions with CORS headers"""
+    logging.exception(f"Unhandled exception: {exc}")
+    origin = request.headers.get("origin")
+    # Check if origin is in allowed list
+    if origin in allowed_origins:
+        cors_origin = origin
+    else:
+        cors_origin = allowed_origins[0] if allowed_origins else "*"
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": cors_origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 # Organization Guard Middleware (Enterprise Lock)
 from backend.middleware.organization_guard import OrganizationGuardMiddleware
