@@ -21,7 +21,7 @@ import json
 import asyncio
 
 from backend.routers import (
-    auth, standalone, proxy, proxy_lite, admin, media, autonomy,
+    standalone, proxy, proxy_lite, admin, media, autonomy,
     institution, gateway, regulator_router, btk_router, eu_ai_router,
     platform_router, corporate_router, internal_proxy, multimodal,
     test_results, monitor, monitor_ws
@@ -176,7 +176,7 @@ from backend.middleware.organization_guard import OrganizationGuardMiddleware
 app.add_middleware(OrganizationGuardMiddleware)
 
 # Include routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+# OLD auth.router removed - using production_auth.router instead
 from backend.routers import production_auth
 app.include_router(production_auth.router, prefix="/api/auth", tags=["Production Auth"])
 # standalone.router removed - using direct endpoint in main.py instead
