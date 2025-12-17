@@ -83,6 +83,7 @@ async def register(
             )
     
     try:
+        logger.info(f"[Register] Creating user with email: {request.email}, role: {final_role}")
         user = await create_user(
             db=db,
             email=request.email,
@@ -90,9 +91,19 @@ async def register(
             role=final_role
         )
         
+        # Immediately test login with the same credentials
+        logger.info(f"[Register] Testing login immediately after registration...")
+        test_user = await authenticate_user(db, request.email, request.password)
+        if test_user:
+            logger.info(f"[Register] ✓ Login test successful immediately after registration")
+        else:
+            logger.error(f"[Register] ✗ CRITICAL: Login test FAILED immediately after registration!")
+            logger.error(f"[Register] This indicates a password hashing/verification issue")
+        
         # Create JWT token
         access_token = create_access_token(user)
         
+        logger.info(f"[Register] User created successfully: {user.email} (role: {user.role})")
         return TokenResponse(
             access_token=access_token,
             user_id=str(user.id),
@@ -254,5 +265,46 @@ async def debug_check_email(
                 "created_at": str(row[2])
             } for row in all_users
         ]
+    }
+
+
+@router.post("/debug/test-login")
+async def debug_test_login(
+    request: LoginRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Debug endpoint to test login with detailed logging
+    """
+    from backend.services.production_auth import authenticate_user, verify_password, normalize_email
+    from sqlalchemy import select, func
+    
+    normalized_email = normalize_email(request.email)
+    logger.info(f"[Debug Login] Testing login for: {normalized_email}")
+    
+    # Find user
+    result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        return {
+            "found": False,
+            "error": "User not found",
+            "searched_email": normalized_email
+        }
+    
+    # Test password verification
+    password_valid = verify_password(request.password, user.password_hash)
+    
+    return {
+        "found": True,
+        "email": user.email,
+        "role": user.role,
+        "user_id": str(user.id),
+        "password_hash_length": len(user.password_hash) if user.password_hash else 0,
+        "password_hash_preview": user.password_hash[:30] + "..." if user.password_hash else None,
+        "password_valid": password_valid,
+        "normalized_email": normalized_email,
+        "email_match": user.email == normalized_email
     }
 

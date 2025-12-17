@@ -52,15 +52,29 @@ async def create_user(
     if existing:
         raise ValueError(f"User with email {normalized_email} already exists")
     
+    # Hash password
+    password_hash = hash_password(password)
+    logger.info(f"[Register] Hashing password for user: {normalized_email}")
+    logger.info(f"[Register] Password hash length: {len(password_hash)}")
+    logger.info(f"[Register] Password hash starts with: {password_hash[:20]}...")
+    
     # Create user
     user = User(
         email=normalized_email,
-        password_hash=hash_password(password),
+        password_hash=password_hash,
         role=role
     )
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    
+    # Verify the password was saved correctly
+    test_verify = verify_password(password, user.password_hash)
+    logger.info(f"[Register] Password verification test after save: {test_verify}")
+    if not test_verify:
+        logger.error(f"[Register] CRITICAL: Password hash verification failed immediately after user creation!")
+        logger.error(f"[Register] Original hash: {password_hash[:50]}...")
+        logger.error(f"[Register] Saved hash: {user.password_hash[:50] if user.password_hash else 'None'}...")
     
     logger.info(f"Created user: {normalized_email} with role {role}")
     return user
