@@ -13,8 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.utils.dependencies import get_db
 from backend.services.production_auth import (
     create_user, authenticate_user, create_access_token, check_bootstrap_allowed,
-    hash_password, reset_user_password
+    hash_password, reset_user_password, normalize_email
 )
+from backend.models.production import User
+from sqlalchemy import select, func
 from backend.services.production_org import create_organization
 
 router = APIRouter()
@@ -173,4 +175,39 @@ async def reset_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Password reset failed: {str(e)}"
         )
+
+
+@router.get("/debug/check-email")
+async def debug_check_email(
+    email: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Debug endpoint to check if email exists in database
+    Returns email variations found in DB
+    """
+    normalized = normalize_email(email)
+    
+    # Try exact match
+    result = await db.execute(select(User).where(User.email == normalized))
+    exact_user = result.scalar_one_or_none()
+    
+    # Try case-insensitive
+    result = await db.execute(select(User).where(func.lower(User.email) == normalized))
+    case_insensitive_user = result.scalar_one_or_none()
+    
+    # Get all users with similar email (for debugging)
+    result = await db.execute(
+        select(User.email, User.role, User.created_at)
+        .where(func.lower(User.email).like(f"%{normalized.split('@')[0]}%"))
+        .limit(5)
+    )
+    similar_emails = result.all()
+    
+    return {
+        "normalized_email": normalized,
+        "exact_match": exact_user.email if exact_user else None,
+        "case_insensitive_match": case_insensitive_user.email if case_insensitive_user else None,
+        "similar_emails": [{"email": row[0], "role": row[1], "created_at": str(row[2])} for row in similar_emails]
+    }
 

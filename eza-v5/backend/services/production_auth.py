@@ -9,7 +9,7 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from jose import jwt
 
 from backend.config import get_settings
@@ -76,8 +76,23 @@ async def authenticate_user(
         # Normalize email (lowercase and trim)
         normalized_email = normalize_email(email)
         
+        # Try exact match first (for normalized emails)
         result = await db.execute(select(User).where(User.email == normalized_email))
         user = result.scalar_one_or_none()
+        
+        # If not found, try case-insensitive search (for legacy emails)
+        if not user:
+            result = await db.execute(
+                select(User).where(func.lower(User.email) == normalized_email)
+            )
+            user = result.scalar_one_or_none()
+            
+            # If found with case-insensitive, update to normalized email
+            if user:
+                logger.info(f"Found user with case-insensitive match, updating email to normalized: {normalized_email}")
+                user.email = normalized_email
+                await db.commit()
+                await db.refresh(user)
         
         if not user:
             logger.debug(f"Authentication failed: User not found for email {normalized_email}")
@@ -118,8 +133,21 @@ async def reset_user_password(
         # Normalize email (lowercase and trim)
         normalized_email = normalize_email(email)
         
+        # Try exact match first (for normalized emails)
         result = await db.execute(select(User).where(User.email == normalized_email))
         user = result.scalar_one_or_none()
+        
+        # If not found, try case-insensitive search (for legacy emails)
+        if not user:
+            result = await db.execute(
+                select(User).where(func.lower(User.email) == normalized_email)
+            )
+            user = result.scalar_one_or_none()
+            
+            # If found with case-insensitive, update to normalized email
+            if user:
+                logger.info(f"Found user with case-insensitive match for password reset, updating email to normalized: {normalized_email}")
+                user.email = normalized_email
         
         if not user:
             logger.warning(f"Password reset failed: User not found for email {normalized_email}")
