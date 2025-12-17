@@ -58,7 +58,7 @@ export default function PlatformRegisterPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           password: password,
           full_name: fullName.trim() || undefined,
         }),

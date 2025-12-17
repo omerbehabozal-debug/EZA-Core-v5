@@ -31,6 +31,11 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 
+def normalize_email(email: str) -> str:
+    """Normalize email: lowercase and strip whitespace"""
+    return email.strip().lower()
+
+
 async def create_user(
     db: AsyncSession,
     email: str,
@@ -38,15 +43,18 @@ async def create_user(
     role: str = "user"
 ) -> User:
     """Create a new user"""
+    # Normalize email (lowercase and trim)
+    normalized_email = normalize_email(email)
+    
     # Check if user already exists
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(select(User).where(User.email == normalized_email))
     existing = result.scalar_one_or_none()
     if existing:
-        raise ValueError(f"User with email {email} already exists")
+        raise ValueError(f"User with email {normalized_email} already exists")
     
     # Create user
     user = User(
-        email=email,
+        email=normalized_email,
         password_hash=hash_password(password),
         role=role
     )
@@ -54,7 +62,7 @@ async def create_user(
     await db.commit()
     await db.refresh(user)
     
-    logger.info(f"Created user: {email} with role {role}")
+    logger.info(f"Created user: {normalized_email} with role {role}")
     return user
 
 
@@ -64,16 +72,28 @@ async def authenticate_user(
     password: str
 ) -> Optional[User]:
     """Authenticate user by email and password"""
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-    
-    if not user:
+    try:
+        # Normalize email (lowercase and trim)
+        normalized_email = normalize_email(email)
+        
+        result = await db.execute(select(User).where(User.email == normalized_email))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            logger.debug(f"Authentication failed: User not found for email {normalized_email}")
+            return None
+        
+        # Verify password
+        password_valid = verify_password(password, user.password_hash)
+        if not password_valid:
+            logger.warning(f"Authentication failed: Invalid password for email {normalized_email}")
+            return None
+        
+        logger.debug(f"Authentication successful for user: {normalized_email}")
+        return user
+    except Exception as e:
+        logger.exception(f"Authentication error for {email}: {e}")
         return None
-    
-    if not verify_password(password, user.password_hash):
-        return None
-    
-    return user
 
 
 async def get_user_by_id(db: AsyncSession, user_id: str) -> Optional[User]:
@@ -94,19 +114,47 @@ async def reset_user_password(
     new_password: str
 ) -> bool:
     """Reset user password by email"""
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-    
-    if not user:
+    try:
+        # Normalize email (lowercase and trim)
+        normalized_email = normalize_email(email)
+        
+        result = await db.execute(select(User).where(User.email == normalized_email))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            logger.warning(f"Password reset failed: User not found for email {normalized_email}")
+            return False
+        
+        # Hash the new password
+        new_hash = hash_password(new_password)
+        logger.debug(f"Password reset: Generated hash for {normalized_email} (length: {len(new_hash)})")
+        
+        # Store old hash for comparison
+        old_hash = user.password_hash
+        
+        # Update password hash
+        user.password_hash = new_hash
+        await db.commit()
+        await db.refresh(user)
+        
+        # Verify the password was actually updated
+        if user.password_hash == old_hash:
+            logger.error(f"Password reset failed: Hash did not change for {normalized_email}")
+            await db.rollback()
+            return False
+        
+        # Test password verification
+        if verify_password(new_password, user.password_hash):
+            logger.info(f"Password reset successful for user: {normalized_email}")
+            return True
+        else:
+            logger.error(f"Password reset failed: Verification failed for {normalized_email}")
+            await db.rollback()
+            return False
+    except Exception as e:
+        logger.exception(f"Password reset error for {email}: {e}")
+        await db.rollback()
         return False
-    
-    # Update password hash
-    user.password_hash = hash_password(new_password)
-    await db.commit()
-    await db.refresh(user)
-    
-    logger.info(f"Password reset for user: {email}")
-    return True
 
 
 async def check_bootstrap_allowed(db: AsyncSession) -> bool:
