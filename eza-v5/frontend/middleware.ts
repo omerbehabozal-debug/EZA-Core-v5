@@ -70,11 +70,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Login sayfaları → her zaman erişilebilir
+  // Login/Register sayfaları → her zaman erişilebilir
   if (pathname === '/login' || 
       pathname.startsWith('/proxy/login') || 
       pathname.startsWith('/corporate/login') ||
-      pathname.startsWith('/platform/login')) {
+      pathname.startsWith('/platform/login') ||
+      pathname.startsWith('/platform/register')) {
     return NextResponse.next();
   }
 

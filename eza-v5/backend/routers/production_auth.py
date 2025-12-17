@@ -58,20 +58,28 @@ async def register(
     # Check if bootstrap allowed
     is_bootstrap = await check_bootstrap_allowed(db)
     
-    # In bootstrap mode, allow first user to be admin
-    # Otherwise, require admin role (TODO: implement admin-only check)
-    if not is_bootstrap and request.role in ["admin", "org_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only existing admins can create admin users. Use bootstrap mode for first admin."
-        )
+    # Determine final role
+    final_role = request.role
+    
+    # In bootstrap mode, first user MUST be admin
+    if is_bootstrap:
+        if request.role not in ["admin", "org_admin"]:
+            logger.warning(f"[Register] Bootstrap mode: Forcing role to 'admin' (requested: {request.role})")
+            final_role = "admin"
+    else:
+        # Not bootstrap mode: Only existing admins can create admin users
+        if request.role in ["admin", "org_admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only existing admins can create admin users. Use bootstrap mode for first admin."
+            )
     
     try:
         user = await create_user(
             db=db,
             email=request.email,
             password=request.password,
-            role=request.role
+            role=final_role
         )
         
         # Create JWT token

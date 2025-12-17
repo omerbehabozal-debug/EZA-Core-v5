@@ -1,6 +1,6 @@
 /**
- * Platform Login Page
- * Email/password authentication for platform.ezacore.ai
+ * Platform Register Page
+ * First-time admin user registration (bootstrap mode)
  */
 
 'use client';
@@ -12,21 +12,40 @@ import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
 
-export default function PlatformLoginPage() {
+export default function PlatformRegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { setAuth } = useAuth();
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Validation
+    if (!email.trim() || !password || !confirmPassword) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,12 +53,14 @@ export default function PlatformLoginPage() {
         body: JSON.stringify({
           email: email.trim(),
           password: password,
+          role: 'admin',
+          full_name: fullName.trim() || undefined,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Login failed');
+        throw new Error(errorData.detail || 'Registration failed');
       }
 
       const data = await response.json();
@@ -61,8 +82,8 @@ export default function PlatformLoginPage() {
       // Redirect to platform
       router.push('/platform');
     } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.message || 'Login failed. Please check your credentials.');
+      console.error('Register error:', err);
+      setError(err.message || 'Registration failed. Please check your information.');
     } finally {
       setLoading(false);
     }
@@ -80,16 +101,41 @@ export default function PlatformLoginPage() {
             EZA Platform
           </h1>
           <p className="text-sm" style={{ color: '#94A3B8' }}>
-            Management & Compliance Console
+            Create Admin Account
           </p>
         </div>
 
-        {/* Login Form */}
+        {/* Register Form */}
         <div 
           className="rounded-lg p-8 shadow-xl"
           style={{ backgroundColor: '#181F2B' }}
         >
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleRegister} className="space-y-6">
+            {/* Full Name (Optional) */}
+            <div>
+              <label 
+                htmlFor="fullName" 
+                className="block text-sm font-medium mb-2"
+                style={{ color: '#E2E8F0' }}
+              >
+                Full Name (Optional)
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                autoComplete="name"
+                className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 transition-all"
+                style={{
+                  backgroundColor: '#121722',
+                  borderColor: '#334155',
+                  color: '#F1F5F9',
+                }}
+                placeholder="John Doe"
+              />
+            </div>
+
             {/* Email */}
             <div>
               <label 
@@ -97,7 +143,7 @@ export default function PlatformLoginPage() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: '#E2E8F0' }}
               >
-                Email
+                Email *
               </label>
               <input
                 id="email"
@@ -123,7 +169,7 @@ export default function PlatformLoginPage() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: '#E2E8F0' }}
               >
-                Password
+                Password *
               </label>
               <input
                 id="password"
@@ -131,7 +177,38 @@ export default function PlatformLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete="current-password"
+                autoComplete="new-password"
+                minLength={8}
+                className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 transition-all"
+                style={{
+                  backgroundColor: '#121722',
+                  borderColor: '#334155',
+                  color: '#F1F5F9',
+                }}
+                placeholder="••••••••"
+              />
+              <p className="text-xs mt-1" style={{ color: '#64748B' }}>
+                Minimum 8 characters
+              </p>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label 
+                htmlFor="confirmPassword" 
+                className="block text-sm font-medium mb-2"
+                style={{ color: '#E2E8F0' }}
+              >
+                Confirm Password *
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+                minLength={8}
                 className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 transition-all"
                 style={{
                   backgroundColor: '#121722',
@@ -166,21 +243,19 @@ export default function PlatformLoginPage() {
                 color: '#FFFFFF',
               }}
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Creating account...' : 'Create Admin Account'}
             </button>
           </form>
 
           {/* Footer */}
           <div className="mt-6 text-center text-xs" style={{ color: '#64748B' }}>
-            <p>Platform roles: admin, org_admin, ops, finance, auditor</p>
-            <p className="mt-2">
-              Don't have an account?{' '}
+            <p>Already have an account?{' '}
               <Link 
-                href="/platform/register" 
+                href="/platform/login" 
                 className="hover:underline"
                 style={{ color: '#3B82F6' }}
               >
-                Register
+                Login
               </Link>
             </p>
           </div>
