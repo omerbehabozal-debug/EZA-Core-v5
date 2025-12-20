@@ -46,6 +46,7 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Api-Key': apiKey || '',
+          'x-org-id': orgId, // Required by organization guard middleware
         },
       });
 
@@ -71,15 +72,33 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
       const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
+      if (!orgId) {
+        setError('Organizasyon ID bulunamadı');
+        setLoading(false);
+        return;
+      }
+
+      console.log('[ApiKeyManagement] Creating API key:', { orgId, name: newKeyName });
+      
       const res = await fetch(`${API_BASE_URL}/api/org/${orgId}/api-key/create`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Api-Key': apiKey || '',
+          'x-org-id': orgId, // Required by organization guard middleware
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ name: newKeyName }),
       });
+
+      console.log('[ApiKeyManagement] Response status:', res.status);
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorMessage = errorData.detail || errorData.message || `HTTP ${res.status}: ${res.statusText}`;
+        setError(`API anahtarı oluşturulamadı: ${errorMessage}`);
+        return;
+      }
 
       const data = await res.json();
       if (data.ok) {
@@ -88,10 +107,11 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
         setNewKeyName("");
         loadApiKeys();
       } else {
-        setError("API anahtarı oluşturulamadı");
+        const errorMessage = data.detail || data.message || 'Bilinmeyen hata';
+        setError(`API anahtarı oluşturulamadı: ${errorMessage}`);
       }
     } catch (err: any) {
-      setError(`Hata: ${err?.message}`);
+      setError(`Hata: ${err?.message || 'Network error'}`);
     } finally {
       setLoading(false);
     }
