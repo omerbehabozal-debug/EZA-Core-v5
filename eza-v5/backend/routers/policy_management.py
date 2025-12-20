@@ -283,21 +283,26 @@ async def toggle_policy(
     Enable/disable policy for organization
     Only admins can toggle policies
     """
+    logger.info(f"[Policy] Toggle endpoint called: org_id={org_id}, policy_id={policy_id}, request={request.dict()}, user={current_user.get('user_id', 'unknown')}")
     try:
         user_role = current_user.get("role", "")
+        logger.info(f"[Policy] User role: {user_role}, allowed roles: ['admin', 'org_admin']")
+        
         if user_role not in ["admin", "org_admin"]:
+            logger.warning(f"[Policy] Access denied: user_role={user_role} not in allowed roles")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only admins can toggle policies"
             )
         
         if request.enabled is None:
+            logger.warning(f"[Policy] Bad request: enabled is None")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="enabled is required"
             )
         
-        logger.info(f"[Policy] Toggle request: org_id={org_id}, policy_id={policy_id}, enabled={request.enabled}, user_role={user_role}")
+        logger.info(f"[Policy] Toggle request validated: org_id={org_id}, policy_id={policy_id}, enabled={request.enabled}, user_role={user_role}")
         
         # Check if global policy
         if policy_id in GLOBAL_POLICIES:

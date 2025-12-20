@@ -77,14 +77,22 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
   };
 
   const handleTogglePolicy = async (policyId: string, enabled: boolean) => {
-    if (!orgId) return;
+    if (!orgId) {
+      console.error('[Policy] Cannot toggle policy: orgId is null');
+      setError('Organizasyon seçilmedi');
+      return;
+    }
 
+    console.log('[Policy] Toggle request:', { policyId, enabled, orgId });
     setSaving({ ...saving, [policyId]: true });
     try {
       const token = localStorage.getItem('eza_token');
       const apiKey = localStorage.getItem('proxy_api_key');
       
-      const res = await fetch(`${API_BASE_URL}/api/policy/org/${orgId}/policy/${policyId}/enable`, {
+      const url = `${API_BASE_URL}/api/policy/org/${orgId}/policy/${policyId}/enable`;
+      console.log('[Policy] Request URL:', url);
+      
+      const res = await fetch(url, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -94,6 +102,8 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
         },
         body: JSON.stringify({ enabled }),
       });
+      
+      console.log('[Policy] Response status:', res.status);
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }));
