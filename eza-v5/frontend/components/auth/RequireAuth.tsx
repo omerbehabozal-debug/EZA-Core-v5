@@ -33,10 +33,11 @@ export default function RequireAuth({
       const hasToken = token || storedToken;
       
       if (!hasToken) {
-        // Determine login path based on current location
-        const isPlatform = pathname?.includes('/platform');
-        const isProxy = pathname?.includes('/proxy');
-        const isCorporate = pathname?.includes('/corporate');
+        // Determine login path based on current location or hostname
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+        const isPlatform = pathname?.includes('/platform') || hostname === 'platform.ezacore.ai';
+        const isProxy = pathname?.includes('/proxy') || hostname === 'proxy.ezacore.ai';
+        const isCorporate = pathname?.includes('/corporate') || hostname === 'corporate.ezacore.ai';
         
         let loginPath = '/platform/login';
         if (isProxy) loginPath = '/proxy/login';
@@ -64,9 +65,10 @@ export default function RequireAuth({
     const handleAuthExpired = () => {
       console.warn('Auth expired event received, logging out...');
       logout();
-      const isPlatform = pathname?.includes('/platform');
-      const isProxy = pathname?.includes('/proxy');
-      const isCorporate = pathname?.includes('/corporate');
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+      const isPlatform = pathname?.includes('/platform') || hostname === 'platform.ezacore.ai';
+      const isProxy = pathname?.includes('/proxy') || hostname === 'proxy.ezacore.ai';
+      const isCorporate = pathname?.includes('/corporate') || hostname === 'corporate.ezacore.ai';
       
       let loginPath = '/platform/login';
       if (isProxy) loginPath = '/proxy/login';

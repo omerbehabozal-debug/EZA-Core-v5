@@ -62,9 +62,20 @@ function ProxyOrganizationSelectionContent() {
           throw new Error(data.detail || 'Failed to load organizations');
         }
 
-        const orgs = (data.organizations || []).filter((org: Organization) => 
-          org.proxy_access === true && org.status === 'active'
-        );
+        // Map backend response to Organization type
+        const orgs: Organization[] = (data.organizations || [])
+          .filter((org: any) => org.proxy_access === true && org.status === 'active')
+          .map((org: any) => ({
+            id: org.id,
+            name: org.name,
+            plan: org.plan as 'free' | 'pro' | 'enterprise',
+            status: org.status as 'active' | 'suspended',
+            proxy_access: org.proxy_access,
+            base_currency: org.base_currency as 'TRY' | 'USD',
+            sla_tier: org.sla_tier,
+            default_policy_set: org.default_policy_set,
+            created_at: org.created_at,
+          }));
 
         setOrganizations(orgs);
 
