@@ -110,17 +110,51 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         if (data.ok && data.organizations) {
           setOrganizations(data.organizations);
           
-          // If no current org selected, select first one
-          if (!currentOrganization && data.organizations.length > 0) {
+          // Validate current organization from localStorage
+          // Read directly from localStorage to check validity
+          let storedOrg: Organization | null = null;
+          if (typeof window !== 'undefined') {
+            try {
+              const stored = localStorage.getItem(ORG_STORAGE_KEY);
+              if (stored) {
+                storedOrg = JSON.parse(stored);
+              }
+            } catch (error) {
+              // Ignore parse errors
+            }
+          }
+          
+          // Check if stored org is valid (exists in API response)
+          if (storedOrg) {
+            const isValidOrg = data.organizations.some(org => org.id === storedOrg!.id);
+            if (!isValidOrg) {
+              // Stored org is invalid (e.g., old demo org), clear it
+              console.warn('Stored organization is not valid, clearing from localStorage');
+              setCurrentOrganization(null);
+              storedOrg = null;
+            } else {
+              // Stored org is valid, ensure it's set (may already be set from useEffect)
+              if (currentOrganization?.id !== storedOrg.id) {
+                setCurrentOrganization(storedOrg);
+              }
+            }
+          }
+          
+          // If no current org selected (or was cleared), select first one
+          if (!storedOrg && data.organizations.length > 0) {
             setCurrentOrganization(data.organizations[0]);
           }
         } else {
           // No organizations found - user needs to create one
           setOrganizations([]);
+          // Clear invalid organization from localStorage
+          setCurrentOrganization(null);
         }
       } else {
         // API failed - don't use fallback, let user create organization
         setOrganizations([]);
+        // Clear invalid organization from localStorage
+        setCurrentOrganization(null);
       }
     } catch (error) {
       console.error('Failed to load organizations:', error);

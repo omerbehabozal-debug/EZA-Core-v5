@@ -48,11 +48,40 @@ async def require_bootstrap_auth(
     # Check if bootstrap is still allowed
     bootstrap_allowed = await check_bootstrap_allowed(db)
     
+    # If bootstrap is not allowed, fall back to normal JWT authentication
+    # This allows admin users to create organizations even after bootstrap
     if not bootstrap_allowed:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bootstrap already completed. Use regular authentication."
-        )
+        # Fall back to normal JWT authentication for admin users
+        if not credentials:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="JWT token required (Authorization header)"
+            )
+        
+        # Get user from JWT token
+        from backend.auth.jwt import get_user_from_token
+        token = credentials.credentials
+        user_info = get_user_from_token(token)
+        
+        if user_info is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token"
+            )
+        
+        # Check admin role
+        user_role = user_info.get("role", "")
+        if user_role not in ["admin", "org_admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin and org_admin roles can create organizations"
+            )
+        
+        logger.info(f"[BootstrapAuth] Bootstrap completed, using normal JWT auth for user {user_info.get('user_id')} (role: {user_role})")
+        return {
+            **user_info,
+            "bootstrap_mode": False
+        }
     
     settings = get_settings()
     env_value = settings.EZA_ENV if settings.EZA_ENV else settings.ENV
