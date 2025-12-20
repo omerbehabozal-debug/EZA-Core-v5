@@ -119,9 +119,20 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
               const stored = localStorage.getItem(ORG_STORAGE_KEY);
               if (stored) {
                 storedOrg = JSON.parse(stored);
+                
+                // Validate org ID format: must be a valid UUID (not legacy string IDs like "demo-media-group")
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (storedOrg && storedOrg.id && !uuidRegex.test(storedOrg.id)) {
+                  // Invalid org ID format (legacy string ID), clear it
+                  console.warn('Stored organization has invalid ID format (not a UUID):', storedOrg.id, '- clearing from localStorage');
+                  localStorage.removeItem(ORG_STORAGE_KEY);
+                  storedOrg = null;
+                }
               }
             } catch (error) {
               // Ignore parse errors
+              console.error('Failed to parse stored organization:', error);
+              localStorage.removeItem(ORG_STORAGE_KEY);
             }
           }
           
@@ -132,6 +143,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
               // Stored org is invalid (e.g., old demo org), clear it
               console.warn('Stored organization is not valid, clearing from localStorage');
               setCurrentOrganization(null);
+              localStorage.removeItem(ORG_STORAGE_KEY);
               storedOrg = null;
             } else {
               // Stored org is valid, ensure it's set (may already be set from useEffect)

@@ -32,6 +32,14 @@ export default function AlertBanner({ orgId, userRole }: AlertBannerProps) {
       return;
     }
 
+    // Validate orgId: must be a valid UUID format (not legacy string IDs like "demo-media-group")
+    // UUID format: 8-4-4-4-12 hexadecimal characters
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(orgId)) {
+      console.warn('[AlertBanner] Invalid orgId format (not a UUID):', orgId);
+      return;
+    }
+
     const loadRecentAlerts = async () => {
       try {
         const token = localStorage.getItem('eza_token');
