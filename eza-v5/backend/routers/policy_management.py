@@ -149,13 +149,15 @@ async def list_org_policies(
             # Check if org has override (override only contains enabled/weight, not full policy)
             if org_id in org_policies and global_policy.id in org_policies[org_id]:
                 override = org_policies[org_id][global_policy.id]
-                # Merge global policy with override
-                all_policies.append(PolicyInfo(
-                    **GLOBAL_POLICIES[global_policy.id],
-                    enabled=override.get("enabled", global_policy.enabled),
-                    weight=override.get("weight", global_policy.weight),
-                    is_custom=False
-                ))
+                # Merge global policy with override (copy dict first, then update)
+                policy_data = GLOBAL_POLICIES[global_policy.id].copy()
+                # Only update if override has the value, otherwise keep global default
+                if "enabled" in override:
+                    policy_data["enabled"] = override["enabled"]
+                if "weight" in override:
+                    policy_data["weight"] = override["weight"]
+                policy_data["is_custom"] = False
+                all_policies.append(PolicyInfo(**policy_data))
             else:
                 all_policies.append(global_policy)
             policy_ids_seen.add(global_policy.id)
