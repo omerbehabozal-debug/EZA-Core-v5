@@ -286,8 +286,8 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
                         content={"error": "User not authorized for this organization", "detail": f"User {user_id} is not a member of organization {x_org_id}"}
                     )
             finally:
-                # Only close if we created the session
-                if not hasattr(request.state, "db") and async_db and async_db != request.state.get("db"):
+                # Only close if we created the session (not from request.state)
+                if async_db and not hasattr(request.state, "db"):
                     await async_db.close()
         else:
             # No user ID - allow request but log warning
