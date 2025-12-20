@@ -173,3 +173,55 @@ async def revoke_api_key(db: AsyncSession, key_id: str) -> bool:
     logger.info(f"Revoked API key {key_id}")
     return True
 
+
+async def resolve_api_key_for_organization(
+    db: AsyncSession,
+    org_id: str
+) -> Optional[Dict[str, Any]]:
+    """
+    Resolve the most recently created ACTIVE API key for an organization.
+    This is used internally by the backend to resolve API keys from organization context.
+    
+    Returns:
+        Dict with api_key_id (masked), org_id, org_name, or None if no active key exists
+    """
+    try:
+        org_uuid = uuid.UUID(org_id)
+    except ValueError:
+        logger.warning(f"[APIKey] Invalid organization ID format: {org_id}")
+        return None
+    
+    # Get organization
+    org = await db.get(Organization, org_uuid)
+    if not org:
+        logger.warning(f"[APIKey] Organization not found: {org_id}")
+        return None
+    
+    if org.status != "active":
+        logger.warning(f"[APIKey] Organization is not active: {org_id}, status={org.status}")
+        return None
+    
+    # Get most recently created ACTIVE API key for this organization
+    result = await db.execute(
+        select(ApiKey).where(
+            and_(
+                ApiKey.org_id == org_uuid,
+                ApiKey.revoked == False
+            )
+        ).order_by(ApiKey.created_at.desc())
+    )
+    api_key_obj = result.first()
+    
+    if not api_key_obj:
+        logger.warning(f"[APIKey] No active API key found for organization: {org_id}")
+        return None
+    
+    # Return masked API key info (never expose plaintext)
+    return {
+        "api_key_id": str(api_key_obj.id),  # Internal ID only (masked)
+        "org_id": str(org.id),
+        "org_name": org.name,
+        "key_name": api_key_obj.name,
+        "created_at": api_key_obj.created_at.isoformat() if api_key_obj.created_at else None
+    }
+

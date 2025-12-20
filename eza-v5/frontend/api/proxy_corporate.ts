@@ -108,41 +108,32 @@ export interface ProxyRewriteResponse {
 // ========== API FUNCTIONS ==========
 
 /**
- * Get auth headers (JWT + API Key)
+ * Get auth headers (JWT + Organization ID only)
+ * Frontend NEVER handles API keys - backend resolves them internally
  */
 function getAuthHeaders(orgId?: string | null): HeadersInit {
   // Get token from production storage (eza_token)
   const token = localStorage.getItem('eza_token');
   
-  const apiKey = localStorage.getItem('proxy_api_key'); // API Key
-  
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
   
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  if (apiKey) {
-    headers['X-Api-Key'] = apiKey;
-  }
-  
-  // If no token, throw error
+  // JWT token is mandatory
   if (!token) {
     throw new Error('Not authenticated. Please login first.');
   }
   
-  // If no API key, throw error with helpful message
-  if (!apiKey) {
-    throw new Error('API key required. Please create an API key in the Management panel (/proxy/management) or contact your administrator.');
+  headers['Authorization'] = `Bearer ${token}`;
+  
+  // Organization ID is mandatory for Proxy operations
+  if (!orgId) {
+    throw new Error('Organization context required. Please select an organization.');
   }
   
-  // Add organization ID header if provided
-  if (orgId) {
-    headers['x-org-id'] = orgId;
-  }
+  headers['x-org-id'] = orgId;
   
+  // NEVER send API key from frontend - backend resolves it internally
   return headers;
 }
 

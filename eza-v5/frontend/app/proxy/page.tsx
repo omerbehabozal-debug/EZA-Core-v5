@@ -99,8 +99,8 @@ function ProxyCorporatePageContent() {
         setTimeout(() => {
           window.location.href = '/proxy/login';
         }, 2000);
-      } else if (errorMessage.includes('API key required') || errorMessage.includes('X-Api-Key')) {
-        userFriendlyMessage = 'API anahtarı gerekli. Lütfen yöneticinize başvurun.';
+      } else if (errorMessage.includes('aktif bir API anahtarı bulunamadı') || errorMessage.includes('API key')) {
+        userFriendlyMessage = 'Bu organizasyon için aktif bir API anahtarı bulunamadı. Platform panelinden (platform.ezacore.ai) oluşturulmalıdır.';
       } else if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
         userFriendlyMessage = 'CORS hatası. Backend CORS ayarlarını kontrol edin.';
       } else if (errorMessage.includes('NEXT_PUBLIC_EZA_API_URL')) {

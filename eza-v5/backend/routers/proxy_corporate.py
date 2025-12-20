@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.utils.dependencies import get_db
 from backend.security.rate_limit import rate_limit_proxy_corporate
-from backend.auth.proxy_auth import require_proxy_auth
+from backend.auth.proxy_auth_production import require_proxy_auth_production
 from backend.services.proxy_analyzer import analyze_content_deep
 from backend.services.proxy_rewrite_engine import rewrite_content
 from backend.services.proxy_telemetry import log_analysis, log_rewrite, get_telemetry_metrics, get_regulator_data
@@ -117,15 +117,28 @@ def generate_content_hash(content: str) -> str:
 async def proxy_analyze(
     request: ProxyAnalyzeRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production),
     _: None = Depends(rate_limit_proxy_corporate)
 ):
     """
     EZA Proxy - Deep Content Analysis
     Paragraph + Sentence level analysis with 5 score types
+    
+    Authorization:
+    - Requires JWT token (mandatory)
+    - Requires organization_id in x-org-id header (mandatory)
+    - Backend resolves API key internally from organization
+    - No frontend API key handling
     """
     try:
-        logger.info(f"[Proxy] Analyze request: domain={request.domain}, policies={request.policies}, user_id={current_user.get('user_id')}")
+        user_id = current_user.get('user_id')
+        org_id = current_user.get('org_id')
+        resolved_api_key_id = current_user.get('resolved_api_key_id', 'unknown')
+        
+        logger.info(
+            f"[Proxy] Analyze request: domain={request.domain}, policies={request.policies}, "
+            f"user_id={user_id}, org_id={org_id}, api_key_id={resolved_api_key_id[:8]}..."
+        )
         
         # For now, only text input_type is supported
         # Media processing can be added later
@@ -184,8 +197,15 @@ async def proxy_analyze(
                 severity=severity_value
             ))
         
-        # Get org_id from API key or user context
+        # Get org_id from authenticated context (already validated by require_proxy_auth_production)
         org_id = current_user.get("org_id") or current_user.get("company_id")
+        
+        if not org_id:
+            logger.error(f"[Proxy] Missing organization_id in user context. user_id={user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Organizasyon bağlamı eksik. Lütfen geçerli bir organizasyon seçin."
+            )
         
         # Get enabled policies for org (if org_id exists)
         if org_id:
@@ -257,6 +277,14 @@ async def proxy_analyze(
         # Get user_id from current_user if available (convert to string)
         user_id_raw = current_user.get("user_id") or current_user.get("sub")
         user_id = str(user_id_raw) if user_id_raw is not None else None
+        
+        # Audit log: Log analyze request with all required fields
+        resolved_api_key_id = current_user.get("resolved_api_key_id", "unknown")
+        logger.info(
+            f"[Proxy] Analyze audit: user_id={user_id}, org_id={org_id}, "
+            f"api_key_id={resolved_api_key_id[:8]}..., analysis_id={analysis_id}, "
+            f"timestamp={time.time()}, outcome=success"
+        )
         
         publish_telemetry_message(
             org_id=org_id or "unknown",
@@ -382,6 +410,14 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
     except HTTPException:
         raise
     except Exception as e:
+        # Audit log: Log failure
+        user_id = current_user.get('user_id', 'unknown')
+        org_id = current_user.get('org_id', 'unknown')
+        resolved_api_key_id = current_user.get('resolved_api_key_id', 'unknown')
+        logger.error(
+            f"[Proxy] Analyze audit: user_id={user_id}, org_id={org_id}, "
+            f"api_key_id={resolved_api_key_id[:8]}..., outcome=fail, error={str(e)}"
+        )
         logger.error(f"[Proxy] Analysis error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -393,7 +429,7 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
 async def proxy_rewrite(
     request: ProxyRewriteRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production),
     _: None = Depends(rate_limit_proxy_corporate)
 ):
     """
@@ -482,7 +518,7 @@ async def proxy_rewrite(
 async def get_telemetry(
     hours: int = 24,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
 ):
     """
     Get telemetry metrics for corporate dashboard
@@ -507,7 +543,7 @@ async def get_telemetry(
 async def get_regulator_data_endpoint(
     hours: int = 1,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
 ):
     """
     Get regulator-appropriate data (anonymized scores only)
