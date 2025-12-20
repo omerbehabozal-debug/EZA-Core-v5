@@ -146,12 +146,19 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
         x_org_id = request.headers.get("x-org-id") or request.headers.get("X-Org-Id")
         
         # 2. If not in header, try to extract from path parameter
-        # Pattern: /api/org/{org_id}/...
+        # Patterns: /api/org/{org_id}/... or /api/policy/org/{org_id}/...
         path_org_id = None
         import re
+        # Try /api/org/{org_id}/... pattern first
         path_match = re.match(r'^/api/org/([^/]+)', request.url.path)
         if path_match:
             path_org_id = path_match.group(1)
+        else:
+            # Try /api/policy/org/{org_id}/... pattern
+            path_match = re.match(r'^/api/policy/org/([^/]+)', request.url.path)
+            if path_match:
+                path_org_id = path_match.group(1)
+                logger.debug(f"[OrgGuard] Extracted org_id from policy path: {path_org_id}")
         
         # Use path org_id if header is missing
         if not x_org_id and path_org_id:
