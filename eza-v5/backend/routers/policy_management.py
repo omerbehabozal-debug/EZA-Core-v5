@@ -219,42 +219,56 @@ async def update_policy_weight(
 ):
     """
     Update policy weight (severity multiplier)
-    Only admins can modify weights
+    Only admins and org_admins can modify weights
     """
-    user_role = current_user.get("role", "")
-    if user_role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can modify policy weights"
-        )
+    try:
+        user_role = current_user.get("role", "")
+        if user_role not in ["admin", "org_admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins and org_admins can modify policy weights"
+            )
     
-    if request.weight is None:
+        if request.weight is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="weight is required"
+            )
+        
+        logger.info(f"[Policy] Weight update request: org_id={org_id}, policy_id={policy_id}, weight={request.weight}, user_role={user_role}")
+        
+        # Check if global policy
+        if policy_id in GLOBAL_POLICIES:
+            # Create org override
+            if org_id not in org_policies:
+                org_policies[org_id] = {}
+            if policy_id not in org_policies[org_id]:
+                org_policies[org_id][policy_id] = {}
+            org_policies[org_id][policy_id]["weight"] = request.weight
+            logger.info(f"[Policy] Updated global policy {policy_id} weight for org {org_id}: weight={request.weight}")
+        elif org_id in org_policies and policy_id in org_policies[org_id]:
+            # Update custom policy
+            org_policies[org_id][policy_id]["weight"] = request.weight
+            logger.info(f"[Policy] Updated custom policy {policy_id} weight for org {org_id}: weight={request.weight}")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Policy {policy_id} not found for organization {org_id}"
+            )
+        
+        return {
+            "ok": True,
+            "message": f"Policy weight updated to {request.weight}"
+        }
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.exception(f"[Policy] Error updating policy weight {policy_id} for org {org_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="weight is required"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
         )
-    
-    # Check if global policy
-    if policy_id in GLOBAL_POLICIES:
-        # Create org override
-        if org_id not in org_policies:
-            org_policies[org_id] = {}
-        if policy_id not in org_policies[org_id]:
-            org_policies[org_id][policy_id] = {}
-        org_policies[org_id][policy_id]["weight"] = request.weight
-    elif org_id in org_policies and policy_id in org_policies[org_id]:
-        # Update custom policy
-        org_policies[org_id][policy_id]["weight"] = request.weight
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Policy not found"
-        )
-    
-    return {
-        "ok": True,
-        "message": f"Policy weight updated to {request.weight}"
-    }
 
 
 @router.patch("/org/{org_id}/policy/{policy_id}/enable")
