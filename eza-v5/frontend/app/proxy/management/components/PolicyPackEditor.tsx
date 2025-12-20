@@ -95,14 +95,23 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
         body: JSON.stringify({ enabled }),
       });
 
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorMessage = errorData.detail || errorData.message || `HTTP ${res.status}: ${res.statusText}`;
+        setError(`Politika güncellenemedi: ${errorMessage}`);
+        return;
+      }
+
       const data = await res.json();
       if (data.ok) {
         loadPolicies();
+        setError(null); // Clear any previous errors
       } else {
-        setError("Politika güncellenemedi");
+        const errorMessage = data.detail || data.message || 'Bilinmeyen hata';
+        setError(`Politika güncellenemedi: ${errorMessage}`);
       }
     } catch (err: any) {
-      setError(`Hata: ${err?.message}`);
+      setError(`Politika güncellenemedi: ${err?.message || 'Network error'}`);
     } finally {
       setSaving({ ...saving, [policyId]: false });
     }

@@ -113,7 +113,7 @@ async def list_org_policies(
     List policies for an organization (global + custom)
     """
     user_role = current_user.get("role", "")
-    if user_role not in ["admin", "reviewer", "auditor", "readonly"]:
+    if user_role not in ["admin", "org_admin", "reviewer", "auditor", "readonly"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions"
@@ -269,41 +269,55 @@ async def toggle_policy(
     Enable/disable policy for organization
     Only admins can toggle policies
     """
-    user_role = current_user.get("role", "")
-    if user_role != "admin":
+    try:
+        user_role = current_user.get("role", "")
+        if user_role not in ["admin", "org_admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can toggle policies"
+            )
+        
+        if request.enabled is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="enabled is required"
+            )
+        
+        logger.info(f"[Policy] Toggle request: org_id={org_id}, policy_id={policy_id}, enabled={request.enabled}, user_role={user_role}")
+        
+        # Check if global policy
+        if policy_id in GLOBAL_POLICIES:
+            # Create org override
+            if org_id not in org_policies:
+                org_policies[org_id] = {}
+            if policy_id not in org_policies[org_id]:
+                org_policies[org_id][policy_id] = {}
+            org_policies[org_id][policy_id]["enabled"] = request.enabled
+            logger.info(f"[Policy] Updated global policy {policy_id} for org {org_id}: enabled={request.enabled}")
+        elif org_id in org_policies and policy_id in org_policies[org_id]:
+            # Update custom policy
+            org_policies[org_id][policy_id]["enabled"] = request.enabled
+            logger.info(f"[Policy] Updated custom policy {policy_id} for org {org_id}: enabled={request.enabled}")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Policy {policy_id} not found for organization {org_id}"
+            )
+        
+        return {
+            "ok": True,
+            "enabled": request.enabled,
+            "message": f"Policy {'enabled' if request.enabled else 'disabled'}"
+        }
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.exception(f"[Policy] Error toggling policy {policy_id} for org {org_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can toggle policies"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
         )
-    
-    if request.enabled is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="enabled is required"
-        )
-    
-    # Check if global policy
-    if policy_id in GLOBAL_POLICIES:
-        # Create org override
-        if org_id not in org_policies:
-            org_policies[org_id] = {}
-        if policy_id not in org_policies[org_id]:
-            org_policies[org_id][policy_id] = {}
-        org_policies[org_id][policy_id]["enabled"] = request.enabled
-    elif org_id in org_policies and policy_id in org_policies[org_id]:
-        # Update custom policy
-        org_policies[org_id][policy_id]["enabled"] = request.enabled
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Policy not found"
-        )
-    
-    return {
-        "ok": True,
-        "enabled": request.enabled,
-        "message": f"Policy {'enabled' if request.enabled else 'disabled'}"
-    }
 
 
 @router.delete("/org/{org_id}/policy/{policy_id}")
