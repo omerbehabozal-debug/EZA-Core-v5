@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { API_BASE_URL } from "@/api/config";
+import Toast from "../../../proxy-lite/components/Toast";
 
 interface ApiKeyInfo {
   key_id: string;
@@ -27,6 +28,7 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
   const [showNewKey, setShowNewKey] = useState(false);
   const [newKeyValue, setNewKeyValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
     if (orgId) {
@@ -143,9 +145,13 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("Kopyalandı!");
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setToast({ message: "API anahtarı panoya kopyalandı", type: 'success' });
+    } catch (err) {
+      setToast({ message: "Kopyalama başarısız oldu", type: 'error' });
+    }
   };
 
   return (
@@ -312,6 +318,16 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
         >
           <p className="text-sm" style={{ color: '#E84343' }}>{error}</p>
         </div>
+      )}
+
+      {/* Premium Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+          duration={3000}
+        />
       )}
     </div>
   );
