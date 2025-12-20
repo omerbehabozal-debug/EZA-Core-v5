@@ -57,6 +57,16 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
   // Load organizations from API
   const loadOrganizations = async () => {
+    // Check if we're on a public page (login/register) - don't load organizations
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      if (pathname.includes('/login') || pathname.includes('/register') || pathname.includes('/forgot-password')) {
+        // Don't load organizations on auth pages
+        setOrganizations([]);
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
@@ -64,11 +74,18 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       // Get token from production storage (eza_token)
       const token = localStorage.getItem('eza_token');
       
+      // If no token, don't make API call (user is not logged in)
+      if (!token) {
+        setOrganizations([]);
+        setIsLoading(false);
+        return;
+      }
+      
       const apiKey = localStorage.getItem('proxy_api_key');
 
       const res = await fetch(`${API_BASE_URL}/api/platform/organizations`, {
         headers: {
-          'Authorization': `Bearer ${token || ''}`,
+          'Authorization': `Bearer ${token}`,
           'X-Api-Key': apiKey || '',
         },
       });
@@ -77,7 +94,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       // BUT: Don't clear token immediately - let RequireAuth handle it
       // Organization load failure doesn't mean auth failure
       if (res.status === 401 || res.status === 403) {
-        console.warn('Failed to load organizations. This may be due to missing organizations or auth issue.');
+        // Only log warning if we have a token (means token is invalid/expired)
+        // Don't log if no token (user is just not logged in)
+        if (token) {
+          console.warn('Failed to load organizations. This may be due to missing organizations or auth issue.');
+        }
         // Don't clear token here - just return empty list
         // If token is truly invalid, RequireAuth will handle logout
         setOrganizations([]);
