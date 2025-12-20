@@ -6,9 +6,11 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse } from "@/api/proxy_corporate";
 import RequireAuth from "@/components/auth/RequireAuth";
+import { useOrganization } from "@/context/OrganizationContext";
 import UserProfileDropdown from "@/components/UserProfileDropdown";
 import ScoreBars from "./components/ScoreBars";
 import ComplianceMetrics from "./components/ComplianceMetrics";
@@ -21,6 +23,7 @@ import AuditPanel from "./components/AuditPanel";
 import PipelineDiagram from "./components/PipelineDiagram";
 
 function ProxyCorporatePageContent() {
+  const { currentOrganization } = useOrganization();
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [rewriting, setRewriting] = useState(false);
@@ -58,6 +61,14 @@ function ProxyCorporatePageContent() {
     setError(null);
 
     try {
+      // Get organization ID from context
+      const orgId = currentOrganization?.id || null;
+      if (!orgId) {
+        setError('Organizasyon seçilmedi. Lütfen bir organizasyon seçin.');
+        setLoading(false);
+        return;
+      }
+
       const result = await analyzeProxy({
         content: content.trim(),
         input_type: 'text',
@@ -65,7 +76,7 @@ function ProxyCorporatePageContent() {
         domain: domain || undefined,
         provider: 'openai',
         return_report: true,
-      });
+      }, orgId);
 
       if (result) {
         setAnalysisResult(result);
@@ -494,7 +505,52 @@ function ProxyCorporatePageContent() {
 export default function ProxyCorporatePage() {
   return (
     <RequireAuth allowedRoles={['admin', 'corporate', 'proxy_user', 'reviewer', 'auditor', 'org_admin', 'ops']}>
-      <ProxyCorporatePageContent />
+      <ProxyOrganizationGuard>
+        <ProxyCorporatePageContent />
+      </ProxyOrganizationGuard>
     </RequireAuth>
   );
+}
+
+/**
+ * Proxy Organization Guard
+ * Ensures organization context is set before rendering Proxy pages
+ */
+function ProxyOrganizationGuard({ children }: { children: React.ReactNode }) {
+  const { currentOrganization } = useOrganization();
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // Check if organization is set
+    if (!currentOrganization || !currentOrganization.id) {
+      // Redirect to organization selection
+      router.push('/proxy/select-organization');
+      return;
+    }
+
+    // Validate organization has proxy_access
+    if (!currentOrganization.proxy_access) {
+      // Organization doesn't have proxy access, redirect to selection
+      router.push('/proxy/select-organization');
+      return;
+    }
+
+    setChecking(false);
+  }, [currentOrganization, router]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0F1115' }}>
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: '#2563EB' }}></div>
+          <p className="mt-4 text-sm" style={{ color: '#8E8E93' }}>
+            Organizasyon kontrol ediliyor...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }

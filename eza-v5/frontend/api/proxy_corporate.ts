@@ -110,7 +110,7 @@ export interface ProxyRewriteResponse {
 /**
  * Get auth headers (JWT + API Key)
  */
-function getAuthHeaders(): HeadersInit {
+function getAuthHeaders(orgId?: string | null): HeadersInit {
   // Get token from production storage (eza_token)
   const token = localStorage.getItem('eza_token');
   
@@ -138,6 +138,11 @@ function getAuthHeaders(): HeadersInit {
     throw new Error('API key required. Please create an API key in the Management panel (/proxy/management) or contact your administrator.');
   }
   
+  // Add organization ID header if provided
+  if (orgId) {
+    headers['x-org-id'] = orgId;
+  }
+  
   return headers;
 }
 
@@ -145,7 +150,8 @@ function getAuthHeaders(): HeadersInit {
  * Analyze content with deep analysis
  */
 export async function analyzeProxy(
-  request: ProxyAnalyzeRequest
+  request: ProxyAnalyzeRequest,
+  orgId?: string | null
 ): Promise<ProxyAnalyzeResponse | null> {
   try {
     if (!API_BASE_URL || API_BASE_URL.trim() === '') {
@@ -156,11 +162,11 @@ export async function analyzeProxy(
     
     console.log('[Proxy] API_BASE_URL:', API_BASE_URL);
     console.log('[Proxy] Full URL:', url);
-    console.log('[Proxy] Request:', { content: request.content.substring(0, 50) + '...', policies: request.policies, domain: request.domain });
+    console.log('[Proxy] Request:', { content: request.content.substring(0, 50) + '...', policies: request.policies, domain: request.domain, orgId });
     
     const res = await fetch(url, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(orgId),
       body: JSON.stringify(request),
     });
     

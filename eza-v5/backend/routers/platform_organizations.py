@@ -148,10 +148,14 @@ async def create_organization(
 @router.get("/organizations", response_model=OrganizationListResponse)
 async def list_organizations(
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+    current_user: Dict[str, Any] = Depends(require_proxy_auth),
+    proxy_access_only: bool = False
 ):
     """
     List organizations that the user is a member of
+    
+    Args:
+        proxy_access_only: If True, only return organizations with proxy_access=True
     """
     user_id = current_user.get("user_id") or current_user.get("sub")
     user_role = current_user.get("role", "")
@@ -163,7 +167,52 @@ async def list_organizations(
     orgs = await db_list_organizations(
         db=db,
         user_id=user_id_str,
-        user_role=user_role
+        user_role=user_role,
+        proxy_access_only=proxy_access_only
+    )
+    
+    org_list = [
+        OrganizationResponse(
+            id=str(org.id),
+            name=org.name,
+            plan=org.plan,
+            status=org.status,
+            proxy_access=org.proxy_access,
+            base_currency=org.base_currency,
+            sla_tier=org.sla_tier,
+            default_policy_set=org.default_policy_set,
+            created_at=org.created_at.isoformat()
+        )
+        for org in orgs
+    ]
+    
+    return OrganizationListResponse(
+        ok=True,
+        organizations=org_list
+    )
+
+
+@router.get("/proxy/organizations", response_model=OrganizationListResponse)
+async def list_proxy_organizations(
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+):
+    """
+    List organizations with proxy_access=True that the user is a member of
+    This endpoint is specifically for Proxy UI (proxy.ezacore.ai)
+    """
+    user_id = current_user.get("user_id") or current_user.get("sub")
+    user_role = current_user.get("role", "")
+    
+    # Convert user_id to string if needed
+    user_id_str = str(user_id) if user_id else None
+    
+    # Get organizations with proxy_access=True only
+    orgs = await db_list_organizations(
+        db=db,
+        user_id=user_id_str,
+        user_role=user_role,
+        proxy_access_only=True
     )
     
     org_list = [

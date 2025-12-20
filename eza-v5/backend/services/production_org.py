@@ -74,13 +74,22 @@ async def get_organization(db: AsyncSession, org_id: str) -> Optional[Organizati
 async def list_organizations(
     db: AsyncSession,
     user_id: Optional[str] = None,
-    user_role: Optional[str] = None
+    user_role: Optional[str] = None,
+    proxy_access_only: bool = False
 ) -> List[Organization]:
-    """List organizations (all for admin, filtered for regular users)"""
+    """
+    List organizations (all for admin, filtered for regular users)
+    
+    Args:
+        proxy_access_only: If True, only return organizations with proxy_access=True
+    """
     if user_role == "admin":
         # Admin sees all active organizations
+        conditions = [Organization.status == "active"]
+        if proxy_access_only:
+            conditions.append(Organization.proxy_access == True)
         result = await db.execute(
-            select(Organization).where(Organization.status == "active")
+            select(Organization).where(and_(*conditions))
         )
         return list(result.scalars().all())
     elif user_id:
@@ -90,16 +99,18 @@ async def list_organizations(
         except ValueError:
             return []
         
+        conditions = [
+            OrganizationUser.user_id == user_uuid,
+            OrganizationUser.status == "active",
+            Organization.status == "active"
+        ]
+        if proxy_access_only:
+            conditions.append(Organization.proxy_access == True)
+        
         result = await db.execute(
             select(Organization)
             .join(OrganizationUser)
-            .where(
-                and_(
-                    OrganizationUser.user_id == user_uuid,
-                    OrganizationUser.status == "active",
-                    Organization.status == "active"
-                )
-            )
+            .where(and_(*conditions))
         )
         return list(result.scalars().all())
     else:
