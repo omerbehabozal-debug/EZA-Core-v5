@@ -73,6 +73,17 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         },
       });
 
+      // Handle 401/403 - token expired or invalid
+      // BUT: Don't clear token immediately - let RequireAuth handle it
+      // Organization load failure doesn't mean auth failure
+      if (res.status === 401 || res.status === 403) {
+        console.warn('Failed to load organizations. This may be due to missing organizations or auth issue.');
+        // Don't clear token here - just return empty list
+        // If token is truly invalid, RequireAuth will handle logout
+        setOrganizations([]);
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
         if (data.ok && data.organizations) {
@@ -127,17 +138,42 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       // Get token from production storage (eza_token)
       const token = localStorage.getItem('eza_token');
       
+      if (!token) {
+        console.error('No token found. User must be logged in.');
+        return null;
+      }
+      
       const apiKey = localStorage.getItem('proxy_api_key') || 'dev-key';
 
       const res = await fetch(`${API_BASE_URL}/api/platform/organizations`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token || ''}`,
+          'Authorization': `Bearer ${token}`,
           'X-Api-Key': apiKey || '',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(orgData),
       });
+
+      // Handle 401/403 - token expired or invalid
+      // Only clear token if it's a real auth failure (not just missing org)
+      if (res.status === 401) {
+        // 401 = Unauthorized - token is invalid/expired
+        console.warn('Authentication failed during organization creation. Token may be expired or invalid.');
+        // Clear token and trigger logout
+        localStorage.removeItem('eza_token');
+        localStorage.removeItem('eza_user');
+        // Dispatch event to notify RequireAuth
+        window.dispatchEvent(new CustomEvent('auth-expired'));
+        return null;
+      }
+      
+      if (res.status === 403) {
+        // 403 = Forbidden - might be permission issue, not necessarily auth failure
+        console.warn('Permission denied during organization creation. Check user role and permissions.');
+        // Don't clear token for 403 - might be a permission issue
+        return null;
+      }
 
       if (res.ok) {
         const data = await res.json();
@@ -148,6 +184,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           return newOrg;
         }
       }
+      
+      // Log error details for debugging
+      const errorText = await res.text();
+      console.error(`Failed to create organization: ${res.status} ${res.statusText}`, errorText);
       return null;
     } catch (error) {
       console.error('Failed to create organization:', error);

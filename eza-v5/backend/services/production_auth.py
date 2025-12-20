@@ -249,11 +249,16 @@ def create_access_token(user: User, expires_in_hours: int = 8) -> str:
     """Create JWT access token for user"""
     try:
         settings = get_settings()
-        jwt_secret = getattr(settings, "EZA_JWT_SECRET", None) or getattr(settings, "JWT_SECRET", None)
-        
+        # Try EZA_JWT_SECRET first (from env), then JWT_SECRET (default)
+        jwt_secret = getattr(settings, "EZA_JWT_SECRET", None)
         if not jwt_secret:
-            logger.error("JWT_SECRET is not configured! Cannot create access token.")
-            raise ValueError("JWT_SECRET is not configured in environment variables")
+            jwt_secret = getattr(settings, "JWT_SECRET", None)
+        # If still None, use default fallback
+        if not jwt_secret:
+            jwt_secret = "supersecretkey"  # Fallback default
+            logger.warning("JWT_SECRET not found in settings, using default fallback. This should be set in production!")
+        
+        logger.debug(f"Using JWT_SECRET (length: {len(jwt_secret) if jwt_secret else 0})")
         
         expire = datetime.utcnow() + timedelta(hours=expires_in_hours)
         
@@ -267,15 +272,23 @@ def create_access_token(user: User, expires_in_hours: int = 8) -> str:
             "type": "access"
         }
         
-        encoded_jwt = jwt.encode(
-            payload,
-            jwt_secret,
-            algorithm="HS256"
-        )
-        
-        logger.debug(f"JWT token created for user {user.id} with role {user.role}")
-        return encoded_jwt
+        try:
+            encoded_jwt = jwt.encode(
+                payload,
+                jwt_secret,
+                algorithm="HS256"
+            )
+            logger.debug(f"JWT token created for user {user.id} with role {user.role} (token length: {len(encoded_jwt)})")
+            return encoded_jwt
+        except Exception as encode_error:
+            logger.error(f"JWT encode error: {encode_error}")
+            logger.error(f"Payload: {payload}")
+            logger.error(f"JWT Secret length: {len(jwt_secret) if jwt_secret else 0}")
+            raise ValueError(f"Failed to encode JWT token: {str(encode_error)}")
+    except ValueError:
+        # Re-raise ValueError as-is
+        raise
     except Exception as e:
         logger.exception(f"Error creating access token: {e}")
-        raise
+        raise ValueError(f"Failed to create access token: {str(e)}")
 

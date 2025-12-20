@@ -20,7 +20,7 @@ export default function RequireAuth({
   allowedRoles,
   fallback 
 }: RequireAuthProps) {
-  const { token, role, isAuthenticated } = useAuth();
+  const { token, role, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isChecking, setIsChecking] = useState(true);
@@ -58,6 +58,29 @@ export default function RequireAuth({
 
     return () => clearTimeout(timer);
   }, [isAuthenticated, token, role, allowedRoles, router, pathname]);
+
+  // Listen for auth-expired events from API calls (401/403 errors)
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      console.warn('Auth expired event received, logging out...');
+      logout();
+      const isPlatform = pathname?.includes('/platform');
+      const isProxy = pathname?.includes('/proxy');
+      const isCorporate = pathname?.includes('/corporate');
+      
+      let loginPath = '/platform/login';
+      if (isProxy) loginPath = '/proxy/login';
+      else if (isCorporate) loginPath = '/corporate/login';
+      else if (isPlatform) loginPath = '/platform/login';
+      
+      router.push(loginPath);
+    };
+
+    window.addEventListener('auth-expired', handleAuthExpired);
+    return () => {
+      window.removeEventListener('auth-expired', handleAuthExpired);
+    };
+  }, [logout, router, pathname]);
 
   // Still checking - show nothing to prevent flash
   if (isChecking) {

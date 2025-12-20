@@ -23,7 +23,20 @@ function PlatformLoginPageContent() {
   const [loading, setLoading] = useState(false);
   const [showRegisteredMessage, setShowRegisteredMessage] = useState(false);
   const router = useRouter();
-  const { setAuth } = useAuth();
+  const { setAuth, token } = useAuth();
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const storedToken = typeof window !== 'undefined' ? localStorage.getItem('eza_token') : null;
+    if (token || storedToken) {
+      // User is already logged in, redirect to platform
+      // Don't redirect if we're coming from registration
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('registered') !== 'true') {
+        router.push('/platform');
+      }
+    }
+  }, [token, router]);
 
   // Check if redirected from registration using window.location
   useEffect(() => {

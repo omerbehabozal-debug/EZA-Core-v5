@@ -149,46 +149,76 @@ async def login(
     db: AsyncSession = Depends(get_db)
 ):
     """User login with email and password"""
-    normalized_email = normalize_email(request.email)
-    logger.info(f"[Login] Attempting login for email: {normalized_email} (original: {request.email})")
-    
-    # Check if user exists (for better error messages)
-    result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
-    user_exists = result.scalar_one_or_none()
-    
-    if not user_exists:
-        logger.warning(f"[Login] User not found: {normalized_email}")
-        # Try to find similar emails for debugging
-        all_users_result = await db.execute(select(User.email, User.role).limit(10))
-        all_emails = [(row[0], row[1]) for row in all_users_result.all()]
-        logger.warning(f"[Login] Available users in DB (sample): {all_emails}")
-        logger.warning(f"[Login] Searched for normalized email: '{normalized_email}'")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+    try:
+        normalized_email = normalize_email(request.email)
+        logger.info(f"[Login] Step 1: Attempting login for email: {normalized_email} (original: {request.email})")
+        
+        # Check if user exists (for better error messages)
+        logger.info(f"[Login] Step 2: Checking if user exists...")
+        result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
+        user_exists = result.scalar_one_or_none()
+        
+        if not user_exists:
+            logger.warning(f"[Login] Step 3: User not found: {normalized_email}")
+            # Try to find similar emails for debugging
+            all_users_result = await db.execute(select(User.email, User.role).limit(10))
+            all_emails = [(row[0], row[1]) for row in all_users_result.all()]
+            logger.warning(f"[Login] Available users in DB (sample): {all_emails}")
+            logger.warning(f"[Login] Searched for normalized email: '{normalized_email}'")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password"
+            )
+        
+        logger.info(f"[Login] Step 3: User found, authenticating...")
+        # Authenticate
+        user = await authenticate_user(db, request.email, request.password)
+        
+        if not user:
+            logger.warning(f"[Login] Step 4: Authentication failed for: {normalized_email} (user exists but password incorrect)")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password"
+            )
+        
+        logger.info(f"[Login] Step 4: Authentication successful. Role: {user.role}")
+        logger.info(f"[Login] Step 5: Creating JWT token...")
+        
+        # Create JWT token
+        try:
+            access_token = create_access_token(user)
+            logger.info(f"[Login] Step 6: JWT token created successfully (length: {len(access_token)})")
+        except Exception as jwt_error:
+            logger.error(f"[Login] Step 6: ✗ JWT token creation failed: {jwt_error}")
+            import traceback
+            logger.error(f"[Login] JWT error traceback: {traceback.format_exc()}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Token creation failed. Please check server logs."
+            )
+        
+        logger.info(f"[Login] Step 7: ✓ Login successful for: {normalized_email} (role: {user.role})")
+        
+        return TokenResponse(
+            access_token=access_token,
+            user_id=str(user.id),
+            role=user.role,
+            email=user.email
         )
-    
-    # Authenticate
-    user = await authenticate_user(db, request.email, request.password)
-    
-    if not user:
-        logger.warning(f"[Login] Authentication failed for: {normalized_email} (user exists but password incorrect)")
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        import traceback
+        settings = get_settings()
+        error_trace = traceback.format_exc()
+        logger.exception(f"[Login] ✗ Login error: {e}")
+        logger.error(f"[Login] Error traceback: {error_trace}")
+        error_detail = str(e) if getattr(settings, "ENV", "production") == "dev" else "Login failed. Please check server logs."
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_detail
         )
-    
-    logger.info(f"[Login] Successful login for: {normalized_email} (role: {user.role})")
-    
-    # Create JWT token
-    access_token = create_access_token(user)
-    
-    return TokenResponse(
-        access_token=access_token,
-        user_id=str(user.id),
-        role=user.role,
-        email=user.email
-    )
 
 
 @router.post("/logout")
@@ -213,20 +243,33 @@ async def reset_password(
     For now, this is a simple reset endpoint for development/testing
     """
     try:
+        logger.info(f"[ResetPassword] Step 1: Starting password reset for email: {request.email}")
+        logger.info(f"[ResetPassword] Step 2: Calling reset_user_password...")
+        
         success = await reset_user_password(db, request.email, request.new_password)
         
         if not success:
+            logger.warning(f"[ResetPassword] Step 3: Password reset failed - user not found or reset failed")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail="User not found or password reset failed"
             )
         
+        logger.info(f"[ResetPassword] Step 3: ✓ Password reset successful for: {request.email}")
         return {"message": "Password reset successfully"}
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
-        logger.exception(f"Password reset error: {e}")
+        import traceback
+        settings = get_settings()
+        error_trace = traceback.format_exc()
+        logger.exception(f"[ResetPassword] ✗ Password reset error: {e}")
+        logger.error(f"[ResetPassword] Error traceback: {error_trace}")
+        error_detail = str(e) if getattr(settings, "ENV", "production") == "dev" else "Password reset failed. Please check server logs."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Password reset failed: {str(e)}"
+            detail=error_detail
         )
 
 
