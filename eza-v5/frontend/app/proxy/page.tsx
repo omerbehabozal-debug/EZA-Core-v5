@@ -23,7 +23,7 @@ import AuditPanel from "./components/AuditPanel";
 import PipelineDiagram from "./components/PipelineDiagram";
 
 function ProxyCorporatePageContent() {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization, isLoading: orgLoading } = useOrganization();
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [rewriting, setRewriting] = useState(false);
@@ -121,6 +121,14 @@ function ProxyCorporatePageContent() {
     setError(null);
 
     try {
+      // Get organization ID from context
+      const orgId = currentOrganization?.id || null;
+      if (!orgId) {
+        setError('Organizasyon seçilmedi. Lütfen bir organizasyon seçin.');
+        setRewriting(false);
+        return;
+      }
+
       const result = await rewriteProxy({
         content: content.trim(),
         mode: rewriteMode,
@@ -128,7 +136,7 @@ function ProxyCorporatePageContent() {
         domain: domain || undefined,
         provider: 'openai',
         auto_reanalyze: true,
-      });
+      }, orgId);
 
       if (result) {
         setRewriteResult(result);
@@ -152,6 +160,20 @@ function ProxyCorporatePageContent() {
       setRewriting(false);
     }
   };
+
+  // Show loading state if organization is still loading
+  if (orgLoading || !currentOrganization) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0F1115' }}>
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: '#2563EB' }}></div>
+          <p className="mt-4 text-sm" style={{ color: '#8E8E93' }}>
+            Organizasyon yükleniyor...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -510,11 +532,16 @@ export default function ProxyCorporatePage() {
  * Ensures organization context is set before rendering Proxy pages
  */
 function ProxyOrganizationGuard({ children }: { children: React.ReactNode }) {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization, isLoading: orgLoading } = useOrganization();
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    // Wait for organization context to load
+    if (orgLoading) {
+      return;
+    }
+
     // Check if organization is set
     if (!currentOrganization || !currentOrganization.id) {
       // Redirect to organization selection
@@ -530,7 +557,7 @@ function ProxyOrganizationGuard({ children }: { children: React.ReactNode }) {
     }
 
     setChecking(false);
-  }, [currentOrganization, router]);
+  }, [currentOrganization, orgLoading, router]);
 
   if (checking) {
     return (

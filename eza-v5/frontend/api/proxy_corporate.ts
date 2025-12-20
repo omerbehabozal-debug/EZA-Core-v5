@@ -189,14 +189,15 @@ export async function analyzeProxy(
  * Rewrite content with specified mode
  */
 export async function rewriteProxy(
-  request: ProxyRewriteRequest
+  request: ProxyRewriteRequest,
+  orgId?: string | null
 ): Promise<ProxyRewriteResponse | null> {
   try {
     const url = `${API_BASE_URL}/api/proxy/rewrite`;
     
     const res = await fetch(url, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(orgId),
       body: JSON.stringify(request),
     });
     
@@ -217,13 +218,13 @@ export async function rewriteProxy(
 /**
  * Get telemetry metrics
  */
-export async function getTelemetry(hours: number = 24): Promise<any> {
+export async function getTelemetry(hours: number = 24, orgId?: string | null): Promise<any> {
   try {
     const url = `${API_BASE_URL}/api/proxy/telemetry?hours=${hours}`;
     
     const res = await fetch(url, {
       method: 'GET',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(orgId),
     });
     
     if (!res.ok) {
