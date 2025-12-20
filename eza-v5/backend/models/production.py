@@ -173,3 +173,41 @@ class Invitation(Base):
     organization = relationship("backend.models.production.Organization", back_populates="invitations")
     invited_by = relationship("backend.models.production.User", foreign_keys=[invited_by_user_id])
 
+
+class AnalysisRecord(Base):
+    """
+    Analysis Record - Draft and Saved analysis storage
+    Regulator-ready, immutable saved records
+    """
+    __tablename__ = "production_analysis_records"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("production_organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("production_users.id", ondelete="SET NULL"), nullable=False, index=True)
+    
+    # Content identification (hash for deduplication)
+    input_text_hash = Column(String(64), nullable=False, index=True)  # SHA256 hash
+    
+    # Encrypted content (at rest encryption - placeholder for now)
+    input_text = Column(Text, nullable=False)  # Original input text
+    
+    # Analysis metadata
+    sector = Column(String(50), nullable=True)  # finance, health, retail, media, autonomous
+    policies_snapshot = Column(JSON, nullable=True)  # Snapshot of policies used (TRT, FINTECH, HEALTH)
+    scores = Column(JSON, nullable=False)  # Overall scores (ethical_index, compliance_score, etc.)
+    violations = Column(JSON, nullable=True)  # Risk flags, violations, risk_locations
+    rewrite_mode = Column(String(50), nullable=True)  # strict_compliance, neutral_rewrite, etc.
+    
+    # Status: DRAFT (temporary) or SAVED (permanent, regulator-visible)
+    status = Column(String(20), nullable=False, default="DRAFT", index=True)  # DRAFT, SAVED
+    
+    # Immutability flag - SAVED records can never be updated
+    immutable = Column(Boolean, nullable=False, default=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    
+    # Relationships
+    organization = relationship("backend.models.production.Organization")
+    user = relationship("backend.models.production.User")
+

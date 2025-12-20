@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse } from "@/api/proxy_corporate";
+import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse, saveAnalysis, getAnalysisHistory, AnalysisRecord, AnalysisHistoryResponse } from "@/api/proxy_corporate";
 import RequireAuth from "@/components/auth/RequireAuth";
 import { useOrganization } from "@/context/OrganizationContext";
 import ProxyUserProfileDropdown from "./components/ProxyUserProfileDropdown";
@@ -21,6 +21,7 @@ import TelemetryDashboard from "./components/TelemetryDashboard";
 import DecisionJustification from "./components/DecisionJustification";
 import AuditPanel from "./components/AuditPanel";
 import PipelineDiagram from "./components/PipelineDiagram";
+import AnalysisHistoryPanel from "./components/AnalysisHistoryPanel";
 
 function ProxyCorporatePageContent() {
   const { currentOrganization, isLoading: orgLoading } = useOrganization();
@@ -30,7 +31,11 @@ function ProxyCorporatePageContent() {
   const [analysisResult, setAnalysisResult] = useState<ProxyAnalyzeResponse | null>(null);
   const [rewriteResult, setRewriteResult] = useState<ProxyRewriteResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'analiz' | 'telemetry' | 'pipeline' | 'audit'>('analiz');
+  const [activeTab, setActiveTab] = useState<'analiz' | 'telemetry' | 'pipeline' | 'audit' | 'history'>('analiz');
+  const [saving, setSaving] = useState(false);
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryResponse | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
   
   // Configuration
   const [domain, setDomain] = useState<'finance' | 'health' | 'retail' | 'media' | 'autonomous' | ''>('');
@@ -39,8 +44,69 @@ function ProxyCorporatePageContent() {
 
   // Wrapper function to handle tab changes from Tabs component
   const handleTabChange = (tab: string) => {
-    if (tab === 'analiz' || tab === 'telemetry' || tab === 'pipeline' || tab === 'audit') {
+    if (tab === 'analiz' || tab === 'telemetry' || tab === 'pipeline' || tab === 'audit' || tab === 'history') {
       setActiveTab(tab);
+      // Load history when history tab is opened
+      if (tab === 'history' && !analysisHistory) {
+        loadAnalysisHistory();
+      }
+    }
+  };
+
+  // Load analysis history
+  const loadAnalysisHistory = async () => {
+    if (!currentOrganization?.id) return;
+    
+    setHistoryLoading(true);
+    try {
+      const history = await getAnalysisHistory(currentOrganization.id, historyPage, 20);
+      if (history) {
+        setAnalysisHistory(history);
+      }
+    } catch (err: any) {
+      console.error('[Proxy] Load history error:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // Save analysis
+  const handleSaveAnalysis = async () => {
+    if (!analysisResult || !currentOrganization?.id) return;
+    
+    setSaving(true);
+    try {
+      const saved = await saveAnalysis(
+        {
+          analysis_result: analysisResult,
+          rewrite_mode: rewriteResult ? rewriteMode : null,
+          sector: domain || null,
+          policies: policies.length > 0 ? policies : null,
+        },
+        currentOrganization.id
+      );
+      
+      if (saved) {
+        // Show success message (using toast if available)
+        if (typeof window !== 'undefined' && (window as any).setToast) {
+          (window as any).setToast({
+            type: 'success',
+            message: 'Analiz başarıyla kaydedildi. Organizasyon geçmişine eklendi.',
+          });
+        } else {
+          alert('Analiz başarıyla kaydedildi.');
+        }
+        
+        // Refresh history if on history tab
+        if (activeTab === 'history') {
+          loadAnalysisHistory();
+        }
+      }
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Analiz kaydedilemedi.';
+      setError(`Kaydetme hatası: ${errorMessage}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -322,6 +388,7 @@ function ProxyCorporatePageContent() {
         <Tabs defaultTab={activeTab} onTabChange={handleTabChange}>
           <TabList activeTab={activeTab} setActiveTab={handleTabChange}>
             <Tab id="analiz" activeTab={activeTab} setActiveTab={handleTabChange}>Analiz</Tab>
+            <Tab id="history" activeTab={activeTab} setActiveTab={handleTabChange}>Analiz Geçmişi</Tab>
             <Tab id="telemetry" activeTab={activeTab} setActiveTab={handleTabChange}>Durum & Telemetri</Tab>
             <Tab id="pipeline" activeTab={activeTab} setActiveTab={handleTabChange}>AI Güvenlik Akışı</Tab>
             <Tab id="audit" activeTab={activeTab} setActiveTab={handleTabChange}>Denetim & Raporlama</Tab>
@@ -340,9 +407,38 @@ function ProxyCorporatePageContent() {
                 border: '1px solid var(--proxy-border-soft)',
               }}
             >
-              <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
-                Analiz Sonuçları
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
+                  Analiz Sonuçları
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleSaveAnalysis}
+                  disabled={saving}
+                  className="px-6 py-2 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 flex items-center gap-2"
+                  style={{
+                    backgroundColor: 'var(--proxy-action-primary)',
+                    color: '#FFFFFF',
+                  }}
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Kaydediliyor...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Analizi Kaydet</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="text-xs mb-4" style={{ color: 'var(--proxy-text-muted)' }}>
+                Bu analiz organizasyon geçmişine eklenecek ve denetimlerde kullanılabilir.
+              </p>
               <ScoreBars scores={analysisResult.overall_scores} />
             </div>
 
@@ -489,6 +585,21 @@ function ProxyCorporatePageContent() {
           <TabPanel id="pipeline" activeTab={activeTab}>
             <div className="mt-6">
               <PipelineDiagram />
+            </div>
+          </TabPanel>
+
+          {/* History Tab */}
+          <TabPanel id="history" activeTab={activeTab}>
+            <div className="mt-6">
+              <AnalysisHistoryPanel 
+                history={analysisHistory}
+                loading={historyLoading}
+                onLoadMore={() => {
+                  setHistoryPage(prev => prev + 1);
+                  loadAnalysisHistory();
+                }}
+                onRefresh={loadAnalysisHistory}
+              />
             </div>
           </TabPanel>
 

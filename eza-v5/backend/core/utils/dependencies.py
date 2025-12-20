@@ -56,7 +56,8 @@ async def init_db():
     # Import all models to ensure they are registered with SQLAlchemy
     from backend.models.production import (
         User, Organization, OrganizationUser, ApiKey, 
-        AuditLog, TelemetryEvent, AlertEvent, Invitation
+        AuditLog, TelemetryEvent, AlertEvent, Invitation,
+        AnalysisRecord
     )
     # Import legacy models to ensure they are registered
     from backend.models.user import LegacyUser

@@ -286,6 +286,27 @@ async def proxy_analyze(
             f"timestamp={time.time()}, outcome=success"
         )
         
+        # Audit log: analysis_previewed (Draft analysis - not saved)
+        # Import here to avoid circular dependency
+        from backend.routers.proxy_analysis import log_analysis_audit
+        try:
+            await log_analysis_audit(
+                db=db,
+                event_type="analysis_previewed",
+                user_id=str(user_id) if user_id else "unknown",
+                org_id=str(org_id) if org_id else "unknown",
+                analysis_id=analysis_id,
+                metadata={
+                    "domain": request.domain,
+                    "policies": request.policies,
+                    "provider": request.provider,
+                    "status": "DRAFT"  # This is a draft/preview, not saved
+                }
+            )
+        except Exception as audit_error:
+            # Don't fail the analysis if audit logging fails
+            logger.warning(f"[Proxy] Audit logging failed: {audit_error}")
+        
         publish_telemetry_message(
             org_id=org_id or "unknown",
             content_id=analysis_id,

@@ -238,3 +238,136 @@ export async function getTelemetry(hours: number = 24, orgId?: string | null): P
   }
 }
 
+// ========== ANALYSIS RECORD MANAGEMENT ==========
+
+export interface SaveAnalysisRequest {
+  analysis_result: ProxyAnalyzeResponse;
+  rewrite_mode?: string | null;
+  sector?: string | null;
+  policies?: string[] | null;
+}
+
+export interface AnalysisRecord {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  input_text_hash: string;
+  input_text: string;
+  sector: string | null;
+  policies_snapshot: any;
+  scores: any;
+  violations: any;
+  rewrite_mode: string | null;
+  status: string;
+  immutable: boolean;
+  created_at: string;
+}
+
+export interface AnalysisHistoryResponse {
+  records: AnalysisRecord[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+/**
+ * Save an analysis as SAVED (permanent, regulator-visible)
+ */
+export async function saveAnalysis(
+  request: SaveAnalysisRequest,
+  orgId?: string | null
+): Promise<AnalysisRecord | null> {
+  try {
+    if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+      throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured.');
+    }
+    
+    const url = `${API_BASE_URL}/api/proxy/analysis/save`;
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: getAuthHeaders(orgId),
+      body: JSON.stringify(request),
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.detail || errorJson.message || errorMessage;
+      } catch {
+        if (errorText) errorMessage = errorText.substring(0, 200);
+      }
+      throw new Error(errorMessage);
+    }
+    
+    const data: AnalysisRecord = await res.json();
+    return data;
+  } catch (e: any) {
+    console.error('[Proxy] Save analysis error:', e);
+    throw e;
+  }
+}
+
+/**
+ * Get analysis history (only SAVED records)
+ */
+export async function getAnalysisHistory(
+  orgId?: string | null,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<AnalysisHistoryResponse | null> {
+  try {
+    if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+      throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured.');
+    }
+    
+    const url = `${API_BASE_URL}/api/proxy/analysis/history?page=${page}&page_size=${pageSize}`;
+    
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders(orgId),
+    });
+    
+    if (!res.ok) {
+      return null;
+    }
+    
+    return await res.json();
+  } catch (e) {
+    console.error('[Proxy] Get analysis history error:', e);
+    return null;
+  }
+}
+
+/**
+ * Get a single analysis record
+ */
+export async function getAnalysisRecord(
+  analysisId: string,
+  orgId?: string | null
+): Promise<AnalysisRecord | null> {
+  try {
+    if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+      throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured.');
+    }
+    
+    const url = `${API_BASE_URL}/api/proxy/analysis/${analysisId}`;
+    
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders(orgId),
+    });
+    
+    if (!res.ok) {
+      return null;
+    }
+    
+    return await res.json();
+  } catch (e) {
+    console.error('[Proxy] Get analysis record error:', e);
+    return null;
+  }
+}
+
