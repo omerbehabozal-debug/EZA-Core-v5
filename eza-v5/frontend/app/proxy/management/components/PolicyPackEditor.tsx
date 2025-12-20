@@ -49,17 +49,28 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Api-Key': apiKey || '',
+          'x-org-id': orgId, // Required by organization guard middleware
         },
       });
 
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorMessage = errorData.detail || errorData.message || `HTTP ${res.status}: ${res.statusText}`;
+        setError(`Politikalar yüklenemedi: ${errorMessage}`);
+        return;
+      }
+
       const data = await res.json();
       if (data.ok) {
-        setPolicies(data.policies);
-        setGlobalPolicies(data.global_policies);
-        setCustomPolicies(data.custom_policies);
+        setPolicies(data.policies || []);
+        setGlobalPolicies(data.global_policies || []);
+        setCustomPolicies(data.custom_policies || []);
+      } else {
+        const errorMessage = data.detail || data.message || 'Bilinmeyen hata';
+        setError(`Politikalar yüklenemedi: ${errorMessage}`);
       }
     } catch (err: any) {
-      setError(`Politikalar yüklenemedi: ${err?.message}`);
+      setError(`Politikalar yüklenemedi: ${err?.message || 'Network error'}`);
     } finally {
       setLoading(false);
     }
@@ -78,6 +89,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Api-Key': apiKey || '',
+          'x-org-id': orgId, // Required by organization guard middleware
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ enabled }),
@@ -109,6 +121,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Api-Key': apiKey || '',
+          'x-org-id': orgId, // Required by organization guard middleware
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ weight }),
