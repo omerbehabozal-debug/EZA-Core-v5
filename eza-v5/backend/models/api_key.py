@@ -25,8 +25,8 @@ class APIKey(Base):
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationships
-    user = relationship("backend.models.user.LegacyUser", back_populates="api_keys")
-    institution = relationship("backend.models.institution.Institution", back_populates="api_keys")
-    application = relationship("backend.models.application.Application", back_populates="api_keys")
+    # Relationships - Use class names only (SQLAlchemy resolves from registry)
+    user = relationship("LegacyUser", back_populates="api_keys")
+    institution = relationship("Institution", back_populates="api_keys")
+    application = relationship("Application", back_populates="api_keys")
 

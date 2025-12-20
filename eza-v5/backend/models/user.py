@@ -24,10 +24,10 @@ class LegacyUser(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
-    role = relationship("backend.models.role.Role", back_populates="users")
-    institution = relationship("backend.models.institution.Institution", back_populates="users")
-    api_keys = relationship("backend.models.api_key.APIKey", back_populates="user", cascade="all, delete-orphan")
+    # Relationships - Use class names only (SQLAlchemy resolves from registry)
+    role = relationship("Role", back_populates="users")
+    institution = relationship("Institution", back_populates="users")
+    api_keys = relationship("APIKey", back_populates="user", cascade="all, delete-orphan")
     
     __mapper_args__ = {"polymorphic_identity": "legacy_user"}
 

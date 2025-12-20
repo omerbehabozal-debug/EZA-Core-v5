@@ -53,10 +53,17 @@ async def get_db() -> AsyncSession:
 async def init_db():
     """Initialize database tables (including production models)"""
     import logging
+    # Import all models to ensure they are registered with SQLAlchemy
     from backend.models.production import (
         User, Organization, OrganizationUser, ApiKey, 
         AuditLog, TelemetryEvent, AlertEvent
     )
+    # Import legacy models to ensure they are registered
+    from backend.models.user import LegacyUser
+    from backend.models.role import Role
+    from backend.models.institution import Institution
+    from backend.models.api_key import APIKey
+    from backend.models.application import Application
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

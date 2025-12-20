@@ -21,8 +21,8 @@ class Institution(Base):
     
     code = Column(String, unique=True, nullable=True, index=True)  # Institution code
     
-    # Relationships
-    users = relationship("backend.models.user.LegacyUser", back_populates="institution")
-    api_keys = relationship("backend.models.api_key.APIKey", back_populates="institution")
-    applications = relationship("backend.models.application.Application", back_populates="institution")
+    # Relationships - Use class names only (SQLAlchemy resolves from registry)
+    users = relationship("LegacyUser", back_populates="institution")
+    api_keys = relationship("APIKey", back_populates="institution")
+    applications = relationship("Application", back_populates="institution")
 

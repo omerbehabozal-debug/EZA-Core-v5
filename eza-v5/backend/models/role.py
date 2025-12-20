@@ -15,6 +15,6 @@ class Role(Base):
     name = Column(String, unique=True, nullable=False, index=True)
     description = Column(String, nullable=True)
     
-    # Relationships
-    users = relationship("backend.models.user.LegacyUser", back_populates="role")
+    # Relationships - Use class names only (SQLAlchemy resolves from registry)
+    users = relationship("LegacyUser", back_populates="role")
 

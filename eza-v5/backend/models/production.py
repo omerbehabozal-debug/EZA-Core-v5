@@ -28,10 +28,10 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
-    organization_users = relationship("backend.models.production.OrganizationUser", back_populates="user", cascade="all, delete-orphan")
-    audit_logs = relationship("backend.models.production.AuditLog", back_populates="user")
-    api_keys = relationship("backend.models.production.ApiKey", back_populates="user", cascade="all, delete-orphan")
+    # Relationships - Use class names only (same file, so no module path needed)
+    organization_users = relationship("OrganizationUser", back_populates="user", cascade="all, delete-orphan")
+    audit_logs = relationship("AuditLog", back_populates="user")
+    api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
 
 
 class Organization(Base):
@@ -49,13 +49,12 @@ class Organization(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
-    # Use fully qualified paths to avoid conflicts
-    organization_users = relationship("backend.models.production.OrganizationUser", back_populates="organization", cascade="all, delete-orphan")
-    api_keys = relationship("backend.models.production.ApiKey", back_populates="organization", cascade="all, delete-orphan")
-    audit_logs = relationship("backend.models.production.AuditLog", back_populates="organization")
-    telemetry_events = relationship("backend.models.production.TelemetryEvent", back_populates="organization")
-    alert_events = relationship("backend.models.production.AlertEvent", back_populates="organization")
+    # Relationships - Use class names only (same file, so no module path needed)
+    organization_users = relationship("OrganizationUser", back_populates="organization", cascade="all, delete-orphan")
+    api_keys = relationship("ApiKey", back_populates="organization", cascade="all, delete-orphan")
+    audit_logs = relationship("AuditLog", back_populates="organization")
+    telemetry_events = relationship("TelemetryEvent", back_populates="organization")
+    alert_events = relationship("AlertEvent", back_populates="organization")
 
 
 class OrganizationUser(Base):
@@ -69,9 +68,9 @@ class OrganizationUser(Base):
     joined_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     status = Column(String(50), nullable=False, default="active")  # active, suspended
     
-    # Relationships
-    organization = relationship("backend.models.production.Organization", back_populates="organization_users")
-    user = relationship("backend.models.production.User", back_populates="organization_users")
+    # Relationships - Use class names only (same file, so no module path needed)
+    organization = relationship("Organization", back_populates="organization_users")
+    user = relationship("User", back_populates="organization_users")
     
     # Unique constraint: user can only have one role per organization
     __table_args__ = (
@@ -93,9 +92,9 @@ class ApiKey(Base):
     revoked = Column(Boolean, nullable=False, default=False)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     
-    # Relationships
-    organization = relationship("backend.models.production.Organization", back_populates="api_keys")
-    user = relationship("backend.models.production.User", back_populates="api_keys")
+    # Relationships - Use class names only (same file, so no module path needed)
+    organization = relationship("Organization", back_populates="api_keys")
+    user = relationship("User", back_populates="api_keys")
 
 
 class AuditLog(Base):
@@ -111,9 +110,9 @@ class AuditLog(Base):
     method = Column(String(10), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     
-    # Relationships
-    organization = relationship("backend.models.production.Organization", back_populates="audit_logs")
-    user = relationship("backend.models.production.User", back_populates="audit_logs")
+    # Relationships - Use class names only (same file, so no module path needed)
+    organization = relationship("Organization", back_populates="audit_logs")
+    user = relationship("User", back_populates="audit_logs")
 
 
 class TelemetryEvent(Base):
@@ -134,8 +133,8 @@ class TelemetryEvent(Base):
     fail_reason = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     
-    # Relationships
-    organization = relationship("backend.models.production.Organization", back_populates="telemetry_events")
+    # Relationships - Use class names only (same file, so no module path needed)
+    organization = relationship("Organization", back_populates="telemetry_events")
 
 
 class AlertEvent(Base):
@@ -150,6 +149,6 @@ class AlertEvent(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     
-    # Relationships
-    organization = relationship("backend.models.production.Organization", back_populates="alert_events")
+    # Relationships - Use class names only (same file, so no module path needed)
+    organization = relationship("Organization", back_populates="alert_events")
 
