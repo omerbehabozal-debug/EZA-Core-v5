@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse } from "@/api/proxy_corporate";
 import RequireAuth from "@/components/auth/RequireAuth";
 import { useOrganization } from "@/context/OrganizationContext";
-import UserProfileDropdown from "@/components/UserProfileDropdown";
+import ProxyUserProfileDropdown from "./components/ProxyUserProfileDropdown";
 import ScoreBars from "./components/ScoreBars";
 import ComplianceMetrics from "./components/ComplianceMetrics";
 import RiskFlags from "./components/RiskFlags";
@@ -95,19 +95,12 @@ function ProxyCorporatePageContent() {
         userFriendlyMessage = 'Backend sunucu hatası. Backend loglarını kontrol edin.';
       } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('Not authenticated')) {
         userFriendlyMessage = 'Yetkilendirme hatası. Lütfen giriş yapın.';
-        // Redirect to login after showing error
+        // Redirect to Proxy login after showing error
         setTimeout(() => {
-          window.location.href = '/login';
+          window.location.href = '/proxy/login';
         }, 2000);
       } else if (errorMessage.includes('API key required') || errorMessage.includes('X-Api-Key')) {
-        userFriendlyMessage = 'API anahtarı gerekli. Lütfen Platform\'dan (platform.ezacore.ai) bir API anahtarı oluşturun veya yöneticinize başvurun.';
-        // Optionally redirect to platform
-        const platformUrl = process.env.NEXT_PUBLIC_PLATFORM_URL || 'https://platform.ezacore.ai';
-        setTimeout(() => {
-          if (confirm('API anahtarı oluşturmak için Platform\'a yönlendirilsin mi?')) {
-            window.location.href = platformUrl;
-          }
-        }, 2000);
+        userFriendlyMessage = 'API anahtarı gerekli. Lütfen yöneticinize başvurun.';
       } else if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
         userFriendlyMessage = 'CORS hatası. Backend CORS ayarlarını kontrol edin.';
       } else if (errorMessage.includes('NEXT_PUBLIC_EZA_API_URL')) {
@@ -189,8 +182,8 @@ function ProxyCorporatePageContent() {
                 Bu panel, yapay zekâ sistemlerini yöneten uzman kullanıcılar için tasarlanmıştır. Burada yapılan analizler, yapay zekâ çıktılarının etik, güvenlik ve risk durumunu detaylı şekilde değerlendirir.
               </p>
             </div>
-            {/* User Profile Dropdown */}
-            <UserProfileDropdown />
+            {/* User Profile Dropdown (Proxy - No Platform Navigation) */}
+            <ProxyUserProfileDropdown />
           </div>
         </div>
 
