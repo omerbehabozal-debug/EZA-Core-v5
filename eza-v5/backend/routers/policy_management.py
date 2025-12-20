@@ -125,12 +125,14 @@ async def list_org_policies(
         for policy_data in GLOBAL_POLICIES.values()
     ]
     
-    # Get custom policies for this org
+    # Get custom policies for this org (only CUSTOM_ prefixed policies are full custom policies)
     custom_policies_data = org_policies.get(org_id, {})
-    custom_policies = [
-        PolicyInfo(**policy_data, is_custom=True)
-        for policy_data in custom_policies_data.values()
-    ]
+    custom_policies = []
+    for policy_id, policy_data in custom_policies_data.items():
+        # Only include full custom policies (CUSTOM_ prefix), not global policy overrides
+        if policy_id.startswith("CUSTOM_") and "id" in policy_data:
+            # Full custom policy with all fields
+            custom_policies.append(PolicyInfo(**policy_data, is_custom=True))
     
     # Merge: custom overrides global if exists
     all_policies = []
@@ -141,12 +143,13 @@ async def list_org_policies(
         all_policies.append(custom)
         policy_ids_seen.add(custom.id)
     
-    # Add global policies that aren't overridden
+    # Add global policies with org-specific overrides
     for global_policy in global_policies:
         if global_policy.id not in policy_ids_seen:
-            # Check if org has override
+            # Check if org has override (override only contains enabled/weight, not full policy)
             if org_id in org_policies and global_policy.id in org_policies[org_id]:
                 override = org_policies[org_id][global_policy.id]
+                # Merge global policy with override
                 all_policies.append(PolicyInfo(
                     **GLOBAL_POLICIES[global_policy.id],
                     enabled=override.get("enabled", global_policy.enabled),
