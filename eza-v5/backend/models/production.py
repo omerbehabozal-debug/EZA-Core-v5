@@ -55,6 +55,7 @@ class Organization(Base):
     audit_logs = relationship("backend.models.production.AuditLog", back_populates="organization")
     telemetry_events = relationship("backend.models.production.TelemetryEvent", back_populates="organization")
     alert_events = relationship("backend.models.production.AlertEvent", back_populates="organization")
+    invitations = relationship("backend.models.production.Invitation", back_populates="organization", cascade="all, delete-orphan")
 
 
 class OrganizationUser(Base):
@@ -66,7 +67,7 @@ class OrganizationUser(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("production_users.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(String(50), nullable=False)  # org_admin, user, ops
     joined_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    status = Column(String(50), nullable=False, default="active")  # active, suspended
+    status = Column(String(50), nullable=False, default="active")  # active, suspended (removed "invited" - use Invitation model instead)
     
     # Relationships - Use fully qualified paths for production models to avoid conflicts
     organization = relationship("backend.models.production.Organization", back_populates="organization_users")
@@ -151,4 +152,24 @@ class AlertEvent(Base):
     
     # Relationships - Use fully qualified paths for production models to avoid conflicts
     organization = relationship("backend.models.production.Organization", back_populates="alert_events")
+
+
+class Invitation(Base):
+    """Enterprise-grade invitation system - SOC2/ISO compliant"""
+    __tablename__ = "production_invitations"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("production_organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(50), nullable=False)  # org_admin, user, ops
+    token = Column(String(255), unique=True, nullable=False, index=True)  # Secure, single-use token
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    status = Column(String(50), nullable=False, default="invited", index=True)  # invited, accepted, expired
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)  # When invitation was accepted
+    invited_by_user_id = Column(UUID(as_uuid=True), ForeignKey("production_users.id", ondelete="SET NULL"), nullable=True, index=True)  # Who sent the invitation
+    
+    # Relationships
+    organization = relationship("backend.models.production.Organization", back_populates="invitations")
+    invited_by = relationship("backend.models.production.User", foreign_keys=[invited_by_user_id])
 

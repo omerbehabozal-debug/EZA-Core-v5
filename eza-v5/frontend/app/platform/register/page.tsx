@@ -5,13 +5,14 @@
 
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
 
 export default function PlatformRegisterPage() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -20,7 +21,16 @@ export default function PlatformRegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
   const router = useRouter();
+
+  // Check for invitation token in URL
+  useEffect(() => {
+    const token = searchParams?.get('token');
+    if (token) {
+      setInvitationToken(token);
+    }
+  }, [searchParams]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,16 +62,23 @@ export default function PlatformRegisterPage() {
     setLoading(true);
 
     try {
+      const requestBody: any = {
+        email: email.trim().toLowerCase(),
+        password: password,
+        full_name: fullName.trim() || undefined,
+      };
+      
+      // Add invitation token if present
+      if (invitationToken) {
+        requestBody.invitation_token = invitationToken;
+      }
+      
       const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password: password,
-          full_name: fullName.trim() || undefined,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {

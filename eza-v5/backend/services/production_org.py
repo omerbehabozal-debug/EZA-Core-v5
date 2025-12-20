@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
 from backend.models.production import Organization, OrganizationUser, User
+from sqlalchemy.orm import joinedload
 
 logger = logging.getLogger(__name__)
 
@@ -166,3 +167,52 @@ async def archive_organization(db: AsyncSession, org_id: str) -> bool:
     logger.info(f"Archived organization {org_id}")
     return True
 
+
+async def list_organization_users(
+    db: AsyncSession,
+    org_id: str
+) -> Dict[str, Any]:
+    """
+    List all users and pending invitations in an organization
+    Returns: {
+        "users": [active OrganizationUser records],
+        "invitations": [pending Invitation records]
+    }
+    """
+    try:
+        org_uuid = uuid.UUID(org_id)
+    except ValueError:
+        return {"users": [], "invitations": []}
+    
+    # Query active OrganizationUser records (only "active" status, no "invited")
+    result = await db.execute(
+        select(OrganizationUser, User)
+        .join(User, OrganizationUser.user_id == User.id)
+        .where(
+            and_(
+                OrganizationUser.org_id == org_uuid,
+                OrganizationUser.status == "active"  # Only active users
+            )
+        )
+        .order_by(OrganizationUser.joined_at.desc())
+    )
+    
+    users = []
+    for row in result.all():
+        org_user, user = row
+        users.append({
+            "id": str(user.id),
+            "email": user.email,
+            "role": org_user.role,  # org_admin, user, ops
+            "joined_at": org_user.joined_at.isoformat() if org_user.joined_at else None,
+            "status": "active"  # Always active for OrganizationUser
+        })
+    
+    # Query pending invitations
+    from backend.services.production_invitation import list_organization_invitations
+    invitations = await list_organization_invitations(db, org_id, include_expired=False)
+    
+    return {
+        "users": users,
+        "invitations": invitations
+    }

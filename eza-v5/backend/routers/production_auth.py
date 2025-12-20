@@ -27,8 +27,9 @@ logger = logging.getLogger(__name__)
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
-    role: str = "user"  # admin, org_admin, user, ops, regulator
+    role: str = "user"  # admin, org_admin, user, ops, regulator (ignored if invitation_token provided)
     full_name: str | None = None  # Optional full name (not stored in DB yet)
+    invitation_token: str | None = None  # Optional invitation token for enterprise flow
 
 
 class LoginRequest(BaseModel):
@@ -59,11 +60,93 @@ async def register(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Register a new user
+    Register a new user (Enterprise/SOC2/ISO compliant)
     
-    In bootstrap mode (no users exist), first user can be admin.
-    Otherwise, only admins can create users (future: admin-only endpoint).
+    Two flows:
+    1. With invitation_token: Validates invitation, creates User + OrganizationUser
+    2. Without invitation_token: Normal standalone registration (bootstrap or admin-only)
     """
+    normalized_email = normalize_email(request.email)
+    
+    # Flow 1: Invitation-based registration (Enterprise/SOC2/ISO compliant)
+    if request.invitation_token:
+        logger.info(f"[Register] Step 1: Invitation-based registration for email: {normalized_email}")
+        
+        from backend.services.production_invitation import validate_invitation_token, accept_invitation
+        
+        # Validate invitation token
+        is_valid, error_message, invitation = await validate_invitation_token(db, request.invitation_token)
+        
+        if not is_valid or not invitation:
+            logger.warning(f"[Register] Invalid invitation token: {error_message}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_message or "Invalid invitation token"
+            )
+        
+        # Verify email matches invitation
+        if normalize_email(invitation.email) != normalized_email:
+            logger.warning(f"[Register] Email mismatch: invitation={invitation.email}, provided={normalized_email}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email does not match invitation"
+            )
+        
+        # Check if user already exists
+        result = await db.execute(select(User).where(User.email == normalized_email))
+        existing_user = result.scalar_one_or_none()
+        
+        if existing_user:
+            # User exists - check if already in organization
+            from backend.models.production import OrganizationUser
+            from sqlalchemy import and_
+            org_user_check = await db.execute(
+                select(OrganizationUser).where(
+                    and_(
+                        OrganizationUser.org_id == invitation.organization_id,
+                        OrganizationUser.user_id == existing_user.id
+                    )
+                )
+            )
+            if org_user_check.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="User is already a member of this organization"
+                )
+            
+            # Update password
+            from backend.services.production_auth import hash_password
+            existing_user.password_hash = hash_password(request.password)
+            await db.commit()
+            await db.refresh(existing_user)
+            user = existing_user
+        else:
+            # Create new user with role from invitation
+            user = await create_user(
+                db=db,
+                email=request.email,
+                password=request.password,
+                role="user"  # Default role, actual role comes from OrganizationUser
+            )
+        
+        # Accept invitation and create OrganizationUser
+        org_user = await accept_invitation(db, invitation, str(user.id))
+        
+        logger.info(f"[Register] Step 2: User registered via invitation. User ID: {user.id}, Org: {invitation.organization_id}, Role: {org_user.role}")
+        
+        # Create JWT token
+        access_token = create_access_token(user)
+        
+        return TokenResponse(
+            access_token=access_token,
+            user_id=str(user.id),
+            role=org_user.role,  # Use role from OrganizationUser
+            email=user.email
+        )
+    
+    # Flow 2: Standalone registration (bootstrap or admin-only)
+    logger.info(f"[Register] Step 1: Standalone registration for email: {normalized_email}, role: {request.role}")
+    
     # Check if bootstrap allowed
     is_bootstrap = await check_bootstrap_allowed(db)
     
@@ -84,16 +167,23 @@ async def register(
             )
     
     try:
-        logger.info(f"[Register] Step 1: Starting registration for email: {request.email}, role: {final_role}")
-        logger.info(f"[Register] Step 2: Calling create_user...")
+        # Check if user already exists
+        result = await db.execute(select(User).where(User.email == normalized_email))
+        existing_user = result.scalar_one_or_none()
         
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User with this email already exists. Use invitation flow or login."
+            )
+        
+        logger.info(f"[Register] Step 2: Creating new user...")
         user = await create_user(
             db=db,
             email=request.email,
             password=request.password,
             role=final_role
         )
-        
         logger.info(f"[Register] Step 3: User created successfully. User ID: {user.id}, Email: {user.email}")
         
         # Immediately test login with the same credentials

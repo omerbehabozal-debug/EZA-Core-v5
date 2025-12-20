@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_
 
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth import require_proxy_auth
@@ -20,7 +21,8 @@ from backend.services.production_org import (
     get_organization as db_get_organization,
     list_organizations as db_list_organizations,
     update_organization as db_update_organization,
-    archive_organization as db_archive_organization
+    archive_organization as db_archive_organization,
+    list_organization_users as db_list_organization_users
 )
 from backend.services.production_auth import get_user_by_id
 
@@ -336,6 +338,124 @@ async def delete_organization(
         "ok": True,
         "message": "Organization archived successfully"
     }
+
+
+@router.get("/organizations/{org_id}/users", response_model=Dict[str, Any])
+async def list_org_users(
+    org_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+):
+    """
+    List all users in an organization
+    """
+    user_role = current_user.get("role", "")
+    if user_role not in ["admin", "org_admin", "ops"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions"
+        )
+    
+    # Verify organization exists
+    org = await db_get_organization(db, org_id)
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+    
+    # Get users and invitations from database
+    result = await db_list_organization_users(db, org_id)
+    
+    return {
+        "ok": True,
+        "users": result.get("users", []),
+        "invitations": result.get("invitations", [])
+    }
+
+
+class InviteUserRequest(BaseModel):
+    email: str
+    role: str  # org_admin, user, ops
+
+
+@router.post("/organizations/{org_id}/users/invite", response_model=Dict[str, Any])
+async def invite_user(
+    org_id: str,
+    request: InviteUserRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+):
+    """
+    Invite a user to an organization (Enterprise/SOC2/ISO compliant)
+    
+    - DOES NOT create User
+    - DOES NOT create OrganizationUser
+    - ONLY creates Invitation record
+    - Returns invitation link with secure token
+    """
+    user_role = current_user.get("role", "")
+    if user_role not in ["admin", "org_admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can invite users"
+        )
+    
+    # Verify organization exists
+    org = await db_get_organization(db, org_id)
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+    
+    from backend.services.production_invitation import create_invitation
+    
+    try:
+        invited_by_user_id = current_user.get("user_id") or current_user.get("sub")
+        
+        invitation = await create_invitation(
+            db=db,
+            email=request.email,
+            organization_id=org_id,
+            role=request.role,
+            invited_by_user_id=str(invited_by_user_id) if invited_by_user_id else None
+        )
+        
+        # Generate invitation link (frontend will construct full URL)
+        invitation_link = f"/platform/register?token={invitation.token}"
+        
+        # Log audit
+        await _log_audit_db(
+            db=db,
+            action="USER_INVITED",
+            user_id=str(invited_by_user_id) if invited_by_user_id else None,
+            org_id=org_id,
+            metadata={
+                "invited_email": invitation.email,
+                "role": invitation.role,
+                "invitation_id": str(invitation.id),
+                "expires_at": invitation.expires_at.isoformat() if invitation.expires_at else None
+            }
+        )
+        
+        logger.info(f"[Invite] Created invitation for {invitation.email} to org {org_id} with role {invitation.role}")
+        
+        return {
+            "ok": True,
+            "message": f"Invitation created for {invitation.email}",
+            "invitation_id": str(invitation.id),
+            "email": invitation.email,
+            "role": invitation.role,
+            "token": invitation.token,  # For email service integration
+            "invitation_link": invitation_link,
+            "expires_at": invitation.expires_at.isoformat() if invitation.expires_at else None
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 async def _log_audit_db(
