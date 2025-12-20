@@ -29,9 +29,9 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    organization_users = relationship("OrganizationUser", back_populates="user", cascade="all, delete-orphan")
+    organization_users = relationship("backend.models.production.OrganizationUser", back_populates="user", cascade="all, delete-orphan")
     audit_logs = relationship("backend.models.production.AuditLog", back_populates="user")
-    api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
+    api_keys = relationship("backend.models.production.ApiKey", back_populates="user", cascade="all, delete-orphan")
 
 
 class Organization(Base):

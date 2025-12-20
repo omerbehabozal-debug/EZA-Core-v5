@@ -22,7 +22,7 @@ class Application(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    institution = relationship("Institution", back_populates="applications")
-    api_keys = relationship("APIKey", back_populates="application")
+    institution = relationship("backend.models.institution.Institution", back_populates="applications")
+    api_keys = relationship("backend.models.api_key.APIKey", back_populates="application")
 
 

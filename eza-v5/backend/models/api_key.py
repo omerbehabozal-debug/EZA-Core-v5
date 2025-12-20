@@ -26,7 +26,7 @@ class APIKey(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    user = relationship("LegacyUser", back_populates="api_keys")
-    institution = relationship("Institution", back_populates="api_keys")
-    application = relationship("Application", back_populates="api_keys")
+    user = relationship("backend.models.user.LegacyUser", back_populates="api_keys")
+    institution = relationship("backend.models.institution.Institution", back_populates="api_keys")
+    application = relationship("backend.models.application.Application", back_populates="api_keys")
 
