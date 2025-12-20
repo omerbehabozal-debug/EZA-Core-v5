@@ -33,6 +33,7 @@ EXCLUDED_PATHS = [
     "/health",
     "/api/auth",
     "/api/platform/organizations",  # Organizations CRUD endpoint
+    "/api/platform/proxy/organizations",  # Proxy organizations endpoint (for proxy.ezacore.ai)
     "/docs",
     "/openapi.json",
     "/redoc",
@@ -49,8 +50,10 @@ def is_protected_path(path: str) -> bool:
     # Check if path matches protected prefixes
     for prefix in PROTECTED_PREFIXES:
         if path.startswith(prefix):
-            # Special case: /api/platform/organizations is excluded
+            # Special cases: organization listing endpoints are excluded (called before org selection)
             if path.startswith("/api/platform/organizations"):
+                return False
+            if path.startswith("/api/platform/proxy/organizations"):
                 return False
             return True
     
