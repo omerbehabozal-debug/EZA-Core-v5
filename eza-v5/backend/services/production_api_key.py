@@ -210,7 +210,7 @@ async def resolve_api_key_for_organization(
             )
         ).order_by(ApiKey.created_at.desc())
     )
-    api_key_obj = result.first()
+    api_key_obj = result.scalar_one_or_none()
     
     if not api_key_obj:
         logger.warning(f"[APIKey] No active API key found for organization: {org_id}")
