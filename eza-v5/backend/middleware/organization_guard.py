@@ -134,6 +134,10 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
     """
     
     async def dispatch(self, request: Request, call_next):
+        # Skip organization guard for OPTIONS requests (CORS preflight)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        
         # Skip organization guard for excluded paths
         if not is_protected_path(request.url.path):
             return await call_next(request)

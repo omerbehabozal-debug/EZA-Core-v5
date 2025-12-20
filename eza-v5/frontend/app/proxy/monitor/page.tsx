@@ -23,7 +23,8 @@ export default function MonitorPage() {
 
   useEffect(() => {
     // Get org_id and role from localStorage or context
-    const storedOrgId = localStorage.getItem('org_id') || 'demo-media-group';
+    // No fallback to demo organization - must have valid org_id
+    const storedOrgId = localStorage.getItem('org_id');
     const storedRole = localStorage.getItem('user_role') || 'admin';
     
     setOrgId(storedOrgId);
