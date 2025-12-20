@@ -15,24 +15,16 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { useOrganization } from '@/context/OrganizationContext';
+import { useOrganization, Organization } from '@/context/OrganizationContext';
 import RequireAuth from '@/components/auth/RequireAuth';
 
 const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
-
-interface ProxyOrganization {
-  id: string;
-  name: string;
-  plan: string;
-  status: string;
-  proxy_access: boolean;
-}
 
 function ProxyOrganizationSelectionContent() {
   const router = useRouter();
   const { token, isAuthenticated } = useAuth();
   const { setCurrentOrganization } = useOrganization();
-  const [organizations, setOrganizations] = useState<ProxyOrganization[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
@@ -70,7 +62,7 @@ function ProxyOrganizationSelectionContent() {
           throw new Error(data.detail || 'Failed to load organizations');
         }
 
-        const orgs = (data.organizations || []).filter((org: ProxyOrganization) => 
+        const orgs = (data.organizations || []).filter((org: Organization) => 
           org.proxy_access === true && org.status === 'active'
         );
 
