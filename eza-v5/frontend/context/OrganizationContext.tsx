@@ -138,7 +138,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           
           // Check if stored org is valid (exists in API response)
           if (storedOrg) {
-            const isValidOrg = data.organizations.some(org => org.id === storedOrg!.id);
+            const isValidOrg = data.organizations.some((org: Organization) => org.id === storedOrg!.id);
             if (!isValidOrg) {
               // Stored org is invalid (e.g., old demo org), clear it
               console.warn('Stored organization is not valid, clearing from localStorage');
