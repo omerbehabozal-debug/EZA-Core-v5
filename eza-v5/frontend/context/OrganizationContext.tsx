@@ -27,6 +27,7 @@ interface OrganizationContextType {
   createOrganization: (org: Partial<Organization>) => Promise<Organization | null>;
   updateOrganization: (orgId: string, updates: Partial<Organization>) => Promise<boolean>;
   suspendOrganization: (orgId: string) => Promise<boolean>;
+  deleteOrganization: (orgId: string) => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -295,6 +296,71 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     return updateOrganization(orgId, { status: 'suspended' });
   };
 
+  // Delete (archive) organization
+  const deleteOrganization = async (orgId: string): Promise<boolean> => {
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'http://localhost:8000';
+      
+      // Get token from production storage (eza_token)
+      const token = localStorage.getItem('eza_token');
+      
+      if (!token) {
+        console.error('No token found. User must be logged in.');
+        return false;
+      }
+      
+      const apiKey = localStorage.getItem('proxy_api_key');
+
+      const res = await fetch(`${API_BASE_URL}/api/platform/organizations/${orgId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Api-Key': apiKey || '',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (res.status === 401) {
+        // 401 = Unauthorized - token is invalid/expired
+        console.warn('Authentication failed during organization deletion. Token may be expired or invalid.');
+        localStorage.removeItem('eza_token');
+        localStorage.removeItem('eza_user');
+        window.dispatchEvent(new CustomEvent('auth-expired'));
+        return false;
+      }
+      
+      if (res.status === 403) {
+        // 403 = Forbidden - permission issue
+        console.warn('Permission denied during organization deletion. Only admin role can delete organizations.');
+        return false;
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok) {
+          // Remove from organizations list
+          setOrganizations(organizations.filter(org => org.id !== orgId));
+          
+          // If deleted org was current, clear it
+          if (currentOrganization?.id === orgId) {
+            setCurrentOrganization(null);
+            localStorage.removeItem(ORG_STORAGE_KEY);
+          }
+          
+          return true;
+        }
+      }
+      
+      // Log error details for debugging
+      const errorText = await res.text();
+      console.error(`Failed to delete organization: ${res.status} ${res.statusText}`, errorText);
+      return false;
+    } catch (error) {
+      console.error('Failed to delete organization:', error);
+      return false;
+    }
+  };
+
   // Load organizations on mount
   useEffect(() => {
     loadOrganizations();
@@ -308,6 +374,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     createOrganization,
     updateOrganization,
     suspendOrganization,
+    deleteOrganization,
     isLoading,
   };
 

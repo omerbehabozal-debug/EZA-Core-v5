@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import RequireAuth from '@/components/auth/RequireAuth';
 import Tabs, { TabList, Tab, TabPanel } from '../proxy/components/Tabs';
 import ApiKeyManagement from '../proxy/management/components/ApiKeyManagement';
@@ -33,10 +33,11 @@ function PlatformPageContent() {
   const hasPlatformAccess = role && PLATFORM_ROLES.includes(role);
   
   // If no organization selected, force organizations tab
-  const hasOrganization = !!currentOrganization;
+  // Use useMemo to ensure it updates when currentOrganization changes
+  const hasOrganization = useMemo(() => !!currentOrganization, [currentOrganization]);
 
   // Use current organization ID
-  const orgId = currentOrganization?.id || null;
+  const orgId = useMemo(() => currentOrganization?.id || null, [currentOrganization]);
 
   // Wrapper function to handle tab changes
   const handleTabChange = (tab: string) => {

@@ -21,6 +21,7 @@ function OrganizationsPageContent() {
     createOrganization,
     updateOrganization,
     suspendOrganization,
+    deleteOrganization,
     isLoading,
   } = useOrganization();
 
@@ -68,6 +69,9 @@ function OrganizationsPageContent() {
         proxy_access: true,
         status: 'active',
       });
+      // Redirect to platform main page after creating organization
+      // This allows user to access other tabs
+      window.location.href = '/platform';
     }
   };
 
@@ -97,7 +101,19 @@ function OrganizationsPageContent() {
 
   const handleSuspend = async (orgId: string) => {
     if (confirm('Bu organizasyonu askıya almak istediğinizden emin misiniz?')) {
-      await suspendOrganization(orgId);
+      const success = await suspendOrganization(orgId);
+      if (success) {
+        loadOrganizations(); // Reload to refresh list
+      }
+    }
+  };
+
+  const handleDelete = async (orgId: string) => {
+    if (confirm('Bu organizasyonu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz!')) {
+      const success = await deleteOrganization(orgId);
+      if (success) {
+        loadOrganizations(); // Reload to refresh list
+      }
     }
   };
 
@@ -282,6 +298,18 @@ function OrganizationsPageContent() {
                         }}
                       >
                         🗑 Suspend
+                      </button>
+                    )}
+                    {role === 'admin' && (
+                      <button
+                        onClick={() => handleDelete(org.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:opacity-90"
+                        style={{
+                          backgroundColor: '#dc2626',
+                          color: 'white',
+                        }}
+                      >
+                        🗑️ Delete
                       </button>
                     )}
                   </div>
