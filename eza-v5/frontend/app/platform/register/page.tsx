@@ -6,13 +6,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
 
+// Force dynamic rendering to avoid Suspense issues with search params
+export const dynamic = 'force-dynamic';
+
 export default function PlatformRegisterPage() {
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -24,13 +26,16 @@ export default function PlatformRegisterPage() {
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
   const router = useRouter();
 
-  // Check for invitation token in URL
+  // Check for invitation token in URL (using window.location.search to avoid Suspense requirement)
   useEffect(() => {
-    const token = searchParams?.get('token');
-    if (token) {
-      setInvitationToken(token);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      if (token) {
+        setInvitationToken(token);
+      }
     }
-  }, [searchParams]);
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
