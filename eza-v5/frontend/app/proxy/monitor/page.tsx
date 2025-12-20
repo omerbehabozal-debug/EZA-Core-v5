@@ -7,6 +7,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { getApiUrl, getWebSocketUrl } from "@/lib/apiUrl";
+import { useOrganization } from "@/context/OrganizationContext";
+import { useAuth } from "@/context/AuthContext";
 import Tabs, { TabList, Tab, TabPanel } from "../components/Tabs";
 import CorporateSLAMonitor from "./components/CorporateSLAMonitor";
 import RegulatorTelemetry from "./components/RegulatorTelemetry";
@@ -16,27 +18,32 @@ const API_BASE_URL = getApiUrl();
 const WS_BASE_URL = getWebSocketUrl();
 
 export default function MonitorPage() {
+  const { currentOrganization } = useOrganization();
+  const { role } = useAuth();
   const [activeTab, setActiveTab] = useState<'corporate' | 'regulator'>('corporate');
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string>('admin');
   const [accessDenied, setAccessDenied] = useState(false);
 
+  // Get orgId from OrganizationContext (UUID format)
+  const orgId = currentOrganization?.id || null;
+  const userRole = role || 'admin';
+
   useEffect(() => {
-    // Get org_id and role from localStorage or context
-    // No fallback to demo organization - must have valid org_id
-    const storedOrgId = localStorage.getItem('org_id');
-    const storedRole = localStorage.getItem('user_role') || 'admin';
-    
-    setOrgId(storedOrgId);
-    setUserRole(storedRole);
-    
     // Check regulator access
-    if (activeTab === 'regulator' && storedRole !== 'regulator') {
+    if (activeTab === 'regulator' && userRole !== 'regulator') {
       setAccessDenied(true);
     } else {
       setAccessDenied(false);
     }
-  }, [activeTab]);
+  }, [activeTab, userRole]);
+  
+  // Clean up old localStorage keys on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Remove legacy keys that might contain demo-media-group
+      localStorage.removeItem('org_id');
+      localStorage.removeItem('user_role');
+    }
+  }, []);
 
   // Wrapper function to handle tab changes from Tabs component
   const handleTabChange = (tab: string) => {

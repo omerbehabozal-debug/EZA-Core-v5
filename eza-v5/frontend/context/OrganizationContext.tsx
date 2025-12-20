@@ -44,14 +44,44 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   // Load current organization from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Clean up legacy localStorage keys (migration)
+      try {
+        // Remove old string-based org_id and user_role keys
+        const oldOrgId = localStorage.getItem('org_id');
+        const oldUserRole = localStorage.getItem('user_role');
+        
+        if (oldOrgId || oldUserRole) {
+          console.log('[OrgContext] Cleaning up legacy localStorage keys...');
+          localStorage.removeItem('org_id');
+          localStorage.removeItem('user_role');
+          
+          // If old org_id was a non-UUID (like "demo-media-group"), ignore it
+          if (oldOrgId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldOrgId)) {
+            console.warn('[OrgContext] Removed legacy non-UUID org_id:', oldOrgId);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to clean up legacy keys:', error);
+      }
+      
+      // Load current organization from new storage key
       try {
         const stored = localStorage.getItem(ORG_STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          setCurrentOrganizationState(parsed);
+          // Validate that parsed org has UUID format id
+          if (parsed && parsed.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed.id)) {
+            setCurrentOrganizationState(parsed);
+          } else {
+            // Invalid format, clear it
+            console.warn('[OrgContext] Invalid organization format in localStorage, clearing...');
+            localStorage.removeItem(ORG_STORAGE_KEY);
+          }
         }
       } catch (error) {
         console.error('Failed to load organization from localStorage:', error);
+        // Clear corrupted data
+        localStorage.removeItem(ORG_STORAGE_KEY);
       }
     }
   }, []);

@@ -37,6 +37,11 @@ export default function AlertBanner({ orgId, userRole }: AlertBannerProps) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(orgId)) {
       console.warn('[AlertBanner] Invalid orgId format (not a UUID):', orgId);
+      // Clear any legacy localStorage keys if invalid orgId detected
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('org_id');
+        localStorage.removeItem('user_role');
+      }
       return;
     }
 
