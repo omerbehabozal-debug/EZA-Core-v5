@@ -8,8 +8,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { HistoryResponse, IntentLog, ImpactEvent } from '@/api/proxy_corporate';
+import { HistoryResponse, IntentLog, ImpactEvent, softDeleteAnalysis } from '@/api/proxy_corporate';
 import { useOrganization } from '@/context/OrganizationContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface AnalysisHistoryPanelProps {
   history: HistoryResponse | null;
@@ -25,10 +26,14 @@ export default function AnalysisHistoryPanel({
   onRefresh
 }: AnalysisHistoryPanelProps) {
   const { currentOrganization } = useOrganization();
+  const { user } = useAuth();
   const router = useRouter();
   const [selectedIntent, setSelectedIntent] = useState<IntentLog | null>(null);
   const [selectedImpact, setSelectedImpact] = useState<ImpactEvent | null>(null);
   const [activeView, setActiveView] = useState<'intents' | 'impacts'>('intents');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   
   const truncateContent = (content: string | null | undefined, maxLength: number = 140): string => {
     if (!content) return 'İçerik mevcut değil';
@@ -101,6 +106,45 @@ export default function AnalysisHistoryPanel({
         return 'Harici Entegrasyon';
       default:
         return type;
+    }
+  };
+
+  // Check if user can delete (owner or org admin)
+  const canDelete = (intent: IntentLog | ImpactEvent): boolean => {
+    if (!user) return false;
+    const userRole = user.role || '';
+    const isOrgAdmin = ['admin', 'org_admin', 'ops'].includes(userRole);
+    const userId = user.user_id || user.id;
+    
+    // For Intent Logs: owner or org admin can delete
+    if ('user_id' in intent) {
+      return isOrgAdmin || intent.user_id === userId;
+    }
+    
+    // For Impact Events: only org admin can delete
+    return isOrgAdmin;
+  };
+
+  // Handle soft delete
+  const handleDelete = async (analysisId: string) => {
+    if (!currentOrganization?.id) {
+      setDeleteError('Organizasyon seçilmedi.');
+      return;
+    }
+
+    setDeletingId(analysisId);
+    setDeleteError(null);
+
+    try {
+      await softDeleteAnalysis(analysisId, currentOrganization.id);
+      setShowDeleteConfirm(null);
+      // Refresh history after deletion
+      onRefresh();
+    } catch (err: any) {
+      console.error('[History] Delete error:', err);
+      setDeleteError(err.message || 'Silme işlemi başarısız oldu.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -287,17 +331,42 @@ export default function AnalysisHistoryPanel({
                       </div>
                     )}
                     
-                    {/* View Snapshot Button */}
-                    <button
-                      onClick={() => router.push(`/proxy/analysis/${intent.id}`)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-                      style={{
-                        backgroundColor: 'var(--proxy-action-primary)',
-                        color: '#FFFFFF',
-                      }}
-                    >
-                      Analiz Detaylarını Gör
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => router.push(`/proxy/analysis/${intent.id}`)}
+                        className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+                        style={{
+                          backgroundColor: 'var(--proxy-action-primary)',
+                          color: '#FFFFFF',
+                        }}
+                      >
+                        Analiz Detaylarını Gör
+                      </button>
+                      
+                      {/* Delete Button (only if user can delete) */}
+                      {canDelete(intent) && (
+                        <button
+                          onClick={() => setShowDeleteConfirm(intent.id)}
+                          disabled={deletingId === intent.id}
+                          className="p-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: 'var(--proxy-danger)',
+                            border: '1px solid var(--proxy-danger)',
+                          }}
+                          title="Geçmişten kaldır"
+                        >
+                          {deletingId === intent.id ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -359,17 +428,42 @@ export default function AnalysisHistoryPanel({
                       </div>
                     )}
                     
-                    {/* View Snapshot Button */}
-                    <button
-                      onClick={() => router.push(`/proxy/analysis/${impact.id}`)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-                      style={{
-                        backgroundColor: 'var(--proxy-action-primary)',
-                        color: '#FFFFFF',
-                      }}
-                    >
-                      Analiz Detaylarını Gör
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => router.push(`/proxy/analysis/${impact.id}`)}
+                        className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+                        style={{
+                          backgroundColor: 'var(--proxy-action-primary)',
+                          color: '#FFFFFF',
+                        }}
+                      >
+                        Analiz Detaylarını Gör
+                      </button>
+                      
+                      {/* Delete Button (only org admin can delete Impact Events) */}
+                      {canDelete(impact) && (
+                        <button
+                          onClick={() => setShowDeleteConfirm(impact.id)}
+                          disabled={deletingId === impact.id}
+                          className="p-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: 'var(--proxy-danger)',
+                            border: '1px solid var(--proxy-danger)',
+                          }}
+                          title="Geçmişten kaldır"
+                        >
+                          {deletingId === impact.id ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -409,6 +503,76 @@ export default function AnalysisHistoryPanel({
           impact={selectedImpact}
           onClose={() => setSelectedImpact(null)}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+          onClick={() => {
+            setShowDeleteConfirm(null);
+            setDeleteError(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6"
+            style={{
+              backgroundColor: 'var(--proxy-surface)',
+              border: '1px solid var(--proxy-border-soft)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--proxy-text-primary)' }}>
+              Analizi Geçmişten Kaldır
+            </h3>
+            
+            <p className="text-sm mb-4" style={{ color: 'var(--proxy-text-secondary)' }}>
+              Bu analiz geçmişinizden kaldırılacaktır. Sistem kayıtları korunur.
+            </p>
+            
+            <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)', border: '1px solid var(--proxy-action-primary)' }}>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--proxy-text-secondary)' }}>
+                <strong>Not:</strong> Silinen analizler yalnızca kullanıcı geçmişinden kaldırılır. Denetim ve güvenlik amaçlı sistem kayıtları saklanır.
+              </p>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--proxy-danger)' }}>
+                <p className="text-sm" style={{ color: 'var(--proxy-danger)' }}>{deleteError}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleDelete(showDeleteConfirm)}
+                disabled={deletingId === showDeleteConfirm}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--proxy-danger)',
+                  color: '#FFFFFF',
+                }}
+              >
+                {deletingId === showDeleteConfirm ? 'Kaldırılıyor...' : 'Kaldır'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(null);
+                  setDeleteError(null);
+                }}
+                disabled={deletingId === showDeleteConfirm}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--proxy-surface)',
+                  color: 'var(--proxy-text-primary)',
+                  border: '1px solid var(--proxy-border-soft)',
+                }}
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

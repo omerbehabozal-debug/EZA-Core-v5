@@ -475,6 +475,54 @@ export async function saveAnalysis(
 }
 
 /**
+ * Soft delete an analysis record (hides from user history, keeps in audit logs)
+ */
+export async function softDeleteAnalysis(
+  analysisId: string,
+  orgId?: string | null
+): Promise<{ success: boolean; message: string } | null> {
+  try {
+    if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+      throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured.');
+    }
+    
+    const url = `${API_BASE_URL}/api/proxy/analysis/${analysisId}`;
+    
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: getAuthHeaders(orgId),
+    });
+    
+    if (!res.ok) {
+      // Handle token expiration
+      if (res.status === 401 || res.status === 403) {
+        // Dispatch auth-expired event to trigger logout
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-expired'));
+        }
+        throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
+      }
+      
+      const errorText = await res.text();
+      let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.detail || errorJson.message || errorMessage;
+      } catch {
+        if (errorText) errorMessage = errorText.substring(0, 200);
+      }
+      throw new Error(errorMessage);
+    }
+    
+    const data = await res.json();
+    return data;
+  } catch (e: any) {
+    console.error('[Proxy] Soft delete analysis error:', e);
+    throw e;
+  }
+}
+
+/**
  * Get full read-only snapshot of an analysis
  */
 export async function getAnalysisSnapshot(

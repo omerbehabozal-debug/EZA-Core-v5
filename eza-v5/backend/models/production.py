@@ -204,6 +204,13 @@ class IntentLog(Base):
     # Immutability - Intent logs can NEVER be deleted or updated
     immutable = Column(Boolean, nullable=False, default=True)
     
+    # Soft Delete (User Visibility Control)
+    # CRITICAL: This does NOT delete the record, only hides it from user history
+    # Audit logs, regulator views, and telemetry MUST ignore this flag
+    deleted_by_user = Column(Boolean, nullable=False, default=False, index=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by_user_id = Column(UUID(as_uuid=True), ForeignKey("production_users.id", ondelete="SET NULL"), nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     
@@ -242,6 +249,13 @@ class ImpactEvent(Base):
     
     # Immutability - Impact events can NEVER be deleted or updated
     immutable = Column(Boolean, nullable=False, default=True)
+    
+    # Soft Delete (User Visibility Control)
+    # CRITICAL: This does NOT delete the record, only hides it from user history
+    # Audit logs, regulator views, and telemetry MUST ignore this flag
+    deleted_by_user = Column(Boolean, nullable=False, default=False, index=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by_user_id = Column(UUID(as_uuid=True), ForeignKey("production_users.id", ondelete="SET NULL"), nullable=True)
     
     # Relationships
     intent_log = relationship("backend.models.production.IntentLog", back_populates="impact_events")

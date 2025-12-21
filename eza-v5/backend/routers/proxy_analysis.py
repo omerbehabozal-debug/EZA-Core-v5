@@ -495,8 +495,14 @@ async def get_history(
         is_legal_management = user_role in ["admin", "org_admin", "ops", "auditor"]
         
         # Get Intent Logs
+        # CRITICAL: Filter out soft-deleted records for user-facing queries
+        # Admin/Regulator views should NOT apply this filter (but we don't have a separate endpoint for them yet)
+        # For now, we apply the filter for all user-facing queries
         intent_query = select(IntentLog).where(
-            IntentLog.organization_id == org_uuid
+            and_(
+                IntentLog.organization_id == org_uuid,
+                IntentLog.deleted_by_user == False  # Soft delete filter - hide from user history
+            )
         )
         
         # Editors can only see their own Intent Logs
@@ -507,7 +513,10 @@ async def get_history(
         
         # Get total count
         count_query = select(func.count(IntentLog.id)).where(
-            IntentLog.organization_id == org_uuid
+            and_(
+                IntentLog.organization_id == org_uuid,
+                IntentLog.deleted_by_user == False  # Soft delete filter
+            )
         )
         if is_editor:
             count_query = count_query.where(IntentLog.user_id == user_uuid)
@@ -528,16 +537,23 @@ async def get_history(
         
         if is_legal_management:
             # Get Impact Events for this organization (via Intent Logs)
+            # CRITICAL: Filter out soft-deleted records for user-facing queries
             impact_query = select(ImpactEvent).join(
                 IntentLog, ImpactEvent.intent_log_id == IntentLog.id
             ).where(
-                IntentLog.organization_id == org_uuid
+                and_(
+                    IntentLog.organization_id == org_uuid,
+                    ImpactEvent.deleted_by_user == False  # Soft delete filter
+                )
             ).order_by(desc(ImpactEvent.occurred_at))
             
             impact_count_query = select(func.count(ImpactEvent.id)).join(
                 IntentLog, ImpactEvent.intent_log_id == IntentLog.id
             ).where(
-                IntentLog.organization_id == org_uuid
+                and_(
+                    IntentLog.organization_id == org_uuid,
+                    ImpactEvent.deleted_by_user == False  # Soft delete filter
+                )
             )
             
             total_impacts_result = await db.execute(impact_count_query)
@@ -625,6 +641,8 @@ async def get_regulator_telemetry(
     """
     try:
         # Build query for Intent Logs (aggregated, anonymous)
+        # CRITICAL: Regulator views MUST NOT apply soft delete filter
+        # Regulator needs to see ALL records for compliance monitoring
         base_query = select(IntentLog).where(IntentLog.organization_id.isnot(None))
         
         # Apply filters
@@ -931,3 +949,202 @@ def _get_impact_type_label(impact_type: str) -> str:
         "external_integration": "Harici Entegrasyon"
     }
     return labels.get(impact_type, impact_type)
+
+
+@router.delete("/{analysis_id}")
+async def soft_delete_analysis(
+    analysis_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production),
+    x_org_id: Optional[str] = Header(None, alias="x-org-id")
+):
+    """
+    Soft delete an analysis record (Intent Log or Impact Event)
+    
+    CRITICAL: This does NOT delete the record, only hides it from user history.
+    - Sets deleted_by_user = True
+    - Sets deleted_at = current timestamp
+    - Sets deleted_by_user_id = current user
+    
+    The record remains in:
+    - Audit logs
+    - Regulator views
+    - Telemetry & aggregation
+    - Impact Event pipelines
+    
+    Permission Rules:
+    - Only analysis owner (user_id matches) OR organization admin can delete
+    - Regulators CANNOT delete
+    """
+    try:
+        user_id = current_user.get('user_id') or current_user.get('sub')
+        org_id = x_org_id or current_user.get('org_id')
+        user_role = current_user.get('role', '')
+        
+        if not user_id or not org_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Kullanıcı veya organizasyon bağlamı eksik."
+            )
+        
+        # Regulators cannot delete
+        if user_role == "regulator":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Regulator kullanıcıları analiz kayıtlarını silemez."
+            )
+        
+        # Validate user is member of organization
+        is_member = await check_user_organization_membership(db, str(user_id), str(org_id))
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bu organizasyona erişim yetkiniz bulunmamaktadır."
+            )
+        
+        org_uuid = uuid.UUID(str(org_id))
+        user_uuid = uuid.UUID(str(user_id))
+        analysis_uuid = None
+        
+        try:
+            analysis_uuid = uuid.UUID(analysis_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Geçersiz analysis_id formatı."
+            )
+        
+        # Check if user is org_admin or ops (can delete any record in org)
+        is_org_admin = user_role in ["admin", "org_admin", "ops"]
+        
+        # Try to find as Intent Log first
+        intent_result = await db.execute(
+            select(IntentLog).where(
+                and_(
+                    IntentLog.id == analysis_uuid,
+                    IntentLog.organization_id == org_uuid
+                )
+            )
+        )
+        intent_log = intent_result.scalar_one_or_none()
+        
+        if intent_log:
+            # Permission check: Only owner or org admin can delete
+            if not is_org_admin and intent_log.user_id != user_uuid:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Bu analizi silme yetkiniz bulunmamaktadır. Sadece analiz sahibi veya organizasyon yöneticisi silebilir."
+                )
+            
+            # Check if already deleted
+            if intent_log.deleted_by_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Bu analiz zaten silinmiş."
+                )
+            
+            # Soft delete: Set flags (DO NOT delete the record)
+            intent_log.deleted_by_user = True
+            intent_log.deleted_at = datetime.now()
+            intent_log.deleted_by_user_id = user_uuid
+            
+            await db.commit()
+            await db.refresh(intent_log)
+            
+            # Audit log
+            await log_analysis_audit(
+                db=db,
+                event_type="intent_log_soft_deleted",
+                user_id=str(user_id),
+                org_id=str(org_id),
+                record_id=str(intent_log.id),
+                metadata={
+                    "deleted_by": str(user_id),
+                    "deleted_at": intent_log.deleted_at.isoformat(),
+                    "note": "Soft delete - record remains in audit logs and regulator views"
+                }
+            )
+            
+            logger.info(f"[Intent] Soft deleted: id={intent_log.id}, deleted_by={user_id}, org_id={org_id}")
+            
+            return {
+                "success": True,
+                "message": "Analiz geçmişinizden kaldırıldı. Sistem kayıtları korunur.",
+                "analysis_id": str(intent_log.id),
+                "analysis_type": "intent_log"
+            }
+        
+        # Try to find as Impact Event
+        impact_result = await db.execute(
+            select(ImpactEvent).join(
+                IntentLog, ImpactEvent.intent_log_id == IntentLog.id
+            ).where(
+                and_(
+                    ImpactEvent.id == analysis_uuid,
+                    IntentLog.organization_id == org_uuid
+                )
+            )
+        )
+        impact_event = impact_result.scalar_one_or_none()
+        
+        if impact_event:
+            # Permission check: Only org admin can delete Impact Events (they are system-generated)
+            # Regular users cannot delete Impact Events
+            if not is_org_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Impact Event kayıtlarını sadece organizasyon yöneticileri silebilir."
+                )
+            
+            # Check if already deleted
+            if impact_event.deleted_by_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Bu analiz zaten silinmiş."
+                )
+            
+            # Soft delete: Set flags (DO NOT delete the record)
+            impact_event.deleted_by_user = True
+            impact_event.deleted_at = datetime.now()
+            impact_event.deleted_by_user_id = user_uuid
+            
+            await db.commit()
+            await db.refresh(impact_event)
+            
+            # Audit log
+            await log_analysis_audit(
+                db=db,
+                event_type="impact_event_soft_deleted",
+                user_id=str(user_id),
+                org_id=str(org_id),
+                record_id=str(impact_event.id),
+                metadata={
+                    "deleted_by": str(user_id),
+                    "deleted_at": impact_event.deleted_at.isoformat(),
+                    "note": "Soft delete - record remains in audit logs and regulator views"
+                }
+            )
+            
+            logger.info(f"[Impact] Soft deleted: id={impact_event.id}, deleted_by={user_id}, org_id={org_id}")
+            
+            return {
+                "success": True,
+                "message": "Analiz geçmişinizden kaldırıldı. Sistem kayıtları korunur.",
+                "analysis_id": str(impact_event.id),
+                "analysis_type": "impact_event"
+            }
+        
+        # Not found
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analiz kaydı bulunamadı."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Soft Delete] Error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Analiz silinemedi: {str(e)}"
+        )
