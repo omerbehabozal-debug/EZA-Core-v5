@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { getApiUrl } from "@/lib/apiUrl";
+import { isTokenExpired } from "@/lib/jwtUtils";
 const API_BASE_URL = getApiUrl();
 
 interface AlertBannerProps {
@@ -48,9 +49,19 @@ export default function AlertBanner({ orgId, userRole }: AlertBannerProps) {
     const loadRecentAlerts = async () => {
       try {
         const token = localStorage.getItem('eza_token');
+        
+        // Check token expiry before making request
+        if (!token || isTokenExpired(token) === true) {
+          // Token expired - dispatch auth-expired event and stop polling
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('auth-expired'));
+          }
+          return;
+        }
+        
         const apiKey = localStorage.getItem('proxy_api_key');
         const headers: Record<string, string> = {
-          'Authorization': `Bearer ${token || ''}`,
+          'Authorization': `Bearer ${token}`,
           'X-Api-Key': apiKey || '',
           'x-org-id': orgId,
         };
@@ -89,7 +100,19 @@ export default function AlertBanner({ orgId, userRole }: AlertBannerProps) {
     };
 
     loadRecentAlerts();
-    const interval = setInterval(loadRecentAlerts, 30000); // Refresh every 30 seconds
+    const interval = setInterval(() => {
+      // Check token before each poll
+      const token = localStorage.getItem('eza_token');
+      if (!token || isTokenExpired(token) === true) {
+        // Token expired - stop polling
+        clearInterval(interval);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-expired'));
+        }
+        return;
+      }
+      loadRecentAlerts();
+    }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
   }, [orgId, userRole]);
