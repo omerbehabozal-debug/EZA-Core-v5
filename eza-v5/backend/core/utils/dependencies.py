@@ -29,8 +29,22 @@ elif DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 # If already has +asyncpg, keep it as is
 
-engine = create_async_engine(DATABASE_URL, echo=True)
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+# Configure engine with pool settings to prevent connection issues
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=True,
+    pool_pre_ping=True,  # Verify connections before using
+    pool_recycle=3600,   # Recycle connections after 1 hour
+    pool_size=10,        # Maximum number of connections in pool
+    max_overflow=20      # Maximum overflow connections
+)
+AsyncSessionLocal = async_sessionmaker(
+    engine, 
+    class_=AsyncSession, 
+    expire_on_commit=False,
+    autoflush=False,     # Don't autoflush (we'll commit explicitly)
+    autocommit=False     # Don't autocommit
+)
 Base = declarative_base()
 
 # Redis - Get from settings
@@ -42,11 +56,22 @@ security = HTTPBearer()
 
 
 async def get_db() -> AsyncSession:
-    """Database session dependency"""
+    """
+    Database session dependency
+    
+    Note: Commit should be done explicitly in endpoints.
+    This dependency only provides the session and handles cleanup.
+    """
     async with AsyncSessionLocal() as session:
         try:
             yield session
+        except Exception:
+            # Rollback on any exception
+            await session.rollback()
+            raise
         finally:
+            # Close session (this will also close the connection)
+            # Don't commit here - endpoints should commit explicitly
             await session.close()
 
 
