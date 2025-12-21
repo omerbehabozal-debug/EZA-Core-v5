@@ -22,6 +22,7 @@ import DecisionJustification from "./components/DecisionJustification";
 import AuditPanel from "./components/AuditPanel";
 import PipelineDiagram from "./components/PipelineDiagram";
 import AnalysisHistoryPanel from "./components/AnalysisHistoryPanel";
+import Toast from "../proxy-lite/components/Toast";
 
 function ProxyCorporatePageContent() {
   const { currentOrganization, isLoading: orgLoading } = useOrganization();
@@ -36,6 +37,7 @@ function ProxyCorporatePageContent() {
   const [analysisHistory, setAnalysisHistory] = useState<HistoryResponse | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   
   // Configuration
   const [domain, setDomain] = useState<'finance' | 'health' | 'retail' | 'media' | 'autonomous' | ''>('');
@@ -91,15 +93,11 @@ function ProxyCorporatePageContent() {
       );
       
       if (intentLog) {
-        // Show success message (using toast if available)
-        if (typeof window !== 'undefined' && (window as any).setToast) {
-          (window as any).setToast({
-            type: 'success',
-            message: 'Yayına hazırlık analizi kaydedildi. Niyet kaydı oluşturuldu.',
-          });
-        } else {
-          alert('Yayına hazırlık analizi kaydedildi.');
-        }
+        // Show success message with premium toast
+        setToast({
+          type: 'success',
+          message: 'Yayına hazırlık analizi kaydedildi. Niyet kaydı oluşturuldu.',
+        });
         
         // Refresh history if on history tab
         if (activeTab === 'history') {
@@ -553,7 +551,21 @@ function ProxyCorporatePageContent() {
 
                 <button
                   type="button"
-                  onClick={() => navigator.clipboard.writeText(rewriteResult.rewritten_content)}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(rewriteResult.rewritten_content);
+                      setToast({
+                        type: 'success',
+                        message: 'İçerik panoya kopyalandı',
+                      });
+                    } catch (err) {
+                      console.error('Copy failed:', err);
+                      setToast({
+                        type: 'error',
+                        message: 'Kopyalama başarısız oldu',
+                      });
+                    }
+                  }}
                   className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-[var(--proxy-surface-hover)]"
                   style={{
                     backgroundColor: 'var(--proxy-surface)',
@@ -633,6 +645,16 @@ function ProxyCorporatePageContent() {
           >
             <p className="text-sm" style={{ color: 'var(--proxy-danger)' }}>{error}</p>
           </div>
+        )}
+
+        {/* Premium Toast Notification */}
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+            duration={3000}
+          />
         )}
       </div>
     </div>

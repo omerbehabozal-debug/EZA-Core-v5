@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { getApiUrl } from "@/lib/apiUrl";
+import Toast from "../../../proxy-lite/components/Toast";
 const API_BASE_URL = getApiUrl();
 
 interface AlertsPanelProps {
@@ -42,6 +43,7 @@ export default function AlertsPanel({ orgId, userRole }: AlertsPanelProps) {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'LATENCY' | 'ERROR_RATE' | 'FAIL_SAFE'>('all');
   const [accessDenied, setAccessDenied] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
     if (userRole && !['admin', 'ops'].includes(userRole)) {
@@ -117,12 +119,18 @@ export default function AlertsPanel({ orgId, userRole }: AlertsPanelProps) {
       if (!data.ok) {
         // Revert on error
         loadData();
-        alert('Kural güncellenemedi');
+        setToast({
+          type: 'error',
+          message: 'Kural güncellenemedi',
+        });
       }
     } catch (err: any) {
       console.error('[Alerts] Update error:', err);
       loadData();
-      alert('Kural güncellenemedi');
+      setToast({
+        type: 'error',
+        message: 'Kural güncellenemedi',
+      });
     }
   };
 
@@ -150,13 +158,22 @@ export default function AlertsPanel({ orgId, userRole }: AlertsPanelProps) {
       const data = await res.json();
       if (data.ok) {
         setWebhookConfigured(true);
-        alert('Webhook kaydedildi');
+        setToast({
+          type: 'success',
+          message: 'Webhook kaydedildi',
+        });
       } else {
-        alert('Webhook kaydedilemedi');
+        setToast({
+          type: 'error',
+          message: 'Webhook kaydedilemedi',
+        });
       }
     } catch (err: any) {
       console.error('[Alerts] Webhook save error:', err);
-      alert('Webhook kaydedilemedi');
+      setToast({
+        type: 'error',
+        message: 'Webhook kaydedilemedi',
+      });
     }
   };
 
@@ -178,13 +195,22 @@ export default function AlertsPanel({ orgId, userRole }: AlertsPanelProps) {
 
       const data = await res.json();
       if (data.success) {
-        alert('Slack webhook testi başarılı.');
+        setToast({
+          type: 'success',
+          message: 'Slack webhook testi başarılı.',
+        });
       } else {
-        alert(`Webhook testinde hata oluştu: ${data.error || 'Bilinmeyen hata'}`);
+        setToast({
+          type: 'error',
+          message: `Webhook testinde hata oluştu: ${data.error || 'Bilinmeyen hata'}`,
+        });
       }
     } catch (err: any) {
       console.error('[Alerts] Webhook test error:', err);
-      alert('Webhook testinde hata oluştu');
+      setToast({
+        type: 'error',
+        message: 'Webhook testinde hata oluştu',
+      });
     }
   };
 
@@ -484,6 +510,16 @@ export default function AlertsPanel({ orgId, userRole }: AlertsPanelProps) {
           )}
         </div>
       </div>
+
+      {/* Premium Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+          duration={3000}
+        />
+      )}
     </div>
   );
 }

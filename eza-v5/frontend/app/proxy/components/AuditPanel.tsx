@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { API_BASE_URL } from "@/api/config";
+import Toast from "../../proxy-lite/components/Toast";
 
 interface AuditPanelProps {
   analysisId?: string;
@@ -15,6 +16,7 @@ export default function AuditPanel({ analysisId }: AuditPanelProps) {
   const [verificationHash, setVerificationHash] = useState("");
   const [verificationResult, setVerificationResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const handleVerifyHash = async () => {
     if (!analysisId || !verificationHash) return;
@@ -90,9 +92,16 @@ export default function AuditPanel({ analysisId }: AuditPanelProps) {
       );
 
       const data = await res.json();
-      alert(data.message || 'Regülatöre gönderildi');
+      setToast({
+        type: 'success',
+        message: data.message || 'Regülatöre gönderildi',
+      });
     } catch (error) {
       console.error('[Audit] Send to regulator error:', error);
+      setToast({
+        type: 'error',
+        message: 'Regülatöre gönderilemedi',
+      });
     }
   };
 
@@ -193,6 +202,16 @@ export default function AuditPanel({ analysisId }: AuditPanelProps) {
           </button>
         </div>
       </div>
+
+      {/* Premium Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+          duration={3000}
+        />
+      )}
     </div>
   );
 }
