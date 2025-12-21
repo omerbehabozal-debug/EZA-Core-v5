@@ -122,16 +122,15 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       });
 
       // Handle 401/403 - token expired or invalid
-      // BUT: Don't clear token immediately - let RequireAuth handle it
-      // Organization load failure doesn't mean auth failure
       if (res.status === 401 || res.status === 403) {
-        // Only log warning if we have a token (means token is invalid/expired)
-        // Don't log if no token (user is just not logged in)
+        // Only dispatch auth-expired if we have a token (means token is invalid/expired)
+        // Don't dispatch if no token (user is just not logged in)
         if (token) {
-          console.warn('Failed to load organizations. This may be due to missing organizations or auth issue.');
+          // Dispatch auth-expired event to trigger logout
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('auth-expired'));
+          }
         }
-        // Don't clear token here - just return empty list
-        // If token is truly invalid, RequireAuth will handle logout
         setOrganizations([]);
         return;
       }

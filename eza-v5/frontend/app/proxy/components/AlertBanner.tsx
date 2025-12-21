@@ -56,21 +56,32 @@ export default function AlertBanner({ orgId, userRole }: AlertBannerProps) {
         };
 
         const res = await fetch(`${API_BASE_URL}/api/org/${orgId}/alerts/recent?limit=10`, { headers });
-        const data = await res.json();
         
-        if (data.ok) {
-          const alerts = data.alerts || [];
-          
-          // Filter alerts from last 5-10 minutes
-          const now = new Date();
-          const recent = alerts.filter((alert: AlertEvent) => {
-            const alertTime = new Date(alert.created_at);
-            const diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
-            return diffMinutes <= 10;
-          });
-          
-          setRecentAlerts(recent);
-          setShowBanner(recent.length > 0);
+        // Handle token expiration
+        if (res.status === 401 || res.status === 403) {
+          // Dispatch auth-expired event to trigger logout
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('auth-expired'));
+          }
+          return;
+        }
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ok) {
+            const alerts = data.alerts || [];
+            
+            // Filter alerts from last 5-10 minutes
+            const now = new Date();
+            const recent = alerts.filter((alert: AlertEvent) => {
+              const alertTime = new Date(alert.created_at);
+              const diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
+              return diffMinutes <= 10;
+            });
+            
+            setRecentAlerts(recent);
+            setShowBanner(recent.length > 0);
+          }
         }
       } catch (err) {
         console.error('[AlertBanner] Load error:', err);

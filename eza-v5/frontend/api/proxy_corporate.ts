@@ -4,6 +4,7 @@
  */
 
 import { API_BASE_URL } from "./config";
+import { isTokenExpired } from "@/lib/jwtUtils";
 
 // ========== TYPES ==========
 
@@ -124,6 +125,24 @@ function getAuthHeaders(orgId?: string | null): HeadersInit {
     throw new Error('Not authenticated. Please login first.');
   }
   
+  // Check token expiry (client-side check)
+  try {
+    if (isTokenExpired(token) === true) {
+      // Token expired - dispatch auth-expired event
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth-expired'));
+      }
+      throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
+    }
+  } catch (error: any) {
+    // If jwtUtils error or token expired, re-throw the error
+    if (error.message?.includes('Oturum süresi doldu')) {
+      throw error;
+    }
+    // If jwtUtils not available or other error, continue (backend will validate)
+    // This is a client-side optimization, not a security check
+  }
+  
   headers['Authorization'] = `Bearer ${token}`;
   
   // Organization ID is mandatory for Proxy operations
@@ -162,6 +181,15 @@ export async function analyzeProxy(
     });
     
     if (!res.ok) {
+      // Handle token expiration
+      if (res.status === 401 || res.status === 403) {
+        // Dispatch auth-expired event to trigger logout
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-expired'));
+        }
+        throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
+      }
+      
       const errorText = await res.text();
       let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
       try {
@@ -202,6 +230,15 @@ export async function rewriteProxy(
     });
     
     if (!res.ok) {
+      // Handle token expiration
+      if (res.status === 401 || res.status === 403) {
+        // Dispatch auth-expired event to trigger logout
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-expired'));
+        }
+        throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
+      }
+      
       const errorText = await res.text();
       console.error('[Proxy] Rewrite failed:', res.status, errorText);
       return null;
@@ -228,6 +265,13 @@ export async function getTelemetry(hours: number = 24, orgId?: string | null): P
     });
     
     if (!res.ok) {
+      // Handle token expiration
+      if (res.status === 401 || res.status === 403) {
+        // Dispatch auth-expired event to trigger logout
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-expired'));
+        }
+      }
       return null;
     }
     
@@ -311,6 +355,15 @@ export async function createIntentLog(
     });
     
     if (!res.ok) {
+      // Handle token expiration
+      if (res.status === 401 || res.status === 403) {
+        // Dispatch auth-expired event to trigger logout
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-expired'));
+        }
+        throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
+      }
+      
       const errorText = await res.text();
       let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
       try {
@@ -351,6 +404,13 @@ export async function getAnalysisHistory(
     });
     
     if (!res.ok) {
+      // Handle token expiration
+      if (res.status === 401 || res.status === 403) {
+        // Dispatch auth-expired event to trigger logout
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-expired'));
+        }
+      }
       return null;
     }
     
