@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse, createIntentLog, getAnalysisHistory, IntentLog, HistoryResponse } from "@/api/proxy_corporate";
 import RequireAuth from "@/components/auth/RequireAuth";
@@ -48,36 +48,85 @@ function ProxyCorporatePageContent() {
   const handleTabChange = (tab: string) => {
     if (tab === 'analiz' || tab === 'telemetry' || tab === 'pipeline' || tab === 'audit' || tab === 'history') {
       setActiveTab(tab);
-      // Load history when history tab is opened
-      if (tab === 'history' && !analysisHistory) {
+      // Load history when history tab is opened (always reload to get latest data)
+      if (tab === 'history') {
         loadAnalysisHistory();
       }
     }
   };
 
   // Load analysis history
-  const loadAnalysisHistory = async () => {
-    if (!currentOrganization?.id) return;
+  const loadAnalysisHistory = useCallback(async () => {
+    if (!currentOrganization?.id) {
+      console.warn('[Proxy] Cannot load history: organization not selected');
+      return;
+    }
     
     setHistoryLoading(true);
+    setError(null); // Clear previous errors
     try {
-      const history = await getAnalysisHistory(currentOrganization.id, historyPage, 20);
+      const history = await getAnalysisHistory(currentOrganization.id, 1, 20); // Always start from page 1
       if (history) {
         setAnalysisHistory(history);
+        setHistoryPage(1); // Reset to page 1
+      } else {
+        // If no history returned, set empty history
+        setAnalysisHistory({
+          intent_logs: [],
+          impact_events: [],
+          total_intents: 0,
+          total_impacts: 0,
+          page: 1,
+          page_size: 20
+        });
       }
     } catch (err: any) {
       console.error('[Proxy] Load history error:', err);
+      setError(`Geçmiş yüklenemedi: ${err?.message || 'Bilinmeyen hata'}`);
+      // Set empty history on error
+      setAnalysisHistory({
+        intent_logs: [],
+        impact_events: [],
+        total_intents: 0,
+        total_impacts: 0,
+        page: 1,
+        page_size: 20
+      });
     } finally {
       setHistoryLoading(false);
     }
-  };
+  }, [currentOrganization?.id]);
+
+  // Load history when component mounts and organization is available
+  useEffect(() => {
+    if (currentOrganization?.id && activeTab === 'history') {
+      loadAnalysisHistory();
+    }
+  }, [currentOrganization?.id, activeTab, loadAnalysisHistory]);
 
   // Create Intent Log (publication readiness intent)
   const handleSaveAnalysis = async () => {
-    if (!analysisResult || !currentOrganization?.id) return;
+    if (!analysisResult || !currentOrganization?.id) {
+      setError('Analiz sonucu veya organizasyon bulunamadı. Lütfen önce analiz yapın.');
+      return;
+    }
+    
+    if (!content.trim()) {
+      setError('Kaydedilecek içerik bulunamadı.');
+      return;
+    }
     
     setSaving(true);
+    setError(null);
     try {
+      console.log('[Proxy] Saving analysis as Intent Log...', {
+        orgId: currentOrganization.id,
+        contentLength: content.trim().length,
+        hasAnalysisResult: !!analysisResult,
+        sector: domain,
+        policies: policies
+      });
+      
       const intentLog = await createIntentLog(
         {
           analysis_result: {
@@ -93,20 +142,28 @@ function ProxyCorporatePageContent() {
       );
       
       if (intentLog) {
+        console.log('[Proxy] Intent Log created successfully:', intentLog.id);
+        
         // Show success message with premium toast
         setToast({
           type: 'success',
           message: 'Yayına hazırlık analizi kaydedildi. Niyet kaydı oluşturuldu.',
         });
         
-        // Refresh history if on history tab
-        if (activeTab === 'history') {
-          loadAnalysisHistory();
-        }
+        // Always refresh history to show the new record
+        loadAnalysisHistory();
+      } else {
+        console.error('[Proxy] Intent Log creation returned null');
+        setError('Kayıt oluşturulamadı. Backend yanıt vermedi.');
       }
     } catch (err: any) {
+      console.error('[Proxy] Save analysis error:', err);
       const errorMessage = err?.message || 'Yayına hazırlık analizi kaydedilemedi.';
       setError(`Kaydetme hatası: ${errorMessage}`);
+      setToast({
+        type: 'error',
+        message: `Kaydetme başarısız: ${errorMessage}`,
+      });
     } finally {
       setSaving(false);
     }
