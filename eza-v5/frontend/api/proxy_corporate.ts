@@ -299,6 +299,7 @@ export interface IntentLog {
   organization_id: string;
   user_id: string;
   input_content_hash: string;
+  input_content?: string | null;  // Original content (for snapshot)
   sector: string | null;
   policy_set: any;
   risk_scores: any;
@@ -312,6 +313,44 @@ export interface IntentLog {
     occurred_at: string;
     source_system: string;
   }>;
+}
+
+export interface AnalysisSnapshot {
+  analysis_id: string;
+  analysis_type: 'intent_log' | 'impact_event';
+  created_at: string;
+  content: string;
+  sector: string | null;
+  policies: string[];
+  analysis_type_label: string;
+  scores: {
+    ethical_index?: number;
+    compliance_score?: number;
+    manipulation_score?: number;
+    bias_score?: number;
+    legal_risk_score?: number;
+  };
+  system_findings: string[];
+  user_action: {
+    action: string;
+    action_label: string;
+    timestamp: string;
+  };
+  immutable: boolean;
+  impact_events?: Array<{
+    id: string;
+    impact_type: string;
+    occurred_at: string;
+    source_system: string;
+    risk_scores_locked: any;
+  }>;
+  impact_details?: {
+    impact_type: string;
+    impact_type_label: string;
+    source_system: string;
+    content_hash_locked: string;
+  };
+  intent_log_id?: string | null;
 }
 
 export interface ImpactEvent {
@@ -427,5 +466,52 @@ export async function saveAnalysis(
   orgId?: string | null
 ): Promise<IntentLog | null> {
   return createIntentLog(request, orgId);
+}
+
+/**
+ * Get full read-only snapshot of an analysis
+ */
+export async function getAnalysisSnapshot(
+  analysisId: string,
+  orgId?: string | null
+): Promise<AnalysisSnapshot | null> {
+  try {
+    if (!API_BASE_URL || API_BASE_URL.trim() === '') {
+      throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured.');
+    }
+    
+    const url = `${API_BASE_URL}/api/proxy/analysis/${analysisId}/snapshot`;
+    
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders(orgId),
+    });
+    
+    if (!res.ok) {
+      // Handle token expiration
+      if (res.status === 401 || res.status === 403) {
+        // Dispatch auth-expired event to trigger logout
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-expired'));
+        }
+        throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
+      }
+      
+      const errorText = await res.text();
+      let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.detail || errorJson.message || errorMessage;
+      } catch {
+        if (errorText) errorMessage = errorText.substring(0, 200);
+      }
+      throw new Error(errorMessage);
+    }
+    
+    return await res.json();
+  } catch (e: any) {
+    console.error('[Proxy] Get analysis snapshot error:', e);
+    throw e;
+  }
 }
 

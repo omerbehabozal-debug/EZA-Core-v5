@@ -49,6 +49,7 @@ class IntentLogResponse(BaseModel):
     organization_id: str
     user_id: str
     input_content_hash: str
+    input_content: Optional[str] = None  # Original content (for snapshot)
     sector: Optional[str]
     policy_set: Optional[Dict[str, Any]]
     risk_scores: Dict[str, Any]
@@ -184,6 +185,9 @@ async def create_intent_log(
         # Generate hash
         input_content_hash = generate_content_hash(input_content)
         
+        # Store original content for snapshot viewing
+        stored_content = input_content
+        
         # Extract scores and flags
         risk_scores = request.analysis_result.get('overall_scores', {})
         flags = {
@@ -209,6 +213,7 @@ async def create_intent_log(
             organization_id=org_uuid,
             user_id=user_uuid,
             input_content_hash=input_content_hash,
+            input_content=stored_content,  # Store original content for snapshot
             sector=request.sector,
             policy_set=policy_set,
             risk_scores=risk_scores,
@@ -248,6 +253,7 @@ async def create_intent_log(
             organization_id=str(intent_log.organization_id),
             user_id=str(intent_log.user_id),
             input_content_hash=intent_log.input_content_hash,
+            input_content=intent_log.input_content,  # Include original content
             sector=intent_log.sector,
             policy_set=intent_log.policy_set,
             risk_scores=intent_log.risk_scores,
@@ -503,6 +509,7 @@ async def get_history(
                     organization_id=str(il.organization_id),
                     user_id=str(il.user_id),
                     input_content_hash=il.input_content_hash,
+                    input_content=il.input_content,  # Include original content
                     sector=il.sector,
                     policy_set=il.policy_set,
                     risk_scores=il.risk_scores,
@@ -631,3 +638,230 @@ def _get_risk_range(score: float) -> str:
         return "medium"
     else:
         return "high"
+
+
+@router.get("/{analysis_id}/snapshot")
+async def get_analysis_snapshot(
+    analysis_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production),
+    x_org_id: Optional[str] = Header(None, alias="x-org-id")
+):
+    """
+    Get full read-only snapshot of an analysis (Intent Log or Impact Event)
+    
+    Returns complete immutable snapshot including:
+    - Original content
+    - Analysis configuration (sector, policies)
+    - Scores (exact stored values, not recalculated)
+    - System findings
+    - User action taken
+    
+    This is an audit-grade snapshot for compliance and regulator purposes.
+    """
+    try:
+        user_id = current_user.get('user_id') or current_user.get('sub')
+        org_id = x_org_id or current_user.get('org_id')
+        
+        if not user_id or not org_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Kullanıcı veya organizasyon bağlamı eksik."
+            )
+        
+        # Validate user is member of organization
+        is_member = await check_user_organization_membership(db, str(user_id), str(org_id))
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bu organizasyona erişim yetkiniz bulunmamaktadır."
+            )
+        
+        org_uuid = uuid.UUID(str(org_id))
+        analysis_uuid = None
+        
+        try:
+            analysis_uuid = uuid.UUID(analysis_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Geçersiz analysis_id formatı."
+            )
+        
+        # Try to find as Intent Log first
+        intent_result = await db.execute(
+            select(IntentLog).where(
+                and_(
+                    IntentLog.id == analysis_uuid,
+                    IntentLog.organization_id == org_uuid
+                )
+            )
+        )
+        intent_log = intent_result.scalar_one_or_none()
+        
+        if intent_log:
+            # Load related impact events
+            impact_result = await db.execute(
+                select(ImpactEvent).where(ImpactEvent.intent_log_id == intent_log.id)
+            )
+            impact_events = impact_result.scalars().all()
+            
+            # Build snapshot response
+            snapshot = {
+                "analysis_id": str(intent_log.id),
+                "analysis_type": "intent_log",
+                "created_at": intent_log.created_at.isoformat(),
+                "content": intent_log.input_content or "",  # Original content
+                "sector": intent_log.sector,
+                "policies": intent_log.policy_set.get('policies', []) if intent_log.policy_set else [],
+                "analysis_type_label": "Yayına Hazırlık Analizi",
+                "scores": intent_log.risk_scores or {},
+                "system_findings": _extract_system_findings(intent_log.flags or {}),
+                "user_action": {
+                    "action": intent_log.trigger_action,
+                    "action_label": _get_trigger_action_label(intent_log.trigger_action),
+                    "timestamp": intent_log.created_at.isoformat()
+                },
+                "immutable": intent_log.immutable,
+                "impact_events": [
+                    {
+                        "id": str(ie.id),
+                        "impact_type": ie.impact_type,
+                        "occurred_at": ie.occurred_at.isoformat(),
+                        "source_system": ie.source_system,
+                        "risk_scores_locked": ie.risk_scores_locked
+                    }
+                    for ie in impact_events
+                ]
+            }
+            
+            # Audit log
+            await log_analysis_audit(
+                db=db,
+                event_type="snapshot_viewed",
+                user_id=str(user_id),
+                org_id=str(org_id),
+                record_id=str(intent_log.id),
+                metadata={"analysis_type": "intent_log"}
+            )
+            
+            return snapshot
+        
+        # Try to find as Impact Event
+        impact_result = await db.execute(
+            select(ImpactEvent).join(
+                IntentLog, ImpactEvent.intent_log_id == IntentLog.id
+            ).where(
+                and_(
+                    ImpactEvent.id == analysis_uuid,
+                    IntentLog.organization_id == org_uuid
+                )
+            )
+        )
+        impact_event = impact_result.scalar_one_or_none()
+        
+        if impact_event:
+            # Load related intent log
+            intent_result = await db.execute(
+                select(IntentLog).where(IntentLog.id == impact_event.intent_log_id)
+            )
+            related_intent = intent_result.scalar_one_or_none()
+            
+            snapshot = {
+                "analysis_id": str(impact_event.id),
+                "analysis_type": "impact_event",
+                "created_at": impact_event.occurred_at.isoformat(),
+                "content": related_intent.input_content if related_intent else "",  # Content from intent log
+                "sector": related_intent.sector if related_intent else None,
+                "policies": related_intent.policy_set.get('policies', []) if related_intent and related_intent.policy_set else [],
+                "analysis_type_label": "Gerçek Etki Kaydı",
+                "scores": impact_event.risk_scores_locked,  # Locked scores
+                "system_findings": _extract_system_findings(related_intent.flags if related_intent else {}),
+                "user_action": {
+                    "action": "impact_occurred",
+                    "action_label": "Gerçek Etki Tespit Edildi",
+                    "timestamp": impact_event.occurred_at.isoformat()
+                },
+                "impact_details": {
+                    "impact_type": impact_event.impact_type,
+                    "impact_type_label": _get_impact_type_label(impact_event.impact_type),
+                    "source_system": impact_event.source_system,
+                    "content_hash_locked": impact_event.content_hash_locked
+                },
+                "immutable": impact_event.immutable,
+                "intent_log_id": str(impact_event.intent_log_id) if impact_event.intent_log_id else None
+            }
+            
+            # Audit log
+            await log_analysis_audit(
+                db=db,
+                event_type="snapshot_viewed",
+                user_id=str(user_id),
+                org_id=str(org_id),
+                record_id=str(impact_event.id),
+                metadata={"analysis_type": "impact_event"}
+            )
+            
+            return snapshot
+        
+        # Not found
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analiz kaydı bulunamadı."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Snapshot] Error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Snapshot alınamadı: {str(e)}"
+        )
+
+
+def _extract_system_findings(flags: Dict[str, Any]) -> List[str]:
+    """Extract system findings from flags"""
+    findings = []
+    
+    if flags.get('flags'):
+        findings.extend([f"Flag: {flag}" for flag in flags['flags']])
+    
+    if flags.get('risk_flags_severity'):
+        for flag_sev in flags['risk_flags_severity']:
+            if isinstance(flag_sev, dict):
+                flag_name = flag_sev.get('flag', 'Unknown')
+                severity = flag_sev.get('severity', 0)
+                findings.append(f"{flag_name} (Şiddet: {severity})")
+    
+    if flags.get('justification'):
+        for just in flags['justification']:
+            if isinstance(just, dict):
+                violation = just.get('violation', 'Unknown')
+                findings.append(f"İhlal: {violation}")
+    
+    return findings
+
+
+def _get_trigger_action_label(action: str) -> str:
+    """Get Turkish label for trigger action"""
+    labels = {
+        "save": "Yayına Hazırlık Analizi",
+        "rewrite": "Yeniden Yazma",
+        "version": "Versiyon Oluşturma",
+        "approval_request": "Onaya Gönderme"
+    }
+    return labels.get(action, action)
+
+
+def _get_impact_type_label(impact_type: str) -> str:
+    """Get Turkish label for impact type"""
+    labels = {
+        "api_response": "API Yanıtı",
+        "chatbot_display": "Chatbot Gösterimi",
+        "cms_publish": "CMS Yayını",
+        "campaign_send": "Kampanya Gönderimi",
+        "notification": "Bildirim",
+        "external_integration": "Harici Entegrasyon"
+    }
+    return labels.get(impact_type, impact_type)

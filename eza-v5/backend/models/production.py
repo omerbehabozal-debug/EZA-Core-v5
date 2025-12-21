@@ -189,6 +189,9 @@ class IntentLog(Base):
     # Content identification (hash for deduplication)
     input_content_hash = Column(String(64), nullable=False, index=True)  # SHA256 hash
     
+    # Original content text (for snapshot viewing - nullable for backward compatibility)
+    input_content = Column(Text, nullable=True)  # Full original text analyzed
+    
     # Analysis metadata
     sector = Column(String(50), nullable=True)  # finance, health, retail, media, autonomous
     policy_set = Column(JSON, nullable=True)  # Snapshot of policies used (TRT, FINTECH, HEALTH)

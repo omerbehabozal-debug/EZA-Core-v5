@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { HistoryResponse, IntentLog, ImpactEvent } from '@/api/proxy_corporate';
 import { useOrganization } from '@/context/OrganizationContext';
 
@@ -24,9 +25,16 @@ export default function AnalysisHistoryPanel({
   onRefresh
 }: AnalysisHistoryPanelProps) {
   const { currentOrganization } = useOrganization();
+  const router = useRouter();
   const [selectedIntent, setSelectedIntent] = useState<IntentLog | null>(null);
   const [selectedImpact, setSelectedImpact] = useState<ImpactEvent | null>(null);
   const [activeView, setActiveView] = useState<'intents' | 'impacts'>('intents');
+  
+  const truncateContent = (content: string | null | undefined, maxLength: number = 140): string => {
+    if (!content) return 'İçerik mevcut değil';
+    if (content.length <= maxLength) return content;
+    return content.substring(0, maxLength) + '...';
+  };
 
   const getRiskLevel = (scores: any): 'low' | 'medium' | 'high' => {
     if (!scores || typeof scores.ethical_index !== 'number') return 'medium';
@@ -211,16 +219,15 @@ export default function AnalysisHistoryPanel({
             return (
               <div
                 key={intent.id}
-                className="rounded-xl p-6 transition-all hover:bg-[var(--proxy-surface-hover)] cursor-pointer"
+                className="rounded-xl p-6 transition-all hover:bg-[var(--proxy-surface-hover)]"
                 style={{
                   backgroundColor: 'var(--proxy-surface)',
                   border: '1px solid var(--proxy-border-soft)',
                 }}
-                onClick={() => setSelectedIntent(intent)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-3 flex-wrap">
                       <div
                         className="px-3 py-1 rounded-lg text-xs font-semibold"
                         style={{
@@ -243,7 +250,28 @@ export default function AnalysisHistoryPanel({
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-xs mb-2" style={{ color: 'var(--proxy-text-secondary)' }}>
+                    {/* Content Preview */}
+                    <div className="mb-3">
+                      <p 
+                        className="text-sm leading-relaxed"
+                        style={{ 
+                          color: 'var(--proxy-text-secondary)',
+                          position: 'relative',
+                          maxHeight: '3.6em',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {truncateContent(intent.input_content, 140)}
+                        <span 
+                          className="absolute bottom-0 right-0 pl-8"
+                          style={{
+                            background: 'linear-gradient(to right, transparent, var(--proxy-surface))',
+                          }}
+                        />
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-xs mb-3" style={{ color: 'var(--proxy-text-secondary)' }}>
                       <span>Etik İndeks: {intent.risk_scores?.ethical_index || 'N/A'}/100</span>
                       <span>Uyum: {intent.risk_scores?.compliance_score || 'N/A'}/100</span>
                       {intent.policy_set?.policies && intent.policy_set.policies.length > 0 && (
@@ -252,18 +280,24 @@ export default function AnalysisHistoryPanel({
                     </div>
 
                     {intent.impact_events && intent.impact_events.length > 0 && (
-                      <div className="mt-2">
+                      <div className="mb-3">
                         <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', color: 'var(--proxy-success)' }}>
                           {intent.impact_events.length} Etki Kaydı
                         </span>
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="ml-4">
-                    <svg className="w-5 h-5" style={{ color: 'var(--proxy-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    
+                    {/* View Snapshot Button */}
+                    <button
+                      onClick={() => router.push(`/proxy/analysis/${intent.id}`)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+                      style={{
+                        backgroundColor: 'var(--proxy-action-primary)',
+                        color: '#FFFFFF',
+                      }}
+                    >
+                      Analiz Detaylarını Gör
+                    </button>
                   </div>
                 </div>
               </div>
@@ -282,16 +316,15 @@ export default function AnalysisHistoryPanel({
             return (
               <div
                 key={impact.id}
-                className="rounded-xl p-6 transition-all hover:bg-[var(--proxy-surface-hover)] cursor-pointer border-2"
+                className="rounded-xl p-6 transition-all hover:bg-[var(--proxy-surface-hover)] border-2"
                 style={{
                   backgroundColor: 'var(--proxy-surface)',
                   borderColor: riskColor,
                 }}
-                onClick={() => setSelectedImpact(impact)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-3 flex-wrap">
                       <div
                         className="px-3 py-1 rounded-lg text-xs font-semibold"
                         style={{
@@ -312,25 +345,31 @@ export default function AnalysisHistoryPanel({
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-xs mb-2" style={{ color: 'var(--proxy-text-secondary)' }}>
+                    <div className="flex items-center gap-4 text-xs mb-3" style={{ color: 'var(--proxy-text-secondary)' }}>
                       <span>Etik İndeks: {impact.risk_scores_locked?.ethical_index || 'N/A'}/100</span>
                       <span>Uyum: {impact.risk_scores_locked?.compliance_score || 'N/A'}/100</span>
                       <span>Kaynak: {impact.source_system}</span>
                     </div>
 
                     {impact.intent_log_id && (
-                      <div className="mt-2">
+                      <div className="mb-3">
                         <span className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
                           İlgili Niyet Kaydı: {impact.intent_log_id.substring(0, 8)}...
                         </span>
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="ml-4">
-                    <svg className="w-5 h-5" style={{ color: 'var(--proxy-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    
+                    {/* View Snapshot Button */}
+                    <button
+                      onClick={() => router.push(`/proxy/analysis/${impact.id}`)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+                      style={{
+                        backgroundColor: 'var(--proxy-action-primary)',
+                        color: '#FFFFFF',
+                      }}
+                    >
+                      Analiz Detaylarını Gör
+                    </button>
                   </div>
                 </div>
               </div>
