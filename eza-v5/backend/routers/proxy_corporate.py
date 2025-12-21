@@ -40,10 +40,14 @@ class ProxyAnalyzeRequest(BaseModel):
 
 
 class RiskLocation(BaseModel):
-    start: int
-    end: int
+    # Contextual Camera Mode: start/end are optional (not used in new system)
+    start: Optional[int] = None  # Optional for backward compatibility
+    end: Optional[int] = None  # Optional for backward compatibility
     type: Literal["ethical", "compliance", "manipulation", "bias", "legal"]
     severity: Literal["low", "medium", "high"]
+    evidence: Optional[str] = None  # Contextual evidence (meaning-based, not word positions)
+    policy: Optional[str] = None  # Policy code (e.g., "TRT-NEUTRALITY", "HEALTH-ETHICAL")
+    occurrence_count: Optional[int] = None  # How many times this pattern appeared (after grouping)
 
 
 class ParagraphAnalysis(BaseModel):
@@ -304,7 +308,7 @@ async def proxy_analyze(
                 event_type="analysis_previewed",
                 user_id=str(user_id) if user_id else "unknown",
                 org_id=str(org_id) if org_id else "unknown",
-                analysis_id=analysis_id,
+                record_id=analysis_id,  # Use record_id, not analysis_id
                 metadata={
                     "domain": request.domain,
                     "policies": request.policies,

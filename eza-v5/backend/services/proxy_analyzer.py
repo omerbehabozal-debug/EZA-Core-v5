@@ -319,6 +319,22 @@ async def analyze_content_deep(
             # Extract risk locations (now contextual, not word positions)
             unit_risk_locations = data.get("risk_locations", [])
             
+            # Normalize risk_locations: ensure start/end are optional, evidence/policy are present
+            normalized_risk_locations = []
+            for loc in unit_risk_locations:
+                normalized_loc = {
+                    "type": loc.get("type", "unknown"),
+                    "severity": loc.get("severity", "medium"),
+                    "evidence": loc.get("evidence", ""),
+                    "policy": loc.get("policy")
+                }
+                # Only include start/end if they exist (backward compatibility)
+                if "start" in loc:
+                    normalized_loc["start"] = loc["start"]
+                if "end" in loc:
+                    normalized_loc["end"] = loc["end"]
+                normalized_risk_locations.append(normalized_loc)
+            
             para_analysis = {
                 "paragraph_index": unit_idx,
                 "text": unit_text,
@@ -328,7 +344,7 @@ async def analyze_content_deep(
                 "bias_score": int(data.get("bias_score", 50)),
                 "legal_risk_score": int(data.get("legal_risk_score", 50)),
                 "flags": data.get("flags", []),
-                "risk_locations": unit_risk_locations
+                "risk_locations": normalized_risk_locations
             }
             
             paragraph_analyses.append(para_analysis)
