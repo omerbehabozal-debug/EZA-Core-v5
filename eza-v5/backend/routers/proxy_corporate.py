@@ -166,34 +166,43 @@ async def proxy_analyze(
         latency_ms = (time.time() - start_time) * 1000
         
         # Convert risk locations to RiskFlagSeverity model
+        # NOTE: risk_locations now contain contextual evidence, not character positions
         risk_flags_severity = []
         policy_trace = []
         justification = []
         
         for loc in analysis_result.get("risk_locations", []):
             severity_value = {"low": 0.3, "medium": 0.6, "high": 0.9}.get(loc.get("severity", "medium"), 0.5)
-            policy_code = f"{request.domain.upper()}-{loc.get('type', 'UNKNOWN').upper()}" if request.domain else "GENERAL-01"
+            
+            # Use policy from risk_location if provided, otherwise construct from domain/type
+            policy_code = loc.get("policy")
+            if not policy_code:
+                policy_code = f"{request.domain.upper()}-{loc.get('type', 'UNKNOWN').upper()}" if request.domain else "GENERAL-01"
+            
+            # Evidence is now contextual (meaning-based), not character positions
+            evidence = loc.get("evidence", f"{loc.get('type', 'unknown')} risk detected")
             
             risk_flag = RiskFlagSeverity(
                 flag=loc.get("type", "unknown"),
                 severity=severity_value,
                 policy=policy_code,
-                evidence=request.content[loc.get("start", 0):loc.get("end", 0)]
+                evidence=evidence  # Contextual evidence, not character slice
             )
             risk_flags_severity.append(risk_flag)
             
-            # Add to policy trace
+            # Add to policy trace (no character position, use occurrence count if available)
+            occurrence_count = loc.get("occurrence_count", 1)
             policy_trace.append({
                 "policy": policy_code,
-                "triggered_at": loc.get("start", 0),
-                "severity": loc.get("severity", "medium")
+                "severity": loc.get("severity", "medium"),
+                "occurrence_count": occurrence_count  # How many times this pattern appeared
             })
             
             # Add to justification
             justification.append(DecisionJustification(
                 violation=f"{loc.get('type', 'unknown')} ihlali",
                 policy=policy_code,
-                evidence=request.content[loc.get("start", 0):loc.get("end", 0)],
+                evidence=evidence,  # Contextual evidence
                 severity=severity_value
             ))
         
