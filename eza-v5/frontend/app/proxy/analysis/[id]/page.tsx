@@ -11,8 +11,8 @@ import { useParams, useRouter } from "next/navigation";
 import { getAnalysisSnapshot, AnalysisSnapshot } from "@/api/proxy_corporate";
 import { useOrganization } from "@/context/OrganizationContext";
 import RequireAuth from "@/components/auth/RequireAuth";
-import ScoreBars from "../components/ScoreBars";
-import ComplianceMetrics from "../components/ComplianceMetrics";
+import ScoreBars from "../../components/ScoreBars";
+import ComplianceMetrics from "../../components/ComplianceMetrics";
 
 function AnalysisSnapshotContent() {
   const params = useParams();
