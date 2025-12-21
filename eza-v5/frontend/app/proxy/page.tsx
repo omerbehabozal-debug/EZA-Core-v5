@@ -82,7 +82,7 @@ function ProxyCorporatePageContent() {
             ...analysisResult,
             input_text: content.trim(),
             content: content.trim()
-          },
+          } as ProxyAnalyzeResponse & { input_text: string; content: string },
           trigger_action: 'save',
           sector: domain || null,
           policies: policies.length > 0 ? policies : null,

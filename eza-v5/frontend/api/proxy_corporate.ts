@@ -241,7 +241,10 @@ export async function getTelemetry(hours: number = 24, orgId?: string | null): P
 // ========== INTENT LOG & IMPACT EVENT MANAGEMENT ==========
 
 export interface CreateIntentLogRequest {
-  analysis_result: ProxyAnalyzeResponse;
+  analysis_result: ProxyAnalyzeResponse & {
+    input_text?: string;
+    content?: string;
+  };
   trigger_action: 'save' | 'rewrite' | 'version' | 'approval_request';
   sector?: string | null;
   policies?: string[] | null;
