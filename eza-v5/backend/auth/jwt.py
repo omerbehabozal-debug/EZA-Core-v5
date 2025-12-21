@@ -103,9 +103,11 @@ def decode_jwt(token: str) -> Optional[Dict[str, Any]]:
                 exp_datetime = datetime.fromtimestamp(exp_timestamp)
                 now = datetime.utcnow()
                 time_since_expiry = now - exp_datetime
-                logger.warning(f"Token expiry info: Expired at {exp_datetime}, {time_since_expiry.total_seconds()} seconds ago")
-        except Exception:
-            pass  # Ignore errors in debug decode
+                logger.warning(f"Token expiry info: Expired at {exp_datetime} UTC, {time_since_expiry.total_seconds():.0f} seconds ago (current time: {now} UTC)")
+            else:
+                logger.warning(f"Token has no expiry field (exp)")
+        except Exception as decode_err:
+            logger.warning(f"Could not decode token even without verification: {decode_err}")
         
         return None
 
