@@ -81,9 +81,32 @@ def decode_jwt(token: str) -> Optional[Dict[str, Any]]:
             jwt_secret,
             algorithms=["HS256"]
         )
+        
+        # Log token expiry info for debugging
+        if "exp" in payload:
+            exp_timestamp = payload["exp"]
+            exp_datetime = datetime.fromtimestamp(exp_timestamp)
+            now = datetime.utcnow()
+            time_until_expiry = exp_datetime - now
+            logger.debug(f"JWT token decoded successfully. Expires in: {time_until_expiry.total_seconds()} seconds ({time_until_expiry})")
+        
         return payload
     except JWTError as e:
-        logger.warning(f"JWT decode failed: {str(e)}")
+        error_msg = str(e)
+        logger.warning(f"JWT decode failed: {error_msg}")
+        
+        # Try to decode without verification to get expiry info for debugging
+        try:
+            unverified = jwt.decode(token, options={"verify_signature": False})
+            if "exp" in unverified:
+                exp_timestamp = unverified["exp"]
+                exp_datetime = datetime.fromtimestamp(exp_timestamp)
+                now = datetime.utcnow()
+                time_since_expiry = now - exp_datetime
+                logger.warning(f"Token expiry info: Expired at {exp_datetime}, {time_since_expiry.total_seconds()} seconds ago")
+        except Exception:
+            pass  # Ignore errors in debug decode
+        
         return None
 
 
