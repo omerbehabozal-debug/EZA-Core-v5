@@ -536,12 +536,17 @@ async def proxy_rewrite(
                 from backend.routers.proxy_analysis import create_intent_log, CreateIntentLogRequest
                 
                 # Create analysis result structure for Intent Log
+                # IMPORTANT: Store BOTH original AND rewritten content
+                # Intent Log represents the complete rewrite operation
                 rewrite_analysis_result = {
-                    "overall_scores": new_scores or original_scores,
-                    "flags": new_analysis.get("flags", []) if new_analysis else [],
-                    "risk_locations": new_analysis.get("risk_locations", []) if new_analysis else [],
-                    "content": rewritten_content,
-                    "input_text": rewritten_content
+                    "overall_scores": original_scores,  # Original scores (before rewrite)
+                    "flags": original_analysis.get("flags", []),  # Original flags
+                    "risk_locations": original_analysis.get("risk_locations", []),  # Original risk locations
+                    "content": request.content,  # ORIGINAL content
+                    "input_text": request.content,  # ORIGINAL content
+                    "rewritten_content": rewritten_content,  # REWRITTEN content (if rewrite succeeded)
+                    "rewrite_scores": new_scores,  # Scores after rewrite (if re-analyzed)
+                    "rewrite_improvement": improvement  # Score improvements (if re-analyzed)
                 }
                 
                 # Create Intent Log request

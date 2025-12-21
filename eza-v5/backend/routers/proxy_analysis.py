@@ -182,11 +182,14 @@ async def create_intent_log(
                 detail="Analiz sonucunda içerik bulunamadı."
             )
         
-        # Generate hash
+        # Generate hash for original content
         input_content_hash = generate_content_hash(input_content)
         
         # Store original content for snapshot viewing
         stored_content = input_content
+        
+        # Extract rewritten content if available (for rewrite actions)
+        rewritten_content = request.analysis_result.get('rewritten_content')
         
         # Extract scores and flags
         risk_scores = request.analysis_result.get('overall_scores', {})
@@ -196,6 +199,13 @@ async def create_intent_log(
             'risk_flags_severity': request.analysis_result.get('risk_flags_severity', []),
             'justification': request.analysis_result.get('justification', [])
         }
+        
+        # Store rewritten content in flags if available (for complete operation record)
+        if rewritten_content:
+            flags['_rewritten_content'] = rewritten_content
+            flags['_rewrite_scores'] = request.analysis_result.get('rewrite_scores')
+            flags['_rewrite_improvement'] = request.analysis_result.get('rewrite_improvement')
+            logger.info(f"[Intent] Rewrite action detected - storing both original and rewritten content")
         
         # Create policy set snapshot
         policy_set = {
