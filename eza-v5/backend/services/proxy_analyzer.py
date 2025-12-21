@@ -205,6 +205,141 @@ Cevabın mutlaka şu JSON formatında olsun:
 Evidence her zaman bağlamsal ve anlam referanslı olmalı."""
 
 
+def normalize_paragraph_risks(
+    paragraph_id: int,
+    raw_risk_locations: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    PARAGRAPH-LEVEL RISK NORMALIZATION (Mandatory)
+    
+    CORE PRINCIPLE: Narrative risk is primary. Policy mapping is secondary.
+    Backend MUST normalize risks BEFORE returning analysis results.
+    
+    Normalization Rules:
+    1. One paragraph → one primary risk pattern per narrative
+    2. Multiple policy hits → ONE normalized risk with policies array
+    3. Severity: MAX (not cumulative, not averaged)
+    4. Evidence: Strongest / most explanatory
+    5. Decision rationale: ONE consolidated explanation
+    
+    PRIMARY KEY (UNIQUE CONSTRAINT):
+    PRIMARY_KEY = (paragraph_id, primary_risk_pattern OR risk.type)
+    
+    Same PRIMARY_KEY MUST NOT appear twice.
+    """
+    if not raw_risk_locations:
+        return []
+    
+    # Group by PRIMARY RISK PATTERN (narrative intent)
+    grouped = {}
+    
+    for risk in raw_risk_locations:
+        # Get primary risk pattern (prefer primary_risk_pattern, fallback to type)
+        primary_risk_pattern = risk.get("primary_risk_pattern") or risk.get("type", "unknown")
+        risk_type = risk.get("type", "unknown")
+        evidence = risk.get("evidence", "").strip()
+        severity = risk.get("severity", "medium")
+        policy = risk.get("policy")
+        
+        # PRIMARY KEY: (paragraph_id, primary_risk_pattern)
+        # This ensures uniqueness per paragraph
+        primary_key = f"{paragraph_id}:{primary_risk_pattern}"
+        
+        # Evidence similarity key (for merging similar narratives)
+        evidence_key = evidence[:100] if evidence else ""
+        group_key = f"{primary_key}:{evidence_key}"
+        
+        if group_key not in grouped:
+            # NEW PRIMARY RISK PATTERN for this paragraph
+            grouped[group_key] = {
+                "paragraph_id": paragraph_id,
+                "primary_risk_pattern": primary_risk_pattern,
+                "type": risk_type,  # Keep original type for backward compatibility
+                "severity": severity,  # Will be updated to MAX
+                "policies": [policy] if policy else [],  # Array of policies
+                "evidence": evidence,  # Will be updated to strongest
+                "evidence_snippets": [evidence] if evidence else [],
+                "count": 1
+            }
+        else:
+            # COLLAPSE: Same narrative intent, different policy
+            # Add policy to array (if not already present)
+            if policy and policy not in grouped[group_key]["policies"]:
+                grouped[group_key]["policies"].append(policy)
+            
+            # Update severity to MAX (most severe)
+            severity_map = {"low": 0, "medium": 1, "high": 2}
+            current_severity_level = severity_map.get(grouped[group_key]["severity"], 1)
+            new_severity_level = severity_map.get(severity, 1)
+            if new_severity_level > current_severity_level:
+                grouped[group_key]["severity"] = severity
+            
+            # Merge evidence (keep strongest / most explanatory)
+            if evidence and evidence not in grouped[group_key]["evidence_snippets"]:
+                existing_evidence = grouped[group_key]["evidence"]
+                # Prefer longer, more detailed evidence (stronger explanation)
+                if len(evidence) > len(existing_evidence) or (severity == "high" and grouped[group_key]["severity"] != "high"):
+                    grouped[group_key]["evidence"] = evidence
+                elif evidence not in existing_evidence:
+                    # Merge if different perspectives
+                    grouped[group_key]["evidence"] = f"{existing_evidence}. {evidence}"
+                grouped[group_key]["evidence_snippets"].append(evidence)
+            
+            grouped[group_key]["count"] += 1
+    
+    # Convert grouped dict to normalized risks
+    normalized_risks = []
+    for group_key, group_data in grouped.items():
+        # VALIDATION: Ensure no duplicate policies
+        unique_policies = list(dict.fromkeys(group_data["policies"]))  # Preserve order, remove duplicates
+        
+        # If no policies, use primary_risk_pattern as fallback
+        if not unique_policies:
+            unique_policies = [f"GENERAL-{group_data['primary_risk_pattern'].upper()}"]
+        
+        # Create normalized risk object
+        # NOTE: paragraph_id is internal only, not exposed in response
+        normalized_risk = {
+            "type": group_data["type"],  # Original type (for backward compatibility)
+            "primary_risk_pattern": group_data["primary_risk_pattern"],  # Primary pattern
+            "severity": group_data["severity"],  # MAX severity
+            "policy": unique_policies[0] if unique_policies else "UNKNOWN",  # Primary policy (backward compatibility)
+            "policies": unique_policies,  # Array of all policies
+            "evidence": group_data["evidence"],  # Strongest evidence
+            "occurrence_count": group_data["count"],  # How many times this pattern appeared
+            "_paragraph_id": paragraph_id  # Internal use only (for matching)
+        }
+        
+        normalized_risks.append(normalized_risk)
+    
+    # FINAL VALIDATION: Ensure no duplicate narrative risks in same paragraph
+    validated_risks = []
+    for risk in normalized_risks:
+        is_duplicate = False
+        for existing in validated_risks:
+            # Check if same primary_risk_pattern already exists
+            if existing["primary_risk_pattern"] == risk["primary_risk_pattern"]:
+                # Merge into existing risk
+                existing["policies"] = list(dict.fromkeys(existing["policies"] + risk["policies"]))
+                existing["occurrence_count"] += risk["occurrence_count"]
+                # Keep MAX severity
+                severity_map = {"low": 0, "medium": 1, "high": 2}
+                if severity_map.get(risk["severity"], 1) > severity_map.get(existing["severity"], 1):
+                    existing["severity"] = risk["severity"]
+                # Keep strongest evidence
+                if len(risk["evidence"]) > len(existing["evidence"]):
+                    existing["evidence"] = risk["evidence"]
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            validated_risks.append(risk)
+    
+    logger.info(f"[Proxy] Normalized {len(raw_risk_locations)} raw risks into {len(validated_risks)} primary patterns for paragraph {paragraph_id}")
+    
+    return validated_risks
+
+
 def group_violations(risk_locations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     PRIMARY RISK PATTERN & VIOLATION COLLAPSING (Camera Mode)
@@ -392,21 +527,31 @@ async def analyze_content_deep(
             unit_risk_locations = data.get("risk_locations", [])
             
             # Normalize risk_locations: ensure start/end are optional, evidence/policy are present
-            normalized_risk_locations = []
+            raw_risk_locations = []
             for loc in unit_risk_locations:
-                normalized_loc = {
+                raw_loc = {
                     "type": loc.get("type", "unknown"),
                     "severity": loc.get("severity", "medium"),
                     "evidence": loc.get("evidence", ""),
-                    "policy": loc.get("policy")
+                    "policy": loc.get("policy"),
+                    "primary_risk_pattern": loc.get("primary_risk_pattern")  # If provided by LLM
                 }
                 # Only include start/end if they exist (backward compatibility)
                 if "start" in loc:
-                    normalized_loc["start"] = loc["start"]
+                    raw_loc["start"] = loc["start"]
                 if "end" in loc:
-                    normalized_loc["end"] = loc["end"]
-                normalized_risk_locations.append(normalized_loc)
+                    raw_loc["end"] = loc["end"]
+                raw_risk_locations.append(raw_loc)
             
+            # PARAGRAPH-LEVEL RISK NORMALIZATION (MANDATORY)
+            # Normalize risks for this paragraph (collapse by primary risk pattern)
+            normalized_risks = normalize_paragraph_risks(
+                paragraph_id=unit_idx,
+                raw_risk_locations=raw_risk_locations
+            )
+            
+            # Keep raw risk_locations for backward compatibility (internal use)
+            # But expose normalized_risks as the primary output
             para_analysis = {
                 "paragraph_index": unit_idx,
                 "text": unit_text,
@@ -416,12 +561,14 @@ async def analyze_content_deep(
                 "bias_score": int(data.get("bias_score", 50)),
                 "legal_risk_score": int(data.get("legal_risk_score", 50)),
                 "flags": data.get("flags", []),
-                "risk_locations": normalized_risk_locations
+                "risk_locations": normalized_risks,  # NORMALIZED risks (primary output)
+                "_raw_risk_locations": raw_risk_locations  # Raw risks (internal, for backward compatibility)
             }
             
             paragraph_analyses.append(para_analysis)
             all_flags.extend(data.get("flags", []))
-            all_risk_locations.extend(unit_risk_locations)
+            # Add normalized risks to global collection (for global collapse)
+            all_risk_locations.extend(normalized_risks)
             
         except Exception as e:
             logger.error(f"[Proxy] Error analyzing unit {unit_idx}: {str(e)}")
@@ -438,10 +585,30 @@ async def analyze_content_deep(
                 "risk_locations": []
             })
     
-    # VIOLATION GROUPING (MANDATORY)
-    # Group similar risks under single entry
+    # VALIDATION: Ensure each paragraph has no duplicate narrative risks
+    for para in paragraph_analyses:
+        para_risks = para.get("risk_locations", [])
+        primary_patterns = [r.get("primary_risk_pattern") or r.get("type") for r in para_risks]
+        if len(primary_patterns) != len(set(primary_patterns)):
+            logger.warning(f"[Proxy] Paragraph {para.get('paragraph_index')} has duplicate primary risk patterns. Re-normalizing...")
+            # Re-normalize this paragraph
+            raw_risks = para.get("_raw_risk_locations", para_risks)
+            para["risk_locations"] = normalize_paragraph_risks(
+                paragraph_id=para.get("paragraph_index", 0),
+                raw_risk_locations=raw_risks
+            )
+    
+    # GLOBAL VIOLATION GROUPING (MANDATORY)
+    # Group normalized paragraph risks under single entry (cross-paragraph collapse)
+    # This ensures same narrative risk across paragraphs is collapsed
     grouped_risk_locations = group_violations(all_risk_locations)
-    logger.info(f"[Proxy] Grouped {len(all_risk_locations)} risk locations into {len(grouped_risk_locations)} unique violations")
+    logger.info(f"[Proxy] Grouped {len(all_risk_locations)} normalized paragraph risks into {len(grouped_risk_locations)} unique global violations")
+    
+    # FINAL VALIDATION: Ensure no duplicate narrative risks globally
+    primary_patterns_global = [r.get("primary_risk_pattern") or r.get("type") for r in grouped_risk_locations]
+    if len(primary_patterns_global) != len(set(primary_patterns_global)):
+        logger.warning("[Proxy] Global risk_locations has duplicate primary patterns. Re-collapsing...")
+        grouped_risk_locations = group_violations(grouped_risk_locations)
     
     # Calculate overall scores (weighted average)
     if paragraph_analyses:
@@ -456,6 +623,11 @@ async def analyze_content_deep(
     # Remove duplicate flags
     unique_flags = list(dict.fromkeys(all_flags))
     
+    # Remove _raw_risk_locations from final output (internal use only)
+    for para in paragraph_analyses:
+        if "_raw_risk_locations" in para:
+            del para["_raw_risk_locations"]
+    
     return {
         "overall_scores": {
             "ethical_index": int(round(overall_ethical)),
@@ -464,8 +636,8 @@ async def analyze_content_deep(
             "bias_score": int(round(overall_bias)),
             "legal_risk_score": int(round(overall_legal))
         },
-        "paragraphs": paragraph_analyses,
+        "paragraphs": paragraph_analyses,  # Each paragraph has normalized_risks in risk_locations
         "flags": unique_flags,
-        "risk_locations": grouped_risk_locations  # Grouped violations
+        "risk_locations": grouped_risk_locations  # Global normalized violations
     }
 

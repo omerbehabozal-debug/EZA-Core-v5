@@ -23,6 +23,7 @@ import AuditPanel from "./components/AuditPanel";
 import PipelineDiagram from "./components/PipelineDiagram";
 import AnalysisHistoryPanel from "./components/AnalysisHistoryPanel";
 import Toast from "../proxy-lite/components/Toast";
+import ParagraphAnalysisView from "./components/ParagraphAnalysisView";
 
 function ProxyCorporatePageContent() {
   const { currentOrganization, isLoading: orgLoading } = useOrganization();
@@ -514,19 +515,47 @@ function ProxyCorporatePageContent() {
               complianceScore={analysisResult.overall_scores.compliance_score}
             />
 
-            {/* Risk Flags */}
-            <div
-              className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
-              style={{
-                backgroundColor: 'var(--proxy-surface)',
-                border: '1px solid var(--proxy-border-soft)',
-              }}
-            >
-              <RiskFlags
-                flags={analysisResult.flags}
-                riskLocations={analysisResult.risk_locations}
-              />
-            </div>
+            {/* Paragraph-Based Analysis View (Proxy Lite Style) */}
+            {analysisResult.paragraphs && analysisResult.paragraphs.length > 0 && (
+              <div
+                className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
+                style={{
+                  backgroundColor: 'var(--proxy-surface)',
+                  border: '1px solid var(--proxy-border-soft)',
+                }}
+              >
+                <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
+                  Paragraf Bazlı Analiz
+                </h2>
+                <p className="text-xs mb-6" style={{ color: 'var(--proxy-text-muted)' }}>
+                  Metin paragraflara ayrılarak analiz edildi. Her paragraf için riskler, gerekçeler ve öneriler gösterilmektedir.
+                </p>
+                <ParagraphAnalysisView
+                  paragraphs={analysisResult.paragraphs}
+                  riskLocations={analysisResult.risk_locations}
+                  justifications={analysisResult.justification}
+                />
+              </div>
+            )}
+
+            {/* Risk Flags (Summary View - Collapsed) */}
+            {analysisResult.risk_locations && analysisResult.risk_locations.length > 0 && (
+              <div
+                className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
+                style={{
+                  backgroundColor: 'var(--proxy-surface)',
+                  border: '1px solid var(--proxy-border-soft)',
+                }}
+              >
+                <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
+                  Risk Özeti
+                </h2>
+                <RiskFlags
+                  flags={analysisResult.flags}
+                  riskLocations={analysisResult.risk_locations}
+                />
+              </div>
+            )}
 
             {/* Rewrite Section */}
             <div

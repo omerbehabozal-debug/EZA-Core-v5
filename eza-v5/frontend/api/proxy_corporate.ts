@@ -18,10 +18,15 @@ export interface ProxyAnalyzeRequest {
 }
 
 export interface RiskLocation {
-  start: number;
-  end: number;
+  start?: number;  // Optional for backward compatibility
+  end?: number;  // Optional for backward compatibility
   type: 'ethical' | 'compliance' | 'manipulation' | 'bias' | 'legal';
   severity: 'low' | 'medium' | 'high';
+  evidence?: string;  // Contextual evidence (meaning-based, not word positions)
+  policy?: string;  // Primary policy code (for backward compatibility)
+  policies?: string[];  // Array of all policy references (collapsed violations)
+  primary_risk_pattern?: string;  // Primary risk pattern identifier
+  occurrence_count?: number;  // How many times this pattern appeared (after grouping)
 }
 
 export interface ParagraphAnalysis {
@@ -44,10 +49,11 @@ export interface RiskFlagSeverityResponse {
 }
 
 export interface DecisionJustificationResponse {
-  violation: string;
-  policy: string;
-  evidence: string;
-  severity: number;
+  violation: string;  // Primary risk pattern label
+  policy: string;  // Primary policy (for backward compatibility)
+  policies?: string[];  // Array of all policy references (if multiple)
+  evidence: string;  // Consolidated decision rationale (ONE explanation per pattern)
+  severity: number;  // Single severity per primary risk pattern
 }
 
 export interface ProxyAnalyzeResponse {
