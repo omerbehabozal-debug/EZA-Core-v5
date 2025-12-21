@@ -174,34 +174,31 @@ class Invitation(Base):
     invited_by = relationship("backend.models.production.User", foreign_keys=[invited_by_user_id])
 
 
-class AnalysisRecord(Base):
+class IntentLog(Base):
     """
-    Analysis Record - Draft and Saved analysis storage
-    Regulator-ready, immutable saved records
+    Intent Log - Publication readiness intent
+    Immutable, cannot be deleted or updated
+    Does NOT mean impact occurred
     """
-    __tablename__ = "production_analysis_records"
+    __tablename__ = "production_intent_logs"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     organization_id = Column(UUID(as_uuid=True), ForeignKey("production_organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("production_users.id", ondelete="SET NULL"), nullable=False, index=True)
     
     # Content identification (hash for deduplication)
-    input_text_hash = Column(String(64), nullable=False, index=True)  # SHA256 hash
-    
-    # Encrypted content (at rest encryption - placeholder for now)
-    input_text = Column(Text, nullable=False)  # Original input text
+    input_content_hash = Column(String(64), nullable=False, index=True)  # SHA256 hash
     
     # Analysis metadata
     sector = Column(String(50), nullable=True)  # finance, health, retail, media, autonomous
-    policies_snapshot = Column(JSON, nullable=True)  # Snapshot of policies used (TRT, FINTECH, HEALTH)
-    scores = Column(JSON, nullable=False)  # Overall scores (ethical_index, compliance_score, etc.)
-    violations = Column(JSON, nullable=True)  # Risk flags, violations, risk_locations
-    rewrite_mode = Column(String(50), nullable=True)  # strict_compliance, neutral_rewrite, etc.
+    policy_set = Column(JSON, nullable=True)  # Snapshot of policies used (TRT, FINTECH, HEALTH)
+    risk_scores = Column(JSON, nullable=False)  # Overall scores (ethical_index, compliance_score, etc.)
+    flags = Column(JSON, nullable=True)  # Risk flags, violations, risk_locations
     
-    # Status: DRAFT (temporary) or SAVED (permanent, regulator-visible)
-    status = Column(String(20), nullable=False, default="DRAFT", index=True)  # DRAFT, SAVED
+    # Intent trigger action
+    trigger_action = Column(String(50), nullable=False)  # save, rewrite, version, approval_request
     
-    # Immutability flag - SAVED records can never be updated
+    # Immutability - Intent logs can NEVER be deleted or updated
     immutable = Column(Boolean, nullable=False, default=True)
     
     # Timestamps
@@ -210,4 +207,39 @@ class AnalysisRecord(Base):
     # Relationships
     organization = relationship("backend.models.production.Organization")
     user = relationship("backend.models.production.User")
+    impact_events = relationship("backend.models.production.ImpactEvent", back_populates="intent_log", cascade="all, delete-orphan")
+
+
+class ImpactEvent(Base):
+    """
+    Impact Event - Real impact when content reaches users/systems
+    System signal triggered, not user declaration
+    Immutable, cannot be deleted or updated
+    This is the LEGAL RECORD for regulators
+    """
+    __tablename__ = "production_impact_events"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    intent_log_id = Column(UUID(as_uuid=True), ForeignKey("production_intent_logs.id", ondelete="RESTRICT"), nullable=True, index=True)  # Can be null if impact occurred without intent
+    
+    # Impact type
+    impact_type = Column(String(50), nullable=False, index=True)  # api_response, chatbot_display, cms_publish, campaign_send, notification, external_integration
+    
+    # Locked scores at impact moment (historical truth)
+    risk_scores_locked = Column(JSON, nullable=False)  # Scores at the moment of impact
+    
+    # Locked content hash at impact moment
+    content_hash_locked = Column(String(64), nullable=False, index=True)  # Content hash at impact moment
+    
+    # Impact occurrence
+    occurred_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    
+    # Source system that triggered the impact
+    source_system = Column(String(100), nullable=False)  # e.g., "proxy_api", "chatbot_v1", "cms_webhook"
+    
+    # Immutability - Impact events can NEVER be deleted or updated
+    immutable = Column(Boolean, nullable=False, default=True)
+    
+    # Relationships
+    intent_log = relationship("backend.models.production.IntentLog", back_populates="impact_events")
 

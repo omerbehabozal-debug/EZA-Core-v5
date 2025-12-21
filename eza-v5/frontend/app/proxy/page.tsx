@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse, saveAnalysis, getAnalysisHistory, AnalysisRecord, AnalysisHistoryResponse } from "@/api/proxy_corporate";
+import { analyzeProxy, rewriteProxy, ProxyAnalyzeResponse, ProxyRewriteResponse, createIntentLog, getAnalysisHistory, IntentLog, HistoryResponse } from "@/api/proxy_corporate";
 import RequireAuth from "@/components/auth/RequireAuth";
 import { useOrganization } from "@/context/OrganizationContext";
 import ProxyUserProfileDropdown from "./components/ProxyUserProfileDropdown";
@@ -33,7 +33,7 @@ function ProxyCorporatePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'analiz' | 'telemetry' | 'pipeline' | 'audit' | 'history'>('analiz');
   const [saving, setSaving] = useState(false);
-  const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryResponse | null>(null);
+  const [analysisHistory, setAnalysisHistory] = useState<HistoryResponse | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   
@@ -70,31 +70,35 @@ function ProxyCorporatePageContent() {
     }
   };
 
-  // Save analysis
+  // Create Intent Log (publication readiness intent)
   const handleSaveAnalysis = async () => {
     if (!analysisResult || !currentOrganization?.id) return;
     
     setSaving(true);
     try {
-      const saved = await saveAnalysis(
+      const intentLog = await createIntentLog(
         {
-          analysis_result: analysisResult,
-          rewrite_mode: rewriteResult ? rewriteMode : null,
+          analysis_result: {
+            ...analysisResult,
+            input_text: content.trim(),
+            content: content.trim()
+          },
+          trigger_action: 'save',
           sector: domain || null,
           policies: policies.length > 0 ? policies : null,
         },
         currentOrganization.id
       );
       
-      if (saved) {
+      if (intentLog) {
         // Show success message (using toast if available)
         if (typeof window !== 'undefined' && (window as any).setToast) {
           (window as any).setToast({
             type: 'success',
-            message: 'Analiz başarıyla kaydedildi. Organizasyon geçmişine eklendi.',
+            message: 'Yayına hazırlık analizi kaydedildi. Niyet kaydı oluşturuldu.',
           });
         } else {
-          alert('Analiz başarıyla kaydedildi.');
+          alert('Yayına hazırlık analizi kaydedildi.');
         }
         
         // Refresh history if on history tab
@@ -103,7 +107,7 @@ function ProxyCorporatePageContent() {
         }
       }
     } catch (err: any) {
-      const errorMessage = err?.message || 'Analiz kaydedilemedi.';
+      const errorMessage = err?.message || 'Yayına hazırlık analizi kaydedilemedi.';
       setError(`Kaydetme hatası: ${errorMessage}`);
     } finally {
       setSaving(false);
@@ -408,9 +412,16 @@ function ProxyCorporatePageContent() {
               }}
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
-                  Analiz Sonuçları
-                </h2>
+                <div>
+                  <h2 className="text-2xl font-bold mb-1" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
+                    Analiz Sonuçları
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: 'rgba(37, 99, 235, 0.15)', color: 'var(--proxy-action-primary)' }}>
+                      Çalışma Taslağı — Kayıtlı Değil
+                    </span>
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={handleSaveAnalysis}
@@ -431,13 +442,13 @@ function ProxyCorporatePageContent() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      <span>Analizi Kaydet</span>
+                      <span>Yayına Hazırlık Analizi</span>
                     </>
                   )}
                 </button>
               </div>
               <p className="text-xs mb-4" style={{ color: 'var(--proxy-text-muted)' }}>
-                Bu analiz organizasyon geçmişine eklenecek ve denetimlerde kullanılabilir.
+                Bu analiz yayına hazırlık niyeti olarak kaydedilecek. Gerçek etki anlamına gelmez.
               </p>
               <ScoreBars scores={analysisResult.overall_scores} />
             </div>

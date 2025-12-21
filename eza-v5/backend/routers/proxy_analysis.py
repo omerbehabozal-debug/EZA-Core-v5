@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-EZA Proxy - Analysis Record Management
-Draft and Saved analysis storage with regulator compliance
+EZA Proxy - Intent Log & Impact Event Management
+Working Draft → Intent Log → Impact Event flow
+Regulator-compliant, immutable records
 """
 
 import hashlib
@@ -12,12 +13,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, desc, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select, and_, desc, func, or_, Integer
 
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth_production import require_proxy_auth_production
-from backend.models.production import AnalysisRecord, AuditLog
+from backend.models.production import IntentLog, ImpactEvent, AuditLog
 from backend.services.production_org import check_user_organization_membership
 
 router = APIRouter()
@@ -26,61 +26,82 @@ logger = logging.getLogger(__name__)
 
 # ========== REQUEST/RESPONSE MODELS ==========
 
-class SaveAnalysisRequest(BaseModel):
-    """Request to save an analysis"""
+class CreateIntentLogRequest(BaseModel):
+    """Request to create an Intent Log (publication readiness intent)"""
     analysis_result: Dict[str, Any]  # Full analysis result from /analyze endpoint
-    rewrite_mode: Optional[str] = None
+    trigger_action: str  # save, rewrite, version, approval_request
     sector: Optional[str] = None
     policies: Optional[List[str]] = None
 
 
-class AnalysisRecordResponse(BaseModel):
-    """Response for a single analysis record"""
+class CreateImpactEventRequest(BaseModel):
+    """Request to create an Impact Event (system signal)"""
+    intent_log_id: Optional[str] = None  # Can be null if impact occurred without intent
+    impact_type: str  # api_response, chatbot_display, cms_publish, campaign_send, notification, external_integration
+    content_hash: str  # Content hash at impact moment
+    risk_scores: Dict[str, Any]  # Scores at impact moment
+    source_system: str  # e.g., "proxy_api", "chatbot_v1", "cms_webhook"
+
+
+class IntentLogResponse(BaseModel):
+    """Response for a single Intent Log"""
     id: str
     organization_id: str
     user_id: str
-    input_text_hash: str
-    input_text: str
+    input_content_hash: str
     sector: Optional[str]
-    policies_snapshot: Optional[Dict[str, Any]]
-    scores: Dict[str, Any]
-    violations: Optional[Dict[str, Any]]
-    rewrite_mode: Optional[str]
-    status: str  # DRAFT, SAVED
+    policy_set: Optional[Dict[str, Any]]
+    risk_scores: Dict[str, Any]
+    flags: Optional[Dict[str, Any]]
+    trigger_action: str
     immutable: bool
     created_at: str
+    impact_events: List[Dict[str, Any]] = []
 
 
-class AnalysisHistoryResponse(BaseModel):
-    """Response for analysis history list"""
-    records: List[AnalysisRecordResponse]
-    total: int
+class ImpactEventResponse(BaseModel):
+    """Response for a single Impact Event"""
+    id: str
+    intent_log_id: Optional[str]
+    impact_type: str
+    risk_scores_locked: Dict[str, Any]
+    content_hash_locked: str
+    occurred_at: str
+    source_system: str
+    immutable: bool
+
+
+class HistoryResponse(BaseModel):
+    """Response for history (Intent Logs and Impact Events)"""
+    intent_logs: List[IntentLogResponse]
+    impact_events: List[ImpactEventResponse]
+    total_intents: int
+    total_impacts: int
     page: int
     page_size: int
 
 
 # ========== HELPER FUNCTIONS ==========
 
-def generate_text_hash(text: str) -> str:
-    """Generate SHA256 hash for input text"""
-    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+def generate_content_hash(content: str) -> str:
+    """Generate SHA256 hash for content"""
+    return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
 
 async def log_analysis_audit(
     db: AsyncSession,
-    event_type: str,  # analysis_previewed, analysis_saved, analysis_viewed
+    event_type: str,
     user_id: str,
     org_id: str,
-    analysis_id: Optional[str] = None,
+    record_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None
 ):
     """Log analysis-related audit events"""
     try:
         user_uuid = uuid.UUID(user_id) if user_id else None
         org_uuid = uuid.UUID(org_id) if org_id else None
-        analysis_uuid = uuid.UUID(analysis_id) if analysis_id else None
     except (ValueError, TypeError):
-        logger.warning(f"[Audit] Invalid UUID format: user_id={user_id}, org_id={org_id}, analysis_id={analysis_id}")
+        logger.warning(f"[Audit] Invalid UUID format: user_id={user_id}, org_id={org_id}")
         return
     
     audit_entry = AuditLog(
@@ -90,34 +111,41 @@ async def log_analysis_audit(
         action=event_type,
         context={
             "source": "proxy",
-            "analysis_id": analysis_id,
+            "record_id": record_id,
             **(metadata or {})
         },
         endpoint="/api/proxy/analysis",
-        method="POST" if event_type == "analysis_saved" else "GET"
+        method="POST"
     )
     
     db.add(audit_entry)
     await db.commit()
-    logger.info(f"[Audit] {event_type}: user_id={user_id}, org_id={org_id}, analysis_id={analysis_id}")
+    logger.info(f"[Audit] {event_type}: user_id={user_id}, org_id={org_id}, record_id={record_id}")
 
 
 # ========== ENDPOINTS ==========
 
-@router.post("/save", response_model=AnalysisRecordResponse)
-async def save_analysis(
-    request: SaveAnalysisRequest,
+@router.post("/intent", response_model=IntentLogResponse)
+async def create_intent_log(
+    request: CreateIntentLogRequest,
     db: AsyncSession = Depends(get_db),
     current_user: Dict[str, Any] = Depends(require_proxy_auth_production),
     x_org_id: Optional[str] = Header(None, alias="x-org-id")
 ):
     """
-    Save an analysis as SAVED (permanent, regulator-visible)
+    Create an Intent Log (publication readiness intent)
     
-    Authorization:
-    - JWT token required
-    - organization_id required
-    - User must be member of organization
+    Triggered by:
+    - "Analizi Kaydet" (save)
+    - "Rewrite" (rewrite)
+    - "Versiyon Oluştur" (version)
+    - "Onaya Gönder" (approval_request)
+    
+    Rules:
+    - Cannot be deleted
+    - Cannot be updated
+    - Does NOT mean impact occurred
+    - Visible to regulator as "Preparation/Intent" label
     """
     try:
         user_id = current_user.get('user_id') or current_user.get('sub')
@@ -137,101 +165,235 @@ async def save_analysis(
                 detail="Bu organizasyona erişim yetkiniz bulunmamaktadır."
             )
         
-        # Extract input text from analysis result
-        # The analysis_result should contain the original content
-        input_text = request.analysis_result.get('input_text') or request.analysis_result.get('content', '')
-        if not input_text:
+        # Validate trigger_action
+        valid_actions = ["save", "rewrite", "version", "approval_request"]
+        if request.trigger_action not in valid_actions:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Geçersiz trigger_action. Geçerli değerler: {', '.join(valid_actions)}"
+            )
+        
+        # Extract content from analysis result
+        input_content = request.analysis_result.get('input_text') or request.analysis_result.get('content', '')
+        if not input_content:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Analiz sonucunda içerik bulunamadı."
             )
         
         # Generate hash
-        input_text_hash = generate_text_hash(input_text)
+        input_content_hash = generate_content_hash(input_content)
         
-        # Extract scores and violations
-        scores = request.analysis_result.get('overall_scores', {})
-        violations = {
+        # Extract scores and flags
+        risk_scores = request.analysis_result.get('overall_scores', {})
+        flags = {
             'flags': request.analysis_result.get('flags', []),
             'risk_locations': request.analysis_result.get('risk_locations', []),
             'risk_flags_severity': request.analysis_result.get('risk_flags_severity', []),
             'justification': request.analysis_result.get('justification', [])
         }
         
-        # Create policies snapshot
-        policies_snapshot = {
+        # Create policy set snapshot
+        policy_set = {
             'policies': request.policies or [],
             'sector': request.sector,
             'snapshot_time': datetime.utcnow().isoformat()
         }
         
-        # Create analysis record
+        # Create Intent Log
         user_uuid = uuid.UUID(str(user_id))
         org_uuid = uuid.UUID(str(org_id))
         
-        analysis_record = AnalysisRecord(
+        intent_log = IntentLog(
             id=uuid.uuid4(),
             organization_id=org_uuid,
             user_id=user_uuid,
-            input_text_hash=input_text_hash,
-            input_text=input_text,
+            input_content_hash=input_content_hash,
             sector=request.sector,
-            policies_snapshot=policies_snapshot,
-            scores=scores,
-            violations=violations,
-            rewrite_mode=request.rewrite_mode,
-            status="SAVED",  # Saved records are permanent
-            immutable=True  # Saved records can never be updated
+            policy_set=policy_set,
+            risk_scores=risk_scores,
+            flags=flags,
+            trigger_action=request.trigger_action,
+            immutable=True  # Intent logs can NEVER be deleted or updated
         )
         
-        db.add(analysis_record)
+        db.add(intent_log)
         await db.commit()
-        await db.refresh(analysis_record)
+        await db.refresh(intent_log)
+        
+        # Load impact events for this intent log
+        impact_result = await db.execute(
+            select(ImpactEvent).where(ImpactEvent.intent_log_id == intent_log.id)
+        )
+        impact_events = impact_result.scalars().all()
         
         # Audit log
         await log_analysis_audit(
             db=db,
-            event_type="analysis_saved",
+            event_type="intent_log_created",
             user_id=str(user_id),
             org_id=str(org_id),
-            analysis_id=str(analysis_record.id),
+            record_id=str(intent_log.id),
             metadata={
+                "trigger_action": request.trigger_action,
                 "sector": request.sector,
-                "policies": request.policies,
-                "scores": scores
+                "policies": request.policies
             }
         )
         
-        logger.info(f"[Analysis] Saved: id={analysis_record.id}, user_id={user_id}, org_id={org_id}")
+        logger.info(f"[Intent] Created: id={intent_log.id}, user_id={user_id}, org_id={org_id}, action={request.trigger_action}")
         
-        return AnalysisRecordResponse(
-            id=str(analysis_record.id),
-            organization_id=str(analysis_record.organization_id),
-            user_id=str(analysis_record.user_id),
-            input_text_hash=analysis_record.input_text_hash,
-            input_text=analysis_record.input_text,
-            sector=analysis_record.sector,
-            policies_snapshot=analysis_record.policies_snapshot,
-            scores=analysis_record.scores,
-            violations=analysis_record.violations,
-            rewrite_mode=analysis_record.rewrite_mode,
-            status=analysis_record.status,
-            immutable=analysis_record.immutable,
-            created_at=analysis_record.created_at.isoformat()
+        return IntentLogResponse(
+            id=str(intent_log.id),
+            organization_id=str(intent_log.organization_id),
+            user_id=str(intent_log.user_id),
+            input_content_hash=intent_log.input_content_hash,
+            sector=intent_log.sector,
+            policy_set=intent_log.policy_set,
+            risk_scores=intent_log.risk_scores,
+            flags=intent_log.flags,
+            trigger_action=intent_log.trigger_action,
+            immutable=intent_log.immutable,
+            created_at=intent_log.created_at.isoformat(),
+            impact_events=[
+                {
+                    "id": str(ie.id),
+                    "impact_type": ie.impact_type,
+                    "occurred_at": ie.occurred_at.isoformat(),
+                    "source_system": ie.source_system
+                }
+                for ie in impact_events
+            ]
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[Analysis] Save error: {str(e)}", exc_info=True)
+        logger.error(f"[Intent] Create error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analiz kaydedilemedi: {str(e)}"
+            detail=f"Intent Log oluşturulamadı: {str(e)}"
         )
 
 
-@router.get("/history", response_model=AnalysisHistoryResponse)
-async def get_analysis_history(
+@router.post("/impact", response_model=ImpactEventResponse)
+async def create_impact_event(
+    request: CreateImpactEventRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[Dict[str, Any]] = Depends(require_proxy_auth_production),
+    x_org_id: Optional[str] = Header(None, alias="x-org-id")
+):
+    """
+    Create an Impact Event (system signal - real impact)
+    
+    Impact Event is triggered by SYSTEM SIGNALS, not user declarations:
+    - Production API response
+    - Chatbot answer displayed to user
+    - CMS publish webhook
+    - Campaign/message sent
+    - Customer notification
+    - External system integration
+    
+    Rules:
+    - Cannot be deleted
+    - Cannot be updated
+    - This is the LEGAL RECORD for regulators
+    - Scores are LOCKED at impact moment (historical truth)
+    """
+    try:
+        # Impact events can be created by system signals (no user required)
+        user_id = current_user.get('user_id') if current_user else None
+        org_id = x_org_id or (current_user.get('org_id') if current_user else None)
+        
+        # Validate impact_type
+        valid_types = [
+            "api_response", "chatbot_display", "cms_publish",
+            "campaign_send", "notification", "external_integration"
+        ]
+        if request.impact_type not in valid_types:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Geçersiz impact_type. Geçerli değerler: {', '.join(valid_types)}"
+            )
+        
+        # If intent_log_id provided, validate it exists
+        intent_log_id_uuid = None
+        if request.intent_log_id:
+            try:
+                intent_log_id_uuid = uuid.UUID(request.intent_log_id)
+                intent_result = await db.execute(
+                    select(IntentLog).where(IntentLog.id == intent_log_id_uuid)
+                )
+                intent_log = intent_result.scalar_one_or_none()
+                if not intent_log:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Intent Log bulunamadı."
+                    )
+                # Use org_id from intent log if not provided
+                if not org_id:
+                    org_id = str(intent_log.organization_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Geçersiz intent_log_id formatı."
+                )
+        
+        # Create Impact Event
+        impact_event = ImpactEvent(
+            id=uuid.uuid4(),
+            intent_log_id=intent_log_id_uuid,
+            impact_type=request.impact_type,
+            risk_scores_locked=request.risk_scores,  # Locked at impact moment
+            content_hash_locked=request.content_hash,  # Locked at impact moment
+            source_system=request.source_system,
+            immutable=True  # Impact events can NEVER be deleted or updated
+        )
+        
+        db.add(impact_event)
+        await db.commit()
+        await db.refresh(impact_event)
+        
+        # Audit log
+        if user_id and org_id:
+            await log_analysis_audit(
+                db=db,
+                event_type="impact_event_created",
+                user_id=str(user_id),
+                org_id=str(org_id),
+                record_id=str(impact_event.id),
+                metadata={
+                    "impact_type": request.impact_type,
+                    "source_system": request.source_system,
+                    "intent_log_id": request.intent_log_id
+                }
+            )
+        
+        logger.info(f"[Impact] Created: id={impact_event.id}, type={request.impact_type}, source={request.source_system}")
+        
+        return ImpactEventResponse(
+            id=str(impact_event.id),
+            intent_log_id=str(impact_event.intent_log_id) if impact_event.intent_log_id else None,
+            impact_type=impact_event.impact_type,
+            risk_scores_locked=impact_event.risk_scores_locked,
+            content_hash_locked=impact_event.content_hash_locked,
+            occurred_at=impact_event.occurred_at.isoformat(),
+            source_system=impact_event.source_system,
+            immutable=impact_event.immutable
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Impact] Create error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Impact Event oluşturulamadı: {str(e)}"
+        )
+
+
+@router.get("/history", response_model=HistoryResponse)
+async def get_history(
     db: AsyncSession = Depends(get_db),
     current_user: Dict[str, Any] = Depends(require_proxy_auth_production),
     x_org_id: Optional[str] = Header(None, alias="x-org-id"),
@@ -239,13 +401,12 @@ async def get_analysis_history(
     page_size: int = Query(20, ge=1, le=100)
 ):
     """
-    Get analysis history (only SAVED records)
+    Get history (Intent Logs and Impact Events)
     
-    Authorization:
-    - JWT token required
-    - organization_id required
-    - User must be member of organization
-    - Role-based visibility
+    Role-based visibility:
+    - Editor: Can see only their own Intent Logs (no Impact Events)
+    - Legal/Management: Can see Intent Logs and Impact Events
+    - Regulator: Can see Intent Logs (labeled) and Impact Events
     """
     try:
         user_id = current_user.get('user_id') or current_user.get('sub')
@@ -269,63 +430,105 @@ async def get_analysis_history(
         org_uuid = uuid.UUID(str(org_id))
         user_uuid = uuid.UUID(str(user_id))
         
-        # Build query - only SAVED records
-        query = select(AnalysisRecord).where(
-            and_(
-                AnalysisRecord.organization_id == org_uuid,
-                AnalysisRecord.status == "SAVED"
-            )
+        # Role-based access
+        is_editor = user_role in ["proxy_user", "reviewer"]
+        is_legal_management = user_role in ["admin", "org_admin", "ops", "auditor"]
+        
+        # Get Intent Logs
+        intent_query = select(IntentLog).where(
+            IntentLog.organization_id == org_uuid
         )
         
-        # Role-based filtering: regular users see only their own records
-        if user_role not in ["admin", "org_admin", "ops", "auditor"]:
-            query = query.where(AnalysisRecord.user_id == user_uuid)
+        # Editors can only see their own Intent Logs
+        if is_editor:
+            intent_query = intent_query.where(IntentLog.user_id == user_uuid)
         
-        # Order by created_at descending
-        query = query.order_by(desc(AnalysisRecord.created_at))
+        intent_query = intent_query.order_by(desc(IntentLog.created_at))
         
         # Get total count
-        count_query = select(func.count()).select_from(query.subquery())
-        total_result = await db.execute(count_query)
-        total = total_result.scalar() or 0
+        count_query = select(func.count(IntentLog.id)).where(
+            IntentLog.organization_id == org_uuid
+        )
+        if is_editor:
+            count_query = count_query.where(IntentLog.user_id == user_uuid)
+        
+        total_intents_result = await db.execute(count_query)
+        total_intents = total_intents_result.scalar() or 0
         
         # Pagination
         offset = (page - 1) * page_size
-        query = query.offset(offset).limit(page_size)
+        intent_query = intent_query.offset(offset).limit(page_size)
         
-        # Execute query
-        result = await db.execute(query)
-        records = result.scalars().all()
+        intent_result = await db.execute(intent_query)
+        intent_logs = intent_result.scalars().all()
+        
+        # Get Impact Events (only for legal/management roles)
+        impact_events = []
+        total_impacts = 0
+        
+        if is_legal_management:
+            # Get Impact Events for this organization (via Intent Logs)
+            impact_query = select(ImpactEvent).join(
+                IntentLog, ImpactEvent.intent_log_id == IntentLog.id
+            ).where(
+                IntentLog.organization_id == org_uuid
+            ).order_by(desc(ImpactEvent.occurred_at))
+            
+            impact_count_query = select(func.count(ImpactEvent.id)).join(
+                IntentLog, ImpactEvent.intent_log_id == IntentLog.id
+            ).where(
+                IntentLog.organization_id == org_uuid
+            )
+            
+            total_impacts_result = await db.execute(impact_count_query)
+            total_impacts = total_impacts_result.scalar() or 0
+            
+            impact_query = impact_query.offset(offset).limit(page_size)
+            impact_result = await db.execute(impact_query)
+            impact_events = impact_result.scalars().all()
         
         # Audit log
         await log_analysis_audit(
             db=db,
-            event_type="analysis_viewed",
+            event_type="history_viewed",
             user_id=str(user_id),
             org_id=str(org_id),
-            metadata={"page": page, "page_size": page_size, "total": total}
+            metadata={"page": page, "page_size": page_size}
         )
         
-        return AnalysisHistoryResponse(
-            records=[
-                AnalysisRecordResponse(
-                    id=str(record.id),
-                    organization_id=str(record.organization_id),
-                    user_id=str(record.user_id),
-                    input_text_hash=record.input_text_hash,
-                    input_text=record.input_text,
-                    sector=record.sector,
-                    policies_snapshot=record.policies_snapshot,
-                    scores=record.scores,
-                    violations=record.violations,
-                    rewrite_mode=record.rewrite_mode,
-                    status=record.status,
-                    immutable=record.immutable,
-                    created_at=record.created_at.isoformat()
+        return HistoryResponse(
+            intent_logs=[
+                IntentLogResponse(
+                    id=str(il.id),
+                    organization_id=str(il.organization_id),
+                    user_id=str(il.user_id),
+                    input_content_hash=il.input_content_hash,
+                    sector=il.sector,
+                    policy_set=il.policy_set,
+                    risk_scores=il.risk_scores,
+                    flags=il.flags,
+                    trigger_action=il.trigger_action,
+                    immutable=il.immutable,
+                    created_at=il.created_at.isoformat(),
+                    impact_events=[]  # Will be loaded separately if needed
                 )
-                for record in records
+                for il in intent_logs
             ],
-            total=total,
+            impact_events=[
+                ImpactEventResponse(
+                    id=str(ie.id),
+                    intent_log_id=str(ie.intent_log_id) if ie.intent_log_id else None,
+                    impact_type=ie.impact_type,
+                    risk_scores_locked=ie.risk_scores_locked,
+                    content_hash_locked=ie.content_hash_locked,
+                    occurred_at=ie.occurred_at.isoformat(),
+                    source_system=ie.source_system,
+                    immutable=ie.immutable
+                )
+                for ie in impact_events
+            ],
+            total_intents=total_intents,
+            total_impacts=total_impacts,
             page=page,
             page_size=page_size
         )
@@ -333,107 +536,98 @@ async def get_analysis_history(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[Analysis] History error: {str(e)}", exc_info=True)
+        logger.error(f"[History] Error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analiz geçmişi alınamadı: {str(e)}"
+            detail=f"Geçmiş alınamadı: {str(e)}"
         )
 
 
-@router.get("/{analysis_id}", response_model=AnalysisRecordResponse)
-async def get_analysis(
-    analysis_id: str,
+@router.get("/regulator/telemetry")
+async def get_regulator_telemetry(
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth_production),
-    x_org_id: Optional[str] = Header(None, alias="x-org-id")
+    from_date: Optional[str] = Query(None),
+    to_date: Optional[str] = Query(None),
+    sector: Optional[str] = Query(None),
+    policy: Optional[str] = Query(None)
 ):
     """
-    Get a single analysis record (immutable snapshot)
+    Regulator Telemetry - Anonymous analysis data
+    NO content, NO identity, NO organization name
     
-    Authorization:
-    - JWT token required
-    - organization_id required
-    - User must be member of organization
-    - Role-based visibility
+    Returns:
+    - sector
+    - policy
+    - risk range
+    - flag types
+    - time (rounded)
     """
     try:
-        user_id = current_user.get('user_id') or current_user.get('sub')
-        org_id = x_org_id or current_user.get('org_id')
-        user_role = current_user.get('role', '')
+        # Build query for Intent Logs (aggregated, anonymous)
+        base_query = select(IntentLog).where(IntentLog.organization_id.isnot(None))
         
-        if not user_id or not org_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Kullanıcı veya organizasyon bağlamı eksik."
-            )
+        # Apply filters
+        if sector:
+            base_query = base_query.where(IntentLog.sector == sector)
         
-        # Validate UUID format
-        try:
-            analysis_uuid = uuid.UUID(analysis_id)
-            org_uuid = uuid.UUID(str(org_id))
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Geçersiz analiz kimliği formatı."
-            )
+        if from_date:
+            base_query = base_query.where(IntentLog.created_at >= datetime.fromisoformat(from_date))
         
-        # Get analysis record
-        result = await db.execute(
-            select(AnalysisRecord).where(
-                and_(
-                    AnalysisRecord.id == analysis_uuid,
-                    AnalysisRecord.organization_id == org_uuid
-                )
-            )
-        )
-        record = result.scalar_one_or_none()
+        if to_date:
+            base_query = base_query.where(IntentLog.created_at <= datetime.fromisoformat(to_date))
         
-        if not record:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Analiz kaydı bulunamadı."
-            )
+        result = await db.execute(base_query)
+        intent_logs = result.scalars().all()
         
-        # Role-based access: regular users can only see their own records
-        user_uuid = uuid.UUID(str(user_id))
-        if user_role not in ["admin", "org_admin", "ops", "auditor"]:
-            if record.user_id != user_uuid:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Bu analiz kaydına erişim yetkiniz bulunmamaktadır."
-                )
+        # Aggregate data (anonymous, no content)
+        telemetry_data = []
+        sector_policy_map: Dict[str, Dict[str, List[float]]] = {}
         
-        # Audit log
-        await log_analysis_audit(
-            db=db,
-            event_type="analysis_viewed",
-            user_id=str(user_id),
-            org_id=str(org_id),
-            analysis_id=analysis_id
-        )
+        for il in intent_logs:
+            sec = il.sector or "unknown"
+            policies = il.policy_set.get('policies', []) if il.policy_set else []
+            ethical_score = il.risk_scores.get('ethical_index', 50) if il.risk_scores else 50
+            
+            if not policies:
+                policies = ["unknown"]
+            
+            for pol in policies:
+                if sec not in sector_policy_map:
+                    sector_policy_map[sec] = {}
+                if pol not in sector_policy_map[sec]:
+                    sector_policy_map[sec][pol] = []
+                sector_policy_map[sec][pol].append(float(ethical_score))
         
-        return AnalysisRecordResponse(
-            id=str(record.id),
-            organization_id=str(record.organization_id),
-            user_id=str(record.user_id),
-            input_text_hash=record.input_text_hash,
-            input_text=record.input_text,
-            sector=record.sector,
-            policies_snapshot=record.policies_snapshot,
-            scores=record.scores,
-            violations=record.violations,
-            rewrite_mode=record.rewrite_mode,
-            status=record.status,
-            immutable=record.immutable,
-            created_at=record.created_at.isoformat()
-        )
+        # Format response
+        for sec, policies in sector_policy_map.items():
+            for pol, scores in policies.items():
+                avg_ethical = sum(scores) / len(scores) if scores else 50
+                telemetry_data.append({
+                    "sector": sec,
+                    "policy": pol,
+                    "risk_range": _get_risk_range(avg_ethical),
+                    "count": len(scores),
+                    "avg_ethical_score": round(avg_ethical, 2)
+                })
         
-    except HTTPException:
-        raise
+        return {
+            "telemetry": telemetry_data,
+            "total_records": len(telemetry_data)
+        }
+        
     except Exception as e:
-        logger.error(f"[Analysis] Get error: {str(e)}", exc_info=True)
+        logger.error(f"[Regulator] Telemetry error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analiz kaydı alınamadı: {str(e)}"
+            detail=f"Telemetri alınamadı: {str(e)}"
         )
 
+
+def _get_risk_range(score: float) -> str:
+    """Convert score to risk range"""
+    if score >= 80:
+        return "low"
+    elif score >= 50:
+        return "medium"
+    else:
+        return "high"

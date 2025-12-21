@@ -238,51 +238,68 @@ export async function getTelemetry(hours: number = 24, orgId?: string | null): P
   }
 }
 
-// ========== ANALYSIS RECORD MANAGEMENT ==========
+// ========== INTENT LOG & IMPACT EVENT MANAGEMENT ==========
 
-export interface SaveAnalysisRequest {
+export interface CreateIntentLogRequest {
   analysis_result: ProxyAnalyzeResponse;
-  rewrite_mode?: string | null;
+  trigger_action: 'save' | 'rewrite' | 'version' | 'approval_request';
   sector?: string | null;
   policies?: string[] | null;
 }
 
-export interface AnalysisRecord {
+export interface IntentLog {
   id: string;
   organization_id: string;
   user_id: string;
-  input_text_hash: string;
-  input_text: string;
+  input_content_hash: string;
   sector: string | null;
-  policies_snapshot: any;
-  scores: any;
-  violations: any;
-  rewrite_mode: string | null;
-  status: string;
+  policy_set: any;
+  risk_scores: any;
+  flags: any;
+  trigger_action: string;
   immutable: boolean;
   created_at: string;
+  impact_events: Array<{
+    id: string;
+    impact_type: string;
+    occurred_at: string;
+    source_system: string;
+  }>;
 }
 
-export interface AnalysisHistoryResponse {
-  records: AnalysisRecord[];
-  total: number;
+export interface ImpactEvent {
+  id: string;
+  intent_log_id: string | null;
+  impact_type: string;
+  risk_scores_locked: any;
+  content_hash_locked: string;
+  occurred_at: string;
+  source_system: string;
+  immutable: boolean;
+}
+
+export interface HistoryResponse {
+  intent_logs: IntentLog[];
+  impact_events: ImpactEvent[];
+  total_intents: number;
+  total_impacts: number;
   page: number;
   page_size: number;
 }
 
 /**
- * Save an analysis as SAVED (permanent, regulator-visible)
+ * Create an Intent Log (publication readiness intent)
  */
-export async function saveAnalysis(
-  request: SaveAnalysisRequest,
+export async function createIntentLog(
+  request: CreateIntentLogRequest,
   orgId?: string | null
-): Promise<AnalysisRecord | null> {
+): Promise<IntentLog | null> {
   try {
     if (!API_BASE_URL || API_BASE_URL.trim() === '') {
       throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured.');
     }
     
-    const url = `${API_BASE_URL}/api/proxy/analysis/save`;
+    const url = `${API_BASE_URL}/api/proxy/analysis/intent`;
     
     const res = await fetch(url, {
       method: 'POST',
@@ -302,22 +319,22 @@ export async function saveAnalysis(
       throw new Error(errorMessage);
     }
     
-    const data: AnalysisRecord = await res.json();
+    const data: IntentLog = await res.json();
     return data;
   } catch (e: any) {
-    console.error('[Proxy] Save analysis error:', e);
+    console.error('[Proxy] Create Intent Log error:', e);
     throw e;
   }
 }
 
 /**
- * Get analysis history (only SAVED records)
+ * Get history (Intent Logs and Impact Events)
  */
 export async function getAnalysisHistory(
   orgId?: string | null,
   page: number = 1,
   pageSize: number = 20
-): Promise<AnalysisHistoryResponse | null> {
+): Promise<HistoryResponse | null> {
   try {
     if (!API_BASE_URL || API_BASE_URL.trim() === '') {
       throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured.');
@@ -341,33 +358,11 @@ export async function getAnalysisHistory(
   }
 }
 
-/**
- * Get a single analysis record
- */
-export async function getAnalysisRecord(
-  analysisId: string,
+// Legacy function name for backward compatibility
+export async function saveAnalysis(
+  request: CreateIntentLogRequest,
   orgId?: string | null
-): Promise<AnalysisRecord | null> {
-  try {
-    if (!API_BASE_URL || API_BASE_URL.trim() === '') {
-      throw new Error('NEXT_PUBLIC_EZA_API_URL environment variable is not configured.');
-    }
-    
-    const url = `${API_BASE_URL}/api/proxy/analysis/${analysisId}`;
-    
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: getAuthHeaders(orgId),
-    });
-    
-    if (!res.ok) {
-      return null;
-    }
-    
-    return await res.json();
-  } catch (e) {
-    console.error('[Proxy] Get analysis record error:', e);
-    return null;
-  }
+): Promise<IntentLog | null> {
+  return createIntentLog(request, orgId);
 }
 

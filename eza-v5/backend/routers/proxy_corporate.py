@@ -515,6 +515,60 @@ async def proxy_rewrite(
             company_id=current_user.get("company_id")
         )
         
+        # Create Intent Log for rewrite action (fire and forget)
+        # Import here to avoid circular dependency
+        try:
+            from backend.routers.proxy_analysis import create_intent_log, CreateIntentLogRequest
+            
+            # Create analysis result structure for Intent Log
+            rewrite_analysis_result = {
+                "overall_scores": new_scores or original_scores,
+                "flags": new_analysis.get("flags", []) if new_analysis else [],
+                "risk_locations": new_analysis.get("risk_locations", []) if new_analysis else [],
+                "content": rewritten_content,
+                "input_text": rewritten_content
+            }
+            
+            # Create Intent Log request
+            intent_request = CreateIntentLogRequest(
+                analysis_result=rewrite_analysis_result,
+                trigger_action="rewrite",
+                sector=request.domain,
+                policies=request.policies
+            )
+            
+            # Create Intent Log asynchronously (don't block rewrite response)
+            # Use background task to avoid blocking
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If loop is running, create background task
+                    asyncio.create_task(
+                        create_intent_log(
+                            request=intent_request,
+                            db=db,
+                            current_user=current_user,
+                            x_org_id=current_user.get("org_id")
+                        )
+                    )
+                else:
+                    # If loop is not running, schedule it
+                    loop.run_until_complete(
+                        create_intent_log(
+                            request=intent_request,
+                            db=db,
+                            current_user=current_user,
+                            x_org_id=current_user.get("org_id")
+                        )
+                    )
+            except RuntimeError:
+                # If no event loop, log warning but don't fail
+                logger.warning("[Proxy] No event loop available for Intent Log creation")
+        except Exception as e:
+            # Don't fail rewrite if Intent Log creation fails
+            logger.warning(f"[Proxy] Intent Log creation failed for rewrite: {e}")
+        
         return ProxyRewriteResponse(
             ok=True,
             original_content=request.content,

@@ -57,7 +57,7 @@ async def init_db():
     from backend.models.production import (
         User, Organization, OrganizationUser, ApiKey, 
         AuditLog, TelemetryEvent, AlertEvent, Invitation,
-        AnalysisRecord
+        IntentLog, ImpactEvent
     )
     # Import legacy models to ensure they are registered
     from backend.models.user import LegacyUser

@@ -1,16 +1,17 @@
 /**
  * Analysis History Panel
- * Displays saved analysis records with regulator-compliant snapshot view
+ * Displays Intent Logs and Impact Events
+ * Working Draft → Intent Log → Impact Event flow
  */
 
 'use client';
 
 import { useState } from 'react';
-import { AnalysisHistoryResponse, AnalysisRecord, getAnalysisRecord } from '@/api/proxy_corporate';
+import { HistoryResponse, IntentLog, ImpactEvent } from '@/api/proxy_corporate';
 import { useOrganization } from '@/context/OrganizationContext';
 
 interface AnalysisHistoryPanelProps {
-  history: AnalysisHistoryResponse | null;
+  history: HistoryResponse | null;
   loading: boolean;
   onLoadMore: () => void;
   onRefresh: () => void;
@@ -23,24 +24,9 @@ export default function AnalysisHistoryPanel({
   onRefresh
 }: AnalysisHistoryPanelProps) {
   const { currentOrganization } = useOrganization();
-  const [selectedRecord, setSelectedRecord] = useState<AnalysisRecord | null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-
-  const loadRecordDetail = async (recordId: string) => {
-    if (!currentOrganization?.id) return;
-    
-    setLoadingDetail(true);
-    try {
-      const record = await getAnalysisRecord(recordId, currentOrganization.id);
-      if (record) {
-        setSelectedRecord(record);
-      }
-    } catch (err) {
-      console.error('[History] Load record error:', err);
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
+  const [selectedIntent, setSelectedIntent] = useState<IntentLog | null>(null);
+  const [selectedImpact, setSelectedImpact] = useState<ImpactEvent | null>(null);
+  const [activeView, setActiveView] = useState<'intents' | 'impacts'>('intents');
 
   const getRiskLevel = (scores: any): 'low' | 'medium' | 'high' => {
     if (!scores || typeof scores.ethical_index !== 'number') return 'medium';
@@ -76,20 +62,54 @@ export default function AnalysisHistoryPanel({
     }
   };
 
+  const getTriggerActionLabel = (action: string): string => {
+    switch (action) {
+      case 'save':
+        return 'Yayına Hazırlık Analizi';
+      case 'rewrite':
+        return 'Yeniden Yazma';
+      case 'version':
+        return 'Versiyon Oluşturma';
+      case 'approval_request':
+        return 'Onaya Gönderme';
+      default:
+        return action;
+    }
+  };
+
+  const getImpactTypeLabel = (type: string): string => {
+    switch (type) {
+      case 'api_response':
+        return 'API Yanıtı';
+      case 'chatbot_display':
+        return 'Chatbot Gösterimi';
+      case 'cms_publish':
+        return 'CMS Yayını';
+      case 'campaign_send':
+        return 'Kampanya Gönderimi';
+      case 'notification':
+        return 'Bildirim';
+      case 'external_integration':
+        return 'Harici Entegrasyon';
+      default:
+        return type;
+    }
+  };
+
   if (loading && !history) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 mb-4" style={{ borderColor: 'var(--proxy-action-primary)' }}></div>
           <p className="text-sm" style={{ color: 'var(--proxy-text-secondary)' }}>
-            Analiz geçmişi yükleniyor...
+            Geçmiş yükleniyor...
           </p>
         </div>
       </div>
     );
   }
 
-  if (!history || history.records.length === 0) {
+  if (!history || (history.intent_logs.length === 0 && history.impact_events.length === 0)) {
     return (
       <div
         className="rounded-2xl p-8 text-center"
@@ -104,10 +124,10 @@ export default function AnalysisHistoryPanel({
           </svg>
         </div>
         <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--proxy-text-primary)' }}>
-          Henüz Kaydedilmiş Analiz Yok
+          Henüz Kayıt Yok
         </h3>
         <p className="text-sm mb-4" style={{ color: 'var(--proxy-text-secondary)' }}>
-          Analiz sonuçlarını kaydettiğinizde burada görünecektir.
+          Yayına hazırlık analizi veya gerçek etki kaydı oluşturulduğunda burada görünecektir.
         </p>
         <button
           onClick={onRefresh}
@@ -132,7 +152,7 @@ export default function AnalysisHistoryPanel({
             Analiz Geçmişi
           </h2>
           <p className="text-sm" style={{ color: 'var(--proxy-text-secondary)' }}>
-            {history.total} kayıt bulundu
+            {history.total_intents} niyet kaydı, {history.total_impacts} etki kaydı
           </p>
         </div>
         <button
@@ -149,70 +169,178 @@ export default function AnalysisHistoryPanel({
         </button>
       </div>
 
-      {/* Records List */}
-      <div className="space-y-4">
-        {history.records.map((record) => {
-          const riskLevel = getRiskLevel(record.scores);
-          const riskColor = getRiskColor(riskLevel);
-          
-          return (
-            <div
-              key={record.id}
-              className="rounded-xl p-6 transition-all hover:bg-[var(--proxy-surface-hover)] cursor-pointer"
-              style={{
-                backgroundColor: 'var(--proxy-surface)',
-                border: '1px solid var(--proxy-border-soft)',
-              }}
-              onClick={() => loadRecordDetail(record.id)}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div
-                      className="px-3 py-1 rounded-lg text-xs font-semibold"
-                      style={{
-                        backgroundColor: `${riskColor}20`,
-                        color: riskColor,
-                      }}
-                    >
-                      {riskLevel === 'low' ? 'Düşük Risk' : riskLevel === 'medium' ? 'Orta Risk' : 'Yüksek Risk'}
-                    </div>
-                    {record.sector && (
-                      <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--proxy-bg-secondary)', color: 'var(--proxy-text-secondary)' }}>
-                        {record.sector}
-                      </span>
-                    )}
-                    <span className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
-                      {formatDate(record.created_at)}
-                    </span>
-                  </div>
-                  
-                  <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--proxy-text-primary)' }}>
-                    {record.input_text.substring(0, 150)}...
-                  </p>
-                  
-                  <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--proxy-text-secondary)' }}>
-                    <span>Etik İndeks: {record.scores?.ethical_index || 'N/A'}/100</span>
-                    <span>Uyum: {record.scores?.compliance_score || 'N/A'}/100</span>
-                    {record.policies_snapshot?.policies && record.policies_snapshot.policies.length > 0 && (
-                      <span>Politikalar: {record.policies_snapshot.policies.join(', ')}</span>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="ml-4">
-                  <svg className="w-5 h-5" style={{ color: 'var(--proxy-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      {/* View Toggle */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveView('intents')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeView === 'intents' ? 'opacity-100' : 'opacity-50'
+          }`}
+          style={{
+            backgroundColor: activeView === 'intents' ? 'var(--proxy-action-primary)' : 'var(--proxy-surface)',
+            color: activeView === 'intents' ? '#FFFFFF' : 'var(--proxy-text-primary)',
+            border: '1px solid var(--proxy-border-soft)',
+          }}
+        >
+          Yayına Hazırlık Analizleri ({history.total_intents})
+        </button>
+        {history.total_impacts > 0 && (
+          <button
+            onClick={() => setActiveView('impacts')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeView === 'impacts' ? 'opacity-100' : 'opacity-50'
+            }`}
+            style={{
+              backgroundColor: activeView === 'impacts' ? 'var(--proxy-action-primary)' : 'var(--proxy-surface)',
+              color: activeView === 'impacts' ? '#FFFFFF' : 'var(--proxy-text-primary)',
+              border: '1px solid var(--proxy-border-soft)',
+            }}
+          >
+            Gerçek Etki Kayıtları ({history.total_impacts})
+          </button>
+        )}
       </div>
 
+      {/* Intent Logs */}
+      {activeView === 'intents' && (
+        <div className="space-y-4">
+          {history.intent_logs.map((intent) => {
+            const riskLevel = getRiskLevel(intent.risk_scores);
+            const riskColor = getRiskColor(riskLevel);
+            
+            return (
+              <div
+                key={intent.id}
+                className="rounded-xl p-6 transition-all hover:bg-[var(--proxy-surface-hover)] cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--proxy-surface)',
+                  border: '1px solid var(--proxy-border-soft)',
+                }}
+                onClick={() => setSelectedIntent(intent)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div
+                        className="px-3 py-1 rounded-lg text-xs font-semibold"
+                        style={{
+                          backgroundColor: `${riskColor}20`,
+                          color: riskColor,
+                        }}
+                      >
+                        {riskLevel === 'low' ? 'Düşük Risk' : riskLevel === 'medium' ? 'Orta Risk' : 'Yüksek Risk'}
+                      </div>
+                      <span className="px-2 py-1 rounded text-xs" style={{ backgroundColor: 'rgba(37, 99, 235, 0.15)', color: 'var(--proxy-action-primary)' }}>
+                        {getTriggerActionLabel(intent.trigger_action)}
+                      </span>
+                      {intent.sector && (
+                        <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--proxy-bg-secondary)', color: 'var(--proxy-text-secondary)' }}>
+                          {intent.sector}
+                        </span>
+                      )}
+                      <span className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
+                        {formatDate(intent.created_at)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-xs mb-2" style={{ color: 'var(--proxy-text-secondary)' }}>
+                      <span>Etik İndeks: {intent.risk_scores?.ethical_index || 'N/A'}/100</span>
+                      <span>Uyum: {intent.risk_scores?.compliance_score || 'N/A'}/100</span>
+                      {intent.policy_set?.policies && intent.policy_set.policies.length > 0 && (
+                        <span>Politikalar: {intent.policy_set.policies.join(', ')}</span>
+                      )}
+                    </div>
+
+                    {intent.impact_events && intent.impact_events.length > 0 && (
+                      <div className="mt-2">
+                        <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', color: 'var(--proxy-success)' }}>
+                          {intent.impact_events.length} Etki Kaydı
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="ml-4">
+                    <svg className="w-5 h-5" style={{ color: 'var(--proxy-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Impact Events */}
+      {activeView === 'impacts' && (
+        <div className="space-y-4">
+          {history.impact_events.map((impact) => {
+            const riskLevel = getRiskLevel(impact.risk_scores_locked);
+            const riskColor = getRiskColor(riskLevel);
+            
+            return (
+              <div
+                key={impact.id}
+                className="rounded-xl p-6 transition-all hover:bg-[var(--proxy-surface-hover)] cursor-pointer border-2"
+                style={{
+                  backgroundColor: 'var(--proxy-surface)',
+                  borderColor: riskColor,
+                }}
+                onClick={() => setSelectedImpact(impact)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div
+                        className="px-3 py-1 rounded-lg text-xs font-semibold"
+                        style={{
+                          backgroundColor: `${riskColor}20`,
+                          color: riskColor,
+                        }}
+                      >
+                        {riskLevel === 'low' ? 'Düşük Risk' : riskLevel === 'medium' ? 'Orta Risk' : 'Yüksek Risk'}
+                      </div>
+                      <span className="px-2 py-1 rounded text-xs font-semibold" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: 'var(--proxy-danger)' }}>
+                        Gerçek Etki — Kilitli
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--proxy-bg-secondary)', color: 'var(--proxy-text-secondary)' }}>
+                        {getImpactTypeLabel(impact.impact_type)}
+                      </span>
+                      <span className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
+                        {formatDate(impact.occurred_at)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-xs mb-2" style={{ color: 'var(--proxy-text-secondary)' }}>
+                      <span>Etik İndeks: {impact.risk_scores_locked?.ethical_index || 'N/A'}/100</span>
+                      <span>Uyum: {impact.risk_scores_locked?.compliance_score || 'N/A'}/100</span>
+                      <span>Kaynak: {impact.source_system}</span>
+                    </div>
+
+                    {impact.intent_log_id && (
+                      <div className="mt-2">
+                        <span className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
+                          İlgili Niyet Kaydı: {impact.intent_log_id.substring(0, 8)}...
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="ml-4">
+                    <svg className="w-5 h-5" style={{ color: 'var(--proxy-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Load More */}
-      {history.total > history.records.length && (
+      {(history.total_intents > history.intent_logs.length || history.total_impacts > history.impact_events.length) && (
         <div className="text-center">
           <button
             onClick={onLoadMore}
@@ -224,45 +352,36 @@ export default function AnalysisHistoryPanel({
               border: '1px solid var(--proxy-border-soft)',
             }}
           >
-            {loading ? 'Yükleniyor...' : `Daha Fazla Yükle (${history.total - history.records.length} kaldı)`}
+            {loading ? 'Yükleniyor...' : 'Daha Fazla Yükle'}
           </button>
         </div>
       )}
 
-      {/* Detail Modal */}
-      {selectedRecord && (
-        <AnalysisDetailModal
-          record={selectedRecord}
-          onClose={() => setSelectedRecord(null)}
-          loading={loadingDetail}
+      {/* Detail Modals */}
+      {selectedIntent && (
+        <IntentDetailModal
+          intent={selectedIntent}
+          onClose={() => setSelectedIntent(null)}
+        />
+      )}
+
+      {selectedImpact && (
+        <ImpactDetailModal
+          impact={selectedImpact}
+          onClose={() => setSelectedImpact(null)}
         />
       )}
     </div>
   );
 }
 
-function AnalysisDetailModal({
-  record,
-  onClose,
-  loading
+function IntentDetailModal({
+  intent,
+  onClose
 }: {
-  record: AnalysisRecord;
+  intent: IntentLog;
   onClose: () => void;
-  loading: boolean;
 }) {
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 mb-4" style={{ borderColor: 'var(--proxy-action-primary)' }}></div>
-          <p className="text-sm" style={{ color: 'var(--proxy-text-secondary)' }}>
-            Yükleniyor...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -279,7 +398,7 @@ function AnalysisDetailModal({
       >
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold" style={{ color: 'var(--proxy-text-primary)' }}>
-            Analiz Detayı
+            Yayına Hazırlık Analizi Detayı
           </h3>
           <button
             onClick={onClose}
@@ -292,57 +411,32 @@ function AnalysisDetailModal({
           </button>
         </div>
 
-        {/* Content */}
         <div className="space-y-6">
-          {/* Metadata */}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span style={{ color: 'var(--proxy-text-muted)' }}>Tarih: </span>
               <span style={{ color: 'var(--proxy-text-primary)' }}>
-                {new Date(record.created_at).toLocaleString('tr-TR')}
+                {new Date(intent.created_at).toLocaleString('tr-TR')}
               </span>
             </div>
-            {record.sector && (
+            {intent.sector && (
               <div>
                 <span style={{ color: 'var(--proxy-text-muted)' }}>Sektör: </span>
-                <span style={{ color: 'var(--proxy-text-primary)' }}>{record.sector}</span>
+                <span style={{ color: 'var(--proxy-text-primary)' }}>{intent.sector}</span>
               </div>
             )}
-            {record.policies_snapshot?.policies && (
-              <div className="col-span-2">
-                <span style={{ color: 'var(--proxy-text-muted)' }}>Politikalar: </span>
-                <span style={{ color: 'var(--proxy-text-primary)' }}>
-                  {record.policies_snapshot.policies.join(', ')}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Input Text */}
-          <div>
-            <h4 className="text-lg font-semibold mb-2" style={{ color: 'var(--proxy-text-primary)' }}>
-              Analiz Edilen İçerik
-            </h4>
-            <div
-              className="p-4 rounded-xl"
-              style={{
-                backgroundColor: 'var(--proxy-bg-secondary)',
-                border: '1px solid var(--proxy-border-soft)',
-              }}
-            >
-              <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--proxy-text-primary)' }}>
-                {record.input_text}
-              </p>
+            <div className="col-span-2">
+              <span style={{ color: 'var(--proxy-text-muted)' }}>Aksiyon: </span>
+              <span style={{ color: 'var(--proxy-text-primary)' }}>{intent.trigger_action}</span>
             </div>
           </div>
 
-          {/* Scores */}
           <div>
             <h4 className="text-lg font-semibold mb-4" style={{ color: 'var(--proxy-text-primary)' }}>
               Skorlar
             </h4>
             <div className="grid grid-cols-5 gap-4">
-              {Object.entries(record.scores || {}).map(([key, value]) => (
+              {Object.entries(intent.risk_scores || {}).map(([key, value]) => (
                 <div key={key} className="text-center">
                   <div className="text-xs mb-1" style={{ color: 'var(--proxy-text-muted)' }}>
                     {key.replace('_', ' ')}
@@ -355,28 +449,20 @@ function AnalysisDetailModal({
             </div>
           </div>
 
-          {/* Violations */}
-          {record.violations && (
+          {intent.impact_events && intent.impact_events.length > 0 && (
             <div>
               <h4 className="text-lg font-semibold mb-4" style={{ color: 'var(--proxy-text-primary)' }}>
-                Tespit Edilen İhlaller
+                İlgili Etki Kayıtları ({intent.impact_events.length})
               </h4>
-              {record.violations.flags && record.violations.flags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {record.violations.flags.map((flag: string, idx: number) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 rounded-lg text-xs font-medium"
-                      style={{
-                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                        color: 'var(--proxy-danger)',
-                      }}
-                    >
-                      {flag}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <div className="space-y-2">
+                {intent.impact_events.map((ie) => (
+                  <div key={ie.id} className="p-3 rounded-lg" style={{ backgroundColor: 'var(--proxy-bg-secondary)' }}>
+                    <div className="text-sm" style={{ color: 'var(--proxy-text-primary)' }}>
+                      {ie.impact_type} — {new Date(ie.occurred_at).toLocaleString('tr-TR')}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -385,3 +471,94 @@ function AnalysisDetailModal({
   );
 }
 
+function ImpactDetailModal({
+  impact,
+  onClose
+}: {
+  impact: ImpactEvent;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl p-6"
+        style={{
+          backgroundColor: 'var(--proxy-surface)',
+          border: '1px solid var(--proxy-border-soft)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold" style={{ color: 'var(--proxy-text-primary)' }}>
+            Gerçek Etki Kaydı Detayı
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-[var(--proxy-surface-hover)] transition-colors"
+            style={{ color: 'var(--proxy-text-secondary)' }}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          <div className="p-4 rounded-xl border-2" style={{ borderColor: 'var(--proxy-danger)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+            <p className="text-sm font-semibold mb-2" style={{ color: 'var(--proxy-danger)' }}>
+              ⚠️ Bu kayıt gerçek etkiyi temsil eder ve hukuki referanstır.
+            </p>
+            <p className="text-xs" style={{ color: 'var(--proxy-text-secondary)' }}>
+              Skorlar etki anında kilitlenmiştir ve değiştirilemez.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span style={{ color: 'var(--proxy-text-muted)' }}>Etki Zamanı: </span>
+              <span style={{ color: 'var(--proxy-text-primary)' }}>
+                {new Date(impact.occurred_at).toLocaleString('tr-TR')}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--proxy-text-muted)' }}>Etki Türü: </span>
+              <span style={{ color: 'var(--proxy-text-primary)' }}>{impact.impact_type}</span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--proxy-text-muted)' }}>Kaynak Sistem: </span>
+              <span style={{ color: 'var(--proxy-text-primary)' }}>{impact.source_system}</span>
+            </div>
+            {impact.intent_log_id && (
+              <div>
+                <span style={{ color: 'var(--proxy-text-muted)' }}>İlgili Niyet Kaydı: </span>
+                <span style={{ color: 'var(--proxy-text-primary)' }}>{impact.intent_log_id}</span>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h4 className="text-lg font-semibold mb-4" style={{ color: 'var(--proxy-text-primary)' }}>
+              Kilitli Skorlar (Etki Anında)
+            </h4>
+            <div className="grid grid-cols-5 gap-4">
+              {Object.entries(impact.risk_scores_locked || {}).map(([key, value]) => (
+                <div key={key} className="text-center">
+                  <div className="text-xs mb-1" style={{ color: 'var(--proxy-text-muted)' }}>
+                    {key.replace('_', ' ')}
+                  </div>
+                  <div className="text-2xl font-bold" style={{ color: 'var(--proxy-text-primary)' }}>
+                    {typeof value === 'number' ? value : 'N/A'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
