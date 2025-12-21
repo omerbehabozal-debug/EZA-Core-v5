@@ -92,7 +92,7 @@ async def require_proxy_auth(
                 "role": "admin",
                 "sub": "bootstrap",
                 "bootstrap_mode": True,
-                "api_key": api_key if not api_key.startswith("ezak_") else "org_key",
+                "api_key": api_key if (api_key and not api_key.startswith("ezak_")) else ("org_key" if api_key else None),
                 "company_id": org_id_from_key,
                 "org_id": org_id_from_key,
             }
@@ -134,7 +134,7 @@ async def require_proxy_auth(
     
     return {
         **user_info,
-        "api_key": api_key if not api_key.startswith("ezak_") else "org_key",
+        "api_key": api_key if (api_key and not api_key.startswith("ezak_")) else ("org_key" if api_key else None),
         "company_id": org_id_from_key or user_info.get("company_id"),  # From API key or JWT
         "org_id": org_id_from_key or user_info.get("org_id"),  # Alias for org_id
     }
