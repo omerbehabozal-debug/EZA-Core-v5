@@ -18,14 +18,20 @@ function AnalysisSnapshotContent() {
   const params = useParams();
   const router = useRouter();
   const { currentOrganization } = useOrganization();
-  const analysisId = params.id as string;
+  const analysisId = params && params.id ? (params.id as string) : undefined;
   
   const [snapshot, setSnapshot] = useState<AnalysisSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!analysisId || !currentOrganization?.id) return;
+    if (!analysisId || !currentOrganization?.id) {
+      if (!analysisId) {
+        setError('Analiz ID bulunamadı');
+        setLoading(false);
+      }
+      return;
+    }
     
     loadSnapshot();
   }, [analysisId, currentOrganization?.id]);
