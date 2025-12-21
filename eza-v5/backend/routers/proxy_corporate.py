@@ -469,7 +469,9 @@ async def proxy_rewrite(
         )
         original_scores = original_analysis["overall_scores"]
         
-        # Rewrite content
+        # Rewrite content (with context preservation check)
+        from backend.services.proxy_rewrite_engine import CONTEXT_PRESERVATION_FAILED_MESSAGE
+        
         rewritten_content = await rewrite_content(
             content=request.content,
             mode=request.mode,
@@ -478,11 +480,14 @@ async def proxy_rewrite(
             provider=request.provider
         )
         
-        # Auto re-analyze if requested
+        # Check if rewrite was rejected due to context preservation failure
+        context_preservation_failed = rewritten_content == CONTEXT_PRESERVATION_FAILED_MESSAGE
+        
+        # Auto re-analyze if requested AND context was preserved
         new_scores = None
         improvement = None
         
-        if request.auto_reanalyze:
+        if request.auto_reanalyze and not context_preservation_failed:
             new_analysis = await analyze_content_deep(
                 content=rewritten_content,
                 domain=request.domain,
@@ -500,74 +505,77 @@ async def proxy_rewrite(
                 "legal_risk_score": new_scores["legal_risk_score"] - original_scores["legal_risk_score"]
             }
         
-        # Log to telemetry
-        original_hash = generate_content_hash(request.content)
-        rewritten_hash = generate_content_hash(rewritten_content)
-        await log_rewrite(
-            db=db,
-            original_hash=original_hash,
-            rewritten_hash=rewritten_hash,
-            mode=request.mode,
-            score_before=original_scores,
-            score_after=new_scores or original_scores,
-            improvement=improvement or {},
-            user_id=current_user.get("user_id"),
-            company_id=current_user.get("company_id")
-        )
-        
-        # Create Intent Log for rewrite action (fire and forget)
-        # Import here to avoid circular dependency
-        try:
-            from backend.routers.proxy_analysis import create_intent_log, CreateIntentLogRequest
-            
-            # Create analysis result structure for Intent Log
-            rewrite_analysis_result = {
-                "overall_scores": new_scores or original_scores,
-                "flags": new_analysis.get("flags", []) if new_analysis else [],
-                "risk_locations": new_analysis.get("risk_locations", []) if new_analysis else [],
-                "content": rewritten_content,
-                "input_text": rewritten_content
-            }
-            
-            # Create Intent Log request
-            intent_request = CreateIntentLogRequest(
-                analysis_result=rewrite_analysis_result,
-                trigger_action="rewrite",
-                sector=request.domain,
-                policies=request.policies
+        # Log to telemetry (only if rewrite succeeded)
+        if not context_preservation_failed:
+            original_hash = generate_content_hash(request.content)
+            rewritten_hash = generate_content_hash(rewritten_content)
+            await log_rewrite(
+                db=db,
+                original_hash=original_hash,
+                rewritten_hash=rewritten_hash,
+                mode=request.mode,
+                score_before=original_scores,
+                score_after=new_scores or original_scores,
+                improvement=improvement or {},
+                user_id=current_user.get("user_id"),
+                company_id=current_user.get("company_id")
             )
             
-            # Create Intent Log asynchronously (don't block rewrite response)
-            # Use background task to avoid blocking
-            import asyncio
+            # Create Intent Log for rewrite action (fire and forget)
+            # Import here to avoid circular dependency
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If loop is running, create background task
-                    asyncio.create_task(
-                        create_intent_log(
-                            request=intent_request,
-                            db=db,
-                            current_user=current_user,
-                            x_org_id=current_user.get("org_id")
+                from backend.routers.proxy_analysis import create_intent_log, CreateIntentLogRequest
+                
+                # Create analysis result structure for Intent Log
+                rewrite_analysis_result = {
+                    "overall_scores": new_scores or original_scores,
+                    "flags": new_analysis.get("flags", []) if new_analysis else [],
+                    "risk_locations": new_analysis.get("risk_locations", []) if new_analysis else [],
+                    "content": rewritten_content,
+                    "input_text": rewritten_content
+                }
+                
+                # Create Intent Log request
+                intent_request = CreateIntentLogRequest(
+                    analysis_result=rewrite_analysis_result,
+                    trigger_action="rewrite",
+                    sector=request.domain,
+                    policies=request.policies
+                )
+                
+                # Create Intent Log asynchronously (don't block rewrite response)
+                # Use background task to avoid blocking
+                import asyncio
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # If loop is running, create background task
+                        asyncio.create_task(
+                            create_intent_log(
+                                request=intent_request,
+                                db=db,
+                                current_user=current_user,
+                                x_org_id=current_user.get("org_id")
+                            )
                         )
-                    )
-                else:
-                    # If loop is not running, schedule it
-                    loop.run_until_complete(
-                        create_intent_log(
-                            request=intent_request,
-                            db=db,
-                            current_user=current_user,
-                            x_org_id=current_user.get("org_id")
+                    else:
+                        # If loop is not running, schedule it
+                        loop.run_until_complete(
+                            create_intent_log(
+                                request=intent_request,
+                                db=db,
+                                current_user=current_user,
+                                x_org_id=current_user.get("org_id")
+                            )
                         )
-                    )
-            except RuntimeError:
-                # If no event loop, log warning but don't fail
-                logger.warning("[Proxy] No event loop available for Intent Log creation")
-        except Exception as e:
-            # Don't fail rewrite if Intent Log creation fails
-            logger.warning(f"[Proxy] Intent Log creation failed for rewrite: {e}")
+                except RuntimeError:
+                    # If no event loop, log warning but don't fail
+                    logger.warning("[Proxy] No event loop available for Intent Log creation")
+            except Exception as e:
+                # Don't fail rewrite if Intent Log creation fails
+                logger.warning(f"[Proxy] Intent Log creation failed for rewrite: {e}")
+        else:
+            logger.info("[Proxy] Rewrite rejected due to context preservation failure. No telemetry or Intent Log created.")
         
         return ProxyRewriteResponse(
             ok=True,

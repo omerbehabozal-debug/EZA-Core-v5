@@ -537,7 +537,7 @@ function ProxyCorporatePageContent() {
               }}
             >
               <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
-                Yeniden Yazma
+                Öneri Yazı Oluştur
               </h2>
               
               <RewriteOptions
@@ -548,14 +548,14 @@ function ProxyCorporatePageContent() {
               <button
                 type="button"
                 onClick={handleRewrite}
-                disabled={rewriting}
+                disabled={rewriting || !analysisResult}
                 className="w-full mt-6 py-4 px-6 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
                 style={{
                   backgroundColor: 'var(--proxy-action-primary)',
                   color: '#FFFFFF',
                 }}
               >
-                {rewriting ? 'Yeniden Yazılıyor...' : 'Yeniden Yaz'}
+                {rewriting ? 'Öneri Oluşturuluyor...' : 'Öneri Yazı Oluştur'}
               </button>
             </div>
 
@@ -568,70 +568,101 @@ function ProxyCorporatePageContent() {
                   border: '1px solid var(--proxy-border-soft)',
                 }}
               >
-                <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
-                  Yeniden Yazılmış İçerik
-                </h3>
-                
-                {/* Score Comparison */}
-                {rewriteResult.improvement && (
-                  <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: 'var(--proxy-bg-secondary)' }}>
-                    <div className="grid grid-cols-5 gap-4 text-center">
-                      {Object.entries(rewriteResult.improvement).map(([key, value]) => (
-                        <div key={key}>
-                          <div className="text-xs mb-1" style={{ color: 'var(--proxy-text-muted)' }}>
-                            {key.replace('_', ' ')}
-                          </div>
-                          <div
-                            className={`text-lg font-bold ${
-                              value > 0 ? 'text-[var(--proxy-success)]' : value < 0 ? 'text-[var(--proxy-danger)]' : 'text-[var(--proxy-text-muted)]'
-                            }`}
-                          >
-                            {value > 0 ? '+' : ''}{value}
-                          </div>
-                        </div>
-                      ))}
+                {/* Check if context preservation failed */}
+                {rewriteResult.rewritten_content.includes('EZA müdahale etmez') ? (
+                  // Context preservation failed - show message only
+                  <div>
+                    <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
+                      Öneri Oluşturulamadı
+                    </h3>
+                    <div
+                      className="p-4 rounded-xl mb-4"
+                      style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid var(--proxy-danger)',
+                      }}
+                    >
+                      <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--proxy-text-primary)' }}>
+                        {rewriteResult.rewritten_content}
+                      </p>
                     </div>
+                    <p className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
+                      Riskli noktalar yukarıdaki analiz sonuçlarında işaretlendi. Düzenleme size bırakıldı.
+                    </p>
                   </div>
+                ) : (
+                  // Context preserved - show rewrite suggestion
+                  <>
+                    <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
+                      Önerilen Metin
+                    </h3>
+                    
+                    {/* Score Comparison */}
+                    {rewriteResult.improvement && (
+                      <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: 'var(--proxy-bg-secondary)' }}>
+                        <div className="grid grid-cols-5 gap-4 text-center">
+                          {Object.entries(rewriteResult.improvement).map(([key, value]) => (
+                            <div key={key}>
+                              <div className="text-xs mb-1" style={{ color: 'var(--proxy-text-muted)' }}>
+                                {key.replace('_', ' ')}
+                              </div>
+                              <div
+                                className={`text-lg font-bold ${
+                                  value > 0 ? 'text-[var(--proxy-success)]' : value < 0 ? 'text-[var(--proxy-danger)]' : 'text-[var(--proxy-text-muted)]'
+                                }`}
+                              >
+                                {value > 0 ? '+' : ''}{value}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div
+                      className="p-4 rounded-xl mb-4"
+                      style={{
+                        backgroundColor: 'var(--proxy-bg-secondary)',
+                        border: '1px solid var(--proxy-border-soft)',
+                      }}
+                    >
+                      <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--proxy-text-primary)' }}>
+                        {rewriteResult.rewritten_content}
+                      </p>
+                    </div>
+
+                    <p className="text-xs mb-4" style={{ color: 'var(--proxy-text-muted)' }}>
+                      Bu bir öneridir. Orijinal metin korunmuştur. İstediğiniz değişiklikleri yapabilirsiniz.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(rewriteResult.rewritten_content);
+                          setToast({
+                            type: 'success',
+                            message: 'Önerilen metin panoya kopyalandı',
+                          });
+                        } catch (err) {
+                          console.error('Copy failed:', err);
+                          setToast({
+                            type: 'error',
+                            message: 'Kopyalama başarısız oldu',
+                          });
+                        }
+                      }}
+                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-[var(--proxy-surface-hover)]"
+                      style={{
+                        backgroundColor: 'var(--proxy-surface)',
+                        color: 'var(--proxy-text-primary)',
+                        border: '1px solid var(--proxy-border-soft)',
+                      }}
+                    >
+                      Öneriyi Kopyala
+                    </button>
+                  </>
                 )}
-
-                <div
-                  className="p-4 rounded-xl mb-4"
-                  style={{
-                    backgroundColor: 'var(--proxy-bg-secondary)',
-                    border: '1px solid var(--proxy-border-soft)',
-                  }}
-                >
-                  <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--proxy-text-primary)' }}>
-                    {rewriteResult.rewritten_content}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(rewriteResult.rewritten_content);
-                      setToast({
-                        type: 'success',
-                        message: 'İçerik panoya kopyalandı',
-                      });
-                    } catch (err) {
-                      console.error('Copy failed:', err);
-                      setToast({
-                        type: 'error',
-                        message: 'Kopyalama başarısız oldu',
-                      });
-                    }
-                  }}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-[var(--proxy-surface-hover)]"
-                  style={{
-                    backgroundColor: 'var(--proxy-surface)',
-                    color: 'var(--proxy-text-primary)',
-                    border: '1px solid var(--proxy-border-soft)',
-                  }}
-                >
-                  Kopyala
-                </button>
               </div>
             )}
               </div>
