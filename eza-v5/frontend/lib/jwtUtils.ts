@@ -8,6 +8,10 @@
  * Returns payload or null if invalid
  */
 export function decodeJWT(token: string): any | null {
+  if (!token || typeof token !== 'string' || token.trim() === '') {
+    return null;
+  }
+  
   try {
     const parts = token.split('.');
     if (parts.length !== 3) {
@@ -15,7 +19,19 @@ export function decodeJWT(token: string): any | null {
     }
     
     const payload = parts[1];
-    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    if (!payload || payload.trim() === '') {
+      return null;
+    }
+    
+    // Base64 decode with padding handling
+    let base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    
+    // Add padding if needed
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    
+    const decoded = atob(base64);
     return JSON.parse(decoded);
   } catch (error) {
     console.error('[JWT] Decode error:', error);
@@ -28,19 +44,29 @@ export function decodeJWT(token: string): any | null {
  * Returns true if expired, false if valid, null if cannot determine
  */
 export function isTokenExpired(token: string): boolean | null {
+  if (!token || typeof token !== 'string' || token.trim() === '') {
+    return true; // No token = expired
+  }
+  
   try {
     const payload = decodeJWT(token);
-    if (!payload || !payload.exp) {
-      return null; // Cannot determine
+    if (!payload) {
+      return true; // Cannot decode = treat as expired for safety
+    }
+    
+    if (!payload.exp || typeof payload.exp !== 'number') {
+      return null; // Cannot determine expiry
     }
     
     const exp = payload.exp;
     const now = Math.floor(Date.now() / 1000);
     
-    return exp < now;
+    // Add 5 second buffer to account for clock skew
+    return exp < (now + 5);
   } catch (error) {
     console.error('[JWT] Expiry check error:', error);
-    return null;
+    // On error, treat as expired for safety
+    return true;
   }
 }
 

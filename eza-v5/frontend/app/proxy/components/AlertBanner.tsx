@@ -51,13 +51,25 @@ export default function AlertBanner({ orgId, userRole }: AlertBannerProps) {
         const token = localStorage.getItem('eza_token');
         
         // Check token expiry before making request
-        if (!token || isTokenExpired(token) === true) {
-          // Token expired - dispatch auth-expired event and stop polling
+        if (!token) {
+          // No token - dispatch auth-expired event
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('auth-expired'));
           }
           return;
         }
+        
+        const tokenExpired = isTokenExpired(token);
+        if (tokenExpired === true) {
+          // Token expired - dispatch auth-expired event and stop polling
+          console.warn('[AlertBanner] Token expired, stopping polling');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('auth-expired'));
+          }
+          return;
+        }
+        
+        // If tokenExpired === null, we cannot determine, but continue anyway (backend will validate)
         
         const apiKey = localStorage.getItem('proxy_api_key');
         const headers: Record<string, string> = {
@@ -100,21 +112,50 @@ export default function AlertBanner({ orgId, userRole }: AlertBannerProps) {
     };
 
     loadRecentAlerts();
-    const interval = setInterval(() => {
+    
+    // Set up interval with token expiry check
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    intervalId = setInterval(() => {
       // Check token before each poll
       const token = localStorage.getItem('eza_token');
-      if (!token || isTokenExpired(token) === true) {
-        // Token expired - stop polling
-        clearInterval(interval);
+      if (!token) {
+        // No token - stop polling
+        console.warn('[AlertBanner] No token found, stopping polling');
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('auth-expired'));
         }
         return;
       }
+      
+      const tokenExpired = isTokenExpired(token);
+      if (tokenExpired === true) {
+        // Token expired - stop polling
+        console.warn('[AlertBanner] Token expired, stopping polling');
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-expired'));
+        }
+        return;
+      }
+      
+      // If tokenExpired === null, we cannot determine, but continue anyway (backend will validate)
       loadRecentAlerts();
     }, 30000); // Refresh every 30 seconds
 
-    return () => clearInterval(interval);
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
   }, [orgId, userRole]);
 
   if (!showBanner || recentAlerts.length === 0) {
