@@ -84,6 +84,7 @@ class DecisionJustification(BaseModel):
     policy: str
     evidence: str
     severity: float
+    policies: Optional[List[str]] = None  # Array of all policy references (if multiple, for collapsed violations)
 
 
 class AuditResponse(BaseModel):
