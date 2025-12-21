@@ -349,46 +349,47 @@ def group_violations(risk_locations: List[Dict[str, Any]]) -> List[Dict[str, Any
     if they originate from the same narrative intent.
     
     Collapsing Rules:
-    1. Group by narrative intent (not policy)
+    1. Group by PRIMARY RISK PATTERN (not evidence similarity)
     2. Multiple policies → ONE violation with policies array
     3. Merge evidence (remove duplicates)
     4. Single severity per primary risk pattern (highest)
     5. ONE decision rationale per pattern
+    
+    GLOBAL COLLAPSE: Same primary_risk_pattern across different paragraphs = ONE violation
     """
     if not risk_locations:
         return []
     
-    # Group by PRIMARY RISK PATTERN (narrative intent)
-    # Key: risk_type (primary pattern) + evidence similarity
+    # Group by PRIMARY RISK PATTERN ONLY (not evidence similarity)
+    # This ensures same narrative intent across paragraphs = same violation
     grouped = {}
     
     for risk in risk_locations:
+        # Get primary risk pattern (prefer primary_risk_pattern, fallback to type)
+        primary_risk_pattern = risk.get("primary_risk_pattern") or risk.get("type", "unknown")
         risk_type = risk.get("type", "unknown")
         evidence = risk.get("evidence", "").strip()
         severity = risk.get("severity", "medium")
         policy = risk.get("policy")
         
-        # PRIMARY RISK PATTERN IDENTIFICATION
-        # Group by risk_type (primary pattern) and evidence similarity
-        # Evidence similarity: same narrative intent = same primary pattern
-        evidence_key = evidence[:100] if evidence else ""  # Use first 100 chars for similarity
-        
-        # Create grouping key: risk_type + evidence similarity
-        # This ensures same narrative intent = same violation
-        group_key = f"{risk_type}:{evidence_key}"
+        # PRIMARY KEY: primary_risk_pattern ONLY
+        # This ensures same narrative intent = same violation (regardless of paragraph or evidence wording)
+        group_key = primary_risk_pattern
         
         if group_key not in grouped:
             # NEW PRIMARY RISK PATTERN
             grouped[group_key] = {
-                "primary_risk_type": risk_type,  # Primary risk pattern
+                "primary_risk_type": primary_risk_pattern,  # Primary risk pattern
+                "type": risk_type,  # Original type (for backward compatibility)
                 "severity": severity,  # Will be updated to highest
                 "policies": [policy] if policy else [],  # Array of policies
-                "evidence": evidence,  # Contextual evidence
+                "evidence": evidence,  # Contextual evidence (will be updated to strongest)
                 "evidence_snippets": [evidence] if evidence else [],  # For deduplication
-                "count": 1
+                "count": 1,
+                "paragraph_ids": set()  # Track which paragraphs this pattern appears in
             }
         else:
-            # COLLAPSE: Same narrative intent, different policy
+            # COLLAPSE: Same primary risk pattern (same narrative intent)
             # Add policy to array (if not already present)
             if policy and policy not in grouped[group_key]["policies"]:
                 grouped[group_key]["policies"].append(policy)
@@ -400,14 +401,24 @@ def group_violations(risk_locations: List[Dict[str, Any]]) -> List[Dict[str, Any
             if new_severity_level > current_severity_level:
                 grouped[group_key]["severity"] = severity
             
-            # Merge evidence (avoid duplicates)
+            # Merge evidence (keep strongest / most explanatory)
             if evidence and evidence not in grouped[group_key]["evidence_snippets"]:
-                # If evidence is similar but not identical, merge intelligently
                 existing_evidence = grouped[group_key]["evidence"]
-                if evidence not in existing_evidence:
-                    # Merge: combine if different perspectives
-                    grouped[group_key]["evidence"] = f"{existing_evidence}. {evidence}"
+                # Prefer longer, more detailed evidence (stronger explanation)
+                # Or prefer high severity evidence
+                if len(evidence) > len(existing_evidence) or (severity == "high" and grouped[group_key]["severity"] != "high"):
+                    grouped[group_key]["evidence"] = evidence
+                elif evidence not in existing_evidence:
+                    # Merge: combine if different perspectives (but keep concise)
+                    # Only merge if evidence adds new information
+                    if len(evidence) > 20:  # Only merge substantial evidence
+                        grouped[group_key]["evidence"] = f"{existing_evidence}. {evidence}"
                 grouped[group_key]["evidence_snippets"].append(evidence)
+            
+            # Track paragraph IDs (for debugging)
+            para_id = risk.get("_paragraph_id")
+            if para_id is not None:
+                grouped[group_key]["paragraph_ids"].add(para_id)
             
             grouped[group_key]["count"] += 1
     
@@ -423,43 +434,45 @@ def group_violations(risk_locations: List[Dict[str, Any]]) -> List[Dict[str, Any
         
         # Create collapsed violation object
         collapsed_violation = {
-            "type": group_data["primary_risk_type"],  # Primary risk pattern
+            "type": group_data.get("type", group_data["primary_risk_type"]),  # Original type (for backward compatibility)
             "severity": group_data["severity"],  # Single severity (highest)
             "policy": unique_policies[0] if unique_policies else "UNKNOWN",  # Primary policy (for backward compatibility)
             "policies": unique_policies,  # Array of all policies (NEW)
-            "evidence": group_data["evidence"],  # Consolidated evidence
+            "evidence": group_data["evidence"],  # Strongest evidence
             "occurrence_count": group_data["count"],  # How many times this pattern appeared
             "primary_risk_pattern": group_data["primary_risk_type"]  # Explicit primary pattern
         }
         
         result.append(collapsed_violation)
     
-    # FINAL VALIDATION: Ensure no two violations describe the same narrative intent
-    # If evidence is too similar (>80% overlap), merge them
+    # FINAL VALIDATION: Ensure no duplicate primary_risk_patterns
+    # Since we're grouping by primary_risk_pattern, duplicates should not exist
+    # But double-check to be safe
     validated_result = []
+    seen_patterns = set()
     for violation in result:
-        is_duplicate = False
-        for existing in validated_result:
-            # Check evidence similarity (simple word overlap)
-            existing_words = set(existing["evidence"].lower().split())
-            violation_words = set(violation["evidence"].lower().split())
-            if existing_words and violation_words:
-                overlap = len(existing_words & violation_words) / len(existing_words | violation_words)
-                if overlap > 0.8:  # 80% similarity threshold
-                    # Merge into existing violation
+        pattern = violation.get("primary_risk_pattern") or violation.get("type")
+        if pattern not in seen_patterns:
+            seen_patterns.add(pattern)
+            validated_result.append(violation)
+        else:
+            # This should not happen if grouping logic is correct
+            # But if it does, merge into existing
+            logger.warning(f"[Proxy] Duplicate primary_risk_pattern detected: {pattern}. Merging...")
+            for existing in validated_result:
+                if (existing.get("primary_risk_pattern") or existing.get("type")) == pattern:
                     existing["policies"] = list(dict.fromkeys(existing["policies"] + violation["policies"]))
                     existing["occurrence_count"] += violation["occurrence_count"]
                     # Keep highest severity
                     severity_map = {"low": 0, "medium": 1, "high": 2}
                     if severity_map.get(violation["severity"], 1) > severity_map.get(existing["severity"], 1):
                         existing["severity"] = violation["severity"]
-                    is_duplicate = True
+                    # Keep strongest evidence
+                    if len(violation["evidence"]) > len(existing["evidence"]):
+                        existing["evidence"] = violation["evidence"]
                     break
-        
-        if not is_duplicate:
-            validated_result.append(violation)
     
-    logger.info(f"[Proxy] Collapsed {len(risk_locations)} risk locations into {len(validated_result)} primary risk patterns")
+    logger.info(f"[Proxy] Collapsed {len(risk_locations)} risk locations into {len(validated_result)} unique primary risk patterns")
     
     return validated_result
 
