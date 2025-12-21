@@ -46,7 +46,9 @@ class RiskLocation(BaseModel):
     type: Literal["ethical", "compliance", "manipulation", "bias", "legal"]
     severity: Literal["low", "medium", "high"]
     evidence: Optional[str] = None  # Contextual evidence (meaning-based, not word positions)
-    policy: Optional[str] = None  # Policy code (e.g., "TRT-NEUTRALITY", "HEALTH-ETHICAL")
+    policy: Optional[str] = None  # Primary policy code (for backward compatibility)
+    policies: Optional[List[str]] = None  # Array of all policy references (collapsed violations)
+    primary_risk_pattern: Optional[str] = None  # Primary risk pattern identifier
     occurrence_count: Optional[int] = None  # How many times this pattern appeared (after grouping)
 
 
@@ -70,10 +72,11 @@ class RiskFlagSeverityResponse(BaseModel):
 
 
 class DecisionJustificationResponse(BaseModel):
-    violation: str
-    policy: str
-    evidence: str
-    severity: float
+    violation: str  # Primary risk pattern label
+    policy: str  # Primary policy (for backward compatibility)
+    policies: Optional[List[str]] = None  # Array of all policy references (if multiple)
+    evidence: str  # Consolidated decision rationale (ONE explanation per pattern)
+    severity: float  # Single severity per primary risk pattern
 
 
 class ProxyAnalyzeResponse(BaseModel):
@@ -169,46 +172,75 @@ async def proxy_analyze(
         # Calculate latency
         latency_ms = (time.time() - start_time) * 1000
         
-        # Convert risk locations to RiskFlagSeverity model
-        # NOTE: risk_locations now contain contextual evidence, not character positions
+        # PRIMARY RISK PATTERN & VIOLATION COLLAPSING
+        # NOTE: risk_locations are already collapsed by narrative intent in group_violations()
+        # Each risk_location represents ONE primary risk pattern with multiple policies
         risk_flags_severity = []
         policy_trace = []
         justification = []
         
         for loc in analysis_result.get("risk_locations", []):
-            severity_value = {"low": 0.3, "medium": 0.6, "high": 0.9}.get(loc.get("severity", "medium"), 0.5)
+            # Get primary risk pattern (collapsed)
+            primary_risk_type = loc.get("primary_risk_pattern") or loc.get("type", "unknown")
+            severity_str = loc.get("severity", "medium")
+            severity_value = {"low": 0.3, "medium": 0.6, "high": 0.9}.get(severity_str, 0.5)
             
-            # Use policy from risk_location if provided, otherwise construct from domain/type
-            policy_code = loc.get("policy")
-            if not policy_code:
-                policy_code = f"{request.domain.upper()}-{loc.get('type', 'UNKNOWN').upper()}" if request.domain else "GENERAL-01"
+            # Get policies array (collapsed violations have multiple policies)
+            policies_array = loc.get("policies", [])
+            if not policies_array:
+                # Fallback: use single policy or construct from domain/type
+                single_policy = loc.get("policy")
+                if not single_policy:
+                    single_policy = f"{request.domain.upper()}-{primary_risk_type.upper()}" if request.domain else "GENERAL-01"
+                policies_array = [single_policy]
             
-            # Evidence is now contextual (meaning-based), not character positions
-            evidence = loc.get("evidence", f"{loc.get('type', 'unknown')} risk detected")
+            # Evidence is consolidated (contextual, meaning-based)
+            evidence = loc.get("evidence", f"{primary_risk_type} risk detected")
+            
+            # Create ONE RiskFlagSeverity per primary risk pattern
+            # Use primary policy (first in array) for backward compatibility
+            primary_policy = policies_array[0]
             
             risk_flag = RiskFlagSeverity(
-                flag=loc.get("type", "unknown"),
-                severity=severity_value,
-                policy=policy_code,
-                evidence=evidence  # Contextual evidence, not character slice
+                flag=primary_risk_type,  # Primary risk pattern (not individual policy)
+                severity=severity_value,  # Single severity (highest)
+                policy=primary_policy,  # Primary policy (for backward compatibility)
+                evidence=evidence  # Consolidated contextual evidence
             )
             risk_flags_severity.append(risk_flag)
             
-            # Add to policy trace (no character position, use occurrence count if available)
+            # Add all policies to policy trace (for audit)
             occurrence_count = loc.get("occurrence_count", 1)
-            policy_trace.append({
-                "policy": policy_code,
-                "severity": loc.get("severity", "medium"),
-                "occurrence_count": occurrence_count  # How many times this pattern appeared
-            })
+            for policy_code in policies_array:
+                policy_trace.append({
+                    "policy": policy_code,
+                    "severity": severity_str,
+                    "occurrence_count": occurrence_count,
+                    "primary_risk_pattern": primary_risk_type  # Link to primary pattern
+                })
             
-            # Add to justification
-            justification.append(DecisionJustification(
-                violation=f"{loc.get('type', 'unknown')} ihlali",
-                policy=policy_code,
-                evidence=evidence,  # Contextual evidence
+            # Create ONE DecisionJustification per primary risk pattern
+            # Consolidate all policies into single rationale
+            policies_display = ", ".join(policies_array) if len(policies_array) > 1 else policies_array[0]
+            violation_label = f"{primary_risk_type} risk pattern"
+            if len(policies_array) > 1:
+                violation_label += f" ({len(policies_array)} policy references)"
+            
+            # Generate consolidated decision rationale
+            decision_rationale = evidence  # Use consolidated evidence as rationale
+            if len(policies_array) > 1:
+                decision_rationale = f"{evidence} (İlgili politikalar: {policies_display})"
+            
+            # Create DecisionJustification with policies array
+            just_obj = DecisionJustification(
+                violation=violation_label,
+                policy=primary_policy,  # Primary policy (for backward compatibility)
+                evidence=decision_rationale,  # Consolidated decision rationale
                 severity=severity_value
-            ))
+            )
+            # Attach policies array to object (for response serialization)
+            just_obj.policies = policies_array if len(policies_array) > 1 else None
+            justification.append(just_obj)
         
         # Get org_id from authenticated context (already validated by require_proxy_auth_production)
         org_id = current_user.get("org_id") or current_user.get("company_id")
@@ -435,6 +467,7 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
                 DecisionJustificationResponse(
                     violation=j.violation,
                     policy=j.policy,
+                    policies=getattr(j, 'policies', None),  # Policies array if available
                     evidence=j.evidence,
                     severity=j.severity
                 ) for j in justification

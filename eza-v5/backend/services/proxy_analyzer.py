@@ -207,54 +207,126 @@ Evidence her zaman bağlamsal ve anlam referanslı olmalı."""
 
 def group_violations(risk_locations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Group similar violations under single entry
+    PRIMARY RISK PATTERN & VIOLATION COLLAPSING (Camera Mode)
     
-    CORE PRINCIPLE: If multiple risk_locations support the same risky narrative,
-    group them into ONE violation entry.
+    CORE PRINCIPLE: Risk patterns are primary. Policy references are secondary.
+    The system must NEVER treat each policy mapping as a separate violation
+    if they originate from the same narrative intent.
+    
+    Collapsing Rules:
+    1. Group by narrative intent (not policy)
+    2. Multiple policies → ONE violation with policies array
+    3. Merge evidence (remove duplicates)
+    4. Single severity per primary risk pattern (highest)
+    5. ONE decision rationale per pattern
     """
     if not risk_locations:
         return []
     
-    # Group by policy and similar evidence pattern
+    # Group by PRIMARY RISK PATTERN (narrative intent)
+    # Key: risk_type (primary pattern) + evidence similarity
     grouped = {}
     
     for risk in risk_locations:
-        policy = risk.get("policy", "UNKNOWN")
         risk_type = risk.get("type", "unknown")
+        evidence = risk.get("evidence", "").strip()
         severity = risk.get("severity", "medium")
+        policy = risk.get("policy")
         
-        # Create grouping key: policy + type + severity
-        # This groups similar risks together
-        group_key = f"{policy}:{risk_type}:{severity}"
+        # PRIMARY RISK PATTERN IDENTIFICATION
+        # Group by risk_type (primary pattern) and evidence similarity
+        # Evidence similarity: same narrative intent = same primary pattern
+        evidence_key = evidence[:100] if evidence else ""  # Use first 100 chars for similarity
+        
+        # Create grouping key: risk_type + evidence similarity
+        # This ensures same narrative intent = same violation
+        group_key = f"{risk_type}:{evidence_key}"
         
         if group_key not in grouped:
+            # NEW PRIMARY RISK PATTERN
             grouped[group_key] = {
-                "type": risk_type,
-                "severity": severity,
-                "policy": policy,
-                "evidence": risk.get("evidence", ""),
+                "primary_risk_type": risk_type,  # Primary risk pattern
+                "severity": severity,  # Will be updated to highest
+                "policies": [policy] if policy else [],  # Array of policies
+                "evidence": evidence,  # Contextual evidence
+                "evidence_snippets": [evidence] if evidence else [],  # For deduplication
                 "count": 1
             }
         else:
-            # Merge evidence (combine contextual descriptions)
-            existing_evidence = grouped[group_key]["evidence"]
-            new_evidence = risk.get("evidence", "")
-            if new_evidence and new_evidence not in existing_evidence:
-                grouped[group_key]["evidence"] = f"{existing_evidence}; {new_evidence}"
+            # COLLAPSE: Same narrative intent, different policy
+            # Add policy to array (if not already present)
+            if policy and policy not in grouped[group_key]["policies"]:
+                grouped[group_key]["policies"].append(policy)
+            
+            # Update severity to highest (most severe)
+            severity_map = {"low": 0, "medium": 1, "high": 2}
+            current_severity_level = severity_map.get(grouped[group_key]["severity"], 1)
+            new_severity_level = severity_map.get(severity, 1)
+            if new_severity_level > current_severity_level:
+                grouped[group_key]["severity"] = severity
+            
+            # Merge evidence (avoid duplicates)
+            if evidence and evidence not in grouped[group_key]["evidence_snippets"]:
+                # If evidence is similar but not identical, merge intelligently
+                existing_evidence = grouped[group_key]["evidence"]
+                if evidence not in existing_evidence:
+                    # Merge: combine if different perspectives
+                    grouped[group_key]["evidence"] = f"{existing_evidence}. {evidence}"
+                grouped[group_key]["evidence_snippets"].append(evidence)
+            
             grouped[group_key]["count"] += 1
     
-    # Convert grouped dict back to list
+    # Convert grouped dict to collapsed violations
     result = []
     for group_key, group_data in grouped.items():
-        result.append({
-            "type": group_data["type"],
-            "severity": group_data["severity"],
-            "policy": group_data["policy"],
-            "evidence": group_data["evidence"],
-            "occurrence_count": group_data["count"]  # How many times this pattern appeared
-        })
+        # VALIDATION: Ensure no duplicate policies
+        unique_policies = list(dict.fromkeys(group_data["policies"]))  # Preserve order, remove duplicates
+        
+        # If no policies, use primary_risk_type as fallback
+        if not unique_policies:
+            unique_policies = [f"GENERAL-{group_data['primary_risk_type'].upper()}"]
+        
+        # Create collapsed violation object
+        collapsed_violation = {
+            "type": group_data["primary_risk_type"],  # Primary risk pattern
+            "severity": group_data["severity"],  # Single severity (highest)
+            "policy": unique_policies[0] if unique_policies else "UNKNOWN",  # Primary policy (for backward compatibility)
+            "policies": unique_policies,  # Array of all policies (NEW)
+            "evidence": group_data["evidence"],  # Consolidated evidence
+            "occurrence_count": group_data["count"],  # How many times this pattern appeared
+            "primary_risk_pattern": group_data["primary_risk_type"]  # Explicit primary pattern
+        }
+        
+        result.append(collapsed_violation)
     
-    return result
+    # FINAL VALIDATION: Ensure no two violations describe the same narrative intent
+    # If evidence is too similar (>80% overlap), merge them
+    validated_result = []
+    for violation in result:
+        is_duplicate = False
+        for existing in validated_result:
+            # Check evidence similarity (simple word overlap)
+            existing_words = set(existing["evidence"].lower().split())
+            violation_words = set(violation["evidence"].lower().split())
+            if existing_words and violation_words:
+                overlap = len(existing_words & violation_words) / len(existing_words | violation_words)
+                if overlap > 0.8:  # 80% similarity threshold
+                    # Merge into existing violation
+                    existing["policies"] = list(dict.fromkeys(existing["policies"] + violation["policies"]))
+                    existing["occurrence_count"] += violation["occurrence_count"]
+                    # Keep highest severity
+                    severity_map = {"low": 0, "medium": 1, "high": 2}
+                    if severity_map.get(violation["severity"], 1) > severity_map.get(existing["severity"], 1):
+                        existing["severity"] = violation["severity"]
+                    is_duplicate = True
+                    break
+        
+        if not is_duplicate:
+            validated_result.append(violation)
+    
+    logger.info(f"[Proxy] Collapsed {len(risk_locations)} risk locations into {len(validated_result)} primary risk patterns")
+    
+    return validated_result
 
 
 async def analyze_content_deep(
