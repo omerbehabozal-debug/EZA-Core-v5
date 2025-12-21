@@ -13,6 +13,7 @@ import { useOrganization } from "@/context/OrganizationContext";
 import RequireAuth from "@/components/auth/RequireAuth";
 import ScoreBars from "../../components/ScoreBars";
 import ComplianceMetrics from "../../components/ComplianceMetrics";
+import AutoResizeTextarea from "../../components/AutoResizeTextarea";
 
 function AnalysisSnapshotContent() {
   const params = useParams();
@@ -156,16 +157,17 @@ function AnalysisSnapshotContent() {
           <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
             Analiz Edilen İçerik
           </h2>
-          <textarea
+          <AutoResizeTextarea
             value={snapshot.content || ''}
             readOnly
             disabled
-            className="w-full p-4 rounded-xl text-sm leading-relaxed resize-none"
+            minHeight={120}
+            maxHeight="60vh"
+            className="w-full p-4 rounded-xl text-sm leading-relaxed"
             style={{
               backgroundColor: 'var(--proxy-bg-secondary)',
               border: '1px solid var(--proxy-border-soft)',
               color: 'var(--proxy-text-primary)',
-              minHeight: '200px',
               fontFamily: 'inherit',
             }}
           />

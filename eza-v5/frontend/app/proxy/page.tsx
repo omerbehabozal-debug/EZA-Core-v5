@@ -24,6 +24,7 @@ import PipelineDiagram from "./components/PipelineDiagram";
 import AnalysisHistoryPanel from "./components/AnalysisHistoryPanel";
 import Toast from "../proxy-lite/components/Toast";
 import ParagraphAnalysisView from "./components/ParagraphAnalysisView";
+import AutoResizeTextarea from "./components/AutoResizeTextarea";
 
 function ProxyCorporatePageContent() {
   const { currentOrganization, isLoading: orgLoading } = useOrganization();
@@ -349,12 +350,14 @@ function ProxyCorporatePageContent() {
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--proxy-text-primary)' }}>
                 İçerik
               </label>
-              <textarea
+              <AutoResizeTextarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Analiz edilecek içeriği buraya yazın..."
                 disabled={loading}
-                className="w-full min-h-[200px] px-4 py-3 rounded-xl resize-y transition-all focus:outline-none focus:ring-2 disabled:opacity-50"
+                minHeight={120}
+                maxHeight="40vh"
+                className="w-full px-4 py-3 rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-50"
                 style={{
                   backgroundColor: 'var(--proxy-bg-secondary)',
                   border: '1px solid var(--proxy-border-soft)',

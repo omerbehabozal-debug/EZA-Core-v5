@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { HistoryResponse, IntentLog, ImpactEvent, softDeleteAnalysis } from '@/api/proxy_corporate';
 import { useOrganization } from '@/context/OrganizationContext';
 import { useAuth } from '@/context/AuthContext';
+import ExpandableTextBlock from './ExpandableTextBlock';
 
 interface AnalysisHistoryPanelProps {
   history: HistoryResponse | null;
@@ -296,23 +297,11 @@ export default function AnalysisHistoryPanel({
                     
                     {/* Content Preview */}
                     <div className="mb-3">
-                      <p 
-                        className="text-sm leading-relaxed"
-                        style={{ 
-                          color: 'var(--proxy-text-secondary)',
-                          position: 'relative',
-                          maxHeight: '3.6em',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {truncateContent(intent.input_content, 140)}
-                        <span 
-                          className="absolute bottom-0 right-0 pl-8"
-                          style={{
-                            background: 'linear-gradient(to right, transparent, var(--proxy-surface))',
-                          }}
-                        />
-                      </p>
+                      <ExpandableTextBlock
+                        content={intent.input_content}
+                        maxCollapsedLines={4}
+                        showFadeGradient={true}
+                      />
                     </div>
                     
                     <div className="flex items-center gap-4 text-xs mb-3" style={{ color: 'var(--proxy-text-secondary)' }}>
