@@ -697,8 +697,10 @@ function ProxyCorporatePageContent() {
               </div>
             )}
 
-            {/* Decision Justification Layer */}
-            {analysisResult?.justification && analysisResult.justification.length > 0 && (
+            {/* Decision Justification Layer - Only show if paragraph-based analysis is not available */}
+            {analysisResult?.justification && 
+             analysisResult.justification.length > 0 && 
+             (!analysisResult.paragraphs || analysisResult.paragraphs.length === 0) && (
               <div
                 className="rounded-2xl p-6 mt-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
                 style={{
