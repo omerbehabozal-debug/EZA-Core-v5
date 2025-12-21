@@ -1,9 +1,11 @@
 /**
  * Score Bars Component
- * Displays 5 score types as horizontal bars
+ * Displays 5 score types as horizontal bars with info tooltips
  */
 
 "use client";
+
+import InfoTooltip from "./InfoTooltip";
 
 interface ScoreBarsProps {
   scores: {
@@ -17,11 +19,36 @@ interface ScoreBarsProps {
 
 export default function ScoreBars({ scores }: ScoreBarsProps) {
   const scoreConfig = [
-    { key: 'ethical_index', label: 'Etik İndeks', color: '#007AFF' },
-    { key: 'compliance_score', label: 'Uyum Skoru', color: '#22BF55' },
-    { key: 'manipulation_score', label: 'Manipülasyon Skoru', color: '#FF9500' },
-    { key: 'bias_score', label: 'Önyargı Skoru', color: '#AF52DE' },
-    { key: 'legal_risk_score', label: 'Hukuki Risk Skoru', color: '#E84343' },
+    {
+      key: 'ethical_index',
+      label: 'Etik İndeks',
+      color: '#007AFF',
+      description: 'İçeriğin genel etik değerlendirmesi. Yüksek skor (70+) güvenli, düşük skor (<40) riskli içerik anlamına gelir. Manipülasyon, önyargı, yanıltıcı bilgi gibi faktörler düşük skor üretir.'
+    },
+    {
+      key: 'compliance_score',
+      label: 'Uyum Skoru',
+      color: '#22BF55',
+      description: 'Seçili politika setlerine (TRT, FINTECH, HEALTH) uyumluluk seviyesi. Yüksek skor (70+) politika gereksinimlerini karşıladığını, düşük skor (<40) ihlal riski olduğunu gösterir.'
+    },
+    {
+      key: 'manipulation_score',
+      label: 'Manipülasyon Skoru',
+      color: '#FF9500',
+      description: 'İçeriğin duygusal manipülasyon, korku/umut sömürüsü, yanıltıcı retorik kullanımı seviyesi. Yüksek skor (>60) manipülatif dil, düşük skor (<30) daha tarafsız içerik anlamına gelir.'
+    },
+    {
+      key: 'bias_score',
+      label: 'Önyargı Skoru',
+      color: '#AF52DE',
+      description: 'İçerikte tespit edilen ideolojik, kültürel veya sistematik önyargı seviyesi. Yüksek skor (>60) önyargılı dil, düşük skor (<30) daha dengeli içerik anlamına gelir.'
+    },
+    {
+      key: 'legal_risk_score',
+      label: 'Hukuki Risk Skoru',
+      color: '#E84343',
+      description: 'İçeriğin yasal risk seviyesi. Yüksek skor (>60) iftira, yanıltıcı reklam, sağlık iddiaları gibi yasal riskler içerir. Düşük skor (<30) yasal açıdan güvenli içerik anlamına gelir.'
+    },
   ];
 
   const getScoreColor = (score: number) => {
@@ -39,9 +66,12 @@ export default function ScoreBars({ scores }: ScoreBarsProps) {
         return (
           <div key={config.key} className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium" style={{ color: '#E5E5EA' }}>
-                {config.label}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium" style={{ color: '#E5E5EA' }}>
+                  {config.label}
+                </span>
+                <InfoTooltip content={config.description} position="top" />
+              </div>
               <span className="text-sm font-bold" style={{ color }}>
                 {score}/100
               </span>

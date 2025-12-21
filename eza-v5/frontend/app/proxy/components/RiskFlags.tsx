@@ -6,6 +6,7 @@
 "use client";
 
 import { RiskLocation } from "@/api/proxy_corporate";
+import InfoTooltip from "./InfoTooltip";
 
 interface RiskFlagsProps {
   flags: string[];
@@ -38,9 +39,15 @@ export default function RiskFlags({ flags, riskLocations }: RiskFlagsProps) {
       {/* Flags */}
       {flags.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold mb-3" style={{ color: '#E5E5EA' }}>
-            Etik Bulgular ({flags.length})
-          </h3>
+          <div className="flex items-center gap-2 mb-3">
+            <h3 className="text-lg font-semibold" style={{ color: '#E5E5EA' }}>
+              Etik Bulgular ({flags.length})
+            </h3>
+            <InfoTooltip
+              content="Etik Bulgular, içerikte tespit edilen genel etik ihlalleri ve risk işaretleridir. Bu işaretler, manipülasyon, önyargı, yanıltıcı bilgi gibi kategorilerde toplanır."
+              position="top"
+            />
+          </div>
           <div className="flex flex-wrap gap-2">
             {flags.map((flag, idx) => (
               <span
@@ -62,9 +69,15 @@ export default function RiskFlags({ flags, riskLocations }: RiskFlagsProps) {
       {/* Risk Locations */}
       {riskLocations.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold mb-3" style={{ color: '#E5E5EA' }}>
-            Risk Lokasyonları ({riskLocations.length})
-          </h3>
+          <div className="flex items-center gap-2 mb-3">
+            <h3 className="text-lg font-semibold" style={{ color: '#E5E5EA' }}>
+              Risk Lokasyonları ({riskLocations.length})
+            </h3>
+            <InfoTooltip
+              content="Risk Lokasyonları, normalize edilmiş primary risk pattern'leri gösterir. Her risk, narrative intent'e göre gruplandırılmıştır ve birden fazla politika referansı içerebilir. Severity (high/medium/low) risk seviyesini gösterir."
+              position="top"
+            />
+          </div>
           <div className="space-y-2">
             {riskLocations.map((location, idx) => (
               <div

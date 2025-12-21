@@ -7,6 +7,7 @@
 'use client';
 
 import { ParagraphAnalysis as ParagraphAnalysisType, RiskLocation, DecisionJustificationResponse } from '@/api/proxy_corporate';
+import InfoTooltip from './InfoTooltip';
 
 interface ParagraphAnalysisViewProps {
   paragraphs: ParagraphAnalysisType[];
@@ -98,16 +99,22 @@ export default function ParagraphAnalysisView({
                   <span className="text-sm font-medium" style={{ color: 'var(--proxy-text-secondary)' }}>
                     Paragraf {index + 1}
                   </span>
-                  <span
-                    className="px-3 py-1 rounded-full text-xs font-semibold"
-                    style={{
-                      backgroundColor: `${riskLevel.color}15`,
-                      color: riskLevel.color,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {riskLevel.label} • Etik Skor: {paragraph.ethical_index}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="px-3 py-1 rounded-full text-xs font-semibold"
+                      style={{
+                        backgroundColor: `${riskLevel.color}15`,
+                        color: riskLevel.color,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {riskLevel.label} • Etik Skor: {paragraph.ethical_index}
+                    </span>
+                    <InfoTooltip
+                      content="Etik Skor, bu paragrafın genel etik değerlendirmesini gösterir. Yüksek skor (76+) düşük risk, orta skor (51-75) orta risk, düşük skor (<51) yüksek risk anlamına gelir."
+                      position="top"
+                    />
+                  </div>
                 </div>
 
                 {/* Paragraph Scores (Mini) */}
@@ -142,9 +149,15 @@ export default function ParagraphAnalysisView({
             {/* Risks for this paragraph */}
             {paragraphRisks.length > 0 && (
               <div className="mb-4">
-                <p className="text-xs mb-2 font-medium" style={{ color: 'var(--proxy-text-secondary)' }}>
-                  Tespit Edilen Riskler
-                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-xs font-medium" style={{ color: 'var(--proxy-text-secondary)' }}>
+                    Tespit Edilen Riskler
+                  </p>
+                  <InfoTooltip
+                    content="Bu paragrafta tespit edilen riskler, normalize edilmiş primary risk pattern'lere göre gösterilir. Her risk, narrative intent'e göre gruplandırılmıştır ve birden fazla politika referansı içerebilir."
+                    position="top"
+                  />
+                </div>
                 <div className="space-y-2">
                   {paragraphRisks.map((risk, riskIndex) => (
                     <div
@@ -197,9 +210,15 @@ export default function ParagraphAnalysisView({
             {/* Justifications for this paragraph */}
             {paragraphJustifications.length > 0 && (
               <div>
-                <p className="text-xs mb-2 font-medium" style={{ color: 'var(--proxy-text-secondary)' }}>
-                  Karar Gerekçesi
-                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-xs font-medium" style={{ color: 'var(--proxy-text-secondary)' }}>
+                    Karar Gerekçesi
+                  </p>
+                  <InfoTooltip
+                    content="Karar Gerekçesi, tespit edilen risklerin neden riskli olduğunu açıklar. Her gerekçe, narrative intent, reader influence ve systemic risk faktörlerini içerir. Bu gerekçeler, regulator ve yönetim için açıklayıcı niteliktedir."
+                    position="top"
+                  />
+                </div>
                 <div className="space-y-2">
                   {paragraphJustifications.map((justification, justIndex) => (
                     <div
