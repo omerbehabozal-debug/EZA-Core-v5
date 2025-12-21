@@ -234,8 +234,17 @@ function AnalysisSnapshotContent() {
             <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
               Skorlar (Kilitli Değerler)
             </h2>
-            <ScoreBars scores={snapshot.scores} />
-            <ComplianceMetrics scores={snapshot.scores} />
+            <ScoreBars scores={{
+              ethical_index: snapshot.scores.ethical_index ?? 0,
+              compliance_score: snapshot.scores.compliance_score ?? 0,
+              manipulation_score: snapshot.scores.manipulation_score ?? 0,
+              bias_score: snapshot.scores.bias_score ?? 0,
+              legal_risk_score: snapshot.scores.legal_risk_score ?? 0,
+            }} />
+            <ComplianceMetrics 
+              policies={snapshot.policies}
+              complianceScore={snapshot.scores.compliance_score ?? 0}
+            />
           </div>
         )}
 
