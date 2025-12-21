@@ -208,12 +208,19 @@ async def create_intent_log(
         user_uuid = uuid.UUID(str(user_id))
         org_uuid = uuid.UUID(str(org_id))
         
+        # Store content in flags as fallback if input_content column doesn't exist
+        # This allows the system to work even if the column hasn't been added yet
+        if not flags:
+            flags = {}
+        flags['_content_fallback'] = stored_content
+        
+        # Create Intent Log (input_content will be None if column doesn't exist)
         intent_log = IntentLog(
             id=uuid.uuid4(),
             organization_id=org_uuid,
             user_id=user_uuid,
             input_content_hash=input_content_hash,
-            input_content=stored_content,  # Store original content for snapshot
+            input_content=None,  # Will be set via direct SQL if column exists
             sector=request.sector,
             policy_set=policy_set,
             risk_scores=risk_scores,
@@ -223,6 +230,38 @@ async def create_intent_log(
         )
         
         db.add(intent_log)
+        
+        # Try to set input_content via direct SQL if column exists
+        # This avoids SQLAlchemy trying to insert into non-existent column
+        try:
+            from sqlalchemy import text
+            # Check if column exists and update if it does
+            check_column = await db.execute(
+                text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'production_intent_logs' 
+                    AND column_name = 'input_content'
+                """)
+            )
+            column_exists = check_column.scalar_one_or_none() is not None
+            
+            if column_exists:
+                # Column exists, update it directly
+                await db.execute(
+                    text("""
+                        UPDATE production_intent_logs 
+                        SET input_content = :content 
+                        WHERE id = :id
+                    """),
+                    {"content": stored_content, "id": str(intent_log.id)}
+                )
+                logger.info(f"[Intent] input_content set via direct SQL for {intent_log.id}")
+            else:
+                logger.warning("[Intent] input_content column not found in database. Content stored in flags._content_fallback")
+        except Exception as e:
+            logger.warning(f"[Intent] Could not set input_content: {e}. Content stored in flags._content_fallback")
+        
         await db.commit()
         await db.refresh(intent_log)
         
@@ -248,12 +287,17 @@ async def create_intent_log(
         
         logger.info(f"[Intent] Created: id={intent_log.id}, user_id={user_id}, org_id={org_id}, action={request.trigger_action}")
         
+        # Get content from input_content column or fallback to flags
+        content = intent_log.input_content
+        if not content and intent_log.flags and isinstance(intent_log.flags, dict):
+            content = intent_log.flags.get('_content_fallback')
+        
         return IntentLogResponse(
             id=str(intent_log.id),
             organization_id=str(intent_log.organization_id),
             user_id=str(intent_log.user_id),
             input_content_hash=intent_log.input_content_hash,
-            input_content=intent_log.input_content,  # Include original content
+            input_content=content,  # Include original content (from column or fallback)
             sector=intent_log.sector,
             policy_set=intent_log.policy_set,
             risk_scores=intent_log.risk_scores,
@@ -509,7 +553,7 @@ async def get_history(
                     organization_id=str(il.organization_id),
                     user_id=str(il.user_id),
                     input_content_hash=il.input_content_hash,
-                    input_content=il.input_content,  # Include original content
+                    input_content=il.input_content or (il.flags.get('_content_fallback') if isinstance(il.flags, dict) else None),  # Include original content (from column or fallback)
                     sector=il.sector,
                     policy_set=il.policy_set,
                     risk_scores=il.risk_scores,
@@ -706,12 +750,17 @@ async def get_analysis_snapshot(
             )
             impact_events = impact_result.scalars().all()
             
+            # Get content from input_content column or fallback to flags
+            content = intent_log.input_content
+            if not content and intent_log.flags and isinstance(intent_log.flags, dict):
+                content = intent_log.flags.get('_content_fallback', '')
+            
             # Build snapshot response
             snapshot = {
                 "analysis_id": str(intent_log.id),
                 "analysis_type": "intent_log",
                 "created_at": intent_log.created_at.isoformat(),
-                "content": intent_log.input_content or "",  # Original content
+                "content": content or "",  # Original content (from column or fallback)
                 "sector": intent_log.sector,
                 "policies": intent_log.policy_set.get('policies', []) if intent_log.policy_set else [],
                 "analysis_type_label": "Yayına Hazırlık Analizi",
@@ -767,11 +816,18 @@ async def get_analysis_snapshot(
             )
             related_intent = intent_result.scalar_one_or_none()
             
+            # Get content from intent log (from column or fallback)
+            content = ""
+            if related_intent:
+                content = related_intent.input_content
+                if not content and related_intent.flags and isinstance(related_intent.flags, dict):
+                    content = related_intent.flags.get('_content_fallback', '')
+            
             snapshot = {
                 "analysis_id": str(impact_event.id),
                 "analysis_type": "impact_event",
                 "created_at": impact_event.occurred_at.isoformat(),
-                "content": related_intent.input_content if related_intent else "",  # Content from intent log
+                "content": content,  # Content from intent log (from column or fallback)
                 "sector": related_intent.sector if related_intent else None,
                 "policies": related_intent.policy_set.get('policies', []) if related_intent and related_intent.policy_set else [],
                 "analysis_type_label": "Gerçek Etki Kaydı",
