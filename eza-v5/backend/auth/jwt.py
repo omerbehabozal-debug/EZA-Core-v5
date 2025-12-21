@@ -97,7 +97,13 @@ def decode_jwt(token: str) -> Optional[Dict[str, Any]]:
         
         # Try to decode without verification to get expiry info for debugging
         try:
-            unverified = jwt.decode(token, options={"verify_signature": False})
+            # Decode without verification - still need to provide key but options will skip verification
+            unverified = jwt.decode(
+                token, 
+                jwt_secret,  # Key is still required
+                algorithms=["HS256"],
+                options={"verify_signature": False, "verify_exp": False}
+            )
             if "exp" in unverified:
                 exp_timestamp = unverified["exp"]
                 exp_datetime = datetime.fromtimestamp(exp_timestamp)
