@@ -149,7 +149,7 @@ function ProxyCorporatePageContent() {
         // Show success message with premium toast
         setToast({
           type: 'success',
-          message: 'Yayına hazırlık analizi kaydedildi. Niyet kaydı oluşturuldu.',
+          message: 'Hazırlık analizi kaydedildi. Niyet kaydı oluşturuldu.',
         });
         
         // Always refresh history to show the new record
@@ -160,7 +160,7 @@ function ProxyCorporatePageContent() {
       }
     } catch (err: any) {
       console.error('[Proxy] Save analysis error:', err);
-      const errorMessage = err?.message || 'Yayına hazırlık analizi kaydedilemedi.';
+      const errorMessage = err?.message || 'Hazırlık analizi kaydedilemedi.';
       setError(`Kaydetme hatası: ${errorMessage}`);
       setToast({
         type: 'error',
@@ -348,12 +348,12 @@ function ProxyCorporatePageContent() {
             {/* Content Input */}
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--proxy-text-primary)' }}>
-                İçerik
+                İçerik / Çıktı
               </label>
               <AutoResizeTextarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Analiz edilecek içeriği buraya yazın..."
+                placeholder="Analiz edilecek AI çıktısını buraya yazın..."
                 disabled={loading}
                 minHeight={120}
                 maxHeight="40vh"
@@ -397,6 +397,9 @@ function ProxyCorporatePageContent() {
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: 'var(--proxy-text-primary)' }}>
                   Politikalar
+                  <span className="ml-2 text-xs" style={{ color: 'var(--proxy-text-muted)' }} title="Bu politika seti, ilgili sektör için örnek bir uyum çerçevesidir. Proxy, sektör-bağımsız çalışır; yalnızca aktif politika seti değişir.">
+                    ℹ️
+                  </span>
                 </label>
                 <div className="flex gap-2 flex-wrap">
                   {(['TRT', 'FINTECH', 'HEALTH'] as const).map((policy) => (
@@ -501,13 +504,13 @@ function ProxyCorporatePageContent() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      <span>Yayına Hazırlık Analizi</span>
+                      <span>Hazırlık Analizi Kaydet</span>
                     </>
                   )}
                 </button>
               </div>
               <p className="text-xs mb-4" style={{ color: 'var(--proxy-text-muted)' }}>
-                Bu analiz yayına hazırlık niyeti olarak kaydedilecek. Gerçek etki anlamına gelmez.
+                Bu analiz hazırlık niyeti olarak kaydedilecek. Gerçek etki anlamına gelmez. Etkileşim Kaydı (Impact Event), yapay zekâ tarafından üretilen içeriğin kullanıcıya, müşteriye veya kamuya sunulduğu anı temsil eder.
               </p>
               <ScoreBars scores={analysisResult.overall_scores} />
             </div>

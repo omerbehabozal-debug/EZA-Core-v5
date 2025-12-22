@@ -79,7 +79,7 @@ export default function AnalysisHistoryPanel({
   const getTriggerActionLabel = (action: string): string => {
     switch (action) {
       case 'save':
-        return 'Yayına Hazırlık Analizi';
+        return 'Hazırlık Analizi';
       case 'rewrite':
         return 'Yeniden Yazma';
       case 'version':
@@ -98,7 +98,7 @@ export default function AnalysisHistoryPanel({
       case 'chatbot_display':
         return 'Chatbot Gösterimi';
       case 'cms_publish':
-        return 'CMS Yayını';
+        return 'Etkileşim Kaydı (CMS)';
       case 'campaign_send':
         return 'Kampanya Gönderimi';
       case 'notification':
@@ -180,7 +180,7 @@ export default function AnalysisHistoryPanel({
           Henüz Kayıt Yok
         </h3>
         <p className="text-sm mb-4" style={{ color: 'var(--proxy-text-secondary)' }}>
-          Yayına hazırlık analizi veya gerçek etki kaydı oluşturulduğunda burada görünecektir.
+          Hazırlık analizi veya Etkileşim Kaydı (Impact Event) oluşturulduğunda burada görünecektir.
         </p>
         <button
           onClick={onRefresh}
@@ -235,7 +235,7 @@ export default function AnalysisHistoryPanel({
             border: '1px solid var(--proxy-border-soft)',
           }}
         >
-          Yayına Hazırlık Analizleri ({history.total_intents})
+          Hazırlık Analizleri ({history.total_intents})
         </button>
         {history.total_impacts > 0 && (
           <button
@@ -590,7 +590,7 @@ function IntentDetailModal({
       >
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold" style={{ color: 'var(--proxy-text-primary)' }}>
-            Yayına Hazırlık Analizi Detayı
+            Hazırlık Analizi Detayı
           </h3>
           <button
             onClick={onClose}
@@ -686,7 +686,7 @@ function ImpactDetailModal({
       >
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold" style={{ color: 'var(--proxy-text-primary)' }}>
-            Gerçek Etki Kaydı Detayı
+            Etkileşim Kaydı (Impact Event) Detayı
           </h3>
           <button
             onClick={onClose}
@@ -702,7 +702,7 @@ function ImpactDetailModal({
         <div className="space-y-6">
           <div className="p-4 rounded-xl border-2" style={{ borderColor: 'var(--proxy-danger)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
             <p className="text-sm font-semibold mb-2" style={{ color: 'var(--proxy-danger)' }}>
-              ⚠️ Bu kayıt gerçek etkiyi temsil eder ve hukuki referanstır.
+              ⚠️ Etkileşim Kaydı (Impact Event): Bu kayıt, yapay zekâ tarafından üretilen içeriğin kullanıcıya, müşteriye veya kamuya sunulduğu anı temsil eder ve hukuki referanstır.
             </p>
             <p className="text-xs" style={{ color: 'var(--proxy-text-secondary)' }}>
               Skorlar etki anında kilitlenmiştir ve değiştirilemez.

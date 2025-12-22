@@ -139,20 +139,20 @@ export default function AuditPanel({ analysisId }: AuditPanelProps) {
       );
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Regülatöre gönderme başarısız' }));
+        const errorData = await res.json().catch(() => ({ detail: 'Uyum raporu oluşturma başarısız' }));
         throw new Error(errorData.detail || `HTTP ${res.status}`);
       }
 
       const data = await res.json();
       setToast({
         type: 'success',
-        message: data.message || 'Regülatöre gönderildi',
+        message: data.message || 'Uyum raporu oluşturuldu ve regülatör kanalına gönderildi',
       });
     } catch (error: any) {
       console.error('[Audit] Send to regulator error:', error);
       setToast({
         type: 'error',
-        message: error.message || 'Regülatöre gönderilemedi',
+        message: error.message || 'Uyum raporu oluşturulamadı',
       });
     }
   };
@@ -253,17 +253,18 @@ export default function AuditPanel({ analysisId }: AuditPanelProps) {
               PDF Raporu İndir
             </button>
             <button
-              type="button"
-              onClick={handleSendToRegulator}
-              disabled={!analysisId || !currentOrganization?.id}
-              className="px-4 py-2 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: '#007AFF',
-                color: '#FFFFFF',
-              }}
-            >
-              Regülatöre Gönder
-            </button>
+            type="button"
+            onClick={handleSendToRegulator}
+            disabled={!analysisId || !currentOrganization?.id}
+            className="px-4 py-2 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: '#007AFF',
+              color: '#FFFFFF',
+            }}
+            title="Uyum raporu oluştur ve regülatör kanalına gönder (anonimleştirilmiş veri)"
+          >
+            Uyum Raporu Oluştur
+          </button>
           </div>
           
           {!analysisId && (
@@ -274,7 +275,7 @@ export default function AuditPanel({ analysisId }: AuditPanelProps) {
           
           <div className="text-xs space-y-1" style={{ color: '#8E8E93' }}>
             <p><strong>PDF Raporu:</strong> Analiz kaydının tam denetim raporunu içerir (hash, skorlar, risk bayrakları).</p>
-            <p><strong>Regülatöre Gönder:</strong> Anonimleştirilmiş veri (içerik ve kullanıcı bilgileri olmadan) regülatör kanalına gönderilir.</p>
+            <p><strong>Uyum Raporu Oluştur:</strong> Anonimleştirilmiş veri (içerik ve kullanıcı bilgileri olmadan) uyum raporu olarak hazırlanır ve regülatör kanalına gönderilir. Regülatör, olası denetim tüketicilerinden biridir.</p>
           </div>
         </div>
       </div>

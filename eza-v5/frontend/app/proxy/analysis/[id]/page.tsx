@@ -219,7 +219,7 @@ function AnalysisSnapshotContent() {
                 color: 'var(--proxy-text-primary)',
               }}
             >
-              Analiz Türü: {snapshot.analysis_type === 'intent_log' ? 'Yayına Hazırlık' : 'Gerçek Etki'}
+              Analiz Türü: {snapshot.analysis_type === 'intent_log' ? 'Hazırlık Analizi' : 'Etkileşim Kaydı (Impact Event)'}
             </span>
           </div>
         </div>
