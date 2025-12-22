@@ -15,7 +15,9 @@ from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth import require_proxy_auth
 from backend.auth.organization_guard import require_organization_access
 from backend.auth.rbac import require_role
-from backend.routers.proxy_audit import audit_store
+from backend.models.production import IntentLog
+from sqlalchemy import select, func
+import uuid
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -150,29 +152,35 @@ class InvoiceResponse(BaseModel):
     generated_at: str
 
 
-def get_monthly_request_count(org_id: str) -> int:
-    """Get request count for current month"""
+async def get_monthly_request_count(db: AsyncSession, org_id: str) -> int:
+    """Get request count for current month from database"""
+    try:
+        org_uuid = uuid.UUID(org_id)
+    except ValueError:
+        logger.warning(f"[Billing] Invalid org_id format: {org_id}")
+        return 0
+    
     now = datetime.utcnow()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    from_date = month_start.isoformat()
     
-    count = 0
-    for entry in audit_store.values():
-        raw_data = entry.get("raw_data", {})
-        if raw_data.get("org_id") == org_id:
-            entry_date = entry.get("timestamp", "")
-            if entry_date >= from_date:
-                count += 1
+    # Count IntentLog entries for current month
+    count_query = select(func.count(IntentLog.id)).where(
+        IntentLog.organization_id == org_uuid,
+        IntentLog.created_at >= month_start
+    )
+    
+    result = await db.execute(count_query)
+    count = result.scalar() or 0
     
     return count
 
 
-def calculate_monthly_cost(org_id: str, plan: str, base_currency: str) -> Dict[str, Any]:
+async def calculate_monthly_cost(db: AsyncSession, org_id: str, plan: str, base_currency: str) -> Dict[str, Any]:
     """Calculate monthly cost for organization in both currencies"""
     plan_data_try = BILLING_PLANS.get(plan, BILLING_PLANS["free"])["TRY"]
     plan_data_usd = BILLING_PLANS.get(plan, BILLING_PLANS["free"])["USD"]
     
-    request_count = get_monthly_request_count(org_id)
+    request_count = await get_monthly_request_count(db, org_id)
     
     # Calculate in base currency
     base_plan_data = BILLING_PLANS.get(plan, BILLING_PLANS["free"])[base_currency]
@@ -259,7 +267,7 @@ async def get_billing(
     plan_info_usd = BILLING_PLANS[plan]["USD"]
     
     # Calculate usage and cost
-    cost_data = calculate_monthly_cost(org_id, plan, base_currency)
+    cost_data = await calculate_monthly_cost(db, org_id, plan, base_currency)
     request_count = cost_data["request_count"]
     overage_count = cost_data["overage_count"]
     quota = BILLING_PLANS[plan][base_currency]["base_quota"]
@@ -377,7 +385,7 @@ async def generate_invoice(
     base_currency = billing_data.get("base_currency", get_org_base_currency(org_id))
     
     # Calculate cost
-    cost_data = calculate_monthly_cost(org_id, plan, base_currency)
+    cost_data = await calculate_monthly_cost(db, org_id, plan, base_currency)
     
     # Generate invoice ID
     import uuid
@@ -431,7 +439,7 @@ async def get_usage_cost(
     billing_data = org_billing.get(org_id, {"plan": "free", "base_currency": get_org_base_currency(org_id)})
     plan = billing_data.get("plan", "free")
     base_currency = billing_data.get("base_currency", get_org_base_currency(org_id))
-    cost_data = calculate_monthly_cost(org_id, plan, base_currency)
+    cost_data = await calculate_monthly_cost(db, org_id, plan, base_currency)
     
     return CostBreakdownResponse(
         ok=True,
