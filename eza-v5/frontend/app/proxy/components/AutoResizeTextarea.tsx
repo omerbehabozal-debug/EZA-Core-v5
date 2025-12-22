@@ -10,7 +10,7 @@ import { useEffect, useRef, TextareaHTMLAttributes } from 'react';
 
 interface AutoResizeTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   minHeight?: number;
   maxHeight?: string;
   className?: string;
@@ -70,7 +70,9 @@ export default function AutoResizeTextarea({
   }, [value, minHeight, maxHeight]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(e);
+    if (onChange) {
+      onChange(e);
+    }
     // Adjust height after state update
     setTimeout(adjustHeight, 0);
   };
