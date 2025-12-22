@@ -25,12 +25,21 @@ import AnalysisHistoryPanel from "./components/AnalysisHistoryPanel";
 import Toast from "../proxy-lite/components/Toast";
 import ParagraphAnalysisView from "./components/ParagraphAnalysisView";
 import AutoResizeTextarea from "./components/AutoResizeTextarea";
+import ProcessingStateIndicator from "./components/ProcessingStateIndicator";
+import { useProcessingState } from "@/hooks/useProcessingState";
 
 function ProxyCorporatePageContent() {
   const { currentOrganization, isLoading: orgLoading } = useOrganization();
   const [content, setContent] = useState("");
+  
+  // Processing state hooks
+  const analyzeProcessing = useProcessingState({ action: 'analyze' });
+  const rewriteProcessing = useProcessingState({ action: 'rewrite' });
+  
+  // Legacy loading states (kept for compatibility, but controlled by processing hooks)
   const [loading, setLoading] = useState(false);
   const [rewriting, setRewriting] = useState(false);
+  
   const [analysisResult, setAnalysisResult] = useState<ProxyAnalyzeResponse | null>(null);
   const [rewriteResult, setRewriteResult] = useState<ProxyRewriteResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -180,8 +189,10 @@ function ProxyCorporatePageContent() {
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || loading) return;
+    if (!content.trim() || loading || analyzeProcessing.isProcessing) return;
 
+    // Start processing state
+    analyzeProcessing.start();
     setLoading(true);
     setAnalysisResult(null);
     setRewriteResult(null);
@@ -192,6 +203,7 @@ function ProxyCorporatePageContent() {
       const orgId = currentOrganization?.id || null;
       if (!orgId) {
         setError('Organizasyon seçilmedi. Lütfen bir organizasyon seçin.');
+        analyzeProcessing.stop();
         setLoading(false);
         return;
       }
@@ -236,13 +248,16 @@ function ProxyCorporatePageContent() {
       
       setError(`Analiz hatası: ${userFriendlyMessage}`);
     } finally {
+      analyzeProcessing.stop();
       setLoading(false);
     }
   };
 
   const handleRewrite = async () => {
-    if (!content.trim() || rewriting || !analysisResult) return;
+    if (!content.trim() || rewriting || rewriteProcessing.isProcessing || !analysisResult) return;
 
+    // Start processing state
+    rewriteProcessing.start();
     setRewriting(true);
     setRewriteResult(null);
     setError(null);
@@ -252,6 +267,7 @@ function ProxyCorporatePageContent() {
       const orgId = currentOrganization?.id || null;
       if (!orgId) {
         setError('Organizasyon seçilmedi. Lütfen bir organizasyon seçin.');
+        rewriteProcessing.stop();
         setRewriting(false);
         return;
       }
@@ -284,6 +300,7 @@ function ProxyCorporatePageContent() {
       
       setError(`Yeniden yazma hatası: ${userFriendlyMessage}`);
     } finally {
+      rewriteProcessing.stop();
       setRewriting(false);
     }
   };
@@ -435,17 +452,26 @@ function ProxyCorporatePageContent() {
               </div>
             </div>
 
+            {/* Processing State Indicator */}
+            {analyzeProcessing.isProcessing && (
+              <ProcessingStateIndicator
+                message={analyzeProcessing.message}
+                isProcessing={analyzeProcessing.isProcessing}
+                className="mt-4"
+              />
+            )}
+
             {/* Analyze Button */}
             <button
               type="submit"
-              disabled={!content.trim() || loading}
+              disabled={!content.trim() || loading || analyzeProcessing.isProcessing}
               className="w-full py-4 px-6 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
               style={{
                 backgroundColor: 'var(--proxy-action-primary)',
                 color: '#FFFFFF',
               }}
             >
-              {loading ? 'Analiz Ediliyor...' : 'Analiz Et'}
+              {loading || analyzeProcessing.isProcessing ? 'Analiz Ediliyor…' : 'Analiz Et'}
             </button>
           </form>
         </div>
@@ -580,17 +606,26 @@ function ProxyCorporatePageContent() {
                 onModeChange={handleModeChange}
               />
 
+              {/* Processing State Indicator for Rewrite */}
+              {rewriteProcessing.isProcessing && (
+                <ProcessingStateIndicator
+                  message={rewriteProcessing.message}
+                  isProcessing={rewriteProcessing.isProcessing}
+                  className="mt-4"
+                />
+              )}
+
               <button
                 type="button"
                 onClick={handleRewrite}
-                disabled={rewriting || !analysisResult}
+                disabled={rewriting || rewriteProcessing.isProcessing || !analysisResult}
                 className="w-full mt-6 py-4 px-6 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
                 style={{
                   backgroundColor: 'var(--proxy-action-primary)',
                   color: '#FFFFFF',
                 }}
               >
-                {rewriting ? 'Öneri Oluşturuluyor...' : 'Öneri Yazı Oluştur'}
+                {rewriting || rewriteProcessing.isProcessing ? 'Öneri Oluşturuluyor…' : 'Öneri Yazı Oluştur'}
               </button>
             </div>
 
