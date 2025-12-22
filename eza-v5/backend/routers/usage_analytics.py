@@ -17,7 +17,10 @@ from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth import require_proxy_auth
 from backend.auth.organization_guard import require_organization_access
 from backend.auth.rbac import require_permission
-from backend.routers.proxy_audit import audit_store
+from backend.models.production import IntentLog, ImpactEvent
+from sqlalchemy import select
+from datetime import datetime
+import uuid
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -63,24 +66,68 @@ class PipelineMetricsResponse(BaseModel):
     success_rate: float
 
 
-def get_audit_entries_for_org(org_id: str, from_date: Optional[str] = None, to_date: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Get audit entries for organization with optional date range"""
-    entries = []
+async def get_audit_entries_for_org(
+    db: AsyncSession,
+    org_id: str,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Get audit entries for organization with optional date range from database"""
+    try:
+        org_uuid = uuid.UUID(org_id)
+    except ValueError:
+        logger.warning(f"[UsageAnalytics] Invalid org_id format: {org_id}")
+        return []
     
-    for analysis_id, entry in audit_store.items():
-        raw_data = entry.get("raw_data", {})
-        entry_org_id = raw_data.get("org_id")
+    # Build query for IntentLog
+    intent_query = select(IntentLog).where(IntentLog.organization_id == org_uuid)
+    
+    # Apply date filters
+    if from_date:
+        try:
+            from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            intent_query = intent_query.where(IntentLog.created_at >= from_dt)
+        except ValueError:
+            pass
+    
+    if to_date:
+        try:
+            to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+            intent_query = intent_query.where(IntentLog.created_at <= to_dt)
+        except ValueError:
+            pass
+    
+    # Execute query
+    intent_result = await db.execute(intent_query)
+    intent_logs = intent_result.scalars().all()
+    
+    # Convert IntentLog to audit entry format
+    entries = []
+    for intent in intent_logs:
+        scores = intent.risk_scores or {}
+        flags = intent.flags or {}
         
-        if entry_org_id != org_id:
-            continue
-        
-        entry_date = entry.get("timestamp", "")
-        
-        if from_date and entry_date < from_date:
-            continue
-        if to_date and entry_date > to_date:
-            continue
-        
+        # Build entry in old format for backward compatibility
+        entry = {
+            "uuid": str(intent.id),
+            "sha256": intent.input_content_hash,
+            "timestamp": intent.created_at.isoformat() if intent.created_at else "",
+            "policy_trace": intent.policy_set or [],
+            "risk_flags": flags.get("flags", []) if isinstance(flags, dict) else [],
+            "signature": f"RSA2048:{intent.input_content_hash[:32]}",
+            "justification": flags.get("justification", []) if isinstance(flags, dict) else [],
+            "raw_data": {
+                "analysis_id": str(intent.id),
+                "org_id": str(intent.organization_id),
+                "content_hash": intent.input_content_hash,
+                "scores": scores,
+                "risk_flags": flags.get("flags", []) if isinstance(flags, dict) else [],
+                "policy_trace": intent.policy_set or [],
+                "justification": flags.get("justification", []) if isinstance(flags, dict) else [],
+                "timestamp": intent.created_at.isoformat() if intent.created_at else "",
+                "metadata": {}
+            }
+        }
         entries.append(entry)
     
     return entries
@@ -108,7 +155,7 @@ async def get_daily_usage(
     # Get entries for the date
     from_date = f"{date}T00:00:00"
     to_date = f"{date}T23:59:59"
-    entries = get_audit_entries_for_org(org_id, from_date, to_date)
+    entries = await get_audit_entries_for_org(db, org_id, from_date, to_date)
     
     if not entries:
         return DailyUsageResponse(
@@ -189,7 +236,7 @@ async def get_monthly_usage(
     else:
         to_date = f"{year}-{month_num + 1:02d}-01T00:00:00"
     
-    entries = get_audit_entries_for_org(org_id, from_date, to_date)
+    entries = await get_audit_entries_for_org(db, org_id, from_date, to_date)
     
     # Group by day
     days_data = {}
@@ -335,7 +382,7 @@ async def get_pipeline_metrics(
     days = int(period.replace("d", ""))
     from_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
     
-    entries = get_audit_entries_for_org(org_id, from_date)
+    entries = await get_audit_entries_for_org(db, org_id, from_date)
     
     # Aggregate metrics
     provider_counts = Counter()
