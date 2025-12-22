@@ -217,7 +217,7 @@ class IntentLog(Base):
     # Relationships
     organization = relationship("backend.models.production.Organization")
     user = relationship("backend.models.production.User", foreign_keys=[user_id])
-    deleted_by_user = relationship("backend.models.production.User", foreign_keys=[deleted_by_user_id])
+    deleted_by_user_rel = relationship("backend.models.production.User", foreign_keys=[deleted_by_user_id])
     impact_events = relationship("backend.models.production.ImpactEvent", back_populates="intent_log", cascade="all, delete-orphan")
 
 
