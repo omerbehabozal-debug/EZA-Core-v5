@@ -407,8 +407,12 @@ async def proxy_analyze(
             except Exception as e:
                 logger.error(f"[Alerting] Error creating fail-safe alert: {e}")
         
-        # Update telemetry
+        # Update telemetry state (for /ws/telemetry endpoint)
+        # Track successful analysis for LLM provider success rate
         update_telemetry_state(
+            pipeline_delay_ms=int(latency_ms),  # Current analysis latency (milliseconds)
+            provider=request.provider,  # LLM provider name
+            success=True,  # Analysis completed successfully
             risk_flag_distribution={flag.flag: flag.severity for flag in risk_flags_severity},
             last_policy_triggered=policy_trace[0]["policy"] if policy_trace else None
         )
@@ -486,6 +490,17 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
             f"api_key_id={resolved_api_key_id[:8]}..., outcome=fail, error={str(e)}"
         )
         logger.error(f"[Proxy] Analysis error: {str(e)}", exc_info=True)
+        
+        # Track failure for LLM provider success rate
+        try:
+            provider = getattr(request, 'provider', 'unknown')
+            update_telemetry_state(
+                provider=provider,
+                success=False  # Analysis failed
+            )
+        except Exception:
+            pass  # Don't fail if telemetry update fails
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Analiz hatası: {str(e)}"

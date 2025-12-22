@@ -7,8 +7,9 @@ Real-time telemetry, regulator feed, and fail-safe logs
 import json
 import asyncio
 import logging
-from datetime import datetime
-from typing import Dict, Set, Any
+from datetime import datetime, timedelta
+from typing import Dict, Set, Any, Optional
+from collections import deque
 from fastapi import WebSocket, WebSocketDisconnect, Depends
 from fastapi.routing import APIRouter
 
@@ -58,6 +59,10 @@ telemetry_state = {
     "last_policy_triggered": None,
     "fail_safe_state": False,
 }
+
+# Track LLM provider success/failure for success rate calculation
+# Sliding window of last 100 requests
+_provider_request_history: Dict[str, deque] = {}  # provider -> deque of (success: bool, timestamp)
 
 # Background task for telemetry updates
 async def telemetry_broadcaster():
@@ -160,7 +165,56 @@ async def broadcast_failsafe_alert(alert: dict):
     })
 
 # Helper function to update telemetry state
-def update_telemetry_state(**kwargs):
-    """Update global telemetry state"""
+def update_telemetry_state(
+    pipeline_delay_ms: Optional[int] = None,
+    llm_provider_success_rate: Optional[float] = None,
+    provider: Optional[str] = None,
+    success: Optional[bool] = None,
+    **kwargs
+):
+    """
+    Update global telemetry state
+    
+    Args:
+        pipeline_delay_ms: Current pipeline delay in milliseconds
+        llm_provider_success_rate: Success rate percentage (0-100)
+        provider: LLM provider name (for tracking success rate)
+        success: Whether the request was successful (for tracking)
+        **kwargs: Other telemetry state fields to update
+    """
+    # Update pipeline delay if provided
+    if pipeline_delay_ms is not None:
+        telemetry_state["pipeline_delay_ms"] = pipeline_delay_ms
+    
+    # Track provider success/failure for success rate calculation
+    if provider and success is not None:
+        if provider not in _provider_request_history:
+            _provider_request_history[provider] = deque(maxlen=100)
+        
+        _provider_request_history[provider].append({
+            "success": success,
+            "timestamp": datetime.utcnow()
+        })
+        
+        # Calculate success rate for this provider (last 100 requests, last 5 minutes)
+        now = datetime.utcnow()
+        recent_requests = [
+            req for req in _provider_request_history[provider]
+            if (now - req["timestamp"]).total_seconds() < 300  # Last 5 minutes
+        ]
+        
+        if recent_requests:
+            success_count = sum(1 for req in recent_requests if req["success"])
+            calculated_rate = (success_count / len(recent_requests)) * 100.0
+            telemetry_state["llm_provider_success_rate"] = round(calculated_rate, 1)
+        else:
+            # No recent requests, keep existing rate
+            pass
+    
+    # Update success rate if explicitly provided
+    if llm_provider_success_rate is not None:
+        telemetry_state["llm_provider_success_rate"] = llm_provider_success_rate
+    
+    # Update other fields
     telemetry_state.update(kwargs)
 
