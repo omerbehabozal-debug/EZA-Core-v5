@@ -369,6 +369,16 @@ async def proxy_analyze(
         
         # Create fail-safe alert if triggered
         if fail_safe_triggered:
+            # Update global fail-safe state (for pipeline diagram)
+            from backend.routers.proxy_pipeline import failsafe_state
+            import datetime
+            failsafe_state["active"] = True
+            failsafe_state["triggered_at"] = datetime.datetime.utcnow().isoformat()
+            failsafe_state["reason"] = fail_reason or "High risk content detected (Ethical score < 50)"
+            
+            # Update telemetry state
+            update_telemetry_state(fail_safe_state=True)
+            
             from backend.services.alerting_service import create_alert_event
             import asyncio
             try:
@@ -406,6 +416,10 @@ async def proxy_analyze(
                     ))
             except Exception as e:
                 logger.error(f"[Alerting] Error creating fail-safe alert: {e}")
+        else:
+            # If no fail-safe triggered, ensure state is cleared (if it was previously active)
+            # Note: We don't auto-reset here, only manual reset via /failsafe/reset endpoint
+            pass
         
         # Update telemetry state (for /ws/telemetry endpoint)
         # Track successful analysis for LLM provider success rate

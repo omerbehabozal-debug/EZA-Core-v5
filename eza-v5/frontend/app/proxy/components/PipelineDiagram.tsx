@@ -25,6 +25,9 @@ interface PipelineEdge {
 interface PipelineDiagram {
   nodes: PipelineNode[];
   edges: PipelineEdge[];
+  failsafe_active?: boolean;
+  failsafe_reason?: string | null;
+  failsafe_triggered_at?: string | null;
 }
 
 export default function PipelineDiagram() {
@@ -35,14 +38,24 @@ export default function PipelineDiagram() {
     const fetchDiagram = async () => {
       try {
         const token = localStorage.getItem('eza_token');
-        const apiKey = localStorage.getItem('proxy_api_key');
+        const orgId = localStorage.getItem('current_organization_id');
+        
+        if (!token) {
+          console.error('[Pipeline] No token found');
+          setLoading(false);
+          return;
+        }
         
         const res = await fetch(`${API_BASE_URL}/api/proxy/pipeline/diagram`, {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'X-Api-Key': apiKey || '',
+            'x-org-id': orgId || '',
           },
         });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
 
         const data = await res.json();
         setDiagram(data);
@@ -124,21 +137,33 @@ export default function PipelineDiagram() {
         </div>
       </div>
 
-      {/* Fail-Safe Alert */}
-      <div
-        className="rounded-xl p-4"
-        style={{
-          backgroundColor: '#E8434320',
-          border: '1px solid #E84343',
-        }}
-      >
-        <p className="text-sm font-semibold mb-2" style={{ color: '#E84343' }}>
-          ⚠️ Fail-Safe Durumu
-        </p>
-        <p className="text-xs" style={{ color: '#8E8E93' }}>
-          Sistem güvenlik modunda çalışıyor
-        </p>
-      </div>
+      {/* Fail-Safe Alert - Only show if active */}
+      {diagram.failsafe_active && (
+        <div
+          className="rounded-xl p-4 animate-pulse"
+          style={{
+            backgroundColor: '#E8434320',
+            border: '2px solid #E84343',
+          }}
+        >
+          <p className="text-sm font-semibold mb-2" style={{ color: '#E84343' }}>
+            ⚠️ Fail-Safe Durumu Aktif
+          </p>
+          {diagram.failsafe_reason && (
+            <p className="text-xs mb-1" style={{ color: '#E84343' }}>
+              <strong>Sebep:</strong> {diagram.failsafe_reason}
+            </p>
+          )}
+          {diagram.failsafe_triggered_at && (
+            <p className="text-xs" style={{ color: '#8E8E93' }}>
+              <strong>Tetiklenme:</strong> {new Date(diagram.failsafe_triggered_at).toLocaleString('tr-TR')}
+            </p>
+          )}
+          <p className="text-xs mt-2" style={{ color: '#8E8E93' }}>
+            Sistem güvenlik modunda çalışıyor. Yüksek riskli içerik tespit edildi.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

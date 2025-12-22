@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.utils.dependencies import get_db
-from backend.auth.proxy_auth import require_proxy_auth
+from backend.auth.proxy_auth_production import require_proxy_auth_production
 from backend.security.rate_limit import rate_limit_proxy_corporate
 
 router = APIRouter()
@@ -46,6 +46,9 @@ class PipelineEdge(BaseModel):
 class PipelineDiagram(BaseModel):
     nodes: List[PipelineNode]
     edges: List[PipelineEdge]
+    failsafe_active: bool = False
+    failsafe_reason: Optional[str] = None
+    failsafe_triggered_at: Optional[str] = None
 
 
 class FailSafeTrigger(BaseModel):
@@ -57,7 +60,7 @@ class FailSafeTrigger(BaseModel):
 @router.get("/pipeline/diagram", response_model=PipelineDiagram)
 async def get_pipeline_diagram(
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production),
     _: None = Depends(rate_limit_proxy_corporate)
 ):
     """
@@ -109,14 +112,20 @@ async def get_pipeline_diagram(
         PipelineEdge(source="policy_sets", target="output", label="Safe Content")
     ]
     
-    return PipelineDiagram(nodes=nodes, edges=edges)
+    return PipelineDiagram(
+        nodes=nodes,
+        edges=edges,
+        failsafe_active=failsafe_state["active"],
+        failsafe_reason=failsafe_state.get("reason"),
+        failsafe_triggered_at=failsafe_state.get("triggered_at")
+    )
 
 
 @router.post("/failsafe/trigger")
 async def trigger_failsafe(
     trigger: FailSafeTrigger,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
 ):
     """
     Trigger fail-safe state
@@ -163,7 +172,7 @@ async def trigger_failsafe(
 @router.post("/failsafe/reset")
 async def reset_failsafe(
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
 ):
     """
     Reset fail-safe state
@@ -186,7 +195,7 @@ async def reset_failsafe(
 async def switch_provider(
     provider: str = Query(..., description="New provider: openai, groq, or mistral"),
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_proxy_auth)
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
 ):
     """
     Manually switch LLM provider
