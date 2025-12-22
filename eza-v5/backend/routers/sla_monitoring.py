@@ -275,19 +275,18 @@ async def check_sla_periodically():
     #     plan = billing_data.get("plan", "free")
     #     metrics = await calculate_sla_metrics(db, org_id, plan)  # Would need db session
     #     violations = check_sla_violations(org_id, plan, metrics)
-        
-        for violation in violations:
-            # Create alert
-            alert_req = AlertRequest(
-                type=violation["type"],
-                severity=violation["severity"],
-                message=violation["message"],
-                metadata={
-                    "value": violation["value"],
-                    "threshold": violation["threshold"],
-                }
-            )
-            # Call create_alert endpoint (would need to inject dependencies)
-            # For now, just log
-            logger.warning(f"[SLA] Violation detected for org {org_id}: {violation['message']}")
+    #     for violation in violations:
+    #         # Create alert
+    #         alert_req = AlertRequest(
+    #             type=violation["type"],
+    #             severity=violation["severity"],
+    #             message=violation["message"],
+    #             metadata={
+    #                 "value": violation["value"],
+    #                 "threshold": violation["threshold"],
+    #             }
+    #         )
+    #         # Call create_alert endpoint (would need to inject dependencies)
+    #         # For now, just log
+    #         logger.warning(f"[SLA] Violation detected for org {org_id}: {violation['message']}")
 
