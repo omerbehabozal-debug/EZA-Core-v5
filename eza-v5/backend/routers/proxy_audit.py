@@ -25,51 +25,7 @@ from sqlalchemy.orm import selectinload
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Helper function to search audit logs
-def search_audit_logs(
-    org_id: Optional[str] = None,
-    from_date: Optional[str] = None,
-    to_date: Optional[str] = None,
-    risk_level: Optional[str] = None,
-    flag: Optional[str] = None
-) -> List[Dict[str, Any]]:
-    """Search audit logs with filters"""
-    results = []
-    
-    for analysis_id, entry in audit_store.items():
-        # Filter by org_id
-        if org_id and entry.get("raw_data", {}).get("org_id") != org_id:
-            continue
-        
-        # Filter by date range
-        entry_date = entry.get("timestamp", "")
-        if from_date and entry_date < from_date:
-            continue
-        if to_date and entry_date > to_date:
-            continue
-        
-        # Filter by risk level (based on scores)
-        if risk_level:
-            scores = entry.get("raw_data", {}).get("scores", {})
-            ethical_score = scores.get("ethical_index", 50)
-            if risk_level == "high" and ethical_score >= 50:
-                continue
-            if risk_level == "medium" and (ethical_score < 50 or ethical_score >= 80):
-                continue
-            if risk_level == "low" and ethical_score < 80:
-                continue
-        
-        # Filter by flag
-        if flag:
-            risk_flags = entry.get("risk_flags", [])
-            if not any(f.get("flag") == flag for f in risk_flags):
-                continue
-        
-        results.append(entry)
-    
-    # Sort by timestamp descending
-    results.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-    return results
+# Note: search_audit_logs function removed - now using database queries directly in search_audit endpoint
 
 
 class RiskFlagSeverity(BaseModel):
@@ -109,6 +65,9 @@ def generate_rsa_signature(data: str) -> str:
     return f"RSA2048:{hash_obj.hexdigest()[:32]}"
 
 
+# Note: create_audit_entry function removed - audit entries are now stored in database (IntentLog/ImpactEvent)
+# This function is kept for backward compatibility but should not be used
+# Use IntentLog/ImpactEvent models directly for new audit entries
 def create_audit_entry(
     analysis_id: str,
     content: str,
@@ -119,7 +78,13 @@ def create_audit_entry(
     org_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """Create audit entry with hash and signature"""
+    """
+    DEPRECATED: This function is kept for backward compatibility only.
+    Audit entries are now stored in database (IntentLog/ImpactEvent models).
+    Do not use this function for new code.
+    """
+    logger.warning("[Audit] create_audit_entry is deprecated. Use IntentLog/ImpactEvent models directly.")
+    
     audit_data = {
         "analysis_id": analysis_id,
         "org_id": org_id,
@@ -147,7 +112,8 @@ def create_audit_entry(
         "raw_data": audit_data
     }
     
-    audit_store[analysis_id] = entry
+    # Note: audit_store removed - audit entries are now stored in database (IntentLog/ImpactEvent)
+    # This function returns entry for backward compatibility only
     return entry
 
 
@@ -159,18 +125,85 @@ async def search_audit(
     risk_level: Optional[str] = Query(None, description="Risk level: low, medium, high"),
     flag: Optional[str] = Query(None, description="Risk flag type"),
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_permission("audit.read"))
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
 ):
     """
     Search audit logs with filters
+    Searches IntentLog and ImpactEvent records
     """
-    results = search_audit_logs(
-        org_id=org_id,
-        from_date=from_date,
-        to_date=to_date,
-        risk_level=risk_level,
-        flag=flag
-    )
+    user_org_id = current_user.get("org_id")
+    if not user_org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Organization context required"
+        )
+    
+    # Use provided org_id or default to user's org
+    search_org_id = org_id or user_org_id
+    
+    try:
+        org_uuid = uuid.UUID(search_org_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization_id format"
+        )
+    
+    # Build query for IntentLog
+    intent_query = select(IntentLog).where(IntentLog.organization_id == org_uuid)
+    
+    # Apply date filters
+    if from_date:
+        try:
+            from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            intent_query = intent_query.where(IntentLog.created_at >= from_dt)
+        except ValueError:
+            pass
+    
+    if to_date:
+        try:
+            to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+            intent_query = intent_query.where(IntentLog.created_at <= to_dt)
+        except ValueError:
+            pass
+    
+    # Execute query
+    intent_result = await db.execute(intent_query)
+    intent_logs = intent_result.scalars().all()
+    
+    # Filter by risk level and flags (in-memory filtering)
+    results = []
+    for intent in intent_logs:
+        scores = intent.risk_scores or {}
+        ethical_score = scores.get("ethical_index", 50)
+        
+        # Risk level filter
+        if risk_level:
+            if risk_level == "high" and ethical_score >= 50:
+                continue
+            if risk_level == "medium" and (ethical_score < 50 or ethical_score >= 80):
+                continue
+            if risk_level == "low" and ethical_score < 80:
+                continue
+        
+        # Flag filter
+        if flag:
+            flags_data = intent.flags or {}
+            flags_list = flags_data.get("flags", []) if isinstance(flags_data, dict) else []
+            if not any(f.get("flag") == flag or f.get("type") == flag for f in flags_list):
+                continue
+        
+        results.append({
+            "id": str(intent.id),
+            "type": "IntentLog",
+            "created_at": intent.created_at.isoformat() if intent.created_at else "",
+            "sector": intent.sector,
+            "risk_scores": scores,
+            "organization_id": str(intent.organization_id)
+        })
+    
+    # Sort by timestamp descending
+    results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     
     return {
         "ok": True,
@@ -181,23 +214,121 @@ async def search_audit(
 
 @router.get("/audit", response_model=AuditResponse)
 async def get_audit(
-    analysis_id: str = Query(..., description="Analysis UUID"),
+    analysis_id: str = Query(..., description="Analysis UUID (IntentLog or ImpactEvent ID)"),
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(require_permission("audit.read")),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production),
     _: None = Depends(rate_limit_proxy_corporate)
 ):
     """
     Get audit trail for a specific analysis
     Returns UUID, SHA-256 hash, timestamp, policy trace, risk flags, and signature
     """
-    if analysis_id not in audit_store:
+    org_id = current_user.get("org_id")
+    if not org_id:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Audit entry not found for analysis_id: {analysis_id}"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Organization context required"
         )
     
-    entry = audit_store[analysis_id]
-    return AuditResponse(**entry)
+    try:
+        analysis_uuid = uuid.UUID(analysis_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid analysis_id format"
+        )
+    
+    # Try to find in IntentLog first
+    intent_log_result = await db.execute(
+        select(IntentLog)
+        .where(IntentLog.id == analysis_uuid)
+        .where(IntentLog.organization_id == uuid.UUID(org_id))
+    )
+    intent_log = intent_log_result.scalar_one_or_none()
+    
+    if intent_log:
+        # Build audit response from IntentLog
+        scores = intent_log.risk_scores or {}
+        flags = intent_log.flags or {}
+        flags_list = flags.get("flags", []) if isinstance(flags, dict) else []
+        
+        # Convert to AuditResponse format
+        audit_data = {
+            "analysis_id": str(intent_log.id),
+            "org_id": str(intent_log.organization_id),
+            "content_hash": intent_log.input_content_hash,
+            "scores": scores,
+            "risk_flags": flags_list,
+            "policy_trace": intent_log.policy_set or [],
+            "justification": flags.get("justification", []) if isinstance(flags, dict) else [],
+            "timestamp": intent_log.created_at.isoformat() if intent_log.created_at else "",
+            "metadata": {}
+        }
+        
+        audit_json = json.dumps(audit_data, sort_keys=True)
+        sha256 = generate_sha256_hash(audit_json)
+        signature = generate_rsa_signature(audit_json)
+        
+        entry = {
+            "uuid": str(intent_log.id),
+            "sha256": sha256,
+            "timestamp": audit_data["timestamp"],
+            "policy_trace": audit_data["policy_trace"],
+            "risk_flags": [{"flag": f.get("flag", ""), "severity": f.get("severity", 0.0), "policy": f.get("policy", ""), "evidence": f.get("evidence")} for f in flags_list],
+            "signature": signature,
+            "justification": [{"violation": j.get("violation", ""), "policy": j.get("policy", ""), "evidence": j.get("evidence", ""), "severity": j.get("severity", 0.0), "policies": j.get("policies", [])} for j in audit_data["justification"]]
+        }
+        
+        return AuditResponse(**entry)
+    else:
+        # Try ImpactEvent
+        impact_event_result = await db.execute(
+            select(ImpactEvent)
+            .join(IntentLog, ImpactEvent.intent_log_id == IntentLog.id)
+            .where(ImpactEvent.id == analysis_uuid)
+            .where(IntentLog.organization_id == uuid.UUID(org_id))
+        )
+        impact_event = impact_event_result.scalar_one_or_none()
+        
+        if not impact_event:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Audit entry not found for analysis_id: {analysis_id}"
+            )
+        
+        # Build audit response from ImpactEvent
+        scores = impact_event.risk_scores_locked or {}
+        
+        audit_data = {
+            "analysis_id": str(impact_event.id),
+            "org_id": str(org_id),
+            "content_hash": impact_event.content_hash_locked,
+            "scores": scores,
+            "risk_flags": [],
+            "policy_trace": [],
+            "justification": [],
+            "timestamp": impact_event.occurred_at.isoformat() if impact_event.occurred_at else "",
+            "metadata": {
+                "impact_type": impact_event.impact_type,
+                "source_system": impact_event.source_system
+            }
+        }
+        
+        audit_json = json.dumps(audit_data, sort_keys=True)
+        sha256 = generate_sha256_hash(audit_json)
+        signature = generate_rsa_signature(audit_json)
+        
+        entry = {
+            "uuid": str(impact_event.id),
+            "sha256": sha256,
+            "timestamp": audit_data["timestamp"],
+            "policy_trace": [],
+            "risk_flags": [],
+            "signature": signature,
+            "justification": []
+        }
+        
+        return AuditResponse(**entry)
 
 
 @router.get("/audit/verify")
