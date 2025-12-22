@@ -216,5 +216,25 @@ def update_telemetry_state(
         telemetry_state["llm_provider_success_rate"] = llm_provider_success_rate
     
     # Update other fields
+    # Special handling for risk_flag_distribution - merge instead of replace
+    if "risk_flag_distribution" in kwargs:
+        # Merge new flags with existing ones (keep highest severity for duplicates)
+        new_flags = kwargs.pop("risk_flag_distribution")
+        if isinstance(new_flags, dict) and isinstance(telemetry_state.get("risk_flag_distribution"), dict):
+            # Merge: keep existing flags, update/add new ones
+            current_flags = telemetry_state["risk_flag_distribution"]
+            for flag_name, severity in new_flags.items():
+                # Keep the higher severity if flag already exists
+                if flag_name in current_flags:
+                    current_flags[flag_name] = max(current_flags[flag_name], float(severity))
+                else:
+                    current_flags[flag_name] = float(severity)
+            # Remove old flags that are no longer relevant (optional - keep for now)
+            # For now, we keep all flags to show historical distribution
+        else:
+            # Replace if not a dict or if current state is not a dict
+            telemetry_state["risk_flag_distribution"] = new_flags if isinstance(new_flags, dict) else {}
+    
+    # Update remaining kwargs
     telemetry_state.update(kwargs)
 

@@ -297,6 +297,71 @@ async def create_intent_log(
         
         logger.info(f"[Intent] Created: id={intent_log.id}, user_id={user_id}, org_id={org_id}, action={request.trigger_action}")
         
+        # Update telemetry state with risk flag distribution
+        try:
+            from backend.routers.proxy_websocket import update_telemetry_state
+            
+            # Extract risk flags and convert to distribution format
+            risk_flag_distribution = {}
+            if flags and isinstance(flags, dict):
+                risk_flags_severity = flags.get('risk_flags_severity', [])
+                if isinstance(risk_flags_severity, list):
+                    for flag_item in risk_flags_severity:
+                        flag_name = None
+                        severity = 0.0
+                        
+                        if isinstance(flag_item, dict):
+                            flag_name = flag_item.get('flag', '')
+                            severity = flag_item.get('severity', 0.0)
+                        elif hasattr(flag_item, 'flag') and hasattr(flag_item, 'severity'):
+                            # Handle Pydantic model or object with attributes
+                            flag_name = getattr(flag_item, 'flag', '')
+                            severity = getattr(flag_item, 'severity', 0.0)
+                        
+                        if flag_name:
+                            # Convert severity to float and ensure it's in valid range
+                            try:
+                                severity_float = float(severity)
+                                if 0.0 <= severity_float <= 1.0:
+                                    risk_flag_distribution[flag_name] = severity_float
+                            except (ValueError, TypeError):
+                                logger.warning(f"[Intent] Invalid severity value for flag {flag_name}: {severity}")
+            
+            # Get last policy triggered from policy_set
+            last_policy = None
+            if policy_set and isinstance(policy_set, dict):
+                policies = policy_set.get('policies', [])
+                if policies and len(policies) > 0:
+                    first_policy = policies[0]
+                    if isinstance(first_policy, str):
+                        last_policy = first_policy
+                    elif isinstance(first_policy, dict):
+                        last_policy = first_policy.get('name', first_policy.get('policy', str(first_policy)))
+                    else:
+                        last_policy = str(first_policy)
+            
+            # Check fail-safe state based on ethical index
+            fail_safe_state = False
+            ethical_index = 50  # Default
+            if isinstance(risk_scores, dict):
+                ethical_index = risk_scores.get('ethical_index', 50)
+            elif hasattr(risk_scores, 'ethical_index'):
+                ethical_index = getattr(risk_scores, 'ethical_index', 50)
+            
+            if ethical_index < 50:
+                fail_safe_state = True
+            
+            # Update telemetry state
+            update_telemetry_state(
+                risk_flag_distribution=risk_flag_distribution,
+                last_policy_triggered=last_policy,
+                fail_safe_state=fail_safe_state
+            )
+            
+            logger.info(f"[Intent] Telemetry state updated: flags={len(risk_flag_distribution)}, fail_safe={fail_safe_state}, ethical_index={ethical_index}")
+        except Exception as e:
+            logger.warning(f"[Intent] Could not update telemetry state: {e}", exc_info=True)
+        
         # Get content from input_content column or fallback to flags
         content = intent_log.input_content
         if not content and intent_log.flags and isinstance(intent_log.flags, dict):
