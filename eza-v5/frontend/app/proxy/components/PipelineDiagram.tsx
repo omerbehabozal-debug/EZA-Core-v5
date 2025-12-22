@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/api/config";
+import { useOrganization } from "@/context/OrganizationContext";
 
 interface PipelineNode {
   id: string;
@@ -31,14 +32,19 @@ interface PipelineDiagram {
 }
 
 export default function PipelineDiagram() {
+  const { currentOrganization, isLoading: orgLoading } = useOrganization();
   const [diagram, setDiagram] = useState<PipelineDiagram | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Don't fetch if organization is still loading or not available
+    if (orgLoading || !currentOrganization?.id) {
+      return;
+    }
+
     const fetchDiagram = async () => {
       try {
         const token = localStorage.getItem('eza_token');
-        const orgId = localStorage.getItem('current_organization_id');
         
         if (!token) {
           console.error('[Pipeline] No token found');
@@ -49,11 +55,14 @@ export default function PipelineDiagram() {
         const res = await fetch(`${API_BASE_URL}/api/proxy/pipeline/diagram`, {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'x-org-id': orgId || '',
+            'x-org-id': currentOrganization.id, // Use organization ID from context
           },
         });
 
         if (!res.ok) {
+          if (res.status === 403) {
+            console.warn('[Pipeline] Access denied - missing or invalid organization context');
+          }
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
 
@@ -69,7 +78,7 @@ export default function PipelineDiagram() {
     fetchDiagram();
     const interval = setInterval(fetchDiagram, 5000); // Refresh every 5s
     return () => clearInterval(interval);
-  }, []);
+  }, [currentOrganization?.id, orgLoading]);
 
   const getNodeColor = (status: string) => {
     switch (status) {
@@ -80,10 +89,24 @@ export default function PipelineDiagram() {
     }
   };
 
-  if (loading || !diagram) {
+  // Show loading if organization is loading or diagram is loading
+  if (orgLoading || loading || !diagram) {
     return (
       <div className="text-center py-8">
-        <p className="text-sm" style={{ color: '#8E8E93' }}>Yükleniyor...</p>
+        <p className="text-sm" style={{ color: '#8E8E93' }}>
+          {orgLoading ? 'Organizasyon yükleniyor...' : 'Yükleniyor...'}
+        </p>
+      </div>
+    );
+  }
+
+  // Show message if no organization is selected
+  if (!currentOrganization?.id) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm" style={{ color: '#8E8E93' }}>
+          Lütfen bir organizasyon seçin
+        </p>
       </div>
     );
   }
