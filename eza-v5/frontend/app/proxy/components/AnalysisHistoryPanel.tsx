@@ -115,7 +115,7 @@ export default function AnalysisHistoryPanel({
     if (!user) return false;
     const userRole = user.role || '';
     const isOrgAdmin = ['admin', 'org_admin', 'ops'].includes(userRole);
-    const userId = user.user_id || user.id;
+    const userId = user.user_id;
     
     // For Intent Logs: owner or org admin can delete
     if ('user_id' in intent) {
