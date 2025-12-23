@@ -19,11 +19,6 @@ import time
 from typing import List, Dict, Any, Optional
 from backend.gateway.router_adapter import call_llm_provider
 from backend.config import get_settings
-from backend.services.proxy_analyzer import (
-    build_contextual_analysis_prompt,
-    normalize_paragraph_risks,
-    split_into_paragraphs
-)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +38,12 @@ async def analyze_paragraph_deep(
     Analyze a single paragraph with deep analysis
     Protected by semaphore for bounded concurrency
     """
+    # Lazy import to avoid circular dependency
+    from backend.services.proxy_analyzer import (
+        build_contextual_analysis_prompt,
+        normalize_paragraph_risks
+    )
+    
     async with _analysis_semaphore:
         prompt = build_contextual_analysis_prompt(paragraph_text, False, domain, policies)
         
@@ -167,7 +168,8 @@ async def stage1_targeted_deep_analysis(
         logger.info("[Stage-1] No priority paragraphs identified, analyzing first paragraph")
         priority_paragraphs = [0]
     
-    # Split content into paragraphs
+    # Split content into paragraphs (lazy import)
+    from backend.services.proxy_analyzer import split_into_paragraphs
     paragraphs = split_into_paragraphs(content)
     
     # Apply role-based limits
