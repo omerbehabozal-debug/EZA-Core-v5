@@ -16,6 +16,10 @@ from backend.gateway.router_adapter import call_llm_provider
 from backend.config import get_settings
 from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
 from backend.services.proxy_analyzer_stage1 import stage1_targeted_deep_analysis
+from backend.services.proxy_cache import (
+    get_prompt_compilation_cache,
+    set_prompt_compilation_cache
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +93,19 @@ def build_contextual_analysis_prompt(
     
     CORE PRINCIPLE: EZA is a camera, not a microscope.
     Analyze what the text is doing (narrative, influence, intent), not every word.
-    """
     
+    LAYER 3: Prompt Compilation Cache
+    """
+    # Check cache for compiled prompt (base template without content)
+    prompt_type = "contextual_analysis"
+    cached_prompt_template = get_prompt_compilation_cache(prompt_type, policies, domain)
+    
+    if cached_prompt_template:
+        # Use cached template, just insert content
+        analysis_unit = "tam metin" if is_full_text else "paragraf"
+        return cached_prompt_template.replace("{CONTENT_PLACEHOLDER}", content).replace("{ANALYSIS_UNIT_PLACEHOLDER}", analysis_unit)
+    
+    # Build prompt from scratch
     policy_info = ""
     if policies:
         policy_info = f"\n\nUygulanacak Politikalar: {', '.join(policies)}"
@@ -115,7 +130,8 @@ def build_contextual_analysis_prompt(
     
     analysis_unit = "tam metin" if is_full_text else "paragraf"
     
-    return f"""Sen EZA Proxy Contextual Camera Mode analiz motorusun.
+    # Build prompt template (for caching)
+    prompt_template = f"""Sen EZA Proxy Contextual Camera Mode analiz motorusun.
 
 EZA bir kamera, mikroskop değil.
 Görevin: Metnin NE YAPTIĞINI gözlemlemek (narrative, etki, niyet), her kelimeyi parçalamak değil.
@@ -178,13 +194,13 @@ SKOR TÜRLERİ:
 
 {policy_info}{domain_info}
 
-ANALİZ BİRİMİ: {analysis_unit}
-- Bu {analysis_unit} bir meaning unit olarak değerlendirilmeli
+ANALİZ BİRİMİ: {{ANALYSIS_UNIT_PLACEHOLDER}}
+- Bu {{ANALYSIS_UNIT_PLACEHOLDER}} bir meaning unit olarak değerlendirilmeli
 - İçerideki cümleleri veya kelimeleri ayrı ayrı analiz etme
 - Narrative bütünlüğünü koru
 
 İÇERİK:
-{content}
+{{CONTENT_PLACEHOLDER}}
 
 Cevabın mutlaka şu JSON formatında olsun:
 {{
@@ -198,7 +214,7 @@ Cevabın mutlaka şu JSON formatında olsun:
     {{
       "type": "ethical|compliance|manipulation|bias|legal",
       "severity": "low|medium|high",
-      "evidence": "Bağlamsal açıklama: Bu {analysis_unit} X narrative'ini teşvik ediyor, bu da Y riskine yol açıyor",
+      "evidence": "Bağlamsal açıklama: Bu {{ANALYSIS_UNIT_PLACEHOLDER}} X narrative'ini teşvik ediyor, bu da Y riskine yol açıyor",
       "policy": "POLICY_CODE (e.g., HEALTH-ETHICAL)"
     }}
   ]
@@ -206,6 +222,14 @@ Cevabın mutlaka şu JSON formatında olsun:
 
 ÖNEMLİ: risk_locations'da "start" ve "end" karakter pozisyonları YOK. Sadece type, severity, evidence, policy.
 Evidence her zaman bağlamsal ve anlam referanslı olmalı."""
+    
+    # Cache the template (without content)
+    set_prompt_compilation_cache(prompt_type, policies, domain, prompt_template)
+    
+    # Replace placeholders with actual values
+    final_prompt = prompt_template.replace("{CONTENT_PLACEHOLDER}", content).replace("{ANALYSIS_UNIT_PLACEHOLDER}", analysis_unit)
+    
+    return final_prompt
 
 
 def normalize_paragraph_risks(

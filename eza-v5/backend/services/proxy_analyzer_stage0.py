@@ -15,6 +15,10 @@ import time
 from typing import Dict, Any, Optional, List
 from backend.gateway.router_adapter import call_llm_provider
 from backend.config import get_settings
+from backend.services.proxy_cache import (
+    get_semantic_preanalysis_cache,
+    set_semantic_preanalysis_cache
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +78,15 @@ async def stage0_fast_risk_scan(
     """
     start_time = time.time()
     settings = get_settings()
+    
+    # LAYER 2: Semantic Pre-Analysis Cache
+    cached_result = get_semantic_preanalysis_cache(content, domain)
+    if cached_result:
+        logger.info(f"[Stage-0] Using cached semantic pre-analysis result")
+        # Add cache hit indicator
+        cached_result["_cache_hit"] = True
+        cached_result["_stage0_latency_ms"] = (time.time() - start_time) * 1000
+        return cached_result
     
     # Split into paragraphs for priority detection
     paragraphs = content.split('\n\n')
@@ -136,6 +149,9 @@ async def stage0_fast_risk_scan(
         }
         
         logger.info(f"[Stage-0] Fast risk scan completed in {latency_ms:.0f}ms: risk_band={risk_band}, priority_paragraphs={len(priority_paragraphs)}")
+        
+        # Cache result
+        set_semantic_preanalysis_cache(content, domain, result)
         
         return result
         
