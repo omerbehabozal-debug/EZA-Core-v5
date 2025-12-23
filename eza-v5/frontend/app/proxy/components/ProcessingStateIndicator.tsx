@@ -30,6 +30,15 @@ export default function ProcessingStateIndicator({
     }
   }, [message]);
 
+  // Debug: Log when component should render
+  useEffect(() => {
+    if (isProcessing && message) {
+      console.log('[ProcessingStateIndicator] Rendering with message:', message);
+    } else {
+      console.log('[ProcessingStateIndicator] Not rendering - isProcessing:', isProcessing, 'message:', message);
+    }
+  }, [isProcessing, message]);
+
   if (!isProcessing || !message) {
     return null;
   }

@@ -466,11 +466,11 @@ function ProxyCorporatePageContent() {
             </button>
 
             {/* Processing State Indicator - Show below button for better visibility */}
-            {analyzeProcessing.isProcessing && analyzeProcessing.message && (
+            {(analyzeProcessing.isProcessing || loading) && (
               <div className="mt-4">
                 <ProcessingStateIndicator
-                  message={analyzeProcessing.message}
-                  isProcessing={analyzeProcessing.isProcessing}
+                  message={analyzeProcessing.message || (loading ? 'Analiz başlatılıyor...' : '')}
+                  isProcessing={analyzeProcessing.isProcessing || loading}
                 />
               </div>
             )}

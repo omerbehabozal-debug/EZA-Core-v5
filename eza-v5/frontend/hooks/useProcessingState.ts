@@ -77,42 +77,48 @@ export function useProcessingState(config: ProcessingStateConfig) {
   );
 
   const start = useCallback(() => {
-    if (isActiveRef.current) return; // Prevent double start
+    if (isActiveRef.current) {
+      console.log('[ProcessingState] Already active, skipping start');
+      return; // Prevent double start
+    }
 
+    console.log('[ProcessingState] Starting...', config.action);
     isActiveRef.current = true;
     stateIndexRef.current = -1;
     
     // Start state progression immediately
     const flow = getFlow();
+    console.log('[ProcessingState] Flow:', flow);
     
     const progressState = () => {
       stateIndexRef.current += 1;
 
       if (stateIndexRef.current >= flow.length) {
         // Flow complete, but keep showing last state until explicitly stopped
+        console.log('[ProcessingState] Flow complete, keeping last state');
         return;
       }
 
       const nextState = flow[stateIndexRef.current];
       const message = getMessage(nextState);
-      setState(nextState);
-      setCurrentMessage(message);
       
-      // Debug log (can be removed in production)
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-        console.log('[ProcessingState]', nextState, message);
-      }
+      console.log('[ProcessingState] Setting state:', nextState, 'message:', message);
+      
+      // Use functional updates to ensure state is set correctly
+      setState(() => nextState);
+      setCurrentMessage(() => message);
 
       // Schedule next transition with random delay (500-900ms)
       if (stateIndexRef.current < flow.length - 1) {
         const transitionDelay = 500 + Math.random() * 400;
+        console.log('[ProcessingState] Scheduling next transition in', transitionDelay, 'ms');
         intervalRef.current = setTimeout(progressState, transitionDelay);
       }
     };
 
     // Start immediately with first state
     progressState();
-  }, [getFlow, getMessage]);
+  }, [getFlow, getMessage, config.action]);
 
   const stop = useCallback(() => {
     isActiveRef.current = false;
