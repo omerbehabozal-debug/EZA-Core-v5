@@ -94,8 +94,21 @@ export function useProcessingState(config: ProcessingStateConfig) {
       stateIndexRef.current += 1;
 
       if (stateIndexRef.current >= flow.length) {
-        // Flow complete, but keep showing last state until explicitly stopped
-        console.log('[ProcessingState] Flow complete, keeping last state');
+        // Flow complete - cycle through last 3 states to keep user engaged
+        // This prevents the "stuck" feeling when backend takes longer
+        const lastStates = flow.slice(-3); // Last 3 states
+        const cycleIndex = (stateIndexRef.current - flow.length) % lastStates.length;
+        const nextState = lastStates[cycleIndex];
+        const message = getMessage(nextState);
+        
+        console.log('[ProcessingState] Cycling through final states:', nextState, 'message:', message);
+        
+        setState(() => nextState);
+        setCurrentMessage(() => message);
+
+        // Continue cycling every 1.5-2 seconds (slower than initial progression)
+        const cycleDelay = 1500 + Math.random() * 500;
+        intervalRef.current = setTimeout(progressState, cycleDelay);
         return;
       }
 
@@ -110,8 +123,14 @@ export function useProcessingState(config: ProcessingStateConfig) {
 
       // Schedule next transition with random delay (500-900ms)
       if (stateIndexRef.current < flow.length - 1) {
+        // Normal progression - faster transitions
         const transitionDelay = 500 + Math.random() * 400;
         console.log('[ProcessingState] Scheduling next transition in', transitionDelay, 'ms');
+        intervalRef.current = setTimeout(progressState, transitionDelay);
+      } else {
+        // Last state before cycling - slightly longer delay before starting cycle
+        const transitionDelay = 800 + Math.random() * 400;
+        console.log('[ProcessingState] Reaching final state, will start cycling in', transitionDelay, 'ms');
         intervalRef.current = setTimeout(progressState, transitionDelay);
       }
     };
