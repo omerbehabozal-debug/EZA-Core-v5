@@ -537,39 +537,50 @@ async def proxy_rewrite(
     try:
         logger.info(f"[Proxy] Rewrite request: mode={request.mode}, domain={request.domain}, user_id={current_user.get('user_id')}")
         
-        # Analyze original content first
+        # Stage-2: Span-Based Rewrite
+        # First, analyze original content to get risky spans
         original_analysis = await analyze_content_deep(
             content=request.content,
             domain=request.domain,
             policies=request.policies,
-            provider=request.provider
+            provider=request.provider,
+            role="proxy"  # Full Proxy for rewrite
         )
         original_scores = original_analysis["overall_scores"]
         
-        # Rewrite content (with context preservation check)
+        # Stage-2: Span-based rewrite (only risky spans)
+        from backend.services.proxy_analyzer_stage2 import stage2_span_based_rewrite
         from backend.services.proxy_rewrite_engine import CONTEXT_PRESERVATION_FAILED_MESSAGE
         
-        rewritten_content = await rewrite_content(
+        rewrite_result = await stage2_span_based_rewrite(
             content=request.content,
+            analysis_result=original_analysis,
             mode=request.mode,
             policies=request.policies,
             domain=request.domain,
-            provider=request.provider
+            provider=request.provider,
+            max_spans=5  # Maximum 5 spans to rewrite
         )
         
-        # Check if rewrite was rejected due to context preservation failure
-        context_preservation_failed = rewritten_content == CONTEXT_PRESERVATION_FAILED_MESSAGE
+        rewritten_content = rewrite_result["rewritten_content"]
+        rewritten_spans = rewrite_result["rewritten_spans"]
+        failed_spans = rewrite_result["failed_spans"]
+        
+        # Check if rewrite was rejected (all spans failed)
+        context_preservation_failed = len(rewritten_spans) == 0 and len(failed_spans) > 0
         
         # Auto re-analyze if requested AND context was preserved
         new_scores = None
         improvement = None
         
-        if request.auto_reanalyze and not context_preservation_failed:
+        if request.auto_reanalyze and not context_preservation_failed and len(rewritten_spans) > 0:
+            # Re-analyze rewritten content
             new_analysis = await analyze_content_deep(
                 content=rewritten_content,
                 domain=request.domain,
                 policies=request.policies,
-                provider=request.provider
+                provider=request.provider,
+                role="proxy"
             )
             new_scores = new_analysis["overall_scores"]
             
