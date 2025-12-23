@@ -10,9 +10,12 @@ Risk is contextual, not lexical.
 import logging
 import re
 import json
+import time
 from typing import List, Dict, Any, Optional, Tuple
 from backend.gateway.router_adapter import call_llm_provider
 from backend.config import get_settings
+from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+from backend.services.proxy_analyzer_stage1 import stage1_targeted_deep_analysis
 
 logger = logging.getLogger(__name__)
 
@@ -481,122 +484,75 @@ async def analyze_content_deep(
     content: str,
     domain: Optional[str] = None,
     policies: Optional[List[str]] = None,
-    provider: str = "openai"
+    provider: str = "openai",
+    role: str = "proxy"  # "proxy_lite" or "proxy"
 ) -> Dict[str, Any]:
     """
-    Contextual Camera Mode Analysis
+    3-Stage Gated Pipeline Analysis
     
     CORE PRINCIPLE: EZA is a camera, not a microscope.
-    - Short texts: Full-text contextual analysis
-    - Long texts: Paragraph-level analysis (semantic blocks)
-    - Risk detection: Contextual/narrative level, not word-by-word
-    - Violation grouping: Similar risks grouped under single entry
-    - Evidence: Contextual, meaning-based (not word positions)
-    - Severity: Overall influence, narrative strength (not word count)
+    
+    Stage-0: Fast Risk Scan (< 500ms)
+    Stage-1: Targeted Deep Analysis (conditional, bounded parallelism)
+    Stage-2: Rewrite (user-triggered only, not here)
+    
+    This function implements Stage-0 + Stage-1
     """
+    total_start_time = time.time()
     settings = get_settings()
     
     content_length = len(content)
     
-    # DYNAMIC UNIT SELECTION
-    # Short texts: Full-text contextual analysis
-    # Long texts: Paragraph-level analysis
-    if content_length <= SHORT_TEXT_THRESHOLD:
-        # Full-text analysis for short content
-        logger.info(f"[Proxy] Short text ({content_length} chars) - Using full-text contextual analysis")
-        analysis_units = [(0, content, True)]  # (index, text, is_full_text)
-    else:
-        # Paragraph-level analysis for long content
-        paragraphs = split_into_paragraphs(content)
-        logger.info(f"[Proxy] Long text ({content_length} chars) - Using paragraph-level analysis ({len(paragraphs)} paragraphs)")
-        analysis_units = [(i, para, False) for i, para in enumerate(paragraphs)]
+    # STAGE-0: Fast Risk Scan (always runs)
+    logger.info(f"[Proxy] Starting 3-stage pipeline analysis (role={role}, length={content_length} chars)")
+    stage0_result = await stage0_fast_risk_scan(
+        content=content,
+        domain=domain,
+        provider=provider
+    )
     
-    paragraph_analyses = []
-    all_flags = []
-    all_risk_locations = []
+    stage0_latency = stage0_result.get("_stage0_latency_ms", 0)
+    risk_band = stage0_result.get("risk_band", "low")
+    priority_paragraphs = stage0_result.get("priority_paragraphs", [])
     
-    for unit_idx, unit_text, is_full_text in analysis_units:
-        # Analyze with contextual camera mode
-        prompt = build_contextual_analysis_prompt(unit_text, is_full_text, domain, policies)
-        
-        try:
-            response_text = await call_llm_provider(
-                provider_name=provider,
-                prompt=prompt,
-                settings=settings,
-                model="gpt-4o-mini" if provider == "openai" else None,
-                temperature=0.3,  # Lower temperature for more consistent, high-level analysis
-                max_tokens=1500  # Reduced for faster processing
-            )
+    logger.info(f"[Proxy] Stage-0 completed in {stage0_latency:.0f}ms: risk_band={risk_band}, priority_paragraphs={len(priority_paragraphs)}")
+    
+    # STAGE-1: Targeted Deep Analysis (conditional)
+    stage1_result = await stage1_targeted_deep_analysis(
+        content=content,
+        stage0_result=stage0_result,
+        domain=domain,
+        policies=policies,
+        provider=provider,
+        role=role
+    )
+    
+    stage1_latency = stage1_result.get("_stage1_latency_ms", 0)
+    paragraph_analyses = stage1_result.get("paragraph_analyses", [])
+    all_flags = stage1_result.get("all_flags", [])
+    all_risk_locations = stage1_result.get("all_risk_locations", [])
+    
+    logger.info(f"[Proxy] Stage-1 completed in {stage1_latency:.0f}ms: analyzed {len(paragraph_analyses)} paragraphs")
+    
+    # For short texts or low risk, we may not have paragraph analyses
+    # In that case, use Stage-0 estimates
+    if not paragraph_analyses:
+        if risk_band == "low" or content_length <= SHORT_TEXT_THRESHOLD:
+            # Low risk or short text - create minimal analysis from Stage-0
+            estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+            avg_score = sum(estimated_range) // 2
             
-            # Parse JSON response
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                data = json.loads(json_match.group())
-            else:
-                data = json.loads(response_text)
-            
-            # Extract risk locations (now contextual, not word positions)
-            unit_risk_locations = data.get("risk_locations", [])
-            
-            # Normalize risk_locations: ensure start/end are optional, evidence/policy are present
-            raw_risk_locations = []
-            for loc in unit_risk_locations:
-                raw_loc = {
-                    "type": loc.get("type", "unknown"),
-                    "severity": loc.get("severity", "medium"),
-                    "evidence": loc.get("evidence", ""),
-                    "policy": loc.get("policy"),
-                    "primary_risk_pattern": loc.get("primary_risk_pattern")  # If provided by LLM
-                }
-                # Only include start/end if they exist (backward compatibility)
-                if "start" in loc:
-                    raw_loc["start"] = loc["start"]
-                if "end" in loc:
-                    raw_loc["end"] = loc["end"]
-                raw_risk_locations.append(raw_loc)
-            
-            # PARAGRAPH-LEVEL RISK NORMALIZATION (MANDATORY)
-            # Normalize risks for this paragraph (collapse by primary risk pattern)
-            normalized_risks = normalize_paragraph_risks(
-                paragraph_id=unit_idx,
-                raw_risk_locations=raw_risk_locations
-            )
-            
-            # Keep raw risk_locations for backward compatibility (internal use)
-            # But expose normalized_risks as the primary output
-            para_analysis = {
-                "paragraph_index": unit_idx,
-                "text": unit_text,
-                "ethical_index": int(data.get("ethical_index", 50)),
-                "compliance_score": int(data.get("compliance_score", 50)),
-                "manipulation_score": int(data.get("manipulation_score", 50)),
-                "bias_score": int(data.get("bias_score", 50)),
-                "legal_risk_score": int(data.get("legal_risk_score", 50)),
-                "flags": data.get("flags", []),
-                "risk_locations": normalized_risks,  # NORMALIZED risks (primary output)
-                "_raw_risk_locations": raw_risk_locations  # Raw risks (internal, for backward compatibility)
-            }
-            
-            paragraph_analyses.append(para_analysis)
-            all_flags.extend(data.get("flags", []))
-            # Add normalized risks to global collection (for global collapse)
-            all_risk_locations.extend(normalized_risks)
-            
-        except Exception as e:
-            logger.error(f"[Proxy] Error analyzing unit {unit_idx}: {str(e)}")
-            # Fallback
-            paragraph_analyses.append({
-                "paragraph_index": unit_idx,
-                "text": unit_text,
-                "ethical_index": 50,
-                "compliance_score": 50,
-                "manipulation_score": 50,
-                "bias_score": 50,
-                "legal_risk_score": 50,
-                "flags": ["analiz_hatası"],
+            paragraph_analyses = [{
+                "paragraph_index": 0,
+                "text": content[:500] if content_length > 500 else content,
+                "ethical_index": avg_score,
+                "compliance_score": min(avg_score + 10, 100),
+                "manipulation_score": max(avg_score - 5, 0),
+                "bias_score": avg_score,
+                "legal_risk_score": min(avg_score + 5, 100),
+                "flags": [],
                 "risk_locations": []
-            })
+            }]
     
     # VALIDATION: Ensure each paragraph has no duplicate narrative risks
     for para in paragraph_analyses:
@@ -623,7 +579,7 @@ async def analyze_content_deep(
         logger.warning("[Proxy] Global risk_locations has duplicate primary patterns. Re-collapsing...")
         grouped_risk_locations = group_violations(grouped_risk_locations)
     
-    # Calculate overall scores (weighted average)
+    # Calculate overall scores (weighted average from analyzed paragraphs)
     if paragraph_analyses:
         overall_ethical = sum(p["ethical_index"] for p in paragraph_analyses) / len(paragraph_analyses)
         overall_compliance = sum(p["compliance_score"] for p in paragraph_analyses) / len(paragraph_analyses)
@@ -631,7 +587,10 @@ async def analyze_content_deep(
         overall_bias = sum(p["bias_score"] for p in paragraph_analyses) / len(paragraph_analyses)
         overall_legal = sum(p["legal_risk_score"] for p in paragraph_analyses) / len(paragraph_analyses)
     else:
-        overall_ethical = overall_compliance = overall_manipulation = overall_bias = overall_legal = 50
+        # Fallback to Stage-0 estimates
+        estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+        avg_score = sum(estimated_range) // 2
+        overall_ethical = overall_compliance = overall_manipulation = overall_bias = overall_legal = avg_score
     
     # Remove duplicate flags
     unique_flags = list(dict.fromkeys(all_flags))
@@ -641,6 +600,10 @@ async def analyze_content_deep(
         if "_raw_risk_locations" in para:
             del para["_raw_risk_locations"]
     
+    total_latency_ms = (time.time() - total_start_time) * 1000
+    
+    logger.info(f"[Proxy] 3-stage pipeline completed in {total_latency_ms:.0f}ms (Stage-0: {stage0_latency:.0f}ms, Stage-1: {stage1_latency:.0f}ms)")
+    
     return {
         "overall_scores": {
             "ethical_index": int(round(overall_ethical)),
@@ -649,8 +612,14 @@ async def analyze_content_deep(
             "bias_score": int(round(overall_bias)),
             "legal_risk_score": int(round(overall_legal))
         },
-        "paragraphs": paragraph_analyses,  # Each paragraph has normalized_risks in risk_locations
+        "paragraphs": paragraph_analyses,
         "flags": unique_flags,
-        "risk_locations": grouped_risk_locations  # Global normalized violations
+        "risk_locations": grouped_risk_locations,
+        "_stage0_result": stage0_result,  # Include Stage-0 for UI response contract
+        "_performance_metrics": {
+            "stage0_latency_ms": stage0_latency,
+            "stage1_latency_ms": stage1_latency,
+            "total_latency_ms": total_latency_ms
+        }
     }
 

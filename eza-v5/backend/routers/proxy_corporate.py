@@ -161,12 +161,14 @@ async def proxy_analyze(
         # Start timing for latency measurement
         start_time = time.time()
         
-        # Deep analysis
+        # Deep analysis with 3-stage gated pipeline
+        # Role: "proxy" for full Proxy, "proxy_lite" for Proxy Lite
         analysis_result = await analyze_content_deep(
             content=request.content,
             domain=request.domain,
             policies=request.policies,
-            provider=request.provider
+            provider=request.provider,
+            role="proxy"  # Full Proxy - max 4 paragraphs in Stage-1
         )
         
         # Calculate latency
