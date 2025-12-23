@@ -35,7 +35,14 @@ export default function ProcessingStateIndicator({
   }
 
   return (
-    <div className={`space-y-3 ${className}`}>
+    <div 
+      className={`space-y-3 ${className}`}
+      style={{
+        padding: '12px',
+        borderRadius: '8px',
+        backgroundColor: 'rgba(31, 41, 55, 0.5)', // Subtle dark background for visibility
+      }}
+    >
       {/* Screen reader announcement */}
       <div
         className="sr-only"

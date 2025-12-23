@@ -81,12 +81,10 @@ export function useProcessingState(config: ProcessingStateConfig) {
 
     isActiveRef.current = true;
     stateIndexRef.current = -1;
-    setState('idle');
-
-    // Start state progression
+    
+    // Start state progression immediately
     const flow = getFlow();
-    const transitionDelay = 500 + Math.random() * 400; // 500-900ms
-
+    
     const progressState = () => {
       stateIndexRef.current += 1;
 
@@ -96,16 +94,23 @@ export function useProcessingState(config: ProcessingStateConfig) {
       }
 
       const nextState = flow[stateIndexRef.current];
+      const message = getMessage(nextState);
       setState(nextState);
-      setCurrentMessage(getMessage(nextState));
+      setCurrentMessage(message);
+      
+      // Debug log (can be removed in production)
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        console.log('[ProcessingState]', nextState, message);
+      }
 
-      // Schedule next transition
+      // Schedule next transition with random delay (500-900ms)
       if (stateIndexRef.current < flow.length - 1) {
+        const transitionDelay = 500 + Math.random() * 400;
         intervalRef.current = setTimeout(progressState, transitionDelay);
       }
     };
 
-    // Start immediately
+    // Start immediately with first state
     progressState();
   }, [getFlow, getMessage]);
 

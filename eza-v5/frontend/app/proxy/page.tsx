@@ -452,15 +452,6 @@ function ProxyCorporatePageContent() {
               </div>
             </div>
 
-            {/* Processing State Indicator */}
-            {analyzeProcessing.isProcessing && (
-              <ProcessingStateIndicator
-                message={analyzeProcessing.message}
-                isProcessing={analyzeProcessing.isProcessing}
-                className="mt-4"
-              />
-            )}
-
             {/* Analyze Button */}
             <button
               type="submit"
@@ -473,6 +464,16 @@ function ProxyCorporatePageContent() {
             >
               {loading || analyzeProcessing.isProcessing ? 'Analiz Ediliyor…' : 'Analiz Et'}
             </button>
+
+            {/* Processing State Indicator - Show below button for better visibility */}
+            {analyzeProcessing.isProcessing && analyzeProcessing.message && (
+              <div className="mt-4">
+                <ProcessingStateIndicator
+                  message={analyzeProcessing.message}
+                  isProcessing={analyzeProcessing.isProcessing}
+                />
+              </div>
+            )}
           </form>
         </div>
 
