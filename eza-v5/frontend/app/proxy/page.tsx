@@ -191,12 +191,16 @@ function ProxyCorporatePageContent() {
     e.preventDefault();
     if (!content.trim() || loading || analyzeProcessing.isProcessing) return;
 
-    // Start processing state
+    // Start processing state FIRST - before any async operations
+    console.log('[Proxy] Starting analysis, calling analyzeProcessing.start()');
     analyzeProcessing.start();
     setLoading(true);
     setAnalysisResult(null);
     setRewriteResult(null);
     setError(null);
+    
+    // Small delay to ensure state is set before async operation
+    await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
       // Get organization ID from context
@@ -248,8 +252,12 @@ function ProxyCorporatePageContent() {
       
       setError(`Analiz hatası: ${userFriendlyMessage}`);
     } finally {
-      analyzeProcessing.stop();
-      setLoading(false);
+      // Don't stop immediately on error - let user see the processing state
+      // Only stop after a short delay to show the state
+      setTimeout(() => {
+        analyzeProcessing.stop();
+        setLoading(false);
+      }, 1000); // Keep state visible for 1 second even on error
     }
   };
 
@@ -467,9 +475,9 @@ function ProxyCorporatePageContent() {
 
             {/* Processing State Indicator - Show below button for better visibility */}
             {(analyzeProcessing.isProcessing || loading) && (
-              <div className="mt-4">
+              <div className="mt-4" style={{ minHeight: '80px' }}>
                 <ProcessingStateIndicator
-                  message={analyzeProcessing.message || (loading ? 'Analiz başlatılıyor...' : '')}
+                  message={analyzeProcessing.message || (loading ? 'Analiz başlatılıyor...' : 'İçerik alınıyor...')}
                   isProcessing={analyzeProcessing.isProcessing || loading}
                 />
               </div>
