@@ -66,18 +66,6 @@ export const ecosystemItems = {
       href: "/products/proxy-lite",
       icon: "Zap",
     },
-    {
-      title: "EZA Score Engine",
-      description: "EZA-Core'un skorlama motoru. Etik davranış metrikleri ve sürekli iyileştirme.",
-      href: "/products/score-engine",
-      icon: "BarChart3",
-    },
-    {
-      title: "Advisor",
-      description: "EZA-Core'un AI destekli danışman modülü. Gerçek zamanlı öneriler ve yönlendirmeler.",
-      href: "/products/advisor",
-      icon: "Brain",
-    },
   ],
   panels: [
     {

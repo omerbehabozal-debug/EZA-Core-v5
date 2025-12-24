@@ -6,7 +6,7 @@ import FadeIn from "@/app/components/FadeIn";
 
 export const metadata = generatePageMetadata(
   "Proxy-Lite",
-  "Hafif versiyon proxy çözümü. Düşük kaynak kullanımı ile etik kontrol."
+  "Yapay Zekâ ve Dijital İçerikler İçin Hızlı Etik Kontrol. Makale, reklam, influencer ve sosyal medya metinlerini paylaşmadan önce etik ve risk açısından analiz eden hafif kontrol aracı."
 );
 
 export default function ProxyLitePage() {
@@ -23,8 +23,15 @@ export default function ProxyLitePage() {
               Proxy-Lite
             </h1>
             <p className="text-xl text-eza-text-secondary">
-              Hafif versiyon proxy çözümü. Düşük kaynak kullanımı ile etik kontrol.
+              Yapay Zekâ ve Dijital İçerikler İçin Hızlı Etik Kontrol
             </p>
+            <p className="text-lg text-eza-text-secondary mt-4 max-w-3xl mx-auto">
+              EZA Proxy Lite, yapay zekâdan üretilen içerikler başta olmak üzere makale, reklam, influencer ve sosyal medya metinlerini kullanmadan veya paylaşmadan önce etik ve risk açısından hızlıca analiz eden hafif kontrol aracıdır.
+            </p>
+            <div className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-eza-blue/10 border border-eza-blue/20 rounded-lg">
+              <Icon name="Zap" size={20} className="text-eza-blue" />
+              <span className="text-eza-blue font-semibold">Uygulama yok. Kurulum yok. Karmaşa yok.</span>
+            </div>
           </FadeIn>
         </div>
       </div>
@@ -33,19 +40,17 @@ export default function ProxyLitePage() {
         <FadeIn delay={100}>
           <div className="max-w-4xl mx-auto space-y-6 text-lg text-eza-text-secondary leading-relaxed">
           <p>
-            EZA Proxy-Lite, hafif versiyon bir proxy çözümüdür. Düşük kaynak kullanımı ile etik 
-            kontrol sağlar ve küçük ile orta ölçekli uygulamalar için idealdir. Bu yaklaşım, 
-            kaynak kısıtı olan sistemlerde de etik kontrol imkanı sunar.
+            EZA Proxy Lite, yapay zekâdan üretilen içerikler başta olmak üzere makale, reklam, 
+            influencer ve sosyal medya metinlerini kullanmadan veya paylaşmadan önce etik ve risk 
+            açısından hızlıca analiz eden hafif kontrol aracıdır.
+          </p>
+          <p className="text-xl font-semibold text-eza-text text-center py-4 px-6 bg-eza-blue/5 rounded-lg border border-eza-blue/20">
+            "AI'den gelsin ya da insan yazmış olsun, paylaşmadan önce kontrol et."
           </p>
           <p>
-            Proxy-Lite, temel etik değerlendirmeleri yapar ve yönlendirmeler sunar. Tam özellikli 
-            Proxy versiyonunun tüm özelliklerini içermese de, temel etik kontrol ihtiyaçlarını 
-            karşılar. Düşük kaynak kullanımı sayesinde, küçük sistemlerde de sorunsuz çalışır.
-          </p>
-          <p>
-            EZA Proxy-Lite, özellikle kaynak kısıtı olan veya küçük ölçekli sistemler için 
-            idealdir. Temel etik kontrol ihtiyaçlarını karşılayarak, her sistemin etik 
-            standartlara uygun çalışmasını sağlar.
+            Proxy Lite şu içerik türlerini analiz edebilir: yapay zekâ cevapları, makale & blog 
+            yazıları, reklam metinleri, influencer paylaşımları, ürün açıklamaları, kampanya ve 
+            e-posta metinleri. Kaynağı fark etmez. Önemli olan metindir.
           </p>
           </div>
         </FadeIn>
@@ -54,25 +59,34 @@ export default function ProxyLitePage() {
       <Section className="bg-eza-gray">
         <FadeIn delay={200}>
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-eza-text mb-6">Faydalar</h2>
-            <ul className="space-y-4 text-lg text-eza-text-secondary">
-            <li className="flex items-start">
-              <span className="text-eza-green text-2xl mr-3">✓</span>
-              <span>Düşük kaynak kullanımı - hafif ve verimli</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-eza-green text-2xl mr-3">✓</span>
-              <span>Küçük ve orta ölçekli uygulamalar için ideal</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-eza-green text-2xl mr-3">✓</span>
-              <span>Temel etik kontrol ihtiyaçlarını karşılar</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-eza-green text-2xl mr-3">✓</span>
-              <span>Kolay kurulum ve bakım</span>
-            </li>
-          </ul>
+            <h2 className="text-3xl font-bold text-eza-text mb-6">Neleri Kontrol Eder?</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              {[
+                { icon: "Brain", title: "Yapay zekâ cevapları", desc: "AI'den gelen tüm metin içerikleri" },
+                { icon: "FileText", title: "Makale & blog yazıları", desc: "Yayınlanmadan önce etik kontrol" },
+                { icon: "Volume2", title: "Reklam metinleri", desc: "Reklam kampanyaları için risk analizi" },
+                { icon: "Users", title: "Influencer paylaşımları", desc: "Sosyal medya içerikleri için kontrol" },
+                { icon: "ShoppingBag", title: "Ürün açıklamaları", desc: "E-ticaret ve pazarlama metinleri" },
+                { icon: "Mail", title: "Kampanya ve e-posta metinleri", desc: "İletişim içerikleri için analiz" },
+              ].map((item, index) => (
+                <FadeIn key={index} delay={index * 50}>
+                  <div className="bg-white rounded-xl p-4 border border-gray-200">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-eza-blue/10 flex items-center justify-center">
+                        <Icon name={item.icon} className="text-eza-blue" size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-eza-text text-base mb-1">{item.title}</h3>
+                        <p className="text-sm text-eza-text-secondary leading-relaxed">{item.desc}</p>
+                      </div>
+                    </div>
+                  </div>
+                </FadeIn>
+              ))}
+            </div>
+            <p className="text-center text-eza-text-secondary mt-6 italic">
+              Kaynağı fark etmez. Önemli olan metindir.
+            </p>
           </div>
         </FadeIn>
       </Section>
@@ -80,25 +94,26 @@ export default function ProxyLitePage() {
       <Section className="bg-white">
         <FadeIn delay={300}>
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-eza-text mb-6">EZA Nasıl Yardımcı Olur?</h2>
-            <ul className="space-y-4 text-lg text-eza-text-secondary">
-            <li className="flex items-start">
-              <span className="text-eza-blue text-xl mr-3">•</span>
-              <span>Düşük kaynak kullanımı ile etik kontrol sağlar</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-eza-blue text-xl mr-3">•</span>
-              <span>Temel etik değerlendirmeleri yapar ve yönlendirir</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-eza-blue text-xl mr-3">•</span>
-              <span>Küçük sistemlerde de sorunsuz çalışır</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-eza-blue text-xl mr-3">•</span>
-              <span>Kolay kurulum ile hızlı başlangıç sağlar</span>
-            </li>
-          </ul>
+            <h2 className="text-3xl font-bold text-eza-text mb-6">Kimler İçin?</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {[
+                "İçerik üreticileri",
+                "Influencer'lar",
+                "Ajanslar",
+                "Freelancer'lar",
+                "Küçük işletmeler",
+                "AI kullanan herkes",
+              ].map((audience, index) => (
+                <FadeIn key={index} delay={index * 50}>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200 text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <Icon name="CheckCircle" className="text-eza-blue" size={20} />
+                    </div>
+                    <p className="text-sm font-medium text-eza-text">{audience}</p>
+                  </div>
+                </FadeIn>
+              ))}
+            </div>
           </div>
         </FadeIn>
       </Section>

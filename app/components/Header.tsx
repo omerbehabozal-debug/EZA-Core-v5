@@ -13,18 +13,15 @@ export default function Header() {
   const navigation = [
     { name: "EZA-Core API", href: "/platform/eza-core" },
     { name: "Ecosystem", href: "/#ecosystem" },
-    {
-      name: "EZA-Core Products",
-      href: "#",
-      children: [
-        { name: "Standalone", href: "/products/standalone" },
-        { name: "Proxy", href: "/products/proxy" },
-        { name: "Proxy-Lite", href: "/products/proxy-lite" },
-        { name: "EZA Score Engine", href: "/products/score-engine" },
-        { name: "Advisor", href: "/products/advisor" },
-        { name: "Developer Console", href: "/panels/developer" },
-      ],
-    },
+      {
+        name: "EZA-Core Products",
+        href: "#",
+        children: [
+          { name: "Standalone", href: "/products/standalone" },
+          { name: "Proxy", href: "/products/proxy" },
+          { name: "Proxy-Lite", href: "/products/proxy-lite" },
+        ],
+      },
     {
       name: "Panels",
       children: [
