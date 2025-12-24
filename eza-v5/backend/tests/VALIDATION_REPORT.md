@@ -167,6 +167,29 @@
 
 ---
 
+## OBSERVATION: Startup Query Optimization
+
+**Status**: ⚠️ NON-CRITICAL PERFORMANCE OBSERVATION
+
+**Observation**:
+During application startup, `init_db()` executes multiple `SELECT` queries to check for soft delete columns:
+- 3 queries per table (deleted_by_user, deleted_at, deleted_by_user_id)
+- 2 tables (production_intent_logs, production_impact_events)
+- Total: 6 queries per startup
+
+**Impact**: 
+- ✅ **No functional issues** - Application starts successfully
+- ⚠️ **Performance**: Minor overhead on startup (acceptable for now)
+- ✅ **No test failures** - This is not a breaking change
+
+**Recommendation** (Optional optimization, not required):
+- Batch column checks into a single query per table
+- Cache column existence check (only run if schema version changed)
+
+**Action Required**: None (this is an observation, not a failure)
+
+---
+
 ## BACKWARD COMPATIBILITY VERIFICATION
 
 ### ✅ Existing API Contracts Maintained
@@ -374,6 +397,9 @@ Verify all required metrics present and in correct format.
 - ✅ Stage-2 patch safety verified
 - ✅ Metrics exposure verified
 
+**Observations**:
+- ⚠️ Startup query optimization opportunity (non-critical, no action required)
+
 **Next Steps**:
 1. Run full pytest suite: `pytest tests/ -v`
 2. Execute golden input regression test
@@ -397,3 +423,4 @@ All production hardening changes have been verified:
 
 The hardening implementation is ready for integration testing and deployment.
 
+**Note on Startup Queries**: The soft delete column checks run on every startup (6 queries total). This is functional and does not cause errors, but could be optimized in the future by batching queries or caching results. This is a performance observation, not a validation failure.
