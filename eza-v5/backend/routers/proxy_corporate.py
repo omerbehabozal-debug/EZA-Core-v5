@@ -734,6 +734,50 @@ async def proxy_rewrite(
         )
 
 
+@router.get("/performance-metrics")
+async def get_performance_metrics(
+    time_window_minutes: int = 60,
+    role: str = "proxy",
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
+):
+    """
+    Get performance metrics (P50/P90/P99) for analysis pipeline
+    
+    Returns:
+        - Metrics summary for all stages
+        - SLA compliance status
+        - Percentile calculations
+    """
+    from backend.services.proxy_performance_metrics import (
+        get_all_metrics_summary,
+        check_sla_compliance
+    )
+    
+    summary = get_all_metrics_summary(time_window_minutes=time_window_minutes)
+    sla_status = check_sla_compliance(role=role)
+    
+    return {
+        "ok": True,
+        "time_window_minutes": time_window_minutes,
+        "role": role,
+        "metrics": summary,
+        "sla_compliance": sla_status,
+        "targets": {
+            "proxy_lite": {
+                "total_p50_ms": 800,
+                "total_p90_ms": 1500
+            },
+            "proxy": {
+                "total_p50_ms": 1500,
+                "total_p90_ms": 3000
+            },
+            "rewrite_p50_ms": 1200,
+            "stage0_p50_ms": 500
+        }
+    }
+
+
 @router.get("/telemetry")
 async def get_telemetry(
     hours: int = 24,

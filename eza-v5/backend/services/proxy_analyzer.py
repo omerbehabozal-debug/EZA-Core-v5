@@ -628,6 +628,17 @@ async def analyze_content_deep(
     
     logger.info(f"[Proxy] 3-stage pipeline completed in {total_latency_ms:.0f}ms (Stage-0: {stage0_latency:.0f}ms, Stage-1: {stage1_latency:.0f}ms)")
     
+    # Performance Metrics: Record latencies
+    from backend.services.proxy_performance_metrics import log_performance_metrics
+    log_performance_metrics(
+        stage0_latency_ms=stage0_latency,
+        stage1_latency_ms=stage1_latency,
+        total_latency_ms=total_latency_ms,
+        role=role,
+        domain=domain,
+        content_length=content_length
+    )
+    
     return {
         "overall_scores": {
             "ethical_index": int(round(overall_ethical)),

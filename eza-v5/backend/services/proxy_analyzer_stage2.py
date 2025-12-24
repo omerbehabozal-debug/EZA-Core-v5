@@ -436,6 +436,15 @@ async def stage2_span_based_rewrite(
     
     logger.info(f"[Stage-2] Span-based rewrite completed in {latency_ms:.0f}ms: {len(rewritten_spans)} succeeded, {len(failed_spans)} failed")
     
+    # Performance Metrics: Record rewrite latency
+    from backend.services.proxy_performance_metrics import log_rewrite_metrics
+    log_rewrite_metrics(
+        rewrite_latency_ms=latency_ms,
+        spans_rewritten=len(rewritten_spans),
+        spans_failed=len(failed_spans),
+        role="proxy"  # Rewrite is only for full Proxy
+    )
+    
     return {
         "rewritten_content": rewritten_content,
         "rewritten_spans": rewritten_spans,
