@@ -84,11 +84,11 @@ async def stage0_fast_risk_scan(
     if org_id:
         cached_result = get_semantic_cache(org_id, content, domain)
         if cached_result:
-        logger.info(f"[Stage-0] Using cached semantic pre-analysis result")
-        # Add cache hit indicator
-        cached_result["_cache_hit"] = True
-        cached_result["_stage0_latency_ms"] = (time.time() - start_time) * 1000
-        return cached_result
+            logger.info(f"[Stage-0] Using cached semantic pre-analysis result")
+            # Add cache hit indicator
+            cached_result["_cache_hit"] = True
+            cached_result["_stage0_latency_ms"] = (time.time() - start_time) * 1000
+            return cached_result
     
     # Split into paragraphs for priority detection
     paragraphs = content.split('\n\n')
