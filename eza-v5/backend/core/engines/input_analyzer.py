@@ -160,6 +160,29 @@ def analyze_input(text: str) -> Dict[str, Any]:
         # Keep in medium range (0.3-0.7) for gray area
         risk_score = min(0.7, max(0.3, risk_score))
     
+    # FIX: If no risk patterns found and not educational question, apply minimal risk
+    # This prevents user_score from always being 100 for safe questions
+    # Normal safe questions should have slight variation (0.02-0.08) to show score diversity
+    if risk_score == 0.0 and not is_educational_question:
+        # Apply minimal risk based on text characteristics for score diversity
+        text_length = len(text)
+        word_count = len(text.split())
+        
+        # Very safe questions get minimal risk (0.02-0.08 range)
+        # This ensures user_score is 92-98 instead of always 100
+        if text_length < 20:
+            risk_score = 0.08  # Very short = slightly higher risk
+        elif text_length < 50:
+            risk_score = 0.05  # Short = medium risk
+        elif text_length < 100:
+            risk_score = 0.03  # Medium = low risk
+        else:
+            risk_score = 0.02  # Long = minimal risk
+        
+        # Add slight variation based on word count
+        word_variation = min(0.02, word_count / 500.0)
+        risk_score = min(0.08, risk_score + word_variation)
+    
     # Intent detection (improved)
     intent = "information"
     text_lower_stripped = text_lower.strip()
