@@ -11,7 +11,6 @@ export default function Header() {
   const [productsOpen, setProductsOpen] = useState(false);
 
   const navigation = [
-    { name: "EZA-Core API", href: "/platform/eza-core" },
     { name: "Ecosystem", href: "/#ecosystem" },
       {
         name: "EZA-Core Products",
@@ -164,23 +163,10 @@ export default function Header() {
                 <DesktopLinkComponent
                   key={item.name}
                   {...desktopLinkProps}
-                  className={`px-4 py-2 text-eza-text-secondary hover:text-eza-text transition-colors text-sm font-medium ${
-                    item.name === "EZA-Core API" 
-                      ? "flex flex-col items-center justify-center leading-[1.1] whitespace-nowrap min-w-[110px]" 
-                      : "flex items-center gap-1"
-                  }`}
+                  className="px-4 py-2 text-eza-text-secondary hover:text-eza-text transition-colors text-sm font-medium flex items-center gap-1"
                 >
-                  {item.name === "EZA-Core API" ? (
-                    <>
-                      <span className="block">EZA-Core</span>
-                      <span className="block -mt-0.5">API</span>
-                    </>
-                  ) : (
-                    <>
-                      {item.name}
-                      {(item as any).external && <Icon name="ExternalLink" size={14} />}
-                    </>
-                  )}
+                  {item.name}
+                  {(item as any).external && <Icon name="ExternalLink" size={14} />}
                 </DesktopLinkComponent>
               );
             })}
@@ -245,24 +231,11 @@ export default function Header() {
                 <LinkComponent
                   key={item.name}
                   {...linkProps}
-                  className={`px-3 py-2 text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray/50 rounded-lg transition-colors text-sm font-medium ${
-                    item.name === "EZA-Core API" 
-                      ? "flex flex-col items-center justify-center leading-[1.1]" 
-                      : "block"
-                  }`}
+                  className="px-3 py-2 text-eza-text-secondary hover:text-eza-text hover:bg-eza-gray/50 rounded-lg transition-colors text-sm font-medium block"
                 >
-                  {item.name === "EZA-Core API" ? (
-                    <>
-                      <span className="block">EZA-Core</span>
-                      <span className="block -mt-0.5">API</span>
-                    </>
-                  ) : (
-                    <>
-                      {item.name}
-                      {(item as any).external && (
-                        <Icon name="ExternalLink" size={12} className="inline ml-1" />
-                      )}
-                    </>
+                  {item.name}
+                  {(item as any).external && (
+                    <Icon name="ExternalLink" size={12} className="inline ml-1" />
                   )}
                 </LinkComponent>
               );
