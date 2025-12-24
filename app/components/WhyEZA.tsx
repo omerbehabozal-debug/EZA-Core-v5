@@ -113,9 +113,27 @@ export default function WhyEZA() {
           <div className="inline-block px-8 py-3 bg-eza-blue/10 border border-eza-blue/20 rounded-lg mb-6">
             <span className="text-eza-blue font-semibold text-xl">"İnsanlık için emniyet kemeri"</span>
           </div>
-          <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto">
+          <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto mb-12">
             Teknolojinin hızla geliştiği bir dünyada, insanlığı koruyan ve güvende tutan güvenlik katmanı
           </p>
+          
+          {/* Premium Image */}
+          <FadeIn delay={200}>
+            <div className="max-w-4xl mx-auto">
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-200/50">
+                <div className="absolute inset-0 bg-gradient-to-br from-eza-blue/5 via-transparent to-purple-500/5 pointer-events-none" />
+                <img 
+                  src="/videos/anasayfa resmi.png" 
+                  alt="EZA - Etik Zeka Altyapısı"
+                  className="w-full h-auto object-cover"
+                  style={{
+                    maxHeight: '600px',
+                    objectFit: 'cover'
+                  }}
+                />
+              </div>
+            </div>
+          </FadeIn>
         </div>
       </FadeIn>
 
