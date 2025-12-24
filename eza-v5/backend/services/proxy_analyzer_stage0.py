@@ -15,9 +15,9 @@ import time
 from typing import Dict, Any, Optional, List
 from backend.gateway.router_adapter import call_llm_provider
 from backend.config import get_settings
-from backend.services.proxy_cache import (
-    get_semantic_preanalysis_cache,
-    set_semantic_preanalysis_cache
+from backend.infra.cache_registry import (
+    get_semantic_cache,
+    set_semantic_cache
 )
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,8 @@ Rules:
 async def stage0_fast_risk_scan(
     content: str,
     domain: Optional[str] = None,
-    provider: str = "openai"
+    provider: str = "openai",
+    org_id: Optional[str] = None  # Required for cache isolation
 ) -> Dict[str, Any]:
     """
     Stage-0: Fast Risk Scan
@@ -79,9 +80,10 @@ async def stage0_fast_risk_scan(
     start_time = time.time()
     settings = get_settings()
     
-    # LAYER 2: Semantic Pre-Analysis Cache
-    cached_result = get_semantic_preanalysis_cache(content, domain)
-    if cached_result:
+    # LAYER 2: Semantic Pre-Analysis Cache (org_id isolated)
+    if org_id:
+        cached_result = get_semantic_cache(org_id, content, domain)
+        if cached_result:
         logger.info(f"[Stage-0] Using cached semantic pre-analysis result")
         # Add cache hit indicator
         cached_result["_cache_hit"] = True
@@ -150,8 +152,9 @@ async def stage0_fast_risk_scan(
         
         logger.info(f"[Stage-0] Fast risk scan completed in {latency_ms:.0f}ms: risk_band={risk_band}, priority_paragraphs={len(priority_paragraphs)}")
         
-        # Cache result
-        set_semantic_preanalysis_cache(content, domain, result)
+        # Cache result (org_id isolated)
+        if org_id:
+            set_semantic_cache(org_id, content, domain, result)
         
         return result
         

@@ -281,6 +281,46 @@ async def rewrite_span(
         raise
 
 
+def merge_overlapping_spans(spans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Merge overlapping spans to avoid conflicts during patching
+    
+    Returns:
+        List of non-overlapping spans, sorted by start_offset
+    """
+    if not spans:
+        return []
+    
+    # Sort by start_offset
+    sorted_spans = sorted(spans, key=lambda s: s["start_offset"])
+    
+    merged = []
+    current = sorted_spans[0].copy()
+    
+    for next_span in sorted_spans[1:]:
+        # Check if spans overlap
+        if current["end_offset"] >= next_span["start_offset"]:
+            # Merge: extend current span to cover both
+            current["end_offset"] = max(current["end_offset"], next_span["end_offset"])
+            # Combine risk types
+            if "risk_type" in next_span:
+                if "risk_type" not in current:
+                    current["risk_type"] = []
+                if isinstance(current["risk_type"], str):
+                    current["risk_type"] = [current["risk_type"]]
+                if isinstance(next_span["risk_type"], str):
+                    current["risk_type"].append(next_span["risk_type"])
+                elif isinstance(next_span["risk_type"], list):
+                    current["risk_type"].extend(next_span["risk_type"])
+        else:
+            # No overlap, save current and start new
+            merged.append(current)
+            current = next_span.copy()
+    
+    merged.append(current)
+    return merged
+
+
 def patch_span_into_content(
     original_content: str,
     span: Dict[str, Any],
@@ -288,6 +328,8 @@ def patch_span_into_content(
 ) -> str:
     """
     Patch rewritten span back into original content
+    
+    SAFETY: Preserves offsets for unaffected spans
     
     Args:
         original_content: Full original content
@@ -381,17 +423,25 @@ async def stage2_span_based_rewrite(
     
     logger.info(f"[Stage-2] Starting span-based rewrite for {len(risky_spans)} spans")
     
+    # SAFETY: Merge overlapping spans before processing
+    risky_spans = merge_overlapping_spans(risky_spans)
+    logger.info(f"[Stage-2] After merging overlaps: {len(risky_spans)} spans")
+    
     # Rewrite spans sequentially (to preserve order and offsets)
+    # CRITICAL: Apply patches from end → start to preserve offsets
     rewritten_content = content
     rewritten_spans = []
     failed_spans = []
+    
+    # Sort spans by start_offset DESCENDING (end → start)
+    risky_spans_sorted = sorted(risky_spans, key=lambda s: s["start_offset"], reverse=True)
     
     # Calculate surrounding context for each span
     paragraphs = content.split('\n\n')
     if len(paragraphs) == 1:
         paragraphs = content.split('\n')
     
-    for span in risky_spans:
+    for span in risky_spans_sorted:  # Process from end → start
         para_idx = span["paragraph"]
         if para_idx < len(paragraphs):
             para_text = paragraphs[para_idx]

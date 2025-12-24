@@ -1,29 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-EZA Proxy - 3-Layer Caching Strategy
-
-Layer 1: Policy Fingerprint Cache
-- Key: (org_id + policy_set_version + weights_hash)
-- Purpose: Skip repeated policy matching
-
-Layer 2: Semantic Pre-Analysis Cache
-- Key: Content embedding hash
-- Purpose: Cache Stage-0 results for similar content
-
-Layer 3: Prompt Compilation Cache
-- Key: (prompt_type + policy_set_version + domain)
-- Purpose: Compiled prompts, no re-assembly per request
+EZA Proxy - 3-Layer Caching Strategy (DEPRECATED - Use infra/cache_registry.py)
+This module is kept for backward compatibility but delegates to cache_registry
 """
 
 import logging
-import hashlib
-import json
-import time
-from typing import Dict, Any, Optional, List, Tuple
-from functools import lru_cache
-from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List
+from backend.infra.cache_registry import (
+    get_semantic_cache as _get_semantic_cache_registry,
+    set_semantic_cache as _set_semantic_cache_registry,
+    get_policy_cache as _get_policy_cache_registry,
+    set_policy_cache as _set_policy_cache_registry,
+    get_prompt_cache as _get_prompt_cache_registry,
+    set_prompt_cache as _set_prompt_cache_registry,
+)
 
 logger = logging.getLogger(__name__)
+
+# Backward compatibility wrappers (delegate to cache_registry)
 
 # In-memory caches (can be replaced with Redis in production)
 _policy_fingerprint_cache: Dict[str, Dict[str, Any]] = {}

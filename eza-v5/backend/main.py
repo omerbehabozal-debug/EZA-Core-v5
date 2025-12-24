@@ -278,6 +278,17 @@ app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitor"])
 app.include_router(monitor_ws.router, prefix="/ws", tags=["Monitor WebSocket"])
 
 
+@app.get("/metrics")
+async def prometheus_metrics():
+    """
+    Prometheus metrics endpoint
+    Exposes all EZA Proxy metrics in Prometheus format
+    """
+    from backend.infra.observability import get_prometheus_metrics
+    metrics_text = get_prometheus_metrics()
+    return Response(content=metrics_text, media_type="text/plain")
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""

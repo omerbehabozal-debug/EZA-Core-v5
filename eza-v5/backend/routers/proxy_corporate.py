@@ -92,6 +92,8 @@ class ProxyAnalyzeResponse(BaseModel):
     justification: Optional[List[DecisionJustificationResponse]] = None
     # UI Response Contract: Staged responses
     _staged_response: Optional[Dict[str, Any]] = None  # Stage-0 immediate score, Stage-1 risk summary, final details
+    _score_kind: Optional[str] = "final"  # "preliminary" | "final" - for UI consistency
+    _partial: bool = False  # True if response is partial (rate limit or circuit breaker)
 
 
 class ProxyRewriteRequest(BaseModel):
@@ -163,15 +165,111 @@ async def proxy_analyze(
         # Start timing for latency measurement
         start_time = time.time()
         
-        # Deep analysis with 3-stage gated pipeline
-        # Role: "proxy" for full Proxy, "proxy_lite" for Proxy Lite
-        analysis_result = await analyze_content_deep(
-            content=request.content,
-            domain=request.domain,
-            policies=request.policies,
-            provider=request.provider,
-            role="proxy"  # Full Proxy - max 4 paragraphs in Stage-1
-        )
+        # Rate Limiter: Check before LLM calls
+        from backend.services.proxy_rate_limiter import check_rate_limit
+        from backend.infra.circuit_breaker import get_circuit_breaker, CircuitBreakerOpenError
+        
+        allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
+        if not allowed:
+            logger.warning(f"[Proxy] Rate limit exceeded for org_id={org_id}: {rate_limit_reason}")
+            # Return Stage-0 only (partial response)
+            from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+            stage0_result = await stage0_fast_risk_scan(
+                content=request.content,
+                domain=request.domain,
+                provider=request.provider,
+                org_id=org_id
+            )
+            # Create partial response with Stage-0 only
+            estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+            avg_score = sum(estimated_range) // 2
+            return ProxyAnalyzeResponse(
+                ok=True,
+                overall_scores={
+                    "ethical_index": avg_score,
+                    "compliance_score": avg_score + 10,
+                    "manipulation_score": avg_score - 5,
+                    "bias_score": avg_score,
+                    "legal_risk_score": avg_score + 5,
+                },
+                paragraphs=[],
+                flags=[],
+                risk_locations=[],
+                report=None,
+                _staged_response={
+                    "stage0_immediate": {
+                        "status": "score_ready",
+                        "score": avg_score,
+                        "score_range": estimated_range,
+                        "risk_band": stage0_result.get("risk_band", "low"),
+                        "latency_ms": stage0_result.get("_stage0_latency_ms", 0)
+                    }
+                },
+                _score_kind="preliminary",
+                _partial=True
+            )
+        
+        # Circuit Breaker: Check before Stage-1
+        cb = get_circuit_breaker("proxy_analysis")
+        circuit_breaker_open = False
+        
+        try:
+            # Deep analysis with 3-stage gated pipeline
+            # Role: "proxy" for full Proxy, "proxy_lite" for Proxy Lite
+            analysis_result = await cb.call_async(
+                analyze_content_deep,
+                content=request.content,
+                domain=request.domain,
+                policies=request.policies,
+                provider=request.provider,
+                role="proxy",  # Full Proxy - max 4 paragraphs in Stage-1
+                org_id=org_id
+            )
+        except CircuitBreakerOpenError:
+            logger.warning(f"[Proxy] Circuit breaker OPEN for org_id={org_id}, returning Stage-0 only")
+            circuit_breaker_open = True
+            # Return Stage-0 only (partial response)
+            from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+            stage0_result = await stage0_fast_risk_scan(
+                content=request.content,
+                domain=request.domain,
+                provider=request.provider,
+                org_id=org_id
+            )
+            estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+            avg_score = sum(estimated_range) // 2
+            analysis_result = {
+                "overall_scores": {
+                    "ethical_index": avg_score,
+                    "compliance_score": avg_score + 10,
+                    "manipulation_score": avg_score - 5,
+                    "bias_score": avg_score,
+                    "legal_risk_score": avg_score + 5,
+                },
+                "paragraphs": [],
+                "flags": [],
+                "risk_locations": [],
+                "_stage0_result": stage0_result,
+                "_performance_metrics": {
+                    "stage0_latency_ms": stage0_result.get("_stage0_latency_ms", 0),
+                    "stage1_latency_ms": 0,
+                    "total_latency_ms": stage0_result.get("_stage0_latency_ms", 0)
+                }
+            }
+            # Create staged_response for circuit breaker case
+            if circuit_breaker_open:
+                estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+                avg_score = sum(estimated_range) // 2
+                staged_response = {
+                    "stage0_immediate": {
+                        "status": "score_ready",
+                        "score": avg_score,
+                        "score_range": estimated_range,
+                        "risk_band": stage0_result.get("risk_band", "low"),
+                        "latency_ms": stage0_result.get("_stage0_latency_ms", 0)
+                    }
+                }
+                score_kind = "preliminary"
         
         # Calculate latency
         latency_ms = (time.time() - start_time) * 1000
@@ -505,6 +603,14 @@ Tespit Edilen Riskler: {len(analysis_result['flags'])} adet
 Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
 """
         
+        # UI Staged Response Consistency: Add score_kind
+        score_kind = "final"  # Full analysis complete
+        if staged_response and staged_response.get("stage0_immediate"):
+            # If only Stage-0 is available (e.g., rate limit or circuit breaker), mark as preliminary
+            stage1_complete = staged_response.get("stage1_complete")
+            if not stage1_complete or not stage1_complete.get("details"):
+                score_kind = "preliminary"
+        
         return ProxyAnalyzeResponse(
             ok=True,
             overall_scores=analysis_result["overall_scores"],
@@ -517,6 +623,8 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
             ],
             report=report,
             _staged_response=staged_response,
+            _score_kind=score_kind,  # "preliminary" | "final"
+            _partial=circuit_breaker_open,  # True if circuit breaker opened
             provider="EZA-Core",
             analysis_id=analysis_id,
             risk_flags_severity=[

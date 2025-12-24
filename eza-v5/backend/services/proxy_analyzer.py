@@ -16,9 +16,9 @@ from backend.gateway.router_adapter import call_llm_provider
 from backend.config import get_settings
 from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
 from backend.services.proxy_analyzer_stage1 import stage1_targeted_deep_analysis
-from backend.services.proxy_cache import (
-    get_prompt_compilation_cache,
-    set_prompt_compilation_cache
+from backend.infra.cache_registry import (
+    get_prompt_cache,
+    set_prompt_cache
 )
 
 logger = logging.getLogger(__name__)
@@ -97,8 +97,10 @@ def build_contextual_analysis_prompt(
     LAYER 3: Prompt Compilation Cache
     """
     # Check cache for compiled prompt (base template without content)
+    # NOTE: org_id is not available here, but prompt cache is shared (policy-based, not org-based)
+    # This is acceptable as prompts are policy/domain-based, not org-specific
     prompt_type = "contextual_analysis"
-    cached_prompt_template = get_prompt_compilation_cache(prompt_type, policies, domain)
+    cached_prompt_template = get_prompt_cache("shared", prompt_type, policies, domain)  # "shared" org_id for prompt cache
     
     if cached_prompt_template:
         # Use cached template, just insert content
@@ -223,8 +225,8 @@ Cevabın mutlaka şu JSON formatında olsun:
 ÖNEMLİ: risk_locations'da "start" ve "end" karakter pozisyonları YOK. Sadece type, severity, evidence, policy.
 Evidence her zaman bağlamsal ve anlam referanslı olmalı."""
     
-    # Cache the template (without content)
-    set_prompt_compilation_cache(prompt_type, policies, domain, prompt_template)
+    # Cache the template (without content) - shared across orgs (policy-based)
+    set_prompt_cache("shared", prompt_type, policies, domain, prompt_template)
     
     # Replace placeholders with actual values
     final_prompt = prompt_template.replace("{CONTENT_PLACEHOLDER}", content).replace("{ANALYSIS_UNIT_PLACEHOLDER}", analysis_unit)
@@ -509,7 +511,8 @@ async def analyze_content_deep(
     domain: Optional[str] = None,
     policies: Optional[List[str]] = None,
     provider: str = "openai",
-    role: str = "proxy"  # "proxy_lite" or "proxy"
+    role: str = "proxy",  # "proxy_lite" or "proxy"
+    org_id: Optional[str] = None  # Required for cache isolation
 ) -> Dict[str, Any]:
     """
     3-Stage Gated Pipeline Analysis
@@ -532,7 +535,8 @@ async def analyze_content_deep(
     stage0_result = await stage0_fast_risk_scan(
         content=content,
         domain=domain,
-        provider=provider
+        provider=provider,
+        org_id=org_id
     )
     
     stage0_latency = stage0_result.get("_stage0_latency_ms", 0)

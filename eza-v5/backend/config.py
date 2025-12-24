@@ -93,6 +93,29 @@ class Settings(BaseSettings):
     # Regulation
     DEFAULT_POLICY_PACK: str = "eu_ai"  # rtuk, btk, eu_ai, oecd
     
+    # === Observability ===
+    OTEL_ENABLED: bool = os.getenv("OTEL_ENABLED", "false").lower() == "true"
+    OTEL_SERVICE_NAME: str = os.getenv("OTEL_SERVICE_NAME", "eza-proxy")
+    OTEL_EXPORTER_PROMETHEUS_PORT: int = int(os.getenv("OTEL_EXPORTER_PROMETHEUS_PORT", "9464"))
+    
+    # === Rate Limiting ===
+    ORG_RPM_LIMIT: int = int(os.getenv("ORG_RPM_LIMIT", "60"))  # Requests per minute per org
+    ORG_TPM_LIMIT: int = int(os.getenv("ORG_TPM_LIMIT", "120000"))  # Tokens per minute per org
+    RATE_LIMIT_BURST: int = int(os.getenv("RATE_LIMIT_BURST", "10"))  # Burst allowance
+    
+    # === Circuit Breaker ===
+    CB_FAILURE_THRESHOLD: int = int(os.getenv("CB_FAILURE_THRESHOLD", "5"))  # Failures before opening
+    CB_RECOVERY_TIMEOUT_SECONDS: int = int(os.getenv("CB_RECOVERY_TIMEOUT_SECONDS", "30"))  # Timeout before half-open
+    
+    # === Cache ===
+    SEMANTIC_CACHE_TTL_SECONDS: int = int(os.getenv("SEMANTIC_CACHE_TTL_SECONDS", "900"))  # 15 minutes
+    SEMANTIC_CACHE_MAX_ENTRIES: int = int(os.getenv("SEMANTIC_CACHE_MAX_ENTRIES", "10000"))
+    POLICY_CACHE_TTL_SECONDS: int = int(os.getenv("POLICY_CACHE_TTL_SECONDS", "3600"))  # 1 hour
+    PROMPT_CACHE_MAX_ENTRIES: int = int(os.getenv("PROMPT_CACHE_MAX_ENTRIES", "500"))
+    
+    # === Load Test ===
+    LOADTEST_BASE_URL: str = os.getenv("LOADTEST_BASE_URL", "http://localhost:8000")
+    
     # Supported Models Mapping
     # Model ID format: provider/model-name
     # Kullanım: openai/gpt-4o-mini, groq/llama3-8b-tool-use, mistral/mistral-7b-instruct
