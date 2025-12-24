@@ -90,6 +90,8 @@ class ProxyAnalyzeResponse(BaseModel):
     analysis_id: Optional[str] = None
     risk_flags_severity: Optional[List[RiskFlagSeverityResponse]] = None
     justification: Optional[List[DecisionJustificationResponse]] = None
+    # UI Response Contract: Staged responses
+    _staged_response: Optional[Dict[str, Any]] = None  # Stage-0 immediate score, Stage-1 risk summary, final details
 
 
 class ProxyRewriteRequest(BaseModel):
@@ -263,6 +265,47 @@ async def proxy_analyze(
                 valid_policies = [p for p in enabled_policies if p in ["TRT", "FINTECH", "HEALTH"]]
                 if valid_policies:
                     request.policies = valid_policies
+        
+        # UI Response Contract: Build staged response
+        stage0_result = analysis_result.get("_stage0_result", {})
+        performance_metrics = analysis_result.get("_performance_metrics", {})
+        
+        # Stage 1: Immediate score (from Stage-0)
+        estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+        immediate_score = sum(estimated_range) // 2
+        
+        # Stage 2: Risk summary (from Stage-0)
+        primary_risk_types = stage0_result.get("primary_risk_types", [])
+        risk_band = stage0_result.get("risk_band", "low")
+        
+        # Stage 3: Final analysis (complete result)
+        staged_response = {
+            "stage0_immediate": {
+                "status": "score_ready",
+                "score": immediate_score,
+                "score_range": estimated_range,
+                "risk_band": risk_band,
+                "latency_ms": performance_metrics.get("stage0_latency_ms", 0)
+            },
+            "stage0_risk_summary": {
+                "status": "risk_summary",
+                "types": primary_risk_types,
+                "risk_band": risk_band,
+                "risk_detected": stage0_result.get("risk_detected", False)
+            },
+            "stage1_complete": {
+                "status": "analysis_complete",
+                "details": {
+                    "overall_scores": analysis_result["overall_scores"],
+                    "paragraphs_count": len(analysis_result.get("paragraphs", [])),
+                    "flags_count": len(analysis_result.get("flags", [])),
+                    "risk_locations_count": len(analysis_result.get("risk_locations", [])),
+                    "total_latency_ms": performance_metrics.get("total_latency_ms", 0),
+                    "stage0_latency_ms": performance_metrics.get("stage0_latency_ms", 0),
+                    "stage1_latency_ms": performance_metrics.get("stage1_latency_ms", 0)
+                }
+            }
+        }
         
         # Estimate token usage (mock, in production get from LLM response)
         estimated_tokens = len(request.content.split()) * 1.3  # Rough estimate
@@ -473,6 +516,7 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
                 RiskLocation(**loc) for loc in analysis_result["risk_locations"]
             ],
             report=report,
+            _staged_response=staged_response,
             provider="EZA-Core",
             analysis_id=analysis_id,
             risk_flags_severity=[

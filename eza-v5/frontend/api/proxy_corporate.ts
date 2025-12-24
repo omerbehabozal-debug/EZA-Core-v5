@@ -56,6 +56,35 @@ export interface DecisionJustificationResponse {
   severity: number;  // Single severity per primary risk pattern
 }
 
+// UI Response Contract: Staged responses
+export interface StagedResponse {
+  stage0_immediate?: {
+    status: "score_ready";
+    score: number;
+    score_range: [number, number];
+    risk_band: "low" | "medium" | "high";
+    latency_ms: number;
+  };
+  stage0_risk_summary?: {
+    status: "risk_summary";
+    types: string[];
+    risk_band: "low" | "medium" | "high";
+    risk_detected: boolean;
+  };
+  stage1_complete?: {
+    status: "analysis_complete";
+    details: {
+      overall_scores: Record<string, number>;
+      paragraphs_count: number;
+      flags_count: number;
+      risk_locations_count: number;
+      total_latency_ms: number;
+      stage0_latency_ms: number;
+      stage1_latency_ms: number;
+    };
+  };
+}
+
 export interface ProxyAnalyzeResponse {
   ok: boolean;
   overall_scores: {
@@ -73,6 +102,8 @@ export interface ProxyAnalyzeResponse {
   analysis_id?: string;
   risk_flags_severity?: RiskFlagSeverityResponse[];
   justification?: DecisionJustificationResponse[];
+  // UI Response Contract: Staged responses
+  _staged_response?: StagedResponse;
 }
 
 export interface ProxyRewriteRequest {

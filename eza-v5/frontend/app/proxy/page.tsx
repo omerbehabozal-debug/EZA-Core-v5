@@ -222,6 +222,44 @@ function ProxyCorporatePageContent() {
       }, orgId);
 
       if (result) {
+        // UI Response Contract: Handle staged responses
+        const stagedResponse = result._staged_response;
+        
+        if (stagedResponse) {
+          // Stage 1: Immediate score (show immediately)
+          const immediate = stagedResponse.stage0_immediate;
+          if (immediate && immediate.status === "score_ready") {
+            // Update UI with immediate score (optimistic update)
+            setAnalysisResult({
+              ...result,
+              overall_scores: {
+                ethical_index: immediate.score,
+                compliance_score: immediate.score + 10,
+                manipulation_score: immediate.score - 5,
+                bias_score: immediate.score,
+                legal_risk_score: immediate.score + 5,
+              }
+            });
+          }
+          
+          // Stage 2: Risk summary (show after a short delay)
+          setTimeout(() => {
+            const riskSummary = stagedResponse.stage0_risk_summary;
+            if (riskSummary && riskSummary.status === "risk_summary") {
+              // Risk summary is already in the full result, just log for now
+              console.log('[UI Response] Risk summary:', riskSummary.types);
+            }
+          }, 100);
+          
+          // Stage 3: Final analysis (show complete result)
+          // Full result is already set above, this is just for logging
+          const complete = stagedResponse.stage1_complete;
+          if (complete && complete.status === "analysis_complete") {
+            console.log('[UI Response] Analysis complete:', complete.details);
+          }
+        }
+        
+        // Set final result (overwrites optimistic update)
         setAnalysisResult(result);
       } else {
         setError("Analiz tamamlanamadı. Backend yanıt vermedi. Lütfen backend'in çalıştığından ve erişilebilir olduğundan emin olun.");
