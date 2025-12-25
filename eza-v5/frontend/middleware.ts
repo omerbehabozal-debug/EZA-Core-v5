@@ -19,7 +19,7 @@ const DOMAIN_ROUTES: Record<string, string> = {
   'admin.ezacore.ai': '/admin',
   'corporate.ezacore.ai': '/corporate',
   'platform.ezacore.ai': '/platform',
-  'regulator.ezacore.ai': '/regulator',
+  // 'regulator.ezacore.ai' removed - handled by separate regulator panel app
   'eu-ai.ezacore.ai': '/proxy/eu-ai',
   'select.ezacore.ai': '/proxy/select-portal',
 };
