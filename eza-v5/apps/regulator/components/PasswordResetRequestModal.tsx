@@ -40,7 +40,7 @@ export function PasswordResetRequestModal({
       // - status = "PENDING"
       // - Audit log: regulator_password_reset_requested
 
-      const response = await fetch(`${apiBaseUrl}/api/production/auth/password-reset-request`, {
+      const response = await fetch(`${apiBaseUrl}/api/auth/password-reset-request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

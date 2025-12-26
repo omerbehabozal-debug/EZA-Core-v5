@@ -22,7 +22,6 @@ const BLOCKED_ENDPOINTS = [
 
 // Allowed POST endpoints (authentication only)
 const ALLOWED_POST_ENDPOINTS = [
-  '/api/production/auth/login',
   '/api/auth/login',
   '/api/production/auth/password-reset-request',
 ];
