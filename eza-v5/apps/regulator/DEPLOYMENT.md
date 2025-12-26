@@ -6,9 +6,22 @@ The regulator panel is a **separate Next.js application** that should be deploye
 
 ### Vercel Deployment
 
+#### Option 1: Separate Vercel Project (Recommended)
+
 1. **Create a new Vercel project** for the regulator panel
-2. **Connect the `apps/regulator` directory** as the root
+2. **Root Directory**: Set to `apps/regulator` (if deploying from monorepo root)
+   - OR deploy `apps/regulator` folder directly as root
 3. **Configure the domain** `regulator.ezacore.ai` to point to this project
+
+#### Option 2: Monorepo Deployment
+
+If deploying from monorepo root:
+
+1. **Root Directory**: `apps/regulator`
+2. **Build Command**: `npm install && npm run build` (runs in root directory)
+3. **Install Command**: `npm install` (runs in root directory)
+
+**Important**: Make sure `package.json` in `apps/regulator` has all dependencies including ESLint.
 
 ### Environment Variables
 
@@ -22,9 +35,37 @@ REGULATOR_DELAY_HOURS=0  # Optional: T+24 hour delay (frontend filtering)
 ### Build Settings
 
 - **Framework Preset**: Next.js
-- **Root Directory**: `apps/regulator` (if deploying from monorepo root)
-- **Build Command**: `npm run build`
+- **Root Directory**: `apps/regulator` (if deploying from monorepo)
+- **Build Command**: `npm run build` (if root is `apps/regulator`)
 - **Output Directory**: `.next`
+
+### Fixing ESLint Warning
+
+If you see ESLint warning during build:
+
+1. **Ensure `package.json` includes ESLint**:
+   ```json
+   {
+     "devDependencies": {
+       "eslint": "^8.57.0",
+       "eslint-config-next": "^14.0.0"
+     }
+   }
+   ```
+
+2. **If deploying from monorepo root**, ensure dependencies are installed:
+   ```bash
+   cd apps/regulator
+   npm install
+   ```
+
+3. **Or disable ESLint during build** (not recommended):
+   Add to `next.config.js`:
+   ```js
+   eslint: {
+     ignoreDuringBuilds: true,
+   }
+   ```
 
 ### Domain Routing
 
@@ -54,7 +95,40 @@ Access at: `http://localhost:3001`
 
 - [ ] Regulator panel deployed as separate Vercel project
 - [ ] Domain `regulator.ezacore.ai` configured in Vercel
+- [ ] Root Directory set to `apps/regulator` (if monorepo)
 - [ ] Environment variables set (`NEXT_PUBLIC_API_URL`)
+- [ ] ESLint installed (check `package.json`)
 - [ ] Backend CORS allows `regulator.ezacore.ai` (already configured)
 - [ ] Platform middleware does NOT handle regulator domain (already fixed)
 
+## Troubleshooting
+
+### ESLint Warning During Build
+
+**Solution 1**: Ensure ESLint is in `devDependencies`:
+```json
+"devDependencies": {
+  "eslint": "^8.57.0",
+  "eslint-config-next": "^14.0.0"
+}
+```
+
+**Solution 2**: If root directory is `apps/regulator`, run:
+```bash
+cd apps/regulator
+npm install
+```
+
+**Solution 3**: Temporarily disable ESLint (not recommended):
+```js
+// next.config.js
+eslint: {
+  ignoreDuringBuilds: true,
+}
+```
+
+### Build Fails
+
+- Check that `package.json` is in the correct location
+- Verify all dependencies are listed
+- Ensure Node.js version is compatible (18+)

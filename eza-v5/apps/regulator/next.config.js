@@ -8,6 +8,12 @@ const nextConfig = {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
     REGULATOR_DELAY_HOURS: process.env.REGULATOR_DELAY_HOURS || '0',
   },
+  // ESLint configuration
+  eslint: {
+    // Warning: This will disable ESLint during builds
+    // Only use if ESLint is causing build failures
+    // ignoreDuringBuilds: false, // Keep ESLint enabled
+  },
 }
 
 module.exports = nextConfig

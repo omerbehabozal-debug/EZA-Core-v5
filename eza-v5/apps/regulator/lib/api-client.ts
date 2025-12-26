@@ -10,7 +10,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // Blocked endpoints (analyze, proxy, rewrite, API key management)
 const BLOCKED_ENDPOINTS = [
   '/api/analyze',
-  '/api/proxy',
+  '/api/proxy/analyze',
+  '/api/proxy/rewrite',
   '/api/rewrite',
   '/proxy/analyze',
   '/proxy/rewrite',
@@ -19,8 +20,15 @@ const BLOCKED_ENDPOINTS = [
   '/api/organizations',
 ];
 
-// Blocked methods
-const BLOCKED_METHODS = ['POST', 'PATCH', 'PUT', 'DELETE'];
+// Allowed POST endpoints (authentication only)
+const ALLOWED_POST_ENDPOINTS = [
+  '/api/production/auth/login',
+  '/api/auth/login',
+  '/api/production/auth/password-reset-request',
+];
+
+// Blocked methods (except for allowed POST endpoints)
+const BLOCKED_METHODS = ['PATCH', 'PUT', 'DELETE'];
 
 interface ApiClientOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
@@ -55,11 +63,23 @@ class GetOnlyApiClient {
   }
 
   private checkBlocked(endpoint: string, method: string) {
-    // Block non-GET methods
+    // Block non-GET, non-allowed-POST methods
     if (BLOCKED_METHODS.includes(method)) {
       throw new Error(
         `Regulator panel is READ-ONLY. ${method} requests are not allowed.`
       );
+    }
+
+    // Allow POST only for authentication endpoints
+    if (method === 'POST') {
+      const isAllowed = ALLOWED_POST_ENDPOINTS.some(allowed =>
+        endpoint.includes(allowed)
+      );
+      if (!isAllowed) {
+        throw new Error(
+          `Regulator panel is READ-ONLY. POST requests are only allowed for authentication endpoints.`
+        );
+      }
     }
 
     // Block analyze/proxy/rewrite endpoints
@@ -99,9 +119,14 @@ class GetOnlyApiClient {
       headers,
     };
 
-    // Only GET requests are allowed, so no body needed
+    // GET requests don't need body
     if (method === 'GET' && options.body) {
       console.warn('GET request with body is unusual. Body will be ignored.');
+    }
+
+    // POST requests (only for auth) can have body
+    if (method === 'POST' && options.body) {
+      config.body = JSON.stringify(options.body);
     }
 
     try {
