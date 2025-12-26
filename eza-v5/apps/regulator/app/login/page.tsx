@@ -18,6 +18,12 @@ import { checkRateLimit, recordFailedAttempt, clearRateLimit } from '@/lib/rate-
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// Debug: Log API URL in production
+if (typeof window !== 'undefined') {
+  console.log('[Regulator Login] API_BASE_URL:', API_BASE_URL);
+  console.log('[Regulator Login] NEXT_PUBLIC_API_URL env:', process.env.NEXT_PUBLIC_API_URL);
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
