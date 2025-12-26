@@ -2,7 +2,6 @@
   "buildCommand": "cd apps/regulator && npm install && npm run build",
   "outputDirectory": "apps/regulator/.next",
   "installCommand": "cd apps/regulator && npm install",
-  "framework": "nextjs",
-  "rootDirectory": "apps/regulator"
+  "framework": "nextjs"
 }
 

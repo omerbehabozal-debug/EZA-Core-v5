@@ -17,9 +17,10 @@ import sys
 import os
 from pathlib import Path
 
-# Add backend to path
+# Add backend parent directory to path (so 'backend' module can be imported)
 backend_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(backend_dir))
+backend_parent = backend_dir.parent
+sys.path.insert(0, str(backend_parent))
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import select
