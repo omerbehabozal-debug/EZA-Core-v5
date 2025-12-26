@@ -39,9 +39,11 @@ REGULATOR_DELAY_HOURS=0  # Optional: T+24 hour delay (frontend filtering)
 ### Build Settings
 
 - **Framework Preset**: Next.js
-- **Root Directory**: `apps/regulator` (if deploying from monorepo)
+- **Root Directory**: `apps/regulator` (set in Vercel Project Settings UI, NOT in `vercel.json`)
 - **Build Command**: `npm run build` (if root is `apps/regulator`)
 - **Output Directory**: `.next`
+
+**Note**: `vercel.json` does NOT support `rootDirectory` property. Configure it in Vercel Project Settings → General → Root Directory.
 
 ### Fixing ESLint Warning
 
