@@ -24,7 +24,9 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(String(50), nullable=False, index=True)  # admin, org_admin, user, ops, regulator
+    role = Column(String(50), nullable=False, index=True)  # admin, org_admin, user, ops, regulator, REGULATOR_READONLY, REGULATOR_AUDITOR
+    is_active = Column(Boolean, nullable=False, default=True, index=True)  # User account active status
+    is_internal_test_user = Column(Boolean, nullable=True, default=False)  # Internal audit/testing flag (regulator test users, etc.)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

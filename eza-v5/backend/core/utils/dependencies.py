@@ -96,6 +96,42 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
+        # Add missing User model columns (is_active, is_internal_test_user)
+        try:
+            # Check if is_active column exists
+            check_result = await conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'production_users' 
+                AND column_name = 'is_active'
+            """))
+            if not check_result.scalar_one_or_none():
+                await conn.execute(text("""
+                    ALTER TABLE production_users 
+                    ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT true
+                """))
+                await conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS ix_production_users_is_active 
+                    ON production_users(is_active)
+                """))
+            
+            # Check if is_internal_test_user column exists
+            check_result = await conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'production_users' 
+                AND column_name = 'is_internal_test_user'
+            """))
+            if not check_result.scalar_one_or_none():
+                await conn.execute(text("""
+                    ALTER TABLE production_users 
+                    ADD COLUMN is_internal_test_user BOOLEAN DEFAULT false
+                """))
+            
+            logging.info("User model columns checked/added successfully")
+        except Exception as e:
+            logging.warning(f"Could not add User model columns (may already exist): {e}")
+        
         # Add missing soft delete columns if they don't exist (migration helper)
         # This ensures backward compatibility with existing databases
         try:

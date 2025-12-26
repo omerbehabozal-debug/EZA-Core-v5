@@ -60,7 +60,37 @@ async def require_proxy_auth_production(
     user_id = user_info.get("user_id") or user_info.get("sub")
     user_role = user_info.get("role", "")
     
-    # 2. Validate organization_id (mandatory)
+    # Regulator roles: REGULATOR_READONLY, REGULATOR_AUDITOR
+    # These users have NO organization_id and can ONLY access read-only endpoints
+    regulator_roles = ["REGULATOR_READONLY", "REGULATOR_AUDITOR"]
+    is_regulator = user_role in regulator_roles
+    
+    if is_regulator:
+        # Regulators: NO organization_id required, NO API key required
+        # They can ONLY access GET endpoints (enforced by frontend API client)
+        logger.info(
+            f"[ProxyAuth] Regulator access: user_id={user_id}, role={user_role}, "
+            f"endpoint={request.url.path}, method={request.method}"
+        )
+        
+        # Block non-GET methods for regulators
+        if request.method not in ["GET", "OPTIONS"]:
+            logger.warning(f"[ProxyAuth] Regulator attempted {request.method} on {request.url.path}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Regulator panel is READ-ONLY. Only GET requests are allowed."
+            )
+        
+        # Return regulator context (no org_id, no API key)
+        return {
+            **user_info,
+            "org_id": None,  # Regulators have no organization
+            "is_regulator": True,
+            "api_key_resolved": False,  # No API key for regulators
+        }
+    
+    # Non-regulator users: Require organization_id
+    # 2. Validate organization_id (mandatory for non-regulators)
     if not x_org_id:
         logger.warning(f"[ProxyAuth] Missing organization_id header. user_id={user_id}")
         raise HTTPException(

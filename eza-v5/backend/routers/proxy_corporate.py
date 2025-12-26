@@ -141,6 +141,14 @@ async def proxy_analyze(
     - Backend resolves API key internally from organization
     - No frontend API key handling
     """
+    # Block regulator roles from triggering analysis
+    user_role = current_user.get('role', '')
+    if user_role in ['REGULATOR_READONLY', 'REGULATOR_AUDITOR']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Regulator panel is READ-ONLY. Analysis cannot be triggered by regulators."
+        )
+    
     try:
         user_id = current_user.get('user_id')
         org_id = current_user.get('org_id')
@@ -686,6 +694,14 @@ async def proxy_rewrite(
     EZA Proxy - Rewrite Content
     5 rewrite modes with auto re-analysis
     """
+    # Block regulator roles from triggering rewrite
+    user_role = current_user.get('role', '')
+    if user_role in ['REGULATOR_READONLY', 'REGULATOR_AUDITOR']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Regulator panel is READ-ONLY. Rewrite cannot be triggered by regulators."
+        )
+    
     try:
         logger.info(f"[Proxy] Rewrite request: mode={request.mode}, domain={request.domain}, user_id={current_user.get('user_id')}")
         

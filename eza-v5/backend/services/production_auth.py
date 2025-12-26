@@ -40,7 +40,9 @@ async def create_user(
     db: AsyncSession,
     email: str,
     password: str,
-    role: str = "user"
+    role: str = "user",
+    is_active: bool = True,
+    is_internal_test_user: bool = False
 ) -> User:
     """Create a new user"""
     try:
@@ -68,7 +70,9 @@ async def create_user(
         user = User(
             email=normalized_email,
             password_hash=password_hash,
-            role=role
+            role=role,
+            is_active=is_active,
+            is_internal_test_user=is_internal_test_user
         )
         logger.info(f"[create_user] Step 8: Adding user to database session...")
         db.add(user)
@@ -150,7 +154,13 @@ async def authenticate_user(
             logger.warning(f"[Auth] Consider using password reset endpoint to set a new password")
             return None
         
-        logger.info(f"Authentication successful for user: {normalized_email} (role: {user.role})")
+        # Check if user is active
+        is_active = getattr(user, 'is_active', True)  # Default to True for backward compatibility
+        if not is_active:
+            logger.warning(f"[Auth] Authentication failed: User account is inactive for email {normalized_email}")
+            return None
+        
+        logger.info(f"Authentication successful for user: {normalized_email} (role: {user.role}, is_active: {is_active})")
         return user
     except Exception as e:
         logger.exception(f"Authentication error for {email}: {e}")
