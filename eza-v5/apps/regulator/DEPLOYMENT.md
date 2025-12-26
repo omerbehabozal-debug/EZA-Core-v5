@@ -9,9 +9,13 @@ The regulator panel is a **separate Next.js application** that should be deploye
 #### Option 1: Separate Vercel Project (Recommended)
 
 1. **Create a new Vercel project** for the regulator panel
-2. **Root Directory**: Set to `apps/regulator` (if deploying from monorepo root)
+2. **Root Directory**: Set to `apps/regulator` in **Vercel Project Settings** (UI)
+   - Go to Project Settings → General → Root Directory
+   - Set to `apps/regulator` (if deploying from monorepo root)
    - OR deploy `apps/regulator` folder directly as root
 3. **Configure the domain** `regulator.ezacore.ai` to point to this project
+
+**Important**: Do NOT use `rootDirectory` in `vercel.json`. Set it in Vercel Project Settings (UI) instead.
 
 #### Option 2: Monorepo Deployment
 
