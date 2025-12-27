@@ -293,13 +293,19 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="bg-gray-50 rounded p-3">
-                  <div className="text-xs text-gray-500 mb-1">Aktif Organizasyonlar (Anonim)</div>
+                  <div className="text-xs text-gray-500 mb-1 flex items-center">
+                    Aktif Organizasyonlar (Anonim)
+                    <InfoTooltip text="Sisteme analiz verisi sağlayan organizasyonların sayısıdır. Organizasyon kimlikleri gizlilik amacıyla maskelenmiştir ve bu sayıda gösterilmez." />
+                  </div>
                   <div className="text-xl font-semibold text-gray-900">
                     {coverageData.organizations}
                   </div>
                 </div>
                 <div className="bg-gray-50 rounded p-3">
-                  <div className="text-xs text-gray-500 mb-1">Gözlemlenen AI Sistem Türleri</div>
+                  <div className="text-xs text-gray-500 mb-1 flex items-center">
+                    Gözlemlenen AI Sistem Türleri
+                    <InfoTooltip text="Sistemde gözlemlenen farklı AI sistem kategorilerinin sayısıdır. Metin üretimi, konuşma AI, görüntü üretimi gibi kategorileri içerir." />
+                  </div>
                   <div className="text-xl font-semibold text-gray-900">
                     {coverageData.aiSystemTypes}
                   </div>
