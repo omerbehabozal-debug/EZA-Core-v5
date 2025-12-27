@@ -131,26 +131,48 @@ async def search_audit(
     Search audit logs with filters
     Searches IntentLog and ImpactEvent records
     """
-    user_org_id = current_user.get("org_id")
-    if not user_org_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Organization context required"
-        )
+    # Regulators can access all audit logs (no org_id required)
+    is_regulator = current_user.get("is_regulator", False)
     
-    # Use provided org_id or default to user's org
-    search_org_id = org_id or user_org_id
-    
-    try:
-        org_uuid = uuid.UUID(search_org_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid organization_id format"
-        )
+    if not is_regulator:
+        # Non-regulator users require organization context
+        user_org_id = current_user.get("org_id")
+        if not user_org_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Organization context required"
+            )
+        # Use provided org_id or default to user's org
+        search_org_id = org_id or user_org_id
+    else:
+        # Regulators can search by org_id if provided, otherwise return all
+        search_org_id = org_id
     
     # Build query for IntentLog
-    intent_query = select(IntentLog).where(IntentLog.organization_id == org_uuid)
+    intent_query = select(IntentLog)
+    
+    # Apply organization filter only if org_id is provided or user is not regulator
+    if not is_regulator:
+        # Non-regulator: must filter by org_id
+        try:
+            org_uuid = uuid.UUID(search_org_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid organization_id format"
+            )
+        intent_query = intent_query.where(IntentLog.organization_id == org_uuid)
+    elif search_org_id:
+        # Regulator with org_id filter: filter by specific org
+        try:
+            org_uuid = uuid.UUID(search_org_id)
+            intent_query = intent_query.where(IntentLog.organization_id == org_uuid)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid organization_id format"
+            )
+    # Regulator without org_id: return all audit logs (no filter)
     
     # Apply date filters
     if from_date:
