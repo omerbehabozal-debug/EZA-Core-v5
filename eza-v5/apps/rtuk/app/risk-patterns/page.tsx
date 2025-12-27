@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { RTUKLayout } from '@/components/RTUKLayout';
+import { RTUKReadingGuide } from '@/components/RTUKReadingGuide';
 import { apiClient, RTUKRiskPatternsResponse } from '@/lib/api-client';
 import { useRTUKAuth } from '@/lib/auth-guard';
 
@@ -57,6 +58,11 @@ export default function RiskPatternsPage() {
           <h1 className="text-2xl font-bold text-gray-900" translate="no">
             Sistematik Risk Kalıpları
           </h1>
+        </div>
+
+        {/* Reading Guide */}
+        <RTUKReadingGuide defaultOpen={false} />
+
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}

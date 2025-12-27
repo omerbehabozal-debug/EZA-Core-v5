@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { RTUKLayout } from '@/components/RTUKLayout';
+import { RTUKReadingGuide } from '@/components/RTUKReadingGuide';
 import { apiClient, RTUKAuditLogsResponse } from '@/lib/api-client';
 import { useRTUKAuth } from '@/lib/auth-guard';
 
@@ -69,6 +70,9 @@ export default function AuditLogsPage() {
         <h1 className="text-2xl font-bold text-gray-900" translate="no">
           Medya Denetim Kayıtları
         </h1>
+
+        {/* Reading Guide */}
+        <RTUKReadingGuide defaultOpen={false} />
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4">

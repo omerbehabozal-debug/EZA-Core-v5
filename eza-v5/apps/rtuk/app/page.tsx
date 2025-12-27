@@ -9,6 +9,8 @@
 
 import { useEffect, useState } from 'react';
 import { RTUKLayout } from '@/components/RTUKLayout';
+import { RTUKReadingGuide } from '@/components/RTUKReadingGuide';
+import { RTUKPilotNotice } from '@/components/RTUKPilotNotice';
 import { apiClient, RTUKDashboardMetrics } from '@/lib/api-client';
 import { useRTUKAuth } from '@/lib/auth-guard';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -87,6 +89,9 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-gray-900" translate="no">
           RTÜK Kontrol Paneli
         </h1>
+
+        {/* Reading Guide - Open by default on Dashboard */}
+        <RTUKReadingGuide defaultOpen={true} />
 
         {/* Top Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -189,6 +194,9 @@ export default function DashboardPage() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Pilot Notice */}
+        <RTUKPilotNotice />
       </div>
     </RTUKLayout>
   );

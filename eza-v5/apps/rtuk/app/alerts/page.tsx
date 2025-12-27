@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { RTUKLayout } from '@/components/RTUKLayout';
+import { RTUKReadingGuide } from '@/components/RTUKReadingGuide';
 import { apiClient, RTUKAlertsResponse } from '@/lib/api-client';
 import { useRTUKAuth } from '@/lib/auth-guard';
 
@@ -58,6 +59,9 @@ export default function AlertsPage() {
         <h1 className="text-2xl font-bold text-gray-900" translate="no">
           Gözlemsel Uyarılar
         </h1>
+
+        {/* Reading Guide */}
+        <RTUKReadingGuide defaultOpen={false} />
 
         {/* Info Banner */}
         <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
