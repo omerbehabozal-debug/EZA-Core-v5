@@ -6,8 +6,8 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('rtuk_token');
   const pathname = request.nextUrl.pathname;
 
-  // Allow access to login and unauthorized pages
-  if (pathname === '/login' || pathname === '/unauthorized') {
+  // Allow access to login, unauthorized, and test pages
+  if (pathname === '/login' || pathname === '/unauthorized' || pathname === '/test') {
     return NextResponse.next();
   }
 
