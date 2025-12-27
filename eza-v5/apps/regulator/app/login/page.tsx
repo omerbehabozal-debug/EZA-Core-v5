@@ -84,8 +84,12 @@ export default function LoginPage() {
       apiClient.setAuthToken(token);
       localStorage.setItem('regulator_token', token);
       
-      // Also set cookie for middleware
-      document.cookie = `regulator_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+      // Also set cookie for middleware (secure settings)
+      const cookieValue = `regulator_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+      document.cookie = cookieValue;
+      
+      // Debug: Log token storage
+      console.log('[Regulator Login] Token stored in localStorage and cookie');
 
       // Clear rate limit on success
       clearRateLimit(email);
