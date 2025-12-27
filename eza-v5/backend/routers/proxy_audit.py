@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth_production import require_proxy_auth_production
 from backend.security.rate_limit import rate_limit_proxy_corporate
-from backend.models.production import IntentLog, ImpactEvent, TelemetryEvent
+from backend.models.production import IntentLog, ImpactEvent, TelemetryEvent, Organization
 from sqlalchemy import select, or_, func, distinct
 from sqlalchemy.orm import selectinload
 
