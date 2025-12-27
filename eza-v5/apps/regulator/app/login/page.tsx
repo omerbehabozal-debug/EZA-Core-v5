@@ -80,9 +80,12 @@ export default function LoginPage() {
         // Continue anyway - backend will validate
       }
 
-      // Store token
+      // Store token in both localStorage and cookie (for middleware)
       apiClient.setAuthToken(token);
       localStorage.setItem('regulator_token', token);
+      
+      // Also set cookie for middleware
+      document.cookie = `regulator_token=${token}; path=/; max-age=86400; SameSite=Lax`;
 
       // Clear rate limit on success
       clearRateLimit(email);
