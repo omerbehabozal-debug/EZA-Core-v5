@@ -87,8 +87,8 @@ export default function LoginPage() {
       // Clear rate limit on success
       clearRateLimit(email);
 
-      // Redirect to dashboard
-      router.push('/');
+      // Redirect to dashboard (use window.location for reliable redirect)
+      window.location.href = '/';
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Giriş başarısız';
       setError(errorMessage);
