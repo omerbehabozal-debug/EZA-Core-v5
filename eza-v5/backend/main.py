@@ -150,15 +150,24 @@ allowed_origins = [
     "https://regulator.ezacore.ai",
     "https://platform.ezacore.ai",
     "https://admin.ezacore.ai",
+    "https://rtuk.ezacore.ai",
+    "https://sanayi.ezacore.ai",
+    "https://finance.ezacore.ai",
+    "https://health.ezacore.ai",
+    # Vercel domains - will be checked dynamically
     "http://localhost:3000",
     "http://localhost:3001",
-    "http://localhost:3002",  # Frontend dev port
-    "http://localhost:3003",  # Additional frontend dev port
+    "http://localhost:3002",  # RTÜK dev port
+    "http://localhost:3003",  # Sanayi dev port
+    "http://localhost:3004",  # Finance dev port
+    "http://localhost:3005",  # Health dev port
     "http://localhost:3008",  # Additional dev port
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
-    "http://127.0.0.1:3002",  # Frontend dev port
-    "http://127.0.0.1:3003",  # Additional frontend dev port
+    "http://127.0.0.1:3002",  # RTÜK dev port
+    "http://127.0.0.1:3003",  # Sanayi dev port
+    "http://127.0.0.1:3004",  # Finance dev port
+    "http://127.0.0.1:3005",  # Health dev port
     "http://127.0.0.1:3008",
     # Note: FastAPI CORSMiddleware doesn't support wildcards
     # All subdomains must be explicitly listed
