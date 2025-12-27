@@ -343,7 +343,7 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-500 leading-relaxed">
                 Bu panelde gösterilen tüm veriler anonimleştirilmiş, toplulaştırılmış analiz kayıtlarından türetilmiştir.
                 Kaynak kimlikleri, içerik ve sistem özel detaylar kasıtlı olarak hariç tutulmuştur.
-                Panel kapsam kapsamını yansıtır, pazar temsili veya satıcı atfı değildir.
+                Panel kapsam alanını yansıtır, pazar temsili veya satıcı atfı değildir.
               </p>
             </div>
           </div>
