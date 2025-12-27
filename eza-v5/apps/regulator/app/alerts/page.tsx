@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { RegulatorLayout } from '@/components/RegulatorLayout';
+import { InfoTooltip } from '@/components/InfoTooltip';
 import { apiClient, AuditLogEntry } from '@/lib/api-client';
 import { maskOrganizationId } from '@/lib/organization-mask';
 import { useRegulatorAuth } from '@/lib/auth-guard';
