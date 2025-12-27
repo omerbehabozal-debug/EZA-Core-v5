@@ -284,7 +284,10 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-gray-700 mb-3">Kapsam Özeti</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-gray-50 rounded p-3">
-                  <div className="text-xs text-gray-500 mb-1">Bağımsız Analiz Kaynakları</div>
+                  <div className="text-xs text-gray-500 mb-1 flex items-center">
+                    Entegre Sistem Kaynakları
+                    <InfoTooltip text="Sisteme veri sağlayan farklı sistem kaynaklarının sayısıdır. Her kaynak, içerik analizi yapan bağımsız bir entegrasyonu temsil eder." />
+                  </div>
                   <div className="text-xl font-semibold text-gray-900">
                     {coverageData.independentSources}
                   </div>

@@ -702,19 +702,33 @@ async def get_coverage_summary(
         org_count_result = await db.execute(org_count_query)
         organizations_count = org_count_result.scalar() or 0
         
-        # Count distinct source systems (from ImpactEvent)
-        source_systems_query = select(func.count(distinct(ImpactEvent.source_system)))
-        source_systems_result = await db.execute(source_systems_query)
-        independent_sources = source_systems_result.scalar() or 0
+        # Count distinct source systems from both ImpactEvent and TelemetryEvent
+        # ImpactEvent: Real impact events (when content reaches users)
+        # TelemetryEvent: All analysis events (broader coverage)
+        impact_sources_query = select(distinct(ImpactEvent.source_system))
+        impact_sources_result = await db.execute(impact_sources_query)
+        impact_sources = [row[0] for row in impact_sources_result.fetchall() if row[0]]
         
-        # Get all source systems and map to AI system types
-        all_source_systems_query = select(distinct(ImpactEvent.source_system))
-        source_systems_result = await db.execute(all_source_systems_query)
-        source_systems = [row[0] for row in source_systems_result.fetchall() if row[0]]
+        telemetry_sources_query = select(distinct(TelemetryEvent.source))
+        telemetry_sources_result = await db.execute(telemetry_sources_query)
+        telemetry_sources = [row[0] for row in telemetry_sources_result.fetchall() if row[0]]
+        
+        # Combine and deduplicate (use both ImpactEvent source_system and TelemetryEvent source)
+        all_unique_sources = set(impact_sources + telemetry_sources)
+        independent_sources = len(all_unique_sources)
+        
+        # Get all source systems for AI system type mapping (prefer ImpactEvent, fallback to TelemetryEvent)
+        source_systems = impact_sources if impact_sources else telemetry_sources
         
         ai_system_types_map: Dict[str, int] = {}
+        # Map all source systems to AI types
         for source_system in source_systems:
             ai_type = map_to_ai_system_type(source_system)
+            ai_system_types_map[ai_type] = ai_system_types_map.get(ai_type, 0) + 1
+        
+        # Also map TelemetryEvent sources to AI types for completeness
+        for telemetry_source in telemetry_sources:
+            ai_type = map_to_ai_system_type(telemetry_source)
             ai_system_types_map[ai_type] = ai_system_types_map.get(ai_type, 0) + 1
         
         # Count distinct AI system types
