@@ -50,7 +50,7 @@ export default function DashboardPage() {
         }>(`/api/proxy/audit/search?from_date=${fromDate}&to_date=${toDate}`);
 
         if (!response.ok) {
-          throw new Error('Failed to fetch audit logs');
+          throw new Error('Denetim kayıtları alınamadı');
         }
 
         // Calculate metrics client-side
@@ -111,7 +111,7 @@ export default function DashboardPage() {
         });
       } catch (err) {
         console.error('Error fetching metrics:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
       } finally {
         setLoadingMetrics(false);
       }
@@ -123,7 +123,7 @@ export default function DashboardPage() {
   if (loading || !isAuthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Yükleniyor...</div>
       </div>
     );
   }
@@ -132,7 +132,7 @@ export default function DashboardPage() {
     return (
       <RegulatorLayout>
         <div className="text-center py-12">
-          <div className="text-lg">Loading metrics...</div>
+          <div className="text-lg">Metrikler yükleniyor...</div>
         </div>
       </RegulatorLayout>
     );
@@ -143,10 +143,10 @@ export default function DashboardPage() {
       <RegulatorLayout>
         <div className="bg-red-50 border border-red-200 rounded p-4">
           <p className="text-red-800">
-            Error loading metrics: {error}
+            Metrikler yüklenirken hata: {error}
           </p>
           <p className="text-sm text-red-600 mt-2">
-            If this metric is not exposed by the backend, it will not be available.
+            Bu metrik backend tarafından açığa çıkarılmamışsa, kullanılamaz.
           </p>
         </div>
       </RegulatorLayout>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
     return (
       <RegulatorLayout>
         <div className="text-center py-12">
-          <p className="text-gray-500">No metrics available</p>
+          <p className="text-gray-500">Metrik mevcut değil</p>
         </div>
       </RegulatorLayout>
     );
@@ -174,11 +174,11 @@ export default function DashboardPage() {
         {/* Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm font-medium text-gray-500">Total Analyses</h3>
+            <h3 className="text-sm font-medium text-gray-500">Toplam Analiz</h3>
             <p className="text-3xl font-bold text-gray-900 mt-2">
               {metrics.totalAnalyses.toLocaleString()}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
+            <p className="text-xs text-gray-500 mt-1">Son 30 gün</p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
@@ -193,19 +193,19 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm font-medium text-gray-500">Active Policy Sets</h3>
+            <h3 className="text-sm font-medium text-gray-500">Aktif Politika Setleri</h3>
             <p className="text-3xl font-bold text-gray-900 mt-2">
               {metrics.activePolicySets}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Unique policy sets</p>
+            <p className="text-xs text-gray-500 mt-1">Benzersiz politika setleri</p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm font-medium text-gray-500">System Flags</h3>
+            <h3 className="text-sm font-medium text-gray-500">Sistem Bayrakları</h3>
             <p className="text-3xl font-bold text-gray-900 mt-2">
               {metrics.systemFlags}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Unique flag types</p>
+            <p className="text-xs text-gray-500 mt-1">Benzersiz bayrak türleri</p>
           </div>
         </div>
 
@@ -220,19 +220,19 @@ export default function DashboardPage() {
               <div className="text-2xl font-bold text-red-600">
                 {metrics.riskDistribution.high}
               </div>
-              <div className="text-sm text-gray-600 mt-1">High Risk</div>
+              <div className="text-sm text-gray-600 mt-1">Yüksek Risk</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">
                 {metrics.riskDistribution.medium}
               </div>
-              <div className="text-sm text-gray-600 mt-1">Medium Risk</div>
+              <div className="text-sm text-gray-600 mt-1">Orta Risk</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
                 {metrics.riskDistribution.low}
               </div>
-              <div className="text-sm text-gray-600 mt-1">Low Risk</div>
+              <div className="text-sm text-gray-600 mt-1">Düşük Risk</div>
             </div>
           </div>
         </div>

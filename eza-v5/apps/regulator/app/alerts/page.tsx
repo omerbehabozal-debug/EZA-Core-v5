@@ -47,7 +47,7 @@ export default function AlertsPage() {
         }>(`/api/proxy/audit/search?from_date=${fromDate}&to_date=${toDate}`);
 
         if (!response.ok) {
-          throw new Error('Failed to fetch audit logs');
+          throw new Error('Denetim kayıtları alınamadı');
         }
 
         // Derive alerts from patterns (frontend-only)
@@ -62,10 +62,10 @@ export default function AlertsPage() {
               id: `high-risk-${log.id}`,
               timestamp: log.created_at,
               organizationId: log.organization_id,
-              policySet: log.sector || 'Unknown',
+              policySet: log.sector || 'Belirtilmemiş',
               riskLevel: 'high',
-              flagType: 'High Risk Score',
-              threshold: `Ethical score: ${score} (threshold: < 30)`,
+              flagType: 'Yüksek Risk Skoru',
+              threshold: `Etik skor: ${score} (eşik: < 30)`,
             });
           }
         });
@@ -82,10 +82,10 @@ export default function AlertsPage() {
               id: `multiple-flags-${log.id}`,
               timestamp: log.created_at,
               organizationId: log.organization_id,
-              policySet: log.sector || 'Unknown',
+              policySet: log.sector || 'Belirtilmemiş',
               riskLevel: 'medium',
-              flagType: 'Multiple Flags',
-              threshold: `${flags.length} flags detected`,
+              flagType: 'Çoklu Bayrak',
+              threshold: `${flags.length} bayrak tespit edildi`,
             });
           }
         });
@@ -110,7 +110,7 @@ export default function AlertsPage() {
   if (loading || !isAuthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Yükleniyor...</div>
       </div>
     );
   }
@@ -136,18 +136,18 @@ export default function AlertsPage() {
 
         <div className="bg-blue-50 border border-blue-200 rounded p-4">
           <p className="text-sm text-blue-800">
-            <strong>Observational Only:</strong> These alerts are derived from audit log patterns.
-            No intervention or action capabilities are provided.
+            <strong>Yalnızca Gözlemsel:</strong> Bu uyarılar denetim günlüğü desenlerinden türetilmiştir.
+            Müdahale veya eylem yetenekleri sağlanmamıştır.
           </p>
         </div>
 
         {loadingAlerts ? (
           <div className="text-center py-12">
-            <div className="text-lg">Loading alerts...</div>
+            <div className="text-lg">Uyarılar yükleniyor...</div>
           </div>
         ) : alerts.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-6 text-center">
-            <p className="text-gray-500">No alerts detected in the last 24 hours</p>
+            <p className="text-gray-500">Son 24 saatte uyarı tespit edilmedi</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -174,17 +174,17 @@ export default function AlertsPage() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm">
-                        <strong>Organization:</strong>{' '}
+                        <strong>Organizasyon:</strong>{' '}
                         {maskOrganizationId(alert.organizationId)}
                       </p>
                       <p className="text-sm">
-                        <strong>Policy Set:</strong> {alert.policySet}
+                        <strong>Politika Seti:</strong> {alert.policySet}
                       </p>
                       <p className="text-sm">
-                        <strong>Flag Type:</strong> {alert.flagType}
+                        <strong>Bayrak Türü:</strong> {alert.flagType}
                       </p>
                       <p className="text-sm">
-                        <strong>Threshold:</strong> {alert.threshold}
+                        <strong>Eşik:</strong> {alert.threshold}
                       </p>
                     </div>
                   </div>

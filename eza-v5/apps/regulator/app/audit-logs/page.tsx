@@ -45,13 +45,13 @@ export default function AuditLogsPage() {
         }>(`/api/proxy/audit/search?${params.toString()}`);
 
         if (!response.ok) {
-          throw new Error('Failed to fetch audit logs');
+          throw new Error('Denetim kayıtları alınamadı');
         }
 
         setLogs(response.results || []);
       } catch (err) {
         console.error('Error fetching audit logs:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
       } finally {
         setLoadingLogs(false);
       }
@@ -63,16 +63,16 @@ export default function AuditLogsPage() {
   if (loading || !isAuthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Yükleniyor...</div>
       </div>
     );
   }
 
   const getRiskLevel = (score: number | undefined): string => {
-    if (!score) return 'Unknown';
-    if (score < 50) return 'High';
-    if (score < 80) return 'Medium';
-    return 'Low';
+    if (!score) return 'Bilinmiyor';
+    if (score < 50) return 'Yüksek';
+    if (score < 80) return 'Orta';
+    return 'Düşük';
   };
 
   const getRiskColor = (score: number | undefined): string => {
@@ -95,7 +95,7 @@ export default function AuditLogsPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                From Date
+                Başlangıç Tarihi
               </label>
               <input
                 type="date"
@@ -108,7 +108,7 @@ export default function AuditLogsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                To Date
+                Bitiş Tarihi
               </label>
               <input
                 type="date"
@@ -121,7 +121,7 @@ export default function AuditLogsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Risk Level
+                Risk Seviyesi
               </label>
               <select
                 value={filters.risk_level || ''}
@@ -133,21 +133,21 @@ export default function AuditLogsPage() {
                 }
                 className="w-full border border-gray-300 rounded px-3 py-2"
               >
-                <option value="">All</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                <option value="">Tümü</option>
+                <option value="low">Düşük</option>
+                <option value="medium">Orta</option>
+                <option value="high">Yüksek</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Flag Type
+                Bayrak Türü
               </label>
               <input
                 type="text"
                 value={filters.flag || ''}
                 onChange={(e) => setFilters({ ...filters, flag: e.target.value })}
-                placeholder="Filter by flag"
+                placeholder="Bayrağa göre filtrele"
                 className="w-full border border-gray-300 rounded px-3 py-2"
               />
             </div>
@@ -157,14 +157,14 @@ export default function AuditLogsPage() {
         {/* Error */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded p-4">
-            <p className="text-red-800">Error: {error}</p>
+            <p className="text-red-800">Hata: {error}</p>
           </div>
         )}
 
         {/* Loading */}
         {loadingLogs && (
           <div className="text-center py-12">
-            <div className="text-lg">Loading audit logs...</div>
+            <div className="text-lg">Denetim kayıtları yükleniyor...</div>
           </div>
         )}
 
@@ -176,7 +176,7 @@ export default function AuditLogsPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Timestamp
+                      Zaman Damgası
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <span className="flex items-center">
@@ -197,7 +197,7 @@ export default function AuditLogsPage() {
                       </span>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Flags
+                      Bayraklar
                     </th>
                   </tr>
                 </thead>
@@ -205,7 +205,7 @@ export default function AuditLogsPage() {
                   {logs.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                        No audit logs found
+                        Denetim kaydı bulunamadı
                       </td>
                     </tr>
                   ) : (
@@ -226,10 +226,10 @@ export default function AuditLogsPage() {
                             {maskOrganizationId(log.organization_id)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {log.type === 'IntentLog' ? 'Text' : 'Impact Event'}
+                            {log.type === 'IntentLog' ? 'Metin' : 'Etki Olayı'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {log.sector || 'N/A'}
+                            {log.sector || 'Belirtilmemiş'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
@@ -244,9 +244,9 @@ export default function AuditLogsPage() {
                             {flags.length > 0
                               ? flags
                                   .slice(0, 3)
-                                  .map((f: any) => f.flag || f.type || 'unknown')
+                                  .map((f: any) => f.flag || f.type || 'bilinmiyor')
                                   .join(', ')
-                              : 'None'}
+                              : 'Yok'}
                             {flags.length > 3 && ` (+${flags.length - 3})`}
                           </td>
                         </tr>
@@ -262,8 +262,7 @@ export default function AuditLogsPage() {
         {/* Info */}
         <div className="bg-blue-50 border border-blue-200 rounded p-4">
           <p className="text-sm text-blue-800">
-            <strong>Note:</strong> This table does not display content, prompts, images, audio,
-            transcripts, or rewritten text. Only metadata and risk indicators are shown.
+            <strong>Not:</strong> Bu tablo içerik, prompt, görüntü, ses, transkript veya yeniden yazılmış metin göstermez. Yalnızca meta veriler ve risk göstergeleri gösterilir.
           </p>
         </div>
       </div>

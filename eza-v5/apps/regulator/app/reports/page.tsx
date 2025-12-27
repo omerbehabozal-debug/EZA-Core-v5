@@ -37,7 +37,7 @@ export default function ReportsPage() {
         }>(`/api/proxy/audit/search?from_date=${fromDate}&to_date=${toDate}`);
 
         if (!response.ok) {
-          throw new Error('Failed to fetch data');
+          throw new Error('Veri alınamadı');
         }
 
         setLogs(response.results || []);
@@ -54,7 +54,7 @@ export default function ReportsPage() {
   if (loading || !isAuthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Yükleniyor...</div>
       </div>
     );
   }
@@ -71,11 +71,11 @@ export default function ReportsPage() {
     { high: 0, medium: 0, low: 0 }
   );
 
-  const policyDistribution = logs.reduce((acc, log) => {
-    const policy = log.sector || 'Unknown';
-    acc[policy] = (acc[policy] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+    const policyDistribution = logs.reduce((acc, log) => {
+      const policy = log.sector || 'Belirtilmemiş';
+      acc[policy] = (acc[policy] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
   const flagFrequency = logs.reduce((acc, log) => {
     const flags = log.flags
@@ -84,7 +84,7 @@ export default function ReportsPage() {
         : log.flags.flags || []
       : [];
     flags.forEach((f: any) => {
-      const flagName = f.flag || f.type || 'unknown';
+      const flagName = f.flag || f.type || 'bilinmiyor';
       acc[flagName] = (acc[flagName] || 0) + 1;
     });
     return acc;
@@ -103,41 +103,41 @@ export default function ReportsPage() {
             onChange={(e) => setDateRange(Number(e.target.value))}
             className="border border-gray-300 rounded px-3 py-2"
           >
-            <option value={7}>Last 7 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
+            <option value={7}>Son 7 gün</option>
+            <option value={30}>Son 30 gün</option>
+            <option value={90}>Son 90 gün</option>
           </select>
         </div>
 
         {loadingData ? (
           <div className="text-center py-12">
-            <div className="text-lg">Loading reports...</div>
+            <div className="text-lg">Raporlar yükleniyor...</div>
           </div>
         ) : (
           <>
             {/* Risk Trends */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Risk Trends Over Time
+                Zaman İçinde Risk Trendleri
               </h2>
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-red-600">
                     {riskTrends.high}
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">High Risk</div>
+                  <div className="text-sm text-gray-600 mt-1">Yüksek Risk</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-yellow-600">
                     {riskTrends.medium}
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">Medium Risk</div>
+                  <div className="text-sm text-gray-600 mt-1">Orta Risk</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
                     {riskTrends.low}
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">Low Risk</div>
+                  <div className="text-sm text-gray-600 mt-1">Düşük Risk</div>
                 </div>
               </div>
             </div>
@@ -145,7 +145,7 @@ export default function ReportsPage() {
             {/* Policy Distribution */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Policy-Based Risk Distribution
+                Politika Bazlı Risk Dağılımı
               </h2>
               <div className="space-y-2">
                 {Object.entries(policyDistribution)
@@ -164,7 +164,7 @@ export default function ReportsPage() {
             {/* Flag Frequency */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Flag Frequency Patterns
+                Bayrak Sıklığı Desenleri
               </h2>
               <div className="space-y-2">
                 {Object.entries(flagFrequency)
