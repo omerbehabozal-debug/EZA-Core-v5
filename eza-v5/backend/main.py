@@ -252,6 +252,10 @@ app.include_router(sla_monitoring.router, prefix="/api/org", tags=["SLA-Monitori
 app.include_router(proxy_lite.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
 app.include_router(proxy_lite_media.router, prefix="/api/proxy-lite", tags=["Proxy-Lite"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+
+# Internal setup endpoints (⚠️ FOR INTERNAL USE ONLY - PROTECTED BY INTERNAL_SETUP_KEY)
+from backend.routers import internal_setup
+app.include_router(internal_setup.router)
 app.include_router(media.router, prefix="/api/media", tags=["Media"])
 app.include_router(autonomy.router, prefix="/api/autonomy", tags=["Autonomy"])
 app.include_router(institution.router, prefix="/api/institution", tags=["Institution"])

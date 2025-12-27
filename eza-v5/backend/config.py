@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     
     # API Keys
     EZA_ADMIN_API_KEY: Optional[str] = None  # Admin API key for internal endpoints
+    INTERNAL_SETUP_KEY: Optional[str] = None  # Internal setup key for test user creation (⚠️ CHANGE IN PRODUCTION)
     
     # Redis (for rate limiting)
     EZA_REDIS_URL: Optional[str] = None  # Redis URL for rate limiting (falls back to REDIS_URL)
