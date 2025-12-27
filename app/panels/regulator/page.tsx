@@ -1,15 +1,47 @@
-import { generatePageMetadata } from "@/lib/seo";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Section from "@/app/components/Section";
 import Link from "next/link";
 import Icon from "@/app/components/Icon";
 import FadeIn from "@/app/components/FadeIn";
 
-export const metadata = generatePageMetadata(
-  "Regulator Oversight Panel",
-  "Küresel ölçekte yapay zekâ sistemleri için içeriksiz, müdahalesiz ve denetlenebilir etik gözetim arayüzü."
-);
+const PANEL_URL = "https://regulator.ezacore.ai/proxy/regulator";
+const VISIT_KEY = "regulator_panel_visited";
 
 export default function RegulatorPanelPage() {
+  const router = useRouter();
+  const [hasVisited, setHasVisited] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const visited = localStorage.getItem(VISIT_KEY);
+    if (visited === "true") {
+      setHasVisited(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (mounted && hasVisited) {
+      // İlk render'dan sonra yönlendirme yap
+      const timer = setTimeout(() => {
+        window.location.href = PANEL_URL;
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [mounted, hasVisited]);
+
+  const handlePanelClick = () => {
+    localStorage.setItem(VISIT_KEY, "true");
+    window.open(PANEL_URL, "_blank");
+  };
+
+  if (!mounted) {
+    return null; // SSR hydration hatası önlemek için
+  }
+
   return (
     <>
       {/* 1️⃣ HERO SECTION */}
@@ -36,8 +68,61 @@ export default function RegulatorPanelPage() {
         </div>
       </div>
 
+      {/* HIZLI ERİŞİM KARTI - Tekrar Gelenler İçin */}
+      {hasVisited && (
+        <Section className="bg-gradient-to-br from-eza-blue/5 via-white to-purple-500/5 py-12">
+          <FadeIn>
+            <div className="max-w-4xl mx-auto">
+              <div className="bg-white rounded-2xl p-8 md:p-12 border border-eza-blue/20 shadow-xl relative overflow-hidden">
+                {/* Background decoration */}
+                <div className="absolute inset-0 opacity-5">
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: `
+                        radial-gradient(circle at 20% 50%, rgba(0, 113, 227, 0.3) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 50%, rgba(139, 92, 246, 0.2) 0%, transparent 50%)
+                      `,
+                    }}
+                  />
+                </div>
+                
+                <div className="relative z-10 text-center">
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-eza-blue/10 text-eza-blue text-sm font-semibold rounded-full border border-eza-blue/20 mb-4">
+                    <Icon name="Zap" size={16} />
+                    Hızlı Erişim
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-semibold text-eza-text mb-4">
+                    Regulator Panel'e Doğrudan Erişim
+                  </h2>
+                  <p className="text-lg text-eza-text-secondary mb-8 max-w-2xl mx-auto">
+                    Daha önce bu sayfayı ziyaret ettiğiniz için, doğrudan panele yönlendiriliyorsunuz.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button
+                      onClick={handlePanelClick}
+                      className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-eza-blue text-white rounded-lg font-semibold hover:bg-[#0077ed] transition-all shadow-lg hover:shadow-xl text-lg"
+                    >
+                      <Icon name="ExternalLink" size={20} />
+                      Regulator Panel'i Aç
+                    </button>
+                    <Link
+                      href="#panel-nedir"
+                      className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-eza-blue border border-eza-blue rounded-lg font-semibold hover:bg-eza-blue/5 transition-all text-lg"
+                    >
+                      <Icon name="Info" size={20} />
+                      Bilgileri Tekrar İncele
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </FadeIn>
+        </Section>
+      )}
+
       {/* 2️⃣ BU PANEL NEDİR? */}
-      <Section className="bg-white">
+      <Section id="panel-nedir" className="bg-white">
         <FadeIn>
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-semibold text-eza-text mb-6">
@@ -404,9 +489,16 @@ export default function RegulatorPanelPage() {
               Daha fazla bilgi için bizimle iletişime geçin
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={handlePanelClick}
+                className="inline-flex items-center gap-2 px-8 py-4 bg-eza-blue text-white rounded-lg font-semibold hover:bg-[#0077ed] transition-all shadow-lg hover:shadow-xl"
+              >
+                <Icon name="ExternalLink" size={18} />
+                Regulator Panel'e Git
+              </button>
               <Link
                 href="/contact"
-                className="inline-flex items-center gap-2 px-8 py-4 bg-eza-blue text-white rounded-lg font-semibold hover:bg-[#0077ed] transition-all shadow-lg hover:shadow-xl"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-white text-eza-blue border border-eza-blue rounded-lg font-semibold hover:bg-eza-blue/5 transition-all"
               >
                 İletişime Geç
                 <Icon name="Mail" size={18} />
