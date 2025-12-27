@@ -15,6 +15,7 @@ from sqlalchemy import select, func, distinct
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth_production import require_proxy_auth_production
 from backend.models.production import IntentLog, ImpactEvent, TelemetryEvent, Organization
+from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -114,14 +115,18 @@ async def get_sanayi_dashboard(
         org_ids = set(log.organization_id for log in all_logs)
         active_ai_companies = len(org_ids)
         
-        # Get distinct source systems (AI systems)
+        # Get distinct source systems (AI systems) from ImpactEvent
+        impact_query = select(ImpactEvent).where(
+            ImpactEvent.occurred_at >= from_date,
+            ImpactEvent.deleted_by_user == False
+        )
+        impact_result = await db.execute(impact_query)
+        impact_events = impact_result.scalars().all()
+        
         source_systems = set()
-        for log in all_logs:
-            # Check ImpactEvent for source_system
-            if hasattr(log, 'impact_events'):
-                for impact in log.impact_events:
-                    if impact.source_system:
-                        source_systems.add(impact.source_system)
+        for impact in impact_events:
+            if impact.source_system:
+                source_systems.add(impact.source_system)
         
         # Also check TelemetryEvent
         telemetry_query = select(TelemetryEvent).where(
@@ -157,17 +162,12 @@ async def get_sanayi_dashboard(
         high_risk_count = sum(1 for score in ethical_scores if score < 50)
         high_risk_ratio = (high_risk_count / len(ethical_scores) * 100) if ethical_scores else 0
         
-        # Model dependency breakdown
+        # Model dependency breakdown from ImpactEvents
         model_providers: Dict[str, int] = {}
-        for log in all_logs:
-            # Try to extract provider from source_system or flags
-            provider = extract_model_provider("", None)
-            
-            # Check ImpactEvent
-            if hasattr(log, 'impact_events'):
-                for impact in log.impact_events:
-                    provider = extract_model_provider(impact.source_system, None)
-                    model_providers[provider] = model_providers.get(provider, 0) + 1
+        for impact in impact_events:
+            if impact.source_system:
+                provider = extract_model_provider(impact.source_system, None)
+                model_providers[provider] = model_providers.get(provider, 0) + 1
         
         # Also check TelemetryEvent
         for event in telemetry_events:
@@ -304,19 +304,34 @@ async def get_sanayi_companies(
             if ethical_score < 50:
                 data["high_risk_count"] += 1
             
-            # Track AI system types from ImpactEvent
-            if hasattr(log, 'impact_events'):
-                for impact in log.impact_events:
-                    if impact.source_system:
-                        system_type = classify_ai_system_type(impact.source_system)
-                        data["ai_system_types"].add(system_type)
-                        provider = extract_model_provider(impact.source_system, None)
-                        data["ai_models_used"].add(provider)
+            # Track AI system types - will be populated from separate ImpactEvent query
             
             # Update last activity
             if log.created_at:
                 if not data["last_activity"] or log.created_at > data["last_activity"]:
                     data["last_activity"] = log.created_at
+        
+        # Get ImpactEvents for this time period to populate AI system types
+        impact_query = select(ImpactEvent).where(
+            ImpactEvent.occurred_at >= from_date,
+            ImpactEvent.deleted_by_user == False
+        )
+        impact_result = await db.execute(impact_query)
+        impact_events = impact_result.scalars().all()
+        
+        # Map impact events to organizations
+        for impact in impact_events:
+            if impact.intent_log_id:
+                # Find corresponding IntentLog
+                for log in all_logs:
+                    if str(log.id) == str(impact.intent_log_id):
+                        org_id_str = str(log.organization_id)
+                        if org_id_str in org_data and impact.source_system:
+                            system_type = classify_ai_system_type(impact.source_system)
+                            org_data[org_id_str]["ai_system_types"].add(system_type)
+                            provider = extract_model_provider(impact.source_system, None)
+                            org_data[org_id_str]["ai_models_used"].add(provider)
+                        break
         
         # Fetch organization names
         org_ids = [uuid.UUID(org_id) for org_id in org_data.keys()]
@@ -420,60 +435,72 @@ async def get_sanayi_systems(
         # Group by source system
         system_data: Dict[str, Dict[str, Any]] = {}
         
-        for log in all_logs:
-            # Get source systems from ImpactEvent
-            if hasattr(log, 'impact_events'):
-                for impact in log.impact_events:
-                    if not impact.source_system:
-                        continue
+        # Get ImpactEvents for systems
+        impact_query = select(ImpactEvent).where(
+            ImpactEvent.occurred_at >= from_date,
+            ImpactEvent.deleted_by_user == False
+        )
+        impact_result = await db.execute(impact_query)
+        impact_events = impact_result.scalars().all()
+        
+        # Map ImpactEvents to IntentLogs
+        log_map = {str(log.id): log for log in all_logs}
+        
+        for impact in impact_events:
+            if not impact.source_system or not impact.intent_log_id:
+                continue
+            
+            source_system = impact.source_system
+            log = log_map.get(str(impact.intent_log_id))
+            
+            if not log:
+                continue
+            
+            if source_system not in system_data:
+                system_data[source_system] = {
+                    "system_name": source_system,
+                    "system_type": classify_ai_system_type(source_system),
+                    "models_used": set(),
+                    "ethical_scores": [],
+                    "risk_categories": {},
+                    "fail_safe_count": 0,
+                    "total_events": 0
+                }
+            
+            data = system_data[source_system]
+            data["total_events"] += 1
+            
+            # Track ethical scores from IntentLog
+            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            data["ethical_scores"].append(ethical_score)
+            
+            # Track models
+            provider = extract_model_provider(impact.source_system, None)
+            data["models_used"].add(provider)
+            
+            # Track risk categories from flags
+            if log.flags:
+                flag_list = []
+                if isinstance(log.flags, dict):
+                    flag_list = log.flags.get('flags', []) or []
+                elif isinstance(log.flags, list):
+                    flag_list = log.flags
+                
+                for flag in flag_list:
+                    flag_name = ""
+                    if isinstance(flag, dict):
+                        flag_name = flag.get('flag', '') or flag.get('type', '')
+                    elif isinstance(flag, str):
+                        flag_name = flag
                     
-                    source_system = impact.source_system
-                    
-                    if source_system not in system_data:
-                        system_data[source_system] = {
-                            "system_name": source_system,
-                            "system_type": classify_ai_system_type(source_system),
-                            "models_used": set(),
-                            "ethical_scores": [],
-                            "risk_categories": {},
-                            "fail_safe_count": 0,
-                            "total_events": 0
-                        }
-                    
-                    data = system_data[source_system]
-                    data["total_events"] += 1
-                    
-                    # Track ethical scores
-                    ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
-                    data["ethical_scores"].append(ethical_score)
-                    
-                    # Track models
-                    provider = extract_model_provider(impact.source_system, None)
-                    data["models_used"].add(provider)
-                    
-                    # Track risk categories from flags
-                    if log.flags:
-                        flag_list = []
-                        if isinstance(log.flags, dict):
-                            flag_list = log.flags.get('flags', []) or []
-                        elif isinstance(log.flags, list):
-                            flag_list = log.flags
-                        
-                        for flag in flag_list:
-                            flag_name = ""
-                            if isinstance(flag, dict):
-                                flag_name = flag.get('flag', '') or flag.get('type', '')
-                            elif isinstance(flag, str):
-                                flag_name = flag
-                            
-                            if flag_name:
-                                data["risk_categories"][flag_name] = data["risk_categories"].get(flag_name, 0) + 1
-                    
-                    # Check for fail-safe triggers
-                    if log.flags and isinstance(log.flags, dict):
-                        fail_safe = log.flags.get('fail_safe_triggered') or log.flags.get('fail_safe')
-                        if fail_safe:
-                            data["fail_safe_count"] += 1
+                    if flag_name:
+                        data["risk_categories"][flag_name] = data["risk_categories"].get(flag_name, 0) + 1
+            
+            # Check for fail-safe triggers
+            if log.flags and isinstance(log.flags, dict):
+                fail_safe = log.flags.get('fail_safe_triggered') or log.flags.get('fail_safe')
+                if fail_safe:
+                    data["fail_safe_count"] += 1
         
         # Apply system type filter
         if system_type:
@@ -574,27 +601,46 @@ async def get_sanayi_risk_patterns(
                     "score": ethical_score
                 })
             
-            # Track system patterns from ImpactEvent
-            if hasattr(log, 'impact_events'):
-                for impact in log.impact_events:
-                    if not impact.source_system:
-                        continue
-                    
-                    system_name = impact.source_system
-                    if system_name not in system_patterns:
-                        system_patterns[system_name] = {
-                            "system_name": system_name,
-                            "system_type": classify_ai_system_type(system_name),
-                            "model_provider": extract_model_provider(system_name, None),
-                            "high_risk_count": 0,
-                            "total_events": 0
-                        }
-                    
-                    system_patterns[system_name]["total_events"] += 1
-                    if ethical_score < 50:
-                        system_patterns[system_name]["high_risk_count"] += 1
-                    
-                    org_patterns[org_id_str]["system_types"].add(classify_ai_system_type(system_name))
+            # Track system patterns - will be populated from ImpactEvent query
+        
+        # Get ImpactEvents to populate system patterns
+        impact_query = select(ImpactEvent).where(
+            ImpactEvent.occurred_at >= from_date,
+            ImpactEvent.deleted_by_user == False
+        )
+        impact_result = await db.execute(impact_query)
+        impact_events = impact_result.scalars().all()
+        
+        # Map ImpactEvents to IntentLogs
+        log_map = {str(log.id): log for log in all_logs}
+        
+        for impact in impact_events:
+            if not impact.source_system or not impact.intent_log_id:
+                continue
+            
+            log = log_map.get(str(impact.intent_log_id))
+            if not log:
+                continue
+            
+            org_id_str = str(log.organization_id)
+            system_name = impact.source_system
+            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            
+            if system_name not in system_patterns:
+                system_patterns[system_name] = {
+                    "system_name": system_name,
+                    "system_type": classify_ai_system_type(system_name),
+                    "model_provider": extract_model_provider(system_name, None),
+                    "high_risk_count": 0,
+                    "total_events": 0
+                }
+            
+            system_patterns[system_name]["total_events"] += 1
+            if ethical_score < 50:
+                system_patterns[system_name]["high_risk_count"] += 1
+            
+            if org_id_str in org_patterns:
+                org_patterns[org_id_str]["system_types"].add(classify_ai_system_type(system_name))
         
         # Fetch organization names
         org_ids = [uuid.UUID(org_id) for org_id in org_patterns.keys()]
@@ -725,13 +771,19 @@ async def get_sanayi_alerts(
         alerts = []
         
         # Alert 1: High external dependency on single AI provider
+        # Get ImpactEvents for model provider analysis
+        impact_query = select(ImpactEvent).where(
+            ImpactEvent.occurred_at >= from_date,
+            ImpactEvent.deleted_by_user == False
+        )
+        impact_result = await db.execute(impact_query)
+        impact_events = impact_result.scalars().all()
+        
         model_providers: Dict[str, int] = {}
-        for log in all_logs:
-            if hasattr(log, 'impact_events'):
-                for impact in log.impact_events:
-                    if impact.source_system:
-                        provider = extract_model_provider(impact.source_system, None)
-                        model_providers[provider] = model_providers.get(provider, 0) + 1
+        for impact in impact_events:
+            if impact.source_system:
+                provider = extract_model_provider(impact.source_system, None)
+                model_providers[provider] = model_providers.get(provider, 0) + 1
         
         if model_providers:
             total_usage = sum(model_providers.values())
