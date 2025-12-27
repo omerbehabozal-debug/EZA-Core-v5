@@ -18,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.utils.dependencies import get_db
 from backend.auth.proxy_auth_production import require_proxy_auth_production
 from backend.security.rate_limit import rate_limit_proxy_corporate
-from backend.models.production import IntentLog, ImpactEvent
-from sqlalchemy import select, or_
+from backend.models.production import IntentLog, ImpactEvent, TelemetryEvent
+from sqlalchemy import select, or_, func, distinct
 from sqlalchemy.orm import selectinload
 
 router = APIRouter()
@@ -640,4 +640,119 @@ async def send_to_regulator(
         "message": "Regülatöre gönderildi",
         "analysis_id": analysis_id
     }
+
+
+@router.get("/audit/coverage-summary")
+async def get_coverage_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
+):
+    """
+    Coverage & Data Sources Summary for Regulator Panel
+    
+    Returns aggregated, non-identifying coverage statistics.
+    NO organization names, vendor names, model names, or identifiable information.
+    """
+    # Check if user is regulator (same pattern as search_audit)
+    is_regulator = current_user.get("is_regulator", False)
+    
+    if not is_regulator:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Regulator access required"
+        )
+    
+    try:
+        # Helper function to map source_system to generic AI system type
+        def map_to_ai_system_type(source_system: str) -> str:
+            """Map source system to generic AI system type category"""
+            source_lower = source_system.lower() if source_system else ""
+            if "text" in source_lower or "generation" in source_lower or "llm" in source_lower:
+                return "Text Generation Systems"
+            elif "chat" in source_lower or "conversation" in source_lower or "assistant" in source_lower:
+                return "Conversational AI"
+            elif "image" in source_lower or "vision" in source_lower or "visual" in source_lower:
+                return "Image Generation Systems"
+            elif "audio" in source_lower or "speech" in source_lower or "voice" in source_lower:
+                return "Audio / Speech Systems"
+            elif "decision" in source_lower or "support" in source_lower or "recommendation" in source_lower:
+                return "Decision-Support AI"
+            elif "multi" in source_lower or "hybrid" in source_lower or "modal" in source_lower:
+                return "Hybrid / Multi-Modal Systems"
+            else:
+                return "Text Generation Systems"  # Default fallback
+        
+        # Helper function to map source to data origin type
+        def map_to_data_origin(source: str) -> str:
+            """Map source to generic data origin type"""
+            source_lower = source.lower() if source else ""
+            if "api" in source_lower:
+                return "API-based Integrations"
+            elif "enterprise" in source_lower or "corporate" in source_lower:
+                return "Enterprise System Connections"
+            elif "ui" in source_lower or "interface" in source_lower or "user" in source_lower:
+                return "End-User Interfaces"
+            elif "pipeline" in source_lower or "evaluation" in source_lower or "internal" in source_lower:
+                return "Internal Evaluation Pipelines"
+            else:
+                return "API-based Integrations"  # Default fallback
+        
+        # Count distinct organizations (from IntentLog - most comprehensive)
+        org_count_query = select(func.count(distinct(IntentLog.organization_id)))
+        org_count_result = await db.execute(org_count_query)
+        organizations_count = org_count_result.scalar() or 0
+        
+        # Count distinct source systems (from ImpactEvent)
+        source_systems_query = select(func.count(distinct(ImpactEvent.source_system)))
+        source_systems_result = await db.execute(source_systems_query)
+        independent_sources = source_systems_result.scalar() or 0
+        
+        # Get all source systems and map to AI system types
+        all_source_systems_query = select(distinct(ImpactEvent.source_system))
+        source_systems_result = await db.execute(all_source_systems_query)
+        source_systems = [row[0] for row in source_systems_result.fetchall() if row[0]]
+        
+        ai_system_types_map: Dict[str, int] = {}
+        for source_system in source_systems:
+            ai_type = map_to_ai_system_type(source_system)
+            ai_system_types_map[ai_type] = ai_system_types_map.get(ai_type, 0) + 1
+        
+        # Count distinct AI system types
+        ai_system_types_count = len(ai_system_types_map)
+        
+        # Get data origin types from TelemetryEvent
+        all_sources_query = select(distinct(TelemetryEvent.source))
+        sources_result = await db.execute(all_sources_query)
+        sources = [row[0] for row in sources_result.fetchall() if row[0]]
+        
+        data_origins_map: Dict[str, int] = {}
+        for source in sources:
+            origin_type = map_to_data_origin(source)
+            # Count occurrences (approximate from distinct sources)
+            data_origins_map[origin_type] = data_origins_map.get(origin_type, 0) + 1
+        
+        # Get more accurate data origin counts from TelemetryEvent
+        if sources:
+            for source in sources:
+                origin_type = map_to_data_origin(source)
+                count_query = select(func.count(TelemetryEvent.id)).where(TelemetryEvent.source == source)
+                count_result = await db.execute(count_query)
+                count = count_result.scalar() or 0
+                data_origins_map[origin_type] = data_origins_map.get(origin_type, 0) + count
+        
+        return {
+            "ok": True,
+            "independent_sources": independent_sources,
+            "organizations": organizations_count,
+            "ai_system_types": ai_system_types_count,
+            "ai_modalities": ai_system_types_map,
+            "data_origins": data_origins_map
+        }
+    
+    except Exception as e:
+        logger.error(f"[Coverage] Error generating coverage summary: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Coverage summary could not be generated"
+        )
 

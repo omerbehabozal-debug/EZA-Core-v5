@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { RegulatorLayout } from '@/components/RegulatorLayout';
 import { InfoTooltip } from '@/components/InfoTooltip';
-import { apiClient, AuditLogEntry } from '@/lib/api-client';
+import { apiClient, AuditLogEntry, CoverageSummary } from '@/lib/api-client';
 import { maskOrganizationId } from '@/lib/organization-mask';
 import { useRegulatorAuth } from '@/lib/auth-guard';
 
@@ -25,11 +25,21 @@ interface DashboardMetrics {
   averageEthicalScore: number;
 }
 
+interface CoverageData {
+  independentSources: number;
+  organizations: number;
+  aiSystemTypes: number;
+  aiModalities: Record<string, number>;
+  dataOrigins: Record<string, number>;
+}
+
 export default function DashboardPage() {
   const { isAuthorized, loading } = useRegulatorAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [coverageData, setCoverageData] = useState<CoverageData | null>(null);
+  const [loadingCoverage, setLoadingCoverage] = useState(true);
 
   useEffect(() => {
     if (!isAuthorized || loading) return;
@@ -118,6 +128,31 @@ export default function DashboardPage() {
     };
 
     fetchMetrics();
+    
+    // Fetch coverage summary
+    const fetchCoverage = async () => {
+      try {
+        setLoadingCoverage(true);
+        const response = await apiClient.get<CoverageSummary>('/api/proxy/audit/coverage-summary');
+        
+        if (response.ok) {
+          setCoverageData({
+            independentSources: response.independent_sources,
+            organizations: response.organizations,
+            aiSystemTypes: response.ai_system_types,
+            aiModalities: response.ai_modalities,
+            dataOrigins: response.data_origins,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching coverage summary:', err);
+        // Don't set error - coverage is optional
+      } finally {
+        setLoadingCoverage(false);
+      }
+    };
+    
+    fetchCoverage();
   }, [isAuthorized, loading]);
 
   if (loading || !isAuthorized) {
@@ -236,6 +271,83 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Coverage & Data Sources */}
+        {coverageData && (
+          <div className="bg-white rounded-lg shadow p-6 border-t-2 border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">
+              Kapsam & Veri Kaynakları
+            </h2>
+            
+            {/* Coverage Summary */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Kapsam Özeti</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gray-50 rounded p-3">
+                  <div className="text-xs text-gray-500 mb-1">Bağımsız Analiz Kaynakları</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {coverageData.independentSources}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded p-3">
+                  <div className="text-xs text-gray-500 mb-1">Aktif Organizasyonlar (Anonim)</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {coverageData.organizations}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded p-3">
+                  <div className="text-xs text-gray-500 mb-1">Gözlemlenen AI Sistem Türleri</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {coverageData.aiSystemTypes}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI System Type Distribution */}
+            {Object.keys(coverageData.aiModalities).length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">AI Sistem Türü Dağılımı</h3>
+                <div className="space-y-2">
+                  {Object.entries(coverageData.aiModalities)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([type, count]) => (
+                      <div key={type} className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-700">{type}</span>
+                        <span className="text-sm font-semibold text-gray-900">{count}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Data Origin Types */}
+            {Object.keys(coverageData.dataOrigins).length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Veri Köken Türleri</h3>
+                <div className="space-y-2">
+                  {Object.entries(coverageData.dataOrigins)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([origin, count]) => (
+                      <div key={origin} className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-700">{origin}</span>
+                        <span className="text-sm font-semibold text-gray-900">{count}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Processing & Privacy Statement */}
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Bu panelde gösterilen tüm veriler anonimleştirilmiş, toplulaştırılmış analiz kayıtlarından türetilmiştir.
+                Kaynak kimlikleri, içerik ve sistem özel detaylar kasıtlı olarak hariç tutulmuştur.
+                Panel kapsam kapsamını yansıtır, pazar temsili veya satıcı atfı değildir.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </RegulatorLayout>
   );

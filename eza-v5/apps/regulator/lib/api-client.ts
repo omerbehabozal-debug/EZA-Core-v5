@@ -166,6 +166,15 @@ export interface AuditLogSearchParams {
   flag?: string;
 }
 
+export interface CoverageSummary {
+  ok: boolean;
+  independent_sources: number;
+  organizations: number;
+  ai_system_types: number;
+  ai_modalities: Record<string, number>;
+  data_origins: Record<string, number>;
+}
+
 export interface AuditLogEntry {
   id: string;
   type: 'IntentLog' | 'ImpactEvent';
