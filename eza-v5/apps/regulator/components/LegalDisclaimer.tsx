@@ -27,9 +27,9 @@ export function LegalDisclaimer() {
         </div>
         <div className="ml-3">
           <p className="text-sm text-blue-700">
-            <strong>Regulator Oversight Notice:</strong> This panel does not display content.
-            Regulators are not responsible for editorial decisions or content outcomes.
-            This system is not a censorship or intervention tool.
+            <strong>Düzenleyici Kurum Gözetim Bildirimi:</strong> Bu panel içerik göstermez.
+            Düzenleyici kurumlar, editoryal kararlardan veya içerik sonuçlarından sorumlu değildir.
+            Bu sistem bir sansür veya müdahale aracı değildir.
           </p>
         </div>
       </div>
