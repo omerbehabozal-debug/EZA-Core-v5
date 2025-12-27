@@ -60,11 +60,12 @@ async def require_proxy_auth_production(
     user_id = user_info.get("user_id") or user_info.get("sub")
     user_role = user_info.get("role", "")
     
-    # Regulator roles: REGULATOR_READONLY, REGULATOR_AUDITOR, REGULATOR_RTUK, REGULATOR_MEDIA_AUDITOR
+    # Regulator roles: REGULATOR_READONLY, REGULATOR_AUDITOR, REGULATOR_RTUK, REGULATOR_MEDIA_AUDITOR, REGULATOR_SANAYI, REGULATOR_TECH_AUDITOR
     # These users have NO organization_id and can ONLY access read-only endpoints
-    regulator_roles = ["REGULATOR_READONLY", "REGULATOR_AUDITOR", "REGULATOR_RTUK", "REGULATOR_MEDIA_AUDITOR"]
+    regulator_roles = ["REGULATOR_READONLY", "REGULATOR_AUDITOR", "REGULATOR_RTUK", "REGULATOR_MEDIA_AUDITOR", "REGULATOR_SANAYI", "REGULATOR_TECH_AUDITOR"]
     is_regulator = user_role in regulator_roles
     is_rtuk = user_role in ["REGULATOR_RTUK", "REGULATOR_MEDIA_AUDITOR"]
+    is_sanayi = user_role in ["REGULATOR_SANAYI", "REGULATOR_TECH_AUDITOR"]
     
     if is_regulator:
         # Regulators: NO organization_id required, NO API key required
@@ -88,6 +89,7 @@ async def require_proxy_auth_production(
             "org_id": None,  # Regulators have no organization
             "is_regulator": True,
             "is_rtuk": is_rtuk,  # RTÜK-specific flag
+            "is_sanayi": is_sanayi,  # Sanayi Bakanlığı-specific flag
             "api_key_resolved": False,  # No API key for regulators
         }
     
