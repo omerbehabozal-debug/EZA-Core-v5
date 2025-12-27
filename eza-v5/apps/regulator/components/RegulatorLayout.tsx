@@ -54,9 +54,9 @@ export function RegulatorLayout({ children }: { children: React.ReactNode }) {
               )}
               <button
                 onClick={logout}
-                className="text-sm text-red-600 hover:text-red-800"
+                className="text-sm text-red-600 hover:text-red-800 whitespace-nowrap px-2 py-1"
               >
-                Çıkış yap
+                Çıkış Yap
               </button>
             </div>
           </div>
