@@ -58,11 +58,6 @@ export default function RiskPatternsPage() {
           <h1 className="text-2xl font-bold text-gray-900" translate="no">
             Sistematik Risk Kalıpları
           </h1>
-        </div>
-
-        {/* Reading Guide */}
-        <RTUKReadingGuide defaultOpen={false} />
-
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
@@ -74,6 +69,9 @@ export default function RiskPatternsPage() {
             <option value={90}>Son 90 gün</option>
           </select>
         </div>
+
+        {/* Reading Guide */}
+        <RTUKReadingGuide defaultOpen={false} />
 
         {loadingPatterns ? (
           <div className="text-center py-12">
