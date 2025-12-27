@@ -1,0 +1,10 @@
+[33m2ee5052[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m dünenleme
+[33mc1198ea[m[33m ([m[1;31morigin/eza-global[m[33m)[m Standalone sayfasına "standalone.png" premium görünümle eklendi. Eklenen özellikler: Grid layout: Metin ve resim yan yana (mobilde alt alta) Premium görünüm: rounded-2xl köşeler, shadow-2xl gölge, ince border Gradient overlay: Hafif mavi-mor geçiş FadeIn animasyonu: Metin ve resim için ayrı gecikmeler Responsive tasarım: Mobilde tek sütun, desktop'ta iki sütun Object-fit: Resim düzgün görünecek şekilde ayarlandı
+[33me2b880f[m "EZA-Core API" sekmesi header'dan kaldırıldı. Yapılan değişiklikler: Navigation array'inden "EZA-Core API" kaldırıldı Desktop ve mobile menülerdeki özel stil kodları temizlendi Artık sadece "Ecosystem", "EZA-Core Products", "Panels", "Solutions", "Documentation" ve "Contact" sekmeleri görünecek
+[33m552e002[m Metin güncellendi. Artık daha mütevazı ve etik tona uygun: Önceki: "Teknolojinin hızla geliştiği bir dünyada, insanlığı koruyan ve güvende tutan güvenlik katmanı" Yeni: "Teknolojinin hızla geliştiği bir dünyada, insan ile yapay zekâ arasındaki etik ilişkiyi görünür kılar." Bu ifade, EZA'nın "görünür kılma" odaklı, mütevazı yaklaşımına daha uygun.
+[33mecee8be[m "Neden EZA?" bölümüne "anasayfa resmi.png" eklendi. Eklenen özellikler: Premium görünüm: rounded-2xl köşeler, shadow-2xl gölge, ince border Gradient overlay: hafif mavi-mor geçiş FadeIn animasyonu: 200ms gecikme ile Responsive tasarım: max-width 4xl, otomatik yükseklik Object-fit: resim düzgün görünecek şekilde ayarlandı
+[33ma122e1c[m lib/constants.ts dosyasındaki ecosystemItems.core listesinden: "EZA Score Engine" kaldırıldı "Advisor" kaldırıldı Şu anki ekosistem core listesi: Platform Standalone Proxy Proxy-Lite EZA ekosisteminde artık sadece bu 4 öğe var. Score Engine ve Advisor tamamen kaldırıldı.
+[33m599f128[m hero videoları eklendi
+[33m47a9440[m anasayfa düzenlendi
+[33m670da2c[m apı dökümantasyon sayfaları
+[33m177902d[m dökümantasyon test safety benchmarks eklendi
