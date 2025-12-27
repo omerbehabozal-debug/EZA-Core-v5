@@ -128,7 +128,10 @@ export default function AlertsPage() {
   return (
     <RegulatorLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Alerts</h1>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+          Uyarılar
+          <InfoTooltip text="Bu uyarılar yalnızca gözlemseldir. Herhangi bir müdahale veya işlem imkânı sunmaz." />
+        </h1>
 
         <div className="bg-blue-50 border border-blue-200 rounded p-4">
           <p className="text-sm text-blue-800">

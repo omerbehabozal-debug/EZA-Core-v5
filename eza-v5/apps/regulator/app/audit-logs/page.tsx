@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { RegulatorLayout } from '@/components/RegulatorLayout';
+import { InfoTooltip } from '@/components/InfoTooltip';
 import { apiClient, AuditLogEntry, AuditLogSearchParams } from '@/lib/api-client';
 import { maskOrganizationId } from '@/lib/organization-mask';
 import { useRegulatorAuth } from '@/lib/auth-guard';
@@ -84,7 +85,10 @@ export default function AuditLogsPage() {
   return (
     <RegulatorLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+          Denetim Kayıtları
+          <InfoTooltip text="Bu kayıtlar analiz süreçlerine ait meta verileri gösterir. İçerik, prompt veya çıktı yer almaz." />
+        </h1>
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4">
@@ -175,16 +179,22 @@ export default function AuditLogsPage() {
                       Timestamp
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Organization
+                      <span className="flex items-center">
+                        Organizasyon
+                        <InfoTooltip text="Organizasyon kimlikleri gizlilik amacıyla maskelenmiştir." />
+                      </span>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Content Type
+                      İçerik Türü
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Policy Set
+                      Politika Seti
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Risk Score
+                      <span className="flex items-center">
+                        Risk Puanı
+                        <InfoTooltip text="Politika setlerine göre hesaplanan etik risk göstergesidir." />
+                      </span>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Flags

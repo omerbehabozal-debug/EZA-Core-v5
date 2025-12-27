@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { RegulatorLayout } from '@/components/RegulatorLayout';
+import { InfoTooltip } from '@/components/InfoTooltip';
 import { apiClient, AuditLogEntry } from '@/lib/api-client';
 import { useRegulatorAuth } from '@/lib/auth-guard';
 
@@ -93,7 +94,10 @@ export default function ReportsPage() {
     <RegulatorLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+            Raporlar
+            <InfoTooltip text="Bu raporlar sistemin zaman içindeki risk davranışını özetler. Tekil içerik veya aktör detayları sunmaz." />
+          </h1>
           <select
             value={dateRange}
             onChange={(e) => setDateRange(Number(e.target.value))}
@@ -175,6 +179,13 @@ export default function ReportsPage() {
                     </div>
                   ))}
               </div>
+            </div>
+            
+            {/* Helper text */}
+            <div className="mt-6">
+              <p className="text-xs text-gray-400 text-center">
+                Bu veriler örneklenmiş denetim kayıtlarından türetilmiştir.
+              </p>
             </div>
           </>
         )}

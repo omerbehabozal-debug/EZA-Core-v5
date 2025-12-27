@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { RegulatorLayout } from '@/components/RegulatorLayout';
+import { InfoTooltip } from '@/components/InfoTooltip';
 import { apiClient, AuditLogEntry } from '@/lib/api-client';
 import { maskOrganizationId } from '@/lib/organization-mask';
 import { useRegulatorAuth } from '@/lib/auth-guard';
@@ -165,7 +166,10 @@ export default function DashboardPage() {
   return (
     <RegulatorLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+          Kontrol Paneli
+          <InfoTooltip text="Bu ekran, sistem genelindeki analiz hacmini ve risk dağılımını özetler. İçerik veya bireysel analiz detayları gösterilmez." />
+        </h1>
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -178,11 +182,14 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm font-medium text-gray-500">Average Ethical Score</h3>
+            <h3 className="text-sm font-medium text-gray-500 flex items-center">
+              Ortalama Etik Puanı
+              <InfoTooltip text="Seçilen zaman aralığında ölçülen ortalama risk skorudur." />
+            </h3>
             <p className="text-3xl font-bold text-gray-900 mt-2">
               {metrics.averageEthicalScore.toFixed(1)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">0-100 scale</p>
+            <p className="text-xs text-gray-500 mt-1">0-100 ölçeği</p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
@@ -204,8 +211,9 @@ export default function DashboardPage() {
 
         {/* Risk Distribution */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Risk Distribution
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            Risk Dağılımı
+            <InfoTooltip text="Analizlerin risk seviyelerine göre sınıflandırılmış özetidir." />
           </h2>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
