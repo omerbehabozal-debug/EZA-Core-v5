@@ -8,7 +8,7 @@ import hashlib
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import Response
@@ -777,5 +777,366 @@ async def get_coverage_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Coverage summary could not be generated"
+        )
+
+
+@router.get("/audit/global/country-risk-summary")
+async def get_country_risk_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
+):
+    """
+    Global Country-Level Risk Distribution
+    
+    Returns aggregated risk metrics by country (derived from policy sets).
+    NO country names exposed - uses policy-based inference only.
+    """
+    is_regulator = current_user.get("is_regulator", False)
+    if not is_regulator:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Regulator access required"
+        )
+    
+    try:
+        # Helper: Map policy set to country (policy-based inference only)
+        def infer_country_from_policy(policy_set: Any) -> Optional[str]:
+            """Infer country from policy set - NO explicit country data"""
+            if not policy_set:
+                return None
+            
+            # Extract policy names from JSON
+            policies = []
+            if isinstance(policy_set, dict):
+                policies = policy_set.get('policies', []) or []
+            elif isinstance(policy_set, list):
+                policies = policy_set
+            
+            if not policies:
+                return None
+            
+            # Policy-based country inference (TRT, FINTECH, HEALTH -> Turkey)
+            policy_str = ' '.join(str(p).upper() for p in policies)
+            if 'TRT' in policy_str or 'FINTECH' in policy_str or 'HEALTH' in policy_str:
+                return "TR"  # Turkey (ISO code)
+            # Add more policy-to-country mappings as needed
+            # For now, only TR policies are identifiable
+            
+            return None
+        
+        # Get all IntentLogs with policy sets
+        intent_logs_query = select(IntentLog).where(IntentLog.policy_set.isnot(None))
+        intent_logs_result = await db.execute(intent_logs_query)
+        intent_logs = intent_logs_result.scalars().all()
+        
+        # Aggregate by inferred country
+        country_data: Dict[str, Dict[str, Any]] = {}
+        
+        for log in intent_logs:
+            country = infer_country_from_policy(log.policy_set)
+            if not country:
+                continue  # Skip if country cannot be inferred
+            
+            if country not in country_data:
+                country_data[country] = {
+                    "total_analyses": 0,
+                    "ethical_scores": [],
+                    "risk_distribution": {"low": 0, "medium": 0, "high": 0}
+                }
+            
+            country_data[country]["total_analyses"] += 1
+            
+            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            country_data[country]["ethical_scores"].append(ethical_score)
+            
+            # Risk distribution
+            if ethical_score < 50:
+                country_data[country]["risk_distribution"]["high"] += 1
+            elif ethical_score < 80:
+                country_data[country]["risk_distribution"]["medium"] += 1
+            else:
+                country_data[country]["risk_distribution"]["low"] += 1
+        
+        # Calculate averages and normalize
+        country_summary = []
+        for country_code, data in country_data.items():
+            avg_ethical = sum(data["ethical_scores"]) / len(data["ethical_scores"]) if data["ethical_scores"] else 0
+            
+            # Normalize analysis volume (relative to max)
+            max_analyses = max((d["total_analyses"] for d in country_data.values()), default=1)
+            normalized_volume = (data["total_analyses"] / max_analyses) * 100 if max_analyses > 0 else 0
+            
+            country_summary.append({
+                "country_code": country_code,  # ISO code only, NO country name
+                "average_ethical_index": round(avg_ethical, 1),
+                "risk_distribution": data["risk_distribution"],
+                "normalized_analysis_volume": round(normalized_volume, 1),
+                "total_analyses": data["total_analyses"]
+            })
+        
+        # Sort by total analyses (descending)
+        country_summary.sort(key=lambda x: x["total_analyses"], reverse=True)
+        
+        return {
+            "ok": True,
+            "countries": country_summary
+        }
+    
+    except Exception as e:
+        logger.error(f"[Global] Error generating country risk summary: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Country risk summary could not be generated"
+        )
+
+
+@router.get("/audit/global/country-risk-trends")
+async def get_country_risk_trends(
+    days: int = Query(30, ge=7, le=365, description="Number of days for trend analysis"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
+):
+    """
+    Country Risk Trends Over Time
+    
+    Returns time-series risk data by country.
+    """
+    is_regulator = current_user.get("is_regulator", False)
+    if not is_regulator:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Regulator access required"
+        )
+    
+    try:
+        # Helper: Same country inference as above
+        def infer_country_from_policy(policy_set: Any) -> Optional[str]:
+            if not policy_set:
+                return None
+            policies = []
+            if isinstance(policy_set, dict):
+                policies = policy_set.get('policies', []) or []
+            elif isinstance(policy_set, list):
+                policies = policy_set
+            if not policies:
+                return None
+            policy_str = ' '.join(str(p).upper() for p in policies)
+            if 'TRT' in policy_str or 'FINTECH' in policy_str or 'HEALTH' in policy_str:
+                return "TR"
+            return None
+        
+        # Get IntentLogs within date range
+        from_date = datetime.utcnow() - timedelta(days=days)
+        intent_logs_query = select(IntentLog).where(
+            IntentLog.policy_set.isnot(None),
+            IntentLog.created_at >= from_date
+        )
+        intent_logs_result = await db.execute(intent_logs_query)
+        intent_logs = intent_logs_result.scalars().all()
+        
+        # Group by country and time period (daily)
+        trends: Dict[str, Dict[str, List[float]]] = {}  # country -> date -> [scores]
+        
+        for log in intent_logs:
+            country = infer_country_from_policy(log.policy_set)
+            if not country:
+                continue
+            
+            # Get date (YYYY-MM-DD)
+            log_date = log.created_at.date().isoformat() if log.created_at else None
+            if not log_date:
+                continue
+            
+            if country not in trends:
+                trends[country] = {}
+            if log_date not in trends[country]:
+                trends[country][log_date] = []
+            
+            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            trends[country][log_date].append(ethical_score)
+        
+        # Calculate daily averages
+        country_trends = []
+        for country_code, date_scores in trends.items():
+            daily_averages = []
+            for date, scores in sorted(date_scores.items()):
+                avg_score = sum(scores) / len(scores) if scores else 0
+                daily_averages.append({
+                    "date": date,
+                    "average_ethical_index": round(avg_score, 1),
+                    "sample_count": len(scores)
+                })
+            
+            country_trends.append({
+                "country_code": country_code,
+                "daily_averages": daily_averages
+            })
+        
+        # Calculate global average
+        all_scores = []
+        for log in intent_logs:
+            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            all_scores.append(ethical_score)
+        
+        global_avg = sum(all_scores) / len(all_scores) if all_scores else 0
+        
+        return {
+            "ok": True,
+            "countries": country_trends,
+            "global_average": round(global_avg, 1),
+            "period_days": days
+        }
+    
+    except Exception as e:
+        logger.error(f"[Global] Error generating country risk trends: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Country risk trends could not be generated"
+        )
+
+
+@router.get("/audit/global/country-patterns")
+async def get_country_patterns(
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(require_proxy_auth_production)
+):
+    """
+    Dominant Risk Patterns by Country
+    
+    Returns aggregated risk pattern analysis by country.
+    """
+    is_regulator = current_user.get("is_regulator", False)
+    if not is_regulator:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Regulator access required"
+        )
+    
+    try:
+        # Helper: Same country inference
+        def infer_country_from_policy(policy_set: Any) -> Optional[str]:
+            if not policy_set:
+                return None
+            policies = []
+            if isinstance(policy_set, dict):
+                policies = policy_set.get('policies', []) or []
+            elif isinstance(policy_set, list):
+                policies = policy_set
+            if not policies:
+                return None
+            policy_str = ' '.join(str(p).upper() for p in policies)
+            if 'TRT' in policy_str or 'FINTECH' in policy_str or 'HEALTH' in policy_str:
+                return "TR"
+            return None
+        
+        # Helper: Extract dominant risk pattern from flags
+        def get_dominant_risk_pattern(flags: Any) -> str:
+            """Extract dominant risk pattern category from flags"""
+            if not flags:
+                return "Unknown"
+            
+            flag_list = []
+            if isinstance(flags, dict):
+                flag_list = flags.get('flags', []) or flags.get('risk_flags_severity', []) or []
+            elif isinstance(flags, list):
+                flag_list = flags
+            
+            if not flag_list:
+                return "Unknown"
+            
+            # Count risk pattern categories
+            pattern_counts: Dict[str, int] = {}
+            for flag in flag_list:
+                flag_name = ""
+                if isinstance(flag, dict):
+                    flag_name = flag.get('flag', '') or flag.get('type', '')
+                elif isinstance(flag, str):
+                    flag_name = flag
+                
+                flag_lower = flag_name.lower()
+                # Categorize flags
+                if 'manipulation' in flag_lower or 'deception' in flag_lower:
+                    pattern_counts['Manipulation'] = pattern_counts.get('Manipulation', 0) + 1
+                elif 'legal' in flag_lower or 'compliance' in flag_lower:
+                    pattern_counts['Legal Risk'] = pattern_counts.get('Legal Risk', 0) + 1
+                elif 'bias' in flag_lower or 'discrimination' in flag_lower:
+                    pattern_counts['Bias'] = pattern_counts.get('Bias', 0) + 1
+                elif 'harm' in flag_lower or 'violence' in flag_lower:
+                    pattern_counts['Harm'] = pattern_counts.get('Harm', 0) + 1
+                else:
+                    pattern_counts['Other'] = pattern_counts.get('Other', 0) + 1
+            
+            if not pattern_counts:
+                return "Unknown"
+            
+            return max(pattern_counts.items(), key=lambda x: x[1])[0]
+        
+        # Get IntentLogs with flags
+        intent_logs_query = select(IntentLog).where(IntentLog.flags.isnot(None))
+        intent_logs_result = await db.execute(intent_logs_query)
+        intent_logs = intent_logs_result.scalars().all()
+        
+        # Aggregate by country
+        country_patterns: Dict[str, Dict[str, Any]] = {}
+        
+        for log in intent_logs:
+            country = infer_country_from_policy(log.policy_set)
+            if not country:
+                continue
+            
+            if country not in country_patterns:
+                country_patterns[country] = {
+                    "dominant_pattern": "",
+                    "pattern_counts": {},
+                    "trend_scores": []  # For trend direction
+                }
+            
+            # Get dominant pattern
+            dominant = get_dominant_risk_pattern(log.flags)
+            country_patterns[country]["pattern_counts"][dominant] = country_patterns[country]["pattern_counts"].get(dominant, 0) + 1
+            
+            # Track ethical scores for trend
+            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            country_patterns[country]["trend_scores"].append(ethical_score)
+        
+        # Calculate dominant pattern and trend direction
+        country_summary = []
+        for country_code, data in country_patterns.items():
+            # Dominant pattern
+            if data["pattern_counts"]:
+                dominant = max(data["pattern_counts"].items(), key=lambda x: x[1])[0]
+            else:
+                dominant = "Unknown"
+            
+            # Trend direction (comparing recent vs older scores)
+            trend_scores = data["trend_scores"]
+            if len(trend_scores) >= 10:
+                recent_avg = sum(trend_scores[-10:]) / 10
+                older_avg = sum(trend_scores[:10]) / 10
+                if recent_avg < older_avg - 5:
+                    trend = "Decreasing"
+                elif recent_avg > older_avg + 5:
+                    trend = "Increasing"
+                else:
+                    trend = "Stable"
+            else:
+                trend = "Insufficient Data"
+            
+            country_summary.append({
+                "country_code": country_code,
+                "dominant_risk_pattern": dominant,
+                "trend_direction": trend
+            })
+        
+        return {
+            "ok": True,
+            "countries": country_summary
+        }
+    
+    except Exception as e:
+        logger.error(f"[Global] Error generating country patterns: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Country patterns could not be generated"
         )
 

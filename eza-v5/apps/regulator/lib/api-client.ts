@@ -191,3 +191,41 @@ export interface AuditSearchResponse {
   results: AuditLogEntry[];
 }
 
+export interface CountryRiskSummary {
+  ok: boolean;
+  countries: Array<{
+    country_code: string;
+    average_ethical_index: number;
+    risk_distribution: {
+      low: number;
+      medium: number;
+      high: number;
+    };
+    normalized_analysis_volume: number;
+    total_analyses: number;
+  }>;
+}
+
+export interface CountryRiskTrends {
+  ok: boolean;
+  countries: Array<{
+    country_code: string;
+    daily_averages: Array<{
+      date: string;
+      average_ethical_index: number;
+      sample_count: number;
+    }>;
+  }>;
+  global_average: number;
+  period_days: number;
+}
+
+export interface CountryPatterns {
+  ok: boolean;
+  countries: Array<{
+    country_code: string;
+    dominant_risk_pattern: string;
+    trend_direction: 'Increasing' | 'Stable' | 'Decreasing' | 'Insufficient Data';
+  }>;
+}
+

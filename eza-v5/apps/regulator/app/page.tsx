@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { RegulatorLayout } from '@/components/RegulatorLayout';
 import { InfoTooltip } from '@/components/InfoTooltip';
-import { apiClient, AuditLogEntry, CoverageSummary } from '@/lib/api-client';
+import { apiClient, AuditLogEntry, CoverageSummary, CountryRiskSummary, CountryRiskTrends, CountryPatterns } from '@/lib/api-client';
 import { maskOrganizationId } from '@/lib/organization-mask';
 import { useRegulatorAuth } from '@/lib/auth-guard';
 
@@ -40,6 +40,10 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [coverageData, setCoverageData] = useState<CoverageData | null>(null);
   const [loadingCoverage, setLoadingCoverage] = useState(true);
+  const [countryRiskSummary, setCountryRiskSummary] = useState<CountryRiskSummary | null>(null);
+  const [countryTrends, setCountryTrends] = useState<CountryRiskTrends | null>(null);
+  const [countryPatterns, setCountryPatterns] = useState<CountryPatterns | null>(null);
+  const [loadingCountryData, setLoadingCountryData] = useState(true);
 
   useEffect(() => {
     if (!isAuthorized || loading) return;
@@ -153,6 +157,30 @@ export default function DashboardPage() {
     };
     
     fetchCoverage();
+    
+    // Fetch country-level analytics
+    const fetchCountryData = async () => {
+      try {
+        setLoadingCountryData(true);
+        
+        const [summary, trends, patterns] = await Promise.all([
+          apiClient.get<CountryRiskSummary>('/api/proxy/audit/global/country-risk-summary').catch(() => null),
+          apiClient.get<CountryRiskTrends>('/api/proxy/audit/global/country-risk-trends?days=30').catch(() => null),
+          apiClient.get<CountryPatterns>('/api/proxy/audit/global/country-patterns').catch(() => null),
+        ]);
+        
+        if (summary?.ok) setCountryRiskSummary(summary);
+        if (trends?.ok) setCountryTrends(trends);
+        if (patterns?.ok) setCountryPatterns(patterns);
+      } catch (err) {
+        console.error('Error fetching country data:', err);
+        // Don't set error - country data is optional
+      } finally {
+        setLoadingCountryData(false);
+      }
+    };
+    
+    fetchCountryData();
   }, [isAuthorized, loading]);
 
   if (loading || !isAuthorized) {
@@ -201,8 +229,17 @@ export default function DashboardPage() {
   return (
     <RegulatorLayout>
       <div className="space-y-6">
+        {/* Global Context Statement - MANDATORY */}
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+          <p className="text-sm text-blue-900 leading-relaxed">
+            <strong>Global Gözetim Katmanı:</strong> Bu panel, EZA altyapısının global davranışsal gözlem katmanını temsil eder.
+            Burada gösterilen göstergeler, ülkeler arasında toplulaştırılmış ve anonimleştirilmiş kalıpları yansıtır.
+            Ulusal düzenleyiciler, bu global katmanın üzerine inşa edilmiş, kapsam-spesifik özel paneller üzerinde çalışır.
+          </p>
+        </div>
+
         <h1 className="text-2xl font-bold text-gray-900 flex items-center" translate="no">
-          Kontrol Paneli
+          Global Kontrol Paneli
           <InfoTooltip text="Bu ekran, sistem genelindeki analiz hacmini ve risk dağılımını özetler. İçerik veya bireysel analiz detayları gösterilmez." />
         </h1>
 
@@ -354,6 +391,127 @@ export default function DashboardPage() {
                 Kaynak kimlikleri, içerik ve sistem özel detaylar kasıtlı olarak hariç tutulmuştur.
                 Panel kapsam alanını yansıtır, pazar temsili veya satıcı atfı değildir.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Global Behavioral Risk Distribution (Country-Level) */}
+        {countryRiskSummary && countryRiskSummary.countries.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 border-t-2 border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">
+              Global Davranışsal Risk Dağılımı (Ülke Bazlı)
+            </h2>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Ülke Kodu</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Ortalama Etik İndeks</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Düşük Risk</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Orta Risk</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Yüksek Risk</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Normalize Analiz Hacmi</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Toplam Analiz</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {countryRiskSummary.countries.map((country) => (
+                    <tr key={country.country_code} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 font-mono text-gray-900">{country.country_code}</td>
+                      <td className="py-3 px-4 text-right text-gray-900">{country.average_ethical_index.toFixed(1)}</td>
+                      <td className="py-3 px-4 text-right text-green-600">{country.risk_distribution.low}</td>
+                      <td className="py-3 px-4 text-right text-yellow-600">{country.risk_distribution.medium}</td>
+                      <td className="py-3 px-4 text-right text-red-600">{country.risk_distribution.high}</td>
+                      <td className="py-3 px-4 text-right text-gray-700">{country.normalized_analysis_volume.toFixed(1)}%</td>
+                      <td className="py-3 px-4 text-right text-gray-900">{country.total_analyses}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Country vs Time - Risk Trend Analysis */}
+        {countryTrends && countryTrends.countries.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 border-t-2 border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">
+              Davranışsal Risk Trendleri (Ülke Bazlı)
+            </h2>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">
+                Son {countryTrends.period_days} gün - Global Ortalama: {countryTrends.global_average.toFixed(1)}
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              {countryTrends.countries.map((country) => (
+                <div key={country.country_code} className="border border-gray-200 rounded p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2 font-mono">
+                    {country.country_code}
+                  </h3>
+                  <div className="flex items-end gap-1 h-32">
+                    {country.daily_averages.map((day, idx) => {
+                      const height = (day.average_ethical_index / 100) * 100;
+                      return (
+                        <div
+                          key={idx}
+                          className="flex-1 bg-blue-500 rounded-t hover:bg-blue-600 transition-colors"
+                          style={{ height: `${height}%` }}
+                          title={`${day.date}: ${day.average_ethical_index.toFixed(1)} (${day.sample_count} örnek)`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    {country.daily_averages.length} günlük veri noktası
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Cross-Country Risk Pattern Comparison */}
+        {countryPatterns && countryPatterns.countries.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 border-t-2 border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">
+              Ülkelere Göre Baskın Risk Kalıpları
+            </h2>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Ülke Kodu</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Baskın Risk Türü</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Trend Yönü</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {countryPatterns.countries.map((country) => {
+                    const trendColor = 
+                      country.trend_direction === 'Increasing' ? 'text-red-600' :
+                      country.trend_direction === 'Decreasing' ? 'text-green-600' :
+                      'text-gray-600';
+                    
+                    return (
+                      <tr key={country.country_code} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 font-mono text-gray-900">{country.country_code}</td>
+                        <td className="py-3 px-4 text-gray-700">{country.dominant_risk_pattern}</td>
+                        <td className={`py-3 px-4 ${trendColor}`}>
+                          {country.trend_direction === 'Increasing' ? '↑ Artan' :
+                           country.trend_direction === 'Decreasing' ? '↓ Azalan' :
+                           country.trend_direction === 'Stable' ? '→ Stabil' :
+                           '? Yetersiz Veri'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
