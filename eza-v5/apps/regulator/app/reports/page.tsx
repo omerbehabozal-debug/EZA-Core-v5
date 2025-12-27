@@ -94,7 +94,7 @@ export default function ReportsPage() {
     <RegulatorLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center" translate="no">
             Raporlar
             <InfoTooltip text="Bu raporlar sistemin zaman içindeki risk davranışını özetler. Tekil içerik veya aktör detayları sunmaz." />
           </h1>

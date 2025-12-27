@@ -166,7 +166,7 @@ export default function DashboardPage() {
   return (
     <RegulatorLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center" translate="no">
           Kontrol Paneli
           <InfoTooltip text="Bu ekran, sistem genelindeki analiz hacmini ve risk dağılımını özetler. İçerik veya bireysel analiz detayları gösterilmez." />
         </h1>

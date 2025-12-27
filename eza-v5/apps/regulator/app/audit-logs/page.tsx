@@ -85,7 +85,7 @@ export default function AuditLogsPage() {
   return (
     <RegulatorLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center" translate="no">
           Denetim Kayıtları
           <InfoTooltip text="Bu kayıtlar analiz süreçlerine ait meta verileri gösterir. İçerik, prompt veya çıktı yer almaz." />
         </h1>

@@ -40,6 +40,7 @@ export function RegulatorLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setHelpModalOpen(true)}
+                translate="no"
                 className="text-sm text-gray-600 hover:text-gray-800 flex items-center space-x-1"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -54,7 +55,8 @@ export function RegulatorLayout({ children }: { children: React.ReactNode }) {
               )}
               <button
                 onClick={logout}
-                className="text-sm text-red-600 hover:text-red-800 whitespace-nowrap px-2 py-1"
+                translate="no"
+                className="text-sm text-red-600 hover:text-red-800 whitespace-nowrap px-3 py-1.5 min-w-[80px]"
               >
                 Çıkış Yap
               </button>
@@ -73,6 +75,7 @@ export function RegulatorLayout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  translate="no"
                   className={`
                     py-4 px-1 border-b-2 font-medium text-sm
                     ${
