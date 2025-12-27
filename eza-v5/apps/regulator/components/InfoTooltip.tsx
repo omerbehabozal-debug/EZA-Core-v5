@@ -1,29 +1,129 @@
 /**
  * Info Tooltip Component
  * 
- * Non-intrusive tooltip for micro-explanations
+ * Premium non-intrusive tooltip for micro-explanations
  * Uses ⓘ icon with hover/click tooltip
+ * Prevents cursor collision with smart positioning
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface InfoTooltipProps {
   text: string;
   className?: string;
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
 }
 
-export function InfoTooltip({ text, className = '' }: InfoTooltipProps) {
+export function InfoTooltip({ 
+  text, 
+  className = '',
+  position = 'auto'
+}: InfoTooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState<'top' | 'bottom' | 'left' | 'right'>('bottom');
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Calculate optimal position to avoid cursor collision
+  useEffect(() => {
+    if (!isOpen || position !== 'auto' || !buttonRef.current) return;
+
+    // Use requestAnimationFrame to ensure tooltip is rendered
+    requestAnimationFrame(() => {
+      if (!tooltipRef.current || !buttonRef.current) return;
+
+      const buttonRect = buttonRef.current.getBoundingClientRect();
+      const tooltipRect = tooltipRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      // Check available space in each direction (with safe margin for cursor)
+      const spaceTop = buttonRect.top;
+      const spaceBottom = viewportHeight - buttonRect.bottom;
+      const spaceLeft = buttonRect.left;
+      const spaceRight = viewportWidth - buttonRect.right;
+
+      // Prefer bottom (most natural), but ensure enough space and cursor won't collide
+      // Add extra margin (24px) to prevent cursor collision
+      if (spaceBottom >= tooltipRect.height + 24 && spaceBottom > spaceTop) {
+        setTooltipPosition('bottom');
+      } else if (spaceTop >= tooltipRect.height + 24) {
+        setTooltipPosition('top');
+      } else if (spaceRight >= tooltipRect.width + 24) {
+        setTooltipPosition('right');
+      } else if (spaceLeft >= tooltipRect.width + 24) {
+        setTooltipPosition('left');
+      } else {
+        // Fallback to bottom with offset
+        setTooltipPosition('bottom');
+      }
+    });
+  }, [isOpen, position]);
+
+  const getTooltipClasses = () => {
+    const baseClasses = 'absolute z-[9999] px-4 py-3 text-sm text-gray-50 bg-gradient-to-br from-gray-800 via-gray-900 to-gray-800 rounded-xl shadow-2xl max-w-xs border border-gray-700/50 backdrop-blur-sm transition-all duration-300 ease-out will-change-[opacity,transform]';
+    
+    const positionClasses = {
+      bottom: 'top-full mt-4 left-1/2 -translate-x-1/2',
+      top: 'bottom-full mb-4 left-1/2 -translate-x-1/2',
+      right: 'left-full ml-4 top-1/2 -translate-y-1/2',
+      left: 'right-full mr-4 top-1/2 -translate-y-1/2',
+    };
+
+    const arrowClasses = {
+      bottom: 'absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-gradient-to-br from-gray-800 to-gray-900 border-l border-t border-gray-700/50 transform rotate-45',
+      top: 'absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-gradient-to-br from-gray-800 to-gray-900 border-r border-b border-gray-700/50 transform rotate-45',
+      right: 'absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-gradient-to-br from-gray-800 to-gray-900 border-l border-b border-gray-700/50 transform rotate-45',
+      left: 'absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-gradient-to-br from-gray-800 to-gray-900 border-r border-t border-gray-700/50 transform rotate-45',
+    };
+
+    const finalPosition = position === 'auto' ? tooltipPosition : position;
+
+    return {
+      container: `${baseClasses} ${positionClasses[finalPosition]} ${isOpen ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'}`,
+      arrow: arrowClasses[finalPosition],
+    };
+  };
+
+  const handleMouseEnter = useCallback(() => {
+    // Clear any pending close timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setIsOpen(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    // Small delay to allow cursor to move to tooltip
+    timeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+      timeoutRef.current = null;
+    }, 200);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const tooltipClasses = getTooltipClasses();
 
   return (
     <span className={`inline-flex items-center relative ${className}`}>
       <button
+        ref={buttonRef}
         type="button"
-        className="inline-flex items-center justify-center w-4 h-4 ml-1 text-gray-400 hover:text-gray-600 focus:outline-none"
-        onMouseEnter={() => setIsOpen(true)}
-        onMouseLeave={() => setIsOpen(false)}
+        className="inline-flex items-center justify-center w-5 h-5 ml-1.5 text-gray-400 hover:text-regulator-primary focus:outline-none transition-colors duration-200 rounded-full hover:bg-gray-100 focus:ring-2 focus:ring-regulator-primary focus:ring-offset-1"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Bilgi"
       >
@@ -41,9 +141,17 @@ export function InfoTooltip({ text, className = '' }: InfoTooltipProps) {
         </svg>
       </button>
       {isOpen && (
-        <div className="absolute z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg max-w-xs mt-6 left-0">
-          <p className="whitespace-normal">{text}</p>
-          <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+        <div
+          ref={tooltipRef}
+          className={tooltipClasses.container}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          role="tooltip"
+        >
+          <div className={tooltipClasses.arrow}></div>
+          <p className="whitespace-normal leading-relaxed text-gray-50 font-normal">
+            {text}
+          </p>
         </div>
       )}
     </span>
