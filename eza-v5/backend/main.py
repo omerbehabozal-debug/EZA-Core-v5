@@ -232,13 +232,14 @@ app.include_router(production_auth.router, prefix="/api/auth", tags=["Production
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])
 from backend.routers import proxy_corporate, proxy_websocket, proxy_audit, proxy_pipeline, proxy_analysis, organization, policy_management, usage_analytics, billing, sla_monitoring, telemetry_websocket, alerting
-from backend.routers import rtuk_endpoints, sanayi_endpoints, finance_endpoints
+from backend.routers import rtuk_endpoints, sanayi_endpoints, finance_endpoints, health_endpoints
 app.include_router(proxy_corporate.router, prefix="/api/proxy", tags=["Proxy-Corporate"])
 app.include_router(proxy_analysis.router, prefix="/api/proxy/analysis", tags=["Proxy-Analysis"])
 app.include_router(proxy_audit.router, prefix="/api/proxy", tags=["Proxy-Audit"])
 app.include_router(rtuk_endpoints.router, prefix="/api/proxy", tags=["RTÜK"])
 app.include_router(sanayi_endpoints.router, prefix="/api/proxy", tags=["Sanayi Bakanlığı"])
 app.include_router(finance_endpoints.router, prefix="/api/proxy", tags=["BDDK/SPK"])
+app.include_router(health_endpoints.router, prefix="/api/proxy", tags=["Sağlık Bakanlığı"])
 app.include_router(proxy_pipeline.router, prefix="/api/proxy", tags=["Proxy-Pipeline"])
 app.include_router(proxy_websocket.router, tags=["Proxy-WebSocket"])
 
