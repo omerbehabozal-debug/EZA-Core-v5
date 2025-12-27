@@ -717,19 +717,28 @@ async def get_coverage_summary(
         all_unique_sources = set(impact_sources + telemetry_sources)
         independent_sources = len(all_unique_sources)
         
-        # Get all source systems for AI system type mapping (prefer ImpactEvent, fallback to TelemetryEvent)
-        source_systems = impact_sources if impact_sources else telemetry_sources
-        
+        # Map all unique sources to AI system types
         ai_system_types_map: Dict[str, int] = {}
-        # Map all source systems to AI types
-        for source_system in source_systems:
-            ai_type = map_to_ai_system_type(source_system)
+        
+        # Map all unique sources (both ImpactEvent and TelemetryEvent) to AI types
+        for source in all_unique_sources:
+            ai_type = map_to_ai_system_type(source)
             ai_system_types_map[ai_type] = ai_system_types_map.get(ai_type, 0) + 1
         
-        # Also map TelemetryEvent sources to AI types for completeness
-        for telemetry_source in telemetry_sources:
-            ai_type = map_to_ai_system_type(telemetry_source)
-            ai_system_types_map[ai_type] = ai_system_types_map.get(ai_type, 0) + 1
+        # If no data exists yet, assume at least Text Generation Systems (proxy does text generation)
+        if len(ai_system_types_map) == 0:
+            # Check if there's any data at all (IntentLog or TelemetryEvent)
+            intent_count_query = select(func.count(IntentLog.id))
+            intent_count_result = await db.execute(intent_count_query)
+            intent_count = intent_count_result.scalar() or 0
+            
+            telemetry_count_query = select(func.count(TelemetryEvent.id))
+            telemetry_count_result = await db.execute(telemetry_count_query)
+            telemetry_count = telemetry_count_result.scalar() or 0
+            
+            # If there's any analysis data, assume Text Generation Systems
+            if intent_count > 0 or telemetry_count > 0:
+                ai_system_types_map["Text Generation Systems"] = 1
         
         # Count distinct AI system types
         ai_system_types_count = len(ai_system_types_map)
