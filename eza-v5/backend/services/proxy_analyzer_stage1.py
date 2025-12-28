@@ -120,15 +120,23 @@ async def analyze_paragraph_deep(
 async def analyze_paragraph_light(
     paragraph_idx: int,
     paragraph_text: str,
-    stage0_result: Dict[str, Any]
+    stage0_result: Dict[str, Any],
+    rate_limit_exceeded: bool = False  # NEW: Indicates if light mode is due to rate limit
 ) -> Dict[str, Any]:
     """
-    Light mode analysis for low-risk paragraphs
+    Light mode analysis for low-risk paragraphs or rate limit scenarios
     Uses heuristic scoring based on Stage-0 results, no LLM call
     """
     # Get estimated score from Stage-0
     estimated_range = stage0_result.get("estimated_score_range", [70, 90])
     avg_score = sum(estimated_range) // 2
+    risk_band = stage0_result.get("risk_band", "low")
+    
+    # Generate appropriate summary based on context
+    if rate_limit_exceeded:
+        summary = f"Hızlı tarama: {risk_band} risk seviyesi tespit edildi. Sistem limitleri nedeniyle derin analiz uygulanmadı."
+    else:
+        summary = f"Hızlı tarama: {risk_band} risk seviyesi tespit edildi. Düşük risk nedeniyle derin analiz gerekli görülmedi."
     
     # Light mode: minimal analysis, no deep reasoning
     return {
@@ -142,7 +150,7 @@ async def analyze_paragraph_light(
         "flags": [],
         "risk_locations": [],
         "analysis_level": "light",
-        "summary": "Düşük risk tespit edildi – derin analiz gerekli görülmedi"
+        "summary": summary
     }
 
 
@@ -153,7 +161,8 @@ async def stage1_targeted_deep_analysis(
     policies: Optional[List[str]] = None,
     provider: str = "openai",
     role: str = "proxy",  # "proxy_lite" or "proxy"
-    analyze_all_paragraphs: bool = False  # If True, analyze all paragraphs regardless of risk detection
+    analyze_all_paragraphs: bool = False,  # If True, analyze all paragraphs regardless of risk detection
+    mode: str = "deep"  # NEW: "light" or "deep". Light = heuristic, Deep = LLM-based
 ) -> Dict[str, Any]:
     """
     Stage-1: Targeted Deep Analysis (Premium Unified Flow)
@@ -178,14 +187,17 @@ async def stage1_targeted_deep_analysis(
     risk_band = stage0_result.get("risk_band", "low")
     
     # PREMIUM FLOW: Stage-1 ALWAYS runs
-    if risk_band == "low":
-        # LIGHT MODE: Fast heuristic analysis for all paragraphs
-        logger.info(f"[Stage-1] Light mode - analyzing all {len(paragraphs)} paragraphs with heuristic scoring")
-        mode = "light"
+    # Use explicit mode parameter (from rate limit or risk_band)
+    # Check if light mode is due to rate limit (passed via stage0_result metadata)
+    rate_limit_exceeded = stage0_result.get("_rate_limit_exceeded", False)
+    
+    if mode == "light":
+        # LIGHT MODE: Fast heuristic analysis for all paragraphs (no LLM calls)
+        logger.info(f"[Stage-1] Light mode - analyzing all {len(paragraphs)} paragraphs with heuristic scoring (rate_limit_exceeded={rate_limit_exceeded})")
         
         paragraph_analyses = []
         for idx, para_text in enumerate(paragraphs):
-            light_analysis = await analyze_paragraph_light(idx, para_text, stage0_result)
+            light_analysis = await analyze_paragraph_light(idx, para_text, stage0_result, rate_limit_exceeded=rate_limit_exceeded)
             paragraph_analyses.append(light_analysis)
         
         all_flags = []
@@ -241,8 +253,8 @@ async def stage1_targeted_deep_analysis(
             all_risk_locations.extend(result.get("risk_locations", []))
     
     else:
-        # DEEP MODE: Analyze priority paragraphs only
-        mode = "deep"
+        # DEEP MODE: Analyze priority paragraphs only (LLM-based)
+        logger.info(f"[Stage-1] Deep mode - analyzing priority paragraphs (LLM-based)")
         priority_paragraphs = stage0_result.get("priority_paragraphs", [])
         if not priority_paragraphs:
             logger.info("[Stage-1] No priority paragraphs identified, analyzing first paragraph")

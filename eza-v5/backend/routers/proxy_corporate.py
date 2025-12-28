@@ -176,96 +176,46 @@ async def proxy_analyze(
         # Start timing for latency measurement
         start_time = time.time()
         
-        # Rate Limiter: Check before LLM calls
-        from backend.services.proxy_rate_limiter import check_rate_limit
-        from backend.infra.circuit_breaker import get_circuit_breaker, CircuitBreakerOpenError
-        
-        allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
-        if not allowed:
-            logger.warning(f"[Proxy] Rate limit exceeded for org_id={org_id}: {rate_limit_reason}")
-            # Return Stage-0 only (partial response) - but still create paragraphs from Stage-0
-            from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
-            from backend.services.proxy_analyzer import split_into_paragraphs
-            stage0_result = await stage0_fast_risk_scan(
-                content=request.content,
-                domain=request.domain,
-                provider=request.provider,
-                org_id=org_id
-            )
-            # Create paragraphs from Stage-0 (light analysis)
-            all_paragraphs = split_into_paragraphs(request.content)
-            if not all_paragraphs:
-                all_paragraphs = [request.content] if request.content.strip() else []
-            
-            estimated_range = stage0_result.get("estimated_score_range", [50, 70])
-            avg_score = sum(estimated_range) // 2
-            risk_band = stage0_result.get("risk_band", "low")
-            
-            # Create paragraph analyses with light mode
-            paragraph_analyses = []
-            for idx, para_text in enumerate(all_paragraphs):
-                paragraph_analyses.append({
-                    "paragraph_index": idx,
-                    "text": para_text,
-                    "ethical_index": avg_score,
-                    "compliance_score": avg_score + 5,
-                    "manipulation_score": avg_score - 5,
-                    "bias_score": avg_score,
-                    "legal_risk_score": avg_score + 3,
-                    "flags": [],
-                    "risk_locations": [],
-                    "analysis_level": "light",
-                    "summary": f"Hızlı tarama: {risk_band} risk seviyesi tespit edildi."
-                })
-            
-            return ProxyAnalyzeResponse(
-                ok=True,
-                overall_scores={
-                    "ethical_index": avg_score,
-                    "compliance_score": avg_score + 10,
-                    "manipulation_score": avg_score - 5,
-                    "bias_score": avg_score,
-                    "legal_risk_score": avg_score + 5,
-                },
-                paragraphs=[
-                    ParagraphAnalysis(
-                        paragraph_index=para.get("paragraph_index", 0),
-                        text=para.get("text", ""),
-                        ethical_index=para.get("ethical_index"),
-                        compliance_score=para.get("compliance_score"),
-                        manipulation_score=para.get("manipulation_score"),
-                        bias_score=para.get("bias_score"),
-                        legal_risk_score=para.get("legal_risk_score"),
-                        flags=para.get("flags", []),
-                        risk_locations=para.get("risk_locations", []),
-                        analysis_level=para.get("analysis_level"),
-                        summary=para.get("summary")
-                    ) for para in paragraph_analyses
-                ],
-                flags=[],
-                risk_locations=[],
-                report=None,
-                _staged_response={
-                    "stage0_immediate": {
-                        "status": "score_ready",
-                        "score": avg_score,
-                        "score_range": estimated_range,
-                        "risk_band": risk_band,
-                        "latency_ms": stage0_result.get("_stage0_latency_ms", 0)
-                    }
-                },
-                _score_kind="preliminary",
-                _partial=True
-            )
-        
         # Circuit Breaker: Check before Stage-1
+        from backend.infra.circuit_breaker import get_circuit_breaker, CircuitBreakerOpenError
         cb = get_circuit_breaker("proxy_analysis")
         circuit_breaker_open = False
+        
+        # STAGE-0: Always runs first (rate limit independent)
+        from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+        logger.info(f"[Proxy] Starting Stage-0 (rate limit independent, org_id={org_id})")
+        stage0_result = await stage0_fast_risk_scan(
+            content=request.content,
+            domain=request.domain,
+            provider=request.provider,
+            org_id=org_id
+        )
+        logger.info(f"[Proxy] Stage-0 completed: risk_band={stage0_result.get('risk_band', 'unknown')}")
+        
+        # Rate Limiter: Check AFTER Stage-0, BEFORE Stage-1
+        # This determines Stage-1 mode (light vs deep), but Stage-1 ALWAYS runs
+        from backend.services.proxy_rate_limiter import check_rate_limit
+        allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
+        
+        # Determine Stage-1 mode based on rate limit
+        if not allowed:
+            logger.info(f"[Proxy] Rate limit exceeded for org_id={org_id}: {rate_limit_reason}. Stage-1 will run in LIGHT mode.")
+            logger.info(f"[Proxy] Event: stage1_light_mode, reason: rate_limit_exceeded, analysis_id={analysis_id}")
+            stage1_mode = "light"
+            # Mark rate limit in stage0_result for Stage-1 to use
+            stage0_result["_rate_limit_exceeded"] = True
+        else:
+            # Normal flow: use risk_band to determine mode
+            risk_band = stage0_result.get("risk_band", "low")
+            stage1_mode = "light" if risk_band == "low" else "deep"
+            logger.info(f"[Proxy] Rate limit OK. Stage-1 will run in {stage1_mode.upper()} mode (risk_band={risk_band})")
+            stage0_result["_rate_limit_exceeded"] = False
         
         try:
             # Deep analysis with 3-stage gated pipeline
             # Role: "proxy" for full Proxy, "proxy_lite" for Proxy Lite
-            logger.info(f"[Proxy] Calling analyze_content_deep via circuit breaker (org_id={org_id})")
+            # CRITICAL: Stage-1 ALWAYS runs, only mode changes
+            logger.info(f"[Proxy] Calling analyze_content_deep via circuit breaker (org_id={org_id}, stage1_mode={stage1_mode})")
             analysis_result = await cb.call_async(
                 analyze_content_deep,
                 content=request.content,
@@ -274,7 +224,8 @@ async def proxy_analyze(
                 provider=request.provider,
                 role="proxy",  # Full Proxy - max 4 paragraphs in Stage-1 (or all if analyze_all_paragraphs=True)
                 org_id=org_id,
-                analyze_all_paragraphs=getattr(request, 'analyze_all_paragraphs', False)  # Analyze all paragraphs if requested
+                analyze_all_paragraphs=getattr(request, 'analyze_all_paragraphs', False),  # Analyze all paragraphs if requested
+                stage1_mode=stage1_mode  # NEW: Explicit mode control (light or deep)
             )
             logger.info(f"[Proxy] analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
         except CircuitBreakerOpenError:

@@ -513,7 +513,8 @@ async def analyze_content_deep(
     provider: str = "openai",
     role: str = "proxy",  # "proxy_lite" or "proxy"
     org_id: Optional[str] = None,  # Required for cache isolation
-    analyze_all_paragraphs: bool = False  # If True, analyze all paragraphs regardless of risk detection
+    analyze_all_paragraphs: bool = False,  # If True, analyze all paragraphs regardless of risk detection
+    stage1_mode: Optional[str] = None  # NEW: "light" or "deep". If None, auto-determined from risk_band
 ) -> Dict[str, Any]:
     """
     3-Stage Gated Pipeline Analysis
@@ -547,7 +548,12 @@ async def analyze_content_deep(
     logger.info(f"[Proxy] Stage-0 completed in {stage0_latency:.0f}ms: risk_band={risk_band}, priority_paragraphs={len(priority_paragraphs)}")
     
     # STAGE-1: Targeted Deep Analysis (PREMIUM FLOW: ALWAYS runs)
-    logger.info(f"[Proxy] Starting Stage-1 analysis (risk_band={risk_band})")
+    # Determine mode: explicit stage1_mode parameter OR auto-detect from risk_band
+    if stage1_mode is None:
+        # Auto-detect: low risk = light, medium/high = deep
+        stage1_mode = "light" if risk_band == "low" else "deep"
+    
+    logger.info(f"[Proxy] Starting Stage-1 analysis (risk_band={risk_band}, mode={stage1_mode})")
     try:
         stage1_result = await stage1_targeted_deep_analysis(
             content=content,
@@ -556,7 +562,8 @@ async def analyze_content_deep(
             policies=policies,
             provider=provider,
             role=role,
-            analyze_all_paragraphs=analyze_all_paragraphs
+            analyze_all_paragraphs=analyze_all_paragraphs,
+            mode=stage1_mode  # NEW: Explicit mode parameter
         )
         
         stage1_latency = stage1_result.get("_stage1_latency_ms", 0)
