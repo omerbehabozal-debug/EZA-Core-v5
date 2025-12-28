@@ -308,8 +308,17 @@ async def proxy_analyze(
         # Calculate latency
         latency_ms = (time.time() - start_time) * 1000
         
+        # ENFORCEMENT: Stage-1 must have run (response must include _stage1_status)
+        assert "_stage1_status" in analysis_result, "[ENFORCEMENT] Analysis result must include _stage1_status (Stage-1 must have run)"
+        assert analysis_result["_stage1_status"]["status"] == "done", "[ENFORCEMENT] Stage-1 status must be 'done'"
+        assert analysis_result["_stage1_status"]["mode"] in ["light", "deep"], f"[ENFORCEMENT] Stage-1 mode must be 'light' or 'deep', got: {analysis_result['_stage1_status']['mode']}"
+        
+        # ENFORCEMENT: paragraphs must never be empty
+        paragraphs_count = len(analysis_result.get("paragraphs", []))
+        assert paragraphs_count > 0, f"[ENFORCEMENT] Analysis result paragraphs must not be empty. Got {paragraphs_count} paragraphs."
+        
         # DEBUG: Log analysis result structure
-        logger.info(f"[Proxy] Analysis result structure: paragraphs_count={len(analysis_result.get('paragraphs', []))}, has_paragraphs_key={'paragraphs' in analysis_result}, keys={list(analysis_result.keys())}")
+        logger.info(f"[Proxy] Analysis result structure: paragraphs_count={paragraphs_count}, has_paragraphs_key={'paragraphs' in analysis_result}, keys={list(analysis_result.keys())}")
         
         # PRIMARY RISK PATTERN & VIOLATION COLLAPSING
         # NOTE: risk_locations are already collapsed by narrative intent in group_violations()

@@ -554,6 +554,11 @@ async def analyze_content_deep(
         stage1_mode = "light" if risk_band == "low" else "deep"
     
     logger.info(f"[Proxy] Starting Stage-1 analysis (risk_band={risk_band}, mode={stage1_mode})")
+    
+    # ENFORCEMENT: Stage-1 MUST always run (never skipped)
+    # GUARDRAIL: Ensure stage1_mode is valid before calling
+    assert stage1_mode in ["light", "deep"], f"[ENFORCEMENT] stage1_mode must be 'light' or 'deep', got: {stage1_mode}"
+    
     try:
         stage1_result = await stage1_targeted_deep_analysis(
             content=content,
@@ -566,10 +571,18 @@ async def analyze_content_deep(
             mode=stage1_mode  # NEW: Explicit mode parameter
         )
         
+        # ENFORCEMENT: Stage-1 must have completed successfully
+        assert stage1_result is not None, "[ENFORCEMENT] Stage-1 result must not be None"
+        assert "_stage1_mode" in stage1_result, "[ENFORCEMENT] Stage-1 result must include _stage1_mode"
+        assert stage1_result["_stage1_mode"] in ["light", "deep"], f"[ENFORCEMENT] Stage-1 mode must be 'light' or 'deep', got: {stage1_result['_stage1_mode']}"
+        
         stage1_latency = stage1_result.get("_stage1_latency_ms", 0)
         paragraph_analyses = stage1_result.get("paragraph_analyses", [])
         all_flags = stage1_result.get("all_flags", [])
         all_risk_locations = stage1_result.get("all_risk_locations", [])
+        
+        # ENFORCEMENT: Stage-1 must produce paragraph analyses
+        assert len(paragraph_analyses) > 0, f"[ENFORCEMENT] Stage-1 must produce at least one paragraph analysis. Got {len(paragraph_analyses)} paragraphs."
         
         logger.info(f"[Proxy] Stage-1 completed in {stage1_latency:.0f}ms: analyzed {len(paragraph_analyses)} paragraphs, mode={stage1_result.get('_stage1_mode', 'unknown')}")
     except Exception as e:
@@ -738,7 +751,15 @@ async def analyze_content_deep(
     # Get Stage-1 mode
     stage1_mode = stage1_result.get("_stage1_mode", "deep")
     
-    return {
+    # ENFORCEMENT: Response contract validation
+    # GUARDRAIL 1: paragraphs must never be empty
+    assert len(paragraph_analyses) > 0, f"[ENFORCEMENT] paragraphs must not be empty. Got {len(paragraph_analyses)} paragraphs."
+    
+    # GUARDRAIL 2: Stage-1 must have run (status must be "done")
+    assert stage1_result.get("_stage1_mode") in ["light", "deep"], f"[ENFORCEMENT] Stage-1 must have run. Got mode: {stage1_result.get('_stage1_mode')}"
+    
+    # GUARDRAIL 3: Response contract must include _stage0_status and _stage1_status
+    response = {
         "overall_scores": {
             "ethical_index": int(round(overall_ethical)),
             "compliance_score": int(round(overall_compliance)),
@@ -765,4 +786,14 @@ async def analyze_content_deep(
             "total_latency_ms": total_latency_ms
         }
     }
+    
+    # ENFORCEMENT: Final response contract validation
+    assert "_stage0_status" in response, "[ENFORCEMENT] Response must include _stage0_status"
+    assert "_stage1_status" in response, "[ENFORCEMENT] Response must include _stage1_status"
+    assert response["_stage0_status"]["status"] == "done", "[ENFORCEMENT] Stage-0 status must be 'done'"
+    assert response["_stage1_status"]["status"] == "done", "[ENFORCEMENT] Stage-1 status must be 'done'"
+    assert response["_stage1_status"]["mode"] in ["light", "deep"], f"[ENFORCEMENT] Stage-1 mode must be 'light' or 'deep', got: {response['_stage1_status']['mode']}"
+    assert len(response["paragraphs"]) > 0, "[ENFORCEMENT] Response paragraphs must not be empty"
+    
+    return response
 

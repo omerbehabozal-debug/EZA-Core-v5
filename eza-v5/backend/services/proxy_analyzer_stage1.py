@@ -133,8 +133,9 @@ async def analyze_paragraph_light(
     risk_band = stage0_result.get("risk_band", "low")
     
     # Generate appropriate summary based on context
+    # ENFORCEMENT: Light mode summary must be fixed for rate limit scenarios
     if rate_limit_exceeded:
-        summary = f"Quick analysis applied due to system limits. Risk band: {risk_band}."
+        summary = "Quick analysis applied due to system limits"
     else:
         summary = f"Quick analysis: {risk_band} risk level detected. Deep analysis not required due to low risk."
     
@@ -198,23 +199,31 @@ async def stage1_targeted_deep_analysis(
     
     if mode == "light":
         # LIGHT MODE: Fast heuristic analysis for all paragraphs (no LLM calls)
+        # ENFORCEMENT: Light mode MUST NOT call LLM
         logger.info(f"[Stage-1] Light mode - analyzing all {len(paragraphs)} paragraphs with heuristic scoring (rate_limit_exceeded={rate_limit_exceeded})")
+        
+        # GUARDRAIL: Ensure no LLM calls in light mode
+        # This is enforced by using analyze_paragraph_light which does not call LLM
         
         paragraph_analyses = []
         for idx, para_text in enumerate(paragraphs):
             light_analysis = await analyze_paragraph_light(idx, para_text, stage0_result, rate_limit_exceeded=rate_limit_exceeded)
+            # ENFORCEMENT: Every paragraph must have analysis_level = "light"
+            assert light_analysis.get("analysis_level") == "light", f"[ENFORCEMENT] Light mode paragraph must have analysis_level='light', got: {light_analysis.get('analysis_level')}"
             paragraph_analyses.append(light_analysis)
         
         all_flags = []
         all_risk_locations = []
         
     elif analyze_all_paragraphs:
-        # DEEP MODE: Analyze all paragraphs
+        # DEEP MODE: Analyze all paragraphs (LLM-based)
+        # ENFORCEMENT: This branch only runs in deep mode
+        assert mode == "deep", f"[ENFORCEMENT] analyze_all_paragraphs branch must only run in deep mode, got: {mode}"
         logger.info(f"[Stage-1] Deep mode (all paragraphs) - analyzing all {len(paragraphs)} paragraphs")
-        mode = "deep"
         valid_paragraphs = [(idx, para_text) for idx, para_text in enumerate(paragraphs)]
         
         # Create tasks for bounded parallel execution
+        # ENFORCEMENT: analyze_paragraph_deep makes LLM calls - only call in deep mode
         tasks = [
             analyze_paragraph_deep(
                 paragraph_idx=idx,
@@ -259,6 +268,8 @@ async def stage1_targeted_deep_analysis(
     
     else:
         # DEEP MODE: Analyze priority paragraphs only (LLM-based)
+        # ENFORCEMENT: This branch only runs in deep mode
+        assert mode == "deep", f"[ENFORCEMENT] Priority paragraphs branch must only run in deep mode, got: {mode}"
         logger.info(f"[Stage-1] Deep mode - analyzing priority paragraphs (LLM-based)")
         priority_paragraphs = stage0_result.get("priority_paragraphs", [])
         if not priority_paragraphs:
