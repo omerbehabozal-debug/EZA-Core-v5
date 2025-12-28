@@ -99,6 +99,7 @@ class ProxyAnalyzeResponse(BaseModel):
     _score_kind: Optional[str] = "final"  # "preliminary" | "final" - for UI consistency
     _partial: bool = False  # True if response is partial (rate limit or circuit breaker)
     analysis_mode: Literal["fast", "pro"] = "fast"  # NEW: Analysis mode used for this request
+    ui_status_message: Optional[str] = None  # NEW: UI differentiation message (FAST vs PRO)
 
 
 class ProxyRewriteRequest(BaseModel):
@@ -119,6 +120,7 @@ class ProxyRewriteResponse(BaseModel):
     improvement: Optional[Dict[str, int]] = None
     provider: str = "EZA-Core"
     status_message: Optional[str] = None  # NEW: User-friendly message explaining rewrite result
+    rewrite_explanation: Optional[Dict[str, Any]] = None  # NEW: PRO mode only - internal explanation for org admin
 
 
 # ========== HELPER FUNCTIONS ==========
@@ -773,7 +775,8 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
             _staged_response=staged_response,
             _score_kind=score_kind,  # "preliminary" | "final"
             _partial=circuit_breaker_open,  # True if circuit breaker opened
-            analysis_mode=analysis_mode  # NEW: Analysis mode used (fast | pro)
+            analysis_mode=analysis_mode,  # NEW: Analysis mode used (fast | pro)
+            ui_status_message="Analysis completed" if analysis_mode == "fast" else "Professional deep analysis completed",  # NEW: UI differentiation
             provider="EZA-Core",
             analysis_id=analysis_id,
             risk_flags_severity=[
@@ -887,7 +890,8 @@ async def proxy_rewrite(
             policies=request.policies,
             domain=request.domain,
             provider=request.provider,
-            max_spans=5  # Maximum 5 spans to rewrite
+            max_spans=5,  # Maximum 5 spans to rewrite
+            analysis_mode=analysis_mode  # NEW: Pass analysis_mode for risk-aware routing
         )
         
         rewritten_content = rewrite_result["rewritten_content"]
@@ -1050,7 +1054,8 @@ async def proxy_rewrite(
             new_scores=new_scores,
             improvement=improvement,
             provider="EZA-Core",
-            status_message=status_message
+            status_message=status_message,
+            rewrite_explanation=rewrite_result.get("rewrite_explanation") if analysis_mode == "pro" else None  # NEW: PRO mode only - internal explanation for org admin
         )
         
     except HTTPException:

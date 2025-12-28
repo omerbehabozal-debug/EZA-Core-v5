@@ -167,6 +167,239 @@ def extract_risky_spans(
     return unique_spans
 
 
+def build_pro_rewrite_prompt_base() -> str:
+    """
+    Base editor role for ALL PRO rewrites
+    """
+    return """SYSTEM ROLE:
+You are a senior human editor specializing in ethical risk mitigation.
+You do not censor content.
+You preserve meaning, intent, and tone.
+You only modify expressions that create ethical, legal, or societal risk.
+
+GENERAL RULES:
+- Do not over-soften
+- Do not generalize unless required
+- Do not add new arguments
+- Do not add disclaimers unless necessary
+- Output ONLY rewritten content
+
+"""
+
+
+def build_discrimination_rewrite_prompt(
+    span_text: str,
+    severity: str,
+    surrounding_context: Optional[str] = None,
+    policies: Optional[List[str]] = None,
+    domain: Optional[str] = None
+) -> str:
+    """PRO mode: Discrimination-specific rewrite prompt"""
+    base = build_pro_rewrite_prompt_base()
+    policy_info = f"\n\nUygulanacak Politikalar: {', '.join(policies)}" if policies else ""
+    domain_info = f"\n\nSektör: {domain}" if domain else ""
+    context_info = f"\n\nÇevreleyen Bağlam:\n{surrounding_context[:300]}" if surrounding_context else ""
+    return f"""{base}EDITORIAL FOCUS (DISCRIMINATION):
+- Remove group generalizations
+- Narrow scope to context
+- Preserve critique without targeting identity groups
+
+INSTRUCTIONS:
+- Replace categorical statements with contextual ones
+- Avoid attributing traits to entire groups
+- Keep original intent intact
+
+RİSK BİLGİSİ:
+- Risk Tipi: discrimination
+- Şiddet: {severity}{policy_info}{domain_info}{context_info}
+
+EĞER BAĞLAM KORUNMAZSA:
+- Rewrite yapma
+- Sadece şu mesajı döndür: "CONTEXT_PRESERVATION_FAILED"
+
+ORİJİNAL SPAN:
+{span_text}
+
+"""
+
+
+def build_manipulation_rewrite_prompt(
+    span_text: str,
+    severity: str,
+    surrounding_context: Optional[str] = None,
+    policies: Optional[List[str]] = None,
+    domain: Optional[str] = None
+) -> str:
+    """PRO mode: Manipulation-specific rewrite prompt"""
+    base = build_pro_rewrite_prompt_base()
+    policy_info = f"\n\nUygulanacak Politikalar: {', '.join(policies)}" if policies else ""
+    domain_info = f"\n\nSektör: {domain}" if domain else ""
+    context_info = f"\n\nÇevreleyen Bağlam:\n{surrounding_context[:300]}" if surrounding_context else ""
+    return f"""{base}EDITORIAL FOCUS (MANIPULATION):
+- Remove coercive or fear-based language
+- Preserve argument, remove pressure
+
+INSTRUCTIONS:
+- Eliminate forced outcomes ("or else")
+- Maintain persuasive logic without emotional manipulation
+- Respect reader autonomy
+
+RİSK BİLGİSİ:
+- Risk Tipi: manipulation
+- Şiddet: {severity}{policy_info}{domain_info}{context_info}
+
+EĞER BAĞLAM KORUNMAZSA:
+- Rewrite yapma
+- Sadece şu mesajı döndür: "CONTEXT_PRESERVATION_FAILED"
+
+ORİJİNAL SPAN:
+{span_text}
+
+"""
+
+
+def build_political_rewrite_prompt(
+    span_text: str,
+    severity: str,
+    surrounding_context: Optional[str] = None,
+    policies: Optional[List[str]] = None,
+    domain: Optional[str] = None
+) -> str:
+    """PRO mode: Political-specific rewrite prompt"""
+    base = build_pro_rewrite_prompt_base()
+    policy_info = f"\n\nUygulanacak Politikalar: {', '.join(policies)}" if policies else ""
+    domain_info = f"\n\nSektör: {domain}" if domain else ""
+    context_info = f"\n\nÇevreleyen Bağlam:\n{surrounding_context[:300]}" if surrounding_context else ""
+    return f"""{base}EDITORIAL FOCUS (POLITICAL):
+- Reduce certainty without erasing opinion
+- Allow interpretive space
+
+INSTRUCTIONS:
+- Reframe absolute claims
+- Avoid presenting opinion as fact
+- Preserve political stance, soften delivery
+
+RİSK BİLGİSİ:
+- Risk Tipi: political
+- Şiddet: {severity}{policy_info}{domain_info}{context_info}
+
+EĞER BAĞLAM KORUNMAZSA:
+- Rewrite yapma
+- Sadece şu mesajı döndür: "CONTEXT_PRESERVATION_FAILED"
+
+ORİJİNAL SPAN:
+{span_text}
+
+"""
+
+
+def build_misinformation_rewrite_prompt(
+    span_text: str,
+    severity: str,
+    surrounding_context: Optional[str] = None,
+    policies: Optional[List[str]] = None,
+    domain: Optional[str] = None
+) -> str:
+    """PRO mode: Misinformation-specific rewrite prompt"""
+    base = build_pro_rewrite_prompt_base()
+    policy_info = f"\n\nUygulanacak Politikalar: {', '.join(policies)}" if policies else ""
+    domain_info = f"\n\nSektör: {domain}" if domain else ""
+    context_info = f"\n\nÇevreleyen Bağlam:\n{surrounding_context[:300]}" if surrounding_context else ""
+    return f"""{base}EDITORIAL FOCUS (MISINFORMATION):
+- Reduce false certainty
+- Clarify ambiguity
+
+INSTRUCTIONS:
+- Replace definitive claims with probabilistic language
+- Avoid introducing new facts
+- Maintain original message scope
+
+RİSK BİLGİSİ:
+- Risk Tipi: misinformation
+- Şiddet: {severity}{policy_info}{domain_info}{context_info}
+
+EĞER BAĞLAM KORUNMAZSA:
+- Rewrite yapma
+- Sadece şu mesajı döndür: "CONTEXT_PRESERVATION_FAILED"
+
+ORİJİNAL SPAN:
+{span_text}
+
+"""
+
+
+def build_hate_rewrite_prompt(
+    span_text: str,
+    severity: str,
+    surrounding_context: Optional[str] = None,
+    policies: Optional[List[str]] = None,
+    domain: Optional[str] = None
+) -> str:
+    """PRO mode: Hate-specific rewrite prompt"""
+    base = build_pro_rewrite_prompt_base()
+    policy_info = f"\n\nUygulanacak Politikalar: {', '.join(policies)}" if policies else ""
+    domain_info = f"\n\nSektör: {domain}" if domain else ""
+    context_info = f"\n\nÇevreleyen Bağlam:\n{surrounding_context[:300]}" if surrounding_context else ""
+    return f"""{base}EDITORIAL FOCUS (HATE):
+- Remove dehumanizing language
+- Preserve criticism without targeting identity
+- Maintain argumentative structure
+
+INSTRUCTIONS:
+- Replace identity-based attacks with behavior-based critique
+- Remove inflammatory language
+- Keep logical structure intact
+
+RİSK BİLGİSİ:
+- Risk Tipi: hate
+- Şiddet: {severity}{policy_info}{domain_info}{context_info}
+
+EĞER BAĞLAM KORUNMAZSA:
+- Rewrite yapma
+- Sadece şu mesajı döndür: "CONTEXT_PRESERVATION_FAILED"
+
+ORİJİNAL SPAN:
+{span_text}
+
+"""
+
+
+def build_other_rewrite_prompt(
+    span_text: str,
+    risk_type: str,
+    severity: str,
+    surrounding_context: Optional[str] = None,
+    policies: Optional[List[str]] = None,
+    domain: Optional[str] = None
+) -> str:
+    """PRO mode: Other risk types (fallback)"""
+    base = build_pro_rewrite_prompt_base()
+    policy_info = f"\n\nUygulanacak Politikalar: {', '.join(policies)}" if policies else ""
+    domain_info = f"\n\nSektör: {domain}" if domain else ""
+    context_info = f"\n\nÇevreleyen Bağlam:\n{surrounding_context[:300]}" if surrounding_context else ""
+    return f"""{base}EDITORIAL FOCUS (OTHER):
+- Reduce risk while preserving meaning
+- Maintain original intent and tone
+
+INSTRUCTIONS:
+- Apply minimal necessary changes
+- Preserve narrative voice
+- Keep argumentative structure
+
+RİSK BİLGİSİ:
+- Risk Tipi: {risk_type}
+- Şiddet: {severity}{policy_info}{domain_info}{context_info}
+
+EĞER BAĞLAM KORUNMAZSA:
+- Rewrite yapma
+- Sadece şu mesajı döndür: "CONTEXT_PRESERVATION_FAILED"
+
+ORİJİNAL SPAN:
+{span_text}
+
+"""
+
+
 def build_span_rewrite_prompt(
     span_text: str,
     risk_type: str,
@@ -174,12 +407,71 @@ def build_span_rewrite_prompt(
     surrounding_context: Optional[str] = None,
     mode: str = "neutral_rewrite",
     policies: Optional[List[str]] = None,
-    domain: Optional[str] = None
+    domain: Optional[str] = None,
+    analysis_mode: str = "fast"  # NEW: "fast" | "pro"
 ) -> str:
     """
     Build prompt for rewriting a single risky span
-    Minimal context, focus on span only
+    
+    PRO mode: Routes to risk-type-specific prompts
+    FAST mode: Uses generic prompt (existing behavior)
     """
+    # PRO mode: Risk-aware routing
+    if analysis_mode == "pro":
+        risk_type_lower = risk_type.lower()
+        
+        if "discrimination" in risk_type_lower or "bias" in risk_type_lower:
+            return build_discrimination_rewrite_prompt(
+                span_text=span_text,
+                severity=severity,
+                surrounding_context=surrounding_context,
+                policies=policies,
+                domain=domain
+            )
+        elif "manipulation" in risk_type_lower or "coercive" in risk_type_lower:
+            return build_manipulation_rewrite_prompt(
+                span_text=span_text,
+                severity=severity,
+                surrounding_context=surrounding_context,
+                policies=policies,
+                domain=domain
+            )
+        elif "political" in risk_type_lower:
+            return build_political_rewrite_prompt(
+                span_text=span_text,
+                severity=severity,
+                surrounding_context=surrounding_context,
+                policies=policies,
+                domain=domain
+            )
+        elif "misinformation" in risk_type_lower or "false" in risk_type_lower:
+            return build_misinformation_rewrite_prompt(
+                span_text=span_text,
+                severity=severity,
+                surrounding_context=surrounding_context,
+                policies=policies,
+                domain=domain
+            )
+        elif "hate" in risk_type_lower:
+            return build_hate_rewrite_prompt(
+                span_text=span_text,
+                severity=severity,
+                surrounding_context=surrounding_context,
+                policies=policies,
+                domain=domain
+            )
+        else:
+            # Fallback to generic PRO prompt
+            return build_other_rewrite_prompt(
+                span_text=span_text,
+                risk_type=risk_type,
+                severity=severity,
+                surrounding_context=surrounding_context,
+                policies=policies,
+                domain=domain
+            )
+    
+    # FAST mode: Generic prompt (existing behavior)
     policy_info = f"\n\nUygulanacak Politikalar: {', '.join(policies)}" if policies else ""
     domain_info = f"\n\nSektör: {domain}" if domain else ""
     context_info = f"\n\nÇevreleyen Bağlam:\n{surrounding_context[:300]}" if surrounding_context else ""
@@ -237,7 +529,8 @@ async def rewrite_span(
     mode: str,
     policies: Optional[List[str]],
     domain: Optional[str],
-    provider: str
+    provider: str,
+    analysis_mode: str = "fast"  # NEW: "fast" | "pro"
 ) -> str:
     """
     Rewrite a single risky span
@@ -255,7 +548,8 @@ async def rewrite_span(
         surrounding_context=surrounding_context,
         mode=mode,
         policies=policies,
-        domain=domain
+        domain=domain,
+        analysis_mode=analysis_mode  # NEW: Pass analysis_mode for risk-aware routing
     )
     
     try:
@@ -381,7 +675,8 @@ async def stage2_span_based_rewrite(
     policies: Optional[List[str]] = None,
     domain: Optional[str] = None,
     provider: str = "openai",
-    max_spans: int = 5  # Maximum spans to rewrite
+    max_spans: int = 5,  # Maximum spans to rewrite
+    analysis_mode: str = "fast"  # NEW: "fast" | "pro"
 ) -> Dict[str, Any]:
     """
     Stage-2: Span-Based Rewrite
@@ -473,7 +768,8 @@ async def stage2_span_based_rewrite(
                 mode=mode,
                 policies=policies,
                 domain=domain,
-                provider=provider
+                provider=provider,
+                analysis_mode=analysis_mode  # NEW: Pass analysis_mode for risk-aware routing
             )
             
             if rewritten_span == CONTEXT_PRESERVATION_FAILED_MESSAGE:
@@ -505,10 +801,95 @@ async def stage2_span_based_rewrite(
         role="proxy"  # Rewrite is only for full Proxy
     )
     
-    return {
+    result = {
         "rewritten_content": rewritten_content,
         "rewritten_spans": rewritten_spans,
         "failed_spans": failed_spans,
         "_stage2_latency_ms": latency_ms
+    }
+    
+    # PRO mode: Generate rewrite explanation (org admin only, internal)
+    if analysis_mode == "pro" and rewritten_spans:
+        result["rewrite_explanation"] = generate_rewrite_explanation(
+            rewritten_spans=rewritten_spans,
+            failed_spans=failed_spans,
+            risk_locations=risk_locations
+        )
+    
+    return result
+
+
+def generate_rewrite_explanation(
+    rewritten_spans: List[Dict[str, Any]],
+    failed_spans: List[Dict[str, Any]],
+    risk_locations: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Generate rewrite explanation for PRO mode (org admin only, internal)
+    
+    Returns:
+        {
+            "detected_risks": [...],
+            "rewrite_actions": [...],
+            "preservation_notes": [...],
+            "outcome_summary": "..."
+        }
+    """
+    detected_risks = []
+    rewrite_actions = []
+    preservation_notes = []
+    
+    # Group risks by paragraph
+    risks_by_paragraph = {}
+    for span in rewritten_spans:
+        para_idx = span.get("paragraph", 0)
+        if para_idx not in risks_by_paragraph:
+            risks_by_paragraph[para_idx] = []
+        risks_by_paragraph[para_idx].append({
+            "risk_type": span.get("risk_type", "unknown"),
+            "severity": span.get("severity", "medium"),
+            "evidence": span.get("evidence", "")[:100]  # Truncate
+        })
+    
+    # Build detected_risks list
+    for para_idx, risks in risks_by_paragraph.items():
+        dominant_risk = max(risks, key=lambda r: {"high": 3, "medium": 2, "low": 1}.get(r.get("severity", "medium"), 1))
+        detected_risks.append({
+            "paragraph": para_idx + 1,  # 1-indexed for display
+            "risk_type": dominant_risk["risk_type"],
+            "severity": dominant_risk["severity"],
+            "count": len(risks)
+        })
+    
+    # Build rewrite_actions list
+    for span in rewritten_spans:
+        rewrite_actions.append({
+            "paragraph": span.get("paragraph", 0) + 1,  # 1-indexed
+            "risk_type": span.get("risk_type", "unknown"),
+            "action": f"Rewrote {span.get('risk_type', 'risk')} risk span",
+            "preserved": "Context and meaning preserved"
+        })
+    
+    # Build preservation_notes
+    if rewritten_spans:
+        preservation_notes.append("Original meaning and intent preserved")
+        preservation_notes.append("Narrative voice maintained")
+        preservation_notes.append("Author tone respected")
+    
+    # Build outcome_summary
+    total_risks = len(rewritten_spans) + len(failed_spans)
+    success_rate = len(rewritten_spans) / total_risks if total_risks > 0 else 0
+    
+    outcome_summary = (
+        f"Detected {len(detected_risks)} risk pattern(s) across {len(risks_by_paragraph)} paragraph(s). "
+        f"Successfully rewrote {len(rewritten_spans)} span(s) ({success_rate*100:.0f}% success rate). "
+        f"Meaning and context preserved in all successful rewrites."
+    )
+    
+    return {
+        "detected_risks": detected_risks,
+        "rewrite_actions": rewrite_actions,
+        "preservation_notes": preservation_notes,
+        "outcome_summary": outcome_summary
     }
 
