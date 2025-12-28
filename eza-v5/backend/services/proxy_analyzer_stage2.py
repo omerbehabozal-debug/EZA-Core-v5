@@ -61,7 +61,9 @@ def extract_risky_spans(
         cumulative_offset += len(para) + 2  # +2 for \n\n
     
     # Extract spans from risk_locations
-    for risk in risk_locations:
+    logger.info(f"[Stage-2] Extracting risky spans from {len(risk_locations)} risk locations")
+    
+    for risk_idx, risk in enumerate(risk_locations):
         # Try to get paragraph index from risk location
         # If not available, try to match by evidence
         paragraph_idx = risk.get("paragraph_id") or risk.get("paragraph_index")
@@ -69,12 +71,17 @@ def extract_risky_spans(
         if paragraph_idx is None:
             # Try to find paragraph by evidence matching
             evidence = risk.get("evidence", "")
-            for i, para in enumerate(paragraphs):
-                if evidence.lower() in para.lower()[:200]:  # Check first 200 chars
-                    paragraph_idx = i
-                    break
+            if evidence:
+                for i, para in enumerate(paragraphs):
+                    if evidence.lower() in para.lower()[:200]:  # Check first 200 chars
+                        paragraph_idx = i
+                        logger.debug(f"[Stage-2] Risk {risk_idx}: Found paragraph {i} by evidence matching")
+                        break
+            else:
+                logger.warning(f"[Stage-2] Risk {risk_idx}: No paragraph_idx and no evidence, skipping")
         
         if paragraph_idx is None or paragraph_idx >= len(paragraphs):
+            logger.warning(f"[Stage-2] Risk {risk_idx}: Invalid paragraph_idx ({paragraph_idx}), skipping (total paragraphs: {len(paragraphs)})")
             continue
         
         # Get paragraph text
@@ -110,6 +117,8 @@ def extract_risky_spans(
                 para_offset = paragraph_offsets[paragraph_idx]
                 absolute_start = para_offset + start_idx
                 absolute_end = para_offset + end_idx
+                
+                logger.debug(f"[Stage-2] Risk {risk_idx}: Extracted span from paragraph {paragraph_idx}, offset {absolute_start}-{absolute_end}, text: {span_text[:50]}...")
                 
                 risky_spans.append({
                     "paragraph": paragraph_idx,
@@ -409,7 +418,8 @@ async def stage2_span_based_rewrite(
     risky_spans = extract_risky_spans(content, paragraph_analyses, risk_locations)
     
     if not risky_spans:
-        logger.info("[Stage-2] No risky spans found, returning original content")
+        logger.info(f"[Stage-2] No risky spans found (risk_locations count: {len(risk_locations)}, paragraph_analyses count: {len(paragraph_analyses)}), returning original content")
+        logger.info(f"[Stage-2] Risk locations sample: {risk_locations[:2] if risk_locations else 'None'}")
         return {
             "rewritten_content": content,
             "rewritten_spans": [],
