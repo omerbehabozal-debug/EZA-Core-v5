@@ -223,6 +223,9 @@ async def create_intent_log(
         if not flags:
             flags = {}
         flags['_content_fallback'] = stored_content
+        # Add analysis_mode to flags if present in analysis_result
+        if 'analysis_mode' in request.analysis_result:
+            flags['analysis_mode'] = request.analysis_result['analysis_mode']
         
         # Create Intent Log (input_content will be None if column doesn't exist)
         intent_log = IntentLog(

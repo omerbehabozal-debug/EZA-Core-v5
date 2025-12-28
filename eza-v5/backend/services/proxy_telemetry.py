@@ -21,7 +21,8 @@ async def log_analysis(
     domain: Optional[str] = None,
     policies: Optional[List[str]] = None,
     user_id: Optional[int] = None,
-    company_id: Optional[int] = None
+    company_id: Optional[int] = None,
+    analysis_mode: Optional[str] = None  # NEW: "fast" | "pro"
 ) -> None:
     """Log analysis result to telemetry"""
     try:
@@ -37,6 +38,7 @@ async def log_analysis(
                 "policies": policies,
                 "user_id": user_id,
                 "company_id": company_id,
+                "analysis_mode": analysis_mode,  # NEW: Analysis mode (fast | pro)
                 "timestamp": datetime.utcnow().isoformat()
             }
         )

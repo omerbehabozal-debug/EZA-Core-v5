@@ -60,6 +60,7 @@ class PolicyInfo(BaseModel):
     weight: float
     is_global: bool
     is_custom: bool = False
+    analysis_mode: Optional[Literal["fast", "pro"]] = None  # NEW: Optional policy-level analysis mode override
 
 
 class PolicyListResponse(BaseModel):
@@ -404,4 +405,42 @@ def get_enabled_policies_for_org(org_id: str) -> List[str]:
                 enabled.append(policy_id)
     
     return enabled
+
+
+# Helper function to get analysis mode for org
+async def get_analysis_mode_for_org(org_id: str, db: Optional[AsyncSession] = None) -> Literal["fast", "pro"]:
+    """
+    Get analysis mode for organization
+    
+    Priority:
+    1. Organization-level analysis_mode setting (from database)
+    2. Default: "fast"
+    
+    Returns:
+        "fast" | "pro"
+    """
+    if db is None:
+        # No database access, return default
+        return "fast"
+    
+    try:
+        from sqlalchemy import select
+        from backend.models.production import Organization
+        import uuid
+        
+        org_uuid = uuid.UUID(str(org_id))
+        query = select(Organization).where(Organization.id == org_uuid)
+        result = await db.execute(query)
+        org = result.scalar_one_or_none()
+        
+        if org and org.analysis_mode:
+            mode = org.analysis_mode.lower()
+            if mode in ["fast", "pro"]:
+                return mode
+        
+        # Default fallback
+        return "fast"
+    except Exception as e:
+        logger.warning(f"[Policy] Error fetching analysis_mode for org {org_id}: {e}")
+        return "fast"
 

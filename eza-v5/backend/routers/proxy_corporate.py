@@ -22,7 +22,7 @@ from backend.services.proxy_rewrite_engine import rewrite_content
 from backend.services.proxy_telemetry import log_analysis, log_rewrite, get_telemetry_metrics, get_regulator_data
 from backend.routers.proxy_audit import RiskFlagSeverity, DecisionJustification, create_audit_entry
 from backend.routers.proxy_websocket import update_telemetry_state
-from backend.routers.policy_management import get_enabled_policies_for_org
+from backend.routers.policy_management import get_enabled_policies_for_org, get_analysis_mode_for_org
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ class ProxyAnalyzeRequest(BaseModel):
     domain: Optional[Literal["finance", "health", "retail", "media", "autonomous"]] = None
     return_report: bool = True
     analyze_all_paragraphs: bool = False  # If True, analyze all paragraphs regardless of risk detection
+    analysis_mode: Optional[Literal["fast", "pro"]] = None  # NEW: Optional user override (if org allows)
 
 
 class RiskLocation(BaseModel):
@@ -97,6 +98,7 @@ class ProxyAnalyzeResponse(BaseModel):
     _staged_response: Optional[Dict[str, Any]] = None  # Stage-0 immediate score, Stage-1 risk summary, final details
     _score_kind: Optional[str] = "final"  # "preliminary" | "final" - for UI consistency
     _partial: bool = False  # True if response is partial (rate limit or circuit breaker)
+    analysis_mode: Literal["fast", "pro"] = "fast"  # NEW: Analysis mode used for this request
 
 
 class ProxyRewriteRequest(BaseModel):
@@ -182,55 +184,120 @@ async def proxy_analyze(
         cb = get_circuit_breaker("proxy_analysis")
         circuit_breaker_open = False
         
-        # STAGE-0: Always runs first (rate limit independent)
-        from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
-        logger.info(f"[Proxy] Starting Stage-0 (rate limit independent, org_id={org_id})")
-        stage0_result = await stage0_fast_risk_scan(
-            content=request.content,
-            domain=request.domain,
-            provider=request.provider,
-            org_id=org_id
-        )
-        logger.info(f"[Proxy] Stage-0 completed: risk_band={stage0_result.get('risk_band', 'unknown')}")
-        
-        # Rate Limiter: Check AFTER Stage-0, BEFORE Stage-1
-        # This determines Stage-1 mode (light vs deep), but Stage-1 ALWAYS runs
-        from backend.services.proxy_rate_limiter import check_rate_limit
-        allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
-        
-        # Determine Stage-1 mode based on rate limit
-        if not allowed:
-            logger.info(f"[Proxy] Rate limit exceeded for org_id={org_id}: {rate_limit_reason}. Stage-1 will run in LIGHT mode.")
-            logger.info(f"[Proxy] Event: stage1_light_mode, reason: rate_limit_exceeded, analysis_id={analysis_id}")
-            stage1_mode = "light"
-            # Mark rate limit in stage0_result for Stage-1 to use
-            stage0_result["_rate_limit_exceeded"] = True
-        else:
-            # Normal flow: use risk_band to determine mode
-            risk_band = stage0_result.get("risk_band", "low")
-            stage1_mode = "light" if risk_band == "low" else "deep"
-            logger.info(f"[Proxy] Rate limit OK. Stage-1 will run in {stage1_mode.upper()} mode (risk_band={risk_band})")
-            stage0_result["_rate_limit_exceeded"] = False
-        
-        try:
-            # Deep analysis with 3-stage gated pipeline
-            # Role: "proxy" for full Proxy, "proxy_lite" for Proxy Lite
-            # CRITICAL: Stage-1 ALWAYS runs, only mode changes
-            logger.info(f"[Proxy] Calling analyze_content_deep via circuit breaker (org_id={org_id}, stage1_mode={stage1_mode})")
-            analysis_result = await cb.call_async(
-                analyze_content_deep,
+        # ========== PIPELINE ROUTING: FAST vs PRO ==========
+        if analysis_mode == "fast":
+            # ========== FAST PIPELINE (CURRENT BEHAVIOR - UNCHANGED) ==========
+            logger.info(f"[Proxy] FAST mode: Speed-optimized pipeline (org_id={org_id})")
+            
+            # STAGE-0: Always runs first (rate limit independent)
+            from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+            logger.info(f"[Proxy] Starting Stage-0 (rate limit independent, org_id={org_id})")
+            stage0_result = await stage0_fast_risk_scan(
                 content=request.content,
                 domain=request.domain,
-                policies=request.policies,
                 provider=request.provider,
-                role="proxy",  # Full Proxy - max 4 paragraphs in Stage-1 (or all if analyze_all_paragraphs=True)
-                org_id=org_id,
-                analyze_all_paragraphs=getattr(request, 'analyze_all_paragraphs', False),  # Analyze all paragraphs if requested
-                stage1_mode=stage1_mode  # NEW: Explicit mode control (light or deep)
+                org_id=org_id
             )
-            logger.info(f"[Proxy] analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
+            logger.info(f"[Proxy] Stage-0 completed: risk_band={stage0_result.get('risk_band', 'unknown')}")
+            
+            # Rate Limiter: Check AFTER Stage-0, BEFORE Stage-1
+            # This determines Stage-1 mode (light vs deep), but Stage-1 ALWAYS runs
+            from backend.services.proxy_rate_limiter import check_rate_limit
+            allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
+            
+            # Determine Stage-1 mode based on rate limit
+            if not allowed:
+                logger.info(f"[Proxy] Rate limit exceeded for org_id={org_id}: {rate_limit_reason}. Stage-1 will run in LIGHT mode.")
+                logger.info(f"[Proxy] Event: stage1_light_mode, reason: rate_limit_exceeded, analysis_id={analysis_id}")
+                stage1_mode = "light"
+                # Mark rate limit in stage0_result for Stage-1 to use
+                stage0_result["_rate_limit_exceeded"] = True
+            else:
+                # Normal flow: use risk_band to determine mode
+                risk_band = stage0_result.get("risk_band", "low")
+                stage1_mode = "light" if risk_band == "low" else "deep"
+                logger.info(f"[Proxy] Rate limit OK. Stage-1 will run in {stage1_mode.upper()} mode (risk_band={risk_band})")
+                stage0_result["_rate_limit_exceeded"] = False
+            
+            try:
+                # Deep analysis with 3-stage gated pipeline
+                # Role: "proxy" for full Proxy, "proxy_lite" for Proxy Lite
+                # CRITICAL: Stage-1 ALWAYS runs, only mode changes
+                logger.info(f"[Proxy] Calling analyze_content_deep via circuit breaker (org_id={org_id}, stage1_mode={stage1_mode})")
+                analysis_result = await cb.call_async(
+                    analyze_content_deep,
+                    content=request.content,
+                    domain=request.domain,
+                    policies=request.policies,
+                    provider=request.provider,
+                    role="proxy",  # Full Proxy - max 4 paragraphs in Stage-1 (or all if analyze_all_paragraphs=True)
+                    org_id=org_id,
+                    analyze_all_paragraphs=getattr(request, 'analyze_all_paragraphs', False),  # Analyze all paragraphs if requested
+                    stage1_mode=stage1_mode  # NEW: Explicit mode control (light or deep)
+                )
+                logger.info(f"[Proxy] analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
+        else:
+            # ========== PRO PIPELINE (PROFESSIONAL DEEP ANALYSIS) ==========
+            logger.info(f"[Proxy] PRO mode: Professional deep analysis pipeline (org_id={org_id})")
+            
+            # PRO Stage-0: Informational only (quick score + risk band)
+            from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+            logger.info(f"[Proxy] PRO Stage-0: Informational scan (org_id={org_id})")
+            stage0_result = await stage0_fast_risk_scan(
+                content=request.content,
+                domain=request.domain,
+                provider=request.provider,
+                org_id=org_id
+            )
+            logger.info(f"[Proxy] PRO Stage-0 completed: risk_band={stage0_result.get('risk_band', 'unknown')} (informational only)")
+            
+            # PRO Stage-1: ALWAYS full deep analysis (no light mode, no rate limit downgrade)
+            # ENFORCEMENT: PRO mode MUST NOT use light Stage-1
+            stage1_mode = "deep"  # PRO mode ALWAYS uses deep
+            logger.info(f"[Proxy] PRO Stage-1: Full deep analysis (MANDATORY, no light mode fallback)")
+            
+            # PRO mode: Rate limit does NOT downgrade quality
+            # If rate limit exceeded, we wait/queue (for now, proceed anyway)
+            from backend.services.proxy_rate_limiter import check_rate_limit
+            allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
+            if not allowed:
+                logger.warning(f"[Proxy] PRO mode: Rate limit exceeded, but proceeding with deep analysis (quality over speed)")
+            
+            try:
+                # PRO: Full deep analysis (ALWAYS deep, no light mode)
+                logger.info(f"[Proxy] PRO: Calling analyze_content_deep (ALWAYS deep mode, org_id={org_id})")
+                analysis_result = await cb.call_async(
+                    analyze_content_deep,
+                    content=request.content,
+                    domain=request.domain,
+                    policies=request.policies,
+                    provider=request.provider,
+                    role="proxy",  # Full Proxy
+                    org_id=org_id,
+                    analyze_all_paragraphs=True,  # PRO mode: analyze ALL paragraphs
+                    stage1_mode="deep"  # PRO mode: ALWAYS deep (enforced)
+                )
+                logger.info(f"[Proxy] PRO analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
+                
+                # ENFORCEMENT: PRO mode must have produced deep analysis
+                assert analysis_result.get("_stage1_status", {}).get("mode") == "deep", "[ENFORCEMENT] PRO mode must produce deep Stage-1 analysis"
+            except CircuitBreakerOpenError:
+                # PRO mode: Circuit breaker should not happen (quality over speed)
+                logger.error(f"[Proxy] PRO mode: Circuit breaker OPEN for org_id={org_id}. PRO mode requires full analysis.")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Profesyonel analiz modu şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin."
+                )
+            except Exception as pro_error:
+                # PRO mode: Any error is critical (quality requirement)
+                logger.error(f"[Proxy] PRO mode: Deep analysis failed: {str(pro_error)}", exc_info=True)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Profesyonel analiz hatası: {str(pro_error)}"
+                )
         except CircuitBreakerOpenError:
-            logger.warning(f"[Proxy] Circuit breaker OPEN for org_id={org_id}, returning Stage-0 only")
+            # FAST mode: Circuit breaker fallback (Stage-0 only)
+            logger.warning(f"[Proxy] FAST mode: Circuit breaker OPEN for org_id={org_id}, returning Stage-0 only")
             circuit_breaker_open = True
             # Return Stage-0 only (partial response)
             from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
@@ -410,6 +477,21 @@ async def proxy_analyze(
                 valid_policies = [p for p in enabled_policies if p in ["TRT", "FINTECH", "HEALTH"]]
                 if valid_policies:
                     request.policies = valid_policies
+        
+        # ========== DUAL ANALYSIS MODE ROUTING ==========
+        # Determine analysis mode: user override > org setting > default "fast"
+        analysis_mode: Literal["fast", "pro"] = "fast"
+        if request.analysis_mode:
+            # User override (if org allows - for now, always allow)
+            analysis_mode = request.analysis_mode
+            logger.info(f"[Proxy] Using user-specified analysis_mode: {analysis_mode}")
+        else:
+            # Get from organization setting
+            analysis_mode = await get_analysis_mode_for_org(org_id, db)
+            logger.info(f"[Proxy] Using organization analysis_mode: {analysis_mode} (org_id={org_id})")
+        
+        # ENFORCEMENT: analysis_mode must be valid
+        assert analysis_mode in ["fast", "pro"], f"[ENFORCEMENT] Invalid analysis_mode: {analysis_mode}"
         
         # UI Response Contract: Build staged response
         stage0_result = analysis_result.get("_stage0_result", {})
@@ -631,7 +713,8 @@ async def proxy_analyze(
             domain=request.domain,
             policies=request.policies,
             user_id=current_user.get("user_id"),
-            company_id=current_user.get("company_id")
+            company_id=current_user.get("company_id"),
+            analysis_mode=analysis_mode  # NEW: Analysis mode (fast | pro)
         )
         
         # Generate report if requested
@@ -690,6 +773,7 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
             _staged_response=staged_response,
             _score_kind=score_kind,  # "preliminary" | "final"
             _partial=circuit_breaker_open,  # True if circuit breaker opened
+            analysis_mode=analysis_mode  # NEW: Analysis mode used (fast | pro)
             provider="EZA-Core",
             analysis_id=analysis_id,
             risk_flags_severity=[
@@ -762,16 +846,35 @@ async def proxy_rewrite(
     try:
         logger.info(f"[Proxy] Rewrite request: mode={request.mode}, domain={request.domain}, user_id={current_user.get('user_id')}")
         
+        # Get org_id for analysis_mode lookup
+        org_id = current_user.get("org_id") or current_user.get("company_id")
+        
+        # Determine analysis mode (same logic as analyze endpoint)
+        analysis_mode: Literal["fast", "pro"] = "fast"
+        if org_id:
+            analysis_mode = await get_analysis_mode_for_org(org_id, db)
+            logger.info(f"[Proxy] Rewrite using analysis_mode: {analysis_mode} (org_id={org_id})")
+        
         # Stage-2: Span-Based Rewrite
         # First, analyze original content to get risky spans
+        # PRO mode: MUST wait for Stage-1 completion (deep analysis)
         original_analysis = await analyze_content_deep(
             content=request.content,
             domain=request.domain,
             policies=request.policies,
             provider=request.provider,
-            role="proxy"  # Full Proxy for rewrite
+            role="proxy",  # Full Proxy for rewrite
+            org_id=org_id,
+            stage1_mode="deep" if analysis_mode == "pro" else None  # PRO mode: ALWAYS deep
         )
         original_scores = original_analysis["overall_scores"]
+        
+        # PRO mode: ENFORCEMENT - Stage-1 must have completed with deep analysis
+        if analysis_mode == "pro":
+            stage1_status = original_analysis.get("_stage1_status", {})
+            assert stage1_status.get("status") == "done", "[ENFORCEMENT] PRO mode rewrite requires Stage-1 completion"
+            assert stage1_status.get("mode") == "deep", "[ENFORCEMENT] PRO mode rewrite requires deep Stage-1 analysis"
+            logger.info(f"[Proxy] PRO mode: Stage-1 deep analysis completed, proceeding with rewrite")
         
         # Stage-2: Span-based rewrite (only risky spans)
         from backend.services.proxy_analyzer_stage2 import stage2_span_based_rewrite
@@ -893,7 +996,8 @@ async def proxy_rewrite(
                     "input_text": request.content,  # ORIGINAL content
                     "rewritten_content": rewritten_content,  # REWRITTEN content (if rewrite succeeded)
                     "rewrite_scores": new_scores,  # Scores after rewrite (if re-analyzed)
-                    "rewrite_improvement": improvement  # Score improvements (if re-analyzed)
+                    "rewrite_improvement": improvement,  # Score improvements (if re-analyzed)
+                    "analysis_mode": original_analysis.get("analysis_mode", "fast")  # NEW: Analysis mode (fast | pro)
                 }
                 
                 # Create Intent Log request

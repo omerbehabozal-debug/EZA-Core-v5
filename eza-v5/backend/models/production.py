@@ -48,6 +48,7 @@ class Organization(Base):
     proxy_access = Column(Boolean, nullable=False, default=True)
     sla_tier = Column(String(50), nullable=True)
     default_policy_set = Column(String(255), nullable=True)
+    analysis_mode = Column(String(20), nullable=False, default="fast")  # NEW: "fast" | "pro" - analysis mode for organization
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
