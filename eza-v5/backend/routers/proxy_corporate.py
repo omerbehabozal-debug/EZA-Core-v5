@@ -286,6 +286,9 @@ async def proxy_analyze(
         # Calculate latency
         latency_ms = (time.time() - start_time) * 1000
         
+        # DEBUG: Log analysis result structure
+        logger.info(f"[Proxy] Analysis result structure: paragraphs_count={len(analysis_result.get('paragraphs', []))}, has_paragraphs_key={'paragraphs' in analysis_result}, keys={list(analysis_result.keys())}")
+        
         # PRIMARY RISK PATTERN & VIOLATION COLLAPSING
         # NOTE: risk_locations are already collapsed by narrative intent in group_violations()
         # Each risk_location represents ONE primary risk pattern with multiple policies
@@ -623,6 +626,12 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
             if not stage1_complete or not stage1_complete.get("details"):
                 score_kind = "preliminary"
         
+        # DEBUG: Log paragraphs before mapping
+        paragraphs_raw = analysis_result.get("paragraphs", [])
+        logger.info(f"[Proxy] Mapping paragraphs: raw_count={len(paragraphs_raw)}, type={type(paragraphs_raw)}")
+        if paragraphs_raw:
+            logger.info(f"[Proxy] First paragraph sample: {paragraphs_raw[0] if isinstance(paragraphs_raw, list) else 'not a list'}")
+        
         return ProxyAnalyzeResponse(
             ok=True,
             overall_scores=analysis_result["overall_scores"],
@@ -639,7 +648,7 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
                     risk_locations=para.get("risk_locations", []),
                     analysis_level=para.get("analysis_level"),  # Premium Unified Flow
                     summary=para.get("summary")  # Premium Unified Flow
-                ) for para in analysis_result["paragraphs"]
+                ) for para in paragraphs_raw
             ],
             flags=analysis_result["flags"],
             risk_locations=[
