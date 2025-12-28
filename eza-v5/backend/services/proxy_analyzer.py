@@ -562,25 +562,41 @@ async def analyze_content_deep(
     
     logger.info(f"[Proxy] Stage-1 completed in {stage1_latency:.0f}ms: analyzed {len(paragraph_analyses)} paragraphs")
     
-    # For short texts or low risk, we may not have paragraph analyses
-    # In that case, use Stage-0 estimates
-    if not paragraph_analyses:
-        if risk_band == "low" or content_length <= SHORT_TEXT_THRESHOLD:
-            # Low risk or short text - create minimal analysis from Stage-0
-            estimated_range = stage0_result.get("estimated_score_range", [50, 70])
-            avg_score = sum(estimated_range) // 2
-            
-            paragraph_analyses = [{
-                "paragraph_index": 0,
-                "text": content[:500] if content_length > 500 else content,
+    # CRITICAL: Ensure ALL paragraphs are included in the response
+    # Split content into all paragraphs
+    all_paragraphs = split_into_paragraphs(content)
+    
+    # Create a map of analyzed paragraphs by index
+    analyzed_paragraphs_map = {para.get("paragraph_index", -1): para for para in paragraph_analyses}
+    
+    # Build complete paragraph list: include analyzed + unanalyzed paragraphs
+    complete_paragraph_analyses = []
+    estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+    avg_score = sum(estimated_range) // 2
+    
+    for idx, para_text in enumerate(all_paragraphs):
+        if idx in analyzed_paragraphs_map:
+            # Use analyzed paragraph
+            complete_paragraph_analyses.append(analyzed_paragraphs_map[idx])
+        else:
+            # Create minimal entry for unanalyzed paragraph (no risk detected)
+            # Use Stage-0 estimates for scores
+            complete_paragraph_analyses.append({
+                "paragraph_index": idx,
+                "text": para_text,
                 "ethical_index": avg_score,
                 "compliance_score": min(avg_score + 10, 100),
                 "manipulation_score": max(avg_score - 5, 0),
                 "bias_score": avg_score,
                 "legal_risk_score": min(avg_score + 5, 100),
                 "flags": [],
-                "risk_locations": []
-            }]
+                "risk_locations": [],
+                "_analyzed": False  # Mark as unanalyzed (no deep analysis performed)
+            })
+    
+    # Replace paragraph_analyses with complete list
+    paragraph_analyses = complete_paragraph_analyses
+    logger.info(f"[Proxy] Complete paragraph list: {len(paragraph_analyses)} paragraphs (analyzed: {len(analyzed_paragraphs_map)}, unanalyzed: {len(paragraph_analyses) - len(analyzed_paragraphs_map)})")
     
     # VALIDATION: Ensure each paragraph has no duplicate narrative risks
     for para in paragraph_analyses:

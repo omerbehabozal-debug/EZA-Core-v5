@@ -95,7 +95,7 @@ export default function ParagraphAnalysisView({
             {/* Paragraph Header */}
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-3 mb-3">
                   <span className="text-sm font-medium" style={{ color: 'var(--proxy-text-secondary)' }}>
                     Paragraf {index + 1}
                   </span>
@@ -110,6 +110,18 @@ export default function ParagraphAnalysisView({
                     >
                       {riskLevel.label} • Etik Skor: {paragraph.ethical_index}
                     </span>
+                    {(paragraph as any)._analyzed === false && (
+                      <span
+                        className="px-2 py-1 rounded text-xs"
+                        style={{
+                          backgroundColor: 'rgba(142, 142, 147, 0.15)',
+                          color: 'var(--proxy-text-muted)',
+                        }}
+                        title="Bu paragraf hızlı tarama ile değerlendirildi. Derin analiz yapılmadı."
+                      >
+                        ⚡ Hızlı Tarama
+                      </span>
+                    )}
                     <InfoTooltip
                       content="Etik Skor, bu paragrafın genel etik değerlendirmesini gösterir. Yüksek skor (76+) düşük risk, orta skor (51-75) orta risk, düşük skor (<51) yüksek risk anlamına gelir."
                       position="top"
