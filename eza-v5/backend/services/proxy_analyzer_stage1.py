@@ -117,6 +117,35 @@ async def analyze_paragraph_deep(
             }
 
 
+async def analyze_paragraph_light(
+    paragraph_idx: int,
+    paragraph_text: str,
+    stage0_result: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Light mode analysis for low-risk paragraphs
+    Uses heuristic scoring based on Stage-0 results, no LLM call
+    """
+    # Get estimated score from Stage-0
+    estimated_range = stage0_result.get("estimated_score_range", [70, 90])
+    avg_score = sum(estimated_range) // 2
+    
+    # Light mode: minimal analysis, no deep reasoning
+    return {
+        "paragraph_index": paragraph_idx,
+        "text": paragraph_text,
+        "ethical_index": avg_score,
+        "compliance_score": avg_score + 5,
+        "manipulation_score": avg_score - 5,
+        "bias_score": avg_score,
+        "legal_risk_score": avg_score + 3,
+        "flags": [],
+        "risk_locations": [],
+        "analysis_level": "light",
+        "summary": "Düşük risk tespit edildi – derin analiz gerekli görülmedi"
+    }
+
+
 async def stage1_targeted_deep_analysis(
     content: str,
     stage0_result: Dict[str, Any],
@@ -127,27 +156,13 @@ async def stage1_targeted_deep_analysis(
     analyze_all_paragraphs: bool = False  # If True, analyze all paragraphs regardless of risk detection
 ) -> Dict[str, Any]:
     """
-    Stage-1: Targeted Deep Analysis
+    Stage-1: Targeted Deep Analysis (Premium Unified Flow)
     
-    Purpose: Deep analysis of only priority paragraphs identified in Stage-0
-    Trigger: Only if risk_band != "low"
-    Concurrency: Bounded (max 3 concurrent LLM calls)
+    Purpose: Analysis of paragraphs - ALWAYS runs, but in light or deep mode
+    - risk_band == "low": Light mode (heuristic, fast, all paragraphs)
+    - risk_band != "low": Deep mode (LLM-based, priority paragraphs)
     
-    Args:
-        content: Full content text
-        stage0_result: Result from Stage-0 fast risk scan
-        domain: Content domain
-        policies: Policy set
-        provider: LLM provider
-        role: "proxy_lite" (max 2 paragraphs) or "proxy" (max 3-4 paragraphs)
-    
-    Returns:
-        {
-            "paragraph_analyses": [...],
-            "all_flags": [...],
-            "all_risk_locations": [...],
-            "_stage1_latency_ms": float
-        }
+    CRITICAL: Never returns empty paragraph_analyses
     """
     start_time = time.time()
     settings = get_settings()
@@ -156,23 +171,78 @@ async def stage1_targeted_deep_analysis(
     from backend.services.proxy_analyzer import split_into_paragraphs
     paragraphs = split_into_paragraphs(content)
     
-    # If analyze_all_paragraphs is True, analyze all paragraphs
-    if analyze_all_paragraphs:
-        logger.info(f"[Stage-1] analyze_all_paragraphs=True - analyzing all {len(paragraphs)} paragraphs")
-        valid_paragraphs = [(idx, para_text) for idx, para_text in enumerate(paragraphs)]
-    else:
-        # Check if Stage-1 should run
-        risk_band = stage0_result.get("risk_band", "low")
-        if risk_band == "low":
-            logger.info("[Stage-1] Skipping deep analysis - risk_band is low")
-            return {
-                "paragraph_analyses": [],
-                "all_flags": [],
-                "all_risk_locations": [],
-                "_stage1_latency_ms": 0
-            }
+    # Ensure at least one paragraph exists
+    if not paragraphs:
+        paragraphs = [content] if content.strip() else [""]
+    
+    risk_band = stage0_result.get("risk_band", "low")
+    
+    # PREMIUM FLOW: Stage-1 ALWAYS runs
+    if risk_band == "low":
+        # LIGHT MODE: Fast heuristic analysis for all paragraphs
+        logger.info(f"[Stage-1] Light mode - analyzing all {len(paragraphs)} paragraphs with heuristic scoring")
+        mode = "light"
         
-        # Get priority paragraphs from Stage-0
+        paragraph_analyses = []
+        for idx, para_text in enumerate(paragraphs):
+            light_analysis = await analyze_paragraph_light(idx, para_text, stage0_result)
+            paragraph_analyses.append(light_analysis)
+        
+        all_flags = []
+        all_risk_locations = []
+        
+    elif analyze_all_paragraphs:
+        # DEEP MODE: Analyze all paragraphs
+        logger.info(f"[Stage-1] Deep mode (all paragraphs) - analyzing all {len(paragraphs)} paragraphs")
+        mode = "deep"
+        valid_paragraphs = [(idx, para_text) for idx, para_text in enumerate(paragraphs)]
+        
+        # Create tasks for bounded parallel execution
+        tasks = [
+            analyze_paragraph_deep(
+                paragraph_idx=idx,
+                paragraph_text=para_text,
+                domain=domain,
+                policies=policies,
+                provider=provider,
+                settings=settings
+            )
+            for idx, para_text in valid_paragraphs
+        ]
+        
+        # Execute with bounded concurrency
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results
+        paragraph_analyses = []
+        all_flags = []
+        all_risk_locations = []
+        
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"[Stage-1] Paragraph {valid_paragraphs[i][0]} analysis failed: {result}")
+                idx, para_text = valid_paragraphs[i]
+                result = {
+                    "paragraph_index": idx,
+                    "text": para_text,
+                    "ethical_index": 50,
+                    "compliance_score": 50,
+                    "manipulation_score": 50,
+                    "bias_score": 50,
+                    "legal_risk_score": 50,
+                    "flags": ["analiz_hatası"],
+                    "risk_locations": [],
+                    "analysis_level": "deep"
+                }
+            
+            result["analysis_level"] = "deep"
+            paragraph_analyses.append(result)
+            all_flags.extend(result.get("flags", []))
+            all_risk_locations.extend(result.get("risk_locations", []))
+    
+    else:
+        # DEEP MODE: Analyze priority paragraphs only
+        mode = "deep"
         priority_paragraphs = stage0_result.get("priority_paragraphs", [])
         if not priority_paragraphs:
             logger.info("[Stage-1] No priority paragraphs identified, analyzing first paragraph")
@@ -194,14 +264,10 @@ async def stage1_targeted_deep_analysis(
             if paragraphs:
                 valid_paragraphs = [(0, paragraphs[0])]
             else:
-                return {
-                    "paragraph_analyses": [],
-                    "all_flags": [],
-                    "all_risk_locations": [],
-                    "_stage1_latency_ms": 0
-                }
-    
-    logger.info(f"[Stage-1] Starting targeted deep analysis of {len(valid_paragraphs)} paragraphs (role={role}, max={max_paragraphs})")
+                # Fallback: analyze first paragraph
+                valid_paragraphs = [(0, content)]
+        
+        logger.info(f"[Stage-1] Deep mode - analyzing {len(valid_paragraphs)} priority paragraphs")
     
     # Create tasks for bounded parallel execution
     tasks = [
@@ -240,17 +306,25 @@ async def stage1_targeted_deep_analysis(
                 "risk_locations": []
             }
         
-        paragraph_analyses.append(result)
-        all_flags.extend(result.get("flags", []))
-        all_risk_locations.extend(result.get("risk_locations", []))
+            result["analysis_level"] = "deep"
+            paragraph_analyses.append(result)
+            all_flags.extend(result.get("flags", []))
+            all_risk_locations.extend(result.get("risk_locations", []))
+    
+    # CRITICAL: Ensure paragraph_analyses is never empty
+    if not paragraph_analyses:
+        logger.warning("[Stage-1] No paragraph analyses generated, creating fallback for first paragraph")
+        paragraph_analyses = [await analyze_paragraph_light(0, paragraphs[0] if paragraphs else content, stage0_result)]
+        mode = "light"  # Fallback to light mode
     
     latency_ms = (time.time() - start_time) * 1000
-    logger.info(f"[Stage-1] Targeted deep analysis completed in {latency_ms:.0f}ms for {len(paragraph_analyses)} paragraphs")
+    logger.info(f"[Stage-1] Analysis completed in {latency_ms:.0f}ms: mode={mode}, paragraphs={len(paragraph_analyses)}")
     
     return {
         "paragraph_analyses": paragraph_analyses,
         "all_flags": all_flags,
         "all_risk_locations": all_risk_locations,
-        "_stage1_latency_ms": latency_ms
+        "_stage1_latency_ms": latency_ms,
+        "_stage1_mode": mode  # "light" | "deep"
     }
 

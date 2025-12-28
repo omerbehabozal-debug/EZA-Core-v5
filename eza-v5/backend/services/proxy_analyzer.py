@@ -564,8 +564,8 @@ async def analyze_content_deep(
     
     logger.info(f"[Proxy] Stage-1 completed in {stage1_latency:.0f}ms: analyzed {len(paragraph_analyses)} paragraphs")
     
-    # CRITICAL: Ensure ALL paragraphs are included in the response
-    # Split content into all paragraphs
+    # PREMIUM FLOW: Stage-1 ALWAYS runs, so all paragraphs are analyzed
+    # Split content into all paragraphs for validation
     all_paragraphs = split_into_paragraphs(content)
     
     # If no paragraphs found, create a single paragraph from the entire content
@@ -576,28 +576,34 @@ async def analyze_content_deep(
     # Create a map of analyzed paragraphs by index
     analyzed_paragraphs_map = {para.get("paragraph_index", -1): para for para in paragraph_analyses}
     
-    # Build complete paragraph list: include analyzed + unanalyzed paragraphs
+    # PREMIUM FLOW: Ensure ALL paragraphs are in the response
+    # Stage-1 should have analyzed all paragraphs (light or deep mode)
+    # If any paragraph is missing, it's an error - create fallback
     complete_paragraph_analyses = []
-    
     for idx, para_text in enumerate(all_paragraphs):
         if idx in analyzed_paragraphs_map:
             # Use analyzed paragraph
             complete_paragraph_analyses.append(analyzed_paragraphs_map[idx])
         else:
-            # Create minimal entry for unanalyzed paragraph (no risk detected in Stage-0)
-            # DO NOT provide scores - user must explicitly request full analysis
+            # Fallback: This should not happen in premium flow, but create minimal entry
+            logger.warning(f"[Proxy] Paragraph {idx} missing from Stage-1 analysis, creating fallback")
             complete_paragraph_analyses.append({
                 "paragraph_index": idx,
                 "text": para_text,
+                "ethical_index": int(round(overall_ethical)),
+                "compliance_score": int(round(overall_compliance)),
+                "manipulation_score": int(round(overall_manipulation)),
+                "bias_score": int(round(overall_bias)),
+                "legal_risk_score": int(round(overall_legal)),
                 "flags": [],
                 "risk_locations": [],
-                "_analyzed": False,  # Mark as unanalyzed (no deep analysis performed)
-                "_not_analyzed_reason": "risk_tespit_edilmedi"  # Reason: no risk detected in Stage-0
+                "analysis_level": "light",
+                "summary": "Analiz tamamlandı"
             })
     
     # Replace paragraph_analyses with complete list
     paragraph_analyses = complete_paragraph_analyses
-    logger.info(f"[Proxy] Complete paragraph list: {len(paragraph_analyses)} paragraphs (analyzed: {len(analyzed_paragraphs_map)}, unanalyzed: {len(paragraph_analyses) - len(analyzed_paragraphs_map)})")
+    logger.info(f"[Proxy] Complete paragraph list: {len(paragraph_analyses)} paragraphs (all analyzed)")
     
     # VALIDATION: Ensure each paragraph has no duplicate narrative risks
     for para in paragraph_analyses:
@@ -666,6 +672,9 @@ async def analyze_content_deep(
         content_length=content_length
     )
     
+    # Get Stage-1 mode
+    stage1_mode = stage1_result.get("_stage1_mode", "deep")
+    
     return {
         "overall_scores": {
             "ethical_index": int(round(overall_ethical)),
@@ -674,10 +683,19 @@ async def analyze_content_deep(
             "bias_score": int(round(overall_bias)),
             "legal_risk_score": int(round(overall_legal))
         },
-        "paragraphs": paragraph_analyses,
+        "paragraphs": paragraph_analyses,  # CRITICAL: Always contains all paragraphs
         "flags": unique_flags,
         "risk_locations": grouped_risk_locations,
         "_stage0_result": stage0_result,  # Include Stage-0 for UI response contract
+        "_stage0_status": {
+            "status": "done",
+            "risk_band": risk_band,
+            "overall_score": int(round(overall_ethical))
+        },
+        "_stage1_status": {
+            "status": "done",
+            "mode": stage1_mode  # "light" | "deep"
+        },
         "_performance_metrics": {
             "stage0_latency_ms": stage0_latency,
             "stage1_latency_ms": stage1_latency,

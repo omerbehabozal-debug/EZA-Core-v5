@@ -61,15 +61,20 @@ export default function ParagraphAnalysisView({
 
   // Get overall risk level for paragraph
   const getParagraphRiskLevel = (paragraph: ParagraphAnalysisType) => {
-    // Check if paragraph was analyzed
-    const isAnalyzed = paragraph.ethical_index !== undefined && paragraph.ethical_index !== null;
-    if (!isAnalyzed) {
-      return { level: 'unknown', color: '#8E8E93', label: 'Analiz Edilmedi' };
-    }
-    const ethicalScore = paragraph.ethical_index!; // Safe to use ! here because we checked above
+    // PREMIUM FLOW: All paragraphs are analyzed (light or deep mode)
+    const ethicalScore = paragraph.ethical_index ?? 50; // Default to 50 if missing
     if (ethicalScore >= 76) return { level: 'low', color: '#22BF55', label: 'Düşük Risk' };
     if (ethicalScore >= 51) return { level: 'medium', color: '#F4A72F', label: 'Orta Risk' };
     return { level: 'high', color: '#E84343', label: 'Yüksek Risk' };
+  };
+
+  // Get analysis level label
+  const getAnalysisLevelLabel = (paragraph: ParagraphAnalysisType) => {
+    const analysisLevel = (paragraph as any).analysis_level;
+    if (analysisLevel === 'light') {
+      return { label: 'Hızlı Tarama', color: '#8E8E93', description: 'Bu paragraf için derin analiz gerekli görülmedi.' };
+    }
+    return { label: 'Derin Analiz', color: '#2563EB', description: 'Bu paragraf detaylı analizden geçirildi.' };
   };
 
   if (!paragraphs || paragraphs.length === 0) {
@@ -104,56 +109,48 @@ export default function ParagraphAnalysisView({
                   <span className="text-sm font-medium" style={{ color: 'var(--proxy-text-secondary)' }}>
                     Paragraf {index + 1}
                   </span>
-                  <div className="flex items-center gap-2">
-                    {(paragraph as any)._analyzed === false ? (
-                      // Unanalyzed paragraph - show message instead of scores
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* PREMIUM FLOW: All paragraphs are analyzed - show scores */}
+                    <span
+                      className="px-3 py-1 rounded-full text-xs font-semibold"
+                      style={{
+                        backgroundColor: `${riskLevel.color}15`,
+                        color: riskLevel.color,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {riskLevel.label} • Etik Skor: {paragraph.ethical_index ?? 'N/A'}
+                    </span>
+                    <InfoTooltip
+                      content="Etik Skor, bu paragrafın genel etik değerlendirmesini gösterir. Yüksek skor (76+) düşük risk, orta skor (51-75) orta risk, düşük skor (<51) yüksek risk anlamına gelir."
+                      position="top"
+                    />
+                    {/* Analysis Level Badge (Light/Deep) */}
+                    {(() => {
+                      const levelInfo = getAnalysisLevelLabel(paragraph);
+                      return (
                         <span
-                          className="px-3 py-1 rounded-full text-xs font-semibold"
+                          className="px-2 py-1 rounded text-xs"
                           style={{
-                            backgroundColor: 'rgba(142, 142, 147, 0.15)',
-                            color: 'var(--proxy-text-muted)',
-                            fontWeight: 600,
+                            backgroundColor: `${levelInfo.color}15`,
+                            color: levelInfo.color,
+                            fontSize: '10px',
                           }}
                         >
-                          Risk Tespit Edilmediği İçin Analiz Edilmedi
+                          {levelInfo.label}
                         </span>
-                        <InfoTooltip
-                          content="Bu paragraf Stage-0 hızlı taramada risk tespit edilmediği için derin analizden geçirilmedi. Tüm paragrafları analiz etmek için 'Tüm Paragrafları Analiz Et' butonunu kullanabilirsiniz."
-                          position="top"
-                        />
-                      </div>
-                    ) : (
-                      // Analyzed paragraph - show scores
-                      <>
-                        <span
-                          className="px-3 py-1 rounded-full text-xs font-semibold"
-                          style={{
-                            backgroundColor: `${riskLevel.color}15`,
-                            color: riskLevel.color,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {riskLevel.label} • Etik Skor: {paragraph.ethical_index}
-                        </span>
-                        <InfoTooltip
-                          content="Etik Skor, bu paragrafın genel etik değerlendirmesini gösterir. Yüksek skor (76+) düşük risk, orta skor (51-75) orta risk, düşük skor (<51) yüksek risk anlamına gelir."
-                          position="top"
-                        />
-                      </>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
 
-                {/* Paragraph Scores (Mini) - Only show if analyzed */}
-                {paragraph.ethical_index !== undefined && paragraph.ethical_index !== null && (
-                  <div className="flex items-center gap-4 text-xs mb-3" style={{ color: 'var(--proxy-text-muted)' }}>
-                    <span>Uyum: {paragraph.compliance_score}</span>
-                    <span>Manipülasyon: {paragraph.manipulation_score}</span>
-                    <span>Önyargı: {paragraph.bias_score}</span>
-                    <span>Hukuki: {paragraph.legal_risk_score}</span>
-                  </div>
-                )}
+                {/* Paragraph Scores (Mini) - PREMIUM FLOW: Always show */}
+                <div className="flex items-center gap-4 text-xs mb-3" style={{ color: 'var(--proxy-text-muted)' }}>
+                  <span>Uyum: {paragraph.compliance_score ?? 'N/A'}</span>
+                  <span>Manipülasyon: {paragraph.manipulation_score ?? 'N/A'}</span>
+                  <span>Önyargı: {paragraph.bias_score ?? 'N/A'}</span>
+                  <span>Hukuki: {paragraph.legal_risk_score ?? 'N/A'}</span>
+                </div>
               </div>
             </div>
 

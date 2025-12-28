@@ -636,7 +636,7 @@ function ProxyCorporatePageContent() {
               complianceScore={analysisResult.overall_scores.compliance_score}
             />
 
-            {/* Paragraph-Based Analysis View (Proxy Lite Style) */}
+            {/* Paragraph-Based Analysis View (Premium Unified Flow) */}
             {analysisResult.paragraphs && Array.isArray(analysisResult.paragraphs) && analysisResult.paragraphs.length > 0 && (
               <div
                 className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
@@ -648,37 +648,18 @@ function ProxyCorporatePageContent() {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
-                      Paragraf Bazlı Analiz
+                      {(() => {
+                        // Dynamic title based on risk_band
+                        const riskBand = analysisResult._stage0_status?.risk_band || analysisResult._stage0_result?.risk_band || 'low';
+                        return riskBand === 'low' 
+                          ? 'Analiz Özeti & Paragraf Görünümü'
+                          : 'Detaylı Paragraf Analizi';
+                      })()}
                     </h2>
                     <p className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
                       Metin paragraflara ayrılarak analiz edildi. Her paragraf için riskler, gerekçeler ve öneriler gösterilmektedir.
                     </p>
                   </div>
-                  {analysisResult.paragraphs && analysisResult.paragraphs.some((p: any) => p._analyzed === false) && (
-                    <button
-                      onClick={handleAnalyzeAllParagraphs}
-                      disabled={analyzingAllParagraphs}
-                      className="px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 flex items-center gap-2"
-                      style={{
-                        backgroundColor: 'var(--proxy-action-primary)',
-                        color: '#FFFFFF',
-                      }}
-                    >
-                      {analyzingAllParagraphs ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Analiz Ediliyor...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                          </svg>
-                          <span>Tüm Paragrafları Analiz Et</span>
-                        </>
-                      )}
-                    </button>
-                  )}
                 </div>
                 <ParagraphAnalysisView
                   paragraphs={analysisResult.paragraphs}
