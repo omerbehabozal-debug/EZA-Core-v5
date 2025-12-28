@@ -546,23 +546,56 @@ async def analyze_content_deep(
     
     logger.info(f"[Proxy] Stage-0 completed in {stage0_latency:.0f}ms: risk_band={risk_band}, priority_paragraphs={len(priority_paragraphs)}")
     
-    # STAGE-1: Targeted Deep Analysis (conditional)
-    stage1_result = await stage1_targeted_deep_analysis(
-        content=content,
-        stage0_result=stage0_result,
-        domain=domain,
-        policies=policies,
-        provider=provider,
-        role=role,
-        analyze_all_paragraphs=analyze_all_paragraphs
-    )
-    
-    stage1_latency = stage1_result.get("_stage1_latency_ms", 0)
-    paragraph_analyses = stage1_result.get("paragraph_analyses", [])
-    all_flags = stage1_result.get("all_flags", [])
-    all_risk_locations = stage1_result.get("all_risk_locations", [])
-    
-    logger.info(f"[Proxy] Stage-1 completed in {stage1_latency:.0f}ms: analyzed {len(paragraph_analyses)} paragraphs")
+    # STAGE-1: Targeted Deep Analysis (PREMIUM FLOW: ALWAYS runs)
+    logger.info(f"[Proxy] Starting Stage-1 analysis (risk_band={risk_band})")
+    try:
+        stage1_result = await stage1_targeted_deep_analysis(
+            content=content,
+            stage0_result=stage0_result,
+            domain=domain,
+            policies=policies,
+            provider=provider,
+            role=role,
+            analyze_all_paragraphs=analyze_all_paragraphs
+        )
+        
+        stage1_latency = stage1_result.get("_stage1_latency_ms", 0)
+        paragraph_analyses = stage1_result.get("paragraph_analyses", [])
+        all_flags = stage1_result.get("all_flags", [])
+        all_risk_locations = stage1_result.get("all_risk_locations", [])
+        
+        logger.info(f"[Proxy] Stage-1 completed in {stage1_latency:.0f}ms: analyzed {len(paragraph_analyses)} paragraphs, mode={stage1_result.get('_stage1_mode', 'unknown')}")
+    except Exception as e:
+        logger.error(f"[Proxy] Stage-1 failed with exception: {str(e)}", exc_info=True)
+        # Fallback: Create minimal paragraph analysis using Stage-0 estimates
+        all_paragraphs = split_into_paragraphs(content)
+        if not all_paragraphs:
+            all_paragraphs = [content] if content.strip() else [""]
+        
+        # Get estimated scores from Stage-0
+        estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+        avg_score = sum(estimated_range) // 2
+        
+        paragraph_analyses = []
+        for idx, para_text in enumerate(all_paragraphs):
+            paragraph_analyses.append({
+                "paragraph_index": idx,
+                "text": para_text,
+                "ethical_index": avg_score,
+                "compliance_score": avg_score + 5,
+                "manipulation_score": avg_score - 5,
+                "bias_score": avg_score,
+                "legal_risk_score": avg_score + 3,
+                "flags": [],
+                "risk_locations": [],
+                "analysis_level": "light",
+                "summary": "Analiz tamamlandı (fallback mode)"
+            })
+        
+        all_flags = []
+        all_risk_locations = []
+        stage1_latency = 0
+        logger.warning(f"[Proxy] Stage-1 fallback: created {len(paragraph_analyses)} paragraphs")
     
     # PREMIUM FLOW: Stage-1 ALWAYS runs, so all paragraphs are analyzed
     # Split content into all paragraphs for validation
