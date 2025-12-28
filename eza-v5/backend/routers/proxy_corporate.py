@@ -235,7 +235,8 @@ async def proxy_analyze(
                     role="proxy",  # Full Proxy - max 4 paragraphs in Stage-1 (or all if analyze_all_paragraphs=True)
                     org_id=org_id,
                     analyze_all_paragraphs=getattr(request, 'analyze_all_paragraphs', False),  # Analyze all paragraphs if requested
-                    stage1_mode=stage1_mode  # NEW: Explicit mode control (light or deep)
+                    stage1_mode=stage1_mode,  # NEW: Explicit mode control (light or deep)
+                    analysis_mode=analysis_mode  # NEW: Pass analysis_mode for enforcement checks
                 )
                 logger.info(f"[Proxy] analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
         else:
@@ -277,7 +278,8 @@ async def proxy_analyze(
                     role="proxy",  # Full Proxy
                     org_id=org_id,
                     analyze_all_paragraphs=True,  # PRO mode: analyze ALL paragraphs
-                    stage1_mode="deep"  # PRO mode: ALWAYS deep (enforced)
+                    stage1_mode="deep",  # PRO mode: ALWAYS deep (enforced)
+                    analysis_mode=analysis_mode  # NEW: Pass analysis_mode for enforcement checks
                 )
                 logger.info(f"[Proxy] PRO analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
                 

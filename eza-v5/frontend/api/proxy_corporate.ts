@@ -16,6 +16,7 @@ export interface ProxyAnalyzeRequest {
   domain?: 'finance' | 'health' | 'retail' | 'media' | 'autonomous';
   return_report?: boolean;
   analyze_all_paragraphs?: boolean;  // If true, analyze all paragraphs regardless of risk detection
+  analysis_mode?: 'fast' | 'pro';  // NEW: Optional user override (if org allows)
 }
 
 export interface RiskLocation {
@@ -123,6 +124,8 @@ export interface ProxyAnalyzeResponse {
     status: "done";
     mode: "light" | "deep";
   };
+  analysis_mode?: 'fast' | 'pro';  // NEW: Analysis mode used (fast | pro)
+  ui_status_message?: string;  // NEW: UI differentiation message (FAST vs PRO)
 }
 
 export interface ProxyRewriteRequest {

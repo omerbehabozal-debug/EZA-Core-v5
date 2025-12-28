@@ -605,6 +605,20 @@ function ProxyCorporatePageContent() {
                     <span className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: 'rgba(37, 99, 235, 0.15)', color: 'var(--proxy-action-primary)' }}>
                       Çalışma Taslağı — Kayıtlı Değil
                     </span>
+                    {analysisResult.analysis_mode && (
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        analysisResult.analysis_mode === 'pro' 
+                          ? 'bg-purple-500/20 text-purple-300' 
+                          : 'bg-blue-500/20 text-blue-300'
+                      }`}>
+                        {analysisResult.analysis_mode === 'pro' ? 'PRO — Professional Deep Analysis' : 'FAST — Speed Optimized'}
+                      </span>
+                    )}
+                    {analysisResult.ui_status_message && (
+                      <span className="text-xs" style={{ color: 'var(--proxy-text-secondary)' }}>
+                        {analysisResult.ui_status_message}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button
@@ -811,6 +825,76 @@ function ProxyCorporatePageContent() {
                     <p className="text-xs mb-4" style={{ color: 'var(--proxy-text-muted)' }}>
                       Bu bir öneridir. Orijinal metin korunmuştur. İstediğiniz değişiklikleri yapabilirsiniz.
                     </p>
+
+                    {/* PRO Mode Rewrite Explanation (Org Admin Only) */}
+                    {rewriteResult.rewrite_explanation && (
+                      <div className="mt-6 p-4 rounded-xl border" style={{ 
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)', 
+                        borderColor: 'rgba(139, 92, 246, 0.3)' 
+                      }}>
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--proxy-text-primary)' }}>
+                          <span className="text-purple-400">🔍</span>
+                          Profesyonel Analiz Açıklaması (İç Kullanım)
+                        </h4>
+                        
+                        {/* Detected Risks */}
+                        {rewriteResult.rewrite_explanation.detected_risks.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-xs font-medium mb-2" style={{ color: 'var(--proxy-text-secondary)' }}>
+                              Tespit Edilen Riskler:
+                            </p>
+                            <ul className="space-y-1">
+                              {rewriteResult.rewrite_explanation.detected_risks.map((risk, idx) => (
+                                <li key={idx} className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
+                              • Paragraf {risk.paragraph}: {risk.risk_type} ({risk.severity}) - {risk.count} adet
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Rewrite Actions */}
+                        {rewriteResult.rewrite_explanation.rewrite_actions.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-xs font-medium mb-2" style={{ color: 'var(--proxy-text-secondary)' }}>
+                              Yapılan Düzenlemeler:
+                            </p>
+                            <ul className="space-y-1">
+                              {rewriteResult.rewrite_explanation.rewrite_actions.map((action, idx) => (
+                                <li key={idx} className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
+                              • Paragraf {action.paragraph}: {action.action} - {action.preserved}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Preservation Notes */}
+                        {rewriteResult.rewrite_explanation.preservation_notes.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-xs font-medium mb-2" style={{ color: 'var(--proxy-text-secondary)' }}>
+                              Korunan Özellikler:
+                            </p>
+                            <ul className="space-y-1">
+                              {rewriteResult.rewrite_explanation.preservation_notes.map((note, idx) => (
+                                <li key={idx} className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
+                              ✓ {note}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Outcome Summary */}
+                        {rewriteResult.rewrite_explanation.outcome_summary && (
+                          <div className="pt-3 border-t" style={{ borderColor: 'rgba(139, 92, 246, 0.2)' }}>
+                            <p className="text-xs" style={{ color: 'var(--proxy-text-secondary)' }}>
+                              <strong>Özet:</strong> {rewriteResult.rewrite_explanation.outcome_summary}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <button
                       type="button"

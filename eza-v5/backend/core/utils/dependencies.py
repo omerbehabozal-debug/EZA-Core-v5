@@ -129,8 +129,25 @@ async def init_db():
                 """))
             
             logging.info("User model columns checked/added successfully")
+            except Exception as e:
+                logging.warning(f"Could not add User model columns (may already exist): {e}")
+        
+        # Add analysis_mode column to production_organizations if it doesn't exist
+        try:
+            check_result = await conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'production_organizations' 
+                AND column_name = 'analysis_mode'
+            """))
+            if not check_result.scalar_one_or_none():
+                await conn.execute(text("""
+                    ALTER TABLE production_organizations 
+                    ADD COLUMN analysis_mode VARCHAR(20) NOT NULL DEFAULT 'fast'
+                """))
+                logging.info("✓ Added analysis_mode column to production_organizations")
         except Exception as e:
-            logging.warning(f"Could not add User model columns (may already exist): {e}")
+            logging.warning(f"Could not add analysis_mode column (may already exist): {e}")
         
         # Add missing soft delete columns if they don't exist (migration helper)
         # This ensures backward compatibility with existing databases

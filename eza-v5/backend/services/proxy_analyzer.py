@@ -514,7 +514,8 @@ async def analyze_content_deep(
     role: str = "proxy",  # "proxy_lite" or "proxy"
     org_id: Optional[str] = None,  # Required for cache isolation
     analyze_all_paragraphs: bool = False,  # If True, analyze all paragraphs regardless of risk detection
-    stage1_mode: Optional[Literal["light", "deep"]] = None  # "light" = heuristic (no LLM), "deep" = LLM-based. If None, auto-determined from risk_band
+    stage1_mode: Optional[Literal["light", "deep"]] = None,  # "light" = heuristic (no LLM), "deep" = LLM-based. If None, auto-determined from risk_band
+    analysis_mode: Optional[Literal["fast", "pro"]] = None  # NEW: "fast" | "pro" - for enforcement checks
 ) -> Dict[str, Any]:
     """
     3-Stage Gated Pipeline Analysis
@@ -800,6 +801,14 @@ async def analyze_content_deep(
     assert response["_stage1_status"]["status"] == "done", "[ENFORCEMENT] Stage-1 status must be 'done'"
     assert response["_stage1_status"]["mode"] in ["light", "deep"], f"[ENFORCEMENT] Stage-1 mode must be 'light' or 'deep', got: {response['_stage1_status']['mode']}"
     assert len(response["paragraphs"]) > 0, "[ENFORCEMENT] Response paragraphs must not be empty"
+    
+    # ENFORCEMENT: PRO mode must have deep Stage-1
+    if analysis_mode == "pro":
+        assert response["_stage1_status"]["mode"] == "deep", "[ENFORCEMENT] PRO mode must have deep Stage-1, got: " + response["_stage1_status"]["mode"]
+    
+    # ENFORCEMENT: analysis_mode must exist in response (if provided)
+    if analysis_mode:
+        response["analysis_mode"] = analysis_mode
     
     return response
 
