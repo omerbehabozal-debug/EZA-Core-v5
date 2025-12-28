@@ -6,7 +6,7 @@ Ecosystem-focused oversight for technology policy authorities
 
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -101,7 +101,7 @@ async def get_sanayi_dashboard(
         )
     
     try:
-        from_date = datetime.utcnow() - timedelta(days=days)
+        from_date = datetime.now(timezone.utc) - timedelta(days=days)
         
         # Get all IntentLogs (all sectors - ecosystem view)
         intent_logs_query = select(IntentLog).where(
@@ -438,7 +438,7 @@ async def get_sanayi_systems(
         )
     
     try:
-        from_date = datetime.utcnow() - timedelta(days=days)
+        from_date = datetime.now(timezone.utc) - timedelta(days=days)
         
         # Get all IntentLogs
         query = select(IntentLog).where(
@@ -584,7 +584,7 @@ async def get_sanayi_risk_patterns(
         )
     
     try:
-        from_date = datetime.utcnow() - timedelta(days=days)
+        from_date = datetime.now(timezone.utc) - timedelta(days=days)
         
         # Get all IntentLogs
         query = select(IntentLog).where(
@@ -740,10 +740,11 @@ async def get_sanayi_risk_patterns(
         
         # Trend detection
         try:
+            now = datetime.now(timezone.utc)
             recent_logs = [log for log in all_logs 
-                          if log.created_at and log.created_at >= datetime.utcnow() - timedelta(days=7)]
+                          if log.created_at and log.created_at >= now - timedelta(days=7)]
             older_logs = [log for log in all_logs 
-                         if log.created_at and log.created_at < datetime.utcnow() - timedelta(days=7)]
+                         if log.created_at and log.created_at < now - timedelta(days=7)]
             
             recent_high_risk = sum(1 for log in recent_logs 
                                   if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
@@ -839,14 +840,15 @@ async def get_sanayi_alerts(
                     "description": f"{max_provider[0]} tek bir sağlayıcıya %{max_provider_ratio:.1f} bağımlılık tespit edildi",
                     "provider": max_provider[0],
                     "dependency_rate": round(max_provider_ratio, 1),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 })
         
         # Alert 2: Rapid growth in high-risk AI systems
+        now = datetime.now(timezone.utc)
         recent_logs = [log for log in all_logs 
-                      if log.created_at and log.created_at >= datetime.utcnow() - timedelta(days=7)]
+                      if log.created_at and log.created_at >= now - timedelta(days=7)]
         older_logs = [log for log in all_logs 
-                     if log.created_at and log.created_at < datetime.utcnow() - timedelta(days=7)]
+                     if log.created_at and log.created_at < now - timedelta(days=7)]
         
         recent_high_risk = sum(1 for log in recent_logs 
                               if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
@@ -888,7 +890,7 @@ async def get_sanayi_alerts(
                         "description": f"{sector} sektöründe etik olgunluk indeksinde düşüş tespit edildi (Eski: {older_avg:.1f}, Yeni: {recent_avg:.1f})",
                         "sector": sector,
                         "decline": round(older_avg - recent_avg, 1),
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     })
         
         # Sort by severity (High first)
