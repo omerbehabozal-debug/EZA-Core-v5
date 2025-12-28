@@ -637,7 +637,7 @@ function ProxyCorporatePageContent() {
             />
 
             {/* Paragraph-Based Analysis View (Proxy Lite Style) */}
-            {analysisResult.paragraphs && analysisResult.paragraphs.length > 0 && (
+            {analysisResult.paragraphs && Array.isArray(analysisResult.paragraphs) && analysisResult.paragraphs.length > 0 && (
               <div
                 className="rounded-2xl p-6 transition-colors hover:bg-[var(--proxy-surface-hover)]"
                 style={{

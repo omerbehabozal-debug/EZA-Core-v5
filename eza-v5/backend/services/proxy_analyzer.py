@@ -568,6 +568,11 @@ async def analyze_content_deep(
     # Split content into all paragraphs
     all_paragraphs = split_into_paragraphs(content)
     
+    # If no paragraphs found, create a single paragraph from the entire content
+    if not all_paragraphs:
+        logger.warning(f"[Proxy] No paragraphs found in content, treating entire content as single paragraph")
+        all_paragraphs = [content] if content.strip() else []
+    
     # Create a map of analyzed paragraphs by index
     analyzed_paragraphs_map = {para.get("paragraph_index", -1): para for para in paragraph_analyses}
     
