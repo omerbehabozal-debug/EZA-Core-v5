@@ -279,6 +279,10 @@ async def get_sanayi_companies(
         org_data: Dict[str, Dict[str, Any]] = {}
         
         for log in all_logs:
+            # Skip logs without organization_id
+            if not log.organization_id:
+                continue
+                
             org_id_str = str(log.organization_id)
             
             if org_id_str not in org_data:
@@ -334,7 +338,15 @@ async def get_sanayi_companies(
                         break
         
         # Fetch organization names
-        org_ids = [uuid.UUID(org_id) for org_id in org_data.keys() if org_id]
+        org_ids = []
+        for org_id_str in org_data.keys():
+            if org_id_str and org_id_str != "None":
+                try:
+                    org_ids.append(uuid.UUID(org_id_str))
+                except (ValueError, TypeError):
+                    logger.warning(f"[Sanayi] Invalid organization ID format: {org_id_str}")
+                    continue
+        
         if org_ids:
             try:
                 orgs_query = select(Organization).where(Organization.id.in_(org_ids))
@@ -587,6 +599,10 @@ async def get_sanayi_risk_patterns(
         org_patterns: Dict[str, Dict[str, Any]] = {}
         
         for log in all_logs:
+            # Skip logs without organization_id
+            if not log.organization_id:
+                continue
+                
             org_id_str = str(log.organization_id)
             ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
             
@@ -623,7 +639,7 @@ async def get_sanayi_risk_patterns(
                 continue
             
             log = log_map.get(str(impact.intent_log_id))
-            if not log:
+            if not log or not log.organization_id:
                 continue
             
             org_id_str = str(log.organization_id)
@@ -647,7 +663,15 @@ async def get_sanayi_risk_patterns(
                 org_patterns[org_id_str]["system_types"].add(classify_ai_system_type(system_name))
         
         # Fetch organization names
-        org_ids = [uuid.UUID(org_id) for org_id in org_patterns.keys() if org_id]
+        org_ids = []
+        for org_id_str in org_patterns.keys():
+            if org_id_str and org_id_str != "None":
+                try:
+                    org_ids.append(uuid.UUID(org_id_str))
+                except (ValueError, TypeError):
+                    logger.warning(f"[Sanayi] Invalid organization ID format: {org_id_str}")
+                    continue
+        
         if org_ids:
             try:
                 orgs_query = select(Organization).where(Organization.id.in_(org_ids))
