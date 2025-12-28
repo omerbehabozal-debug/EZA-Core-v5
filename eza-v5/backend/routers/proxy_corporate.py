@@ -830,14 +830,15 @@ async def proxy_rewrite(
             
             if not content_changed:
                 # Content didn't change - check why
-                if original_ethical >= 80:
+                # Priority: Check if original score is already good (70+), then check if no risks found
+                if original_ethical >= 70:
                     status_message = "Metin etik olarak risk sınırının üzerinde. Metin aynı şekilde korundu, değiştirilmedi."
                 elif len(rewritten_spans) == 0:
                     status_message = "Risk tespit edilmedi. Metin değiştirilmedi."
                 else:
                     status_message = "Metin değiştirilmedi (context preservation nedeniyle)."
-            elif improvement_ethical <= 0 and original_ethical >= 75:
-                # Content changed but no improvement, and original was already good
+            elif improvement_ethical <= 0 and original_ethical >= 70:
+                # Content changed but no improvement, and original was already good (70+ is considered above risk threshold)
                 status_message = "Metin etik olarak risk sınırının üzerindeydi. İyileştirilecek bir şey bulunamadı, metin korundu."
             elif improvement_ethical > 0:
                 # Improvement achieved
@@ -849,7 +850,8 @@ async def proxy_rewrite(
             # No re-analysis requested or rewrite failed
             if not content_changed:
                 original_ethical = original_scores.get("ethical_index", 50)
-                if original_ethical >= 80:
+                # Priority: Check if original score is already good (70+), then check if no risks found
+                if original_ethical >= 70:
                     status_message = "Metin etik olarak risk sınırının üzerinde. Metin aynı şekilde korundu, değiştirilmedi."
                 elif len(rewritten_spans) == 0:
                     status_message = "Risk tespit edilmedi. Metin değiştirilmedi."
