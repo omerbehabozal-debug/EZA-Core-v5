@@ -644,15 +644,18 @@ async def analyze_content_deep(
             complete_paragraph_analyses.append(analyzed_paragraphs_map[idx])
         else:
             # Fallback: This should not happen in premium flow, but create minimal entry
+            # Use Stage-0 estimates since overall_* variables are not yet calculated
             logger.warning(f"[Proxy] Paragraph {idx} missing from Stage-1 analysis, creating fallback")
+            estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+            avg_score = sum(estimated_range) // 2
             complete_paragraph_analyses.append({
                 "paragraph_index": idx,
                 "text": para_text,
-                "ethical_index": int(round(overall_ethical)),
-                "compliance_score": int(round(overall_compliance)),
-                "manipulation_score": int(round(overall_manipulation)),
-                "bias_score": int(round(overall_bias)),
-                "legal_risk_score": int(round(overall_legal)),
+                "ethical_index": avg_score,
+                "compliance_score": avg_score + 5,
+                "manipulation_score": avg_score - 5,
+                "bias_score": avg_score,
+                "legal_risk_score": avg_score + 3,
                 "flags": [],
                 "risk_locations": [],
                 "analysis_level": "light",
@@ -665,14 +668,17 @@ async def analyze_content_deep(
     # CRITICAL: Ensure paragraph_analyses is never empty
     if not paragraph_analyses:
         logger.error("[Proxy] CRITICAL: paragraph_analyses is empty! Creating fallback.")
+        # Use Stage-0 estimates since overall_* variables are not yet calculated
+        estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+        avg_score = sum(estimated_range) // 2
         paragraph_analyses = [{
             "paragraph_index": 0,
             "text": content[:500] if content else "",
-            "ethical_index": int(round(overall_ethical)),
-            "compliance_score": int(round(overall_compliance)),
-            "manipulation_score": int(round(overall_manipulation)),
-            "bias_score": int(round(overall_bias)),
-            "legal_risk_score": int(round(overall_legal)),
+            "ethical_index": avg_score,
+            "compliance_score": avg_score + 5,
+            "manipulation_score": avg_score - 5,
+            "bias_score": avg_score,
+            "legal_risk_score": avg_score + 3,
             "flags": [],
             "risk_locations": [],
             "analysis_level": "light",
