@@ -22,6 +22,13 @@ Ez@Core-Test-2025
 
 ## Usage
 
+### Important: Database Selection
+
+⚠️ **CRITICAL**: The script uses `DATABASE_URL` from your `.env` file. Make sure you're connecting to the **correct database**:
+
+- **Local Development**: Uses `localhost:5432/eza_v6` (default)
+- **Production**: Must use Railway production database URL
+
 ### From Project Root
 
 ```bash
@@ -33,6 +40,30 @@ python scripts/create_regulator_test_users.py
 
 ```bash
 python scripts/create_regulator_test_users.py
+```
+
+### For Production Database
+
+1. **Get Railway Production DATABASE_URL**:
+   - Railway Dashboard → Your Project → PostgreSQL → Connect → Connection URL
+   - Copy the **PUBLIC** connection URL (NOT internal)
+
+2. **Set DATABASE_URL in .env**:
+   ```bash
+   DATABASE_URL=postgresql://postgres:password@host:port/database
+   ```
+
+3. **Run script**:
+   ```bash
+   python scripts/create_regulator_test_users.py
+   ```
+
+### Verify Users
+
+After creating users, verify they exist in the correct database:
+
+```bash
+python scripts/verify_regulator_test_users.py
 ```
 
 ## Features
