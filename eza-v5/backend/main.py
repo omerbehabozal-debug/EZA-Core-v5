@@ -152,6 +152,7 @@ allowed_origins = [
     "https://admin.ezacore.ai",
     "https://rtuk.ezacore.ai",
     "https://sanayi.ezacore.ai",
+    "https://tech.ezacore.ai",  # Sanayi panel alternative domain
     "https://finance.ezacore.ai",
     "https://health.ezacore.ai",
     # Vercel domains - will be checked dynamically
