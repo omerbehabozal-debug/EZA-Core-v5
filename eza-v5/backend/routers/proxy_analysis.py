@@ -848,6 +848,14 @@ async def get_analysis_snapshot(
             if not content and intent_log.flags and isinstance(intent_log.flags, dict):
                 content = intent_log.flags.get('_content_fallback', '')
             
+            # Extract detailed analysis data from flags
+            flags_data = intent_log.flags or {}
+            paragraphs = flags_data.get('paragraphs', [])
+            risk_locations = flags_data.get('risk_locations', [])
+            justification = flags_data.get('justification', [])
+            risk_flags_severity = flags_data.get('risk_flags_severity', [])
+            flags_list = flags_data.get('flags', [])  # Extract flags list
+            
             # Build snapshot response
             snapshot = {
                 "analysis_id": str(intent_log.id),
@@ -858,7 +866,12 @@ async def get_analysis_snapshot(
                 "policies": intent_log.policy_set.get('policies', []) if intent_log.policy_set else [],
                 "analysis_type_label": "Yayına Hazırlık Analizi",
                 "scores": intent_log.risk_scores or {},
-                "system_findings": _extract_system_findings(intent_log.flags or {}),
+                "system_findings": _extract_system_findings(flags_data),
+                "flags": flags_list if isinstance(flags_list, list) else [],  # Add flags list for RiskFlags component
+                "paragraphs": paragraphs,  # Add paragraph analysis
+                "risk_locations": risk_locations,  # Add risk locations
+                "justification": justification,  # Add justification details
+                "risk_flags_severity": risk_flags_severity,  # Add detailed risk flags
                 "user_action": {
                     "action": intent_log.trigger_action,
                     "action_label": _get_trigger_action_label(intent_log.trigger_action),
@@ -916,6 +929,14 @@ async def get_analysis_snapshot(
                 if not content and related_intent.flags and isinstance(related_intent.flags, dict):
                     content = related_intent.flags.get('_content_fallback', '')
             
+            # Extract detailed analysis data from related intent log flags
+            flags_data = related_intent.flags if related_intent else {}
+            paragraphs = flags_data.get('paragraphs', [])
+            risk_locations = flags_data.get('risk_locations', [])
+            justification = flags_data.get('justification', [])
+            risk_flags_severity = flags_data.get('risk_flags_severity', [])
+            flags_list = flags_data.get('flags', [])  # Extract flags list
+            
             snapshot = {
                 "analysis_id": str(impact_event.id),
                 "analysis_type": "impact_event",
@@ -925,7 +946,12 @@ async def get_analysis_snapshot(
                 "policies": related_intent.policy_set.get('policies', []) if related_intent and related_intent.policy_set else [],
                 "analysis_type_label": "Gerçek Etki Kaydı",
                 "scores": impact_event.risk_scores_locked,  # Locked scores
-                "system_findings": _extract_system_findings(related_intent.flags if related_intent else {}),
+                "system_findings": _extract_system_findings(flags_data),
+                "flags": flags_list if isinstance(flags_list, list) else [],  # Add flags list for RiskFlags component
+                "paragraphs": paragraphs,  # Add paragraph analysis
+                "risk_locations": risk_locations,  # Add risk locations
+                "justification": justification,  # Add justification details
+                "risk_flags_severity": risk_flags_severity,  # Add detailed risk flags
                 "user_action": {
                     "action": "impact_occurred",
                     "action_label": "Gerçek Etki Tespit Edildi",

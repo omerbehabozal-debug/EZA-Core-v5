@@ -14,6 +14,8 @@ import RequireAuth from "@/components/auth/RequireAuth";
 import ScoreBars from "../../components/ScoreBars";
 import ComplianceMetrics from "../../components/ComplianceMetrics";
 import AutoResizeTextarea from "../../components/AutoResizeTextarea";
+import ParagraphAnalysisView from "../../components/ParagraphAnalysisView";
+import RiskFlags from "../../components/RiskFlags";
 
 function AnalysisSnapshotContent() {
   const params = useParams();
@@ -250,8 +252,50 @@ function AnalysisSnapshotContent() {
           </div>
         )}
 
-        {/* Section 4: System Findings */}
-        {snapshot.system_findings && snapshot.system_findings.length > 0 && (
+        {/* Section 4: Paragraph Analysis */}
+        {snapshot.paragraphs && snapshot.paragraphs.length > 0 && (
+          <div
+            className="rounded-2xl p-6 mb-6"
+            style={{
+              backgroundColor: 'var(--proxy-surface)',
+              border: '1px solid var(--proxy-border-soft)',
+            }}
+          >
+            <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
+              Paragraf Bazlı Analiz
+            </h2>
+            <p className="text-xs mb-6" style={{ color: 'var(--proxy-text-muted)' }}>
+              Metin paragraflara ayrılarak analiz edildi. Her paragraf için riskler, gerekçeler ve öneriler gösterilmektedir.
+            </p>
+            <ParagraphAnalysisView
+              paragraphs={snapshot.paragraphs}
+              riskLocations={snapshot.risk_locations || []}
+              justifications={snapshot.justification || null}
+            />
+          </div>
+        )}
+
+        {/* Section 5: Risk Flags (Detailed) */}
+        {snapshot.risk_locations && snapshot.risk_locations.length > 0 && (
+          <div
+            className="rounded-2xl p-6 mb-6"
+            style={{
+              backgroundColor: 'var(--proxy-surface)',
+              border: '1px solid var(--proxy-border-soft)',
+            }}
+          >
+            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
+              Risk Özeti
+            </h2>
+            <RiskFlags
+              flags={snapshot.flags || snapshot.system_findings || []}
+              riskLocations={snapshot.risk_locations}
+            />
+          </div>
+        )}
+
+        {/* Section 6: System Findings (Simple List) */}
+        {snapshot.system_findings && snapshot.system_findings.length > 0 && !snapshot.risk_locations && (
           <div
             className="rounded-2xl p-6 mb-6"
             style={{
@@ -279,7 +323,7 @@ function AnalysisSnapshotContent() {
           </div>
         )}
 
-        {/* Section 5: User Action Summary */}
+        {/* Section 7: User Action Summary */}
         <div
           className="rounded-2xl p-6 mb-6"
           style={{
@@ -313,7 +357,7 @@ function AnalysisSnapshotContent() {
           </div>
         </div>
 
-        {/* Impact Events (if any) */}
+        {/* Section 8: Impact Events (if any) */}
         {snapshot.impact_events && snapshot.impact_events.length > 0 && (
           <div
             className="rounded-2xl p-6"

@@ -368,6 +368,11 @@ export interface AnalysisSnapshot {
     legal_risk_score?: number;
   };
   system_findings: string[];
+  flags?: string[];  // Add flags list for RiskFlags component
+  paragraphs?: ParagraphAnalysis[];  // Add paragraph analysis
+  risk_locations?: RiskLocation[];  // Add risk locations
+  justification?: DecisionJustificationResponse[];  // Add justification details
+  risk_flags_severity?: RiskFlagSeverityResponse[];  // Add detailed risk flags
   user_action: {
     action: string;
     action_label: string;
