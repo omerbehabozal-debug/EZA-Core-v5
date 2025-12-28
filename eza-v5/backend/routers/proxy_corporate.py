@@ -625,7 +625,17 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
             ok=True,
             overall_scores=analysis_result["overall_scores"],
             paragraphs=[
-                ParagraphAnalysis(**para) for para in analysis_result["paragraphs"]
+                ParagraphAnalysis(
+                    paragraph_index=para.get("paragraph_index", 0),
+                    text=para.get("text", ""),
+                    ethical_index=para.get("ethical_index"),  # Optional
+                    compliance_score=para.get("compliance_score"),  # Optional
+                    manipulation_score=para.get("manipulation_score"),  # Optional
+                    bias_score=para.get("bias_score"),  # Optional
+                    legal_risk_score=para.get("legal_risk_score"),  # Optional
+                    flags=para.get("flags", []),
+                    risk_locations=para.get("risk_locations", [])
+                ) for para in analysis_result["paragraphs"]
             ],
             flags=analysis_result["flags"],
             risk_locations=[

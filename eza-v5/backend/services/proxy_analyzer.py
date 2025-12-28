@@ -619,13 +619,19 @@ async def analyze_content_deep(
         logger.warning("[Proxy] Global risk_locations has duplicate primary patterns. Re-collapsing...")
         grouped_risk_locations = group_violations(grouped_risk_locations)
     
-    # Calculate overall scores (weighted average from analyzed paragraphs)
-    if paragraph_analyses:
-        overall_ethical = sum(p["ethical_index"] for p in paragraph_analyses) / len(paragraph_analyses)
-        overall_compliance = sum(p["compliance_score"] for p in paragraph_analyses) / len(paragraph_analyses)
-        overall_manipulation = sum(p["manipulation_score"] for p in paragraph_analyses) / len(paragraph_analyses)
-        overall_bias = sum(p["bias_score"] for p in paragraph_analyses) / len(paragraph_analyses)
-        overall_legal = sum(p["legal_risk_score"] for p in paragraph_analyses) / len(paragraph_analyses)
+    # Calculate overall scores (weighted average from ANALYZED paragraphs only)
+    # Filter out unanalyzed paragraphs (those without scores)
+    analyzed_paragraphs_with_scores = [
+        p for p in paragraph_analyses 
+        if p.get("ethical_index") is not None  # Only paragraphs with ethical_index are analyzed
+    ]
+    
+    if analyzed_paragraphs_with_scores:
+        overall_ethical = sum(p.get("ethical_index", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        overall_compliance = sum(p.get("compliance_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        overall_manipulation = sum(p.get("manipulation_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        overall_bias = sum(p.get("bias_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        overall_legal = sum(p.get("legal_risk_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
     else:
         # Fallback to Stage-0 estimates
         estimated_range = stage0_result.get("estimated_score_range", [50, 70])
