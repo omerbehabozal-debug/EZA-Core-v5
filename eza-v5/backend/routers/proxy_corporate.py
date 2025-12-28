@@ -37,6 +37,7 @@ class ProxyAnalyzeRequest(BaseModel):
     provider: Literal["openai", "groq", "mistral"] = "openai"
     domain: Optional[Literal["finance", "health", "retail", "media", "autonomous"]] = None
     return_report: bool = True
+    analyze_all_paragraphs: bool = False  # If True, analyze all paragraphs regardless of risk detection
 
 
 class RiskLocation(BaseModel):
@@ -55,13 +56,13 @@ class RiskLocation(BaseModel):
 class ParagraphAnalysis(BaseModel):
     paragraph_index: int
     text: str
-    ethical_index: int
-    compliance_score: int
-    manipulation_score: int
-    bias_score: int
-    legal_risk_score: int
-    flags: List[str]
-    risk_locations: List[RiskLocation]
+    ethical_index: Optional[int] = None  # Optional for unanalyzed paragraphs
+    compliance_score: Optional[int] = None  # Optional for unanalyzed paragraphs
+    manipulation_score: Optional[int] = None  # Optional for unanalyzed paragraphs
+    bias_score: Optional[int] = None  # Optional for unanalyzed paragraphs
+    legal_risk_score: Optional[int] = None  # Optional for unanalyzed paragraphs
+    flags: List[str] = []
+    risk_locations: List[RiskLocation] = []
 
 
 class RiskFlagSeverityResponse(BaseModel):
@@ -230,8 +231,9 @@ async def proxy_analyze(
                 domain=request.domain,
                 policies=request.policies,
                 provider=request.provider,
-                role="proxy",  # Full Proxy - max 4 paragraphs in Stage-1
-                org_id=org_id
+                role="proxy",  # Full Proxy - max 4 paragraphs in Stage-1 (or all if analyze_all_paragraphs=True)
+                org_id=org_id,
+                analyze_all_paragraphs=getattr(request, 'analyze_all_paragraphs', False)  # Analyze all paragraphs if requested
             )
         except CircuitBreakerOpenError:
             logger.warning(f"[Proxy] Circuit breaker OPEN for org_id={org_id}, returning Stage-0 only")

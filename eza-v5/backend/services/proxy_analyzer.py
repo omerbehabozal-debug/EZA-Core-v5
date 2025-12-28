@@ -512,7 +512,8 @@ async def analyze_content_deep(
     policies: Optional[List[str]] = None,
     provider: str = "openai",
     role: str = "proxy",  # "proxy_lite" or "proxy"
-    org_id: Optional[str] = None  # Required for cache isolation
+    org_id: Optional[str] = None,  # Required for cache isolation
+    analyze_all_paragraphs: bool = False  # If True, analyze all paragraphs regardless of risk detection
 ) -> Dict[str, Any]:
     """
     3-Stage Gated Pipeline Analysis
@@ -552,7 +553,8 @@ async def analyze_content_deep(
         domain=domain,
         policies=policies,
         provider=provider,
-        role=role
+        role=role,
+        analyze_all_paragraphs=analyze_all_paragraphs
     )
     
     stage1_latency = stage1_result.get("_stage1_latency_ms", 0)
@@ -571,27 +573,21 @@ async def analyze_content_deep(
     
     # Build complete paragraph list: include analyzed + unanalyzed paragraphs
     complete_paragraph_analyses = []
-    estimated_range = stage0_result.get("estimated_score_range", [50, 70])
-    avg_score = sum(estimated_range) // 2
     
     for idx, para_text in enumerate(all_paragraphs):
         if idx in analyzed_paragraphs_map:
             # Use analyzed paragraph
             complete_paragraph_analyses.append(analyzed_paragraphs_map[idx])
         else:
-            # Create minimal entry for unanalyzed paragraph (no risk detected)
-            # Use Stage-0 estimates for scores
+            # Create minimal entry for unanalyzed paragraph (no risk detected in Stage-0)
+            # DO NOT provide scores - user must explicitly request full analysis
             complete_paragraph_analyses.append({
                 "paragraph_index": idx,
                 "text": para_text,
-                "ethical_index": avg_score,
-                "compliance_score": min(avg_score + 10, 100),
-                "manipulation_score": max(avg_score - 5, 0),
-                "bias_score": avg_score,
-                "legal_risk_score": min(avg_score + 5, 100),
                 "flags": [],
                 "risk_locations": [],
-                "_analyzed": False  # Mark as unanalyzed (no deep analysis performed)
+                "_analyzed": False,  # Mark as unanalyzed (no deep analysis performed)
+                "_not_analyzed_reason": "risk_tespit_edilmedi"  # Reason: no risk detected in Stage-0
             })
     
     # Replace paragraph_analyses with complete list

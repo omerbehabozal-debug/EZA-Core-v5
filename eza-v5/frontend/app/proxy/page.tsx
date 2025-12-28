@@ -49,6 +49,7 @@ function ProxyCorporatePageContent() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [analyzingAllParagraphs, setAnalyzingAllParagraphs] = useState(false);
   
   // Configuration
   const [domain, setDomain] = useState<'finance' | 'health' | 'retail' | 'media' | 'autonomous' | ''>('');
@@ -296,6 +297,47 @@ function ProxyCorporatePageContent() {
         analyzeProcessing.stop();
         setLoading(false);
       }, 1000); // Keep state visible for 1 second even on error
+    }
+  };
+
+  const handleAnalyzeAllParagraphs = async () => {
+    if (!analysisResult || !content.trim() || analyzingAllParagraphs) return;
+
+    setAnalyzingAllParagraphs(true);
+    setError(null);
+
+    try {
+      const orgId = currentOrganization?.id || null;
+      if (!orgId) {
+        setError('Organizasyon seçilmedi. Lütfen bir organizasyon seçin.');
+        setAnalyzingAllParagraphs(false);
+        return;
+      }
+
+      // Re-analyze with analyze_all_paragraphs flag
+      const result = await analyzeProxy({
+        content: content.trim(),
+        input_type: 'text',
+        policies: policies.length > 0 ? policies : undefined,
+        domain: domain || undefined,
+        provider: 'openai',
+        return_report: true,
+        analyze_all_paragraphs: true,  // Flag to analyze all paragraphs
+      }, orgId);
+
+      if (result) {
+        setAnalysisResult(result);
+        setToast({
+          message: 'Tüm paragraflar analiz edildi.',
+          type: 'success'
+        });
+      } else {
+        setError('Tüm paragraflar analiz edilemedi.');
+      }
+    } catch (err: any) {
+      setError(`Analiz hatası: ${err?.message || 'Bilinmeyen hata'}`);
+    } finally {
+      setAnalyzingAllParagraphs(false);
     }
   };
 
@@ -603,12 +645,41 @@ function ProxyCorporatePageContent() {
                   border: '1px solid var(--proxy-border-soft)',
                 }}
               >
-                <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
-                  Paragraf Bazlı Analiz
-                </h2>
-                <p className="text-xs mb-6" style={{ color: 'var(--proxy-text-muted)' }}>
-                  Metin paragraflara ayrılarak analiz edildi. Her paragraf için riskler, gerekçeler ve öneriler gösterilmektedir.
-                </p>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--proxy-text-primary)', fontWeight: 600 }}>
+                      Paragraf Bazlı Analiz
+                    </h2>
+                    <p className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
+                      Metin paragraflara ayrılarak analiz edildi. Her paragraf için riskler, gerekçeler ve öneriler gösterilmektedir.
+                    </p>
+                  </div>
+                  {analysisResult.paragraphs && analysisResult.paragraphs.some((p: any) => p._analyzed === false) && (
+                    <button
+                      onClick={handleAnalyzeAllParagraphs}
+                      disabled={analyzingAllParagraphs}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 flex items-center gap-2"
+                      style={{
+                        backgroundColor: 'var(--proxy-action-primary)',
+                        color: '#FFFFFF',
+                      }}
+                    >
+                      {analyzingAllParagraphs ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Analiz Ediliyor...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          <span>Tüm Paragrafları Analiz Et</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
                 <ParagraphAnalysisView
                   paragraphs={analysisResult.paragraphs}
                   riskLocations={analysisResult.risk_locations}

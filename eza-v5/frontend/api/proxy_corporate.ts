@@ -15,6 +15,7 @@ export interface ProxyAnalyzeRequest {
   provider?: 'openai' | 'groq' | 'mistral';
   domain?: 'finance' | 'health' | 'retail' | 'media' | 'autonomous';
   return_report?: boolean;
+  analyze_all_paragraphs?: boolean;  // If true, analyze all paragraphs regardless of risk detection
 }
 
 export interface RiskLocation {
@@ -32,13 +33,15 @@ export interface RiskLocation {
 export interface ParagraphAnalysis {
   paragraph_index: number;
   text: string;
-  ethical_index: number;
-  compliance_score: number;
-  manipulation_score: number;
-  bias_score: number;
-  legal_risk_score: number;
+  ethical_index?: number;  // Optional for unanalyzed paragraphs
+  compliance_score?: number;  // Optional for unanalyzed paragraphs
+  manipulation_score?: number;  // Optional for unanalyzed paragraphs
+  bias_score?: number;  // Optional for unanalyzed paragraphs
+  legal_risk_score?: number;  // Optional for unanalyzed paragraphs
   flags: string[];
   risk_locations: RiskLocation[];
+  _analyzed?: boolean;  // Internal flag: true if analyzed, false if not
+  _not_analyzed_reason?: string;  // Reason why paragraph was not analyzed
 }
 
 export interface RiskFlagSeverityResponse {

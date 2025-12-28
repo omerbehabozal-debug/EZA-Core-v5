@@ -123,7 +123,8 @@ async def stage1_targeted_deep_analysis(
     domain: Optional[str] = None,
     policies: Optional[List[str]] = None,
     provider: str = "openai",
-    role: str = "proxy"  # "proxy_lite" or "proxy"
+    role: str = "proxy",  # "proxy_lite" or "proxy"
+    analyze_all_paragraphs: bool = False  # If True, analyze all paragraphs regardless of risk detection
 ) -> Dict[str, Any]:
     """
     Stage-1: Targeted Deep Analysis
@@ -151,49 +152,54 @@ async def stage1_targeted_deep_analysis(
     start_time = time.time()
     settings = get_settings()
     
-    # Check if Stage-1 should run
-    risk_band = stage0_result.get("risk_band", "low")
-    if risk_band == "low":
-        logger.info("[Stage-1] Skipping deep analysis - risk_band is low")
-        return {
-            "paragraph_analyses": [],
-            "all_flags": [],
-            "all_risk_locations": [],
-            "_stage1_latency_ms": 0
-        }
-    
-    # Get priority paragraphs from Stage-0
-    priority_paragraphs = stage0_result.get("priority_paragraphs", [])
-    if not priority_paragraphs:
-        logger.info("[Stage-1] No priority paragraphs identified, analyzing first paragraph")
-        priority_paragraphs = [0]
-    
     # Split content into paragraphs (lazy import)
     from backend.services.proxy_analyzer import split_into_paragraphs
     paragraphs = split_into_paragraphs(content)
     
-    # Apply role-based limits
-    max_paragraphs = 2 if role == "proxy_lite" else 4
-    priority_paragraphs = priority_paragraphs[:max_paragraphs]
-    
-    # Filter to valid paragraph indices
-    valid_paragraphs = [
-        (idx, paragraphs[idx]) 
-        for idx in priority_paragraphs 
-        if 0 <= idx < len(paragraphs)
-    ]
-    
-    if not valid_paragraphs:
-        logger.warning("[Stage-1] No valid priority paragraphs, analyzing first paragraph")
-        if paragraphs:
-            valid_paragraphs = [(0, paragraphs[0])]
-        else:
+    # If analyze_all_paragraphs is True, analyze all paragraphs
+    if analyze_all_paragraphs:
+        logger.info(f"[Stage-1] analyze_all_paragraphs=True - analyzing all {len(paragraphs)} paragraphs")
+        valid_paragraphs = [(idx, para_text) for idx, para_text in enumerate(paragraphs)]
+    else:
+        # Check if Stage-1 should run
+        risk_band = stage0_result.get("risk_band", "low")
+        if risk_band == "low":
+            logger.info("[Stage-1] Skipping deep analysis - risk_band is low")
             return {
                 "paragraph_analyses": [],
                 "all_flags": [],
                 "all_risk_locations": [],
                 "_stage1_latency_ms": 0
             }
+        
+        # Get priority paragraphs from Stage-0
+        priority_paragraphs = stage0_result.get("priority_paragraphs", [])
+        if not priority_paragraphs:
+            logger.info("[Stage-1] No priority paragraphs identified, analyzing first paragraph")
+            priority_paragraphs = [0]
+        
+        # Apply role-based limits
+        max_paragraphs = 2 if role == "proxy_lite" else 4
+        priority_paragraphs = priority_paragraphs[:max_paragraphs]
+        
+        # Filter to valid paragraph indices
+        valid_paragraphs = [
+            (idx, paragraphs[idx]) 
+            for idx in priority_paragraphs 
+            if 0 <= idx < len(paragraphs)
+        ]
+        
+        if not valid_paragraphs:
+            logger.warning("[Stage-1] No valid priority paragraphs, analyzing first paragraph")
+            if paragraphs:
+                valid_paragraphs = [(0, paragraphs[0])]
+            else:
+                return {
+                    "paragraph_analyses": [],
+                    "all_flags": [],
+                    "all_risk_locations": [],
+                    "_stage1_latency_ms": 0
+                }
     
     logger.info(f"[Stage-1] Starting targeted deep analysis of {len(valid_paragraphs)} paragraphs (role={role}, max={max_paragraphs})")
     
