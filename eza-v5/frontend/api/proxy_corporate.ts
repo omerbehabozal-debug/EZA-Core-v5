@@ -42,6 +42,8 @@ export interface ParagraphAnalysis {
   risk_locations: RiskLocation[];
   _analyzed?: boolean;  // Internal flag: true if analyzed, false if not
   _not_analyzed_reason?: string;  // Reason why paragraph was not analyzed
+  analysis_level?: "light" | "deep";  // Premium Unified Flow: analysis mode
+  summary?: string;  // Premium Unified Flow: analysis summary
 }
 
 export interface RiskFlagSeverityResponse {
@@ -107,6 +109,20 @@ export interface ProxyAnalyzeResponse {
   justification?: DecisionJustificationResponse[];
   // UI Response Contract: Staged responses
   _staged_response?: StagedResponse;
+  // Premium Unified Flow: Stage status
+  _stage0_status?: {
+    status: "done";
+    risk_band: "low" | "medium" | "high";
+    overall_score: number;
+  };
+  _stage0_result?: {
+    risk_band?: "low" | "medium" | "high";
+    [key: string]: any;
+  };
+  _stage1_status?: {
+    status: "done";
+    mode: "light" | "deep";
+  };
 }
 
 export interface ProxyRewriteRequest {
