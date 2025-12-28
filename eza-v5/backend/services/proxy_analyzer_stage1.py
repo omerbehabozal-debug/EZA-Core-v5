@@ -268,44 +268,46 @@ async def stage1_targeted_deep_analysis(
                 valid_paragraphs = [(0, content)]
         
         logger.info(f"[Stage-1] Deep mode - analyzing {len(valid_paragraphs)} priority paragraphs")
-    
-    # Create tasks for bounded parallel execution
-    tasks = [
-        analyze_paragraph_deep(
-            paragraph_idx=idx,
-            paragraph_text=para_text,
-            domain=domain,
-            policies=policies,
-            provider=provider,
-            settings=settings
-        )
-        for idx, para_text in valid_paragraphs
-    ]
-    
-    # Execute with bounded concurrency (semaphore already in analyze_paragraph_deep)
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    # Process results
-    paragraph_analyses = []
-    all_flags = []
-    all_risk_locations = []
-    
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            logger.error(f"[Stage-1] Paragraph {valid_paragraphs[i][0]} analysis failed: {result}")
-            idx, para_text = valid_paragraphs[i]
-            result = {
-                "paragraph_index": idx,
-                "text": para_text,
-                "ethical_index": 50,
-                "compliance_score": 50,
-                "manipulation_score": 50,
-                "bias_score": 50,
-                "legal_risk_score": 50,
-                "flags": ["analiz_hatası"],
-                "risk_locations": []
-            }
         
+        # Initialize result lists
+        paragraph_analyses = []
+        all_flags = []
+        all_risk_locations = []
+        
+        # Create tasks for bounded parallel execution
+        tasks = [
+            analyze_paragraph_deep(
+                paragraph_idx=idx,
+                paragraph_text=para_text,
+                domain=domain,
+                policies=policies,
+                provider=provider,
+                settings=settings
+            )
+            for idx, para_text in valid_paragraphs
+        ]
+        
+        # Execute with bounded concurrency (semaphore already in analyze_paragraph_deep)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"[Stage-1] Paragraph {valid_paragraphs[i][0]} analysis failed: {result}")
+                idx, para_text = valid_paragraphs[i]
+                result = {
+                    "paragraph_index": idx,
+                    "text": para_text,
+                    "ethical_index": 50,
+                    "compliance_score": 50,
+                    "manipulation_score": 50,
+                    "bias_score": 50,
+                    "legal_risk_score": 50,
+                    "flags": ["analiz_hatası"],
+                    "risk_locations": [],
+                    "analysis_level": "deep"
+                }
+            
             result["analysis_level"] = "deep"
             paragraph_analyses.append(result)
             all_flags.extend(result.get("flags", []))

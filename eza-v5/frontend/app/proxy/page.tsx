@@ -264,8 +264,10 @@ function ProxyCorporatePageContent() {
         console.log('[Proxy] Analysis result:', {
           hasParagraphs: !!result.paragraphs,
           paragraphsCount: result.paragraphs?.length || 0,
+          paragraphs: result.paragraphs,
           stage0Status: result._stage0_status,
-          stage1Status: result._stage1_status
+          stage1Status: result._stage1_status,
+          overallScores: result.overall_scores
         });
         setAnalysisResult(result);
       } else {
