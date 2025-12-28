@@ -192,7 +192,12 @@ export default function SystemsPage() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow p-6 text-center">
-            <p className="text-gray-500">Belirtilen kriterlere uygun sistem bulunamadı.</p>
+            <p className="text-gray-500 mb-2">Belirtilen kriterlere uygun sistem bulunamadı.</p>
+            <p className="text-sm text-gray-400">
+              Sistem bilgisi için ImpactEvent veya TelemetryEvent kayıtları gereklidir.
+              <br />
+              Bu kayıtlar, içeriklerin kullanıcıya ulaştığında veya sistem telemetrisi kaydedildiğinde oluşturulur.
+            </p>
           </div>
         )}
       </div>

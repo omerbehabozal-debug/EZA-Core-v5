@@ -440,8 +440,8 @@ async def get_sanayi_systems(
     try:
         from_date = datetime.now(timezone.utc) - timedelta(days=days)
         
-        # Get all IntentLogs
-        query = select(IntentLog).where(
+        # Get all IntentLogs with their impact_events relationship loaded
+        query = select(IntentLog).options(selectinload(IntentLog.impact_events)).where(
             IntentLog.created_at >= from_date,
             IntentLog.deleted_by_user == False
         )
@@ -461,13 +461,27 @@ async def get_sanayi_systems(
         # Group by source system
         system_data: Dict[str, Dict[str, Any]] = {}
         
-        # Get ImpactEvents for systems
+        # Collect ImpactEvents from IntentLog relationships
+        impact_events = []
+        for log in all_logs:
+            if hasattr(log, 'impact_events') and log.impact_events:
+                for impact in log.impact_events:
+                    if impact.occurred_at >= from_date and not impact.deleted_by_user:
+                        impact_events.append(impact)
+        
+        # Also get ImpactEvents directly (in case relationship didn't load)
         impact_query = select(ImpactEvent).where(
             ImpactEvent.occurred_at >= from_date,
             ImpactEvent.deleted_by_user == False
         )
         impact_result = await db.execute(impact_query)
-        impact_events = impact_result.scalars().all()
+        direct_impact_events = impact_result.scalars().all()
+        
+        # Merge both sources, avoiding duplicates
+        impact_event_ids = {str(ie.id) for ie in impact_events}
+        for impact in direct_impact_events:
+            if str(impact.id) not in impact_event_ids:
+                impact_events.append(impact)
         
         # Also get TelemetryEvents for systems
         telemetry_query = select(TelemetryEvent).where(
