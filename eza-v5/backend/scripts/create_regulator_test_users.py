@@ -179,13 +179,57 @@ async def create_all_regulator_test_users():
     
     # Get database URL
     database_url = settings.DATABASE_URL
+    if not database_url:
+        print("❌ ERROR: DATABASE_URL is not set in environment variables")
+        print("\nPlease set DATABASE_URL in your .env file or environment:")
+        print("  DATABASE_URL=postgresql+asyncpg://user:password@host:port/database")
+        print("\nFor Railway production database, use the PUBLIC connection URL from Railway Dashboard.")
+        print("⚠️  Do NOT use internal hostnames (e.g., postgres.railway.internal) from local machine.")
+        sys.exit(1)
+    
+    # Show database URL (masked for security)
+    if "@" in database_url:
+        # Mask password in URL
+        parts = database_url.split("@")
+        if len(parts) == 2:
+            user_pass = parts[0].split("://")[1] if "://" in parts[0] else parts[0]
+            if ":" in user_pass:
+                user, _ = user_pass.split(":", 1)
+                masked_url = database_url.replace(user_pass, f"{user}:***")
+            else:
+                masked_url = database_url.replace(user_pass, "***")
+        else:
+            masked_url = "***"
+    else:
+        masked_url = "***"
+    
+    print("=" * 80)
+    print("DATABASE CONNECTION")
+    print("=" * 80)
+    print(f"Database URL: {masked_url}")
+    
+    # Check if URL contains internal hostname
+    if "railway.internal" in database_url or "localhost" in database_url:
+        print("\n⚠️  WARNING: Database URL may not be accessible from local machine.")
+        print("   If using Railway, ensure you're using the PUBLIC connection URL.")
+        print("   Internal hostnames (postgres.railway.internal) only work from Railway environment.")
+    
     if database_url.startswith("postgresql://"):
         database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     elif database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
     
     # Create engine
-    engine = create_async_engine(database_url, echo=False)
+    try:
+        engine = create_async_engine(database_url, echo=False)
+    except Exception as e:
+        print(f"\n❌ ERROR: Failed to create database engine: {e}")
+        print("\nTroubleshooting:")
+        print("  1. Check DATABASE_URL is correct in .env file")
+        print("  2. Ensure database hostname is accessible from your network")
+        print("  3. For Railway: Use PUBLIC connection URL (not internal)")
+        print("  4. Check firewall/network settings")
+        sys.exit(1)
     async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     print("=" * 80)
@@ -195,9 +239,19 @@ async def create_all_regulator_test_users():
     print(f"Total Users: {len(TEST_USERS)}")
     print("\n" + "-" * 80)
     
-    async with engine.begin() as conn:
-        # Ensure columns exist
-        await ensure_columns_exist(conn)
+    try:
+        async with engine.begin() as conn:
+            # Ensure columns exist
+            await ensure_columns_exist(conn)
+    except Exception as e:
+        print(f"\n❌ ERROR: Failed to connect to database: {e}")
+        print("\nTroubleshooting:")
+        print("  1. Check DATABASE_URL is correct in .env file")
+        print("  2. Ensure database hostname is accessible from your network")
+        print("  3. For Railway: Use PUBLIC connection URL (not internal)")
+        print("  4. Check firewall/network settings")
+        print("  5. Verify database credentials are correct")
+        sys.exit(1)
     
     results: List[Dict[str, Any]] = []
     
