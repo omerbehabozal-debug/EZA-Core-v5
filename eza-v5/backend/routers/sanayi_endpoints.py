@@ -448,6 +448,16 @@ async def get_sanayi_systems(
         result = await db.execute(query)
         all_logs = result.scalars().all()
         
+        logger.info(f"[Sanayi] Found {len(all_logs)} logs for systems (days={days})")
+        
+        if len(all_logs) == 0:
+            logger.info(f"[Sanayi] No logs found, returning empty systems")
+            return {
+                "ok": True,
+                "systems": [],
+                "time_window_days": days
+            }
+        
         # Group by source system
         system_data: Dict[str, Dict[str, Any]] = {}
         
@@ -459,9 +469,19 @@ async def get_sanayi_systems(
         impact_result = await db.execute(impact_query)
         impact_events = impact_result.scalars().all()
         
+        # Also get TelemetryEvents for systems
+        telemetry_query = select(TelemetryEvent).where(
+            TelemetryEvent.created_at >= from_date
+        )
+        telemetry_result = await db.execute(telemetry_query)
+        telemetry_events = telemetry_result.scalars().all()
+        
+        logger.info(f"[Sanayi] Found {len(impact_events)} impact events and {len(telemetry_events)} telemetry events for systems")
+        
         # Map ImpactEvents to IntentLogs
         log_map = {str(log.id): log for log in all_logs}
         
+        # Process ImpactEvents
         for impact in impact_events:
             if not impact.source_system or not impact.intent_log_id:
                 continue
@@ -517,6 +537,35 @@ async def get_sanayi_systems(
                 fail_safe = log.flags.get('fail_safe_triggered') or log.flags.get('fail_safe')
                 if fail_safe:
                     data["fail_safe_count"] += 1
+        
+        # Process TelemetryEvents (if no ImpactEvent found, use TelemetryEvent as fallback)
+        for telemetry in telemetry_events:
+            if not telemetry.source:
+                continue
+            
+            source_system = telemetry.source
+            
+            # Only add if not already in system_data (ImpactEvent takes precedence)
+            if source_system not in system_data:
+                system_data[source_system] = {
+                    "system_name": source_system,
+                    "system_type": classify_ai_system_type(source_system),
+                    "models_used": set(),
+                    "ethical_scores": [],
+                    "risk_categories": {},
+                    "fail_safe_count": 0,
+                    "total_events": 0
+                }
+            
+            data = system_data[source_system]
+            data["total_events"] += 1
+            
+            # Track models from telemetry
+            provider = extract_model_provider(telemetry.source, telemetry.meta)
+            data["models_used"].add(provider)
+            
+            # Use default ethical score if no IntentLog available
+            data["ethical_scores"].append(50)  # Default score
         
         # Apply system type filter
         if system_type:
@@ -810,6 +859,14 @@ async def get_sanayi_alerts(
         all_logs = result.scalars().all()
         
         logger.info(f"[Sanayi] Found {len(all_logs)} logs for alerts")
+        
+        if len(all_logs) == 0:
+            logger.info(f"[Sanayi] No logs found, returning empty alerts")
+            return {
+                "ok": True,
+                "alerts": [],
+                "count": 0
+            }
         
         alerts = []
         
