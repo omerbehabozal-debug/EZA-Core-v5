@@ -66,7 +66,7 @@ export default function ParagraphAnalysisView({
     if (!isAnalyzed) {
       return { level: 'unknown', color: '#8E8E93', label: 'Analiz Edilmedi' };
     }
-    const ethicalScore = paragraph.ethical_index;
+    const ethicalScore = paragraph.ethical_index!; // Safe to use ! here because we checked above
     if (ethicalScore >= 76) return { level: 'low', color: '#22BF55', label: 'Düşük Risk' };
     if (ethicalScore >= 51) return { level: 'medium', color: '#F4A72F', label: 'Orta Risk' };
     return { level: 'high', color: '#E84343', label: 'Yüksek Risk' };
