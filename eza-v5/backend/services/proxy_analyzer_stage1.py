@@ -134,9 +134,9 @@ async def analyze_paragraph_light(
     
     # Generate appropriate summary based on context
     if rate_limit_exceeded:
-        summary = f"Hızlı tarama: {risk_band} risk seviyesi tespit edildi. Sistem limitleri nedeniyle derin analiz uygulanmadı."
+        summary = f"Quick analysis applied due to system limits. Risk band: {risk_band}."
     else:
-        summary = f"Hızlı tarama: {risk_band} risk seviyesi tespit edildi. Düşük risk nedeniyle derin analiz gerekli görülmedi."
+        summary = f"Quick analysis: {risk_band} risk level detected. Deep analysis not required due to low risk."
     
     # Light mode: minimal analysis, no deep reasoning
     return {
@@ -162,7 +162,7 @@ async def stage1_targeted_deep_analysis(
     provider: str = "openai",
     role: str = "proxy",  # "proxy_lite" or "proxy"
     analyze_all_paragraphs: bool = False,  # If True, analyze all paragraphs regardless of risk detection
-    mode: str = "deep"  # NEW: "light" or "deep". Light = heuristic, Deep = LLM-based
+    mode: Literal["light", "deep"] = "deep"  # "light" = heuristic (no LLM), "deep" = LLM-based
 ) -> Dict[str, Any]:
     """
     Stage-1: Targeted Deep Analysis (Premium Unified Flow)
@@ -180,9 +180,14 @@ async def stage1_targeted_deep_analysis(
     from backend.services.proxy_analyzer import split_into_paragraphs
     paragraphs = split_into_paragraphs(content)
     
-    # Ensure at least one paragraph exists
+    # CRITICAL: Ensure at least one paragraph exists (paragraph guarantee)
     if not paragraphs:
-        paragraphs = [content] if content.strip() else [""]
+        if content.strip():
+            paragraphs = [content]
+        else:
+            # Even if content is empty, create a single empty paragraph to maintain contract
+            paragraphs = [""]
+            logger.warning(f"[Stage-1] Content is empty, creating empty paragraph as fallback")
     
     risk_band = stage0_result.get("risk_band", "low")
     

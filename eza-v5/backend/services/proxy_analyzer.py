@@ -11,7 +11,7 @@ import logging
 import re
 import json
 import time
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Literal
 from backend.gateway.router_adapter import call_llm_provider
 from backend.config import get_settings
 from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
@@ -514,7 +514,7 @@ async def analyze_content_deep(
     role: str = "proxy",  # "proxy_lite" or "proxy"
     org_id: Optional[str] = None,  # Required for cache isolation
     analyze_all_paragraphs: bool = False,  # If True, analyze all paragraphs regardless of risk detection
-    stage1_mode: Optional[str] = None  # NEW: "light" or "deep". If None, auto-determined from risk_band
+    stage1_mode: Optional[Literal["light", "deep"]] = None  # "light" = heuristic (no LLM), "deep" = LLM-based. If None, auto-determined from risk_band
 ) -> Dict[str, Any]:
     """
     3-Stage Gated Pipeline Analysis
@@ -608,10 +608,15 @@ async def analyze_content_deep(
     # Split content into all paragraphs for validation
     all_paragraphs = split_into_paragraphs(content)
     
-    # If no paragraphs found, create a single paragraph from the entire content
+    # CRITICAL: Ensure at least one paragraph exists (paragraph guarantee)
     if not all_paragraphs:
         logger.warning(f"[Proxy] No paragraphs found in content, treating entire content as single paragraph")
-        all_paragraphs = [content] if content.strip() else []
+        if content.strip():
+            all_paragraphs = [content]
+        else:
+            # Even if content is empty, create a single empty paragraph to maintain contract
+            all_paragraphs = [""]
+            logger.warning(f"[Proxy] Content is empty, creating empty paragraph as fallback")
     
     # Create a map of analyzed paragraphs by index
     analyzed_paragraphs_map = {para.get("paragraph_index", -1): para for para in paragraph_analyses}
