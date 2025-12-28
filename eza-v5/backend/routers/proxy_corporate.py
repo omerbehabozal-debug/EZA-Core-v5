@@ -183,17 +183,41 @@ async def proxy_analyze(
         allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
         if not allowed:
             logger.warning(f"[Proxy] Rate limit exceeded for org_id={org_id}: {rate_limit_reason}")
-            # Return Stage-0 only (partial response)
+            # Return Stage-0 only (partial response) - but still create paragraphs from Stage-0
             from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+            from backend.services.proxy_analyzer import split_into_paragraphs
             stage0_result = await stage0_fast_risk_scan(
                 content=request.content,
                 domain=request.domain,
                 provider=request.provider,
                 org_id=org_id
             )
-            # Create partial response with Stage-0 only
+            # Create paragraphs from Stage-0 (light analysis)
+            all_paragraphs = split_into_paragraphs(request.content)
+            if not all_paragraphs:
+                all_paragraphs = [request.content] if request.content.strip() else []
+            
             estimated_range = stage0_result.get("estimated_score_range", [50, 70])
             avg_score = sum(estimated_range) // 2
+            risk_band = stage0_result.get("risk_band", "low")
+            
+            # Create paragraph analyses with light mode
+            paragraph_analyses = []
+            for idx, para_text in enumerate(all_paragraphs):
+                paragraph_analyses.append({
+                    "paragraph_index": idx,
+                    "text": para_text,
+                    "ethical_index": avg_score,
+                    "compliance_score": avg_score + 5,
+                    "manipulation_score": avg_score - 5,
+                    "bias_score": avg_score,
+                    "legal_risk_score": avg_score + 3,
+                    "flags": [],
+                    "risk_locations": [],
+                    "analysis_level": "light",
+                    "summary": f"Hızlı tarama: {risk_band} risk seviyesi tespit edildi."
+                })
+            
             return ProxyAnalyzeResponse(
                 ok=True,
                 overall_scores={
@@ -203,7 +227,21 @@ async def proxy_analyze(
                     "bias_score": avg_score,
                     "legal_risk_score": avg_score + 5,
                 },
-                paragraphs=[],
+                paragraphs=[
+                    ParagraphAnalysis(
+                        paragraph_index=para.get("paragraph_index", 0),
+                        text=para.get("text", ""),
+                        ethical_index=para.get("ethical_index"),
+                        compliance_score=para.get("compliance_score"),
+                        manipulation_score=para.get("manipulation_score"),
+                        bias_score=para.get("bias_score"),
+                        legal_risk_score=para.get("legal_risk_score"),
+                        flags=para.get("flags", []),
+                        risk_locations=para.get("risk_locations", []),
+                        analysis_level=para.get("analysis_level"),
+                        summary=para.get("summary")
+                    ) for para in paragraph_analyses
+                ],
                 flags=[],
                 risk_locations=[],
                 report=None,
@@ -212,7 +250,7 @@ async def proxy_analyze(
                         "status": "score_ready",
                         "score": avg_score,
                         "score_range": estimated_range,
-                        "risk_band": stage0_result.get("risk_band", "low"),
+                        "risk_band": risk_band,
                         "latency_ms": stage0_result.get("_stage0_latency_ms", 0)
                     }
                 },
@@ -227,6 +265,7 @@ async def proxy_analyze(
         try:
             # Deep analysis with 3-stage gated pipeline
             # Role: "proxy" for full Proxy, "proxy_lite" for Proxy Lite
+            logger.info(f"[Proxy] Calling analyze_content_deep via circuit breaker (org_id={org_id})")
             analysis_result = await cb.call_async(
                 analyze_content_deep,
                 content=request.content,
@@ -237,6 +276,7 @@ async def proxy_analyze(
                 org_id=org_id,
                 analyze_all_paragraphs=getattr(request, 'analyze_all_paragraphs', False)  # Analyze all paragraphs if requested
             )
+            logger.info(f"[Proxy] analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
         except CircuitBreakerOpenError:
             logger.warning(f"[Proxy] Circuit breaker OPEN for org_id={org_id}, returning Stage-0 only")
             circuit_breaker_open = True
@@ -282,6 +322,37 @@ async def proxy_analyze(
                     }
                 }
                 score_kind = "preliminary"
+        except Exception as e:
+            logger.error(f"[Proxy] analyze_content_deep failed with exception: {str(e)}", exc_info=True)
+            # Fallback: Return Stage-0 only
+            from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+            stage0_result = await stage0_fast_risk_scan(
+                content=request.content,
+                domain=request.domain,
+                provider=request.provider,
+                org_id=org_id
+            )
+            estimated_range = stage0_result.get("estimated_score_range", [50, 70])
+            avg_score = sum(estimated_range) // 2
+            analysis_result = {
+                "overall_scores": {
+                    "ethical_index": avg_score,
+                    "compliance_score": avg_score + 10,
+                    "manipulation_score": avg_score - 5,
+                    "bias_score": avg_score,
+                    "legal_risk_score": avg_score + 5,
+                },
+                "paragraphs": [],  # Empty paragraphs on error
+                "flags": [],
+                "risk_locations": [],
+                "_stage0_result": stage0_result,
+                "_performance_metrics": {
+                    "stage0_latency_ms": stage0_result.get("_stage0_latency_ms", 0),
+                    "stage1_latency_ms": 0,
+                    "total_latency_ms": stage0_result.get("_stage0_latency_ms", 0)
+                }
+            }
+            circuit_breaker_open = True
         
         # Calculate latency
         latency_ms = (time.time() - start_time) * 1000
