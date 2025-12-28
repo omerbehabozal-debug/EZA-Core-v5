@@ -739,21 +739,25 @@ async def get_sanayi_risk_patterns(
                 system_type_clustering[sys_type]["high_risk_systems"] += 1
         
         # Trend detection
-        recent_logs = [log for log in all_logs 
-                      if log.created_at and log.created_at >= datetime.utcnow() - timedelta(days=7)]
-        older_logs = [log for log in all_logs 
-                     if log.created_at and log.created_at < datetime.utcnow() - timedelta(days=7)]
-        
-        recent_high_risk = sum(1 for log in recent_logs 
-                              if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
-        older_high_risk = sum(1 for log in older_logs 
-                             if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
-        
-        ecosystem_risk_trend = "Stable"
-        if recent_high_risk > older_high_risk * 1.2:
-            ecosystem_risk_trend = "Increasing"
-        elif recent_high_risk < older_high_risk * 0.8:
-            ecosystem_risk_trend = "Decreasing"
+        try:
+            recent_logs = [log for log in all_logs 
+                          if log.created_at and log.created_at >= datetime.utcnow() - timedelta(days=7)]
+            older_logs = [log for log in all_logs 
+                         if log.created_at and log.created_at < datetime.utcnow() - timedelta(days=7)]
+            
+            recent_high_risk = sum(1 for log in recent_logs 
+                                  if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
+            older_high_risk = sum(1 for log in older_logs 
+                                 if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
+            
+            ecosystem_risk_trend = "Stable"
+            if older_high_risk > 0 and recent_high_risk > older_high_risk * 1.2:
+                ecosystem_risk_trend = "Increasing"
+            elif older_high_risk > 0 and recent_high_risk < older_high_risk * 0.8:
+                ecosystem_risk_trend = "Decreasing"
+        except Exception as trend_err:
+            logger.warning(f"[Sanayi] Error in trend detection: {trend_err}")
+            ecosystem_risk_trend = "Stable"
         
         return {
             "ok": True,
@@ -766,9 +770,13 @@ async def get_sanayi_risk_patterns(
     
     except Exception as e:
         logger.error(f"[Sanayi] Error fetching risk patterns: {e}", exc_info=True)
+        logger.error(f"[Sanayi] Exception type: {type(e).__name__}")
+        logger.error(f"[Sanayi] Exception args: {e.args}")
+        import traceback
+        logger.error(f"[Sanayi] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Risk kalıpları alınamadı"
+            detail=f"Risk kalıpları alınamadı: {str(e)}"
         )
 
 
@@ -799,6 +807,8 @@ async def get_sanayi_alerts(
         )
         result = await db.execute(query)
         all_logs = result.scalars().all()
+        
+        logger.info(f"[Sanayi] Found {len(all_logs)} logs for alerts")
         
         alerts = []
         
@@ -893,8 +903,12 @@ async def get_sanayi_alerts(
     
     except Exception as e:
         logger.error(f"[Sanayi] Error fetching alerts: {e}", exc_info=True)
+        logger.error(f"[Sanayi] Exception type: {type(e).__name__}")
+        logger.error(f"[Sanayi] Exception args: {e.args}")
+        import traceback
+        logger.error(f"[Sanayi] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Uyarılar alınamadı"
+            detail=f"Uyarılar alınamadı: {str(e)}"
         )
 
