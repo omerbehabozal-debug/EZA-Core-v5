@@ -116,6 +116,7 @@ class ProxyRewriteResponse(BaseModel):
     new_scores: Optional[Dict[str, int]] = None
     improvement: Optional[Dict[str, int]] = None
     provider: str = "EZA-Core"
+    status_message: Optional[str] = None  # NEW: User-friendly message explaining rewrite result
 
 
 # ========== HELPER FUNCTIONS ==========
@@ -793,6 +794,12 @@ async def proxy_rewrite(
         # Check if rewrite was rejected (all spans failed)
         context_preservation_failed = len(rewritten_spans) == 0 and len(failed_spans) > 0
         
+        # Determine status message based on rewrite result
+        status_message = None
+        
+        # Check if content actually changed
+        content_changed = rewritten_content != request.content
+        
         # Auto re-analyze if requested AND context was preserved
         new_scores = None
         improvement = None
@@ -816,6 +823,41 @@ async def proxy_rewrite(
                 "bias_score": new_scores["bias_score"] - original_scores["bias_score"],
                 "legal_risk_score": new_scores["legal_risk_score"] - original_scores["legal_risk_score"]
             }
+            
+            # Determine status message based on scores and improvement
+            original_ethical = original_scores.get("ethical_index", 50)
+            improvement_ethical = improvement.get("ethical_index", 0)
+            
+            if not content_changed:
+                # Content didn't change - check why
+                if original_ethical >= 80:
+                    status_message = "Metin etik olarak risk sınırının üzerinde. Metin aynı şekilde korundu, değiştirilmedi."
+                elif len(rewritten_spans) == 0:
+                    status_message = "Risk tespit edilmedi. Metin değiştirilmedi."
+                else:
+                    status_message = "Metin değiştirilmedi (context preservation nedeniyle)."
+            elif improvement_ethical <= 0 and original_ethical >= 75:
+                # Content changed but no improvement, and original was already good
+                status_message = "Metin etik olarak risk sınırının üzerindeydi. İyileştirilecek bir şey bulunamadı, metin korundu."
+            elif improvement_ethical > 0:
+                # Improvement achieved
+                status_message = f"Metin başarıyla yeniden yazıldı. Etik skor {improvement_ethical:+d} puan iyileşti."
+            else:
+                # Content changed but no improvement
+                status_message = "Metin yeniden yazıldı ancak skor iyileşmedi."
+        else:
+            # No re-analysis requested or rewrite failed
+            if not content_changed:
+                original_ethical = original_scores.get("ethical_index", 50)
+                if original_ethical >= 80:
+                    status_message = "Metin etik olarak risk sınırının üzerinde. Metin aynı şekilde korundu, değiştirilmedi."
+                elif len(rewritten_spans) == 0:
+                    status_message = "Risk tespit edilmedi. Metin değiştirilmedi."
+                else:
+                    status_message = "Metin değiştirilmedi (context preservation nedeniyle)."
+            elif content_changed and len(rewritten_spans) > 0:
+                # Content changed but no re-analysis
+                status_message = "Metin yeniden yazıldı. İyileşme analizi yapılmadı."
         
         # Log to telemetry (only if rewrite succeeded)
         if not context_preservation_failed:
@@ -901,7 +943,8 @@ async def proxy_rewrite(
             original_scores=original_scores,
             new_scores=new_scores,
             improvement=improvement,
-            provider="EZA-Core"
+            provider="EZA-Core",
+            status_message=status_message
         )
         
     except HTTPException:
