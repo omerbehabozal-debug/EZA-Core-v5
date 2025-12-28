@@ -334,16 +334,20 @@ async def get_sanayi_companies(
                         break
         
         # Fetch organization names
-        org_ids = [uuid.UUID(org_id) for org_id in org_data.keys()]
+        org_ids = [uuid.UUID(org_id) for org_id in org_data.keys() if org_id]
         if org_ids:
-            orgs_query = select(Organization).where(Organization.id.in_(org_ids))
-            orgs_result = await db.execute(orgs_query)
-            orgs = {str(org.id): org for org in orgs_result.scalars().all()}
-            
-            for org_id_str, data in org_data.items():
-                org = orgs.get(org_id_str)
-                if org:
-                    data["organization_name"] = org.name
+            try:
+                orgs_query = select(Organization).where(Organization.id.in_(org_ids))
+                orgs_result = await db.execute(orgs_query)
+                orgs = {str(org.id): org for org in orgs_result.scalars().all()}
+                
+                for org_id_str, data in org_data.items():
+                    org = orgs.get(org_id_str)
+                    if org:
+                        data["organization_name"] = org.name
+            except Exception as org_err:
+                logger.warning(f"[Sanayi] Error fetching organization names: {org_err}")
+                # Continue without organization names
         
         # Calculate metrics for each company
         companies = []
@@ -643,16 +647,20 @@ async def get_sanayi_risk_patterns(
                 org_patterns[org_id_str]["system_types"].add(classify_ai_system_type(system_name))
         
         # Fetch organization names
-        org_ids = [uuid.UUID(org_id) for org_id in org_patterns.keys()]
+        org_ids = [uuid.UUID(org_id) for org_id in org_patterns.keys() if org_id]
         if org_ids:
-            orgs_query = select(Organization).where(Organization.id.in_(org_ids))
-            orgs_result = await db.execute(orgs_query)
-            orgs = {str(org.id): org for org in orgs_result.scalars().all()}
-            
-            for org_id_str, pattern in org_patterns.items():
-                org = orgs.get(org_id_str)
-                if org:
-                    pattern["organization_name"] = org.name
+            try:
+                orgs_query = select(Organization).where(Organization.id.in_(org_ids))
+                orgs_result = await db.execute(orgs_query)
+                orgs = {str(org.id): org for org in orgs_result.scalars().all()}
+                
+                for org_id_str, pattern in org_patterns.items():
+                    org = orgs.get(org_id_str)
+                    if org:
+                        pattern["organization_name"] = org.name
+            except Exception as org_err:
+                logger.warning(f"[Sanayi] Error fetching organization names for risk patterns: {org_err}")
+                # Continue without organization names
         
         # Build patterns
         repeated_high_risk_systems = [
@@ -725,9 +733,9 @@ async def get_sanayi_risk_patterns(
         
         return {
             "ok": True,
-            "repeated_high_risk_systems": repeated_high_risk_systems,
-            "model_clustering": model_clustering,
-            "system_type_clustering": system_type_clustering,
+            "repeated_high_risk_systems": repeated_high_risk_systems if repeated_high_risk_systems else [],
+            "model_clustering": model_clustering if model_clustering else {},
+            "system_type_clustering": system_type_clustering if system_type_clustering else {},
             "ecosystem_risk_trend": ecosystem_risk_trend,
             "time_window_days": days
         }
@@ -855,7 +863,7 @@ async def get_sanayi_alerts(
         
         return {
             "ok": True,
-            "alerts": alerts,
+            "alerts": alerts if alerts else [],
             "count": len(alerts)
         }
     
