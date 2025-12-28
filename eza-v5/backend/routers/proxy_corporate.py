@@ -63,6 +63,8 @@ class ParagraphAnalysis(BaseModel):
     legal_risk_score: Optional[int] = None  # Optional for unanalyzed paragraphs
     flags: List[str] = []
     risk_locations: List[RiskLocation] = []
+    analysis_level: Optional[str] = None  # Premium Unified Flow: "light" | "deep"
+    summary: Optional[str] = None  # Premium Unified Flow: analysis summary
 
 
 class RiskFlagSeverityResponse(BaseModel):
@@ -634,7 +636,9 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
                     bias_score=para.get("bias_score"),  # Optional
                     legal_risk_score=para.get("legal_risk_score"),  # Optional
                     flags=para.get("flags", []),
-                    risk_locations=para.get("risk_locations", [])
+                    risk_locations=para.get("risk_locations", []),
+                    analysis_level=para.get("analysis_level"),  # Premium Unified Flow
+                    summary=para.get("summary")  # Premium Unified Flow
                 ) for para in analysis_result["paragraphs"]
             ],
             flags=analysis_result["flags"],

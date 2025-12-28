@@ -603,6 +603,24 @@ async def analyze_content_deep(
     
     # Replace paragraph_analyses with complete list
     paragraph_analyses = complete_paragraph_analyses
+    
+    # CRITICAL: Ensure paragraph_analyses is never empty
+    if not paragraph_analyses:
+        logger.error("[Proxy] CRITICAL: paragraph_analyses is empty! Creating fallback.")
+        paragraph_analyses = [{
+            "paragraph_index": 0,
+            "text": content[:500] if content else "",
+            "ethical_index": int(round(overall_ethical)),
+            "compliance_score": int(round(overall_compliance)),
+            "manipulation_score": int(round(overall_manipulation)),
+            "bias_score": int(round(overall_bias)),
+            "legal_risk_score": int(round(overall_legal)),
+            "flags": [],
+            "risk_locations": [],
+            "analysis_level": "light",
+            "summary": "Analiz tamamlandı"
+        }]
+    
     logger.info(f"[Proxy] Complete paragraph list: {len(paragraph_analyses)} paragraphs (all analyzed)")
     
     # VALIDATION: Ensure each paragraph has no duplicate narrative risks

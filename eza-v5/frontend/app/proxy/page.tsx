@@ -261,6 +261,12 @@ function ProxyCorporatePageContent() {
         }
         
         // Set final result (overwrites optimistic update)
+        console.log('[Proxy] Analysis result:', {
+          hasParagraphs: !!result.paragraphs,
+          paragraphsCount: result.paragraphs?.length || 0,
+          stage0Status: result._stage0_status,
+          stage1Status: result._stage1_status
+        });
         setAnalysisResult(result);
       } else {
         setError("Analiz tamamlanamadı. Backend yanıt vermedi. Lütfen backend'in çalıştığından ve erişilebilir olduğundan emin olun.");
