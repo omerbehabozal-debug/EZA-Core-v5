@@ -64,10 +64,26 @@ async def analyze_paragraph_deep(
             else:
                 data = json.loads(response_text)
             
+            # Extract content_role and intent (CRITICAL: Required fields)
+            content_role = data.get("content_role", "authored_claim")  # Default to authored_claim if not specified
+            intent = data.get("intent", "endorse")  # Default to endorse if not specified
+            
+            # Validate content_role and intent
+            valid_content_roles = ["authored_claim", "quoted_content", "request_for_analysis", "news_reporting", "critique_or_warning", "satire_or_fiction"]
+            valid_intents = ["endorse", "question", "analyze", "criticize", "warn", "report"]
+            
+            if content_role not in valid_content_roles:
+                logger.warning(f"[Stage-1] Invalid content_role: {content_role}, defaulting to 'authored_claim'")
+                content_role = "authored_claim"
+            
+            if intent not in valid_intents:
+                logger.warning(f"[Stage-1] Invalid intent: {intent}, defaulting to 'endorse'")
+                intent = "endorse"
+            
             # Extract risk locations
             unit_risk_locations = data.get("risk_locations", [])
             
-            # Normalize risk_locations
+            # Normalize risk_locations with endorsement gate enforcement
             raw_risk_locations = []
             for loc in unit_risk_locations:
                 raw_loc = {
@@ -75,8 +91,24 @@ async def analyze_paragraph_deep(
                     "severity": loc.get("severity", "medium"),
                     "evidence": loc.get("evidence", ""),
                     "policy": loc.get("policy"),
-                    "primary_risk_pattern": loc.get("primary_risk_pattern")
+                    "primary_risk_pattern": loc.get("primary_risk_pattern"),
+                    "is_referenced_risk": loc.get("is_referenced_risk", False)
                 }
+                
+                # ENDORSEMENT GATE: Only allow HIGH severity if authored_claim + endorse
+                if content_role != "authored_claim" or intent != "endorse":
+                    if raw_loc["severity"] == "high":
+                        # Downgrade to medium unless explicit harm encouragement
+                        # Check if evidence contains explicit harm encouragement
+                        evidence_lower = raw_loc["evidence"].lower()
+                        harm_keywords = ["öldür", "zarar ver", "saldır", "yok et", "tahrip et"]
+                        if not any(keyword in evidence_lower for keyword in harm_keywords):
+                            logger.info(f"[Stage-1] Downgrading HIGH severity to MEDIUM (content_role={content_role}, intent={intent})")
+                            raw_loc["severity"] = "medium"
+                    
+                    # Mark as referenced risk
+                    raw_loc["is_referenced_risk"] = True
+                
                 if "start" in loc:
                     raw_loc["start"] = loc["start"]
                 if "end" in loc:
@@ -92,6 +124,8 @@ async def analyze_paragraph_deep(
             return {
                 "paragraph_index": paragraph_idx,
                 "text": paragraph_text,
+                "content_role": content_role,  # NEW: Content role
+                "intent": intent,  # NEW: Intent
                 "ethical_index": int(data.get("ethical_index", 50)),
                 "compliance_score": int(data.get("compliance_score", 50)),
                 "manipulation_score": int(data.get("manipulation_score", 50)),
@@ -107,6 +141,8 @@ async def analyze_paragraph_deep(
             return {
                 "paragraph_index": paragraph_idx,
                 "text": paragraph_text,
+                "content_role": "request_for_analysis",  # Default safe role
+                "intent": "analyze",  # Default safe intent
                 "ethical_index": 50,
                 "compliance_score": 50,
                 "manipulation_score": 50,
@@ -140,9 +176,12 @@ async def analyze_paragraph_light(
         summary = f"Quick analysis: {risk_band} risk level detected. Deep analysis not required due to low risk."
     
     # Light mode: minimal analysis, no deep reasoning
+    # Default to safe content_role and intent for light mode
     return {
         "paragraph_index": paragraph_idx,
         "text": paragraph_text,
+        "content_role": "request_for_analysis",  # Default safe role
+        "intent": "analyze",  # Default safe intent
         "ethical_index": avg_score,
         "compliance_score": avg_score + 5,
         "manipulation_score": avg_score - 5,
@@ -347,14 +386,74 @@ async def stage1_targeted_deep_analysis(
         paragraph_analyses = [await analyze_paragraph_light(0, paragraphs[0] if paragraphs else content, stage0_result)]
         mode = "light"  # Fallback to light mode
     
+    # Aggregate content_role and intent from analyzed paragraphs
+    # Use the most common content_role and intent (or first if all are same)
+    content_roles = [p.get("content_role") for p in paragraph_analyses if p.get("content_role")]
+    intents = [p.get("intent") for p in paragraph_analyses if p.get("intent")]
+    
+    # Determine dominant content_role and intent
+    # Priority: request_for_analysis > critique_or_warning > quoted_content > others
+    if "request_for_analysis" in content_roles:
+        dominant_content_role = "request_for_analysis"
+    elif "critique_or_warning" in content_roles:
+        dominant_content_role = "critique_or_warning"
+    elif "quoted_content" in content_roles:
+        dominant_content_role = "quoted_content"
+    elif content_roles:
+        dominant_content_role = content_roles[0]  # Use first found
+    else:
+        dominant_content_role = "authored_claim"  # Default
+    
+    # Priority for intent: analyze > criticize > question > warn > report > endorse
+    if "analyze" in intents:
+        dominant_intent = "analyze"
+    elif "criticize" in intents:
+        dominant_intent = "criticize"
+    elif "question" in intents:
+        dominant_intent = "question"
+    elif "warn" in intents:
+        dominant_intent = "warn"
+    elif "report" in intents:
+        dominant_intent = "report"
+    elif intents:
+        dominant_intent = intents[0]  # Use first found
+    else:
+        dominant_intent = "endorse"  # Default
+    
+    # Inherit parent content_role and intent to paragraphs that don't have them
+    for para in paragraph_analyses:
+        if not para.get("content_role"):
+            para["content_role"] = dominant_content_role
+        if not para.get("intent"):
+            para["intent"] = dominant_intent
+    
+    # REGRESSION GUARDRAILS: Assertions
+    # If intent != endorse → manipulation risk severity ≤ MEDIUM
+    for risk in all_risk_locations:
+        if risk.get("type") == "manipulation" and dominant_intent != "endorse":
+            if risk.get("severity") == "high":
+                logger.warning(f"[Stage-1] REGRESSION GUARD: Downgrading manipulation risk from HIGH to MEDIUM (intent={dominant_intent})")
+                risk["severity"] = "medium"
+                risk["is_referenced_risk"] = True
+    
+    # If content_role == request_for_analysis → ethical risk MUST NOT be HIGH
+    if dominant_content_role == "request_for_analysis":
+        for risk in all_risk_locations:
+            if risk.get("type") == "ethical" and risk.get("severity") == "high":
+                logger.warning(f"[Stage-1] REGRESSION GUARD: Downgrading ethical risk from HIGH to MEDIUM (content_role=request_for_analysis)")
+                risk["severity"] = "medium"
+                risk["is_referenced_risk"] = True
+    
     latency_ms = (time.time() - start_time) * 1000
-    logger.info(f"[Stage-1] Analysis completed in {latency_ms:.0f}ms: mode={mode}, paragraphs={len(paragraph_analyses)}")
+    logger.info(f"[Stage-1] Analysis completed in {latency_ms:.0f}ms: mode={mode}, paragraphs={len(paragraph_analyses)}, content_role={dominant_content_role}, intent={dominant_intent}")
     
     return {
         "paragraph_analyses": paragraph_analyses,
         "all_flags": all_flags,
         "all_risk_locations": all_risk_locations,
         "_stage1_latency_ms": latency_ms,
-        "_stage1_mode": mode  # "light" | "deep"
+        "_stage1_mode": mode,  # "light" | "deep"
+        "content_role": dominant_content_role,  # NEW: Aggregated content role
+        "intent": dominant_intent  # NEW: Aggregated intent
     }
 

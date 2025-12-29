@@ -138,22 +138,44 @@ def build_contextual_analysis_prompt(
 EZA bir kamera, mikroskop değil.
 Görevin: Metnin NE YAPTIĞINI gözlemlemek (narrative, etki, niyet), her kelimeyi parçalamak değil.
 
-⚠️ KRİTİK: BAĞLAM VE NİYET ANALİZİ (MUTLAK ÖNCELİK) ⚠️
+⚠️ KRİTİK: CONTENT ROLE, INTENT & ENDORSEMENT ANALİZİ (MUTLAK ÖNCELİK) ⚠️
 
 Metni analiz etmeden ÖNCE mutlaka şunları yap:
-1. BAĞLAM ANALİZİ (Context Analysis):
+
+1. CONTENT ROLE CLASSIFICATION (ZORUNLU):
+   Metnin ROLÜNÜ belirle (MUTLAKA BİRİNİ SEÇ):
+   - "authored_claim": Kullanıcı bir iddiayı destekliyor veya teşvik ediyor
+   - "quoted_content": Kullanıcı üçüncü taraf içeriği alıntılıyor veya aktarıyor
+   - "request_for_analysis": Kullanıcı etik/sosyal değerlendirme istiyor
+   - "news_reporting": Tarafsız haber raporlama
+   - "critique_or_warning": Kullanıcı içeriği eleştiriyor veya uyarıyor
+   - "satire_or_fiction": Gerçekçi olmayan içerik (ironi, kurgu)
+
+2. INTENT DETECTION (ZORUNLU):
+   Kullanıcının NİYETİNİ belirle (MUTLAKA BİRİNİ SEÇ):
+   - "endorse": İçeriği destekliyor, onaylıyor
+   - "question": İçeriği sorguluyor, soru soruyor
+   - "analyze": İçeriği analiz etmek istiyor
+   - "criticize": İçeriği eleştiriyor
+   - "warn": İçerik hakkında uyarıyor
+   - "report": Tarafsız raporlama yapıyor
+
+3. ENDORSEMENT GATE (KRİTİK):
+   YÜKSEK RİSK (HIGH severity) SADECE ŞU DURUMDA:
+   - content_role == "authored_claim" VE intent == "endorse"
+   
+   Eğer content_role != "authored_claim" VEYA intent != "endorse":
+   - Manipulation, propaganda, persuasion riskleri DÜŞÜK AĞIRLIKLI olmalı
+   - Severity MEDIUM'u geçmemeli (açık zarar teşviki yoksa)
+   - Riskler "referenced risk" olarak işaretlenmeli
+
+4. BAĞLAM ANALİZİ (Context Analysis):
    - Metnin GENEL BAĞLAMI nedir? (tam metin, paragraf, cümle bağlamı)
    - Metin ne AMAÇLA yazılmış? (bilgilendirme, uyarı, analiz, sorgulama, vb.)
    - Metnin TONU nedir? (tarafsız, eleştirel, uyarıcı, sorgulayıcı, vb.)
    - Metnin HEDEF KİTLESİ kim? (genel okuyucu, uzman, medya, vb.)
 
-2. NİYET ANALİZİ (Intent Analysis):
-   - Yazarın GERÇEK NİYETİ nedir? (zarar vermek mi, bilgilendirmek mi, uyarmak mı?)
-   - Metin okuyucuyu YÖNLENDİRMEYE mi çalışıyor yoksa BİLGİLENDİRMEYE mi?
-   - Metin MANİPÜLASYON amaçlı mı yoksa ELEŞTİREL DÜŞÜNCE mi?
-   - Metin GERÇEK BİR RİSK mi yoksa MEŞRU BİR SORGULAMA mı?
-
-3. BÜTÜNCÜL DEĞERLENDİRME (Holistic Evaluation):
+5. BÜTÜNCÜL DEĞERLENDİRME (Holistic Evaluation):
    - Metni BÜTÜN OLARAK değerlendir (kelime kelime değil)
    - Cümleleri BAĞLAM İÇİNDE anla (izole cümle analizi YAPMA)
    - NİYET ve BAĞLAM riskli değilse, kelime bazlı riskleri GÖRMEZDEN GEL
@@ -252,6 +274,8 @@ ANALİZ BİRİMİ: {{ANALYSIS_UNIT_PLACEHOLDER}}
 
 Cevabın mutlaka şu JSON formatında olsun:
 {{
+  "content_role": "authored_claim|quoted_content|request_for_analysis|news_reporting|critique_or_warning|satire_or_fiction",
+  "intent": "endorse|question|analyze|criticize|warn|report",
   "ethical_index": number,
   "compliance_score": number,
   "manipulation_score": number,
@@ -263,13 +287,21 @@ Cevabın mutlaka şu JSON formatında olsun:
       "type": "ethical|compliance|manipulation|bias|legal",
       "severity": "low|medium|high",
       "evidence": "Bağlamsal açıklama: Bu {{ANALYSIS_UNIT_PLACEHOLDER}} X narrative'ini teşvik ediyor, bu da Y riskine yol açıyor",
-      "policy": "POLICY_CODE (e.g., HEALTH-ETHICAL)"
+      "policy": "POLICY_CODE (e.g., HEALTH-ETHICAL)",
+      "is_referenced_risk": boolean  // true if risk refers to quoted/referenced content, not user's intent
     }}
   ]
 }}
 
-ÖNEMLİ: risk_locations'da "start" ve "end" karakter pozisyonları YOK. Sadece type, severity, evidence, policy.
-Evidence her zaman bağlamsal ve anlam referanslı olmalı."""
+⚠️ KRİTİK KURALLAR:
+1. content_role ve intent MUTLAKA belirtilmeli
+2. Eğer content_role != "authored_claim" VEYA intent != "endorse":
+   - Severity "high" OLAMAZ (açık zarar teşviki yoksa)
+   - is_referenced_risk = true olmalı
+   - Evidence'de "Kullanıcı bu içeriği desteklemiyor, sadece analiz/eleştiri yapıyor" belirtilmeli
+3. ÖNEMLİ: risk_locations'da "start" ve "end" karakter pozisyonları YOK. Sadece type, severity, evidence, policy, is_referenced_risk.
+4. Evidence her zaman bağlamsal ve anlam referanslı olmalı.
+5. Kelime bazlı gerekçe YASAK - sadece anlam ve niyet bazlı gerekçe."""
     
     # Cache the template (without content) - shared across orgs (policy-based)
     set_prompt_cache("shared", prompt_type, policies, domain, prompt_template)
@@ -308,13 +340,14 @@ def normalize_paragraph_risks(
     # Group by PRIMARY RISK PATTERN (narrative intent)
     grouped = {}
     
-    for risk in raw_risk_locations:
+        for risk in raw_risk_locations:
         # Get primary risk pattern (prefer primary_risk_pattern, fallback to type)
         primary_risk_pattern = risk.get("primary_risk_pattern") or risk.get("type", "unknown")
         risk_type = risk.get("type", "unknown")
         evidence = risk.get("evidence", "").strip()
         severity = risk.get("severity", "medium")
         policy = risk.get("policy")
+        is_referenced_risk = risk.get("is_referenced_risk", False)  # NEW: Track if risk is referenced
         
         # PRIMARY KEY: (paragraph_id, primary_risk_pattern)
         # This ensures uniqueness per paragraph
@@ -334,6 +367,7 @@ def normalize_paragraph_risks(
                 "policies": [policy] if policy else [],  # Array of policies
                 "evidence": evidence,  # Will be updated to strongest
                 "evidence_snippets": [evidence] if evidence else [],
+                "is_referenced_risk": is_referenced_risk,  # NEW: Track referenced risk
                 "count": 1
             }
         else:
@@ -360,6 +394,10 @@ def normalize_paragraph_risks(
                     grouped[group_key]["evidence"] = f"{existing_evidence}. {evidence}"
                 grouped[group_key]["evidence_snippets"].append(evidence)
             
+            # Merge is_referenced_risk: if any risk is referenced, mark as referenced
+            if is_referenced_risk:
+                grouped[group_key]["is_referenced_risk"] = True
+            
             grouped[group_key]["count"] += 1
     
     # Convert grouped dict to normalized risks
@@ -382,6 +420,7 @@ def normalize_paragraph_risks(
             "policies": unique_policies,  # Array of all policies
             "evidence": group_data["evidence"],  # Strongest evidence
             "occurrence_count": group_data["count"],  # How many times this pattern appeared
+            "is_referenced_risk": group_data.get("is_referenced_risk", False),  # NEW: Is this a referenced risk?
             "_paragraph_id": paragraph_id  # Internal use only (for matching)
         }
         
@@ -759,6 +798,10 @@ async def analyze_content_deep(
         logger.warning("[Proxy] Global risk_locations has duplicate primary patterns. Re-collapsing...")
         grouped_risk_locations = group_violations(grouped_risk_locations)
     
+    # Get content_role and intent from Stage-1 result
+    content_role = stage1_result.get("content_role", "authored_claim")
+    intent = stage1_result.get("intent", "endorse")
+    
     # Calculate overall scores (weighted average from ANALYZED paragraphs only)
     # CRITICAL: Consider both paragraph scores AND risk_locations for holistic scoring
     # If a paragraph has high scores but many risk_locations, the score should reflect the actual risk
@@ -787,13 +830,56 @@ async def analyze_content_deep(
         risk_penalty = (high_severity_count * 15) + (medium_severity_count * 5)
         
         # Apply penalty to scores (but don't go below 20 to avoid extreme scores)
-        overall_ethical = max(20, base_ethical - risk_penalty)
-        overall_compliance = max(20, base_compliance - risk_penalty)
-        overall_manipulation = max(20, base_manipulation - risk_penalty)
-        overall_bias = max(20, base_bias - risk_penalty)
-        overall_legal = max(20, base_legal - risk_penalty)
+        base_scores_after_penalty = {
+            "ethical": max(20, base_ethical - risk_penalty),
+            "compliance": max(20, base_compliance - risk_penalty),
+            "manipulation": max(20, base_manipulation - risk_penalty),
+            "bias": max(20, base_bias - risk_penalty),
+            "legal": max(20, base_legal - risk_penalty)
+        }
         
-        logger.info(f"[Proxy] Overall scores: base_ethical={base_ethical:.1f}, risk_penalty={risk_penalty}, final_ethical={overall_ethical:.1f} (high_severity={high_severity_count}, medium_severity={medium_severity_count})")
+        # SCORING ADJUSTMENT: Apply role and intent multipliers
+        # Role multipliers
+        role_multipliers = {
+            "authored_claim": 1.0,
+            "critique_or_warning": 0.4,
+            "quoted_content": 0.3,
+            "request_for_analysis": 0.2,
+            "news_reporting": 0.3,
+            "satire_or_fiction": 0.3
+        }
+        role_multiplier = role_multipliers.get(content_role, 1.0)
+        
+        # Intent multipliers
+        intent_multipliers = {
+            "endorse": 1.0,
+            "criticize": 0.5,
+            "analyze": 0.4,
+            "warn": 0.3,
+            "report": 0.3,
+            "question": 0.4
+        }
+        intent_multiplier = intent_multipliers.get(intent, 1.0)
+        
+        # Apply multipliers to risk scores (lower is worse, so we adjust upward for non-endorsed content)
+        # For ethical, compliance, manipulation, bias, legal: higher score = better
+        # So we adjust: final_score = base_score + (100 - base_score) * (1 - role_mult * intent_mult)
+        # This means: if role_mult=0.2 and intent_mult=0.4, we reduce the risk impact
+        combined_multiplier = role_multiplier * intent_multiplier
+        
+        # Adjust scores: non-endorsed content should have higher scores (less risk)
+        # Formula: adjusted_score = base_score + (100 - base_score) * (1 - combined_multiplier) * 0.5
+        # This gives partial credit for non-endorsed content
+        adjustment_factor = (1 - combined_multiplier) * 0.5
+        
+        overall_ethical = min(100, base_scores_after_penalty["ethical"] + (100 - base_scores_after_penalty["ethical"]) * adjustment_factor)
+        overall_compliance = min(100, base_scores_after_penalty["compliance"] + (100 - base_scores_after_penalty["compliance"]) * adjustment_factor)
+        overall_manipulation = min(100, base_scores_after_penalty["manipulation"] + (100 - base_scores_after_penalty["manipulation"]) * adjustment_factor)
+        overall_bias = min(100, base_scores_after_penalty["bias"] + (100 - base_scores_after_penalty["bias"]) * adjustment_factor)
+        overall_legal = min(100, base_scores_after_penalty["legal"] + (100 - base_scores_after_penalty["legal"]) * adjustment_factor)
+        
+        logger.info(f"[Proxy] Scoring adjustment: content_role={content_role} (mult={role_multiplier:.2f}), intent={intent} (mult={intent_multiplier:.2f}), combined={combined_multiplier:.2f}, adjustment={adjustment_factor:.2f}")
+        logger.info(f"[Proxy] Overall scores: base_ethical={base_ethical:.1f}, risk_penalty={risk_penalty}, adjusted_ethical={overall_ethical:.1f} (high_severity={high_severity_count}, medium_severity={medium_severity_count})")
     else:
         # Fallback to Stage-0 estimates
         estimated_range = stage0_result.get("estimated_score_range", [50, 70])
@@ -835,6 +921,8 @@ async def analyze_content_deep(
     
     # GUARDRAIL 3: Response contract must include _stage0_status and _stage1_status
     response = {
+        "content_role": content_role,  # NEW: Content role classification
+        "intent": intent,  # NEW: Intent classification
         "overall_scores": {
             "ethical_index": int(round(overall_ethical)),
             "compliance_score": int(round(overall_compliance)),
