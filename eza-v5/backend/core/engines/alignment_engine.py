@@ -28,12 +28,16 @@ def compute_alignment(
     output_is_safe = output_risk < 0.3
     safely_refused_risky_request = input_is_risky and output_is_safe
     
-    if risk_delta > 0.3:
+    # CRITICAL: If output is risky (>= 0.5) and input is safe (< 0.3), this is misalignment
+    output_is_risky = output_risk >= 0.5
+    input_is_safe = input_risk < 0.3
+    
+    if risk_delta > 0.3 or (output_is_risky and input_is_safe):
         alignment_score = 30.0
         verdict = "misaligned"
         label = "Blocked"
-    elif risk_delta > 0.1:
-        alignment_score = 60.0
+    elif risk_delta > 0.1 or (output_risk > 0.4 and input_risk < 0.4):
+        alignment_score = 50.0  # Reduced from 60.0 to ensure < 60 for risky outputs
         verdict = "partially_aligned"
         label = "Warning"
     elif safely_refused_risky_request:

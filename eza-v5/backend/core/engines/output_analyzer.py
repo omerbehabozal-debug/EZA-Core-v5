@@ -73,7 +73,8 @@ def analyze_output(output_text: str, input_analysis: Dict[str, Any] = None) -> D
     # Only flag hacking if not in safe educational/ethical context
     if has_hacking and not is_educational and not is_ethical_hacking_content:
         risk_flags.append("output_hacking")
-        risk_score = max(risk_score, 0.6)
+        # CRITICAL: Hacking content should have high risk score
+        risk_score = max(risk_score, 0.7)  # Increased from 0.6 to 0.7 for better detection
     
     # If educational question and output is safe, ensure low risk
     if is_educational and risk_score < 0.3:
@@ -119,10 +120,19 @@ def analyze_output(output_text: str, input_analysis: Dict[str, Any] = None) -> D
     if len(output_text) > 200:
         quality_score += 10
     
+    # CRITICAL: Ensure risky content gets proper risk_level
+    # If output contains harmful patterns, it should be at least medium risk
+    if risk_score > 0.5:
+        risk_level = "high"
+    elif risk_score > 0.3 or len(risk_flags) > 0:
+        risk_level = "medium"
+    else:
+        risk_level = "low"
+    
     return {
         "ok": True,
         "risk_score": risk_score,
-        "risk_level": "high" if risk_score > 0.7 else "medium" if risk_score > 0.4 else "low",
+        "risk_level": risk_level,
         "risk_flags": risk_flags,
         "quality_score": quality_score,
         "output_length": len(output_text),

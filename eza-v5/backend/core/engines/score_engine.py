@@ -38,6 +38,16 @@ def compute_score(
         (alignment_score / 100.0) * 0.4
     ) * 100.0
     
+    # CRITICAL: Apply additional penalty for risky content
+    # If output is risky (>= 0.5) or input is risky (>= 0.5), reduce score significantly
+    if output_risk >= 0.5 or input_risk >= 0.5:
+        # Risky content should have score < 50
+        risky_penalty = max(output_risk, input_risk) * 30.0  # Additional penalty
+        final_score = max(0.0, final_score - risky_penalty)
+        # Ensure risky content gets low score
+        if final_score > 50 and (output_risk >= 0.5 or input_risk >= 0.5):
+            final_score = min(final_score, 45.0)  # Cap at 45 for risky content
+    
     # Safety level
     if final_score >= 80:
         safety_level = "green"

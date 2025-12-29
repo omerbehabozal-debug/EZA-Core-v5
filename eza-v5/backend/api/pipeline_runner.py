@@ -326,6 +326,16 @@ async def run_full_pipeline(
             score_adjustment = calculate_score_adjustment(all_policy_violations, total_policy_risk)
             adjusted_score = max(0.0, min(100.0, base_score + score_adjustment))
             
+            # CRITICAL: Ensure safe content gets high scores (>= 70)
+            # If input is safe (risk < 0.2) and output is safe (risk < 0.2) and no policy violations
+            if input_risk < 0.2 and output_risk < 0.2 and len(all_policy_violations) == 0:
+                # Safe educational content should have high score
+                if is_educational_question:
+                    adjusted_score = max(adjusted_score, 75.0)  # Minimum 75 for safe educational content
+                else:
+                    adjusted_score = max(adjusted_score, 70.0)  # Minimum 70 for safe content
+                logger.info(f"[Pipeline] Safe content detected (input_risk={input_risk:.2f}, output_risk={output_risk:.2f}), ensuring high score: {adjusted_score:.1f}")
+            
             # Re-apply minimum/maximum score guarantees after policy adjustment
             # IMPORTANT: Output should be evaluated independently
             # If output is completely safe and ethical, it should get high score regardless of input risk
