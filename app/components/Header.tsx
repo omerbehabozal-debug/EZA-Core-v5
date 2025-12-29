@@ -12,6 +12,7 @@ export default function Header() {
 
   const navigation = [
     { name: "Ecosystem", href: "/#ecosystem" },
+    { name: "Hakkımızda", href: "/about" },
       {
         name: "EZA-Core Products",
         href: "#",

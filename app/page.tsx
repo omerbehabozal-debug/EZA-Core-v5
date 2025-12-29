@@ -19,8 +19,8 @@ export default function Home() {
         videoType="video/mp4"
       />
 
-      {/* Section 2: EZA Vizyonu - EZA'nın Ne Olduğu */}
-      <Section id="vision" className="bg-white">
+      {/* Section 2: EZA Nedir? */}
+      <Section id="about" className="bg-white">
         <VisionSection />
       </Section>
 

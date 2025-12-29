@@ -8,7 +8,7 @@ const demos = [
   {
     id: "standalone",
     title: "Standalone Demo",
-    description: "Kullanıcının EZA'ya soru sorup, etik olarak yönlendirilmiş cevap aldığı demo",
+    description: "Kullanıcının EZA'ya soru sorup, etik olarak skorlandırılmış cevap aldığı demo",
     videoSrc: "/demos/standalone-demo.mp4", // Video eklendiğinde güncellenecek
     badge: "Standalone",
     icon: "Shield",

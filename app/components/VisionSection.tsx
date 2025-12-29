@@ -1,25 +1,49 @@
+import React from "react";
 import FadeIn from "./FadeIn";
 import Icon from "./Icon";
 
 const features = [
   {
     icon: "Target",
-    title: "Rehberlik",
-    description: "Kural koyucu değil, teknolojiye rehberlik eden bir sistem",
+    title: "Gözlem",
+    description: "Kural koymaz, karar vermez. Yapay zekâ çıktılarının etik etkilerini gözlemler ve görünür kılar.",
   },
   {
     icon: "Shield",
-    title: "Etik Odaklı",
-    description: "Teknolojinin insanlığa karşı etik davranmasını sağlar",
+    title: "Etik Değerlendirme",
+    description: "Yapay zekâ çıktılarının etik, toplumsal ve regülasyonel etkilerini analiz eder ve skorlar.",
   },
   {
     icon: "Link",
     title: "Köprü",
-    description: "İnsan ve teknoloji arasında etik bir köprü kurar",
+    description: "İnsan ile teknoloji arasındaki etik farkındalığı görünür kılar.",
   },
 ];
 
-export default function VisionSection() {
+interface VisionSectionProps {
+  title?: string;
+  subtitle?: string;
+  description?: React.ReactNode;
+}
+
+export default function VisionSection({ 
+  title = "EZA Nedir?", 
+  subtitle = "Teknolojinin etik gelişimi için sistem",
+  description 
+}: VisionSectionProps = {}) {
+  const defaultDescription = (
+    <>
+      <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto leading-relaxed">
+        EZA, yapay zekâ sistemlerinin ürettiği çıktıları<br />
+        etik, toplumsal ve regülasyonel etkileri açısından<br />
+        sansürlemeden analiz eden bir etik gözlem sistemidir.
+      </p>
+      <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto mt-4 font-medium">
+        Müdahale etmez; ölçer, skorlar ve görünür kılar.
+      </p>
+    </>
+  );
+
   return (
     <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
       <FadeIn>
@@ -28,14 +52,21 @@ export default function VisionSection() {
             Etik Zeka Altyapısı
           </div>
           <h2 className="text-4xl md:text-5xl font-semibold text-eza-text mb-4">
-            EZA Vizyonu
+            {title}
           </h2>
-          <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto">
-            Teknolojinin etik gelişimi için sistem
-          </p>
+          {description ? (
+            description
+          ) : title === "EZA Vizyonu" ? (
+            <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto">
+              {subtitle}
+            </p>
+          ) : (
+            defaultDescription
+          )}
         </div>
       </FadeIn>
 
+      {title === "EZA Vizyonu" ? (
       <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
         <FadeIn>
           <div className="space-y-6 text-lg text-eza-text-secondary leading-relaxed">
@@ -78,6 +109,28 @@ export default function VisionSection() {
           </div>
         </FadeIn>
       </div>
+      ) : (
+      <div className="flex justify-center mb-16">
+        <FadeIn delay={200}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
+            {features.map((feature) => (
+              <div
+                key={feature.title}
+                className="bg-white rounded-lg p-6 border border-gray-200"
+              >
+                <div className="flex flex-col items-center text-center">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-eza-blue/10 flex items-center justify-center mb-3">
+                    <Icon name={feature.icon} className="text-eza-blue" size={24} />
+                  </div>
+                  <h3 className="font-semibold text-eza-text text-lg mb-1">{feature.title}</h3>
+                  <p className="text-eza-text-secondary text-sm leading-relaxed">{feature.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </FadeIn>
+      </div>
+      )}
     </div>
   );
 }

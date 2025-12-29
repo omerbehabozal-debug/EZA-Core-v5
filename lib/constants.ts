@@ -2,6 +2,7 @@ export const navigation = {
   main: [
     { name: "Home", href: "/" },
     { name: "Ecosystem", href: "/#ecosystem" },
+    { name: "Hakkımızda", href: "/about" },
     {
       name: "Products",
       href: "/products",
@@ -62,7 +63,7 @@ export const ecosystemItems = {
     },
     {
       title: "Proxy-Lite",
-      description: "EZA-Core'un hafif versiyonu. Düşük kaynak kullanımı ile etik kontrol.",
+      description: "EZA-Core'un hafif versiyonu. Hızlı analiz ile etik kontrol.",
       href: "/products/proxy-lite",
       icon: "Zap",
     },
@@ -135,49 +136,49 @@ export const ecosystemItems = {
 
 export const sectors = [
   {
-    title: "Education",
+    title: "Eğitim",
     description: "Eğitim teknolojilerinde etik kullanım. Öğrenci verilerinin korunması ve adil AI kullanımı.",
     href: "/solutions/education",
     icon: "GraduationCap",
   },
   {
-    title: "Banking",
+    title: "Bankacılık",
     description: "Finansal hizmetlerde etik AI. Kredi kararlarında adalet ve şeffaflık.",
     href: "/solutions/banking",
     icon: "Landmark",
   },
   {
-    title: "Healthcare",
+    title: "Sağlık",
     description: "Sağlık hizmetlerinde etik teknoloji. Hasta gizliliği ve adil tanı destek sistemleri.",
     href: "/solutions/healthcare",
     icon: "Heart",
   },
   {
-    title: "Corporate",
+    title: "Kurumsal",
     description: "Kurumsal AI kullanımında etik standartlar. İşe alım, değerlendirme ve karar süreçleri.",
     href: "/solutions/corporate",
     icon: "Building",
   },
   {
-    title: "Autonomous",
+    title: "Otonom",
     description: "Otonom sistemlerde etik yönlendirme. Robotik ve AI karar destek sistemleri için güvenlik.",
     href: "/solutions/autonomous",
     icon: "Car",
   },
   {
-    title: "Humanoid Robots",
+    title: "İnsansı Robotlar",
     description: "İnsansı robotlar ile insanlığın etik iletişimi. Saygılı, anlaşılır ve güvenli etkileşim ortamı.",
     href: "/solutions/humanoid-robots",
     icon: "Cpu",
   },
   {
-    title: "Media",
+    title: "Medya",
     description: "Medya ve içerik üretiminde etik AI. Deepfake tespiti ve sorumlu içerik oluşturma.",
     href: "/solutions/media",
     icon: "Newspaper",
   },
   {
-    title: "Public Sector",
+    title: "Kamu Sektörü",
     description: "Kamu sektöründe etik teknoloji kullanımı. Vatandaş hakları ve şeffaflık.",
     href: "/solutions/public-sector",
     icon: "Scale",
@@ -199,7 +200,7 @@ export const products = [
   },
   {
     title: "Proxy-Lite",
-    description: "Hafif versiyon proxy çözümü. Düşük kaynak kullanımı ile etik kontrol sağlar, küçük ve orta ölçekli uygulamalar için idealdir.",
+    description: "Hafif versiyon proxy çözümü. Hızlı analiz ile etik kontrol sağlar, küçük ve orta ölçekli uygulamalar için idealdir.",
     href: "/products/proxy-lite",
     icon: "Zap",
   },

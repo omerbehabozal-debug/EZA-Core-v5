@@ -103,13 +103,19 @@ export default function WhyEZA() {
       <FadeIn>
         <div className="text-center mb-20">
           <h2 className="text-4xl md:text-5xl font-semibold text-eza-text mb-6">
-            Neden EZA?
+            Bugün asıl sorun ne?
           </h2>
           <div className="inline-block px-8 py-3 bg-eza-blue/10 border border-eza-blue/20 rounded-lg mb-6">
-            <span className="text-eza-blue font-semibold text-xl">"Etik gözlem katmanı"</span>
+            <span className="text-eza-blue font-semibold text-xl">"Ölçülmeyen şey, yönetilemez."</span>
           </div>
-          <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto mb-12">
-            Teknolojinin hızla geliştiği bir dünyada, insan ile yapay zekâ arasındaki etik ilişkiyi görünür kılar.
+          <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto mb-4">
+            Yapay zekâ sistemleri güvenlikten geçiyor, performansla ölçülüyor.
+          </p>
+          <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto mb-4">
+            Ancak ürettikleri çıktılar çoğu zaman etik etkileri açısından ölçülmüyor.
+          </p>
+          <p className="text-xl text-eza-text font-semibold max-w-2xl mx-auto mb-12">
+            Görünmeyen riskler, en büyük risklerdir.
           </p>
           
           {/* Premium Image */}
