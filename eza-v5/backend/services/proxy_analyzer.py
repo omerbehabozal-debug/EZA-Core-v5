@@ -340,7 +340,7 @@ def normalize_paragraph_risks(
     # Group by PRIMARY RISK PATTERN (narrative intent)
     grouped = {}
     
-        for risk in raw_risk_locations:
+    for risk in raw_risk_locations:
         # Get primary risk pattern (prefer primary_risk_pattern, fallback to type)
         primary_risk_pattern = risk.get("primary_risk_pattern") or risk.get("type", "unknown")
         risk_type = risk.get("type", "unknown")

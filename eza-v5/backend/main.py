@@ -180,6 +180,12 @@ allowed_origins = [
     # All subdomains must be explicitly listed
 ]
 
+# Setup security logging
+setup_security_logging()
+
+# CRITICAL: CORS middleware must be added AFTER other middleware
+# Middleware executes in REVERSE order (last added = first executed)
+# We want CORS to execute FIRST to handle preflight requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -189,8 +195,11 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# Setup security logging
-setup_security_logging()
+# Organization Guard Middleware (Enterprise Lock)
+# This must be added BEFORE CORS middleware so it executes AFTER CORS
+# This ensures OPTIONS requests pass through CORS first
+from backend.middleware.organization_guard import OrganizationGuardMiddleware
+app.add_middleware(OrganizationGuardMiddleware)
 
 # Exception handlers to ensure CORS headers are always sent
 @app.exception_handler(StarletteHTTPException)
@@ -235,10 +244,6 @@ async def general_exception_handler(request: Request, exc: Exception):
             "Access-Control-Allow-Headers": "*",
         }
     )
-
-# Organization Guard Middleware (Enterprise Lock)
-from backend.middleware.organization_guard import OrganizationGuardMiddleware
-app.add_middleware(OrganizationGuardMiddleware)
 
 # Include routers
 # OLD auth.router removed - using production_auth.router instead

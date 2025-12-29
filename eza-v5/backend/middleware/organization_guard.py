@@ -138,8 +138,17 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next):
         # Skip organization guard for OPTIONS requests (CORS preflight)
+        # CORS middleware will handle these requests
         if request.method == "OPTIONS":
-            return await call_next(request)
+            response = await call_next(request)
+            # Ensure CORS headers are present for OPTIONS requests
+            origin = request.headers.get("origin")
+            if origin:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Methods"] = "*"
+                response.headers["Access-Control-Allow-Headers"] = "*"
+            return response
         
         # Skip organization guard for excluded paths
         if not is_protected_path(request.url.path):
@@ -316,6 +325,17 @@ class OrganizationGuardMiddleware(BaseHTTPMiddleware):
         
         # 7. Continue with request
         response = await call_next(request)
+        
+        # Ensure CORS headers are present in response
+        # This is a fallback in case CORS middleware doesn't add them
+        origin = request.headers.get("origin")
+        if origin:
+            # Only add if not already present (CORS middleware should have added them)
+            if "Access-Control-Allow-Origin" not in response.headers:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Methods"] = "*"
+                response.headers["Access-Control-Allow-Headers"] = "*"
         
         # Log successful access (optional, for monitoring)
         if user_id:
