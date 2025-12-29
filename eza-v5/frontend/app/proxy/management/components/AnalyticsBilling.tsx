@@ -564,6 +564,84 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
 
   return (
     <div className="space-y-6">
+      {/* 1️⃣ CURRENT PLAN & CREDIT SUMMARY (NEW — TOP) */}
+      {billing && (
+        <div
+          className="rounded-xl p-6"
+          style={{
+            backgroundColor: '#1C1C1E',
+            border: '1px solid #2C2C2E',
+          }}
+        >
+          <h2
+            className="text-xl font-bold mb-4"
+            style={{
+              color: '#E5E5EA',
+            }}
+          >
+            Mevcut Paket ve Kredi Durumu
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div>
+              <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Paket Adı</p>
+              <p className="text-lg font-semibold" style={{ color: '#E5E5EA' }}>
+                {billing.plan === 'free' ? 'Starter' : billing.plan === 'pro' ? 'Growth' : billing.plan === 'enterprise' ? 'Enterprise' : billing.plan.charAt(0).toUpperCase() + billing.plan.slice(1)}
+              </p>
+            </div>
+            
+            <div>
+              <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Aylık Toplam Kredi</p>
+              <p className="text-lg font-semibold" style={{ color: '#E5E5EA' }}>
+                {(() => {
+                  const planCredits: Record<string, number> = {
+                    'free': 5000,
+                    'pro': 25000,
+                    'enterprise': 0, // Özel
+                  };
+                  const credits = planCredits[billing.plan] || 0;
+                  return credits === 0 ? 'Özel' : credits.toLocaleString('tr-TR');
+                })()}
+              </p>
+            </div>
+            
+            <div>
+              <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Kalan Kredi</p>
+              <p className="text-lg font-semibold" style={{ color: '#22BF55' }}>
+                {(() => {
+                  const planCredits: Record<string, number> = {
+                    'free': 5000,
+                    'pro': 25000,
+                    'enterprise': 0,
+                  };
+                  const totalCredits = planCredits[billing.plan] || 0;
+                  // Basit hesaplama: Her istek ortalama 1.5 kredi (FAST ve PRO karışımı)
+                  const usedCredits = Math.round((billing.request_count || 0) * 1.5);
+                  const remaining = totalCredits > 0 ? Math.max(0, totalCredits - usedCredits) : 0;
+                  return totalCredits === 0 ? 'Özel' : remaining.toLocaleString('tr-TR');
+                })()}
+              </p>
+            </div>
+            
+            <div>
+              <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Yenileme Tarihi</p>
+              <p className="text-lg font-semibold" style={{ color: '#E5E5EA' }}>
+                {(() => {
+                  const nextMonth = new Date();
+                  nextMonth.setMonth(nextMonth.getMonth() + 1);
+                  nextMonth.setDate(1);
+                  return nextMonth.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+                })()}
+              </p>
+            </div>
+          </div>
+          
+          <p className="text-xs" style={{ color: '#8E8E93' }}>
+            Krediler analiz ve yeniden yazım işlemlerinde kullanılır.
+          </p>
+        </div>
+      )}
+
       {/* Section Title */}
       <div>
         <h2
@@ -788,7 +866,177 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
         )}
       </div>
 
-      {/* Billing & Plan */}
+      {/* 3️⃣ CREDIT USAGE EXPLANATION (NEW — BELOW CHARTS) */}
+      <div
+        className="rounded-xl p-6"
+        style={{
+          backgroundColor: '#1C1C1E',
+          border: '1px solid #2C2C2E',
+        }}
+      >
+        <h3
+          className="text-lg font-bold mb-4"
+          style={{
+            color: '#E5E5EA',
+          }}
+        >
+          Kredi Kullanımı Nasıl Çalışır?
+        </h3>
+        
+        <div className="space-y-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#007AFF' }}></div>
+            <p className="text-sm" style={{ color: '#E5E5EA' }}>
+              <span className="font-semibold">Hızlı Analiz (FAST):</span> 1 kredi
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#8B5CF6' }}></div>
+            <p className="text-sm" style={{ color: '#E5E5EA' }}>
+              <span className="font-semibold">Profesyonel Analiz (PRO):</span> 3 kredi
+            </p>
+          </div>
+        </div>
+        
+        <div
+          className="mt-4 p-4 rounded-lg"
+          style={{
+            backgroundColor: '#2C2C2E',
+            border: '1px solid #3C3C3E',
+          }}
+        >
+          <p className="text-sm" style={{ color: '#8E8E93' }}>
+            <strong style={{ color: '#E5E5EA' }}>Önemli:</strong> FAST ve PRO ayrı ürünler değildir.
+            Fark, analiz derinliği ve kredi tüketimidir.
+          </p>
+        </div>
+      </div>
+
+      {/* 4️⃣ PLANS & UPGRADE SECTION (NEW — BOTTOM) */}
+      <div className="space-y-6">
+        <h3
+          className="text-xl font-bold"
+          style={{
+            color: '#E5E5EA',
+          }}
+        >
+          Paketler
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Starter Plan */}
+          <div
+            className="rounded-xl p-6 transition-all hover:shadow-lg"
+            style={{
+              backgroundColor: '#1C1C1E',
+              border: '1px solid #2C2C2E',
+            }}
+          >
+            <h4 className="text-xl font-bold mb-2" style={{ color: '#E5E5EA' }}>
+              Starter
+            </h4>
+            <p className="text-2xl font-bold mb-1" style={{ color: '#E5E5EA' }}>
+              5.000 kredi / ay
+            </p>
+            <p className="text-sm mb-4" style={{ color: '#8E8E93' }}>
+              Küçük ekipler için
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPlan('free');
+                setShowPlanModal(true);
+              }}
+              className="w-full px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+              style={{
+                backgroundColor: '#2C2C2E',
+                color: '#E5E5EA',
+              }}
+            >
+              Paketi Seç
+            </button>
+          </div>
+          
+          {/* Growth Plan (Recommended) */}
+          <div
+            className="rounded-xl p-6 transition-all hover:shadow-lg relative"
+            style={{
+              backgroundColor: '#1C1C1E',
+              border: '2px solid #007AFF',
+            }}
+          >
+            <div className="absolute top-4 right-4">
+              <span
+                className="px-2 py-1 rounded text-xs font-medium"
+                style={{
+                  backgroundColor: '#007AFF20',
+                  color: '#007AFF',
+                }}
+              >
+                Önerilen
+              </span>
+            </div>
+            <h4 className="text-xl font-bold mb-2" style={{ color: '#E5E5EA' }}>
+              Growth
+            </h4>
+            <p className="text-2xl font-bold mb-1" style={{ color: '#E5E5EA' }}>
+              25.000 kredi / ay
+            </p>
+            <p className="text-sm mb-4" style={{ color: '#8E8E93' }}>
+              Kurumsal kullanım için ideal
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPlan('pro');
+                setShowPlanModal(true);
+              }}
+              className="w-full px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+              style={{
+                background: 'linear-gradient(135deg, #007AFF 0%, #3B7CFF 100%)',
+                color: '#FFFFFF',
+              }}
+            >
+              Paketi Yükselt
+            </button>
+          </div>
+          
+          {/* Enterprise Plan */}
+          <div
+            className="rounded-xl p-6 transition-all hover:shadow-lg"
+            style={{
+              backgroundColor: '#1C1C1E',
+              border: '1px solid #2C2C2E',
+            }}
+          >
+            <h4 className="text-xl font-bold mb-2" style={{ color: '#E5E5EA' }}>
+              Enterprise
+            </h4>
+            <p className="text-2xl font-bold mb-1" style={{ color: '#E5E5EA' }}>
+              Özel kredi hacmi
+            </p>
+            <p className="text-sm mb-4" style={{ color: '#8E8E93' }}>
+              SLA ve özel destek
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                alert('Enterprise paket için lütfen satış ekibimizle iletişime geçin.');
+              }}
+              className="w-full px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+              style={{
+                backgroundColor: '#2C2C2E',
+                color: '#E5E5EA',
+              }}
+            >
+              Satış ile İletişime Geç
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Billing & Plan (KEEP EXISTING) */}
       {billing && (
         <div className="space-y-6">
           {/* Section Header with Currency Toggle */}
@@ -1034,7 +1282,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
       )}
 
       {/* Plan Upgrade Modal */}
-      {showPlanModal && selectedPlan && billing && (
+      {showPlanModal && selectedPlan && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}
@@ -1049,37 +1297,41 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-bold mb-4" style={{ color: '#E5E5EA' }}>
-              Planı Güncelle
+              Paketi Yükselt
             </h3>
             
             <div className="space-y-4 mb-6">
-              <div>
-                <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Eski Plan</p>
-                <p className="text-lg font-bold" style={{ color: '#E5E5EA' }}>
-                  {billing.plan.toUpperCase()}
-                </p>
-              </div>
+              {billing && (
+                <div>
+                  <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Mevcut Paket</p>
+                  <p className="text-lg font-bold" style={{ color: '#E5E5EA' }}>
+                    {billing.plan.charAt(0).toUpperCase() + billing.plan.slice(1)}
+                  </p>
+                </div>
+              )}
               
               <div>
-                <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Yeni Plan</p>
+                <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Yeni Paket</p>
                 <p className="text-lg font-bold" style={{ color: '#007AFF' }}>
-                  {selectedPlan.toUpperCase()}
+                  {selectedPlan === 'free' ? 'Starter' : selectedPlan === 'pro' ? 'Growth' : 'Enterprise'}
                 </p>
               </div>
               
               <div>
-                <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Para Birimi</p>
+                <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Yeni Kredi Miktarı</p>
                 <p className="text-lg font-bold" style={{ color: '#E5E5EA' }}>
-                  {displayCurrency}
+                  {selectedPlan === 'free' ? '5.000' : selectedPlan === 'pro' ? '25.000' : 'Özel'} kredi / ay
                 </p>
               </div>
               
-              <div>
-                <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Tahmini Yeni Aylık Maliyet</p>
-                <p className="text-lg font-bold" style={{ color: '#22BF55' }}>
-                  {displayCurrency === 'TRY' ? '₺' : '$'}{(billing?.price_table?.[displayCurrency]?.plan_price || 0).toFixed(2)} / ay
-                </p>
-              </div>
+              {billing && (
+                <div>
+                  <p className="text-sm mb-1" style={{ color: '#8E8E93' }}>Aylık Ücret</p>
+                  <p className="text-lg font-bold" style={{ color: '#22BF55' }}>
+                    {displayCurrency === 'TRY' ? '₺' : '$'}{(billing?.price_table?.[displayCurrency]?.plan_price || 0).toFixed(2)} / ay
+                  </p>
+                </div>
+              )}
             </div>
             
             <div className="flex gap-3">
@@ -1098,7 +1350,9 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                 type="button"
                 onClick={() => {
                   if (selectedPlan) {
-                    handlePlanUpgrade(selectedPlan);
+                    if (billing) {
+                      handlePlanUpgrade(selectedPlan);
+                    }
                     setShowPlanModal(false);
                   }
                 }}
@@ -1108,7 +1362,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                   color: '#FFFFFF',
                 }}
               >
-                Onayla
+                Paketi Yükselt
               </button>
             </div>
           </div>
