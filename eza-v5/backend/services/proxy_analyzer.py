@@ -138,28 +138,74 @@ def build_contextual_analysis_prompt(
 EZA bir kamera, mikroskop değil.
 Görevin: Metnin NE YAPTIĞINI gözlemlemek (narrative, etki, niyet), her kelimeyi parçalamak değil.
 
+⚠️ KRİTİK: BAĞLAM VE NİYET ANALİZİ (MUTLAK ÖNCELİK) ⚠️
+
+Metni analiz etmeden ÖNCE mutlaka şunları yap:
+1. BAĞLAM ANALİZİ (Context Analysis):
+   - Metnin GENEL BAĞLAMI nedir? (tam metin, paragraf, cümle bağlamı)
+   - Metin ne AMAÇLA yazılmış? (bilgilendirme, uyarı, analiz, sorgulama, vb.)
+   - Metnin TONU nedir? (tarafsız, eleştirel, uyarıcı, sorgulayıcı, vb.)
+   - Metnin HEDEF KİTLESİ kim? (genel okuyucu, uzman, medya, vb.)
+
+2. NİYET ANALİZİ (Intent Analysis):
+   - Yazarın GERÇEK NİYETİ nedir? (zarar vermek mi, bilgilendirmek mi, uyarmak mı?)
+   - Metin okuyucuyu YÖNLENDİRMEYE mi çalışıyor yoksa BİLGİLENDİRMEYE mi?
+   - Metin MANİPÜLASYON amaçlı mı yoksa ELEŞTİREL DÜŞÜNCE mi?
+   - Metin GERÇEK BİR RİSK mi yoksa MEŞRU BİR SORGULAMA mı?
+
+3. BÜTÜNCÜL DEĞERLENDİRME (Holistic Evaluation):
+   - Metni BÜTÜN OLARAK değerlendir (kelime kelime değil)
+   - Cümleleri BAĞLAM İÇİNDE anla (izole cümle analizi YAPMA)
+   - NİYET ve BAĞLAM riskli değilse, kelime bazlı riskleri GÖRMEZDEN GEL
+   - Sadece GERÇEK RİSKLİ NİYET ve BAĞLAM varsa risk olarak işaretle
+
 ANALİZ DERİNLİĞİ KURALLARI (MUTLAK):
 ❌ YAPMA:
 - Kelime kelime analiz
+- İzole cümle analizi (bağlam dışında)
+- Niyet analizi yapmadan risk tespiti
+- Bağlam analizi yapmadan skorlama
 - Aynı pattern için tekrarlayan ihlaller
 - Farklı granularity seviyelerinde aynı riski birden fazla kez flagleme
 - Aynı underlying issue için fazla "ihlal" entry'si
 
 ✅ YAP:
-- Bağlamsal / narrative seviyede risk tespiti
+- ÖNCE bağlam ve niyet analizi
+- SONRA bağlamsal / narrative seviyede risk tespiti
 - Risk pattern'leri tespit et (izole token'lar değil)
 - Benzer riskleri tek bir reasoning block altında grupla
+- Bütüncül değerlendirme (holistic evaluation)
 
-RİSK TESPİT STRATEJİSİ:
-Metni değerlendirirken şunları sor:
-1. Core claim nedir? (Ana iddia)
-2. Reader üzerinde intended influence nedir? (Hedeflenen etki)
-3. Metin şunları yapıyor mu:
-   - Korku / umut / güvensizlik sömürüyor mu?
-   - Profesyonel veya kurumsal rehberliği caydırıyor mu?
-   - Doğrulanamaz sağlık iddiaları teşvik ediyor mu?
-   - Bastırılmış veya gizli "gerçekler" ima ediyor mu?
-4. Risk systemic mi yoksa incidental mi? (Sadece systemic riskler yükseltilmeli)
+RİSK TESPİT STRATEJİSİ (BAĞLAM VE NİYET ÖNCELİKLİ):
+Metni değerlendirirken şu SIRAYLA sor:
+1. BAĞLAM: Metnin genel bağlamı nedir? (amaç, ton, hedef kitle)
+2. NİYET: Yazarın gerçek niyeti nedir? (zarar vermek mi, bilgilendirmek mi?)
+3. BÜTÜNCÜL: Metin bütün olarak ne yapıyor? (narrative, etki)
+4. Core claim nedir? (Ana iddia)
+5. Reader üzerinde intended influence nedir? (Hedeflenen etki)
+6. Metin şunları yapıyor mu:
+   - Korku / umut / güvensizlik sömürüyor mu? (NİYET: zarar vermek)
+   - Profesyonel veya kurumsal rehberliği caydırıyor mu? (NİYET: manipülasyon)
+   - Doğrulanamaz sağlık iddiaları teşvik ediyor mu? (NİYET: yanlış bilgilendirme)
+   - Bastırılmış veya gizli "gerçekler" ima ediyor mu? (NİYET: komplo teorisi)
+7. Risk systemic mi yoksa incidental mi? (Sadece systemic riskler yükseltilmeli)
+
+⚠️ ÖNEMLİ: Eğer metnin NİYETİ ve BAĞLAMI riskli değilse, kelime bazlı riskleri GÖRMEZDEN GEL.
+Örneğin: "Bu metni analiz etmek istiyorum" cümlesi bağlam ve niyet olarak riskli değildir.
+"Analiz etmek" kelimesi izole olarak riskli görünebilir ama BAĞLAM ve NİYET analizi yapıldığında riskli değildir.
+
+ÖRNEK ANALİZ SÜRECİ:
+1. Metin: "Aşağıdaki metni bir sosyal medya hesabında gördüm. Tarafsız gibi başlıyor ama beni rahatsız etti. Bunun etik, toplumsal etki ve manipülasyon açısından analiz edilmesini istiyorum."
+2. BAĞLAM ANALİZİ: Kullanıcı bir metni analiz etmek istiyor. Metin analiz talebi, zarar verme amacı yok.
+3. NİYET ANALİZİ: Kullanıcının niyeti analiz yapmak, bilgi almak. Manipülasyon veya zarar verme niyeti yok.
+4. BÜTÜNCÜL DEĞERLENDİRME: Metin bütün olarak zararsız bir analiz talebi. Risk yok.
+5. SONUÇ: Bu metin riskli DEĞİLDİR. "Analiz etmek", "rahatsız etti" gibi kelimeler izole olarak riskli görünebilir ama BAĞLAM ve NİYET analizi yapıldığında riskli değildir.
+
+⚠️ KRİTİK KURAL: 
+- ÖNCE bağlam ve niyet analizi yap
+- SONRA risk tespiti yap
+- Eğer bağlam ve niyet riskli değilse, kelime bazlı riskleri GÖRMEZDEN GEL
+- Sadece GERÇEK RİSKLİ NİYET ve BAĞLAM varsa risk olarak işaretle
 
 VIOLATION GROUPING (ÇOK ÖNEMLİ):
 Eğer birden fazla cümle aynı risky narrative'i destekliyorsa:
@@ -714,6 +760,8 @@ async def analyze_content_deep(
         grouped_risk_locations = group_violations(grouped_risk_locations)
     
     # Calculate overall scores (weighted average from ANALYZED paragraphs only)
+    # CRITICAL: Consider both paragraph scores AND risk_locations for holistic scoring
+    # If a paragraph has high scores but many risk_locations, the score should reflect the actual risk
     # Filter out unanalyzed paragraphs (those without scores)
     analyzed_paragraphs_with_scores = [
         p for p in paragraph_analyses 
@@ -721,11 +769,31 @@ async def analyze_content_deep(
     ]
     
     if analyzed_paragraphs_with_scores:
-        overall_ethical = sum(p.get("ethical_index", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
-        overall_compliance = sum(p.get("compliance_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
-        overall_manipulation = sum(p.get("manipulation_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
-        overall_bias = sum(p.get("bias_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
-        overall_legal = sum(p.get("legal_risk_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        # Calculate base scores from paragraph averages
+        base_ethical = sum(p.get("ethical_index", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        base_compliance = sum(p.get("compliance_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        base_manipulation = sum(p.get("manipulation_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        base_bias = sum(p.get("bias_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        base_legal = sum(p.get("legal_risk_score", 50) for p in analyzed_paragraphs_with_scores) / len(analyzed_paragraphs_with_scores)
+        
+        # Apply risk_locations penalty (holistic evaluation)
+        # If there are significant risk_locations, scores should reflect actual risk
+        # Count high/medium severity risks
+        high_severity_count = sum(1 for r in grouped_risk_locations if r.get("severity") == "high")
+        medium_severity_count = sum(1 for r in grouped_risk_locations if r.get("severity") == "medium")
+        
+        # Calculate risk penalty based on severity and count
+        # High severity risks have stronger impact
+        risk_penalty = (high_severity_count * 15) + (medium_severity_count * 5)
+        
+        # Apply penalty to scores (but don't go below 20 to avoid extreme scores)
+        overall_ethical = max(20, base_ethical - risk_penalty)
+        overall_compliance = max(20, base_compliance - risk_penalty)
+        overall_manipulation = max(20, base_manipulation - risk_penalty)
+        overall_bias = max(20, base_bias - risk_penalty)
+        overall_legal = max(20, base_legal - risk_penalty)
+        
+        logger.info(f"[Proxy] Overall scores: base_ethical={base_ethical:.1f}, risk_penalty={risk_penalty}, final_ethical={overall_ethical:.1f} (high_severity={high_severity_count}, medium_severity={medium_severity_count})")
     else:
         # Fallback to Stage-0 estimates
         estimated_range = stage0_result.get("estimated_score_range", [50, 70])
