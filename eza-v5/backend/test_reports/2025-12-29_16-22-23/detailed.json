@@ -1,0 +1,252 @@
+[
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_safe_alignment",
+    "status": "passed",
+    "duration": 0.020146899856626987
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_risky_output",
+    "status": "passed",
+    "duration": 0.0007285999599844217
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_risk_delta",
+    "status": "passed",
+    "duration": 0.0006147001404315233
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_label_types",
+    "status": "passed",
+    "duration": 0.0025622998364269733
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_alignment_score_range",
+    "status": "passed",
+    "duration": 0.0004887999966740608
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_verdict_types",
+    "status": "passed",
+    "duration": 0.00040300004184246063
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_input_risk_tracking",
+    "status": "passed",
+    "duration": 0.0004135998897254467
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_output_risk_tracking",
+    "status": "passed",
+    "duration": 0.00040380004793405533
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_consistency",
+    "status": "passed",
+    "duration": 0.0004390999674797058
+  },
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_edge_cases",
+    "status": "passed",
+    "duration": 0.0003192999865859747
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_llm_failure",
+    "status": "passed",
+    "duration": 0.029193799942731857
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_empty_input",
+    "status": "passed",
+    "duration": 2.5915727999527007
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_invalid_mode",
+    "status": "passed",
+    "duration": 2.2731882999651134
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_network_timeout",
+    "status": "passed",
+    "duration": 0.009259599959477782
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_response_structure",
+    "status": "passed",
+    "duration": 0.009112699888646603
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_graceful_degradation",
+    "status": "passed",
+    "duration": 0.009501400170847774
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_all_modes",
+    "status": "passed",
+    "duration": 0.02649120008572936
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_retryable_flag",
+    "status": "passed",
+    "duration": 0.00977399991825223
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_partial_failure",
+    "status": "passed",
+    "duration": 2.9656195999123156
+  },
+  {
+    "name": "tests_core/test_error_handling.py::test_error_handling_error_logging",
+    "status": "passed",
+    "duration": 0.014902199851348996
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_safe_input",
+    "status": "passed",
+    "duration": 0.0016510998830199242
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_risky_input",
+    "status": "passed",
+    "duration": 0.00039579998701810837
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_intent_detection",
+    "status": "passed",
+    "duration": 0.0006601999048143625
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_risk_flags",
+    "status": "passed",
+    "duration": 0.0003790999762713909
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_empty_input",
+    "status": "passed",
+    "duration": 0.0003293999470770359
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_long_input",
+    "status": "passed",
+    "duration": 0.009288599947467446
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_special_characters",
+    "status": "passed",
+    "duration": 0.00046300003305077553
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_unicode",
+    "status": "passed",
+    "duration": 0.0004437998868525028
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_risk_score_range",
+    "status": "passed",
+    "duration": 0.0016274000518023968
+  },
+  {
+    "name": "tests_core/test_input_analyzer.py::test_input_analyzer_consistency",
+    "status": "passed",
+    "duration": 0.0007032998837530613
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_safe_output",
+    "status": "passed",
+    "duration": 0.0053715999238193035
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_risky_output",
+    "status": "passed",
+    "duration": 0.000597700010985136
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_quality_score",
+    "status": "passed",
+    "duration": 0.0005711999256163836
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_risk_flags",
+    "status": "passed",
+    "duration": 0.000546199968084693
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_empty_output",
+    "status": "passed",
+    "duration": 0.0005364001262933016
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_output_length",
+    "status": "passed",
+    "duration": 0.0006118000019341707
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_without_input_analysis",
+    "status": "passed",
+    "duration": 0.00032359990291297436
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_risk_escalation",
+    "status": "passed",
+    "duration": 0.0006687999702990055
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_consistency",
+    "status": "passed",
+    "duration": 0.0006132000125944614
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_risk_score_range",
+    "status": "passed",
+    "duration": 0.0006122000049799681
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_safe_scenario",
+    "status": "passed",
+    "duration": 0.0005611998494714499
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_risky_scenario",
+    "status": "passed",
+    "duration": 0.00042509986087679863
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_score_range",
+    "status": "passed",
+    "duration": 0.0003928001970052719
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_safety_levels",
+    "status": "passed",
+    "duration": 0.0005940000992268324
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_confidence",
+    "status": "passed",
+    "duration": 0.0003868001513183117
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_breakdown",
+    "status": "passed",
+    "duration": 0.000394199974834919
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_with_redirect",
+    "status": "passed",
+    "duration": 0.00038270000368356705
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_without_redirect",
+    "status": "passed",
+    "duration": 0.00040040002204477787
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_consistency",
+    "status": "passed",
+    "duration": 0.00038950005546212196
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_weighted_average",
+    "status": "passed",
+    "duration": 0.0002663999330252409
+  }
+]

@@ -37,7 +37,8 @@ def analyze_output(output_text: str, input_analysis: Dict[str, Any] = None) -> D
     }
     
     # Hacking pattern - only risky if not in educational/ethical context
-    hacking_pattern = r"\b(hack|hacking|hacker|hackleme|hacker\s+olmak|hacker\s+olurum)\b"
+    # CRITICAL: Make pattern more flexible to catch "how to hack", "hack into", etc.
+    hacking_pattern = r"\b(hack|hacking|hacker|hackleme|hacker\s+olmak|hacker\s+olurum|how\s+to\s+hack|hack\s+into|hack\s+a\s+system)\b"
     has_hacking = re.search(hacking_pattern, output_lower, re.IGNORECASE)
     
     # Check if output is about ethical hacking, security education, or legal boundaries
@@ -71,13 +72,14 @@ def analyze_output(output_text: str, input_analysis: Dict[str, Any] = None) -> D
             risk_score = max(risk_score, score)
     
     # Only flag hacking if not in safe educational/ethical context
-    if has_hacking and not is_educational and not is_ethical_hacking_content:
+    # CRITICAL: Even if input is educational, "how to hack" output is ALWAYS risky
+    if has_hacking and not is_ethical_hacking_content:
         risk_flags.append("output_hacking")
-        # CRITICAL: Hacking content should have high risk score
+        # CRITICAL: Hacking content should have high risk score (regardless of input being educational)
         risk_score = max(risk_score, 0.7)  # Increased from 0.6 to 0.7 for better detection
     
-    # If educational question and output is safe, ensure low risk
-    if is_educational and risk_score < 0.3:
+    # If educational question and output is safe (no hacking/risky content), ensure low risk
+    if is_educational and risk_score < 0.3 and not has_hacking:
         # Educational content should have very low risk, but add variations for score diversity
         # Use wider range for more noticeable differences
         output_length = len(output_text)

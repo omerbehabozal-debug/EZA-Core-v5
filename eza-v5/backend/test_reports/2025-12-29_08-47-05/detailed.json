@@ -1,0 +1,17 @@
+[
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_risky_output",
+    "status": "passed",
+    "duration": 0.042288900120183825
+  },
+  {
+    "name": "tests_core/test_output_analyzer.py::test_output_analyzer_risky_output",
+    "status": "passed",
+    "duration": 0.0011752001009881496
+  },
+  {
+    "name": "tests_core/test_score_engine.py::test_score_engine_risky_scenario",
+    "status": "passed",
+    "duration": 0.005272599868476391
+  }
+]

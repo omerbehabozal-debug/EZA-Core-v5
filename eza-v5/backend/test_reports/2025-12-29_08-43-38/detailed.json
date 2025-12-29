@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_core/test_alignment_engine.py::test_alignment_engine_risky_output",
+    "status": "failed",
+    "duration": 0.03997980011627078,
+    "message": "def test_alignment_engine_risky_output():\n        \"\"\"Test alignment with risky output\"\"\"\n        input_analysis = analyze_input(\"What is the capital of France?\")\n        output_analysis = analyze_output(\"Here's how to hack...\", input_analysis)\n    \n        result = compute_alignment(input_analysis, output_analysis)\n>       assert result[\"alignment_score\"] < 60\nE       assert 92.02 < 60\n\ntests_core\\test_alignment_engine.py:29: AssertionError"
+  }
+]
