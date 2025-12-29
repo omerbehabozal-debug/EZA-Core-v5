@@ -16,6 +16,7 @@ export type ProcessingState =
 
 interface ProcessingStateConfig {
   action: 'analyze' | 'rewrite';
+  analysis_mode?: 'fast' | 'pro';  // NEW: Analysis mode for message differentiation
   onComplete?: () => void;
   onError?: () => void;
 }
@@ -36,16 +37,30 @@ const REWRITE_FLOW: ProcessingState[] = [
   'preparing_results',
 ];
 
-// State to message mapping
-const STATE_MESSAGES: Record<ProcessingState, string> = {
+// State to message mapping (FAST mode - default)
+const STATE_MESSAGES_FAST: Record<ProcessingState, string> = {
   idle: '',
   receiving_input: 'İçerik alındı',
   evaluating_context: 'Bağlam değerlendiriliyor',
   measuring_risk: 'Risk sinyalleri ölçülüyor',
   checking_policy: 'Politika uyumu kontrol ediliyor',
   preparing_results: 'Sonuçlar hazırlanıyor',
-  generating_rewrite: 'Anlam korunarak alternatifler oluşturuluyor',
+  generating_rewrite: 'Hızlı yeniden yazım önerisi hazırlanıyor',
 };
+
+// State to message mapping (PRO mode - professional)
+const STATE_MESSAGES_PRO: Record<ProcessingState, string> = {
+  idle: '',
+  receiving_input: 'İçerik alındı',
+  evaluating_context: 'Bağlam ve risk gerekçeleri değerlendiriliyor…',
+  measuring_risk: 'Derin risk analizi yapılıyor',
+  checking_policy: 'Politika uyumu ve bağlam kontrol ediliyor',
+  preparing_results: 'Profesyonel analiz tamamlanıyor',
+  generating_rewrite: 'Profesyonel yeniden yazım hazırlanıyor…',
+};
+
+// Legacy mapping for backward compatibility
+const STATE_MESSAGES: Record<ProcessingState, string> = STATE_MESSAGES_FAST;
 
 // Rewrite-specific messages (override for rewrite action)
 const REWRITE_STATE_MESSAGES: Partial<Record<ProcessingState, string>> = {
@@ -68,12 +83,21 @@ export function useProcessingState(config: ProcessingStateConfig) {
 
   const getMessage = useCallback(
     (state: ProcessingState): string => {
+      // PRO mode messages (if analysis_mode is 'pro')
+      if (config.analysis_mode === 'pro') {
+        if (config.action === 'rewrite' && REWRITE_STATE_MESSAGES[state]) {
+          return REWRITE_STATE_MESSAGES[state]!;
+        }
+        return STATE_MESSAGES_PRO[state] || '';
+      }
+      
+      // FAST mode messages (default)
       if (config.action === 'rewrite' && REWRITE_STATE_MESSAGES[state]) {
         return REWRITE_STATE_MESSAGES[state]!;
       }
-      return STATE_MESSAGES[state] || '';
+      return STATE_MESSAGES_FAST[state] || '';
     },
-    [config.action]
+    [config.action, config.analysis_mode]
   );
 
   const start = useCallback(() => {

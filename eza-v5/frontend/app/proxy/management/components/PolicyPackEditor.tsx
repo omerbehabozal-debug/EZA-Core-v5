@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { API_BASE_URL } from "@/api/config";
+import AnalysisModeSelector from "./AnalysisModeSelector";
 
 interface PolicyInfo {
   id: string;
@@ -161,6 +162,9 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
 
   return (
     <div className="space-y-6">
+      {/* Analysis Mode Selector */}
+      <AnalysisModeSelector orgId={orgId} />
+
       {/* Global Policies */}
       <div
         className="rounded-xl p-6"

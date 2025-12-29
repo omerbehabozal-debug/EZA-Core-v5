@@ -152,7 +152,7 @@ async def update_organization(
         return None
     
     # Update allowed fields
-    allowed_fields = ["name", "plan", "base_currency", "proxy_access", "sla_tier", "default_policy_set", "status"]
+    allowed_fields = ["name", "plan", "base_currency", "proxy_access", "sla_tier", "default_policy_set", "status", "analysis_mode"]  # NEW: Added analysis_mode
     for field, value in updates.items():
         if field in allowed_fields and hasattr(org, field):
             setattr(org, field, value)

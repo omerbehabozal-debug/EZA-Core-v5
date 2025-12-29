@@ -48,6 +48,7 @@ class OrganizationResponse(BaseModel):
     base_currency: str
     sla_tier: Optional[str] = None
     default_policy_set: Optional[str] = None
+    analysis_mode: Optional[str] = None  # NEW: Analysis mode (fast | pro)
     created_at: str
 
 
@@ -63,6 +64,7 @@ class UpdateOrganizationRequest(BaseModel):
     proxy_access: Optional[bool] = None
     sla_tier: Optional[str] = None
     default_policy_set: Optional[str] = None
+    analysis_mode: Optional[Literal["fast", "pro"]] = None  # NEW: Analysis mode (FAST vs PRO)
 
 
 @router.post("/organizations", response_model=Dict[str, Any])
@@ -131,7 +133,7 @@ async def create_organization(
     
     return {
         "ok": True,
-        "organization": OrganizationResponse(
+        "organization":         OrganizationResponse(
             id=str(org.id),
             name=org.name,
             plan=org.plan,
@@ -140,6 +142,7 @@ async def create_organization(
             base_currency=org.base_currency,
             sla_tier=org.sla_tier,
             default_policy_set=org.default_policy_set,
+            analysis_mode=getattr(org, 'analysis_mode', 'fast') or 'fast',  # NEW: Include analysis_mode (default to 'fast')
             created_at=org.created_at.isoformat()
         )
     }
@@ -181,6 +184,7 @@ async def list_organizations(
             base_currency=org.base_currency,
             sla_tier=org.sla_tier,
             default_policy_set=org.default_policy_set,
+            analysis_mode=getattr(org, 'analysis_mode', 'fast') or 'fast',  # NEW: Include analysis_mode (default to 'fast')
             created_at=org.created_at.isoformat()
         )
         for org in orgs
@@ -225,6 +229,7 @@ async def list_proxy_organizations(
             base_currency=org.base_currency,
             sla_tier=org.sla_tier,
             default_policy_set=org.default_policy_set,
+            analysis_mode=getattr(org, 'analysis_mode', 'fast') or 'fast',  # NEW: Include analysis_mode (default to 'fast')
             created_at=org.created_at.isoformat()
         )
         for org in orgs
@@ -300,6 +305,13 @@ async def update_organization(
         updates["sla_tier"] = request.sla_tier
     if request.default_policy_set is not None:
         updates["default_policy_set"] = request.default_policy_set
+    if request.analysis_mode is not None:
+        if request.analysis_mode not in ["fast", "pro"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Analysis mode must be 'fast' or 'pro'"
+            )
+        updates["analysis_mode"] = request.analysis_mode
     
     # Update in database
     updated_org = await db_update_organization(db, org_id, updates)

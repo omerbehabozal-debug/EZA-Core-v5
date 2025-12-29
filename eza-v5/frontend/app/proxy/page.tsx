@@ -32,9 +32,16 @@ function ProxyCorporatePageContent() {
   const { currentOrganization, isLoading: orgLoading } = useOrganization();
   const [content, setContent] = useState("");
   
-  // Processing state hooks
-  const analyzeProcessing = useProcessingState({ action: 'analyze' });
-  const rewriteProcessing = useProcessingState({ action: 'rewrite' });
+  // Processing state hooks (with analysis_mode from organization or result)
+  const [currentAnalysisMode, setCurrentAnalysisMode] = useState<'fast' | 'pro'>('fast');
+  const analyzeProcessing = useProcessingState({ 
+    action: 'analyze',
+    analysis_mode: currentAnalysisMode  // NEW: Pass analysis_mode for message differentiation
+  });
+  const rewriteProcessing = useProcessingState({ 
+    action: 'rewrite',
+    analysis_mode: currentAnalysisMode  // NEW: Pass analysis_mode for message differentiation
+  });
   
   // Legacy loading states (kept for compatibility, but controlled by processing hooks)
   const [loading, setLoading] = useState(false);
@@ -267,9 +274,15 @@ function ProxyCorporatePageContent() {
           paragraphs: result.paragraphs,
           stage0Status: result._stage0_status,
           stage1Status: result._stage1_status,
-          overallScores: result.overall_scores
+          overallScores: result.overall_scores,
+          analysisMode: result.analysis_mode
         });
         setAnalysisResult(result);
+        
+        // Update current analysis mode for processing state messages
+        if (result.analysis_mode) {
+          setCurrentAnalysisMode(result.analysis_mode);
+        }
       } else {
         setError("Analiz tamamlanamadı. Backend yanıt vermedi. Lütfen backend'in çalıştığından ve erişilebilir olduğundan emin olun.");
       }
@@ -558,16 +571,33 @@ function ProxyCorporatePageContent() {
                 color: '#FFFFFF',
               }}
             >
-              {loading || analyzeProcessing.isProcessing ? 'Analiz Ediliyor…' : 'Analiz Et'}
+              {loading || analyzeProcessing.isProcessing 
+                ? (currentAnalysisMode === 'pro' ? 'Profesyonel Analiz Yapılıyor…' : 'Analiz Ediliyor…')
+                : 'Analiz Et'}
             </button>
 
             {/* Processing State Indicator - Show below button for better visibility */}
             {(analyzeProcessing.isProcessing || loading) && (
               <div className="mt-4" style={{ minHeight: '80px' }}>
                 <ProcessingStateIndicator
-                  message={analyzeProcessing.message || (loading ? 'Analiz başlatılıyor...' : 'İçerik alınıyor...')}
+                  message={
+                    analyzeProcessing.message || 
+                    (loading 
+                      ? (currentAnalysisMode === 'pro' 
+                          ? 'Ön tarama tamamlandı. Profesyonel analiz başlatıldı.' 
+                          : 'Analiz başlatılıyor...')
+                      : 'İçerik alınıyor...')
+                  }
                   isProcessing={analyzeProcessing.isProcessing || loading}
                 />
+                {/* PRO Mode Wait State Message */}
+                {currentAnalysisMode === 'pro' && analyzeProcessing.isProcessing && (
+                  <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+                    <p className="text-xs" style={{ color: '#8E8E93' }}>
+                      Bu analiz profesyonel modda çalışmaktadır. Daha yüksek kalite için biraz daha uzun sürebilir.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </form>
@@ -606,12 +636,17 @@ function ProxyCorporatePageContent() {
                       Çalışma Taslağı — Kayıtlı Değil
                     </span>
                     {analysisResult.analysis_mode && (
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        analysisResult.analysis_mode === 'pro' 
-                          ? 'bg-purple-500/20 text-purple-300' 
-                          : 'bg-blue-500/20 text-blue-300'
-                      }`}>
-                        {analysisResult.analysis_mode === 'pro' ? 'PRO — Professional Deep Analysis' : 'FAST — Speed Optimized'}
+                      <span 
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          analysisResult.analysis_mode === 'pro' 
+                            ? 'bg-purple-500/20 text-purple-300' 
+                            : 'bg-blue-500/20 text-blue-300'
+                        }`}
+                        title={analysisResult.analysis_mode === 'pro' 
+                          ? 'Derinlemesine profesyonel analiz modu' 
+                          : 'Hız odaklı analiz modu'}
+                      >
+                        {analysisResult.analysis_mode === 'pro' ? 'PRO (Profesyonel)' : 'FAST'}
                       </span>
                     )}
                     {analysisResult.ui_status_message && (
@@ -746,7 +781,13 @@ function ProxyCorporatePageContent() {
                   color: '#FFFFFF',
                 }}
               >
-                {rewriting || rewriteProcessing.isProcessing ? 'Öneri Oluşturuluyor…' : 'Öneri Yazı Oluştur'}
+                {rewriting || rewriteProcessing.isProcessing 
+                  ? (currentAnalysisMode === 'pro' 
+                      ? 'Profesyonel Yeniden Yazım Hazırlanıyor…' 
+                      : 'Hızlı Yeniden Yazım Önerisi Hazırlanıyor…')
+                  : (currentAnalysisMode === 'pro' 
+                      ? 'Profesyonel Yeniden Yazım Oluştur' 
+                      : 'Öneri Yazı Oluştur')}
               </button>
             </div>
 
@@ -823,7 +864,9 @@ function ProxyCorporatePageContent() {
                     </div>
 
                     <p className="text-xs mb-4" style={{ color: 'var(--proxy-text-muted)' }}>
-                      Bu bir öneridir. Orijinal metin korunmuştur. İstediğiniz değişiklikleri yapabilirsiniz.
+                      {currentAnalysisMode === 'pro' 
+                        ? 'Profesyonel yeniden yazım hazırlandı. Orijinal metin korunmuştur. İstediğiniz değişiklikleri yapabilirsiniz.'
+                        : 'Hızlı yeniden yazım önerisi hazır. Orijinal metin korunmuştur. İstediğiniz değişiklikleri yapabilirsiniz.'}
                     </p>
 
                     {/* PRO Mode Rewrite Explanation (Org Admin Only) */}
