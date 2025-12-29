@@ -476,47 +476,41 @@ def build_span_rewrite_prompt(
     domain_info = f"\n\nSektör: {domain}" if domain else ""
     context_info = f"\n\nÇevreleyen Bağlam:\n{surrounding_context[:300]}" if surrounding_context else ""
     
-    prompt = f"""EZA ÖNERİ YAZI OLUŞTURMA MODU - SPAN REWRITE (Camera-Mode, Non-Intrusive)
-
-EZA bir editör değildir. EZA bir müdahale sistemi değildir. EZA bir kamera gibi çalışır.
+    prompt = f"""EZA ÖNERİ YAZI OLUŞTURMA MODU - SPAN REWRITE
 
 GÖREV:
-Sadece aşağıdaki riskli span'i yeniden yaz. Tüm metni değil, sadece bu span'i.
+Aşağıdaki riskli span'i etik riskleri azaltacak şekilde yeniden yaz. Anlamı ve bağlamı koru, ancak riskli ifadeleri yumuşat.
 
-TEMEL KURALLAR (MUTLAK):
-1. ORİJİNAL ANLAM MUTLAK KORUNMALI
-2. NARRATIVE VOICE (anlatım tarzı) KORUNMALI
-3. AUTHOR INTENT (yazar niyeti) KORUNMALI
-4. EMOTIONAL TONE (duygusal ton) KORUNMALI
-5. SPAN UZUNLUĞU BENZER KALMALI (±%20)
+TEMEL KURALLAR:
+1. ORİJİNAL ANLAM KORUNMALI (mesaj aynı kalmalı)
+2. ANLATIM TARZI KORUNMALI (yazarın sesi korunmalı)
+3. UZUNLUK BENZER KALMALI (±%30 tolerans)
+4. SADECE RİSKLİ İFADELERİ YUMUŞAT
 
-YAPILABİLECEK MİNİMAL DEĞİŞİKLİKLER (SADECE BUNLAR):
-- Mutlak dil yumuşatılabilir: "kesin", "asla", "tek gerçek" → "bazı durumlarda", "genellikle", "çoğunlukla"
-- Geniş genellemeler daraltılabilir: "doktorlar", "sistem" → "bazı doktorlar", "kimi çevrelerde"
-- Yüksek riskli cümlelere minimal mesafe dili eklenebilir: "bazı kaynaklara göre", "kimi uzmanlar"
+YAPILABİLECEK DEĞİŞİKLİKLER:
+- Mutlak dil yumuşat: "kesin", "asla", "tek gerçek" → "genellikle", "çoğunlukla", "bazı durumlarda"
+- Genellemeleri daralt: "doktorlar", "sistem" → "bazı doktorlar", "kimi çevrelerde"
+- Riskli iddialara mesafe ekle: "bazı kaynaklara göre", "kimi uzmanlar", "görüşler farklılık gösterebilir"
 
-YAPILAMAYACAKLAR (KESİNLİKLE YASAK):
-❌ İçeriği nötr raporlamaya çevirmek
-❌ Deneyimsel veya birinci şahıs dilini kaldırmak
-❌ Güvensizlik / eleştiri tonunu kaldırmak
-❌ İddiaları kurumsal uyarılarla değiştirmek
-❌ İkna yapısını kaldırmak
-❌ Akademikleştirmek
-❌ Özetlemek
+YAPILAMAYACAKLAR:
+❌ İçeriği tamamen değiştirmek
 ❌ Mesajı tersine çevirmek
+❌ Özetlemek veya kısaltmak
+❌ Uyarı mesajları eklemek
 
 RİSK BİLGİSİ:
 - Risk Tipi: {risk_type}
 - Şiddet: {severity}{policy_info}{domain_info}{context_info}
 
-EĞER BAĞLAM KORUNMAZSA:
-- Rewrite yapma
-- Sadece şu mesajı döndür: "CONTEXT_PRESERVATION_FAILED"
+ÖNEMLİ: 
+- MUTLAKA rewrite yapmalısın (orijinal metni olduğu gibi döndürme)
+- Anlamı koru ama riskli ifadeleri yumuşat
+- Bağlam korunmalı ama risk azaltılmalı
 
 ORİJİNAL SPAN:
 {span_text}
 
-ÖNERİLEN SPAN (bağlam korunarak, minimal değişikliklerle, aynı uzunlukta):"""
+YENİDEN YAZILMIŞ SPAN (anlam korunarak, risk azaltılarak):"""
     
     return prompt
 
@@ -709,12 +703,57 @@ async def stage2_span_based_rewrite(
     # Extract risky spans from analysis result
     paragraph_analyses = analysis_result.get("paragraphs", [])
     risk_locations = analysis_result.get("risk_locations", [])
+    flags = analysis_result.get("flags", [])
+    
+    logger.info(f"[Stage-2] Analysis result: risk_locations={len(risk_locations)}, paragraphs={len(paragraph_analyses)}, flags={len(flags)}")
     
     risky_spans = extract_risky_spans(content, paragraph_analyses, risk_locations)
     
     if not risky_spans:
-        logger.info(f"[Stage-2] No risky spans found (risk_locations count: {len(risk_locations)}, paragraph_analyses count: {len(paragraph_analyses)}), returning original content")
+        logger.warning(f"[Stage-2] No risky spans found (risk_locations count: {len(risk_locations)}, paragraph_analyses count: {len(paragraph_analyses)}, flags count: {len(flags)})")
         logger.info(f"[Stage-2] Risk locations sample: {risk_locations[:2] if risk_locations else 'None'}")
+        logger.info(f"[Stage-2] Flags sample: {flags[:3] if flags else 'None'}")
+        
+        # FALLBACK: If no risky spans found but flags exist, try to rewrite based on flags
+        # This handles cases where risk_locations is empty but content has issues
+        if flags and len(flags) > 0:
+            logger.info(f"[Stage-2] FALLBACK: No risky spans but flags exist ({len(flags)} flags), attempting full-content rewrite")
+            try:
+                from backend.services.proxy_rewrite_engine import rewrite_content, CONTEXT_PRESERVATION_FAILED_MESSAGE
+                
+                # Attempt to rewrite entire content (fallback mode)
+                rewritten_full = await rewrite_content(
+                    content=content,
+                    mode=mode,
+                    policies=policies,
+                    domain=domain,
+                    provider=provider
+                )
+                
+                if rewritten_full != CONTEXT_PRESERVATION_FAILED_MESSAGE and rewritten_full != content:
+                    logger.info(f"[Stage-2] FALLBACK: Full-content rewrite succeeded")
+                    return {
+                        "rewritten_content": rewritten_full,
+                        "rewritten_spans": [{
+                            "paragraph": 0,
+                            "start_offset": 0,
+                            "end_offset": len(content),
+                            "risk_type": "general",
+                            "severity": "medium",
+                            "evidence": "Fallback rewrite based on flags",
+                            "span_text": content[:200],
+                            "rewritten_span": rewritten_full[:200] if len(rewritten_full) > 200 else rewritten_full
+                        }],
+                        "failed_spans": [],
+                        "_stage2_latency_ms": (time.time() - start_time) * 1000
+                    }
+                else:
+                    logger.warning(f"[Stage-2] FALLBACK: Full-content rewrite failed or returned original")
+            except Exception as e:
+                logger.error(f"[Stage-2] FALLBACK: Error during full-content rewrite: {str(e)}", exc_info=True)
+        
+        # If fallback also fails, return original
+        logger.info(f"[Stage-2] Returning original content (no risky spans found and fallback failed)")
         return {
             "rewritten_content": content,
             "rewritten_spans": [],

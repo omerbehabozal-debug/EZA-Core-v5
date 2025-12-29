@@ -109,16 +109,19 @@ async def check_context_preservation(
     length_ratio = min(len(rewritten), len(original)) / max(len(rewritten), len(original)) if max(len(rewritten), len(original)) > 0 else 0.0
     
     # 2. Check if rewritten text is too short (likely summarized)
-    if len(rewritten) < len(original) * 0.5:
+    # More lenient: allow up to 40% reduction (was 50%)
+    if len(rewritten) < len(original) * 0.4:
         logger.warning(f"[Rewrite] Rewrite too short: {len(rewritten)} vs {len(original)}")
         return False, 0.0
     
     # 3. Check if rewritten text is too long (likely expanded/explained)
-    if len(rewritten) > len(original) * 2.0:
+    # More lenient: allow up to 250% expansion (was 200%)
+    if len(rewritten) > len(original) * 2.5:
         logger.warning(f"[Rewrite] Rewrite too long: {len(rewritten)} vs {len(original)}")
         return False, 0.0
     
     # 4. Check for aggressive safety language (disclaimers, warnings)
+    # More lenient: only reject if there are 4+ aggressive patterns (was 2+)
     aggressive_patterns = [
         r"uyarı",
         r"disclaimer",
@@ -129,17 +132,19 @@ async def check_context_preservation(
         r"risk",
     ]
     aggressive_count = sum(1 for pattern in aggressive_patterns if re.search(pattern, rewritten, re.IGNORECASE))
-    if aggressive_count > 2:
+    if aggressive_count > 3:  # More lenient: allow up to 3 patterns
         logger.warning(f"[Rewrite] Too many aggressive safety patterns: {aggressive_count}")
         return False, 0.0
     
     # Calculate preservation score
-    preservation_score = length_ratio * 0.6  # Length similarity weight
+    preservation_score = length_ratio * 0.5  # Length similarity weight (reduced from 0.6)
     if aggressive_count == 0:
-        preservation_score += 0.4  # No aggressive patterns
+        preservation_score += 0.5  # No aggressive patterns (increased from 0.4)
+    elif aggressive_count <= 2:
+        preservation_score += 0.3  # Few aggressive patterns (partial credit)
     
-    # Threshold: must be at least 0.5 to be considered preserved
-    is_preserved = preservation_score >= 0.5
+    # Threshold: must be at least 0.4 to be considered preserved (more lenient, was 0.5)
+    is_preserved = preservation_score >= 0.4
     
     return is_preserved, preservation_score
 
