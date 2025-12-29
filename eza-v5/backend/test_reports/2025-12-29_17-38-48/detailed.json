@@ -1,0 +1,7 @@
+[
+  {
+    "name": "tests_adversarial/test_obfuscation.py::test_obfuscation_scenario[ADV-050]",
+    "status": "passed",
+    "duration": 3.3055952000431716
+  }
+]
