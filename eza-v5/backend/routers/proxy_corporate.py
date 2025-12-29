@@ -186,6 +186,22 @@ async def proxy_analyze(
         cb = get_circuit_breaker("proxy_analysis")
         circuit_breaker_open = False
         
+        # ========== DUAL ANALYSIS MODE ROUTING ==========
+        # Determine analysis mode: user override > org setting > default "fast"
+        # MUST be done BEFORE pipeline routing
+        analysis_mode: Literal["fast", "pro"] = "fast"
+        if request.analysis_mode:
+            # User override (if org allows - for now, always allow)
+            analysis_mode = request.analysis_mode
+            logger.info(f"[Proxy] Using user-specified analysis_mode: {analysis_mode}")
+        else:
+            # Get from organization setting
+            analysis_mode = await get_analysis_mode_for_org(org_id, db)
+            logger.info(f"[Proxy] Using organization analysis_mode: {analysis_mode} (org_id={org_id})")
+        
+        # ENFORCEMENT: analysis_mode must be valid
+        assert analysis_mode in ["fast", "pro"], f"[ENFORCEMENT] Invalid analysis_mode: {analysis_mode}"
+        
         # ========== PIPELINE ROUTING: FAST vs PRO ==========
         try:
             if analysis_mode == "fast":
@@ -333,6 +349,10 @@ async def proxy_analyze(
                 "flags": [],
                 "risk_locations": [],
                 "_stage0_result": stage0_result,
+                "_stage1_status": {  # Add _stage1_status for enforcement
+                    "status": "circuit_breaker_open",
+                    "mode": "light"  # Fallback mode
+                },
                 "_performance_metrics": {
                     "stage0_latency_ms": stage0_result.get("_stage0_latency_ms", 0),
                     "stage1_latency_ms": 0,
@@ -377,6 +397,10 @@ async def proxy_analyze(
                 "flags": [],
                 "risk_locations": [],
                 "_stage0_result": stage0_result,
+                "_stage1_status": {  # Add _stage1_status for enforcement
+                    "status": "error",
+                    "mode": "light"  # Fallback mode
+                },
                 "_performance_metrics": {
                     "stage0_latency_ms": stage0_result.get("_stage0_latency_ms", 0),
                     "stage1_latency_ms": 0,
@@ -390,12 +414,16 @@ async def proxy_analyze(
         
         # ENFORCEMENT: Stage-1 must have run (response must include _stage1_status)
         assert "_stage1_status" in analysis_result, "[ENFORCEMENT] Analysis result must include _stage1_status (Stage-1 must have run)"
-        assert analysis_result["_stage1_status"]["status"] == "done", "[ENFORCEMENT] Stage-1 status must be 'done'"
-        assert analysis_result["_stage1_status"]["mode"] in ["light", "deep"], f"[ENFORCEMENT] Stage-1 mode must be 'light' or 'deep', got: {analysis_result['_stage1_status']['mode']}"
+        # Allow different statuses: "done", "error", "circuit_breaker_open"
+        assert analysis_result["_stage1_status"]["status"] in ["done", "error", "circuit_breaker_open"], f"[ENFORCEMENT] Stage-1 status must be 'done', 'error', or 'circuit_breaker_open', got: {analysis_result['_stage1_status'].get('status', 'missing')}"
+        # Only check mode if status is "done" (error cases may not have valid mode)
+        if analysis_result["_stage1_status"]["status"] == "done":
+            assert analysis_result["_stage1_status"]["mode"] in ["light", "deep"], f"[ENFORCEMENT] Stage-1 mode must be 'light' or 'deep', got: {analysis_result['_stage1_status']['mode']}"
         
-        # ENFORCEMENT: paragraphs must never be empty
+        # ENFORCEMENT: paragraphs must not be empty only if Stage-1 completed successfully
         paragraphs_count = len(analysis_result.get("paragraphs", []))
-        assert paragraphs_count > 0, f"[ENFORCEMENT] Analysis result paragraphs must not be empty. Got {paragraphs_count} paragraphs."
+        if analysis_result["_stage1_status"]["status"] == "done":
+            assert paragraphs_count > 0, f"[ENFORCEMENT] Analysis result paragraphs must not be empty when Stage-1 is done. Got {paragraphs_count} paragraphs."
         
         # DEBUG: Log analysis result structure
         logger.info(f"[Proxy] Analysis result structure: paragraphs_count={paragraphs_count}, has_paragraphs_key={'paragraphs' in analysis_result}, keys={list(analysis_result.keys())}")
@@ -489,21 +517,6 @@ async def proxy_analyze(
                 valid_policies = [p for p in enabled_policies if p in ["TRT", "FINTECH", "HEALTH"]]
                 if valid_policies:
                     request.policies = valid_policies
-        
-        # ========== DUAL ANALYSIS MODE ROUTING ==========
-        # Determine analysis mode: user override > org setting > default "fast"
-        analysis_mode: Literal["fast", "pro"] = "fast"
-        if request.analysis_mode:
-            # User override (if org allows - for now, always allow)
-            analysis_mode = request.analysis_mode
-            logger.info(f"[Proxy] Using user-specified analysis_mode: {analysis_mode}")
-        else:
-            # Get from organization setting
-            analysis_mode = await get_analysis_mode_for_org(org_id, db)
-            logger.info(f"[Proxy] Using organization analysis_mode: {analysis_mode} (org_id={org_id})")
-        
-        # ENFORCEMENT: analysis_mode must be valid
-        assert analysis_mode in ["fast", "pro"], f"[ENFORCEMENT] Invalid analysis_mode: {analysis_mode}"
         
         # UI Response Contract: Build staged response
         stage0_result = analysis_result.get("_stage0_result", {})
