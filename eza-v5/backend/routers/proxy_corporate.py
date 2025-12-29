@@ -100,6 +100,8 @@ class ProxyAnalyzeResponse(BaseModel):
     _partial: bool = False  # True if response is partial (rate limit or circuit breaker)
     analysis_mode: Literal["fast", "pro"] = "fast"  # NEW: Analysis mode used for this request
     ui_status_message: Optional[str] = None  # NEW: UI differentiation message (FAST vs PRO)
+    credit_cost: Optional[int] = None  # NEW: Credit cost for this analysis (1 for FAST, 3 for PRO)
+    remaining_credits: Optional[int] = None  # NEW: Remaining credits after this analysis (if available)
 
 
 class ProxyRewriteRequest(BaseModel):
@@ -815,6 +817,8 @@ Risk Lokasyonları: {len(analysis_result['risk_locations'])} adet
             _partial=circuit_breaker_open,  # True if circuit breaker opened
             analysis_mode=analysis_mode,  # NEW: Analysis mode used (fast | pro)
             ui_status_message="Analysis completed" if analysis_mode == "fast" else "Professional deep analysis completed",  # NEW: UI differentiation
+            credit_cost=credit_cost,  # NEW: Credit cost for this analysis
+            remaining_credits=remaining_credits,  # NEW: Remaining credits (if available)
             provider="EZA-Core",
             analysis_id=analysis_id,
             risk_flags_severity=[

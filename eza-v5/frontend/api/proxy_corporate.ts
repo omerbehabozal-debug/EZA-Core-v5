@@ -126,6 +126,8 @@ export interface ProxyAnalyzeResponse {
   };
   analysis_mode?: 'fast' | 'pro';  // NEW: Analysis mode used (fast | pro)
   ui_status_message?: string;  // NEW: UI differentiation message (FAST vs PRO)
+  credit_cost?: number;  // NEW: Credit cost for this analysis (1 for FAST, 3 for PRO)
+  remaining_credits?: number;  // NEW: Remaining credits after this analysis (if available)
 }
 
 export interface ProxyRewriteRequest {

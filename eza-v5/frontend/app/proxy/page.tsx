@@ -586,6 +586,14 @@ function ProxyCorporatePageContent() {
                   </div>
                 </label>
               </div>
+              {/* Credit information - calm, informational */}
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--proxy-border-soft)' }}>
+                <p className="text-xs" style={{ color: 'var(--proxy-text-muted)' }}>
+                  {currentAnalysisMode === 'fast' 
+                    ? 'Hızlı tarama — Bu analiz 1 kredi kullanır.'
+                    : 'Profesyonel analiz — Bu analiz 3 kredi kullanır.'}
+                </p>
+              </div>
             </div>
 
             {/* Configuration */}
@@ -656,19 +664,29 @@ function ProxyCorporatePageContent() {
             </div>
 
             {/* Analyze Button */}
-            <button
-              type="submit"
-              disabled={!content.trim() || loading || analyzeProcessing.isProcessing}
-              className="w-full py-4 px-6 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-              style={{
-                backgroundColor: 'var(--proxy-action-primary)',
-                color: '#FFFFFF',
-              }}
-            >
-              {loading || analyzeProcessing.isProcessing 
-                ? (currentAnalysisMode === 'pro' ? 'Profesyonel Analiz Yapılıyor…' : 'Analiz Ediliyor…')
-                : 'Analiz Et'}
-            </button>
+            <div>
+              <button
+                type="submit"
+                disabled={!content.trim() || loading || analyzeProcessing.isProcessing}
+                className="w-full py-4 px-6 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+                style={{
+                  backgroundColor: 'var(--proxy-action-primary)',
+                  color: '#FFFFFF',
+                }}
+              >
+                {loading || analyzeProcessing.isProcessing 
+                  ? (currentAnalysisMode === 'pro' ? 'Profesyonel Analiz Yapılıyor…' : 'Analiz Ediliyor…')
+                  : currentAnalysisMode === 'pro' 
+                    ? 'Analiz Et (Profesyonel)'
+                    : 'Analiz Et (Hızlı)'}
+              </button>
+              {/* Secondary micro-copy for PRO mode */}
+              {currentAnalysisMode === 'pro' && !loading && !analyzeProcessing.isProcessing && (
+                <p className="mt-2 text-xs text-center" style={{ color: 'var(--proxy-text-muted)' }}>
+                  Daha derin analiz, daha yüksek doğruluk.
+                </p>
+              )}
+            </div>
 
             {/* Processing State Indicator - Show below button for better visibility */}
             {(analyzeProcessing.isProcessing || loading) && (
