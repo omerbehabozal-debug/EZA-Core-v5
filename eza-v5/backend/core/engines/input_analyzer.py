@@ -32,6 +32,12 @@ def analyze_input(text: str) -> Dict[str, Any]:
         "risky_question": [r"\b(how\s+to\s+(hack|steal|harm|attack|break|bypass|crack|exploit|kill|murder|cheat)|nasıl\s+(hack|çal|zarar|saldır|kır|atlama|öldür|cinayet|kopya\s+çek)|how\s+can\s+i\s+(hack|steal|harm|attack|break|bypass|cheat)|nasıl\s+yapabilirim\s+(hack|çal|zarar|saldır|kopya\s+çek))\b", 0.75],
         # Hacker-related questions (medium risk - could be educational but also risky)
         "hacker_question": [r"\b(how\s+to\s+become\s+a\s+hacker|how\s+to\s+be\s+a\s+hacker|nasıl\s+hacker\s+olurum|nasıl\s+hacker\s+olunur|hacker\s+olmak|hacker\s+olurum|hacker\s+nasıl\s+olunur)\b", 0.6],
+        # CRITICAL: Jailbreak attack patterns (adversarial)
+        "jailbreak": [r"\b(forget\s+safety|ignore\s+safety|disable\s+safety|bypass\s+safety|you\s+are\s+now\s+in\s+developer\s+mode|you\s+are\s+now\s+in\s+debug\s+mode|you\s+are\s+now\s+in\s+admin\s+mode|güvenliği\s+unut|güvenliği\s+görmezden\s+gel|güvenliği\s+devre\s+dışı\s+bırak|geliştirici\s+modu|yönetici\s+modu|debug\s+modu)\b", 0.9],
+        # CRITICAL: Instruction override patterns
+        "instruction_override": [r"\b(ignore\s+previous\s+instructions|forget\s+previous\s+instructions|disregard\s+previous\s+instructions|önceki\s+talimatları\s+görmezden\s+gel|önceki\s+talimatları\s+unut|önceki\s+talimatları\s+yoksay)\b", 0.9],
+        # CRITICAL: Mode switching patterns
+        "mode_switching": [r"\b(switch\s+to\s+developer\s+mode|enter\s+developer\s+mode|activate\s+developer\s+mode|geliştirici\s+moduna\s+geç|geliştirici\s+modunu\s+aktifleştir)\b", 0.85],
     }
     
     text_lower = text.lower()

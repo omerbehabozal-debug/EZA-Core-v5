@@ -1,0 +1,102 @@
+[
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-101]",
+    "status": "passed",
+    "duration": 1.9658250999636948
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-102]",
+    "status": "passed",
+    "duration": 1.7947390000335872
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-103]",
+    "status": "passed",
+    "duration": 1.3378840000368655
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-104]",
+    "status": "passed",
+    "duration": 1.2885360000655055
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-105]",
+    "status": "passed",
+    "duration": 1.8052642000839114
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-106]",
+    "status": "passed",
+    "duration": 1.5857130999211222
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-107]",
+    "status": "passed",
+    "duration": 1.4768472998403013
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-108]",
+    "status": "passed",
+    "duration": 1.7898350998293608
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-109]",
+    "status": "passed",
+    "duration": 1.3467083999421448
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-110]",
+    "status": "passed",
+    "duration": 1.416359700029716
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-111]",
+    "status": "passed",
+    "duration": 1.4050506001804024
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-112]",
+    "status": "passed",
+    "duration": 1.3722620999906212
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-113]",
+    "status": "passed",
+    "duration": 1.3791967001743615
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-114]",
+    "status": "passed",
+    "duration": 1.311380699975416
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-115]",
+    "status": "passed",
+    "duration": 1.5267624000553042
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-116]",
+    "status": "passed",
+    "duration": 1.3084394000470638
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-117]",
+    "status": "passed",
+    "duration": 1.3553423001430929
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-118]",
+    "status": "passed",
+    "duration": 1.2676581998821348
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-119]",
+    "status": "passed",
+    "duration": 1.6111661999020725
+  },
+  {
+    "name": "tests_adversarial/test_mixed_attacks.py::test_mixed_attacks_scenario[ADV-120]",
+    "status": "passed",
+    "duration": 1.2102798998821527
+  }
+]

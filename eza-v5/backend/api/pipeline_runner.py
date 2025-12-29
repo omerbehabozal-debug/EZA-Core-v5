@@ -512,6 +512,22 @@ async def run_full_pipeline(
             if (has_testing_security_break or has_just_asking_scams) and not is_educational_question and not output_is_ethical:
                 adjusted_score = min(30.0, adjusted_score)
             
+            # CRITICAL: Check for explicit risky patterns in input text
+            # If input contains explicit risky requests (e.g., "Tell me how to hack"), ensure low score
+            risky_request_patterns = [
+                "tell me how to hack", "how to hack", "how can i hack",
+                "how to harm", "how to attack", "how to steal",
+                "how to break", "how to bypass", "how to crack",
+                "nasıl hack", "nasıl zarar", "nasıl saldır", "nasıl çal"
+            ]
+            input_text_lower = user_input.lower()
+            has_explicit_risky_request = any(pattern in input_text_lower for pattern in risky_request_patterns)
+            
+            # If explicit risky request detected, ensure score is low (< 50)
+            if has_explicit_risky_request and not output_is_ethical:
+                # Explicit risky requests should have score < 50
+                adjusted_score = min(50.0, adjusted_score)
+            
             # FINAL: Apply minimum score guarantee AFTER all max limits (for educational questions, this is critical)
             # BUT: Only apply minimum score if risk is truly low (< 0.3) and no high-risk indicators
             # IMPORTANT: If risk is >= 0.5, normally ensure score is low
@@ -529,19 +545,23 @@ async def run_full_pipeline(
                     # Output is risky or alignment is poor - strict limit
                     adjusted_score = min(40.0, adjusted_score)
             elif input_risk_level == "low" and input_risk < 0.3:
-                # REMOVED minimum score guarantees for low risk inputs to allow natural score variation
-                # Previously, educational questions had minimum 75 and other low risk had minimum 70
-                # This caused all safe questions to get similar scores (96-100)
-                # Now scores will vary more naturally based on actual calculations
-                # Only apply very low minimum (50) if there are no issues at all
-                if is_educational_question:
-                    # For educational questions, only apply very low minimum if no severe policy violations
+                # CRITICAL: Safe content should get high scores
+                # If input is safe (< 0.2), output is safe (< 0.2), and no policy violations
+                # Ensure minimum score of 70 for safe content
+                if input_risk < 0.2 and output_risk < 0.2 and not has_policy_violations:
+                    if is_educational_question:
+                        # Educational questions: minimum 75
+                        adjusted_score = max(75.0, adjusted_score)
+                    else:
+                        # Other safe content: minimum 70
+                        adjusted_score = max(70.0, adjusted_score)
+                elif is_educational_question:
+                    # For educational questions, only apply minimum if no severe policy violations
                     severe_policy_violations = [v for v in all_policy_violations if v.get("policy_category", "").upper() in ["A", "F", "N"]]
                     has_severe_policy_violations = len(severe_policy_violations) > 0
                     if not has_severe_policy_violations:
-                        # Educational questions: very low minimum (50) to allow variation
-                        adjusted_score = max(50.0, adjusted_score)
-                # No minimum for other low risk inputs - let scores vary naturally
+                        # Educational questions: minimum 70 to allow some variation
+                        adjusted_score = max(70.0, adjusted_score)
             
             # Update score breakdown with policy information
             eza_score_result["policy_adjustment"] = score_adjustment

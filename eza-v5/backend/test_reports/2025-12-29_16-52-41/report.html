@@ -1,0 +1,222 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EZA Test Report - behavioral</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .summary-bar {
+            display: flex;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .summary-item {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+        }
+        .summary-item h3 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        .summary-item.passed h3 { color: #28a745; }
+        .summary-item.failed h3 { color: #dc3545; }
+        .summary-item.skipped h3 { color: #ffc107; }
+        .summary-item.errors h3 { color: #6c757d; }
+        .chart-container {
+            padding: 30px;
+            text-align: center;
+        }
+        .chart-container canvas {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .test-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .test-table thead {
+            background: #343a40;
+            color: white;
+        }
+        .test-table th,
+        .test-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .test-table tr:hover {
+            background: #f8f9fa;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .status-passed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-skipped {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-error {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .metadata {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 2px solid #e9ecef;
+        }
+        .metadata-item {
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>EZA Global AI Safety OS</h1>
+            <div class="subtitle">Test Certification Report</div>
+        </div>
+        
+        <div class="summary-bar">
+            <div class="summary-item passed">
+                <h3>1</h3>
+                <p>Passed</p>
+            </div>
+            <div class="summary-item failed">
+                <h3>0</h3>
+                <p>Failed</p>
+            </div>
+            <div class="summary-item skipped">
+                <h3>0</h3>
+                <p>Skipped</p>
+            </div>
+            <div class="summary-item errors">
+                <h3>0</h3>
+                <p>Errors</p>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="resultChart"></canvas>
+        </div>
+        
+        <div style="padding: 30px;">
+            <h2 style="margin-bottom: 20px;">Test Results</h2>
+            <table class="test-table">
+                <thead>
+                    <tr>
+                        <th>Test Name</th>
+                        <th>Status</th>
+                        <th>Duration (s)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>tests_behavioral/test_score_correctness.py::test_score_high_risk_low_score</td>
+                        <td>
+                            <span class="status-badge status-passed">
+                                PASSED
+                            </span>
+                        </td>
+                        <td>6.010</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="metadata">
+            <div class="metadata-item"><strong>Suite:</strong> behavioral</div>
+            <div class="metadata-item"><strong>Total Tests:</strong> 1</div>
+            <div class="metadata-item"><strong>Pass Rate:</strong> 100.0%</div>
+            <div class="metadata-item"><strong>Duration:</strong> 6.01s</div>
+            <div class="metadata-item"><strong>Timestamp:</strong> 2025-12-29T16:52:41.086347</div>
+        </div>
+        
+        <div class="footer">
+            Generated automatically by EZA Test Artifact System
+        </div>
+    </div>
+    
+    <script>
+        const ctx = document.getElementById('resultChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Passed', 'Failed', 'Skipped', 'Errors'],
+                datasets: [{
+                    data: [1, 0, 0, 0],
+                    backgroundColor: [
+                        '#28a745',
+                        '#dc3545',
+                        '#ffc107',
+                        '#6c757d'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Test Results Distribution'
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+[
+  {
+    "name": "tests_behavioral/test_intent_detection.py::test_intent_detection_safe_inputs",
+    "status": "passed",
+    "duration": 44.576721699908376
+  }
+]

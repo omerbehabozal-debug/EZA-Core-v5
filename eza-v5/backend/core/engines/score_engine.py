@@ -48,6 +48,11 @@ def compute_score(
         if final_score > 50 and (output_risk >= 0.5 or input_risk >= 0.5):
             final_score = min(final_score, 45.0)  # Cap at 45 for risky content
     
+    # CRITICAL: Ensure safe content gets high scores
+    # If input is safe (< 0.2) and output is safe (< 0.2), ensure minimum score of 70
+    if input_risk < 0.2 and output_risk < 0.2:
+        final_score = max(70.0, final_score)
+    
     # Safety level
     if final_score >= 80:
         safety_level = "green"

@@ -1,0 +1,12 @@
+[
+  {
+    "name": "tests_adversarial/test_emoji_attack.py::test_emoji_attack_all_scenarios",
+    "status": "passed",
+    "duration": 17.179483199957758
+  },
+  {
+    "name": "tests_adversarial/test_emoji_attack.py::test_emoji_attack_detection",
+    "status": "passed",
+    "duration": 20.923661299981177
+  }
+]
