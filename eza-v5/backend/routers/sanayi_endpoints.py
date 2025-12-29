@@ -21,6 +21,37 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def get_ethical_score_from_log(log) -> float:
+    """
+    Safely extract ethical_index from IntentLog.
+    Handles None, dict, and different data structures.
+    """
+    try:
+        if hasattr(log, 'risk_scores') and log.risk_scores:
+            if isinstance(log.risk_scores, dict):
+                return float(log.risk_scores.get("ethical_index", 50))
+            # If risk_scores is a string (JSON), try to parse it
+            elif isinstance(log.risk_scores, str):
+                import json
+                try:
+                    parsed = json.loads(log.risk_scores)
+                    if isinstance(parsed, dict):
+                        return float(parsed.get("ethical_index", 50))
+                except (json.JSONDecodeError, ValueError):
+                    pass
+        
+        # Fallback: check overall_scores if available
+        if hasattr(log, 'overall_scores') and log.overall_scores:
+            if isinstance(log.overall_scores, dict):
+                return float(log.overall_scores.get("ethical_index", 50))
+        
+        # Default fallback
+        return 50.0
+    except (AttributeError, TypeError, ValueError) as e:
+        logger.warning(f"[Sanayi] Error extracting ethical_score from log: {e}")
+        return 50.0
+
+
 def extract_model_provider(source_system: str, telemetry_meta: Any = None) -> str:
     """Extract AI model provider from source system or telemetry metadata"""
     if not source_system:
@@ -151,10 +182,7 @@ async def get_sanayi_dashboard(
         total_activity = len(all_logs)
         
         # Calculate average ethical maturity index
-        ethical_scores = []
-        for log in all_logs:
-            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
-            ethical_scores.append(ethical_score)
+        ethical_scores = [get_ethical_score_from_log(log) for log in all_logs]
         
         avg_ethical_maturity = sum(ethical_scores) / len(ethical_scores) if ethical_scores else 0
         
@@ -208,7 +236,7 @@ async def get_sanayi_dashboard(
             if date_key not in ethical_trend:
                 ethical_trend[date_key] = []
             
-            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            ethical_score = get_ethical_score_from_log(log)
             ethical_trend[date_key].append(ethical_score)
         
         ethical_trend_data = []
@@ -267,7 +295,7 @@ async def get_sanayi_companies(
     
     try:
         # Get all IntentLogs (last 30 days, all sectors)
-        from_date = datetime.utcnow() - timedelta(days=30)
+        from_date = datetime.now(timezone.utc) - timedelta(days=30)
         intent_logs_query = select(IntentLog).where(
             IntentLog.created_at >= from_date,
             IntentLog.deleted_by_user == False
@@ -301,7 +329,7 @@ async def get_sanayi_companies(
             data["total_analyses"] += 1
             
             # Track ethical scores
-            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            ethical_score = get_ethical_score_from_log(log)
             data["ethical_scores"].append(ethical_score)
             
             # Count high-risk events
@@ -521,7 +549,7 @@ async def get_sanayi_systems(
             data["total_events"] += 1
             
             # Track ethical scores from IntentLog
-            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            ethical_score = get_ethical_score_from_log(log)
             data["ethical_scores"].append(ethical_score)
             
             # Track models
@@ -667,7 +695,7 @@ async def get_sanayi_risk_patterns(
                 continue
                 
             org_id_str = str(log.organization_id)
-            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            ethical_score = get_ethical_score_from_log(log)
             
             # Track organization patterns
             if org_id_str not in org_patterns:
@@ -707,7 +735,7 @@ async def get_sanayi_risk_patterns(
             
             org_id_str = str(log.organization_id)
             system_name = impact.source_system
-            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            ethical_score = get_ethical_score_from_log(log)
             
             if system_name not in system_patterns:
                 system_patterns[system_name] = {
@@ -809,10 +837,8 @@ async def get_sanayi_risk_patterns(
             older_logs = [log for log in all_logs 
                          if log.created_at and log.created_at < now - timedelta(days=7)]
             
-            recent_high_risk = sum(1 for log in recent_logs 
-                                  if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
-            older_high_risk = sum(1 for log in older_logs 
-                                 if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
+            recent_high_risk = sum(1 for log in recent_logs if get_ethical_score_from_log(log) < 50)
+            older_high_risk = sum(1 for log in older_logs if get_ethical_score_from_log(log) < 50)
             
             ecosystem_risk_trend = "Stable"
             if older_high_risk > 0 and recent_high_risk > older_high_risk * 1.2:
@@ -864,7 +890,7 @@ async def get_sanayi_alerts(
     
     try:
         # Get logs from last 30 days
-        from_date = datetime.utcnow() - timedelta(days=30)
+        from_date = datetime.now(timezone.utc) - timedelta(days=30)
         query = select(IntentLog).where(
             IntentLog.created_at >= from_date,
             IntentLog.deleted_by_user == False
@@ -921,10 +947,8 @@ async def get_sanayi_alerts(
         older_logs = [log for log in all_logs 
                      if log.created_at and log.created_at < now - timedelta(days=7)]
         
-        recent_high_risk = sum(1 for log in recent_logs 
-                              if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
-        older_high_risk = sum(1 for log in older_logs 
-                             if (log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50) < 50)
+        recent_high_risk = sum(1 for log in recent_logs if get_ethical_score_from_log(log) < 50)
+        older_high_risk = sum(1 for log in older_logs if get_ethical_score_from_log(log) < 50)
         
         if older_high_risk > 0 and recent_high_risk > older_high_risk * 2:  # 2x growth
             growth_rate = ((recent_high_risk - older_high_risk) / older_high_risk * 100) if older_high_risk > 0 else 0
@@ -934,7 +958,7 @@ async def get_sanayi_alerts(
                 "description": f"Son 7 günde yüksek riskli AI sistemlerinde %{growth_rate:.1f} artış tespit edildi",
                 "recent_count": recent_high_risk,
                 "older_count": older_high_risk,
-                "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
             })
         
         # Alert 3: Declining ethical maturity in specific sector
@@ -944,7 +968,7 @@ async def get_sanayi_alerts(
             if sector not in sector_ethical:
                 sector_ethical[sector] = []
             
-            ethical_score = log.risk_scores.get("ethical_index", 50) if isinstance(log.risk_scores, dict) else 50
+            ethical_score = get_ethical_score_from_log(log)
             sector_ethical[sector].append(ethical_score)
         
         for sector, scores in sector_ethical.items():
