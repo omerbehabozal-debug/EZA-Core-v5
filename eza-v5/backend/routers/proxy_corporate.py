@@ -707,8 +707,13 @@ async def proxy_analyze(
             last_policy_triggered=policy_trace[0]["policy"] if policy_trace else None
         )
         
-        # Log to telemetry
+        # Log to telemetry (structured logs + database TelemetryEvent)
         content_hash = generate_content_hash(request.content)
+        
+        # Extract risk_band from stage0_result for telemetry
+        stage0_result = analysis_result.get("_stage0_result", {})
+        risk_band = stage0_result.get("risk_band", "low")
+        
         await log_analysis(
             db=db,
             content_hash=content_hash,
@@ -718,7 +723,17 @@ async def proxy_analyze(
             policies=request.policies,
             user_id=current_user.get("user_id"),
             company_id=current_user.get("company_id"),
-            analysis_mode=analysis_mode  # NEW: Analysis mode (fast | pro)
+            analysis_mode=analysis_mode,  # Analysis mode (fast | pro)
+            # NEW: Additional fields for TelemetryEvent database persistence
+            analysis_id=analysis_id,
+            org_id=org_id,
+            risk_band=risk_band,
+            latency_ms=int(latency_ms),
+            provider=request.provider,
+            fail_safe_triggered=fail_safe_triggered,
+            fail_reason=fail_reason,
+            source="proxy_ui",  # From Proxy UI
+            token_usage=token_usage_breakdown
         )
         
         # Generate report if requested
