@@ -1113,7 +1113,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                           color: '#007AFF',
                         }}
                       >
-                        CURRENT PLAN
+                        MEVCUT PLAN
                       </span>
                     </div>
                   )}
@@ -1131,7 +1131,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                       )}
                     </p>
                     <p className="text-sm" style={{ color: '#8E8E93' }}>
-                      {displayCurrency === 'TRY' ? '/ ay' : '/ month'}
+                      / ay
                     </p>
                   </div>
                   
@@ -1140,7 +1140,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                       <span style={{ color: '#E5E5EA' }}>{quota.toLocaleString('tr-TR')}</span> istek/ay
                     </p>
                     <p className="text-sm" style={{ color: '#8E8E93' }}>
-                      Overage: <span style={{ color: '#E5E5EA' }}>{currencySymbol}{(overagePrice ?? 0).toFixed(displayCurrency === 'TRY' ? 2 : 4)}</span> / istek
+                      Aşım: <span style={{ color: '#E5E5EA' }}>{currencySymbol}{(overagePrice ?? 0).toFixed(displayCurrency === 'TRY' ? 2 : 4)}</span> / istek
                     </p>
                   </div>
                   
@@ -1162,7 +1162,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                         color: '#FFFFFF',
                       }}
                     >
-                      {isCurrentPlan ? 'Mevcut Plan' : planKey === 'enterprise' ? 'Contact Sales' : `Upgrade to ${planKey.charAt(0).toUpperCase() + planKey.slice(1)}`}
+                      {isCurrentPlan ? 'Mevcut Plan' : planKey === 'enterprise' ? 'Satış ile İletişime Geç' : `${planKey.charAt(0).toUpperCase() + planKey.slice(1)}'e Yükselt`}
                     </button>
                   ) : (
                     <div className="text-center">
@@ -1227,7 +1227,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                     <div className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: '#E8434320', border: '1px solid #E84343' }}>
                       <span className="text-lg">⚠️</span>
                       <p className="text-sm" style={{ color: '#E5E5EA' }}>
-                        Kota kullanımınız %90'ın üzerinde. Overage maliyetleri artıyor.
+                        Kota kullanımınız %90'ın üzerinde. Aşım maliyetleri artıyor.
                       </p>
                     </div>
                   );
@@ -1236,7 +1236,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                     <div className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: '#FFB80020', border: '1px solid #FFB800' }}>
                       <span className="text-lg">⚠️</span>
                       <p className="text-sm" style={{ color: '#E5E5EA' }}>
-                        Kota kullanımınız %70'i geçti. Yakında overage ücreti uygulanacak.
+                        Kota kullanımınız %70'i geçti. Yakında aşım ücreti uygulanacak.
                       </p>
                     </div>
                   );
@@ -1245,7 +1245,7 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
               })()}
             </div>
             
-            {/* Overage Breakdown */}
+            {/* Aşım Detayı */}
             {(billing?.overage_count || 0) > 0 && (
               <div className="mt-4 p-4 rounded" style={{ backgroundColor: '#2C2C2E' }}>
                 <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>
@@ -1255,10 +1255,10 @@ Oluşturulma: ${new Date(data.generated_at).toLocaleString('tr-TR')}
                   Plan kotanız: <span style={{ color: '#E5E5EA' }}>{(billing?.quota || 0).toLocaleString('tr-TR')}</span>
                 </p>
                 <p className="text-sm mb-2" style={{ color: '#8E8E93' }}>
-                  Overage: <span style={{ color: '#E5E5EA', fontWeight: 'bold' }}>{(billing?.overage_count || 0).toLocaleString('tr-TR')}</span> istek
+                  Aşım: <span style={{ color: '#E5E5EA', fontWeight: 'bold' }}>{(billing?.overage_count || 0).toLocaleString('tr-TR')}</span> istek
                 </p>
                 <p className="text-sm font-bold" style={{ color: '#E5E5EA' }}>
-                  Tahmini maliyet: {displayCurrency === 'TRY' ? '₺' : '$'}{(billing?.price_table?.[displayCurrency]?.plan_price || 0).toFixed(2)} plan + {displayCurrency === 'TRY' ? '₺' : '$'}{((billing?.overage_count || 0) * (billing?.price_table?.[displayCurrency]?.overage_price || 0)).toFixed(2)} overage = {displayCurrency === 'TRY' ? '₺' : '$'}{(billing?.monthly_cost?.[displayCurrency] || 0).toFixed(2)} / ay
+                  Tahmini maliyet: {displayCurrency === 'TRY' ? '₺' : '$'}{(billing?.price_table?.[displayCurrency]?.plan_price || 0).toFixed(2)} plan + {displayCurrency === 'TRY' ? '₺' : '$'}{((billing?.overage_count || 0) * (billing?.price_table?.[displayCurrency]?.overage_price || 0)).toFixed(2)} aşım = {displayCurrency === 'TRY' ? '₺' : '$'}{(billing?.monthly_cost?.[displayCurrency] || 0).toFixed(2)} / ay
                 </p>
               </div>
             )}

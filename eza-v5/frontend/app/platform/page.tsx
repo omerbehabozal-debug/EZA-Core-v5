@@ -124,7 +124,7 @@ function PlatformPageContent() {
                 EZA Platform
               </h1>
               <p className="text-sm" style={{ color: 'var(--platform-text-secondary)' }}>
-                AI Safety Platform — Management & Compliance Console
+                AI Güvenlik Platformu — Yönetim & Uyum Konsolu
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -142,48 +142,48 @@ function PlatformPageContent() {
             {/* Always show Organizations tab for org_admin/admin */}
             {(role === 'admin' || role === 'org_admin') && (
               <Tab id="organizations" activeTab={activeTab} setActiveTab={handleTabChange}>
-                🏢 Organizations
+                🏢 Organizasyonlar
               </Tab>
             )}
             {/* Other tabs only visible if organization is selected */}
             {canSeeAll && (
               <Tab id="dashboard" activeTab={activeTab} setActiveTab={handleTabChange}>
-                📊 Dashboard
+                📊 Kontrol Paneli
               </Tab>
             )}
             {canSeeAll && (
               <Tab id="api" activeTab={activeTab} setActiveTab={handleTabChange}>
-                🔑 API & Integrations
+                🔑 API & Entegrasyonlar
               </Tab>
             )}
             {canSeeAll && (
               <Tab id="policies" activeTab={activeTab} setActiveTab={handleTabChange}>
-                🛡️ Policies
+                🛡️ Politikalar
               </Tab>
             )}
             {canSeeAll && (
               <Tab id="users" activeTab={activeTab} setActiveTab={handleTabChange}>
-                👥 Users & Roles
+                👥 Kullanıcılar & Roller
               </Tab>
             )}
             {canSeeBilling && (
               <Tab id="billing" activeTab={activeTab} setActiveTab={handleTabChange}>
-                💳 Billing
+                💳 Faturalama
               </Tab>
             )}
             {canSeeSLA && (
               <Tab id="sla" activeTab={activeTab} setActiveTab={handleTabChange}>
-                🔔 SLA & Alerts
+                🔔 SLA & Uyarılar
               </Tab>
             )}
             {canSeeAudit && (
               <Tab id="audit" activeTab={activeTab} setActiveTab={handleTabChange}>
-                📋 Audit Logs
+                📋 Denetim Kayıtları
               </Tab>
             )}
             {canSeeAll && (
               <Tab id="reports" activeTab={activeTab} setActiveTab={handleTabChange}>
-                📈 Reports
+                📈 Raporlar
               </Tab>
             )}
           </TabList>
@@ -215,7 +215,7 @@ function PlatformPageContent() {
                     }}
                   >
                     <p className="text-sm mb-2" style={{ color: 'var(--platform-text-secondary)' }}>
-                      Aktif API Keys
+                      Aktif API Anahtarları
                     </p>
                     <p className="text-3xl font-bold" style={{ color: 'var(--platform-text-primary)' }}>
                       -
@@ -229,7 +229,7 @@ function PlatformPageContent() {
                     }}
                   >
                     <p className="text-sm mb-2" style={{ color: 'var(--platform-text-secondary)' }}>
-                      SLA Compliance
+                      SLA Uyumu
                     </p>
                     <p className="text-3xl font-bold" style={{ color: 'var(--platform-success)' }}>
                       100%
@@ -255,7 +255,7 @@ function PlatformPageContent() {
                       <div className="text-center">
                         <div className="text-4xl mb-4">🏢</div>
                         <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--platform-text-primary)' }}>
-                          Organization Gerekli
+                          Organizasyon Gerekli
                         </h3>
                         <p className="text-sm mb-6" style={{ color: 'var(--platform-text-secondary)' }}>
                           Platform'u kullanmak için önce bir organizasyon oluşturmalı veya mevcut bir organizasyona erişim almalısınız.
@@ -268,7 +268,7 @@ function PlatformPageContent() {
                             color: 'white',
                           }}
                         >
-                          Organizations Sayfasına Git
+                          Organizasyonlar Sayfasına Git
                         </a>
                       </div>
                     </div>
@@ -276,7 +276,7 @@ function PlatformPageContent() {
                   {!showOnlyOrganizations && (
                     <div className="mt-6">
                       <p className="text-sm mb-4" style={{ color: 'var(--platform-text-secondary)' }}>
-                        Organization management page. Redirecting...
+                        Organizasyon yönetim sayfası. Yönlendiriliyor...
                       </p>
                       <a
                         href="/platform/organizations"
@@ -286,7 +286,7 @@ function PlatformPageContent() {
                           color: 'white',
                         }}
                       >
-                        Open Organizations Page
+                        Organizasyonlar Sayfasını Aç
                       </a>
                     </div>
                   )}
@@ -353,7 +353,7 @@ function PlatformPageContent() {
               <TabPanel id="reports" activeTab={activeTab}>
                 <div className="mt-6">
                   <p className="text-sm" style={{ color: 'var(--platform-text-secondary)' }}>
-                    Reports coming soon...
+                    Raporlar yakında...
                   </p>
                 </div>
               </TabPanel>

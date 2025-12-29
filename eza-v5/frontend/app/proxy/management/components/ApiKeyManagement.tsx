@@ -96,7 +96,7 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
       console.log('[ApiKeyManagement] Response status:', res.status);
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorData = await res.json().catch(() => ({ detail: 'Bilinmeyen hata' }));
         const errorMessage = errorData.detail || errorData.message || `HTTP ${res.status}: ${res.statusText}`;
         setError(`API anahtarı oluşturulamadı: ${errorMessage}`);
         return;
@@ -113,7 +113,7 @@ export default function ApiKeyManagement({ orgId }: ApiKeyManagementProps) {
         setError(`API anahtarı oluşturulamadı: ${errorMessage}`);
       }
     } catch (err: any) {
-      setError(`Hata: ${err?.message || 'Network error'}`);
+      setError(`Hata: ${err?.message || 'Ağ hatası'}`);
     } finally {
       setLoading(false);
     }

@@ -21,10 +21,10 @@ interface RolesTeamProps {
 }
 
 const ROLE_LABELS = {
-  admin: 'Admin',
-  reviewer: 'Reviewer',
-  auditor: 'Auditor',
-  readonly: 'ReadOnly',
+  admin: 'Yönetici',
+  reviewer: 'İnceleyici',
+  auditor: 'Denetçi',
+  readonly: 'Salt Okunur',
 };
 
 const ROLE_COLORS = {
@@ -107,7 +107,7 @@ export default function RolesTeam({ orgId }: RolesTeamProps) {
         setInvitations([]);
       }
     } catch (err: any) {
-      setError(`Kullanıcılar yüklenemedi: ${err?.message || 'Network error'}`);
+      setError(`Kullanıcılar yüklenemedi: ${err?.message || 'Ağ hatası'}`);
     } finally {
       setLoading(false);
     }
@@ -150,7 +150,7 @@ export default function RolesTeam({ orgId }: RolesTeamProps) {
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorData = await res.json().catch(() => ({ detail: 'Bilinmeyen hata' }));
         const errorMessage = errorData.detail || errorData.message || `HTTP ${res.status}: ${res.statusText}`;
         setError(`Davet gönderilemedi: ${errorMessage}`);
         setLoading(false);
@@ -164,10 +164,10 @@ export default function RolesTeam({ orgId }: RolesTeamProps) {
         setInviteEmail("");
         setError(null);
       } else {
-        setError(`Davet gönderilemedi: ${data.message || 'Unknown error'}`);
+        setError(`Davet gönderilemedi: ${data.message || 'Bilinmeyen hata'}`);
       }
     } catch (err: any) {
-      setError(`Davet gönderilemedi: ${err?.message || 'Network error'}`);
+      setError(`Davet gönderilemedi: ${err?.message || 'Ağ hatası'}`);
     } finally {
       setLoading(false);
     }
@@ -220,10 +220,10 @@ export default function RolesTeam({ orgId }: RolesTeamProps) {
                 color: '#E5E5EA',
               }}
             >
-              <option value="readonly">ReadOnly</option>
-              <option value="auditor">Auditor</option>
-              <option value="reviewer">Reviewer</option>
-              <option value="admin">Admin</option>
+              <option value="readonly">Salt Okunur</option>
+              <option value="auditor">Denetçi</option>
+              <option value="reviewer">İnceleyici</option>
+              <option value="admin">Yönetici</option>
             </select>
           </div>
           <button

@@ -7,7 +7,6 @@
 
 import { useState, useEffect } from "react";
 import { API_BASE_URL } from "@/api/config";
-import AnalysisModeSelector from "./AnalysisModeSelector";
 
 interface PolicyInfo {
   id: string;
@@ -55,7 +54,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorData = await res.json().catch(() => ({ detail: 'Bilinmeyen hata' }));
         const errorMessage = errorData.detail || errorData.message || `HTTP ${res.status}: ${res.statusText}`;
         setError(`Politikalar yüklenemedi: ${errorMessage}`);
         return;
@@ -71,7 +70,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
         setError(`Politikalar yüklenemedi: ${errorMessage}`);
       }
     } catch (err: any) {
-      setError(`Politikalar yüklenemedi: ${err?.message || 'Network error'}`);
+      setError(`Politikalar yüklenemedi: ${err?.message || 'Ağ hatası'}`);
     } finally {
       setLoading(false);
     }
@@ -107,7 +106,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
       console.log('[Policy] Response status:', res.status);
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        const errorData = await res.json().catch(() => ({ detail: 'Bilinmeyen hata' }));
         const errorMessage = errorData.detail || errorData.message || `HTTP ${res.status}: ${res.statusText}`;
         setError(`Politika güncellenemedi: ${errorMessage}`);
         return;
@@ -122,7 +121,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
         setError(`Politika güncellenemedi: ${errorMessage}`);
       }
     } catch (err: any) {
-      setError(`Politika güncellenemedi: ${err?.message || 'Network error'}`);
+      setError(`Politika güncellenemedi: ${err?.message || 'Ağ hatası'}`);
     } finally {
       setSaving({ ...saving, [policyId]: false });
     }
@@ -162,9 +161,6 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
 
   return (
     <div className="space-y-6">
-      {/* Analysis Mode Selector */}
-      <AnalysisModeSelector orgId={orgId} />
-
       {/* Global Policies */}
       <div
         className="rounded-xl p-6"
@@ -198,7 +194,7 @@ export default function PolicyPackEditor({ orgId }: PolicyPackEditorProps) {
                       </h3>
                       {policy.is_global && (
                         <span className="px-2 py-0.5 rounded text-xs" style={{ backgroundColor: '#007AFF20', color: '#007AFF' }}>
-                          Global
+                          Küresel
                         </span>
                       )}
                       {policy.is_custom && (

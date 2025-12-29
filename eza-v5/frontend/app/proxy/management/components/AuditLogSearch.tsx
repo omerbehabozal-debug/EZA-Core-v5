@@ -77,7 +77,7 @@ export default function AuditLogSearch({ orgId }: AuditLogSearchProps) {
       ...results.map((entry) => [
         entry.uuid,
         entry.timestamp,
-        entry.raw_data?.scores?.ethical_index || 'N/A',
+        entry.raw_data?.scores?.ethical_index || 'Yok',
         entry.risk_flags.map((f) => f.flag).join(';'),
         entry.policy_trace.map((p) => p.policy).join(';'),
       ].join(',')),
@@ -92,7 +92,7 @@ export default function AuditLogSearch({ orgId }: AuditLogSearchProps) {
   };
 
   const getRiskLevel = (score?: number): string => {
-    if (!score) return 'N/A';
+    if (!score) return 'Yok';
     if (score >= 80) return 'Düşük';
     if (score >= 50) return 'Orta';
     return 'Yüksek';
@@ -180,7 +180,7 @@ export default function AuditLogSearch({ orgId }: AuditLogSearchProps) {
               type="text"
               value={filters.flag}
               onChange={(e) => setFilters({ ...filters, flag: e.target.value })}
-              placeholder="ethical, compliance, manipulation..."
+              placeholder="etik, uyum, manipülasyon..."
               className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#007AFF]"
               style={{
                 backgroundColor: '#000000',
