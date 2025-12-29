@@ -167,7 +167,7 @@ async def create_intent_log(
             )
         
         # Validate trigger_action
-        valid_actions = ["save", "rewrite", "version", "approval_request"]
+        valid_actions = ["save", "rewrite", "version", "approval_request", "analyze"]
         if request.trigger_action not in valid_actions:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

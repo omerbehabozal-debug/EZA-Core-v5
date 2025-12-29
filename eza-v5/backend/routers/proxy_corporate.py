@@ -767,6 +767,64 @@ async def proxy_analyze(
             token_usage=token_usage_breakdown
         )
         
+        # CRITICAL: Create IntentLog for regulator panels (RTÜK, Finance, Health, etc.)
+        # This ensures ALL analysis operations are visible in regulator panels
+        # even if user doesn't click "Save" button
+        try:
+            from backend.routers.proxy_analysis import create_intent_log, CreateIntentLogRequest
+            
+            # Create analysis result structure for Intent Log
+            analysis_result_for_intent = {
+                **analysis_result,
+                "input_text": request.content,
+                "content": request.content,
+                "analysis_mode": analysis_mode,  # Include analysis mode (fast | pro)
+                "analysis_id": analysis_id  # Include analysis ID for traceability
+            }
+            
+            # Create Intent Log request
+            intent_request = CreateIntentLogRequest(
+                analysis_result=analysis_result_for_intent,
+                trigger_action="analyze",  # Analysis operation (not "save" - that's explicit user action)
+                sector=request.domain,
+                policies=request.policies
+            )
+            
+            # Create Intent Log asynchronously (don't block analysis response)
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If loop is running, create background task
+                    asyncio.create_task(
+                        create_intent_log(
+                            request=intent_request,
+                            db=db,
+                            current_user=current_user,
+                            x_org_id=org_id
+                        )
+                    )
+                else:
+                    # If loop is not running, schedule it
+                    loop.run_until_complete(
+                        create_intent_log(
+                            request=intent_request,
+                            db=db,
+                            current_user=current_user,
+                            x_org_id=org_id
+                        )
+                    )
+            except RuntimeError:
+                # If no event loop, log warning but don't fail
+                logger.warning("[Proxy] No event loop available for Intent Log creation")
+        except Exception as e:
+            # Don't fail analysis if Intent Log creation fails
+            logger.error(
+                f"[Proxy] Intent Log creation failed (non-blocking): {str(e)}. "
+                f"Analysis continues normally. analysis_id={analysis_id}, org_id={org_id}",
+                exc_info=True
+            )
+        
         # Generate report if requested
         report = None
         if request.return_report:
