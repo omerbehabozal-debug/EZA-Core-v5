@@ -124,12 +124,11 @@ export default function AnalysisModeSelector({ orgId }: AnalysisModeSelectorProp
           {/* FAST Option */}
           <label
             className={`flex items-start gap-4 p-4 rounded-lg cursor-pointer transition-all ${
-              analysisMode === 'fast' ? 'ring-2' : ''
+              analysisMode === 'fast' ? 'ring-2 ring-blue-500' : ''
             }`}
             style={{
               backgroundColor: analysisMode === 'fast' ? '#007AFF20' : '#000000',
               border: `1px solid ${analysisMode === 'fast' ? '#007AFF' : '#2C2C2E'}`,
-              ringColor: '#007AFF',
             }}
           >
             <input
@@ -168,12 +167,11 @@ export default function AnalysisModeSelector({ orgId }: AnalysisModeSelectorProp
           {/* PRO Option */}
           <label
             className={`flex items-start gap-4 p-4 rounded-lg cursor-pointer transition-all ${
-              analysisMode === 'pro' ? 'ring-2' : ''
+              analysisMode === 'pro' ? 'ring-2 ring-purple-500' : ''
             }`}
             style={{
               backgroundColor: analysisMode === 'pro' ? '#8B5CF620' : '#000000',
               border: `1px solid ${analysisMode === 'pro' ? '#8B5CF6' : '#2C2C2E'}`,
-              ringColor: '#8B5CF6',
             }}
           >
             <input
