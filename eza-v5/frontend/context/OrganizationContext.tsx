@@ -16,6 +16,7 @@ export interface Organization {
   base_currency: 'TRY' | 'USD';
   sla_tier?: string;
   default_policy_set?: string;
+  analysis_mode?: 'fast' | 'pro';  // NEW: Analysis mode (FAST vs PRO)
   created_at: string;
 }
 

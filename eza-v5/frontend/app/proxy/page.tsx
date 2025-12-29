@@ -29,11 +29,22 @@ import ProcessingStateIndicator from "./components/ProcessingStateIndicator";
 import { useProcessingState } from "@/hooks/useProcessingState";
 
 function ProxyCorporatePageContent() {
-  const { currentOrganization, isLoading: orgLoading } = useOrganization();
+  const { currentOrganization, isLoading: orgLoading, updateOrganization } = useOrganization();
   const [content, setContent] = useState("");
   
   // Processing state hooks (with analysis_mode from organization or result)
   const [currentAnalysisMode, setCurrentAnalysisMode] = useState<'fast' | 'pro'>('fast');
+  
+  // Load analysis_mode from organization when it changes
+  useEffect(() => {
+    if (currentOrganization?.analysis_mode) {
+      setCurrentAnalysisMode(currentOrganization.analysis_mode);
+    } else {
+      // Default to 'fast' if not set
+      setCurrentAnalysisMode('fast');
+    }
+  }, [currentOrganization?.analysis_mode]);
+  
   const analyzeProcessing = useProcessingState({ 
     action: 'analyze',
     analysis_mode: currentAnalysisMode  // NEW: Pass analysis_mode for message differentiation
@@ -492,6 +503,89 @@ function ProxyCorporatePageContent() {
                   '--tw-ring-color': 'var(--proxy-action-primary)',
                 } as React.CSSProperties}
               />
+            </div>
+
+            {/* Analysis Mode Toggle */}
+            <div className="mb-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--proxy-bg-secondary)', border: '1px solid var(--proxy-border-soft)' }}>
+              <label className="block text-sm font-medium mb-3" style={{ color: 'var(--proxy-text-primary)' }}>
+                Analiz Modu
+              </label>
+              <div className="flex gap-4">
+                <label
+                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all ${
+                    currentAnalysisMode === 'fast' ? 'ring-2 ring-blue-500' : ''
+                  }`}
+                  style={{
+                    backgroundColor: currentAnalysisMode === 'fast' ? '#007AFF20' : 'transparent',
+                    border: `1px solid ${currentAnalysisMode === 'fast' ? '#007AFF' : 'var(--proxy-border-soft)'}`,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="analysis_mode"
+                    value="fast"
+                    checked={currentAnalysisMode === 'fast'}
+                    onChange={async () => {
+                      if (currentOrganization?.id) {
+                        const success = await updateOrganization(currentOrganization.id, { analysis_mode: 'fast' });
+                        if (success) {
+                          setCurrentAnalysisMode('fast');
+                          setToast({ message: 'Analiz modu FAST olarak güncellendi', type: 'success' });
+                        } else {
+                          setToast({ message: 'Analiz modu güncellenemedi', type: 'error' });
+                        }
+                      }
+                    }}
+                    className="mr-2"
+                    style={{ accentColor: '#007AFF' }}
+                  />
+                  <div>
+                    <div className="font-semibold text-sm" style={{ color: 'var(--proxy-text-primary)' }}>
+                      ⚡ FAST — Hızlı Analiz
+                    </div>
+                    <div className="text-xs mt-1" style={{ color: 'var(--proxy-text-muted)' }}>
+                      Günlük içerikler için optimize edilmiş
+                    </div>
+                  </div>
+                </label>
+                <label
+                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all ${
+                    currentAnalysisMode === 'pro' ? 'ring-2 ring-purple-500' : ''
+                  }`}
+                  style={{
+                    backgroundColor: currentAnalysisMode === 'pro' ? '#8B5CF620' : 'transparent',
+                    border: `1px solid ${currentAnalysisMode === 'pro' ? '#8B5CF6' : 'var(--proxy-border-soft)'}`,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="analysis_mode"
+                    value="pro"
+                    checked={currentAnalysisMode === 'pro'}
+                    onChange={async () => {
+                      if (currentOrganization?.id) {
+                        const success = await updateOrganization(currentOrganization.id, { analysis_mode: 'pro' });
+                        if (success) {
+                          setCurrentAnalysisMode('pro');
+                          setToast({ message: 'Analiz modu PRO olarak güncellendi', type: 'success' });
+                        } else {
+                          setToast({ message: 'Analiz modu güncellenemedi', type: 'error' });
+                        }
+                      }
+                    }}
+                    className="mr-2"
+                    style={{ accentColor: '#8B5CF6' }}
+                  />
+                  <div>
+                    <div className="font-semibold text-sm" style={{ color: 'var(--proxy-text-primary)' }}>
+                      🧠 PRO — Profesyonel Analiz
+                    </div>
+                    <div className="text-xs mt-1" style={{ color: 'var(--proxy-text-muted)' }}>
+                      Derinlemesine bağlam analizi
+                    </div>
+                  </div>
+                </label>
+              </div>
             </div>
 
             {/* Configuration */}
