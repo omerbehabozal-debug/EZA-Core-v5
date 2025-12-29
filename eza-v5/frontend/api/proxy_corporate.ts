@@ -137,6 +137,23 @@ export interface ProxyRewriteRequest {
   auto_reanalyze?: boolean;
 }
 
+export interface RewriteExplanation {
+  detected_risks: Array<{
+    paragraph: number;
+    risk_type: string;
+    severity: string;
+    count: number;
+  }>;
+  rewrite_actions: Array<{
+    paragraph: number;
+    risk_type: string;
+    action: string;
+    preserved: string;
+  }>;
+  preservation_notes: string[];
+  outcome_summary: string;
+}
+
 export interface ProxyRewriteResponse {
   ok: boolean;
   original_content: string;
@@ -163,6 +180,7 @@ export interface ProxyRewriteResponse {
     legal_risk_score: number;
   };
   provider: string;
+  rewrite_explanation?: RewriteExplanation;  // PRO mode only - internal explanation for org admin
 }
 
 // ========== API FUNCTIONS ==========
