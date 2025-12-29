@@ -129,8 +129,8 @@ async def init_db():
                 """))
             
             logging.info("User model columns checked/added successfully")
-            except Exception as e:
-                logging.warning(f"Could not add User model columns (may already exist): {e}")
+        except Exception as e:
+            logging.warning(f"Could not add User model columns (may already exist): {e}")
         
         # Add analysis_mode column to production_organizations if it doesn't exist
         try:
