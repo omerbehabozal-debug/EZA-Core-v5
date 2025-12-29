@@ -3,7 +3,7 @@
 Telemetry Event Pydantic Schemas
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
@@ -11,6 +11,8 @@ from uuid import UUID
 
 class TelemetryEventBase(BaseModel):
     """Base telemetry event schema"""
+    model_config = ConfigDict(protected_namespaces=())
+    
     mode: str = Field(..., description="Pipeline mode: standalone, proxy, or proxy-lite")
     source: str = Field(..., description="Event source: standalone-api, proxy-api, etc.")
     user_input: str = Field(..., description="User input text")

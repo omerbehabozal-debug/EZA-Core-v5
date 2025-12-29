@@ -7,7 +7,7 @@ AI model registry and risk profiling endpoints
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from backend.core.utils.dependencies import get_db
 from backend.services import model_registry_service
 from backend.services.audit_service import log_operation
@@ -18,6 +18,8 @@ router = APIRouter()
 
 # Request/Response Models
 class ModelRegisterRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+    
     model_name: str
     version: str
     risk_profile: Optional[dict] = None
@@ -25,6 +27,8 @@ class ModelRegisterRequest(BaseModel):
 
 
 class ModelResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=(), from_attributes=True)
+    
     id: int
     model_name: str
     version: str
@@ -32,9 +36,6 @@ class ModelResponse(BaseModel):
     provider: Optional[str] = None
     compliance_status: Optional[str] = None
     created_at: str
-    
-    class Config:
-        from_attributes = True
 
 
 class RiskProfileResponse(BaseModel):
