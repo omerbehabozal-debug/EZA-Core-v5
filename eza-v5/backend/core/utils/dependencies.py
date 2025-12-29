@@ -30,9 +30,10 @@ elif DATABASE_URL.startswith("postgres://"):
 # If already has +asyncpg, keep it as is
 
 # Configure engine with pool settings to prevent connection issues
+# echo=False to reduce logging verbosity (set to True only for debugging)
 engine = create_async_engine(
     DATABASE_URL, 
-    echo=True,
+    echo=False,  # Disabled to prevent excessive logging on Railway
     pool_pre_ping=True,  # Verify connections before using
     pool_recycle=3600,   # Recycle connections after 1 hour
     pool_size=10,        # Maximum number of connections in pool
