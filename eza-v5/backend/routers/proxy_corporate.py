@@ -187,118 +187,126 @@ async def proxy_analyze(
         circuit_breaker_open = False
         
         # ========== PIPELINE ROUTING: FAST vs PRO ==========
-        if analysis_mode == "fast":
-            # ========== FAST PIPELINE (CURRENT BEHAVIOR - UNCHANGED) ==========
-            logger.info(f"[Proxy] FAST mode: Speed-optimized pipeline (org_id={org_id})")
-            
-            # STAGE-0: Always runs first (rate limit independent)
-            from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
-            logger.info(f"[Proxy] Starting Stage-0 (rate limit independent, org_id={org_id})")
-            stage0_result = await stage0_fast_risk_scan(
-                content=request.content,
-                domain=request.domain,
-                provider=request.provider,
-                org_id=org_id
-            )
-            logger.info(f"[Proxy] Stage-0 completed: risk_band={stage0_result.get('risk_band', 'unknown')}")
-            
-            # Rate Limiter: Check AFTER Stage-0, BEFORE Stage-1
-            # This determines Stage-1 mode (light vs deep), but Stage-1 ALWAYS runs
-            from backend.services.proxy_rate_limiter import check_rate_limit
-            allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
-            
-            # Determine Stage-1 mode based on rate limit
-            if not allowed:
-                logger.info(f"[Proxy] Rate limit exceeded for org_id={org_id}: {rate_limit_reason}. Stage-1 will run in LIGHT mode.")
-                logger.info(f"[Proxy] Event: stage1_light_mode, reason: rate_limit_exceeded, analysis_id={analysis_id}")
-                stage1_mode = "light"
-                # Mark rate limit in stage0_result for Stage-1 to use
-                stage0_result["_rate_limit_exceeded"] = True
-            else:
-                # Normal flow: use risk_band to determine mode
-                risk_band = stage0_result.get("risk_band", "low")
-                stage1_mode = "light" if risk_band == "low" else "deep"
-                logger.info(f"[Proxy] Rate limit OK. Stage-1 will run in {stage1_mode.upper()} mode (risk_band={risk_band})")
-                stage0_result["_rate_limit_exceeded"] = False
-            
-            try:
-                # Deep analysis with 3-stage gated pipeline
-                # Role: "proxy" for full Proxy, "proxy_lite" for Proxy Lite
-                # CRITICAL: Stage-1 ALWAYS runs, only mode changes
-                logger.info(f"[Proxy] Calling analyze_content_deep via circuit breaker (org_id={org_id}, stage1_mode={stage1_mode})")
-                analysis_result = await cb.call_async(
-                    analyze_content_deep,
-                    content=request.content,
-                    domain=request.domain,
-                    policies=request.policies,
-                    provider=request.provider,
-                    role="proxy",  # Full Proxy - max 4 paragraphs in Stage-1 (or all if analyze_all_paragraphs=True)
-                    org_id=org_id,
-                    analyze_all_paragraphs=getattr(request, 'analyze_all_paragraphs', False),  # Analyze all paragraphs if requested
-                    stage1_mode=stage1_mode,  # NEW: Explicit mode control (light or deep)
-                    analysis_mode=analysis_mode  # NEW: Pass analysis_mode for enforcement checks
-                )
-                logger.info(f"[Proxy] analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
-        else:
-            # ========== PRO PIPELINE (PROFESSIONAL DEEP ANALYSIS) ==========
-            logger.info(f"[Proxy] PRO mode: Professional deep analysis pipeline (org_id={org_id})")
-            
-            # PRO Stage-0: Informational only (quick score + risk band)
-            from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
-            logger.info(f"[Proxy] PRO Stage-0: Informational scan (org_id={org_id})")
-            stage0_result = await stage0_fast_risk_scan(
-                content=request.content,
-                domain=request.domain,
-                provider=request.provider,
-                org_id=org_id
-            )
-            logger.info(f"[Proxy] PRO Stage-0 completed: risk_band={stage0_result.get('risk_band', 'unknown')} (informational only)")
-            
-            # PRO Stage-1: ALWAYS full deep analysis (no light mode, no rate limit downgrade)
-            # ENFORCEMENT: PRO mode MUST NOT use light Stage-1
-            stage1_mode = "deep"  # PRO mode ALWAYS uses deep
-            logger.info(f"[Proxy] PRO Stage-1: Full deep analysis (MANDATORY, no light mode fallback)")
-            
-            # PRO mode: Rate limit does NOT downgrade quality
-            # If rate limit exceeded, we wait/queue (for now, proceed anyway)
-            from backend.services.proxy_rate_limiter import check_rate_limit
-            allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
-            if not allowed:
-                logger.warning(f"[Proxy] PRO mode: Rate limit exceeded, but proceeding with deep analysis (quality over speed)")
-            
-            try:
-                # PRO: Full deep analysis (ALWAYS deep, no light mode)
-                logger.info(f"[Proxy] PRO: Calling analyze_content_deep (ALWAYS deep mode, org_id={org_id})")
-                analysis_result = await cb.call_async(
-                    analyze_content_deep,
-                    content=request.content,
-                    domain=request.domain,
-                    policies=request.policies,
-                    provider=request.provider,
-                    role="proxy",  # Full Proxy
-                    org_id=org_id,
-                    analyze_all_paragraphs=True,  # PRO mode: analyze ALL paragraphs
-                    stage1_mode="deep",  # PRO mode: ALWAYS deep (enforced)
-                    analysis_mode=analysis_mode  # NEW: Pass analysis_mode for enforcement checks
-                )
-                logger.info(f"[Proxy] PRO analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
+        try:
+            if analysis_mode == "fast":
+                # ========== FAST PIPELINE (CURRENT BEHAVIOR - UNCHANGED) ==========
+                logger.info(f"[Proxy] FAST mode: Speed-optimized pipeline (org_id={org_id})")
                 
-                # ENFORCEMENT: PRO mode must have produced deep analysis
-                assert analysis_result.get("_stage1_status", {}).get("mode") == "deep", "[ENFORCEMENT] PRO mode must produce deep Stage-1 analysis"
-            except CircuitBreakerOpenError:
-                # PRO mode: Circuit breaker should not happen (quality over speed)
-                logger.error(f"[Proxy] PRO mode: Circuit breaker OPEN for org_id={org_id}. PRO mode requires full analysis.")
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Profesyonel analiz modu şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin."
+                # STAGE-0: Always runs first (rate limit independent)
+                from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+                logger.info(f"[Proxy] Starting Stage-0 (rate limit independent, org_id={org_id})")
+                stage0_result = await stage0_fast_risk_scan(
+                    content=request.content,
+                    domain=request.domain,
+                    provider=request.provider,
+                    org_id=org_id
                 )
-            except Exception as pro_error:
-                # PRO mode: Any error is critical (quality requirement)
-                logger.error(f"[Proxy] PRO mode: Deep analysis failed: {str(pro_error)}", exc_info=True)
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Profesyonel analiz hatası: {str(pro_error)}"
+                logger.info(f"[Proxy] Stage-0 completed: risk_band={stage0_result.get('risk_band', 'unknown')}")
+                
+                # Rate Limiter: Check AFTER Stage-0, BEFORE Stage-1
+                # This determines Stage-1 mode (light vs deep), but Stage-1 ALWAYS runs
+                from backend.services.proxy_rate_limiter import check_rate_limit
+                allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
+                
+                # Determine Stage-1 mode based on rate limit
+                if not allowed:
+                    logger.info(f"[Proxy] Rate limit exceeded for org_id={org_id}: {rate_limit_reason}. Stage-1 will run in LIGHT mode.")
+                    logger.info(f"[Proxy] Event: stage1_light_mode, reason: rate_limit_exceeded, analysis_id={analysis_id}")
+                    stage1_mode = "light"
+                    # Mark rate limit in stage0_result for Stage-1 to use
+                    stage0_result["_rate_limit_exceeded"] = True
+                else:
+                    # Normal flow: use risk_band to determine mode
+                    risk_band = stage0_result.get("risk_band", "low")
+                    stage1_mode = "light" if risk_band == "low" else "deep"
+                    logger.info(f"[Proxy] Rate limit OK. Stage-1 will run in {stage1_mode.upper()} mode (risk_band={risk_band})")
+                    stage0_result["_rate_limit_exceeded"] = False
+                
+                try:
+                    # Deep analysis with 3-stage gated pipeline
+                    # Role: "proxy" for full Proxy, "proxy_lite" for Proxy Lite
+                    # CRITICAL: Stage-1 ALWAYS runs, only mode changes
+                    logger.info(f"[Proxy] Calling analyze_content_deep via circuit breaker (org_id={org_id}, stage1_mode={stage1_mode})")
+                    analysis_result = await cb.call_async(
+                        analyze_content_deep,
+                        content=request.content,
+                        domain=request.domain,
+                        policies=request.policies,
+                        provider=request.provider,
+                        role="proxy",  # Full Proxy - max 4 paragraphs in Stage-1 (or all if analyze_all_paragraphs=True)
+                        org_id=org_id,
+                        analyze_all_paragraphs=getattr(request, 'analyze_all_paragraphs', False),  # Analyze all paragraphs if requested
+                        stage1_mode=stage1_mode,  # NEW: Explicit mode control (light or deep)
+                        analysis_mode=analysis_mode  # NEW: Pass analysis_mode for enforcement checks
+                    )
+                    logger.info(f"[Proxy] analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
+                except CircuitBreakerOpenError:
+                    # FAST mode: Circuit breaker fallback will be handled by outer except
+                    raise
+                except Exception as fast_error:
+                    # FAST mode: Log error but allow fallback
+                    logger.error(f"[Proxy] FAST mode: Deep analysis failed: {str(fast_error)}", exc_info=True)
+                    raise
+            else:
+                # ========== PRO PIPELINE (PROFESSIONAL DEEP ANALYSIS) ==========
+                logger.info(f"[Proxy] PRO mode: Professional deep analysis pipeline (org_id={org_id})")
+                
+                # PRO Stage-0: Informational only (quick score + risk band)
+                from backend.services.proxy_analyzer_stage0 import stage0_fast_risk_scan
+                logger.info(f"[Proxy] PRO Stage-0: Informational scan (org_id={org_id})")
+                stage0_result = await stage0_fast_risk_scan(
+                    content=request.content,
+                    domain=request.domain,
+                    provider=request.provider,
+                    org_id=org_id
                 )
+                logger.info(f"[Proxy] PRO Stage-0 completed: risk_band={stage0_result.get('risk_band', 'unknown')} (informational only)")
+                
+                # PRO Stage-1: ALWAYS full deep analysis (no light mode, no rate limit downgrade)
+                # ENFORCEMENT: PRO mode MUST NOT use light Stage-1
+                stage1_mode = "deep"  # PRO mode ALWAYS uses deep
+                logger.info(f"[Proxy] PRO Stage-1: Full deep analysis (MANDATORY, no light mode fallback)")
+                
+                # PRO mode: Rate limit does NOT downgrade quality
+                # If rate limit exceeded, we wait/queue (for now, proceed anyway)
+                from backend.services.proxy_rate_limiter import check_rate_limit
+                allowed, rate_limit_reason = check_rate_limit(org_id, estimated_tokens=len(request.content.split()))
+                if not allowed:
+                    logger.warning(f"[Proxy] PRO mode: Rate limit exceeded, but proceeding with deep analysis (quality over speed)")
+                
+                try:
+                    # PRO: Full deep analysis (ALWAYS deep, no light mode)
+                    logger.info(f"[Proxy] PRO: Calling analyze_content_deep (ALWAYS deep mode, org_id={org_id})")
+                    analysis_result = await cb.call_async(
+                        analyze_content_deep,
+                        content=request.content,
+                        domain=request.domain,
+                        policies=request.policies,
+                        provider=request.provider,
+                        role="proxy",  # Full Proxy
+                        org_id=org_id,
+                        analyze_all_paragraphs=True,  # PRO mode: analyze ALL paragraphs
+                        stage1_mode="deep",  # PRO mode: ALWAYS deep (enforced)
+                        analysis_mode=analysis_mode  # NEW: Pass analysis_mode for enforcement checks
+                    )
+                    logger.info(f"[Proxy] PRO analyze_content_deep completed: has_paragraphs={'paragraphs' in analysis_result}, paragraphs_count={len(analysis_result.get('paragraphs', []))}")
+                    
+                    # ENFORCEMENT: PRO mode must have produced deep analysis
+                    assert analysis_result.get("_stage1_status", {}).get("mode") == "deep", "[ENFORCEMENT] PRO mode must produce deep Stage-1 analysis"
+                except CircuitBreakerOpenError:
+                    # PRO mode: Circuit breaker should not happen (quality over speed)
+                    logger.error(f"[Proxy] PRO mode: Circuit breaker OPEN for org_id={org_id}. PRO mode requires full analysis.")
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="Profesyonel analiz modu şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin."
+                    )
+                except Exception as pro_error:
+                    # PRO mode: Any error is critical (quality requirement)
+                    logger.error(f"[Proxy] PRO mode: Deep analysis failed: {str(pro_error)}", exc_info=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Profesyonel analiz hatası: {str(pro_error)}"
+                    )
         except CircuitBreakerOpenError:
             # FAST mode: Circuit breaker fallback (Stage-0 only)
             logger.warning(f"[Proxy] FAST mode: Circuit breaker OPEN for org_id={org_id}, returning Stage-0 only")
