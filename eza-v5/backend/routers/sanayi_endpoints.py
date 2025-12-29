@@ -199,7 +199,9 @@ async def get_sanayi_dashboard(
         
         # Also check TelemetryEvent
         for event in telemetry_events:
-            provider = extract_model_provider(event.source, event.meta)
+            # Production TelemetryEvent model doesn't have 'meta', use token_usage or None
+            event_meta = getattr(event, 'meta', None) or getattr(event, 'token_usage', None)
+            provider = extract_model_provider(event.source, event_meta)
             model_providers[provider] = model_providers.get(provider, 0) + 1
         
         # Calculate external dependency rate (non-hybrid providers)
@@ -603,7 +605,9 @@ async def get_sanayi_systems(
             data["total_events"] += 1
             
             # Track models from telemetry
-            provider = extract_model_provider(telemetry.source, telemetry.meta)
+            # Production TelemetryEvent model doesn't have 'meta', use token_usage or None
+            telemetry_meta = getattr(telemetry, 'meta', None) or getattr(telemetry, 'token_usage', None)
+            provider = extract_model_provider(telemetry.source, telemetry_meta)
             data["models_used"].add(provider)
             
             # Use default ethical score if no IntentLog available
