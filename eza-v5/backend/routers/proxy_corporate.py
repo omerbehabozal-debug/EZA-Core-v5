@@ -430,6 +430,14 @@ async def proxy_analyze(
         # DEBUG: Log analysis result structure
         logger.info(f"[Proxy] Analysis result structure: paragraphs_count={paragraphs_count}, has_paragraphs_key={'paragraphs' in analysis_result}, keys={list(analysis_result.keys())}")
         
+        # Calculate credit cost based on analysis mode
+        # FAST = 1 credit, PRO = 3 credits
+        credit_cost = 1 if analysis_mode == "fast" else 3
+        
+        # TODO: Calculate remaining_credits from organization credits (if credit system is implemented)
+        # For now, remaining_credits is None (not available)
+        remaining_credits = None
+        
         # PRIMARY RISK PATTERN & VIOLATION COLLAPSING
         # NOTE: risk_locations are already collapsed by narrative intent in group_violations()
         # Each risk_location represents ONE primary risk pattern with multiple policies
