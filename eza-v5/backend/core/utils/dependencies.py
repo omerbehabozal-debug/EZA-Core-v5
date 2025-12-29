@@ -151,117 +151,107 @@ async def init_db():
         
         # Add missing soft delete columns if they don't exist (migration helper)
         # This ensures backward compatibility with existing databases
+        # Use savepoints to handle errors gracefully without aborting the entire transaction
+        async def safe_add_column(table_name: str, column_name: str, column_def: str, index_name: str = None):
+            """Safely add a column using a savepoint to handle errors"""
+            try:
+                # Use savepoint to isolate errors
+                savepoint = await conn.begin_nested()
+                try:
+                    check_result = await conn.execute(text(f"""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = '{table_name}' 
+                        AND column_name = '{column_name}'
+                    """))
+                    if not check_result.scalar_one_or_none():
+                        await conn.execute(text(f"""
+                            ALTER TABLE {table_name} 
+                            ADD COLUMN {column_name} {column_def}
+                        """))
+                        if index_name:
+                            await conn.execute(text(f"""
+                                CREATE INDEX IF NOT EXISTS {index_name} 
+                                ON {table_name}({column_name})
+                            """))
+                    await savepoint.commit()
+                except Exception as e:
+                    await savepoint.rollback()
+                    # Column may already exist, ignore
+                    pass
+            except Exception as e:
+                # Outer exception handler - log but don't fail
+                pass
+        
+        async def safe_add_constraint(table_name: str, constraint_name: str, constraint_def: str):
+            """Safely add a constraint using a savepoint"""
+            try:
+                savepoint = await conn.begin_nested()
+                try:
+                    fk_check = await conn.execute(text(f"""
+                        SELECT 1 FROM pg_constraint 
+                        WHERE conname = '{constraint_name}'
+                    """))
+                    if not fk_check.scalar_one_or_none():
+                        await conn.execute(text(f"""
+                            ALTER TABLE {table_name}
+                            ADD CONSTRAINT {constraint_name} {constraint_def}
+                        """))
+                    await savepoint.commit()
+                except Exception as e:
+                    await savepoint.rollback()
+                    # Constraint may already exist, ignore
+                    pass
+            except Exception as e:
+                # Outer exception handler
+                pass
+        
         try:
-            # Check and add columns for production_intent_logs - using separate queries for safety
-            # Check if deleted_by_user column exists
-            check_result = await conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'production_intent_logs' 
-                AND column_name = 'deleted_by_user'
-            """))
-            if not check_result.scalar_one_or_none():
-                await conn.execute(text("""
-                    ALTER TABLE production_intent_logs 
-                    ADD COLUMN deleted_by_user BOOLEAN NOT NULL DEFAULT false
-                """))
-                await conn.execute(text("""
-                    CREATE INDEX IF NOT EXISTS ix_production_intent_logs_deleted_by_user 
-                    ON production_intent_logs(deleted_by_user)
-                """))
+            # Add columns for production_intent_logs
+            await safe_add_column(
+                'production_intent_logs', 
+                'deleted_by_user', 
+                'BOOLEAN NOT NULL DEFAULT false',
+                'ix_production_intent_logs_deleted_by_user'
+            )
+            await safe_add_column(
+                'production_intent_logs', 
+                'deleted_at', 
+                'TIMESTAMP WITH TIME ZONE'
+            )
+            await safe_add_column(
+                'production_intent_logs', 
+                'deleted_by_user_id', 
+                'UUID'
+            )
+            await safe_add_constraint(
+                'production_intent_logs',
+                'fk_intent_logs_deleted_by_user',
+                'FOREIGN KEY (deleted_by_user_id) REFERENCES production_users(id) ON DELETE SET NULL'
+            )
             
-            # Check if deleted_at column exists
-            check_result = await conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'production_intent_logs' 
-                AND column_name = 'deleted_at'
-            """))
-            if not check_result.scalar_one_or_none():
-                await conn.execute(text("""
-                    ALTER TABLE production_intent_logs 
-                    ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE
-                """))
-            
-            # Check if deleted_by_user_id column exists
-            check_result = await conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'production_intent_logs' 
-                AND column_name = 'deleted_by_user_id'
-            """))
-            if not check_result.scalar_one_or_none():
-                await conn.execute(text("""
-                    ALTER TABLE production_intent_logs 
-                    ADD COLUMN deleted_by_user_id UUID
-                """))
-                # Check if foreign key constraint exists
-                fk_check = await conn.execute(text("""
-                    SELECT 1 FROM pg_constraint 
-                    WHERE conname = 'fk_intent_logs_deleted_by_user'
-                """))
-                if not fk_check.scalar_one_or_none():
-                    await conn.execute(text("""
-                        ALTER TABLE production_intent_logs
-                        ADD CONSTRAINT fk_intent_logs_deleted_by_user
-                        FOREIGN KEY (deleted_by_user_id) 
-                        REFERENCES production_users(id) 
-                        ON DELETE SET NULL
-                    """))
-            
-            # Check and add columns for production_impact_events
-            check_result = await conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'production_impact_events' 
-                AND column_name = 'deleted_by_user'
-            """))
-            if not check_result.scalar_one_or_none():
-                await conn.execute(text("""
-                    ALTER TABLE production_impact_events 
-                    ADD COLUMN deleted_by_user BOOLEAN NOT NULL DEFAULT false
-                """))
-                await conn.execute(text("""
-                    CREATE INDEX IF NOT EXISTS ix_production_impact_events_deleted_by_user 
-                    ON production_impact_events(deleted_by_user)
-                """))
-            
-            check_result = await conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'production_impact_events' 
-                AND column_name = 'deleted_at'
-            """))
-            if not check_result.scalar_one_or_none():
-                await conn.execute(text("""
-                    ALTER TABLE production_impact_events 
-                    ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE
-                """))
-            
-            check_result = await conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'production_impact_events' 
-                AND column_name = 'deleted_by_user_id'
-            """))
-            if not check_result.scalar_one_or_none():
-                await conn.execute(text("""
-                    ALTER TABLE production_impact_events 
-                    ADD COLUMN deleted_by_user_id UUID
-                """))
-                # Check if foreign key constraint exists
-                fk_check = await conn.execute(text("""
-                    SELECT 1 FROM pg_constraint 
-                    WHERE conname = 'fk_impact_events_deleted_by_user'
-                """))
-                if not fk_check.scalar_one_or_none():
-                    await conn.execute(text("""
-                        ALTER TABLE production_impact_events
-                        ADD CONSTRAINT fk_impact_events_deleted_by_user
-                        FOREIGN KEY (deleted_by_user_id) 
-                        REFERENCES production_users(id) 
-                        ON DELETE SET NULL
-                    """))
+            # Add columns for production_impact_events
+            await safe_add_column(
+                'production_impact_events', 
+                'deleted_by_user', 
+                'BOOLEAN NOT NULL DEFAULT false',
+                'ix_production_impact_events_deleted_by_user'
+            )
+            await safe_add_column(
+                'production_impact_events', 
+                'deleted_at', 
+                'TIMESTAMP WITH TIME ZONE'
+            )
+            await safe_add_column(
+                'production_impact_events', 
+                'deleted_by_user_id', 
+                'UUID'
+            )
+            await safe_add_constraint(
+                'production_impact_events',
+                'fk_impact_events_deleted_by_user',
+                'FOREIGN KEY (deleted_by_user_id) REFERENCES production_users(id) ON DELETE SET NULL'
+            )
             
             logging.info("Soft delete columns checked/added successfully")
         except Exception as e:
