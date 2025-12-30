@@ -41,7 +41,7 @@ export default function Hero({
           <p className="hero-description text-xl md:text-2xl text-eza-text-secondary mb-12 leading-relaxed max-w-2xl mx-auto">
             EZA, yapay zekâ çıktılarının etik, toplumsal ve regülasyonel etkisini sansürlemeden analiz eder.
             <br />
-            Müdahale etmez; ölçer, açıklar ve görünür kılar.
+            Otomatik veya zorunlu müdahale etmez; ölçer, açıklar ve görünür kılar.
           </p>
           
           <div className="hero-buttons flex justify-center items-center">

@@ -38,8 +38,8 @@ export default function ProxyPage() {
           <p>
             EZA Proxy, ChatGPT, Claude, Gemini, Llama gibi büyük dil modellerinin üstünde çalışan 
             bağımsız bir etik zekâ katmanıdır. Yapay zekâ cevaplarını üretmeden önce veya sonra, 
-            etik, hukuki ve güvenlik açısından değerlendirir — müdahale etmeden, şeffaf ve 
-            denetlenebilir şekilde.
+            etik, hukuki ve güvenlik açısından değerlendirir — otomatik veya zorunlu müdahale etmeden, 
+            şeffaf ve denetlenebilir şekilde.
           </p>
           <p>
             EZA Proxy içeriğe sansür uygulamaz, cevap üretmez, manipüle etmez. Sadece şunu yapar: 
@@ -48,8 +48,9 @@ export default function ProxyPage() {
           </p>
           <p>
             Kurumsal yapılar için tasarlanan bu kontrol altyapısı, tüm LLM çıktılarını merkezi bir 
-            noktadan değerlendirerek, sistem genelinde etik standartları sağlar. Müdahale etmeden, 
-            sadece görünürlük ve denetlenebilirlik sunar.
+            noktadan değerlendirerek, sistem genelinde etik standartları görünür kılar. Otomatik veya 
+            zorunlu müdahale etmeden, sadece görünürlük ve denetlenebilirlik sunar. Kullanıcı talep 
+            ettiğinde, etik iyileştirme önerileri sunabilir; ancak bu öneriler bağlayıcı değildir.
           </p>
           </div>
         </FadeIn>
@@ -70,7 +71,7 @@ export default function ProxyPage() {
             </li>
             <li className="flex items-start">
               <span className="text-eza-green text-2xl mr-3">✓</span>
-              <span>Müdahale etmez — sadece görünürlük ve denetlenebilirlik sağlar</span>
+              <span>Otomatik müdahale etmez — sadece görünürlük ve denetlenebilirlik sağlar</span>
             </li>
             <li className="flex items-start">
               <span className="text-eza-green text-2xl mr-3">✓</span>

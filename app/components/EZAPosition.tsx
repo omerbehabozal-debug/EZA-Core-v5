@@ -44,7 +44,7 @@ export default function EZAPosition() {
             <div className="space-y-4 text-lg text-eza-text-secondary leading-relaxed max-w-3xl mx-auto">
               <div className="bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-gray-200/50 shadow-sm hover:shadow-md hover:border-eza-blue/20 transition-all duration-300">
                 <p className="text-eza-text text-center">
-                  EZA, yapay zekâ sistemlerine müdahale etmez.
+                  EZA, yapay zekâ sistemlerine otomatik veya zorunlu müdahale etmez.
                 </p>
               </div>
               

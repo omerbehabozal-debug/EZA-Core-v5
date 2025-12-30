@@ -49,8 +49,9 @@ export default function StandalonePage() {
                 </p>
                 <p>
                   Standalone chat arayüzü, kullanıcı mesajlarını analiz eder, etik değerlendirmeler yapar 
-                  ve daha iyi alternatifler önerir. Yasaklamaz, engellemez; sadece rehberlik eder. 
-                  Kullanıcılarla etik bir sohbet ortamı sağlarken, mevcut sistemlerinize müdahale etmez.
+                  ve kullanıcı talep ettiğinde etik iyileştirme önerileri sunar. Otomatik olarak yasaklamaz, 
+                  engellemez; sadece gözlem yapar ve görünür kılar. Kullanıcılarla etik bir sohbet ortamı 
+                  sağlarken, mevcut sistemlerinize otomatik veya zorunlu müdahale etmez.
                 </p>
                 <p>
                   EZA Standalone, özellikle chat tabanlı uygulamalar ve müşteri hizmetleri için idealdir. 

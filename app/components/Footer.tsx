@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function Footer() {
   return (
     <footer className="bg-eza-gray border-t border-gray-200/50">
-      <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-16">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-16">
         {/* Brand / Meta Section - Grid DIŞI */}
         <div className="mb-12">
           <div className="mb-6">
@@ -11,15 +11,15 @@ export default function Footer() {
           </div>
           <p className="text-eza-text-secondary text-sm leading-relaxed font-normal max-w-xs">
             Yapay zekâ çıktılarının etik etkilerini
-            müdahale etmeden ölçen ve görünür kılan altyapı.
+            otomatik veya zorunlu müdahale etmeden ölçen ve görünür kılan altyapı.
           </p>
         </div>
 
         {/* Footer Navigation Grid - 4 eşit kolon */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           {/* Ürünler */}
           <div>
-            <h3 className="text-sm font-semibold text-eza-text mb-4">Ürünler</h3>
+            <h3 className="text-sm font-semibold text-eza-text mb-4 mt-0">Ürünler</h3>
             <ul className="space-y-2.5">
               <li>
                 <Link
@@ -50,7 +50,7 @@ export default function Footer() {
 
           {/* Paneller */}
           <div>
-            <h3 className="text-sm font-semibold text-eza-text mb-4">Paneller</h3>
+            <h3 className="text-sm font-semibold text-eza-text mb-4 mt-0">Paneller</h3>
             <ul className="space-y-2.5">
               <li>
                 <Link
@@ -73,7 +73,7 @@ export default function Footer() {
 
           {/* Kaynaklar */}
           <div>
-            <h3 className="text-sm font-semibold text-eza-text-secondary/80 mb-4">Kaynaklar</h3>
+            <h3 className="text-sm font-semibold text-eza-text-secondary/80 mb-4 mt-0">Kaynaklar</h3>
             <ul className="space-y-2.5">
               <li>
                 <Link
@@ -112,7 +112,7 @@ export default function Footer() {
 
           {/* Yasal */}
           <div>
-            <h3 className="text-sm font-semibold text-eza-text-secondary/80 mb-4">Yasal</h3>
+            <h3 className="text-sm font-semibold text-eza-text-secondary/80 mb-4 mt-0">Yasal</h3>
             <ul className="space-y-2.5">
               <li>
                 <Link

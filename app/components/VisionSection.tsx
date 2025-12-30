@@ -39,7 +39,7 @@ export default function VisionSection({
         sansürlemeden analiz eden bir etik gözlem sistemidir.
       </p>
       <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto mt-4 font-medium">
-        Müdahale etmez; ölçer, skorlar ve görünür kılar.
+        Otomatik veya zorunlu müdahale etmez; ölçer, skorlar ve görünür kılar.
       </p>
     </>
   );

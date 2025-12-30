@@ -165,13 +165,13 @@ export const sectors = [
 export const products = [
   {
     title: "Standalone",
-    description: "Bağımsız çalışan etik değerlendirme platformu. Herhangi bir sistemle entegre olmadan, kendi başına etik analiz yapar ve yönlendirmeler sunar.",
+    description: "Bağımsız çalışan etik değerlendirme platformu. Herhangi bir sistemle entegre olmadan, kendi başına etik analiz yapar. Kullanıcı talep ettiğinde etik iyileştirme önerileri sunar.",
     href: "/products/standalone",
     icon: "Shield",
   },
   {
     title: "Proxy",
-    description: "API proxy katmanı olarak çalışan etik kontrol sistemi. Tüm istekleri yönlendirir, zararlı içerikleri tespit eder ve daha iyi alternatifler önerir.",
+    description: "API proxy katmanı olarak çalışan etik kontrol sistemi. Tüm istekleri analiz eder, etik riskleri görünür kılar. Kullanıcı talep ettiğinde etik iyileştirme önerileri sunar.",
     href: "/products/proxy",
     icon: "Globe",
   },
@@ -207,11 +207,11 @@ export const panels = [
 export const faqItems = [
   {
     question: "EZA sansür sistemi mi?",
-    answer: "Hayır. EZA bir sansür sistemi değildir. EZA, teknolojinin daha etik davranmasını sağlayan bir rehberdir. İçeriği yasaklamaz veya cezalandırmaz; bunun yerine daha iyi alternatifler önerir ve yönlendirir.",
+    answer: "Hayır. EZA bir sansür sistemi değildir. EZA, teknolojinin daha etik davranmasını görünür kılan bir gözlem altyapısıdır. İçeriği otomatik olarak yasaklamaz veya cezalandırmaz. Kullanıcı talep ettiğinde etik iyileştirme önerileri sunabilir, ancak bu öneriler bağlayıcı değildir.",
   },
   {
     question: "EZA doğruluk değil, etik odaklı mı?",
-    answer: "Evet. EZA doğruluk kontrolü yapmaz. EZA'nın odak noktası etik davranıştır. Bir içeriğin doğru olup olmadığını değil, etik olup olmadığını değerlendirir ve yönlendirir.",
+    answer: "Evet. EZA doğruluk kontrolü yapmaz. EZA'nın odak noktası etik davranıştır. Bir içeriğin doğru olup olmadığını değil, etik etkilerini ölçer ve görünür kılar. Kullanıcı talep ettiğinde etik iyileştirme önerileri sunabilir.",
   },
   {
     question: "Hangi sektörler kullanabilir?",
@@ -219,7 +219,7 @@ export const faqItems = [
   },
   {
     question: "Teknoloji nasıl yönlendirilir?",
-    answer: "EZA, API proxy katmanı veya standalone mod olarak çalışarak teknolojik sistemleri yönlendirir. Zararlı veya etik olmayan içerikleri tespit eder ve daha iyi alternatifler önerir, ancak içeriği engellemez.",
+    answer: "EZA, API proxy katmanı veya standalone mod olarak çalışarak teknolojik sistemleri gözlemler. Etik riskleri tespit eder ve görünür kılar. Kullanıcı talep ettiğinde etik iyileştirme önerileri sunabilir, ancak içeriği otomatik olarak engellemez.",
   },
   {
     question: "Güvenlik ve etik farkı nedir?",
