@@ -8,6 +8,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
+  const [perspectivesOpen, setPerspectivesOpen] = useState(false);
 
   const navigation = [
     { name: "Ekosistem", href: "/#ecosystem" },
@@ -27,6 +28,14 @@ export default function Header() {
         { name: "Global Ölçekli Paneller", href: "/panels/global-oversight" },
         { name: "Ulusal Regülasyon Panelleri", href: "/panels/national-regulation" },
         { name: "Platform Panel", href: "/panels/platform" },
+      ],
+    },
+    {
+      name: "Gelecek Perspektifleri",
+      children: [
+        { name: "Özelleştirilmiş AI Arayüzleri", href: "/perspectives/customized-ai-interfaces" },
+        { name: "Otonom Araçlar", href: "/perspectives/autonomous-vehicles" },
+        { name: "İnsansı Robotlar", href: "/perspectives/humanoid-robots" },
       ],
     },
     { name: "Dokümantasyon", href: "/documentation" },
@@ -71,7 +80,8 @@ export default function Header() {
               if (item.children) {
                 const isOpen = 
                   (item.name === "Ürünler" && productsOpen) ||
-                  (item.name === "Paneller" && panelsOpen);
+                  (item.name === "Paneller" && panelsOpen) ||
+                  (item.name === "Gelecek Perspektifleri" && perspectivesOpen);
 
                 return (
                   <div
@@ -80,10 +90,12 @@ export default function Header() {
                     onMouseEnter={() => {
                       if (item.name === "Ürünler") setProductsOpen(true);
                       if (item.name === "Paneller") setPanelsOpen(true);
+                      if (item.name === "Gelecek Perspektifleri") setPerspectivesOpen(true);
                     }}
                     onMouseLeave={() => {
                       if (item.name === "Ürünler") setProductsOpen(false);
                       if (item.name === "Paneller") setPanelsOpen(false);
+                      if (item.name === "Gelecek Perspektifleri") setPerspectivesOpen(false);
                     }}
                   >
                     <button className="px-4 py-2 text-eza-text-secondary hover:text-eza-text transition-colors text-sm font-medium relative flex items-center gap-1">
@@ -96,10 +108,12 @@ export default function Header() {
                         onMouseEnter={() => {
                           if (item.name === "Ürünler") setProductsOpen(true);
                           if (item.name === "Paneller") setPanelsOpen(true);
+                          if (item.name === "Gelecek Perspektifleri") setPerspectivesOpen(true);
                         }}
                         onMouseLeave={() => {
                           if (item.name === "Ürünler") setProductsOpen(false);
                           if (item.name === "Paneller") setPanelsOpen(false);
+                          if (item.name === "Gelecek Perspektifleri") setPerspectivesOpen(false);
                         }}
                       >
                         <div className="bg-white rounded-xl shadow-xl border border-gray-200/50 py-2 animate-in fade-in slide-in-from-top-2">

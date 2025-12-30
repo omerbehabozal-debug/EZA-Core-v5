@@ -134,25 +134,33 @@ export default function NationalRegulationPage() {
         <FadeIn delay={400}>
           <div className="max-w-4xl mx-auto">
             <div className="bg-white rounded-xl p-8 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <Icon name="Lock" className="text-eza-blue" size={24} />
-                <h2 className="text-2xl font-semibold text-eza-text">
-                  Erişim ve Yetkilendirme
-                </h2>
+              <h2 className="text-2xl font-semibold text-eza-text mb-6">
+                Erişim ve Operasyonel Süreç
+              </h2>
+              <div className="space-y-4 text-eza-text-secondary leading-relaxed mb-6">
+                <p>
+                  Ulusal Regülasyon Panelleri, ilgili düzenleyici kurumlar ve sektör temsilcileriyle yapılan profesyonel görüşmeler sonucunda EZA tarafından özel olarak yapılandırılır.
+                </p>
+                <p>
+                  Her panel:
+                </p>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>İlgili regülasyon çerçevesine göre özelleştirilir</li>
+                  <li>Ayrı domain ve kapalı erişim modeliyle çalışır</li>
+                  <li>Yetkilendirme ve kullanıcı tanımlamaları EZA tarafından yönetilir</li>
+                </ul>
+                <p>
+                  Bu panellere doğrudan bireysel başvuru veya açık kayıt bulunmamaktadır.
+                </p>
               </div>
-              <p className="text-eza-text-secondary mb-6 leading-relaxed">
-                Ulusal Regülasyon Panelleri yalnızca yetkili düzenleyici kurumlar ve davetli kullanıcılar tarafından erişilebilir. Her panel, ilgili sektör ve regülasyon çerçevesine göre ayrı ayrı yetkilendirilir.
-              </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <a
-                  href="https://platform.ezacore.ai/platform/login"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/contact"
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-eza-blue text-white rounded-lg hover:bg-eza-blue/90 transition-colors font-medium"
                 >
-                  Yetkili Giriş
-                  <Icon name="ExternalLink" size={18} />
-                </a>
+                  Regülasyon Süreci Hakkında Bilgi Al
+                  <Icon name="ArrowRight" size={18} />
+                </Link>
                 <Link
                   href="/#ecosystem"
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-eza-blue border border-eza-blue rounded-lg font-semibold hover:bg-eza-blue/5 transition-all"
