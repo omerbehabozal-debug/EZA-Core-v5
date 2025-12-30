@@ -74,6 +74,13 @@ export const ecosystemItems = {
       href: "/panels/national-regulation",
       icon: "Building2",
     },
+    {
+      title: "Platform Panel",
+      description: "Organizasyon oluşturma, kullanıcı ve yetki yönetimi için merkezi kontrol katmanı. Proxy ve diğer kurumsal panellere erişim buradan tanımlanır.",
+      href: "/panels/platform",
+      icon: "LayoutGrid",
+      note: "Kurumsal kullanım için başlangıç noktası.",
+    },
   ],
   modules: [
     {

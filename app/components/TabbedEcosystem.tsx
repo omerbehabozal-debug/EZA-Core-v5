@@ -100,6 +100,11 @@ export default function TabbedEcosystem() {
                             ))}
                           </ul>
                         )}
+                        {(item as any).note && (
+                          <p className="text-xs text-eza-text-secondary/60 italic mt-3 pt-3 border-t border-gray-200/50">
+                            {(item as any).note}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center text-eza-blue font-medium text-sm mt-4">

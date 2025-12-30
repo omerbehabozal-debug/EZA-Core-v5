@@ -26,6 +26,7 @@ export default function Header() {
       children: [
         { name: "Global Ölçekli Paneller", href: "/panels/global-oversight" },
         { name: "Ulusal Regülasyon Panelleri", href: "/panels/national-regulation" },
+        { name: "Platform Panel", href: "/panels/platform" },
       ],
     },
     { name: "Dokümantasyon", href: "/documentation" },
