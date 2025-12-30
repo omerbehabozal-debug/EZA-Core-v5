@@ -113,8 +113,33 @@ def safe_rewrite(
     if has_how_to_obfuscated and len(llm_output) > 50 and has_harmful_keywords:
         return _get_safe_fallback_message()
     
+    # CRITICAL: Check for illegal activity patterns in input (hacking, unauthorized access, etc.)
+    # If input contains illegal activity patterns → ALWAYS block (regardless of output content)
+    # This ensures illegal activity requests always get safe fallback message
+    illegal_activity_patterns = [
+        r"hack\s+into", r"unauthorized\s+access", r"break\s+into", r"steal\s+data",
+        r"hack\s+.*email", r"hack\s+.*account", r"hack\s+.*system",
+        r"illegal\s+activity", r"commit\s+crime", r"violate\s+law",
+        r"tell\s+me\s+how\s+to\s+hack", r"how\s+to\s+hack\s+into"
+    ]
+    user_message_lower = user_message.lower()
+    has_illegal_activity = any(
+        re.search(pattern, user_message_lower, re.IGNORECASE)
+        for pattern in illegal_activity_patterns
+    )
+    
+    # CRITICAL: If input is illegal activity → ALWAYS block (regardless of output)
+    # This ensures illegal activity requests always trigger safety rewrite
+    if has_illegal_activity:
+        return _get_safe_fallback_message()
+    
     # If output is actively promoting harm AND has high risk → block with fallback
     if is_promoting_harm and (output_risk_level == "high" or output_risk_score > 0.7):
+        return _get_safe_fallback_message()
+    
+    # CRITICAL: If alignment is poor (< 60) AND output is risky → block
+    # This catches cases where AI generates risky output for safe/risky inputs
+    if alignment_score < 60 and output_risk_score > 0.5:
         return _get_safe_fallback_message()
     
     # If output has very poor alignment (< 30) AND high risk → block

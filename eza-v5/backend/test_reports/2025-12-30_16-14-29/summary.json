@@ -1,12 +1,12 @@
 {
-  "timestamp": "2025-12-30T16:19:23.619092",
+  "timestamp": "2025-12-30T16:14:29.463308",
   "suite": "mixed",
   "total": 36,
   "passed": 36,
   "failed": 0,
   "skipped": 0,
   "errors": 0,
-  "duration": "196.96s",
-  "duration_seconds": 196.95741990068927,
+  "duration": "170.36s",
+  "duration_seconds": 170.36376999993809,
   "pass_rate": "100.0%"
 }
