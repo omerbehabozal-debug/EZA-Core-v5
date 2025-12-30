@@ -26,7 +26,7 @@ export default function StandalonePage() {
 
   return (
     <>
-      <div className="relative bg-gradient-to-br from-eza-gray via-white to-eza-gray py-20 min-h-[60vh] flex items-center overflow-hidden">
+      <div className="relative bg-gradient-to-br from-slate-200 via-blue-100/80 to-slate-100 py-20 min-h-[60vh] flex items-center overflow-hidden">
         {/* Video Background */}
         <HeroVisual 
           videoSrc="/videos/8a491491-2330-493d-a26f-5297f32ab0e6_watermark.mp4"

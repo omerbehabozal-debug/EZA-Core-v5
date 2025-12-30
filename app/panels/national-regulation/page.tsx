@@ -25,7 +25,7 @@ export default function NationalRegulationPage() {
 
   return (
     <>
-      <div className="bg-gradient-to-br from-eza-gray via-white to-eza-gray py-20" id="top">
+      <div className="bg-gradient-to-br from-slate-200 via-blue-100/80 to-slate-100 py-20" id="top">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <FadeIn>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-eza-blue/10 text-eza-blue text-sm font-semibold rounded-full border border-eza-blue/20 mb-4">
