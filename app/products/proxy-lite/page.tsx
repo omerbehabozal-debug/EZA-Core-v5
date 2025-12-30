@@ -41,7 +41,7 @@ export default function ProxyLitePage() {
         </div>
       </div>
 
-      <Section className="bg-white">
+      <Section className="bg-white !pt-12 md:!pt-16 lg:!pt-20 !pb-24 md:!pb-32 lg:!pb-40">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <FadeIn>
