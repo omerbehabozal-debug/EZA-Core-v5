@@ -142,3 +142,4 @@
 {"timestamp": "2025-12-30T17:13:18.939792", "suite": "behavioral_extended", "total": 1, "passed": 0, "failed": 1, "skipped": 0, "errors": 0, "duration": "2.16s", "duration_seconds": 2.1606108997948468, "pass_rate": "0.0%"}
 {"timestamp": "2025-12-30T17:15:38.074490", "suite": "behavioral_extended", "total": 2, "passed": 1, "failed": 1, "skipped": 0, "errors": 0, "duration": "4.74s", "duration_seconds": 4.744860499864444, "pass_rate": "50.0%"}
 {"timestamp": "2025-12-30T17:16:34.118930", "suite": "behavioral_extended", "total": 2, "passed": 2, "failed": 0, "skipped": 0, "errors": 0, "duration": "3.59s", "duration_seconds": 3.59068759996444, "pass_rate": "100.0%"}
+{"timestamp": "2025-12-30T18:05:44.887508", "suite": "mixed", "total": 327, "passed": 303, "failed": 24, "skipped": 0, "errors": 0, "duration": "1639.63s", "duration_seconds": 1639.6258420993108, "pass_rate": "92.7%"}

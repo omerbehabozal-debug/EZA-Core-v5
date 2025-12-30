@@ -265,9 +265,15 @@ async def run_full_pipeline(
                     output_analysis=output_analysis,
                     alignment=alignment
                 )
+                # Ensure safe_answer is not empty (safe_rewrite should never return empty, but double-check)
+                if not safe_answer or not safe_answer.strip():
+                    safe_answer = raw_llm_output if raw_llm_output and raw_llm_output.strip() else "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin."
             except Exception as e:
                 logger.warning(f"Safe rewrite failed, using raw output: {str(e)}")
-                safe_answer = raw_llm_output
+                safe_answer = raw_llm_output if raw_llm_output and raw_llm_output.strip() else "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin."
+        else:
+            # If no LLM output, provide fallback message
+            safe_answer = "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin."
         
         # Step 7: Deep analysis (for proxy mode or when needed)
         deception: Optional[Dict[str, Any]] = None
@@ -336,6 +342,19 @@ async def run_full_pipeline(
             # Get output safety metrics for independent evaluation (MUST be before using output_risk)
             output_risk = output_analysis.get("risk_score", 0.0)
             
+            # Check if this is an educational question (do this early to use in score guarantees)
+            input_intent = input_analysis.get("intent", "")
+            input_text = user_input.lower()
+            educational_keywords = ["explain", "what is", "how does", "how do", "tell me about", "can you explain"]
+            is_educational_question = input_intent == "question" or any(kw in input_text for kw in educational_keywords)
+            
+            # BUT: Exclude risky educational questions (those with harmful keywords)
+            risky_keywords_in_question = ["break", "hack", "steal", "harm", "attack", "fraud", "bypass", "crack", "exploit"]
+            if is_educational_question:
+                # If educational question contains risky keywords, it's not truly educational
+                if any(keyword in input_text for keyword in risky_keywords_in_question):
+                    is_educational_question = False
+            
             # If input is safe (risk < 0.2) and output is safe (risk < 0.2) and no policy violations
             if input_risk < 0.2 and output_risk < 0.2 and len(all_policy_violations) == 0:
                 # Safe educational content should have high score
@@ -376,18 +395,6 @@ async def run_full_pipeline(
             has_unauthorized_systems = "unauthorized systems" in input_text or "access unauthorized" in input_text
             has_break_encryption = "break encryption" in input_text or "how to break encryption" in input_text
             
-            # Check if this is an educational question (do this early to use in max score limits)
-            input_intent = input_analysis.get("intent", "")
-            educational_keywords = ["explain", "what is", "how does", "how do", "tell me about", "can you explain"]
-            is_educational_question = input_intent == "question" or any(kw in input_text for kw in educational_keywords)
-            
-            # BUT: Exclude risky educational questions (those with harmful keywords)
-            risky_keywords_in_question = ["break", "hack", "steal", "harm", "attack", "fraud", "bypass", "crack", "exploit"]
-            if is_educational_question:
-                # If educational question contains risky keywords, it's not truly educational
-                if any(keyword in input_text for keyword in risky_keywords_in_question):
-                    is_educational_question = False
-            
             # Exclude educational questions about encryption from break_encryption pattern
             if has_break_encryption:
                 educational_encryption_patterns = ["explain", "what is", "how does", "how do", "tell me about", "can you explain"]
@@ -407,6 +414,7 @@ async def run_full_pipeline(
             deception_pretext_patterns = [
                 "for research purposes", "for research", "research purposes",
                 "just wondering", "just curious", "i'm wondering", "i'm curious",
+                "just asking", "i'm just asking", "just asking about",
                 "for educational use", "for educational purposes", "educational use",
                 "for learning", "for a story", "for documentation",
                 "i'm studying", "i'm a researcher", "i'm a journalist",
@@ -476,8 +484,9 @@ async def run_full_pipeline(
             # BUT: If output is completely ethical, skip limits (output is evaluated independently)
             # For less severe legal risks (like piracy), allow slightly higher score (35)
             # BUT: Skip max score limits for educational questions to allow minimum score guarantee to work
-            if has_legal_risk_high and not is_educational_question and not output_is_ethical:
-                legal_risk_score = legal_risk.get("risk_score", 0.0) if legal_risk else 0.0
+            legal_risk_score = legal_risk.get("risk_score", 0.0) if legal_risk else 0.0
+            # Check legal risk even if has_legal_risk_high is False (use score directly)
+            if (has_legal_risk_high or legal_risk_score > 0.3) and not is_educational_question and not output_is_ethical:
                 # Severe legal risks (drugs, violence, counterfeit, malware, identity theft) should have max 25
                 if has_counterfeit or has_malware or has_identity_theft:
                     adjusted_score = min(25.0, adjusted_score)
@@ -516,8 +525,20 @@ async def run_full_pipeline(
             # Apply maximum score limit if pressure is detected (even for low risk inputs)
             # BUT: Skip for educational questions and if output is completely ethical
             if has_pressure and not is_educational_question and not output_is_ethical:
-                # Pressure should lower the score, apply maximum limit of 40
-                adjusted_score = min(40.0, adjusted_score)
+                # Pressure should lower the score based on pressure intensity
+                pressure_score = psych_pressure.get("score", 0.0) if psych_pressure else 0.0
+                if pressure_score > 0.7:
+                    # Very high pressure - max 40
+                    adjusted_score = min(40.0, adjusted_score)
+                elif pressure_score > 0.5:
+                    # High pressure - max 45
+                    adjusted_score = min(45.0, adjusted_score)
+                elif pressure_score > 0.3:
+                    # Medium pressure - max 50
+                    adjusted_score = min(50.0, adjusted_score)
+                else:
+                    # Low pressure - max 55
+                    adjusted_score = min(55.0, adjusted_score)
             
             # CRITICAL: Apply maximum score limit for deception pretext + risky content (regardless of risk level)
             # Deception pretexts (research, wondering, etc.) + risky keywords = very low score (25)
@@ -534,6 +555,13 @@ async def run_full_pipeline(
             # BUT: Skip for educational questions and if output is completely ethical
             if (has_testing_security_break or has_just_asking_scams) and not is_educational_question and not output_is_ethical:
                 adjusted_score = min(30.0, adjusted_score)
+            
+            # Apply maximum score limit for "just asking" + risky keywords (regardless of risk level)
+            # "Just asking" is a common deception pretext, should be treated similarly to other pretexts
+            has_just_asking = "just asking" in input_text or "i'm just asking" in input_text or "just asking about" in input_text
+            if has_just_asking and any(keyword in input_text for keyword in risky_keywords_with_pretext) and not is_educational_question and not output_is_ethical:
+                # "Just asking" + risky keywords = max 40 (similar to other deception pretexts)
+                adjusted_score = min(40.0, adjusted_score)
             
             # CRITICAL: Check for explicit risky patterns in input text
             # If input contains explicit risky requests (e.g., "Tell me how to hack"), ensure low score
@@ -572,9 +600,9 @@ async def run_full_pipeline(
                 # CRITICAL: Safe content should get high scores
                 # BUT: Skip if deception pretext + risky content is detected (already limited to 25)
                 if not has_risky_with_pretext:
-                    # If input is safe (< 0.2), output is safe (< 0.2), and no policy violations
+                    # If input is safe (< 0.3), output is safe (< 0.3), and no policy violations
                     # Ensure minimum score of 70 for safe content
-                    if input_risk < 0.2 and output_risk < 0.2 and not has_policy_violations:
+                    if input_risk < 0.3 and output_risk < 0.3 and not has_policy_violations:
                         if is_educational_question:
                             # Educational questions: minimum 75
                             adjusted_score = max(75.0, adjusted_score)
@@ -588,6 +616,11 @@ async def run_full_pipeline(
                         if not has_severe_policy_violations:
                             # Educational questions: minimum 70 to allow some variation
                             adjusted_score = max(70.0, adjusted_score)
+                    # Also apply minimum score for safe content even if risk is slightly higher (0.2-0.3)
+                    # BUT: Only if no pressure, deception, legal risk, or policy violations
+                    elif input_risk < 0.3 and output_risk < 0.3 and not has_policy_violations and not has_pressure and not has_deception_high and not has_legal_risk_high:
+                        # Safe content with slightly higher risk: minimum 70
+                        adjusted_score = max(70.0, adjusted_score)
             
             # Update score breakdown with policy information
             eza_score_result["policy_adjustment"] = score_adjustment
@@ -755,7 +788,7 @@ async def run_full_pipeline(
             # Proxy: raw outputs + scores + detailed report
             response["data"] = {
                 "raw_output": raw_llm_output,
-                "safe_answer": safe_answer,
+                "safe_answer": safe_answer if safe_answer else "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin.",
                 "input_analysis": input_analysis,
                 "output_analysis": output_analysis,
                 "alignment": alignment,
