@@ -30,6 +30,19 @@ const config: Config = {
         "88": "22rem",
         "128": "32rem",
       },
+      keyframes: {
+        "bounce-soft": {
+          "0%, 100%": {
+            transform: "translateY(0)",
+          },
+          "50%": {
+            transform: "translateY(8px)",
+          },
+        },
+      },
+      animation: {
+        "bounce-soft": "bounce-soft 2s ease-in-out infinite",
+      },
     },
   },
   plugins: [],

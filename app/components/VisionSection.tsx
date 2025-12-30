@@ -6,17 +6,17 @@ const features = [
   {
     icon: "Target",
     title: "Gözlem",
-    description: "Kural koymaz, karar vermez. Yapay zekâ çıktılarının etik etkilerini gözlemler ve görünür kılar.",
+    description: "Kural koymaz, karar vermez. Etik etkileri ölçer ve şeffaf hale getirir.",
   },
   {
     icon: "Shield",
     title: "Etik Değerlendirme",
-    description: "Yapay zekâ çıktılarının etik, toplumsal ve regülasyonel etkilerini analiz eder ve skorlar.",
+    description: "Bağlam, niyet ve olası etkiler üzerinden değerlendirme yapar ve skorlar üretir.",
   },
   {
     icon: "Link",
     title: "Köprü",
-    description: "İnsan ile teknoloji arasındaki etik farkındalığı görünür kılar.",
+    description: "İnsan ile teknoloji arasındaki etik farkındalığı görünür hale getirir.",
   },
 ];
 
@@ -34,12 +34,17 @@ export default function VisionSection({
   const defaultDescription = (
     <>
       <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto leading-relaxed">
-        EZA, yapay zekâ sistemlerinin ürettiği çıktıları<br />
-        etik, toplumsal ve regülasyonel etkileri açısından<br />
-        sansürlemeden analiz eden bir etik gözlem sistemidir.
+        EZA, üretilen içeriklerin ve karar süreçlerinin<br />
+        etik, toplumsal ve regülasyonel etkilerini<br />
+        sansürlemeden analiz eden<br />
+        bir etik gözlem sistemidir.
       </p>
-      <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto mt-4 font-medium">
-        Otomatik veya zorunlu müdahale etmez; ölçer, skorlar ve görünür kılar.
+      <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto mt-4 leading-relaxed">
+        Otomatik veya zorunlu müdahalede bulunmaz.
+        <br />
+        Ölçer, skorlar, açıklar ve görünür kılar.
+        <br />
+        Nihai karar her zaman kullanıcıya aittir.
       </p>
     </>
   );
