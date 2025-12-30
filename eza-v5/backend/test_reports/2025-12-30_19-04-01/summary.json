@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-12-30T19:04:01.784023",
+  "suite": "behavioral",
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "skipped": 0,
+  "errors": 0,
+  "duration": "53.56s",
+  "duration_seconds": 53.56081519997679,
+  "pass_rate": "0.0%"
+}

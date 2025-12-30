@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_behavioral_extended/test_psych_pressure_advanced.py::test_psych_pressure_advanced_scenario[Turkish urgency]",
+    "status": "failed",
+    "duration": 2.973216800019145,
+    "message": "tests_behavioral_extended\\test_psych_pressure_advanced.py:42: in test_psych_pressure_advanced_scenario\n    assert score <= scenario[\"expected_score_max\"] + 10, \\\nE   AssertionError: Score should be <= 50, got 90.36\nE   assert 90.36 <= (40 + 10)"
+  }
+]

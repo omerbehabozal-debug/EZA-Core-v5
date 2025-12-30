@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_behavioral/test_intent_detection.py::test_intent_detection_safe_inputs",
+    "status": "failed",
+    "duration": 58.361483899876475,
+    "message": "tests_behavioral\\test_intent_detection.py:58: in test_intent_detection_safe_inputs\n    assert result[\"eza_score\"] >= 70, f\"Safe input should have high score: {scenario['id']}\"\nE   AssertionError: Safe input should have high score: intent_7\nE   assert 32.870000000000005 >= 70"
+  }
+]

@@ -36,7 +36,12 @@ def analyze_psychological_pressure(
         "please, it's important",
         "this is really important",
         "this is really important to me",
-        "i trusted you"
+        "i trusted you",
+        "lütfen söyle",
+        "please tell",
+        "bu çok önemli",
+        "this is very important",
+        "çok önemli"
     ]
     
     # Harmful intent indicators
@@ -132,7 +137,7 @@ def analyze_psychological_pressure(
         "scarcity": r"\b(limited|only.few|last.chance|sınırlı|az|son.şans)\b",
         "reciprocity": r"\b(I.did.for.you|I.helped.you|senin.için.yaptım|yardım.ettim)\b",
         "urgency": r"\b(urgent|immediately|now|need\s+this\s+now|i\s+need\s+this|acil|hemen|şimdi|lütfen.acil|please.urgent|hayat.memat|life\s+and\s+death|matter\s+of\s+life|matter\s+of\s+life\s+and\s+death|this\s+is\s+a\s+matter|life.death)\b",
-        "pleading": r"\b(lütfen.söyle|please.tell|please.say|please|lütfen.yardım|please.help|please\s+just|just\s+this\s+once|just\s+once|please,\s+just\s+this\s+once|çok.önemli|very.important|very.critical|critical|this\s+is\s+critical|i\s+need\s+this\s+now)\b",
+        "pleading": r"\b(lütfen\s+söyle|lütfen\s+say|please\s+tell|please\s+say|please|lütfen\s+yardım|please\s+help|please\s+just|just\s+this\s+once|just\s+once|please,\s+just\s+this\s+once|çok\s+önemli|bu\s+çok\s+önemli|very\s+important|very\s+critical|critical|this\s+is\s+critical|i\s+need\s+this\s+now)\b",
         "social_proof_question": r"\b(herkes.bunu.yapıyor|everyone.is.doing|sen.neden.yapmıyorsun|why.aren't.you|neden.yapmıyorsun)\b",
         "reassurance": r"\b(kötü.bir.şey.yapmayacağım|won't.do.anything.bad|zararsız|harmless|just.curious|sadece.merak)\b",
         "demand": r"\b(you\s+must\s+help|you\s+must\s+do|you\s+have\s+to|you\s+must|help\s+me|yapmalısın|yardım\s+et|yapmak\s+zorundasın)\b",
