@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { sectors } from "@/lib/constants";
 import FadeIn from "./FadeIn";
 import Icon from "./Icon";
@@ -13,7 +12,7 @@ export default function SectorGrid() {
               Sektör Çözümleri
             </h2>
             <p className="text-xl text-eza-text-secondary max-w-2xl mx-auto">
-              Her sektör için özelleştirilmiş etik çözümler
+              Her sektör için özelleştirilebilir etik çözümler
             </p>
           </div>
         </FadeIn>
@@ -21,10 +20,7 @@ export default function SectorGrid() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {sectors.map((sector, index) => (
             <FadeIn key={sector.title} delay={index * 30}>
-              <Link
-                href={sector.href}
-                className="block bg-white rounded-lg p-5 border border-gray-200 hover:border-eza-blue hover:shadow-md transition-all h-full"
-              >
+              <div className="block bg-white rounded-lg p-5 border border-gray-200 h-full">
                 <div className="flex flex-col h-full">
                   <div className="mb-4">
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-eza-blue/10 mb-3">
@@ -38,7 +34,7 @@ export default function SectorGrid() {
                     </p>
                   </div>
                 </div>
-              </Link>
+              </div>
             </FadeIn>
           ))}
         </div>

@@ -9,7 +9,6 @@ import Icon from "./Icon";
 const tabs = [
   { id: "core", label: "Ürünler", icon: "Cpu" },
   { id: "panels", label: "Paneller", icon: "LayoutGrid" },
-  { id: "modules", label: "Çözümler", icon: "Shield" },
 ];
 
 export default function TabbedEcosystem() {
@@ -21,8 +20,6 @@ export default function TabbedEcosystem() {
         return ecosystemItems.core;
       case "panels":
         return ecosystemItems.panels;
-      case "modules":
-        return ecosystemItems.modules;
       default:
         return ecosystemItems.core;
     }

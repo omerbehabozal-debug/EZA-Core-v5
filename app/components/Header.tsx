@@ -11,10 +11,10 @@ export default function Header() {
   const [productsOpen, setProductsOpen] = useState(false);
 
   const navigation = [
-    { name: "Ecosystem", href: "/#ecosystem" },
+    { name: "Ekosistem", href: "/#ecosystem" },
     { name: "Hakkımızda", href: "/about" },
       {
-        name: "EZA-Core Products",
+        name: "Ürünler",
         href: "#",
         children: [
           { name: "Standalone", href: "/products/standalone" },
@@ -23,7 +23,7 @@ export default function Header() {
         ],
       },
     {
-      name: "Panels",
+      name: "Paneller",
       children: [
         { name: "Regulator Panel", href: "/panels/regulator" },
         { name: "Corporate Panel", href: "/panels/corporate" },
@@ -33,7 +33,7 @@ export default function Header() {
       ],
     },
     {
-      name: "Solutions",
+      name: "Çözümler",
       children: [
         { name: "Education", href: "/solutions/education" },
         { name: "Banking", href: "/solutions/banking" },
@@ -45,8 +45,8 @@ export default function Header() {
         { name: "Public Sector", href: "/solutions/public-sector" },
       ],
     },
-    { name: "Documentation", href: "/documentation" },
-    { name: "Contact", href: "/contact" },
+    { name: "Dokümantasyon", href: "/documentation" },
+    { name: "İletişim", href: "/contact" },
   ];
 
   const handleScrollTo = (href: string) => {
@@ -86,55 +86,41 @@ export default function Header() {
             {navigation.map((item) => {
               if (item.children) {
                 const isOpen = 
-                  (item.name === "EZA-Core Products" && productsOpen) ||
-                  (item.name === "Panels" && panelsOpen) ||
-                  (item.name === "Solutions" && solutionsOpen);
+                  (item.name === "Ürünler" && productsOpen) ||
+                  (item.name === "Paneller" && panelsOpen) ||
+                  (item.name === "Çözümler" && solutionsOpen);
 
                 return (
                   <div
                     key={item.name}
                     className="relative group"
                     onMouseEnter={() => {
-                      if (item.name === "EZA-Core Products") setProductsOpen(true);
-                      if (item.name === "Panels") setPanelsOpen(true);
-                      if (item.name === "Solutions") setSolutionsOpen(true);
+                      if (item.name === "Ürünler") setProductsOpen(true);
+                      if (item.name === "Paneller") setPanelsOpen(true);
+                      if (item.name === "Çözümler") setSolutionsOpen(true);
                     }}
                     onMouseLeave={() => {
-                      if (item.name === "EZA-Core Products") setProductsOpen(false);
-                      if (item.name === "Panels") setPanelsOpen(false);
-                      if (item.name === "Solutions") setSolutionsOpen(false);
+                      if (item.name === "Ürünler") setProductsOpen(false);
+                      if (item.name === "Paneller") setPanelsOpen(false);
+                      if (item.name === "Çözümler") setSolutionsOpen(false);
                     }}
                   >
-                    <button className={`px-4 py-2 text-eza-text-secondary hover:text-eza-text transition-colors text-sm font-medium relative ${
-                      item.name === "EZA-Core Products" 
-                        ? "flex flex-col items-center justify-center leading-[1.1] whitespace-nowrap min-w-[110px] pr-6" 
-                        : "flex items-center gap-1"
-                    }`}>
-                      {item.name === "EZA-Core Products" ? (
-                        <>
-                          <span className="block">EZA-Core</span>
-                          <span className="block -mt-0.5">Products</span>
-                          <Icon name="ChevronDown" size={14} className="absolute right-2 top-1/2 -translate-y-1/2" />
-                        </>
-                      ) : (
-                        <>
-                          {item.name}
-                          <Icon name="ChevronDown" size={14} />
-                        </>
-                      )}
+                    <button className="px-4 py-2 text-eza-text-secondary hover:text-eza-text transition-colors text-sm font-medium relative flex items-center gap-1">
+                      {item.name}
+                      <Icon name="ChevronDown" size={14} />
                     </button>
                     {isOpen ? (
                       <div 
                         className="absolute top-full left-0 pt-2 w-64 z-50"
                         onMouseEnter={() => {
-                          if (item.name === "EZA-Core Products") setProductsOpen(true);
-                          if (item.name === "Panels") setPanelsOpen(true);
-                          if (item.name === "Solutions") setSolutionsOpen(true);
+                          if (item.name === "Ürünler") setProductsOpen(true);
+                          if (item.name === "Paneller") setPanelsOpen(true);
+                          if (item.name === "Çözümler") setSolutionsOpen(true);
                         }}
                         onMouseLeave={() => {
-                          if (item.name === "EZA-Core Products") setProductsOpen(false);
-                          if (item.name === "Panels") setPanelsOpen(false);
-                          if (item.name === "Solutions") setSolutionsOpen(false);
+                          if (item.name === "Ürünler") setProductsOpen(false);
+                          if (item.name === "Paneller") setPanelsOpen(false);
+                          if (item.name === "Çözümler") setSolutionsOpen(false);
                         }}
                       >
                         <div className="bg-white rounded-xl shadow-xl border border-gray-200/50 py-2 animate-in fade-in slide-in-from-top-2">
