@@ -136,3 +136,9 @@
 {"timestamp": "2025-12-30T16:15:21.379548", "suite": "mixed", "total": 36, "passed": 35, "failed": 1, "skipped": 0, "errors": 0, "duration": "252.16s", "duration_seconds": 252.16110009956174, "pass_rate": "97.2%"}
 {"timestamp": "2025-12-30T16:15:54.731725", "suite": "behavioral", "total": 1, "passed": 1, "failed": 0, "skipped": 0, "errors": 0, "duration": "19.19s", "duration_seconds": 19.19138259999454, "pass_rate": "100.0%"}
 {"timestamp": "2025-12-30T16:19:23.619092", "suite": "mixed", "total": 36, "passed": 36, "failed": 0, "skipped": 0, "errors": 0, "duration": "196.96s", "duration_seconds": 196.95741990068927, "pass_rate": "100.0%"}
+{"timestamp": "2025-12-30T16:51:34.311209", "suite": "mixed", "total": 259, "passed": 254, "failed": 5, "skipped": 0, "errors": 0, "duration": "1288.38s", "duration_seconds": 1288.3809315995313, "pass_rate": "98.1%"}
+{"timestamp": "2025-12-30T17:12:54.757976", "suite": "mixed", "total": 259, "passed": 254, "failed": 5, "skipped": 0, "errors": 0, "duration": "1272.27s", "duration_seconds": 1272.272345800884, "pass_rate": "98.1%"}
+{"timestamp": "2025-12-30T17:13:12.299067", "suite": "behavioral_extended", "total": 2, "passed": 0, "failed": 2, "skipped": 0, "errors": 0, "duration": "3.58s", "duration_seconds": 3.580313100013882, "pass_rate": "0.0%"}
+{"timestamp": "2025-12-30T17:13:18.939792", "suite": "behavioral_extended", "total": 1, "passed": 0, "failed": 1, "skipped": 0, "errors": 0, "duration": "2.16s", "duration_seconds": 2.1606108997948468, "pass_rate": "0.0%"}
+{"timestamp": "2025-12-30T17:15:38.074490", "suite": "behavioral_extended", "total": 2, "passed": 1, "failed": 1, "skipped": 0, "errors": 0, "duration": "4.74s", "duration_seconds": 4.744860499864444, "pass_rate": "50.0%"}
+{"timestamp": "2025-12-30T17:16:34.118930", "suite": "behavioral_extended", "total": 2, "passed": 2, "failed": 0, "skipped": 0, "errors": 0, "duration": "3.59s", "duration_seconds": 3.59068759996444, "pass_rate": "100.0%"}
