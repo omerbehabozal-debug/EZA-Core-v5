@@ -6,12 +6,18 @@ import Link from "next/link";
 
 export default function MediaPage() {
   useEffect(() => {
-    // Sayfa yüklendiğinde scroll pozisyonunu en üste al
+    // Sadece doğrudan navigasyonda (link tıklama) scroll'u en üste al
+    // Geri dönüşlerde tarayıcının scroll restoration'ına izin ver
     if (typeof window !== 'undefined') {
-      window.history.scrollRestoration = 'manual';
-      window.scrollTo(0, 0);
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
+      const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      const isDirectNavigation = !navEntry || navEntry.type === 'navigate' || navEntry.type === 'reload';
+      
+      if (isDirectNavigation) {
+        // Sadece yeni sayfa yüklemesinde scroll'u en üste al
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
     }
   }, []);
 
@@ -101,6 +107,11 @@ export default function MediaPage() {
           <Link
             href="/#ecosystem"
             className="inline-block px-8 py-4 bg-eza-blue text-white rounded-lg font-semibold hover:bg-opacity-90 transition-all shadow-lg hover:shadow-xl"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                sessionStorage.setItem('homeScrollSection', 'ecosystem');
+              }
+            }}
           >
             EZA Ekosistemine Dön
           </Link>

@@ -9,12 +9,18 @@ import HeroVisual from "@/app/components/HeroVisual";
 
 export default function StandalonePage() {
   useEffect(() => {
-    // Sayfa yüklendiğinde scroll pozisyonunu en üste al
+    // Sadece doğrudan navigasyonda (link tıklama) scroll'u en üste al
+    // Geri dönüşlerde tarayıcının scroll restoration'ına izin ver
     if (typeof window !== 'undefined') {
-      window.history.scrollRestoration = 'manual';
-      window.scrollTo(0, 0);
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
+      const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      const isDirectNavigation = !navEntry || navEntry.type === 'navigate' || navEntry.type === 'reload';
+      
+      if (isDirectNavigation) {
+        // Sadece yeni sayfa yüklemesinde scroll'u en üste al
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
     }
   }, []);
 
@@ -103,6 +109,13 @@ export default function StandalonePage() {
             <Link
               href="/#ecosystem"
               className="inline-flex items-center gap-2 px-8 py-4 bg-white text-eza-blue border border-eza-blue rounded-lg font-semibold hover:bg-eza-blue/5 transition-all"
+              onClick={() => {
+                // EZA Ekosistemi bölümünün pozisyonunu kaydet
+                if (typeof window !== 'undefined') {
+                  // Anasayfaya yönlendir ve EZA Ekosistemi bölümünün pozisyonunu kaydet
+                  sessionStorage.setItem('homeScrollSection', 'ecosystem');
+                }
+              }}
             >
               EZA Ekosistemine Dön
             </Link>

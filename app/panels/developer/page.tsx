@@ -119,6 +119,11 @@ export default function DeveloperPanelPage() {
             <Link
               href="/#ecosystem"
               className="inline-flex items-center gap-2 px-8 py-4 bg-white text-eza-blue border border-eza-blue rounded-lg font-semibold hover:bg-eza-blue/5 transition-all"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem('homeScrollSection', 'ecosystem');
+                }
+              }}
             >
               EZA Ekosistemine Dön
             </Link>
