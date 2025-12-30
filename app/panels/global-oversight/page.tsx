@@ -29,8 +29,7 @@ export default function GlobalOversightPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <FadeIn>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-eza-blue/10 text-eza-blue text-sm font-semibold rounded-full border border-eza-blue/20 mb-4">
-              <Icon name="Globe" size={16} />
-              EZA Panels
+              EZA Paneller
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-eza-text mb-6">
               Global Ölçekli Paneller

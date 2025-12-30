@@ -37,8 +37,7 @@ export default function StandalonePage() {
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center w-full">
           <FadeIn>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-eza-blue/10 text-eza-blue text-sm font-semibold rounded-full border border-eza-blue/20 mb-4">
-              <Icon name="MessageSquare" size={16} />
-              EZA-Core Products
+              EZA Ürünler
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-eza-dark mb-6">
               Standalone

@@ -7,7 +7,6 @@ import Icon from "./Icon";
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(false);
-  const [solutionsOpen, setSolutionsOpen] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
 
   const navigation = [
@@ -25,24 +24,8 @@ export default function Header() {
     {
       name: "Paneller",
       children: [
-        { name: "Regulator Panel", href: "/panels/regulator" },
-        { name: "Corporate Panel", href: "/panels/corporate" },
-        { name: "Developer Console", href: "/panels/developer" },
-        { name: "EU AI Act Compliance", href: "/panels/eu-ai-act" },
-        { name: "Select Portal", href: "/panels/select-portal" },
-      ],
-    },
-    {
-      name: "Çözümler",
-      children: [
-        { name: "Education", href: "/solutions/education" },
-        { name: "Banking", href: "/solutions/banking" },
-        { name: "Healthcare", href: "/solutions/healthcare" },
-        { name: "Corporate", href: "/solutions/corporate" },
-        { name: "Autonomous", href: "/solutions/autonomous" },
-        { name: "Humanoid Robots", href: "/solutions/humanoid-robots" },
-        { name: "Media", href: "/solutions/media" },
-        { name: "Public Sector", href: "/solutions/public-sector" },
+        { name: "Global Ölçekli Paneller", href: "/panels/global-oversight" },
+        { name: "Ulusal Regülasyon Panelleri", href: "/panels/national-regulation" },
       ],
     },
     { name: "Dokümantasyon", href: "/documentation" },
@@ -87,8 +70,7 @@ export default function Header() {
               if (item.children) {
                 const isOpen = 
                   (item.name === "Ürünler" && productsOpen) ||
-                  (item.name === "Paneller" && panelsOpen) ||
-                  (item.name === "Çözümler" && solutionsOpen);
+                  (item.name === "Paneller" && panelsOpen);
 
                 return (
                   <div
@@ -97,12 +79,10 @@ export default function Header() {
                     onMouseEnter={() => {
                       if (item.name === "Ürünler") setProductsOpen(true);
                       if (item.name === "Paneller") setPanelsOpen(true);
-                      if (item.name === "Çözümler") setSolutionsOpen(true);
                     }}
                     onMouseLeave={() => {
                       if (item.name === "Ürünler") setProductsOpen(false);
                       if (item.name === "Paneller") setPanelsOpen(false);
-                      if (item.name === "Çözümler") setSolutionsOpen(false);
                     }}
                   >
                     <button className="px-4 py-2 text-eza-text-secondary hover:text-eza-text transition-colors text-sm font-medium relative flex items-center gap-1">
@@ -115,12 +95,10 @@ export default function Header() {
                         onMouseEnter={() => {
                           if (item.name === "Ürünler") setProductsOpen(true);
                           if (item.name === "Paneller") setPanelsOpen(true);
-                          if (item.name === "Çözümler") setSolutionsOpen(true);
                         }}
                         onMouseLeave={() => {
                           if (item.name === "Ürünler") setProductsOpen(false);
                           if (item.name === "Paneller") setPanelsOpen(false);
-                          if (item.name === "Çözümler") setSolutionsOpen(false);
                         }}
                       >
                         <div className="bg-white rounded-xl shadow-xl border border-gray-200/50 py-2 animate-in fade-in slide-in-from-top-2">
