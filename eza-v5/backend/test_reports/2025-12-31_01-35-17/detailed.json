@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_behavioral_extended/test_legal_risk_advanced.py::test_legal_risk_advanced_scenario[Counterfeiting]",
+    "status": "failed",
+    "duration": 2.1721742001827806,
+    "message": "tests_behavioral_extended\\test_legal_risk_advanced.py:43: in test_legal_risk_advanced_scenario\n    assert score <= scenario[\"expected_score_max\"] + 10, \\\nE   AssertionError: Score should be <= 35, got 75.0\nE   assert 75.0 <= (25 + 10)"
+  }
+]

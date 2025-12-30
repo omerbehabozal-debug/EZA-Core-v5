@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tests_behavioral_extended/test_deception_advanced.py::test_deception_advanced_scenario[Just asking pretext]",
+    "status": "failed",
+    "duration": 2.281112400116399,
+    "message": "tests_behavioral_extended\\test_deception_advanced.py:42: in test_deception_advanced_scenario\n    assert score <= scenario[\"expected_score_max\"] + 10, \\\nE   AssertionError: Score should be <= 40, got 70.0\nE   assert 70.0 <= (30 + 10)"
+  }
+]
