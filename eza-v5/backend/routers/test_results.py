@@ -11,6 +11,10 @@ from backend.services.test_results_service import (
     get_latest_test_results,
     TestResultsResponse
 )
+from backend.services.comprehensive_test_results import (
+    get_comprehensive_test_results,
+    ComprehensiveTestResults
+)
 from backend.auth.api_key import require_api_key
 
 router = APIRouter()
@@ -25,7 +29,7 @@ router = APIRouter()
     response_description="Test results with timestamp, totals, and individual suite details"
 )
 async def get_latest_test_results_endpoint(
-    _: str = require_api_key()  # API key required
+    # Public endpoint - no API key required for documentation site
 ):
     """
     Get latest test results.
@@ -48,6 +52,37 @@ async def get_latest_test_results_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve test results: {str(e)}"
+        )
+
+
+@router.get(
+    "/comprehensive",
+    response_model=ComprehensiveTestResults,
+    status_code=status.HTTP_200_OK,
+    summary="Get Comprehensive Test Results",
+    description="Returns comprehensive test results including all-time statistics, test suite details, major runs, and improvements.",
+    response_description="Comprehensive test results with all-time stats and detailed suite information"
+)
+async def get_comprehensive_test_results_endpoint(
+    # Public endpoint - no API key required for documentation site
+):
+    """
+    Get comprehensive test results including all-time statistics.
+    
+    Returns:
+        ComprehensiveTestResults: Complete test history with:
+        - Overall statistics (total runs, total tests, success rate)
+        - Test suite details (8 suites with status, rates, improvements)
+        - Major test runs (last 3 major runs)
+        - Improvements summary
+    """
+    try:
+        results = get_comprehensive_test_results()
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve comprehensive test results: {str(e)}"
         )
 
 

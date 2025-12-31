@@ -161,6 +161,8 @@ allowed_origins = [
     "https://tech.ezacore.ai",  # Sanayi panel alternative domain
     "https://finance.ezacore.ai",
     "https://health.ezacore.ai",
+    "https://eza.global",  # Documentation site
+    "https://www.eza.global",  # Documentation site (www)
     # Vercel domains - will be checked dynamically
     "http://localhost:3000",
     "http://localhost:3001",
