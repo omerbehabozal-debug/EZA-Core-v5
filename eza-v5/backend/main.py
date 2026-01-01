@@ -311,6 +311,10 @@ app.include_router(corporate_router.router, prefix="/api/corporate", tags=["Corp
 # Test Results API
 app.include_router(test_results.router, prefix="/api/test-results", tags=["Test Results"])
 
+# Public Test Results API (Snapshot-based, cached)
+from backend.routers import public_test_results
+app.include_router(public_test_results.router, tags=["Public Benchmarks"])
+
 # Monitor API (Live Telemetry - HTTP)
 app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitor"])
 
