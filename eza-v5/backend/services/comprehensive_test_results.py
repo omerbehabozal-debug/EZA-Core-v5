@@ -2,61 +2,284 @@
 """
 Comprehensive Test Results Service
 Provides all-time statistics and comprehensive test history data.
+Production-grade response contract with deduplication and normalization.
 """
 
 import json
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class TestSuiteDetail(BaseModel):
-    """Detailed test suite information"""
+    """Canonical test suite information - single source of truth"""
     name: str
-    name_tr: str
+    name_tr: Optional[str] = None
     test_count: int
     passed: int
     failed: int
-    success_rate: float
-    status: str  # "completed" or "partial"
-    status_tr: str
-    description: str
-    label: str  # "Fake LLM" or "Gerçek LLM"
+    success_rate: float = Field(ge=0.0, le=100.0)
+    status: str = Field(pattern="^(completed|partial)$")
+    status_tr: Optional[str] = None
+    description: Optional[str] = None
+    label: Optional[str] = None
     improvement: Optional[Dict[str, Any]] = None
     details: Optional[Union[Dict[str, Any], List[str]]] = None
 
+    @field_validator('success_rate')
+    @classmethod
+    def round_success_rate(cls, v: float) -> float:
+        """Round success rate to one decimal"""
+        return round(float(v), 1)
+
 
 class LatestRun(BaseModel):
-    """Latest test run information"""
+    """Latest test run information - canonical format"""
     timestamp: str
     total: int
     passed: int
     failed: int
-    success_rate: float
+    success_rate: float = Field(ge=0.0, le=100.0)
+
+    @field_validator('success_rate')
+    @classmethod
+    def round_success_rate(cls, v: float) -> float:
+        """Round success rate to one decimal"""
+        return round(float(v), 1)
+
+    @field_validator('timestamp')
+    @classmethod
+    def normalize_timestamp(cls, v: str) -> str:
+        """Ensure ISO-8601 format with Z suffix"""
+        if isinstance(v, str):
+            # Remove +00:00 and add Z if needed
+            v = v.replace('+00:00', 'Z')
+            if not v.endswith('Z') and '+' not in v:
+                v = v + 'Z'
+        return v
 
 
 class OverallStats(BaseModel):
-    """Overall statistics"""
+    """Overall statistics - canonical format"""
     total_runs: int
     total_tests: int
     total_passed: int
     total_failed: int
-    success_rate: float
+    success_rate: float = Field(ge=0.0, le=100.0)
+
+    @field_validator('success_rate')
+    @classmethod
+    def round_success_rate(cls, v: float) -> float:
+        """Round success rate to one decimal"""
+        return round(float(v), 1)
 
 
 class ComprehensiveTestResults(BaseModel):
-    """Comprehensive test results response - Production-grade contract"""
+    """Comprehensive test results response - production-grade contract"""
     overall: OverallStats
     test_suites: List[TestSuiteDetail]
     latest_runs: List[LatestRun]
-    improvements: Dict[str, Any]
+    improvements: Dict[str, int]
     last_updated: str
+
+    @field_validator('last_updated')
+    @classmethod
+    def normalize_timestamp(cls, v: str) -> str:
+        """Ensure ISO-8601 format with Z suffix"""
+        if isinstance(v, str):
+            v = v.replace('+00:00', 'Z')
+            if not v.endswith('Z') and '+' not in v:
+                v = v + 'Z'
+        return v
+
+
+def normalize_field_name(field_name: str) -> str:
+    """
+    Normalize field names from TR/EN variants to canonical English names.
+    
+    Maps:
+    - ad / name → name
+    - ad_tr / name_tr → name_tr
+    - test_sayısı / test_count → test_count
+    - geçti / passed → passed
+    - başarısız / failed → failed
+    - başarı_oranı / success_rate → success_rate
+    - durum / status → status
+    - durum_tr / status_tr → status_tr
+    - açıklama / description → description
+    - etiket / label → label
+    - iyileştirme / improvement → improvement
+    - detaylar / details → details
+    - zaman_damgası / date / timestamp → timestamp
+    """
+    mapping = {
+        # TR variants
+        "ad": "name",
+        "ad_tr": "name_tr",
+        "test_sayısı": "test_count",
+        "geçti": "passed",
+        "başarısız": "failed",
+        "başarı_oranı": "success_rate",
+        "durum": "status",
+        "durum_tr": "status_tr",
+        "açıklama": "description",
+        "etiket": "label",
+        "iyileştirme": "improvement",
+        "detaylar": "details",
+        "zaman_damgası": "timestamp",
+        # EN variants (already canonical, but ensure consistency)
+        "name": "name",
+        "name_tr": "name_tr",
+        "test_count": "test_count",
+        "passed": "passed",
+        "failed": "failed",
+        "success_rate": "success_rate",
+        "status": "status",
+        "status_tr": "status_tr",
+        "description": "description",
+        "label": "label",
+        "improvement": "improvement",
+        "details": "details",
+        "date": "timestamp",
+        "timestamp": "timestamp",
+    }
+    return mapping.get(field_name.lower(), field_name)
+
+
+def normalize_suite_data(suite_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalize test suite data to canonical format.
+    Handles TR/EN field name variants and type conversion.
+    """
+    normalized = {}
+    
+    # Field name mapping
+    field_mapping = {
+        "name": normalize_field_name,
+        "name_tr": normalize_field_name,
+        "test_count": normalize_field_name,
+        "passed": normalize_field_name,
+        "failed": normalize_field_name,
+        "success_rate": normalize_field_name,
+        "status": normalize_field_name,
+        "status_tr": normalize_field_name,
+        "description": normalize_field_name,
+        "label": normalize_field_name,
+        "improvement": normalize_field_name,
+        "details": normalize_field_name,
+    }
+    
+    # Normalize all fields
+    for key, value in suite_data.items():
+        canonical_key = normalize_field_name(key)
+        if canonical_key in ["name", "name_tr", "status", "status_tr", "description", "label"]:
+            # String fields - strip and convert empty to None
+            normalized[canonical_key] = str(value).strip() if value else None
+            if normalized[canonical_key] == "":
+                normalized[canonical_key] = None
+        elif canonical_key in ["test_count", "passed", "failed"]:
+            # Integer fields
+            try:
+                normalized[canonical_key] = int(value) if value is not None else 0
+            except (ValueError, TypeError):
+                normalized[canonical_key] = 0
+        elif canonical_key == "success_rate":
+            # Float field - round to 1 decimal
+            try:
+                normalized[canonical_key] = round(float(value), 1) if value is not None else 0.0
+            except (ValueError, TypeError):
+                normalized[canonical_key] = 0.0
+        elif canonical_key in ["improvement", "details"]:
+            # Object/array fields - keep as is or None
+            normalized[canonical_key] = value if value else None
+        else:
+            # Unknown field - skip (don't add to response)
+            continue
+    
+    # Ensure required fields have defaults
+    if "name" not in normalized or not normalized["name"]:
+        return None  # Invalid suite, skip
+    
+    # Set defaults for optional fields
+    normalized.setdefault("name_tr", None)
+    normalized.setdefault("status", "partial")
+    normalized.setdefault("status_tr", None)
+    normalized.setdefault("description", None)
+    normalized.setdefault("label", None)
+    normalized.setdefault("improvement", None)
+    normalized.setdefault("details", None)
+    normalized.setdefault("test_count", 0)
+    normalized.setdefault("passed", 0)
+    normalized.setdefault("failed", 0)
+    normalized.setdefault("success_rate", 0.0)
+    
+    return normalized
+
+
+def normalize_run_data(run_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalize latest run data to canonical format.
+    Handles TR/EN field name variants and type conversion.
+    """
+    normalized = {}
+    
+    # Normalize timestamp
+    timestamp_key = None
+    for key in ["timestamp", "date", "zaman_damgası"]:
+        if key in run_data:
+            timestamp_key = key
+            break
+    
+    if timestamp_key:
+        timestamp_value = run_data[timestamp_key]
+        if isinstance(timestamp_value, datetime):
+            normalized["timestamp"] = timestamp_value.isoformat().replace('+00:00', 'Z')
+        elif isinstance(timestamp_value, str):
+            normalized["timestamp"] = timestamp_value.replace('+00:00', 'Z')
+            if not normalized["timestamp"].endswith('Z') and '+' not in normalized["timestamp"]:
+                normalized["timestamp"] = normalized["timestamp"] + 'Z'
+        else:
+            return None  # Invalid timestamp
+    else:
+        return None  # No timestamp found
+    
+    # Normalize numeric fields
+    for key in ["total", "passed", "failed"]:
+        canonical_key = normalize_field_name(key)
+        try:
+            normalized[canonical_key] = int(run_data.get(key, 0))
+        except (ValueError, TypeError):
+            normalized[canonical_key] = 0
+    
+    # Normalize success_rate
+    success_rate_key = normalize_field_name("success_rate")
+    if success_rate_key in run_data:
+        try:
+            normalized["success_rate"] = round(float(run_data[success_rate_key]), 1)
+        except (ValueError, TypeError):
+            # Calculate from passed/total
+            total = normalized.get("total", 0)
+            passed = normalized.get("passed", 0)
+            normalized["success_rate"] = round((passed / total * 100) if total > 0 else 0.0, 1)
+    else:
+        # Calculate from passed/total
+        total = normalized.get("total", 0)
+        passed = normalized.get("passed", 0)
+        normalized["success_rate"] = round((passed / total * 100) if total > 0 else 0.0, 1)
+    
+    return normalized
 
 
 def get_comprehensive_test_results() -> ComprehensiveTestResults:
     """
     Get comprehensive test results including all-time statistics.
+    
+    Returns production-grade response with:
+    - Deduplicated test suites (by name)
+    - Deduplicated latest runs (by timestamp, total, passed, failed)
+    - Normalized field names (TR/EN variants → canonical)
+    - Valid JSON-safe data structure
     
     Returns:
         ComprehensiveTestResults: Complete test history and statistics
@@ -81,11 +304,11 @@ def get_comprehensive_test_results() -> ComprehensiveTestResults:
         except Exception:
             continue
     
-    overall_success_rate = (total_passed_all / total_tests_all * 100) if total_tests_all > 0 else 0.0
+    overall_success_rate = round((total_passed_all / total_tests_all * 100) if total_tests_all > 0 else 0.0, 1)
     
-    # Find latest runs (>= 200 tests) - deduplicated and sorted
+    # Find latest runs (>= 200 tests) - DEDUPLICATED
     latest_runs_list = []
-    seen_runs = set()  # Track by (total, passed, failed) to avoid duplicates
+    seen_runs = set()  # Track by (timestamp, total, passed, failed) to avoid duplicates
     
     for report_file in all_reports:
         try:
@@ -96,21 +319,32 @@ def get_comprehensive_test_results() -> ComprehensiveTestResults:
             if total >= 200:
                 passed = len([t for t in data if t.get('status') == 'passed'])
                 failed = len([t for t in data if t.get('status') == 'failed'])
+                report_date = datetime.fromtimestamp(report_file.stat().st_mtime)
                 
-                # Deduplicate: same (total, passed, failed) = same run
-                run_key = (total, passed, failed)
+                # Create normalized run data
+                run_data = {
+                    "timestamp": report_date.isoformat(),
+                    "total": total,
+                    "passed": passed,
+                    "failed": failed,
+                    "success_rate": (passed / total * 100) if total > 0 else 0.0
+                }
+                
+                normalized_run = normalize_run_data(run_data)
+                if not normalized_run:
+                    continue
+                
+                # Deduplicate: same (timestamp, total, passed, failed) = same run
+                run_key = (
+                    normalized_run["timestamp"],
+                    normalized_run["total"],
+                    normalized_run["passed"],
+                    normalized_run["failed"]
+                )
+                
                 if run_key not in seen_runs:
                     seen_runs.add(run_key)
-                    report_date = datetime.fromtimestamp(report_file.stat().st_mtime)
-                    success_rate = round((passed / total * 100) if total > 0 else 0.0, 1)
-                    
-                    latest_runs_list.append({
-                        'timestamp': report_date.isoformat().replace('+00:00', 'Z'),
-                        'total': total,
-                        'passed': passed,
-                        'failed': failed,
-                        'success_rate': success_rate
-                    })
+                    latest_runs_list.append(normalized_run)
         except Exception:
             continue
     
@@ -120,8 +354,7 @@ def get_comprehensive_test_results() -> ComprehensiveTestResults:
     # Reverse to show oldest first (chronological order)
     latest_runs_list.reverse()
     
-    # Define test suites based on latest analysis - single source of truth, no duplicates
-    # Each suite appears exactly once
+    # Define test suites - SINGLE SOURCE OF TRUTH, NO DUPLICATES
     test_suites_raw = [
         {
             "name": "Adversarial Detection",
@@ -239,46 +472,35 @@ def get_comprehensive_test_results() -> ComprehensiveTestResults:
         }
     ]
     
-    # Deduplicate test suites by name (ensure no duplicates)
+    # Normalize and deduplicate test suites by name
     seen_suite_names = set()
     test_suites_deduped = []
+    
     for suite in test_suites_raw:
-        suite_name = suite.get("name", "").strip()
+        normalized_suite = normalize_suite_data(suite)
+        if not normalized_suite:
+            continue
+        
+        suite_name = normalized_suite.get("name", "").strip()
         if suite_name and suite_name not in seen_suite_names:
             seen_suite_names.add(suite_name)
-            # Ensure all required fields are present and valid
-            suite_clean = {
-                "name": suite.get("name", "").strip(),
-                "name_tr": suite.get("name_tr", "").strip(),
-                "test_count": int(suite.get("test_count", 0)),
-                "passed": int(suite.get("passed", 0)),
-                "failed": int(suite.get("failed", 0)),
-                "success_rate": round(float(suite.get("success_rate", 0.0)), 1),
-                "status": suite.get("status", "partial").strip(),
-                "status_tr": suite.get("status_tr", "").strip(),
-                "description": suite.get("description", "").strip(),
-                "label": suite.get("label", "Gerçek LLM").strip(),
-                "improvement": suite.get("improvement") if suite.get("improvement") else None,
-                "details": suite.get("details") if suite.get("details") else None
-            }
-            # Validate required fields are not empty
-            if suite_clean["name"] and suite_clean["name_tr"]:
-                test_suites_deduped.append(suite_clean)
+            test_suites_deduped.append(normalized_suite)
     
     # Build response with production-grade contract
+    # Use Pydantic models for validation and JSON safety
     return ComprehensiveTestResults(
         overall=OverallStats(
             total_runs=total_runs,
             total_tests=total_tests_all,
             total_passed=total_passed_all,
             total_failed=total_failed_all,
-            success_rate=round(overall_success_rate, 1)
+            success_rate=overall_success_rate
         ),
         test_suites=[TestSuiteDetail(**suite) for suite in test_suites_deduped],
         latest_runs=[LatestRun(**run) for run in latest_runs_list],
         improvements={
             "total_fixes": 8,
-            "fixed_tests": 2,  # Changed from "tests_fixed" to "fixed_tests"
+            "fixed_tests": 2,
             "remaining_issues": 24
         },
         last_updated=datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
