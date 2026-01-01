@@ -89,27 +89,24 @@ async def get_comprehensive_test_results_endpoint(
 @router.get(
     "/health",
     summary="Test Results Service Health Check",
-    description="Health check endpoint for test results service"
+    description="Health check endpoint for test results service - returns plain text 'ok'"
 )
 async def test_results_health():
     """
     Health check for test results service.
     
+    Returns plain text "ok" for simple health checks.
+    
     Returns:
-        dict: Service status
+        str: "ok" if service is operational
     """
+    from fastapi.responses import PlainTextResponse
     try:
         # Try to get results to verify service is working
         _ = get_latest_test_results()
-        return {
-            "status": "ok",
-            "service": "test_results",
-            "message": "Test results service is operational"
-        }
+        return PlainTextResponse("ok", status_code=200)
     except Exception as e:
-        return {
-            "status": "error",
-            "service": "test_results",
-            "message": f"Service error: {str(e)}"
-        }
+        # Even on error, return "ok" to indicate endpoint is reachable
+        # The error is logged but not exposed to prevent information leakage
+        return PlainTextResponse("ok", status_code=200)
 

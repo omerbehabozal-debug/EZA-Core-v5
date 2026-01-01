@@ -27,9 +27,9 @@ class TestSuiteDetail(BaseModel):
     details: Optional[Union[Dict[str, Any], List[str]]] = None
 
 
-class MajorRun(BaseModel):
-    """Major test run information"""
-    date: str
+class LatestRun(BaseModel):
+    """Latest test run information"""
+    timestamp: str
     total: int
     passed: int
     failed: int
@@ -46,10 +46,10 @@ class OverallStats(BaseModel):
 
 
 class ComprehensiveTestResults(BaseModel):
-    """Comprehensive test results response"""
+    """Comprehensive test results response - Production-grade contract"""
     overall: OverallStats
     test_suites: List[TestSuiteDetail]
-    major_runs: List[MajorRun]
+    latest_runs: List[LatestRun]
     improvements: Dict[str, Any]
     last_updated: str
 
@@ -83,8 +83,10 @@ def get_comprehensive_test_results() -> ComprehensiveTestResults:
     
     overall_success_rate = (total_passed_all / total_tests_all * 100) if total_tests_all > 0 else 0.0
     
-    # Find major runs (>= 200 tests)
-    major_runs_list = []
+    # Find latest runs (>= 200 tests) - deduplicated and sorted
+    latest_runs_list = []
+    seen_runs = set()  # Track by (total, passed, failed) to avoid duplicates
+    
     for report_file in all_reports:
         try:
             with open(report_file, 'r', encoding='utf-8') as f:
@@ -94,23 +96,33 @@ def get_comprehensive_test_results() -> ComprehensiveTestResults:
             if total >= 200:
                 passed = len([t for t in data if t.get('status') == 'passed'])
                 failed = len([t for t in data if t.get('status') == 'failed'])
-                report_date = datetime.fromtimestamp(report_file.stat().st_mtime)
                 
-                major_runs_list.append({
-                    'date': report_date.isoformat(),
-                    'total': total,
-                    'passed': passed,
-                    'failed': failed,
-                    'success_rate': (passed / total * 100) if total > 0 else 0.0
-                })
+                # Deduplicate: same (total, passed, failed) = same run
+                run_key = (total, passed, failed)
+                if run_key not in seen_runs:
+                    seen_runs.add(run_key)
+                    report_date = datetime.fromtimestamp(report_file.stat().st_mtime)
+                    success_rate = round((passed / total * 100) if total > 0 else 0.0, 1)
+                    
+                    latest_runs_list.append({
+                        'timestamp': report_date.isoformat().replace('+00:00', 'Z'),
+                        'total': total,
+                        'passed': passed,
+                        'failed': failed,
+                        'success_rate': success_rate
+                    })
         except Exception:
             continue
     
-    # Sort by date
-    major_runs_list.sort(key=lambda x: x['date'])
+    # Sort by timestamp (newest first), then take last 3
+    latest_runs_list.sort(key=lambda x: x['timestamp'], reverse=True)
+    latest_runs_list = latest_runs_list[:3]
+    # Reverse to show oldest first (chronological order)
+    latest_runs_list.reverse()
     
-    # Define test suites based on latest analysis
-    test_suites = [
+    # Define test suites based on latest analysis - single source of truth, no duplicates
+    # Each suite appears exactly once
+    test_suites_raw = [
         {
             "name": "Adversarial Detection",
             "name_tr": "Güvenlik & Saldırı Tespiti",
@@ -227,6 +239,33 @@ def get_comprehensive_test_results() -> ComprehensiveTestResults:
         }
     ]
     
+    # Deduplicate test suites by name (ensure no duplicates)
+    seen_suite_names = set()
+    test_suites_deduped = []
+    for suite in test_suites_raw:
+        suite_name = suite.get("name", "").strip()
+        if suite_name and suite_name not in seen_suite_names:
+            seen_suite_names.add(suite_name)
+            # Ensure all required fields are present and valid
+            suite_clean = {
+                "name": suite.get("name", "").strip(),
+                "name_tr": suite.get("name_tr", "").strip(),
+                "test_count": int(suite.get("test_count", 0)),
+                "passed": int(suite.get("passed", 0)),
+                "failed": int(suite.get("failed", 0)),
+                "success_rate": round(float(suite.get("success_rate", 0.0)), 1),
+                "status": suite.get("status", "partial").strip(),
+                "status_tr": suite.get("status_tr", "").strip(),
+                "description": suite.get("description", "").strip(),
+                "label": suite.get("label", "Gerçek LLM").strip(),
+                "improvement": suite.get("improvement") if suite.get("improvement") else None,
+                "details": suite.get("details") if suite.get("details") else None
+            }
+            # Validate required fields are not empty
+            if suite_clean["name"] and suite_clean["name_tr"]:
+                test_suites_deduped.append(suite_clean)
+    
+    # Build response with production-grade contract
     return ComprehensiveTestResults(
         overall=OverallStats(
             total_runs=total_runs,
@@ -235,11 +274,11 @@ def get_comprehensive_test_results() -> ComprehensiveTestResults:
             total_failed=total_failed_all,
             success_rate=round(overall_success_rate, 1)
         ),
-        test_suites=[TestSuiteDetail(**suite) for suite in test_suites],
-        major_runs=[MajorRun(**run) for run in major_runs_list[-3:]] if major_runs_list else [],
+        test_suites=[TestSuiteDetail(**suite) for suite in test_suites_deduped],
+        latest_runs=[LatestRun(**run) for run in latest_runs_list],
         improvements={
             "total_fixes": 8,
-            "tests_fixed": 2,
+            "fixed_tests": 2,  # Changed from "tests_fixed" to "fixed_tests"
             "remaining_issues": 24
         },
         last_updated=datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')

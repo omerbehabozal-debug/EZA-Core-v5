@@ -170,14 +170,22 @@ allowed_origins = [
     "http://localhost:3003",  # Sanayi dev port
     "http://localhost:3004",  # Finance dev port
     "http://localhost:3005",  # Health dev port
+    "http://localhost:3006",  # eza.global dev port
+    "http://localhost:3007",  # eza.global dev port (alternative)
     "http://localhost:3008",  # Additional dev port
+    "http://localhost:3009",  # Additional dev port
+    "http://localhost:3010",  # Additional dev port
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:3002",  # RTÜK dev port
     "http://127.0.0.1:3003",  # Sanayi dev port
     "http://127.0.0.1:3004",  # Finance dev port
     "http://127.0.0.1:3005",  # Health dev port
+    "http://127.0.0.1:3006",  # eza.global dev port
+    "http://127.0.0.1:3007",  # eza.global dev port (alternative)
     "http://127.0.0.1:3008",
+    "http://127.0.0.1:3009",  # Additional dev port
+    "http://127.0.0.1:3010",  # Additional dev port
     # Note: FastAPI CORSMiddleware doesn't support wildcards
     # All subdomains must be explicitly listed
 ]
