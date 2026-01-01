@@ -3,16 +3,13 @@
 """
 Publish Test Snapshot Cron Job
 Runs daily/weekly/monthly to publish test result snapshots.
+Uses HTTP API with publish key for security.
 """
 
 import sys
+import os
+import requests
 from pathlib import Path
-
-# Add backend to path
-backend_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(backend_dir.parent))
-
-from backend.services.publish_test_snapshot import publish_snapshot
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -20,15 +17,40 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """Publish test snapshot for daily period"""
+    """Publish test snapshot for daily period via HTTP API"""
+    # Get publish key from environment
+    publish_key = os.getenv("PUBLIC_SNAPSHOT_KEY")
+    api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+    
+    if not publish_key:
+        logger.error("❌ PUBLIC_SNAPSHOT_KEY environment variable not set")
+        return 1
+    
     try:
-        snapshot = publish_snapshot(period="daily")
-        logger.info(f"✅ Daily snapshot published: {snapshot.snapshot_id}")
-        logger.info(f"   Period: {snapshot.period}")
-        logger.info(f"   Generated at: {snapshot.generated_at}")
-        logger.info(f"   Test Suites: {len(snapshot.test_suites)}")
-        logger.info(f"   Latest Runs: {len(snapshot.latest_runs)}")
-        return 0
+        # Call publish endpoint with key
+        url = f"{api_base_url}/api/public/publish?period=daily"
+        headers = {
+            "x-eza-publish-key": publish_key
+        }
+        
+        response = requests.post(url, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            logger.info(f"✅ Daily snapshot published: {data.get('snapshot_id')}")
+            logger.info(f"   Period: {data.get('period')}")
+            logger.info(f"   Generated at: {data.get('generated_at')}")
+            logger.info(f"   Test Suites: {data.get('test_suites_count')}")
+            logger.info(f"   Latest Runs: {data.get('latest_runs_count')}")
+            return 0
+        else:
+            logger.error(f"❌ Failed to publish snapshot: HTTP {response.status_code}")
+            logger.error(f"   Response: {response.text}")
+            return 1
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Request failed: {e}")
+        return 1
     except Exception as e:
         logger.error(f"❌ Failed to publish snapshot: {e}")
         import traceback

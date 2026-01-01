@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     MISTRAL_API_KEY: Optional[str] = None
     
+    # Public Snapshot Publishing
+    PUBLIC_SNAPSHOT_KEY: Optional[str] = None  # Required for publishing and reading snapshots
+    
     # Security
     JWT_SECRET: str = "supersecretkey"
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
