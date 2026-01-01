@@ -55,10 +55,30 @@ export default function TestSuitePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('https://api.ezacore.ai/api/test-results/comprehensive');
+        const snapshotKey = process.env.NEXT_PUBLIC_SNAPSHOT_KEY;
+        if (!snapshotKey) {
+          throw new Error('NEXT_PUBLIC_SNAPSHOT_KEY is not configured');
+        }
+
+        const response = await fetch(
+          'https://api.ezacore.ai/api/public/test-safety-benchmarks?period=daily',
+          {
+            headers: {
+              'x-eza-publish-key': snapshotKey
+            }
+          }
+        );
+        
         if (!response.ok) {
+          if (response.status === 403) {
+            throw new Error('Access denied. Check NEXT_PUBLIC_SNAPSHOT_KEY configuration.');
+          }
+          if (response.status === 404) {
+            throw new Error('No snapshot available. Please publish a snapshot first.');
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
         const jsonData = await response.json();
         setData(jsonData);
       } catch (err) {

@@ -131,7 +131,7 @@ async def read_public_test_snapshot(
         )
     
     # Return snapshot with cache headers
-    response_data = snapshot.model_dump()
+    response_data = snapshot.model_dump(mode="json")
     
     # Set aggressive cache headers for CDN/Vercel/Cloudflare
     # Cache for 24 hours, allow stale content for 1 hour while revalidating
