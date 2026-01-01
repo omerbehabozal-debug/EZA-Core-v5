@@ -34,6 +34,8 @@ EXCLUDED_PATHS = [
     "/api/auth",
     "/api/platform/organizations",  # Organizations CRUD endpoint
     "/api/platform/proxy/organizations",  # Proxy organizations endpoint (for proxy.ezacore.ai)
+    "/api/public",  # Public test results endpoints (key-protected, no org required)
+    "/api/test-results",  # Test results endpoints (public, no org required)
     "/docs",
     "/openapi.json",
     "/redoc",

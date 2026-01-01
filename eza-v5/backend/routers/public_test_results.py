@@ -19,29 +19,66 @@ def verify_publish_key(request: Request) -> None:
     """
     Verify x-eza-publish-key header.
     Raises 403 if key is missing or invalid.
+    
+    Supports multiple header name variations for compatibility.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     settings = get_settings()
     required_key = settings.PUBLIC_SNAPSHOT_KEY
     
     if not required_key:
+        logger.error("PUBLIC_SNAPSHOT_KEY not configured in environment")
         raise HTTPException(
             status_code=500,
             detail="PUBLIC_SNAPSHOT_KEY not configured. Access denied."
         )
     
-    provided_key = request.headers.get("x-eza-publish-key") or request.headers.get("X-Eza-Publish-Key")
+    # Try multiple header name variations (case-insensitive)
+    header_variations = [
+        "x-eza-publish-key",
+        "X-Eza-Publish-Key",
+        "X-EZA-Publish-Key",
+        "x-eza-publish-key",
+        "X-EZA-PUBLISH-KEY"
+    ]
+    
+    provided_key = None
+    for header_name in header_variations:
+        provided_key = request.headers.get(header_name)
+        if provided_key:
+            break
+    
+    # Also check all headers (case-insensitive search)
+    if not provided_key:
+        all_headers = {k.lower(): v for k, v in request.headers.items()}
+        provided_key = all_headers.get("x-eza-publish-key")
     
     if not provided_key:
+        logger.warning(f"Missing x-eza-publish-key header. Available headers: {list(request.headers.keys())}")
         raise HTTPException(
             status_code=403,
             detail="Missing x-eza-publish-key header"
         )
     
+    # Compare keys (strip whitespace)
+    provided_key = provided_key.strip()
+    required_key = required_key.strip()
+    
     if provided_key != required_key:
+        logger.warning(
+            f"Invalid key provided. "
+            f"Expected length: {len(required_key)}, Got length: {len(provided_key)}, "
+            f"Expected first 4 chars: {required_key[:4] if len(required_key) >= 4 else 'N/A'}, "
+            f"Got first 4 chars: {provided_key[:4] if len(provided_key) >= 4 else 'N/A'}"
+        )
         raise HTTPException(
             status_code=403,
             detail="Invalid x-eza-publish-key"
         )
+    
+    logger.debug("Publish key verified successfully")
 
 
 @router.get(
