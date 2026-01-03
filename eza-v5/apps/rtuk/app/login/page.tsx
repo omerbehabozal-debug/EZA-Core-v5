@@ -150,6 +150,15 @@ export default function LoginPage() {
             RTÜK bu panel aracılığıyla editoryal karar almaz.
           </p>
         </div>
+
+        {/* Demo Notice */}
+        <div className="mt-4 pt-4 border-t border-amber-200">
+          <p className="text-xs text-amber-700 text-center leading-relaxed font-medium">
+            Bu panel yalnızca tanıtım ve sunum amaçlı hazırlanmıştır.
+            <br />
+            İlgili kurumla herhangi bir resmî iş birliği, yetkilendirme veya anlaşma henüz bulunmamaktadır.
+          </p>
+        </div>
       </div>
     </div>
   );
