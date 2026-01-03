@@ -1,9 +1,10 @@
 name: Daily Tests
 
 on:
-  schedule:
-    - cron: "0 3 * * *"   # Her gün 03:00 UTC
-  workflow_dispatch:       # Manuel çalıştırma
+  # DISABLED: Schedule temporarily disabled
+  # schedule:
+  #   - cron: "0 3 * * *"   # Her gün 03:00 UTC
+  workflow_dispatch:       # Manuel çalıştırma (hala mümkün)
 
 jobs:
   run-daily-tests:

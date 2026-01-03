@@ -1,9 +1,10 @@
 name: Weekly Tests
 
 on:
-  schedule:
-    - cron: "0 3 * * MON"   # Her Pazartesi 03:00 UTC
-  workflow_dispatch:
+  # DISABLED: Schedule temporarily disabled
+  # schedule:
+  #   - cron: "0 3 * * MON"   # Her Pazartesi 03:00 UTC
+  workflow_dispatch:       # Manuel çalıştırma (hala mümkün)
 
 jobs:
   run-weekly-tests:

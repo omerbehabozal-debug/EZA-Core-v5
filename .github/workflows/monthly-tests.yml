@@ -1,9 +1,10 @@
 name: Monthly Tests
 
 on:
-  schedule:
-    - cron: "0 3 1 * *"   # Her ayın 1'i, 03:00 UTC
-  workflow_dispatch:
+  # DISABLED: Schedule temporarily disabled
+  # schedule:
+  #   - cron: "0 3 1 * *"   # Her ayın 1'i, 03:00 UTC
+  workflow_dispatch:       # Manuel çalıştırma (hala mümkün)
 
 jobs:
   run-monthly-tests:
