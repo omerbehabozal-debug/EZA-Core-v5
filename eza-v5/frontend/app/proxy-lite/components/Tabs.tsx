@@ -31,7 +31,7 @@ export default function Tabs({ children, defaultTab = 'general' }: TabsProps) {
 
 export function TabList({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 border-b" style={{ borderColor: '#E3E3E7' }}>
+    <div className="flex gap-1 sm:gap-2 border-b overflow-x-auto" style={{ borderColor: '#E3E3E7' }}>
       {children}
     </div>
   );
@@ -48,7 +48,7 @@ export function Tab({ value, children }: { value: string; children: React.ReactN
       type="button"
       onClick={() => context.setActiveTab(value)}
       className={cn(
-        'px-6 py-3 text-sm font-medium transition-colors border-b-2',
+        'px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 whitespace-nowrap touch-manipulation',
         isActive
           ? 'text-[#007AFF] border-[#007AFF]'
           : 'text-[#6E6E73] border-transparent'
@@ -66,5 +66,5 @@ export function TabPanel({ value, children }: { value: string; children: React.R
 
   if (context.activeTab !== value) return null;
 
-  return <div className="mt-6">{children}</div>;
+  return <div className="mt-4 sm:mt-6">{children}</div>;
 }

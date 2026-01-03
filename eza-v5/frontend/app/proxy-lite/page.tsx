@@ -186,12 +186,12 @@ export default function ProxyLitePage() {
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
       }}
     >
-      <div className="max-w-[720px] mx-auto px-4 py-8 space-y-8">
+      <div className="max-w-[720px] mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6 md:space-y-8">
         {/* Header Section */}
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex-1 w-full sm:w-auto">
             <h1 
-              className="text-4xl font-bold mb-2"
+              className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1 sm:mb-2"
               style={{ 
                 color: '#1C1C1E',
                 fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
@@ -200,37 +200,37 @@ export default function ProxyLitePage() {
             >
               EZA Proxy-Lite
             </h1>
-            <p className="text-sm mb-2" style={{ color: '#6E6E73' }}>
+            <p className="text-xs sm:text-sm mb-1 sm:mb-2" style={{ color: '#6E6E73' }}>
               Hızlı ve temel etik kontrol
             </p>
-            <p className="text-xs" style={{ color: '#6E6E73', maxWidth: '500px', lineHeight: '1.5' }}>
+            <p className="text-xs hidden sm:block" style={{ color: '#6E6E73', maxWidth: '500px', lineHeight: '1.5' }}>
               Proxy Lite, yapay zekâ çıktıları başta olmak üzere makale, reklam ve dijital içerikleri paylaşmadan önce hızlıca kontrol etmek için tasarlanmıştır.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <button
               type="button"
               onClick={() => setShowHistory(true)}
-              className="w-10 h-10 rounded-[16px] flex items-center justify-center"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-[14px] sm:rounded-[16px] flex items-center justify-center touch-manipulation"
               style={{ 
                 backgroundColor: '#FFFFFF',
                 boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
               }}
               title="Geçmiş"
             >
-              <Clock size={18} style={{ color: '#3A3A3C' }} strokeWidth={2} />
+              <Clock size={16} className="sm:w-[18px] sm:h-[18px]" style={{ color: '#3A3A3C' }} strokeWidth={2} />
             </button>
             <button
               type="button"
               onClick={() => setShowSettings(true)}
-              className="w-10 h-10 rounded-[16px] flex items-center justify-center"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-[14px] sm:rounded-[16px] flex items-center justify-center touch-manipulation"
               style={{ 
                 backgroundColor: '#FFFFFF',
                 boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
               }}
               title="Ayarlar"
             >
-              <SettingsIcon size={18} style={{ color: '#3A3A3C' }} strokeWidth={2} />
+              <SettingsIcon size={16} className="sm:w-[18px] sm:h-[18px]" style={{ color: '#3A3A3C' }} strokeWidth={2} />
             </button>
           </div>
         </div>
@@ -244,13 +244,13 @@ export default function ProxyLitePage() {
 
         {/* Input Card */}
         <div 
-          className="rounded-[16px] p-6"
+          className="rounded-[12px] sm:rounded-[16px] p-4 sm:p-6"
           style={{ 
             backgroundColor: '#FFFFFF',
             boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
           }}
         >
-          <form onSubmit={handleAnalyze} className="space-y-4">
+          <form onSubmit={handleAnalyze} className="space-y-3 sm:space-y-4">
             {/* Media Upload Tabs */}
             <MediaUploadTabs onTextExtracted={(text) => handleTextChange(text)} />
             
@@ -260,19 +260,19 @@ export default function ProxyLitePage() {
               onChange={(e) => handleTextChange(e.target.value)}
               placeholder="Metninizi buraya yazın veya yapıştırın..."
               disabled={loading}
-              className="w-full min-h-[320px] px-4 py-3 rounded-[14px] resize-y transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#007AFF] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full min-h-[200px] sm:min-h-[280px] md:min-h-[320px] px-3 sm:px-4 py-2.5 sm:py-3 rounded-[12px] sm:rounded-[14px] resize-y transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#007AFF] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
                 backgroundColor: '#F8F9FB',
                 border: '1px solid #E3E3E7',
                 color: '#1C1C1E',
                 fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
                 lineHeight: '1.5',
-                fontSize: '15px',
+                fontSize: '14px',
               }}
             />
             
             {/* Context, Target Audience and Tone Selectors */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <ContextSelector />
               <TargetAudienceSelector />
               <ToneSelector />
@@ -282,7 +282,7 @@ export default function ProxyLitePage() {
             <button
               type="submit"
               disabled={!text.trim() || loading}
-              className="w-full py-4 px-6 rounded-[14px] font-semibold text-white transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+              className="w-full py-3 sm:py-4 px-4 sm:px-6 rounded-[12px] sm:rounded-[14px] font-semibold text-white transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:opacity-75 touch-manipulation text-sm sm:text-base"
               style={{
                 backgroundColor: '#007AFF',
                 fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
@@ -292,11 +292,11 @@ export default function ProxyLitePage() {
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Analiz Ediliyor...
+                  <span className="text-sm sm:text-base">Analiz Ediliyor...</span>
                 </span>
               ) : (
                 'Analiz Et'
@@ -355,9 +355,9 @@ export default function ProxyLitePage() {
 
         {/* Results Section */}
         {result && (
-          <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
             <div 
-              className="rounded-[16px] p-8"
+              className="rounded-[12px] sm:rounded-[16px] p-4 sm:p-6 md:p-8"
               style={{ 
                 backgroundColor: '#FFFFFF',
                 boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
@@ -370,14 +370,14 @@ export default function ProxyLitePage() {
                 </TabList>
 
                 <TabPanel value="general">
-                  <div className="mt-6 space-y-6">
+                  <div className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
                     {/* Enhanced Score Display */}
                     <EnhancedScoreDisplay result={result} />
 
                     {/* Ethics Level Badge */}
                     <div className="flex justify-center">
                       <span 
-                        className="px-4 py-2 rounded-full text-sm font-semibold"
+                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold"
                         style={{
                           backgroundColor: `${getEthicalScoreColor(result.ethics_score)}15`,
                           color: getEthicalScoreColor(result.ethics_score),
@@ -392,10 +392,10 @@ export default function ProxyLitePage() {
                     {/* Unique Issues */}
                     {result.unique_issues && result.unique_issues.length > 0 && (
                       <div>
-                        <p className="text-sm mb-3 text-center" style={{ color: '#6E6E73' }}>
+                        <p className="text-xs sm:text-sm mb-2 sm:mb-3 text-center" style={{ color: '#6E6E73' }}>
                           Etik Bulgular
                         </p>
-                        <div className="flex justify-center flex-wrap gap-2">
+                        <div className="flex justify-center flex-wrap gap-1.5 sm:gap-2">
                           <FlagsPills flags={result.unique_issues} />
                         </div>
                       </div>
@@ -411,7 +411,7 @@ export default function ProxyLitePage() {
                 </TabPanel>
 
                 <TabPanel value="paragraphs">
-                  <div className="mt-6 space-y-4">
+                  <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
                     {result.paragraphs.map((para, idx) => (
                       <ParagraphAnalysis
                         key={idx}
@@ -423,13 +423,13 @@ export default function ProxyLitePage() {
                     
                     {/* Full Rewrite Button */}
                     {result.paragraphs.length > 0 && (
-                      <div className="mt-6 pt-6 border-t" style={{ borderColor: '#E3E3E7' }}>
+                      <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t" style={{ borderColor: '#E3E3E7' }}>
                         {!showBulkRewrite ? (
                           <button
                             type="button"
                             onClick={handleFullRewrite}
                             disabled={isRewriting}
-                            className="w-full py-4 px-6 rounded-[14px] font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full py-3 sm:py-4 px-4 sm:px-6 rounded-[12px] sm:rounded-[14px] font-semibold text-white transition-opacity duration-200 hover:opacity-90 active:opacity-75 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation text-sm sm:text-base"
                             style={{
                               backgroundColor: '#007AFF',
                               fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
@@ -439,11 +439,11 @@ export default function ProxyLitePage() {
                           >
                             {isRewriting ? (
                               <span className="flex items-center justify-center gap-2">
-                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Daha Etik Hale Getiriliyor...
+                                <span className="text-sm sm:text-base">Daha Etik Hale Getiriliyor...</span>
                               </span>
                             ) : (
                               'Daha Etik Hale Getir →'
@@ -451,14 +451,14 @@ export default function ProxyLitePage() {
                           </button>
                         ) : (
                           <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <p className="text-sm font-semibold" style={{ color: '#22BF55' }}>
+                            <div className="flex items-center justify-between mb-2 sm:mb-3">
+                              <p className="text-xs sm:text-sm font-semibold" style={{ color: '#22BF55' }}>
                                 Güvenli ifade önerisi
                               </p>
                               <button
                                 type="button"
                                 onClick={() => setShowBulkRewrite(false)}
-                                className="text-[#6E6E73] text-sm"
+                                className="text-[#6E6E73] text-sm sm:text-base touch-manipulation"
                               >
                                 ✕
                               </button>
@@ -466,23 +466,23 @@ export default function ProxyLitePage() {
                             
                             {/* Score Comparison */}
                             {rewriteResult && (
-                              <div className="mb-4 p-4 rounded-[12px] bg-[#F8F9FB]">
-                                <div className="grid grid-cols-3 gap-4 text-center">
+                              <div className="mb-3 sm:mb-4 p-3 sm:p-4 rounded-[10px] sm:rounded-[12px] bg-[#F8F9FB]">
+                                <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
                                   <div>
-                                    <p className="text-xs text-[#6E6E73] mb-1">Orijinal Skor</p>
-                                    <p className="text-2xl font-bold" style={{ color: getEthicalScoreColor(result.ethics_score) }}>
+                                    <p className="text-[10px] sm:text-xs text-[#6E6E73] mb-1">Orijinal Skor</p>
+                                    <p className="text-xl sm:text-2xl font-bold" style={{ color: getEthicalScoreColor(result.ethics_score) }}>
                                       {result.ethics_score}
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-xs text-[#6E6E73] mb-1">Yeni Skor</p>
-                                    <p className="text-2xl font-bold" style={{ color: getEthicalScoreColor(rewriteResult.ethics_score) }}>
+                                    <p className="text-[10px] sm:text-xs text-[#6E6E73] mb-1">Yeni Skor</p>
+                                    <p className="text-xl sm:text-2xl font-bold" style={{ color: getEthicalScoreColor(rewriteResult.ethics_score) }}>
                                       {rewriteResult.ethics_score}
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-xs text-[#6E6E73] mb-1">Fark</p>
-                                    <p className={`text-2xl font-bold ${rewriteResult.ethics_score > result.ethics_score ? 'text-[#22BF55]' : 'text-[#E84343]'}`}>
+                                    <p className="text-[10px] sm:text-xs text-[#6E6E73] mb-1">Fark</p>
+                                    <p className={`text-xl sm:text-2xl font-bold ${rewriteResult.ethics_score > result.ethics_score ? 'text-[#22BF55]' : 'text-[#E84343]'}`}>
                                       {rewriteResult.ethics_score > result.ethics_score ? '+' : ''}{rewriteResult.ethics_score - result.ethics_score}
                                     </p>
                                   </div>
@@ -491,21 +491,21 @@ export default function ProxyLitePage() {
                             )}
                             
                             <div 
-                              className="rounded-[14px] p-4 border mb-3"
+                              className="rounded-[12px] sm:rounded-[14px] p-3 sm:p-4 border mb-2 sm:mb-3"
                               style={{ 
                                 backgroundColor: '#F8F9FB',
                                 borderColor: '#22BF55',
                                 borderWidth: '1px',
                               }}
                             >
-                              <p className="text-sm leading-[1.4] whitespace-pre-wrap" style={{ color: '#1C1C1E', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                              <p className="text-xs sm:text-sm leading-[1.4] whitespace-pre-wrap break-words" style={{ color: '#1C1C1E', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
                                 {(window as any).__bulkRewriteText || ''}
                               </p>
                             </div>
                             <button
                               type="button"
                               onClick={copyBulkRewrite}
-                              className="w-full py-2 px-4 rounded-[14px] text-sm font-medium text-white transition-opacity duration-200 hover:opacity-90"
+                              className="w-full py-2.5 sm:py-2 px-3 sm:px-4 rounded-[12px] sm:rounded-[14px] text-xs sm:text-sm font-medium text-white transition-opacity duration-200 hover:opacity-90 active:opacity-75 touch-manipulation"
                               style={{ 
                                 backgroundColor: '#007AFF',
                                 fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
@@ -514,7 +514,7 @@ export default function ProxyLitePage() {
                             >
                               Kopyala
                             </button>
-                            <p className="text-xs mt-2 text-center" style={{ color: '#6E6E73' }}>
+                            <p className="text-[10px] sm:text-xs mt-1.5 sm:mt-2 text-center" style={{ color: '#6E6E73' }}>
                               Bu öneriler yalnızca etik yönlendirme amaçlıdır.
                             </p>
                           </div>
