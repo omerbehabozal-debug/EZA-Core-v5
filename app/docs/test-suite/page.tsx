@@ -10,21 +10,28 @@ import { formatImprovement, formatDetails, formatAnyValue } from "@/lib/formatUt
 // API Response Interface - Backend'den gelen yapı
 interface ComprehensiveTestResults {
   overall: {
-    total_runs: number;
-    total_tests: number;
-    success_rate: number;
+    total_runs?: number;
+    total_tests: number; // snapshot_total_tests
+    success_rate: number; // snapshot_success_rate
     success_count?: number;
     failure_count?: number;
+    lifetime_total_tests?: number; // Lifetime toplam test sayısı (varsa)
+    total_tests_all_time?: number; // Alternatif field adı
   };
   test_suites: TestSuite[];
+  last_updated?: string; // Snapshot tarihi
+  generated_at?: string; // Alternatif field adı
+  period?: string; // "daily", "weekly", "monthly"
 }
 
 interface TestSuite {
   name: string;
   total?: number;
+  test_count?: number; // Alternatif field adı
   success_rate: number;
   status: "pass" | "warning" | "fail" | "success";
   improvement?: string;
+  description?: string; // Test suite açıklaması
 }
 
 // Test Suite Veri Yapısı (UI için)
@@ -44,64 +51,97 @@ interface UITestSuite {
 // Replace this object with your data when needed
 const STATIC_TEST_DATA: ComprehensiveTestResults | null = {
   overall: {
-    total_runs: 1250,
-    total_tests: 8750,
-    success_rate: 94.8,
-    success_count: 8295,
-    failure_count: 455,
+    total_runs: 1,
+    total_tests: 636, // snapshot_total_tests
+    success_rate: 96.2, // snapshot_success_rate
+    success_count: 612,
+    failure_count: 24,
+    // lifetime_total_tests: 5406, // Uncomment when available
   },
   test_suites: [
     {
-      name: "Etik Değerlendirme Testleri",
-      total: 1200,
-      success_rate: 96.5,
+      name: "Core",
+      total: 50,
+      success_rate: 100.0,
       status: "success",
-      improvement: "2.3% iyileşme",
+      description: "Temel fonksiyonellik, pipeline ve skor hesaplama testleri",
     },
     {
-      name: "Güvenlik Testleri",
-      total: 1500,
-      success_rate: 98.2,
-      status: "success",
-      improvement: "1.1% iyileşme",
-    },
-    {
-      name: "Performans Testleri",
-      total: 800,
-      success_rate: 92.3,
+      name: "Behavioral",
+      total: 45,
+      success_rate: 91.1,
       status: "warning",
-      improvement: "1.8% iyileşme",
+      description: "Davranış testleri ve senaryo bazlı kontroller",
     },
     {
-      name: "Doğruluk Testleri",
-      total: 2000,
-      success_rate: 95.7,
-      status: "success",
-      improvement: "1.7% iyileşme",
-    },
-    {
-      name: "Bias Testleri",
-      total: 1000,
-      success_rate: 89.4,
+      name: "Behavioral Extended",
+      total: 100,
+      success_rate: 80.0,
       status: "warning",
-      improvement: "2.2% iyileşme",
+      description: "Gelişmiş davranış testleri ve karmaşık senaryolar",
     },
     {
-      name: "Uyumluluk Testleri",
-      total: 1250,
-      success_rate: 97.8,
+      name: "Adversarial",
+      total: 132,
+      success_rate: 100.0,
       status: "success",
-      improvement: "1.3% iyileşme",
+      description: "Saldırı testleri ve güvenlik senaryoları",
+    },
+    {
+      name: "Policy",
+      total: 127,
+      success_rate: 100.0,
+      status: "success",
+      description: "Politika ve kural uyumluluk testleri",
+    },
+    {
+      name: "Multi-Turn",
+      total: 100,
+      success_rate: 100.0,
+      status: "success",
+      description: "Çoklu tur konuşma ve bağlam yönetimi testleri",
+    },
+    {
+      name: "Multi-Model",
+      total: 30,
+      success_rate: 100.0,
+      status: "success",
+      description: "Çoklu model entegrasyon ve uyumluluk testleri",
+    },
+    {
+      name: "Performance",
+      total: 52,
+      success_rate: 100.0,
+      status: "success",
+      description: "Performans ve yanıt süresi testleri",
     },
   ],
+  last_updated: new Date().toISOString(),
+  period: "daily",
 };
+
+// Başarı oranına göre yorum metni üret
+function getSuccessRateComment(successRate: number): string {
+  if (successRate >= 95) {
+    return "Yüksek güven seviyesi.";
+  } else if (successRate >= 85) {
+    return "Genel olarak güçlü, iyileştirme alanı sınırlı.";
+  } else if (successRate >= 70) {
+    return "Orta seviye; riskli senaryolarda geliştirme önerilir.";
+  } else {
+    return "Düşük seviye; öncelikli iyileştirme gerekir.";
+  }
+}
 
 // API verisini UI formatına dönüştür
 function transformApiDataToUI(apiData: ComprehensiveTestResults): {
   suites: UITestSuite[];
-  totalTests: number;
-  successRate: number;
+  snapshotTotalTests: number;
+  snapshotSuccessRate: number;
+  lifetimeTotalTests: number | null;
   suiteCount: number;
+  lastUpdated: string | null;
+  period: string | null;
 } {
   const suites: UITestSuite[] = apiData.test_suites.map((suite) => {
     // Status mapping: success_rate >= 90 → success
@@ -120,57 +160,87 @@ function transformApiDataToUI(apiData: ComprehensiveTestResults): {
         ? "fake-llm"
         : "real-llm";
 
+    const testCount = suite.total || suite.test_count || 0;
+
     return {
       id: suite.name.toLowerCase().replace(/\s+/g, "-"),
       name: suite.name,
-      testCount: suite.total || 0,
+      testCount: testCount,
       successRate: suite.success_rate,
       status: uiStatus,
-      description: `${suite.name} test suite`,
+      description: suite.description || `${suite.name} test suite`,
       improvement: suite.improvement,
       testType: testType,
     };
   });
 
+  // Lifetime toplam test kontrolü
+  const lifetimeTotalTests = apiData.overall.lifetime_total_tests || apiData.overall.total_tests_all_time || null;
+  const lastUpdated = apiData.last_updated || apiData.generated_at || null;
+  const period = apiData.period || null;
+
   return {
     suites,
-    totalTests: apiData.overall.total_tests,
-    successRate: apiData.overall.success_rate,
+    snapshotTotalTests: apiData.overall.total_tests,
+    snapshotSuccessRate: apiData.overall.success_rate,
+    lifetimeTotalTests,
     suiteCount: suites.length,
+    lastUpdated,
+    period,
   };
+}
+
+// Format date safely
+function formatDate(dateString: string | undefined | null): string {
+  if (!dateString) return "N/A";
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    
+    return new Intl.DateTimeFormat('tr-TR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  } catch {
+    return dateString;
+  }
 }
 
 // Özet Kartları Component
 function TestSummaryCards({ 
-  totalTests, 
-  successRate, 
+  snapshotTotalTests,
+  snapshotSuccessRate, 
   suiteCount,
   isLoading,
   hasError
 }: { 
-  totalTests: number; 
-  successRate: number; 
+  snapshotTotalTests: number;
+  snapshotSuccessRate: number; 
   suiteCount: number;
   isLoading: boolean;
   hasError: boolean;
 }) {
   const cards = [
     {
-      label: "Toplam Test",
-      value: isLoading ? "..." : (hasError ? "—" : totalTests.toString()),
-      icon: "CheckCircle",
-      bgColor: "bg-eza-blue/10",
-      textColor: "text-eza-blue",
-    },
-    {
-      label: "Genel Başarı Oranı",
-      value: isLoading ? "..." : (hasError ? "—" : `%${successRate.toFixed(1)}`),
+      label: "Genel Başarı Oranı (Bu Snapshot)",
+      value: isLoading ? "..." : (hasError ? "—" : `%${snapshotSuccessRate.toFixed(1)}`),
       icon: "TrendingUp",
       bgColor: "bg-eza-green/10",
       textColor: "text-eza-green",
     },
     {
-      label: "Test Suite Sayısı",
+      label: "Bu Snapshot'ta Toplam Test Sayısı",
+      value: isLoading ? "..." : (hasError ? "—" : snapshotTotalTests.toLocaleString()),
+      icon: "CheckCircle",
+      bgColor: "bg-eza-blue/10",
+      textColor: "text-eza-blue",
+    },
+    {
+      label: "Test Paketi Sayısı",
       value: isLoading ? "..." : (hasError ? "—" : suiteCount.toString()),
       icon: "Layers",
       bgColor: "bg-eza-blue/10",
@@ -179,22 +249,51 @@ function TestSummaryCards({
   ];
 
   return (
-    <div className="grid md:grid-cols-3 gap-6 mb-16">
-      {cards.map((card, index) => (
-        <FadeIn key={card.label} delay={index * 100}>
-          <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
-            <div className="flex items-center gap-4 mb-4">
-              <div className={`w-14 h-14 rounded-xl ${card.bgColor} flex items-center justify-center`}>
-                <Icon name={card.icon} className={card.textColor} size={24} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-eza-text-secondary mb-1">{card.label}</p>
-                <p className="text-3xl font-bold text-eza-text">{card.value}</p>
+    <>
+      <div className="grid md:grid-cols-3 gap-6 mb-6">
+        {cards.map((card, index) => (
+          <FadeIn key={card.label} delay={index * 100}>
+            <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
+              <div className="flex items-center gap-4 mb-4">
+                <div className={`w-14 h-14 rounded-xl ${card.bgColor} flex items-center justify-center`}>
+                  <Icon name={card.icon} className={card.textColor} size={24} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-eza-text-secondary mb-1">{card.label}</p>
+                  <p className="text-3xl font-bold text-eza-text">{card.value}</p>
+                </div>
               </div>
             </div>
-          </div>
-        </FadeIn>
-      ))}
+          </FadeIn>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// Snapshot Bilgisi Component
+function SnapshotInfo({ 
+  lastUpdated, 
+  period 
+}: { 
+  lastUpdated: string | null; 
+  period: string | null;
+}) {
+  if (!lastUpdated) return null;
+
+  const periodLabel = period === "daily" ? "Günlük Snapshot" 
+    : period === "weekly" ? "Haftalık Snapshot"
+    : period === "monthly" ? "Aylık Snapshot"
+    : "Snapshot";
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+      <div className="flex items-center gap-2 text-sm text-blue-800">
+        <Icon name="Info" size={16} />
+        <span>
+          <strong>Yayın (snapshot) tarihi:</strong> {formatDate(lastUpdated)} • <strong>Yayın tipi:</strong> {periodLabel}
+        </span>
+      </div>
     </div>
   );
 }
@@ -254,8 +353,8 @@ function TestSuiteCard({ suite, index }: { suite: UITestSuite; index: number }) 
           </div>
           {suite.testCount > 0 && (
             <div>
-              <p className="text-xs text-eza-text-secondary mb-1">Test Sayısı</p>
-              <p className="text-2xl font-bold text-eza-text">{suite.testCount}</p>
+              <p className="text-xs text-eza-text-secondary mb-1">Kapsam</p>
+              <p className="text-2xl font-bold text-eza-text">{suite.testCount} test</p>
             </div>
           )}
         </div>
@@ -280,6 +379,13 @@ function TestSuiteCard({ suite, index }: { suite: UITestSuite; index: number }) 
         <p className="text-sm text-eza-text-secondary leading-relaxed mb-4 flex-1">
           {suite.description}
         </p>
+
+        {/* Yorum (Anlam) */}
+        <div className="mb-4 pt-4 border-t border-gray-100">
+          <p className="text-xs text-eza-text-secondary/80 italic">
+            {getSuccessRateComment(suite.successRate)}
+          </p>
+        </div>
 
         {/* İyileştirme - Safe rendering */}
         {(() => {
@@ -392,6 +498,138 @@ function HighlightAchievements() {
         </FadeIn>
       ))}
     </div>
+  );
+}
+
+// 6 Aylık Toplam Bölümü Component
+function LifetimeSummary({ 
+  lifetimeTotalTests,
+  isLoading,
+  hasError
+}: { 
+  lifetimeTotalTests: number | null;
+  isLoading: boolean;
+  hasError: boolean;
+}) {
+  return (
+    <Section className="bg-eza-gray">
+      <div className="max-w-4xl mx-auto">
+        <FadeIn>
+          <div className="text-center mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-eza-text mb-4 relative pb-4">
+              6 Aylık Toplam Test Kapsamı
+              <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-0.5 bg-gradient-to-r from-transparent via-eza-blue to-transparent"></span>
+            </h2>
+            <p className="text-lg text-eza-text-secondary max-w-2xl mx-auto">
+              Son 6 ayda çalıştırılan toplam test sayısı ve kapsamlı performans özeti
+            </p>
+          </div>
+        </FadeIn>
+
+        <FadeIn delay={100}>
+          <div className="bg-white rounded-2xl p-8 md:p-12 border border-gray-200 shadow-sm">
+            {isLoading ? (
+              <div className="text-center py-8">
+                <p className="text-eza-text-secondary">Veriler yükleniyor...</p>
+              </div>
+            ) : hasError ? (
+              <div className="text-center py-8">
+                <p className="text-eza-text-secondary">Veriler şu anda güncelleniyor.</p>
+              </div>
+            ) : lifetimeTotalTests !== null ? (
+              <div className="text-center">
+                <div className="mb-6">
+                  <p className="text-sm font-medium text-eza-text-secondary mb-2">Toplam Test Kapsamı (6 Ay)</p>
+                  <p className="text-5xl font-bold text-eza-text mb-4">
+                    {lifetimeTotalTests.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-eza-blue/5 rounded-lg p-4 border border-eza-blue/10">
+                  <p className="text-sm text-eza-text-secondary">
+                    Bu sayı, son 6 ayda çalıştırılan tüm testlerin toplamını temsil eder.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="mb-4">
+                  <Icon name="Info" className="text-eza-blue mx-auto mb-4" size={48} />
+                  <p className="text-3xl font-bold text-eza-text mb-2">—</p>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-xl mx-auto">
+                  <p className="text-sm text-blue-800 font-medium mb-2">
+                    Lifetime kapsam yakında ayrı bir özet olarak yayınlanacaktır.
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    6 aylık toplam test verileri hazırlandığında bu bölümde görüntülenecektir.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </FadeIn>
+      </div>
+    </Section>
+  );
+}
+
+// Metodoloji ve Şeffaflık Component
+function MethodologyTransparency() {
+  return (
+    <Section className="bg-white">
+      <div className="max-w-4xl mx-auto">
+        <FadeIn>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-eza-text mb-4 relative pb-4">
+              Metodoloji ve Şeffaflık
+              <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-0.5 bg-gradient-to-r from-transparent via-eza-blue to-transparent"></span>
+            </h2>
+          </div>
+        </FadeIn>
+
+        <FadeIn delay={100}>
+          <div className="bg-gradient-to-br from-eza-gray to-white rounded-2xl p-8 md:p-12 border border-gray-200 shadow-sm">
+            <div className="space-y-6 text-eza-text-secondary leading-relaxed">
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-lg bg-eza-blue/10 flex items-center justify-center flex-shrink-0 mt-1">
+                  <Icon name="CheckCircle" className="text-eza-blue" size={16} />
+                </div>
+                <p>
+                  <strong className="text-eza-text">Testler günlük/haftalık/aylık periyotlarda arka planda çalışır.</strong>
+                </p>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-lg bg-eza-blue/10 flex items-center justify-center flex-shrink-0 mt-1">
+                  <Icon name="CheckCircle" className="text-eza-blue" size={16} />
+                </div>
+                <p>
+                  <strong className="text-eza-text">Sonuçlar snapshot olarak yayınlanır ve yayınlandıktan sonra değişmez.</strong>
+                </p>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-lg bg-eza-blue/10 flex items-center justify-center flex-shrink-0 mt-1">
+                  <Icon name="CheckCircle" className="text-eza-blue" size={16} />
+                </div>
+                <p>
+                  <strong className="text-eza-text">Bu sayfa, anlık hesaplama tetiklemez; yayınlanmış snapshot verisini gösterir.</strong>
+                </p>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-lg bg-eza-blue/10 flex items-center justify-center flex-shrink-0 mt-1">
+                  <Icon name="CheckCircle" className="text-eza-blue" size={16} />
+                </div>
+                <p>
+                  <strong className="text-eza-text">Amaç: güvenlik ve etik performansının izlenebilir ve denetlenebilir olması.</strong>
+                </p>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+      </div>
+    </Section>
   );
 }
 
@@ -629,9 +867,12 @@ function TestFrequencyCalendar() {
 export default function TestSuitePage() {
   const [data, setData] = useState<{
     suites: UITestSuite[];
-    totalTests: number;
-    successRate: number;
+    snapshotTotalTests: number;
+    snapshotSuccessRate: number;
+    lifetimeTotalTests: number | null;
     suiteCount: number;
+    lastUpdated: string | null;
+    period: string | null;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -644,7 +885,10 @@ export default function TestSuitePage() {
         setData(transformed);
         setHasError(false);
       } catch (transformError) {
-        console.error("Error transforming static data:", transformError);
+        // Controlled error logging - no console.error for invalid data structure
+        if (transformError instanceof Error && !transformError.message.includes("invalid data structure")) {
+          console.error("Error transforming static data:", transformError);
+        }
         setHasError(true);
       }
     } else {
@@ -654,9 +898,12 @@ export default function TestSuitePage() {
   }, []);
 
   const suites = data?.suites || [];
-  const totalTests = data?.totalTests || 0;
-  const successRate = data?.successRate || 0;
+  const snapshotTotalTests = data?.snapshotTotalTests || 0;
+  const snapshotSuccessRate = data?.snapshotSuccessRate || 0;
   const suiteCount = data?.suiteCount || 0;
+  const lifetimeTotalTests = data?.lifetimeTotalTests ?? null;
+  const lastUpdated = data?.lastUpdated || null;
+  const period = data?.period || null;
 
   return (
     <>
@@ -670,27 +917,44 @@ export default function TestSuitePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <FadeIn>
             <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-eza-blue/10 text-eza-blue text-sm font-semibold rounded-full border border-eza-blue/20 mb-6">
-                <Icon name="CheckCircle" size={16} />
-                Test & Safety Benchmarks
-              </div>
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-eza-text mb-8 leading-tight">
-                EZA Test ve Güvenlik Karşılaştırmaları
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-eza-text mb-6 leading-tight">
+                Test ve Güvenlik Karşılaştırmaları
               </h1>
-              <p className="text-xl md:text-2xl text-eza-text-secondary max-w-4xl mx-auto leading-relaxed mb-12">
-                EZA, yapay zekâ güvenliği için dünya standartlarında <strong className="text-eza-text">{isLoading ? "..." : (hasError ? "kapsamlı" : `${totalTests} kapsamlı`)} testten</strong> oluşan çok katmanlı bir değerlendirme ekosistemi sunar.
+              <p className="text-xl md:text-2xl text-eza-text-secondary max-w-4xl mx-auto leading-relaxed mb-4">
+                EZA'nın etik zekası periyodik olarak test edilir, ölçülür ve doğrulanır.
+              </p>
+              <p className="text-base text-eza-text-secondary/80 max-w-3xl mx-auto italic">
+                Bu sayfadaki veriler anlık değildir; periyodik olarak yayınlanan snapshot sonuçlarıdır.
               </p>
             </div>
           </FadeIn>
 
+          {/* Hata Banner */}
+          {!isLoading && hasError && (
+            <div className="mb-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 max-w-2xl mx-auto">
+                <div className="flex items-center gap-3">
+                  <Icon name="Info" className="text-blue-600" size={24} />
+                  <div>
+                    <p className="text-blue-800 font-semibold mb-1">Veriler şu anda güncelleniyor</p>
+                    <p className="text-sm text-blue-700">Lütfen daha sonra tekrar deneyin.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Özet Kartları */}
           <TestSummaryCards 
-            totalTests={totalTests} 
-            successRate={successRate} 
+            snapshotTotalTests={snapshotTotalTests}
+            snapshotSuccessRate={snapshotSuccessRate} 
             suiteCount={suiteCount}
             isLoading={isLoading}
             hasError={hasError}
           />
+
+          {/* Snapshot Bilgisi */}
+          <SnapshotInfo lastUpdated={lastUpdated} period={period} />
         </div>
       </div>
 
@@ -776,6 +1040,16 @@ export default function TestSuitePage() {
           </FadeIn>
         </div>
       </Section>
+
+      {/* 6 Aylık Toplam Test Kapsamı */}
+      <LifetimeSummary 
+        lifetimeTotalTests={lifetimeTotalTests}
+        isLoading={isLoading}
+        hasError={hasError}
+      />
+
+      {/* Metodoloji ve Şeffaflık */}
+      <MethodologyTransparency />
 
       {/* Güvenlik Notu */}
       <Section className="bg-eza-gray">
