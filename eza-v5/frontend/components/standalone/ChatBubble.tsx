@@ -32,10 +32,10 @@ export default function ChatBubble({
     return (
       <div className="flex justify-end mb-3 sm:mb-4 md:mb-5 px-1.5 sm:px-2 md:px-4">
         <div className="max-w-[88%] xs:max-w-[85%] sm:max-w-[80%] md:max-w-[75%] lg:max-w-[65%] flex flex-col items-end">
-          <div className="bg-[#EEF2FF] border border-indigo-100 rounded-[16px] sm:rounded-[18px] md:rounded-[20px] rounded-tr-[4px] px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-sm relative inline-block">
+          <div className="bg-[#EEF2FF] border border-indigo-100 rounded-[16px] sm:rounded-[18px] md:rounded-[20px] rounded-tr-[4px] px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-sm relative inline-block pr-8 sm:pr-10 md:pr-12">
             {/* Score Badge - Show placeholder (gray) if score is undefined, actual score when available */}
             {!safeOnlyMode && (
-              <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 md:-top-2 md:-right-2 z-10">
+              <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 md:-top-2 md:-right-2 z-10 pointer-events-none">
                 {userScore !== undefined && userScore !== null ? (
                   <ScoreBadge score={userScore} />
                 ) : (
@@ -63,14 +63,14 @@ export default function ChatBubble({
   return (
     <div className="flex justify-start mb-3 sm:mb-4 md:mb-5 px-1.5 sm:px-2 md:px-4">
       <div className="max-w-[88%] xs:max-w-[85%] sm:max-w-[80%] md:max-w-[75%] lg:max-w-[65%] flex flex-col items-start">
-        <div className="bg-white border border-gray-200 rounded-[16px] sm:rounded-[18px] md:rounded-[20px] rounded-tl-[4px] px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-sm relative inline-block">
+        <div className="bg-white border border-gray-200 rounded-[16px] sm:rounded-[18px] md:rounded-[20px] rounded-tl-[4px] px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-sm relative inline-block pr-8 sm:pr-10 md:pr-12">
           {/* Badge - SAFE-only mode shows SAFE badge, otherwise shows score (with placeholder) */}
           {safeOnlyMode ? (
-            <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 md:-top-2 md:-right-2 z-10">
+            <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 md:-top-2 md:-right-2 z-10 pointer-events-none">
               <SafetyBadge safety={safety || 'Safe'} />
             </div>
           ) : (
-            <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 md:-top-2 md:-right-2 z-10">
+            <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 md:-top-2 md:-right-2 z-10 pointer-events-none">
               {assistantScore !== undefined && assistantScore !== null ? (
                 <ScoreBadge score={assistantScore} />
               ) : (

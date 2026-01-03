@@ -39,7 +39,7 @@ export default function InputBar({ onSend, isLoading, disabled = false }: InputB
   };
 
   return (
-    <div className="sticky bottom-0 bg-white/80 backdrop-blur-xl border-t border-gray-200/80 safe-area-bottom">
+    <div className="sticky bottom-0 z-[100] bg-white backdrop-blur-xl border-t border-gray-200 safe-area-bottom shadow-lg">
       <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2 sm:py-3">
         <form onSubmit={handleSubmit} className="flex items-center gap-2 sm:gap-3">
           <div className="flex-1 relative min-w-0">

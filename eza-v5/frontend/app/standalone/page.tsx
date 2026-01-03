@@ -372,7 +372,9 @@ export default function StandalonePage() {
   return (
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden safe-area-inset">
       <TopBar onSettingsClick={() => setIsSettingsOpen(true)} />
-      <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
+      </div>
       <InputBar 
         onSend={handleSend} 
         isLoading={isLoading}

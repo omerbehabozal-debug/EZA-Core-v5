@@ -36,8 +36,8 @@ export default function MessageList({ messages, isLoading, isTyping = false }: M
   }, [messages, isLoading, isTyping]);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 overscroll-contain">
-      <div className="max-w-4xl mx-auto py-3 sm:py-4 md:py-6 w-full px-1 sm:px-2">
+    <div className="flex-1 overflow-y-auto bg-gray-50 overscroll-contain min-h-0">
+      <div className="max-w-4xl mx-auto py-3 sm:py-4 md:py-6 pb-20 sm:pb-24 w-full px-1 sm:px-2">
         {/* Empty State */}
         {messages.length === 0 && !isLoading && <EmptyState />}
 

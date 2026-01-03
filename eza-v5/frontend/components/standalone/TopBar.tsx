@@ -10,7 +10,7 @@ interface TopBarProps {
 
 export default function TopBar({ onSettingsClick }: TopBarProps) {
   return (
-    <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/60 border-b border-gray-200 safe-area-top">
+    <div className="sticky top-0 z-[100] backdrop-blur-xl bg-white border-b border-gray-200 safe-area-top shadow-sm">
       <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
         {/* Left: Minimal EZA Logo */}
         <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
