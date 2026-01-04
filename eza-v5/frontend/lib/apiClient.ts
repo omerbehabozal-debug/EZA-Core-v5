@@ -21,6 +21,7 @@ interface ApiResponse<T = any> {
     error_code?: string;
     error_message?: string;
     message?: string;
+    error?: string; // Also include error code in error field for compatibility
   };
   [key: string]: any; // Allow other response fields
 }

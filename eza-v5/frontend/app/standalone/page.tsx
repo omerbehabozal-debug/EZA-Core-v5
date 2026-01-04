@@ -277,7 +277,7 @@ export default function StandalonePage() {
         if (!response.ok) {
           // Check for demo limit errors
           const errorCode = response.error?.error_code || response.error?.error;
-          const errorMessage = response.error?.error_message || response.error?.message || response.error?.detail?.message || 'Request failed';
+          const errorMessage = response.error?.error_message || response.error?.message || 'Request failed';
           
           const error = new Error(errorMessage);
           if (errorCode) {
