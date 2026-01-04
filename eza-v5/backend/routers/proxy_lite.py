@@ -537,12 +537,41 @@ async def analyze_ethical_content(
     
     try:
         logger.info(f"[Proxy-Lite] Analyze request received: text_length={len(request.text)}, locale={request.locale}, provider={request.provider}")
+        
+        # Demo text length check
+        from backend.services.demo_token_quota import check_text_length, check_token_quota, estimate_tokens
+        is_valid_length, length_error = check_text_length(request.text)
+        if not is_valid_length:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail={
+                    "error": "DEMO_TEXT_LIMIT_EXCEEDED",
+                    "message": length_error or "Demo ortamında uzun metin analizi sınırlıdır."
+                }
+            )
+        
         settings = get_settings()
         
         # Split text into paragraphs
         paragraphs = split_into_paragraphs(request.text)
         if not paragraphs:
             paragraphs = [request.text]
+        
+        # Estimate tokens for all paragraphs (each paragraph will be analyzed separately)
+        # Each paragraph analysis uses ~1300-1800 tokens
+        estimated_tokens_per_paragraph = 1500
+        total_estimated_tokens = estimated_tokens_per_paragraph * len(paragraphs)
+        
+        # Demo token quota check (BEFORE LLM calls)
+        is_allowed, quota_error, remaining = check_token_quota(total_estimated_tokens)
+        if not is_allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": "DEMO_TOKEN_LIMIT_REACHED",
+                    "message": quota_error or "Public demo günlük kullanım kotası dolmuştur."
+                }
+            )
         
         logger.info(f"[Proxy-Lite] Split into {len(paragraphs)} paragraphs")
         
@@ -655,6 +684,32 @@ async def rewrite_paragraph(
     Rewrite paragraph to be more ethical
     """
     try:
+        # Demo text length check
+        from backend.services.demo_token_quota import check_text_length, check_token_quota, estimate_tokens
+        is_valid_length, length_error = check_text_length(request.text)
+        if not is_valid_length:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail={
+                    "error": "DEMO_TEXT_LIMIT_EXCEEDED",
+                    "message": length_error or "Demo ortamında uzun metin analizi sınırlıdır."
+                }
+            )
+        
+        # Estimate tokens: analyze (1500) + rewrite (1000) = ~2500 tokens
+        estimated_tokens = 2500
+        
+        # Demo token quota check (BEFORE LLM calls)
+        is_allowed, quota_error, remaining = check_token_quota(estimated_tokens)
+        if not is_allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": "DEMO_TOKEN_LIMIT_REACHED",
+                    "message": quota_error or "Public demo günlük kullanım kotası dolmuştur."
+                }
+            )
+        
         settings = get_settings()
         provider = request.provider or "openai"
         locale = request.language

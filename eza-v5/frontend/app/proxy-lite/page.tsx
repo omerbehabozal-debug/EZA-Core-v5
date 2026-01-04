@@ -76,23 +76,33 @@ export default function ProxyLitePage() {
       }
     } catch (err: any) {
       console.error("[Proxy-Lite] Analysis error:", err);
+      const errorCode = err?.code;
       const errorMessage = err?.message || err?.toString() || "Bilinmeyen hata";
       
-      // More specific error messages
-      let userFriendlyMessage = errorMessage;
-      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
-        userFriendlyMessage = 'Backend\'e bağlanılamıyor. Backend sunucusunun çalıştığından ve erişilebilir olduğundan emin olun.';
-      } else if (errorMessage.includes('timeout') || errorMessage.includes('zaman aşımı')) {
-        userFriendlyMessage = 'İstek zaman aşımına uğradı. Lütfen daha kısa bir metin deneyin veya tekrar deneyin.';
-      } else if (errorMessage.includes('HTTP 404')) {
-        userFriendlyMessage = 'Backend endpoint bulunamadı. Backend API\'sinin doğru yapılandırıldığından emin olun.';
-      } else if (errorMessage.includes('HTTP 500')) {
-        userFriendlyMessage = 'Backend sunucu hatası. Backend loglarını kontrol edin.';
-      } else if (errorMessage.includes('NEXT_PUBLIC_EZA_API_URL')) {
-        userFriendlyMessage = 'Backend URL yapılandırılmamış. Lütfen sistem yöneticisine başvurun.';
+      // Handle demo limit errors with user-friendly messages
+      if (errorCode === 'DEMO_TOKEN_LIMIT_REACHED') {
+        setError('Günlük Demo Limiti Doldu');
+        // Show detailed message in a modal or special component
+        // For now, we'll show it in the error state
+      } else if (errorCode === 'DEMO_TEXT_LIMIT_EXCEEDED') {
+        setError('Demo ortamında uzun metin analizi sınırlıdır. Daha kapsamlı analizler kurumsal kullanım için sunulmaktadır.');
+      } else {
+        // More specific error messages for other errors
+        let userFriendlyMessage = errorMessage;
+        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+          userFriendlyMessage = 'Backend\'e bağlanılamıyor. Backend sunucusunun çalıştığından ve erişilebilir olduğundan emin olun.';
+        } else if (errorMessage.includes('timeout') || errorMessage.includes('zaman aşımı')) {
+          userFriendlyMessage = 'İstek zaman aşımına uğradı. Lütfen daha kısa bir metin deneyin veya tekrar deneyin.';
+        } else if (errorMessage.includes('HTTP 404')) {
+          userFriendlyMessage = 'Backend endpoint bulunamadı. Backend API\'sinin doğru yapılandırıldığından emin olun.';
+        } else if (errorMessage.includes('HTTP 500')) {
+          userFriendlyMessage = 'Backend sunucu hatası. Backend loglarını kontrol edin.';
+        } else if (errorMessage.includes('NEXT_PUBLIC_EZA_API_URL')) {
+          userFriendlyMessage = 'Backend URL yapılandırılmamış. Lütfen sistem yöneticisine başvurun.';
+        }
+        
+        setError(`Analiz hatası: ${userFriendlyMessage}`);
       }
-      
-      setError(`Analiz hatası: ${userFriendlyMessage}`);
       setIsLive(false);
     } finally {
       setLoading(false);
@@ -132,7 +142,11 @@ export default function ProxyLitePage() {
       
       const rewriteResponse = await rewriteLite(fullText, allIssues, 'tr');
       
-      if (rewriteResponse && rewriteResponse.rewritten_text) {
+      if (!rewriteResponse) {
+        throw new Error('Yeniden yazma başarısız oldu');
+      }
+      
+      if (rewriteResponse.rewritten_text) {
         // Auto re-analyze the rewritten text
         const reAnalysisResult = await analyzeLite(
           rewriteResponse.rewritten_text,
@@ -157,10 +171,20 @@ export default function ProxyLitePage() {
       } else {
         setError("Yeniden yazma başarısız oldu");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Proxy-Lite] Error in full rewrite:', error);
-      setError("Yeniden yazma hatası");
-      setToast({ message: 'Yeniden yazma işlemi başarısız oldu', type: 'error' });
+      const errorCode = error?.code;
+      const errorMessage = error?.message || 'Yeniden yazma hatası';
+      
+      // Handle demo limit errors
+      if (errorCode === 'DEMO_TOKEN_LIMIT_REACHED') {
+        setError('Günlük Demo Limiti Doldu');
+      } else if (errorCode === 'DEMO_TEXT_LIMIT_EXCEEDED') {
+        setError('Demo ortamında uzun metin analizi sınırlıdır. Daha kapsamlı analizler kurumsal kullanım için sunulmaktadır.');
+      } else {
+        setError(`Yeniden yazma hatası: ${errorMessage}`);
+      }
+      setToast({ message: errorMessage, type: 'error' });
     } finally {
       setIsRewriting(false);
     }
@@ -337,19 +361,39 @@ export default function ProxyLitePage() {
         {/* Error Toast */}
         {error && (
           <div 
-            className="rounded-[16px] p-4 border shadow-lg"
+            className="rounded-[16px] p-4 sm:p-6 border shadow-lg"
             style={{
               backgroundColor: '#FFFFFF',
-              borderColor: '#E84343',
+              borderColor: error.includes('Günlük Demo Limiti') ? '#FF9500' : '#E84343',
               boxShadow: '0px 2px 6px rgba(0,0,0,0.06), 0px 8px 18px rgba(0,0,0,0.05)',
             }}
           >
-            <div className="flex items-center gap-2">
-              <span style={{ color: '#E84343' }}>⚠️</span>
-              <p className="text-sm font-medium" style={{ color: '#E84343' }}>
-                {error}
-              </p>
-            </div>
+            {error.includes('Günlük Demo Limiti') ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span style={{ color: '#FF9500', fontSize: '20px' }}>ℹ️</span>
+                  <h3 className="text-base font-semibold" style={{ color: '#FF9500' }}>
+                    Günlük Demo Limiti Doldu
+                  </h3>
+                </div>
+                <div className="space-y-2 text-sm" style={{ color: '#6E6E73' }}>
+                  <p>
+                    Bu sayfa, EZA'nın herkese açık demo ortamıdır.
+                    Sistem stabilitesi ve adil kullanım için günlük bir kapasite ile çalışır.
+                  </p>
+                  <p className="font-medium">
+                    Lütfen daha sonra tekrar deneyin.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span style={{ color: '#E84343' }}>⚠️</span>
+                <p className="text-sm font-medium" style={{ color: '#E84343' }}>
+                  {error}
+                </p>
+              </div>
+            )}
           </div>
         )}
 

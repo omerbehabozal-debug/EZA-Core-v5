@@ -16,6 +16,11 @@ from backend.core.engines.output_analyzer import analyze_output
 from backend.core.engines.alignment_engine import compute_alignment
 from backend.core.engines.safe_rewrite import safe_rewrite
 from backend.core.utils.rate_limit import check_rate_limit
+from backend.services.demo_token_quota import (
+    check_text_length,
+    check_token_quota,
+    estimate_tokens
+)
 
 router = APIRouter()
 
@@ -61,6 +66,29 @@ async def standalone_chat(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Text is required"
+        )
+    
+    # 2.1) Demo text length check
+    is_valid_length, length_error = check_text_length(text)
+    if not is_valid_length:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail={
+                "error": "DEMO_TEXT_LIMIT_EXCEEDED",
+                "message": length_error or "Demo ortamında uzun metin analizi sınırlıdır."
+            }
+        )
+    
+    # 2.2) Demo token quota check (BEFORE LLM call)
+    estimated_tokens = estimate_tokens(text, estimated_output_tokens=180)
+    is_allowed, quota_error, remaining = check_token_quota(estimated_tokens)
+    if not is_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "error": "DEMO_TOKEN_LIMIT_REACHED",
+                "message": quota_error or "Public demo günlük kullanım kotası dolmuştur."
+            }
         )
     
     # 3) Fast input analysis

@@ -56,9 +56,19 @@ export default function ParagraphAnalysis({ paragraph, index, onRewriteUpdate }:
       } else {
         alert('Yeniden yazma işlemi başarısız oldu. Lütfen tekrar deneyin.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Rewrite failed:', error);
-      alert('Yeniden yazma işlemi başarısız oldu.');
+      const errorCode = error?.code;
+      const errorMessage = error?.message || 'Yeniden yazma işlemi başarısız oldu.';
+      
+      // Handle demo limit errors
+      if (errorCode === 'DEMO_TOKEN_LIMIT_REACHED') {
+        alert('Günlük Demo Limiti Doldu\n\nBu sayfa, EZA\'nın herkese açık demo ortamıdır. Sistem stabilitesi ve adil kullanım için günlük bir kapasite ile çalışır.\n\nLütfen daha sonra tekrar deneyin.');
+      } else if (errorCode === 'DEMO_TEXT_LIMIT_EXCEEDED') {
+        alert('Demo ortamında uzun metin analizi sınırlıdır. Daha kapsamlı analizler kurumsal kullanım için sunulmaktadır.');
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setIsRewriting(false);
     }

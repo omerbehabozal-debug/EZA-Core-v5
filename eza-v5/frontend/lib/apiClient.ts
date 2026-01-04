@@ -124,12 +124,28 @@ class ApiClient {
 
       // Handle HTTP errors
       if (!response.ok) {
+        // Parse error detail (can be object with error/message or string)
+        let errorCode: string | undefined;
+        let errorMessage: string;
+        
+        if (typeof data.detail === 'object' && data.detail !== null) {
+          // Backend returns { detail: { error: "...", message: "..." } }
+          errorCode = data.detail.error;
+          errorMessage = data.detail.message || data.detail.error || 'Request failed';
+        } else if (typeof data.detail === 'string') {
+          errorMessage = data.detail;
+        } else {
+          errorCode = data.error?.error_code || data.error || `HTTP_${response.status}`;
+          errorMessage = data.error?.error_message || data.error?.message || data.detail || data.message || 'Request failed';
+        }
+        
         return {
           ok: false,
           error: {
-            error_code: data.error?.error_code || `HTTP_${response.status}`,
-            error_message: data.error?.error_message || data.detail || data.message || 'Request failed',
-            message: data.error?.message || data.detail || data.message,
+            error_code: errorCode || `HTTP_${response.status}`,
+            error_message: errorMessage,
+            message: errorMessage,
+            error: errorCode, // Also include error code in error field for compatibility
           },
         };
       }

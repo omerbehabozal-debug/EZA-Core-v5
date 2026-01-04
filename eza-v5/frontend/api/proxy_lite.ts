@@ -105,14 +105,25 @@ export async function analyzeLite(
       if (!res.ok) {
         const errorText = await res.text();
         let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        let errorCode: string | undefined;
+        
         try {
           const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.detail || errorJson.message || errorMessage;
+          errorMessage = errorJson.detail?.message || errorJson.detail || errorJson.message || errorMessage;
+          errorCode = errorJson.detail?.error || errorJson.error;
         } catch {
           if (errorText) errorMessage = errorText.substring(0, 200);
         }
+        
         console.error('[Proxy-Lite] Analysis failed:', res.status, res.statusText, errorMessage);
-        throw new Error(errorMessage);
+        
+        // Create error with code for demo limits
+        const error = new Error(errorMessage);
+        if (errorCode) {
+          (error as any).code = errorCode;
+        }
+        (error as any).status = res.status;
+        throw error;
       }
 
       const data: LiteAnalysisResponse = await res.json();
@@ -166,8 +177,26 @@ export async function rewriteLite(
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error('[Proxy-Lite] Rewrite failed:', res.status, errorText);
-      return null;
+      let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+      let errorCode: string | undefined;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.detail?.message || errorJson.detail || errorJson.message || errorMessage;
+        errorCode = errorJson.detail?.error || errorJson.error;
+      } catch {
+        if (errorText) errorMessage = errorText.substring(0, 200);
+      }
+      
+      console.error('[Proxy-Lite] Rewrite failed:', res.status, errorMessage);
+      
+      // Throw error with code for demo limits
+      const error = new Error(errorMessage);
+      if (errorCode) {
+        (error as any).code = errorCode;
+      }
+      (error as any).status = res.status;
+      throw error;
     }
 
     const data: RewriteResponse = await res.json();
