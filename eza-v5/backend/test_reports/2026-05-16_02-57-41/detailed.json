@@ -1,0 +1,193 @@
+[
+  {
+    "name": "tests_core/test_governance_stage4.py::test_production_blocks_snapshot_even_if_test_mode_true",
+    "status": "passed",
+    "duration": 0.0017907999999806634
+  },
+  {
+    "name": "tests_core/test_governance_stage4.py::test_get_settings_forces_test_mode_false_in_production",
+    "status": "passed",
+    "duration": 0.0011994000001323002
+  },
+  {
+    "name": "tests_core/test_governance_stage4.py::test_event_logging_disabled_hook_noop",
+    "status": "passed",
+    "duration": 0.0013119999998707499
+  },
+  {
+    "name": "tests_core/test_governance_stage4.py::test_governance_status_missing_tables_no_crash",
+    "status": "passed",
+    "duration": 0.01710559999992256
+  },
+  {
+    "name": "tests_core/test_governance_stage4.py::test_governance_status_all_tables_ready",
+    "status": "failed",
+    "duration": 0.000980700000127399,
+    "message": "E   assert False is True"
+  },
+  {
+    "name": "tests_core/test_governance_stage4.py::test_governance_endpoint_admin_only",
+    "status": "passed",
+    "duration": 0.6161544000001413
+  },
+  {
+    "name": "tests_core/test_governance_stage4.py::test_governance_endpoint_admin_ok",
+    "status": "passed",
+    "duration": 0.00545109999984561
+  },
+  {
+    "name": "tests_core/test_governance_stage4.py::test_behavioral_calibration_default_false",
+    "status": "passed",
+    "duration": 0.002675499999895692
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EMA_normal",
+    "status": "passed",
+    "duration": 0.00020450000010896474
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EMA_insufficient",
+    "status": "passed",
+    "duration": 0.0001712999996925646
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_trend_normal",
+    "status": "passed",
+    "duration": 0.0005381999999372056
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_trend_insufficient_under_5",
+    "status": "passed",
+    "duration": 0.00023699999974269303
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_z_score_normal",
+    "status": "passed",
+    "duration": 0.00018290000025444897
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_z_score_insufficient_under_20",
+    "status": "passed",
+    "duration": 0.00015249999978550477
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_z_score_zero_std",
+    "status": "passed",
+    "duration": 0.00017660000003161258
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_asymmetry_balanced",
+    "status": "passed",
+    "duration": 0.00020510000013018725
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_asymmetry_ai_dominant",
+    "status": "passed",
+    "duration": 0.00026740000021163723
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_asymmetry_user_dominant",
+    "status": "passed",
+    "duration": 0.0002191999997194216
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_reliability_high",
+    "status": "passed",
+    "duration": 0.00019209999982194859
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_reliability_insufficient",
+    "status": "passed",
+    "duration": 0.00017119999984060996
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EES_weights_sum_to_one",
+    "status": "passed",
+    "duration": 0.0002316999998583924
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EES_confidence_weight_low_sample",
+    "status": "passed",
+    "duration": 0.00025340000001961016
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_insufficient_under_20",
+    "status": "passed",
+    "duration": 0.00019930000007661874
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_no_anomaly_below_threshold",
+    "status": "passed",
+    "duration": 0.00017109999998865533
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_generates_insight",
+    "status": "passed",
+    "duration": 0.00022679999983665766
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_has_all_required_fields",
+    "status": "passed",
+    "duration": 0.0001762000001690467
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_has_disclaimer",
+    "status": "passed",
+    "duration": 0.00014409999994313694
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_feedback_enum_validation",
+    "status": "passed",
+    "duration": 0.0002013000002989429
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_org_isolation_admin_endpoint",
+    "status": "passed",
+    "duration": 0.000738799999908224
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_case_snapshot_null_in_production",
+    "status": "passed",
+    "duration": 0.0011412000003474532
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_case_snapshot_allowed_in_test_mode",
+    "status": "passed",
+    "duration": 0.0010268999999425432
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_v2_stubs_not_implemented",
+    "status": "passed",
+    "duration": 0.00018480000017007114
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_event_logging_disabled_does_not_call_log",
+    "status": "passed",
+    "duration": 0.08516260000033071
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_event_logging_enabled_writes_standalone_event",
+    "status": "passed",
+    "duration": 0.03711369999973613
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_logger_failure_pipeline_still_returns",
+    "status": "passed",
+    "duration": 0.04196940000019822
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_production_snapshot_null_in_hook_normalizer",
+    "status": "passed",
+    "duration": 0.002036600000337785
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_maybe_log_proxy_mode_calls_normalize",
+    "status": "passed",
+    "duration": 0.0013096000002406072
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_pipeline_response_unchanged_by_hook_flag_off",
+    "status": "passed",
+    "duration": 0.034374100000150065
+  }
+]

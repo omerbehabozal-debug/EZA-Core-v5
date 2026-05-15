@@ -220,10 +220,11 @@ async def test_event_logger_missing_required_returns_none():
     db.add.assert_not_called()
 
 
-def test_pipeline_not_coupled_to_event_logger():
+def test_pipeline_hook_is_non_blocking_optional():
     import inspect
     from backend.api import pipeline_runner
 
     src = inspect.getsource(pipeline_runner)
-    assert "log_eza_event" not in src
-    assert "event_normalizer" not in src
+    assert "maybe_log_pipeline_event" in src
+    assert "Universal event hook failed (non-blocking)" in src
+    assert "return response" in src

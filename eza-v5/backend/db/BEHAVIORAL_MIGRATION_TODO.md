@@ -1,4 +1,16 @@
-# TODO: Behavioral / Safe Mode Faz 1 — Database Migration
+# Behavioral / Safe Mode + Universal Events — Database Migration
+
+**Alembic revision:** `20260516_governance`  
+**File:** `backend/migrations/versions/20260516_safe_mode_universal_events.py`
+
+```bash
+cd eza-v5/backend
+alembic upgrade head
+```
+
+---
+
+# TODO: Behavioral / Safe Mode Faz 1 — Database Migration (legacy notes)
 
 `behavioral_logs`, `behavioral_baselines`, and `behavioral_feedback` are defined in:
 

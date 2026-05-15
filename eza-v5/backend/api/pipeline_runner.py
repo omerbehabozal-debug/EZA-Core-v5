@@ -33,7 +33,8 @@ async def run_full_pipeline(
     output_text: Optional[str] = None,
     llm_override: Optional[Any] = None,
     db_session: Optional[Any] = None,
-    safe_only: Optional[bool] = False
+    safe_only: Optional[bool] = False,
+    event_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run full EZA pipeline for a given user input and mode.
@@ -913,6 +914,20 @@ async def run_full_pipeline(
             except Exception as e:
                 logger.exception(f"Telemetry record failed (non-blocking): {str(e)}")
                 # Don't modify response - telemetry failure should not affect pipeline
+
+        # Universal Event logging (optional, non-blocking — does not change response)
+        if db_session:
+            try:
+                from backend.core.events.event_pipeline_hook import maybe_log_pipeline_event
+
+                await maybe_log_pipeline_event(
+                    db_session=db_session,
+                    mode=mode,
+                    pipeline_result=response,
+                    event_context=event_context,
+                )
+            except Exception as e:
+                logger.warning("Universal event hook failed (non-blocking): %s", e)
         
         return response
     

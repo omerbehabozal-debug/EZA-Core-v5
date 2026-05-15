@@ -91,7 +91,10 @@ class Settings(BaseSettings):
     
     # Safe Mode — Behavioral Calibration (Faz 1)
     TEST_MODE: bool = False  # When true, case_snapshot may be stored on behavioral_logs
-    BEHAVIORAL_CALIBRATION_ENABLED: bool = True  # Persist numeric behavioral logs when context available
+    BEHAVIORAL_CALIBRATION_ENABLED: bool = False  # Persist numeric behavioral logs when context available
+
+    # Universal Event — pipeline hook (Stage 3)
+    EZA_EVENT_LOGGING_ENABLED: bool = False  # Non-blocking eza_events write after pipeline
 
     # Pipeline Settings
     PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout
@@ -162,11 +165,16 @@ def get_settings() -> Settings:
         settings.ENV = settings.EZA_ENV
     
     # Set DEBUG based on ENV
-    if settings.ENV == "prod":
+    env_lower = (settings.ENV or "").lower()
+    eza_lower = (settings.EZA_ENV or "").lower() if settings.EZA_ENV else ""
+    is_production = env_lower in ("prod", "production") or eza_lower in ("prod", "production")
+
+    if is_production:
         settings.DEBUG = False
+        settings.TEST_MODE = False  # Never allow case_snapshot in production
     elif settings.ENV == "ci":
         settings.DEBUG = False  # CI mode: minimal logging
     else:
         settings.DEBUG = True  # dev/staging: detailed logging
-    
+
     return settings

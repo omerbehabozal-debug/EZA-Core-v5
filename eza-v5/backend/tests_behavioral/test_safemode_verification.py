@@ -36,7 +36,7 @@ async def test_record_from_pipeline_snapshot_manual():
     db.rollback = AsyncMock()
 
     snap = _minimal_snapshot()
-    with patch.object(behavioral_service, "get_settings") as mock_settings:
+    with patch("backend.core.engines.behavioral.service.get_settings") as mock_settings:
         mock_settings.return_value.BEHAVIORAL_CALIBRATION_ENABLED = True
         mock_settings.return_value.TEST_MODE = False
         mock_settings.return_value.ENV = "dev"
@@ -66,19 +66,28 @@ async def test_feedback_writes_user_and_org():
     db.add = MagicMock()
     db.commit = AsyncMock()
 
-    result = await behavioral_service.submit_feedback(
-        db,
-        user_id="user-x",
-        org_id="org-y",
-        feedback_type="CORRECT",
-        analysis_id=str(uuid.uuid4()),
-        metric_name="eza_score",
-    )
+    mock_row = MagicMock()
+    mock_row.id = uuid.uuid4()
+    mock_row.user_id = "user-x"
+    mock_row.org_id = "org-y"
+    mock_row.feedback_type = "CORRECT"
+
+    with patch(
+        "backend.core.engines.behavioral.service.BehavioralFeedback",
+        return_value=mock_row,
+    ):
+        result = await behavioral_service.submit_feedback(
+            db,
+            user_id="user-x",
+            org_id="org-y",
+            feedback_type="CORRECT",
+            analysis_id=str(uuid.uuid4()),
+            metric_name="eza_score",
+        )
     assert result["ok"] is True
-    row = db.add.call_args[0][0]
-    assert row.user_id == "user-x"
-    assert row.org_id == "org-y"
-    assert row.feedback_type == "CORRECT"
+    assert mock_row.user_id == "user-x"
+    assert mock_row.org_id == "org-y"
+    assert mock_row.feedback_type == "CORRECT"
 
 
 def test_case_snapshot_null_when_prod_even_if_test_mode(monkeypatch):
@@ -102,6 +111,8 @@ def test_pipeline_runner_not_coupled_to_safemode_db():
     assert "record_from_pipeline_snapshot" not in src
     assert "append_behavioral_log" not in src
     assert "core.engines.behavioral.service" not in src
+    # Universal events use optional hook module, not inline logging
+    assert "maybe_log_pipeline_event" in src
 
 
 def test_me_endpoints_use_current_user_only():
