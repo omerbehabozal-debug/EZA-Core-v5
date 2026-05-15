@@ -119,7 +119,18 @@ async def record_telemetry_event(
                     "final_score": breakdown.get("final_score"),
                     "safety_level": breakdown.get("safety_level")
                 }
-        
+
+        # Behavioral layer (vectors only; no extra raw message fields)
+        behavioral = pipeline_result.get("behavioral")
+        if behavioral and isinstance(behavioral, dict):
+            meta["behavioral"] = {
+                "schema_version": behavioral.get("schema_version"),
+                "interaction_id": behavioral.get("interaction_id"),
+                "mode": behavioral.get("mode"),
+                "vector": behavioral.get("vector"),
+                "asymmetry": behavioral.get("asymmetry"),
+            }
+
         # Create telemetry event
         event_data = TelemetryEventCreate(
             mode=mode,

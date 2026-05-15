@@ -19,6 +19,8 @@ import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import SettingsModal from '@/components/standalone/SettingsModal';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
+import type { BehavioralSnapshot } from '@/lib/types';
+import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
 
 interface Message {
   id: string;
@@ -29,6 +31,7 @@ interface Message {
   safety?: 'Safe' | 'Warning' | 'Blocked';
   safeOnlyMode?: boolean;
   timestamp: Date;
+  behavioral?: BehavioralSnapshot | null;
 }
 
 // Daily limit constants
@@ -193,6 +196,17 @@ export default function StandalonePage() {
             onDone: (data: any) => {
               setIsTyping(false);
               setIsLoading(false);
+
+              if (data.behavioral) {
+                appendBehavioralSnapshot(data.behavioral as BehavioralSnapshot);
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, behavioral: data.behavioral as BehavioralSnapshot }
+                      : msg
+                  )
+                );
+              }
               
               // Update user message with score immediately
               if (data.userScore !== undefined) {
@@ -211,7 +225,7 @@ export default function StandalonePage() {
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === assistantMessageId
-                        ? { ...msg, assistantScore: data.assistantScore }
+                        ? { ...msg, assistantScore: data.assistantScore, behavioral: (data.behavioral as BehavioralSnapshot | undefined) ?? msg.behavioral }
                         : msg
                     )
                   );
@@ -291,6 +305,12 @@ export default function StandalonePage() {
           throw new Error('No data received from server');
         }
 
+        const behavioralFallback =
+          (response as { behavioral?: BehavioralSnapshot | null }).behavioral ?? null;
+        if (behavioralFallback) {
+          appendBehavioralSnapshot(behavioralFallback);
+        }
+
         // Increment daily count
         incrementDailyCount();
 
@@ -305,6 +325,7 @@ export default function StandalonePage() {
             safety: safety as 'Safe' | 'Warning' | 'Blocked',
             safeOnlyMode: true,
             timestamp: new Date(),
+            behavioral: behavioralFallback ?? undefined,
           };
           setMessages((prev) => [...prev, ezaMessage]);
         } else {
@@ -315,6 +336,7 @@ export default function StandalonePage() {
             assistantScore: (data as any).assistant_score,
             safeOnlyMode: false,
             timestamp: new Date(),
+            behavioral: behavioralFallback ?? undefined,
           };
           
           // Update user message with score
@@ -332,7 +354,11 @@ export default function StandalonePage() {
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantMessageId
-                    ? { ...msg, assistantScore: (data as any).assistant_score }
+                    ? {
+                        ...msg,
+                        assistantScore: (data as any).assistant_score,
+                        behavioral: msg.behavioral ?? behavioralFallback ?? undefined,
+                      }
                     : msg
                 )
               );

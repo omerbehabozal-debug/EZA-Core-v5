@@ -1,0 +1,152 @@
+[
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EMA_normal",
+    "status": "passed",
+    "duration": 0.0001666999999088148
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EMA_insufficient",
+    "status": "passed",
+    "duration": 0.00015340000004471221
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_trend_normal",
+    "status": "passed",
+    "duration": 0.0007157000000006519
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_trend_insufficient_under_5",
+    "status": "passed",
+    "duration": 0.00017909999996845727
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_z_score_normal",
+    "status": "passed",
+    "duration": 0.00018169999998463027
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_z_score_insufficient_under_20",
+    "status": "passed",
+    "duration": 0.00017409999986739422
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_z_score_zero_std",
+    "status": "passed",
+    "duration": 0.0001461000001654611
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_asymmetry_balanced",
+    "status": "passed",
+    "duration": 0.00033910000001924345
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_asymmetry_ai_dominant",
+    "status": "passed",
+    "duration": 0.0002207999998518062
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_asymmetry_user_dominant",
+    "status": "passed",
+    "duration": 0.0001773000001321634
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_reliability_high",
+    "status": "passed",
+    "duration": 0.00023590000000695
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_reliability_insufficient",
+    "status": "passed",
+    "duration": 0.00014869999995426042
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EES_weights_sum_to_one",
+    "status": "passed",
+    "duration": 0.0003656999999748223
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EES_confidence_weight_low_sample",
+    "status": "passed",
+    "duration": 0.00026260000004185713
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_insufficient_under_20",
+    "status": "passed",
+    "duration": 0.00018320000003768655
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_no_anomaly_below_threshold",
+    "status": "passed",
+    "duration": 0.00018520000003263704
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_generates_insight",
+    "status": "passed",
+    "duration": 0.00023160000000643777
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_has_all_required_fields",
+    "status": "passed",
+    "duration": 0.00015050000001792796
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_has_disclaimer",
+    "status": "passed",
+    "duration": 0.00016839999989315402
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_feedback_enum_validation",
+    "status": "passed",
+    "duration": 0.0001736000001528737
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_org_isolation_admin_endpoint",
+    "status": "passed",
+    "duration": 0.0011044000000310916
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_case_snapshot_null_in_production",
+    "status": "passed",
+    "duration": 0.0019129000002067187
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_case_snapshot_allowed_in_test_mode",
+    "status": "passed",
+    "duration": 0.0015484999998989224
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_v2_stubs_not_implemented",
+    "status": "passed",
+    "duration": 0.00014529999998558196
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_record_from_pipeline_snapshot_manual",
+    "status": "passed",
+    "duration": 0.03163059999997131
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_feedback_writes_user_and_org",
+    "status": "passed",
+    "duration": 0.0017216999999618565
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_case_snapshot_null_when_prod_even_if_test_mode",
+    "status": "passed",
+    "duration": 0.0015725999999176565
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_pipeline_runner_not_coupled_to_safemode_db",
+    "status": "passed",
+    "duration": 0.030146500000000742
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_me_endpoints_use_current_user_only",
+    "status": "passed",
+    "duration": 0.013018900000133726
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_admin_cross_org_returns_403",
+    "status": "passed",
+    "duration": 0.7356445999998869
+  }
+]

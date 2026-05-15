@@ -5,6 +5,8 @@
 
 import ScoreBadge from './ScoreBadge';
 import SafetyBadge from './SafetyBadge';
+import BehavioralSummary from './BehavioralSummary';
+import type { BehavioralSnapshot } from '@/lib/types';
 
 interface ChatBubbleProps {
   message: string;
@@ -16,6 +18,7 @@ interface ChatBubbleProps {
   safety?: 'Safe' | 'Warning' | 'Blocked';
   safeOnlyMode?: boolean; // If true, show SAFE badge instead of score
   timestamp?: Date;
+  behavioral?: BehavioralSnapshot | null;
 }
 
 export default function ChatBubble({ 
@@ -25,7 +28,8 @@ export default function ChatBubble({
   assistantScore, 
   safety, 
   safeOnlyMode = false,
-  timestamp 
+  timestamp,
+  behavioral,
 }: ChatBubbleProps) {
   if (isUser) {
     // User message (right aligned) - Apple iMessage style
@@ -85,6 +89,7 @@ export default function ChatBubble({
             {message}
           </p>
         </div>
+        {behavioral ? <BehavioralSummary data={behavioral} /> : null}
         {timestamp && (
           <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-400 mt-0.5 sm:mt-1 md:mt-1.5 text-left pl-0.5 sm:pl-1">
             {timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}

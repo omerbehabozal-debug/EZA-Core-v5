@@ -87,6 +87,12 @@ async def init_db():
         AuditLog, TelemetryEvent, AlertEvent, Invitation,
         IntentLog, ImpactEvent
     )
+    from backend.models.behavioral import (
+        BehavioralLog,
+        BehavioralBaseline,
+        BehavioralFeedback,
+    )
+    from backend.models.eza_event import EzaEvent
     # Import legacy models to ensure they are registered
     from backend.models.user import LegacyUser
     from backend.models.role import Role
@@ -149,6 +155,27 @@ async def init_db():
                 logging.info("✓ Added analysis_mode column to production_organizations")
         except Exception as e:
             logging.warning(f"Could not add analysis_mode column (may already exist): {e}")
+
+        # behavioral_feedback.event_id (Universal Event feedback link)
+        try:
+            check_result = await conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'behavioral_feedback'
+                AND column_name = 'event_id'
+            """))
+            if not check_result.scalar_one_or_none():
+                await conn.execute(text("""
+                    ALTER TABLE behavioral_feedback
+                    ADD COLUMN event_id UUID
+                """))
+                await conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS idx_feedback_event
+                    ON behavioral_feedback(event_id)
+                """))
+                logging.info("Added event_id column to behavioral_feedback")
+        except Exception as e:
+            logging.warning(f"Could not add behavioral_feedback.event_id (may already exist): {e}")
         
         # Add missing soft delete columns if they don't exist (migration helper)
         # This ensures backward compatibility with existing databases

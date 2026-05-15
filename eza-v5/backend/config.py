@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SECONDS: float = 12.0  # Timeout for LLM API calls
     LLM_CONNECT_TIMEOUT_SECONDS: float = 4.0  # Connection timeout
     
+    # Safe Mode — Behavioral Calibration (Faz 1)
+    TEST_MODE: bool = False  # When true, case_snapshot may be stored on behavioral_logs
+    BEHAVIORAL_CALIBRATION_ENABLED: bool = True  # Persist numeric behavioral logs when context available
+
     # Pipeline Settings
     PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout
     STANDALONE_MAX_TOKENS: int = 2048  # Max tokens for standalone mode (increased for full responses)

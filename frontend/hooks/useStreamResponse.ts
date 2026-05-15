@@ -5,12 +5,15 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { getApiUrl } from '@/lib/apiUrl';
+import type { BehavioralSnapshot } from '@/lib/types';
 
 interface StreamResponse {
   text: string;
   done: boolean;
   assistantScore?: number;
   userScore?: number;
+  /** Present when backend includes the behavioral layer on the pipeline response. */
+  behavioral?: BehavioralSnapshot | null;
   error?: string;
 }
 
@@ -97,6 +100,7 @@ export function useStreamResponse(): UseStreamResponseReturn {
           done: true,
           assistantScore: data.data?.assistant_score,
           userScore: data.data?.user_score,
+          behavioral: data.behavioral ?? null,
         };
       }
 
@@ -196,11 +200,18 @@ export function useStreamResponse(): UseStreamResponseReturn {
 
       setIsStreaming(false);
 
+      const behavioral =
+        finalData?.behavioral ??
+        (finalData?.data && typeof finalData.data === 'object'
+          ? (finalData.data as { behavioral?: BehavioralSnapshot }).behavioral
+          : undefined);
+
       const result: StreamResponse = {
         text: accumulatedText,
         done: true,
-        assistantScore: finalData?.assistant_score,
-        userScore: finalData?.user_score,
+        assistantScore: finalData?.assistant_score ?? finalData?.data?.assistant_score,
+        userScore: finalData?.user_score ?? finalData?.data?.user_score,
+        behavioral: behavioral ?? null,
       };
 
       options?.onDone?.(result);

@@ -1,0 +1,227 @@
+[
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EMA_normal",
+    "status": "passed",
+    "duration": 0.00020439999980226276
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EMA_insufficient",
+    "status": "passed",
+    "duration": 0.00015680000001339067
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_trend_normal",
+    "status": "passed",
+    "duration": 0.000602699999944889
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_trend_insufficient_under_5",
+    "status": "passed",
+    "duration": 0.00016200000004573667
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_z_score_normal",
+    "status": "passed",
+    "duration": 0.00029229999995550315
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_z_score_insufficient_under_20",
+    "status": "passed",
+    "duration": 0.00021209999999882712
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_z_score_zero_std",
+    "status": "passed",
+    "duration": 0.0001466000001073553
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_asymmetry_balanced",
+    "status": "passed",
+    "duration": 0.0003028999999514781
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_asymmetry_ai_dominant",
+    "status": "passed",
+    "duration": 0.00021929999979874992
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_asymmetry_user_dominant",
+    "status": "passed",
+    "duration": 0.00019629999997050618
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_reliability_high",
+    "status": "passed",
+    "duration": 0.00020150000000285218
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_reliability_insufficient",
+    "status": "passed",
+    "duration": 0.00021079999987705378
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EES_weights_sum_to_one",
+    "status": "passed",
+    "duration": 0.0011862000001201523
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_EES_confidence_weight_low_sample",
+    "status": "passed",
+    "duration": 0.00023590000000695
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_insufficient_under_20",
+    "status": "passed",
+    "duration": 0.00018800000020746666
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_no_anomaly_below_threshold",
+    "status": "passed",
+    "duration": 0.0002271000000746426
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_generates_insight",
+    "status": "passed",
+    "duration": 0.0002448000000185857
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_has_all_required_fields",
+    "status": "passed",
+    "duration": 0.00016500000015184924
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_vayBe_has_disclaimer",
+    "status": "passed",
+    "duration": 0.00023499999997511622
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_feedback_enum_validation",
+    "status": "passed",
+    "duration": 0.0001500999999279884
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_org_isolation_admin_endpoint",
+    "status": "passed",
+    "duration": 0.0011597999998684827
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_case_snapshot_null_in_production",
+    "status": "passed",
+    "duration": 0.0016032999999424646
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_case_snapshot_allowed_in_test_mode",
+    "status": "passed",
+    "duration": 0.0014307000001281267
+  },
+  {
+    "name": "tests_behavioral/test_math_engine_v1.py::test_v2_stubs_not_implemented",
+    "status": "passed",
+    "duration": 0.0001632000000881817
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_record_from_pipeline_snapshot_manual",
+    "status": "passed",
+    "duration": 0.030719200000021374
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_feedback_writes_user_and_org",
+    "status": "passed",
+    "duration": 0.0011561999999685213
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_case_snapshot_null_when_prod_even_if_test_mode",
+    "status": "passed",
+    "duration": 0.0011621999999533728
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_pipeline_runner_not_coupled_to_safemode_db",
+    "status": "passed",
+    "duration": 0.001122399999985646
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_me_endpoints_use_current_user_only",
+    "status": "passed",
+    "duration": 0.009170799999992596
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_admin_cross_org_returns_403",
+    "status": "passed",
+    "duration": 0.6320178999999371
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_event_normalizer_standalone",
+    "status": "passed",
+    "duration": 0.00045550000004368485
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_event_normalizer_proxy",
+    "status": "passed",
+    "duration": 0.0002581999999620166
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_event_normalizer_proxy_entity_session_fallback",
+    "status": "passed",
+    "duration": 0.0002214000001004024
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_event_normalizer_proxy_lite",
+    "status": "passed",
+    "duration": 0.0006367999999383755
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_event_normalizer_media",
+    "status": "passed",
+    "duration": 0.0002500000000509317
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_clip_score_unknown_is_none",
+    "status": "passed",
+    "duration": 0.00016000000005078618
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_event_logger_no_raw_content_in_production",
+    "status": "passed",
+    "duration": 0.0036185999999815976
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_event_logger_allows_snapshot_in_test_mode",
+    "status": "passed",
+    "duration": 0.00209380000001147
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_agent_event_stub_shape",
+    "status": "passed",
+    "duration": 0.0014989000001150998
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_autonomy_event_stub_shape",
+    "status": "passed",
+    "duration": 0.00019870000005539623
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_event_logger_missing_required_returns_none",
+    "status": "passed",
+    "duration": 0.0006308000001808978
+  },
+  {
+    "name": "tests_core/test_universal_events.py::test_pipeline_not_coupled_to_event_logger",
+    "status": "passed",
+    "duration": 0.0003334999998969579
+  },
+  {
+    "name": "tests/test_pipeline_standalone.py::test_standalone_pipeline",
+    "status": "passed",
+    "duration": 0.03447280000000319
+  },
+  {
+    "name": "tests/test_pipeline_standalone.py::test_standalone_pipeline_with_risky_input",
+    "status": "passed",
+    "duration": 0.014486099999885482
+  },
+  {
+    "name": "tests/test_pipeline_standalone.py::test_standalone_pipeline_empty_input",
+    "status": "passed",
+    "duration": 0.029776100000162842
+  }
+]

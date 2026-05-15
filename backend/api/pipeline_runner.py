@@ -22,6 +22,7 @@ from backend.config import get_settings
 from backend.core.utils.model_router import ModelRouter
 from backend.core.llm.output_merger import merge_ensemble_outputs
 from backend.telemetry.service import record_telemetry_event
+from backend.behavioral.interaction import analyze_interaction_turn
 
 logger = logging.getLogger(__name__)
 
@@ -574,7 +575,25 @@ async def run_full_pipeline(
         
         response["risk_level"] = risk_level
         response["policy_violations"] = all_policy_violations if all_policy_violations else []
-        
+
+        # Behavioral snapshot (numeric only; safe to aggregate for trends / Safe Mode)
+        try:
+            response["behavioral"] = analyze_interaction_turn(
+                mode=mode,
+                input_analysis=input_analysis,
+                output_analysis=output_analysis,
+                alignment=alignment,
+                eza_score=response.get("eza_score"),
+                redirect=redirect,
+                deception=deception,
+                legal_risk=legal_risk,
+                psych_pressure=psych_pressure,
+                policy_violation_count=len(all_policy_violations) if all_policy_violations else 0,
+            )
+        except Exception as beh_err:
+            logger.warning("Behavioral snapshot skipped: %s", beh_err)
+            response["behavioral"] = None
+
         # Step 10: Build mode-specific response data
         if mode == "standalone":
             # Ensure raw_llm_output is a clean string (no token objects, no debug info)
@@ -661,8 +680,11 @@ async def run_full_pipeline(
                     clean_assistant_answer = str(clean_assistant_answer)
                 
                 # Build response data - only include scores if they're not None
+                # Ensure safe_answer is included (use safe_answer if available, otherwise use assistant_answer)
+                clean_safe_answer_for_standalone = safe_answer if safe_answer and safe_answer.strip() else clean_assistant_answer
                 data = {
                     "assistant_answer": clean_assistant_answer,
+                    "safe_answer": clean_safe_answer_for_standalone,
                     "risk_level": risk_level  # Include risk_level in data for frontend
                 }
                 
@@ -703,6 +725,7 @@ async def run_full_pipeline(
             safety_level = eza_score_result.get("safety_level", "unknown") if response.get("eza_score_breakdown") else "unknown"
             
             response["data"] = {
+                "risk_level": risk_level,
                 "safety_level": safety_level,
                 "summary": f"Risk assessment: {risk_level} risk, {safety_level} safety",
                 "recommendation": _get_recommendation(risk_level, safety_level)

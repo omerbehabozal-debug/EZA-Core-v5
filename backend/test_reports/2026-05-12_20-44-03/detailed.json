@@ -1,0 +1,63 @@
+[
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_format",
+    "status": "passed",
+    "duration": 0.08351440000024013
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_validation",
+    "status": "passed",
+    "duration": 0.060394900000574125
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_all_modes",
+    "status": "failed",
+    "duration": 0.024668999999448715,
+    "message": "tests\\test_response_schema.py:59: in test_response_schema_all_modes\n    assert is_valid, f\"Schema validation failed for mode {mode}: {errors}\"\nE   AssertionError: Schema validation failed for mode standalone: [\"Standalone mode data must contain 'safe_answer' field\"]\nE   assert False"
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_field_types",
+    "status": "passed",
+    "duration": 0.010190300000431307
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_eza_score_range",
+    "status": "passed",
+    "duration": 0.0458851000003051
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_mode_values",
+    "status": "passed",
+    "duration": 0.09209720000035304
+  },
+  {
+    "name": "tests/test_pipeline_proxy_lite.py::test_proxy_lite_pipeline",
+    "status": "passed",
+    "duration": 0.009865899999567773
+  },
+  {
+    "name": "tests/test_pipeline_proxy_lite.py::test_proxy_lite_pipeline_with_output_text",
+    "status": "passed",
+    "duration": 0.008832499999698484
+  },
+  {
+    "name": "tests/test_pipeline_proxy_lite.py::test_proxy_lite_pipeline_concise_output",
+    "status": "passed",
+    "duration": 0.009883100000479317
+  },
+  {
+    "name": "tests_core/test_behavioral_interaction.py::test_analyze_interaction_turn_shape",
+    "status": "passed",
+    "duration": 0.00038860000040585874
+  },
+  {
+    "name": "tests_core/test_behavioral_interaction.py::test_analyze_interaction_high_asymmetry",
+    "status": "passed",
+    "duration": 0.00030669999978272244
+  },
+  {
+    "name": "tests_core/test_behavioral_interaction.py::test_ema_and_slope",
+    "status": "passed",
+    "duration": 0.0002494000000297092
+  }
+]

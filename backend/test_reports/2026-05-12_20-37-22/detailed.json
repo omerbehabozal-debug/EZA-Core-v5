@@ -1,0 +1,17 @@
+[
+  {
+    "name": "tests_core/test_behavioral_interaction.py::test_analyze_interaction_turn_shape",
+    "status": "passed",
+    "duration": 0.00045570000020234147
+  },
+  {
+    "name": "tests_core/test_behavioral_interaction.py::test_analyze_interaction_high_asymmetry",
+    "status": "passed",
+    "duration": 0.0002814999998008716
+  },
+  {
+    "name": "tests_core/test_behavioral_interaction.py::test_ema_and_slope",
+    "status": "passed",
+    "duration": 0.00022559999979421264
+  }
+]

@@ -1,0 +1,50 @@
+/**
+ * Local persistence for behavioral snapshots (demo / standalone only).
+ * No PII — only numeric vectors returned by the pipeline.
+ */
+
+import type { BehavioralSnapshot } from '@/lib/types';
+
+const STORAGE_KEY = 'eza_standalone_behavioral_history';
+const MAX_ITEMS = 50;
+
+export type SavedBehavioralEntry = BehavioralSnapshot & {
+  savedAt: string;
+};
+
+export function appendBehavioralSnapshot(snapshot: BehavioralSnapshot | null | undefined): void {
+  if (!snapshot || typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const list: SavedBehavioralEntry[] = raw ? JSON.parse(raw) : [];
+    const entry: SavedBehavioralEntry = {
+      ...snapshot,
+      savedAt: new Date().toISOString(),
+    };
+    list.unshift(entry);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_ITEMS)));
+  } catch {
+    // ignore quota / parse errors
+  }
+}
+
+export function readBehavioralHistory(): SavedBehavioralEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearBehavioralHistory(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* empty */
+  }
+}

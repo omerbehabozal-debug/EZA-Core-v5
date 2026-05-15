@@ -2,7 +2,8 @@
  * TopBar Component - Apple Style Navigation
  */
 
-import { Settings } from 'lucide-react';
+import Link from 'next/link';
+import { Activity, Settings } from 'lucide-react';
 
 interface TopBarProps {
   onSettingsClick: () => void;
@@ -10,7 +11,7 @@ interface TopBarProps {
 
 export default function TopBar({ onSettingsClick }: TopBarProps) {
   return (
-    <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/60 border-b border-gray-200 safe-area-top">
+    <div className="sticky top-0 z-[100] backdrop-blur-xl bg-white border-b border-gray-200 safe-area-top shadow-sm">
       <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
         {/* Left: Minimal EZA Logo */}
         <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
@@ -24,11 +25,19 @@ export default function TopBar({ onSettingsClick }: TopBarProps) {
           <h1 className="text-sm sm:text-base font-semibold text-gray-900 truncate">EZA Standalone</h1>
         </div>
 
-        {/* Right: Settings Icon */}
-        <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
+        {/* Right: Insights + Settings */}
+        <div className="flex items-center justify-end gap-0.5 sm:gap-1 flex-shrink-0">
+          <Link
+            href="/standalone/insights"
+            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg hover:bg-gray-100/80 active:bg-gray-200/80 transition-colors touch-manipulation"
+            aria-label="Davranış geçmişi"
+            title="Davranış geçmişi"
+          >
+            <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+          </Link>
           <button
             onClick={onSettingsClick}
-            className="w-full h-full flex items-center justify-center rounded-lg hover:bg-gray-100/80 active:bg-gray-200/80 transition-colors active:scale-95 touch-manipulation"
+            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg hover:bg-gray-100/80 active:bg-gray-200/80 transition-colors active:scale-95 touch-manipulation"
             aria-label="Settings"
           >
             <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />

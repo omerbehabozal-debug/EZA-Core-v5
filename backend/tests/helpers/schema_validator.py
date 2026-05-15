@@ -65,6 +65,12 @@ def validate_pipeline_response(response: Dict[str, Any]) -> tuple:
                     errors.append("Error dictionary must contain 'error_code' field")
                 if "error_message" not in response["error"]:
                     errors.append("Error dictionary must contain 'error_message' field")
+
+    # Optional behavioral snapshot (numeric vectors only)
+    if "behavioral" in response:
+        b = response["behavioral"]
+        if b is not None and not isinstance(b, dict):
+            errors.append("Field 'behavioral' must be a dictionary or None")
     
     # Mode-specific data validation
     if response.get("ok") and response.get("data"):

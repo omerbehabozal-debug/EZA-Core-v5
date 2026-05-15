@@ -12,6 +12,8 @@ from backend.core.engines.output_analyzer import analyze_output
 from backend.core.engines.alignment_engine import compute_alignment
 from backend.core.engines.safe_rewrite import safe_rewrite
 from backend.core.engines.eza_score import compute_eza_score_v21
+from backend.core.engines.redirect_engine import should_redirect
+from backend.behavioral.interaction import analyze_interaction_turn
 from backend.config import get_settings
 from backend.core.engines.model_router import LLM_API_KEY, LLM_MODEL, OPENAI_BASE_URL
 
@@ -93,6 +95,31 @@ async def stream_standalone_response(
                     token_data = {"token": f"{word} "}
                     yield f'data: {json.dumps(token_data)}\n\n'
             
+            # Behavioral snapshot (output = streamed safe answer)
+            try:
+                oa_safe = analyze_output(safe_answer, input_analysis)
+                al_safe = compute_alignment(input_analysis, oa_safe)
+                redir_safe = should_redirect(input_analysis, oa_safe, al_safe)
+                eza_safe = compute_eza_score_v21(
+                    input_analysis=input_analysis,
+                    output_analysis=oa_safe,
+                    alignment=al_safe,
+                    redirect=redir_safe,
+                )
+                eza_final = eza_safe.get("final_score")
+                eza_f = max(0.0, min(100.0, round(float(eza_final), 1))) if eza_final is not None else None
+                behavioral = analyze_interaction_turn(
+                    mode="standalone",
+                    input_analysis=input_analysis,
+                    output_analysis=oa_safe,
+                    alignment=al_safe,
+                    eza_score=eza_f,
+                    redirect=redir_safe,
+                    policy_violation_count=0,
+                )
+            except Exception:
+                behavioral = None
+
             # Send completion with SAFE badge info, safety level, and user score
             completion_data = {
                 "done": True,
@@ -100,6 +127,8 @@ async def stream_standalone_response(
                 "safety": safety,
                 "user_score": user_score  # Include user score even in safe-only mode
             }
+            if behavioral:
+                completion_data["behavioral"] = behavioral
             yield f'data: {json.dumps(completion_data)}\n\n'
         else:
             # Score mode: Stream raw LLM tokens directly and accumulate for scoring
@@ -112,6 +141,9 @@ async def stream_standalone_response(
             
             # After streaming completes, compute scores using accumulated text
             assistant_score = None
+            output_analysis = None
+            alignment = None
+            clean_text = ""
             if accumulated_text:
                 # Clean accumulated text (remove any potential token debug info)
                 clean_text = accumulated_text.strip()
@@ -133,9 +165,7 @@ async def stream_standalone_response(
                         if final_score is not None:
                             # Round to 1 decimal place instead of integer to preserve precision
                             assistant_score = max(0.0, min(100.0, round(final_score, 1)))
-                    except Exception as e:
-                        # If score calculation fails, don't fail the request
-                        # assistant_score will remain None
+                    except Exception:
                         assistant_score = None
             
             # Build completion data - always include scores
@@ -145,6 +175,22 @@ async def stream_standalone_response(
             # Include assistant_score if calculated
             if assistant_score is not None:
                 completion_data["assistant_score"] = assistant_score
+
+            # Behavioral snapshot (align with pipeline behavioral layer)
+            if clean_text and output_analysis is not None and alignment is not None:
+                try:
+                    redirect = should_redirect(input_analysis, output_analysis, alignment)
+                    completion_data["behavioral"] = analyze_interaction_turn(
+                        mode="standalone",
+                        input_analysis=input_analysis,
+                        output_analysis=output_analysis,
+                        alignment=alignment,
+                        eza_score=assistant_score,
+                        redirect=redirect,
+                        policy_violation_count=0,
+                    )
+                except Exception:
+                    pass
             
             # Send completion with scores
             yield f'data: {json.dumps(completion_data)}\n\n'

@@ -50,6 +50,38 @@ export interface WorkflowNode {
   config: Record<string, any>;
 }
 
+/** Per-turn behavioral snapshot from pipeline (numeric only, no raw messages). */
+export interface BehavioralAsymmetry {
+  health_gap: number;
+  risk_delta_output_minus_input: number;
+  index: number;
+}
+
+export interface BehavioralVector {
+  input_risk: number;
+  output_risk: number;
+  input_health: number;
+  output_health: number;
+  alignment_score: number | null;
+  eza_final: number | null;
+  intent: string;
+  alignment_verdict: string | null;
+  redirect: boolean;
+  redirect_reason: string | null;
+  policy_violation_count: number;
+  deception_score?: number | null;
+  legal_risk_score?: number | null;
+  psych_pressure_score?: number | null;
+}
+
+export interface BehavioralSnapshot {
+  schema_version: number;
+  interaction_id: string;
+  mode: string;
+  vector: BehavioralVector;
+  asymmetry: BehavioralAsymmetry;
+}
+
 export interface CorporateAudit {
   id: string;
   ai_agent: string;

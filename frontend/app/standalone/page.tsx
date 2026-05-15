@@ -19,6 +19,8 @@ import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import SettingsModal from '@/components/standalone/SettingsModal';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
+import type { BehavioralSnapshot } from '@/lib/types';
+import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
 
 interface Message {
   id: string;
@@ -29,6 +31,7 @@ interface Message {
   safety?: 'Safe' | 'Warning' | 'Blocked';
   safeOnlyMode?: boolean;
   timestamp: Date;
+  behavioral?: BehavioralSnapshot | null;
 }
 
 // Daily limit constants
@@ -193,6 +196,17 @@ export default function StandalonePage() {
             onDone: (data: any) => {
               setIsTyping(false);
               setIsLoading(false);
+
+              if (data.behavioral) {
+                appendBehavioralSnapshot(data.behavioral as BehavioralSnapshot);
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, behavioral: data.behavioral as BehavioralSnapshot }
+                      : msg
+                  )
+                );
+              }
               
               // Update user message with score immediately
               if (data.userScore !== undefined) {
@@ -211,7 +225,7 @@ export default function StandalonePage() {
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === assistantMessageId
-                        ? { ...msg, assistantScore: data.assistantScore }
+                        ? { ...msg, assistantScore: data.assistantScore, behavioral: (data.behavioral as BehavioralSnapshot | undefined) ?? msg.behavioral }
                         : msg
                     )
                   );
@@ -275,12 +289,26 @@ export default function StandalonePage() {
         });
 
         if (!response.ok) {
-          throw new Error(response.error?.error_message || response.error?.message || 'Request failed');
+          // Check for demo limit errors
+          const errorCode = response.error?.error_code || response.error?.error;
+          const errorMessage = response.error?.error_message || response.error?.message || 'Request failed';
+          
+          const error = new Error(errorMessage);
+          if (errorCode) {
+            (error as any).code = errorCode;
+          }
+          throw error;
         }
 
         const data = response.data;
         if (!data) {
           throw new Error('No data received from server');
+        }
+
+        const behavioralFallback =
+          (response as { behavioral?: BehavioralSnapshot | null }).behavioral ?? null;
+        if (behavioralFallback) {
+          appendBehavioralSnapshot(behavioralFallback);
         }
 
         // Increment daily count
@@ -297,6 +325,7 @@ export default function StandalonePage() {
             safety: safety as 'Safe' | 'Warning' | 'Blocked',
             safeOnlyMode: true,
             timestamp: new Date(),
+            behavioral: behavioralFallback ?? undefined,
           };
           setMessages((prev) => [...prev, ezaMessage]);
         } else {
@@ -307,6 +336,7 @@ export default function StandalonePage() {
             assistantScore: (data as any).assistant_score,
             safeOnlyMode: false,
             timestamp: new Date(),
+            behavioral: behavioralFallback ?? undefined,
           };
           
           // Update user message with score
@@ -324,7 +354,11 @@ export default function StandalonePage() {
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantMessageId
-                    ? { ...msg, assistantScore: (data as any).assistant_score }
+                    ? {
+                        ...msg,
+                        assistantScore: (data as any).assistant_score,
+                        behavioral: msg.behavioral ?? behavioralFallback ?? undefined,
+                      }
                     : msg
                 )
               );
@@ -347,8 +381,14 @@ export default function StandalonePage() {
       
       // Show error message
       let errorText = 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.';
+      const errorCode = error?.code || error?.response?.data?.error;
       
-      if (error.message) {
+      // Handle demo limit errors
+      if (errorCode === 'DEMO_TOKEN_LIMIT_REACHED') {
+        errorText = 'Günlük Demo Limiti Doldu\n\nBu sayfa, EZA\'nın herkese açık demo ortamıdır. Sistem stabilitesi ve adil kullanım için günlük bir kapasite ile çalışır.\n\nLütfen daha sonra tekrar deneyin.';
+      } else if (errorCode === 'DEMO_TEXT_LIMIT_EXCEEDED') {
+        errorText = 'Demo ortamında uzun metin analizi sınırlıdır. Daha kapsamlı analizler kurumsal kullanım için sunulmaktadır.';
+      } else if (error.message) {
         if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
           errorText = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
         } else if (error.message.includes('404') || error.message.includes('bulunamadı')) {
@@ -372,7 +412,9 @@ export default function StandalonePage() {
   return (
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden safe-area-inset">
       <TopBar onSettingsClick={() => setIsSettingsOpen(true)} />
-      <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
+      </div>
       <InputBar 
         onSend={handleSend} 
         isLoading={isLoading}

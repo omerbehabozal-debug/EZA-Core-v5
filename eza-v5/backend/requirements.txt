@@ -41,6 +41,8 @@ qdrant-client==1.7.0  # For ethical embeddings (PASİF - feature flag controlled
 # Utilities
 python-dateutil==2.8.2
 pytz==2023.3
+numpy==1.26.4
+scipy==1.11.4
 
 # Testing
 pytest==7.4.3

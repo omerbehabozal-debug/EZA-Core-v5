@@ -259,6 +259,11 @@ async def general_exception_handler(request: Request, exc: Exception):
 # OLD auth.router removed - using production_auth.router instead
 from backend.routers import production_auth
 app.include_router(production_auth.router, prefix="/api/auth", tags=["Production Auth"])
+
+from backend.api.routers.safemode_router import router as safemode_router
+app.include_router(safemode_router)
+from backend.api.routers.admin_events_router import router as admin_events_router
+app.include_router(admin_events_router)
 # standalone.router removed - using direct endpoint in main.py instead
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])

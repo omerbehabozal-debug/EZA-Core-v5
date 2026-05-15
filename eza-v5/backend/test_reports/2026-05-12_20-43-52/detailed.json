@@ -1,0 +1,62 @@
+[
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_format",
+    "status": "passed",
+    "duration": 0.08471300000019255
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_validation",
+    "status": "passed",
+    "duration": 0.06374410000080388
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_all_modes",
+    "status": "passed",
+    "duration": 0.10384209999938321
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_field_types",
+    "status": "passed",
+    "duration": 0.010259599999699276
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_eza_score_range",
+    "status": "passed",
+    "duration": 0.04796819999955915
+  },
+  {
+    "name": "tests/test_response_schema.py::test_response_schema_mode_values",
+    "status": "passed",
+    "duration": 0.10564000000067608
+  },
+  {
+    "name": "tests/test_pipeline_proxy_lite.py::test_proxy_lite_pipeline",
+    "status": "passed",
+    "duration": 0.009807900000851077
+  },
+  {
+    "name": "tests/test_pipeline_proxy_lite.py::test_proxy_lite_pipeline_with_output_text",
+    "status": "passed",
+    "duration": 0.009035700000822544
+  },
+  {
+    "name": "tests/test_pipeline_proxy_lite.py::test_proxy_lite_pipeline_concise_output",
+    "status": "passed",
+    "duration": 0.01044000000001688
+  },
+  {
+    "name": "tests_core/test_behavioral_interaction.py::test_analyze_interaction_turn_shape",
+    "status": "passed",
+    "duration": 0.0003955000001951703
+  },
+  {
+    "name": "tests_core/test_behavioral_interaction.py::test_analyze_interaction_high_asymmetry",
+    "status": "passed",
+    "duration": 0.0002781000002869405
+  },
+  {
+    "name": "tests_core/test_behavioral_interaction.py::test_ema_and_slope",
+    "status": "passed",
+    "duration": 0.0002504999993107049
+  }
+]

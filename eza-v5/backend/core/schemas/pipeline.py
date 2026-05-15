@@ -26,6 +26,10 @@ class PipelineResponse(BaseModel):
     risk_level: Optional[str] = Field(None, description="Risk level: low, medium, high")
     data: Optional[Dict[str, Any]] = Field(None, description="Mode-specific response data")
     error: Optional[PipelineError] = Field(None, description="Error information if ok=False")
+    behavioral: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Optional per-turn behavioral snapshot (numeric vectors; no raw user content)",
+    )
 
 
 class StandaloneRequest(BaseModel):
