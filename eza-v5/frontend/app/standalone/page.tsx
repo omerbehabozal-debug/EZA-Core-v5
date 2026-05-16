@@ -22,6 +22,7 @@ import { useStreamResponse } from '@/hooks/useStreamResponse';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
 import { feedbackContextFromGovernance, parseGovernance } from '@/lib/standaloneFeedback';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 interface Message {
   id: string;
@@ -448,7 +449,7 @@ export default function StandalonePage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden safe-area-inset">
+    <div className={`flex flex-col h-screen overflow-hidden safe-area-inset ${standaloneSkin.page}`}>
       <TopBar onSettingsClick={() => setIsSettingsOpen(true)} />
       <div className="flex-1 min-h-0 overflow-hidden">
         <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />

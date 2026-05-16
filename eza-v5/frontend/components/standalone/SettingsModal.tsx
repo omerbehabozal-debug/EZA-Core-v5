@@ -212,7 +212,7 @@ export default function SettingsModal({
       >
         <div 
           ref={contentRef}
-          className="max-w-2xl mx-auto bg-white/90 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl shadow-2xl border-t border-gray-200/80 max-h-[90vh] overflow-y-auto"
+          className="max-w-2xl mx-auto bg-eza-surface/95 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl shadow-eza-lg border-t border-eza-border max-h-[90vh] overflow-y-auto"
         >
           {/* Handle Bar */}
           <div 
@@ -220,29 +220,29 @@ export default function SettingsModal({
             className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing select-none"
             style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
           >
-            <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+            <div className="w-12 h-1.5 bg-eza-border-strong rounded-full" />
           </div>
           
           {/* Header */}
           <div 
             ref={headerRef}
-            className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200/80 flex items-center justify-center sticky top-0 bg-white/90 backdrop-blur-sm cursor-grab active:cursor-grabbing select-none"
+            className="px-4 sm:px-6 py-3 sm:py-4 border-b border-eza-border flex items-center justify-center sticky top-0 bg-eza-surface/95 backdrop-blur-sm cursor-grab active:cursor-grabbing select-none"
             style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
           >
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Ayarlar</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-eza-text">Ayarlar</h2>
           </div>
           
           {/* Content */}
           <div className="px-4 sm:px-6 py-4 space-y-1">
             {/* SAFE-only Switch */}
-            <div className="w-full flex items-center justify-between p-3 sm:p-4 rounded-xl sm:rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors touch-manipulation">
+            <div className="w-full flex items-center justify-between p-3 sm:p-4 rounded-xl sm:rounded-2xl hover:bg-eza-surface-muted active:bg-eza-accent-muted/40 transition-colors touch-manipulation">
               <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
                 <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                   <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                 </div>
                 <div className="text-left min-w-0 flex-1">
-                  <p className="text-sm sm:text-[15px] font-medium text-gray-900">SAFE-only Modu</p>
-                  <p className="text-[10px] sm:text-xs text-gray-500">Güvenli cevaplar için rewrite aktif</p>
+                  <p className="text-sm sm:text-[15px] font-medium text-eza-text">SAFE-only Modu</p>
+                  <p className="text-[10px] sm:text-xs text-eza-text-muted">Güvenli cevaplar için rewrite aktif</p>
                 </div>
               </div>
               {/* Toggle Switch */}
@@ -262,11 +262,11 @@ export default function SettingsModal({
             </div>
             
             {/* Proxy-Lite Info (Minimal - No button, no link) */}
-            <div className="w-full p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gray-50/50">
-              <p className="text-[10px] sm:text-xs text-gray-600 leading-relaxed">
+            <div className="w-full p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-eza-surface-muted border border-eza-border">
+              <p className="text-[10px] sm:text-xs text-eza-text-secondary leading-relaxed">
                 Risk skorlarının nasıl hesaplandığını merak ediyorsanız, Proxy-Lite modunda detaylı analizleri inceleyebilirsiniz.
               </p>
-              <p className="text-[10px] sm:text-xs text-gray-600 leading-relaxed mt-2">
+              <p className="text-[10px] sm:text-xs text-eza-text-secondary leading-relaxed mt-2">
                 Tarayıcıdan: proxy-lite.ezacore.ai
               </p>
             </div>

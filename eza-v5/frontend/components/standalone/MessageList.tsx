@@ -7,6 +7,7 @@ import ChatBubble from './ChatBubble';
 import LoadingDots from './LoadingDots';
 import TypingIndicator from './TypingIndicator';
 import EmptyState from './EmptyState';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 
 interface Message {
@@ -39,7 +40,7 @@ export default function MessageList({ messages, isLoading, isTyping = false }: M
   }, [messages, isLoading, isTyping]);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 overscroll-contain min-h-0">
+    <div className={standaloneSkin.list}>
       <div className="max-w-4xl mx-auto py-3 sm:py-4 md:py-6 pb-20 sm:pb-24 w-full px-1 sm:px-2">
         {/* Empty State */}
         {messages.length === 0 && !isLoading && <EmptyState />}
@@ -68,7 +69,7 @@ export default function MessageList({ messages, isLoading, isTyping = false }: M
         {/* Loading Indicator - Legacy fallback (not used with streaming) */}
         {isLoading && !isTyping && (
           <div className="flex justify-start mb-3 sm:mb-4 md:mb-5 px-2 sm:px-4">
-            <div className="bg-white border border-gray-200 rounded-[16px] sm:rounded-[18px] md:rounded-[20px] rounded-tl-[4px] shadow-sm">
+            <div className={standaloneSkin.typingBubble}>
               <LoadingDots />
             </div>
           </div>

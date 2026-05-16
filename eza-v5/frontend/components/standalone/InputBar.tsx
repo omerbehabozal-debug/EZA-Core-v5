@@ -4,6 +4,7 @@
 
 import { useState, FormEvent, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 interface InputBarProps {
   onSend: (message: string) => void;
@@ -39,7 +40,7 @@ export default function InputBar({ onSend, isLoading, disabled = false }: InputB
   };
 
   return (
-    <div className="sticky bottom-0 z-[100] bg-white backdrop-blur-xl border-t border-gray-200 safe-area-bottom shadow-lg">
+    <div className={standaloneSkin.chromeBottom}>
       <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2 sm:py-3">
         <form onSubmit={handleSubmit} className="flex items-center gap-2 sm:gap-3">
           <div className="flex-1 relative min-w-0">
@@ -64,7 +65,7 @@ export default function InputBar({ onSend, isLoading, disabled = false }: InputB
               placeholder={disabled ? "Günlük limit doldu" : "Mesaj yaz…"}
               rows={1}
               disabled={disabled}
-              className="w-full px-3 py-2.5 sm:px-4 sm:py-3 pr-10 sm:pr-12 rounded-full bg-white/90 backdrop-blur-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 resize-none text-sm sm:text-[15px] text-gray-900 placeholder-gray-400 shadow-sm transition-all overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation hide-scrollbar"
+              className={standaloneSkin.input}
               style={{
                 maxHeight: '120px',
                 minHeight: '44px',
@@ -78,7 +79,7 @@ export default function InputBar({ onSend, isLoading, disabled = false }: InputB
           <button
             type="submit"
             disabled={!message.trim() || isLoading || disabled}
-            className="flex-shrink-0 h-[44px] w-[44px] sm:h-[48px] sm:w-[48px] rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed flex items-center justify-center shadow-md text-white transition-all transform active:scale-95 touch-manipulation"
+            className={standaloneSkin.sendBtn}
             aria-label="Send message"
           >
             <Send className="w-4 h-4 sm:w-5 sm:h-5" />

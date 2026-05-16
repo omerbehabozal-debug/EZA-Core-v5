@@ -78,17 +78,17 @@ export default function StandaloneFeedbackChips({
             className={cn(
               'rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors',
               authed
-                ? 'border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50'
-                : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                ? 'border-eza-border bg-eza-surface text-eza-accent hover:bg-eza-accent-muted'
+                : 'border-eza-border bg-eza-surface-muted text-eza-text-muted cursor-not-allowed'
             )}
           >
             {submitting === chip.type ? '…' : chip.label}
           </button>
         ))}
       </div>
-      {message ? <p className="mt-1 text-[10px] text-indigo-600">{message}</p> : null}
+      {message ? <p className="mt-1 text-[10px] text-eza-accent">{message}</p> : null}
       {!authed ? (
-        <p className="mt-0.5 text-[10px] text-gray-400">{disabledReason}</p>
+        <p className="mt-0.5 text-[10px] text-eza-text-muted">{disabledReason}</p>
       ) : null}
     </div>
   );

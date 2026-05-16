@@ -8,6 +8,7 @@ import SafetyBadge from './SafetyBadge';
 import BehavioralSummary from './BehavioralSummary';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import StandaloneFeedbackChips from './StandaloneFeedbackChips';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 interface ChatBubbleProps {
   message: string;
@@ -39,25 +40,25 @@ export default function ChatBubble({
     return (
       <div className="flex justify-end mb-3 sm:mb-4 md:mb-5 px-1.5 sm:px-2 md:px-4">
         <div className="max-w-[88%] xs:max-w-[85%] sm:max-w-[80%] md:max-w-[75%] lg:max-w-[65%] flex flex-col items-end">
-          <div className="bg-[#EEF2FF] border border-indigo-100 rounded-[16px] sm:rounded-[18px] md:rounded-[20px] rounded-tr-[4px] px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-sm relative inline-block pr-8 sm:pr-10 md:pr-12">
+          <div className={standaloneSkin.userBubble}>
             {/* Score Badge - Show placeholder (gray) if score is undefined, actual score when available */}
             {!safeOnlyMode && (
               <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 md:-top-2 md:-right-2 z-10 pointer-events-none">
                 {userScore !== undefined && userScore !== null ? (
                   <ScoreBadge score={userScore} />
                 ) : (
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center shadow-sm animate-pulse">
-                    <span className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-gray-400">--</span>
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 ${standaloneSkin.scorePlaceholder} animate-pulse`}>
+                    <span className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-eza-text-muted">--</span>
                   </div>
                 )}
               </div>
             )}
-            <p className="text-gray-900 text-xs sm:text-sm md:text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+            <p className={standaloneSkin.messageText}>
               {message}
             </p>
           </div>
           {timestamp && (
-            <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-400 mt-0.5 sm:mt-1 md:mt-1.5 text-right pr-0.5 sm:pr-1">
+            <p className={`${standaloneSkin.timestamp} mt-0.5 sm:mt-1 md:mt-1.5 text-right pr-0.5 sm:pr-1`}>
               {timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
             </p>
           )}
@@ -70,7 +71,7 @@ export default function ChatBubble({
   return (
     <div className="flex justify-start mb-3 sm:mb-4 md:mb-5 px-1.5 sm:px-2 md:px-4">
       <div className="max-w-[88%] xs:max-w-[85%] sm:max-w-[80%] md:max-w-[75%] lg:max-w-[65%] flex flex-col items-start">
-        <div className="bg-white border border-gray-200 rounded-[16px] sm:rounded-[18px] md:rounded-[20px] rounded-tl-[4px] px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-sm relative inline-block pr-8 sm:pr-10 md:pr-12">
+        <div className={standaloneSkin.assistantBubble}>
           {/* Badge - SAFE-only mode shows SAFE badge, otherwise shows score (with placeholder) */}
           {safeOnlyMode ? (
             <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 md:-top-2 md:-right-2 z-10 pointer-events-none">
@@ -82,20 +83,20 @@ export default function ChatBubble({
                 <ScoreBadge score={assistantScore} />
               ) : (
                 // Placeholder badge - will be replaced when score arrives
-                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center shadow-sm opacity-50">
-                  <span className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-gray-400">--</span>
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 ${standaloneSkin.scorePlaceholder} opacity-50`}>
+                  <span className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-eza-text-muted">--</span>
                 </div>
               )}
             </div>
           )}
-          <p className="text-gray-900 text-xs sm:text-sm md:text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+          <p className={standaloneSkin.messageText}>
             {message}
           </p>
         </div>
         {behavioral ? <BehavioralSummary data={behavioral} /> : null}
         {feedback?.eventId ? <StandaloneFeedbackChips context={feedback} /> : null}
         {timestamp && (
-          <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-400 mt-0.5 sm:mt-1 md:mt-1.5 text-left pl-0.5 sm:pl-1">
+          <p className={`${standaloneSkin.timestamp} mt-0.5 sm:mt-1 md:mt-1.5 text-left pl-0.5 sm:pl-1`}>
             {timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
           </p>
         )}
