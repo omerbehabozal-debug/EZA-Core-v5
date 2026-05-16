@@ -29,10 +29,10 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: '/admin/governance', label: ezaCopy.nav.overview, icon: LayoutDashboard, disabled: true },
-  { href: '/admin/governance/events', label: ezaCopy.nav.events, icon: Activity, disabled: true },
-  { href: '/admin/governance/calibration', label: ezaCopy.nav.calibration, icon: BarChart3, disabled: true },
-  { href: '/admin/governance/reliability', label: ezaCopy.nav.reliability, icon: Shield, disabled: true },
+  { href: '/admin/governance', label: ezaCopy.nav.overview, icon: LayoutDashboard },
+  { href: '/admin/governance/events', label: ezaCopy.nav.events, icon: Activity },
+  { href: '/admin/governance/calibration', label: ezaCopy.nav.calibration, icon: BarChart3 },
+  { href: '/admin/governance', label: ezaCopy.nav.reliability, icon: Shield },
   { href: '/governance/me', label: ezaCopy.nav.me, icon: Calendar, disabled: true },
   { href: '/design-system', label: ezaCopy.nav.designSystem, icon: Palette },
 ];
@@ -62,7 +62,10 @@ export default function GovernanceShell({
           <nav className="flex-1 space-y-0.5 p-2" aria-label="Governance">
             {navItems.map((item) => {
               const active =
-                pathname === item.href || (item.href !== '/' && pathname?.startsWith(item.href));
+                item.href === '/admin/governance'
+                  ? pathname === '/admin/governance'
+                  : pathname === item.href ||
+                    (pathname?.startsWith(`${item.href}/`) ?? false);
               const Icon = item.icon;
               const baseClass = cn(
                 'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
@@ -76,7 +79,7 @@ export default function GovernanceShell({
 
               if (item.disabled) {
                 return (
-                  <span key={item.href} className={baseClass} title="Aşama 2’de aktif olacak">
+                  <span key={item.label} className={baseClass} title="Aşama 3’te aktif olacak">
                     <Icon className="h-4 w-4 shrink-0" aria-hidden />
                     {item.label}
                   </span>
@@ -84,7 +87,7 @@ export default function GovernanceShell({
               }
 
               return (
-                <Link key={item.href} href={item.href} className={baseClass}>
+                <Link key={item.label} href={item.href} className={baseClass}>
                   <Icon className="h-4 w-4 shrink-0" aria-hidden />
                   {item.label}
                 </Link>
@@ -92,7 +95,7 @@ export default function GovernanceShell({
             })}
           </nav>
           <p className="border-t border-eza-border px-4 py-3 text-[10px] text-eza-text-muted">
-            Aşama 1 — Design System
+            Governance Console
           </p>
         </aside>
 

@@ -19,10 +19,13 @@ export default function AdminPage() {
               <h2 className="text-lg font-semibold mb-2">Users</h2>
               <p className="text-gray-600">Manage users and roles</p>
             </div>
-            <div className="p-6 bg-white rounded-lg shadow">
-              <h2 className="text-lg font-semibold mb-2">Statistics</h2>
-              <p className="text-gray-600">View system statistics</p>
-            </div>
+            <a
+              href="/admin/governance"
+              className="p-6 bg-white rounded-lg shadow block hover:ring-2 hover:ring-indigo-200 transition-shadow"
+            >
+              <h2 className="text-lg font-semibold mb-2">Governance Console</h2>
+              <p className="text-gray-600">Events, kalibrasyon ve gözlemler</p>
+            </a>
             <div className="p-6 bg-white rounded-lg shadow">
               <h2 className="text-lg font-semibold mb-2">Settings</h2>
               <p className="text-gray-600">System configuration</p>
