@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import StandalonePageShell from '@/components/standalone/StandalonePageShell';
 import BehavioralIntelligenceDashboard from '@/components/standalone/BehavioralIntelligenceDashboard';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import { reportSkin } from '@/lib/eza/reportSkin';
+import { cn } from '@/lib/utils';
 import {
   readBehavioralHistory,
   clearBehavioralHistory,
@@ -24,7 +26,7 @@ export default function StandaloneReportsPage() {
   };
 
   return (
-    <div className={standaloneSkin.page}>
+    <div className={cn(standaloneSkin.page, reportSkin.canvas)}>
       <StandalonePageShell>
         <div className="mx-auto w-full max-w-3xl">
           <BehavioralIntelligenceDashboard entries={items} onClear={handleClear} />

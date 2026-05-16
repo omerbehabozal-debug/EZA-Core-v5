@@ -11,6 +11,16 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { ezaChartTheme } from '@/lib/eza/tokens';
+
+export interface ChartTheme {
+  gridStroke: string;
+  axisStroke: string;
+  tickFill: string;
+  lineStroke: string;
+  areaFill: string;
+  tooltipBg: string;
+  tooltipBorder: string;
+}
 import EmptyState from './EmptyState';
 
 export interface TrendChartPoint {
@@ -26,6 +36,7 @@ export interface TrendChartProps {
   domain?: [number, number];
   className?: string;
   emptyTitle?: string;
+  chartTheme?: ChartTheme;
 }
 
 export default function TrendChart({
@@ -36,7 +47,10 @@ export default function TrendChart({
   domain = [0, 100],
   className,
   emptyTitle = 'Trend için yeterli veri yok',
+  chartTheme = ezaChartTheme,
 }: TrendChartProps) {
+  const gradientId = `trendFill-${chartTheme.lineStroke.replace(/[^a-z0-9]/gi, '')}`;
+
   if (!data.length) {
     return (
       <div className={cn('rounded-xl border border-eza-border bg-eza-surface p-4', className)}>
@@ -52,21 +66,21 @@ export default function TrendChart({
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
           <defs>
-            <linearGradient id="ezaTrendFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={ezaChartTheme.lineStroke} stopOpacity={0.2} />
-              <stop offset="100%" stopColor={ezaChartTheme.lineStroke} stopOpacity={0} />
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={chartTheme.lineStroke} stopOpacity={0.22} />
+              <stop offset="100%" stopColor={chartTheme.lineStroke} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke={ezaChartTheme.gridStroke} vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} vertical={false} />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: ezaChartTheme.tickFill }}
+            tick={{ fontSize: 11, fill: chartTheme.tickFill }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             domain={domain}
-            tick={{ fontSize: 11, fill: ezaChartTheme.tickFill }}
+            tick={{ fontSize: 11, fill: chartTheme.tickFill }}
             axisLine={false}
             tickLine={false}
             width={36}
@@ -74,8 +88,8 @@ export default function TrendChart({
           <Tooltip
             formatter={(value: number) => [value.toFixed(1), valueLabel]}
             contentStyle={{
-              backgroundColor: ezaChartTheme.tooltipBg,
-              border: `1px solid ${ezaChartTheme.tooltipBorder}`,
+              backgroundColor: chartTheme.tooltipBg,
+              border: `1px solid ${chartTheme.tooltipBorder}`,
               borderRadius: '8px',
               fontSize: '12px',
             }}
@@ -83,10 +97,10 @@ export default function TrendChart({
           <Area
             type="monotone"
             dataKey="value"
-            stroke={ezaChartTheme.lineStroke}
+            stroke={chartTheme.lineStroke}
             strokeWidth={2}
-            fill="url(#ezaTrendFill)"
-            dot={{ r: 3, fill: ezaChartTheme.lineStroke, strokeWidth: 0 }}
+            fill={`url(#${gradientId})`}
+            dot={{ r: 3, fill: chartTheme.lineStroke, strokeWidth: 0 }}
             activeDot={{ r: 5 }}
           />
         </AreaChart>

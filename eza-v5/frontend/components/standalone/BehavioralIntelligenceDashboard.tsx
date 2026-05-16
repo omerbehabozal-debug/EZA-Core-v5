@@ -19,10 +19,8 @@ import {
   type TendencyCard,
 } from '@/lib/eza/behavioralDashboard';
 import { buildInteractionInsight } from '@/lib/eza/behavioralInsights';
+import { reportChartTheme, reportSkin } from '@/lib/eza/reportSkin';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
-
-const metricCardSkin =
-  '!border-standalone-border/60 !bg-white/85 shadow-[0_1px_3px_rgba(15,23,42,0.04)] [&_p]:!text-standalone-text [&_.text-eza-text-muted]:!text-standalone-text-muted [&_.text-eza-text-secondary]:!text-standalone-text-secondary';
 
 const SECTION_HOW = 'report-how';
 const SECTION_PROFILE = 'report-profile';
@@ -52,12 +50,8 @@ function SectionShell({
 }) {
   return (
     <section id={id} className={cn('scroll-mt-6 py-10 sm:py-12', className)}>
-      <h2 className="text-lg font-semibold tracking-[-0.02em] text-standalone-text sm:text-xl">
-        {title}
-      </h2>
-      {subtitle ? (
-        <p className="mt-1 text-sm text-standalone-text-secondary">{subtitle}</p>
-      ) : null}
+      <h2 className={reportSkin.sectionTitle}>{title}</h2>
+      {subtitle ? <p className={reportSkin.sectionSub}>{subtitle}</p> : null}
       <div className="mt-6">{children}</div>
     </section>
   );
@@ -71,39 +65,31 @@ function WowMomentScreen({
   onScrollDown: () => void;
 }) {
   return (
-    <section
-      className="relative flex min-h-[min(88vh,760px)] flex-col items-center justify-center px-4 py-12 text-center sm:px-8"
-      aria-label="Davranışsal gözlem özeti"
-    >
+    <section className={reportSkin.heroSection} aria-label="Davranışsal gözlem özeti">
+      <div className={reportSkin.heroGlow} aria-hidden />
       <Link
         href="/standalone"
-        className="absolute left-4 top-4 text-sm font-medium text-standalone-primary hover:underline sm:left-6 sm:top-6"
+        className={cn('absolute left-4 top-4 sm:left-6 sm:top-6', reportSkin.link)}
       >
         ← Sohbete dön
       </Link>
 
-      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-standalone-primary/90">
-        Etkileşim Raporu
-      </p>
+      <p className={reportSkin.eyebrow}>Etkileşim Raporu</p>
 
-      <blockquote className="mt-6 max-w-xl text-2xl font-medium leading-snug tracking-[-0.03em] text-standalone-text sm:text-3xl sm:leading-tight">
-        {model.wowMoment}
-      </blockquote>
+      <blockquote className={reportSkin.wowQuote}>{model.wowMoment}</blockquote>
 
       {model.layers.recentTurn.show ? (
-        <p className="mt-4 max-w-lg text-sm leading-relaxed text-standalone-text-secondary">
-          {model.layers.recentTurn.summary}
-        </p>
+        <p className={reportSkin.heroSub}>{model.layers.recentTurn.summary}</p>
       ) : null}
 
-      <p className="mt-6 max-w-md text-sm leading-relaxed text-standalone-text-muted">
+      <p className={reportSkin.heroMuted}>
         EZA mesaj metnini saklamadan yalnızca sayısal etkileşim sinyallerini analiz eder.
       </p>
 
       <button
         type="button"
         onClick={() => scrollToSection(SECTION_HOW)}
-        className="mt-8 text-sm font-medium text-standalone-primary underline-offset-4 hover:underline"
+        className={cn('mt-8 underline-offset-4 hover:underline', reportSkin.link)}
       >
         Bu nasıl hesaplandı?
       </button>
@@ -111,7 +97,7 @@ function WowMomentScreen({
       <button
         type="button"
         onClick={onScrollDown}
-        className="mt-14 flex flex-col items-center gap-1 text-xs text-standalone-text-muted transition-colors hover:text-standalone-text-secondary"
+        className="mt-14 flex flex-col items-center gap-1 text-xs text-stone-500 transition-colors hover:text-stone-700"
       >
         <span>Detayları gör</span>
         <ChevronDown className="h-5 w-5 animate-bounce" strokeWidth={2} aria-hidden />
@@ -137,17 +123,17 @@ function EvidenceCardView({ card }: { card: EvidenceCard }) {
 
 function TendencyCardView({ card }: { card: TendencyCard }) {
   return (
-    <div className="rounded-xl border border-standalone-border/50 bg-white/75 p-4">
+    <div className={reportSkin.tendencyCard}>
       <div className="flex items-start justify-between gap-2">
-        <h4 className="text-sm font-semibold text-standalone-text">{card.title}</h4>
-        <span className="shrink-0 rounded-full bg-standalone-primary/10 px-2 py-0.5 text-xs font-medium text-standalone-primary">
+        <h4 className="text-sm font-semibold text-stone-900">{card.title}</h4>
+        <span className={reportSkin.tendencyBadge}>
           {card.level}
         </span>
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-standalone-text-secondary">{card.description}</p>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-standalone-border/40">
+      <p className="mt-2 text-sm leading-relaxed text-stone-600">{card.description}</p>
+      <div className={reportSkin.tendencyBarTrack}>
         <div
-          className="h-full rounded-full bg-standalone-primary/75"
+          className={reportSkin.tendencyBarFill}
           style={{ width: `${Math.max(4, card.value)}%` }}
         />
       </div>
@@ -162,7 +148,7 @@ function IntensityChart({ data }: { data: { label: string; count: number }[] }) 
       {data.map((d) => (
         <div
           key={d.label}
-          className="flex-1 rounded-t bg-standalone-primary/20"
+          className={reportSkin.intensityBar}
           style={{ height: `${Math.max(8, (d.count / max) * 100)}%` }}
           title={`${d.label}: ${d.count}`}
         />
@@ -265,14 +251,12 @@ export default function BehavioralIntelligenceDashboard({
       <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
         <Link
           href="/standalone"
-          className="mb-8 self-start text-sm font-medium text-standalone-primary hover:underline"
+          className={cn('mb-8 self-start', reportSkin.link)}
         >
           ← Sohbete dön
         </Link>
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-standalone-primary">
-          Etkileşim Raporu
-        </p>
-        <p className="mt-6 max-w-md text-2xl font-medium leading-snug text-standalone-text">
+        <p className={reportSkin.eyebrow}>Etkileşim Raporu</p>
+        <p className="mt-6 max-w-md text-2xl font-medium leading-snug text-stone-900">
           Seni tanımak için biraz daha zaman gerekiyor.
         </p>
         <p className="mt-4 text-sm text-standalone-text-muted">
@@ -288,15 +272,15 @@ export default function BehavioralIntelligenceDashboard({
 
       <div
         ref={detailsRef}
-        className="border-t border-standalone-border/30 bg-gradient-to-b from-white/40 to-transparent px-4 sm:px-0"
+        className={cn(reportSkin.detailsWrap, 'px-4 sm:px-0')}
       >
         <SectionShell
           id={SECTION_HOW}
           title="Bu gözlem neye dayanıyor?"
           subtitle={`${model.periodLabel} · ${model.periodCaption}`}
         >
-          <RecentTurnBanner turn={model.layers.recentTurn} />
-          <InteractionLayersGrid layers={model.layers.layers} className="[&_article]:!border-standalone-border/55 [&_article]:!bg-white/90" />
+          <RecentTurnBanner turn={model.layers.recentTurn} theme="report" />
+          <InteractionLayersGrid layers={model.layers.layers} theme="report" />
         </SectionShell>
 
         <SectionShell
@@ -311,7 +295,7 @@ export default function BehavioralIntelligenceDashboard({
                 label={kpi.label}
                 value={kpi.value}
                 hint={kpi.hint}
-                className={metricCardSkin}
+                className={reportSkin.metricCard}
               />
             ))}
           </div>
@@ -324,7 +308,7 @@ export default function BehavioralIntelligenceDashboard({
         >
           <div className="space-y-8">
             <div>
-              <h3 className="mb-3 text-sm font-medium text-standalone-text">
+              <h3 className="mb-3 text-sm font-medium text-stone-800">
                 AI yanıt skoru zaman içinde
               </h3>
               {model.showTrendChart ? (
@@ -333,19 +317,20 @@ export default function BehavioralIntelligenceDashboard({
                   valueLabel="AI yanıt skoru"
                   height={200}
                   domain={[0, 100]}
-                  className="!border-standalone-border/50 !bg-white/80"
+                  className={reportSkin.chart}
+                  chartTheme={reportChartTheme}
                 />
               ) : (
                 <EmptyState
                   title="Trend grafiği için en az 5 etkileşim gerekir"
                   description={`Şu an ${model.sampleCount} ölçüm var.`}
-                  className="!border-standalone-border/50 !bg-white/60"
+                  className="!border-stone-200/60 !bg-white/70"
                 />
               )}
             </div>
 
             <div>
-              <h3 className="mb-4 text-sm font-medium text-standalone-text">
+              <h3 className="mb-4 text-sm font-medium text-stone-800">
                 Davranış ve eğilim göstergeleri
               </h3>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -356,16 +341,14 @@ export default function BehavioralIntelligenceDashboard({
             </div>
 
             {model.intensityMode === 'day' && model.intensityByDay.some((d) => d.count > 0) ? (
-              <div className="rounded-xl border border-standalone-border/50 bg-white/70 p-4">
-                <h3 className="text-sm font-medium text-standalone-text">{model.intensityTitle}</h3>
-                <p className="mt-1 text-xs text-standalone-text-muted">{model.intensitySubtitle}</p>
+              <div className="rounded-xl border border-stone-200/60 bg-white/80 p-4 shadow-sm">
+                <h3 className="text-sm font-medium text-stone-800">{model.intensityTitle}</h3>
+                <p className="mt-1 text-xs text-stone-500">{model.intensitySubtitle}</p>
                 <div className="mt-4">
                   <IntensityChart data={model.intensityByDay} />
                 </div>
                 {model.intensityPeakLabel ? (
-                  <p className="mt-2 text-xs text-standalone-text-muted">
-                    {model.intensityPeakLabel}
-                  </p>
+                  <p className="mt-2 text-xs text-stone-500">{model.intensityPeakLabel}</p>
                 ) : null}
               </div>
             ) : null}
@@ -374,9 +357,7 @@ export default function BehavioralIntelligenceDashboard({
 
         <RawHistoryAccordion entries={entries} onClear={onClear} />
 
-        <p className="pb-10 text-center text-xs leading-relaxed text-standalone-text-muted">
-          {BEHAVIORAL_DISCLAIMER}
-        </p>
+        <p className={reportSkin.disclaimer}>{BEHAVIORAL_DISCLAIMER}</p>
       </div>
     </div>
   );

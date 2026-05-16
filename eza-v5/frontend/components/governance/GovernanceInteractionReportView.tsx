@@ -16,6 +16,7 @@ import {
   type GovernanceReportViewModel,
   type TendencyCard,
 } from '@/lib/eza/governanceReportModel';
+import { reportChartTheme, reportSkin } from '@/lib/eza/reportSkin';
 
 const SECTION_HOW = 'gov-report-how';
 const SECTION_PROFILE = 'gov-report-profile';
@@ -46,40 +47,30 @@ function WowHero({
 }) {
   return (
     <section
-      className="relative flex min-h-[min(85vh,720px)] flex-col items-center justify-center px-6 py-16 text-center"
+      className={cn(reportSkin.heroSection, 'min-h-[min(85vh,720px)] px-6 py-16')}
       aria-label="Etkileşim gözlemi"
     >
+      <div className={reportSkin.heroGlow} aria-hidden />
       {backHref ? (
-        <Link
-          href={backHref}
-          className="absolute left-0 top-0 text-sm font-medium text-eza-accent hover:text-eza-accent-hover"
-        >
+        <Link href={backHref} className={cn('absolute left-0 top-0', reportSkin.link)}>
           {backLabel ?? '← Geri'}
         </Link>
       ) : null}
 
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-eza-text-muted">
-        Etkileşim Raporu
-      </p>
+      <p className={reportSkin.eyebrow}>Etkileşim Raporu</p>
 
-      <blockquote className="mt-8 max-w-2xl text-2xl font-medium leading-snug tracking-[-0.03em] text-eza-text sm:text-[1.75rem] sm:leading-tight md:text-3xl">
-        {model.wowMoment}
-      </blockquote>
+      <blockquote className={cn(reportSkin.wowQuote, 'max-w-2xl')}>{model.wowMoment}</blockquote>
 
       {model.layers.recentTurn.show ? (
-        <p className="mt-4 max-w-lg text-sm leading-relaxed text-eza-text-secondary">
-          {model.layers.recentTurn.summary}
-        </p>
+        <p className={reportSkin.heroSub}>{model.layers.recentTurn.summary}</p>
       ) : null}
 
-      <p className="mt-8 max-w-md text-sm leading-relaxed text-eza-text-muted">
-        EZA yalnızca sayısal etkileşim sinyallerini analiz eder.
-      </p>
+      <p className={reportSkin.heroMuted}>EZA yalnızca sayısal etkileşim sinyallerini analiz eder.</p>
 
       <button
         type="button"
         onClick={() => scrollToId(SECTION_HOW)}
-        className="mt-8 text-sm font-medium text-eza-accent underline-offset-4 hover:underline"
+        className={cn('mt-8 underline-offset-4 hover:underline', reportSkin.link)}
       >
         Bu nasıl hesaplandı?
       </button>
@@ -87,7 +78,7 @@ function WowHero({
       <button
         type="button"
         onClick={onScrollDetails}
-        className="mt-16 flex flex-col items-center gap-1 text-xs text-eza-text-muted transition-colors hover:text-eza-text-secondary"
+        className="mt-16 flex flex-col items-center gap-1 text-xs text-stone-500 transition-colors hover:text-stone-700"
       >
         <span>Detayları gör</span>
         <ChevronDown className="h-5 w-5 animate-bounce" aria-hidden />
@@ -117,17 +108,17 @@ function EvidenceCardView({ card }: { card: EvidenceCard }) {
 
 function TendencyCardView({ card }: { card: TendencyCard }) {
   return (
-    <div className="rounded-xl border border-eza-border/70 bg-eza-surface p-4 shadow-eza-sm">
+    <div className={reportSkin.tendencyCard}>
       <div className="flex items-start justify-between gap-2">
-        <h4 className="text-sm font-semibold text-eza-text">{card.title}</h4>
-        <span className="shrink-0 rounded-full bg-eza-accent-muted px-2 py-0.5 text-xs font-medium text-eza-accent">
+        <h4 className="text-sm font-semibold text-stone-900">{card.title}</h4>
+        <span className={reportSkin.tendencyBadge}>
           {card.level}
         </span>
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-eza-text-secondary">{card.description}</p>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-eza-border/60">
+      <p className="mt-2 text-sm leading-relaxed text-stone-600">{card.description}</p>
+      <div className={reportSkin.tendencyBarTrack}>
         <div
-          className="h-full rounded-full bg-eza-accent/70"
+          className={reportSkin.tendencyBarFill}
           style={{ width: `${Math.max(6, card.value)}%` }}
         />
       </div>
@@ -201,7 +192,7 @@ export default function GovernanceInteractionReportView({
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className={cn('mx-auto max-w-3xl', reportSkin.canvas)}>
       <WowHero
         model={model}
         backHref={backHref}
@@ -209,47 +200,52 @@ export default function GovernanceInteractionReportView({
         onScrollDetails={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth' })}
       />
 
-      <div ref={detailsRef} className="border-t border-eza-border/40">
+      <div ref={detailsRef} className={reportSkin.detailsWrap}>
         <section id={SECTION_HOW} className="scroll-mt-8 py-12 sm:py-14">
-          <h2 className="text-lg font-semibold text-eza-text sm:text-xl">
-            Bu gözlem neye dayanıyor?
-          </h2>
-          <p className="mt-1 text-sm text-eza-text-secondary">{model.periodCaption}</p>
+          <h2 className={reportSkin.sectionTitle}>Bu gözlem neye dayanıyor?</h2>
+          <p className={reportSkin.sectionSub}>{model.periodCaption}</p>
           <div className="mt-6">
-            <RecentTurnBanner turn={model.layers.recentTurn} />
-            <InteractionLayersGrid layers={model.layers.layers} />
+            <RecentTurnBanner turn={model.layers.recentTurn} theme="report" />
+            <InteractionLayersGrid layers={model.layers.layers} theme="report" />
           </div>
         </section>
 
-        <section id={SECTION_PROFILE} className="scroll-mt-8 border-t border-eza-border/30 py-12 sm:py-14">
+        <section id={SECTION_PROFILE} className="scroll-mt-8 border-t border-stone-200/50 py-12 sm:py-14">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-eza-text sm:text-xl">
-                Üç katmanlı etkileşim profili
-              </h2>
-              <p className="mt-1 text-sm text-eza-text-secondary">
-                Kullanıcı sinyalleri · AI yanıt · denge
-              </p>
+              <h2 className={reportSkin.sectionTitle}>Üç katmanlı etkileşim profili</h2>
+              <p className={reportSkin.sectionSub}>Kullanıcı sinyalleri · AI yanıt · denge</p>
             </div>
             {headerActions}
           </div>
           <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {model.kpis.map((kpi) => (
-              <MetricCard key={kpi.label} label={kpi.label} value={kpi.value} hint={kpi.hint} />
+              <MetricCard
+                key={kpi.label}
+                label={kpi.label}
+                value={kpi.value}
+                hint={kpi.hint}
+                className={reportSkin.metricCard}
+              />
             ))}
           </div>
         </section>
 
-        <section id={SECTION_TRENDS} className="scroll-mt-8 border-t border-eza-border/30 py-12 sm:py-14">
-          <h2 className="text-lg font-semibold text-eza-text sm:text-xl">
-            Trendler ve göstergeler
-          </h2>
-          <p className="mt-1 text-sm text-eza-text-secondary">{model.ezaTrendCaption}</p>
+        <section id={SECTION_TRENDS} className="scroll-mt-8 border-t border-stone-200/50 py-12 sm:py-14">
+          <h2 className={reportSkin.sectionTitle}>Trendler ve göstergeler</h2>
+          <p className={reportSkin.sectionSub}>{model.ezaTrendCaption}</p>
 
           <div className="mt-6">
-            <h3 className="mb-3 text-sm font-medium text-eza-text">AI yanıt skoru zaman içinde</h3>
+            <h3 className="mb-3 text-sm font-medium text-stone-800">AI yanıt skoru zaman içinde</h3>
             {model.showTrendChart ? (
-              <TrendChart data={model.ezaTrend} valueLabel="AI yanıt skoru" height={220} domain={[0, 100]} />
+              <TrendChart
+                data={model.ezaTrend}
+                valueLabel="AI yanıt skoru"
+                height={220}
+                domain={[0, 100]}
+                className={reportSkin.chart}
+                chartTheme={reportChartTheme}
+              />
             ) : (
               <EmptyState
                 title="Trend grafiği için en az 5 etkileşim gerekir"
@@ -259,7 +255,7 @@ export default function GovernanceInteractionReportView({
           </div>
 
           <div className="mt-10">
-            <h3 className="mb-4 text-sm font-medium text-eza-text">Davranış göstergeleri</h3>
+            <h3 className="mb-4 text-sm font-medium text-stone-800">Davranış göstergeleri</h3>
             <div className="grid gap-4 sm:grid-cols-2">
               {model.tendencyCards.map((card) => (
                 <TendencyCardView key={card.id} card={card} />
@@ -281,9 +277,7 @@ export default function GovernanceInteractionReportView({
 
         <HistoryAccordion model={model} />
 
-        <p className="pb-12 text-center text-xs leading-relaxed text-eza-text-muted">
-          {GOVERNANCE_REPORT_DISCLAIMER}
-        </p>
+        <p className={reportSkin.disclaimer}>{GOVERNANCE_REPORT_DISCLAIMER}</p>
       </div>
     </div>
   );

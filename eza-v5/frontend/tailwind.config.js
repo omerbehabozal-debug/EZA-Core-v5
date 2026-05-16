@@ -34,6 +34,18 @@ module.exports = {
           surface: '#FFFFFF',
           'surface-muted': '#F5F9FF',
         },
+        /** Etkileşim raporu — sıcak gözlem paleti (chat mavisi değil) */
+        report: {
+          accent: '#0D9488',
+          'accent-hover': '#0F766E',
+          muted: '#F0FDFA',
+          'muted-strong': '#CCFBF1',
+          border: '#99F6E4',
+          ink: '#134E4A',
+          'ink-soft': '#5F8A86',
+          surface: '#FAFFFE',
+          glow: '#5EEAD4',
+        },
       },
       boxShadow: {
         'eza-sm': '0 1px 2px 0 rgb(15 23 42 / 0.04)',
