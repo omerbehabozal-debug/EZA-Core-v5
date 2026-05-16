@@ -7,7 +7,7 @@
  * - Score-only mode (0-100 badges)
  * - SAFE-only mode (rewrite enabled)
  * - Daily limit (30-50 messages/day)
- * - No chat history (localStorage only)
+ * - Oturum içi otomatik kayıt; tarayıcı girişinde her zaman yeni sohbet
  * - Minimal UI (no tooltips, no extra info)
  */
 
@@ -26,12 +26,10 @@ import {
   ACTIVE_SESSION_ARCHIVE_ID,
   clearActiveSessionArchive,
   finalizeActiveSession,
-  getChatArchive,
   upsertActiveChatArchive,
 } from '@/lib/standaloneChatArchive';
-import { clearChatDraft, loadChatDraft, saveChatDraft } from '@/lib/standaloneChatDraft';
+import { clearChatDraft, saveChatDraft } from '@/lib/standaloneChatDraft';
 import {
-  fromArchivedMessages,
   hasMeaningfulChat,
   isArchivableMessage,
   toArchivedMessages,
@@ -81,7 +79,7 @@ export default function StandalonePage() {
   const assistantScoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [sessionEndOpen, setSessionEndOpen] = useState(false);
   const skipAutosaveRef = useRef(true);
-  const sessionRestoredRef = useRef(false);
+  const sessionBootstrappedRef = useRef(false);
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -119,25 +117,23 @@ export default function StandalonePage() {
     writeStoredAnalysisModel(analysisModelId);
   }, [analysisModelId]);
 
+  /** Tarayıcıdan /standalone açılışında her zaman boş sohbet — önceki oturum geri yüklenmez */
   useEffect(() => {
-    if (sessionRestoredRef.current) return;
-    sessionRestoredRef.current = true;
+    if (sessionBootstrappedRef.current) return;
+    sessionBootstrappedRef.current = true;
 
-    const draft = loadChatDraft();
-    if (draft?.messages?.length) {
-      setMessages(fromArchivedMessages(draft.messages) as Message[]);
-    } else {
-      const active = getChatArchive(ACTIVE_SESSION_ARCHIVE_ID);
-      if (active?.messages?.length) {
-        setMessages(fromArchivedMessages(active.messages) as Message[]);
-      }
-    }
+    clearChatDraft();
+    clearActiveSessionArchive();
+    resetStream();
+    setMessages([]);
+    setIsLoading(false);
+    setIsTyping(false);
 
     const t = window.setTimeout(() => {
       skipAutosaveRef.current = false;
     }, 0);
     return () => window.clearTimeout(t);
-  }, []);
+  }, [resetStream]);
 
   const persistSession = useCallback((msgs: Message[]) => {
     const archived = toArchivedMessages(msgs);
