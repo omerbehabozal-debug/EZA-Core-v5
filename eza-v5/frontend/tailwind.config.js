@@ -7,6 +7,25 @@ module.exports = {
   ],
   theme: {
     extend: {
+      colors: {
+        eza: {
+          surface: '#FFFFFF',
+          'surface-muted': '#F8FAFC',
+          border: '#E2E8F0',
+          'border-strong': '#CBD5E1',
+          text: '#0F172A',
+          'text-secondary': '#475569',
+          'text-muted': '#94A3B8',
+          accent: '#4F46E5',
+          'accent-muted': '#EEF2FF',
+          'accent-hover': '#4338CA',
+        },
+      },
+      boxShadow: {
+        'eza-sm': '0 1px 2px 0 rgb(15 23 42 / 0.04)',
+        'eza-md': '0 4px 6px -1px rgb(15 23 42 / 0.06), 0 2px 4px -2px rgb(15 23 42 / 0.04)',
+        'eza-lg': '0 10px 15px -3px rgb(15 23 42 / 0.06), 0 4px 6px -4px rgb(15 23 42 / 0.04)',
+      },
       screens: {
         'xs': '475px',
       },
