@@ -266,6 +266,8 @@ from backend.api.routers.admin_events_router import router as admin_events_route
 app.include_router(admin_events_router)
 from backend.api.routers.admin_system_router import router as admin_system_router
 app.include_router(admin_system_router)
+from backend.api.routers.admin_governance_router import router as admin_governance_router
+app.include_router(admin_governance_router)
 # standalone.router removed - using direct endpoint in main.py instead
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])

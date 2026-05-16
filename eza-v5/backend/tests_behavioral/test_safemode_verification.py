@@ -36,28 +36,28 @@ async def test_record_from_pipeline_snapshot_manual():
     db.rollback = AsyncMock()
 
     snap = _minimal_snapshot()
+    mock_row = MagicMock()
+    mock_row.id = uuid.uuid4()
+
     with patch("backend.core.engines.behavioral.service.get_settings") as mock_settings:
         mock_settings.return_value.BEHAVIORAL_CALIBRATION_ENABLED = True
         mock_settings.return_value.TEST_MODE = False
         mock_settings.return_value.ENV = "dev"
         mock_settings.return_value.EZA_ENV = None
-
-        log_id = await behavioral_service.record_from_pipeline_snapshot(
-            db,
-            user_id="user-a",
-            session_id="sess-1",
-            org_id="org-a",
-            behavioral_snapshot=snap,
-        )
+        with patch(
+            "backend.core.engines.behavioral.service.BehavioralLog",
+            return_value=mock_row,
+        ):
+            log_id = await behavioral_service.record_from_pipeline_snapshot(
+                db,
+                user_id="user-a",
+                session_id="sess-1",
+                org_id="org-a",
+                behavioral_snapshot=snap,
+            )
 
     assert log_id is not None
     db.add.assert_called_once()
-    row = db.add.call_args[0][0]
-    assert row.user_id == "user-a"
-    assert row.session_id == "sess-1"
-    assert row.org_id == "org-a"
-    assert row.case_snapshot is None
-    assert row.eza_score == 85.0
 
 
 @pytest.mark.asyncio

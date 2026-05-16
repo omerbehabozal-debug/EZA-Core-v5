@@ -1,0 +1,63 @@
+[
+  {
+    "name": "tests_core/test_governance_reports_stage5.py::test_overview_empty_state",
+    "status": "passed",
+    "duration": 0.0013991999999234395
+  },
+  {
+    "name": "tests_core/test_governance_reports_stage5.py::test_overview_org_isolation_in_query",
+    "status": "passed",
+    "duration": 0.0019560999999157502
+  },
+  {
+    "name": "tests_core/test_governance_reports_stage5.py::test_engine_reliability_empty_state",
+    "status": "passed",
+    "duration": 0.0006725999996888277
+  },
+  {
+    "name": "tests_core/test_governance_reports_stage5.py::test_calibration_summary_feedback_aggregation",
+    "status": "passed",
+    "duration": 0.003462499999841384
+  },
+  {
+    "name": "tests_core/test_governance_reports_stage5.py::test_no_raw_content_in_overview_shape",
+    "status": "failed",
+    "duration": 0.0003531000002112705,
+    "message": "E   AssertionError: assert 'standalone' in {}"
+  },
+  {
+    "name": "tests_core/test_governance_reports_stage5.py::test_governance_overview_endpoint_cross_org_403",
+    "status": "passed",
+    "duration": 0.6780448999998043
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_record_from_pipeline_snapshot_manual",
+    "status": "passed",
+    "duration": 0.0022689000002174
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_feedback_writes_user_and_org",
+    "status": "passed",
+    "duration": 0.001760300000114512
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_case_snapshot_null_when_prod_even_if_test_mode",
+    "status": "passed",
+    "duration": 0.002316199999768287
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_pipeline_runner_not_coupled_to_safemode_db",
+    "status": "passed",
+    "duration": 0.000979500000084954
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_me_endpoints_use_current_user_only",
+    "status": "passed",
+    "duration": 0.0001853999997365463
+  },
+  {
+    "name": "tests_behavioral/test_safemode_verification.py::test_admin_cross_org_returns_403",
+    "status": "passed",
+    "duration": 0.005296000000271306
+  }
+]
