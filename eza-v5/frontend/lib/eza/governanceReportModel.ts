@@ -12,12 +12,17 @@ import { trendChartFromEza } from '@/lib/eza/safemodeDisplay';
 import {
   aggregateFromAverages,
   buildInteractionLayers,
-  buildSplitWowMoment,
   type InteractionLayersSnapshot,
 } from '@/lib/eza/interactionLayers';
 
 export const GOVERNANCE_REPORT_DISCLAIMER =
   'EZA analizleri gözlemsel sinyaller üretir. Sonuçlar kesin karar yerine farkındalık sağlamayı amaçlar.';
+
+export const GOVERNANCE_SIGNAL_NOTE =
+  'EZA mesaj içeriklerini değil, etkileşim sinyallerini analiz eder.';
+
+export const GOVERNANCE_HOW_SIGNAL_FOOTNOTE =
+  'Analizler mesaj içeriğini değil, etkileşim sinyallerini değerlendirir.';
 
 export type LevelLabel = 'Düşük' | 'Orta' | 'Yüksek' | 'Stabil' | 'Artıyor' | 'Azalıyor';
 
@@ -46,18 +51,34 @@ export interface HistoryRow {
   label: string;
   score: string;
   note: string;
+  tags?: string[];
+}
+
+export interface FeaturedInteractionView {
+  show: boolean;
+  userSignal: string;
+  aiBehavior: string;
+  balance: string;
+  footnote: string;
+}
+
+export interface HowCalculatedView {
+  cards: EvidenceCard[];
+  confidenceLabel: string | null;
+  reliabilityLabel: string | null;
+  signalFootnote: string;
 }
 
 export interface GovernanceReportViewModel {
   wowMoment: string;
   periodCaption: string;
   sampleCount: number;
-  confidence: number | null;
-  reliabilityLabel: string | null;
-  evidenceCards: EvidenceCard[];
-  kpis: ProfileKpi[];
+  featuredInteraction: FeaturedInteractionView;
+  howCalculated: HowCalculatedView;
+  profileKpis: ProfileKpi[];
   ezaTrend: TrendChartPoint[];
   ezaTrendCaption: string;
+  trendInsight: string;
   showTrendChart: boolean;
   tendencyCards: TendencyCard[];
   historyRows: HistoryRow[];
@@ -66,148 +87,380 @@ export interface GovernanceReportViewModel {
   feedbackEventId?: string;
   feedbackAnalysisId?: string;
   feedbackMetric?: string;
-  layers: InteractionLayersSnapshot;
 }
 
 const MIN_TREND_SAMPLES = 5;
 const MIN_WOW_SAMPLES = 5;
 
-function pickVariant(variants: string[], seed: string, n: number): string {
-  let h = n * 31;
+function pickVariant(variants: string[], seed: string, salt = 0): string {
+  let h = salt * 31;
   for (let i = 0; i < seed.length; i += 1) {
     h = (h + seed.charCodeAt(i) * (i + 7)) | 0;
   }
   const idx = Math.abs(h) % variants.length;
-  return variants[idx]!.replace(/\[N\]/g, String(n));
+  return variants[idx]!;
 }
 
-function riskLevelLabel(value: number): LevelLabel {
-  if (value < 0.33) return 'Düşük';
-  if (value < 0.66) return 'Orta';
-  return 'Yüksek';
+function trendDirectionLabel(slope: number | null): 'up' | 'down' | 'stable' {
+  if (slope === null || Number.isNaN(slope)) return 'stable';
+  if (slope > 0.08) return 'up';
+  if (slope < -0.08) return 'down';
+  return 'stable';
 }
 
-function trendLabel(slope: number | null, threshold = 0.08): LevelLabel {
-  if (slope === null || Number.isNaN(slope)) return 'Stabil';
-  if (slope > threshold) return 'Artıyor';
-  if (slope < -threshold) return 'Azalıyor';
+function trendLevelLabel(slope: number | null): LevelLabel {
+  const d = trendDirectionLabel(slope);
+  if (d === 'up') return 'Artıyor';
+  if (d === 'down') return 'Azalıyor';
   return 'Stabil';
 }
 
-function buildWowMoment(input: {
+function confidenceBand(confidence: number | null): string | null {
+  if (confidence === null || Number.isNaN(confidence)) return null;
+  if (confidence >= 70) return 'yüksek';
+  if (confidence >= 45) return 'orta';
+  return 'düşük';
+}
+
+function qualitativeEza(avg: number | null): { value: string; hint: string } {
+  if (avg === null || Number.isNaN(avg)) return { value: '—', hint: 'Henüz yeterli ölçüm yok' };
+  const n = avg <= 1 ? avg * 100 : avg;
+  if (n >= 80) return { value: 'Güçlü', hint: 'Güvenli aralıkta seyretti' };
+  if (n >= 60) return { value: 'Orta', hint: 'Denge izlenmeye devam ediyor' };
+  return { value: 'Dikkat', hint: 'Birkaç ölçüm daha netlik sağlayabilir' };
+}
+
+function qualitativeAlign(avg: number | null): { value: string; hint: string } {
+  if (avg === null || Number.isNaN(avg)) return { value: '—', hint: 'Uyum sinyali toplanıyor' };
+  const n = avg <= 1 ? avg * 100 : avg;
+  if (n >= 75) return { value: 'Yüksek', hint: 'Uyum kalitesi stabil kaldı' };
+  if (n >= 55) return { value: 'Orta', hint: 'Uyum sinyalleri karışık görünebilir' };
+  return { value: 'Düşük', hint: 'Uyum için izlemeye devam edilebilir' };
+}
+
+function qualitativeRisk(inputRisk: number | null, slope: number | null): { value: string; hint: string } {
+  if (inputRisk === null || Number.isNaN(inputRisk)) {
+    return { value: '—', hint: 'Risk sinyali henüz net değil' };
+  }
+  const dir = trendDirectionLabel(slope);
+  if (inputRisk < 0.3) {
+    return {
+      value: 'Düşük',
+      hint: pickVariant(
+        ['Hassas sinyal yoğunluğu düşük kaldı.', 'Risk sinyalleri sakin seyretti.'],
+        `risk-low-${inputRisk}`,
+        0
+      ),
+    };
+  }
+  if (inputRisk < 0.5) {
+    return {
+      value: 'Orta',
+      hint:
+        dir === 'up'
+          ? 'Hassas sinyal yoğunluğu daha sık görünmeye başladı.'
+          : 'Hassas sinyal yoğunluğu orta düzeyde seyretti.',
+    };
+  }
+  return {
+    value: 'Yükselen',
+    hint: pickVariant(
+      [
+        'Hassas sinyal yoğunluğu daha sık görünmeye başladı.',
+        'Girdi tarafında dikkat çeken sinyaller gözlemlendi.',
+      ],
+      `risk-hi-${inputRisk}`,
+      1
+    ),
+  };
+}
+
+function qualitativeRedirect(asymmetry: number | null): { value: string; hint: string } {
+  const a = asymmetry ?? 0.2;
+  if (a < 0.25) {
+    return {
+      value: 'Düşük',
+      hint: 'Yönlendirme etkisi sinyali düşük kaldı.',
+    };
+  }
+  if (a < 0.45) {
+    return {
+      value: 'Orta',
+      hint: 'Bazı ölçümlerde yönlendirme sinyali göründü.',
+    };
+  }
+  return {
+    value: 'Belirgin',
+    hint: 'Yönlendirme etkisi daha sık gözlemlendi.',
+  };
+}
+
+function buildShortWowMoment(input: {
   sampleCount: number;
   avgEza: number | null;
   avgAlign: number | null;
   avgInputRisk: number | null;
-  avgOutputRisk?: number | null;
+  avgOutputRisk: number | null;
   ezaSlope: number | null;
   seed: string;
-  insight?: SafeModeInsight | null;
+  layers: InteractionLayersSnapshot;
 }): string {
-  const { sampleCount, avgEza, avgAlign, avgInputRisk, avgOutputRisk, ezaSlope, seed, insight } =
+  const { sampleCount: n, avgEza, avgAlign, avgInputRisk, avgOutputRisk, ezaSlope, seed, layers } =
     input;
-  const n = sampleCount;
-
-  const layerSnap = buildInteractionLayers(
-    aggregateFromAverages({
-      avgInputRisk,
-      avgOutputRisk: avgOutputRisk ?? null,
-      avgAlign,
-      avgAssistantScore: avgEza,
-      sampleCount: n,
-    })
-  );
-  const splitWow = buildSplitWowMoment(layerSnap, seed, n);
-  if (splitWow) return splitWow;
 
   if (n < MIN_WOW_SAMPLES) {
     return pickVariant(
       [
         'Seni tanımak için biraz daha etkileşim gerekiyor.',
-        'İlk gözlemler için birkaç etkileşim daha yeterli olacak.',
-        'Davranışsal özet için henüz erken; kısa süre içinde netleşecek.',
+        'Biraz daha konuşunca gözlem netleşecek.',
       ],
-      seed,
+      `${seed}-early`,
       n
     );
   }
 
-  if (ezaSlope !== null && ezaSlope < -0.12) {
+  const dir = trendDirectionLabel(ezaSlope);
+  const split = layers.hasInputOutputSplit || (avgInputRisk !== null && avgInputRisk >= 0.45 && (avgOutputRisk ?? 1) < 0.3);
+
+  if (split) {
     return pickVariant(
       [
-        `Son ${n} etkileşimde uyum skorunda hafif düşüş eğilimi görüldü.`,
-        `Son ${n} ölçümde EZA skorunda düşüş eğilimi gözlemlendi.`,
-        `Son dönemde skor sinyallerinde hafif gerileme eğilimi seyretti.`,
+        'AI yanıtları hassas sinyallere rağmen dengeyi korudu.',
+        'Girdi sinyali varken yanıtlar güvenli kaldı.',
+        'Riskli girişe rağmen denge korundu.',
       ],
-      seed,
+      `${seed}-split-${dir}`,
       n
     );
   }
 
-  if (avgInputRisk !== null && avgInputRisk > 0.45 && ezaSlope !== null && ezaSlope > 0.05) {
+  if (dir === 'down') {
+    return pickVariant(
+      ['Uyum dengesinde hafif değişim gözlemlendi.', 'Denge değişimi gözlemlendi.'],
+      `${seed}-down`,
+      n
+    );
+  }
+
+  if (avgInputRisk !== null && avgInputRisk > 0.45 && dir === 'up') {
     return pickVariant(
       [
-        `Son konuşmalarda dikkat çeken risk sinyallerinde artış gözlemlendi.`,
-        `Son ${n} etkileşimde risk yoğunluğu sinyali yükselmiş görünüyor.`,
-        `Son dönemde girdi risk sinyallerinde artış eğilimi seyretti.`,
+        'Hassas sinyal yoğunluğu arttı.',
+        'Son konuşmalarda hassas sinyal daha sık göründü.',
       ],
-      seed,
+      `${seed}-risk-up`,
       n
     );
   }
 
-  if (avgEza !== null && avgEza >= 80 && (ezaSlope === null || Math.abs(ezaSlope) < 0.1)) {
+  const ezaNorm = avgEza !== null ? (avgEza <= 1 ? avgEza * 100 : avgEza) : 0;
+  if (ezaNorm >= 75 && dir === 'stable') {
     return pickVariant(
       [
-        `Son ${n} etkileşimde risk sinyalleri düşük seviyede seyretti.`,
-        `${n} konuşma boyunca etkileşim dengesi tutarlı göründü.`,
-        `Son etkileşimlerde uyum kalitesi yüksek aralıkta kaldı.`,
-        `Son ${n} konuşmada belirgin risk sapmaları gözlemlenmedi.`,
+        'Denge stabil görünüyor.',
+        'Risk sinyalleri düşük kaldı.',
+        'Son konuşmalarda uyum dengesi korundu.',
+        'Belirgin risk sapması gözlemlenmedi.',
       ],
-      seed,
+      `${seed}-stable-${dir}`,
       n
     );
   }
 
-  if (avgInputRisk !== null && avgInputRisk >= 0.45 && (input.avgOutputRisk ?? 1) < 0.3) {
+  if (avgAlign !== null && (avgAlign <= 1 ? avgAlign * 100 : avgAlign) >= 75) {
+    return pickVariant(
+      ['Uyum kalitesi stabil kaldı.', 'Uyum dengesi korundu.'],
+      `${seed}-align`,
+      n
+    );
+  }
+
+  if ((avgOutputRisk ?? 1) < 0.3) {
     return pickVariant(
       [
-        'Bazı girişlerde risk sinyali gözlemlendi; AI yanıtları güvenli sınırlar içinde kaldı.',
-        'Girdi tarafında dikkat çeken sinyaller varken yanıtlar güvenli kalma eğiliminde seyretti.',
+        'AI yanıtları yönlendirme baskısı oluşturmadı.',
+        'AI yanıt davranışı dengeli seyretti.',
       ],
-      seed,
+      `${seed}-ai-calm`,
       n
     );
-  }
-
-  if (avgAlign !== null && avgAlign >= 75) {
-    return pickVariant(
-      [
-        `Son ${n} etkileşimde yanıt uyumu yüksek seyretti.`,
-        `Son dönemde uyum sinyalleri güçlü aralıkta kaldı.`,
-        `Son ${n} ölçümde uyum kalitesi tutarlı göründü.`,
-      ],
-      seed,
-      n
-    );
-  }
-
-  if (insight?.generate && insight.insight_text) {
-    const t = insight.insight_text.trim();
-    if (t.length < 160 && !/manipül|bağımlılık|tehlikeli kullanıcı/i.test(t)) {
-      return t;
-    }
   }
 
   return pickVariant(
     [
-      `Son ${n} etkileşim boyunca davranış dengesi stabil kaldı.`,
-      `Son dönemde etkileşim sinyalleri genel olarak dengeli seyretti.`,
-      `Son ${n} ölçümde belirgin sapma sinyali gözlemlenmedi.`,
+      'Denge stabil görünüyor.',
+      'Etkileşim dengesi sakin seyretti.',
+      'Genel denge değişmedi.',
     ],
-    seed,
+    `${seed}-default-${dir}`,
     n
   );
+}
+
+function buildFeaturedInteraction(
+  layers: InteractionLayersSnapshot,
+  seed: string,
+  sampleCount: number
+): FeaturedInteractionView {
+  if (sampleCount < 1) {
+    return {
+      show: false,
+      userSignal: '',
+      aiBehavior: '',
+      balance: '',
+      footnote: '',
+    };
+  }
+
+  const split = layers.hasInputOutputSplit;
+  const highInput = layers.avgInputRisk >= 0.45;
+  const safeAi = layers.avgOutputRisk < 0.3;
+
+  const userSignal = split || highInput
+    ? pickVariant(
+        [
+          'Hassas konu sinyali gözlemlendi.',
+          'Girdi tarafında dikkat çeken sinyal göründü.',
+          'Hassas sinyal yoğunluğu gözlemlendi.',
+        ],
+        `${seed}-feat-user`,
+        0
+      )
+    : layers.avgInputRisk >= 0.3
+      ? 'Girdi sinyalleri orta düzeyde seyretti.'
+      : 'Girdi sinyalleri sakin göründü.';
+
+  const aiBehavior =
+    split || safeAi
+      ? pickVariant(
+          [
+            'Yanıt güvenli sınırlar içinde kaldı.',
+            'AI yanıtları dengeyi korudu.',
+            'Yanıt davranışı güvenli sınırlarda kaldı.',
+          ],
+          `${seed}-feat-ai`,
+          1
+        )
+      : 'Yanıt davranışı izlenmeye değer sinyaller verdi.';
+
+  const balance =
+    split || (highInput && safeAi)
+      ? pickVariant(
+          [
+            'Riskli girişe rağmen denge korundu.',
+            'Hassas girişe rağmen etkileşim dengesi korundu.',
+            'AI yanıtları hassas sinyallere rağmen dengeyi korudu.',
+          ],
+          `${seed}-feat-balance`,
+          2
+        )
+      : layers.avgAlign >= 70
+        ? 'Etkileşim dengesi stabil göründü.'
+        : 'Denge sinyalleri karışık görünebilir.';
+
+  return {
+    show: true,
+    userSignal,
+    aiBehavior,
+    balance,
+    footnote: 'Bu gözlem yalnızca öne çıkan son etkileşim sinyaline aittir.',
+  };
+}
+
+function buildHowCalculatedCards(
+  core: {
+    avgEza: number | null;
+    avgInputRisk: number | null;
+    avgAlign: number | null;
+    asymmetry: number | null;
+    reliabilityLabel: string | null;
+    confidence: number | null;
+  }
+): EvidenceCard[] {
+  const ezaQ = qualitativeEza(core.avgEza);
+  const riskQ = qualitativeRisk(core.avgInputRisk, null);
+  const alignQ = qualitativeAlign(core.avgAlign);
+  const balanceQ =
+    core.asymmetry !== null && core.asymmetry < 0.3
+      ? { value: 'Stabil', desc: 'Girdi ve yanıt sinyalleri dengeli görünüyor.' }
+      : { value: 'Karışık', desc: 'Etkileşim dengesi sinyalleri izlenmeye değer.' };
+
+  const conf = confidenceBand(core.confidence);
+
+  return [
+    {
+      title: 'Ortalama EZA skoru',
+      value: ezaQ.value,
+      description: 'Son etkileşimlerde güvenli aralıkta seyretti.',
+      meta: conf ? `Analiz güveni: ${conf}` : core.reliabilityLabel ?? undefined,
+    },
+    {
+      title: 'Risk sinyali yoğunluğu',
+      value: riskQ.value,
+      description: riskQ.hint,
+    },
+    {
+      title: 'Etkileşim dengesi',
+      value: alignQ.value !== '—' ? alignQ.value : balanceQ.value,
+      description: alignQ.value !== '—' ? alignQ.hint : balanceQ.desc,
+      meta: core.reliabilityLabel ?? undefined,
+    },
+  ];
+}
+
+function buildProfileKpis(core: {
+  avgEza: number | null;
+  avgAlign: number | null;
+  avgInputRisk: number | null;
+  asymmetry: number | null;
+  ezaSlope: number | null;
+}): ProfileKpi[] {
+  const ezaQ = qualitativeEza(core.avgEza);
+  const alignQ = qualitativeAlign(core.avgAlign);
+  const riskQ = qualitativeRisk(core.avgInputRisk, core.ezaSlope);
+  const redirectQ = qualitativeRedirect(core.asymmetry);
+
+  return [
+    { label: 'Ortalama EZA Skoru', value: ezaQ.value, hint: ezaQ.hint },
+    { label: 'Uyum Kalitesi', value: alignQ.value, hint: alignQ.hint },
+    { label: 'Risk Yoğunluğu', value: riskQ.value, hint: riskQ.hint },
+    { label: 'Yönlendirme Etkisi', value: redirectQ.value, hint: redirectQ.hint },
+  ];
+}
+
+function buildTrendInsight(input: {
+  ezaSlope: number | null;
+  avgInputRisk: number | null;
+  avgAlign: number | null;
+  avgOutputRisk: number | null;
+  seed: string;
+}): string {
+  const dir = trendDirectionLabel(input.ezaSlope);
+  const split =
+    (input.avgInputRisk ?? 0) >= 0.45 && (input.avgOutputRisk ?? 1) < 0.3;
+
+  if (split) {
+    return pickVariant(
+      ['AI yanıt davranışı dengeli seyretti.', 'Uyum dengesi stabil kaldı.'],
+      `${input.seed}-trend-split`,
+      0
+    );
+  }
+  if (dir === 'up' && (input.avgInputRisk ?? 0) > 0.35) {
+    return 'Hassas sinyal yoğunluğu daha sık görünmeye başladı.';
+  }
+  if (dir === 'stable') {
+    return pickVariant(
+      [
+        'Uyum dengesi stabil kaldı.',
+        'AI yanıt davranışı dengeli seyretti.',
+        'Etkileşim dengesi sakin seyretti.',
+      ],
+      `${input.seed}-trend-stable`,
+      1
+    );
+  }
+  return 'Denge değişimi gözlemlendi.';
 }
 
 function buildTendencyCards(
@@ -215,57 +468,58 @@ function buildTendencyCards(
   avgAlign: number | null,
   avgInputRisk: number | null,
   asymmetry: number | null,
-  inputSlope: number | null
+  ezaSlope: number | null
 ): TendencyCard[] {
-  const ezaVal = avgEza !== null ? Math.round(avgEza) : 0;
-  const alignVal = avgAlign !== null ? Math.round(avgAlign) : 0;
-  const riskHealth =
-    avgInputRisk !== null ? Math.round((1 - avgInputRisk) * 100) : 0;
-  const balanceVal =
+  const ezaNorm = avgEza !== null ? (avgEza <= 1 ? avgEza * 100 : avgEza) : 50;
+  const alignNorm = avgAlign !== null ? (avgAlign <= 1 ? avgAlign * 100 : avgAlign) : 50;
+  const riskNorm =
+    avgInputRisk !== null ? Math.round((1 - avgInputRisk) * 100) : 50;
+  const redirectNorm =
     asymmetry !== null ? Math.round((1 - Math.min(1, asymmetry)) * 100) : 70;
 
   return [
     {
       id: 'balance',
-      title: 'AI etkileşim dengesi',
-      level: ezaVal >= 75 ? 'Stabil' : ezaVal >= 50 ? 'Orta' : 'Yüksek',
+      title: 'AI Etkileşim Dengesi',
+      level: ezaNorm >= 75 ? 'Stabil' : ezaNorm >= 50 ? 'Orta' : 'Yüksek',
       description:
-        ezaVal >= 70
+        ezaNorm >= 70
           ? 'Etkileşim dengesi sinyali olumlu aralıkta seyrediyor.'
           : 'Denge sinyalleri karışık; birkaç ölçüm daha netlik sağlayabilir.',
-      value: ezaVal || balanceVal,
+      value: ezaNorm,
     },
     {
       id: 'risk',
-      title: 'Risk sinyali',
-      level: trendLabel(inputSlope, 0.02),
+      title: 'Risk Sinyali',
+      level: trendLevelLabel(ezaSlope),
       description:
-        trendLabel(inputSlope, 0.02) === 'Azalıyor'
-          ? 'Risk yoğunluğu düşüş eğiliminde görünüyor.'
-          : trendLabel(inputSlope, 0.02) === 'Artıyor'
-            ? 'Risk yoğunluğu artış eğiliminde seyrediyor.'
+        trendDirectionLabel(ezaSlope) === 'up'
+          ? 'Hassas sinyal yoğunluğu daha sık görünmeye başladı.'
+          : trendDirectionLabel(ezaSlope) === 'down'
+            ? 'Hassas sinyal yoğunluğu azalma eğiliminde görünüyor.'
             : 'Risk sinyali düşük seviyede seyrediyor.',
-      value: riskHealth,
+      value: riskNorm,
     },
     {
       id: 'redirect',
-      title: 'Yönlendirme etkisi',
-      level: riskLevelLabel(asymmetry ?? 0.2),
+      title: 'Yönlendirme Etkisi',
+      level:
+        (asymmetry ?? 0) < 0.25 ? 'Düşük' : (asymmetry ?? 0) < 0.45 ? 'Orta' : 'Yüksek',
       description:
         (asymmetry ?? 0) < 0.25
           ? 'Yönlendirme etkisi sinyali düşük düzeyde kaldı.'
-          : 'Bazı ölçümlerde yönlendirme sinyali yükselmiş görünüyor.',
-      value: balanceVal,
+          : 'Bazı ölçümlerde yönlendirme sinyali göründü.',
+      value: redirectNorm,
     },
     {
       id: 'alignment',
-      title: 'Uyum kalitesi',
-      level: alignVal >= 80 ? 'Yüksek' : alignVal >= 60 ? 'Orta' : 'Düşük',
+      title: 'Uyum Kalitesi',
+      level: alignNorm >= 80 ? 'Yüksek' : alignNorm >= 60 ? 'Orta' : 'Düşük',
       description:
-        alignVal >= 70
-          ? 'Uyum kalitesi yüksek aralıkta seyrediyor.'
-          : 'Uyum sinyalleri orta bandda; izlemeye devam edilebilir.',
-      value: alignVal,
+        alignNorm >= 70
+          ? 'Uyum kalitesi stabil kaldı.'
+          : 'Uyum sinyalleri orta bandda seyrediyor.',
+      value: alignNorm,
     },
   ];
 }
@@ -279,6 +533,7 @@ function coreFromTrend(trend: SafeModeTrend) {
     avgEza: avgEza !== null && !Number.isNaN(avgEza) ? avgEza : null,
     avgAlign: null as number | null,
     avgInputRisk: null as number | null,
+    avgOutputRisk: null as number | null,
     ezaSlope: ezaSlope !== null && !Number.isNaN(ezaSlope) ? ezaSlope : null,
     asymmetry: asymmetry !== null && !Number.isNaN(asymmetry) ? asymmetry : null,
     confidence: trend.confidence ?? null,
@@ -315,14 +570,8 @@ function assembleViewModel(
     periodCaption?: string;
     avgOutputRisk?: number | null;
   },
-  insight?: SafeModeInsight | null
+  _insight?: SafeModeInsight | null
 ): GovernanceReportViewModel {
-  const fmt = (n: number | null) =>
-    n !== null && !Number.isNaN(n) ? (n <= 1 ? (n * 100).toFixed(0) : n.toFixed(1)) : '—';
-
-  const confidenceMeta =
-    core.confidence != null ? `Analiz güveni: %${Math.round(core.confidence)}` : undefined;
-
   const layers = buildInteractionLayers(
     aggregateFromAverages({
       avgInputRisk: core.avgInputRisk,
@@ -333,100 +582,108 @@ function assembleViewModel(
     })
   );
 
-  const evidenceCards: EvidenceCard[] = layers.layers.map((layer) => ({
-    title: layer.title,
-    value: layer.kpis[0]?.value ?? '—',
-    description: layer.headline,
-    meta: layer.kpis[1]?.hint ?? confidenceMeta,
-  }));
+  const wowMoment = buildShortWowMoment({
+    sampleCount: core.sampleCount,
+    avgEza: core.avgEza,
+    avgAlign: core.avgAlign,
+    avgInputRisk: core.avgInputRisk,
+    avgOutputRisk: core.avgOutputRisk ?? null,
+    ezaSlope: core.ezaSlope,
+    seed: core.seed,
+    layers,
+  });
 
-  const kpis: ProfileKpi[] = layers.layers.flatMap((layer) =>
-    layer.kpis.map((k) => ({
-      label: `${layer.title} · ${k.label}`,
-      value: k.value,
-      hint: k.hint,
-    }))
-  );
+  const confBand = confidenceBand(core.confidence);
 
   const historyRows: HistoryRow[] = core.ezaTrend.map((p, i) => ({
     label: p.label,
     score: String(p.value),
-    note: i === core.ezaTrend.length - 1 ? 'Son ölçüm' : 'Ölçüm noktası',
+    note: i === core.ezaTrend.length - 1 ? 'Son ölçüm' : 'Ölçüm',
+    tags: i === core.ezaTrend.length - 1 ? ['güncel'] : undefined,
   }));
 
   return {
-    wowMoment: buildWowMoment({
-      sampleCount: core.sampleCount,
+    wowMoment,
+    periodCaption: core.periodCaption ?? `Son ölçümler · ${core.sampleCount} etkileşim`,
+    sampleCount: core.sampleCount,
+    featuredInteraction: buildFeaturedInteraction(layers, core.seed, core.sampleCount),
+    howCalculated: {
+      cards: buildHowCalculatedCards({
+        avgEza: core.avgEza,
+        avgInputRisk: core.avgInputRisk,
+        avgAlign: core.avgAlign,
+        asymmetry: core.asymmetry,
+        reliabilityLabel: core.reliabilityLabel,
+        confidence: core.confidence,
+      }),
+      confidenceLabel: confBand ? `Analiz güveni: ${confBand}` : null,
+      reliabilityLabel: core.reliabilityLabel,
+      signalFootnote: GOVERNANCE_HOW_SIGNAL_FOOTNOTE,
+    },
+    profileKpis: buildProfileKpis({
       avgEza: core.avgEza,
       avgAlign: core.avgAlign,
       avgInputRisk: core.avgInputRisk,
-      avgOutputRisk: core.avgOutputRisk ?? null,
+      asymmetry: core.asymmetry,
       ezaSlope: core.ezaSlope,
-      seed: core.seed,
-      insight,
     }),
-    periodCaption:
-      core.periodCaption ?? `Son ölçümler · ${core.sampleCount} etkileşim`,
-    sampleCount: core.sampleCount,
-    confidence: core.confidence,
-    reliabilityLabel: core.reliabilityLabel,
-    evidenceCards,
-    kpis,
     ezaTrend: core.ezaTrend,
     ezaTrendCaption: core.canTrend
-      ? 'AI yanıt skoru zaman içinde (özet seri)'
+      ? 'EZA skoru zaman içinde'
       : 'Trend için en az 5 etkileşim gerekir',
+    trendInsight: buildTrendInsight({
+      ezaSlope: core.ezaSlope,
+      avgInputRisk: core.avgInputRisk,
+      avgAlign: core.avgAlign,
+      avgOutputRisk: core.avgOutputRisk ?? null,
+      seed: core.seed,
+    }),
     showTrendChart: core.ezaTrend.length >= MIN_TREND_SAMPLES && core.canTrend,
-    tendencyCards: layers.layers.map((layer) => ({
-      id: layer.id,
-      title: layer.title,
-      level: layer.level,
-      description: layer.description,
-      value:
-        layer.id === 'user'
-          ? Math.round((1 - layers.avgInputRisk) * 100)
-          : layer.id === 'assistant'
-            ? Math.round((1 - layers.avgOutputRisk) * 100)
-            : Math.round(layers.avgAlign),
-    })),
-    layers,
+    tendencyCards: buildTendencyCards(
+      core.avgEza,
+      core.avgAlign,
+      core.avgInputRisk,
+      core.asymmetry,
+      core.ezaSlope
+    ),
     historyRows,
     disclaimer: core.disclaimer,
     canInterpret: core.canInterpret,
-    feedbackEventId: insight?.event_id ?? undefined,
-    feedbackAnalysisId: insight?.analysis_id ?? undefined,
-    feedbackMetric: insight?.metric,
+    feedbackEventId: _insight?.event_id ?? undefined,
+    feedbackAnalysisId: _insight?.analysis_id ?? undefined,
+    feedbackMetric: _insight?.metric,
   };
 }
 
 export function emptyGovernanceReportPlaceholder(
   wowMoment = 'Seni tanımak için biraz daha etkileşim gerekiyor.'
 ): GovernanceReportViewModel {
-  const layers = buildInteractionLayers(
-    aggregateFromAverages({
-      avgInputRisk: 0,
-      avgOutputRisk: 0,
-      avgAlign: null,
-      avgAssistantScore: null,
-      sampleCount: 0,
-    })
-  );
   return {
     wowMoment,
     periodCaption: 'Veri bekleniyor',
     sampleCount: 0,
-    confidence: null,
-    reliabilityLabel: null,
-    evidenceCards: [],
-    kpis: [],
+    featuredInteraction: {
+      show: false,
+      userSignal: '',
+      aiBehavior: '',
+      balance: '',
+      footnote: '',
+    },
+    howCalculated: {
+      cards: [],
+      confidenceLabel: null,
+      reliabilityLabel: null,
+      signalFootnote: GOVERNANCE_HOW_SIGNAL_FOOTNOTE,
+    },
+    profileKpis: [],
     ezaTrend: [],
     ezaTrendCaption: '',
+    trendInsight: '',
     showTrendChart: false,
     tendencyCards: [],
     historyRows: [],
     disclaimer: GOVERNANCE_REPORT_DISCLAIMER,
     canInterpret: false,
-    layers,
   };
 }
 
