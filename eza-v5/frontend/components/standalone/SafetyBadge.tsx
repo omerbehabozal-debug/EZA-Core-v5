@@ -37,7 +37,7 @@ export default function SafetyBadge({ safety }: SafetyBadgeProps) {
   const Icon = config.icon;
 
   return (
-    <span className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 min-h-[24px] sm:min-h-[26px] rounded-full text-[11px] sm:text-xs font-semibold border backdrop-blur-md shadow-sm whitespace-nowrap ${config.bg} ${config.text} ${config.border}`}>
+    <span className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 min-h-[28px] rounded-full text-xs sm:text-sm font-semibold border backdrop-blur-md shadow-sm whitespace-nowrap ${config.bg} ${config.text} ${config.border}`}>
       <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
       <span>{config.label}</span>
     </span>

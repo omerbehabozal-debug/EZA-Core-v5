@@ -220,9 +220,12 @@ body {
   display: none; /* Chrome, Safari, Opera */
 }
 
-/* Standalone — sakin canvas, hafif derinlik */
+/* Standalone — sakin canvas, ChatGPT-benzeri okuma ölçeği */
 .standalone-canvas {
   position: relative;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
   background: linear-gradient(180deg, #f6f8fc 0%, #f3f4f8 100%);
 }
 

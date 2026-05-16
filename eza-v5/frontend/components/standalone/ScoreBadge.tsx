@@ -23,8 +23,8 @@ export default function ScoreBadge({ score, size = 'chip' }: ScoreBadgeProps) {
       className={cn(
         'inline-flex items-center justify-center border font-semibold tabular-nums backdrop-blur-sm',
         size === 'chip'
-          ? 'min-h-[20px] px-1.5 py-0.5 rounded-md text-[10px] leading-none shadow-sm'
-          : 'min-h-[26px] min-w-[26px] px-2 py-0.5 rounded-lg text-xs shadow-eza-sm'
+          ? 'min-h-[22px] px-2 py-0.5 rounded-md text-xs leading-none shadow-sm'
+          : 'min-h-[28px] min-w-[28px] px-2.5 py-0.5 rounded-lg text-sm shadow-eza-sm'
       )}
       style={styles}
     >

@@ -30,7 +30,7 @@ export default function InputBar({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      const h = Math.min(Math.max(40, textareaRef.current.scrollHeight), 100);
+      const h = Math.min(Math.max(52, textareaRef.current.scrollHeight), 200);
       textareaRef.current.style.height = `${h}px`;
     }
   }, [message]);
@@ -38,7 +38,7 @@ export default function InputBar({
   const submit = (text: string) => {
     onSend(text);
     setMessage('');
-    if (textareaRef.current) textareaRef.current.style.height = '40px';
+    if (textareaRef.current) textareaRef.current.style.height = '52px';
   };
 
   return (
@@ -77,7 +77,7 @@ export default function InputBar({
             className={standaloneSkin.sendBtn}
             aria-label="Gönder"
           >
-            <ArrowUp className="h-4 w-4" strokeWidth={2.25} />
+            <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
           </button>
         </form>
       </div>

@@ -12,8 +12,8 @@ interface StandaloneChatLayoutProps {
   isEmpty: boolean;
   safeOnlyMode: boolean;
   onSafeOnlyModeChange: (enabled: boolean) => void;
-  canSaveChat?: boolean;
-  onSaveChat?: () => void;
+  hasActiveChat?: boolean;
+  onNewChat?: () => void;
 }
 
 export default function StandaloneChatLayout({
@@ -21,8 +21,8 @@ export default function StandaloneChatLayout({
   isEmpty,
   safeOnlyMode,
   onSafeOnlyModeChange,
-  canSaveChat = false,
-  onSaveChat,
+  hasActiveChat = false,
+  onNewChat,
 }: StandaloneChatLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -33,8 +33,8 @@ export default function StandaloneChatLayout({
         onSafeOnlyModeChange={onSafeOnlyModeChange}
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
-        canSaveChat={canSaveChat}
-        onSaveChat={onSaveChat}
+        hasActiveChat={hasActiveChat}
+        onNewChat={onNewChat}
       />
 
       <main className={standaloneSkin.main}>

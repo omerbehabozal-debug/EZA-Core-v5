@@ -52,7 +52,7 @@ export default function AnalyzedModelSelect({
           <span className="truncate">{current.label}</span>
           <ChevronDown
             className={cn(
-              'h-3 w-3 shrink-0 opacity-40 transition-transform',
+              'h-4 w-4 shrink-0 opacity-40 transition-transform',
               open && 'rotate-180 opacity-60'
             )}
           />

@@ -66,7 +66,7 @@ export default function StandaloneFeedbackChips({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-normal text-eza-text-muted transition-colors hover:bg-eza-surface-muted hover:text-eza-text-secondary touch-manipulation"
+        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-normal text-eza-text-muted transition-colors hover:bg-eza-surface-muted hover:text-eza-text-secondary touch-manipulation"
         aria-expanded={open}
       >
         <MessageSquarePlus className="h-3 w-3 shrink-0" aria-hidden />
@@ -83,7 +83,7 @@ export default function StandaloneFeedbackChips({
               title={authed ? undefined : 'Giriş gerekir'}
               onClick={() => handleClick(chip.type)}
               className={cn(
-                'rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors',
+                'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
                 authed
                   ? 'border-standalone-border/80 bg-white text-standalone-text-secondary hover:border-standalone-primary/40 hover:text-standalone-primary'
                   : 'cursor-not-allowed border-eza-border/60 bg-eza-surface-muted text-eza-text-muted'
@@ -93,10 +93,10 @@ export default function StandaloneFeedbackChips({
             </button>
           ))}
           {message ? (
-            <span className="w-full text-[10px] text-standalone-primary">{message}</span>
+            <span className="w-full text-xs text-standalone-primary">{message}</span>
           ) : null}
           {!authed ? (
-            <span className="w-full text-[10px] text-eza-text-muted">Platform girişi gerekir</span>
+            <span className="w-full text-xs text-eza-text-muted">Platform girişi gerekir</span>
           ) : null}
         </div>
       ) : null}

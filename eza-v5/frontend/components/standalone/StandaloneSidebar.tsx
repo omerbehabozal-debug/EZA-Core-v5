@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, BookmarkPlus, Shield, X } from 'lucide-react';
+import { BarChart3, MessageSquarePlus, Shield, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
+  ACTIVE_SESSION_ARCHIVE_ID,
   ARCHIVE_UPDATED_EVENT,
   listChatArchives,
   type ArchivedChatSummary,
@@ -17,8 +18,8 @@ interface StandaloneSidebarProps {
   onSafeOnlyModeChange: (enabled: boolean) => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
-  canSaveChat?: boolean;
-  onSaveChat?: () => void;
+  hasActiveChat?: boolean;
+  onNewChat?: () => void;
 }
 
 export default function StandaloneSidebar({
@@ -26,8 +27,8 @@ export default function StandaloneSidebar({
   onSafeOnlyModeChange,
   mobileOpen,
   onMobileClose,
-  canSaveChat = false,
-  onSaveChat,
+  hasActiveChat = false,
+  onNewChat,
 }: StandaloneSidebarProps) {
   const pathname = usePathname();
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
@@ -81,17 +82,18 @@ export default function StandaloneSidebar({
             </button>
           </div>
 
-          {canSaveChat && onSaveChat ? (
+          {onNewChat ? (
             <button
               type="button"
+              disabled={!hasActiveChat}
               onClick={() => {
-                onSaveChat();
+                onNewChat();
                 onMobileClose();
               }}
-              className={standaloneSkin.sidebarSaveBtn}
+              className={standaloneSkin.sidebarNewChatBtn}
             >
-              <BookmarkPlus className="h-3.5 w-3.5 shrink-0 opacity-70" />
-              Sohbeti kaydet
+              <MessageSquarePlus className="h-4 w-4 shrink-0 opacity-60" />
+              Yeni sohbet
             </button>
           ) : null}
 
@@ -106,7 +108,7 @@ export default function StandaloneSidebar({
                   : ''
               )}
             >
-              <BarChart3 className="h-3.5 w-3.5 shrink-0 opacity-60" />
+              <BarChart3 className="h-4 w-4 shrink-0 opacity-60" />
               Etkileşim Raporu
             </Link>
 
@@ -116,8 +118,11 @@ export default function StandaloneSidebar({
             ) : (
               <ul className={standaloneSkin.sidebarArchiveList} aria-label="Kayıtlı sohbetler">
                 {archives.map((item) => {
-                  const href = `/standalone/archive/${item.id}`;
-                  const active = pathname === href;
+                  const isActiveSession = item.id === ACTIVE_SESSION_ARCHIVE_ID;
+                  const href = isActiveSession ? '/standalone' : `/standalone/archive/${item.id}`;
+                  const active = isActiveSession
+                    ? pathname === '/standalone'
+                    : pathname === href;
                   return (
                     <li key={item.id}>
                       <Link
@@ -130,6 +135,7 @@ export default function StandaloneSidebar({
                       >
                         <span className={standaloneSkin.sidebarArchiveTitle}>{item.title}</span>
                         <span className={standaloneSkin.sidebarArchiveMeta}>
+                          {isActiveSession ? 'Güncel · ' : ''}
                           {new Date(item.savedAt).toLocaleDateString('tr-TR', {
                             day: 'numeric',
                             month: 'short',
@@ -148,7 +154,7 @@ export default function StandaloneSidebar({
           <div className={standaloneSkin.sidebarFooter}>
             <div className={standaloneSkin.sidebarToggleRow}>
               <span className="flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                <Shield className="h-4 w-4 shrink-0 opacity-60" />
                 SAFE-only
               </span>
               <button

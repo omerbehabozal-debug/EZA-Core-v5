@@ -17,10 +17,24 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import StandaloneChatLayout from '@/components/standalone/StandaloneChatLayout';
+import StandaloneSessionEndDialog from '@/components/standalone/StandaloneSessionEndDialog';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
-import { saveChatArchive } from '@/lib/standaloneChatArchive';
+import {
+  ACTIVE_SESSION_ARCHIVE_ID,
+  clearActiveSessionArchive,
+  finalizeActiveSession,
+  getChatArchive,
+  upsertActiveChatArchive,
+} from '@/lib/standaloneChatArchive';
+import { clearChatDraft, loadChatDraft, saveChatDraft } from '@/lib/standaloneChatDraft';
+import {
+  fromArchivedMessages,
+  hasMeaningfulChat,
+  isArchivableMessage,
+  toArchivedMessages,
+} from '@/lib/standaloneChatSession';
 import { feedbackContextFromGovernance, parseGovernance } from '@/lib/standaloneFeedback';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
@@ -64,6 +78,9 @@ export default function StandalonePage() {
   const { startStream, reset: resetStream } = useStreamResponse();
   const currentAssistantMessageRef = useRef<string | null>(null);
   const assistantScoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [sessionEndOpen, setSessionEndOpen] = useState(false);
+  const skipAutosaveRef = useRef(true);
+  const sessionRestoredRef = useRef(false);
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -101,6 +118,44 @@ export default function StandalonePage() {
     writeStoredAnalysisModel(analysisModelId);
   }, [analysisModelId]);
 
+  useEffect(() => {
+    if (sessionRestoredRef.current) return;
+    sessionRestoredRef.current = true;
+
+    const draft = loadChatDraft();
+    if (draft?.messages?.length) {
+      setMessages(fromArchivedMessages(draft.messages) as Message[]);
+    } else {
+      const active = getChatArchive(ACTIVE_SESSION_ARCHIVE_ID);
+      if (active?.messages?.length) {
+        setMessages(fromArchivedMessages(active.messages) as Message[]);
+      }
+    }
+
+    const t = window.setTimeout(() => {
+      skipAutosaveRef.current = false;
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (skipAutosaveRef.current || isLoading || isTyping) return;
+
+    const archived = toArchivedMessages(messages);
+    if (archived.length === 0) return;
+
+    const timer = window.setTimeout(() => {
+      saveChatDraft({
+        sessionArchiveId: ACTIVE_SESSION_ARCHIVE_ID,
+        messages: archived,
+        updatedAt: new Date().toISOString(),
+      });
+      upsertActiveChatArchive(archived);
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [messages, isLoading, isTyping]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -110,6 +165,34 @@ export default function StandalonePage() {
       resetStream();
     };
   }, [resetStream]);
+
+  const startFreshChat = useCallback(() => {
+    resetStream();
+    setMessages([]);
+    setIsLoading(false);
+    setIsTyping(false);
+    clearChatDraft();
+    setSessionEndOpen(false);
+  }, [resetStream]);
+
+  const handleNewChatRequest = useCallback(() => {
+    if (!hasMeaningfulChat(messages)) {
+      clearActiveSessionArchive();
+      startFreshChat();
+      return;
+    }
+    setSessionEndOpen(true);
+  }, [messages, startFreshChat]);
+
+  const handleSessionKeep = useCallback(() => {
+    finalizeActiveSession();
+    startFreshChat();
+  }, [startFreshChat]);
+
+  const handleSessionDelete = useCallback(() => {
+    clearActiveSessionArchive();
+    startFreshChat();
+  }, [startFreshChat]);
 
   const incrementDailyCount = useCallback(() => {
     const newCount = dailyCount + 1;
@@ -460,36 +543,22 @@ export default function StandalonePage() {
   };
 
   const isEmpty = messages.length === 0 && !isLoading && !isTyping;
+  const hasActiveChat = messages.some(isArchivableMessage);
 
   return (
     <div className={standaloneSkin.page}>
+      <StandaloneSessionEndDialog
+        open={sessionEndOpen}
+        onKeep={handleSessionKeep}
+        onDelete={handleSessionDelete}
+        onCancel={() => setSessionEndOpen(false)}
+      />
       <StandaloneChatLayout
         isEmpty={isEmpty}
         safeOnlyMode={safeOnlyMode}
         onSafeOnlyModeChange={setSafeOnlyMode}
-        canSaveChat={messages.length > 0 && !isLoading && !isTyping}
-        onSaveChat={() => {
-          const saved = saveChatArchive(
-            messages.map((m) => ({
-              id: m.id,
-              text: m.text,
-              isUser: m.isUser,
-              userScore: m.userScore,
-              assistantScore: m.assistantScore,
-              timestamp: m.timestamp?.toISOString(),
-            }))
-          );
-          if (!saved) return;
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `saved-${Date.now()}`,
-              text: 'Sohbet arşive kaydedildi. Sol menüden tekrar açabilirsiniz.',
-              isUser: false,
-              timestamp: new Date(),
-            },
-          ]);
-        }}
+        hasActiveChat={hasActiveChat}
+        onNewChat={handleNewChatRequest}
       >
         {!isEmpty ? (
           <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />

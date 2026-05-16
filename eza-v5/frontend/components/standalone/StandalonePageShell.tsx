@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import StandaloneSidebar from './StandaloneSidebar';
@@ -9,15 +10,10 @@ const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
 
 interface StandalonePageShellProps {
   children: React.ReactNode;
-  canSaveChat?: boolean;
-  onSaveChat?: () => void;
 }
 
-export default function StandalonePageShell({
-  children,
-  canSaveChat = false,
-  onSaveChat,
-}: StandalonePageShellProps) {
+export default function StandalonePageShell({ children }: StandalonePageShellProps) {
+  const router = useRouter();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
 
@@ -37,8 +33,8 @@ export default function StandalonePageShell({
         onSafeOnlyModeChange={setSafeOnlyMode}
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
-        canSaveChat={canSaveChat}
-        onSaveChat={onSaveChat}
+        hasActiveChat
+        onNewChat={() => router.push('/standalone')}
       />
 
       <main className={standaloneSkin.main}>

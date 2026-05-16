@@ -44,7 +44,7 @@ function InsightSummaryLabel({
   const scoreColor = display !== null ? scoreBadgeStyles(display).color : undefined;
 
   return (
-    <span className="truncate text-[11px] font-medium text-standalone-text-secondary">
+    <span className="truncate text-sm font-medium text-standalone-text-secondary">
       EZA Skoru{' '}
       {display !== null ? (
         <span className="tabular-nums font-semibold" style={{ color: scoreColor }}>
@@ -78,7 +78,7 @@ function ScoreDetailPanel({ insight }: { insight: InteractionInsightView }) {
           <span className="text-xl font-semibold tabular-nums leading-none" style={{ color: scoreColor }}>
             {display}
           </span>
-          <span className="text-[11px] font-medium text-standalone-text-muted">{getScoreRiskLabel(display)}</span>
+          <span className="text-sm font-medium text-standalone-text-muted">{getScoreRiskLabel(display)}</span>
         </div>
       ) : null}
       <ul className="space-y-1">

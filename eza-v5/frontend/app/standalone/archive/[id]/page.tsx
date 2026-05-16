@@ -7,7 +7,12 @@ import { Trash2 } from 'lucide-react';
 import ChatBubble from '@/components/standalone/ChatBubble';
 import StandalonePageShell from '@/components/standalone/StandalonePageShell';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
-import { deleteChatArchive, getChatArchive, type ArchivedChat } from '@/lib/standaloneChatArchive';
+import {
+  ACTIVE_SESSION_ARCHIVE_ID,
+  deleteChatArchive,
+  getChatArchive,
+  type ArchivedChat,
+} from '@/lib/standaloneChatArchive';
 
 export default function StandaloneArchivePage() {
   const params = useParams();
@@ -18,8 +23,12 @@ export default function StandaloneArchivePage() {
 
   useEffect(() => {
     if (!id) return;
+    if (id === ACTIVE_SESSION_ARCHIVE_ID) {
+      router.replace('/standalone');
+      return;
+    }
     setArchive(getChatArchive(id));
-  }, [id]);
+  }, [id, router]);
 
   const handleDelete = () => {
     if (!id) return;
@@ -32,8 +41,8 @@ export default function StandaloneArchivePage() {
       <div className={standaloneSkin.page}>
         <StandalonePageShell>
           <div className="mx-auto max-w-2xl px-4 py-12 text-center">
-            <p className="text-sm text-standalone-text-secondary">Arşiv kaydı bulunamadı.</p>
-            <Link href="/standalone" className="mt-3 inline-block text-sm text-standalone-primary">
+            <p className="text-base text-standalone-text-secondary">Arşiv kaydı bulunamadı.</p>
+            <Link href="/standalone" className="mt-3 inline-block text-base text-standalone-primary">
               Sohbete dön
             </Link>
           </div>
@@ -45,26 +54,26 @@ export default function StandaloneArchivePage() {
   return (
     <div className={standaloneSkin.page}>
       <StandalonePageShell>
-        <div className="mx-auto flex h-full min-h-0 w-full max-w-[780px] flex-col px-3 py-4 sm:px-4 sm:py-6">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-4 py-4 sm:px-6 sm:py-6">
           <header className="mb-4 shrink-0 border-b border-standalone-border/50 pb-3">
             <Link
               href="/standalone"
-              className="text-[13px] font-medium text-standalone-primary hover:underline"
+              className="text-sm font-medium text-standalone-primary hover:underline"
             >
               ← Yeni sohbet
             </Link>
-            <h1 className="mt-2 truncate text-base font-semibold text-standalone-text">
+            <h1 className="mt-2 truncate text-xl font-semibold text-standalone-text">
               {archive.title}
             </h1>
-            <p className="mt-0.5 text-[11px] text-standalone-text-muted">
+            <p className="mt-1 text-sm text-standalone-text-muted">
               {new Date(archive.savedAt).toLocaleString('tr-TR')} · {archive.messageCount} mesaj
             </p>
             <button
               type="button"
               onClick={handleDelete}
-              className="mt-2 flex items-center gap-1 text-xs text-red-600/90 hover:text-red-700"
+              className="mt-2 flex items-center gap-1.5 text-sm text-red-600/90 hover:text-red-700"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
               Arşivden sil
             </button>
           </header>

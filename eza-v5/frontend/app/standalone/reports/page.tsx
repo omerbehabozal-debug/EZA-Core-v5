@@ -31,14 +31,14 @@ export default function StandaloneReportsPage() {
           <header className="mb-6 border-b border-standalone-border/50 pb-4">
             <Link
               href="/standalone"
-              className="text-[13px] font-medium text-standalone-primary hover:underline"
+              className="text-sm font-medium text-standalone-primary hover:underline"
             >
               ← Sohbete dön
             </Link>
-            <h1 className="mt-2 text-lg font-semibold tracking-[-0.02em] text-standalone-text">
+            <h1 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-standalone-text sm:text-2xl">
               Etkileşim Raporu
             </h1>
-            <p className="mt-1 text-[13px] leading-relaxed text-standalone-text-secondary">
+            <p className="mt-1 text-base leading-relaxed text-standalone-text-secondary">
               Her yanıttan sonra oluşan etkileşim analizleri. Mesaj metni saklanmaz; yalnızca sayısal
               özetler listelenir.
             </p>
@@ -46,15 +46,15 @@ export default function StandaloneReportsPage() {
               type="button"
               onClick={handleClear}
               disabled={items.length === 0}
-              className="mt-3 flex items-center gap-1 text-xs text-red-600/90 hover:text-red-700 disabled:pointer-events-none disabled:opacity-40"
+              className="mt-3 flex items-center gap-1.5 text-sm text-red-600/90 hover:text-red-700 disabled:pointer-events-none disabled:opacity-40"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
               Tümünü temizle
             </button>
           </header>
 
           {items.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-standalone-border/70 bg-white/50 px-6 py-10 text-center text-sm text-standalone-text-muted">
+            <div className="rounded-xl border border-dashed border-standalone-border/70 bg-white/50 px-6 py-10 text-center text-base text-standalone-text-muted">
               Henüz analiz yok. Sohbette bir yanıt aldıktan sonra raporlar burada görünür.
             </div>
           ) : (
@@ -66,7 +66,7 @@ export default function StandaloneReportsPage() {
                     key={`${row.interaction_id}-${row.savedAt}-${i}`}
                     className="rounded-xl border border-standalone-border/60 bg-white/80 p-4 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
                   >
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-standalone-text-muted">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm text-standalone-text-muted">
                       <time dateTime={row.savedAt}>
                         {new Date(row.savedAt).toLocaleString('tr-TR')}
                       </time>
@@ -76,12 +76,12 @@ export default function StandaloneReportsPage() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-[13px] font-medium text-standalone-text">{insight.title}</p>
+                    <p className="text-base font-medium text-standalone-text">{insight.title}</p>
                     <ul className="mt-2 space-y-1">
                       {insight.bullets.map((b, j) => (
                         <li
                           key={j}
-                          className={`text-[12px] leading-snug ${
+                          className={`text-sm leading-snug ${
                             b.tone === 'positive'
                               ? 'text-emerald-700'
                               : b.tone === 'caution'
