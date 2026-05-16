@@ -35,7 +35,7 @@ async def stream_standalone_response(
     - data: {"done": true, "assistant_score": 42, "user_score": 85}
     """
     settings = get_settings()
-    
+
     try:
         # Step 1: Input analysis (fast, non-blocking)
         input_analysis = analyze_input(query)

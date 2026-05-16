@@ -4,6 +4,7 @@ Global Token Quota Service for Public Demo
 Controls LLM token consumption across all public demo endpoints
 """
 
+import os
 import time
 import threading
 from datetime import datetime, timezone
@@ -12,9 +13,21 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Global token quota configuration
-DAILY_TOKEN_LIMIT = 500_000  # 500,000 tokens per day
-MAX_TEXT_LENGTH = 2_000  # 2,000 characters per request
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        logger.warning("[Demo Token Quota] Invalid %s=%r, using default %s", name, raw, default)
+        return default
+
+
+# Global token quota — tüm public demo uçları (standalone stream dahil) paylaşır
+DAILY_TOKEN_LIMIT = _env_int("EZA_PUBLIC_DAILY_TOKEN_LIMIT", 100_000)
+MAX_TEXT_LENGTH = _env_int("EZA_PUBLIC_MAX_TEXT_CHARS", 1_500)
 
 # Thread-safe token counter
 _token_counter_lock = threading.Lock()

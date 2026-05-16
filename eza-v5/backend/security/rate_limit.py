@@ -130,8 +130,17 @@ async def rate_limit(
 
 # Predefined rate limit configurations
 async def rate_limit_standalone(request: Request) -> None:
-    """Rate limit for standalone endpoint: 40 requests / 60s"""
-    await rate_limit(request, limit=40, window=60, key_prefix="standalone")
+    """Rate limit for standalone: default 10 requests / 60s per IP (env: EZA_STANDALONE_RATE_PER_MIN)"""
+    import os
+
+    limit = 10
+    raw = os.getenv("EZA_STANDALONE_RATE_PER_MIN", "").strip()
+    if raw:
+        try:
+            limit = max(3, min(30, int(raw)))
+        except ValueError:
+            pass
+    await rate_limit(request, limit=limit, window=60, key_prefix="standalone")
 
 
 async def rate_limit_proxy(request: Request) -> None:

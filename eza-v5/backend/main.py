@@ -43,8 +43,9 @@ from backend.auth.deps import require_admin, require_corporate_or_admin, require
 from backend.security.rate_limit import (
     rate_limit_standalone,
     rate_limit_proxy,
-    rate_limit_regulator_feed
+    rate_limit_regulator_feed,
 )
+from backend.security.public_demo_guard import enforce_public_demo_limits
 from backend.auth.api_key import require_api_key
 
 # Configure logging
@@ -419,6 +420,10 @@ async def standalone_stream_endpoint(
     
     Note: Public endpoint, no authentication required.
     """
+    enforce_public_demo_limits(
+        request.query_value,
+        estimated_output_tokens=220 if request.safe_only else 180,
+    )
     return StreamingResponse(
         stream_standalone_response(
             query=request.query_value,

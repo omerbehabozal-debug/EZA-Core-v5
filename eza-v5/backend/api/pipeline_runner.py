@@ -66,7 +66,15 @@ async def run_full_pipeline(
         }
     """
     settings = get_settings()
-    
+
+    if mode == "standalone" and llm_override is None:
+        from backend.security.public_demo_guard import enforce_public_demo_limits
+
+        enforce_public_demo_limits(
+            user_input,
+            estimated_output_tokens=220 if safe_only else 180,
+        )
+
     # Initialize response structure (unified format)
     response: Dict[str, Any] = {
         "ok": True,
