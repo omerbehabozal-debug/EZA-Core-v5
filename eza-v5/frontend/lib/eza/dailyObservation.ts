@@ -1,6 +1,6 @@
 /**
- * EZA Daily Observation Loop — iki ayna: kullanıcı sinyali + AI yanıt davranışı + denge.
- * Frontend-only; gözlemsel ton, gamification yok.
+ * EZA Latest Observation — etkileşim oturumu odaklı (takvim / streak değil).
+ * Mikro: son oturum · Pattern: son 7 etkileşim · Uzun: özet cümle.
  */
 
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
@@ -27,7 +27,7 @@ export type AiBehaviorCategoryId =
   | 'sensitive_balance';
 
 export const USER_CATEGORY_LABEL: Record<UserObservationCategoryId, string> = {
-  balanced: 'Dengeli gün',
+  balanced: 'Dengeli etkileşim',
   decision_support: 'Karar desteği',
   clarity_seek: 'Netlik arayışı',
   flow_harmony: 'Akış uyumu',
@@ -35,7 +35,7 @@ export const USER_CATEGORY_LABEL: Record<UserObservationCategoryId, string> = {
   safe_balance: 'Güvenli denge',
   question_clarity: 'Soru netliği',
   exploration: 'Keşif odaklı',
-  quiet: 'Sakin gün',
+  quiet: 'Sakin akış',
 };
 
 export const OBSERVATION_CATEGORY_EMOJI: Record<UserObservationCategoryId, string> = {
@@ -50,22 +50,26 @@ export const OBSERVATION_CATEGORY_EMOJI: Record<UserObservationCategoryId, strin
   quiet: '⚪',
 };
 
-/** @deprecated use USER_CATEGORY_LABEL — week pattern uyumu */
+/** @deprecated use USER_CATEGORY_LABEL */
 export const OBSERVATION_CATEGORY_LABEL = USER_CATEGORY_LABEL;
 
 export type ObservationCategoryId = UserObservationCategoryId;
 
-export interface WeekPatternDay {
-  weekdayLabel: string;
+/** Son etkileşimler — takvim günü değil, kronolojik nokta */
+export interface InteractionPatternDot {
+  relativeLabel: string;
   emoji: string;
   categoryLabel: string;
-  isToday: boolean;
   hasData: boolean;
+  isLatest: boolean;
+  hoverTitle: string;
 }
+
+/** @deprecated InteractionPatternDot kullan */
+export type WeekPatternDay = InteractionPatternDot;
 
 export interface DailyObservationView {
   show: boolean;
-  /** Kısa manşet (6–8 kelime) */
   manset: string;
   userLine: string;
   aiLine: string;
@@ -73,11 +77,12 @@ export interface DailyObservationView {
   supportLine: string;
   signalLevel: string;
   confidenceLabel: string;
+  /** Önceki oturum / desen değişimi */
   yesterdayLine: string | null;
-  weekPattern: WeekPatternDay[];
+  weekPattern: InteractionPatternDot[];
   showWeekPattern: boolean;
+  /** Son etkileşimlerde sık görülen desen */
   fridaySummary: string | null;
-  /** @deprecated manset + userLine kullan */
   headline?: string;
   interactionTone?: string | null;
 }
@@ -93,7 +98,8 @@ interface DayMetrics {
   hasInputOutputSplit: boolean;
 }
 
-const TR_WEEKDAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'] as const;
+const SESSION_GAP_MS = 12 * 60 * 60 * 1000;
+const PATTERN_DOT_COUNT = 7;
 
 const EMPTY_VIEW: DailyObservationView = {
   show: false,
@@ -109,12 +115,6 @@ const EMPTY_VIEW: DailyObservationView = {
   showWeekPattern: false,
   fridaySummary: null,
 };
-
-function dayKey(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function avg(nums: number[]): number {
   if (!nums.length) return 0;
@@ -132,6 +132,47 @@ function pickVariant(variants: string[], seed: string): string {
     h = (h + seed.charCodeAt(i) * (i + 11)) | 0;
   }
   return variants[Math.abs(h) % variants.length]!;
+}
+
+function sortNewestFirst(entries: SavedBehavioralEntry[]): SavedBehavioralEntry[] {
+  return [...entries].sort(
+    (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
+  );
+}
+
+/** 12 saatten uzun boşluk = yeni oturum */
+export function splitInteractionSessions(entries: SavedBehavioralEntry[]): SavedBehavioralEntry[][] {
+  const sorted = sortNewestFirst(entries);
+  if (!sorted.length) return [];
+
+  const sessions: SavedBehavioralEntry[][] = [];
+  let current: SavedBehavioralEntry[] = [sorted[0]!];
+
+  for (let i = 1; i < sorted.length; i += 1) {
+    const newer = new Date(sorted[i - 1]!.savedAt).getTime();
+    const older = new Date(sorted[i]!.savedAt).getTime();
+    if (newer - older > SESSION_GAP_MS) {
+      sessions.push(current);
+      current = [];
+    }
+    current.push(sorted[i]!);
+  }
+  sessions.push(current);
+  return sessions;
+}
+
+function relativeTimeLabel(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0 || Number.isNaN(diff)) return 'Az önce';
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 45) return 'Az önce';
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return hours === 1 ? '1 saat önce' : `${hours} saat önce`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Dün';
+  if (days < 14) return `${days} gün önce`;
+  const weeks = Math.floor(days / 7);
+  return weeks === 1 ? '1 hafta önce' : `${weeks} hafta önce`;
 }
 
 function metricsFromEntries(entries: SavedBehavioralEntry[]): DayMetrics {
@@ -220,45 +261,45 @@ function userLineForCategory(
   seed: string
 ): string {
   if (m.sampleCount < 1) {
-    return 'Bugünkü etkileşimlerde belirgin bir kullanıcı sinyali gözlemlenmedi.';
+    return 'Son etkileşimlerde belirgin bir kullanıcı sinyali gözlemlenmedi.';
   }
 
   const map: Record<UserObservationCategoryId, string[]> = {
     balanced: [
-      'Bugünkü etkileşim dengesi stabil göründü.',
-      'Bugünkü konuşmalar genel profilinle uyumlu seyretti.',
+      'Son etkileşimlerde denge stabil göründü.',
+      'Son konuşmalar genel profilinle uyumlu seyretti.',
     ],
     decision_support: [
-      'Bugünkü konuşmalarda daha fazla karar desteği arayışı gözlemlendi.',
-      'Bugün bazı sorular karar öncesi netlik arayışı taşıyordu.',
+      'Son etkileşimlerde karar desteği arayışı öne çıktı.',
+      'Son konuşmalarda karar öncesi netlik arayışı gözlemlendi.',
     ],
     clarity_seek: [
-      'Bugünkü konuşmalarda daha fazla netlik arayışı gözlemlendi.',
-      'Bugün doğrulama ve netlik sinyalleri öne çıktı.',
+      'Son etkileşimlerde netlik arayışı öne çıktı.',
+      'Son konuşmalarda doğrulama ve netlik sinyalleri belirginleşti.',
     ],
     flow_harmony: [
-      'Bugünkü konuşmalarda yanıtlarla uyum yüksek seyretti.',
-      'Bugün akış uyumu belirgin bir ton taşıdı.',
+      'Son etkileşimlerde yanıtlarla uyum yüksek seyretti.',
+      'Son oturumda akış uyumu belirgin bir ton taşıdı.',
     ],
     sensitive_signals: [
-      'Bugünkü konuşmalarda hassas konu sinyalleri daha belirgin göründü.',
-      'Bugün hassas sinyal yoğunluğu dikkat çekti.',
+      'Son etkileşimlerde hassas konu sinyalleri daha belirgin göründü.',
+      'Son oturumda hassas sinyal yoğunluğu dikkat çekti.',
     ],
     safe_balance: [
       'Hassas konu sinyali gözlemlendi.',
-      'Bugün girdi tarafında dikkat çeken sinyaller göründü.',
+      'Son oturumda girdi tarafında dikkat çeken sinyaller göründü.',
     ],
     question_clarity: [
-      'Bugünkü sorular daha doğrudan ve net bir yapıdaydı.',
-      'Bugün soru netliği odaklı bir ton seyretti.',
+      'Son sorular daha doğrudan ve net bir yapıdaydı.',
+      'Son oturumda soru netliği odaklı bir ton seyretti.',
     ],
     exploration: [
-      'Bugünkü konuşmalar daha çok fikir geliştirme yönünde ilerledi.',
-      'Bugün keşif odaklı bir etkileşim tonu gözlemlendi.',
+      'Son konuşmalar daha çok fikir geliştirme yönünde ilerledi.',
+      'Son oturumda keşif odaklı bir etkileşim tonu gözlemlendi.',
     ],
     quiet: [
-      'Bugün belirgin bir kullanıcı sinyali sapması gözlemlenmedi.',
-      'Bugünkü etkileşimler sakin ve dengeli bir çizgide kaldı.',
+      'Belirgin bir kullanıcı sinyali sapması gözlemlenmedi.',
+      'Son etkileşimler sakin ve dengeli bir çizgide kaldı.',
     ],
   };
   return pickVariant(map[category], seed);
@@ -276,7 +317,7 @@ function aiLineForCategory(
   const map: Record<AiBehaviorCategoryId, string[]> = {
     explanatory: [
       'Yanıtlar daha açıklayıcı bir ton taşıyordu.',
-      'AI yanıtları bugün daha açıklayıcı bir çizgide kaldı.',
+      'AI yanıtları son oturumda daha açıklayıcı bir çizgide kaldı.',
     ],
     safe_boundary: [
       'Yanıtlar güvenli sınırlar içinde kaldı.',
@@ -334,10 +375,7 @@ function balanceLineForPair(
   }
   if (m.avgIn < 0.35 && m.avgAlign >= 70) {
     return pickVariant(
-      [
-        'Etkileşim akışı dengeli ve uyumlu seyretti.',
-        'Etkileşim dengesi stabil kaldı.',
-      ],
+      ['Etkileşim akışı dengeli ve uyumlu seyretti.', 'Etkileşim dengesi stabil kaldı.'],
       `${seed}-bal-flow`
     );
   }
@@ -347,7 +385,7 @@ function balanceLineForPair(
   if (userCat === 'balanced' || userCat === 'quiet') {
     return pickVariant(
       [
-        'Bugünkü etkileşim tonu genel profilinle uyumlu seyretti.',
+        'Son etkileşim tonu genel profilinle uyumlu seyretti.',
         'Etkileşim dengesi stabil kaldı.',
       ],
       `${seed}-bal-stable`
@@ -357,10 +395,7 @@ function balanceLineForPair(
     return 'Karar arayışına yanıt tonu uyumlu kaldı.';
   }
   return pickVariant(
-    [
-      'Etkileşim dengesi stabil kaldı.',
-      'Girdi ve yanıt sinyalleri birlikte dengeli göründü.',
-    ],
+    ['Etkileşim dengesi stabil kaldı.', 'Girdi ve yanıt sinyalleri birlikte dengeli göründü.'],
     `${seed}-bal-default`
   );
 }
@@ -378,23 +413,23 @@ function mansetForObservation(
     );
   }
   const short: Partial<Record<UserObservationCategoryId, string[]>> = {
-    decision_support: ['Bugün karar desteği öne çıktı.', 'Karar arayışı belirginleşti.'],
-    clarity_seek: ['Bugün netlik arayışı öne çıktı.'],
-    exploration: ['Bugün keşif tonu öne çıktı.'],
+    decision_support: ['Karar desteği öne çıktı.', 'Karar arayışı belirginleşti.'],
+    clarity_seek: ['Netlik arayışı öne çıktı.'],
+    exploration: ['Keşif tonu öne çıktı.'],
     sensitive_signals: ['Hassas sinyal dikkat çekti.'],
-    balanced: ['Bugün denge korundu.', 'Dengeli bir gün.'],
-    quiet: ['Sakin bir etkileşim günü.'],
+    balanced: ['Denge korundu.', 'Dengeli bir oturum.'],
+    quiet: ['Sakin bir etkileşim akışı.'],
   };
   const variants = short[userCat];
   if (variants) return pickVariant(variants, `${seed}-m-user`);
   if (aiCat === 'safe_boundary' || aiCat === 'sensitive_balance') {
     return 'Yanıtlar güvenli çizgide kaldı.';
   }
-  return pickVariant(['Bugünkü etkileşim özeti hazır.', 'Günün gözlemi oluştu.'], `${seed}-m-fb`);
+  return pickVariant(['Son gözlem hazır.', 'Yeni bir desen oluştu.'], `${seed}-m-fb`);
 }
 
-function signalLevelLabel(userCat: UserObservationCategoryId, todayCount: number): string {
-  if (todayCount < 2) return 'Ön gözlem';
+function signalLevelLabel(userCat: UserObservationCategoryId, count: number): string {
+  if (count < 2) return 'Ön gözlem';
   if (userCat === 'quiet' || userCat === 'balanced') return 'Sakin';
   if (userCat === 'sensitive_signals' || userCat === 'safe_balance') return 'Orta';
   return 'Orta';
@@ -407,115 +442,88 @@ function confidenceLabelFromSamples(sampleCount: number, confidencePct: number |
   return 'Güven: Ön gözlem';
 }
 
-function groupEntriesByDay(
-  entries: SavedBehavioralEntry[]
-): Map<string, SavedBehavioralEntry[]> {
-  const map = new Map<string, SavedBehavioralEntry[]>();
-  for (const e of entries) {
-    const key = dayKey(e.savedAt);
-    if (!key) continue;
-    const list = map.get(key) ?? [];
-    list.push(e);
-    map.set(key, list);
-  }
-  return map;
-}
-
-function last7CalendarDays(): { key: string; weekdayLabel: string; isToday: boolean }[] {
-  const out: { key: string; weekdayLabel: string; isToday: boolean }[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = dayKey(today.toISOString());
-
-  for (let offset = 6; offset >= 0; offset -= 1) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - offset);
-    const key = dayKey(d.toISOString());
-    out.push({
-      key,
-      weekdayLabel: TR_WEEKDAYS[d.getDay()]!,
-      isToday: key === todayKey,
-    });
-  }
-  return out;
-}
-
-function interactionDayLabel(entries: SavedBehavioralEntry[]): string {
-  const userCat = classifyDayFromEntries(entries);
+function categoryLabelForEntry(entry: SavedBehavioralEntry): string {
+  const userCat = classifyDayFromEntries([entry]);
   if (userCat === 'safe_balance') return USER_CATEGORY_LABEL.safe_balance;
   return USER_CATEGORY_LABEL[userCat];
 }
 
-function buildFridaySummary(
-  pattern: WeekPatternDay[],
-  entries: SavedBehavioralEntry[]
-): string | null {
-  const now = new Date();
-  if (now.getDay() !== 5) return null;
+function buildInteractionPatternDots(entries: SavedBehavioralEntry[]): InteractionPatternDot[] {
+  const recent = sortNewestFirst(entries).slice(0, PATTERN_DOT_COUNT);
+  const chronological = [...recent].reverse();
+  const latestId = recent[0]?.interaction_id;
+
+  return chronological.map((entry) => {
+    const userCat = classifyDayFromEntries([entry]);
+    const label = categoryLabelForEntry(entry);
+    const rel = relativeTimeLabel(entry.savedAt);
+    return {
+      relativeLabel: rel,
+      emoji: OBSERVATION_CATEGORY_EMOJI[userCat],
+      categoryLabel: label,
+      hasData: true,
+      isLatest: entry.interaction_id === latestId,
+      hoverTitle: `${rel} · ${label}`,
+    };
+  });
+}
+
+function buildPriorSessionLine(sessions: SavedBehavioralEntry[][]): string | null {
+  if (sessions.length < 2) return null;
+  const latestCat = classifyDayFromEntries(sessions[0]!);
+  const priorCat = classifyDayFromEntries(sessions[1]!);
+  if (latestCat !== priorCat) {
+    return 'Son etkileşimden bu yana yeni bir desen oluştu.';
+  }
+  return `Önceki oturum: ${USER_CATEGORY_LABEL[priorCat]}`;
+}
+
+function buildPatternSummary(entries: SavedBehavioralEntry[]): string | null {
+  const recent = sortNewestFirst(entries).slice(0, PATTERN_DOT_COUNT);
+  if (recent.length < 4) return null;
 
   const counts = new Map<string, number>();
-  for (const day of pattern) {
-    if (!day.hasData || day.categoryLabel === USER_CATEGORY_LABEL.quiet) continue;
-    counts.set(day.categoryLabel, (counts.get(day.categoryLabel) ?? 0) + 1);
+  for (const entry of recent) {
+    const label = categoryLabelForEntry(entry);
+    if (label === USER_CATEGORY_LABEL.quiet) continue;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
   }
 
-  const ranked = Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2);
+  const ranked = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  if (!ranked.length) return null;
 
-  const parts: string[] = [];
-  if (ranked.length) {
-    parts.push(
-      `Bu hafta en sık görülen: ${ranked.map(([label, n]) => `${label} — ${n} gün`).join(' · ')}`
-    );
+  const [topLabel, topCount] = ranked[0]!;
+  if (ranked.length === 1) {
+    return `Son etkileşimlerde en sık görülen: ${topLabel}`;
   }
-
-  const weekEntries = entries.filter((e) => {
-    const t = new Date(e.savedAt).getTime();
-    return t >= Date.now() - 7 * 24 * 60 * 60 * 1000;
-  });
-  if (weekEntries.length >= 3) {
-    const aiCats = weekEntries.reduce((acc, e) => {
-      const dayKeyForE = dayKey(e.savedAt);
-      if (!acc.has(dayKeyForE)) {
-        const dayE = weekEntries.filter((x) => dayKey(x.savedAt) === dayKeyForE);
-        acc.set(dayKeyForE, classifyAiFromEntries(dayE));
-      }
-      return acc;
-    }, new Map<string, AiBehaviorCategoryId>());
-
-    const safeAiDays = Array.from(aiCats.values()).filter(
-      (c) =>
-        c === 'safe_boundary' ||
-        c === 'sensitive_balance' ||
-        c === 'balanced_refusal' ||
-        c === 'neutral_tone'
-    ).length;
-    if (safeAiDays >= 3) {
-      parts.push('AI yanıtları hafta boyunca dengeli çizgide kaldı.');
-    }
+  const second = ranked[1];
+  if (second && second[1] === topCount) {
+    return `Son etkileşimlerde: ${topLabel} ve ${second[0]} birlikte öne çıktı.`;
   }
-
-  return parts.length ? parts.join(' ') : null;
+  return `Son etkileşimlerde en sık görülen: ${topLabel} — ${topCount} etkileşim`;
 }
 
 function buildMirrorObservation(
-  todayEntries: SavedBehavioralEntry[],
+  sessionEntries: SavedBehavioralEntry[],
   seed: string,
   sampleCountTotal: number,
   confidencePct: number | null
-): Omit<DailyObservationView, 'show' | 'yesterdayLine' | 'weekPattern' | 'showWeekPattern' | 'fridaySummary'> {
-  const m = metricsFromEntries(todayEntries);
-  const userCat = classifyDayFromEntries(todayEntries);
-  const aiCat = classifyAiFromEntries(todayEntries);
-  const daySeed = `${seed}-${dayKey(new Date().toISOString())}`;
+): Omit<
+  DailyObservationView,
+  'show' | 'yesterdayLine' | 'weekPattern' | 'showWeekPattern' | 'fridaySummary'
+> {
+  const m = metricsFromEntries(sessionEntries);
+  const userCat = classifyDayFromEntries(sessionEntries);
+  const aiCat = classifyAiFromEntries(sessionEntries);
+  const sessionSeed = `${seed}-${sessionEntries[0]?.interaction_id ?? 'empty'}`;
 
   return {
-    manset: mansetForObservation(userCat, aiCat, m, daySeed),
-    userLine: userLineForCategory(userCat, m, daySeed),
-    aiLine: aiLineForCategory(aiCat, m, daySeed),
-    balanceLine: balanceLineForPair(userCat, aiCat, m, daySeed),
-    supportLine: 'Bu gözlem bugünkü soru yapısı, AI yanıt tonu ve etkileşim dengesine dayanır.',
+    manset: mansetForObservation(userCat, aiCat, m, sessionSeed),
+    userLine: userLineForCategory(userCat, m, sessionSeed),
+    aiLine: aiLineForCategory(aiCat, m, sessionSeed),
+    balanceLine: balanceLineForPair(userCat, aiCat, m, sessionSeed),
+    supportLine:
+      'Bu gözlem son etkileşim oturumundaki soru yapısı, AI yanıt tonu ve dengeye dayanır.',
     signalLevel: `Sinyal seviyesi: ${signalLevelLabel(userCat, m.sampleCount)}`,
     confidenceLabel: confidenceLabelFromSamples(sampleCountTotal, confidencePct),
     headline: undefined,
@@ -528,56 +536,34 @@ export function buildDailyObservationFromEntries(
   options?: { confidencePct?: number | null; seed?: string }
 ): DailyObservationView {
   const seed = options?.seed ?? 'standalone-daily';
-  const byDay = groupEntriesByDay(entries);
-  const todayKey = dayKey(new Date().toISOString());
-  const todayEntries = byDay.get(todayKey) ?? [];
-
-  const yesterdayDate = new Date();
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayKey = dayKey(yesterdayDate.toISOString());
-  const yesterdayEntries = byDay.get(yesterdayKey) ?? [];
-
   if (entries.length === 0) return { ...EMPTY_VIEW };
 
-  const calendar = last7CalendarDays();
-  const weekPattern: WeekPatternDay[] = calendar.map((day) => {
-    const dayEntries = byDay.get(day.key) ?? [];
-    const label =
-      dayEntries.length > 0 ? interactionDayLabel(dayEntries) : 'Veri yok';
-    const userCat =
-      dayEntries.length > 0 ? classifyDayFromEntries(dayEntries) : ('quiet' as UserObservationCategoryId);
-    return {
-      weekdayLabel: day.weekdayLabel,
-      emoji: dayEntries.length > 0 ? OBSERVATION_CATEGORY_EMOJI[userCat] : '·',
-      categoryLabel: label,
-      isToday: day.isToday,
-      hasData: dayEntries.length > 0,
-    };
-  });
-
-  const yesterdayCategory =
-    yesterdayEntries.length > 0 ? classifyDayFromEntries(yesterdayEntries) : null;
+  const sessions = splitInteractionSessions(entries);
+  const latestSession = sessions[0] ?? [];
+  const weekPattern = buildInteractionPatternDots(entries);
 
   const mirror =
-    todayEntries.length > 0
-      ? buildMirrorObservation(todayEntries, seed, entries.length, options?.confidencePct ?? null)
+    latestSession.length > 0
+      ? buildMirrorObservation(
+          latestSession,
+          seed,
+          entries.length,
+          options?.confidencePct ?? null
+        )
       : {
           ...buildMirrorObservation([], seed, entries.length, options?.confidencePct ?? null),
-          manset: 'Bugün henüz kayıtlı etkileşim yok.',
-          userLine: 'Bugünkü etkileşimlerde belirgin bir kullanıcı sinyali gözlemlenmedi.',
-          supportLine: 'Yeni konuşmalar başladığında bugünkü gözlem burada güncellenir.',
+          manset: 'Henüz kayıtlı etkileşim yok.',
+          userLine: 'Son etkileşimlerde belirgin bir kullanıcı sinyali gözlemlenmedi.',
+          supportLine: 'Yeni konuşmalar başladığında son gözlem burada güncellenir.',
         };
 
   return {
     show: true,
     ...mirror,
-    yesterdayLine:
-      yesterdayCategory !== null
-        ? `Dün: ${USER_CATEGORY_LABEL[yesterdayCategory]}`
-        : null,
+    yesterdayLine: buildPriorSessionLine(sessions),
     weekPattern,
     showWeekPattern: entries.length >= 3,
-    fridaySummary: buildFridaySummary(weekPattern, entries),
+    fridaySummary: buildPatternSummary(entries),
   };
 }
 
@@ -599,6 +585,7 @@ export function buildDailyObservationFromAggregates(input: {
             savedAt: new Date().toISOString(),
             schema_version: 1,
             interaction_id: 'gov-synth',
+            mode: 'governance',
             vector: {
               input_risk: input.avgInputRisk,
               output_risk: input.avgOutputRisk ?? 0.2,
@@ -611,6 +598,11 @@ export function buildDailyObservationFromAggregates(input: {
               redirect: false,
               redirect_reason: null,
               policy_violation_count: 0,
+            },
+            asymmetry: {
+              health_gap: 0,
+              risk_delta_output_minus_input: 0,
+              index: 0,
             },
           } as SavedBehavioralEntry,
         ]
@@ -626,7 +618,7 @@ export function buildDailyObservationFromAggregates(input: {
   const fallbackUser =
     input.trendInsight && input.trendInsight.length < 100 && !input.trendInsight.includes('%')
       ? input.trendInsight
-      : 'Bugünkü etkileşimler sakin bir çizgide seyretti.';
+      : 'Son etkileşimler sakin bir çizgide seyretti.';
 
   return {
     show: true,

@@ -415,7 +415,7 @@ function buildFeaturedInteractionForDay(
     aiBehavior,
     balance,
     footnote:
-      'Bu gözlem bugünkü etkileşimlere dayanır; gün içinde en az birinde düşük sinyal gözlemlendi.',
+      'Bu gözlem son etkileşim oturumuna dayanır; oturumda en az bir düşük sinyal gözlemlendi.',
   };
 }
 

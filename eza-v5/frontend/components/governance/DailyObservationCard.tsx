@@ -27,11 +27,11 @@ export default function DailyObservationCard({
   return (
     <section
       className={cn(reportSkin.dailyCard, className)}
-      aria-label="EZA'nın bugünkü gözlemi"
+      aria-label="EZA'nın son gözlemi"
     >
-      <p className={reportSkin.dailyEyebrow}>EZA&apos;nın bugünkü gözlemi</p>
+      <p className={reportSkin.dailyEyebrow}>EZA&apos;nın son gözlemi</p>
       <p className={reportSkin.dailySub}>
-        Bugünkü konuşmalarından çıkan kısa bir etkileşim notu.
+        Son etkileşim oturumundan çıkan kısa bir gözlem notu.
       </p>
 
       {observation.manset ? (
@@ -56,27 +56,29 @@ export default function DailyObservationCard({
       ) : null}
 
       {observation.showWeekPattern && observation.weekPattern.length > 0 ? (
-        <div className={reportSkin.dailyWeekRow} role="list" aria-label="Son 7 gün">
-          {observation.weekPattern.map((day) => (
-            <div
-              key={`${day.weekdayLabel}-${day.categoryLabel}`}
-              role="listitem"
-              className={cn(
-                reportSkin.dailyWeekCell,
-                day.isToday && reportSkin.dailyWeekCellToday
-              )}
-              title={
-                day.hasData
-                  ? `${day.weekdayLabel} · ${day.categoryLabel}`
-                  : 'Bu gün için kayıt yok'
-              }
-            >
-              <span className={reportSkin.dailyWeekLabel}>{day.weekdayLabel}</span>
-              <span className="text-sm leading-none" aria-hidden>
-                {day.emoji}
+        <div className={reportSkin.dailyPatternBlock}>
+          <p className={reportSkin.dailyPatternCaption}>Son etkileşimler</p>
+          <div
+            className={reportSkin.dailyPatternDots}
+            role="list"
+            aria-label="Son etkileşim desenleri"
+          >
+            {observation.weekPattern.map((dot, index) => (
+              <span
+                key={`${dot.hoverTitle}-${index}`}
+                role="listitem"
+                className={cn(
+                  reportSkin.dailyPatternDot,
+                  dot.isLatest && reportSkin.dailyPatternDotLatest
+                )}
+                title={dot.hoverTitle}
+              >
+                <span className="text-[11px] leading-none" aria-hidden>
+                  {dot.emoji}
+                </span>
               </span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       ) : null}
 

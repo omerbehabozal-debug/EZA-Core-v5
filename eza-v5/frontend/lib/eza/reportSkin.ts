@@ -83,7 +83,7 @@ export const reportSkin = {
 
   disclaimer: 'pb-10 text-center text-xs leading-relaxed text-stone-500',
 
-  /** Günlük gözlem kartı — retention, dashboard değil */
+  /** Son gözlem kartı — etkileşim oturumu, takvim streak değil */
   dailyCard:
     'mx-auto max-w-2xl rounded-2xl border border-stone-200/50 bg-white/75 px-6 py-8 shadow-[0_8px_32px_rgba(28,25,23,0.04)] backdrop-blur-sm sm:px-8',
 
@@ -126,6 +126,13 @@ export const reportSkin = {
   dailyWeekLabel: 'text-[9px] font-medium uppercase tracking-wide text-stone-400',
 
   dailyFriday: 'mt-5 text-xs leading-relaxed text-stone-500',
+
+  dailyPatternBlock: 'mt-6 border-t border-stone-200/40 pt-5',
+  dailyPatternCaption: 'text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-400',
+  dailyPatternDots: 'mt-3 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5',
+  dailyPatternDot:
+    'inline-flex h-7 w-7 items-center justify-center rounded-full border border-stone-200/60 bg-stone-50/90 transition-colors hover:border-stone-300/80 hover:bg-white',
+  dailyPatternDotLatest: 'ring-1 ring-stone-300/70 ring-offset-1 ring-offset-white',
 } as const;
 
 export const reportChartTheme = {
