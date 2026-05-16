@@ -13,6 +13,7 @@ import {
   EventBadge,
 } from '@/components/eza';
 import GovernanceErrorState from '@/components/governance/GovernanceErrorState';
+import AdminEventFeedbackBar from '@/components/governance/AdminEventFeedbackBar';
 import SafeJsonBlock, { sanitizeEngineVotes } from '@/components/governance/SafeJsonBlock';
 import { sanitizeRecord } from '@/lib/governance/display';
 import { formatDate } from '@/lib/utils';
@@ -26,7 +27,7 @@ export default function GovernanceEventDetailPage() {
   const { currentOrganization } = useOrganization();
   const orgId = currentOrganization?.id ?? null;
 
-  const { data, error, isLoading } = useAdminEventDetail(orgId, eventId);
+  const { data, error, isLoading, mutate } = useAdminEventDetail(orgId, eventId);
 
   if (!orgId) {
     return (
@@ -107,6 +108,14 @@ export default function GovernanceEventDetailPage() {
                       (data.decision_trace as Record<string, unknown>) ?? {}
                     )
               }
+            />
+          </GovernancePanel>
+
+          <GovernancePanel title="Kalibrasyon geri bildirimi">
+            <AdminEventFeedbackBar
+              eventId={data.id}
+              metricName="admin_event_review"
+              onSubmitted={() => mutate()}
             />
           </GovernancePanel>
 

@@ -20,7 +20,8 @@ from backend.core.engines.model_router import LLM_API_KEY, LLM_MODEL, OPENAI_BAS
 
 async def stream_standalone_response(
     query: str,
-    safe_only: bool = False
+    safe_only: bool = False,
+    db_session: Any = None,
 ) -> AsyncGenerator[str, None]:
     """
     Stream standalone response with token-by-token output
@@ -129,6 +130,23 @@ async def stream_standalone_response(
             }
             if behavioral:
                 completion_data["behavioral"] = behavioral
+            if db_session is not None:
+                try:
+                    from backend.core.events.event_pipeline_hook import (
+                        maybe_log_standalone_stream_event,
+                        build_governance_meta,
+                    )
+
+                    completion_data["governance"] = await maybe_log_standalone_stream_event(
+                        db_session,
+                        completion_data=completion_data,
+                        input_analysis=input_analysis,
+                        safe_only=True,
+                    )
+                except Exception:
+                    from backend.core.events.event_pipeline_hook import build_governance_meta
+
+                    completion_data["governance"] = build_governance_meta(None)
             yield f'data: {json.dumps(completion_data)}\n\n'
         else:
             # Score mode: Stream raw LLM tokens directly and accumulate for scoring
@@ -191,7 +209,25 @@ async def stream_standalone_response(
                     )
                 except Exception:
                     pass
-            
+
+            if db_session is not None:
+                try:
+                    from backend.core.events.event_pipeline_hook import (
+                        maybe_log_standalone_stream_event,
+                        build_governance_meta,
+                    )
+
+                    completion_data["governance"] = await maybe_log_standalone_stream_event(
+                        db_session,
+                        completion_data=completion_data,
+                        input_analysis=input_analysis,
+                        safe_only=False,
+                    )
+                except Exception:
+                    from backend.core.events.event_pipeline_hook import build_governance_meta
+
+                    completion_data["governance"] = build_governance_meta(None)
+
             # Send completion with scores
             yield f'data: {json.dumps(completion_data)}\n\n'
     

@@ -404,6 +404,7 @@ async def standalone_endpoint(
 )
 async def standalone_stream_endpoint(
     request: StandaloneRequest,
+    db=Depends(get_db),
     _: None = Depends(rate_limit_standalone)  # Rate limiting (no auth required)
 ):
     """
@@ -420,7 +421,8 @@ async def standalone_stream_endpoint(
     return StreamingResponse(
         stream_standalone_response(
             query=request.query_value,
-            safe_only=request.safe_only or False
+            safe_only=request.safe_only or False,
+            db_session=db,
         ),
         media_type="text/event-stream",
         headers={

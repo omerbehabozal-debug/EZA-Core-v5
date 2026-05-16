@@ -16,6 +16,7 @@ export interface TimelineItemProps {
   riskScore?: number | null;
   confidenceScore?: number | null;
   reliabilityScore?: number | null;
+  canInterpret?: boolean | null;
   selected?: boolean;
   onClick?: () => void;
   className?: string;
@@ -31,6 +32,7 @@ export default function TimelineItem({
   riskScore,
   confidenceScore,
   reliabilityScore,
+  canInterpret,
   selected,
   onClick,
   className,
@@ -74,8 +76,20 @@ export default function TimelineItem({
         ) : null}
         <ReliabilityPill score={reliabilityScore ?? undefined} />
         {riskScore != null ? (
-          <span className="text-[10px] sm:text-xs text-eza-text-muted tabular-nums ml-auto">
+          <span className="text-[10px] sm:text-xs text-eza-text-muted tabular-nums">
             Risk {Math.round(riskScore)}
+          </span>
+        ) : null}
+        {canInterpret != null ? (
+          <span
+            className={cn(
+              'text-[10px] rounded-full px-1.5 py-0.5 ml-auto',
+              canInterpret
+                ? 'bg-emerald-50 text-emerald-800'
+                : 'bg-slate-100 text-slate-500'
+            )}
+          >
+            {canInterpret ? 'Yorumlanabilir' : 'Ön gözlem'}
           </span>
         ) : null}
       </div>

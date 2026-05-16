@@ -116,6 +116,7 @@ export default function GovernanceEventsPage() {
                     riskScore={ev.risk_score}
                     confidenceScore={ev.confidence_score}
                     reliabilityScore={ev.reliability_score}
+                    canInterpret={ev.can_interpret}
                     onClick={() => router.push(`/admin/governance/events/${ev.id}`)}
                   />
                 </li>

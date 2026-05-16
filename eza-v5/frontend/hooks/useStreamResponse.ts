@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { getApiUrl } from '@/lib/apiUrl';
-import type { BehavioralSnapshot } from '@/lib/types';
+import type { BehavioralSnapshot, PipelineGovernance } from '@/lib/types';
 
 interface StreamResponse {
   text: string;
@@ -14,6 +14,7 @@ interface StreamResponse {
   userScore?: number;
   /** Present when backend includes the behavioral layer on the pipeline response. */
   behavioral?: BehavioralSnapshot | null;
+  governance?: PipelineGovernance | null;
   error?: string;
 }
 
@@ -101,6 +102,7 @@ export function useStreamResponse(): UseStreamResponseReturn {
           assistantScore: data.data?.assistant_score,
           userScore: data.data?.user_score,
           behavioral: data.behavioral ?? null,
+          governance: data.governance ?? null,
         };
       }
 
@@ -212,6 +214,7 @@ export function useStreamResponse(): UseStreamResponseReturn {
         assistantScore: finalData?.assistant_score ?? finalData?.data?.assistant_score,
         userScore: finalData?.user_score ?? finalData?.data?.user_score,
         behavioral: behavioral ?? null,
+        governance: finalData?.governance ?? null,
       };
 
       options?.onDone?.(result);

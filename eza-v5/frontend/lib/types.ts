@@ -82,6 +82,18 @@ export interface BehavioralSnapshot {
   asymmetry: BehavioralAsymmetry;
 }
 
+/** Universal event logging visibility from pipeline/stream responses. */
+export interface PipelineGovernance {
+  event_id?: string | null;
+  event_logging_enabled?: boolean;
+}
+
+export interface StandaloneFeedbackContext {
+  eventId?: string | null;
+  originalLabel?: string;
+  originalScore?: number;
+}
+
 export interface CorporateAudit {
   id: string;
   ai_agent: string;

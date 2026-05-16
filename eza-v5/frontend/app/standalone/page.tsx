@@ -19,8 +19,9 @@ import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import SettingsModal from '@/components/standalone/SettingsModal';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
-import type { BehavioralSnapshot } from '@/lib/types';
+import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
+import { feedbackContextFromGovernance, parseGovernance } from '@/lib/standaloneFeedback';
 
 interface Message {
   id: string;
@@ -32,6 +33,7 @@ interface Message {
   safeOnlyMode?: boolean;
   timestamp: Date;
   behavioral?: BehavioralSnapshot | null;
+  feedback?: StandaloneFeedbackContext | null;
 }
 
 // Daily limit constants
@@ -197,6 +199,13 @@ export default function StandalonePage() {
               setIsTyping(false);
               setIsLoading(false);
 
+              const governance = parseGovernance(data.governance);
+              const feedbackCtx = feedbackContextFromGovernance(governance, {
+                safety: data.safety,
+                assistantScore: data.assistantScore,
+                ezaScore: data.assistantScore,
+              });
+
               if (data.behavioral) {
                 appendBehavioralSnapshot(data.behavioral as BehavioralSnapshot);
                 setMessages((prev) =>
@@ -225,13 +234,26 @@ export default function StandalonePage() {
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === assistantMessageId
-                        ? { ...msg, assistantScore: data.assistantScore, behavioral: (data.behavioral as BehavioralSnapshot | undefined) ?? msg.behavioral }
+                        ? {
+                            ...msg,
+                            assistantScore: data.assistantScore,
+                            behavioral: (data.behavioral as BehavioralSnapshot | undefined) ?? msg.behavioral,
+                            feedback: feedbackCtx ?? msg.feedback,
+                          }
                         : msg
                     )
                   );
                 }, 400); // 0.4 seconds delay
+              } else if (feedbackCtx) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, feedback: feedbackCtx }
+                      : msg
+                  )
+                );
               }
-              
+
               // Update assistant message with safety badge (for safe-only mode)
               // Always update safety if in safe-only mode, even if backend doesn't send it (default to Safe)
               if (safeOnlyMode) {
@@ -239,12 +261,16 @@ export default function StandalonePage() {
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMessageId
-                      ? { ...msg, safety: safety as 'Safe' | 'Warning' | 'Blocked' }
+                      ? {
+                          ...msg,
+                          safety: safety as 'Safe' | 'Warning' | 'Blocked',
+                          feedback: feedbackCtx ?? msg.feedback,
+                        }
                       : msg
                   )
                 );
               }
-              
+
               // Increment daily count
               incrementDailyCount();
             }
@@ -307,6 +333,15 @@ export default function StandalonePage() {
 
         const behavioralFallback =
           (response as { behavioral?: BehavioralSnapshot | null }).behavioral ?? null;
+        const governanceFallback = parseGovernance(
+          (response as { governance?: unknown }).governance
+        );
+        const feedbackFallback = feedbackContextFromGovernance(governanceFallback, {
+          safety: (data as { safety?: string }).safety,
+          assistantScore: (data as { assistant_score?: number }).assistant_score,
+          ezaScore: (response as { eza_score?: number }).eza_score ?? (data as { assistant_score?: number }).assistant_score,
+          riskLevel: (response as { risk_level?: string }).risk_level,
+        });
         if (behavioralFallback) {
           appendBehavioralSnapshot(behavioralFallback);
         }
@@ -326,6 +361,7 @@ export default function StandalonePage() {
             safeOnlyMode: true,
             timestamp: new Date(),
             behavioral: behavioralFallback ?? undefined,
+            feedback: feedbackFallback ?? undefined,
           };
           setMessages((prev) => [...prev, ezaMessage]);
         } else {
@@ -337,6 +373,7 @@ export default function StandalonePage() {
             safeOnlyMode: false,
             timestamp: new Date(),
             behavioral: behavioralFallback ?? undefined,
+            feedback: feedbackFallback ?? undefined,
           };
           
           // Update user message with score
@@ -358,13 +395,14 @@ export default function StandalonePage() {
                         ...msg,
                         assistantScore: (data as any).assistant_score,
                         behavioral: msg.behavioral ?? behavioralFallback ?? undefined,
+                        feedback: msg.feedback ?? feedbackFallback ?? undefined,
                       }
                     : msg
                 )
               );
             }, 400);
           }
-          
+
           setMessages((prev) => [...prev, ezaMessage]);
         }
         

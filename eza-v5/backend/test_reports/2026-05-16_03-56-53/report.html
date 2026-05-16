@@ -127,11 +127,11 @@
         
         <div class="summary-bar">
             <div class="summary-item passed">
-                <h3>4</h3>
+                <h3>9</h3>
                 <p>Passed</p>
             </div>
             <div class="summary-item failed">
-                <h3>0</h3>
+                <h3>1</h3>
                 <p>Failed</p>
             </div>
             <div class="summary-item skipped">
@@ -161,13 +161,73 @@
                 <tbody>
                     
                     <tr>
+                        <td>tests_core/test_event_pipeline_hook_stage3.py::test_event_logging_disabled_does_not_call_log</td>
+                        <td>
+                            <span class="status-badge status-passed">
+                                PASSED
+                            </span>
+                        </td>
+                        <td>0.093</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_core/test_event_pipeline_hook_stage3.py::test_event_logging_enabled_writes_standalone_event</td>
+                        <td>
+                            <span class="status-badge status-passed">
+                                PASSED
+                            </span>
+                        </td>
+                        <td>0.052</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_core/test_event_pipeline_hook_stage3.py::test_logger_failure_pipeline_still_returns</td>
+                        <td>
+                            <span class="status-badge status-passed">
+                                PASSED
+                            </span>
+                        </td>
+                        <td>0.046</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_core/test_event_pipeline_hook_stage3.py::test_production_snapshot_null_in_hook_normalizer</td>
+                        <td>
+                            <span class="status-badge status-passed">
+                                PASSED
+                            </span>
+                        </td>
+                        <td>0.003</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_core/test_event_pipeline_hook_stage3.py::test_maybe_log_proxy_mode_calls_normalize</td>
+                        <td>
+                            <span class="status-badge status-passed">
+                                PASSED
+                            </span>
+                        </td>
+                        <td>0.002</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>tests_core/test_event_pipeline_hook_stage3.py::test_pipeline_response_unchanged_by_hook_flag_off</td>
+                        <td>
+                            <span class="status-badge status-passed">
+                                PASSED
+                            </span>
+                        </td>
+                        <td>0.044</td>
+                    </tr>
+                    
+                    <tr>
                         <td>tests_core/test_event_governance_response_stage4.py::test_governance_meta_when_logging_disabled</td>
                         <td>
                             <span class="status-badge status-passed">
                                 PASSED
                             </span>
                         </td>
-                        <td>0.075</td>
+                        <td>0.044</td>
                     </tr>
                     
                     <tr>
@@ -177,14 +237,14 @@
                                 PASSED
                             </span>
                         </td>
-                        <td>0.051</td>
+                        <td>0.043</td>
                     </tr>
                     
                     <tr>
                         <td>tests_core/test_event_governance_response_stage4.py::test_maybe_log_returns_meta_on_failure</td>
                         <td>
-                            <span class="status-badge status-passed">
-                                PASSED
+                            <span class="status-badge status-failed">
+                                FAILED
                             </span>
                         </td>
                         <td>0.002</td>
@@ -206,10 +266,10 @@
         
         <div class="metadata">
             <div class="metadata-item"><strong>Suite:</strong> core</div>
-            <div class="metadata-item"><strong>Total Tests:</strong> 4</div>
-            <div class="metadata-item"><strong>Pass Rate:</strong> 100.0%</div>
-            <div class="metadata-item"><strong>Duration:</strong> 0.13s</div>
-            <div class="metadata-item"><strong>Timestamp:</strong> 2026-05-16T03:57:45.587000</div>
+            <div class="metadata-item"><strong>Total Tests:</strong> 10</div>
+            <div class="metadata-item"><strong>Pass Rate:</strong> 90.0%</div>
+            <div class="metadata-item"><strong>Duration:</strong> 0.33s</div>
+            <div class="metadata-item"><strong>Timestamp:</strong> 2026-05-16T03:56:53.036171</div>
         </div>
         
         <div class="footer">
@@ -224,7 +284,7 @@
             data: {
                 labels: ['Passed', 'Failed', 'Skipped', 'Errors'],
                 datasets: [{
-                    data: [4, 0, 0, 0],
+                    data: [9, 1, 0, 0],
                     backgroundColor: [
                         '#28a745',
                         '#dc3545',

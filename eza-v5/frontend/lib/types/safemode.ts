@@ -102,6 +102,10 @@ export interface SafeModeFeedbackPayload {
   analysis_id?: string;
   feedback_type: string;
   metric_name?: string;
+  original_label?: string;
+  corrected_label?: string;
+  original_score?: number;
+  corrected_score?: number;
   notes?: string;
 }
 

@@ -2,6 +2,11 @@
  * Governance & Universal Events API types (admin console).
  */
 
+export interface PipelineGovernance {
+  event_id?: string | null;
+  event_logging_enabled?: boolean;
+}
+
 export interface EventCounts {
   last_24h: number;
   last_7d: number;

@@ -915,12 +915,15 @@ async def run_full_pipeline(
                 logger.exception(f"Telemetry record failed (non-blocking): {str(e)}")
                 # Don't modify response - telemetry failure should not affect pipeline
 
-        # Universal Event logging (optional, non-blocking — does not change response)
+        # Universal Event logging (optional, non-blocking — governance meta only)
         if db_session:
             try:
-                from backend.core.events.event_pipeline_hook import maybe_log_pipeline_event
+                from backend.core.events.event_pipeline_hook import (
+                    maybe_log_pipeline_event,
+                    build_governance_meta,
+                )
 
-                await maybe_log_pipeline_event(
+                response["governance"] = await maybe_log_pipeline_event(
                     db_session=db_session,
                     mode=mode,
                     pipeline_result=response,
@@ -928,7 +931,14 @@ async def run_full_pipeline(
                 )
             except Exception as e:
                 logger.warning("Universal event hook failed (non-blocking): %s", e)
-        
+                from backend.core.events.event_pipeline_hook import build_governance_meta
+
+                response["governance"] = build_governance_meta(None)
+        else:
+            from backend.core.events.event_pipeline_hook import build_governance_meta
+
+            response["governance"] = build_governance_meta(None)
+
         return response
     
     except Exception as e:

@@ -7,7 +7,7 @@ import ChatBubble from './ChatBubble';
 import LoadingDots from './LoadingDots';
 import TypingIndicator from './TypingIndicator';
 import EmptyState from './EmptyState';
-import type { BehavioralSnapshot } from '@/lib/types';
+import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 
 interface Message {
   id: string;
@@ -21,6 +21,7 @@ interface Message {
   safeOnlyMode?: boolean;
   timestamp: Date;
   behavioral?: BehavioralSnapshot | null;
+  feedback?: StandaloneFeedbackContext | null;
 }
 
 interface MessageListProps {
@@ -56,6 +57,7 @@ export default function MessageList({ messages, isLoading, isTyping = false }: M
               safeOnlyMode={message.safeOnlyMode}
               timestamp={message.timestamp}
               behavioral={message.behavioral}
+              feedback={message.feedback}
             />
           ))}
         </div>

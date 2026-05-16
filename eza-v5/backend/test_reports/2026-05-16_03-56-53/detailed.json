@@ -1,0 +1,53 @@
+[
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_event_logging_disabled_does_not_call_log",
+    "status": "passed",
+    "duration": 0.09327070000017557
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_event_logging_enabled_writes_standalone_event",
+    "status": "passed",
+    "duration": 0.0516457999992781
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_logger_failure_pipeline_still_returns",
+    "status": "passed",
+    "duration": 0.045684800000344694
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_production_snapshot_null_in_hook_normalizer",
+    "status": "passed",
+    "duration": 0.002710000000661239
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_maybe_log_proxy_mode_calls_normalize",
+    "status": "passed",
+    "duration": 0.002448900000672438
+  },
+  {
+    "name": "tests_core/test_event_pipeline_hook_stage3.py::test_pipeline_response_unchanged_by_hook_flag_off",
+    "status": "passed",
+    "duration": 0.04396509999969567
+  },
+  {
+    "name": "tests_core/test_event_governance_response_stage4.py::test_governance_meta_when_logging_disabled",
+    "status": "passed",
+    "duration": 0.044076500000301166
+  },
+  {
+    "name": "tests_core/test_event_governance_response_stage4.py::test_governance_meta_includes_event_id_when_logged",
+    "status": "passed",
+    "duration": 0.04257080000024871
+  },
+  {
+    "name": "tests_core/test_event_governance_response_stage4.py::test_maybe_log_returns_meta_on_failure",
+    "status": "failed",
+    "duration": 0.002476899999237503,
+    "message": "@pytest.mark.asyncio\n    async def test_maybe_log_returns_meta_on_failure():\n        db = AsyncMock()\n        with patch(\"backend.core.events.event_pipeline_hook.get_settings\") as mock_gs:\n            settings = MagicMock()\n            settings.EZA_EVENT_LOGGING_ENABLED = True\n            mock_gs.return_value = settings\n            with patch(\n                \"backend.core.events.event_pipeline_hook._hook_standalone\",\n                new_callable=AsyncMock,\n                side_effect=RuntimeError(\"db\"),\n            ):\n                meta = await maybe_log_pipeline_event(\n                    db,\n                    \"standalone\",\n                    {\"ok\": True, \"mode\": \"standalone\"},\n                )\n>       assert meta == build_governance_meta(None)\nE       AssertionError: assert {'event_id': ...nabled': True} == {'event_id': ...abled': False}\nE         Omitting 1 identical items, use -vv to show\nE         Differing items:\nE         {'event_logging_enabled': True} != {'event_logging_enabled': False}\nE         Use -v to get more diff\n\ntests_core\\test_event_governance_response_stage4.py:88: AssertionError"
+  },
+  {
+    "name": "tests_core/test_event_governance_response_stage4.py::test_build_governance_meta_respects_flag",
+    "status": "passed",
+    "duration": 0.0007986000000528293
+  }
+]

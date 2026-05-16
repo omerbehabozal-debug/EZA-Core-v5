@@ -26,6 +26,15 @@ def _is_event_logging_enabled() -> bool:
     return bool(get_settings().EZA_EVENT_LOGGING_ENABLED)
 
 
+def build_governance_meta(event_id: Optional[str] = None) -> Dict[str, Any]:
+    """Governance visibility block for API responses (no raw content)."""
+    enabled = _is_event_logging_enabled()
+    return {
+        "event_id": str(event_id) if (enabled and event_id) else None,
+        "event_logging_enabled": enabled,
+    }
+
+
 def _resolve_context(event_context: Optional[Dict[str, Any]], mode: str) -> Dict[str, str]:
     """Build user/session/org ids for event logging (no raw content)."""
     ctx = event_context or {}
@@ -50,7 +59,7 @@ async def _hook_standalone(
     db_session: Any,
     pipeline_result: Dict[str, Any],
     event_context: Optional[Dict[str, Any]],
-) -> None:
+) -> Optional[str]:
     ctx = _resolve_context(event_context, "standalone")
     behavioral = pipeline_result.get("behavioral")
     event = normalize_standalone_event(
@@ -61,14 +70,14 @@ async def _hook_standalone(
         behavioral_snapshot=behavioral,
         case_snapshot=behavioral,
     )
-    await log_eza_event(db_session, event)
+    return await log_eza_event(db_session, event)
 
 
 async def _hook_proxy(
     db_session: Any,
     pipeline_result: Dict[str, Any],
     event_context: Optional[Dict[str, Any]],
-) -> None:
+) -> Optional[str]:
     ctx = _resolve_context(event_context, "proxy")
     behavioral = pipeline_result.get("behavioral")
     event = normalize_proxy_event(
@@ -82,14 +91,14 @@ async def _hook_proxy(
         regulation_scope=ctx.get("regulation_scope", "none"),
         case_snapshot=behavioral,
     )
-    await log_eza_event(db_session, event)
+    return await log_eza_event(db_session, event)
 
 
 async def _hook_proxy_lite(
     db_session: Any,
     pipeline_result: Dict[str, Any],
     event_context: Optional[Dict[str, Any]],
-) -> None:
+) -> Optional[str]:
     ctx = _resolve_context(event_context, "proxy-lite")
     behavioral = pipeline_result.get("behavioral")
     event = normalize_proxy_lite_event(
@@ -102,7 +111,7 @@ async def _hook_proxy_lite(
         regulation_scope=ctx.get("regulation_scope", "none"),
         case_snapshot=behavioral,
     )
-    await log_eza_event(db_session, event)
+    return await log_eza_event(db_session, event)
 
 
 async def maybe_log_pipeline_event(
@@ -110,30 +119,83 @@ async def maybe_log_pipeline_event(
     mode: str,
     pipeline_result: Dict[str, Any],
     event_context: Optional[Dict[str, Any]] = None,
-) -> None:
+) -> Dict[str, Any]:
     """
     Optionally persist a universal event after pipeline completion.
 
-    Never raises; never mutates pipeline_result.
+    Returns governance meta (event_id, event_logging_enabled). Never raises.
     """
     if not _is_event_logging_enabled():
-        return
+        return build_governance_meta(None)
     if db_session is None:
-        return
+        return build_governance_meta(None)
     if not pipeline_result or not isinstance(pipeline_result, dict):
-        return
+        return build_governance_meta(None)
 
     try:
+        event_id: Optional[str] = None
         if mode == "standalone":
-            await _hook_standalone(db_session, pipeline_result, event_context)
+            event_id = await _hook_standalone(db_session, pipeline_result, event_context)
         elif mode == "proxy":
-            await _hook_proxy(db_session, pipeline_result, event_context)
+            event_id = await _hook_proxy(db_session, pipeline_result, event_context)
         elif mode == "proxy-lite":
-            await _hook_proxy_lite(db_session, pipeline_result, event_context)
+            event_id = await _hook_proxy_lite(db_session, pipeline_result, event_context)
         else:
             logger.debug("maybe_log_pipeline_event: unsupported mode %s", mode)
+        return build_governance_meta(event_id)
     except Exception as exc:
         logger.warning("Universal event pipeline hook failed (non-blocking): %s", exc)
+        return build_governance_meta(None)
+
+
+def _risk_level_from_input_analysis(input_analysis: Optional[Dict[str, Any]]) -> str:
+    if not input_analysis:
+        return "low"
+    level = str(input_analysis.get("risk_level") or "low").lower()
+    if level in ("low", "medium", "high", "critical"):
+        return level
+    risk = float(input_analysis.get("risk_score") or 0.0)
+    if risk >= 0.7:
+        return "high"
+    if risk >= 0.3:
+        return "medium"
+    return "low"
+
+
+async def maybe_log_standalone_stream_event(
+    db_session: Any,
+    *,
+    completion_data: Dict[str, Any],
+    input_analysis: Dict[str, Any],
+    safe_only: bool,
+    event_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Log universal event for standalone streaming completion (non-blocking).
+
+    Builds a minimal pipeline_result dict; does not change scores or safety.
+    """
+    pipeline_result: Dict[str, Any] = {
+        "ok": True,
+        "mode": "standalone",
+        "risk_level": _risk_level_from_input_analysis(input_analysis),
+        "behavioral": completion_data.get("behavioral"),
+        "data": {
+            "user_score": completion_data.get("user_score"),
+            "assistant_score": completion_data.get("assistant_score"),
+        },
+    }
+    if completion_data.get("assistant_score") is not None:
+        pipeline_result["eza_score"] = completion_data.get("assistant_score")
+    if safe_only:
+        pipeline_result["data"]["mode"] = "safe-only"
+        pipeline_result["data"]["safety"] = completion_data.get("safety")
+    return await maybe_log_pipeline_event(
+        db_session,
+        "standalone",
+        pipeline_result,
+        event_context,
+    )
 
 
 # ---------------------------------------------------------------------------

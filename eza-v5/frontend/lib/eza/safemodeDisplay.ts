@@ -48,10 +48,20 @@ export function insightBody(insight?: SafeModeInsight | null): string {
 }
 
 export function pickFeedbackRefs(
-  ...sources: Array<{ event_id?: string | null; analysis_id?: string | null } | null | undefined>
+  ...sources: Array<
+    | {
+        event_id?: string | null;
+        analysis_id?: string | null;
+        governance?: { event_id?: string | null } | null;
+      }
+    | null
+    | undefined
+  >
 ): { eventId?: string; analysisId?: string } {
   for (const s of sources) {
     if (!s) continue;
+    const govEvent = s.governance?.event_id;
+    if (govEvent) return { eventId: govEvent, analysisId: s.analysis_id ?? undefined };
     if (s.event_id) return { eventId: s.event_id, analysisId: s.analysis_id ?? undefined };
     if (s.analysis_id) return { analysisId: s.analysis_id };
   }

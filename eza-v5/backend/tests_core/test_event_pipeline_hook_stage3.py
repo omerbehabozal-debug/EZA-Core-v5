@@ -46,6 +46,8 @@ async def test_event_logging_disabled_does_not_call_log(fake_llm, sample_text):
             )
     assert result["ok"] is True
     mock_log.assert_not_called()
+    assert result.get("governance", {}).get("event_logging_enabled") is False
+    assert result.get("governance", {}).get("event_id") is None
 
 
 @pytest.mark.asyncio
@@ -80,6 +82,8 @@ async def test_event_logging_enabled_writes_standalone_event(fake_llm, sample_te
     assert result["ok"] is True
     mock_norm.assert_called_once()
     mock_log.assert_called_once()
+    assert result.get("governance", {}).get("event_logging_enabled") is True
+    assert result.get("governance", {}).get("event_id") == "evt-123"
 
 
 @pytest.mark.asyncio

@@ -30,6 +30,10 @@ class PipelineResponse(BaseModel):
         None,
         description="Optional per-turn behavioral snapshot (numeric vectors; no raw user content)",
     )
+    governance: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Event logging visibility: event_id, event_logging_enabled (no raw content)",
+    )
 
 
 class StandaloneRequest(BaseModel):
