@@ -24,17 +24,19 @@ export const standaloneSkin = {
   sidebarBrandBlock: 'border-b border-standalone-border/40 px-1 pb-3 pt-0.5',
   sidebarLogo: 'text-lg font-bold tracking-[-0.03em] text-standalone-text',
   sidebarProduct: 'mt-0.5 text-xs font-medium leading-snug text-standalone-text-muted',
-  sidebarNav: 'flex min-h-0 flex-1 flex-col gap-2 overflow-hidden pt-1',
+  sidebarNav: 'flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden pt-1',
   sidebarNavItem:
     'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-standalone-text-secondary transition-colors hover:bg-white/70 hover:text-standalone-text touch-manipulation',
   sidebarSectionLabel:
     'px-2.5 pt-1 text-xs font-semibold uppercase tracking-[0.05em] text-standalone-text-muted/90',
   sidebarArchiveList:
-    'flex max-h-[min(12rem,28vh)] flex-col gap-0.5 overflow-y-auto overscroll-contain',
+    'flex max-h-[min(12rem,28vh)] min-w-0 flex-col gap-0.5 overflow-x-hidden overflow-y-auto overscroll-contain',
   sidebarArchiveItem:
-    'block rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-white/70 touch-manipulation',
-  sidebarArchiveTitle: 'truncate text-sm font-medium text-standalone-text',
-  sidebarArchiveMeta: 'mt-0.5 truncate text-xs text-standalone-text-muted',
+    'block min-w-0 max-w-full overflow-hidden rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-white/70 touch-manipulation',
+  sidebarArchiveTitle:
+    'block min-w-0 max-w-full truncate text-sm font-medium text-standalone-text',
+  sidebarArchiveMeta:
+    'mt-0.5 block min-w-0 max-w-full truncate text-xs text-standalone-text-muted',
   sidebarArchiveEmpty: 'px-2.5 py-1 text-sm leading-snug text-standalone-text-muted/80',
   sidebarSaveBtn:
     'flex w-full items-center justify-center gap-1.5 rounded-md border border-standalone-border/60 bg-white/60 px-2 py-1.5 text-[12px] font-medium text-standalone-text-secondary transition-colors hover:border-standalone-primary/30 hover:bg-white hover:text-standalone-text disabled:pointer-events-none disabled:opacity-40 touch-manipulation',

@@ -60,11 +60,23 @@ function writeAll(list: ArchivedChat[]): void {
   }
 }
 
+/** Sidebar satırına sığan kısa başlık (yatay kaydırma yok) */
+export const ARCHIVE_TITLE_MAX_LEN = 32;
+
+export function summarizeArchiveTitle(text: string, maxLen = ARCHIVE_TITLE_MAX_LEN): string {
+  const t = text.trim().replace(/\s+/g, ' ');
+  if (!t) return '';
+  if (t.length <= maxLen) return t;
+  const slice = t.slice(0, maxLen);
+  const lastSpace = slice.lastIndexOf(' ');
+  const cut = lastSpace > 12 ? slice.slice(0, lastSpace) : slice;
+  return `${cut.trim()}…`;
+}
+
 function buildTitle(messages: ArchivedChatMessage[]): string {
   const firstUser = messages.find((m) => m.isUser && m.text.trim());
   if (!firstUser) return `Sohbet · ${new Date().toLocaleDateString('tr-TR')}`;
-  const t = firstUser.text.trim().replace(/\s+/g, ' ');
-  return t.length > 42 ? `${t.slice(0, 42)}…` : t;
+  return summarizeArchiveTitle(firstUser.text);
 }
 
 export function listChatArchives(): ArchivedChatSummary[] {

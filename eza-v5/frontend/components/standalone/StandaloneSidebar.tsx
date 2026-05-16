@@ -10,6 +10,7 @@ import {
   ACTIVE_SESSION_ARCHIVE_ID,
   ARCHIVE_UPDATED_EVENT,
   listChatArchives,
+  summarizeArchiveTitle,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 
@@ -126,16 +127,19 @@ export default function StandaloneSidebar({
                     ? pathname === '/standalone'
                     : pathname === href;
                   return (
-                    <li key={item.id}>
+                    <li key={item.id} className="min-w-0">
                       <Link
                         href={href}
                         onClick={onMobileClose}
+                        title={item.title}
                         className={cn(
                           standaloneSkin.sidebarArchiveItem,
                           active ? 'bg-white/80' : ''
                         )}
                       >
-                        <span className={standaloneSkin.sidebarArchiveTitle}>{item.title}</span>
+                        <span className={standaloneSkin.sidebarArchiveTitle}>
+                          {summarizeArchiveTitle(item.title)}
+                        </span>
                         <span className={standaloneSkin.sidebarArchiveMeta}>
                           {isActiveSession ? 'Güncel · ' : ''}
                           {new Date(item.savedAt).toLocaleDateString('tr-TR', {

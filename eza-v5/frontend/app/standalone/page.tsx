@@ -238,13 +238,7 @@ export default function StandalonePage() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => {
-      const next = [...prev, userMessage];
-      if (!skipAutosaveRef.current) {
-        window.setTimeout(() => persistSession(next), 0);
-      }
-      return next;
-    });
+    setMessages((prev) => [...prev, userMessage]);
 
     // Soft limit: Apply random throttle delay (0-300ms) during typing indicator
     const throttleDelay = dailyCount >= DAILY_LIMIT_SOFT && dailyCount < DAILY_LIMIT_HARD
@@ -278,7 +272,7 @@ export default function StandalonePage() {
     try {
       // Try streaming first, fallback to normal endpoint if it fails
       let useNormalEndpoint = false;
-      
+
       try {
         const result = await startStream(
           '/api/standalone/stream',
@@ -383,9 +377,7 @@ export default function StandalonePage() {
         if (result.error) {
           throw new Error(result.error);
         }
-      } catch (streamError: any) {
-        // If streaming fails (404 or other error), fallback to normal endpoint
-        // Silently fallback - no console warning needed
+      } catch {
         setIsTyping(false);
         useNormalEndpoint = true;
       }
@@ -548,6 +540,9 @@ export default function StandalonePage() {
       };
 
       setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
+      setIsLoading(false);
     }
   };
 

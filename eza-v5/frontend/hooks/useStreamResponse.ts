@@ -45,6 +45,8 @@ export function useStreamResponse(): UseStreamResponseReturn {
     // Create new AbortController for this stream
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
+    const STREAM_TIMEOUT_MS = 90_000;
+    const timeoutId = window.setTimeout(() => abortController.abort(), STREAM_TIMEOUT_MS);
 
     try {
       // Always use direct backend URL (no local proxy routes)
@@ -222,22 +224,20 @@ export function useStreamResponse(): UseStreamResponseReturn {
 
     } catch (err: any) {
       setIsStreaming(false);
-      const errorMessage = err.message || 'Streaming failed';
+      const aborted = err.name === 'AbortError';
+      const errorMessage = aborted
+        ? 'Yanıt zaman aşımına uğradı. Lütfen tekrar deneyin.'
+        : err.message || 'Streaming failed';
       setError(errorMessage);
-      
-      if (err.name === 'AbortError') {
-        return {
-          text: streamText,
-          done: false,
-          error: 'Stream cancelled',
-        };
-      }
 
       return {
         text: streamText,
         done: false,
         error: errorMessage,
       };
+    } finally {
+      window.clearTimeout(timeoutId);
+      setIsStreaming(false);
     }
   }, [streamText]);
 
