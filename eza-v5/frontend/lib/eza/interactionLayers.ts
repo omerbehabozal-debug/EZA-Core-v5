@@ -147,7 +147,7 @@ export function buildInteractionLayers(input: LayerAggregateInput): InteractionL
         : 'Son etkileşimlerde girdi tarafında belirgin risk sapması az görünüyor.',
     kpis: [
       {
-        label: 'Risk yoğunluğu (girdi)',
+        label: 'Hassas sinyal yoğunluğu',
         value: fmtPct(avgInputRisk),
         hint: riskyInputCount > 0 ? `${riskyInputCount} yüksek riskli giriş` : 'Düşük',
       },

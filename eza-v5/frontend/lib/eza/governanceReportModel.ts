@@ -3,12 +3,20 @@
  */
 
 import type { TrendChartPoint } from '@/components/eza/TrendChart';
+import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
+import type { BehavioralDashboardModel } from '@/lib/eza/behavioralDashboard';
+import { buildInteractionInsight } from '@/lib/eza/behavioralInsights';
 import type {
   SafeModeInsight,
   SafeModeReport,
   SafeModeTrend,
 } from '@/lib/types/safemode';
 import { trendChartFromEza } from '@/lib/eza/safemodeDisplay';
+import {
+  buildDailyObservationFromAggregates,
+  buildDailyObservationFromEntries,
+  type DailyObservationView,
+} from '@/lib/eza/dailyObservation';
 import {
   aggregateFromAverages,
   buildInteractionLayers,
@@ -71,6 +79,7 @@ export interface HowCalculatedView {
 
 export interface GovernanceReportViewModel {
   wowMoment: string;
+  dailyObservation: DailyObservationView;
   periodCaption: string;
   sampleCount: number;
   featuredInteraction: FeaturedInteractionView;
@@ -299,6 +308,27 @@ function buildShortWowMoment(input: {
     `${seed}-default-${dir}`,
     n
   );
+}
+
+function featuredFromRecentLayers(
+  layers: InteractionLayersSnapshot,
+  seed: string,
+  sampleCount: number
+): FeaturedInteractionView {
+  const rt = layers.recentTurn;
+  if (rt.show && sampleCount > 0) {
+    const userLayer = layers.layers.find((l) => l.id === 'user');
+    const aiLayer = layers.layers.find((l) => l.id === 'assistant');
+    const balanceLayer = layers.layers.find((l) => l.id === 'balance');
+    return {
+      show: true,
+      userSignal: userLayer?.headline ?? rt.summary,
+      aiBehavior: aiLayer?.headline ?? 'Yanıt güvenli sınırlar içinde kaldı.',
+      balance: balanceLayer?.headline ?? 'Etkileşim dengesi korundu.',
+      footnote: 'Bu gözlem yalnızca öne çıkan son etkileşim sinyaline aittir.',
+    };
+  }
+  return buildFeaturedInteraction(layers, seed, sampleCount);
 }
 
 function buildFeaturedInteraction(
@@ -617,8 +647,25 @@ function assembleViewModel(
     tags: i === core.ezaTrend.length - 1 ? ['güncel'] : undefined,
   }));
 
+  const dailyObservation = buildDailyObservationFromAggregates({
+    sampleCount: core.sampleCount,
+    trendInsight: buildTrendInsight({
+      ezaSlope: core.ezaSlope,
+      avgInputRisk: core.avgInputRisk,
+      avgAlign: core.avgAlign,
+      avgOutputRisk: core.avgOutputRisk ?? null,
+      seed: core.seed,
+    }),
+    avgInputRisk: core.avgInputRisk,
+    avgOutputRisk: core.avgOutputRisk ?? null,
+    avgAlign: core.avgAlign,
+    confidence: core.confidence,
+    seed: core.seed,
+  });
+
   return {
     wowMoment,
+    dailyObservation,
     periodCaption: core.periodCaption ?? `Son ölçümler · ${core.sampleCount} etkileşim`,
     sampleCount: core.sampleCount,
     featuredInteraction: buildFeaturedInteraction(layers, core.seed, core.sampleCount),
@@ -679,6 +726,20 @@ export function emptyGovernanceReportPlaceholder(
 ): GovernanceReportViewModel {
   return {
     wowMoment,
+    dailyObservation: {
+      show: false,
+      manset: '',
+      userLine: '',
+      aiLine: '',
+      balanceLine: '',
+      supportLine: '',
+      signalLevel: '',
+      confidenceLabel: '',
+      yesterdayLine: null,
+      weekPattern: [],
+      showWeekPattern: false,
+      fridaySummary: null,
+    },
     periodCaption: 'Veri bekleniyor',
     sampleCount: 0,
     featuredInteraction: {
@@ -731,6 +792,95 @@ export function buildGovernanceReportFromReport(
     return vm;
   } catch (e) {
     console.error('[governanceReport] buildFromReport failed', e);
+    return emptyGovernanceReportPlaceholder('Gözlem şu an yüklenemedi.');
+  }
+}
+
+function ezaSlopeFromTrend(points: TrendChartPoint[]): number | null {
+  if (points.length < 2) return null;
+  const first = points[0]!.value;
+  const last = points[points.length - 1]!.value;
+  return (last - first) / (points.length - 1);
+}
+
+function historyRowsFromBehavioralEntries(entries: SavedBehavioralEntry[]): HistoryRow[] {
+  return [...entries]
+    .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())
+    .slice(0, 20)
+    .map((entry) => {
+      const insight = buildInteractionInsight(entry, entry.vector.eza_final ?? undefined);
+      return {
+        label: new Date(entry.savedAt).toLocaleString('tr-TR', {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        score: insight.score !== null ? String(insight.score) : '—',
+        note: insight.bullets[0]?.text ?? '—',
+      };
+    });
+}
+
+/** Standalone oturum geçmişi → governance etkileşim raporu görünümü */
+export function buildGovernanceReportFromBehavioral(
+  dash: BehavioralDashboardModel,
+  entries: SavedBehavioralEntry[]
+): GovernanceReportViewModel {
+  try {
+    const layers = dash.layers;
+    const ordered = [...entries].sort(
+      (a, b) => new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime()
+    );
+    const asymmetryVals = ordered.map((e) => e.asymmetry?.index ?? 0);
+    const asymmetry =
+      asymmetryVals.length > 0
+        ? asymmetryVals.reduce((a, b) => a + b, 0) / asymmetryVals.length
+        : null;
+    const seed = `standalone-${dash.periodLabel}-${dash.sampleCount}`;
+
+    const core = {
+      sampleCount: dash.sampleCount,
+      avgEza: layers.avgAssistantScore,
+      avgAlign: layers.avgAlign,
+      avgInputRisk: layers.avgInputRisk,
+      avgOutputRisk: layers.avgOutputRisk,
+      ezaSlope: ezaSlopeFromTrend(dash.ezaTrend),
+      asymmetry,
+      confidence: dash.confidencePct,
+      reliabilityLabel:
+        dash.confidencePct !== null ? `Analiz güveni: %${dash.confidencePct}` : null,
+      canInterpret: dash.hasEnoughData,
+      disclaimer: GOVERNANCE_REPORT_DISCLAIMER,
+      seed,
+      ezaTrend: dash.ezaTrend,
+      canTrend: dash.showTrendChart,
+      periodCaption: `${dash.periodLabel} · ${dash.periodCaption}`,
+    };
+
+    const vm = assembleViewModel(
+      core as Parameters<typeof assembleViewModel>[0]
+    );
+    vm.wowMoment = dash.wowMoment;
+    vm.periodCaption = core.periodCaption ?? vm.periodCaption;
+    vm.ezaTrendCaption = dash.ezaTrendCaption;
+    vm.showTrendChart = dash.showTrendChart;
+    vm.trendCredibilityNote = buildTrendCredibilityNote(dash.sampleCount, dash.showTrendChart);
+    vm.featuredInteraction = featuredFromRecentLayers(layers, seed, dash.sampleCount);
+    vm.trendInsight =
+      dash.insights.find(
+        (line) => !line.includes('oturumunuza') && !line.includes('etkileşim daha')
+      ) ??
+      dash.featuredInsight ??
+      vm.trendInsight;
+    vm.historyRows = historyRowsFromBehavioralEntries(ordered);
+    vm.dailyObservation = buildDailyObservationFromEntries(ordered, {
+      confidencePct: dash.confidencePct,
+      seed,
+    });
+    return vm;
+  } catch (e) {
+    console.error('[governanceReport] buildFromBehavioral failed', e);
     return emptyGovernanceReportPlaceholder('Gözlem şu an yüklenemedi.');
   }
 }

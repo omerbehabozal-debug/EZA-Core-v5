@@ -82,6 +82,50 @@ export const reportSkin = {
     '!border-stone-200/60 !bg-white/85 [&_.recharts-area]:opacity-100',
 
   disclaimer: 'pb-10 text-center text-xs leading-relaxed text-stone-500',
+
+  /** Günlük gözlem kartı — retention, dashboard değil */
+  dailyCard:
+    'mx-auto max-w-2xl rounded-2xl border border-stone-200/50 bg-white/75 px-6 py-8 shadow-[0_8px_32px_rgba(28,25,23,0.04)] backdrop-blur-sm sm:px-8',
+
+  dailyEyebrow:
+    'text-[11px] font-semibold uppercase tracking-[0.1em] text-report-ink-soft',
+
+  dailySub: 'mt-1 text-sm text-stone-500',
+
+  dailyHeadline:
+    'mt-5 text-xl font-medium leading-snug tracking-[-0.02em] text-stone-900 sm:text-[1.35rem]',
+
+  dailyManset:
+    'mt-5 text-base font-medium tracking-[-0.01em] text-stone-800 sm:text-lg',
+
+  dailyMirrorBlock: 'mt-6 space-y-5 border-t border-stone-200/40 pt-6',
+
+  dailyMirrorRow: 'space-y-1',
+
+  dailyMirrorLabel:
+    'text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400',
+
+  dailyMirrorSentence: 'text-[15px] leading-relaxed text-stone-800',
+
+  dailySupport: 'mt-6 text-sm leading-relaxed text-stone-500',
+
+  dailyTone: 'mt-2 text-xs text-stone-400',
+
+  dailyPill:
+    'rounded-full bg-stone-100/90 px-2.5 py-0.5 text-[10px] font-medium text-stone-600',
+
+  dailyYesterday: 'mt-5 text-xs text-stone-400',
+
+  dailyWeekRow: 'mt-6 flex justify-between gap-1 sm:gap-2',
+
+  dailyWeekCell:
+    'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 text-center',
+
+  dailyWeekCellToday: 'bg-stone-100/80',
+
+  dailyWeekLabel: 'text-[9px] font-medium uppercase tracking-wide text-stone-400',
+
+  dailyFriday: 'mt-5 text-xs leading-relaxed text-stone-500',
 } as const;
 
 export const reportChartTheme = {

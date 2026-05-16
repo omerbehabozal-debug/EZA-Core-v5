@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MetricCard, TrendChart, EmptyState } from '@/components/eza';
 import SafeModeFeedbackBar from '@/components/governance/SafeModeFeedbackBar';
@@ -15,6 +15,7 @@ import {
   type TendencyCard,
 } from '@/lib/eza/governanceReportModel';
 import { reportChartTheme, reportSkin } from '@/lib/eza/reportSkin';
+import DailyObservationCard from '@/components/governance/DailyObservationCard';
 
 const SECTION_FEATURED = 'gov-report-featured';
 const SECTION_HOW = 'gov-report-how';
@@ -27,6 +28,11 @@ interface GovernanceInteractionReportViewProps {
   backLabel?: string;
   headerActions?: React.ReactNode;
   loading?: boolean;
+  /** Varsayılan: governance sinyal notu */
+  signalNote?: string;
+  /** Trend grafiği ekseni (standalone: AI yanıt skoru) */
+  trendValueLabel?: string;
+  onClearHistory?: () => void;
 }
 
 function scrollToId(id: string) {
@@ -39,12 +45,14 @@ function WowHero({
   onOpenHow,
   backHref,
   backLabel,
+  signalNote,
 }: {
   model: GovernanceReportViewModel;
   onScrollDetails: () => void;
   onOpenHow: () => void;
   backHref?: string;
   backLabel?: string;
+  signalNote: string;
 }) {
   const openHow = () => {
     onOpenHow();
@@ -69,7 +77,7 @@ function WowHero({
         {model.wowMoment}
       </blockquote>
 
-      <p className={reportSkin.heroMuted}>{GOVERNANCE_SIGNAL_NOTE}</p>
+      <p className={reportSkin.heroMuted}>{signalNote}</p>
 
       <button type="button" onClick={openHow} className={reportSkin.heroHowLink}>
         Bu nasıl hesaplandı?
@@ -199,8 +207,16 @@ function TendencyCardView({ card }: { card: TendencyCard }) {
   );
 }
 
-function HistoryAccordion({ model }: { model: GovernanceReportViewModel }) {
+function HistoryAccordion({
+  model,
+  onClearHistory,
+}: {
+  model: GovernanceReportViewModel;
+  onClearHistory?: () => void;
+}) {
   const [open, setOpen] = useState(false);
+
+  if (model.historyRows.length === 0 && !onClearHistory) return null;
 
   return (
     <section className="border-t border-stone-200/40 py-8">
@@ -248,6 +264,18 @@ function HistoryAccordion({ model }: { model: GovernanceReportViewModel }) {
               Özet seri henüz oluşmadı. Birkaç etkileşim sonra ölçüm noktaları burada görünür.
             </p>
           )}
+          {onClearHistory ? (
+            <div className="border-t border-stone-200/30 px-4 py-3">
+              <button
+                type="button"
+                onClick={onClearHistory}
+                className="flex items-center gap-1.5 text-sm text-red-600/85 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4" />
+                Tümünü temizle
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -260,6 +288,9 @@ export default function GovernanceInteractionReportView({
   backLabel,
   headerActions,
   loading,
+  signalNote = GOVERNANCE_SIGNAL_NOTE,
+  trendValueLabel = 'EZA skoru',
+  onClearHistory,
 }: GovernanceInteractionReportViewProps) {
   const detailsRef = useRef<HTMLDivElement>(null);
   const [howOpen, setHowOpen] = useState(false);
@@ -284,9 +315,16 @@ export default function GovernanceInteractionReportView({
         model={model}
         backHref={backHref}
         backLabel={backLabel}
+        signalNote={signalNote}
         onOpenHow={() => setHowOpen(true)}
         onScrollDetails={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth' })}
       />
+
+      {model.dailyObservation?.show ? (
+        <div className="px-4 pb-2 pt-4 sm:px-0 sm:pb-4">
+          <DailyObservationCard observation={model.dailyObservation} />
+        </div>
+      ) : null}
 
       <div ref={detailsRef} className={reportSkin.detailsWrap}>
         <FeaturedInteractionSection featured={featured} />
@@ -328,7 +366,7 @@ export default function GovernanceInteractionReportView({
               {model.showTrendChart ? (
                 <TrendChart
                   data={model.ezaTrend}
-                  valueLabel="EZA skoru"
+                  valueLabel={trendValueLabel}
                   height={220}
                   domain={[0, 100]}
                   className={reportSkin.chart}
@@ -377,7 +415,7 @@ export default function GovernanceInteractionReportView({
           </section>
         )}
 
-        <HistoryAccordion model={model} />
+        <HistoryAccordion model={model} onClearHistory={onClearHistory} />
 
         <p className={reportSkin.disclaimer}>{GOVERNANCE_REPORT_DISCLAIMER}</p>
       </div>
