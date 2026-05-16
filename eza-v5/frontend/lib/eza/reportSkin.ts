@@ -5,7 +5,7 @@
 
 export const reportSkin = {
   canvas:
-    'report-canvas min-h-full bg-gradient-to-b from-stone-50/90 via-report-surface to-white',
+    'report-canvas min-h-full bg-stone-50',
 
   heroSection:
     'relative flex min-h-[min(88vh,760px)] flex-col items-center justify-center px-4 py-12 text-center sm:px-8',
@@ -63,7 +63,7 @@ export const reportSkin = {
   sectionSub: 'mt-1 text-sm text-stone-600',
 
   detailsWrap:
-    'border-t border-stone-200/60 bg-gradient-to-b from-white/50 to-transparent px-4 sm:px-0',
+    'border-t border-stone-200/50 px-4 sm:px-0',
 
   metricCard:
     '!border-stone-200/70 !bg-white/90 shadow-[0_1px_3px_rgba(28,25,23,0.04)] [&_p]:!text-stone-900 [&_.text-eza-text-muted]:!text-stone-500 [&_.text-eza-text-secondary]:!text-stone-600',

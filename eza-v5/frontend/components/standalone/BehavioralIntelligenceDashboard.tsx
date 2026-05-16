@@ -87,6 +87,7 @@ export default function BehavioralIntelligenceDashboard({
         signalNote={STANDALONE_SIGNAL_NOTE}
         trendValueLabel="AI yanıt skoru"
         onClearHistory={onClear}
+        embeddedInStandalone
       />
     </div>
   );

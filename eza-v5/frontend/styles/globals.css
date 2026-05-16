@@ -226,7 +226,7 @@ body {
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  background: linear-gradient(180deg, #f6f8fc 0%, #f3f4f8 100%);
+  background: #f3f4f8;
 }
 
 .standalone-sidebar {
@@ -237,8 +237,11 @@ body {
   background: transparent;
 }
 
-/* Sohbet kaydırması ana panelin sağ kenarında */
+/* Sohbet kaydırması — sidebar sonrası panelin sağ kenarında (ortadaki sütunda değil) */
 .standalone-main-scroll {
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
   scrollbar-gutter: stable;
 }
 

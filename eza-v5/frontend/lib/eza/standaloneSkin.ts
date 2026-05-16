@@ -78,7 +78,7 @@ export const standaloneSkin = {
   chatStageFull:
     'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden',
   mainScroll:
-    'standalone-main-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden w-full overscroll-contain',
+    'standalone-main-scroll min-h-0 min-w-0 flex-1 self-stretch w-full max-w-none overflow-y-auto overflow-x-hidden overscroll-contain',
   chatColumn: 'mx-auto w-full max-w-3xl px-4 pb-2 sm:px-6',
   composerBar: 'w-full shrink-0 bg-transparent',
 

@@ -19,9 +19,47 @@ import {
 } from '@/lib/eza/dailyObservation';
 import {
   aggregateFromAverages,
+  aggregateFromEntries,
   buildInteractionLayers,
   type InteractionLayersSnapshot,
 } from '@/lib/eza/interactionLayers';
+
+const LOW_INPUT_HEALTH = 0.55;
+const LOW_INPUT_RISK = 0.4;
+const LOW_EZA_SCORE = 60;
+
+function dayKeyFromIso(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Düşük girdi sağlık sinyali veya zayıf etkileşim skoru */
+export function entryHasLowSignal(entry: SavedBehavioralEntry): boolean {
+  const v = entry.vector;
+  if (!v) return false;
+
+  const inputHealth = v.input_health ?? 1 - (v.input_risk ?? 0);
+  if (inputHealth < LOW_INPUT_HEALTH || (v.input_risk ?? 0) >= LOW_INPUT_RISK) {
+    return true;
+  }
+
+  const eza = v.eza_final;
+  if (eza !== null && !Number.isNaN(eza)) {
+    const score = eza <= 1 ? eza * 100 : eza;
+    if (score < LOW_EZA_SCORE) return true;
+  }
+
+  if ((v.output_risk ?? 0) >= 0.4) return true;
+
+  const align = v.alignment_score;
+  if (align !== null && !Number.isNaN(align)) {
+    const n = align <= 1 ? align * 100 : align;
+    if (n < 55) return true;
+  }
+
+  return false;
+}
 
 export const GOVERNANCE_REPORT_DISCLAIMER =
   'EZA analizleri gözlemsel sinyaller üretir. Sonuçlar kesin karar yerine farkındalık sağlamayı amaçlar.';
@@ -310,6 +348,77 @@ function buildShortWowMoment(input: {
   );
 }
 
+function buildFeaturedInteractionForDay(
+  dayEntries: SavedBehavioralEntry[],
+  seed: string
+): FeaturedInteractionView {
+  if (dayEntries.length === 0) {
+    return {
+      show: false,
+      userSignal: '',
+      aiBehavior: '',
+      balance: '',
+      footnote: '',
+    };
+  }
+
+  const layers = buildInteractionLayers(aggregateFromEntries(dayEntries));
+  const anyLowSignal = dayEntries.some(entryHasLowSignal);
+
+  if (!anyLowSignal) {
+    return featuredFromRecentLayers(layers, seed, dayEntries.length);
+  }
+
+  const last = dayEntries[dayEntries.length - 1]!;
+  const lastIr = last.vector?.input_risk ?? 0;
+  const lastOr = last.vector?.output_risk ?? 0;
+  const split = lastIr >= 0.5 && lastOr < 0.3;
+  const lowCount = dayEntries.filter(entryHasLowSignal).length;
+
+  const userSignal = pickVariant(
+    [
+      'Bugün riskli davranış sinyali gözlemlendi.',
+      lowCount > 1
+        ? 'Gün içinde birden fazla etkileşimde düşük sinyal ve riskli davranış gözlemlendi.'
+        : 'Gün içinde en az bir etkileşimde düşük sinyal ve riskli davranış gözlemlendi.',
+    ],
+    `${seed}-feat-risk-day`
+  );
+
+  const aiBehavior = split
+    ? pickVariant(
+        [
+          'Buna rağmen son yanıtlar güvenli sınırlar içinde kaldı.',
+          'AI yanıtları riskli girişlere rağmen güvenli sınırlarda kaldı.',
+        ],
+        `${seed}-feat-risk-ai`
+      )
+    : layers.avgOutputRisk < 0.3
+      ? 'AI yanıtları gün boyunca çoğunlukla güvenli sınırlar içinde kaldı.'
+      : 'Yanıt davranışı gün içinde karışık sinyaller verdi.';
+
+  const balance = split
+    ? pickVariant(
+        [
+          'Hassas sinyallere rağmen etkileşim dengesi korundu.',
+          'Riskli davranış sinyaline rağmen genel denge korunmuş görünüyor.',
+        ],
+        `${seed}-feat-risk-bal`
+      )
+    : layers.avgAlign >= 65
+      ? 'Etkileşim dengesi büyük ölçüde stabil kaldı.'
+      : 'Etkileşim dengesi izlenmeye değer sinyaller taşıdı.';
+
+  return {
+    show: true,
+    userSignal,
+    aiBehavior,
+    balance,
+    footnote:
+      'Bu gözlem bugünkü etkileşimlere dayanır; gün içinde en az birinde düşük sinyal gözlemlendi.',
+  };
+}
+
 function featuredFromRecentLayers(
   layers: InteractionLayersSnapshot,
   seed: string,
@@ -349,20 +458,34 @@ function buildFeaturedInteraction(
   const split = layers.hasInputOutputSplit;
   const highInput = layers.avgInputRisk >= 0.45;
   const safeAi = layers.avgOutputRisk < 0.3;
+  const riskyDay =
+    layers.riskyInputCount > 0 ||
+    layers.avgInputRisk >= LOW_INPUT_RISK ||
+    1 - layers.avgInputRisk < LOW_INPUT_HEALTH;
 
-  const userSignal = split || highInput
+  const userSignal = riskyDay
     ? pickVariant(
         [
-          'Hassas konu sinyali gözlemlendi.',
-          'Girdi tarafında dikkat çeken sinyal göründü.',
-          'Hassas sinyal yoğunluğu gözlemlendi.',
+          'Riskli davranış sinyali gözlemlendi.',
+          'Düşük sinyal içeren riskli davranış gözlemlendi.',
+          'Girdi tarafında riskli davranış sinyali belirginleşti.',
         ],
-        `${seed}-feat-user`,
+        `${seed}-feat-risk-user`,
         0
       )
-    : layers.avgInputRisk >= 0.3
-      ? 'Girdi sinyalleri orta düzeyde seyretti.'
-      : 'Girdi sinyalleri sakin göründü.';
+    : split || highInput
+      ? pickVariant(
+          [
+            'Hassas konu sinyali gözlemlendi.',
+            'Girdi tarafında dikkat çeken sinyal göründü.',
+            'Hassas sinyal yoğunluğu gözlemlendi.',
+          ],
+          `${seed}-feat-user`,
+          0
+        )
+      : layers.avgInputRisk >= 0.3
+        ? 'Girdi sinyalleri orta düzeyde seyretti.'
+        : 'Girdi sinyalleri sakin göründü.';
 
   const aiBehavior =
     split || safeAi
@@ -866,7 +989,12 @@ export function buildGovernanceReportFromBehavioral(
     vm.ezaTrendCaption = dash.ezaTrendCaption;
     vm.showTrendChart = dash.showTrendChart;
     vm.trendCredibilityNote = buildTrendCredibilityNote(dash.sampleCount, dash.showTrendChart);
-    vm.featuredInteraction = featuredFromRecentLayers(layers, seed, dash.sampleCount);
+    const todayKey = dayKeyFromIso(new Date().toISOString());
+    const todayEntries = ordered.filter((e) => dayKeyFromIso(e.savedAt) === todayKey);
+    vm.featuredInteraction =
+      todayEntries.length > 0
+        ? buildFeaturedInteractionForDay(todayEntries, seed)
+        : featuredFromRecentLayers(layers, seed, dash.sampleCount);
     vm.trendInsight =
       dash.insights.find(
         (line) => !line.includes('oturumunuza') && !line.includes('etkileşim daha')

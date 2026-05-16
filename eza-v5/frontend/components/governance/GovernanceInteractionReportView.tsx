@@ -33,6 +33,8 @@ interface GovernanceInteractionReportViewProps {
   /** Trend grafiği ekseni (standalone: AI yanıt skoru) */
   trendValueLabel?: string;
   onClearHistory?: () => void;
+  /** Standalone shell zaten arka plan veriyor */
+  embeddedInStandalone?: boolean;
 }
 
 function scrollToId(id: string) {
@@ -291,6 +293,7 @@ export default function GovernanceInteractionReportView({
   signalNote = GOVERNANCE_SIGNAL_NOTE,
   trendValueLabel = 'EZA skoru',
   onClearHistory,
+  embeddedInStandalone = false,
 }: GovernanceInteractionReportViewProps) {
   const detailsRef = useRef<HTMLDivElement>(null);
   const [howOpen, setHowOpen] = useState(false);
@@ -310,7 +313,12 @@ export default function GovernanceInteractionReportView({
   };
 
   return (
-    <div className={cn('mx-auto max-w-3xl', reportSkin.canvas)}>
+    <div
+      className={cn(
+        'mx-auto max-w-3xl',
+        !embeddedInStandalone && reportSkin.canvas
+      )}
+    >
       <WowHero
         model={model}
         backHref={backHref}

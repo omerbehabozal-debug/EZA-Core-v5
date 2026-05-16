@@ -65,14 +65,14 @@ export default function StandaloneChatLayout({
               <div className={standaloneSkin.emptyComposerWrap}>{composer}</div>
             </>
           ) : (
-            <>
+            <div className="grid min-h-0 w-full min-w-0 flex-1 grid-rows-[1fr_auto]">
               <div className={standaloneSkin.mainScroll}>
                 <div className={standaloneSkin.chatColumn}>{children}</div>
               </div>
               <div className={standaloneSkin.composerBar}>
                 <div className={standaloneSkin.chatColumn}>{composer}</div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </main>
