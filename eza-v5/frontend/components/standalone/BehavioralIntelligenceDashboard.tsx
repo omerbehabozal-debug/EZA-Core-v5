@@ -239,12 +239,30 @@ export default function BehavioralIntelligenceDashboard({
   entries,
   onClear,
 }: BehavioralIntelligenceDashboardProps) {
-  const model = useMemo(() => buildBehavioralDashboard(entries), [entries]);
+  const model = useMemo(() => {
+    try {
+      return buildBehavioralDashboard(entries);
+    } catch (e) {
+      console.error('[behavioralDashboard] build failed', e);
+      return null;
+    }
+  }, [entries]);
   const detailsRef = useRef<HTMLDivElement>(null);
 
   const scrollToDetails = () => {
     detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  if (!model) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center px-6 text-center">
+        <p className="text-sm text-stone-600">Rapor yüklenirken bir sorun oluştu. Sayfayı yenileyin.</p>
+        <Link href="/standalone" className={cn('mt-4', reportSkin.link)}>
+          ← Sohbete dön
+        </Link>
+      </div>
+    );
+  }
 
   if (entries.length === 0) {
     return (

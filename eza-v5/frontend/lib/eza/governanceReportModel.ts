@@ -547,15 +547,16 @@ function coreFromTrend(trend: SafeModeTrend) {
 }
 
 function coreFromReport(report: SafeModeReport) {
-  const trend = report.trend_summary;
+  const trend = report.trend_summary ?? ({} as SafeModeTrend);
   const base = coreFromTrend(trend);
+  const averages = report.averages ?? {};
   return {
     ...base,
     sampleCount: report.sample_count ?? base.sampleCount,
-    avgEza: report.averages.eza_score ?? base.avgEza,
-    avgAlign: report.averages.alignment_score ?? null,
-    avgInputRisk: report.averages.input_risk ?? null,
-    avgOutputRisk: report.averages.output_risk ?? null,
+    avgEza: averages.eza_score ?? base.avgEza,
+    avgAlign: averages.alignment_score ?? null,
+    avgInputRisk: averages.input_risk ?? null,
+    avgOutputRisk: averages.output_risk ?? null,
     confidence: report.confidence ?? base.confidence,
     reliabilityLabel: report.reliability?.label ?? base.reliabilityLabel,
     canInterpret: report.can_interpret ?? base.canInterpret,
@@ -691,16 +692,26 @@ export function buildGovernanceReportFromTrend(
   trend: SafeModeTrend,
   insight?: SafeModeInsight | null
 ): GovernanceReportViewModel {
-  return assembleViewModel(coreFromTrend(trend), insight);
+  try {
+    return assembleViewModel(coreFromTrend(trend), insight);
+  } catch (e) {
+    console.error('[governanceReport] buildFromTrend failed', e);
+    return emptyGovernanceReportPlaceholder('Gözlem şu an yüklenemedi.');
+  }
 }
 
 export function buildGovernanceReportFromReport(
   report: SafeModeReport,
   insight?: SafeModeInsight | null
 ): GovernanceReportViewModel {
-  const core = coreFromReport(report);
-  const vm = assembleViewModel(core, insight);
-  vm.feedbackEventId = report.event_id ?? vm.feedbackEventId;
-  vm.feedbackAnalysisId = report.analysis_id ?? vm.feedbackAnalysisId;
-  return vm;
+  try {
+    const core = coreFromReport(report);
+    const vm = assembleViewModel(core, insight);
+    vm.feedbackEventId = report.event_id ?? vm.feedbackEventId;
+    vm.feedbackAnalysisId = report.analysis_id ?? vm.feedbackAnalysisId;
+    return vm;
+  } catch (e) {
+    console.error('[governanceReport] buildFromReport failed', e);
+    return emptyGovernanceReportPlaceholder('Gözlem şu an yüklenemedi.');
+  }
 }

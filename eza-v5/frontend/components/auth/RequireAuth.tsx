@@ -84,15 +84,21 @@ export default function RequireAuth({
     };
   }, [logout, router, pathname]);
 
-  // Still checking - show nothing to prevent flash
+  const authLoading = (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <p className="text-sm text-stone-500">Yükleniyor…</p>
+    </div>
+  );
+
+  // Still checking
   if (isChecking) {
-    return null;
+    return authLoading;
   }
 
   // Not authenticated - redirect will happen in useEffect
   const storedToken = typeof window !== 'undefined' ? localStorage.getItem('eza_token') : null;
   if (!isAuthenticated && !token && !storedToken) {
-    return null;
+    return authLoading;
   }
 
   // Authenticated but wrong role

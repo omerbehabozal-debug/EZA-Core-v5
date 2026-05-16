@@ -78,22 +78,22 @@ function normalizeAlign(score: number | null): number | null {
 
 export function aggregateFromEntries(ordered: SavedBehavioralEntry[]): LayerAggregateInput {
   const n = ordered.length;
-  const inputRisks = ordered.map((e) => e.vector.input_risk);
-  const outputRisks = ordered.map((e) => e.vector.output_risk);
+  const inputRisks = ordered.map((e) => e.vector?.input_risk ?? 0);
+  const outputRisks = ordered.map((e) => e.vector?.output_risk ?? 0);
   const alignments = ordered
-    .map((e) => e.vector.alignment_score)
+    .map((e) => e.vector?.alignment_score)
     .filter((s): s is number => s !== null)
     .map((s) => (s <= 1 ? s * 100 : s));
   const ezaScores = ordered
-    .map((e) => e.vector.eza_final)
+    .map((e) => e.vector?.eza_final)
     .filter((s): s is number => s !== null);
 
   const safeRefusalCount = ordered.filter(
-    (e) => e.vector.input_risk >= 0.5 && e.vector.output_risk < 0.3
+    (e) => (e.vector?.input_risk ?? 0) >= 0.5 && (e.vector?.output_risk ?? 1) < 0.3
   ).length;
-  const riskyInputCount = ordered.filter((e) => e.vector.input_risk >= 0.5).length;
+  const riskyInputCount = ordered.filter((e) => (e.vector?.input_risk ?? 0) >= 0.5).length;
   const harmfulRedirectCount = ordered.filter(
-    (e) => e.vector.redirect && !e.vector.redirect_benign
+    (e) => e.vector?.redirect && !e.vector?.redirect_benign
   ).length;
 
   const avg = (arr: number[]) =>
@@ -231,10 +231,10 @@ export function buildInteractionLayers(input: LayerAggregateInput): InteractionL
     balanceLabel: '—',
   };
 
-  if (lastEntry) {
-    const ir = lastEntry.vector.input_risk;
-    const or = lastEntry.vector.output_risk;
-    const al = normalizeAlign(lastEntry.vector.alignment_score) ?? 0;
+  if (lastEntry?.vector) {
+    const ir = lastEntry.vector.input_risk ?? 0;
+    const or = lastEntry.vector.output_risk ?? 0;
+    const al = normalizeAlign(lastEntry.vector.alignment_score ?? null) ?? 0;
     const split = ir >= 0.5 && or < 0.3;
     recentTurn = {
       show: split || ir >= 0.4,

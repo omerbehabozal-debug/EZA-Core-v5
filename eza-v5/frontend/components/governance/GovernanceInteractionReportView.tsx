@@ -178,7 +178,12 @@ function HowCalculatedSection({
   open: boolean;
   onToggle: () => void;
 }) {
-  const { howCalculated } = model;
+  const howCalculated = model.howCalculated ?? {
+    cards: [],
+    signalFootnote: '',
+    confidenceLabel: null,
+    reliabilityLabel: null,
+  };
 
   return (
     <section id={SECTION_HOW} className="scroll-mt-8 border-t border-stone-200/50 py-10 sm:py-12">
@@ -295,6 +300,16 @@ export default function GovernanceInteractionReportView({
     return <p className="py-20 text-center text-sm text-stone-500">Yükleniyor…</p>;
   }
 
+  const profileKpis = model.profileKpis ?? [];
+  const tendencyCards = model.tendencyCards ?? [];
+  const featured = model.featuredInteraction ?? {
+    show: false,
+    userSignal: '',
+    aiBehavior: '',
+    balance: '',
+    footnote: '',
+  };
+
   return (
     <div className={cn('mx-auto max-w-3xl', reportSkin.canvas)}>
       <WowHero
@@ -306,7 +321,7 @@ export default function GovernanceInteractionReportView({
       />
 
       <div ref={detailsRef} className={reportSkin.detailsWrap}>
-        <FeaturedInteractionSection featured={model.featuredInteraction} />
+        <FeaturedInteractionSection featured={featured} />
 
         <HowCalculatedSection model={model} open={howOpen} onToggle={() => setHowOpen((o) => !o)} />
 
@@ -319,7 +334,7 @@ export default function GovernanceInteractionReportView({
             {headerActions}
           </div>
           <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {model.profileKpis.map((kpi) => (
+            {profileKpis.map((kpi) => (
               <MetricCard
                 key={kpi.label}
                 label={kpi.label}
@@ -372,7 +387,7 @@ export default function GovernanceInteractionReportView({
           <div className="mt-10">
             <h3 className="mb-4 text-sm font-medium text-stone-800">Davranış göstergeleri</h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              {model.tendencyCards.map((card) => (
+              {tendencyCards.map((card) => (
                 <TendencyCardView key={card.id} card={card} />
               ))}
             </div>
