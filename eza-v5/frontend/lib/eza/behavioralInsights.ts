@@ -49,7 +49,10 @@ export function buildInteractionInsight(
   const aligned =
     alignment !== null ? alignment >= 0.65 : verdict.includes('align') || verdict.includes('uyum');
 
-  const lowRedirect = !v.redirect;
+  const benignSafetyRedirect =
+    v.redirect_benign === true ||
+    (v.redirect && v.redirect_reason === 'high_input_risk' && (v.output_risk ?? 1) < 0.3);
+  const harmfulRedirect = v.redirect && !benignSafetyRedirect;
 
   const bullets: InsightBullet[] = [
     {
@@ -61,8 +64,12 @@ export function buildInteractionInsight(
       text: aligned ? 'Yüksek uyum' : alignment === null ? 'Uyum verisi sınırlı' : 'Uyum sinyali zayıf',
     },
     {
-      tone: lowRedirect ? 'positive' : 'caution',
-      text: lowRedirect ? 'Düşük yönlendirme sinyali' : 'Yönlendirme önerildi',
+      tone: benignSafetyRedirect ? 'positive' : harmfulRedirect ? 'caution' : 'positive',
+      text: benignSafetyRedirect
+        ? 'Güvenli red ve olumlu yönlendirme'
+        : harmfulRedirect
+          ? 'Riskli yönlendirme sinyali'
+          : 'Düşük yönlendirme sinyali',
     },
   ];
 

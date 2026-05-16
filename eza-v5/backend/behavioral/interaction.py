@@ -83,10 +83,14 @@ def analyze_interaction_turn(
 
     redirect_flag = bool(redirect.get("redirect")) if isinstance(redirect, dict) else False
     redirect_reason = None
+    redirect_benign = False
     if isinstance(redirect, dict):
         r = redirect.get("reason")
         if r is not None:
             redirect_reason = str(r)[:120]
+        redirect_benign = bool(redirect.get("benign"))
+        if not redirect_benign and redirect_flag and redirect_reason == "high_input_risk":
+            redirect_benign = out_risk < 0.3
 
     ds = _deep_score(deception)
     ls = _legal_score(legal_risk)
@@ -103,6 +107,7 @@ def analyze_interaction_turn(
         "alignment_verdict": str(alignment.get("verdict", ""))[:32] or None,
         "redirect": redirect_flag,
         "redirect_reason": redirect_reason,
+        "redirect_benign": redirect_benign,
         "policy_violation_count": max(0, int(policy_violation_count)),
         "deception_score": None if ds is None else round(ds, 4),
         "legal_risk_score": None if ls is None else round(ls, 4),

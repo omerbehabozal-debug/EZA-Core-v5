@@ -163,6 +163,7 @@ async def stream_standalone_response(
             assistant_score = None
             output_analysis = None
             alignment = None
+            redirect = None
             clean_text = ""
             if accumulated_text:
                 # Clean accumulated text (remove any potential token debug info)
@@ -176,10 +177,12 @@ async def stream_standalone_response(
                     try:
                         output_analysis = analyze_output(clean_text, input_analysis)
                         alignment = compute_alignment(input_analysis, output_analysis)
+                        redirect = should_redirect(input_analysis, output_analysis, alignment)
                         eza_score_data = compute_eza_score_v21(
                             input_analysis=input_analysis,
                             output_analysis=output_analysis,
-                            alignment=alignment
+                            alignment=alignment,
+                            redirect=redirect,
                         )
                         final_score = eza_score_data.get("final_score")
                         if final_score is not None:
@@ -199,7 +202,8 @@ async def stream_standalone_response(
             # Behavioral snapshot (align with pipeline behavioral layer)
             if clean_text and output_analysis is not None and alignment is not None:
                 try:
-                    redirect = should_redirect(input_analysis, output_analysis, alignment)
+                    if redirect is None:
+                        redirect = should_redirect(input_analysis, output_analysis, alignment)
                     completion_data["behavioral"] = analyze_interaction_turn(
                         mode="standalone",
                         input_analysis=input_analysis,

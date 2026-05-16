@@ -33,10 +33,14 @@ def should_redirect(
     elif alignment_score < 40:
         redirect = True
         reason = "poor_alignment"
+
+    # Safe refusal fulfilled: redirect was needed because of user input, response is already safe
+    benign = redirect and reason == "high_input_risk" and output_risk < 0.3
     
     return {
         "redirect": redirect,
         "reason": reason,
+        "benign": benign,
         "input_risk": input_risk,
         "output_risk": output_risk,
         "alignment_score": alignment_score

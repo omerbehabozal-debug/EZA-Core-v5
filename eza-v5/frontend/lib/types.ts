@@ -68,6 +68,7 @@ export interface BehavioralVector {
   alignment_verdict: string | null;
   redirect: boolean;
   redirect_reason: string | null;
+  redirect_benign?: boolean;
   policy_violation_count: number;
   deception_score?: number | null;
   legal_risk_score?: number | null;
