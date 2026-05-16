@@ -64,7 +64,7 @@ export default function MessageList({ messages, isLoading, isTyping = false }: M
         {isLoading && !isTyping ? (
           <div className={`flex justify-start ${standaloneSkin.turnBlock}`}>
             <div className={standaloneSkin.assistantTurn}>
-              <div className={standaloneSkin.typingBubble}>
+              <div className={standaloneSkin.typingIndicator}>
                 <LoadingDots />
               </div>
             </div>

@@ -8,7 +8,8 @@ import StandaloneSidebar from './StandaloneSidebar';
 import EmptyState from './EmptyState';
 
 interface StandaloneChatLayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  composer: React.ReactNode;
   isEmpty: boolean;
   safeOnlyMode: boolean;
   onSafeOnlyModeChange: (enabled: boolean) => void;
@@ -18,6 +19,7 @@ interface StandaloneChatLayoutProps {
 
 export default function StandaloneChatLayout({
   children,
+  composer,
   isEmpty,
   safeOnlyMode,
   onSafeOnlyModeChange,
@@ -51,7 +53,7 @@ export default function StandaloneChatLayout({
 
         <div
           className={cn(
-            standaloneSkin.chatStage,
+            isEmpty ? standaloneSkin.chatStage : standaloneSkin.chatStageFull,
             isEmpty ? 'flex min-h-0 flex-1 flex-col' : standaloneSkin.chatStageWithMessages
           )}
         >
@@ -60,10 +62,17 @@ export default function StandaloneChatLayout({
               <div className={standaloneSkin.emptyHero}>
                 <EmptyState />
               </div>
-              <div className={standaloneSkin.emptyComposerWrap}>{children}</div>
+              <div className={standaloneSkin.emptyComposerWrap}>{composer}</div>
             </>
           ) : (
-            children
+            <>
+              <div className={standaloneSkin.mainScroll}>
+                <div className={standaloneSkin.chatColumn}>{children}</div>
+              </div>
+              <div className={standaloneSkin.composerBar}>
+                <div className={standaloneSkin.chatColumn}>{composer}</div>
+              </div>
+            </>
           )}
         </div>
       </main>

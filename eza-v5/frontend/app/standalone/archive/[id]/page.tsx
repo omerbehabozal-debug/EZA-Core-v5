@@ -32,6 +32,7 @@ export default function StandaloneArchivePage() {
 
   const handleDelete = () => {
     if (!id) return;
+    if (!window.confirm('Bu sohbeti arşivden silmek istediğinize emin misiniz?')) return;
     deleteChatArchive(id);
     router.push('/standalone');
   };

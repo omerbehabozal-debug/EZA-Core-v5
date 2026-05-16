@@ -22,6 +22,7 @@ import { useStreamResponse } from '@/hooks/useStreamResponse';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
 import {
+  ACTIVE_ARCHIVE_CLEARED_EVENT,
   ACTIVE_SESSION_ARCHIVE_ID,
   clearActiveSessionArchive,
   finalizeActiveSession,
@@ -167,6 +168,17 @@ export default function StandalonePage() {
       }
       resetStream();
     };
+  }, [resetStream]);
+
+  useEffect(() => {
+    const onActiveCleared = () => {
+      resetStream();
+      setMessages([]);
+      setIsLoading(false);
+      setIsTyping(false);
+    };
+    window.addEventListener(ACTIVE_ARCHIVE_CLEARED_EVENT, onActiveCleared);
+    return () => window.removeEventListener(ACTIVE_ARCHIVE_CLEARED_EVENT, onActiveCleared);
   }, [resetStream]);
 
   const startFreshChat = useCallback(() => {
@@ -563,18 +575,20 @@ export default function StandalonePage() {
         onSafeOnlyModeChange={setSafeOnlyMode}
         hasActiveChat={hasActiveChat}
         onNewChat={handleNewChatRequest}
+        composer={
+          <InputBar
+            onSend={handleSend}
+            isLoading={isLoading}
+            disabled={isLimitReached}
+            isEmpty={isEmpty}
+            analysisModelId={analysisModelId}
+            onAnalysisModelChange={setAnalysisModelId}
+          />
+        }
       >
         {!isEmpty ? (
           <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
         ) : null}
-        <InputBar
-          onSend={handleSend}
-          isLoading={isLoading}
-          disabled={isLimitReached}
-          isEmpty={isEmpty}
-          analysisModelId={analysisModelId}
-          onAnalysisModelChange={setAnalysisModelId}
-        />
       </StandaloneChatLayout>
     </div>
   );

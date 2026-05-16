@@ -2,7 +2,11 @@
  * Standalone sohbet arşivi — yalnızca bu tarayıcıda (localStorage).
  */
 
+import { clearChatDraft } from './standaloneChatDraft';
+
 export const ARCHIVE_UPDATED_EVENT = 'eza-standalone-archive-updated';
+/** Güncel oturum arşivden silindi — ana sayfa sohbeti temizlemeli */
+export const ACTIVE_ARCHIVE_CLEARED_EVENT = 'eza-standalone-active-archive-cleared';
 /** Tek aktif oturum — otomatik kayıt bu kimliğe yazılır */
 export const ACTIVE_SESSION_ARCHIVE_ID = 'session-active';
 const STORAGE_KEY = 'eza_standalone_chat_archive';
@@ -167,5 +171,12 @@ export function saveChatArchive(messages: ArchivedChatMessage[]): ArchivedChat |
 }
 
 export function deleteChatArchive(id: string): void {
+  const wasActive = id === ACTIVE_SESSION_ARCHIVE_ID;
   writeAll(readAll().filter((a) => a.id !== id));
+  if (wasActive) {
+    clearChatDraft();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(ACTIVE_ARCHIVE_CLEARED_EVENT));
+    }
+  }
 }

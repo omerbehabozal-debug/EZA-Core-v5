@@ -8,8 +8,8 @@ export default function TypingIndicator() {
   return (
     <div className={`flex justify-start ${standaloneSkin.turnBlock}`}>
       <div className={standaloneSkin.assistantTurn}>
-        <div className={standaloneSkin.typingBubble}>
-          <div className="flex items-center gap-1 px-0.5 py-0.5">
+        <div className={standaloneSkin.typingIndicator}>
+          <div className="flex items-center gap-1">
             {[0, 150, 300].map((delay) => (
               <span
                 key={delay}

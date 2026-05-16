@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { BarChart3, MessageSquarePlus, Shield, X } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { BarChart3, MessageSquarePlus, Shield, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   ACTIVE_SESSION_ARCHIVE_ID,
   ARCHIVE_UPDATED_EVENT,
+  deleteChatArchive,
   listChatArchives,
   summarizeArchiveTitle,
   type ArchivedChatSummary,
@@ -32,6 +33,7 @@ export default function StandaloneSidebar({
   onNewChat,
 }: StandaloneSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
 
   const refreshArchives = useCallback(() => {
@@ -46,6 +48,24 @@ export default function StandaloneSidebar({
 
   const navActive = (href: string) =>
     pathname != null && (pathname === href || pathname.startsWith(`${href}/`));
+
+  const handleDeleteArchive = (
+    e: React.MouseEvent,
+    item: ArchivedChatSummary
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const label = summarizeArchiveTitle(item.title) || 'Bu sohbet';
+    if (!window.confirm(`"${label}" arşivden silinsin mi?`)) return;
+
+    deleteChatArchive(item.id);
+
+    const archivePath = `/standalone/archive/${item.id}`;
+    if (pathname === archivePath) {
+      router.push('/standalone');
+    }
+    refreshArchives();
+  };
 
   return (
     <>
@@ -127,29 +147,41 @@ export default function StandaloneSidebar({
                     ? pathname === '/standalone'
                     : pathname === href;
                   return (
-                    <li key={item.id} className="min-w-0">
-                      <Link
-                        href={href}
-                        onClick={onMobileClose}
-                        title={item.title}
+                    <li key={item.id} className="group min-w-0">
+                      <div
                         className={cn(
-                          standaloneSkin.sidebarArchiveItem,
+                          standaloneSkin.sidebarArchiveRow,
                           active ? 'bg-white/80' : ''
                         )}
                       >
-                        <span className={standaloneSkin.sidebarArchiveTitle}>
-                          {summarizeArchiveTitle(item.title)}
-                        </span>
-                        <span className={standaloneSkin.sidebarArchiveMeta}>
-                          {isActiveSession ? 'Güncel · ' : ''}
-                          {new Date(item.savedAt).toLocaleDateString('tr-TR', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                          {' · '}
-                          {item.messageCount} mesaj
-                        </span>
-                      </Link>
+                        <Link
+                          href={href}
+                          onClick={onMobileClose}
+                          title={item.title}
+                          className={standaloneSkin.sidebarArchiveItem}
+                        >
+                          <span className={standaloneSkin.sidebarArchiveTitle}>
+                            {summarizeArchiveTitle(item.title)}
+                          </span>
+                          <span className={standaloneSkin.sidebarArchiveMeta}>
+                            {isActiveSession ? 'Güncel · ' : ''}
+                            {new Date(item.savedAt).toLocaleDateString('tr-TR', {
+                              day: 'numeric',
+                              month: 'short',
+                            })}
+                            {' · '}
+                            {item.messageCount} mesaj
+                          </span>
+                        </Link>
+                        <button
+                          type="button"
+                          className={standaloneSkin.sidebarArchiveDeleteBtn}
+                          aria-label={`${summarizeArchiveTitle(item.title)} sil`}
+                          onClick={(e) => handleDeleteArchive(e, item)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </li>
                   );
                 })}

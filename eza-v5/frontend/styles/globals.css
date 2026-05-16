@@ -237,3 +237,8 @@ body {
   background: transparent;
 }
 
+/* Sohbet kaydırması ana panelin sağ kenarında */
+.standalone-main-scroll {
+  scrollbar-gutter: stable;
+}
+

@@ -20,7 +20,7 @@ export const standaloneSkin = {
   sidebar:
     'standalone-sidebar flex h-full w-[240px] max-w-[240px] shrink-0 flex-col border-r border-standalone-border/50',
   sidebarInner:
-    'flex h-full min-h-0 flex-col gap-3 p-3 safe-area-top safe-area-bottom overflow-y-auto',
+    'flex h-full min-h-0 flex-col gap-3 overflow-hidden p-3 safe-area-top safe-area-bottom',
   sidebarBrandBlock: 'border-b border-standalone-border/40 px-1 pb-3 pt-0.5',
   sidebarLogo: 'text-lg font-bold tracking-[-0.03em] text-standalone-text',
   sidebarProduct: 'mt-0.5 text-xs font-medium leading-snug text-standalone-text-muted',
@@ -31,8 +31,12 @@ export const standaloneSkin = {
     'px-2.5 pt-1 text-xs font-semibold uppercase tracking-[0.05em] text-standalone-text-muted/90',
   sidebarArchiveList:
     'flex max-h-[min(12rem,28vh)] min-w-0 flex-col gap-0.5 overflow-x-hidden overflow-y-auto overscroll-contain',
+  sidebarArchiveRow:
+    'flex min-w-0 items-stretch gap-0.5 overflow-hidden rounded-lg transition-colors hover:bg-white/70',
   sidebarArchiveItem:
-    'block min-w-0 max-w-full overflow-hidden rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-white/70 touch-manipulation',
+    'block min-w-0 flex-1 overflow-hidden px-2.5 py-2 text-left touch-manipulation',
+  sidebarArchiveDeleteBtn:
+    'flex shrink-0 items-center justify-center self-center rounded-md p-1.5 text-standalone-text-muted/45 transition-all hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 touch-manipulation',
   sidebarArchiveTitle:
     'block min-w-0 max-w-full truncate text-sm font-medium text-standalone-text',
   sidebarArchiveMeta:
@@ -67,12 +71,18 @@ export const standaloneSkin = {
   iconBtn:
     'flex h-9 w-9 items-center justify-center rounded-lg text-standalone-text-muted transition-colors hover:bg-white/80 hover:text-standalone-primary touch-manipulation',
 
-  /* Ana sahne — sohbet kolonu optik merkez */
+  /* Ana sahne — kaydırma sağ kenarda (tam genişlik), içerik ortada */
   main: 'flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden standalone-main',
   chatStage:
     'mx-auto flex h-full min-h-0 w-full max-w-3xl flex-1 flex-col px-4 sm:px-6',
+  chatStageFull:
+    'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden',
+  mainScroll:
+    'standalone-main-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden w-full overscroll-contain',
+  chatColumn: 'mx-auto w-full max-w-3xl px-4 pb-2 sm:px-6',
+  composerBar: 'w-full shrink-0 bg-transparent',
 
-  list: 'min-h-0 flex-1 overflow-y-auto overscroll-contain',
+  list: 'min-h-0 w-full',
   listInner: 'flex flex-col',
   listInnerEmpty: 'flex min-h-0 flex-1 flex-col items-center justify-center py-8',
   listInnerActive: 'flex flex-col gap-0 py-3 sm:py-4',
@@ -106,14 +116,13 @@ export const standaloneSkin = {
   turnMetaTight: 'mt-1 flex flex-col gap-0.5',
 
   userTurn: 'ml-auto flex w-fit max-w-[min(100%,25rem)] flex-col items-end',
-  assistantTurn: 'mr-auto flex w-full max-w-[min(100%,35rem)] flex-col items-start',
+  assistantTurn: 'mr-auto w-full max-w-full flex flex-col items-start',
 
   userBubble:
     'w-fit max-w-full rounded-3xl rounded-br-md bg-[#E8F2FF]/90 px-4 py-3 text-standalone-text shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]',
-  assistantBubble:
-    'w-fit max-w-full rounded-3xl rounded-bl-md border border-[#E8ECF2]/80 bg-[#FDFEFE] px-4 py-3.5 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.08),0_1px_2px_rgba(15,23,42,0.04)]',
-  typingBubble:
-    'w-fit rounded-3xl rounded-bl-md border border-[#E8ECF2]/80 bg-[#FDFEFE] px-4 py-3.5 shadow-[0_1px_4px_rgba(15,23,42,0.05)]',
+  /** AI yanıtı — baloncuk yok, doğrudan akış */
+  assistantBody: 'w-full max-w-full py-0.5',
+  typingIndicator: 'flex items-center gap-1 py-1.5',
 
   messageText:
     'text-base font-normal leading-[1.7] text-standalone-text whitespace-pre-wrap break-words',
@@ -130,7 +139,7 @@ export const standaloneSkin = {
     'text-[1.75rem] font-semibold leading-tight tracking-[-0.025em] text-standalone-text sm:text-[2rem]',
   emptyBody:
     'mx-auto mt-4 max-w-md text-base leading-relaxed text-standalone-text-secondary sm:text-[1.0625rem] sm:leading-relaxed',
-  chatStageWithMessages: 'flex min-h-0 flex-1 flex-col',
+  chatStageWithMessages: 'flex min-h-0 min-w-0 flex-1 flex-col',
 } as const;
 
 export function scoreToEzaRiskLevel(score: number): EzaRiskLevel {
