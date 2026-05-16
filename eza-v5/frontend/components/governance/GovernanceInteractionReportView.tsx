@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MetricCard, TrendChart, EmptyState } from '@/components/eza';
+import {
+  InteractionLayersGrid,
+  RecentTurnBanner,
+} from '@/components/eza/InteractionLayersSection';
 import SafeModeFeedbackBar from '@/components/governance/SafeModeFeedbackBar';
 import {
   GOVERNANCE_REPORT_DISCLAIMER,
@@ -61,6 +65,12 @@ function WowHero({
       <blockquote className="mt-8 max-w-2xl text-2xl font-medium leading-snug tracking-[-0.03em] text-eza-text sm:text-[1.75rem] sm:leading-tight md:text-3xl">
         {model.wowMoment}
       </blockquote>
+
+      {model.layers.recentTurn.show ? (
+        <p className="mt-4 max-w-lg text-sm leading-relaxed text-eza-text-secondary">
+          {model.layers.recentTurn.summary}
+        </p>
+      ) : null}
 
       <p className="mt-8 max-w-md text-sm leading-relaxed text-eza-text-muted">
         EZA yalnızca sayısal etkileşim sinyallerini analiz eder.
@@ -205,10 +215,9 @@ export default function GovernanceInteractionReportView({
             Bu gözlem neye dayanıyor?
           </h2>
           <p className="mt-1 text-sm text-eza-text-secondary">{model.periodCaption}</p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            {model.evidenceCards.map((card) => (
-              <EvidenceCardView key={card.title} card={card} />
-            ))}
+          <div className="mt-6">
+            <RecentTurnBanner turn={model.layers.recentTurn} />
+            <InteractionLayersGrid layers={model.layers.layers} />
           </div>
         </section>
 
@@ -216,9 +225,11 @@ export default function GovernanceInteractionReportView({
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-eza-text sm:text-xl">
-                Genel etkileşim profili
+                Üç katmanlı etkileşim profili
               </h2>
-              <p className="mt-1 text-sm text-eza-text-secondary">Özet göstergeler</p>
+              <p className="mt-1 text-sm text-eza-text-secondary">
+                Kullanıcı sinyalleri · AI yanıt · denge
+              </p>
             </div>
             {headerActions}
           </div>
@@ -236,9 +247,9 @@ export default function GovernanceInteractionReportView({
           <p className="mt-1 text-sm text-eza-text-secondary">{model.ezaTrendCaption}</p>
 
           <div className="mt-6">
-            <h3 className="mb-3 text-sm font-medium text-eza-text">EZA skoru zaman içinde</h3>
+            <h3 className="mb-3 text-sm font-medium text-eza-text">AI yanıt skoru zaman içinde</h3>
             {model.showTrendChart ? (
-              <TrendChart data={model.ezaTrend} valueLabel="EZA skoru" height={220} domain={[0, 100]} />
+              <TrendChart data={model.ezaTrend} valueLabel="AI yanıt skoru" height={220} domain={[0, 100]} />
             ) : (
               <EmptyState
                 title="Trend grafiği için en az 5 etkileşim gerekir"

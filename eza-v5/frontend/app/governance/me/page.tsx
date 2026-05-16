@@ -6,7 +6,10 @@ import { useSafeModeTrend } from '@/hooks/useSafeModeTrend';
 import { useSafeModeInsight } from '@/hooks/useSafeModeInsight';
 import GovernanceInteractionReportView from '@/components/governance/GovernanceInteractionReportView';
 import GovernanceErrorState from '@/components/governance/GovernanceErrorState';
-import { buildGovernanceReportFromTrend } from '@/lib/eza/governanceReportModel';
+import {
+  buildGovernanceReportFromTrend,
+  emptyGovernanceReportPlaceholder,
+} from '@/lib/eza/governanceReportModel';
 import { EmptyState } from '@/components/eza';
 
 export default function GovernanceMePage() {
@@ -43,22 +46,7 @@ export default function GovernanceMePage() {
   return (
     <GovernanceInteractionReportView
       model={
-        model ?? {
-          wowMoment: 'Seni tanımak için biraz daha etkileşim gerekiyor.',
-          periodCaption: 'Veri bekleniyor',
-          sampleCount: 0,
-          confidence: null,
-          reliabilityLabel: null,
-          evidenceCards: [],
-          kpis: [],
-          ezaTrend: [],
-          ezaTrendCaption: '',
-          showTrendChart: false,
-          tendencyCards: [],
-          historyRows: [],
-          disclaimer: '',
-          canInterpret: false,
-        }
+        model ?? emptyGovernanceReportPlaceholder()
       }
       loading={loading}
       headerActions={

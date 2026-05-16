@@ -9,6 +9,12 @@ import type {
   SafeModeTrend,
 } from '@/lib/types/safemode';
 import { trendChartFromEza } from '@/lib/eza/safemodeDisplay';
+import {
+  aggregateFromAverages,
+  buildInteractionLayers,
+  buildSplitWowMoment,
+  type InteractionLayersSnapshot,
+} from '@/lib/eza/interactionLayers';
 
 export const GOVERNANCE_REPORT_DISCLAIMER =
   'EZA analizleri gözlemsel sinyaller üretir. Sonuçlar kesin karar yerine farkındalık sağlamayı amaçlar.';
@@ -60,6 +66,7 @@ export interface GovernanceReportViewModel {
   feedbackEventId?: string;
   feedbackAnalysisId?: string;
   feedbackMetric?: string;
+  layers: InteractionLayersSnapshot;
 }
 
 const MIN_TREND_SAMPLES = 5;
@@ -92,12 +99,26 @@ function buildWowMoment(input: {
   avgEza: number | null;
   avgAlign: number | null;
   avgInputRisk: number | null;
+  avgOutputRisk?: number | null;
   ezaSlope: number | null;
   seed: string;
   insight?: SafeModeInsight | null;
 }): string {
-  const { sampleCount, avgEza, avgAlign, avgInputRisk, ezaSlope, seed, insight } = input;
+  const { sampleCount, avgEza, avgAlign, avgInputRisk, avgOutputRisk, ezaSlope, seed, insight } =
+    input;
   const n = sampleCount;
+
+  const layerSnap = buildInteractionLayers(
+    aggregateFromAverages({
+      avgInputRisk,
+      avgOutputRisk: avgOutputRisk ?? null,
+      avgAlign,
+      avgAssistantScore: avgEza,
+      sampleCount: n,
+    })
+  );
+  const splitWow = buildSplitWowMoment(layerSnap, seed, n);
+  if (splitWow) return splitWow;
 
   if (n < MIN_WOW_SAMPLES) {
     return pickVariant(
@@ -142,6 +163,17 @@ function buildWowMoment(input: {
         `${n} konuşma boyunca etkileşim dengesi tutarlı göründü.`,
         `Son etkileşimlerde uyum kalitesi yüksek aralıkta kaldı.`,
         `Son ${n} konuşmada belirgin risk sapmaları gözlemlenmedi.`,
+      ],
+      seed,
+      n
+    );
+  }
+
+  if (avgInputRisk !== null && avgInputRisk >= 0.45 && (input.avgOutputRisk ?? 1) < 0.3) {
+    return pickVariant(
+      [
+        'Bazı girişlerde risk sinyali gözlemlendi; AI yanıtları güvenli sınırlar içinde kaldı.',
+        'Girdi tarafında dikkat çeken sinyaller varken yanıtlar güvenli kalma eğiliminde seyretti.',
       ],
       seed,
       n
@@ -268,6 +300,7 @@ function coreFromReport(report: SafeModeReport) {
     avgEza: report.averages.eza_score ?? base.avgEza,
     avgAlign: report.averages.alignment_score ?? null,
     avgInputRisk: report.averages.input_risk ?? null,
+    avgOutputRisk: report.averages.output_risk ?? null,
     confidence: report.confidence ?? base.confidence,
     reliabilityLabel: report.reliability?.label ?? base.reliabilityLabel,
     canInterpret: report.can_interpret ?? base.canInterpret,
@@ -278,85 +311,42 @@ function coreFromReport(report: SafeModeReport) {
 }
 
 function assembleViewModel(
-  core: ReturnType<typeof coreFromTrend> & { periodCaption?: string },
+  core: ReturnType<typeof coreFromTrend> & {
+    periodCaption?: string;
+    avgOutputRisk?: number | null;
+  },
   insight?: SafeModeInsight | null
 ): GovernanceReportViewModel {
   const fmt = (n: number | null) =>
     n !== null && !Number.isNaN(n) ? (n <= 1 ? (n * 100).toFixed(0) : n.toFixed(1)) : '—';
 
-  const avgEzaDisplay =
-    core.avgEza !== null ? (core.avgEza <= 1 ? (core.avgEza * 100).toFixed(1) : core.avgEza.toFixed(1)) : '—';
-
   const confidenceMeta =
     core.confidence != null ? `Analiz güveni: %${Math.round(core.confidence)}` : undefined;
 
-  const evidenceCards: EvidenceCard[] = [
-    {
-      title: 'Ortalama EZA skoru',
-      value: avgEzaDisplay,
-      description:
-        core.avgEza !== null && core.avgEza >= (core.avgEza <= 1 ? 0.75 : 75)
-          ? 'Son etkileşimlerde güvenli aralıkta seyretti.'
-          : 'Skor orta bandda; eğilim izlenmeye devam ediyor.',
-      meta: confidenceMeta,
-    },
-    {
-      title: 'Risk sinyali',
-      value:
-        core.avgInputRisk !== null
-          ? `%${Math.round(core.avgInputRisk <= 1 ? core.avgInputRisk * 100 : core.avgInputRisk)} yoğunluk`
-          : '—',
-      description:
-        core.avgInputRisk !== null && core.avgInputRisk < 0.35
-          ? 'Risk yoğunluğu düşük seviyede görünüyor.'
-          : 'Risk sinyalleri izlenmeye değer bir düzeyde seyrediyor.',
-      meta: core.sampleCount ? `${core.sampleCount} etkileşim özeti` : undefined,
-    },
-    {
-      title: 'Etkileşim dengesi',
-      value:
-        core.avgAlign !== null
-          ? fmt(core.avgAlign <= 1 ? core.avgAlign * 100 : core.avgAlign)
-          : core.asymmetry !== null
-            ? `${Math.round((1 - Math.min(1, core.asymmetry)) * 100)}`
-            : '—',
-      description:
-        core.avgAlign !== null && core.avgAlign >= (core.avgAlign <= 1 ? 0.7 : 70)
-          ? 'Girdi ve çıktı sinyalleri dengeli görünüyor.'
-          : 'Etkileşim dengesi sinyalleri toplanıyor.',
-      meta: core.reliabilityLabel ?? undefined,
-    },
-  ];
+  const layers = buildInteractionLayers(
+    aggregateFromAverages({
+      avgInputRisk: core.avgInputRisk,
+      avgOutputRisk: core.avgOutputRisk ?? null,
+      avgAlign: core.avgAlign,
+      avgAssistantScore: core.avgEza,
+      sampleCount: core.sampleCount,
+    })
+  );
 
-  const kpis: ProfileKpi[] = [
-    { label: 'Ortalama EZA Skoru', value: avgEzaDisplay, hint: `${core.sampleCount} ölçüm` },
-    {
-      label: 'Uyum Kalitesi',
-      value: core.avgAlign !== null ? fmt(core.avgAlign <= 1 ? core.avgAlign * 100 : core.avgAlign) : '—',
-      hint: core.avgAlign !== null && core.avgAlign >= (core.avgAlign <= 1 ? 0.7 : 70) ? 'Yüksek' : 'Orta',
-    },
-    {
-      label: 'Risk Yoğunluğu',
-      value:
-        core.avgInputRisk !== null
-          ? `${Math.round((1 - (core.avgInputRisk <= 1 ? core.avgInputRisk : core.avgInputRisk / 100)) * 100)}`
-          : '—',
-      hint:
-        core.avgInputRisk !== null && core.avgInputRisk < 0.35
-          ? 'Düşük'
-          : core.avgInputRisk !== null
-            ? 'İzlenmeli'
-            : '—',
-    },
-    {
-      label: 'Yönlendirme Etkisi',
-      value:
-        core.asymmetry !== null
-          ? `${Math.round((1 - Math.min(1, core.asymmetry)) * 100)}`
-          : '—',
-      hint: (core.asymmetry ?? 0) < 0.25 ? 'Düşük' : 'İzlenmeli',
-    },
-  ];
+  const evidenceCards: EvidenceCard[] = layers.layers.map((layer) => ({
+    title: layer.title,
+    value: layer.kpis[0]?.value ?? '—',
+    description: layer.headline,
+    meta: layer.kpis[1]?.hint ?? confidenceMeta,
+  }));
+
+  const kpis: ProfileKpi[] = layers.layers.flatMap((layer) =>
+    layer.kpis.map((k) => ({
+      label: `${layer.title} · ${k.label}`,
+      value: k.value,
+      hint: k.hint,
+    }))
+  );
 
   const historyRows: HistoryRow[] = core.ezaTrend.map((p, i) => ({
     label: p.label,
@@ -370,6 +360,7 @@ function assembleViewModel(
       avgEza: core.avgEza,
       avgAlign: core.avgAlign,
       avgInputRisk: core.avgInputRisk,
+      avgOutputRisk: core.avgOutputRisk ?? null,
       ezaSlope: core.ezaSlope,
       seed: core.seed,
       insight,
@@ -383,22 +374,59 @@ function assembleViewModel(
     kpis,
     ezaTrend: core.ezaTrend,
     ezaTrendCaption: core.canTrend
-      ? 'EZA skoru zaman içinde (özet seri)'
+      ? 'AI yanıt skoru zaman içinde (özet seri)'
       : 'Trend için en az 5 etkileşim gerekir',
     showTrendChart: core.ezaTrend.length >= MIN_TREND_SAMPLES && core.canTrend,
-    tendencyCards: buildTendencyCards(
-      core.avgEza,
-      core.avgAlign,
-      core.avgInputRisk,
-      core.asymmetry,
-      null
-    ),
+    tendencyCards: layers.layers.map((layer) => ({
+      id: layer.id,
+      title: layer.title,
+      level: layer.level,
+      description: layer.description,
+      value:
+        layer.id === 'user'
+          ? Math.round((1 - layers.avgInputRisk) * 100)
+          : layer.id === 'assistant'
+            ? Math.round((1 - layers.avgOutputRisk) * 100)
+            : Math.round(layers.avgAlign),
+    })),
+    layers,
     historyRows,
     disclaimer: core.disclaimer,
     canInterpret: core.canInterpret,
     feedbackEventId: insight?.event_id ?? undefined,
     feedbackAnalysisId: insight?.analysis_id ?? undefined,
     feedbackMetric: insight?.metric,
+  };
+}
+
+export function emptyGovernanceReportPlaceholder(
+  wowMoment = 'Seni tanımak için biraz daha etkileşim gerekiyor.'
+): GovernanceReportViewModel {
+  const layers = buildInteractionLayers(
+    aggregateFromAverages({
+      avgInputRisk: 0,
+      avgOutputRisk: 0,
+      avgAlign: null,
+      avgAssistantScore: null,
+      sampleCount: 0,
+    })
+  );
+  return {
+    wowMoment,
+    periodCaption: 'Veri bekleniyor',
+    sampleCount: 0,
+    confidence: null,
+    reliabilityLabel: null,
+    evidenceCards: [],
+    kpis: [],
+    ezaTrend: [],
+    ezaTrendCaption: '',
+    showTrendChart: false,
+    tendencyCards: [],
+    historyRows: [],
+    disclaimer: GOVERNANCE_REPORT_DISCLAIMER,
+    canInterpret: false,
+    layers,
   };
 }
 

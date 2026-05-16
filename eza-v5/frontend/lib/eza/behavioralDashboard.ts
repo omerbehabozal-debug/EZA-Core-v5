@@ -5,6 +5,12 @@
 
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import type { TrendChartPoint } from '@/components/eza/TrendChart';
+import {
+  aggregateFromEntries,
+  buildInteractionLayers,
+  buildSplitWowMoment,
+  type InteractionLayersSnapshot,
+} from '@/lib/eza/interactionLayers';
 
 export type LevelLabel = 'Düşük' | 'Orta' | 'Yüksek' | 'Stabil' | 'Artıyor' | 'Azalıyor';
 
@@ -83,6 +89,7 @@ export interface BehavioralDashboardModel {
   intensitySubtitle: string;
   intensityByDay: IntensityPoint[];
   intensityPeakLabel: string | null;
+  layers: InteractionLayersSnapshot;
 }
 
 const DEFAULT_DAYS = 7;
@@ -381,6 +388,10 @@ export function buildBehavioralDashboard(
     insights[0] ??
     heroNarrative;
 
+  const layerInput = aggregateFromEntries(ordered);
+  const layers = buildInteractionLayers(layerInput);
+  const splitWow = buildSplitWowMoment(layers, `standalone-${sampleCount}`, sampleCount);
+
   const wowMoment = (() => {
     if (sampleCount === 0) {
       return 'Henüz bir etkileşim analizi yok; sohbete başladığınızda burada ilk gözleminiz belirecek.';
@@ -388,8 +399,11 @@ export function buildBehavioralDashboard(
     if (!hasEnoughData) {
       return 'Seni tanımak için biraz daha zaman gerekiyor.';
     }
+    if (splitWow) {
+      return splitWow;
+    }
     if (avgAlign >= 70 && avgInputRisk < 0.45 && redirectRate < 0.2) {
-      return 'Son etkileşimlerde AI yanıtlarıyla uyumunuz yüksek, risk sinyalleriniz düşük görünüyor.';
+      return 'Son etkileşimlerde AI yanıtlarıyla uyum yüksek; girdi sinyalleri düşük seyretti.';
     }
     if (redirectRate < 0.15) {
       return 'AI ile yazışmalarınızda yönlendirme sinyali düşük seyrediyor.';
@@ -437,42 +451,18 @@ export function buildBehavioralDashboard(
   const redirectMetric = profile.find((m) => m.id === 'redirect')!;
   const riskMetric = profile.find((m) => m.id === 'risk')!;
 
-  const tendencyCards: TendencyCard[] = [
-    {
-      id: 'balance',
-      title: 'AI etkileşim dengesi',
-      level: avgEza >= 75 ? 'Stabil' : avgEza >= 50 ? 'Orta' : 'Yüksek',
-      description:
-        avgEza >= 70
-          ? 'AI ile etkileşimlerinizde genel denge sinyali olumlu görünüyor.'
-          : 'Etkileşim dengesi sinyalleri karışık; birkaç tur daha veri faydalı olabilir.',
-      value: Math.round(avgEza || 0),
-    },
-    {
-      id: 'risk',
-      title: 'Risk sinyali',
-      level: riskMetric.level,
-      description: tendencyDescriptions.risk(riskMetric.level, riskMetric),
-      value: riskMetric.value,
-    },
-    {
-      id: 'redirect',
-      title: 'Yönlendirme etkisi',
-      level: redirectMetric.level,
-      description: tendencyDescriptions.redirect(redirectMetric.level, redirectMetric),
-      value: redirectMetric.value,
-    },
-    {
-      id: 'alignment',
-      title: 'Uyum kalitesi',
-      level: avgAlign >= 80 ? 'Yüksek' : avgAlign >= 60 ? 'Orta' : 'Düşük',
-      description:
-        avgAlign >= 70
-          ? 'Son etkileşimlerde yanıt uyumu yüksek seyrediyor.'
-          : 'Uyum sinyalleri karışık; birkaç etkileşim daha netlik sağlayabilir.',
-      value: Math.round(avgAlign || 0),
-    },
-  ];
+  const tendencyCards: TendencyCard[] = layers.layers.map((layer) => ({
+    id: layer.id,
+    title: layer.title,
+    level: layer.level,
+    description: layer.description,
+    value:
+      layer.id === 'user'
+        ? Math.round((1 - layers.avgInputRisk) * 100)
+        : layer.id === 'assistant'
+          ? Math.round((1 - layers.avgOutputRisk) * 100)
+          : Math.round(layers.avgAlign),
+  }));
 
   const reliabilityScore =
     ezaScores.length > 0 ? Math.round(avg(ezaScores) * 10) / 10 : null;
@@ -483,64 +473,20 @@ export function buildBehavioralDashboard(
 
   const fmt = (n: number | null) => (n !== null && !Number.isNaN(n) ? n.toFixed(1) : '—');
 
-  const evidenceCards: EvidenceCard[] = [
-    {
-      title: 'Ortalama EZA skoru',
-      value: ezaScores.length ? fmt(avgEza) : '—',
-      description: ezaScores.length
-        ? avgEza >= 75
-          ? 'Son etkileşimlerde güvenli aralıkta seyrediyor.'
-          : avgEza >= 55
-            ? 'Skor orta bandda; eğilim izlenmeye devam ediyor.'
-            : 'Bazı yanıtlarda dikkat gerektiren sinyaller görülüyor.'
-        : 'Henüz ölçüm yok.',
-      meta: confidenceMeta,
-    },
-    {
-      title: 'Risk sinyali',
-      value: sampleCount ? `%${Math.round(avgInputRisk * 100)} yoğunluk` : '—',
-      description:
-        trendLabel(inputRiskSlope, 0.015) === 'Azalıyor'
-          ? 'Risk eğilimi düşüşte görünüyor.'
-          : trendLabel(inputRiskSlope, 0.015) === 'Artıyor'
-            ? 'Son dönemde risk sinyali artış eğiliminde.'
-            : 'Risk profili stabil seyrediyor.',
-      meta: sampleCount ? `${sampleCount} etkileşim özeti` : undefined,
-    },
-    {
-      title: 'Yönlendirme etkisi',
-      value: sampleCount ? redirectMetric.level : '—',
-      description: tendencyDescriptions.redirect(
-        redirectMetric.level,
-        redirectMetric
-      ),
-      meta:
-        reliabilityScore !== null ? `Güven skoru: ${reliabilityScore}` : undefined,
-    },
-  ];
+  const evidenceCards: EvidenceCard[] = layers.layers.map((layer) => ({
+    title: layer.title,
+    value: layer.kpis[0]?.value ?? '—',
+    description: layer.headline,
+    meta: layer.kpis[1]?.hint,
+  }));
 
-  const kpis: DashboardKpi[] = [
-    {
-      label: 'Ortalama EZA Skoru',
-      value: ezaScores.length ? fmt(avgEza) : '—',
-      hint: ezaScores.length ? `${ezaScores.length} ölçüm` : undefined,
-    },
-    {
-      label: 'Uyum Kalitesi',
-      value: alignments.length ? `${Math.round(avgAlign)}` : '—',
-      hint: avgAlign >= 70 ? 'Yüksek' : 'Orta',
-    },
-    {
-      label: 'Risk Yoğunluğu',
-      value: sampleCount ? `${Math.round((1 - avgInputRisk) * 100)}` : '—',
-      hint: trendLabel(inputRiskSlope, 0.015),
-    },
-    {
-      label: 'Yönlendirme Etkisi',
-      value: sampleCount ? `${Math.round((1 - redirectRate) * 100)}` : '—',
-      hint: redirectRate < 0.2 ? 'Düşük' : 'İzlenmeli',
-    },
-  ];
+  const kpis: DashboardKpi[] = layers.layers.flatMap((layer) =>
+    layer.kpis.map((k) => ({
+      label: `${layer.title} · ${k.label}`,
+      value: k.value,
+      hint: k.hint,
+    }))
+  );
 
   const todayKey = dayKey(new Date().toISOString());
   const todayCount = ordered.filter((e) => dayKey(e.savedAt) === todayKey).length;
@@ -585,10 +531,10 @@ export function buildBehavioralDashboard(
     granularity === 'session' ? buildSessionEzaTrend(ordered) : buildDailyEzaTrend(ordered);
   const ezaTrendCaption =
     granularity === 'session'
-      ? 'Bugünkü oturum — etkileşim sırasına göre EZA skoru'
+      ? 'Bugünkü oturum — etkileşim sırasına göre AI yanıt skoru'
       : granularity === 'weekly'
-        ? 'Günlük ortalama EZA skoru (son 7 gün)'
-        : 'Günlük ortalama EZA skoru';
+        ? 'Günlük ortalama AI yanıt skoru (son 7 gün)'
+        : 'Günlük ortalama AI yanıt skoru';
 
   const periodLabel =
     granularity === 'session'
@@ -630,5 +576,6 @@ export function buildBehavioralDashboard(
     intensitySubtitle,
     intensityByDay,
     intensityPeakLabel,
+    layers,
   };
 }

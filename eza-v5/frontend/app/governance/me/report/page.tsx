@@ -8,7 +8,10 @@ import GovernanceInteractionReportView from '@/components/governance/GovernanceI
 import GovernanceErrorState from '@/components/governance/GovernanceErrorState';
 import { EmptyState } from '@/components/eza';
 import type { SafeModeReportPeriod } from '@/lib/types/safemode';
-import { buildGovernanceReportFromReport } from '@/lib/eza/governanceReportModel';
+import {
+  buildGovernanceReportFromReport,
+  emptyGovernanceReportPlaceholder,
+} from '@/lib/eza/governanceReportModel';
 
 export default function GovernanceMeReportPage() {
   const [period, setPeriod] = useState<SafeModeReportPeriod>('weekly');
@@ -39,22 +42,7 @@ export default function GovernanceMeReportPage() {
   return (
     <GovernanceInteractionReportView
       model={
-        model ?? {
-          wowMoment: 'Seni tanımak için biraz daha etkileşim gerekiyor.',
-          periodCaption: 'Veri bekleniyor',
-          sampleCount: 0,
-          confidence: null,
-          reliabilityLabel: null,
-          evidenceCards: [],
-          kpis: [],
-          ezaTrend: [],
-          ezaTrendCaption: '',
-          showTrendChart: false,
-          tendencyCards: [],
-          historyRows: [],
-          disclaimer: '',
-          canInterpret: false,
-        }
+        model ?? emptyGovernanceReportPlaceholder()
       }
       loading={isLoading}
       backHref="/governance/me"

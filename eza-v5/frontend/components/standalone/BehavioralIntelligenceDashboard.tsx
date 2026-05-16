@@ -8,6 +8,10 @@ import TrendChart from '@/components/eza/TrendChart';
 import MetricCard from '@/components/eza/MetricCard';
 import EmptyState from '@/components/eza/EmptyState';
 import {
+  InteractionLayersGrid,
+  RecentTurnBanner,
+} from '@/components/eza/InteractionLayersSection';
+import {
   BEHAVIORAL_DISCLAIMER,
   buildBehavioralDashboard,
   type BehavioralDashboardModel,
@@ -85,6 +89,12 @@ function WowMomentScreen({
       <blockquote className="mt-6 max-w-xl text-2xl font-medium leading-snug tracking-[-0.03em] text-standalone-text sm:text-3xl sm:leading-tight">
         {model.wowMoment}
       </blockquote>
+
+      {model.layers.recentTurn.show ? (
+        <p className="mt-4 max-w-lg text-sm leading-relaxed text-standalone-text-secondary">
+          {model.layers.recentTurn.summary}
+        </p>
+      ) : null}
 
       <p className="mt-6 max-w-md text-sm leading-relaxed text-standalone-text-muted">
         EZA mesaj metnini saklamadan yalnızca sayısal etkileşim sinyallerini analiz eder.
@@ -285,17 +295,14 @@ export default function BehavioralIntelligenceDashboard({
           title="Bu gözlem neye dayanıyor?"
           subtitle={`${model.periodLabel} · ${model.periodCaption}`}
         >
-          <div className="grid gap-4 sm:grid-cols-3">
-            {model.evidenceCards.map((card) => (
-              <EvidenceCardView key={card.title} card={card} />
-            ))}
-          </div>
+          <RecentTurnBanner turn={model.layers.recentTurn} />
+          <InteractionLayersGrid layers={model.layers.layers} className="[&_article]:!border-standalone-border/55 [&_article]:!bg-white/90" />
         </SectionShell>
 
         <SectionShell
           id={SECTION_PROFILE}
-          title="Genel davranış profili"
-          subtitle="Özet göstergeler — gözlemsel sinyaller"
+          title="Üç katmanlı etkileşim profili"
+          subtitle="Kullanıcı sinyalleri · AI yanıt davranışı · etkileşim dengesi"
         >
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {model.kpis.map((kpi) => (
@@ -318,12 +325,12 @@ export default function BehavioralIntelligenceDashboard({
           <div className="space-y-8">
             <div>
               <h3 className="mb-3 text-sm font-medium text-standalone-text">
-                EZA skoru zaman içinde
+                AI yanıt skoru zaman içinde
               </h3>
               {model.showTrendChart ? (
                 <TrendChart
                   data={model.ezaTrend}
-                  valueLabel="EZA skoru"
+                  valueLabel="AI yanıt skoru"
                   height={200}
                   domain={[0, 100]}
                   className="!border-standalone-border/50 !bg-white/80"
