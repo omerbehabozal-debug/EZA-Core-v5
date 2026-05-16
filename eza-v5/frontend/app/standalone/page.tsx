@@ -138,23 +138,26 @@ export default function StandalonePage() {
     return () => window.clearTimeout(t);
   }, []);
 
+  const persistSession = useCallback((msgs: Message[]) => {
+    const archived = toArchivedMessages(msgs);
+    if (archived.length === 0) return;
+    saveChatDraft({
+      sessionArchiveId: ACTIVE_SESSION_ARCHIVE_ID,
+      messages: archived,
+      updatedAt: new Date().toISOString(),
+    });
+    upsertActiveChatArchive(archived);
+  }, []);
+
   useEffect(() => {
-    if (skipAutosaveRef.current || isLoading || isTyping) return;
+    if (skipAutosaveRef.current) return;
 
     const archived = toArchivedMessages(messages);
     if (archived.length === 0) return;
 
-    const timer = window.setTimeout(() => {
-      saveChatDraft({
-        sessionArchiveId: ACTIVE_SESSION_ARCHIVE_ID,
-        messages: archived,
-        updatedAt: new Date().toISOString(),
-      });
-      upsertActiveChatArchive(archived);
-    }, 500);
-
+    const timer = window.setTimeout(() => persistSession(messages), 400);
     return () => window.clearTimeout(timer);
-  }, [messages, isLoading, isTyping]);
+  }, [messages, persistSession]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -235,8 +238,14 @@ export default function StandalonePage() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-    
+    setMessages((prev) => {
+      const next = [...prev, userMessage];
+      if (!skipAutosaveRef.current) {
+        window.setTimeout(() => persistSession(next), 0);
+      }
+      return next;
+    });
+
     // Soft limit: Apply random throttle delay (0-300ms) during typing indicator
     const throttleDelay = dailyCount >= DAILY_LIMIT_SOFT && dailyCount < DAILY_LIMIT_HARD
       ? Math.floor(Math.random() * (THROTTLE_DELAY_MAX - THROTTLE_DELAY_MIN + 1)) + THROTTLE_DELAY_MIN

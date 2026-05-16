@@ -114,7 +114,9 @@ export default function StandaloneSidebar({
 
             <p className={standaloneSkin.sidebarSectionLabel}>Arşiv</p>
             {archives.length === 0 ? (
-              <p className={standaloneSkin.sidebarArchiveEmpty}>Henüz kayıtlı sohbet yok.</p>
+              <p className={standaloneSkin.sidebarArchiveEmpty}>
+                İlk mesajınızdan sonra burada &quot;Güncel&quot; olarak görünür.
+              </p>
             ) : (
               <ul className={standaloneSkin.sidebarArchiveList} aria-label="Kayıtlı sohbetler">
                 {archives.map((item) => {

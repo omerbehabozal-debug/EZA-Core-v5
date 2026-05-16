@@ -23,12 +23,12 @@ interface BehavioralSummaryProps {
 
 function BulletIcon({ tone }: { tone: InsightTone }) {
   if (tone === 'positive') {
-    return <Check className="h-3 w-3 text-emerald-600" strokeWidth={2.5} aria-hidden />;
+    return <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={2.5} aria-hidden />;
   }
   if (tone === 'caution') {
-    return <ShieldAlert className="h-3 w-3 text-amber-600" strokeWidth={2.5} aria-hidden />;
+    return <ShieldAlert className="h-2.5 w-2.5 text-amber-600" strokeWidth={2.5} aria-hidden />;
   }
-  return <Minus className="h-3 w-3 text-standalone-text-muted" strokeWidth={2.5} aria-hidden />;
+  return <Minus className="h-2.5 w-2.5 text-standalone-text-muted" strokeWidth={2.5} aria-hidden />;
 }
 
 function InsightSummaryLabel({
@@ -44,14 +44,14 @@ function InsightSummaryLabel({
   const scoreColor = display !== null ? scoreBadgeStyles(display).color : undefined;
 
   return (
-    <span className="truncate text-sm font-medium text-standalone-text-secondary">
-      EZA Skoru{' '}
+    <span className="truncate text-[11px] font-normal text-standalone-text-muted">
+      EZA{' '}
       {display !== null ? (
-        <span className="tabular-nums font-semibold" style={{ color: scoreColor }}>
+        <span className="tabular-nums font-medium" style={{ color: scoreColor }}>
           {display}
         </span>
       ) : pending ? (
-        <span className="tabular-nums font-semibold text-standalone-text-muted animate-pulse">…</span>
+        <span className="tabular-nums font-medium text-standalone-text-muted animate-pulse">…</span>
       ) : (
         <span className="tabular-nums text-standalone-text-muted">—</span>
       )}
@@ -72,20 +72,20 @@ function ScoreDetailPanel({ insight }: { insight: InteractionInsightView }) {
   const scoreColor = display !== null ? scoreBadgeStyles(display).color : undefined;
 
   return (
-    <div className="mt-2 rounded-lg border border-standalone-border/80 bg-standalone-surface p-2.5 shadow-eza-sm">
+    <div className="mt-1.5 rounded-md border border-standalone-border/60 bg-white/70 px-2 py-1.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       {display !== null ? (
-        <div className="mb-2 flex items-baseline gap-2 border-b border-standalone-border/60 pb-2">
-          <span className="text-xl font-semibold tabular-nums leading-none" style={{ color: scoreColor }}>
+        <div className="mb-1.5 flex items-baseline gap-1.5 border-b border-standalone-border/50 pb-1.5">
+          <span className="text-sm font-semibold tabular-nums leading-none" style={{ color: scoreColor }}>
             {display}
           </span>
-          <span className="text-sm font-medium text-standalone-text-muted">{getScoreRiskLabel(display)}</span>
+          <span className="text-[11px] font-normal text-standalone-text-muted">{getScoreRiskLabel(display)}</span>
         </div>
       ) : null}
-      <ul className="space-y-1">
+      <ul className="space-y-0.5">
         {insight.bullets.map((bullet) => (
-          <li key={bullet.text} className="flex items-center gap-2">
+          <li key={bullet.text} className="flex items-center gap-1.5">
             <BulletIcon tone={bullet.tone} />
-              <span className="text-xs font-normal text-standalone-text-secondary">{bullet.text}</span>
+              <span className="text-[11px] font-normal leading-snug text-standalone-text-secondary">{bullet.text}</span>
           </li>
         ))}
       </ul>
@@ -122,14 +122,14 @@ export default function BehavioralSummary({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'inline-flex max-w-full items-center gap-1.5 rounded-full border border-standalone-border/90 bg-standalone-muted/70 px-2.5 py-1 transition-colors hover:bg-standalone-muted touch-manipulation',
+          'inline-flex max-w-full items-center gap-1 rounded-full border border-standalone-border/70 bg-white/60 px-2 py-0.5 text-[11px] transition-colors hover:bg-white/90 touch-manipulation',
           align === 'end' ? 'text-right' : 'text-left'
         )}
         aria-expanded={open}
       >
         <InsightSummaryLabel score={insight.score} pending={pending} hint={hint} />
         <ChevronDown
-          className={cn('h-3 w-3 shrink-0 text-standalone-text-muted transition-transform', open && 'rotate-180')}
+          className={cn('h-2.5 w-2.5 shrink-0 text-standalone-text-muted/80 transition-transform', open && 'rotate-180')}
           aria-hidden
         />
       </button>

@@ -76,9 +76,9 @@ export const standaloneSkin = {
   listInnerActive: 'flex flex-col gap-0 py-3 sm:py-4',
 
   composerDock:
-    'shrink-0 border-t border-standalone-border/40 bg-standalone-surface/60 pt-3 pb-8 sm:pb-9',
+    'w-full shrink-0 border-t-0 bg-transparent px-0 pt-0 pb-8 sm:pb-9',
   composerDockEmpty: 'w-full shrink-0 border-t-0 bg-transparent px-0 pb-8 pt-0 sm:pb-9',
-  composerStack: 'flex w-full flex-col gap-2',
+  composerStack: 'flex w-full flex-col gap-2 bg-transparent',
   modelBar: 'flex items-baseline justify-center gap-2 px-1 pb-1 text-sm leading-snug',
   modelBarLabel: 'shrink-0 font-normal text-standalone-text-muted/80',
   modelTrigger:
@@ -122,7 +122,7 @@ export const standaloneSkin = {
   /* Boş durum — slogan optik merkez, composer altta */
   emptyHero:
     'flex min-h-0 flex-1 flex-col items-center justify-center px-4 pb-16 text-center sm:pb-20',
-  emptyComposerWrap: 'w-full shrink-0',
+  emptyComposerWrap: 'w-full shrink-0 bg-transparent',
   emptySlogan: 'mx-auto w-full max-w-lg translate-y-3 sm:translate-y-5',
   emptyTitle:
     'text-[1.75rem] font-semibold leading-tight tracking-[-0.025em] text-standalone-text sm:text-[2rem]',
