@@ -46,17 +46,14 @@ function WowHero({
   backHref?: string;
   backLabel?: string;
 }) {
-  const [howInlineOpen, setHowInlineOpen] = useState(false);
-
   const openHow = () => {
-    setHowInlineOpen(true);
     onOpenHow();
     scrollToId(SECTION_HOW);
   };
 
   return (
     <section
-      className={cn(reportSkin.heroSection, 'min-h-[min(100svh,880px)] px-6 py-16')}
+      className={cn(reportSkin.heroSection, 'min-h-[min(100svh,880px)] px-6 py-20')}
       aria-label="Etkileşim gözlemi"
     >
       <div className={reportSkin.heroGlow} aria-hidden />
@@ -68,41 +65,43 @@ function WowHero({
 
       <p className={reportSkin.eyebrow}>Etkileşim Raporu</p>
 
-      <blockquote className={cn(reportSkin.wowQuote, 'max-w-2xl')}>{model.wowMoment}</blockquote>
+      <blockquote className={cn(reportSkin.wowQuote, 'max-w-2xl text-[1.65rem] sm:text-3xl')}>
+        {model.wowMoment}
+      </blockquote>
 
-      <p className={cn(reportSkin.heroMuted, 'mt-8')}>{GOVERNANCE_SIGNAL_NOTE}</p>
+      <p className={reportSkin.heroMuted}>{GOVERNANCE_SIGNAL_NOTE}</p>
 
-      <div className="mt-8 w-full max-w-md text-left">
-        <button
-          type="button"
-          onClick={() => (howInlineOpen ? setHowInlineOpen(false) : openHow())}
-          className={cn(
-            'flex w-full items-center justify-between gap-2 rounded-xl border border-stone-200/70 bg-white/60 px-4 py-3 text-sm font-medium text-report-ink transition-colors hover:bg-white/90',
-            howInlineOpen && 'rounded-b-none border-b-0'
-          )}
-          aria-expanded={howInlineOpen}
-        >
-          <span>Bu nasıl hesaplandı?</span>
-          <ChevronDown
-            className={cn('h-4 w-4 shrink-0 text-stone-500 transition-transform', howInlineOpen && 'rotate-180')}
-          />
-        </button>
-        {howInlineOpen ? (
-          <div className="rounded-b-xl border border-t-0 border-stone-200/70 bg-white/80 px-4 py-3 text-sm leading-relaxed text-stone-600">
-            {model.howCalculated.signalFootnote}
-          </div>
-        ) : null}
-      </div>
+      <button type="button" onClick={openHow} className={reportSkin.heroHowLink}>
+        Bu nasıl hesaplandı?
+      </button>
 
-      <button
-        type="button"
-        onClick={onScrollDetails}
-        className="mt-16 flex flex-col items-center gap-1 text-xs text-stone-500 transition-colors hover:text-stone-700"
-      >
+      <button type="button" onClick={onScrollDetails} className={reportSkin.scrollHint}>
         <span>Detayları gör</span>
-        <ChevronDown className="h-5 w-5 animate-bounce" aria-hidden />
+        <ChevronDown className="h-4 w-4 opacity-60" strokeWidth={1.5} aria-hidden />
       </button>
     </section>
+  );
+}
+
+function FeaturedRow({
+  emoji,
+  label,
+  sentence,
+}: {
+  emoji: string;
+  label: string;
+  sentence: string;
+}) {
+  return (
+    <div className={reportSkin.featuredRow}>
+      <span className={reportSkin.featuredEmoji} aria-hidden>
+        {emoji}
+      </span>
+      <div>
+        <p className={reportSkin.featuredLabel}>{label}</p>
+        <p className={reportSkin.featuredSentence}>{sentence}</p>
+      </div>
+    </div>
   );
 }
 
@@ -110,45 +109,14 @@ function FeaturedInteractionSection({ featured }: { featured: FeaturedInteractio
   if (!featured.show) return null;
 
   return (
-    <section id={SECTION_FEATURED} className="scroll-mt-8 py-12 sm:py-14">
+    <section id={SECTION_FEATURED} className="scroll-mt-8 py-14 sm:py-16">
       <h2 className={reportSkin.sectionTitle}>Son Etkileşim</h2>
-      <p className={reportSkin.sectionSub}>Öne çıkan son etkileşim sinyali</p>
 
-      <div className="mt-6 space-y-4 rounded-2xl border border-stone-200/60 bg-white/85 p-5 shadow-sm sm:p-6">
-        <div className="flex gap-3">
-          <span className="mt-0.5 text-lg leading-none" aria-hidden>
-            🟠
-          </span>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-              Kullanıcı sinyali
-            </p>
-            <p className="mt-1 text-base leading-snug text-stone-900">{featured.userSignal}</p>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <span className="mt-0.5 text-lg leading-none" aria-hidden>
-            🟢
-          </span>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-              AI davranışı
-            </p>
-            <p className="mt-1 text-base leading-snug text-stone-900">{featured.aiBehavior}</p>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <span className="mt-0.5 text-lg leading-none" aria-hidden>
-            🔵
-          </span>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-              Etkileşim dengesi
-            </p>
-            <p className="mt-1 text-base leading-snug text-stone-900">{featured.balance}</p>
-          </div>
-        </div>
-        <p className="border-t border-stone-100 pt-4 text-xs text-stone-500">{featured.footnote}</p>
+      <div className={reportSkin.featuredBlock}>
+        <FeaturedRow emoji="🟠" label="Kullanıcı sinyali" sentence={featured.userSignal} />
+        <FeaturedRow emoji="🟢" label="AI davranışı" sentence={featured.aiBehavior} />
+        <FeaturedRow emoji="🔵" label="Etkileşim dengesi" sentence={featured.balance} />
+        <p className={reportSkin.featuredFootnote}>{featured.footnote}</p>
       </div>
     </section>
   );
@@ -156,9 +124,9 @@ function FeaturedInteractionSection({ featured }: { featured: FeaturedInteractio
 
 function EvidenceCardView({ card }: { card: EvidenceCard }) {
   return (
-    <div className="rounded-2xl border border-stone-200/60 bg-white/90 p-5 shadow-sm">
+    <div className={reportSkin.evidenceSoft}>
       <p className="text-[11px] font-medium uppercase tracking-wide text-stone-500">{card.title}</p>
-      <p className="mt-2 text-xl font-semibold tracking-tight text-stone-900">{card.value}</p>
+      <p className={reportSkin.evidenceValue}>{card.value}</p>
       <p className="mt-2 text-sm leading-relaxed text-stone-600">{card.description}</p>
       {card.meta ? (
         <span className="mt-3 inline-block rounded-full bg-report-muted px-2.5 py-0.5 text-[11px] text-report-ink">
@@ -218,7 +186,7 @@ function HowCalculatedSection({
 
 function TendencyCardView({ card }: { card: TendencyCard }) {
   return (
-    <div className={reportSkin.tendencyCard}>
+    <div className={reportSkin.tendencySoft}>
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-sm font-semibold text-stone-900">{card.title}</h4>
         <span className={reportSkin.tendencyBadge}>{card.level}</span>
@@ -349,6 +317,10 @@ export default function GovernanceInteractionReportView({
         <section id={SECTION_TRENDS} className="scroll-mt-8 border-t border-stone-200/50 py-12 sm:py-14">
           <h2 className={reportSkin.sectionTitle}>Trendler ve göstergeler</h2>
           <p className={reportSkin.sectionSub}>{model.ezaTrendCaption}</p>
+
+          {model.trendCredibilityNote ? (
+            <p className={cn(reportSkin.trendCredibility, 'mt-4')}>{model.trendCredibilityNote}</p>
+          ) : null}
 
           <div className="mt-8 grid gap-6 lg:grid-cols-[1fr,minmax(0,13rem)] lg:items-start">
             <div>

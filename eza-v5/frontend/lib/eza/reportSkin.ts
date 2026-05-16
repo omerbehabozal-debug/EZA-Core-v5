@@ -23,7 +23,40 @@ export const reportSkin = {
 
   heroSub: 'mt-4 max-w-lg text-sm leading-relaxed text-stone-600',
 
-  heroMuted: 'mt-6 max-w-md text-sm leading-relaxed text-stone-500',
+  /** Hero altı — çok küçük, dikkat dağıtmaz */
+  heroMuted:
+    'mt-10 max-w-sm text-[11px] leading-relaxed text-stone-400/90 sm:text-xs',
+
+  heroHowLink:
+    'mt-6 text-sm font-medium text-report-accent/90 underline-offset-4 hover:text-report-accent hover:underline',
+
+  scrollHint:
+    'mt-20 flex flex-col items-center gap-0.5 text-[10px] tracking-wide text-stone-400/80 transition-colors hover:text-stone-500',
+
+  /** Son etkileşim — editorial satır */
+  featuredBlock: 'mt-10 max-w-lg space-y-10',
+
+  featuredRow: 'flex gap-4',
+
+  featuredEmoji: 'mt-1 text-base leading-none opacity-90',
+
+  featuredLabel: 'text-[11px] font-medium uppercase tracking-[0.08em] text-stone-400',
+
+  featuredSentence: 'mt-1.5 text-[15px] leading-relaxed text-stone-800',
+
+  featuredFootnote: 'mt-12 text-xs leading-relaxed text-stone-400',
+
+  /** Nasıl hesaplandı — hafif, güven odaklı */
+  evidenceSoft:
+    'rounded-xl bg-stone-50/80 px-4 py-4 sm:px-5 sm:py-5',
+
+  evidenceValue: 'mt-1 text-lg font-medium text-stone-900',
+
+  trendCredibility:
+    'mb-6 text-sm leading-relaxed text-stone-500 italic',
+
+  tendencySoft:
+    'rounded-lg border-0 bg-stone-50/60 px-4 py-4',
 
   sectionTitle: 'text-lg font-semibold tracking-[-0.02em] text-stone-900 sm:text-xl',
 

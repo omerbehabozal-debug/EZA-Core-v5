@@ -79,6 +79,7 @@ export interface GovernanceReportViewModel {
   ezaTrend: TrendChartPoint[];
   ezaTrendCaption: string;
   trendInsight: string;
+  trendCredibilityNote: string;
   showTrendChart: boolean;
   tendencyCards: TendencyCard[];
   historyRows: HistoryRow[];
@@ -138,17 +139,20 @@ function qualitativeAlign(avg: number | null): { value: string; hint: string } {
   return { value: 'Düşük', hint: 'Uyum için izlemeye devam edilebilir' };
 }
 
-function qualitativeRisk(inputRisk: number | null, slope: number | null): { value: string; hint: string } {
+function qualitativeSensitiveSignal(
+  inputRisk: number | null,
+  slope: number | null
+): { value: string; hint: string } {
   if (inputRisk === null || Number.isNaN(inputRisk)) {
-    return { value: '—', hint: 'Risk sinyali henüz net değil' };
+    return { value: '—', hint: 'Etkileşim sinyali henüz net değil' };
   }
   const dir = trendDirectionLabel(slope);
   if (inputRisk < 0.3) {
     return {
-      value: 'Düşük',
+      value: 'Sakin',
       hint: pickVariant(
-        ['Hassas sinyal yoğunluğu düşük kaldı.', 'Risk sinyalleri sakin seyretti.'],
-        `risk-low-${inputRisk}`,
+        ['Hassas sinyal yoğunluğu düşük kaldı.', 'Girdi sinyalleri sakin seyretti.'],
+        `sig-low-${inputRisk}`,
         0
       ),
     };
@@ -227,7 +231,7 @@ function buildShortWowMoment(input: {
       [
         'AI yanıtları hassas sinyallere rağmen dengeyi korudu.',
         'Girdi sinyali varken yanıtlar güvenli kaldı.',
-        'Riskli girişe rağmen denge korundu.',
+        'Hassas girişe rağmen denge korundu.',
       ],
       `${seed}-split-${dir}`,
       n
@@ -258,9 +262,9 @@ function buildShortWowMoment(input: {
     return pickVariant(
       [
         'Denge stabil görünüyor.',
-        'Risk sinyalleri düşük kaldı.',
+        'Hassas sinyaller sakin seyretti.',
         'Son konuşmalarda uyum dengesi korundu.',
-        'Belirgin risk sapması gözlemlenmedi.',
+        'Belirgin sapma gözlemlenmedi.',
       ],
       `${seed}-stable-${dir}`,
       n
@@ -347,7 +351,7 @@ function buildFeaturedInteraction(
     split || (highInput && safeAi)
       ? pickVariant(
           [
-            'Riskli girişe rağmen denge korundu.',
+            'Denge korunmaya devam etti.',
             'Hassas girişe rağmen etkileşim dengesi korundu.',
             'AI yanıtları hassas sinyallere rağmen dengeyi korudu.',
           ],
@@ -378,7 +382,7 @@ function buildHowCalculatedCards(
   }
 ): EvidenceCard[] {
   const ezaQ = qualitativeEza(core.avgEza);
-  const riskQ = qualitativeRisk(core.avgInputRisk, null);
+  const signalQ = qualitativeSensitiveSignal(core.avgInputRisk, null);
   const alignQ = qualitativeAlign(core.avgAlign);
   const balanceQ =
     core.asymmetry !== null && core.asymmetry < 0.3
@@ -395,9 +399,9 @@ function buildHowCalculatedCards(
       meta: conf ? `Analiz güveni: ${conf}` : core.reliabilityLabel ?? undefined,
     },
     {
-      title: 'Risk sinyali yoğunluğu',
-      value: riskQ.value,
-      description: riskQ.hint,
+      title: 'Hassas sinyal eğilimi',
+      value: signalQ.value,
+      description: signalQ.hint,
     },
     {
       title: 'Etkileşim dengesi',
@@ -417,13 +421,13 @@ function buildProfileKpis(core: {
 }): ProfileKpi[] {
   const ezaQ = qualitativeEza(core.avgEza);
   const alignQ = qualitativeAlign(core.avgAlign);
-  const riskQ = qualitativeRisk(core.avgInputRisk, core.ezaSlope);
+  const signalQ = qualitativeSensitiveSignal(core.avgInputRisk, core.ezaSlope);
   const redirectQ = qualitativeRedirect(core.asymmetry);
 
   return [
     { label: 'Ortalama EZA Skoru', value: ezaQ.value, hint: ezaQ.hint },
     { label: 'Uyum Kalitesi', value: alignQ.value, hint: alignQ.hint },
-    { label: 'Risk Yoğunluğu', value: riskQ.value, hint: riskQ.hint },
+    { label: 'Hassas sinyal eğilimi', value: signalQ.value, hint: signalQ.hint },
     { label: 'Yönlendirme Etkisi', value: redirectQ.value, hint: redirectQ.hint },
   ];
 }
@@ -463,6 +467,16 @@ function buildTrendInsight(input: {
   return 'Denge değişimi gözlemlendi.';
 }
 
+function buildTrendCredibilityNote(sampleCount: number, showTrendChart: boolean): string {
+  if (sampleCount < MIN_WOW_SAMPLES) {
+    return 'Bu gözlem sınırlı etkileşim verisine dayanıyor.';
+  }
+  if (sampleCount < MIN_TREND_SAMPLES || !showTrendChart) {
+    return 'Daha fazla etkileşim daha net eğilimler oluşturabilir.';
+  }
+  return '';
+}
+
 function buildTendencyCards(
   avgEza: number | null,
   avgAlign: number | null,
@@ -489,15 +503,15 @@ function buildTendencyCards(
       value: ezaNorm,
     },
     {
-      id: 'risk',
-      title: 'Risk Sinyali',
+      id: 'sensitive',
+      title: 'Hassas sinyal eğilimi',
       level: trendLevelLabel(ezaSlope),
       description:
         trendDirectionLabel(ezaSlope) === 'up'
           ? 'Hassas sinyal yoğunluğu daha sık görünmeye başladı.'
           : trendDirectionLabel(ezaSlope) === 'down'
             ? 'Hassas sinyal yoğunluğu azalma eğiliminde görünüyor.'
-            : 'Risk sinyali düşük seviyede seyrediyor.',
+            : 'Hassas sinyal düşük düzeyde seyrediyor.',
       value: riskNorm,
     },
     {
@@ -640,6 +654,10 @@ function assembleViewModel(
       seed: core.seed,
     }),
     showTrendChart: core.ezaTrend.length >= MIN_TREND_SAMPLES && core.canTrend,
+    trendCredibilityNote: buildTrendCredibilityNote(
+      core.sampleCount,
+      core.ezaTrend.length >= MIN_TREND_SAMPLES && core.canTrend
+    ),
     tendencyCards: buildTendencyCards(
       core.avgEza,
       core.avgAlign,
@@ -680,6 +698,7 @@ export function emptyGovernanceReportPlaceholder(
     ezaTrend: [],
     ezaTrendCaption: '',
     trendInsight: '',
+    trendCredibilityNote: '',
     showTrendChart: false,
     tendencyCards: [],
     historyRows: [],
