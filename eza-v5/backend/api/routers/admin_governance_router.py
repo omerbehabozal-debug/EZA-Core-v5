@@ -14,6 +14,7 @@ from backend.core.governance.reports import (
     build_governance_overview,
     build_engine_reliability,
     build_calibration_summary,
+    build_weekly_calibration_report,
 )
 from backend.services.production_org import check_user_organization_membership
 
@@ -76,3 +77,19 @@ async def governance_calibration_summary(
     """Calibration feedback summary and weekly raw series for suggestions."""
     org_id = await _require_org_admin(db, current_user, x_org_id)
     return await build_calibration_summary(db, org_id, weeks=weeks)
+
+
+@router.get("/weekly-calibration-report")
+async def governance_weekly_calibration_report(
+    weeks: int = Query(1, ge=1, le=12),
+    current_user: Dict[str, Any] = Depends(require_admin()),
+    db: AsyncSession = Depends(get_db),
+    x_org_id: Optional[str] = Header(None, alias="x-org-id"),
+) -> Dict[str, Any]:
+    """
+    Weekly calibration advisory report for admin review only.
+
+    Does not modify production safety rules or thresholds.
+    """
+    org_id = await _require_org_admin(db, current_user, x_org_id)
+    return await build_weekly_calibration_report(db, org_id, weeks=weeks)

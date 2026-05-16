@@ -33,6 +33,18 @@ FORBIDDEN_RESPONSE_KEYS = frozenset({
 LOW_CONFIDENCE_THRESHOLD = 50.0
 DISAGREEMENT_SPREAD_THRESHOLD = 15.0
 
+MIN_FEEDBACK_MEDIUM_CONFIDENCE = 5
+MIN_FEEDBACK_HIGH_CONFIDENCE = 15
+
+WEEKLY_CALIBRATION_DISCLAIMER = (
+    "Bu rapor otomatik karar değişikliği yapmaz. Sadece admin kalibrasyonu için öneri üretir."
+)
+
+SUGGESTION_RATE_THRESHOLD = 0.20
+STRICT_SOFT_RATE_THRESHOLD = 0.35
+CATEGORY_ERROR_RATE_THRESHOLD = 0.15
+ENGINE_DISAGREEMENT_THRESHOLD = 0.20
+
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -461,3 +473,340 @@ async def build_calibration_summary(
     except Exception as exc:
         logger.warning("calibration summary failed: %s", exc)
         return empty
+
+
+def _feedback_confidence_level(total_feedback: int) -> str:
+    if total_feedback < MIN_FEEDBACK_MEDIUM_CONFIDENCE:
+        return "low"
+    if total_feedback < MIN_FEEDBACK_HIGH_CONFIDENCE:
+        return "medium"
+    return "high"
+
+
+def _rate(count: int, total: int) -> float:
+    if total <= 0:
+        return 0.0
+    return round(count / total, 4)
+
+
+def _suggestion(
+    suggestion_type: str,
+    message: str,
+    *,
+    severity: str = "info",
+    status: str = "actionable",
+    metric: Optional[str] = None,
+    rate: Optional[float] = None,
+) -> Dict[str, Any]:
+    item: Dict[str, Any] = {
+        "type": suggestion_type,
+        "severity": severity,
+        "status": status,
+        "message": message,
+    }
+    if metric:
+        item["metric"] = metric
+    if rate is not None:
+        item["rate"] = rate
+    return item
+
+
+def _generate_calibration_suggestions(
+    type_dist: Dict[str, int],
+    total_feedback: int,
+    top_metrics: List[Dict[str, Any]],
+    engine_report: Dict[str, Any],
+    confidence: str,
+) -> List[Dict[str, Any]]:
+    """Advisory-only suggestions; never mutates production thresholds."""
+    status_label = "preliminary" if confidence == "low" else "actionable"
+    suggestions: List[Dict[str, Any]] = []
+
+    fp = type_dist.get("FALSE_POSITIVE", 0)
+    fn = type_dist.get("FALSE_NEGATIVE", 0)
+    wrong_cat = type_dist.get("WRONG_CATEGORY", 0)
+    strict_n = type_dist.get("TOO_STRICT", 0)
+    soft_n = type_dist.get("TOO_SOFT", 0)
+
+    fp_rate = _rate(fp, total_feedback)
+    fn_rate = _rate(fn, total_feedback)
+    wrong_rate = _rate(wrong_cat, total_feedback)
+    strict_rate = _rate(strict_n, strict_n + soft_n) if (strict_n + soft_n) else 0.0
+    soft_rate = _rate(soft_n, strict_n + soft_n) if (strict_n + soft_n) else 0.0
+
+    if fp_rate >= SUGGESTION_RATE_THRESHOLD:
+        suggestions.append(
+            _suggestion(
+                "threshold_review",
+                "Yüksek false positive oranı: eşik değerlerinin gözden geçirilmesi önerilir.",
+                severity="warning",
+                status=status_label,
+                rate=fp_rate,
+            )
+        )
+    if fn_rate >= SUGGESTION_RATE_THRESHOLD:
+        suggestions.append(
+            _suggestion(
+                "threshold_review",
+                "Yüksek false negative oranı: risk eşiklerinin gevşetilmesi değerlendirilebilir.",
+                severity="warning",
+                status=status_label,
+                rate=fn_rate,
+            )
+        )
+    if wrong_rate >= CATEGORY_ERROR_RATE_THRESHOLD:
+        suggestions.append(
+            _suggestion(
+                "category_mapping_review",
+                "Kategori eşlemesi hataları artmış görünüyor; policy/category mapping gözden geçirilmeli.",
+                severity="warning",
+                status=status_label,
+                rate=wrong_rate,
+            )
+        )
+    if strict_rate >= STRICT_SOFT_RATE_THRESHOLD:
+        suggestions.append(
+            _suggestion(
+                "too_strict_warning",
+                "TOO_STRICT geri bildirimleri baskın: kurallar fazla sıkı olabilir.",
+                severity="warning",
+                status=status_label,
+                rate=strict_rate,
+            )
+        )
+    if soft_rate >= STRICT_SOFT_RATE_THRESHOLD:
+        suggestions.append(
+            _suggestion(
+                "too_soft_warning",
+                "TOO_SOFT geri bildirimleri baskın: kurallar fazla gevşek olabilir.",
+                severity="warning",
+                status=status_label,
+                rate=soft_rate,
+            )
+        )
+
+    low_conf = int(engine_report.get("low_confidence_event_count") or 0)
+    sample = int(engine_report.get("sample_size") or 0)
+    if sample > 0 and (low_conf / sample) >= 0.25:
+        suggestions.append(
+            _suggestion(
+                "confidence_review",
+                "Düşük confidence skorlu event oranı yüksek: güven skoru kalibrasyonu önerilir.",
+                severity="info",
+                status=status_label,
+                rate=round(low_conf / sample, 4),
+            )
+        )
+
+    disagreement = float(engine_report.get("disagreement_rate") or 0.0)
+    if disagreement >= ENGINE_DISAGREEMENT_THRESHOLD:
+        suggestions.append(
+            _suggestion(
+                "confidence_review",
+                "Motor oyları arasında yüksek uyumsuzluk: ensemble/confidence ayarı gözden geçirilmeli.",
+                severity="info",
+                status=status_label,
+                rate=disagreement,
+            )
+        )
+
+    if top_metrics:
+        top = top_metrics[0]
+        metric_name = str(top.get("metric_name", ""))
+        if metric_name and metric_name not in FORBIDDEN_RESPONSE_KEYS:
+            suggestions.append(
+                _suggestion(
+                    "category_mapping_review",
+                    f"En çok sorun bildirilen metrik: {metric_name}. İlgili kategori ve eşikler incelenmeli.",
+                    severity="info",
+                    status=status_label,
+                    metric=metric_name,
+                    rate=_rate(int(top.get("count", 0)), total_feedback) if total_feedback else None,
+                )
+            )
+
+    if not suggestions and total_feedback == 0:
+        suggestions.append(
+            _suggestion(
+                "threshold_review",
+                "Bu dönemde yeterli feedback yok; öneriler ön değerlendirme niteliğindedir.",
+                severity="info",
+                status="preliminary",
+            )
+        )
+
+    return suggestions
+
+
+async def build_weekly_calibration_report(
+    db: AsyncSession,
+    org_id: str,
+    weeks: int = 1,
+) -> Dict[str, Any]:
+    """
+    Weekly calibration advisory report (does not auto-apply any rule changes).
+    """
+    weeks = max(1, min(int(weeks), 12))
+    now = _utc_now()
+    since = now - timedelta(weeks=weeks)
+    period = {
+        "weeks": weeks,
+        "start": since.isoformat(),
+        "end": now.isoformat(),
+    }
+
+    base: Dict[str, Any] = {
+        "org_id": org_id,
+        "period": period,
+        "total_events": 0,
+        "total_feedback": 0,
+        "confidence": "low",
+        "feedback_quality": {
+            "correct_rate": 0.0,
+            "false_positive_rate": 0.0,
+            "false_negative_rate": 0.0,
+            "too_strict_rate": 0.0,
+            "too_soft_rate": 0.0,
+        },
+        "top_problem_metrics": [],
+        "top_problem_labels": [],
+        "engine_reliability_findings": [],
+        "calibration_suggestions": [],
+        "do_not_auto_apply": True,
+        "disclaimer": WEEKLY_CALIBRATION_DISCLAIMER,
+    }
+
+    events_ready = await _events_table_ready(db)
+    feedback_ready = await _feedback_table_ready(db)
+
+    try:
+        if events_ready:
+            base["total_events"] = await _count_events_since(db, org_id, since)
+
+        type_dist: Dict[str, int] = {}
+        if feedback_ready:
+            type_result = await db.execute(
+                text(
+                    """
+                    SELECT feedback_type, COUNT(*)::int
+                    FROM behavioral_feedback
+                    WHERE org_id = :org_id AND timestamp >= :since
+                    GROUP BY feedback_type
+                    """
+                ),
+                {"org_id": org_id, "since": since},
+            )
+            type_dist = _sanitize_distribution(
+                {str(r[0]): r[1] for r in type_result.fetchall()}
+            )
+
+        total_fb = sum(type_dist.values())
+        base["total_feedback"] = total_fb
+        confidence = _feedback_confidence_level(total_fb)
+        base["confidence"] = confidence
+
+        correct = type_dist.get("CORRECT", 0)
+        fp = type_dist.get("FALSE_POSITIVE", 0)
+        fn = type_dist.get("FALSE_NEGATIVE", 0)
+        strict_n = type_dist.get("TOO_STRICT", 0)
+        soft_n = type_dist.get("TOO_SOFT", 0)
+        strict_soft = strict_n + soft_n
+
+        base["feedback_quality"] = {
+            "correct_rate": _rate(correct, total_fb),
+            "false_positive_rate": _rate(fp, total_fb),
+            "false_negative_rate": _rate(fn, total_fb),
+            "too_strict_rate": _rate(strict_n, strict_soft) if strict_soft else 0.0,
+            "too_soft_rate": _rate(soft_n, strict_soft) if strict_soft else 0.0,
+        }
+
+        top_metrics: List[Dict[str, Any]] = []
+        if feedback_ready:
+            m_result = await db.execute(
+                text(
+                    """
+                    SELECT metric_name, COUNT(*)::int
+                    FROM behavioral_feedback
+                    WHERE org_id = :org_id AND timestamp >= :since
+                      AND metric_name IS NOT NULL
+                      AND feedback_type IN (
+                        'FALSE_POSITIVE', 'FALSE_NEGATIVE',
+                        'WRONG_CATEGORY', 'CONTEXT_MISSING', 'TOO_STRICT', 'TOO_SOFT'
+                      )
+                    GROUP BY metric_name
+                    ORDER BY COUNT(*) DESC
+                    LIMIT 5
+                    """
+                ),
+                {"org_id": org_id, "since": since},
+            )
+            top_metrics = [
+                {"metric_name": str(r[0]), "count": int(r[1])}
+                for r in m_result.fetchall()
+                if r[0] and str(r[0]) not in FORBIDDEN_RESPONSE_KEYS
+            ]
+        base["top_problem_metrics"] = top_metrics
+
+        top_labels: List[Dict[str, Any]] = []
+        if feedback_ready and events_ready:
+            l_result = await db.execute(
+                text(
+                    """
+                    SELECT e.risk_label, COUNT(*)::int
+                    FROM behavioral_feedback f
+                    JOIN eza_events e ON e.id = f.event_id
+                    WHERE f.org_id = :org_id AND f.timestamp >= :since
+                      AND e.risk_label IS NOT NULL
+                    GROUP BY e.risk_label
+                    ORDER BY COUNT(*) DESC
+                    LIMIT 5
+                    """
+                ),
+                {"org_id": org_id, "since": since},
+            )
+            top_labels = [
+                {"risk_label": str(r[0]), "count": int(r[1])}
+                for r in l_result.fetchall()
+                if r[0] and str(r[0]) not in FORBIDDEN_RESPONSE_KEYS
+            ]
+        base["top_problem_labels"] = top_labels
+
+        days_window = weeks * 7
+        engine_report = await build_engine_reliability(db, org_id, days=max(days_window, 1))
+        findings: List[Dict[str, Any]] = []
+        if engine_report.get("disagreement_rate", 0) >= ENGINE_DISAGREEMENT_THRESHOLD:
+            findings.append({
+                "finding": "elevated_engine_disagreement",
+                "value": engine_report["disagreement_rate"],
+                "status": "preliminary" if confidence == "low" else "actionable",
+            })
+        if engine_report.get("low_confidence_event_count", 0) > 0:
+            findings.append({
+                "finding": "low_confidence_events",
+                "count": engine_report["low_confidence_event_count"],
+                "status": "preliminary" if confidence == "low" else "actionable",
+            })
+        for eng, avg in (engine_report.get("engine_average_scores") or {}).items():
+            if eng in FORBIDDEN_RESPONSE_KEYS:
+                continue
+            if avg < LOW_CONFIDENCE_THRESHOLD:
+                findings.append({
+                    "finding": "low_engine_average_score",
+                    "engine": eng,
+                    "average_score": avg,
+                    "status": "preliminary" if confidence == "low" else "actionable",
+                })
+        base["engine_reliability_findings"] = findings
+
+        base["calibration_suggestions"] = _generate_calibration_suggestions(
+            type_dist,
+            total_fb,
+            top_metrics,
+            engine_report,
+            confidence,
+        )
+
+    except Exception as exc:
+        logger.warning("weekly calibration report failed: %s", exc)
+
+    return base
