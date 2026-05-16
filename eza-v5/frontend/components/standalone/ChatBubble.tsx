@@ -41,7 +41,7 @@ export default function ChatBubble({
 
           {!safeOnlyMode ? (
             <div className={standaloneSkin.insightWrap}>
-              <BehavioralSummary ezaScore={userScore} context="user" align="end" />
+              <BehavioralSummary data={behavioral} ezaScore={userScore} context="user" align="end" />
             </div>
           ) : null}
 

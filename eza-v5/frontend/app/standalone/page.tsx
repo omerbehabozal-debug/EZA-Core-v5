@@ -316,17 +316,18 @@ export default function StandalonePage() {
               });
 
               if (data.behavioral) {
-                appendBehavioralSnapshot(data.behavioral as BehavioralSnapshot);
+                const snapshot = data.behavioral as BehavioralSnapshot;
+                appendBehavioralSnapshot(snapshot);
                 setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, behavioral: data.behavioral as BehavioralSnapshot }
-                      : msg
-                  )
+                  prev.map((msg) => {
+                    if (msg.id === assistantMessageId || msg.id === userMessageId) {
+                      return { ...msg, behavioral: snapshot };
+                    }
+                    return msg;
+                  })
                 );
               }
-              
-              // Update user message with score immediately
+
               if (data.userScore !== undefined) {
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -485,10 +486,14 @@ export default function StandalonePage() {
           };
           
           // Update user message with score
-          setMessages((prev) => 
-            prev.map((msg) => 
-              msg.id === userMessageId 
-                ? { ...msg, userScore: (data as any).user_score }
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === userMessageId
+                ? {
+                    ...msg,
+                    userScore: (data as any).user_score,
+                    behavioral: behavioralFallback ?? msg.behavioral,
+                  }
                 : msg
             )
           );

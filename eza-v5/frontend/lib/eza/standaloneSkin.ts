@@ -130,6 +130,11 @@ export const standaloneSkin = {
 
   insightWrap: 'max-w-full pt-0.5',
 
+  signalPill:
+    'inline-flex max-w-full items-center gap-1.5 rounded-full border border-standalone-border/50 bg-stone-50/90 px-2.5 py-0.5 text-[10px] leading-snug text-standalone-text-secondary transition-colors hover:border-standalone-border/70 hover:bg-stone-50 touch-manipulation',
+  signalExpand:
+    'motion-safe mt-1.5 w-full min-w-[11rem] max-w-[14rem] rounded-lg border border-standalone-border/45 bg-white/75 px-2.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)]',
+
   /* Boş durum — slogan optik merkez, composer altta */
   emptyHero:
     'flex min-h-0 flex-1 flex-col items-center justify-center px-4 pb-16 text-center sm:pb-20',
