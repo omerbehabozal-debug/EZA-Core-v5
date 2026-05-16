@@ -48,9 +48,18 @@ export default function StandaloneInsightsPage() {
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6 pb-10">
-        <p className="text-xs sm:text-sm text-gray-600 mb-4">
+        <p className="text-xs sm:text-sm text-gray-600 mb-2">
           Bu sayfa yalnızca bu tarayıcıda tutulan <strong>sayısal</strong> etkileşim özetlerini listeler (mesaj metni
           saklanmaz). Backend’deki <code className="bg-gray-100 px-1 rounded">behavioral</code> alanıyla uyumludur.
+        </p>
+        <p className="text-xs sm:text-sm mb-4">
+          <Link
+            href="/governance/me"
+            className="font-medium text-indigo-600 hover:text-indigo-800 underline underline-offset-2"
+          >
+            Tam geçmiş için Governance → Me
+          </Link>
+          <span className="text-gray-500"> (giriş gerekir)</span>
         </p>
 
         {items.length === 0 ? (

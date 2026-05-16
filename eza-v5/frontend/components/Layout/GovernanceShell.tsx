@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
   { href: '/admin/governance/events', label: ezaCopy.nav.events, icon: Activity },
   { href: '/admin/governance/calibration', label: ezaCopy.nav.calibration, icon: BarChart3 },
   { href: '/admin/governance', label: ezaCopy.nav.reliability, icon: Shield },
-  { href: '/governance/me', label: ezaCopy.nav.me, icon: Calendar, disabled: true },
+  { href: '/governance/me', label: ezaCopy.nav.me, icon: Calendar },
   { href: '/design-system', label: ezaCopy.nav.designSystem, icon: Palette },
 ];
 
