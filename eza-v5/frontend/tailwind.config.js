@@ -4,6 +4,7 @@ module.exports = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
@@ -19,6 +20,19 @@ module.exports = {
           accent: '#4F46E5',
           'accent-muted': '#EEF2FF',
           'accent-hover': '#4338CA',
+        },
+        /** Kurumsal EZA — Standalone chat only */
+        standalone: {
+          primary: '#007BFF',
+          'primary-hover': '#0069D9',
+          muted: '#E7F1FF',
+          'muted-strong': '#CFE2FF',
+          border: '#D6E8FF',
+          text: '#1A1A1A',
+          'text-secondary': '#5C6578',
+          'text-muted': '#8B95A5',
+          surface: '#FFFFFF',
+          'surface-muted': '#F5F9FF',
         },
       },
       boxShadow: {

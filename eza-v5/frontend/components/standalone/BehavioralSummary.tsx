@@ -1,52 +1,140 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, ChevronDown, Minus, ShieldAlert } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { BehavioralSnapshot } from '@/lib/types';
+import {
+  buildInteractionInsight,
+  buildScoreOnlyInsight,
+  getScoreRiskLabel,
+  type InsightContext,
+  type InsightTone,
+  type InteractionInsightView,
+} from '@/lib/eza/behavioralInsights';
+import { scoreBadgeStyles } from '@/lib/eza/standaloneSkin';
 
 interface BehavioralSummaryProps {
-  data: BehavioralSnapshot;
+  data?: BehavioralSnapshot | null;
+  ezaScore?: number | null;
+  context?: InsightContext;
+  align?: 'start' | 'end';
 }
 
-export default function BehavioralSummary({ data }: BehavioralSummaryProps) {
-  const [open, setOpen] = useState(false);
-  const v = data.vector;
-  const a = data.asymmetry;
-  const shortId = data.interaction_id?.slice(0, 8) ?? '—';
+function BulletIcon({ tone }: { tone: InsightTone }) {
+  if (tone === 'positive') {
+    return <Check className="h-3 w-3 text-emerald-600" strokeWidth={2.5} aria-hidden />;
+  }
+  if (tone === 'caution') {
+    return <ShieldAlert className="h-3 w-3 text-amber-600" strokeWidth={2.5} aria-hidden />;
+  }
+  return <Minus className="h-3 w-3 text-standalone-text-muted" strokeWidth={2.5} aria-hidden />;
+}
+
+function InsightSummaryLabel({
+  score,
+  pending,
+  hint,
+}: {
+  score: number | null;
+  pending?: boolean;
+  hint: string;
+}) {
+  const display = score !== null ? Math.max(0, Math.min(100, Math.round(score))) : null;
+  const scoreColor = display !== null ? scoreBadgeStyles(display).color : undefined;
 
   return (
-    <div className="mt-1.5 w-full max-w-full">
+    <span className="truncate text-[11px] font-medium text-standalone-text-secondary">
+      EZA Skoru{' '}
+      {display !== null ? (
+        <span className="tabular-nums font-semibold" style={{ color: scoreColor }}>
+          {display}
+        </span>
+      ) : pending ? (
+        <span className="tabular-nums font-semibold text-standalone-text-muted animate-pulse">…</span>
+      ) : (
+        <span className="tabular-nums text-standalone-text-muted">—</span>
+      )}
+      {hint ? (
+        <>
+          {' '}
+          <span className="font-normal text-standalone-text-muted">·</span>{' '}
+          <span className="font-normal">{hint}</span>
+        </>
+      ) : null}
+    </span>
+  );
+}
+
+function ScoreDetailPanel({ insight }: { insight: InteractionInsightView }) {
+  const display =
+    insight.score !== null ? Math.max(0, Math.min(100, Math.round(insight.score))) : null;
+  const scoreColor = display !== null ? scoreBadgeStyles(display).color : undefined;
+
+  return (
+    <div className="mt-2 rounded-lg border border-standalone-border/80 bg-standalone-surface p-2.5 shadow-eza-sm">
+      {display !== null ? (
+        <div className="mb-2 flex items-baseline gap-2 border-b border-standalone-border/60 pb-2">
+          <span className="text-xl font-semibold tabular-nums leading-none" style={{ color: scoreColor }}>
+            {display}
+          </span>
+          <span className="text-[11px] font-medium text-standalone-text-muted">{getScoreRiskLabel(display)}</span>
+        </div>
+      ) : null}
+      <ul className="space-y-1">
+        {insight.bullets.map((bullet) => (
+          <li key={bullet.text} className="flex items-center gap-2">
+            <BulletIcon tone={bullet.tone} />
+              <span className="text-xs font-normal text-standalone-text-secondary">{bullet.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function resolveInsight(
+  data: BehavioralSnapshot | null | undefined,
+  ezaScore: number | null | undefined,
+  context: InsightContext
+): InteractionInsightView {
+  if (data?.vector) {
+    return buildInteractionInsight(data, ezaScore);
+  }
+  return buildScoreOnlyInsight(ezaScore, context);
+}
+
+export default function BehavioralSummary({
+  data,
+  ezaScore,
+  context = 'assistant',
+  align = 'start',
+}: BehavioralSummaryProps) {
+  const [open, setOpen] = useState(false);
+  const insight = resolveInsight(data, ezaScore, context);
+  const hint =
+    insight.bullets.find((b) => b.tone === 'positive')?.text ?? insight.bullets[0]?.text ?? '';
+  const pending = ezaScore === undefined && insight.score === null;
+
+  return (
+    <div className={cn('max-w-full', align === 'end' && 'flex flex-col items-end')}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 text-[10px] sm:text-xs text-eza-accent hover:text-eza-accent-hover font-medium touch-manipulation"
+        className={cn(
+          'inline-flex max-w-full items-center gap-1.5 rounded-full border border-standalone-border/90 bg-standalone-muted/70 px-2.5 py-1 transition-colors hover:bg-standalone-muted touch-manipulation',
+          align === 'end' ? 'text-right' : 'text-left'
+        )}
         aria-expanded={open}
       >
-        {open ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
-        Etkileşim özeti (davranış)
+        <InsightSummaryLabel score={insight.score} pending={pending} hint={hint} />
+        <ChevronDown
+          className={cn('h-3 w-3 shrink-0 text-standalone-text-muted transition-transform', open && 'rotate-180')}
+          aria-hidden
+        />
       </button>
-      {open && (
-        <div className="mt-1.5 rounded-lg border border-eza-border bg-eza-accent-muted/60 px-2 py-2 text-[10px] sm:text-xs text-eza-text-secondary space-y-1.5 font-mono leading-snug break-all">
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-            <span>id:{shortId}…</span>
-            <span>v{data.schema_version}</span>
-            <span>{data.mode}</span>
-          </div>
-          <div className="text-eza-text-secondary">
-            asimetri: <span className="text-eza-text">{a.index}</span> · gap: {a.health_gap} · Δrisk:{' '}
-            {a.risk_delta_output_minus_input}
-          </div>
-          <div className="text-eza-text-secondary">
-            girdi risk: {v.input_risk} · çıktı risk: {v.output_risk} · hizalama:{' '}
-            {v.alignment_score ?? '—'} · EZA: {v.eza_final ?? '—'}
-          </div>
-          <div className="text-eza-text-secondary">
-            niyet: {v.intent}
-            {v.alignment_verdict ? ` · ${v.alignment_verdict}` : ''}
-            {v.redirect ? ' · yönlendirme' : ''}
-          </div>
-        </div>
-      )}
+
+      {open ? <ScoreDetailPanel insight={insight} /> : null}
     </div>
   );
 }

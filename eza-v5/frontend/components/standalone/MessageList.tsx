@@ -1,26 +1,24 @@
 /**
- * MessageList Component - Scrollable Message Container with EmptyState
+ * MessageList — sohbet akışı
  */
 
 import { useEffect, useRef } from 'react';
 import ChatBubble from './ChatBubble';
 import LoadingDots from './LoadingDots';
 import TypingIndicator from './TypingIndicator';
-import EmptyState from './EmptyState';
-import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import { cn } from '@/lib/utils';
 
 interface Message {
   id: string;
   text: string;
   isUser: boolean;
-  // Score mode (Standalone default)
-  userScore?: number; // 0-100 for user message
-  assistantScore?: number; // 0-100 for assistant message
-  // Safe-only mode
+  userScore?: number;
+  assistantScore?: number;
   safety?: 'Safe' | 'Warning' | 'Blocked';
   safeOnlyMode?: boolean;
-  timestamp: Date;
+  timestamp?: Date;
   behavioral?: BehavioralSnapshot | null;
   feedback?: StandaloneFeedbackContext | null;
 }
@@ -33,50 +31,48 @@ interface MessageListProps {
 
 export default function MessageList({ messages, isLoading, isTyping = false }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isEmpty = messages.length === 0 && !isLoading && !isTyping;
 
   useEffect(() => {
-    // Auto-scroll to bottom when new messages arrive or typing indicator appears
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading, isTyping]);
+    if (!isEmpty) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isLoading, isTyping, isEmpty]);
 
   return (
-    <div className={standaloneSkin.list}>
-      <div className="max-w-4xl mx-auto py-3 sm:py-4 md:py-6 pb-20 sm:pb-24 w-full px-1 sm:px-2">
-        {/* Empty State */}
-        {messages.length === 0 && !isLoading && <EmptyState />}
+    <section className={standaloneSkin.list} aria-label="Sohbet">
+      <div
+        className={standaloneSkin.listInnerActive}
+      >
+        {messages.map((message) => (
+          <ChatBubble
+            key={message.id}
+            message={message.text}
+            isUser={message.isUser}
+            userScore={message.userScore}
+            assistantScore={message.assistantScore}
+            safety={message.safety}
+            safeOnlyMode={message.safeOnlyMode}
+            timestamp={message.timestamp}
+            behavioral={message.behavioral}
+            feedback={message.feedback}
+          />
+        ))}
 
-        {/* Messages */}
-        <div className="w-full">
-          {messages.map((message) => (
-            <ChatBubble
-              key={message.id}
-              message={message.text}
-              isUser={message.isUser}
-              userScore={message.userScore}
-              assistantScore={message.assistantScore}
-              safety={message.safety}
-              safeOnlyMode={message.safeOnlyMode}
-              timestamp={message.timestamp}
-              behavioral={message.behavioral}
-              feedback={message.feedback}
-            />
-          ))}
-        </div>
+        {isTyping ? <TypingIndicator /> : null}
 
-        {/* Typing Indicator - Shows before streaming starts */}
-        {isTyping && <TypingIndicator />}
-
-        {/* Loading Indicator - Legacy fallback (not used with streaming) */}
-        {isLoading && !isTyping && (
-          <div className="flex justify-start mb-3 sm:mb-4 md:mb-5 px-2 sm:px-4">
-            <div className={standaloneSkin.typingBubble}>
-              <LoadingDots />
+        {isLoading && !isTyping ? (
+          <div className={`flex justify-start ${standaloneSkin.turnBlock}`}>
+            <div className={standaloneSkin.assistantTurn}>
+              <div className={standaloneSkin.typingBubble}>
+                <LoadingDots />
+              </div>
             </div>
           </div>
-        )}
+        ) : null}
 
-        <div ref={messagesEndRef} />
+        {!isEmpty ? <div ref={messagesEndRef} className="h-2 shrink-0" aria-hidden /> : null}
       </div>
-    </div>
+    </section>
   );
 }

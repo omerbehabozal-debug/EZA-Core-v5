@@ -16,12 +16,14 @@ from backend.core.engines.redirect_engine import should_redirect
 from backend.behavioral.interaction import analyze_interaction_turn
 from backend.config import get_settings
 from backend.core.engines.model_router import LLM_API_KEY, LLM_MODEL, OPENAI_BASE_URL
+from backend.core.utils.model_router import ModelRouter
 
 
 async def stream_standalone_response(
     query: str,
     safe_only: bool = False,
     db_session: Any = None,
+    analysis_model: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     """
     Stream standalone response with token-by-token output
@@ -47,7 +49,7 @@ async def stream_standalone_response(
         # Step 2: Stream LLM response
         if safe_only:
             # SAFE-only mode: Get full response first, then rewrite and stream
-            raw_llm_output = await _get_llm_response(query, settings)
+            raw_llm_output = await _get_llm_response(query, settings, analysis_model=analysis_model)
             # Ensure raw_llm_output is a clean string
             if not isinstance(raw_llm_output, str):
                 raw_llm_output = str(raw_llm_output)
@@ -151,7 +153,7 @@ async def stream_standalone_response(
         else:
             # Score mode: Stream raw LLM tokens directly and accumulate for scoring
             accumulated_text = ""
-            async for token in _stream_llm_response(query, settings):
+            async for token in _stream_llm_response(query, settings, analysis_model=analysis_model):
                 accumulated_text += token
                 # Use json.dumps to properly escape JSON (prevents token debug garbage)
                 token_data = {"token": token}
@@ -237,20 +239,47 @@ async def stream_standalone_response(
         yield f'data: {{"error": "{error_msg}"}}\n\n'
 
 
-async def _stream_llm_response(prompt: str, settings) -> AsyncGenerator[str, None]:
+def _resolve_openai_model_name(analysis_model: Optional[str]) -> str:
+    if analysis_model and analysis_model.startswith("openai/"):
+        router = ModelRouter()
+        _, actual = router._get_provider_from_model_id(analysis_model)
+        return actual
+    return LLM_MODEL
+
+
+async def _stream_llm_response(
+    prompt: str, settings, analysis_model: Optional[str] = None
+) -> AsyncGenerator[str, None]:
     """
-    Stream LLM response token by token using OpenAI streaming API
+    Stream LLM response token by token (OpenAI stream) or word-chunk fallback for other providers.
     """
+    model_id = analysis_model or "openai/gpt-4o-mini"
+    if not model_id.startswith("openai/"):
+        router = ModelRouter()
+        result = await router.generate(
+            prompt=prompt,
+            model_id=model_id,
+            temperature=0.2,
+            max_tokens=settings.STANDALONE_MAX_TOKENS if hasattr(settings, "STANDALONE_MAX_TOKENS") else 180,
+        )
+        if not result.get("ok") or not result.get("output"):
+            raise Exception(result.get("error") or "Model response failed")
+        for word in result["output"].split():
+            yield f"{word} "
+        return
+
     if not LLM_API_KEY:
         raise Exception("OPENAI_API_KEY not configured")
-    
+
+    openai_model = _resolve_openai_model_name(analysis_model)
+
     headers = {
         "Authorization": f"Bearer {LLM_API_KEY}",
         "Content-Type": "application/json",
     }
-    
+
     payload = {
-        "model": LLM_MODEL,
+        "model": openai_model,
         "messages": [
             {"role": "user", "content": prompt}
         ],
@@ -298,20 +327,37 @@ async def _stream_llm_response(prompt: str, settings) -> AsyncGenerator[str, Non
                         continue
 
 
-async def _get_llm_response(prompt: str, settings) -> str:
+async def _get_llm_response(
+    prompt: str, settings, analysis_model: Optional[str] = None
+) -> str:
     """
     Get full LLM response (non-streaming, for SAFE-only mode or scoring)
     """
+    model_id = analysis_model or "openai/gpt-4o-mini"
+    if not model_id.startswith("openai/"):
+        router = ModelRouter()
+        result = await router.generate(
+            prompt=prompt,
+            model_id=model_id,
+            temperature=0.2,
+            max_tokens=settings.STANDALONE_MAX_TOKENS if hasattr(settings, "STANDALONE_MAX_TOKENS") else 180,
+        )
+        if not result.get("ok") or not result.get("output"):
+            raise Exception(result.get("error") or "Model response failed")
+        return result["output"]
+
     if not LLM_API_KEY:
         raise Exception("OPENAI_API_KEY not configured")
-    
+
+    openai_model = _resolve_openai_model_name(analysis_model)
+
     headers = {
         "Authorization": f"Bearer {LLM_API_KEY}",
         "Content-Type": "application/json",
     }
-    
+
     payload = {
-        "model": LLM_MODEL,
+        "model": openai_model,
         "messages": [
             {"role": "user", "content": prompt}
         ],

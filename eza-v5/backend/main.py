@@ -387,10 +387,11 @@ async def standalone_endpoint(
     Note: Public endpoint, no authentication required.
     """
     result = await run_full_pipeline(
-        user_input=request.query_value, 
-        mode="standalone", 
+        user_input=request.query_value,
+        mode="standalone",
         db_session=db,
-        safe_only=request.safe_only or False
+        safe_only=request.safe_only or False,
+        analysis_model=request.model,
     )
     # Always return 200, even if ok=False (for frontend convenience)
     return result
@@ -423,6 +424,7 @@ async def standalone_stream_endpoint(
             query=request.query_value,
             safe_only=request.safe_only or False,
             db_session=db,
+            analysis_model=request.model,
         ),
         media_type="text/event-stream",
         headers={

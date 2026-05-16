@@ -35,6 +35,7 @@ async def run_full_pipeline(
     db_session: Optional[Any] = None,
     safe_only: Optional[bool] = False,
     event_context: Optional[Dict[str, Any]] = None,
+    analysis_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run full EZA pipeline for a given user input and mode.
@@ -138,20 +139,28 @@ async def run_full_pipeline(
                 # - proxy: OpenAI tek
                 # - proxy-lite: OpenAI tek
                 llm_router = ModelRouter()
-                
-                # Route by mode
-                router_result = await llm_router.route_by_mode(
-                    prompt=user_input,
-                    mode=mode,
-                    temperature=0.2,
-                    max_tokens=max_tokens,
-                    timeout=timeout
-                )
-                
-                # Log skipped and used models
-                skipped_models = router_result.get("skipped_models", [])
-                used_models = router_result.get("used_models", [])
-                
+
+                if mode == "standalone" and analysis_model:
+                    router_result = await llm_router.generate(
+                        prompt=user_input,
+                        model_id=analysis_model,
+                        temperature=0.2,
+                        max_tokens=max_tokens,
+                        timeout=timeout,
+                    )
+                    skipped_models = [analysis_model] if router_result.get("skipped") else []
+                    used_models = [analysis_model] if router_result.get("ok") else []
+                else:
+                    router_result = await llm_router.route_by_mode(
+                        prompt=user_input,
+                        mode=mode,
+                        temperature=0.2,
+                        max_tokens=max_tokens,
+                        timeout=timeout,
+                    )
+                    skipped_models = router_result.get("skipped_models", [])
+                    used_models = router_result.get("used_models", [])
+
                 if skipped_models:
                     logger.warning(f"Skipped models (no API key): {skipped_models}")
                 if used_models:

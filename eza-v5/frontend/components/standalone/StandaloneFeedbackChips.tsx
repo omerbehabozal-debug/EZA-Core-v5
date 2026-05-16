@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { MessageSquarePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { postSafeModeFeedback } from '@/api/safemode';
 import { useOrganization } from '@/context/OrganizationContext';
@@ -28,18 +29,14 @@ export default function StandaloneFeedbackChips({
   className,
 }: StandaloneFeedbackChipsProps) {
   const { currentOrganization } = useOrganization();
+  const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const eventId = context.eventId;
-  if (!eventId) {
-    return null;
-  }
+  if (!eventId) return null;
 
   const authed = hasAuthToken();
-  const disabledReason = authed
-    ? undefined
-    : 'Geri bildirim için giriş yapın (platform login).';
 
   const handleClick = async (feedbackType: string) => {
     if (!authed || !eventId) return;
@@ -56,7 +53,7 @@ export default function StandaloneFeedbackChips({
         },
         currentOrganization?.id
       );
-      setMessage('Teşekkürler — kalibrasyon sinyali kaydedildi.');
+      setMessage('Teşekkürler');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Gönderilemedi');
     } finally {
@@ -65,30 +62,43 @@ export default function StandaloneFeedbackChips({
   };
 
   return (
-    <div className={cn('mt-1.5', className)}>
-      <p className="text-[10px] text-eza-text-muted mb-1">Kalibrasyon (isteğe bağlı)</p>
-      <div className="flex flex-wrap gap-1">
-        {CHIPS.map((chip) => (
-          <button
-            key={chip.type}
-            type="button"
-            disabled={!authed || submitting !== null}
-            title={disabledReason}
-            onClick={() => handleClick(chip.type)}
-            className={cn(
-              'rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors',
-              authed
-                ? 'border-eza-border bg-eza-surface text-eza-accent hover:bg-eza-accent-muted'
-                : 'border-eza-border bg-eza-surface-muted text-eza-text-muted cursor-not-allowed'
-            )}
-          >
-            {submitting === chip.type ? '…' : chip.label}
-          </button>
-        ))}
-      </div>
-      {message ? <p className="mt-1 text-[10px] text-eza-accent">{message}</p> : null}
-      {!authed ? (
-        <p className="mt-0.5 text-[10px] text-eza-text-muted">{disabledReason}</p>
+    <div className={cn('flex flex-col items-start gap-1.5', className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-normal text-eza-text-muted transition-colors hover:bg-eza-surface-muted hover:text-eza-text-secondary touch-manipulation"
+        aria-expanded={open}
+      >
+        <MessageSquarePlus className="h-3 w-3 shrink-0" aria-hidden />
+        Geri bildirim
+      </button>
+
+      {open ? (
+        <div className="flex flex-wrap gap-1">
+          {CHIPS.map((chip) => (
+            <button
+              key={chip.type}
+              type="button"
+              disabled={!authed || submitting !== null}
+              title={authed ? undefined : 'Giriş gerekir'}
+              onClick={() => handleClick(chip.type)}
+              className={cn(
+                'rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors',
+                authed
+                  ? 'border-standalone-border/80 bg-white text-standalone-text-secondary hover:border-standalone-primary/40 hover:text-standalone-primary'
+                  : 'cursor-not-allowed border-eza-border/60 bg-eza-surface-muted text-eza-text-muted'
+              )}
+            >
+              {submitting === chip.type ? '…' : chip.label}
+            </button>
+          ))}
+          {message ? (
+            <span className="w-full text-[10px] text-standalone-primary">{message}</span>
+          ) : null}
+          {!authed ? (
+            <span className="w-full text-[10px] text-eza-text-muted">Platform girişi gerekir</span>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

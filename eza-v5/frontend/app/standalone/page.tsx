@@ -14,15 +14,20 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import TopBar from '@/components/standalone/TopBar';
 import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
-import SettingsModal from '@/components/standalone/SettingsModal';
+import StandaloneChatLayout from '@/components/standalone/StandaloneChatLayout';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
+import { saveChatArchive } from '@/lib/standaloneChatArchive';
 import { feedbackContextFromGovernance, parseGovernance } from '@/lib/standaloneFeedback';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import {
+  DEFAULT_ANALYSIS_MODEL_ID,
+  readStoredAnalysisModel,
+  writeStoredAnalysisModel,
+} from '@/lib/standaloneModels';
 
 interface Message {
   id: string;
@@ -52,10 +57,10 @@ export default function StandalonePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
   const [dailyCount, setDailyCount] = useState(0);
   const [isLimitReached, setIsLimitReached] = useState(false);
+  const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
   const { startStream, reset: resetStream } = useStreamResponse();
   const currentAssistantMessageRef = useRef<string | null>(null);
   const assistantScoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -66,6 +71,7 @@ export default function StandalonePage() {
     if (savedSafeOnly !== null) {
       setSafeOnlyMode(savedSafeOnly === 'true');
     }
+    setAnalysisModelId(readStoredAnalysisModel());
 
     // Check daily count
     const lastDate = localStorage.getItem(STORAGE_KEY_LAST_DATE);
@@ -90,6 +96,10 @@ export default function StandalonePage() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_SAFE_ONLY, safeOnlyMode.toString());
   }, [safeOnlyMode]);
+
+  useEffect(() => {
+    writeStoredAnalysisModel(analysisModelId);
+  }, [analysisModelId]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -180,7 +190,7 @@ export default function StandalonePage() {
       try {
         const result = await startStream(
           '/api/standalone/stream',
-          { query: text, safe_only: safeOnlyMode },
+          { query: text, safe_only: safeOnlyMode, model: analysisModelId },
           {
             onToken: (token: string) => {
               // Update assistant message with streaming text
@@ -308,9 +318,10 @@ export default function StandalonePage() {
             error_message?: string;
           };
         }>('/api/standalone', {
-          body: { 
+          body: {
             query: text,
-            safe_only: safeOnlyMode 
+            safe_only: safeOnlyMode,
+            model: analysisModelId,
           },
           auth: false,
         });
@@ -448,23 +459,50 @@ export default function StandalonePage() {
     }
   };
 
+  const isEmpty = messages.length === 0 && !isLoading && !isTyping;
+
   return (
-    <div className={`flex flex-col h-screen overflow-hidden safe-area-inset ${standaloneSkin.page}`}>
-      <TopBar onSettingsClick={() => setIsSettingsOpen(true)} />
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
-      </div>
-      <InputBar 
-        onSend={handleSend} 
-        isLoading={isLoading}
-        disabled={isLimitReached}
-      />
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)}
+    <div className={standaloneSkin.page}>
+      <StandaloneChatLayout
+        isEmpty={isEmpty}
         safeOnlyMode={safeOnlyMode}
         onSafeOnlyModeChange={setSafeOnlyMode}
-      />
+        canSaveChat={messages.length > 0 && !isLoading && !isTyping}
+        onSaveChat={() => {
+          const saved = saveChatArchive(
+            messages.map((m) => ({
+              id: m.id,
+              text: m.text,
+              isUser: m.isUser,
+              userScore: m.userScore,
+              assistantScore: m.assistantScore,
+              timestamp: m.timestamp?.toISOString(),
+            }))
+          );
+          if (!saved) return;
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `saved-${Date.now()}`,
+              text: 'Sohbet arşive kaydedildi. Sol menüden tekrar açabilirsiniz.',
+              isUser: false,
+              timestamp: new Date(),
+            },
+          ]);
+        }}
+      >
+        {!isEmpty ? (
+          <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
+        ) : null}
+        <InputBar
+          onSend={handleSend}
+          isLoading={isLoading}
+          disabled={isLimitReached}
+          isEmpty={isEmpty}
+          analysisModelId={analysisModelId}
+          onAnalysisModelChange={setAnalysisModelId}
+        />
+      </StandaloneChatLayout>
     </div>
   );
 }

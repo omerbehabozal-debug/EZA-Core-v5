@@ -41,6 +41,10 @@ class StandaloneRequest(BaseModel):
     query: Optional[str] = Field(None, description="User input query", min_length=1)
     text: Optional[str] = Field(None, description="User input text (deprecated, use query)", min_length=1)
     safe_only: Optional[bool] = Field(False, description="Enable SAFE-only mode (rewrite enabled, scores hidden)")
+    model: Optional[str] = Field(
+        None,
+        description="Analysis target model id (e.g. openai/gpt-4o-mini). EZA scoring layer unchanged.",
+    )
     
     @model_validator(mode='before')
     @classmethod

@@ -220,3 +220,17 @@ body {
   display: none; /* Chrome, Safari, Opera */
 }
 
+/* Standalone — sakin canvas, hafif derinlik */
+.standalone-canvas {
+  position: relative;
+  background: linear-gradient(180deg, #f6f8fc 0%, #f3f4f8 100%);
+}
+
+.standalone-sidebar {
+  background: linear-gradient(180deg, #eef1f6 0%, #e9ecf2 100%);
+}
+
+.standalone-main {
+  background: transparent;
+}
+

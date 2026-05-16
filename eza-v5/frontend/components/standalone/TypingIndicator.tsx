@@ -1,39 +1,25 @@
 /**
- * TypingIndicator Component - streaming wait state
+ * TypingIndicator — assistant wait state
  */
 
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 export default function TypingIndicator() {
   return (
-    <div className="flex justify-start mb-4 sm:mb-5 px-2 sm:px-4">
-      <div className="max-w-[85%] xs:max-w-[80%] sm:max-w-[75%] md:max-w-[65%]">
+    <div className={`flex justify-start ${standaloneSkin.turnBlock}`}>
+      <div className={standaloneSkin.assistantTurn}>
         <div className={standaloneSkin.typingBubble}>
-          <div className="flex items-center space-x-1.5">
-            <div className="flex space-x-1">
-              <div
-                className="w-2 h-2 bg-eza-text-muted rounded-full animate-pulse-dot"
-                style={{
-                  animationDelay: '0ms',
-                }}
+          <div className="flex items-center gap-1 px-0.5 py-0.5">
+            {[0, 150, 300].map((delay) => (
+              <span
+                key={delay}
+                className="h-1.5 w-1.5 rounded-full bg-eza-text-muted/70 animate-pulse-dot"
+                style={{ animationDelay: `${delay}ms` }}
               />
-              <div
-                className="w-2 h-2 bg-eza-text-muted rounded-full animate-pulse-dot"
-                style={{
-                  animationDelay: '150ms',
-                }}
-              />
-              <div
-                className="w-2 h-2 bg-eza-text-muted rounded-full animate-pulse-dot"
-                style={{
-                  animationDelay: '300ms',
-                }}
-              />
-            </div>
+            ))}
           </div>
         </div>
       </div>
     </div>
   );
 }
-
