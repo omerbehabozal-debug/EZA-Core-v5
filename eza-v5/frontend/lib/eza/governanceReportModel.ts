@@ -928,10 +928,24 @@ function ezaSlopeFromTrend(points: TrendChartPoint[]): number | null {
 
 function historyRowsFromBehavioralEntries(entries: SavedBehavioralEntry[]): HistoryRow[] {
   return [...entries]
+    .filter((e) => e?.vector && typeof e.vector.input_risk === 'number')
     .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())
     .slice(0, 20)
     .map((entry) => {
-      const insight = buildInteractionInsight(entry, entry.vector.eza_final ?? undefined);
+      const insight = buildInteractionInsight(
+        {
+          schema_version: entry.schema_version ?? 1,
+          interaction_id: entry.interaction_id ?? entry.savedAt,
+          mode: entry.mode ?? 'standalone',
+          vector: entry.vector,
+          asymmetry: entry.asymmetry ?? {
+            health_gap: 0,
+            risk_delta_output_minus_input: 0,
+            index: 0,
+          },
+        },
+        entry.vector.eza_final ?? undefined
+      );
       return {
         label: new Date(entry.savedAt).toLocaleString('tr-TR', {
           day: 'numeric',

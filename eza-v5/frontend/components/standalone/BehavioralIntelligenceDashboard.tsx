@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import Link from 'next/link';
 import GovernanceInteractionReportView from '@/components/governance/GovernanceInteractionReportView';
 import {
   buildBehavioralDashboard,
@@ -12,7 +11,6 @@ import {
   emptyGovernanceReportPlaceholder,
 } from '@/lib/eza/governanceReportModel';
 import { reportSkin } from '@/lib/eza/reportSkin';
-import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 
 const STANDALONE_SIGNAL_NOTE =
@@ -50,9 +48,6 @@ export default function BehavioralIntelligenceDashboard({
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center px-6 text-center">
         <p className="text-sm text-stone-600">Rapor yüklenirken bir sorun oluştu. Sayfayı yenileyin.</p>
-        <Link href="/standalone" className={cn('mt-4', reportSkin.link)}>
-          ← Sohbete dön
-        </Link>
       </div>
     );
   }
@@ -60,9 +55,6 @@ export default function BehavioralIntelligenceDashboard({
   if (entries.length === 0) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
-        <Link href="/standalone" className={cn('mb-8 self-start', reportSkin.link)}>
-          ← Sohbete dön
-        </Link>
         <p className={reportSkin.eyebrow}>Etkileşim Raporu</p>
         <p className="mt-6 max-w-md text-2xl font-medium leading-snug text-stone-900">
           Seni tanımak için biraz daha zaman gerekiyor.
@@ -82,8 +74,6 @@ export default function BehavioralIntelligenceDashboard({
     <div className="-mx-4 sm:mx-0">
       <GovernanceInteractionReportView
         model={{ ...model, disclaimer: BEHAVIORAL_DISCLAIMER }}
-        backHref="/standalone"
-        backLabel="← Sohbete dön"
         signalNote={STANDALONE_SIGNAL_NOTE}
         trendValueLabel="AI yanıt skoru"
         onClearHistory={onClear}

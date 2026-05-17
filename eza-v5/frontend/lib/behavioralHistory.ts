@@ -28,13 +28,27 @@ export function appendBehavioralSnapshot(snapshot: BehavioralSnapshot | null | u
   }
 }
 
+export function isValidBehavioralEntry(
+  entry: SavedBehavioralEntry | null | undefined
+): entry is SavedBehavioralEntry {
+  if (!entry?.vector) return false;
+  const v = entry.vector;
+  return (
+    typeof v.input_risk === 'number' &&
+    typeof v.output_risk === 'number' &&
+    !Number.isNaN(v.input_risk) &&
+    !Number.isNaN(v.output_risk)
+  );
+}
+
 export function readBehavioralHistory(): SavedBehavioralEntry[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidBehavioralEntry);
   } catch {
     return [];
   }

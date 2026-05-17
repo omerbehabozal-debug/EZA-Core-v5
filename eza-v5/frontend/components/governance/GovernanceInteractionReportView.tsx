@@ -48,6 +48,7 @@ function WowHero({
   backHref,
   backLabel,
   signalNote,
+  embeddedInStandalone = false,
 }: {
   model: GovernanceReportViewModel;
   onScrollDetails: () => void;
@@ -55,6 +56,7 @@ function WowHero({
   backHref?: string;
   backLabel?: string;
   signalNote: string;
+  embeddedInStandalone?: boolean;
 }) {
   const openHow = () => {
     onOpenHow();
@@ -67,7 +69,7 @@ function WowHero({
       aria-label="Etkileşim gözlemi"
     >
       <div className={reportSkin.heroGlow} aria-hidden />
-      {backHref ? (
+      {backHref && !embeddedInStandalone ? (
         <Link href={backHref} className={cn('absolute left-0 top-0', reportSkin.link)}>
           {backLabel ?? '← Geri'}
         </Link>
@@ -324,6 +326,7 @@ export default function GovernanceInteractionReportView({
         backHref={backHref}
         backLabel={backLabel}
         signalNote={signalNote}
+        embeddedInStandalone={embeddedInStandalone}
         onOpenHow={() => setHowOpen(true)}
         onScrollDetails={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth' })}
       />

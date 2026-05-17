@@ -222,11 +222,23 @@ function ezaScore(entry: SavedBehavioralEntry): number | null {
   return Math.max(0, Math.min(100, s));
 }
 
+function isValidEntry(e: SavedBehavioralEntry): boolean {
+  const v = e?.vector;
+  return (
+    Boolean(v) &&
+    typeof v.input_risk === 'number' &&
+    typeof v.output_risk === 'number' &&
+    !Number.isNaN(v.input_risk) &&
+    !Number.isNaN(v.output_risk)
+  );
+}
+
 export function buildBehavioralDashboard(
   entries: SavedBehavioralEntry[],
   days = DEFAULT_DAYS
 ): BehavioralDashboardModel {
-  const periodEntries = entries.filter((e) => withinDays(e.savedAt, days));
+  const safeEntries = entries.filter(isValidEntry);
+  const periodEntries = safeEntries.filter((e) => withinDays(e.savedAt, days));
   const ordered = chronological(periodEntries);
   const sampleCount = ordered.length;
   const spanDays = distinctCalendarDays(ordered);
