@@ -44,7 +44,27 @@ export default function LastObservationHero({
       <p className={reportSkin.observationHeroEyebrow}>EZA&apos;nın Son Gözlemi</p>
       <p className={reportSkin.observationHeroSub}>{STANDALONE_OBSERVATION_SUB}</p>
 
-      <blockquote className={reportSkin.observationHeroInsight}>{insight}</blockquote>
+      {observation.priorityAlert?.show ? (
+        <div className={reportSkin.observationPriorityBlock} role="alert">
+          <p className={reportSkin.observationPriorityEyebrow}>Öncelikli gözlem</p>
+          <blockquote className={reportSkin.observationPriorityHeadline}>
+            {observation.priorityAlert.headline}
+          </blockquote>
+          <p className={reportSkin.observationPriorityHint}>
+            {observation.priorityAlert.interactionHint}
+          </p>
+          <p className={reportSkin.observationPriorityDetail}>{observation.priorityAlert.detail}</p>
+        </div>
+      ) : null}
+
+      {observation.priorityAlert?.show ? (
+        <>
+          <p className={reportSkin.observationGeneralLabel}>Genel akış özeti</p>
+          <blockquote className={reportSkin.observationHeroInsightSecondary}>{insight}</blockquote>
+        </>
+      ) : (
+        <blockquote className={reportSkin.observationHeroInsight}>{insight}</blockquote>
+      )}
 
       <p className={reportSkin.observationHeroSupport}>{observation.supportLine}</p>
 

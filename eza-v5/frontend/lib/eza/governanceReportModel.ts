@@ -852,6 +852,7 @@ export function emptyGovernanceReportPlaceholder(
     wowMoment,
     dailyObservation: {
       show: false,
+      priorityAlert: null,
       primaryInsight: '',
       manset: '',
       userLine: '',

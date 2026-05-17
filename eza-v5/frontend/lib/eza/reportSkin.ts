@@ -145,6 +145,25 @@ export const reportSkin = {
 
   observationHeroSub: 'mt-2 max-w-md text-sm leading-relaxed text-stone-500',
 
+  observationPriorityBlock:
+    'mt-8 max-w-2xl rounded-2xl border border-amber-200/70 bg-amber-50/50 px-5 py-5 text-left sm:px-6',
+
+  observationPriorityEyebrow:
+    'text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800/80',
+
+  observationPriorityHeadline:
+    'mt-2 max-w-2xl border-0 p-0 text-[1.35rem] font-medium leading-[1.35] tracking-[-0.025em] text-amber-950 sm:text-[1.65rem]',
+
+  observationHeroInsightSecondary:
+    'mt-4 max-w-2xl text-lg font-medium leading-snug tracking-[-0.02em] text-stone-700 sm:text-xl',
+
+  observationPriorityHint: 'mt-2 text-xs font-medium text-amber-800/75',
+
+  observationPriorityDetail: 'mt-3 text-sm leading-relaxed text-amber-900/80',
+
+  observationGeneralLabel:
+    'mt-10 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400',
+
   observationHeroInsight:
     'mt-8 max-w-2xl text-[1.5rem] font-medium leading-[1.35] tracking-[-0.025em] text-stone-900 sm:text-[1.85rem] sm:leading-[1.3]',
 

@@ -456,6 +456,30 @@ export function whyShownBullets(tone: PresentationTone): string[] {
   return WHY_SHOWN_BULLETS[tone];
 }
 
+export const PRIORITY_ALERT_HEADLINES: ToneVariants = {
+  standalone: [
+    'Son konuşmada dikkat gerektiren bir giriş sinyali gözlemlendi.',
+    'Bazı girişlerde hassas bir ton öne çıktı — önce bu hatırlatılıyor.',
+    'Son etkileşimde olumsuz veya hassas bir girdi sinyali belirdi.',
+  ],
+  governance: [
+    'Son oturumda hassas girdi sinyali gözlemlendi.',
+    'Dikkat gerektiren girdi sinyali öncelikli olarak işaretlendi.',
+  ],
+};
+
+export const PRIORITY_ALERT_DETAILS: ToneVariants = {
+  standalone: [
+    'Bu, son konuşmalardaki tek bir girişten gelen gözlemsel bir uyarıdır; yargı değildir.',
+    'Sohbetteki diğer mesajlar daha sakin olsa bile bu sinyal önce hatırlatılır.',
+    'Aşağıdaki özet genel akış içindir; hassas giriş ayrıca kaydedildi.',
+  ],
+  governance: [
+    'Tekil hassas giriş tespiti — genel oturum özeti aşağıdadır.',
+    'Ortalama düşük olsa bile belirgin girdi sinyali önceliklidir.',
+  ],
+};
+
 export function observationManset(
   userCat: UserObservationCategoryId,
   tone: PresentationTone,

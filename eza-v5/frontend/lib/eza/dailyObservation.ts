@@ -10,6 +10,9 @@ import {
   categoryLabelForTone,
   observationManset,
   observationSupportLine,
+  pickToneCopy,
+  PRIORITY_ALERT_DETAILS,
+  PRIORITY_ALERT_HEADLINES,
   primaryInsightForCategory,
   type PresentationTone,
   userObservationLine,
@@ -79,9 +82,19 @@ export interface InteractionPatternDot {
 /** @deprecated InteractionPatternDot kullan */
 export type WeekPatternDay = InteractionPatternDot;
 
+/** Tekil hassas/olumsuz girdi — hero’da genel özette önce gösterilir */
+export interface ObservationPriorityAlert {
+  show: boolean;
+  headline: string;
+  detail: string;
+  interactionHint: string;
+}
+
 export interface DailyObservationView {
   show: boolean;
-  /** Hero ana insight */
+  /** Varsa önce gösterilir (genel akıştan ayrı) */
+  priorityAlert: ObservationPriorityAlert | null;
+  /** Hero ana insight — genel oturum özeti */
   primaryInsight: string;
   manset: string;
   userLine: string;
@@ -116,8 +129,12 @@ interface DayMetrics {
 const SESSION_GAP_MS = 12 * 60 * 60 * 1000;
 const PATTERN_DOT_COUNT = 7;
 
+/** Chat pill ile aynı eşik — tek mesajda hassas sinyal */
+export const SENSITIVE_INPUT_THRESHOLD = 0.42;
+
 const EMPTY_VIEW: DailyObservationView = {
   show: false,
+  priorityAlert: null,
   primaryInsight: '',
   manset: '',
   userLine: '',
@@ -241,17 +258,67 @@ function metricsFromEntries(entries: SavedBehavioralEntry[]): DayMetrics {
   };
 }
 
+function normalizedEzaScore(value: number | null | undefined): number | null {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  if (value <= 1 && value >= 0) return Math.round(value * 100);
+  return Math.round(Math.max(0, Math.min(100, value)));
+}
+
+/** Chat pill ile uyumlu — tekil olumsuz/hassas giriş */
+export function isPrioritySensitiveEntry(entry: SavedBehavioralEntry): boolean {
+  const v = entry.vector;
+  const ir = v.input_risk ?? 0;
+  const or = v.output_risk ?? 1;
+  const ih = v.input_health;
+
+  if (ir >= SENSITIVE_INPUT_THRESHOLD) return true;
+  if (ih !== undefined && !Number.isNaN(ih) && ih < 0.52) return true;
+  if (ir >= 0.45 && or < 0.3) return true;
+  if ((v.policy_violation_count ?? 0) > 0) return true;
+  if (
+    v.redirect &&
+    (v.redirect_reason === 'high_input_risk' || v.redirect_benign === true) &&
+    ir >= 0.32
+  ) {
+    return true;
+  }
+
+  const eza = normalizedEzaScore(v.eza_final);
+  if (eza !== null && eza < 52) return true;
+
+  const psych = v.psych_pressure_score;
+  if (psych !== null && psych !== undefined && !Number.isNaN(psych) && psych >= 0.45) {
+    return true;
+  }
+  return false;
+}
+
+/** En yeni hassas giriş (oturum veya tüm geçmiş) */
+export function findPrioritySensitiveEntry(
+  latestSession: SavedBehavioralEntry[],
+  allEntries: SavedBehavioralEntry[]
+): SavedBehavioralEntry | null {
+  const orderedSession = sortNewestFirst(latestSession);
+  const inSession = orderedSession.find(isPrioritySensitiveEntry);
+  if (inSession) return inSession;
+  const latest = sortNewestFirst(allEntries)[0];
+  if (latest && isPrioritySensitiveEntry(latest)) return latest;
+  return null;
+}
+
 export function classifyDayFromEntries(entries: SavedBehavioralEntry[]): UserObservationCategoryId {
   const m = metricsFromEntries(entries);
   if (m.sampleCount === 0) return 'quiet';
 
   const intents = entries.map((e) => (e.vector.intent || '').toLowerCase());
+  const hasAnySensitive = entries.some(isPrioritySensitiveEntry);
 
   if (m.hasInputOutputSplit || (m.safeRefusalCount > 0 && m.avgIn >= 0.4)) {
     return 'safe_balance';
   }
-  if (m.avgIn < 0.28 && m.avgOut < 0.28 && m.avgAlign >= 68) return 'balanced';
-  if (m.avgIn >= 0.42) return 'sensitive_signals';
+  if (hasAnySensitive && m.sampleCount <= 3) return 'sensitive_signals';
+  if (m.avgIn < 0.28 && m.avgOut < 0.28 && m.avgAlign >= 68 && !hasAnySensitive) return 'balanced';
+  if (m.avgIn >= 0.42 || hasAnySensitive) return 'sensitive_signals';
   if (intents.some((i) => /decision|karar|choose|seçim/.test(i))) return 'decision_support';
   if (intents.some((i) => /explor|learn|keşif|discover/.test(i))) return 'exploration';
   if (intents.some((i) => /verif|clarif|netlik|confirm|doğrula/.test(i))) return 'clarity_seek';
@@ -305,6 +372,51 @@ function aiLineForCategory(
       : 'AI yanıt davranışını yorumlamak için daha fazla veri gerekiyor.';
   }
   return aiObservationLine(category, tone, seed);
+}
+
+function stepsFromLatestInSession(
+  entry: SavedBehavioralEntry,
+  sessionEntries: SavedBehavioralEntry[]
+): number {
+  const ordered = sortNewestFirst(sessionEntries);
+  const idx = ordered.findIndex((e) => e.interaction_id === entry.interaction_id);
+  return idx < 0 ? 0 : idx;
+}
+
+function buildPriorityAlert(
+  entry: SavedBehavioralEntry,
+  sessionEntries: SavedBehavioralEntry[],
+  tone: PresentationTone,
+  seed: string
+): ObservationPriorityAlert {
+  const ir = entry.vector.input_risk ?? 0;
+  const steps = stepsFromLatestInSession(entry, sessionEntries);
+  const when =
+    steps === 0
+      ? 'Son etkileşimde'
+      : steps === 1
+        ? '1 etkileşim önce'
+        : `${steps} etkileşim önce`;
+
+  const intensity =
+    ir >= 0.55
+      ? tone === 'standalone'
+        ? 'belirgin hassas ton'
+        : 'yüksek girdi sinyali'
+      : ir >= SENSITIVE_INPUT_THRESHOLD
+        ? tone === 'standalone'
+          ? 'hassas ton'
+          : 'hassas girdi'
+        : tone === 'standalone'
+          ? 'dikkat sinyali'
+          : 'dikkat gerektiren girdi';
+
+  return {
+    show: true,
+    headline: pickToneCopy(tone, PRIORITY_ALERT_HEADLINES, `${seed}-pri-h`),
+    detail: pickToneCopy(tone, PRIORITY_ALERT_DETAILS, `${seed}-pri-d`),
+    interactionHint: `${when} · ${intensity}`,
+  };
 }
 
 function balanceLineForPair(
@@ -476,7 +588,8 @@ function buildMirrorObservation(
   seed: string,
   sampleCountTotal: number,
   confidencePct: number | null,
-  tone: PresentationTone
+  tone: PresentationTone,
+  allEntries: SavedBehavioralEntry[] = sessionEntries
 ): Omit<
   DailyObservationView,
   'show' | 'yesterdayLine' | 'weekPattern' | 'showWeekPattern' | 'fridaySummary'
@@ -486,24 +599,63 @@ function buildMirrorObservation(
   const aiCat = classifyAiFromEntries(sessionEntries);
   const sessionSeed = `${seed}-${sessionEntries[0]?.interaction_id ?? 'empty'}`;
 
+  const flagged = findPrioritySensitiveEntry(sessionEntries, allEntries);
+  const priorityAlert =
+    flagged && m.sampleCount >= 1
+      ? buildPriorityAlert(flagged, sessionEntries, tone, sessionSeed)
+      : null;
+
+  const calmEntries =
+    flagged && sessionEntries.length > 1
+      ? sessionEntries.filter((e) => !isPrioritySensitiveEntry(e))
+      : [];
+  const generalCat =
+    calmEntries.length > 0
+      ? classifyDayFromEntries(calmEntries)
+      : flagged
+        ? 'balanced'
+        : userCat;
+  const generalAiCat =
+    calmEntries.length > 0 ? classifyAiFromEntries(calmEntries) : aiCat;
+  const generalMetrics = calmEntries.length > 0 ? metricsFromEntries(calmEntries) : m;
+
   const primaryInsight =
     m.sampleCount < 1
       ? tone === 'standalone'
         ? 'Birkaç konuşma sonra ilk gözlem burada belirecek.'
         : 'Henüz yeterli etkileşim yok.'
-      : primaryInsightForCategory(userCat, tone, sessionSeed);
+      : primaryInsightForCategory(generalCat, tone, `${sessionSeed}-general`);
+
+  const mirrorUserCat = priorityAlert ? generalCat : userCat;
+  const mirrorAiCat = priorityAlert ? generalAiCat : aiCat;
+  const mirrorMetrics = priorityAlert ? generalMetrics : m;
 
   return {
+    priorityAlert,
     primaryInsight,
-    manset: mansetForObservation(userCat, aiCat, m, sessionSeed, tone),
-    userLine: userLineForCategory(userCat, m, sessionSeed, tone),
-    aiLine: aiLineForCategory(aiCat, m, sessionSeed, tone),
-    balanceLine: balanceLineForPair(userCat, aiCat, m, sessionSeed, tone),
+    manset: mansetForObservation(mirrorUserCat, mirrorAiCat, mirrorMetrics, sessionSeed, tone),
+    userLine: userLineForCategory(mirrorUserCat, mirrorMetrics, `${sessionSeed}-general`, tone),
+    aiLine: aiLineForCategory(mirrorAiCat, mirrorMetrics, `${sessionSeed}-general-ai`, tone),
+    balanceLine: balanceLineForPair(
+      mirrorUserCat,
+      mirrorAiCat,
+      mirrorMetrics,
+      `${sessionSeed}-general-bal`,
+      tone
+    ),
     supportLine: observationSupportLine(tone),
-    signalLevel: `Sinyal seviyesi: ${signalLevelLabel(userCat, m.sampleCount)}`,
+    signalLevel: `Sinyal seviyesi: ${
+      priorityAlert ? 'Orta' : signalLevelLabel(userCat, m.sampleCount)
+    }`,
     confidenceLabel: confidenceLabelFromSamples(sampleCountTotal, confidencePct),
     categoryId: userCat,
-    whyShownBullets: whyShownBullets(tone),
+    whyShownBullets: priorityAlert
+      ? [
+          ...whyShownBullets(tone).slice(0, 2),
+          'Öncelikli hassas girdi sinyali (tekil tespit)',
+          ...whyShownBullets(tone).slice(2),
+        ]
+      : whyShownBullets(tone),
     headline: undefined,
     interactionTone: null,
   };
@@ -532,10 +684,18 @@ export function buildDailyObservationFromEntries(
           seed,
           entries.length,
           options?.confidencePct ?? null,
-          tone
+          tone,
+          entries
         )
       : {
-          ...buildMirrorObservation([], seed, entries.length, options?.confidencePct ?? null, tone),
+          ...buildMirrorObservation(
+            [],
+            seed,
+            entries.length,
+            options?.confidencePct ?? null,
+            tone,
+            entries
+          ),
           manset: tone === 'standalone' ? 'Henüz bir gözlem notu yok.' : 'Henüz kayıtlı etkileşim yok.',
           userLine:
             tone === 'standalone'
@@ -616,6 +776,7 @@ export function buildDailyObservationFromAggregates(input: {
   const quietCat: UserObservationCategoryId = 'quiet';
   return {
     show: true,
+    priorityAlert: null,
     primaryInsight: primaryInsightForCategory(quietCat, tone, input.seed),
     manset: 'Gözlem oluşuyor.',
     userLine: fallbackUser,
