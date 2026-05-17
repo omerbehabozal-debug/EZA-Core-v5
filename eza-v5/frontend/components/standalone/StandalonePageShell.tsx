@@ -1,13 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
-import {
-  activeSessionHasMessages,
-  finalizeActiveSession,
-} from '@/lib/standaloneChatArchive';
+import { createStandaloneChat } from '@/lib/standaloneChatArchive';
 import StandaloneSidebar from './StandaloneSidebar';
 
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
@@ -16,7 +13,7 @@ interface StandalonePageShellProps {
   children: React.ReactNode;
 }
 
-export default function StandalonePageShell({ children }: StandalonePageShellProps) {
+function StandalonePageShellInner({ children }: StandalonePageShellProps) {
   const router = useRouter();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
@@ -39,10 +36,8 @@ export default function StandalonePageShell({ children }: StandalonePageShellPro
         onMobileClose={() => setMobileSidebarOpen(false)}
         hasActiveChat
         onNewChat={() => {
-          if (activeSessionHasMessages()) {
-            finalizeActiveSession();
-          }
-          router.push('/standalone');
+          const newId = createStandaloneChat();
+          router.push(`/standalone?chat=${newId}`);
         }}
       />
 
@@ -60,5 +55,19 @@ export default function StandalonePageShell({ children }: StandalonePageShellPro
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </main>
     </div>
+  );
+}
+
+export default function StandalonePageShell({ children }: StandalonePageShellProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className={`${standaloneSkin.appRow} flex items-center justify-center`}>
+          <p className="text-sm text-standalone-text-muted">Yükleniyor…</p>
+        </div>
+      }
+    >
+      <StandalonePageShellInner>{children}</StandalonePageShellInner>
+    </Suspense>
   );
 }

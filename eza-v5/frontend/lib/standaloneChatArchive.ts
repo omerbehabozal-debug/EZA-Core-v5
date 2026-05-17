@@ -1,16 +1,18 @@
 /**
- * Standalone sohbet arşivi — yalnızca bu tarayıcıda (localStorage).
+ * Standalone sohbet sekmeleri — her sohbet ayrı kayıt (localStorage).
+ * Arşiv sayfası yok; yan menüden sekmeye dönünce kaldığın yerden devam.
  */
 
-import { clearChatDraft } from './standaloneChatDraft';
+export const CHATS_UPDATED_EVENT = 'eza-standalone-archive-updated';
+/** @deprecated */
+export const ARCHIVE_UPDATED_EVENT = CHATS_UPDATED_EVENT;
 
-export const ARCHIVE_UPDATED_EVENT = 'eza-standalone-archive-updated';
-/** Güncel oturum arşivden silindi — ana sayfa sohbeti temizlemeli */
-export const ACTIVE_ARCHIVE_CLEARED_EVENT = 'eza-standalone-active-archive-cleared';
-/** Tek aktif oturum — otomatik kayıt bu kimliğe yazılır */
-export const ACTIVE_SESSION_ARCHIVE_ID = 'session-active';
 const STORAGE_KEY = 'eza_standalone_chat_archive';
-const MAX_ARCHIVES = 30;
+const ACTIVE_CHAT_ID_KEY = 'eza_standalone_active_chat_id';
+const MAX_CHATS = 30;
+
+/** Eski tek «güncel» oturum kimliği — migrasyon için */
+const LEGACY_ACTIVE_SESSION_ID = 'session-active';
 
 export interface ArchivedChatMessage {
   id: string;
@@ -28,8 +30,6 @@ export interface ArchivedChat {
   savedAt: string;
   messageCount: number;
   messages: ArchivedChatMessage[];
-  /** Otomatik kayıt; yeni sohbet öncesi kalıcı arşive taşınabilir */
-  autoSaved?: boolean;
 }
 
 export type ArchivedChatSummary = Pick<
@@ -37,12 +37,12 @@ export type ArchivedChatSummary = Pick<
   'id' | 'title' | 'preview' | 'savedAt' | 'messageCount'
 >;
 
-function notifyArchiveUpdated(): void {
+function notifyChatsUpdated(): void {
   if (typeof window === 'undefined') return;
-  window.dispatchEvent(new CustomEvent(ARCHIVE_UPDATED_EVENT));
+  window.dispatchEvent(new CustomEvent(CHATS_UPDATED_EVENT));
 }
 
-function readAll(): ArchivedChat[] {
+function readAllRaw(): ArchivedChat[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -57,14 +57,36 @@ function readAll(): ArchivedChat[] {
 function writeAll(list: ArchivedChat[]): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_ARCHIVES)));
-    notifyArchiveUpdated();
+    const sorted = [...list].sort(
+      (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
+    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted.slice(0, MAX_CHATS)));
+    notifyChatsUpdated();
   } catch {
     /* quota */
   }
 }
 
-/** Sidebar satırına sığan kısa başlık (yatay kaydırma yok) */
+function migrateLegacyList(list: ArchivedChat[]): ArchivedChat[] {
+  let changed = false;
+  const out = list.map((item) => {
+    if (item.id === LEGACY_ACTIVE_SESSION_ID) {
+      changed = true;
+      return {
+        ...item,
+        id: `chat-${new Date(item.savedAt).getTime()}`,
+      };
+    }
+    return item;
+  });
+  if (changed) writeAll(out);
+  return out;
+}
+
+function readAll(): ArchivedChat[] {
+  return migrateLegacyList(readAllRaw());
+}
+
 export const ARCHIVE_TITLE_MAX_LEN = 32;
 
 export function summarizeArchiveTitle(text: string, maxLen = ARCHIVE_TITLE_MAX_LEN): string {
@@ -79,37 +101,11 @@ export function summarizeArchiveTitle(text: string, maxLen = ARCHIVE_TITLE_MAX_L
 
 function buildTitle(messages: ArchivedChatMessage[]): string {
   const firstUser = messages.find((m) => m.isUser && m.text.trim());
-  if (!firstUser) return `Sohbet · ${new Date().toLocaleDateString('tr-TR')}`;
-  return summarizeArchiveTitle(firstUser.text);
+  if (!firstUser) return 'Yeni sohbet';
+  return summarizeArchiveTitle(firstUser.text) || 'Yeni sohbet';
 }
 
-export function listChatArchives(): ArchivedChatSummary[] {
-  return readAll().map(({ id, title, preview, savedAt, messageCount }) => ({
-    id,
-    title,
-    preview,
-    savedAt,
-    messageCount,
-  }));
-}
-
-export function getChatArchive(id: string): ArchivedChat | null {
-  return readAll().find((a) => a.id === id) ?? null;
-}
-
-/** Aktif oturumda arşivlenecek mesaj var mı */
-export function activeSessionHasMessages(): boolean {
-  const active = getChatArchive(ACTIVE_SESSION_ARCHIVE_ID);
-  return Boolean(active && active.messageCount > 0);
-}
-
-function buildArchiveEntry(
-  id: string,
-  messages: ArchivedChatMessage[],
-  options?: { autoSaved?: boolean }
-): ArchivedChat | null {
-  if (messages.length === 0) return null;
-
+function buildChatEntry(id: string, messages: ArchivedChatMessage[]): ArchivedChat {
   const normalized = messages.map((m) => ({
     ...m,
     timestamp: m.timestamp ?? new Date().toISOString(),
@@ -129,60 +125,90 @@ function buildArchiveEntry(
     savedAt: new Date().toISOString(),
     messageCount: normalized.length,
     messages: normalized,
-    autoSaved: options?.autoSaved ?? existing?.autoSaved,
   };
 }
 
-/** Aktif oturumu günceller (otomatik kayıt) */
-export function upsertActiveChatArchive(messages: ArchivedChatMessage[]): ArchivedChat | null {
-  if (typeof window === 'undefined' || messages.length === 0) return null;
-
-  const entry = buildArchiveEntry(ACTIVE_SESSION_ARCHIVE_ID, messages, { autoSaved: true });
-  if (!entry) return null;
-
-  const rest = readAll().filter((a) => a.id !== ACTIVE_SESSION_ARCHIVE_ID);
-  writeAll([entry, ...rest]);
-  return entry;
+export function listChatArchives(): ArchivedChatSummary[] {
+  return readAll().map(({ id, title, preview, savedAt, messageCount }) => ({
+    id,
+    title,
+    preview,
+    savedAt,
+    messageCount,
+  }));
 }
 
-/** Aktif oturumu kalıcı arşive taşır (yeni sohbet — sakla) */
-export function finalizeActiveSession(): string | null {
-  const all = readAll();
-  const active = all.find((a) => a.id === ACTIVE_SESSION_ARCHIVE_ID);
-  if (!active || active.messageCount === 0) return null;
+export function getChatArchive(id: string): ArchivedChat | null {
+  return readAll().find((a) => a.id === id) ?? null;
+}
 
-  const permanentId = `arch-${Date.now()}`;
-  const finalized: ArchivedChat = {
-    ...active,
-    id: permanentId,
+export function readActiveChatId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const id = localStorage.getItem(ACTIVE_CHAT_ID_KEY);
+    if (!id) return null;
+    return getChatArchive(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeActiveChatId(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(ACTIVE_CHAT_ID_KEY, id);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function createStandaloneChat(): string {
+  const id = `chat-${Date.now()}`;
+  const entry: ArchivedChat = {
+    id,
+    title: 'Yeni sohbet',
+    preview: '',
     savedAt: new Date().toISOString(),
-    autoSaved: false,
+    messageCount: 0,
+    messages: [],
   };
-  writeAll([finalized, ...all.filter((a) => a.id !== ACTIVE_SESSION_ARCHIVE_ID)]);
-  return permanentId;
-}
-
-export function clearActiveSessionArchive(): void {
-  deleteChatArchive(ACTIVE_SESSION_ARCHIVE_ID);
-}
-
-export function saveChatArchive(messages: ArchivedChatMessage[]): ArchivedChat | null {
-  if (typeof window === 'undefined' || messages.length === 0) return null;
-
-  const entry = buildArchiveEntry(`arch-${Date.now()}`, messages, { autoSaved: false });
-  if (!entry) return null;
-
   writeAll([entry, ...readAll()]);
+  writeActiveChatId(id);
+  return id;
+}
+
+/** Mevcut sohbeti günceller veya boş liste ile başlığı korur */
+export function saveStandaloneChat(
+  id: string,
+  messages: ArchivedChatMessage[]
+): ArchivedChat | null {
+  if (typeof window === 'undefined') return null;
+
+  const entry = buildChatEntry(id, messages);
+  const rest = readAll().filter((a) => a.id !== id);
+  writeAll([entry, ...rest]);
+  writeActiveChatId(id);
   return entry;
 }
 
 export function deleteChatArchive(id: string): void {
-  const wasActive = id === ACTIVE_SESSION_ARCHIVE_ID;
-  writeAll(readAll().filter((a) => a.id !== id));
-  if (wasActive) {
-    clearChatDraft();
+  const remaining = readAll().filter((a) => a.id !== id);
+  writeAll(remaining);
+  if (readActiveChatId() === id) {
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(ACTIVE_ARCHIVE_CLEARED_EVENT));
+      try {
+        localStorage.removeItem(ACTIVE_CHAT_ID_KEY);
+      } catch {
+        /* ignore */
+      }
     }
   }
+}
+
+/** Boş sohbetleri temizle (isteğe bağlı) */
+export function pruneEmptyChats(exceptId?: string): void {
+  const kept = readAll().filter(
+    (c) => c.id === exceptId || c.messageCount > 0
+  );
+  if (kept.length !== readAll().length) writeAll(kept);
 }

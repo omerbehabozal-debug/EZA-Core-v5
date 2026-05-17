@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { BarChart3, MessageSquarePlus, Shield, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
-  ACTIVE_SESSION_ARCHIVE_ID,
-  ARCHIVE_UPDATED_EVENT,
+  CHATS_UPDATED_EVENT,
+  createStandaloneChat,
   deleteChatArchive,
   listChatArchives,
   summarizeArchiveTitle,
@@ -29,42 +29,55 @@ export default function StandaloneSidebar({
   onSafeOnlyModeChange,
   mobileOpen,
   onMobileClose,
-  hasActiveChat = false,
   onNewChat,
 }: StandaloneSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
+  const searchParams = useSearchParams();
+  const activeChatId = searchParams?.get('chat') ?? null;
+  const [chats, setChats] = useState<ArchivedChatSummary[]>([]);
 
-  const refreshArchives = useCallback(() => {
-    setArchives(listChatArchives());
+  const refreshChats = useCallback(() => {
+    setChats(listChatArchives());
   }, []);
 
   useEffect(() => {
-    refreshArchives();
-    window.addEventListener(ARCHIVE_UPDATED_EVENT, refreshArchives);
-    return () => window.removeEventListener(ARCHIVE_UPDATED_EVENT, refreshArchives);
-  }, [refreshArchives]);
+    refreshChats();
+    window.addEventListener(CHATS_UPDATED_EVENT, refreshChats);
+    return () => window.removeEventListener(CHATS_UPDATED_EVENT, refreshChats);
+  }, [refreshChats]);
 
   const navActive = (href: string) =>
     pathname != null && (pathname === href || pathname.startsWith(`${href}/`));
 
-  const handleDeleteArchive = (
-    e: React.MouseEvent,
-    item: ArchivedChatSummary
-  ) => {
+  const handleDeleteChat = (e: React.MouseEvent, item: ArchivedChatSummary) => {
     e.preventDefault();
     e.stopPropagation();
     const label = summarizeArchiveTitle(item.title) || 'Bu sohbet';
-    if (!window.confirm(`"${label}" arşivden silinsin mi?`)) return;
+    if (!window.confirm(`"${label}" silinsin mi?`)) return;
 
     deleteChatArchive(item.id);
 
-    const archivePath = `/standalone/archive/${item.id}`;
-    if (pathname === archivePath) {
-      router.push('/standalone');
+    if (activeChatId === item.id) {
+      const remaining = listChatArchives();
+      if (remaining.length > 0) {
+        router.push(`/standalone?chat=${remaining[0]!.id}`);
+      } else {
+        const newId = createStandaloneChat();
+        router.push(`/standalone?chat=${newId}`);
+      }
     }
-    refreshArchives();
+    refreshChats();
+  };
+
+  const handleNewChatClick = () => {
+    if (onNewChat) {
+      onNewChat();
+    } else {
+      const newId = createStandaloneChat();
+      router.push(`/standalone?chat=${newId}`);
+    }
+    onMobileClose();
   };
 
   return (
@@ -103,20 +116,14 @@ export default function StandaloneSidebar({
             </button>
           </div>
 
-          {onNewChat ? (
-            <button
-              type="button"
-              disabled={!hasActiveChat}
-              onClick={() => {
-                onNewChat();
-                onMobileClose();
-              }}
-              className={standaloneSkin.sidebarNewChatBtn}
-            >
-              <MessageSquarePlus className="h-4 w-4 shrink-0 opacity-60" />
-              Yeni sohbet
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={handleNewChatClick}
+            className={standaloneSkin.sidebarNewChatBtn}
+          >
+            <MessageSquarePlus className="h-4 w-4 shrink-0 opacity-60" />
+            Yeni sohbet
+          </button>
 
           <nav className={standaloneSkin.sidebarNav} aria-label="Gezinme">
             <Link
@@ -133,19 +140,17 @@ export default function StandaloneSidebar({
               AI Etkileşim Analizi
             </Link>
 
-            <p className={standaloneSkin.sidebarSectionLabel}>Arşiv</p>
-            {archives.length === 0 ? (
+            <p className={standaloneSkin.sidebarSectionLabel}>Sohbetler</p>
+            {chats.length === 0 ? (
               <p className={standaloneSkin.sidebarArchiveEmpty}>
-                İlk mesajınızdan sonra burada &quot;Güncel&quot; olarak görünür.
+                Yeni sohbet başlattığınızda burada görünür.
               </p>
             ) : (
-              <ul className={standaloneSkin.sidebarArchiveList} aria-label="Kayıtlı sohbetler">
-                {archives.map((item) => {
-                  const isActiveSession = item.id === ACTIVE_SESSION_ARCHIVE_ID;
-                  const href = isActiveSession ? '/standalone' : `/standalone/archive/${item.id}`;
-                  const active = isActiveSession
-                    ? pathname === '/standalone'
-                    : pathname === href;
+              <ul className={standaloneSkin.sidebarArchiveList} aria-label="Sohbet sekmeleri">
+                {chats.map((item) => {
+                  const href = `/standalone?chat=${item.id}`;
+                  const active =
+                    pathname === '/standalone' && activeChatId === item.id;
                   return (
                     <li key={item.id} className="group min-w-0">
                       <div
@@ -164,7 +169,6 @@ export default function StandaloneSidebar({
                             {summarizeArchiveTitle(item.title)}
                           </span>
                           <span className={standaloneSkin.sidebarArchiveMeta}>
-                            {isActiveSession ? 'Güncel · ' : ''}
                             {new Date(item.savedAt).toLocaleDateString('tr-TR', {
                               day: 'numeric',
                               month: 'short',
@@ -177,7 +181,7 @@ export default function StandaloneSidebar({
                           type="button"
                           className={standaloneSkin.sidebarArchiveDeleteBtn}
                           aria-label={`${summarizeArchiveTitle(item.title)} sil`}
-                          onClick={(e) => handleDeleteArchive(e, item)}
+                          onClick={(e) => handleDeleteChat(e, item)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>

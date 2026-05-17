@@ -1,0 +1,612 @@
+/**
+ * Standalone Chat Page - Pure Score Analyzer Mode
+ * Public Access (App Router Version)
+ * No authentication required
+ * 
+ * Features:
+ * - Score-only mode (0-100 badges)
+ * - SAFE-only mode (rewrite enabled)
+ * - Daily limit (30-50 messages/day)
+ * - Çoklu sohbet sekmeleri; otomatik kayıt; sekmeye dönünce kaldığın yerden devam
+ * - Minimal UI (no tooltips, no extra info)
+ */
+
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import MessageList from '@/components/standalone/MessageList';
+import InputBar from '@/components/standalone/InputBar';
+import StandaloneChatLayout from '@/components/standalone/StandaloneChatLayout';
+import { useStreamResponse } from '@/hooks/useStreamResponse';
+import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
+import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
+import {
+  createStandaloneChat,
+  getChatArchive,
+  readActiveChatId,
+  saveStandaloneChat,
+  writeActiveChatId,
+} from '@/lib/standaloneChatArchive';
+import {
+  fromArchivedMessages,
+  toArchivedMessages,
+} from '@/lib/standaloneChatSession';
+import { feedbackContextFromGovernance, parseGovernance } from '@/lib/standaloneFeedback';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import {
+  DEFAULT_ANALYSIS_MODEL_ID,
+  readStoredAnalysisModel,
+  writeStoredAnalysisModel,
+} from '@/lib/standaloneModels';
+
+interface Message {
+  id: string;
+  text: string;
+  isUser: boolean;
+  userScore?: number; // 0-100 for user message
+  assistantScore?: number; // 0-100 for assistant message
+  safety?: 'Safe' | 'Warning' | 'Blocked';
+  safeOnlyMode?: boolean;
+  timestamp: Date;
+  behavioral?: BehavioralSnapshot | null;
+  feedback?: StandaloneFeedbackContext | null;
+}
+
+// Daily limit constants
+const DAILY_LIMIT_SOFT = 40; // Soft limit (start throttling)
+const DAILY_LIMIT_HARD = 50; // Hard limit (block completely)
+const THROTTLE_DELAY_MIN = 0; // Min throttle delay (ms)
+const THROTTLE_DELAY_MAX = 300; // Max throttle delay (ms) - typing indicator süresinde
+
+// localStorage keys
+const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
+const STORAGE_KEY_DAILY_COUNT = 'eza_standalone_daily_count';
+const STORAGE_KEY_LAST_DATE = 'eza_standalone_last_date';
+export default function StandaloneChatInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const chatIdFromUrl = searchParams?.get('chat') ?? null;
+
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [safeOnlyMode, setSafeOnlyMode] = useState(false);
+  const [dailyCount, setDailyCount] = useState(0);
+  const [isLimitReached, setIsLimitReached] = useState(false);
+  const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
+  const { startStream, reset: resetStream } = useStreamResponse();
+  const currentAssistantMessageRef = useRef<string | null>(null);
+  const assistantScoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const skipAutosaveRef = useRef(true);
+  const messagesRef = useRef(messages);
+  const chatIdRef = useRef(chatId);
+  messagesRef.current = messages;
+  chatIdRef.current = chatId;
+
+  const flushSave = useCallback((id: string, msgs: Message[]) => {
+    saveStandaloneChat(id, toArchivedMessages(msgs));
+  }, []);
+
+  const loadChatIntoState = useCallback(
+    (id: string) => {
+      const chat = getChatArchive(id);
+      if (!chat) return false;
+      skipAutosaveRef.current = true;
+      resetStream();
+      setChatId(id);
+      writeActiveChatId(id);
+      setMessages(fromArchivedMessages(chat.messages));
+      setIsLoading(false);
+      setIsTyping(false);
+      window.setTimeout(() => {
+        skipAutosaveRef.current = false;
+      }, 0);
+      return true;
+    },
+    [resetStream]
+  );
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const savedSafeOnly = localStorage.getItem(STORAGE_KEY_SAFE_ONLY);
+    if (savedSafeOnly !== null) {
+      setSafeOnlyMode(savedSafeOnly === 'true');
+    }
+    setAnalysisModelId(readStoredAnalysisModel());
+
+    // Check daily count
+    const lastDate = localStorage.getItem(STORAGE_KEY_LAST_DATE);
+    const today = new Date().toDateString();
+    
+    if (lastDate === today) {
+      // Same day - load count
+      const savedCount = localStorage.getItem(STORAGE_KEY_DAILY_COUNT);
+      const count = savedCount ? parseInt(savedCount, 10) : 0;
+      setDailyCount(count);
+      setIsLimitReached(count >= DAILY_LIMIT_HARD);
+    } else {
+      // New day - reset count
+      localStorage.setItem(STORAGE_KEY_LAST_DATE, today);
+      localStorage.setItem(STORAGE_KEY_DAILY_COUNT, '0');
+      setDailyCount(0);
+      setIsLimitReached(false);
+    }
+  }, []);
+
+  // Save safeOnlyMode to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SAFE_ONLY, safeOnlyMode.toString());
+  }, [safeOnlyMode]);
+
+  useEffect(() => {
+    writeStoredAnalysisModel(analysisModelId);
+  }, [analysisModelId]);
+
+  useEffect(() => {
+    if (ready) return;
+
+    let targetId = chatIdFromUrl;
+    if (targetId && getChatArchive(targetId)) {
+      loadChatIntoState(targetId);
+      setReady(true);
+      return;
+    }
+
+    const remembered = readActiveChatId();
+    if (remembered && getChatArchive(remembered)) {
+      targetId = remembered;
+    } else {
+      targetId = createStandaloneChat();
+    }
+
+    router.replace(`/standalone?chat=${targetId}`, { scroll: false });
+    loadChatIntoState(targetId);
+    setReady(true);
+  }, [ready, chatIdFromUrl, router, loadChatIntoState]);
+
+  useEffect(() => {
+    if (!ready || !chatIdFromUrl) return;
+    if (chatIdFromUrl === chatId) return;
+
+    const prevId = chatIdRef.current;
+    if (prevId && !skipAutosaveRef.current) {
+      flushSave(prevId, messagesRef.current);
+    }
+
+    if (loadChatIntoState(chatIdFromUrl)) return;
+
+    const fallback = createStandaloneChat();
+    router.replace(`/standalone?chat=${fallback}`, { scroll: false });
+    loadChatIntoState(fallback);
+  }, [chatIdFromUrl, chatId, ready, flushSave, loadChatIntoState, router]);
+
+  useEffect(() => {
+    if (skipAutosaveRef.current || !chatId) return;
+    const timer = window.setTimeout(() => {
+      flushSave(chatId, messages);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [messages, chatId, flushSave]);
+
+  useEffect(() => {
+    return () => {
+      const id = chatIdRef.current;
+      if (id && !skipAutosaveRef.current) {
+        flushSave(id, messagesRef.current);
+      }
+    };
+  }, [flushSave]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (assistantScoreTimeoutRef.current) {
+        clearTimeout(assistantScoreTimeoutRef.current);
+      }
+      resetStream();
+    };
+  }, [resetStream]);
+
+  const handleNewChat = useCallback(() => {
+    if (chatId && toArchivedMessages(messages).length === 0) return;
+    if (chatId && !skipAutosaveRef.current) {
+      flushSave(chatId, messages);
+    }
+    const newId = createStandaloneChat();
+    router.push(`/standalone?chat=${newId}`);
+    loadChatIntoState(newId);
+  }, [chatId, messages, flushSave, router, loadChatIntoState]);
+
+  const incrementDailyCount = useCallback(() => {
+    const newCount = dailyCount + 1;
+    setDailyCount(newCount);
+    localStorage.setItem(STORAGE_KEY_DAILY_COUNT, newCount.toString());
+    
+    if (newCount >= DAILY_LIMIT_HARD) {
+      setIsLimitReached(true);
+      // Show limit message
+      const limitMessage: Message = {
+        id: `limit-${Date.now()}`,
+        text: 'Bugünkü skor analizlerin tamamlandı.\nYarın tekrar görüşebiliriz.\n\nDaha detaylı analiz istiyorsanız Proxy-Lite\'ı inceleyebilirsiniz.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, limitMessage]);
+    }
+  }, [dailyCount]);
+
+  const handleSend = async (text: string) => {
+    if (!chatId) return;
+
+    if (isLimitReached || dailyCount >= DAILY_LIMIT_HARD) {
+      const limitMessage: Message = {
+        id: `limit-${Date.now()}`,
+        text: 'Bugünkü skor analizlerin tamamlandı. Yarın tekrar görüşebiliriz.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, limitMessage]);
+      return;
+    }
+
+    // Add user message immediately with placeholder score (gray badge)
+    const userMessageId = `user-${Date.now()}`;
+    const userMessage: Message = {
+      id: userMessageId,
+      text,
+      isUser: true,
+      userScore: undefined, // Will be updated when score arrives
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+
+    // Soft limit: Apply random throttle delay (0-300ms) during typing indicator
+    const throttleDelay = dailyCount >= DAILY_LIMIT_SOFT && dailyCount < DAILY_LIMIT_HARD
+      ? Math.floor(Math.random() * (THROTTLE_DELAY_MAX - THROTTLE_DELAY_MIN + 1)) + THROTTLE_DELAY_MIN
+      : 0;
+
+    // Show typing indicator
+    setIsTyping(true);
+    
+    // Apply throttle delay during typing indicator (user won't notice)
+    if (throttleDelay > 0) {
+      await new Promise(resolve => setTimeout(resolve, throttleDelay));
+    }
+
+    // Create assistant message placeholder for streaming
+    const assistantMessageId = `eza-${Date.now()}`;
+    const       assistantMessage: Message = {
+        id: assistantMessageId,
+        text: '',
+        isUser: false,
+        assistantScore: undefined, // Will be shown 0.4s after streaming completes
+        safeOnlyMode: safeOnlyMode,
+        safety: safeOnlyMode ? 'Safe' : undefined, // Default to Safe in safe-only mode, will be updated from backend
+        timestamp: new Date(),
+      };
+    
+    setMessages((prev) => [...prev, assistantMessage]);
+    currentAssistantMessageRef.current = assistantMessageId;
+    setIsLoading(true);
+
+    try {
+      // Try streaming first, fallback to normal endpoint if it fails
+      let useNormalEndpoint = false;
+
+      try {
+        const result = await startStream(
+          '/api/standalone/stream',
+          { query: text, safe_only: safeOnlyMode, model: analysisModelId },
+          {
+            onToken: (token: string) => {
+              // Update assistant message with streaming text
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, text: (msg.text || '') + token }
+                    : msg
+                )
+              );
+              // Hide typing indicator once first token arrives
+              if (isTyping) {
+                setIsTyping(false);
+              }
+            },
+            onDone: (data: any) => {
+              setIsTyping(false);
+              setIsLoading(false);
+
+              const governance = parseGovernance(data.governance);
+              const feedbackCtx = feedbackContextFromGovernance(governance, {
+                safety: data.safety,
+                assistantScore: data.assistantScore,
+                ezaScore: data.assistantScore,
+              });
+
+              if (data.behavioral) {
+                const snapshot = data.behavioral as BehavioralSnapshot;
+                appendBehavioralSnapshot(snapshot);
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id === assistantMessageId || msg.id === userMessageId) {
+                      return { ...msg, behavioral: snapshot };
+                    }
+                    return msg;
+                  })
+                );
+              }
+
+              if (data.userScore !== undefined) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === userMessageId
+                      ? { ...msg, userScore: data.userScore }
+                      : msg
+                  )
+                );
+              }
+              
+              // Update assistant message with score after 0.4s delay
+              if (data.assistantScore !== undefined) {
+                assistantScoreTimeoutRef.current = setTimeout(() => {
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? {
+                            ...msg,
+                            assistantScore: data.assistantScore,
+                            behavioral: (data.behavioral as BehavioralSnapshot | undefined) ?? msg.behavioral,
+                            feedback: feedbackCtx ?? msg.feedback,
+                          }
+                        : msg
+                    )
+                  );
+                }, 400); // 0.4 seconds delay
+              } else if (feedbackCtx) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, feedback: feedbackCtx }
+                      : msg
+                  )
+                );
+              }
+
+              // Update assistant message with safety badge (for safe-only mode)
+              // Always update safety if in safe-only mode, even if backend doesn't send it (default to Safe)
+              if (safeOnlyMode) {
+                const safety = (data as any).safety || 'Safe'; // Default to Safe if not provided
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? {
+                          ...msg,
+                          safety: safety as 'Safe' | 'Warning' | 'Blocked',
+                          feedback: feedbackCtx ?? msg.feedback,
+                        }
+                      : msg
+                  )
+                );
+              }
+
+              // Increment daily count
+              incrementDailyCount();
+            }
+          }
+        );
+
+        if (result.error) {
+          throw new Error(result.error);
+        }
+      } catch {
+        setIsTyping(false);
+        useNormalEndpoint = true;
+      }
+
+      // Fallback to normal endpoint if streaming failed
+      if (useNormalEndpoint) {
+        // Remove placeholder assistant message
+        setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId));
+        
+        // Use normal endpoint
+        const { apiClient } = await import('@/lib/apiClient');
+        const response = await apiClient.post<{
+          ok: boolean;
+          data?: {
+            assistant_answer?: string;
+            user_score?: number;
+            assistant_score?: number;
+            safe_answer?: string;
+            mode?: string;
+          };
+          error?: {
+            error_message?: string;
+          };
+        }>('/api/standalone', {
+          body: {
+            query: text,
+            safe_only: safeOnlyMode,
+            model: analysisModelId,
+          },
+          auth: false,
+        });
+
+        if (!response.ok) {
+          // Check for demo limit errors
+          const errorCode = response.error?.error_code || response.error?.error;
+          const errorMessage = response.error?.error_message || response.error?.message || 'Request failed';
+          
+          const error = new Error(errorMessage);
+          if (errorCode) {
+            (error as any).code = errorCode;
+          }
+          throw error;
+        }
+
+        const data = response.data;
+        if (!data) {
+          throw new Error('No data received from server');
+        }
+
+        const behavioralFallback =
+          (response as { behavioral?: BehavioralSnapshot | null }).behavioral ?? null;
+        const governanceFallback = parseGovernance(
+          (response as { governance?: unknown }).governance
+        );
+        const feedbackFallback = feedbackContextFromGovernance(governanceFallback, {
+          safety: (data as { safety?: string }).safety,
+          assistantScore: (data as { assistant_score?: number }).assistant_score,
+          ezaScore: (response as { eza_score?: number }).eza_score ?? (data as { assistant_score?: number }).assistant_score,
+          riskLevel: (response as { risk_level?: string }).risk_level,
+        });
+        if (behavioralFallback) {
+          appendBehavioralSnapshot(behavioralFallback);
+        }
+
+        // Increment daily count
+        incrementDailyCount();
+
+        // Handle response based on mode
+        if (safeOnlyMode && (data as any).mode === 'safe-only') {
+          // Determine safety badge from backend response or default to Safe
+          const safety = (data as any).safety || 'Safe';
+          const ezaMessage: Message = {
+            id: assistantMessageId,
+            text: (data as any).safe_answer || (data as any).assistant_answer || 'No response available',
+            isUser: false,
+            safety: safety as 'Safe' | 'Warning' | 'Blocked',
+            safeOnlyMode: true,
+            timestamp: new Date(),
+            behavioral: behavioralFallback ?? undefined,
+            feedback: feedbackFallback ?? undefined,
+          };
+          setMessages((prev) => [...prev, ezaMessage]);
+        } else {
+          const ezaMessage: Message = {
+            id: assistantMessageId,
+            text: (data as any).assistant_answer || 'No response available',
+            isUser: false,
+            assistantScore: (data as any).assistant_score,
+            safeOnlyMode: false,
+            timestamp: new Date(),
+            behavioral: behavioralFallback ?? undefined,
+            feedback: feedbackFallback ?? undefined,
+          };
+          
+          // Update user message with score
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === userMessageId
+                ? {
+                    ...msg,
+                    userScore: (data as any).user_score,
+                    behavioral: behavioralFallback ?? msg.behavioral,
+                  }
+                : msg
+            )
+          );
+          
+          // Show assistant score after 0.4s delay
+          if ((data as any).assistant_score !== undefined) {
+            assistantScoreTimeoutRef.current = setTimeout(() => {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? {
+                        ...msg,
+                        assistantScore: (data as any).assistant_score,
+                        behavioral: msg.behavioral ?? behavioralFallback ?? undefined,
+                        feedback: msg.feedback ?? feedbackFallback ?? undefined,
+                      }
+                    : msg
+                )
+              );
+            }, 400);
+          }
+
+          setMessages((prev) => [...prev, ezaMessage]);
+        }
+        
+        setIsLoading(false);
+      }
+
+    } catch (error: any) {
+      // Error already handled in fallback logic above
+      setIsTyping(false);
+      setIsLoading(false);
+      
+      // Remove placeholder assistant message
+      setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId));
+      
+      // Show error message
+      let errorText = 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.';
+      const errorCode = error?.code || error?.response?.data?.error;
+      
+      // Handle demo limit errors
+      if (errorCode === 'DEMO_TOKEN_LIMIT_REACHED') {
+        errorText = 'Günlük Demo Limiti Doldu\n\nBu sayfa, EZA\'nın herkese açık demo ortamıdır. Sistem stabilitesi ve adil kullanım için günlük bir kapasite ile çalışır.\n\nLütfen daha sonra tekrar deneyin.';
+      } else if (errorCode === 'DEMO_TEXT_LIMIT_EXCEEDED') {
+        errorText = 'Demo ortamında uzun metin analizi sınırlıdır. Daha kapsamlı analizler kurumsal kullanım için sunulmaktadır.';
+      } else if (error.message) {
+        if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+          errorText = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
+        } else if (error.message.includes('404') || error.message.includes('bulunamadı')) {
+          errorText = 'Backend endpoint bulunamadı. Lütfen backend\'in çalıştığından emin olun.';
+        } else {
+          errorText = error.message;
+        }
+      }
+      
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        text: errorText,
+        isUser: false,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
+      setIsLoading(false);
+    }
+  };
+
+  const isEmpty = messages.length === 0 && !isLoading && !isTyping;
+  if (!ready) {
+    return (
+      <div className={`${standaloneSkin.page} flex items-center justify-center`}>
+        <p className="text-sm text-standalone-text-muted">Sohbet yükleniyor…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={standaloneSkin.page}>
+      <StandaloneChatLayout
+        isEmpty={isEmpty}
+        safeOnlyMode={safeOnlyMode}
+        onSafeOnlyModeChange={setSafeOnlyMode}
+        hasActiveChat
+        onNewChat={handleNewChat}
+        composer={
+          <InputBar
+            onSend={handleSend}
+            isLoading={isLoading}
+            disabled={isLimitReached}
+            isEmpty={isEmpty}
+            analysisModelId={analysisModelId}
+            onAnalysisModelChange={setAnalysisModelId}
+          />
+        }
+      >
+        {!isEmpty ? (
+          <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
+        ) : null}
+      </StandaloneChatLayout>
+    </div>
+  );
+}
