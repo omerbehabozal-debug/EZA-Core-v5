@@ -2,11 +2,18 @@
 
 import { cn } from '@/lib/utils';
 import type { DailyObservationView } from '@/lib/eza/dailyObservation';
+import {
+  GOVERNANCE_OBSERVATION_SUB,
+  MIRROR_LABELS,
+  STANDALONE_OBSERVATION_SUB,
+  type PresentationTone,
+} from '@/lib/eza/presentationTone';
 import { reportSkin } from '@/lib/eza/reportSkin';
 
 interface DailyObservationCardProps {
   observation: DailyObservationView;
   className?: string;
+  tone?: PresentationTone;
 }
 
 function MirrorRow({ label, sentence }: { label: string; sentence: string }) {
@@ -21,8 +28,12 @@ function MirrorRow({ label, sentence }: { label: string; sentence: string }) {
 export default function DailyObservationCard({
   observation,
   className,
+  tone = 'governance',
 }: DailyObservationCardProps) {
   if (!observation.show) return null;
+
+  const labels = MIRROR_LABELS[tone];
+  const sub = tone === 'standalone' ? STANDALONE_OBSERVATION_SUB : GOVERNANCE_OBSERVATION_SUB;
 
   return (
     <section
@@ -30,18 +41,16 @@ export default function DailyObservationCard({
       aria-label="EZA'nın son gözlemi"
     >
       <p className={reportSkin.dailyEyebrow}>EZA&apos;nın son gözlemi</p>
-      <p className={reportSkin.dailySub}>
-        Son etkileşim oturumundan çıkan kısa bir gözlem notu.
-      </p>
+      <p className={reportSkin.dailySub}>{sub}</p>
 
       {observation.manset ? (
         <p className={reportSkin.dailyManset}>{observation.manset}</p>
       ) : null}
 
       <div className={reportSkin.dailyMirrorBlock}>
-        <MirrorRow label="Sen" sentence={observation.userLine} />
-        <MirrorRow label="AI" sentence={observation.aiLine} />
-        <MirrorRow label="Denge" sentence={observation.balanceLine} />
+        <MirrorRow label={labels.user} sentence={observation.userLine} />
+        <MirrorRow label={labels.ai} sentence={observation.aiLine} />
+        <MirrorRow label={labels.balance} sentence={observation.balanceLine} />
       </div>
 
       <p className={reportSkin.dailySupport}>{observation.supportLine}</p>

@@ -3,6 +3,7 @@
  */
 
 import type { BehavioralSnapshot } from '@/lib/types';
+import type { PresentationTone } from '@/lib/eza/presentationTone';
 import { scoreToEzaRiskLevel } from '@/lib/eza/standaloneSkin';
 
 export type InsightTone = 'positive' | 'neutral' | 'caution';
@@ -31,9 +32,63 @@ function normalizeAlignment(value: number | null | undefined): number | null {
   return value / 100;
 }
 
+function insightBulletsForTone(
+  tone: PresentationTone,
+  safe: boolean,
+  aligned: boolean,
+  alignment: number | null,
+  benignSafetyRedirect: boolean,
+  harmfulRedirect: boolean
+): InsightBullet[] {
+  if (tone === 'standalone') {
+    return [
+      {
+        tone: safe ? 'positive' : 'caution',
+        text: safe ? 'Yanıt tonu dengeli kaldı' : 'Yanıt tonunda dikkat sinyali',
+      },
+      {
+        tone: aligned ? 'positive' : alignment === null ? 'neutral' : 'caution',
+        text: aligned
+          ? 'Soru bağlamıyla uyum sinyali güçlü'
+          : alignment === null
+            ? 'Uyum için daha fazla veri gerekli'
+            : 'Uyum sinyali zayıf kaldı',
+      },
+      {
+        tone: benignSafetyRedirect ? 'positive' : harmfulRedirect ? 'caution' : 'positive',
+        text: benignSafetyRedirect
+          ? 'Güvenli sınır korundu'
+          : harmfulRedirect
+            ? 'Yönlendirme sinyali gözlemlendi'
+            : 'Yönlendirme baskısı düşük',
+      },
+    ];
+  }
+
+  return [
+    {
+      tone: safe ? 'positive' : 'caution',
+      text: safe ? 'Güvenli etkileşim' : 'Çıktı dikkat gerektiriyor',
+    },
+    {
+      tone: aligned ? 'positive' : alignment === null ? 'neutral' : 'caution',
+      text: aligned ? 'Yüksek uyum' : alignment === null ? 'Uyum verisi sınırlı' : 'Uyum sinyali zayıf',
+    },
+    {
+      tone: benignSafetyRedirect ? 'positive' : harmfulRedirect ? 'caution' : 'positive',
+      text: benignSafetyRedirect
+        ? 'Güvenli red ve olumlu yönlendirme'
+        : harmfulRedirect
+          ? 'Riskli yönlendirme sinyali'
+          : 'Düşük yönlendirme sinyali',
+    },
+  ];
+}
+
 export function buildInteractionInsight(
   data: BehavioralSnapshot,
-  displayScore?: number | null
+  displayScore?: number | null,
+  tone: PresentationTone = 'standalone'
 ): InteractionInsightView {
   const v = data.vector;
   const score = normalizeScore(displayScore ?? v.eza_final ?? null);
@@ -54,27 +109,17 @@ export function buildInteractionInsight(
     (v.redirect && v.redirect_reason === 'high_input_risk' && (v.output_risk ?? 1) < 0.3);
   const harmfulRedirect = v.redirect && !benignSafetyRedirect;
 
-  const bullets: InsightBullet[] = [
-    {
-      tone: safe ? 'positive' : 'caution',
-      text: safe ? 'Güvenli etkileşim' : 'Çıktı dikkat gerektiriyor',
-    },
-    {
-      tone: aligned ? 'positive' : alignment === null ? 'neutral' : 'caution',
-      text: aligned ? 'Yüksek uyum' : alignment === null ? 'Uyum verisi sınırlı' : 'Uyum sinyali zayıf',
-    },
-    {
-      tone: benignSafetyRedirect ? 'positive' : harmfulRedirect ? 'caution' : 'positive',
-      text: benignSafetyRedirect
-        ? 'Güvenli red ve olumlu yönlendirme'
-        : harmfulRedirect
-          ? 'Riskli yönlendirme sinyali'
-          : 'Düşük yönlendirme sinyali',
-    },
-  ];
+  const bullets = insightBulletsForTone(
+    tone,
+    safe,
+    aligned,
+    alignment,
+    benignSafetyRedirect,
+    harmfulRedirect
+  );
 
   return {
-    title: 'Etkileşim özeti',
+    title: tone === 'standalone' ? 'Gözlem özeti' : 'Etkileşim özeti',
     scoreLabel: 'EZA Skoru',
     score,
     bullets,
@@ -99,7 +144,8 @@ export type InsightContext = 'user' | 'assistant';
 /** Skor-only insight when behavioral snapshot is not yet available */
 export function buildScoreOnlyInsight(
   score: number | null | undefined,
-  context: InsightContext = 'assistant'
+  context: InsightContext = 'assistant',
+  tone: PresentationTone = 'standalone'
 ): InteractionInsightView {
   const normalized = normalizeScore(score ?? null);
   const isUser = context === 'user';
@@ -124,36 +170,62 @@ export function buildScoreOnlyInsight(
   const weak = normalized < 51;
   const riskLabel = getScoreRiskLabel(normalized);
 
+  const bullets: InsightBullet[] =
+    tone === 'standalone'
+      ? [
+          {
+            tone: safe ? 'positive' : 'caution',
+            text: isUser
+              ? safe
+                ? 'Soru tonu dengeli'
+                : 'Soru tonunda dikkat sinyali'
+              : safe
+                ? 'Yanıt tonu dengeli'
+                : 'Yanıt tonunda dikkat sinyali',
+          },
+          {
+            tone: strong ? 'positive' : weak ? 'caution' : 'neutral',
+            text: `${riskLabel} · ${strong ? 'Güçlü sinyal' : weak ? 'Zayıf sinyal' : 'Orta sinyal'}`,
+          },
+          {
+            tone: normalized >= 51 ? 'positive' : 'caution',
+            text: isUser
+              ? 'Konuşma sinyali kaydedildi'
+              : 'Yanıt sinyali kaydedildi',
+          },
+        ]
+      : [
+          {
+            tone: safe ? 'positive' : 'caution',
+            text: isUser
+              ? safe
+                ? 'Güvenli girdi'
+                : 'Dikkat gerektiren girdi'
+              : safe
+                ? 'Güvenli etkileşim'
+                : 'Çıktı dikkat gerektiriyor',
+          },
+          {
+            tone: strong ? 'positive' : weak ? 'caution' : 'neutral',
+            text: `${riskLabel} · ${strong ? 'Yüksek güven' : weak ? 'Düşük güven' : 'Orta güven'}`,
+          },
+          {
+            tone: normalized >= 51 ? 'positive' : 'caution',
+            text: isUser
+              ? normalized >= 81
+                ? 'Kabul edilebilir girdi profili'
+                : 'Girdi incelemesi önerilir'
+              : normalized >= 81
+                ? 'Kabul edilebilir risk profili'
+                : 'İnceleme önerilir',
+          },
+        ];
+
   return {
     title: 'EZA Skoru',
     scoreLabel: 'EZA Skoru',
     score: normalized,
-    bullets: [
-      {
-        tone: safe ? 'positive' : 'caution',
-        text: isUser
-          ? safe
-            ? 'Güvenli girdi'
-            : 'Dikkat gerektiren girdi'
-          : safe
-            ? 'Güvenli etkileşim'
-            : 'Çıktı dikkat gerektiriyor',
-      },
-      {
-        tone: strong ? 'positive' : weak ? 'caution' : 'neutral',
-        text: `${riskLabel} · ${strong ? 'Yüksek güven' : weak ? 'Düşük güven' : 'Orta güven'}`,
-      },
-      {
-        tone: normalized >= 51 ? 'positive' : 'caution',
-        text: isUser
-          ? normalized >= 81
-            ? 'Kabul edilebilir girdi profili'
-            : 'Girdi incelemesi önerilir'
-          : normalized >= 81
-            ? 'Kabul edilebilir risk profili'
-            : 'İnceleme önerilir',
-      },
-    ],
+    bullets,
   };
 }
 

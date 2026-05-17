@@ -355,17 +355,17 @@ export function buildBehavioralDashboard(
         .map((s) => (s <= 1 ? s * 100 : s))
     );
     if (alignSecond - alignFirst > 5) {
-      insights.push('Son dönemde model yanıtlarıyla uyumunuz artmış görünüyor.');
+      insights.push('Son konuşmalarda uyum sinyali güçlendi.');
     }
     if (inputRiskSlope < -0.02) {
-      insights.push('Riskli içerik eğiliminiz düşüşte.');
+      insights.push('Son etkileşimlerde hassas içerik sinyalleri azaldı.');
     } else if (inputRiskSlope > 0.02) {
-      insights.push('Son etkileşimlerde girdi riski yükselmiş; dikkatli ilerlemek faydalı olabilir.');
+      insights.push('Son konuşmalarda hassas konu sinyalleri biraz daha belirginleşti.');
     }
     if (ezaSlope > 1.5) {
-      insights.push('EZA skorunuz yükseliyor — AI yanıtlarına güven artıyor olabilir.');
+      insights.push('Son oturumda yanıt güven sinyalleri yükseldi.');
     } else if (ezaSlope < -1.5) {
-      insights.push('EZA skorunda düşüş var; yanıtları gözden geçirmek isteyebilirsiniz.');
+      insights.push('Son oturumda yanıt sinyallerinde dalgalanma gözlemlendi.');
     }
     if (benignRedirects >= 1 && harmfulRedirects === 0) {
       insights.push('Tehlikeli sorularda model güvenli red ve olumlu yönlendirme veriyor.');
@@ -377,23 +377,23 @@ export function buildBehavioralDashboard(
       (e) => e.vector.input_risk >= 0.5 && e.vector.output_risk < 0.3
     ).length;
     if (safeRefusalCount >= 2) {
-      insights.push('Doğrulayıcı ve güvenli yanıt arayışınız belirginleşiyor.');
+      insights.push('Son konuşmalarda doğrulama ve netlik sinyalleri belirginleşti.');
     }
   }
 
   if (insights.length === 0 && hasEnoughData) {
-    insights.push('Etkileşim profiliniz dengeli görünüyor; trend izlemeye devam edin.');
+    insights.push('Son konuşmalarda düşünme biçimi dengeli bir çizgide kaldı.');
   }
 
   const heroNarrative = !hasEnoughData
-    ? 'Daha anlamlı rapor için birkaç etkileşim daha gerekli.'
+    ? 'Biraz daha konuşunca bugünkü düşünme biçimi netleşecek.'
     : redirectRate < 0.2 && avgAlign >= 65 && trendLabel(inputRiskSlope, 0.015) !== 'Artıyor'
-      ? 'Son etkileşimlerde genel profiliniz stabil görünüyor.'
+      ? 'Son konuşmalarda düşünme biçimi stabil bir çizgide kaldı.'
       : ezaSlope > 1
-        ? 'Son dönemde EZA skorunuzda yükseliş eğilimi görülüyor.'
+        ? 'Son oturumda yanıt uyum sinyalleri güçlendi.'
         : ezaSlope < -1
-          ? 'Son dönemde skor dalgalanması gözleniyor; yanıtları gözden geçirmek faydalı olabilir.'
-          : 'Etkileşim sinyalleriniz toplanıyor; eğilimler zamanla netleşecek.';
+          ? 'Son oturumda sinyallerde hafif dalgalanma gözlemlendi.'
+          : 'Konuşma sinyalleri toplanıyor; desenler zamanla netleşecek.';
 
   const featuredInsight =
     insights.find((line) => !line.includes('oturumunuza ait') && !line.includes('etkileşim daha')) ??
@@ -409,7 +409,7 @@ export function buildBehavioralDashboard(
       return 'Henüz bir etkileşim analizi yok; sohbete başladığınızda burada ilk gözleminiz belirecek.';
     }
     if (!hasEnoughData) {
-      return 'Seni tanımak için biraz daha zaman gerekiyor.';
+      return 'Biraz daha konuşunca bugünkü düşünme biçimi netleşecek.';
     }
     if (splitWow) {
       return splitWow;
@@ -418,17 +418,17 @@ export function buildBehavioralDashboard(
       return 'Son etkileşimlerde AI yanıtlarıyla uyum yüksek; girdi sinyalleri düşük seyretti.';
     }
     if (redirectRate < 0.15) {
-      return 'AI ile yazışmalarınızda yönlendirme sinyali düşük seyrediyor.';
+      return 'Son konuşmalarda yönlendirme sinyali düşük seyretti.';
     }
     if (
       redirectRate < 0.2 &&
       avgAlign >= 65 &&
       trendLabel(inputRiskSlope, 0.015) !== 'Artıyor'
     ) {
-      return 'Son konuşmalarınızda etkileşim dengeniz stabil görünüyor.';
+      return 'Son konuşmalarda etkileşim dengesi stabil kaldı.';
     }
     if (ezaSlope > 1.5) {
-      return 'Son dönemde EZA skorunuzda yükseliş eğilimi görülüyor.';
+      return 'Son oturumda yanıt uyum sinyalleri güçlendi.';
     }
     const personal = insights.find(
       (line) =>
@@ -448,8 +448,8 @@ export function buildBehavioralDashboard(
       level === 'Stabil' || level === 'Azalıyor'
         ? 'Risk yoğunluğu stabil veya düşüş eğiliminde seyrediyor.'
         : level === 'Artıyor'
-          ? 'Girdi risk sinyallerinde artış eğilimi görülüyor.'
-          : 'Risk yoğunluğu orta düzeyde; dikkatli ilerlemek faydalı olabilir.',
+          ? 'Son konuşmalarda hassas konu sinyalleri artış eğiliminde.'
+          : 'Risk sinyalleri orta düzeyde seyrediyor.',
     manipulation: (level) =>
       level === 'Düşük'
         ? 'Manipülasyon veya baskı sinyalleri düşük düzeyde kalıyor.'
@@ -457,7 +457,7 @@ export function buildBehavioralDashboard(
     impact: (level) =>
       level === 'Düşük'
         ? 'Girdi ile çıktı arasında belirgin bir dengesizlik sinyali görülmüyor.'
-        : 'Karar etkisi sinyali yükselmiş; etkileşim dengenizi izlemek faydalı olabilir.',
+        : 'Karar etkisi sinyali yükselmiş; denge sinyali izlenmeye değer.',
   };
 
   const redirectMetric = profile.find((m) => m.id === 'redirect')!;

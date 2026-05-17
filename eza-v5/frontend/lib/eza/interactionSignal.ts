@@ -5,6 +5,7 @@
 
 import type { BehavioralSnapshot } from '@/lib/types';
 import type { InsightContext } from '@/lib/eza/behavioralInsights';
+import type { PresentationTone } from '@/lib/eza/presentationTone';
 
 export interface SignalDetailRow {
   label: string;
@@ -63,6 +64,10 @@ function isDecisionIntent(intent: string): boolean {
 
 function isClarityIntent(intent: string): boolean {
   return /verif|clarif|netlik|confirm|doğrula/.test(intent);
+}
+
+function isExplorationIntent(intent: string): boolean {
+  return /explor|discover|keşif|learn|öğren|idea|fikir|brainstorm/.test(intent);
 }
 
 function buildAssistantDetails(
@@ -137,25 +142,26 @@ function buildUserDetails(
 function fallbackUserSignal(
   score: number | null,
   ir: number,
-  v?: BehavioralSnapshot['vector']
+  v?: BehavioralSnapshot['vector'],
+  tone: PresentationTone = 'standalone'
 ): InteractionSignalView {
   if (ir >= 0.38) {
     return {
       emoji: '🟠',
-      label: 'Girdi özeti',
+      label: tone === 'standalone' ? 'Ölçülü soru tonu' : 'Girdi özeti',
       details: buildUserDetails(score, ir, v),
     };
   }
   if (score !== null && score >= 78) {
     return {
       emoji: '🟢',
-      label: 'Dengeli etkileşim',
+      label: tone === 'standalone' ? 'Dengeli soru tonu' : 'Dengeli etkileşim',
       details: buildUserDetails(score, ir, v),
     };
   }
   return {
     emoji: '⚪',
-    label: 'Girdi özeti',
+    label: tone === 'standalone' ? 'Konuşma sinyali' : 'Girdi özeti',
     details: buildUserDetails(score, ir, v),
   };
 }
@@ -164,32 +170,34 @@ function fallbackAssistantSignal(
   score: number | null,
   ir: number,
   or: number,
-  v: BehavioralSnapshot['vector']
+  v: BehavioralSnapshot['vector'],
+  tone: PresentationTone = 'standalone'
 ): InteractionSignalView {
   if (score !== null && score >= 78 && or < 0.32) {
     return {
       emoji: '🟢',
-      label: 'Yanıt dengesi korundu',
+      label: tone === 'standalone' ? 'Dengeli yanıt tonu' : 'Yanıt dengesi korundu',
       details: buildAssistantDetails(score, ir, or, v),
     };
   }
   if (or < 0.28 && !v.redirect) {
     return {
       emoji: '⚪',
-      label: 'Nötr AI tonu',
+      label: tone === 'standalone' ? 'Sakin yanıt tonu' : 'Nötr AI tonu',
       details: buildAssistantDetails(score, ir, or, v),
     };
   }
   return {
     emoji: '🔵',
-    label: 'Yanıt özeti',
+    label: tone === 'standalone' ? 'Yanıt sinyali' : 'Yanıt özeti',
     details: buildAssistantDetails(score, ir, or, v),
   };
 }
 
 function buildAssistantSignalFromVector(
   data: BehavioralSnapshot,
-  ezaScore: number | null | undefined
+  ezaScore: number | null | undefined,
+  tone: PresentationTone = 'standalone'
 ): InteractionSignalView {
   const v = data.vector;
   const score = normalizeScore(ezaScore ?? v.eza_final ?? null);
@@ -208,7 +216,14 @@ function buildAssistantSignalFromVector(
   if (splitSafe || (benignSafetyRedirect && ir >= 0.4)) {
     return {
       emoji: '🟢',
-      label: splitSafe ? 'Güvenli denge korundu' : 'Güvenli sınır korundu',
+      label:
+        tone === 'standalone'
+          ? splitSafe
+            ? 'Denge korundu'
+            : 'Ölçülü yanıt tonu'
+          : splitSafe
+            ? 'Güvenli denge korundu'
+            : 'Güvenli sınır korundu',
       details: details(),
     };
   }
@@ -216,7 +231,7 @@ function buildAssistantSignalFromVector(
   if (ir >= 0.42 && or < 0.38) {
     return {
       emoji: '🟠',
-      label: 'Hassas sinyal gözlemlendi',
+      label: tone === 'standalone' ? 'Dikkatli yanıt tonu' : 'Hassas sinyal gözlemlendi',
       details: details(),
     };
   }
@@ -224,7 +239,7 @@ function buildAssistantSignalFromVector(
   if (or >= 0.42 && !benignSafetyRedirect) {
     return {
       emoji: '🟠',
-      label: 'Yanıt dikkat gerektiriyor',
+      label: tone === 'standalone' ? 'Yanıt tonunda dikkat sinyali' : 'Yanıt dikkat gerektiriyor',
       details: details(),
     };
   }
@@ -232,7 +247,7 @@ function buildAssistantSignalFromVector(
   if (align !== null && align >= 0.72 && or < 0.35 && score !== null && score >= 70) {
     return {
       emoji: '🔵',
-      label: 'Açıklayıcı yanıt',
+      label: tone === 'standalone' ? 'Açıklayıcı yanıt tonu' : 'Açıklayıcı yanıt',
       details: details(),
     };
   }
@@ -240,17 +255,18 @@ function buildAssistantSignalFromVector(
   if (harmfulRedirect) {
     return {
       emoji: '🟠',
-      label: 'Yönlendirme sinyali gözlemlendi',
+      label: tone === 'standalone' ? 'Yönlendirme sinyali' : 'Yönlendirme sinyali gözlemlendi',
       details: details(),
     };
   }
 
-  return fallbackAssistantSignal(score, ir, or, v);
+  return fallbackAssistantSignal(score, ir, or, v, tone);
 }
 
 function buildUserSignalFromVector(
   data: BehavioralSnapshot,
-  ezaScore: number | null | undefined
+  ezaScore: number | null | undefined,
+  tone: PresentationTone = 'standalone'
 ): InteractionSignalView {
   const v = data.vector;
   const score = normalizeScore(ezaScore ?? v.eza_final ?? null);
@@ -258,10 +274,24 @@ function buildUserSignalFromVector(
   const intent = (v.intent || '').toLowerCase();
   const details = () => buildUserDetails(score, ir, v);
 
+  if (isExplorationIntent(intent)) {
+    return {
+      emoji: '🟣',
+      label:
+        tone === 'standalone'
+          ? 'Merak sinyali belirgindi'
+          : 'Keşif odaklı girdi',
+      details: details(),
+    };
+  }
+
   if (isDecisionIntent(intent)) {
     return {
       emoji: '🟣',
-      label: 'Karar desteği öne çıktı',
+      label:
+        tone === 'standalone'
+          ? 'Karar öncesi netlik arayışı'
+          : 'Karar desteği öne çıktı',
       details: details(),
     };
   }
@@ -269,7 +299,8 @@ function buildUserSignalFromVector(
   if (isClarityIntent(intent)) {
     return {
       emoji: '🔵',
-      label: 'Netlik arayışı gözlemlendi',
+      label:
+        tone === 'standalone' ? 'Netlik arayışı taşıyordu' : 'Netlik arayışı gözlemlendi',
       details: details(),
     };
   }
@@ -277,12 +308,13 @@ function buildUserSignalFromVector(
   if (ir >= 0.42) {
     return {
       emoji: '🟠',
-      label: 'Hassas sinyal gözlemlendi',
+      label:
+        tone === 'standalone' ? 'Dikkatli konuşma tonu' : 'Hassas sinyal gözlemlendi',
       details: details(),
     };
   }
 
-  return fallbackUserSignal(score, ir, v);
+  return fallbackUserSignal(score, ir, v, tone);
 }
 
 function buildUserSignalFromScoreOnly(score: number | null | undefined): InteractionSignalView | null {
@@ -341,14 +373,15 @@ function buildAssistantSignalFromScoreOnly(
 export function buildInteractionSignal(
   context: InsightContext,
   ezaScore: number | null | undefined,
-  data?: BehavioralSnapshot | null
+  data?: BehavioralSnapshot | null,
+  tone: PresentationTone = 'standalone'
 ): InteractionSignalView | null {
   if (ezaScore === undefined && !data?.vector) return null;
 
   if (data?.vector) {
     return context === 'user'
-      ? buildUserSignalFromVector(data, ezaScore)
-      : buildAssistantSignalFromVector(data, ezaScore);
+      ? buildUserSignalFromVector(data, ezaScore, tone)
+      : buildAssistantSignalFromVector(data, ezaScore, tone);
   }
 
   return context === 'user'

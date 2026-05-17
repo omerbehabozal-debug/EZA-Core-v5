@@ -11,10 +11,8 @@ import {
   emptyGovernanceReportPlaceholder,
 } from '@/lib/eza/governanceReportModel';
 import { reportSkin } from '@/lib/eza/reportSkin';
+import { STANDALONE_SIGNAL_NOTE } from '@/lib/eza/presentationTone';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
-
-const STANDALONE_SIGNAL_NOTE =
-  'EZA mesaj metnini saklamadan yalnızca sayısal etkileşim sinyallerini analiz eder.';
 
 interface BehavioralIntelligenceDashboardProps {
   entries: SavedBehavioralEntry[];

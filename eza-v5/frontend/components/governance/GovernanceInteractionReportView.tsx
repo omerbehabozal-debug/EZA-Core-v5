@@ -337,7 +337,10 @@ export default function GovernanceInteractionReportView({
 
       {model.dailyObservation?.show ? (
         <div className="px-4 pb-2 pt-4 sm:px-0 sm:pb-4">
-          <DailyObservationCard observation={model.dailyObservation} />
+          <DailyObservationCard
+            observation={model.dailyObservation}
+            tone={embeddedInStandalone ? 'standalone' : 'governance'}
+          />
         </div>
       ) : null}
 

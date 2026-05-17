@@ -4,6 +4,14 @@
  */
 
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
+import {
+  aiObservationLine,
+  categoryLabelForTone,
+  observationManset,
+  observationSupportLine,
+  type PresentationTone,
+  userObservationLine,
+} from '@/lib/eza/presentationTone';
 
 export type UserObservationCategoryId =
   | 'balanced'
@@ -258,97 +266,29 @@ export function classifyAiFromEntries(entries: SavedBehavioralEntry[]): AiBehavi
 function userLineForCategory(
   category: UserObservationCategoryId,
   m: DayMetrics,
-  seed: string
+  seed: string,
+  tone: PresentationTone
 ): string {
   if (m.sampleCount < 1) {
-    return 'Son etkileşimlerde belirgin bir kullanıcı sinyali gözlemlenmedi.';
+    return tone === 'standalone'
+      ? 'Henüz belirgin bir konuşma tonu sinyali oluşmadı.'
+      : 'Son etkileşimlerde belirgin bir kullanıcı sinyali gözlemlenmedi.';
   }
-
-  const map: Record<UserObservationCategoryId, string[]> = {
-    balanced: [
-      'Son etkileşimlerde denge stabil göründü.',
-      'Son konuşmalar genel profilinle uyumlu seyretti.',
-    ],
-    decision_support: [
-      'Son etkileşimlerde karar desteği arayışı öne çıktı.',
-      'Son konuşmalarda karar öncesi netlik arayışı gözlemlendi.',
-    ],
-    clarity_seek: [
-      'Son etkileşimlerde netlik arayışı öne çıktı.',
-      'Son konuşmalarda doğrulama ve netlik sinyalleri belirginleşti.',
-    ],
-    flow_harmony: [
-      'Son etkileşimlerde yanıtlarla uyum yüksek seyretti.',
-      'Son oturumda akış uyumu belirgin bir ton taşıdı.',
-    ],
-    sensitive_signals: [
-      'Son etkileşimlerde hassas konu sinyalleri daha belirgin göründü.',
-      'Son oturumda hassas sinyal yoğunluğu dikkat çekti.',
-    ],
-    safe_balance: [
-      'Hassas konu sinyali gözlemlendi.',
-      'Son oturumda girdi tarafında dikkat çeken sinyaller göründü.',
-    ],
-    question_clarity: [
-      'Son sorular daha doğrudan ve net bir yapıdaydı.',
-      'Son oturumda soru netliği odaklı bir ton seyretti.',
-    ],
-    exploration: [
-      'Son konuşmalar daha çok fikir geliştirme yönünde ilerledi.',
-      'Son oturumda keşif odaklı bir etkileşim tonu gözlemlendi.',
-    ],
-    quiet: [
-      'Belirgin bir kullanıcı sinyali sapması gözlemlenmedi.',
-      'Son etkileşimler sakin ve dengeli bir çizgide kaldı.',
-    ],
-  };
-  return pickVariant(map[category], seed);
+  return userObservationLine(category, tone, seed);
 }
 
 function aiLineForCategory(
   category: AiBehaviorCategoryId,
   m: DayMetrics,
-  seed: string
+  seed: string,
+  tone: PresentationTone
 ): string {
   if (m.sampleCount < 1) {
-    return 'AI yanıt davranışını yorumlamak için daha fazla veri gerekiyor.';
+    return tone === 'standalone'
+      ? 'Yanıt tonunu yorumlamak için birkaç tam etkileşim daha gerekli.'
+      : 'AI yanıt davranışını yorumlamak için daha fazla veri gerekiyor.';
   }
-
-  const map: Record<AiBehaviorCategoryId, string[]> = {
-    explanatory: [
-      'Yanıtlar daha açıklayıcı bir ton taşıyordu.',
-      'AI yanıtları son oturumda daha açıklayıcı bir çizgide kaldı.',
-    ],
-    safe_boundary: [
-      'Yanıtlar güvenli sınırlar içinde kaldı.',
-      'AI yanıtlarında güvenli sınır vurgusu belirgin göründü.',
-    ],
-    low_redirect: [
-      'AI yanıtlarında yönlendirme yoğunluğu düşük seyretti.',
-      'Yanıtlarda yönlendirme etkisi düşük düzeyde kaldı.',
-    ],
-    suggestion_density: [
-      'Bazı yanıtlarda öneri dili daha belirgin göründü.',
-      'Bazı yanıtlarda daha güçlü öneri tonu gözlemlendi.',
-    ],
-    balanced_refusal: [
-      'AI hassas girişlerde dengeli bir sınır çizdi.',
-      'Hassas girişlerde yanıt dengesi korunmuş görünüyor.',
-    ],
-    high_alignment: [
-      'Yanıtlar soru bağlamıyla yüksek uyum gösterdi.',
-      'AI yanıtlarında uyum sinyali yüksek seyretti.',
-    ],
-    neutral_tone: [
-      'AI yanıtları nötr ve dengeli bir çizgide kaldı.',
-      'Yanıtlar sakin ve ölçülü bir ton taşıdı.',
-    ],
-    sensitive_balance: [
-      'AI yanıtları hassas sinyallere rağmen dengeyi korudu.',
-      'Yanıtlar hassas girişlere rağmen güvenli sınırlarda kaldı.',
-    ],
-  };
-  return pickVariant(map[category], `${seed}-ai`);
+  return aiObservationLine(category, tone, seed);
 }
 
 function balanceLineForPair(
@@ -404,28 +344,25 @@ function mansetForObservation(
   userCat: UserObservationCategoryId,
   aiCat: AiBehaviorCategoryId,
   m: DayMetrics,
-  seed: string
+  seed: string,
+  tone: PresentationTone
 ): string {
   if (m.hasInputOutputSplit) {
     return pickVariant(
-      ['Hassas sinyale rağmen denge korundu.', 'Yanıt güvenli sınırlarda kaldı.'],
+      tone === 'standalone'
+        ? ['Hassas konuda denge korundu.', 'Yanıt tonu güvenli kaldı.']
+        : ['Hassas sinyale rağmen denge korundu.', 'Yanıt güvenli sınırlarda kaldı.'],
       `${seed}-m-split`
     );
   }
-  const short: Partial<Record<UserObservationCategoryId, string[]>> = {
-    decision_support: ['Karar desteği öne çıktı.', 'Karar arayışı belirginleşti.'],
-    clarity_seek: ['Netlik arayışı öne çıktı.'],
-    exploration: ['Keşif tonu öne çıktı.'],
-    sensitive_signals: ['Hassas sinyal dikkat çekti.'],
-    balanced: ['Denge korundu.', 'Dengeli bir oturum.'],
-    quiet: ['Sakin bir etkileşim akışı.'],
-  };
-  const variants = short[userCat];
-  if (variants) return pickVariant(variants, `${seed}-m-user`);
   if (aiCat === 'safe_boundary' || aiCat === 'sensitive_balance') {
-    return 'Yanıtlar güvenli çizgide kaldı.';
+    return tone === 'standalone' ? 'Yanıtlar ölçülü bir çizgide kaldı.' : 'Yanıtlar güvenli çizgide kaldı.';
   }
-  return pickVariant(['Son gözlem hazır.', 'Yeni bir desen oluştu.'], `${seed}-m-fb`);
+  const fallback =
+    tone === 'standalone'
+      ? pickVariant(['Son gözlem hazır.', 'Yeni bir düşünme deseni oluştu.'], `${seed}-m-fb`)
+      : pickVariant(['Son gözlem hazır.', 'Yeni bir desen oluştu.'], `${seed}-m-fb`);
+  return observationManset(userCat, tone, seed, fallback);
 }
 
 function signalLevelLabel(userCat: UserObservationCategoryId, count: number): string {
@@ -442,20 +379,22 @@ function confidenceLabelFromSamples(sampleCount: number, confidencePct: number |
   return 'Güven: Ön gözlem';
 }
 
-function categoryLabelForEntry(entry: SavedBehavioralEntry): string {
+function categoryLabelForEntry(entry: SavedBehavioralEntry, tone: PresentationTone): string {
   const userCat = classifyDayFromEntries([entry]);
-  if (userCat === 'safe_balance') return USER_CATEGORY_LABEL.safe_balance;
-  return USER_CATEGORY_LABEL[userCat];
+  return categoryLabelForTone(userCat, tone, entry.interaction_id);
 }
 
-function buildInteractionPatternDots(entries: SavedBehavioralEntry[]): InteractionPatternDot[] {
+function buildInteractionPatternDots(
+  entries: SavedBehavioralEntry[],
+  tone: PresentationTone
+): InteractionPatternDot[] {
   const recent = sortNewestFirst(entries).slice(0, PATTERN_DOT_COUNT);
   const chronological = [...recent].reverse();
   const latestId = recent[0]?.interaction_id;
 
   return chronological.map((entry) => {
     const userCat = classifyDayFromEntries([entry]);
-    const label = categoryLabelForEntry(entry);
+    const label = categoryLabelForEntry(entry, tone);
     const rel = relativeTimeLabel(entry.savedAt);
     return {
       relativeLabel: rel,
@@ -478,13 +417,16 @@ function buildPriorSessionLine(sessions: SavedBehavioralEntry[][]): string | nul
   return `Önceki oturum: ${USER_CATEGORY_LABEL[priorCat]}`;
 }
 
-function buildPatternSummary(entries: SavedBehavioralEntry[]): string | null {
+function buildPatternSummary(
+  entries: SavedBehavioralEntry[],
+  tone: PresentationTone
+): string | null {
   const recent = sortNewestFirst(entries).slice(0, PATTERN_DOT_COUNT);
   if (recent.length < 4) return null;
 
   const counts = new Map<string, number>();
   for (const entry of recent) {
-    const label = categoryLabelForEntry(entry);
+    const label = categoryLabelForEntry(entry, tone);
     if (label === USER_CATEGORY_LABEL.quiet) continue;
     counts.set(label, (counts.get(label) ?? 0) + 1);
   }
@@ -507,7 +449,8 @@ function buildMirrorObservation(
   sessionEntries: SavedBehavioralEntry[],
   seed: string,
   sampleCountTotal: number,
-  confidencePct: number | null
+  confidencePct: number | null,
+  tone: PresentationTone
 ): Omit<
   DailyObservationView,
   'show' | 'yesterdayLine' | 'weekPattern' | 'showWeekPattern' | 'fridaySummary'
@@ -518,12 +461,11 @@ function buildMirrorObservation(
   const sessionSeed = `${seed}-${sessionEntries[0]?.interaction_id ?? 'empty'}`;
 
   return {
-    manset: mansetForObservation(userCat, aiCat, m, sessionSeed),
-    userLine: userLineForCategory(userCat, m, sessionSeed),
-    aiLine: aiLineForCategory(aiCat, m, sessionSeed),
+    manset: mansetForObservation(userCat, aiCat, m, sessionSeed, tone),
+    userLine: userLineForCategory(userCat, m, sessionSeed, tone),
+    aiLine: aiLineForCategory(aiCat, m, sessionSeed, tone),
     balanceLine: balanceLineForPair(userCat, aiCat, m, sessionSeed),
-    supportLine:
-      'Bu gözlem son etkileşim oturumundaki soru yapısı, AI yanıt tonu ve dengeye dayanır.',
+    supportLine: observationSupportLine(tone),
     signalLevel: `Sinyal seviyesi: ${signalLevelLabel(userCat, m.sampleCount)}`,
     confidenceLabel: confidenceLabelFromSamples(sampleCountTotal, confidencePct),
     headline: undefined,
@@ -533,14 +475,19 @@ function buildMirrorObservation(
 
 export function buildDailyObservationFromEntries(
   entries: SavedBehavioralEntry[],
-  options?: { confidencePct?: number | null; seed?: string }
+  options?: {
+    confidencePct?: number | null;
+    seed?: string;
+    tone?: PresentationTone;
+  }
 ): DailyObservationView {
   const seed = options?.seed ?? 'standalone-daily';
+  const tone = options?.tone ?? 'standalone';
   if (entries.length === 0) return { ...EMPTY_VIEW };
 
   const sessions = splitInteractionSessions(entries);
   const latestSession = sessions[0] ?? [];
-  const weekPattern = buildInteractionPatternDots(entries);
+  const weekPattern = buildInteractionPatternDots(entries, tone);
 
   const mirror =
     latestSession.length > 0
@@ -548,13 +495,20 @@ export function buildDailyObservationFromEntries(
           latestSession,
           seed,
           entries.length,
-          options?.confidencePct ?? null
+          options?.confidencePct ?? null,
+          tone
         )
       : {
-          ...buildMirrorObservation([], seed, entries.length, options?.confidencePct ?? null),
-          manset: 'Henüz kayıtlı etkileşim yok.',
-          userLine: 'Son etkileşimlerde belirgin bir kullanıcı sinyali gözlemlenmedi.',
-          supportLine: 'Yeni konuşmalar başladığında son gözlem burada güncellenir.',
+          ...buildMirrorObservation([], seed, entries.length, options?.confidencePct ?? null, tone),
+          manset: tone === 'standalone' ? 'Henüz bir gözlem notu yok.' : 'Henüz kayıtlı etkileşim yok.',
+          userLine:
+            tone === 'standalone'
+              ? 'Henüz belirgin bir konuşma tonu sinyali oluşmadı.'
+              : 'Son etkileşimlerde belirgin bir kullanıcı sinyali gözlemlenmedi.',
+          supportLine:
+            tone === 'standalone'
+              ? 'Yeni sohbetler başladığında son gözlem burada güncellenir.'
+              : 'Yeni konuşmalar başladığında son gözlem burada güncellenir.',
         };
 
   return {
@@ -563,7 +517,7 @@ export function buildDailyObservationFromEntries(
     yesterdayLine: buildPriorSessionLine(sessions),
     weekPattern,
     showWeekPattern: entries.length >= 3,
-    fridaySummary: buildPatternSummary(entries),
+    fridaySummary: buildPatternSummary(entries, tone),
   };
 }
 
@@ -575,7 +529,9 @@ export function buildDailyObservationFromAggregates(input: {
   avgAlign: number | null;
   confidence: number | null;
   seed: string;
+  tone?: PresentationTone;
 }): DailyObservationView {
+  const tone = input.tone ?? 'governance';
   if (input.sampleCount < 1) return { ...EMPTY_VIEW };
 
   const pseudoEntries: SavedBehavioralEntry[] =
@@ -612,6 +568,7 @@ export function buildDailyObservationFromAggregates(input: {
     return buildDailyObservationFromEntries(pseudoEntries, {
       confidencePct: input.confidence,
       seed: input.seed,
+      tone,
     });
   }
 
@@ -626,7 +583,7 @@ export function buildDailyObservationFromAggregates(input: {
     userLine: fallbackUser,
     aiLine: 'AI yanıt davranışını yorumlamak için daha fazla veri gerekiyor.',
     balanceLine: 'Etkileşim dengesini yorumlamak için birkaç etkileşim daha gerekli.',
-    supportLine: 'Bu gözlem son etkileşim özetine ve gözlemsel sinyallere dayanır.',
+    supportLine: observationSupportLine(tone),
     signalLevel: `Sinyal seviyesi: ${signalLevelLabel('quiet', input.sampleCount)}`,
     confidenceLabel: confidenceLabelFromSamples(input.sampleCount, input.confidence),
     yesterdayLine: null,

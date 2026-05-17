@@ -784,6 +784,7 @@ function assembleViewModel(
     avgAlign: core.avgAlign,
     confidence: core.confidence,
     seed: core.seed,
+    tone: 'governance',
   });
 
   return {
@@ -944,7 +945,8 @@ function historyRowsFromBehavioralEntries(entries: SavedBehavioralEntry[]): Hist
             index: 0,
           },
         },
-        entry.vector.eza_final ?? undefined
+        entry.vector.eza_final ?? undefined,
+        'standalone'
       );
       return {
         label: new Date(entry.savedAt).toLocaleString('tr-TR', {
@@ -1019,6 +1021,7 @@ export function buildGovernanceReportFromBehavioral(
     vm.dailyObservation = buildDailyObservationFromEntries(ordered, {
       confidencePct: dash.confidencePct,
       seed,
+      tone: 'standalone',
     });
     return vm;
   } catch (e) {
