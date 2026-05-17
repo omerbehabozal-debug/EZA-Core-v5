@@ -133,6 +133,38 @@ export const reportSkin = {
   dailyPatternDot:
     'inline-flex h-7 w-7 items-center justify-center rounded-full border border-stone-200/60 bg-stone-50/90 transition-colors hover:border-stone-300/80 hover:bg-white',
   dailyPatternDotLatest: 'ring-1 ring-stone-300/70 ring-offset-1 ring-offset-white',
+
+  observationHero:
+    'relative flex min-h-[min(100svh,820px)] flex-col justify-center px-5 py-16 sm:px-8 sm:py-20',
+
+  observationHeroGlow:
+    'pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(13,148,136,0.07),transparent_55%)]',
+
+  observationHeroEyebrow:
+    'text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-800/70',
+
+  observationHeroSub: 'mt-2 max-w-md text-sm leading-relaxed text-stone-500',
+
+  observationHeroInsight:
+    'mt-8 max-w-2xl text-[1.5rem] font-medium leading-[1.35] tracking-[-0.025em] text-stone-900 sm:text-[1.85rem] sm:leading-[1.3]',
+
+  observationHeroSupport: 'mt-5 max-w-lg text-sm leading-relaxed text-stone-500',
+
+  obsMirrorBlock: 'mt-10 space-y-6 border-t border-stone-200/35 pt-8',
+
+  obsMirrorRow: 'space-y-1.5',
+
+  obsMirrorLabel: 'text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400',
+
+  obsMirrorSentence: 'text-[16px] leading-relaxed text-stone-800 sm:text-[17px]',
+
+  obsWhyToggle:
+    'flex w-full items-center justify-between gap-2 text-left text-sm font-medium text-stone-600 transition-colors hover:text-stone-800',
+
+  obsWhyPanel: 'mt-3 rounded-xl border border-stone-200/50 bg-stone-50/60 px-4 py-3',
+
+  observationScrollHint:
+    'mt-10 inline-flex items-center gap-2 text-sm text-stone-500 transition-colors hover:text-stone-700',
 } as const;
 
 export const reportChartTheme = {

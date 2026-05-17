@@ -53,12 +53,12 @@ export default function BehavioralIntelligenceDashboard({
   if (entries.length === 0) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
-        <p className={reportSkin.eyebrow}>Etkileşim Raporu</p>
+        <p className={reportSkin.eyebrow}>EZA&apos;nın Son Gözlemi</p>
         <p className="mt-6 max-w-md text-2xl font-medium leading-snug text-stone-900">
-          Seni tanımak için biraz daha zaman gerekiyor.
+          EZA bugün senin hakkında ne fark edecek?
         </p>
         <p className="mt-4 text-sm text-stone-500">
-          Sohbette birkaç yanıt aldıktan sonra ilk davranışsal gözleminiz burada belirecek.
+          Birkaç sohbetten sonra son gözlem burada belirecek — yargı değil, kısa bir etkileşim notu.
         </p>
       </div>
     );

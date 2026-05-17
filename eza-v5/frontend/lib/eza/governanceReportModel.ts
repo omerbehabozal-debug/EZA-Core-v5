@@ -852,6 +852,7 @@ export function emptyGovernanceReportPlaceholder(
     wowMoment,
     dailyObservation: {
       show: false,
+      primaryInsight: '',
       manset: '',
       userLine: '',
       aiLine: '',
@@ -859,6 +860,7 @@ export function emptyGovernanceReportPlaceholder(
       supportLine: '',
       signalLevel: '',
       confidenceLabel: '',
+      whyShownBullets: [],
       yesterdayLine: null,
       weekPattern: [],
       showWeekPattern: false,

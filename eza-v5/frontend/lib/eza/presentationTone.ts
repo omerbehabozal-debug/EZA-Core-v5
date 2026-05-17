@@ -38,14 +38,29 @@ export const GOVERNANCE_OBSERVATION_SUB =
   'Son etkileşim oturumundan çıkan kısa bir gözlem notu.';
 
 export const STANDALONE_OBSERVATION_SUB =
-  'Son sohbetlerinden çıkan kısa bir düşünme biçimi notu — yargı değil, gözlem.';
+  'Son konuşmalarından çıkan kısa bir etkileşim notu.';
 
 export const MIRROR_LABELS: Record<
   PresentationTone,
   { user: string; ai: string; balance: string }
 > = {
   governance: { user: 'Girdi', ai: 'Yanıt', balance: 'Denge' },
-  standalone: { user: 'Konuşma tonu', ai: 'Yanıt tonu', balance: 'Denge' },
+  standalone: { user: 'Sen', ai: 'AI', balance: 'Denge' },
+};
+
+export const WHY_SHOWN_BULLETS: Record<PresentationTone, string[]> = {
+  governance: [
+    'Son etkileşim oturumundaki soru yapısı',
+    'AI yanıt tonu ve dengesi',
+    'Gözlemsel etkileşim sinyalleri',
+    'Son etkileşim deseni',
+  ],
+  standalone: [
+    'Son konuşma tonu',
+    'Soru yapısı',
+    'AI yanıt dengesi',
+    'Son etkileşim deseni',
+  ],
 };
 
 export const USER_CATEGORY_LABEL_TONE: Record<
@@ -115,8 +130,9 @@ const USER_LINES: Record<UserObservationCategoryId, ToneVariants> = {
       'Son konuşmalarda karar öncesi netlik arayışı gözlemlendi.',
     ],
     standalone: [
+      'Bugün bazı konularda yön bulmaya çalışıyor gibiydin.',
+      'Karar vermeden önce seçenekleri tartıyor gibiydin.',
       'Bazı sorular karar öncesi netlik arayışı taşıyordu.',
-      'Son konuşmalarda seçenekleri netleştirme eğilimi belirgindi.',
     ],
   },
   clarity_seek: {
@@ -125,8 +141,9 @@ const USER_LINES: Record<UserObservationCategoryId, ToneVariants> = {
       'Son konuşmalarda doğrulama ve netlik sinyalleri belirginleşti.',
     ],
     standalone: [
-      'Bugünkü sorular daha çok netlik arayışı taşıyordu.',
-      'Son konuşmalarda doğrulama ve netlik sinyalleri öne çıktı.',
+      'Bugün cevaplardan çok netlik almaya çalışıyor gibiydin.',
+      'Bugünkü sorular daha doğrudan ve net bir yapıdaydı.',
+      'Bazı sorularında hızlı açıklık arayışı dikkat çekiyordu.',
     ],
   },
   flow_harmony: {
@@ -135,8 +152,8 @@ const USER_LINES: Record<UserObservationCategoryId, ToneVariants> = {
       'Son oturumda akış uyumu belirgin bir ton taşıdı.',
     ],
     standalone: [
-      'Son konuşmalarda akıcı bir düşünme akışı gözlemlendi.',
-      'Bugünkü etkileşimlerde uyum sinyali güçlü kaldı.',
+      'Bugünkü konuşmalarda akış oldukça doğal ilerledi.',
+      'Son konuşmalarda uyum sinyali güçlü kaldı.',
     ],
   },
   sensitive_signals: {
@@ -145,8 +162,8 @@ const USER_LINES: Record<UserObservationCategoryId, ToneVariants> = {
       'Son oturumda hassas sinyal yoğunluğu dikkat çekti.',
     ],
     standalone: [
-      'Bazı konularda daha dikkatli bir etkileşim tonu gözlemlendi.',
-      'Son oturumda hassas konu sinyalleri daha belirgin göründü.',
+      'Bazı konularda daha dikkatli bir konuşma tonu vardı.',
+      'Bugün bazı girişlerde dikkat gerektiren sinyaller oluştu.',
     ],
   },
   safe_balance: {
@@ -176,7 +193,8 @@ const USER_LINES: Record<UserObservationCategoryId, ToneVariants> = {
     ],
     standalone: [
       'Bugünkü konuşmalarda yeni fikirleri keşfetme isteği daha belirgindi.',
-      'Bugünkü etkileşimler daha çok fikir geliştirme yönünde ilerledi.',
+      'Bugün cevaplardan çok yeni bakış açıları arıyor gibiydin.',
+      'Bazı sorularında merak duygusu daha baskındı.',
     ],
   },
   quiet: {
@@ -185,9 +203,125 @@ const USER_LINES: Record<UserObservationCategoryId, ToneVariants> = {
       'Son etkileşimler sakin ve dengeli bir çizgide kaldı.',
     ],
     standalone: [
-      'Belirgin bir düşünme biçimi sapması gözlemlenmedi.',
-      'Son konuşmalar sakin ve dengeli bir çizgide kaldı.',
+      'Bugünkü konuşmalar genel akışınla uyumlu görünüyordu.',
+      'Belirgin bir sapma gözlemlenmedi.',
     ],
+  },
+};
+
+/** Ana hero insight — merak uyandıran tek cümle */
+const PRIMARY_INSIGHT: Record<UserObservationCategoryId, ToneVariants> = {
+  balanced: {
+    governance: ['Denge stabil görünüyor.'],
+    standalone: [
+      'Son konuşmalarda dengeli ve sakin bir düşünme akışı öne çıkıyordu.',
+      'Konuşmaların genel çizgisi ölçülü ve dengeli ilerledi.',
+    ],
+  },
+  decision_support: {
+    governance: ['Karar desteği arayışı belirginleşti.'],
+    standalone: [
+      'Bugün cevaplardan çok yön bulmaya çalışıyor gibiydin.',
+      'Karar öncesi netlik arayışı bugün daha belirgindi.',
+    ],
+  },
+  clarity_seek: {
+    governance: ['Netlik arayışı öne çıktı.'],
+    standalone: [
+      'Bugün cevaplardan çok netlik almaya çalışıyor gibiydin.',
+      'Sorularında hızlı açıklık arayışı dikkat çekiyordu.',
+    ],
+  },
+  flow_harmony: {
+    governance: ['Akış uyumu yüksek seyretti.'],
+    standalone: [
+      'Konuşma akışı doğal ve uyumlu ilerliyordu.',
+      'Bugünkü etkileşimlerde akış sinyali güçlü kaldı.',
+    ],
+  },
+  sensitive_signals: {
+    governance: ['Hassas sinyal yoğunluğu dikkat çekti.'],
+    standalone: [
+      'Bazı konularda daha ölçülü ve dikkatli bir ton öne çıkıyordu.',
+      'Hassas konularda konuşma tonu daha temkinliydi.',
+    ],
+  },
+  safe_balance: {
+    governance: ['Güvenli denge sinyali görüldü.'],
+    standalone: [
+      'Ölçülü bir konuşma tonu bugün daha belirgindi.',
+      'Dikkatli ama akıcı bir etkileşim çizgisi vardı.',
+    ],
+  },
+  question_clarity: {
+    governance: ['Soru netliği odaklı ton.'],
+    standalone: [
+      'Soruların bugün daha net ve hedef odaklı bir yapı taşıyordu.',
+      'Doğrudan netlik arayışı öne çıkıyordu.',
+    ],
+  },
+  exploration: {
+    governance: ['Keşif odaklı etkileşim.'],
+    standalone: [
+      'Bugünkü konuşmalarda merak ve keşif sinyali daha belirgindi.',
+      'Yeni ihtimaller arayışı bugün öne çıkıyordu.',
+    ],
+  },
+  quiet: {
+    governance: ['Sakin etkileşim akışı.'],
+    standalone: [
+      'Sakin ve dengeli bir konuşma çizgisi sürdü.',
+      'Belirgin bir ton sapması oluşmadı.',
+    ],
+  },
+};
+
+type BalanceLineEntry = ToneVariants & { split?: ToneVariants };
+
+const BALANCE_LINES: Partial<Record<UserObservationCategoryId, BalanceLineEntry>> = {
+  decision_support: {
+    standalone: [
+      'Karar arayışına rağmen etkileşim dengesi korundu.',
+      'Buna rağmen konuşma dengesi stabil kaldı.',
+    ],
+    governance: ['Karar arayışına yanıt tonu uyumlu kaldı.'],
+  },
+  exploration: {
+    standalone: [
+      'Konuşma akışı keşif odaklı ama dengeli ilerledi.',
+      'Merak sinyaline rağmen denge korundu.',
+    ],
+    governance: ['Keşif tonu dengeli kaldı.'],
+  },
+  clarity_seek: {
+    standalone: ['Konuşma akışı hedef odaklı ilerledi.'],
+    governance: ['Netlik arayışı dengeli seyretti.'],
+  },
+  sensitive_signals: {
+    standalone: [
+      'Hassas sinyallere rağmen konuşma dengesi korundu.',
+      'Buna rağmen etkileşim dengesi stabil kaldı.',
+    ],
+    governance: ['Hassas sinyallere rağmen denge korundu.'],
+    split: {
+      standalone: [
+        'Hassas konularda bile konuşma dengesi korundu.',
+        'Buna rağmen denge bozulmadan ilerledi.',
+      ],
+      governance: ['Hassas sinyale rağmen denge korundu.'],
+    },
+  },
+  flow_harmony: {
+    standalone: ['Etkileşim tonu stabil ve dengeli kaldı.'],
+    governance: ['Etkileşim dengesi stabil kaldı.'],
+  },
+  balanced: {
+    standalone: ['Belirgin bir sapma gözlemlenmedi.', 'Konuşma dengesi stabil kaldı.'],
+    governance: ['Etkileşim dengesi stabil kaldı.'],
+  },
+  quiet: {
+    standalone: ['Belirgin bir sapma gözlemlenmedi.'],
+    governance: ['Denge stabil kaldı.'],
   },
 };
 
@@ -198,8 +332,8 @@ const AI_LINES: Record<AiBehaviorCategoryId, ToneVariants> = {
       'AI yanıtları son oturumda daha açıklayıcı bir çizgide kaldı.',
     ],
     standalone: [
-      'Yanıtlar bugün daha açıklayıcı bir ton taşıdı.',
-      'Son oturumda anlatım odaklı bir yanıt çizgisi öne çıktı.',
+      'AI daha açıklayıcı ve yön gösterici cevaplar vermeye yöneldi.',
+      'Yanıtlar daha kısa ve açıklayıcı bir ton taşıyordu.',
     ],
   },
   safe_boundary: {
@@ -248,8 +382,8 @@ const AI_LINES: Record<AiBehaviorCategoryId, ToneVariants> = {
       'AI yanıtlarında uyum sinyali yüksek seyretti.',
     ],
     standalone: [
-      'Yanıtlar soru bağlamıyla uyumlu kaldı.',
-      'Son konuşmalarda uyum sinyali güçlü seyretti.',
+      'Yanıtlar soru yapınla yüksek uyum gösterdi.',
+      'AI yanıtları bağlamla uyumlu kaldı.',
     ],
   },
   neutral_tone: {
@@ -292,8 +426,34 @@ export function aiObservationLine(
 
 export function observationSupportLine(tone: PresentationTone): string {
   return tone === 'standalone'
-    ? 'Bu not, son sohbetlerindeki soru yapısı, yanıt tonu ve denge sinyallerine dayanır — yargı değil, gözlem.'
+    ? 'Bu, son konuşmalarındaki düşünme biçimine dair kısa bir gözlem notu.'
     : 'Bu gözlem son etkileşim oturumundaki soru yapısı, AI yanıt tonu ve dengeye dayanır.';
+}
+
+export function primaryInsightForCategory(
+  category: UserObservationCategoryId,
+  tone: PresentationTone,
+  seed: string
+): string {
+  return pickToneCopy(tone, PRIMARY_INSIGHT[category], `${seed}-hero`);
+}
+
+export function balanceObservationLine(
+  userCat: UserObservationCategoryId,
+  tone: PresentationTone,
+  seed: string,
+  options?: { split?: boolean }
+): string | null {
+  const entry = BALANCE_LINES[userCat];
+  if (!entry) return null;
+  if (options?.split && entry.split) {
+    return pickToneCopy(tone, entry.split, `${seed}-bal-split`);
+  }
+  return pickToneCopy(tone, entry, `${seed}-bal`);
+}
+
+export function whyShownBullets(tone: PresentationTone): string[] {
+  return WHY_SHOWN_BULLETS[tone];
 }
 
 export function observationManset(

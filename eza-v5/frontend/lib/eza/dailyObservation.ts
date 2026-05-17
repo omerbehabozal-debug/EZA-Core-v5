@@ -6,11 +6,14 @@
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
   aiObservationLine,
+  balanceObservationLine,
   categoryLabelForTone,
   observationManset,
   observationSupportLine,
+  primaryInsightForCategory,
   type PresentationTone,
   userObservationLine,
+  whyShownBullets,
 } from '@/lib/eza/presentationTone';
 
 export type UserObservationCategoryId =
@@ -78,6 +81,8 @@ export type WeekPatternDay = InteractionPatternDot;
 
 export interface DailyObservationView {
   show: boolean;
+  /** Hero ana insight */
+  primaryInsight: string;
   manset: string;
   userLine: string;
   aiLine: string;
@@ -85,6 +90,8 @@ export interface DailyObservationView {
   supportLine: string;
   signalLevel: string;
   confidenceLabel: string;
+  categoryId?: UserObservationCategoryId;
+  whyShownBullets: string[];
   /** Önceki oturum / desen değişimi */
   yesterdayLine: string | null;
   weekPattern: InteractionPatternDot[];
@@ -111,6 +118,7 @@ const PATTERN_DOT_COUNT = 7;
 
 const EMPTY_VIEW: DailyObservationView = {
   show: false,
+  primaryInsight: '',
   manset: '',
   userLine: '',
   aiLine: '',
@@ -118,6 +126,7 @@ const EMPTY_VIEW: DailyObservationView = {
   supportLine: '',
   signalLevel: '',
   confidenceLabel: '',
+  whyShownBullets: [],
   yesterdayLine: null,
   weekPattern: [],
   showWeekPattern: false,
@@ -167,6 +176,13 @@ export function splitInteractionSessions(entries: SavedBehavioralEntry[]): Saved
   }
   sessions.push(current);
   return sessions;
+}
+
+/** Son 7 etkileşim satırı — takvim değil, sıra (0 = en yeni) */
+function interactionOrdinalLabel(stepsFromLatest: number): string {
+  if (stepsFromLatest <= 0) return 'Son etkileşim';
+  if (stepsFromLatest === 1) return '1 etkileşim önce';
+  return `${stepsFromLatest} etkileşim önce`;
 }
 
 function relativeTimeLabel(iso: string): string {
@@ -295,11 +311,19 @@ function balanceLineForPair(
   userCat: UserObservationCategoryId,
   aiCat: AiBehaviorCategoryId,
   m: DayMetrics,
-  seed: string
+  seed: string,
+  tone: PresentationTone
 ): string {
   if (m.sampleCount < 2) {
-    return 'Etkileşim dengesini yorumlamak için birkaç etkileşim daha gerekli.';
+    return tone === 'standalone'
+      ? 'Dengeyi yorumlamak için birkaç etkileşim daha gerekli.'
+      : 'Etkileşim dengesini yorumlamak için birkaç etkileşim daha gerekli.';
   }
+
+  const fromTone = balanceObservationLine(userCat, tone, seed, {
+    split: m.hasInputOutputSplit || (userCat === 'sensitive_signals' && aiCat === 'sensitive_balance'),
+  });
+  if (fromTone) return fromTone;
 
   if (m.hasInputOutputSplit || (userCat === 'sensitive_signals' && aiCat === 'sensitive_balance')) {
     return pickVariant(
@@ -392,10 +416,12 @@ function buildInteractionPatternDots(
   const chronological = [...recent].reverse();
   const latestId = recent[0]?.interaction_id;
 
-  return chronological.map((entry) => {
+  const total = chronological.length;
+  return chronological.map((entry, index) => {
     const userCat = classifyDayFromEntries([entry]);
     const label = categoryLabelForEntry(entry, tone);
-    const rel = relativeTimeLabel(entry.savedAt);
+    const stepsFromLatest = total - 1 - index;
+    const rel = interactionOrdinalLabel(stepsFromLatest);
     return {
       relativeLabel: rel,
       emoji: OBSERVATION_CATEGORY_EMOJI[userCat],
@@ -460,14 +486,24 @@ function buildMirrorObservation(
   const aiCat = classifyAiFromEntries(sessionEntries);
   const sessionSeed = `${seed}-${sessionEntries[0]?.interaction_id ?? 'empty'}`;
 
+  const primaryInsight =
+    m.sampleCount < 1
+      ? tone === 'standalone'
+        ? 'Birkaç konuşma sonra ilk gözlem burada belirecek.'
+        : 'Henüz yeterli etkileşim yok.'
+      : primaryInsightForCategory(userCat, tone, sessionSeed);
+
   return {
+    primaryInsight,
     manset: mansetForObservation(userCat, aiCat, m, sessionSeed, tone),
     userLine: userLineForCategory(userCat, m, sessionSeed, tone),
     aiLine: aiLineForCategory(aiCat, m, sessionSeed, tone),
-    balanceLine: balanceLineForPair(userCat, aiCat, m, sessionSeed),
+    balanceLine: balanceLineForPair(userCat, aiCat, m, sessionSeed, tone),
     supportLine: observationSupportLine(tone),
     signalLevel: `Sinyal seviyesi: ${signalLevelLabel(userCat, m.sampleCount)}`,
     confidenceLabel: confidenceLabelFromSamples(sampleCountTotal, confidencePct),
+    categoryId: userCat,
+    whyShownBullets: whyShownBullets(tone),
     headline: undefined,
     interactionTone: null,
   };
@@ -577,8 +613,10 @@ export function buildDailyObservationFromAggregates(input: {
       ? input.trendInsight
       : 'Son etkileşimler sakin bir çizgide seyretti.';
 
+  const quietCat: UserObservationCategoryId = 'quiet';
   return {
     show: true,
+    primaryInsight: primaryInsightForCategory(quietCat, tone, input.seed),
     manset: 'Gözlem oluşuyor.',
     userLine: fallbackUser,
     aiLine: 'AI yanıt davranışını yorumlamak için daha fazla veri gerekiyor.',
@@ -586,6 +624,8 @@ export function buildDailyObservationFromAggregates(input: {
     supportLine: observationSupportLine(tone),
     signalLevel: `Sinyal seviyesi: ${signalLevelLabel('quiet', input.sampleCount)}`,
     confidenceLabel: confidenceLabelFromSamples(input.sampleCount, input.confidence),
+    categoryId: quietCat,
+    whyShownBullets: whyShownBullets(tone),
     yesterdayLine: null,
     weekPattern: [],
     showWeekPattern: false,

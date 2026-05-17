@@ -17,6 +17,7 @@ import {
 } from '@/lib/eza/governanceReportModel';
 import { reportChartTheme, reportSkin } from '@/lib/eza/reportSkin';
 import DailyObservationCard from '@/components/governance/DailyObservationCard';
+import LastObservationHero from '@/components/governance/LastObservationHero';
 
 const SECTION_FEATURED = 'gov-report-featured';
 const SECTION_HOW = 'gov-report-how';
@@ -325,35 +326,49 @@ export default function GovernanceInteractionReportView({
         !embeddedInStandalone && reportSkin.canvas
       )}
     >
-      <WowHero
-        model={model}
-        backHref={hideBackLink ? undefined : backHref}
-        backLabel={backLabel}
-        signalNote={signalNote}
-        embeddedInStandalone={hideBackLink}
-        onOpenHow={() => setHowOpen(true)}
-        onScrollDetails={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth' })}
-      />
-
-      {model.dailyObservation?.show ? (
-        <div className="px-4 pb-2 pt-4 sm:px-0 sm:pb-4">
-          <DailyObservationCard
-            observation={model.dailyObservation}
-            tone={embeddedInStandalone ? 'standalone' : 'governance'}
+      {embeddedInStandalone && model.dailyObservation?.show ? (
+        <LastObservationHero
+          observation={model.dailyObservation}
+          onScrollDetails={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth' })}
+        />
+      ) : (
+        <>
+          <WowHero
+            model={model}
+            backHref={hideBackLink ? undefined : backHref}
+            backLabel={backLabel}
+            signalNote={signalNote}
+            embeddedInStandalone={hideBackLink}
+            onOpenHow={() => setHowOpen(true)}
+            onScrollDetails={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth' })}
           />
-        </div>
-      ) : null}
+          {model.dailyObservation?.show ? (
+            <div className="px-4 pb-2 pt-4 sm:px-0 sm:pb-4">
+              <DailyObservationCard observation={model.dailyObservation} tone="governance" />
+            </div>
+          ) : null}
+        </>
+      )}
 
-      <div ref={detailsRef} className={reportSkin.detailsWrap}>
-        <FeaturedInteractionSection featured={featured} />
+      <div
+        ref={detailsRef}
+        className={cn(reportSkin.detailsWrap, embeddedInStandalone && 'border-t border-stone-200/40 pt-2')}
+      >
+        {!embeddedInStandalone ? <FeaturedInteractionSection featured={featured} /> : null}
 
         <HowCalculatedSection model={model} open={howOpen} onToggle={() => setHowOpen((o) => !o)} />
 
         <section id={SECTION_PROFILE} className="scroll-mt-8 border-t border-stone-200/50 py-12 sm:py-14">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className={reportSkin.sectionTitle}>Genel etkileşim profili</h2>
-              <p className={reportSkin.sectionSub}>Özet göstergeler — gözlemsel sinyaller</p>
+              <h2 className={reportSkin.sectionTitle}>
+                {embeddedInStandalone ? 'Daha fazla bağlam' : 'Genel etkileşim profili'}
+              </h2>
+              <p className={reportSkin.sectionSub}>
+                {embeddedInStandalone
+                  ? 'İstersen trend ve özet göstergelere göz at'
+                  : 'Özet göstergeler — gözlemsel sinyaller'}
+              </p>
             </div>
             {headerActions}
           </div>
@@ -371,7 +386,9 @@ export default function GovernanceInteractionReportView({
         </section>
 
         <section id={SECTION_TRENDS} className="scroll-mt-8 border-t border-stone-200/50 py-12 sm:py-14">
-          <h2 className={reportSkin.sectionTitle}>Trendler ve göstergeler</h2>
+          <h2 className={reportSkin.sectionTitle}>
+            {embeddedInStandalone ? 'Zaman içindeki sinyaller' : 'Trendler ve göstergeler'}
+          </h2>
           <p className={reportSkin.sectionSub}>{model.ezaTrendCaption}</p>
 
           {model.trendCredibilityNote ? (

@@ -137,7 +137,7 @@ export default function StandaloneSidebar({
               )}
             >
               <BarChart3 className="h-4 w-4 shrink-0 opacity-60" />
-              AI Etkileşim Analizi
+              EZA&apos;nın Son Gözlemi
             </Link>
 
             <p className={standaloneSkin.sidebarSectionLabel}>Sohbetler</p>

@@ -43,8 +43,10 @@ export default function DailyObservationCard({
       <p className={reportSkin.dailyEyebrow}>EZA&apos;nın son gözlemi</p>
       <p className={reportSkin.dailySub}>{sub}</p>
 
-      {observation.manset ? (
-        <p className={reportSkin.dailyManset}>{observation.manset}</p>
+      {observation.primaryInsight || observation.manset ? (
+        <p className={reportSkin.dailyHeadline}>
+          {observation.primaryInsight || observation.manset}
+        </p>
       ) : null}
 
       <div className={reportSkin.dailyMirrorBlock}>
