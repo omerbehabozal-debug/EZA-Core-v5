@@ -24,6 +24,7 @@ import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
 import {
   ACTIVE_ARCHIVE_CLEARED_EVENT,
   ACTIVE_SESSION_ARCHIVE_ID,
+  activeSessionHasMessages,
   clearActiveSessionArchive,
   finalizeActiveSession,
   upsertActiveChatArchive,
@@ -65,6 +66,8 @@ const THROTTLE_DELAY_MAX = 300; // Max throttle delay (ms) - typing indicator s�
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
 const STORAGE_KEY_DAILY_COUNT = 'eza_standalone_daily_count';
 const STORAGE_KEY_LAST_DATE = 'eza_standalone_last_date';
+/** Sekme başına bir kez: önceki «Güncel» oturumu kalıcı arşive taşı */
+const TAB_SESSION_BOOT_KEY = 'eza_standalone_tab_booted';
 
 export default function StandalonePage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -80,6 +83,8 @@ export default function StandalonePage() {
   const [sessionEndOpen, setSessionEndOpen] = useState(false);
   const skipAutosaveRef = useRef(true);
   const sessionBootstrappedRef = useRef(false);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -122,8 +127,14 @@ export default function StandalonePage() {
     if (sessionBootstrappedRef.current) return;
     sessionBootstrappedRef.current = true;
 
+    if (typeof window !== 'undefined' && !sessionStorage.getItem(TAB_SESSION_BOOT_KEY)) {
+      sessionStorage.setItem(TAB_SESSION_BOOT_KEY, '1');
+      if (activeSessionHasMessages()) {
+        finalizeActiveSession();
+      }
+    }
+
     clearChatDraft();
-    clearActiveSessionArchive();
     resetStream();
     setMessages([]);
     setIsLoading(false);
@@ -155,6 +166,17 @@ export default function StandalonePage() {
     const timer = window.setTimeout(() => persistSession(messages), 400);
     return () => window.clearTimeout(timer);
   }, [messages, persistSession]);
+
+  /** Analiz vb. sayfaya geçerken bekleyen otomatik kaydı hemen yaz */
+  useEffect(() => {
+    return () => {
+      if (skipAutosaveRef.current) return;
+      const archived = toArchivedMessages(messagesRef.current);
+      if (archived.length > 0) {
+        upsertActiveChatArchive(archived);
+      }
+    };
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {

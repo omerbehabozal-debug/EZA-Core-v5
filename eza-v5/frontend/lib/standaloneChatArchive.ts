@@ -97,6 +97,12 @@ export function getChatArchive(id: string): ArchivedChat | null {
   return readAll().find((a) => a.id === id) ?? null;
 }
 
+/** Aktif oturumda arşivlenecek mesaj var mı */
+export function activeSessionHasMessages(): boolean {
+  const active = getChatArchive(ACTIVE_SESSION_ARCHIVE_ID);
+  return Boolean(active && active.messageCount > 0);
+}
+
 function buildArchiveEntry(
   id: string,
   messages: ArchivedChatMessage[],

@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import {
+  activeSessionHasMessages,
+  finalizeActiveSession,
+} from '@/lib/standaloneChatArchive';
 import StandaloneSidebar from './StandaloneSidebar';
 
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
@@ -34,7 +38,12 @@ export default function StandalonePageShell({ children }: StandalonePageShellPro
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
         hasActiveChat
-        onNewChat={() => router.push('/standalone')}
+        onNewChat={() => {
+          if (activeSessionHasMessages()) {
+            finalizeActiveSession();
+          }
+          router.push('/standalone');
+        }}
       />
 
       <main className={standaloneSkin.main}>

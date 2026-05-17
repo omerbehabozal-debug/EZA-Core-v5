@@ -8,6 +8,14 @@ import type { BehavioralSnapshot } from '@/lib/types';
 const STORAGE_KEY = 'eza_standalone_behavioral_history';
 const MAX_ITEMS = 50;
 
+/** Rapor sayfası ve diğer dinleyiciler için (aynı sekme). */
+export const BEHAVIORAL_HISTORY_UPDATED = 'eza-behavioral-history-updated';
+
+function notifyBehavioralHistoryUpdated(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(BEHAVIORAL_HISTORY_UPDATED));
+}
+
 export type SavedBehavioralEntry = BehavioralSnapshot & {
   savedAt: string;
 };
@@ -23,6 +31,7 @@ export function appendBehavioralSnapshot(snapshot: BehavioralSnapshot | null | u
     };
     list.unshift(entry);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_ITEMS)));
+    notifyBehavioralHistoryUpdated();
   } catch {
     // ignore quota / parse errors
   }
@@ -58,6 +67,7 @@ export function clearBehavioralHistory(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(STORAGE_KEY);
+    notifyBehavioralHistoryUpdated();
   } catch {
     /* empty */
   }

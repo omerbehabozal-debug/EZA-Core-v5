@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ChevronDown, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MetricCard, TrendChart, EmptyState } from '@/components/eza';
@@ -297,6 +298,9 @@ export default function GovernanceInteractionReportView({
   onClearHistory,
   embeddedInStandalone = false,
 }: GovernanceInteractionReportViewProps) {
+  const pathname = usePathname();
+  const hideBackLink =
+    embeddedInStandalone || (pathname != null && pathname.startsWith('/standalone'));
   const detailsRef = useRef<HTMLDivElement>(null);
   const [howOpen, setHowOpen] = useState(false);
 
@@ -323,10 +327,10 @@ export default function GovernanceInteractionReportView({
     >
       <WowHero
         model={model}
-        backHref={backHref}
+        backHref={hideBackLink ? undefined : backHref}
         backLabel={backLabel}
         signalNote={signalNote}
-        embeddedInStandalone={embeddedInStandalone}
+        embeddedInStandalone={hideBackLink}
         onOpenHow={() => setHowOpen(true)}
         onScrollDetails={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth' })}
       />
