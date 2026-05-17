@@ -24,7 +24,6 @@ import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
 import {
   createStandaloneChat,
   getChatArchive,
-  readActiveChatId,
   saveStandaloneChat,
   writeActiveChatId,
 } from '@/lib/standaloneChatArchive';
@@ -81,6 +80,8 @@ export default function StandaloneChatInner() {
   const currentAssistantMessageRef = useRef<string | null>(null);
   const assistantScoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const skipAutosaveRef = useRef(true);
+  /** İlk açılış/yenilemede URL’deki eski ?chat= ile yanlış sohbet yüklenmesin */
+  const urlSyncEnabledRef = useRef(false);
   const messagesRef = useRef(messages);
   const chatIdRef = useRef(chatId);
   messagesRef.current = messages;
@@ -145,30 +146,21 @@ export default function StandaloneChatInner() {
     writeStoredAnalysisModel(analysisModelId);
   }, [analysisModelId]);
 
+  // Açılış / yenileme: her zaman yeni sohbet. Eski sohbet yalnızca sidebar ?chat= ile (client nav).
   useEffect(() => {
     if (ready) return;
 
-    let targetId = chatIdFromUrl;
-    if (targetId && getChatArchive(targetId)) {
-      loadChatIntoState(targetId);
-      setReady(true);
-      return;
-    }
-
-    const remembered = readActiveChatId();
-    if (remembered && getChatArchive(remembered)) {
-      targetId = remembered;
-    } else {
-      targetId = createStandaloneChat();
-    }
-
+    const targetId = createStandaloneChat();
     router.replace(`/standalone?chat=${targetId}`, { scroll: false });
     loadChatIntoState(targetId);
     setReady(true);
-  }, [ready, chatIdFromUrl, router, loadChatIntoState]);
+    window.setTimeout(() => {
+      urlSyncEnabledRef.current = true;
+    }, 0);
+  }, [ready, router, loadChatIntoState]);
 
   useEffect(() => {
-    if (!ready || !chatIdFromUrl) return;
+    if (!ready || !urlSyncEnabledRef.current || !chatIdFromUrl) return;
     if (chatIdFromUrl === chatId) return;
 
     const prevId = chatIdRef.current;
