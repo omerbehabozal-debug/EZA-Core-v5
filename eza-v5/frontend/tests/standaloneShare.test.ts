@@ -33,14 +33,35 @@ describe('standaloneShare', () => {
 
   it('persona illustration src is null without key', () => {
     expect(personaIllustrationSrc(undefined)).toBeNull();
-    expect(personaIllustrationSrc('balanced-calm')).toContain('/personas/balanced-calm.webp');
+    expect(personaIllustrationSrc('balanced_calm')).toContain('/personas/balanced_calm.webp');
   });
 
   it('pickStandalonePersona merges asset slots', () => {
     const persona = pickStandalonePersona('balanced_calm', 'test');
-    expect(persona.illustrationKey).toBe('balanced-calm');
+    expect(persona.illustrationKey).toBe('balanced_calm');
     expect(persona.iconFallback).toBeTruthy();
     expect(persona.visualTone).toBe('soft_animal');
     expect(persona.colorToken).toBe('stone');
+  });
+
+  it('all ten companion webp assets exist on disk', () => {
+    const fs = require('node:fs') as typeof import('node:fs');
+    const path = require('node:path') as typeof import('node:path');
+    const dir = path.join(process.cwd(), 'public', 'personas');
+    const names = [
+      'curiosity_exploration',
+      'decision_direction',
+      'clarity_simplification',
+      'ideation_creation',
+      'deep_thinking',
+      'sensitive_careful',
+      'fast_practical',
+      'planning_structure',
+      'trust_verification',
+      'balanced_calm',
+    ];
+    for (const name of names) {
+      expect(fs.existsSync(path.join(dir, `${name}.webp`))).toBe(true);
+    }
   });
 });

@@ -31,7 +31,10 @@ export default function PersonaVisual({
     PERSONA_COLOR_GRADIENT[persona.colorToken] ??
     PERSONA_COLOR_GRADIENT.stone;
 
-  const dim = size === 'sm' ? 'h-11 w-11 text-lg' : 'h-14 w-14 text-2xl sm:h-16 sm:w-16 sm:text-[1.75rem]';
+  const dim =
+    size === 'sm'
+      ? 'h-11 w-11 max-h-11 max-w-11 text-lg'
+      : 'h-14 w-14 max-h-14 max-w-14 text-2xl sm:h-16 sm:w-16 sm:max-h-16 sm:max-w-16 sm:text-[1.75rem]';
 
   return (
     <div
@@ -39,6 +42,7 @@ export default function PersonaVisual({
         m.personaOrb,
         `bg-gradient-to-br ${gradient}`,
         dim,
+        'overflow-hidden',
         !reducedMotion && m.personaFloat,
         className
       )}
@@ -49,7 +53,8 @@ export default function PersonaVisual({
         <img
           src={src!}
           alt=""
-          className="h-[70%] w-[70%] object-contain"
+          className="max-h-[88%] max-w-[88%] object-contain object-center"
+          draggable={false}
           onError={() => setImgError(true)}
         />
       ) : (
