@@ -18,6 +18,7 @@ import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import GovernanceInteractionReportView from '@/components/governance/GovernanceInteractionReportView';
 import LastObservationHero from '@/components/governance/LastObservationHero';
 import RelationshipMapView from '@/components/standalone/RelationshipMapView';
+import { buildPersonaSeed } from '@/lib/standaloneObservation';
 
 type ObservationTab = 'last' | 'map';
 
@@ -68,6 +69,10 @@ export default function StandaloneObservationExperience({
     reportModel ?? emptyGovernanceReportPlaceholder('Gözlem şu an yüklenemedi.');
 
   const observation = model.dailyObservation;
+  const personaSeed = buildPersonaSeed(
+    entries,
+    observation.personaFamilyId ?? 'balanced_calm'
+  );
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -102,7 +107,7 @@ export default function StandaloneObservationExperience({
           {observation.show ? (
             <LastObservationHero
               observation={observation}
-              personaSeed={`${observation.categoryId ?? 'quiet'}-${entries[0]?.interaction_id ?? 'seed'}`}
+              personaSeed={personaSeed}
               onScrollDetails={() =>
                 detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }

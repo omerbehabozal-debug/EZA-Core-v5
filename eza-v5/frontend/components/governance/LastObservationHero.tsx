@@ -33,7 +33,10 @@ export default function LastObservationHero({
 }: LastObservationHeroProps) {
   const [whyOpen, setWhyOpen] = useState(false);
   const mirror = MIRROR_LABELS.standalone;
-  const persona = pickStandalonePersona(observation.categoryId, personaSeed);
+  const persona = pickStandalonePersona(
+    observation.personaFamilyId ?? observation.categoryId,
+    personaSeed
+  );
 
   const insight =
     observation.primaryInsight ||

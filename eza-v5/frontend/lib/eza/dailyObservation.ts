@@ -4,6 +4,17 @@
  */
 
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
+import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
+import {
+  findLatestStandaloneObservation,
+  logObservationSourceDev,
+  mapBackendObservation,
+  parseStandaloneObservation,
+  resolveObservationSource,
+  backendAiLine,
+  backendBalanceLine,
+  confidenceLabelFromBackend,
+} from '@/lib/standaloneObservation';
 import {
   aiObservationLineForUserCategory,
   balanceObservationLine,
@@ -114,6 +125,8 @@ export interface DailyObservationView {
   signalLevel: string;
   confidenceLabel: string;
   categoryId?: UserObservationCategoryId;
+  /** Backend user_pattern.category → persona family (deterministic chip). */
+  personaFamilyId?: PersonaFamilyId;
   whyShownBullets: string[];
   /** Önceki oturum / desen değişimi */
   yesterdayLine: string | null;
@@ -536,8 +549,22 @@ function confidenceLabelFromSamples(sampleCount: number, confidencePct: number |
 }
 
 function categoryLabelForEntry(entry: SavedBehavioralEntry, tone: PresentationTone): string {
+  const parsed = parseStandaloneObservation(entry.standaloneObservation);
+  if (parsed) {
+    return categoryLabelForTone(
+      mapBackendObservation(parsed).userCategory,
+      tone,
+      entry.interaction_id
+    );
+  }
   const userCat = classifyDayFromEntries([entry]);
   return categoryLabelForTone(userCat, tone, entry.interaction_id);
+}
+
+function userCategoryForEntry(entry: SavedBehavioralEntry): UserObservationCategoryId {
+  const parsed = parseStandaloneObservation(entry.standaloneObservation);
+  if (parsed) return mapBackendObservation(parsed).userCategory;
+  return classifyDayFromEntries([entry]);
 }
 
 function buildInteractionPatternDots(
@@ -550,7 +577,7 @@ function buildInteractionPatternDots(
 
   const total = chronological.length;
   return chronological.map((entry, index) => {
-    const userCat = classifyDayFromEntries([entry]);
+    const userCat = userCategoryForEntry(entry);
     const label = categoryLabelForEntry(entry, tone);
     const stepsFromLatest = total - 1 - index;
     const rel = interactionOrdinalLabel(stepsFromLatest);
@@ -622,9 +649,16 @@ function buildMirrorObservation(
   'show' | 'yesterdayLine' | 'weekPattern' | 'showWeekPattern' | 'fridaySummary'
 > {
   const m = metricsFromEntries(sessionEntries);
-  const userCat = classifyDayFromEntries(sessionEntries);
-  const aiCat = classifyAiFromEntries(sessionEntries);
   const sessionSeed = `${seed}-${sessionEntries[0]?.interaction_id ?? 'empty'}`;
+
+  const source = resolveObservationSource(sessionEntries);
+  logObservationSourceDev(source, `session samples=${m.sampleCount}`);
+
+  const latestBackendRaw = findLatestStandaloneObservation(sessionEntries);
+  const backendMapped = latestBackendRaw ? mapBackendObservation(latestBackendRaw) : null;
+
+  const userCat = backendMapped?.userCategory ?? classifyDayFromEntries(sessionEntries);
+  const aiCat = backendMapped?.aiCategory ?? classifyAiFromEntries(sessionEntries);
 
   const flagged = findPrioritySensitiveEntry(sessionEntries, allEntries);
   const priorityAlert =
@@ -657,31 +691,46 @@ function buildMirrorObservation(
   const mirrorAiCat = priorityAlert ? generalAiCat : aiCat;
   const mirrorMetrics = priorityAlert ? generalMetrics : m;
 
+  const useBackendLines = backendMapped && !priorityAlert;
+  const aiLine = useBackendLines
+    ? backendAiLine(backendMapped.backendAiCategory, `${sessionSeed}-backend-ai`, tone)
+    : aiLineForCategory(
+        mirrorUserCat,
+        mirrorAiCat,
+        mirrorMetrics,
+        `${sessionSeed}-general-ai`,
+        tone
+      );
+  const balanceLine = useBackendLines
+    ? backendBalanceLine(
+        backendMapped.backendBalanceCategory,
+        `${sessionSeed}-backend-bal`,
+        tone
+      )
+    : balanceLineForPair(
+        mirrorUserCat,
+        mirrorAiCat,
+        mirrorMetrics,
+        `${sessionSeed}-general-bal`,
+        tone
+      );
+
   return {
     priorityAlert,
     primaryInsight,
     manset: mansetForObservation(mirrorUserCat, mirrorAiCat, mirrorMetrics, sessionSeed, tone),
     userLine: userLineForCategory(mirrorUserCat, mirrorMetrics, `${sessionSeed}-general`, tone),
-    aiLine: aiLineForCategory(
-      mirrorUserCat,
-      mirrorAiCat,
-      mirrorMetrics,
-      `${sessionSeed}-general-ai`,
-      tone
-    ),
-    balanceLine: balanceLineForPair(
-      mirrorUserCat,
-      mirrorAiCat,
-      mirrorMetrics,
-      `${sessionSeed}-general-bal`,
-      tone
-    ),
+    aiLine,
+    balanceLine,
     supportLine: observationSupportLine(tone),
     signalLevel: `Sinyal seviyesi: ${
       priorityAlert ? 'Orta' : signalLevelLabel(userCat, m.sampleCount)
     }`,
-    confidenceLabel: confidenceLabelFromSamples(sampleCountTotal, confidencePct),
+    confidenceLabel: backendMapped
+      ? confidenceLabelFromBackend(sampleCountTotal, backendMapped)
+      : confidenceLabelFromSamples(sampleCountTotal, confidencePct),
     categoryId: userCat,
+    personaFamilyId: backendMapped?.personaFamily,
     whyShownBullets: priorityAlert
       ? [
           ...whyShownBulletsForCategory(userCat, tone, sessionSeed).slice(0, 2),

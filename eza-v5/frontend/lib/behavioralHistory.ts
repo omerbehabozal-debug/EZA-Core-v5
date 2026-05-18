@@ -3,7 +3,7 @@
  * No PII — only numeric vectors returned by the pipeline.
  */
 
-import type { BehavioralSnapshot } from '@/lib/types';
+import type { BehavioralSnapshot, StandaloneObservation } from '@/lib/types';
 
 const STORAGE_KEY = 'eza_standalone_behavioral_history';
 const MAX_ITEMS = 50;
@@ -18,9 +18,49 @@ function notifyBehavioralHistoryUpdated(): void {
 
 export type SavedBehavioralEntry = BehavioralSnapshot & {
   savedAt: string;
+  standaloneObservation?: StandaloneObservation | null;
 };
 
-export function appendBehavioralSnapshot(snapshot: BehavioralSnapshot | null | undefined): void {
+function placeholderSnapshot(interactionId: string): BehavioralSnapshot {
+  return {
+    schema_version: 1,
+    interaction_id: interactionId,
+    mode: 'standalone',
+    vector: {
+      input_risk: 0.2,
+      output_risk: 0.15,
+      input_health: 0.8,
+      output_health: 0.85,
+      alignment_score: null,
+      eza_final: null,
+      intent: '',
+      alignment_verdict: null,
+      redirect: false,
+      redirect_reason: null,
+      policy_violation_count: 0,
+    },
+    asymmetry: {
+      health_gap: 0.05,
+      risk_delta_output_minus_input: -0.05,
+      index: 0.1,
+    },
+  };
+}
+
+/** Persist turn; observation-only turns use a neutral placeholder vector. */
+export function appendBehavioralTurn(
+  snapshot: BehavioralSnapshot | null | undefined,
+  standaloneObservation?: StandaloneObservation | null
+): void {
+  if (!snapshot && !standaloneObservation) return;
+  const base = snapshot ?? placeholderSnapshot(`obs-${Date.now()}`);
+  appendBehavioralSnapshot(base, standaloneObservation);
+}
+
+export function appendBehavioralSnapshot(
+  snapshot: BehavioralSnapshot | null | undefined,
+  standaloneObservation?: StandaloneObservation | null
+): void {
   if (!snapshot || typeof window === 'undefined') return;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -28,6 +68,7 @@ export function appendBehavioralSnapshot(snapshot: BehavioralSnapshot | null | u
     const entry: SavedBehavioralEntry = {
       ...snapshot,
       savedAt: new Date().toISOString(),
+      ...(standaloneObservation ? { standaloneObservation } : {}),
     };
     list.unshift(entry);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_ITEMS)));

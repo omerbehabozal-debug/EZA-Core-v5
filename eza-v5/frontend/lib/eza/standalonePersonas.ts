@@ -191,11 +191,20 @@ export function personaFamilyForCategory(
   return CATEGORY_TO_FAMILY[category] ?? 'balanced_calm';
 }
 
+const PERSONA_FAMILY_IDS = new Set<string>(Object.keys(PERSONAS));
+
+export function isPersonaFamilyId(value: string): value is PersonaFamilyId {
+  return PERSONA_FAMILY_IDS.has(value);
+}
+
 export function pickStandalonePersona(
-  category: UserObservationCategoryId | undefined,
+  category: UserObservationCategoryId | PersonaFamilyId | undefined,
   seed: string
 ): StandalonePersonaView {
-  const familyId = personaFamilyForCategory(category);
+  const familyId: PersonaFamilyId =
+    category && isPersonaFamilyId(category)
+      ? category
+      : personaFamilyForCategory(category as UserObservationCategoryId | undefined);
   const pool = PERSONAS[familyId];
   const picked = pool[pickIndex(pool, `${seed}-persona`)]!;
   return {

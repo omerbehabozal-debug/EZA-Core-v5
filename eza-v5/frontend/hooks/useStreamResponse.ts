@@ -5,7 +5,12 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { getApiUrl } from '@/lib/apiUrl';
-import type { BehavioralSnapshot, PipelineGovernance } from '@/lib/types';
+import type {
+  BehavioralSnapshot,
+  PipelineGovernance,
+  StandaloneObservation,
+} from '@/lib/types';
+import { parseStandaloneObservation } from '@/lib/standaloneObservation';
 
 interface StreamResponse {
   text: string;
@@ -14,6 +19,7 @@ interface StreamResponse {
   userScore?: number;
   /** Present when backend includes the behavioral layer on the pipeline response. */
   behavioral?: BehavioralSnapshot | null;
+  standaloneObservation?: StandaloneObservation | null;
   governance?: PipelineGovernance | null;
   error?: string;
 }
@@ -104,6 +110,8 @@ export function useStreamResponse(): UseStreamResponseReturn {
           assistantScore: data.data?.assistant_score,
           userScore: data.data?.user_score,
           behavioral: data.behavioral ?? null,
+          standaloneObservation:
+            parseStandaloneObservation(data.standalone_observation) ?? null,
           governance: data.governance ?? null,
         };
       }
@@ -210,12 +218,16 @@ export function useStreamResponse(): UseStreamResponseReturn {
           ? (finalData.data as { behavioral?: BehavioralSnapshot }).behavioral
           : undefined);
 
+      const standaloneObservation =
+        parseStandaloneObservation(finalData?.standalone_observation) ?? null;
+
       const result: StreamResponse = {
         text: accumulatedText,
         done: true,
         assistantScore: finalData?.assistant_score ?? finalData?.data?.assistant_score,
         userScore: finalData?.user_score ?? finalData?.data?.user_score,
         behavioral: behavioral ?? null,
+        standaloneObservation,
         governance: finalData?.governance ?? null,
       };
 

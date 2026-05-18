@@ -95,6 +95,29 @@ export interface StandaloneFeedbackContext {
   originalScore?: number;
 }
 
+/** Rule-based observation tag from backend (standalone mode; flag-gated). */
+export interface StandaloneObservationPattern {
+  category: string;
+  confidence: number;
+  signals: string[];
+}
+
+export interface StandaloneObservation {
+  user_pattern: StandaloneObservationPattern;
+  ai_behavior: StandaloneObservationPattern;
+  relationship_balance: StandaloneObservationPattern;
+  observation_quality?: 'low' | 'medium' | 'high';
+  can_interpret?: boolean;
+  disclaimer?: string;
+}
+
+/** Pipeline / stream standalone response may include this field. */
+export interface StandalonePipelineExtras {
+  standalone_observation?: StandaloneObservation | null;
+  behavioral?: BehavioralSnapshot | null;
+  governance?: PipelineGovernance | null;
+}
+
 export interface CorporateAudit {
   id: string;
   ai_agent: string;

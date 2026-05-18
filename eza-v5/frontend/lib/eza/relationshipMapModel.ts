@@ -10,6 +10,11 @@ import {
   type AiBehaviorCategoryId,
   type UserObservationCategoryId,
 } from '@/lib/eza/dailyObservation';
+import {
+  mapBackendAiCategory,
+  mapBackendUserCategory,
+  parseStandaloneObservation,
+} from '@/lib/standaloneObservation';
 
 export type RelationshipPeriodDays = 7 | 30 | 90;
 
@@ -78,6 +83,21 @@ function filterByPeriod(
 
 function countCategories(entries: SavedBehavioralEntry[]): Map<UserObservationCategoryId, number> {
   const counts = new Map<UserObservationCategoryId, number>();
+  const hasBackend = entries.some(
+    (e) => parseStandaloneObservation(e.standaloneObservation) !== null
+  );
+
+  if (hasBackend) {
+    for (const e of entries) {
+      const obs = parseStandaloneObservation(e.standaloneObservation);
+      if (!obs) continue;
+      const cat = mapBackendUserCategory(obs.user_pattern.category);
+      const weight = Math.max(1, Math.round((obs.user_pattern.confidence || 0.5) * 2));
+      counts.set(cat, (counts.get(cat) ?? 0) + weight);
+    }
+    return counts;
+  }
+
   for (const e of entries) {
     const cat = classifyDayFromEntries([e]);
     counts.set(cat, (counts.get(cat) ?? 0) + 1);
@@ -87,6 +107,21 @@ function countCategories(entries: SavedBehavioralEntry[]): Map<UserObservationCa
 
 function countAi(entries: SavedBehavioralEntry[]): Map<AiBehaviorCategoryId, number> {
   const counts = new Map<AiBehaviorCategoryId, number>();
+  const hasBackend = entries.some(
+    (e) => parseStandaloneObservation(e.standaloneObservation) !== null
+  );
+
+  if (hasBackend) {
+    for (const e of entries) {
+      const obs = parseStandaloneObservation(e.standaloneObservation);
+      if (!obs) continue;
+      const cat = mapBackendAiCategory(obs.ai_behavior.category);
+      const weight = Math.max(1, Math.round((obs.ai_behavior.confidence || 0.5) * 2));
+      counts.set(cat, (counts.get(cat) ?? 0) + weight);
+    }
+    return counts;
+  }
+
   for (const e of entries) {
     const cat = classifyAiFromEntries([e]);
     counts.set(cat, (counts.get(cat) ?? 0) + 1);

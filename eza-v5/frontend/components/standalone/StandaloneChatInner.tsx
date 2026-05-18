@@ -19,8 +19,13 @@ import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import StandaloneChatLayout from '@/components/standalone/StandaloneChatLayout';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
-import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
-import { appendBehavioralSnapshot } from '@/lib/behavioralHistory';
+import type {
+  BehavioralSnapshot,
+  StandaloneFeedbackContext,
+  StandaloneObservation,
+} from '@/lib/types';
+import { parseStandaloneObservation } from '@/lib/standaloneObservation';
+import { appendBehavioralTurn } from '@/lib/behavioralHistory';
 import {
   createStandaloneChat,
   getChatArchive,
@@ -49,6 +54,7 @@ interface Message {
   safeOnlyMode?: boolean;
   timestamp: Date;
   behavioral?: BehavioralSnapshot | null;
+  standaloneObservation?: StandaloneObservation | null;
   feedback?: StandaloneFeedbackContext | null;
 }
 
@@ -344,13 +350,25 @@ export default function StandaloneChatInner() {
                 ezaScore: data.assistantScore,
               });
 
-              if (data.behavioral) {
-                const snapshot = data.behavioral as BehavioralSnapshot;
-                appendBehavioralSnapshot(snapshot);
+              const standaloneObservation =
+                data.standaloneObservation ??
+                parseStandaloneObservation(
+                  (data as { standalone_observation?: unknown }).standalone_observation
+                ) ??
+                null;
+
+              if (data.behavioral || standaloneObservation) {
+                const snapshot = (data.behavioral as BehavioralSnapshot | null) ?? null;
+                appendBehavioralTurn(snapshot, standaloneObservation);
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id === assistantMessageId || msg.id === userMessageId) {
-                      return { ...msg, behavioral: snapshot };
+                      return {
+                        ...msg,
+                        behavioral: snapshot ?? msg.behavioral,
+                        standaloneObservation:
+                          standaloneObservation ?? msg.standaloneObservation,
+                      };
                     }
                     return msg;
                   })
@@ -377,6 +395,8 @@ export default function StandaloneChatInner() {
                             ...msg,
                             assistantScore: data.assistantScore,
                             behavioral: (data.behavioral as BehavioralSnapshot | undefined) ?? msg.behavioral,
+                            standaloneObservation:
+                              standaloneObservation ?? msg.standaloneObservation,
                             feedback: feedbackCtx ?? msg.feedback,
                           }
                         : msg
@@ -471,6 +491,10 @@ export default function StandaloneChatInner() {
 
         const behavioralFallback =
           (response as { behavioral?: BehavioralSnapshot | null }).behavioral ?? null;
+        const standaloneObservationFallback =
+          parseStandaloneObservation(
+            (response as { standalone_observation?: unknown }).standalone_observation
+          ) ?? null;
         const governanceFallback = parseGovernance(
           (response as { governance?: unknown }).governance
         );
@@ -480,8 +504,8 @@ export default function StandaloneChatInner() {
           ezaScore: (response as { eza_score?: number }).eza_score ?? (data as { assistant_score?: number }).assistant_score,
           riskLevel: (response as { risk_level?: string }).risk_level,
         });
-        if (behavioralFallback) {
-          appendBehavioralSnapshot(behavioralFallback);
+        if (behavioralFallback || standaloneObservationFallback) {
+          appendBehavioralTurn(behavioralFallback, standaloneObservationFallback);
         }
 
         // Increment daily count
@@ -499,6 +523,7 @@ export default function StandaloneChatInner() {
             safeOnlyMode: true,
             timestamp: new Date(),
             behavioral: behavioralFallback ?? undefined,
+            standaloneObservation: standaloneObservationFallback ?? undefined,
             feedback: feedbackFallback ?? undefined,
           };
           setMessages((prev) => [...prev, ezaMessage]);
@@ -511,6 +536,7 @@ export default function StandaloneChatInner() {
             safeOnlyMode: false,
             timestamp: new Date(),
             behavioral: behavioralFallback ?? undefined,
+            standaloneObservation: standaloneObservationFallback ?? undefined,
             feedback: feedbackFallback ?? undefined,
           };
           

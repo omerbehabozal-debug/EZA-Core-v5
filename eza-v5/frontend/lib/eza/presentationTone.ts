@@ -378,3 +378,168 @@ export function observationManset(
   if (m) return pickToneCopy(tone, m, `${seed}-m-user`);
   return fallback;
 }
+
+/** Backend standalone_observation.ai_behavior.category → copy */
+const BACKEND_AI_LINES: Record<string, ToneVariants> = {
+  explanatory: {
+    standalone: [
+      'AI daha açıklayıcı ve yapılandırıcı bir ton kullandı.',
+      'Yanıtlar konuyu açan, yapılandırılmış bir çizgide kaldı.',
+    ],
+    governance: ['Yanıtlar açıklayıcı ve yapılandırıcı bir ton taşıdı.'],
+  },
+  guiding: {
+    standalone: [
+      'AI yönlendirici ve adım odaklı bir ton kullandı.',
+      'Yanıtlar rehberlik eden bir çizgide ilerledi.',
+    ],
+    governance: ['Yanıtlarda yönlendirici ton belirginleşti.'],
+  },
+  careful: {
+    standalone: [
+      'AI ölçülü ve dikkatli bir sınır tonu kullandı.',
+      'Yanıtlar temkinli bir çerçevede kaldı.',
+    ],
+    governance: ['Yanıtlar dikkatli sınır tonu taşıdı.'],
+  },
+  creative: {
+    standalone: [
+      'AI fikir ve alternatif üreten yaratıcı bir ton kullandı.',
+      'Yanıtlar üretken ve açık uçlu bir çizgideydi.',
+    ],
+    governance: ['Yanıtlarda yaratıcı öneri tonu görüldü.'],
+  },
+  calm: {
+    standalone: [
+      'AI sakin ve dengeli bir ton kullandı.',
+      'Yanıtlar nötr bir ritimde ilerledi.',
+    ],
+    governance: ['Yanıtlar sakin bir çizgide kaldı.'],
+  },
+  clear: {
+    standalone: [
+      'AI kısa ve net bir ton kullandı.',
+      'Yanıtlar doğrudan ve öz bir çizgideydi.',
+    ],
+    governance: ['Yanıtlar net ve özlü bir ton taşıdı.'],
+  },
+  structured: {
+    standalone: [
+      'AI madde ve yapı kullanan düzenli bir ton kullandı.',
+      'Yanıtlar bölümlendirilmiş bir yapıda ilerledi.',
+    ],
+    governance: ['Yanıtlar yapılandırılmış bir formatta kaldı.'],
+  },
+  protective: {
+    standalone: [
+      'AI bazı konularda güvenli sınırları koruyan bir ton kullandı.',
+      'Yanıtlar koruyucu ve güvenli çerçevede kaldı.',
+    ],
+    governance: ['Yanıtlar koruyucu güvenlik tonu taşıdı.'],
+  },
+  aligned: {
+    standalone: [
+      'AI soru bağlamıyla uyumlu bir ton kullandı.',
+      'Yanıtlar konuşma akışıyla iyi eşleşti.',
+    ],
+    governance: ['Yanıtlar yüksek uyum sinyali gösterdi.'],
+  },
+  reflective: {
+    standalone: [
+      'AI düşündürücü ve yansıtıcı bir ton kullandı.',
+      'Yanıtlar bağlamı sorgulayan bir çizgideydi.',
+    ],
+    governance: ['Yanıtlar yansıtıcı bir ton taşıdı.'],
+  },
+};
+
+const BACKEND_BALANCE_LINES: Record<string, ToneVariants> = {
+  harmonious_flow: {
+    standalone: [
+      'Etkileşim akışı uyumlu ve düşük riskli seyretti.',
+      'Girdi ve yanıt birlikte akıcı bir denge kurdu.',
+    ],
+    governance: ['Etkileşim uyumlu akış sinyali gösterdi.'],
+  },
+  safe_balance: {
+    standalone: [
+      'Hassas sinyallere rağmen denge güvenli çizgide kaldı.',
+      'Riskli girişe rağmen etkileşim dengesi korundu.',
+    ],
+    governance: ['Hassas sinyallere rağmen güvenli denge korundu.'],
+  },
+  exploration_balance: {
+    standalone: [
+      'Keşif tonu ile yanıt dengesi birlikte ilerledi.',
+      'Merak ve açıklama bir arada dengeli kaldı.',
+    ],
+    governance: ['Keşif odaklı denge sinyali görüldü.'],
+  },
+  decision_balance: {
+    standalone: [
+      'Yön arayışına rağmen konuşma dengesi korundu.',
+      'Karar arayışı ile yanıt tonu dengeli eşleşti.',
+    ],
+    governance: ['Karar dengesi sinyali korundu.'],
+  },
+  clarity_balance: {
+    standalone: [
+      'Netlik arayışı ile yanıt tonu uyumlu kaldı.',
+      'Sadeleştirme isteğine yanıt dengesi eşlik etti.',
+    ],
+    governance: ['Netlik dengesi korundu.'],
+  },
+  creative_balance: {
+    standalone: [
+      'Fikir üretimi ile yanıt tonu yaratıcı denge kurdu.',
+      'Üretken akış dengeli seyretti.',
+    ],
+    governance: ['Yaratıcı denge sinyali görüldü.'],
+  },
+  careful_balance: {
+    standalone: [
+      'Hassas ton ile dikkatli yanıt dengesi korundu.',
+      'Dikkatli çiftleşme dengeli kaldı.',
+    ],
+    governance: ['Dikkatli denge korundu.'],
+  },
+  calm_rhythm: {
+    standalone: [
+      'Konuşma sakin ve ölçülü bir ritimde ilerledi.',
+      'Etkileşim dengesi stabil bir ritimde kaldı.',
+    ],
+    governance: ['Sakin ritim sinyali seyretti.'],
+  },
+  explanation_balance: {
+    standalone: [
+      'Derin sorulara açıklayıcı denge ile yanıt verildi.',
+      'Anlam arayışı ile yanıt tonu dengeli eşleşti.',
+    ],
+    governance: ['Açıklama dengesi korundu.'],
+  },
+  boundary_balance: {
+    standalone: [
+      'Hassas konularda sınır ve denge birlikte korundu.',
+      'Sınır çizgisi bozulmadan denge sürdü.',
+    ],
+    governance: ['Sınır dengesi korundu.'],
+  },
+};
+
+export function aiLineForBackendCategory(
+  category: string,
+  tone: PresentationTone,
+  seed: string
+): string {
+  const pool = BACKEND_AI_LINES[category] ?? BACKEND_AI_LINES.calm!;
+  return pickToneCopy(tone, pool, `${seed}-backend-ai`);
+}
+
+export function balanceLineForBackendCategory(
+  category: string,
+  tone: PresentationTone,
+  seed: string
+): string {
+  const pool = BACKEND_BALANCE_LINES[category] ?? BACKEND_BALANCE_LINES.calm_rhythm!;
+  return pickToneCopy(tone, pool, `${seed}-backend-bal`);
+}
