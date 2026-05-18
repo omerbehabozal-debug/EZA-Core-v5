@@ -4,6 +4,13 @@
  */
 
 import type { UserObservationCategoryId } from '@/lib/eza/dailyObservation';
+import {
+  assetSlotForFamily,
+  type PersonaAssetSlot,
+  type PersonaVisualTone,
+} from '@/lib/eza/personaAssets';
+
+export type { PersonaVisualTone };
 
 export type PersonaFamilyId =
   | 'curiosity_exploration'
@@ -17,7 +24,7 @@ export type PersonaFamilyId =
   | 'trust_verification'
   | 'balanced_calm';
 
-export interface StandalonePersonaView {
+export interface StandalonePersonaView extends PersonaAssetSlot {
   familyId: PersonaFamilyId;
   familyLabel: string;
   name: string;
@@ -207,11 +214,16 @@ export function pickStandalonePersona(
       : personaFamilyForCategory(category as UserObservationCategoryId | undefined);
   const pool = PERSONAS[familyId];
   const picked = pool[pickIndex(pool, `${seed}-persona`)]!;
+  const slot = assetSlotForFamily(familyId);
   return {
     familyId,
     familyLabel: FAMILY_LABEL[familyId],
     name: picked.name,
     emoji: picked.emoji,
     tagline: `Bugünkü konuşma tonun ${picked.name} enerjisine yakın görünüyordu.`,
+    illustrationKey: slot.illustrationKey,
+    iconFallback: picked.emoji || slot.iconFallback,
+    visualTone: slot.visualTone,
+    colorToken: slot.colorToken,
   };
 }

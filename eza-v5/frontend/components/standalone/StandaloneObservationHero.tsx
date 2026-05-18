@@ -1,15 +1,21 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { ChevronDown, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DailyObservationView } from '@/lib/eza/dailyObservation';
 import { USER_CATEGORY_LABEL } from '@/lib/eza/dailyObservation';
 import { MIRROR_LABELS, STANDALONE_OBSERVATION_SUB } from '@/lib/eza/presentationTone';
 import { pickStandalonePersona } from '@/lib/eza/standalonePersonas';
+import { buildObservationSharePayload } from '@/lib/eza/standaloneShare';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import PersonaVisual from '@/components/standalone/PersonaVisual';
+import StandaloneShareModal from '@/components/standalone/StandaloneShareModal';
 
 const s = standaloneSkin.observationPolish;
+const mot = standaloneSkin.motion;
+const sh = standaloneSkin.share;
 
 interface StandaloneObservationHeroProps {
   observation: DailyObservationView;
@@ -22,13 +28,15 @@ function MirrorCard({
   label,
   text,
   pill,
+  animClass,
 }: {
   label: string;
   text: string;
   pill?: string;
+  animClass: string;
 }) {
   return (
-    <article className={s.mirrorCard}>
+    <article className={cn(s.mirrorCard, animClass)}>
       <p className={s.mirrorCardLabel}>{label}</p>
       {pill ? <span className={s.mirrorCardPill}>{pill}</span> : null}
       <p className={s.mirrorCardText}>{text}</p>
@@ -43,10 +51,17 @@ export default function StandaloneObservationHero({
   personaSeed = 'standalone-persona',
 }: StandaloneObservationHeroProps) {
   const [whyOpen, setWhyOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const reducedMotion = useReducedMotion();
   const mirror = MIRROR_LABELS.standalone;
   const persona = pickStandalonePersona(
     observation.personaFamilyId ?? observation.categoryId,
     personaSeed
+  );
+
+  const sharePayload = useMemo(
+    () => buildObservationSharePayload(observation, persona),
+    [observation, persona]
   );
 
   const insight =
@@ -72,6 +87,8 @@ export default function StandaloneObservationHero({
     { title: 'Denge Göstergesi', body: observation.balanceLine },
   ];
 
+  const anim = (cls: string) => (!reducedMotion ? cls : '');
+
   return (
     <section
       className={cn(s.section, className)}
@@ -79,13 +96,23 @@ export default function StandaloneObservationHero({
     >
       <div className={s.ambient} aria-hidden />
 
-      <header>
-        <h2 className={s.headerTitle}>Bugün AI ile ilişkin nasıl?</h2>
-        <p className={s.headerSub}>{STANDALONE_OBSERVATION_SUB}</p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className={s.headerTitle}>Bugün AI ile ilişkin nasıl?</h2>
+          <p className={s.headerSub}>{STANDALONE_OBSERVATION_SUB}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          className={sh.triggerBtn}
+        >
+          <Share2 className="h-3.5 w-3.5" aria-hidden />
+          Paylaş
+        </button>
       </header>
 
       {observation.priorityAlert?.show ? (
-        <div className={s.priorityBlock} role="alert">
+        <div className={cn(s.priorityBlock, anim(mot.fadeIn))} role="alert">
           <p className={s.priorityEyebrow}>Öncelikli gözlem</p>
           <p className={s.priorityHeadline}>{observation.priorityAlert.headline}</p>
           <p className={s.priorityMeta}>{observation.priorityAlert.interactionHint}</p>
@@ -95,12 +122,10 @@ export default function StandaloneObservationHero({
         </div>
       ) : null}
 
-      <div className={s.mainCard}>
+      <div className={cn(s.mainCard, anim(mot.fadeIn1))}>
         <div className={s.mainCardInner}>
           <aside className={s.personaAside}>
-            <div className={s.personaOrb} aria-hidden>
-              {persona.emoji}
-            </div>
+            <PersonaVisual persona={persona} size="md" />
             <p className={s.personaFamily}>{persona.familyLabel}</p>
           </aside>
 
@@ -118,7 +143,7 @@ export default function StandaloneObservationHero({
 
             <div className={s.personaChipSmall}>
               <span className={s.personaChipSmallEmoji} aria-hidden>
-                {persona.emoji}
+                {persona.iconFallback || persona.emoji}
               </span>
               <span className={s.personaChipSmallLabel}>{persona.name}</span>
             </div>
@@ -131,18 +156,33 @@ export default function StandaloneObservationHero({
       </div>
 
       <div className={s.mirrorGrid}>
-        <MirrorCard label={mirror.user.toUpperCase()} text={observation.userLine} pill={userPill} />
-        <MirrorCard label={mirror.ai.toUpperCase()} text={observation.aiLine} />
-        <MirrorCard label={mirror.balance.toUpperCase()} text={observation.balanceLine} />
+        <MirrorCard
+          label={mirror.user.toUpperCase()}
+          text={observation.userLine}
+          pill={userPill}
+          animClass={anim(mot.fadeIn2)}
+        />
+        <MirrorCard
+          label={mirror.ai.toUpperCase()}
+          text={observation.aiLine}
+          animClass={anim(mot.fadeIn3)}
+        />
+        <MirrorCard
+          label={mirror.balance.toUpperCase()}
+          text={observation.balanceLine}
+          animClass={anim(mot.fadeIn4)}
+        />
       </div>
 
-      <div className={s.metricsRow}>
+      <div className={cn(s.metricsRow, anim(mot.fadeIn4))}>
         <div className={s.metricsPills}>
           {observation.signalLevel ? (
-            <span className={s.metricPill}>{observation.signalLevel}</span>
+            <span className={cn(s.metricPill, anim(mot.fadeIn2))}>{observation.signalLevel}</span>
           ) : null}
           {observation.confidenceLabel ? (
-            <span className={s.metricPill}>{observation.confidenceLabel}</span>
+            <span className={cn(s.metricPill, anim(mot.fadeIn3))}>
+              {observation.confidenceLabel}
+            </span>
           ) : null}
         </div>
 
@@ -201,6 +241,32 @@ export default function StandaloneObservationHero({
         <span>İsteğe bağlı detaylar</span>
         <ChevronDown className="h-4 w-4 opacity-60" strokeWidth={1.5} aria-hidden />
       </button>
+
+      <StandaloneShareModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        shareTitle={sharePayload.title}
+        clipboardText={sharePayload.clipboardText}
+      >
+        <div className={sh.card}>
+          <p className={sh.cardLogo}>EZA</p>
+          <p className="mt-1 text-xs text-stone-500">{sharePayload.personaLabel}</p>
+          <p className={sh.cardInsight}>{sharePayload.insight}</p>
+          <p className={sh.cardRow}>
+            <span className="font-medium text-stone-500">{mirror.user}: </span>
+            {sharePayload.userLine}
+          </p>
+          <p className={sh.cardRow}>
+            <span className="font-medium text-stone-500">{mirror.ai}: </span>
+            {sharePayload.aiLine}
+          </p>
+          <p className={sh.cardRow}>
+            <span className="font-medium text-stone-500">{mirror.balance}: </span>
+            {sharePayload.balanceLine}
+          </p>
+          <p className={sh.cardWatermark}>eza.global</p>
+        </div>
+      </StandaloneShareModal>
     </section>
   );
 }

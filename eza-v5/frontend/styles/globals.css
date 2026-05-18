@@ -245,3 +245,77 @@ body {
   scrollbar-gutter: stable;
 }
 
+/* Standalone observation / map — soft motion (Aşama 5) */
+@keyframes eza-persona-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes eza-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes eza-island-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eza-animate-persona-float,
+  .eza-animate-fade-in,
+  .eza-animate-fade-in-delay-1,
+  .eza-animate-fade-in-delay-2,
+  .eza-animate-fade-in-delay-3,
+  .eza-animate-fade-in-delay-4,
+  .eza-animate-island-enter {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+.eza-animate-persona-float {
+  animation: eza-persona-float 4s ease-in-out infinite;
+}
+
+.eza-animate-fade-in {
+  animation: eza-fade-in-up 0.55s ease-out both;
+}
+
+.eza-animate-fade-in-delay-1 {
+  animation: eza-fade-in-up 0.55s ease-out 0.08s both;
+}
+
+.eza-animate-fade-in-delay-2 {
+  animation: eza-fade-in-up 0.55s ease-out 0.16s both;
+}
+
+.eza-animate-fade-in-delay-3 {
+  animation: eza-fade-in-up 0.55s ease-out 0.24s both;
+}
+
+.eza-animate-fade-in-delay-4 {
+  animation: eza-fade-in-up 0.55s ease-out 0.32s both;
+}
+
+.eza-animate-island-enter {
+  animation: eza-island-enter 0.45s ease-out both;
+}

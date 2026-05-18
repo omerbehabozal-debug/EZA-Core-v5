@@ -232,6 +232,50 @@ export const standaloneSkin = {
       'w-full max-w-[2rem] rounded-full bg-gradient-to-t from-violet-200/90 to-violet-400/50 transition-all duration-500',
     rhythmLabel: 'text-[10px] text-stone-400',
     footerNote: 'mt-10 text-center text-xs leading-relaxed text-stone-400',
+    islandGrowing: 'ring-1 ring-violet-300/40',
+    islandFading: 'border-dashed opacity-[0.72]',
+    islandGhost: 'opacity-40',
+    connectionHint:
+      'pointer-events-none absolute inset-0 rounded-[1.75rem] border border-dashed border-violet-200/25',
+  },
+
+  motion: {
+    personaOrb:
+      'flex shrink-0 items-center justify-center rounded-2xl border border-violet-100/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]',
+    personaFloat: 'eza-animate-persona-float',
+    fadeIn: 'eza-animate-fade-in',
+    fadeIn1: 'eza-animate-fade-in-delay-1',
+    fadeIn2: 'eza-animate-fade-in-delay-2',
+    fadeIn3: 'eza-animate-fade-in-delay-3',
+    fadeIn4: 'eza-animate-fade-in-delay-4',
+    islandEnter: 'eza-animate-island-enter',
+    contentMorph: 'transition-opacity duration-500 ease-out',
+  },
+
+  share: {
+    triggerBtn:
+      'inline-flex items-center gap-1.5 rounded-full border border-stone-200/60 bg-white/80 px-3 py-1.5 text-xs font-medium text-stone-600 transition-colors hover:border-violet-200/60 hover:text-violet-900',
+    backdrop: 'fixed inset-0 z-[70] flex items-end justify-center bg-black/30 p-4 backdrop-blur-[2px] sm:items-center',
+    panel:
+      'w-full max-w-md rounded-2xl border border-stone-200/60 bg-white p-4 shadow-[0_20px_60px_-12px_rgba(15,23,42,0.2)] sm:p-5',
+    header: 'flex items-start justify-between gap-3',
+    title: 'text-sm font-semibold text-stone-900',
+    closeBtn:
+      'rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-800',
+    previewWrap: 'mt-4 max-h-[min(70vh,28rem)] overflow-y-auto overflow-x-hidden',
+    card:
+      'rounded-xl border border-stone-200/50 bg-gradient-to-br from-violet-50/40 via-white to-sky-50/30 p-4 text-left sm:p-5',
+    cardLogo: 'text-xs font-bold tracking-tight text-violet-900/80',
+    cardInsight: 'mt-3 text-sm font-medium leading-relaxed text-stone-900',
+    cardRow: 'mt-2 text-xs leading-relaxed text-stone-600',
+    cardWatermark: 'mt-4 border-t border-stone-200/40 pt-3 text-[10px] text-stone-400',
+    actions: 'mt-4 flex flex-wrap gap-2',
+    primaryBtn:
+      'rounded-lg bg-violet-900/90 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90',
+    secondaryBtn:
+      'rounded-lg border border-stone-200/60 px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50',
+    error: 'mt-2 text-xs text-red-600',
+    hint: 'mt-2 text-[11px] leading-relaxed text-stone-400',
   },
 
   mainScroll:
