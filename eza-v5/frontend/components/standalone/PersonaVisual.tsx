@@ -55,7 +55,7 @@ export default function PersonaVisual({
             height={200}
             loading="eager"
             decoding="async"
-            className="h-[9rem] w-[9rem] object-contain object-center drop-shadow-[0_12px_28px_rgba(99,102,241,0.22)] sm:h-[10.5rem] sm:w-[10.5rem] md:h-[11.5rem] md:w-[11.5rem]"
+            className="h-[6.5rem] w-[6.5rem] object-contain object-center drop-shadow-[0_14px_32px_rgba(99,102,241,0.25)] sm:h-[9rem] sm:w-[9rem] lg:h-[10.5rem] lg:w-[10.5rem] xl:h-[11.5rem] xl:w-[11.5rem]"
             draggable={false}
             onError={() => setImgError(true)}
           />

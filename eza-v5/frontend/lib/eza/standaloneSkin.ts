@@ -80,12 +80,12 @@ export const standaloneSkin = {
   observationEyebrow:
     'text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-800/70',
   observationTabList:
-    'mx-auto flex w-full max-w-xl gap-1 rounded-full border border-indigo-200/25 bg-white/55 p-1.5 shadow-[0_4px_28px_-8px_rgba(99,102,241,0.14)] backdrop-blur-md',
+    'mx-auto flex h-14 w-full max-w-[600px] items-center gap-1.5 rounded-full border border-violet-200/30 bg-white/60 p-1.5 shadow-[0_4px_32px_-8px_rgba(139,92,246,0.18)] backdrop-blur-md',
   observationTab:
-    'flex-1 rounded-full px-4 py-2.5 text-center text-sm font-medium transition-all duration-300 motion-reduce:transition-none',
+    'flex h-full flex-1 items-center justify-center rounded-full px-3 text-center text-sm font-medium transition-all duration-200 motion-reduce:transition-none sm:text-[15px]',
   observationTabActive:
-    'bg-white text-violet-900 shadow-[0_0_24px_-6px_rgba(139,92,246,0.4)] ring-1 ring-violet-200/60',
-  observationTabIdle: 'text-stone-500 hover:bg-white/40 hover:text-stone-700',
+    'bg-white text-violet-900 shadow-[0_2px_20px_-4px_rgba(139,92,246,0.45)] ring-1 ring-violet-200/50',
+  observationTabIdle: 'text-stone-500 hover:bg-white/50 hover:text-stone-700',
 
   /**
    * /standalone/reports — premium design foundation (Aşama 1+).
@@ -96,12 +96,13 @@ export const standaloneSkin = {
       'min-h-full w-full bg-[radial-gradient(ellipse_120%_80%_at_8%_-8%,rgba(199,210,254,0.38),transparent_52%),radial-gradient(ellipse_75%_55%_at_92%_5%,rgba(186,230,253,0.3),transparent_48%),radial-gradient(ellipse_60%_40%_at_50%_100%,rgba(221,214,254,0.12),transparent_55%),linear-gradient(180deg,#f8f9ff_0%,#f6f8fc_42%,#f4f7fb_100%)]',
     container:
       'mx-auto w-full max-w-[1280px] px-5 py-8 sm:px-10 sm:py-12 lg:px-14 lg:py-14',
-    sectionStack: 'space-y-10 sm:space-y-12 lg:space-y-12',
-    splitGrid:
-      'hidden xl:grid xl:grid-cols-12 xl:items-start xl:gap-10 2xl:gap-12',
-    splitColObservation: 'xl:col-span-7 min-w-0 space-y-10 sm:space-y-12',
-    splitColMap: 'xl:col-span-5 min-w-0 xl:sticky xl:top-6 xl:max-h-[calc(100vh-5.5rem)] xl:overflow-y-auto xl:overscroll-contain',
-    mobileOnly: 'xl:hidden space-y-10 sm:space-y-12',
+    sectionStack: 'space-y-8 sm:space-y-10',
+    pageHeader: 'flex flex-wrap items-start justify-between gap-4',
+    pageTitleRow: 'flex items-center gap-2.5',
+    pageTitleIcon: 'h-7 w-7 text-violet-500 sm:h-8 sm:w-8',
+    disclaimerBar:
+      'mt-10 flex items-start gap-3 rounded-2xl border border-violet-200/25 bg-violet-50/50 px-5 py-4 text-sm leading-relaxed text-violet-950/75 backdrop-blur-sm sm:items-center sm:px-6',
+    disclaimerIcon: 'mt-0.5 h-5 w-5 shrink-0 text-violet-500/80 sm:mt-0',
     glassCard:
       'rounded-3xl border border-white/70 bg-white/[0.72] shadow-[0_10px_48px_-16px_rgba(99,102,241,0.12)] backdrop-blur-md',
     glassCardPad: 'p-6 sm:p-7 lg:p-8',
@@ -147,62 +148,70 @@ export const standaloneSkin = {
     priorityHeadline: 'text-sm font-medium leading-snug text-amber-950 sm:text-[15px]',
     priorityMeta: 'mt-1.5 text-xs leading-relaxed text-amber-800/65',
     mainCard:
-      'relative overflow-hidden rounded-3xl border border-white/70 bg-white/[0.72] p-6 shadow-[0_12px_52px_-18px_rgba(99,102,241,0.14)] backdrop-blur-md sm:p-7 lg:p-8',
+      'relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/[0.78] p-5 shadow-[0_16px_56px_-20px_rgba(99,102,241,0.16)] backdrop-blur-md sm:rounded-3xl sm:p-6 lg:p-7',
     mainCardInner:
-      'flex flex-col gap-10 lg:flex-row lg:items-center lg:gap-12',
+      'grid grid-cols-1 gap-6 lg:grid-cols-[1fr_minmax(260px,320px)] lg:gap-5 xl:gap-6',
+    heroPersonaCol: 'flex min-w-0 flex-col items-center text-center lg:items-start lg:text-left',
+    heroMirrorCol: 'flex min-w-0 flex-col gap-3',
+    energyBadge:
+      'mb-4 inline-flex rounded-full border border-violet-200/40 bg-violet-50/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-800/80',
     personaAside:
-      'flex shrink-0 flex-col items-center gap-3 lg:w-[min(220px,32%)]',
+      'flex w-full shrink-0 flex-col items-center gap-3 lg:items-start',
     personaGlow:
-      'relative flex h-[9.5rem] w-[9.5rem] items-center justify-center sm:h-[11rem] sm:w-[11rem] md:h-[12.5rem] md:w-[12.5rem]',
+      'relative flex h-[7.5rem] w-[7.5rem] items-center justify-center sm:h-[9.5rem] sm:w-[9.5rem] lg:h-[10.5rem] lg:w-[10.5rem] xl:h-[11.5rem] xl:w-[11.5rem]',
     personaGlowRing:
       'pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.22)_0%,rgba(199,210,254,0.08)_45%,transparent_70%)]',
     personaChip:
-      'inline-flex max-w-full items-center gap-2 rounded-full border border-violet-200/50 bg-violet-50/80 px-3 py-1.5 shadow-sm',
+      'mt-5 inline-flex max-w-full items-center gap-2 rounded-full border border-violet-200/45 bg-white/90 px-3.5 py-1.5 shadow-[0_2px_12px_-4px_rgba(139,92,246,0.2)]',
     personaChipEmoji: 'text-base leading-none',
-    personaChipLabel: 'text-xs font-medium text-violet-900/90',
-    personaFamily: 'text-center text-[11px] font-medium text-violet-800/65',
-    insightCol: 'min-w-0 flex-1 text-center lg:text-left',
-    insightEyebrow:
-      'text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-700/75',
+    personaChipLabel: 'text-sm font-medium text-violet-900/90',
+    personaFamily: 'hidden',
+    insightCol: 'mt-4 w-full min-w-0',
+    insightEyebrow: 'sr-only',
     mainInsight:
-      'mt-3 border-0 p-0 text-[1.75rem] font-semibold leading-[1.28] tracking-[-0.035em] text-stone-900 sm:text-[2rem] lg:text-[2.25rem]',
+      'border-0 p-0 text-xl font-semibold leading-[1.35] tracking-[-0.03em] text-stone-800 sm:text-2xl lg:text-[1.65rem] lg:leading-[1.32]',
+    insightAccent: 'font-semibold text-violet-700',
     mainInsightSecondary:
       'mt-3 border-0 p-0 text-xl font-medium leading-snug tracking-[-0.025em] text-stone-800 sm:text-2xl',
     supportLine: 'mt-5 text-sm leading-relaxed text-stone-500/90 sm:text-[15px]',
-    mirrorGrid: 'mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3 sm:gap-6',
+    mirrorGrid: 'mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5',
     mirrorCard:
-      'flex h-full min-h-[12.5rem] flex-col rounded-3xl border border-white/70 bg-white/[0.72] p-6 shadow-[0_8px_36px_-12px_rgba(99,102,241,0.1)] backdrop-blur-md sm:min-h-[13rem]',
+      'flex flex-col rounded-2xl border border-violet-100/50 bg-white/85 p-4 shadow-[0_4px_20px_-10px_rgba(99,102,241,0.08)] backdrop-blur-sm',
+    mirrorCardCompact:
+      'flex flex-col rounded-2xl border border-violet-100/45 bg-white/90 p-4 shadow-[0_2px_16px_-8px_rgba(99,102,241,0.07)]',
     mirrorIconWrap:
-      'flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-100/90 to-indigo-50/80 text-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]',
+      'flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-100 to-violet-50 text-violet-700',
     mirrorIconWrapAi:
-      'flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-100/90 to-cyan-50/80 text-sky-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]',
+      'flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-cyan-50 text-sky-700',
     mirrorIconWrapBalance:
-      'flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-teal-100/90 to-emerald-50/80 text-teal-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]',
+      'flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-700',
     mirrorCardLabel:
-      'mt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400',
-    mirrorPillRow: 'mt-3 flex flex-wrap gap-1.5',
+      'mt-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-400',
+    mirrorPillRow: 'mt-2 flex flex-wrap gap-1.5',
     mirrorCardPill:
-      'rounded-full border border-stone-200/50 bg-stone-50/90 px-2.5 py-0.5 text-[10px] font-medium text-stone-600',
-    mirrorCardText: 'mt-3 flex-1 text-sm leading-relaxed text-stone-700',
-    mirrorFooter: 'mt-4 flex items-center gap-1.5 border-t border-stone-200/35 pt-3 text-[11px] text-stone-500',
+      'rounded-full border border-stone-200/40 bg-stone-50/95 px-2 py-0.5 text-[10px] font-medium text-stone-600',
+    mirrorCardText: 'mt-2 flex-1 text-[13px] leading-snug text-stone-600',
+    mirrorFooter: 'mt-2.5 flex items-center gap-1.5 text-[11px] text-stone-500',
     mirrorFooterDot: 'h-1.5 w-1.5 rounded-full bg-emerald-400/80',
-    metricsGrid: 'mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3 sm:gap-6',
+    metricsGrid: 'mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5',
     metricCard:
-      'rounded-2xl border border-white/65 bg-white/[0.68] px-5 py-5 shadow-[0_6px_24px_-10px_rgba(99,102,241,0.08)] backdrop-blur-sm sm:px-6',
+      'rounded-2xl border border-white/70 bg-white/[0.75] px-5 py-4 shadow-[0_6px_24px_-10px_rgba(99,102,241,0.08)] backdrop-blur-sm',
     metricCardIcon: 'text-violet-500/80',
     metricCardLabel: 'text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-400',
     metricCardValue: 'mt-1.5 text-sm font-medium text-stone-800',
     metricProgressTrack: 'mt-3 h-1 overflow-hidden rounded-full bg-stone-200/40',
     metricProgressFill: 'h-full rounded-full bg-gradient-to-r from-violet-300/90 to-violet-500/70',
+    metricProgressFillTrust: 'h-full rounded-full bg-gradient-to-r from-emerald-300/90 to-teal-500/75',
     patternDots: 'mt-3 flex flex-wrap gap-1.5',
     patternDot:
-      'inline-flex h-6 w-6 items-center justify-center rounded-full border border-violet-200/40 bg-violet-50/60 text-[10px]',
-    patternDotLatest: 'ring-1 ring-violet-400/50 ring-offset-1 ring-offset-white',
+      'inline-flex h-7 w-7 items-center justify-center rounded-full bg-violet-400/85',
+    patternDotInactive: 'bg-stone-200/80',
+    patternDotLatest: 'ring-2 ring-violet-300/60 ring-offset-2 ring-offset-white',
     contextLine: 'mt-6 text-center text-xs leading-relaxed text-stone-500 lg:text-left',
-    lowerGrid: 'mt-12 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_min(17rem,28%)] lg:items-start lg:gap-10',
-    whyWrap: 'min-w-0',
+    lowerGrid: 'mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_280px] lg:items-stretch lg:gap-6 xl:grid-cols-[1fr_300px]',
+    whyWrap: 'min-w-0 rounded-2xl border border-white/70 bg-white/[0.65] p-4 backdrop-blur-sm sm:p-5',
     whyToggle:
-      'flex w-full items-center justify-between gap-2 rounded-2xl border border-indigo-500/10 bg-white/60 px-4 py-3.5 text-left text-sm font-medium text-stone-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white/80',
+      'flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-stone-800',
     whyGrid: 'mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2',
     whyCard:
       'rounded-2xl border border-white/65 bg-white/[0.68] p-5 shadow-[0_6px_24px_-10px_rgba(99,102,241,0.08)] backdrop-blur-sm sm:p-6',
@@ -211,10 +220,17 @@ export const standaloneSkin = {
     whyCardTitle: 'mt-3 text-sm font-medium text-stone-800',
     whyCardBody: 'mt-1.5 text-sm leading-relaxed text-stone-600',
     inspirationCard:
-      'relative overflow-hidden rounded-3xl border border-violet-200/30 bg-gradient-to-br from-violet-100/80 via-indigo-50/60 to-sky-100/50 p-5 shadow-[0_8px_32px_-10px_rgba(139,92,246,0.2)] backdrop-blur-sm lg:min-h-[12rem]',
-    inspirationQuote: 'text-sm font-medium leading-relaxed text-violet-950/85',
+      'relative flex min-h-[14rem] flex-col overflow-hidden rounded-3xl border border-violet-200/35 bg-gradient-to-br from-violet-200/50 via-violet-100/70 to-indigo-100/60 p-6 shadow-[0_10px_36px_-12px_rgba(139,92,246,0.25)] sm:min-h-[16rem] sm:p-7',
+    inspirationQuote:
+      'relative z-10 text-base font-semibold leading-relaxed text-violet-950/90 sm:text-[17px]',
     inspirationDecor:
-      'pointer-events-none absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/30 blur-2xl',
+      'pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/35 blur-2xl',
+    inspirationHills:
+      'pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-violet-300/35 via-violet-200/15 to-transparent',
+    inspirationHillShape:
+      'absolute bottom-0 left-[8%] h-14 w-[38%] rounded-t-[100%] bg-violet-300/30',
+    inspirationHillShape2:
+      'absolute bottom-0 right-[5%] h-16 w-[42%] rounded-t-[100%] bg-indigo-300/25',
     scrollHint:
       'mt-10 inline-flex items-center gap-2 text-sm text-stone-500 transition-colors hover:text-violet-800',
   },
