@@ -5,9 +5,13 @@ import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
   buildRelationshipMap,
+  TREND_LABEL,
+  type BehaviorIsland,
   type RelationshipPeriodDays,
 } from '@/lib/eza/relationshipMapModel';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+
+const s = standaloneSkin.relationshipMapPolish;
 
 interface RelationshipMapViewProps {
   entries: SavedBehavioralEntry[];
@@ -20,37 +24,110 @@ const PERIODS: { days: RelationshipPeriodDays; label: string }[] = [
   { days: 90, label: '90 Gün' },
 ];
 
+function islandMinHeight(intensity: number): string {
+  const px = Math.round(88 + intensity * 56);
+  return `${px}px`;
+}
+
+function islandOpacity(trend: BehaviorIsland['trend']): number {
+  if (trend === 'growing') return 1;
+  if (trend === 'fading') return 0.72;
+  return 0.88;
+}
+
+function BehaviorIslandBlob({ island }: { island: BehaviorIsland }) {
+  const trend = island.trend ?? 'stable';
+  return (
+    <article
+      className={s.islandBlob}
+      style={{
+        minHeight: islandMinHeight(island.intensity),
+        borderColor: `${island.color}44`,
+        background: `linear-gradient(145deg, ${island.color}14, ${island.color}28)`,
+        opacity: islandOpacity(trend),
+        boxShadow:
+          trend === 'growing'
+            ? `0 8px 32px -8px ${island.color}33`
+            : `0 4px 20px -10px ${island.color}22`,
+      }}
+    >
+      <div
+        className={s.islandGlow}
+        style={{ background: `radial-gradient(circle, ${island.color}55, transparent 70%)` }}
+        aria-hidden
+      />
+      <h4 className={s.islandLabel}>{island.label}</h4>
+      <p className={s.islandDesc}>{island.description}</p>
+      <div className={s.islandMeta}>
+        <span className={s.islandTrendPill}>{TREND_LABEL[trend]}</span>
+        <span className={s.islandPercentMuted} aria-label={`Göreli yoğunluk yüzde ${island.percent}`}>
+          · {island.percent}%
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function RhythmChart({ points }: { points: { label: string; value: number }[] }) {
+  if (!points.length) return null;
+  const max = Math.max(...points.map((p) => p.value), 1);
+
+  return (
+    <div className={s.rhythmChart} role="img" aria-label="Zaman içinde etkileşim ritmi">
+      {points.map((p) => {
+        const h = Math.max(12, Math.round((p.value / max) * 48));
+        return (
+          <div key={p.label} className={s.rhythmDotWrap}>
+            <div
+              className={s.rhythmDot}
+              style={{ height: `${h}px` }}
+              title={`${p.label}: ${p.value} etkileşim`}
+            />
+            <span className={s.rhythmLabel}>{p.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function RelationshipMapView({ entries, className }: RelationshipMapViewProps) {
   const [period, setPeriod] = useState<RelationshipPeriodDays>(30);
+  const [fadeKey, setFadeKey] = useState(0);
 
   const model = useMemo(
     () => buildRelationshipMap(entries, period),
     [entries, period]
   );
 
+  const handlePeriod = (days: RelationshipPeriodDays) => {
+    if (days === period) return;
+    setPeriod(days);
+    setFadeKey((k) => k + 1);
+  };
+
+  const isEmpty = model.totalInteractions === 0;
+
   return (
-    <section className={cn('px-4 py-8 sm:px-6 sm:py-10', className)} aria-label="EZA İlişki Haritası">
-      <header className="max-w-2xl">
-        <p className={standaloneSkin.observationEyebrow}>EZA İlişki Haritası</p>
-        <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-stone-900 sm:text-2xl">
-          Zaman içindeki etkileşim desenin
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-stone-500">
-          Klasik grafik yerine davranış adaları — gözlemsel yoğunluk, kişilik testi değil.
-        </p>
+    <section className={cn(s.section, className)} aria-label="EZA İlişki Haritası">
+      <div className={s.ambient} aria-hidden />
+
+      <header>
+        <h2 className={s.headerTitle}>EZA İlişki Haritası</h2>
+        <p className={s.headerSub}>AI ile konuşma yolculuğunun uzun dönem deseni.</p>
       </header>
 
-      <div className="mt-6 flex flex-wrap gap-2" role="tablist">
+      <div className={s.periodRow} role="tablist" aria-label="Dönem seçimi">
         {PERIODS.map((p) => (
           <button
             key={p.days}
             type="button"
-            onClick={() => setPeriod(p.days)}
+            role="tab"
+            aria-selected={period === p.days}
+            onClick={() => handlePeriod(p.days)}
             className={cn(
-              'rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors',
-              period === p.days
-                ? 'bg-violet-100 text-violet-900'
-                : 'bg-stone-100/80 text-stone-600 hover:bg-stone-200/60'
+              s.periodPill,
+              period === p.days ? s.periodPillActive : s.periodPillIdle
             )}
           >
             {p.label}
@@ -58,106 +135,95 @@ export default function RelationshipMapView({ entries, className }: Relationship
         ))}
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-[minmax(0,12rem)_1fr]">
-        <div className={standaloneSkin.relationshipBalanceCard}>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-400">
-            Genel denge
-          </p>
-          <p className="mt-2 text-lg font-medium text-stone-900">{model.generalBalanceLabel}</p>
-          <p className="mt-1 text-xs leading-relaxed text-stone-500">{model.generalBalanceHint}</p>
-          <p className="mt-4 text-[11px] text-stone-400">
-            {model.totalInteractions} etkileşim · son {model.periodDays} gün
-          </p>
-        </div>
+      <div key={fadeKey} className={cn(s.contentFade, 'opacity-100')}>
+        {!isEmpty ? (
+          <article className={cn(s.editorialCard, 'mt-8')}>
+            <p className={s.editorialLabel}>EZA&apos;dan kısa not</p>
+            <p className={s.editorialBody}>{model.editorialNote}</p>
+          </article>
+        ) : null}
 
-        <div className={standaloneSkin.relationshipIslandsWrap}>
-          <p className="mb-4 text-[10px] font-semibold uppercase tracking-wider text-stone-400">
-            Davranış adaları
+        <section className={s.islandsSection} aria-labelledby="behavior-islands-heading">
+          <h3 id="behavior-islands-heading" className={s.islandsHeading}>
+            Davranış Adaları
+          </h3>
+          <p className={s.islandsSub}>
+            Konuşma biçiminde öne çıkan gözlemsel alanlar — kişilik testi değil.
           </p>
-          {model.islands.length === 0 ? (
-            <p className="text-sm text-stone-500">
-              Henüz ada oluşmadı. Birkaç sohbetten sonra desenler burada belirir.
-            </p>
-          ) : (
-            <div className={standaloneSkin.relationshipIslandsGrid}>
-              {model.islands.map((island) => (
-                <div
-                  key={island.id}
-                  className={standaloneSkin.relationshipIsland}
-                  style={{
-                    background: `linear-gradient(135deg, ${island.color}22, ${island.color}44)`,
-                    borderColor: `${island.color}55`,
-                  }}
-                  title={`${island.label} · %${island.percent}`}
-                >
-                  <span className="text-sm font-medium text-stone-800">{island.label}</span>
-                  <span className="mt-1 text-2xl font-semibold tabular-nums text-stone-900">
-                    %{island.percent}
-                  </span>
+
+          <div className={s.islandsLayout}>
+            <div className={s.islandsMain}>
+              {isEmpty ? (
+                <div className={s.emptyIslands}>
+                  <p className={s.emptyTitle}>Harita henüz şekillenmedi</p>
+                  <p className={s.emptyBody}>
+                    Birkaç sohbetten sonra davranış adaların burada yumuşak bir desen olarak
+                    belirecek. Acele etmene gerek yok.
+                  </p>
                 </div>
-              ))}
+              ) : (
+                <div className={s.islandsGrid}>
+                  {model.islands.map((island) => (
+                    <BehaviorIslandBlob key={island.id} island={island} />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-2">
-        <div className={standaloneSkin.relationshipBarCard}>
-          <h3 className="text-sm font-medium text-stone-800">AI davranış dağılımı</h3>
-          <ul className="mt-4 space-y-3">
-            {model.aiBehaviorBars.map((bar) => (
-              <li key={bar.label}>
-                <div className="flex justify-between text-xs text-stone-600">
-                  <span>{bar.label}</span>
-                  <span>%{bar.percent}</span>
-                </div>
-                <div className={standaloneSkin.relationshipBarTrack}>
-                  <div
-                    className={standaloneSkin.relationshipBarFill}
-                    style={{ width: `${Math.max(6, bar.percent)}%` }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+            {!isEmpty ? (
+              <div className={s.sideStack}>
+                <article className={s.aiCard}>
+                  <h3 className={s.aiTitle}>AI sana nasıl yanıt verdi?</h3>
+                  <ul className={s.aiToneRow}>
+                    {model.aiBehaviorTones.map((tone) => (
+                      <li key={tone.label} className={s.aiToneItem}>
+                        <span className={s.aiToneLabel}>{tone.label}</span>
+                        <div className={s.aiToneTrack}>
+                          <div
+                            className={s.aiToneFill}
+                            style={{ width: `${Math.round(tone.intensity * 100)}%` }}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
 
-        <div className={standaloneSkin.relationshipBarCard}>
-          <h3 className="text-sm font-medium text-stone-800">İlişki denge özeti</h3>
-          <ul className="mt-4 space-y-3">
-            {model.balanceBars.map((bar) => (
-              <li key={bar.label}>
-                <div className="flex justify-between text-xs text-stone-600">
-                  <span>{bar.label}</span>
-                  <span>%{bar.percent}</span>
-                </div>
-                <div className={standaloneSkin.relationshipBarTrack}>
-                  <div
-                    className={standaloneSkin.relationshipBarFillAlt}
-                    style={{ width: `${Math.max(6, bar.percent)}%` }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+                <article className={s.balanceCard}>
+                  <h3 className={s.balanceTitle}>Aranızdaki denge</h3>
+                  <p className={s.balanceSummary}>{model.balanceSummary}</p>
+                  <div className={s.balancePillRow}>
+                    {model.balancePills.map((pill) => (
+                      <span
+                        key={pill.label}
+                        className={cn(
+                          s.balancePill,
+                          pill.active ? s.balancePillActive : s.balancePillIdle
+                        )}
+                      >
+                        {pill.label}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              </div>
+            ) : null}
+          </div>
+        </section>
 
-      <div className={standaloneSkin.relationshipNoteCard}>
-        <span className="text-lg" aria-hidden>
-          💜
-        </span>
-        <p className="mt-2 text-sm leading-relaxed text-stone-700">{model.shortNote}</p>
-        {model.avgDepthScore !== null ? (
-          <p className="mt-3 text-xs text-stone-500">
-            Ortalama etkileşim derinliği (gözlemsel):{' '}
-            <span className="font-medium text-stone-700">{model.avgDepthScore}/10</span>
-          </p>
+        {!isEmpty && model.rhythmTimeline.length > 1 ? (
+          <section className={s.rhythmSection} aria-labelledby="rhythm-heading">
+            <h3 id="rhythm-heading" className={s.rhythmTitle}>
+              Zaman içinde etkileşim ritmi
+            </h3>
+            <p className={s.rhythmSub}>Günlük konuşma yoğunluğunun sakin özeti</p>
+            <RhythmChart points={model.rhythmTimeline} />
+          </section>
         ) : null}
       </div>
 
-      <p className="mt-8 text-center text-xs leading-relaxed text-stone-400">
-        EZA analizleri gözlemsel sinyaller üretir. Kesin karar yerine farkındalık sağlamayı amaçlar.
+      <p className={s.footerNote}>
+        EZA analizleri gözlemsel desenler üretir; kesin karar yerine farkındalık sağlamayı amaçlar.
       </p>
     </section>
   );

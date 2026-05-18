@@ -16,7 +16,7 @@ import { reportSkin } from '@/lib/eza/reportSkin';
 import { STANDALONE_SIGNAL_NOTE } from '@/lib/eza/presentationTone';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import GovernanceInteractionReportView from '@/components/governance/GovernanceInteractionReportView';
-import LastObservationHero from '@/components/governance/LastObservationHero';
+import StandaloneObservationHero from '@/components/standalone/StandaloneObservationHero';
 import RelationshipMapView from '@/components/standalone/RelationshipMapView';
 import { buildPersonaSeed } from '@/lib/standaloneObservation';
 
@@ -54,12 +54,11 @@ export default function StandaloneObservationExperience({
   if (entries.length === 0) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
-        <p className={reportSkin.eyebrow}>EZA&apos;nın Son Gözlemi</p>
-        <p className="mt-6 max-w-md text-2xl font-medium leading-snug text-stone-900">
-          AI ile kurduğun ilişkinin gözlemsel aynası
-        </p>
-        <p className="mt-4 text-sm text-stone-500">
-          Birkaç sohbetten sonra son gözlem ve ilişki haritası burada belirecek.
+        <h2 className={standaloneSkin.observationPolish.headerTitle}>
+          Bugün AI ile ilişkin nasıl?
+        </h2>
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-stone-500">
+          Birkaç sohbetten sonra son gözlem burada belirecek. İlişki haritası ikinci sekmede.
         </p>
       </div>
     );
@@ -105,7 +104,7 @@ export default function StandaloneObservationExperience({
       {tab === 'last' ? (
         <>
           {observation.show ? (
-            <LastObservationHero
+            <StandaloneObservationHero
               observation={observation}
               personaSeed={personaSeed}
               onScrollDetails={() =>

@@ -24,6 +24,25 @@ export interface BehaviorIsland {
   percent: number;
   color: string;
   trend?: 'growing' | 'stable' | 'fading';
+  description: string;
+  /** 0–1 göreli yoğunluk (ada boyutu için) */
+  intensity: number;
+}
+
+export interface AiBehaviorTone {
+  label: string;
+  /** 0–1 göreli yoğunluk (ince bar için) */
+  intensity: number;
+}
+
+export interface BalancePill {
+  label: string;
+  active: boolean;
+}
+
+export interface RhythmPoint {
+  label: string;
+  value: number;
 }
 
 export interface RelationshipMapViewModel {
@@ -33,8 +52,13 @@ export interface RelationshipMapViewModel {
   generalBalanceHint: string;
   islands: BehaviorIsland[];
   aiBehaviorBars: { label: string; percent: number }[];
+  aiBehaviorTones: AiBehaviorTone[];
   balanceBars: { label: string; percent: number }[];
+  balanceSummary: string;
+  balancePills: BalancePill[];
+  editorialNote: string;
   shortNote: string;
+  rhythmTimeline: RhythmPoint[];
   avgDepthScore: number | null;
 }
 
@@ -72,6 +96,123 @@ const BALANCE_LABELS = [
   'Güvenli denge',
   'Sakin ritim',
 ];
+
+const ISLAND_DESCRIPTIONS: Record<UserObservationCategoryId, string> = {
+  balanced: 'Konuşmalar genel olarak ölçülü ve dengeli bir ritimde ilerlemiş.',
+  decision_support: 'Yön bulma ve seçenek tartma konuşmaları öne çıkıyor.',
+  clarity_seek: 'Netlik ve sadeleştirme arayışı daha belirgin görünüyor.',
+  flow_harmony: 'Soru ve yanıt akışı uyumlu bir çizgide seyretmiş.',
+  sensitive_signals: 'Hassas konulara dair dikkatli bir ton öne çıkmış.',
+  safe_balance: 'Hassas sinyallere rağmen denge sakin kalmış.',
+  question_clarity: 'Soruların yapısı netleşme eğilimi taşımış.',
+  exploration: 'Keşif ve yeni ihtimaller konuşmalarda öne çıkıyor.',
+  creative_ideas: 'Fikir geliştirme ve üretken konuşmalar belirginleşmiş.',
+  intellectual_depth: 'Derin düşünme ve bağlam arayışı öne çıkıyor.',
+  explanation_seek: 'Açıklama ve gerekçe arayışı daha sık görülmüş.',
+  quiet: 'Sakin ve sade bir konuşma ritmi hakim olmuş.',
+};
+
+const TREND_LABEL: Record<NonNullable<BehaviorIsland['trend']>, string> = {
+  growing: 'Artan eğilim',
+  stable: 'Sakin ritim',
+  fading: 'Hafif soluk',
+};
+
+function categoryForEntry(e: SavedBehavioralEntry): UserObservationCategoryId {
+  const obs = parseStandaloneObservation(e.standaloneObservation);
+  if (obs) return mapBackendUserCategory(obs.user_pattern.category);
+  return classifyDayFromEntries([e]);
+}
+
+function islandTrend(
+  entries: SavedBehavioralEntry[],
+  categoryId: UserObservationCategoryId
+): BehaviorIsland['trend'] {
+  if (entries.length < 4) return 'stable';
+  const sorted = [...entries].sort(
+    (a, b) => new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime()
+  );
+  const mid = Math.max(1, Math.floor(sorted.length / 2));
+  const first = sorted.slice(0, mid);
+  const second = sorted.slice(mid);
+  const rate = (chunk: SavedBehavioralEntry[]) => {
+    if (!chunk.length) return 0;
+    const hits = chunk.filter((e) => categoryForEntry(e) === categoryId).length;
+    return hits / chunk.length;
+  };
+  const r1 = rate(first);
+  const r2 = rate(second);
+  if (r2 > r1 * 1.2 + 0.05) return 'growing';
+  if (r2 < r1 * 0.8 - 0.05) return 'fading';
+  return 'stable';
+}
+
+function buildRhythmTimeline(entries: SavedBehavioralEntry[]): RhythmPoint[] {
+  const buckets = new Map<number, { label: string; count: number }>();
+  for (const e of entries) {
+    const d = new Date(e.savedAt);
+    if (Number.isNaN(d.getTime())) continue;
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const label = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+    const existing = buckets.get(dayStart);
+    if (existing) existing.count += 1;
+    else buckets.set(dayStart, { label, count: 1 });
+  }
+  return Array.from(buckets.entries())
+    .sort((a, b) => a[0] - b[0])
+    .slice(-12)
+    .map(([, v]) => ({ label: v.label, value: v.count }));
+}
+
+function buildEditorialNote(
+  periodDays: number,
+  islands: BehaviorIsland[],
+  aiTones: AiBehaviorTone[],
+  generalBalanceHint: string
+): string {
+  const dominant = islands[0];
+  const topAi = aiTones[0];
+  if (!dominant) {
+    return 'Konuşma biçimine dair desenler henüz netleşmedi; birkaç etkileşim daha sonra burada daha okunur bir özet belirecek.';
+  }
+  const aiPart = topAi
+    ? `AI yanıtları çoğunlukla ${topAi.label.toLowerCase()} bir çizgide kalmış.`
+    : 'AI yanıt tonu genel olarak dengeli seyretmiş.';
+  const trendPart =
+    dominant.trend === 'growing'
+      ? `${dominant.label} eğilimi son dönemde daha belirgin görünüyor.`
+      : `${dominant.label.toLowerCase()} konuşma biçiminde öne çıkan bir desen.`;
+  return `Son ${periodDays} günde ${trendPart} ${aiPart} ${generalBalanceHint}`;
+}
+
+function buildBalanceSummary(
+  generalBalanceLabel: string,
+  generalBalanceHint: string
+): string {
+  return `Etkileşimlerin çoğu ${generalBalanceLabel.toLowerCase()} bir ritimde ilerlemiş. ${generalBalanceHint}`;
+}
+
+function buildBalancePills(
+  islands: BehaviorIsland[],
+  aiTones: AiBehaviorTone[]
+): BalancePill[] {
+  const dominant = islands[0]?.label?.toLowerCase() ?? '';
+  const topAi = aiTones[0]?.label?.toLowerCase() ?? '';
+  return [
+    {
+      label: 'Uyumlu Akış',
+      active: dominant.includes('akış') || dominant.includes('dengeli') || topAi.includes('uyum'),
+    },
+    {
+      label: 'Açıklama Dengesi',
+      active: topAi.includes('açıkla') || dominant.includes('açıklama'),
+    },
+    {
+      label: 'Karar Dengesi',
+      active: dominant.includes('karar') || dominant.includes('yön'),
+    },
+  ];
+}
 
 function filterByPeriod(
   entries: SavedBehavioralEntry[],
@@ -159,27 +300,50 @@ export function buildRelationshipMap(
       generalBalanceHint: 'Birkaç sohbetten sonra harita burada şekillenir.',
       islands: [],
       aiBehaviorBars: [],
+      aiBehaviorTones: [],
       balanceBars: [],
+      balanceSummary:
+        'Henüz yeterli etkileşim birikmedi; harita birkaç sohbetten sonra şekillenecek.',
+      balancePills: [
+        { label: 'Uyumlu Akış', active: false },
+        { label: 'Açıklama Dengesi', active: false },
+        { label: 'Karar Dengesi', active: false },
+      ],
+      editorialNote:
+        'Konuşma yolculuğunun haritası için henüz yeterli iz yok. Sakin bir başlangıçtan sonra desenler burada belirecek.',
       shortNote:
         'EZA, konuşma biçiminden gözlemsel desenler çıkarır; henüz yeterli etkileşim birikmedi.',
+      rhythmTimeline: [],
       avgDepthScore: null,
     };
   }
 
   const userCounts = countCategories(filtered);
+  const maxCount = Math.max(...Array.from(userCounts.values()), 1);
   const islands: BehaviorIsland[] = Array.from(userCounts.entries())
-    .map(([cat, n]) => ({
-      id: cat,
-      label: USER_CATEGORY_LABEL[cat],
-      percent: Math.round((n / total) * 100),
-      color: ISLAND_COLORS[cat] ?? '#94a3b8',
-      trend: 'stable' as const,
-    }))
+    .map(([cat, n]) => {
+      const percent = Math.round((n / total) * 100);
+      const trend = islandTrend(filtered, cat);
+      return {
+        id: cat,
+        label: USER_CATEGORY_LABEL[cat],
+        percent,
+        color: ISLAND_COLORS[cat] ?? '#94a3b8',
+        trend,
+        description: ISLAND_DESCRIPTIONS[cat],
+        intensity: Math.max(0.35, Math.min(1, n / maxCount)),
+      };
+    })
     .sort((a, b) => b.percent - a.percent)
     .slice(0, 6);
 
   const aiCounts = countAi(filtered);
   const aiBehaviorBars = toPercentBars(aiCounts, total, AI_LABEL);
+  const maxAi = aiBehaviorBars[0]?.percent ?? 100;
+  const aiBehaviorTones: AiBehaviorTone[] = aiBehaviorBars.slice(0, 5).map((bar) => ({
+    label: bar.label,
+    intensity: Math.max(0.25, bar.percent / Math.max(maxAi, 1)),
+  }));
 
   const balanceBars = islands.slice(0, 5).map((island) => ({
     label: island.label,
@@ -213,9 +377,16 @@ export function buildRelationshipMap(
   const avgDepthScore =
     avgAlign !== null ? Math.round((avgAlign / 100) * 10 * 10) / 10 : null;
 
-  const shortNote = dominant
-    ? `Son ${periodDays} günde en sık görülen desen: ${dominant.label.toLowerCase()} (%${dominant.percent}). Bu bir kişilik tanımı değil; konuşma biçimine dair gözlemsel bir özet.`
-    : 'Etkileşim desenin henüz netleşmedi.';
+  const balanceSummary = buildBalanceSummary(generalBalanceLabel, generalBalanceHint);
+  const balancePills = buildBalancePills(islands, aiBehaviorTones);
+  const editorialNote = buildEditorialNote(
+    periodDays,
+    islands,
+    aiBehaviorTones,
+    generalBalanceHint
+  );
+  const shortNote = editorialNote;
+  const rhythmTimeline = buildRhythmTimeline(filtered);
 
   return {
     periodDays,
@@ -224,11 +395,18 @@ export function buildRelationshipMap(
     generalBalanceHint,
     islands,
     aiBehaviorBars,
+    aiBehaviorTones,
     balanceBars: balanceBars.length ? balanceBars : BALANCE_LABELS.map((label, i) => ({
       label,
       percent: Math.max(8, 28 - i * 4),
     })),
+    balanceSummary,
+    balancePills,
+    editorialNote,
     shortNote,
+    rhythmTimeline,
     avgDepthScore,
   };
 }
+
+export { TREND_LABEL };

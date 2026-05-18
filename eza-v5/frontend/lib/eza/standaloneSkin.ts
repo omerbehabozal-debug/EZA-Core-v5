@@ -89,6 +89,66 @@ export const standaloneSkin = {
     'mt-6 inline-flex max-w-full items-center gap-2 rounded-full border border-violet-200/50 bg-violet-50/60 px-3 py-1.5',
   personaChipEmoji: 'text-base leading-none',
   personaChipLabel: 'text-xs font-medium text-violet-900/90',
+
+  /** EZA'nın Son Gözlemi — soft premium polish (Aşama 3) */
+  observationPolish: {
+    section: 'relative px-4 pb-10 pt-6 sm:px-0 sm:pb-14 sm:pt-8',
+    ambient:
+      'pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(ellipse_70%_80%_at_50%_-20%,rgba(167,139,250,0.12),transparent_65%)]',
+    headerTitle:
+      'text-[1.35rem] font-semibold tracking-[-0.03em] text-stone-900 sm:text-[1.5rem]',
+    headerSub: 'mt-2 max-w-md text-sm leading-relaxed text-stone-500',
+    mainCard:
+      'relative mt-8 overflow-hidden rounded-[1.35rem] border border-white/80 bg-white/70 p-5 shadow-[0_8px_40px_-12px_rgba(99,102,241,0.12)] backdrop-blur-sm sm:p-6',
+    mainCardInner: 'flex flex-col gap-6 md:flex-row md:items-start md:gap-8',
+    personaAside: 'flex shrink-0 flex-row items-center gap-3 md:w-[28%] md:flex-col md:items-center md:pt-1',
+    personaOrb:
+      'flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-100/80 bg-gradient-to-br from-violet-50/90 to-sky-50/80 text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] sm:h-16 sm:w-16 sm:text-[1.75rem]',
+    personaFamily: 'text-[11px] font-medium text-violet-800/70 md:text-center',
+    insightCol: 'min-w-0 flex-1',
+    mainInsight:
+      'border-0 p-0 text-[1.2rem] font-medium leading-[1.4] tracking-[-0.02em] text-stone-900 sm:text-[1.45rem] sm:leading-[1.35]',
+    mainInsightSecondary:
+      'border-0 p-0 text-lg font-medium leading-snug tracking-[-0.02em] text-stone-700',
+    personaChipSmall:
+      'mt-4 inline-flex max-w-full items-center gap-1.5 rounded-full border border-stone-200/60 bg-stone-50/80 px-2.5 py-1',
+    personaChipSmallEmoji: 'text-sm leading-none opacity-90',
+    personaChipSmallLabel: 'text-[11px] font-medium text-stone-600',
+    supportLine: 'mt-3 text-sm leading-relaxed text-stone-500',
+    priorityBlock:
+      'mt-6 rounded-2xl border border-amber-200/60 bg-amber-50/40 px-4 py-4 sm:px-5',
+    priorityEyebrow: 'text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800/80',
+    priorityHeadline: 'mt-1.5 text-base font-medium leading-snug text-amber-950',
+    priorityMeta: 'mt-1 text-xs text-amber-800/75',
+    mirrorGrid: 'mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4',
+    mirrorCard:
+      'rounded-2xl border border-stone-200/50 bg-white/60 px-4 py-4 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.06)]',
+    mirrorCardLabel:
+      'text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400',
+    mirrorCardPill:
+      'mt-1.5 inline-block rounded-full bg-stone-100/90 px-2 py-0.5 text-[10px] font-medium text-stone-500',
+    mirrorCardText: 'mt-3 text-sm leading-relaxed text-stone-700',
+    metricsRow: 'mt-8 flex flex-col gap-5 border-t border-stone-200/40 pt-6',
+    metricsPills: 'flex flex-wrap gap-2',
+    metricPill:
+      'rounded-full border border-stone-200/55 bg-stone-50/80 px-3 py-1 text-[11px] font-medium text-stone-600',
+    patternCaption: 'text-[10px] font-medium uppercase tracking-[0.1em] text-stone-400',
+    patternDots: 'mt-2 flex flex-wrap gap-2',
+    patternDot:
+      'inline-flex h-7 w-7 items-center justify-center rounded-full border border-stone-200/50 bg-white/80 text-[11px]',
+    patternDotLatest: 'ring-1 ring-violet-300/50 ring-offset-1 ring-offset-white',
+    contextLine: 'text-xs leading-relaxed text-stone-500',
+    whyWrap: 'mt-8 border-t border-stone-200/35 pt-5',
+    whyToggle:
+      'flex w-full items-center justify-between gap-2 text-left text-sm font-medium text-stone-600 transition-colors hover:text-stone-800',
+    whyGrid: 'mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2',
+    whyCard:
+      'rounded-xl border border-stone-200/45 bg-stone-50/50 px-3.5 py-3',
+    whyCardTitle: 'text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-400',
+    whyCardBody: 'mt-1.5 text-sm leading-relaxed text-stone-600',
+    scrollHint:
+      'mt-8 inline-flex items-center gap-2 text-sm text-stone-500 transition-colors hover:text-stone-700',
+  },
   relationshipBalanceCard:
     'rounded-2xl border border-stone-200/50 bg-white/80 p-4 shadow-sm',
   relationshipIslandsWrap:
@@ -104,6 +164,75 @@ export const standaloneSkin = {
   relationshipBarFillAlt: 'h-full rounded-full bg-teal-400/70',
   relationshipNoteCard:
     'mt-8 rounded-2xl border border-violet-200/40 bg-gradient-to-br from-violet-50/80 to-white p-5',
+
+  /** EZA İlişki Haritası — soft premium (Aşama 4) */
+  relationshipMapPolish: {
+    section: 'relative px-4 pb-12 pt-6 sm:px-0 sm:pb-16 sm:pt-8',
+    ambient:
+      'pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(ellipse_75%_70%_at_50%_-15%,rgba(129,140,248,0.1),transparent_60%)]',
+    headerTitle:
+      'text-[1.35rem] font-semibold tracking-[-0.03em] text-stone-900 sm:text-[1.5rem]',
+    headerSub: 'mt-2 max-w-lg text-sm leading-relaxed text-stone-500',
+    periodRow: 'mt-6 flex flex-wrap gap-2',
+    periodPill:
+      'rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all duration-300 motion-reduce:transition-none',
+    periodPillActive:
+      'border-violet-200/70 bg-white/90 text-violet-900 shadow-[0_2px_12px_-4px_rgba(99,102,241,0.2)]',
+    periodPillIdle:
+      'border-transparent bg-stone-100/60 text-stone-600 hover:bg-stone-100 hover:text-stone-800',
+    contentFade: 'transition-opacity duration-500 motion-reduce:transition-none',
+    editorialCard:
+      'rounded-2xl border border-violet-100/60 bg-gradient-to-br from-violet-50/50 via-white/80 to-sky-50/40 p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.12)] sm:p-6',
+    editorialLabel: 'text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-800/60',
+    editorialBody: 'mt-2 text-sm leading-relaxed text-stone-700 sm:text-[15px]',
+    islandsSection: 'mt-10',
+    islandsHeading: 'text-sm font-medium text-stone-800',
+    islandsSub: 'mt-1 text-xs text-stone-500',
+    islandsLayout: 'mt-6 flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10',
+    islandsMain: 'min-w-0 flex-1',
+    islandsGrid:
+      'grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-2',
+    islandBlob:
+      'group relative overflow-hidden rounded-[1.75rem] border px-5 py-5 transition-transform duration-300 motion-reduce:transition-none hover:scale-[1.015] motion-reduce:hover:scale-100',
+    islandGlow: 'pointer-events-none absolute -inset-4 opacity-40 blur-2xl',
+    islandLabel: 'relative text-base font-medium text-stone-900',
+    islandDesc: 'relative mt-2 text-sm leading-relaxed text-stone-600',
+    islandMeta: 'relative mt-4 flex flex-wrap items-center gap-2',
+    islandTrendPill:
+      'rounded-full bg-white/50 px-2 py-0.5 text-[10px] font-medium text-stone-500',
+    islandPercentMuted: 'text-[10px] tabular-nums text-stone-400',
+    emptyIslands:
+      'rounded-2xl border border-dashed border-stone-200/60 bg-stone-50/40 px-6 py-12 text-center',
+    emptyTitle: 'text-base font-medium text-stone-700',
+    emptyBody: 'mt-2 text-sm leading-relaxed text-stone-500',
+    sideStack: 'flex w-full flex-col gap-4 lg:w-[min(100%,20rem)] lg:shrink-0',
+    aiCard:
+      'rounded-2xl border border-stone-200/45 bg-white/65 p-4 backdrop-blur-sm sm:p-5',
+    aiTitle: 'text-sm font-medium text-stone-800',
+    aiToneRow: 'mt-4 flex flex-col gap-3',
+    aiToneItem: 'flex flex-col gap-1.5',
+    aiToneLabel: 'text-xs text-stone-600',
+    aiToneTrack: 'h-1 overflow-hidden rounded-full bg-stone-200/40',
+    aiToneFill: 'h-full rounded-full bg-gradient-to-r from-violet-300/80 to-violet-400/60',
+    balanceCard:
+      'rounded-2xl border border-stone-200/45 bg-white/65 p-4 backdrop-blur-sm sm:p-5',
+    balanceTitle: 'text-sm font-medium text-stone-800',
+    balanceSummary: 'mt-3 text-sm leading-relaxed text-stone-600',
+    balancePillRow: 'mt-4 flex flex-wrap gap-2',
+    balancePill:
+      'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+    balancePillActive: 'border-teal-200/60 bg-teal-50/80 text-teal-900/90',
+    balancePillIdle: 'border-stone-200/50 bg-stone-50/60 text-stone-500',
+    rhythmSection: 'mt-10 border-t border-stone-200/35 pt-8',
+    rhythmTitle: 'text-sm font-medium text-stone-800',
+    rhythmSub: 'mt-1 text-xs text-stone-500',
+    rhythmChart: 'mt-5 flex items-end justify-between gap-1 sm:gap-2',
+    rhythmDotWrap: 'flex flex-1 flex-col items-center gap-2',
+    rhythmDot:
+      'w-full max-w-[2rem] rounded-full bg-gradient-to-t from-violet-200/90 to-violet-400/50 transition-all duration-500',
+    rhythmLabel: 'text-[10px] text-stone-400',
+    footerNote: 'mt-10 text-center text-xs leading-relaxed text-stone-400',
+  },
 
   mainScroll:
     'standalone-main-scroll min-h-0 min-w-0 flex-1 self-stretch w-full max-w-none overflow-y-auto overflow-x-hidden overscroll-contain',
