@@ -48,7 +48,7 @@ export default function StandaloneReportsPage() {
   return (
     <div className={standaloneSkin.page}>
       <StandalonePageShell>
-        <div className="mx-auto w-full max-w-3xl">
+        <div className={standaloneSkin.reportsPremium.canvas}>
           <BehavioralIntelligenceDashboard entries={items} onClear={handleClear} />
         </div>
       </StandalonePageShell>

@@ -73,12 +73,11 @@ export default function StandaloneObservationExperience({
     observation.personaFamilyId ?? 'balanced_calm'
   );
 
+  const rp = standaloneSkin.reportsPremium;
+
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      <nav
-        className={cn(standaloneSkin.observationTabList, 'mx-4 sm:mx-0')}
-        aria-label="Gözlem sekmeleri"
-      >
+    <div className={rp.container}>
+      <nav className={standaloneSkin.observationTabList} aria-label="Gözlem sekmeleri">
         <button
           type="button"
           onClick={() => setTab('last')}

@@ -14,13 +14,15 @@ const m = standaloneSkin.motion;
 
 interface PersonaVisualProps {
   persona: StandalonePersonaView;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'hero';
+  variant?: 'orb' | 'hero';
   className?: string;
 }
 
 export default function PersonaVisual({
   persona,
   size = 'md',
+  variant = 'orb',
   className,
 }: PersonaVisualProps) {
   const reducedMotion = useReducedMotion();
@@ -31,17 +33,43 @@ export default function PersonaVisual({
     PERSONA_COLOR_GRADIENT[persona.colorToken] ??
     PERSONA_COLOR_GRADIENT.stone;
 
-  const dim =
+  const orbDim =
     size === 'sm'
       ? 'h-11 w-11 max-h-11 max-w-11 text-lg'
       : 'h-14 w-14 max-h-14 max-w-14 text-2xl sm:h-16 sm:w-16 sm:max-h-16 sm:max-w-16 sm:text-[1.75rem]';
+
+  const isHero = variant === 'hero' || size === 'hero';
+
+  if (isHero) {
+    return (
+      <div
+        className={cn('relative z-10 flex h-full w-full items-center justify-center', className)}
+        aria-hidden
+      >
+        {showImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src!}
+            alt=""
+            className="max-h-[92%] max-w-[92%] object-contain object-center"
+            draggable={false}
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <span className="text-5xl leading-none sm:text-6xl" role="img" aria-label={persona.name}>
+            {persona.iconFallback || persona.emoji}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
       className={cn(
         m.personaOrb,
         `bg-gradient-to-br ${gradient}`,
-        dim,
+        orbDim,
         'overflow-hidden',
         !reducedMotion && m.personaFloat,
         className
