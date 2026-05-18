@@ -19,6 +19,34 @@ from backend.core.engines.model_router import LLM_API_KEY, LLM_MODEL, OPENAI_BAS
 from backend.core.utils.model_router import ModelRouter
 
 
+def _attach_stream_standalone_observation(
+    completion_data: Dict[str, Any],
+    *,
+    query: str,
+    output_text: str,
+    input_analysis: Dict[str, Any],
+    output_analysis: Optional[Dict[str, Any]],
+    alignment: Optional[Dict[str, Any]],
+    redirect: Optional[Dict[str, Any]],
+) -> None:
+    try:
+        from backend.core.engines.standalone_observation.service import (
+            attach_standalone_observation_to_response,
+        )
+
+        attach_standalone_observation_to_response(
+            completion_data,
+            user_text=query or "",
+            output_text=output_text or "",
+            input_analysis=input_analysis,
+            output_analysis=output_analysis,
+            alignment=alignment,
+            redirect=redirect,
+        )
+    except Exception:
+        pass
+
+
 async def stream_standalone_response(
     query: str,
     safe_only: bool = False,
@@ -99,6 +127,9 @@ async def stream_standalone_response(
                     yield f'data: {json.dumps(token_data)}\n\n'
             
             # Behavioral snapshot (output = streamed safe answer)
+            oa_safe = None
+            al_safe = None
+            redir_safe = None
             try:
                 oa_safe = analyze_output(safe_answer, input_analysis)
                 al_safe = compute_alignment(input_analysis, oa_safe)
@@ -132,6 +163,15 @@ async def stream_standalone_response(
             }
             if behavioral:
                 completion_data["behavioral"] = behavioral
+            _attach_stream_standalone_observation(
+                completion_data,
+                query=query,
+                output_text=safe_answer or "",
+                input_analysis=input_analysis,
+                output_analysis=oa_safe,
+                alignment=al_safe,
+                redirect=redir_safe,
+            )
             if db_session is not None:
                 try:
                     from backend.core.events.event_pipeline_hook import (
@@ -215,6 +255,19 @@ async def stream_standalone_response(
                     )
                 except Exception:
                     pass
+
+            if clean_text and output_analysis is not None and alignment is not None:
+                if redirect is None:
+                    redirect = should_redirect(input_analysis, output_analysis, alignment)
+                _attach_stream_standalone_observation(
+                    completion_data,
+                    query=query,
+                    output_text=clean_text,
+                    input_analysis=input_analysis,
+                    output_analysis=output_analysis,
+                    alignment=alignment,
+                    redirect=redirect,
+                )
 
             if db_session is not None:
                 try:

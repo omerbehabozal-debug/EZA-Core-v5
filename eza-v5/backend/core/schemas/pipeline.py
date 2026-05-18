@@ -34,6 +34,10 @@ class PipelineResponse(BaseModel):
         None,
         description="Event logging visibility: event_id, event_logging_enabled (no raw content)",
     )
+    standalone_observation: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Optional rule-based interaction observation (standalone mode; flag-gated)",
+    )
 
 
 class StandaloneRequest(BaseModel):

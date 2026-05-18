@@ -44,8 +44,12 @@ export default function StandaloneSidebar({
   useEffect(() => {
     refreshChats();
     window.addEventListener(CHATS_UPDATED_EVENT, refreshChats);
-    return () => window.removeEventListener(CHATS_UPDATED_EVENT, refreshChats);
-  }, [refreshChats]);
+    window.addEventListener('focus', refreshChats);
+    return () => {
+      window.removeEventListener(CHATS_UPDATED_EVENT, refreshChats);
+      window.removeEventListener('focus', refreshChats);
+    };
+  }, [refreshChats, pathname]);
 
   const navActive = (href: string) =>
     pathname != null && (pathname === href || pathname.startsWith(`${href}/`));

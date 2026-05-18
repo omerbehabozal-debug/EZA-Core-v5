@@ -146,18 +146,43 @@ export default function StandaloneChatInner() {
     writeStoredAnalysisModel(analysisModelId);
   }, [analysisModelId]);
 
-  // Açılış / yenileme: her zaman yeni sohbet. Eski sohbet yalnızca sidebar ?chat= ile (client nav).
+  // Yenileme (F5) → yeni sohbet. Sidebar / ?chat= ile geçiş → mevcut sohbet korunur.
   useEffect(() => {
     if (ready) return;
+
+    const enableUrlSync = () => {
+      window.setTimeout(() => {
+        urlSyncEnabledRef.current = true;
+      }, 0);
+    };
+
+    const isReload =
+      typeof window !== 'undefined' &&
+      (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)
+        ?.type === 'reload';
+
+    if (isReload) {
+      const targetId = createStandaloneChat();
+      router.replace(`/standalone?chat=${targetId}`, { scroll: false });
+      loadChatIntoState(targetId);
+      setReady(true);
+      enableUrlSync();
+      return;
+    }
+
+    if (chatIdFromUrl && getChatArchive(chatIdFromUrl)) {
+      loadChatIntoState(chatIdFromUrl);
+      setReady(true);
+      enableUrlSync();
+      return;
+    }
 
     const targetId = createStandaloneChat();
     router.replace(`/standalone?chat=${targetId}`, { scroll: false });
     loadChatIntoState(targetId);
     setReady(true);
-    window.setTimeout(() => {
-      urlSyncEnabledRef.current = true;
-    }, 0);
-  }, [ready, router, loadChatIntoState]);
+    enableUrlSync();
+  }, [ready, chatIdFromUrl, router, loadChatIntoState]);
 
   useEffect(() => {
     if (!ready || !urlSyncEnabledRef.current || !chatIdFromUrl) return;

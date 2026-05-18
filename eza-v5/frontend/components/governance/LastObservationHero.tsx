@@ -4,13 +4,16 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DailyObservationView } from '@/lib/eza/dailyObservation';
-import { STANDALONE_OBSERVATION_SUB } from '@/lib/eza/presentationTone';
+import { MIRROR_LABELS, STANDALONE_OBSERVATION_SUB } from '@/lib/eza/presentationTone';
+import { pickStandalonePersona } from '@/lib/eza/standalonePersonas';
 import { reportSkin } from '@/lib/eza/reportSkin';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 interface LastObservationHeroProps {
   observation: DailyObservationView;
   onScrollDetails: () => void;
   className?: string;
+  personaSeed?: string;
 }
 
 function MirrorRow({ label, sentence }: { label: string; sentence: string }) {
@@ -26,8 +29,11 @@ export default function LastObservationHero({
   observation,
   onScrollDetails,
   className,
+  personaSeed = 'standalone-persona',
 }: LastObservationHeroProps) {
   const [whyOpen, setWhyOpen] = useState(false);
+  const mirror = MIRROR_LABELS.standalone;
+  const persona = pickStandalonePersona(observation.categoryId, personaSeed);
 
   const insight =
     observation.primaryInsight ||
@@ -66,12 +72,21 @@ export default function LastObservationHero({
         <blockquote className={reportSkin.observationHeroInsight}>{insight}</blockquote>
       )}
 
+      <div className={standaloneSkin.personaChip}>
+        <span className={standaloneSkin.personaChipEmoji} aria-hidden>
+          {persona.emoji}
+        </span>
+        <span className={standaloneSkin.personaChipLabel}>
+          Bugünkü enerjin: {persona.name}
+        </span>
+      </div>
+
       <p className={reportSkin.observationHeroSupport}>{observation.supportLine}</p>
 
       <div className={reportSkin.obsMirrorBlock}>
-        <MirrorRow label="Sen" sentence={observation.userLine} />
-        <MirrorRow label="AI" sentence={observation.aiLine} />
-        <MirrorRow label="Denge" sentence={observation.balanceLine} />
+        <MirrorRow label={mirror.user} sentence={observation.userLine} />
+        <MirrorRow label={mirror.ai} sentence={observation.aiLine} />
+        <MirrorRow label={mirror.balance} sentence={observation.balanceLine} />
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">

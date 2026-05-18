@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-05-18T18:42:01.781266",
+  "suite": "core",
+  "total": 12,
+  "passed": 11,
+  "failed": 1,
+  "skipped": 0,
+  "errors": 0,
+  "duration": "0.03s",
+  "duration_seconds": 0.03427870004088618,
+  "pass_rate": "91.7%"
+}

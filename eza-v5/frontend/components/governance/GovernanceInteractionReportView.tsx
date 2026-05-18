@@ -37,6 +37,8 @@ interface GovernanceInteractionReportViewProps {
   onClearHistory?: () => void;
   /** Standalone shell zaten arka plan veriyor */
   embeddedInStandalone?: boolean;
+  /** StandaloneObservationExperience hero’yu dışarıda gösterir */
+  observationMode?: 'full' | 'details-only';
 }
 
 function scrollToId(id: string) {
@@ -298,6 +300,7 @@ export default function GovernanceInteractionReportView({
   trendValueLabel = 'EZA skoru',
   onClearHistory,
   embeddedInStandalone = false,
+  observationMode = 'full',
 }: GovernanceInteractionReportViewProps) {
   const pathname = usePathname();
   const hideBackLink =
@@ -326,12 +329,14 @@ export default function GovernanceInteractionReportView({
         !embeddedInStandalone && reportSkin.canvas
       )}
     >
-      {embeddedInStandalone && model.dailyObservation?.show ? (
+      {embeddedInStandalone &&
+      observationMode !== 'details-only' &&
+      model.dailyObservation?.show ? (
         <LastObservationHero
           observation={model.dailyObservation}
           onScrollDetails={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth' })}
         />
-      ) : (
+      ) : observationMode === 'details-only' ? null : (
         <>
           <WowHero
             model={model}

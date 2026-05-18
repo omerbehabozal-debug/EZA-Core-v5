@@ -1,0 +1,47 @@
+[
+  {
+    "name": "tests_core/test_standalone_observation_layer.py::test_decision_prompt_maps_decision_direction",
+    "status": "passed",
+    "duration": 0.0037059999885968864
+  },
+  {
+    "name": "tests_core/test_standalone_observation_layer.py::test_clarity_prompt_maps_clarity_simplification",
+    "status": "passed",
+    "duration": 0.0030931999790482223
+  },
+  {
+    "name": "tests_core/test_standalone_observation_layer.py::test_idea_prompt_maps_ideation_creation",
+    "status": "passed",
+    "duration": 0.0033845000143628567
+  },
+  {
+    "name": "tests_core/test_standalone_observation_layer.py::test_risky_input_safe_output_protective_safe_balance",
+    "status": "passed",
+    "duration": 0.0027211999986320734
+  },
+  {
+    "name": "tests_core/test_standalone_observation_layer.py::test_no_strong_signal_fallbacks",
+    "status": "passed",
+    "duration": 0.0038087999855633825
+  },
+  {
+    "name": "tests_core/test_standalone_observation_layer.py::test_service_never_raises",
+    "status": "passed",
+    "duration": 0.0032383000070694834
+  },
+  {
+    "name": "tests_core/test_standalone_observation_layer.py::test_flag_off_returns_none",
+    "status": "passed",
+    "duration": 0.0031550999847240746
+  },
+  {
+    "name": "tests_core/test_standalone_observation_layer.py::test_safe_event_metadata_excludes_raw_message",
+    "status": "passed",
+    "duration": 0.0004241999995429069
+  },
+  {
+    "name": "tests_core/test_standalone_observation_layer.py::test_build_observation_direct_without_flag",
+    "status": "passed",
+    "duration": 0.00045170000521466136
+  }
+]

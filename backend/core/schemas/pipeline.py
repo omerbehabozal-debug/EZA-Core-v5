@@ -30,6 +30,10 @@ class PipelineResponse(BaseModel):
         None,
         description="Optional per-turn behavioral snapshot (numeric vectors; no raw user content)",
     )
+    standalone_observation: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Optional rule-based interaction observation (standalone mode; flag-gated)",
+    )
 
 
 class StandaloneRequest(BaseModel):

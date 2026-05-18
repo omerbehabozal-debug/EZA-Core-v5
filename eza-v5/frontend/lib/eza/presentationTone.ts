@@ -48,7 +48,7 @@ export const MIRROR_LABELS: Record<
   { user: string; ai: string; balance: string }
 > = {
   governance: { user: 'Girdi', ai: 'Yanıt', balance: 'Denge' },
-  standalone: { user: 'Sen', ai: 'AI', balance: 'Denge' },
+  standalone: { user: 'Sen', ai: 'AI', balance: 'Aranızdaki Denge' },
 };
 
 const DEFAULT_WHY_BULLETS: Record<PresentationTone, string[]> = {

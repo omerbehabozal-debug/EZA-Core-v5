@@ -916,6 +916,33 @@ async def run_full_pipeline(
                 "summary": f"Risk assessment: {risk_level} risk, {safety_level} safety",
                 "recommendation": _get_recommendation(risk_level, safety_level)
             }
+
+        # Standalone observation layer (optional; never alters safety/scores)
+        if mode == "standalone":
+            try:
+                from backend.core.engines.standalone_observation.service import (
+                    attach_standalone_observation_to_response,
+                )
+
+                out_text = ""
+                data_block = response.get("data")
+                if isinstance(data_block, dict):
+                    out_text = (
+                        data_block.get("assistant_answer")
+                        or data_block.get("safe_answer")
+                        or ""
+                    )
+                attach_standalone_observation_to_response(
+                    response,
+                    user_text=user_input or "",
+                    output_text=str(out_text) if out_text else "",
+                    input_analysis=input_analysis,
+                    output_analysis=output_analysis,
+                    alignment=alignment,
+                    redirect=redirect,
+                )
+            except Exception as obs_err:
+                logger.debug("Standalone observation attach skipped: %s", obs_err)
         
         # Record telemetry event (non-blocking - don't fail pipeline if telemetry fails)
         if db_session:

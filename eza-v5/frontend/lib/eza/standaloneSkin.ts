@@ -77,6 +77,34 @@ export const standaloneSkin = {
     'mx-auto flex h-full min-h-0 w-full max-w-3xl flex-1 flex-col px-4 sm:px-6',
   chatStageFull:
     'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden',
+  observationEyebrow:
+    'text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-800/70',
+  observationTabList:
+    'mx-auto flex max-w-3xl gap-1 rounded-full border border-stone-200/60 bg-stone-100/50 p-1',
+  observationTab:
+    'flex-1 rounded-full px-4 py-2 text-center text-sm font-medium transition-colors',
+  observationTabActive: 'bg-white text-stone-900 shadow-sm',
+  observationTabIdle: 'text-stone-500 hover:text-stone-700',
+  personaChip:
+    'mt-6 inline-flex max-w-full items-center gap-2 rounded-full border border-violet-200/50 bg-violet-50/60 px-3 py-1.5',
+  personaChipEmoji: 'text-base leading-none',
+  personaChipLabel: 'text-xs font-medium text-violet-900/90',
+  relationshipBalanceCard:
+    'rounded-2xl border border-stone-200/50 bg-white/80 p-4 shadow-sm',
+  relationshipIslandsWrap:
+    'rounded-2xl border border-stone-200/50 bg-white/60 p-4 shadow-sm min-h-[12rem]',
+  relationshipIslandsGrid:
+    'grid grid-cols-2 gap-3 sm:grid-cols-3',
+  relationshipIsland:
+    'flex flex-col justify-center rounded-2xl border px-3 py-4 transition-transform hover:scale-[1.02]',
+  relationshipBarCard:
+    'rounded-2xl border border-stone-200/50 bg-white/75 p-5 shadow-sm',
+  relationshipBarTrack: 'mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-200/50',
+  relationshipBarFill: 'h-full rounded-full bg-violet-400/80',
+  relationshipBarFillAlt: 'h-full rounded-full bg-teal-400/70',
+  relationshipNoteCard:
+    'mt-8 rounded-2xl border border-violet-200/40 bg-gradient-to-br from-violet-50/80 to-white p-5',
+
   mainScroll:
     'standalone-main-scroll min-h-0 min-w-0 flex-1 self-stretch w-full max-w-none overflow-y-auto overflow-x-hidden overscroll-contain',
   chatColumn: 'mx-auto w-full max-w-3xl px-4 pb-2 sm:px-6',
