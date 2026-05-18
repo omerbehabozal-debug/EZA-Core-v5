@@ -90,8 +90,12 @@ export const standaloneSkin = {
   /** Aşama 6 — /standalone/reports premium canvas */
   reportsPremium: {
     canvas:
-      'min-h-full w-full bg-gradient-to-b from-[#f8f9ff] via-[#f6f8fc] to-[#f4f7fb]',
+      'min-h-full w-full bg-[radial-gradient(ellipse_120%_80%_at_10%_-5%,rgba(199,210,254,0.35),transparent_50%),radial-gradient(ellipse_90%_60%_at_95%_10%,rgba(186,230,253,0.28),transparent_45%),linear-gradient(180deg,#f8f9ff_0%,#f4f7fb_55%,#f2f6fa_100%)]',
     container: 'mx-auto w-full max-w-[1240px] px-4 py-6 sm:px-8 sm:py-10 lg:px-12',
+    splitGrid: 'hidden xl:grid xl:grid-cols-12 xl:items-start xl:gap-8 2xl:gap-10',
+    splitColObservation: 'xl:col-span-7 min-w-0',
+    splitColMap: 'xl:col-span-5 min-w-0 xl:sticky xl:top-4 xl:max-h-[calc(100vh-5rem)] xl:overflow-y-auto xl:overscroll-contain',
+    mobileOnly: 'xl:hidden',
     glassCard:
       'rounded-3xl border border-indigo-500/10 bg-white/75 shadow-[0_8px_40px_-12px_rgba(99,102,241,0.1)] backdrop-blur-md',
   },
@@ -121,7 +125,7 @@ export const standaloneSkin = {
     personaAside:
       'flex shrink-0 flex-col items-center gap-3 lg:w-[min(220px,32%)]',
     personaGlow:
-      'relative flex h-[7.5rem] w-[7.5rem] items-center justify-center sm:h-36 sm:w-36 md:h-[10.5rem] md:w-[10.5rem]',
+      'relative flex h-[9.5rem] w-[9.5rem] items-center justify-center sm:h-[11rem] sm:w-[11rem] md:h-[12.5rem] md:w-[12.5rem]',
     personaGlowRing:
       'pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.22)_0%,rgba(199,210,254,0.08)_45%,transparent_70%)]',
     personaChip:
@@ -232,7 +236,13 @@ export const standaloneSkin = {
     islandsHeading: 'text-base font-medium text-stone-800',
     islandsSub: 'mt-1 text-sm text-stone-500',
     islandsCanvas:
-      'relative mt-5 min-h-[20rem] overflow-hidden rounded-3xl border border-indigo-500/10 bg-white/50 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-sm sm:min-h-[24rem] sm:p-6',
+      'relative mt-5 min-h-[22rem] overflow-hidden rounded-3xl border border-indigo-500/10 bg-gradient-to-br from-violet-50/30 via-white/40 to-sky-50/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-sm sm:min-h-[26rem] sm:p-4',
+    islandsCluster:
+      'relative mx-auto min-h-[20rem] w-full max-w-full sm:min-h-[24rem]',
+    islandsClusterGlow:
+      'pointer-events-none absolute left-1/2 top-1/2 h-[85%] w-[90%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(167,139,250,0.2),rgba(129,140,248,0.06)_45%,transparent_72%)] blur-2xl',
+    islandBlobCluster:
+      'absolute overflow-hidden rounded-[2rem] border px-4 py-4 transition-transform duration-300 motion-reduce:transition-none hover:scale-[1.02] motion-reduce:hover:scale-100 sm:px-5 sm:py-5',
     islandsGrid:
       'relative grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 lg:gap-5',
     islandBlob:

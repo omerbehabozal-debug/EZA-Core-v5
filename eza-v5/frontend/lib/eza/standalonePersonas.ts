@@ -222,7 +222,7 @@ export function pickStandalonePersona(
     emoji: picked.emoji,
     tagline: `Bugünkü konuşma tonun ${picked.name} enerjisine yakın görünüyordu.`,
     illustrationKey: slot.illustrationKey,
-    iconFallback: picked.emoji || slot.iconFallback,
+    iconFallback: slot.iconFallback,
     visualTone: slot.visualTone,
     colorToken: slot.colorToken,
   };

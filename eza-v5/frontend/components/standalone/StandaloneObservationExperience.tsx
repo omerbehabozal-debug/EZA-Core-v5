@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
@@ -12,7 +12,6 @@ import {
   emptyGovernanceReportPlaceholder,
   type GovernanceReportViewModel,
 } from '@/lib/eza/governanceReportModel';
-import { reportSkin } from '@/lib/eza/reportSkin';
 import { STANDALONE_SIGNAL_NOTE } from '@/lib/eza/presentationTone';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import GovernanceInteractionReportView from '@/components/governance/GovernanceInteractionReportView';
@@ -32,7 +31,9 @@ export default function StandaloneObservationExperience({
   onClear,
 }: StandaloneObservationExperienceProps) {
   const [tab, setTab] = useState<ObservationTab>('last');
-  const detailsRef = useRef<HTMLDivElement>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const observationPanelRef = useRef<HTMLDivElement>(null);
+  const mapPanelRef = useRef<HTMLDivElement>(null);
 
   const dash = useMemo(() => {
     try {
@@ -51,6 +52,15 @@ export default function StandaloneObservationExperience({
     }
   }, [dash, entries]);
 
+  const selectTab = useCallback((next: ObservationTab) => {
+    setTab(next);
+    const isWide = typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches;
+    if (!isWide) return;
+    const target =
+      next === 'last' ? observationPanelRef.current : mapPanelRef.current;
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
   if (entries.length === 0) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
@@ -58,7 +68,7 @@ export default function StandaloneObservationExperience({
           Bugün AI ile ilişkin nasıl?
         </h2>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-stone-500">
-          Birkaç sohbetten sonra son gözlem burada belirecek. İlişki haritası ikinci sekmede.
+          Birkaç sohbetten sonra son gözlem burada belirecek. İlişki haritası sağda görünecek.
         </p>
       </div>
     );
@@ -75,12 +85,43 @@ export default function StandaloneObservationExperience({
 
   const rp = standaloneSkin.reportsPremium;
 
+  const observationBlock = observation.show ? (
+    <StandaloneObservationHero
+      observation={observation}
+      personaSeed={personaSeed}
+      onScrollDetails={() =>
+        detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    />
+  ) : null;
+
+  const detailsBlock = (
+    <details ref={detailsRef} className="mt-10 rounded-2xl border border-indigo-500/10 bg-white/50 open:bg-white/70">
+      <summary className="cursor-pointer list-none px-4 py-3.5 text-sm font-medium text-stone-600 marker:content-none [&::-webkit-details-marker]:hidden">
+        İsteğe bağlı teknik detaylar
+      </summary>
+      <div className="border-t border-indigo-500/10 px-1 pb-4 pt-2">
+        <GovernanceInteractionReportView
+          model={{ ...model, disclaimer: BEHAVIORAL_DISCLAIMER }}
+          signalNote={STANDALONE_SIGNAL_NOTE}
+          trendValueLabel="AI yanıt skoru"
+          onClearHistory={onClear}
+          embeddedInStandalone
+          observationMode="details-only"
+        />
+      </div>
+    </details>
+  );
+
   return (
     <div className={rp.container}>
-      <nav className={standaloneSkin.observationTabList} aria-label="Gözlem sekmeleri">
+      <nav
+        className={cn(standaloneSkin.observationTabList, 'sticky top-0 z-20 mb-6 backdrop-blur-md')}
+        aria-label="Gözlem sekmeleri"
+      >
         <button
           type="button"
-          onClick={() => setTab('last')}
+          onClick={() => selectTab('last')}
           className={cn(
             standaloneSkin.observationTab,
             tab === 'last' ? standaloneSkin.observationTabActive : standaloneSkin.observationTabIdle
@@ -90,7 +131,7 @@ export default function StandaloneObservationExperience({
         </button>
         <button
           type="button"
-          onClick={() => setTab('map')}
+          onClick={() => selectTab('map')}
           className={cn(
             standaloneSkin.observationTab,
             tab === 'map' ? standaloneSkin.observationTabActive : standaloneSkin.observationTabIdle
@@ -100,31 +141,28 @@ export default function StandaloneObservationExperience({
         </button>
       </nav>
 
-      {tab === 'last' ? (
-        <>
-          {observation.show ? (
-            <StandaloneObservationHero
-              observation={observation}
-              personaSeed={personaSeed}
-              onScrollDetails={() =>
-                detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }
-            />
-          ) : null}
-          <div ref={detailsRef}>
-            <GovernanceInteractionReportView
-              model={{ ...model, disclaimer: BEHAVIORAL_DISCLAIMER }}
-              signalNote={STANDALONE_SIGNAL_NOTE}
-              trendValueLabel="AI yanıt skoru"
-              onClearHistory={onClear}
-              embeddedInStandalone
-              observationMode="details-only"
-            />
-          </div>
-        </>
-      ) : (
-        <RelationshipMapView entries={entries} />
-      )}
+      {/* Desktop: mockup-style iki sütun */}
+      <div className={rp.splitGrid}>
+        <div ref={observationPanelRef} className={rp.splitColObservation}>
+          {observationBlock}
+          {detailsBlock}
+        </div>
+        <div ref={mapPanelRef} id="map-panel" className={rp.splitColMap}>
+          <RelationshipMapView entries={entries} variant="sidebar" />
+        </div>
+      </div>
+
+      {/* Mobil: sekme ile tek panel */}
+      <div className={rp.mobileOnly}>
+        {tab === 'last' ? (
+          <>
+            {observationBlock}
+            {detailsBlock}
+          </>
+        ) : (
+          <RelationshipMapView entries={entries} variant="full" />
+        )}
+      </div>
     </div>
   );
 }

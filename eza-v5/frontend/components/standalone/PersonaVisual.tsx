@@ -51,12 +51,16 @@ export default function PersonaVisual({
           <img
             src={src!}
             alt=""
-            className="max-h-[92%] max-w-[92%] object-contain object-center"
+            width={200}
+            height={200}
+            loading="eager"
+            decoding="async"
+            className="h-[9rem] w-[9rem] object-contain object-center drop-shadow-[0_12px_28px_rgba(99,102,241,0.22)] sm:h-[10.5rem] sm:w-[10.5rem] md:h-[11.5rem] md:w-[11.5rem]"
             draggable={false}
             onError={() => setImgError(true)}
           />
         ) : (
-          <span className="text-5xl leading-none sm:text-6xl" role="img" aria-label={persona.name}>
+          <span className="text-6xl leading-none sm:text-7xl" role="img" aria-label={persona.name}>
             {persona.iconFallback || persona.emoji}
           </span>
         )}

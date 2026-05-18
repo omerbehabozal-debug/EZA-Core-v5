@@ -7,12 +7,11 @@ import { useReducedMotion } from '@/hooks/useReducedMotion';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
   buildRelationshipMap,
-  TREND_LABEL,
-  type BehaviorIsland,
   type RelationshipPeriodDays,
 } from '@/lib/eza/relationshipMapModel';
 import { buildRelationshipMapSharePayload } from '@/lib/eza/standaloneShare';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import BehaviorIslandsCluster from '@/components/standalone/BehaviorIslandsCluster';
 import StandaloneShareModal from '@/components/standalone/StandaloneShareModal';
 
 const s = standaloneSkin.relationshipMapPolish;
@@ -22,82 +21,22 @@ const sh = standaloneSkin.share;
 interface RelationshipMapViewProps {
   entries: SavedBehavioralEntry[];
   className?: string;
+  /** Side column on xl split layout — tighter chrome */
+  variant?: 'full' | 'sidebar';
 }
 
 const PERIODS: { days: RelationshipPeriodDays; label: string }[] = [
-  { days: 7, label: '7 GÃ¼n' },
-  { days: 30, label: '30 GÃ¼n' },
-  { days: 90, label: '90 GÃ¼n' },
+  { days: 7, label: '7 Gün' },
+  { days: 30, label: '30 Gün' },
+  { days: 90, label: '90 Gün' },
 ];
-
-function islandMinHeight(intensity: number): string {
-  const px = Math.round(100 + intensity * 64);
-  return `${px}px`;
-}
-
-function islandOpacity(trend: BehaviorIsland['trend']): number {
-  if (trend === 'growing') return 1;
-  if (trend === 'fading') return 0.76;
-  return 0.9;
-}
-
-function BehaviorIslandBlob({
-  island,
-  index,
-  reducedMotion,
-}: {
-  island: BehaviorIsland;
-  index: number;
-  reducedMotion: boolean;
-}) {
-  const trend = island.trend ?? 'stable';
-  const memoryEffect = island.percent < 8;
-
-  return (
-    <article
-      className={cn(
-        s.islandBlob,
-        !reducedMotion && mot.islandEnter,
-        trend === 'growing' && s.islandGrowing,
-        trend === 'fading' && s.islandFading,
-        memoryEffect && s.islandGhost
-      )}
-      style={{
-        minHeight: islandMinHeight(island.intensity),
-        borderColor: `${island.color}55`,
-        background: `linear-gradient(155deg, ${island.color}18, ${island.color}32)`,
-        opacity: islandOpacity(trend),
-        boxShadow:
-          trend === 'growing'
-            ? `0 12px 40px -10px ${island.color}40`
-            : `0 6px 28px -12px ${island.color}28`,
-        animationDelay: reducedMotion ? undefined : `${index * 0.07}s`,
-      }}
-    >
-      {memoryEffect ? <div className={s.connectionHint} aria-hidden /> : null}
-      <div
-        className={s.islandGlow}
-        style={{ background: `radial-gradient(circle, ${island.color}60, transparent 72%)` }}
-        aria-hidden
-      />
-      <h4 className={s.islandLabel}>{island.label}</h4>
-      <p className={s.islandDesc}>{island.description}</p>
-      <div className={s.islandMeta}>
-        <span className={s.islandTrendPill}>{TREND_LABEL[trend]}</span>
-        <span className={s.islandPercentMuted} aria-label={`GÃ¶reli yoÄŸunluk yÃ¼zde ${island.percent}`}>
-          Â· {island.percent}%
-        </span>
-      </div>
-    </article>
-  );
-}
 
 function RhythmChart({ points }: { points: { label: string; value: number }[] }) {
   if (!points.length) return null;
   const max = Math.max(...points.map((p) => p.value), 1);
 
   return (
-    <div className={s.rhythmChart} role="img" aria-label="Zaman iÃ§inde etkileÅŸim ritmi">
+    <div className={s.rhythmChart} role="img" aria-label="Zaman içinde etkileşim ritmi">
       {points.map((p) => {
         const h = Math.max(12, Math.round((p.value / max) * 52));
         return (
@@ -105,7 +44,7 @@ function RhythmChart({ points }: { points: { label: string; value: number }[] })
             <div
               className={s.rhythmDot}
               style={{ height: `${h}px` }}
-              title={`${p.label}: ${p.value} etkileÅŸim`}
+              title={`${p.label}: ${p.value} etkileşim`}
             />
             <span className={s.rhythmLabel}>{p.label}</span>
           </div>
@@ -115,17 +54,18 @@ function RhythmChart({ points }: { points: { label: string; value: number }[] })
   );
 }
 
-export default function RelationshipMapView({ entries, className }: RelationshipMapViewProps) {
+export default function RelationshipMapView({
+  entries,
+  className,
+  variant = 'full',
+}: RelationshipMapViewProps) {
   const [period, setPeriod] = useState<RelationshipPeriodDays>(30);
   const [fadeKey, setFadeKey] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const reducedMotion = useReducedMotion();
+  const isSidebar = variant === 'sidebar';
 
-  const model = useMemo(
-    () => buildRelationshipMap(entries, period),
-    [entries, period]
-  );
-
+  const model = useMemo(() => buildRelationshipMap(entries, period), [entries, period]);
   const sharePayload = useMemo(() => buildRelationshipMapSharePayload(model), [model]);
 
   const handlePeriod = (days: RelationshipPeriodDays) => {
@@ -137,22 +77,38 @@ export default function RelationshipMapView({ entries, className }: Relationship
   const isEmpty = model.totalInteractions === 0;
 
   return (
-    <section className={cn(s.section, className)} aria-label="EZA Ä°liÅŸki HaritasÄ±">
+    <section
+      className={cn(s.section, isSidebar && 'pb-8 pt-2', className)}
+      aria-label="EZA İlişki Haritası"
+    >
       <div className={s.ambient} aria-hidden />
 
       <header className={s.headerRow}>
         <div>
-          <h2 className={s.headerTitle}>EZA Ä°liÅŸki HaritasÄ±</h2>
-          <p className={s.headerSub}>AI ile konuÅŸma yolculuÄŸunun uzun dÃ¶nem deseni.</p>
+          <h2
+            className={cn(
+              s.headerTitle,
+              isSidebar && 'text-[1.25rem] sm:text-[1.35rem]'
+            )}
+          >
+            EZA İlişki Haritası
+          </h2>
+          {!isSidebar ? (
+            <p className={s.headerSub}>AI ile konuşma yolculuğunun uzun dönem deseni.</p>
+          ) : (
+            <p className="mt-1.5 text-xs leading-relaxed text-stone-500">
+              Uzun dönem etkileşim desenin.
+            </p>
+          )}
         </div>
         <button type="button" onClick={() => setShareOpen(true)} className={sh.triggerBtn}>
           <Share2 className="h-3.5 w-3.5" aria-hidden />
-          PaylaÅŸ
+          Paylaş
         </button>
       </header>
 
-      <div className={s.topBar}>
-        <div className={s.periodRow} role="tablist" aria-label="DÃ¶nem seÃ§imi">
+      <div className={cn(s.topBar, isSidebar && 'mt-4')}>
+        <div className={s.periodRow} role="tablist" aria-label="Dönem seçimi">
           {PERIODS.map((p) => (
             <button
               key={p.days}
@@ -179,48 +135,43 @@ export default function RelationshipMapView({ entries, className }: Relationship
 
       <div key={fadeKey} className={cn(s.contentFade, mot.contentMorph, 'opacity-100')}>
         {!isEmpty ? (
-          <article className={s.editorialCard}>
-            <p className={s.editorialLabel}>EZA&apos;dan kÄ±sa not</p>
+          <article className={cn(s.editorialCard, isSidebar && 'mt-4 p-4')}>
+            <p className={s.editorialLabel}>EZA&apos;dan kısa not</p>
             <p className={s.editorialBody}>{model.editorialNote}</p>
           </article>
         ) : null}
 
-        <section className={s.islandsSection} aria-labelledby="behavior-islands-heading">
+        <section className={cn(s.islandsSection, isSidebar && 'mt-6')} aria-labelledby="behavior-islands-heading">
           <h3 id="behavior-islands-heading" className={s.islandsHeading}>
-            DavranÄ±ÅŸ adalarÄ±
+            Davranış adaları
           </h3>
           <p className={s.islandsSub}>
-            KonuÅŸma biÃ§iminde Ã¶ne Ã§Ä±kan gÃ¶zlemsel alanlar â€” kiÅŸilik testi deÄŸil.
+            Konuşma biçiminde öne çıkan gözlemsel alanlar — kişilik testi değil.
           </p>
 
-          <div className={s.islandsCanvas}>
+          <div className={cn(s.islandsCanvas, isSidebar && 'min-h-[18rem] sm:min-h-[20rem]')}>
             {isEmpty ? (
               <div className={s.emptyIslands}>
-                <p className={s.emptyTitle}>Harita henÃ¼z ÅŸekillenmedi</p>
+                <p className={s.emptyTitle}>Harita henüz şekillenmedi</p>
                 <p className={s.emptyBody}>
-                  BirkaÃ§ sohbetten sonra davranÄ±ÅŸ adalarÄ±n burada yumuÅŸak bir desen olarak
+                  Birkaç sohbetten sonra davranış adaların burada yumuşak bir desen olarak
                   belirecek. Acele etmene gerek yok.
                 </p>
               </div>
             ) : (
-              <div className={s.islandsGrid}>
-                {model.islands.map((island, index) => (
-                  <BehaviorIslandBlob
-                    key={`${island.id}-${fadeKey}`}
-                    island={island}
-                    index={index}
-                    reducedMotion={reducedMotion}
-                  />
-                ))}
-              </div>
+              <BehaviorIslandsCluster
+                islands={model.islands}
+                fadeKey={fadeKey}
+                reducedMotion={reducedMotion}
+              />
             )}
           </div>
         </section>
 
-        {!isEmpty ? (
+        {!isEmpty && !isSidebar ? (
           <div className={s.chartsGrid}>
             <article className={s.chartCard}>
-              <h3 className={s.aiTitle}>AI davranÄ±ÅŸ haritasÄ±</h3>
+              <h3 className={s.aiTitle}>AI davranış haritası</h3>
               <ul className={s.aiToneRow}>
                 {model.aiBehaviorTones.map((tone) => (
                   <li key={tone.label} className={s.aiToneItem}>
@@ -237,7 +188,7 @@ export default function RelationshipMapView({ entries, className }: Relationship
             </article>
 
             <article className={s.chartCard}>
-              <h3 className={s.balanceTitle}>Ä°liÅŸki denge Ã¶zeti</h3>
+              <h3 className={s.balanceTitle}>İlişki denge özeti</h3>
               <p className={s.balanceSummary}>{model.balanceSummary}</p>
               <div className={s.balancePillRow}>
                 {model.balancePills.map((pill) => (
@@ -256,27 +207,29 @@ export default function RelationshipMapView({ entries, className }: Relationship
 
             {model.rhythmTimeline.length > 1 ? (
               <article className={s.chartCard}>
-                <h3 className={s.rhythmTitle}>Zaman iÃ§inde denge</h3>
-                <p className={s.rhythmSub}>GÃ¼nlÃ¼k konuÅŸma yoÄŸunluÄŸunun sakin Ã¶zeti</p>
+                <h3 className={s.rhythmTitle}>Zaman içinde denge</h3>
+                <p className={s.rhythmSub}>Günlük konuşma yoğunluğunun sakin özeti</p>
                 <RhythmChart points={model.rhythmTimeline} />
               </article>
             ) : (
               <article className={cn(s.chartCard, 'flex flex-col justify-center')}>
-                <h3 className={s.rhythmTitle}>EtkileÅŸim derinliÄŸi</h3>
+                <h3 className={s.rhythmTitle}>Etkileşim derinliği</h3>
                 <p className="mt-3 text-2xl font-semibold tracking-tight text-stone-800">
                   {model.totalInteractions}
-                  <span className="text-sm font-normal text-stone-500"> etkileÅŸim</span>
+                  <span className="text-sm font-normal text-stone-500"> etkileşim</span>
                 </p>
-                <p className="mt-2 text-xs text-stone-500">Son {model.periodDays} gÃ¼n</p>
+                <p className="mt-2 text-xs text-stone-500">Son {model.periodDays} gün</p>
               </article>
             )}
           </div>
         ) : null}
       </div>
 
-      <p className={s.footerNote}>
-        EZA analizleri gÃ¶zlemsel desenler Ã¼retir; kesin karar yerine farkÄ±ndalÄ±k saÄŸlamayÄ± amaÃ§lar.
-      </p>
+      {!isSidebar ? (
+        <p className={s.footerNote}>
+          EZA analizleri gözlemsel desenler üretir; kesin karar yerine farkındalık sağlamayı amaçlar.
+        </p>
+      ) : null}
 
       <StandaloneShareModal
         open={shareOpen}
@@ -298,7 +251,7 @@ export default function RelationshipMapView({ entries, className }: Relationship
               ))}
             </ul>
           ) : (
-            <p className={sh.cardRow}>HenÃ¼z belirgin bir ada oluÅŸmadÄ±.</p>
+            <p className={sh.cardRow}>Henüz belirgin bir ada oluşmadı.</p>
           )}
           <p className={sh.cardWatermark}>eza.global</p>
         </div>
