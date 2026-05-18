@@ -116,7 +116,10 @@ export default function StandaloneObservationExperience({
   return (
     <div className={rp.container}>
       <nav
-        className={cn(standaloneSkin.observationTabList, 'sticky top-0 z-20 mb-6 backdrop-blur-md')}
+        className={cn(
+          standaloneSkin.observationTabList,
+          'sticky top-0 z-20 mb-8 backdrop-blur-md sm:mb-10'
+        )}
         aria-label="Gözlem sekmeleri"
       >
         <button
