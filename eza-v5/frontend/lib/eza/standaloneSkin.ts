@@ -159,7 +159,7 @@ export const standaloneSkin = {
     priorityHeadline: 'text-sm font-medium leading-snug text-amber-950/90 sm:text-[15px]',
     priorityMeta: 'mt-1 text-xs leading-relaxed text-amber-800/60',
     mainCard:
-      'relative overflow-hidden rounded-[1.5rem] border border-white/75 bg-gradient-to-br from-white/88 via-white/78 to-violet-50/25 p-4 shadow-[0_20px_60px_-24px_rgba(99,102,241,0.18)] backdrop-blur-md sm:rounded-3xl sm:p-7 lg:p-8',
+      'relative overflow-hidden rounded-[1.5rem] border border-violet-200/40 bg-gradient-to-br from-white/92 via-white/82 to-violet-100/35 p-4 shadow-[0_24px_70px_-28px_rgba(99,102,241,0.22)] ring-1 ring-violet-100/50 backdrop-blur-md sm:rounded-3xl sm:p-7 lg:p-8',
     mainCardSheen:
       'pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_20%_0%,rgba(255,255,255,0.55),transparent_55%)]',
     mainCardInner:
@@ -187,7 +187,7 @@ export const standaloneSkin = {
       'mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-700/70 lg:sr-only',
     mainInsight:
       'border-0 p-0 text-[1.35rem] font-semibold leading-[1.38] tracking-[-0.03em] text-stone-800 sm:text-[1.5rem] lg:text-[1.65rem] xl:text-[1.85rem] xl:leading-[1.32]',
-    insightAccent: 'font-semibold text-violet-600',
+    insightAccent: 'font-semibold text-violet-600 underline decoration-violet-300/50 decoration-2 underline-offset-[5px]',
     mainInsightSecondary:
       'mt-3 border-0 p-0 text-xl font-medium leading-snug tracking-[-0.025em] text-stone-800 sm:text-2xl',
     supportLine: 'mt-5 text-sm leading-relaxed text-stone-500/90 sm:text-[15px]',
@@ -195,13 +195,13 @@ export const standaloneSkin = {
     mirrorCard:
       'flex flex-col rounded-2xl border border-violet-100/50 bg-white/85 p-4 shadow-[0_4px_20px_-10px_rgba(99,102,241,0.08)] backdrop-blur-sm',
     mirrorCardCompact:
-      'flex min-h-[7.5rem] flex-col rounded-2xl border border-white/85 bg-gradient-to-br from-white/95 via-white/90 to-violet-50/20 p-4 shadow-[0_6px_28px_-12px_rgba(99,102,241,0.12)] backdrop-blur-md transition-[box-shadow,transform] duration-300 motion-reduce:transition-none sm:min-h-[7.75rem] sm:p-[1.125rem]',
+      'flex min-h-[7.5rem] flex-col rounded-2xl border border-white/90 p-4 shadow-[0_8px_32px_-14px_rgba(99,102,241,0.14)] backdrop-blur-md transition-[box-shadow,transform] duration-300 motion-reduce:transition-none sm:min-h-[7.75rem] sm:p-[1.125rem]',
     mirrorCardCompactSen:
-      'border-l-[3px] border-l-violet-300/55',
+      'border-l-[4px] border-l-violet-400/70 bg-gradient-to-br from-violet-50/80 via-white/95 to-white/90',
     mirrorCardCompactAi:
-      'border-l-[3px] border-l-sky-300/55',
+      'border-l-[4px] border-l-sky-400/70 bg-gradient-to-br from-sky-50/75 via-white/95 to-white/90',
     mirrorCardCompactBalance:
-      'border-l-[3px] border-l-emerald-300/55',
+      'border-l-[4px] border-l-emerald-400/70 bg-gradient-to-br from-emerald-50/70 via-white/95 to-white/90',
     mirrorCardHeader: 'flex items-center gap-2.5',
     mirrorIconWrap:
       'flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-100 to-violet-50 text-violet-700',
@@ -217,7 +217,14 @@ export const standaloneSkin = {
     mirrorCardText: 'mt-2.5 flex-1 text-[13px] leading-[1.45] text-stone-600 sm:text-[13.5px]',
     mirrorFooter: 'mt-auto flex items-center gap-1.5 pt-2 text-[11px] text-stone-500/95',
     mirrorFooterDot: 'h-1.5 w-1.5 rounded-full bg-emerald-400/80',
-    metricsGrid: 'mt-5 grid grid-cols-1 gap-3 sm:mt-6 sm:grid-cols-3 sm:gap-5',
+    metricsSection:
+      'relative z-10 mt-6 border-t border-violet-200/30 pt-6 sm:mt-7 sm:pt-7',
+    metricsSectionLabel:
+      'mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-700/75',
+    metricsGrid: 'grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4',
+    insightsBand: 'mt-6 sm:mt-8',
+    insightsBandLabel:
+      'mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-700/75',
     metricCard:
       'rounded-2xl border border-white/75 bg-gradient-to-b from-white/90 to-violet-50/15 px-5 py-4 shadow-[0_8px_32px_-12px_rgba(99,102,241,0.1)] backdrop-blur-md',
     metricCardIcon: 'text-violet-500/80',

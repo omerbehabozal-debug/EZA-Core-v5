@@ -174,7 +174,7 @@ export default function StandaloneObservationHero({
   className,
   personaSeed = 'standalone-persona',
 }: StandaloneObservationHeroProps) {
-  const [whyOpen, setWhyOpen] = useState(false);
+  const [whyOpen, setWhyOpen] = useState(true);
   const reducedMotion = useReducedMotion();
   const persona = pickStandalonePersona(
     observation.personaFamilyId ?? observation.categoryId,
@@ -216,6 +216,10 @@ export default function StandaloneObservationHero({
     userPill,
     ...userPills,
     persona.familyLabel,
+    'ölçülü',
+    'dengeli',
+    'genel çizgi',
+    'konuşmaların',
     'içgörü',
     'anlam',
   ].filter(Boolean) as string[];
@@ -254,9 +258,12 @@ export default function StandaloneObservationHero({
 
   const anim = (cls: string) => (!reducedMotion ? cls : '');
 
-  const trustFooter = observation.confidenceLabel
-    ? `Güven: ${observation.confidenceLabel}`
-    : 'Güven: İzleniyor';
+  const trustFooter = (() => {
+    const raw = observation.confidenceLabel?.trim();
+    if (!raw) return 'Güven: İzleniyor';
+    if (/^güven\s*:/i.test(raw)) return raw;
+    return `Güven: ${raw}`;
+  })();
 
   const showSupport =
     !observation.priorityAlert?.show &&
@@ -362,10 +369,10 @@ export default function StandaloneObservationHero({
             />
           </div>
         </div>
-      </article>
-
-      <div className={cn(s.metricsGrid, 'mt-8', anim(mot.fadeIn4))}>
-        {observation.signalLevel ? (
+        <div className={cn(s.metricsSection, anim(mot.fadeIn4))}>
+          <p className={s.metricsSectionLabel}>Etkileşim özeti</p>
+          <div className={s.metricsGrid}>
+            {observation.signalLevel ? (
           <article className={s.metricCard}>
             <Activity className={cn('h-4 w-4', s.metricCardIcon)} aria-hidden />
             <p className={cn(s.metricCardLabel, 'mt-2 uppercase')}>Sinyal seviyesi</p>
@@ -382,7 +389,10 @@ export default function StandaloneObservationHero({
           <article className={s.metricCard}>
             <Shield className={cn('h-4 w-4', s.metricCardIcon)} aria-hidden />
             <p className={cn(s.metricCardLabel, 'mt-2 uppercase')}>Güven seviyesi</p>
-            <p className={s.metricCardValue}>{observation.confidenceLabel}</p>
+            <p className={s.metricCardValue}>
+              {observation.confidenceLabel.replace(/^güven\s*:\s*/i, '').trim() ||
+                observation.confidenceLabel}
+            </p>
             <div className={s.metricProgressTrack}>
               <div
                 className={s.metricProgressFillTrust}
@@ -411,9 +421,13 @@ export default function StandaloneObservationHero({
             ))}
           </div>
         </article>
-      </div>
+          </div>
+        </div>
+      </article>
 
-      <div className={s.lowerGrid}>
+      <div className={cn(s.insightsBand, anim(mot.fadeIn3))}>
+        <p className={s.insightsBandLabel}>Derinlemesine bakış</p>
+        <div className={s.lowerGrid}>
         <div className={s.whyWrap}>
           <button
             type="button"
@@ -460,6 +474,7 @@ export default function StandaloneObservationHero({
             merak et! ✨
           </p>
         </aside>
+        </div>
       </div>
 
       <button type="button" onClick={onScrollDetails} className={cn(s.scrollHint, 'sr-only')}>
