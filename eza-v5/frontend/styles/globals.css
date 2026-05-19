@@ -278,6 +278,48 @@ body {
   }
 }
 
+/* Aşama 2 — reports panel sekme geçişi */
+@keyframes eza-panel-exit {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(8px);
+  }
+}
+
+@keyframes eza-panel-enter {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.eza-panel-stage {
+  width: 100%;
+  min-width: 0;
+  will-change: opacity, filter, transform;
+}
+
+.eza-panel-exit {
+  animation: eza-panel-exit 280ms ease-out forwards;
+  pointer-events: none;
+}
+
+.eza-panel-enter {
+  animation: eza-panel-enter 280ms ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .eza-animate-persona-float,
   .eza-animate-fade-in,
@@ -285,10 +327,13 @@ body {
   .eza-animate-fade-in-delay-2,
   .eza-animate-fade-in-delay-3,
   .eza-animate-fade-in-delay-4,
-  .eza-animate-island-enter {
+  .eza-animate-island-enter,
+  .eza-panel-exit,
+  .eza-panel-enter {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+    filter: none !important;
   }
 }
 

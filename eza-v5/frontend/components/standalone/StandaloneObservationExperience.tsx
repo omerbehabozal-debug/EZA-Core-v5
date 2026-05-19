@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Share2, Shield, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
@@ -20,6 +20,7 @@ import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import GovernanceInteractionReportView from '@/components/governance/GovernanceInteractionReportView';
 import StandaloneObservationHero from '@/components/standalone/StandaloneObservationHero';
 import RelationshipMapView from '@/components/standalone/RelationshipMapView';
+import ReportsPanelTransition from '@/components/standalone/ReportsPanelTransition';
 import StandaloneShareModal from '@/components/standalone/StandaloneShareModal';
 import { buildPersonaSeed } from '@/lib/standaloneObservation';
 
@@ -40,27 +41,121 @@ export default function StandaloneObservationExperience({
   const [shareOpen, setShareOpen] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
 
+  const hasEntries = entries.length > 0;
+
   const dash = useMemo(() => {
+    if (!hasEntries) return null;
     try {
       return buildBehavioralDashboard(entries);
     } catch {
       return null;
     }
-  }, [entries]);
+  }, [entries, hasEntries]);
 
   const reportModel: GovernanceReportViewModel | null = useMemo(() => {
-    if (!dash || entries.length === 0) return null;
+    if (!hasEntries || !dash) return null;
     try {
       return buildGovernanceReportFromBehavioral(dash, entries);
     } catch {
       return null;
     }
-  }, [dash, entries]);
+  }, [dash, entries, hasEntries]);
 
+  const model = useMemo(
+    () =>
+      hasEntries
+        ? reportModel ?? emptyGovernanceReportPlaceholder('Gözlem şu an yüklenemedi.')
+        : null,
+    [hasEntries, reportModel]
+  );
+
+  const observation = model?.dailyObservation;
+  const personaSeed = useMemo(
+    () =>
+      buildPersonaSeed(entries, observation?.personaFamilyId ?? 'balanced_calm'),
+    [entries, observation?.personaFamilyId]
+  );
+
+  const persona = useMemo(
+    () =>
+      pickStandalonePersona(
+        observation?.personaFamilyId ?? observation?.categoryId,
+        personaSeed
+      ),
+    [observation?.personaFamilyId, observation?.categoryId, personaSeed]
+  );
+
+  const sharePayload = useMemo(() => {
+    if (!observation) {
+      return {
+        title: 'EZA Gözlem',
+        clipboardText: '',
+        personaLabel: '',
+        insight: '',
+        userLine: '',
+        aiLine: '',
+        balanceLine: '',
+      };
+    }
+    return buildObservationSharePayload(observation, persona);
+  }, [observation, persona]);
+
+  const mirror = MIRROR_LABELS.standalone;
   const rp = standaloneSkin.reportsPremium;
   const op = standaloneSkin.observationPolish;
 
-  if (entries.length === 0) {
+  const renderPanel = useCallback(
+    (key: string) => {
+      if (!model || !observation) {
+        return null;
+      }
+
+      if (key === 'last') {
+        return (
+          <>
+            {observation.show ? (
+              <StandaloneObservationHero
+                observation={observation}
+                personaSeed={personaSeed}
+                onScrollDetails={() =>
+                  detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+              />
+            ) : null}
+
+            <details
+              ref={detailsRef}
+              className="rounded-2xl border border-white/70 bg-white/50 open:bg-white/65"
+            >
+              <summary className="cursor-pointer list-none px-5 py-3.5 text-sm font-medium text-stone-600 marker:content-none [&::-webkit-details-marker]:hidden">
+                İsteğe bağlı teknik detaylar
+              </summary>
+              <div className="border-t border-violet-100/50 px-2 pb-4 pt-2">
+                <GovernanceInteractionReportView
+                  model={{ ...model, disclaimer: BEHAVIORAL_DISCLAIMER }}
+                  signalNote={STANDALONE_SIGNAL_NOTE}
+                  trendValueLabel="AI yanıt skoru"
+                  onClearHistory={onClear}
+                  embeddedInStandalone
+                  observationMode="details-only"
+                />
+              </div>
+            </details>
+
+            <div className={rp.disclaimerBar} role="note">
+              <Shield className={rp.disclaimerIcon} aria-hidden />
+              <p>{BEHAVIORAL_DISCLAIMER}</p>
+            </div>
+          </>
+        );
+      }
+
+      return <RelationshipMapView entries={entries} variant="full" />;
+    },
+    [model, observation, personaSeed, onClear, entries, rp.disclaimerBar, rp.disclaimerIcon]
+  );
+
+  if (!hasEntries) {
     return (
       <div className={cn(rp.container, 'text-center')}>
         <div className={rp.pageHeader}>
@@ -81,29 +176,14 @@ export default function StandaloneObservationExperience({
     );
   }
 
-  const model =
-    reportModel ?? emptyGovernanceReportPlaceholder('Gözlem şu an yüklenemedi.');
-
-  const observation = model.dailyObservation;
-  const personaSeed = buildPersonaSeed(
-    entries,
-    observation.personaFamilyId ?? 'balanced_calm'
-  );
-
-  const persona = pickStandalonePersona(
-    observation.personaFamilyId ?? observation.categoryId,
-    personaSeed
-  );
-
-  const sharePayload = useMemo(
-    () => buildObservationSharePayload(observation, persona),
-    [observation, persona]
-  );
-
-  const mirror = MIRROR_LABELS.standalone;
-
   return (
     <div className={cn(rp.container, rp.sectionStack)}>
+      <div className={rp.ambientLayer} aria-hidden>
+        <div className={rp.ambientOrbA} />
+        <div className={rp.ambientOrbB} />
+        <div className={rp.ambientOrbC} />
+      </div>
+
       <header className={rp.pageHeader}>
         <div className="min-w-0 flex-1">
           <h1 className={op.headerTitle}>
@@ -114,7 +194,7 @@ export default function StandaloneObservationExperience({
           </h1>
           <p className={op.headerSub}>{STANDALONE_OBSERVATION_SUB}</p>
         </div>
-        {tab === 'last' && observation.show ? (
+        {tab === 'last' && observation?.show ? (
           <button
             type="button"
             onClick={() => setShareOpen(true)}
@@ -149,45 +229,9 @@ export default function StandaloneObservationExperience({
         </button>
       </nav>
 
-      {tab === 'last' ? (
-        <>
-          {observation.show ? (
-            <StandaloneObservationHero
-              observation={observation}
-              personaSeed={personaSeed}
-              onScrollDetails={() =>
-                detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }
-            />
-          ) : null}
-
-          <details
-            ref={detailsRef}
-            className="rounded-2xl border border-white/70 bg-white/50 open:bg-white/65"
-          >
-            <summary className="cursor-pointer list-none px-5 py-3.5 text-sm font-medium text-stone-600 marker:content-none [&::-webkit-details-marker]:hidden">
-              İsteğe bağlı teknik detaylar
-            </summary>
-            <div className="border-t border-violet-100/50 px-2 pb-4 pt-2">
-              <GovernanceInteractionReportView
-                model={{ ...model, disclaimer: BEHAVIORAL_DISCLAIMER }}
-                signalNote={STANDALONE_SIGNAL_NOTE}
-                trendValueLabel="AI yanıt skoru"
-                onClearHistory={onClear}
-                embeddedInStandalone
-                observationMode="details-only"
-              />
-            </div>
-          </details>
-
-          <div className={rp.disclaimerBar} role="note">
-            <Shield className={rp.disclaimerIcon} aria-hidden />
-            <p>{BEHAVIORAL_DISCLAIMER}</p>
-          </div>
-        </>
-      ) : (
-        <RelationshipMapView entries={entries} variant="full" />
-      )}
+      <ReportsPanelTransition activeKey={tab} className={rp.panelStage}>
+        {renderPanel}
+      </ReportsPanelTransition>
 
       <StandaloneShareModal
         open={shareOpen}

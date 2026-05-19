@@ -80,12 +80,13 @@ export const standaloneSkin = {
   observationEyebrow:
     'text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-800/70',
   observationTabList:
-    'mx-auto flex h-14 w-full max-w-[600px] items-center gap-1.5 rounded-full border border-violet-200/30 bg-white/60 p-1.5 shadow-[0_4px_32px_-8px_rgba(139,92,246,0.18)] backdrop-blur-md',
+    'mx-auto flex h-[3.5rem] w-full max-w-[600px] items-stretch gap-1 rounded-full border border-violet-200/25 bg-white/[0.58] p-1.5 shadow-[0_4px_40px_-10px_rgba(139,92,246,0.2)] backdrop-blur-md sm:h-[3.75rem]',
   observationTab:
-    'flex h-full flex-1 items-center justify-center rounded-full px-3 text-center text-sm font-medium transition-all duration-200 motion-reduce:transition-none sm:text-[15px]',
+    'flex flex-1 items-center justify-center rounded-full px-3 text-center text-sm font-medium transition-[color,background-color,box-shadow] duration-[260ms] ease-out motion-reduce:transition-none sm:px-5 sm:text-[15px]',
   observationTabActive:
-    'bg-white text-violet-900 shadow-[0_2px_20px_-4px_rgba(139,92,246,0.45)] ring-1 ring-violet-200/50',
-  observationTabIdle: 'text-stone-500 hover:bg-white/50 hover:text-stone-700',
+    'bg-white text-violet-900 shadow-[0_0_32px_-8px_rgba(139,92,246,0.55),inset_0_1px_0_rgba(255,255,255,0.92)] ring-1 ring-violet-200/40',
+  observationTabIdle:
+    'text-stone-500 hover:bg-white/40 hover:text-stone-700 active:scale-[0.99] motion-reduce:active:scale-100',
 
   /**
    * /standalone/reports — premium design foundation (Aşama 1+).
@@ -96,7 +97,16 @@ export const standaloneSkin = {
       'min-h-full w-full bg-[radial-gradient(ellipse_120%_80%_at_8%_-8%,rgba(199,210,254,0.38),transparent_52%),radial-gradient(ellipse_75%_55%_at_92%_5%,rgba(186,230,253,0.3),transparent_48%),radial-gradient(ellipse_60%_40%_at_50%_100%,rgba(221,214,254,0.12),transparent_55%),linear-gradient(180deg,#f8f9ff_0%,#f6f8fc_42%,#f4f7fb_100%)]',
     container:
       'mx-auto w-full max-w-[1280px] px-5 py-8 sm:px-10 sm:py-12 lg:px-14 lg:py-14',
-    sectionStack: 'space-y-8 sm:space-y-10',
+    sectionStack: 'relative space-y-10 sm:space-y-12',
+    panelStage: 'w-full min-w-0 space-y-10 sm:space-y-12',
+    ambientLayer:
+      'pointer-events-none absolute inset-0 -z-10 overflow-hidden',
+    ambientOrbA:
+      'absolute -left-24 top-20 h-72 w-72 rounded-full bg-violet-300/18 blur-3xl',
+    ambientOrbB:
+      'absolute -right-20 top-[28%] h-80 w-80 rounded-full bg-indigo-200/16 blur-3xl',
+    ambientOrbC:
+      'absolute bottom-8 left-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-sky-200/12 blur-3xl',
     pageHeader: 'flex flex-wrap items-start justify-between gap-4',
     pageTitleRow: 'flex items-center gap-2.5',
     pageTitleIcon: 'h-7 w-7 text-violet-500 sm:h-8 sm:w-8',

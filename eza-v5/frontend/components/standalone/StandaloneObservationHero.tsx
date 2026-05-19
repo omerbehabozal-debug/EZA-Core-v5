@@ -222,7 +222,9 @@ export default function StandaloneObservationHero({
   ];
 
   const weekDots = useMemo(() => {
-    const src = observation.showWeekPattern ? observation.weekPattern.slice(0, 7) : [];
+    const src = observation.showWeekPattern
+      ? (observation.weekPattern ?? []).slice(0, 7)
+      : [];
     const out: Array<(typeof src)[0] | null> = [...src];
     while (out.length < 7) out.push(null);
     return out;
