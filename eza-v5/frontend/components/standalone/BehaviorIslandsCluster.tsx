@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 import { TREND_LABEL, type BehaviorIsland } from '@/lib/eza/relationshipMapModel';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import MapConnectors from '@/components/standalone/MapConnectors';
 
 const s = standaloneSkin.relationshipMapPolish;
 const mot = standaloneSkin.motion;
@@ -34,10 +35,15 @@ export default function BehaviorIslandsCluster({
   fadeKey,
   reducedMotion,
 }: BehaviorIslandsClusterProps) {
+  const visible = islands.slice(0, 6);
+  const showConnectors = visible.length >= 2 && !reducedMotion;
+
   return (
     <div className={s.islandsCluster} aria-label="Davranış adaları haritası">
+      <div className={s.islandsCanvasMesh} aria-hidden />
       <div className={s.islandsClusterGlow} aria-hidden />
-      {islands.slice(0, 6).map((island, index) => {
+      {showConnectors ? <MapConnectors /> : null}
+      {visible.map((island, index) => {
         const slot = CLUSTER_SLOTS[index] ?? CLUSTER_SLOTS[0]!;
         const trend = island.trend ?? 'stable';
         const memoryEffect = island.percent < 8;
@@ -47,6 +53,7 @@ export default function BehaviorIslandsCluster({
             key={`${island.id}-${fadeKey}`}
             className={cn(
               s.islandBlobCluster,
+              s.islandBlobResponsive,
               !reducedMotion && mot.islandEnter,
               trend === 'growing' && s.islandGrowing,
               trend === 'fading' && s.islandFading,

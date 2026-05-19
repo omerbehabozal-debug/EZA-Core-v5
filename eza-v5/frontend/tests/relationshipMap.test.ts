@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import { buildRelationshipMap } from '@/lib/eza/relationshipMapModel';
 import { parseStandaloneObservation } from '@/lib/standaloneObservation';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 const SAMPLE_OBS = {
   user_pattern: { category: 'decision_direction', confidence: 0.8, signals: ['a'] },
@@ -32,6 +33,17 @@ function makeEntry(overrides: Partial<SavedBehavioralEntry> = {}): SavedBehavior
     ...overrides,
   };
 }
+
+describe('reports premium skin (Aşama 7–9)', () => {
+  it('exposes map polish tokens for islands and mobile layout', () => {
+    const map = standaloneSkin.relationshipMapPolish;
+    expect(map.islandsCanvasMesh).toMatch(/background-size/);
+    expect(map.islandBlobResponsive).toMatch(/max-sm/);
+    expect(map.mapConnectors).toMatch(/sm:block/);
+    expect(standaloneSkin.observationTabList).toMatch(/touch-manipulation/);
+    expect(standaloneSkin.reportsPremium.container).toMatch(/px-4/);
+  });
+});
 
 describe('buildRelationshipMap polish fields', () => {
   it('empty state is warm and complete', () => {

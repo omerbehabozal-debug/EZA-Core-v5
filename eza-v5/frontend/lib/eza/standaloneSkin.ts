@@ -80,9 +80,9 @@ export const standaloneSkin = {
   observationEyebrow:
     'text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-800/70',
   observationTabList:
-    'mx-auto flex h-[3.5rem] w-full max-w-[600px] items-stretch gap-1 rounded-full border border-violet-200/25 bg-white/[0.58] p-1.5 shadow-[0_4px_40px_-10px_rgba(139,92,246,0.2)] backdrop-blur-md sm:h-[3.75rem]',
+    'mx-auto flex h-[3.25rem] w-full max-w-full items-stretch gap-1 rounded-full border border-violet-200/25 bg-white/[0.58] p-1 shadow-[0_4px_40px_-10px_rgba(139,92,246,0.2)] backdrop-blur-md touch-manipulation sm:h-[3.75rem] sm:max-w-[600px] sm:p-1.5',
   observationTab:
-    'flex flex-1 items-center justify-center rounded-full px-3 text-center text-sm font-medium transition-[color,background-color,box-shadow] duration-[260ms] ease-out motion-reduce:transition-none sm:px-5 sm:text-[15px]',
+    'flex min-h-[44px] flex-1 items-center justify-center rounded-full px-2.5 text-center text-[13px] font-medium transition-[color,background-color,box-shadow] duration-[260ms] ease-out motion-reduce:transition-none sm:min-h-0 sm:px-5 sm:text-[15px]',
   observationTabActive:
     'bg-white text-violet-900 shadow-[0_0_32px_-8px_rgba(139,92,246,0.55),inset_0_1px_0_rgba(255,255,255,0.92)] ring-1 ring-violet-200/40',
   observationTabIdle:
@@ -96,8 +96,8 @@ export const standaloneSkin = {
     canvas:
       'min-h-full w-full bg-[radial-gradient(ellipse_120%_80%_at_8%_-8%,rgba(199,210,254,0.38),transparent_52%),radial-gradient(ellipse_75%_55%_at_92%_5%,rgba(186,230,253,0.3),transparent_48%),radial-gradient(ellipse_60%_40%_at_50%_100%,rgba(221,214,254,0.12),transparent_55%),linear-gradient(180deg,#f8f9ff_0%,#f6f8fc_42%,#f4f7fb_100%)]',
     container:
-      'mx-auto w-full max-w-[1280px] px-5 py-8 sm:px-10 sm:py-12 lg:px-14 lg:py-14',
-    sectionStack: 'relative space-y-10 sm:space-y-12',
+      'mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-10 sm:py-12 lg:px-14 lg:py-14',
+    sectionStack: 'relative space-y-8 sm:space-y-10 lg:space-y-12',
     panelStage: 'w-full min-w-0 space-y-10 sm:space-y-12',
     ambientLayer:
       'pointer-events-none absolute inset-0 -z-10 overflow-hidden',
@@ -107,7 +107,8 @@ export const standaloneSkin = {
       'absolute -right-20 top-[28%] h-80 w-80 rounded-full bg-indigo-200/16 blur-3xl',
     ambientOrbC:
       'absolute bottom-8 left-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-sky-200/12 blur-3xl',
-    pageHeader: 'flex flex-wrap items-start justify-between gap-4',
+    pageHeader:
+      'flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between',
     pageTitleRow: 'flex items-center gap-2.5',
     pageTitleIcon: 'h-7 w-7 text-violet-500 sm:h-8 sm:w-8',
     disclaimerBar:
@@ -144,12 +145,12 @@ export const standaloneSkin = {
 
   /** EZA'nın Son Gözlemi — premium editorial (Aşama 1 foundation) */
   observationPolish: {
-    section: 'relative pb-12 pt-2 sm:pb-16 sm:pt-4',
+    section: 'relative pb-10 pt-1 sm:pb-16 sm:pt-4',
     ambient:
       'pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_85%_65%_at_50%_-12%,rgba(167,139,250,0.16),transparent_72%)]',
     headerRow: 'flex flex-wrap items-start justify-between gap-5',
     headerTitle:
-      'text-[2rem] font-semibold leading-[1.15] tracking-[-0.04em] text-stone-900 sm:text-[2.25rem] lg:text-[2.5rem]',
+      'text-[1.65rem] font-semibold leading-[1.18] tracking-[-0.04em] text-stone-900 sm:text-[2.25rem] lg:text-[2.5rem]',
     headerSub:
       'mt-3 max-w-lg text-sm leading-relaxed text-stone-500/90 sm:text-[15px] sm:leading-relaxed',
     priorityBand:
@@ -158,11 +159,11 @@ export const standaloneSkin = {
     priorityHeadline: 'text-sm font-medium leading-snug text-amber-950/90 sm:text-[15px]',
     priorityMeta: 'mt-1 text-xs leading-relaxed text-amber-800/60',
     mainCard:
-      'relative overflow-hidden rounded-[1.75rem] border border-white/75 bg-gradient-to-br from-white/88 via-white/78 to-violet-50/25 p-5 shadow-[0_20px_60px_-24px_rgba(99,102,241,0.18)] backdrop-blur-md sm:rounded-3xl sm:p-7 lg:p-8',
+      'relative overflow-hidden rounded-[1.5rem] border border-white/75 bg-gradient-to-br from-white/88 via-white/78 to-violet-50/25 p-4 shadow-[0_20px_60px_-24px_rgba(99,102,241,0.18)] backdrop-blur-md sm:rounded-3xl sm:p-7 lg:p-8',
     mainCardSheen:
       'pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_20%_0%,rgba(255,255,255,0.55),transparent_55%)]',
     mainCardInner:
-      'relative grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-start lg:gap-6 xl:gap-8',
+      'relative grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-start lg:gap-6 xl:gap-8',
     heroPersonaCol:
       'flex min-w-0 flex-col items-center gap-0 text-center lg:items-start lg:text-left',
     heroMirrorCol: 'flex min-w-0 w-full flex-col gap-3 sm:max-w-md sm:mx-auto lg:max-w-none lg:mx-0 lg:gap-3',
@@ -216,7 +217,7 @@ export const standaloneSkin = {
     mirrorCardText: 'mt-2.5 flex-1 text-[13px] leading-[1.45] text-stone-600 sm:text-[13.5px]',
     mirrorFooter: 'mt-auto flex items-center gap-1.5 pt-2 text-[11px] text-stone-500/95',
     mirrorFooterDot: 'h-1.5 w-1.5 rounded-full bg-emerald-400/80',
-    metricsGrid: 'mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5',
+    metricsGrid: 'mt-5 grid grid-cols-1 gap-3 sm:mt-6 sm:grid-cols-3 sm:gap-5',
     metricCard:
       'rounded-2xl border border-white/75 bg-gradient-to-b from-white/90 to-violet-50/15 px-5 py-4 shadow-[0_8px_32px_-12px_rgba(99,102,241,0.1)] backdrop-blur-md',
     metricCardIcon: 'text-violet-500/80',
@@ -234,7 +235,7 @@ export const standaloneSkin = {
     patternDotLatest: 'ring-2 ring-violet-300/60 ring-offset-2 ring-offset-white',
     contextLine: 'mt-6 text-center text-xs leading-relaxed text-stone-500 lg:text-left',
     lowerGrid:
-      'mt-8 grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-[1fr_280px] lg:items-stretch lg:gap-6 xl:grid-cols-[1fr_300px]',
+      'mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 lg:grid-cols-[1fr_280px] lg:items-stretch lg:gap-6 xl:grid-cols-[1fr_300px]',
     whyWrap:
       'min-w-0 rounded-2xl border border-white/75 bg-gradient-to-b from-white/80 to-violet-50/10 p-4 backdrop-blur-md sm:p-5',
     whyToggle:
@@ -279,49 +280,55 @@ export const standaloneSkin = {
 
   /** EZA İlişki Haritası — premium map (Aşama 1 foundation) */
   relationshipMapPolish: {
-    section: 'relative pb-14 pt-2 sm:pb-16 sm:pt-4',
+    section: 'relative pb-10 pt-1 sm:pb-16 sm:pt-4',
     ambient:
       'pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(ellipse_85%_65%_at_50%_-8%,rgba(129,140,248,0.14),transparent_68%)]',
-    headerRow: 'flex flex-wrap items-start justify-between gap-5',
+    headerRow:
+      'flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-5',
     headerTitle:
-      'text-[2rem] font-semibold leading-[1.15] tracking-[-0.04em] text-stone-900 sm:text-[2.25rem] lg:text-[2.5rem]',
+      'text-[1.65rem] font-semibold leading-[1.18] tracking-[-0.04em] text-stone-900 sm:text-[2.25rem] lg:text-[2.5rem]',
     headerSub:
-      'mt-3 max-w-xl text-sm leading-relaxed text-stone-500/90 sm:text-[15px] sm:leading-relaxed',
-    topBar: 'mt-8 flex flex-col gap-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between',
-    periodRow: 'flex flex-wrap gap-2',
+      'mt-2 max-w-xl text-sm leading-relaxed text-stone-500/90 sm:mt-3 sm:text-[15px] sm:leading-relaxed',
+    topBar: 'mt-6 flex flex-col gap-4 sm:mt-8 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-5',
+    periodRow:
+      'flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden',
     periodPill:
-      'rounded-full border px-4 py-2 text-xs font-medium transition-all duration-300 motion-reduce:transition-none',
+      'shrink-0 snap-center rounded-full border px-4 py-2.5 text-xs font-medium transition-all duration-300 touch-manipulation motion-reduce:transition-none sm:py-2',
     periodPillActive:
       'border-violet-200/70 bg-white/90 text-violet-900 shadow-[0_0_20px_-6px_rgba(139,92,246,0.35)] ring-1 ring-violet-200/50',
     periodPillIdle:
       'border-transparent bg-white/50 text-stone-600 hover:bg-white/80 hover:text-stone-800',
     balanceMiniCard:
-      'rounded-2xl border border-teal-200/30 bg-gradient-to-br from-teal-50/70 to-white/80 px-4 py-3 shadow-[0_4px_20px_-8px_rgba(20,184,166,0.15)] backdrop-blur-sm sm:min-w-[14rem]',
+      'w-full rounded-2xl border border-teal-200/30 bg-gradient-to-br from-teal-50/70 to-white/80 px-4 py-3 shadow-[0_4px_20px_-8px_rgba(20,184,166,0.15)] backdrop-blur-sm sm:w-auto sm:min-w-[14rem]',
     balanceMiniLabel: 'text-[10px] font-semibold uppercase tracking-[0.12em] text-teal-800/60',
     balanceMiniValue: 'mt-1 text-sm font-medium text-stone-800',
     contentFade: 'transition-opacity duration-500 motion-reduce:transition-none',
     editorialCard:
-      'mt-8 rounded-3xl border border-violet-200/25 bg-gradient-to-br from-violet-50/55 via-white/[0.72] to-sky-50/45 p-6 shadow-[0_10px_40px_-12px_rgba(99,102,241,0.12)] backdrop-blur-md sm:p-7 lg:p-8',
+      'mt-6 rounded-2xl border border-violet-200/25 bg-gradient-to-br from-violet-50/55 via-white/[0.72] to-sky-50/45 p-5 shadow-[0_10px_40px_-12px_rgba(99,102,241,0.12)] backdrop-blur-md sm:mt-8 sm:rounded-3xl sm:p-7 lg:p-8',
     editorialLabel: 'text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-800/60',
     editorialBody: 'mt-2 text-sm leading-relaxed text-stone-700 sm:text-[15px]',
-    islandsSection: 'mt-10 sm:mt-12',
-    islandsHeading: 'text-lg font-medium tracking-[-0.02em] text-stone-800 sm:text-xl',
-    islandsSub: 'mt-2 text-sm leading-relaxed text-stone-500/90 sm:text-[15px]',
+    islandsSection: 'mt-8 sm:mt-10 lg:mt-12',
+    islandsHeading: 'text-base font-medium tracking-[-0.02em] text-stone-800 sm:text-xl',
+    islandsSub: 'mt-1.5 text-sm leading-relaxed text-stone-500/90 sm:mt-2 sm:text-[15px]',
     islandsCanvas:
-      'relative mt-5 min-h-[22rem] overflow-hidden rounded-3xl border border-indigo-500/10 bg-gradient-to-br from-violet-50/30 via-white/40 to-sky-50/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-sm sm:min-h-[26rem] sm:p-4',
+      'relative mt-4 min-h-0 overflow-hidden rounded-2xl border border-indigo-500/10 bg-gradient-to-br from-violet-50/30 via-white/40 to-sky-50/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-sm sm:mt-5 sm:min-h-[26rem] sm:rounded-3xl sm:p-4',
+    islandsCanvasMesh:
+      'pointer-events-none absolute inset-0 opacity-[0.45] [background-image:radial-gradient(circle_at_1px_1px,rgba(139,92,246,0.12)_1px,transparent_0)] [background-size:20px_20px]',
     islandsCluster:
-      'relative mx-auto min-h-[20rem] w-full max-w-full sm:min-h-[24rem]',
+      'relative mx-auto grid w-full grid-cols-1 gap-3 max-sm:min-h-0 sm:min-h-[24rem] sm:grid-cols-none sm:gap-0',
     islandsClusterGlow:
-      'pointer-events-none absolute left-1/2 top-1/2 h-[85%] w-[90%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(167,139,250,0.2),rgba(129,140,248,0.06)_45%,transparent_72%)] blur-2xl',
+      'pointer-events-none absolute left-1/2 top-1/2 hidden h-[85%] w-[90%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(167,139,250,0.2),rgba(129,140,248,0.06)_45%,transparent_72%)] blur-2xl sm:block',
     islandBlobCluster:
-      'absolute overflow-hidden rounded-[2rem] border px-4 py-4 transition-transform duration-300 motion-reduce:transition-none hover:scale-[1.02] motion-reduce:hover:scale-100 sm:px-5 sm:py-5',
+      'overflow-hidden rounded-[1.65rem] border px-4 py-3.5 transition-transform duration-300 motion-reduce:transition-none sm:absolute sm:rounded-[2rem] sm:px-5 sm:py-5 sm:hover:scale-[1.02] motion-reduce:sm:hover:scale-100',
+    islandBlobResponsive:
+      'max-sm:!relative max-sm:!left-auto max-sm:!top-auto max-sm:!z-auto max-sm:!w-full max-sm:!min-h-[5.75rem]',
     islandsGrid:
       'relative grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 lg:gap-5',
     islandBlob:
       'group relative min-h-[7.5rem] overflow-hidden rounded-[1.85rem] border px-5 py-5 transition-transform duration-300 motion-reduce:transition-none hover:scale-[1.012] motion-reduce:hover:scale-100 sm:min-h-[8.5rem]',
     islandGlow: 'pointer-events-none absolute -inset-6 opacity-50 blur-3xl',
-    islandLabel: 'relative text-[15px] font-medium text-stone-900',
-    islandDesc: 'relative mt-2 text-sm leading-relaxed text-stone-600/95',
+    islandLabel: 'relative text-sm font-medium text-stone-900 sm:text-[15px]',
+    islandDesc: 'relative mt-1.5 text-[13px] leading-relaxed text-stone-600/95 sm:mt-2 sm:text-sm',
     islandMeta: 'relative mt-4 flex flex-wrap items-center gap-2',
     islandTrendPill:
       'rounded-full bg-white/60 px-2.5 py-0.5 text-[10px] font-medium text-stone-500 backdrop-blur-sm',
@@ -330,15 +337,16 @@ export const standaloneSkin = {
       'flex min-h-[16rem] flex-col items-center justify-center rounded-3xl border border-dashed border-stone-200/50 bg-white/40 px-6 py-12 text-center',
     emptyTitle: 'text-base font-medium text-stone-700',
     emptyBody: 'mt-2 max-w-sm text-sm leading-relaxed text-stone-500',
-    chartsGrid: 'mt-10 grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-3',
+    chartsGrid: 'mt-8 grid grid-cols-1 gap-4 sm:mt-10 sm:gap-6 lg:grid-cols-3',
     chartCard:
-      'rounded-3xl border border-white/70 bg-white/[0.72] p-6 shadow-[0_8px_36px_-12px_rgba(99,102,241,0.1)] backdrop-blur-md sm:p-7',
+      'rounded-2xl border border-white/70 bg-white/[0.72] p-5 shadow-[0_8px_36px_-12px_rgba(99,102,241,0.1)] backdrop-blur-md sm:rounded-3xl sm:p-7',
     aiTitle: 'text-sm font-medium text-stone-800',
     aiToneRow: 'mt-4 flex flex-col gap-3.5',
     aiToneItem: 'flex flex-col gap-1.5',
     aiToneLabel: 'text-xs text-stone-600',
     aiToneTrack: 'h-1.5 overflow-hidden rounded-full bg-stone-200/35',
-    aiToneFill: 'h-full rounded-full bg-gradient-to-r from-violet-300/85 to-indigo-400/65',
+    aiToneFill:
+      'h-full rounded-full bg-gradient-to-r from-violet-300/85 to-indigo-400/65 transition-[width] duration-500 ease-out motion-reduce:transition-none',
     balanceTitle: 'text-sm font-medium text-stone-800',
     balanceSummary: 'mt-3 text-sm leading-relaxed text-stone-600',
     balancePillRow: 'mt-4 flex flex-wrap gap-2',
@@ -353,14 +361,14 @@ export const standaloneSkin = {
     rhythmDot:
       'w-full max-w-[2.25rem] rounded-full bg-gradient-to-t from-violet-200/90 to-violet-500/55 transition-all duration-500',
     rhythmLabel: 'text-[10px] text-stone-400',
-    footerNote: 'mt-10 text-center text-xs leading-relaxed text-stone-400',
+    footerNote: 'mt-8 px-2 text-center text-xs leading-relaxed text-stone-400 sm:mt-10',
     islandGrowing: 'ring-1 ring-violet-300/45 shadow-[0_8px_36px_-8px_rgba(139,92,246,0.2)]',
     islandFading: 'border-dashed border-stone-300/40 opacity-[0.78]',
     islandGhost: 'opacity-45',
     connectionHint:
       'pointer-events-none absolute inset-0 rounded-[1.85rem] border border-dashed border-violet-200/20',
     mapConnectors:
-      'pointer-events-none absolute inset-0 opacity-[0.35]',
+      'pointer-events-none absolute inset-0 z-[1] hidden opacity-[0.4] sm:block',
   },
 
   motion: {
@@ -378,7 +386,7 @@ export const standaloneSkin = {
 
   share: {
     triggerBtn:
-      'inline-flex items-center gap-2 rounded-full border border-indigo-500/15 bg-white/85 px-4 py-2 text-xs font-medium text-stone-600 shadow-[0_4px_16px_-6px_rgba(99,102,241,0.12)] backdrop-blur-sm transition-all hover:border-violet-200/50 hover:text-violet-900 hover:shadow-[0_6px_20px_-6px_rgba(139,92,246,0.2)]',
+      'inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-indigo-500/15 bg-white/85 px-4 py-2 text-xs font-medium text-stone-600 shadow-[0_4px_16px_-6px_rgba(99,102,241,0.12)] backdrop-blur-sm transition-all touch-manipulation hover:border-violet-200/50 hover:text-violet-900 hover:shadow-[0_6px_20px_-6px_rgba(139,92,246,0.2)] sm:min-h-0 sm:w-auto',
     backdrop: 'fixed inset-0 z-[70] flex items-end justify-center bg-black/30 p-4 backdrop-blur-[2px] sm:items-center',
     panel:
       'w-full max-w-md rounded-2xl border border-stone-200/60 bg-white p-4 shadow-[0_20px_60px_-12px_rgba(15,23,42,0.2)] sm:p-5',

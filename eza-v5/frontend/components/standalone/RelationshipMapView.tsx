@@ -75,6 +75,7 @@ export default function RelationshipMapView({
   };
 
   const isEmpty = model.totalInteractions === 0;
+  const anim = (cls: string) => (!reducedMotion ? cls : '');
 
   return (
     <section
@@ -101,7 +102,11 @@ export default function RelationshipMapView({
             </p>
           )}
         </div>
-        <button type="button" onClick={() => setShareOpen(true)} className={sh.triggerBtn}>
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          className={cn(sh.triggerBtn, 'sm:self-start')}
+        >
           <Share2 className="h-3.5 w-3.5" aria-hidden />
           Paylaş
         </button>
@@ -135,7 +140,7 @@ export default function RelationshipMapView({
 
       <div key={fadeKey} className={cn(s.contentFade, mot.contentMorph, 'opacity-100')}>
         {!isEmpty ? (
-          <article className={cn(s.editorialCard, isSidebar && 'mt-4 p-4')}>
+          <article className={cn(s.editorialCard, anim(mot.fadeIn1), isSidebar && 'mt-4 p-4')}>
             <p className={s.editorialLabel}>EZA&apos;dan kısa not</p>
             <p className={s.editorialBody}>{model.editorialNote}</p>
           </article>
@@ -149,7 +154,7 @@ export default function RelationshipMapView({
             Konuşma biçiminde öne çıkan gözlemsel alanlar — kişilik testi değil.
           </p>
 
-          <div className={cn(s.islandsCanvas, isSidebar && 'min-h-[18rem] sm:min-h-[20rem]')}>
+          <div className={cn(s.islandsCanvas, anim(mot.fadeIn2), isSidebar && 'sm:min-h-[20rem]')}>
             {isEmpty ? (
               <div className={s.emptyIslands}>
                 <p className={s.emptyTitle}>Harita henüz şekillenmedi</p>
@@ -169,8 +174,8 @@ export default function RelationshipMapView({
         </section>
 
         {!isEmpty && !isSidebar ? (
-          <div className={s.chartsGrid}>
-            <article className={s.chartCard}>
+          <div className={cn(s.chartsGrid, anim(mot.fadeIn3))}>
+            <article className={cn(s.chartCard, anim(mot.fadeIn2))}>
               <h3 className={s.aiTitle}>AI davranış haritası</h3>
               <ul className={s.aiToneRow}>
                 {model.aiBehaviorTones.map((tone) => (
@@ -187,7 +192,7 @@ export default function RelationshipMapView({
               </ul>
             </article>
 
-            <article className={s.chartCard}>
+            <article className={cn(s.chartCard, anim(mot.fadeIn3))}>
               <h3 className={s.balanceTitle}>İlişki denge özeti</h3>
               <p className={s.balanceSummary}>{model.balanceSummary}</p>
               <div className={s.balancePillRow}>
@@ -206,13 +211,13 @@ export default function RelationshipMapView({
             </article>
 
             {model.rhythmTimeline.length > 1 ? (
-              <article className={s.chartCard}>
+              <article className={cn(s.chartCard, anim(mot.fadeIn4))}>
                 <h3 className={s.rhythmTitle}>Zaman içinde denge</h3>
                 <p className={s.rhythmSub}>Günlük konuşma yoğunluğunun sakin özeti</p>
                 <RhythmChart points={model.rhythmTimeline} />
               </article>
             ) : (
-              <article className={cn(s.chartCard, 'flex flex-col justify-center')}>
+              <article className={cn(s.chartCard, anim(mot.fadeIn4), 'flex flex-col justify-center')}>
                 <h3 className={s.rhythmTitle}>Etkileşim derinliği</h3>
                 <p className="mt-3 text-2xl font-semibold tracking-tight text-stone-800">
                   {model.totalInteractions}

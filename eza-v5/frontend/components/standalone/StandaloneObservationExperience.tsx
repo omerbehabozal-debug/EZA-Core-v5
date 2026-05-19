@@ -198,7 +198,7 @@ export default function StandaloneObservationExperience({
           <button
             type="button"
             onClick={() => setShareOpen(true)}
-            className={cn(sh.triggerBtn, 'shrink-0')}
+            className={cn(sh.triggerBtn, 'sm:w-auto sm:self-start')}
           >
             <Share2 className="h-3.5 w-3.5" aria-hidden />
             Paylaş
