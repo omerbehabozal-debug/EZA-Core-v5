@@ -21,6 +21,7 @@ import { USER_CATEGORY_LABEL } from '@/lib/eza/dailyObservation';
 import { pickStandalonePersona } from '@/lib/eza/standalonePersonas';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import PersonaVisual from '@/components/standalone/PersonaVisual';
+
 const s = standaloneSkin.observationPolish;
 const mot = standaloneSkin.motion;
 
@@ -46,7 +47,6 @@ function confidenceProgress(label: string): number {
   return 40;
 }
 
-/** Vurgulanacak kelimeler — mockup’taki mor accent */
 function InsightText({
   text,
   highlights,
@@ -73,39 +73,54 @@ function InsightText({
     );
   }
 
-  const terms = highlights
-    .filter(Boolean)
-    .sort((a, b) => b.length - a.length);
+  const terms = Array.from(new Set(highlights.filter(Boolean))).sort(
+    (a, b) => b.length - a.length
+  );
 
   if (!terms.length) {
     return <p className={className}>{text}</p>;
   }
 
-  let bestIdx = -1;
-  let bestLen = 0;
+  type Span = { start: number; end: number };
+  const spans: Span[] = [];
+  const lower = text.toLowerCase();
+
   for (const term of terms) {
-    const idx = text.toLowerCase().indexOf(term.toLowerCase());
-    if (idx >= 0 && (bestIdx < 0 || idx < bestIdx)) {
-      bestIdx = idx;
-      bestLen = term.length;
+    const t = term.toLowerCase();
+    let from = 0;
+    while (spans.length < 2) {
+      const idx = lower.indexOf(t, from);
+      if (idx < 0) break;
+      const end = idx + term.length;
+      const overlaps = spans.some((sp) => !(end <= sp.start || idx >= sp.end));
+      if (!overlaps) spans.push({ start: idx, end });
+      from = idx + 1;
     }
   }
 
-  if (bestIdx < 0) {
+  if (!spans.length) {
     return <p className={className}>{text}</p>;
   }
 
-  const before = text.slice(0, bestIdx);
-  const accent = text.slice(bestIdx, bestIdx + bestLen);
-  const after = text.slice(bestIdx + bestLen);
+  spans.sort((a, b) => a.start - b.start);
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  spans.forEach((span, i) => {
+    if (span.start > cursor) {
+      nodes.push(<Fragment key={`t-${i}`}>{text.slice(cursor, span.start)}</Fragment>);
+    }
+    nodes.push(
+      <span key={`a-${i}`} className={s.insightAccent}>
+        {text.slice(span.start, span.end)}
+      </span>
+    );
+    cursor = span.end;
+  });
+  if (cursor < text.length) {
+    nodes.push(<Fragment key="tail">{text.slice(cursor)}</Fragment>);
+  }
 
-  return (
-    <p className={className}>
-      {before}
-      <span className={s.insightAccent}>{accent}</span>
-      {after}
-    </p>
-  );
+  return <p className={className}>{nodes}</p>;
 }
 
 function MirrorCard({
@@ -117,6 +132,7 @@ function MirrorCard({
   iconWrapClass,
   animClass,
   compact = false,
+  accentClass,
 }: {
   label: string;
   text: string;
@@ -126,27 +142,28 @@ function MirrorCard({
   iconWrapClass: string;
   animClass: string;
   compact?: boolean;
+  accentClass?: string;
 }) {
+  const cardClass = compact ? s.mirrorCardCompact : s.mirrorCard;
+
   return (
-    <article className={cn(compact ? s.mirrorCardCompact : s.mirrorCard, animClass)}>
-      <div className="flex items-start gap-3">
+    <article className={cn(cardClass, accentClass, animClass)}>
+      <div className={s.mirrorCardHeader}>
         <div className={iconWrapClass}>{icon}</div>
-        <div className="min-w-0 flex-1">
-          <p className={s.mirrorCardLabel}>{label}</p>
-          <div className={s.mirrorPillRow}>
-            {pills.map((pill) => (
-              <span key={pill} className={s.mirrorCardPill}>
-                {pill}
-              </span>
-            ))}
-          </div>
-          <p className={s.mirrorCardText}>{text}</p>
-          <p className={s.mirrorFooter}>
-            <span className={s.mirrorFooterDot} aria-hidden />
-            {footer}
-          </p>
-        </div>
+        <p className={cn(s.mirrorCardLabel, '!mt-0')}>{label}</p>
       </div>
+      <div className={s.mirrorPillRow}>
+        {pills.map((pill) => (
+          <span key={pill} className={s.mirrorCardPill}>
+            {pill}
+          </span>
+        ))}
+      </div>
+      <p className={s.mirrorCardText}>{text}</p>
+      <p className={s.mirrorFooter}>
+        <span className={s.mirrorFooterDot} aria-hidden />
+        {footer}
+      </p>
     </article>
   );
 }
@@ -187,16 +204,21 @@ export default function StandaloneObservationHero({
 
   const aiPills = [
     'Yanıt tonu',
-    observation.confidenceLabel?.includes('yüksek') || observation.confidenceLabel?.includes('Yüksek')
+    observation.confidenceLabel?.includes('yüksek') ||
+    observation.confidenceLabel?.includes('Yüksek')
       ? 'Yapılandırıcı'
       : 'Açıklayıcı',
   ].slice(0, 2);
 
   const balancePills = ['Uyumlu akış', observation.signalLevel || 'Dengeli'].slice(0, 2);
 
-  const insightHighlights = [userPill, persona.familyLabel, persona.name].filter(
-    Boolean
-  ) as string[];
+  const insightHighlights = [
+    userPill,
+    ...userPills,
+    persona.familyLabel,
+    'içgörü',
+    'anlam',
+  ].filter(Boolean) as string[];
 
   const whyCards = [
     {
@@ -236,13 +258,20 @@ export default function StandaloneObservationHero({
     ? `Güven: ${observation.confidenceLabel}`
     : 'Güven: İzleniyor';
 
+  const showSupport =
+    !observation.priorityAlert?.show &&
+    Boolean(observation.supportLine) &&
+    observation.supportLine !== insight;
+
   return (
     <section className={cn(s.section, 'relative', className)} aria-label="Bugünkü gözlem">
       <div className={s.ambient} aria-hidden />
 
       <article className={cn(s.mainCard, anim(mot.fadeIn1))}>
+        <div className={s.mainCardSheen} aria-hidden />
+
         {observation.priorityAlert?.show ? (
-          <div className={cn(s.priorityBand, 'mb-5')} role="alert">
+          <div className={cn(s.priorityBand, 'relative z-10')} role="alert">
             <p className={s.priorityEyebrow}>Öncelikli not</p>
             <p className={s.priorityHeadline}>
               {observation.priorityAlert.headline ||
@@ -255,18 +284,22 @@ export default function StandaloneObservationHero({
           </div>
         ) : null}
 
-        <div className={s.mainCardInner}>
+        <div className={cn(s.mainCardInner, 'relative z-10')}>
           <div className={s.heroPersonaCol}>
             <span className={s.energyBadge}>Bugünkü enerjin</span>
 
-            <aside className={s.personaAside}>
-              <div className={s.personaGlow}>
-                <div className={s.personaGlowRing} aria-hidden />
-                <PersonaVisual persona={persona} variant="hero" size="hero" />
-              </div>
-            </aside>
+            <div className={s.personaStage}>
+              <div className={s.personaGlowOuter} aria-hidden />
+              <aside className={s.personaAside}>
+                <div className={s.personaGlow}>
+                  <div className={s.personaGlowRing} aria-hidden />
+                  <PersonaVisual persona={persona} variant="hero" size="hero" />
+                </div>
+              </aside>
+            </div>
 
             <div className={s.insightCol}>
+              <p className={s.insightEyebrow}>Bugünkü gözlem</p>
               {observation.priorityAlert?.show ? (
                 <InsightText
                   text={insight}
@@ -280,6 +313,9 @@ export default function StandaloneObservationHero({
                   className={s.mainInsight}
                 />
               )}
+              {showSupport ? (
+                <p className={s.supportLine}>{observation.supportLine}</p>
+              ) : null}
             </div>
 
             <div className={s.personaChip}>
@@ -299,6 +335,7 @@ export default function StandaloneObservationHero({
               footer={trustFooter}
               icon={<User className="h-4 w-4" strokeWidth={1.75} />}
               iconWrapClass={s.mirrorIconWrap}
+              accentClass={s.mirrorCardCompactSen}
               animClass={anim(mot.fadeIn2)}
             />
             <MirrorCard
@@ -309,6 +346,7 @@ export default function StandaloneObservationHero({
               footer="Yanıt tonu: Dengeli"
               icon={<Bot className="h-4 w-4" strokeWidth={1.75} />}
               iconWrapClass={s.mirrorIconWrapAi}
+              accentClass={s.mirrorCardCompactAi}
               animClass={anim(mot.fadeIn3)}
             />
             <MirrorCard
@@ -319,13 +357,14 @@ export default function StandaloneObservationHero({
               footer="Denge: İyi"
               icon={<Heart className="h-4 w-4" strokeWidth={1.75} />}
               iconWrapClass={s.mirrorIconWrapBalance}
+              accentClass={s.mirrorCardCompactBalance}
               animClass={anim(mot.fadeIn4)}
             />
           </div>
         </div>
       </article>
 
-      <div className={cn(s.metricsGrid, anim(mot.fadeIn4))}>
+      <div className={cn(s.metricsGrid, 'mt-8', anim(mot.fadeIn4))}>
         {observation.signalLevel ? (
           <article className={s.metricCard}>
             <Activity className={cn('h-4 w-4', s.metricCardIcon)} aria-hidden />
@@ -426,7 +465,6 @@ export default function StandaloneObservationHero({
       <button type="button" onClick={onScrollDetails} className={cn(s.scrollHint, 'sr-only')}>
         İsteğe bağlı detaylar
       </button>
-
     </section>
   );
 }

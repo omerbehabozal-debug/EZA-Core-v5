@@ -153,34 +153,40 @@ export const standaloneSkin = {
     headerSub:
       'mt-3 max-w-lg text-sm leading-relaxed text-stone-500/90 sm:text-[15px] sm:leading-relaxed',
     priorityBand:
-      'mb-6 rounded-2xl border border-amber-200/35 bg-gradient-to-r from-amber-50/65 to-orange-50/35 px-5 py-3.5 backdrop-blur-sm sm:px-6',
-    priorityEyebrow: 'text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800/70',
-    priorityHeadline: 'text-sm font-medium leading-snug text-amber-950 sm:text-[15px]',
-    priorityMeta: 'mt-1.5 text-xs leading-relaxed text-amber-800/65',
+      'mb-6 rounded-2xl border border-amber-200/30 bg-amber-50/40 px-4 py-3 backdrop-blur-sm sm:px-5',
+    priorityEyebrow: 'text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800/65',
+    priorityHeadline: 'text-sm font-medium leading-snug text-amber-950/90 sm:text-[15px]',
+    priorityMeta: 'mt-1 text-xs leading-relaxed text-amber-800/60',
     mainCard:
-      'relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/[0.78] p-5 shadow-[0_16px_56px_-20px_rgba(99,102,241,0.16)] backdrop-blur-md sm:rounded-3xl sm:p-6 lg:p-7',
+      'relative overflow-hidden rounded-[1.75rem] border border-white/75 bg-gradient-to-br from-white/88 via-white/78 to-violet-50/25 p-5 shadow-[0_20px_60px_-24px_rgba(99,102,241,0.18)] backdrop-blur-md sm:rounded-3xl sm:p-7 lg:p-8',
+    mainCardSheen:
+      'pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_20%_0%,rgba(255,255,255,0.55),transparent_55%)]',
     mainCardInner:
-      'grid grid-cols-1 gap-6 lg:grid-cols-[1fr_minmax(260px,320px)] lg:gap-5 xl:gap-6',
-    heroPersonaCol: 'flex min-w-0 flex-col items-center text-center lg:items-start lg:text-left',
-    heroMirrorCol: 'flex min-w-0 flex-col gap-3',
+      'relative grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-start lg:gap-6 xl:gap-8',
+    heroPersonaCol:
+      'flex min-w-0 flex-col items-center gap-0 text-center lg:items-start lg:text-left',
+    heroMirrorCol: 'flex min-w-0 w-full flex-col gap-3 sm:max-w-md sm:mx-auto lg:max-w-none lg:mx-0 lg:gap-3',
     energyBadge:
-      'mb-4 inline-flex rounded-full border border-violet-200/40 bg-violet-50/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-800/80',
-    personaAside:
-      'flex w-full shrink-0 flex-col items-center gap-3 lg:items-start',
+      'mb-5 inline-flex rounded-full border border-violet-200/35 bg-violet-50/70 px-3.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-800/75',
+    personaStage: 'relative mx-auto w-full max-w-[11.5rem] lg:mx-0',
+    personaAside: 'flex w-full flex-col items-center lg:items-start',
+    personaGlowOuter:
+      'pointer-events-none absolute -inset-[18%] rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.28)_0%,rgba(199,210,254,0.1)_42%,transparent_68%)] blur-md',
     personaGlow:
-      'relative flex h-[7.5rem] w-[7.5rem] items-center justify-center sm:h-[9.5rem] sm:w-[9.5rem] lg:h-[10.5rem] lg:w-[10.5rem] xl:h-[11.5rem] xl:w-[11.5rem]',
+      'relative flex aspect-square w-[6.5rem] items-center justify-center sm:w-[7.75rem] md:w-[9rem] lg:w-[10rem] xl:w-[11.25rem]',
     personaGlowRing:
-      'pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.22)_0%,rgba(199,210,254,0.08)_45%,transparent_70%)]',
+      'pointer-events-none absolute inset-[6%] rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.2)_0%,rgba(255,255,255,0.05)_50%,transparent_72%)] ring-1 ring-violet-200/25',
     personaChip:
-      'mt-5 inline-flex max-w-full items-center gap-2 rounded-full border border-violet-200/45 bg-white/90 px-3.5 py-1.5 shadow-[0_2px_12px_-4px_rgba(139,92,246,0.2)]',
-    personaChipEmoji: 'text-base leading-none',
-    personaChipLabel: 'text-sm font-medium text-violet-900/90',
+      'mt-6 inline-flex max-w-full items-center gap-2 rounded-full border border-violet-200/40 bg-white/95 px-4 py-2 shadow-[0_4px_16px_-6px_rgba(139,92,246,0.22)]',
+    personaChipEmoji: 'text-lg leading-none',
+    personaChipLabel: 'text-sm font-semibold text-violet-900/85',
     personaFamily: 'hidden',
-    insightCol: 'mt-4 w-full min-w-0',
-    insightEyebrow: 'sr-only',
+    insightCol: 'mt-5 w-full min-w-0 lg:mt-6',
+    insightEyebrow:
+      'mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-700/70 lg:sr-only',
     mainInsight:
-      'border-0 p-0 text-xl font-semibold leading-[1.35] tracking-[-0.03em] text-stone-800 sm:text-2xl lg:text-[1.65rem] lg:leading-[1.32]',
-    insightAccent: 'font-semibold text-violet-700',
+      'border-0 p-0 text-[1.35rem] font-semibold leading-[1.38] tracking-[-0.03em] text-stone-800 sm:text-[1.5rem] lg:text-[1.65rem] xl:text-[1.85rem] xl:leading-[1.32]',
+    insightAccent: 'font-semibold text-violet-600',
     mainInsightSecondary:
       'mt-3 border-0 p-0 text-xl font-medium leading-snug tracking-[-0.025em] text-stone-800 sm:text-2xl',
     supportLine: 'mt-5 text-sm leading-relaxed text-stone-500/90 sm:text-[15px]',
@@ -188,7 +194,14 @@ export const standaloneSkin = {
     mirrorCard:
       'flex flex-col rounded-2xl border border-violet-100/50 bg-white/85 p-4 shadow-[0_4px_20px_-10px_rgba(99,102,241,0.08)] backdrop-blur-sm',
     mirrorCardCompact:
-      'flex flex-col rounded-2xl border border-violet-100/45 bg-white/90 p-4 shadow-[0_2px_16px_-8px_rgba(99,102,241,0.07)]',
+      'flex min-h-[7.5rem] flex-col rounded-2xl border border-white/85 bg-gradient-to-br from-white/95 via-white/90 to-violet-50/20 p-4 shadow-[0_6px_28px_-12px_rgba(99,102,241,0.12)] backdrop-blur-md transition-[box-shadow,transform] duration-300 motion-reduce:transition-none sm:min-h-[7.75rem] sm:p-[1.125rem]',
+    mirrorCardCompactSen:
+      'border-l-[3px] border-l-violet-300/55',
+    mirrorCardCompactAi:
+      'border-l-[3px] border-l-sky-300/55',
+    mirrorCardCompactBalance:
+      'border-l-[3px] border-l-emerald-300/55',
+    mirrorCardHeader: 'flex items-center gap-2.5',
     mirrorIconWrap:
       'flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-100 to-violet-50 text-violet-700',
     mirrorIconWrapAi:
@@ -199,40 +212,44 @@ export const standaloneSkin = {
       'mt-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-400',
     mirrorPillRow: 'mt-2 flex flex-wrap gap-1.5',
     mirrorCardPill:
-      'rounded-full border border-stone-200/40 bg-stone-50/95 px-2 py-0.5 text-[10px] font-medium text-stone-600',
-    mirrorCardText: 'mt-2 flex-1 text-[13px] leading-snug text-stone-600',
-    mirrorFooter: 'mt-2.5 flex items-center gap-1.5 text-[11px] text-stone-500',
+      'rounded-full border border-stone-200/35 bg-white/90 px-2.5 py-0.5 text-[10px] font-medium text-stone-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)]',
+    mirrorCardText: 'mt-2.5 flex-1 text-[13px] leading-[1.45] text-stone-600 sm:text-[13.5px]',
+    mirrorFooter: 'mt-auto flex items-center gap-1.5 pt-2 text-[11px] text-stone-500/95',
     mirrorFooterDot: 'h-1.5 w-1.5 rounded-full bg-emerald-400/80',
     metricsGrid: 'mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5',
     metricCard:
-      'rounded-2xl border border-white/70 bg-white/[0.75] px-5 py-4 shadow-[0_6px_24px_-10px_rgba(99,102,241,0.08)] backdrop-blur-sm',
+      'rounded-2xl border border-white/75 bg-gradient-to-b from-white/90 to-violet-50/15 px-5 py-4 shadow-[0_8px_32px_-12px_rgba(99,102,241,0.1)] backdrop-blur-md',
     metricCardIcon: 'text-violet-500/80',
     metricCardLabel: 'text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-400',
     metricCardValue: 'mt-1.5 text-sm font-medium text-stone-800',
-    metricProgressTrack: 'mt-3 h-1 overflow-hidden rounded-full bg-stone-200/40',
-    metricProgressFill: 'h-full rounded-full bg-gradient-to-r from-violet-300/90 to-violet-500/70',
-    metricProgressFillTrust: 'h-full rounded-full bg-gradient-to-r from-emerald-300/90 to-teal-500/75',
+    metricProgressTrack: 'mt-3 h-1.5 overflow-hidden rounded-full bg-stone-200/35',
+    metricProgressFill:
+      'h-full rounded-full bg-gradient-to-r from-violet-300/90 via-violet-400/85 to-violet-500/75 transition-[width] duration-500 ease-out motion-reduce:transition-none',
+    metricProgressFillTrust:
+      'h-full rounded-full bg-gradient-to-r from-emerald-300/90 via-teal-400/80 to-teal-500/75 transition-[width] duration-500 ease-out motion-reduce:transition-none',
     patternDots: 'mt-3 flex flex-wrap gap-1.5',
     patternDot:
       'inline-flex h-7 w-7 items-center justify-center rounded-full bg-violet-400/85',
     patternDotInactive: 'bg-stone-200/80',
     patternDotLatest: 'ring-2 ring-violet-300/60 ring-offset-2 ring-offset-white',
     contextLine: 'mt-6 text-center text-xs leading-relaxed text-stone-500 lg:text-left',
-    lowerGrid: 'mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_280px] lg:items-stretch lg:gap-6 xl:grid-cols-[1fr_300px]',
-    whyWrap: 'min-w-0 rounded-2xl border border-white/70 bg-white/[0.65] p-4 backdrop-blur-sm sm:p-5',
+    lowerGrid:
+      'mt-8 grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-[1fr_280px] lg:items-stretch lg:gap-6 xl:grid-cols-[1fr_300px]',
+    whyWrap:
+      'min-w-0 rounded-2xl border border-white/75 bg-gradient-to-b from-white/80 to-violet-50/10 p-4 backdrop-blur-md sm:p-5',
     whyToggle:
-      'flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-stone-800',
+      'flex w-full items-center justify-between gap-2 rounded-xl px-1 py-0.5 text-left text-sm font-semibold text-stone-800 transition-colors hover:text-violet-900/90',
     whyGrid: 'mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2',
     whyCard:
-      'rounded-2xl border border-white/65 bg-white/[0.68] p-5 shadow-[0_6px_24px_-10px_rgba(99,102,241,0.08)] backdrop-blur-sm sm:p-6',
+      'rounded-2xl border border-white/70 bg-white/[0.82] p-5 shadow-[0_8px_28px_-12px_rgba(99,102,241,0.1)] backdrop-blur-md sm:p-6',
     whyIconWrap:
       'flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100/80 to-indigo-50/60 text-violet-700',
     whyCardTitle: 'mt-3 text-sm font-medium text-stone-800',
     whyCardBody: 'mt-1.5 text-sm leading-relaxed text-stone-600',
     inspirationCard:
-      'relative flex min-h-[14rem] flex-col overflow-hidden rounded-3xl border border-violet-200/35 bg-gradient-to-br from-violet-200/50 via-violet-100/70 to-indigo-100/60 p-6 shadow-[0_10px_36px_-12px_rgba(139,92,246,0.25)] sm:min-h-[16rem] sm:p-7',
+      'relative flex min-h-[14rem] flex-col overflow-hidden rounded-3xl border border-violet-200/40 bg-gradient-to-br from-violet-200/55 via-violet-100/75 to-indigo-100/65 p-6 shadow-[0_12px_40px_-14px_rgba(139,92,246,0.28)] sm:min-h-[16rem] sm:p-7',
     inspirationQuote:
-      'relative z-10 text-base font-semibold leading-relaxed text-violet-950/90 sm:text-[17px]',
+      'relative z-10 text-base font-semibold leading-[1.55] tracking-[-0.01em] text-violet-950/88 sm:text-[17px] sm:leading-[1.5]',
     inspirationDecor:
       'pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/35 blur-2xl',
     inspirationHills:
