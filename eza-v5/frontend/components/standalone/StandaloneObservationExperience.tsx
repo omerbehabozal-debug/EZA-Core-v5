@@ -1,32 +1,50 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Share2, Shield, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
-import {
-  buildBehavioralDashboard,
-  BEHAVIORAL_DISCLAIMER,
-} from '@/lib/eza/behavioralDashboard';
+import { buildBehavioralDashboard } from '@/lib/eza/behavioralDashboard';
 import {
   buildGovernanceReportFromBehavioral,
   emptyGovernanceReportPlaceholder,
   type GovernanceReportViewModel,
 } from '@/lib/eza/governanceReportModel';
-import { MIRROR_LABELS, STANDALONE_OBSERVATION_SUB, STANDALONE_SIGNAL_NOTE } from '@/lib/eza/presentationTone';
-import { pickStandalonePersona } from '@/lib/eza/standalonePersonas';
-import { buildObservationSharePayload } from '@/lib/eza/standaloneShare';
-import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import { STANDALONE_SIGNAL_NOTE } from '@/lib/eza/presentationTone';
+import {
+  MIRROR_DETAILS_SUMMARY,
+  MIRROR_EPHEMERAL_NOTE,
+  MIRROR_NAV_ARIA,
+  MIRROR_PAGE_SUBTITLE,
+  MIRROR_PAGE_TITLE,
+  MIRROR_PRIVACY_SHORT,
+  MIRROR_SHARE_LABEL,
+  MIRROR_TAB_DAILY,
+  MIRROR_TAB_PATTERN,
+} from '@/lib/eza/mirror/copy';
+import type {
+  DailyMirrorCardModel,
+  MirrorSceneImageStatus,
+  MirrorStateMeta,
+} from '@/lib/eza/mirror/types';
+import { buildMirrorState } from '@/lib/eza/mirror/mirrorStateEngine';
+import { mergeDailyCardSceneVisual } from '@/lib/eza/mirror/mirrorSceneImage';
+import { generateMirrorScene } from '@/lib/eza/mirror/generateSceneApi';
+import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
+import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
+import MirrorSceneGenerateButton from '@/components/mirror/MirrorSceneGenerateButton';
+import MirrorShareModal from '@/components/mirror/MirrorShareModal';
 import GovernanceInteractionReportView from '@/components/governance/GovernanceInteractionReportView';
-import StandaloneObservationHero from '@/components/standalone/StandaloneObservationHero';
-import RelationshipMapView from '@/components/standalone/RelationshipMapView';
+import RelationshipPatternView from '@/components/mirror/RelationshipPatternView';
+import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
 import ReportsPanelTransition from '@/components/standalone/ReportsPanelTransition';
-import StandaloneShareModal from '@/components/standalone/StandaloneShareModal';
-import { buildPersonaSeed } from '@/lib/standaloneObservation';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 const sh = standaloneSkin.share;
 
 type ObservationTab = 'last' | 'map';
+
+type DailyMirrorStatus = 'idle' | 'generating' | 'ready' | 'insufficient';
 
 interface StandaloneObservationExperienceProps {
   entries: SavedBehavioralEntry[];
@@ -39,7 +57,15 @@ export default function StandaloneObservationExperience({
 }: StandaloneObservationExperienceProps) {
   const [tab, setTab] = useState<ObservationTab>('last');
   const [shareOpen, setShareOpen] = useState(false);
+  const [dailyStatus, setDailyStatus] = useState<DailyMirrorStatus>('idle');
+  const [generatedDailyCard, setGeneratedDailyCard] = useState<DailyMirrorCardModel | null>(
+    null
+  );
+  const [generatedDailyMeta, setGeneratedDailyMeta] = useState<MirrorStateMeta | null>(null);
+  const [sceneImageUrl, setSceneImageUrl] = useState<string | null>(null);
+  const [sceneImageStatus, setSceneImageStatus] = useState<MirrorSceneImageStatus>('idle');
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  const mirrorExport = useMirrorCardExport();
 
   const hasEntries = entries.length > 0;
 
@@ -70,111 +96,188 @@ export default function StandaloneObservationExperience({
   );
 
   const observation = model?.dailyObservation;
-  const personaSeed = useMemo(
-    () =>
-      buildPersonaSeed(entries, observation?.personaFamilyId ?? 'balanced_calm'),
-    [entries, observation?.personaFamilyId]
-  );
-
-  const persona = useMemo(
-    () =>
-      pickStandalonePersona(
-        observation?.personaFamilyId ?? observation?.categoryId,
-        personaSeed
-      ),
-    [observation?.personaFamilyId, observation?.categoryId, personaSeed]
-  );
-
-  const sharePayload = useMemo(() => {
-    if (!observation) {
-      return {
-        title: 'EZA Gözlem',
-        clipboardText: '',
-        personaLabel: '',
-        insight: '',
-        userLine: '',
-        aiLine: '',
-        balanceLine: '',
-      };
-    }
-    return buildObservationSharePayload(observation, persona);
-  }, [observation, persona]);
-
-  const mirror = MIRROR_LABELS.standalone;
   const rp = standaloneSkin.reportsPremium;
   const op = standaloneSkin.observationPolish;
 
-  const renderPanel = useCallback(
-    (key: string) => {
-      if (!model || !observation) {
-        return null;
+  useEffect(() => {
+    if (entries.length === 0) {
+      setGeneratedDailyCard(null);
+      setGeneratedDailyMeta(null);
+      setSceneImageUrl(null);
+      setSceneImageStatus('idle');
+      setDailyStatus('idle');
+    }
+  }, [entries.length]);
+
+  const cardForRender = useMemo(
+    () =>
+      generatedDailyCard
+        ? mergeDailyCardSceneVisual(generatedDailyCard, sceneImageUrl, sceneImageStatus)
+        : null,
+    [generatedDailyCard, sceneImageUrl, sceneImageStatus]
+  );
+
+  const handleSceneImageLoad = useCallback(() => {
+    if (sceneImageUrl) {
+      setSceneImageStatus('ready');
+    }
+  }, [sceneImageUrl]);
+
+  const handleSceneImageError = useCallback(() => {
+    setSceneImageStatus('error');
+  }, []);
+
+  const handleGenerateMirrorScene = useCallback(async () => {
+    if (!generatedDailyCard?.visual) return;
+    setSceneImageStatus('generating');
+    setSceneImageUrl(null);
+    try {
+      const result = await generateMirrorScene(
+        generatedDailyCard.visual,
+        generatedDailyCard.date
+      );
+      setSceneImageUrl(result.sceneImageUrl);
+      setSceneImageStatus('ready');
+    } catch {
+      setSceneImageUrl(null);
+      setSceneImageStatus('error');
+    }
+  }, [generatedDailyCard]);
+
+  const handleGenerateDailyMirror = useCallback(() => {
+    setDailyStatus('generating');
+    window.setTimeout(() => {
+      const state = buildMirrorState(entries);
+      if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) {
+        setGeneratedDailyCard(null);
+        setGeneratedDailyMeta(null);
+        setSceneImageUrl(null);
+        setSceneImageStatus('idle');
+        setDailyStatus('insufficient');
+        return;
       }
+      setGeneratedDailyCard(state.dailyMirrorCard);
+      setGeneratedDailyMeta(state.meta);
+      setSceneImageUrl(null);
+      setSceneImageStatus('idle');
+      setDailyStatus('ready');
+    }, 120);
+  }, [entries]);
 
-      if (key === 'last') {
-        return (
-          <>
-            {observation.show ? (
-              <StandaloneObservationHero
-                observation={observation}
-                personaSeed={personaSeed}
-                onScrollDetails={() =>
-                  detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }
-              />
-            ) : null}
+  const handleShareClose = useCallback(() => {
+    setShareOpen(false);
+    mirrorExport.reset();
+  }, [mirrorExport]);
 
+  const handleShareCapture = useCallback(async () => {
+    await mirrorExport.captureCard();
+  }, [mirrorExport]);
+
+  const handleShareDownload = useCallback(async () => {
+    return mirrorExport.download(generatedDailyCard?.date);
+  }, [mirrorExport, generatedDailyCard?.date]);
+
+  const handleShareNative = useCallback(async () => {
+    await mirrorExport.share(generatedDailyCard?.date);
+  }, [mirrorExport, generatedDailyCard?.date]);
+
+  const showShareButton =
+    tab === 'last' &&
+    dailyStatus === 'ready' &&
+    generatedDailyCard !== null &&
+    generatedDailyCard.shareEnabled;
+
+  const renderDailyPanel = () => {
+    if (dailyStatus === 'ready' && cardForRender) {
+      return (
+        <>
+          <div ref={mirrorExport.cardRef} data-mirror-card>
+            <DailyMirrorPosterCard
+              card={cardForRender}
+              meta={generatedDailyMeta ?? undefined}
+              onSceneImageLoad={handleSceneImageLoad}
+              onSceneImageError={handleSceneImageError}
+            />
+          </div>
+          <MirrorSceneGenerateButton
+            status={sceneImageStatus}
+            onGenerate={() => void handleGenerateMirrorScene()}
+            disabled={!generatedDailyCard?.visual?.prompt}
+          />
+          <p className="text-center text-sm leading-relaxed text-stone-500">
+            {MIRROR_EPHEMERAL_NOTE}
+          </p>
+
+          {model && observation ? (
             <details
               ref={detailsRef}
               className="rounded-2xl border border-white/70 bg-white/50 open:bg-white/65"
             >
               <summary className="cursor-pointer list-none px-5 py-3.5 text-sm font-medium text-stone-600 marker:content-none [&::-webkit-details-marker]:hidden">
-                İsteğe bağlı teknik detaylar
+                {MIRROR_DETAILS_SUMMARY}
               </summary>
               <div className="border-t border-violet-100/50 px-2 pb-4 pt-2">
                 <GovernanceInteractionReportView
-                  model={{ ...model, disclaimer: BEHAVIORAL_DISCLAIMER }}
+                  model={{ ...model, disclaimer: MIRROR_PRIVACY_SHORT }}
                   signalNote={STANDALONE_SIGNAL_NOTE}
-                  trendValueLabel="AI yanıt skoru"
+                  trendValueLabel="AI yanıt yansıması"
                   onClearHistory={onClear}
                   embeddedInStandalone
                   observationMode="details-only"
                 />
               </div>
             </details>
+          ) : null}
+        </>
+      );
+    }
 
+    const promptVariant =
+      dailyStatus === 'generating'
+        ? 'generating'
+        : dailyStatus === 'insufficient'
+          ? 'insufficient'
+          : 'idle';
+
+    return (
+      <DailyMirrorCreatePrompt variant={promptVariant} onGenerate={handleGenerateDailyMirror} />
+    );
+  };
+
+  const renderPanel = useCallback(
+    (key: string) => {
+      if (key === 'last') {
+        return (
+          <>
+            {renderDailyPanel()}
             <div className={rp.disclaimerBar} role="note">
               <Shield className={rp.disclaimerIcon} aria-hidden />
-              <p>{BEHAVIORAL_DISCLAIMER}</p>
+              <p>{MIRROR_PRIVACY_SHORT}</p>
             </div>
           </>
         );
       }
 
-      return <RelationshipMapView entries={entries} variant="full" />;
+      return <RelationshipPatternView entries={entries} />;
     },
-    [model, observation, personaSeed, onClear, entries, rp.disclaimerBar, rp.disclaimerIcon]
+    [
+      dailyStatus,
+      cardForRender,
+      generatedDailyMeta,
+      entries,
+      model,
+      observation,
+      onClear,
+      handleGenerateDailyMirror,
+      handleGenerateMirrorScene,
+      sceneImageStatus,
+      handleSceneImageLoad,
+      handleSceneImageError,
+      mirrorExport.cardRef,
+      rp.disclaimerBar,
+      rp.disclaimerIcon,
+    ]
   );
-
-  if (!hasEntries) {
-    return (
-      <div className={cn(rp.container, 'text-center')}>
-        <div className={rp.pageHeader}>
-          <div>
-            <h1 className={op.headerTitle}>
-              <span className={rp.pageTitleRow}>
-                <Sparkles className={rp.pageTitleIcon} aria-hidden />
-                Bugün AI ile ilişkin nasıl?
-              </span>
-            </h1>
-            <p className={op.headerSub}>{STANDALONE_OBSERVATION_SUB}</p>
-          </div>
-        </div>
-        <p className="mt-8 text-sm text-stone-500">
-          Birkaç sohbetten sonra gözlemin burada belirecek.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className={cn(rp.container, rp.sectionStack)}>
@@ -189,24 +292,24 @@ export default function StandaloneObservationExperience({
           <h1 className={op.headerTitle}>
             <span className={rp.pageTitleRow}>
               <Sparkles className={rp.pageTitleIcon} aria-hidden />
-              Bugün AI ile ilişkin nasıl?
+              {MIRROR_PAGE_TITLE}
             </span>
           </h1>
-          <p className={op.headerSub}>{STANDALONE_OBSERVATION_SUB}</p>
+          <p className={op.headerSub}>{MIRROR_PAGE_SUBTITLE}</p>
         </div>
-        {tab === 'last' && observation?.show ? (
+        {showShareButton ? (
           <button
             type="button"
             onClick={() => setShareOpen(true)}
             className={cn(sh.triggerBtn, 'sm:w-auto sm:self-start')}
           >
             <Share2 className="h-3.5 w-3.5" aria-hidden />
-            Paylaş
+            {MIRROR_SHARE_LABEL}
           </button>
         ) : null}
       </header>
 
-      <nav className={standaloneSkin.observationTabList} aria-label="Gözlem sekmeleri">
+      <nav className={standaloneSkin.observationTabList} aria-label={MIRROR_NAV_ARIA}>
         <button
           type="button"
           onClick={() => setTab('last')}
@@ -215,7 +318,7 @@ export default function StandaloneObservationExperience({
             tab === 'last' ? standaloneSkin.observationTabActive : standaloneSkin.observationTabIdle
           )}
         >
-          Bugünkü Gözlem
+          {MIRROR_TAB_DAILY}
         </button>
         <button
           type="button"
@@ -225,7 +328,7 @@ export default function StandaloneObservationExperience({
             tab === 'map' ? standaloneSkin.observationTabActive : standaloneSkin.observationTabIdle
           )}
         >
-          İlişki Haritası
+          {MIRROR_TAB_PATTERN}
         </button>
       </nav>
 
@@ -233,31 +336,17 @@ export default function StandaloneObservationExperience({
         {renderPanel}
       </ReportsPanelTransition>
 
-      <StandaloneShareModal
+      <MirrorShareModal
         open={shareOpen}
-        onClose={() => setShareOpen(false)}
-        shareTitle={sharePayload.title}
-        clipboardText={sharePayload.clipboardText}
-      >
-        <div className={sh.card}>
-          <p className={sh.cardLogo}>EZA</p>
-          <p className="mt-1 text-xs text-stone-500">{sharePayload.personaLabel}</p>
-          <p className={sh.cardInsight}>{sharePayload.insight}</p>
-          <p className={sh.cardRow}>
-            <span className="font-medium text-stone-500">{mirror.user}: </span>
-            {sharePayload.userLine}
-          </p>
-          <p className={sh.cardRow}>
-            <span className="font-medium text-stone-500">{mirror.ai}: </span>
-            {sharePayload.aiLine}
-          </p>
-          <p className={sh.cardRow}>
-            <span className="font-medium text-stone-500">{mirror.balance}: </span>
-            {sharePayload.balanceLine}
-          </p>
-          <p className={sh.cardWatermark}>eza.global</p>
-        </div>
-      </StandaloneShareModal>
+        onClose={handleShareClose}
+        previewUrl={mirrorExport.previewUrl}
+        loading={mirrorExport.loading}
+        error={mirrorExport.error}
+        onCapture={handleShareCapture}
+        onDownload={handleShareDownload}
+        onShare={handleShareNative}
+        onCopyText={mirrorExport.copyText}
+      />
     </div>
   );
 }

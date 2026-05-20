@@ -3,11 +3,13 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-/** Eski URL — Etkileşim Raporu sayfasına yönlendir */
+import { MIRROR_ROUTE } from '@/lib/eza/mirror/copy';
+
+/** Eski URL — EZA Mirror sayfasına yönlendir */
 export default function StandaloneInsightsRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace('/standalone/reports');
+    router.replace(MIRROR_ROUTE);
   }, [router]);
   return null;
 }

@@ -1,0 +1,45 @@
+# -*- coding: utf-8 -*-
+"""EZA Mirror — standalone scene image generation (provider adapter)."""
+
+from fastapi import APIRouter, Depends, status
+
+from backend.core.schemas.mirror_scene import (
+    MirrorGenerateSceneRequest,
+    MirrorGenerateSceneResponse,
+)
+from backend.security.rate_limit import rate_limit_standalone
+from backend.services.mirror.mirror_image_service import generate_mirror_scene
+
+router = APIRouter(prefix="/api/standalone/mirror", tags=["Standalone — Mirror"])
+
+
+@router.post(
+    "/generate-scene",
+    response_model=MirrorGenerateSceneResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def generate_mirror_scene_endpoint(
+    body: MirrorGenerateSceneRequest,
+    _: None = Depends(rate_limit_standalone),
+) -> MirrorGenerateSceneResponse:
+    """
+    Generate a textless Daily Mirror scene image from visual prompt metadata only.
+    No chat/message content is accepted or forwarded to providers.
+    """
+    result = await generate_mirror_scene(
+        prompt=body.prompt,
+        negative_prompt=body.negativePrompt,
+        seed_hint=body.seedHint,
+        style_preset=body.stylePreset,
+        card_date=body.cardDate,
+        quality_hints=body.qualityHints,
+    )
+    provider = result.provider
+    if provider not in ("mock", "openai", "replicate", "stability"):
+        provider = "mock"
+    return MirrorGenerateSceneResponse(
+        sceneImageUrl=result.scene_image_url,
+        provider=provider,  # type: ignore[arg-type]
+        cached=result.cached,
+        generatedAt=result.generated_at or "",
+    )

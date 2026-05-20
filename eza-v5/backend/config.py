@@ -99,6 +99,12 @@ class Settings(BaseSettings):
     # Standalone — lightweight rule-based observation (no LLM; default off)
     STANDALONE_OBSERVATION_ENABLED: bool = False
 
+    # EZA Mirror — scene image provider (mock | openai | replicate | stability)
+    EZA_MIRROR_IMAGE_PROVIDER: str = "mock"
+    EZA_MIRROR_MOCK_SCENE_URL: Optional[str] = None
+    EZA_MIRROR_OPENAI_IMAGE_MODEL: str = "gpt-image-1"
+    EZA_MIRROR_IMAGE_SIZE: str = "1024x1536"
+
     # Pipeline Settings
     PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout
     STANDALONE_MAX_TOKENS: int = 2048  # Max tokens for standalone mode (increased for full responses)

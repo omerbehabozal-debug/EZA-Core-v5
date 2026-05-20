@@ -14,6 +14,7 @@ import {
   summarizeArchiveTitle,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
+import { MIRROR_ROUTE, MIRROR_SIDEBAR_LABEL } from '@/lib/eza/mirror/copy';
 
 interface StandaloneSidebarProps {
   safeOnlyMode: boolean;
@@ -131,17 +132,19 @@ export default function StandaloneSidebar({
 
           <nav className={standaloneSkin.sidebarNav} aria-label="Gezinme">
             <Link
-              href="/standalone/reports"
+              href={MIRROR_ROUTE}
               onClick={onMobileClose}
               className={cn(
                 standaloneSkin.sidebarNavItem,
-                navActive('/standalone/reports') || navActive('/standalone/insights')
+                navActive(MIRROR_ROUTE) ||
+                  navActive('/standalone/reports') ||
+                  navActive('/standalone/insights')
                   ? 'bg-white/80 text-standalone-text'
                   : ''
               )}
             >
               <BarChart3 className="h-4 w-4 shrink-0 opacity-60" />
-              Etkileşim Analizi
+              {MIRROR_SIDEBAR_LABEL}
             </Link>
 
             <p className={standaloneSkin.sidebarSectionLabel}>Sohbetler</p>
