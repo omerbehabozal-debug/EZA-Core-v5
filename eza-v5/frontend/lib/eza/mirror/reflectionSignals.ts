@@ -9,6 +9,7 @@ import {
   type BehavioralRhythmSignals,
   type ReflectionToneId,
 } from '@/lib/eza/mirror/reflectionToneEngine';
+import { composeEditorialHeadline } from '@/lib/eza/mirror/editorialHeadlines';
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
 
 export interface ReflectionSignals {
@@ -583,10 +584,12 @@ export function composePrecisionStory(
     slice = bank[Math.abs(h) % bank.length]!;
   }
 
+  const dailyJourney = composeEditorialHeadline(microMood, variant, topic, seed);
+
   return {
     variant,
     mirrorStory: sanitizePrecisionCopy(slice.mirrorStory),
-    dailyJourney: slice.dailyJourney,
+    dailyJourney,
     userLine: sanitizePrecisionCopy(slice.userLine),
     aiLine: sanitizePrecisionCopy(slice.aiLine),
     balanceLine: sanitizePrecisionCopy(slice.balanceLine),
@@ -594,7 +597,11 @@ export function composePrecisionStory(
 }
 
 export function buildVisualPrecisionHints(signals: ReflectionSignals): string[] {
-  const hints: string[] = [];
+  const hints: string[] = [
+    'cinematic film still mood',
+    'atmospheric depth soft vignette',
+    'premium editorial lighting',
+  ];
   if (signals.calmnessLevel >= 0.58) {
     hints.push('extra negative space', 'soft diffused light', 'quiet still atmosphere');
   }
@@ -610,5 +617,5 @@ export function buildVisualPrecisionHints(signals: ReflectionSignals): string[] 
   if (signals.conversationalEnergy < 0.4) {
     hints.push('low energy soft restful mood');
   }
-  return hints.slice(0, 4);
+  return hints.slice(0, 5);
 }

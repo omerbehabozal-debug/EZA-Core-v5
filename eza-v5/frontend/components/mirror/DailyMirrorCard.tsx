@@ -1,5 +1,10 @@
 'use client';
 
+/**
+ * @deprecated Sprint 11E — legacy observation card layout.
+ * Günlük Ayna uses {@link DailyMirrorPosterCard} only (`StandaloneObservationExperience`).
+ */
+
 import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';

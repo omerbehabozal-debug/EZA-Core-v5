@@ -87,6 +87,27 @@ export const EZA_GLOBAL_STYLE_LOCK =
 export const EZA_PREMIUM_STYLIZED_CHARACTER_LOCK =
   'premium stylized cinematic character, mature and elegant, not photorealistic, not a real human portrait, not a bean mascot, not a toy, refined facial proportions, soft editorial 3D realism, high-end animated film character for adults, stylized but mature, cinematic but soft, emotional but not childish, warm eyes, natural fabric detail, painterly-soft realism, handcrafted editorial 3D, not Pixar child, not toy mascot';
 
+/** Sprint 11G — mature editorial animated film aesthetic (character). */
+export const EZA_EDITORIAL_CHARACTER_LOCK =
+  'premium editorial animated film aesthetic, mature stylized facial proportions, subtle emotional realism, sophisticated cinematic character design, luxury animated feature tone for adults, understated emotional expression, refined eye spacing not oversized, natural fabric not plush toy texture';
+
+/** Sprint 11G — global mascot / cute avoidance (negative prompt). */
+export const EZA_MASCOT_NEGATIVE_AVOID = [
+  'mascot app character',
+  'startup mascot',
+  'plush texture',
+  'plush toy',
+  'oversized cartoon eyes',
+  'kawaii expression',
+  'childish softness',
+  'toy face proportions',
+  'sticker mascot energy',
+  'cute app mascot',
+  'children app character',
+  'round cute face',
+  'bean mascot face',
+] as const;
+
 /** Global negative — photoreal / bean / toy portrait risks (Sprint 10G). */
 export const EZA_STYLIZED_NEGATIVE_AVOID = [
   'photorealistic portrait',
@@ -318,12 +339,15 @@ export const PROMPT_COMPOSITION_RULES = [
 
 export const VISUAL_QUALITY_HINTS = [
   'EZA visual canon — mature editorial character',
+  'cinematic film still mood',
   'pastel cinematic lighting',
+  'atmospheric depth soft vignette',
   'soft depth of field',
+  'premium emotional framing',
   'textless scene only — card copy rendered in frontend',
   '9:16 vertical safe composition',
   'left overlay zone kept clean',
-  'not toy-like not childish',
+  'not toy-like not childish not mascot app',
 ] as const;
 
 export const STYLE_PRESET = 'eza_mirror_professional_v1';
@@ -334,6 +358,10 @@ export function buildVisualCanonLayers(): string[] {
     EZA_VISUAL_STYLE_CONTRACT,
     EZA_GLOBAL_STYLE_LOCK,
     EZA_PREMIUM_STYLIZED_CHARACTER_LOCK,
+    EZA_EDITORIAL_CHARACTER_LOCK,
+    'cinematic film still atmosphere',
+    'atmospheric depth soft vignette lighting',
+    'premium mood editorial framing',
     ...EZA_CAMERA_LANGUAGE,
     `materials: ${EZA_MATERIAL_USE.join(', ')}`,
     `emotional tone: ${EZA_EMOTIONAL_USE.join(', ')}`,
@@ -343,7 +371,8 @@ export function buildVisualCanonLayers(): string[] {
 
 /** Topic-aware negative prompt (base + travel/architecture augments). */
 export function buildMirrorNegativePrompt(topicKey?: string): string {
-  const base = STANDARD_NEGATIVE_PROMPT;
+  const mascot = EZA_MASCOT_NEGATIVE_AVOID.join(', ');
+  const base = `${STANDARD_NEGATIVE_PROMPT}, ${mascot}`;
   if (topicKey === 'travel') {
     return `${base}, ${TRAVEL_NEGATIVE_AVOID.join(', ')}`;
   }

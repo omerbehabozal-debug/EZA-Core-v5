@@ -48,7 +48,7 @@ export default function DailyMirrorPosterScene({
   );
 
   return (
-    <div className={cn('absolute inset-0 overflow-hidden', className)} aria-hidden>
+    <div className={cn('absolute inset-0 h-full w-full overflow-hidden', className)} aria-hidden>
       <div
         className={cn(
           'absolute inset-0 bg-gradient-to-br',
@@ -79,11 +79,11 @@ export default function DailyMirrorPosterScene({
         />
       ) : null}
       <div
-        className="absolute inset-0 bg-gradient-to-r from-[#1a1035]/82 via-[#2d1b4e]/40 to-transparent"
+        className="absolute inset-0 bg-gradient-to-r from-[#120a24]/55 via-[#1a1035]/15 to-transparent"
         aria-hidden
       />
       <div
-        className="absolute inset-0 bg-gradient-to-t from-[#faf7ff] via-[#faf7ff]/15 to-[#1a1035]/20"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_85%_at_50%_42%,transparent_48%,rgba(15,10,30,0.2)_100%)]"
         aria-hidden
       />
     </div>

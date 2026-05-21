@@ -31,11 +31,11 @@ export type PosterCardContent = {
   relationshipBars: PosterRelationshipBar[];
 };
 
-/** Poster copy limits (≈2 lines at card width). */
-export const POSTER_STORY_MAX = 128;
-export const POSTER_THEME_DESC_MAX = 72;
-export const POSTER_QUOTE_MAX = 96;
-export const POSTER_RELATION_LINE_MAX = 52;
+/** Poster copy limits (≈2 lines at 432px / mobile). */
+export const POSTER_STORY_MAX = 96;
+export const POSTER_THEME_DESC_MAX = 48;
+export const POSTER_QUOTE_MAX = 72;
+export const POSTER_RELATION_LINE_MAX = 40;
 
 const QUOTE_FALLBACKS = [
   'Bazı cevaplar hemen değil, zamanla netleşir.',

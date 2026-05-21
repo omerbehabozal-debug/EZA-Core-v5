@@ -7,7 +7,6 @@ import type { DailyMirrorCardModel, MirrorStateMeta } from '@/lib/eza/mirror/typ
 import { MIRROR_INSUFFICIENT } from '@/lib/eza/mirror/copy';
 import { buildPosterCardContent } from '@/lib/eza/mirror/posterCardContent';
 import {
-  POSTER_ASPECT_RATIO,
   POSTER_CARD_WIDTH_PX,
   posterCardSkin as s,
 } from '@/lib/eza/mirror/posterCardSkin';
@@ -40,7 +39,7 @@ function RelationBlock({
   return (
     <div className={s.relationCell}>
       <p className={s.relationLabel}>
-        <Icon className="h-2.5 w-2.5 shrink-0 opacity-80" aria-hidden />
+        <Icon className="h-1.5 w-1.5 shrink-0 opacity-80" aria-hidden />
         {label}
       </p>
       <p className={s.relationLine}>{line}</p>
@@ -51,6 +50,9 @@ function RelationBlock({
   );
 }
 
+/**
+ * Visual-dominant 9:16 Daily Mirror poster — full-bleed scene + glass overlays.
+ */
 export default function DailyMirrorPosterCard({
   card,
   meta,
@@ -71,103 +73,112 @@ export default function DailyMirrorPosterCard({
     <article
       data-mirror-card-root
       data-mirror-aspect="9-16"
-      className={cn(s.root, 'flex flex-col')}
-      style={{
-        aspectRatio: POSTER_ASPECT_RATIO,
-        maxWidth: POSTER_CARD_WIDTH_PX,
-        width: '100%',
-      }}
+      data-mirror-poster="v3-visual-dominant"
+      className={s.root}
+      style={{ maxWidth: POSTER_CARD_WIDTH_PX }}
       aria-labelledby="daily-mirror-poster-title"
     >
-      <div className={cn(s.grain, 'z-[3]')} aria-hidden />
-      <div className={cn(s.vignette, 'z-[3]')} aria-hidden />
+      <DailyMirrorPosterScene
+        className={s.sceneBackdrop}
+        personaFamilyId={card.personaFamilyId}
+        sceneImageUrl={card.visual?.sceneImageUrl}
+        sceneImageStatus={card.visual?.sceneImageStatus}
+        onSceneImageLoad={onSceneImageLoad}
+        onSceneImageError={onSceneImageError}
+      />
 
-      <div className={s.sceneZone}>
-        <DailyMirrorPosterScene
-          personaFamilyId={card.personaFamilyId}
-          sceneImageUrl={card.visual?.sceneImageUrl}
-          sceneImageStatus={card.visual?.sceneImageStatus}
-          onSceneImageLoad={onSceneImageLoad}
-          onSceneImageError={onSceneImageError}
-        />
+      <div className={s.globalOverlay} aria-hidden />
+      <div className={s.globalOverlayBottom} aria-hidden />
+      <div className={s.grain} aria-hidden />
+      <div className={s.vignette} aria-hidden />
 
+      <div className={s.contentStack}>
         <header className={s.header}>
           <div className="space-y-0.5">
-            <p className={cn(s.logoText, 'flex items-center gap-2')}>
+            <p className={cn(s.logoText, 'flex items-center gap-1.5')}>
               <span className={s.logoMark}>
-                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                <Sparkles className="h-2.5 w-2.5" strokeWidth={1.75} aria-hidden />
               </span>
               EZA
             </p>
             <p className={s.logoSub}>AI İlişki Aynası</p>
           </div>
           <div className={s.datePill}>
-            <Calendar className="h-2.5 w-2.5 shrink-0 opacity-90" aria-hidden />
+            <Calendar className="h-2 w-2 shrink-0 opacity-90" aria-hidden />
             <span className="truncate">{card.dayLabel}</span>
           </div>
         </header>
 
-        <div className={s.heroBlock}>
-          <p className={s.heroEyebrow}>Bugünkü AI İlişki Aynan</p>
+        <div className={s.headlineZone}>
           <h2
             id="daily-mirror-poster-title"
             className={cn(
               s.heroTitle,
-              'bg-gradient-to-r bg-clip-text text-transparent',
-              content.characterGradient
+              !isSparse &&
+                'bg-gradient-to-r from-white via-violet-50 to-fuchsia-100 bg-clip-text text-transparent',
+              isSparse && 'text-white/90'
             )}
           >
             {isSparse ? 'Yansıma hazırlanıyor' : content.journeyHeadline}
           </h2>
         </div>
+
+        <div className={s.bottomStack}>
+          <div className={s.glass}>
+            <p className={s.story}>{isSparse ? MIRROR_INSUFFICIENT : content.storyLine}</p>
+          </div>
+
+          {!isSparse ? (
+            <>
+              <div className={s.glassTheme}>
+                <p className={s.themeLabel}>
+                  <span aria-hidden>{content.characterEmoji}</span>
+                  <span className="ml-1">{content.themeTitle}</span>
+                </p>
+                <p className={s.themeDesc}>{content.themeDescription}</p>
+              </div>
+
+              <div className={s.quoteWrap}>
+                <p className={s.quoteText}>
+                  <span className={s.quoteMark} aria-hidden>
+                    “
+                  </span>
+                  {content.quote}
+                  <span className={s.quoteMark} aria-hidden>
+                    ”
+                  </span>
+                </p>
+              </div>
+
+              <div className={s.metricsGlass}>
+                <RelationBlock
+                  label="Sen"
+                  line={sen?.value ?? '—'}
+                  percent={bars[0]?.percent ?? content.energyPercent}
+                />
+                <RelationBlock
+                  label="AI"
+                  line={ai?.value ?? '—'}
+                  percent={bars[1]?.percent ?? Math.min(95, content.energyPercent + 4)}
+                />
+                <RelationBlock
+                  label="Denge"
+                  line={balance?.value ?? '—'}
+                  percent={bars[2]?.percent ?? Math.max(30, content.energyPercent - 8)}
+                />
+              </div>
+            </>
+          ) : null}
+
+          <footer className={s.footer}>
+            <span className="font-semibold text-white/70">EZA</span>
+            <span>#EZAİlişkiAynası</span>
+            <span className="text-white/45">eza.ai</span>
+          </footer>
+        </div>
       </div>
 
-      <div className={s.bodyPanel}>
-        <p className={s.story}>{isSparse ? MIRROR_INSUFFICIENT : content.storyLine}</p>
-
-        {!isSparse ? (
-          <>
-            <div className={s.themeBox}>
-              <p className={s.themeLabel}>
-                <span aria-hidden>{content.characterEmoji}</span>
-                <span className="ml-1">Tema</span>
-              </p>
-              <p className={s.themeTitle}>{content.themeTitle}</p>
-              <p className={s.themeDesc}>{content.themeDescription}</p>
-            </div>
-
-            <div className={s.quoteBand}>
-              <p className={s.quoteText}>{content.quote}</p>
-            </div>
-
-            <div className={s.relationGrid}>
-              <RelationBlock
-                label="Sen"
-                line={sen?.value ?? '—'}
-                percent={bars[0]?.percent ?? content.energyPercent}
-              />
-              <RelationBlock
-                label="AI"
-                line={ai?.value ?? '—'}
-                percent={bars[1]?.percent ?? Math.min(95, content.energyPercent + 4)}
-              />
-              <RelationBlock
-                label="Denge"
-                line={balance?.value ?? '—'}
-                percent={bars[2]?.percent ?? Math.max(30, content.energyPercent - 8)}
-              />
-            </div>
-          </>
-        ) : null}
-
-        <footer className={s.footer}>
-          <span className="font-semibold text-violet-700/80">EZA</span>
-          <span>#EZAİlişkiAynası</span>
-          <span className="text-violet-400/90">eza.ai</span>
-        </footer>
-
-        <MirrorVisualPromptDebug visual={card.visual} />
-      </div>
+      <MirrorVisualPromptDebug visual={card.visual} />
     </article>
   );
 }

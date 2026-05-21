@@ -39,6 +39,17 @@ describe('ezaVisualCanon', () => {
     );
   });
 
+  it('Sprint 11G — canon layers and negative include editorial film + mascot avoid', () => {
+    const layers = buildVisualCanonLayers().join(', ').toLowerCase();
+    expect(layers).toContain('premium editorial animated film aesthetic');
+    expect(layers).toContain('cinematic film still atmosphere');
+    const neg = buildMirrorNegativePrompt('general').toLowerCase();
+    expect(neg).toContain('mascot app character');
+    expect(neg).toContain('plush texture');
+    expect(neg).toContain('kawaii expression');
+    expect(neg).toContain('sticker mascot energy');
+  });
+
   it('standard negative blocks photoreal portrait and bean mascot (10G)', () => {
     const neg = STANDARD_NEGATIVE_PROMPT.toLowerCase();
     expect(neg).toContain('photorealistic portrait');
@@ -229,5 +240,16 @@ describe('ezaCharacterBible prompts', () => {
     );
     expect(phrase.toLowerCase()).toContain('avoid');
     expect(phrase.toLowerCase()).toContain('child plush');
+  });
+
+  it('Sprint 11G — calm panda archetype avoids plush mascot cues', () => {
+    const phrase = buildCharacterBiblePhrase(
+      resolveCharacterArchetype('architecture'),
+      'Sakin Panda'
+    ).toLowerCase();
+    expect(phrase).toContain('mature stylized facial proportions');
+    expect(phrase).toContain('not plush toy');
+    expect(phrase).toContain('plush texture');
+    expect(phrase).toContain('kawaii panda');
   });
 });
