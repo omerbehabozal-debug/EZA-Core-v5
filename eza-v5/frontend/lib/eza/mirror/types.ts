@@ -58,6 +58,8 @@ export interface MirrorVisualPromptPayload {
   seedHint: string;
   /** Guidance for image APIs and dev QA (Sprint 9A style contract). */
   qualityHints?: string[];
+  /** High-level cinematic intent label — no raw chat (Sprint 11J). */
+  sceneIntentLabel?: string;
   /** Optional AI scene background (injected by UI when available). */
   sceneImageUrl?: string | null;
   sceneImageStatus?: MirrorSceneImageStatus;

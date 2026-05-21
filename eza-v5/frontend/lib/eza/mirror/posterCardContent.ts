@@ -6,6 +6,10 @@ import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
 import { FAMILY_ASSET_SLOTS } from '@/lib/eza/personaAssets';
 import type { ReflectionToneId } from '@/lib/eza/mirror/reflectionToneEngine';
+import {
+  buildContextualHighlight,
+  type ContextualHighlight,
+} from '@/lib/eza/mirror/contextualHighlight';
 
 export type PosterActivityRow = {
   label: string;
@@ -29,6 +33,7 @@ export type PosterCardContent = {
   energyDisplay: string;
   energyPercent: number;
   relationshipBars: PosterRelationshipBar[];
+  contextualHighlight: ContextualHighlight;
 };
 
 /** Poster copy limits (≈2 lines at 432px / mobile). */
@@ -218,5 +223,6 @@ export function buildPosterCardContent(card: DailyMirrorCardModel): PosterCardCo
     energyDisplay: card.energyLabel || 'Dengede',
     energyPercent: card.energyScore ?? 62,
     relationshipBars: deriveRelationshipBars(card),
+    contextualHighlight: buildContextualHighlight(card),
   };
 }

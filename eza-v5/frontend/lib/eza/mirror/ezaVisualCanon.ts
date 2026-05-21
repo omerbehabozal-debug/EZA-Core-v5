@@ -91,6 +91,23 @@ export const EZA_PREMIUM_STYLIZED_CHARACTER_LOCK =
 export const EZA_EDITORIAL_CHARACTER_LOCK =
   'premium editorial animated film aesthetic, mature stylized facial proportions, subtle emotional realism, sophisticated cinematic character design, luxury animated feature tone for adults, understated emotional expression, refined eye spacing not oversized, natural fabric not plush toy texture';
 
+/** Sprint 11J — context scene mismatch avoidance. */
+export const EZA_CONTEXT_SCENE_NEGATIVE_AVOID = [
+  'generic mascot scene',
+  'floating character',
+  'empty emotional portrait',
+  'random panda',
+  'posterized avatar',
+  'generic inspirational scene',
+  'unrelated calm portrait',
+  'chat bubble',
+  'chat screenshot',
+  'laptop screen with messages',
+  'UI screenshot',
+  'readable text on screen',
+  'prompt text visible',
+] as const;
+
 /** Sprint 11G — global mascot / cute avoidance (negative prompt). */
 export const EZA_MASCOT_NEGATIVE_AVOID = [
   'mascot app character',
@@ -370,9 +387,14 @@ export function buildVisualCanonLayers(): string[] {
 }
 
 /** Topic-aware negative prompt (base + travel/architecture augments). */
-export function buildMirrorNegativePrompt(topicKey?: string): string {
+export function buildMirrorNegativePrompt(
+  topicKey?: string,
+  extraAvoid?: readonly string[]
+): string {
   const mascot = EZA_MASCOT_NEGATIVE_AVOID.join(', ');
-  const base = `${STANDARD_NEGATIVE_PROMPT}, ${mascot}`;
+  const context = EZA_CONTEXT_SCENE_NEGATIVE_AVOID.join(', ');
+  const extra = extraAvoid?.length ? `, ${extraAvoid.join(', ')}` : '';
+  const base = `${STANDARD_NEGATIVE_PROMPT}, ${mascot}, ${context}${extra}`;
   if (topicKey === 'travel') {
     return `${base}, ${TRAVEL_NEGATIVE_AVOID.join(', ')}`;
   }

@@ -39,6 +39,13 @@ describe('ezaVisualCanon', () => {
     );
   });
 
+  it('Sprint 11J — negative prompt includes context-aware scene avoid', () => {
+    const neg = buildMirrorNegativePrompt('finance').toLowerCase();
+    expect(neg).toContain('generic mascot scene');
+    expect(neg).toContain('chat screenshot');
+    expect(neg).toContain('random panda');
+  });
+
   it('Sprint 11G — canon layers and negative include editorial film + mascot avoid', () => {
     const layers = buildVisualCanonLayers().join(', ').toLowerCase();
     expect(layers).toContain('premium editorial animated film aesthetic');
@@ -88,7 +95,7 @@ describe('ezaVisualCanon', () => {
 });
 
 describe('ezaCharacterBible prompts', () => {
-  it('finance uses wise owl terrace language', () => {
+  it('finance uses intent-first decision scene (not owl terrace default)', () => {
     expect(TOPIC_TO_ARCHETYPE.finance).toBe('wise_owl');
     const p = promptLower(
       buildVisualPrompt({
@@ -99,7 +106,8 @@ describe('ezaCharacterBible prompts', () => {
         seedHint: 'fin',
       }).prompt
     );
-    expect(p).toMatch(/city terrace|golden hour|skyline|marble|bilgeli baykuş|owl/);
+    expect(p).toMatch(/research|decision|quiet research desk|financial/);
+    expect(p).not.toContain('bilgeli baykuş');
     expect(p).toContain('not a toy');
     expect(p).toContain('mature premium editorial character');
   });
@@ -168,7 +176,7 @@ describe('ezaCharacterBible prompts', () => {
     expect(visual.qualityHints.join(' ').toLowerCase()).toContain('premium stylized');
   });
 
-  it('Sprint 10E — travel and finance prompts unchanged from character canon', () => {
+  it('Sprint 11J — travel and finance use intent-first cinematic scenes', () => {
     const travel = promptLower(
       buildVisualPrompt({
         characterId: 'curiosity_exploration',
@@ -187,12 +195,11 @@ describe('ezaCharacterBible prompts', () => {
         seedHint: 'fin',
       }).prompt
     );
-    expect(travel).toContain('eza character archetype: keşif yolcusu');
-    expect(travel).toContain('not round bean head');
+    expect(travel).toMatch(/train station|journey|horizon/);
     expect(travel).toContain('premium stylized cinematic character');
-    expect(travel).toContain('not photorealistic portrait');
-    expect(finance).toContain('eza character archetype: bilgeli baykuş');
-    expect(finance).toContain('premium stylized cinematic character');
+    expect(finance).toMatch(/research|decision|quiet research desk/);
+    expect(finance).not.toContain('bilgeli baykuş');
+    expect(finance).not.toContain('city terrace golden hour');
   });
 
   it('friendship human archetype avoids childlike face', () => {

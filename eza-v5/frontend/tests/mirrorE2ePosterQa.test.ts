@@ -177,11 +177,23 @@ function scoreScenario(scenario: ScenarioDef): {
   let aspect916 = 5;
   if (!posterSrc.includes('data-mirror-aspect="9-16"')) aspect916 -= 2;
   if (!skinSrc.includes('aspect-[9/16]')) aspect916 -= 2;
-  if (!posterSrc.includes('v3-visual-dominant')) aspect916 -= 1;
+  if (
+    !posterSrc.includes('v5-presentation') &&
+    !posterSrc.includes('v4-editorial') &&
+    !posterSrc.includes('v3-visual-dominant')
+  ) {
+    aspect916 -= 1;
+  }
 
   let visualDominant = 5;
   if (!posterSrc.includes('sceneBackdrop')) visualDominant -= 3;
-  if (posterSrc.includes('bodyPanel') || posterSrc.includes('gridTemplateRows')) visualDominant -= 2;
+  if (posterSrc.includes('bodyPanel') || posterSrc.includes('gridTemplateRows')) {
+    visualDominant -= 2;
+  }
+  if (posterSrc.includes('metricsGlass') || posterSrc.includes('glassTheme')) {
+    visualDominant -= 1;
+  }
+  if (!posterSrc.includes('heroBlock') || !skinSrc.includes('1.85rem')) visualDominant -= 1;
   if (POSTER_SCENE_DOMINANCE_RATIO < 0.65) visualDominant -= 1;
 
   let textBalance = 5;
@@ -290,6 +302,7 @@ describe('Sprint 11H — Mirror E2E Poster QA', () => {
     );
     expect(posterSrc).toContain('sceneBackdrop');
     expect(posterSrc).not.toContain('gridTemplateRows');
+    expect(posterSrc).toContain('v5-presentation');
     expect(posterSrc).not.toContain('Bugün ne yaptın');
     expect(readFileSync(join(process.cwd(), 'components/mirror/MirrorShareModal.tsx'), 'utf8')).toContain(
       'MIRROR_SHARE_MODAL_TITLE'

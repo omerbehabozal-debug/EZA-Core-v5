@@ -253,6 +253,8 @@ function buildDailyMirrorCard(
     emotionOverride: emotional.visualEmotion,
     toneHints: emotional.toneHints,
     storyTopicKey: story.storyTopicKey,
+    storyVariant: story.storyVariant,
+    reflectionSignals: story.reflectionSignals,
     visualStoryHints: story.visualStoryHints,
   });
 

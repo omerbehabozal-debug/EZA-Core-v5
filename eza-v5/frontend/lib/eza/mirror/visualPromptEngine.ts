@@ -9,11 +9,21 @@ import { classifyDayFromEntries } from '@/lib/eza/dailyObservation';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import { parseStandaloneObservation } from '@/lib/standaloneObservation';
 import {
+  deriveConversationVisualIntent,
+  buildConversationScenePromptBlock,
+  resolveSceneCharacterPhrase,
+  type ConversationVisualIntent,
+} from '@/lib/eza/mirror/conversationVisualIntent';
+import {
+  deriveReflectionSignals,
+  type ReflectionSignals,
+  type TopicStoryVariantId,
+} from '@/lib/eza/mirror/reflectionSignals';
+import {
   SCENE_TOPIC_LABEL,
   SCENE_TOPIC_PRESETS,
   type SceneTopicKey,
 } from '@/lib/eza/mirror/visualPromptPresets';
-import { buildCharacterBiblePhrase, resolveCharacterArchetype } from '@/lib/eza/mirror/ezaCharacterBible';
 import {
   ARCHITECTURE_QUALITY_HINTS,
   buildArchitectureStorytellingPhrase,
@@ -43,6 +53,8 @@ export interface MirrorVisualPrompt {
   stylePreset: string;
   seedHint: string;
   qualityHints: string[];
+  /** High-level scene intent for dev QA — no raw message content */
+  sceneIntentLabel?: string;
 }
 
 export interface BuildVisualPromptInput {
@@ -53,6 +65,7 @@ export interface BuildVisualPromptInput {
   atmosphereLabel?: string;
   emotionLabel?: string;
   seedHint: string;
+  conversationIntent?: ConversationVisualIntent;
 }
 
 const CATEGORY_TO_TOPIC: Partial<Record<UserObservationCategoryId, SceneTopicKey>> = {
@@ -171,42 +184,86 @@ export function inferEmotionLabel(
   return DEFAULT_EMOTION_LABEL;
 }
 
+function buildIntentFirstSceneBlock(input: {
+  topicKey: SceneTopicKey;
+  intent: ConversationVisualIntent;
+  atmosphereLabel: string;
+  emotionLabel: string;
+  characterName: string;
+  personaFamilyId: PersonaFamilyId;
+}): string[] {
+  const preset = SCENE_TOPIC_PRESETS[input.topicKey];
+  const characterPhrase = resolveSceneCharacterPhrase(
+    input.intent,
+    input.topicKey,
+    input.personaFamilyId,
+    input.characterName
+  );
+  /** Topic presets dropped mascot/terrace tokens — mizansen carries the scene (11J). */
+  const useLegacyTopicElements = false;
+
+  const isArchitecture =
+    input.topicKey === 'architecture' ||
+    input.intent.composition === 'restoration_scene';
+
+  if (isArchitecture) {
+    return [
+      EZA_ARCHITECTURE_STYLE_CONTRACT,
+      EZA_GLOBAL_STYLE_LOCK,
+      input.intent.mizansen,
+      ...input.intent.supportingElements,
+      buildArchitectureStorytellingPhrase(input.characterName),
+      ...EZA_ARCHITECTURE_CAMERA,
+      `palette: ${preset.palette}`,
+      `atmosphere: ${input.atmosphereLabel}`,
+      `emotion mood: ${input.emotionLabel}`,
+      ...EZA_ARCHITECTURE_OVERLAY_RULES,
+    ];
+  }
+
+  const block = [
+    ...buildVisualCanonLayers(),
+    input.intent.mizansen,
+    ...input.intent.supportingElements,
+    ...(useLegacyTopicElements ? preset.sceneElements : []),
+    `palette: ${preset.palette}`,
+    `atmosphere: ${input.atmosphereLabel}`,
+    `emotion mood: ${input.emotionLabel}`,
+    characterPhrase,
+    ...EZA_OVERLAY_LAYOUT_RULES,
+  ];
+
+  return block;
+}
+
 export function buildVisualPrompt(input: BuildVisualPromptInput): MirrorVisualPrompt {
   const preset = SCENE_TOPIC_PRESETS[input.topicKey];
   const atmosphereLabel = input.atmosphereLabel ?? preset.atmosphereDefault;
   const emotionLabel = input.emotionLabel ?? DEFAULT_EMOTION_LABEL;
   const topicLabel = SCENE_TOPIC_LABEL[input.topicKey];
 
-  const archetype = resolveCharacterArchetype(input.topicKey, input.personaFamilyId);
+  const intent =
+    input.conversationIntent ??
+    deriveConversationVisualIntent({
+      entries: [],
+      topicKey: input.topicKey,
+    });
 
-  const sceneBlock =
-    input.topicKey === 'architecture'
-      ? [
-          EZA_ARCHITECTURE_STYLE_CONTRACT,
-          EZA_GLOBAL_STYLE_LOCK,
-          ...EZA_ARCHITECTURE_CAMERA,
-          ...preset.sceneElements,
-          buildArchitectureStorytellingPhrase(input.characterName),
-          `palette: ${preset.palette}`,
-          `atmosphere: ${atmosphereLabel}`,
-          `emotion mood: ${emotionLabel}`,
-          ...EZA_ARCHITECTURE_OVERLAY_RULES,
-        ]
-      : [
-          ...buildVisualCanonLayers(),
-          ...preset.sceneElements,
-          `palette: ${preset.palette}`,
-          `atmosphere: ${atmosphereLabel}`,
-          `emotion mood: ${emotionLabel}`,
-          buildCharacterBiblePhrase(archetype, input.characterName),
-          ...EZA_OVERLAY_LAYOUT_RULES,
-        ];
+  const sceneBlock = buildIntentFirstSceneBlock({
+    topicKey: input.topicKey,
+    intent,
+    atmosphereLabel,
+    emotionLabel,
+    characterName: input.characterName,
+    personaFamilyId: input.personaFamilyId,
+  });
 
   const prompt = sceneBlock.join(', ');
   const qualityHints =
-    input.topicKey === 'architecture'
-      ? [...ARCHITECTURE_QUALITY_HINTS]
-      : [...VISUAL_QUALITY_HINTS];
+    input.topicKey === 'architecture' ||
+    intent.composition === 'restoration_scene'
+      ? [...ARCHITECTURE_QUALITY_HINTS, `scene intent: ${intent.label}`]
+      : [...VISUAL_QUALITY_HINTS, `scene intent: ${intent.label}`];
 
   return {
     characterId: input.characterId,
@@ -216,10 +273,11 @@ export function buildVisualPrompt(input: BuildVisualPromptInput): MirrorVisualPr
     atmosphereLabel,
     emotionLabel,
     prompt,
-    negativePrompt: buildMirrorNegativePrompt(input.topicKey),
+    negativePrompt: buildMirrorNegativePrompt(input.topicKey, intent.negativeExtras),
     stylePreset: STYLE_PRESET,
     seedHint: input.seedHint,
     qualityHints,
+    sceneIntentLabel: intent.label,
   };
 }
 
@@ -235,11 +293,13 @@ export interface BuildMirrorVisualFromContextInput {
   emotionOverride?: string;
   toneHints?: string[];
   storyTopicKey?: SceneTopicKey;
+  storyVariant?: TopicStoryVariantId;
+  reflectionSignals?: ReflectionSignals;
   visualStoryHints?: string[];
 }
 
 /**
- * Character from behavior pattern; topic drives scene/atmosphere only.
+ * Conversation-intent-first scene; topic presets only when intent is ambient.
  */
 export function buildMirrorVisualFromContext(
   input: BuildMirrorVisualFromContextInput
@@ -249,6 +309,17 @@ export function buildMirrorVisualFromContext(
     input.observationCategoryId,
     input.personaFamilyId
   );
+  const reflectionSignals =
+    input.reflectionSignals ?? deriveReflectionSignals(input.entries);
+
+  const conversationIntent = deriveConversationVisualIntent({
+    entries: input.entries,
+    topicKey,
+    storyVariant: input.storyVariant,
+    reflectionSignals,
+    storyTopicKey: input.storyTopicKey,
+  });
+
   const emotionLabel =
     input.emotionOverride ??
     inferEmotionLabel(input.energyLabel, input.observationCategoryId);
@@ -265,20 +336,24 @@ export function buildMirrorVisualFromContext(
       input.seed,
       input.personaFamilyId,
       topicKey,
+      conversationIntent.id,
       input.characterName,
       input.reflectionTone ?? '',
     ]),
+    conversationIntent,
   });
 
   const storyHints = input.visualStoryHints ?? [];
-  const mergedHints = [...visual.qualityHints, ...input.toneHints ?? [], ...storyHints];
-  if (mergedHints.length) {
-    visual.qualityHints = mergedHints.slice(0, 14);
-  }
+  const intentBlock = buildConversationScenePromptBlock(conversationIntent);
+  const alignedStory =
+    input.storyTopicKey && input.storyTopicKey === topicKey ? storyHints.slice(0, 2) : [];
 
-  if (input.storyTopicKey && input.storyTopicKey === topicKey) {
-    visual.prompt = [visual.prompt, ...storyHints.slice(0, 3)].filter(Boolean).join(', ');
-  }
+  visual.prompt = [intentBlock, visual.prompt, ...alignedStory].filter(Boolean).join(', ');
+  visual.qualityHints = [
+    ...visual.qualityHints,
+    ...input.toneHints ?? [],
+    ...storyHints.slice(0, 2),
+  ].slice(0, 16);
 
   return visual;
 }
@@ -298,4 +373,3 @@ export function buildFallbackMirrorVisual(
     seedHint: hashSeed([seed, personaFamilyId, 'general']),
   });
 }
-

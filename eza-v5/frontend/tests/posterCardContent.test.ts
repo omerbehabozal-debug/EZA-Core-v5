@@ -54,6 +54,21 @@ describe('buildPosterCardContent', () => {
     expect(c.activities[0]?.label).toBe('Sen');
   });
 
+  it('includes contextual highlight from card visual intent', () => {
+    const c = buildPosterCardContent({
+      ...baseCard,
+      dailyJourney: 'Sessiz Netlik',
+      visual: {
+        ...baseCard.visual!,
+        sceneIntentLabel: 'premium car comparison',
+        topicLabel: 'finans ve planlama',
+      },
+      storyVariant: 'compare',
+      storyTopicKey: 'finance',
+    } as DailyMirrorCardModel);
+    expect(c.contextualHighlight.kind).toBe('dual_comparison');
+  });
+
   it('uses dailyJourney headline and tone theme when present', () => {
     const c = buildPosterCardContent({
       ...baseCard,

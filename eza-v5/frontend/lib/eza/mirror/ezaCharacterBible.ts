@@ -148,7 +148,7 @@ export const TOPIC_TO_ARCHETYPE: Record<SceneTopicKey, CharacterArchetypeId> = {
   travel: 'journey_traveler',
   architecture: 'calm_panda',
   creativity: 'creative_spirit',
-  general: 'calm_panda',
+  general: 'bridge_builder',
 };
 
 /** Optional persona bias when topic is general or ambiguous. */

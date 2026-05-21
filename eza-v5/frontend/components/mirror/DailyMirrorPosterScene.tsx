@@ -53,7 +53,7 @@ export default function DailyMirrorPosterScene({
         className={cn(
           'absolute inset-0 bg-gradient-to-br',
           gradient,
-          'opacity-95'
+          'opacity-90'
         )}
       />
       {!showSceneImage ? (
@@ -67,7 +67,7 @@ export default function DailyMirrorPosterScene({
         <img
           src={sceneImageUrl!}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-[center_35%] eza-mirror-scene-image-enter"
+          className="absolute inset-0 h-full w-full object-cover object-[center_32%] brightness-[1.04] contrast-[1.06] saturate-[1.05] eza-mirror-scene-image-enter"
           crossOrigin={
             sceneImageNeedsCrossOrigin(sceneImageUrl!) ? 'anonymous' : undefined
           }
@@ -79,11 +79,11 @@ export default function DailyMirrorPosterScene({
         />
       ) : null}
       <div
-        className="absolute inset-0 bg-gradient-to-r from-[#120a24]/55 via-[#1a1035]/15 to-transparent"
+        className="absolute inset-0 bg-gradient-to-r from-[#0a0614]/38 via-transparent to-transparent"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_85%_at_50%_42%,transparent_48%,rgba(15,10,30,0.2)_100%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_130%_90%_at_50%_38%,transparent_52%,rgba(8,4,16,0.14)_100%)]"
         aria-hidden
       />
     </div>

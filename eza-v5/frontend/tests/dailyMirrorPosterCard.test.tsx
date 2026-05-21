@@ -51,12 +51,15 @@ describe('DailyMirrorPosterCard wiring', () => {
   it('poster component has 9:16 visual-dominant layout and Sen/AI/Denge blocks', () => {
     expect(posterSrc).toContain('data-mirror-card-root');
     expect(posterSrc).toContain('data-mirror-aspect="9-16"');
-    expect(posterSrc).toContain('data-mirror-poster="v3-visual-dominant"');
+    expect(posterSrc).toContain('data-mirror-poster="v5-presentation"');
+    expect(posterSrc).toContain('ContextualHighlightBand');
+    expect(posterSrc).toContain('posterStage');
     expect(skinSrc).toContain('aspect-[9/16]');
     expect(skinSrc).toContain('sceneBackdrop');
     expect(posterSrc).toContain('sceneBackdrop');
     expect(posterSrc).not.toContain('gridTemplateRows');
-    expect(posterSrc).not.toContain('bodyPanel');
+    expect(posterSrc).not.toContain('metricsGlass');
+    expect(posterSrc).not.toContain('glassTheme');
     expect(posterSrc).toContain('label="Sen"');
     expect(posterSrc).toContain('label="AI"');
     expect(posterSrc).toContain('label="Denge"');

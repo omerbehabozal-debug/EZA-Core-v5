@@ -86,7 +86,7 @@ describe('visualPromptEngine', () => {
     expect(visual.qualityHints.length).toBeGreaterThan(0);
   });
 
-  it('finance topic includes owl / terrace / strategy vocabulary', () => {
+  it('finance topic uses intent-first cinematic scene (not generic owl terrace)', () => {
     const visual = buildVisualPrompt({
       characterId: 'decision_direction',
       characterName: 'Yol Arayan',
@@ -95,12 +95,14 @@ describe('visualPromptEngine', () => {
       seedHint: 'test-finance',
     });
     const p = visual.prompt.toLowerCase();
-    expect(p).toMatch(/city terrace|golden hour|skyline|marble|owl|bilgeli/);
+    expect(p).toMatch(/research|decision|comparison|editorial/);
+    expect(p).not.toContain('city terrace golden hour');
     promptHasStyleContract(visual.prompt);
     expect(visual.topicLabel).toMatch(/finans/i);
+    expect(visual.sceneIntentLabel).toBeTruthy();
   });
 
-  it('health topic includes deer / wellness vocabulary', () => {
+  it('health topic uses wellness or culinary cinematic vocabulary', () => {
     const visual = buildVisualPrompt({
       characterId: 'balanced_calm',
       characterName: 'Şefkatli Geyik',
@@ -109,7 +111,7 @@ describe('visualPromptEngine', () => {
       seedHint: 'test-health',
     });
     const p = visual.prompt.toLowerCase();
-    expect(p).toMatch(/wellness|lavender|lake|deer|geyik|restorative/);
+    expect(p).toMatch(/wellness|kitchen|restorative|culinary|morning light/);
     expect(visual.topicLabel).toMatch(/sağlık/i);
   });
 
@@ -132,12 +134,13 @@ describe('visualPromptEngine', () => {
     promptHasLeftOverlayRules(visual.prompt);
     expect(visual.prompt.toLowerCase()).toContain('not a toy');
     expect(visual.prompt.toLowerCase()).toContain('mature premium editorial character');
-    expect(visual.prompt.toLowerCase()).toContain('sakin panda');
+    expect(visual.prompt.toLowerCase()).not.toContain('chat bubble');
   });
 
   it('negative prompt uses strengthened standard contract', () => {
     const visual = buildFallbackMirrorVisual();
-    expect(visual.negativePrompt).toBe(buildMirrorNegativePrompt('general'));
+    expect(visual.negativePrompt).toContain(buildMirrorNegativePrompt('general').slice(0, 80));
+    expect(visual.negativePrompt).toContain('generic mascot scene');
     expect(visual.negativePrompt).toContain(STANDARD_NEGATIVE_PROMPT.slice(0, 40));
   });
 
@@ -146,7 +149,9 @@ describe('visualPromptEngine', () => {
     expect(visual.topicLabel).toBe('genel düşünce');
     expect(visual.atmosphereLabel).toMatch(/sakin|düşünsel/i);
     expect(visual.emotionLabel).toMatch(/dengeli ve meraklı/i);
-    expect(visual.prompt.toLowerCase()).toMatch(/tranquil indoor-outdoor|calm reflective/);
+    expect(visual.prompt.toLowerCase()).toMatch(
+      /tranquil threshold|calm reflective|contemplation|quiet reflection/
+    );
   });
 
   it('seedHint is deterministic for same inputs', () => {
