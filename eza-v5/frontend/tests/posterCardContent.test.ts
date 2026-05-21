@@ -40,4 +40,30 @@ describe('buildPosterCardContent', () => {
     expect(c.quote.length).toBeGreaterThan(10);
     expect(c.relationshipBars).toHaveLength(3);
   });
+
+  it('prefers mirrorStory for poster description', () => {
+    const c = buildPosterCardContent({
+      ...baseCard,
+      mirrorStory:
+        'Bugün kendine iyi gelecek küçük seçimler aradın. AI ile birlikte özenli bir ritim oluştu.',
+      userLine: 'Kendine daha özenli seçimler hazırladın.',
+      aiLine: 'Özenli bir hazırlık ritmine eşlik etti.',
+      balanceLine: 'Bugünkü etkileşim sakin ama besleyici bir ritimde ilerledi.',
+    });
+    expect(c.description).toContain('seçimler aradın');
+    expect(c.activities[0]?.label).toBe('Sen');
+  });
+
+  it('uses card quote and tone theme when emotional layer is present', () => {
+    const c = buildPosterCardContent({
+      ...baseCard,
+      reflectionTone: 'thoughtful',
+      quote: 'Bazı cevaplar hemen değil, zamanla netleşir.',
+      themeDescription: 'Sorgulayan ama sakin bir zihin.',
+      tomorrowHint: 'Yarın için tek bir net soru yeterli olabilir.',
+    });
+    expect(c.quote).toBe('Bazı cevaplar hemen değil, zamanla netleşir.');
+    expect(c.themeDescription).toBe('Sorgulayan ama sakin bir zihin.');
+    expect(c.tomorrowHint).toContain('net soru');
+  });
 });

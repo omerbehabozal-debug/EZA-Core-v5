@@ -329,7 +329,12 @@ body {
   .eza-animate-fade-in-delay-4,
   .eza-animate-island-enter,
   .eza-panel-exit,
-  .eza-panel-enter {
+  .eza-panel-enter,
+  .eza-mirror-reveal-shimmer,
+  .eza-mirror-star-pulse,
+  .eza-mirror-reveal-progress,
+  .eza-mirror-card-enter,
+  .eza-mirror-scene-image-enter {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
@@ -363,4 +368,97 @@ body {
 
 .eza-animate-island-enter {
   animation: eza-island-enter 0.45s ease-out both;
+}
+
+/* EZA Mirror — daily ritual reveal & card entrance (Sprint 11A) */
+@keyframes eza-mirror-reveal-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes eza-mirror-star-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.92;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes eza-mirror-reveal-progress {
+  0% {
+    width: 12%;
+    opacity: 0.7;
+  }
+  50% {
+    width: 72%;
+    opacity: 1;
+  }
+  100% {
+    width: 100%;
+    opacity: 0.85;
+  }
+}
+
+@keyframes eza-mirror-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.eza-mirror-reveal-glow {
+  box-shadow:
+    0 16px 48px -20px rgba(99, 102, 241, 0.22),
+    0 0 40px -8px rgba(139, 92, 246, 0.15);
+}
+
+.eza-mirror-reveal-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.45) 45%,
+    transparent 90%
+  );
+  animation: eza-mirror-reveal-shimmer 2.2s ease-in-out infinite;
+}
+
+.eza-mirror-star-pulse {
+  animation: eza-mirror-star-pulse 2s ease-in-out infinite;
+}
+
+.eza-mirror-reveal-progress {
+  animation: eza-mirror-reveal-progress 1.6s ease-in-out infinite;
+}
+
+.eza-mirror-card-enter {
+  animation: eza-mirror-card-enter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes eza-mirror-scene-image-enter {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.eza-mirror-scene-image-enter {
+  animation: eza-mirror-scene-image-enter 0.6s ease-out both;
 }

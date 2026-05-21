@@ -14,6 +14,8 @@ import {
 } from '@/lib/eza/relationshipMapModel';
 import { buildPersonaSeed } from '@/lib/standaloneObservation';
 import { pickStandalonePersona, type PersonaFamilyId } from '@/lib/eza/standalonePersonas';
+import { composeEmotionalReflection } from '@/lib/eza/mirror/reflectionToneEngine';
+import { composeMirrorStory } from '@/lib/eza/mirror/mirrorStoryEngine';
 import { buildMirrorVisualFromContext, buildFallbackMirrorVisual } from '@/lib/eza/mirror/visualPromptEngine';
 import {
   MIRROR_MIN_SAMPLES,
@@ -216,15 +218,22 @@ function buildDailyMirrorCard(
     personaSeed
   );
 
-  const headline =
-    observation.manset ||
-    observation.primaryInsight ||
-    'Bugün AI ile ilişkin nasıl?';
-  const shortInsight =
-    observation.primaryInsight ||
-    observation.supportLine ||
-    observation.manset ||
-    'Son konuşmalarından kısa bir etkileşim notu.';
+  const emotional = composeEmotionalReflection({
+    entries,
+    seed,
+    observationHeadline: observation.manset || observation.primaryInsight,
+    observationInsight: observation.primaryInsight || observation.supportLine,
+    personaFamilyId,
+  });
+
+  const story = composeMirrorStory({
+    entries,
+    seed,
+    reflectionTone: emotional.reflectionTone,
+    emotionalRhythm: emotional.emotionalRhythm,
+    personaFamilyId,
+    observationCategoryId: observation.categoryId,
+  });
 
   const shareEnabled =
     hasEnoughData && observation.show && Boolean(observation.userLine?.trim());
@@ -237,24 +246,45 @@ function buildDailyMirrorCard(
     observationCategoryId: observation.categoryId,
     energyLabel,
     seed: `${seed}-visual`,
+    reflectionTone: emotional.reflectionTone,
+    atmosphereOverride: story.visualAtmosphereBoost ?? emotional.visualAtmosphere,
+    emotionOverride: emotional.visualEmotion,
+    toneHints: emotional.toneHints,
+    storyTopicKey: story.storyTopicKey,
+    visualStoryHints: story.visualStoryHints,
   });
+
+  const storyHeadline = story.dailyJourney;
+  const storyInsight = story.mirrorStory;
 
   return {
     date: formatDateIso(refDate),
     dayLabel: formatDayLabelTr(refDate),
-    headline,
+    headline: storyHeadline || emotional.headline,
     characterName: persona.name,
     personaFamilyId,
-    shortInsight,
-    userLine: observation.userLine,
-    aiLine: observation.aiLine,
-    balanceLine: observation.balanceLine,
+    shortInsight: storyInsight || emotional.shortInsight,
+    userLine: story.userStoryLine,
+    aiLine: story.aiStoryLine,
+    balanceLine: story.balanceStoryLine,
     signalLevel: observation.signalLevel,
     confidence: normalizeConfidenceLabel(observation.confidenceLabel),
     energyLabel,
     energyScore,
     shareEnabled,
     privacyText,
+    reflectionTone: emotional.reflectionTone,
+    reflectionWeight: emotional.reflectionWeight,
+    emotionalRhythm: emotional.emotionalRhythm,
+    toneHints: emotional.toneHints,
+    quote: emotional.quote,
+    tomorrowHint: emotional.tomorrowHint,
+    themeDescription: emotional.themeDescription,
+    mirrorStory: story.mirrorStory,
+    dailyJourney: story.dailyJourney,
+    relationshipMode: story.relationshipMode,
+    storyTone: story.storyTone,
+    storyTopicKey: story.storyTopicKey,
     visual,
   };
 }

@@ -71,21 +71,44 @@ export const MIRROR_SHARE_EXPORT_TEXT_LONG =
 export const MIRROR_SHARE_EXPORT_PRIVACY =
   'Mesaj içeriği paylaşılmaz. Yalnızca günlük yansıman görünür.';
 
-export const MIRROR_CREATE_TITLE = 'Bugünün AI aynanı oluştur';
+/** Günlük Ayna — ritüel idle (Sprint 11A) */
+export const MIRROR_CREATE_TITLE = 'Bugünün aynası seni bekliyor.';
 
 export const MIRROR_CREATE_DESCRIPTION =
-  'EZA, bugünkü yazışmalarındaki davranışsal sinyallerden kısa bir yansıma üretir.';
+  'EZA, bugünkü yazışmalarındaki davranışsal sinyallerden kısa bir yansıma oluşturur.';
 
-export const MIRROR_CREATE_BUTTON = 'Bugünün AI Aynanı Oluştur';
+export const MIRROR_CREATE_BUTTON = 'Bugünün Aynasını Aç';
 
-export const MIRROR_CREATE_GENERATING = 'Ayna hazırlanıyor…';
+export const MIRROR_CREATE_PRIVACY_NOTE =
+  'Mesaj içeriği paylaşılmaz. Yalnızca davranışsal yansıman görünür.';
+
+/** Reveal aşaması */
+export const MIRROR_REVEAL_MESSAGE = 'Yansıman hazırlanıyor…';
+
+/** Yetersiz veri */
+export const MIRROR_INSUFFICIENT_TITLE =
+  'Aynanın netleşmesi için birkaç iz daha gerekiyor.';
+
+export const MIRROR_INSUFFICIENT_BODY =
+  'EZA’nın seni daha doğru yansıtabilmesi için birkaç etkileşim daha oluşmalı.';
+
+export const MIRROR_INSUFFICIENT_ACTION = 'Sohbete Dön';
+
+export const MIRROR_STANDALONE_ROUTE = '/standalone';
 
 export const MIRROR_EPHEMERAL_NOTE =
-  'Bu yansıma kaydedilmez. Saklamak istersen paylaşabilir veya indirebilirsin.';
+  'Bu günlük yansıma arşivlenmez. Saklamak istersen paylaşabilir veya indirebilirsin.';
 
-export const MIRROR_SCENE_GENERATE_BUTTON = 'Mirror Görselini Oluştur';
+export const MIRROR_SCENE_GENERATE_BUTTON = 'Sahneyi Oluştur';
 
 export const MIRROR_SCENE_GENERATING = 'Mirror sahnesi hazırlanıyor…';
 
+export const MIRROR_SCENE_READY = 'Sahne hazır';
+
 export const MIRROR_SCENE_ERROR =
-  'Mirror sahnesi şu an hazırlanamadı. Daha sonra tekrar deneyebilirsin.';
+  'Mirror sahnesi şu an hazırlanamadı. Tekrar deneyebilirsin.';
+
+/** Ritüel süreleri (ms) */
+export const MIRROR_REVEAL_DURATION_MS = 1600;
+
+export const MIRROR_CARD_ENTER_DURATION_MS = 550;

@@ -3,6 +3,7 @@
  */
 
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
+import type { ReflectionToneId } from '@/lib/eza/mirror/reflectionToneEngine';
 import type { UserObservationCategoryId } from '@/lib/eza/dailyObservation';
 import { classifyDayFromEntries } from '@/lib/eza/dailyObservation';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
@@ -229,6 +230,12 @@ export interface BuildMirrorVisualFromContextInput {
   observationCategoryId?: UserObservationCategoryId;
   energyLabel?: string;
   seed: string;
+  reflectionTone?: ReflectionToneId;
+  atmosphereOverride?: string;
+  emotionOverride?: string;
+  toneHints?: string[];
+  storyTopicKey?: SceneTopicKey;
+  visualStoryHints?: string[];
 }
 
 /**
@@ -242,23 +249,38 @@ export function buildMirrorVisualFromContext(
     input.observationCategoryId,
     input.personaFamilyId
   );
-  const emotionLabel = inferEmotionLabel(input.energyLabel, input.observationCategoryId);
+  const emotionLabel =
+    input.emotionOverride ??
+    inferEmotionLabel(input.energyLabel, input.observationCategoryId);
   const preset = SCENE_TOPIC_PRESETS[topicKey];
 
-  return buildVisualPrompt({
+  const visual = buildVisualPrompt({
     characterId: input.personaFamilyId,
     characterName: input.characterName,
     personaFamilyId: input.personaFamilyId,
     topicKey,
-    atmosphereLabel: preset.atmosphereDefault,
+    atmosphereLabel: input.atmosphereOverride ?? preset.atmosphereDefault,
     emotionLabel,
     seedHint: hashSeed([
       input.seed,
       input.personaFamilyId,
       topicKey,
       input.characterName,
+      input.reflectionTone ?? '',
     ]),
   });
+
+  const storyHints = input.visualStoryHints ?? [];
+  const mergedHints = [...visual.qualityHints, ...input.toneHints ?? [], ...storyHints];
+  if (mergedHints.length) {
+    visual.qualityHints = mergedHints.slice(0, 14);
+  }
+
+  if (input.storyTopicKey && input.storyTopicKey === topicKey) {
+    visual.prompt = [visual.prompt, ...storyHints.slice(0, 3)].filter(Boolean).join(', ');
+  }
+
+  return visual;
 }
 
 export function buildFallbackMirrorVisual(

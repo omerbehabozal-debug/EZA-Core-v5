@@ -1,17 +1,20 @@
 'use client';
 
-import { Loader2, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MIRROR_CREATE_BUTTON,
   MIRROR_CREATE_DESCRIPTION,
-  MIRROR_CREATE_GENERATING,
+  MIRROR_CREATE_PRIVACY_NOTE,
   MIRROR_CREATE_TITLE,
-  MIRROR_INSUFFICIENT,
-  MIRROR_PRIVACY_SHORT,
+  MIRROR_INSUFFICIENT_ACTION,
+  MIRROR_INSUFFICIENT_BODY,
+  MIRROR_INSUFFICIENT_TITLE,
+  MIRROR_STANDALONE_ROUTE,
 } from '@/lib/eza/mirror/copy';
 
-export type DailyMirrorPromptVariant = 'idle' | 'generating' | 'insufficient';
+export type DailyMirrorPromptVariant = 'idle' | 'insufficient';
 
 export type DailyMirrorCreatePromptProps = {
   variant: DailyMirrorPromptVariant;
@@ -24,7 +27,6 @@ export default function DailyMirrorCreatePrompt({
   onGenerate,
   className,
 }: DailyMirrorCreatePromptProps) {
-  const isGenerating = variant === 'generating';
   const isInsufficient = variant === 'insufficient';
 
   return (
@@ -49,34 +51,39 @@ export default function DailyMirrorCreatePrompt({
             id="daily-mirror-create-title"
             className="text-xl font-semibold tracking-tight text-stone-900 sm:text-2xl"
           >
-            {isInsufficient ? 'Henüz erken' : MIRROR_CREATE_TITLE}
+            {isInsufficient ? MIRROR_INSUFFICIENT_TITLE : MIRROR_CREATE_TITLE}
           </h2>
           <p className="text-sm leading-relaxed text-stone-600 sm:text-[15px]">
-            {isInsufficient ? MIRROR_INSUFFICIENT : MIRROR_CREATE_DESCRIPTION}
+            {isInsufficient ? MIRROR_INSUFFICIENT_BODY : MIRROR_CREATE_DESCRIPTION}
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={isGenerating}
-          className={cn(
-            'inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors',
-            'hover:bg-violet-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500',
-            'disabled:cursor-wait disabled:opacity-80'
-          )}
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              {MIRROR_CREATE_GENERATING}
-            </>
-          ) : (
-            MIRROR_CREATE_BUTTON
-          )}
-        </button>
+        {isInsufficient ? (
+          <Link
+            href={MIRROR_STANDALONE_ROUTE}
+            className={cn(
+              'inline-flex w-full max-w-xs items-center justify-center rounded-full bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors',
+              'hover:bg-violet-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500'
+            )}
+          >
+            {MIRROR_INSUFFICIENT_ACTION}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onGenerate}
+            className={cn(
+              'inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors',
+              'hover:bg-violet-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500'
+            )}
+          >
+            {MIRROR_CREATE_BUTTON}
+          </button>
+        )}
 
-        <p className="text-xs leading-relaxed text-stone-500">{MIRROR_PRIVACY_SHORT}</p>
+        {!isInsufficient ? (
+          <p className="text-xs leading-relaxed text-stone-500">{MIRROR_CREATE_PRIVACY_NOTE}</p>
+        ) : null}
       </div>
     </section>
   );

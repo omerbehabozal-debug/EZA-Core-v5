@@ -55,7 +55,7 @@ export default function DailyMirrorPosterScene({
         <img
           src={sceneImageUrl!}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-center"
+          className="absolute inset-0 h-full w-full object-cover object-center eza-mirror-scene-image-enter"
           crossOrigin={
             sceneImageNeedsCrossOrigin(sceneImageUrl!) ? 'anonymous' : undefined
           }

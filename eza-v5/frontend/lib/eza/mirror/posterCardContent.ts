@@ -5,6 +5,7 @@
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
 import { FAMILY_ASSET_SLOTS } from '@/lib/eza/personaAssets';
+import type { ReflectionToneId } from '@/lib/eza/mirror/reflectionToneEngine';
 
 export type PosterActivityRow = {
   label: string;
@@ -32,12 +33,22 @@ export type PosterCardContent = {
 };
 
 const QUOTE_FALLBACKS = [
-  'Anlamak, haklı olmaktan daha güçlüdür.',
-  'Yavaşlamak, yönünü netleştirmektir.',
-  'Küçük bir adım, yarının dengesini kurar.',
-  'Gerçek dostluk, farklı fikirlerle bile birbirini seçmektir.',
-  'Kendine iyi baktığın her an, gelecekteki sana bir iyiliktir.',
+  'Bazı cevaplar hemen değil, zamanla netleşir.',
+  'Kendini anlamak da bir ilerleme biçimidir.',
+  'Küçük netlikler bazen büyük değişimlerden değerlidir.',
 ];
+
+const TONE_THEME_DESCRIPTION: Partial<Record<ReflectionToneId, string>> = {
+  emotionally_open: 'Empati ve bağ kurma alanı açık.',
+  thoughtful: 'Sorgulayan ama sakin bir zihin.',
+  mentally_tired: 'Yumuşak tempo, içe dönük bir gün.',
+  curious_light: 'Hafif merak ve açık ufuk.',
+  rebuilding: 'Yeniden toparlanma ve küçük adımlar.',
+  focused_growth: 'Net yön ve ölçülü ilerleme.',
+  emotionally_cautious: 'Özenli ve koruyucu bir tempo.',
+  quietly_confident: 'Sakin iç güven ve netlik.',
+  calm_reflective: 'Düşüncene alan açan sakin bir tempo.',
+};
 
 const THEME_FROM_TOPIC: Record<string, { title: string; description: string }> = {
   'sağlık ve iyi oluş': {
@@ -127,25 +138,32 @@ function truncate(s: string, max: number): string {
 
 function deriveTheme(card: DailyMirrorCardModel): { title: string; description: string } {
   const topic = card.visual?.topicLabel?.toLowerCase().trim();
-  if (topic && THEME_FROM_TOPIC[topic]) {
-    return THEME_FROM_TOPIC[topic];
-  }
-  return FAMILY_THEME[card.personaFamilyId] ?? THEME_FROM_TOPIC['genel düşünce']!;
+  const base =
+    topic && THEME_FROM_TOPIC[topic]
+      ? THEME_FROM_TOPIC[topic]
+      : FAMILY_THEME[card.personaFamilyId] ?? THEME_FROM_TOPIC['genel düşünce']!;
+  const toneDesc =
+    (card.reflectionTone && TONE_THEME_DESCRIPTION[card.reflectionTone]) ||
+    card.themeDescription;
+  return {
+    title: base.title,
+    description: toneDesc ?? base.description,
+  };
 }
 
 function deriveActivities(card: DailyMirrorCardModel): PosterActivityRow[] {
   const rows: PosterActivityRow[] = [];
   if (card.userLine.trim()) {
-    rows.push({ label: 'Senin yansıman', value: truncate(card.userLine, 72) });
+    rows.push({ label: 'Sen', value: truncate(card.userLine, 72) });
   }
   if (card.aiLine.trim()) {
-    rows.push({ label: 'AI yanıtı', value: truncate(card.aiLine, 72) });
+    rows.push({ label: 'AI', value: truncate(card.aiLine, 72) });
   }
   if (card.balanceLine.trim()) {
-    rows.push({ label: 'Denge notu', value: truncate(card.balanceLine, 72) });
+    rows.push({ label: 'Denge', value: truncate(card.balanceLine, 72) });
   }
   if (rows.length === 0) {
-    rows.push({ label: 'Bugün', value: truncate(card.shortInsight || card.headline, 72) });
+    rows.push({ label: 'Bugün', value: truncate(card.mirrorStory || card.shortInsight || card.headline, 72) });
   }
   return rows.slice(0, 3);
 }
@@ -172,20 +190,21 @@ export function buildPosterCardContent(card: DailyMirrorCardModel): PosterCardCo
       CHARACTER_NAME_GRADIENT.violet,
     themeTitle: theme.title,
     themeDescription: theme.description,
-    quote: hashPick(seed, QUOTE_FALLBACKS),
+    quote: card.quote?.trim() || hashPick(`${seed}-quote`, QUOTE_FALLBACKS),
     description: truncate(
-      card.shortInsight || card.headline || 'Bugünkü etkileşimlerinden kısa bir yansıma.',
-      160
+      card.mirrorStory || card.shortInsight || card.headline || 'Bugün AI ile geçirdiğin günün sakin bir yansıması.',
+      200
     ),
     activities: deriveActivities(card),
     energyDisplay: card.energyLabel || 'Dengede',
     energyPercent: card.energyScore ?? 62,
     relationshipBars: deriveRelationshipBars(card),
     relationshipNote: truncate(
-      card.balanceLine || 'İlişkinde küçük adımlar büyük fark yaratabilir.',
-      90
+      card.balanceLine || card.mirrorStory || 'Bugünkü etkileşim sakin ve dengeli bir ritimde ilerledi.',
+      100
     ),
     tomorrowHint:
+      card.tomorrowHint?.trim() ||
       'Bugünkü yansıman, yarın atacağın küçük bir adım için ipucu olabilir.',
   };
 }

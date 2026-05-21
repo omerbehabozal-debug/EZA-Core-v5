@@ -18,6 +18,7 @@ import {
   MIRROR_PAGE_SUBTITLE,
   MIRROR_PAGE_TITLE,
   MIRROR_PRIVACY_SHORT,
+  MIRROR_REVEAL_DURATION_MS,
   MIRROR_SHARE_LABEL,
   MIRROR_TAB_DAILY,
   MIRROR_TAB_PATTERN,
@@ -32,6 +33,8 @@ import { mergeDailyCardSceneVisual } from '@/lib/eza/mirror/mirrorSceneImage';
 import { generateMirrorScene } from '@/lib/eza/mirror/generateSceneApi';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
+import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
+import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
 import MirrorSceneGenerateButton from '@/components/mirror/MirrorSceneGenerateButton';
 import MirrorShareModal from '@/components/mirror/MirrorShareModal';
 import GovernanceInteractionReportView from '@/components/governance/GovernanceInteractionReportView';
@@ -44,7 +47,7 @@ const sh = standaloneSkin.share;
 
 type ObservationTab = 'last' | 'map';
 
-type DailyMirrorStatus = 'idle' | 'generating' | 'ready' | 'insufficient';
+type DailyMirrorStatus = 'idle' | 'revealing' | 'ready' | 'insufficient' | 'error';
 
 interface StandaloneObservationExperienceProps {
   entries: SavedBehavioralEntry[];
@@ -145,23 +148,29 @@ export default function StandaloneObservationExperience({
   }, [generatedDailyCard]);
 
   const handleGenerateDailyMirror = useCallback(() => {
-    setDailyStatus('generating');
+    setDailyStatus('revealing');
     window.setTimeout(() => {
-      const state = buildMirrorState(entries);
-      if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) {
-        setGeneratedDailyCard(null);
-        setGeneratedDailyMeta(null);
+      try {
+        const state = buildMirrorState(entries);
+        if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) {
+          setGeneratedDailyCard(null);
+          setGeneratedDailyMeta(null);
+          setSceneImageUrl(null);
+          setSceneImageStatus('idle');
+          setDailyStatus('insufficient');
+          return;
+        }
+        setGeneratedDailyCard(state.dailyMirrorCard);
+        setGeneratedDailyMeta(state.meta);
         setSceneImageUrl(null);
         setSceneImageStatus('idle');
-        setDailyStatus('insufficient');
-        return;
+        setDailyStatus('ready');
+      } catch {
+        setGeneratedDailyCard(null);
+        setGeneratedDailyMeta(null);
+        setDailyStatus('error');
       }
-      setGeneratedDailyCard(state.dailyMirrorCard);
-      setGeneratedDailyMeta(state.meta);
-      setSceneImageUrl(null);
-      setSceneImageStatus('idle');
-      setDailyStatus('ready');
-    }, 120);
+    }, MIRROR_REVEAL_DURATION_MS);
   }, [entries]);
 
   const handleShareClose = useCallback(() => {
@@ -188,17 +197,23 @@ export default function StandaloneObservationExperience({
     generatedDailyCard.shareEnabled;
 
   const renderDailyPanel = () => {
+    if (dailyStatus === 'revealing') {
+      return <DailyMirrorReveal />;
+    }
+
     if (dailyStatus === 'ready' && cardForRender) {
       return (
         <>
-          <div ref={mirrorExport.cardRef} data-mirror-card>
-            <DailyMirrorPosterCard
-              card={cardForRender}
-              meta={generatedDailyMeta ?? undefined}
-              onSceneImageLoad={handleSceneImageLoad}
-              onSceneImageError={handleSceneImageError}
-            />
-          </div>
+          <DailyMirrorCardEntrance>
+            <div ref={mirrorExport.cardRef} data-mirror-card>
+              <DailyMirrorPosterCard
+                card={cardForRender}
+                meta={generatedDailyMeta ?? undefined}
+                onSceneImageLoad={handleSceneImageLoad}
+                onSceneImageError={handleSceneImageError}
+              />
+            </div>
+          </DailyMirrorCardEntrance>
           <MirrorSceneGenerateButton
             status={sceneImageStatus}
             onGenerate={() => void handleGenerateMirrorScene()}
@@ -232,12 +247,7 @@ export default function StandaloneObservationExperience({
       );
     }
 
-    const promptVariant =
-      dailyStatus === 'generating'
-        ? 'generating'
-        : dailyStatus === 'insufficient'
-          ? 'insufficient'
-          : 'idle';
+    const promptVariant = dailyStatus === 'insufficient' ? 'insufficient' : 'idle';
 
     return (
       <DailyMirrorCreatePrompt variant={promptVariant} onGenerate={handleGenerateDailyMirror} />

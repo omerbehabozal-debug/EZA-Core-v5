@@ -68,6 +68,12 @@ describe('buildMirrorState', () => {
     expect(result.dailyMirrorCard.privacyText).toMatch(/gözlemsel/i);
     expect(result.dailyMirrorCard.shareEnabled).toBe(true);
     expect(result.dailyMirrorCard.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result.dailyMirrorCard.reflectionTone).toBeTruthy();
+    expect(result.dailyMirrorCard.quote?.length).toBeGreaterThan(8);
+    expect(result.dailyMirrorCard.emotionalRhythm).toBeTruthy();
+    expect(result.dailyMirrorCard.mirrorStory?.length).toBeGreaterThan(20);
+    expect(result.dailyMirrorCard.relationshipMode).toBeTruthy();
+    expect(result.dailyMirrorCard.userLine).not.toMatch(/sordun|araştırdın/i);
   });
 
   it('relationship pattern is never shareable and includes islands', () => {

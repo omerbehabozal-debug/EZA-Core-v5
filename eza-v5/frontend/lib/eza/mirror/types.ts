@@ -5,6 +5,15 @@
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
 import type { RelationshipPeriodDays } from '@/lib/eza/relationshipMapModel';
+import type {
+  EmotionalRhythmKind,
+  ReflectionToneId,
+} from '@/lib/eza/mirror/reflectionToneEngine';
+import type {
+  AiRelationshipModeId,
+  StoryToneId,
+} from '@/lib/eza/mirror/mirrorStoryEngine';
+import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
 
 /** Minimum interactions before mirror insights are considered reliable. */
 export const MIRROR_MIN_SAMPLES = 3;
@@ -65,6 +74,20 @@ export interface DailyMirrorCardModel {
   energyScore: number | null;
   shareEnabled: boolean;
   privacyText: string;
+  /** Emotional identity layer (Sprint 11B). */
+  reflectionTone?: ReflectionToneId;
+  reflectionWeight?: number;
+  emotionalRhythm?: EmotionalRhythmKind;
+  toneHints?: string[];
+  quote?: string;
+  tomorrowHint?: string;
+  themeDescription?: string;
+  /** Cinematic daily story layer (Sprint 11C). */
+  mirrorStory?: string;
+  dailyJourney?: string;
+  relationshipMode?: AiRelationshipModeId;
+  storyTone?: StoryToneId;
+  storyTopicKey?: SceneTopicKey;
   /** Textless AI scene prompt bundle (Sprint 6 — no image API yet). */
   visual?: MirrorVisualPromptPayload;
 }
