@@ -7,6 +7,11 @@ import type { DailyMirrorCardModel, MirrorStateMeta } from '@/lib/eza/mirror/typ
 import { MIRROR_INSUFFICIENT } from '@/lib/eza/mirror/copy';
 import { buildPosterCardContent } from '@/lib/eza/mirror/posterCardContent';
 import {
+  buildPosterCompositionStyle,
+  getPosterComposition,
+  highlightEmphasisFor,
+} from '@/lib/eza/mirror/posterCompositionSystem';
+import {
   POSTER_CARD_WIDTH_PX,
   posterCardSkin as s,
 } from '@/lib/eza/mirror/posterCardSkin';
@@ -31,7 +36,7 @@ function MetricWhisper({ label, line }: { label: string; line: string }) {
 }
 
 /**
- * Premium poster presentation — scene + contextual highlight + readable copy zones.
+ * Cinematic poster composition — scene · editorial type · whisper support.
  */
 export default function DailyMirrorPosterCard({
   card,
@@ -43,6 +48,15 @@ export default function DailyMirrorPosterCard({
     Boolean(meta?.hasEnoughData) && card.shareEnabled && Boolean(card.characterName);
   const isSparse = !isReady;
   const content = useMemo(() => buildPosterCardContent(card), [card]);
+  const composition = useMemo(() => getPosterComposition(card), [card]);
+  const compositionStyle = useMemo(
+    () => buildPosterCompositionStyle(composition),
+    [composition]
+  );
+  const highlightEmphasis = useMemo(
+    () => highlightEmphasisFor(composition.density, content.contextualHighlight.kind),
+    [composition.density, content.contextualHighlight.kind]
+  );
 
   const sen = content.activities.find((a) => a.label === 'Sen');
   const ai = content.activities.find((a) => a.label === 'AI');
@@ -52,9 +66,10 @@ export default function DailyMirrorPosterCard({
     <article
       data-mirror-card-root
       data-mirror-aspect="9-16"
-      data-mirror-poster="v5-presentation"
+      data-mirror-poster="v6-composition"
+      data-mirror-density={composition.density}
       className={s.root}
-      style={{ maxWidth: POSTER_CARD_WIDTH_PX }}
+      style={{ maxWidth: POSTER_CARD_WIDTH_PX, ...compositionStyle }}
       aria-labelledby="daily-mirror-poster-title"
     >
       <DailyMirrorPosterScene
@@ -71,8 +86,11 @@ export default function DailyMirrorPosterCard({
       <div className={s.grain} aria-hidden />
       <div className={s.vignette} aria-hidden />
 
-      <div className={s.contentStack}>
-        <header className={s.header}>
+      <div
+        className={s.contentStack}
+        style={{ gridTemplateRows: 'var(--poster-grid-rows)' }}
+      >
+        <header className={s.topSafeZone}>
           <p className={cn(s.logoText, 'flex items-center gap-1.5')}>
             <span className={s.logoMark}>
               <Sparkles className="h-2 w-2" strokeWidth={1.75} aria-hidden />
@@ -85,18 +103,27 @@ export default function DailyMirrorPosterCard({
           </p>
         </header>
 
-        <div className={s.headlineZone}>
+        <div className={s.titleSafeZone}>
           <h2 id="daily-mirror-poster-title" className={s.heroTitle}>
             {isSparse ? 'Yansıma hazırlanıyor' : content.journeyHeadline}
           </h2>
+          <p className={s.story}>
+            {isSparse ? MIRROR_INSUFFICIENT : content.storyLine}
+          </p>
         </div>
 
-        <div className={s.posterStage}>
-          {!isSparse ? <ContextualHighlightBand highlight={content.contextualHighlight} /> : null}
+        <div className={s.sceneAnchor} aria-hidden={isSparse}>
+          {!isSparse ? (
+            <div className={s.highlightAnchor}>
+              <ContextualHighlightBand
+                highlight={content.contextualHighlight}
+                emphasis={highlightEmphasis}
+              />
+            </div>
+          ) : null}
         </div>
 
-        <div className={s.copyPanel}>
-          <p className={s.story}>{isSparse ? MIRROR_INSUFFICIENT : content.storyLine}</p>
+        <div className={s.bottomSafeZone}>
           {!isSparse ? (
             <p className={s.quoteText}>
               <span className={s.quoteMark} aria-hidden>
@@ -108,21 +135,21 @@ export default function DailyMirrorPosterCard({
               </span>
             </p>
           ) : null}
+
+          {!isSparse ? (
+            <div className={s.metricsRow}>
+              <MetricWhisper label="Sen" line={sen?.value ?? '—'} />
+              <MetricWhisper label="AI" line={ai?.value ?? '—'} />
+              <MetricWhisper label="Denge" line={balance?.value ?? '—'} />
+            </div>
+          ) : null}
+
+          <footer className={cn(s.footer, 'px-0 pb-0')}>
+            <span>EZA</span>
+            <span>#EZAİlişkiAynası</span>
+            <span>eza.ai</span>
+          </footer>
         </div>
-
-        {!isSparse ? (
-          <div className={s.metricsRow}>
-            <MetricWhisper label="Sen" line={sen?.value ?? '—'} />
-            <MetricWhisper label="AI" line={ai?.value ?? '—'} />
-            <MetricWhisper label="Denge" line={balance?.value ?? '—'} />
-          </div>
-        ) : null}
-
-        <footer className={s.footer}>
-          <span>EZA</span>
-          <span>#EZAİlişkiAynası</span>
-          <span>eza.ai</span>
-        </footer>
       </div>
 
       <MirrorVisualPromptDebug visual={card.visual} />

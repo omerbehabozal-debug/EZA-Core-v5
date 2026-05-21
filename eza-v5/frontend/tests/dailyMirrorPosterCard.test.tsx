@@ -51,9 +51,10 @@ describe('DailyMirrorPosterCard wiring', () => {
   it('poster component has 9:16 visual-dominant layout and Sen/AI/Denge blocks', () => {
     expect(posterSrc).toContain('data-mirror-card-root');
     expect(posterSrc).toContain('data-mirror-aspect="9-16"');
-    expect(posterSrc).toContain('data-mirror-poster="v5-presentation"');
+    expect(posterSrc).toContain('data-mirror-poster="v6-composition"');
     expect(posterSrc).toContain('ContextualHighlightBand');
-    expect(posterSrc).toContain('posterStage');
+    expect(posterSrc).toContain('titleSafeZone');
+    expect(posterSrc).toContain('posterCompositionSystem');
     expect(skinSrc).toContain('aspect-[9/16]');
     expect(skinSrc).toContain('sceneBackdrop');
     expect(posterSrc).toContain('sceneBackdrop');

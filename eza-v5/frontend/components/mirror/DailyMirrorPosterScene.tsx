@@ -79,7 +79,11 @@ export default function DailyMirrorPosterScene({
         />
       ) : null}
       <div
-        className="absolute inset-0 bg-gradient-to-r from-[#0a0614]/38 via-transparent to-transparent"
+        className="absolute inset-0 bg-gradient-to-r from-[#0a0614]/52 via-[#0a0614]/12 via-40% to-transparent"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-[28%] bg-gradient-to-b from-[#0a0614]/42 to-transparent"
         aria-hidden
       />
       <div
