@@ -1,0 +1,85 @@
+{
+  "averageGeneral": 5,
+  "rows": [
+    {
+      "scenario": "Finans / kıyas",
+      "scores": {
+        "aspect916": 5,
+        "visualDominant": 5,
+        "textBalance": 5,
+        "editorialHeadline": 5,
+        "storyAlignment": 5,
+        "mobile": 5,
+        "exportCheck": 5,
+        "general": 5
+      },
+      "headline": "Sakinleş ve Netleştir",
+      "topic": "finance",
+      "notes": []
+    },
+    {
+      "scenario": "Sağlık / özen",
+      "scores": {
+        "aspect916": 5,
+        "visualDominant": 5,
+        "textBalance": 5,
+        "editorialHeadline": 5,
+        "storyAlignment": 5,
+        "mobile": 5,
+        "exportCheck": 5,
+        "general": 5
+      },
+      "headline": "Yumuşak Bakım",
+      "topic": "health",
+      "notes": []
+    },
+    {
+      "scenario": "Mimari / restorasyon",
+      "scores": {
+        "aspect916": 5,
+        "visualDominant": 5,
+        "textBalance": 5,
+        "editorialHeadline": 5,
+        "storyAlignment": 5,
+        "mobile": 5,
+        "exportCheck": 5,
+        "general": 5
+      },
+      "headline": "Durgun Açıklık",
+      "topic": "architecture",
+      "notes": []
+    },
+    {
+      "scenario": "Seyahat / keşif",
+      "scores": {
+        "aspect916": 5,
+        "visualDominant": 5,
+        "textBalance": 5,
+        "editorialHeadline": 5,
+        "storyAlignment": 5,
+        "mobile": 5,
+        "exportCheck": 5,
+        "general": 5
+      },
+      "headline": "Ölçülü Düşün",
+      "topic": "travel",
+      "notes": []
+    },
+    {
+      "scenario": "Arkadaşlık / iletişim",
+      "scores": {
+        "aspect916": 5,
+        "visualDominant": 5,
+        "textBalance": 5,
+        "editorialHeadline": 5,
+        "storyAlignment": 5,
+        "mobile": 5,
+        "exportCheck": 5,
+        "general": 5
+      },
+      "headline": "Durgun Açıklık",
+      "topic": "friendship",
+      "notes": []
+    }
+  ]
+}
