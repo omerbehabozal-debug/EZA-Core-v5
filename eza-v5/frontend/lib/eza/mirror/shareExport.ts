@@ -11,6 +11,8 @@ export type MirrorExportFormat = 'png';
 
 export const MIRROR_EXPORT_TARGET_WIDTH = 1080;
 
+export const MIRROR_EXPORT_TARGET_HEIGHT = 1920;
+
 export const MIRROR_EXPORT_DEFAULT_PIXEL_RATIO = 2;
 
 export type MirrorShareResult = 'shared' | 'downloaded' | 'copied' | 'unsupported' | 'failed';
@@ -18,6 +20,7 @@ export type MirrorShareResult = 'shared' | 'downloaded' | 'copied' | 'unsupporte
 export interface MirrorExportOptions {
   format?: MirrorExportFormat;
   width?: number;
+  height?: number;
   pixelRatio?: number;
 }
 
@@ -41,7 +44,11 @@ export async function exportMirrorCardToPng(
 
   const { toBlob } = await import('html-to-image');
   const width = options?.width ?? MIRROR_EXPORT_TARGET_WIDTH;
-  const height = resolveExportHeight(node, width);
+  const height =
+    options?.height ??
+    (node.dataset.mirrorAspect === '9-16'
+      ? MIRROR_EXPORT_TARGET_HEIGHT
+      : resolveExportHeight(node, width));
   const pixelRatio = options?.pixelRatio ?? MIRROR_EXPORT_DEFAULT_PIXEL_RATIO;
 
   const blob = await toBlob(node, {

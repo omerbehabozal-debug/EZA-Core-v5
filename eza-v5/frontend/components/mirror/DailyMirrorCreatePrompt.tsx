@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   MIRROR_CREATE_BUTTON,
   MIRROR_CREATE_DESCRIPTION,
@@ -22,6 +23,8 @@ export type DailyMirrorCreatePromptProps = {
   className?: string;
 };
 
+const ms = standaloneSkin.mirrorSurface;
+
 export default function DailyMirrorCreatePrompt({
   variant,
   onGenerate,
@@ -31,29 +34,25 @@ export default function DailyMirrorCreatePrompt({
 
   return (
     <section
-      className={cn(
-        'relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-gradient-to-b from-white via-white to-violet-50/25 px-6 py-10 text-center shadow-[0_16px_48px_-20px_rgba(99,102,241,0.2)] sm:px-10 sm:py-12',
-        className
-      )}
+      className={cn(ms.idleRoot, className)}
       aria-labelledby="daily-mirror-create-title"
     >
-      <div
-        className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-violet-100/50 blur-3xl"
-        aria-hidden
-      />
-      <div className="relative mx-auto max-w-md space-y-5">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100/90 text-violet-700">
-          <Sparkles className="h-6 w-6" aria-hidden />
+      <div className="relative mx-auto flex w-full max-w-sm flex-col items-center gap-7">
+        <div
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-100/70 text-violet-600/90 shadow-[0_0_28px_-6px_rgba(139,92,246,0.35)]"
+          aria-hidden
+        >
+          <Sparkles className="h-5 w-5" strokeWidth={1.75} />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           <h2
             id="daily-mirror-create-title"
-            className="text-xl font-semibold tracking-tight text-stone-900 sm:text-2xl"
+            className="text-[1.35rem] font-semibold tracking-[-0.03em] text-stone-900 sm:text-2xl"
           >
             {isInsufficient ? MIRROR_INSUFFICIENT_TITLE : MIRROR_CREATE_TITLE}
           </h2>
-          <p className="text-sm leading-relaxed text-stone-600 sm:text-[15px]">
+          <p className="text-sm leading-relaxed text-stone-500/95 sm:text-[15px]">
             {isInsufficient ? MIRROR_INSUFFICIENT_BODY : MIRROR_CREATE_DESCRIPTION}
           </p>
         </div>
@@ -62,8 +61,8 @@ export default function DailyMirrorCreatePrompt({
           <Link
             href={MIRROR_STANDALONE_ROUTE}
             className={cn(
-              'inline-flex w-full max-w-xs items-center justify-center rounded-full bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors',
-              'hover:bg-violet-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500'
+              'inline-flex items-center justify-center rounded-full bg-stone-900 px-7 py-2.5 text-sm font-medium text-white transition-colors',
+              'hover:bg-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400'
             )}
           >
             {MIRROR_INSUFFICIENT_ACTION}
@@ -73,8 +72,8 @@ export default function DailyMirrorCreatePrompt({
             type="button"
             onClick={onGenerate}
             className={cn(
-              'inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors',
-              'hover:bg-violet-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500'
+              'inline-flex items-center justify-center rounded-full bg-stone-900 px-8 py-3 text-sm font-medium text-white transition-colors',
+              'hover:bg-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400'
             )}
           >
             {MIRROR_CREATE_BUTTON}
@@ -82,7 +81,9 @@ export default function DailyMirrorCreatePrompt({
         )}
 
         {!isInsufficient ? (
-          <p className="text-xs leading-relaxed text-stone-500">{MIRROR_CREATE_PRIVACY_NOTE}</p>
+          <p className="text-[11px] tracking-wide text-stone-400/95">
+            {MIRROR_CREATE_PRIVACY_NOTE}
+          </p>
         ) : null}
       </div>
     </section>

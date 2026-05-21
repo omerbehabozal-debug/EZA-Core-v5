@@ -13,6 +13,11 @@ import type {
   AiRelationshipModeId,
   StoryToneId,
 } from '@/lib/eza/mirror/mirrorStoryEngine';
+import type {
+  MicroMoodId,
+  ReflectionSignals,
+  TopicStoryVariantId,
+} from '@/lib/eza/mirror/reflectionSignals';
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
 
 /** Minimum interactions before mirror insights are considered reliable. */
@@ -88,6 +93,9 @@ export interface DailyMirrorCardModel {
   relationshipMode?: AiRelationshipModeId;
   storyTone?: StoryToneId;
   storyTopicKey?: SceneTopicKey;
+  storyVariant?: TopicStoryVariantId;
+  microMood?: MicroMoodId;
+  reflectionSignals?: ReflectionSignals;
   /** Textless AI scene prompt bundle (Sprint 6 — no image API yet). */
   visual?: MirrorVisualPromptPayload;
 }

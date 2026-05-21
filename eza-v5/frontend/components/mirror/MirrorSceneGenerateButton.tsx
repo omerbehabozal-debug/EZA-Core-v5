@@ -1,12 +1,13 @@
 'use client';
 
-import { Loader2, ImageIcon } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
-  MIRROR_SCENE_ERROR,
   MIRROR_SCENE_GENERATE_BUTTON,
   MIRROR_SCENE_GENERATING,
   MIRROR_SCENE_READY,
+  MIRROR_SCENE_RETRY,
 } from '@/lib/eza/mirror/copy';
 import type { MirrorSceneImageStatus } from '@/lib/eza/mirror/types';
 
@@ -16,6 +17,15 @@ export type MirrorSceneGenerateButtonProps = {
   disabled?: boolean;
   className?: string;
 };
+
+const ms = standaloneSkin.mirrorSurface;
+
+const btnClass = cn(
+  'inline-flex items-center justify-center gap-2 rounded-full border border-stone-200/50 bg-white/80 px-5 py-2 text-xs font-medium tracking-tight text-stone-600 transition-colors',
+  'hover:border-violet-200/40 hover:bg-white hover:text-stone-800',
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/50',
+  'disabled:cursor-not-allowed disabled:opacity-50'
+);
 
 export default function MirrorSceneGenerateButton({
   status,
@@ -30,7 +40,7 @@ export default function MirrorSceneGenerateButton({
   if (isReady) {
     return (
       <p
-        className={cn('text-center text-xs font-medium text-violet-700/90', className)}
+        className={cn('text-center text-[11px] font-medium tracking-wide text-stone-400', className)}
         role="status"
       >
         {MIRROR_SCENE_READY}
@@ -38,35 +48,26 @@ export default function MirrorSceneGenerateButton({
     );
   }
 
+  const label = isError
+    ? MIRROR_SCENE_RETRY
+    : isGenerating
+      ? MIRROR_SCENE_GENERATING
+      : MIRROR_SCENE_GENERATE_BUTTON;
+
   return (
-    <div className={cn('flex flex-col items-center gap-2', className)}>
+    <div className={cn(ms.sceneWrap, 'gap-2', className)}>
       <button
         type="button"
         onClick={onGenerate}
         disabled={disabled || isGenerating}
-        className={cn(
-          'inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-full border border-violet-200/90 bg-white/90 px-5 py-2.5 text-sm font-semibold text-violet-800 shadow-sm transition-colors',
-          'hover:border-violet-300 hover:bg-violet-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500',
-          'disabled:cursor-not-allowed disabled:opacity-60'
-        )}
+        className={btnClass}
+        aria-busy={isGenerating}
       >
         {isGenerating ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            {MIRROR_SCENE_GENERATING}
-          </>
-        ) : (
-          <>
-            <ImageIcon className="h-4 w-4" aria-hidden />
-            {MIRROR_SCENE_GENERATE_BUTTON}
-          </>
-        )}
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+        ) : null}
+        {label}
       </button>
-      {isError ? (
-        <p className="text-center text-sm text-stone-500" role="status">
-          {MIRROR_SCENE_ERROR}
-        </p>
-      ) : null}
     </div>
   );
 }

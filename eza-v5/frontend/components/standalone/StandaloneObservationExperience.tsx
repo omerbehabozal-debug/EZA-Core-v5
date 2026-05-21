@@ -1,23 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Share2, Shield, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Share2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
-import { buildBehavioralDashboard } from '@/lib/eza/behavioralDashboard';
 import {
-  buildGovernanceReportFromBehavioral,
-  emptyGovernanceReportPlaceholder,
-  type GovernanceReportViewModel,
-} from '@/lib/eza/governanceReportModel';
-import { STANDALONE_SIGNAL_NOTE } from '@/lib/eza/presentationTone';
-import {
-  MIRROR_DETAILS_SUMMARY,
-  MIRROR_EPHEMERAL_NOTE,
   MIRROR_NAV_ARIA,
   MIRROR_PAGE_SUBTITLE,
   MIRROR_PAGE_TITLE,
-  MIRROR_PRIVACY_SHORT,
   MIRROR_REVEAL_DURATION_MS,
   MIRROR_SHARE_LABEL,
   MIRROR_TAB_DAILY,
@@ -37,13 +27,10 @@ import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
 import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
 import MirrorSceneGenerateButton from '@/components/mirror/MirrorSceneGenerateButton';
 import MirrorShareModal from '@/components/mirror/MirrorShareModal';
-import GovernanceInteractionReportView from '@/components/governance/GovernanceInteractionReportView';
 import RelationshipPatternView from '@/components/mirror/RelationshipPatternView';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
 import ReportsPanelTransition from '@/components/standalone/ReportsPanelTransition';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
-
-const sh = standaloneSkin.share;
 
 type ObservationTab = 'last' | 'map';
 
@@ -56,7 +43,6 @@ interface StandaloneObservationExperienceProps {
 
 export default function StandaloneObservationExperience({
   entries,
-  onClear,
 }: StandaloneObservationExperienceProps) {
   const [tab, setTab] = useState<ObservationTab>('last');
   const [shareOpen, setShareOpen] = useState(false);
@@ -67,40 +53,11 @@ export default function StandaloneObservationExperience({
   const [generatedDailyMeta, setGeneratedDailyMeta] = useState<MirrorStateMeta | null>(null);
   const [sceneImageUrl, setSceneImageUrl] = useState<string | null>(null);
   const [sceneImageStatus, setSceneImageStatus] = useState<MirrorSceneImageStatus>('idle');
-  const detailsRef = useRef<HTMLDetailsElement>(null);
   const mirrorExport = useMirrorCardExport();
 
-  const hasEntries = entries.length > 0;
-
-  const dash = useMemo(() => {
-    if (!hasEntries) return null;
-    try {
-      return buildBehavioralDashboard(entries);
-    } catch {
-      return null;
-    }
-  }, [entries, hasEntries]);
-
-  const reportModel: GovernanceReportViewModel | null = useMemo(() => {
-    if (!hasEntries || !dash) return null;
-    try {
-      return buildGovernanceReportFromBehavioral(dash, entries);
-    } catch {
-      return null;
-    }
-  }, [dash, entries, hasEntries]);
-
-  const model = useMemo(
-    () =>
-      hasEntries
-        ? reportModel ?? emptyGovernanceReportPlaceholder('Gözlem şu an yüklenemedi.')
-        : null,
-    [hasEntries, reportModel]
-  );
-
-  const observation = model?.dailyObservation;
   const rp = standaloneSkin.reportsPremium;
   const op = standaloneSkin.observationPolish;
+  const ms = standaloneSkin.mirrorSurface;
 
   useEffect(() => {
     if (entries.length === 0) {
@@ -190,8 +147,7 @@ export default function StandaloneObservationExperience({
     await mirrorExport.share(generatedDailyCard?.date);
   }, [mirrorExport, generatedDailyCard?.date]);
 
-  const showShareButton =
-    tab === 'last' &&
+  const showShareAction =
     dailyStatus === 'ready' &&
     generatedDailyCard !== null &&
     generatedDailyCard.shareEnabled;
@@ -203,9 +159,9 @@ export default function StandaloneObservationExperience({
 
     if (dailyStatus === 'ready' && cardForRender) {
       return (
-        <>
-          <DailyMirrorCardEntrance>
-            <div ref={mirrorExport.cardRef} data-mirror-card>
+        <div className={ms.dailyReadyStack}>
+          <DailyMirrorCardEntrance className="w-full">
+            <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
               <DailyMirrorPosterCard
                 card={cardForRender}
                 meta={generatedDailyMeta ?? undefined}
@@ -214,40 +170,30 @@ export default function StandaloneObservationExperience({
               />
             </div>
           </DailyMirrorCardEntrance>
-          <MirrorSceneGenerateButton
-            status={sceneImageStatus}
-            onGenerate={() => void handleGenerateMirrorScene()}
-            disabled={!generatedDailyCard?.visual?.prompt}
-          />
-          <p className="text-center text-sm leading-relaxed text-stone-500">
-            {MIRROR_EPHEMERAL_NOTE}
-          </p>
 
-          {model && observation ? (
-            <details
-              ref={detailsRef}
-              className="rounded-2xl border border-white/70 bg-white/50 open:bg-white/65"
-            >
-              <summary className="cursor-pointer list-none px-5 py-3.5 text-sm font-medium text-stone-600 marker:content-none [&::-webkit-details-marker]:hidden">
-                {MIRROR_DETAILS_SUMMARY}
-              </summary>
-              <div className="border-t border-violet-100/50 px-2 pb-4 pt-2">
-                <GovernanceInteractionReportView
-                  model={{ ...model, disclaimer: MIRROR_PRIVACY_SHORT }}
-                  signalNote={STANDALONE_SIGNAL_NOTE}
-                  trendValueLabel="AI yanıt yansıması"
-                  onClearHistory={onClear}
-                  embeddedInStandalone
-                  observationMode="details-only"
-                />
-              </div>
-            </details>
-          ) : null}
-        </>
+          <div className="flex w-full max-w-sm flex-col items-center gap-4">
+            {showShareAction ? (
+              <button
+                type="button"
+                onClick={() => setShareOpen(true)}
+                className={ms.shareAction}
+              >
+                <Share2 className="h-3.5 w-3.5 opacity-70" aria-hidden />
+                {MIRROR_SHARE_LABEL}
+              </button>
+            ) : null}
+            <MirrorSceneGenerateButton
+              status={sceneImageStatus}
+              onGenerate={() => void handleGenerateMirrorScene()}
+              disabled={!generatedDailyCard?.visual?.prompt}
+            />
+          </div>
+        </div>
       );
     }
 
-    const promptVariant = dailyStatus === 'insufficient' ? 'insufficient' : 'idle';
+    const promptVariant =
+      dailyStatus === 'insufficient' || dailyStatus === 'error' ? 'insufficient' : 'idle';
 
     return (
       <DailyMirrorCreatePrompt variant={promptVariant} onGenerate={handleGenerateDailyMirror} />
@@ -257,15 +203,7 @@ export default function StandaloneObservationExperience({
   const renderPanel = useCallback(
     (key: string) => {
       if (key === 'last') {
-        return (
-          <>
-            {renderDailyPanel()}
-            <div className={rp.disclaimerBar} role="note">
-              <Shield className={rp.disclaimerIcon} aria-hidden />
-              <p>{MIRROR_PRIVACY_SHORT}</p>
-            </div>
-          </>
-        );
+        return <div className={ms.dailyStage}>{renderDailyPanel()}</div>;
       }
 
       return <RelationshipPatternView entries={entries} />;
@@ -275,17 +213,16 @@ export default function StandaloneObservationExperience({
       cardForRender,
       generatedDailyMeta,
       entries,
-      model,
-      observation,
-      onClear,
       handleGenerateDailyMirror,
       handleGenerateMirrorScene,
       sceneImageStatus,
       handleSceneImageLoad,
       handleSceneImageError,
       mirrorExport.cardRef,
-      rp.disclaimerBar,
-      rp.disclaimerIcon,
+      showShareAction,
+      ms.dailyStage,
+      ms.dailyReadyStack,
+      ms.shareAction,
     ]
   );
 
@@ -297,46 +234,36 @@ export default function StandaloneObservationExperience({
         <div className={rp.ambientOrbC} />
       </div>
 
-      <header className={rp.pageHeader}>
+      <header className={cn(rp.pageHeader, 'sm:mb-2')}>
         <div className="min-w-0 flex-1">
           <h1 className={op.headerTitle}>
-            <span className={rp.pageTitleRow}>
-              <Sparkles className={rp.pageTitleIcon} aria-hidden />
+            <span className={cn(rp.pageTitleRow, 'gap-2')}>
+              <Sparkles
+                className="h-6 w-6 text-violet-500/80 sm:h-7 sm:w-7"
+                strokeWidth={1.5}
+                aria-hidden
+              />
               {MIRROR_PAGE_TITLE}
             </span>
           </h1>
-          <p className={op.headerSub}>{MIRROR_PAGE_SUBTITLE}</p>
+          <p className={cn(op.headerSub, 'mt-2 max-w-md text-stone-500/85')}>
+            {MIRROR_PAGE_SUBTITLE}
+          </p>
         </div>
-        {showShareButton ? (
-          <button
-            type="button"
-            onClick={() => setShareOpen(true)}
-            className={cn(sh.triggerBtn, 'sm:w-auto sm:self-start')}
-          >
-            <Share2 className="h-3.5 w-3.5" aria-hidden />
-            {MIRROR_SHARE_LABEL}
-          </button>
-        ) : null}
       </header>
 
-      <nav className={standaloneSkin.observationTabList} aria-label={MIRROR_NAV_ARIA}>
+      <nav className={ms.tabList} aria-label={MIRROR_NAV_ARIA}>
         <button
           type="button"
           onClick={() => setTab('last')}
-          className={cn(
-            standaloneSkin.observationTab,
-            tab === 'last' ? standaloneSkin.observationTabActive : standaloneSkin.observationTabIdle
-          )}
+          className={cn(ms.tab, tab === 'last' ? ms.tabActive : ms.tabIdle)}
         >
           {MIRROR_TAB_DAILY}
         </button>
         <button
           type="button"
           onClick={() => setTab('map')}
-          className={cn(
-            standaloneSkin.observationTab,
-            tab === 'map' ? standaloneSkin.observationTabActive : standaloneSkin.observationTabIdle
-          )}
+          className={cn(ms.tab, tab === 'map' ? ms.tabActive : ms.tabIdle)}
         >
           {MIRROR_TAB_PATTERN}
         </button>

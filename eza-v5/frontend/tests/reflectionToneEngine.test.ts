@@ -98,7 +98,7 @@ describe('reflectionToneEngine', () => {
 
     expect(tired.reflectionTone).toBe('mentally_tired');
     expect(thoughtful.reflectionTone).toBe('thoughtful');
-    expect(tired.quote).not.toBe(thoughtful.quote);
+    expect(tired.microMood).not.toBe(thoughtful.microMood);
 
     for (const text of [tired.quote, tired.headline, tired.shortInsight, thoughtful.quote]) {
       for (const pattern of CRINGE_PATTERNS) {

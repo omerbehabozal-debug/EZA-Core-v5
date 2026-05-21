@@ -20,17 +20,22 @@ export type PosterRelationshipBar = {
 export type PosterCardContent = {
   characterEmoji: string;
   characterGradient: string;
+  journeyHeadline: string;
   themeTitle: string;
   themeDescription: string;
   quote: string;
-  description: string;
+  storyLine: string;
   activities: PosterActivityRow[];
   energyDisplay: string;
   energyPercent: number;
   relationshipBars: PosterRelationshipBar[];
-  relationshipNote: string;
-  tomorrowHint: string;
 };
+
+/** Poster copy limits (≈2 lines at card width). */
+export const POSTER_STORY_MAX = 128;
+export const POSTER_THEME_DESC_MAX = 72;
+export const POSTER_QUOTE_MAX = 96;
+export const POSTER_RELATION_LINE_MAX = 52;
 
 const QUOTE_FALLBACKS = [
   'Bazı cevaplar hemen değil, zamanla netleşir.',
@@ -154,16 +159,22 @@ function deriveTheme(card: DailyMirrorCardModel): { title: string; description: 
 function deriveActivities(card: DailyMirrorCardModel): PosterActivityRow[] {
   const rows: PosterActivityRow[] = [];
   if (card.userLine.trim()) {
-    rows.push({ label: 'Sen', value: truncate(card.userLine, 72) });
+    rows.push({ label: 'Sen', value: truncate(card.userLine, POSTER_RELATION_LINE_MAX) });
   }
   if (card.aiLine.trim()) {
-    rows.push({ label: 'AI', value: truncate(card.aiLine, 72) });
+    rows.push({ label: 'AI', value: truncate(card.aiLine, POSTER_RELATION_LINE_MAX) });
   }
   if (card.balanceLine.trim()) {
-    rows.push({ label: 'Denge', value: truncate(card.balanceLine, 72) });
+    rows.push({ label: 'Denge', value: truncate(card.balanceLine, POSTER_RELATION_LINE_MAX) });
   }
   if (rows.length === 0) {
-    rows.push({ label: 'Bugün', value: truncate(card.mirrorStory || card.shortInsight || card.headline, 72) });
+    rows.push({
+      label: 'Bugün',
+      value: truncate(
+        card.mirrorStory || card.shortInsight || card.headline,
+        POSTER_RELATION_LINE_MAX
+      ),
+    });
   }
   return rows.slice(0, 3);
 }
@@ -183,28 +194,29 @@ export function buildPosterCardContent(card: DailyMirrorCardModel): PosterCardCo
   const theme = deriveTheme(card);
   const seed = card.visual?.seedHint ?? card.date ?? card.characterName;
 
+  const storyRaw =
+    card.mirrorStory?.trim() ||
+    card.shortInsight?.trim() ||
+    card.headline?.trim() ||
+    'Bugün AI ile geçirdiğin günün sakin bir yansıması.';
+
   return {
     characterEmoji: slot?.iconFallback ?? '✨',
     characterGradient:
       CHARACTER_NAME_GRADIENT[slot?.colorToken ?? 'violet'] ??
       CHARACTER_NAME_GRADIENT.violet,
+    journeyHeadline:
+      card.dailyJourney?.trim() || card.headline?.trim() || card.characterName || 'Bugün',
     themeTitle: theme.title,
-    themeDescription: theme.description,
-    quote: card.quote?.trim() || hashPick(`${seed}-quote`, QUOTE_FALLBACKS),
-    description: truncate(
-      card.mirrorStory || card.shortInsight || card.headline || 'Bugün AI ile geçirdiğin günün sakin bir yansıması.',
-      200
+    themeDescription: truncate(theme.description, POSTER_THEME_DESC_MAX),
+    quote: truncate(
+      card.quote?.trim() || hashPick(`${seed}-quote`, QUOTE_FALLBACKS),
+      POSTER_QUOTE_MAX
     ),
+    storyLine: truncate(storyRaw, POSTER_STORY_MAX),
     activities: deriveActivities(card),
     energyDisplay: card.energyLabel || 'Dengede',
     energyPercent: card.energyScore ?? 62,
     relationshipBars: deriveRelationshipBars(card),
-    relationshipNote: truncate(
-      card.balanceLine || card.mirrorStory || 'Bugünkü etkileşim sakin ve dengeli bir ritimde ilerledi.',
-      100
-    ),
-    tomorrowHint:
-      card.tomorrowHint?.trim() ||
-      'Bugünkü yansıman, yarın atacağın küçük bir adım için ipucu olabilir.',
   };
 }

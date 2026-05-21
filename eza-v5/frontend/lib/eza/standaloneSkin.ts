@@ -88,6 +88,24 @@ export const standaloneSkin = {
   observationTabIdle:
     'text-stone-500 hover:bg-white/40 hover:text-stone-700 active:scale-[0.99] motion-reduce:active:scale-100',
 
+  /** EZA Mirror — premium daily surface (Sprint 11D) */
+  mirrorSurface: {
+    tabList:
+      'mx-auto flex h-10 w-full max-w-[22rem] items-stretch gap-0.5 rounded-full border border-stone-200/35 bg-white/75 p-0.5 shadow-[0_2px_16px_-6px_rgba(99,102,241,0.06)] backdrop-blur-sm sm:max-w-[26rem]',
+    tab: 'flex min-h-[36px] flex-1 items-center justify-center rounded-full px-3 text-center text-[12px] font-medium tracking-tight transition-colors duration-200 ease-out sm:text-[13px]',
+    tabActive: 'bg-white text-stone-800 shadow-[0_1px_8px_-2px_rgba(0,0,0,0.08)] ring-1 ring-stone-200/45',
+    tabIdle: 'text-stone-500 hover:text-stone-700',
+    dailyStage:
+      'flex w-full min-w-0 flex-col items-center gap-10 py-2 sm:gap-12 sm:py-6',
+    dailyReadyStack:
+      'flex w-full max-w-[min(100%,28rem)] flex-col items-center gap-5 sm:max-w-lg sm:gap-6',
+    idleRoot:
+      'flex min-h-[min(48vh,380px)] w-full flex-col items-center justify-center px-6 py-14 text-center sm:min-h-[min(52vh,420px)]',
+    shareAction:
+      'inline-flex items-center justify-center gap-1.5 rounded-full border border-stone-200/55 bg-white/92 px-4 py-2 text-xs font-medium tracking-tight text-stone-700 shadow-[0_2px_14px_-4px_rgba(99,102,241,0.1)] transition-colors hover:border-violet-200/45 hover:text-violet-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60',
+    sceneWrap: 'flex w-full max-w-sm flex-col items-center',
+  },
+
   /**
    * /standalone/reports — premium design foundation (Aşama 1+).
    * Bileşenler bu token’ları observationPolish / relationshipMapPolish üzerinden tüketir.

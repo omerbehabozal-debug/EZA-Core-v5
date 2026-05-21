@@ -7,6 +7,13 @@ import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import type { UserObservationCategoryId } from '@/lib/eza/dailyObservation';
 import { mapBackendUserCategory, parseStandaloneObservation } from '@/lib/standaloneObservation';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
+import {
+  composePrecisionQuote,
+  deriveReflectionSignals,
+  inferMicroMood,
+  type MicroMoodId,
+  type ReflectionSignals,
+} from '@/lib/eza/mirror/reflectionSignals';
 
 export type ReflectionToneId =
   | 'calm_reflective'
@@ -37,6 +44,8 @@ export interface EmotionalReflectionLayer {
   reflectionTone: ReflectionToneId;
   reflectionWeight: number;
   emotionalRhythm: EmotionalRhythmKind;
+  reflectionSignals: ReflectionSignals;
+  microMood: MicroMoodId;
   toneHints: string[];
   headline: string;
   shortInsight: string;
@@ -498,16 +507,20 @@ export interface ComposeEmotionalReflectionInput {
   observationHeadline?: string;
   observationInsight?: string;
   personaFamilyId?: PersonaFamilyId;
+  reflectionSignals?: ReflectionSignals;
 }
 
 export function composeEmotionalReflection(
   input: ComposeEmotionalReflectionInput
 ): EmotionalReflectionLayer {
   const rhythm = analyzeBehavioralRhythm(input.entries);
+  const reflectionSignals =
+    input.reflectionSignals ?? deriveReflectionSignals(input.entries, rhythm);
   const tone = inferReflectionTone(rhythm);
+  const microMood = inferMicroMood(reflectionSignals, tone);
   const emotionalRhythm = inferEmotionalRhythm(rhythm);
   const pack = TONE_COPY[tone];
-  const seed = `${input.seed}-${tone}-${emotionalRhythm}`;
+  const seed = `${input.seed}-${tone}-${emotionalRhythm}-${microMood}`;
 
   const toneHeadline = hashPick(`${seed}-h`, pack.headlines);
   const toneInsight = hashPick(`${seed}-i`, pack.insights);
@@ -528,10 +541,12 @@ export function composeEmotionalReflection(
     reflectionTone: tone,
     reflectionWeight: pack.weight,
     emotionalRhythm,
+    reflectionSignals,
+    microMood,
     toneHints: [...pack.toneHints],
     headline,
     shortInsight,
-    quote: hashPick(`${seed}-q`, pack.quotes),
+    quote: composePrecisionQuote(reflectionSignals, microMood, tone, seed),
     tomorrowHint: hashPick(`${seed}-t`, pack.tomorrow),
     themeDescription: hashPick(`${seed}-d`, pack.themeDescriptions),
     visualAtmosphere: pack.atmosphere,

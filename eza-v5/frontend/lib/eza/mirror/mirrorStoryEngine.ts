@@ -13,6 +13,15 @@ import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
 import { inferSceneTopicKey } from '@/lib/eza/mirror/visualPromptEngine';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
 import type { UserObservationCategoryId } from '@/lib/eza/dailyObservation';
+import {
+  buildVisualPrecisionHints,
+  composePrecisionStory,
+  deriveReflectionSignals,
+  inferMicroMood,
+  type MicroMoodId,
+  type ReflectionSignals,
+  type TopicStoryVariantId,
+} from '@/lib/eza/mirror/reflectionSignals';
 
 export type AiRelationshipModeId =
   | 'reflective_companion'
@@ -37,6 +46,9 @@ export interface MirrorStoryLayer {
   relationshipMode: AiRelationshipModeId;
   storyTone: StoryToneId;
   storyTopicKey: SceneTopicKey;
+  storyVariant: TopicStoryVariantId;
+  microMood: MicroMoodId;
+  reflectionSignals: ReflectionSignals;
   userStoryLine: string;
   aiStoryLine: string;
   balanceStoryLine: string;
@@ -51,6 +63,8 @@ export interface ComposeMirrorStoryInput {
   emotionalRhythm: EmotionalRhythmKind;
   personaFamilyId: PersonaFamilyId;
   observationCategoryId?: UserObservationCategoryId;
+  reflectionSignals?: ReflectionSignals;
+  microMood?: MicroMoodId;
 }
 
 function hashPick(seed: string, items: readonly string[]): string {
@@ -373,39 +387,57 @@ export function relationshipModeLabelTr(mode: AiRelationshipModeId): string {
 }
 
 export function composeMirrorStory(input: ComposeMirrorStoryInput): MirrorStoryLayer {
-  const signals = analyzeBehavioralRhythm(input.entries);
+  const rhythm = analyzeBehavioralRhythm(input.entries);
+  const reflectionSignals =
+    input.reflectionSignals ?? deriveReflectionSignals(input.entries, rhythm);
+  const microMood = input.microMood ?? inferMicroMood(reflectionSignals, input.reflectionTone);
   const storyTopicKey = inferSceneTopicKey(
     input.entries,
     input.observationCategoryId,
     input.personaFamilyId
   );
   const relationshipMode = inferAiRelationshipMode(
-    signals,
+    rhythm,
     storyTopicKey,
     input.reflectionTone
   );
   const storyTone = inferStoryTone(input.reflectionTone, input.emotionalRhythm);
   const pack = TOPIC_STORIES[storyTopicKey];
-  const seed = `${input.seed}-story-${storyTopicKey}-${relationshipMode}-${storyTone}`;
+  const seed = `${input.seed}-story-${storyTopicKey}-${relationshipMode}-${storyTone}-${microMood}`;
 
-  const mirrorStory = sanitizeStoryLine(hashPick(`${seed}-m`, pack.mirrorStories));
-  const dailyJourney = hashPick(`${seed}-j`, pack.dailyJourneys);
-  const userStoryLine = sanitizeStoryLine(hashPick(`${seed}-u`, pack.userLines));
-  const aiStoryLine = sanitizeStoryLine(
-    hashPick(`${seed}-a`, [...pack.aiLines, ...MODE_AI_LINE[relationshipMode]])
+  const precision = composePrecisionStory(
+    storyTopicKey,
+    reflectionSignals,
+    microMood,
+    seed
   );
-  const balanceStoryLine = sanitizeStoryLine(hashPick(`${seed}-b`, pack.balanceLines));
+
+  const aiStoryLine = sanitizeStoryLine(
+    hashPick(`${seed}-a`, [precision.aiLine, ...MODE_AI_LINE[relationshipMode]])
+  );
+
+  const atmosphereBoost = [
+    pack.atmosphereBoost,
+    reflectionSignals.calmnessLevel >= 0.58 ? 'soft spacious calm light' : '',
+    reflectionSignals.curiosityDepth >= 0.52 ? 'gentle lively frame' : '',
+    reflectionSignals.detailFocus >= 0.5 ? 'thoughtful material detail mood' : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   return {
-    mirrorStory,
-    dailyJourney,
+    mirrorStory: sanitizeStoryLine(precision.mirrorStory),
+    dailyJourney: precision.dailyJourney,
     relationshipMode,
     storyTone,
     storyTopicKey,
-    userStoryLine,
+    storyVariant: precision.variant,
+    microMood,
+    reflectionSignals,
+    userStoryLine: sanitizeStoryLine(precision.userLine),
     aiStoryLine,
-    balanceStoryLine,
-    visualStoryHints: [...pack.visualHints],
-    visualAtmosphereBoost: pack.atmosphereBoost,
+    balanceStoryLine: sanitizeStoryLine(precision.balanceLine),
+    visualStoryHints: [...pack.visualHints, ...buildVisualPrecisionHints(reflectionSignals)],
+    visualAtmosphereBoost: atmosphereBoost || pack.atmosphereBoost,
   };
 }

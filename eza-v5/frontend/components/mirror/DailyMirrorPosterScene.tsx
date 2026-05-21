@@ -20,7 +20,7 @@ function sceneImageNeedsCrossOrigin(url: string): boolean {
 }
 
 /**
- * Full-bleed poster hero — gradient or AI scene only (no centered mascot).
+ * Full-bleed poster hero — AI scene or premium gradient placeholder.
  */
 export default function DailyMirrorPosterScene({
   personaFamilyId,
@@ -49,13 +49,25 @@ export default function DailyMirrorPosterScene({
 
   return (
     <div className={cn('absolute inset-0 overflow-hidden', className)} aria-hidden>
-      <div className={cn('absolute inset-0 bg-gradient-to-br', gradient)} />
+      <div
+        className={cn(
+          'absolute inset-0 bg-gradient-to-br',
+          gradient,
+          'opacity-95'
+        )}
+      />
+      {!showSceneImage ? (
+        <div
+          className="absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_20%_30%,rgba(255,255,255,0.22),transparent_55%),radial-gradient(ellipse_60%_50%_at_80%_20%,rgba(196,181,253,0.35),transparent_50%)]"
+          aria-hidden
+        />
+      ) : null}
       {showSceneImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={sceneImageUrl!}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-center eza-mirror-scene-image-enter"
+          className="absolute inset-0 h-full w-full object-cover object-[center_35%] eza-mirror-scene-image-enter"
           crossOrigin={
             sceneImageNeedsCrossOrigin(sceneImageUrl!) ? 'anonymous' : undefined
           }
@@ -67,16 +79,11 @@ export default function DailyMirrorPosterScene({
         />
       ) : null}
       <div
-        className="absolute inset-0 bg-gradient-to-r from-[#1a1035]/75 via-[#2d1b4e]/45 to-transparent"
+        className="absolute inset-0 bg-gradient-to-r from-[#1a1035]/82 via-[#2d1b4e]/40 to-transparent"
         aria-hidden
       />
       <div
-        className="absolute inset-0 bg-gradient-to-t from-[#f5f0ff] via-transparent to-[#1a1035]/25"
-        aria-hidden
-      />
-      <div
-        className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#faf7ff]/90"
-        style={{ backgroundSize: '100% 100%' }}
+        className="absolute inset-0 bg-gradient-to-t from-[#faf7ff] via-[#faf7ff]/15 to-[#1a1035]/20"
         aria-hidden
       />
     </div>

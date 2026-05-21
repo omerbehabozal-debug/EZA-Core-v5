@@ -233,6 +233,8 @@ function buildDailyMirrorCard(
     emotionalRhythm: emotional.emotionalRhythm,
     personaFamilyId,
     observationCategoryId: observation.categoryId,
+    reflectionSignals: emotional.reflectionSignals,
+    microMood: emotional.microMood,
   });
 
   const shareEnabled =
@@ -285,6 +287,9 @@ function buildDailyMirrorCard(
     relationshipMode: story.relationshipMode,
     storyTone: story.storyTone,
     storyTopicKey: story.storyTopicKey,
+    storyVariant: story.storyVariant,
+    microMood: story.microMood,
+    reflectionSignals: story.reflectionSignals,
     visual,
   };
 }

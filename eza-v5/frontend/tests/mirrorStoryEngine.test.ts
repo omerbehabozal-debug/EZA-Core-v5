@@ -104,7 +104,7 @@ describe('mirrorStoryEngine', () => {
     });
 
     expect(story.storyTopicKey).toBe('architecture');
-    expect(story.mirrorStory).toMatch(/detay|malzeme|karar|yapı/i);
+    expect(story.mirrorStory).toMatch(/detay|malzeme|karar|yapı|izler|netleş|anlamak/i);
     expect(story.visualStoryHints.some((h) => /stone|material|desk/i.test(h))).toBe(true);
   });
 
@@ -138,8 +138,8 @@ describe('mirrorStoryEngine', () => {
     });
 
     expect(travel.mirrorStory).not.toBe(finance.mirrorStory);
-    expect(travel.mirrorStory).toMatch(/ihtimal|yol|keşif/i);
-    expect(finance.mirrorStory).toMatch(/karar|kontrol|net/i);
+    expect(travel.mirrorStory).toMatch(/ihtimal|yol|keşif|ufuk/i);
+    expect(finance.mirrorStory).toMatch(/karar|netleş|kıyas|temkin|sadeleş/i);
   });
 
   it('exposes relationship mode labels', () => {

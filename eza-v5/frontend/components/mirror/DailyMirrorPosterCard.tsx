@@ -1,16 +1,16 @@
 'use client';
 
-import { useId, useMemo } from 'react';
-import {
-  Calendar,
-  Heart,
-  Sparkles,
-  Users,
-} from 'lucide-react';
+import { useMemo } from 'react';
+import { Calendar, Sparkles, User, Bot, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DailyMirrorCardModel, MirrorStateMeta } from '@/lib/eza/mirror/types';
 import { MIRROR_INSUFFICIENT } from '@/lib/eza/mirror/copy';
 import { buildPosterCardContent } from '@/lib/eza/mirror/posterCardContent';
+import {
+  POSTER_ASPECT_RATIO,
+  POSTER_CARD_WIDTH_PX,
+  posterCardSkin as s,
+} from '@/lib/eza/mirror/posterCardSkin';
 import DailyMirrorPosterScene from '@/components/mirror/DailyMirrorPosterScene';
 import MirrorVisualPromptDebug from '@/components/mirror/MirrorVisualPromptDebug';
 
@@ -21,64 +21,31 @@ export type DailyMirrorPosterCardProps = {
   onSceneImageError?: () => void;
 };
 
-function EnergyRing({ percent, label }: { percent: number; label: string }) {
-  const gradId = useId();
-  const r = 36;
-  const c = 2 * Math.PI * r;
-  const offset = c - (percent / 100) * c;
+const RELATION_ICONS = {
+  Sen: User,
+  AI: Bot,
+  Denge: Scale,
+} as const;
+
+function RelationBlock({
+  label,
+  line,
+  percent,
+}: {
+  label: string;
+  line: string;
+  percent: number;
+}) {
+  const Icon = RELATION_ICONS[label as keyof typeof RELATION_ICONS] ?? User;
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative h-[5.5rem] w-[5.5rem]">
-        <svg className="h-full w-full -rotate-90" viewBox="0 0 88 88" aria-hidden>
-          <circle
-            cx="44"
-            cy="44"
-            r={r}
-            fill="none"
-            stroke="rgb(233 213 255)"
-            strokeWidth="8"
-          />
-          <circle
-            cx="44"
-            cy="44"
-            r={r}
-            fill="none"
-            stroke={`url(#${gradId})`}
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={c}
-            strokeDashoffset={offset}
-          />
-          <defs>
-            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#8b5cf6" />
-              <stop offset="100%" stopColor="#c084fc" />
-            </linearGradient>
-          </defs>
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <Heart className="h-4 w-4 text-violet-600" aria-hidden />
-        </div>
-      </div>
-      <p className="text-center text-[10px] font-bold uppercase tracking-wider text-violet-800">
+    <div className={s.relationCell}>
+      <p className={s.relationLabel}>
+        <Icon className="h-2.5 w-2.5 shrink-0 opacity-80" aria-hidden />
         {label}
       </p>
-    </div>
-  );
-}
-
-function MetricBar({ label, percent }: { label: string; percent: number }) {
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-[10px] font-medium text-violet-900/80">
-        <span>{label}</span>
-        <span>{percent}%</span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-violet-100">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-400"
-          style={{ width: `${percent}%` }}
-        />
+      <p className={s.relationLine}>{line}</p>
+      <div className={s.relationBar} aria-hidden>
+        <div className={s.relationBarFill} style={{ width: `${percent}%` }} />
       </div>
     </div>
   );
@@ -95,18 +62,27 @@ export default function DailyMirrorPosterCard({
   const isSparse = !isReady;
   const content = useMemo(() => buildPosterCardContent(card), [card]);
 
+  const sen = content.activities.find((a) => a.label === 'Sen');
+  const ai = content.activities.find((a) => a.label === 'AI');
+  const balance = content.activities.find((a) => a.label === 'Denge');
+  const bars = content.relationshipBars;
+
   return (
     <article
       data-mirror-card-root
-      className={cn(
-        'relative mx-auto w-full max-w-[400px] overflow-hidden rounded-[1.75rem]',
-        'border border-violet-200/60 shadow-[0_24px_64px_-20px_rgba(91,33,182,0.35)]',
-        'bg-[#faf7ff]'
-      )}
-      style={{ aspectRatio: '9 / 16' }}
+      data-mirror-aspect="9-16"
+      className={cn(s.root, 'flex flex-col')}
+      style={{
+        aspectRatio: POSTER_ASPECT_RATIO,
+        maxWidth: POSTER_CARD_WIDTH_PX,
+        width: '100%',
+      }}
       aria-labelledby="daily-mirror-poster-title"
     >
-      <div className="relative flex h-[58%] min-h-0 flex-col">
+      <div className={cn(s.grain, 'z-[3]')} aria-hidden />
+      <div className={cn(s.vignette, 'z-[3]')} aria-hidden />
+
+      <div className={s.sceneZone}>
         <DailyMirrorPosterScene
           personaFamilyId={card.personaFamilyId}
           sceneImageUrl={card.visual?.sceneImageUrl}
@@ -115,132 +91,79 @@ export default function DailyMirrorPosterCard({
           onSceneImageError={onSceneImageError}
         />
 
-        <div className="relative z-10 flex flex-1 flex-col p-4 pb-2 sm:p-5">
-          <header className="flex items-start justify-between gap-2">
-            <div className="space-y-0.5">
-              <p className="flex items-center gap-1.5 text-sm font-bold tracking-tight text-white drop-shadow-sm">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm">
-                  <Sparkles className="h-3.5 w-3.5 text-white" aria-hidden />
-                </span>
-                EZA
-              </p>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/90">
-                AI İlişki Aynası
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
-              <Calendar className="h-3 w-3 shrink-0" aria-hidden />
-              <span className="max-w-[7rem] truncate">{card.dayLabel}</span>
-            </div>
-          </header>
-
-          <div className="mt-auto max-w-[92%] space-y-2 pb-1 pt-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/85">
-              Günlük Mirror Kartın
-            </p>
-            <p className="text-sm font-medium text-white/95">Bugün sen</p>
-            <h2
-              id="daily-mirror-poster-title"
-              className="flex flex-wrap items-center gap-1.5 text-[1.65rem] font-bold leading-tight drop-shadow-sm sm:text-3xl"
-            >
-              <span aria-hidden>{content.characterEmoji}</span>
-              <span
-                className={cn(
-                  'bg-gradient-to-r bg-clip-text text-transparent',
-                  content.characterGradient
-                )}
-              >
-                {card.characterName || 'Yolcu'}
+        <header className={s.header}>
+          <div className="space-y-0.5">
+            <p className={cn(s.logoText, 'flex items-center gap-2')}>
+              <span className={s.logoMark}>
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
               </span>
-            </h2>
-            <p className="text-xs leading-relaxed text-white/90 sm:text-[13px]">
-              {isSparse ? MIRROR_INSUFFICIENT : content.description}
+              EZA
             </p>
-
-            {!isSparse ? (
-              <div className="mt-2 max-w-[16rem] rounded-xl border border-white/25 bg-violet-900/35 px-3 py-2.5 backdrop-blur-md">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-violet-200">
-                  Bugünün teması
-                </p>
-                <p className="mt-0.5 text-xs font-bold text-white">{content.themeTitle}</p>
-                <p className="mt-1 text-[11px] leading-snug text-white/85">
-                  {content.themeDescription}
-                </p>
-              </div>
-            ) : null}
+            <p className={s.logoSub}>AI İlişki Aynası</p>
           </div>
+          <div className={s.datePill}>
+            <Calendar className="h-2.5 w-2.5 shrink-0 opacity-90" aria-hidden />
+            <span className="truncate">{card.dayLabel}</span>
+          </div>
+        </header>
+
+        <div className={s.heroBlock}>
+          <p className={s.heroEyebrow}>Bugünkü AI İlişki Aynan</p>
+          <h2
+            id="daily-mirror-poster-title"
+            className={cn(
+              s.heroTitle,
+              'bg-gradient-to-r bg-clip-text text-transparent',
+              content.characterGradient
+            )}
+          >
+            {isSparse ? 'Yansıma hazırlanıyor' : content.journeyHeadline}
+          </h2>
         </div>
       </div>
 
-      {!isSparse ? (
-        <div className="relative z-10 -mt-1 px-3 sm:px-4">
-          <div className="rounded-xl border border-violet-100/80 bg-[#f3ecff]/95 px-4 py-3 text-center shadow-sm">
-            <span className="text-2xl font-serif leading-none text-violet-400" aria-hidden>
-              “
-            </span>
-            <p className="text-xs italic leading-relaxed text-violet-900/90 sm:text-[13px]">
-              {content.quote}
-            </p>
-            <span className="text-2xl font-serif leading-none text-violet-400" aria-hidden>
-              ”
-            </span>
-          </div>
-        </div>
-      ) : null}
+      <div className={s.bodyPanel}>
+        <p className={s.story}>{isSparse ? MIRROR_INSUFFICIENT : content.storyLine}</p>
 
-      <div
-        className={cn(
-          'relative z-10 flex flex-1 flex-col gap-3 px-3 pb-4 pt-3 sm:px-4',
-          isSparse && 'pt-6'
-        )}
-      >
         {!isSparse ? (
-          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2">
-            <section className="rounded-xl border border-violet-100/90 bg-white/80 p-3 shadow-sm">
-              <p className="mb-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-violet-800">
-                <Users className="h-3 w-3" aria-hidden />
-                Bugün ne yaptın?
+          <>
+            <div className={s.themeBox}>
+              <p className={s.themeLabel}>
+                <span aria-hidden>{content.characterEmoji}</span>
+                <span className="ml-1">Tema</span>
               </p>
-              <ul className="space-y-2">
-                {content.activities.map((row) => (
-                  <li key={row.label} className="space-y-0.5">
-                    <p className="text-[9px] font-semibold uppercase text-violet-500">
-                      {row.label}
-                    </p>
-                    <p className="text-[11px] leading-snug text-violet-950/85">{row.value}</p>
-                  </li>
-                ))}
-              </ul>
-            </section>
+              <p className={s.themeTitle}>{content.themeTitle}</p>
+              <p className={s.themeDesc}>{content.themeDescription}</p>
+            </div>
 
-            <section className="flex flex-col items-center justify-center rounded-xl border border-violet-100/90 bg-white/80 p-3 shadow-sm">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-violet-800">
-                Ritim
-              </p>
-              <EnergyRing percent={content.energyPercent} label={content.energyDisplay} />
-            </section>
+            <div className={s.quoteBand}>
+              <p className={s.quoteText}>{content.quote}</p>
+            </div>
 
-            <section className="rounded-xl border border-violet-100/90 bg-white/80 p-3 shadow-sm">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-violet-800">
-                İlişki dengen
-              </p>
-              <div className="space-y-2.5">
-                {content.relationshipBars.map((bar) => (
-                  <MetricBar key={bar.label} label={bar.label} percent={bar.percent} />
-                ))}
-              </div>
-              <p className="mt-2 text-[10px] leading-snug text-violet-700/80">
-                {content.relationshipNote}
-              </p>
-            </section>
-          </div>
+            <div className={s.relationGrid}>
+              <RelationBlock
+                label="Sen"
+                line={sen?.value ?? '—'}
+                percent={bars[0]?.percent ?? content.energyPercent}
+              />
+              <RelationBlock
+                label="AI"
+                line={ai?.value ?? '—'}
+                percent={bars[1]?.percent ?? Math.min(95, content.energyPercent + 4)}
+              />
+              <RelationBlock
+                label="Denge"
+                line={balance?.value ?? '—'}
+                percent={bars[2]?.percent ?? Math.max(30, content.energyPercent - 8)}
+              />
+            </div>
+          </>
         ) : null}
 
-        <footer className="rounded-xl border border-violet-200/50 bg-gradient-to-r from-violet-900/90 to-violet-800/90 px-3 py-2.5 text-white shadow-sm">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-violet-200">
-            Yarının hint&apos;i
-          </p>
-          <p className="mt-0.5 text-[11px] leading-snug text-white/95">{content.tomorrowHint}</p>
+        <footer className={s.footer}>
+          <span className="font-semibold text-violet-700/80">EZA</span>
+          <span>#EZAİlişkiAynası</span>
+          <span className="text-violet-400/90">eza.ai</span>
         </footer>
 
         <MirrorVisualPromptDebug visual={card.visual} />

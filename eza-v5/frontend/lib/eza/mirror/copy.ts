@@ -7,8 +7,7 @@ export const MIRROR_ROUTE = '/standalone/mirror';
 
 export const MIRROR_PAGE_TITLE = 'EZA Mirror';
 
-export const MIRROR_PAGE_SUBTITLE =
-  'Bugünkü AI aynanı gör; zamanla ilişkinin nasıl değiştiğini keşfet.';
+export const MIRROR_PAGE_SUBTITLE = 'AI ile kurduğun bağın yansıması.';
 
 export const MIRROR_TAB_DAILY = 'Günlük Ayna';
 
@@ -71,16 +70,15 @@ export const MIRROR_SHARE_EXPORT_TEXT_LONG =
 export const MIRROR_SHARE_EXPORT_PRIVACY =
   'Mesaj içeriği paylaşılmaz. Yalnızca günlük yansıman görünür.';
 
-/** Günlük Ayna — ritüel idle (Sprint 11A) */
-export const MIRROR_CREATE_TITLE = 'Bugünün aynası seni bekliyor.';
+/** Günlük Ayna — premium idle (Sprint 11D) */
+export const MIRROR_CREATE_TITLE = 'Bugünkü aynan hazır.';
 
 export const MIRROR_CREATE_DESCRIPTION =
-  'EZA, bugünkü yazışmalarındaki davranışsal sinyallerden kısa bir yansıma oluşturur.';
+  'AI ile kurduğun bugünkü ritmin kısa bir yansımasını aç.';
 
 export const MIRROR_CREATE_BUTTON = 'Bugünün Aynasını Aç';
 
-export const MIRROR_CREATE_PRIVACY_NOTE =
-  'Mesaj içeriği paylaşılmaz. Yalnızca davranışsal yansıman görünür.';
+export const MIRROR_CREATE_PRIVACY_NOTE = 'Mesaj içeriği paylaşılmaz.';
 
 /** Reveal aşaması */
 export const MIRROR_REVEAL_MESSAGE = 'Yansıman hazırlanıyor…';
@@ -90,7 +88,7 @@ export const MIRROR_INSUFFICIENT_TITLE =
   'Aynanın netleşmesi için birkaç iz daha gerekiyor.';
 
 export const MIRROR_INSUFFICIENT_BODY =
-  'EZA’nın seni daha doğru yansıtabilmesi için birkaç etkileşim daha oluşmalı.';
+  'Biraz daha sohbet ettikten sonra bugünkü yansıman oluşabilir.';
 
 export const MIRROR_INSUFFICIENT_ACTION = 'Sohbete Dön';
 
@@ -101,12 +99,11 @@ export const MIRROR_EPHEMERAL_NOTE =
 
 export const MIRROR_SCENE_GENERATE_BUTTON = 'Sahneyi Oluştur';
 
-export const MIRROR_SCENE_GENERATING = 'Mirror sahnesi hazırlanıyor…';
+export const MIRROR_SCENE_GENERATING = 'Sahne hazırlanıyor…';
 
 export const MIRROR_SCENE_READY = 'Sahne hazır';
 
-export const MIRROR_SCENE_ERROR =
-  'Mirror sahnesi şu an hazırlanamadı. Tekrar deneyebilirsin.';
+export const MIRROR_SCENE_RETRY = 'Tekrar dene';
 
 /** Ritüel süreleri (ms) */
 export const MIRROR_REVEAL_DURATION_MS = 1600;
