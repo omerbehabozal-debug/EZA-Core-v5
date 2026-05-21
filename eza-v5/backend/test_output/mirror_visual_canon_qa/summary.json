@@ -1,0 +1,52 @@
+[
+  {
+    "topic": "Finans",
+    "topicKey": "finance",
+    "provider": "openai",
+    "urlKind": "data_url",
+    "saved": "finance.png",
+    "promptLen": 3324,
+    "rawPromptLen": 2436,
+    "bytes": 2839672
+  },
+  {
+    "topic": "Sa\u011fl\u0131k",
+    "topicKey": "health",
+    "provider": "openai",
+    "urlKind": "data_url",
+    "saved": "health.png",
+    "promptLen": 3345,
+    "rawPromptLen": 2457,
+    "bytes": 2665768
+  },
+  {
+    "topic": "Arkada\u015fl\u0131k",
+    "topicKey": "friendship",
+    "provider": "openai",
+    "urlKind": "data_url",
+    "saved": "friendship.png",
+    "promptLen": 3341,
+    "rawPromptLen": 2453,
+    "bytes": 3103202
+  },
+  {
+    "topic": "Seyahat",
+    "topicKey": "travel",
+    "provider": "openai",
+    "urlKind": "data_url",
+    "saved": "travel.png",
+    "promptLen": 3322,
+    "rawPromptLen": 2434,
+    "bytes": 3054417
+  },
+  {
+    "topic": "Mimari",
+    "topicKey": "architecture",
+    "provider": "openai",
+    "urlKind": "data_url",
+    "saved": "architecture.png",
+    "promptLen": 3302,
+    "rawPromptLen": 2414,
+    "bytes": 2920758
+  }
+]
