@@ -34,7 +34,7 @@ describe('posterCompositionSystem', () => {
 
   it('export scale maps design type to 1080px width', () => {
     expect(POSTER_EXPORT_SCALE).toBe(2.5);
-    expect(POSTER_TYPE.headline.exportPx).toBe(80);
+    expect(POSTER_TYPE.headline.exportPx).toBe(85);
     expect(POSTER_TYPE.story.exportPx).toBeGreaterThanOrEqual(30);
   });
 

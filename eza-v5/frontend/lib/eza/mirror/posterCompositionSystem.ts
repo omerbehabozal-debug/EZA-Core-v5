@@ -36,13 +36,13 @@ export function posterExportPx(designPx: number): number {
 
 /** Typography at design width (432px card). */
 export const POSTER_TYPE = {
-  headline: { designPx: 32, exportPx: posterExportPx(32) },
-  story: { designPx: 13, exportPx: posterExportPx(13) },
-  quote: { designPx: 12, exportPx: posterExportPx(12) },
+  headline: { designPx: 34, exportPx: posterExportPx(34) },
+  story: { designPx: 14, exportPx: posterExportPx(14) },
+  quote: { designPx: 13, exportPx: posterExportPx(13) },
   highlightTitle: { designPx: 7, exportPx: posterExportPx(7) },
   highlightLabel: { designPx: 8, exportPx: posterExportPx(8) },
-  metricLabel: { designPx: 7, exportPx: posterExportPx(7) },
-  metricLine: { designPx: 8.5, exportPx: posterExportPx(8.5) },
+  metricLabel: { designPx: 8, exportPx: posterExportPx(8) },
+  metricLine: { designPx: 10.5, exportPx: posterExportPx(10.5) },
   footer: { designPx: 7, exportPx: posterExportPx(7) },
   header: { designPx: 9, exportPx: posterExportPx(9) },
 } as const;
@@ -95,7 +95,7 @@ const DENSITY_PROFILES: Record<PosterLayoutDensity, Omit<PosterCompositionProfil
   calm: {
     gridRows: '5.5% 17% 1fr 20%',
     highlightEmphasis: 'whisper',
-    scrimStrength: 'light',
+    scrimStrength: 'medium',
   },
   balanced: {
     gridRows: '6% 16% 1fr 19%',
@@ -126,10 +126,10 @@ export function buildPosterCompositionStyle(
   return {
     ['--poster-grid-rows' as string]: profile.gridRows,
     ['--poster-scrim' as string]:
-      profile.scrimStrength === 'light'
-        ? '0.55'
-        : profile.scrimStrength === 'strong'
-          ? '0.82'
-          : '0.72',
+      profile.scrimStrength === 'strong'
+        ? '0.88'
+        : profile.scrimStrength === 'light'
+          ? '0.68'
+          : '0.78',
   };
 }

@@ -12,8 +12,13 @@ import {
   highlightEmphasisFor,
 } from '@/lib/eza/mirror/posterCompositionSystem';
 import {
+  buildEditorialReadabilityVars,
+  getEditorialContrast,
+} from '@/lib/eza/mirror/posterReadabilitySystem';
+import {
   POSTER_CARD_WIDTH_PX,
   posterCardSkin as s,
+  posterTextShadowStyle,
 } from '@/lib/eza/mirror/posterCardSkin';
 import DailyMirrorPosterScene from '@/components/mirror/DailyMirrorPosterScene';
 import ContextualHighlightBand from '@/components/mirror/ContextualHighlightBand';
@@ -26,17 +31,21 @@ export type DailyMirrorPosterCardProps = {
   onSceneImageError?: () => void;
 };
 
-function MetricWhisper({ label, line }: { label: string; line: string }) {
+function MetricStrip({ label, line }: { label: string; line: string }) {
   return (
     <div className={s.relationCell}>
-      <p className={s.relationLabel}>{label}</p>
-      <p className={s.relationLine}>{line}</p>
+      <p className={s.relationLabel} style={posterTextShadowStyle.relationLabel}>
+        {label}
+      </p>
+      <p className={s.relationLine} style={posterTextShadowStyle.relationLine}>
+        {line}
+      </p>
     </div>
   );
 }
 
 /**
- * Cinematic poster composition — scene · editorial type · whisper support.
+ * Editorial cinematic poster — confident contrast, gradient-first readability.
  */
 export default function DailyMirrorPosterCard({
   card,
@@ -49,9 +58,17 @@ export default function DailyMirrorPosterCard({
   const isSparse = !isReady;
   const content = useMemo(() => buildPosterCardContent(card), [card]);
   const composition = useMemo(() => getPosterComposition(card), [card]);
-  const compositionStyle = useMemo(
-    () => buildPosterCompositionStyle(composition),
-    [composition]
+  const editorial = useMemo(
+    () => getEditorialContrast(composition.density),
+    [composition.density]
+  );
+  const cardStyle = useMemo(
+    () => ({
+      maxWidth: POSTER_CARD_WIDTH_PX,
+      ...buildPosterCompositionStyle(composition),
+      ...buildEditorialReadabilityVars(editorial),
+    }),
+    [composition, editorial]
   );
   const highlightEmphasis = useMemo(
     () => highlightEmphasisFor(composition.density, content.contextualHighlight.kind),
@@ -62,14 +79,16 @@ export default function DailyMirrorPosterCard({
   const ai = content.activities.find((a) => a.label === 'AI');
   const balance = content.activities.find((a) => a.label === 'Denge');
 
+  const bottomFadeOpacity = editorial.bottomFade;
+
   return (
     <article
       data-mirror-card-root
       data-mirror-aspect="9-16"
-      data-mirror-poster="v6-composition"
+      data-mirror-poster="v7-editorial-contrast"
       data-mirror-density={composition.density}
       className={s.root}
-      style={{ maxWidth: POSTER_CARD_WIDTH_PX, ...compositionStyle }}
+      style={cardStyle}
       aria-labelledby="daily-mirror-poster-title"
     >
       <DailyMirrorPosterScene
@@ -77,12 +96,21 @@ export default function DailyMirrorPosterCard({
         personaFamilyId={card.personaFamilyId}
         sceneImageUrl={card.visual?.sceneImageUrl}
         sceneImageStatus={card.visual?.sceneImageStatus}
+        sceneFilter={{
+          brightness: editorial.sceneBrightness,
+          contrast: editorial.sceneContrast,
+          saturate: editorial.sceneSaturate,
+        }}
         onSceneImageLoad={onSceneImageLoad}
         onSceneImageError={onSceneImageError}
       />
 
       <div className={s.globalOverlay} aria-hidden />
-      <div className={s.globalOverlayBottom} aria-hidden />
+      <div
+        className={cn(s.globalOverlayBottom, 'bg-gradient-to-t from-[#0a0614] via-[#140a22]/40 to-transparent')}
+        style={{ opacity: bottomFadeOpacity }}
+        aria-hidden
+      />
       <div className={s.grain} aria-hidden />
       <div className={s.vignette} aria-hidden />
 
@@ -98,18 +126,24 @@ export default function DailyMirrorPosterCard({
             EZA · AI İlişki Aynası
           </p>
           <p className={s.datePill}>
-            <Calendar className="mr-0.5 inline h-2 w-2 opacity-70" aria-hidden />
+            <Calendar className="mr-0.5 inline h-2 w-2 opacity-80" aria-hidden />
             {card.dayLabel}
           </p>
         </header>
 
         <div className={s.titleSafeZone}>
-          <h2 id="daily-mirror-poster-title" className={s.heroTitle}>
+          <h2
+            id="daily-mirror-poster-title"
+            className={s.heroTitle}
+            style={posterTextShadowStyle.heroTitle}
+          >
             {isSparse ? 'Yansıma hazırlanıyor' : content.journeyHeadline}
           </h2>
-          <p className={s.story}>
-            {isSparse ? MIRROR_INSUFFICIENT : content.storyLine}
-          </p>
+          <div className={s.storyWrap}>
+            <p className={s.story} style={posterTextShadowStyle.story}>
+              {isSparse ? MIRROR_INSUFFICIENT : content.storyLine}
+            </p>
+          </div>
         </div>
 
         <div className={s.sceneAnchor} aria-hidden={isSparse}>
@@ -125,7 +159,7 @@ export default function DailyMirrorPosterCard({
 
         <div className={s.bottomSafeZone}>
           {!isSparse ? (
-            <p className={s.quoteText}>
+            <p className={s.quoteText} style={posterTextShadowStyle.quoteText}>
               <span className={s.quoteMark} aria-hidden>
                 “
               </span>
@@ -138,13 +172,13 @@ export default function DailyMirrorPosterCard({
 
           {!isSparse ? (
             <div className={s.metricsRow}>
-              <MetricWhisper label="Sen" line={sen?.value ?? '—'} />
-              <MetricWhisper label="AI" line={ai?.value ?? '—'} />
-              <MetricWhisper label="Denge" line={balance?.value ?? '—'} />
+              <MetricStrip label="Sen" line={sen?.value ?? '—'} />
+              <MetricStrip label="AI" line={ai?.value ?? '—'} />
+              <MetricStrip label="Denge" line={balance?.value ?? '—'} />
             </div>
           ) : null}
 
-          <footer className={cn(s.footer, 'px-0 pb-0')}>
+          <footer className={s.footer}>
             <span>EZA</span>
             <span>#EZAİlişkiAynası</span>
             <span>eza.ai</span>

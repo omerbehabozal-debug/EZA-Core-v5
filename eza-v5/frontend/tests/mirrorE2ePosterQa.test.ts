@@ -178,7 +178,7 @@ function scoreScenario(scenario: ScenarioDef): {
   if (!posterSrc.includes('data-mirror-aspect="9-16"')) aspect916 -= 2;
   if (!skinSrc.includes('aspect-[9/16]')) aspect916 -= 2;
   if (
-    !posterSrc.includes('v6-composition') &&
+    !posterSrc.includes('v7-editorial-contrast') &&
     !posterSrc.includes('v4-editorial') &&
     !posterSrc.includes('v3-visual-dominant')
   ) {
@@ -302,7 +302,7 @@ describe('Sprint 11H — Mirror E2E Poster QA', () => {
     );
     expect(posterSrc).toContain('sceneBackdrop');
     expect(posterSrc).not.toContain('gridTemplateRows');
-    expect(posterSrc).toContain('v6-composition');
+    expect(posterSrc).toContain('v7-editorial-contrast');
     expect(posterSrc).not.toContain('Bugün ne yaptın');
     expect(readFileSync(join(process.cwd(), 'components/mirror/MirrorShareModal.tsx'), 'utf8')).toContain(
       'MIRROR_SHARE_MODAL_TITLE'
