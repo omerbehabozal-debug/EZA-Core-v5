@@ -5,6 +5,7 @@
 import type { ReflectionSignals } from '@/lib/eza/mirror/reflectionSignals';
 import type { TopicStoryVariantId } from '@/lib/eza/mirror/reflectionSignals';
 import type { EmotionalTensionId } from '@/lib/eza/mirror/intentCompositionSystem';
+import type { LockedPrimaryIntentId } from '@/lib/eza/mirror/intentLockSystem';
 
 export type EmotionalPacingId = 'sparse' | 'balanced' | 'active' | 'cinematic_tension';
 
@@ -22,8 +23,12 @@ const PACING_PHRASES: Record<EmotionalPacingId, string> = {
 export function resolveEmotionalPacing(
   signals: ReflectionSignals,
   tension: EmotionalTensionId,
-  storyVariant?: TopicStoryVariantId
+  storyVariant?: TopicStoryVariantId,
+  lockedIntent?: LockedPrimaryIntentId
 ): EmotionalPacingId {
+  if (lockedIntent === 'premium_vehicle_comparison') {
+    return signals.comparisonIntensity >= 0.55 ? 'cinematic_tension' : 'active';
+  }
   if (storyVariant === 'compare' || tension === 'active_comparison') {
     return signals.comparisonIntensity >= 0.55 ? 'cinematic_tension' : 'active';
   }

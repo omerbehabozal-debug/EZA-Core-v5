@@ -17,6 +17,10 @@ import {
 import { buildEmotionalSceneBlock } from '@/lib/eza/mirror/emotionalSceneEngine';
 import { buildStructuredScenePrompt } from '@/lib/eza/mirror/posterPromptBlocks';
 import {
+  collectIntentCueBlob,
+  resolveLockedPrimaryIntent,
+} from '@/lib/eza/mirror/intentLockSystem';
+import {
   deriveReflectionSignals,
   type ReflectionSignals,
   type TopicStoryVariantId,
@@ -320,6 +324,14 @@ export function buildMirrorVisualFromContext(
   const reflectionSignals =
     input.reflectionSignals ?? deriveReflectionSignals(input.entries);
 
+  const cueBlob = collectIntentCueBlob(input.entries);
+  const lockedIntent = resolveLockedPrimaryIntent({
+    entries: input.entries,
+    reflectionSignals,
+    storyVariant: input.storyVariant,
+    cueBlob,
+  });
+
   const conversationIntent = deriveConversationVisualIntent({
     entries: input.entries,
     topicKey,
@@ -333,6 +345,7 @@ export function buildMirrorVisualFromContext(
     reflectionSignals,
     storyVariant: input.storyVariant,
     reflectionTone: input.reflectionTone,
+    lockedIntent,
   });
 
   const emotionLabel =
@@ -348,6 +361,7 @@ export function buildMirrorVisualFromContext(
     reflectionSignals,
     atmosphereLabel,
     emotionLabel,
+    lockedIntent,
   });
 
   const architectureExtra =

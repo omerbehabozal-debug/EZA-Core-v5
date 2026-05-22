@@ -26,8 +26,8 @@ export const SAFE_EXPORT = {
 export const SAFE_PREVIEW = {
   top: 44,
   bottom: 56,
-  left: 22.4,
-  right: 22.4,
+  left: 22,
+  right: 22,
 } as const;
 
 /** 12-column editorial grid */
@@ -100,10 +100,14 @@ export const POSTER_SHADOWS = {
 } as const;
 
 export const POSTER_INSIGHT_PREVIEW = {
-  minHeight: 96,
-  maxHeight: 130,
+  minHeight: 92,
+  maxHeight: 120,
+  minColumnWidth: 100,
   gapPercent: 2.5,
   cardWidthPercent: 31.5,
+  labelSize: 8,
+  bodySize: 10,
+  progressHeight: 4,
 } as const;
 
 export const POSTER_QUOTE_PREVIEW = {

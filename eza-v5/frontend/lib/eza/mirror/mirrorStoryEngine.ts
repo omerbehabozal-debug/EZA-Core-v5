@@ -22,6 +22,7 @@ import {
   type ReflectionSignals,
   type TopicStoryVariantId,
 } from '@/lib/eza/mirror/reflectionSignals';
+import { resolveLockedPrimaryIntent } from '@/lib/eza/mirror/intentLockSystem';
 
 export type AiRelationshipModeId =
   | 'reflective_companion'
@@ -390,12 +391,20 @@ export function composeMirrorStory(input: ComposeMirrorStoryInput): MirrorStoryL
   const rhythm = analyzeBehavioralRhythm(input.entries);
   const reflectionSignals =
     input.reflectionSignals ?? deriveReflectionSignals(input.entries, rhythm);
-  const microMood = input.microMood ?? inferMicroMood(reflectionSignals, input.reflectionTone);
   const storyTopicKey = inferSceneTopicKey(
     input.entries,
     input.observationCategoryId,
     input.personaFamilyId
   );
+  const lockedIntent = resolveLockedPrimaryIntent({
+    entries: input.entries,
+    reflectionSignals,
+  });
+  const microMood =
+    input.microMood ??
+    (lockedIntent === 'premium_vehicle_comparison'
+      ? 'comparing'
+      : inferMicroMood(reflectionSignals, input.reflectionTone));
   const relationshipMode = inferAiRelationshipMode(
     rhythm,
     storyTopicKey,
@@ -409,7 +418,8 @@ export function composeMirrorStory(input: ComposeMirrorStoryInput): MirrorStoryL
     storyTopicKey,
     reflectionSignals,
     microMood,
-    seed
+    seed,
+    lockedIntent
   );
 
   const aiStoryLine = sanitizeStoryLine(

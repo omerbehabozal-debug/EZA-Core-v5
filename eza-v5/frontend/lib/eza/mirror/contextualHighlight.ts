@@ -6,6 +6,7 @@
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { ConversationVisualIntentId } from '@/lib/eza/mirror/conversationVisualIntent';
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
+import { extractVehicleHighlightLabels } from '@/lib/eza/mirror/intentLockSystem';
 
 export type ContextualHighlightKind = 'dual_comparison' | 'tag_focus' | 'triple_tags';
 
@@ -28,11 +29,11 @@ const INTENT_TO_HIGHLIGHT: Partial<
 > = {
   premium_vehicle_comparison: {
     kind: 'dual_comparison',
-    bandTitle: 'Önceliklerin',
-    left: { label: 'Sürüş & performans', hint: 'Dinamik, net karakter' },
-    right: { label: 'Konfor & denge', hint: 'Sakin, dengeli his' },
+    bandTitle: 'Karar öncesi',
+    left: { label: 'Seçenek A', hint: 'Konfor & uzun yol' },
+    right: { label: 'Seçenek B', hint: 'Denge & kalite' },
     centerBadge: 'VS',
-    tags: ['Konfor', 'Teknoloji', 'Maliyet'],
+    tags: ['Konfor önceliği', 'Kıyas', 'Netlik'],
   },
   product_comparison: {
     kind: 'dual_comparison',
@@ -161,11 +162,42 @@ function compareHighlightFromCard(card: DailyMirrorCardModel): ContextualHighlig
   };
 }
 
+function vehicleCueBlobFromCard(card: DailyMirrorCardModel): string {
+  return [
+    card.userLine,
+    card.aiLine,
+    card.mirrorStory,
+    card.dailyJourney,
+    card.headline,
+    card.shortInsight,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function applyVehicleLabels(
+  base: ContextualHighlight,
+  card: DailyMirrorCardModel
+): ContextualHighlight {
+  const labels = extractVehicleHighlightLabels(vehicleCueBlobFromCard(card));
+  if (!labels || base.kind !== 'dual_comparison') return base;
+  return {
+    ...base,
+    left: { label: labels.left, hint: 'Konfor & uzun yol' },
+    right: { label: labels.right, hint: 'Denge & kalite' },
+  };
+}
+
 export function buildContextualHighlight(card: DailyMirrorCardModel): ContextualHighlight {
   const intentId = mapIntentIdFromLabel(card.visual?.sceneIntentLabel);
 
   if (intentId && INTENT_TO_HIGHLIGHT[intentId]) {
-    return { ...INTENT_TO_HIGHLIGHT[intentId]! };
+    const base = { ...INTENT_TO_HIGHLIGHT[intentId]! };
+    if (intentId === 'premium_vehicle_comparison') {
+      return applyVehicleLabels(base, card);
+    }
+    return base;
   }
 
   const fromCompare = compareHighlightFromCard(card);

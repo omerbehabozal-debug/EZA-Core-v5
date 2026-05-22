@@ -94,7 +94,7 @@ export default function DailyMirrorPosterCard({
     <article
       data-mirror-card-root
       data-mirror-aspect="9-16"
-      data-mirror-poster="v8-editorial-math"
+      data-mirror-poster="v8b-intent-lock"
       data-mirror-density={composition.density}
       className={s.root}
       style={cardStyle}

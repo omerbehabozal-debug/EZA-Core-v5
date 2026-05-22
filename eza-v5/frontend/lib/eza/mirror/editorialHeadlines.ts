@@ -5,6 +5,7 @@
 
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
 import type { MicroMoodId, TopicStoryVariantId } from '@/lib/eza/mirror/reflectionSignals';
+import type { LockedPrimaryIntentId } from '@/lib/eza/mirror/intentLockSystem';
 
 const BY_MOOD: Record<MicroMoodId, readonly string[]> = {
   clarifying: [
@@ -102,6 +103,13 @@ const BY_TOPIC: Partial<Record<SceneTopicKey, readonly string[]>> = {
   general: ['Sessiz Netlik', 'Sakin Tempo', 'Ölçülü Düşün'],
 };
 
+const VEHICLE_COMPARISON_HEADLINES = [
+  'Kıyasla ve Netleştir',
+  'Konforu Seç',
+  'İki Seçenek, Net Bir Yol',
+  'Karar Öncesi Netlik',
+] as const;
+
 const FALLBACK = ['Sessiz Netlik', 'Sakin Tempo', 'Ölçülü Düşün', 'Sakinleş ve Netleştir'] as const;
 
 function hashPick(seed: string, items: readonly string[]): string {
@@ -116,8 +124,12 @@ export function composeEditorialHeadline(
   microMood: MicroMoodId,
   variant: TopicStoryVariantId,
   topic: SceneTopicKey,
-  seed: string
+  seed: string,
+  lockedIntent?: LockedPrimaryIntentId
 ): string {
+  if (lockedIntent === 'premium_vehicle_comparison') {
+    return hashPick(`${seed}-vehicle-lock`, VEHICLE_COMPARISON_HEADLINES);
+  }
   const pool = [
     ...(BY_VARIANT[variant] ?? []),
     ...(BY_MOOD[microMood] ?? []),

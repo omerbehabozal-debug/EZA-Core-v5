@@ -19,8 +19,10 @@ describe('posterEditorialMathematics (Sprint 12A)', () => {
   });
 
   it('safe area preview matches export ratio', () => {
-    expect(SAFE_PREVIEW.top * POSTER_SCALE).toBeCloseTo(110, 0);
-    expect(SAFE_PREVIEW.left * POSTER_SCALE).toBeCloseTo(56, 0);
+    expect(SAFE_PREVIEW.top * POSTER_SCALE).toBe(110);
+    expect(SAFE_PREVIEW.bottom * POSTER_SCALE).toBe(140);
+    expect(SAFE_PREVIEW.left).toBe(22);
+    expect(SAFE_PREVIEW.left * POSTER_SCALE).toBe(55);
   });
 
   it('12-column grid content width', () => {

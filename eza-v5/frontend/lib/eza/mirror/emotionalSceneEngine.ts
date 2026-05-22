@@ -20,6 +20,7 @@ import type {
   TopicStoryVariantId,
 } from '@/lib/eza/mirror/reflectionSignals';
 import type { MicroMoodId } from '@/lib/eza/mirror/reflectionSignals';
+import type { LockedPrimaryIntentId } from '@/lib/eza/mirror/intentLockSystem';
 
 export type EmotionalSceneBrief = {
   intent: ConversationVisualIntent;
@@ -27,6 +28,7 @@ export type EmotionalSceneBrief = {
   storyVariant?: TopicStoryVariantId;
   microMood?: MicroMoodId;
   reflectionTone?: ReflectionToneId;
+  lockedIntent?: LockedPrimaryIntentId;
 };
 
 export type EmotionalSceneBlock = {
@@ -100,10 +102,14 @@ export function buildEmotionalSceneBlock(input: EmotionalSceneBrief): EmotionalS
     tension,
     storyVariant,
     reflectionTone,
+    lockedIntent: input.lockedIntent,
   });
   const hero = resolveHeroObject(intent.id, intent.composition);
   const composition = getIntentCompositionSpec(intent.composition);
-  const density = resolveMemoryDensity(reflectionSignals, tension, cinematic.pacing);
+  const density =
+    input.lockedIntent === 'premium_vehicle_comparison'
+      ? 'rich'
+      : resolveMemoryDensity(reflectionSignals, tension, cinematic.pacing);
 
   const phrases = [
     'premium editorial campaign key visual directed film still not AI wallpaper',

@@ -1,17 +1,17 @@
 {
-  "averageGeneral": 4,
+  "averageGeneral": 5,
   "rows": [
     {
       "scenario": "Finans / kıyas",
       "scores": {
         "aspect916": 5,
-        "visualDominant": 1,
+        "visualDominant": 5,
         "textBalance": 5,
         "editorialHeadline": 5,
         "storyAlignment": 5,
         "mobile": 5,
         "exportCheck": 5,
-        "general": 4
+        "general": 5
       },
       "headline": "Sakinleş ve Netleştir",
       "topic": "finance",
@@ -21,13 +21,13 @@
       "scenario": "Sağlık / özen",
       "scores": {
         "aspect916": 5,
-        "visualDominant": 1,
+        "visualDominant": 5,
         "textBalance": 5,
         "editorialHeadline": 5,
         "storyAlignment": 5,
         "mobile": 5,
         "exportCheck": 5,
-        "general": 4
+        "general": 5
       },
       "headline": "Yumuşak Bakım",
       "topic": "health",
@@ -37,13 +37,13 @@
       "scenario": "Mimari / restorasyon",
       "scores": {
         "aspect916": 5,
-        "visualDominant": 1,
+        "visualDominant": 5,
         "textBalance": 5,
         "editorialHeadline": 5,
         "storyAlignment": 5,
         "mobile": 5,
         "exportCheck": 5,
-        "general": 4
+        "general": 5
       },
       "headline": "Durgun Açıklık",
       "topic": "architecture",
@@ -53,13 +53,13 @@
       "scenario": "Seyahat / keşif",
       "scores": {
         "aspect916": 5,
-        "visualDominant": 1,
+        "visualDominant": 5,
         "textBalance": 5,
         "editorialHeadline": 5,
         "storyAlignment": 5,
         "mobile": 5,
         "exportCheck": 5,
-        "general": 4
+        "general": 5
       },
       "headline": "Ölçülü Düşün",
       "topic": "travel",
@@ -69,13 +69,13 @@
       "scenario": "Arkadaşlık / iletişim",
       "scores": {
         "aspect916": 5,
-        "visualDominant": 1,
+        "visualDominant": 5,
         "textBalance": 5,
         "editorialHeadline": 5,
         "storyAlignment": 5,
         "mobile": 5,
         "exportCheck": 5,
-        "general": 4
+        "general": 5
       },
       "headline": "Durgun Açıklık",
       "topic": "friendship",

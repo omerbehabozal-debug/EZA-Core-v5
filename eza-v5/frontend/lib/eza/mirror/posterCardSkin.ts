@@ -119,17 +119,24 @@ export const posterCardSkin = {
     'rounded-full bg-white/10 px-1.5 py-px text-[6px] font-semibold uppercase text-white/72',
   insightsRow: [
     'col-span-12 grid grid-cols-3 gap-2',
-    `min-h-[${POSTER_INSIGHT_PREVIEW.minHeight}px]`,
+    `min-h-[${POSTER_INSIGHT_PREVIEW.minHeight}px] max-h-[${POSTER_INSIGHT_PREVIEW.maxHeight}px]`,
+    '[grid-template-columns:repeat(3,minmax(100px,1fr))]',
   ].join(' '),
   insightCard: [
-    'flex min-h-[96px] flex-col rounded-[18px] border border-white/22 px-2 py-2',
+    'flex min-w-[100px] min-h-[92px] max-h-[120px] flex-col rounded-[18px] border border-white/22 px-2 py-2',
     'bg-[rgba(255,255,255,0.22)] backdrop-blur-[14px]',
     `shadow-[${POSTER_SHADOWS.glassCard}]`,
+    '[writing-mode:horizontal-tb]',
   ].join(' '),
-  insightIcon: 'mb-1 flex h-5 w-5 items-center justify-center rounded-md bg-white/18 text-white/90',
-  insightLabel:
-    'text-[8px] font-semibold uppercase tracking-[0.12em] text-white/88',
-  insightLine: 'mt-0.5 line-clamp-3 text-[10px] font-medium leading-[1.35] text-white/92',
+  insightIcon: 'mb-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-white/18 text-white/90',
+  insightLabel: [
+    'whitespace-nowrap text-[8px] font-semibold uppercase tracking-[0.12em] text-white/88',
+    '[writing-mode:horizontal-tb]',
+  ].join(' '),
+  insightLine: [
+    'mt-0.5 line-clamp-2 text-[10px] font-medium leading-[1.3] text-white/92',
+    '[writing-mode:horizontal-tb] [text-orientation:mixed]',
+  ].join(' '),
   footer: [
     'relative z-[6] col-span-12 flex items-center justify-between gap-2 pt-1',
     'text-[9px] font-semibold uppercase tracking-[0.12em] text-white/58',

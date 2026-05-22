@@ -14,6 +14,11 @@ import {
 import { buildCameraGrammarPhrases } from '@/lib/eza/mirror/cameraGrammarRegistry';
 import { buildMirrorNegativePrompt } from '@/lib/eza/mirror/ezaVisualCanon';
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
+import {
+  buildIntentLockPromptBlock,
+  getIntentLockForbiddenPhrases,
+  type LockedPrimaryIntentId,
+} from '@/lib/eza/mirror/intentLockSystem';
 
 export const STYLE_BLOCK = [
   'premium cinematic editorial scene',
@@ -76,6 +81,7 @@ export type StructuredScenePromptInput = {
   reflectionSignals: ReflectionSignals;
   atmosphereLabel: string;
   emotionLabel: string;
+  lockedIntent?: LockedPrimaryIntentId;
 };
 
 export function buildStructuredScenePrompt(input: StructuredScenePromptInput): {
@@ -119,7 +125,18 @@ export function buildStructuredScenePrompt(input: StructuredScenePromptInput): {
     'character supports hero object never sole poster subject',
   ].join(', ');
 
+  const intentLockBlock = buildIntentLockPromptBlock(input.lockedIntent ?? null);
+
   const prompt = [
+    intentLockBlock ? `INTENT LOCK BLOCK: ${intentLockBlock}` : '',
+    'HERO OBJECT BLOCK:',
+    heroBlock,
+    'COMPOSITION BLOCK:',
+    compositionBlock,
+    'ACTION MEMORY BLOCK:',
+    actionBlock,
+    'CINEMATIC DIRECTION BLOCK:',
+    input.emotionalBlock.phrases.slice(0, 6).join(', '),
     'STYLE BLOCK:',
     STYLE_BLOCK,
     'LIGHTING BLOCK:',
@@ -128,17 +145,14 @@ export function buildStructuredScenePrompt(input: StructuredScenePromptInput): {
     camera,
     'INTENT BLOCK:',
     intentBlock,
-    'HERO OBJECT BLOCK:',
-    heroBlock,
-    'ACTION MEMORY BLOCK:',
-    actionBlock,
-    'COMPOSITION BLOCK:',
-    compositionBlock,
     'SAFE ZONE BLOCK:',
     SAFE_ZONE_BLOCK,
-  ].join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const negativePrompt = buildMirrorNegativePrompt(input.topicKey, [
+    ...getIntentLockForbiddenPhrases(input.lockedIntent ?? null),
     ...input.intent.negativeExtras,
     ...input.emotionalBlock.negativeExtras,
     ...FIXED_NEGATIVE_SCENE.split(', '),

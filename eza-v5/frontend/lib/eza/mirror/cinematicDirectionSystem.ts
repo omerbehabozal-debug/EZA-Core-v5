@@ -4,6 +4,7 @@
 
 import type { ConversationVisualIntent } from '@/lib/eza/mirror/conversationVisualIntent';
 import type { ReflectionToneId } from '@/lib/eza/mirror/reflectionToneEngine';
+import type { LockedPrimaryIntentId } from '@/lib/eza/mirror/intentLockSystem';
 import type { ReflectionSignals } from '@/lib/eza/mirror/reflectionSignals';
 import type { TopicStoryVariantId } from '@/lib/eza/mirror/reflectionSignals';
 import type { EmotionalTensionId } from '@/lib/eza/mirror/intentCompositionSystem';
@@ -24,6 +25,7 @@ export type CinematicDirectionBrief = {
   tension: EmotionalTensionId;
   storyVariant?: TopicStoryVariantId;
   reflectionTone?: ReflectionToneId;
+  lockedIntent?: LockedPrimaryIntentId;
 };
 
 export type CinematicDirectionBlock = {
@@ -110,7 +112,12 @@ export function buildCinematicDirectionBlock(
   input: CinematicDirectionBrief
 ): CinematicDirectionBlock {
   const { intent, reflectionSignals, tension, storyVariant, reflectionTone } = input;
-  const pacing = resolveEmotionalPacing(reflectionSignals, tension, storyVariant);
+  const pacing = resolveEmotionalPacing(
+    reflectionSignals,
+    tension,
+    storyVariant,
+    input.lockedIntent
+  );
   const camera = getCameraGrammar(intent.composition);
   const conflictLevel = resolveVisualConflictLevel(
     intent.id,

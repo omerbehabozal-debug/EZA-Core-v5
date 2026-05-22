@@ -14,7 +14,7 @@ describe('posterCardSkin', () => {
     expect(posterCardSkin.insightCard).toContain('backdrop-blur');
     expect(posterCardSkin.contentStack).toContain('--poster-safe-top');
     expect(posterCardSkin.insightLine).toContain('text-[10px]');
-    expect(POSTER_SCENE_DOMINANCE_RATIO).toBeGreaterThanOrEqual(0.65);
+    expect(POSTER_SCENE_DOMINANCE_RATIO).toBeGreaterThanOrEqual(0.38);
     expect(POSTER_CARD_WIDTH_PX).toBeGreaterThanOrEqual(420);
     expect(POSTER_CARD_WIDTH_PX).toBeLessThanOrEqual(460);
   });

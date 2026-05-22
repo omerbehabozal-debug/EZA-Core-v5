@@ -196,8 +196,12 @@ export function inferMicroMood(
 export function pickTopicStoryVariant(
   topic: SceneTopicKey,
   signals: ReflectionSignals,
-  microMood: MicroMoodId
+  microMood: MicroMoodId,
+  lockedIntent?: import('@/lib/eza/mirror/intentLockSystem').LockedPrimaryIntentId
 ): TopicStoryVariantId {
+  if (lockedIntent === 'premium_vehicle_comparison') {
+    return 'compare';
+  }
   if (topic === 'finance') {
     if (signals.comparisonIntensity >= 0.35) return 'compare';
     if (signals.detailFocus >= 0.45) return 'clarify';
@@ -567,9 +571,10 @@ export function composePrecisionStory(
   topic: SceneTopicKey,
   signals: ReflectionSignals,
   microMood: MicroMoodId,
-  seed: string
+  seed: string,
+  lockedIntent?: import('@/lib/eza/mirror/intentLockSystem').LockedPrimaryIntentId
 ): PrecisionStorySlice & { variant: TopicStoryVariantId } {
-  const variant = pickTopicStoryVariant(topic, signals, microMood);
+  const variant = pickTopicStoryVariant(topic, signals, microMood, lockedIntent);
   const bank = PRECISION_STORY_BANK[topic][variant] ?? PRECISION_STORY_BANK[topic].default ?? [];
   const fallback =
     PRECISION_STORY_BANK[topic].default?.[0] ??
@@ -584,7 +589,20 @@ export function composePrecisionStory(
     slice = bank[Math.abs(h) % bank.length]!;
   }
 
-  const dailyJourney = composeEditorialHeadline(microMood, variant, topic, seed);
+  const dailyJourney = composeEditorialHeadline(microMood, variant, topic, seed, lockedIntent);
+
+  if (lockedIntent === 'premium_vehicle_comparison') {
+    return {
+      variant: 'compare',
+      mirrorStory: sanitizePrecisionCopy(
+        'Bugün AI ile iki güçlü seçeneği konfor, kalite ve uzun yol hissi üzerinden netleştirdin.'
+      ),
+      dailyJourney,
+      userLine: sanitizePrecisionCopy('Konfor ve uzun yol önceliğini tarttın.'),
+      aiLine: sanitizePrecisionCopy('İki seçeneği yan yana netleştirdi.'),
+      balanceLine: sanitizePrecisionCopy('Kıyas ritmi acele etmeden ilerledi.'),
+    };
+  }
 
   return {
     variant,

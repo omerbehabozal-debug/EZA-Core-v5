@@ -41,8 +41,9 @@ describe('contextualHighlight', () => {
     const h = buildContextualHighlight(baseCard);
     expect(h.kind).toBe('dual_comparison');
     expect(h.centerBadge).toBe('VS');
-    expect(h.left?.label).toMatch(/sürüş|performans/i);
-    expect(h.right?.label).toMatch(/konfor/i);
+    expect(h.left?.label).toBeTruthy();
+    expect(h.right?.label).toBeTruthy();
+    expect(h.tags.join(' ')).toMatch(/konfor/i);
   });
 
   it('buildPosterCardContent includes highlight', () => {

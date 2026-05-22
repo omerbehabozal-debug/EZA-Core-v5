@@ -22,6 +22,10 @@ import {
   type CharacterArchetypeId,
 } from '@/lib/eza/mirror/ezaCharacterBible';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
+import {
+  collectIntentCueBlob,
+  resolveLockedPrimaryIntent,
+} from '@/lib/eza/mirror/intentLockSystem';
 import type {
   ConversationVisualIntentId as IntentId,
   SceneCompositionTemplateId as CompositionId,
@@ -172,27 +176,7 @@ const INTENT_NEGATIVE: Record<IntentId, readonly string[]> = {
   topic_atmosphere: ['generic mascot scene', 'floating character'],
 };
 
-function collectBehavioralCueBlob(entries: SavedBehavioralEntry[]): string {
-  const parts: string[] = [];
-  const recent = [...entries]
-    .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())
-    .slice(0, 6);
-
-  for (const e of recent) {
-    const intent = (e.vector.intent ?? '').trim().toLowerCase();
-    if (intent) parts.push(intent);
-
-    const obs = parseStandaloneObservation(e.standaloneObservation);
-    if (obs?.user_pattern?.signals?.length) {
-      parts.push(...obs.user_pattern.signals.map((s) => s.toLowerCase()));
-    }
-    if (obs?.user_pattern?.category) {
-      parts.push(obs.user_pattern.category.toLowerCase());
-    }
-  }
-
-  return parts.join(' ');
-}
+export { collectIntentCueBlob } from '@/lib/eza/mirror/intentLockSystem';
 
 function cueMatch(blob: string, cues: readonly string[]): boolean {
   return cues.some((c) => blob.includes(c));
@@ -219,7 +203,18 @@ export function deriveConversationVisualIntent(
 ): ConversationVisualIntent {
   const signals =
     input.reflectionSignals ?? deriveReflectionSignals(input.entries);
-  const blob = collectBehavioralCueBlob(input.entries);
+  const blob = collectIntentCueBlob(input.entries);
+  const locked = resolveLockedPrimaryIntent({
+    entries: input.entries,
+    reflectionSignals: signals,
+    storyVariant: input.storyVariant,
+    cueBlob: blob,
+  });
+
+  if (locked === 'premium_vehicle_comparison') {
+    return pack('premium_vehicle_comparison', 'premium car comparison', 'comparison_scene', 'stylized_human');
+  }
+
   const comparing = hasCompareCue(blob, signals, input.storyVariant);
 
   if (comparing && cueMatch(blob, VEHICLE_CUES)) {
