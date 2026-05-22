@@ -19,6 +19,8 @@ function notifyBehavioralHistoryUpdated(): void {
 export type SavedBehavioralEntry = BehavioralSnapshot & {
   savedAt: string;
   standaloneObservation?: StandaloneObservation | null;
+  /** Frontend-only cues from user message (Mirror intent lock; no chat text stored). */
+  mirrorCueHints?: string[];
 };
 
 function placeholderSnapshot(interactionId: string): BehavioralSnapshot {
@@ -47,19 +49,25 @@ function placeholderSnapshot(interactionId: string): BehavioralSnapshot {
   };
 }
 
+export type AppendBehavioralOptions = {
+  mirrorCueHints?: string[];
+};
+
 /** Persist turn; observation-only turns use a neutral placeholder vector. */
 export function appendBehavioralTurn(
   snapshot: BehavioralSnapshot | null | undefined,
-  standaloneObservation?: StandaloneObservation | null
+  standaloneObservation?: StandaloneObservation | null,
+  options?: AppendBehavioralOptions
 ): void {
   if (!snapshot && !standaloneObservation) return;
   const base = snapshot ?? placeholderSnapshot(`obs-${Date.now()}`);
-  appendBehavioralSnapshot(base, standaloneObservation);
+  appendBehavioralSnapshot(base, standaloneObservation, options);
 }
 
 export function appendBehavioralSnapshot(
   snapshot: BehavioralSnapshot | null | undefined,
-  standaloneObservation?: StandaloneObservation | null
+  standaloneObservation?: StandaloneObservation | null,
+  options?: AppendBehavioralOptions
 ): void {
   if (!snapshot || typeof window === 'undefined') return;
   try {
@@ -69,6 +77,7 @@ export function appendBehavioralSnapshot(
       ...snapshot,
       savedAt: new Date().toISOString(),
       ...(standaloneObservation ? { standaloneObservation } : {}),
+      ...(options?.mirrorCueHints?.length ? { mirrorCueHints: options.mirrorCueHints } : {}),
     };
     list.unshift(entry);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_ITEMS)));

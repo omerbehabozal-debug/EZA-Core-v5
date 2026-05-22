@@ -60,6 +60,11 @@ export interface MirrorVisualPromptPayload {
   qualityHints?: string[];
   /** High-level cinematic intent label — no raw chat (Sprint 11J). */
   sceneIntentLabel?: string;
+  /** Sprint 12B — intent lock fingerprint for scene cache busting. */
+  lockedPrimaryIntent?: import('@/lib/eza/mirror/sceneIntentTypes').ConversationVisualIntentId | null;
+  primaryIntentId?: import('@/lib/eza/mirror/sceneIntentTypes').ConversationVisualIntentId;
+  compositionTemplate?: import('@/lib/eza/mirror/sceneIntentTypes').SceneCompositionTemplateId;
+  intentFingerprint?: string;
   /** Optional AI scene background (injected by UI when available). */
   sceneImageUrl?: string | null;
   sceneImageStatus?: MirrorSceneImageStatus;

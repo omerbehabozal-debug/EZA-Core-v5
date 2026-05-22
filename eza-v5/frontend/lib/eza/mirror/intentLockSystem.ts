@@ -83,6 +83,21 @@ const PREMIUM_VEHICLE_LOCK_PROMPT = [
   'decision tension between two driving characters not a calm landscape',
 ].join(', ');
 
+/** Extract safe keyword hints from user message (no full message stored). */
+export function extractMirrorCueHintsFromUserText(text: string): string[] {
+  const t = text.trim().toLowerCase();
+  if (!t) return [];
+  const hints: string[] = [];
+  for (const c of VEHICLE_LOCK_CUES) {
+    if (t.includes(c)) hints.push(c);
+  }
+  for (const c of VEHICLE_COMPARE_CUES) {
+    if (t.includes(c.trim()) || (c.trim() && t.includes(c.trim()))) hints.push(c.trim());
+  }
+  if (/\bvs\b/.test(t)) hints.push('vs');
+  return Array.from(new Set(hints));
+}
+
 export function collectIntentCueBlob(entries: SavedBehavioralEntry[]): string {
   const parts: string[] = [];
   const recent = [...entries]
@@ -93,9 +108,19 @@ export function collectIntentCueBlob(entries: SavedBehavioralEntry[]): string {
     const intent = (e.vector.intent ?? '').trim().toLowerCase();
     if (intent) parts.push(intent);
 
+    if (e.mirrorCueHints?.length) {
+      parts.push(...e.mirrorCueHints.map((h) => String(h).toLowerCase()));
+    }
+
     const obs = parseStandaloneObservation(e.standaloneObservation);
     if (obs?.user_pattern?.category) {
       parts.push(obs.user_pattern.category.toLowerCase());
+    }
+    if (obs?.ai_behavior?.category) {
+      parts.push(obs.ai_behavior.category.toLowerCase());
+    }
+    if (obs?.relationship_balance?.category) {
+      parts.push(obs.relationship_balance.category.toLowerCase());
     }
     if (obs?.user_pattern?.signals?.length) {
       parts.push(...obs.user_pattern.signals.map((s) => String(s).toLowerCase()));
@@ -105,6 +130,13 @@ export function collectIntentCueBlob(entries: SavedBehavioralEntry[]): string {
     }
     if (obs?.relationship_balance?.signals?.length) {
       parts.push(...obs.relationship_balance.signals.map((s) => String(s).toLowerCase()));
+    }
+    if (obs) {
+      try {
+        parts.push(JSON.stringify(obs).toLowerCase());
+      } catch {
+        // ignore
+      }
     }
   }
 

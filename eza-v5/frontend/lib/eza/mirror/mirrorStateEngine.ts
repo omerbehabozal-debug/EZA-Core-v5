@@ -17,6 +17,7 @@ import { pickStandalonePersona, type PersonaFamilyId } from '@/lib/eza/standalon
 import { composeEmotionalReflection } from '@/lib/eza/mirror/reflectionToneEngine';
 import { composeMirrorStory } from '@/lib/eza/mirror/mirrorStoryEngine';
 import { buildMirrorVisualFromContext, buildFallbackMirrorVisual } from '@/lib/eza/mirror/visualPromptEngine';
+import { resolveMirrorIntentContext } from '@/lib/eza/mirror/mirrorIntentContext';
 import {
   MIRROR_MIN_SAMPLES,
   type BuildMirrorStateOptions,
@@ -241,6 +242,20 @@ function buildDailyMirrorCard(
     hasEnoughData && observation.show && Boolean(observation.userLine?.trim());
 
   const energyLabel = energyLabelFromScore(energyScore);
+  const intentCtx = resolveMirrorIntentContext({
+    entries,
+    storyVariant: story.storyVariant,
+    reflectionSignals: story.reflectionSignals,
+    reflectionTone: emotional.reflectionTone,
+    personaFamilyId,
+    observationCategoryId: observation.categoryId,
+  });
+
+  const atmosphereOverride =
+    intentCtx.lockedIntent === 'premium_vehicle_comparison'
+      ? 'warm premium showroom decision atmosphere comfort priority'
+      : story.visualAtmosphereBoost ?? emotional.visualAtmosphere;
+
   const visual = buildMirrorVisualFromContext({
     entries,
     characterName: persona.name,
@@ -249,13 +264,18 @@ function buildDailyMirrorCard(
     energyLabel,
     seed: `${seed}-visual`,
     reflectionTone: emotional.reflectionTone,
-    atmosphereOverride: story.visualAtmosphereBoost ?? emotional.visualAtmosphere,
+    atmosphereOverride,
     emotionOverride: emotional.visualEmotion,
     toneHints: emotional.toneHints,
     storyTopicKey: story.storyTopicKey,
     storyVariant: story.storyVariant,
     reflectionSignals: story.reflectionSignals,
-    visualStoryHints: story.visualStoryHints,
+    visualStoryHints:
+      intentCtx.lockedIntent === 'premium_vehicle_comparison'
+        ? []
+        : story.visualStoryHints,
+    lockedIntent: intentCtx.lockedIntent,
+    intentFingerprint: intentCtx.intentFingerprint,
   });
 
   const storyHeadline = story.dailyJourney;

@@ -23,13 +23,16 @@ import {
 } from '@/lib/eza/mirror/posterCardSkin';
 import DailyMirrorPosterScene from '@/components/mirror/DailyMirrorPosterScene';
 import ContextualHighlightBand from '@/components/mirror/ContextualHighlightBand';
-import MirrorVisualPromptDebug from '@/components/mirror/MirrorVisualPromptDebug';
+import MirrorLiveDebugPanel from '@/components/mirror/MirrorLiveDebugPanel';
+import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 
 export type DailyMirrorPosterCardProps = {
   card: DailyMirrorCardModel;
   meta?: MirrorStateMeta;
+  entries?: SavedBehavioralEntry[];
   onSceneImageLoad?: () => void;
   onSceneImageError?: () => void;
+  onForceBmwMercedes?: () => void;
 };
 
 function InsightGlassCard({
@@ -60,8 +63,10 @@ function InsightGlassCard({
 export default function DailyMirrorPosterCard({
   card,
   meta,
+  entries = [],
   onSceneImageLoad,
   onSceneImageError,
+  onForceBmwMercedes,
 }: DailyMirrorPosterCardProps) {
   const isReady =
     Boolean(meta?.hasEnoughData) && card.shareEnabled && Boolean(card.characterName);
@@ -206,7 +211,13 @@ export default function DailyMirrorPosterCard({
         </footer>
       </div>
 
-      <MirrorVisualPromptDebug visual={card.visual} />
+      <MirrorLiveDebugPanel
+        card={card}
+        entries={entries}
+        meta={meta}
+        posterVersion="v8b-intent-lock"
+        onForceBmwMercedes={onForceBmwMercedes}
+      />
     </article>
   );
 }

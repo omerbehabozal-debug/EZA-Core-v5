@@ -16,10 +16,8 @@ import {
 } from '@/lib/eza/mirror/conversationVisualIntent';
 import { buildEmotionalSceneBlock } from '@/lib/eza/mirror/emotionalSceneEngine';
 import { buildStructuredScenePrompt } from '@/lib/eza/mirror/posterPromptBlocks';
-import {
-  collectIntentCueBlob,
-  resolveLockedPrimaryIntent,
-} from '@/lib/eza/mirror/intentLockSystem';
+import type { LockedPrimaryIntentId } from '@/lib/eza/mirror/intentLockSystem';
+import { resolveMirrorIntentContext } from '@/lib/eza/mirror/mirrorIntentContext';
 import {
   deriveReflectionSignals,
   type ReflectionSignals,
@@ -61,6 +59,10 @@ export interface MirrorVisualPrompt {
   qualityHints: string[];
   /** High-level scene intent for dev QA — no raw message content */
   sceneIntentLabel?: string;
+  lockedPrimaryIntent?: LockedPrimaryIntentId;
+  primaryIntentId?: ConversationVisualIntent['id'];
+  compositionTemplate?: ConversationVisualIntent['composition'];
+  intentFingerprint?: string;
 }
 
 export interface BuildVisualPromptInput {
@@ -308,6 +310,8 @@ export interface BuildMirrorVisualFromContextInput {
   storyVariant?: TopicStoryVariantId;
   reflectionSignals?: ReflectionSignals;
   visualStoryHints?: string[];
+  lockedIntent?: LockedPrimaryIntentId;
+  intentFingerprint?: string;
 }
 
 /**
@@ -324,21 +328,31 @@ export function buildMirrorVisualFromContext(
   const reflectionSignals =
     input.reflectionSignals ?? deriveReflectionSignals(input.entries);
 
-  const cueBlob = collectIntentCueBlob(input.entries);
-  const lockedIntent = resolveLockedPrimaryIntent({
-    entries: input.entries,
-    reflectionSignals,
-    storyVariant: input.storyVariant,
-    cueBlob,
-  });
+  const hasPrelocked =
+    Boolean(input.intentFingerprint) && input.lockedIntent !== undefined;
+  const intentCtx = hasPrelocked
+    ? null
+    : resolveMirrorIntentContext({
+          entries: input.entries,
+          storyVariant: input.storyVariant,
+          reflectionSignals,
+          reflectionTone: input.reflectionTone,
+          personaFamilyId: input.personaFamilyId,
+          observationCategoryId: input.observationCategoryId,
+        });
 
-  const conversationIntent = deriveConversationVisualIntent({
+  const lockedIntent = input.lockedIntent ?? intentCtx?.lockedIntent ?? null;
+  const intentFingerprint = input.intentFingerprint ?? intentCtx?.intentFingerprint ?? '';
+
+  const conversationIntent =
+    intentCtx?.conversationIntent ??
+    deriveConversationVisualIntent({
     entries: input.entries,
     topicKey,
     storyVariant: input.storyVariant,
     reflectionSignals,
-    storyTopicKey: input.storyTopicKey,
-  });
+      storyTopicKey: input.storyTopicKey,
+    });
 
   const emotionalScene = buildEmotionalSceneBlock({
     intent: conversationIntent,
@@ -400,6 +414,8 @@ export function buildMirrorVisualFromContext(
       input.personaFamilyId,
       topicKey,
       conversationIntent.id,
+      lockedIntent ?? 'none',
+      intentFingerprint,
       input.characterName,
       input.reflectionTone ?? '',
       emotionalScene.tension,
@@ -407,6 +423,10 @@ export function buildMirrorVisualFromContext(
     ]),
     qualityHints,
     sceneIntentLabel: conversationIntent.label,
+    lockedPrimaryIntent: lockedIntent,
+    primaryIntentId: conversationIntent.id,
+    compositionTemplate: conversationIntent.composition,
+    intentFingerprint,
   };
 
   const storyHints = input.visualStoryHints ?? [];

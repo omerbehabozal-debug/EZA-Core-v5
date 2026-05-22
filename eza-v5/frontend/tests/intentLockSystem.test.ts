@@ -6,7 +6,9 @@ import {
   buildIntentLockPromptBlock,
   getIntentLockForbiddenPhrases,
   extractVehicleHighlightLabels,
+  extractMirrorCueHintsFromUserText,
 } from '@/lib/eza/mirror/intentLockSystem';
+import { resolveMirrorIntentContext } from '@/lib/eza/mirror/mirrorIntentContext';
 import { deriveConversationVisualIntent } from '@/lib/eza/mirror/conversationVisualIntent';
 import { buildMirrorVisualFromContext } from '@/lib/eza/mirror/visualPromptEngine';
 import { composeEditorialHeadline } from '@/lib/eza/mirror/editorialHeadlines';
@@ -141,6 +143,31 @@ describe('intentLockSystem (Sprint 12B)', () => {
     expect(h.kind).toBe('dual_comparison');
     expect(h.left?.label).toBe('BMW 3 Serisi');
     expect(h.right?.label).toBe('Mercedes C Serisi');
+  });
+
+  it('extractMirrorCueHintsFromUserText captures BMW/Mercedes chat keywords', () => {
+    const hints = extractMirrorCueHintsFromUserText(
+      'BMW 3 Serisi ile Mercedes C arasında konfor için hangisini seçmeliyim?'
+    );
+    expect(hints).toContain('bmw');
+    expect(hints).toContain('mercedes');
+    expect(hints).toContain('konfor');
+    expect(hints).toContain('hangisi');
+  });
+
+  it('mirrorCueHints on entries unlock vehicle intent in live context', () => {
+    const entries = BMW_ENTRIES.map((e, i) =>
+      i === 0
+        ? {
+            ...e,
+            mirrorCueHints: extractMirrorCueHintsFromUserText(
+              'BMW 3 vs Mercedes C konfor uzun yol'
+            ),
+          }
+        : e
+    );
+    const ctx = resolveMirrorIntentContext({ entries });
+    expect(ctx.lockedIntent).toBe('premium_vehicle_comparison');
   });
 
   it('collectIntentCueBlob surfaces observation signals for lock', () => {

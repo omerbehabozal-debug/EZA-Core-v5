@@ -426,14 +426,17 @@ export function composeMirrorStory(input: ComposeMirrorStoryInput): MirrorStoryL
     hashPick(`${seed}-a`, [precision.aiLine, ...MODE_AI_LINE[relationshipMode]])
   );
 
-  const atmosphereBoost = [
-    pack.atmosphereBoost,
-    reflectionSignals.calmnessLevel >= 0.58 ? 'soft spacious calm light' : '',
-    reflectionSignals.curiosityDepth >= 0.52 ? 'gentle lively frame' : '',
-    reflectionSignals.detailFocus >= 0.5 ? 'thoughtful material detail mood' : '',
-  ]
-    .filter(Boolean)
-    .join(', ');
+  const atmosphereBoost =
+    lockedIntent === 'premium_vehicle_comparison'
+      ? 'warm premium garage showroom editorial light comfort-oriented decision mood'
+      : [
+          pack.atmosphereBoost,
+          reflectionSignals.calmnessLevel >= 0.58 ? 'soft spacious calm light' : '',
+          reflectionSignals.curiosityDepth >= 0.52 ? 'gentle lively frame' : '',
+          reflectionSignals.detailFocus >= 0.5 ? 'thoughtful material detail mood' : '',
+        ]
+          .filter(Boolean)
+          .join(', ');
 
   return {
     mirrorStory: sanitizeStoryLine(precision.mirrorStory),

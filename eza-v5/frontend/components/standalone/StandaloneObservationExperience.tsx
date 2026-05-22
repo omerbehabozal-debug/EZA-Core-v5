@@ -20,6 +20,10 @@ import type {
 } from '@/lib/eza/mirror/types';
 import { buildMirrorState } from '@/lib/eza/mirror/mirrorStateEngine';
 import { mergeDailyCardSceneVisual } from '@/lib/eza/mirror/mirrorSceneImage';
+import {
+  resolveMirrorIntentContext,
+  withDevVehicleCueHints,
+} from '@/lib/eza/mirror/mirrorIntentContext';
 import { generateMirrorScene } from '@/lib/eza/mirror/generateSceneApi';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
@@ -53,7 +57,13 @@ export default function StandaloneObservationExperience({
   const [generatedDailyMeta, setGeneratedDailyMeta] = useState<MirrorStateMeta | null>(null);
   const [sceneImageUrl, setSceneImageUrl] = useState<string | null>(null);
   const [sceneImageStatus, setSceneImageStatus] = useState<MirrorSceneImageStatus>('idle');
+  const [cardIntentFingerprint, setCardIntentFingerprint] = useState<string | null>(null);
   const mirrorExport = useMirrorCardExport();
+
+  const liveIntentFingerprint = useMemo(() => {
+    if (!entries.length) return null;
+    return resolveMirrorIntentContext({ entries }).intentFingerprint;
+  }, [entries]);
 
   const rp = standaloneSkin.reportsPremium;
   const op = standaloneSkin.observationPolish;
@@ -65,9 +75,23 @@ export default function StandaloneObservationExperience({
       setGeneratedDailyMeta(null);
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
+      setCardIntentFingerprint(null);
       setDailyStatus('idle');
     }
   }, [entries.length]);
+
+  /** Bust stale scene when history/intent changes after card was generated. */
+  useEffect(() => {
+    if (dailyStatus !== 'ready' || !generatedDailyCard || !liveIntentFingerprint) return;
+    if (cardIntentFingerprint && liveIntentFingerprint !== cardIntentFingerprint) {
+      const state = buildMirrorState(entries);
+      setGeneratedDailyCard(state.dailyMirrorCard);
+      setGeneratedDailyMeta(state.meta);
+      setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
+      setSceneImageUrl(null);
+      setSceneImageStatus('idle');
+    }
+  }, [entries, dailyStatus, liveIntentFingerprint, cardIntentFingerprint]);
 
   const cardForRender = useMemo(
     () =>
@@ -119,6 +143,7 @@ export default function StandaloneObservationExperience({
         }
         setGeneratedDailyCard(state.dailyMirrorCard);
         setGeneratedDailyMeta(state.meta);
+        setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
         setSceneImageUrl(null);
         setSceneImageStatus('idle');
         setDailyStatus('ready');
@@ -128,6 +153,17 @@ export default function StandaloneObservationExperience({
         setDailyStatus('error');
       }
     }, MIRROR_REVEAL_DURATION_MS);
+  }, [entries]);
+
+  const handleForceBmwMercedes = useCallback(() => {
+    const boosted = withDevVehicleCueHints(entries);
+    const state = buildMirrorState(boosted, { seed: 'force-bmw-mercedes-dev' });
+    setGeneratedDailyCard(state.dailyMirrorCard);
+    setGeneratedDailyMeta(state.meta);
+    setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
+    setSceneImageUrl(null);
+    setSceneImageStatus('idle');
+    setDailyStatus('ready');
   }, [entries]);
 
   const handleShareClose = useCallback(() => {
@@ -164,9 +200,11 @@ export default function StandaloneObservationExperience({
             <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
               <DailyMirrorPosterCard
                 card={cardForRender}
+                entries={entries}
                 meta={generatedDailyMeta ?? undefined}
                 onSceneImageLoad={handleSceneImageLoad}
                 onSceneImageError={handleSceneImageError}
+                onForceBmwMercedes={handleForceBmwMercedes}
               />
             </div>
           </DailyMirrorCardEntrance>
