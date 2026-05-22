@@ -56,6 +56,7 @@ describe('conversationVisualIntent (Sprint 11J)', () => {
     expect(intent.composition).toBe('comparison_scene');
     expect(intent.characterMode).toBe('stylized_human');
     expect(intent.mizansen.toLowerCase()).toContain('garage');
+    expect(intent.mizansen.toLowerCase()).toContain('decision');
     expect(intent.mizansen.toLowerCase()).not.toContain('bmw');
     expect(shouldSuppressPandaFallback(intent)).toBe(true);
   });
@@ -96,11 +97,14 @@ describe('conversationVisualIntent (Sprint 11J)', () => {
     });
     const p = visual.prompt.toLowerCase();
     expect(visual.sceneIntentLabel).toBe('premium car comparison');
-    expect(p).toContain('comparison scene');
+    expect(p).toContain('decision moment');
     expect(p).toContain('executive sedans');
+    expect(p).toContain('hero object');
+    expect(p).toContain('decision moment');
     expect(p).not.toContain('bilgeli baykuş');
     expect(p).not.toContain('city terrace golden hour');
-    expect(p).not.toContain('chat bubble');
+    expect(p).toContain('not a chat screenshot');
+    expect(p).toContain('camera grammar');
   });
 
   it('negative prompt includes context scene avoid rules', () => {

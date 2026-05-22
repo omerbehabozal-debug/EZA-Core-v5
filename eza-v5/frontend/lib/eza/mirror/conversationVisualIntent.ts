@@ -22,44 +22,24 @@ import {
   type CharacterArchetypeId,
 } from '@/lib/eza/mirror/ezaCharacterBible';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
+import type {
+  ConversationVisualIntentId as IntentId,
+  SceneCompositionTemplateId as CompositionId,
+  SceneCharacterMode as CharMode,
+} from '@/lib/eza/mirror/sceneIntentTypes';
 
-export type ConversationVisualIntentId =
-  | 'premium_vehicle_comparison'
-  | 'product_comparison'
-  | 'financial_decision'
-  | 'travel_planning'
-  | 'culinary_wellness'
-  | 'restoration_research'
-  | 'creative_brainstorm'
-  | 'friendship_reflection'
-  | 'deep_research'
-  | 'wellness_calm'
-  | 'soft_reflection'
-  | 'topic_atmosphere';
-
-export type SceneCompositionTemplateId =
-  | 'comparison_scene'
-  | 'exploration_scene'
-  | 'restoration_scene'
-  | 'culinary_scene'
-  | 'travel_journey_scene'
-  | 'friendship_scene'
-  | 'research_scene'
-  | 'wellness_scene'
-  | 'contemplation_scene';
-
-export type SceneCharacterMode =
-  | 'stylized_human'
-  | 'topic_archetype'
-  | 'environment_first'
-  | 'mascot_allowed';
+export type {
+  ConversationVisualIntentId,
+  SceneCompositionTemplateId,
+  SceneCharacterMode,
+} from '@/lib/eza/mirror/sceneIntentTypes';
 
 export interface ConversationVisualIntent {
-  id: ConversationVisualIntentId;
+  id: IntentId;
   /** Safe high-level label for dev QA — no user sentences */
   label: string;
-  composition: SceneCompositionTemplateId;
-  characterMode: SceneCharacterMode;
+  composition: CompositionId;
+  characterMode: CharMode;
   archetypeOverride?: CharacterArchetypeId;
   mizansen: string;
   supportingElements: readonly string[];
@@ -151,28 +131,28 @@ const FRIENDSHIP_CUES = ['friend', 'friendship', 'relationship', 'empathy', 'com
 
 const CREATIVE_CUES = ['creative', 'brainstorm', 'idea', 'design', 'art', 'music', 'ilham', 'yarat'];
 
-const COMPOSITION_MIZANSEN: Record<SceneCompositionTemplateId, string> = {
+const COMPOSITION_MIZANSEN: Record<CompositionId, string> = {
   comparison_scene:
-    'A refined cinematic comparison scene in a warm premium studio garage, a thoughtful stylized young adult standing between two sculptural executive sedans without readable badges or logos, soft comparison board glow behind, atmosphere of careful decision-making, elegant editorial realism, emotional stillness, premium lighting, shallow depth of field, integrated human character not mascot',
+    'cinematic decision moment premium garage studio two executive sedans as story anchors comparison board glow human studying options from behind not portrait',
   exploration_scene:
-    'Cinematic open horizon with soft route map on bench, stylized traveler at golden hour contemplating direction, discovery atmosphere, warm sand and dusty blue light, journey planning mood not tourist cliché',
+    'open horizon route map on bench golden hour traveler leaning forward choosing direction discovery energy film still',
   restoration_scene:
-    'Historic restoration atelier with stone wood and ceramic material samples on desk, architectural sketches under warm workshop light, thoughtful designer examining heritage craft, environment-first cinematic detail, stone courtyard visible through window',
+    'heritage restoration atelier stone samples sketches mortar tools designer hands mid-study courtyard light through window craft intelligence',
   culinary_scene:
-    'Warm editorial kitchen with natural morning light, mindful gluten-free baking preparation on wooden counter, soft steam gentle ingredients, caring culinary wellness atmosphere, stylized human presence at frame edge not animal mascot, no packaging text no labels',
+    'warm kitchen production moment hands preparing natural ingredients steam wooden board recipe cards without text mindful culinary craft',
   travel_journey_scene:
-    'Cinematic train station at dawn, vintage departure hall, leather map and ticket folio on bench, stylized traveler facing luminous tracks, journey anticipation atmosphere, no signage text',
+    'dawn train platform ticket folio route map on bench figure toward luminous tracks journey decision energy editorial travel still',
   friendship_scene:
-    'Lakeside footbridge at lavender sunset, two silhouettes in soft distance suggesting connection, warm empathy atmosphere, editorial restraint, human scale not cartoon',
+    'lakeside bridge shared bench two presences empathy connection golden hour not confrontation editorial human scale',
   research_scene:
-    'Quiet research desk with organized notes material swatches and warm lamp, thoughtful figure studying details, intellectual craft atmosphere, shallow depth of field',
+    'organized desk comparison notes material swatches lamp figure leaning in analytical focus intellectual craft shallow depth',
   wellness_scene:
-    'Soft wellness morning light through linen curtains, calm hydration and gentle movement props, restorative body-mind atmosphere, minimal character silhouette',
+    'morning ritual hydration gentle movement linen light restorative agency calm energy not spa stock photo',
   contemplation_scene:
-    'Tranquil threshold between interior and garden light, single stylized figure in quiet reflection, editorial stillness, generous negative space',
+    'threshold interior to garden light figure pausing before step reflective momentum generous space editorial still',
 };
 
-const INTENT_NEGATIVE: Record<ConversationVisualIntentId, readonly string[]> = {
+const INTENT_NEGATIVE: Record<IntentId, readonly string[]> = {
   premium_vehicle_comparison: [
     'random panda',
     'owl mascot',
@@ -320,15 +300,20 @@ export function deriveConversationVisualIntent(
     return pack('soft_reflection', 'quiet reflective calm', 'contemplation_scene', 'stylized_human');
   }
 
-  if (input.topicKey === 'finance' && !comparing) {
-    return pack('financial_decision', 'careful financial reflection', 'research_scene', 'stylized_human');
+  if (
+    input.topicKey === 'finance' &&
+    !comparing &&
+    (cueMatch(blob, ['budget', 'bütçe', 'risk', 'spend', 'saving', 'invest']) ||
+      signals.detailFocus >= 0.4)
+  ) {
+    return pack('financial_decision', 'organized financial decision study', 'research_scene', 'stylized_human');
   }
 
   return pack('topic_atmosphere', `${input.topicKey} day atmosphere`, mapTopicComposition(input.topicKey), 'topic_archetype');
 }
 
-function mapTopicComposition(topic: SceneTopicKey): SceneCompositionTemplateId {
-  const map: Record<SceneTopicKey, SceneCompositionTemplateId> = {
+function mapTopicComposition(topic: SceneTopicKey): CompositionId {
+  const map: Record<SceneTopicKey, CompositionId> = {
     finance: 'research_scene',
     health: 'wellness_scene',
     friendship: 'friendship_scene',
@@ -341,19 +326,19 @@ function mapTopicComposition(topic: SceneTopicKey): SceneCompositionTemplateId {
 }
 
 function pack(
-  id: ConversationVisualIntentId,
+  id: IntentId,
   label: string,
-  composition: SceneCompositionTemplateId,
-  characterMode: SceneCharacterMode,
+  composition: CompositionId,
+  characterMode: CharMode,
   archetypeOverride?: CharacterArchetypeId
 ): ConversationVisualIntent {
   const mizansen = COMPOSITION_MIZANSEN[composition];
   const supporting = [
-    'cinematic film still',
-    '9:16 vertical composition',
-    'left overlay zone kept clean',
-    'no text no typography no UI no chat',
-    'not a mascot scene unless calm wellness',
+    'editorial campaign key visual film still not generic AI art',
+    '9:16 vertical composition foreground midground depth separation',
+    'left and top overlay safe zones kept uncluttered',
+    'no readable text no logos no UI no chat bubbles no screenshots',
+    'hero objects carry topic memory human is participant not wallpaper subject',
   ];
   return {
     id,
@@ -368,10 +353,11 @@ function pack(
 }
 
 const STYLIZED_HUMAN_PHRASE = [
-  'premium stylized cinematic young adult human character',
+  'premium stylized cinematic young adult human',
+  'caught mid-action thinking preparing comparing not posing',
   'mature editorial proportions natural fabric',
-  'thoughtful expression integrated in scene',
-  'not animal mascot not plush not floating portrait',
+  'integrated in scene scale not dominant portrait',
+  'not animal mascot not plush not centered wallpaper face',
   EZA_PREMIUM_STYLIZED_CHARACTER_LOCK,
 ].join(', ');
 
