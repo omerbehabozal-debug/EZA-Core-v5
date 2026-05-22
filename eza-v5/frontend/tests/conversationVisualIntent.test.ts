@@ -104,7 +104,8 @@ describe('conversationVisualIntent (Sprint 11J)', () => {
     expect(p).not.toContain('bilgeli baykuş');
     expect(p).not.toContain('city terrace golden hour');
     expect(p).toContain('not a chat screenshot');
-    expect(p).toContain('camera grammar');
+    expect(p).toContain('style block:');
+    expect(p).toContain('safe zone block:');
   });
 
   it('negative prompt includes context scene avoid rules', () => {

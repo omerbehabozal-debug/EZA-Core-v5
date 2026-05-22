@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Calendar, Sparkles } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
+import { Calendar, Heart, Sparkles, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DailyMirrorCardModel, MirrorStateMeta } from '@/lib/eza/mirror/types';
 import { MIRROR_INSUFFICIENT } from '@/lib/eza/mirror/copy';
@@ -11,6 +11,7 @@ import {
   getPosterComposition,
   highlightEmphasisFor,
 } from '@/lib/eza/mirror/posterCompositionSystem';
+import { buildPosterEditorialCssVars } from '@/lib/eza/mirror/posterEditorialMathematics';
 import {
   buildEditorialReadabilityVars,
   getEditorialContrast,
@@ -31,13 +32,22 @@ export type DailyMirrorPosterCardProps = {
   onSceneImageError?: () => void;
 };
 
-function MetricStrip({ label, line }: { label: string; line: string }) {
+function InsightGlassCard({
+  label,
+  line,
+  icon,
+}: {
+  label: string;
+  line: string;
+  icon: ReactNode;
+}) {
   return (
-    <div className={s.relationCell}>
-      <p className={s.relationLabel} style={posterTextShadowStyle.relationLabel}>
+    <div className={s.insightCard}>
+      <div className={s.insightIcon}>{icon}</div>
+      <p className={s.insightLabel} style={posterTextShadowStyle.insightLabel}>
         {label}
       </p>
-      <p className={s.relationLine} style={posterTextShadowStyle.relationLine}>
+      <p className={s.insightLine} style={posterTextShadowStyle.insightLine}>
         {line}
       </p>
     </div>
@@ -45,7 +55,7 @@ function MetricStrip({ label, line }: { label: string; line: string }) {
 }
 
 /**
- * Editorial cinematic poster — confident contrast, gradient-first readability.
+ * Premium editorial poster template — fixed layout, AI scene layer only.
  */
 export default function DailyMirrorPosterCard({
   card,
@@ -65,6 +75,7 @@ export default function DailyMirrorPosterCard({
   const cardStyle = useMemo(
     () => ({
       maxWidth: POSTER_CARD_WIDTH_PX,
+      ...buildPosterEditorialCssVars(),
       ...buildPosterCompositionStyle(composition),
       ...buildEditorialReadabilityVars(editorial),
     }),
@@ -79,20 +90,18 @@ export default function DailyMirrorPosterCard({
   const ai = content.activities.find((a) => a.label === 'AI');
   const balance = content.activities.find((a) => a.label === 'Denge');
 
-  const bottomFadeOpacity = editorial.bottomFade;
-
   return (
     <article
       data-mirror-card-root
       data-mirror-aspect="9-16"
-      data-mirror-poster="v7-editorial-contrast"
+      data-mirror-poster="v8-editorial-math"
       data-mirror-density={composition.density}
       className={s.root}
       style={cardStyle}
       aria-labelledby="daily-mirror-poster-title"
     >
       <DailyMirrorPosterScene
-        className={s.sceneBackdrop}
+        className={cn(s.sceneBackdrop, s.sceneBreathing)}
         personaFamilyId={card.personaFamilyId}
         sceneImageUrl={card.visual?.sceneImageUrl}
         sceneImageStatus={card.visual?.sceneImageStatus}
@@ -106,32 +115,28 @@ export default function DailyMirrorPosterCard({
       />
 
       <div className={s.globalOverlay} aria-hidden />
-      <div
-        className={cn(s.globalOverlayBottom, 'bg-gradient-to-t from-[#0a0614] via-[#140a22]/40 to-transparent')}
-        style={{ opacity: bottomFadeOpacity }}
-        aria-hidden
-      />
+      <div className={s.globalOverlayBottom} aria-hidden />
       <div className={s.grain} aria-hidden />
-      <div className={s.vignette} aria-hidden />
+      <div className={s.accentGlow} aria-hidden />
 
       <div
         className={s.contentStack}
-        style={{ gridTemplateRows: 'var(--poster-grid-rows)' }}
+        style={{ gridTemplateRows: 'var(--poster-zone-rows)' }}
       >
-        <header className={s.topSafeZone}>
-          <p className={cn(s.logoText, 'flex items-center gap-1.5')}>
+        <header className={cn(s.topSafeZone, s.editorialGrid)}>
+          <p className={cn(s.logoText, 'col-span-8 flex items-center gap-1.5')}>
             <span className={s.logoMark}>
               <Sparkles className="h-2 w-2" strokeWidth={1.75} aria-hidden />
             </span>
             EZA · AI İlişki Aynası
           </p>
-          <p className={s.datePill}>
+          <p className={cn(s.datePill, 'col-span-4 text-right')}>
             <Calendar className="mr-0.5 inline h-2 w-2 opacity-80" aria-hidden />
             {card.dayLabel}
           </p>
         </header>
 
-        <div className={s.titleSafeZone}>
+        <div className={cn(s.titleSafeZone, s.editorialGrid)}>
           <h2
             id="daily-mirror-poster-title"
             className={s.heroTitle}
@@ -139,16 +144,16 @@ export default function DailyMirrorPosterCard({
           >
             {isSparse ? 'Yansıma hazırlanıyor' : content.journeyHeadline}
           </h2>
-          <div className={s.storyWrap}>
+          <div className={cn(s.storyWrap, 'col-span-12')}>
             <p className={s.story} style={posterTextShadowStyle.story}>
               {isSparse ? MIRROR_INSUFFICIENT : content.storyLine}
             </p>
           </div>
         </div>
 
-        <div className={s.sceneAnchor} aria-hidden={isSparse}>
+        <div className={cn(s.sceneSpacer, s.editorialGrid)} aria-hidden={isSparse}>
           {!isSparse ? (
-            <div className={s.highlightAnchor}>
+            <div className={cn(s.highlightAnchor, 'col-span-12')}>
               <ContextualHighlightBand
                 highlight={content.contextualHighlight}
                 emphasis={highlightEmphasis}
@@ -157,9 +162,12 @@ export default function DailyMirrorPosterCard({
           ) : null}
         </div>
 
-        <div className={s.bottomSafeZone}>
+        <div className={cn(s.quoteZone, s.editorialGrid)}>
           {!isSparse ? (
-            <p className={s.quoteText} style={posterTextShadowStyle.quoteText}>
+            <p
+              className={cn(s.quoteText, 'col-span-12')}
+              style={posterTextShadowStyle.quoteText}
+            >
               <span className={s.quoteMark} aria-hidden>
                 “
               </span>
@@ -169,21 +177,33 @@ export default function DailyMirrorPosterCard({
               </span>
             </p>
           ) : null}
-
-          {!isSparse ? (
-            <div className={s.metricsRow}>
-              <MetricStrip label="Sen" line={sen?.value ?? '—'} />
-              <MetricStrip label="AI" line={ai?.value ?? '—'} />
-              <MetricStrip label="Denge" line={balance?.value ?? '—'} />
-            </div>
-          ) : null}
-
-          <footer className={s.footer}>
-            <span>EZA</span>
-            <span>#EZAİlişkiAynası</span>
-            <span>eza.ai</span>
-          </footer>
         </div>
+
+        {!isSparse ? (
+          <div className={cn(s.insightsRow, s.editorialGrid)}>
+            <InsightGlassCard
+              label="Sen"
+              line={sen?.value ?? '—'}
+              icon={<User className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />}
+            />
+            <InsightGlassCard
+              label="AI"
+              line={ai?.value ?? '—'}
+              icon={<Sparkles className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />}
+            />
+            <InsightGlassCard
+              label="Denge"
+              line={balance?.value ?? '—'}
+              icon={<Heart className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />}
+            />
+          </div>
+        ) : null}
+
+        <footer className={cn(s.footer, s.editorialGrid)}>
+          <span className="col-span-4">EZA</span>
+          <span className="col-span-4 text-center">#EZAİlişkiAynası</span>
+          <span className="col-span-4 text-right">eza.ai</span>
+        </footer>
       </div>
 
       <MirrorVisualPromptDebug visual={card.visual} />

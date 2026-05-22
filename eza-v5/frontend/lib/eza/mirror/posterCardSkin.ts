@@ -1,131 +1,145 @@
 /**
- * Daily Mirror poster — editorial contrast tokens (Sprint 11M).
- * Gradient scrims · confident typography · minimal blur.
+ * Daily Mirror poster — premium editorial mathematics (Sprint 12A).
  */
 
-import { POSTER_DESIGN_WIDTH_PX } from '@/lib/eza/mirror/posterCompositionSystem';
 import {
-  HEADLINE_TEXT_SHADOW,
-  METRIC_TEXT_SHADOW,
-  QUOTE_TEXT_SHADOW,
-  STORY_TEXT_SHADOW,
-} from '@/lib/eza/mirror/posterReadabilitySystem';
+  POSTER_PREVIEW_WIDTH_PX,
+  POSTER_SHADOWS,
+  POSTER_COLORS,
+  POSTER_RADIUS_PREVIEW,
+  POSTER_TYPE_PREVIEW,
+  POSTER_INSIGHT_PREVIEW,
+  POSTER_QUOTE_PREVIEW,
+} from '@/lib/eza/mirror/posterEditorialMathematics';
 
-export const POSTER_CARD_WIDTH_PX = POSTER_DESIGN_WIDTH_PX;
-
+export const POSTER_CARD_WIDTH_PX = POSTER_PREVIEW_WIDTH_PX;
+export const POSTER_CARD_HEIGHT_PX = 768;
 export const POSTER_ASPECT_RATIO = '9 / 16' as const;
-
-export const POSTER_SCENE_DOMINANCE_RATIO = 0.7;
+export const POSTER_SCENE_DOMINANCE_RATIO = 0.58;
 
 export const posterCardSkin = {
   root: [
-    'relative mx-auto flex w-full flex-col overflow-hidden',
+    'relative mx-auto w-full overflow-hidden font-sans',
     'aspect-[9/16]',
-    'rounded-[1.65rem] border border-white/40',
-    'bg-[#0a0614]',
-    'shadow-[0_36px_90px_-24px_rgba(18,8,36,0.55)]',
+    `rounded-[${POSTER_RADIUS_PREVIEW.card}px]`,
+    'border border-white/50',
+    `shadow-[${POSTER_SHADOWS.mainCard}]`,
+    `bg-[linear-gradient(180deg,${POSTER_COLORS.baseTop}_0%,${POSTER_COLORS.baseBottom}_100%)]`,
+    'eza-mirror-poster-reveal',
   ].join(' '),
-  sceneBackdrop: 'pointer-events-none absolute inset-0 z-0',
+  /** Layer 1–2: scene */
+  sceneBackdrop: 'pointer-events-none absolute inset-0 z-[1]',
+  sceneBreathing: 'eza-mirror-scene-breathe',
+  /** Layer 3: cinematic gradients */
   globalOverlay:
-    'pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-[#12081c]/65 via-transparent via-28% to-transparent',
+    'pointer-events-none absolute inset-0 z-[2] bg-gradient-to-b from-[rgba(14,6,22,0.52)] via-transparent via-[26%] to-[rgba(14,6,22,0.38)]',
   globalOverlayBottom:
-    'pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[36%]',
+    'pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-[38%] bg-gradient-to-t from-[rgba(14,6,22,0.72)] via-[rgba(14,6,22,0.28)] to-transparent',
   grain:
-    'pointer-events-none absolute inset-0 z-[2] opacity-[0.022] mix-blend-overlay [background-image:url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")]',
-  vignette:
-    'pointer-events-none absolute inset-0 z-[2] shadow-[inset_0_0_120px_rgba(4,2,14,0.28)]',
-  contentStack: 'relative z-10 grid h-full min-h-0',
-  topSafeZone: 'flex shrink-0 items-start justify-between gap-3 px-5 pb-0.5 pt-4',
-  logoMark: 'flex h-5 w-5 items-center justify-center rounded-full bg-white/14 text-white',
-  logoText: 'text-[9px] font-semibold tracking-[0.12em] text-white/82 uppercase',
-  datePill: 'text-[8px] font-medium tracking-wide text-white/68',
-  /** Title safe — warm dark gradient scrim, no blur */
+    'pointer-events-none absolute inset-0 z-[2] opacity-[0.018] mix-blend-multiply [background-image:url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")]',
+  accentGlow:
+    'pointer-events-none absolute left-[var(--poster-safe-left)] top-[calc(var(--poster-safe-top)+2.5rem)] z-[2] h-24 w-40 rounded-full blur-3xl [background:var(--poster-accent-glow)]',
+  /** Layer 4–6: editorial content */
+  contentStack: [
+    'relative z-[4] grid h-full min-h-0 w-full',
+    'pt-[var(--poster-safe-top)] pb-[var(--poster-safe-bottom)]',
+    'pl-[var(--poster-safe-left)] pr-[var(--poster-safe-right)]',
+  ].join(' '),
+  editorialGrid: 'col-span-12 grid grid-cols-12 gap-[var(--poster-grid-gap)]',
+  topSafeZone: 'col-span-12 flex items-start justify-between',
+  logoMark:
+    'flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm',
+  logoText:
+    'text-[9px] font-semibold uppercase tracking-[0.14em] text-white/90 drop-shadow-sm',
+  datePill: 'text-[8px] font-medium text-white/75',
   titleSafeZone: [
-    'relative shrink-0 px-5 pb-2 pt-0',
-    'before:pointer-events-none before:absolute before:inset-0 before:-inset-x-3 before:-top-1',
-    'before:bg-[linear-gradient(180deg,rgba(18,8,28,var(--poster-title-scrim,0.82))_0%,rgba(18,8,28,0.45)_55%,transparent_100%)]',
+    'relative col-span-12',
+    'before:pointer-events-none before:absolute before:inset-0 before:-inset-x-2 before:-top-1 before:z-0',
+    'before:rounded-xl before:bg-[linear-gradient(180deg,rgba(14,6,22,0.62)_0%,rgba(14,6,22,0.28)_70%,transparent_100%)]',
   ].join(' '),
   heroTitle: [
-    'relative z-[1] max-w-[17rem] line-clamp-2 text-[34px] font-bold leading-[0.92] tracking-[-0.045em] text-white',
-    'max-[380px]:max-w-[15rem] max-[380px]:text-[31px]',
+    'relative z-[1] col-span-10 line-clamp-2 font-extrabold text-white',
+    `text-[${POSTER_TYPE_PREVIEW.headline.size}px] leading-[${POSTER_TYPE_PREVIEW.headline.lineHeight}] tracking-[-0.04em]`,
+    `max-[380px]:text-[32px]`,
   ].join(' '),
   storyWrap: [
-    'relative z-[1] mt-2.5 rounded-lg px-0.5 py-1',
-    'before:pointer-events-none before:absolute before:-inset-x-2 before:-inset-y-0.5 before:rounded-lg',
-    'before:bg-[linear-gradient(180deg,rgba(14,6,22,0.55)_0%,rgba(14,6,22,0.35)_100%)]',
+    'relative z-[1] mt-2 rounded-lg',
+    'before:pointer-events-none before:absolute before:-inset-x-1 before:-inset-y-0.5 before:rounded-lg',
+    'before:bg-[linear-gradient(180deg,rgba(14,6,22,0.48)_0%,rgba(14,6,22,0.22)_100%)]',
   ].join(' '),
   story: [
-    'relative line-clamp-2 text-[14px] font-medium leading-[1.44] text-white',
-    'opacity-[var(--poster-story-opacity,0.96)]',
+    'relative line-clamp-2 font-medium text-white/95',
+    `text-[${POSTER_TYPE_PREVIEW.story.size}px] leading-[${POSTER_TYPE_PREVIEW.story.lineHeight}]`,
   ].join(' '),
-  sceneAnchor: 'relative min-h-0 px-5',
+  sceneSpacer: 'relative col-span-12 min-h-0',
   highlightAnchor:
-    'pointer-events-none absolute inset-x-5 bottom-2 z-[1] flex flex-col justify-end',
+    'pointer-events-none absolute inset-x-0 bottom-1 z-[1] flex justify-start',
+  quoteZone: [
+    'relative col-span-12 flex min-h-[88px] flex-col justify-center rounded-[20px] px-1 py-2',
+    'bg-[linear-gradient(180deg,rgba(14,6,22,0.32)_0%,rgba(14,6,22,0.48)_100%)]',
+  ].join(' '),
+  quoteText: [
+    'line-clamp-2 text-center font-medium italic text-white/92',
+    `text-[${POSTER_TYPE_PREVIEW.quote.size}px] leading-[${POSTER_TYPE_PREVIEW.quote.lineHeight}]`,
+  ].join(' '),
+  quoteMark: 'text-[11px] not-italic text-white/45',
   highlightWhisper: [
-    'inline-flex max-w-full flex-wrap items-center gap-1.5 self-start rounded-full',
-    'border border-white/14 px-2.5 py-1',
-    'bg-[linear-gradient(135deg,rgba(22,10,34,0.72)_0%,rgba(14,6,22,0.65)_100%)]',
-    'shadow-[0_4px_20px_rgba(0,0,0,0.35)]',
+    'mb-2 inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full px-2.5 py-1',
+    'border border-white/16 bg-[rgba(18,8,28,0.42)] shadow-sm backdrop-blur-[12px]',
   ].join(' '),
   highlightWhisperTitle:
-    'text-[7px] font-semibold uppercase tracking-[0.18em] text-white/72',
-  highlightWhisperTag:
-    'text-[7px] font-medium uppercase tracking-wide text-white/78',
+    'text-[8px] font-semibold uppercase tracking-[0.16em] text-white/75',
+  highlightWhisperTag: 'text-[8px] font-medium uppercase tracking-wide text-white/80',
   highlightRibbon: [
-    'w-full rounded-xl border border-white/14 px-2.5 py-1.5',
-    'bg-[linear-gradient(135deg,rgba(28,12,42,0.78)_0%,rgba(16,8,28,0.72)_100%)]',
-    'shadow-[0_6px_24px_rgba(0,0,0,0.38)]',
+    'mb-2 w-full rounded-[18px] border border-white/14 px-2.5 py-1.5',
+    'bg-[rgba(18,8,28,0.44)] backdrop-blur-[12px]',
+    `shadow-[${POSTER_SHADOWS.glassCard}]`,
   ].join(' '),
   highlightRibbonTitle:
-    'mb-1 text-[7px] font-semibold uppercase tracking-[0.16em] text-white/68',
+    'mb-1 text-[8px] font-semibold uppercase tracking-[0.14em] text-white/72',
   highlightRibbonTags: 'flex flex-wrap gap-1',
   highlightRibbonTag:
-    'rounded-full bg-white/[0.1] px-1.5 py-px text-[7px] font-medium uppercase tracking-wide text-white/78',
+    'rounded-full bg-white/10 px-1.5 py-px text-[7px] font-medium uppercase text-white/78',
   highlightProminent: [
-    'w-full rounded-xl border border-white/18 px-2.5 py-2',
-    'bg-[linear-gradient(135deg,rgba(36,14,58,0.82)_0%,rgba(20,8,36,0.78)_50%,rgba(36,14,58,0.82)_100%)]',
-    'shadow-[0_8px_32px_rgba(0,0,0,0.42)]',
+    'mb-2 w-full rounded-[18px] border border-white/18 px-2.5 py-2',
+    'bg-[linear-gradient(135deg,rgba(36,14,58,0.75)_0%,rgba(18,8,28,0.7)_100%)]',
+    'backdrop-blur-[14px]',
+    `shadow-[${POSTER_SHADOWS.glassCard}]`,
   ].join(' '),
   highlightProminentTitle:
-    'mb-1.5 text-center text-[7px] font-bold uppercase tracking-[0.18em] text-white/78',
+    'mb-1.5 text-center text-[8px] font-bold uppercase tracking-[0.16em] text-white/80',
   highlightDual: 'grid grid-cols-[1fr_auto_1fr] items-center gap-1.5',
   highlightSide: 'min-w-0',
   highlightSideLabel: 'text-[8px] font-bold leading-tight text-white',
-  highlightSideHint: 'mt-0.5 line-clamp-1 text-[7px] leading-snug text-white/72',
+  highlightSideHint: 'mt-0.5 line-clamp-1 text-[7px] text-white/70',
   highlightVs:
-    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/16 text-[7px] font-bold text-white ring-1 ring-white/22',
-  highlightTags: 'mt-1.5 flex flex-wrap justify-center gap-1',
+    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/14 text-[7px] font-bold text-white ring-1 ring-white/20',
+  highlightTags: 'mt-1 flex flex-wrap justify-center gap-1',
   highlightTag:
-    'rounded-full bg-white/[0.1] px-1.5 py-px text-[6px] font-semibold uppercase tracking-wide text-white/72',
-  /** Bottom — cinematic warm fade, gradient only */
-  bottomSafeZone: [
-    'flex shrink-0 flex-col gap-2.5 px-5 pt-3 pb-2.5',
-    'bg-[linear-gradient(180deg,rgba(14,6,22,0.35)_0%,rgba(10,4,18,0.88)_45%,rgba(8,4,16,0.96)_100%)]',
+    'rounded-full bg-white/10 px-1.5 py-px text-[6px] font-semibold uppercase text-white/72',
+  insightsRow: [
+    'col-span-12 grid grid-cols-3 gap-2',
+    `min-h-[${POSTER_INSIGHT_PREVIEW.minHeight}px]`,
   ].join(' '),
-  quoteText: [
-    'line-clamp-2 text-center text-[13px] font-medium italic leading-[1.5] text-white',
-    'opacity-[var(--poster-quote-opacity,0.88)]',
+  insightCard: [
+    'flex min-h-[96px] flex-col rounded-[18px] border border-white/22 px-2 py-2',
+    'bg-[rgba(255,255,255,0.22)] backdrop-blur-[14px]',
+    `shadow-[${POSTER_SHADOWS.glassCard}]`,
   ].join(' '),
-  quoteMark: 'text-[10px] font-normal not-italic text-white/50',
-  metricsRow: [
-    'grid grid-cols-3 gap-2 border-t border-white/[0.1] pt-2.5',
-    'bg-[linear-gradient(180deg,rgba(12,6,20,0.4)_0%,rgba(10,4,18,0.55)_100%)]',
+  insightIcon: 'mb-1 flex h-5 w-5 items-center justify-center rounded-md bg-white/18 text-white/90',
+  insightLabel:
+    'text-[8px] font-semibold uppercase tracking-[0.12em] text-white/88',
+  insightLine: 'mt-0.5 line-clamp-3 text-[10px] font-medium leading-[1.35] text-white/92',
+  footer: [
+    'relative z-[6] col-span-12 flex items-center justify-between gap-2 pt-1',
+    'text-[9px] font-semibold uppercase tracking-[0.12em] text-white/58',
   ].join(' '),
-  relationCell: 'min-w-0 rounded-md px-1 py-0.5 text-center',
-  relationLabel:
-    'text-[8px] font-semibold uppercase tracking-[0.1em] text-white/62',
-  relationLine: [
-    'mt-0.5 line-clamp-2 text-[10.5px] font-medium leading-[1.38] text-white',
-    'opacity-[var(--poster-metric-opacity,0.84)]',
-  ].join(' '),
-  footer:
-    'flex shrink-0 items-center justify-between gap-2 px-0 pb-0 pt-1 text-[7.5px] font-semibold tracking-[0.1em] text-white/52 uppercase',
 } as const;
 
 export const posterTextShadowStyle = {
-  heroTitle: { textShadow: HEADLINE_TEXT_SHADOW },
-  story: { textShadow: STORY_TEXT_SHADOW },
-  quoteText: { textShadow: QUOTE_TEXT_SHADOW },
-  relationLine: { textShadow: METRIC_TEXT_SHADOW },
-  relationLabel: { textShadow: METRIC_TEXT_SHADOW },
+  heroTitle: { textShadow: POSTER_SHADOWS.headline },
+  story: { textShadow: POSTER_SHADOWS.story },
+  quoteText: { textShadow: POSTER_SHADOWS.story },
+  insightLine: { textShadow: '0 1px 8px rgba(0,0,0,0.35)' },
+  insightLabel: { textShadow: '0 1px 6px rgba(0,0,0,0.3)' },
 } as const;

@@ -1,6 +1,6 @@
 # EZA Mirror — Sprint 11H E2E Poster QA
 
-Generated: 2026-05-22T06:05:51.093Z
+Generated: 2026-05-22T22:57:05.900Z
 
 ## Method
 
@@ -12,13 +12,13 @@ Generated: 2026-05-22T06:05:51.093Z
 
 | Senaryo | 9:16 | Görsel Baskın | Metin Dengesi | Editorial Başlık | Story Uyumu | Mobil | Export | Genel |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Finans / kıyas | 5 | 2 | 5 | 5 | 5 | 5 | 5 | 5 |
-| Sağlık / özen | 5 | 2 | 5 | 5 | 5 | 5 | 5 | 5 |
-| Mimari / restorasyon | 5 | 2 | 5 | 5 | 5 | 5 | 5 | 5 |
-| Seyahat / keşif | 5 | 2 | 5 | 5 | 5 | 5 | 5 | 5 |
-| Arkadaşlık / iletişim | 5 | 2 | 5 | 5 | 5 | 5 | 5 | 5 |
+| Finans / kıyas | 5 | 1 | 5 | 5 | 5 | 5 | 5 | 4 |
+| Sağlık / özen | 5 | 1 | 5 | 5 | 5 | 5 | 5 | 4 |
+| Mimari / restorasyon | 5 | 1 | 5 | 5 | 5 | 5 | 5 | 4 |
+| Seyahat / keşif | 5 | 1 | 5 | 5 | 5 | 5 | 5 | 4 |
+| Arkadaşlık / iletişim | 5 | 1 | 5 | 5 | 5 | 5 | 5 | 4 |
 
-**Ortalama Genel:** 5.00 / 5 (hedef ≥ 4)
+**Ortalama Genel:** 4.00 / 5 (hedef ≥ 4)
 
 ## Scenario details
 

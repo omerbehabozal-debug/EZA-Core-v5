@@ -14,10 +14,8 @@ import {
   resolveSceneCharacterPhrase,
   type ConversationVisualIntent,
 } from '@/lib/eza/mirror/conversationVisualIntent';
-import {
-  buildEmotionalSceneBlock,
-  buildEmotionalScenePromptBlock,
-} from '@/lib/eza/mirror/emotionalSceneEngine';
+import { buildEmotionalSceneBlock } from '@/lib/eza/mirror/emotionalSceneEngine';
+import { buildStructuredScenePrompt } from '@/lib/eza/mirror/posterPromptBlocks';
 import {
   deriveReflectionSignals,
   type ReflectionSignals,
@@ -342,25 +340,23 @@ export function buildMirrorVisualFromContext(
     inferEmotionLabel(input.energyLabel, input.observationCategoryId);
   const preset = SCENE_TOPIC_PRESETS[topicKey];
 
-  const emotionalPrompt = buildEmotionalScenePromptBlock({
-    intent: conversationIntent,
-    reflectionSignals,
-    storyVariant: input.storyVariant,
-    reflectionTone: input.reflectionTone,
-  });
-
-  const sceneBlock = buildIntentFirstSceneBlock({
+  const atmosphereLabel = input.atmosphereOverride ?? preset.atmosphereDefault;
+  const structured = buildStructuredScenePrompt({
     topicKey,
     intent: conversationIntent,
-    atmosphereLabel: input.atmosphereOverride ?? preset.atmosphereDefault,
+    emotionalBlock: emotionalScene,
+    reflectionSignals,
+    atmosphereLabel,
     emotionLabel,
-    characterName: input.characterName,
-    personaFamilyId: input.personaFamilyId,
-    emotionalPrompt,
-    characterRolePhrase: emotionalScene.characterRole,
   });
 
-  const prompt = sceneBlock.join(', ');
+  const architectureExtra =
+    topicKey === 'architecture' || conversationIntent.composition === 'restoration_scene'
+      ? [EZA_ARCHITECTURE_STYLE_CONTRACT, ...ARCHITECTURE_QUALITY_HINTS].join(', ')
+      : '';
+
+  const prompt = [structured.prompt, architectureExtra].filter(Boolean).join(' ');
+
   const qualityHints =
     topicKey === 'architecture' ||
     conversationIntent.composition === 'restoration_scene'
@@ -371,7 +367,8 @@ export function buildMirrorVisualFromContext(
     `hero object: ${emotionalScene.heroObjectLabel}`,
     `tension: ${emotionalScene.tension}`,
     `pacing: ${emotionalScene.pacing}`,
-    `camera: ${emotionalScene.cameraLabel.slice(0, 48)}`
+    `camera: ${emotionalScene.cameraLabel.slice(0, 48)}`,
+    'structured prompt 12A'
   );
 
   const visual: MirrorVisualPrompt = {
@@ -379,13 +376,10 @@ export function buildMirrorVisualFromContext(
     characterName: input.characterName,
     personaFamilyId: input.personaFamilyId,
     topicLabel: SCENE_TOPIC_LABEL[topicKey],
-    atmosphereLabel: input.atmosphereOverride ?? preset.atmosphereDefault,
+    atmosphereLabel,
     emotionLabel,
     prompt,
-    negativePrompt: buildMirrorNegativePrompt(topicKey, [
-      ...conversationIntent.negativeExtras,
-      ...emotionalScene.negativeExtras,
-    ]),
+    negativePrompt: structured.negativePrompt,
     stylePreset: STYLE_PRESET,
     seedHint: hashSeed([
       input.seed,

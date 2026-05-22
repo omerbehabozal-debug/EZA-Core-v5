@@ -6,8 +6,12 @@
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { ContextualHighlightKind } from '@/lib/eza/mirror/contextualHighlight';
 
+import { POSTER_ZONE_GRID_ROWS } from '@/lib/eza/mirror/posterEditorialMathematics';
+
 /** Card design width; export captures at 1080px (shareExport). */
 export const POSTER_DESIGN_WIDTH_PX = 432;
+
+export const POSTER_DESIGN_HEIGHT_PX = 768;
 
 export const POSTER_EXPORT_WIDTH_PX = 1080;
 
@@ -93,22 +97,22 @@ export function highlightEmphasisFor(
 
 const DENSITY_PROFILES: Record<PosterLayoutDensity, Omit<PosterCompositionProfile, 'density'>> = {
   calm: {
-    gridRows: '5.5% 17% 1fr 20%',
+    gridRows: POSTER_ZONE_GRID_ROWS,
     highlightEmphasis: 'whisper',
     scrimStrength: 'medium',
   },
   balanced: {
-    gridRows: '6% 16% 1fr 19%',
+    gridRows: POSTER_ZONE_GRID_ROWS,
     highlightEmphasis: 'whisper',
     scrimStrength: 'medium',
   },
   research: {
-    gridRows: '6% 15% 1fr 20%',
+    gridRows: POSTER_ZONE_GRID_ROWS,
     highlightEmphasis: 'ribbon',
     scrimStrength: 'medium',
   },
   comparison: {
-    gridRows: '6% 14% 1fr 21%',
+    gridRows: POSTER_ZONE_GRID_ROWS,
     highlightEmphasis: 'prominent',
     scrimStrength: 'medium',
   },
@@ -125,6 +129,7 @@ export function buildPosterCompositionStyle(
 ): Record<string, string> {
   return {
     ['--poster-grid-rows' as string]: profile.gridRows,
+    ['--poster-zone-rows' as string]: profile.gridRows,
     ['--poster-scrim' as string]:
       profile.scrimStrength === 'strong'
         ? '0.88'

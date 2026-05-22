@@ -462,3 +462,44 @@ body {
 .eza-mirror-scene-image-enter {
   animation: eza-mirror-scene-image-enter 0.6s ease-out both;
 }
+
+/* Sprint 12A — poster reveal & scene breathing */
+@keyframes eza-mirror-poster-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.eza-mirror-poster-reveal {
+  animation: eza-mirror-poster-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes eza-mirror-scene-breathe {
+  0%,
+  100% {
+    transform: scale(1.01);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.eza-mirror-scene-breathe {
+  animation: eza-mirror-scene-breathe 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eza-mirror-poster-reveal,
+  .eza-mirror-scene-breathe {
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
