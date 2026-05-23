@@ -6,6 +6,10 @@ import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import { parseStandaloneObservation } from '@/lib/standaloneObservation';
 import type { ConversationVisualIntentId } from '@/lib/eza/mirror/sceneIntentTypes';
 import type { ReflectionSignals, TopicStoryVariantId } from '@/lib/eza/mirror/reflectionSignals';
+import {
+  buildVehicleHardSceneContractBlock,
+  getVehicleContractForbiddenPhrases,
+} from '@/lib/eza/mirror/vehicleSceneContract';
 
 export type LockedPrimaryIntentId = ConversationVisualIntentId | null;
 
@@ -71,17 +75,12 @@ export const VEHICLE_LOCK_FORBIDDEN_SCENE = [
   'unrelated travel scene',
   'AI wallpaper',
   'generic seascape',
+  'city street',
+  'urban avenue',
+  'open highway',
+  'outdoor road',
+  'skyline view',
 ] as const;
-
-const PREMIUM_VEHICLE_LOCK_PROMPT = [
-  'INTENT LOCK: premium vehicle comparison scene is mandatory',
-  'two premium executive sedans must be visible as hero objects',
-  'thoughtful person standing between the cars evaluating comfort and long-distance driving priorities',
-  'warm premium showroom or garage studio atmosphere',
-  'comparison board or visual decision cues without readable text',
-  'comfort priority mood cinematic editorial lighting',
-  'decision tension between two driving characters not a calm landscape',
-].join(', ');
 
 /** Extract safe keyword hints from user message (no full message stored). */
 export function extractMirrorCueHintsFromUserText(text: string): string[] {
@@ -193,14 +192,14 @@ export function isPrimaryIntentLocked(
 
 export function buildIntentLockPromptBlock(locked: LockedPrimaryIntentId): string {
   if (locked === 'premium_vehicle_comparison') {
-    return PREMIUM_VEHICLE_LOCK_PROMPT;
+    return buildVehicleHardSceneContractBlock();
   }
   return '';
 }
 
 export function getIntentLockForbiddenPhrases(locked: LockedPrimaryIntentId): string[] {
   if (locked === 'premium_vehicle_comparison') {
-    return [...VEHICLE_LOCK_FORBIDDEN_SCENE];
+    return [...VEHICLE_LOCK_FORBIDDEN_SCENE, ...getVehicleContractForbiddenPhrases()];
   }
   return [];
 }
@@ -216,7 +215,10 @@ export function extractVehicleHighlightLabels(blob: string): VehicleHighlightLab
     blob.includes('mercedes') || blob.includes('c serisi') || blob.includes('c-class') || blob.includes('c class');
 
   if (hasBmw && hasMercedes) {
-    return { left: 'BMW 3 Serisi', right: 'Mercedes C Serisi' };
+    return {
+      left: 'BMW 3 Serisi',
+      right: 'Mercedes C Serisi',
+    };
   }
   if (hasBmw) {
     return { left: 'BMW 3 Serisi', right: 'Alternatif sedan' };
@@ -225,6 +227,26 @@ export function extractVehicleHighlightLabels(blob: string): VehicleHighlightLab
     return { left: 'Seçenek A', right: 'Mercedes C Serisi' };
   }
   return null;
+}
+
+/** VS band copy for premium vehicle comparison (Sprint 12C). */
+export function buildVehicleComparisonHighlightSides(
+  labels: VehicleHighlightLabels,
+  comfortPriority: boolean
+): { left: { label: string; hint: string }; right: { label: string; hint: string } } {
+  const mercedesRight = labels.right.toLowerCase().includes('mercedes');
+  return {
+    left: {
+      label: labels.left,
+      hint: 'Sürüş hissi / dinamik karakter',
+    },
+    right: {
+      label: labels.right,
+      hint: mercedesRight && comfortPriority
+        ? 'Konfor / dengeli deneyim · öncelik'
+        : 'Konfor / dengeli deneyim',
+    },
+  };
 }
 
 /** Tone may adjust light/color only — never swap locked intent. */

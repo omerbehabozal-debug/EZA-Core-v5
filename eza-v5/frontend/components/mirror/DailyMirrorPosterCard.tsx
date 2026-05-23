@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import { Calendar, Heart, Sparkles, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DailyMirrorCardModel, MirrorStateMeta } from '@/lib/eza/mirror/types';
@@ -18,9 +18,15 @@ import {
 } from '@/lib/eza/mirror/posterReadabilitySystem';
 import {
   POSTER_CARD_WIDTH_PX,
-  posterCardSkin as s,
+  getPosterCardSkin,
+  posterTextShadowPremium,
   posterTextShadowStyle,
 } from '@/lib/eza/mirror/posterCardSkin';
+import {
+  buildPremiumPosterCssVars,
+  premiumPosterRootStyle,
+  resolvePosterPalette,
+} from '@/lib/eza/mirror/posterPaletteSystem';
 import DailyMirrorPosterScene from '@/components/mirror/DailyMirrorPosterScene';
 import ContextualHighlightBand from '@/components/mirror/ContextualHighlightBand';
 import MirrorLiveDebugPanel from '@/components/mirror/MirrorLiveDebugPanel';
@@ -39,18 +45,25 @@ function InsightGlassCard({
   label,
   line,
   icon,
+  skin,
+  textShadow,
 }: {
   label: string;
   line: string;
   icon: ReactNode;
+  skin: ReturnType<typeof getPosterCardSkin>;
+  textShadow: {
+    insightLabel?: CSSProperties;
+    insightLine?: CSSProperties;
+  };
 }) {
   return (
-    <div className={s.insightCard}>
-      <div className={s.insightIcon}>{icon}</div>
-      <p className={s.insightLabel} style={posterTextShadowStyle.insightLabel}>
+    <div className={skin.insightCard}>
+      <div className={skin.insightIcon}>{icon}</div>
+      <p className={skin.insightLabel} style={textShadow.insightLabel}>
         {label}
       </p>
-      <p className={s.insightLine} style={posterTextShadowStyle.insightLine}>
+      <p className={skin.insightLine} style={textShadow.insightLine}>
         {line}
       </p>
     </div>
@@ -77,14 +90,21 @@ export default function DailyMirrorPosterCard({
     () => getEditorialContrast(composition.density),
     [composition.density]
   );
+  const palette = useMemo(() => resolvePosterPalette(card), [card]);
+  const isPremiumPalette = palette === 'premium_light_editorial';
+  const skin = useMemo(() => getPosterCardSkin(palette), [palette]);
+  const textShadow =
+    palette === 'premium_light_editorial' ? posterTextShadowPremium : posterTextShadowStyle;
   const cardStyle = useMemo(
     () => ({
       maxWidth: POSTER_CARD_WIDTH_PX,
       ...buildPosterEditorialCssVars(),
+      ...(isPremiumPalette ? buildPremiumPosterCssVars() : {}),
+      ...(isPremiumPalette ? premiumPosterRootStyle() : {}),
       ...buildPosterCompositionStyle(composition),
       ...buildEditorialReadabilityVars(editorial),
     }),
-    [composition, editorial]
+    [composition, editorial, isPremiumPalette]
   );
   const highlightEmphasis = useMemo(
     () => highlightEmphasisFor(composition.density, content.contextualHighlight.kind),
@@ -99,14 +119,15 @@ export default function DailyMirrorPosterCard({
     <article
       data-mirror-card-root
       data-mirror-aspect="9-16"
-      data-mirror-poster="v8b-intent-lock"
+      data-mirror-poster="v8c-scene-contract"
+      data-mirror-palette={palette}
       data-mirror-density={composition.density}
-      className={s.root}
+      className={skin.root}
       style={cardStyle}
       aria-labelledby="daily-mirror-poster-title"
     >
       <DailyMirrorPosterScene
-        className={cn(s.sceneBackdrop, s.sceneBreathing)}
+        className={cn(skin.sceneBackdrop, skin.sceneBreathing)}
         personaFamilyId={card.personaFamilyId}
         sceneImageUrl={card.visual?.sceneImageUrl}
         sceneImageStatus={card.visual?.sceneImageStatus}
@@ -119,65 +140,66 @@ export default function DailyMirrorPosterCard({
         onSceneImageError={onSceneImageError}
       />
 
-      <div className={s.globalOverlay} aria-hidden />
-      <div className={s.globalOverlayBottom} aria-hidden />
-      <div className={s.grain} aria-hidden />
-      <div className={s.accentGlow} aria-hidden />
+      <div className={skin.globalOverlay} aria-hidden />
+      <div className={skin.globalOverlayBottom} aria-hidden />
+      <div className={skin.grain} aria-hidden />
+      <div className={skin.accentGlow} aria-hidden />
 
       <div
-        className={s.contentStack}
+        className={skin.contentStack}
         style={{ gridTemplateRows: 'var(--poster-zone-rows)' }}
       >
-        <header className={cn(s.topSafeZone, s.editorialGrid)}>
-          <p className={cn(s.logoText, 'col-span-8 flex items-center gap-1.5')}>
-            <span className={s.logoMark}>
+        <header className={cn(skin.topSafeZone, skin.editorialGrid)}>
+          <p className={cn(skin.logoText, 'col-span-8 flex items-center gap-1.5')}>
+            <span className={skin.logoMark}>
               <Sparkles className="h-2 w-2" strokeWidth={1.75} aria-hidden />
             </span>
             EZA · AI İlişki Aynası
           </p>
-          <p className={cn(s.datePill, 'col-span-4 text-right')}>
+          <p className={cn(skin.datePill, 'col-span-4 text-right')}>
             <Calendar className="mr-0.5 inline h-2 w-2 opacity-80" aria-hidden />
             {card.dayLabel}
           </p>
         </header>
 
-        <div className={cn(s.titleSafeZone, s.editorialGrid)}>
+        <div className={cn(skin.titleSafeZone, skin.editorialGrid)}>
           <h2
             id="daily-mirror-poster-title"
-            className={s.heroTitle}
-            style={posterTextShadowStyle.heroTitle}
+            className={skin.heroTitle}
+            style={textShadow.heroTitle}
           >
             {isSparse ? 'Yansıma hazırlanıyor' : content.journeyHeadline}
           </h2>
-          <div className={cn(s.storyWrap, 'col-span-12')}>
-            <p className={s.story} style={posterTextShadowStyle.story}>
+          <div className={cn(skin.storyWrap, 'col-span-12')}>
+            <p className={skin.story} style={textShadow.story}>
               {isSparse ? MIRROR_INSUFFICIENT : content.storyLine}
             </p>
           </div>
         </div>
 
-        <div className={cn(s.sceneSpacer, s.editorialGrid)} aria-hidden={isSparse}>
+        <div className={cn(skin.sceneSpacer, skin.editorialGrid)} aria-hidden={isSparse}>
           {!isSparse ? (
-            <div className={cn(s.highlightAnchor, 'col-span-12')}>
+            <div className={cn(skin.highlightAnchor, 'col-span-12')}>
               <ContextualHighlightBand
                 highlight={content.contextualHighlight}
                 emphasis={highlightEmphasis}
+                skin={skin}
               />
             </div>
           ) : null}
         </div>
 
-        <div className={cn(s.quoteZone, s.editorialGrid)}>
+        <div className={cn(skin.quoteZone, skin.editorialGrid)}>
           {!isSparse ? (
             <p
-              className={cn(s.quoteText, 'col-span-12')}
-              style={posterTextShadowStyle.quoteText}
+              className={cn(skin.quoteText, 'col-span-12')}
+              style={textShadow.quoteText}
             >
-              <span className={s.quoteMark} aria-hidden>
+              <span className={skin.quoteMark} aria-hidden>
                 “
               </span>
               {content.quote}
-              <span className={s.quoteMark} aria-hidden>
+              <span className={skin.quoteMark} aria-hidden>
                 ”
               </span>
             </p>
@@ -185,18 +207,24 @@ export default function DailyMirrorPosterCard({
         </div>
 
         {!isSparse ? (
-          <div className={cn(s.insightsRow, s.editorialGrid)}>
+          <div className={cn(skin.insightsRow, skin.editorialGrid)}>
             <InsightGlassCard
+              skin={skin}
+              textShadow={textShadow}
               label="Sen"
               line={sen?.value ?? '—'}
               icon={<User className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />}
             />
             <InsightGlassCard
+              skin={skin}
+              textShadow={textShadow}
               label="AI"
               line={ai?.value ?? '—'}
               icon={<Sparkles className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />}
             />
             <InsightGlassCard
+              skin={skin}
+              textShadow={textShadow}
               label="Denge"
               line={balance?.value ?? '—'}
               icon={<Heart className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />}
@@ -204,7 +232,7 @@ export default function DailyMirrorPosterCard({
           </div>
         ) : null}
 
-        <footer className={cn(s.footer, s.editorialGrid)}>
+        <footer className={cn(skin.footer, skin.editorialGrid)}>
           <span className="col-span-4">EZA</span>
           <span className="col-span-4 text-center">#EZAİlişkiAynası</span>
           <span className="col-span-4 text-right">eza.ai</span>
@@ -215,7 +243,7 @@ export default function DailyMirrorPosterCard({
         card={card}
         entries={entries}
         meta={meta}
-        posterVersion="v8b-intent-lock"
+        posterVersion="v8c-scene-contract"
         onForceBmwMercedes={onForceBmwMercedes}
       />
     </article>

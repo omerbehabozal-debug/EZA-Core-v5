@@ -150,3 +150,96 @@ export const posterTextShadowStyle = {
   insightLine: { textShadow: '0 1px 8px rgba(0,0,0,0.35)' },
   insightLabel: { textShadow: '0 1px 6px rgba(0,0,0,0.3)' },
 } as const;
+
+/** Sprint 12C — warm beige/violet editorial (vehicle comparison). */
+export const posterCardSkinPremium = {
+  ...posterCardSkin,
+  globalOverlay:
+    'pointer-events-none absolute inset-0 z-[2] bg-gradient-to-b from-[rgba(248,246,241,0.72)] via-transparent via-[22%] to-[rgba(243,241,236,0.35)]',
+  globalOverlayBottom:
+    'pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-[34%] bg-gradient-to-t from-[rgba(243,241,236,0.65)] via-[rgba(248,246,241,0.28)] to-transparent',
+  logoMark:
+    'flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(123,97,255,0.12)] text-[#7B61FF]',
+  logoText:
+    'text-[10px] font-semibold uppercase tracking-[0.14em] text-[#172033]/88',
+  datePill: 'text-[9px] font-medium text-[#172033]/65',
+  titleSafeZone: [
+    'relative col-span-12',
+    'before:pointer-events-none before:absolute before:inset-0 before:-inset-x-2 before:-top-1 before:z-0',
+    'before:rounded-xl before:bg-[rgba(255,255,255,0.68)]',
+  ].join(' '),
+  heroTitle: [
+    'relative z-[1] col-span-10 line-clamp-2 font-extrabold text-[#172033]',
+    `text-[${POSTER_TYPE_PREVIEW.headline.size}px] leading-[${POSTER_TYPE_PREVIEW.headline.lineHeight}] tracking-[-0.04em]`,
+    'max-[380px]:text-[32px]',
+  ].join(' '),
+  storyWrap: [
+    'relative z-[1] mt-2 rounded-lg',
+    'before:pointer-events-none before:absolute before:-inset-x-1 before:-inset-y-0.5 before:rounded-lg',
+    'before:bg-[rgba(255,255,255,0.55)]',
+  ].join(' '),
+  story: [
+    'relative line-clamp-2 font-medium text-[#172033]/90',
+    `text-[${POSTER_TYPE_PREVIEW.story.size}px] leading-[${POSTER_TYPE_PREVIEW.story.lineHeight}]`,
+  ].join(' '),
+  quoteZone: [
+    'relative col-span-12 flex min-h-[88px] flex-col justify-center rounded-[20px] px-2 py-2',
+    'bg-[rgba(255,255,255,0.62)] border border-[rgba(123,97,255,0.12)]',
+  ].join(' '),
+  quoteText: [
+    'line-clamp-2 text-center font-medium italic text-[#172033]/88',
+    `text-[${POSTER_TYPE_PREVIEW.quote.size}px] leading-[${POSTER_TYPE_PREVIEW.quote.lineHeight}]`,
+  ].join(' '),
+  quoteMark: 'text-[11px] not-italic text-[#7B61FF]/45',
+  highlightProminent: [
+    'mb-2 w-full rounded-[18px] border border-[rgba(123,97,255,0.28)] px-2.5 py-2',
+    'bg-[rgba(255,255,255,0.68)] backdrop-blur-[12px]',
+    `shadow-[${POSTER_SHADOWS.glassCard}]`,
+  ].join(' '),
+  highlightProminentTitle:
+    'mb-1.5 text-center text-[9px] font-bold uppercase tracking-[0.16em] text-[#172033]/75',
+  highlightSideLabel: 'text-[9px] font-bold leading-tight text-[#172033]',
+  highlightSideHint: 'mt-0.5 line-clamp-1 text-[8px] text-[#172033]/70',
+  highlightVs:
+    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[rgba(123,97,255,0.14)] text-[8px] font-bold text-[#7B61FF] ring-1 ring-[rgba(123,97,255,0.22)]',
+  highlightTag:
+    'rounded-full bg-[rgba(123,97,255,0.08)] px-1.5 py-px text-[7px] font-semibold uppercase text-[#172033]/72',
+  insightCard: [
+    'flex min-w-[100px] min-h-[92px] max-h-[120px] flex-col rounded-[18px] border border-[rgba(123,97,255,0.12)] px-2.5 py-2',
+    'bg-[rgba(255,255,255,0.68)] backdrop-blur-[12px]',
+    `shadow-[${POSTER_SHADOWS.glassCard}]`,
+    '[writing-mode:horizontal-tb]',
+  ].join(' '),
+  insightLabel: [
+    'whitespace-nowrap text-[8px] font-semibold uppercase tracking-[0.12em] text-[#172033]/78',
+    '[writing-mode:horizontal-tb]',
+  ].join(' '),
+  insightLine: [
+    'mt-0.5 line-clamp-2 text-[10px] font-medium leading-[1.35] text-[#172033]/88',
+    '[writing-mode:horizontal-tb]',
+  ].join(' '),
+  footer: [
+    'relative z-[6] col-span-12 flex items-center justify-between gap-2 pt-1',
+    'text-[9px] font-semibold uppercase tracking-[0.12em] text-[#172033]/52',
+  ].join(' '),
+} as const;
+
+export const posterTextShadowPremium = {
+  heroTitle: { textShadow: '0 1px 10px rgba(255,255,255,0.6)' },
+  story: { textShadow: '0 1px 6px rgba(255,255,255,0.45)' },
+  quoteText: { textShadow: '0 1px 6px rgba(255,255,255,0.4)' },
+  insightLine: { textShadow: 'none' },
+  insightLabel: { textShadow: 'none' },
+} as const;
+
+export type PosterSkinTokens = {
+  readonly [key: string]: string;
+};
+
+export function getPosterCardSkin(
+  palette: 'default_dark_scrim' | 'premium_light_editorial'
+): PosterSkinTokens {
+  return (palette === 'premium_light_editorial'
+    ? posterCardSkinPremium
+    : posterCardSkin) as PosterSkinTokens;
+}

@@ -19,6 +19,7 @@ import {
   getIntentLockForbiddenPhrases,
   type LockedPrimaryIntentId,
 } from '@/lib/eza/mirror/intentLockSystem';
+import { enforceVehicleComparisonPrompt } from '@/lib/eza/mirror/vehicleSceneContract';
 
 export const STYLE_BLOCK = [
   'premium cinematic editorial scene',
@@ -105,17 +106,32 @@ export function buildStructuredScenePrompt(input: StructuredScenePromptInput): {
             ? buildCameraGrammarPhrases('wellness_scene').join(', ')
             : DEFAULT_CAMERA_BLOCK;
 
-  const intentBlock = [
-    `scene intent: ${input.intent.label}`,
-    input.intent.mizansen,
-    `atmosphere: ${input.atmosphereLabel}`,
-    `emotion mood: ${input.emotionLabel}`,
-  ].join(', ');
+  const intentBlock =
+    input.lockedIntent === 'premium_vehicle_comparison'
+      ? [
+          'scene intent: premium car comparison',
+          'indoor premium showroom garage studio only',
+          `atmosphere: ${input.atmosphereLabel}`,
+          `emotion mood: ${input.emotionLabel}`,
+          'comfort priority long-distance driving decision',
+        ].join(', ')
+      : [
+          `scene intent: ${input.intent.label}`,
+          input.intent.mizansen,
+          `atmosphere: ${input.atmosphereLabel}`,
+          `emotion mood: ${input.emotionLabel}`,
+        ].join(', ');
+
+  const outdoorNoise =
+    /\b(city|street|road|skyline|pier|dock|seascape|landscape|highway|urban|avenue|traffic)\b/i;
+  const filterOutdoor = (phrase: string) =>
+    input.lockedIntent === 'premium_vehicle_comparison' ? !outdoorNoise.test(phrase) : true;
 
   const heroBlock = [hero.objectPhrase, ...hero.secondaryProps].join(', ');
 
   const actionBlock = input.emotionalBlock.phrases
     .filter((p) => !p.startsWith('camera grammar'))
+    .filter(filterOutdoor)
     .slice(0, 8)
     .join(', ');
 
@@ -136,7 +152,7 @@ export function buildStructuredScenePrompt(input: StructuredScenePromptInput): {
     'ACTION MEMORY BLOCK:',
     actionBlock,
     'CINEMATIC DIRECTION BLOCK:',
-    input.emotionalBlock.phrases.slice(0, 6).join(', '),
+    input.emotionalBlock.phrases.filter(filterOutdoor).slice(0, 6).join(', '),
     'STYLE BLOCK:',
     STYLE_BLOCK,
     'LIGHTING BLOCK:',
@@ -158,5 +174,7 @@ export function buildStructuredScenePrompt(input: StructuredScenePromptInput): {
     ...FIXED_NEGATIVE_SCENE.split(', '),
   ]);
 
-  return { prompt, negativePrompt };
+  const finalPrompt = enforceVehicleComparisonPrompt(prompt, input.lockedIntent ?? null);
+
+  return { prompt: finalPrompt, negativePrompt };
 }

@@ -3,15 +3,22 @@
 import { cn } from '@/lib/utils';
 import type { ContextualHighlight } from '@/lib/eza/mirror/contextualHighlight';
 import type { PosterCompositionProfile } from '@/lib/eza/mirror/posterCompositionSystem';
-import { posterCardSkin as s } from '@/lib/eza/mirror/posterCardSkin';
+import { posterCardSkin as defaultSkin, type PosterSkinTokens } from '@/lib/eza/mirror/posterCardSkin';
 
 export type ContextualHighlightBandProps = {
   highlight: ContextualHighlight;
   emphasis?: PosterCompositionProfile['highlightEmphasis'];
   className?: string;
+  skin?: PosterSkinTokens;
 };
 
-function WhisperBand({ highlight }: { highlight: ContextualHighlight }) {
+function WhisperBand({
+  highlight,
+  s,
+}: {
+  highlight: ContextualHighlight;
+  s: PosterSkinTokens;
+}) {
   return (
     <div className={s.highlightWhisper}>
       <span className={s.highlightWhisperTitle}>{highlight.bandTitle}</span>
@@ -24,7 +31,13 @@ function WhisperBand({ highlight }: { highlight: ContextualHighlight }) {
   );
 }
 
-function RibbonBand({ highlight }: { highlight: ContextualHighlight }) {
+function RibbonBand({
+  highlight,
+  s,
+}: {
+  highlight: ContextualHighlight;
+  s: PosterSkinTokens;
+}) {
   return (
     <div className={s.highlightRibbon}>
       <p className={s.highlightRibbonTitle}>{highlight.bandTitle}</p>
@@ -41,8 +54,14 @@ function RibbonBand({ highlight }: { highlight: ContextualHighlight }) {
   );
 }
 
-function ProminentDualBand({ highlight }: { highlight: ContextualHighlight }) {
-  if (!highlight.left || !highlight.right) return <RibbonBand highlight={highlight} />;
+function ProminentDualBand({
+  highlight,
+  s,
+}: {
+  highlight: ContextualHighlight;
+  s: PosterSkinTokens;
+}) {
+  if (!highlight.left || !highlight.right) return <RibbonBand highlight={highlight} s={s} />;
   return (
     <div className={s.highlightProminent}>
       <p className={s.highlightProminentTitle}>{highlight.bandTitle}</p>
@@ -74,25 +93,32 @@ function ProminentDualBand({ highlight }: { highlight: ContextualHighlight }) {
   );
 }
 
-function ProminentBand({ highlight }: { highlight: ContextualHighlight }) {
+function ProminentBand({
+  highlight,
+  s,
+}: {
+  highlight: ContextualHighlight;
+  s: PosterSkinTokens;
+}) {
   if (highlight.kind === 'dual_comparison') {
-    return <ProminentDualBand highlight={highlight} />;
+    return <ProminentDualBand highlight={highlight} s={s} />;
   }
-  return <RibbonBand highlight={highlight} />;
+  return <RibbonBand highlight={highlight} s={s} />;
 }
 
 export default function ContextualHighlightBand({
   highlight,
   emphasis = 'whisper',
   className,
+  skin = defaultSkin,
 }: ContextualHighlightBandProps) {
   const body =
     emphasis === 'prominent' ? (
-      <ProminentBand highlight={highlight} />
+      <ProminentBand highlight={highlight} s={skin} />
     ) : emphasis === 'ribbon' ? (
-      <RibbonBand highlight={highlight} />
+      <RibbonBand highlight={highlight} s={skin} />
     ) : (
-      <WhisperBand highlight={highlight} />
+      <WhisperBand highlight={highlight} s={skin} />
     );
 
   return <div className={cn('w-full', className)}>{body}</div>;

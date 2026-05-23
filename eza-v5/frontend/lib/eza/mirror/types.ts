@@ -65,6 +65,8 @@ export interface MirrorVisualPromptPayload {
   primaryIntentId?: import('@/lib/eza/mirror/sceneIntentTypes').ConversationVisualIntentId;
   compositionTemplate?: import('@/lib/eza/mirror/sceneIntentTypes').SceneCompositionTemplateId;
   intentFingerprint?: string;
+  /** Sprint 12C hard scene contract id when vehicle locked. */
+  sceneContractId?: string;
   /** Optional AI scene background (injected by UI when available). */
   sceneImageUrl?: string | null;
   sceneImageStatus?: MirrorSceneImageStatus;

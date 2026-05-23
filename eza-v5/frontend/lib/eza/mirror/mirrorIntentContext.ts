@@ -28,6 +28,11 @@ import { inferSceneTopicKey } from '@/lib/eza/mirror/visualPromptEngine';
 import { resolveHeroObject } from '@/lib/eza/mirror/heroObjectRegistry';
 import type { DailyMirrorCardModel, MirrorStateMeta } from '@/lib/eza/mirror/types';
 import type { ConversationVisualIntentId } from '@/lib/eza/mirror/sceneIntentTypes';
+import {
+  validateVehicleComparisonPrompt,
+  VEHICLE_SCENE_CONTRACT_ID,
+} from '@/lib/eza/mirror/vehicleSceneContract';
+import { resolvePosterPalette } from '@/lib/eza/mirror/posterPaletteSystem';
 
 export type MirrorIntentContext = {
   cueBlob: string;
@@ -88,6 +93,7 @@ export function resolveMirrorIntentContext(input: {
     lockedIntent,
     conversationIntent.id,
     conversationIntent.composition,
+    lockedIntent === 'premium_vehicle_comparison' ? VEHICLE_SCENE_CONTRACT_ID : '',
     cueBlob.slice(0, 200),
     input.storyVariant ?? '',
   ]);
@@ -129,6 +135,11 @@ export type MirrorIntentDebugSnapshot = {
   entriesCount: number;
   staleSceneWarning: string;
   liveVsCardMismatch: boolean;
+  sceneContract: string;
+  promptContractOk: string;
+  promptMissingRequired: string;
+  promptForbiddenFound: string;
+  posterPalette: string;
 };
 
 export function buildMirrorIntentDebugSnapshot(input: {
@@ -157,7 +168,13 @@ export function buildMirrorIntentDebugSnapshot(input: {
     inferMicroMood(signals, card?.reflectionTone ?? 'calm_reflective');
 
   const forbidden = getIntentLockForbiddenPhrases(live.lockedIntent);
-  const promptPreview = (card?.visual?.prompt ?? '').slice(0, 800);
+  const fullPrompt = card?.visual?.prompt ?? '';
+  const promptPreview = fullPrompt.slice(0, 800);
+  const contractCheck =
+    live.lockedIntent === 'premium_vehicle_comparison'
+      ? validateVehicleComparisonPrompt(fullPrompt)
+      : { ok: true, missing: [], forbidden: [] };
+  const posterPalette = card ? resolvePosterPalette(card) : '—';
   const cardFp = card?.visual?.intentFingerprint ?? '—';
   const liveFp = live.intentFingerprint;
   const mismatch = Boolean(card && cardFp !== '—' && cardFp !== liveFp);
@@ -197,6 +214,17 @@ export function buildMirrorIntentDebugSnapshot(input: {
       ? 'Kart eski intent fingerprint ile üretilmiş; günlük kartı yeniden oluşturun.'
       : staleScene,
     liveVsCardMismatch: mismatch,
+    sceneContract:
+      card?.visual?.sceneContractId ??
+      (live.lockedIntent === 'premium_vehicle_comparison' ? VEHICLE_SCENE_CONTRACT_ID : '—'),
+    promptContractOk: contractCheck.ok ? 'yes' : 'NO',
+    promptMissingRequired: contractCheck.missing.length
+      ? contractCheck.missing.join(', ')
+      : '—',
+    promptForbiddenFound: contractCheck.forbidden.length
+      ? contractCheck.forbidden.join(', ')
+      : 'none',
+    posterPalette,
   };
 }
 

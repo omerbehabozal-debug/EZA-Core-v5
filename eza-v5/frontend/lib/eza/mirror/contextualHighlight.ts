@@ -6,7 +6,10 @@
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { ConversationVisualIntentId } from '@/lib/eza/mirror/conversationVisualIntent';
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
-import { extractVehicleHighlightLabels } from '@/lib/eza/mirror/intentLockSystem';
+import {
+  buildVehicleComparisonHighlightSides,
+  extractVehicleHighlightLabels,
+} from '@/lib/eza/mirror/intentLockSystem';
 
 export type ContextualHighlightKind = 'dual_comparison' | 'tag_focus' | 'triple_tags';
 
@@ -29,9 +32,9 @@ const INTENT_TO_HIGHLIGHT: Partial<
 > = {
   premium_vehicle_comparison: {
     kind: 'dual_comparison',
-    bandTitle: 'Karar öncesi',
-    left: { label: 'Seçenek A', hint: 'Konfor & uzun yol' },
-    right: { label: 'Seçenek B', hint: 'Denge & kalite' },
+    bandTitle: 'Önceliklerin',
+    left: { label: 'BMW 3 Serisi', hint: 'Sürüş hissi / dinamik karakter' },
+    right: { label: 'Mercedes C Serisi', hint: 'Konfor / dengeli deneyim' },
     centerBadge: 'VS',
     tags: ['Konfor önceliği', 'Kıyas', 'Netlik'],
   },
@@ -180,12 +183,16 @@ function applyVehicleLabels(
   base: ContextualHighlight,
   card: DailyMirrorCardModel
 ): ContextualHighlight {
-  const labels = extractVehicleHighlightLabels(vehicleCueBlobFromCard(card));
+  const blob = vehicleCueBlobFromCard(card);
+  const labels = extractVehicleHighlightLabels(blob);
   if (!labels || base.kind !== 'dual_comparison') return base;
+  const comfortPriority =
+    blob.includes('konfor') || blob.includes('comfort') || blob.includes('uzun yol');
+  const sides = buildVehicleComparisonHighlightSides(labels, comfortPriority);
   return {
     ...base,
-    left: { label: labels.left, hint: 'Konfor & uzun yol' },
-    right: { label: labels.right, hint: 'Denge & kalite' },
+    left: sides.left,
+    right: sides.right,
   };
 }
 

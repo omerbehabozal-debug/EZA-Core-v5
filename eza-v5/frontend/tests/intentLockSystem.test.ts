@@ -98,8 +98,15 @@ describe('intentLockSystem (Sprint 12B)', () => {
     expect(neg).toContain('pier');
     expect(neg).toContain('seascape');
     const p = visual.prompt.toLowerCase();
-    expect(p).toContain('intent lock block');
+    expect(p).toContain('scene contract vehicle_comparison_showroom');
+    expect(p).toContain('composition contract opening');
+    expect(p).toContain('two premium executive sedans');
+    expect(p).toContain('required objects');
     expect(p).not.toContain('empty pier');
+    const openingIdx = visual.prompt.indexOf('COMPOSITION CONTRACT OPENING');
+    const styleIdx = visual.prompt.indexOf('STYLE CANON');
+    expect(openingIdx).toBeGreaterThanOrEqual(0);
+    expect(styleIdx).toBeGreaterThan(openingIdx);
   });
 
   it('metrics layout stays horizontal with min column width', () => {

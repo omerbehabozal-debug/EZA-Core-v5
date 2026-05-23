@@ -14,9 +14,14 @@ import {
   resolveSceneCharacterPhrase,
   type ConversationVisualIntent,
 } from '@/lib/eza/mirror/conversationVisualIntent';
+import { buildScenePromptFromDirector } from '@/lib/eza/mirror/compositionContractBuilder';
 import { buildEmotionalSceneBlock } from '@/lib/eza/mirror/emotionalSceneEngine';
-import { buildStructuredScenePrompt } from '@/lib/eza/mirror/posterPromptBlocks';
+import { deriveVisualNarrativeDirection } from '@/lib/eza/mirror/visualNarrativeDirector';
 import type { LockedPrimaryIntentId } from '@/lib/eza/mirror/intentLockSystem';
+import {
+  enforceVehicleComparisonPrompt,
+  VEHICLE_SCENE_CONTRACT_ID,
+} from '@/lib/eza/mirror/vehicleSceneContract';
 import { resolveMirrorIntentContext } from '@/lib/eza/mirror/mirrorIntentContext';
 import {
   deriveReflectionSignals,
@@ -63,6 +68,7 @@ export interface MirrorVisualPrompt {
   primaryIntentId?: ConversationVisualIntent['id'];
   compositionTemplate?: ConversationVisualIntent['composition'];
   intentFingerprint?: string;
+  sceneContractId?: string;
 }
 
 export interface BuildVisualPromptInput {
@@ -368,7 +374,19 @@ export function buildMirrorVisualFromContext(
   const preset = SCENE_TOPIC_PRESETS[topicKey];
 
   const atmosphereLabel = input.atmosphereOverride ?? preset.atmosphereDefault;
-  const structured = buildStructuredScenePrompt({
+
+  const narrative = deriveVisualNarrativeDirection({
+    entries: input.entries,
+    topicKey,
+    storyVariant: input.storyVariant,
+    reflectionSignals,
+    reflectionTone: input.reflectionTone,
+    personaFamilyId: input.personaFamilyId,
+    observationCategoryId: input.observationCategoryId,
+  });
+
+  const structured = buildScenePromptFromDirector({
+    narrative,
     topicKey,
     intent: conversationIntent,
     emotionalBlock: emotionalScene,
@@ -396,7 +414,8 @@ export function buildMirrorVisualFromContext(
     `tension: ${emotionalScene.tension}`,
     `pacing: ${emotionalScene.pacing}`,
     `camera: ${emotionalScene.cameraLabel.slice(0, 48)}`,
-    'structured prompt 12A'
+    'director-led prompt 13B',
+    `scene archetype: ${narrative.sceneArchetype}`
   );
 
   const visual: MirrorVisualPrompt = {
@@ -427,13 +446,27 @@ export function buildMirrorVisualFromContext(
     primaryIntentId: conversationIntent.id,
     compositionTemplate: conversationIntent.composition,
     intentFingerprint,
+    sceneContractId:
+      lockedIntent === 'premium_vehicle_comparison' ? VEHICLE_SCENE_CONTRACT_ID : undefined,
   };
 
   const storyHints = input.visualStoryHints ?? [];
   const alignedStory =
     input.storyTopicKey && input.storyTopicKey === topicKey ? storyHints.slice(0, 2) : [];
+  const outdoorNoise =
+    /\b(city|street|road|skyline|pier|dock|seascape|landscape|highway|urban|terrace)\b/i;
+  const safeStory =
+    lockedIntent === 'premium_vehicle_comparison'
+      ? alignedStory.filter((h) => !outdoorNoise.test(h))
+      : alignedStory;
 
-  visual.prompt = [visual.prompt, ...alignedStory].filter(Boolean).join(', ');
+  visual.prompt = enforceVehicleComparisonPrompt(
+    [visual.prompt, ...safeStory].filter(Boolean).join(', '),
+    lockedIntent
+  );
+  if (narrative.sceneArchetype === 'luxury comparison studio') {
+    visual.sceneContractId = VEHICLE_SCENE_CONTRACT_ID;
+  }
   visual.qualityHints = [
     ...visual.qualityHints,
     ...input.toneHints ?? [],

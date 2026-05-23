@@ -44,7 +44,7 @@ export default function MirrorLiveDebugPanel({
   card,
   entries,
   meta,
-  posterVersion = 'v8b-intent-lock',
+  posterVersion = 'v8c-scene-contract',
   onForceBmwMercedes,
 }: MirrorLiveDebugPanelProps) {
   if (!isMirrorDevToolsEnabled()) {
@@ -61,7 +61,7 @@ export default function MirrorLiveDebugPanel({
   return (
     <details className="mt-4 w-full rounded-xl border border-dashed border-amber-300/90 bg-amber-50/50 text-left">
       <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold text-amber-950 marker:content-none [&::-webkit-details-marker]:hidden">
-        Mirror Live Debug (12B)
+        Mirror Live Debug (12C)
         <span className="ml-2 font-normal text-amber-800/80">dev only</span>
       </summary>
       <div className="space-y-3 border-t border-amber-200/70 px-4 py-3">
@@ -94,6 +94,11 @@ export default function MirrorLiveDebugPanel({
           <DebugRow label="sceneImageStatus" value={snap.sceneImageStatus} />
           <DebugRow label="sceneImageUrl" value={snap.sceneImageUrl} />
           <DebugRow label="vehicle labels (live)" value={snap.detectedVehicleLabels} />
+          <DebugRow label="scene contract" value={snap.sceneContract} />
+          <DebugRow label="prompt contract ok" value={snap.promptContractOk} />
+          <DebugRow label="poster palette" value={snap.posterPalette} />
+          <DebugRow label="prompt missing required" value={snap.promptMissingRequired} />
+          <DebugRow label="prompt forbidden found" value={snap.promptForbiddenFound} />
         </div>
 
         <DebugBlock label="conversation cue blob (live, 400ch)" value={snap.conversationCueBlob} />
