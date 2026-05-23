@@ -6,6 +6,17 @@ import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
 import { FAMILY_ASSET_SLOTS } from '@/lib/eza/personaAssets';
 import type { ReflectionToneId } from '@/lib/eza/mirror/reflectionToneEngine';
+import type { LockedPrimaryIntentId } from '@/lib/eza/mirror/intentLockSystem';
+import {
+  HYBRID_DESCRIPTION_MAX,
+  HYBRID_HEADLINE_MAX,
+  HYBRID_QUOTE_MAX,
+  HYBRID_SUBHEADLINE_MAX,
+  HYBRID_THEME_DESC_MAX,
+  HYBRID_THEME_TITLE_MAX,
+  truncateHybridText,
+  type HybridPosterTextPayload,
+} from '@/lib/eza/mirror/hybridPosterPromptBuilder';
 import {
   buildContextualHighlight,
   type ContextualHighlight,
@@ -158,6 +169,69 @@ function deriveTheme(card: DailyMirrorCardModel): { title: string; description: 
   return {
     title: base.title,
     description: toneDesc ?? base.description,
+  };
+}
+
+export type HybridPosterTextInput = {
+  dailyJourney?: string;
+  headline?: string;
+  mirrorStory?: string;
+  quote?: string;
+  themeDescription?: string;
+  personaFamilyId: PersonaFamilyId;
+  topicLabel?: string;
+  reflectionTone?: ReflectionToneId;
+  lockedIntent?: LockedPrimaryIntentId;
+  seed?: string;
+};
+
+function deriveHybridSubheadline(input: HybridPosterTextInput): string {
+  if (input.lockedIntent === 'premium_vehicle_comparison') {
+    return 'Konfor Önceliği';
+  }
+  const topic = input.topicLabel?.toLowerCase() ?? '';
+  if (topic.includes('seyahat') || topic.includes('keşif')) return 'Keşif Yolculuğu';
+  if (topic.includes('mimari') || topic.includes('yapı')) return 'Yapı & Netlik';
+  if (topic.includes('sağlık')) return 'İyi Oluş';
+  if (input.reflectionTone === 'calm_reflective') return 'Bir Gün';
+  return 'Bugün';
+}
+
+/** Hybrid Mode B copy — clamped for OpenAI embedded typography (Sprint 13C). */
+export function buildHybridPosterTextFields(
+  input: HybridPosterTextInput
+): HybridPosterTextPayload {
+  const topic = input.topicLabel?.toLowerCase().trim();
+  const themeBase =
+    topic && THEME_FROM_TOPIC[topic]
+      ? THEME_FROM_TOPIC[topic]
+      : FAMILY_THEME[input.personaFamilyId] ?? THEME_FROM_TOPIC['genel düşünce']!;
+  const toneDesc =
+    (input.reflectionTone && TONE_THEME_DESCRIPTION[input.reflectionTone]) ||
+    input.themeDescription ||
+    themeBase.description;
+
+  const headlineRaw =
+    input.dailyJourney?.trim() || input.headline?.trim() || themeBase.title || 'Bugün';
+  const descriptionRaw =
+    input.mirrorStory?.trim() ||
+    input.themeDescription?.trim() ||
+    toneDesc ||
+    'Bugün AI ile geçirdiğin günün sakin bir yansıması.';
+  const quoteRaw =
+    input.quote?.trim() ||
+    hashPick(`${input.seed ?? 'hybrid'}-quote`, QUOTE_FALLBACKS);
+
+  return {
+    headline: truncateHybridText(headlineRaw, HYBRID_HEADLINE_MAX),
+    subheadline: truncateHybridText(
+      deriveHybridSubheadline(input),
+      HYBRID_SUBHEADLINE_MAX
+    ),
+    description: truncateHybridText(descriptionRaw, HYBRID_DESCRIPTION_MAX),
+    themeTitle: truncateHybridText(themeBase.title, HYBRID_THEME_TITLE_MAX),
+    themeDescription: truncateHybridText(toneDesc, HYBRID_THEME_DESC_MAX),
+    quote: truncateHybridText(quoteRaw, HYBRID_QUOTE_MAX),
   };
 }
 

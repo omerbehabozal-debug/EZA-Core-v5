@@ -15,6 +15,9 @@ import {
   type ConversationVisualIntent,
 } from '@/lib/eza/mirror/conversationVisualIntent';
 import { buildScenePromptFromDirector } from '@/lib/eza/mirror/compositionContractBuilder';
+import { buildHybridPosterPrompt } from '@/lib/eza/mirror/hybridPosterPromptBuilder';
+import type { HybridPosterTextPayload } from '@/lib/eza/mirror/hybridPosterPromptBuilder';
+import { resolveMirrorRenderMode, type MirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
 import { buildEmotionalSceneBlock } from '@/lib/eza/mirror/emotionalSceneEngine';
 import { deriveVisualNarrativeDirection } from '@/lib/eza/mirror/visualNarrativeDirector';
 import type { LockedPrimaryIntentId } from '@/lib/eza/mirror/intentLockSystem';
@@ -69,6 +72,10 @@ export interface MirrorVisualPrompt {
   compositionTemplate?: ConversationVisualIntent['composition'];
   intentFingerprint?: string;
   sceneContractId?: string;
+  renderMode?: MirrorRenderMode;
+  hybridTextPayload?: HybridPosterTextPayload;
+  hybridTextRisk?: boolean;
+  hybridFallbackReason?: string;
 }
 
 export interface BuildVisualPromptInput {
@@ -318,6 +325,8 @@ export interface BuildMirrorVisualFromContextInput {
   visualStoryHints?: string[];
   lockedIntent?: LockedPrimaryIntentId;
   intentFingerprint?: string;
+  renderMode?: MirrorRenderMode;
+  hybridCopy?: HybridPosterTextPayload;
 }
 
 /**
@@ -385,16 +394,41 @@ export function buildMirrorVisualFromContext(
     observationCategoryId: input.observationCategoryId,
   });
 
-  const structured = buildScenePromptFromDirector({
-    narrative,
-    topicKey,
-    intent: conversationIntent,
-    emotionalBlock: emotionalScene,
-    reflectionSignals,
-    atmosphereLabel,
-    emotionLabel,
-    lockedIntent,
-  });
+  const renderMode = input.renderMode ?? resolveMirrorRenderMode();
+
+  let structured: { prompt: string; negativePrompt: string };
+  let hybridTextPayload: HybridPosterTextPayload | undefined;
+
+  if (renderMode === 'hybrid_middle' && input.hybridCopy) {
+    const hybrid = buildHybridPosterPrompt({
+      narrative,
+      headline: input.hybridCopy.headline,
+      subheadline: input.hybridCopy.subheadline,
+      description: input.hybridCopy.description,
+      themeTitle: input.hybridCopy.themeTitle,
+      themeDescription: input.hybridCopy.themeDescription,
+      quote: input.hybridCopy.quote,
+      sceneIntent: conversationIntent.label,
+      heroObjects: narrative.heroObjects,
+      colorMood: atmosphereLabel,
+      typographyStyle:
+        'premium editorial Turkish typography, warm cream and soft violet, integrated with scene',
+      lockedIntent,
+    });
+    structured = { prompt: hybrid.prompt, negativePrompt: hybrid.negativePrompt };
+    hybridTextPayload = hybrid.textPayload;
+  } else {
+    structured = buildScenePromptFromDirector({
+      narrative,
+      topicKey,
+      intent: conversationIntent,
+      emotionalBlock: emotionalScene,
+      reflectionSignals,
+      atmosphereLabel,
+      emotionLabel,
+      lockedIntent,
+    });
+  }
 
   const architectureExtra =
     topicKey === 'architecture' || conversationIntent.composition === 'restoration_scene'
@@ -415,7 +449,8 @@ export function buildMirrorVisualFromContext(
     `pacing: ${emotionalScene.pacing}`,
     `camera: ${emotionalScene.cameraLabel.slice(0, 48)}`,
     'director-led prompt 13B',
-    `scene archetype: ${narrative.sceneArchetype}`
+    `scene archetype: ${narrative.sceneArchetype}`,
+    renderMode === 'hybrid_middle' ? 'hybrid middle poster 13C' : 'scene-only textless'
   );
 
   const visual: MirrorVisualPrompt = {
@@ -448,6 +483,8 @@ export function buildMirrorVisualFromContext(
     intentFingerprint,
     sceneContractId:
       lockedIntent === 'premium_vehicle_comparison' ? VEHICLE_SCENE_CONTRACT_ID : undefined,
+    renderMode,
+    hybridTextPayload,
   };
 
   const storyHints = input.visualStoryHints ?? [];
@@ -460,12 +497,16 @@ export function buildMirrorVisualFromContext(
       ? alignedStory.filter((h) => !outdoorNoise.test(h))
       : alignedStory;
 
-  visual.prompt = enforceVehicleComparisonPrompt(
-    [visual.prompt, ...safeStory].filter(Boolean).join(', '),
-    lockedIntent
-  );
-  if (narrative.sceneArchetype === 'luxury comparison studio') {
-    visual.sceneContractId = VEHICLE_SCENE_CONTRACT_ID;
+  if (renderMode === 'hybrid_middle') {
+    visual.prompt = [visual.prompt, ...safeStory].filter(Boolean).join(', ');
+  } else {
+    visual.prompt = enforceVehicleComparisonPrompt(
+      [visual.prompt, ...safeStory].filter(Boolean).join(', '),
+      lockedIntent
+    );
+    if (narrative.sceneArchetype === 'luxury comparison studio') {
+      visual.sceneContractId = VEHICLE_SCENE_CONTRACT_ID;
+    }
   }
   visual.qualityHints = [
     ...visual.qualityHints,

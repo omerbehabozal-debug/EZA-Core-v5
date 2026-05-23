@@ -25,6 +25,7 @@ import {
   withDevVehicleCueHints,
 } from '@/lib/eza/mirror/mirrorIntentContext';
 import { generateMirrorScene } from '@/lib/eza/mirror/generateSceneApi';
+import { resolveMirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
 import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
@@ -58,6 +59,7 @@ export default function StandaloneObservationExperience({
   const [sceneImageUrl, setSceneImageUrl] = useState<string | null>(null);
   const [sceneImageStatus, setSceneImageStatus] = useState<MirrorSceneImageStatus>('idle');
   const [cardIntentFingerprint, setCardIntentFingerprint] = useState<string | null>(null);
+  const [hybridTextFallback, setHybridTextFallback] = useState(false);
   const mirrorExport = useMirrorCardExport();
 
   const liveIntentFingerprint = useMemo(() => {
@@ -76,6 +78,7 @@ export default function StandaloneObservationExperience({
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
       setCardIntentFingerprint(null);
+      setHybridTextFallback(false);
       setDailyStatus('idle');
     }
   }, [entries.length]);
@@ -109,7 +112,12 @@ export default function StandaloneObservationExperience({
 
   const handleSceneImageError = useCallback(() => {
     setSceneImageStatus('error');
-  }, []);
+    const mode =
+      generatedDailyCard?.visual?.renderMode ?? resolveMirrorRenderMode();
+    if (mode === 'hybrid_middle') {
+      setHybridTextFallback(true);
+    }
+  }, [generatedDailyCard?.visual?.renderMode]);
 
   const handleGenerateMirrorScene = useCallback(async () => {
     if (!generatedDailyCard?.visual) return;
@@ -146,6 +154,7 @@ export default function StandaloneObservationExperience({
         setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
         setSceneImageUrl(null);
         setSceneImageStatus('idle');
+        setHybridTextFallback(false);
         setDailyStatus('ready');
       } catch {
         setGeneratedDailyCard(null);
@@ -205,6 +214,7 @@ export default function StandaloneObservationExperience({
                 onSceneImageLoad={handleSceneImageLoad}
                 onSceneImageError={handleSceneImageError}
                 onForceBmwMercedes={handleForceBmwMercedes}
+                hybridTextFallback={hybridTextFallback}
               />
             </div>
           </DailyMirrorCardEntrance>

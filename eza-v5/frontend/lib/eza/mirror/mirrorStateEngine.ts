@@ -17,6 +17,9 @@ import { pickStandalonePersona, type PersonaFamilyId } from '@/lib/eza/standalon
 import { composeEmotionalReflection } from '@/lib/eza/mirror/reflectionToneEngine';
 import { composeMirrorStory } from '@/lib/eza/mirror/mirrorStoryEngine';
 import { buildMirrorVisualFromContext, buildFallbackMirrorVisual } from '@/lib/eza/mirror/visualPromptEngine';
+import { resolveMirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
+import { buildHybridPosterTextFields } from '@/lib/eza/mirror/posterCardContent';
+import { SCENE_TOPIC_LABEL } from '@/lib/eza/mirror/visualPromptPresets';
 import { resolveMirrorIntentContext } from '@/lib/eza/mirror/mirrorIntentContext';
 import {
   MIRROR_MIN_SAMPLES,
@@ -256,6 +259,24 @@ function buildDailyMirrorCard(
       ? 'warm premium showroom decision atmosphere comfort priority'
       : story.visualAtmosphereBoost ?? emotional.visualAtmosphere;
 
+  const renderMode = resolveMirrorRenderMode();
+  const storyTopicKey = story.storyTopicKey ?? 'general';
+  const hybridCopy =
+    renderMode === 'hybrid_middle'
+      ? buildHybridPosterTextFields({
+          dailyJourney: story.dailyJourney,
+          headline: story.dailyJourney || emotional.headline,
+          mirrorStory: story.mirrorStory,
+          quote: emotional.quote,
+          themeDescription: emotional.themeDescription,
+          personaFamilyId,
+          topicLabel: SCENE_TOPIC_LABEL[storyTopicKey],
+          reflectionTone: emotional.reflectionTone,
+          lockedIntent: intentCtx.lockedIntent,
+          seed: `${seed}-hybrid`,
+        })
+      : undefined;
+
   const visual = buildMirrorVisualFromContext({
     entries,
     characterName: persona.name,
@@ -276,6 +297,8 @@ function buildDailyMirrorCard(
         : story.visualStoryHints,
     lockedIntent: intentCtx.lockedIntent,
     intentFingerprint: intentCtx.intentFingerprint,
+    renderMode,
+    hybridCopy,
   });
 
   const storyHeadline = story.dailyJourney;

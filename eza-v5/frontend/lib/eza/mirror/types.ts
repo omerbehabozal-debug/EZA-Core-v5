@@ -19,6 +19,8 @@ import type {
   TopicStoryVariantId,
 } from '@/lib/eza/mirror/reflectionSignals';
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
+import type { MirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
+import type { HybridPosterTextPayload } from '@/lib/eza/mirror/hybridPosterPromptBuilder';
 
 /** Minimum interactions before mirror insights are considered reliable. */
 export const MIRROR_MIN_SAMPLES = 3;
@@ -70,6 +72,13 @@ export interface MirrorVisualPromptPayload {
   /** Optional AI scene background (injected by UI when available). */
   sceneImageUrl?: string | null;
   sceneImageStatus?: MirrorSceneImageStatus;
+  /** Sprint 13C — scene_only (textless) vs hybrid_middle (embedded copy). */
+  renderMode?: MirrorRenderMode;
+  /** Exact Turkish copy sent to OpenAI in hybrid mode. */
+  hybridTextPayload?: HybridPosterTextPayload;
+  /** Dev QA — hybrid image text quality unknown; frontend overlay fallback active. */
+  hybridTextRisk?: boolean;
+  hybridFallbackReason?: string;
 }
 
 export interface DailyMirrorCardModel {

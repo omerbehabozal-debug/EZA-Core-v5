@@ -34,6 +34,8 @@ export type MirrorLiveDebugPanelProps = {
   entries: SavedBehavioralEntry[];
   meta?: MirrorStateMeta | null;
   posterVersion?: string;
+  renderMode?: string;
+  hybridTextFallback?: boolean;
   onForceBmwMercedes?: () => void;
 };
 
@@ -45,6 +47,8 @@ export default function MirrorLiveDebugPanel({
   entries,
   meta,
   posterVersion = 'v8c-scene-contract',
+  renderMode = 'scene_only',
+  hybridTextFallback = false,
   onForceBmwMercedes,
 }: MirrorLiveDebugPanelProps) {
   if (!isMirrorDevToolsEnabled()) {
@@ -61,7 +65,7 @@ export default function MirrorLiveDebugPanel({
   return (
     <details className="mt-4 w-full rounded-xl border border-dashed border-amber-300/90 bg-amber-50/50 text-left">
       <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold text-amber-950 marker:content-none [&::-webkit-details-marker]:hidden">
-        Mirror Live Debug (12C)
+        Mirror Live Debug (13C)
         <span className="ml-2 font-normal text-amber-800/80">dev only</span>
       </summary>
       <div className="space-y-3 border-t border-amber-200/70 px-4 py-3">
@@ -85,6 +89,17 @@ export default function MirrorLiveDebugPanel({
           <DebugRow label="contextualHighlight.kind" value={snap.contextualHighlightKind} />
           <DebugRow label="left label" value={snap.contextualHighlightLeft} />
           <DebugRow label="right label" value={snap.contextualHighlightRight} />
+          <DebugRow label="renderMode" value={renderMode} />
+          <DebugRow
+            label="hybridTextRisk"
+            value={
+              hybridTextFallback
+                ? 'true (fallbackReason: text_quality_unknown)'
+                : renderMode === 'hybrid_middle'
+                  ? 'false'
+                  : 'n/a'
+            }
+          />
           <DebugRow label="data-mirror-poster" value={snap.posterVersion} />
           <DebugRow label="card date / id" value={`${snap.cardDate} · ${snap.cardId}`} />
           <DebugRow label="entries count" value={String(snap.entriesCount)} />

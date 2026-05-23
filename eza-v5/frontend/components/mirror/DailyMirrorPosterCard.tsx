@@ -30,6 +30,7 @@ import {
 import DailyMirrorPosterScene from '@/components/mirror/DailyMirrorPosterScene';
 import ContextualHighlightBand from '@/components/mirror/ContextualHighlightBand';
 import MirrorLiveDebugPanel from '@/components/mirror/MirrorLiveDebugPanel';
+import { resolveMirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 
 export type DailyMirrorPosterCardProps = {
@@ -39,6 +40,8 @@ export type DailyMirrorPosterCardProps = {
   onSceneImageLoad?: () => void;
   onSceneImageError?: () => void;
   onForceBmwMercedes?: () => void;
+  /** When hybrid image fails QA, show frontend text overlays (Sprint 13C). */
+  hybridTextFallback?: boolean;
 };
 
 function InsightGlassCard({
@@ -80,10 +83,15 @@ export default function DailyMirrorPosterCard({
   onSceneImageLoad,
   onSceneImageError,
   onForceBmwMercedes,
+  hybridTextFallback = false,
 }: DailyMirrorPosterCardProps) {
   const isReady =
     Boolean(meta?.hasEnoughData) && card.shareEnabled && Boolean(card.characterName);
   const isSparse = !isReady;
+  const renderMode = card.visual?.renderMode ?? resolveMirrorRenderMode();
+  const isHybridMiddle =
+    renderMode === 'hybrid_middle' && !hybridTextFallback && !card.visual?.hybridFallbackReason;
+  const posterVersion = isHybridMiddle ? 'v8d-hybrid-middle' : 'v8c-scene-contract';
   const content = useMemo(() => buildPosterCardContent(card), [card]);
   const composition = useMemo(() => getPosterComposition(card), [card]);
   const editorial = useMemo(
@@ -119,7 +127,8 @@ export default function DailyMirrorPosterCard({
     <article
       data-mirror-card-root
       data-mirror-aspect="9-16"
-      data-mirror-poster="v8c-scene-contract"
+      data-mirror-poster={posterVersion}
+      data-mirror-render-mode={renderMode}
       data-mirror-palette={palette}
       data-mirror-density={composition.density}
       className={skin.root}
@@ -162,23 +171,32 @@ export default function DailyMirrorPosterCard({
           </p>
         </header>
 
-        <div className={cn(skin.titleSafeZone, skin.editorialGrid)}>
-          <h2
-            id="daily-mirror-poster-title"
-            className={skin.heroTitle}
-            style={textShadow.heroTitle}
-          >
-            {isSparse ? 'Yansıma hazırlanıyor' : content.journeyHeadline}
-          </h2>
-          <div className={cn(skin.storyWrap, 'col-span-12')}>
-            <p className={skin.story} style={textShadow.story}>
-              {isSparse ? MIRROR_INSUFFICIENT : content.storyLine}
-            </p>
+        {!isHybridMiddle ? (
+          <div className={cn(skin.titleSafeZone, skin.editorialGrid)}>
+            <h2
+              id="daily-mirror-poster-title"
+              className={skin.heroTitle}
+              style={textShadow.heroTitle}
+            >
+              {isSparse ? 'Yansıma hazırlanıyor' : content.journeyHeadline}
+            </h2>
+            <div className={cn(skin.storyWrap, 'col-span-12')}>
+              <p className={skin.story} style={textShadow.story}>
+                {isSparse ? MIRROR_INSUFFICIENT : content.storyLine}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <h2 id="daily-mirror-poster-title" className="sr-only">
+            {content.journeyHeadline}
+          </h2>
+        )}
 
-        <div className={cn(skin.sceneSpacer, skin.editorialGrid)} aria-hidden={isSparse}>
-          {!isSparse ? (
+        <div
+          className={cn(skin.sceneSpacer, skin.editorialGrid)}
+          aria-hidden={isSparse || isHybridMiddle}
+        >
+          {!isSparse && !isHybridMiddle ? (
             <div className={cn(skin.highlightAnchor, 'col-span-12')}>
               <ContextualHighlightBand
                 highlight={content.contextualHighlight}
@@ -189,22 +207,24 @@ export default function DailyMirrorPosterCard({
           ) : null}
         </div>
 
-        <div className={cn(skin.quoteZone, skin.editorialGrid)}>
-          {!isSparse ? (
-            <p
-              className={cn(skin.quoteText, 'col-span-12')}
-              style={textShadow.quoteText}
-            >
-              <span className={skin.quoteMark} aria-hidden>
-                “
-              </span>
-              {content.quote}
-              <span className={skin.quoteMark} aria-hidden>
-                ”
-              </span>
-            </p>
-          ) : null}
-        </div>
+        {!isHybridMiddle ? (
+          <div className={cn(skin.quoteZone, skin.editorialGrid)}>
+            {!isSparse ? (
+              <p
+                className={cn(skin.quoteText, 'col-span-12')}
+                style={textShadow.quoteText}
+              >
+                <span className={skin.quoteMark} aria-hidden>
+                  “
+                </span>
+                {content.quote}
+                <span className={skin.quoteMark} aria-hidden>
+                  ”
+                </span>
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         {!isSparse ? (
           <div className={cn(skin.insightsRow, skin.editorialGrid)}>
@@ -243,7 +263,9 @@ export default function DailyMirrorPosterCard({
         card={card}
         entries={entries}
         meta={meta}
-        posterVersion="v8c-scene-contract"
+        posterVersion={posterVersion}
+        renderMode={renderMode}
+        hybridTextFallback={hybridTextFallback || Boolean(card.visual?.hybridFallbackReason)}
         onForceBmwMercedes={onForceBmwMercedes}
       />
     </article>
