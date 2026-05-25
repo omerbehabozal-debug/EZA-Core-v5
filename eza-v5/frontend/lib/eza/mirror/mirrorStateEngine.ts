@@ -28,6 +28,7 @@ import {
   type MirrorBehaviorIsland,
   type MirrorRisingPattern,
   type MirrorStateResult,
+  type MirrorVisualPromptPayload,
   type RelationshipPatternModel,
 } from '@/lib/eza/mirror/types';
 
@@ -335,7 +336,13 @@ function buildDailyMirrorCard(
     storyVariant: story.storyVariant,
     microMood: story.microMood,
     reflectionSignals: story.reflectionSignals,
-    visual,
+    renderMode,
+    visual: {
+      ...visual,
+      renderMode,
+      sceneImageUrl: null,
+      sceneImageStatus: 'idle',
+    } satisfies MirrorVisualPromptPayload,
   };
 }
 

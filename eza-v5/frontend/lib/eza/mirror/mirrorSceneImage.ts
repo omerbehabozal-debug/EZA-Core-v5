@@ -25,6 +25,7 @@ export function mergeDailyCardSceneVisual(
     }
     return {
       ...card,
+      renderMode: card.renderMode,
       visual: {
         characterId: '',
         characterName: card.characterName,
@@ -46,8 +47,10 @@ export function mergeDailyCardSceneVisual(
 
   return {
     ...card,
+    renderMode: card.renderMode ?? card.visual?.renderMode,
     visual: {
       ...card.visual,
+      renderMode: card.visual.renderMode ?? card.renderMode,
       sceneImageUrl,
       sceneImageStatus,
       ...(extras?.imageProvider ? { imageProvider: extras.imageProvider } : {}),

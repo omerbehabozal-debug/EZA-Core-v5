@@ -7,6 +7,7 @@ import { isMirrorDevToolsEnabled } from '@/lib/eza/mirror/devTools';
 import {
   resolveMirrorRenderMode,
 } from '@/lib/eza/mirror/mirrorRenderMode';
+import type { MirrorLayoutDebug } from '@/lib/eza/mirror/mirrorPosterLayout';
 
 function DebugRow({ label, value }: { label: string; value: string }) {
   return (
@@ -38,6 +39,7 @@ export type MirrorLiveDebugPanelProps = {
   meta?: MirrorStateMeta | null;
   posterVersion?: string;
   renderMode?: string;
+  layoutDebug?: MirrorLayoutDebug | null;
   hybridTextFallback?: boolean;
   onForceBmwMercedes?: () => void;
   onToggleHybridMode?: () => void;
@@ -52,6 +54,7 @@ export default function MirrorLiveDebugPanel({
   meta,
   posterVersion = 'v8c-scene-contract',
   renderMode = 'scene_only',
+  layoutDebug = null,
   hybridTextFallback = false,
   onForceBmwMercedes,
   onToggleHybridMode,
@@ -99,12 +102,38 @@ export default function MirrorLiveDebugPanel({
         ) : null}
 
         <div className="grid gap-2 sm:grid-cols-2">
-          <DebugRow label="renderMode (effective)" value={snap.renderMode} />
+          <DebugRow label="renderMode (card)" value={snap.renderMode} />
+          <DebugRow
+            label="effectiveRenderMode"
+            value={layoutDebug?.effectiveRenderMode ?? snap.renderMode}
+          />
+          <DebugRow
+            label="usedLayout"
+            value={layoutDebug?.usedLayout ?? '—'}
+          />
+          <DebugRow
+            label="frontendMiddleOverlayHidden"
+            value={
+              layoutDebug
+                ? String(layoutDebug.frontendMiddleOverlayHidden)
+                : '—'
+            }
+          />
           <DebugRow label="hybridEnabled" value={snap.hybridEnabled} />
           <DebugRow label="usedPromptType" value={snap.usedPromptType} />
           <DebugRow label="imageProvider" value={snap.imageProvider} />
-          <DebugRow label="sceneImageUrl" value={snap.sceneImageUrl} />
-          <DebugRow label="sceneImageStatus" value={snap.sceneImageStatus} />
+          <DebugRow
+            label="sceneImageUrl"
+            value={
+              layoutDebug?.sceneImageUrl == null
+                ? 'null'
+                : String(layoutDebug.sceneImageUrl || snap.sceneImageUrl || '—')
+            }
+          />
+          <DebugRow
+            label="sceneImageStatus"
+            value={layoutDebug?.sceneImageStatus ?? snap.sceneImageStatus}
+          />
           <DebugRow label="mockSceneImage" value={snap.mockSceneImage} />
           <DebugRow
             label="hybridTextFallback"

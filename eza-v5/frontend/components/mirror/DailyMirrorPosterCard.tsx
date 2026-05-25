@@ -11,7 +11,7 @@ import {
   getPosterComposition,
   highlightEmphasisFor,
 } from '@/lib/eza/mirror/posterCompositionSystem';
-import { buildPosterEditorialCssVars, POSTER_HYBRID_ZONE_GRID_ROWS } from '@/lib/eza/mirror/posterEditorialMathematics';
+import { buildPosterEditorialCssVars } from '@/lib/eza/mirror/posterEditorialMathematics';
 import {
   buildEditorialReadabilityVars,
   getEditorialContrast,
@@ -31,6 +31,13 @@ import DailyMirrorPosterScene from '@/components/mirror/DailyMirrorPosterScene';
 import ContextualHighlightBand from '@/components/mirror/ContextualHighlightBand';
 import MirrorLiveDebugPanel from '@/components/mirror/MirrorLiveDebugPanel';
 import { resolveMirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
+import {
+  buildHybridPosterZoneStyle,
+  buildMirrorLayoutDebug,
+  resolveCardRenderMode,
+  resolveEffectiveRenderMode,
+  shouldUseHybridPosterLayout,
+} from '@/lib/eza/mirror/mirrorPosterLayout';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 
 export type DailyMirrorPosterCardProps = {
@@ -90,11 +97,24 @@ export default function DailyMirrorPosterCard({
   const isReady =
     Boolean(meta?.hasEnoughData) && card.shareEnabled && Boolean(card.characterName);
   const isSparse = !isReady;
-  const renderMode = card.visual?.renderMode ?? resolveMirrorRenderMode();
+  const cardRenderMode = resolveCardRenderMode(card);
+  const effectiveRenderMode = resolveEffectiveRenderMode(card, hybridTextFallback);
   const showHybridFallback =
     hybridTextFallback || Boolean(card.visual?.hybridFallbackReason);
-  const isHybridMiddle =
-    renderMode === 'hybrid_middle' && !showHybridFallback;
+  const isHybridMiddle = shouldUseHybridPosterLayout(
+    effectiveRenderMode,
+    showHybridFallback
+  );
+  const layoutDebug = useMemo(
+    () =>
+      buildMirrorLayoutDebug({
+        card,
+        explicitHybridFallback: showHybridFallback,
+        sceneImageUrl: card.visual?.sceneImageUrl,
+        sceneImageStatus: card.visual?.sceneImageStatus,
+      }),
+    [card, showHybridFallback]
+  );
   const posterVersion = isHybridMiddle ? 'v8d-hybrid-middle' : 'v8c-scene-contract';
   const content = useMemo(() => buildPosterCardContent(card), [card]);
   const composition = useMemo(() => getPosterComposition(card), [card]);
@@ -104,19 +124,19 @@ export default function DailyMirrorPosterCard({
   );
   const palette = useMemo(() => resolvePosterPalette(card), [card]);
   const isPremiumPalette = palette === 'premium_light_editorial';
-  const skin = useMemo(() => getPosterCardSkin(palette), [palette]);
+  const skin = useMemo(
+    () => getPosterCardSkin(isHybridMiddle ? 'premium_light_editorial' : palette),
+    [isHybridMiddle, palette]
+  );
   const textShadow =
     palette === 'premium_light_editorial' ? posterTextShadowPremium : posterTextShadowStyle;
   const cardStyle = useMemo(
     () => ({
       maxWidth: POSTER_CARD_WIDTH_PX,
       ...buildPosterEditorialCssVars(),
-      ...(isHybridMiddle
-        ? { ['--poster-zone-rows' as string]: POSTER_HYBRID_ZONE_GRID_ROWS }
-        : {}),
+      ...(isHybridMiddle ? buildHybridPosterZoneStyle() : buildPosterCompositionStyle(composition)),
       ...(isPremiumPalette ? buildPremiumPosterCssVars() : {}),
       ...(isPremiumPalette ? premiumPosterRootStyle() : {}),
-      ...buildPosterCompositionStyle(composition),
       ...buildEditorialReadabilityVars(editorial),
     }),
     [composition, editorial, isHybridMiddle, isPremiumPalette]
@@ -135,7 +155,9 @@ export default function DailyMirrorPosterCard({
       data-mirror-card-root
       data-mirror-aspect="9-16"
       data-mirror-poster={posterVersion}
-      data-mirror-render-mode={renderMode}
+      data-mirror-render-mode={cardRenderMode}
+      data-mirror-effective-render-mode={effectiveRenderMode}
+      data-mirror-used-layout={layoutDebug.usedLayout}
       data-mirror-palette={palette}
       data-mirror-density={composition.density}
       className={skin.root}
@@ -145,6 +167,7 @@ export default function DailyMirrorPosterCard({
       <DailyMirrorPosterScene
         className={cn(skin.sceneBackdrop, skin.sceneBreathing)}
         personaFamilyId={card.personaFamilyId}
+        renderMode={effectiveRenderMode}
         sceneImageUrl={card.visual?.sceneImageUrl}
         sceneImageStatus={card.visual?.sceneImageStatus}
         sceneFilter={{
@@ -166,7 +189,7 @@ export default function DailyMirrorPosterCard({
         style={{ gridTemplateRows: 'var(--poster-zone-rows)' }}
       >
         <header className={cn(skin.topSafeZone, skin.editorialGrid)}>
-          {showHybridFallback && renderMode === 'hybrid_middle' ? (
+          {showHybridFallback && cardRenderMode === 'hybrid_middle' ? (
             <p
               className="col-span-12 mb-1 rounded-md border border-amber-300/80 bg-amber-50/90 px-2 py-1 text-[9px] font-medium text-amber-950"
               role="status"
@@ -279,7 +302,8 @@ export default function DailyMirrorPosterCard({
         entries={entries}
         meta={meta}
         posterVersion={posterVersion}
-        renderMode={renderMode}
+        renderMode={cardRenderMode}
+        layoutDebug={layoutDebug}
         hybridTextFallback={showHybridFallback}
         onForceBmwMercedes={onForceBmwMercedes}
         onToggleHybridMode={onToggleHybridMode}

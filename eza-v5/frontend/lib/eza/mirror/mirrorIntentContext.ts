@@ -39,6 +39,7 @@ import {
   inferUsedPromptType,
   isMockSceneImageUrl,
 } from '@/lib/eza/mirror/hybridPosterDebug';
+import { resolveCardRenderMode } from '@/lib/eza/mirror/mirrorPosterLayout';
 import {
   getHybridEnvDebug,
   isHybridEnabled,
@@ -196,8 +197,7 @@ export function buildMirrorIntentDebugSnapshot(input: {
   const promptPreview = fullPrompt.slice(0, 800);
   const promptLength = fullPrompt.length;
   const trunc = detectPromptTruncationRisk(fullPrompt);
-  const renderMode =
-    card?.visual?.renderMode ?? resolveMirrorRenderMode();
+  const renderMode = resolveCardRenderMode(card);
   const usedPromptType =
     card?.visual?.usedPromptType ?? inferUsedPromptType(fullPrompt, renderMode);
   const markerReport =

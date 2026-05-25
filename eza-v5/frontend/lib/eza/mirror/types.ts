@@ -124,6 +124,8 @@ export interface DailyMirrorCardModel {
   reflectionSignals?: ReflectionSignals;
   /** Textless AI scene prompt bundle (Sprint 6 — no image API yet). */
   visual?: MirrorVisualPromptPayload;
+  /** Sprint 13C — authoritative poster layout mode (mirrors visual.renderMode). */
+  renderMode?: MirrorRenderMode;
 }
 
 export interface RelationshipPatternModel {

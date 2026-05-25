@@ -29,6 +29,7 @@ import {
   resolveMirrorRenderMode,
   setDevRenderMode,
 } from '@/lib/eza/mirror/mirrorRenderMode';
+import { resolveCardRenderMode } from '@/lib/eza/mirror/mirrorPosterLayout';
 import {
   isMockSceneImageUrl,
   probeHybridTypographyInImage,
@@ -92,9 +93,14 @@ export default function StandaloneObservationExperience({
     }
   }, [entries.length]);
 
-  /** Bust stale scene when history/intent changes after card was generated. */
+  /** Bust stale scene when history/intent or renderMode changes after card was generated. */
   useEffect(() => {
     if (dailyStatus !== 'ready' || !generatedDailyCard || !liveIntentFingerprint) return;
+
+    const effectiveMode = resolveMirrorRenderMode();
+    const cardMode = resolveCardRenderMode(generatedDailyCard);
+    const modeStale = cardMode !== effectiveMode;
+
     if (cardIntentFingerprint && liveIntentFingerprint !== cardIntentFingerprint) {
       const state = buildMirrorState(entries);
       setGeneratedDailyCard(state.dailyMirrorCard);
@@ -103,8 +109,21 @@ export default function StandaloneObservationExperience({
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
       setSceneExtras({});
+      setHybridTextFallback(false);
+      return;
     }
-  }, [entries, dailyStatus, liveIntentFingerprint, cardIntentFingerprint]);
+
+    if (modeStale) {
+      const state = buildMirrorState(entries);
+      setGeneratedDailyCard(state.dailyMirrorCard);
+      setGeneratedDailyMeta(state.meta);
+      setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
+      setSceneImageUrl(null);
+      setSceneImageStatus('idle');
+      setSceneExtras({});
+      setHybridTextFallback(false);
+    }
+  }, [entries, dailyStatus, liveIntentFingerprint, cardIntentFingerprint, generatedDailyCard]);
 
   const cardForRender = useMemo(
     () =>
