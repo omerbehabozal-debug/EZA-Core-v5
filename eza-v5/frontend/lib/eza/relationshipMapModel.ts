@@ -18,6 +18,9 @@ import {
 
 export type RelationshipPeriodDays = 7 | 30 | 90;
 
+/** UI filter including full history (Sprint 14A). */
+export type RelationshipPeriodFilter = RelationshipPeriodDays | 'all';
+
 export interface BehaviorIsland {
   id: string;
   label: string;
@@ -222,6 +225,14 @@ function filterByPeriod(
   return entries.filter((e) => new Date(e.savedAt).getTime() >= cutoff);
 }
 
+export function filterEntriesByPeriodFilter(
+  entries: SavedBehavioralEntry[],
+  period: RelationshipPeriodFilter
+): SavedBehavioralEntry[] {
+  if (period === 'all') return [...entries];
+  return filterByPeriod(entries, period);
+}
+
 function countCategories(entries: SavedBehavioralEntry[]): Map<UserObservationCategoryId, number> {
   const counts = new Map<UserObservationCategoryId, number>();
   const hasBackend = entries.some(
@@ -289,7 +300,15 @@ export function buildRelationshipMap(
   entries: SavedBehavioralEntry[],
   periodDays: RelationshipPeriodDays = 30
 ): RelationshipMapViewModel {
-  const filtered = filterByPeriod(entries, periodDays);
+  return buildRelationshipMapFiltered(entries, periodDays);
+}
+
+export function buildRelationshipMapFiltered(
+  entries: SavedBehavioralEntry[],
+  period: RelationshipPeriodFilter = 30
+): RelationshipMapViewModel {
+  const filtered = filterEntriesByPeriodFilter(entries, period);
+  const periodDays = period === 'all' ? 90 : period;
   const total = filtered.length;
 
   if (total === 0) {

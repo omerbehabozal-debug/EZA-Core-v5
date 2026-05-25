@@ -1,0 +1,68 @@
+'use client';
+
+import { Activity } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+export type RelationshipSummaryCardProps = {
+  label: string;
+  hint: string;
+  scorePercent?: number;
+  className?: string;
+};
+
+export default function RelationshipSummaryCard({
+  label,
+  hint,
+  scorePercent = 72,
+  className,
+}: RelationshipSummaryCardProps) {
+  const ring = Math.min(100, Math.max(24, scorePercent));
+  const circumference = 2 * Math.PI * 28;
+  const offset = circumference - (ring / 100) * circumference;
+
+  return (
+    <article
+      className={cn(
+        'rounded-3xl border border-white/80 bg-white/85 p-4 shadow-[0_12px_40px_-18px_rgba(123,97,255,0.28)] backdrop-blur-sm sm:p-5',
+        className
+      )}
+    >
+      <div className="flex items-start gap-4">
+        <div className="relative h-[4.5rem] w-[4.5rem] shrink-0">
+          <svg className="h-full w-full -rotate-90" viewBox="0 0 64 64" aria-hidden>
+            <circle cx="32" cy="32" r="28" fill="none" stroke="#EDE8F8" strokeWidth="5" />
+            <circle
+              cx="32"
+              cy="32"
+              r="28"
+              fill="none"
+              stroke="url(#balanceRing)"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+            />
+            <defs>
+              <linearGradient id="balanceRing" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#7B61FF" />
+                <stop offset="100%" stopColor="#9B84FF" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <Activity
+            className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#7B61FF]"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
+            Genel Denge
+          </p>
+          <p className="mt-1 text-base font-semibold leading-snug text-[#172033]">{label}</p>
+          <p className="mt-1.5 text-xs leading-relaxed text-[#667085]/90">{hint}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
