@@ -9,6 +9,9 @@ import { buildHybridPosterNegativePrompt } from '@/lib/eza/mirror/mirrorPosterNe
 import { getIntentLockForbiddenPhrases } from '@/lib/eza/mirror/intentLockSystem';
 import type { LockedPrimaryIntentId } from '@/lib/eza/mirror/intentLockSystem';
 import { STYLE_BLOCK, LIGHTING_BLOCK } from '@/lib/eza/mirror/posterPromptBlocks';
+import { logHybridPromptBuilt } from '@/lib/eza/mirror/hybridPosterDebug';
+
+export const HYBRID_BUILDER_ID = 'buildHybridPosterPrompt';
 
 export const HYBRID_HEADLINE_MAX = 28;
 export const HYBRID_SUBHEADLINE_MAX = 18;
@@ -77,6 +80,7 @@ export function buildHybridPosterPrompt(
   const contract = buildCompositionContract(input.narrative);
 
   const textBlock = [
+    `Embed the following Turkish text into the artwork exactly as written.`,
     `Headline (upper-left, exact Turkish): "${textPayload.headline}"`,
     textPayload.subheadline
       ? `Subheadline (script style below headline, exact): "${textPayload.subheadline}"`
@@ -92,15 +96,18 @@ export function buildHybridPosterPrompt(
   const promptParts = [
     'You are a professional editorial poster designer.',
     'Create the middle artwork zone of a premium EZA Mirror vertical poster.',
+    'Embed the following Turkish text into the artwork with integrated scene composition.',
     'This image will merge with frontend-controlled top brand area and bottom insight cards.',
     '9:16 vertical poster composition, 1080 by 1920 feel.',
-    'Leave top 10 percent empty and low-detail for frontend logo and date overlay.',
-    'Leave bottom 25 percent open, soft, low-detail for frontend SEN AI DENGE insight cards.',
+    'Leave top 10% empty and low-detail for frontend logo and date overlay.',
+    'Leave bottom 25% empty, soft, low-detail for frontend SEN AI DENGE insight cards.',
     'Main story lives in middle 65 percent with scene and integrated typography.',
+    'Use elegant editorial typography integrated with the scene — not floating UI cards.',
     'Hero subject or character on right or center-right; hero objects visible in lower and mid scene.',
-    'Left and upper-left clean areas for headline stack; scene and typography share warm cream and soft violet EZA palette.',
+    'Left and upper-left areas for headline stack; warm cream and soft violet EZA palette.',
     'Cinematic depth with foreground midground background separation.',
     'Only use the provided Turkish text exactly — do not add any other readable text.',
+    'Do not generate UI cards, app chrome, dashboard panels, or card layout mockups.',
     'Do not add EZA logo, date, SEN/AI/DENGE cards, footer, hashtag, website, buttons, or app UI.',
     `Scene intent: ${input.sceneIntent}.`,
     `Hero objects: ${input.heroObjects.join(', ')}.`,
@@ -112,7 +119,7 @@ export function buildHybridPosterPrompt(
     `Typography style: ${input.typographyStyle}.`,
     textBlock,
     `Style: ${STYLE_BLOCK}, ${LIGHTING_BLOCK}.`,
-    'Premium editorial integrated poster artwork, not a flat UI card mockup.',
+    'Premium editorial integrated poster artwork with embedded typography, not a flat UI card mockup.',
   ];
 
   const negativeExtras = [
@@ -120,9 +127,19 @@ export function buildHybridPosterPrompt(
     ...getIntentLockForbiddenPhrases(input.lockedIntent ?? null),
   ];
 
-  return {
+  const payload = {
     prompt: promptParts.join(' '),
     negativePrompt: buildHybridPosterNegativePrompt(negativeExtras),
     textPayload,
   };
+
+  logHybridPromptBuilt({
+    renderMode: 'hybrid_middle',
+    usedPromptType: 'hybrid_middle',
+    prompt: payload.prompt,
+    negativePrompt: payload.negativePrompt,
+    textPayload: payload.textPayload,
+  });
+
+  return payload;
 }

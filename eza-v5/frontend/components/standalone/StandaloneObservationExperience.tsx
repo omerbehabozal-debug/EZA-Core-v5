@@ -19,13 +19,20 @@ import type {
   MirrorStateMeta,
 } from '@/lib/eza/mirror/types';
 import { buildMirrorState } from '@/lib/eza/mirror/mirrorStateEngine';
-import { mergeDailyCardSceneVisual } from '@/lib/eza/mirror/mirrorSceneImage';
+import { mergeDailyCardSceneVisual, type DailyCardSceneVisualExtras } from '@/lib/eza/mirror/mirrorSceneImage';
 import {
   resolveMirrorIntentContext,
   withDevVehicleCueHints,
 } from '@/lib/eza/mirror/mirrorIntentContext';
 import { generateMirrorScene } from '@/lib/eza/mirror/generateSceneApi';
-import { resolveMirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
+import {
+  resolveMirrorRenderMode,
+  setDevRenderMode,
+} from '@/lib/eza/mirror/mirrorRenderMode';
+import {
+  isMockSceneImageUrl,
+  probeHybridTypographyInImage,
+} from '@/lib/eza/mirror/hybridPosterDebug';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
 import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
@@ -60,6 +67,7 @@ export default function StandaloneObservationExperience({
   const [sceneImageStatus, setSceneImageStatus] = useState<MirrorSceneImageStatus>('idle');
   const [cardIntentFingerprint, setCardIntentFingerprint] = useState<string | null>(null);
   const [hybridTextFallback, setHybridTextFallback] = useState(false);
+  const [sceneExtras, setSceneExtras] = useState<DailyCardSceneVisualExtras>({});
   const mirrorExport = useMirrorCardExport();
 
   const liveIntentFingerprint = useMemo(() => {
@@ -79,6 +87,7 @@ export default function StandaloneObservationExperience({
       setSceneImageStatus('idle');
       setCardIntentFingerprint(null);
       setHybridTextFallback(false);
+      setSceneExtras({});
       setDailyStatus('idle');
     }
   }, [entries.length]);
@@ -93,22 +102,70 @@ export default function StandaloneObservationExperience({
       setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
+      setSceneExtras({});
     }
   }, [entries, dailyStatus, liveIntentFingerprint, cardIntentFingerprint]);
 
   const cardForRender = useMemo(
     () =>
       generatedDailyCard
-        ? mergeDailyCardSceneVisual(generatedDailyCard, sceneImageUrl, sceneImageStatus)
+        ? mergeDailyCardSceneVisual(
+            generatedDailyCard,
+            sceneImageUrl,
+            sceneImageStatus,
+            sceneExtras
+          )
         : null,
-    [generatedDailyCard, sceneImageUrl, sceneImageStatus]
+    [generatedDailyCard, sceneImageUrl, sceneImageStatus, sceneExtras]
+  );
+
+  const runHybridOcrProbe = useCallback(
+    async (url: string) => {
+      const mode =
+        generatedDailyCard?.visual?.renderMode ?? resolveMirrorRenderMode();
+      if (mode !== 'hybrid_middle') return;
+
+      if (isMockSceneImageUrl(url)) {
+        setHybridTextFallback(true);
+        setSceneExtras((prev) => ({
+          ...prev,
+          hybridOcrProbe: 'fail: mock_provider_image',
+          hybridFallbackReason: 'mock_provider_image',
+        }));
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(
+            '[EZA Mirror] Hybrid OCR probe skipped — mock/picsum image cannot embed typography.'
+          );
+        }
+        return;
+      }
+
+      const probe = await probeHybridTypographyInImage(
+        url,
+        generatedDailyCard?.visual?.hybridTextPayload
+      );
+      const probeLabel = probe.ok ? `pass: ${probe.reason}` : `fail: ${probe.reason}`;
+      setSceneExtras((prev) => ({ ...prev, hybridOcrProbe: probeLabel }));
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[EZA Mirror] hybrid OCR probe', probe);
+      }
+      if (!probe.ok) {
+        setHybridTextFallback(true);
+        setSceneExtras((prev) => ({
+          ...prev,
+          hybridFallbackReason: probe.reason,
+        }));
+      }
+    },
+    [generatedDailyCard?.visual?.hybridTextPayload, generatedDailyCard?.visual?.renderMode]
   );
 
   const handleSceneImageLoad = useCallback(() => {
     if (sceneImageUrl) {
       setSceneImageStatus('ready');
+      void runHybridOcrProbe(sceneImageUrl);
     }
-  }, [sceneImageUrl]);
+  }, [sceneImageUrl, runHybridOcrProbe]);
 
   const handleSceneImageError = useCallback(() => {
     setSceneImageStatus('error');
@@ -116,23 +173,53 @@ export default function StandaloneObservationExperience({
       generatedDailyCard?.visual?.renderMode ?? resolveMirrorRenderMode();
     if (mode === 'hybrid_middle') {
       setHybridTextFallback(true);
+      setSceneExtras((prev) => ({
+        ...prev,
+        hybridFallbackReason: 'scene_image_load_error',
+      }));
     }
   }, [generatedDailyCard?.visual?.renderMode]);
 
   const handleGenerateMirrorScene = useCallback(async () => {
     if (!generatedDailyCard?.visual) return;
+    const visual = generatedDailyCard.visual;
     setSceneImageStatus('generating');
     setSceneImageUrl(null);
+    setHybridTextFallback(false);
+    setSceneExtras({});
+    if (process.env.NODE_ENV === 'development') {
+      console.group('[EZA Mirror] generate-scene request');
+      console.log('renderMode:', visual.renderMode ?? resolveMirrorRenderMode());
+      console.log('usedPromptType:', visual.usedPromptType);
+      console.log('promptLength:', visual.prompt.length);
+      console.log('promptTruncated:', visual.promptTruncated);
+      console.log('FINAL PROMPT → generate-scene API:\n', visual.prompt);
+      console.groupEnd();
+    }
     try {
-      const result = await generateMirrorScene(
-        generatedDailyCard.visual,
-        generatedDailyCard.date
-      );
+      const result = await generateMirrorScene(visual, generatedDailyCard.date);
       setSceneImageUrl(result.sceneImageUrl);
       setSceneImageStatus('ready');
+      setSceneExtras({ imageProvider: result.provider });
+      if (
+        (visual.renderMode ?? resolveMirrorRenderMode()) === 'hybrid_middle' &&
+        isMockSceneImageUrl(result.sceneImageUrl)
+      ) {
+        setHybridTextFallback(true);
+        setSceneExtras({
+          imageProvider: result.provider,
+          hybridOcrProbe: 'fail: mock_provider_image',
+          hybridFallbackReason: 'mock_provider_image',
+        });
+      }
     } catch {
       setSceneImageUrl(null);
       setSceneImageStatus('error');
+      const mode = visual.renderMode ?? resolveMirrorRenderMode();
+      if (mode === 'hybrid_middle') {
+        setHybridTextFallback(true);
+        setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
+      }
     }
   }, [generatedDailyCard]);
 
@@ -155,6 +242,7 @@ export default function StandaloneObservationExperience({
         setSceneImageUrl(null);
         setSceneImageStatus('idle');
         setHybridTextFallback(false);
+        setSceneExtras({});
         setDailyStatus('ready');
       } catch {
         setGeneratedDailyCard(null);
@@ -172,6 +260,24 @@ export default function StandaloneObservationExperience({
     setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
     setSceneImageUrl(null);
     setSceneImageStatus('idle');
+    setHybridTextFallback(false);
+    setSceneExtras({});
+    setDailyStatus('ready');
+  }, [entries]);
+
+  const handleToggleHybridMode = useCallback(() => {
+    const next =
+      resolveMirrorRenderMode() === 'hybrid_middle' ? 'scene_only' : 'hybrid_middle';
+    setDevRenderMode(next);
+    const state = buildMirrorState(entries);
+    if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) return;
+    setGeneratedDailyCard(state.dailyMirrorCard);
+    setGeneratedDailyMeta(state.meta);
+    setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
+    setSceneImageUrl(null);
+    setSceneImageStatus('idle');
+    setHybridTextFallback(false);
+    setSceneExtras({});
     setDailyStatus('ready');
   }, [entries]);
 
@@ -214,6 +320,7 @@ export default function StandaloneObservationExperience({
                 onSceneImageLoad={handleSceneImageLoad}
                 onSceneImageError={handleSceneImageError}
                 onForceBmwMercedes={handleForceBmwMercedes}
+                onToggleHybridMode={handleToggleHybridMode}
                 hybridTextFallback={hybridTextFallback}
               />
             </div>
@@ -266,6 +373,8 @@ export default function StandaloneObservationExperience({
       sceneImageStatus,
       handleSceneImageLoad,
       handleSceneImageError,
+      handleToggleHybridMode,
+      hybridTextFallback,
       mirrorExport.cardRef,
       showShareAction,
       ms.dailyStage,

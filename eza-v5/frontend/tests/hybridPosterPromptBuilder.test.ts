@@ -77,6 +77,24 @@ describe('hybridPosterPromptBuilder (Sprint 13C)', () => {
     expect(prompt.toLowerCase()).toContain('only use the provided turkish text exactly');
   });
 
+  it('hybrid prompt includes required layout markers', () => {
+    const narrative = deriveVisualNarrativeDirection({ entries: FOOD_ENTRIES });
+    const { prompt } = buildHybridPosterPrompt({
+      narrative,
+      ...HYBRID_COPY,
+      sceneIntent: 'culinary wellness',
+      heroObjects: narrative.heroObjects,
+      colorMood: 'warm natural kitchen',
+      typographyStyle: 'premium editorial Turkish',
+    });
+    const lower = prompt.toLowerCase();
+    expect(lower).toContain('embed the following turkish text into the artwork');
+    expect(lower).toContain('leave top 10% empty');
+    expect(lower).toContain('leave bottom 25% empty');
+    expect(lower).toContain('use elegant editorial typography');
+    expect(lower).toContain('do not generate ui cards');
+  });
+
   it('hybrid prompt does not instruct EZA logo placement', () => {
     const narrative = deriveVisualNarrativeDirection({ entries: FOOD_ENTRIES });
     const { prompt } = buildHybridPosterPrompt({

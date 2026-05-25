@@ -33,6 +33,17 @@ import {
   VEHICLE_SCENE_CONTRACT_ID,
 } from '@/lib/eza/mirror/vehicleSceneContract';
 import { resolvePosterPalette } from '@/lib/eza/mirror/posterPaletteSystem';
+import {
+  analyzeHybridPromptMarkers,
+  detectPromptTruncationRisk,
+  inferUsedPromptType,
+  isMockSceneImageUrl,
+} from '@/lib/eza/mirror/hybridPosterDebug';
+import {
+  getHybridEnvDebug,
+  isHybridEnabled,
+  resolveMirrorRenderMode,
+} from '@/lib/eza/mirror/mirrorRenderMode';
 
 export type MirrorIntentContext = {
   cueBlob: string;
@@ -140,6 +151,19 @@ export type MirrorIntentDebugSnapshot = {
   promptMissingRequired: string;
   promptForbiddenFound: string;
   posterPalette: string;
+  renderMode: string;
+  hybridEnabled: string;
+  usedPromptType: string;
+  imageProvider: string;
+  hybridTextFallback: string;
+  promptLength: string;
+  promptPreview: string;
+  promptTruncated: string;
+  hybridPromptMarkersOk: string;
+  hybridPromptMarkersMissing: string;
+  mockSceneImage: string;
+  hybridOcrProbe: string;
+  hybridEnvDebug: string;
 };
 
 export function buildMirrorIntentDebugSnapshot(input: {
@@ -170,6 +194,18 @@ export function buildMirrorIntentDebugSnapshot(input: {
   const forbidden = getIntentLockForbiddenPhrases(live.lockedIntent);
   const fullPrompt = card?.visual?.prompt ?? '';
   const promptPreview = fullPrompt.slice(0, 800);
+  const promptLength = fullPrompt.length;
+  const trunc = detectPromptTruncationRisk(fullPrompt);
+  const renderMode =
+    card?.visual?.renderMode ?? resolveMirrorRenderMode();
+  const usedPromptType =
+    card?.visual?.usedPromptType ?? inferUsedPromptType(fullPrompt, renderMode);
+  const markerReport =
+    usedPromptType === 'hybrid_middle'
+      ? analyzeHybridPromptMarkers(fullPrompt)
+      : { ok: true, missing: [] as string[], present: [] as string[] };
+  const sceneUrl = card?.visual?.sceneImageUrl ?? '';
+  const mockScene = isMockSceneImageUrl(sceneUrl);
   const contractCheck =
     live.lockedIntent === 'premium_vehicle_comparison'
       ? validateVehicleComparisonPrompt(fullPrompt)
@@ -225,6 +261,23 @@ export function buildMirrorIntentDebugSnapshot(input: {
       ? contractCheck.forbidden.join(', ')
       : 'none',
     posterPalette,
+    renderMode,
+    hybridEnabled: isHybridEnabled() ? 'true' : 'false',
+    usedPromptType,
+    imageProvider: card?.visual?.imageProvider ?? '—',
+    hybridTextFallback: card?.visual?.hybridFallbackReason ?? card?.visual?.hybridTextRisk
+      ? 'true'
+      : 'false',
+    promptLength: String(promptLength),
+    promptPreview: promptPreview || '—',
+    promptTruncated: trunc.truncated ? `YES (>${trunc.max})` : 'no',
+    hybridPromptMarkersOk: markerReport.ok ? 'yes' : 'NO',
+    hybridPromptMarkersMissing: markerReport.missing.length
+      ? markerReport.missing.join(', ')
+      : '—',
+    mockSceneImage: mockScene ? 'YES (mock/picsum)' : sceneUrl ? 'no' : '—',
+    hybridOcrProbe: card?.visual?.hybridOcrProbe ?? '—',
+    hybridEnvDebug: getHybridEnvDebug(),
   };
 }
 

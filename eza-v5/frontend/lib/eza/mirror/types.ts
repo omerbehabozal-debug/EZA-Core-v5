@@ -79,6 +79,14 @@ export interface MirrorVisualPromptPayload {
   /** Dev QA — hybrid image text quality unknown; frontend overlay fallback active. */
   hybridTextRisk?: boolean;
   hybridFallbackReason?: string;
+  /** hybrid_middle | scene_only_director */
+  usedPromptType?: import('@/lib/eza/mirror/hybridPosterDebug').UsedPromptType;
+  /** Last generate-scene provider from API response */
+  imageProvider?: string;
+  /** Backend OpenAI prompt truncation risk (>4000 chars) */
+  promptTruncated?: boolean;
+  /** Dev OCR/heuristic probe result */
+  hybridOcrProbe?: string;
 }
 
 export interface DailyMirrorCardModel {

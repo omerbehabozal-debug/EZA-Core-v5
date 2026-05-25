@@ -11,7 +11,7 @@ import {
   getPosterComposition,
   highlightEmphasisFor,
 } from '@/lib/eza/mirror/posterCompositionSystem';
-import { buildPosterEditorialCssVars } from '@/lib/eza/mirror/posterEditorialMathematics';
+import { buildPosterEditorialCssVars, POSTER_HYBRID_ZONE_GRID_ROWS } from '@/lib/eza/mirror/posterEditorialMathematics';
 import {
   buildEditorialReadabilityVars,
   getEditorialContrast,
@@ -40,6 +40,7 @@ export type DailyMirrorPosterCardProps = {
   onSceneImageLoad?: () => void;
   onSceneImageError?: () => void;
   onForceBmwMercedes?: () => void;
+  onToggleHybridMode?: () => void;
   /** When hybrid image fails QA, show frontend text overlays (Sprint 13C). */
   hybridTextFallback?: boolean;
 };
@@ -83,14 +84,17 @@ export default function DailyMirrorPosterCard({
   onSceneImageLoad,
   onSceneImageError,
   onForceBmwMercedes,
+  onToggleHybridMode,
   hybridTextFallback = false,
 }: DailyMirrorPosterCardProps) {
   const isReady =
     Boolean(meta?.hasEnoughData) && card.shareEnabled && Boolean(card.characterName);
   const isSparse = !isReady;
   const renderMode = card.visual?.renderMode ?? resolveMirrorRenderMode();
+  const showHybridFallback =
+    hybridTextFallback || Boolean(card.visual?.hybridFallbackReason);
   const isHybridMiddle =
-    renderMode === 'hybrid_middle' && !hybridTextFallback && !card.visual?.hybridFallbackReason;
+    renderMode === 'hybrid_middle' && !showHybridFallback;
   const posterVersion = isHybridMiddle ? 'v8d-hybrid-middle' : 'v8c-scene-contract';
   const content = useMemo(() => buildPosterCardContent(card), [card]);
   const composition = useMemo(() => getPosterComposition(card), [card]);
@@ -107,12 +111,15 @@ export default function DailyMirrorPosterCard({
     () => ({
       maxWidth: POSTER_CARD_WIDTH_PX,
       ...buildPosterEditorialCssVars(),
+      ...(isHybridMiddle
+        ? { ['--poster-zone-rows' as string]: POSTER_HYBRID_ZONE_GRID_ROWS }
+        : {}),
       ...(isPremiumPalette ? buildPremiumPosterCssVars() : {}),
       ...(isPremiumPalette ? premiumPosterRootStyle() : {}),
       ...buildPosterCompositionStyle(composition),
       ...buildEditorialReadabilityVars(editorial),
     }),
-    [composition, editorial, isPremiumPalette]
+    [composition, editorial, isHybridMiddle, isPremiumPalette]
   );
   const highlightEmphasis = useMemo(
     () => highlightEmphasisFor(composition.density, content.contextualHighlight.kind),
@@ -149,8 +156,8 @@ export default function DailyMirrorPosterCard({
         onSceneImageError={onSceneImageError}
       />
 
-      <div className={skin.globalOverlay} aria-hidden />
-      <div className={skin.globalOverlayBottom} aria-hidden />
+      <div className={cn(skin.globalOverlay, isHybridMiddle && 'opacity-[0.22]')} aria-hidden />
+      <div className={cn(skin.globalOverlayBottom, isHybridMiddle && 'opacity-35')} aria-hidden />
       <div className={skin.grain} aria-hidden />
       <div className={skin.accentGlow} aria-hidden />
 
@@ -159,6 +166,14 @@ export default function DailyMirrorPosterCard({
         style={{ gridTemplateRows: 'var(--poster-zone-rows)' }}
       >
         <header className={cn(skin.topSafeZone, skin.editorialGrid)}>
+          {showHybridFallback && renderMode === 'hybrid_middle' ? (
+            <p
+              className="col-span-12 mb-1 rounded-md border border-amber-300/80 bg-amber-50/90 px-2 py-1 text-[9px] font-medium text-amber-950"
+              role="status"
+            >
+              Hybrid typography generation failed — fallback overlay active
+            </p>
+          ) : null}
           <p className={cn(skin.logoText, 'col-span-8 flex items-center gap-1.5')}>
             <span className={skin.logoMark}>
               <Sparkles className="h-2 w-2" strokeWidth={1.75} aria-hidden />
@@ -265,8 +280,9 @@ export default function DailyMirrorPosterCard({
         meta={meta}
         posterVersion={posterVersion}
         renderMode={renderMode}
-        hybridTextFallback={hybridTextFallback || Boolean(card.visual?.hybridFallbackReason)}
+        hybridTextFallback={showHybridFallback}
         onForceBmwMercedes={onForceBmwMercedes}
+        onToggleHybridMode={onToggleHybridMode}
       />
     </article>
   );

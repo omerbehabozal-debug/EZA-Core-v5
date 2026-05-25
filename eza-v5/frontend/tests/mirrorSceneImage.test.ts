@@ -44,6 +44,20 @@ describe('mergeDailyCardSceneVisual', () => {
     expect(merged.visual?.prompt).toBe(baseCard.visual?.prompt);
   });
 
+  it('merges scene extras into existing visual', () => {
+    const merged = mergeDailyCardSceneVisual(
+      baseCard,
+      'https://example.com/scene.png',
+      'ready',
+      {
+        imageProvider: 'openai',
+        hybridOcrProbe: 'pass: edge_heuristic_pass',
+      }
+    );
+    expect(merged.visual?.imageProvider).toBe('openai');
+    expect(merged.visual?.hybridOcrProbe).toBe('pass: edge_heuristic_pass');
+  });
+
   it('leaves card unchanged when idle and no visual patch needed', () => {
     const sparse = { ...baseCard, visual: undefined };
     const merged = mergeDailyCardSceneVisual(sparse, null, 'idle');

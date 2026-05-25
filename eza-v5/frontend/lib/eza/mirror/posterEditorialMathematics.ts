@@ -57,6 +57,9 @@ export const POSTER_ZONE_PERCENT = {
   footer: 6,
 } as const;
 
+/** CSS grid rows — hybrid: collapse frontend typography zones; scene fills middle. */
+export const POSTER_HYBRID_ZONE_GRID_ROWS = '9% minmax(62%,1fr) 16% 6%';
+
 /** CSS grid rows for content stack */
 export const POSTER_ZONE_GRID_ROWS =
   '9% 20% minmax(38%,1fr) 14% 16% 6%';

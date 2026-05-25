@@ -7,13 +7,20 @@ import type {
   MirrorSceneImageStatus,
 } from '@/lib/eza/mirror/types';
 
+export type DailyCardSceneVisualExtras = {
+  imageProvider?: string;
+  hybridOcrProbe?: string;
+  hybridFallbackReason?: string;
+};
+
 export function mergeDailyCardSceneVisual(
   card: DailyMirrorCardModel,
   sceneImageUrl: string | null,
-  sceneImageStatus: MirrorSceneImageStatus
+  sceneImageStatus: MirrorSceneImageStatus,
+  extras?: DailyCardSceneVisualExtras
 ): DailyMirrorCardModel {
   if (!card.visual) {
-    if (!sceneImageUrl && sceneImageStatus === 'idle') {
+    if (!sceneImageUrl && sceneImageStatus === 'idle' && !extras) {
       return card;
     }
     return {
@@ -32,6 +39,7 @@ export function mergeDailyCardSceneVisual(
         qualityHints: [],
         sceneImageUrl,
         sceneImageStatus,
+        ...extras,
       },
     };
   }
@@ -42,6 +50,11 @@ export function mergeDailyCardSceneVisual(
       ...card.visual,
       sceneImageUrl,
       sceneImageStatus,
+      ...(extras?.imageProvider ? { imageProvider: extras.imageProvider } : {}),
+      ...(extras?.hybridOcrProbe ? { hybridOcrProbe: extras.hybridOcrProbe } : {}),
+      ...(extras?.hybridFallbackReason
+        ? { hybridFallbackReason: extras.hybridFallbackReason, hybridTextRisk: true }
+        : {}),
     },
   };
 }

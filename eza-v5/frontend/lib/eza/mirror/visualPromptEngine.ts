@@ -17,6 +17,11 @@ import {
 import { buildScenePromptFromDirector } from '@/lib/eza/mirror/compositionContractBuilder';
 import { buildHybridPosterPrompt } from '@/lib/eza/mirror/hybridPosterPromptBuilder';
 import type { HybridPosterTextPayload } from '@/lib/eza/mirror/hybridPosterPromptBuilder';
+import {
+  detectPromptTruncationRisk,
+  logHybridPromptBuilt,
+  type UsedPromptType,
+} from '@/lib/eza/mirror/hybridPosterDebug';
 import { resolveMirrorRenderMode, type MirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
 import { buildEmotionalSceneBlock } from '@/lib/eza/mirror/emotionalSceneEngine';
 import { deriveVisualNarrativeDirection } from '@/lib/eza/mirror/visualNarrativeDirector';
@@ -76,6 +81,8 @@ export interface MirrorVisualPrompt {
   hybridTextPayload?: HybridPosterTextPayload;
   hybridTextRisk?: boolean;
   hybridFallbackReason?: string;
+  usedPromptType?: UsedPromptType;
+  promptTruncated?: boolean;
 }
 
 export interface BuildVisualPromptInput {
@@ -398,6 +405,7 @@ export function buildMirrorVisualFromContext(
 
   let structured: { prompt: string; negativePrompt: string };
   let hybridTextPayload: HybridPosterTextPayload | undefined;
+  let usedPromptType: UsedPromptType = 'scene_only_director';
 
   if (renderMode === 'hybrid_middle' && input.hybridCopy) {
     const hybrid = buildHybridPosterPrompt({
@@ -417,7 +425,13 @@ export function buildMirrorVisualFromContext(
     });
     structured = { prompt: hybrid.prompt, negativePrompt: hybrid.negativePrompt };
     hybridTextPayload = hybrid.textPayload;
+    usedPromptType = 'hybrid_middle';
   } else {
+    if (renderMode === 'hybrid_middle' && !input.hybridCopy && process.env.NODE_ENV === 'development') {
+      console.warn(
+        '[EZA Mirror] hybrid_middle requested but hybridCopy missing — falling back to scene_only_director'
+      );
+    }
     structured = buildScenePromptFromDirector({
       narrative,
       topicKey,
@@ -436,6 +450,7 @@ export function buildMirrorVisualFromContext(
       : '';
 
   const prompt = [structured.prompt, architectureExtra].filter(Boolean).join(' ');
+  const promptTruncated = detectPromptTruncationRisk(prompt).truncated;
 
   const qualityHints =
     topicKey === 'architecture' ||
@@ -485,7 +500,18 @@ export function buildMirrorVisualFromContext(
       lockedIntent === 'premium_vehicle_comparison' ? VEHICLE_SCENE_CONTRACT_ID : undefined,
     renderMode,
     hybridTextPayload,
+    usedPromptType,
+    promptTruncated,
   };
+
+  if (usedPromptType === 'scene_only_director' && process.env.NODE_ENV === 'development') {
+    logHybridPromptBuilt({
+      renderMode,
+      usedPromptType,
+      prompt: visual.prompt,
+      negativePrompt: visual.negativePrompt,
+    });
+  }
 
   const storyHints = input.visualStoryHints ?? [];
   const alignedStory =
