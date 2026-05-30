@@ -58,7 +58,7 @@ export const MIRROR_PATTERN_BALANCE_LABEL = 'Genel denge';
 
 export const MIRROR_DETAILS_SUMMARY = 'İsteğe bağlı ayrıntılar';
 
-export const MIRROR_SIDEBAR_LABEL = 'EZA Mirror';
+export const MIRROR_SIDEBAR_LABEL = 'Ayna';
 
 export const MIRROR_SHARE_MODAL_TITLE = 'Günlük Ayna paylaşımı';
 

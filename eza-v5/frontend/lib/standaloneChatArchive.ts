@@ -30,11 +30,15 @@ export interface ArchivedChat {
   savedAt: string;
   messageCount: number;
   messages: ArchivedChatMessage[];
+  /** Kullanıcı sabitledi (sidebar'da en üstte). Geriye uyumlu opsiyonel. */
+  pinned?: boolean;
+  /** Kullanıcı başlığı elle değiştirdi → autosave başlığı yeniden hesaplamasın. */
+  titlePinned?: boolean;
 }
 
 export type ArchivedChatSummary = Pick<
   ArchivedChat,
-  'id' | 'title' | 'preview' | 'savedAt' | 'messageCount'
+  'id' | 'title' | 'preview' | 'savedAt' | 'messageCount' | 'pinned' | 'titlePinned'
 >;
 
 function notifyChatsUpdated(): void {
@@ -118,24 +122,51 @@ function buildChatEntry(id: string, messages: ArchivedChatMessage[]): ArchivedCh
 
   const existing = readAll().find((a) => a.id === id);
 
+  // Kullanıcı başlığı elle değiştirdiyse (titlePinned) koru; aksi halde ilk mesajdan üret.
+  const title = existing?.titlePinned ? existing.title : buildTitle(normalized);
+
   return {
     id,
-    title: buildTitle(normalized),
+    title,
     preview,
     savedAt: new Date().toISOString(),
     messageCount: normalized.length,
     messages: normalized,
+    ...(existing?.pinned ? { pinned: true } : {}),
+    ...(existing?.titlePinned ? { titlePinned: true } : {}),
   };
 }
 
 export function listChatArchives(): ArchivedChatSummary[] {
-  return readAll().map(({ id, title, preview, savedAt, messageCount }) => ({
+  return readAll().map(({ id, title, preview, savedAt, messageCount, pinned, titlePinned }) => ({
     id,
     title,
     preview,
     savedAt,
     messageCount,
+    pinned,
+    titlePinned,
   }));
+}
+
+/** Sohbeti sabitler / sabitlemeyi kaldırır (localStorage). */
+export function setChatPinned(id: string, pinned: boolean): void {
+  const list = readAll();
+  const idx = list.findIndex((a) => a.id === id);
+  if (idx === -1) return;
+  list[idx] = { ...list[idx], pinned };
+  writeAll(list);
+}
+
+/** Sohbet başlığını elle değiştirir; titlePinned ile autosave'in ezmesini engeller. */
+export function renameChat(id: string, title: string): void {
+  const trimmed = title.trim();
+  if (!trimmed) return;
+  const list = readAll();
+  const idx = list.findIndex((a) => a.id === id);
+  if (idx === -1) return;
+  list[idx] = { ...list[idx], title: trimmed, titlePinned: true };
+  writeAll(list);
 }
 
 export function getChatArchive(id: string): ArchivedChat | null {

@@ -42,6 +42,37 @@ export const standaloneSkin = {
   sidebarArchiveMeta:
     'mt-0.5 block min-w-0 max-w-full truncate text-xs text-standalone-text-muted',
   sidebarArchiveEmpty: 'px-2.5 py-1 text-sm leading-snug text-standalone-text-muted/80',
+  /* Arama kutusu */
+  sidebarSearchWrap: 'relative px-0.5',
+  sidebarSearchIcon:
+    'pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-standalone-text-muted/50',
+  sidebarSearchInput:
+    'w-full rounded-lg border border-standalone-border/60 bg-white/60 py-1.5 pl-7 pr-2 text-[13px] text-standalone-text placeholder:text-standalone-text-muted/60 transition-colors focus:border-standalone-primary/40 focus:bg-white focus:outline-none touch-manipulation',
+  /* Tarih grup başlığı */
+  sidebarGroupLabel:
+    'px-2.5 pb-0.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-standalone-text-muted/70',
+  /* Satır hover aksiyonları (rename / pin) — delete ile aynı görünüm ailesi */
+  sidebarArchiveActionBtn:
+    'flex shrink-0 items-center justify-center self-center rounded-md p-1.5 text-standalone-text-muted/45 transition-all hover:bg-white hover:text-standalone-text sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-standalone-primary/30 touch-manipulation',
+  /* Sabitlenmiş sohbet için kalıcı görünür pin */
+  sidebarArchiveActionActive:
+    'flex shrink-0 items-center justify-center self-center rounded-md p-1.5 text-standalone-primary/80 transition-all hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-standalone-primary/30 touch-manipulation',
+  /* Inline yeniden adlandırma input'u */
+  sidebarRenameInput:
+    'min-w-0 flex-1 rounded-md border border-standalone-primary/40 bg-white px-2 py-1.5 text-sm text-standalone-text focus:outline-none focus:ring-2 focus:ring-standalone-primary/30',
+  /* Boş durum (henüz sohbet yok) */
+  sidebarEmptyState:
+    'flex flex-col items-center gap-2 rounded-lg px-3 py-5 text-center',
+  sidebarEmptyIcon: 'text-standalone-text-muted/40',
+  sidebarEmptyTitle: 'text-sm font-medium text-standalone-text-secondary',
+  sidebarEmptyBody: 'text-xs leading-snug text-standalone-text-muted/80',
+  sidebarEmptyCta:
+    'mt-1 rounded-lg bg-standalone-primary px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 touch-manipulation',
+  /* Hesap placeholder (gelecek auth) */
+  sidebarAccountRow:
+    'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-standalone-text-muted/70 cursor-default',
+  sidebarAccountBadge:
+    'ml-auto rounded-full bg-standalone-border/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-standalone-text-muted/70',
   sidebarSaveBtn:
     'flex w-full items-center justify-center gap-1.5 rounded-md border border-standalone-border/60 bg-white/60 px-2 py-1.5 text-[12px] font-medium text-standalone-text-secondary transition-colors hover:border-standalone-primary/30 hover:bg-white hover:text-standalone-text disabled:pointer-events-none disabled:opacity-40 touch-manipulation',
   sidebarNewChatBtn:

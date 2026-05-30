@@ -1,19 +1,67 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { BarChart3, MessageSquarePlus, Shield, Trash2, X } from 'lucide-react';
+import {
+  BarChart3,
+  MessageSquare,
+  MessageSquarePlus,
+  Pencil,
+  Pin,
+  Search,
+  Shield,
+  Trash2,
+  User,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   CHATS_UPDATED_EVENT,
   deleteChatArchive,
   listChatArchives,
+  renameChat,
+  setChatPinned,
   summarizeArchiveTitle,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { MIRROR_ROUTE, MIRROR_SIDEBAR_LABEL } from '@/lib/eza/mirror/copy';
+
+type ChatGroup = { label: string; items: ArchivedChatSummary[] };
+
+/** Sohbetleri sabitlenenler + tarih bucket'larına ayırır (sadece görüntüleme). */
+function groupChatsByDate(chats: ArchivedChatSummary[]): ChatGroup[] {
+  const pinned = chats.filter((c) => c.pinned);
+  const rest = chats.filter((c) => !c.pinned);
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dayMs = 86_400_000;
+  const startOfYesterday = startOfToday - dayMs;
+  const startOfWeek = startOfToday - 6 * dayMs;
+
+  const today: ArchivedChatSummary[] = [];
+  const yesterday: ArchivedChatSummary[] = [];
+  const week: ArchivedChatSummary[] = [];
+  const older: ArchivedChatSummary[] = [];
+
+  for (const c of rest) {
+    const t = new Date(c.savedAt).getTime();
+    if (Number.isNaN(t) || t >= startOfToday) today.push(c);
+    else if (t >= startOfYesterday) yesterday.push(c);
+    else if (t >= startOfWeek) week.push(c);
+    else older.push(c);
+  }
+
+  const groups: ChatGroup[] = [];
+  if (pinned.length) groups.push({ label: 'Sabitlenenler', items: pinned });
+  if (today.length) groups.push({ label: 'Bugün', items: today });
+  if (yesterday.length) groups.push({ label: 'Dün', items: yesterday });
+  if (week.length) groups.push({ label: 'Bu Hafta', items: week });
+  if (older.length) groups.push({ label: 'Daha Eski', items: older });
+  return groups;
+}
 
 interface StandaloneSidebarProps {
   safeOnlyMode: boolean;
@@ -36,10 +84,57 @@ export default function StandaloneSidebar({
   const searchParams = useSearchParams();
   const activeChatId = searchParams?.get('chat') ?? null;
   const [chats, setChats] = useState<ArchivedChatSummary[]>([]);
+  const [query, setQuery] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
 
   const refreshChats = useCallback(() => {
     setChats(listChatArchives());
   }, []);
+
+  const filteredGroups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? chats.filter((c) => (c.title || '').toLowerCase().includes(q))
+      : chats;
+    return groupChatsByDate(filtered);
+  }, [chats, query]);
+
+  const handlePinToggle = (e: React.MouseEvent, item: ArchivedChatSummary) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setChatPinned(item.id, !item.pinned);
+    refreshChats();
+  };
+
+  const startRename = (e: React.MouseEvent, item: ArchivedChatSummary) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingId(item.id);
+    setEditingTitle(item.title);
+  };
+
+  const cancelRename = useCallback(() => {
+    setEditingId(null);
+    setEditingTitle('');
+  }, []);
+
+  const commitRename = useCallback(() => {
+    if (!editingId) return;
+    const next = editingTitle.trim();
+    if (next) renameChat(editingId, next);
+    setEditingId(null);
+    setEditingTitle('');
+    refreshChats();
+  }, [editingId, editingTitle, refreshChats]);
+
+  useEffect(() => {
+    if (editingId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [editingId]);
 
   useEffect(() => {
     refreshChats();
@@ -131,6 +226,17 @@ export default function StandaloneSidebar({
 
           <nav className={standaloneSkin.sidebarNav} aria-label="Gezinme">
             <Link
+              href="/standalone"
+              onClick={onMobileClose}
+              className={cn(
+                standaloneSkin.sidebarNavItem,
+                pathname === '/standalone' ? 'bg-white/80 text-standalone-text' : ''
+              )}
+            >
+              <MessageSquare className="h-4 w-4 shrink-0 opacity-60" />
+              Sohbet
+            </Link>
+            <Link
               href={MIRROR_ROUTE}
               onClick={onMobileClose}
               className={cn(
@@ -146,60 +252,138 @@ export default function StandaloneSidebar({
               {MIRROR_SIDEBAR_LABEL}
             </Link>
 
+            {chats.length > 0 ? (
+              <div className={standaloneSkin.sidebarSearchWrap}>
+                <span className={standaloneSkin.sidebarSearchIcon}>
+                  <Search className="h-3.5 w-3.5" aria-hidden />
+                </span>
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Sohbetlerde ara…"
+                  aria-label="Sohbetlerde ara"
+                  className={standaloneSkin.sidebarSearchInput}
+                />
+              </div>
+            ) : null}
+
             <p className={standaloneSkin.sidebarSectionLabel}>Sohbetler</p>
+
             {chats.length === 0 ? (
-              <p className={standaloneSkin.sidebarArchiveEmpty}>
-                Yeni sohbet başlattığınızda burada görünür.
-              </p>
+              <div className={standaloneSkin.sidebarEmptyState}>
+                <MessageSquare className={cn(standaloneSkin.sidebarEmptyIcon, 'h-7 w-7')} aria-hidden />
+                <p className={standaloneSkin.sidebarEmptyTitle}>Henüz sohbetin yok</p>
+                <p className={standaloneSkin.sidebarEmptyBody}>
+                  AI ile yazışmaya başla; sohbetlerin burada birikecek.
+                </p>
+                <button type="button" onClick={handleNewChatClick} className={standaloneSkin.sidebarEmptyCta}>
+                  İlk sohbetini başlat
+                </button>
+              </div>
+            ) : filteredGroups.length === 0 ? (
+              <p className={standaloneSkin.sidebarArchiveEmpty}>Sonuç bulunamadı.</p>
             ) : (
-              <ul className={standaloneSkin.sidebarArchiveList} aria-label="Sohbet sekmeleri">
-                {chats.map((item) => {
-                  const href = `/standalone?chat=${item.id}`;
-                  const active =
-                    pathname === '/standalone' && activeChatId === item.id;
-                  return (
-                    <li key={item.id} className="group min-w-0">
-                      <div
-                        className={cn(
-                          standaloneSkin.sidebarArchiveRow,
-                          active ? 'bg-white/80' : ''
-                        )}
-                      >
-                        <Link
-                          href={href}
-                          onClick={onMobileClose}
-                          title={item.title}
-                          className={standaloneSkin.sidebarArchiveItem}
-                        >
-                          <span className={standaloneSkin.sidebarArchiveTitle}>
-                            {summarizeArchiveTitle(item.title)}
-                          </span>
-                          <span className={standaloneSkin.sidebarArchiveMeta}>
-                            {new Date(item.savedAt).toLocaleDateString('tr-TR', {
-                              day: 'numeric',
-                              month: 'short',
-                            })}
-                            {' · '}
-                            {item.messageCount} mesaj
-                          </span>
-                        </Link>
-                        <button
-                          type="button"
-                          className={standaloneSkin.sidebarArchiveDeleteBtn}
-                          aria-label={`${summarizeArchiveTitle(item.title)} sil`}
-                          onClick={(e) => handleDeleteChat(e, item)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className={standaloneSkin.sidebarArchiveList} aria-label="Sohbet sekmeleri">
+                {filteredGroups.map((group) => (
+                  <div key={group.label} className="min-w-0">
+                    <p className={standaloneSkin.sidebarGroupLabel}>{group.label}</p>
+                    <ul className="flex min-w-0 flex-col gap-0.5">
+                      {group.items.map((item) => {
+                        const href = `/standalone?chat=${item.id}`;
+                        const active = pathname === '/standalone' && activeChatId === item.id;
+                        const isEditing = editingId === item.id;
+                        return (
+                          <li key={item.id} className="group min-w-0">
+                            <div
+                              className={cn(
+                                standaloneSkin.sidebarArchiveRow,
+                                active ? 'bg-white/80' : ''
+                              )}
+                            >
+                              {isEditing ? (
+                                <input
+                                  ref={renameInputRef}
+                                  value={editingTitle}
+                                  onChange={(e) => setEditingTitle(e.target.value)}
+                                  onBlur={commitRename}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') commitRename();
+                                    else if (e.key === 'Escape') cancelRename();
+                                  }}
+                                  className={standaloneSkin.sidebarRenameInput}
+                                  aria-label="Sohbet başlığını düzenle"
+                                />
+                              ) : (
+                                <>
+                                  <Link
+                                    href={href}
+                                    onClick={onMobileClose}
+                                    title={item.title}
+                                    className={standaloneSkin.sidebarArchiveItem}
+                                  >
+                                    <span className={standaloneSkin.sidebarArchiveTitle}>
+                                      {summarizeArchiveTitle(item.title)}
+                                    </span>
+                                    <span className={standaloneSkin.sidebarArchiveMeta}>
+                                      {new Date(item.savedAt).toLocaleDateString('tr-TR', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                      })}
+                                      {' · '}
+                                      {item.messageCount} mesaj
+                                    </span>
+                                  </Link>
+                                  <button
+                                    type="button"
+                                    className={
+                                      item.pinned
+                                        ? standaloneSkin.sidebarArchiveActionActive
+                                        : standaloneSkin.sidebarArchiveActionBtn
+                                    }
+                                    aria-label={item.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}
+                                    title={item.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}
+                                    onClick={(e) => handlePinToggle(e, item)}
+                                  >
+                                    <Pin className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={standaloneSkin.sidebarArchiveActionBtn}
+                                    aria-label={`${summarizeArchiveTitle(item.title)} yeniden adlandır`}
+                                    title="Yeniden adlandır"
+                                    onClick={(e) => startRename(e, item)}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={standaloneSkin.sidebarArchiveDeleteBtn}
+                                    aria-label={`${summarizeArchiveTitle(item.title)} sil`}
+                                    title="Sil"
+                                    onClick={(e) => handleDeleteChat(e, item)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             )}
           </nav>
 
           <div className={standaloneSkin.sidebarFooter}>
+            <div className={standaloneSkin.sidebarAccountRow} aria-disabled="true">
+              <User className="h-4 w-4 shrink-0 opacity-60" />
+              Hesap
+              <span className={standaloneSkin.sidebarAccountBadge}>yakında</span>
+            </div>
             <div className={standaloneSkin.sidebarToggleRow}>
               <span className="flex items-center gap-1.5">
                 <Shield className="h-4 w-4 shrink-0 opacity-60" />
