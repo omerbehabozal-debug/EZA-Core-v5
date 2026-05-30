@@ -84,10 +84,12 @@ const BALANCE_BAR_LABELS = [
   'Diğer',
 ] as const;
 
+// Boş durum placeholder'ları — etiketler gerçek kategori diliyle (USER_CATEGORY_LABEL)
+// ve renkler kategori paletiyle (ISLAND_COLORS) hizalı. Yalnızca görsel; algoritma/veri değil.
 const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
   {
     id: 'ghost_exploration',
-    label: 'Keşif / Merak',
+    label: 'Keşif odaklı',
     percent: 22,
     color: '#a78bfa',
     trend: 'stable',
@@ -95,7 +97,7 @@ const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
   },
   {
     id: 'ghost_decision',
-    label: 'Karar Desteği',
+    label: 'Karar desteği',
     percent: 28,
     color: '#60a5fa',
     trend: 'stable',
@@ -103,7 +105,7 @@ const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
   },
   {
     id: 'ghost_clarity',
-    label: 'Netlik Arayışı',
+    label: 'Netlik arayışı',
     percent: 23,
     color: '#34d399',
     trend: 'stable',
@@ -111,17 +113,17 @@ const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
   },
   {
     id: 'ghost_ideas',
-    label: 'Fikir Geliştirme',
+    label: 'Fikir geliştirme',
     percent: 18,
     color: '#fbbf24',
     trend: 'stable',
     description: '',
   },
   {
-    id: 'ghost_validation',
-    label: 'Doğrulama',
+    id: 'ghost_depth',
+    label: 'Düşünsel yoğunluk',
     percent: 14,
-    color: '#f472b6',
+    color: '#818cf8',
     trend: 'stable',
     description: '',
   },
