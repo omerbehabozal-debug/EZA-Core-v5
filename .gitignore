@@ -46,6 +46,13 @@ Thumbs.db
 logs/
 *.log
 
+# Generated test/QA artifacts (do not commit)
+**/test_reports/
+**/test_output/
+**/coverage/
+**/.pytest_cache/
+**/__pycache__/
+
 # Docker
 docker-compose.override.yml
 

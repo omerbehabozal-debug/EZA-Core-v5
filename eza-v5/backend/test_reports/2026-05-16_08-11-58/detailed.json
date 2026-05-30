@@ -1,7 +1,0 @@
-[
-  {
-    "name": "tests_core/test_eza_score_safe_refusal.py::test_safe_refusal_scores_high_not_penalized_by_input_risk",
-    "status": "passed",
-    "duration": 0.013614700001198798
-  }
-]

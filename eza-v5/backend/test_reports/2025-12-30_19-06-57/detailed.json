@@ -1,8 +1,0 @@
-[
-  {
-    "name": "tests_behavioral_extended/test_psych_pressure_advanced.py::test_psych_pressure_advanced_scenario[Turkish urgency]",
-    "status": "failed",
-    "duration": 3.746324999956414,
-    "message": "E   AssertionError: Score should be <= 50, got 70.0\n    assert 70.0 <= (40 + 10)"
-  }
-]
