@@ -120,7 +120,7 @@ export default function BehaviorIslandBlob({
         aria-label={
           clickable
             ? ghost
-              ? `${island.label} adası — sinyal yok`
+              ? `${island.label} adası — henüz yeterli veri yok`
               : `${island.label} adası — %${island.percent}`
             : undefined
         }
@@ -166,8 +166,8 @@ export default function BehaviorIslandBlob({
           {island.label}
         </p>
         {ghost ? (
-          <p className="relative mt-1 text-[9px] font-medium uppercase tracking-[0.1em] text-[#172033]/35">
-            sinyal yok
+          <p className="relative mt-1 max-w-[88%] text-[9px] font-medium leading-tight tracking-wide text-[#172033]/35">
+            Henüz Yeterli Veri Yok
           </p>
         ) : (
           <p className="relative mt-1 inline-flex items-center gap-0.5 text-[10px] font-medium tabular-nums text-[#172033]/45">
