@@ -1,8 +1,14 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { MapDisplayIsland } from '@/lib/eza/mirror/relationshipPatternMetrics';
 import BehaviorIslandBlob from '@/components/mirror/relationship/BehaviorIslandBlob';
+
+/** Adaların rahatça yerleştiği referans harita genişliği (px). */
+const REFERENCE_MAP_WIDTH = 460;
+/** Dar ekranlarda ada/blob boyutları için alt ölçek sınırı. */
+const MIN_BLOB_SCALE = 0.6;
 
 /** Merkez çekirdek etrafında organik orbit yerleşimi (yüzde cinsinden). */
 function orbitPosition(index: number, count: number): { left: number; top: number } {
@@ -43,10 +49,31 @@ export default function BehaviorIslandsMap({
   const visible = islands.slice(0, 7);
   const positions = visible.map((_, i) => orbitPosition(i, visible.length));
 
+  // Konteyner genişliğine göre blob ölçeği — dar telefonda çakışmayı önler.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [blobScale, setBlobScale] = useState(1);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const update = (width: number) => {
+      if (width <= 0) return;
+      const next = Math.min(1, Math.max(MIN_BLOB_SCALE, width / REFERENCE_MAP_WIDTH));
+      setBlobScale(next);
+    };
+    update(el.clientWidth);
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) update(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div
+      ref={containerRef}
       className={cn(
-        'relative min-h-[22rem] w-full overflow-hidden rounded-[2rem] sm:min-h-[28rem]',
+        'relative min-h-[20rem] w-full overflow-hidden rounded-[2rem] sm:min-h-[28rem]',
         className
       )}
       aria-label="AI ilişki evreni — davranış adaları"
@@ -177,6 +204,7 @@ export default function BehaviorIslandsMap({
               onSelect={() => onSelectIsland?.(island)}
               animated={animated}
               animationDelay={index * 0.9}
+              sizeScale={blobScale}
             />
           </div>
         );

@@ -61,6 +61,8 @@ export type BehaviorIslandBlobProps = {
   animated?: boolean;
   /** Animasyon faz farkı için (saniye). */
   animationDelay?: number;
+  /** Konteyner genişliğine göre boyut ölçeği (dar ekran). */
+  sizeScale?: number;
 };
 
 export default function BehaviorIslandBlob({
@@ -73,8 +75,10 @@ export default function BehaviorIslandBlob({
   onSelect,
   animated = false,
   animationDelay = 0,
+  sizeScale = 1,
 }: BehaviorIslandBlobProps) {
-  const size = ghost ? GHOST_BLOB_PX : islandBlobSizePx(island.percent);
+  const baseSize = ghost ? GHOST_BLOB_PX : islandBlobSizePx(island.percent);
+  const size = Math.round(baseSize * sizeScale);
   const Icon = pickIcon(island.id);
   const clickable = interactive;
   const shape = ORGANIC_SHAPES[hashIndex(island.id, ORGANIC_SHAPES.length)]!;
