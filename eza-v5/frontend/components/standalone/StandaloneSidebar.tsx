@@ -10,6 +10,7 @@ import {
   Pencil,
   Pin,
   Search,
+  Settings,
   Shield,
   Trash2,
   User,
@@ -384,33 +385,40 @@ export default function StandaloneSidebar({
               Hesap
               <span className={standaloneSkin.sidebarAccountBadge}>yakında</span>
             </div>
-            <div className={standaloneSkin.sidebarToggleRow}>
-              <span className="flex items-center gap-1.5">
-                <Shield className="h-4 w-4 shrink-0 opacity-60" />
-                SAFE-only
-              </span>
-              <button
-                type="button"
-                onClick={() => onSafeOnlyModeChange(!safeOnlyMode)}
-                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                  safeOnlyMode ? 'bg-standalone-primary/85' : 'bg-standalone-text-muted/20'
-                }`}
-                aria-label={safeOnlyMode ? 'SAFE-only kapat' : 'SAFE-only aç'}
-              >
-                <span
-                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
-                    safeOnlyMode ? 'translate-x-[18px]' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
             <details className={standaloneSkin.sidebarHelpDetails}>
-              <summary className={standaloneSkin.sidebarHelpSummary}>Bu mod ne işe yarar?</summary>
-              <p className={standaloneSkin.sidebarHelpBody}>
-                Açıkken model yanıtı EZA tarafından güvenli ve uyumlu olacak şekilde yeniden yazılır;
-                ekranda skorlar yerine Safe / Warning / Blocked rozeti görünür. Kapalıyken ham
-                etkileşim akar ve EZA skorlarıyla birlikte analiz edilir.
-              </p>
+              <summary className={standaloneSkin.sidebarHelpSummary}>
+                <span className="flex items-center gap-1.5">
+                  <Settings className="h-4 w-4 shrink-0 opacity-60" />
+                  Ayarlar
+                </span>
+              </summary>
+              <div className="mt-2 flex flex-col gap-2">
+                <div className={standaloneSkin.sidebarToggleRow}>
+                  <span className="flex items-center gap-1.5">
+                    <Shield className="h-4 w-4 shrink-0 opacity-60" />
+                    SAFE-only
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onSafeOnlyModeChange(!safeOnlyMode)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                      safeOnlyMode ? 'bg-standalone-primary/85' : 'bg-standalone-text-muted/20'
+                    }`}
+                    aria-label={safeOnlyMode ? 'SAFE-only kapat' : 'SAFE-only aç'}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
+                        safeOnlyMode ? 'translate-x-[18px]' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+                <p className={standaloneSkin.sidebarHelpBody}>
+                  SAFE-only açıkken model yanıtı EZA tarafından güvenli ve uyumlu olacak şekilde
+                  yeniden yazılır; ekranda skorlar yerine Safe / Warning / Blocked rozeti görünür.
+                  Kapalıyken ham etkileşim akar ve EZA skorlarıyla birlikte analiz edilir.
+                </p>
+              </div>
             </details>
           </div>
         </div>
