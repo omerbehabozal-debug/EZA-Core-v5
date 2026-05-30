@@ -2,8 +2,12 @@
  * EZA Mirror — ürün dili ve IA metinleri (Sprint 4).
  */
 
-/** Canonical Mirror surface route */
+/** Canonical Mirror surface route (index → redirects to daily) */
 export const MIRROR_ROUTE = '/standalone/mirror';
+
+/** Ayna alt görünümleri — deep-link'lenebilir route'lar */
+export const MIRROR_DAILY_ROUTE = '/standalone/mirror/daily';
+export const MIRROR_PATTERN_ROUTE = '/standalone/mirror/pattern';
 
 export const MIRROR_PAGE_TITLE = 'EZA Mirror';
 

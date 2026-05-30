@@ -1,17 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Share2, Sparkles } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
-  MIRROR_NAV_ARIA,
-  MIRROR_PAGE_SUBTITLE,
-  MIRROR_PAGE_TITLE,
   MIRROR_REVEAL_DURATION_MS,
   MIRROR_SHARE_LABEL,
-  MIRROR_TAB_DAILY,
-  MIRROR_TAB_PATTERN,
 } from '@/lib/eza/mirror/copy';
 import type {
   DailyMirrorCardModel,
@@ -40,24 +35,19 @@ import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
 import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
 import MirrorSceneGenerateButton from '@/components/mirror/MirrorSceneGenerateButton';
 import MirrorShareModal from '@/components/mirror/MirrorShareModal';
-import RelationshipPatternView from '@/components/mirror/RelationshipPatternView';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
-import ReportsPanelTransition from '@/components/standalone/ReportsPanelTransition';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
-
-type ObservationTab = 'last' | 'map';
 
 type DailyMirrorStatus = 'idle' | 'revealing' | 'ready' | 'insufficient' | 'error';
 
 interface StandaloneObservationExperienceProps {
   entries: SavedBehavioralEntry[];
-  onClear?: () => void;
 }
 
+/** Ayna → Günlük Ayna görünümü (üst nav ve ortak kabuk artık mirror layout'ta). */
 export default function StandaloneObservationExperience({
   entries,
 }: StandaloneObservationExperienceProps) {
-  const [tab, setTab] = useState<ObservationTab>('last');
   const [shareOpen, setShareOpen] = useState(false);
   const [dailyStatus, setDailyStatus] = useState<DailyMirrorStatus>('idle');
   const [generatedDailyCard, setGeneratedDailyCard] = useState<DailyMirrorCardModel | null>(
@@ -76,8 +66,6 @@ export default function StandaloneObservationExperience({
     return resolveMirrorIntentContext({ entries }).intentFingerprint;
   }, [entries]);
 
-  const rp = standaloneSkin.reportsPremium;
-  const op = standaloneSkin.observationPolish;
   const ms = standaloneSkin.mirrorSurface;
 
   useEffect(() => {
@@ -374,80 +362,11 @@ export default function StandaloneObservationExperience({
     );
   };
 
-  const renderPanel = useCallback(
-    (key: string) => {
-      if (key === 'last') {
-        return <div className={ms.dailyStage}>{renderDailyPanel()}</div>;
-      }
-
-      return <RelationshipPatternView entries={entries} />;
-    },
-    [
-      dailyStatus,
-      cardForRender,
-      generatedDailyMeta,
-      entries,
-      handleGenerateDailyMirror,
-      handleGenerateMirrorScene,
-      sceneImageStatus,
-      handleSceneImageLoad,
-      handleSceneImageError,
-      handleToggleHybridMode,
-      hybridTextFallback,
-      mirrorExport.cardRef,
-      showShareAction,
-      ms.dailyStage,
-      ms.dailyReadyStack,
-      ms.shareAction,
-    ]
-  );
-
   return (
-    <div className={cn(rp.container, rp.sectionStack)}>
-      <div className={rp.ambientLayer} aria-hidden>
-        <div className={rp.ambientOrbA} />
-        <div className={rp.ambientOrbB} />
-        <div className={rp.ambientOrbC} />
+    <>
+      <div className={cn(ms.dailyStage, 'min-h-0 flex-1 justify-center overflow-y-auto')}>
+        {renderDailyPanel()}
       </div>
-
-      <header className={cn(rp.pageHeader, 'sm:mb-2')}>
-        <div className="min-w-0 flex-1">
-          <h1 className={op.headerTitle}>
-            <span className={cn(rp.pageTitleRow, 'gap-2')}>
-              <Sparkles
-                className="h-6 w-6 text-violet-500/80 sm:h-7 sm:w-7"
-                strokeWidth={1.5}
-                aria-hidden
-              />
-              {MIRROR_PAGE_TITLE}
-            </span>
-          </h1>
-          <p className={cn(op.headerSub, 'mt-2 max-w-md text-stone-500/85')}>
-            {MIRROR_PAGE_SUBTITLE}
-          </p>
-        </div>
-      </header>
-
-      <nav className={ms.tabList} aria-label={MIRROR_NAV_ARIA}>
-        <button
-          type="button"
-          onClick={() => setTab('last')}
-          className={cn(ms.tab, tab === 'last' ? ms.tabActive : ms.tabIdle)}
-        >
-          {MIRROR_TAB_DAILY}
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('map')}
-          className={cn(ms.tab, tab === 'map' ? ms.tabActive : ms.tabIdle)}
-        >
-          {MIRROR_TAB_PATTERN}
-        </button>
-      </nav>
-
-      <ReportsPanelTransition activeKey={tab} className={rp.panelStage}>
-        {renderPanel}
-      </ReportsPanelTransition>
 
       <MirrorShareModal
         open={shareOpen}
@@ -460,6 +379,6 @@ export default function StandaloneObservationExperience({
         onShare={handleShareNative}
         onCopyText={mirrorExport.copyText}
       />
-    </div>
+    </>
   );
 }
