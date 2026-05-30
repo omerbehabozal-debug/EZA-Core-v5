@@ -69,8 +69,18 @@ module.exports = {
         'pulse-dot': 'pulse-dot 1.4s ease-in-out infinite',
         'fade-in': 'fade-in 0.3s ease-out',
         'slide-up': 'slide-up 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        'island-breathe': 'island-breathe 7s ease-in-out infinite',
+        'core-aura': 'core-aura 4.8s ease-in-out infinite',
       },
       keyframes: {
+        'island-breathe': {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.025)' },
+        },
+        'core-aura': {
+          '0%, 100%': { opacity: '0.3', transform: 'scale(0.9)' },
+          '50%': { opacity: '0.6', transform: 'scale(1.12)' },
+        },
         bounce: {
           '0%, 100%': {
             transform: 'translateY(0)',

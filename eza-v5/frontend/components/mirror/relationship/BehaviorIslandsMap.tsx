@@ -4,86 +4,188 @@ import { cn } from '@/lib/utils';
 import type { BehaviorIsland } from '@/lib/eza/relationshipMapModel';
 import BehaviorIslandBlob from '@/components/mirror/relationship/BehaviorIslandBlob';
 
-const SLOT_POSITIONS = [
-  { left: '8%', top: '12%' },
-  { left: '38%', top: '4%' },
-  { left: '62%', top: '18%' },
-  { left: '4%', top: '48%' },
-  { left: '32%', top: '52%' },
-  { left: '58%', top: '46%' },
-];
+/** Merkez çekirdek etrafında organik orbit yerleşimi (yüzde cinsinden). */
+function orbitPosition(index: number, count: number): { left: number; top: number } {
+  const safeCount = Math.max(1, count);
+  const angle = (index / safeCount) * Math.PI * 2 - Math.PI / 2;
+  // Hafif organik düzensizlik: tekil/çift adalar biraz farklı yörüngede.
+  const radiusX = 36 + (index % 2 === 0 ? 1.5 : -2.5);
+  const radiusY = 33 + (index % 3 === 0 ? -1.5 : 2);
+  return {
+    left: 50 + radiusX * Math.cos(angle),
+    top: 50 + radiusY * Math.sin(angle),
+  };
+}
 
 export type BehaviorIslandsMapProps = {
   islands: BehaviorIsland[];
   ghost?: boolean;
   className?: string;
+  /** Harita seviyesinde ada seçimi. */
+  interactive?: boolean;
+  selectedId?: string | null;
+  onSelectIsland?: (island: BehaviorIsland) => void;
+  /** Merkez çekirdek ana etiketi (örn. "SEN"). */
+  centerLabel?: string;
+  /** Hafif canlı animasyonlar (reduced-motion'da kapalı). */
+  animated?: boolean;
 };
 
 export default function BehaviorIslandsMap({
   islands,
   ghost = false,
   className,
+  interactive = false,
+  selectedId = null,
+  onSelectIsland,
+  centerLabel,
+  animated = false,
 }: BehaviorIslandsMapProps) {
   const visible = islands.slice(0, 6);
+  const positions = visible.map((_, i) => orbitPosition(i, visible.length));
 
   return (
     <div
       className={cn(
-        'relative min-h-[20rem] w-full overflow-hidden rounded-[2rem] sm:min-h-[24rem]',
+        'relative min-h-[22rem] w-full overflow-hidden rounded-[2rem] sm:min-h-[28rem]',
         className
       )}
-      aria-label="Davranış adaları haritası"
+      aria-label="AI ilişki evreni — davranış adaları"
     >
+      {/* Evren atmosferi — derin nebula gradyanları */}
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_45%,rgba(196,181,253,0.18),transparent_65%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_72%_58%_at_50%_50%,rgba(196,181,253,0.22),transparent_66%)]"
         aria-hidden
       />
-      <svg
-        className="pointer-events-none absolute inset-0 h-full w-full text-violet-300/35"
-        viewBox="0 0 400 320"
-        preserveAspectRatio="none"
+      <div
+        className="pointer-events-none absolute -left-10 top-6 h-44 w-44 rounded-full bg-violet-300/20 blur-3xl"
         aria-hidden
-      >
-        <ellipse
-          cx="200"
-          cy="160"
-          rx="165"
-          ry="118"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.2"
-          strokeDasharray="5 8"
-        />
-        <ellipse
-          cx="200"
-          cy="160"
-          rx="118"
-          ry="82"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="0.8"
-          strokeDasharray="3 10"
-          opacity="0.6"
-        />
-      </svg>
-      {[8, 22, 36].map((top) => (
+      />
+      <div
+        className="pointer-events-none absolute -right-8 bottom-4 h-48 w-48 rounded-full bg-sky-200/20 blur-3xl"
+        aria-hidden
+      />
+      {/* Yıldız tozu */}
+      {[
+        { l: 18, t: 16 },
+        { l: 78, t: 22 },
+        { l: 30, t: 80 },
+        { l: 68, t: 74 },
+        { l: 50, t: 10 },
+      ].map((s) => (
         <span
-          key={top}
-          className="pointer-events-none absolute h-1 w-1 rounded-full bg-violet-400/40"
-          style={{ left: `${top + 40}%`, top: `${top}%` }}
+          key={`${s.l}-${s.t}`}
+          className="pointer-events-none absolute h-1 w-1 rounded-full bg-white/70 shadow-[0_0_6px_2px_rgba(196,181,253,0.5)]"
+          style={{ left: `${s.l}%`, top: `${s.t}%` }}
           aria-hidden
         />
       ))}
 
+      {/* Yörünge halkaları + merkeze bağlantı çizgileri */}
+      <svg
+        className="pointer-events-none absolute inset-0 h-full w-full text-violet-300/35"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <ellipse
+          cx="50"
+          cy="50"
+          rx="40"
+          ry="37"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.3"
+          strokeDasharray="1.2 2"
+          vectorEffect="non-scaling-stroke"
+        />
+        <ellipse
+          cx="50"
+          cy="50"
+          rx="26"
+          ry="24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.2"
+          strokeDasharray="0.8 2.6"
+          opacity="0.6"
+          vectorEffect="non-scaling-stroke"
+        />
+        {!ghost &&
+          positions.map((p, i) => (
+            <line
+              key={`conn-${visible[i]!.id}`}
+              x1="50"
+              y1="50"
+              x2={p.left}
+              y2={p.top}
+              stroke={visible[i]!.color}
+              strokeOpacity={selectedId === visible[i]!.id ? 0.55 : 0.16}
+              strokeWidth={selectedId === visible[i]!.id ? 0.7 : 0.35}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+      </svg>
+
+      {/* Merkez çekirdek — "AI İLİŞKİN / SEN" */}
+      {centerLabel ? (
+        <div
+          className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
+          aria-hidden={ghost}
+        >
+          {/* Canlı aura */}
+          {!ghost ? (
+            <span
+              className={cn(
+                'pointer-events-none absolute left-1/2 top-1/2 -z-10 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full blur-xl sm:h-32 sm:w-32',
+                animated && 'animate-core-aura'
+              )}
+              style={{
+                background:
+                  'radial-gradient(circle, rgba(155,132,255,0.55), rgba(123,97,255,0.18) 60%, transparent 75%)',
+              }}
+              aria-hidden
+            />
+          ) : null}
+          <div
+            className={cn(
+              'flex h-[5.5rem] w-[5.5rem] flex-col items-center justify-center rounded-full border border-white/70 text-center backdrop-blur-md sm:h-24 sm:w-24',
+              ghost ? 'opacity-40' : ''
+            )}
+            style={{
+              background:
+                'radial-gradient(circle at 34% 26%, rgba(255,255,255,0.96), rgba(244,241,253,0.8) 58%, rgba(225,216,250,0.62) 100%)',
+              boxShadow:
+                '0 16px 44px -14px rgba(123,97,255,0.5), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -10px 24px -14px rgba(123,97,255,0.35)',
+            }}
+          >
+            <span className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#7B61FF]/75">
+              AI İlişkin
+            </span>
+            <span className="mt-0.5 text-lg font-bold tracking-tight text-[#172033]">
+              {centerLabel}
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {visible.map((island, index) => {
-        const slot = SLOT_POSITIONS[index] ?? SLOT_POSITIONS[0]!;
+        const p = positions[index]!;
         return (
           <div
             key={`${island.id}-${ghost}`}
             className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{ left: slot.left, top: slot.top }}
+            style={{ left: `${p.left}%`, top: `${p.top}%` }}
           >
-            <BehaviorIslandBlob island={island} ghost={ghost} />
+            <BehaviorIslandBlob
+              island={island}
+              ghost={ghost}
+              interactive={interactive}
+              selected={selectedId === island.id}
+              onSelect={onSelectIsland}
+              animated={animated}
+              animationDelay={index * 0.9}
+            />
           </div>
         );
       })}
