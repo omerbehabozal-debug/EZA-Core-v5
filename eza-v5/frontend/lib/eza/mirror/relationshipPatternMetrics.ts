@@ -54,6 +54,8 @@ export type RelationshipDashboardMetrics = {
   pattern: RelationshipPatternModel;
   meta: MirrorStateMeta;
   islands: BehaviorIsland[];
+  /** Sabit 5 ana alan + ek gerçek kategoriler; ghost olanlar `active: false`. */
+  displayIslands: MapDisplayIsland[];
   isEmpty: boolean;
   isSparse: boolean;
   generalBalanceLabel: string;
@@ -84,11 +86,12 @@ const BALANCE_BAR_LABELS = [
   'Diğer',
 ] as const;
 
-// Boş durum placeholder'ları — etiketler gerçek kategori diliyle (USER_CATEGORY_LABEL)
-// ve renkler kategori paletiyle (ISLAND_COLORS) hizalı. Yalnızca görsel; algoritma/veri değil.
-const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
+// Sabit 5 ana davranış alanı — id'ler gerçek kategori id'leriyle (UserObservationCategoryId),
+// etiketler USER_CATEGORY_LABEL ve renkler ISLAND_COLORS paletiyle hizalı.
+// Gerçek veri gelince aynı id üzerinden "aktif ada"ya dönüşür. Yalnızca sunum; algoritma/veri değil.
+const CANONICAL_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
   {
-    id: 'ghost_exploration',
+    id: 'exploration',
     label: 'Keşif odaklı',
     percent: 22,
     color: '#a78bfa',
@@ -96,7 +99,7 @@ const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
     description: '',
   },
   {
-    id: 'ghost_decision',
+    id: 'decision_support',
     label: 'Karar desteği',
     percent: 28,
     color: '#60a5fa',
@@ -104,7 +107,7 @@ const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
     description: '',
   },
   {
-    id: 'ghost_clarity',
+    id: 'clarity_seek',
     label: 'Netlik arayışı',
     percent: 23,
     color: '#34d399',
@@ -112,7 +115,7 @@ const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
     description: '',
   },
   {
-    id: 'ghost_ideas',
+    id: 'creative_ideas',
     label: 'Fikir geliştirme',
     percent: 18,
     color: '#fbbf24',
@@ -120,7 +123,7 @@ const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
     description: '',
   },
   {
-    id: 'ghost_depth',
+    id: 'intellectual_depth',
     label: 'Düşünsel yoğunluk',
     percent: 14,
     color: '#818cf8',
@@ -128,6 +131,17 @@ const GHOST_ISLAND_SEED: Omit<BehaviorIsland, 'intensity'>[] = [
     description: '',
   },
 ];
+
+const CANONICAL_ISLAND_IDS = new Set(CANONICAL_ISLAND_SEED.map((s) => s.id));
+
+/** @deprecated CANONICAL_ISLAND_SEED kullan — geriye uyumluluk için korunuyor. */
+const GHOST_ISLAND_SEED = CANONICAL_ISLAND_SEED;
+
+/** Sinyali olmayan (ghost) adalar için sabit görsel yoğunluk. */
+const GHOST_DISPLAY_INTENSITY = 0.42;
+
+/** Haritada gösterilen ada — gerçek veriye sahip olanlar `active: true`. */
+export type MapDisplayIsland = BehaviorIsland & { active: boolean };
 
 export function normalizeIslandPercents(islands: BehaviorIsland[]): BehaviorIsland[] {
   const total = islands.reduce((s, i) => s + i.percent, 0);
@@ -349,6 +363,42 @@ export function buildGhostIslands(): BehaviorIsland[] {
   }));
 }
 
+/**
+ * Haritada her zaman sabit 5 ana alan görünsün:
+ *  - gerçek veriye sahip alanlar → aktif ada (canlı, tıklanabilir)
+ *  - veri olmayan alanlar → ghost ada (soluk, "sinyal yok", tıklanınca açıklama)
+ * Kanonik 5'in dışında backend'den gerçek kategori gelirse, düzeni bozmadan aktif ada olarak eklenir.
+ * Salt sunum: gerçek ada verisi olduğu gibi kullanılır, ghost'lar üretilmez/değiştirilmez.
+ */
+export function buildMapDisplayIslands(realIslands: BehaviorIsland[]): MapDisplayIsland[] {
+  const byId = new Map(realIslands.map((i) => [i.id, i] as const));
+  const result: MapDisplayIsland[] = [];
+
+  for (const seed of CANONICAL_ISLAND_SEED) {
+    const real = byId.get(seed.id);
+    if (real) {
+      result.push({ ...real, active: true });
+    } else {
+      result.push({
+        ...seed,
+        percent: 0,
+        trend: 'stable',
+        description: '',
+        intensity: GHOST_DISPLAY_INTENSITY,
+        active: false,
+      });
+    }
+  }
+
+  for (const island of realIslands) {
+    if (!CANONICAL_ISLAND_IDS.has(island.id)) {
+      result.push({ ...island, active: true });
+    }
+  }
+
+  return result;
+}
+
 function mirrorIslandsToBehavior(mapIslands: BehaviorIsland[]): BehaviorIsland[] {
   return normalizeIslandPercents(mapIslands);
 }
@@ -375,6 +425,7 @@ export function buildRelationshipDashboardMetrics(
     pattern,
     meta,
     islands,
+    displayIslands: buildMapDisplayIslands(islands),
     isEmpty,
     isSparse,
     generalBalanceLabel: map.generalBalanceLabel,

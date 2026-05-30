@@ -8,6 +8,8 @@ export type IslandDetailPanelProps = {
   island: BehaviorIsland;
   onClose: () => void;
   className?: string;
+  /** false ise: bu alanda henüz gerçek davranış sinyali yok (ghost ada). */
+  active?: boolean;
 };
 
 const TREND_VIEW: Record<
@@ -38,9 +40,59 @@ export default function IslandDetailPanel({
   island,
   onClose,
   className,
+  active = true,
 }: IslandDetailPanelProps) {
   const trend = TREND_VIEW[island.trend ?? 'stable'];
   const TrendIcon = trend.Icon;
+
+  if (!active) {
+    return (
+      <article
+        className={cn(
+          'relative overflow-hidden rounded-[1.75rem] border border-white/90 bg-white/85 p-5 shadow-[0_18px_52px_-20px_rgba(123,97,255,0.32)] backdrop-blur-md',
+          className
+        )}
+        aria-label={`${island.label} ada ayrıntısı`}
+      >
+        <div
+          className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-30 blur-2xl"
+          style={{ background: `radial-gradient(circle, ${island.color}33, transparent 70%)` }}
+          aria-hidden
+        />
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[#667085]/70 transition-colors hover:bg-stone-100 hover:text-[#172033] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7B61FF]/40"
+          aria-label="Ayrıntıyı kapat"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="relative flex items-center gap-2.5">
+          <span
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full opacity-60"
+            style={{
+              background: `radial-gradient(circle at 32% 28%, ${island.color}33, ${island.color}14 60%, transparent 78%)`,
+              border: `1px solid ${island.color}40`,
+            }}
+            aria-hidden
+          >
+            <span className="h-2 w-2 rounded-full" style={{ background: `${island.color}99` }} />
+          </span>
+          <h3 className="text-lg font-semibold tracking-tight text-[#172033]/80">{island.label}</h3>
+        </div>
+
+        <p className="relative mt-4 text-[15px] font-medium leading-relaxed text-[#172033]/80">
+          Bu alanda henüz yeterli davranış sinyali oluşmadı.
+        </p>
+        <p className="relative mt-2 text-sm leading-relaxed text-[#667085]">
+          EZA bu davranış alanını gözlemliyor; bu yönde birkaç etkileşim biriktiğinde ada canlanıp
+          haritada belirginleşecek.
+        </p>
+      </article>
+    );
+  }
 
   return (
     <article

@@ -45,15 +45,18 @@ function pickIcon(id: string) {
   return ICONS[id] ?? Sparkles;
 }
 
+/** Sinyali olmayan (ghost) adalar için sabit, ölçülü boyut. */
+const GHOST_BLOB_PX = 124;
+
 export type BehaviorIslandBlobProps = {
   island: BehaviorIsland;
   className?: string;
   style?: React.CSSProperties;
   ghost?: boolean;
-  /** Tıklanabilir hale getirir (Harita seviyesi). */
+  /** Tıklanabilir hale getirir (Harita seviyesi). Ghost adalar da tıklanabilir. */
   interactive?: boolean;
   selected?: boolean;
-  onSelect?: (island: BehaviorIsland) => void;
+  onSelect?: () => void;
   /** Hafif nefes alma animasyonu (reduced-motion'da kapalı). */
   animated?: boolean;
   /** Animasyon faz farkı için (saniye). */
@@ -71,14 +74,14 @@ export default function BehaviorIslandBlob({
   animated = false,
   animationDelay = 0,
 }: BehaviorIslandBlobProps) {
-  const size = islandBlobSizePx(island.percent);
+  const size = ghost ? GHOST_BLOB_PX : islandBlobSizePx(island.percent);
   const Icon = pickIcon(island.id);
-  const clickable = interactive && !ghost;
+  const clickable = interactive;
   const shape = ORGANIC_SHAPES[hashIndex(island.id, ORGANIC_SHAPES.length)]!;
   const TrendIcon =
-    island.trend === 'growing'
+    !ghost && island.trend === 'growing'
       ? ArrowUpRight
-      : island.trend === 'fading'
+      : !ghost && island.trend === 'fading'
         ? ArrowDownRight
         : null;
 
@@ -107,21 +110,27 @@ export default function BehaviorIslandBlob({
 
       <article
         className={cn(
-          'relative flex flex-col items-center justify-center overflow-hidden border text-center backdrop-blur-md transition-transform duration-500',
-          ghost ? 'opacity-40' : 'group-hover:scale-[1.03]',
+          'relative flex flex-col items-center justify-center overflow-hidden border text-center backdrop-blur-md transition-all duration-500',
+          ghost ? 'opacity-40 group-hover:opacity-65' : 'group-hover:scale-[1.03]',
           clickable && 'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7B61FF]/50'
         )}
         role={clickable ? 'button' : undefined}
         tabIndex={clickable ? 0 : undefined}
         aria-pressed={clickable ? selected : undefined}
-        aria-label={clickable ? `${island.label} adası — %${island.percent}` : undefined}
-        onClick={clickable ? () => onSelect?.(island) : undefined}
+        aria-label={
+          clickable
+            ? ghost
+              ? `${island.label} adası — sinyal yok`
+              : `${island.label} adası — %${island.percent}`
+            : undefined
+        }
+        onClick={clickable ? () => onSelect?.() : undefined}
         onKeyDown={
           clickable
             ? (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  onSelect?.(island);
+                  onSelect?.();
                 }
               }
             : undefined
@@ -156,17 +165,23 @@ export default function BehaviorIslandBlob({
         <p className="relative max-w-[86%] text-[13px] font-semibold leading-tight tracking-tight text-[#172033]">
           {island.label}
         </p>
-        <p className="relative mt-1 inline-flex items-center gap-0.5 text-[10px] font-medium tabular-nums text-[#172033]/45">
-          {TrendIcon ? (
-            <TrendIcon
-              className="h-3 w-3"
-              style={{ color: `${island.color}cc` }}
-              strokeWidth={2}
-              aria-hidden
-            />
-          ) : null}
-          %{island.percent}
-        </p>
+        {ghost ? (
+          <p className="relative mt-1 text-[9px] font-medium uppercase tracking-[0.1em] text-[#172033]/35">
+            sinyal yok
+          </p>
+        ) : (
+          <p className="relative mt-1 inline-flex items-center gap-0.5 text-[10px] font-medium tabular-nums text-[#172033]/45">
+            {TrendIcon ? (
+              <TrendIcon
+                className="h-3 w-3"
+                style={{ color: `${island.color}cc` }}
+                strokeWidth={2}
+                aria-hidden
+              />
+            ) : null}
+            %{island.percent}
+          </p>
+        )}
       </article>
     </div>
   );

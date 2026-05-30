@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import type { BehaviorIsland } from '@/lib/eza/relationshipMapModel';
+import type { MapDisplayIsland } from '@/lib/eza/mirror/relationshipPatternMetrics';
 import BehaviorIslandBlob from '@/components/mirror/relationship/BehaviorIslandBlob';
 
 /** Merkez çekirdek etrafında organik orbit yerleşimi (yüzde cinsinden). */
@@ -18,13 +18,12 @@ function orbitPosition(index: number, count: number): { left: number; top: numbe
 }
 
 export type BehaviorIslandsMapProps = {
-  islands: BehaviorIsland[];
-  ghost?: boolean;
+  islands: MapDisplayIsland[];
   className?: string;
-  /** Harita seviyesinde ada seçimi. */
+  /** Harita seviyesinde ada seçimi (ghost adalar da tıklanabilir). */
   interactive?: boolean;
   selectedId?: string | null;
-  onSelectIsland?: (island: BehaviorIsland) => void;
+  onSelectIsland?: (island: MapDisplayIsland) => void;
   /** Merkez çekirdek ana etiketi (örn. "SEN"). */
   centerLabel?: string;
   /** Hafif canlı animasyonlar (reduced-motion'da kapalı). */
@@ -33,7 +32,6 @@ export type BehaviorIslandsMapProps = {
 
 export default function BehaviorIslandsMap({
   islands,
-  ghost = false,
   className,
   interactive = false,
   selectedId = null,
@@ -41,7 +39,8 @@ export default function BehaviorIslandsMap({
   centerLabel,
   animated = false,
 }: BehaviorIslandsMapProps) {
-  const visible = islands.slice(0, 6);
+  // Sabit 5 ana alan + en fazla 2 ek gerçek kategori (düzeni korumak için).
+  const visible = islands.slice(0, 7);
   const positions = visible.map((_, i) => orbitPosition(i, visible.length));
 
   return (
@@ -111,8 +110,8 @@ export default function BehaviorIslandsMap({
           opacity="0.6"
           vectorEffect="non-scaling-stroke"
         />
-        {!ghost &&
-          positions.map((p, i) => (
+        {positions.map((p, i) =>
+          visible[i]!.active ? (
             <line
               key={`conn-${visible[i]!.id}`}
               x1="50"
@@ -124,34 +123,27 @@ export default function BehaviorIslandsMap({
               strokeWidth={selectedId === visible[i]!.id ? 0.7 : 0.35}
               vectorEffect="non-scaling-stroke"
             />
-          ))}
+          ) : null
+        )}
       </svg>
 
-      {/* Merkez çekirdek — "AI İLİŞKİN / SEN" */}
+      {/* Merkez çekirdek — "AI İLİŞKİN / SEN" (her zaman görünür) */}
       {centerLabel ? (
-        <div
-          className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
-          aria-hidden={ghost}
-        >
+        <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
           {/* Canlı aura */}
-          {!ghost ? (
-            <span
-              className={cn(
-                'pointer-events-none absolute left-1/2 top-1/2 -z-10 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full blur-xl sm:h-32 sm:w-32',
-                animated && 'animate-core-aura'
-              )}
-              style={{
-                background:
-                  'radial-gradient(circle, rgba(155,132,255,0.55), rgba(123,97,255,0.18) 60%, transparent 75%)',
-              }}
-              aria-hidden
-            />
-          ) : null}
-          <div
+          <span
             className={cn(
-              'flex h-[5.5rem] w-[5.5rem] flex-col items-center justify-center rounded-full border border-white/70 text-center backdrop-blur-md sm:h-24 sm:w-24',
-              ghost ? 'opacity-40' : ''
+              'pointer-events-none absolute left-1/2 top-1/2 -z-10 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full blur-xl sm:h-32 sm:w-32',
+              animated && 'animate-core-aura'
             )}
+            style={{
+              background:
+                'radial-gradient(circle, rgba(155,132,255,0.55), rgba(123,97,255,0.18) 60%, transparent 75%)',
+            }}
+            aria-hidden
+          />
+          <div
+            className="flex h-[5.5rem] w-[5.5rem] flex-col items-center justify-center rounded-full border border-white/70 text-center backdrop-blur-md sm:h-24 sm:w-24"
             style={{
               background:
                 'radial-gradient(circle at 34% 26%, rgba(255,255,255,0.96), rgba(244,241,253,0.8) 58%, rgba(225,216,250,0.62) 100%)',
@@ -173,16 +165,16 @@ export default function BehaviorIslandsMap({
         const p = positions[index]!;
         return (
           <div
-            key={`${island.id}-${ghost}`}
+            key={island.id}
             className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{ left: `${p.left}%`, top: `${p.top}%` }}
           >
             <BehaviorIslandBlob
               island={island}
-              ghost={ghost}
+              ghost={!island.active}
               interactive={interactive}
               selected={selectedId === island.id}
-              onSelect={onSelectIsland}
+              onSelect={() => onSelectIsland?.(island)}
               animated={animated}
               animationDelay={index * 0.9}
             />

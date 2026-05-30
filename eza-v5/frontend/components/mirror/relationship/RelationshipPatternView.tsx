@@ -71,8 +71,8 @@ export default function RelationshipPatternView({
       : 68;
 
   const selectedIsland = useMemo(
-    () => metrics.islands.find((i) => i.id === selectedId) ?? null,
-    [metrics.islands, selectedId]
+    () => metrics.displayIslands.find((i) => i.id === selectedId) ?? null,
+    [metrics.displayIslands, selectedId]
   );
 
   // Sunum amaçlı türevler — yalnızca mevcut metrics alanları okunur (mantık değişmez).
@@ -150,47 +150,40 @@ export default function RelationshipPatternView({
               className="relative flex min-h-0 flex-col overflow-hidden rounded-[2rem] border border-white/90 bg-gradient-to-b from-white/95 via-[#F8F6F1]/55 to-violet-50/30 p-3 shadow-[0_20px_60px_-24px_rgba(123,97,255,0.22)] sm:p-5"
               aria-labelledby="behavior-islands-title"
             >
-              <p
-                id="behavior-islands-title"
-                className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B61FF]/70"
-              >
-                Davranış Adaların
-              </p>
+              <div className="flex shrink-0 items-baseline justify-between gap-2">
+                <p
+                  id="behavior-islands-title"
+                  className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B61FF]/70"
+                >
+                  Davranış Adaların
+                </p>
+                {metrics.isEmpty ? (
+                  <p className="text-[11px] text-[#667085]">
+                    Desen henüz oluşmadı — gözlenen alanlar aşağıda.
+                  </p>
+                ) : null}
+              </div>
 
-              {metrics.isEmpty ? (
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="mt-2 shrink-0 rounded-2xl border border-dashed border-violet-200/80 bg-white/50 px-4 py-2.5 text-center">
-                    <p className="text-sm font-medium text-[#172033]">Desen henüz oluşmadı.</p>
-                    <p className="mt-0.5 text-xs text-[#667085]">
-                      AI ile birkaç sohbetten sonra adaların belirir.
-                    </p>
-                  </div>
-                  <BehaviorIslandsMap
-                    islands={metrics.ghostIslands}
-                    ghost
-                    centerLabel="SEN"
-                    animated={animated}
-                    className="min-h-0 flex-1"
-                  />
-                </div>
-              ) : (
-                <BehaviorIslandsMap
-                  islands={metrics.islands}
-                  interactive
-                  selectedId={selectedId}
-                  onSelectIsland={(island) =>
-                    setSelectedId((prev) => (prev === island.id ? null : island.id))
-                  }
-                  centerLabel="SEN"
-                  animated={animated}
-                  className="mt-1 min-h-0 flex-1"
-                />
-              )}
+              <BehaviorIslandsMap
+                islands={metrics.displayIslands}
+                interactive
+                selectedId={selectedId}
+                onSelectIsland={(island) =>
+                  setSelectedId((prev) => (prev === island.id ? null : island.id))
+                }
+                centerLabel="SEN"
+                animated={animated}
+                className="mt-1 min-h-0 flex-1"
+              />
             </section>
 
             <aside className="min-h-0">
               {selectedIsland ? (
-                <IslandDetailPanel island={selectedIsland} onClose={() => setSelectedId(null)} />
+                <IslandDetailPanel
+                  island={selectedIsland}
+                  active={selectedIsland.active}
+                  onClose={() => setSelectedId(null)}
+                />
               ) : (
                 <RelationshipSummaryCard
                   label={metrics.generalBalanceLabel}
