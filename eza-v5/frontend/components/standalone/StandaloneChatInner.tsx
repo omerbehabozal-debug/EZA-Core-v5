@@ -30,6 +30,7 @@ import { extractMirrorCueHintsFromUserText } from '@/lib/eza/mirror/intentLockSy
 import {
   createStandaloneChat,
   getChatArchive,
+  pruneEmptyChats,
   saveStandaloneChat,
   writeActiveChatId,
 } from '@/lib/standaloneChatArchive';
@@ -117,6 +118,22 @@ export default function StandaloneChatInner() {
     [resetStream]
   );
 
+  /**
+   * Boş bir taslak başlatır: henüz arşive yazılmaz (lazy creation).
+   * Gerçek arşiv kaydı ilk mesaj gönderildiğinde `handleSend` içinde oluşur.
+   */
+  const startDraft = useCallback(() => {
+    skipAutosaveRef.current = true;
+    resetStream();
+    setChatId(null);
+    setMessages([]);
+    setIsLoading(false);
+    setIsTyping(false);
+    window.setTimeout(() => {
+      skipAutosaveRef.current = false;
+    }, 0);
+  }, [resetStream]);
+
   // Load settings from localStorage on mount
   useEffect(() => {
     const savedSafeOnly = localStorage.getItem(STORAGE_KEY_SAFE_ONLY);
@@ -153,7 +170,9 @@ export default function StandaloneChatInner() {
     writeStoredAnalysisModel(analysisModelId);
   }, [analysisModelId]);
 
-  // Yenileme (F5) → yeni sohbet. Sidebar / ?chat= ile geçiş → mevcut sohbet korunur.
+  // Lazy: sayfa açılışında/yenilemede boş sohbet OLUŞTURULMAZ.
+  // Geçerli ?chat= → mevcut sohbet yüklenir (deep-link / F5 korunur).
+  // Aksi halde → boş taslak (arşive yazılmaz). Birikmiş boşlar prune edilir.
   useEffect(() => {
     if (ready) return;
 
@@ -163,33 +182,22 @@ export default function StandaloneChatInner() {
       }, 0);
     };
 
-    const isReload =
-      typeof window !== 'undefined' &&
-      (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)
-        ?.type === 'reload';
-
-    if (isReload) {
-      const targetId = createStandaloneChat();
-      router.replace(`/standalone?chat=${targetId}`, { scroll: false });
-      loadChatIntoState(targetId);
-      setReady(true);
-      enableUrlSync();
-      return;
-    }
-
     if (chatIdFromUrl && getChatArchive(chatIdFromUrl)) {
+      pruneEmptyChats(chatIdFromUrl);
       loadChatIntoState(chatIdFromUrl);
       setReady(true);
       enableUrlSync();
       return;
     }
 
-    const targetId = createStandaloneChat();
-    router.replace(`/standalone?chat=${targetId}`, { scroll: false });
-    loadChatIntoState(targetId);
+    pruneEmptyChats();
+    if (chatIdFromUrl) {
+      router.replace('/standalone', { scroll: false });
+    }
+    startDraft();
     setReady(true);
     enableUrlSync();
-  }, [ready, chatIdFromUrl, router, loadChatIntoState]);
+  }, [ready, chatIdFromUrl, router, loadChatIntoState, startDraft]);
 
   useEffect(() => {
     if (!ready || !urlSyncEnabledRef.current || !chatIdFromUrl) return;
@@ -202,10 +210,10 @@ export default function StandaloneChatInner() {
 
     if (loadChatIntoState(chatIdFromUrl)) return;
 
-    const fallback = createStandaloneChat();
-    router.replace(`/standalone?chat=${fallback}`, { scroll: false });
-    loadChatIntoState(fallback);
-  }, [chatIdFromUrl, chatId, ready, flushSave, loadChatIntoState, router]);
+    // Arşivde olmayan (silinmiş/eski) ?chat= → boş kayıt açma, taslağa düş.
+    router.replace('/standalone', { scroll: false });
+    startDraft();
+  }, [chatIdFromUrl, chatId, ready, flushSave, loadChatIntoState, router, startDraft]);
 
   useEffect(() => {
     if (skipAutosaveRef.current || !chatId) return;
@@ -235,14 +243,13 @@ export default function StandaloneChatInner() {
   }, [resetStream]);
 
   const handleNewChat = useCallback(() => {
-    if (chatId && toArchivedMessages(messages).length === 0) return;
-    if (chatId && !skipAutosaveRef.current) {
+    // Mevcut sohbette içerik varsa kaydet, sonra boş taslağa dön (yeni boş kayıt açma).
+    if (chatId && !skipAutosaveRef.current && toArchivedMessages(messages).length > 0) {
       flushSave(chatId, messages);
     }
-    const newId = createStandaloneChat();
-    router.push(`/standalone?chat=${newId}`);
-    loadChatIntoState(newId);
-  }, [chatId, messages, flushSave, router, loadChatIntoState]);
+    router.replace('/standalone', { scroll: false });
+    startDraft();
+  }, [chatId, messages, flushSave, router, startDraft]);
 
   const incrementDailyCount = useCallback(() => {
     const newCount = dailyCount + 1;
@@ -263,7 +270,13 @@ export default function StandaloneChatInner() {
   }, [dailyCount]);
 
   const handleSend = async (text: string) => {
-    if (!chatId) return;
+    // Lazy creation: ilk mesajda arşiv kaydını burada oluştur.
+    if (!chatId) {
+      const newId = createStandaloneChat();
+      skipAutosaveRef.current = false;
+      setChatId(newId);
+      router.replace(`/standalone?chat=${newId}`, { scroll: false });
+    }
 
     if (isLimitReached || dailyCount >= DAILY_LIMIT_HARD) {
       const limitMessage: Message = {

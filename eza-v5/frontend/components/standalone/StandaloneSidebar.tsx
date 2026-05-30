@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   CHATS_UPDATED_EVENT,
-  createStandaloneChat,
   deleteChatArchive,
   listChatArchives,
   summarizeArchiveTitle,
@@ -68,8 +67,8 @@ export default function StandaloneSidebar({
       if (remaining.length > 0) {
         router.push(`/standalone?chat=${remaining[0]!.id}`);
       } else {
-        const newId = createStandaloneChat();
-        router.push(`/standalone?chat=${newId}`);
+        // Boş kayıt açma; temiz bir taslakla /standalone'a dön.
+        router.push('/standalone');
       }
     }
     refreshChats();
@@ -79,8 +78,8 @@ export default function StandaloneSidebar({
     if (onNewChat) {
       onNewChat();
     } else {
-      const newId = createStandaloneChat();
-      router.push(`/standalone?chat=${newId}`);
+      // Lazy: boş sohbet oluşturmadan taslak başlatmak için /standalone'a git.
+      router.push('/standalone');
     }
     onMobileClose();
   };
