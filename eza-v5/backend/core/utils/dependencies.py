@@ -138,6 +138,27 @@ async def init_db():
             logging.info("User model columns checked/added successfully")
         except Exception as e:
             logging.warning(f"Could not add User model columns (may already exist): {e}")
+
+        # mirror_plan — consumer Mirror entitlement (free | plus)
+        try:
+            check_result = await conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'production_users'
+                AND column_name = 'mirror_plan'
+            """))
+            if not check_result.scalar_one_or_none():
+                await conn.execute(text("""
+                    ALTER TABLE production_users
+                    ADD COLUMN mirror_plan VARCHAR(20) NOT NULL DEFAULT 'free'
+                """))
+                await conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS ix_production_users_mirror_plan
+                    ON production_users(mirror_plan)
+                """))
+                logging.info("Added mirror_plan column to production_users")
+        except Exception as e:
+            logging.warning(f"Could not add mirror_plan column (may already exist): {e}")
         
         # Add analysis_mode column to production_organizations if it doesn't exist
         try:

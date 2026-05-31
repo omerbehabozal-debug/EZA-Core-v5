@@ -1,28 +1,40 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  PLAN_UPGRADE_AUTH_BODY,
+  PLAN_UPGRADE_AUTH_TITLE,
   PLAN_UPGRADE_BADGE,
+  PLAN_UPGRADE_LOGIN_CTA,
   PLAN_UPGRADE_MODAL_BODY,
   PLAN_UPGRADE_MODAL_DISMISS,
   PLAN_UPGRADE_MODAL_NOTE,
   PLAN_UPGRADE_MODAL_TITLE,
 } from '@/lib/eza/mirror/copy';
 
+export type UpgradeModalVariant = 'upgrade' | 'auth_required';
+
 export interface UpgradeModalProps {
   open: boolean;
   onClose: () => void;
+  variant?: UpgradeModalVariant;
   /** Hangi özellikten tetiklendi (analitik/etiket amaçlı). */
   feature?: string;
 }
 
-/**
- * Sprint 1 — Plus upsell modalı. Gerçek ödeme yok; planı otomatik çevirmez.
- * Auth/ödeme gelene kadar ürün deneyimini simüle eder.
- */
-export default function UpgradeModal({ open, onClose, feature }: UpgradeModalProps) {
+export default function UpgradeModal({
+  open,
+  onClose,
+  variant = 'upgrade',
+  feature,
+}: UpgradeModalProps) {
+  const pathname = usePathname();
+  const loginHref = `/platform/login?return=${encodeURIComponent(pathname || '/standalone/mirror/daily')}`;
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -33,6 +45,10 @@ export default function UpgradeModal({ open, onClose, feature }: UpgradeModalPro
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const isAuth = variant === 'auth_required';
+  const title = isAuth ? PLAN_UPGRADE_AUTH_TITLE : PLAN_UPGRADE_MODAL_TITLE;
+  const body = isAuth ? PLAN_UPGRADE_AUTH_BODY : PLAN_UPGRADE_MODAL_BODY;
 
   return (
     <div
@@ -78,24 +94,40 @@ export default function UpgradeModal({ open, onClose, feature }: UpgradeModalPro
           id="plan-upgrade-title"
           className="mt-3 text-lg font-semibold tracking-[-0.02em] text-stone-900"
         >
-          {PLAN_UPGRADE_MODAL_TITLE}
+          {title}
         </h2>
 
-        <p className="mt-2 text-sm leading-relaxed text-stone-600">
-          {PLAN_UPGRADE_MODAL_BODY}
-        </p>
+        <p className="mt-2 text-sm leading-relaxed text-stone-600">{body}</p>
 
-        <p className="mt-4 text-[11px] leading-relaxed text-stone-400">
-          {PLAN_UPGRADE_MODAL_NOTE}
-        </p>
+        {!isAuth ? (
+          <p className="mt-4 text-[11px] leading-relaxed text-stone-400">
+            {PLAN_UPGRADE_MODAL_NOTE}
+          </p>
+        ) : null}
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-stone-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
-        >
-          {PLAN_UPGRADE_MODAL_DISMISS}
-        </button>
+        <div className="mt-5 flex flex-col gap-2">
+          {isAuth ? (
+            <Link
+              href={loginHref}
+              onClick={onClose}
+              className="inline-flex w-full items-center justify-center rounded-full bg-stone-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+            >
+              {PLAN_UPGRADE_LOGIN_CTA}
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(
+              'inline-flex w-full items-center justify-center rounded-full px-6 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+              isAuth
+                ? 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 focus-visible:outline-stone-400'
+                : 'bg-stone-900 text-white hover:bg-stone-800 focus-visible:outline-stone-400'
+            )}
+          >
+            {PLAN_UPGRADE_MODAL_DISMISS}
+          </button>
+        </div>
       </div>
     </div>
   );

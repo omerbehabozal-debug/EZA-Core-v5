@@ -150,6 +150,13 @@ export const PLAN_UPGRADE_MODAL_NOTE =
 
 export const PLAN_UPGRADE_MODAL_DISMISS = 'Şimdilik kapat';
 
+export const PLAN_UPGRADE_LOGIN_CTA = 'Giriş Yap';
+
+export const PLAN_UPGRADE_AUTH_TITLE = 'Giriş yap ve Plus’u keşfet';
+
+export const PLAN_UPGRADE_AUTH_BODY =
+  'Sahne üretimi ve tam ayna deneyimi için giriş yapman gerekiyor. Plus ile tüm özellikler açılır.';
+
 export const PLAN_UPGRADE_BADGE = 'Plus';
 
 /** Relationship Pattern (Free upsell) */

@@ -71,8 +71,11 @@ function PlatformLoginPageContent() {
         user_id: data.user_id,
       });
 
-      // Redirect to platform
-      router.push('/platform');
+      const returnTo =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('return')
+          : null;
+      router.push(returnTo && returnTo.startsWith('/') ? returnTo : '/platform');
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.message.includes('401') || err.message.includes('Incorrect')) {

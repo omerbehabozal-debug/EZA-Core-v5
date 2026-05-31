@@ -130,8 +130,8 @@ class ApiClient {
         let errorMessage: string;
         
         if (typeof data.detail === 'object' && data.detail !== null) {
-          // Backend returns { detail: { error: "...", message: "..." } }
-          errorCode = data.detail.error;
+          // Backend returns { detail: { code: "...", message: "..." } }
+          errorCode = data.detail.code || data.detail.error;
           errorMessage = data.detail.message || data.detail.error || 'Request failed';
         } else if (typeof data.detail === 'string') {
           errorMessage = data.detail;

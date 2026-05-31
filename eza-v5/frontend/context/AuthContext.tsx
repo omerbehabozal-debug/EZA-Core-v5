@@ -6,6 +6,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { notifyAuthChanged } from '@/lib/eza/plan/planStore';
 
 // Proxy roles (operational users)
 export type ProxyRole = 'proxy_user' | 'reviewer' | 'auditor';
@@ -89,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('Failed to save auth to localStorage:', error);
       }
+      notifyAuthChanged();
     }
   };
 
@@ -105,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('Failed to clear auth from localStorage:', error);
       }
+      notifyAuthChanged();
     }
   };
 

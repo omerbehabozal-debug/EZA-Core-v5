@@ -6,6 +6,7 @@ import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import StandalonePageShell from '@/components/standalone/StandalonePageShell';
 import { MirrorEntriesProvider } from '@/components/standalone/MirrorEntriesContext';
 import MirrorNav from '@/components/standalone/MirrorNav';
+import PlanHydrator from '@/components/plan/PlanHydrator';
 
 const rp = standaloneSkin.reportsPremium;
 
@@ -27,6 +28,8 @@ export default function MirrorLayout({ children }: { children: ReactNode }) {
               </div>
 
               <MirrorNav />
+
+              <PlanHydrator />
 
               <div className="mt-3 flex min-h-0 flex-1 flex-col sm:mt-4">{children}</div>
             </div>

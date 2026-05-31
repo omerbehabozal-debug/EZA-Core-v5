@@ -3,10 +3,12 @@
 
 from fastapi import APIRouter, Depends, status
 
+from backend.auth.mirror_entitlement import require_mirror_plus_user
 from backend.core.schemas.mirror_scene import (
     MirrorGenerateSceneRequest,
     MirrorGenerateSceneResponse,
 )
+from backend.models.production import User
 from backend.security.rate_limit import rate_limit_standalone
 from backend.services.mirror.mirror_image_service import generate_mirror_scene
 
@@ -20,6 +22,7 @@ router = APIRouter(prefix="/api/standalone/mirror", tags=["Standalone — Mirror
 )
 async def generate_mirror_scene_endpoint(
     body: MirrorGenerateSceneRequest,
+    _user: User = Depends(require_mirror_plus_user),
     _: None = Depends(rate_limit_standalone),
 ) -> MirrorGenerateSceneResponse:
     """

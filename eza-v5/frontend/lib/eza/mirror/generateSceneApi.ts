@@ -21,6 +21,18 @@ export type MirrorGenerateSceneRequest = {
   cardDate: string;
 };
 
+export type MirrorSceneErrorCode = 'auth_required' | 'upgrade_required' | 'unknown';
+
+export class MirrorSceneError extends Error {
+  readonly code: MirrorSceneErrorCode;
+
+  constructor(message: string, code: MirrorSceneErrorCode) {
+    super(message);
+    this.name = 'MirrorSceneError';
+    this.code = code;
+  }
+}
+
 export function buildMirrorGenerateScenePayload(
   visual: MirrorVisualPromptPayload,
   cardDate: string
@@ -42,14 +54,21 @@ export async function generateMirrorScene(
   const body = buildMirrorGenerateScenePayload(visual, cardDate);
   const res = await apiClient.post<MirrorGenerateSceneResponse>(
     '/api/standalone/mirror/generate-scene',
-    { body }
+    { body, auth: true }
   );
   if (!res.ok) {
+    const code = res.error?.error_code;
     const msg =
       res.error?.error_message ??
       res.error?.message ??
       'Mirror sahnesi şu an hazırlanamadı.';
-    throw new Error(msg);
+    if (code === 'auth_required') {
+      throw new MirrorSceneError(msg, 'auth_required');
+    }
+    if (code === 'upgrade_required') {
+      throw new MirrorSceneError(msg, 'upgrade_required');
+    }
+    throw new MirrorSceneError(msg, 'unknown');
   }
   const payload = (res.data ?? res) as MirrorGenerateSceneResponse;
   if (!payload.sceneImageUrl) {

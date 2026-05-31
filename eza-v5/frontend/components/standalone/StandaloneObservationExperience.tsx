@@ -19,7 +19,7 @@ import {
   resolveMirrorIntentContext,
   withDevVehicleCueHints,
 } from '@/lib/eza/mirror/mirrorIntentContext';
-import { generateMirrorScene } from '@/lib/eza/mirror/generateSceneApi';
+import { generateMirrorScene, MirrorSceneError } from '@/lib/eza/mirror/generateSceneApi';
 import {
   resolveMirrorRenderMode,
   setDevRenderMode,
@@ -36,6 +36,7 @@ import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
 import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
 import MirrorSceneGenerateButton from '@/components/mirror/MirrorSceneGenerateButton';
 import MirrorShareModal from '@/components/mirror/MirrorShareModal';
+import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
@@ -51,6 +52,8 @@ export default function StandaloneObservationExperience({
   entries,
 }: StandaloneObservationExperienceProps) {
   const [shareOpen, setShareOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeVariant, setUpgradeVariant] = useState<UpgradeModalVariant>('upgrade');
   const [dailyStatus, setDailyStatus] = useState<DailyMirrorStatus>('idle');
   const [generatedDailyCard, setGeneratedDailyCard] = useState<DailyMirrorCardModel | null>(
     null
@@ -222,9 +225,18 @@ export default function StandaloneObservationExperience({
           hybridFallbackReason: 'mock_provider_image',
         });
       }
-    } catch {
+    } catch (err) {
       setSceneImageUrl(null);
       setSceneImageStatus('error');
+      if (err instanceof MirrorSceneError) {
+        if (err.code === 'auth_required') {
+          setUpgradeVariant('auth_required');
+          setUpgradeOpen(true);
+        } else if (err.code === 'upgrade_required') {
+          setUpgradeVariant('upgrade');
+          setUpgradeOpen(true);
+        }
+      }
       const mode = visual.renderMode ?? resolveMirrorRenderMode();
       if (mode === 'hybrid_middle') {
         setHybridTextFallback(true);
@@ -391,6 +403,13 @@ export default function StandaloneObservationExperience({
         onDownload={handleShareDownload}
         onShare={handleShareNative}
         onCopyText={mirrorExport.copyText}
+      />
+
+      <UpgradeModal
+        open={upgradeOpen}
+        variant={upgradeVariant}
+        feature="mirror_scene_generate"
+        onClose={() => setUpgradeOpen(false)}
       />
     </>
   );

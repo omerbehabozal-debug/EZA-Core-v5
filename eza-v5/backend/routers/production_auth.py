@@ -16,6 +16,8 @@ from backend.services.production_auth import (
     hash_password, reset_user_password, normalize_email
 )
 from backend.models.production import User
+from backend.auth.deps import get_current_user
+from backend.auth.mirror_entitlement import get_production_user_by_id, normalize_mirror_plan
 from sqlalchemy import select, func
 from backend.services.production_org import create_organization
 from backend.config import get_settings
@@ -52,6 +54,36 @@ class LogoutRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
     new_password: str
+
+
+class AuthMeResponse(BaseModel):
+    user_id: str
+    email: str
+    role: str
+    mirror_plan: str
+
+
+@router.get("/me", response_model=AuthMeResponse)
+async def get_auth_me(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Current authenticated user profile including Mirror entitlement plan."""
+    user = await get_production_user_by_id(db, current_user["user_id"])
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "auth_required",
+                "message": "User not found or inactive",
+            },
+        )
+    return AuthMeResponse(
+        user_id=str(user.id),
+        email=user.email,
+        role=user.role,
+        mirror_plan=normalize_mirror_plan(getattr(user, "mirror_plan", "free")),
+    )
 
 
 @router.post("/register", response_model=TokenResponse)
