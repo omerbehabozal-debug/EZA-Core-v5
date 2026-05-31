@@ -188,8 +188,12 @@ export default function MirrorOnboardingPreview({ className }: MirrorOnboardingP
     }
   };
 
+  /** translateX % is relative to track width; each slide = 100/slideCount % of track. */
+  const slideShiftPct = slideCount > 0 ? (active * 100) / slideCount : 0;
+
   const trackStyle = {
-    transform: `translateX(calc(-${active * 100}% + ${dragOffset}px))`,
+    width: `${slideCount * 100}%`,
+    transform: `translateX(calc(-${slideShiftPct}% + ${dragOffset}px))`,
     transition: isDragging ? 'none' : SLIDE_TRANSITION,
   };
 
@@ -207,7 +211,7 @@ export default function MirrorOnboardingPreview({ className }: MirrorOnboardingP
       >
         <div
           ref={viewportRef}
-          className="overflow-hidden rounded-[1.25rem] touch-pan-y"
+          className="w-full overflow-hidden rounded-[1.25rem] touch-pan-y"
         >
           <div
             className="flex select-none"
@@ -220,7 +224,8 @@ export default function MirrorOnboardingPreview({ className }: MirrorOnboardingP
             {ONBOARDING_PREVIEW_SLIDES.map((slide, index) => (
               <div
                 key={slide.id}
-                className="relative min-w-full shrink-0 grow-0 basis-full"
+                className="relative shrink-0 grow-0"
+                style={{ flex: `0 0 ${100 / slideCount}%` }}
                 aria-hidden={index !== active}
               >
                 <Image
