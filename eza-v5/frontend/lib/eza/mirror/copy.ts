@@ -13,7 +13,7 @@ export const MIRROR_PAGE_TITLE = 'EZA Mirror';
 
 export const MIRROR_PAGE_SUBTITLE = 'AI ile kurduğun bağın yansıması.';
 
-export const MIRROR_TAB_DAILY = 'Günlük Ayna';
+export const MIRROR_TAB_DAILY = 'AI Ayna';
 
 export const MIRROR_TAB_PATTERN = 'AI İlişki Deseni';
 
