@@ -3,8 +3,10 @@
  * Updated for Standalone: SAFE-only switch and minimal Proxy-Lite info
  */
 
-import { Shield } from 'lucide-react';
+import { Shield, FlaskConical } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { usePlan } from '@/lib/eza/plan/usePlan';
+import type { PlanId } from '@/lib/eza/plan/planStore';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ export default function SettingsModal({
   safeOnlyMode, 
   onSafeOnlyModeChange 
 }: SettingsModalProps) {
+  const { plan, setPlan } = usePlan();
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -270,6 +273,41 @@ export default function SettingsModal({
                 Tarayıcıdan: proxy-lite.ezacore.ai
               </p>
             </div>
+
+            {/* Developer — Plan (mock; yalnızca development/test ortamında) */}
+            {process.env.NODE_ENV !== 'production' ? (
+            <div className="w-full p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-eza-border">
+              <div className="flex items-center space-x-2 sm:space-x-3 mb-3">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+                  <FlaskConical className="w-4 h-4 sm:w-5 sm:h-5 text-violet-600" />
+                </div>
+                <div className="text-left min-w-0 flex-1">
+                  <p className="text-sm sm:text-[15px] font-medium text-eza-text">Developer · Plan</p>
+                  <p className="text-[10px] sm:text-xs text-eza-text-muted">Free / Plus deneyimini test et</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Plan seçimi">
+                {(['free', 'plus'] as PlanId[]).map((option) => {
+                  const active = plan === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setPlan(option)}
+                      aria-pressed={active}
+                      className={`rounded-xl px-3 py-2 text-sm font-medium capitalize transition-colors ${
+                        active
+                          ? 'bg-violet-600 text-white shadow-sm'
+                          : 'bg-eza-surface-muted text-eza-text-secondary hover:bg-eza-accent-muted/40'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            ) : null}
           </div>
           
           {/* Footer - Removed for minimal design */}

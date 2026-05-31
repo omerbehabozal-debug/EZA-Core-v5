@@ -113,3 +113,56 @@ export const MIRROR_SCENE_RETRY = 'Tekrar dene';
 export const MIRROR_REVEAL_DURATION_MS = 1600;
 
 export const MIRROR_CARD_ENTER_DURATION_MS = 550;
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Sprint 1 — Free / Plus ürün deneyimi metinleri (yalnızca UX katmanı)
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Onboarding (idle) — ürünü ilk saniyede anlatan karşılama */
+export const MIRROR_ONBOARDING_TITLE = 'Bugün AI ile nasıl bir ilişki kurdun?';
+
+export const MIRROR_ONBOARDING_SUBTITLE =
+  'Birkaç dakika sohbet et. İlk aynanı ücretsiz keşfet.';
+
+export const MIRROR_ONBOARDING_PREVIEW_LABEL = 'Örnek aynalar';
+
+/** Mini Mirror (Free) */
+export const MINI_MIRROR_PERSONA_PREFIX = 'Bugün Sen';
+
+export const MINI_MIRROR_THEME_LABEL = 'Tema';
+
+export const MINI_MIRROR_ENERGY_LABEL = 'Enerji';
+
+export const MINI_MIRROR_TOMORROW_LABEL = 'Yarının İpucu';
+
+export const MINI_MIRROR_LOCKED_HEADING = 'Tam aynanda seni bekleyenler';
+
+/** Plan gate / upgrade */
+export const PLAN_UPGRADE_CTA = 'Tam Aynayı Aç';
+
+export const PLAN_UPGRADE_MODAL_TITLE = 'Tam Aynanı Aç';
+
+export const PLAN_UPGRADE_MODAL_BODY =
+  'Plus ile persona görselin, tam hikâyen, paylaşılabilir posterin ve AI ile zaman içindeki ilişki desenin açılır.';
+
+export const PLAN_UPGRADE_MODAL_NOTE =
+  'Ödeme sistemi yakında. Şimdilik bu, Plus deneyiminin bir önizlemesidir.';
+
+export const PLAN_UPGRADE_MODAL_DISMISS = 'Şimdilik kapat';
+
+export const PLAN_UPGRADE_BADGE = 'Plus';
+
+/** Relationship Pattern (Free upsell) */
+export const PATTERN_UPSELL_TITLE = 'AI İlişki Deseni canlı hale gelsin';
+
+export const PATTERN_UPSELL_BODY =
+  'Plus ile davranış adaların gerçek sohbetlerinden oluşur; trendler, içgörüler ve zaman içindeki dönüşümün açılır.';
+
+export const PATTERN_UPSELL_CTA = 'Plus seviyesine geç';
+
+/** @deprecated blur gate kaldırıldı — upsell metinleri için PATTERN_UPSELL_* kullan */
+export const PATTERN_LOCK_TITLE = 'AI ile zaman içindeki dönüşümünü keşfet';
+
+/** @deprecated blur gate kaldırıldı */
+export const PATTERN_LOCK_BODY = 'Plus ile açılır';
+

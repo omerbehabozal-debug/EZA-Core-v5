@@ -30,12 +30,14 @@ import {
   probeHybridTypographyInImage,
 } from '@/lib/eza/mirror/hybridPosterDebug';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
+import MiniMirrorCard from '@/components/mirror/MiniMirrorCard';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
 import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
 import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
 import MirrorSceneGenerateButton from '@/components/mirror/MirrorSceneGenerateButton';
 import MirrorShareModal from '@/components/mirror/MirrorShareModal';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
+import { usePlan } from '@/lib/eza/plan/usePlan';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 type DailyMirrorStatus = 'idle' | 'revealing' | 'ready' | 'insufficient' | 'error';
@@ -60,6 +62,7 @@ export default function StandaloneObservationExperience({
   const [hybridTextFallback, setHybridTextFallback] = useState(false);
   const [sceneExtras, setSceneExtras] = useState<DailyCardSceneVisualExtras>({});
   const mirrorExport = useMirrorCardExport();
+  const { isPlus } = usePlan();
 
   const liveIntentFingerprint = useMemo(() => {
     if (!entries.length) return null;
@@ -316,6 +319,16 @@ export default function StandaloneObservationExperience({
     }
 
     if (dailyStatus === 'ready' && cardForRender) {
+      if (!isPlus) {
+        return (
+          <div className={ms.dailyReadyStack}>
+            <DailyMirrorCardEntrance className="w-full">
+              <MiniMirrorCard card={cardForRender} />
+            </DailyMirrorCardEntrance>
+          </div>
+        );
+      }
+
       return (
         <div className={ms.dailyReadyStack}>
           <DailyMirrorCardEntrance className="w-full">

@@ -8,6 +8,7 @@ export type RelationshipSummaryCardProps = {
   hint: string;
   scorePercent?: number;
   className?: string;
+  preview?: boolean;
 };
 
 export default function RelationshipSummaryCard({
@@ -15,8 +16,9 @@ export default function RelationshipSummaryCard({
   hint,
   scorePercent = 72,
   className,
+  preview = false,
 }: RelationshipSummaryCardProps) {
-  const ring = Math.min(100, Math.max(24, scorePercent));
+  const ring = preview ? 38 : Math.min(100, Math.max(24, scorePercent));
   const circumference = 2 * Math.PI * 28;
   const offset = circumference - (ring / 100) * circumference;
 
@@ -24,6 +26,7 @@ export default function RelationshipSummaryCard({
     <article
       className={cn(
         'rounded-3xl border border-white/80 bg-white/85 p-4 shadow-[0_12px_40px_-18px_rgba(123,97,255,0.28)] backdrop-blur-sm sm:p-5',
+        preview && 'pointer-events-none select-none opacity-45 saturate-[0.55]',
         className
       )}
     >
@@ -36,31 +39,55 @@ export default function RelationshipSummaryCard({
               cy="32"
               r="28"
               fill="none"
-              stroke="url(#balanceRing)"
+              stroke={preview ? '#d4d4d8' : 'url(#balanceRing)'}
               strokeWidth="5"
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={offset}
             />
-            <defs>
-              <linearGradient id="balanceRing" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#7B61FF" />
-                <stop offset="100%" stopColor="#9B84FF" />
-              </linearGradient>
-            </defs>
+            {!preview ? (
+              <defs>
+                <linearGradient id="balanceRing" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#7B61FF" />
+                  <stop offset="100%" stopColor="#9B84FF" />
+                </linearGradient>
+              </defs>
+            ) : null}
           </svg>
           <Activity
-            className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#7B61FF]"
+            className={cn(
+              'absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#7B61FF]',
+              preview && 'text-stone-300'
+            )}
             strokeWidth={1.75}
             aria-hidden
           />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
+          <p
+            className={cn(
+              'text-[10px] font-semibold uppercase tracking-[0.14em] text-[#667085]',
+              preview && 'text-stone-400'
+            )}
+          >
             Genel Denge
           </p>
-          <p className="mt-1 text-base font-semibold leading-snug text-[#172033]">{label}</p>
-          <p className="mt-1.5 text-xs leading-relaxed text-[#667085]/90">{hint}</p>
+          <p
+            className={cn(
+              'mt-1 text-base font-semibold leading-snug text-[#172033]',
+              preview && 'text-stone-400'
+            )}
+          >
+            {label}
+          </p>
+          <p
+            className={cn(
+              'mt-1.5 text-xs leading-relaxed text-[#667085]/90',
+              preview && 'text-stone-400'
+            )}
+          >
+            {hint}
+          </p>
         </div>
       </div>
     </article>

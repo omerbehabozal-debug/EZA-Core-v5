@@ -20,11 +20,24 @@ import RelationshipTimelineChart from '@/components/mirror/relationship/Relation
 import RelationshipInsightNote from '@/components/mirror/relationship/RelationshipInsightNote';
 import ActiveTimeCard from '@/components/mirror/relationship/ActiveTimeCard';
 import InteractionDepthCard from '@/components/mirror/relationship/InteractionDepthCard';
+import PatternPreviewSectionNote from '@/components/mirror/relationship/PatternPreviewSectionNote';
+import {
+  PATTERN_PREVIEW_AI_BARS,
+  PATTERN_PREVIEW_BALANCE_BARS,
+  PATTERN_PREVIEW_BALANCE_HINT,
+  PATTERN_PREVIEW_BALANCE_LABEL,
+  PATTERN_PREVIEW_DEPTH,
+  PATTERN_PREVIEW_INSIGHT,
+  PATTERN_PREVIEW_TIME_BUCKETS,
+  PATTERN_PREVIEW_TIMELINE,
+} from '@/components/mirror/relationship/patternPreviewContent';
 
 export type RelationshipPatternViewProps = {
   entries: SavedBehavioralEntry[];
   meta?: MirrorStateMeta;
   className?: string;
+  /** Free plan — trend/içgörü alanları silik sabit placeholder. */
+  previewMode?: boolean;
 };
 
 type PatternLevel = 'map' | 'trends' | 'insights';
@@ -38,6 +51,7 @@ const LEVELS: { id: PatternLevel; label: string }[] = [
 export default function RelationshipPatternView({
   entries,
   className,
+  previewMode = false,
 }: RelationshipPatternViewProps) {
   const [period, setPeriod] = useState<RelationshipPeriodFilter>(30);
   const [level, setLevel] = useState<PatternLevel>('map');
@@ -186,11 +200,17 @@ export default function RelationshipPatternView({
                 />
               ) : (
                 <RelationshipSummaryCard
-                  label={metrics.generalBalanceLabel}
+                  label={
+                    previewMode ? PATTERN_PREVIEW_BALANCE_LABEL : metrics.generalBalanceLabel
+                  }
                   hint={
-                    metrics.generalBalanceHint || 'Etkileşimlerin sağlıklı bir ritimde ilerliyor.'
+                    previewMode
+                      ? PATTERN_PREVIEW_BALANCE_HINT
+                      : metrics.generalBalanceHint ||
+                        'Etkileşimlerin sağlıklı bir ritimde ilerliyor.'
                   }
                   scorePercent={balanceScore}
+                  preview={previewMode}
                 />
               )}
             </aside>
@@ -200,7 +220,24 @@ export default function RelationshipPatternView({
         {/* ---- SEVİYE 2 — TRENDLER ---- */}
         {level === 'trends' ? (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-0.5">
-            {metrics.isEmpty ? (
+            {previewMode ? (
+              <section className="pointer-events-none grid select-none gap-4 opacity-45 saturate-[0.55] md:grid-cols-2">
+                <div className="rounded-[1.75rem] border border-stone-200/80 bg-white/85 p-5">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-stone-400">
+                    <ArrowUpRight className="h-4 w-4" strokeWidth={2} aria-hidden />
+                    Büyüyen alanlar
+                  </h3>
+                  <p className="mt-3 text-sm text-stone-400">—</p>
+                </div>
+                <div className="rounded-[1.75rem] border border-stone-200/80 bg-white/85 p-5">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-stone-400">
+                    <ArrowDownRight className="h-4 w-4" strokeWidth={2} aria-hidden />
+                    Azalan alanlar
+                  </h3>
+                  <p className="mt-3 text-sm text-stone-400">—</p>
+                </div>
+              </section>
+            ) : metrics.isEmpty ? (
               <p className="rounded-2xl border border-dashed border-violet-200/70 bg-white/50 px-4 py-6 text-center text-sm text-[#667085]">
                 Trendler için henüz yeterli etkileşim yok.
               </p>
@@ -253,16 +290,42 @@ export default function RelationshipPatternView({
             )}
 
             <div className="grid gap-4 md:grid-cols-2">
-              <RelationshipTimelineChart points={metrics.timelinePoints} />
-              <RelationshipBalanceBars bars={metrics.balanceBars} />
+              <RelationshipTimelineChart
+                points={previewMode ? PATTERN_PREVIEW_TIMELINE : metrics.timelinePoints}
+                preview={previewMode}
+              />
+              <RelationshipBalanceBars
+                bars={previewMode ? PATTERN_PREVIEW_BALANCE_BARS : metrics.balanceBars}
+                preview={previewMode}
+              />
             </div>
+            {previewMode ? <PatternPreviewSectionNote /> : null}
           </div>
         ) : null}
 
         {/* ---- SEVİYE 3 — İÇGÖRÜLER ---- */}
         {level === 'insights' ? (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-0.5">
-            {metrics.isEmpty ? (
+            {previewMode ? (
+              <section className="pointer-events-none select-none rounded-[2rem] border border-stone-200/80 bg-white/85 p-5 opacity-45 saturate-[0.55]">
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    'En çok gelişen alan',
+                    'En aktif dönem',
+                    'Baskın biçim',
+                    'En dikkat çekici değişim',
+                  ].map((label) => (
+                    <div
+                      key={label}
+                      className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3"
+                    >
+                      <dt className="text-xs font-medium text-stone-400">{label}</dt>
+                      <dd className="mt-0.5 text-sm font-semibold text-stone-300">—</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ) : metrics.isEmpty ? (
               <p className="rounded-2xl border border-dashed border-violet-200/70 bg-white/50 px-4 py-6 text-center text-sm text-[#667085]">
                 İçgörüler için henüz yeterli etkileşim yok.
               </p>
@@ -301,16 +364,27 @@ export default function RelationshipPatternView({
               </section>
             )}
 
-            <RelationshipInsightNote body={metrics.insightNote} />
+            <RelationshipInsightNote
+              body={previewMode ? PATTERN_PREVIEW_INSIGHT : metrics.insightNote}
+              preview={previewMode}
+            />
             <div className="grid gap-4 md:grid-cols-3">
               <BehaviorToneBars
                 title="AI Davranış Haritası"
                 subtitle="AI sana en çok şu tonlarda yanıt verdi."
-                bars={metrics.aiBehaviorBars}
+                bars={previewMode ? PATTERN_PREVIEW_AI_BARS : metrics.aiBehaviorBars}
+                preview={previewMode}
               />
-              <ActiveTimeCard buckets={metrics.activeTimeBuckets} />
-              <InteractionDepthCard metric={metrics.interactionDepth} />
+              <ActiveTimeCard
+                buckets={previewMode ? PATTERN_PREVIEW_TIME_BUCKETS : metrics.activeTimeBuckets}
+                preview={previewMode}
+              />
+              <InteractionDepthCard
+                metric={previewMode ? PATTERN_PREVIEW_DEPTH : metrics.interactionDepth}
+                preview={previewMode}
+              />
             </div>
+            {previewMode ? <PatternPreviewSectionNote /> : null}
           </div>
         ) : null}
       </div>

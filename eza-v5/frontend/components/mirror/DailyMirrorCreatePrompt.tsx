@@ -6,14 +6,15 @@ import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   MIRROR_CREATE_BUTTON,
-  MIRROR_CREATE_DESCRIPTION,
   MIRROR_CREATE_PRIVACY_NOTE,
-  MIRROR_CREATE_TITLE,
   MIRROR_INSUFFICIENT_ACTION,
   MIRROR_INSUFFICIENT_BODY,
   MIRROR_INSUFFICIENT_TITLE,
+  MIRROR_ONBOARDING_SUBTITLE,
+  MIRROR_ONBOARDING_TITLE,
   MIRROR_STANDALONE_ROUTE,
 } from '@/lib/eza/mirror/copy';
+import MirrorOnboardingPreview from '@/components/mirror/MirrorOnboardingPreview';
 
 export type DailyMirrorPromptVariant = 'idle' | 'insufficient';
 
@@ -50,12 +51,14 @@ export default function DailyMirrorCreatePrompt({
             id="daily-mirror-create-title"
             className="text-[1.35rem] font-semibold tracking-[-0.03em] text-stone-900 sm:text-2xl"
           >
-            {isInsufficient ? MIRROR_INSUFFICIENT_TITLE : MIRROR_CREATE_TITLE}
+            {isInsufficient ? MIRROR_INSUFFICIENT_TITLE : MIRROR_ONBOARDING_TITLE}
           </h2>
           <p className="text-sm leading-relaxed text-stone-500/95 sm:text-[15px]">
-            {isInsufficient ? MIRROR_INSUFFICIENT_BODY : MIRROR_CREATE_DESCRIPTION}
+            {isInsufficient ? MIRROR_INSUFFICIENT_BODY : MIRROR_ONBOARDING_SUBTITLE}
           </p>
         </div>
+
+        {!isInsufficient ? <MirrorOnboardingPreview /> : null}
 
         {isInsufficient ? (
           <Link
