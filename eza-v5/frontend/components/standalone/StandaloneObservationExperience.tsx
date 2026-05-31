@@ -389,7 +389,15 @@ export default function StandaloneObservationExperience({
 
   return (
     <>
-      <div className={cn(ms.dailyStage, 'min-h-0 flex-1 justify-center overflow-y-auto')}>
+      <div
+        className={cn(
+          ms.dailyStage,
+          'min-h-0 flex-1',
+          dailyStatus === 'idle' || dailyStatus === 'insufficient'
+            ? 'justify-center gap-0 overflow-x-hidden overflow-y-auto py-0 sm:gap-0 sm:py-1'
+            : 'justify-center overflow-y-auto'
+        )}
+      >
         {renderDailyPanel()}
       </div>
 

@@ -124,7 +124,14 @@ export const MIRROR_ONBOARDING_TITLE = 'Bugün AI ile nasıl bir ilişki kurdun?
 export const MIRROR_ONBOARDING_SUBTITLE =
   'Birkaç dakika sohbet et. İlk aynanı ücretsiz keşfet.';
 
-export const MIRROR_ONBOARDING_PREVIEW_LABEL = 'Örnek aynalar';
+export const MIRROR_ONBOARDING_PREVIEW_LABEL = 'Aynada ne görünür';
+
+export const MIRROR_ONBOARDING_PREVIEW_BADGE = 'Örnek ayna kartı';
+
+/** @deprecated Slider için onboardingPreviewSlides.ts kullan. */
+export const MIRROR_ONBOARDING_PREVIEW_IMAGE = '/mirror/onboarding-preview-recipe.png';
+
+export const MIRROR_ONBOARDING_PREVIEW_LOCKED_HINT = 'Sen · AI · Denge';
 
 /** Mini Mirror (Free) */
 export const MINI_MIRROR_PERSONA_PREFIX = 'Bugün Sen';
