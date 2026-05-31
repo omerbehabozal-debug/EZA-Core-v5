@@ -15,13 +15,24 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-// Mock window
+// In-memory localStorage (vi.fn-only mock persisted nothing)
+const localStore = new Map<string, string>();
 Object.defineProperty(window, 'localStorage', {
   value: {
-    getItem: vi.fn(),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
+    getItem: (key: string) => localStore.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      localStore.set(key, value);
+    },
+    removeItem: (key: string) => {
+      localStore.delete(key);
+    },
+    clear: () => {
+      localStore.clear();
+    },
+    get length() {
+      return localStore.size;
+    },
+    key: (index: number) => Array.from(localStore.keys())[index] ?? null,
   },
   writable: true,
 });

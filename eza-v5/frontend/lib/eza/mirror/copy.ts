@@ -144,10 +144,26 @@ export const MINI_MIRROR_TOMORROW_LABEL = 'Yarının İpucu';
 
 export const MINI_MIRROR_LOCKED_HEADING = 'Tam aynanda seni bekleyenler';
 
-/** Plan gate / upgrade */
-export const PLAN_UPGRADE_CTA = 'Tam Aynayı Aç';
+/** Free — aylık hak doldu */
+export const FREE_MIRROR_LIMIT_TITLE = 'Bu ay ücretsiz ayna hakkını kullandın';
 
-export const PLAN_UPGRADE_MODAL_TITLE = 'Tam Aynanı Aç';
+export const FREE_MIRROR_LIMIT_BODY =
+  'Ücretsiz planda her ay bir kez tam günlük ayna kartı oluşturabilirsin.';
+
+export const FREE_MIRROR_LIMIT_NEXT_LABEL = 'Sonraki ücretsiz aynan';
+
+export const FREE_MIRROR_LIMIT_PLUS_HINT =
+  'Her gün yeni ayna oluşturmak için Plus\'a geç.';
+
+export const FREE_MIRROR_LIMIT_CTA = "Plus'a Geç";
+
+/** Plan gate / upgrade */
+export const PLAN_UPGRADE_CTA = "Plus'a Geç";
+
+export const PLAN_UPGRADE_MODAL_TITLE = "Plus'a Geç";
+
+export const PLAN_PLUS_FEATURE_HINT =
+  'Sahne görseli ve paylaşım Plus ile açılır.';
 
 export const PLAN_UPGRADE_MODAL_BODY =
   'Plus ile persona görselin, tam hikâyen, paylaşılabilir posterin ve AI ile zaman içindeki ilişki desenin açılır.';

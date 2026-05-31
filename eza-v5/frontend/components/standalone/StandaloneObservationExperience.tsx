@@ -30,7 +30,8 @@ import {
   probeHybridTypographyInImage,
 } from '@/lib/eza/mirror/hybridPosterDebug';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
-import MiniMirrorCard from '@/components/mirror/MiniMirrorCard';
+import DailyMirrorPlusActions from '@/components/mirror/DailyMirrorPlusActions';
+import MonthlyLimitUpgrade from '@/components/mirror/MonthlyLimitUpgrade';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
 import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
 import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
@@ -39,9 +40,19 @@ import MirrorShareModal from '@/components/mirror/MirrorShareModal';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
 import { usePlan } from '@/lib/eza/plan/usePlan';
+import {
+  canCreateFreeMirrorThisMonth,
+  markFreeMirrorUsed,
+} from '@/lib/eza/plan/freeMirrorUsage';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
-type DailyMirrorStatus = 'idle' | 'revealing' | 'ready' | 'insufficient' | 'error';
+type DailyMirrorStatus =
+  | 'idle'
+  | 'revealing'
+  | 'ready'
+  | 'insufficient'
+  | 'monthly_limit'
+  | 'error';
 
 interface StandaloneObservationExperienceProps {
   entries: SavedBehavioralEntry[];
@@ -193,7 +204,16 @@ export default function StandaloneObservationExperience({
     }
   }, [generatedDailyCard?.visual?.renderMode]);
 
+  const openUpgrade = useCallback((variant: UpgradeModalVariant = 'upgrade') => {
+    setUpgradeVariant(variant);
+    setUpgradeOpen(true);
+  }, []);
+
   const handleGenerateMirrorScene = useCallback(async () => {
+    if (!isPlus) {
+      openUpgrade('upgrade');
+      return;
+    }
     if (!generatedDailyCard?.visual) return;
     const visual = generatedDailyCard.visual;
     setSceneImageStatus('generating');
@@ -243,9 +263,14 @@ export default function StandaloneObservationExperience({
         setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
       }
     }
-  }, [generatedDailyCard]);
+  }, [generatedDailyCard, isPlus, openUpgrade]);
 
   const handleGenerateDailyMirror = useCallback(() => {
+    if (!isPlus && !canCreateFreeMirrorThisMonth()) {
+      setDailyStatus('monthly_limit');
+      return;
+    }
+
     setDailyStatus('revealing');
     window.setTimeout(() => {
       try {
@@ -257,6 +282,9 @@ export default function StandaloneObservationExperience({
           setSceneImageStatus('idle');
           setDailyStatus('insufficient');
           return;
+        }
+        if (!isPlus) {
+          markFreeMirrorUsed(state.dailyMirrorCard.date);
         }
         setGeneratedDailyCard(state.dailyMirrorCard);
         setGeneratedDailyMeta(state.meta);
@@ -272,7 +300,7 @@ export default function StandaloneObservationExperience({
         setDailyStatus('error');
       }
     }, MIRROR_REVEAL_DURATION_MS);
-  }, [entries]);
+  }, [entries, isPlus]);
 
   const handleForceBmwMercedes = useCallback(() => {
     const boosted = withDevVehicleCueHints(entries);
@@ -330,22 +358,35 @@ export default function StandaloneObservationExperience({
       return <DailyMirrorReveal />;
     }
 
-    if (dailyStatus === 'ready' && cardForRender) {
-      if (!isPlus) {
-        return (
-          <div className={ms.dailyReadyStack}>
-            <DailyMirrorCardEntrance className="w-full">
-              <MiniMirrorCard card={cardForRender} />
-            </DailyMirrorCardEntrance>
-          </div>
-        );
-      }
+    if (dailyStatus === 'monthly_limit') {
+      return (
+        <MonthlyLimitUpgrade
+          onUpgrade={() => openUpgrade('upgrade')}
+          onBack={() => setDailyStatus('idle')}
+        />
+      );
+    }
 
+    if (dailyStatus === 'ready' && cardForRender) {
       return (
         <div className={ms.dailyReadyStack}>
           <DailyMirrorCardEntrance className="w-full">
-            <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
-              <DailyMirrorPosterCard
+            {isPlus ? (
+              <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
+                <DailyMirrorPosterCard
+                  card={cardForRender}
+                  entries={entries}
+                  meta={generatedDailyMeta ?? undefined}
+                  onSceneImageLoad={handleSceneImageLoad}
+                  onSceneImageError={handleSceneImageError}
+                  onForceBmwMercedes={handleForceBmwMercedes}
+                  onToggleHybridMode={handleToggleHybridMode}
+                  hybridTextFallback={hybridTextFallback}
+                />
+              </div>
+            ) : (
+              <div className="w-full">
+                <DailyMirrorPosterCard
                 card={cardForRender}
                 entries={entries}
                 meta={generatedDailyMeta ?? undefined}
@@ -354,27 +395,35 @@ export default function StandaloneObservationExperience({
                 onForceBmwMercedes={handleForceBmwMercedes}
                 onToggleHybridMode={handleToggleHybridMode}
                 hybridTextFallback={hybridTextFallback}
-              />
-            </div>
+                />
+              </div>
+            )}
           </DailyMirrorCardEntrance>
 
-          <div className="flex w-full max-w-sm flex-col items-center gap-4">
-            {showShareAction ? (
-              <button
-                type="button"
-                onClick={() => setShareOpen(true)}
-                className={ms.shareAction}
-              >
-                <Share2 className="h-3.5 w-3.5 opacity-70" aria-hidden />
-                {MIRROR_SHARE_LABEL}
-              </button>
-            ) : null}
-            <MirrorSceneGenerateButton
-              status={sceneImageStatus}
-              onGenerate={() => void handleGenerateMirrorScene()}
-              disabled={!generatedDailyCard?.visual?.prompt}
+          {isPlus ? (
+            <div className="flex w-full max-w-sm flex-col items-center gap-4">
+              {showShareAction ? (
+                <button
+                  type="button"
+                  onClick={() => setShareOpen(true)}
+                  className={ms.shareAction}
+                >
+                  <Share2 className="h-3.5 w-3.5 opacity-70" aria-hidden />
+                  {MIRROR_SHARE_LABEL}
+                </button>
+              ) : null}
+              <MirrorSceneGenerateButton
+                status={sceneImageStatus}
+                onGenerate={() => void handleGenerateMirrorScene()}
+                disabled={!generatedDailyCard?.visual?.prompt}
+              />
+            </div>
+          ) : (
+            <DailyMirrorPlusActions
+              onSceneUpgrade={() => openUpgrade('upgrade')}
+              onShareUpgrade={() => openUpgrade('upgrade')}
             />
-          </div>
+          )}
         </div>
       );
     }
@@ -393,7 +442,9 @@ export default function StandaloneObservationExperience({
         className={cn(
           ms.dailyStage,
           'min-h-0 flex-1',
-          dailyStatus === 'idle' || dailyStatus === 'insufficient'
+          dailyStatus === 'idle' ||
+          dailyStatus === 'insufficient' ||
+          dailyStatus === 'monthly_limit'
             ? 'justify-center gap-0 overflow-x-hidden overflow-y-auto py-0 sm:gap-0 sm:py-1'
             : 'justify-center overflow-y-auto'
         )}
