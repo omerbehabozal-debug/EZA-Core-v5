@@ -31,16 +31,11 @@ async def get_production_user_by_id(db: AsyncSession, user_id: str) -> User | No
     return result.scalar_one_or_none()
 
 
-async def require_mirror_plus_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    db: AsyncSession = Depends(get_db),
+async def _require_mirror_authenticated_user(
+    credentials: HTTPAuthorizationCredentials | None,
+    db: AsyncSession,
 ) -> User:
-    """
-    Authenticated Plus user required for Mirror scene generation.
-    - No token → 401 auth_required
-    - Invalid token → 401 auth_required
-    - mirror_plan != plus → 403 upgrade_required
-    """
+    """Authenticated active user (free or plus)."""
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,13 +65,38 @@ async def require_mirror_plus_user(
             },
         )
 
+    return user
+
+
+async def require_mirror_authenticated_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Free veya Plus — günlük kart sahnesi dahil scene generation için.
+    Kota client-side (günde 1 kart) ve Plus-only yenileme ayrı yönetilir.
+    """
+    return await _require_mirror_authenticated_user(credentials, db)
+
+
+async def require_mirror_plus_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Plus-only Mirror işlemleri (ileride: gün içi güncelleme, ek sahne).
+    - No token → 401 auth_required
+    - mirror_plan != plus → 403 upgrade_required
+    """
+    user = await _require_mirror_authenticated_user(credentials, db)
+
     plan = normalize_mirror_plan(getattr(user, "mirror_plan", "free"))
     if plan != "plus":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 "code": "upgrade_required",
-                "message": "Plus plan required for scene generation",
+                "message": "Plus plan required",
                 "plan": plan,
                 "required": "plus",
             },

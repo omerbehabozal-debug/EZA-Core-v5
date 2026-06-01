@@ -47,20 +47,21 @@ def test_generate_scene_anonymous_returns_401():
     assert detail["code"] == "auth_required"
 
 
+@patch("backend.services.mirror.mirror_image_service.get_mirror_image_provider")
 @patch("backend.auth.mirror_entitlement.get_production_user_by_id", new_callable=AsyncMock)
-def test_generate_scene_free_user_returns_403(mock_get_user):
+def test_generate_scene_free_user_returns_200(mock_get_user, mock_get_provider):
+    """Free authenticated user can generate daily card scene (quota is client-side)."""
     free_user = _make_user(email="free@test.eza.ai", mirror_plan="free")
     mock_get_user.return_value = free_user
+    mock_get_provider.return_value = MockMirrorImageProvider()
     res = client.post(
         "/api/standalone/mirror/generate-scene",
         json=VALID_BODY,
         headers=_auth_header(free_user),
     )
-    assert res.status_code == 403
-    detail = res.json()["detail"]
-    assert detail["code"] == "upgrade_required"
-    assert detail["plan"] == "free"
-    assert detail["required"] == "plus"
+    assert res.status_code == 200
+    data = res.json()
+    assert data["sceneImageUrl"].startswith("http")
 
 
 @patch("backend.services.mirror.mirror_image_service.get_mirror_image_provider")

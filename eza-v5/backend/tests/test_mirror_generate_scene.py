@@ -109,7 +109,7 @@ def test_validate_uses_negative_fallback():
 
 
 def test_generate_scene_endpoint_success():
-    """Plus-authenticated user can generate scene (Sprint 2 entitlement)."""
+    """Authenticated user (free or plus) can generate scene."""
     plus_user = _make_plus_user()
     with patch(
         "backend.auth.mirror_entitlement.get_production_user_by_id",

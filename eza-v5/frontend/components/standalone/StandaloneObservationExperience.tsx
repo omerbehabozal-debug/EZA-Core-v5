@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
   FREE_MIRROR_CREATE_ANOTHER,
+  FREE_MIRROR_READY_PLUS_HINT,
   MIRROR_REVEAL_DURATION_MS,
   MIRROR_SHARE_LABEL,
+  MIRROR_UPDATE_LABEL,
 } from '@/lib/eza/mirror/copy';
 import {
   MIRROR_MIN_SAMPLES,
@@ -32,7 +34,6 @@ import {
   probeHybridTypographyInImage,
 } from '@/lib/eza/mirror/hybridPosterDebug';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
-import DailyMirrorPlusActions from '@/components/mirror/DailyMirrorPlusActions';
 import DailyLimitUpgrade from '@/components/mirror/DailyLimitUpgrade';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
 import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
@@ -77,6 +78,8 @@ export default function StandaloneObservationExperience({
   const [cardIntentFingerprint, setCardIntentFingerprint] = useState<string | null>(null);
   const [hybridTextFallback, setHybridTextFallback] = useState(false);
   const [sceneExtras, setSceneExtras] = useState<DailyCardSceneVisualExtras>({});
+  const [mirrorRevision, setMirrorRevision] = useState(0);
+  const sceneAutoKeyRef = useRef<string | null>(null);
   const mirrorExport = useMirrorCardExport();
   const { isPlus } = usePlan();
 
@@ -110,6 +113,8 @@ export default function StandaloneObservationExperience({
 
     if (cardIntentFingerprint && liveIntentFingerprint !== cardIntentFingerprint) {
       const state = buildMirrorState(entries);
+      sceneAutoKeyRef.current = null;
+      setMirrorRevision((r) => r + 1);
       setGeneratedDailyCard(state.dailyMirrorCard);
       setGeneratedDailyMeta(state.meta);
       setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
@@ -122,6 +127,8 @@ export default function StandaloneObservationExperience({
 
     if (modeStale) {
       const state = buildMirrorState(entries);
+      sceneAutoKeyRef.current = null;
+      setMirrorRevision((r) => r + 1);
       setGeneratedDailyCard(state.dailyMirrorCard);
       setGeneratedDailyMeta(state.meta);
       setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
@@ -212,10 +219,6 @@ export default function StandaloneObservationExperience({
   }, []);
 
   const handleGenerateMirrorScene = useCallback(async () => {
-    if (!isPlus) {
-      openUpgrade('upgrade');
-      return;
-    }
     if (!generatedDailyCard?.visual) return;
     const visual = generatedDailyCard.visual;
     setSceneImageStatus('generating');
@@ -265,9 +268,28 @@ export default function StandaloneObservationExperience({
         setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
       }
     }
-  }, [generatedDailyCard, isPlus, openUpgrade]);
+  }, [generatedDailyCard, openUpgrade]);
+
+  useEffect(() => {
+    if (dailyStatus !== 'ready' || !generatedDailyCard?.visual?.prompt) return;
+    if (sceneImageStatus !== 'idle') return;
+
+    const fingerprint = generatedDailyCard.visual.intentFingerprint ?? '';
+    const autoKey = `${generatedDailyCard.date}:${fingerprint}:${mirrorRevision}`;
+    if (sceneAutoKeyRef.current === autoKey) return;
+    sceneAutoKeyRef.current = autoKey;
+    void handleGenerateMirrorScene();
+  }, [
+    dailyStatus,
+    generatedDailyCard,
+    sceneImageStatus,
+    mirrorRevision,
+    handleGenerateMirrorScene,
+  ]);
 
   const resetGeneratedCardState = useCallback(() => {
+    sceneAutoKeyRef.current = null;
+    setMirrorRevision(0);
     setGeneratedDailyCard(null);
     setGeneratedDailyMeta(null);
     setSceneImageUrl(null);
@@ -348,6 +370,26 @@ export default function StandaloneObservationExperience({
     setDailyStatus('ready');
   }, [entries]);
 
+  const handleUpdateMirror = useCallback(() => {
+    if (!isPlus) {
+      openUpgrade('upgrade');
+      return;
+    }
+    if (entries.length < MIRROR_MIN_SAMPLES) return;
+    const state = buildMirrorState(entries);
+    if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) return;
+    sceneAutoKeyRef.current = null;
+    setMirrorRevision((r) => r + 1);
+    setGeneratedDailyCard(state.dailyMirrorCard);
+    setGeneratedDailyMeta(state.meta);
+    setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
+    setSceneImageUrl(null);
+    setSceneImageStatus('idle');
+    setHybridTextFallback(false);
+    setSceneExtras({});
+    setDailyStatus('ready');
+  }, [entries, isPlus, openUpgrade]);
+
   const handleShareClose = useCallback(() => {
     setShareOpen(false);
     mirrorExport.reset();
@@ -366,6 +408,7 @@ export default function StandaloneObservationExperience({
   }, [mirrorExport, generatedDailyCard?.date]);
 
   const showShareAction =
+    isPlus &&
     dailyStatus === 'ready' &&
     generatedDailyCard !== null &&
     generatedDailyCard.shareEnabled;
@@ -388,22 +431,8 @@ export default function StandaloneObservationExperience({
       return (
         <div className={ms.dailyReadyStack}>
           <DailyMirrorCardEntrance className="w-full">
-            {isPlus ? (
-              <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
-                <DailyMirrorPosterCard
-                  card={cardForRender}
-                  entries={entries}
-                  meta={generatedDailyMeta ?? undefined}
-                  onSceneImageLoad={handleSceneImageLoad}
-                  onSceneImageError={handleSceneImageError}
-                  onForceBmwMercedes={handleForceBmwMercedes}
-                  onToggleHybridMode={handleToggleHybridMode}
-                  hybridTextFallback={hybridTextFallback}
-                />
-              </div>
-            ) : (
-              <div className="w-full">
-                <DailyMirrorPosterCard
+            <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
+              <DailyMirrorPosterCard
                 card={cardForRender}
                 entries={entries}
                 meta={generatedDailyMeta ?? undefined}
@@ -412,48 +441,73 @@ export default function StandaloneObservationExperience({
                 onForceBmwMercedes={handleForceBmwMercedes}
                 onToggleHybridMode={handleToggleHybridMode}
                 hybridTextFallback={hybridTextFallback}
-                />
-              </div>
-            )}
+              />
+            </div>
           </DailyMirrorCardEntrance>
 
-          {isPlus ? (
-            <div className="flex w-full max-w-sm flex-col items-center gap-4">
-              {showShareAction ? (
+          <div className="flex w-full max-w-sm flex-col items-center gap-3">
+            {isPlus ? (
+              <>
+                {showShareAction ? (
+                  <button
+                    type="button"
+                    onClick={() => setShareOpen(true)}
+                    className={ms.shareAction}
+                  >
+                    <Share2 className="h-3.5 w-3.5 opacity-70" aria-hidden />
+                    {MIRROR_SHARE_LABEL}
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  onClick={() => setShareOpen(true)}
-                  className={ms.shareAction}
+                  onClick={handleUpdateMirror}
+                  className={cn(
+                    'inline-flex items-center justify-center rounded-full border border-stone-200/50 bg-white/80 px-5 py-2 text-xs font-medium tracking-tight text-stone-600',
+                    'transition-colors hover:border-violet-200/40 hover:bg-white hover:text-stone-800',
+                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/50'
+                  )}
                 >
-                  <Share2 className="h-3.5 w-3.5 opacity-70" aria-hidden />
-                  {MIRROR_SHARE_LABEL}
+                  {MIRROR_UPDATE_LABEL}
                 </button>
-              ) : null}
-              <MirrorSceneGenerateButton
-                status={sceneImageStatus}
-                onGenerate={() => void handleGenerateMirrorScene()}
-                disabled={!generatedDailyCard?.visual?.prompt}
-              />
-            </div>
-          ) : (
-            <div className="flex w-full max-w-sm flex-col items-center gap-3">
-              <DailyMirrorPlusActions
-                onSceneUpgrade={() => openUpgrade('upgrade')}
-                onShareUpgrade={() => openUpgrade('upgrade')}
-              />
-              <button
-                type="button"
-                onClick={handleGenerateDailyMirror}
-                className={cn(
-                  'text-[12px] font-medium text-stone-500 underline-offset-2',
-                  'transition-colors hover:text-violet-700 hover:underline',
-                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400'
-                )}
-              >
-                {FREE_MIRROR_CREATE_ANOTHER}
-              </button>
-            </div>
-          )}
+                {sceneImageStatus === 'error' ? (
+                  <MirrorSceneGenerateButton
+                    status={sceneImageStatus}
+                    onGenerate={() => void handleGenerateMirrorScene()}
+                    disabled={!generatedDailyCard?.visual?.prompt}
+                  />
+                ) : sceneImageStatus === 'generating' ? (
+                  <MirrorSceneGenerateButton
+                    status={sceneImageStatus}
+                    onGenerate={() => {}}
+                    disabled
+                  />
+                ) : sceneImageStatus === 'ready' ? (
+                  <MirrorSceneGenerateButton
+                    status={sceneImageStatus}
+                    onGenerate={() => {}}
+                    disabled
+                  />
+                ) : null}
+              </>
+            ) : (
+              <>
+                <p className={cn(ms.sceneWrap, 'text-center text-[11px] text-stone-500')}>
+                  {FREE_MIRROR_READY_PLUS_HINT}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGenerateDailyMirror}
+                  className={cn(
+                    'text-[12px] font-medium text-stone-500 underline-offset-2',
+                    'transition-colors hover:text-violet-700 hover:underline',
+                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400'
+                  )}
+                >
+                  {FREE_MIRROR_CREATE_ANOTHER}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       );
     }

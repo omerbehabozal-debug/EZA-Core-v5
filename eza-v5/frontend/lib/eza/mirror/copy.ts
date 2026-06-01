@@ -161,7 +161,10 @@ export const FREE_MIRROR_LIMIT_BODY =
 export const FREE_MIRROR_LIMIT_NEXT_LABEL = 'Yarın';
 
 export const FREE_MIRROR_LIMIT_PLUS_HINT =
-  'Plus ile gün içinde birden fazla yeni ayna, sahne görseli ve paylaşım açılır.';
+  'Plus ile gün içinde aynayı güncelle, paylaşım ve ilişki deseni açılır.';
+
+export const FREE_MIRROR_READY_PLUS_HINT =
+  'Plus ile gün içinde aynayı güncelle, paylaşım ve geçmiş aynalar açılır.';
 
 export const FREE_MIRROR_CREATE_ANOTHER = 'Yeni Ayna Oluştur';
 
@@ -173,7 +176,9 @@ export const PLAN_UPGRADE_CTA = "Plus'a Geç";
 export const PLAN_UPGRADE_MODAL_TITLE = "Plus'a Geç";
 
 export const PLAN_PLUS_FEATURE_HINT =
-  'Sahne görseli ve paylaşım Plus ile açılır.';
+  'Gün içi güncelleme, paylaşım ve ilişki deseni Plus ile açılır.';
+
+export const MIRROR_UPDATE_LABEL = 'Aynanı Güncelle';
 
 export const PLAN_UPGRADE_MODAL_BODY =
   'Plus ile persona görselin, tam hikâyen, paylaşılabilir posterin ve AI ile zaman içindeki ilişki desenin açılır.';
