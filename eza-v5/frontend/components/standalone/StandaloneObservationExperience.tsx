@@ -1,16 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
-  FREE_MIRROR_CREATE_ANOTHER,
   FREE_MIRROR_READY_PLUS_HINT,
   MIRROR_REVEAL_DURATION_MS,
-  MIRROR_SHARE_LABEL,
-  MIRROR_UPDATE_LABEL,
 } from '@/lib/eza/mirror/copy';
+import {
+  entriesForDisplayedMirror,
+  hasNewDataSinceSnapshot,
+  readTodaysSnapshot,
+  resolveMirrorRefreshCta,
+  saveDailyMirrorSnapshot,
+  type MirrorRefreshCta,
+} from '@/lib/eza/mirror/dailyMirrorSnapshot';
 import {
   MIRROR_MIN_SAMPLES,
   type DailyMirrorCardModel,
@@ -19,21 +23,18 @@ import {
 } from '@/lib/eza/mirror/types';
 import { buildMirrorState } from '@/lib/eza/mirror/mirrorStateEngine';
 import { mergeDailyCardSceneVisual, type DailyCardSceneVisualExtras } from '@/lib/eza/mirror/mirrorSceneImage';
-import {
-  resolveMirrorIntentContext,
-  withDevVehicleCueHints,
-} from '@/lib/eza/mirror/mirrorIntentContext';
+import { withDevVehicleCueHints } from '@/lib/eza/mirror/mirrorIntentContext';
 import { generateMirrorScene, MirrorSceneError } from '@/lib/eza/mirror/generateSceneApi';
 import {
   resolveMirrorRenderMode,
   setDevRenderMode,
 } from '@/lib/eza/mirror/mirrorRenderMode';
-import { resolveCardRenderMode } from '@/lib/eza/mirror/mirrorPosterLayout';
 import {
   isMockSceneImageUrl,
   probeHybridTypographyInImage,
 } from '@/lib/eza/mirror/hybridPosterDebug';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
+import DailyMirrorRefreshActions from '@/components/mirror/DailyMirrorRefreshActions';
 import DailyLimitUpgrade from '@/components/mirror/DailyLimitUpgrade';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
 import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
@@ -75,69 +76,125 @@ export default function StandaloneObservationExperience({
   const [generatedDailyMeta, setGeneratedDailyMeta] = useState<MirrorStateMeta | null>(null);
   const [sceneImageUrl, setSceneImageUrl] = useState<string | null>(null);
   const [sceneImageStatus, setSceneImageStatus] = useState<MirrorSceneImageStatus>('idle');
-  const [cardIntentFingerprint, setCardIntentFingerprint] = useState<string | null>(null);
   const [hybridTextFallback, setHybridTextFallback] = useState(false);
   const [sceneExtras, setSceneExtras] = useState<DailyCardSceneVisualExtras>({});
   const [mirrorRevision, setMirrorRevision] = useState(0);
   const sceneAutoKeyRef = useRef<string | null>(null);
+  const hydratedFromSnapshotRef = useRef(false);
   const mirrorExport = useMirrorCardExport();
   const { isPlus } = usePlan();
 
-  const liveIntentFingerprint = useMemo(() => {
-    if (!entries.length) return null;
-    return resolveMirrorIntentContext({ entries }).intentFingerprint;
-  }, [entries]);
+  const todaysSnapshot = useMemo(() => readTodaysSnapshot(), [entries]);
+  const refreshCta: MirrorRefreshCta = useMemo(
+    () => resolveMirrorRefreshCta(entries),
+    [entries, todaysSnapshot?.generatedAt]
+  );
+
+  const displayEntries = useMemo(() => {
+    if (dailyStatus !== 'ready' && dailyStatus !== 'revealing') return entries;
+    return entriesForDisplayedMirror(entries, todaysSnapshot);
+  }, [entries, todaysSnapshot, dailyStatus]);
 
   const ms = standaloneSkin.mirrorSurface;
 
   useEffect(() => {
     if (entries.length === 0) {
+      hydratedFromSnapshotRef.current = false;
+      sceneAutoKeyRef.current = null;
+      setMirrorRevision(0);
       setGeneratedDailyCard(null);
       setGeneratedDailyMeta(null);
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
-      setCardIntentFingerprint(null);
       setHybridTextFallback(false);
       setSceneExtras({});
       setDailyStatus('idle');
     }
   }, [entries.length]);
 
-  /** Bust stale scene when history/intent or renderMode changes after card was generated. */
+  const resetGeneratedCardState = useCallback(() => {
+    sceneAutoKeyRef.current = null;
+    setMirrorRevision(0);
+    setGeneratedDailyCard(null);
+    setGeneratedDailyMeta(null);
+    setSceneImageUrl(null);
+    setSceneImageStatus('idle');
+    setHybridTextFallback(false);
+    setSceneExtras({});
+  }, []);
+
+  const commitMirrorReady = useCallback(
+    (sourceEntries: SavedBehavioralEntry[]) => {
+      const state = buildMirrorState(sourceEntries);
+      if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) {
+        resetGeneratedCardState();
+        setDailyStatus('insufficient');
+        return false;
+      }
+      setGeneratedDailyCard(state.dailyMirrorCard);
+      setGeneratedDailyMeta(state.meta);
+      setSceneImageUrl(null);
+      setSceneImageStatus('idle');
+      setHybridTextFallback(false);
+      setSceneExtras({});
+      setDailyStatus('ready');
+      saveDailyMirrorSnapshot(sourceEntries, state.dailyMirrorCard.date);
+      if (!isPlus) {
+        markFreeMirrorUsedToday(state.dailyMirrorCard.date);
+      }
+      return true;
+    },
+    [isPlus, resetGeneratedCardState]
+  );
+
+  const runMirrorWithReveal = useCallback(
+    (sourceEntries: SavedBehavioralEntry[], options?: { isUpdate?: boolean }) => {
+      setDailyStatus('revealing');
+      window.setTimeout(() => {
+        try {
+          if (options?.isUpdate) {
+            sceneAutoKeyRef.current = null;
+            setMirrorRevision((r) => r + 1);
+          }
+          const ok = commitMirrorReady(sourceEntries);
+          if (!ok) return;
+        } catch {
+          resetGeneratedCardState();
+          setDailyStatus('error');
+        }
+      }, MIRROR_REVEAL_DURATION_MS);
+    },
+    [commitMirrorReady, resetGeneratedCardState]
+  );
+
+  /** Sayfa yenileme — bugünkü snapshot ile kartı sessizce göster; aynı veride sahne üretme. */
   useEffect(() => {
-    if (dailyStatus !== 'ready' || !generatedDailyCard || !liveIntentFingerprint) return;
+    if (hydratedFromSnapshotRef.current || generatedDailyCard) return;
+    if (dailyStatus !== 'idle') return;
+    if (refreshCta === 'open_first' || entries.length < MIRROR_MIN_SAMPLES) return;
 
-    const effectiveMode = resolveMirrorRenderMode();
-    const cardMode = resolveCardRenderMode(generatedDailyCard);
-    const modeStale = cardMode !== effectiveMode;
+    const mirrorEntries = entriesForDisplayedMirror(entries, todaysSnapshot);
+    const state = buildMirrorState(mirrorEntries);
+    if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) return;
 
-    if (cardIntentFingerprint && liveIntentFingerprint !== cardIntentFingerprint) {
-      const state = buildMirrorState(entries);
-      sceneAutoKeyRef.current = null;
-      setMirrorRevision((r) => r + 1);
-      setGeneratedDailyCard(state.dailyMirrorCard);
-      setGeneratedDailyMeta(state.meta);
-      setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
-      setSceneImageUrl(null);
-      setSceneImageStatus('idle');
-      setSceneExtras({});
-      setHybridTextFallback(false);
-      return;
-    }
+    hydratedFromSnapshotRef.current = true;
+    setGeneratedDailyCard(state.dailyMirrorCard);
+    setGeneratedDailyMeta(state.meta);
+    setSceneImageUrl(null);
+    setSceneImageStatus('idle');
+    setHybridTextFallback(false);
+    setSceneExtras({});
+    setDailyStatus('ready');
 
-    if (modeStale) {
-      const state = buildMirrorState(entries);
-      sceneAutoKeyRef.current = null;
-      setMirrorRevision((r) => r + 1);
-      setGeneratedDailyCard(state.dailyMirrorCard);
-      setGeneratedDailyMeta(state.meta);
-      setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
-      setSceneImageUrl(null);
-      setSceneImageStatus('idle');
-      setSceneExtras({});
-      setHybridTextFallback(false);
-    }
-  }, [entries, dailyStatus, liveIntentFingerprint, cardIntentFingerprint, generatedDailyCard]);
+    const fingerprint = state.dailyMirrorCard.visual?.intentFingerprint ?? '';
+    sceneAutoKeyRef.current = `${state.dailyMirrorCard.date}:${fingerprint}:hydrate`;
+  }, [
+    dailyStatus,
+    entries,
+    generatedDailyCard,
+    refreshCta,
+    todaysSnapshot,
+  ]);
 
   const cardForRender = useMemo(
     () =>
@@ -165,11 +222,6 @@ export default function StandaloneObservationExperience({
           hybridOcrProbe: 'fail: mock_provider_image',
           hybridFallbackReason: 'mock_provider_image',
         }));
-        if (process.env.NODE_ENV === 'development') {
-          console.warn(
-            '[EZA Mirror] Hybrid OCR probe skipped — mock/picsum image cannot embed typography.'
-          );
-        }
         return;
       }
 
@@ -179,9 +231,6 @@ export default function StandaloneObservationExperience({
       );
       const probeLabel = probe.ok ? `pass: ${probe.reason}` : `fail: ${probe.reason}`;
       setSceneExtras((prev) => ({ ...prev, hybridOcrProbe: probeLabel }));
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[EZA Mirror] hybrid OCR probe', probe);
-      }
       if (!probe.ok) {
         setHybridTextFallback(true);
         setSceneExtras((prev) => ({
@@ -219,21 +268,13 @@ export default function StandaloneObservationExperience({
   }, []);
 
   const handleGenerateMirrorScene = useCallback(async () => {
+    if (sceneImageStatus === 'generating') return;
     if (!generatedDailyCard?.visual) return;
     const visual = generatedDailyCard.visual;
     setSceneImageStatus('generating');
     setSceneImageUrl(null);
     setHybridTextFallback(false);
     setSceneExtras({});
-    if (process.env.NODE_ENV === 'development') {
-      console.group('[EZA Mirror] generate-scene request');
-      console.log('renderMode:', visual.renderMode ?? resolveMirrorRenderMode());
-      console.log('usedPromptType:', visual.usedPromptType);
-      console.log('promptLength:', visual.prompt.length);
-      console.log('promptTruncated:', visual.promptTruncated);
-      console.log('FINAL PROMPT → generate-scene API:\n', visual.prompt);
-      console.groupEnd();
-    }
     try {
       const result = await generateMirrorScene(visual, generatedDailyCard.date);
       setSceneImageUrl(result.sceneImageUrl);
@@ -268,7 +309,14 @@ export default function StandaloneObservationExperience({
         setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
       }
     }
-  }, [generatedDailyCard, openUpgrade]);
+  }, [generatedDailyCard, openUpgrade, sceneImageStatus]);
+
+  /** Plus — aynı kart; yalnızca sceneImageUrl (snapshot / buildMirrorState yok). */
+  const handleNewMirrorScene = useCallback(() => {
+    if (!isPlus) return;
+    if (dailyStatus !== 'ready') return;
+    void handleGenerateMirrorScene();
+  }, [isPlus, dailyStatus, handleGenerateMirrorScene]);
 
   useEffect(() => {
     if (dailyStatus !== 'ready' || !generatedDailyCard?.visual?.prompt) return;
@@ -277,6 +325,7 @@ export default function StandaloneObservationExperience({
     const fingerprint = generatedDailyCard.visual.intentFingerprint ?? '';
     const autoKey = `${generatedDailyCard.date}:${fingerprint}:${mirrorRevision}`;
     if (sceneAutoKeyRef.current === autoKey) return;
+    if (sceneAutoKeyRef.current?.endsWith(':hydrate')) return;
     sceneAutoKeyRef.current = autoKey;
     void handleGenerateMirrorScene();
   }, [
@@ -287,66 +336,54 @@ export default function StandaloneObservationExperience({
     handleGenerateMirrorScene,
   ]);
 
-  const resetGeneratedCardState = useCallback(() => {
-    sceneAutoKeyRef.current = null;
-    setMirrorRevision(0);
-    setGeneratedDailyCard(null);
-    setGeneratedDailyMeta(null);
-    setSceneImageUrl(null);
-    setSceneImageStatus('idle');
-    setCardIntentFingerprint(null);
-    setHybridTextFallback(false);
-    setSceneExtras({});
-  }, []);
-
   const handleGenerateDailyMirror = useCallback(() => {
-    // 1) Veri — reveal öncesi örnek eşiği
     if (entries.length < MIRROR_MIN_SAMPLES) {
       resetGeneratedCardState();
       setDailyStatus('insufficient');
       return;
     }
 
-    // 2) Plan / günlük hak — reveal ve buildMirrorState öncesi
+    const snap = readTodaysSnapshot();
+
+    if (snap && hasNewDataSinceSnapshot(entries, snap)) {
+      if (!isPlus) {
+        setDailyStatus('daily_limit');
+        return;
+      }
+      runMirrorWithReveal(entries, { isUpdate: true });
+      return;
+    }
+
+    if (snap && !hasNewDataSinceSnapshot(entries, snap)) {
+      return;
+    }
+
     if (!isPlus && !canCreateFreeMirrorToday()) {
       setDailyStatus('daily_limit');
       return;
     }
 
-    // 3) Veri + hak uygun — reveal, sonra üretim
-    setDailyStatus('revealing');
-    window.setTimeout(() => {
-      try {
-        const state = buildMirrorState(entries);
-        if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) {
-          resetGeneratedCardState();
-          setDailyStatus('insufficient');
-          return;
-        }
-        setGeneratedDailyCard(state.dailyMirrorCard);
-        setGeneratedDailyMeta(state.meta);
-        setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
-        setSceneImageUrl(null);
-        setSceneImageStatus('idle');
-        setHybridTextFallback(false);
-        setSceneExtras({});
-        setDailyStatus('ready');
-        if (!isPlus) {
-          markFreeMirrorUsedToday(state.dailyMirrorCard.date);
-        }
-      } catch {
-        resetGeneratedCardState();
-        setDailyStatus('error');
-      }
-    }, MIRROR_REVEAL_DURATION_MS);
-  }, [entries, isPlus, resetGeneratedCardState]);
+    runMirrorWithReveal(entries);
+  }, [entries, isPlus, resetGeneratedCardState, runMirrorWithReveal]);
+
+  const handleMirrorRefresh = useCallback(() => {
+    const snap = readTodaysSnapshot();
+    if (!snap || !hasNewDataSinceSnapshot(entries, snap)) return;
+
+    if (!isPlus) {
+      setDailyStatus('daily_limit');
+      return;
+    }
+
+    if (entries.length < MIRROR_MIN_SAMPLES) return;
+    runMirrorWithReveal(entries, { isUpdate: true });
+  }, [entries, isPlus, runMirrorWithReveal]);
 
   const handleForceBmwMercedes = useCallback(() => {
     const boosted = withDevVehicleCueHints(entries);
     const state = buildMirrorState(boosted, { seed: 'force-bmw-mercedes-dev' });
     setGeneratedDailyCard(state.dailyMirrorCard);
     setGeneratedDailyMeta(state.meta);
-    setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
     setSceneImageUrl(null);
     setSceneImageStatus('idle');
     setHybridTextFallback(false);
@@ -362,33 +399,12 @@ export default function StandaloneObservationExperience({
     if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) return;
     setGeneratedDailyCard(state.dailyMirrorCard);
     setGeneratedDailyMeta(state.meta);
-    setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
     setSceneImageUrl(null);
     setSceneImageStatus('idle');
     setHybridTextFallback(false);
     setSceneExtras({});
     setDailyStatus('ready');
   }, [entries]);
-
-  const handleUpdateMirror = useCallback(() => {
-    if (!isPlus) {
-      openUpgrade('upgrade');
-      return;
-    }
-    if (entries.length < MIRROR_MIN_SAMPLES) return;
-    const state = buildMirrorState(entries);
-    if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) return;
-    sceneAutoKeyRef.current = null;
-    setMirrorRevision((r) => r + 1);
-    setGeneratedDailyCard(state.dailyMirrorCard);
-    setGeneratedDailyMeta(state.meta);
-    setCardIntentFingerprint(state.dailyMirrorCard.visual?.intentFingerprint ?? null);
-    setSceneImageUrl(null);
-    setSceneImageStatus('idle');
-    setHybridTextFallback(false);
-    setSceneExtras({});
-    setDailyStatus('ready');
-  }, [entries, isPlus, openUpgrade]);
 
   const handleShareClose = useCallback(() => {
     setShareOpen(false);
@@ -413,6 +429,9 @@ export default function StandaloneObservationExperience({
     generatedDailyCard !== null &&
     generatedDailyCard.shareEnabled;
 
+  const readyRefreshCta: Exclude<MirrorRefreshCta, 'open_first'> =
+    refreshCta === 'open_first' ? 'current' : refreshCta;
+
   const renderDailyPanel = () => {
     if (dailyStatus === 'revealing') {
       return <DailyMirrorReveal />;
@@ -434,7 +453,7 @@ export default function StandaloneObservationExperience({
             <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
               <DailyMirrorPosterCard
                 card={cardForRender}
-                entries={entries}
+                entries={displayEntries}
                 meta={generatedDailyMeta ?? undefined}
                 onSceneImageLoad={handleSceneImageLoad}
                 onSceneImageError={handleSceneImageError}
@@ -445,69 +464,38 @@ export default function StandaloneObservationExperience({
             </div>
           </DailyMirrorCardEntrance>
 
-          <div className="flex w-full max-w-sm flex-col items-center gap-3">
-            {isPlus ? (
-              <>
-                {showShareAction ? (
-                  <button
-                    type="button"
-                    onClick={() => setShareOpen(true)}
-                    className={ms.shareAction}
-                  >
-                    <Share2 className="h-3.5 w-3.5 opacity-70" aria-hidden />
-                    {MIRROR_SHARE_LABEL}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={handleUpdateMirror}
-                  className={cn(
-                    'inline-flex items-center justify-center rounded-full border border-stone-200/50 bg-white/80 px-5 py-2 text-xs font-medium tracking-tight text-stone-600',
-                    'transition-colors hover:border-violet-200/40 hover:bg-white hover:text-stone-800',
-                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/50'
-                  )}
-                >
-                  {MIRROR_UPDATE_LABEL}
-                </button>
-                {sceneImageStatus === 'error' ? (
-                  <MirrorSceneGenerateButton
-                    status={sceneImageStatus}
-                    onGenerate={() => void handleGenerateMirrorScene()}
-                    disabled={!generatedDailyCard?.visual?.prompt}
-                  />
-                ) : sceneImageStatus === 'generating' ? (
-                  <MirrorSceneGenerateButton
-                    status={sceneImageStatus}
-                    onGenerate={() => {}}
-                    disabled
-                  />
-                ) : sceneImageStatus === 'ready' ? (
-                  <MirrorSceneGenerateButton
-                    status={sceneImageStatus}
-                    onGenerate={() => {}}
-                    disabled
-                  />
-                ) : null}
-              </>
-            ) : (
-              <>
-                <p className={cn(ms.sceneWrap, 'text-center text-[11px] text-stone-500')}>
-                  {FREE_MIRROR_READY_PLUS_HINT}
-                </p>
-                <button
-                  type="button"
-                  onClick={handleGenerateDailyMirror}
-                  className={cn(
-                    'text-[12px] font-medium text-stone-500 underline-offset-2',
-                    'transition-colors hover:text-violet-700 hover:underline',
-                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400'
-                  )}
-                >
-                  {FREE_MIRROR_CREATE_ANOTHER}
-                </button>
-              </>
-            )}
-          </div>
+          <DailyMirrorRefreshActions
+            refreshCta={readyRefreshCta}
+            isPlus={isPlus}
+            cardReady
+            sceneImageStatus={sceneImageStatus}
+            showShare={showShareAction}
+            onShare={() => setShareOpen(true)}
+            onUpdate={handleMirrorRefresh}
+            onNewScene={handleNewMirrorScene}
+            freePlusHint={!isPlus ? FREE_MIRROR_READY_PLUS_HINT : undefined}
+          >
+            {!isPlus && sceneImageStatus === 'error' ? (
+              <MirrorSceneGenerateButton
+                status={sceneImageStatus}
+                onGenerate={() => void handleGenerateMirrorScene()}
+                disabled={!generatedDailyCard?.visual?.prompt}
+              />
+            ) : null}
+          </DailyMirrorRefreshActions>
+        </div>
+      );
+    }
+
+    if (refreshCta === 'current' && dailyStatus === 'idle') {
+      return (
+        <div className={ms.dailyReadyStack}>
+          <DailyMirrorRefreshActions
+            refreshCta="current"
+            isPlus={isPlus}
+            onUpdate={handleMirrorRefresh}
+            freePlusHint={!isPlus ? FREE_MIRROR_READY_PLUS_HINT : undefined}
+          />
         </div>
       );
     }
@@ -518,6 +506,19 @@ export default function StandaloneObservationExperience({
         : dailyStatus === 'insufficient'
           ? 'insufficient'
           : 'idle';
+
+    if (refreshCta === 'update' && dailyStatus === 'idle') {
+      return (
+        <div className={ms.dailyReadyStack}>
+          <DailyMirrorRefreshActions
+            refreshCta="update"
+            isPlus={isPlus}
+            onUpdate={handleMirrorRefresh}
+            freePlusHint={!isPlus ? FREE_MIRROR_READY_PLUS_HINT : undefined}
+          />
+        </div>
+      );
+    }
 
     return (
       <DailyMirrorCreatePrompt variant={promptVariant} onGenerate={handleGenerateDailyMirror} />

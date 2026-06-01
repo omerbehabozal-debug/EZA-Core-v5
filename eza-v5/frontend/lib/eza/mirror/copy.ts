@@ -166,7 +166,12 @@ export const FREE_MIRROR_LIMIT_PLUS_HINT =
 export const FREE_MIRROR_READY_PLUS_HINT =
   'Plus ile gün içinde aynayı güncelle, paylaşım ve geçmiş aynalar açılır.';
 
-export const FREE_MIRROR_CREATE_ANOTHER = 'Yeni Ayna Oluştur';
+export const MIRROR_CURRENT_BADGE = 'Bugünkü aynan güncel';
+
+export const MIRROR_CURRENT_HINT =
+  'Yeni sohbetlerden sonra aynanı güncelleyebilirsin.';
+
+export const MIRROR_UPDATE_SIGNAL_HINT = 'Yeni sohbet sinyalleri algılandı.';
 
 export const FREE_MIRROR_LIMIT_CTA = "Plus'a Geç";
 
@@ -179,6 +184,12 @@ export const PLAN_PLUS_FEATURE_HINT =
   'Gün içi güncelleme, paylaşım ve ilişki deseni Plus ile açılır.';
 
 export const MIRROR_UPDATE_LABEL = 'Aynanı Güncelle';
+
+/** Plus — aynı kart, yeni sahne görseli (buildMirrorState / snapshot yok). */
+export const MIRROR_NEW_SCENE_LABEL = '✨ Yeni Sahne Oluştur';
+
+export const MIRROR_NEW_SCENE_HINT =
+  'Aynanın anlamı aynı kalır; yalnızca sahne görseli yenilenir.';
 
 export const PLAN_UPGRADE_MODAL_BODY =
   'Plus ile persona görselin, tam hikâyen, paylaşılabilir posterin ve AI ile zaman içindeki ilişki desenin açılır.';

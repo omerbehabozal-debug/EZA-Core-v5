@@ -17,9 +17,10 @@ describe('Daily Mirror create preflight', () => {
     expect(revealIdx).toBeGreaterThan(quotaIdx);
   });
 
-  it('marks free quota only after successful ready path in create handler', () => {
+  it('marks free quota only after successful ready in commitMirrorReady', () => {
+    expect(experienceSrc).toMatch(/saveDailyMirrorSnapshot/);
     expect(experienceSrc).toMatch(
-      /setDailyStatus\('ready'\);\s*\n\s*if \(!isPlus\) \{\s*\n\s*markFreeMirrorUsedToday/
+      /setDailyStatus\('ready'\);\s*\r?\n\s*saveDailyMirrorSnapshot[\s\S]*?if \(!isPlus\) \{\s*\r?\n\s*markFreeMirrorUsedToday/
     );
   });
 
@@ -30,8 +31,10 @@ describe('Daily Mirror create preflight', () => {
     expect(experienceSrc).not.toContain('canCreateFreeMirrorThisMonth');
   });
 
-  it('shows Yeni Ayna Oluştur for free ready state', () => {
-    expect(experienceSrc).toContain('FREE_MIRROR_CREATE_ANOTHER');
+  it('uses snapshot refresh actions instead of Yeni Ayna Oluştur', () => {
+    expect(experienceSrc).toContain('DailyMirrorRefreshActions');
+    expect(experienceSrc).toContain('saveDailyMirrorSnapshot');
+    expect(experienceSrc).not.toContain('FREE_MIRROR_CREATE_ANOTHER');
     expect(experienceSrc).not.toContain('MiniMirrorCard');
   });
 });
