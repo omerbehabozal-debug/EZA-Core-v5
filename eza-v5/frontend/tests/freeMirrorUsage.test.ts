@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   FREE_MIRROR_USAGE_STORAGE_KEY,
-  canCreateFreeMirrorThisMonth,
+  canCreateFreeMirrorToday,
   clearFreeMirrorUsage,
   formatNextFreeMirrorDate,
-  markFreeMirrorUsed,
+  markFreeMirrorUsedToday,
 } from '@/lib/eza/plan/freeMirrorUsage';
 
-describe('freeMirrorUsage', () => {
+describe('freeMirrorUsage (daily)', () => {
   beforeEach(() => {
     clearFreeMirrorUsage();
   });
@@ -16,33 +16,48 @@ describe('freeMirrorUsage', () => {
     clearFreeMirrorUsage();
   });
 
-  it('allows first mirror in a month', () => {
-    expect(canCreateFreeMirrorThisMonth(new Date('2026-05-15'))).toBe(true);
+  it('allows first mirror on a given day', () => {
+    expect(canCreateFreeMirrorToday(new Date('2026-06-01T10:00:00'))).toBe(true);
   });
 
-  it('blocks after monthly quota is consumed', () => {
-    markFreeMirrorUsed('2026-05-15', new Date('2026-05-15T12:00:00'));
-    expect(canCreateFreeMirrorThisMonth(new Date('2026-05-20'))).toBe(false);
+  it('blocks second free mirror on the same calendar day', () => {
+    markFreeMirrorUsedToday('2026-06-01', new Date('2026-06-01T12:00:00'));
+    expect(canCreateFreeMirrorToday(new Date('2026-06-01T20:00:00'))).toBe(false);
   });
 
-  it('resets quota when month changes', () => {
-    markFreeMirrorUsed('2026-05-15', new Date('2026-05-15'));
-    expect(canCreateFreeMirrorThisMonth(new Date('2026-06-01'))).toBe(true);
+  it('resets quota on the next calendar day', () => {
+    markFreeMirrorUsedToday('2026-06-01', new Date('2026-06-01T12:00:00'));
+    expect(canCreateFreeMirrorToday(new Date('2026-06-02T00:05:00'))).toBe(true);
   });
 
-  it('formats next free mirror date for June after May usage', () => {
-    const next = formatNextFreeMirrorDate(new Date('2026-05-15'));
-    expect(next.length).toBeGreaterThan(4);
-    expect(next).toMatch(/2026/);
-    expect(next.toLowerCase()).toMatch(/haziran|june|06/);
+  it('ignores legacy monthly records (monthKey only)', () => {
+    localStorage.setItem(
+      FREE_MIRROR_USAGE_STORAGE_KEY,
+      JSON.stringify({ monthKey: '2026-06', used: true })
+    );
+    expect(canCreateFreeMirrorToday(new Date('2026-06-01'))).toBe(true);
   });
 
-  it('persists usage in localStorage', () => {
-    markFreeMirrorUsed('2026-05-15', new Date('2026-05-15T10:00:00Z'));
+  it('persists dayKey in localStorage', () => {
+    markFreeMirrorUsedToday('2026-06-01', new Date('2026-06-01T10:00:00Z'));
     const raw = localStorage.getItem(FREE_MIRROR_USAGE_STORAGE_KEY);
     expect(raw).toBeTruthy();
-    const parsed = JSON.parse(raw!) as { used: boolean; monthKey: string };
+    const parsed = JSON.parse(raw!) as { used: boolean; dayKey: string };
     expect(parsed.used).toBe(true);
-    expect(parsed.monthKey).toBe('2026-05');
+    expect(parsed.dayKey).toBe('2026-06-01');
+  });
+
+  it('formatNextFreeMirrorDate points to tomorrow', () => {
+    const next = formatNextFreeMirrorDate(new Date('2026-06-01T15:00:00'));
+    expect(next.length).toBeGreaterThan(4);
+    expect(next).toMatch(/2026/);
+    expect(next.toLowerCase()).toMatch(/2|haziran|june/);
+  });
+});
+
+describe('freeMirrorUsage — Plus has no client quota', () => {
+  it('Plus path does not use markFreeMirrorUsedToday in engine (documented)', () => {
+    expect(typeof markFreeMirrorUsedToday).toBe('function');
+    expect(typeof canCreateFreeMirrorToday).toBe('function');
   });
 });

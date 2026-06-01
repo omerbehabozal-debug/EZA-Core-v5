@@ -5,13 +5,15 @@ import { Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
+  FREE_MIRROR_CREATE_ANOTHER,
   MIRROR_REVEAL_DURATION_MS,
   MIRROR_SHARE_LABEL,
 } from '@/lib/eza/mirror/copy';
-import type {
-  DailyMirrorCardModel,
-  MirrorSceneImageStatus,
-  MirrorStateMeta,
+import {
+  MIRROR_MIN_SAMPLES,
+  type DailyMirrorCardModel,
+  type MirrorSceneImageStatus,
+  type MirrorStateMeta,
 } from '@/lib/eza/mirror/types';
 import { buildMirrorState } from '@/lib/eza/mirror/mirrorStateEngine';
 import { mergeDailyCardSceneVisual, type DailyCardSceneVisualExtras } from '@/lib/eza/mirror/mirrorSceneImage';
@@ -31,7 +33,7 @@ import {
 } from '@/lib/eza/mirror/hybridPosterDebug';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
 import DailyMirrorPlusActions from '@/components/mirror/DailyMirrorPlusActions';
-import MonthlyLimitUpgrade from '@/components/mirror/MonthlyLimitUpgrade';
+import DailyLimitUpgrade from '@/components/mirror/DailyLimitUpgrade';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
 import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
 import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
@@ -41,8 +43,8 @@ import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/Upgrad
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import {
-  canCreateFreeMirrorThisMonth,
-  markFreeMirrorUsed,
+  canCreateFreeMirrorToday,
+  markFreeMirrorUsedToday,
 } from '@/lib/eza/plan/freeMirrorUsage';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
@@ -51,7 +53,7 @@ type DailyMirrorStatus =
   | 'revealing'
   | 'ready'
   | 'insufficient'
-  | 'monthly_limit'
+  | 'daily_limit'
   | 'error';
 
 interface StandaloneObservationExperienceProps {
@@ -265,26 +267,39 @@ export default function StandaloneObservationExperience({
     }
   }, [generatedDailyCard, isPlus, openUpgrade]);
 
+  const resetGeneratedCardState = useCallback(() => {
+    setGeneratedDailyCard(null);
+    setGeneratedDailyMeta(null);
+    setSceneImageUrl(null);
+    setSceneImageStatus('idle');
+    setCardIntentFingerprint(null);
+    setHybridTextFallback(false);
+    setSceneExtras({});
+  }, []);
+
   const handleGenerateDailyMirror = useCallback(() => {
-    if (!isPlus && !canCreateFreeMirrorThisMonth()) {
-      setDailyStatus('monthly_limit');
+    // 1) Veri — reveal öncesi örnek eşiği
+    if (entries.length < MIRROR_MIN_SAMPLES) {
+      resetGeneratedCardState();
+      setDailyStatus('insufficient');
       return;
     }
 
+    // 2) Plan / günlük hak — reveal ve buildMirrorState öncesi
+    if (!isPlus && !canCreateFreeMirrorToday()) {
+      setDailyStatus('daily_limit');
+      return;
+    }
+
+    // 3) Veri + hak uygun — reveal, sonra üretim
     setDailyStatus('revealing');
     window.setTimeout(() => {
       try {
         const state = buildMirrorState(entries);
         if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) {
-          setGeneratedDailyCard(null);
-          setGeneratedDailyMeta(null);
-          setSceneImageUrl(null);
-          setSceneImageStatus('idle');
+          resetGeneratedCardState();
           setDailyStatus('insufficient');
           return;
-        }
-        if (!isPlus) {
-          markFreeMirrorUsed(state.dailyMirrorCard.date);
         }
         setGeneratedDailyCard(state.dailyMirrorCard);
         setGeneratedDailyMeta(state.meta);
@@ -294,13 +309,15 @@ export default function StandaloneObservationExperience({
         setHybridTextFallback(false);
         setSceneExtras({});
         setDailyStatus('ready');
+        if (!isPlus) {
+          markFreeMirrorUsedToday(state.dailyMirrorCard.date);
+        }
       } catch {
-        setGeneratedDailyCard(null);
-        setGeneratedDailyMeta(null);
+        resetGeneratedCardState();
         setDailyStatus('error');
       }
     }, MIRROR_REVEAL_DURATION_MS);
-  }, [entries, isPlus]);
+  }, [entries, isPlus, resetGeneratedCardState]);
 
   const handleForceBmwMercedes = useCallback(() => {
     const boosted = withDevVehicleCueHints(entries);
@@ -358,9 +375,9 @@ export default function StandaloneObservationExperience({
       return <DailyMirrorReveal />;
     }
 
-    if (dailyStatus === 'monthly_limit') {
+    if (dailyStatus === 'daily_limit') {
       return (
-        <MonthlyLimitUpgrade
+        <DailyLimitUpgrade
           onUpgrade={() => openUpgrade('upgrade')}
           onBack={() => setDailyStatus('idle')}
         />
@@ -419,17 +436,34 @@ export default function StandaloneObservationExperience({
               />
             </div>
           ) : (
-            <DailyMirrorPlusActions
-              onSceneUpgrade={() => openUpgrade('upgrade')}
-              onShareUpgrade={() => openUpgrade('upgrade')}
-            />
+            <div className="flex w-full max-w-sm flex-col items-center gap-3">
+              <DailyMirrorPlusActions
+                onSceneUpgrade={() => openUpgrade('upgrade')}
+                onShareUpgrade={() => openUpgrade('upgrade')}
+              />
+              <button
+                type="button"
+                onClick={handleGenerateDailyMirror}
+                className={cn(
+                  'text-[12px] font-medium text-stone-500 underline-offset-2',
+                  'transition-colors hover:text-violet-700 hover:underline',
+                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400'
+                )}
+              >
+                {FREE_MIRROR_CREATE_ANOTHER}
+              </button>
+            </div>
           )}
         </div>
       );
     }
 
-    const promptVariant =
-      dailyStatus === 'insufficient' || dailyStatus === 'error' ? 'insufficient' : 'idle';
+    const promptVariant: 'idle' | 'insufficient' | 'error' =
+      dailyStatus === 'error'
+        ? 'error'
+        : dailyStatus === 'insufficient'
+          ? 'insufficient'
+          : 'idle';
 
     return (
       <DailyMirrorCreatePrompt variant={promptVariant} onGenerate={handleGenerateDailyMirror} />
@@ -444,7 +478,8 @@ export default function StandaloneObservationExperience({
           'min-h-0 flex-1',
           dailyStatus === 'idle' ||
           dailyStatus === 'insufficient' ||
-          dailyStatus === 'monthly_limit'
+          dailyStatus === 'error' ||
+          dailyStatus === 'daily_limit'
             ? 'justify-center gap-0 overflow-x-hidden overflow-y-auto py-0 sm:gap-0 sm:py-1'
             : 'justify-center overflow-y-auto'
         )}

@@ -96,6 +96,14 @@ export const MIRROR_INSUFFICIENT_BODY =
 
 export const MIRROR_INSUFFICIENT_ACTION = 'Sohbete Dön';
 
+/** Kart üretimi beklenmedik şekilde başarısız */
+export const MIRROR_ERROR_TITLE = 'Ayna şu an oluşturulamadı';
+
+export const MIRROR_ERROR_BODY =
+  'Geçici bir sorun oluştu. Biraz sonra tekrar deneyebilirsin.';
+
+export const MIRROR_ERROR_RETRY = 'Tekrar Dene';
+
 export const MIRROR_STANDALONE_ROUTE = '/standalone';
 
 export const MIRROR_EPHEMERAL_NOTE =
@@ -144,16 +152,18 @@ export const MINI_MIRROR_TOMORROW_LABEL = 'Yarının İpucu';
 
 export const MINI_MIRROR_LOCKED_HEADING = 'Tam aynanda seni bekleyenler';
 
-/** Free — aylık hak doldu */
-export const FREE_MIRROR_LIMIT_TITLE = 'Bu ay ücretsiz ayna hakkını kullandın';
+/** Free — günlük hak doldu */
+export const FREE_MIRROR_LIMIT_TITLE = 'Bugünkü ücretsiz ayna hakkını kullandın';
 
 export const FREE_MIRROR_LIMIT_BODY =
-  'Ücretsiz planda her ay bir kez tam günlük ayna kartı oluşturabilirsin.';
+  'Yarın tekrar ücretsiz ayna oluşturabilirsin. Gün içinde yeni ayna oluşturmak için Plus\'a geç.';
 
-export const FREE_MIRROR_LIMIT_NEXT_LABEL = 'Sonraki ücretsiz aynan';
+export const FREE_MIRROR_LIMIT_NEXT_LABEL = 'Yarın';
 
 export const FREE_MIRROR_LIMIT_PLUS_HINT =
-  'Her gün yeni ayna oluşturmak için Plus\'a geç.';
+  'Plus ile gün içinde birden fazla yeni ayna, sahne görseli ve paylaşım açılır.';
+
+export const FREE_MIRROR_CREATE_ANOTHER = 'Yeni Ayna Oluştur';
 
 export const FREE_MIRROR_LIMIT_CTA = "Plus'a Geç";
 

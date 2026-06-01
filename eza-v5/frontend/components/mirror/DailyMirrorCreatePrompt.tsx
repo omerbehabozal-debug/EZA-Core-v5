@@ -6,6 +6,9 @@ import { cn } from '@/lib/utils';
 import {
   MIRROR_CREATE_BUTTON,
   MIRROR_CREATE_PRIVACY_NOTE,
+  MIRROR_ERROR_BODY,
+  MIRROR_ERROR_RETRY,
+  MIRROR_ERROR_TITLE,
   MIRROR_INSUFFICIENT_ACTION,
   MIRROR_INSUFFICIENT_BODY,
   MIRROR_INSUFFICIENT_TITLE,
@@ -15,7 +18,7 @@ import {
 } from '@/lib/eza/mirror/copy';
 import MirrorOnboardingPreview from '@/components/mirror/MirrorOnboardingPreview';
 
-export type DailyMirrorPromptVariant = 'idle' | 'insufficient';
+export type DailyMirrorPromptVariant = 'idle' | 'insufficient' | 'error';
 
 export type DailyMirrorCreatePromptProps = {
   variant: DailyMirrorPromptVariant;
@@ -41,6 +44,20 @@ export default function DailyMirrorCreatePrompt({
   className,
 }: DailyMirrorCreatePromptProps) {
   const isInsufficient = variant === 'insufficient';
+  const isError = variant === 'error';
+  const showOnboarding = variant === 'idle';
+
+  const title = isError
+    ? MIRROR_ERROR_TITLE
+    : isInsufficient
+      ? MIRROR_INSUFFICIENT_TITLE
+      : MIRROR_ONBOARDING_TITLE;
+
+  const body = isError
+    ? MIRROR_ERROR_BODY
+    : isInsufficient
+      ? MIRROR_INSUFFICIENT_BODY
+      : MIRROR_ONBOARDING_SUBTITLE;
 
   return (
     <section
@@ -63,21 +80,21 @@ export default function DailyMirrorCreatePrompt({
             id="daily-mirror-create-title"
             className="text-[1.15rem] font-semibold leading-tight tracking-[-0.03em] text-stone-900 sm:text-[1.3rem]"
           >
-            {isInsufficient ? MIRROR_INSUFFICIENT_TITLE : MIRROR_ONBOARDING_TITLE}
+            {title}
           </h2>
           <p className="mx-auto max-w-[19rem] text-[12px] leading-snug text-stone-500/95 sm:text-[13px]">
-            {isInsufficient ? MIRROR_INSUFFICIENT_BODY : MIRROR_ONBOARDING_SUBTITLE}
+            {body}
           </p>
         </div>
 
-        {!isInsufficient ? (
+        {showOnboarding ? (
           <button type="button" onClick={onGenerate} className={primaryCtaClass}>
             <Sparkles className="h-4 w-4 opacity-90" strokeWidth={2} aria-hidden />
             {MIRROR_CREATE_BUTTON}
           </button>
         ) : null}
 
-        {!isInsufficient ? <MirrorOnboardingPreview className="w-full" /> : null}
+        {showOnboarding ? <MirrorOnboardingPreview className="w-full" /> : null}
 
         {isInsufficient ? (
           <Link href={MIRROR_STANDALONE_ROUTE} className={cn(primaryCtaClass, 'no-underline')}>
@@ -85,7 +102,14 @@ export default function DailyMirrorCreatePrompt({
           </Link>
         ) : null}
 
-        {!isInsufficient ? (
+        {isError ? (
+          <button type="button" onClick={onGenerate} className={primaryCtaClass}>
+            <Sparkles className="h-4 w-4 opacity-90" strokeWidth={2} aria-hidden />
+            {MIRROR_ERROR_RETRY}
+          </button>
+        ) : null}
+
+        {showOnboarding ? (
           <p className="text-[10px] leading-snug tracking-wide text-stone-400/95">
             {MIRROR_CREATE_PRIVACY_NOTE}
           </p>

@@ -1,21 +1,22 @@
 /**
- * Client-side Free plan — ayda 1 Daily Mirror oluşturma hakkı (mock).
+ * Client-side Free plan — günde 1 tam Daily Mirror oluşturma hakkı (mock).
  * Gerçek quota Sprint 3+ / server entitlement ile değiştirilecek.
  */
 
 export const FREE_MIRROR_USAGE_STORAGE_KEY = 'eza_free_mirror_usage';
 
 export type FreeMirrorUsageRecord = {
-  monthKey: string;
+  dayKey: string;
   used: boolean;
   createdAt?: string;
   mirrorDate?: string;
 };
 
-function monthKeyFromDate(date: Date): string {
+function dayKeyFromDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function storage(): Storage | null {
@@ -26,15 +27,28 @@ function storage(): Storage | null {
   }
 }
 
+function normalizeRecord(parsed: unknown): FreeMirrorUsageRecord | null {
+  if (!parsed || typeof parsed !== 'object') return null;
+  const raw = parsed as Record<string, unknown>;
+  if (typeof raw.dayKey === 'string' && typeof raw.used === 'boolean') {
+    return {
+      dayKey: raw.dayKey,
+      used: raw.used,
+      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : undefined,
+      mirrorDate: typeof raw.mirrorDate === 'string' ? raw.mirrorDate : undefined,
+    };
+  }
+  /** Eski aylık kayıt (monthKey) — günlük modele geçişte yok sayılır */
+  return null;
+}
+
 function readRecord(): FreeMirrorUsageRecord | null {
   const ls = storage();
   if (!ls) return null;
   try {
     const raw = ls.getItem(FREE_MIRROR_USAGE_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as FreeMirrorUsageRecord;
-    if (!parsed || typeof parsed.monthKey !== 'string') return null;
-    return parsed;
+    return normalizeRecord(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -46,29 +60,33 @@ function writeRecord(record: FreeMirrorUsageRecord): void {
   ls.setItem(FREE_MIRROR_USAGE_STORAGE_KEY, JSON.stringify(record));
 }
 
-/** Bu takvim ayında ücretsiz tam ayna oluşturma hakkı var mı? */
-export function canCreateFreeMirrorThisMonth(now: Date = new Date()): boolean {
-  const key = monthKeyFromDate(now);
+/** Bugün ücretsiz tam ayna oluşturma hakkı var mı? */
+export function canCreateFreeMirrorToday(now: Date = new Date()): boolean {
+  const key = dayKeyFromDate(now);
   const record = readRecord();
-  if (!record || record.monthKey !== key) return true;
+  if (!record || record.dayKey !== key) return true;
   return !record.used;
 }
 
-/** Free kullanıcının aylık hakkını tüket (Plus'ta no-op). */
-export function markFreeMirrorUsed(mirrorDate: string, now: Date = new Date()): void {
+/** Free kullanıcının günlük hakkını tüket (Plus'ta çağrılmamalı). */
+export function markFreeMirrorUsedToday(mirrorDate: string, now: Date = new Date()): void {
   writeRecord({
-    monthKey: monthKeyFromDate(now),
+    dayKey: dayKeyFromDate(now),
     used: true,
     createdAt: now.toISOString(),
     mirrorDate,
   });
 }
 
-/** Sonraki ücretsiz hakkın başlangıç tarihi (ayın 1'i). */
+/** Sonraki ücretsiz hak: yarın 00:00 (yerel). */
 export function getNextFreeMirrorResetDate(now: Date = new Date()): Date {
-  return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const next = new Date(now);
+  next.setDate(next.getDate() + 1);
+  next.setHours(0, 0, 0, 0);
+  return next;
 }
 
+/** UI — yarınki sıfırlanma tarihi (ör. "2 Haziran 2026"). */
 export function formatNextFreeMirrorDate(
   now: Date = new Date(),
   locale = 'tr-TR'

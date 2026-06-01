@@ -11,17 +11,17 @@ import {
 } from '@/lib/eza/mirror/copy';
 import { formatNextFreeMirrorDate } from '@/lib/eza/plan/freeMirrorUsage';
 
-export type MonthlyLimitUpgradeProps = {
+export type DailyLimitUpgradeProps = {
   onUpgrade: () => void;
   onBack?: () => void;
   className?: string;
 };
 
-export default function MonthlyLimitUpgrade({
+export default function DailyLimitUpgrade({
   onUpgrade,
   onBack,
   className,
-}: MonthlyLimitUpgradeProps) {
+}: DailyLimitUpgradeProps) {
   const nextDate = formatNextFreeMirrorDate();
 
   return (
