@@ -21,6 +21,8 @@ import type {
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
 import type { MirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
 import type { HybridPosterTextPayload } from '@/lib/eza/mirror/hybridPosterPromptBuilder';
+import type { CharacterArchetypeId } from '@/lib/eza/mirror/ezaCharacterBible';
+import type { DailyAvatarType } from '@/lib/eza/mirror/dailyAvatarRegistry';
 
 /** Minimum interactions before mirror insights are considered reliable. */
 export const MIRROR_MIN_SAMPLES = 3;
@@ -126,6 +128,16 @@ export interface DailyMirrorCardModel {
   visual?: MirrorVisualPromptPayload;
   /** Sprint 13C — authoritative poster layout mode (mirrors visual.renderMode). */
   renderMode?: MirrorRenderMode;
+  /** P0 Dynamic Persona — behavior family (user-facing). */
+  behaviorFamilyLabel?: string;
+  dailyAvatarId?: string;
+  dailyAvatarName?: string;
+  dailyAvatarEmoji?: string;
+  dailyAvatarType?: DailyAvatarType;
+  dailyAvatarArchetypeId?: CharacterArchetypeId;
+  dailyThemeTitle?: string;
+  dailyThemeSubtitle?: string;
+  dailySceneConcept?: string;
 }
 
 export interface RelationshipPatternModel {

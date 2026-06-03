@@ -277,7 +277,9 @@ export function buildPersonaSeed(
   const latest = [...entries].sort(
     (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
   )[0];
-  const dateBucket = new Date().toISOString().slice(0, 10);
+  const dateBucket = latest?.savedAt
+    ? new Date(latest.savedAt).toISOString().slice(0, 10)
+    : 'no-date';
   const sessionId = latest?.interaction_id ?? 'session';
   return `${sessionId}-${dateBucket}-${entries.length}-${personaFamily}`;
 }

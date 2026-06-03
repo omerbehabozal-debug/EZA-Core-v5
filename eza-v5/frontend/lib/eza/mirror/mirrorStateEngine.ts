@@ -12,8 +12,8 @@ import {
   type BehaviorIsland,
   type RelationshipPeriodDays,
 } from '@/lib/eza/relationshipMapModel';
-import { buildPersonaSeed } from '@/lib/standaloneObservation';
-import { pickStandalonePersona, type PersonaFamilyId } from '@/lib/eza/standalonePersonas';
+import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
+import { composeDailyMirrorIdentity } from '@/lib/eza/mirror/dailyMirrorIdentity';
 import { composeEmotionalReflection } from '@/lib/eza/mirror/reflectionToneEngine';
 import { composeMirrorStory } from '@/lib/eza/mirror/mirrorStoryEngine';
 import { buildMirrorVisualFromContext, buildFallbackMirrorVisual } from '@/lib/eza/mirror/visualPromptEngine';
@@ -217,12 +217,6 @@ function buildDailyMirrorCard(
     observation.personaFamilyId ??
     (observation.categoryId as PersonaFamilyId | undefined) ??
     'balanced_calm';
-  const personaSeed = buildPersonaSeed(entries, personaFamilyId);
-  const persona = pickStandalonePersona(
-    observation.personaFamilyId ?? observation.categoryId,
-    personaSeed
-  );
-
   const emotional = composeEmotionalReflection({
     entries,
     seed,
@@ -262,6 +256,18 @@ function buildDailyMirrorCard(
 
   const renderMode = resolveMirrorRenderMode();
   const storyTopicKey = story.storyTopicKey ?? 'general';
+  const cardDate = formatDateIso(refDate);
+  const identity = composeDailyMirrorIdentity({
+    entries,
+    mirrorSeed: seed,
+    cardDate,
+    personaFamilyId,
+    storyTopicKey,
+    storyVariant: story.storyVariant,
+    microMood: story.microMood,
+    intentFingerprint: intentCtx.intentFingerprint,
+  });
+
   const hybridCopy =
     renderMode === 'hybrid_middle'
       ? buildHybridPosterTextFields({
@@ -280,7 +286,7 @@ function buildDailyMirrorCard(
 
   const visual = buildMirrorVisualFromContext({
     entries,
-    characterName: persona.name,
+    characterName: identity.dailyAvatarName,
     personaFamilyId,
     observationCategoryId: observation.categoryId,
     energyLabel,
@@ -306,11 +312,20 @@ function buildDailyMirrorCard(
   const storyInsight = story.mirrorStory;
 
   return {
-    date: formatDateIso(refDate),
+    date: cardDate,
     dayLabel: formatDayLabelTr(refDate),
     headline: storyHeadline || emotional.headline,
-    characterName: persona.name,
+    characterName: identity.dailyAvatarName,
     personaFamilyId,
+    behaviorFamilyLabel: identity.behaviorFamilyLabel,
+    dailyAvatarId: identity.dailyAvatarId,
+    dailyAvatarName: identity.dailyAvatarName,
+    dailyAvatarEmoji: identity.dailyAvatarEmoji,
+    dailyAvatarType: identity.dailyAvatarType,
+    dailyAvatarArchetypeId: identity.dailyAvatarArchetypeId,
+    dailyThemeTitle: identity.dailyThemeTitle,
+    dailyThemeSubtitle: identity.dailyThemeSubtitle,
+    dailySceneConcept: identity.dailySceneConcept,
     shortInsight: storyInsight || emotional.shortInsight,
     userLine: story.userStoryLine,
     aiLine: story.aiStoryLine,
