@@ -306,6 +306,14 @@ function buildDailyMirrorCard(
     intentFingerprint: intentCtx.intentFingerprint,
     renderMode,
     hybridCopy,
+    dailyIdentity: {
+      dailyAvatarId: identity.dailyAvatarId,
+      dailyAvatarName: identity.dailyAvatarName,
+      dailyAvatarType: identity.dailyAvatarType,
+      dailyAvatarArchetypeId: identity.dailyAvatarArchetypeId,
+      dailyThemeTitle: identity.dailyThemeTitle,
+      dailySceneConcept: identity.dailySceneConcept,
+    },
   });
 
   const storyHeadline = story.dailyJourney;

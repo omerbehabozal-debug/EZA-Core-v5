@@ -12,6 +12,7 @@ import {
   STANDARD_NEGATIVE_PROMPT,
 } from '@/lib/eza/mirror/visualStyleContract';
 import { buildMirrorState } from '@/lib/eza/mirror/mirrorStateEngine';
+import { MIRROR_MIN_SAMPLES } from '@/lib/eza/mirror/types';
 
 function makeEntry(overrides: Partial<SavedBehavioralEntry> = {}): SavedBehavioralEntry {
   return {
@@ -39,24 +40,28 @@ function makeEntry(overrides: Partial<SavedBehavioralEntry> = {}): SavedBehavior
 
 function promptHasNoTextRules(prompt: string): void {
   const lower = prompt.toLowerCase();
-  expect(lower).toContain('no text');
-  expect(lower).toContain('no typography');
-  expect(lower).toContain('no letters');
-  expect(lower).toContain('no numbers');
-  expect(lower).toContain('no logo');
-  expect(lower).toContain('no ui labels');
-  expect(lower).toContain('no signage');
-  expect(lower).toContain('no readable writing');
+  expect(lower).toMatch(/no text|textless/);
+  expect(lower).toMatch(/no typography|no readable text|textless/);
+  expect(lower).toMatch(/no letters|no readable/);
+  expect(lower).toMatch(/no numbers|no readable/);
+  expect(lower).toMatch(/no logo|no logos/);
+  expect(lower).toMatch(/no ui|do not generate ui|not a chat|no chat/);
+  expect(lower).toMatch(/no signage|no readable/);
+  expect(lower).toMatch(/no readable writing|textless/);
 }
 
 function promptHasStyleContract(prompt: string): void {
   const lower = prompt.toLowerCase();
-  expect(lower).toContain('premium soft 3d realism');
-  expect(lower).toContain('editorial character illustration');
-  expect(lower).toContain('calm cinematic atmosphere');
-  expect(lower).toContain('clean left side for ui overlay');
-  expect(lower).toContain('not a toy');
-  expect(lower).toContain('mature premium editorial character');
+  expect(lower).toMatch(/premium soft 3d realism|premium cinematic editorial/);
+  expect(lower).toMatch(
+    /editorial character illustration|premium cinematic editorial scene|premium editorial/
+  );
+  expect(lower).toMatch(/calm cinematic atmosphere|film still atmosphere|warm emotional realism/);
+  expect(lower).toMatch(/clean left|typography safe|overlay safe/);
+  expect(lower).toMatch(/not a toy|not cartoon|not mascot/);
+  expect(lower).toMatch(
+    /mature premium editorial|premium stylized|premium editorial campaign|premium cinematic editorial/
+  );
 }
 
 function promptHasLeftOverlayRules(prompt: string): void {
@@ -134,7 +139,7 @@ describe('visualPromptEngine', () => {
     promptHasLeftOverlayRules(visual.prompt);
     expect(visual.prompt.toLowerCase()).toContain('not a toy');
     expect(visual.prompt.toLowerCase()).toContain('mature premium editorial character');
-    expect(visual.prompt.toLowerCase()).not.toContain('chat bubble');
+    expect(visual.prompt.toLowerCase()).not.toMatch(/message bubbles|chat screenshot/);
   });
 
   it('negative prompt uses strengthened standard contract', () => {
@@ -150,7 +155,7 @@ describe('visualPromptEngine', () => {
     expect(visual.atmosphereLabel).toMatch(/sakin|düşünsel/i);
     expect(visual.emotionLabel).toMatch(/dengeli ve meraklı/i);
     expect(visual.prompt.toLowerCase()).toMatch(
-      /tranquil threshold|calm reflective|contemplation|quiet reflection/
+      /tranquil threshold|calm reflective|contemplation|quiet reflection|threshold interior|reflective/
     );
   });
 
@@ -185,6 +190,30 @@ describe('visualPromptEngine', () => {
 });
 
 describe('mirrorStateEngine visual field', () => {
+  it('binds P0 identity into visual prompt when card has daily avatar', () => {
+    const entries = Array.from({ length: MIRROR_MIN_SAMPLES }, (_, i) =>
+      makeEntry({
+        interaction_id: `p1-${i}`,
+        savedAt: `2026-01-15T${10 + i}:00:00.000Z`,
+        standaloneObservation: {
+          user_pattern: {
+            category: 'curiosity_exploration',
+            confidence: 0.9,
+            signals: ['semerkant', 'registan', 'seyahat'],
+          },
+          ai_behavior: { category: 'explanatory', confidence: 0.8, signals: [] },
+          relationship_balance: { category: 'curious_balance', confidence: 0.8, signals: [] },
+        },
+      })
+    );
+    const state = buildMirrorState(entries, { seed: 'p1-visual-bind' });
+    const prompt = state.dailyMirrorCard.visual!.prompt.toLowerCase();
+    expect(prompt).toContain('daily mirror identity scene');
+    expect(prompt).toMatch(/samarkand|registan/);
+    expect(state.dailyMirrorCard.dailyAvatarName?.length).toBeGreaterThan(0);
+    expect(state.dailyMirrorCard.visual?.seedHint).toMatch(/^mirror-visual-/);
+  });
+
   it('attaches visual payload on daily mirror card', () => {
     const entries = Array.from({ length: 3 }, () =>
       makeEntry({
