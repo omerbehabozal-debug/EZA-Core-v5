@@ -109,16 +109,38 @@ export const MIRROR_ERROR_RETRY = 'Tekrar Dene';
 
 export const MIRROR_STANDALONE_ROUTE = '/standalone';
 
+/** @deprecated Use MIRROR_EPHEMERAL_FREE / MIRROR_EPHEMERAL_PLUS */
 export const MIRROR_EPHEMERAL_NOTE =
-  'Bu günlük yansıma arşivlenmez. Saklamak istersen paylaşabilir veya indirebilirsin.';
+  'Bugünkü aynan gece sıfırlanır. Beğendiysen paylaş veya indir.';
+
+/** P4-D — ephemeral daily mirror (plan-specific) */
+export const MIRROR_EPHEMERAL_FREE =
+  'Bugünkü aynan gece sıfırlanır. Paylaşılabilir poster Plus ile açılır.';
+
+export const MIRROR_EPHEMERAL_PLUS =
+  'Bugünkü aynan gece sıfırlanır. Paylaşarak veya indirerek saklayabilirsin.';
+
+export const MIRROR_FREE_SHARE_POSTER_HINT =
+  'Paylaşım posteri Plus ile açılır. Bugünkü kartını uygulama içinde görebilirsin.';
+
+export const MIRROR_PATTERN_REDIRECT =
+  'Zaman içindeki değişimini AI İlişki Deseni\'nde görebilirsin.';
+
+export const MIRROR_PATTERN_REDIRECT_LINK = 'AI İlişki Deseni';
 
 export const MIRROR_SCENE_GENERATE_BUTTON = 'Sahneyi Oluştur';
 
 export const MIRROR_SCENE_GENERATING = 'Sahne hazırlanıyor…';
 
+/** @deprecated Do not show to users — technical status removed in P4-D */
 export const MIRROR_SCENE_READY = 'Sahne hazır';
 
 export const MIRROR_SCENE_RETRY = 'Tekrar dene';
+
+export const PLUS_MIRROR_QUOTA_EXCEEDED_TITLE = 'Bugünkü üretim hakkın doldu';
+
+export const PLUS_MIRROR_QUOTA_EXCEEDED_BODY =
+  'Yarın yeni üretim hakların açılır. Bugünkü kartını paylaşabilir veya indirebilirsin.';
 
 /** Ritüel süreleri (ms) */
 export const MIRROR_REVEAL_DURATION_MS = 1600;
@@ -167,7 +189,7 @@ export const FREE_MIRROR_LIMIT_PLUS_HINT =
   'Plus ile gün içinde aynayı güncelle, paylaşım ve ilişki deseni açılır.';
 
 export const FREE_MIRROR_READY_PLUS_HINT =
-  'Plus ile gün içinde aynayı güncelle, paylaşım ve geçmiş aynalar açılır.';
+  'Plus ile gün içinde aynayı güncelle, paylaşım posteri ve ilişki deseni açılır.';
 
 export const MIRROR_CURRENT_BADGE = 'Bugünkü aynan güncel';
 

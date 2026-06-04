@@ -6,7 +6,6 @@ import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   MIRROR_SCENE_GENERATE_BUTTON,
   MIRROR_SCENE_GENERATING,
-  MIRROR_SCENE_READY,
   MIRROR_SCENE_RETRY,
 } from '@/lib/eza/mirror/copy';
 import type { MirrorSceneImageStatus } from '@/lib/eza/mirror/types';
@@ -34,18 +33,10 @@ export default function MirrorSceneGenerateButton({
   className,
 }: MirrorSceneGenerateButtonProps) {
   const isGenerating = status === 'generating';
-  const isReady = status === 'ready';
   const isError = status === 'error';
 
-  if (isReady) {
-    return (
-      <p
-        className={cn('text-center text-[11px] font-medium tracking-wide text-stone-400', className)}
-        role="status"
-      >
-        {MIRROR_SCENE_READY}
-      </p>
-    );
+  if (status === 'ready') {
+    return null;
   }
 
   const label = isError

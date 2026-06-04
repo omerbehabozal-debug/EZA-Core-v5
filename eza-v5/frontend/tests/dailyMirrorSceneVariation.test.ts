@@ -23,6 +23,10 @@ describe('mirrorSceneVariation', () => {
   it('blocks Plus while generating', () => {
     expect(canRequestNewSceneVariation(true, 'generating')).toBe(false);
   });
+
+  it('blocks Plus when daily production quota is exhausted', () => {
+    expect(canRequestNewSceneVariation(true, 'ready', false)).toBe(false);
+  });
 });
 
 describe('Scene variation vs mirror update (source)', () => {

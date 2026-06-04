@@ -136,25 +136,12 @@ export default function MirrorShareModal({
         {error ? <p className={sh.error}>{error}</p> : null}
 
         <div className={cn(sh.actions, 'flex-col sm:flex-row')}>
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={loading || !previewUrl || busy !== null}
-            className={cn(sh.primaryBtn, 'inline-flex items-center justify-center gap-2')}
-          >
-            {busy === 'download' ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <Download className="h-4 w-4" aria-hidden />
-            )}
-            {MIRROR_SHARE_DOWNLOAD_LABEL}
-          </button>
           {typeof navigator !== 'undefined' && 'share' in navigator ? (
             <button
               type="button"
               onClick={handleShare}
               disabled={loading || !previewUrl || busy !== null}
-              className={cn(sh.secondaryBtn, 'inline-flex items-center justify-center gap-2')}
+              className={cn(sh.primaryBtn, 'inline-flex items-center justify-center gap-2')}
             >
               {busy === 'share' ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -164,6 +151,19 @@ export default function MirrorShareModal({
               {MIRROR_SHARE_LABEL}
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={loading || !previewUrl || busy !== null}
+            className={cn(sh.secondaryBtn, 'inline-flex items-center justify-center gap-2')}
+          >
+            {busy === 'download' ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <Download className="h-4 w-4" aria-hidden />
+            )}
+            {MIRROR_SHARE_DOWNLOAD_LABEL}
+          </button>
           <button
             type="button"
             onClick={handleCopy}

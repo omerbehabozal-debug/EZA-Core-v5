@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
   clearDailyMirrorSnapshot,
+  clearStaleDailyMirrorSnapshot,
   computeEntrySignals,
   entriesForDisplayedMirror,
   hasNewDataSinceSnapshot,
+  readDailyMirrorSnapshot,
   readTodaysSnapshot,
   resolveMirrorRefreshCta,
   saveDailyMirrorSnapshot,
@@ -86,6 +88,16 @@ describe('dailyMirrorSnapshot', () => {
     const entries = [entry('2026-06-02T10:00:00Z', 'a')];
     saveDailyMirrorSnapshot(entries, '2026-06-01', new Date('2026-06-01T10:00:00'));
     expect(resolveMirrorRefreshCta(entries, new Date('2026-06-02T10:00:00'))).toBe('open_first');
+  });
+
+  it('clearStaleDailyMirrorSnapshot removes yesterday record', () => {
+    saveDailyMirrorSnapshot([entry('2026-06-01T10:00:00Z', 'a')], '2026-06-01', new Date('2026-06-01T10:00:00'));
+    expect(readDailyMirrorSnapshot()).not.toBeNull();
+    expect(clearStaleDailyMirrorSnapshot(new Date('2026-06-02T10:00:00'))).toBe(true);
+    expect(readDailyMirrorSnapshot()).toBeNull();
+    expect(resolveMirrorRefreshCta([entry('2026-06-02T10:00:00Z', 'b')], new Date('2026-06-02T10:00:00'))).toBe(
+      'open_first'
+    );
   });
 
   it('computeEntrySignals picks latest savedAt', () => {

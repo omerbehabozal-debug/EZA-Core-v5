@@ -4,10 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
-  FREE_MIRROR_READY_PLUS_HINT,
+  MIRROR_EPHEMERAL_FREE,
+  MIRROR_EPHEMERAL_PLUS,
+  MIRROR_FREE_SHARE_POSTER_HINT,
   MIRROR_REVEAL_DURATION_MS,
+  PLUS_MIRROR_QUOTA_EXCEEDED_BODY,
+  PLUS_MIRROR_QUOTA_EXCEEDED_TITLE,
 } from '@/lib/eza/mirror/copy';
 import {
+  clearStaleDailyMirrorSnapshot,
   entriesForDisplayedMirror,
   hasNewDataSinceSnapshot,
   readTodaysSnapshot,
@@ -40,7 +45,7 @@ import DailyLimitUpgrade from '@/components/mirror/DailyLimitUpgrade';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
 import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
 import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
-import MirrorSceneGenerateButton from '@/components/mirror/MirrorSceneGenerateButton';
+import DailyMirrorReadyFooter from '@/components/mirror/DailyMirrorReadyFooter';
 import MirrorShareModal from '@/components/mirror/MirrorShareModal';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
@@ -65,6 +70,12 @@ import {
   canCreateFreeMirrorToday,
   markFreeMirrorUsedToday,
 } from '@/lib/eza/plan/freeMirrorUsage';
+import {
+  canConsumePlusMirrorProduction,
+  consumePlusMirrorProduction,
+  formatPlusMirrorQuotaHint,
+  getPlusMirrorProductionRemaining,
+} from '@/lib/eza/plan/plusMirrorDailyUsage';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 type DailyMirrorStatus =
@@ -73,6 +84,7 @@ type DailyMirrorStatus =
   | 'ready'
   | 'insufficient'
   | 'daily_limit'
+  | 'plus_limit'
   | 'error';
 
 interface StandaloneObservationExperienceProps {
@@ -99,10 +111,21 @@ export default function StandaloneObservationExperience({
   const [styleLensSession, setStyleLensSession] = useState<MirrorStyleLensSession>(() =>
     createDefaultStyleLensSession({ date: '', visual: undefined })
   );
+  const [plusUsageRevision, setPlusUsageRevision] = useState(0);
   const sceneAutoKeyRef = useRef<string | null>(null);
   const hydratedFromSnapshotRef = useRef(false);
   const mirrorExport = useMirrorCardExport();
   const { isPlus } = usePlan();
+
+  const plusProductionRemaining = useMemo(
+    () => (isPlus ? getPlusMirrorProductionRemaining() : 0),
+    [isPlus, plusUsageRevision]
+  );
+  const hasPlusProductionQuota = isPlus && plusProductionRemaining > 0;
+
+  useEffect(() => {
+    clearStaleDailyMirrorSnapshot();
+  }, []);
 
   const todaysSnapshot = useMemo(() => readTodaysSnapshot(), [entries]);
   const refreshCta: MirrorRefreshCta = useMemo(
@@ -186,13 +209,19 @@ export default function StandaloneObservationExperience({
           }
           const ok = commitMirrorReady(sourceEntries);
           if (!ok) return;
+          if (isPlus) {
+            consumePlusMirrorProduction(
+              options?.isUpdate ? 'update_mirror' : 'create_card'
+            );
+            setPlusUsageRevision((r) => r + 1);
+          }
         } catch {
           resetGeneratedCardState();
           setDailyStatus('error');
         }
       }, MIRROR_REVEAL_DURATION_MS);
     },
-    [commitMirrorReady, resetGeneratedCardState]
+    [commitMirrorReady, isPlus, resetGeneratedCardState]
   );
 
   /** Sayfa yenileme — bugünkü snapshot ile kartı sessizce göster; aynı veride sahne üretme. */
@@ -362,6 +391,9 @@ export default function StandaloneObservationExperience({
   const handleNewMirrorScene = useCallback(() => {
     if (!isPlus) return;
     if (dailyStatus !== 'ready') return;
+    if (!canConsumePlusMirrorProduction()) return;
+    if (!consumePlusMirrorProduction('new_scene')) return;
+    setPlusUsageRevision((r) => r + 1);
     const nextSession = advanceStyleLensSession(styleLensSession);
     setStyleLensSession(nextSession);
     void handleGenerateMirrorScene(nextSession);
@@ -419,6 +451,10 @@ export default function StandaloneObservationExperience({
         setDailyStatus('daily_limit');
         return;
       }
+      if (!canConsumePlusMirrorProduction()) {
+        setDailyStatus('plus_limit');
+        return;
+      }
       runMirrorWithReveal(entries, { isUpdate: true });
       return;
     }
@@ -432,6 +468,11 @@ export default function StandaloneObservationExperience({
       return;
     }
 
+    if (isPlus && !canConsumePlusMirrorProduction()) {
+      setDailyStatus('plus_limit');
+      return;
+    }
+
     runMirrorWithReveal(entries);
   }, [entries, isPlus, resetGeneratedCardState, runMirrorWithReveal]);
 
@@ -441,6 +482,11 @@ export default function StandaloneObservationExperience({
 
     if (!isPlus) {
       setDailyStatus('daily_limit');
+      return;
+    }
+
+    if (!canConsumePlusMirrorProduction()) {
+      setDailyStatus('plus_limit');
       return;
     }
 
@@ -480,9 +526,23 @@ export default function StandaloneObservationExperience({
     mirrorExport.reset();
   }, [mirrorExport]);
 
+  const handleShareOpen = useCallback(() => {
+    if (!isPlus) return;
+    setShareOpen(true);
+  }, [isPlus]);
+
+  const handleCardDownload = useCallback(async () => {
+    if (!isPlus) return;
+    const blob = await mirrorExport.captureCard();
+    if (blob) {
+      await mirrorExport.download(generatedDailyCard);
+    }
+  }, [isPlus, mirrorExport, generatedDailyCard]);
+
   const handleShareCapture = useCallback(async () => {
+    if (!isPlus) return;
     await mirrorExport.captureCard();
-  }, [mirrorExport]);
+  }, [isPlus, mirrorExport]);
 
   const handleShareDownload = useCallback(async () => {
     return mirrorExport.download(generatedDailyCard);
@@ -497,6 +557,18 @@ export default function StandaloneObservationExperience({
     dailyStatus === 'ready' &&
     generatedDailyCard !== null &&
     generatedDailyCard.shareEnabled;
+
+  const showDownloadAction = showShareAction;
+
+  const readyFooter = (
+    <DailyMirrorReadyFooter
+      ephemeralNote={isPlus ? MIRROR_EPHEMERAL_PLUS : MIRROR_EPHEMERAL_FREE}
+      secondaryHint={!isPlus ? MIRROR_FREE_SHARE_POSTER_HINT : undefined}
+      plusQuotaHint={isPlus ? formatPlusMirrorQuotaHint(plusProductionRemaining) : undefined}
+      showFreeUpgradePrimary={!isPlus}
+      onUpgrade={() => openUpgrade('upgrade')}
+    />
+  );
 
   const readyRefreshCta: Exclude<MirrorRefreshCta, 'open_first'> =
     refreshCta === 'open_first' ? 'current' : refreshCta;
@@ -515,6 +587,24 @@ export default function StandaloneObservationExperience({
       );
     }
 
+    if (dailyStatus === 'plus_limit') {
+      return (
+        <div className={cn(ms.dailyReadyStack, 'max-w-sm px-4 text-center')}>
+          <h3 className="text-sm font-medium text-stone-800">{PLUS_MIRROR_QUOTA_EXCEEDED_TITLE}</h3>
+          <p className="mt-2 text-[11px] leading-relaxed text-stone-500">
+            {PLUS_MIRROR_QUOTA_EXCEEDED_BODY}
+          </p>
+          <button
+            type="button"
+            className="mt-4 text-[11px] text-violet-700 underline"
+            onClick={() => setDailyStatus('idle')}
+          >
+            Geri
+          </button>
+        </div>
+      );
+    }
+
     if (dailyStatus === 'ready' && cardForRender) {
       return (
         <div className={ms.dailyReadyStack}>
@@ -530,18 +620,20 @@ export default function StandaloneObservationExperience({
                 onToggleHybridMode={handleToggleHybridMode}
                 hybridTextFallback={hybridTextFallback}
               />
-              <div
-                className="pointer-events-none fixed left-[-9999px] top-0 z-[-1] w-full max-w-[28rem] opacity-100"
-                aria-hidden
-              >
-                <DailyMirrorSharePoster
-                  card={cardForRender}
-                  sceneImageUrl={cardForRender.visual?.sceneImageUrl}
-                  sceneImageStatus={sceneImageStatus}
-                  onSceneImageLoad={handleSceneImageLoad}
-                  onSceneImageError={handleSceneImageError}
-                />
-              </div>
+              {isPlus ? (
+                <div
+                  className="pointer-events-none fixed left-[-9999px] top-0 z-[-1] w-full max-w-[28rem] opacity-100"
+                  aria-hidden
+                >
+                  <DailyMirrorSharePoster
+                    card={cardForRender}
+                    sceneImageUrl={cardForRender.visual?.sceneImageUrl}
+                    sceneImageStatus={sceneImageStatus}
+                    onSceneImageLoad={handleSceneImageLoad}
+                    onSceneImageError={handleSceneImageError}
+                  />
+                </div>
+              ) : null}
             </div>
           </DailyMirrorCardEntrance>
 
@@ -550,20 +642,16 @@ export default function StandaloneObservationExperience({
             isPlus={isPlus}
             cardReady
             sceneImageStatus={sceneImageStatus}
+            hasProductionQuota={hasPlusProductionQuota}
             showShare={showShareAction}
-            onShare={() => setShareOpen(true)}
+            showDownload={showDownloadAction}
+            onShare={handleShareOpen}
+            onDownload={() => void handleCardDownload()}
             onUpdate={handleMirrorRefresh}
             onNewScene={handleNewMirrorScene}
             activeStyleLensLabel={isPlus ? activeStyleLensLabel : undefined}
-            freePlusHint={!isPlus ? FREE_MIRROR_READY_PLUS_HINT : undefined}
           >
-            {!isPlus && sceneImageStatus === 'error' ? (
-              <MirrorSceneGenerateButton
-                status={sceneImageStatus}
-                onGenerate={() => void handleGenerateMirrorScene()}
-                disabled={!generatedDailyCard?.visual?.prompt}
-              />
-            ) : null}
+            {readyFooter}
           </DailyMirrorRefreshActions>
         </div>
       );
@@ -575,8 +663,8 @@ export default function StandaloneObservationExperience({
           <DailyMirrorRefreshActions
             refreshCta="current"
             isPlus={isPlus}
+            hasProductionQuota={hasPlusProductionQuota}
             onUpdate={handleMirrorRefresh}
-            freePlusHint={!isPlus ? FREE_MIRROR_READY_PLUS_HINT : undefined}
           />
         </div>
       );
@@ -595,8 +683,8 @@ export default function StandaloneObservationExperience({
           <DailyMirrorRefreshActions
             refreshCta="update"
             isPlus={isPlus}
+            hasProductionQuota={hasPlusProductionQuota}
             onUpdate={handleMirrorRefresh}
-            freePlusHint={!isPlus ? FREE_MIRROR_READY_PLUS_HINT : undefined}
           />
         </div>
       );
@@ -616,7 +704,8 @@ export default function StandaloneObservationExperience({
           dailyStatus === 'idle' ||
           dailyStatus === 'insufficient' ||
           dailyStatus === 'error' ||
-          dailyStatus === 'daily_limit'
+          dailyStatus === 'daily_limit' ||
+          dailyStatus === 'plus_limit'
             ? 'justify-center gap-0 overflow-x-hidden overflow-y-auto py-0 sm:gap-0 sm:py-1'
             : 'justify-center overflow-y-auto'
         )}
@@ -625,7 +714,7 @@ export default function StandaloneObservationExperience({
       </div>
 
       <MirrorShareModal
-        open={shareOpen}
+        open={shareOpen && isPlus}
         onClose={handleShareClose}
         previewUrl={mirrorExport.previewUrl}
         loading={mirrorExport.loading}

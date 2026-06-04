@@ -107,6 +107,15 @@ export function clearDailyMirrorSnapshot(): void {
   storage()?.removeItem(DAILY_MIRROR_SNAPSHOT_STORAGE_KEY);
 }
 
+/** P4-D — drop snapshot from a previous calendar day (ephemeral daily mirror). */
+export function clearStaleDailyMirrorSnapshot(now: Date = new Date()): boolean {
+  const snap = readDailyMirrorSnapshot();
+  if (!snap) return false;
+  if (snap.dayKey === dayKeyFromDate(now)) return false;
+  clearDailyMirrorSnapshot();
+  return true;
+}
+
 export function hasNewDataSinceSnapshot(
   entries: SavedBehavioralEntry[],
   snapshot: DailyMirrorSnapshot | null,

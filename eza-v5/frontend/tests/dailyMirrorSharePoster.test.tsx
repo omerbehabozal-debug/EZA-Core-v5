@@ -59,8 +59,8 @@ describe('DailyMirrorSharePoster P4-C4', () => {
     expect(card.mirrorMoment).toBeTruthy();
   });
 
-  it('experience mounts offscreen share poster alongside in-app card', () => {
-    expect(experienceSrc).toContain('DailyMirrorSharePoster');
+  it('experience mounts share poster only for Plus', () => {
+    expect(experienceSrc).toMatch(/\{isPlus \? \([\s\S]*DailyMirrorSharePoster/);
     expect(experienceSrc).toContain('left-[-9999px]');
     expect(experienceSrc).toContain('DailyMirrorPosterCard');
   });
