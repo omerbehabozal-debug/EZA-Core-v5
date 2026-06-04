@@ -1,84 +1,78 @@
 import { describe, it, expect } from 'vitest';
-import { buildPosterCardContent } from '@/lib/eza/mirror/posterCardContent';
+import {
+  formatPosterMirrorMomentDisplay,
+  resolvePosterMirrorMoment,
+  resolvePosterIdentityDisplay,
+} from '@/lib/eza/mirror/posterCardContent';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
-const baseCard: DailyMirrorCardModel = {
+const base: DailyMirrorCardModel = {
   date: '2026-05-21',
-  dayLabel: '21 Mayıs 2026',
-  headline: 'Test',
-  characterName: 'Köprü Kurucu',
-  personaFamilyId: 'sensitive_careful',
-  shortInsight: 'Bugün iletişimde yumuşak adımlar attın.',
-  userLine: 'Arkadaşlık hakkında sorular sordun.',
-  aiLine: 'AI sakin ve açıklayıcı yanıtlar verdi.',
-  balanceLine: 'Empati ve sabır öne çıkıyor.',
+  dayLabel: 'Bugün',
+  headline: 'Fallback headline',
+  characterName: 'Test',
+  personaFamilyId: 'decision_direction',
+  shortInsight: 'Short insight line',
+  userLine: 'u',
+  aiLine: 'a',
+  balanceLine: 'b',
   signalLevel: 'low',
   confidence: 'medium',
-  energyLabel: 'İyileşiyor',
-  energyScore: 72,
+  energyLabel: 'Dengede',
+  energyScore: 50,
   shareEnabled: true,
-  privacyText: 'privacy',
-  visual: {
-    characterId: 'sensitive_careful',
-    characterName: 'Köprü Kurucu',
-    personaFamilyId: 'sensitive_careful',
-    topicLabel: 'arkadaşlık ve ilişki',
-    atmosphereLabel: 'calm',
-    emotionLabel: 'steady',
-    prompt: 'prompt',
-    negativePrompt: 'neg',
-    stylePreset: 'eza_mirror_professional_v1',
-    seedHint: 'seed',
-  },
+  privacyText: 'p',
+  dailyAvatarName: 'Durgun Göl',
+  dailyThemeTitle: 'Araç Kararı',
 };
 
-describe('buildPosterCardContent', () => {
-  it('derives friendship theme from visual topicLabel', () => {
-    const c = buildPosterCardContent(baseCard);
-    expect(c.themeTitle).toBe('DOSTLUK & UYUM');
-    expect(c.activities.length).toBeGreaterThan(0);
-    expect(c.quote.length).toBeGreaterThan(10);
-    expect(c.relationshipBars).toHaveLength(3);
-  });
-
-  it('prefers mirrorStory for story line with clamp', () => {
-    const c = buildPosterCardContent({
-      ...baseCard,
-      mirrorStory:
-        'Bugün kendine iyi gelecek küçük seçimler aradın. AI ile birlikte özenli bir ritim oluştu.',
-      userLine: 'Kendine daha özenli seçimler hazırladın.',
-      aiLine: 'Özenli bir hazırlık ritmine eşlik etti.',
-      balanceLine: 'Bugünkü etkileşim sakin ama besleyici bir ritimde ilerledi.',
+describe('resolvePosterMirrorMoment (P4-C1)', () => {
+  it('prefers mirrorMoment over storyTensionTitle', () => {
+    const line = resolvePosterMirrorMoment({
+      ...base,
+      mirrorMoment: 'Standing still before choosing.',
+      storyTensionTitle: 'Two paths. One decision.',
     });
-    expect(c.storyLine).toContain('seçimler aradın');
-    expect(c.activities[0]?.label).toBe('Sen');
+    expect(line).toBe('Standing still before choosing.');
   });
 
-  it('includes contextual highlight from card visual intent', () => {
-    const c = buildPosterCardContent({
-      ...baseCard,
-      dailyJourney: 'Sessiz Netlik',
-      visual: {
-        ...baseCard.visual!,
-        sceneIntentLabel: 'premium car comparison',
-        topicLabel: 'finans ve planlama',
-      },
-      storyVariant: 'compare',
-      storyTopicKey: 'finance',
-    } as DailyMirrorCardModel);
-    expect(c.contextualHighlight.kind).toBe('dual_comparison');
-  });
-
-  it('uses dailyJourney headline and tone theme when present', () => {
-    const c = buildPosterCardContent({
-      ...baseCard,
-      dailyJourney: 'Sakin yansıma',
-      reflectionTone: 'thoughtful',
-      quote: 'Bazı cevaplar hemen değil, zamanla netleşir.',
-      themeDescription: 'Sorgulayan ama sakin bir zihin.',
+  it('falls back to storyTensionTitle when mirrorMoment absent', () => {
+    const line = resolvePosterMirrorMoment({
+      ...base,
+      storyTensionTitle: 'Two paths. One decision.',
     });
-    expect(c.journeyHeadline).toBe('Sakin yansıma');
-    expect(c.quote).toBe('Bazı cevaplar hemen değil, zamanla netleşir.');
-    expect(c.themeDescription).toBe('Sorgulayan ama sakin bir zihin.');
+    expect(line).toBe('Two paths. One decision.');
+  });
+
+  it('falls back to shortInsight then headline', () => {
+    expect(resolvePosterMirrorMoment({ ...base, shortInsight: 'Calm search.' })).toBe(
+      'Calm search.'
+    );
+    expect(
+      resolvePosterMirrorMoment({
+        ...base,
+        shortInsight: '',
+        headline: 'Journey headline',
+      })
+    ).toBe('Journey headline');
+  });
+
+  it('formatPosterMirrorMomentDisplay uses editorial quotes without label', () => {
+    expect(formatPosterMirrorMomentDisplay('Standing still before choosing.')).toBe(
+      '“Standing still before choosing.”'
+    );
+    expect(formatPosterMirrorMomentDisplay('“Already quoted.”')).toBe('“Already quoted.”');
+  });
+});
+
+describe('resolvePosterIdentityDisplay mirror moment line', () => {
+  it('includes mirrorMomentLine on identity display', () => {
+    const id = resolvePosterIdentityDisplay({
+      ...base,
+      mirrorMoment: 'Looking beyond the familiar.',
+    });
+    expect(id.mirrorMomentLine).toBe('Looking beyond the familiar.');
+    expect(id.avatarName).toBe('Durgun Göl');
+    expect(id.themeTitle).toBe('Araç Kararı');
   });
 });

@@ -290,6 +290,11 @@ export const posterCardSkinIdentity: PosterSkinTokens = {
     'text-white max-[380px]:text-[24px]',
     'drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)]',
   ].join(' '),
+  identityMirrorMoment: [
+    'mt-1.5 line-clamp-2 text-[13px] font-medium italic leading-[1.38] tracking-[-0.01em]',
+    'text-[#F8F0E3]/95 max-[380px]:text-[12px]',
+    'drop-shadow-[0_1px_10px_rgba(0,0,0,0.55)]',
+  ].join(' '),
   identityFamilyLabel:
     'mt-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#C4B5FD]/95',
   identityThemeLine: 'mt-1 line-clamp-2 text-[11px] leading-snug text-white/78',

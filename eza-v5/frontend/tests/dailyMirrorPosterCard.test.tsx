@@ -5,6 +5,11 @@ import { buildPosterCardContent, resolvePosterIdentityDisplay } from '@/lib/eza/
 import { posterCardSkinIdentity } from '@/lib/eza/mirror/posterCardSkin';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
+const identitySrc = readFileSync(
+  join(process.cwd(), 'components/mirror/PosterIdentityHeadline.tsx'),
+  'utf8'
+);
+
 const posterSrc = readFileSync(
   join(process.cwd(), 'components/mirror/DailyMirrorPosterCard.tsx'),
   'utf8'
@@ -76,6 +81,24 @@ describe('DailyMirrorPosterCard P4-B full-canvas', () => {
     expect(id.themeTitle).toBe('İlişki & Bağ');
     expect(id).not.toHaveProperty('avatarEmoji');
     expect(id).not.toHaveProperty('personaImageUrl');
+  });
+
+  it('P4-C1 shows mirror moment in identity without technical labels', () => {
+    expect(identitySrc).toContain('identityMirrorMoment');
+    expect(identitySrc).toContain('mirrorMomentLine');
+    expect(identitySrc).toContain('formatPosterMirrorMomentDisplay');
+    expect(identitySrc).not.toMatch(/Mirror Moment:/i);
+    expect(identitySrc).not.toMatch(/Story Tension:/i);
+    expect(posterCardSkinIdentity.identityMirrorMoment).toContain('italic');
+
+    const id = resolvePosterIdentityDisplay({
+      ...baseCard,
+      mirrorMoment: 'Standing still before choosing.',
+      storyTensionTitle: 'Two paths. One decision.',
+    });
+    expect(id.mirrorMomentLine).toContain('Standing still');
+    expect(id.avatarName).toBe('Şefkatli Geyik');
+    expect(id.themeTitle).toBe('İlişki & Bağ');
   });
 
   it('poster activities use Sen/AI/Denge labels only', () => {

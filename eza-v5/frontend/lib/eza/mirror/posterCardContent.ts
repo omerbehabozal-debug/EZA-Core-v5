@@ -38,7 +38,50 @@ export type PosterIdentityDisplay = {
   behaviorFamilyLabel: string;
   themeTitle: string;
   themeSubtitle: string;
+  /** P4-C1 — editorial scene line (mirrorMoment / tension fallback). */
+  mirrorMomentLine: string;
 };
+
+/** Max chars for identity mirror moment (~2 lines @ 432px). */
+export const POSTER_MIRROR_MOMENT_MAX = 72;
+
+function truncateMirrorMoment(text: string): string {
+  const t = text.trim();
+  if (!t) return '';
+  if (t.length <= POSTER_MIRROR_MOMENT_MAX) return t;
+  const slice = t.slice(0, POSTER_MIRROR_MOMENT_MAX);
+  const lastSpace = slice.lastIndexOf(' ');
+  return `${(lastSpace > 24 ? slice.slice(0, lastSpace) : slice).trim()}…`;
+}
+
+/**
+ * P4-C1 — user-facing poetic scene line (UI-only; TR map can plug in later).
+ * Priority: mirrorMoment → storyTensionTitle → shortInsight → journey/headline.
+ */
+export function resolvePosterMirrorMoment(card: DailyMirrorCardModel): string {
+  const moment = card.mirrorMoment?.trim();
+  if (moment) return truncateMirrorMoment(moment);
+
+  const tension = card.storyTensionTitle?.trim();
+  if (tension) return truncateMirrorMoment(tension);
+
+  const insight = card.shortInsight?.trim();
+  if (insight) return truncateMirrorMoment(insight);
+
+  const journey = card.dailyJourney?.trim() || card.headline?.trim();
+  if (journey) return truncateMirrorMoment(journey);
+
+  return '';
+}
+
+/** Wrap for editorial display — soft quotes when not already quoted. */
+export function formatPosterMirrorMomentDisplay(line: string): string {
+  const t = line.trim();
+  if (!t) return '';
+  if (/^[“"']/.test(t)) return t;
+  const core = t.endsWith('.') ? t.slice(0, -1) : t;
+  return `“${core}.”`;
+}
 
 export type PosterCardContent = {
   characterEmoji: string;
@@ -289,6 +332,7 @@ export function resolvePosterIdentityDisplay(
     behaviorFamilyLabel: card.behaviorFamilyLabel?.trim() || '',
     themeTitle: card.dailyThemeTitle?.trim() || theme.title,
     themeSubtitle: card.dailyThemeSubtitle?.trim() || theme.description,
+    mirrorMomentLine: resolvePosterMirrorMoment(card),
   };
 }
 

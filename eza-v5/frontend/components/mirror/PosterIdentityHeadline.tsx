@@ -1,6 +1,9 @@
 'use client';
 
-import type { PosterIdentityDisplay } from '@/lib/eza/mirror/posterCardContent';
+import {
+  formatPosterMirrorMomentDisplay,
+  type PosterIdentityDisplay,
+} from '@/lib/eza/mirror/posterCardContent';
 import type { PosterSkinTokens } from '@/lib/eza/mirror/posterCardSkin';
 
 export type PosterIdentityHeadlineProps = {
@@ -10,13 +13,20 @@ export type PosterIdentityHeadlineProps = {
 };
 
 /**
- * Text-only daily avatar — görsel temsil yalnızca sahne penceresinde (OpenAI).
+ * Text-only daily identity + P4-C1 mirror moment (scene emotional line).
  */
 export default function PosterIdentityHeadline({
   identity,
   skin,
   isSparse = false,
 }: PosterIdentityHeadlineProps) {
+  const momentDisplay =
+    !isSparse && identity.mirrorMomentLine
+      ? formatPosterMirrorMomentDisplay(identity.mirrorMomentLine)
+      : '';
+  const showFamily =
+    !isSparse && identity.behaviorFamilyLabel && !momentDisplay;
+
   return (
     <section
       className={skin.overlayIdentity ?? skin.identityHeadlineZone}
@@ -26,7 +36,10 @@ export default function PosterIdentityHeadline({
       <h2 id="daily-mirror-poster-title" className={skin.identityAvatarName}>
         {isSparse ? 'Yansıma hazırlanıyor' : identity.avatarName}
       </h2>
-      {!isSparse && identity.behaviorFamilyLabel ? (
+      {momentDisplay ? (
+        <p className={skin.identityMirrorMoment}>{momentDisplay}</p>
+      ) : null}
+      {showFamily ? (
         <p className={skin.identityFamilyLabel}>{identity.behaviorFamilyLabel}</p>
       ) : null}
       {!isSparse && identity.themeTitle ? (

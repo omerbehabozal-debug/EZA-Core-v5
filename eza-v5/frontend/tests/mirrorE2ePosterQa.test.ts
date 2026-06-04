@@ -324,6 +324,9 @@ describe('Mirror E2E Poster QA (P4-B full-canvas)', () => {
     expect(skinSrc).toContain('fullCanvasLayer');
     expect(skinSrc).not.toContain('sceneWindowOuter');
     expect(identitySrc).toContain('Bugün Sen');
+    expect(identitySrc).toContain('identityMirrorMoment');
+    expect(identitySrc).toContain('mirrorMomentLine');
+    expect(identitySrc).not.toMatch(/Mirror Moment:/i);
     expect(posterSrc).not.toContain('Bugün ne yaptın');
     expect(readFileSync(join(process.cwd(), 'components/mirror/MirrorShareModal.tsx'), 'utf8')).toContain(
       'MIRROR_SHARE_MODAL_TITLE'
