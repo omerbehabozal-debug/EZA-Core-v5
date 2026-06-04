@@ -258,7 +258,7 @@ export default function StandaloneObservationExperience({
       setSceneExtras(
         sceneCache.provider ? { imageProvider: sceneCache.provider } : {}
       );
-      sceneAutoKeyRef.current = `${card.date}:${fingerprint}:hydrate`;
+      sceneAutoKeyRef.current = null;
     } else {
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
@@ -329,6 +329,9 @@ export default function StandaloneObservationExperience({
 
   const handleSceneImageError = useCallback(() => {
     setSceneImageStatus('error');
+    setSceneImageUrl(null);
+    clearMirrorSceneCache();
+    sceneAutoKeyRef.current = null;
     const mode =
       generatedDailyCard?.visual?.renderMode ?? resolveMirrorRenderMode();
     if (mode === 'hybrid_middle') {
@@ -433,7 +436,7 @@ export default function StandaloneObservationExperience({
     if (sceneImageStatus !== 'idle' && sceneImageStatus !== 'error') return;
 
     if (sceneAutoKeyRef.current?.endsWith(':hydrate')) {
-      if (sceneImageUrl) return;
+      if (sceneImageUrl && sceneImageStatus !== 'error') return;
       sceneAutoKeyRef.current = null;
     }
 
@@ -446,6 +449,7 @@ export default function StandaloneObservationExperience({
     dailyStatus,
     generatedDailyCard,
     sceneImageStatus,
+    sceneImageUrl,
     mirrorRevision,
     isAuthenticated,
     handleGenerateMirrorScene,
@@ -583,13 +587,21 @@ export default function StandaloneObservationExperience({
     return undefined;
   }, [dailyStatus, sceneImageStatus, sceneImageUrl]);
 
+  const showSceneLoginCta =
+    !isAuthenticated &&
+    dailyStatus === 'ready' &&
+    !sceneImageUrl &&
+    sceneImageStatus !== 'generating';
+
   const readyFooter = (
     <DailyMirrorReadyFooter
       ephemeralNote={isPlus ? MIRROR_EPHEMERAL_PLUS : MIRROR_EPHEMERAL_FREE}
       secondaryHint={!isPlus ? MIRROR_FREE_SHARE_POSTER_HINT : undefined}
       plusQuotaHint={isPlus ? formatPlusMirrorQuotaHint(plusProductionRemaining) : undefined}
       sceneStatusHint={sceneStatusHint}
-      showFreeUpgradePrimary={!isPlus}
+      showLoginPrimary={showSceneLoginCta}
+      onLogin={() => openUpgrade('auth_required')}
+      showFreeUpgradePrimary={!isPlus && isAuthenticated}
       onUpgrade={() => openUpgrade('upgrade')}
     />
   );

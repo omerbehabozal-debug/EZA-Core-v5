@@ -45,6 +45,8 @@ describe('P4-D access gates (source)', () => {
     expect(experienceSrc).toContain('DailyMirrorReadyFooter');
     expect(footerSrc).toContain('MIRROR_PATTERN_ROUTE');
     expect(footerSrc).toContain('MIRROR_PATTERN_REDIRECT');
+    expect(footerSrc).toContain('showLoginPrimary');
+    expect(footerSrc).toContain('MIRROR_SCENE_LOGIN_HINT');
   });
 
   it('wires Plus production quota', () => {

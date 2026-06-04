@@ -8,7 +8,16 @@
  * Get the API base URL from environment variables
  * Throws error if not set in production
  */
+function isEzacoreFrontendHost(hostname: string): boolean {
+  return hostname === 'ezacore.ai' || hostname.endsWith('.ezacore.ai');
+}
+
 export function getApiUrl(): string {
+  // Browser on *.ezacore.ai → same-origin /api (Vercel rewrites to api.ezacore.ai).
+  if (typeof window !== 'undefined' && isEzacoreFrontendHost(window.location.hostname)) {
+    return '';
+  }
+
   const apiUrl = process.env.NEXT_PUBLIC_EZA_API_URL;
   const isProduction = process.env.NODE_ENV === 'production';
   

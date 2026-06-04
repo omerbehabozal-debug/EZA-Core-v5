@@ -7,6 +7,8 @@ import {
   MIRROR_PATTERN_REDIRECT_LINK,
   MIRROR_PATTERN_ROUTE,
   PLAN_UPGRADE_CTA,
+  PLAN_UPGRADE_LOGIN_CTA,
+  MIRROR_SCENE_LOGIN_HINT,
 } from '@/lib/eza/mirror/copy';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
@@ -25,6 +27,8 @@ export type DailyMirrorReadyFooterProps = {
   sceneStatusHint?: string;
   showFreeUpgradePrimary?: boolean;
   onUpgrade?: () => void;
+  showLoginPrimary?: boolean;
+  onLogin?: () => void;
   className?: string;
 };
 
@@ -35,6 +39,8 @@ export default function DailyMirrorReadyFooter({
   sceneStatusHint,
   showFreeUpgradePrimary = false,
   onUpgrade,
+  showLoginPrimary = false,
+  onLogin,
   className,
 }: DailyMirrorReadyFooterProps) {
   return (
@@ -70,6 +76,16 @@ export default function DailyMirrorReadyFooter({
           {MIRROR_PATTERN_REDIRECT_LINK}
         </Link>
       </p>
+      {showLoginPrimary && onLogin ? (
+        <>
+          <p className={cn(ms.sceneWrap, 'text-center text-[11px] text-stone-500')}>
+            {MIRROR_SCENE_LOGIN_HINT}
+          </p>
+          <button type="button" onClick={onLogin} className={actionBtnClass}>
+            {PLAN_UPGRADE_LOGIN_CTA}
+          </button>
+        </>
+      ) : null}
       {showFreeUpgradePrimary && onUpgrade ? (
         <button type="button" onClick={onUpgrade} className={actionBtnClass}>
           {PLAN_UPGRADE_CTA}
