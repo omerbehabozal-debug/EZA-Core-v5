@@ -64,6 +64,14 @@ export const POSTER_HYBRID_ZONE_GRID_ROWS = '9% minmax(62%,1fr) 16% 6%';
 export const POSTER_ZONE_GRID_ROWS =
   '9% 20% minmax(38%,1fr) 14% 16% 6%';
 
+/** P2 rev — scene-hero: headline metin, sahne baskın. */
+export const POSTER_IDENTITY_ZONE_GRID_ROWS =
+  '8% 12% minmax(45%,1fr) minmax(20%,1fr) 15%';
+
+/** P2 rev hybrid — aynı sahne önceliği */
+export const POSTER_IDENTITY_HYBRID_ZONE_GRID_ROWS =
+  '8% 12% minmax(45%,1fr) minmax(18%,1fr) 15%';
+
 export const POSTER_COLORS = {
   ink: '#172033',
   whiteInk: '#FFFFFF',

@@ -32,6 +32,14 @@ export type PosterRelationshipBar = {
   percent: number;
 };
 
+/** Poster — metinsel günlük avatar (görsel yalnızca sahne). */
+export type PosterIdentityDisplay = {
+  avatarName: string;
+  behaviorFamilyLabel: string;
+  themeTitle: string;
+  themeSubtitle: string;
+};
+
 export type PosterCardContent = {
   characterEmoji: string;
   characterGradient: string;
@@ -266,6 +274,22 @@ function deriveRelationshipBars(card: DailyMirrorCardModel): PosterRelationshipB
     { label: 'Derinleşme', percent: Math.min(95, Math.max(30, base + spread)) },
     { label: 'Uygulama', percent: Math.min(90, Math.max(25, base - 15 + spread)) },
   ];
+}
+
+/** P2 — identity-first poster fields (P0 daily* with legacy fallbacks). */
+export function resolvePosterIdentityDisplay(
+  card: DailyMirrorCardModel,
+  content?: Pick<PosterCardContent, 'characterEmoji' | 'themeTitle' | 'themeDescription'>
+): PosterIdentityDisplay {
+  const theme = content
+    ? { title: content.themeTitle, description: content.themeDescription }
+    : deriveTheme(card);
+  return {
+    avatarName: card.dailyAvatarName?.trim() || card.characterName?.trim() || 'Bugün',
+    behaviorFamilyLabel: card.behaviorFamilyLabel?.trim() || '',
+    themeTitle: card.dailyThemeTitle?.trim() || theme.title,
+    themeSubtitle: card.dailyThemeSubtitle?.trim() || theme.description,
+  };
 }
 
 export function buildPosterCardContent(card: DailyMirrorCardModel): PosterCardContent {

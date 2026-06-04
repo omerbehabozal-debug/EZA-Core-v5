@@ -15,7 +15,10 @@ import {
 export const POSTER_CARD_WIDTH_PX = POSTER_PREVIEW_WIDTH_PX;
 export const POSTER_CARD_HEIGHT_PX = 768;
 export const POSTER_ASPECT_RATIO = '9 / 16' as const;
+/** Legacy full-bleed scene layout (pre-P2). */
 export const POSTER_SCENE_DOMINANCE_RATIO = 0.58;
+/** P2 rev — scene window ~45% card height (dominant hero). */
+export const POSTER_SCENE_WINDOW_RATIO = 0.45;
 
 export const posterCardSkin = {
   root: [
@@ -236,9 +239,90 @@ export type PosterSkinTokens = {
   readonly [key: string]: string;
 };
 
+/** P2 — warm pastel identity-first card (no full-bleed dark scrim). */
+export const posterCardSkinIdentity: PosterSkinTokens = {
+  ...posterCardSkinPremium,
+  root: [
+    'relative mx-auto w-full overflow-hidden font-sans',
+    'aspect-[9/16]',
+    `rounded-[30px]`,
+    'border border-[rgba(123,97,255,0.14)]',
+    `shadow-[${POSTER_SHADOWS.mainCard}]`,
+    `bg-[linear-gradient(180deg,${POSTER_COLORS.baseTop}_0%,${POSTER_COLORS.baseBottom}_55%,#EDE8F8_100%)]`,
+    'eza-mirror-poster-reveal max-w-[460px]',
+  ].join(' '),
+  sceneBackdrop: 'hidden',
+  globalOverlay: 'pointer-events-none absolute inset-0 z-[1] opacity-0',
+  globalOverlayBottom: 'pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[20%] bg-gradient-to-t from-[rgba(237,232,248,0.5)] to-transparent',
+  accentGlow:
+    'pointer-events-none absolute right-[12%] top-[18%] z-[1] h-28 w-28 rounded-full blur-3xl bg-[rgba(155,132,255,0.22)]',
+  contentStack: [
+    'relative z-[4] grid h-full min-h-0 w-full gap-0',
+    'px-4 pt-3 pb-3',
+    'max-[380px]:px-3',
+  ].join(' '),
+  identityHeadlineZone:
+    'col-span-12 flex min-h-0 flex-col justify-center text-left px-0.5',
+  identityTodayLabel:
+    'text-[10px] font-semibold uppercase tracking-[0.16em] text-[#667085]',
+  identityAvatarName:
+    'line-clamp-2 text-[28px] font-extrabold leading-[1.02] tracking-[-0.03em] text-[#172033] max-[380px]:text-[24px]',
+  identityFamilyLabel:
+    'mt-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#7B61FF]/80',
+  identityThemeLine: 'mt-1 line-clamp-2 text-[11px] leading-snug text-[#667085]',
+  identityThemeTitle: 'font-semibold text-[#172033]/88',
+  identityThemeSubtitle: 'font-medium',
+  energyBadge:
+    'inline-flex shrink-0 items-center gap-1 rounded-full border border-[rgba(123,97,255,0.16)] bg-white/65 px-2 py-0.5 text-[9px] font-semibold text-[#172033]/85',
+  energyRing:
+    'flex h-5 w-5 items-center justify-center rounded-full bg-[conic-gradient(#7B61FF_0deg,#7B61FF_var(--energy-deg,220deg),rgba(123,97,255,0.12)_var(--energy-deg,220deg))] text-[7px] font-bold text-[#172033]',
+  sceneWindowZone: 'col-span-12 flex min-h-0 flex-1 flex-col',
+  sceneWindowOuter:
+    'relative h-full min-h-[200px] w-full flex-1 overflow-hidden rounded-[24px] border border-white/70 bg-white/35 shadow-[0_8px_32px_rgba(123,97,255,0.12)] aspect-[4/5] max-[380px]:min-h-[180px]',
+  sceneWindowCaption:
+    'pointer-events-none absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-[rgba(14,6,22,0.42)] to-transparent px-3 pb-2 pt-6 text-left',
+  sceneWindowCaptionTitle: 'line-clamp-1 text-[10px] font-bold uppercase tracking-wide text-white/95',
+  sceneWindowCaptionSub: 'line-clamp-1 text-[9px] font-medium text-white/75',
+  sceneWindowGenerating:
+    'absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-[linear-gradient(135deg,rgba(248,246,241,0.92)_0%,rgba(237,232,248,0.88)_100%)] backdrop-blur-[2px]',
+  sceneWindowGeneratingText: 'text-[11px] font-semibold text-[#172033]/75',
+  reflectionZone: 'col-span-12 flex min-h-0 flex-col gap-1.5',
+  reflectionHeaderRow: 'flex items-start justify-between gap-2',
+  reflectionHeadline:
+    'line-clamp-1 text-[15px] font-bold leading-tight tracking-[-0.02em] text-[#172033]',
+  reflectionStory: 'line-clamp-2 text-[12px] font-medium leading-[1.35] text-[#172033]/82',
+  reflectionQuote:
+    'line-clamp-1 text-center text-[10px] italic leading-snug text-[#667085]',
+  insightsCompact: 'grid grid-cols-3 gap-1.5',
+  insightCardCompact: [
+    'flex min-h-[64px] flex-col rounded-[14px] border border-[rgba(123,97,255,0.1)]',
+    'bg-white/58 px-1.5 py-1.5 backdrop-blur-sm',
+  ].join(' '),
+  insightLabelCompact:
+    'text-[7px] font-bold uppercase tracking-[0.1em] text-[#7B61FF]/80',
+  insightLineCompact: 'mt-0.5 line-clamp-2 text-[9px] font-medium leading-[1.25] text-[#172033]/88',
+  relationshipBarsWrap: 'flex gap-1',
+  relationshipBarTrack: 'h-1 flex-1 overflow-hidden rounded-full bg-[rgba(123,97,255,0.12)]',
+  relationshipBarFill: 'h-full rounded-full bg-[linear-gradient(90deg,#9B84FF,#7B61FF)]',
+  tomorrowZone:
+    'col-span-12 rounded-[16px] border border-[rgba(126,158,142,0.25)] bg-[rgba(255,255,255,0.55)] px-2.5 py-2 text-center',
+  tomorrowLabel: 'text-[9px] font-semibold uppercase tracking-[0.12em] text-[#7E9E8E]',
+  tomorrowText: 'mt-0.5 line-clamp-2 text-[11px] font-medium leading-snug text-[#172033]/85',
+  footer: [
+    'col-span-12 flex items-center justify-between gap-2 pt-0.5',
+    'text-[8px] font-semibold uppercase tracking-[0.12em] text-[#172033]/45',
+  ].join(' '),
+};
+
+export type PosterSkinLayout = 'legacy_bleed' | 'identity_first';
+
 export function getPosterCardSkin(
-  palette: 'default_dark_scrim' | 'premium_light_editorial'
+  palette: 'default_dark_scrim' | 'premium_light_editorial',
+  layout: PosterSkinLayout = 'legacy_bleed'
 ): PosterSkinTokens {
+  if (layout === 'identity_first') {
+    return posterCardSkinIdentity;
+  }
   return (palette === 'premium_light_editorial'
     ? posterCardSkinPremium
     : posterCardSkin) as PosterSkinTokens;

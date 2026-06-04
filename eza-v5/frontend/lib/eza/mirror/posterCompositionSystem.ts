@@ -6,7 +6,11 @@
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { ContextualHighlightKind } from '@/lib/eza/mirror/contextualHighlight';
 
-import { POSTER_ZONE_GRID_ROWS } from '@/lib/eza/mirror/posterEditorialMathematics';
+import {
+  POSTER_IDENTITY_HYBRID_ZONE_GRID_ROWS,
+  POSTER_IDENTITY_ZONE_GRID_ROWS,
+  POSTER_ZONE_GRID_ROWS,
+} from '@/lib/eza/mirror/posterEditorialMathematics';
 
 /** Card design width; export captures at 1080px (shareExport). */
 export const POSTER_DESIGN_WIDTH_PX = 432;
@@ -118,10 +122,19 @@ const DENSITY_PROFILES: Record<PosterLayoutDensity, Omit<PosterCompositionProfil
   },
 };
 
-export function getPosterComposition(card: DailyMirrorCardModel): PosterCompositionProfile {
+export function getPosterComposition(
+  card: DailyMirrorCardModel,
+  layout: 'legacy_bleed' | 'identity_first' | 'identity_hybrid' = 'legacy_bleed'
+): PosterCompositionProfile {
   const density = resolvePosterLayoutDensity(card);
   const base = DENSITY_PROFILES[density];
-  return { density, ...base };
+  const gridRows =
+    layout === 'identity_first'
+      ? POSTER_IDENTITY_ZONE_GRID_ROWS
+      : layout === 'identity_hybrid'
+        ? POSTER_IDENTITY_HYBRID_ZONE_GRID_ROWS
+        : base.gridRows;
+  return { density, ...base, gridRows };
 }
 
 export function buildPosterCompositionStyle(

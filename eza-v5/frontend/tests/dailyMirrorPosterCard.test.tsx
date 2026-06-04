@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { buildPosterCardContent } from '@/lib/eza/mirror/posterCardContent';
+import { buildPosterCardContent, resolvePosterIdentityDisplay } from '@/lib/eza/mirror/posterCardContent';
+import { POSTER_IDENTITY_ZONE_GRID_ROWS } from '@/lib/eza/mirror/posterEditorialMathematics';
+import { posterCardSkinIdentity } from '@/lib/eza/mirror/posterCardSkin';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
 const posterSrc = readFileSync(
@@ -9,18 +11,8 @@ const posterSrc = readFileSync(
   'utf8'
 );
 
-const skinSrc = readFileSync(
-  join(process.cwd(), 'lib/eza/mirror/posterCardSkin.ts'),
-  'utf8'
-);
-
 const experienceSrc = readFileSync(
   join(process.cwd(), 'components/standalone/StandaloneObservationExperience.tsx'),
-  'utf8'
-);
-
-const legacySrc = readFileSync(
-  join(process.cwd(), 'components/mirror/DailyMirrorCard.tsx'),
   'utf8'
 );
 
@@ -40,38 +32,49 @@ const baseCard: DailyMirrorCardModel = {
   energyScore: 72,
   shareEnabled: true,
   privacyText: 'privacy',
+  dailyAvatarName: 'Şefkatli Geyik',
+  dailyAvatarEmoji: '🦌',
+  behaviorFamilyLabel: 'Hassasiyet Ailesi',
+  dailyThemeTitle: 'İlişki & Bağ',
+  dailyThemeSubtitle: 'Empati, güven ve iletişim',
+  tomorrowHint: 'Yarın için küçük bir adım yeterli olabilir.',
 };
 
-describe('DailyMirrorPosterCard wiring', () => {
+describe('DailyMirrorPosterCard P2 scene-hero revision', () => {
   it('mirror page imports DailyMirrorPosterCard not legacy DailyMirrorCard', () => {
     expect(experienceSrc).toContain('DailyMirrorPosterCard');
     expect(experienceSrc).not.toMatch(/import\s+DailyMirrorCard\s+from/);
   });
 
-  it('poster component has 9:16 visual-dominant layout and Sen/AI/Denge blocks', () => {
-    expect(posterSrc).toContain('data-mirror-card-root');
-    expect(posterSrc).toContain('data-mirror-aspect="9-16"');
-    expect(posterSrc).toMatch(/v8c-scene-contract|v8d-hybrid-middle/);
-    expect(posterSrc).toContain('ContextualHighlightBand');
-    expect(posterSrc).toContain('insightCard');
-    expect(posterSrc).toContain('posterEditorialMathematics');
-    expect(posterSrc).toContain('quoteZone');
-    expect(skinSrc).toContain('aspect-[9/16]');
-    expect(skinSrc).toContain('sceneBackdrop');
-    expect(posterSrc).toContain('sceneBackdrop');
-    expect(posterSrc).toContain('gridTemplateRows');
-    expect(posterSrc).not.toContain('metricsGlass');
-    expect(posterSrc).not.toContain('glassTheme');
-    expect(posterSrc).toContain('label="Sen"');
-    expect(posterSrc).toContain('label="AI"');
-    expect(posterSrc).toContain('label="Denge"');
-    expect(posterSrc).not.toContain('Bugün ne yaptın');
-    expect(posterSrc).not.toContain('İlişki dengen');
+  it('uses text-only identity headline and dominant scene window', () => {
+    expect(posterSrc).toContain('v9b-scene-hero');
+    expect(posterSrc).toContain('PosterIdentityHeadline');
+    expect(posterSrc).toContain('PosterSceneWindow');
+    expect(posterSrc).not.toContain('PosterAvatarHero');
+    expect(posterSrc).not.toContain('PosterThemeBand');
+    expect(posterSrc).not.toContain('/personas/');
+    expect(posterSrc).not.toContain('dailyAvatarEmoji');
+    expect(posterSrc).not.toContain('personaImageUrl');
+    expect(posterSrc).toContain('PosterIdentityHeadline');
   });
 
-  it('legacy DailyMirrorCard still contains old report headings (unused on mirror)', () => {
-    expect(legacySrc).toContain('DailyMirrorCard');
-    expect(legacySrc).not.toContain('Bugün ne yaptın');
+  it('scene-first grid ratios (~45% scene row)', () => {
+    expect(POSTER_IDENTITY_ZONE_GRID_ROWS).toMatch(/8%.*12%.*45%/);
+    expect(posterCardSkinIdentity.sceneWindowOuter).toContain('min-h-[200px]');
+    expect(posterCardSkinIdentity.sceneWindowOuter).toMatch(/aspect-\[4\/5\]/);
+    expect(posterCardSkinIdentity.identityAvatarName).toBeTruthy();
+    expect(posterCardSkinIdentity.avatarImage).toBeUndefined();
+    expect(posterCardSkinIdentity.avatarEmoji).toBeUndefined();
+  });
+
+  it('resolvePosterIdentityDisplay is text-only (no image/emoji urls)', () => {
+    const content = buildPosterCardContent(baseCard);
+    const id = resolvePosterIdentityDisplay(baseCard, content);
+    expect(id.avatarName).toBe('Şefkatli Geyik');
+    expect(id.behaviorFamilyLabel).toBe('Hassasiyet Ailesi');
+    expect(id.themeTitle).toBe('İlişki & Bağ');
+    expect(id).not.toHaveProperty('avatarEmoji');
+    expect(id).not.toHaveProperty('personaImageUrl');
   });
 
   it('poster activities use Sen/AI/Denge labels only', () => {

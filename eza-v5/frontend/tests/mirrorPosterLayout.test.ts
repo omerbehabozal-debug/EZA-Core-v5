@@ -175,8 +175,10 @@ describe('DailyMirrorPosterCard hybrid initial render wiring', () => {
   it('uses renderMode-driven layout helpers, not sceneImageUrl gate', () => {
     expect(posterSrc).toContain('shouldUseHybridPosterLayout');
     expect(posterSrc).toContain('resolveCardRenderMode');
-    expect(posterSrc).toContain('buildHybridPosterZoneStyle');
-    expect(posterSrc).toContain('!isHybridMiddle');
+    expect(posterSrc).toContain('identity_first');
+    expect(posterSrc).toContain('identity_hybrid');
+    expect(posterSrc).toContain('isHybridMiddle');
+    expect(posterSrc).toContain('v9b-scene-hero');
     expect(posterSrc).not.toMatch(/!card\.visual\?\.sceneImageUrl[\s\S]*?isHybridMiddle/);
   });
 
@@ -184,8 +186,8 @@ describe('DailyMirrorPosterCard hybrid initial render wiring', () => {
     expect(posterSrc).toContain('renderMode={effectiveRenderMode}');
   });
 
-  it('StandaloneObservationExperience rebuilds card when renderMode is stale', () => {
-    expect(experienceSrc).toContain('modeStale');
-    expect(experienceSrc).toContain('resolveCardRenderMode');
+  it('StandaloneObservationExperience renders poster with renderMode from card', () => {
+    expect(experienceSrc).toContain('DailyMirrorPosterCard');
+    expect(experienceSrc).toContain('cardForRender');
   });
 });

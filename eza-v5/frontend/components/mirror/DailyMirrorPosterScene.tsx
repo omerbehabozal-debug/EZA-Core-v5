@@ -20,6 +20,8 @@ export type DailyMirrorPosterSceneProps = {
   sceneImageUrl?: string | null;
   sceneImageStatus?: MirrorSceneImageStatus;
   className?: string;
+  /** P2 — contained window vs legacy full-bleed backdrop */
+  layout?: 'bleed' | 'contained';
   sceneFilter?: SceneFilterProfile;
   onSceneImageLoad?: () => void;
   onSceneImageError?: () => void;
@@ -47,6 +49,7 @@ export default function DailyMirrorPosterScene({
   sceneImageUrl,
   sceneImageStatus,
   className,
+  layout = 'bleed',
   sceneFilter = DEFAULT_FILTER,
   onSceneImageLoad,
   onSceneImageError,
@@ -73,8 +76,16 @@ export default function DailyMirrorPosterScene({
     filter: `brightness(${sceneFilter.brightness}) contrast(${sceneFilter.contrast}) saturate(${sceneFilter.saturate})`,
   };
 
+  const isContained = layout === 'contained';
+
   return (
-    <div className={cn('absolute inset-0 h-full w-full overflow-hidden', className)} aria-hidden>
+    <div
+      className={cn(
+        isContained ? 'relative h-full w-full overflow-hidden' : 'absolute inset-0 h-full w-full overflow-hidden',
+        className
+      )}
+      aria-hidden
+    >
       {isHybridPlaceholder && !showSceneImage ? (
         <div className={cn('absolute inset-0', HYBRID_PLACEHOLDER_GRADIENT)} />
       ) : (
@@ -114,6 +125,11 @@ export default function DailyMirrorPosterScene({
       {isHybridPlaceholder ? (
         <div
           className="absolute inset-0 bg-gradient-to-b from-[rgba(248,246,241,0.35)] via-transparent via-[18%] to-[rgba(243,241,236,0.42)]"
+          aria-hidden
+        />
+      ) : isContained ? (
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-[rgba(123,97,255,0.08)]"
           aria-hidden
         />
       ) : (
