@@ -416,12 +416,12 @@ export default function StandaloneObservationExperience({
   }, [mirrorExport]);
 
   const handleShareDownload = useCallback(async () => {
-    return mirrorExport.download(generatedDailyCard?.date);
-  }, [mirrorExport, generatedDailyCard?.date]);
+    return mirrorExport.download(generatedDailyCard);
+  }, [mirrorExport, generatedDailyCard]);
 
   const handleShareNative = useCallback(async () => {
-    await mirrorExport.share(generatedDailyCard?.date);
-  }, [mirrorExport, generatedDailyCard?.date]);
+    await mirrorExport.share(generatedDailyCard);
+  }, [mirrorExport, generatedDailyCard]);
 
   const showShareAction =
     isPlus &&
@@ -551,7 +551,7 @@ export default function StandaloneObservationExperience({
         onCapture={handleShareCapture}
         onDownload={handleShareDownload}
         onShare={handleShareNative}
-        onCopyText={mirrorExport.copyText}
+        onCopyText={() => mirrorExport.copyText(generatedDailyCard)}
       />
 
       <UpgradeModal

@@ -19,7 +19,9 @@ export const MIRROR_TAB_PATTERN = 'AI İlişki Deseni';
 
 export const MIRROR_NAV_ARIA = 'EZA Mirror sekmeleri';
 
-export const MIRROR_SHARE_LABEL = 'Aynamı Paylaş';
+export const MIRROR_SHARE_LABEL = 'Aynanı Paylaş';
+
+export const MIRROR_SHARE_DOWNLOAD_LABEL = 'Kartı İndir';
 
 /** Kısa gizlilik — tüm Mirror yüzeylerinde */
 export const MIRROR_PRIVACY_SHORT =
@@ -64,15 +66,16 @@ export const MIRROR_DETAILS_SUMMARY = 'İsteğe bağlı ayrıntılar';
 
 export const MIRROR_SIDEBAR_LABEL = 'Ayna';
 
-export const MIRROR_SHARE_MODAL_TITLE = 'Günlük Ayna paylaşımı';
+export const MIRROR_SHARE_MODAL_TITLE = 'Aynanı paylaş';
 
-export const MIRROR_SHARE_EXPORT_TEXT = 'Bugünkü AI aynam ✨ EZA Mirror';
+export const MIRROR_SHARE_EXPORT_TEXT =
+  'Bugünkü AI ilişki aynama baktım ✨\n\nSeninki ne çıkacak?\n\n#EZAİlişkiAynası';
 
 export const MIRROR_SHARE_EXPORT_TEXT_LONG =
-  'Bugünkü EZA Mirror kartım hazır. Senin AI aynan nasıl görünüyor?';
+  'Bugünkü AI ilişki aynama baktım ✨\nSeninki ne çıkacak?\n#EZAİlişkiAynası\nMesaj içeriği paylaşılmaz.';
 
 export const MIRROR_SHARE_EXPORT_PRIVACY =
-  'Mesaj içeriği paylaşılmaz. Yalnızca günlük yansıman görünür.';
+  'Paylaşılan görselde sohbet metni yer almaz. Kartın kimliği ve teması paylaşılır; mesaj içeriği paylaşılmaz.';
 
 /** Günlük Ayna — premium idle (Sprint 11D) */
 export const MIRROR_CREATE_TITLE = 'Bugünkü aynan hazır.';

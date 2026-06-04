@@ -1,6 +1,6 @@
 /**
- * Sprint 11H — Daily Mirror poster end-to-end QA (presentation + state pipeline).
- * No UI/backend changes; validates 5 topic scenarios and writes QA report.
+ * Mirror E2E Poster QA — presentation + state pipeline (P2 v9b scene-hero).
+ * Validates topic scenarios and writes QA report; no UI/backend changes.
  */
 
 import { describe, it, expect, afterAll } from 'vitest';
@@ -21,7 +21,7 @@ import {
 } from '@/lib/eza/mirror/shareExport';
 import {
   POSTER_SCENE_DOMINANCE_RATIO,
-  posterCardSkin,
+  posterCardSkinIdentity,
 } from '@/lib/eza/mirror/posterCardSkin';
 import { readFileSync } from 'node:fs';
 
@@ -142,9 +142,17 @@ const SCENARIOS: ScenarioDef[] = [
 const CATEGORY_HEADLINE = /^gözlemsel\s+gün$/i;
 const OLD_UI_PATTERNS = [/bugün ne yaptın/i, /ilişki dengen/i, /davranış raporu/i];
 
+const POSTER_COMPONENT = join(process.cwd(), 'components/mirror/DailyMirrorPosterCard.tsx');
+const SCENE_WINDOW_COMPONENT = join(process.cwd(), 'components/mirror/PosterSceneWindow.tsx');
+const IDENTITY_HEADLINE_COMPONENT = join(
+  process.cwd(),
+  'components/mirror/PosterIdentityHeadline.tsx'
+);
+const SKIN_MODULE = join(process.cwd(), 'lib/eza/mirror/posterCardSkin.ts');
+
 type Scores = {
   aspect916: number;
-  visualDominant: number;
+  sceneHeroLayout: number;
   textBalance: number;
   editorialHeadline: number;
   storyAlignment: number;
@@ -168,33 +176,33 @@ function scoreScenario(scenario: ScenarioDef): {
   const content = buildPosterCardContent(card);
   const notes: string[] = [];
 
-  const posterSrc = readFileSync(
-    join(process.cwd(), 'components/mirror/DailyMirrorPosterCard.tsx'),
-    'utf8'
-  );
-  const skinSrc = readFileSync(join(process.cwd(), 'lib/eza/mirror/posterCardSkin.ts'), 'utf8');
+  const posterSrc = readFileSync(POSTER_COMPONENT, 'utf8');
+  const sceneWindowSrc = readFileSync(SCENE_WINDOW_COMPONENT, 'utf8');
+  const identitySrc = readFileSync(IDENTITY_HEADLINE_COMPONENT, 'utf8');
+  const skinSrc = readFileSync(SKIN_MODULE, 'utf8');
 
   let aspect916 = 5;
   if (!posterSrc.includes('data-mirror-aspect="9-16"')) aspect916 -= 2;
-  if (!skinSrc.includes('aspect-[9/16]')) aspect916 -= 2;
-  if (
-    !posterSrc.includes('v8c-scene-contract') &&
-    !posterSrc.includes('v4-editorial') &&
-    !posterSrc.includes('v3-visual-dominant')
-  ) {
-    aspect916 -= 1;
-  }
+  if (!posterCardSkinIdentity.root.includes('aspect-[9/16]')) aspect916 -= 2;
+  if (!posterSrc.includes('v9b-scene-hero')) aspect916 -= 2;
 
-  let visualDominant = 5;
-  if (!posterSrc.includes('sceneBackdrop')) visualDominant -= 3;
-  if (posterSrc.includes('bodyPanel')) {
-    visualDominant -= 2;
+  let sceneHeroLayout = 5;
+  if (!posterSrc.includes('PosterSceneWindow')) sceneHeroLayout -= 2;
+  if (!posterSrc.includes('PosterIdentityHeadline')) sceneHeroLayout -= 2;
+  if (!posterSrc.includes('v9b-scene-hero-hybrid')) sceneHeroLayout -= 1;
+  if (posterSrc.includes('sceneBackdrop')) sceneHeroLayout -= 3;
+  if (!sceneWindowSrc.includes('sceneWindowZone') && !sceneWindowSrc.includes('skin.sceneWindow')) {
+    sceneHeroLayout -= 1;
   }
-  if (posterSrc.includes('metricsGlass') || posterSrc.includes('glassTheme')) {
-    visualDominant -= 1;
+  if (!identitySrc.includes('Bugün Sen')) sceneHeroLayout -= 2;
+  if (!posterSrc.includes('gridTemplateRows') || !posterSrc.includes('--poster-zone-rows')) {
+    sceneHeroLayout -= 1;
   }
-  if (!posterSrc.includes('sceneSpacer')) visualDominant -= 1;
-  if (POSTER_SCENE_DOMINANCE_RATIO < 0.38) visualDominant -= 1;
+  if (posterSrc.includes('PosterAvatarHero') || posterSrc.includes('PosterThemeBand')) {
+    sceneHeroLayout -= 2;
+  }
+  if (!skinSrc.includes('sceneWindowOuter')) sceneHeroLayout -= 1;
+  if (POSTER_SCENE_DOMINANCE_RATIO < 0.38) sceneHeroLayout -= 1;
 
   let textBalance = 5;
   if (content.storyLine.length > POSTER_STORY_MAX) {
@@ -227,7 +235,7 @@ function scoreScenario(scenario: ScenarioDef): {
 
   let mobile = 5;
   if (!skinSrc.includes('max-[380px]')) mobile -= 1;
-  if (!posterCardSkin.heroTitle.includes('line-clamp-2')) mobile -= 1;
+  if (!posterCardSkinIdentity.identityAvatarName.includes('line-clamp-2')) mobile -= 1;
 
   let exportCheck = 5;
   if (MIRROR_EXPORT_TARGET_WIDTH !== 1080 || MIRROR_EXPORT_TARGET_HEIGHT !== 1920) {
@@ -240,7 +248,7 @@ function scoreScenario(scenario: ScenarioDef): {
 
   const scores: Scores = {
     aspect916: clampScore(aspect916),
-    visualDominant: clampScore(visualDominant),
+    sceneHeroLayout: clampScore(sceneHeroLayout),
     textBalance: clampScore(textBalance),
     editorialHeadline: clampScore(editorialHeadline),
     storyAlignment: clampScore(storyAlignment),
@@ -250,7 +258,7 @@ function scoreScenario(scenario: ScenarioDef): {
   };
   const avg =
     (scores.aspect916 +
-      scores.visualDominant +
+      scores.sceneHeroLayout +
       scores.textBalance +
       scores.editorialHeadline +
       scores.storyAlignment +
@@ -274,7 +282,7 @@ const reportRows: Array<{
   notes: string[];
 }> = [];
 
-describe('Sprint 11H — Mirror E2E Poster QA', () => {
+describe('Mirror E2E Poster QA (P2 v9b scene-hero)', () => {
   for (const scenario of SCENARIOS) {
     it(`scenario ${scenario.id} meets poster QA thresholds`, () => {
       const { scores, card, content, notes } = scoreScenario(scenario);
@@ -291,19 +299,26 @@ describe('Sprint 11H — Mirror E2E Poster QA', () => {
       expect(content.journeyHeadline).not.toMatch(CATEGORY_HEADLINE);
       expect(scores.general).toBeGreaterThanOrEqual(4);
       expect(scores.aspect916).toBeGreaterThanOrEqual(4);
-      expect(scores.visualDominant).toBeGreaterThanOrEqual(4);
+      expect(scores.sceneHeroLayout).toBeGreaterThanOrEqual(4);
     });
   }
 
-  it('layout uses visual-dominant v3 poster architecture', () => {
-    const posterSrc = readFileSync(
-      join(process.cwd(), 'components/mirror/DailyMirrorPosterCard.tsx'),
-      'utf8'
-    );
-    expect(posterSrc).toContain('sceneBackdrop');
+  it('layout uses P2 v9b scene-hero poster architecture', () => {
+    const posterSrc = readFileSync(POSTER_COMPONENT, 'utf8');
+    const sceneWindowSrc = readFileSync(SCENE_WINDOW_COMPONENT, 'utf8');
+    const identitySrc = readFileSync(IDENTITY_HEADLINE_COMPONENT, 'utf8');
+
+    expect(posterSrc).toContain('v9b-scene-hero');
+    expect(posterSrc).toContain('v9b-scene-hero-hybrid');
+    expect(posterSrc).toContain('PosterSceneWindow');
+    expect(posterSrc).toContain('PosterIdentityHeadline');
+    expect(posterSrc).not.toContain('sceneBackdrop');
+    expect(posterSrc).toContain('data-mirror-aspect="9-16"');
     expect(posterSrc).toContain('gridTemplateRows');
     expect(posterSrc).toContain('--poster-zone-rows');
-    expect(posterSrc).toContain('v8c-scene-contract');
+    expect(sceneWindowSrc).toContain('sceneWindowOuter');
+    expect(sceneWindowSrc).toContain('DailyMirrorPosterScene');
+    expect(identitySrc).toContain('Bugün Sen');
     expect(posterSrc).not.toContain('Bugün ne yaptın');
     expect(readFileSync(join(process.cwd(), 'components/mirror/MirrorShareModal.tsx'), 'utf8')).toContain(
       'MIRROR_SHARE_MODAL_TITLE'
@@ -325,23 +340,23 @@ describe('Sprint 11H — Mirror E2E Poster QA', () => {
       reportRows.reduce((s, r) => s + r.scores.general, 0) / reportRows.length;
 
     const md = [
-      '# EZA Mirror — Sprint 11H E2E Poster QA',
+      '# EZA Mirror — E2E Poster QA (P2 v9b)',
       '',
       `Generated: ${new Date().toISOString()}`,
       '',
       '## Method',
       '',
-      '- State pipeline: `buildMirrorState` + `buildPosterCardContent` per scenario (4 entries, backend observation).',
-      '- Layout/export: source assertions on v3 visual-dominant poster + 1080×1920 constants.',
-      '- Scene PNGs: copied from `mirror_live_qa` OpenAI scene QA (same topic prompts). Card PNG export from browser not automated in CI.',
+      '- State pipeline: `buildMirrorState` + `buildPosterCardContent` per scenario (4 entries).',
+      '- Layout/export: v9b scene-hero + identity headline + scene window + 1080×1920 constants.',
+      '- Scene PNGs: copied from `mirror_live_qa` when present.',
       '',
       '## Score table (1–5)',
       '',
-      '| Senaryo | 9:16 | Görsel Baskın | Metin Dengesi | Editorial Başlık | Story Uyumu | Mobil | Export | Genel |',
+      '| Senaryo | 9:16 | Sahne Kahraman | Metin Dengesi | Editorial Başlık | Story Uyumu | Mobil | Export | Genel |',
       '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
       ...reportRows.map((r) => {
         const s = r.scores;
-        return `| ${r.scenario} | ${s.aspect916} | ${s.visualDominant} | ${s.textBalance} | ${s.editorialHeadline} | ${s.storyAlignment} | ${s.mobile} | ${s.exportCheck} | ${s.general} |`;
+        return `| ${r.scenario} | ${s.aspect916} | ${s.sceneHeroLayout} | ${s.textBalance} | ${s.editorialHeadline} | ${s.storyAlignment} | ${s.mobile} | ${s.exportCheck} | ${s.general} |`;
       }),
       '',
       `**Ortalama Genel:** ${avgGeneral.toFixed(2)} / 5 (hedef ≥ 4)`,
@@ -363,15 +378,9 @@ describe('Sprint 11H — Mirror E2E Poster QA', () => {
       '## Acceptance',
       '',
       `- Genel ortalama: ${avgGeneral >= 4 ? 'PASS' : 'FAIL'} (≥ 4)`,
-      '- 9:16 + v3 full-bleed: PASS (code)',
-      '- Eski UI strings: absent',
+      '- 9:16 + v9b scene-hero window: PASS (code)',
+      '- Eski v3 sceneBackdrop: absent from poster card',
       '- Share modal + export API: present (code)',
-      '',
-      '## Minimal fix suggestions (if manual browser QA fails)',
-      '',
-      '- `object-[center_30%]` scene crop on mobile if faces clip',
-      '- `globalOverlayBottom` opacity −5% if bottom glass text low contrast',
-      '- `relationLine` font 7px→6px if Sen/AI/Denge wraps to 3 lines on narrow devices',
       '',
     ].join('\n');
 

@@ -1,12 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import {
   copyMirrorShareText,
   downloadMirrorCardPng,
   exportMirrorCardToPng,
   getMirrorShareTexts,
   MIRROR_EXPORT_ERROR_MESSAGE,
+  resolveMirrorExportFilename,
+  resolveMirrorShareText,
   type MirrorExportOptions,
   type MirrorShareResult,
   shareMirrorCardPng,
@@ -69,29 +72,31 @@ export function useMirrorCardExport() {
   useEffect(() => () => revokePreview(), [revokePreview]);
 
   const download = useCallback(
-    async (dateIso?: string) => {
+    async (card?: DailyMirrorCardModel | null) => {
       const blob = exportBlob ?? (await captureCard());
       if (!blob) return false;
-      downloadMirrorCardPng(blob, dateIso ? `eza-mirror-${dateIso.slice(0, 10)}.png` : undefined);
+      const filename = resolveMirrorExportFilename(card, card?.date);
+      downloadMirrorCardPng(blob, filename);
       return true;
     },
     [captureCard, exportBlob]
   );
 
   const share = useCallback(
-    async (dateIso?: string): Promise<MirrorShareResult> => {
+    async (card?: DailyMirrorCardModel | null): Promise<MirrorShareResult> => {
       const blob = exportBlob ?? (await captureCard());
       if (!blob) return 'failed';
 
-      const texts = getMirrorShareTexts();
+      const text = resolveMirrorShareText(card);
+      const filename = resolveMirrorExportFilename(card, card?.date);
       const result = await shareMirrorCardPng(blob, {
-        title: 'EZA Mirror',
-        text: texts.short,
-        filename: dateIso ? `eza-mirror-${dateIso.slice(0, 10)}.png` : undefined,
+        title: 'EZA · AI İlişki Aynası',
+        text,
+        filename,
       });
 
       if (result === 'unsupported' || result === 'failed') {
-        downloadMirrorCardPng(blob);
+        downloadMirrorCardPng(blob, filename);
         return 'downloaded';
       }
       return result;
@@ -99,9 +104,8 @@ export function useMirrorCardExport() {
     [captureCard, exportBlob]
   );
 
-  const copyText = useCallback(async (): Promise<boolean> => {
-    const texts = getMirrorShareTexts();
-    return copyMirrorShareText(texts.short);
+  const copyText = useCallback(async (card?: DailyMirrorCardModel | null): Promise<boolean> => {
+    return copyMirrorShareText(resolveMirrorShareText(card));
   }, []);
 
   return {

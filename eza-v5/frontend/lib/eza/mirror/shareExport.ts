@@ -2,10 +2,12 @@
  * EZA Mirror — client-side Daily Mirror card export (PNG).
  */
 
+import { MIRROR_SHARE_EXPORT_TEXT, MIRROR_SHARE_EXPORT_TEXT_LONG } from '@/lib/eza/mirror/copy';
 import {
-  MIRROR_SHARE_EXPORT_TEXT,
-  MIRROR_SHARE_EXPORT_TEXT_LONG,
-} from '@/lib/eza/mirror/copy';
+  buildDailyMirrorExportFilename,
+  buildDailyMirrorShareText,
+} from '@/lib/eza/mirror/dailyMirrorShareText';
+import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
 export type MirrorExportFormat = 'png';
 
@@ -70,9 +72,23 @@ export async function exportMirrorCardToPng(
   return blob;
 }
 
+/** @deprecated Prefer buildDailyMirrorExportFilename(card) — kept for date-only callers. */
 export function buildMirrorExportFilename(dateIso?: string): string {
-  const day = dateIso?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
-  return `eza-mirror-${day}.png`;
+  return buildDailyMirrorExportFilename(null, dateIso);
+}
+
+export function resolveMirrorShareText(card?: DailyMirrorCardModel | null): string {
+  if (card) {
+    return buildDailyMirrorShareText(card);
+  }
+  return MIRROR_SHARE_EXPORT_TEXT;
+}
+
+export function resolveMirrorExportFilename(
+  card?: DailyMirrorCardModel | null,
+  dateIso?: string
+): string {
+  return buildDailyMirrorExportFilename(card, dateIso);
 }
 
 export function downloadMirrorCardPng(blob: Blob, filename?: string): void {
@@ -140,10 +156,13 @@ export async function copyMirrorShareText(
   }
 }
 
-export function getMirrorShareTexts() {
+export function getMirrorShareTexts(card?: DailyMirrorCardModel | null) {
+  const short = resolveMirrorShareText(card);
   return {
-    short: MIRROR_SHARE_EXPORT_TEXT,
-    long: MIRROR_SHARE_EXPORT_TEXT_LONG,
+    short,
+    long: card
+      ? `${short}\n\nMesaj içeriği paylaşılmaz.`
+      : MIRROR_SHARE_EXPORT_TEXT_LONG,
   };
 }
 

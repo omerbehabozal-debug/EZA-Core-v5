@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Download, Loader2, Share2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  MIRROR_SHARE_DOWNLOAD_LABEL,
   MIRROR_SHARE_EXPORT_PRIVACY,
+  MIRROR_SHARE_LABEL,
   MIRROR_SHARE_MODAL_TITLE,
 } from '@/lib/eza/mirror/copy';
 import { canShareFiles } from '@/lib/eza/mirror/shareExport';
@@ -145,7 +147,7 @@ export default function MirrorShareModal({
             ) : (
               <Download className="h-4 w-4" aria-hidden />
             )}
-            Görseli indir
+            {MIRROR_SHARE_DOWNLOAD_LABEL}
           </button>
           {typeof navigator !== 'undefined' && 'share' in navigator ? (
             <button
@@ -159,7 +161,7 @@ export default function MirrorShareModal({
               ) : (
                 <Share2 className="h-4 w-4" aria-hidden />
               )}
-              Paylaş
+              {MIRROR_SHARE_LABEL}
             </button>
           ) : null}
           <button
