@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   posterCardSkin,
   posterCardSkinIdentity,
+  getPosterCardSkin,
   POSTER_CARD_WIDTH_PX,
   POSTER_SCENE_DOMINANCE_RATIO,
 } from '@/lib/eza/mirror/posterCardSkin';
@@ -25,8 +26,14 @@ describe('posterCardSkin', () => {
     expect(posterCardSkinIdentity.overlayStack).toContain('relative z-10');
     expect(posterCardSkinIdentity.overlayTopScrim).toBeTruthy();
     expect(posterCardSkinIdentity.overlayBottomScrim).toBeTruthy();
-    expect(posterCardSkinIdentity.insightCardCompact).toContain('backdrop-blur');
-    expect(posterCardSkinIdentity.insightCardCompact).toMatch(/bg-white\/1[58]/);
+    const warm = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
+    expect(warm.rhythmWhisperZone).toContain('backdrop-blur-sm');
+    expect(warm.rhythmWhisperZone).toContain('amber');
+    expect(warm.rhythmWhisperWord).toContain('text-[12px]');
+    expect(warm.relationshipHeroScore).toBe('hidden');
+    expect(posterCardSkinIdentity.relationshipAccentTrack).toBe('hidden');
+    expect(posterCardSkinIdentity.tomorrowWhisper).toContain('text-white/55');
+    expect(posterCardSkinIdentity.insightsCompact).toBe('hidden');
     expect(posterCardSkinIdentity.sceneWindowOuter).toBeUndefined();
   });
 });

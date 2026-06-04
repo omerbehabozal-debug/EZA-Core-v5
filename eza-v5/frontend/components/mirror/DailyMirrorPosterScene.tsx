@@ -27,8 +27,18 @@ export type DailyMirrorPosterSceneProps = {
   onSceneImageError?: () => void;
 };
 
-function sceneImageNeedsCrossOrigin(url: string): boolean {
-  return /^https?:\/\//i.test(url);
+/** crossOrigin only for same-origin assets; external CDN breaks without ACAO on localhost. */
+function sceneImageCrossOrigin(url: string): 'anonymous' | undefined {
+  if (!/^https?:\/\//i.test(url)) return undefined;
+  try {
+    if (typeof window !== 'undefined') {
+      const resolved = new URL(url, window.location.href);
+      if (resolved.origin === window.location.origin) return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 const DEFAULT_FILTER: SceneFilterProfile = {
@@ -112,9 +122,7 @@ export default function DailyMirrorPosterScene({
           alt=""
           className="absolute inset-0 h-full w-full object-cover object-[center_32%] eza-mirror-scene-image-enter"
           style={filterStyle}
-          crossOrigin={
-            sceneImageNeedsCrossOrigin(sceneImageUrl!) ? 'anonymous' : undefined
-          }
+          crossOrigin={sceneImageCrossOrigin(sceneImageUrl!)}
           onLoad={() => onSceneImageLoad?.()}
           onError={() => {
             setBgError(true);

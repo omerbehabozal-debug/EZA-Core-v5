@@ -11,6 +11,8 @@ import {
   POSTER_INSIGHT_PREVIEW,
   POSTER_QUOTE_PREVIEW,
 } from '@/lib/eza/mirror/posterEditorialMathematics';
+import type { PosterSceneToneId } from '@/lib/eza/mirror/posterSceneTone';
+import { applyPosterSceneToneSkin } from '@/lib/eza/mirror/posterSceneToneSkin';
 
 export const POSTER_CARD_WIDTH_PX = POSTER_PREVIEW_WIDTH_PX;
 export const POSTER_CARD_HEIGHT_PX = 768;
@@ -311,37 +313,45 @@ export const posterCardSkinIdentity: PosterSkinTokens = {
   ].join(' '),
   energyRing:
     'flex h-5 w-5 items-center justify-center rounded-full bg-[conic-gradient(#9B84FF_0deg,#9B84FF_var(--energy-deg,220deg),rgba(255,255,255,0.15)_var(--energy-deg,220deg))] text-[7px] font-bold text-white',
-  overlayReflection: [
-    'shrink-0 flex min-h-0 flex-col gap-1.5 rounded-[20px] border border-white/20',
-    'bg-white/15 px-2.5 py-2 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.14)]',
+  rhythmWhisperZone: [
+    'shrink-0 flex flex-col gap-0.5 rounded-[12px] border border-white/10',
+    'bg-white/[0.06] px-2 py-1.5 backdrop-blur-sm',
   ].join(' '),
-  reflectionZone:
-    'shrink-0 flex min-h-0 flex-col gap-1.5 rounded-[20px] border border-white/20 bg-white/15 px-2.5 py-2 backdrop-blur-xl',
-  reflectionHeaderRow: 'flex items-start justify-between gap-2',
-  reflectionHeadline: [
-    'line-clamp-1 text-[15px] font-bold leading-tight tracking-[-0.02em] text-white',
-    'drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)]',
-  ].join(' '),
-  reflectionStory: 'line-clamp-2 text-[12px] font-medium leading-[1.35] text-white/88',
-  reflectionQuote: 'line-clamp-1 text-center text-[10px] italic leading-snug text-white/72',
-  insightsCompact: 'grid grid-cols-3 gap-1.5',
-  insightCardCompact: [
-    'flex min-h-[64px] flex-col rounded-[14px] border border-white/22',
-    'bg-white/18 px-1.5 py-1.5 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.1)]',
-  ].join(' '),
-  insightLabelCompact:
-    'text-[7px] font-bold uppercase tracking-[0.1em] text-[#E9D5FF]/95',
-  insightLineCompact: 'mt-0.5 line-clamp-2 text-[9px] font-medium leading-[1.25] text-white/92',
-  relationshipBarsWrap: 'flex gap-1',
-  relationshipBarTrack: 'h-1 flex-1 overflow-hidden rounded-full bg-white/18',
-  relationshipBarFill: 'h-full rounded-full bg-[linear-gradient(90deg,#C4B5FD,#9B84FF)]',
+  rhythmWhisperEyebrow:
+    'text-[7px] font-semibold uppercase tracking-[0.16em] text-white/50',
+  rhythmWhisperWord:
+    'text-[12px] font-semibold tracking-[-0.01em] text-white/72 drop-shadow-sm',
+  overlayReflection: 'hidden',
+  reflectionZone: 'hidden',
+  reflectionHeaderRow: 'hidden',
+  reflectionHeadline: 'hidden',
+  reflectionStory: 'hidden',
+  reflectionQuote: 'hidden',
+  relationshipHeroBlock: 'hidden',
+  relationshipHeroEyebrow: 'hidden',
+  relationshipHeroRow: 'hidden',
+  relationshipHeroTitle: 'hidden',
+  relationshipHeroScore: 'hidden',
+  relationshipHeroRhythm: 'hidden',
+  relationshipAccentTrack: 'hidden',
+  relationshipAccentFill: 'hidden',
+  relationshipMicroRow: 'hidden',
+  relationshipMicroLabel: 'hidden',
+  relationshipMicroValue: 'hidden',
+  relationshipMicroSep: 'hidden',
+  insightsCompact: 'hidden',
+  insightCardCompact: 'hidden',
+  insightLabelCompact: 'hidden',
+  insightLineCompact: 'hidden',
+  relationshipBarsWrap: 'hidden',
+  relationshipBarTrack: 'hidden',
+  relationshipBarFill: 'hidden',
   overlayFooter: 'shrink-0',
-  tomorrowZone: [
-    'rounded-[16px] border border-white/20 bg-white/12 px-2.5 py-2 text-center',
-    'backdrop-blur-lg',
-  ].join(' '),
-  tomorrowLabel: 'text-[9px] font-semibold uppercase tracking-[0.12em] text-[#A7D4C4]/95',
-  tomorrowText: 'mt-0.5 line-clamp-2 text-[11px] font-medium leading-snug text-white/88',
+  tomorrowWhisper:
+    'line-clamp-2 text-center text-[9px] font-medium leading-snug text-white/55 drop-shadow-sm',
+  tomorrowZone: 'hidden',
+  tomorrowLabel: 'hidden',
+  tomorrowText: 'hidden',
   footer: [
     'flex items-center justify-between gap-2 pt-0.5',
     'text-[8px] font-semibold uppercase tracking-[0.12em] text-white/55',
@@ -357,10 +367,12 @@ export type PosterSkinLayout = 'legacy_bleed' | 'identity_first';
 
 export function getPosterCardSkin(
   palette: 'default_dark_scrim' | 'premium_light_editorial',
-  layout: PosterSkinLayout = 'legacy_bleed'
+  layout: PosterSkinLayout = 'legacy_bleed',
+  sceneToneId?: PosterSceneToneId
 ): PosterSkinTokens {
   if (layout === 'identity_first') {
-    return posterCardSkinIdentity;
+    const base = posterCardSkinIdentity;
+    return sceneToneId ? applyPosterSceneToneSkin(base, sceneToneId) : base;
   }
   return (palette === 'premium_light_editorial'
     ? posterCardSkinPremium

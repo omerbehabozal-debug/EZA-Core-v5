@@ -148,6 +148,10 @@ const IDENTITY_HEADLINE_COMPONENT = join(
   process.cwd(),
   'components/mirror/PosterIdentityHeadline.tsx'
 );
+const REFLECTION_COMPONENT = join(
+  process.cwd(),
+  'components/mirror/PosterReflectionSummary.tsx'
+);
 const SKIN_MODULE = join(process.cwd(), 'lib/eza/mirror/posterCardSkin.ts');
 
 type Scores = {
@@ -327,6 +331,24 @@ describe('Mirror E2E Poster QA (P4-B full-canvas)', () => {
     expect(identitySrc).toContain('identityMirrorMoment');
     expect(identitySrc).toContain('mirrorMomentLine');
     expect(identitySrc).not.toMatch(/Mirror Moment:/i);
+    const reflectionSrc = readFileSync(REFLECTION_COMPONENT, 'utf8');
+    expect(reflectionSrc).toContain('rhythmWhisperEyebrow');
+    expect(reflectionSrc).toContain('rhythmWhisperWord');
+    expect(reflectionSrc).toContain('rhythm.eyebrow');
+    expect(reflectionSrc).not.toContain('heroScore');
+    expect(reflectionSrc).not.toContain('relationshipHeroScore');
+    expect(reflectionSrc).not.toContain('relationshipAccentTrack');
+    expect(reflectionSrc).not.toContain('journeyHeadline');
+    expect(reflectionSrc).not.toContain('storyLine');
+    expect(reflectionSrc).not.toContain('senMicro');
+    expect(reflectionSrc).not.toContain('MiniInsight');
+    expect(reflectionSrc).not.toContain('grid-cols-3');
+    expect(skinSrc).toContain('rhythmWhisperZone');
+    expect(skinSrc).toContain('relationshipHeroScore: \'hidden\'');
+    expect(posterSrc).toContain('rhythm: content.rhythm');
+    expect(posterSrc).toContain('data-mirror-scene-tone');
+    expect(posterSrc).toContain('resolvePosterSceneTone');
+    expect(skinSrc).toContain('posterSceneToneSkin');
     expect(posterSrc).not.toContain('Bugün ne yaptın');
     expect(readFileSync(join(process.cwd(), 'components/mirror/MirrorShareModal.tsx'), 'utf8')).toContain(
       'MIRROR_SHARE_MODAL_TITLE'

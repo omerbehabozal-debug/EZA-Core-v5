@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import type { DailyMirrorCardModel, MirrorStateMeta } from '@/lib/eza/mirror/types';
 import { buildMirrorIntentDebugSnapshot } from '@/lib/eza/mirror/mirrorIntentContext';
@@ -59,7 +60,13 @@ export default function MirrorLiveDebugPanel({
   onForceBmwMercedes,
   onToggleHybridMode,
 }: MirrorLiveDebugPanelProps) {
-  if (!isMirrorDevToolsEnabled()) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isMirrorDevToolsEnabled() || !mounted) {
     return null;
   }
 

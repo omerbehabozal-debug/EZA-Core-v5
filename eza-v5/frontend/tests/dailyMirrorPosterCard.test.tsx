@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { buildPosterCardContent, resolvePosterIdentityDisplay } from '@/lib/eza/mirror/posterCardContent';
-import { posterCardSkinIdentity } from '@/lib/eza/mirror/posterCardSkin';
+import { getPosterCardSkin } from '@/lib/eza/mirror/posterCardSkin';
+import { resolvePosterSceneTone } from '@/lib/eza/mirror/posterSceneTone';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
 const identitySrc = readFileSync(
@@ -12,6 +13,16 @@ const identitySrc = readFileSync(
 
 const posterSrc = readFileSync(
   join(process.cwd(), 'components/mirror/DailyMirrorPosterCard.tsx'),
+  'utf8'
+);
+
+const reflectionSrc = readFileSync(
+  join(process.cwd(), 'components/mirror/PosterReflectionSummary.tsx'),
+  'utf8'
+);
+
+const tomorrowSrc = readFileSync(
+  join(process.cwd(), 'components/mirror/PosterTomorrowHint.tsx'),
   'utf8'
 );
 
@@ -68,9 +79,11 @@ describe('DailyMirrorPosterCard P4-B full-canvas', () => {
   it('FullCanvasScene uses bleed layout and absolute inset-0 layer', () => {
     expect(fullCanvasSrc).toContain('layout="bleed"');
     expect(fullCanvasSrc).toContain('fullCanvasLayer');
-    expect(posterCardSkinIdentity.fullCanvasLayer).toContain('absolute inset-0');
-    expect(posterCardSkinIdentity.overlayStack).toContain('relative z-10');
-    expect(posterCardSkinIdentity.sceneWindowOuter).toBeUndefined();
+    const warmSkin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
+    expect(warmSkin.fullCanvasLayer).toContain('absolute inset-0');
+    expect(warmSkin.overlayStack).toContain('relative z-10');
+    expect(warmSkin.overlayIdentity).toContain('amber');
+    expect(warmSkin.sceneWindowOuter).toBeUndefined();
   });
 
   it('resolvePosterIdentityDisplay is text-only (no image/emoji urls)', () => {
@@ -84,12 +97,13 @@ describe('DailyMirrorPosterCard P4-B full-canvas', () => {
   });
 
   it('P4-C1 shows mirror moment in identity without technical labels', () => {
+    const warmSkin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
     expect(identitySrc).toContain('identityMirrorMoment');
     expect(identitySrc).toContain('mirrorMomentLine');
     expect(identitySrc).toContain('formatPosterMirrorMomentDisplay');
     expect(identitySrc).not.toMatch(/Mirror Moment:/i);
     expect(identitySrc).not.toMatch(/Story Tension:/i);
-    expect(posterCardSkinIdentity.identityMirrorMoment).toContain('italic');
+    expect(warmSkin.identityMirrorMoment).toContain('italic');
 
     const id = resolvePosterIdentityDisplay({
       ...baseCard,
@@ -101,13 +115,46 @@ describe('DailyMirrorPosterCard P4-B full-canvas', () => {
     expect(id.themeTitle).toBe('İlişki & Bağ');
   });
 
-  it('poster activities use Sen/AI/Denge labels only', () => {
-    const c = buildPosterCardContent({
+  it('P4-C3 story-first reflection: rhythm whisper only, no analytics UI', () => {
+    const warmSkin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
+    expect(reflectionSrc).toContain('rhythmWhisperEyebrow');
+    expect(reflectionSrc).toContain('rhythmWhisperWord');
+    expect(reflectionSrc).not.toContain('heroScore');
+    expect(reflectionSrc).not.toContain('relationshipHeroScore');
+    expect(reflectionSrc).not.toContain('relationshipAccentTrack');
+    expect(reflectionSrc).not.toContain('journeyHeadline');
+    expect(reflectionSrc).not.toContain('storyLine');
+    expect(reflectionSrc).not.toContain('senMicro');
+    expect(reflectionSrc).not.toContain('aiMicro');
+    expect(reflectionSrc).not.toContain('MiniInsight');
+    expect(posterSrc).toContain('rhythm: content.rhythm');
+    expect(warmSkin.relationshipHeroScore).toBe('hidden');
+    expect(warmSkin.relationshipAccentTrack).toBe('hidden');
+
+    const c = buildPosterCardContent(baseCard);
+    expect(c.rhythm.eyebrow).toBe('İlişki Ritmi');
+    expect(c.rhythm.word).toBe('Dengeleniyor');
+    expect(c.storyLine.length).toBeGreaterThan(0);
+    expect(c.journeyHeadline.length).toBeGreaterThan(0);
+  });
+
+  it('P4-C4 wires adaptive scene tone on poster card', () => {
+    expect(posterSrc).toContain('resolvePosterSceneTone');
+    expect(posterSrc).toContain('data-mirror-scene-tone');
+    expect(posterSrc).toContain('getPosterCardSkin(palette');
+    const tone = resolvePosterSceneTone({
       ...baseCard,
-      userLine: 'Sen line',
-      aiLine: 'AI line',
-      balanceLine: 'Balance line',
+      narrativeCoreId: 'exploration',
+      sceneArchetypeId: 'threshold',
+      dailyThemeTitle: 'Keşif',
     });
-    expect(c.activities.map((a) => a.label)).toEqual(['Sen', 'AI', 'Denge']);
+    expect(tone.id).toBe('warm_gold');
+  });
+
+  it('P4-C3 tomorrow hint is a quiet footer line, not a second card', () => {
+    expect(tomorrowSrc).toContain('tomorrowWhisper');
+    expect(tomorrowSrc).not.toContain('tomorrowZone');
+    const warmSkin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
+    expect(warmSkin.tomorrowZone).toBe('hidden');
   });
 });

@@ -32,6 +32,83 @@ export type PosterRelationshipBar = {
   percent: number;
 };
 
+/** P4-C3 — story-first rhythm whisper (no scores on poster). */
+export type PosterRhythmDisplay = {
+  eyebrow: string;
+  word: string;
+};
+
+const RHYTHM_EYEBROW = 'İlişki Ritmi';
+
+const ENGINE_ENERGY_TO_RHYTHM: Record<string, string> = {
+  'Yüksek odak': 'Güçleniyor',
+  'Dengeli enerji': 'Dengeleniyor',
+  'Ölçülü tempo': 'Akışta',
+  'Dikkatli tempo': 'Sakinleşiyor',
+  Dengede: 'Dengeleniyor',
+};
+
+const DEEP_NARRATIVE_CORE_IDS = new Set([
+  'exploration',
+  'uncertainty',
+  'clarity',
+]);
+
+const DEEP_SCENE_ARCHETYPE_IDS = new Set([
+  'threshold',
+  'sanctuary',
+  'quiet_mirror',
+  'crossroads',
+]);
+
+function rhythmFromEnergyScore(score: number): string {
+  if (score >= 80) return 'Güçleniyor';
+  if (score >= 65) return 'Dengeleniyor';
+  if (score >= 50) return 'Akışta';
+  return 'Sakinleşiyor';
+}
+
+function isNarrativeDeep(card: DailyMirrorCardModel): boolean {
+  const core = card.narrativeCoreId;
+  if (core && DEEP_NARRATIVE_CORE_IDS.has(core)) return true;
+  const archetype = card.sceneArchetypeId;
+  if (archetype && DEEP_SCENE_ARCHETYPE_IDS.has(archetype)) return true;
+  const tone = card.reflectionTone;
+  return tone === 'thoughtful' || tone === 'calm_reflective';
+}
+
+/**
+ * P4-C3 — single-word relationship rhythm for poster whisper UI.
+ * energyScore is used only for band mapping; never shown on poster.
+ */
+export function resolvePosterRhythmDisplay(card: DailyMirrorCardModel): PosterRhythmDisplay {
+  const rawScore = card.energyScore;
+  const score =
+    rawScore !== null && Number.isFinite(rawScore)
+      ? Math.round(Math.min(100, Math.max(0, rawScore)))
+      : null;
+
+  const energyLabel = card.energyLabel?.trim() ?? '';
+
+  let word = 'Dengeleniyor';
+  if (score !== null) {
+    word =
+      isNarrativeDeep(card) && score < 80 ? 'Derinleşiyor' : rhythmFromEnergyScore(score);
+  } else if (energyLabel && energyLabel !== 'İzleniyor') {
+    word = ENGINE_ENERGY_TO_RHYTHM[energyLabel] ?? 'Dengeleniyor';
+  } else if (isNarrativeDeep(card)) {
+    word = 'Derinleşiyor';
+  }
+
+  return { eyebrow: RHYTHM_EYEBROW, word };
+}
+
+/** @deprecated P4-C2 — use resolvePosterRhythmDisplay */
+export type PosterRelationshipDisplay = PosterRhythmDisplay;
+
+/** @deprecated P4-C2 — use resolvePosterRhythmDisplay */
+export const resolvePosterRelationshipDisplay = resolvePosterRhythmDisplay;
+
 /** Poster — metinsel günlük avatar (görsel yalnızca sahne). */
 export type PosterIdentityDisplay = {
   avatarName: string;
@@ -95,6 +172,7 @@ export type PosterCardContent = {
   energyDisplay: string;
   energyPercent: number;
   relationshipBars: PosterRelationshipBar[];
+  rhythm: PosterRhythmDisplay;
   contextualHighlight: ContextualHighlight;
 };
 
@@ -365,6 +443,7 @@ export function buildPosterCardContent(card: DailyMirrorCardModel): PosterCardCo
     energyDisplay: card.energyLabel || 'Dengede',
     energyPercent: card.energyScore ?? 62,
     relationshipBars: deriveRelationshipBars(card),
+    rhythm: resolvePosterRhythmDisplay(card),
     contextualHighlight: buildContextualHighlight(card),
   };
 }

@@ -10,6 +10,7 @@ export type PosterTomorrowHintProps = {
   isSparse?: boolean;
 };
 
+/** P4-C3 — quiet line above footer (not a second glass card). */
 export default function PosterTomorrowHint({
   tomorrowHint,
   skin,
@@ -20,12 +21,13 @@ export default function PosterTomorrowHint({
 
   const display = hint.startsWith(TOMORROW_PREFIX)
     ? hint
-    : `${TOMORROW_PREFIX}${hint}`;
+    : hint.startsWith('Yarın')
+      ? hint
+      : `${TOMORROW_PREFIX}${hint}`;
 
   return (
-    <section className={skin.tomorrowZone} aria-label="Yarın için ipucu">
-      <p className={skin.tomorrowLabel}>Yarın</p>
-      <p className={skin.tomorrowText}>{display}</p>
-    </section>
+    <p className={skin.tomorrowWhisper} aria-label="Yarın için ipucu">
+      {display}
+    </p>
   );
 }

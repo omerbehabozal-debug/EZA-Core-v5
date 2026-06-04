@@ -18,6 +18,7 @@ import {
   getEditorialContrast,
 } from '@/lib/eza/mirror/posterReadabilitySystem';
 import { POSTER_CARD_WIDTH_PX, getPosterCardSkin } from '@/lib/eza/mirror/posterCardSkin';
+import { resolvePosterSceneTone } from '@/lib/eza/mirror/posterSceneTone';
 import {
   buildPremiumPosterCssVars,
   premiumPosterRootStyle,
@@ -102,28 +103,27 @@ export default function DailyMirrorPosterCard({
     [composition.density]
   );
   const palette = useMemo(() => resolvePosterPalette(card), [card]);
-  const skin = useMemo(() => getPosterCardSkin(palette, 'identity_first'), [palette]);
+  const sceneTone = useMemo(() => resolvePosterSceneTone(card), [card]);
+  const skin = useMemo(
+    () => getPosterCardSkin(palette, 'identity_first', sceneTone.id),
+    [palette, sceneTone.id]
+  );
   const cardStyle = useMemo(
     () => ({
       maxWidth: POSTER_CARD_WIDTH_PX,
       width: '100%',
       ...buildPosterEditorialCssVars(),
       ...buildPosterCompositionStyle(composition),
-      ...buildPremiumPosterCssVars(),
-      ...premiumPosterRootStyle(),
+      ...(palette === 'premium_light_editorial'
+        ? { ...buildPremiumPosterCssVars(), ...premiumPosterRootStyle() }
+        : {}),
       ...buildEditorialReadabilityVars(editorial),
     }),
-    [composition, editorial]
+    [composition, editorial, palette]
   );
 
   const reflectionProps = {
-    journeyHeadline: content.journeyHeadline,
-    storyLine: isHybridMiddle ? '' : content.storyLine,
-    quote: isHybridMiddle ? '' : content.quote,
-    activities: content.activities,
-    relationshipBars: content.relationshipBars,
-    energyLabel: content.energyDisplay,
-    energyPercent: content.energyPercent,
+    rhythm: content.rhythm,
     skin,
     isSparse,
   };
@@ -137,6 +137,7 @@ export default function DailyMirrorPosterCard({
       data-mirror-effective-render-mode={effectiveRenderMode}
       data-mirror-used-layout={layoutDebug.usedLayout}
       data-mirror-palette={palette}
+      data-mirror-scene-tone={sceneTone.id}
       data-mirror-density={composition.density}
       className={skin.root}
       style={cardStyle}
