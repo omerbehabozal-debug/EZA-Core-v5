@@ -170,7 +170,7 @@ describe('Daily Mirror identity layer (P0)', () => {
     expect(result.relationshipPattern.isShareable).toBe(false);
   });
 
-  it('composeDailyMirrorIdentity produces scene concept from avatar + theme', () => {
+  it('composeDailyMirrorIdentity produces theme + narrative scene concept', () => {
     const entries = [
       makeEntry({
         standaloneObservation: {
@@ -192,6 +192,6 @@ describe('Daily Mirror identity layer (P0)', () => {
     });
     expect(layer.dailyThemeTitle).toBe('Semerkant Yolculuğu');
     expect(layer.dailySceneConcept).toContain(layer.dailyAvatarName);
-    expect(layer.dailySceneConcept).toMatch(/Semerkant/);
+    expect(layer.dailySceneConcept.toLowerCase()).toMatch(/looking beyond|familiar/);
   });
 });

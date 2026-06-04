@@ -298,7 +298,8 @@ export function deriveConversationVisualIntent(
   if (
     input.topicKey === 'finance' &&
     !comparing &&
-    (cueMatch(blob, ['budget', 'bütçe', 'risk', 'spend', 'saving', 'invest']) ||
+    (input.entries.length === 0 ||
+      cueMatch(blob, ['budget', 'bütçe', 'risk', 'spend', 'saving', 'invest']) ||
       signals.detailFocus >= 0.4)
   ) {
     return pack('financial_decision', 'organized financial decision study', 'research_scene', 'stylized_human');

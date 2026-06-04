@@ -13,7 +13,7 @@ import {
   type RelationshipPeriodDays,
 } from '@/lib/eza/relationshipMapModel';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
-import { composeDailyMirrorIdentity } from '@/lib/eza/mirror/dailyMirrorIdentity';
+import { composeDailyNarrativeLayer } from '@/lib/eza/mirror/composeNarrativePipeline';
 import { composeEmotionalReflection } from '@/lib/eza/mirror/reflectionToneEngine';
 import { composeMirrorStory } from '@/lib/eza/mirror/mirrorStoryEngine';
 import { buildMirrorVisualFromContext, buildFallbackMirrorVisual } from '@/lib/eza/mirror/visualPromptEngine';
@@ -257,7 +257,7 @@ function buildDailyMirrorCard(
   const renderMode = resolveMirrorRenderMode();
   const storyTopicKey = story.storyTopicKey ?? 'general';
   const cardDate = formatDateIso(refDate);
-  const identity = composeDailyMirrorIdentity({
+  const narrative = composeDailyNarrativeLayer({
     entries,
     mirrorSeed: seed,
     cardDate,
@@ -265,7 +265,9 @@ function buildDailyMirrorCard(
     storyTopicKey,
     storyVariant: story.storyVariant,
     microMood: story.microMood,
+    lockedIntent: intentCtx.lockedIntent,
     intentFingerprint: intentCtx.intentFingerprint,
+    reflectionSignals: story.reflectionSignals!,
   });
 
   const hybridCopy =
@@ -286,7 +288,7 @@ function buildDailyMirrorCard(
 
   const visual = buildMirrorVisualFromContext({
     entries,
-    characterName: identity.dailyAvatarName,
+    characterName: narrative.dailyAvatarName,
     personaFamilyId,
     observationCategoryId: observation.categoryId,
     energyLabel,
@@ -306,14 +308,7 @@ function buildDailyMirrorCard(
     intentFingerprint: intentCtx.intentFingerprint,
     renderMode,
     hybridCopy,
-    dailyIdentity: {
-      dailyAvatarId: identity.dailyAvatarId,
-      dailyAvatarName: identity.dailyAvatarName,
-      dailyAvatarType: identity.dailyAvatarType,
-      dailyAvatarArchetypeId: identity.dailyAvatarArchetypeId,
-      dailyThemeTitle: identity.dailyThemeTitle,
-      dailySceneConcept: identity.dailySceneConcept,
-    },
+    dailyNarrative: narrative,
   });
 
   const storyHeadline = story.dailyJourney;
@@ -323,17 +318,23 @@ function buildDailyMirrorCard(
     date: cardDate,
     dayLabel: formatDayLabelTr(refDate),
     headline: storyHeadline || emotional.headline,
-    characterName: identity.dailyAvatarName,
+    characterName: narrative.dailyAvatarName,
     personaFamilyId,
-    behaviorFamilyLabel: identity.behaviorFamilyLabel,
-    dailyAvatarId: identity.dailyAvatarId,
-    dailyAvatarName: identity.dailyAvatarName,
-    dailyAvatarEmoji: identity.dailyAvatarEmoji,
-    dailyAvatarType: identity.dailyAvatarType,
-    dailyAvatarArchetypeId: identity.dailyAvatarArchetypeId,
-    dailyThemeTitle: identity.dailyThemeTitle,
-    dailyThemeSubtitle: identity.dailyThemeSubtitle,
-    dailySceneConcept: identity.dailySceneConcept,
+    behaviorFamilyLabel: narrative.behaviorFamilyLabel,
+    dailyAvatarId: narrative.dailyAvatarId,
+    dailyAvatarName: narrative.dailyAvatarName,
+    dailyAvatarEmoji: narrative.dailyAvatarEmoji,
+    dailyAvatarType: narrative.dailyAvatarType,
+    dailyAvatarArchetypeId: narrative.dailyAvatarArchetypeId,
+    dailyThemeTitle: narrative.dailyThemeTitle,
+    dailyThemeSubtitle: narrative.dailyThemeSubtitle,
+    dailySceneConcept: narrative.dailySceneConcept,
+    narrativeCoreId: narrative.narrativeCoreId,
+    storyTensionTitle: narrative.storyTensionTitle,
+    storyTensionSummary: narrative.storyTensionSummary,
+    mirrorMoment: narrative.mirrorMoment,
+    sceneArchetypeId: narrative.sceneArchetypeId,
+    sceneArchetypeLabel: narrative.sceneArchetypeLabel,
     shortInsight: storyInsight || emotional.shortInsight,
     userLine: story.userStoryLine,
     aiLine: story.aiStoryLine,

@@ -58,8 +58,12 @@ import {
 } from '@/lib/eza/mirror/visualPromptPresets';
 import { STYLE_PRESET, VISUAL_QUALITY_HINTS } from '@/lib/eza/mirror/visualStyleContract';
 import {
+  buildFullCanvasNarrativePromptBlock,
+  NARRATIVE_NEGATIVE_PROMPT_EXTRAS,
+} from '@/lib/eza/mirror/dailyMirrorFullCanvasPrompt';
+import type { DailyNarrativeLayer } from '@/lib/eza/mirror/narrativeTypes';
+import {
   buildDailyIdentityPromptBlock,
-  dailyIdentitySeedParts,
   type DailyMirrorIdentityPromptInput,
 } from '@/lib/eza/mirror/dailyMirrorScenePrompt';
 
@@ -345,8 +349,8 @@ export interface BuildMirrorVisualFromContextInput {
   intentFingerprint?: string;
   renderMode?: MirrorRenderMode;
   hybridCopy?: HybridPosterTextPayload;
-  /** P1 — daily avatar + theme + scene concept binding */
-  dailyIdentity?: DailyMirrorIdentityPromptInput;
+  /** P4-A — narrative-first full canvas scene binding */
+  dailyNarrative?: DailyNarrativeLayer;
 }
 
 /**
@@ -462,11 +466,15 @@ export function buildMirrorVisualFromContext(
       ? [EZA_ARCHITECTURE_STYLE_CONTRACT, ...ARCHITECTURE_QUALITY_HINTS].join(', ')
       : '';
 
-  const identityBlock = input.dailyIdentity
-    ? buildDailyIdentityPromptBlock(input.dailyIdentity)
-    : null;
+  const narrativeBlock =
+    input.dailyNarrative && renderMode !== 'hybrid_middle'
+      ? buildFullCanvasNarrativePromptBlock({
+          ...input.dailyNarrative,
+          narrativeCoreId: input.dailyNarrative.narrativeCoreId,
+        })
+      : null;
 
-  let prompt = [structured.prompt, architectureExtra, identityBlock].filter(Boolean).join(' ');
+  let prompt = [structured.prompt, architectureExtra, narrativeBlock].filter(Boolean).join(' ');
   const promptTruncated = detectPromptTruncationRisk(prompt).truncated;
 
   const qualityHints =
@@ -475,14 +483,13 @@ export function buildMirrorVisualFromContext(
       ? [...ARCHITECTURE_QUALITY_HINTS, `scene intent: ${conversationIntent.label}`]
       : [...VISUAL_QUALITY_HINTS, `scene intent: ${conversationIntent.label}`];
 
-  if (identityBlock) {
-    qualityHints.push('daily identity scene binding P1');
-    if (input.dailyIdentity?.dailyAvatarId) {
-      qualityHints.push(`daily avatar: ${input.dailyIdentity.dailyAvatarId}`);
-    }
-    if (input.dailyIdentity?.dailyThemeTitle) {
-      qualityHints.push(`daily theme: ${input.dailyIdentity.dailyThemeTitle}`);
-    }
+  if (narrativeBlock && input.dailyNarrative) {
+    qualityHints.push(
+      'P4-A narrative scene binding',
+      `narrative core: ${input.dailyNarrative.narrativeCoreId}`,
+      `mirror moment: ${input.dailyNarrative.mirrorMoment}`,
+      `scene archetype: ${input.dailyNarrative.sceneArchetypeId}`
+    );
   }
 
   qualityHints.push(
@@ -503,7 +510,9 @@ export function buildMirrorVisualFromContext(
     atmosphereLabel,
     emotionLabel,
     prompt,
-    negativePrompt: structured.negativePrompt,
+    negativePrompt: input.dailyNarrative
+      ? `${structured.negativePrompt}, ${NARRATIVE_NEGATIVE_PROMPT_EXTRAS.join(', ')}`
+      : structured.negativePrompt,
     stylePreset: STYLE_PRESET,
     seedHint: hashSeed([
       input.seed,
@@ -516,7 +525,10 @@ export function buildMirrorVisualFromContext(
       input.reflectionTone ?? '',
       emotionalScene.tension,
       emotionalScene.pacing,
-      ...dailyIdentitySeedParts(input.dailyIdentity ?? {}),
+      input.dailyNarrative?.narrativeCoreId ?? '',
+      input.dailyNarrative?.mirrorMoment ?? '',
+      input.dailyNarrative?.sceneArchetypeId ?? '',
+      input.dailyNarrative?.dailyAvatarId ?? '',
     ]),
     qualityHints,
     sceneIntentLabel: conversationIntent.label,

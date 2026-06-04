@@ -113,7 +113,7 @@ describe('dailyMirrorScenePrompt (P1)', () => {
     expect(after.dailyMirrorCard.visual?.seedHint).not.toBe(before.dailyMirrorCard.visual?.seedHint);
   });
 
-  it('fallback works when daily identity is omitted', () => {
+  it('fallback works when daily narrative is omitted', () => {
     const visual = buildMirrorVisualFromContext({
       entries: [makeEntry()],
       characterName: 'Dengeli yolcu',
@@ -121,7 +121,18 @@ describe('dailyMirrorScenePrompt (P1)', () => {
       seed: 'legacy-fallback',
     });
     expect(visual.prompt.length).toBeGreaterThan(80);
-    expect(visual.prompt.toLowerCase()).not.toContain('daily mirror identity scene');
+    expect(visual.prompt.toLowerCase()).not.toContain('visual moment:');
+  });
+
+  it('buildMirrorState prompt uses P4-A visual moment not mascot identity block', () => {
+    const entries = Array.from({ length: MIRROR_MIN_SAMPLES }, (_, i) =>
+      makeEntry({ interaction_id: `e-${i}`, savedAt: `2026-01-15T${10 + i}:00:00.000Z` })
+    );
+    const state = buildMirrorState(entries, { seed: 'p4-moment' });
+    const p = state.dailyMirrorCard.visual?.prompt.toLowerCase() ?? '';
+    expect(p).toContain('visual moment:');
+    expect(p).not.toContain('textless cinematic daily mirror identity scene');
+    expect(p).not.toContain('character: a calm panda');
   });
 
   it('negative prompt retains text and logo prohibitions', () => {

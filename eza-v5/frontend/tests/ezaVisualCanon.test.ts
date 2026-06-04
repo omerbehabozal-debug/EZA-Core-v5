@@ -106,7 +106,7 @@ describe('ezaCharacterBible prompts', () => {
         seedHint: 'fin',
       }).prompt
     );
-    expect(p).toMatch(/research|decision|quiet research desk|financial/);
+    expect(p).toMatch(/organized desk comparison|analytical focus|research_scene|financial|decision/);
     expect(p).not.toContain('bilgeli baykuş');
     expect(p).toContain('not a toy');
     expect(p).toContain('mature premium editorial character');
@@ -197,7 +197,7 @@ describe('ezaCharacterBible prompts', () => {
     );
     expect(travel).toMatch(/train station|journey|horizon/);
     expect(travel).toContain('premium stylized cinematic character');
-    expect(finance).toMatch(/research|decision|quiet research desk/);
+    expect(finance).toMatch(/organized desk comparison|analytical focus|decision/);
     expect(finance).not.toContain('bilgeli baykuş');
     expect(finance).not.toContain('city terrace golden hour');
   });
@@ -210,7 +210,7 @@ describe('ezaCharacterBible prompts', () => {
     expect(p).toContain('mature young adult');
   });
 
-  it('all topics keep left overlay clean', () => {
+  it('all topics keep P4-A full-canvas edge breathing rules', () => {
     const topics = [
       'finance',
       'health',
@@ -230,12 +230,13 @@ describe('ezaCharacterBible prompts', () => {
           seedHint: topicKey,
         }).prompt
       );
-      expect(p).toContain('left upper and left-middle areas clean');
+      expect(p).toMatch(
+        /away from the top and bottom edges|important subjects away from top and bottom|edge breathing/
+      );
       if (topicKey === 'architecture') {
-        expect(p).toContain('clean negative space on left');
         expect(p).toMatch(/premium stylized|stylized cinematic designer/);
       } else {
-        expect(p).toMatch(/right or center-right|right side/);
+        expect(p).toMatch(/right or center-right|right side|center-right/);
       }
     }
   });

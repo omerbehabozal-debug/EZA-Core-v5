@@ -12,6 +12,8 @@ import {
   STANDARD_NEGATIVE_PROMPT,
 } from '@/lib/eza/mirror/visualStyleContract';
 import { buildMirrorState } from '@/lib/eza/mirror/mirrorStateEngine';
+import { narrativePromptSectionOrder } from '@/lib/eza/mirror/dailyMirrorFullCanvasPrompt';
+import { withDevVehicleCueHints } from '@/lib/eza/mirror/mirrorIntentContext';
 import { MIRROR_MIN_SAMPLES } from '@/lib/eza/mirror/types';
 
 function makeEntry(overrides: Partial<SavedBehavioralEntry> = {}): SavedBehavioralEntry {
@@ -44,7 +46,7 @@ function promptHasNoTextRules(prompt: string): void {
   expect(lower).toMatch(/no typography|no readable text|textless/);
   expect(lower).toMatch(/no letters|no readable/);
   expect(lower).toMatch(/no numbers|no readable/);
-  expect(lower).toMatch(/no logo|no logos/);
+  expect(lower).toMatch(/no logo|no logos|, logos,|buttons, logos/);
   expect(lower).toMatch(/no ui|do not generate ui|not a chat|no chat/);
   expect(lower).toMatch(/no signage|no readable/);
   expect(lower).toMatch(/no readable writing|textless/);
@@ -64,11 +66,13 @@ function promptHasStyleContract(prompt: string): void {
   );
 }
 
-function promptHasLeftOverlayRules(prompt: string): void {
+function promptHasFullCanvasCompositionRules(prompt: string): void {
   const lower = prompt.toLowerCase();
-  expect(lower).toContain('left upper and left-middle areas clean');
-  expect(lower).toMatch(/right or center-right|right side|center-right/);
-  expect(lower).toContain('lower third calmer');
+  expect(lower).toMatch(
+    /away from the top and bottom edges|important subjects away from top and bottom|edge breathing/
+  );
+  expect(lower).toMatch(/center of the composition|focal point near center|emotional focus near center/);
+  expect(lower).not.toMatch(/\d+\s*%/);
 }
 
 describe('visualStyleContract', () => {
@@ -136,7 +140,7 @@ describe('visualPromptEngine', () => {
   it('prompt always enforces textless composition and canon guardrails', () => {
     const visual = buildFallbackMirrorVisual();
     promptHasNoTextRules(visual.prompt);
-    promptHasLeftOverlayRules(visual.prompt);
+    promptHasFullCanvasCompositionRules(visual.prompt);
     expect(visual.prompt.toLowerCase()).toContain('not a toy');
     expect(visual.prompt.toLowerCase()).toContain('mature premium editorial character');
     expect(visual.prompt.toLowerCase()).not.toMatch(/message bubbles|chat screenshot/);
@@ -190,7 +194,7 @@ describe('visualPromptEngine', () => {
 });
 
 describe('mirrorStateEngine visual field', () => {
-  it('binds P0 identity into visual prompt when card has daily avatar', () => {
+  it('binds P4-A narrative moment into visual prompt when card has travel cues', () => {
     const entries = Array.from({ length: MIRROR_MIN_SAMPLES }, (_, i) =>
       makeEntry({
         interaction_id: `p1-${i}`,
@@ -208,10 +212,43 @@ describe('mirrorStateEngine visual field', () => {
     );
     const state = buildMirrorState(entries, { seed: 'p1-visual-bind' });
     const prompt = state.dailyMirrorCard.visual!.prompt.toLowerCase();
-    expect(prompt).toContain('daily mirror identity scene');
-    expect(prompt).toMatch(/samarkand|registan/);
+    expect(prompt).toContain('visual moment:');
+    expect(prompt).toContain('looking beyond the familiar');
+    expect(prompt).not.toContain('daily mirror identity scene');
     expect(state.dailyMirrorCard.dailyAvatarName?.length).toBeGreaterThan(0);
     expect(state.dailyMirrorCard.visual?.seedHint).toMatch(/^mirror-visual-/);
+  });
+
+  it('P4-A narrative block orders moment before tension before archetype before theme before lens', () => {
+    const entries = withDevVehicleCueHints(
+      Array.from({ length: MIRROR_MIN_SAMPLES }, (_, i) =>
+        makeEntry({
+          interaction_id: `order-${i}`,
+          savedAt: `2026-01-15T${10 + i}:00:00.000Z`,
+          vector: {
+            ...makeEntry().vector,
+            intent: 'bmw mercedes konfor compare',
+          },
+          mirrorCueHints: ['bmw', 'mercedes', 'konfor', 'compare'],
+          standaloneObservation: {
+            user_pattern: {
+              category: 'decision_direction',
+              confidence: 0.9,
+              signals: ['bmw', 'mercedes', 'konfor'],
+            },
+            ai_behavior: { category: 'explanatory', confidence: 0.85, signals: [] },
+            relationship_balance: { category: 'decision_balance', confidence: 0.8, signals: [] },
+          },
+        })
+      )
+    );
+    const prompt = buildMirrorState(entries, { seed: 'p4-order' }).dailyMirrorCard.visual!.prompt;
+    const order = narrativePromptSectionOrder(prompt);
+    expect(order.momentIdx).toBeGreaterThanOrEqual(0);
+    expect(order.tensionIdx).toBeGreaterThan(order.momentIdx);
+    expect(order.archetypeIdx).toBeGreaterThan(order.tensionIdx);
+    expect(order.themeIdx).toBeGreaterThan(order.archetypeIdx);
+    expect(order.lensIdx).toBeGreaterThan(order.themeIdx);
   });
 
   it('attaches visual payload on daily mirror card', () => {

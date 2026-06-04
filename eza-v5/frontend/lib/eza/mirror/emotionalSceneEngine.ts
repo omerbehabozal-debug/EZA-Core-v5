@@ -113,7 +113,7 @@ export function buildEmotionalSceneBlock(input: EmotionalSceneBrief): EmotionalS
 
   const phrases = [
     'premium editorial campaign key visual directed film still not AI wallpaper',
-    '9:16 vertical composition left third clean for poster typography overlay',
+    '9:16 full editorial vertical scene, comfortable edge breathing room for future interface overlays, emotional focus near center',
     buildActionMemoryPhrase(intent, tension),
     hero.objectPhrase,
     ...hero.secondaryProps,

@@ -138,6 +138,13 @@ export interface DailyMirrorCardModel {
   dailyThemeTitle?: string;
   dailyThemeSubtitle?: string;
   dailySceneConcept?: string;
+  /** P4-A — narrative-first scene pipeline (optional for legacy snapshots). */
+  narrativeCoreId?: import('@/lib/eza/mirror/narrativeTypes').NarrativeCoreId;
+  storyTensionTitle?: string;
+  storyTensionSummary?: string;
+  mirrorMoment?: string;
+  sceneArchetypeId?: import('@/lib/eza/mirror/narrativeTypes').SceneArchetypeId;
+  sceneArchetypeLabel?: string;
 }
 
 export interface RelationshipPatternModel {

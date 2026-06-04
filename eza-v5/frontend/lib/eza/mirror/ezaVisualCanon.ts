@@ -262,10 +262,11 @@ export const EZA_ARCHITECTURE_CAMERA = [
 ] as const;
 
 export const EZA_ARCHITECTURE_OVERLAY_RULES = [
-  'left upper and left-middle areas clean and low-detail for text overlay',
-  'lower third calmer with softer detail for UI card overlay',
+  'full editorial vertical scene for future interface overlays',
+  'important subjects away from top and bottom edges',
+  'emotional focal point near center of composition',
   'courtyard facade and materials remain visually strong',
-  'character supports story without blocking overlay zones',
+  'character supports story without crowding the center focal area',
   'environment calm without visual clutter',
 ] as const;
 
@@ -336,9 +337,10 @@ export const EZA_ARCHITECTURE_STYLE_CONTRACT = [
 ].join(', ');
 
 export const EZA_OVERLAY_LAYOUT_RULES = [
-  'left upper and left-middle areas clean and low-detail for text overlay',
-  'lower third calmer with softer detail for UI card overlay',
-  'uncluttered scene with one clear emotional main character',
+  'full editorial vertical scene for future interface overlays',
+  'important subjects away from top and bottom edges',
+  'emotional focal point near center of composition',
+  'comfortable breathing space at edges without empty sterile bands',
   'environment reflects topic mood without visual clutter',
 ] as const;
 
@@ -374,8 +376,8 @@ export const VISUAL_QUALITY_HINTS = [
   'soft depth of field',
   'premium emotional framing',
   'textless scene only — card copy rendered in frontend',
-  '9:16 vertical safe composition',
-  'left overlay zone kept clean',
+  '9:16 vertical full canvas composition',
+  'edge breathing room for overlays',
   'not toy-like not childish not mascot app',
 ] as const;
 
