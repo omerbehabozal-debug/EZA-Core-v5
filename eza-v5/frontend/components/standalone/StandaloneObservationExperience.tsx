@@ -44,6 +44,17 @@ import MirrorSceneGenerateButton from '@/components/mirror/MirrorSceneGenerateBu
 import MirrorShareModal from '@/components/mirror/MirrorShareModal';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
+import {
+  advanceStyleLensSession,
+  clearStyleLensSession,
+  createDefaultStyleLensSession,
+  getStyleLensDisplayLabel,
+  resetStyleLensSessionForCard,
+  resolveLensForGeneration,
+  resolveStyleLensSessionForCard,
+  type MirrorStyleLensSession,
+} from '@/lib/eza/mirror/mirrorSceneStyleLens';
+import { applyStyleLensToVisual } from '@/lib/eza/mirror/styleLensPrompt';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import {
   canCreateFreeMirrorToday,
@@ -80,6 +91,9 @@ export default function StandaloneObservationExperience({
   const [hybridTextFallback, setHybridTextFallback] = useState(false);
   const [sceneExtras, setSceneExtras] = useState<DailyCardSceneVisualExtras>({});
   const [mirrorRevision, setMirrorRevision] = useState(0);
+  const [styleLensSession, setStyleLensSession] = useState<MirrorStyleLensSession>(() =>
+    createDefaultStyleLensSession({ date: '', visual: undefined })
+  );
   const sceneAutoKeyRef = useRef<string | null>(null);
   const hydratedFromSnapshotRef = useRef(false);
   const mirrorExport = useMirrorCardExport();
@@ -103,6 +117,8 @@ export default function StandaloneObservationExperience({
       hydratedFromSnapshotRef.current = false;
       sceneAutoKeyRef.current = null;
       setMirrorRevision(0);
+      clearStyleLensSession();
+      setStyleLensSession(createDefaultStyleLensSession({ date: '', visual: undefined }));
       setGeneratedDailyCard(null);
       setGeneratedDailyMeta(null);
       setSceneImageUrl(null);
@@ -116,6 +132,8 @@ export default function StandaloneObservationExperience({
   const resetGeneratedCardState = useCallback(() => {
     sceneAutoKeyRef.current = null;
     setMirrorRevision(0);
+    clearStyleLensSession();
+    setStyleLensSession(createDefaultStyleLensSession({ date: '', visual: undefined }));
     setGeneratedDailyCard(null);
     setGeneratedDailyMeta(null);
     setSceneImageUrl(null);
@@ -134,6 +152,7 @@ export default function StandaloneObservationExperience({
       }
       setGeneratedDailyCard(state.dailyMirrorCard);
       setGeneratedDailyMeta(state.meta);
+      setStyleLensSession(resetStyleLensSessionForCard(state.dailyMirrorCard));
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
       setHybridTextFallback(false);
@@ -181,6 +200,7 @@ export default function StandaloneObservationExperience({
     hydratedFromSnapshotRef.current = true;
     setGeneratedDailyCard(state.dailyMirrorCard);
     setGeneratedDailyMeta(state.meta);
+    setStyleLensSession(resolveStyleLensSessionForCard(state.dailyMirrorCard));
     setSceneImageUrl(null);
     setSceneImageStatus('idle');
     setHybridTextFallback(false);
@@ -268,56 +288,84 @@ export default function StandaloneObservationExperience({
     setUpgradeOpen(true);
   }, []);
 
-  const handleGenerateMirrorScene = useCallback(async () => {
-    if (sceneImageStatus === 'generating') return;
-    if (!generatedDailyCard?.visual) return;
-    const visual = generatedDailyCard.visual;
-    setSceneImageStatus('generating');
-    setSceneImageUrl(null);
-    setHybridTextFallback(false);
-    setSceneExtras({});
-    try {
-      const result = await generateMirrorScene(visual, generatedDailyCard.date);
-      setSceneImageUrl(result.sceneImageUrl);
-      setSceneImageStatus('ready');
-      setSceneExtras({ imageProvider: result.provider });
-      if (
-        (visual.renderMode ?? resolveMirrorRenderMode()) === 'hybrid_middle' &&
-        isMockSceneImageUrl(result.sceneImageUrl)
-      ) {
-        setHybridTextFallback(true);
-        setSceneExtras({
-          imageProvider: result.provider,
-          hybridOcrProbe: 'fail: mock_provider_image',
-          hybridFallbackReason: 'mock_provider_image',
-        });
-      }
-    } catch (err) {
+  const handleGenerateMirrorScene = useCallback(
+    async (sessionOverride?: MirrorStyleLensSession) => {
+      if (sceneImageStatus === 'generating') return;
+      if (!generatedDailyCard?.visual) return;
+      const visual = generatedDailyCard.visual;
+      const session = sessionOverride ?? styleLensSession;
+      const { lensId, variationIndex } = resolveLensForGeneration(isPlus, session);
+      const visualForApi = applyStyleLensToVisual(visual, lensId, variationIndex);
+      setSceneImageStatus('generating');
       setSceneImageUrl(null);
-      setSceneImageStatus('error');
-      if (err instanceof MirrorSceneError) {
-        if (err.code === 'auth_required') {
-          setUpgradeVariant('auth_required');
-          setUpgradeOpen(true);
-        } else if (err.code === 'upgrade_required') {
-          setUpgradeVariant('upgrade');
-          setUpgradeOpen(true);
+      setHybridTextFallback(false);
+      setSceneExtras({});
+      try {
+        const result = await generateMirrorScene(visualForApi, generatedDailyCard.date);
+        setSceneImageUrl(result.sceneImageUrl);
+        setSceneImageStatus('ready');
+        setSceneExtras({ imageProvider: result.provider });
+        if (
+          (visual.renderMode ?? resolveMirrorRenderMode()) === 'hybrid_middle' &&
+          isMockSceneImageUrl(result.sceneImageUrl)
+        ) {
+          setHybridTextFallback(true);
+          setSceneExtras({
+            imageProvider: result.provider,
+            hybridOcrProbe: 'fail: mock_provider_image',
+            hybridFallbackReason: 'mock_provider_image',
+          });
+        }
+      } catch (err) {
+        setSceneImageUrl(null);
+        setSceneImageStatus('error');
+        if (err instanceof MirrorSceneError) {
+          if (err.code === 'auth_required') {
+            setUpgradeVariant('auth_required');
+            setUpgradeOpen(true);
+          } else if (err.code === 'upgrade_required') {
+            setUpgradeVariant('upgrade');
+            setUpgradeOpen(true);
+          }
+        }
+        const mode = visual.renderMode ?? resolveMirrorRenderMode();
+        if (mode === 'hybrid_middle') {
+          setHybridTextFallback(true);
+          setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
         }
       }
-      const mode = visual.renderMode ?? resolveMirrorRenderMode();
-      if (mode === 'hybrid_middle') {
-        setHybridTextFallback(true);
-        setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
-      }
-    }
-  }, [generatedDailyCard, openUpgrade, sceneImageStatus]);
+    },
+    [generatedDailyCard, isPlus, openUpgrade, sceneImageStatus, styleLensSession]
+  );
 
-  /** Plus — aynı kart; yalnızca sceneImageUrl (snapshot / buildMirrorState yok). */
+  /** Plus — aynı kart; sıradaki Style Lens ile sahne (snapshot / buildMirrorState yok). */
   const handleNewMirrorScene = useCallback(() => {
     if (!isPlus) return;
     if (dailyStatus !== 'ready') return;
-    void handleGenerateMirrorScene();
-  }, [isPlus, dailyStatus, handleGenerateMirrorScene]);
+    const nextSession = advanceStyleLensSession(styleLensSession);
+    setStyleLensSession(nextSession);
+    void handleGenerateMirrorScene(nextSession);
+  }, [isPlus, dailyStatus, handleGenerateMirrorScene, styleLensSession]);
+
+  const activeStyleLensLabel = useMemo(
+    () => getStyleLensDisplayLabel(styleLensSession.selectedStyleLensId),
+    [styleLensSession.selectedStyleLensId]
+  );
+
+  useEffect(() => {
+    if (dailyStatus !== 'ready' || !generatedDailyCard) return;
+    setStyleLensSession((prev) => {
+      const resolved = resolveStyleLensSessionForCard(generatedDailyCard);
+      if (
+        prev.cardDate === resolved.cardDate &&
+        prev.intentFingerprint === resolved.intentFingerprint &&
+        prev.selectedStyleLensId === resolved.selectedStyleLensId
+      ) {
+        return prev;
+      }
+      return resolved;
+    });
+  }, [dailyStatus, generatedDailyCard, generatedDailyCard?.date, generatedDailyCard?.visual?.intentFingerprint]);
 
   useEffect(() => {
     if (dailyStatus !== 'ready' || !generatedDailyCard?.visual?.prompt) return;
@@ -486,6 +534,7 @@ export default function StandaloneObservationExperience({
             onShare={() => setShareOpen(true)}
             onUpdate={handleMirrorRefresh}
             onNewScene={handleNewMirrorScene}
+            activeStyleLensLabel={isPlus ? activeStyleLensLabel : undefined}
             freePlusHint={!isPlus ? FREE_MIRROR_READY_PLUS_HINT : undefined}
           >
             {!isPlus && sceneImageStatus === 'error' ? (

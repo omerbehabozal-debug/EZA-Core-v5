@@ -8,6 +8,7 @@ import {
   MIRROR_CURRENT_HINT,
   MIRROR_NEW_SCENE_HINT,
   MIRROR_NEW_SCENE_LABEL,
+  MIRROR_SCENE_STYLE_PREFIX,
   MIRROR_SCENE_GENERATING,
   MIRROR_SHARE_LABEL,
   MIRROR_UPDATE_LABEL,
@@ -36,6 +37,8 @@ export type DailyMirrorRefreshActionsProps = {
   showShare?: boolean;
   onUpdate: () => void;
   onNewScene?: () => void;
+  /** P4-C5 — aktif Style Lens (Plus, uygulama içi). */
+  activeStyleLensLabel?: string;
   onShare?: () => void;
   freePlusHint?: string;
   children?: ReactNode;
@@ -79,6 +82,7 @@ export default function DailyMirrorRefreshActions({
   showShare = false,
   onUpdate,
   onNewScene,
+  activeStyleLensLabel,
   onShare,
   freePlusHint,
   children,
@@ -109,6 +113,11 @@ export default function DailyMirrorRefreshActions({
         ) : null}
         {showNewScene ? (
           <PlusNewSceneBlock sceneImageStatus={sceneImageStatus} onNewScene={onNewScene} />
+        ) : null}
+        {showNewScene && activeStyleLensLabel ? (
+          <p className={cn(ms.sceneWrap, 'text-center text-[11px] font-medium text-violet-700/85')}>
+            {MIRROR_SCENE_STYLE_PREFIX} {activeStyleLensLabel}
+          </p>
         ) : null}
         {!isPlus && freePlusHint ? (
           <p className={cn(ms.sceneWrap, 'text-center text-[11px] text-stone-500')}>{freePlusHint}</p>

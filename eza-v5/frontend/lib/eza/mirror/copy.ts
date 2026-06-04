@@ -192,7 +192,9 @@ export const MIRROR_UPDATE_LABEL = 'Aynanı Güncelle';
 export const MIRROR_NEW_SCENE_LABEL = '✨ Yeni Sahne Oluştur';
 
 export const MIRROR_NEW_SCENE_HINT =
-  'Aynanın anlamı aynı kalır; yalnızca sahne görseli yenilenir.';
+  'Aynı hikâye; yeni görsel yorum (Style Lens).';
+
+export const MIRROR_SCENE_STYLE_PREFIX = 'Sahne stili:';
 
 export const PLAN_UPGRADE_MODAL_BODY =
   'Plus ile persona görselin, tam hikâyen, paylaşılabilir posterin ve AI ile zaman içindeki ilişki desenin açılır.';
