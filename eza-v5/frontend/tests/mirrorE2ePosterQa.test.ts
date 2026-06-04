@@ -143,7 +143,7 @@ const CATEGORY_HEADLINE = /^gözlemsel\s+gün$/i;
 const OLD_UI_PATTERNS = [/bugün ne yaptın/i, /ilişki dengen/i, /davranış raporu/i];
 
 const POSTER_COMPONENT = join(process.cwd(), 'components/mirror/DailyMirrorPosterCard.tsx');
-const SCENE_WINDOW_COMPONENT = join(process.cwd(), 'components/mirror/PosterSceneWindow.tsx');
+const FULL_CANVAS_COMPONENT = join(process.cwd(), 'components/mirror/FullCanvasScene.tsx');
 const IDENTITY_HEADLINE_COMPONENT = join(
   process.cwd(),
   'components/mirror/PosterIdentityHeadline.tsx'
@@ -177,31 +177,32 @@ function scoreScenario(scenario: ScenarioDef): {
   const notes: string[] = [];
 
   const posterSrc = readFileSync(POSTER_COMPONENT, 'utf8');
-  const sceneWindowSrc = readFileSync(SCENE_WINDOW_COMPONENT, 'utf8');
+  const fullCanvasSrc = readFileSync(FULL_CANVAS_COMPONENT, 'utf8');
   const identitySrc = readFileSync(IDENTITY_HEADLINE_COMPONENT, 'utf8');
   const skinSrc = readFileSync(SKIN_MODULE, 'utf8');
 
   let aspect916 = 5;
   if (!posterSrc.includes('data-mirror-aspect="9-16"')) aspect916 -= 2;
   if (!posterCardSkinIdentity.root.includes('aspect-[9/16]')) aspect916 -= 2;
-  if (!posterSrc.includes('v9b-scene-hero')) aspect916 -= 2;
+  if (!posterSrc.includes('v10-full-canvas')) aspect916 -= 2;
 
   let sceneHeroLayout = 5;
-  if (!posterSrc.includes('PosterSceneWindow')) sceneHeroLayout -= 2;
+  if (!posterSrc.includes('FullCanvasScene')) sceneHeroLayout -= 2;
   if (!posterSrc.includes('PosterIdentityHeadline')) sceneHeroLayout -= 2;
-  if (!posterSrc.includes('v9b-scene-hero-hybrid')) sceneHeroLayout -= 1;
-  if (posterSrc.includes('sceneBackdrop')) sceneHeroLayout -= 3;
-  if (!sceneWindowSrc.includes('sceneWindowZone') && !sceneWindowSrc.includes('skin.sceneWindow')) {
-    sceneHeroLayout -= 1;
+  if (!posterSrc.includes('v10-full-canvas-hybrid')) sceneHeroLayout -= 1;
+  if (posterSrc.includes('PosterSceneWindow')) sceneHeroLayout -= 3;
+  if (posterSrc.includes('sceneBackdrop') && !posterSrc.includes('sceneBackdrop: \'hidden\'')) {
+    sceneHeroLayout -= 2;
   }
+  if (!fullCanvasSrc.includes('layout="bleed"')) sceneHeroLayout -= 2;
+  if (!skinSrc.includes('fullCanvasLayer')) sceneHeroLayout -= 2;
   if (!identitySrc.includes('Bugün Sen')) sceneHeroLayout -= 2;
-  if (!posterSrc.includes('gridTemplateRows') || !posterSrc.includes('--poster-zone-rows')) {
-    sceneHeroLayout -= 1;
-  }
+  if (!posterSrc.includes('overlayStack')) sceneHeroLayout -= 2;
+  if (!skinSrc.includes('absolute inset-0')) sceneHeroLayout -= 1;
   if (posterSrc.includes('PosterAvatarHero') || posterSrc.includes('PosterThemeBand')) {
     sceneHeroLayout -= 2;
   }
-  if (!skinSrc.includes('sceneWindowOuter')) sceneHeroLayout -= 1;
+  if (skinSrc.includes('sceneWindowOuter')) sceneHeroLayout -= 2;
   if (POSTER_SCENE_DOMINANCE_RATIO < 0.38) sceneHeroLayout -= 1;
 
   let textBalance = 5;
@@ -282,7 +283,7 @@ const reportRows: Array<{
   notes: string[];
 }> = [];
 
-describe('Mirror E2E Poster QA (P2 v9b scene-hero)', () => {
+describe('Mirror E2E Poster QA (P4-B full-canvas)', () => {
   for (const scenario of SCENARIOS) {
     it(`scenario ${scenario.id} meets poster QA thresholds`, () => {
       const { scores, card, content, notes } = scoreScenario(scenario);
@@ -303,21 +304,25 @@ describe('Mirror E2E Poster QA (P2 v9b scene-hero)', () => {
     });
   }
 
-  it('layout uses P2 v9b scene-hero poster architecture', () => {
+  it('layout uses P4-B full-canvas overlay architecture', () => {
     const posterSrc = readFileSync(POSTER_COMPONENT, 'utf8');
-    const sceneWindowSrc = readFileSync(SCENE_WINDOW_COMPONENT, 'utf8');
+    const fullCanvasSrc = readFileSync(FULL_CANVAS_COMPONENT, 'utf8');
     const identitySrc = readFileSync(IDENTITY_HEADLINE_COMPONENT, 'utf8');
+    const skinSrc = readFileSync(SKIN_MODULE, 'utf8');
 
-    expect(posterSrc).toContain('v9b-scene-hero');
-    expect(posterSrc).toContain('v9b-scene-hero-hybrid');
-    expect(posterSrc).toContain('PosterSceneWindow');
+    expect(posterSrc).toContain('v10-full-canvas');
+    expect(posterSrc).toContain('v10-full-canvas-hybrid');
+    expect(posterSrc).toContain('FullCanvasScene');
+    expect(posterSrc).not.toContain('PosterSceneWindow');
     expect(posterSrc).toContain('PosterIdentityHeadline');
-    expect(posterSrc).not.toContain('sceneBackdrop');
+    expect(posterSrc).toContain('overlayStack');
     expect(posterSrc).toContain('data-mirror-aspect="9-16"');
-    expect(posterSrc).toContain('gridTemplateRows');
-    expect(posterSrc).toContain('--poster-zone-rows');
-    expect(sceneWindowSrc).toContain('sceneWindowOuter');
-    expect(sceneWindowSrc).toContain('DailyMirrorPosterScene');
+    expect(posterSrc).toContain('data-mirror-card-root');
+    expect(posterSrc).not.toContain('gridTemplateRows');
+    expect(fullCanvasSrc).toContain('layout="bleed"');
+    expect(fullCanvasSrc).toContain('DailyMirrorPosterScene');
+    expect(skinSrc).toContain('fullCanvasLayer');
+    expect(skinSrc).not.toContain('sceneWindowOuter');
     expect(identitySrc).toContain('Bugün Sen');
     expect(posterSrc).not.toContain('Bugün ne yaptın');
     expect(readFileSync(join(process.cwd(), 'components/mirror/MirrorShareModal.tsx'), 'utf8')).toContain(
@@ -340,14 +345,14 @@ describe('Mirror E2E Poster QA (P2 v9b scene-hero)', () => {
       reportRows.reduce((s, r) => s + r.scores.general, 0) / reportRows.length;
 
     const md = [
-      '# EZA Mirror — E2E Poster QA (P2 v9b)',
+      '# EZA Mirror — E2E Poster QA (P4-B full-canvas)',
       '',
       `Generated: ${new Date().toISOString()}`,
       '',
       '## Method',
       '',
       '- State pipeline: `buildMirrorState` + `buildPosterCardContent` per scenario (4 entries).',
-      '- Layout/export: v9b scene-hero + identity headline + scene window + 1080×1920 constants.',
+      '- Layout/export: P4-B full-canvas scene + glass overlay stack + 1080×1920 constants.',
       '- Scene PNGs: copied from `mirror_live_qa` when present.',
       '',
       '## Score table (1–5)',
@@ -378,7 +383,7 @@ describe('Mirror E2E Poster QA (P2 v9b scene-hero)', () => {
       '## Acceptance',
       '',
       `- Genel ortalama: ${avgGeneral >= 4 ? 'PASS' : 'FAIL'} (≥ 4)`,
-      '- 9:16 + v9b scene-hero window: PASS (code)',
+      '- 9:16 + P4-B full-canvas bleed: PASS (code)',
       '- Eski v3 sceneBackdrop: absent from poster card',
       '- Share modal + export API: present (code)',
       '',

@@ -18,7 +18,10 @@ export default function PosterIdentityHeadline({
   isSparse = false,
 }: PosterIdentityHeadlineProps) {
   return (
-    <section className={skin.identityHeadlineZone} aria-labelledby="daily-mirror-poster-title">
+    <section
+      className={skin.overlayIdentity ?? skin.identityHeadlineZone}
+      aria-labelledby="daily-mirror-poster-title"
+    >
       <p className={skin.identityTodayLabel}>Bugün Sen</p>
       <h2 id="daily-mirror-poster-title" className={skin.identityAvatarName}>
         {isSparse ? 'Yansıma hazırlanıyor' : identity.avatarName}

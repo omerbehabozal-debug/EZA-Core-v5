@@ -2,12 +2,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { buildPosterCardContent, resolvePosterIdentityDisplay } from '@/lib/eza/mirror/posterCardContent';
-import { POSTER_IDENTITY_ZONE_GRID_ROWS } from '@/lib/eza/mirror/posterEditorialMathematics';
 import { posterCardSkinIdentity } from '@/lib/eza/mirror/posterCardSkin';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
 const posterSrc = readFileSync(
   join(process.cwd(), 'components/mirror/DailyMirrorPosterCard.tsx'),
+  'utf8'
+);
+
+const fullCanvasSrc = readFileSync(
+  join(process.cwd(), 'components/mirror/FullCanvasScene.tsx'),
   'utf8'
 );
 
@@ -40,31 +44,28 @@ const baseCard: DailyMirrorCardModel = {
   tomorrowHint: 'Yarın için küçük bir adım yeterli olabilir.',
 };
 
-describe('DailyMirrorPosterCard P2 scene-hero revision', () => {
+describe('DailyMirrorPosterCard P4-B full-canvas', () => {
   it('mirror page imports DailyMirrorPosterCard not legacy DailyMirrorCard', () => {
     expect(experienceSrc).toContain('DailyMirrorPosterCard');
     expect(experienceSrc).not.toMatch(/import\s+DailyMirrorCard\s+from/);
   });
 
-  it('uses text-only identity headline and dominant scene window', () => {
-    expect(posterSrc).toContain('v9b-scene-hero');
-    expect(posterSrc).toContain('PosterIdentityHeadline');
-    expect(posterSrc).toContain('PosterSceneWindow');
-    expect(posterSrc).not.toContain('PosterAvatarHero');
-    expect(posterSrc).not.toContain('PosterThemeBand');
-    expect(posterSrc).not.toContain('/personas/');
-    expect(posterSrc).not.toContain('dailyAvatarEmoji');
-    expect(posterSrc).not.toContain('personaImageUrl');
-    expect(posterSrc).toContain('PosterIdentityHeadline');
+  it('uses FullCanvasScene overlay stack, not PosterSceneWindow', () => {
+    expect(posterSrc).toContain('v10-full-canvas');
+    expect(posterSrc).toContain('FullCanvasScene');
+    expect(posterSrc).toContain('overlayStack');
+    expect(posterSrc).not.toContain('PosterSceneWindow');
+    expect(posterSrc).not.toContain('gridTemplateRows');
+    expect(posterSrc).toContain('data-mirror-card-root');
+    expect(posterSrc).toContain('data-mirror-aspect="9-16"');
   });
 
-  it('scene-first grid ratios (~45% scene row)', () => {
-    expect(POSTER_IDENTITY_ZONE_GRID_ROWS).toMatch(/8%.*12%.*45%/);
-    expect(posterCardSkinIdentity.sceneWindowOuter).toContain('min-h-[200px]');
-    expect(posterCardSkinIdentity.sceneWindowOuter).toMatch(/aspect-\[4\/5\]/);
-    expect(posterCardSkinIdentity.identityAvatarName).toBeTruthy();
-    expect(posterCardSkinIdentity.avatarImage).toBeUndefined();
-    expect(posterCardSkinIdentity.avatarEmoji).toBeUndefined();
+  it('FullCanvasScene uses bleed layout and absolute inset-0 layer', () => {
+    expect(fullCanvasSrc).toContain('layout="bleed"');
+    expect(fullCanvasSrc).toContain('fullCanvasLayer');
+    expect(posterCardSkinIdentity.fullCanvasLayer).toContain('absolute inset-0');
+    expect(posterCardSkinIdentity.overlayStack).toContain('relative z-10');
+    expect(posterCardSkinIdentity.sceneWindowOuter).toBeUndefined();
   });
 
   it('resolvePosterIdentityDisplay is text-only (no image/emoji urls)', () => {

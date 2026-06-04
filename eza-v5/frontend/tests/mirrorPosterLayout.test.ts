@@ -178,12 +178,13 @@ describe('DailyMirrorPosterCard hybrid initial render wiring', () => {
     expect(posterSrc).toContain('identity_first');
     expect(posterSrc).toContain('identity_hybrid');
     expect(posterSrc).toContain('isHybridMiddle');
-    expect(posterSrc).toContain('v9b-scene-hero');
+    expect(posterSrc).toContain('v10-full-canvas');
+    expect(posterSrc).toContain('FullCanvasScene');
     expect(posterSrc).not.toMatch(/!card\.visual\?\.sceneImageUrl[\s\S]*?isHybridMiddle/);
   });
 
   it('passes renderMode to scene for hybrid placeholder', () => {
-    expect(posterSrc).toContain('renderMode={effectiveRenderMode}');
+    expect(posterSrc).toMatch(/renderMode=\{effectiveRenderMode\}/);
   });
 
   it('StandaloneObservationExperience renders poster with renderMode from card', () => {

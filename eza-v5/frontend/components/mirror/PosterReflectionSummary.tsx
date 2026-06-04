@@ -57,7 +57,10 @@ export default function PosterReflectionSummary({
   const balance = activities.find((a) => a.label === 'Denge');
 
   return (
-    <section className={skin.reflectionZone} aria-label="Günün yansıması">
+    <section
+      className={skin.overlayReflection ?? skin.reflectionZone}
+      aria-label="Günün yansıması"
+    >
       <div className={skin.reflectionHeaderRow}>
         <h3 className={skin.reflectionHeadline}>
           {isSparse ? 'Yansıma hazırlanıyor' : journeyHeadline}

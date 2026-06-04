@@ -24,7 +24,7 @@ import {
   resolvePosterPalette,
 } from '@/lib/eza/mirror/posterPaletteSystem';
 import PosterIdentityHeadline from '@/components/mirror/PosterIdentityHeadline';
-import PosterSceneWindow from '@/components/mirror/PosterSceneWindow';
+import FullCanvasScene from '@/components/mirror/FullCanvasScene';
 import PosterReflectionSummary from '@/components/mirror/PosterReflectionSummary';
 import PosterTomorrowHint from '@/components/mirror/PosterTomorrowHint';
 import MirrorLiveDebugPanel from '@/components/mirror/MirrorLiveDebugPanel';
@@ -48,7 +48,7 @@ export type DailyMirrorPosterCardProps = {
 };
 
 /**
- * P2 rev — metinsel kimlik + baskın sahne penceresi (avatar görseli yok).
+ * P4-B — full-bleed editorial scene + glass UI overlay stack.
  */
 export default function DailyMirrorPosterCard({
   card,
@@ -83,7 +83,7 @@ export default function DailyMirrorPosterCard({
       }),
     [card, showHybridFallback]
   );
-  const posterVersion = isHybridMiddle ? 'v9b-scene-hero-hybrid' : 'v9b-scene-hero';
+  const posterVersion = isHybridMiddle ? 'v10-full-canvas-hybrid' : 'v10-full-canvas';
   const content = useMemo(() => buildPosterCardContent(card), [card]);
   const identity = useMemo(
     () => resolvePosterIdentityDisplay(card, content),
@@ -142,17 +142,28 @@ export default function DailyMirrorPosterCard({
       style={cardStyle}
       aria-labelledby="daily-mirror-poster-title"
     >
-      <div className={skin.accentGlow} aria-hidden />
+      <FullCanvasScene
+        personaFamilyId={card.personaFamilyId}
+        renderMode={effectiveRenderMode}
+        sceneImageUrl={card.visual?.sceneImageUrl}
+        sceneImageStatus={card.visual?.sceneImageStatus}
+        skin={skin}
+        onSceneImageLoad={onSceneImageLoad}
+        onSceneImageError={onSceneImageError}
+      />
+
+      <div className={skin.overlayScrim} aria-hidden>
+        <div className={skin.overlayTopScrim} aria-hidden />
+        <div className={skin.overlayBottomScrim} aria-hidden />
+      </div>
+
       <div className={skin.grain} aria-hidden />
 
-      <div
-        className={skin.contentStack}
-        style={{ gridTemplateRows: 'var(--poster-zone-rows)' }}
-      >
-        <header className={cn(skin.topSafeZone, 'col-span-12 flex items-start justify-between')}>
+      <div className={skin.overlayStack}>
+        <header className={cn(skin.overlayHeader, 'flex items-start justify-between')}>
           {showHybridFallback && cardRenderMode === 'hybrid_middle' ? (
             <p
-              className="mb-1 w-full rounded-md border border-amber-300/80 bg-amber-50/90 px-2 py-1 text-[9px] font-medium text-amber-950"
+              className="mb-1 w-full rounded-md border border-amber-300/50 bg-amber-950/40 px-2 py-1 text-[9px] font-medium text-amber-50 backdrop-blur-md"
               role="status"
             >
               Hybrid typography generation failed — fallback overlay active
@@ -172,21 +183,11 @@ export default function DailyMirrorPosterCard({
 
         <PosterIdentityHeadline identity={identity} skin={skin} isSparse={isSparse} />
 
-        <PosterSceneWindow
-          personaFamilyId={card.personaFamilyId}
-          renderMode={effectiveRenderMode}
-          sceneImageUrl={card.visual?.sceneImageUrl}
-          sceneImageStatus={card.visual?.sceneImageStatus}
-          skin={skin}
-          identity={identity}
-          showThemeCaption={false}
-          onSceneImageLoad={onSceneImageLoad}
-          onSceneImageError={onSceneImageError}
-        />
+        <div className="min-h-0 flex-1" aria-hidden />
 
         <PosterReflectionSummary {...reflectionProps} />
 
-        <div className="col-span-12 flex min-h-0 flex-col justify-end gap-1.5">
+        <div className={cn(skin.overlayFooter, 'flex min-h-0 flex-col justify-end gap-1.5')}>
           <PosterTomorrowHint
             tomorrowHint={card.tomorrowHint}
             skin={skin}
