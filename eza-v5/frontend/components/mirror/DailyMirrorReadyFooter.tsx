@@ -22,6 +22,7 @@ export type DailyMirrorReadyFooterProps = {
   ephemeralNote: string;
   secondaryHint?: string;
   plusQuotaHint?: string;
+  sceneStatusHint?: string;
   showFreeUpgradePrimary?: boolean;
   onUpgrade?: () => void;
   className?: string;
@@ -31,12 +32,21 @@ export default function DailyMirrorReadyFooter({
   ephemeralNote,
   secondaryHint,
   plusQuotaHint,
+  sceneStatusHint,
   showFreeUpgradePrimary = false,
   onUpgrade,
   className,
 }: DailyMirrorReadyFooterProps) {
   return (
     <div className={cn('flex w-full max-w-sm flex-col items-center gap-2.5', className)}>
+      {sceneStatusHint ? (
+        <p
+          className={cn(ms.sceneWrap, 'text-center text-[11px] font-medium text-amber-800/90')}
+          role="status"
+        >
+          {sceneStatusHint}
+        </p>
+      ) : null}
       <p className={cn(ms.sceneWrap, 'text-center text-[11px] leading-relaxed text-stone-500')}>
         {ephemeralNote}
       </p>

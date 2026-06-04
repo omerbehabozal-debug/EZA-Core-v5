@@ -53,6 +53,12 @@ describe('P4-D access gates (source)', () => {
     expect(experienceSrc).toContain('hasPlusProductionQuota');
   });
 
+  it('does not permanently block scene generation after snapshot hydrate', () => {
+    expect(experienceSrc).not.toMatch(/endsWith\(':hydrate'\)\)\s*return;/);
+    expect(experienceSrc).toContain('sceneImageStatus !== \'idle\' && sceneImageStatus !== \'error\'');
+    expect(experienceSrc).toContain('refreshPlan');
+  });
+
   it('Free does not get scene retry button on ready panel', () => {
     expect(experienceSrc).not.toContain('MirrorSceneGenerateButton');
   });

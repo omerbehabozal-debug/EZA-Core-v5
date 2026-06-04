@@ -8,6 +8,8 @@ import {
   MIRROR_EPHEMERAL_PLUS,
   MIRROR_FREE_SHARE_POSTER_HINT,
   MIRROR_REVEAL_DURATION_MS,
+  MIRROR_SCENE_GENERATING,
+  MIRROR_SCENE_UNAVAILABLE,
   PLUS_MIRROR_QUOTA_EXCEEDED_BODY,
   PLUS_MIRROR_QUOTA_EXCEEDED_TITLE,
 } from '@/lib/eza/mirror/copy';
@@ -66,6 +68,7 @@ import {
   saveMirrorSceneCache,
 } from '@/lib/eza/mirror/mirrorSceneCache';
 import { usePlan } from '@/lib/eza/plan/usePlan';
+import { useAuth } from '@/context/AuthContext';
 import {
   canCreateFreeMirrorToday,
   markFreeMirrorUsedToday,
@@ -115,7 +118,8 @@ export default function StandaloneObservationExperience({
   const sceneAutoKeyRef = useRef<string | null>(null);
   const hydratedFromSnapshotRef = useRef(false);
   const mirrorExport = useMirrorCardExport();
-  const { isPlus } = usePlan();
+  const { isAuthenticated } = useAuth();
+  const { isPlus, refreshPlan } = usePlan();
 
   const plusProductionRemaining = useMemo(
     () => (isPlus ? getPlusMirrorProductionRemaining() : 0),
@@ -126,6 +130,11 @@ export default function StandaloneObservationExperience({
   useEffect(() => {
     clearStaleDailyMirrorSnapshot();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void refreshPlan();
+  }, [isAuthenticated, refreshPlan]);
 
   const todaysSnapshot = useMemo(() => readTodaysSnapshot(), [entries]);
   const refreshCta: MirrorRefreshCta = useMemo(
@@ -421,12 +430,16 @@ export default function StandaloneObservationExperience({
 
   useEffect(() => {
     if (dailyStatus !== 'ready' || !generatedDailyCard?.visual?.prompt) return;
-    if (sceneImageStatus !== 'idle') return;
+    if (sceneImageStatus !== 'idle' && sceneImageStatus !== 'error') return;
+
+    if (sceneAutoKeyRef.current?.endsWith(':hydrate')) {
+      if (sceneImageUrl) return;
+      sceneAutoKeyRef.current = null;
+    }
 
     const fingerprint = generatedDailyCard.visual.intentFingerprint ?? '';
     const autoKey = `${generatedDailyCard.date}:${fingerprint}:${mirrorRevision}`;
     if (sceneAutoKeyRef.current === autoKey) return;
-    if (sceneAutoKeyRef.current?.endsWith(':hydrate')) return;
     sceneAutoKeyRef.current = autoKey;
     void handleGenerateMirrorScene();
   }, [
@@ -434,6 +447,7 @@ export default function StandaloneObservationExperience({
     generatedDailyCard,
     sceneImageStatus,
     mirrorRevision,
+    isAuthenticated,
     handleGenerateMirrorScene,
   ]);
 
@@ -560,11 +574,21 @@ export default function StandaloneObservationExperience({
 
   const showDownloadAction = showShareAction;
 
+  const sceneStatusHint = useMemo(() => {
+    if (sceneImageStatus === 'generating') return MIRROR_SCENE_GENERATING;
+    if (sceneImageStatus === 'error') return MIRROR_SCENE_UNAVAILABLE;
+    if (dailyStatus === 'ready' && !sceneImageUrl && sceneImageStatus === 'idle') {
+      return MIRROR_SCENE_GENERATING;
+    }
+    return undefined;
+  }, [dailyStatus, sceneImageStatus, sceneImageUrl]);
+
   const readyFooter = (
     <DailyMirrorReadyFooter
       ephemeralNote={isPlus ? MIRROR_EPHEMERAL_PLUS : MIRROR_EPHEMERAL_FREE}
       secondaryHint={!isPlus ? MIRROR_FREE_SHARE_POSTER_HINT : undefined}
       plusQuotaHint={isPlus ? formatPlusMirrorQuotaHint(plusProductionRemaining) : undefined}
+      sceneStatusHint={sceneStatusHint}
       showFreeUpgradePrimary={!isPlus}
       onUpgrade={() => openUpgrade('upgrade')}
     />
