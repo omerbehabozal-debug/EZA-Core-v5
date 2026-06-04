@@ -17,6 +17,17 @@ export const MIRROR_EXPORT_TARGET_HEIGHT = 1920;
 
 export const MIRROR_EXPORT_DEFAULT_PIXEL_RATIO = 2;
 
+/** Prefer share-only poster DOM; fall back to in-app card root. */
+export function resolveMirrorExportCaptureNode(
+  container: HTMLElement | null | undefined
+): HTMLElement | null {
+  if (!container) return null;
+  const shareRoot = container.querySelector<HTMLElement>('[data-mirror-share-root]');
+  if (shareRoot) return shareRoot;
+  const cardRoot = container.querySelector<HTMLElement>('[data-mirror-card-root]');
+  return cardRoot ?? container;
+}
+
 export type MirrorShareResult = 'shared' | 'downloaded' | 'copied' | 'unsupported' | 'failed';
 
 export interface MirrorExportOptions {

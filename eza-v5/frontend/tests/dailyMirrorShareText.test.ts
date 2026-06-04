@@ -30,17 +30,19 @@ const baseCard: DailyMirrorCardModel = {
   dailyAvatarName: 'Yol Bulucu',
   behaviorFamilyLabel: 'Keşif Ailesi',
   dailyThemeTitle: 'Semerkant Yolculuğu',
+  mirrorMoment: 'Yolculukta yeni bir kapı açıldı.',
 };
 
 describe('dailyMirrorShareText (P3)', () => {
-  it('buildDailyMirrorShareText includes avatar, theme, and curiosity line', () => {
+  it('buildDailyMirrorShareText includes avatar, mirror moment, and curiosity line', () => {
     const text = buildDailyMirrorShareText(baseCard);
     expect(text).toContain('Yol Bulucu');
-    expect(text).toContain('Semerkant Yolculuğu');
+    expect(text).toMatch(/modundaydı/i);
+    expect(text).toMatch(/Yolculukta yeni bir kapı/i);
     expect(text).toMatch(/Seninki ne çıkacak/i);
     expect(text).toContain('#EZAİlişkiAynası');
     expect(text).toMatch(/Bugün AI ile ilişkim/i);
-    expect(text).not.toMatch(/userLine|mesaj içeriği:/i);
+    expect(text).not.toMatch(/userLine|mesaj içeriği:|Tema:/i);
   });
 
   it('fallback share text when identity fields missing', () => {
@@ -101,7 +103,7 @@ describe('shareMirrorCardPng navigator payload', () => {
     expect(share).toHaveBeenCalled();
     const payload = share.mock.calls[0]?.[0] as { text?: string };
     expect(payload.text).toContain('Yol Bulucu');
-    expect(payload.text).toContain('Semerkant Yolculuğu');
+    expect(payload.text).toMatch(/modundaydı/i);
     expect(payload.text).toMatch(/Seninki ne çıkacak/i);
   });
 });

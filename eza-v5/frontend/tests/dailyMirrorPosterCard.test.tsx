@@ -63,6 +63,7 @@ const baseCard: DailyMirrorCardModel = {
 describe('DailyMirrorPosterCard P4-B full-canvas', () => {
   it('mirror page imports DailyMirrorPosterCard not legacy DailyMirrorCard', () => {
     expect(experienceSrc).toContain('DailyMirrorPosterCard');
+    expect(experienceSrc).toContain('DailyMirrorSharePoster');
     expect(experienceSrc).not.toMatch(/import\s+DailyMirrorCard\s+from/);
   });
 

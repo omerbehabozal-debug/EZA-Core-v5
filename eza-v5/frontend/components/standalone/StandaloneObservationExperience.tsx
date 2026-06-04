@@ -34,6 +34,7 @@ import {
   probeHybridTypographyInImage,
 } from '@/lib/eza/mirror/hybridPosterDebug';
 import DailyMirrorPosterCard from '@/components/mirror/DailyMirrorPosterCard';
+import DailyMirrorSharePoster from '@/components/mirror/DailyMirrorSharePoster';
 import DailyMirrorRefreshActions from '@/components/mirror/DailyMirrorRefreshActions';
 import DailyLimitUpgrade from '@/components/mirror/DailyLimitUpgrade';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
@@ -461,6 +462,18 @@ export default function StandaloneObservationExperience({
                 onToggleHybridMode={handleToggleHybridMode}
                 hybridTextFallback={hybridTextFallback}
               />
+              <div
+                className="pointer-events-none fixed left-[-9999px] top-0 z-[-1] w-full max-w-[28rem] opacity-100"
+                aria-hidden
+              >
+                <DailyMirrorSharePoster
+                  card={cardForRender}
+                  sceneImageUrl={cardForRender.visual?.sceneImageUrl}
+                  sceneImageStatus={sceneImageStatus}
+                  onSceneImageLoad={handleSceneImageLoad}
+                  onSceneImageError={handleSceneImageError}
+                />
+              </div>
             </div>
           </DailyMirrorCardEntrance>
 

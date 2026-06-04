@@ -349,6 +349,15 @@ describe('Mirror E2E Poster QA (P4-B full-canvas)', () => {
     expect(posterSrc).toContain('data-mirror-scene-tone');
     expect(posterSrc).toContain('resolvePosterSceneTone');
     expect(skinSrc).toContain('posterSceneToneSkin');
+    const sharePosterSrc = readFileSync(
+      join(process.cwd(), 'components/mirror/DailyMirrorSharePoster.tsx'),
+      'utf8'
+    );
+    expect(sharePosterSrc).toContain('data-mirror-share-root');
+    expect(sharePosterSrc).not.toContain('PosterReflectionSummary');
+    expect(readFileSync(join(process.cwd(), 'lib/eza/mirror/shareExport.ts'), 'utf8')).toContain(
+      'resolveMirrorExportCaptureNode'
+    );
     expect(posterSrc).not.toContain('Bugün ne yaptın');
     expect(readFileSync(join(process.cwd(), 'components/mirror/MirrorShareModal.tsx'), 'utf8')).toContain(
       'MIRROR_SHARE_MODAL_TITLE'

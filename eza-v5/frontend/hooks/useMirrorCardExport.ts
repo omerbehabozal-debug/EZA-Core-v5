@@ -6,6 +6,7 @@ import {
   copyMirrorShareText,
   downloadMirrorCardPng,
   exportMirrorCardToPng,
+  resolveMirrorExportCaptureNode,
   getMirrorShareTexts,
   MIRROR_EXPORT_ERROR_MESSAGE,
   resolveMirrorExportFilename,
@@ -33,8 +34,7 @@ export function useMirrorCardExport() {
 
   const captureCard = useCallback(
     async (options?: MirrorExportOptions): Promise<Blob | null> => {
-      const node = cardRef.current?.querySelector<HTMLElement>('[data-mirror-card-root]');
-      const target = node ?? cardRef.current;
+      const target = resolveMirrorExportCaptureNode(cardRef.current);
       if (!target) {
         setError(MIRROR_EXPORT_ERROR_MESSAGE);
         return null;

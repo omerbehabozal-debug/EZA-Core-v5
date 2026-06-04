@@ -5,6 +5,7 @@ import {
   getMirrorShareTexts,
   MIRROR_EXPORT_TARGET_HEIGHT,
   MIRROR_EXPORT_TARGET_WIDTH,
+  resolveMirrorExportCaptureNode,
   resolveMirrorExportFilename,
   resolveMirrorShareText,
 } from '@/lib/eza/mirror/shareExport';
@@ -42,10 +43,22 @@ describe('mirrorShareExport', () => {
     );
   });
 
+  it('resolveMirrorExportCaptureNode prefers share root over card root', () => {
+    const container = document.createElement('div');
+    const card = document.createElement('article');
+    card.setAttribute('data-mirror-card-root', '');
+    const share = document.createElement('article');
+    share.setAttribute('data-mirror-share-root', '');
+    container.append(card, share);
+    expect(resolveMirrorExportCaptureNode(container)).toBe(share);
+    share.remove();
+    expect(resolveMirrorExportCaptureNode(container)).toBe(card);
+  });
+
   it('exposes identity share texts without message content', () => {
     const texts = getMirrorShareTexts(card);
     expect(texts.short).toContain('Şefkatli Geyik');
-    expect(texts.short).toContain('İlişki & Bağ');
+    expect(texts.short).toMatch(/modundaydı/i);
     expect(texts.short).toMatch(/Seninki ne çıkacak/i);
     expect(texts.short).not.toMatch(/userLine|mesaj içeriği:/i);
     expect(resolveMirrorShareText(card)).toBe(texts.short);

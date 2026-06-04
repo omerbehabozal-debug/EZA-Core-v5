@@ -58,6 +58,18 @@ function resolveThemeTitle(card: DailyMirrorCardModel): string {
   return card.dailyThemeTitle?.trim() || '';
 }
 
+function resolveMirrorMomentLine(card: DailyMirrorCardModel): string {
+  const moment = card.mirrorMoment?.trim();
+  if (moment) {
+    const core = moment.endsWith('.') ? moment.slice(0, -1) : moment;
+    return /^[“"']/.test(moment) ? moment : `“${core}.”`;
+  }
+  const tension = card.storyTensionTitle?.trim();
+  if (!tension) return '';
+  const core = tension.endsWith('.') ? tension.slice(0, -1) : tension;
+  return `“${core}.”`;
+}
+
 function resolveBehaviorFamily(card: DailyMirrorCardModel): string {
   return card.behaviorFamilyLabel?.trim() || '';
 }
@@ -70,15 +82,15 @@ export function buildDailyMirrorShareText(card: DailyMirrorCardModel): string {
   const themeTitle = resolveThemeTitle(card);
   const behaviorFamily = resolveBehaviorFamily(card);
 
+  const momentLine = resolveMirrorMomentLine(card);
+
   if (avatarName && themeTitle) {
-    const modeLine = `${avatarName} modunda ✨`;
+    const modeLine = `${avatarName} modundaydı ✨`;
     const lines = [
       'Bugün AI ile ilişkim:',
       modeLine,
       '',
-      'Tema:',
-      themeTitle,
-      '',
+      ...(momentLine ? [momentLine, ''] : []),
       MIRROR_SHARE_CURIOSITY_LINE,
       '',
       MIRROR_SHARE_HASHTAG,
