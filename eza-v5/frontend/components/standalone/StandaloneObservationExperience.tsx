@@ -55,6 +55,11 @@ import {
   type MirrorStyleLensSession,
 } from '@/lib/eza/mirror/mirrorSceneStyleLens';
 import { applyStyleLensToVisual } from '@/lib/eza/mirror/styleLensPrompt';
+import {
+  clearMirrorSceneCache,
+  readMirrorSceneCache,
+  saveMirrorSceneCache,
+} from '@/lib/eza/mirror/mirrorSceneCache';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import {
   canCreateFreeMirrorToday,
@@ -118,6 +123,7 @@ export default function StandaloneObservationExperience({
       sceneAutoKeyRef.current = null;
       setMirrorRevision(0);
       clearStyleLensSession();
+      clearMirrorSceneCache();
       setStyleLensSession(createDefaultStyleLensSession({ date: '', visual: undefined }));
       setGeneratedDailyCard(null);
       setGeneratedDailyMeta(null);
@@ -133,6 +139,7 @@ export default function StandaloneObservationExperience({
     sceneAutoKeyRef.current = null;
     setMirrorRevision(0);
     clearStyleLensSession();
+    clearMirrorSceneCache();
     setStyleLensSession(createDefaultStyleLensSession({ date: '', visual: undefined }));
     setGeneratedDailyCard(null);
     setGeneratedDailyMeta(null);
@@ -153,6 +160,7 @@ export default function StandaloneObservationExperience({
       setGeneratedDailyCard(state.dailyMirrorCard);
       setGeneratedDailyMeta(state.meta);
       setStyleLensSession(resetStyleLensSessionForCard(state.dailyMirrorCard));
+      clearMirrorSceneCache();
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
       setHybridTextFallback(false);
@@ -198,17 +206,28 @@ export default function StandaloneObservationExperience({
     if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) return;
 
     hydratedFromSnapshotRef.current = true;
-    setGeneratedDailyCard(state.dailyMirrorCard);
+    const card = state.dailyMirrorCard;
+    setGeneratedDailyCard(card);
     setGeneratedDailyMeta(state.meta);
-    setStyleLensSession(resolveStyleLensSessionForCard(state.dailyMirrorCard));
-    setSceneImageUrl(null);
-    setSceneImageStatus('idle');
+    setStyleLensSession(resolveStyleLensSessionForCard(card));
     setHybridTextFallback(false);
-    setSceneExtras({});
-    setDailyStatus('ready');
 
-    const fingerprint = state.dailyMirrorCard.visual?.intentFingerprint ?? '';
-    sceneAutoKeyRef.current = `${state.dailyMirrorCard.date}:${fingerprint}:hydrate`;
+    const fingerprint = card.visual?.intentFingerprint ?? '';
+    const sceneCache = readMirrorSceneCache(card);
+    if (sceneCache) {
+      setSceneImageUrl(sceneCache.sceneImageUrl);
+      setSceneImageStatus('ready');
+      setSceneExtras(
+        sceneCache.provider ? { imageProvider: sceneCache.provider } : {}
+      );
+      sceneAutoKeyRef.current = `${card.date}:${fingerprint}:hydrate`;
+    } else {
+      setSceneImageUrl(null);
+      setSceneImageStatus('idle');
+      setSceneExtras({});
+      sceneAutoKeyRef.current = null;
+    }
+    setDailyStatus('ready');
   }, [
     dailyStatus,
     entries,
@@ -305,6 +324,7 @@ export default function StandaloneObservationExperience({
         setSceneImageUrl(result.sceneImageUrl);
         setSceneImageStatus('ready');
         setSceneExtras({ imageProvider: result.provider });
+        saveMirrorSceneCache(generatedDailyCard, result.sceneImageUrl, result.provider);
         if (
           (visual.renderMode ?? resolveMirrorRenderMode()) === 'hybrid_middle' &&
           isMockSceneImageUrl(result.sceneImageUrl)
