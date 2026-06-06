@@ -128,12 +128,16 @@ export const standaloneSkin = {
     tabIdle: 'text-stone-500 hover:text-stone-700',
     dailyStage:
       'flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-5 px-3 py-3 sm:gap-6 sm:px-4 sm:py-5',
+    /** Ready poster — top-align so card header is not clipped under nav. */
+    dailyStageReady:
+      'justify-start pt-1 sm:pt-2',
     dailyReadyStack:
-      'flex w-full min-h-0 flex-1 flex-col items-center justify-center gap-4 sm:gap-5',
+      'flex w-full min-h-0 flex-1 flex-col items-center justify-start gap-3 sm:gap-4',
     dailyReadyColumn:
-      'flex w-full min-h-0 max-w-[min(100%,clamp(20rem,42vw,32.5rem))] flex-col items-center justify-center gap-4 sm:gap-5',
+      'flex w-full min-h-0 max-w-[min(100%,clamp(20rem,42vw,32.5rem))] flex-col items-center justify-start gap-4 sm:gap-5',
+    /** 9:16 in-app poster — width capped by viewport minus nav + actions (17rem). */
     dailyPosterFrame:
-      'w-full shrink-0 mx-auto [width:min(100%,clamp(20rem,42vw,32.5rem),calc((100dvh-11rem)*9/16))]',
+      'w-full shrink-0 mx-auto max-h-[calc(100dvh-17rem)] [width:min(100%,clamp(20rem,42vw,32.5rem),calc((100dvh-17rem)*9/16))]',
     mirrorLoadingRoot:
       'flex min-h-[min(48vh,380px)] w-full max-w-[min(100%,22rem)] flex-col items-center justify-center px-6 py-10 text-center sm:min-h-[min(44vh,360px)]',
     mirrorLoadingRing: [

@@ -45,7 +45,8 @@ describe('MirrorLoadingExperience', () => {
 
   it('daily stage and poster frame support viewport-centered layout', () => {
     expect(skinSrc).toContain('dailyPosterFrame');
-    expect(skinSrc).toContain('100dvh-11rem');
-    expect(skinSrc).toContain('justify-center');
+    expect(skinSrc).toContain('100dvh-17rem');
+    expect(skinSrc).toContain('dailyStageReady');
+    expect(skinSrc).toContain('justify-start');
   });
 });

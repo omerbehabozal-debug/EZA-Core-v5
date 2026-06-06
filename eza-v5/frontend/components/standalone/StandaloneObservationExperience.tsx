@@ -760,6 +760,7 @@ export default function StandaloneObservationExperience({
         className={cn(
           ms.dailyStage,
           'overflow-x-hidden overflow-y-auto',
+          dailyStatus === 'ready' && ms.dailyStageReady,
           dailyStatus === 'idle' ||
             dailyStatus === 'insufficient' ||
             dailyStatus === 'error' ||
