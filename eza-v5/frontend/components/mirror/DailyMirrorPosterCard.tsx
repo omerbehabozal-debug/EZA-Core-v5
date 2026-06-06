@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Calendar, Flame, Sparkles, User, Bot } from 'lucide-react';
+import { Calendar, Crown, Sparkles, User, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DailyMirrorCardModel, MirrorStateMeta } from '@/lib/eza/mirror/types';
 import {
@@ -190,14 +190,14 @@ export default function DailyMirrorPosterCard({
               Hybrid typography generation failed — fallback overlay active
             </p>
           ) : null}
-          <p className={cn(skin.logoText, 'flex items-center gap-1.5 tracking-[0.18em]')}>
+          <p className={cn(skin.logoText, 'flex items-center gap-2')}>
             <span className={skin.logoMark}>
-              <Sparkles className="h-2.5 w-2.5" strokeWidth={1.75} aria-hidden />
+              <Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden />
             </span>
             EZA · AI İlişki Aynası
           </p>
-          <p className={cn(skin.datePill, 'flex items-center gap-1 tabular-nums')}>
-            <Calendar className="h-2.5 w-2.5 opacity-75" aria-hidden />
+          <p className={cn(skin.datePill, 'flex items-center gap-1.5 tabular-nums')}>
+            <Calendar className="h-3 w-3 opacity-70" strokeWidth={1.5} aria-hidden />
             {card.dayLabel}
           </p>
         </header>
@@ -211,27 +211,23 @@ export default function DailyMirrorPosterCard({
             className={skin.rhythmWhisperZone ?? skin.overlayReflection}
             aria-label="İlişki ritmi"
           >
-            <p className={cn(skin.rhythmWhisperEyebrow, 'flex items-center gap-1.5')}>
-              <Flame className="h-3 w-3 text-amber-300/80" aria-hidden />
+            <p className={cn(skin.rhythmWhisperEyebrow, 'flex items-center gap-2')}>
+              <Crown className="h-3.5 w-3.5 text-amber-300/75" strokeWidth={1.5} aria-hidden />
               {content.rhythm.eyebrow}
             </p>
-            <p
-              className={cn(
-                skin.rhythmWhisperWord,
-                'text-[22px] font-bold leading-none font-serif'
-              )}
-            >
-              {content.rhythm.word}
-            </p>
+            <p className={skin.rhythmWhisperWord}>{content.rhythm.word}</p>
             <p className={skin.insightPanelDesc}>{rhythmDescription}</p>
             <div className={skin.insightPanelScores}>
               <span className={skin.insightPanelScoreItem}>
-                <User className="h-3 w-3 text-white/70" aria-hidden />
+                <User className="h-3.5 w-3.5 text-amber-200/70" strokeWidth={1.5} aria-hidden />
                 Sen
                 <span className={skin.insightPanelScoreValue}>{scores.sen}</span>
               </span>
+              <span className={skin.insightPanelScoreDivider} aria-hidden>
+                ·
+              </span>
               <span className={skin.insightPanelScoreItem}>
-                <Bot className="h-3 w-3 text-white/70" aria-hidden />
+                <Bot className="h-3.5 w-3.5 text-amber-200/70" strokeWidth={1.5} aria-hidden />
                 AI
                 <span className={skin.insightPanelScoreValue}>{scores.ai}</span>
               </span>

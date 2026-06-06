@@ -9,11 +9,11 @@ export const POSTER_PREVIEW_WIDTH_PX = 432;
 export const POSTER_PREVIEW_HEIGHT_PX = 768;
 
 /** In-app display cap (export capture still uses preview baseline). */
-export const POSTER_DISPLAY_MAX_PX = 520;
+export const POSTER_DISPLAY_MAX_PX = 580;
 
 /** Responsive width: mobile-safe, desktop hero poster. */
 export const POSTER_DISPLAY_MAX_WIDTH_CSS =
-  'min(100%, clamp(20rem, 42vw, 32.5rem))';
+  'min(100%, clamp(23rem, 50vw, 38rem))';
 
 export const POSTER_EXPORT_WIDTH_PX = 1080;
 export const POSTER_EXPORT_HEIGHT_PX = 1920;
@@ -101,21 +101,21 @@ export const POSTER_RADIUS_PREVIEW = {
 } as const;
 
 export const POSTER_TYPE_PREVIEW = {
-  headline: { size: 40, weight: 800, lineHeight: 0.94 },
-  story: { size: 14, weight: 500, lineHeight: 1.4 },
-  quote: { size: 16, weight: 500, lineHeight: 1.3 },
-  label: { size: 9, weight: 600, tracking: '0.14em' },
-  footer: { size: 9, weight: 600, tracking: '0.12em' },
-  insightTitle: { size: 8, weight: 600 },
-  insightBody: { size: 10, weight: 500 },
-  insightStatus: { size: 22, weight: 700, lineHeight: 1.1 },
+  headline: { size: 44, weight: 700, lineHeight: 0.96 },
+  story: { size: 15, weight: 500, lineHeight: 1.45 },
+  quote: { size: 17, weight: 500, lineHeight: 1.35 },
+  label: { size: 10, weight: 600, tracking: '0.18em' },
+  footer: { size: 9, weight: 600, tracking: '0.14em' },
+  insightTitle: { size: 9, weight: 600 },
+  insightBody: { size: 12, weight: 500 },
+  insightStatus: { size: 30, weight: 700, lineHeight: 1.05 },
 } as const;
 
 export const POSTER_SHADOWS = {
-  headline: '0 3px 18px rgba(0,0,0,0.36)',
-  story: '0 2px 12px rgba(0,0,0,0.28)',
-  glassCard: '0 10px 32px rgba(23,32,51,0.08)',
-  mainCard: '0 18px 60px rgba(23,32,51,0.10)',
+  headline: '0 4px 24px rgba(0,0,0,0.42)',
+  story: '0 2px 16px rgba(0,0,0,0.32)',
+  glassCard: '0 16px 48px rgba(0,0,0,0.28)',
+  mainCard: '0 32px 96px -28px rgba(8,4,16,0.78)',
 } as const;
 
 export const POSTER_INSIGHT_PREVIEW = {

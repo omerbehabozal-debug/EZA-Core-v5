@@ -89,9 +89,9 @@ describe('resolvePosterSceneTone (P4-C4)', () => {
     expect(t.accent).toBe('silver');
   });
 
-  it('applyPosterSceneToneSkin uses warm amber panels', () => {
+  it('applyPosterSceneToneSkin uses warm amber accents without boxed identity panel', () => {
     const skin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
-    expect(skin.overlayIdentity).toContain('amber');
+    expect(skin.overlayIdentity).not.toContain('bg-[');
     expect(skin.rhythmWhisperZone).toContain('amber');
     expect(skin.logoText).toContain('amber');
   });

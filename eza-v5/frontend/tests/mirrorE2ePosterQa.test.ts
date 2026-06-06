@@ -345,7 +345,8 @@ describe('Mirror E2E Poster QA (P4-B full-canvas)', () => {
     expect(reflectionSrc).not.toContain('grid-cols-3');
     expect(skinSrc).toContain('rhythmWhisperZone');
     expect(skinSrc).toContain('relationshipHeroScore: \'hidden\'');
-    expect(posterSrc).toContain('rhythm: content.rhythm');
+    expect(posterSrc).toContain('content.rhythm.eyebrow');
+    expect(posterSrc).toContain('insightPanelScoreDivider');
     expect(posterSrc).toContain('data-mirror-scene-tone');
     expect(posterSrc).toContain('resolvePosterSceneTone');
     expect(skinSrc).toContain('posterSceneToneSkin');

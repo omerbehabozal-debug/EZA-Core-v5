@@ -138,10 +138,10 @@ export const standaloneSkin = {
     dailyReadyStackLoading:
       'flex-1 justify-center',
     dailyReadyColumn:
-      'flex w-full min-h-0 max-w-[min(100%,clamp(22rem,48vw,36rem))] flex-col items-center justify-start gap-4 sm:gap-5',
-    /** 9:16 in-app poster — larger focus card; 13rem reserves nav + minimal icon actions. */
+      'flex w-full min-h-0 max-w-[min(100%,clamp(23rem,50vw,38rem))] flex-col items-center justify-start gap-4 sm:gap-5',
+    /** 9:16 in-app poster — editorial hero; 13rem reserves nav + minimal icon actions. */
     dailyPosterFrame:
-      'w-full shrink-0 mx-auto max-h-[calc(100dvh-13rem)] [width:min(100%,clamp(22rem,48vw,36rem),calc((100dvh-13rem)*9/16))]',
+      'w-full shrink-0 mx-auto max-h-[calc(100dvh-13rem)] [width:min(100%,clamp(23rem,50vw,38rem),calc((100dvh-13rem)*9/16))]',
     mirrorLoadingRoot:
       'flex min-h-[min(58vh,460px)] w-full max-w-[min(100%,26rem)] flex-col items-center justify-center px-8 py-12 text-center sm:min-h-[min(62vh,500px)]',
     mirrorLoadingRing: [

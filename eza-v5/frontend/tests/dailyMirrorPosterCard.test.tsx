@@ -85,7 +85,8 @@ describe('DailyMirrorPosterCard P4-B full-canvas', () => {
     const warmSkin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
     expect(warmSkin.fullCanvasLayer).toContain('absolute inset-0');
     expect(warmSkin.overlayStack).toContain('relative z-10');
-    expect(warmSkin.overlayIdentity).toContain('amber');
+    expect(warmSkin.overlayIdentity).not.toContain('border');
+    expect(warmSkin.overlayIdentity).toContain('text-center');
     expect(warmSkin.sceneWindowOuter).toBeUndefined();
   });
 
