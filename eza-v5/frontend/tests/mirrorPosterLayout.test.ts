@@ -190,5 +190,7 @@ describe('DailyMirrorPosterCard hybrid initial render wiring', () => {
   it('StandaloneObservationExperience renders poster with renderMode from card', () => {
     expect(experienceSrc).toContain('DailyMirrorPosterCard');
     expect(experienceSrc).toContain('cardForRender');
+    expect(experienceSrc).toContain('isScenePosterVisible');
+    expect(experienceSrc).toContain('MirrorLoadingExperience');
   });
 });

@@ -127,9 +127,33 @@ export const standaloneSkin = {
     tabActive: 'bg-white text-stone-800 shadow-[0_1px_8px_-2px_rgba(0,0,0,0.08)] ring-1 ring-stone-200/45',
     tabIdle: 'text-stone-500 hover:text-stone-700',
     dailyStage:
-      'flex w-full min-w-0 flex-col items-center gap-8 py-2 sm:gap-12 sm:py-6',
+      'flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-5 px-3 py-3 sm:gap-6 sm:px-4 sm:py-5',
     dailyReadyStack:
-      'flex w-full max-w-[min(100%,clamp(20rem,42vw,32.5rem))] flex-col items-center gap-5 sm:gap-6',
+      'flex w-full min-h-0 flex-1 flex-col items-center justify-center gap-4 sm:gap-5',
+    dailyReadyColumn:
+      'flex w-full min-h-0 max-w-[min(100%,clamp(20rem,42vw,32.5rem))] flex-col items-center justify-center gap-4 sm:gap-5',
+    dailyPosterFrame:
+      'w-full shrink-0 mx-auto [width:min(100%,clamp(20rem,42vw,32.5rem),calc((100dvh-11rem)*9/16))]',
+    mirrorLoadingRoot:
+      'flex min-h-[min(48vh,380px)] w-full max-w-[min(100%,22rem)] flex-col items-center justify-center px-6 py-10 text-center sm:min-h-[min(44vh,360px)]',
+    mirrorLoadingRing: [
+      'relative mb-5 flex h-14 w-14 items-center justify-center rounded-full',
+      'border border-violet-200/30 bg-white/70 shadow-[0_0_40px_rgba(139,92,246,0.14)]',
+      'before:absolute before:inset-0 before:rounded-full before:border before:border-amber-200/25',
+      'before:animate-ping before:opacity-25 motion-reduce:before:animate-none',
+    ].join(' '),
+    mirrorLoadingTitle:
+      'text-[15px] font-semibold tracking-[0.06em] text-stone-800 sm:text-base',
+    mirrorLoadingSubtitle:
+      'mt-2 max-w-[18rem] text-[12px] font-medium leading-relaxed text-stone-500',
+    mirrorLoadingSteps:
+      'mt-6 flex w-full max-w-[15rem] flex-col gap-2 text-left',
+    mirrorLoadingStep:
+      'flex items-center gap-2 text-[10px] font-medium tracking-wide text-stone-400 transition-colors duration-500',
+    mirrorLoadingStepActive: 'text-violet-800/90',
+    mirrorLoadingStepDone: 'text-stone-500/80',
+    mirrorLoadingStepDot:
+      'h-1.5 w-1.5 shrink-0 rounded-full bg-stone-300 transition-colors duration-500',
     idleRoot:
       'flex min-h-[min(48vh,380px)] w-full flex-col items-center justify-center px-6 py-14 text-center sm:min-h-[min(52vh,420px)]',
     shareAction:

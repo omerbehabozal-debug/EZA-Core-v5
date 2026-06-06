@@ -47,6 +47,7 @@ import DailyLimitUpgrade from '@/components/mirror/DailyLimitUpgrade';
 import DailyMirrorCreatePrompt from '@/components/mirror/DailyMirrorCreatePrompt';
 import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
 import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
+import MirrorLoadingExperience from '@/components/mirror/MirrorLoadingExperience';
 import DailyMirrorReadyFooter from '@/components/mirror/DailyMirrorReadyFooter';
 import MirrorShareModal from '@/components/mirror/MirrorShareModal';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
@@ -570,9 +571,27 @@ export default function StandaloneObservationExperience({
     await mirrorExport.share(generatedDailyCard);
   }, [mirrorExport, generatedDailyCard]);
 
+  const isScenePosterVisible = useMemo(
+    () =>
+      dailyStatus === 'ready' &&
+      Boolean(sceneImageUrl?.trim()) &&
+      sceneImageStatus === 'ready',
+    [dailyStatus, sceneImageUrl, sceneImageStatus]
+  );
+
+  const isSceneLoading = useMemo(() => {
+    if (dailyStatus !== 'ready') return false;
+    if (isScenePosterVisible) return false;
+    return (
+      sceneImageStatus === 'generating' ||
+      sceneImageStatus === 'idle' ||
+      (sceneImageStatus === 'error' && !sceneImageUrl?.trim())
+    );
+  }, [dailyStatus, isScenePosterVisible, sceneImageStatus, sceneImageUrl]);
+
   const showShareAction =
     isPlus &&
-    dailyStatus === 'ready' &&
+    isScenePosterVisible &&
     generatedDailyCard !== null &&
     generatedDailyCard.shareEnabled;
 
@@ -644,39 +663,43 @@ export default function StandaloneObservationExperience({
     if (dailyStatus === 'ready' && cardForRender) {
       return (
         <div className={ms.dailyReadyStack}>
-          <DailyMirrorCardEntrance className="w-full">
-            <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
-              <DailyMirrorPosterCard
-                card={cardForRender}
-                entries={displayEntries}
-                meta={generatedDailyMeta ?? undefined}
-                onSceneImageLoad={handleSceneImageLoad}
-                onSceneImageError={handleSceneImageError}
-                onForceBmwMercedes={handleForceBmwMercedes}
-                onToggleHybridMode={handleToggleHybridMode}
-                hybridTextFallback={hybridTextFallback}
-              />
-              {isPlus ? (
-                <div
-                  className="pointer-events-none fixed left-[-9999px] top-0 z-[-1] w-[432px] max-w-none opacity-100"
-                  aria-hidden
-                >
-                  <DailyMirrorSharePoster
-                    card={cardForRender}
-                    sceneImageUrl={cardForRender.visual?.sceneImageUrl}
-                    sceneImageStatus={sceneImageStatus}
-                    onSceneImageLoad={handleSceneImageLoad}
-                    onSceneImageError={handleSceneImageError}
-                  />
-                </div>
-              ) : null}
-            </div>
-          </DailyMirrorCardEntrance>
+          {isSceneLoading ? (
+            <MirrorLoadingExperience sceneImageStatus={sceneImageStatus} />
+          ) : isScenePosterVisible ? (
+            <DailyMirrorCardEntrance className={cn('w-full', ms.dailyPosterFrame)}>
+              <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
+                <DailyMirrorPosterCard
+                  card={cardForRender}
+                  entries={displayEntries}
+                  meta={generatedDailyMeta ?? undefined}
+                  onSceneImageLoad={handleSceneImageLoad}
+                  onSceneImageError={handleSceneImageError}
+                  onForceBmwMercedes={handleForceBmwMercedes}
+                  onToggleHybridMode={handleToggleHybridMode}
+                  hybridTextFallback={hybridTextFallback}
+                />
+                {isPlus ? (
+                  <div
+                    className="pointer-events-none fixed left-[-9999px] top-0 z-[-1] w-[432px] max-w-none opacity-100"
+                    aria-hidden
+                  >
+                    <DailyMirrorSharePoster
+                      card={cardForRender}
+                      sceneImageUrl={cardForRender.visual?.sceneImageUrl}
+                      sceneImageStatus={sceneImageStatus}
+                      onSceneImageLoad={handleSceneImageLoad}
+                      onSceneImageError={handleSceneImageError}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </DailyMirrorCardEntrance>
+          ) : null}
 
           <DailyMirrorRefreshActions
             refreshCta={readyRefreshCta}
             isPlus={isPlus}
-            cardReady
+            cardReady={isScenePosterVisible}
             sceneImageStatus={sceneImageStatus}
             hasProductionQuota={hasPlusProductionQuota}
             showShare={showShareAction}
@@ -736,14 +759,14 @@ export default function StandaloneObservationExperience({
       <div
         className={cn(
           ms.dailyStage,
-          'min-h-0 flex-1',
+          'overflow-x-hidden overflow-y-auto',
           dailyStatus === 'idle' ||
-          dailyStatus === 'insufficient' ||
-          dailyStatus === 'error' ||
-          dailyStatus === 'daily_limit' ||
-          dailyStatus === 'plus_limit'
-            ? 'justify-center gap-0 overflow-x-hidden overflow-y-auto py-0 sm:gap-0 sm:py-1'
-            : 'justify-center overflow-y-auto'
+            dailyStatus === 'insufficient' ||
+            dailyStatus === 'error' ||
+            dailyStatus === 'daily_limit' ||
+            dailyStatus === 'plus_limit'
+            ? 'gap-0 py-0 sm:gap-0 sm:py-1'
+            : undefined
         )}
       >
         {renderDailyPanel()}
