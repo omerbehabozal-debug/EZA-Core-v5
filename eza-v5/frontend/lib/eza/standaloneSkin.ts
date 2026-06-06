@@ -128,36 +128,49 @@ export const standaloneSkin = {
     tabIdle: 'text-stone-500 hover:text-stone-700',
     dailyStage:
       'flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-5 px-3 py-3 sm:gap-6 sm:px-4 sm:py-5',
-    /** Ready poster — top-align so card header is not clipped under nav. */
+    /** Ready poster — optically centered; minimal action row keeps stack within viewport. */
     dailyStageReady:
-      'justify-start pt-1 sm:pt-2',
+      'justify-center py-2 sm:py-3',
     dailyReadyStack:
       'flex w-full min-h-0 flex-1 flex-col items-center justify-start gap-3 sm:gap-4',
+    dailyReadyStackPoster:
+      'flex-1 justify-center gap-2',
+    dailyReadyStackLoading:
+      'flex-1 justify-center',
     dailyReadyColumn:
-      'flex w-full min-h-0 max-w-[min(100%,clamp(20rem,42vw,32.5rem))] flex-col items-center justify-start gap-4 sm:gap-5',
-    /** 9:16 in-app poster — width capped by viewport minus nav + actions (17rem). */
+      'flex w-full min-h-0 max-w-[min(100%,clamp(22rem,48vw,36rem))] flex-col items-center justify-start gap-4 sm:gap-5',
+    /** 9:16 in-app poster — larger focus card; 13rem reserves nav + minimal icon actions. */
     dailyPosterFrame:
-      'w-full shrink-0 mx-auto max-h-[calc(100dvh-17rem)] [width:min(100%,clamp(20rem,42vw,32.5rem),calc((100dvh-17rem)*9/16))]',
+      'w-full shrink-0 mx-auto max-h-[calc(100dvh-13rem)] [width:min(100%,clamp(22rem,48vw,36rem),calc((100dvh-13rem)*9/16))]',
     mirrorLoadingRoot:
-      'flex min-h-[min(48vh,380px)] w-full max-w-[min(100%,22rem)] flex-col items-center justify-center px-6 py-10 text-center sm:min-h-[min(44vh,360px)]',
+      'flex min-h-[min(58vh,460px)] w-full max-w-[min(100%,26rem)] flex-col items-center justify-center px-8 py-12 text-center sm:min-h-[min(62vh,500px)]',
     mirrorLoadingRing: [
-      'relative mb-5 flex h-14 w-14 items-center justify-center rounded-full',
-      'border border-violet-200/30 bg-white/70 shadow-[0_0_40px_rgba(139,92,246,0.14)]',
+      'relative mb-6 flex h-16 w-16 items-center justify-center rounded-full',
+      'border border-violet-200/30 bg-white/70 shadow-[0_0_48px_rgba(139,92,246,0.16)]',
       'before:absolute before:inset-0 before:rounded-full before:border before:border-amber-200/25',
       'before:animate-ping before:opacity-25 motion-reduce:before:animate-none',
     ].join(' '),
     mirrorLoadingTitle:
-      'text-[15px] font-semibold tracking-[0.06em] text-stone-800 sm:text-base',
+      'text-[clamp(1.125rem,3.5vw,1.375rem)] font-semibold tracking-[0.05em] text-stone-800',
     mirrorLoadingSubtitle:
-      'mt-2 max-w-[18rem] text-[12px] font-medium leading-relaxed text-stone-500',
+      'mt-3 max-w-[20rem] text-[13px] font-medium leading-relaxed text-stone-500 sm:text-sm',
     mirrorLoadingSteps:
-      'mt-6 flex w-full max-w-[15rem] flex-col gap-2 text-left',
+      'mt-8 flex w-full max-w-[18rem] flex-col gap-3 text-left',
     mirrorLoadingStep:
-      'flex items-center gap-2 text-[10px] font-medium tracking-wide text-stone-400 transition-colors duration-500',
+      'flex items-center gap-2.5 text-[12px] font-medium tracking-wide text-stone-400 transition-colors duration-500 sm:text-[13px]',
     mirrorLoadingStepActive: 'text-violet-800/90',
     mirrorLoadingStepDone: 'text-stone-500/80',
     mirrorLoadingStepDot:
-      'h-1.5 w-1.5 shrink-0 rounded-full bg-stone-300 transition-colors duration-500',
+      'h-2 w-2 shrink-0 rounded-full bg-stone-300 transition-colors duration-500',
+    mirrorActionRow:
+      'flex w-full max-w-xs items-center justify-center gap-1.5 pt-1 opacity-55 transition-opacity duration-300 hover:opacity-100 sm:gap-2',
+    mirrorIconBtn: [
+      'inline-flex h-9 w-9 items-center justify-center rounded-full',
+      'border border-stone-200/35 bg-white/55 text-stone-500',
+      'transition-colors hover:border-violet-200/45 hover:bg-white/90 hover:text-violet-800',
+      'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/50',
+      'disabled:cursor-not-allowed disabled:opacity-40',
+    ].join(' '),
     idleRoot:
       'flex min-h-[min(48vh,380px)] w-full flex-col items-center justify-center px-6 py-14 text-center sm:min-h-[min(52vh,420px)]',
     shareAction:

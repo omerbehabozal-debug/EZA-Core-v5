@@ -52,7 +52,7 @@ export default function MirrorLoadingExperience({
       aria-label={headline}
     >
       <div className={ms.mirrorLoadingRing} aria-hidden>
-        <Sparkles className="h-5 w-5 text-amber-100/90" strokeWidth={1.5} />
+        <Sparkles className="h-6 w-6 text-amber-100/90" strokeWidth={1.5} />
       </div>
 
       <p className={ms.mirrorLoadingTitle}>{headline}</p>

@@ -29,6 +29,8 @@ export type DailyMirrorReadyFooterProps = {
   onUpgrade?: () => void;
   showLoginPrimary?: boolean;
   onLogin?: () => void;
+  /** Only login CTA — hides ephemeral, quota, pattern and hint copy. */
+  loginOnly?: boolean;
   className?: string;
 };
 
@@ -41,8 +43,20 @@ export default function DailyMirrorReadyFooter({
   onUpgrade,
   showLoginPrimary = false,
   onLogin,
+  loginOnly = false,
   className,
 }: DailyMirrorReadyFooterProps) {
+  if (loginOnly) {
+    if (!showLoginPrimary || !onLogin) return null;
+    return (
+      <div className={cn('flex w-full max-w-sm flex-col items-center gap-2.5', className)}>
+        <button type="button" onClick={onLogin} className={actionBtnClass}>
+          {PLAN_UPGRADE_LOGIN_CTA}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('flex w-full max-w-sm flex-col items-center gap-2.5', className)}>
       {sceneStatusHint ? (
@@ -53,9 +67,11 @@ export default function DailyMirrorReadyFooter({
           {sceneStatusHint}
         </p>
       ) : null}
-      <p className={cn(ms.sceneWrap, 'text-center text-[11px] leading-relaxed text-stone-500')}>
-        {ephemeralNote}
-      </p>
+      {ephemeralNote ? (
+        <p className={cn(ms.sceneWrap, 'text-center text-[11px] leading-relaxed text-stone-500')}>
+          {ephemeralNote}
+        </p>
+      ) : null}
       {secondaryHint ? (
         <p className={cn(ms.sceneWrap, 'text-center text-[11px] text-stone-500')}>{secondaryHint}</p>
       ) : null}

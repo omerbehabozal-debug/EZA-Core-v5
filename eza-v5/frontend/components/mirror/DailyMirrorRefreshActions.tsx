@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Download, Loader2, Share2 } from 'lucide-react';
+import { Download, Loader2, Share2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MIRROR_CURRENT_BADGE,
@@ -50,6 +50,8 @@ export type DailyMirrorRefreshActionsProps = {
   onShare?: () => void;
   onDownload?: () => void;
   freePlusHint?: string;
+  /** Poster-visible ready state — icon-only action row, no badge or hint copy. */
+  minimal?: boolean;
   children?: ReactNode;
   className?: string;
 };
@@ -99,11 +101,63 @@ export default function DailyMirrorRefreshActions({
   onShare,
   onDownload,
   freePlusHint,
+  minimal = false,
   children,
   className,
 }: DailyMirrorRefreshActionsProps) {
   const showNewScene =
     isPlus && cardReady && refreshCta === 'current' && typeof onNewScene === 'function';
+
+  if (refreshCta === 'current' && minimal) {
+    const hasActions = showShare || showDownload || showNewScene;
+    if (!hasActions) return null;
+
+    const isGenerating = sceneImageStatus === 'generating';
+
+    return (
+      <div className={cn(ms.mirrorActionRow, className)} role="toolbar" aria-label="Ayna işlemleri">
+        {showShare && onShare ? (
+          <button
+            type="button"
+            onClick={onShare}
+            className={ms.mirrorIconBtn}
+            aria-label={MIRROR_SHARE_LABEL}
+            title={MIRROR_SHARE_LABEL}
+          >
+            <Share2 className="h-4 w-4 opacity-90" aria-hidden />
+          </button>
+        ) : null}
+        {showDownload && onDownload ? (
+          <button
+            type="button"
+            onClick={onDownload}
+            className={ms.mirrorIconBtn}
+            aria-label={MIRROR_SHARE_DOWNLOAD_LABEL}
+            title={MIRROR_SHARE_DOWNLOAD_LABEL}
+          >
+            <Download className="h-4 w-4 opacity-80" aria-hidden />
+          </button>
+        ) : null}
+        {showNewScene && onNewScene ? (
+          <button
+            type="button"
+            onClick={onNewScene}
+            disabled={!canRequestNewSceneVariation(true, sceneImageStatus, hasProductionQuota)}
+            className={ms.mirrorIconBtn}
+            aria-label={isGenerating ? MIRROR_SCENE_GENERATING : MIRROR_NEW_SCENE_LABEL}
+            title={isGenerating ? MIRROR_SCENE_GENERATING : MIRROR_NEW_SCENE_LABEL}
+            aria-busy={isGenerating}
+          >
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <Sparkles className="h-4 w-4 opacity-80" aria-hidden />
+            )}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
 
   if (refreshCta === 'current') {
     return (

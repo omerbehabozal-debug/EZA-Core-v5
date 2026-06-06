@@ -39,14 +39,16 @@ describe('P4-D access gates (source)', () => {
     expect(experienceSrc).toMatch(/isPlus &&[\s\S]*shareEnabled/);
   });
 
-  it('shows plan-specific ephemeral copy', () => {
-    expect(experienceSrc).toContain('MIRROR_EPHEMERAL_PLUS');
-    expect(experienceSrc).toContain('MIRROR_EPHEMERAL_FREE');
-    expect(experienceSrc).toContain('DailyMirrorReadyFooter');
+  it('keeps ephemeral and pattern copy in footer but hides them in premium poster ready state', () => {
+    expect(copySrc).toContain('MIRROR_EPHEMERAL_PLUS');
+    expect(copySrc).toContain('MIRROR_EPHEMERAL_FREE');
     expect(footerSrc).toContain('MIRROR_PATTERN_ROUTE');
     expect(footerSrc).toContain('MIRROR_PATTERN_REDIRECT');
-    expect(footerSrc).toContain('showLoginPrimary');
-    expect(footerSrc).toContain('MIRROR_SCENE_LOGIN_HINT');
+    expect(footerSrc).toContain('loginOnly');
+    expect(experienceSrc).toContain('minimal={isScenePosterVisible}');
+    expect(experienceSrc).toContain('loginOnly');
+    expect(experienceSrc).not.toContain('MIRROR_EPHEMERAL_PLUS');
+    expect(experienceSrc).not.toContain('formatPlusMirrorQuotaHint');
   });
 
   it('wires Plus production quota', () => {

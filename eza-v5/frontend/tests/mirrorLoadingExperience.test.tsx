@@ -45,8 +45,15 @@ describe('MirrorLoadingExperience', () => {
 
   it('daily stage and poster frame support viewport-centered layout', () => {
     expect(skinSrc).toContain('dailyPosterFrame');
-    expect(skinSrc).toContain('100dvh-17rem');
+    expect(skinSrc).toContain('100dvh-13rem');
     expect(skinSrc).toContain('dailyStageReady');
-    expect(skinSrc).toContain('justify-start');
+    expect(skinSrc).toContain('justify-center');
+    expect(skinSrc).toContain('dailyReadyStackPoster');
+    expect(skinSrc).toContain('mirrorActionRow');
+  });
+
+  it('StandaloneObservationExperience uses premium minimal actions when poster is visible', () => {
+    expect(experienceSrc).toContain('minimal={isScenePosterVisible}');
+    expect(experienceSrc).toMatch(/!isSceneLoading \?/);
   });
 });

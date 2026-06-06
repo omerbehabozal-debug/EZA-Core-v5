@@ -4,12 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
-  MIRROR_EPHEMERAL_FREE,
-  MIRROR_EPHEMERAL_PLUS,
-  MIRROR_FREE_SHARE_POSTER_HINT,
   MIRROR_REVEAL_DURATION_MS,
-  MIRROR_SCENE_GENERATING,
-  MIRROR_SCENE_UNAVAILABLE,
   PLUS_MIRROR_QUOTA_EXCEEDED_BODY,
   PLUS_MIRROR_QUOTA_EXCEEDED_TITLE,
 } from '@/lib/eza/mirror/copy';
@@ -77,7 +72,6 @@ import {
 import {
   canConsumePlusMirrorProduction,
   consumePlusMirrorProduction,
-  formatPlusMirrorQuotaHint,
   getPlusMirrorProductionRemaining,
 } from '@/lib/eza/plan/plusMirrorDailyUsage';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
@@ -597,33 +591,21 @@ export default function StandaloneObservationExperience({
 
   const showDownloadAction = showShareAction;
 
-  const sceneStatusHint = useMemo(() => {
-    if (sceneImageStatus === 'generating') return MIRROR_SCENE_GENERATING;
-    if (sceneImageStatus === 'error') return MIRROR_SCENE_UNAVAILABLE;
-    if (dailyStatus === 'ready' && !sceneImageUrl && sceneImageStatus === 'idle') {
-      return MIRROR_SCENE_GENERATING;
-    }
-    return undefined;
-  }, [dailyStatus, sceneImageStatus, sceneImageUrl]);
-
   const showSceneLoginCta =
     !isAuthenticated &&
     dailyStatus === 'ready' &&
     !sceneImageUrl &&
     sceneImageStatus !== 'generating';
 
-  const readyFooter = (
-    <DailyMirrorReadyFooter
-      ephemeralNote={isPlus ? MIRROR_EPHEMERAL_PLUS : MIRROR_EPHEMERAL_FREE}
-      secondaryHint={!isPlus ? MIRROR_FREE_SHARE_POSTER_HINT : undefined}
-      plusQuotaHint={isPlus ? formatPlusMirrorQuotaHint(plusProductionRemaining) : undefined}
-      sceneStatusHint={sceneStatusHint}
-      showLoginPrimary={showSceneLoginCta}
-      onLogin={() => openUpgrade('auth_required')}
-      showFreeUpgradePrimary={!isPlus && isAuthenticated}
-      onUpgrade={() => openUpgrade('upgrade')}
-    />
-  );
+  const readyLoginCta =
+    showSceneLoginCta ? (
+      <DailyMirrorReadyFooter
+        ephemeralNote=""
+        loginOnly
+        showLoginPrimary
+        onLogin={() => openUpgrade('auth_required')}
+      />
+    ) : null;
 
   const readyRefreshCta: Exclude<MirrorRefreshCta, 'open_first'> =
     refreshCta === 'open_first' ? 'current' : refreshCta;
@@ -662,7 +644,13 @@ export default function StandaloneObservationExperience({
 
     if (dailyStatus === 'ready' && cardForRender) {
       return (
-        <div className={ms.dailyReadyStack}>
+        <div
+          className={cn(
+            ms.dailyReadyStack,
+            isScenePosterVisible && ms.dailyReadyStackPoster,
+            isSceneLoading && ms.dailyReadyStackLoading
+          )}
+        >
           {isSceneLoading ? (
             <MirrorLoadingExperience sceneImageStatus={sceneImageStatus} />
           ) : isScenePosterVisible ? (
@@ -696,22 +684,25 @@ export default function StandaloneObservationExperience({
             </DailyMirrorCardEntrance>
           ) : null}
 
-          <DailyMirrorRefreshActions
-            refreshCta={readyRefreshCta}
-            isPlus={isPlus}
-            cardReady={isScenePosterVisible}
-            sceneImageStatus={sceneImageStatus}
-            hasProductionQuota={hasPlusProductionQuota}
-            showShare={showShareAction}
-            showDownload={showDownloadAction}
-            onShare={handleShareOpen}
-            onDownload={() => void handleCardDownload()}
-            onUpdate={handleMirrorRefresh}
-            onNewScene={handleNewMirrorScene}
-            activeStyleLensLabel={isPlus ? activeStyleLensLabel : undefined}
-          >
-            {readyFooter}
-          </DailyMirrorRefreshActions>
+          {!isSceneLoading ? (
+            <DailyMirrorRefreshActions
+              refreshCta={readyRefreshCta}
+              isPlus={isPlus}
+              cardReady={isScenePosterVisible}
+              sceneImageStatus={sceneImageStatus}
+              hasProductionQuota={hasPlusProductionQuota}
+              showShare={showShareAction}
+              showDownload={showDownloadAction}
+              onShare={handleShareOpen}
+              onDownload={() => void handleCardDownload()}
+              onUpdate={handleMirrorRefresh}
+              onNewScene={handleNewMirrorScene}
+              activeStyleLensLabel={isPlus ? activeStyleLensLabel : undefined}
+              minimal={isScenePosterVisible}
+            >
+              {readyLoginCta}
+            </DailyMirrorRefreshActions>
+          ) : null}
         </div>
       );
     }
