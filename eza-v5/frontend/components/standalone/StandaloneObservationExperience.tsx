@@ -658,7 +658,7 @@ export default function StandaloneObservationExperience({
               />
               {isPlus ? (
                 <div
-                  className="pointer-events-none fixed left-[-9999px] top-0 z-[-1] w-full max-w-[28rem] opacity-100"
+                  className="pointer-events-none fixed left-[-9999px] top-0 z-[-1] w-[432px] max-w-none opacity-100"
                   aria-hidden
                 >
                   <DailyMirrorSharePoster

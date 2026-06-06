@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
+import { Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { DailyMirrorCardModel, MirrorSceneImageStatus } from '@/lib/eza/mirror/types';
 import {
   buildPosterCardContent,
@@ -88,21 +90,37 @@ export default function DailyMirrorSharePoster({
 
       <div className={skin.overlayStack}>
         <header className={skin.shareMasthead}>
-          <span className={skin.shareMastheadBrand}>EZA · AI İlişki Aynası</span>
+          <span className={cn(skin.shareMastheadBrand, 'inline-flex items-center gap-1')}>
+            <Sparkles className="h-2.5 w-2.5 text-amber-200/80" aria-hidden />
+            EZA · AI İlişki Aynası
+          </span>
           <span className={skin.shareMastheadDate}>{card.dayLabel}</span>
         </header>
 
         <div className="min-h-0 flex-1" aria-hidden />
 
-        <section className={skin.shareIdentityZone} aria-label={avatarName || 'Kimlik'}>
+        <section
+          className={cn(
+            skin.shareIdentityZone,
+            'mx-auto max-w-[92%] items-center justify-center text-center'
+          )}
+          aria-label={avatarName || 'Kimlik'}
+        >
           {avatarName ? (
-            <h2 className={skin.shareAvatarName}>{avatarName}</h2>
+            <h2
+              className={cn(
+                skin.shareAvatarName,
+                'font-serif text-[clamp(1.75rem,9vw,2.65rem)]'
+              )}
+            >
+              {avatarName}
+            </h2>
           ) : null}
           {momentDisplay ? (
-            <p className={skin.shareMirrorMoment}>{momentDisplay}</p>
+            <p className={cn(skin.shareMirrorMoment, 'mx-auto max-w-[88%]')}>{momentDisplay}</p>
           ) : null}
           {themeTitle ? (
-            <p className={skin.shareThemeLine}>
+            <p className={cn(skin.shareThemeLine, 'mx-auto max-w-[90%]')}>
               <span className={skin.shareThemeTitle}>{themeTitle}</span>
               {themeSubtitle ? (
                 <span className={skin.shareThemeSubtitle}> · {themeSubtitle}</span>

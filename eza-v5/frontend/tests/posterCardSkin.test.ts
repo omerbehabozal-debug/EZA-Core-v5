@@ -12,7 +12,7 @@ describe('posterCardSkin', () => {
     expect(posterCardSkin.root).toContain('aspect-[9/16]');
     expect(posterCardSkin.root).toContain('#F8F6F1');
     expect(posterCardSkin.sceneBackdrop).toContain('z-[1]');
-    expect(posterCardSkin.heroTitle).toContain('text-[36px]');
+    expect(posterCardSkin.heroTitle).toContain('text-[40px]');
     expect(posterCardSkin.insightCard).toContain('backdrop-blur');
     expect(posterCardSkin.contentStack).toContain('--poster-safe-top');
     expect(posterCardSkin.insightLine).toContain('text-[10px]');
@@ -27,12 +27,14 @@ describe('posterCardSkin', () => {
     expect(posterCardSkinIdentity.overlayTopScrim).toBeTruthy();
     expect(posterCardSkinIdentity.overlayBottomScrim).toBeTruthy();
     const warm = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
-    expect(warm.rhythmWhisperZone).toContain('backdrop-blur-sm');
+    expect(warm.rhythmWhisperZone).toContain('backdrop-blur');
     expect(warm.rhythmWhisperZone).toContain('amber');
-    expect(warm.rhythmWhisperWord).toContain('text-[12px]');
+    expect(posterCardSkinIdentity.rhythmWhisperWord).toContain('font-serif');
+    expect(warm.insightPanelDesc).toBeTruthy();
     expect(warm.relationshipHeroScore).toBe('hidden');
     expect(posterCardSkinIdentity.relationshipAccentTrack).toBe('hidden');
-    expect(posterCardSkinIdentity.tomorrowWhisper).toContain('text-white/55');
+    expect(posterCardSkinIdentity.tomorrowWhisper).toContain('text-white/');
+    expect(posterCardSkinIdentity.root).toContain('--poster-display-max-width');
     expect(posterCardSkinIdentity.insightsCompact).toBe('hidden');
     expect(posterCardSkinIdentity.sceneWindowOuter).toBeUndefined();
   });

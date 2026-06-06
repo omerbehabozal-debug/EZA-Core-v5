@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Calendar, Sparkles } from 'lucide-react';
+import { Calendar, Flame, Sparkles, User, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DailyMirrorCardModel, MirrorStateMeta } from '@/lib/eza/mirror/types';
 import {
@@ -17,7 +17,7 @@ import {
   buildEditorialReadabilityVars,
   getEditorialContrast,
 } from '@/lib/eza/mirror/posterReadabilitySystem';
-import { POSTER_CARD_WIDTH_PX, getPosterCardSkin } from '@/lib/eza/mirror/posterCardSkin';
+import { getPosterCardSkin } from '@/lib/eza/mirror/posterCardSkin';
 import { resolvePosterSceneTone } from '@/lib/eza/mirror/posterSceneTone';
 import {
   buildPremiumPosterCssVars,
@@ -26,7 +26,6 @@ import {
 } from '@/lib/eza/mirror/posterPaletteSystem';
 import PosterIdentityHeadline from '@/components/mirror/PosterIdentityHeadline';
 import FullCanvasScene from '@/components/mirror/FullCanvasScene';
-import PosterReflectionSummary from '@/components/mirror/PosterReflectionSummary';
 import PosterTomorrowHint from '@/components/mirror/PosterTomorrowHint';
 import MirrorLiveDebugPanel from '@/components/mirror/MirrorLiveDebugPanel';
 import {
@@ -36,6 +35,27 @@ import {
   shouldUseHybridPosterLayout,
 } from '@/lib/eza/mirror/mirrorPosterLayout';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
+
+function rhythmInsightDescription(statusWord: string): string {
+  const map: Record<string, string> = {
+    Güçleniyor: 'Bugünkü akışın daha da dengeleniyor.',
+    Dengeleniyor: 'Bugünkü akışın daha da dengeleniyor.',
+    Derinleşiyor: 'Bugünkü sohbetin daha derin bir iz bırakıyor.',
+    Akışta: 'Bugünkü tempo akıcı ve ölçülü.',
+    Sakinleşiyor: 'Bugünkü tempo sakin ve dengeli.',
+  };
+  return map[statusWord] ?? 'Bugünkü akışın daha da dengeleniyor.';
+}
+
+function resolveMirrorScores(card: DailyMirrorCardModel): { sen: number; ai: number } {
+  const sen =
+    card.energyScore !== null && Number.isFinite(card.energyScore)
+      ? Math.round(Math.min(100, Math.max(0, card.energyScore)))
+      : 78;
+  const weightBoost = Math.round((card.reflectionWeight ?? 0.5) * 12);
+  const ai = Math.min(100, Math.max(sen, sen + 4 + weightBoost));
+  return { sen, ai };
+}
 
 export type DailyMirrorPosterCardProps = {
   card: DailyMirrorCardModel;
@@ -108,10 +128,16 @@ export default function DailyMirrorPosterCard({
     () => getPosterCardSkin(palette, 'identity_first', sceneTone.id),
     [palette, sceneTone.id]
   );
+  const scores = useMemo(() => resolveMirrorScores(card), [card]);
+  const rhythmDescription = useMemo(
+    () => rhythmInsightDescription(content.rhythm.word),
+    [content.rhythm.word]
+  );
+
   const cardStyle = useMemo(
     () => ({
-      maxWidth: POSTER_CARD_WIDTH_PX,
       width: '100%',
+      maxWidth: 'var(--poster-display-max-width, 100%)',
       ...buildPosterEditorialCssVars(),
       ...buildPosterCompositionStyle(composition),
       ...(palette === 'premium_light_editorial'
@@ -121,12 +147,6 @@ export default function DailyMirrorPosterCard({
     }),
     [composition, editorial, palette]
   );
-
-  const reflectionProps = {
-    rhythm: content.rhythm,
-    skin,
-    isSparse,
-  };
 
   return (
     <article
@@ -161,7 +181,7 @@ export default function DailyMirrorPosterCard({
       <div className={skin.grain} aria-hidden />
 
       <div className={skin.overlayStack}>
-        <header className={cn(skin.overlayHeader, 'flex items-start justify-between')}>
+        <header className={skin.overlayHeader}>
           {showHybridFallback && cardRenderMode === 'hybrid_middle' ? (
             <p
               className="mb-1 w-full rounded-md border border-amber-300/50 bg-amber-950/40 px-2 py-1 text-[9px] font-medium text-amber-50 backdrop-blur-md"
@@ -170,14 +190,14 @@ export default function DailyMirrorPosterCard({
               Hybrid typography generation failed — fallback overlay active
             </p>
           ) : null}
-          <p className={cn(skin.logoText, 'flex items-center gap-1.5')}>
+          <p className={cn(skin.logoText, 'flex items-center gap-1.5 tracking-[0.18em]')}>
             <span className={skin.logoMark}>
-              <Sparkles className="h-2 w-2" strokeWidth={1.75} aria-hidden />
+              <Sparkles className="h-2.5 w-2.5" strokeWidth={1.75} aria-hidden />
             </span>
             EZA · AI İlişki Aynası
           </p>
-          <p className={skin.datePill}>
-            <Calendar className="mr-0.5 inline h-2 w-2 opacity-80" aria-hidden />
+          <p className={cn(skin.datePill, 'flex items-center gap-1 tabular-nums')}>
+            <Calendar className="h-2.5 w-2.5 opacity-75" aria-hidden />
             {card.dayLabel}
           </p>
         </header>
@@ -186,7 +206,38 @@ export default function DailyMirrorPosterCard({
 
         <div className="min-h-0 flex-1" aria-hidden />
 
-        <PosterReflectionSummary {...reflectionProps} />
+        {!isSparse ? (
+          <section
+            className={skin.rhythmWhisperZone ?? skin.overlayReflection}
+            aria-label="İlişki ritmi"
+          >
+            <p className={cn(skin.rhythmWhisperEyebrow, 'flex items-center gap-1.5')}>
+              <Flame className="h-3 w-3 text-amber-300/80" aria-hidden />
+              {content.rhythm.eyebrow}
+            </p>
+            <p
+              className={cn(
+                skin.rhythmWhisperWord,
+                'text-[22px] font-bold leading-none font-serif'
+              )}
+            >
+              {content.rhythm.word}
+            </p>
+            <p className={skin.insightPanelDesc}>{rhythmDescription}</p>
+            <div className={skin.insightPanelScores}>
+              <span className={skin.insightPanelScoreItem}>
+                <User className="h-3 w-3 text-white/70" aria-hidden />
+                Sen
+                <span className={skin.insightPanelScoreValue}>{scores.sen}</span>
+              </span>
+              <span className={skin.insightPanelScoreItem}>
+                <Bot className="h-3 w-3 text-white/70" aria-hidden />
+                AI
+                <span className={skin.insightPanelScoreValue}>{scores.ai}</span>
+              </span>
+            </div>
+          </section>
+        ) : null}
 
         <div className={cn(skin.overlayFooter, 'flex min-h-0 flex-col justify-end gap-1.5')}>
           <PosterTomorrowHint

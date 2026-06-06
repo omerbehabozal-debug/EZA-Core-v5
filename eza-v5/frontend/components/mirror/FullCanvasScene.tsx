@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
 import type { MirrorSceneImageStatus } from '@/lib/eza/mirror/types';
 import type { MirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
@@ -40,6 +40,10 @@ export default function FullCanvasScene({
   onSceneImageError,
 }: FullCanvasSceneProps) {
   const isGenerating = sceneImageStatus === 'generating';
+  const isAwaitingScene =
+    !isGenerating &&
+    sceneImageStatus !== 'error' &&
+    !sceneImageUrl?.trim();
 
   return (
     <div className={skin.fullCanvasLayer} aria-hidden>
@@ -54,10 +58,24 @@ export default function FullCanvasScene({
         onSceneImageLoad={onSceneImageLoad}
         onSceneImageError={onSceneImageError}
       />
+      {isAwaitingScene && skin.fullCanvasAwaiting ? (
+        <div className={skin.fullCanvasAwaiting} role="status" aria-live="polite">
+          <div className={skin.fullCanvasGeneratingRing ?? ''}>
+            <Sparkles className="h-5 w-5 text-amber-100/90" strokeWidth={1.5} aria-hidden />
+          </div>
+          <p className={skin.fullCanvasAwaitingTitle}>Ayna oluşuyor</p>
+          <p className={skin.fullCanvasAwaitingText}>Sahnen sakin bir ışıkla hazırlanıyor…</p>
+        </div>
+      ) : null}
       {isGenerating ? (
         <div className={skin.fullCanvasGenerating} role="status" aria-live="polite">
-          <Loader2 className="h-5 w-5 animate-spin text-white/80" aria-hidden />
-          <p className={skin.fullCanvasGeneratingText}>Sahne hazırlanıyor…</p>
+          <div className={skin.fullCanvasGeneratingRing ?? ''}>
+            <Loader2 className="h-5 w-5 animate-spin text-amber-50/90" aria-hidden />
+          </div>
+          <p className={skin.fullCanvasGeneratingTitle ?? skin.fullCanvasGeneratingText}>
+            Sahne hazırlanıyor
+          </p>
+          <p className={skin.fullCanvasGeneratingText}>EZA aynanı sinematik bir sahneyle tamamlıyor…</p>
         </div>
       ) : null}
     </div>

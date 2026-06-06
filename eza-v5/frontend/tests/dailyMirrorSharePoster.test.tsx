@@ -73,7 +73,8 @@ describe('DailyMirrorSharePoster P4-C4', () => {
 
   it('in-app DailyMirrorPosterCard root unchanged', () => {
     expect(posterSrc).toContain('data-mirror-card-root');
-    expect(posterSrc).toContain('PosterReflectionSummary');
+    expect(posterSrc).toContain('rhythmWhisperZone');
+    expect(posterSrc).toContain('İlişki ritmi');
     expect(posterSrc).not.toContain('data-mirror-share-root');
   });
 });

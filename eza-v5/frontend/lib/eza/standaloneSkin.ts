@@ -127,9 +127,9 @@ export const standaloneSkin = {
     tabActive: 'bg-white text-stone-800 shadow-[0_1px_8px_-2px_rgba(0,0,0,0.08)] ring-1 ring-stone-200/45',
     tabIdle: 'text-stone-500 hover:text-stone-700',
     dailyStage:
-      'flex w-full min-w-0 flex-col items-center gap-10 py-2 sm:gap-12 sm:py-6',
+      'flex w-full min-w-0 flex-col items-center gap-8 py-2 sm:gap-12 sm:py-6',
     dailyReadyStack:
-      'flex w-full max-w-[min(100%,28rem)] flex-col items-center gap-5 sm:max-w-lg sm:gap-6',
+      'flex w-full max-w-[min(100%,clamp(20rem,42vw,32.5rem))] flex-col items-center gap-5 sm:gap-6',
     idleRoot:
       'flex min-h-[min(48vh,380px)] w-full flex-col items-center justify-center px-6 py-14 text-center sm:min-h-[min(52vh,420px)]',
     shareAction:

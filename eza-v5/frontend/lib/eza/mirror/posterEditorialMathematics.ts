@@ -8,6 +8,13 @@ export const POSTER_SCALE = 2.5;
 export const POSTER_PREVIEW_WIDTH_PX = 432;
 export const POSTER_PREVIEW_HEIGHT_PX = 768;
 
+/** In-app display cap (export capture still uses preview baseline). */
+export const POSTER_DISPLAY_MAX_PX = 520;
+
+/** Responsive width: mobile-safe, desktop hero poster. */
+export const POSTER_DISPLAY_MAX_WIDTH_CSS =
+  'min(100%, clamp(20rem, 42vw, 32.5rem))';
+
 export const POSTER_EXPORT_WIDTH_PX = 1080;
 export const POSTER_EXPORT_HEIGHT_PX = 1920;
 
@@ -94,13 +101,14 @@ export const POSTER_RADIUS_PREVIEW = {
 } as const;
 
 export const POSTER_TYPE_PREVIEW = {
-  headline: { size: 36, weight: 800, lineHeight: 0.94 },
+  headline: { size: 40, weight: 800, lineHeight: 0.94 },
   story: { size: 14, weight: 500, lineHeight: 1.4 },
   quote: { size: 16, weight: 500, lineHeight: 1.3 },
   label: { size: 9, weight: 600, tracking: '0.14em' },
   footer: { size: 9, weight: 600, tracking: '0.12em' },
   insightTitle: { size: 8, weight: 600 },
   insightBody: { size: 10, weight: 500 },
+  insightStatus: { size: 22, weight: 700, lineHeight: 1.1 },
 } as const;
 
 export const POSTER_SHADOWS = {
@@ -150,5 +158,6 @@ export function buildPosterEditorialCssVars(): Record<string, string> {
     ['--poster-content-pad' as string]: `${GRID_PREVIEW.outerPadding}px`,
     ['--poster-accent-glow' as string]: 'rgba(123, 97, 255, 0.1)',
     ['--poster-zone-rows' as string]: POSTER_ZONE_GRID_ROWS,
+    ['--poster-display-max-width' as string]: POSTER_DISPLAY_MAX_WIDTH_CSS,
   };
 }

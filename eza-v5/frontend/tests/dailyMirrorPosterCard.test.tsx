@@ -80,6 +80,8 @@ describe('DailyMirrorPosterCard P4-B full-canvas', () => {
   it('FullCanvasScene uses bleed layout and absolute inset-0 layer', () => {
     expect(fullCanvasSrc).toContain('layout="bleed"');
     expect(fullCanvasSrc).toContain('fullCanvasLayer');
+    expect(fullCanvasSrc).toContain('fullCanvasGeneratingRing');
+    expect(fullCanvasSrc).toContain('fullCanvasAwaiting');
     const warmSkin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
     expect(warmSkin.fullCanvasLayer).toContain('absolute inset-0');
     expect(warmSkin.overlayStack).toContain('relative z-10');
@@ -128,7 +130,8 @@ describe('DailyMirrorPosterCard P4-B full-canvas', () => {
     expect(reflectionSrc).not.toContain('senMicro');
     expect(reflectionSrc).not.toContain('aiMicro');
     expect(reflectionSrc).not.toContain('MiniInsight');
-    expect(posterSrc).toContain('rhythm: content.rhythm');
+    expect(posterSrc).toContain('content.rhythm');
+    expect(posterSrc).toContain('rhythmWhisperZone');
     expect(warmSkin.relationshipHeroScore).toBe('hidden');
     expect(warmSkin.relationshipAccentTrack).toBe('hidden');
 
