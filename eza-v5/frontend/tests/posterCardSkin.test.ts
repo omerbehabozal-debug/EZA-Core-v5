@@ -3,9 +3,15 @@ import {
   posterCardSkin,
   posterCardSkinIdentity,
   getPosterCardSkin,
+  sharePosterReadabilityLayers,
+  sharePosterReadabilityText,
   POSTER_CARD_WIDTH_PX,
   POSTER_SCENE_DOMINANCE_RATIO,
 } from '@/lib/eza/mirror/posterCardSkin';
+import {
+  POSTER_READABILITY_SHADOW,
+  POSTER_RHYTHM_GLASS,
+} from '@/lib/eza/mirror/posterEditorialMathematics';
 
 describe('posterCardSkin', () => {
   it('uses 9:16 premium editorial math tokens (Sprint 12A)', () => {
@@ -33,9 +39,33 @@ describe('posterCardSkin', () => {
     expect(warm.insightPanelDesc).toBeTruthy();
     expect(warm.relationshipHeroScore).toBe('hidden');
     expect(posterCardSkinIdentity.relationshipAccentTrack).toBe('hidden');
-    expect(posterCardSkinIdentity.tomorrowWhisper).toContain('text-white/');
+    expect(posterCardSkinIdentity.tomorrowWhisper).toContain('text-[#EDE9E3]');
     expect(posterCardSkinIdentity.root).toContain('--poster-display-max-width');
     expect(posterCardSkinIdentity.insightsCompact).toBe('hidden');
     expect(posterCardSkinIdentity.sceneWindowOuter).toBeUndefined();
+  });
+
+  it('identity skin applies readability scrim, glass panel and text-shadow stacks', () => {
+    expect(posterCardSkinIdentity.overlayTopScrim).toContain('h-[34%]');
+    expect(posterCardSkinIdentity.overlayBottomScrim).toContain('h-[62%]');
+    expect(posterCardSkinIdentity.overlayHeader).toContain('backdrop-blur');
+    expect(posterCardSkinIdentity.overlayIdentity).toContain('radial-gradient');
+    expect(posterCardSkinIdentity.identityAvatarName).toContain(
+      POSTER_READABILITY_SHADOW.headline
+    );
+    expect(posterCardSkinIdentity.identityMirrorMoment).toContain(
+      POSTER_READABILITY_SHADOW.quote
+    );
+    expect(posterCardSkinIdentity.logoText).toContain(POSTER_READABILITY_SHADOW.masthead);
+    expect(posterCardSkinIdentity.rhythmWhisperZone).toContain(POSTER_RHYTHM_GLASS);
+    expect(posterCardSkinIdentity.rhythmWhisperZone).toContain('backdrop-blur-3xl');
+    expect(posterCardSkinIdentity.insightPanelDesc).toContain('text-[#F0EEEA]');
+    expect(posterCardSkinIdentity.insightPanelScoreItem).toContain('text-[#F0EEEA]');
+    expect(posterCardSkinIdentity.datePillGlass).toContain('backdrop-blur-md');
+    expect(posterCardSkinIdentity.overlayFooterScrim).toContain('radial-gradient');
+    expect(posterCardSkinIdentity.footer).toBe('hidden');
+    expect(sharePosterReadabilityLayers.top).toContain('bg-gradient-to-b');
+    expect(sharePosterReadabilityLayers.bottom).toContain('bg-gradient-to-t');
+    expect(sharePosterReadabilityText.headline).toContain('drop-shadow');
   });
 });

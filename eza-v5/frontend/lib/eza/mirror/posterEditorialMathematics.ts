@@ -118,6 +118,106 @@ export const POSTER_SHADOWS = {
   mainCard: '0 32px 96px -28px rgba(8,4,16,0.78)',
 } as const;
 
+/** Guaranteed light ink — hex avoids Tailwind opacity purge gaps on poster overlays. */
+export const POSTER_READABILITY_COLORS = {
+  masthead: '#FFF8F0',
+  headline: '#FFF8F0',
+  quote: '#FAF4EA',
+  label: '#F5E8D4',
+  body: '#F2F0EC',
+  footer: '#EDE9E3',
+  panelBody: '#F0EEEA',
+  panelLabel: '#E8D5B5',
+} as const;
+
+/** Inline text-shadow — applied via style prop for guaranteed contrast. */
+export const POSTER_READABILITY_TEXT_SHADOW = {
+  masthead: '0 1px 2px rgba(0,0,0,0.92), 0 2px 14px rgba(0,0,0,0.65)',
+  headline: '0 2px 4px rgba(0,0,0,0.92), 0 4px 32px rgba(0,0,0,0.68)',
+  quote: '0 1px 3px rgba(0,0,0,0.88), 0 2px 20px rgba(0,0,0,0.62)',
+  label: '0 1px 2px rgba(0,0,0,0.84), 0 2px 12px rgba(0,0,0,0.52)',
+  body: '0 1px 2px rgba(0,0,0,0.82), 0 2px 12px rgba(0,0,0,0.5)',
+  footer: '0 1px 3px rgba(0,0,0,0.86), 0 2px 10px rgba(0,0,0,0.54)',
+} as const;
+
+export type PosterReadabilityInlineStyle = {
+  color: string;
+  textShadow: string;
+};
+
+export const POSTER_READABILITY_INLINE: Record<
+  keyof typeof POSTER_READABILITY_TEXT_SHADOW | 'panelBody' | 'panelLabel',
+  PosterReadabilityInlineStyle
+> = {
+  masthead: {
+    color: POSTER_READABILITY_COLORS.masthead,
+    textShadow: POSTER_READABILITY_TEXT_SHADOW.masthead,
+  },
+  headline: {
+    color: POSTER_READABILITY_COLORS.headline,
+    textShadow: POSTER_READABILITY_TEXT_SHADOW.headline,
+  },
+  quote: {
+    color: POSTER_READABILITY_COLORS.quote,
+    textShadow: POSTER_READABILITY_TEXT_SHADOW.quote,
+  },
+  label: {
+    color: POSTER_READABILITY_COLORS.label,
+    textShadow: POSTER_READABILITY_TEXT_SHADOW.label,
+  },
+  body: {
+    color: POSTER_READABILITY_COLORS.body,
+    textShadow: POSTER_READABILITY_TEXT_SHADOW.body,
+  },
+  footer: {
+    color: POSTER_READABILITY_COLORS.footer,
+    textShadow: POSTER_READABILITY_TEXT_SHADOW.footer,
+  },
+  panelBody: {
+    color: POSTER_READABILITY_COLORS.panelBody,
+    textShadow: POSTER_READABILITY_TEXT_SHADOW.body,
+  },
+  panelLabel: {
+    color: POSTER_READABILITY_COLORS.panelLabel,
+    textShadow: POSTER_READABILITY_TEXT_SHADOW.label,
+  },
+};
+
+/** Layered text-shadow stacks — legibility on bright, dark and busy scenes. */
+export const POSTER_READABILITY_SHADOW = {
+  masthead:
+    'drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_14px_rgba(0,0,0,0.58)]',
+  headline:
+    'drop-shadow-[0_2px_4px_rgba(0,0,0,0.92)] drop-shadow-[0_4px_32px_rgba(0,0,0,0.68)]',
+  quote:
+    'drop-shadow-[0_1px_3px_rgba(0,0,0,0.88)] drop-shadow-[0_2px_20px_rgba(0,0,0,0.62)]',
+  label:
+    'drop-shadow-[0_1px_2px_rgba(0,0,0,0.84)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.52)]',
+  body:
+    'drop-shadow-[0_1px_2px_rgba(0,0,0,0.82)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]',
+  footer:
+    'drop-shadow-[0_1px_3px_rgba(0,0,0,0.86)] drop-shadow-[0_2px_10px_rgba(0,0,0,0.54)]',
+} as const;
+
+/** Glass rhythm panel — elevated opacity without flat black box. */
+export const POSTER_RHYTHM_GLASS =
+  'bg-[linear-gradient(165deg,rgba(5,3,9,0.84)_0%,rgba(9,6,14,0.78)_55%,rgba(7,5,11,0.8)_100%)] backdrop-blur-3xl';
+
+/** Share poster scrim boosts (applied in DailyMirrorSharePoster). */
+export const POSTER_SHARE_SCRIM_BOOST = {
+  top: 'absolute inset-x-0 top-0 z-[1] h-[28%] bg-gradient-to-b from-[rgba(5,3,8,0.58)] via-[rgba(8,5,12,0.22)] to-transparent pointer-events-none',
+  bottom:
+    'absolute inset-x-0 bottom-0 z-[1] h-[38%] bg-gradient-to-t from-[rgba(3,2,6,0.86)] via-[rgba(7,5,10,0.36)] to-transparent pointer-events-none',
+} as const;
+
+/** Footer whisper zone — radial lift behind tomorrow + branding lines. */
+export const POSTER_FOOTER_ZONE_SCRIM =
+  'pointer-events-none absolute inset-x-[-10%] bottom-[-6%] top-[-18%] z-0 bg-[radial-gradient(ellipse_110%_95%_at_50%_100%,rgba(3,2,6,0.82)_0%,rgba(6,4,10,0.48)_42%,transparent_72%)]';
+
+/** Masthead date glass pill — readable on bright sky and dark vignette. */
+export const POSTER_DATE_PILL_GLASS =
+  'relative z-[1] inline-flex items-center gap-1.5 rounded-full border border-white/24 bg-[rgba(5,3,9,0.52)] px-2.5 py-1 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.38)]';
+
 export const POSTER_INSIGHT_PREVIEW = {
   minHeight: 92,
   maxHeight: 120,

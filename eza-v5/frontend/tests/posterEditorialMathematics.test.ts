@@ -7,6 +7,12 @@ import {
   POSTER_EXPORT_HEIGHT_PX,
   SAFE_PREVIEW,
   GRID_PREVIEW,
+  POSTER_READABILITY_SHADOW,
+  POSTER_READABILITY_INLINE,
+  POSTER_RHYTHM_GLASS,
+  POSTER_SHARE_SCRIM_BOOST,
+  POSTER_FOOTER_ZONE_SCRIM,
+  POSTER_DATE_PILL_GLASS,
   buildPosterEditorialCssVars,
   posterExportPx,
 } from '@/lib/eza/mirror/posterEditorialMathematics';
@@ -39,5 +45,18 @@ describe('posterEditorialMathematics (Sprint 12A)', () => {
 
   it('typography export scale', () => {
     expect(posterExportPx(36)).toBe(90);
+  });
+
+  it('exports readability shadow, rhythm glass and share scrim tokens', () => {
+    expect(POSTER_READABILITY_SHADOW.headline).toContain('drop-shadow');
+    expect(POSTER_READABILITY_SHADOW.masthead).toContain('drop-shadow');
+    expect(POSTER_RHYTHM_GLASS).toContain('backdrop-blur-3xl');
+    expect(POSTER_RHYTHM_GLASS).toContain('linear-gradient');
+    expect(POSTER_SHARE_SCRIM_BOOST.top).toContain('bg-gradient-to-b');
+    expect(POSTER_SHARE_SCRIM_BOOST.bottom).toContain('bg-gradient-to-t');
+    expect(POSTER_READABILITY_INLINE.masthead.color).toBe('#FFF8F0');
+    expect(POSTER_READABILITY_INLINE.footer.textShadow).toContain('rgba');
+    expect(POSTER_FOOTER_ZONE_SCRIM).toContain('radial-gradient');
+    expect(POSTER_DATE_PILL_GLASS).toContain('backdrop-blur-md');
   });
 });

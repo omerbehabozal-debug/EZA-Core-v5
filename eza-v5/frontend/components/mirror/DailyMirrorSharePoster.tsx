@@ -11,6 +11,10 @@ import {
 } from '@/lib/eza/mirror/posterCardContent';
 import { resolvePosterSceneTone } from '@/lib/eza/mirror/posterSceneTone';
 import { getSharePosterSkin, SHARE_POSTER_WIDTH_PX } from '@/lib/eza/mirror/sharePosterSkin';
+import {
+  sharePosterReadabilityLayers,
+  sharePosterReadabilityText,
+} from '@/lib/eza/mirror/posterCardSkin';
 import { resolveCardRenderMode } from '@/lib/eza/mirror/mirrorPosterLayout';
 import FullCanvasScene from '@/components/mirror/FullCanvasScene';
 
@@ -84,17 +88,27 @@ export default function DailyMirrorSharePoster({
       <div className={skin.overlayScrim} aria-hidden>
         <div className={skin.overlayTopScrim} aria-hidden />
         <div className={skin.overlayBottomScrim} aria-hidden />
+        <div className={sharePosterReadabilityLayers.top} aria-hidden />
+        <div className={sharePosterReadabilityLayers.bottom} aria-hidden />
       </div>
 
       <div className={skin.grain} aria-hidden />
 
       <div className={skin.overlayStack}>
         <header className={skin.shareMasthead}>
-          <span className={cn(skin.shareMastheadBrand, 'inline-flex items-center gap-1')}>
-            <Sparkles className="h-2.5 w-2.5 text-amber-200/80" aria-hidden />
+          <span
+            className={cn(
+              skin.shareMastheadBrand,
+              sharePosterReadabilityText.masthead,
+              'inline-flex items-center gap-1'
+            )}
+          >
+            <Sparkles className="h-2.5 w-2.5 text-amber-100/90" aria-hidden />
             EZA · AI İlişki Aynası
           </span>
-          <span className={skin.shareMastheadDate}>{card.dayLabel}</span>
+          <span className={cn(skin.shareMastheadDate, sharePosterReadabilityText.masthead)}>
+            {card.dayLabel}
+          </span>
         </header>
 
         <div className="min-h-0 flex-1" aria-hidden />
@@ -110,6 +124,7 @@ export default function DailyMirrorSharePoster({
             <h2
               className={cn(
                 skin.shareAvatarName,
+                sharePosterReadabilityText.headline,
                 'font-serif text-[clamp(1.75rem,9vw,2.65rem)]'
               )}
             >
@@ -117,10 +132,24 @@ export default function DailyMirrorSharePoster({
             </h2>
           ) : null}
           {momentDisplay ? (
-            <p className={cn(skin.shareMirrorMoment, 'mx-auto max-w-[88%]')}>{momentDisplay}</p>
+            <p
+              className={cn(
+                skin.shareMirrorMoment,
+                sharePosterReadabilityText.quote,
+                'mx-auto max-w-[88%]'
+              )}
+            >
+              {momentDisplay}
+            </p>
           ) : null}
           {themeTitle ? (
-            <p className={cn(skin.shareThemeLine, 'mx-auto max-w-[90%]')}>
+            <p
+              className={cn(
+                skin.shareThemeLine,
+                sharePosterReadabilityText.body,
+                'mx-auto max-w-[90%]'
+              )}
+            >
               <span className={skin.shareThemeTitle}>{themeTitle}</span>
               {themeSubtitle ? (
                 <span className={skin.shareThemeSubtitle}> · {themeSubtitle}</span>
@@ -129,7 +158,7 @@ export default function DailyMirrorSharePoster({
           ) : null}
         </section>
 
-        <footer className={skin.shareFooter}>
+        <footer className={cn(skin.shareFooter, sharePosterReadabilityText.footer)}>
           <span>EZA</span>
           <span className="text-center">#EZAİlişkiAynası</span>
           <span className="text-right">eza.ai</span>

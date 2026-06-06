@@ -10,6 +10,11 @@ import {
   POSTER_TYPE_PREVIEW,
   POSTER_INSIGHT_PREVIEW,
   POSTER_QUOTE_PREVIEW,
+  POSTER_READABILITY_SHADOW,
+  POSTER_RHYTHM_GLASS,
+  POSTER_SHARE_SCRIM_BOOST,
+  POSTER_FOOTER_ZONE_SCRIM,
+  POSTER_DATE_PILL_GLASS,
 } from '@/lib/eza/mirror/posterEditorialMathematics';
 import type { PosterSceneToneId } from '@/lib/eza/mirror/posterSceneTone';
 import { applyPosterSceneToneSkin } from '@/lib/eza/mirror/posterSceneToneSkin';
@@ -241,6 +246,12 @@ export type PosterSkinTokens = {
   readonly [key: string]: string;
 };
 
+/** Share poster readability layers (DailyMirrorSharePoster). */
+export const sharePosterReadabilityLayers = POSTER_SHARE_SCRIM_BOOST;
+
+/** Share poster text-shadow boosts layered on tone skin tokens. */
+export const sharePosterReadabilityText = POSTER_READABILITY_SHADOW;
+
 /** P4-B — full-bleed scene + glass UI overlay stack. */
 export const posterCardSkinIdentity: PosterSkinTokens = {
   ...posterCardSkinPremium,
@@ -287,56 +298,71 @@ export const posterCardSkinIdentity: PosterSkinTokens = {
     'text-[10px] font-medium text-white/58 tracking-wide',
   overlayScrim: 'pointer-events-none absolute inset-0 z-[1]',
   overlayTopScrim:
-    'absolute inset-x-0 top-0 h-[28%] bg-gradient-to-b from-[rgba(8,4,14,0.48)] via-[rgba(10,6,18,0.12)] to-transparent',
+    'absolute inset-x-0 top-0 h-[34%] bg-gradient-to-b from-[rgba(5,3,9,0.62)] via-[rgba(8,5,12,0.26)] to-transparent',
   overlayBottomScrim:
-    'absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-[rgba(6,4,10,0.78)] via-[rgba(10,6,16,0.28)] to-transparent',
+    'absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-[rgba(2,1,4,0.94)] via-[rgba(6,4,9,0.52)] via-[38%] to-transparent',
   grain:
     'pointer-events-none absolute inset-0 z-[2] opacity-[0.022] mix-blend-overlay [background-image:url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")]',
   overlayStack: [
-    'relative z-10 flex h-full min-h-0 w-full flex-col',
+    'relative z-10 flex h-full min-h-0 w-full flex-col text-[#FFF8F0]',
     'px-6 pt-5 pb-5 max-[380px]:px-4 max-[380px]:pt-4 max-[380px]:pb-4',
   ].join(' '),
-  overlayHeader:
-    'shrink-0 flex items-start justify-between gap-4 pt-0.5',
+  overlayHeader: [
+    'relative shrink-0 flex items-start justify-between gap-4 pt-0.5',
+    'before:pointer-events-none before:absolute before:-inset-x-4 before:-top-2 before:h-[calc(100%+1rem)]',
+    'before:rounded-2xl before:bg-[linear-gradient(180deg,rgba(4,2,8,0.58)_0%,rgba(6,4,10,0.28)_48%,transparent_100%)]',
+    'before:backdrop-blur-[3px]',
+  ].join(' '),
   overlayIdentity: [
-    'shrink-0 flex min-h-0 flex-col items-center justify-center text-center',
+    'relative shrink-0 flex min-h-0 flex-col items-center justify-center text-center',
     'px-1 py-3 max-[380px]:py-2',
+    'before:pointer-events-none before:absolute before:inset-x-[-8%] before:inset-y-[-10%]',
+    'before:rounded-[36px] before:bg-[radial-gradient(ellipse_90%_74%_at_50%_40%,rgba(4,2,8,0.52),transparent_72%)]',
+    'before:backdrop-blur-[3px]',
   ].join(' '),
   identityHeadlineZone:
     'shrink-0 flex min-h-0 flex-col items-center justify-center text-center px-1 py-2',
   identityTodayLabel: [
-    'flex items-center justify-center',
-    'text-[11px] font-medium uppercase tracking-[0.28em] text-amber-100/88',
-    'drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)]',
-    'before:mr-2.5 before:text-[10px] before:text-amber-200/75 before:content-["✦"]',
-    'after:ml-2.5 after:text-[10px] after:text-amber-200/75 after:content-["✦"]',
+    'relative z-[1] flex items-center justify-center',
+    'text-[11px] font-medium uppercase tracking-[0.28em] text-[#F5E8D4]',
+    POSTER_READABILITY_SHADOW.label,
+    'before:mr-2.5 before:text-[10px] before:text-[#F5E8D4] before:content-["✦"]',
+    'after:ml-2.5 after:text-[10px] after:text-[#F5E8D4] after:content-["✦"]',
   ].join(' '),
   identityAvatarName: [
-    'line-clamp-2 text-[clamp(1.85rem,6.8vw,3.15rem)] font-bold leading-[1.04] tracking-[-0.02em]',
+    'relative z-[1] line-clamp-2 text-[clamp(1.85rem,6.8vw,3.15rem)] font-bold leading-[1.04] tracking-[-0.02em]',
     'text-[#FFF8F0] font-serif',
-    'drop-shadow-[0_4px_28px_rgba(0,0,0,0.55)]',
+    POSTER_READABILITY_SHADOW.headline,
     'max-[380px]:text-[clamp(1.65rem,7.5vw,2.35rem)]',
   ].join(' '),
   identityMirrorMoment: [
-    'mt-3 line-clamp-2 text-[clamp(0.9rem,2.8vw,1.125rem)] font-medium italic leading-[1.45] tracking-[-0.01em]',
-    'font-serif text-[#F8F0E3]/96 max-w-[90%]',
-    'drop-shadow-[0_2px_18px_rgba(0,0,0,0.58)]',
+    'relative z-[1] mt-3 line-clamp-2 text-[clamp(0.9rem,2.8vw,1.125rem)] font-medium italic leading-[1.45] tracking-[-0.01em]',
+    'font-serif text-[#FAF4EA] max-w-[90%]',
+    POSTER_READABILITY_SHADOW.quote,
   ].join(' '),
-  identityFamilyLabel:
-    'mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C4B5FD]/90',
-  identityThemeLine:
-    'mt-3 line-clamp-2 text-[clamp(0.75rem,2.2vw,0.875rem)] leading-snug text-white/88 max-w-[92%]',
-  identityThemeTitle: 'font-semibold text-white/95',
-  identityThemeSubtitle: 'font-medium text-amber-200/78',
-  logoMark:
-    'flex h-4 w-4 shrink-0 items-center justify-center text-amber-100/92 drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]',
+  identityFamilyLabel: [
+    'relative z-[1] mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D4C4FD]',
+    POSTER_READABILITY_SHADOW.label,
+  ].join(' '),
+  identityThemeLine: [
+    'relative z-[1] mt-3 line-clamp-2 text-[clamp(0.75rem,2.2vw,0.875rem)] leading-snug max-w-[92%]',
+    'text-[#F2F0EC]',
+    POSTER_READABILITY_SHADOW.body,
+  ].join(' '),
+  identityThemeTitle: 'font-semibold text-[#FFF8F0]',
+  identityThemeSubtitle: 'font-medium text-[#F5E8D4]',
+  logoMark: [
+    'relative z-[1] flex h-4 w-4 shrink-0 items-center justify-center text-[#FFF8F0]',
+    POSTER_READABILITY_SHADOW.masthead,
+  ].join(' '),
   logoText: [
-    'text-[10px] font-medium uppercase tracking-[0.2em] text-white/92',
-    'drop-shadow-[0_2px_12px_rgba(0,0,0,0.48)]',
+    'relative z-[1] text-[10px] font-medium uppercase tracking-[0.2em] text-[#FFF8F0]',
+    POSTER_READABILITY_SHADOW.masthead,
   ].join(' '),
+  datePillGlass: POSTER_DATE_PILL_GLASS,
   datePill: [
-    'text-[10px] font-medium text-white/78 tabular-nums',
-    'drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)]',
+    'text-[10px] font-medium tabular-nums text-[#FFF8F0]',
+    POSTER_READABILITY_SHADOW.masthead,
   ].join(' '),
   energyBadge: [
     'inline-flex shrink-0 items-center gap-1 rounded-full border border-white/22',
@@ -345,29 +371,37 @@ export const posterCardSkinIdentity: PosterSkinTokens = {
   energyRing:
     'flex h-5 w-5 items-center justify-center rounded-full bg-[conic-gradient(#9B84FF_0deg,#9B84FF_var(--energy-deg,220deg),rgba(255,255,255,0.15)_var(--energy-deg,220deg))] text-[7px] font-bold text-white',
   rhythmWhisperZone: [
-    'shrink-0 flex w-full flex-col gap-2.5 rounded-[26px]',
-    'border border-amber-300/28 bg-[rgba(6,4,10,0.62)]',
-    'px-5 py-4 backdrop-blur-2xl',
-    'shadow-[0_16px_52px_rgba(0,0,0,0.34)]',
+    'shrink-0 mb-1 flex w-full flex-col gap-2.5 rounded-[26px]',
+    'border border-amber-200/22',
+    POSTER_RHYTHM_GLASS,
+    'px-5 py-4',
+    'shadow-[0_16px_52px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.07)]',
     'max-[380px]:px-4 max-[380px]:py-3.5 max-[380px]:rounded-[22px]',
   ].join(' '),
-  rhythmWhisperEyebrow:
-    'text-[9px] font-semibold uppercase tracking-[0.24em] text-amber-300/82',
+  rhythmWhisperEyebrow: [
+    'text-[9px] font-semibold uppercase tracking-[0.24em] text-[#E8D5B5]',
+    POSTER_READABILITY_SHADOW.label,
+  ].join(' '),
   rhythmWhisperWord: [
     'text-[clamp(1.65rem,5.5vw,2.125rem)] font-bold leading-[1.02] tracking-[-0.02em]',
-    'text-amber-100 font-serif',
-    'drop-shadow-[0_2px_16px_rgba(0,0,0,0.38)]',
+    'text-[#FFF8F0] font-serif',
+    POSTER_READABILITY_SHADOW.headline,
   ].join(' '),
-  insightPanelDesc:
-    'text-[13px] font-medium leading-relaxed text-white/78 max-[380px]:text-[12px]',
-  insightPanelScoreDivider:
-    'mx-1 text-[10px] text-amber-300/55',
+  insightPanelDesc: [
+    'text-[13px] font-medium leading-relaxed max-[380px]:text-[12px] text-[#F0EEEA]',
+    POSTER_READABILITY_SHADOW.body,
+  ].join(' '),
+  insightPanelScoreDivider: 'mx-1 text-[10px] text-[#E8D5B5]',
   insightPanelScores:
-    'mt-3 flex items-center justify-center gap-4 border-t border-amber-200/12 pt-3',
-  insightPanelScoreItem:
-    'flex items-center gap-2 text-[12px] font-medium text-white/88 max-[380px]:text-[11px]',
-  insightPanelScoreValue:
-    'tabular-nums text-[13px] font-semibold text-amber-100/96 max-[380px]:text-[12px]',
+    'mt-3 flex items-center justify-center gap-4 border-t border-white/10 pt-3',
+  insightPanelScoreItem: [
+    'flex items-center gap-2 text-[12px] font-medium max-[380px]:text-[11px] text-[#F0EEEA]',
+    POSTER_READABILITY_SHADOW.body,
+  ].join(' '),
+  insightPanelScoreValue: [
+    'tabular-nums text-[13px] font-semibold max-[380px]:text-[12px] text-[#FFF8F0]',
+    POSTER_READABILITY_SHADOW.label,
+  ].join(' '),
   overlayReflection: 'hidden',
   reflectionZone: 'hidden',
   reflectionHeaderRow: 'hidden',
@@ -393,16 +427,18 @@ export const posterCardSkinIdentity: PosterSkinTokens = {
   relationshipBarsWrap: 'hidden',
   relationshipBarTrack: 'hidden',
   relationshipBarFill: 'hidden',
-  overlayFooter: 'shrink-0',
-  tomorrowWhisper:
-    'line-clamp-2 text-center text-[11px] font-medium leading-snug text-white/68 drop-shadow-[0_1px_10px_rgba(0,0,0,0.35)]',
+  overlayFooter: 'relative shrink-0 mt-5 pt-1 max-[380px]:mt-4',
+  overlayFooterScrim: POSTER_FOOTER_ZONE_SCRIM,
+  tomorrowWhisper: [
+    'relative z-[1] line-clamp-2 px-1 pb-1 pt-0.5 text-center text-[12px] font-medium leading-snug text-[#EDE9E3]',
+    POSTER_READABILITY_SHADOW.footer,
+  ].join(' '),
   tomorrowZone: 'hidden',
   tomorrowLabel: 'hidden',
   tomorrowText: 'hidden',
-  footer: [
-    'flex items-center justify-between gap-2 pt-1.5',
-    'text-[9px] font-medium uppercase tracking-[0.16em] text-white/52',
-  ].join(' '),
+  footer: 'hidden',
+  insightLabel: 'hidden',
+  insightLine: 'hidden',
   contentStack: [
     'relative z-10 flex h-full min-h-0 w-full flex-col',
     'px-4 pt-3 pb-3 max-[380px]:px-3',

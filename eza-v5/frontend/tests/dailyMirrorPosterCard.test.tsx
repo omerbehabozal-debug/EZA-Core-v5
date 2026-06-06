@@ -162,4 +162,17 @@ describe('DailyMirrorPosterCard P4-B full-canvas', () => {
     const warmSkin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
     expect(warmSkin.tomorrowZone).toBe('hidden');
   });
+
+  it('applies inline readability styles and bottom tomorrow whisper without branding footer', () => {
+    expect(posterSrc).toContain('POSTER_READABILITY_INLINE');
+    expect(posterSrc).toContain('datePillGlass');
+    expect(posterSrc).toContain('overlayFooterScrim');
+    expect(posterSrc).toContain('PosterTomorrowHint');
+    expect(posterSrc).not.toContain('#EZAİlişkiAynası');
+    expect(posterSrc).not.toContain('eza.ai');
+    const warmSkin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
+    expect(warmSkin.datePill).toContain('text-[#FFF8F0]');
+    expect(warmSkin.footer).toBe('hidden');
+    expect(warmSkin.tomorrowWhisper).toContain('drop-shadow');
+  });
 });

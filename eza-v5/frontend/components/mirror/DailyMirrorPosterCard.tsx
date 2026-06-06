@@ -12,7 +12,10 @@ import {
   buildPosterCompositionStyle,
   getPosterComposition,
 } from '@/lib/eza/mirror/posterCompositionSystem';
-import { buildPosterEditorialCssVars } from '@/lib/eza/mirror/posterEditorialMathematics';
+import {
+  buildPosterEditorialCssVars,
+  POSTER_READABILITY_INLINE,
+} from '@/lib/eza/mirror/posterEditorialMathematics';
 import {
   buildEditorialReadabilityVars,
   getEditorialContrast,
@@ -190,16 +193,21 @@ export default function DailyMirrorPosterCard({
               Hybrid typography generation failed — fallback overlay active
             </p>
           ) : null}
-          <p className={cn(skin.logoText, 'flex items-center gap-2')}>
+          <p
+            className={cn(skin.logoText, 'flex items-center gap-2')}
+            style={POSTER_READABILITY_INLINE.masthead}
+          >
             <span className={skin.logoMark}>
               <Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden />
             </span>
             EZA · AI İlişki Aynası
           </p>
-          <p className={cn(skin.datePill, 'flex items-center gap-1.5 tabular-nums')}>
-            <Calendar className="h-3 w-3 opacity-70" strokeWidth={1.5} aria-hidden />
-            {card.dayLabel}
-          </p>
+          <span className={skin.datePillGlass}>
+            <span className={skin.datePill} style={POSTER_READABILITY_INLINE.masthead}>
+              <Calendar className="mr-1 inline h-3 w-3 opacity-90" strokeWidth={1.5} aria-hidden />
+              {card.dayLabel}
+            </span>
+          </span>
         </header>
 
         <PosterIdentityHeadline identity={identity} skin={skin} isSparse={isSparse} />
@@ -211,41 +219,49 @@ export default function DailyMirrorPosterCard({
             className={skin.rhythmWhisperZone ?? skin.overlayReflection}
             aria-label="İlişki ritmi"
           >
-            <p className={cn(skin.rhythmWhisperEyebrow, 'flex items-center gap-2')}>
-              <Crown className="h-3.5 w-3.5 text-amber-300/75" strokeWidth={1.5} aria-hidden />
+            <p
+              className={cn(skin.rhythmWhisperEyebrow, 'flex items-center gap-2')}
+              style={POSTER_READABILITY_INLINE.panelLabel}
+            >
+              <Crown className="h-3.5 w-3.5 text-[#E8D5B5]" strokeWidth={1.5} aria-hidden />
               {content.rhythm.eyebrow}
             </p>
-            <p className={skin.rhythmWhisperWord}>{content.rhythm.word}</p>
-            <p className={skin.insightPanelDesc}>{rhythmDescription}</p>
+            <p className={skin.rhythmWhisperWord} style={POSTER_READABILITY_INLINE.headline}>
+              {content.rhythm.word}
+            </p>
+            <p className={skin.insightPanelDesc} style={POSTER_READABILITY_INLINE.panelBody}>
+              {rhythmDescription}
+            </p>
             <div className={skin.insightPanelScores}>
-              <span className={skin.insightPanelScoreItem}>
-                <User className="h-3.5 w-3.5 text-amber-200/70" strokeWidth={1.5} aria-hidden />
+              <span className={skin.insightPanelScoreItem} style={POSTER_READABILITY_INLINE.panelBody}>
+                <User className="h-3.5 w-3.5 text-[#F0EEEA]" strokeWidth={1.5} aria-hidden />
                 Sen
-                <span className={skin.insightPanelScoreValue}>{scores.sen}</span>
+                <span className={skin.insightPanelScoreValue} style={POSTER_READABILITY_INLINE.headline}>
+                  {scores.sen}
+                </span>
               </span>
               <span className={skin.insightPanelScoreDivider} aria-hidden>
                 ·
               </span>
-              <span className={skin.insightPanelScoreItem}>
-                <Bot className="h-3.5 w-3.5 text-amber-200/70" strokeWidth={1.5} aria-hidden />
+              <span className={skin.insightPanelScoreItem} style={POSTER_READABILITY_INLINE.panelBody}>
+                <Bot className="h-3.5 w-3.5 text-[#F0EEEA]" strokeWidth={1.5} aria-hidden />
                 AI
-                <span className={skin.insightPanelScoreValue}>{scores.ai}</span>
+                <span className={skin.insightPanelScoreValue} style={POSTER_READABILITY_INLINE.headline}>
+                  {scores.ai}
+                </span>
               </span>
             </div>
           </section>
         ) : null}
 
-        <div className={cn(skin.overlayFooter, 'flex min-h-0 flex-col justify-end gap-1.5')}>
+        <div className={cn(skin.overlayFooter, 'flex min-h-0 flex-col justify-end')}>
+          <div className={skin.overlayFooterScrim} aria-hidden />
           <PosterTomorrowHint
             tomorrowHint={card.tomorrowHint}
             skin={skin}
             isSparse={isSparse}
+            readabilityStyle={POSTER_READABILITY_INLINE.footer}
           />
-          <footer className={skin.footer}>
-            <span>EZA</span>
-            <span className="text-center">#EZAİlişkiAynası</span>
-            <span className="text-right">eza.ai</span>
-          </footer>
         </div>
       </div>
 

@@ -41,6 +41,19 @@ describe('DailyMirrorSharePoster P4-C4', () => {
     expect(sharePosterSrc).toContain('resolvePosterSceneTone');
   });
 
+  it('applies share readability scrim boosts and text-shadow on masthead, hero and footer', () => {
+    expect(sharePosterSrc).toContain('sharePosterReadabilityLayers');
+    expect(sharePosterSrc).toContain('sharePosterReadabilityText');
+    expect(sharePosterSrc).toContain('sharePosterReadabilityLayers.top');
+    expect(sharePosterSrc).toContain('sharePosterReadabilityLayers.bottom');
+    expect(sharePosterSrc).toContain('sharePosterReadabilityText.masthead');
+    expect(sharePosterSrc).toContain('sharePosterReadabilityText.headline');
+    expect(sharePosterSrc).toContain('sharePosterReadabilityText.quote');
+    expect(sharePosterSrc).toContain('sharePosterReadabilityText.body');
+    expect(sharePosterSrc).toContain('sharePosterReadabilityText.footer');
+    expect(sharePosterSrc).toContain('text-amber-100/90');
+  });
+
   it('excludes in-app-only dashboard blocks from share poster', () => {
     expect(sharePosterSrc).not.toContain('PosterReflectionSummary');
     expect(sharePosterSrc).not.toContain('PosterTomorrowHint');

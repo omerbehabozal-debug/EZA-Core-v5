@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { resolvePosterSceneTone } from '@/lib/eza/mirror/posterSceneTone';
+import type { PosterSceneToneId } from '@/lib/eza/mirror/posterSceneTone';
 import { getPosterCardSkin } from '@/lib/eza/mirror/posterCardSkin';
+import { POSTER_READABILITY_SHADOW, POSTER_RHYTHM_GLASS } from '@/lib/eza/mirror/posterEditorialMathematics';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
 const base: DailyMirrorCardModel = {
@@ -89,10 +91,38 @@ describe('resolvePosterSceneTone (P4-C4)', () => {
     expect(t.accent).toBe('silver');
   });
 
-  it('applyPosterSceneToneSkin uses warm amber accents without boxed identity panel', () => {
+  it('applyPosterSceneToneSkin uses warm amber panel border with radial veil not boxed panel', () => {
     const skin = getPosterCardSkin('default_dark_scrim', 'identity_first', 'warm_gold');
-    expect(skin.overlayIdentity).not.toContain('bg-[');
+    expect(skin.overlayIdentity).toContain('radial-gradient');
+    expect(skin.overlayIdentity).toContain('backdrop-blur');
+    expect(skin.overlayIdentity).not.toContain('border border-');
     expect(skin.rhythmWhisperZone).toContain('amber');
-    expect(skin.logoText).toContain('amber');
+    expect(skin.logoText).toContain('text-[#FFF8F0]');
+    expect(skin.datePill).toContain('text-[#FFF8F0]');
+  });
+
+  it.each<PosterSceneToneId>([
+    'warm_gold',
+    'cool_silver',
+    'dark_gold',
+    'rose_warm',
+    'neutral_silver',
+  ])('tone %s keeps hex ink and readability shadows from base identity skin', (toneId) => {
+    const skin = getPosterCardSkin('default_dark_scrim', 'identity_first', toneId);
+    expect(skin.identityAvatarName).toContain(POSTER_READABILITY_SHADOW.headline);
+    expect(skin.identityMirrorMoment).toContain(POSTER_READABILITY_SHADOW.quote);
+    expect(skin.logoText).toContain('text-[#FFF8F0]');
+    expect(skin.datePill).toContain('text-[#FFF8F0]');
+    expect(skin.rhythmWhisperWord).toContain('text-[#FFF8F0]');
+    expect(skin.insightPanelDesc).toContain('text-[#F0EEEA]');
+    expect(skin.insightPanelDesc).toContain(POSTER_READABILITY_SHADOW.body);
+    expect(skin.footer).toBe('hidden');
+    expect(skin.tomorrowWhisper).toContain('text-[#EDE9E3]');
+    expect(skin.rhythmWhisperZone).toContain('backdrop-blur');
+    expect(skin.rhythmWhisperZone).toContain(POSTER_RHYTHM_GLASS);
+    expect(skin.overlayTopScrim).toBeTruthy();
+    expect(skin.overlayBottomScrim).toBeTruthy();
+    expect(skin.overlayFooterScrim).toBeTruthy();
+    expect(skin.datePillGlass).toBeTruthy();
   });
 });
