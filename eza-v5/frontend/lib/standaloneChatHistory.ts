@@ -3,8 +3,6 @@
  * Sends role + content only; no scores or behavioral metadata.
  */
 
-import { isArchivableMessage } from './standaloneChatSession';
-
 export interface ChatHistoryPayloadMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -30,6 +28,12 @@ function toRole(isUser: boolean): 'user' | 'assistant' {
   return isUser ? 'user' : 'assistant';
 }
 
+function isHistoryArchivable(msg: HistorySourceMessage): boolean {
+  if (msg.id.startsWith('saved-') || msg.id.startsWith('limit-')) return false;
+  if (!msg.isUser && !msg.text.trim()) return false;
+  return true;
+}
+
 export function buildChatHistoryPayload(
   messages: HistorySourceMessage[],
   options?: {
@@ -45,7 +49,7 @@ export function buildChatHistoryPayload(
   const excludeQuery = options?.excludeQuery?.trim();
 
   let items: ChatHistoryPayloadMessage[] = messages
-    .filter(isArchivableMessage)
+    .filter(isHistoryArchivable)
     .map((m) => ({
       role: toRole(m.isUser),
       content: truncateContent(m.text, maxMessageChars),
