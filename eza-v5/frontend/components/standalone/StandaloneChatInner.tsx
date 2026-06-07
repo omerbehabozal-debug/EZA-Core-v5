@@ -45,6 +45,7 @@ import {
   readStoredAnalysisModel,
   writeStoredAnalysisModel,
 } from '@/lib/standaloneModels';
+import { buildChatHistoryPayload } from '@/lib/standaloneChatHistory';
 
 interface Message {
   id: string;
@@ -289,6 +290,8 @@ export default function StandaloneChatInner() {
       return;
     }
 
+    const chatHistory = buildChatHistoryPayload(messages);
+
     // Add user message immediately with placeholder score (gray badge)
     const userMessageId = `user-${Date.now()}`;
     const userMessage: Message = {
@@ -335,9 +338,15 @@ export default function StandaloneChatInner() {
       let useNormalEndpoint = false;
 
       try {
-        const result = await startStream(
-          '/api/standalone/stream',
-          { query: text, safe_only: safeOnlyMode, model: analysisModelId },
+        const streamBody: Record<string, unknown> = {
+          query: text,
+          safe_only: safeOnlyMode,
+          model: analysisModelId,
+        };
+        if (chatHistory.length > 0) {
+          streamBody.history = chatHistory;
+        }
+        const result = await startStream('/api/standalone/stream', streamBody,
           {
             onToken: (token: string) => {
               // Update assistant message with streaming text
@@ -485,6 +494,7 @@ export default function StandaloneChatInner() {
             query: text,
             safe_only: safeOnlyMode,
             model: analysisModelId,
+            ...(chatHistory.length > 0 ? { history: chatHistory } : {}),
           },
           auth: false,
         });

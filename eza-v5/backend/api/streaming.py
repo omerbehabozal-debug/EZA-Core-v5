@@ -6,7 +6,11 @@ Streaming utilities for EZA Standalone
 import json
 import re
 import httpx
-from typing import AsyncGenerator, Optional, Dict, Any
+from typing import AsyncGenerator, Optional, Dict, Any, List
+from backend.api.standalone_chat_memory import (
+    build_standalone_llm_messages,
+    flatten_history_to_prompt,
+)
 from backend.core.engines.input_analyzer import analyze_input
 from backend.core.engines.output_analyzer import analyze_output
 from backend.core.engines.alignment_engine import compute_alignment
@@ -52,6 +56,7 @@ async def stream_standalone_response(
     safe_only: bool = False,
     db_session: Any = None,
     analysis_model: Optional[str] = None,
+    chat_history: Optional[List[Dict[str, Any]]] = None,
 ) -> AsyncGenerator[str, None]:
     """
     Stream standalone response with token-by-token output
@@ -77,7 +82,9 @@ async def stream_standalone_response(
         # Step 2: Stream LLM response
         if safe_only:
             # SAFE-only mode: Get full response first, then rewrite and stream
-            raw_llm_output = await _get_llm_response(query, settings, analysis_model=analysis_model)
+            raw_llm_output = await _get_llm_response(
+                query, settings, analysis_model=analysis_model, chat_history=chat_history
+            )
             # Ensure raw_llm_output is a clean string
             if not isinstance(raw_llm_output, str):
                 raw_llm_output = str(raw_llm_output)
@@ -193,7 +200,9 @@ async def stream_standalone_response(
         else:
             # Score mode: Stream raw LLM tokens directly and accumulate for scoring
             accumulated_text = ""
-            async for token in _stream_llm_response(query, settings, analysis_model=analysis_model):
+            async for token in _stream_llm_response(
+                query, settings, analysis_model=analysis_model, chat_history=chat_history
+            ):
                 accumulated_text += token
                 # Use json.dumps to properly escape JSON (prevents token debug garbage)
                 token_data = {"token": token}
@@ -305,14 +314,19 @@ def _resolve_openai_model_name(analysis_model: Optional[str]) -> str:
 
 
 async def _stream_llm_response(
-    prompt: str, settings, analysis_model: Optional[str] = None
+    query: str,
+    settings,
+    analysis_model: Optional[str] = None,
+    chat_history: Optional[List[Dict[str, Any]]] = None,
 ) -> AsyncGenerator[str, None]:
     """
     Stream LLM response token by token (OpenAI stream) or word-chunk fallback for other providers.
     """
     model_id = analysis_model or "openai/gpt-4o-mini"
+    llm_messages = build_standalone_llm_messages(query, chat_history)
     if not model_id.startswith("openai/"):
         router = ModelRouter()
+        prompt = flatten_history_to_prompt(query, chat_history)
         result = await router.generate(
             prompt=prompt,
             model_id=model_id,
@@ -337,9 +351,7 @@ async def _stream_llm_response(
 
     payload = {
         "model": openai_model,
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
+        "messages": llm_messages,
         "temperature": 0.2,
         "max_tokens": settings.STANDALONE_MAX_TOKENS if hasattr(settings, 'STANDALONE_MAX_TOKENS') else 180,
         "stream": True  # Enable streaming
@@ -385,14 +397,19 @@ async def _stream_llm_response(
 
 
 async def _get_llm_response(
-    prompt: str, settings, analysis_model: Optional[str] = None
+    query: str,
+    settings,
+    analysis_model: Optional[str] = None,
+    chat_history: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """
     Get full LLM response (non-streaming, for SAFE-only mode or scoring)
     """
     model_id = analysis_model or "openai/gpt-4o-mini"
+    llm_messages = build_standalone_llm_messages(query, chat_history)
     if not model_id.startswith("openai/"):
         router = ModelRouter()
+        prompt = flatten_history_to_prompt(query, chat_history)
         result = await router.generate(
             prompt=prompt,
             model_id=model_id,
@@ -415,9 +432,7 @@ async def _get_llm_response(
 
     payload = {
         "model": openai_model,
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
+        "messages": llm_messages,
         "temperature": 0.2,
         "max_tokens": settings.STANDALONE_MAX_TOKENS if hasattr(settings, 'STANDALONE_MAX_TOKENS') else 180,
     }

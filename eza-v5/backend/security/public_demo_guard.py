@@ -5,6 +5,7 @@ Deploy ortamında EZA_PUBLIC_* env ile ayarlanır.
 """
 
 import os
+from typing import Optional
 from fastapi import HTTPException, status
 
 from backend.services.demo_token_quota import (
@@ -27,6 +28,7 @@ def enforce_public_demo_limits(
     text: str,
     *,
     estimated_output_tokens: int = 180,
+    quota_context_text: Optional[str] = None,
 ) -> None:
     """
     Metin uzunluğu + günlük global token kotası (LLM çağrısından önce).
@@ -58,7 +60,8 @@ def enforce_public_demo_limits(
             },
         )
 
-    estimated = estimate_tokens(cleaned, estimated_output_tokens=estimated_output_tokens)
+    quota_basis = (quota_context_text or cleaned).strip() or cleaned
+    estimated = estimate_tokens(quota_basis, estimated_output_tokens=estimated_output_tokens)
     allowed, quota_error, _remaining = check_token_quota(estimated)
     if not allowed:
         raise HTTPException(

@@ -388,12 +388,18 @@ async def standalone_endpoint(
     
     Note: Public endpoint, no authentication required.
     """
+    chat_history = (
+        [{"role": h.role, "content": h.content} for h in request.history]
+        if request.history
+        else None
+    )
     result = await run_full_pipeline(
         user_input=request.query_value,
         mode="standalone",
         db_session=db,
         safe_only=request.safe_only or False,
         analysis_model=request.model,
+        chat_history=chat_history,
     )
     # Always return 200, even if ok=False (for frontend convenience)
     return result
@@ -421,9 +427,17 @@ async def standalone_stream_endpoint(
     
     Note: Public endpoint, no authentication required.
     """
+    from backend.api.standalone_chat_memory import serialized_history_text
+
+    chat_history = (
+        [{"role": h.role, "content": h.content} for h in request.history]
+        if request.history
+        else None
+    )
     enforce_public_demo_limits(
         request.query_value,
         estimated_output_tokens=220 if request.safe_only else 180,
+        quota_context_text=serialized_history_text(request.query_value, chat_history),
     )
     return StreamingResponse(
         stream_standalone_response(
@@ -431,6 +445,7 @@ async def standalone_stream_endpoint(
             safe_only=request.safe_only or False,
             db_session=db,
             analysis_model=request.model,
+            chat_history=chat_history,
         ),
         media_type="text/event-stream",
         headers={

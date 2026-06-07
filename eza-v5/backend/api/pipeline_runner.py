@@ -4,7 +4,7 @@ EZA Pipeline Runner
 Unified pipeline for all EZA modes (standalone, proxy, proxy-lite)
 """
 
-from typing import Literal, Dict, Any, Optional
+from typing import Literal, Dict, Any, Optional, List
 import logging
 import re
 
@@ -23,6 +23,10 @@ from backend.core.utils.model_router import ModelRouter
 from backend.core.llm.output_merger import merge_ensemble_outputs
 from backend.telemetry.service import record_telemetry_event
 from backend.behavioral.interaction import analyze_interaction_turn
+from backend.api.standalone_chat_memory import (
+    flatten_history_to_prompt,
+    serialized_history_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +40,7 @@ async def run_full_pipeline(
     safe_only: Optional[bool] = False,
     event_context: Optional[Dict[str, Any]] = None,
     analysis_model: Optional[str] = None,
+    chat_history: Optional[List[Dict[str, str]]] = None,
 ) -> Dict[str, Any]:
     """
     Run full EZA pipeline for a given user input and mode.
@@ -70,9 +75,11 @@ async def run_full_pipeline(
     if mode == "standalone" and llm_override is None:
         from backend.security.public_demo_guard import enforce_public_demo_limits
 
+        quota_context = serialized_history_text(user_input, chat_history)
         enforce_public_demo_limits(
             user_input,
             estimated_output_tokens=220 if safe_only else 180,
+            quota_context_text=quota_context,
         )
 
     # Initialize response structure (unified format)
@@ -147,10 +154,15 @@ async def run_full_pipeline(
                 # - proxy: OpenAI tek
                 # - proxy-lite: OpenAI tek
                 llm_router = ModelRouter()
+                llm_prompt = (
+                    flatten_history_to_prompt(user_input, chat_history)
+                    if mode == "standalone" and chat_history
+                    else user_input
+                )
 
                 if mode == "standalone" and analysis_model:
                     router_result = await llm_router.generate(
-                        prompt=user_input,
+                        prompt=llm_prompt,
                         model_id=analysis_model,
                         temperature=0.2,
                         max_tokens=max_tokens,
@@ -160,7 +172,7 @@ async def run_full_pipeline(
                     used_models = [analysis_model] if router_result.get("ok") else []
                 else:
                     router_result = await llm_router.route_by_mode(
-                        prompt=user_input,
+                        prompt=llm_prompt if mode == "standalone" else user_input,
                         mode=mode,
                         temperature=0.2,
                         max_tokens=max_tokens,

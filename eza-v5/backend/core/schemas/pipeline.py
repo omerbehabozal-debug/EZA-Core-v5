@@ -5,7 +5,7 @@ Unified response format for all EZA pipeline modes
 """
 
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional, Dict, Any, Literal
+from typing import Optional, Dict, Any, Literal, List
 
 
 class PipelineError(BaseModel):
@@ -40,10 +40,21 @@ class PipelineResponse(BaseModel):
     )
 
 
+class ChatHistoryMessage(BaseModel):
+    """Prior turn for LLM context only (not used for scoring)."""
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1, max_length=1200)
+
+
 class StandaloneRequest(BaseModel):
     """Request schema for standalone mode"""
     query: Optional[str] = Field(None, description="User input query", min_length=1)
     text: Optional[str] = Field(None, description="User input text (deprecated, use query)", min_length=1)
+    history: Optional[List[ChatHistoryMessage]] = Field(
+        None,
+        max_length=12,
+        description="Prior turns for LLM context only; not used for scoring",
+    )
     safe_only: Optional[bool] = Field(False, description="Enable SAFE-only mode (rewrite enabled, scores hidden)")
     model: Optional[str] = Field(
         None,
