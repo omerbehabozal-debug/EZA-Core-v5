@@ -34,7 +34,7 @@ export interface MasterPosterText {
   quote: string;
 }
 
-export const MASTER_POSTER_HEADLINE_MAX = 32;
-export const MASTER_POSTER_QUOTE_MAX = 90;
+export const MASTER_POSTER_HEADLINE_MAX = 28;
+export const MASTER_POSTER_QUOTE_MAX = 70;
 export const MAX_SCENE_KEYWORDS = 6;
 export const MAX_SOURCE_CUE_TOKENS = 12;

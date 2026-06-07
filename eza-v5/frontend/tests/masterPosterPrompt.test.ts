@@ -53,13 +53,15 @@ describe('master poster prompt integration', () => {
     expect(visual.sceneSubtopicId).toBe('travel_silk_road');
   });
 
-  it('prompt includes VISIBLE POSTER TEXT with exact headline and quote', () => {
+  it('prompt includes VISIBLE POSTER TEXT with subtopic-aligned headline and quote', () => {
     const subtopic = resolveSceneSubtopics('travel', ['semerkant']);
     const master = buildMasterPosterText({
-      dailyJourney: 'Semerkant Rotası',
+      dailyJourney: 'İç Yolculuk',
       quote: 'Registan ışığında küçük bir keşif.',
       sceneSubtopicResolution: subtopic,
+      storyTopicResolution: { primaryTopic: 'travel', confidence: 0.85, cueTokens: [], source: 'cues' },
     });
+    expect(master.headline).toBe("Registan'ın Gölgesinde");
     const visual = buildMirrorVisualFromContext({
       entries: [entry(['semerkant'])],
       characterName: 'Yolcu',

@@ -12,6 +12,7 @@ import {
   ARCH_FACADE_TOKENS,
   ARCH_MATERIAL_TOKENS,
   ARCH_MOSQUE_TOKENS,
+  countMatching,
   hasAnyToken,
   TECH_CODING_TOKENS,
   TECH_PRODUCT_TOKENS,
@@ -108,14 +109,18 @@ function resolveTechSubtopic(tokens: string[]): {
   subtopic: SceneSubtopicId;
   confidence: number;
 } | null {
-  if (hasAnyToken(tokens, TECH_STRATEGY_TOKENS)) {
-    return { subtopic: 'tech_startup_strategy', confidence: CONFIDENCE_MATCH };
-  }
-  if (hasAnyToken(tokens, TECH_PRODUCT_TOKENS)) {
+  const productHits = countMatching(tokens, TECH_PRODUCT_TOKENS);
+  if (productHits >= 2 || (productHits >= 1 && hasAnyToken(tokens, TECH_CODING_TOKENS))) {
     return { subtopic: 'tech_product_building', confidence: CONFIDENCE_MATCH };
   }
   if (hasAnyToken(tokens, TECH_CODING_TOKENS)) {
     return { subtopic: 'tech_coding_ai', confidence: CONFIDENCE_MATCH };
+  }
+  if (hasAnyToken(tokens, TECH_PRODUCT_TOKENS)) {
+    return { subtopic: 'tech_product_building', confidence: CONFIDENCE_MATCH };
+  }
+  if (hasAnyToken(tokens, TECH_STRATEGY_TOKENS)) {
+    return { subtopic: 'tech_startup_strategy', confidence: CONFIDENCE_MATCH };
   }
   return null;
 }

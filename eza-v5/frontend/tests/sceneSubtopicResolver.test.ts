@@ -94,6 +94,11 @@ describe('resolveSceneSubtopics — technology_ai', () => {
     const r = resolveSceneSubtopics('technology_ai', ['eza', 'platform']);
     expect(r.primarySubtopic).toBe('tech_startup_strategy');
   });
+
+  it('eza + cursor + roadmap + mvp → tech_product_building', () => {
+    const r = resolveSceneSubtopics('technology_ai', ['eza', 'cursor', 'roadmap', 'mvp']);
+    expect(r.primarySubtopic).toBe('tech_product_building');
+  });
 });
 
 describe('resolveSceneSubtopics — privacy limits', () => {
