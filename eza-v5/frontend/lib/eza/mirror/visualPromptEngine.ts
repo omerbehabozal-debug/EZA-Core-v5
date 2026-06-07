@@ -66,6 +66,10 @@ import {
   buildDailyIdentityPromptBlock,
   type DailyMirrorIdentityPromptInput,
 } from '@/lib/eza/mirror/dailyMirrorScenePrompt';
+import {
+  mapStoryTopicToSceneTopic,
+  resolveStoryTopics,
+} from '@/lib/eza/mirror/storyTopicResolver';
 
 export interface MirrorVisualPrompt {
   characterId: string;
@@ -175,7 +179,7 @@ function hashSeed(parts: string[]): string {
   return `mirror-visual-${Math.abs(h).toString(36)}`;
 }
 
-export function inferSceneTopicKey(
+function inferSceneTopicKeyFromPersona(
   entries: SavedBehavioralEntry[],
   observationCategoryId?: UserObservationCategoryId,
   personaFamilyId?: PersonaFamilyId
@@ -207,6 +211,24 @@ export function inferSceneTopicKey(
   }
 
   return 'general';
+}
+
+export function inferSceneTopicKey(
+  entries: SavedBehavioralEntry[],
+  observationCategoryId?: UserObservationCategoryId,
+  personaFamilyId?: PersonaFamilyId
+): SceneTopicKey {
+  if (entries.length > 0) {
+    const resolution = resolveStoryTopics(entries);
+    if (resolution.primaryTopic !== 'general_curiosity') {
+      return mapStoryTopicToSceneTopic(resolution.primaryTopic);
+    }
+    if (resolution.confidence >= 0.35 && resolution.cueTokens.length > 0) {
+      return mapStoryTopicToSceneTopic(resolution.primaryTopic);
+    }
+  }
+
+  return inferSceneTopicKeyFromPersona(entries, observationCategoryId, personaFamilyId);
 }
 
 export function inferEmotionLabel(

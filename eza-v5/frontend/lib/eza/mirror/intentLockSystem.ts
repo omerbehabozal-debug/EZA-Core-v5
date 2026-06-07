@@ -10,6 +10,7 @@ import {
   buildVehicleHardSceneContractBlock,
   getVehicleContractForbiddenPhrases,
 } from '@/lib/eza/mirror/vehicleSceneContract';
+import { extractVehicleMirrorCueHints } from '@/lib/eza/mirror/storyTopicResolver';
 
 export type LockedPrimaryIntentId = ConversationVisualIntentId | null;
 
@@ -84,17 +85,7 @@ export const VEHICLE_LOCK_FORBIDDEN_SCENE = [
 
 /** Extract safe keyword hints from user message (no full message stored). */
 export function extractMirrorCueHintsFromUserText(text: string): string[] {
-  const t = text.trim().toLowerCase();
-  if (!t) return [];
-  const hints: string[] = [];
-  for (const c of VEHICLE_LOCK_CUES) {
-    if (t.includes(c)) hints.push(c);
-  }
-  for (const c of VEHICLE_COMPARE_CUES) {
-    if (t.includes(c.trim()) || (c.trim() && t.includes(c.trim()))) hints.push(c.trim());
-  }
-  if (/\bvs\b/.test(t)) hints.push('vs');
-  return Array.from(new Set(hints));
+  return extractVehicleMirrorCueHints(text);
 }
 
 export function collectIntentCueBlob(entries: SavedBehavioralEntry[]): string {

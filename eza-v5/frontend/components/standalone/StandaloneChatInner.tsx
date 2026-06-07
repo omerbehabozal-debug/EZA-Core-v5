@@ -26,7 +26,7 @@ import type {
 } from '@/lib/types';
 import { parseStandaloneObservation } from '@/lib/standaloneObservation';
 import { appendBehavioralTurn } from '@/lib/behavioralHistory';
-import { extractMirrorCueHintsFromUserText } from '@/lib/eza/mirror/intentLockSystem';
+import { extractStoryCueTokens } from '@/lib/eza/mirror/storyTopicResolver';
 import {
   createStandaloneChat,
   getChatArchive,
@@ -382,7 +382,7 @@ export default function StandaloneChatInner() {
 
               if (data.behavioral || standaloneObservation) {
                 const snapshot = (data.behavioral as BehavioralSnapshot | null) ?? null;
-                const mirrorCueHints = extractMirrorCueHintsFromUserText(text);
+                const mirrorCueHints = extractStoryCueTokens(text);
                 appendBehavioralTurn(snapshot, standaloneObservation, {
                   mirrorCueHints: mirrorCueHints.length ? mirrorCueHints : undefined,
                 });
@@ -532,7 +532,7 @@ export default function StandaloneChatInner() {
           riskLevel: (response as { risk_level?: string }).risk_level,
         });
         if (behavioralFallback || standaloneObservationFallback) {
-          const mirrorCueHints = extractMirrorCueHintsFromUserText(text);
+          const mirrorCueHints = extractStoryCueTokens(text);
           appendBehavioralTurn(behavioralFallback, standaloneObservationFallback, {
             mirrorCueHints: mirrorCueHints.length ? mirrorCueHints : undefined,
           });
