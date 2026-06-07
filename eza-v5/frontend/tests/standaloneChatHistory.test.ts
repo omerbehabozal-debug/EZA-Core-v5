@@ -3,6 +3,7 @@ import {
   buildChatHistoryPayload,
   MAX_HISTORY_MESSAGES,
   MAX_HISTORY_TOTAL_CHARS,
+  MAX_MESSAGE_CHARS,
 } from '@/lib/standaloneChatHistory';
 
 describe('buildChatHistoryPayload', () => {
@@ -87,6 +88,21 @@ describe('buildChatHistoryPayload', () => {
     expect(history).toHaveLength(MAX_HISTORY_MESSAGES);
     expect(history[0].content).toBe('msg-4');
     expect(history[MAX_HISTORY_MESSAGES - 1].content).toBe('msg-13');
+  });
+
+  it('truncates long assistant content within backend max_length (1200)', () => {
+    const longReply = 'Gün '.repeat(700);
+    const messages = [
+      { id: 'user-1', text: 'İtalya rotası', isUser: true },
+      { id: 'eza-1', text: longReply, isUser: false },
+    ];
+
+    const history = buildChatHistoryPayload(messages);
+    const assistant = history.find((m) => m.role === 'assistant');
+    expect(assistant).toBeDefined();
+    expect(assistant!.content.length).toBeLessThanOrEqual(MAX_MESSAGE_CHARS);
+    expect(assistant!.content.endsWith('…')).toBe(true);
+    expect(longReply.trim().length).toBeGreaterThan(MAX_MESSAGE_CHARS);
   });
 
   it('truncates oldest messages when char budget exceeded', () => {

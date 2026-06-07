@@ -18,10 +18,16 @@ type HistorySourceMessage = {
   isUser: boolean;
 };
 
+const TRUNCATION_ELLIPSIS = '…';
+
 function truncateContent(content: string, maxChars: number): string {
   const trimmed = content.trim();
+  if (maxChars <= 0) return '';
   if (trimmed.length <= maxChars) return trimmed;
-  return `${trimmed.slice(0, maxChars).trimEnd()}…`;
+  if (maxChars === 1) return TRUNCATION_ELLIPSIS;
+  const body = trimmed.slice(0, maxChars - 1).trimEnd();
+  const truncated = body ? `${body}${TRUNCATION_ELLIPSIS}` : TRUNCATION_ELLIPSIS;
+  return truncated.length <= maxChars ? truncated : truncated.slice(0, maxChars);
 }
 
 function toRole(isUser: boolean): 'user' | 'assistant' {
