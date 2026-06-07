@@ -24,6 +24,9 @@ import {
   STYLE_BLOCK,
 } from '@/lib/eza/mirror/posterPromptBlocks';
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
+import type { MasterPosterText } from '@/lib/eza/mirror/sceneSubtopicTypes';
+import type { SceneSubtopicResolution } from '@/lib/eza/mirror/sceneSubtopicTypes';
+import { buildMasterPosterPromptBlock } from '@/lib/eza/mirror/masterPosterPromptBlock';
 
 export type CompositionContract = {
   requiredObjects: string[];
@@ -49,6 +52,18 @@ export const LAYOUT_AWARE_POSTER_RULES = [
   'no text, no labels, no readable writing in the image',
   'leave clean upper-left typography safe area',
   'avoid busy detail behind headline area',
+  'keep hero objects visible in lower and mid scene',
+  'keep subject or character on right or center-right when possible',
+  'maintain foreground midground background depth',
+  'do not generate UI or card layout in the image',
+  ...SAFE_ZONE_STANDARD,
+] as const;
+
+export const MASTER_POSTER_LAYOUT_RULES = [
+  'scene is a premium EZA Mirror master poster artwork',
+  'only the provided headline and quote may appear as readable text',
+  'place provided headline and quote with strong readability inside composition',
+  'do not invent any other readable text captions labels logos dates or usernames',
   'keep hero objects visible in lower and mid scene',
   'keep subject or character on right or center-right when possible',
   'maintain foreground midground background depth',
@@ -98,8 +113,12 @@ function buildPromptOpening(direction: VisualNarrativeDirection): string {
 }
 
 export function buildCompositionContract(
-  direction: VisualNarrativeDirection
+  direction: VisualNarrativeDirection,
+  options?: { masterPoster?: boolean }
 ): CompositionContract {
+  const layoutRules = options?.masterPoster
+    ? MASTER_POSTER_LAYOUT_RULES
+    : LAYOUT_AWARE_POSTER_RULES;
   return {
     requiredObjects: [...direction.heroObjects],
     requiredEnvironment: direction.environment,
@@ -110,7 +129,7 @@ export function buildCompositionContract(
     forbiddenSceneTypes: [...direction.forbiddenSceneTypes],
     promptOpening: buildPromptOpening(direction),
     promptConstraints: [
-      ...LAYOUT_AWARE_POSTER_RULES,
+      ...layoutRules,
       `composition intent: ${direction.compositionIntent}`,
       `visual emotion: ${direction.visualEmotion}`,
       `core tension: ${direction.coreTension}`,
@@ -128,6 +147,8 @@ export type BuildScenePromptFromDirectorInput = {
   atmosphereLabel: string;
   emotionLabel: string;
   lockedIntent?: LockedPrimaryIntentId;
+  masterPosterText?: MasterPosterText;
+  sceneSubtopicResolution?: SceneSubtopicResolution;
 };
 
 function filterActionPhrases(
@@ -155,8 +176,17 @@ function filterActionPhrases(
 export function buildScenePromptFromDirector(
   input: BuildScenePromptFromDirectorInput
 ): { prompt: string; negativePrompt: string } {
-  const contract = buildCompositionContract(input.narrative);
+  const hasMasterPoster = Boolean(input.masterPosterText);
+  const contract = buildCompositionContract(input.narrative, {
+    masterPoster: hasMasterPoster,
+  });
   const intentLock = buildIntentLockPromptBlock(input.lockedIntent ?? null);
+  const masterPosterBlock = input.masterPosterText
+    ? buildMasterPosterPromptBlock({
+        masterPosterText: input.masterPosterText,
+        sceneSubtopic: input.sceneSubtopicResolution,
+      })
+    : '';
 
   const actionPhrases = filterActionPhrases(
     input.emotionalBlock.phrases,
@@ -174,6 +204,7 @@ export function buildScenePromptFromDirector(
 
   const promptParts = [
     intentLock ? `INTENT LOCK: ${intentLock}` : '',
+    masterPosterBlock ? `MASTER POSTER: ${masterPosterBlock}` : '',
     `COMPOSITION CONTRACT OPENING: ${contract.promptOpening}`,
     `REQUIRED OBJECTS: ${contract.requiredObjects.join(', ')}`,
     `ENVIRONMENT: ${contract.requiredEnvironment}`,

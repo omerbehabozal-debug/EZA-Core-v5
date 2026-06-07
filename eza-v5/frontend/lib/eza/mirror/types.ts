@@ -89,6 +89,10 @@ export interface MirrorVisualPromptPayload {
   promptTruncated?: boolean;
   /** Dev OCR/heuristic probe result */
   hybridOcrProbe?: string;
+  /** Sprint 2 — exact headline/quote embedded in master poster scene. */
+  masterPosterText?: { headline: string; quote: string };
+  sceneSubtopicId?: import('@/lib/eza/mirror/sceneSubtopicTypes').SceneSubtopicId;
+  sceneKeywords?: string[];
 }
 
 export interface DailyMirrorCardModel {

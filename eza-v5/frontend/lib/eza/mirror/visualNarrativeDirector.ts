@@ -19,6 +19,7 @@ import {
 } from '@/lib/eza/mirror/reflectionSignals';
 import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
 import { inferSceneTopicKey } from '@/lib/eza/mirror/visualPromptEngine';
+import type { SceneSubtopicResolution } from '@/lib/eza/mirror/sceneSubtopicTypes';
 
 export type VisualDensityId = 'sparse' | 'balanced' | 'rich' | 'high';
 
@@ -46,6 +47,7 @@ export type DeriveVisualNarrativeInput = {
   reflectionTone?: ReflectionToneId;
   personaFamilyId?: import('@/lib/eza/standalonePersonas').PersonaFamilyId;
   observationCategoryId?: import('@/lib/eza/dailyObservation').UserObservationCategoryId;
+  sceneSubtopicResolution?: SceneSubtopicResolution;
 };
 
 type ArchetypeBlueprint = VisualNarrativeDirection & {
@@ -389,11 +391,40 @@ export function deriveVisualNarrativeDirection(
     }
   }
 
-  return applyReflectionToneToNarrative(
+  const toned = applyReflectionToneToNarrative(
     base,
     input.reflectionTone,
     reflectionSignals
   );
+
+  return applySceneSubtopicToNarrative(toned, input.sceneSubtopicResolution);
+}
+
+/** Refine hero objects and environment from whitelist subtopic keywords. */
+export function applySceneSubtopicToNarrative(
+  direction: VisualNarrativeDirection,
+  subtopic?: SceneSubtopicResolution
+): VisualNarrativeDirection {
+  if (!subtopic || subtopic.primarySubtopic === 'topic_generic' || subtopic.confidence < 0.35) {
+    return direction;
+  }
+
+  const next: VisualNarrativeDirection = { ...direction };
+
+  if (subtopic.environmentOverride) {
+    next.environment = subtopic.environmentOverride;
+  }
+
+  if (subtopic.heroObjectOverrides?.length) {
+    next.heroObjects = [...subtopic.heroObjectOverrides];
+  }
+
+  if (subtopic.sceneKeywords.length) {
+    const keywordHint = subtopic.sceneKeywords.slice(0, 4).join(', ');
+    next.coreTension = `${direction.coreTension}, visual world: ${keywordHint}`;
+  }
+
+  return next;
 }
 
 /** Dev / test helper — archetype id for assertions. */

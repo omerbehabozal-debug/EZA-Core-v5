@@ -70,6 +70,10 @@ import {
   mapStoryTopicToSceneTopic,
   resolveStoryTopics,
 } from '@/lib/eza/mirror/storyTopicResolver';
+import { resolveSceneSubtopics } from '@/lib/eza/mirror/sceneSubtopicResolver';
+import { buildMasterPosterText } from '@/lib/eza/mirror/buildMasterPosterText';
+import type { MasterPosterText, SceneSubtopicResolution } from '@/lib/eza/mirror/sceneSubtopicTypes';
+import type { StoryTopicResolution } from '@/lib/eza/mirror/storyTopicTypes';
 
 export interface MirrorVisualPrompt {
   characterId: string;
@@ -96,6 +100,10 @@ export interface MirrorVisualPrompt {
   hybridFallbackReason?: string;
   usedPromptType?: UsedPromptType;
   promptTruncated?: boolean;
+  /** Sprint 2 — master poster exact copy for OpenAI composition. */
+  masterPosterText?: MasterPosterText;
+  sceneSubtopicId?: import('@/lib/eza/mirror/sceneSubtopicTypes').SceneSubtopicId;
+  sceneKeywords?: string[];
 }
 
 export interface BuildVisualPromptInput {
@@ -373,6 +381,17 @@ export interface BuildMirrorVisualFromContextInput {
   hybridCopy?: HybridPosterTextPayload;
   /** P4-A — narrative-first full canvas scene binding */
   dailyNarrative?: DailyNarrativeLayer;
+  /** Sprint 2 — pre-resolved topic/subtopic (optional; auto-resolved from entries). */
+  storyTopicResolution?: StoryTopicResolution;
+  sceneSubtopicResolution?: SceneSubtopicResolution;
+  masterPosterText?: MasterPosterText;
+  dailyJourney?: string;
+  cardHeadline?: string;
+  cardQuote?: string;
+  mirrorMoment?: string;
+  dailyThemeTitle?: string;
+  tomorrowHint?: string;
+  themeDescription?: string;
 }
 
 /**
@@ -381,6 +400,28 @@ export interface BuildMirrorVisualFromContextInput {
 export function buildMirrorVisualFromContext(
   input: BuildMirrorVisualFromContextInput
 ): MirrorVisualPrompt {
+  const storyTopicResolution =
+    input.storyTopicResolution ?? resolveStoryTopics(input.entries);
+  const sceneSubtopicResolution =
+    input.sceneSubtopicResolution ??
+    resolveSceneSubtopics(
+      storyTopicResolution.primaryTopic,
+      storyTopicResolution.cueTokens
+    );
+  const masterPosterText =
+    input.masterPosterText ??
+    buildMasterPosterText({
+      dailyJourney: input.dailyJourney,
+      headline: input.cardHeadline,
+      quote: input.cardQuote,
+      mirrorMoment: input.mirrorMoment,
+      dailyThemeTitle: input.dailyThemeTitle,
+      tomorrowHint: input.tomorrowHint,
+      themeDescription: input.themeDescription,
+      storyTopicResolution,
+      sceneSubtopicResolution,
+    });
+
   const topicKey = inferSceneTopicKey(
     input.entries,
     input.observationCategoryId,
@@ -438,6 +479,7 @@ export function buildMirrorVisualFromContext(
     reflectionTone: input.reflectionTone,
     personaFamilyId: input.personaFamilyId,
     observationCategoryId: input.observationCategoryId,
+    sceneSubtopicResolution,
   });
 
   const renderMode = input.renderMode ?? resolveMirrorRenderMode();
@@ -480,6 +522,8 @@ export function buildMirrorVisualFromContext(
       atmosphereLabel,
       emotionLabel,
       lockedIntent,
+      masterPosterText,
+      sceneSubtopicResolution,
     });
   }
 
@@ -515,13 +559,16 @@ export function buildMirrorVisualFromContext(
   }
 
   qualityHints.push(
+    'director-led prompt 13B',
+    `scene subtopic: ${sceneSubtopicResolution.primarySubtopic}`,
+    `scene keywords: ${sceneSubtopicResolution.sceneKeywords.join(', ')}`,
+    `master headline: ${masterPosterText.headline}`,
     `hero object: ${emotionalScene.heroObjectLabel}`,
     `tension: ${emotionalScene.tension}`,
     `pacing: ${emotionalScene.pacing}`,
     `camera: ${emotionalScene.cameraLabel.slice(0, 48)}`,
-    'director-led prompt 13B',
     `scene archetype: ${narrative.sceneArchetype}`,
-    renderMode === 'hybrid_middle' ? 'hybrid middle poster 13C' : 'scene-only textless'
+    renderMode === 'hybrid_middle' ? 'hybrid middle poster 13C' : 'master poster scene'
   );
 
   const visual: MirrorVisualPrompt = {
@@ -540,6 +587,7 @@ export function buildMirrorVisualFromContext(
       input.seed,
       input.personaFamilyId,
       topicKey,
+      sceneSubtopicResolution.primarySubtopic,
       conversationIntent.id,
       lockedIntent ?? 'none',
       intentFingerprint,
@@ -547,6 +595,7 @@ export function buildMirrorVisualFromContext(
       input.reflectionTone ?? '',
       emotionalScene.tension,
       emotionalScene.pacing,
+      masterPosterText.headline,
       input.dailyNarrative?.narrativeCoreId ?? '',
       input.dailyNarrative?.mirrorMoment ?? '',
       input.dailyNarrative?.sceneArchetypeId ?? '',
@@ -564,6 +613,9 @@ export function buildMirrorVisualFromContext(
     hybridTextPayload,
     usedPromptType,
     promptTruncated,
+    masterPosterText,
+    sceneSubtopicId: sceneSubtopicResolution.primarySubtopic,
+    sceneKeywords: sceneSubtopicResolution.sceneKeywords,
   };
 
   if (usedPromptType === 'scene_only_director' && process.env.NODE_ENV === 'development') {
@@ -600,7 +652,7 @@ export function buildMirrorVisualFromContext(
     ...visual.qualityHints,
     ...input.toneHints ?? [],
     ...storyHints.slice(0, 2),
-  ].slice(0, 18);
+  ].slice(0, 22);
 
   return visual;
 }

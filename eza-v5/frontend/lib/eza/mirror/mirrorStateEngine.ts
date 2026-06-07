@@ -17,6 +17,9 @@ import { composeDailyNarrativeLayer } from '@/lib/eza/mirror/composeNarrativePip
 import { composeEmotionalReflection } from '@/lib/eza/mirror/reflectionToneEngine';
 import { composeMirrorStory } from '@/lib/eza/mirror/mirrorStoryEngine';
 import { buildMirrorVisualFromContext, buildFallbackMirrorVisual } from '@/lib/eza/mirror/visualPromptEngine';
+import { resolveStoryTopics } from '@/lib/eza/mirror/storyTopicResolver';
+import { resolveSceneSubtopics } from '@/lib/eza/mirror/sceneSubtopicResolver';
+import { buildMasterPosterTextFromCardFields } from '@/lib/eza/mirror/buildMasterPosterText';
 import { resolveMirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
 import { buildHybridPosterTextFields } from '@/lib/eza/mirror/posterCardContent';
 import { SCENE_TOPIC_LABEL } from '@/lib/eza/mirror/visualPromptPresets';
@@ -270,13 +273,30 @@ function buildDailyMirrorCard(
     reflectionSignals: story.reflectionSignals!,
   });
 
+  const storyTopicResolution = resolveStoryTopics(entries);
+  const sceneSubtopicResolution = resolveSceneSubtopics(
+    storyTopicResolution.primaryTopic,
+    storyTopicResolution.cueTokens
+  );
+  const masterPosterText = buildMasterPosterTextFromCardFields({
+    dailyJourney: story.dailyJourney,
+    headline: story.dailyJourney || emotional.headline,
+    quote: emotional.quote,
+    mirrorMoment: narrative.mirrorMoment,
+    dailyThemeTitle: narrative.dailyThemeTitle,
+    tomorrowHint: emotional.tomorrowHint,
+    themeDescription: emotional.themeDescription,
+    storyTopicResolution,
+    sceneSubtopicResolution,
+  });
+
   const hybridCopy =
     renderMode === 'hybrid_middle'
       ? buildHybridPosterTextFields({
           dailyJourney: story.dailyJourney,
-          headline: story.dailyJourney || emotional.headline,
+          headline: masterPosterText.headline,
           mirrorStory: story.mirrorStory,
-          quote: emotional.quote,
+          quote: masterPosterText.quote,
           themeDescription: emotional.themeDescription,
           personaFamilyId,
           topicLabel: SCENE_TOPIC_LABEL[storyTopicKey],
@@ -309,6 +329,16 @@ function buildDailyMirrorCard(
     renderMode,
     hybridCopy,
     dailyNarrative: narrative,
+    storyTopicResolution,
+    sceneSubtopicResolution,
+    masterPosterText,
+    dailyJourney: story.dailyJourney,
+    cardHeadline: story.dailyJourney || emotional.headline,
+    cardQuote: emotional.quote,
+    mirrorMoment: narrative.mirrorMoment,
+    dailyThemeTitle: narrative.dailyThemeTitle,
+    tomorrowHint: emotional.tomorrowHint,
+    themeDescription: emotional.themeDescription,
   });
 
   const storyHeadline = story.dailyJourney;

@@ -15,6 +15,12 @@ import {
   TOPIC_CUE_RULES,
   VEHICLE_COMPARE_TOKENS,
 } from '@/lib/eza/mirror/storyTopicCueRegistry';
+import {
+  SUBTOPIC_EXTRA_CUE_RULES,
+  SUBTOPIC_TOKEN_TO_TOPIC,
+} from '@/lib/eza/mirror/sceneSubtopicCueRegistry';
+
+const ALL_CUE_RULES = [...TOPIC_CUE_RULES, ...SUBTOPIC_EXTRA_CUE_RULES];
 
 const MAX_ENTRIES = 10;
 const RECENCY_BOOST = 1.5;
@@ -52,7 +58,7 @@ export function extractStoryCueTokens(userText: string): string[] {
   const normalized = normalizeText(userText);
   if (!normalized.trim()) return [];
 
-  const sorted = [...TOPIC_CUE_RULES].sort(
+  const sorted = [...ALL_CUE_RULES].sort(
     (a, b) => Math.max(...b.patterns.map((p) => p.length)) - Math.max(...a.patterns.map((p) => p.length))
   );
 
@@ -113,7 +119,8 @@ function scoreTopics(entries: SavedBehavioralEntry[]): Map<StoryTopicId, number>
     const weight = index < RECENCY_WINDOW ? RECENCY_BOOST : 1;
 
     for (const token of entry.mirrorCueHints ?? []) {
-      const topic = getTopicForToken(String(token));
+      const t = String(token);
+      const topic = getTopicForToken(t) ?? SUBTOPIC_TOKEN_TO_TOPIC.get(t);
       if (topic) bump(topic, 1 * weight);
     }
 
@@ -131,7 +138,7 @@ function scoreTopics(entries: SavedBehavioralEntry[]): Map<StoryTopicId, number>
 
     const intent = (entry.vector.intent ?? '').toLowerCase();
     if (intent) {
-      for (const rule of TOPIC_CUE_RULES) {
+      for (const rule of ALL_CUE_RULES) {
         if (rule.patterns.some((p) => intent.includes(p.trim()))) {
           bump(rule.topic, 0.35 * weight);
         }

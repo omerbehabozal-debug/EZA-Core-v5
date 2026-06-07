@@ -137,13 +137,26 @@ describe('visualPromptEngine', () => {
     expect(visual.topicLabel).toMatch(/arkadaşlık|ilişki/i);
   });
 
-  it('prompt always enforces textless composition and canon guardrails', () => {
+  it('fallback buildVisualPrompt stays textless for direct preset API', () => {
     const visual = buildFallbackMirrorVisual();
     promptHasNoTextRules(visual.prompt);
     promptHasFullCanvasCompositionRules(visual.prompt);
     expect(visual.prompt.toLowerCase()).toContain('not a toy');
     expect(visual.prompt.toLowerCase()).toContain('mature premium editorial character');
     expect(visual.prompt.toLowerCase()).not.toMatch(/message bubbles|chat screenshot/);
+  });
+
+  it('context pipeline uses master poster visible text block', () => {
+    const visual = buildMirrorVisualFromContext({
+      entries: [makeEntry()],
+      characterName: 'Test',
+      personaFamilyId: 'balanced_calm',
+      seed: 'master-poster-context',
+    });
+    expect(visual.prompt).toContain('VISIBLE POSTER TEXT');
+    expect(visual.prompt).toContain('Do not add any other readable text');
+    expect(visual.masterPosterText?.headline.length).toBeGreaterThan(0);
+    expect(visual.masterPosterText?.quote.length).toBeGreaterThan(0);
   });
 
   it('negative prompt uses strengthened standard contract', () => {
@@ -264,7 +277,7 @@ describe('mirrorStateEngine visual field', () => {
     const state = buildMirrorState(entries, { seed: 'visual-test' });
     expect(state.dailyMirrorCard.visual).toBeDefined();
     expect(state.dailyMirrorCard.visual?.prompt.length).toBeGreaterThan(120);
-    promptHasNoTextRules(state.dailyMirrorCard.visual!.prompt);
+    expect(state.dailyMirrorCard.visual!.prompt).toContain('VISIBLE POSTER TEXT');
     promptHasStyleContract(state.dailyMirrorCard.visual!.prompt);
     expect(state.dailyMirrorCard.visual?.qualityHints?.length).toBeGreaterThan(0);
   });
