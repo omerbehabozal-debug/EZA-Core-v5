@@ -50,6 +50,8 @@ logs/
 **/test_reports/
 **/test_output/
 **/coverage/
+!eza-v5/frontend/lib/eza/mirror/coverage/
+!eza-v5/frontend/lib/eza/mirror/coverage/**
 **/.pytest_cache/
 **/__pycache__/
 

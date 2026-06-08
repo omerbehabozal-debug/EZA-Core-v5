@@ -32,6 +32,21 @@ export const SCENE_KEYWORD_REGISTRY: Record<SceneSubtopicId, SceneKeywordProfile
     environmentOverride: 'Central Asian Silk Road horizon, desert warmth and caravan trail',
     heroObjectOverrides: ['Silk Road route scroll', 'caravanserai silhouette'],
   },
+  travel_spain: {
+    sceneKeywords: ['spain_plaza', 'warm_stone', 'iberian_horizon', 'journey_map'],
+    environmentOverride: 'Iberian plaza at golden hour, warm stone and open journey horizon',
+    heroObjectOverrides: ['Spanish plaza stone arch', 'journey map on marble table'],
+  },
+  travel_andalusia: {
+    sceneKeywords: ['andalusia', 'moorish_arch', 'seville_plaza', 'warm_tile'],
+    environmentOverride: 'Andalusian courtyard light, Moorish arch and warm ceramic tile',
+    heroObjectOverrides: ['Moorish arch silhouette', 'Andalusian tile pattern', 'Seville plaza warmth'],
+  },
+  travel_mardin: {
+    sceneKeywords: ['mardin_stone', 'mesopotamian_plateau', 'terrace_city', 'limestone_glow'],
+    environmentOverride: 'Mardin terrace city at dusk, limestone facades over Mesopotamian plateau',
+    heroObjectOverrides: ['limestone terrace houses', 'stone alley glow', 'Mesopotamian horizon'],
+  },
   travel_generic_journey: {
     sceneKeywords: ['journey_map', 'train_platform', 'open_horizon'],
     environmentOverride: 'train station at golden hour, journey decision energy',
@@ -40,6 +55,21 @@ export const SCENE_KEYWORD_REGISTRY: Record<SceneSubtopicId, SceneKeywordProfile
     sceneKeywords: ['mosque_courtyard', 'minaret_silhouette', 'islamic_geometry', 'stone_portal'],
     environmentOverride: 'historic mosque courtyard, minaret silhouette at warm light',
     heroObjectOverrides: ['stone portal arch', 'geometric tile pattern', 'minaret silhouette'],
+  },
+  arch_mardin_heritage: {
+    sceneKeywords: ['mardin_stone', 'terrace_houses', 'courtyard_alley', 'limestone_facade'],
+    environmentOverride: 'Mardin heritage stone terraces, courtyard alley and limestone facade study',
+    heroObjectOverrides: ['terrace stone houses', 'courtyard alley depth', 'limestone facade detail'],
+  },
+  arch_mardin_stone: {
+    sceneKeywords: ['limestone_facing', 'stone_carving', 'heritage_facade', 'mardin_craft'],
+    environmentOverride: 'Mardin limestone facing and stone carving craft atelier',
+    heroObjectOverrides: ['limestone facing samples', 'stone carving detail', 'heritage facade study'],
+  },
+  arch_vault_study: {
+    sceneKeywords: ['vault_structure', 'restoration_atelier', 'archival_section', 'heritage_craft'],
+    environmentOverride: 'vault and tonoz restoration atelier with archival section drawings',
+    heroObjectOverrides: ['vault section drawing', 'heritage craft tools', 'stone arch study'],
   },
   arch_facade_restoration: {
     sceneKeywords: ['historic_facade', 'stone_details', 'restoration_scaffold', 'material_samples'],

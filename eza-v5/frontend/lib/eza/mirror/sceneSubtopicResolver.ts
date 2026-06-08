@@ -24,6 +24,8 @@ import {
   VEHICLE_SUV_TOKENS,
 } from '@/lib/eza/mirror/sceneSubtopicCueRegistry';
 import { getSceneKeywordProfile, resolveSceneKeywords } from '@/lib/eza/mirror/sceneKeywordRegistry';
+import { resolveCoverageSubtopic } from '@/lib/eza/mirror/coverage/coverageLibrary';
+import { canonicalizeCoverageTokens } from '@/lib/eza/mirror/coverage/coverageSynonyms';
 
 const CONFIDENCE_GENERIC = 0.2;
 const CONFIDENCE_MATCH = 0.72;
@@ -41,6 +43,28 @@ function normalizeTokens(tokens: string[]): string[] {
 
 function hasToken(tokens: readonly string[], token: string): boolean {
   return tokens.includes(token.toLowerCase());
+}
+
+const EXTENDED_COVERAGE_SUBTOPICS = new Set<string>([
+  'travel_spain',
+  'travel_andalusia',
+  'travel_mardin',
+  'arch_mardin_heritage',
+  'arch_mardin_stone',
+  'arch_vault_study',
+]);
+
+function shouldPreferCoverage(
+  coverage: { subtopic: SceneSubtopicId; confidence: number; ruleId?: string },
+  legacy: { subtopic: SceneSubtopicId; confidence: number } | null
+): boolean {
+  if (!legacy) return true;
+  if (coverage.ruleId) return true;
+  if (EXTENDED_COVERAGE_SUBTOPICS.has(coverage.subtopic)) return true;
+  if (coverage.subtopic !== legacy.subtopic && coverage.confidence >= legacy.confidence) {
+    return true;
+  }
+  return false;
 }
 
 function resolveTravelSubtopic(tokens: string[]): {
@@ -165,16 +189,22 @@ export function resolveSceneSubtopics(
   primaryTopic: StoryTopicId,
   cueTokens: string[]
 ): SceneSubtopicResolution {
-  const sourceCueTokens = normalizeTokens(cueTokens);
+  const sourceCueTokens = canonicalizeCoverageTokens(normalizeTokens(cueTokens));
 
   if (!sourceCueTokens.length) {
     return buildResolution('topic_generic', CONFIDENCE_GENERIC, []);
   }
 
-  const matched = resolveByTopic(primaryTopic, sourceCueTokens);
-  if (!matched || matched.confidence < 0.35) {
+  const coverage = resolveCoverageSubtopic(primaryTopic, sourceCueTokens);
+  const legacy = resolveByTopic(primaryTopic, sourceCueTokens);
+
+  if (coverage && shouldPreferCoverage(coverage, legacy)) {
+    return buildResolution(coverage.subtopic, coverage.confidence, sourceCueTokens);
+  }
+
+  if (!legacy || legacy.confidence < 0.35) {
     return buildResolution('topic_generic', CONFIDENCE_GENERIC, sourceCueTokens);
   }
 
-  return buildResolution(matched.subtopic, matched.confidence, sourceCueTokens);
+  return buildResolution(legacy.subtopic, legacy.confidence, sourceCueTokens);
 }

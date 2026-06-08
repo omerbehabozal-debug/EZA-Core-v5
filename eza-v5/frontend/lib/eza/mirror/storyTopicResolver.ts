@@ -19,8 +19,19 @@ import {
   SUBTOPIC_EXTRA_CUE_RULES,
   SUBTOPIC_TOKEN_TO_TOPIC,
 } from '@/lib/eza/mirror/sceneSubtopicCueRegistry';
+import {
+  getCoverageExtractionRules,
+  getCoverageTopicForToken,
+  resolveCoverageTopicBoosts,
+} from '@/lib/eza/mirror/coverage/coverageLibrary';
+import {
+  canonicalizeCoverageToken,
+  canonicalizeCoverageTokens,
+  matchCoveragePattern,
+  normalizeCoverageText,
+} from '@/lib/eza/mirror/coverage/coverageSynonyms';
 
-const ALL_CUE_RULES = [...TOPIC_CUE_RULES, ...SUBTOPIC_EXTRA_CUE_RULES];
+const ALL_CUE_RULES = [...TOPIC_CUE_RULES, ...SUBTOPIC_EXTRA_CUE_RULES, ...getCoverageExtractionRules()];
 
 const MAX_ENTRIES = 10;
 const RECENCY_BOOST = 1.5;
@@ -40,22 +51,13 @@ const STORY_TOPIC_TO_SCENE: Record<StoryTopicId, SceneTopicKey> = {
   general_curiosity: 'general',
 };
 
-function normalizeText(text: string): string {
-  return ` ${text.trim().toLowerCase().replace(/\s+/g, ' ')} `;
-}
-
 function matchRule(text: string, pattern: string): boolean {
-  const p = pattern.trim().toLowerCase();
-  if (!p) return false;
-  if (p.length <= 3 && /^[a-z0-9]+$/.test(p)) {
-    return new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text);
-  }
-  return text.includes(p);
+  return matchCoveragePattern(text, pattern);
 }
 
 /** Extract whitelist tokens from a single user message (no raw sentence stored). */
 export function extractStoryCueTokens(userText: string): string[] {
-  const normalized = normalizeText(userText);
+  const normalized = normalizeCoverageText(userText);
   if (!normalized.trim()) return [];
 
   const sorted = [...ALL_CUE_RULES].sort(
@@ -64,9 +66,11 @@ export function extractStoryCueTokens(userText: string): string[] {
 
   const found: string[] = [];
   for (const entry of sorted) {
-    if (found.includes(entry.token)) continue;
-    if (entry.patterns.some((pattern) => matchRule(normalized, pattern))) {
-      found.push(entry.token);
+    const canon =
+      canonicalizeCoverageToken(entry.token) ?? entry.token;
+    if (found.includes(canon)) continue;
+    if (entry.patterns.some((pattern) => matchCoveragePattern(normalized, pattern))) {
+      found.push(canon);
     }
     if (found.length >= MAX_CUE_TOKENS_PER_TURN) break;
   }
@@ -76,7 +80,7 @@ export function extractStoryCueTokens(userText: string): string[] {
     const c = compare.trim();
     if (c === 'vs' && /\bvs\b/.test(normalized)) {
       if (!found.includes('vs')) found.push('vs');
-    } else if (c && matchRule(normalized, c) && !found.includes(c)) {
+    } else if (c && matchCoveragePattern(normalized, c) && !found.includes(c)) {
       found.push(c);
     }
   }
@@ -118,10 +122,20 @@ function scoreTopics(entries: SavedBehavioralEntry[]): Map<StoryTopicId, number>
   recent.forEach((entry, index) => {
     const weight = index < RECENCY_WINDOW ? RECENCY_BOOST : 1;
 
-    for (const token of entry.mirrorCueHints ?? []) {
-      const t = String(token);
-      const topic = getTopicForToken(t) ?? SUBTOPIC_TOKEN_TO_TOPIC.get(t);
+    const canonHints = canonicalizeCoverageTokens(
+      (entry.mirrorCueHints ?? []).map((h) => String(h))
+    );
+
+    for (const token of canonHints) {
+      const topic =
+        getTopicForToken(token) ??
+        SUBTOPIC_TOKEN_TO_TOPIC.get(token) ??
+        getCoverageTopicForToken(token);
       if (topic) bump(topic, 1 * weight);
+    }
+
+    for (const boost of resolveCoverageTopicBoosts(canonHints)) {
+      bump(boost.topic, boost.weight * weight);
     }
 
     const obs = parseStandaloneObservation(entry.standaloneObservation);

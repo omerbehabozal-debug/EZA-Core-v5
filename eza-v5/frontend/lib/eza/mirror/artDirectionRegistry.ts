@@ -58,6 +58,33 @@ const TRAVEL_GENERIC: ArtDirectionProfile = {
   negativeExtras: ['stock airport photo', 'suitcase cliché montage'],
 };
 
+const TRAVEL_SPAIN: ArtDirectionProfile = {
+  lighting: 'warm Iberian golden hour',
+  lens: '35mm editorial travel lens',
+  composition: 'plaza stone depth, headline negative space',
+  mood: 'Iberian journey editorial',
+  qualityFilters: ['premium travel magazine', 'warm stone texture'],
+  negativeExtras: ['stock flamenco postcard', 'tourist crowd', 'HDR oversaturation'],
+};
+
+const TRAVEL_ANDALUSIA: ArtDirectionProfile = {
+  lighting: 'warm Andalusian courtyard light',
+  lens: '35mm Moorish heritage lens',
+  composition: 'Moorish arch depth, ceramic tile richness',
+  mood: 'Andalusian discovery editorial',
+  qualityFilters: ['Moorish arch editorial', 'ceramic tile warmth'],
+  negativeExtras: ['stock Alhambra postcard', 'tourist crowd chaos'],
+};
+
+const TRAVEL_MARDIN: ArtDirectionProfile = {
+  lighting: 'Mesopotamian plateau dusk glow',
+  lens: '40mm terrace city lens',
+  composition: 'limestone terrace depth, plateau horizon',
+  mood: 'terrace city travel editorial',
+  qualityFilters: ['limestone terrace richness', 'plateau horizon depth'],
+  negativeExtras: ['stock old town postcard', 'war imagery', 'crowded bazaar chaos'],
+};
+
 const ARCH_MOSQUE: ArtDirectionProfile = {
   lighting: 'soft courtyard light',
   lens: '28mm museum-grade architectural lens',
@@ -83,6 +110,29 @@ const ARCH_MATERIAL: ArtDirectionProfile = {
   mood: 'heritage craft study',
   qualityFilters: ['restoration atelier editorial', 'material texture fidelity'],
   negativeExtras: ['CAD wireframe', 'sterile lab render'],
+};
+
+const ARCH_MARDIN_HERITAGE: ArtDirectionProfile = {
+  lighting: 'warm limestone terrace light',
+  lens: '28mm heritage city lens',
+  composition: 'terrace stone depth, courtyard alley texture',
+  mood: 'Mardin heritage editorial',
+  qualityFilters: ['limestone terrace photography', 'courtyard alley depth'],
+  negativeExtras: ['BIM render', 'drone war imagery', 'sterile whitebox'],
+};
+
+const ARCH_MARDIN_STONE: ArtDirectionProfile = {
+  ...ARCH_FACADE,
+  composition: 'limestone facing and stone carving detail',
+  mood: 'Mardin stone craft study',
+  qualityFilters: ['limestone facing editorial', 'stone carving fidelity'],
+};
+
+const ARCH_VAULT: ArtDirectionProfile = {
+  ...ARCH_MATERIAL,
+  composition: 'vault section and tonoz restoration study layout',
+  mood: 'vault structure craft study',
+  qualityFilters: ['vault section editorial', 'heritage structural study'],
 };
 
 const VEHICLE_SUV: ArtDirectionProfile = {
@@ -162,8 +212,14 @@ export const ART_DIRECTION_REGISTRY: Record<SceneSubtopicId, ArtDirectionProfile
   travel_samarkand: TRAVEL_SAMARKAND,
   travel_bukhara: TRAVEL_BUKHARA,
   travel_uzbekistan: TRAVEL_UZBEKISTAN,
+  travel_spain: TRAVEL_SPAIN,
+  travel_andalusia: TRAVEL_ANDALUSIA,
+  travel_mardin: TRAVEL_MARDIN,
   travel_generic_journey: TRAVEL_GENERIC,
   arch_mosque_heritage: ARCH_MOSQUE,
+  arch_mardin_heritage: ARCH_MARDIN_HERITAGE,
+  arch_mardin_stone: ARCH_MARDIN_STONE,
+  arch_vault_study: ARCH_VAULT,
   arch_facade_restoration: ARCH_FACADE,
   arch_material_study: ARCH_MATERIAL,
   vehicle_suv_comparison: VEHICLE_SUV,
