@@ -27,6 +27,13 @@ import type { SceneTopicKey } from '@/lib/eza/mirror/visualPromptPresets';
 import type { MasterPosterText } from '@/lib/eza/mirror/sceneSubtopicTypes';
 import type { SceneSubtopicResolution } from '@/lib/eza/mirror/sceneSubtopicTypes';
 import { buildMasterPosterPromptBlock } from '@/lib/eza/mirror/masterPosterPromptBlock';
+import {
+  applyArtDirectionToNarrative,
+  buildArtDirectionPromptBlock,
+  GENERIC_STYLE_FALLBACK,
+  mergeArtDirectionNegatives,
+  resolveArtDirection,
+} from '@/lib/eza/mirror/cinematicArtDirector';
 
 export type CompositionContract = {
   requiredObjects: string[];
@@ -154,7 +161,8 @@ export type BuildScenePromptFromDirectorInput = {
 function filterActionPhrases(
   phrases: string[],
   forbidden: readonly string[],
-  lockedIntent?: LockedPrimaryIntentId
+  lockedIntent?: LockedPrimaryIntentId,
+  maxPhrases = 6
 ): string {
   const outdoorNoise =
     /\b(city|street|road|skyline|pier|dock|seascape|landscape|highway|urban|terrace|avenue)\b/i;
@@ -166,7 +174,7 @@ function filterActionPhrases(
       }
       return !forbidden.some((f) => p.toLowerCase().includes(f));
     })
-    .slice(0, 6)
+    .slice(0, maxPhrases)
     .join(', ');
 }
 
@@ -177,7 +185,18 @@ export function buildScenePromptFromDirector(
   input: BuildScenePromptFromDirectorInput
 ): { prompt: string; negativePrompt: string } {
   const hasMasterPoster = Boolean(input.masterPosterText);
-  const contract = buildCompositionContract(input.narrative, {
+  const artDirection = resolveArtDirection({
+    sceneSubtopicResolution: input.sceneSubtopicResolution,
+    topicKey: input.topicKey,
+    lockedIntent: input.lockedIntent ?? null,
+  });
+  const subtopicId = input.sceneSubtopicResolution?.primarySubtopic;
+  const narrative = applyArtDirectionToNarrative(
+    input.narrative,
+    artDirection,
+    subtopicId
+  );
+  const contract = buildCompositionContract(narrative, {
     masterPoster: hasMasterPoster,
   });
   const intentLock = buildIntentLockPromptBlock(input.lockedIntent ?? null);
@@ -187,11 +206,13 @@ export function buildScenePromptFromDirector(
         sceneSubtopic: input.sceneSubtopicResolution,
       })
     : '';
+  const artDirectionBlock = buildArtDirectionPromptBlock(artDirection);
 
   const actionPhrases = filterActionPhrases(
     input.emotionalBlock.phrases,
     contract.forbiddenSceneTypes,
-    input.lockedIntent
+    input.lockedIntent,
+    artDirectionBlock ? 4 : 6
   );
 
   const actionMemory = [
@@ -202,21 +223,46 @@ export function buildScenePromptFromDirector(
     .filter(Boolean)
     .join(', ');
 
+  const styleCanon = artDirectionBlock
+    ? `STYLE CANON: ${GENERIC_STYLE_FALLBACK}`
+    : `STYLE CANON: ${STYLE_BLOCK}, ${LIGHTING_BLOCK}`;
+
+  const closingRule = hasMasterPoster
+    ? '9:16 vertical premium editorial poster with provided headline and quote only'
+    : '9:16 vertical poster-ready textless background only';
+
+  const useCompactLayout = hasMasterPoster && Boolean(artDirectionBlock);
+  const layoutRules = useCompactLayout
+    ? [
+        'premium master poster exact headline and quote only',
+        'upper-third headline negative space',
+        contract.promptConstraints.find((c) => c.startsWith('composition intent:')) ?? '',
+        contract.promptConstraints.find((c) => c.startsWith('scene archetype:')) ?? '',
+      ]
+        .filter(Boolean)
+        .join(', ')
+    : contract.promptConstraints.join(', ');
+
+  const cameraLine = artDirectionBlock
+    ? `CAMERA: ${artDirection.lens}`
+    : `CAMERA DIRECTION: ${contract.cameraDirection}`;
+
   const promptParts = [
     intentLock ? `INTENT LOCK: ${intentLock}` : '',
     masterPosterBlock ? `MASTER POSTER: ${masterPosterBlock}` : '',
+    `ART DIRECTION: ${artDirectionBlock}`,
     `COMPOSITION CONTRACT OPENING: ${contract.promptOpening}`,
     `REQUIRED OBJECTS: ${contract.requiredObjects.join(', ')}`,
     `ENVIRONMENT: ${contract.requiredEnvironment}`,
-    `CHARACTER BLOCKING: ${contract.characterBlocking}`,
-    `CAMERA DIRECTION: ${contract.cameraDirection}`,
-    `TYPOGRAPHY SAFE ZONE: ${contract.typographySafeZone}`,
-    `VISUAL DENSITY: ${contract.visualDensityRule}`,
-    `LAYOUT AWARE RULES: ${contract.promptConstraints.join(', ')}`,
+    useCompactLayout ? '' : `CHARACTER BLOCKING: ${contract.characterBlocking}`,
+    cameraLine,
+    useCompactLayout ? '' : `TYPOGRAPHY SAFE ZONE: ${contract.typographySafeZone}`,
+    useCompactLayout ? '' : `VISUAL DENSITY: ${contract.visualDensityRule}`,
+    `LAYOUT AWARE RULES: ${layoutRules}`,
     `ACTION MEMORY: ${actionMemory}`,
-    `STYLE CANON: ${STYLE_BLOCK}, ${LIGHTING_BLOCK}`,
+    styleCanon,
     `ATMOSPHERE: ${input.atmosphereLabel}, emotion mood: ${input.emotionLabel}`,
-    '9:16 vertical poster-ready textless background only',
+    closingRule,
   ].filter(Boolean);
 
   let prompt = promptParts.join(' ');
@@ -231,7 +277,8 @@ export function buildScenePromptFromDirector(
     ...FIXED_NEGATIVE_SCENE.split(', '),
   ];
 
-  const negativePrompt = buildMirrorNegativePrompt(input.topicKey, negativeExtras);
+  const baseNegative = buildMirrorNegativePrompt(input.topicKey, negativeExtras);
+  const negativePrompt = mergeArtDirectionNegatives(baseNegative, artDirection);
 
   return { prompt, negativePrompt };
 }

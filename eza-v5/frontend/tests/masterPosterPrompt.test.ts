@@ -5,6 +5,7 @@ import { resolveLockedPrimaryIntent } from '@/lib/eza/mirror/intentLockSystem';
 import { buildMasterPosterText } from '@/lib/eza/mirror/buildMasterPosterText';
 import { resolveSceneSubtopics } from '@/lib/eza/mirror/sceneSubtopicResolver';
 import { MASTER_POSTER_TEXT_RULES } from '@/lib/eza/mirror/masterPosterPromptBlock';
+import { detectPromptTruncationRisk, OPENAI_MIRROR_PROMPT_MAX } from '@/lib/eza/mirror/hybridPosterDebug';
 
 function entry(mirrorCueHints: string[]): SavedBehavioralEntry {
   return {
@@ -51,6 +52,13 @@ describe('master poster prompt integration', () => {
     expect(p).toContain('blue_tiles');
     expect(p).toContain('silk_road');
     expect(visual.sceneSubtopicId).toBe('travel_silk_road');
+    expect(visual.prompt).toContain('ART DIRECTION:');
+    expect(visual.prompt.toLowerCase()).toMatch(/golden hour|travel editorial/);
+    expect(visual.prompt.toLowerCase()).toMatch(/magazine/);
+    expect(visual.promptTruncated).toBe(false);
+    expect(visual.prompt.length).toBeLessThanOrEqual(OPENAI_MIRROR_PROMPT_MAX);
+    expect(visual.prompt.length).toBeLessThanOrEqual(3600);
+    expect(detectPromptTruncationRisk(visual.prompt).truncated).toBe(false);
   });
 
   it('prompt includes VISIBLE POSTER TEXT with subtopic-aligned headline and quote', () => {
@@ -71,10 +79,10 @@ describe('master poster prompt integration', () => {
       sceneSubtopicResolution: subtopic,
     });
     expect(visual.prompt).toContain('VISIBLE POSTER TEXT');
-    expect(visual.prompt).toContain(`Headline: ${master.headline}`);
-    expect(visual.prompt).toContain(`Quote: ${master.quote}`);
-    expect(visual.prompt).toContain(`"${master.headline}"`);
-    expect(visual.prompt).toContain(`"${master.quote}"`);
+    expect(visual.prompt).toContain(`Headline: "${master.headline}"`);
+    expect(visual.prompt).toContain(`Quote: "${master.quote}"`);
+    expect(visual.prompt).not.toContain('textless background only');
+    expect(visual.prompt).toContain('provided headline and quote only');
   });
 
   it('prompt forbids invented readable text', () => {
@@ -127,5 +135,29 @@ describe('vehicle lock regression with subtopics', () => {
     const p = visual.prompt.toLowerCase();
     expect(p).not.toMatch(/\bhighway\b/);
     expect(p).not.toMatch(/\bskyline\b/);
+    expect(visual.prompt).toContain('ART DIRECTION:');
+    expect(p).toMatch(/automotive|showroom/);
+    expect(visual.negativePrompt.toLowerCase()).toMatch(/outdoor road|highway/);
+  });
+});
+
+describe('tech product art direction', () => {
+  it('EZA MVP prompt avoids cyberpunk and robot negatives', () => {
+    const entries = [
+      entry(['eza', 'cursor', 'roadmap', 'mvp']),
+      entry(['ürün']),
+    ];
+    const visual = buildMirrorVisualFromContext({
+      entries,
+      characterName: 'Kurucu',
+      personaFamilyId: 'balanced_calm',
+      seed: 'tech-art-direction',
+    });
+    expect(visual.sceneSubtopicId).toBe('tech_product_building');
+    expect(visual.prompt.toLowerCase()).toMatch(/product lab|startup/);
+    const neg = visual.negativePrompt.toLowerCase();
+    expect(neg).toMatch(/cyberpunk/);
+    expect(neg).toMatch(/robot/);
+    expect(neg).toMatch(/ai brain/);
   });
 });

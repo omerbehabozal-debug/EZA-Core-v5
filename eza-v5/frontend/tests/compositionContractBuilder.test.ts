@@ -9,6 +9,8 @@ import { deriveReflectionSignals } from '@/lib/eza/mirror/reflectionSignals';
 import { deriveConversationVisualIntent } from '@/lib/eza/mirror/conversationVisualIntent';
 import { buildEmotionalSceneBlock } from '@/lib/eza/mirror/emotionalSceneEngine';
 import { buildMirrorVisualFromContext } from '@/lib/eza/mirror/visualPromptEngine';
+import { buildMasterPosterText } from '@/lib/eza/mirror/buildMasterPosterText';
+import { resolveSceneSubtopics } from '@/lib/eza/mirror/sceneSubtopicResolver';
 
 function entry(intent: string, signals: string[] = []): SavedBehavioralEntry {
   return {
@@ -144,6 +146,77 @@ describe('compositionContractBuilder (Sprint 13B)', () => {
     });
     expect(prompt.toLowerCase()).toMatch(/no text|no readable writing/);
     expect(prompt.toLowerCase()).toMatch(/no ui|ui overlay|generate ui|game ui/);
+  });
+
+  it('prompt includes ART DIRECTION block', () => {
+    const dir = deriveVisualNarrativeDirection({ entries: BMW_ENTRIES });
+    const intent = deriveConversationVisualIntent({ entries: BMW_ENTRIES, topicKey: 'general' });
+    const emotional = buildEmotionalSceneBlock({
+      intent,
+      reflectionSignals: deriveReflectionSignals(BMW_ENTRIES),
+      lockedIntent: 'premium_vehicle_comparison',
+    });
+    const subtopic = resolveSceneSubtopics('vehicle', ['bmw', 'mercedes', 'konfor', 'vs']);
+    const { prompt } = buildScenePromptFromDirector({
+      narrative: dir,
+      topicKey: 'general',
+      intent,
+      emotionalBlock: emotional,
+      reflectionSignals: deriveReflectionSignals(BMW_ENTRIES),
+      atmosphereLabel: 'warm',
+      emotionLabel: 'calm',
+      lockedIntent: 'premium_vehicle_comparison',
+      sceneSubtopicResolution: subtopic,
+    });
+    expect(prompt).toContain('ART DIRECTION:');
+    expect(prompt.toLowerCase()).toMatch(/showroom|automotive/);
+  });
+
+  it('master poster mode omits textless background only', () => {
+    const subtopic = resolveSceneSubtopics('travel', ['semerkant']);
+    const master = buildMasterPosterText({
+      sceneSubtopicResolution: subtopic,
+      storyTopicResolution: { primaryTopic: 'travel', confidence: 0.85, cueTokens: [], source: 'cues' },
+    });
+    const dir = deriveVisualNarrativeDirection({ entries: TRAVEL_ENTRIES, sceneSubtopicResolution: subtopic });
+    const intent = deriveConversationVisualIntent({ entries: TRAVEL_ENTRIES, topicKey: 'travel' });
+    const emotional = buildEmotionalSceneBlock({
+      intent,
+      reflectionSignals: deriveReflectionSignals(TRAVEL_ENTRIES),
+    });
+    const { prompt } = buildScenePromptFromDirector({
+      narrative: dir,
+      topicKey: 'travel',
+      intent,
+      emotionalBlock: emotional,
+      reflectionSignals: deriveReflectionSignals(TRAVEL_ENTRIES),
+      atmosphereLabel: 'warm',
+      emotionLabel: 'calm',
+      masterPosterText: master,
+      sceneSubtopicResolution: subtopic,
+    });
+    expect(prompt).not.toContain('textless background only');
+    expect(prompt).toContain(`Headline: "${master.headline}"`);
+  });
+
+  it('scene-only mode keeps textless background only', () => {
+    const dir = deriveVisualNarrativeDirection({ entries: CALM_ENTRIES });
+    const intent = deriveConversationVisualIntent({ entries: CALM_ENTRIES, topicKey: 'general' });
+    const emotional = buildEmotionalSceneBlock({
+      intent,
+      reflectionSignals: deriveReflectionSignals(CALM_ENTRIES),
+    });
+    const { prompt } = buildScenePromptFromDirector({
+      narrative: dir,
+      topicKey: 'general',
+      intent,
+      emotionalBlock: emotional,
+      reflectionSignals: deriveReflectionSignals(CALM_ENTRIES),
+      atmosphereLabel: 'calm',
+      emotionLabel: 'calm',
+    });
+    expect(prompt).toContain('textless background only');
+    expect(prompt).not.toContain('MASTER POSTER:');
   });
 
   it('forbidden scene types are included in negative prompt', () => {

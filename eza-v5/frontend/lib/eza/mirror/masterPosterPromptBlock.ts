@@ -31,17 +31,15 @@ export function buildMasterPosterPromptBlock(input: {
 
   const textBlock = [
     'VISIBLE POSTER TEXT:',
-    `Headline: ${input.masterPosterText.headline}`,
-    `Quote: ${input.masterPosterText.quote}`,
+    `Headline: "${input.masterPosterText.headline}"`,
+    `Quote: "${input.masterPosterText.quote}"`,
+    ...MASTER_POSTER_TEXT_RULES.slice(1),
   ].join('\n');
 
   const instructionBlock = [
     MASTER_POSTER_TEXT_RULES[0],
-    `The poster must include exactly this visible headline text:`,
-    `"${input.masterPosterText.headline}"`,
-    `The poster must include exactly this visible short quote:`,
-    `"${input.masterPosterText.quote}"`,
-    ...MASTER_POSTER_TEXT_RULES.slice(1),
+    'Use the headline and quote exactly as provided in VISIBLE POSTER TEXT.',
+    'Do not translate the provided headline or quote.',
   ].join(' ');
 
   return [instructionBlock, keywordBlock, textBlock].filter(Boolean).join('\n\n');
