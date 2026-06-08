@@ -59,7 +59,9 @@ function promptHasStyleContract(prompt: string): void {
     /editorial character illustration|premium cinematic editorial scene|premium editorial/
   );
   expect(lower).toMatch(/calm cinematic atmosphere|film still atmosphere|warm emotional realism/);
-  expect(lower).toMatch(/clean left|typography safe|overlay safe/);
+  expect(lower).toMatch(
+    /clean left|typography safe|overlay safe|upper-third headline negative space|negative space upper third|interface overlays|comfortable edge breathing/
+  );
   expect(lower).toMatch(/not a toy|not cartoon|not mascot/);
   expect(lower).toMatch(
     /mature premium editorial|premium stylized|premium editorial campaign|premium cinematic editorial/
