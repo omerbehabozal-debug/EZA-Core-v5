@@ -613,7 +613,7 @@ html:has(.saina-page) body {
 }
 
 .saina-canvas-bg--default-scene {
-  background-color: #0c1814;
+  background-color: #0a1218;
 }
 
 .saina-canvas-scene-image {
@@ -626,7 +626,8 @@ html:has(.saina-page) body {
 }
 
 .saina-canvas-scene-image--bundled {
-  opacity: 0.92;
+  opacity: 1;
+  filter: brightness(1.13) contrast(1.17) saturate(1.1);
 }
 
 .saina-canvas-overlay {
@@ -639,31 +640,37 @@ html:has(.saina-page) body {
   background:
     linear-gradient(
       135deg,
-      rgba(8, 22, 18, 0.48) 0%,
-      rgba(12, 32, 26, 0.28) 28%,
+      rgba(8, 14, 22, 0.3) 0%,
+      rgba(10, 18, 28, 0.16) 28%,
       transparent 58%
     ),
     linear-gradient(
       to bottom,
-      rgba(10, 24, 20, 0.36) 0%,
+      rgba(8, 14, 20, 0.22) 0%,
       transparent 32%
     );
 }
 
 .saina-canvas-overlay--center {
-  background: radial-gradient(
-    ellipse 72% 58% at 52% 42%,
-    rgba(196, 122, 58, 0.09) 0%,
-    rgba(216, 177, 106, 0.04) 38%,
-    transparent 72%
-  );
+  background:
+    radial-gradient(
+      ellipse 68% 52% at 50% 36%,
+      rgba(216, 177, 106, 0.14) 0%,
+      rgba(196, 122, 58, 0.07) 34%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 42% 34% at 62% 48%,
+      rgba(255, 210, 140, 0.06) 0%,
+      transparent 68%
+    );
 }
 
 .saina-canvas-overlay--pattern-dim {
   background: radial-gradient(
     ellipse 42% 38% at 74% 26%,
-    rgba(11, 21, 32, 0.38) 0%,
-    rgba(11, 21, 32, 0.12) 42%,
+    rgba(11, 18, 28, 0.22) 0%,
+    rgba(11, 18, 28, 0.06) 42%,
     transparent 72%
   );
 }
@@ -672,14 +679,14 @@ html:has(.saina-page) body {
   background:
     linear-gradient(
       270deg,
-      rgba(246, 244, 239, 0.22) 0%,
-      rgba(246, 244, 239, 0.1) 14%,
+      rgba(246, 244, 239, 0.18) 0%,
+      rgba(246, 244, 239, 0.08) 14%,
       transparent 34%
     ),
     linear-gradient(
       270deg,
-      rgba(15, 31, 26, 0.28) 0%,
-      rgba(15, 31, 26, 0.12) 18%,
+      rgba(12, 22, 30, 0.16) 0%,
+      rgba(12, 22, 30, 0.06) 18%,
       transparent 42%
     );
 }
@@ -690,16 +697,16 @@ html:has(.saina-page) body {
   background:
     linear-gradient(
       90deg,
-      rgba(8, 18, 15, 0.42) 0%,
+      rgba(8, 14, 20, 0.26) 0%,
       transparent 22%,
       transparent 68%,
-      rgba(12, 22, 18, 0.32) 100%
+      rgba(10, 16, 22, 0.2) 100%
     ),
     linear-gradient(
       to bottom,
       transparent 0%,
-      rgba(10, 20, 17, 0.18) 62%,
-      rgba(8, 16, 14, 0.38) 100%
+      rgba(8, 14, 20, 0.1) 62%,
+      rgba(6, 12, 18, 0.24) 100%
     );
 }
 
@@ -712,13 +719,13 @@ html:has(.saina-page) body {
     background:
       linear-gradient(
         160deg,
-        rgba(8, 22, 18, 0.68) 0%,
-        rgba(12, 32, 26, 0.42) 36%,
+        rgba(8, 14, 22, 0.42) 0%,
+        rgba(10, 18, 28, 0.24) 36%,
         transparent 72%
       ),
       linear-gradient(
         to bottom,
-        rgba(10, 24, 20, 0.52) 0%,
+        rgba(8, 14, 20, 0.34) 0%,
         transparent 28%
       );
   }
@@ -969,13 +976,13 @@ html:has(.saina-page) body {
 .saina-search-input {
   width: 100%;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  background: rgba(15, 35, 30, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(15, 35, 30, 0.28);
   padding: 0.5rem 2.75rem 0.5rem 2.25rem;
   font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(18px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .saina-search-input::placeholder {
@@ -1345,11 +1352,11 @@ html:has(.saina-page) body {
   max-height: none;
   overflow: hidden;
   border-radius: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(246, 244, 239, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(246, 244, 239, 0.32);
   padding: 0.875rem 1.125rem;
-  -webkit-backdrop-filter: blur(32px) saturate(1.08);
-  backdrop-filter: blur(32px) saturate(1.08);
+  -webkit-backdrop-filter: blur(26px) saturate(1.12);
+  backdrop-filter: blur(26px) saturate(1.12);
   box-shadow:
     0 14px 40px rgba(0, 0, 0, 0.1),
     0 0 28px rgba(196, 122, 58, 0.02),
@@ -1580,10 +1587,10 @@ html:has(.saina-page) body {
   align-items: center;
   gap: 0.625rem;
   border-radius: 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  background: rgba(246, 244, 239, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  background: rgba(246, 244, 239, 0.4);
   padding: 0.625rem 0.875rem;
-  backdrop-filter: blur(28px);
+  backdrop-filter: blur(24px) saturate(1.1);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
 }
 
