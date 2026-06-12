@@ -17,10 +17,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
-import StandaloneChatLayout from '@/components/standalone/StandaloneChatLayout';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
-import { isSainaStandaloneShellEnabled } from '@/lib/eza/sainaStandaloneShell';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
 import type {
   BehavioralSnapshot,
@@ -652,7 +650,6 @@ export default function StandaloneChatInner() {
   };
 
   const isEmpty = messages.length === 0 && !isLoading && !isTyping;
-  const useSainaShell = isSainaStandaloneShellEnabled();
 
   const heroTitle = useMemo(() => {
     if (!chatId) return SAINA_HERO_DEFAULT_TITLE;
@@ -685,33 +682,16 @@ export default function StandaloneChatInner() {
     );
   }
 
-  if (useSainaShell) {
-    return (
-      <SainaStandaloneShell
-        heroTitle={heroTitle}
-        isEmpty={isEmpty}
-        messages={messageList}
-        composer={composer}
-        safeOnlyMode={safeOnlyMode}
-        onSafeOnlyModeChange={setSafeOnlyMode}
-        hasActiveChat
-        onNewChat={handleNewChat}
-      />
-    );
-  }
-
   return (
-    <div className={standaloneSkin.page}>
-      <StandaloneChatLayout
-        isEmpty={isEmpty}
-        safeOnlyMode={safeOnlyMode}
-        onSafeOnlyModeChange={setSafeOnlyMode}
-        hasActiveChat
-        onNewChat={handleNewChat}
-        composer={composer}
-      >
-        {messageList}
-      </StandaloneChatLayout>
-    </div>
+    <SainaStandaloneShell
+      heroTitle={heroTitle}
+      isEmpty={isEmpty}
+      messages={messageList}
+      composer={composer}
+      safeOnlyMode={safeOnlyMode}
+      onSafeOnlyModeChange={setSafeOnlyMode}
+      hasActiveChat
+      onNewChat={handleNewChat}
+    />
   );
 }
