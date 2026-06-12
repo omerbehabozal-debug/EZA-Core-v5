@@ -1,0 +1,2037 @@
+/**
+ * SAINA Conversation Mirror — Sprint A / A.1 styles.
+ * Explicit CSS so dev mock renders correctly even before Tailwind JIT picks up sainaSkin tokens.
+ */
+
+.saina-serif {
+  font-family: var(--font-saina-serif), Georgia, 'Times New Roman', serif;
+  font-weight: 600;
+}
+
+html:has(.saina-page),
+html:has(.saina-page) body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.saina-page {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(165deg, #041b17 0%, #061f1b 48%, #0b1520 100%);
+  color: #f6f4ef;
+  display: flex;
+  flex-direction: column;
+  padding: 0.625rem;
+}
+
+@media (min-width: 1024px) {
+  .saina-page {
+    padding: 0.875rem 1rem;
+  }
+}
+
+.saina-app-frame {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(216, 177, 106, 0.22);
+  background: #0b1520;
+  box-shadow:
+    0 0 0 1px rgba(4, 27, 23, 0.65),
+    0 28px 80px rgba(0, 0, 0, 0.48);
+}
+
+.saina-shell {
+  display: flex;
+  min-height: 0;
+  width: 100%;
+  flex: 1;
+  overflow: hidden;
+}
+
+.saina-sidebar {
+  display: none;
+  height: 100%;
+  width: 280px;
+  flex-shrink: 0;
+  flex-direction: column;
+  border-right: 1px solid rgba(216, 177, 106, 0.18);
+  background: rgba(4, 27, 23, 0.72);
+  backdrop-filter: blur(18px);
+}
+
+@media (min-width: 768px) {
+  .saina-sidebar {
+    display: flex;
+  }
+}
+
+@media (min-width: 1024px) {
+  .saina-sidebar {
+    width: 288px;
+  }
+}
+
+.saina-sidebar-inner {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.875rem;
+  overflow: hidden;
+  padding: 1.25rem 1.125rem 1.125rem;
+}
+
+.saina-sidebar-top {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.saina-sidebar-bottom {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.375rem;
+}
+
+.saina-brand-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 0 0.25rem;
+}
+
+.saina-brand-mark {
+  display: flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.875rem;
+  background: linear-gradient(145deg, rgba(212, 175, 55, 0.22), rgba(15, 43, 37, 0.55));
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 177, 106, 0.35),
+    0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.saina-brand-text {
+  min-width: 0;
+}
+
+.saina-brand-title {
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  color: #f6f4ef;
+  line-height: 1.1;
+}
+
+.saina-brand-tagline {
+  margin-top: 2px;
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(217, 196, 163, 0.72);
+}
+
+.saina-brand-powered {
+  font-size: 10px;
+  color: rgba(107, 138, 122, 0.85);
+}
+
+.saina-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+}
+
+.saina-section-label {
+  padding: 0;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(217, 196, 163, 0.65);
+}
+
+.saina-section-control {
+  display: flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(216, 177, 106, 0.15);
+  background: rgba(15, 43, 37, 0.45);
+  color: rgba(246, 244, 239, 0.55);
+  cursor: default;
+}
+
+.saina-new-chat-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.625rem;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 177, 106, 0.2);
+  background: rgba(8, 22, 18, 0.55);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(246, 244, 239, 0.92);
+  cursor: default;
+}
+
+.saina-new-chat-icon {
+  color: #d4af37;
+  flex-shrink: 0;
+}
+
+.saina-conv-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.375rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.25rem 0.25rem 0.25rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 61, 50, 0.22) transparent;
+}
+
+.saina-conv-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.saina-conv-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(15, 61, 50, 0.18);
+}
+
+.saina-conv-row {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border-radius: 1rem;
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(246, 244, 239, 0.72);
+  cursor: default;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.saina-conv-row--active {
+  background: linear-gradient(135deg, rgba(15, 43, 37, 0.95), rgba(23, 59, 69, 0.85));
+  color: #f6f4ef;
+  border-color: rgba(216, 177, 106, 0.28);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.saina-conv-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.saina-conv-active-dot {
+  margin-top: 0.5rem;
+  height: 8px;
+  width: 8px;
+  border-radius: 50%;
+  background: #6b8a7a;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(107, 138, 122, 0.45);
+}
+
+.saina-conv-thumb {
+  height: 2.75rem;
+  width: 2.75rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    0 4px 12px rgba(15, 61, 50, 0.12);
+}
+
+.saina-conv-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.saina-conv-preview {
+  margin-top: 3px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.35;
+  opacity: 0.78;
+}
+
+.saina-conv-meta {
+  margin-top: 5px;
+  font-size: 10px;
+  opacity: 0.55;
+}
+
+.saina-premium-card {
+  border-radius: 1rem;
+  border: 1px solid rgba(216, 177, 106, 0.4);
+  background: linear-gradient(145deg, rgba(216, 177, 106, 0.28), rgba(255, 252, 245, 0.75), rgba(246, 244, 239, 0.55));
+  padding: 0.875rem;
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(216, 177, 106, 0.12);
+}
+
+.saina-premium-card--compact {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.875rem;
+}
+
+.saina-premium-card--mini {
+  padding: 0.3rem 0.45rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 14px rgba(216, 177, 106, 0.08);
+}
+
+.saina-premium-card--dark {
+  border-color: rgba(216, 177, 106, 0.22);
+  background: linear-gradient(
+    145deg,
+    rgba(212, 175, 55, 0.12),
+    rgba(8, 22, 18, 0.72),
+    rgba(4, 27, 23, 0.85)
+  );
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+}
+
+.saina-premium-card--dark .saina-premium-mini-title {
+  color: rgba(246, 244, 239, 0.88);
+}
+
+.saina-premium-card--dark .saina-premium-mini-quota,
+.saina-premium-card--dark .saina-premium-mini-label {
+  color: rgba(217, 196, 163, 0.65);
+}
+
+.saina-premium-mini-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.saina-premium-mini-title {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #0f3d32;
+}
+
+.saina-premium-mini-badge {
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #d8b16a;
+}
+
+.saina-premium-mini-quota {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 600;
+  color: #6b6b62;
+}
+
+.saina-quota-bar--mini {
+  margin-top: 0.3rem;
+  height: 4px;
+}
+
+.saina-premium-mini-label {
+  margin-top: 0.15rem;
+  font-size: 7px;
+  color: rgba(107, 107, 98, 0.85);
+}
+
+.saina-pattern-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(15, 61, 50, 0.08);
+  background: rgba(255, 255, 255, 0.38);
+  padding: 0.3rem 0.45rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.saina-pattern-nav-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.saina-pattern-nav-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.saina-pattern-nav-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #0f3d32;
+}
+
+.saina-pattern-nav-body {
+  font-size: 9px;
+  line-height: 1.35;
+  color: #6b6b62;
+}
+
+.saina-pattern-nav-cta {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b8a7a;
+}
+
+.saina-pattern-nav--dark {
+  border-color: rgba(216, 177, 106, 0.16);
+  background: rgba(8, 22, 18, 0.55);
+}
+
+.saina-pattern-nav--dark .saina-pattern-nav-title {
+  color: rgba(246, 244, 239, 0.9);
+}
+
+.saina-pattern-nav--dark .saina-pattern-nav-body {
+  color: rgba(217, 196, 163, 0.62);
+}
+
+.saina-pattern-nav--dark .saina-pattern-nav-cta {
+  color: rgba(212, 175, 55, 0.85);
+}
+
+.saina-premium-compact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.saina-premium-compact-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #0f3d32;
+}
+
+.saina-premium-compact-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #d8b16a;
+}
+
+.saina-premium-compact-body {
+  margin-top: 0.25rem;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #6b6b62;
+}
+
+.saina-pattern-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: 0.625rem;
+  row-gap: 0.125rem;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(15, 61, 50, 0.1);
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.625rem 0.75rem;
+}
+
+.saina-pattern-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.625rem;
+  background: linear-gradient(135deg, rgba(216, 177, 106, 0.2), rgba(15, 61, 50, 0.06));
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.saina-pattern-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0f3d32;
+}
+
+.saina-pattern-body {
+  font-size: 10px;
+  line-height: 1.45;
+  color: #6b6b62;
+}
+
+.saina-pattern-cta {
+  grid-column: 1 / -1;
+  margin-top: 0.25rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0f3d32;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-align: left;
+}
+
+.saina-quota-labels {
+  margin-top: 0.375rem;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #6b6b62;
+}
+
+.saina-profile-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.saina-profile-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.saina-profile-plan {
+  font-size: 10px;
+  font-weight: 500;
+  color: #d8b16a;
+}
+
+.saina-quota-bar {
+  margin-top: 0.75rem;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(15, 61, 50, 0.1);
+}
+
+.saina-quota-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d8b16a, #0f3d32);
+}
+
+.saina-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(15, 61, 50, 0.08);
+  background: rgba(255, 255, 255, 0.45);
+  padding: 0.5rem;
+  flex-shrink: 0;
+}
+
+.saina-profile-avatar {
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #0f3d32;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f6f4ef;
+}
+
+.saina-main-col {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0b1520;
+}
+
+.saina-canvas {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.saina-canvas-bg {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.saina-canvas-bg--default-scene {
+  background-color: #0c1814;
+}
+
+.saina-canvas-scene-image {
+  position: absolute;
+  inset: 0;
+  background-image: var(--saina-default-scene, url('/saina/default-conversation-scene.png'));
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+.saina-canvas-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.saina-canvas-overlay--left {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(8, 22, 18, 0.62) 0%,
+      rgba(12, 32, 26, 0.38) 28%,
+      transparent 58%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(10, 24, 20, 0.48) 0%,
+      transparent 32%
+    );
+}
+
+.saina-canvas-overlay--center {
+  background: radial-gradient(
+    ellipse 72% 58% at 52% 42%,
+    rgba(196, 122, 58, 0.09) 0%,
+    rgba(216, 177, 106, 0.04) 38%,
+    transparent 72%
+  );
+}
+
+.saina-canvas-overlay--pattern-dim {
+  background: radial-gradient(
+    ellipse 42% 38% at 74% 26%,
+    rgba(11, 21, 32, 0.38) 0%,
+    rgba(11, 21, 32, 0.12) 42%,
+    transparent 72%
+  );
+}
+
+.saina-canvas-overlay--right {
+  background:
+    linear-gradient(
+      270deg,
+      rgba(246, 244, 239, 0.22) 0%,
+      rgba(246, 244, 239, 0.1) 14%,
+      transparent 34%
+    ),
+    linear-gradient(
+      270deg,
+      rgba(15, 31, 26, 0.28) 0%,
+      rgba(15, 31, 26, 0.12) 18%,
+      transparent 42%
+    );
+}
+
+.saina-canvas-vignette--scene {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(8, 18, 15, 0.42) 0%,
+      transparent 22%,
+      transparent 68%,
+      rgba(12, 22, 18, 0.32) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(10, 20, 17, 0.18) 62%,
+      rgba(8, 16, 14, 0.38) 100%
+    );
+}
+
+@media (max-width: 1023px) {
+  .saina-canvas-scene-image {
+    background-position: 58% center;
+  }
+
+  .saina-canvas-overlay--left {
+    background:
+      linear-gradient(
+        160deg,
+        rgba(8, 22, 18, 0.68) 0%,
+        rgba(12, 32, 26, 0.42) 36%,
+        transparent 72%
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(10, 24, 20, 0.52) 0%,
+        transparent 28%
+      );
+  }
+
+  .saina-canvas-overlay--right {
+    background:
+      linear-gradient(
+        270deg,
+        rgba(246, 244, 239, 0.28) 0%,
+        rgba(246, 244, 239, 0.12) 20%,
+        transparent 48%
+      );
+  }
+
+  .saina-mirror-panel {
+    border-radius: 24px 24px 0 0;
+    height: 100%;
+    max-height: none;
+  }
+
+  .saina-mirror-col {
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.saina-geo-glow {
+  filter:
+    drop-shadow(0 0 28px rgba(216, 177, 106, 0.65))
+    drop-shadow(0 0 56px rgba(216, 177, 106, 0.28));
+}
+
+.saina-geo-glow--subtle {
+  filter:
+    drop-shadow(0 0 12px rgba(216, 177, 106, 0.22))
+    drop-shadow(0 0 24px rgba(216, 177, 106, 0.08));
+}
+
+.saina-center-wrap {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .saina-center-wrap {
+    flex-direction: row;
+    align-items: stretch;
+  }
+}
+
+.saina-chat-col {
+  display: none;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.saina-chat-col--visible {
+  display: flex;
+}
+
+@media (min-width: 1024px) {
+  .saina-chat-col {
+    display: flex;
+    flex: 1;
+  }
+}
+
+.saina-mirror-col {
+  display: none;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.saina-mirror-col--visible {
+  display: flex;
+  flex: 1;
+}
+
+@media (min-width: 1024px) {
+  .saina-mirror-col {
+    display: flex;
+    flex: 0 0 330px;
+    padding: 0.875rem 0.875rem 0.875rem 0;
+    transition: flex-basis 0.28s ease, opacity 0.28s ease, padding 0.28s ease;
+  }
+
+  .saina-mirror-col--collapsed {
+    display: none !important;
+    flex: 0 0 0 !important;
+    padding: 0 !important;
+  }
+
+  .saina-center-wrap--mirror-collapsed .saina-chat-col {
+    flex: 1;
+    max-width: none;
+    width: 100%;
+  }
+
+  .saina-center-wrap--mirror-collapsed .saina-main,
+  .saina-center-wrap--mirror-collapsed .saina-main-body,
+  .saina-center-wrap--mirror-collapsed .saina-chat-column {
+    --saina-chat-column-width: min(75vw, 920px);
+  }
+}
+
+.saina-mirror-expand-pill {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .saina-mirror-expand-pill {
+    position: absolute;
+    right: 0;
+    top: 42%;
+    z-index: 12;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 56px;
+    border: 1px solid rgba(216, 177, 106, 0.52);
+    border-right: none;
+    border-radius: 18px 0 0 18px;
+    background: linear-gradient(
+      135deg,
+      rgba(246, 244, 239, 0.94) 0%,
+      rgba(246, 244, 239, 0.82) 100%
+    );
+    padding: 0.625rem 1rem 0.625rem 0.875rem;
+    backdrop-filter: blur(20px);
+    box-shadow:
+      -10px 0 32px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .saina-mirror-expand-pill:hover {
+    transform: translateX(-3px);
+    border-color: rgba(216, 177, 106, 0.72);
+    box-shadow:
+      -14px 0 36px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+
+  .saina-mirror-expand-sparkle {
+    color: #c47a3a;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.45));
+  }
+
+  .saina-mirror-expand-label {
+    font-family: var(--font-saina-serif), Georgia, 'Times New Roman', serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #0f2b25;
+    white-space: nowrap;
+  }
+
+  .saina-mirror-ready-pill {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #fff;
+    background: #0f2b25;
+    border-radius: 999px;
+    padding: 0.15rem 0.4rem;
+    white-space: nowrap;
+  }
+}
+
+.saina-main {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  --saina-chat-column-width: min(68vw, 860px);
+  --saina-search-max-width: 440px;
+}
+
+.saina-top-bar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.saina-top-bar-inner {
+  display: flex;
+  width: 100%;
+  max-width: var(--saina-chat-column-width);
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 auto;
+}
+
+.saina-top-bar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.saina-search-wrap {
+  position: relative;
+  display: none;
+  min-width: 0;
+  flex: 0 1 auto;
+  width: min(100%, var(--saina-search-max-width, 440px));
+  max-width: var(--saina-search-max-width, 440px);
+}
+
+@media (min-width: 640px) {
+  .saina-search-wrap {
+    display: block;
+  }
+}
+
+.saina-search-icon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.65);
+  pointer-events: none;
+}
+
+.saina-search-input {
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(15, 35, 30, 0.34);
+  padding: 0.5rem 2.75rem 0.5rem 2.25rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.saina-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.saina-search-kbd {
+  position: absolute;
+  right: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.04em;
+}
+
+.saina-icon-btn {
+  display: flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(14px);
+}
+
+.saina-icon-btn--glass {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.saina-icon-btn--composer {
+  border-color: rgba(15, 61, 50, 0.12);
+  background: rgba(246, 244, 239, 0.65);
+  color: #0f3d32;
+}
+
+.saina-top-avatar-wrap {
+  position: relative;
+}
+
+.saina-profile-avatar--top {
+  height: 2.5rem;
+  width: 2.5rem;
+  font-size: 13px;
+  box-shadow: 0 4px 14px rgba(15, 61, 50, 0.25);
+}
+
+.saina-status-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  width: 10px;
+  border-radius: 50%;
+  background: #6b8a7a;
+  border: 2px solid rgba(15, 35, 30, 0.5);
+}
+
+.saina-main-body {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  --saina-chat-column-width: min(68vw, 860px);
+  justify-content: flex-end;
+}
+
+.saina-hero--content {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 5;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: var(--saina-chat-column-width);
+  margin: 0;
+  padding: 0.25rem 0 0;
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+@media (min-width: 1024px) {
+  .saina-hero--content {
+    padding: 0.375rem 0 0;
+  }
+}
+
+.saina-hero-pill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 177, 106, 0.55);
+  background: rgba(15, 61, 50, 0.42);
+  padding: 0.2rem 0.625rem;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.saina-hero-title {
+  margin: 0;
+  max-width: 36rem;
+  font-size: clamp(1.125rem, 2.35vw, 1.5rem);
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1.1;
+  text-shadow:
+    0 1px 2px rgba(8, 16, 14, 0.55),
+    0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+@media (min-width: 1024px) {
+  .saina-hero-title {
+    font-size: clamp(1.25rem, 2vw, 1.75rem);
+  }
+}
+
+.saina-hero-subtitle {
+  margin-top: 0.25rem;
+  max-width: 28rem;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: rgba(246, 244, 239, 0.82);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+
+.saina-meta-row {
+  margin-top: 0.125rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.saina-meta-card {
+  border-radius: 0.5rem;
+  border: 1px solid rgba(216, 177, 106, 0.38);
+  background: rgba(255, 255, 255, 0.14);
+  padding: 0.2rem 0.5rem;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.saina-chat-column {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  min-height: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: var(--saina-chat-column-width);
+  margin: 0 auto;
+  padding: 0 0 0.25rem;
+  gap: 0.375rem;
+}
+
+.saina-chat-float {
+  position: relative;
+  width: 100%;
+  max-width: var(--saina-chat-column-width);
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-self: stretch;
+}
+
+.saina-chat-card {
+  width: 100%;
+  min-height: auto;
+  flex: 0 1 auto;
+  max-height: min(50vh, 520px);
+  overflow: hidden;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(246, 244, 239, 0.42);
+  padding: 0.875rem 1.125rem;
+  -webkit-backdrop-filter: blur(32px) saturate(1.08);
+  backdrop-filter: blur(32px) saturate(1.08);
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.1),
+    0 0 28px rgba(196, 122, 58, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  display: flex;
+  flex-direction: column;
+  animation: saina-chat-card-in 0.28s ease;
+}
+
+@keyframes saina-chat-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.saina-chat-messages {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.875rem;
+  padding: 0.25rem 0.125rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 61, 50, 0.15) transparent;
+}
+
+.saina-chat-messages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.saina-chat-messages::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(15, 61, 50, 0.14);
+}
+
+.saina-msg-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  max-width: 100%;
+}
+
+.saina-msg-row--ai {
+  align-self: flex-start;
+  max-width: min(92%, 36rem);
+}
+
+.saina-msg-row--user {
+  flex-direction: row-reverse;
+  align-self: flex-end;
+  max-width: min(88%, 32rem);
+  margin-left: auto;
+}
+
+.saina-msg-avatar {
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #0f3d32;
+  font-size: 11px;
+  font-weight: 600;
+  color: #f6f4ef;
+}
+
+.saina-msg-avatar--saina {
+  background: linear-gradient(135deg, rgba(216, 177, 106, 0.35), rgba(15, 61, 50, 0.15));
+  border: 1px solid rgba(216, 177, 106, 0.35);
+}
+
+.saina-msg-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.saina-msg-row--user .saina-msg-content {
+  align-items: flex-end;
+}
+
+.saina-msg-row--ai .saina-msg-content {
+  align-items: flex-start;
+}
+
+.saina-msg-label {
+  margin-bottom: 0.25rem;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #6b8a7a;
+}
+
+.saina-msg-user {
+  border-radius: 16px 16px 4px 16px;
+  border: 1px solid rgba(15, 61, 50, 0.14);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.52), rgba(246, 244, 239, 0.38));
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #1a1b1c;
+  box-shadow: 0 1px 8px rgba(15, 43, 37, 0.04);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.saina-msg-ai {
+  border-radius: 16px 16px 16px 4px;
+  border: 1px solid rgba(216, 177, 106, 0.22);
+  background: linear-gradient(135deg, rgba(255, 252, 245, 0.48), rgba(246, 244, 239, 0.34));
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: #1a1b1c;
+  box-shadow: 0 1px 8px rgba(15, 43, 37, 0.04);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.saina-composer-zone {
+  position: relative;
+  z-index: 7;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: var(--saina-chat-column-width);
+  padding: 0 0 max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+.saina-composer-inner {
+  width: 100%;
+  margin: 0;
+}
+
+.saina-composer-box {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(246, 244, 239, 0.52);
+  padding: 0.625rem 0.875rem;
+  backdrop-filter: blur(28px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+}
+
+.saina-composer-input {
+  min-width: 0;
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.875rem;
+  outline: none;
+  color: #1e1f20;
+}
+
+.saina-send-btn {
+  display: flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: none;
+  background: #0f2b25;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(15, 43, 37, 0.32);
+}
+
+.saina-chips-toggle {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(216, 177, 106, 0.28);
+  border-radius: 999px;
+  background: rgba(4, 27, 23, 0.42);
+  padding: 0.25rem 0.625rem;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(246, 244, 239, 0.75);
+  cursor: pointer;
+  text-decoration: none;
+  backdrop-filter: blur(10px);
+}
+
+.saina-chips-row {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.saina-chips-row--open {
+  animation: saina-chips-in 0.2s ease;
+}
+
+@keyframes saina-chips-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.saina-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.32);
+  padding: 0.3rem 0.625rem;
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+.saina-mirror-panel {
+  display: flex;
+  height: calc(100% - 0.5rem);
+  width: 100%;
+  flex-direction: column;
+  border-radius: 30px;
+  border: 1px solid rgba(216, 177, 106, 0.2);
+  background: rgba(246, 244, 239, 0.86);
+  backdrop-filter: blur(22px);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+@media (min-width: 1024px) {
+  .saina-mirror-panel {
+    height: calc(100% - 1rem);
+    max-height: calc(100% - 0.75rem);
+  }
+}
+
+.saina-mirror-inner {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem 1.125rem;
+}
+
+.saina-mirror-header {
+  flex-shrink: 0;
+}
+
+.saina-mirror-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.saina-mirror-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.saina-mirror-collapse-btn {
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(15, 61, 50, 0.1);
+  background: rgba(255, 255, 255, 0.55);
+  color: #0f3d32;
+  cursor: pointer;
+}
+
+@media (min-width: 1024px) {
+  .saina-mirror-collapse-btn {
+    display: flex;
+  }
+}
+
+.saina-mirror-sparkle {
+  color: #d8b16a;
+  flex-shrink: 0;
+}
+
+.saina-mirror-title {
+  font-size: 1.375rem;
+  letter-spacing: -0.01em;
+  color: #0f3d32;
+  line-height: 1.15;
+}
+
+.saina-mirror-subtitle {
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #5a5a52;
+}
+
+.saina-mirror-dotted-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border-radius: 24px;
+  border: 2px dashed rgba(216, 177, 106, 0.38);
+  background: rgba(255, 255, 255, 0.45);
+  padding: 1.5rem 1.25rem;
+}
+
+.saina-mirror-dotted-card--busy {
+  border-style: solid;
+  border-color: rgba(216, 177, 106, 0.28);
+}
+
+.saina-mirror-empty-title {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #3d3d38;
+}
+
+.saina-mirror-teaser-title {
+  margin-top: 0.625rem;
+  font-size: 1.125rem;
+  line-height: 1.25;
+  color: #0f3d32;
+}
+
+.saina-mirror-teaser-body {
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #5a5a52;
+}
+
+.saina-mirror-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.saina-mirror-cta-note {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #5a5a52;
+}
+
+.saina-mirror-generating {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #0f3d32;
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 1023px) {
+  .saina-main,
+  .saina-main-body,
+  .saina-chat-column {
+    --saina-chat-column-width: min(92vw, 100%);
+  }
+
+  .saina-top-bar {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .saina-chat-column {
+    padding: 0 1rem;
+    box-sizing: border-box;
+  }
+
+  .saina-hero--content {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+.saina-concept-footer {
+  display: none;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(216, 177, 106, 0.12);
+  background: rgba(4, 27, 23, 0.55);
+  backdrop-filter: blur(12px);
+}
+
+@media (min-width: 1024px) {
+  .saina-concept-footer {
+    display: block;
+  }
+}
+
+.saina-concept-footer-inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0.625rem 1.25rem 0.75rem;
+}
+
+.saina-concept-block {
+  min-width: 0;
+}
+
+.saina-concept-block--next {
+  max-width: 22rem;
+  text-align: right;
+}
+
+.saina-concept-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(217, 196, 163, 0.65);
+}
+
+.saina-concept-pills {
+  margin-top: 0.375rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.saina-concept-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 177, 106, 0.18);
+  background: rgba(8, 22, 18, 0.45);
+  padding: 0.2rem 0.5rem;
+  font-size: 10px;
+  color: rgba(246, 244, 239, 0.72);
+}
+
+.saina-concept-body {
+  margin-top: 0.375rem;
+  font-size: 10px;
+  line-height: 1.5;
+  color: rgba(217, 196, 163, 0.62);
+}
+
+.saina-primary-btn {
+  margin-top: 1.125rem;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #0f3d32, #1a5245);
+  padding: 0.875rem 1.125rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #fff;
+  box-shadow:
+    0 12px 32px rgba(15, 61, 50, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+
+.saina-primary-btn:hover {
+  background: linear-gradient(135deg, #0a2f27, #0f3d32);
+}
+
+.saina-btn-sparkle {
+  opacity: 0.9;
+}
+
+.saina-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.saina-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #5a5a52;
+}
+
+.saina-checklist--elegant li {
+  padding-left: 0.125rem;
+}
+
+.saina-check-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #6b8a7a;
+}
+
+.saina-checklist li + li {
+  margin-top: 0.5rem;
+}
+
+.saina-mirror-how {
+  flex-shrink: 0;
+}
+
+.saina-mirror-how-label {
+  margin-bottom: 0.5rem;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(107, 107, 98, 0.9);
+}
+
+@media (min-width: 1024px) {
+  .saina-mirror-how {
+    display: block;
+  }
+}
+
+.saina-ready-card {
+  border-radius: 22px;
+  border: 1px solid rgba(216, 177, 106, 0.38);
+  background: linear-gradient(145deg, rgba(216, 177, 106, 0.14), rgba(255, 255, 255, 0.72), rgba(246, 244, 239, 0.55));
+  padding: 1.125rem;
+  flex-shrink: 0;
+  box-shadow: 0 10px 32px rgba(15, 61, 50, 0.05);
+}
+
+.saina-ready-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0f3d32;
+}
+
+.saina-preview-thumb {
+  margin-top: 0.875rem;
+  aspect-ratio: 9 / 16;
+  max-height: 10rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 1rem;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 28%, rgba(216, 177, 106, 0.45) 0%, transparent 58%),
+    linear-gradient(180deg, #0f3d32 0%, #1a5245 38%, #6b8a7a 72%, rgba(216, 177, 106, 0.55) 100%);
+  box-shadow: inset 0 0 0 1px rgba(216, 177, 106, 0.35);
+}
+
+.saina-preview-thumb-inner {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 1rem;
+  text-align: center;
+  color: #fff;
+}
+
+.saina-preview-thumb-title {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.saina-preview-thumb-insight {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.82);
+  max-width: 14rem;
+}
+
+.saina-secondary-btn {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(15, 61, 50, 0.12);
+  background: rgba(255, 255, 255, 0.55);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #0f3d32;
+  cursor: pointer;
+}
+
+.saina-secondary-btn--full {
+  width: 100%;
+  flex: none;
+  margin-top: 0.5rem;
+}
+
+.saina-btn-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.625rem;
+}
+
+.saina-upsell-card {
+  border-radius: 1.125rem;
+  border: 1px solid rgba(216, 177, 106, 0.38);
+  background: linear-gradient(145deg, rgba(216, 177, 106, 0.22), rgba(255, 252, 245, 0.65));
+  padding: 1rem;
+  text-align: center;
+  flex-shrink: 0;
+  margin-top: auto;
+  box-shadow: 0 8px 24px rgba(216, 177, 106, 0.1);
+}
+
+.saina-upsell-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0f3d32;
+}
+
+.saina-upsell-body {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #5a5a52;
+}
+
+.saina-upsell-btn {
+  margin-top: 0.5rem;
+  width: 100%;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(216, 177, 106, 0.45);
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #0f3d32;
+}
+
+.saina-mobile-tabs {
+  display: flex;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(15, 61, 50, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+}
+
+@media (min-width: 1024px) {
+  .saina-mobile-tabs {
+    display: none;
+  }
+}
+
+.saina-mobile-tab {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.75rem;
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b6b62;
+  cursor: pointer;
+}
+
+.saina-mobile-tab--active {
+  color: #0f3d32;
+}
+
+.saina-mobile-tab-badge {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: #0f3d32;
+  border-radius: 999px;
+  padding: 0.1rem 0.35rem;
+  margin-left: 0.125rem;
+}
+
+.saina-footer-note {
+  flex-shrink: 0;
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(107, 107, 98, 0.7);
+}
+
+@media (max-width: 639px) {
+  .saina-footer-note {
+    display: none;
+  }
+}
+
+.saina-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(216, 177, 106, 0.2) 0%, transparent 60%),
+    rgba(15, 61, 50, 0.62);
+  padding: 1.5rem;
+  backdrop-filter: blur(8px);
+}
+
+.saina-modal-card {
+  position: relative;
+  max-height: 92dvh;
+  width: 100%;
+  max-width: 32rem;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid rgba(216, 177, 106, 0.4);
+  background: linear-gradient(180deg, #faf8f3, #f6f4ef);
+  box-shadow:
+    0 28px 56px rgba(15, 61, 50, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.saina-modal-head {
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.saina-modal-head-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.saina-modal-title {
+  font-size: 1.25rem;
+  color: #0f3d32;
+  line-height: 1.2;
+}
+
+.saina-modal-note {
+  margin-top: 0.25rem;
+}
+
+.saina-modal-poster-wrap {
+  padding: 0 1.25rem;
+}
+
+.saina-modal-poster-body {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem;
+  color: #fff;
+}
+
+.saina-modal-poster-mark {
+  display: flex;
+  justify-content: center;
+  padding-top: 1rem;
+}
+
+.saina-modal-poster-copy {
+  text-align: center;
+}
+
+.saina-modal-poster-kicker {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.saina-modal-poster-headline {
+  margin-top: 0.75rem;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+.saina-modal-poster-quote {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.saina-modal-poster-meta {
+  padding-bottom: 0.5rem;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.saina-modal-actions {
+  padding: 1.25rem;
+}
+
+.saina-modal-close {
+  position: absolute;
+  right: 0.75rem;
+  top: 0.75rem;
+  z-index: 1;
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.8);
+  color: #0f3d32;
+  cursor: pointer;
+}
+
+.saina-modal-poster {
+  aspect-ratio: 9 / 16;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 30%, rgba(216, 177, 106, 0.5) 0%, transparent 60%),
+    linear-gradient(180deg, #0f3d32 0%, #1a5245 35%, #6b8a7a 70%, #d8b16a 100%);
+  box-shadow: inset 0 0 0 1px rgba(216, 177, 106, 0.35);
+}
+
+.saina-spin {
+  animation: saina-spin 1s linear infinite;
+}
+
+@keyframes saina-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
