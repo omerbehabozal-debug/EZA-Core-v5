@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageSquarePlus, Minus } from 'lucide-react';
+import { MessageSquarePlus, Minus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   SAINA_BRAND,
@@ -13,19 +13,13 @@ import {
   SAINA_RELATIONSHIP_PATTERN_BODY,
   SAINA_RELATIONSHIP_PATTERN_CTA,
   SAINA_RELATIONSHIP_PATTERN_TITLE,
-  SAINA_TAGLINE,
 } from '@/lib/eza/sainaCopy';
+import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import SainaGeometricMark from './SainaGeometricMark';
 
-export type MockConversation = {
-  id: string;
-  title: string;
-  preview: string;
-  time: string;
-  thumbGradient: string;
-};
+export type { SainaConversationItem };
 
-const MOCK_CONVERSATIONS: MockConversation[] = [
+export const MOCK_SAINA_CONVERSATIONS: SainaConversationItem[] = [
   {
     id: 'new-chat',
     title: 'Yeni Sohbet',
@@ -91,99 +85,178 @@ const MOCK_CONVERSATIONS: MockConversation[] = [
   },
 ];
 
+export type SainaMonthlyMirrorUsage = {
+  used: number;
+  total: number;
+};
+
 type SainaConversationSidebarProps = {
-  activeId?: string;
+  conversations?: SainaConversationItem[];
+  activeChatId?: string | null;
+  onNewChat?: () => void;
+  onSelectChat?: (id: string) => void;
+  onOpenPattern?: () => void;
+  monthlyMirrorUsage?: SainaMonthlyMirrorUsage;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
   className?: string;
+  /** Mock route: disable interactions */
+  interactionsDisabled?: boolean;
 };
 
 export default function SainaConversationSidebar({
-  activeId = 'new-chat',
+  conversations,
+  activeChatId = null,
+  onNewChat,
+  onSelectChat,
+  onOpenPattern,
+  monthlyMirrorUsage = { used: 7, total: 10 },
+  mobileOpen = false,
+  onMobileClose,
   className,
+  interactionsDisabled = false,
 }: SainaConversationSidebarProps) {
+  const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
+  const isMock = conversations == null;
+  const disabled = interactionsDisabled || isMock;
+  const quotaPct = Math.min(
+    100,
+    Math.round((monthlyMirrorUsage.used / Math.max(monthlyMirrorUsage.total, 1)) * 100)
+  );
+
   const handlePatternOpen = () => {
+    if (onOpenPattern) {
+      onOpenPattern();
+      onMobileClose?.();
+      return;
+    }
     if (process.env.NODE_ENV === 'development') {
       console.log('[SAINA mock] İlişki Deseni — Sprint A placeholder');
     }
   };
 
   return (
-    <aside className={cn('saina-sidebar', className)} aria-label="Sohbetler">
-      <div className="saina-sidebar-inner">
-        <div className="saina-sidebar-top">
-          <div className="saina-brand-row">
-            <div className="saina-brand-mark">
-              <SainaGeometricMark size={28} variant="gold" />
-            </div>
-            <div className="saina-brand-text">
-              <p className="saina-brand-title saina-serif">{SAINA_BRAND}</p>
-              <p className="saina-brand-tagline">{SAINA_TAGLINE}</p>
-              <p className="saina-brand-powered">{SAINA_POWERED}</p>
-            </div>
-          </div>
+    <>
+      {mobileOpen ? (
+        <button
+          type="button"
+          className="saina-sidebar-backdrop lg:hidden"
+          aria-label="Menüyü kapat"
+          onClick={onMobileClose}
+        />
+      ) : null}
 
-          <div className="saina-section-row">
-            <p className="saina-section-label">{SAINA_CONVERSATIONS_TITLE}</p>
-            <button type="button" className="saina-section-control" aria-label="Sohbet listesini daralt">
-              <Minus size={14} />
+      <aside
+        className={cn(
+          'saina-sidebar',
+          mobileOpen && 'saina-sidebar--mobile-open',
+          className
+        )}
+        aria-label="Sohbetler"
+        data-testid="saina-conversation-sidebar"
+      >
+        <div className="saina-sidebar-inner">
+          <div className="saina-sidebar-top">
+            <div className="saina-brand-row">
+              <div className="saina-brand-mark">
+                <SainaGeometricMark size={28} variant="gold" />
+              </div>
+              <div className="saina-brand-text">
+                <p className="saina-brand-title saina-serif">{SAINA_BRAND}</p>
+                <p className="saina-brand-powered">{SAINA_POWERED}</p>
+              </div>
+              <button
+                type="button"
+                className="saina-sidebar-close-btn lg:hidden"
+                onClick={onMobileClose}
+                aria-label="Kapat"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="saina-section-row">
+              <p className="saina-section-label">{SAINA_CONVERSATIONS_TITLE}</p>
+              <button type="button" className="saina-section-control" aria-label="Sohbet listesini daralt">
+                <Minus size={14} />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="saina-new-chat-btn"
+              disabled={disabled && !onNewChat}
+              onClick={() => {
+                onNewChat?.();
+                onMobileClose?.();
+              }}
+            >
+              <MessageSquarePlus size={16} className="saina-new-chat-icon" />
+              {SAINA_NEW_CHAT}
             </button>
           </div>
 
-          <button type="button" className="saina-new-chat-btn" disabled>
-            <MessageSquarePlus size={16} className="saina-new-chat-icon" />
-            {SAINA_NEW_CHAT}
-          </button>
-        </div>
-
-        <div className="saina-conv-list">
-          {MOCK_CONVERSATIONS.map((item) => {
-            const active = item.id === activeId;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                disabled
-                className={cn('saina-conv-row', active && 'saina-conv-row--active')}
-              >
-                <div
-                  className="saina-conv-thumb"
-                  style={{ background: item.thumbGradient }}
-                />
-                <div className="saina-conv-body">
-                  <p className="saina-conv-title">{item.title}</p>
-                  <p className="saina-conv-preview">{item.preview}</p>
-                  <p className="saina-conv-meta">{item.time}</p>
-                </div>
-                {active ? <span className="saina-conv-active-dot" aria-hidden /> : null}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="saina-sidebar-bottom">
-          <div className="saina-premium-card saina-premium-card--mini saina-premium-card--dark">
-            <div className="saina-premium-mini-row">
-              <span className="saina-premium-mini-title">{SAINA_PREMIUM_TITLE}</span>
-              <span className="saina-premium-mini-badge">{SAINA_PREMIUM_ACTIVE}</span>
-              <span className="saina-premium-mini-quota">7 / 10</span>
-            </div>
-            <div className="saina-quota-bar saina-quota-bar--mini">
-              <div className="saina-quota-fill" style={{ width: '70%' }} />
-            </div>
-            <p className="saina-premium-mini-label">{SAINA_QUOTA_LABEL}</p>
+          <div className="saina-conv-list">
+            {items.map((item) => {
+              const active = activeChatId != null && item.id === activeChatId;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={disabled && !onSelectChat}
+                  className={cn('saina-conv-row', active && 'saina-conv-row--active')}
+                  onClick={() => {
+                    onSelectChat?.(item.id);
+                    onMobileClose?.();
+                  }}
+                >
+                  <div
+                    className="saina-conv-thumb"
+                    style={{ background: item.thumbGradient }}
+                  />
+                  <div className="saina-conv-body">
+                    <p className="saina-conv-title">{item.title}</p>
+                    <p className="saina-conv-preview">{item.preview}</p>
+                    <p className="saina-conv-meta">{item.time}</p>
+                  </div>
+                  {active ? <span className="saina-conv-active-dot" aria-hidden /> : null}
+                </button>
+              );
+            })}
           </div>
 
-          <button type="button" className="saina-pattern-nav saina-pattern-nav--dark" onClick={handlePatternOpen}>
-            <div className="saina-pattern-nav-main">
-              <SainaGeometricMark size={16} variant="gold" />
-              <div className="saina-pattern-nav-text">
-                <span className="saina-pattern-nav-title">{SAINA_RELATIONSHIP_PATTERN_TITLE}</span>
-                <span className="saina-pattern-nav-body">{SAINA_RELATIONSHIP_PATTERN_BODY}</span>
+          <div className="saina-sidebar-bottom">
+            <div className="saina-premium-card saina-premium-card--mini saina-premium-card--dark">
+              <div className="saina-premium-mini-row">
+                <span className="saina-premium-mini-title">{SAINA_PREMIUM_TITLE}</span>
+                <span className="saina-premium-mini-badge">{SAINA_PREMIUM_ACTIVE}</span>
+                <span className="saina-premium-mini-quota">
+                  {monthlyMirrorUsage.used} / {monthlyMirrorUsage.total}
+                </span>
               </div>
+              <div className="saina-quota-bar saina-quota-bar--mini">
+                <div className="saina-quota-fill" style={{ width: `${quotaPct}%` }} />
+              </div>
+              <p className="saina-premium-mini-label">{SAINA_QUOTA_LABEL}</p>
             </div>
-            <span className="saina-pattern-nav-cta">{SAINA_RELATIONSHIP_PATTERN_CTA}</span>
-          </button>
+
+            <button
+              type="button"
+              className="saina-pattern-nav saina-pattern-nav--dark"
+              onClick={handlePatternOpen}
+            >
+              <div className="saina-pattern-nav-main">
+                <SainaGeometricMark size={16} variant="gold" />
+                <div className="saina-pattern-nav-text">
+                  <span className="saina-pattern-nav-title">{SAINA_RELATIONSHIP_PATTERN_TITLE}</span>
+                  <span className="saina-pattern-nav-body">{SAINA_RELATIONSHIP_PATTERN_BODY}</span>
+                </div>
+              </div>
+              <span className="saina-pattern-nav-cta">{SAINA_RELATIONSHIP_PATTERN_CTA}</span>
+            </button>
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

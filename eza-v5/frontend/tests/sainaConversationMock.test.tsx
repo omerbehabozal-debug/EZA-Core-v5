@@ -9,6 +9,7 @@ import {
 import {
   SAINA_BRAND,
   SAINA_CHECKLIST,
+  SAINA_TAGLINE,
   SAINA_CHIPS_TOGGLE,
   SAINA_CONCEPT_FEELING_TITLE,
   SAINA_CONCEPT_NEXT_TITLE,
@@ -98,9 +99,10 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
   });
 
   it('renders dark sidebar without concept footer on page', () => {
-    render(<SainaConversationSidebar />);
+    render(<SainaConversationSidebar interactionsDisabled />);
     expect(screen.getByText('Yeni Sohbet')).toBeInTheDocument();
     expect(screen.getByText(SAINA_PREMIUM_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(SAINA_TAGLINE)).not.toBeInTheDocument();
 
     render(<SainaConversationMockPage />);
     expect(screen.queryByText(SAINA_CONCEPT_FEELING_TITLE)).not.toBeInTheDocument();

@@ -6,7 +6,8 @@ import { useState, type ReactNode } from 'react';
 import { Menu, MessageSquare, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SAINA_MIRROR_EXPAND_LABEL, SAINA_MIRROR_EXPAND_TAB } from '@/lib/eza/sainaCopy';
-import StandaloneSidebar from '@/components/standalone/StandaloneSidebar';
+import type { SainaConversationItem, SainaMonthlyMirrorUsage } from '@/components/saina/SainaConversationSidebar';
+import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCinematicScene from './SainaCinematicScene';
 import SainaHeroScene from './SainaHeroScene';
 import SainaPageTopBar from './SainaPageTopBar';
@@ -19,10 +20,12 @@ export type SainaStandaloneShellProps = {
   isEmpty: boolean;
   messages: ReactNode;
   composer: ReactNode;
-  safeOnlyMode: boolean;
-  onSafeOnlyModeChange: (enabled: boolean) => void;
-  hasActiveChat?: boolean;
+  conversations: SainaConversationItem[];
+  activeChatId: string | null;
   onNewChat?: () => void;
+  onSelectChat?: (id: string) => void;
+  onOpenPattern?: () => void;
+  monthlyMirrorUsage?: SainaMonthlyMirrorUsage;
 };
 
 export default function SainaStandaloneShell({
@@ -30,13 +33,15 @@ export default function SainaStandaloneShell({
   isEmpty,
   messages,
   composer,
-  safeOnlyMode,
-  onSafeOnlyModeChange,
-  hasActiveChat = false,
+  conversations,
+  activeChatId,
   onNewChat,
+  onSelectChat,
+  onOpenPattern,
+  monthlyMirrorUsage,
 }: SainaStandaloneShellProps) {
   const [mobileView, setMobileView] = useState<MobileView>('chat');
-  const [mirrorCollapsed, setMirrorCollapsed] = useState(false);
+  const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const showMessages = !isEmpty && messages != null;
@@ -46,13 +51,15 @@ export default function SainaStandaloneShell({
       <div className="saina-app-frame">
         <div className="saina-shell">
           <div className="saina-standalone-sidebar-wrap">
-            <StandaloneSidebar
-              safeOnlyMode={safeOnlyMode}
-              onSafeOnlyModeChange={onSafeOnlyModeChange}
+            <SainaConversationSidebar
+              conversations={conversations}
+              activeChatId={activeChatId}
+              onNewChat={onNewChat}
+              onSelectChat={onSelectChat}
+              onOpenPattern={onOpenPattern}
+              monthlyMirrorUsage={monthlyMirrorUsage}
               mobileOpen={mobileSidebarOpen}
               onMobileClose={() => setMobileSidebarOpen(false)}
-              hasActiveChat={hasActiveChat}
-              onNewChat={onNewChat}
             />
           </div>
 

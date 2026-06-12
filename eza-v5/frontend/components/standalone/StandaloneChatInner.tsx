@@ -16,8 +16,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
-import InputBar from '@/components/standalone/InputBar';
+import SainaComposer from '@/components/saina/SainaComposer';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
+import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
 import type {
@@ -29,11 +30,14 @@ import { parseStandaloneObservation } from '@/lib/standaloneObservation';
 import { appendBehavioralTurn } from '@/lib/behavioralHistory';
 import { extractStoryCueTokens } from '@/lib/eza/mirror/storyTopicResolver';
 import {
+  CHATS_UPDATED_EVENT,
   createStandaloneChat,
   getChatArchive,
+  listChatArchives,
   pruneEmptyChats,
   saveStandaloneChat,
   writeActiveChatId,
+  type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import {
   fromArchivedMessages,
@@ -47,6 +51,7 @@ import {
   writeStoredAnalysisModel,
 } from '@/lib/standaloneModels';
 import { buildChatHistoryPayload } from '@/lib/standaloneChatHistory';
+import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
 
 interface Message {
   id: string;
@@ -86,6 +91,7 @@ export default function StandaloneChatInner() {
   const [dailyCount, setDailyCount] = useState(0);
   const [isLimitReached, setIsLimitReached] = useState(false);
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
+  const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const { startStream, reset: resetStream } = useStreamResponse();
   const currentAssistantMessageRef = useRef<string | null>(null);
   const assistantScoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -244,6 +250,20 @@ export default function StandaloneChatInner() {
     };
   }, [resetStream]);
 
+  const refreshArchives = useCallback(() => {
+    setArchives(listChatArchives());
+  }, []);
+
+  useEffect(() => {
+    refreshArchives();
+    window.addEventListener(CHATS_UPDATED_EVENT, refreshArchives);
+    window.addEventListener('focus', refreshArchives);
+    return () => {
+      window.removeEventListener(CHATS_UPDATED_EVENT, refreshArchives);
+      window.removeEventListener('focus', refreshArchives);
+    };
+  }, [refreshArchives]);
+
   const handleNewChat = useCallback(() => {
     // Mevcut sohbette içerik varsa kaydet, sonra boş taslağa dön (yeni boş kayıt açma).
     if (chatId && !skipAutosaveRef.current && toArchivedMessages(messages).length > 0) {
@@ -252,6 +272,22 @@ export default function StandaloneChatInner() {
     router.replace('/standalone', { scroll: false });
     startDraft();
   }, [chatId, messages, flushSave, router, startDraft]);
+
+  const handleSelectChat = useCallback(
+    (id: string) => {
+      router.push(`/standalone?chat=${id}`);
+    },
+    [router]
+  );
+
+  const handleOpenPattern = useCallback(() => {
+    router.push(MIRROR_PATTERN_ROUTE);
+  }, [router]);
+
+  const sainaConversations = useMemo(
+    () => mapArchivesToSainaConversations(archives),
+    [archives]
+  );
 
   const incrementDailyCount = useCallback(() => {
     const newCount = dailyCount + 1;
@@ -659,14 +695,7 @@ export default function StandaloneChatInner() {
   }, [chatId, messages]);
 
   const composer = (
-    <InputBar
-      onSend={handleSend}
-      isLoading={isLoading}
-      disabled={isLimitReached}
-      isEmpty={isEmpty}
-      analysisModelId={analysisModelId}
-      onAnalysisModelChange={setAnalysisModelId}
-    />
+    <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={isLimitReached} />
   );
 
   const messageList =
@@ -688,10 +717,11 @@ export default function StandaloneChatInner() {
       isEmpty={isEmpty}
       messages={messageList}
       composer={composer}
-      safeOnlyMode={safeOnlyMode}
-      onSafeOnlyModeChange={setSafeOnlyMode}
-      hasActiveChat
+      conversations={sainaConversations}
+      activeChatId={chatId}
       onNewChat={handleNewChat}
+      onSelectChat={handleSelectChat}
+      onOpenPattern={handleOpenPattern}
     />
   );
 }
