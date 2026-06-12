@@ -111,7 +111,7 @@ export default function MessageList({
   if (isSaina) {
     return (
       <section className="saina-message-list" aria-label="Sohbet" data-variant="saina">
-        <div className="saina-chat-messages saina-chat-messages--thread">{content}</div>
+        <div className="saina-message-thread">{content}</div>
       </section>
     );
   }

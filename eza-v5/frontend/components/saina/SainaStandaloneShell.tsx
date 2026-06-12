@@ -134,8 +134,14 @@ export default function SainaStandaloneShell({
                       <div className="saina-chat-column" data-testid="saina-chat-column">
                         {showMessages ? (
                           <div className="saina-chat-float">
-                            <div className="saina-chat-card" data-testid="saina-chat-card">
-                              <div className="saina-chat-messages saina-standalone-messages">
+                            <div
+                              className="saina-chat-card saina-chat-card--growth"
+                              data-testid="saina-chat-card"
+                            >
+                              <div
+                                className="saina-standalone-messages-scroll"
+                                data-testid="saina-chat-messages-scroll"
+                              >
                                 {messages}
                               </div>
                             </div>

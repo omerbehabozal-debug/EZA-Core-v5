@@ -333,3 +333,72 @@ describe('SainaStandaloneShell (Sprint B.2C responsive sidebar)', () => {
     expect(screen.queryByTestId('saina-sidebar-close-btn')).not.toBeInTheDocument();
   });
 });
+
+describe('SainaStandaloneShell (Sprint B.2D chat card growth)', () => {
+  const shellProps = {
+    heroTitle: SAINA_HERO_DEFAULT_TITLE,
+    isEmpty: false,
+    messages: (
+      <MessageList
+        variant="saina"
+        messages={[
+          { id: '1', text: 'Merhaba', isUser: true },
+          { id: '2', text: 'Selam', isUser: false },
+        ]}
+        isLoading={false}
+      />
+    ),
+    composer: <div data-testid="composer-slot">composer</div>,
+    conversations: [],
+    activeChatId: null as string | null,
+    safeOnlyMode: false,
+    onSafeOnlyModeChange: vi.fn(),
+    analysisModelId: DEFAULT_ANALYSIS_MODEL_ID,
+    onAnalysisModelChange: vi.fn(),
+  };
+
+  it('hides chat card on empty conversation', () => {
+    render(
+      <SainaStandaloneShell
+        {...shellProps}
+        isEmpty
+        messages={null}
+      />
+    );
+    expect(screen.queryByTestId('saina-chat-card')).not.toBeInTheDocument();
+    expect(screen.getByTestId('composer-slot')).toBeInTheDocument();
+  });
+
+  it('shows compact growth card after first messages', () => {
+    render(<SainaStandaloneShell {...shellProps} />);
+
+    const card = screen.getByTestId('saina-chat-card');
+    const scroll = screen.getByTestId('saina-chat-messages-scroll');
+
+    expect(card).toHaveClass('saina-chat-card--growth');
+    expect(scroll).toHaveClass('saina-standalone-messages-scroll');
+    expect(screen.getByText('Merhaba')).toBeInTheDocument();
+    expect(screen.getByTestId('composer-slot')).toBeInTheDocument();
+  });
+
+  it('uses single scroll container for many messages', () => {
+    const manyMessages = Array.from({ length: 12 }, (_, index) => ({
+      id: `msg-${index}`,
+      text: `Mesaj ${index + 1}`,
+      isUser: index % 2 === 0,
+    }));
+
+    const { container } = render(
+      <SainaStandaloneShell
+        {...shellProps}
+        messages={
+          <MessageList variant="saina" messages={manyMessages} isLoading={false} />
+        }
+      />
+    );
+
+    expect(screen.getAllByTestId('saina-chat-messages-scroll')).toHaveLength(1);
+    expect(container.querySelector('.saina-chat-messages--thread')).toBeNull();
+    expect(container.querySelector('.saina-message-thread')).toBeTruthy();
+  });
+});
