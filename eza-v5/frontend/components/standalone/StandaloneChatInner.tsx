@@ -13,11 +13,14 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
 import InputBar from '@/components/standalone/InputBar';
 import StandaloneChatLayout from '@/components/standalone/StandaloneChatLayout';
+import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
+import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
+import { isSainaStandaloneShellEnabled } from '@/lib/eza/sainaStandaloneShell';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
 import type {
   BehavioralSnapshot,
@@ -649,11 +652,51 @@ export default function StandaloneChatInner() {
   };
 
   const isEmpty = messages.length === 0 && !isLoading && !isTyping;
+  const useSainaShell = isSainaStandaloneShellEnabled();
+
+  const heroTitle = useMemo(() => {
+    if (!chatId) return SAINA_HERO_DEFAULT_TITLE;
+    const archived = getChatArchive(chatId);
+    const title = archived?.title?.trim();
+    return title || SAINA_HERO_DEFAULT_TITLE;
+  }, [chatId, messages]);
+
+  const composer = (
+    <InputBar
+      onSend={handleSend}
+      isLoading={isLoading}
+      disabled={isLimitReached}
+      isEmpty={isEmpty}
+      analysisModelId={analysisModelId}
+      onAnalysisModelChange={setAnalysisModelId}
+    />
+  );
+
+  const messageList =
+    !isEmpty ? (
+      <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
+    ) : null;
+
   if (!ready) {
     return (
       <div className={`${standaloneSkin.page} flex items-center justify-center`}>
         <p className="text-sm text-standalone-text-muted">Sohbet yükleniyor…</p>
       </div>
+    );
+  }
+
+  if (useSainaShell) {
+    return (
+      <SainaStandaloneShell
+        heroTitle={heroTitle}
+        isEmpty={isEmpty}
+        messages={messageList}
+        composer={composer}
+        safeOnlyMode={safeOnlyMode}
+        onSafeOnlyModeChange={setSafeOnlyMode}
+        hasActiveChat
+        onNewChat={handleNewChat}
+      />
     );
   }
 
@@ -665,20 +708,9 @@ export default function StandaloneChatInner() {
         onSafeOnlyModeChange={setSafeOnlyMode}
         hasActiveChat
         onNewChat={handleNewChat}
-        composer={
-          <InputBar
-            onSend={handleSend}
-            isLoading={isLoading}
-            disabled={isLimitReached}
-            isEmpty={isEmpty}
-            analysisModelId={analysisModelId}
-            onAnalysisModelChange={setAnalysisModelId}
-          />
-        }
+        composer={composer}
       >
-        {!isEmpty ? (
-          <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
-        ) : null}
+        {messageList}
       </StandaloneChatLayout>
     </div>
   );

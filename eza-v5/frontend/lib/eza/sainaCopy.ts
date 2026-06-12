@@ -112,6 +112,13 @@ export const SAINA_MIRROR_EXPAND_TAB = '✦ Ayna';
 
 export const SAINA_MIRROR_READY_BADGE = 'Hazır';
 
+/** Production /standalone placeholder — mirror generate not wired in B.1 */
+export const SAINA_STANDALONE_MIRROR_PLACEHOLDER_TITLE =
+  'Bu sohbetin aynası burada görünecek';
+
+export const SAINA_STANDALONE_MIRROR_PLACEHOLDER_BODY =
+  'Sohbet ilerledikçe Conversation Mirror bu alanda hazır olacak. Şimdilik sohbet akışına odaklanabilirsin.';
+
 export const SAINA_QUOTA_LABEL = 'Aylık Mirror Hakkı';
 
 export const SAINA_UPSELL_TITLE = 'SAINA Premium ile';

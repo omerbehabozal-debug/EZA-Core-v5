@@ -2035,3 +2035,57 @@ html:has(.saina-page) body {
     transform: rotate(360deg);
   }
 }
+
+/* Sprint B.1 — production /standalone shell adapters */
+.saina-standalone-shell .saina-standalone-sidebar-wrap {
+  display: flex;
+  flex-shrink: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+.saina-standalone-mobile-bar {
+  position: relative;
+  z-index: 11;
+  display: flex;
+  flex-shrink: 0;
+  padding: 0.375rem 1rem 0;
+}
+
+.saina-standalone-menu-btn {
+  display: flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+}
+
+.saina-standalone-composer > footer {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  border: none;
+  box-shadow: none;
+}
+
+.saina-standalone-composer .composer-stack,
+.saina-standalone-composer [class*='composerStack'] {
+  gap: 0.5rem;
+}
+
+.saina-standalone-messages > section {
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.saina-standalone-messages [class*='listInnerActive'] {
+  gap: 0.875rem;
+  padding: 0.125rem 0;
+}
