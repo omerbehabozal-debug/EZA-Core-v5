@@ -2284,7 +2284,22 @@ html:has(.saina-page) body {
   cursor: pointer;
 }
 
-@media (max-width: 767px) {
+@media (min-width: 1024px) {
+  .saina-standalone-shell .saina-sidebar {
+    position: relative;
+    display: flex;
+    transform: none;
+    width: 288px;
+  }
+
+  .saina-standalone-shell .saina-standalone-mobile-bar,
+  .saina-standalone-shell .saina-sidebar-close-btn,
+  .saina-standalone-shell .saina-sidebar-backdrop {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1023px) {
   .saina-standalone-shell .saina-sidebar {
     position: fixed;
     inset: 0 auto 0 0;

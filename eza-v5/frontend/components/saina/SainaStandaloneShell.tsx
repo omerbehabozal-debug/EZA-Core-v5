@@ -2,7 +2,7 @@
 
 import '@/styles/saina-mirror.css';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Menu, MessageSquare, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SAINA_MIRROR_EXPAND_LABEL, SAINA_MIRROR_EXPAND_TAB } from '@/lib/eza/sainaCopy';
@@ -14,6 +14,22 @@ import SainaPageTopBar from './SainaPageTopBar';
 import SainaStandaloneMirrorPanel from './SainaStandaloneMirrorPanel';
 
 type MobileView = 'chat' | 'mirror';
+
+const SAINA_DESKTOP_SIDEBAR_MIN_PX = 1024;
+
+function useMinWidth(minWidth: number) {
+  const [matches, setMatches] = useState(true);
+
+  useEffect(() => {
+    const query = window.matchMedia(`(min-width: ${minWidth}px)`);
+    const update = () => setMatches(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, [minWidth]);
+
+  return matches;
+}
 
 export type SainaStandaloneShellProps = {
   heroTitle: string;
@@ -53,6 +69,7 @@ export default function SainaStandaloneShell({
   const [mobileView, setMobileView] = useState<MobileView>('chat');
   const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const isDesktopLayout = useMinWidth(SAINA_DESKTOP_SIDEBAR_MIN_PX);
 
   const showMessages = !isEmpty && messages != null;
 
@@ -70,6 +87,7 @@ export default function SainaStandaloneShell({
               monthlyMirrorUsage={monthlyMirrorUsage}
               mobileOpen={mobileSidebarOpen}
               onMobileClose={() => setMobileSidebarOpen(false)}
+              showMobileChrome={!isDesktopLayout}
             />
           </div>
 
@@ -90,16 +108,19 @@ export default function SainaStandaloneShell({
                   )}
                 >
                   <div className="saina-main">
-                    <div className="saina-standalone-mobile-bar lg:hidden">
-                      <button
-                        type="button"
-                        className="saina-standalone-menu-btn"
-                        onClick={() => setMobileSidebarOpen(true)}
-                        aria-label="Menü"
-                      >
-                        <Menu size={20} />
-                      </button>
-                    </div>
+                    {!isDesktopLayout ? (
+                      <div className="saina-standalone-mobile-bar">
+                        <button
+                          type="button"
+                          className="saina-standalone-menu-btn"
+                          data-testid="saina-mobile-menu-btn"
+                          onClick={() => setMobileSidebarOpen(true)}
+                          aria-label="Menü"
+                        >
+                          <Menu size={20} />
+                        </button>
+                      </div>
+                    ) : null}
                     <SainaPageTopBar
                       safeOnlyMode={safeOnlyMode}
                       onSafeOnlyModeChange={onSafeOnlyModeChange}

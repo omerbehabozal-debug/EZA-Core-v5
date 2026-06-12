@@ -99,6 +99,8 @@ type SainaConversationSidebarProps = {
   monthlyMirrorUsage?: SainaMonthlyMirrorUsage;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  /** When false (desktop layout), hide drawer backdrop and close control. */
+  showMobileChrome?: boolean;
   className?: string;
   /** Mock route: disable interactions */
   interactionsDisabled?: boolean;
@@ -113,6 +115,7 @@ export default function SainaConversationSidebar({
   monthlyMirrorUsage = { used: 7, total: 10 },
   mobileOpen = false,
   onMobileClose,
+  showMobileChrome = true,
   className,
   interactionsDisabled = false,
 }: SainaConversationSidebarProps) {
@@ -137,10 +140,10 @@ export default function SainaConversationSidebar({
 
   return (
     <>
-      {mobileOpen ? (
+      {showMobileChrome && mobileOpen ? (
         <button
           type="button"
-          className="saina-sidebar-backdrop lg:hidden"
+          className="saina-sidebar-backdrop"
           aria-label="Menüyü kapat"
           onClick={onMobileClose}
         />
@@ -165,14 +168,17 @@ export default function SainaConversationSidebar({
                 <p className="saina-brand-title saina-serif">{SAINA_BRAND}</p>
                 <p className="saina-brand-powered">{SAINA_POWERED}</p>
               </div>
-              <button
-                type="button"
-                className="saina-sidebar-close-btn lg:hidden"
-                onClick={onMobileClose}
-                aria-label="Kapat"
-              >
-                <X size={18} />
-              </button>
+              {showMobileChrome && mobileOpen ? (
+                <button
+                  type="button"
+                  className="saina-sidebar-close-btn"
+                  data-testid="saina-sidebar-close-btn"
+                  onClick={onMobileClose}
+                  aria-label="Kapat"
+                >
+                  <X size={18} />
+                </button>
+              ) : null}
             </div>
 
             <div className="saina-section-row">

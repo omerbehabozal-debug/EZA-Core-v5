@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/context/OrganizationContext', () => ({
   useOrganization: () => ({ currentOrganization: null }),
 }));
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import {
   SAINA_ANALYSIS_MODEL_LABEL,
   SAINA_ASSISTANT_LABEL,
@@ -269,5 +269,67 @@ describe('MessageList / ChatBubble variant=saina (Sprint B.2B)', () => {
 
     expect(container.querySelector('.saina-msg-row')).toBeNull();
     expect(screen.queryByTestId('saina-msg-user')).not.toBeInTheDocument();
+  });
+});
+
+function mockSainaSidebarViewport(desktop: boolean) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: desktop,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
+
+describe('SainaStandaloneShell (Sprint B.2C responsive sidebar)', () => {
+  const shellProps = {
+    heroTitle: SAINA_HERO_DEFAULT_TITLE,
+    isEmpty: true,
+    messages: <div>messages</div>,
+    composer: <div>composer</div>,
+    conversations: [],
+    activeChatId: null as string | null,
+    safeOnlyMode: false,
+    onSafeOnlyModeChange: vi.fn(),
+    analysisModelId: DEFAULT_ANALYSIS_MODEL_ID,
+    onAnalysisModelChange: vi.fn(),
+  };
+
+  it('hides hamburger and sidebar close on desktop layout', async () => {
+    mockSainaSidebarViewport(true);
+    render(<SainaStandaloneShell {...shellProps} />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('saina-mobile-menu-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('saina-sidebar-close-btn')).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('saina-conversation-sidebar')).toBeInTheDocument();
+  });
+
+  it('shows hamburger on mobile/tablet layout', async () => {
+    mockSainaSidebarViewport(false);
+    render(<SainaStandaloneShell {...shellProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-mobile-menu-btn')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('saina-sidebar-close-btn')).not.toBeInTheDocument();
+  });
+
+  it('shows close X when mobile drawer opens and closes on click', async () => {
+    mockSainaSidebarViewport(false);
+    render(<SainaStandaloneShell {...shellProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-mobile-menu-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('saina-mobile-menu-btn'));
+    expect(screen.getByTestId('saina-sidebar-close-btn')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('saina-sidebar-close-btn'));
+    expect(screen.queryByTestId('saina-sidebar-close-btn')).not.toBeInTheDocument();
   });
 });
