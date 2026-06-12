@@ -402,3 +402,41 @@ describe('SainaStandaloneShell (Sprint B.2D chat card growth)', () => {
     expect(container.querySelector('.saina-message-thread')).toBeTruthy();
   });
 });
+
+describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
+  const shellProps = {
+    heroTitle: SAINA_HERO_DEFAULT_TITLE,
+    isEmpty: true,
+    messages: <div>messages</div>,
+    composer: <div>composer</div>,
+    conversations: [],
+    activeChatId: null as string | null,
+    safeOnlyMode: false,
+    onSafeOnlyModeChange: vi.fn(),
+    analysisModelId: DEFAULT_ANALYSIS_MODEL_ID,
+    onAnalysisModelChange: vi.fn(),
+  };
+
+  it('does not render collapse control beside Sohbetlerim', () => {
+    render(<SainaStandaloneShell {...shellProps} />);
+    expect(screen.queryByLabelText('Sohbet listesini daralt')).not.toBeInTheDocument();
+  });
+
+  it('renders free plan card when planTier is free', () => {
+    render(<SainaStandaloneShell {...shellProps} planTier="free" />);
+
+    expect(screen.getByText('SAINA Free')).toBeInTheDocument();
+    expect(screen.getByText('Şimdi Premium Ol')).toBeInTheDocument();
+    expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
+    expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
+  });
+
+  it('renders premium plan card without quota when planTier is premium', () => {
+    render(<SainaStandaloneShell {...shellProps} planTier="premium" />);
+
+    expect(screen.getByText('SAINA Premium')).toBeInTheDocument();
+    expect(screen.getByText('Premium deneyim açık')).toBeInTheDocument();
+    expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
+    expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
+  });
+});

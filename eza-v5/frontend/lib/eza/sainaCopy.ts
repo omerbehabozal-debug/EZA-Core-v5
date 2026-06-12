@@ -82,11 +82,24 @@ export const SAINA_REGENERATE = 'Yeniden Oluştur';
 
 
 
+export const SAINA_FREE_TITLE = 'SAINA Free';
+
 export const SAINA_PREMIUM_TITLE = 'SAINA Premium';
 
-export const SAINA_PREMIUM_ACTIVE = 'Aktif';
+export const SAINA_PLAN_ACTIVE = 'Aktif';
 
-export const SAINA_PREMIUM_BODY = 'Her sohbetin aynasını keşfedin.';
+export const SAINA_FREE_BODY = 'Temel sohbet deneyimi açık.';
+
+export const SAINA_FREE_CTA = 'Şimdi Premium Ol';
+
+export const SAINA_FREE_NOTE = 'Sohbet aynası ve ilişki deseni Premium ile açılır.';
+
+export const SAINA_PREMIUM_BODY = 'Her sohbetin aynasını keşfedebilirsin.';
+
+export const SAINA_PREMIUM_STATUS = 'Premium deneyim açık';
+
+/** @deprecated Use SAINA_PLAN_ACTIVE */
+export const SAINA_PREMIUM_ACTIVE = SAINA_PLAN_ACTIVE;
 
 export const SAINA_PREMIUM_BODY_SHORT = 'Ayna haklarınız aktif.';
 
@@ -118,8 +131,6 @@ export const SAINA_STANDALONE_MIRROR_PLACEHOLDER_TITLE =
 
 export const SAINA_STANDALONE_MIRROR_PLACEHOLDER_BODY =
   'Sohbet ilerledikçe Conversation Mirror bu alanda hazır olacak. Şimdilik sohbet akışına odaklanabilirsin.';
-
-export const SAINA_QUOTA_LABEL = 'Aylık Mirror Hakkı';
 
 export const SAINA_UPSELL_TITLE = 'SAINA Premium ile';
 

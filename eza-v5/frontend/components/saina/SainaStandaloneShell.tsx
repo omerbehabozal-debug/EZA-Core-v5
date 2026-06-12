@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Menu, MessageSquare, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SAINA_MIRROR_EXPAND_LABEL, SAINA_MIRROR_EXPAND_TAB } from '@/lib/eza/sainaCopy';
-import type { SainaConversationItem, SainaMonthlyMirrorUsage } from '@/components/saina/SainaConversationSidebar';
+import type { SainaConversationItem, SainaPlanTier } from '@/components/saina/SainaConversationSidebar';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCinematicScene from './SainaCinematicScene';
 import SainaHeroScene from './SainaHeroScene';
@@ -41,7 +41,8 @@ export type SainaStandaloneShellProps = {
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
   onOpenPattern?: () => void;
-  monthlyMirrorUsage?: SainaMonthlyMirrorUsage;
+  planTier?: SainaPlanTier;
+  onUpgrade?: () => void;
   safeOnlyMode: boolean;
   onSafeOnlyModeChange: (enabled: boolean) => void;
   analysisModelId: string;
@@ -59,7 +60,8 @@ export default function SainaStandaloneShell({
   onNewChat,
   onSelectChat,
   onOpenPattern,
-  monthlyMirrorUsage,
+  planTier,
+  onUpgrade,
   safeOnlyMode,
   onSafeOnlyModeChange,
   analysisModelId,
@@ -84,7 +86,8 @@ export default function SainaStandaloneShell({
               onNewChat={onNewChat}
               onSelectChat={onSelectChat}
               onOpenPattern={onOpenPattern}
-              monthlyMirrorUsage={monthlyMirrorUsage}
+              planTier={planTier}
+              onUpgrade={onUpgrade}
               mobileOpen={mobileSidebarOpen}
               onMobileClose={() => setMobileSidebarOpen(false)}
               showMobileChrome={!isDesktopLayout}

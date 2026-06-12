@@ -1,15 +1,20 @@
 'use client';
 
-import { MessageSquarePlus, Minus, X } from 'lucide-react';
+import { MessageSquarePlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   SAINA_BRAND,
   SAINA_CONVERSATIONS_TITLE,
+  SAINA_FREE_BODY,
+  SAINA_FREE_CTA,
+  SAINA_FREE_NOTE,
+  SAINA_FREE_TITLE,
   SAINA_NEW_CHAT,
+  SAINA_PLAN_ACTIVE,
   SAINA_POWERED,
-  SAINA_PREMIUM_ACTIVE,
+  SAINA_PREMIUM_BODY,
+  SAINA_PREMIUM_STATUS,
   SAINA_PREMIUM_TITLE,
-  SAINA_QUOTA_LABEL,
   SAINA_RELATIONSHIP_PATTERN_BODY,
   SAINA_RELATIONSHIP_PATTERN_CTA,
   SAINA_RELATIONSHIP_PATTERN_TITLE,
@@ -18,6 +23,8 @@ import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import SainaGeometricMark from './SainaGeometricMark';
 
 export type { SainaConversationItem };
+
+export type SainaPlanTier = 'free' | 'premium';
 
 export const MOCK_SAINA_CONVERSATIONS: SainaConversationItem[] = [
   {
@@ -85,18 +92,14 @@ export const MOCK_SAINA_CONVERSATIONS: SainaConversationItem[] = [
   },
 ];
 
-export type SainaMonthlyMirrorUsage = {
-  used: number;
-  total: number;
-};
-
 type SainaConversationSidebarProps = {
   conversations?: SainaConversationItem[];
   activeChatId?: string | null;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
   onOpenPattern?: () => void;
-  monthlyMirrorUsage?: SainaMonthlyMirrorUsage;
+  planTier?: SainaPlanTier;
+  onUpgrade?: () => void;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
   /** When false (desktop layout), hide drawer backdrop and close control. */
@@ -112,7 +115,8 @@ export default function SainaConversationSidebar({
   onNewChat,
   onSelectChat,
   onOpenPattern,
-  monthlyMirrorUsage = { used: 7, total: 10 },
+  planTier = 'premium',
+  onUpgrade,
   mobileOpen = false,
   onMobileClose,
   showMobileChrome = true,
@@ -122,10 +126,7 @@ export default function SainaConversationSidebar({
   const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
   const isMock = conversations == null;
   const disabled = interactionsDisabled || isMock;
-  const quotaPct = Math.min(
-    100,
-    Math.round((monthlyMirrorUsage.used / Math.max(monthlyMirrorUsage.total, 1)) * 100)
-  );
+  const isPremium = planTier === 'premium';
 
   const handlePatternOpen = () => {
     if (onOpenPattern) {
@@ -181,12 +182,7 @@ export default function SainaConversationSidebar({
               ) : null}
             </div>
 
-            <div className="saina-section-row">
-              <p className="saina-section-label">{SAINA_CONVERSATIONS_TITLE}</p>
-              <button type="button" className="saina-section-control" aria-label="Sohbet listesini daralt">
-                <Minus size={14} />
-              </button>
-            </div>
+            <p className="saina-section-label">{SAINA_CONVERSATIONS_TITLE}</p>
 
             <button
               type="button"
@@ -232,18 +228,35 @@ export default function SainaConversationSidebar({
           </div>
 
           <div className="saina-sidebar-bottom">
-            <div className="saina-premium-card saina-premium-card--mini saina-premium-card--dark">
+            <div
+              className="saina-premium-card saina-premium-card--mini saina-premium-card--dark saina-plan-card"
+              data-testid="saina-plan-card"
+              data-plan-tier={planTier}
+            >
               <div className="saina-premium-mini-row">
-                <span className="saina-premium-mini-title">{SAINA_PREMIUM_TITLE}</span>
-                <span className="saina-premium-mini-badge">{SAINA_PREMIUM_ACTIVE}</span>
-                <span className="saina-premium-mini-quota">
-                  {monthlyMirrorUsage.used} / {monthlyMirrorUsage.total}
+                <span className="saina-premium-mini-title">
+                  {isPremium ? SAINA_PREMIUM_TITLE : SAINA_FREE_TITLE}
                 </span>
+                <span className="saina-premium-mini-badge">{SAINA_PLAN_ACTIVE}</span>
               </div>
-              <div className="saina-quota-bar saina-quota-bar--mini">
-                <div className="saina-quota-fill" style={{ width: `${quotaPct}%` }} />
-              </div>
-              <p className="saina-premium-mini-label">{SAINA_QUOTA_LABEL}</p>
+              <p className="saina-plan-card-body">
+                {isPremium ? SAINA_PREMIUM_BODY : SAINA_FREE_BODY}
+              </p>
+              {isPremium ? (
+                <p className="saina-plan-card-status">{SAINA_PREMIUM_STATUS}</p>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="saina-plan-card-cta"
+                    data-testid="saina-plan-upgrade-cta"
+                    onClick={() => onUpgrade?.()}
+                  >
+                    {SAINA_FREE_CTA}
+                  </button>
+                  <p className="saina-plan-card-note">{SAINA_FREE_NOTE}</p>
+                </>
+              )}
             </div>
 
             <button

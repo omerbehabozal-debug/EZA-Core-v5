@@ -158,25 +158,12 @@ html:has(.saina-page) body {
 }
 
 .saina-section-label {
-  padding: 0;
+  padding: 0 0.25rem;
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: rgba(217, 196, 163, 0.65);
-}
-
-.saina-section-control {
-  display: flex;
-  height: 1.5rem;
-  width: 1.5rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.375rem;
-  border: 1px solid rgba(216, 177, 106, 0.15);
-  background: rgba(15, 43, 37, 0.45);
-  color: rgba(246, 244, 239, 0.55);
-  cursor: default;
 }
 
 .saina-new-chat-btn {
@@ -333,9 +320,41 @@ html:has(.saina-page) body {
   color: rgba(246, 244, 239, 0.88);
 }
 
-.saina-premium-card--dark .saina-premium-mini-quota,
-.saina-premium-card--dark .saina-premium-mini-label {
+.saina-plan-card-body {
+  margin-top: 0.25rem;
+  font-size: 9px;
+  line-height: 1.4;
+  color: rgba(246, 244, 239, 0.72);
+}
+
+.saina-plan-card-status,
+.saina-plan-card-note {
+  margin-top: 0.2rem;
+  font-size: 7px;
+  line-height: 1.35;
   color: rgba(217, 196, 163, 0.65);
+}
+
+.saina-plan-card-cta {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 177, 106, 0.35);
+  background: rgba(212, 175, 55, 0.14);
+  padding: 0.3rem 0.5rem;
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #d8b16a;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.saina-plan-card-cta:hover {
+  background: rgba(212, 175, 55, 0.22);
+  border-color: rgba(216, 177, 106, 0.5);
 }
 
 .saina-premium-mini-row {

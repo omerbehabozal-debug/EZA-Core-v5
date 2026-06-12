@@ -24,6 +24,10 @@ import {
   SAINA_MIRROR_HOW_LABEL,
   SAINA_MIRROR_TITLE,
   SAINA_OPEN_PREVIEW,
+  SAINA_FREE_CTA,
+  SAINA_FREE_TITLE,
+  SAINA_PLAN_ACTIVE,
+  SAINA_PREMIUM_STATUS,
   SAINA_PREMIUM_TITLE,
 } from '@/lib/eza/sainaCopy';
 import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
@@ -103,10 +107,33 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     expect(screen.getByText('Yeni Sohbet')).toBeInTheDocument();
     expect(screen.getByText(SAINA_PREMIUM_TITLE)).toBeInTheDocument();
     expect(screen.queryByText(SAINA_TAGLINE)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Sohbet listesini daralt')).not.toBeInTheDocument();
+    expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
+    expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
 
     render(<SainaConversationMockPage />);
     expect(screen.queryByText(SAINA_CONCEPT_FEELING_TITLE)).not.toBeInTheDocument();
     expect(screen.queryByText(SAINA_CONCEPT_NEXT_TITLE)).not.toBeInTheDocument();
+  });
+
+  it('renders free plan card without quota when planTier is free', () => {
+    render(<SainaConversationSidebar planTier="free" interactionsDisabled />);
+
+    expect(screen.getByText(SAINA_FREE_TITLE)).toBeInTheDocument();
+    expect(screen.getByText(SAINA_FREE_CTA)).toBeInTheDocument();
+    expect(screen.getByText(SAINA_PLAN_ACTIVE)).toBeInTheDocument();
+    expect(screen.queryByText(SAINA_PREMIUM_TITLE)).not.toBeInTheDocument();
+    expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
+    expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
+  });
+
+  it('renders premium plan card without quota by default', () => {
+    render(<SainaConversationSidebar interactionsDisabled />);
+
+    expect(screen.getByText(SAINA_PREMIUM_TITLE)).toBeInTheDocument();
+    expect(screen.getByText(SAINA_PREMIUM_STATUS)).toBeInTheDocument();
+    expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
+    expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
 
   it('renders default scene overlays with bundled image layer', () => {
