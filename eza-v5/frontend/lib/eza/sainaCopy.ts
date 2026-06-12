@@ -149,6 +149,22 @@ export const SAINA_HERO_SUBTITLE =
 
 export const SAINA_COMPOSER_PLACEHOLDER = "SAINA'ya bir şey sor...";
 
+export const SAINA_USER_LABEL = 'SEN';
+
+export const SAINA_ASSISTANT_LABEL = 'SAINA';
+
+export const SAINA_MENU_ACCOUNT = 'Hesap';
+
+export const SAINA_MENU_SETTINGS = 'Ayarlar';
+
+export const SAINA_MENU_COMING_SOON = 'Yakında';
+
+export const SAINA_SAFE_MODE_LABEL = 'Güvenli Mod';
+
+export const SAINA_SAFE_MODE_NOTE = 'Yanıtlar güvenli ve uyumlu olacak şekilde yeniden yazılır.';
+
+export const SAINA_ANALYSIS_MODEL_LABEL = 'Analiz Modeli';
+
 
 
 export const SAINA_QUICK_CHIPS = [

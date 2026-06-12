@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/context/OrganizationContext', () => ({
+  useOrganization: () => ({ currentOrganization: null }),
+}));
 import { fireEvent, render, screen } from '@testing-library/react';
 import {
+  SAINA_ANALYSIS_MODEL_LABEL,
+  SAINA_ASSISTANT_LABEL,
   SAINA_BRAND,
   SAINA_COMPOSER_PLACEHOLDER,
   SAINA_EMPTY_TITLE,
@@ -9,9 +15,15 @@ import {
   SAINA_MIRROR_EXPAND_LABEL,
   SAINA_MIRROR_EXPAND_TAB,
   SAINA_POWERED,
+  SAINA_SAFE_MODE_LABEL,
   SAINA_TAGLINE,
+  SAINA_USER_LABEL,
 } from '@/lib/eza/sainaCopy';
+import { DEFAULT_ANALYSIS_MODEL_ID, STANDALONE_ANALYSIS_MODELS } from '@/lib/standaloneModels';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
+import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
+import ChatBubble from '@/components/standalone/ChatBubble';
+import MessageList from '@/components/standalone/MessageList';
 
 describe('SainaStandaloneShell (Sprint B.2A)', () => {
   const baseProps = {
@@ -32,6 +44,10 @@ describe('SainaStandaloneShell (Sprint B.2A)', () => {
     onNewChat: vi.fn(),
     onSelectChat: vi.fn(),
     onOpenPattern: vi.fn(),
+    safeOnlyMode: false,
+    onSafeOnlyModeChange: vi.fn(),
+    analysisModelId: DEFAULT_ANALYSIS_MODEL_ID,
+    onAnalysisModelChange: vi.fn(),
   };
 
   it('renders SAINA sidebar branding without legacy EZA text or tagline', () => {
@@ -129,5 +145,129 @@ describe('SainaComposer (Sprint B.2A)', () => {
     });
     fireEvent.click(screen.getByTestId('saina-send-btn'));
     expect(onSend).toHaveBeenCalledWith('Merhaba');
+  });
+});
+
+describe('SainaStandaloneShell (Sprint B.2B)', () => {
+  const settingsProps = {
+    heroTitle: SAINA_HERO_DEFAULT_TITLE,
+    isEmpty: true,
+    messages: <div data-testid="messages-slot">messages</div>,
+    composer: <div data-testid="composer-slot">composer</div>,
+    conversations: [],
+    activeChatId: null as string | null,
+    safeOnlyMode: false,
+    onSafeOnlyModeChange: vi.fn(),
+    analysisModelId: DEFAULT_ANALYSIS_MODEL_ID,
+    onAnalysisModelChange: vi.fn(),
+  };
+
+  it('opens profile menu with Güvenli Mod and Analiz Modeli', () => {
+    render(<SainaStandaloneShell {...settingsProps} />);
+
+    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    expect(screen.getByTestId('saina-profile-menu')).toBeInTheDocument();
+    expect(screen.getByText(SAINA_SAFE_MODE_LABEL)).toBeInTheDocument();
+    expect(screen.getByText(SAINA_ANALYSIS_MODEL_LABEL)).toBeInTheDocument();
+    expect(screen.queryByText(/Analiz edilen model/i)).not.toBeInTheDocument();
+  });
+
+  it('toggles safe-only mode from profile menu', () => {
+    const onSafeOnlyModeChange = vi.fn();
+    render(
+      <SainaStandaloneShell {...settingsProps} onSafeOnlyModeChange={onSafeOnlyModeChange} />
+    );
+
+    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByTestId('saina-safe-mode-toggle'));
+    expect(onSafeOnlyModeChange).toHaveBeenCalledWith(true);
+  });
+
+  it('changes analysis model from profile menu', () => {
+    const onAnalysisModelChange = vi.fn();
+    const nextModel = STANDALONE_ANALYSIS_MODELS[1];
+    render(
+      <SainaStandaloneShell
+        {...settingsProps}
+        onAnalysisModelChange={onAnalysisModelChange}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByRole('option', { name: nextModel.label }));
+    expect(onAnalysisModelChange).toHaveBeenCalledWith(nextModel.id);
+  });
+
+  it('keeps mirror collapsed by default', () => {
+    const { container } = render(<SainaStandaloneShell {...settingsProps} />);
+    expect(screen.getByTestId('saina-mirror-expand-pill')).toBeInTheDocument();
+    expect(container.querySelector('.saina-mirror-col--collapsed')).toBeTruthy();
+  });
+
+  it('renders bundled background image layer', () => {
+    const { container } = render(<SainaCinematicScene />);
+    const layer = screen.getByTestId('saina-scene-image-layer');
+    expect(layer).toBeInTheDocument();
+    expect(layer.className).toContain('saina-canvas-scene-image--bundled');
+    expect((layer as HTMLElement).style.backgroundImage).toMatch(/url\(/);
+    expect(container.querySelector('.saina-canvas-overlay--pattern-dim')).toBeTruthy();
+  });
+});
+
+describe('MessageList / ChatBubble variant=saina (Sprint B.2B)', () => {
+  it('renders user on right and SAINA on left with labels', () => {
+    const { container } = render(
+      <MessageList
+        variant="saina"
+        messages={[
+          { id: '1', text: 'Merhaba', isUser: true },
+          { id: '2', text: 'Selam', isUser: false },
+        ]}
+        isLoading={false}
+      />
+    );
+
+    expect(screen.getByTestId('saina-msg-user')).toBeInTheDocument();
+    expect(screen.getByTestId('saina-msg-ai')).toBeInTheDocument();
+    expect(screen.getByText(SAINA_USER_LABEL)).toBeInTheDocument();
+    expect(screen.getByText(SAINA_ASSISTANT_LABEL)).toBeInTheDocument();
+    expect(container.querySelector('.saina-msg-row--user')).toBeTruthy();
+    expect(container.querySelector('.saina-msg-row--ai')).toBeTruthy();
+    expect(screen.getByText('Merhaba')).toBeInTheDocument();
+    expect(screen.getByText('Selam')).toBeInTheDocument();
+  });
+
+  it('preserves safety badge and feedback in saina variant', () => {
+    render(
+      <ChatBubble
+        variant="saina"
+        message="Güvenli yanıt"
+        isUser={false}
+        safeOnlyMode
+        safety="Safe"
+        feedback={{
+          eventId: 'evt-1',
+          originalLabel: 'Safe',
+          originalScore: 0.9,
+        }}
+        timestamp={new Date('2026-05-31T12:00:00')}
+      />
+    );
+
+    expect(screen.getByText('Güvenli yanıt')).toBeInTheDocument();
+    expect(screen.getByText('Safe')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Geri bildirim/i })).toBeInTheDocument();
+  });
+
+  it('uses legacy layout by default', () => {
+    const { container } = render(
+      <MessageList
+        messages={[{ id: '1', text: 'Legacy', isUser: true }]}
+        isLoading={false}
+      />
+    );
+
+    expect(container.querySelector('.saina-msg-row')).toBeNull();
+    expect(screen.queryByTestId('saina-msg-user')).not.toBeInTheDocument();
   });
 });

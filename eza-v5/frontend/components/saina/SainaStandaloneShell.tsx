@@ -26,6 +26,11 @@ export type SainaStandaloneShellProps = {
   onSelectChat?: (id: string) => void;
   onOpenPattern?: () => void;
   monthlyMirrorUsage?: SainaMonthlyMirrorUsage;
+  safeOnlyMode: boolean;
+  onSafeOnlyModeChange: (enabled: boolean) => void;
+  analysisModelId: string;
+  onAnalysisModelChange: (modelId: string) => void;
+  settingsDisabled?: boolean;
 };
 
 export default function SainaStandaloneShell({
@@ -39,6 +44,11 @@ export default function SainaStandaloneShell({
   onSelectChat,
   onOpenPattern,
   monthlyMirrorUsage,
+  safeOnlyMode,
+  onSafeOnlyModeChange,
+  analysisModelId,
+  onAnalysisModelChange,
+  settingsDisabled = false,
 }: SainaStandaloneShellProps) {
   const [mobileView, setMobileView] = useState<MobileView>('chat');
   const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
@@ -90,7 +100,13 @@ export default function SainaStandaloneShell({
                         <Menu size={20} />
                       </button>
                     </div>
-                    <SainaPageTopBar />
+                    <SainaPageTopBar
+                      safeOnlyMode={safeOnlyMode}
+                      onSafeOnlyModeChange={onSafeOnlyModeChange}
+                      analysisModelId={analysisModelId}
+                      onAnalysisModelChange={onAnalysisModelChange}
+                      settingsDisabled={settingsDisabled}
+                    />
                     <div className="saina-main-body" data-testid="saina-main-body">
                       <SainaHeroScene title={heroTitle} />
 

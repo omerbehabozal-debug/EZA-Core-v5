@@ -700,7 +700,12 @@ export default function StandaloneChatInner() {
 
   const messageList =
     !isEmpty ? (
-      <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
+      <MessageList
+        variant="saina"
+        messages={messages}
+        isLoading={isLoading}
+        isTyping={isTyping}
+      />
     ) : null;
 
   if (!ready) {
@@ -722,6 +727,11 @@ export default function StandaloneChatInner() {
       onNewChat={handleNewChat}
       onSelectChat={handleSelectChat}
       onOpenPattern={handleOpenPattern}
+      safeOnlyMode={safeOnlyMode}
+      onSafeOnlyModeChange={setSafeOnlyMode}
+      analysisModelId={analysisModelId}
+      onAnalysisModelChange={setAnalysisModelId}
+      settingsDisabled={isLoading}
     />
   );
 }

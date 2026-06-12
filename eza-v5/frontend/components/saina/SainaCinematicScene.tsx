@@ -1,21 +1,21 @@
 'use client';
 
-import type { CSSProperties } from 'react';
-import { DEFAULT_SAINA_CONVERSATION_SCENE } from '@/lib/eza/sainaSkin';
+import defaultSceneImage from '../../public/saina/default-conversation-scene.png';
+
+const sceneUrl =
+  typeof defaultSceneImage === 'string'
+    ? defaultSceneImage
+    : (defaultSceneImage as { src: string }).src;
 
 /** Full-width default conversation atmosphere behind chat + mirror columns. */
 export default function SainaCinematicScene() {
-  const sceneStyle = {
-    '--saina-default-scene': `url('${DEFAULT_SAINA_CONVERSATION_SCENE}')`,
-  } as CSSProperties;
-
   return (
-    <div
-      className="saina-canvas-bg saina-canvas-bg--default-scene"
-      style={sceneStyle}
-      aria-hidden
-    >
-      <div className="saina-canvas-scene-image" />
+    <div className="saina-canvas-bg saina-canvas-bg--default-scene" aria-hidden>
+      <div
+        className="saina-canvas-scene-image saina-canvas-scene-image--bundled"
+        style={{ backgroundImage: `url('${sceneUrl}')` }}
+        data-testid="saina-scene-image-layer"
+      />
       <div className="saina-canvas-overlay saina-canvas-overlay--left" />
       <div className="saina-canvas-overlay saina-canvas-overlay--center" />
       <div className="saina-canvas-overlay saina-canvas-overlay--pattern-dim" />

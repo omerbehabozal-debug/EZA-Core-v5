@@ -109,9 +109,12 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     expect(screen.queryByText(SAINA_CONCEPT_NEXT_TITLE)).not.toBeInTheDocument();
   });
 
-  it('renders default scene overlays', () => {
+  it('renders default scene overlays with bundled image layer', () => {
     const { container } = render(<SainaCinematicScene />);
-    expect(container.querySelector('.saina-canvas-scene-image')).toBeTruthy();
+    const layer = screen.getByTestId('saina-scene-image-layer');
+    expect(layer).toBeInTheDocument();
+    expect(layer.className).toContain('saina-canvas-scene-image--bundled');
+    expect((layer as HTMLElement).style.backgroundImage).toMatch(/url\(/);
     expect(container.querySelector('.saina-canvas-overlay--pattern-dim')).toBeTruthy();
   });
 
