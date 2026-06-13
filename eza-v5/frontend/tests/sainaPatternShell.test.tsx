@@ -53,6 +53,15 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     });
   });
 
+  it('renders cinematic scene behind pattern content', async () => {
+    render(<SainaPatternPageInner />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-scene-image-layer')).toBeInTheDocument();
+      expect(document.querySelector('.saina-pattern-canvas-wrap')).toBeTruthy();
+    });
+  });
+
   it('does not render legacy EZA Standalone sidebar branding', async () => {
     render(<SainaPatternPageInner />);
 

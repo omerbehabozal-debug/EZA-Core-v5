@@ -10,6 +10,7 @@ import type { SainaConversationItem } from '@/components/saina/SainaConversation
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
+import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
 import SainaPageTopBar from '@/components/saina/SainaPageTopBar';
 
 const SAINA_DESKTOP_SIDEBAR_MIN_PX = 1024;
@@ -90,32 +91,38 @@ export default function SainaPatternShell({
           </div>
 
           <div className="saina-main-col saina-pattern-main-col">
-            <div className="saina-main saina-pattern-main">
-              {!isDesktopLayout ? (
-                <div className="saina-standalone-mobile-bar">
-                  <button
-                    type="button"
-                    className="saina-standalone-menu-btn"
-                    data-testid="saina-pattern-mobile-menu-btn"
-                    onClick={() => setMobileSidebarOpen(true)}
-                    aria-label="Menü"
-                  >
-                    <Menu size={20} />
-                  </button>
-                </div>
-              ) : null}
+            <div className="saina-canvas saina-pattern-canvas-wrap">
+              <SainaCinematicScene />
 
-              <SainaPageTopBar
-                onOpenCommandPalette={openCommandPalette}
-                safeOnlyMode={safeOnlyMode}
-                onSafeOnlyModeChange={onSafeOnlyModeChange}
-                analysisModelId={analysisModelId}
-                onAnalysisModelChange={onAnalysisModelChange}
-              />
+              <div className="saina-main saina-pattern-main">
+                {!isDesktopLayout ? (
+                  <div className="saina-standalone-mobile-bar">
+                    <button
+                      type="button"
+                      className="saina-standalone-menu-btn"
+                      data-testid="saina-pattern-mobile-menu-btn"
+                      onClick={() => setMobileSidebarOpen(true)}
+                      aria-label="Menü"
+                    >
+                      <Menu size={20} />
+                    </button>
+                  </div>
+                ) : null}
 
-              <div className="saina-pattern-content-scroll">
-                <div className="saina-pattern-canvas flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-2 sm:px-6 lg:px-8">
-                  {children}
+                <SainaPageTopBar
+                  onOpenCommandPalette={openCommandPalette}
+                  safeOnlyMode={safeOnlyMode}
+                  onSafeOnlyModeChange={onSafeOnlyModeChange}
+                  analysisModelId={analysisModelId}
+                  onAnalysisModelChange={onAnalysisModelChange}
+                />
+
+                <div className="saina-pattern-content-scroll">
+                  <div className="saina-pattern-stage">
+                    <div className="saina-pattern-canvas flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-2 sm:px-6 lg:px-8">
+                      {children}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
