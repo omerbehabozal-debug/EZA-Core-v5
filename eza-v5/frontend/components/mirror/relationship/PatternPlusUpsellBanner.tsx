@@ -13,11 +13,23 @@ import UpgradeModal from '@/components/plan/UpgradeModal';
 
 export interface PatternPlusUpsellBannerProps {
   className?: string;
+  onCtaClick?: () => void;
 }
 
 /** Free kullanıcıya İlişki Deseni ekranında Plus yönlendirmesi. */
-export default function PatternPlusUpsellBanner({ className }: PatternPlusUpsellBannerProps) {
+export default function PatternPlusUpsellBanner({
+  className,
+  onCtaClick,
+}: PatternPlusUpsellBannerProps) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+  const handleCta = () => {
+    if (onCtaClick) {
+      onCtaClick();
+      return;
+    }
+    setUpgradeOpen(true);
+  };
 
   return (
     <>
@@ -54,7 +66,7 @@ export default function PatternPlusUpsellBanner({ className }: PatternPlusUpsell
           </div>
           <button
             type="button"
-            onClick={() => setUpgradeOpen(true)}
+            onClick={handleCta}
             className="inline-flex flex-shrink-0 items-center justify-center gap-1.5 self-start rounded-full bg-[#172033] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 sm:self-center"
           >
             <span className="inline-flex items-center rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
@@ -66,7 +78,7 @@ export default function PatternPlusUpsellBanner({ className }: PatternPlusUpsell
       </aside>
 
       <UpgradeModal
-        open={upgradeOpen}
+        open={upgradeOpen && !onCtaClick}
         feature="relationship_pattern_upsell"
         onClose={() => setUpgradeOpen(false)}
       />
