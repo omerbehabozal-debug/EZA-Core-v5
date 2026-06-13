@@ -102,6 +102,8 @@ export const MOCK_SAINA_CONVERSATIONS: SainaConversationItem[] = [
 type SainaConversationSidebarProps = {
   conversations?: SainaConversationItem[];
   activeChatId?: string | null;
+  /** Highlights İlişki Deseni nav when on pattern route. */
+  activeSection?: 'chat' | 'pattern';
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
   onOpenPattern?: () => void;
@@ -120,6 +122,7 @@ type SainaConversationSidebarProps = {
 export default function SainaConversationSidebar({
   conversations,
   activeChatId = null,
+  activeSection = 'chat',
   onNewChat,
   onSelectChat,
   onOpenPattern,
@@ -334,8 +337,12 @@ export default function SainaConversationSidebar({
 
             <button
               type="button"
-              className="saina-pattern-nav saina-pattern-nav--dark"
+              className={cn(
+                'saina-pattern-nav saina-pattern-nav--dark',
+                activeSection === 'pattern' && 'saina-pattern-nav--active'
+              )}
               onClick={handlePatternOpen}
+              aria-current={activeSection === 'pattern' ? 'page' : undefined}
             >
               <div className="saina-pattern-nav-main">
                 <SainaGeometricMark size={18} variant="gold" />
@@ -344,7 +351,9 @@ export default function SainaConversationSidebar({
                   <span className="saina-pattern-nav-body">{SAINA_RELATIONSHIP_PATTERN_BODY}</span>
                 </div>
               </div>
-              <span className="saina-pattern-nav-cta">{SAINA_RELATIONSHIP_PATTERN_CTA}</span>
+              <span className="saina-pattern-nav-cta">
+                {activeSection === 'pattern' ? 'Açık' : SAINA_RELATIONSHIP_PATTERN_CTA}
+              </span>
             </button>
           </div>
         </div>
