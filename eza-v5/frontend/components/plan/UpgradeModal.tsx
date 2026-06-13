@@ -33,7 +33,7 @@ export default function UpgradeModal({
   feature,
 }: UpgradeModalProps) {
   const pathname = usePathname();
-  const loginHref = `/platform/login?return=${encodeURIComponent(pathname || '/standalone/mirror/daily')}`;
+  const loginHref = `/platform/login?return=${encodeURIComponent(pathname || '/standalone')}`;
 
   useEffect(() => {
     if (!open) return;

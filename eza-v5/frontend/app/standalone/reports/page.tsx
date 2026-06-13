@@ -2,13 +2,12 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MIRROR_ROUTE } from '@/lib/eza/mirror/copy';
 
-/** Eski URL — EZA Mirror sayfasına yönlendir */
+/** Eski URL — standalone sohbet yüzeyine yönlendir */
 export default function StandaloneReportsRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace(MIRROR_ROUTE);
+    router.replace('/standalone');
   }, [router]);
   return null;
 }

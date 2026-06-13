@@ -2,14 +2,13 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
 
-import { MIRROR_ROUTE } from '@/lib/eza/mirror/copy';
-
-/** Eski URL — EZA Mirror sayfasına yönlendir */
+/** Eski URL — İlişki Deseni yüzeyine yönlendir */
 export default function StandaloneInsightsRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace(MIRROR_ROUTE);
+    router.replace(MIRROR_PATTERN_ROUTE);
   }, [router]);
   return null;
 }
