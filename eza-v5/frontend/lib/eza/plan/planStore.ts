@@ -6,7 +6,7 @@ import { fetchAuthMe } from '@/lib/eza/plan/fetchAuthMe';
 
 export type PlanId = 'free' | 'plus';
 
-export type PlanSource = 'server' | 'mock' | 'default';
+export type PlanSource = 'server' | 'mock' | 'default' | 'unknown';
 
 export const EZA_PLAN_STORAGE_KEY = 'eza_plan';
 export const EZA_AUTH_CHANGED_EVENT = 'eza-auth-changed';
@@ -114,7 +114,7 @@ export async function hydratePlanFromServer(): Promise<void> {
       if (me) {
         setInternal(normalize(me.mirror_plan), 'server');
       } else {
-        setInternal(DEFAULT_PLAN, 'default');
+        setInternal(DEFAULT_PLAN, 'unknown');
       }
     }
     applyDevMockOverride();

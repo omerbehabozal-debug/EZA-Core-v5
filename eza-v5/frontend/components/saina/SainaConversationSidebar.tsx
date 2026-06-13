@@ -11,6 +11,9 @@ import {
   SAINA_FREE_TITLE,
   SAINA_NEW_CHAT,
   SAINA_PLAN_ACTIVE,
+  SAINA_PLAN_CHECK_ACCOUNT,
+  SAINA_PLAN_LOADING_BODY,
+  SAINA_PLAN_UNKNOWN_BODY,
   SAINA_POWERED,
   SAINA_PREMIUM_BODY,
   SAINA_PREMIUM_STATUS,
@@ -20,11 +23,10 @@ import {
   SAINA_RELATIONSHIP_PATTERN_TITLE,
 } from '@/lib/eza/sainaCopy';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
+import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import SainaGeometricMark from './SainaGeometricMark';
 
-export type { SainaConversationItem };
-
-export type SainaPlanTier = 'free' | 'premium';
+export type { SainaConversationItem, SainaPlanTier };
 
 export const MOCK_SAINA_CONVERSATIONS: SainaConversationItem[] = [
   {
@@ -126,7 +128,62 @@ export default function SainaConversationSidebar({
   const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
   const isMock = conversations == null;
   const disabled = interactionsDisabled || isMock;
-  const isPremium = planTier === 'premium';
+
+  const renderPlanCard = () => {
+    if (planTier === 'loading') {
+      return (
+        <>
+          <div className="saina-premium-mini-row">
+            <span className="saina-premium-mini-title">{SAINA_BRAND}</span>
+          </div>
+          <p className="saina-plan-card-body saina-plan-card-body--loading">{SAINA_PLAN_LOADING_BODY}</p>
+        </>
+      );
+    }
+
+    if (planTier === 'unknown') {
+      return (
+        <>
+          <div className="saina-premium-mini-row">
+            <span className="saina-premium-mini-title">{SAINA_BRAND}</span>
+          </div>
+          <p className="saina-plan-card-body">{SAINA_PLAN_UNKNOWN_BODY}</p>
+          <p className="saina-plan-card-note">{SAINA_PLAN_CHECK_ACCOUNT}</p>
+        </>
+      );
+    }
+
+    const isPremium = planTier === 'premium';
+
+    return (
+      <>
+        <div className="saina-premium-mini-row">
+          <span className="saina-premium-mini-title">
+            {isPremium ? SAINA_PREMIUM_TITLE : SAINA_FREE_TITLE}
+          </span>
+          <span className="saina-premium-mini-badge">{SAINA_PLAN_ACTIVE}</span>
+        </div>
+        <p className="saina-plan-card-body">
+          {isPremium ? SAINA_PREMIUM_BODY : SAINA_FREE_BODY}
+        </p>
+        {isPremium ? (
+          <p className="saina-plan-card-status">{SAINA_PREMIUM_STATUS}</p>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="saina-plan-card-cta"
+              data-testid="saina-plan-upgrade-cta"
+              onClick={() => onUpgrade?.()}
+            >
+              {SAINA_FREE_CTA}
+            </button>
+            <p className="saina-plan-card-note">{SAINA_FREE_NOTE}</p>
+          </>
+        )}
+      </>
+    );
+  };
 
   const handlePatternOpen = () => {
     if (onOpenPattern) {
@@ -233,30 +290,7 @@ export default function SainaConversationSidebar({
               data-testid="saina-plan-card"
               data-plan-tier={planTier}
             >
-              <div className="saina-premium-mini-row">
-                <span className="saina-premium-mini-title">
-                  {isPremium ? SAINA_PREMIUM_TITLE : SAINA_FREE_TITLE}
-                </span>
-                <span className="saina-premium-mini-badge">{SAINA_PLAN_ACTIVE}</span>
-              </div>
-              <p className="saina-plan-card-body">
-                {isPremium ? SAINA_PREMIUM_BODY : SAINA_FREE_BODY}
-              </p>
-              {isPremium ? (
-                <p className="saina-plan-card-status">{SAINA_PREMIUM_STATUS}</p>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="saina-plan-card-cta"
-                    data-testid="saina-plan-upgrade-cta"
-                    onClick={() => onUpgrade?.()}
-                  >
-                    {SAINA_FREE_CTA}
-                  </button>
-                  <p className="saina-plan-card-note">{SAINA_FREE_NOTE}</p>
-                </>
-              )}
+              {renderPlanCard()}
             </div>
 
             <button
@@ -265,7 +299,7 @@ export default function SainaConversationSidebar({
               onClick={handlePatternOpen}
             >
               <div className="saina-pattern-nav-main">
-                <SainaGeometricMark size={16} variant="gold" />
+                <SainaGeometricMark size={18} variant="gold" />
                 <div className="saina-pattern-nav-text">
                   <span className="saina-pattern-nav-title">{SAINA_RELATIONSHIP_PATTERN_TITLE}</span>
                   <span className="saina-pattern-nav-body">{SAINA_RELATIONSHIP_PATTERN_BODY}</span>

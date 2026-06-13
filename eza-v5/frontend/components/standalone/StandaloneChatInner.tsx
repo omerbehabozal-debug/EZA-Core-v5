@@ -22,6 +22,7 @@ import UpgradeModal from '@/components/plan/UpgradeModal';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
 import { usePlan } from '@/lib/eza/plan/usePlan';
+import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
 import type {
   BehavioralSnapshot,
@@ -95,7 +96,7 @@ export default function StandaloneChatInner() {
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const { isPlus } = usePlan();
+  const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { startStream, reset: resetStream } = useStreamResponse();
   const currentAssistantMessageRef = useRef<string | null>(null);
   const assistantScoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -291,6 +292,12 @@ export default function StandaloneChatInner() {
   const handleOpenUpgrade = useCallback(() => {
     setUpgradeOpen(true);
   }, []);
+
+  useEffect(() => {
+    void refreshPlan();
+  }, [refreshPlan]);
+
+  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
 
   const sainaConversations = useMemo(
     () => mapArchivesToSainaConversations(archives),
@@ -736,7 +743,7 @@ export default function StandaloneChatInner() {
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
         onOpenPattern={handleOpenPattern}
-        planTier={isPlus ? 'premium' : 'free'}
+        planTier={planTier}
         onUpgrade={handleOpenUpgrade}
         safeOnlyMode={safeOnlyMode}
         onSafeOnlyModeChange={setSafeOnlyMode}

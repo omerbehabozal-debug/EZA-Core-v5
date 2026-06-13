@@ -113,6 +113,12 @@ export const SAINA_PREMIUM_TITLE = 'SAINA Premium';
 
 export const SAINA_PLAN_ACTIVE = 'Aktif';
 
+export const SAINA_PLAN_LOADING_BODY = 'Plan bilgisi kontrol ediliyor...';
+
+export const SAINA_PLAN_UNKNOWN_BODY = 'Plan bilgisi alınamadı';
+
+export const SAINA_PLAN_CHECK_ACCOUNT = 'Hesabı kontrol et';
+
 export const SAINA_FREE_BODY = 'Temel sohbet deneyimi açık.';
 
 export const SAINA_FREE_CTA = 'Şimdi Premium Ol';

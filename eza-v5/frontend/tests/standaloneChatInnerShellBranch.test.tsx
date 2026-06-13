@@ -55,7 +55,78 @@ describe('StandaloneChatInner default shell', () => {
     });
   });
 
+  it('hydrates plan from server on mount', async () => {
+    const refreshPlan = vi.fn();
+    vi.mocked(usePlan).mockReturnValue({
+      plan: 'free',
+      isPlus: false,
+      isFree: true,
+      isLoading: false,
+      source: 'default',
+      setPlan: vi.fn(),
+      refreshPlan,
+    });
+
+    render(<StandaloneChatInner />);
+
+    await waitFor(() => {
+      expect(refreshPlan).toHaveBeenCalled();
+    });
+  });
+
+  it('passes loading plan tier while plan is hydrating', async () => {
+    vi.mocked(usePlan).mockReturnValue({
+      plan: 'free',
+      isPlus: false,
+      isFree: true,
+      isLoading: true,
+      source: 'default',
+      setPlan: vi.fn(),
+      refreshPlan: vi.fn(),
+    });
+
+    render(<StandaloneChatInner />);
+
+    await waitFor(() => {
+      expect(shellRenderProps).toHaveBeenCalled();
+    });
+
+    const latestProps = shellRenderProps.mock.calls.at(-1)?.[0];
+    expect(latestProps?.planTier).toBe('loading');
+  });
+
+  it('passes unknown plan tier when server fetch fails', async () => {
+    vi.mocked(usePlan).mockReturnValue({
+      plan: 'free',
+      isPlus: false,
+      isFree: true,
+      isLoading: false,
+      source: 'unknown',
+      setPlan: vi.fn(),
+      refreshPlan: vi.fn(),
+    });
+
+    render(<StandaloneChatInner />);
+
+    await waitFor(() => {
+      expect(shellRenderProps).toHaveBeenCalled();
+    });
+
+    const latestProps = shellRenderProps.mock.calls.at(-1)?.[0];
+    expect(latestProps?.planTier).toBe('unknown');
+  });
+
   it('passes free plan tier to shell when user is not plus', async () => {
+    vi.mocked(usePlan).mockReturnValue({
+      plan: 'free',
+      isPlus: false,
+      isFree: true,
+      isLoading: false,
+      source: 'server',
+      setPlan: vi.fn(),
+      refreshPlan: vi.fn(),
+    });
+
     render(<StandaloneChatInner />);
 
     await waitFor(() => {

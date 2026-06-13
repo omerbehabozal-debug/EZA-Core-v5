@@ -436,8 +436,39 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
 
     expect(screen.getByText('SAINA Premium')).toBeInTheDocument();
     expect(screen.getByText('Premium deneyim açık')).toBeInTheDocument();
+    expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
+  });
+
+  it('renders loading plan card without misleading free tier', () => {
+    render(<SainaStandaloneShell {...shellProps} planTier="loading" />);
+
+    const planCard = screen.getByTestId('saina-plan-card');
+    expect(planCard).toHaveAttribute('data-plan-tier', 'loading');
+    expect(within(planCard).getByText('SAINA')).toBeInTheDocument();
+    expect(within(planCard).getByText('Plan bilgisi kontrol ediliyor...')).toBeInTheDocument();
+    expect(screen.queryByText('SAINA Free')).not.toBeInTheDocument();
+    expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
+  });
+
+  it('renders unknown plan card without misleading free tier or upgrade CTA', () => {
+    render(<SainaStandaloneShell {...shellProps} planTier="unknown" />);
+
+    const planCard = screen.getByTestId('saina-plan-card');
+    expect(planCard).toHaveAttribute('data-plan-tier', 'unknown');
+    expect(within(planCard).getByText('SAINA')).toBeInTheDocument();
+    expect(within(planCard).getByText('Plan bilgisi alınamadı')).toBeInTheDocument();
+    expect(within(planCard).getByText('Hesabı kontrol et')).toBeInTheDocument();
+    expect(screen.queryByText('SAINA Free')).not.toBeInTheDocument();
+    expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
+  });
+
+  it('renders sidebar pattern nav with readable copy', () => {
+    render(<SainaStandaloneShell {...shellProps} />);
+
+    expect(screen.getByText('İlişki Deseni')).toBeInTheDocument();
+    expect(screen.getByText('Aç →')).toBeInTheDocument();
   });
 });
 
