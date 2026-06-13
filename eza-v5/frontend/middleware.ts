@@ -35,6 +35,8 @@ const PUBLIC_PATHS = [
   '/manifest.json',
   '/assets',
   '/images',
+  /** public/saina — brand mark, scene assets (domain rewrite dışı) */
+  '/saina',
   /** public/mirror — onboarding önizleme PNG'leri (domain rewrite dışı) */
   '/mirror',
   '/api',
