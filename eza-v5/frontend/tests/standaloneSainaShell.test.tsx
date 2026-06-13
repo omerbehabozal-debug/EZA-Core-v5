@@ -422,11 +422,24 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     expect(screen.queryByLabelText('Sohbet listesini daralt')).not.toBeInTheDocument();
   });
 
-  it('renders free plan card when planTier is free', () => {
-    render(<SainaStandaloneShell {...shellProps} planTier="free" />);
+  it('renders anonymous plan card for first-time visitors', () => {
+    render(<SainaStandaloneShell {...shellProps} planTier="anonymous" />);
 
     expect(screen.getByText('SAINA Free')).toBeInTheDocument();
     expect(screen.getByText('Şimdi Premium Ol')).toBeInTheDocument();
+    expect(screen.getByText('Mirror ve İlişki Deseni için giriş yap.')).toBeInTheDocument();
+    expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
+    expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
+  });
+
+  it('renders logged-in free plan card when planTier is free', () => {
+    render(<SainaStandaloneShell {...shellProps} planTier="free" />);
+
+    expect(screen.getByText('SAINA Free')).toBeInTheDocument();
+    expect(screen.getByText("Premium'a Geç")).toBeInTheDocument();
+    expect(
+      screen.getByText("Conversation Mirror ve İlişki Deseni Premium'da aktif."),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
@@ -435,7 +448,9 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="premium" />);
 
     expect(screen.getByText('SAINA Premium')).toBeInTheDocument();
-    expect(screen.getByText('Premium deneyim açık')).toBeInTheDocument();
+    expect(screen.getByText('Premium deneyim aktif.')).toBeInTheDocument();
+    expect(screen.getByText('Conversation Mirror aktif')).toBeInTheDocument();
+    expect(screen.getByText('İlişki Deseni aktif')).toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
@@ -452,16 +467,42 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
   });
 
-  it('renders unknown plan card without misleading free tier or upgrade CTA', () => {
-    render(<SainaStandaloneShell {...shellProps} planTier="unknown" />);
+  it('renders session_invalid plan card with login CTA', () => {
+    render(<SainaStandaloneShell {...shellProps} planTier="session_invalid" />);
 
     const planCard = screen.getByTestId('saina-plan-card');
-    expect(planCard).toHaveAttribute('data-plan-tier', 'unknown');
+    expect(planCard).toHaveAttribute('data-plan-tier', 'session_invalid');
     expect(within(planCard).getByText('SAINA')).toBeInTheDocument();
-    expect(within(planCard).getByText('Plan bilgisi alınamadı')).toBeInTheDocument();
-    expect(within(planCard).getByText('Hesabı kontrol et')).toBeInTheDocument();
+    expect(within(planCard).getByText('Oturum doğrulanamadı')).toBeInTheDocument();
+    expect(within(planCard).getByText('Giriş yap')).toBeInTheDocument();
     expect(screen.queryByText('SAINA Free')).not.toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
+  });
+
+  it('blocks mirror open when onRequestMirror returns false', () => {
+    const { container } = render(
+      <SainaStandaloneShell
+        {...shellProps}
+        onRequestMirror={() => false}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('saina-mirror-expand-pill'));
+    expect(screen.getByTestId('saina-mirror-expand-pill')).toBeInTheDocument();
+    expect(container.querySelector('.saina-mirror-col--open')).toBeNull();
+  });
+
+  it('opens mirror panel when onRequestMirror returns true', () => {
+    render(
+      <SainaStandaloneShell
+        {...shellProps}
+        onRequestMirror={() => true}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('saina-mirror-expand-pill'));
+    expect(screen.queryByTestId('saina-mirror-expand-pill')).not.toBeInTheDocument();
+    expect(screen.getByTestId('saina-standalone-mirror-panel')).toBeInTheDocument();
   });
 
   it('renders sidebar pattern nav with readable copy', () => {

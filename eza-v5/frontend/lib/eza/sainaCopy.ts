@@ -115,18 +115,48 @@ export const SAINA_PLAN_ACTIVE = 'Aktif';
 
 export const SAINA_PLAN_LOADING_BODY = 'Plan bilgisi kontrol ediliyor...';
 
-export const SAINA_PLAN_UNKNOWN_BODY = 'Plan bilgisi alınamadı';
+export const SAINA_PLAN_SESSION_INVALID_BODY = 'Oturum doğrulanamadı';
 
-export const SAINA_PLAN_CHECK_ACCOUNT = 'Hesabı kontrol et';
+export const SAINA_PLAN_SESSION_INVALID_NOTE =
+  'Tekrar giriş yaparak Premium deneyimini aç.';
 
-export const SAINA_FREE_BODY = 'Temel sohbet deneyimi açık.';
+export const SAINA_PLAN_LOGIN_CTA = 'Giriş yap';
 
-export const SAINA_FREE_CTA = 'Şimdi Premium Ol';
+/** @deprecated Use SAINA_PLAN_SESSION_INVALID_BODY */
+export const SAINA_PLAN_UNKNOWN_BODY = SAINA_PLAN_SESSION_INVALID_BODY;
 
-export const SAINA_FREE_NOTE = 'Sohbet aynası ve ilişki deseni Premium ile açılır.';
+/** @deprecated Use SAINA_PLAN_LOGIN_CTA */
+export const SAINA_PLAN_CHECK_ACCOUNT = SAINA_PLAN_LOGIN_CTA;
 
-export const SAINA_PREMIUM_BODY = 'Her sohbetin aynasını keşfedebilirsin.';
+export const SAINA_ANON_FREE_BODY = 'Temel sohbet deneyimi açık.';
 
+export const SAINA_ANON_FREE_CTA = 'Şimdi Premium Ol';
+
+export const SAINA_ANON_FREE_NOTE = 'Mirror ve İlişki Deseni için giriş yap.';
+
+export const SAINA_LOGGEDIN_FREE_BODY = 'Hesabın hazır.';
+
+export const SAINA_LOGGEDIN_FREE_CTA = "Premium'a Geç";
+
+export const SAINA_LOGGEDIN_FREE_NOTE =
+  "Conversation Mirror ve İlişki Deseni Premium'da aktif.";
+
+/** @deprecated Use SAINA_ANON_FREE_BODY */
+export const SAINA_FREE_BODY = SAINA_ANON_FREE_BODY;
+
+/** @deprecated Use SAINA_ANON_FREE_CTA */
+export const SAINA_FREE_CTA = SAINA_ANON_FREE_CTA;
+
+/** @deprecated Use SAINA_ANON_FREE_NOTE */
+export const SAINA_FREE_NOTE = SAINA_ANON_FREE_NOTE;
+
+export const SAINA_PREMIUM_BODY = 'Premium deneyim aktif.';
+
+export const SAINA_PREMIUM_MIRROR_ACTIVE = 'Conversation Mirror aktif';
+
+export const SAINA_PREMIUM_PATTERN_ACTIVE = 'İlişki Deseni aktif';
+
+/** @deprecated Use SAINA_PREMIUM_MIRROR_ACTIVE */
 export const SAINA_PREMIUM_STATUS = 'Premium deneyim açık';
 
 /** @deprecated Use SAINA_PLAN_ACTIVE */

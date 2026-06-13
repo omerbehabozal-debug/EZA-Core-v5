@@ -5,18 +5,23 @@ import { cn } from '@/lib/utils';
 import {
   SAINA_BRAND,
   SAINA_CONVERSATIONS_TITLE,
-  SAINA_FREE_BODY,
-  SAINA_FREE_CTA,
-  SAINA_FREE_NOTE,
+  SAINA_ANON_FREE_BODY,
+  SAINA_ANON_FREE_CTA,
+  SAINA_ANON_FREE_NOTE,
   SAINA_FREE_TITLE,
+  SAINA_LOGGEDIN_FREE_BODY,
+  SAINA_LOGGEDIN_FREE_CTA,
+  SAINA_LOGGEDIN_FREE_NOTE,
   SAINA_NEW_CHAT,
   SAINA_PLAN_ACTIVE,
-  SAINA_PLAN_CHECK_ACCOUNT,
   SAINA_PLAN_LOADING_BODY,
-  SAINA_PLAN_UNKNOWN_BODY,
+  SAINA_PLAN_LOGIN_CTA,
+  SAINA_PLAN_SESSION_INVALID_BODY,
+  SAINA_PLAN_SESSION_INVALID_NOTE,
   SAINA_POWERED,
   SAINA_PREMIUM_BODY,
-  SAINA_PREMIUM_STATUS,
+  SAINA_PREMIUM_MIRROR_ACTIVE,
+  SAINA_PREMIUM_PATTERN_ACTIVE,
   SAINA_PREMIUM_TITLE,
   SAINA_RELATIONSHIP_PATTERN_BODY,
   SAINA_RELATIONSHIP_PATTERN_CTA,
@@ -102,6 +107,7 @@ type SainaConversationSidebarProps = {
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;
+  onRequestLogin?: () => void;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
   /** When false (desktop layout), hide drawer backdrop and close control. */
@@ -119,6 +125,7 @@ export default function SainaConversationSidebar({
   onOpenPattern,
   planTier = 'premium',
   onUpgrade,
+  onRequestLogin,
   mobileOpen = false,
   onMobileClose,
   showMobileChrome = true,
@@ -141,14 +148,43 @@ export default function SainaConversationSidebar({
       );
     }
 
-    if (planTier === 'unknown') {
+    if (planTier === 'session_invalid') {
       return (
         <>
           <div className="saina-premium-mini-row">
             <span className="saina-premium-mini-title">{SAINA_BRAND}</span>
           </div>
-          <p className="saina-plan-card-body">{SAINA_PLAN_UNKNOWN_BODY}</p>
-          <p className="saina-plan-card-note">{SAINA_PLAN_CHECK_ACCOUNT}</p>
+          <p className="saina-plan-card-body">{SAINA_PLAN_SESSION_INVALID_BODY}</p>
+          <button
+            type="button"
+            className="saina-plan-card-cta"
+            data-testid="saina-plan-login-cta"
+            onClick={() => onRequestLogin?.()}
+          >
+            {SAINA_PLAN_LOGIN_CTA}
+          </button>
+          <p className="saina-plan-card-note">{SAINA_PLAN_SESSION_INVALID_NOTE}</p>
+        </>
+      );
+    }
+
+    if (planTier === 'anonymous') {
+      return (
+        <>
+          <div className="saina-premium-mini-row">
+            <span className="saina-premium-mini-title">{SAINA_FREE_TITLE}</span>
+            <span className="saina-premium-mini-badge">{SAINA_PLAN_ACTIVE}</span>
+          </div>
+          <p className="saina-plan-card-body">{SAINA_ANON_FREE_BODY}</p>
+          <button
+            type="button"
+            className="saina-plan-card-cta"
+            data-testid="saina-plan-upgrade-cta"
+            onClick={() => onUpgrade?.()}
+          >
+            {SAINA_ANON_FREE_CTA}
+          </button>
+          <p className="saina-plan-card-note">{SAINA_ANON_FREE_NOTE}</p>
         </>
       );
     }
@@ -164,10 +200,13 @@ export default function SainaConversationSidebar({
           <span className="saina-premium-mini-badge">{SAINA_PLAN_ACTIVE}</span>
         </div>
         <p className="saina-plan-card-body">
-          {isPremium ? SAINA_PREMIUM_BODY : SAINA_FREE_BODY}
+          {isPremium ? SAINA_PREMIUM_BODY : SAINA_LOGGEDIN_FREE_BODY}
         </p>
         {isPremium ? (
-          <p className="saina-plan-card-status">{SAINA_PREMIUM_STATUS}</p>
+          <>
+            <p className="saina-plan-card-status">{SAINA_PREMIUM_MIRROR_ACTIVE}</p>
+            <p className="saina-plan-card-status">{SAINA_PREMIUM_PATTERN_ACTIVE}</p>
+          </>
         ) : (
           <>
             <button
@@ -176,9 +215,9 @@ export default function SainaConversationSidebar({
               data-testid="saina-plan-upgrade-cta"
               onClick={() => onUpgrade?.()}
             >
-              {SAINA_FREE_CTA}
+              {SAINA_LOGGEDIN_FREE_CTA}
             </button>
-            <p className="saina-plan-card-note">{SAINA_FREE_NOTE}</p>
+            <p className="saina-plan-card-note">{SAINA_LOGGEDIN_FREE_NOTE}</p>
           </>
         )}
       </>

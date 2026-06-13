@@ -6,7 +6,7 @@ import { fetchAuthMe } from '@/lib/eza/plan/fetchAuthMe';
 
 export type PlanId = 'free' | 'plus';
 
-export type PlanSource = 'server' | 'mock' | 'default' | 'unknown';
+export type PlanSource = 'server' | 'mock' | 'default' | 'session_invalid';
 
 export const EZA_PLAN_STORAGE_KEY = 'eza_plan';
 export const EZA_AUTH_CHANGED_EVENT = 'eza-auth-changed';
@@ -97,6 +97,17 @@ export function getPlanServerSnapshot(): PlanId {
   return DEFAULT_PLAN;
 }
 
+function clearStaleAuth(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem('eza_token');
+    window.localStorage.removeItem('eza_user');
+    window.localStorage.removeItem('eza_auth');
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Production: /api/auth/me. Dev: server then localStorage mock override. */
 export async function hydratePlanFromServer(): Promise<void> {
   if (typeof window === 'undefined') return;
@@ -108,13 +119,16 @@ export async function hydratePlanFromServer(): Promise<void> {
   try {
     const token = window.localStorage.getItem('eza_token');
     if (!token) {
-      setInternal(DEFAULT_PLAN, 'default');
+      if (planSource !== 'session_invalid') {
+        setInternal(DEFAULT_PLAN, 'default');
+      }
     } else {
       const me = await fetchAuthMe();
       if (me) {
         setInternal(normalize(me.mirror_plan), 'server');
       } else {
-        setInternal(DEFAULT_PLAN, 'unknown');
+        clearStaleAuth();
+        setInternal(DEFAULT_PLAN, 'session_invalid');
       }
     }
     applyDevMockOverride();

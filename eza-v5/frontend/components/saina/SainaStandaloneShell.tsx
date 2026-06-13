@@ -46,6 +46,9 @@ export type SainaStandaloneShellProps = {
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;
+  onRequestLogin?: () => void;
+  /** Return false to block mirror panel open (e.g. auth/upgrade gate). */
+  onRequestMirror?: () => boolean;
   safeOnlyMode: boolean;
   onSafeOnlyModeChange: (enabled: boolean) => void;
   analysisModelId: string;
@@ -65,6 +68,8 @@ export default function SainaStandaloneShell({
   onOpenPattern,
   planTier,
   onUpgrade,
+  onRequestLogin,
+  onRequestMirror,
   safeOnlyMode,
   onSafeOnlyModeChange,
   analysisModelId,
@@ -83,9 +88,16 @@ export default function SainaStandaloneShell({
   useSainaCommandShortcut(openCommandPalette);
 
   const handleCommandOpenMirror = useCallback(() => {
+    if (onRequestMirror && !onRequestMirror()) return;
     setMirrorCollapsed(false);
     setMobileView('mirror');
-  }, []);
+  }, [onRequestMirror]);
+
+  const tryOpenMirror = useCallback(() => {
+    if (onRequestMirror && !onRequestMirror()) return;
+    setMirrorCollapsed(false);
+    setMobileView('mirror');
+  }, [onRequestMirror]);
 
   const showMessages = !isEmpty && messages != null;
 
@@ -102,6 +114,7 @@ export default function SainaStandaloneShell({
               onOpenPattern={onOpenPattern}
               planTier={planTier}
               onUpgrade={onUpgrade}
+              onRequestLogin={onRequestLogin}
               mobileOpen={mobileSidebarOpen}
               onMobileClose={() => setMobileSidebarOpen(false)}
               showMobileChrome={!isDesktopLayout}
@@ -190,7 +203,7 @@ export default function SainaStandaloneShell({
                     type="button"
                     className="saina-mirror-expand-pill"
                     data-testid="saina-mirror-expand-pill"
-                    onClick={() => setMirrorCollapsed(false)}
+                    onClick={tryOpenMirror}
                     aria-label={SAINA_MIRROR_EXPAND_LABEL}
                   >
                     <Sparkles size={18} className="saina-mirror-expand-sparkle" aria-hidden />
@@ -215,7 +228,7 @@ export default function SainaStandaloneShell({
         <button
           type="button"
           className={cn('saina-mobile-tab', mobileView === 'mirror' && 'saina-mobile-tab--active')}
-          onClick={() => setMobileView('mirror')}
+          onClick={tryOpenMirror}
         >
           <Sparkles size={16} />
           Ayna

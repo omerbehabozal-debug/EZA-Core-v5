@@ -1,6 +1,12 @@
 import type { PlanSource } from '@/lib/eza/plan/planStore';
 
-export type SainaPlanTier = 'loading' | 'free' | 'premium' | 'unknown';
+/** Sidebar plan card + premium feature gate tier. */
+export type SainaPlanTier =
+  | 'loading'
+  | 'anonymous'
+  | 'free'
+  | 'premium'
+  | 'session_invalid';
 
 export function resolveSainaPlanTier(input: {
   isPlus: boolean;
@@ -8,9 +14,9 @@ export function resolveSainaPlanTier(input: {
   source: PlanSource;
 }): SainaPlanTier {
   if (input.isLoading) return 'loading';
-  if (input.source === 'unknown') return 'unknown';
+  if (input.source === 'session_invalid') return 'session_invalid';
   if (input.source === 'server' || input.source === 'mock') {
     return input.isPlus ? 'premium' : 'free';
   }
-  return 'free';
+  return 'anonymous';
 }

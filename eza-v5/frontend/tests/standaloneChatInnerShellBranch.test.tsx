@@ -95,13 +95,27 @@ describe('StandaloneChatInner default shell', () => {
     expect(latestProps?.planTier).toBe('loading');
   });
 
-  it('passes unknown plan tier when server fetch fails', async () => {
+  it('passes anonymous plan tier for unauthenticated users', async () => {
+    render(<StandaloneChatInner />);
+
+    await waitFor(() => {
+      expect(shellRenderProps).toHaveBeenCalled();
+    });
+
+    const latestProps = shellRenderProps.mock.calls.at(-1)?.[0];
+    expect(latestProps?.planTier).toBe('anonymous');
+    expect(typeof latestProps?.onUpgrade).toBe('function');
+    expect(typeof latestProps?.onRequestLogin).toBe('function');
+    expect(typeof latestProps?.onRequestMirror).toBe('function');
+  });
+
+  it('passes session_invalid plan tier when server fetch fails', async () => {
     vi.mocked(usePlan).mockReturnValue({
       plan: 'free',
       isPlus: false,
       isFree: true,
       isLoading: false,
-      source: 'unknown',
+      source: 'session_invalid',
       setPlan: vi.fn(),
       refreshPlan: vi.fn(),
     });
@@ -113,10 +127,10 @@ describe('StandaloneChatInner default shell', () => {
     });
 
     const latestProps = shellRenderProps.mock.calls.at(-1)?.[0];
-    expect(latestProps?.planTier).toBe('unknown');
+    expect(latestProps?.planTier).toBe('session_invalid');
   });
 
-  it('passes free plan tier to shell when user is not plus', async () => {
+  it('passes logged-in free plan tier when user is not plus', async () => {
     vi.mocked(usePlan).mockReturnValue({
       plan: 'free',
       isPlus: false,

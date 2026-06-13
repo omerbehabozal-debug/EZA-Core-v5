@@ -18,9 +18,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
 import SainaComposer from '@/components/saina/SainaComposer';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
-import UpgradeModal from '@/components/plan/UpgradeModal';
+import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
+import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
@@ -96,6 +97,8 @@ export default function StandaloneChatInner() {
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeVariant, setUpgradeVariant] = useState<UpgradeModalVariant>('upgrade');
+  const [upgradeFeature, setUpgradeFeature] = useState<string>('saina_sidebar');
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { startStream, reset: resetStream } = useStreamResponse();
   const currentAssistantMessageRef = useRef<string | null>(null);
@@ -285,19 +288,50 @@ export default function StandaloneChatInner() {
     [router]
   );
 
+  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+
+  const openGateModal = useCallback((feature: string) => {
+    const outcome = gatePremiumFeature(planTier);
+    setUpgradeFeature(feature);
+    setUpgradeVariant(outcome === 'upgrade_required' ? 'upgrade' : 'auth_required');
+    setUpgradeOpen(true);
+  }, [planTier]);
+
   const handleOpenPattern = useCallback(() => {
+    if (gatePremiumFeature(planTier) !== 'allow') {
+      openGateModal('relationship_pattern');
+      return;
+    }
     router.push(MIRROR_PATTERN_ROUTE);
-  }, [router]);
+  }, [planTier, openGateModal, router]);
+
+  const handleRequestMirror = useCallback((): boolean => {
+    if (gatePremiumFeature(planTier) !== 'allow') {
+      openGateModal('conversation_mirror');
+      return false;
+    }
+    return true;
+  }, [planTier, openGateModal]);
 
   const handleOpenUpgrade = useCallback(() => {
+    if (planTier === 'free') {
+      setUpgradeFeature('saina_sidebar');
+      setUpgradeVariant('upgrade');
+      setUpgradeOpen(true);
+      return;
+    }
+    openGateModal('saina_sidebar');
+  }, [planTier, openGateModal]);
+
+  const handleRequestLogin = useCallback(() => {
+    setUpgradeFeature('saina_session');
+    setUpgradeVariant('auth_required');
     setUpgradeOpen(true);
   }, []);
 
   useEffect(() => {
     void refreshPlan();
   }, [refreshPlan]);
-
-  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
 
   const sainaConversations = useMemo(
     () => mapArchivesToSainaConversations(archives),
@@ -745,6 +779,8 @@ export default function StandaloneChatInner() {
         onOpenPattern={handleOpenPattern}
         planTier={planTier}
         onUpgrade={handleOpenUpgrade}
+        onRequestLogin={handleRequestLogin}
+        onRequestMirror={handleRequestMirror}
         safeOnlyMode={safeOnlyMode}
         onSafeOnlyModeChange={setSafeOnlyMode}
         analysisModelId={analysisModelId}
@@ -754,7 +790,8 @@ export default function StandaloneChatInner() {
       <UpgradeModal
         open={upgradeOpen}
         onClose={() => setUpgradeOpen(false)}
-        feature="saina_sidebar"
+        variant={upgradeVariant}
+        feature={upgradeFeature}
       />
     </>
   );

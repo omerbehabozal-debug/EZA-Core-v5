@@ -8,10 +8,10 @@ describe('resolveSainaPlanTier', () => {
     ).toBe('loading');
   });
 
-  it('returns unknown when server fetch failed with token', () => {
+  it('returns session_invalid when server fetch failed with token', () => {
     expect(
-      resolveSainaPlanTier({ isPlus: false, isLoading: false, source: 'unknown' }),
-    ).toBe('unknown');
+      resolveSainaPlanTier({ isPlus: false, isLoading: false, source: 'session_invalid' }),
+    ).toBe('session_invalid');
   });
 
   it('maps server plus to premium', () => {
@@ -20,15 +20,15 @@ describe('resolveSainaPlanTier', () => {
     ).toBe('premium');
   });
 
-  it('maps server free to free', () => {
+  it('maps server free to logged-in free', () => {
     expect(
       resolveSainaPlanTier({ isPlus: false, isLoading: false, source: 'server' }),
     ).toBe('free');
   });
 
-  it('maps default source to free for anonymous users', () => {
+  it('maps default source to anonymous', () => {
     expect(
       resolveSainaPlanTier({ isPlus: false, isLoading: false, source: 'default' }),
-    ).toBe('free');
+    ).toBe('anonymous');
   });
 });
