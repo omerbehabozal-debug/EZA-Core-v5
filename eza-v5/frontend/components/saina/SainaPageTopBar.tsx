@@ -1,11 +1,14 @@
 'use client';
 
-import { Bell, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SAINA_TOP_SEARCH_PLACEHOLDER } from '@/lib/eza/sainaCopy';
+import SainaNotificationsDropdown from './SainaNotificationsDropdown';
 import SainaProfileMenu from './SainaProfileMenu';
 
 type SainaPageTopBarProps = {
   className?: string;
+  onOpenCommandPalette?: () => void;
   safeOnlyMode?: boolean;
   onSafeOnlyModeChange?: (enabled: boolean) => void;
   analysisModelId?: string;
@@ -16,6 +19,7 @@ type SainaPageTopBarProps = {
 
 export default function SainaPageTopBar({
   className,
+  onOpenCommandPalette,
   safeOnlyMode = false,
   onSafeOnlyModeChange,
   analysisModelId,
@@ -28,26 +32,45 @@ export default function SainaPageTopBar({
     onAnalysisModelChange != null &&
     analysisModelId != null;
 
+  const openPalette = () => {
+    onOpenCommandPalette?.();
+  };
+
   return (
     <header className={cn('saina-top-bar', className)}>
       <div className="saina-top-bar-inner">
+        <button
+          type="button"
+          className="saina-search-mobile-btn"
+          data-testid="saina-mobile-search-btn"
+          aria-label="Ara"
+          onClick={openPalette}
+        >
+          <Search size={18} aria-hidden />
+        </button>
+
         <div className="saina-search-wrap">
           <Search size={16} className="saina-search-icon" aria-hidden />
           <input
             type="search"
-            placeholder="Bir şey ara..."
+            placeholder={SAINA_TOP_SEARCH_PLACEHOLDER}
             className="saina-search-input"
             readOnly
             aria-label="Ara"
+            data-testid="saina-top-search-trigger"
+            onClick={openPalette}
+            onFocus={(event) => {
+              openPalette();
+              event.currentTarget.blur();
+            }}
           />
           <span className="saina-search-kbd" aria-hidden>
             ⌘ K
           </span>
         </div>
+
         <div className="saina-top-bar-actions">
-          <button type="button" className="saina-icon-btn saina-icon-btn--glass" aria-label="Bildirimler">
-            <Bell size={16} />
-          </button>
+          <SainaNotificationsDropdown />
           {showSettings ? (
             <SainaProfileMenu
               safeOnlyMode={safeOnlyMode}

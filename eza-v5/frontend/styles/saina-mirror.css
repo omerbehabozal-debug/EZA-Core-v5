@@ -1019,6 +1019,274 @@ html:has(.saina-page) body {
   letter-spacing: 0.04em;
 }
 
+.saina-search-mobile-btn {
+  display: flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  .saina-search-mobile-btn {
+    display: none;
+  }
+}
+
+.saina-search-input {
+  cursor: pointer;
+}
+
+.saina-command-palette-root {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4.5rem 1rem 1rem;
+}
+
+@media (max-width: 639px) {
+  .saina-command-palette-root {
+    align-items: flex-end;
+    padding: 0 0.75rem 5.5rem;
+  }
+}
+
+.saina-command-palette-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(4, 20, 17, 0.55);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.saina-command-palette {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(100%, 520px);
+  max-height: min(70vh, 520px);
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgba(216, 177, 106, 0.28);
+  background: linear-gradient(165deg, rgba(15, 43, 37, 0.97), rgba(4, 27, 23, 0.98));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 639px) {
+  .saina-command-palette {
+    width: 100%;
+    max-height: min(78vh, 560px);
+    border-radius: 1.125rem 1.125rem 0.75rem 0.75rem;
+  }
+}
+
+.saina-command-palette-search {
+  position: relative;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(216, 177, 106, 0.14);
+  padding: 0.875rem 1rem;
+}
+
+.saina-command-palette-search-icon {
+  position: absolute;
+  left: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(217, 196, 163, 0.7);
+  pointer-events: none;
+}
+
+.saina-command-palette-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(216, 177, 106, 0.2);
+  background: rgba(8, 22, 18, 0.65);
+  padding: 0.625rem 0.875rem 0.625rem 2.5rem;
+  font-size: 0.875rem;
+  color: rgba(246, 244, 239, 0.94);
+  outline: none;
+}
+
+.saina-command-palette-input::placeholder {
+  color: rgba(217, 196, 163, 0.55);
+}
+
+.saina-command-palette-input:focus {
+  border-color: rgba(216, 177, 106, 0.45);
+  box-shadow: 0 0 0 2px rgba(216, 177, 106, 0.12);
+}
+
+.saina-command-palette-section {
+  flex-shrink: 0;
+  padding: 0.75rem 1rem 0.5rem;
+}
+
+.saina-command-palette-section--scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 0.875rem;
+}
+
+.saina-command-palette-section-label {
+  margin-bottom: 0.5rem;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(217, 196, 163, 0.6);
+}
+
+.saina-command-palette-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.saina-command-palette-action {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: 0.625rem;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(246, 244, 239, 0.9);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.saina-command-palette-action:hover {
+  border-color: rgba(216, 177, 106, 0.2);
+  background: rgba(216, 177, 106, 0.08);
+}
+
+.saina-command-palette-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.saina-command-palette-chat {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  border-radius: 0.625rem;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.saina-command-palette-chat:hover {
+  border-color: rgba(216, 177, 106, 0.18);
+  background: rgba(8, 22, 18, 0.55);
+}
+
+.saina-command-palette-chat-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(246, 244, 239, 0.92);
+}
+
+.saina-command-palette-chat-preview {
+  font-size: 0.6875rem;
+  color: rgba(217, 196, 163, 0.65);
+}
+
+.saina-command-palette-empty {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(217, 196, 163, 0.55);
+}
+
+.saina-notifications-root {
+  position: relative;
+}
+
+.saina-notifications-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 30;
+  width: min(18rem, 78vw);
+  border-radius: 0.875rem;
+  border: 1px solid rgba(216, 177, 106, 0.28);
+  background: linear-gradient(165deg, rgba(15, 43, 37, 0.98), rgba(4, 27, 23, 0.98));
+  padding: 0.75rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
+}
+
+.saina-notifications-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(217, 196, 163, 0.75);
+}
+
+.saina-notifications-empty-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(246, 244, 239, 0.88);
+}
+
+.saina-notifications-empty-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: rgba(217, 196, 163, 0.6);
+}
+
+.saina-notifications-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.saina-notifications-item {
+  padding: 0.5rem 0;
+  border-top: 1px solid rgba(216, 177, 106, 0.12);
+}
+
+.saina-notifications-item-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(246, 244, 239, 0.9);
+}
+
+.saina-notifications-item-body {
+  margin: 0.2rem 0 0;
+  font-size: 0.6875rem;
+  color: rgba(217, 196, 163, 0.65);
+}
+
 .saina-icon-btn {
   display: flex;
   height: 2.5rem;

@@ -18,6 +18,31 @@ export const SAINA_CONVERSATIONS_TITLE = 'Sohbetlerim';
 
 export const SAINA_NEW_CHAT = 'Yeni sohbet';
 
+export const SAINA_TOP_SEARCH_PLACEHOLDER = 'Bir şey ara...';
+
+export const SAINA_COMMAND_DIALOG_LABEL = 'Komut paleti';
+
+export const SAINA_COMMAND_SEARCH_PLACEHOLDER = 'Sohbetlerde ara…';
+
+export const SAINA_COMMAND_QUICK_ACTIONS = 'Hızlı aksiyonlar';
+
+export const SAINA_COMMAND_ACTION_NEW_CHAT = 'Yeni sohbet';
+
+export const SAINA_COMMAND_ACTION_OPEN_MIRROR = 'Ayna panelini aç';
+
+export const SAINA_COMMAND_ACTION_PATTERN = 'İlişki Deseni';
+
+export const SAINA_COMMAND_RECENT_CHATS = 'Sohbetler';
+
+export const SAINA_COMMAND_NO_RESULTS = 'Sonuç bulunamadı.';
+
+export const SAINA_NOTIFICATIONS_TITLE = 'Bildirimler';
+
+export const SAINA_NOTIFICATIONS_EMPTY = 'Henüz yeni bildirim yok.';
+
+export const SAINA_NOTIFICATIONS_EMPTY_NOTE =
+  'Ayna hazır olduğunda ve sohbet bildirimi oluştuğunda burada görünecek.';
+
 
 
 export const SAINA_MIRROR_TITLE = 'Conversation Mirror';

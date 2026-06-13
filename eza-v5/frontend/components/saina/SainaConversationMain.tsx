@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, type KeyboardEvent } from 'react';
+import { useCallback, useState, type KeyboardEvent } from 'react';
 import { ArrowUp, Mic } from 'lucide-react';
 import {
   SAINA_CHIPS_TOGGLE,
   SAINA_COMPOSER_PLACEHOLDER,
   SAINA_QUICK_CHIPS,
 } from '@/lib/eza/sainaCopy';
+import { MOCK_SAINA_CONVERSATIONS } from '@/components/saina/SainaConversationSidebar';
+import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
 import SainaGeometricMark from './SainaGeometricMark';
 import SainaHeroScene from './SainaHeroScene';
 import SainaPageTopBar from './SainaPageTopBar';
@@ -49,9 +51,13 @@ export default function SainaConversationMain({
 }: SainaConversationMainProps) {
   const [chipsOpen, setChipsOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [messages, setMessages] = useState<SainaMockMessage[]>(
     initialShowSampleMessages ? SAINA_SAMPLE_MESSAGES : []
   );
+
+  const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
+  const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
 
   const hasMessages = messages.length > 0;
 
@@ -80,7 +86,7 @@ export default function SainaConversationMain({
 
   return (
     <div className="saina-main">
-      <SainaPageTopBar />
+      <SainaPageTopBar onOpenCommandPalette={openCommandPalette} />
       <div className="saina-main-body" data-testid="saina-main-body">
         <SainaHeroScene />
 
@@ -163,6 +169,12 @@ export default function SainaConversationMain({
           </div>
         </div>
       </div>
+
+      <SainaCommandPalette
+        open={commandPaletteOpen}
+        onClose={closeCommandPalette}
+        conversations={MOCK_SAINA_CONVERSATIONS}
+      />
     </div>
   );
 }

@@ -2,12 +2,14 @@
 
 import '@/styles/saina-mirror.css';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Menu, MessageSquare, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SAINA_MIRROR_EXPAND_LABEL, SAINA_MIRROR_EXPAND_TAB } from '@/lib/eza/sainaCopy';
+import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
 import type { SainaConversationItem, SainaPlanTier } from '@/components/saina/SainaConversationSidebar';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
+import SainaCommandPalette from './SainaCommandPalette';
 import SainaCinematicScene from './SainaCinematicScene';
 import SainaHeroScene from './SainaHeroScene';
 import SainaPageTopBar from './SainaPageTopBar';
@@ -71,7 +73,18 @@ export default function SainaStandaloneShell({
   const [mobileView, setMobileView] = useState<MobileView>('chat');
   const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const isDesktopLayout = useMinWidth(SAINA_DESKTOP_SIDEBAR_MIN_PX);
+
+  const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
+  const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
+
+  useSainaCommandShortcut(openCommandPalette);
+
+  const handleCommandOpenMirror = useCallback(() => {
+    setMirrorCollapsed(false);
+    setMobileView('mirror');
+  }, []);
 
   const showMessages = !isEmpty && messages != null;
 
@@ -125,6 +138,7 @@ export default function SainaStandaloneShell({
                       </div>
                     ) : null}
                     <SainaPageTopBar
+                      onOpenCommandPalette={openCommandPalette}
                       safeOnlyMode={safeOnlyMode}
                       onSafeOnlyModeChange={onSafeOnlyModeChange}
                       analysisModelId={analysisModelId}
@@ -206,6 +220,16 @@ export default function SainaStandaloneShell({
           Ayna
         </button>
       </nav>
+
+      <SainaCommandPalette
+        open={commandPaletteOpen}
+        onClose={closeCommandPalette}
+        conversations={conversations}
+        onNewChat={onNewChat}
+        onSelectChat={onSelectChat}
+        onOpenMirror={handleCommandOpenMirror}
+        onOpenPattern={onOpenPattern}
+      />
     </div>
   );
 }
