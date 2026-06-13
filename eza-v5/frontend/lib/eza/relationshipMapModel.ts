@@ -66,18 +66,18 @@ export interface RelationshipMapViewModel {
 }
 
 const ISLAND_COLORS: Partial<Record<UserObservationCategoryId, string>> = {
-  exploration: '#a78bfa',
-  decision_support: '#60a5fa',
-  clarity_seek: '#34d399',
-  creative_ideas: '#fbbf24',
-  intellectual_depth: '#818cf8',
-  explanation_seek: '#fb923c',
-  sensitive_signals: '#f97316',
-  safe_balance: '#2dd4bf',
-  flow_harmony: '#4ade80',
-  balanced: '#94a3b8',
-  quiet: '#cbd5e1',
-  question_clarity: '#38bdf8',
+  exploration: '#D8CCE8',
+  decision_support: '#C8D8E8',
+  clarity_seek: '#D5DED1',
+  creative_ideas: '#E6D5B8',
+  intellectual_depth: '#E6CCC7',
+  explanation_seek: '#E8D7B6',
+  sensitive_signals: '#E6CCC7',
+  safe_balance: '#D5DED1',
+  flow_harmony: '#E8D7B6',
+  balanced: '#E6D5B8',
+  quiet: '#D8CCE8',
+  question_clarity: '#C8D8E8',
 };
 
 const AI_LABEL: Record<AiBehaviorCategoryId, string> = {

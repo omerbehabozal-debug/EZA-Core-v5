@@ -25,7 +25,7 @@ export default function RelationshipSummaryCard({
   return (
     <article
       className={cn(
-        'rounded-3xl border border-white/80 bg-white/85 p-4 shadow-[0_12px_40px_-18px_rgba(123,97,255,0.28)] backdrop-blur-sm sm:p-5',
+        'rounded-3xl border border-[#D8B16A]/22 bg-[#FFFCF5]/90 p-4 shadow-[0_12px_40px_-18px_rgba(15,61,50,0.14)] backdrop-blur-sm sm:p-5',
         preview && 'pointer-events-none select-none opacity-45 saturate-[0.55]',
         className
       )}
@@ -33,7 +33,7 @@ export default function RelationshipSummaryCard({
       <div className="flex items-start gap-4">
         <div className="relative h-[4.5rem] w-[4.5rem] shrink-0">
           <svg className="h-full w-full -rotate-90" viewBox="0 0 64 64" aria-hidden>
-            <circle cx="32" cy="32" r="28" fill="none" stroke="#EDE8F8" strokeWidth="5" />
+            <circle cx="32" cy="32" r="28" fill="none" stroke="#EFE8DA" strokeWidth="5" />
             <circle
               cx="32"
               cy="32"
@@ -48,15 +48,15 @@ export default function RelationshipSummaryCard({
             {!preview ? (
               <defs>
                 <linearGradient id="balanceRing" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#7B61FF" />
-                  <stop offset="100%" stopColor="#9B84FF" />
+                  <stop offset="0%" stopColor="#D8B16A" />
+                  <stop offset="100%" stopColor="#0F3D32" />
                 </linearGradient>
               </defs>
             ) : null}
           </svg>
           <Activity
             className={cn(
-              'absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#7B61FF]',
+              'absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#D8B16A]',
               preview && 'text-stone-300'
             )}
             strokeWidth={1.75}
@@ -66,7 +66,7 @@ export default function RelationshipSummaryCard({
         <div className="min-w-0 flex-1">
           <p
             className={cn(
-              'text-[10px] font-semibold uppercase tracking-[0.14em] text-[#667085]',
+              'text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B6B62]',
               preview && 'text-stone-400'
             )}
           >
@@ -74,7 +74,7 @@ export default function RelationshipSummaryCard({
           </p>
           <p
             className={cn(
-              'mt-1 text-base font-semibold leading-snug text-[#172033]',
+              'mt-1 text-base font-semibold leading-snug text-[#18332D]',
               preview && 'text-stone-400'
             )}
           >

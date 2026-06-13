@@ -132,6 +132,11 @@ describe('RelationshipPatternView (14A)', () => {
     expect(patternViewSrc).toContain('BehaviorIslandsMap');
   });
 
+  it('shows premium title İlişki Deseni', () => {
+    expect(patternViewSrc).toContain('İlişki Deseni');
+    expect(patternViewSrc).toContain('AKTİF GÖRÜNÜM');
+  });
+
   it('shows empty state copy', () => {
     expect(patternViewSrc).toContain('Desen henüz oluşmadı');
   });

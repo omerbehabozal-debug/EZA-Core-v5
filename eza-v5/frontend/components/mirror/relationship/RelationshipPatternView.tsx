@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import type { MirrorStateMeta } from '@/lib/eza/mirror/types';
@@ -48,6 +49,8 @@ const LEVELS: { id: PatternLevel; label: string }[] = [
   { id: 'insights', label: 'İçgörüler' },
 ];
 
+const sp = standaloneSkin.sainaPatternPolish;
+
 export default function RelationshipPatternView({
   entries,
   className,
@@ -89,7 +92,6 @@ export default function RelationshipPatternView({
     [metrics.displayIslands, selectedId]
   );
 
-  // Sunum amaçlı türevler — yalnızca mevcut metrics alanları okunur (mantık değişmez).
   const growingIslands = metrics.islands.filter((i) => i.trend === 'growing');
   const fadingIslands = metrics.islands.filter((i) => i.trend === 'fading');
   const risingLabel = metrics.pattern.risingPattern?.label ?? null;
@@ -99,13 +101,20 @@ export default function RelationshipPatternView({
 
   return (
     <section
-      className={cn('relative mx-auto flex w-full max-w-[1120px] flex-col', className)}
+      className={cn('relative z-[1] mx-auto flex w-full max-w-[1120px] flex-col', className)}
       aria-label="AI İlişki Deseni"
     >
-      {/* Kompakt kontrol çubuğu: seviye + dönem */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+      <header className="saina-pattern-header shrink-0">
+        <span className="saina-pattern-eyebrow">AKTİF GÖRÜNÜM</span>
+        <h1 className="saina-pattern-title">İlişki Deseni</h1>
+        <p className="saina-pattern-subtitle">
+          Son 30 günde sohbetlerin arasında oluşan düşünce ağı.
+        </p>
+      </header>
+
+      <div className="mt-4 flex shrink-0 flex-wrap items-center justify-between gap-2">
         <nav
-          className="inline-flex rounded-full border border-stone-200/80 bg-white/70 p-1 shadow-sm backdrop-blur-sm"
+          className={sp.levelNav}
           role="tablist"
           aria-label="İlişki haritası seviyeleri"
         >
@@ -116,23 +125,14 @@ export default function RelationshipPatternView({
               role="tab"
               aria-selected={level === l.id}
               onClick={() => handleLevel(l.id)}
-              className={cn(
-                'rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all',
-                level === l.id
-                  ? 'bg-[#172033] text-white shadow-sm'
-                  : 'text-[#667085] hover:text-[#172033]'
-              )}
+              className={level === l.id ? sp.levelTabActive : sp.levelTabIdle}
             >
               {l.label}
             </button>
           ))}
         </nav>
 
-        <div
-          className="inline-flex rounded-full border border-violet-100/90 bg-white/75 p-0.5 shadow-sm backdrop-blur-sm"
-          role="tablist"
-          aria-label="Dönem filtresi"
-        >
+        <div className={sp.periodNav} role="tablist" aria-label="Dönem filtresi">
           {RELATIONSHIP_PERIOD_OPTIONS.map((p) => (
             <button
               key={String(p.value)}
@@ -140,12 +140,7 @@ export default function RelationshipPatternView({
               role="tab"
               aria-selected={period === p.value}
               onClick={() => handlePeriod(p.value)}
-              className={cn(
-                'rounded-full px-3 py-1.5 text-xs font-semibold transition-all',
-                period === p.value
-                  ? 'bg-gradient-to-r from-[#7B61FF] to-[#9B84FF] text-white shadow'
-                  : 'text-[#667085] hover:text-[#172033]'
-              )}
+              className={period === p.value ? sp.periodTabActive : sp.periodTabIdle}
             >
               {p.label}
             </button>
@@ -157,22 +152,21 @@ export default function RelationshipPatternView({
         key={fadeKey}
         className={cn('relative mt-3 flex min-h-0 flex-1 flex-col', animated && 'animate-fade-in')}
       >
-        {/* ---- SEVİYE 1 — HARİTA ---- */}
         {level === 'map' ? (
           <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_minmax(260px,300px)] lg:items-stretch">
             <section
-              className="relative flex min-h-0 flex-col overflow-hidden rounded-[2rem] border border-white/90 bg-gradient-to-b from-white/95 via-[#F8F6F1]/55 to-violet-50/30 p-3 shadow-[0_20px_60px_-24px_rgba(123,97,255,0.22)] sm:p-5"
+              className={sp.mapCard}
               aria-labelledby="behavior-islands-title"
             >
               <div className="flex shrink-0 items-baseline justify-between gap-2">
                 <p
                   id="behavior-islands-title"
-                  className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B61FF]/70"
+                  className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0F3D32]/65"
                 >
                   Davranış Adaların
                 </p>
                 {metrics.isEmpty ? (
-                  <p className="text-[11px] text-[#667085]">
+                  <p className="text-[11px] text-[#6B6B62]">
                     Desen henüz oluşmadı — gözlenen alanlar aşağıda.
                   </p>
                 ) : null}
@@ -217,34 +211,31 @@ export default function RelationshipPatternView({
           </div>
         ) : null}
 
-        {/* ---- SEVİYE 2 — TRENDLER ---- */}
         {level === 'trends' ? (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-0.5">
             {previewMode ? (
               <section className="pointer-events-none grid select-none gap-4 opacity-45 saturate-[0.55] md:grid-cols-2">
-                <div className="rounded-[1.75rem] border border-stone-200/80 bg-white/85 p-5">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-stone-400">
+                <div className={sp.trendCard}>
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-[#6B6B62]">
                     <ArrowUpRight className="h-4 w-4" strokeWidth={2} aria-hidden />
                     Büyüyen alanlar
                   </h3>
-                  <p className="mt-3 text-sm text-stone-400">—</p>
+                  <p className="mt-3 text-sm text-[#6B6B62]">—</p>
                 </div>
-                <div className="rounded-[1.75rem] border border-stone-200/80 bg-white/85 p-5">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-stone-400">
+                <div className={sp.trendCard}>
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-[#6B6B62]">
                     <ArrowDownRight className="h-4 w-4" strokeWidth={2} aria-hidden />
                     Azalan alanlar
                   </h3>
-                  <p className="mt-3 text-sm text-stone-400">—</p>
+                  <p className="mt-3 text-sm text-[#6B6B62]">—</p>
                 </div>
               </section>
             ) : metrics.isEmpty ? (
-              <p className="rounded-2xl border border-dashed border-violet-200/70 bg-white/50 px-4 py-6 text-center text-sm text-[#667085]">
-                Trendler için henüz yeterli etkileşim yok.
-              </p>
+              <p className={sp.emptyState}>Trendler için henüz yeterli etkileşim yok.</p>
             ) : (
               <section className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-[1.75rem] border border-white/90 bg-white/85 p-5 shadow-[0_10px_36px_-16px_rgba(23,32,51,0.12)]">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+                <div className={sp.trendCard}>
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-[#0F3D32]">
                     <ArrowUpRight className="h-4 w-4" strokeWidth={2} aria-hidden />
                     Büyüyen alanlar
                   </h3>
@@ -253,20 +244,20 @@ export default function RelationshipPatternView({
                       {growingIslands.map((i) => (
                         <li
                           key={i.id}
-                          className="rounded-full px-3 py-1 text-xs font-medium"
-                          style={{ background: `${i.color}1f`, color: '#172033' }}
+                          className="rounded-full px-3 py-1 text-xs font-medium text-[#18332D]"
+                          style={{ background: `${i.color}66` }}
                         >
                           {i.label} · %{i.percent}
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-3 text-sm text-[#667085]">Belirgin bir yükseliş yok.</p>
+                    <p className="mt-3 text-sm text-[#6B6B62]">Belirgin bir yükseliş yok.</p>
                   )}
                 </div>
 
-                <div className="rounded-[1.75rem] border border-white/90 bg-white/85 p-5 shadow-[0_10px_36px_-16px_rgba(23,32,51,0.12)]">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-700">
+                <div className={sp.trendCard}>
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-[#8B6914]">
                     <ArrowDownRight className="h-4 w-4" strokeWidth={2} aria-hidden />
                     Azalan alanlar
                   </h3>
@@ -275,15 +266,15 @@ export default function RelationshipPatternView({
                       {fadingIslands.map((i) => (
                         <li
                           key={i.id}
-                          className="rounded-full px-3 py-1 text-xs font-medium"
-                          style={{ background: `${i.color}1f`, color: '#172033' }}
+                          className="rounded-full px-3 py-1 text-xs font-medium text-[#18332D]"
+                          style={{ background: `${i.color}66` }}
                         >
                           {i.label} · %{i.percent}
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-3 text-sm text-[#667085]">Eğilimlerin dengede.</p>
+                    <p className="mt-3 text-sm text-[#6B6B62]">Eğilimlerin dengede.</p>
                   )}
                 </div>
               </section>
@@ -303,11 +294,10 @@ export default function RelationshipPatternView({
           </div>
         ) : null}
 
-        {/* ---- SEVİYE 3 — İÇGÖRÜLER ---- */}
         {level === 'insights' ? (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-0.5">
             {previewMode ? (
-              <section className="pointer-events-none select-none rounded-[2rem] border border-stone-200/80 bg-white/85 p-5 opacity-45 saturate-[0.55]">
+              <section className="pointer-events-none select-none rounded-[2rem] border border-[#D8B16A]/20 bg-[#FFFCF5]/85 p-5 opacity-45 saturate-[0.55]">
                 <dl className="grid gap-3 sm:grid-cols-2">
                   {[
                     'En çok gelişen alan',
@@ -315,44 +305,39 @@ export default function RelationshipPatternView({
                     'Baskın biçim',
                     'En dikkat çekici değişim',
                   ].map((label) => (
-                    <div
-                      key={label}
-                      className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3"
-                    >
-                      <dt className="text-xs font-medium text-stone-400">{label}</dt>
-                      <dd className="mt-0.5 text-sm font-semibold text-stone-300">—</dd>
+                    <div key={label} className={sp.insightTile}>
+                      <dt className="text-xs font-medium text-[#6B6B62]">{label}</dt>
+                      <dd className="mt-0.5 text-sm font-semibold text-[#6B6B62]/50">—</dd>
                     </div>
                   ))}
                 </dl>
               </section>
             ) : metrics.isEmpty ? (
-              <p className="rounded-2xl border border-dashed border-violet-200/70 bg-white/50 px-4 py-6 text-center text-sm text-[#667085]">
-                İçgörüler için henüz yeterli etkileşim yok.
-              </p>
+              <p className={sp.emptyState}>İçgörüler için henüz yeterli etkileşim yok.</p>
             ) : (
-              <section className="rounded-[2rem] border border-white/90 bg-gradient-to-b from-white/95 to-violet-50/30 p-5 shadow-[0_16px_48px_-22px_rgba(123,97,255,0.2)]">
+              <section className={sp.insightCard}>
                 <dl className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-[#EDE8F8] bg-white/70 px-4 py-3">
-                    <dt className="text-xs font-medium text-[#667085]">En çok gelişen alan</dt>
-                    <dd className="mt-0.5 text-sm font-semibold text-[#172033]">
+                  <div className={sp.insightTile}>
+                    <dt className="text-xs font-medium text-[#6B6B62]">En çok gelişen alan</dt>
+                    <dd className="mt-0.5 text-sm font-semibold text-[#18332D]">
                       {risingLabel ?? 'Belirgin yükseliş yok'}
                     </dd>
                   </div>
-                  <div className="rounded-2xl border border-[#EDE8F8] bg-white/70 px-4 py-3">
-                    <dt className="text-xs font-medium text-[#667085]">En aktif dönem</dt>
-                    <dd className="mt-0.5 text-sm font-semibold text-[#172033]">
+                  <div className={sp.insightTile}>
+                    <dt className="text-xs font-medium text-[#6B6B62]">En aktif dönem</dt>
+                    <dd className="mt-0.5 text-sm font-semibold text-[#18332D]">
                       {peakActive ? `${peakActive.label} · %${peakActive.percent}` : '—'}
                     </dd>
                   </div>
-                  <div className="rounded-2xl border border-[#EDE8F8] bg-white/70 px-4 py-3">
-                    <dt className="text-xs font-medium text-[#667085]">Baskın biçim</dt>
-                    <dd className="mt-0.5 text-sm font-semibold text-[#172033]">
+                  <div className={sp.insightTile}>
+                    <dt className="text-xs font-medium text-[#6B6B62]">Baskın biçim</dt>
+                    <dd className="mt-0.5 text-sm font-semibold text-[#18332D]">
                       {dominantLabel ?? '—'}
                     </dd>
                   </div>
-                  <div className="rounded-2xl border border-[#EDE8F8] bg-white/70 px-4 py-3">
-                    <dt className="text-xs font-medium text-[#667085]">En dikkat çekici değişim</dt>
-                    <dd className="mt-0.5 text-sm font-semibold text-[#172033]">
+                  <div className={sp.insightTile}>
+                    <dt className="text-xs font-medium text-[#6B6B62]">En dikkat çekici değişim</dt>
+                    <dd className="mt-0.5 text-sm font-semibold text-[#18332D]">
                       {growingIslands[0]
                         ? `${growingIslands[0].label} yükselişte`
                         : fadingIslands[0]

@@ -116,7 +116,7 @@ export default function BehaviorIslandBlob({
         className={cn(
           'relative flex flex-col items-center justify-center overflow-hidden border text-center backdrop-blur-md transition-all duration-500',
           ghost ? 'opacity-40 group-hover:opacity-65' : 'group-hover:scale-[1.03]',
-          clickable && 'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7B61FF]/50'
+          clickable && 'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D8B16A]/45'
         )}
         role={clickable ? 'button' : undefined}
         tabIndex={clickable ? 0 : undefined}
@@ -166,15 +166,15 @@ export default function BehaviorIslandBlob({
           strokeWidth={1.75}
           aria-hidden
         />
-        <p className="relative max-w-[86%] text-[13px] font-semibold leading-tight tracking-tight text-[#172033]">
+        <p className="relative max-w-[86%] text-[13px] font-semibold leading-tight tracking-tight text-[#18332D]">
           {island.label}
         </p>
         {ghost ? (
-          <p className="relative mt-1 max-w-[88%] text-[9px] font-medium leading-tight tracking-wide text-[#172033]/35">
+          <p className="relative mt-1 max-w-[88%] text-[9px] font-medium leading-tight tracking-wide text-[#18332D]/35">
             Henüz Yeterli Veri Yok
           </p>
         ) : (
-          <p className="relative mt-1 inline-flex items-center gap-0.5 text-[10px] font-medium tabular-nums text-[#172033]/45">
+          <p className="relative mt-1 inline-flex items-center gap-0.5 text-[10px] font-medium tabular-nums text-[#6B6B62]">
             {TrendIcon ? (
               <TrendIcon
                 className="h-3 w-3"

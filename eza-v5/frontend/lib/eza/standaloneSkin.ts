@@ -468,6 +468,38 @@ export const standaloneSkin = {
       'pointer-events-none absolute inset-0 z-[1] hidden opacity-[0.4] sm:block',
   },
 
+  /** SAINA İlişki Deseni — Sprint C.1 (parşömen / altın / derin yeşil) */
+  sainaPatternPolish: {
+    levelNav:
+      'inline-flex rounded-full border border-[#D8B16A]/28 bg-[#FFFCF5]/78 p-1 shadow-[0_4px_18px_-12px_rgba(15,61,50,0.18)] backdrop-blur-sm',
+    levelTabActive:
+      'rounded-full bg-[#0F3D32] px-3.5 py-1.5 text-[13px] font-medium text-[#F3EEE2] shadow-sm',
+    levelTabIdle:
+      'rounded-full px-3.5 py-1.5 text-[13px] font-medium text-[#6B6B62] transition-colors hover:text-[#18332D]',
+    periodNav:
+      'inline-flex rounded-full border border-[#D8B16A]/24 bg-[#FFFCF5]/82 p-0.5 shadow-[0_4px_16px_-12px_rgba(15,61,50,0.14)] backdrop-blur-sm',
+    periodTabActive:
+      'rounded-full bg-[#0F3D32] px-3 py-1.5 text-xs font-semibold text-[#F3EEE2] shadow-sm',
+    periodTabIdle:
+      'rounded-full px-3 py-1.5 text-xs font-semibold text-[#6B6B62] transition-colors hover:text-[#18332D]',
+    mapCard:
+      'relative flex min-h-0 flex-col overflow-hidden rounded-[2rem] border p-3 sm:p-5 saina-pattern-map-surface',
+    sideCard:
+      'rounded-[1.75rem] border border-[#D8B16A]/22 bg-[#FFFCF5]/88 p-5 shadow-[0_14px_44px_-22px_rgba(15,61,50,0.16)] backdrop-blur-sm',
+    trendCard:
+      'rounded-[1.75rem] border border-[#D8B16A]/20 bg-[#FFFCF5]/90 p-5 shadow-[0_10px_36px_-18px_rgba(15,61,50,0.12)]',
+    insightCard:
+      'rounded-[2rem] border border-[#D8B16A]/22 bg-gradient-to-b from-[#FFFCF5]/95 to-[#EFE8DA]/55 p-5 shadow-[0_16px_48px_-24px_rgba(15,61,50,0.14)]',
+    insightTile:
+      'rounded-2xl border border-[#D8B16A]/18 bg-[#FFFCF5]/75 px-4 py-3',
+    emptyState:
+      'rounded-2xl border border-dashed border-[#D8B16A]/35 bg-[#FFFCF5]/55 px-4 py-6 text-center text-sm text-[#6B6B62]',
+    upsellBanner:
+      'relative overflow-hidden rounded-2xl border border-[#D8B16A]/32 bg-gradient-to-r from-[#FFFCF5]/96 via-[#F3EEE2]/92 to-[#EFE8DA]/88 px-4 py-4 shadow-[0_12px_40px_-22px_rgba(15,61,50,0.2)] sm:px-5',
+    upsellCta:
+      'inline-flex flex-shrink-0 items-center justify-center gap-1.5 self-start rounded-full bg-[#0F3D32] px-5 py-2.5 text-sm font-medium text-[#F3EEE2] transition-colors hover:bg-[#0c3329] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D8B16A]/60 sm:self-center',
+  },
+
   motion: {
     personaOrb:
       'flex shrink-0 items-center justify-center rounded-2xl border border-violet-100/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]',

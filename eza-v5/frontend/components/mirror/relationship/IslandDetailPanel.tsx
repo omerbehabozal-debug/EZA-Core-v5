@@ -2,7 +2,10 @@
 
 import { ArrowDownRight, ArrowUpRight, Minus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import type { BehaviorIsland } from '@/lib/eza/relationshipMapModel';
+
+const sp = standaloneSkin.sainaPatternPolish;
 
 export type IslandDetailPanelProps = {
   island: BehaviorIsland;
@@ -48,10 +51,7 @@ export default function IslandDetailPanel({
   if (!active) {
     return (
       <article
-        className={cn(
-          'relative overflow-hidden rounded-[1.75rem] border border-white/90 bg-white/85 p-5 shadow-[0_18px_52px_-20px_rgba(123,97,255,0.32)] backdrop-blur-md',
-          className
-        )}
+        className={cn(sp.sideCard, 'relative overflow-hidden', className)}
         aria-label={`${island.label} ada ayrıntısı`}
       >
         <div
@@ -63,7 +63,7 @@ export default function IslandDetailPanel({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[#667085]/70 transition-colors hover:bg-stone-100 hover:text-[#172033] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7B61FF]/40"
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[#6B6B62]/70 transition-colors hover:bg-[#EFE8DA] hover:text-[#18332D] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D8B16A]/40"
           aria-label="Ayrıntıyı kapat"
         >
           <X className="h-4 w-4" />
@@ -80,7 +80,7 @@ export default function IslandDetailPanel({
           >
             <span className="h-2 w-2 rounded-full" style={{ background: `${island.color}99` }} />
           </span>
-          <h3 className="text-lg font-semibold tracking-tight text-[#172033]/80">{island.label}</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-[#18332D]/85">{island.label}</h3>
         </div>
 
         <p className="relative mt-4 text-[15px] font-medium leading-relaxed text-[#172033]/80">
@@ -96,10 +96,7 @@ export default function IslandDetailPanel({
 
   return (
     <article
-      className={cn(
-        'relative overflow-hidden rounded-[1.75rem] border border-white/90 bg-white/85 p-5 shadow-[0_18px_52px_-20px_rgba(123,97,255,0.32)] backdrop-blur-md',
-        className
-      )}
+      className={cn(sp.sideCard, 'relative overflow-hidden', className)}
       aria-label={`${island.label} ada ayrıntısı`}
     >
       {/* Adanın renginden hafif atmosfer */}
@@ -112,7 +109,7 @@ export default function IslandDetailPanel({
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[#667085]/70 transition-colors hover:bg-stone-100 hover:text-[#172033] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7B61FF]/40"
+        className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[#6B6B62]/70 transition-colors hover:bg-[#EFE8DA] hover:text-[#18332D] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D8B16A]/40"
         aria-label="Ayrıntıyı kapat"
       >
         <X className="h-4 w-4" />
