@@ -96,26 +96,30 @@ export default function BehaviorIslandBlob({
         animated && !ghost && 'animate-island-breathe',
         clickable && 'cursor-pointer',
         selected && 'scale-[1.06]',
+        ghost && 'saina-pattern-island-ghost',
         className
       )}
       style={{ animationDelay: animated ? `${animationDelay}s` : undefined }}
     >
       {/* Renkli derinlik halesi (blob arkası) */}
-      {!ghost ? (
-        <div
-          className="pointer-events-none absolute -inset-3 rounded-full opacity-70 blur-2xl transition-opacity duration-500 group-hover:opacity-100"
-          style={{
-            borderRadius: shape,
-            background: `radial-gradient(circle at 50% 45%, ${island.color}59, ${island.color}1a 60%, transparent 78%)`,
-          }}
-          aria-hidden
-        />
-      ) : null}
+      <div
+        className={cn(
+          'pointer-events-none absolute -inset-3 rounded-full blur-2xl transition-opacity duration-500 group-hover:opacity-100',
+          ghost ? '-inset-2 opacity-90' : 'opacity-70'
+        )}
+        style={{
+          borderRadius: shape,
+          background: ghost
+            ? `radial-gradient(circle at 50% 45%, ${island.color}44, ${island.color}18 58%, transparent 78%)`
+            : `radial-gradient(circle at 50% 45%, ${island.color}59, ${island.color}1a 60%, transparent 78%)`,
+        }}
+        aria-hidden
+      />
 
       <article
         className={cn(
           'relative flex flex-col items-center justify-center overflow-hidden border text-center backdrop-blur-md transition-all duration-500',
-          ghost ? 'opacity-40 group-hover:opacity-65' : 'group-hover:scale-[1.03]',
+          ghost ? 'group-hover:opacity-80' : 'group-hover:scale-[1.03]',
           clickable && 'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D8B16A]/45'
         )}
         role={clickable ? 'button' : undefined}
@@ -166,14 +170,15 @@ export default function BehaviorIslandBlob({
           strokeWidth={1.75}
           aria-hidden
         />
-        <p className="relative max-w-[86%] text-[13px] font-semibold leading-tight tracking-tight text-[#18332D]">
+        <p
+          className={cn(
+            'relative max-w-[86%] text-[13px] font-semibold leading-tight tracking-tight text-[#18332D]',
+            ghost && 'saina-pattern-island-label'
+          )}
+        >
           {island.label}
         </p>
-        {ghost ? (
-          <p className="relative mt-1 max-w-[88%] text-[9px] font-medium leading-tight tracking-wide text-[#18332D]/35">
-            Henüz Yeterli Veri Yok
-          </p>
-        ) : (
+        {!ghost ? (
           <p className="relative mt-1 inline-flex items-center gap-0.5 text-[10px] font-medium tabular-nums text-[#6B6B62]">
             {TrendIcon ? (
               <TrendIcon
@@ -185,7 +190,7 @@ export default function BehaviorIslandBlob({
             ) : null}
             %{island.percent}
           </p>
-        )}
+        ) : null}
       </article>
     </div>
   );

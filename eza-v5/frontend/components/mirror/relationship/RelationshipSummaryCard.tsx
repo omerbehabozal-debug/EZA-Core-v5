@@ -25,7 +25,7 @@ export default function RelationshipSummaryCard({
   return (
     <article
       className={cn(
-        'rounded-3xl border border-[#D8B16A]/22 bg-[#FFFCF5]/90 p-4 shadow-[0_12px_40px_-18px_rgba(15,61,50,0.14)] backdrop-blur-sm sm:p-5',
+        'saina-pattern-glass-side rounded-3xl p-4 sm:p-5',
         preview && 'pointer-events-none select-none opacity-45 saturate-[0.55]',
         className
       )}
