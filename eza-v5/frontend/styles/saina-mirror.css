@@ -485,6 +485,44 @@ html:has(.saina-page) body {
   color: rgba(212, 175, 55, 0.85);
 }
 
+.saina-pattern-nav--active {
+  border-color: rgba(216, 177, 106, 0.42);
+  background: rgba(15, 61, 50, 0.78);
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 177, 106, 0.24),
+    0 6px 18px -10px rgba(0, 0, 0, 0.35);
+}
+
+.saina-pattern-nav--active .saina-pattern-nav-cta {
+  color: #e7b45b;
+}
+
+.saina-pattern-shell .saina-pattern-main-col {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.saina-pattern-shell .saina-pattern-main {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.saina-pattern-content-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.saina-pattern-shell .saina-pattern-canvas::before {
+  display: none;
+}
+
 .saina-premium-compact-row {
   display: flex;
   align-items: center;
