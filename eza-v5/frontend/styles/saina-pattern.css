@@ -1,0 +1,95 @@
+/**
+ * SAINA İlişki Deseni — Sprint C.1 visual layer.
+ * Parşömen + Altın Tozu + Derin Yeşil
+ */
+
+.saina-pattern-canvas {
+  --saina-pattern-parchment: #f3eee2;
+  --saina-pattern-parchment-alt: #efe8da;
+  --saina-pattern-deep-green: #0f3d32;
+  --saina-pattern-gold: #d8b16a;
+  --saina-pattern-text: #18332d;
+  --saina-pattern-muted: #6b6b62;
+  --saina-pattern-line: rgba(216, 177, 106, 0.42);
+
+  position: relative;
+  min-height: 100%;
+  flex: 1;
+  background-color: var(--saina-pattern-parchment);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 12% 0%, rgba(216, 177, 106, 0.14), transparent 58%),
+    radial-gradient(ellipse 70% 45% at 88% 8%, rgba(15, 61, 50, 0.06), transparent 52%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23D8B16A' stroke-opacity='0.09' stroke-width='0.45'%3E%3Cpath d='M60 8 L112 60 L60 112 L8 60 Z'/%3E%3Cpath d='M60 24 L96 60 L60 96 L24 60 Z'/%3E%3Cline x1='60' y1='8' x2='60' y2='112'/%3E%3Cline x1='8' y1='60' x2='112' y2='60'/%3E%3Cline x1='24' y1='24' x2='96' y2='96'/%3E%3Cline x1='96' y1='24' x2='24' y2='96'/%3E%3C/g%3E%3Ccircle cx='60' cy='8' r='1.2' fill='%23D8B16A' fill-opacity='0.16'/%3E%3Ccircle cx='112' cy='60' r='1.2' fill='%23D8B16A' fill-opacity='0.16'/%3E%3Ccircle cx='60' cy='112' r='1.2' fill='%23D8B16A' fill-opacity='0.16'/%3E%3Ccircle cx='8' cy='60' r='1.2' fill='%23D8B16A' fill-opacity='0.16'/%3E%3C/svg%3E");
+  background-size: auto, auto, 120px 120px;
+}
+
+.saina-pattern-canvas::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(4, 27, 23, 0.07) 0%,
+    transparent 1.25rem
+  );
+}
+
+.saina-pattern-header {
+  position: relative;
+  z-index: 1;
+}
+
+.saina-pattern-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(216, 177, 106, 0.38);
+  background: rgba(255, 252, 245, 0.72);
+  padding: 0.25rem 0.65rem;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--saina-pattern-deep-green);
+}
+
+.saina-pattern-title {
+  margin-top: 0.5rem;
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: var(--saina-pattern-text);
+}
+
+.saina-pattern-subtitle {
+  margin-top: 0.35rem;
+  max-width: 34rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--saina-pattern-muted);
+}
+
+.saina-pattern-map-surface {
+  background: linear-gradient(
+    165deg,
+    rgba(255, 252, 245, 0.92) 0%,
+    rgba(243, 238, 226, 0.78) 48%,
+    rgba(239, 232, 218, 0.65) 100%
+  );
+  border-color: rgba(216, 177, 106, 0.28);
+  box-shadow:
+    0 20px 56px -28px rgba(15, 61, 50, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.saina-pattern-map-atmosphere {
+  background:
+    radial-gradient(ellipse 68% 52% at 50% 46%, rgba(216, 177, 106, 0.16), transparent 66%),
+    radial-gradient(ellipse 42% 36% at 18% 22%, rgba(15, 61, 50, 0.07), transparent 70%);
+}
+
+.saina-pattern-connection-glow {
+  filter: drop-shadow(0 0 2px rgba(216, 177, 106, 0.35));
+}
