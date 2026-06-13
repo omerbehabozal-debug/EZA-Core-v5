@@ -16,6 +16,7 @@ html:has(.saina-page) body {
 }
 
 .saina-page {
+  --saina-logo-gold: #e7b45b;
   position: fixed;
   inset: 0;
   width: 100%;
@@ -117,11 +118,17 @@ html:has(.saina-page) body {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  padding: 0.2rem;
   border-radius: 0.875rem;
-  background: linear-gradient(145deg, rgba(212, 175, 55, 0.22), rgba(15, 43, 37, 0.55));
+  background: linear-gradient(145deg, rgba(231, 180, 91, 0.18), rgba(15, 43, 37, 0.55));
   box-shadow:
-    inset 0 0 0 1px rgba(216, 177, 106, 0.35),
+    inset 0 0 0 1px rgba(231, 180, 91, 0.32),
     0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.saina-brand-mark .saina-geometric-mark {
+  width: 2.2rem !important;
+  height: 2.2rem !important;
 }
 
 .saina-brand-text {
@@ -131,8 +138,21 @@ html:has(.saina-page) body {
 .saina-brand-title {
   font-size: 1.25rem;
   letter-spacing: -0.01em;
-  color: #f6f4ef;
+  color: var(--saina-logo-gold);
   line-height: 1.1;
+}
+
+.saina-geometric-mark {
+  display: block;
+  object-fit: contain;
+}
+
+.saina-geometric-mark--light {
+  filter: brightness(1.08);
+}
+
+.saina-geometric-mark--dark {
+  filter: brightness(0.72) saturate(0.85);
 }
 
 .saina-brand-tagline {
