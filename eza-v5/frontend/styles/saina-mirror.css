@@ -513,8 +513,8 @@ html:has(.saina-page) body {
 }
 
 .saina-pattern-canvas-wrap .saina-canvas-scene-image--bundled {
-  opacity: 0.62;
-  filter: brightness(0.9) contrast(1.06) saturate(0.92) blur(1.5px);
+  opacity: 0.72;
+  filter: brightness(0.94) contrast(1.08) saturate(0.96) blur(0.5px);
 }
 
 .saina-pattern-canvas-wrap .saina-canvas-overlay--center {

@@ -112,7 +112,7 @@ export default function RelationshipPatternView({
         </p>
       </header>
 
-      <div className="mt-4 flex shrink-0 flex-wrap items-center justify-between gap-2">
+      <div className="mt-4 flex shrink-0 flex-wrap items-center justify-between gap-2 saina-pattern-controls">
         <nav
           className={sp.levelNav}
           role="tablist"

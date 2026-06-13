@@ -118,10 +118,8 @@ export default function SainaPatternShell({
                 />
 
                 <div className="saina-pattern-content-scroll">
-                  <div className="saina-pattern-stage">
-                    <div className="saina-pattern-canvas flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-2 sm:px-6 lg:px-8">
-                      {children}
-                    </div>
+                  <div className="saina-pattern-stage flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-2 sm:px-6 lg:px-8">
+                    {children}
                   </div>
                 </div>
               </div>
