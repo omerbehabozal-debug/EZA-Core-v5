@@ -45,15 +45,16 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
 
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
+  const openMobileSidebar = useCallback(() => setMobileSidebarOpen(true), []);
 
   useSainaCommandShortcut(openCommandPalette);
 
   useLayoutEffect(() => {
     setChrome({
-      openMobileSidebar: () => setMobileSidebarOpen(true),
+      openMobileSidebar,
       openCommandPalette,
     });
-  }, [setChrome, openCommandPalette]);
+  }, [setChrome, openCommandPalette, openMobileSidebar]);
 
   if (!view) {
     return <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">{children}</div>;
