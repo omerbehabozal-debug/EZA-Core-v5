@@ -1,19 +1,62 @@
 'use client';
 
-import { useLayoutEffect, useRef } from 'react';
-import { shallow } from 'zustand/shallow';
+import { useLayoutEffect } from 'react';
 import { useSainaChromeStore, type SainaChromeState } from '@/lib/eza/sainaChromeStore';
 
 /** Registers sidebar/topbar state before paint so route changes keep chrome stable. */
-export function useSyncSainaChrome(state: Partial<SainaChromeState>) {
+export function useSyncSainaChrome({
+  activeSection,
+  conversations,
+  activeChatId,
+  planTier,
+  onNewChat,
+  onSelectChat,
+  onOpenPattern,
+  onUpgrade,
+  onRequestLogin,
+  safeOnlyMode,
+  onSafeOnlyModeChange,
+  analysisModelId,
+  onAnalysisModelChange,
+  settingsDisabled,
+  onOpenMirror,
+}: Partial<SainaChromeState>) {
   const setChrome = useSainaChromeStore((s) => s.setChrome);
-  const prevRef = useRef<Partial<SainaChromeState> | null>(null);
 
   useLayoutEffect(() => {
-    if (prevRef.current !== null && shallow(prevRef.current, state)) {
-      return;
-    }
-    prevRef.current = state;
-    setChrome(state);
-  });
+    setChrome({
+      activeSection,
+      conversations,
+      activeChatId,
+      planTier,
+      onNewChat,
+      onSelectChat,
+      onOpenPattern,
+      onUpgrade,
+      onRequestLogin,
+      safeOnlyMode,
+      onSafeOnlyModeChange,
+      analysisModelId,
+      onAnalysisModelChange,
+      settingsDisabled,
+      onOpenMirror,
+    });
+  }, [
+    setChrome,
+    activeSection,
+    conversations,
+    activeChatId,
+    planTier,
+    onNewChat,
+    onSelectChat,
+    onOpenPattern,
+    onUpgrade,
+    onRequestLogin,
+    safeOnlyMode,
+    onSafeOnlyModeChange,
+    analysisModelId,
+    onAnalysisModelChange,
+    settingsDisabled,
+    onOpenMirror,
+  ]);
 }

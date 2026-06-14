@@ -1,11 +1,16 @@
 'use client';
 
+import '@/lib/eza/matchMediaPolyfill';
 import '@/styles/saina-transitions.css';
 
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import type { SainaAppView } from '@/lib/eza/sainaRoutes';
+import {
+  resolveSainaTransitionMode,
+  type SainaTransitionMode,
+} from '@/lib/eza/sainaTransitionMode';
 
 const DESKTOP_EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -23,7 +28,7 @@ function useNarrowViewport() {
   return narrow;
 }
 
-function buildVariants(narrow: boolean): Variants {
+function buildGlassVariants(narrow: boolean): Variants {
   if (narrow) {
     return {
       initial: {
@@ -85,6 +90,35 @@ function buildVariants(narrow: boolean): Variants {
   };
 }
 
+function buildOpacityVariants(narrow: boolean): Variants {
+  return {
+    initial: {
+      opacity: 0,
+      y: 0,
+    },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: narrow ? 0.42 : 0.5,
+        ease: DESKTOP_EASE,
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: 0,
+      transition: {
+        duration: narrow ? 0.32 : 0.36,
+        ease: DESKTOP_EASE,
+      },
+    },
+  };
+}
+
+function buildVariants(narrow: boolean, mode: SainaTransitionMode): Variants {
+  return mode === 'glass' ? buildGlassVariants(narrow) : buildOpacityVariants(narrow);
+}
+
 type SainaRouteTransitionProps = {
   routeKey: SainaAppView;
   children: ReactNode;
@@ -93,27 +127,42 @@ type SainaRouteTransitionProps = {
 export default function SainaRouteTransition({ routeKey, children }: SainaRouteTransitionProps) {
   const reducedMotion = useReducedMotion();
   const narrow = useNarrowViewport();
-  const variants = buildVariants(narrow);
+  const [mode, setMode] = useState<SainaTransitionMode>(() => resolveSainaTransitionMode());
+  const variants = buildVariants(narrow, mode);
+
+  useEffect(() => {
+    setMode(resolveSainaTransitionMode());
+  }, []);
 
   if (reducedMotion) {
     return (
-      <div className="saina-route-transition saina-route-transition--reduced" data-saina-route={routeKey}>
+      <div
+        className="saina-route-transition saina-route-transition--reduced"
+        data-saina-route={routeKey}
+      >
         {children}
       </div>
     );
   }
 
+  const transitionClass =
+    mode === 'glass' ? 'saina-route-transition' : 'saina-route-transition saina-route-transition--opacity';
+
   return (
     <AnimatePresence mode="sync" initial={false}>
       <motion.div
         key={routeKey}
-        className="saina-route-transition"
+        className={transitionClass}
         data-saina-route={routeKey}
         variants={variants}
         initial="initial"
         animate="animate"
         exit="exit"
-        style={{ willChange: 'opacity, filter', transformOrigin: 'center center' }}
+        style={
+          mode === 'glass'
+            ? { willChange: 'opacity, filter', transformOrigin: 'center center' }
+            : { willChange: 'opacity' }
+        }
       >
         <div className="saina-route-transition-glow" aria-hidden />
         {children}

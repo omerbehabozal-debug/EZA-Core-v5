@@ -1,5 +1,6 @@
 'use client';
 
+import '@/lib/eza/matchMediaPolyfill';
 import '@/styles/saina-mirror.css';
 import '@/styles/saina-transitions.css';
 
