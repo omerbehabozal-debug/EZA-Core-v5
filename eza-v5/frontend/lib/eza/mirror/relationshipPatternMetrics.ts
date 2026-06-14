@@ -9,7 +9,7 @@ import type {
   MirrorStateMeta,
   RelationshipPatternModel,
 } from '@/lib/eza/mirror/types';
-import { buildMirrorState } from '@/lib/eza/mirror/mirrorStateEngine';
+import { buildRelationshipPatternState } from '@/lib/eza/mirror/mirrorStateEngine';
 import {
   buildRelationshipMapFiltered,
   filterEntriesByPeriodFilter,
@@ -411,10 +411,7 @@ export function buildRelationshipDashboardMetrics(
   const map = buildRelationshipMapFiltered(entries, period);
   const filtered = filterEntriesByPeriodFilter(entries, period);
   const mirrorPeriod = period === 'all' ? 90 : period;
-  const { relationshipPattern: pattern, meta } = buildMirrorState(filtered, {
-    periodDays: mirrorPeriod,
-    seed: `pattern-${period}-${filtered.length}`,
-  });
+  const { pattern, meta } = buildRelationshipPatternState(filtered, mirrorPeriod);
 
   const islands = mirrorIslandsToBehavior(map.islands);
   const isEmpty = map.totalInteractions === 0;

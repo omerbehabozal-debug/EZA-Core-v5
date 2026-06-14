@@ -117,6 +117,20 @@ export function getVehicleContractForbiddenPhrases(): string[] {
   ];
 }
 
+function stripForbiddenVehicleTokens(prompt: string): string {
+  let result = prompt;
+  for (const token of VEHICLE_SCENE_FORBIDDEN) {
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), '');
+  }
+  return result
+    .replace(/\s*,\s*,+/g, ', ')
+    .replace(/,\s*$/g, '')
+    .replace(/^\s*,/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 /**
  * Ensures assembled prompt satisfies hard contract; appends core if needed then asserts.
  */
@@ -131,6 +145,19 @@ export function enforceVehicleComparisonPrompt(
   if (!first.ok) {
     merged = `${VEHICLE_HARD_SCENE_CORE}, ${merged}`;
   }
-  assertVehicleComparisonPrompt(merged);
+
+  let check = validateVehicleComparisonPrompt(merged);
+  if (!check.ok && check.forbidden.length) {
+    merged = stripForbiddenVehicleTokens(merged);
+    check = validateVehicleComparisonPrompt(merged);
+    if (!check.ok && check.missing.length) {
+      merged = `${VEHICLE_HARD_SCENE_CORE}, ${merged}`;
+    }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    assertVehicleComparisonPrompt(merged);
+  }
+
   return merged;
 }

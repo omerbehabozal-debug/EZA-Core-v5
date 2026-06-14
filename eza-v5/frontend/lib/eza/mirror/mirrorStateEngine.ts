@@ -30,6 +30,7 @@ import {
   type DailyMirrorCardModel,
   type MirrorBehaviorIsland,
   type MirrorRisingPattern,
+  type MirrorStateMeta,
   type MirrorStateResult,
   type MirrorVisualPromptPayload,
   type RelationshipPatternModel,
@@ -423,6 +424,26 @@ function buildRelationshipPattern(
     editorialNote: map.editorialNote,
     confidence: patternConfidenceLabel(map.avgDepthScore, map.totalInteractions),
     isShareable: false,
+  };
+}
+
+/** Pattern dashboard only — skips daily mirror visual pipeline (no vehicle scene contract). */
+export function buildRelationshipPatternState(
+  entries: SavedBehavioralEntry[],
+  periodDays: RelationshipPeriodDays = DEFAULT_PERIOD,
+  options?: Pick<BuildMirrorStateOptions, 'generatedAt'>
+): { pattern: RelationshipPatternModel; meta: MirrorStateMeta } {
+  const sampleCount = entries.length;
+  const hasEnoughData = sampleCount >= MIRROR_MIN_SAMPLES;
+  return {
+    pattern: buildRelationshipPattern(entries, periodDays),
+    meta: {
+      hasEnoughData,
+      sampleCount,
+      source: 'local_history',
+      generatedAt: options?.generatedAt ?? new Date().toISOString(),
+      warnings: collectWarnings(entries, sampleCount, hasEnoughData),
+    },
   };
 }
 
