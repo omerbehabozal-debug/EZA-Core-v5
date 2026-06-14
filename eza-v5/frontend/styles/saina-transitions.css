@@ -80,6 +80,30 @@
   background: linear-gradient(165deg, #041b17 0%, #061f1b 48%, #0b1520 100%);
 }
 
+/* Route transition owns enter/exit — child slide-ins read as bottom-up panel motion. */
+.saina-route-transition .saina-chat-card {
+  animation: none;
+}
+
+.saina-route-transition .animate-fade-in {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes saina-content-crossfade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.saina-content-crossfade {
+  animation: saina-content-crossfade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (max-width: 1023px) {
   .saina-route-transition-glow {
     animation-duration: 0.52s;

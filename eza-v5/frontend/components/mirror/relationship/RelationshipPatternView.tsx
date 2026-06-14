@@ -150,7 +150,10 @@ export default function RelationshipPatternView({
 
       <div
         key={fadeKey}
-        className={cn('relative mt-3 flex min-h-0 flex-1 flex-col', animated && 'animate-fade-in')}
+        className={cn(
+          'relative mt-3 flex min-h-0 flex-1 flex-col',
+          animated && fadeKey > 0 && 'saina-content-crossfade'
+        )}
       >
         {level === 'map' ? (
           <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_minmax(260px,300px)] lg:items-stretch">

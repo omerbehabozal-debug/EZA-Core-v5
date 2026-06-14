@@ -30,11 +30,13 @@ function buildVariants(narrow: boolean): Variants {
         opacity: 0,
         filter: 'blur(4px)',
         scale: 0.997,
+        y: 0,
       },
       animate: {
         opacity: 1,
         filter: 'blur(0px)',
         scale: 1,
+        y: 0,
         transition: {
           duration: 0.48,
           ease: DESKTOP_EASE,
@@ -44,6 +46,7 @@ function buildVariants(narrow: boolean): Variants {
         opacity: 0,
         filter: 'blur(4px)',
         scale: 1,
+        y: 0,
         transition: {
           duration: 0.36,
           ease: DESKTOP_EASE,
@@ -57,11 +60,13 @@ function buildVariants(narrow: boolean): Variants {
       opacity: 0,
       filter: 'blur(8px)',
       scale: 0.992,
+      y: 0,
     },
     animate: {
       opacity: 1,
       filter: 'blur(0px)',
       scale: 1,
+      y: 0,
       transition: {
         duration: 0.56,
         ease: DESKTOP_EASE,
@@ -71,6 +76,7 @@ function buildVariants(narrow: boolean): Variants {
       opacity: 0,
       filter: 'blur(6px)',
       scale: 0.995,
+      y: 0,
       transition: {
         duration: 0.4,
         ease: DESKTOP_EASE,
@@ -107,7 +113,7 @@ export default function SainaRouteTransition({ routeKey, children }: SainaRouteT
         initial="initial"
         animate="animate"
         exit="exit"
-        style={{ willChange: 'transform, opacity, filter' }}
+        style={{ willChange: 'opacity, filter', transformOrigin: 'center center' }}
       >
         <div className="saina-route-transition-glow" aria-hidden />
         {children}
