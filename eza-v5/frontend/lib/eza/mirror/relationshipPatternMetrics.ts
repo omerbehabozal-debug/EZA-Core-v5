@@ -154,7 +154,8 @@ export function normalizeIslandPercents(islands: BehaviorIsland[]): BehaviorIsla
 }
 
 export function islandBlobSizePx(percent: number, min = ISLAND_BLOB_MIN_PX, max = ISLAND_BLOB_MAX_PX): number {
-  const clamped = Math.max(0, Math.min(100, percent));
+  const safe = Number.isFinite(percent) ? percent : 0;
+  const clamped = Math.max(0, Math.min(100, safe));
   return Math.round(min + (clamped / 100) * (max - min));
 }
 

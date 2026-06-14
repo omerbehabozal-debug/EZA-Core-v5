@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import { shouldDisableDecorativeMotion } from '@/lib/eza/sainaBrowserCapabilities';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import type { MirrorStateMeta } from '@/lib/eza/mirror/types';
@@ -62,10 +63,13 @@ export default function RelationshipPatternView({
   const [fadeKey, setFadeKey] = useState(0);
   const reducedMotion = useReducedMotion();
 
-  const metrics = useMemo(
-    () => buildRelationshipDashboardMetrics(entries, period),
-    [entries, period]
-  );
+  const metrics = useMemo(() => {
+    try {
+      return buildRelationshipDashboardMetrics(entries, period);
+    } catch {
+      return buildRelationshipDashboardMetrics([], period);
+    }
+  }, [entries, period]);
 
   const handlePeriod = (value: RelationshipPeriodFilter) => {
     if (value === period) return;
@@ -81,7 +85,7 @@ export default function RelationshipPatternView({
     setFadeKey((k) => k + 1);
   };
 
-  const animated = !reducedMotion;
+  const animated = !reducedMotion && !shouldDisableDecorativeMotion();
   const balanceScore =
     metrics.interactionDepth.score != null
       ? Math.round((metrics.interactionDepth.score / 10) * 100)

@@ -72,7 +72,8 @@ export default function SainaPatternPageInner() {
   }, [refreshPlan]);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
-  const isPremium = gatePremiumFeature(planTier) === 'allow';
+  const planResolved = !isPlanLoading;
+  const isPremium = planResolved && gatePremiumFeature(planTier) === 'allow';
 
   const entries = useMemo(
     () => (isPremium ? realEntries : FREE_EMPTY_ENTRIES),
@@ -158,17 +159,23 @@ export default function SainaPatternPageInner() {
         onAnalysisModelChange={setAnalysisModelId}
         embedded
       >
-        {!isPremium ? (
-          <PatternPlusUpsellBanner
-            className="relative z-[1] shrink-0"
-            onCtaClick={handleUpgrade}
-          />
-        ) : null}
-        <RelationshipPatternView
-          entries={entries}
-          previewMode={!isPremium}
-          className="relative z-[1] min-h-0 flex-1"
-        />
+        {!planResolved ? (
+          <div className="saina-route-fallback min-h-[32vh] flex-1" aria-hidden />
+        ) : (
+          <>
+            {!isPremium ? (
+              <PatternPlusUpsellBanner
+                className="relative z-[1] shrink-0"
+                onCtaClick={handleUpgrade}
+              />
+            ) : null}
+            <RelationshipPatternView
+              entries={entries}
+              previewMode={!isPremium}
+              className="relative z-[1] min-h-0 flex-1"
+            />
+          </>
+        )}
       </SainaPatternShell>
 
       <UpgradeModal
