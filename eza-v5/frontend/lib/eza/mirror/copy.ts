@@ -242,7 +242,7 @@ export const PLAN_UPGRADE_AUTH_BODY =
 export const PLAN_UPGRADE_BADGE = 'Plus';
 
 /** Relationship Pattern (Free upsell) */
-export const PATTERN_UPSELL_TITLE = 'AI İlişki Deseni canlı hale gelsin';
+export const PATTERN_UPSELL_TITLE = 'AI İlişki Haritası canlı hale gelsin';
 
 export const PATTERN_UPSELL_BODY =
   'Plus ile davranış adaların gerçek sohbetlerinden oluşur; trendler, içgörüler ve zaman içindeki dönüşümün açılır.';

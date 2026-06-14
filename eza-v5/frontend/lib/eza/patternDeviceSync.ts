@@ -18,7 +18,7 @@ import type { StandaloneObservation } from '@/lib/types';
 import type { BackendUserCategory } from '@/lib/standaloneObservation';
 
 export const PATTERN_DEVICE_NOTIFICATION_BODY =
-  'Sohbetlerin var, ancak ilişki deseni bu cihazda henüz oluşmadı.';
+  'Sohbetlerin var, ancak ilişki haritası bu cihazda henüz oluşmadı.';
 
 /** @deprecated Shown in notification center only — not sidebar. */
 export const PATTERN_DEVICE_SIDEBAR_NOTICE = PATTERN_DEVICE_NOTIFICATION_BODY;
@@ -37,7 +37,7 @@ export function buildPatternSystemNotifications(
     return [
       {
         id: 'pattern-device-pending',
-        title: 'İlişki Deseni',
+        title: 'İlişki Haritası',
         body: PATTERN_DEVICE_NOTIFICATION_BODY,
         type: 'pattern_device',
       },
@@ -49,7 +49,7 @@ export function buildPatternSystemNotifications(
 export const PATTERN_DEVICE_EMPTY_TITLE = 'Bu cihazda henüz oluşmadı';
 
 export const PATTERN_DEVICE_EMPTY_HINT =
-  'Bu cihazda ilişki deseni henüz oluşmadı. Sohbet ettikçe burada şekillenecek.';
+  'Bu cihazda ilişki haritası henüz oluşmadı. Sohbet ettikçe burada şekillenecek.';
 
 export const PATTERN_DEVICE_DEFAULT_EMPTY_HINT =
   'Sohbet ettikçe davranış adaların burada şekillenecek.';

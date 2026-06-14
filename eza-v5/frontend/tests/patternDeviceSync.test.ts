@@ -76,7 +76,7 @@ describe('patternDeviceSync', () => {
   it('builds notification when chats exist but pattern is pending', () => {
     const notifications = buildPatternSystemNotifications('chats_pending_pattern');
     expect(notifications).toHaveLength(1);
-    expect(notifications[0]?.body).toContain('ilişki deseni');
+    expect(notifications[0]?.body).toContain('ilişki haritası');
   });
 
   it('skips backfill when not in browser', () => {

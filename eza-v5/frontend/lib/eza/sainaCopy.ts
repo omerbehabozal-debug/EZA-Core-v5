@@ -154,7 +154,7 @@ export const SAINA_PREMIUM_OBSERVING = 'Şu an ilişkiyi gözlemliyor...';
 
 export const SAINA_PREMIUM_MIRROR_LABEL = 'Conversation Mirror';
 
-export const SAINA_PREMIUM_PATTERN_LABEL = 'İlişki Deseni';
+export const SAINA_PREMIUM_PATTERN_LABEL = 'İlişki Haritası';
 
 export const SAINA_PREMIUM_LIVE_STATUS = 'Canlı';
 
@@ -177,7 +177,7 @@ export const SAINA_PREMIUM_BODY_SHORT = 'Ayna haklarınız aktif.';
 
 
 
-export const SAINA_RELATIONSHIP_PATTERN_TITLE = 'İlişki Deseni';
+export const SAINA_RELATIONSHIP_PATTERN_TITLE = 'İlişki Haritası';
 
 export const SAINA_RELATIONSHIP_PATTERN_BODY = 'Uzun dönem ilişki haritanı gör.';
 
@@ -193,7 +193,7 @@ export const SAINA_MIRROR_COLLAPSE_LABEL = 'Mirror panelini gizle';
 
 export const SAINA_MIRROR_EXPAND_LABEL = 'Ayna panelini aç';
 
-export const SAINA_MIRROR_EXPAND_TAB = '✦ Ayna';
+export const SAINA_MIRROR_EXPAND_TAB = 'Ayna';
 
 export const SAINA_MIRROR_READY_BADGE = 'Hazır';
 

@@ -72,11 +72,13 @@ describe('SainaStandaloneShell (Sprint B.2A)', () => {
     expect(screen.getByRole('searchbox', { name: 'Ara' })).toBeInTheDocument();
   });
 
-  it('starts with mirror collapsed and shows ✦ Ayna pill', () => {
+  it('starts with mirror collapsed and shows Ayna pill', () => {
     const { container } = render(<SainaStandaloneShell {...baseProps} />);
 
     expect(screen.getByTestId('saina-mirror-expand-pill')).toBeInTheDocument();
-    expect(screen.getByText(SAINA_MIRROR_EXPAND_TAB)).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('saina-mirror-expand-pill')).getByText(SAINA_MIRROR_EXPAND_TAB)
+    ).toBeInTheDocument();
     expect(container.querySelector('.saina-mirror-col--collapsed')).toBeTruthy();
     expect(container.querySelector('.saina-center-wrap--mirror-collapsed')).toBeTruthy();
   });
@@ -212,9 +214,8 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     expect((layer as HTMLElement).style.backgroundImage).toMatch(/url\(/);
     expect(container.querySelector('.saina-canvas-overlay--pattern-dim')).toBeTruthy();
     expect(screen.getByTestId('saina-scene-live')).toBeInTheDocument();
-    expect(container.querySelector('.saina-scene-live__glow')).toBeTruthy();
-    expect(container.querySelector('.saina-scene-live__river')).toBeTruthy();
-    expect(container.querySelector('.saina-scene-live__stars')).toBeTruthy();
+    expect(screen.getByTestId('saina-scene-live-lamps')).toBeInTheDocument();
+    expect(container.querySelectorAll('.saina-scene-live__lamp').length).toBe(8);
   });
 });
 
@@ -454,7 +455,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     expect(screen.getByText('SAINA Premium Aktif')).toBeInTheDocument();
     expect(screen.getByText('Şu an ilişkiyi gözlemliyor...')).toBeInTheDocument();
     expect(screen.getAllByText('Conversation Mirror').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('İlişki Deseni').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('İlişki Haritası').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
@@ -512,7 +513,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders sidebar pattern nav with readable copy', () => {
     render(<SainaStandaloneShell {...shellProps} />);
 
-    expect(screen.getAllByText('İlişki Deseni').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('İlişki Haritası').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Aç →')).toBeInTheDocument();
   });
 });

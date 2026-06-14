@@ -308,7 +308,7 @@ export function computeInteractionDepth(
   if (sampleCount < MIRROR_MIN_SAMPLES) {
     return {
       score: null,
-      label: 'Desen henüz netleşiyor.',
+      label: 'Harita henüz netleşiyor.',
       deltaPercent: null,
       forming: true,
     };

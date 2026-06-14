@@ -45,7 +45,7 @@ export const PATTERN_PREVIEW_DEPTH: InteractionDepthMetric = {
 };
 
 export const PATTERN_PREVIEW_INSIGHT =
-  'Plus ile sohbetlerinden kişisel içgörüler ve davranış desenlerin burada belirir.';
+  'Plus ile sohbetlerinden kişisel içgörüler ve ilişki haritan burada belirir.';
 
 export const PATTERN_PREVIEW_BALANCE_LABEL = 'Plus ile canlanır';
 

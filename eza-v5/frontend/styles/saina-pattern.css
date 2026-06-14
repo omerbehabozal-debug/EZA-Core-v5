@@ -24,6 +24,78 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
+  width: 100%;
+}
+
+.saina-pattern-insights-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.saina-pattern-insights-summary {
+  flex-shrink: 0;
+  padding: 0.875rem 1rem;
+}
+
+.saina-pattern-insights-summary .saina-pattern-insight-tile {
+  padding: 0.625rem 0.75rem;
+}
+
+.saina-pattern-insights-cards {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
+@media (min-width: 768px) {
+  .saina-pattern-insights-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.saina-pattern-metric-card {
+  min-height: 0;
+  padding: 0.875rem 1rem;
+  border-radius: 1.25rem;
+}
+
+.saina-pattern-metric-card h3 {
+  font-size: 0.8125rem;
+}
+
+.saina-pattern-metric-card p {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+}
+
+.saina-pattern-metric-card ul {
+  margin-top: 0.625rem;
+  gap: 0.5rem;
+}
+
+.saina-pattern-metric-card .mt-3 {
+  margin-top: 0.5rem;
+}
+
+.saina-pattern-metric-card .mt-4 {
+  margin-top: 0.625rem;
+}
+
+.saina-pattern-metric-card .text-3xl {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.saina-pattern-metric-card .text-lg {
+  font-size: 1rem;
 }
 
 /* Shared glass surface — matches chat card language */

@@ -54,7 +54,7 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     expect(SAINA_MIRROR_TITLE).toBe('Conversation Mirror');
     expect(SAINA_CREATE_MIRROR).toBe('Ayna Oluştur');
     expect(SAINA_CHIPS_TOGGLE).toBe('Öneriler →');
-    expect(SAINA_MIRROR_EXPAND_TAB).toBe('✦ Ayna');
+    expect(SAINA_MIRROR_EXPAND_TAB).toBe('Ayna');
     expect(SAINA_CHECKLIST).toHaveLength(4);
     expect(SAINA_SAMPLE_MESSAGES).toHaveLength(3);
   });
@@ -146,9 +146,8 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     expect((layer as HTMLElement).style.backgroundImage).toMatch(/url\(/);
     expect(container.querySelector('.saina-canvas-overlay--pattern-dim')).toBeTruthy();
     expect(screen.getByTestId('saina-scene-live')).toBeInTheDocument();
-    expect(container.querySelector('.saina-scene-live__glow')).toBeTruthy();
-    expect(container.querySelector('.saina-scene-live__river')).toBeTruthy();
-    expect(container.querySelector('.saina-scene-live__stars')).toBeTruthy();
+    expect(screen.getByTestId('saina-scene-live-lamps')).toBeInTheDocument();
+    expect(container.querySelectorAll('.saina-scene-live__lamp').length).toBe(8);
   });
 
   it('shows premium mirror expand tab when panel is collapsed', () => {
@@ -156,7 +155,9 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     fireEvent.click(screen.getByRole('button', { name: SAINA_MIRROR_COLLAPSE_LABEL }));
     expect(screen.getByTestId('saina-mirror-expand-pill')).toBeInTheDocument();
     expect(screen.getByLabelText(SAINA_MIRROR_EXPAND_LABEL)).toBeInTheDocument();
-    expect(screen.getByText(SAINA_MIRROR_EXPAND_TAB)).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('saina-mirror-expand-pill')).getByText(SAINA_MIRROR_EXPAND_TAB)
+    ).toBeInTheDocument();
   });
 
   it('preserves create mirror → modal flow', async () => {

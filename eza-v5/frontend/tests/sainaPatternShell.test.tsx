@@ -90,7 +90,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
       expect(screen.getByText('Açık')).toBeInTheDocument();
     });
 
-    const patternBtn = screen.getByRole('button', { name: /İlişki Deseni/i });
+    const patternBtn = screen.getByRole('button', { name: /İlişki Haritası/i });
     expect(patternBtn).toHaveClass('saina-pattern-nav--active');
   });
 
@@ -98,7 +98,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     renderPatternApp();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'İlişki Deseni' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'İlişki Haritası' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: '7 Gün' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: '30 Gün' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: '90 Gün' })).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     renderPatternApp();
 
     await waitFor(() => {
-      expect(screen.getByText(/AI İlişki Deseni canlı hale gelsin/i)).toBeInTheDocument();
+      expect(screen.getByText(/AI İlişki Haritası canlı hale gelsin/i)).toBeInTheDocument();
     });
   });
 
@@ -167,7 +167,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
       expect(screen.getByTestId('saina-pattern-shell')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText(/AI İlişki Deseni canlı hale gelsin/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/AI İlişki Haritası canlı hale gelsin/i)).not.toBeInTheDocument();
   });
 });
 

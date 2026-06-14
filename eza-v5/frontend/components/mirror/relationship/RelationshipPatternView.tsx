@@ -25,7 +25,6 @@ import RelationshipSummaryCard from '@/components/mirror/relationship/Relationsh
 import BehaviorToneBars from '@/components/mirror/relationship/BehaviorToneBars';
 import RelationshipBalanceBars from '@/components/mirror/relationship/RelationshipBalanceBars';
 import RelationshipTimelineChart from '@/components/mirror/relationship/RelationshipTimelineChart';
-import RelationshipInsightNote from '@/components/mirror/relationship/RelationshipInsightNote';
 import ActiveTimeCard from '@/components/mirror/relationship/ActiveTimeCard';
 import InteractionDepthCard from '@/components/mirror/relationship/InteractionDepthCard';
 import PatternPreviewSectionNote from '@/components/mirror/relationship/PatternPreviewSectionNote';
@@ -35,7 +34,6 @@ import {
   PATTERN_PREVIEW_BALANCE_HINT,
   PATTERN_PREVIEW_BALANCE_LABEL,
   PATTERN_PREVIEW_DEPTH,
-  PATTERN_PREVIEW_INSIGHT,
   PATTERN_PREVIEW_TIME_BUCKETS,
   PATTERN_PREVIEW_TIMELINE,
 } from '@/components/mirror/relationship/patternPreviewContent';
@@ -85,7 +83,7 @@ export default function RelationshipPatternView({
       ? PATTERN_DEVICE_EMPTY_HINT
       : deviceState === 'empty_no_chats'
         ? PATTERN_DEVICE_DEFAULT_EMPTY_HINT
-        : 'Desen henüz oluşmadı — gözlenen alanlar aşağıda.';
+        : 'Harita henüz oluşmadı — gözlenen alanlar aşağıda.';
 
   const balanceLabel =
     previewMode || metrics.isEmpty
@@ -138,12 +136,12 @@ export default function RelationshipPatternView({
 
   return (
     <section
-      className={cn('relative z-[1] mx-auto flex w-full max-w-[1120px] flex-col', className)}
-      aria-label="AI İlişki Deseni"
+      className={cn('relative z-[1] flex w-full min-h-0 flex-1 flex-col', className)}
+      aria-label="AI İlişki Haritası"
     >
       <header className="saina-pattern-header shrink-0">
         <span className="saina-pattern-eyebrow">AKTİF GÖRÜNÜM</span>
-        <h1 className="saina-pattern-title">İlişki Deseni</h1>
+        <h1 className="saina-pattern-title">İlişki Haritası</h1>
         <p className="saina-pattern-subtitle">
           Son 30 günde sohbetlerin arasında oluşan düşünce ağı.
         </p>
@@ -193,7 +191,7 @@ export default function RelationshipPatternView({
         )}
       >
         {level === 'map' ? (
-          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_minmax(260px,300px)] lg:items-stretch">
+          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_minmax(200px,240px)] lg:items-stretch">
             <section
               className={sp.mapCard}
               aria-labelledby="behavior-islands-title"
@@ -245,7 +243,7 @@ export default function RelationshipPatternView({
         ) : null}
 
         {level === 'trends' ? (
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-0.5">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5">
             {previewMode ? (
               <section className="pointer-events-none grid select-none gap-4 opacity-45 saturate-[0.55] md:grid-cols-2">
                 <div className={sp.trendCard}>
@@ -328,10 +326,10 @@ export default function RelationshipPatternView({
         ) : null}
 
         {level === 'insights' ? (
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-0.5">
+          <div className="saina-pattern-insights-panel">
             {previewMode ? (
-              <section className="pointer-events-none select-none rounded-[2rem] border border-[#D8B16A]/20 bg-[#FFFCF5]/85 p-5 opacity-45 saturate-[0.55]">
-                <dl className="grid gap-3 sm:grid-cols-2">
+              <section className="saina-pattern-insights-summary pointer-events-none select-none rounded-[1.5rem] border border-[#D8B16A]/20 bg-[#FFFCF5]/85 p-4 opacity-45 saturate-[0.55]">
+                <dl className="grid gap-2 sm:grid-cols-2">
                   {[
                     'En çok gelişen alan',
                     'En aktif dönem',
@@ -348,8 +346,8 @@ export default function RelationshipPatternView({
             ) : metrics.isEmpty ? (
               <p className={sp.emptyState}>İçgörüler için henüz yeterli etkileşim yok.</p>
             ) : (
-              <section className={sp.insightCard}>
-                <dl className="grid gap-3 sm:grid-cols-2">
+              <section className={cn(sp.insightCard, 'saina-pattern-insights-summary')}>
+                <dl className="grid gap-2 sm:grid-cols-2">
                   <div className={sp.insightTile}>
                     <dt className="text-xs font-medium text-[#6B6B62]">En çok gelişen alan</dt>
                     <dd className="mt-0.5 text-sm font-semibold text-[#18332D]">
@@ -375,31 +373,30 @@ export default function RelationshipPatternView({
                         ? `${growingIslands[0].label} yükselişte`
                         : fadingIslands[0]
                           ? `${fadingIslands[0].label} soluyor`
-                          : 'Desen dengede'}
+                          : 'Harita dengede'}
                     </dd>
                   </div>
                 </dl>
               </section>
             )}
 
-            <RelationshipInsightNote
-              body={previewMode ? PATTERN_PREVIEW_INSIGHT : metrics.insightNote}
-              preview={previewMode}
-            />
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="saina-pattern-insights-cards">
               <BehaviorToneBars
                 title="AI Davranış Haritası"
                 subtitle="AI sana en çok şu tonlarda yanıt verdi."
                 bars={previewMode ? PATTERN_PREVIEW_AI_BARS : metrics.aiBehaviorBars}
                 preview={previewMode}
+                className="saina-pattern-metric-card"
               />
               <ActiveTimeCard
                 buckets={previewMode ? PATTERN_PREVIEW_TIME_BUCKETS : metrics.activeTimeBuckets}
                 preview={previewMode}
+                className="saina-pattern-metric-card"
               />
               <InteractionDepthCard
                 metric={previewMode ? PATTERN_PREVIEW_DEPTH : metrics.interactionDepth}
                 preview={previewMode}
+                className="saina-pattern-metric-card"
               />
             </div>
             {previewMode ? <PatternPreviewSectionNote /> : null}

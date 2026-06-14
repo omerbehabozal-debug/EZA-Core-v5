@@ -133,7 +133,7 @@ function buildRhythmSummary(
   timeline: { label: string; value: number }[]
 ): string {
   if (totalInteractions === 0) {
-    return 'Henüz ritim özeti oluşmadı; birkaç sohbetten sonra zaman içi desen burada görünür.';
+    return 'Henüz ritim özeti oluşmadı; birkaç sohbetten sonra zaman içi harita burada görünür.';
   }
   if (!timeline.length) {
     return `Son ${periodDays} günde ${totalInteractions} etkileşim kaydı var; günlük ritim henüz seyrek.`;
@@ -147,9 +147,9 @@ function patternConfidenceLabel(avgDepthScore: number | null, sampleCount: numbe
     return 'Henüz erken — daha fazla etkileşim gerekli';
   }
   if (avgDepthScore === null) return 'İzleniyor';
-  if (avgDepthScore >= 7.5) return 'Güçlü desen sinyali';
-  if (avgDepthScore >= 5.5) return 'Orta düzey desen sinyali';
-  return 'Hafif desen sinyali';
+  if (avgDepthScore >= 7.5) return 'Güçlü harita sinyali';
+  if (avgDepthScore >= 5.5) return 'Orta düzey harita sinyali';
+  return 'Hafif harita sinyali';
 }
 
 function collectWarnings(

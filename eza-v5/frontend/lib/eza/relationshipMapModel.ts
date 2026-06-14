@@ -176,7 +176,7 @@ function buildEditorialNote(
   const dominant = islands[0];
   const topAi = aiTones[0];
   if (!dominant) {
-    return 'Konuşma biçimine dair desenler henüz netleşmedi; birkaç etkileşim daha sonra burada daha okunur bir özet belirecek.';
+    return 'Konuşma biçimine dair harita henüz netleşmedi; birkaç etkileşim daha sonra burada daha okunur bir özet belirecek.';
   }
   const aiPart = topAi
     ? `AI yanıtları çoğunlukla ${topAi.label.toLowerCase()} bir çizgide kalmış.`
@@ -184,7 +184,7 @@ function buildEditorialNote(
   const trendPart =
     dominant.trend === 'growing'
       ? `${dominant.label} eğilimi son dönemde daha belirgin görünüyor.`
-      : `${dominant.label.toLowerCase()} konuşma biçiminde öne çıkan bir desen.`;
+      : `${dominant.label.toLowerCase()} konuşma biçiminde öne çıkan bir harita.`;
   return `Son ${periodDays} günde ${trendPart} ${aiPart} ${generalBalanceHint}`;
 }
 
@@ -329,9 +329,9 @@ export function buildRelationshipMapFiltered(
         { label: 'Karar Dengesi', active: false },
       ],
       editorialNote:
-        'Konuşma yolculuğunun haritası için henüz yeterli iz yok. Sakin bir başlangıçtan sonra desenler burada belirecek.',
+        'Konuşma yolculuğunun haritası için henüz yeterli iz yok. Sakin bir başlangıçtan sonra harita burada belirecek.',
       shortNote:
-        'EZA, konuşma biçiminden gözlemsel desenler çıkarır; henüz yeterli etkileşim birikmedi.',
+        'EZA, konuşma biçiminden gözlemsel bir harita çıkarır; henüz yeterli etkileşim birikmedi.',
       rhythmTimeline: [],
       avgDepthScore: null,
     };

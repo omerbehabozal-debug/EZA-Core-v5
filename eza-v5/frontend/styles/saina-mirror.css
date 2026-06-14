@@ -714,8 +714,19 @@ html:has(.saina-page) body {
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   background: transparent;
+}
+
+.saina-pattern-column {
+  display: flex;
+  width: 100%;
+  max-width: var(--saina-chat-column-width);
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .saina-premium-compact-row {
@@ -902,144 +913,282 @@ html:has(.saina-page) body {
   background-repeat: no-repeat;
 }
 
+.saina-scene-fit {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.saina-scene-fit__frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+}
+
+.saina-scene-fit__frame .saina-canvas-scene-image {
+  background-size: 100% 100%;
+  background-position: center center;
+}
+
 .saina-canvas-scene-image--bundled {
   opacity: 1;
   filter: brightness(1.13) contrast(1.17) saturate(1.1);
 }
 
-/* Premium live atmosphere — subtle CSS-only motion above scene, below static overlays. */
+/* Premium live atmosphere — top of scene stack, below UI chrome. */
 .saina-scene-live {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   pointer-events: none;
   overflow: hidden;
 }
 
-.saina-scene-live__glow,
+.saina-scene-live__lamps,
+.saina-scene-live__lamp,
 .saina-scene-live__river,
+.saina-scene-live__river-wave,
 .saina-scene-live__stars {
   position: absolute;
   pointer-events: none;
 }
 
-.saina-scene-live__glow {
+/* Pin-sized oil-lamp flicker — shares image-space frame with scene art. */
+.saina-scene-live__lamps {
+  position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 58% 30%, rgba(231, 180, 91, 0.2), transparent 18%),
-    radial-gradient(circle at 68% 55%, rgba(231, 180, 91, 0.14), transparent 22%),
-    radial-gradient(circle at 78% 52%, rgba(231, 180, 91, 0.11), transparent 20%),
-    radial-gradient(circle at 52% 28%, rgba(255, 200, 120, 0.08), transparent 14%);
-  animation: sainaGlowBreath 7s ease-in-out infinite;
-  will-change: opacity, transform;
+  overflow: visible;
+}
+
+.saina-scene-fit--lamps {
+  z-index: 2;
+}
+
+.saina-scene-live__lamp {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.92;
+  mix-blend-mode: screen;
+  filter: brightness(1.04);
+  box-shadow: 0 0 4px 1px rgba(255, 192, 100, 0.5);
+  animation: sainaLampFlicker 7.2s ease-in-out infinite;
+  will-change: opacity, transform, filter, box-shadow;
 }
 
 .saina-scene-live__river {
-  left: 22%;
-  right: 14%;
-  top: 46%;
-  height: 36%;
-  opacity: 0.09;
-  background: linear-gradient(
-    105deg,
-    transparent 0%,
-    rgba(255, 226, 170, 0.07) 36%,
-    rgba(255, 226, 170, 0.11) 44%,
-    transparent 54%
-  );
-  background-size: 240% 100%;
-  -webkit-mask-image: radial-gradient(ellipse at 50% 52%, #000 0%, #000 34%, transparent 70%);
-  mask-image: radial-gradient(ellipse at 50% 52%, #000 0%, #000 34%, transparent 70%);
-  animation: sainaRiverShimmer 14s linear infinite;
-  will-change: background-position, transform, opacity;
+  left: 17%;
+  right: 9%;
+  top: 45%;
+  height: 38%;
+  overflow: hidden;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 58%, #000 0%, #000 46%, transparent 78%);
+  mask-image: radial-gradient(ellipse at 50% 58%, #000 0%, #000 46%, transparent 78%);
+  mix-blend-mode: soft-light;
+}
+
+.saina-scene-live__river-wave {
+  left: -8%;
+  right: -8%;
+  height: 22%;
+  border-radius: 45% 55% 52% 48% / 58% 42% 58% 42%;
+  background:
+    radial-gradient(ellipse 72% 90% at 50% 50%, rgba(186, 220, 245, 0.34), transparent 72%),
+    radial-gradient(ellipse 110% 40% at 50% 62%, rgba(140, 190, 230, 0.18), transparent 78%);
+  will-change: transform, opacity;
+}
+
+.saina-scene-live__river-wave--1 {
+  top: 8%;
+  animation: sainaRiverWave1 4.6s ease-in-out infinite;
+}
+
+.saina-scene-live__river-wave--2 {
+  top: 34%;
+  animation: sainaRiverWave2 5.9s ease-in-out infinite;
+  animation-delay: -1.8s;
+}
+
+.saina-scene-live__river-wave--3 {
+  top: 58%;
+  animation: sainaRiverWave3 7.2s ease-in-out infinite;
+  animation-delay: -3.1s;
 }
 
 .saina-scene-live__stars {
   inset: 0;
+  mix-blend-mode: screen;
   background:
-    radial-gradient(circle at 66% 22%, rgba(255, 218, 145, 0.14), transparent 15%),
-    radial-gradient(circle at 62% 17%, rgba(255, 255, 255, 0.07), transparent 9%),
-    radial-gradient(circle at 70% 19%, rgba(216, 177, 106, 0.06), transparent 11%);
-  animation: sainaStarPulse 9s ease-in-out infinite;
+    radial-gradient(circle at 66% 22%, rgba(255, 218, 145, 0.28), transparent 18%),
+    radial-gradient(circle at 62% 17%, rgba(255, 255, 255, 0.16), transparent 12%),
+    radial-gradient(circle at 70% 19%, rgba(216, 177, 106, 0.14), transparent 14%);
+  animation: sainaStarPulse 6.5s ease-in-out infinite;
   will-change: opacity, transform;
 }
 
-@keyframes sainaGlowBreath {
+@keyframes sainaLampFlicker {
   0%,
-  100% {
-    opacity: 0.14;
-    transform: scale(1);
+  14%,
+  36%,
+  60% {
+    opacity: 0.92;
+    filter: brightness(1.04);
+    box-shadow: 0 0 4px 1px rgba(255, 192, 100, 0.5);
+    transform: translate(-50%, -50%) scale(1);
   }
-  50% {
-    opacity: 0.22;
-    transform: scale(1.012);
+  20% {
+    opacity: 0.7;
+    filter: brightness(0.86);
+    box-shadow: 0 0 2px 0 rgba(255, 168, 78, 0.28);
+    transform: translate(calc(-50% - 0.15px), calc(-50% + 0.12px)) scale(0.97);
+  }
+  26% {
+    opacity: 0.84;
+    filter: brightness(0.96);
+    box-shadow: 0 0 3px 0 rgba(255, 182, 92, 0.4);
+    transform: translate(calc(-50% + 0.1px), calc(-50% - 0.08px)) scale(0.99);
+  }
+  42% {
+    opacity: 0.98;
+    filter: brightness(1.14);
+    box-shadow: 0 0 5px 2px rgba(255, 208, 118, 0.72);
+    transform: translate(calc(-50% + 0.12px), calc(-50% - 0.1px)) scale(1.03);
+  }
+  48% {
+    opacity: 0.74;
+    filter: brightness(0.88);
+    box-shadow: 0 0 2px 0 rgba(255, 170, 80, 0.3);
+    transform: translate(calc(-50% - 0.12px), calc(-50% + 0.14px)) scale(0.97);
+  }
+  54% {
+    opacity: 0.9;
+    filter: brightness(1.02);
+    box-shadow: 0 0 4px 1px rgba(255, 190, 98, 0.48);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  68% {
+    opacity: 0.66;
+    filter: brightness(0.82);
+    box-shadow: 0 0 2px 0 rgba(255, 158, 72, 0.22);
+    transform: translate(calc(-50% - 0.18px), calc(-50% + 0.14px)) scale(0.96);
+  }
+  76% {
+    opacity: 0.82;
+    filter: brightness(0.94);
+    box-shadow: 0 0 3px 0 rgba(255, 178, 88, 0.38);
+    transform: translate(calc(-50% + 0.08px), calc(-50% - 0.06px)) scale(0.99);
+  }
+  88% {
+    opacity: 0.96;
+    filter: brightness(1.1);
+    box-shadow: 0 0 5px 1px rgba(255, 202, 112, 0.65);
+    transform: translate(calc(-50% + 0.1px), calc(-50% - 0.08px)) scale(1.02);
+  }
+  100% {
+    opacity: 0.92;
+    filter: brightness(1.04);
+    box-shadow: 0 0 4px 1px rgba(255, 192, 100, 0.5);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
-@keyframes sainaRiverShimmer {
-  0% {
-    background-position: 120% 0;
-    transform: translateX(-0.8%);
-    opacity: 0.06;
+@keyframes sainaRiverWave1 {
+  0%, 100% {
+    transform: translateY(0) scaleX(1);
+    opacity: 0.26;
   }
-  50% {
-    opacity: 0.12;
+  40% {
+    transform: translateY(5%) scaleX(1.05);
+    opacity: 0.44;
   }
-  100% {
-    background-position: -120% 0;
-    transform: translateX(0.8%);
-    opacity: 0.06;
+  70% {
+    transform: translateY(-3%) scaleX(0.97);
+    opacity: 0.3;
+  }
+}
+
+@keyframes sainaRiverWave2 {
+  0%, 100% {
+    transform: translateY(0) scaleX(1.02);
+    opacity: 0.22;
+  }
+  35% {
+    transform: translateY(-4%) scaleX(0.96);
+    opacity: 0.38;
+  }
+  65% {
+    transform: translateY(6%) scaleX(1.06);
+    opacity: 0.34;
+  }
+}
+
+@keyframes sainaRiverWave3 {
+  0%, 100% {
+    transform: translateY(0) scaleX(0.98);
+    opacity: 0.2;
+  }
+  45% {
+    transform: translateY(4%) scaleX(1.04);
+    opacity: 0.36;
+  }
+  80% {
+    transform: translateY(-5%) scaleX(0.95);
+    opacity: 0.28;
   }
 }
 
 @keyframes sainaStarPulse {
   0%,
   100% {
-    opacity: 0.42;
+    opacity: 0.55;
     transform: scale(1);
   }
   50% {
-    opacity: 0.72;
-    transform: scale(1.018);
+    opacity: 0.95;
+    transform: scale(1.03);
   }
 }
 
 @media (max-width: 1023px) {
   .saina-scene-live__river {
-    left: 18%;
-    right: 10%;
-    top: 44%;
-    height: 38%;
+    left: 14%;
+    right: 6%;
+    top: 43%;
+    height: 40%;
   }
 
-  .saina-scene-live__glow {
-    background:
-      radial-gradient(circle at 62% 32%, rgba(231, 180, 91, 0.18), transparent 16%),
-      radial-gradient(circle at 72% 56%, rgba(231, 180, 91, 0.12), transparent 20%),
-      radial-gradient(circle at 80% 54%, rgba(231, 180, 91, 0.09), transparent 18%);
+  .saina-scene-fit__frame {
+    transform: translate(calc(-50% - 4%), -50%);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .saina-scene-live__glow,
-  .saina-scene-live__river,
+  .saina-scene-live__lamp,
+  .saina-scene-live__river-wave,
   .saina-scene-live__stars {
     animation: none;
   }
 
-  .saina-scene-live__glow {
-    opacity: 0.16;
-    transform: none;
+  .saina-scene-live__lamp {
+    opacity: 0.78;
+    filter: brightness(1);
+    box-shadow: 0 0 3px 1px rgba(255, 188, 96, 0.45);
+    transform: translate(-50%, -50%);
   }
 
-  .saina-scene-live__river {
-    opacity: 0.08;
+  .saina-scene-live__river-wave {
+    opacity: 0.3;
     transform: none;
-    background-position: 50% 0;
   }
 
   .saina-scene-live__stars {
-    opacity: 0.5;
+    opacity: 0.72;
     transform: none;
   }
 }
@@ -1125,8 +1274,8 @@ html:has(.saina-page) body {
 }
 
 @media (max-width: 1023px) {
-  .saina-canvas-scene-image {
-    background-position: 58% center;
+  .saina-scene-fit__frame {
+    transform: translate(calc(-50% - 4%), -50%);
   }
 
   .saina-canvas-overlay--left {
@@ -2558,6 +2707,11 @@ html:has(.saina-page) body {
   }
 
   .saina-chat-column {
+    padding: 0 1rem;
+    box-sizing: border-box;
+  }
+
+  .saina-pattern-column {
     padding: 0 1rem;
     box-sizing: border-box;
   }
