@@ -149,6 +149,11 @@ export function listChatArchives(): ArchivedChatSummary[] {
   }));
 }
 
+/** Full archives including messages (backfill / migration). */
+export function readChatArchives(): ArchivedChat[] {
+  return readAll();
+}
+
 /** Sohbeti sabitler / sabitlemeyi kaldırır (localStorage). */
 export function setChatPinned(id: string, pinned: boolean): void {
   const list = readAll();

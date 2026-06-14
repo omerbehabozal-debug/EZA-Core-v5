@@ -117,6 +117,8 @@ type SainaConversationSidebarProps = {
   className?: string;
   /** Mock route: disable interactions */
   interactionsDisabled?: boolean;
+  /** Shown when premium user has chats but no local behavioral history. */
+  patternDeviceNotice?: string | null;
 };
 
 export default function SainaConversationSidebar({
@@ -134,6 +136,7 @@ export default function SainaConversationSidebar({
   showMobileChrome = true,
   className,
   interactionsDisabled = false,
+  patternDeviceNotice = null,
 }: SainaConversationSidebarProps) {
   const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
   const isMock = conversations == null;
@@ -325,6 +328,16 @@ export default function SainaConversationSidebar({
               );
             })}
           </div>
+
+          {patternDeviceNotice ? (
+            <p
+              className="saina-pattern-device-notice"
+              data-testid="saina-pattern-device-notice"
+              role="status"
+            >
+              {patternDeviceNotice}
+            </p>
+          ) : null}
 
           <div className="saina-sidebar-bottom">
             <div

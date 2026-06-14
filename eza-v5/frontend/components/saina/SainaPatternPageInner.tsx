@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import {
   CHATS_UPDATED_EVENT,
   listChatArchives,
@@ -13,6 +12,7 @@ import RelationshipPatternView from '@/components/mirror/RelationshipPatternView
 import PatternPlusUpsellBanner from '@/components/mirror/relationship/PatternPlusUpsellBanner';
 import SainaPatternShell from '@/components/saina/SainaPatternShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
+import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import UpgradeModal from '@/components/plan/UpgradeModal';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
@@ -25,11 +25,9 @@ import {
 } from '@/lib/standaloneModels';
 
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
-const FREE_EMPTY_ENTRIES: SavedBehavioralEntry[] = [];
 
 export default function SainaPatternPageInner() {
   const router = useRouter();
-  const realEntries = useMirrorEntries();
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
 
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
@@ -75,10 +73,10 @@ export default function SainaPatternPageInner() {
   const planResolved = !isPlanLoading;
   const isPremium = planResolved && gatePremiumFeature(planTier) === 'allow';
 
-  const entries = useMemo(
-    () => (isPremium ? realEntries : FREE_EMPTY_ENTRIES),
-    [isPremium, realEntries]
-  );
+  const { entries, deviceState, patternDeviceNotice } = usePatternDeviceSync({
+    isPremium,
+    archives,
+  });
 
   const conversations = useMemo(
     () => mapArchivesToSainaConversations(archives),
@@ -140,6 +138,7 @@ export default function SainaPatternPageInner() {
     onSafeOnlyModeChange: setSafeOnlyMode,
     analysisModelId,
     onAnalysisModelChange: setAnalysisModelId,
+    patternDeviceNotice: isPremium ? patternDeviceNotice : null,
   });
 
   return (
@@ -171,6 +170,7 @@ export default function SainaPatternPageInner() {
             ) : null}
             <RelationshipPatternView
               entries={entries}
+              deviceState={deviceState}
               previewMode={!isPremium}
               className="relative z-[1] min-h-0 flex-1"
             />

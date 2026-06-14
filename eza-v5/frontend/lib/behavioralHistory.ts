@@ -122,3 +122,18 @@ export function clearBehavioralHistory(): void {
     /* empty */
   }
 }
+
+/** Seed history only when empty (archive backfill / future server hydrate). */
+export function seedBehavioralHistoryFromEntries(entries: SavedBehavioralEntry[]): boolean {
+  if (typeof window === 'undefined' || !entries.length) return false;
+  if (readBehavioralHistory().length > 0) return false;
+  try {
+    const normalized = entries.filter(isValidBehavioralEntry).slice(0, MAX_ITEMS);
+    if (!normalized.length) return false;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    notifyBehavioralHistoryUpdated();
+    return true;
+  } catch {
+    return false;
+  }
+}

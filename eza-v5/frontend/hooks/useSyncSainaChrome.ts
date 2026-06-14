@@ -20,6 +20,7 @@ export function useSyncSainaChrome({
   onAnalysisModelChange,
   settingsDisabled,
   onOpenMirror,
+  patternDeviceNotice,
 }: Partial<SainaChromeState>) {
   const setChrome = useSainaChromeStore((s) => s.setChrome);
 
@@ -40,6 +41,7 @@ export function useSyncSainaChrome({
       onAnalysisModelChange,
       settingsDisabled,
       onOpenMirror,
+      patternDeviceNotice,
     });
   }, [
     setChrome,
@@ -58,5 +60,6 @@ export function useSyncSainaChrome({
     onAnalysisModelChange,
     settingsDisabled,
     onOpenMirror,
+    patternDeviceNotice,
   ]);
 }

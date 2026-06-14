@@ -88,6 +88,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               mobileOpen={mobileSidebarOpen}
               onMobileClose={() => setMobileSidebarOpen(false)}
               showMobileChrome={!isDesktopLayout}
+              patternDeviceNotice={chrome.patternDeviceNotice}
             />
           </div>
 

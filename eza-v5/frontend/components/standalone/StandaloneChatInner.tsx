@@ -19,6 +19,7 @@ import MessageList from '@/components/standalone/MessageList';
 import SainaComposer from '@/components/saina/SainaComposer';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
+import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
@@ -289,6 +290,13 @@ export default function StandaloneChatInner() {
   );
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const planResolved = !isPlanLoading;
+  const isPremium = planResolved && gatePremiumFeature(planTier) === 'allow';
+
+  const { patternDeviceNotice } = usePatternDeviceSync({
+    isPremium,
+    archives,
+  });
 
   const openGateModal = useCallback((feature: string) => {
     const outcome = gatePremiumFeature(planTier);
@@ -772,6 +780,7 @@ export default function StandaloneChatInner() {
     analysisModelId,
     onAnalysisModelChange: setAnalysisModelId,
     settingsDisabled: isLoading,
+    patternDeviceNotice: isPremium ? patternDeviceNotice : null,
   });
 
   if (!ready) {

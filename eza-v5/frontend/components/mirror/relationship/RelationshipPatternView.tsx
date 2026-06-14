@@ -13,6 +13,12 @@ import {
   RELATIONSHIP_PERIOD_OPTIONS,
   type RelationshipPeriodFilter,
 } from '@/lib/eza/mirror/relationshipPatternMetrics';
+import {
+  PATTERN_DEVICE_DEFAULT_EMPTY_HINT,
+  PATTERN_DEVICE_EMPTY_HINT,
+  PATTERN_DEVICE_EMPTY_TITLE,
+  type PatternDeviceState,
+} from '@/lib/eza/patternDeviceSync';
 import BehaviorIslandsMap from '@/components/mirror/relationship/BehaviorIslandsMap';
 import IslandDetailPanel from '@/components/mirror/relationship/IslandDetailPanel';
 import RelationshipSummaryCard from '@/components/mirror/relationship/RelationshipSummaryCard';
@@ -40,6 +46,8 @@ export type RelationshipPatternViewProps = {
   className?: string;
   /** Free plan — trend/içgörü alanları silik sabit placeholder. */
   previewMode?: boolean;
+  /** Premium device sync — empty vs chats-without-history copy. */
+  deviceState?: PatternDeviceState;
 };
 
 type PatternLevel = 'map' | 'trends' | 'insights';
@@ -56,6 +64,7 @@ export default function RelationshipPatternView({
   entries,
   className,
   previewMode = false,
+  deviceState = 'free',
 }: RelationshipPatternViewProps) {
   const [period, setPeriod] = useState<RelationshipPeriodFilter>(30);
   const [level, setLevel] = useState<PatternLevel>('map');
@@ -70,6 +79,30 @@ export default function RelationshipPatternView({
       return buildRelationshipDashboardMetrics([], period);
     }
   }, [entries, period]);
+
+  const emptyMapCaption =
+    deviceState === 'chats_pending_pattern'
+      ? PATTERN_DEVICE_EMPTY_HINT
+      : deviceState === 'empty_no_chats'
+        ? PATTERN_DEVICE_DEFAULT_EMPTY_HINT
+        : 'Desen henüz oluşmadı — gözlenen alanlar aşağıda.';
+
+  const balanceLabel =
+    previewMode || metrics.isEmpty
+      ? deviceState === 'chats_pending_pattern'
+        ? PATTERN_DEVICE_EMPTY_TITLE
+        : metrics.generalBalanceLabel
+      : metrics.generalBalanceLabel;
+
+  const balanceHint =
+    previewMode || metrics.isEmpty
+      ? deviceState === 'chats_pending_pattern'
+        ? PATTERN_DEVICE_EMPTY_HINT
+        : deviceState === 'empty_no_chats'
+          ? PATTERN_DEVICE_DEFAULT_EMPTY_HINT
+          : metrics.generalBalanceHint ||
+            'Etkileşimlerin sağlıklı bir ritimde ilerliyor.'
+      : metrics.generalBalanceHint || 'Etkileşimlerin sağlıklı bir ritimde ilerliyor.';
 
   const handlePeriod = (value: RelationshipPeriodFilter) => {
     if (value === period) return;
@@ -173,9 +206,7 @@ export default function RelationshipPatternView({
                   Davranış Adaların
                 </p>
                 {metrics.isEmpty ? (
-                  <p className="text-[11px] text-[#6B6B62]">
-                    Desen henüz oluşmadı — gözlenen alanlar aşağıda.
-                  </p>
+                  <p className="text-[11px] text-[#6B6B62]">{emptyMapCaption}</p>
                 ) : null}
               </div>
 
@@ -201,14 +232,9 @@ export default function RelationshipPatternView({
                 />
               ) : (
                 <RelationshipSummaryCard
-                  label={
-                    previewMode ? PATTERN_PREVIEW_BALANCE_LABEL : metrics.generalBalanceLabel
-                  }
+                  label={previewMode ? PATTERN_PREVIEW_BALANCE_LABEL : balanceLabel}
                   hint={
-                    previewMode
-                      ? PATTERN_PREVIEW_BALANCE_HINT
-                      : metrics.generalBalanceHint ||
-                        'Etkileşimlerin sağlıklı bir ritimde ilerliyor.'
+                    previewMode ? PATTERN_PREVIEW_BALANCE_HINT : balanceHint
                   }
                   scorePercent={balanceScore}
                   preview={previewMode}

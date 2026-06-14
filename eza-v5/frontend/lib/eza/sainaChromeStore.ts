@@ -20,6 +20,8 @@ export type SainaChromeState = {
   onAnalysisModelChange: (modelId: string) => void;
   settingsDisabled?: boolean;
   onOpenMirror?: () => void;
+  /** Premium: chats on device but pattern history not formed here yet. */
+  patternDeviceNotice?: string | null;
   openMobileSidebar?: () => void;
   openCommandPalette?: () => void;
 };
