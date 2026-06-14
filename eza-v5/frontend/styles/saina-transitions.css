@@ -57,20 +57,18 @@
     rgba(216, 177, 106, 0.04) 38%,
     transparent 72%
   );
-  animation: sainaRouteGlowSweep 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sainaRouteGlowSweep 0.56s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes sainaRouteGlowSweep {
   0% {
     opacity: 0;
-    transform: translateX(-8%);
   }
-  35% {
-    opacity: 0.55;
+  40% {
+    opacity: 0.45;
   }
   100% {
     opacity: 0;
-    transform: translateX(10%);
   }
 }
 
