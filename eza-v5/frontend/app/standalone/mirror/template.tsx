@@ -2,9 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-/** Günlük ↔ İlişki route geçişinde sakin bir fade (premium polisaj). */
+/** Mirror sub-routes use SainaAppRootLayout transitions; no extra fade here. */
 export default function MirrorTemplate({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col motion-safe:animate-fade-in">{children}</div>
-  );
+  return <div className="flex min-h-0 flex-1 flex-col">{children}</div>;
 }

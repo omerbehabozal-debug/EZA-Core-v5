@@ -1,0 +1,96 @@
+/**
+ * SAINA route transitions — chat ↔ pattern premium crossfade.
+ */
+
+.saina-persistent-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transform: scale(1.02);
+  transform-origin: center center;
+}
+
+.saina-persistent-scene .saina-canvas-bg {
+  position: absolute;
+  inset: 0;
+}
+
+.saina-app-root .saina-app-frame {
+  position: relative;
+  z-index: 1;
+}
+
+.saina-app-root .saina-canvas {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.saina-route-transition {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+}
+
+.saina-app-root .saina-route-transition {
+  flex: 1;
+  min-height: 0;
+}
+
+.saina-route-transition-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse 42% 38% at 58% 42%,
+    rgba(216, 177, 106, 0.14) 0%,
+    rgba(216, 177, 106, 0.04) 38%,
+    transparent 72%
+  );
+  animation: sainaRouteGlowSweep 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sainaRouteGlowSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-8%);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(10%);
+  }
+}
+
+.saina-route-transition--reduced {
+  animation: none;
+}
+
+.saina-route-fallback {
+  background: linear-gradient(165deg, #041b17 0%, #061f1b 48%, #0b1520 100%);
+}
+
+@media (max-width: 1023px) {
+  .saina-route-transition-glow {
+    animation-duration: 0.52s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saina-route-transition-glow {
+    animation: none;
+    opacity: 0;
+  }
+}

@@ -20,6 +20,7 @@
     "clsx": "^2.0.0",
     "cytoscape": "^3.33.1",
     "cytoscape-cose-bilkent": "^4.1.0",
+    "framer-motion": "^11.18.2",
     "html-to-image": "^1.11.13",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.294.0",

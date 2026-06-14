@@ -18,6 +18,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
 import SainaComposer from '@/components/saina/SainaComposer';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
+import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
@@ -48,7 +49,6 @@ import {
   toArchivedMessages,
 } from '@/lib/standaloneChatSession';
 import { feedbackContextFromGovernance, parseGovernance } from '@/lib/standaloneFeedback';
-import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   DEFAULT_ANALYSIS_MODEL_ID,
   readStoredAnalysisModel,
@@ -283,7 +283,7 @@ export default function StandaloneChatInner() {
 
   const handleSelectChat = useCallback(
     (id: string) => {
-      router.push(`/standalone?chat=${id}`);
+      router.push(`/standalone?chat=${id}`, { scroll: false });
     },
     [router]
   );
@@ -302,7 +302,7 @@ export default function StandaloneChatInner() {
       openGateModal('relationship_pattern');
       return;
     }
-    router.push(MIRROR_PATTERN_ROUTE);
+    router.push(MIRROR_PATTERN_ROUTE, { scroll: false });
   }, [planTier, openGateModal, router]);
 
   const handleRequestMirror = useCallback((): boolean => {
@@ -757,12 +757,25 @@ export default function StandaloneChatInner() {
       />
     ) : null;
 
+  useSyncSainaChrome({
+    activeSection: 'chat',
+    conversations: sainaConversations,
+    activeChatId: chatId,
+    planTier,
+    onNewChat: handleNewChat,
+    onSelectChat: handleSelectChat,
+    onOpenPattern: handleOpenPattern,
+    onUpgrade: handleOpenUpgrade,
+    onRequestLogin: handleRequestLogin,
+    safeOnlyMode,
+    onSafeOnlyModeChange: setSafeOnlyMode,
+    analysisModelId,
+    onAnalysisModelChange: setAnalysisModelId,
+    settingsDisabled: isLoading,
+  });
+
   if (!ready) {
-    return (
-      <div className={`${standaloneSkin.page} flex items-center justify-center`}>
-        <p className="text-sm text-standalone-text-muted">Sohbet yükleniyor…</p>
-      </div>
-    );
+    return <div className="saina-route-fallback min-h-0 flex-1" aria-hidden />;
   }
 
   return (
@@ -786,6 +799,7 @@ export default function StandaloneChatInner() {
         analysisModelId={analysisModelId}
         onAnalysisModelChange={setAnalysisModelId}
         settingsDisabled={isLoading}
+        embedded
       />
       <UpgradeModal
         open={upgradeOpen}

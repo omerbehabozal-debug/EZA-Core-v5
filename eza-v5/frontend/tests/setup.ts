@@ -18,14 +18,28 @@ vi.mock('next/navigation', () => ({
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation((query: string) => ({
-    matches: true,
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
+  value: vi.fn().mockImplementation((query: string) => {
+    const listeners = new Set<() => void>();
+    const mediaQuery = {
+      matches: true,
+      media: query,
+      onchange: null as (() => void) | null,
+      addEventListener: vi.fn((_event: string, listener: () => void) => {
+        listeners.add(listener);
+      }),
+      removeEventListener: vi.fn((_event: string, listener: () => void) => {
+        listeners.delete(listener);
+      }),
+      addListener: vi.fn((listener: () => void) => {
+        listeners.add(listener);
+      }),
+      removeListener: vi.fn((listener: () => void) => {
+        listeners.delete(listener);
+      }),
+      dispatchEvent: vi.fn(),
+    };
+    return mediaQuery;
+  }),
 });
 
 const localStore = new Map<string, string>();

@@ -17,16 +17,25 @@ vi.mock('@/lib/eza/plan/usePlan', () => ({
 
 vi.mock('@/components/standalone/MirrorEntriesContext', () => ({
   useMirrorEntries: vi.fn(() => []),
+  MirrorEntriesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import SainaPatternPageInner from '@/components/saina/SainaPatternPageInner';
-import MirrorLayoutClient from '@/app/standalone/mirror/MirrorLayoutClient';
+import SainaAppRootLayout from '@/app/standalone/SainaAppRootLayout';
 
 const mirrorLayoutSrc = readFileSync(
   join(process.cwd(), 'app/standalone/mirror/MirrorLayoutClient.tsx'),
   'utf8'
 );
+
+function renderPatternApp() {
+  return render(
+    <SainaAppRootLayout>
+      <SainaPatternPageInner />
+    </SainaAppRootLayout>
+  );
+}
 
 describe('SainaPatternPageInner (Sprint C.2)', () => {
   beforeEach(() => {
@@ -45,7 +54,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
   });
 
   it('renders SAINA pattern shell with conversation sidebar', async () => {
-    render(<SainaPatternPageInner />);
+    renderPatternApp();
 
     await waitFor(() => {
       expect(screen.getByTestId('saina-pattern-shell')).toBeInTheDocument();
@@ -54,16 +63,17 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
   });
 
   it('renders cinematic scene behind pattern content', async () => {
-    render(<SainaPatternPageInner />);
+    renderPatternApp();
 
     await waitFor(() => {
+      expect(screen.getByTestId('saina-persistent-scene')).toBeInTheDocument();
       expect(screen.getByTestId('saina-scene-image-layer')).toBeInTheDocument();
       expect(document.querySelector('.saina-pattern-canvas-wrap')).toBeTruthy();
     });
   });
 
   it('does not render legacy EZA Standalone sidebar branding', async () => {
-    render(<SainaPatternPageInner />);
+    renderPatternApp();
 
     await waitFor(() => {
       expect(screen.getByTestId('saina-pattern-shell')).toBeInTheDocument();
@@ -74,7 +84,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
   });
 
   it('marks İlişki Deseni nav as active on pattern page', async () => {
-    render(<SainaPatternPageInner />);
+    renderPatternApp();
 
     await waitFor(() => {
       expect(screen.getByText('Açık')).toBeInTheDocument();
@@ -85,7 +95,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
   });
 
   it('shows İlişki Deseni title and period filters', async () => {
-    render(<SainaPatternPageInner />);
+    renderPatternApp();
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'İlişki Deseni' })).toBeInTheDocument();
@@ -97,7 +107,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
   });
 
   it('navigates new chat to /standalone', async () => {
-    render(<SainaPatternPageInner />);
+    renderPatternApp();
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Yeni sohbet/i })).toBeInTheDocument();
@@ -122,14 +132,14 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
       ])
     );
 
-    render(<SainaPatternPageInner />);
+    renderPatternApp();
 
     await waitFor(() => {
       expect(screen.getByText('Test sohbet')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText('Test sohbet'));
-    expect(mockPush).toHaveBeenCalledWith('/standalone?chat=chat-abc');
+    expect(mockPush).toHaveBeenCalledWith('/standalone?chat=chat-abc', { scroll: false });
   });
 
   it('shows upsell banner for free users', async () => {
@@ -143,7 +153,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
       refreshPlan: vi.fn(),
     });
 
-    render(<SainaPatternPageInner />);
+    renderPatternApp();
 
     await waitFor(() => {
       expect(screen.getByText(/AI İlişki Deseni canlı hale gelsin/i)).toBeInTheDocument();
@@ -151,7 +161,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
   });
 
   it('hides upsell banner for premium users', async () => {
-    render(<SainaPatternPageInner />);
+    renderPatternApp();
 
     await waitFor(() => {
       expect(screen.getByTestId('saina-pattern-shell')).toBeInTheDocument();

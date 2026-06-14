@@ -12,6 +12,7 @@ import { useMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
 import RelationshipPatternView from '@/components/mirror/RelationshipPatternView';
 import PatternPlusUpsellBanner from '@/components/mirror/relationship/PatternPlusUpsellBanner';
 import SainaPatternShell from '@/components/saina/SainaPatternShell';
+import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import UpgradeModal from '@/components/plan/UpgradeModal';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
@@ -99,7 +100,7 @@ export default function SainaPatternPageInner() {
 
   const handleSelectChat = useCallback(
     (id: string) => {
-      router.push(`/standalone?chat=${id}`);
+      router.push(`/standalone?chat=${id}`, { scroll: false });
     },
     [router]
   );
@@ -124,6 +125,22 @@ export default function SainaPatternPageInner() {
     setUpgradeOpen(true);
   }, []);
 
+  useSyncSainaChrome({
+    activeSection: 'pattern',
+    conversations,
+    activeChatId: null,
+    planTier,
+    onNewChat: handleNewChat,
+    onSelectChat: handleSelectChat,
+    onOpenPattern: handleOpenPattern,
+    onUpgrade: handleUpgrade,
+    onRequestLogin: handleRequestLogin,
+    safeOnlyMode,
+    onSafeOnlyModeChange: setSafeOnlyMode,
+    analysisModelId,
+    onAnalysisModelChange: setAnalysisModelId,
+  });
+
   return (
     <>
       <SainaPatternShell
@@ -139,6 +156,7 @@ export default function SainaPatternPageInner() {
         onSafeOnlyModeChange={setSafeOnlyMode}
         analysisModelId={analysisModelId}
         onAnalysisModelChange={setAnalysisModelId}
+        embedded
       >
         {!isPremium ? (
           <PatternPlusUpsellBanner

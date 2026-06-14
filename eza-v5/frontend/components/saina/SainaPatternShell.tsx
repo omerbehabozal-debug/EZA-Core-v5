@@ -6,6 +6,7 @@ import '@/styles/saina-pattern.css';
 import { useCallback, useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
+import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
@@ -43,7 +44,60 @@ export type SainaPatternShellProps = {
   onSafeOnlyModeChange: (enabled: boolean) => void;
   analysisModelId: string;
   onAnalysisModelChange: (modelId: string) => void;
+  embedded?: boolean;
 };
+
+function SainaPatternSurface({
+  children,
+  onOpenCommandPalette,
+  onMobileMenu,
+  showMobileMenu,
+  safeOnlyMode,
+  onSafeOnlyModeChange,
+  analysisModelId,
+  onAnalysisModelChange,
+}: {
+  children: React.ReactNode;
+  onOpenCommandPalette: () => void;
+  onMobileMenu?: () => void;
+  showMobileMenu: boolean;
+  safeOnlyMode: boolean;
+  onSafeOnlyModeChange: (enabled: boolean) => void;
+  analysisModelId: string;
+  onAnalysisModelChange: (modelId: string) => void;
+}) {
+  return (
+    <div className="saina-main saina-pattern-main">
+      {showMobileMenu ? (
+        <div className="saina-standalone-mobile-bar">
+          <button
+            type="button"
+            className="saina-standalone-menu-btn"
+            data-testid="saina-pattern-mobile-menu-btn"
+            onClick={onMobileMenu}
+            aria-label="Menü"
+          >
+            <Menu size={20} />
+          </button>
+        </div>
+      ) : null}
+
+      <SainaPageTopBar
+        onOpenCommandPalette={onOpenCommandPalette}
+        safeOnlyMode={safeOnlyMode}
+        onSafeOnlyModeChange={onSafeOnlyModeChange}
+        analysisModelId={analysisModelId}
+        onAnalysisModelChange={onAnalysisModelChange}
+      />
+
+      <div className="saina-pattern-content-scroll">
+        <div className="saina-pattern-stage flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-2 sm:px-6 lg:px-8">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SainaPatternShell({
   children,
@@ -59,15 +113,40 @@ export default function SainaPatternShell({
   onSafeOnlyModeChange,
   analysisModelId,
   onAnalysisModelChange,
+  embedded = false,
 }: SainaPatternShellProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const isDesktopLayout = useDesktopSidebar(SAINA_DESKTOP_SIDEBAR_MIN_PX);
+  const openMobileSidebar = useSainaChromeStore((s) => s.openMobileSidebar);
+  const openCommandPaletteFromStore = useSainaChromeStore((s) => s.openCommandPalette);
 
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
 
-  useSainaCommandShortcut(openCommandPalette);
+  useSainaCommandShortcut(embedded ? () => openCommandPaletteFromStore?.() : openCommandPalette);
+
+  const patternSurface = (
+    <SainaPatternSurface
+      onOpenCommandPalette={
+        embedded ? () => openCommandPaletteFromStore?.() : openCommandPalette
+      }
+      onMobileMenu={
+        embedded ? () => openMobileSidebar?.() : () => setMobileSidebarOpen(true)
+      }
+      showMobileMenu={!isDesktopLayout}
+      safeOnlyMode={safeOnlyMode}
+      onSafeOnlyModeChange={onSafeOnlyModeChange}
+      analysisModelId={analysisModelId}
+      onAnalysisModelChange={onAnalysisModelChange}
+    >
+      {children}
+    </SainaPatternSurface>
+  );
+
+  if (embedded) {
+    return patternSurface;
+  }
 
   return (
     <div className="saina-page saina-pattern-shell" data-testid="saina-pattern-shell">
@@ -89,45 +168,14 @@ export default function SainaPatternShell({
               showMobileChrome={!isDesktopLayout}
             />
           </div>
-
           <div className="saina-main-col saina-pattern-main-col">
             <div className="saina-canvas saina-pattern-canvas-wrap">
               <SainaCinematicScene />
-
-              <div className="saina-main saina-pattern-main">
-                {!isDesktopLayout ? (
-                  <div className="saina-standalone-mobile-bar">
-                    <button
-                      type="button"
-                      className="saina-standalone-menu-btn"
-                      data-testid="saina-pattern-mobile-menu-btn"
-                      onClick={() => setMobileSidebarOpen(true)}
-                      aria-label="Menü"
-                    >
-                      <Menu size={20} />
-                    </button>
-                  </div>
-                ) : null}
-
-                <SainaPageTopBar
-                  onOpenCommandPalette={openCommandPalette}
-                  safeOnlyMode={safeOnlyMode}
-                  onSafeOnlyModeChange={onSafeOnlyModeChange}
-                  analysisModelId={analysisModelId}
-                  onAnalysisModelChange={onAnalysisModelChange}
-                />
-
-                <div className="saina-pattern-content-scroll">
-                  <div className="saina-pattern-stage flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-2 sm:px-6 lg:px-8">
-                    {children}
-                  </div>
-                </div>
-              </div>
+              {patternSurface}
             </div>
           </div>
         </div>
       </div>
-
       <SainaCommandPalette
         open={commandPaletteOpen}
         onClose={closeCommandPalette}

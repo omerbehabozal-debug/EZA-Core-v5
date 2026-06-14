@@ -4,14 +4,9 @@
 
 import { Suspense } from 'react';
 import StandaloneChatInner from '@/components/standalone/StandaloneChatInner';
-import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 function StandaloneChatFallback() {
-  return (
-    <div className={`${standaloneSkin.page} flex items-center justify-center`}>
-      <p className="text-sm text-standalone-text-muted">Sohbet yükleniyor…</p>
-    </div>
-  );
+  return <div className="saina-route-fallback min-h-0 flex-1" aria-hidden />;
 }
 
 export default function StandalonePage() {
