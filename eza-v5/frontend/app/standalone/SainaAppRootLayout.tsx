@@ -70,8 +70,6 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
       data-testid={view === 'chat' ? 'saina-standalone-shell' : 'saina-pattern-shell'}
       data-saina-view={view}
     >
-      <SainaPersistentScene />
-
       <div className="saina-app-frame">
         <div className="saina-shell">
           <div className="saina-standalone-sidebar-wrap">
@@ -94,6 +92,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
 
           <div className={cn('saina-main-col', view === 'pattern' && 'saina-pattern-main-col')}>
             <div className={cn('saina-canvas', view === 'pattern' && 'saina-pattern-canvas-wrap')}>
+              <SainaPersistentScene />
               <SainaRouteTransition routeKey={view}>{children}</SainaRouteTransition>
             </div>
           </div>

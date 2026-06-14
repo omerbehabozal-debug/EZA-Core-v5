@@ -2,7 +2,7 @@
 
 import SainaCinematicScene from './SainaCinematicScene';
 
-/** Layout-level scene — never remounts on chat ↔ pattern navigation. */
+/** Scene inside the main canvas — persists across chat ↔ pattern; clipped by the app frame. */
 export default function SainaPersistentScene() {
   return (
     <div className="saina-persistent-scene" aria-hidden data-testid="saina-persistent-scene">
