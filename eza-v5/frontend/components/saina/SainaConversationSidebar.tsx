@@ -19,9 +19,10 @@ import {
   SAINA_PLAN_SESSION_INVALID_BODY,
   SAINA_PLAN_SESSION_INVALID_NOTE,
   SAINA_POWERED,
-  SAINA_PREMIUM_BODY,
-  SAINA_PREMIUM_MIRROR_ACTIVE,
-  SAINA_PREMIUM_PATTERN_ACTIVE,
+  SAINA_PREMIUM_LIVE_STATUS,
+  SAINA_PREMIUM_MIRROR_LABEL,
+  SAINA_PREMIUM_OBSERVING,
+  SAINA_PREMIUM_PATTERN_LABEL,
   SAINA_PREMIUM_TITLE,
   SAINA_RELATIONSHIP_PATTERN_BODY,
   SAINA_RELATIONSHIP_PATTERN_CTA,
@@ -199,22 +200,38 @@ export default function SainaConversationSidebar({
 
     return (
       <>
-        <div className="saina-premium-mini-row">
-          <span className="saina-premium-mini-title">
-            {isPremium ? SAINA_PREMIUM_TITLE : SAINA_FREE_TITLE}
-          </span>
-          <span className="saina-premium-mini-badge">{SAINA_PLAN_ACTIVE}</span>
-        </div>
-        <p className="saina-plan-card-body">
-          {isPremium ? SAINA_PREMIUM_BODY : SAINA_LOGGEDIN_FREE_BODY}
-        </p>
         {isPremium ? (
           <>
-            <p className="saina-plan-card-status">{SAINA_PREMIUM_MIRROR_ACTIVE}</p>
-            <p className="saina-plan-card-status">{SAINA_PREMIUM_PATTERN_ACTIVE}</p>
+            <p className="saina-premium-mini-title saina-premium-mini-title--system">
+              {SAINA_PREMIUM_TITLE}
+            </p>
+            <p className="saina-plan-card-body saina-plan-card-body--observing">
+              {SAINA_PREMIUM_OBSERVING}
+            </p>
+            <ul className="saina-plan-status-list" aria-label="SAINA sistem durumu">
+              <li className="saina-plan-status-item">
+                <span className="saina-plan-status-dot" aria-hidden />
+                <div className="saina-plan-status-copy">
+                  <span className="saina-plan-status-name">{SAINA_PREMIUM_MIRROR_LABEL}</span>
+                  <span className="saina-plan-status-live">{SAINA_PREMIUM_LIVE_STATUS}</span>
+                </div>
+              </li>
+              <li className="saina-plan-status-item">
+                <span className="saina-plan-status-dot" aria-hidden />
+                <div className="saina-plan-status-copy">
+                  <span className="saina-plan-status-name">{SAINA_PREMIUM_PATTERN_LABEL}</span>
+                  <span className="saina-plan-status-live">{SAINA_PREMIUM_LIVE_STATUS}</span>
+                </div>
+              </li>
+            </ul>
           </>
         ) : (
           <>
+            <div className="saina-premium-mini-row">
+              <span className="saina-premium-mini-title">{SAINA_FREE_TITLE}</span>
+              <span className="saina-premium-mini-badge">{SAINA_PLAN_ACTIVE}</span>
+            </div>
+            <p className="saina-plan-card-body">{SAINA_LOGGEDIN_FREE_BODY}</p>
             <button
               type="button"
               className="saina-plan-card-cta"
@@ -341,7 +358,10 @@ export default function SainaConversationSidebar({
 
           <div className="saina-sidebar-bottom">
             <div
-              className="saina-premium-card saina-premium-card--mini saina-premium-card--dark saina-plan-card"
+              className={cn(
+                'saina-premium-card saina-premium-card--mini saina-premium-card--dark saina-plan-card',
+                planTier === 'premium' && 'saina-plan-card--premium-system'
+              )}
               data-testid="saina-plan-card"
               data-plan-tier={planTier}
             >

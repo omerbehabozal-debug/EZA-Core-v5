@@ -27,7 +27,8 @@ import {
   SAINA_LOGGEDIN_FREE_CTA,
   SAINA_FREE_TITLE,
   SAINA_PLAN_ACTIVE,
-  SAINA_PREMIUM_MIRROR_ACTIVE,
+  SAINA_PREMIUM_MIRROR_LABEL,
+  SAINA_PREMIUM_OBSERVING,
   SAINA_PREMIUM_TITLE,
 } from '@/lib/eza/sainaCopy';
 import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
@@ -131,7 +132,8 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     render(<SainaConversationSidebar interactionsDisabled />);
 
     expect(screen.getByText(SAINA_PREMIUM_TITLE)).toBeInTheDocument();
-    expect(screen.getByText(SAINA_PREMIUM_MIRROR_ACTIVE)).toBeInTheDocument();
+    expect(screen.getByText(SAINA_PREMIUM_OBSERVING)).toBeInTheDocument();
+    expect(screen.getByText(SAINA_PREMIUM_MIRROR_LABEL)).toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });

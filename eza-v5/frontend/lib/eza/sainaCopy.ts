@@ -109,7 +109,7 @@ export const SAINA_REGENERATE = 'Yeniden Oluştur';
 
 export const SAINA_FREE_TITLE = 'SAINA Free';
 
-export const SAINA_PREMIUM_TITLE = 'SAINA Premium';
+export const SAINA_PREMIUM_TITLE = 'SAINA Premium Aktif';
 
 export const SAINA_PLAN_ACTIVE = 'Aktif';
 
@@ -150,11 +150,22 @@ export const SAINA_FREE_CTA = SAINA_ANON_FREE_CTA;
 /** @deprecated Use SAINA_ANON_FREE_NOTE */
 export const SAINA_FREE_NOTE = SAINA_ANON_FREE_NOTE;
 
-export const SAINA_PREMIUM_BODY = 'Premium deneyim aktif.';
+export const SAINA_PREMIUM_OBSERVING = 'Şu an ilişkiyi gözlemliyor...';
 
-export const SAINA_PREMIUM_MIRROR_ACTIVE = 'Conversation Mirror aktif';
+export const SAINA_PREMIUM_MIRROR_LABEL = 'Conversation Mirror';
 
-export const SAINA_PREMIUM_PATTERN_ACTIVE = 'İlişki Deseni aktif';
+export const SAINA_PREMIUM_PATTERN_LABEL = 'İlişki Deseni';
+
+export const SAINA_PREMIUM_LIVE_STATUS = 'Canlı';
+
+/** @deprecated Use SAINA_PREMIUM_OBSERVING */
+export const SAINA_PREMIUM_BODY = SAINA_PREMIUM_OBSERVING;
+
+/** @deprecated Use SAINA_PREMIUM_MIRROR_LABEL */
+export const SAINA_PREMIUM_MIRROR_ACTIVE = SAINA_PREMIUM_MIRROR_LABEL;
+
+/** @deprecated Use SAINA_PREMIUM_PATTERN_LABEL */
+export const SAINA_PREMIUM_PATTERN_ACTIVE = SAINA_PREMIUM_PATTERN_LABEL;
 
 /** @deprecated Use SAINA_PREMIUM_MIRROR_ACTIVE */
 export const SAINA_PREMIUM_STATUS = 'Premium deneyim açık';
