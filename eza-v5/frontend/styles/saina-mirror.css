@@ -1195,6 +1195,19 @@ html:has(.saina-page) body {
   flex-direction: column;
   --saina-chat-column-width: min(68vw, 860px);
   --saina-search-max-width: 440px;
+  --saina-topbar-safe-top: 1.5rem;
+  --saina-topbar-safe-inline: 1.5rem;
+  --saina-topbar-action-gap: 0.75rem;
+  --saina-topbar-control-h: 2.5rem;
+  --saina-chat-chrome-offset: 5rem;
+}
+
+@media (min-width: 1024px) {
+  .saina-main {
+    --saina-topbar-safe-top: 1.75rem;
+    --saina-topbar-safe-inline: 2rem;
+    --saina-chat-chrome-offset: 5.5rem;
+  }
 }
 
 .saina-top-bar {
@@ -1203,26 +1216,29 @@ html:has(.saina-page) body {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  justify-content: center;
+  justify-content: stretch;
+  width: 100%;
+  box-sizing: border-box;
   border: none;
   background: transparent;
-  padding: 0.5rem 0 0.25rem;
+  padding: var(--saina-topbar-safe-top) var(--saina-topbar-safe-inline) 0.875rem;
 }
 
 .saina-top-bar-inner {
   display: flex;
   width: 100%;
-  max-width: var(--saina-chat-column-width);
+  min-height: var(--saina-topbar-control-h);
   align-items: center;
-  gap: 0.5rem;
-  margin: 0 auto;
+  gap: 1rem;
+  margin: 0;
 }
 
-.saina-top-bar-actions {
-  display: flex;
+.saina-top-bar-actions,
+.saina-top-bar-action-cluster {
+  display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--saina-topbar-action-gap);
   margin-left: auto;
 }
 
@@ -1230,9 +1246,10 @@ html:has(.saina-page) body {
   position: relative;
   display: none;
   min-width: 0;
-  flex: 0 1 auto;
+  flex: 0 1 var(--saina-search-max-width, 440px);
   width: min(100%, var(--saina-search-max-width, 440px));
   max-width: var(--saina-search-max-width, 440px);
+  align-self: center;
 }
 
 @media (min-width: 640px) {
@@ -1252,11 +1269,14 @@ html:has(.saina-page) body {
 
 .saina-search-input {
   width: 100%;
+  height: var(--saina-topbar-control-h);
+  box-sizing: border-box;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.28);
   background: rgba(15, 35, 30, 0.28);
-  padding: 0.5rem 2.75rem 0.5rem 2.25rem;
+  padding: 0 2.75rem 0 2.25rem;
   font-size: 0.8125rem;
+  line-height: var(--saina-topbar-control-h);
   color: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(18px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -1279,8 +1299,8 @@ html:has(.saina-page) body {
 
 .saina-search-mobile-btn {
   display: flex;
-  height: 2.5rem;
-  width: 2.5rem;
+  height: var(--saina-topbar-control-h);
+  width: var(--saina-topbar-control-h);
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -1547,8 +1567,8 @@ html:has(.saina-page) body {
 
 .saina-icon-btn {
   display: flex;
-  height: 2.5rem;
-  width: 2.5rem;
+  height: var(--saina-topbar-control-h, 2.5rem);
+  width: var(--saina-topbar-control-h, 2.5rem);
   align-items: center;
   justify-content: center;
   border-radius: 999px;
@@ -1573,8 +1593,8 @@ html:has(.saina-page) body {
 }
 
 .saina-profile-avatar--top {
-  height: 2.5rem;
-  width: 2.5rem;
+  height: var(--saina-topbar-control-h, 2.5rem);
+  width: var(--saina-topbar-control-h, 2.5rem);
   font-size: 13px;
   box-shadow: 0 4px 14px rgba(15, 61, 50, 0.25);
 }
@@ -1763,7 +1783,6 @@ html:has(.saina-page) body {
   --saina-chat-safe-gap: 2rem;
   --saina-chat-hero-safe-offset: 6.5rem;
   --saina-chat-composer-offset: 5.75rem;
-  --saina-chat-chrome-offset: 4.5rem;
   --saina-chat-mobile-tabs-offset: 0px;
   --saina-chat-max-height: calc(
     100dvh
@@ -2369,15 +2388,14 @@ html:has(.saina-page) body {
   }
 
   .saina-standalone-shell .saina-main-body {
-    --saina-chat-chrome-offset: 7.25rem;
+    --saina-chat-chrome-offset: 7.5rem;
     --saina-chat-composer-offset: 6.25rem;
     --saina-chat-mobile-tabs-offset: 3.5rem;
     --saina-chat-hero-safe-offset: 5.75rem;
   }
 
-  .saina-top-bar {
-    padding-left: 1rem;
-    padding-right: 1rem;
+  .saina-standalone-mobile-bar {
+    padding: 0.5rem var(--saina-topbar-safe-inline, 1.5rem) 0;
   }
 
   .saina-chat-column {
@@ -2920,7 +2938,7 @@ html:has(.saina-page) body {
   z-index: 11;
   display: flex;
   flex-shrink: 0;
-  padding: 0.375rem 1rem 0;
+  padding: 0.5rem var(--saina-topbar-safe-inline, 1.5rem) 0;
 }
 
 .saina-standalone-menu-btn {

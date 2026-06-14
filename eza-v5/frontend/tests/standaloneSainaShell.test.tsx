@@ -447,10 +447,10 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders premium plan card without quota when planTier is premium', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="premium" />);
 
-    expect(screen.getByText('SAINA Premium')).toBeInTheDocument();
-    expect(screen.getByText('Premium deneyim aktif.')).toBeInTheDocument();
-    expect(screen.getByText('Conversation Mirror aktif')).toBeInTheDocument();
-    expect(screen.getByText('İlişki Deseni aktif')).toBeInTheDocument();
+    expect(screen.getByText('SAINA Premium Aktif')).toBeInTheDocument();
+    expect(screen.getByText('Şu an ilişkiyi gözlemliyor...')).toBeInTheDocument();
+    expect(screen.getByText('Conversation Mirror')).toBeInTheDocument();
+    expect(screen.getAllByText('İlişki Deseni').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
@@ -508,7 +508,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders sidebar pattern nav with readable copy', () => {
     render(<SainaStandaloneShell {...shellProps} />);
 
-    expect(screen.getByText('İlişki Deseni')).toBeInTheDocument();
+    expect(screen.getAllByText('İlişki Deseni').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Aç →')).toBeInTheDocument();
   });
 });

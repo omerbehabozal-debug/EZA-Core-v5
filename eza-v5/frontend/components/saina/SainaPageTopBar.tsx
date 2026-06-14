@@ -69,7 +69,11 @@ export default function SainaPageTopBar({
           </span>
         </div>
 
-        <div className="saina-top-bar-actions">
+        <div
+          className="saina-top-bar-actions saina-top-bar-action-cluster"
+          role="group"
+          aria-label="Bildirimler ve profil"
+        >
           <SainaNotificationsDropdown />
           {showSettings ? (
             <SainaProfileMenu
