@@ -211,6 +211,10 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     expect(layer.className).toContain('saina-canvas-scene-image--bundled');
     expect((layer as HTMLElement).style.backgroundImage).toMatch(/url\(/);
     expect(container.querySelector('.saina-canvas-overlay--pattern-dim')).toBeTruthy();
+    expect(screen.getByTestId('saina-scene-live')).toBeInTheDocument();
+    expect(container.querySelector('.saina-scene-live__glow')).toBeTruthy();
+    expect(container.querySelector('.saina-scene-live__river')).toBeTruthy();
+    expect(container.querySelector('.saina-scene-live__stars')).toBeTruthy();
   });
 });
 
@@ -449,7 +453,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
 
     expect(screen.getByText('SAINA Premium Aktif')).toBeInTheDocument();
     expect(screen.getByText('Şu an ilişkiyi gözlemliyor...')).toBeInTheDocument();
-    expect(screen.getByText('Conversation Mirror')).toBeInTheDocument();
+    expect(screen.getAllByText('Conversation Mirror').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('İlişki Deseni').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();

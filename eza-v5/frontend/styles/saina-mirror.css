@@ -155,16 +155,14 @@ html:has(.saina-page) body {
   padding-top: 0.375rem;
 }
 
-.saina-pattern-device-notice {
-  flex-shrink: 0;
-  margin: 0.5rem 0 0.75rem;
-  padding: 0.625rem 0.75rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(216, 177, 106, 0.28);
-  background: rgba(15, 61, 50, 0.42);
-  font-size: 0.6875rem;
-  line-height: 1.45;
-  color: rgba(239, 232, 218, 0.88);
+.saina-sidebar-card-title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.3;
+  color: rgba(246, 244, 239, 0.9);
 }
 
 .saina-brand-row {
@@ -413,22 +411,22 @@ html:has(.saina-page) body {
 
 .saina-premium-mini-title--system {
   margin: 0;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(245, 245, 240, 0.88);
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(246, 244, 239, 0.9);
 }
 
 .saina-plan-card-body--observing {
-  margin-top: 0.4rem;
-  color: rgba(217, 196, 163, 0.82);
-  font-size: 11px;
-  line-height: 1.45;
+  margin-top: 0.15rem;
+  color: rgba(217, 196, 163, 0.62);
+  font-size: 10.5px;
+  line-height: 1.4;
 }
 
 .saina-plan-status-list {
-  margin: 0.55rem 0 0;
+  margin: 0.35rem 0 0;
   padding: 0;
   list-style: none;
   display: flex;
@@ -461,17 +459,17 @@ html:has(.saina-page) body {
 
 .saina-plan-status-name {
   font-size: 10.5px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.3;
-  color: rgba(245, 245, 240, 0.9);
+  color: rgba(245, 245, 240, 0.78);
 }
 
 .saina-plan-status-live {
   font-size: 9.5px;
   font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(95, 211, 141, 0.88);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(95, 211, 141, 0.72);
 }
 
 .saina-plan-card-body {
@@ -585,6 +583,8 @@ html:has(.saina-page) body {
 .saina-pattern-nav-title {
   font-size: 12.5px;
   font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   color: #0f3d32;
 }
 
@@ -907,6 +907,143 @@ html:has(.saina-page) body {
   filter: brightness(1.13) contrast(1.17) saturate(1.1);
 }
 
+/* Premium live atmosphere — subtle CSS-only motion above scene, below static overlays. */
+.saina-scene-live {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.saina-scene-live__glow,
+.saina-scene-live__river,
+.saina-scene-live__stars {
+  position: absolute;
+  pointer-events: none;
+}
+
+.saina-scene-live__glow {
+  inset: 0;
+  background:
+    radial-gradient(circle at 58% 30%, rgba(231, 180, 91, 0.2), transparent 18%),
+    radial-gradient(circle at 68% 55%, rgba(231, 180, 91, 0.14), transparent 22%),
+    radial-gradient(circle at 78% 52%, rgba(231, 180, 91, 0.11), transparent 20%),
+    radial-gradient(circle at 52% 28%, rgba(255, 200, 120, 0.08), transparent 14%);
+  animation: sainaGlowBreath 7s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.saina-scene-live__river {
+  left: 22%;
+  right: 14%;
+  top: 46%;
+  height: 36%;
+  opacity: 0.09;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 226, 170, 0.07) 36%,
+    rgba(255, 226, 170, 0.11) 44%,
+    transparent 54%
+  );
+  background-size: 240% 100%;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 52%, #000 0%, #000 34%, transparent 70%);
+  mask-image: radial-gradient(ellipse at 50% 52%, #000 0%, #000 34%, transparent 70%);
+  animation: sainaRiverShimmer 14s linear infinite;
+  will-change: background-position, transform, opacity;
+}
+
+.saina-scene-live__stars {
+  inset: 0;
+  background:
+    radial-gradient(circle at 66% 22%, rgba(255, 218, 145, 0.14), transparent 15%),
+    radial-gradient(circle at 62% 17%, rgba(255, 255, 255, 0.07), transparent 9%),
+    radial-gradient(circle at 70% 19%, rgba(216, 177, 106, 0.06), transparent 11%);
+  animation: sainaStarPulse 9s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+@keyframes sainaGlowBreath {
+  0%,
+  100% {
+    opacity: 0.14;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.22;
+    transform: scale(1.012);
+  }
+}
+
+@keyframes sainaRiverShimmer {
+  0% {
+    background-position: 120% 0;
+    transform: translateX(-0.8%);
+    opacity: 0.06;
+  }
+  50% {
+    opacity: 0.12;
+  }
+  100% {
+    background-position: -120% 0;
+    transform: translateX(0.8%);
+    opacity: 0.06;
+  }
+}
+
+@keyframes sainaStarPulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(1.018);
+  }
+}
+
+@media (max-width: 1023px) {
+  .saina-scene-live__river {
+    left: 18%;
+    right: 10%;
+    top: 44%;
+    height: 38%;
+  }
+
+  .saina-scene-live__glow {
+    background:
+      radial-gradient(circle at 62% 32%, rgba(231, 180, 91, 0.18), transparent 16%),
+      radial-gradient(circle at 72% 56%, rgba(231, 180, 91, 0.12), transparent 20%),
+      radial-gradient(circle at 80% 54%, rgba(231, 180, 91, 0.09), transparent 18%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saina-scene-live__glow,
+  .saina-scene-live__river,
+  .saina-scene-live__stars {
+    animation: none;
+  }
+
+  .saina-scene-live__glow {
+    opacity: 0.16;
+    transform: none;
+  }
+
+  .saina-scene-live__river {
+    opacity: 0.08;
+    transform: none;
+    background-position: 50% 0;
+  }
+
+  .saina-scene-live__stars {
+    opacity: 0.5;
+    transform: none;
+  }
+}
+
 .saina-canvas-overlay {
   position: absolute;
   inset: 0;
@@ -1216,21 +1353,23 @@ html:has(.saina-page) body {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  justify-content: stretch;
+  justify-content: center;
   width: 100%;
   box-sizing: border-box;
   border: none;
   background: transparent;
-  padding: var(--saina-topbar-safe-top) var(--saina-topbar-safe-inline) 0.875rem;
+  padding: var(--saina-topbar-safe-top) 0 0.875rem;
 }
 
 .saina-top-bar-inner {
   display: flex;
   width: 100%;
+  max-width: var(--saina-chat-column-width);
   min-height: var(--saina-topbar-control-h);
   align-items: center;
   gap: 1rem;
-  margin: 0;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .saina-top-bar-actions,
@@ -1503,6 +1642,22 @@ html:has(.saina-page) body {
 
 .saina-notifications-root {
   position: relative;
+}
+
+.saina-notifications-trigger {
+  position: relative;
+}
+
+.saina-notifications-badge {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  height: 0.375rem;
+  width: 0.375rem;
+  border-radius: 999px;
+  background: rgba(217, 196, 163, 0.82);
+  border: 1.5px solid rgba(15, 35, 30, 0.5);
+  pointer-events: none;
 }
 
 .saina-notifications-panel {
@@ -2395,7 +2550,11 @@ html:has(.saina-page) body {
   }
 
   .saina-standalone-mobile-bar {
-    padding: 0.5rem var(--saina-topbar-safe-inline, 1.5rem) 0;
+    padding: 0.5rem 1rem 0;
+  }
+
+  .saina-top-bar-inner {
+    padding: 0 1rem;
   }
 
   .saina-chat-column {

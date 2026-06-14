@@ -17,8 +17,34 @@ import { buildRelationshipDashboardMetrics } from '@/lib/eza/mirror/relationship
 import type { StandaloneObservation } from '@/lib/types';
 import type { BackendUserCategory } from '@/lib/standaloneObservation';
 
-export const PATTERN_DEVICE_SIDEBAR_NOTICE =
+export const PATTERN_DEVICE_NOTIFICATION_BODY =
   'Sohbetlerin var, ancak ilişki deseni bu cihazda henüz oluşmadı.';
+
+/** @deprecated Shown in notification center only — not sidebar. */
+export const PATTERN_DEVICE_SIDEBAR_NOTICE = PATTERN_DEVICE_NOTIFICATION_BODY;
+
+export type PatternSystemNotification = {
+  id: string;
+  title: string;
+  body: string;
+  type: 'pattern_device' | 'mirror' | 'system';
+};
+
+export function buildPatternSystemNotifications(
+  deviceState: PatternDeviceState
+): PatternSystemNotification[] {
+  if (deviceState === 'chats_pending_pattern') {
+    return [
+      {
+        id: 'pattern-device-pending',
+        title: 'İlişki Deseni',
+        body: PATTERN_DEVICE_NOTIFICATION_BODY,
+        type: 'pattern_device',
+      },
+    ];
+  }
+  return [];
+}
 
 export const PATTERN_DEVICE_EMPTY_TITLE = 'Bu cihazda henüz oluşmadı';
 

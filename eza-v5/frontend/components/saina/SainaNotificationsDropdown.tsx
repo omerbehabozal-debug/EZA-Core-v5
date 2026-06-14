@@ -53,14 +53,17 @@ export default function SainaNotificationsDropdown({
     <div ref={rootRef} className={cn('saina-notifications-root', className)}>
       <button
         type="button"
-        className="saina-icon-btn saina-icon-btn--glass"
-        aria-label="Bildirimler"
+        className="saina-icon-btn saina-icon-btn--glass saina-notifications-trigger"
+        aria-label={hasItems ? 'Bildirimler, yeni bildirim var' : 'Bildirimler'}
         aria-expanded={open}
         aria-haspopup="menu"
         data-testid="saina-notifications-trigger"
         onClick={() => setOpen((value) => !value)}
       >
         <Bell size={16} />
+        {hasItems ? (
+          <span className="saina-notifications-badge" aria-hidden data-testid="saina-notifications-badge" />
+        ) : null}
       </button>
 
       {open ? (

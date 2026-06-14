@@ -118,8 +118,6 @@ type SainaConversationSidebarProps = {
   className?: string;
   /** Mock route: disable interactions */
   interactionsDisabled?: boolean;
-  /** Shown when premium user has chats but no local behavioral history. */
-  patternDeviceNotice?: string | null;
 };
 
 export default function SainaConversationSidebar({
@@ -137,7 +135,6 @@ export default function SainaConversationSidebar({
   showMobileChrome = true,
   className,
   interactionsDisabled = false,
-  patternDeviceNotice = null,
 }: SainaConversationSidebarProps) {
   const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
   const isMock = conversations == null;
@@ -202,9 +199,7 @@ export default function SainaConversationSidebar({
       <>
         {isPremium ? (
           <>
-            <p className="saina-premium-mini-title saina-premium-mini-title--system">
-              {SAINA_PREMIUM_TITLE}
-            </p>
+            <p className="saina-sidebar-card-title">{SAINA_PREMIUM_TITLE}</p>
             <p className="saina-plan-card-body saina-plan-card-body--observing">
               {SAINA_PREMIUM_OBSERVING}
             </p>
@@ -346,16 +341,6 @@ export default function SainaConversationSidebar({
             })}
           </div>
 
-          {patternDeviceNotice ? (
-            <p
-              className="saina-pattern-device-notice"
-              data-testid="saina-pattern-device-notice"
-              role="status"
-            >
-              {patternDeviceNotice}
-            </p>
-          ) : null}
-
           <div className="saina-sidebar-bottom">
             <div
               className={cn(
@@ -380,7 +365,9 @@ export default function SainaConversationSidebar({
               <div className="saina-pattern-nav-main">
                 <SainaGeometricMark size={18} variant="gold" />
                 <div className="saina-pattern-nav-text">
-                  <span className="saina-pattern-nav-title">{SAINA_RELATIONSHIP_PATTERN_TITLE}</span>
+                  <span className="saina-pattern-nav-title saina-sidebar-card-title">
+                    {SAINA_RELATIONSHIP_PATTERN_TITLE}
+                  </span>
                   <span className="saina-pattern-nav-body">{SAINA_RELATIONSHIP_PATTERN_BODY}</span>
                 </div>
               </div>

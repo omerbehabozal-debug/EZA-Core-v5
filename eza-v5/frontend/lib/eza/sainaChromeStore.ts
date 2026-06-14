@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
+import type { SainaNotificationItem } from '@/components/saina/SainaNotificationsDropdown';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { DEFAULT_ANALYSIS_MODEL_ID } from '@/lib/standaloneModels';
 import type { SainaAppView } from '@/lib/eza/sainaRoutes';
@@ -20,8 +21,8 @@ export type SainaChromeState = {
   onAnalysisModelChange: (modelId: string) => void;
   settingsDisabled?: boolean;
   onOpenMirror?: () => void;
-  /** Premium: chats on device but pattern history not formed here yet. */
-  patternDeviceNotice?: string | null;
+  /** System, mirror, and pattern updates for the notification center. */
+  notifications?: SainaNotificationItem[];
   openMobileSidebar?: () => void;
   openCommandPalette?: () => void;
 };

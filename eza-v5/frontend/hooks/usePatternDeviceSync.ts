@@ -6,9 +6,10 @@ import type { ArchivedChatSummary } from '@/lib/standaloneChatArchive';
 import { useMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
 import {
   backfillBehavioralHistoryFromArchives,
-  PATTERN_DEVICE_SIDEBAR_NOTICE,
+  buildPatternSystemNotifications,
   resolvePatternDeviceState,
   type PatternDeviceState,
+  type PatternSystemNotification,
 } from '@/lib/eza/patternDeviceSync';
 
 export function usePatternDeviceSync(options: {
@@ -17,7 +18,7 @@ export function usePatternDeviceSync(options: {
 }): {
   entries: SavedBehavioralEntry[];
   deviceState: PatternDeviceState;
-  patternDeviceNotice: string | null;
+  systemNotifications: PatternSystemNotification[];
 } {
   const realEntries = useMirrorEntries();
   const backfillAttempted = useRef(false);
@@ -46,10 +47,10 @@ export function usePatternDeviceSync(options: {
     [options.isPremium, entries, options.archives]
   );
 
-  const patternDeviceNotice = useMemo(
-    () => (deviceState === 'chats_pending_pattern' ? PATTERN_DEVICE_SIDEBAR_NOTICE : null),
+  const systemNotifications = useMemo(
+    () => buildPatternSystemNotifications(deviceState),
     [deviceState]
   );
 
-  return { entries, deviceState, patternDeviceNotice };
+  return { entries, deviceState, systemNotifications };
 }

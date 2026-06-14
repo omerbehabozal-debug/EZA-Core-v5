@@ -3,6 +3,7 @@ import {
   archivesHaveMessages,
   backfillBehavioralHistoryFromArchives,
   buildBehavioralEntriesFromArchives,
+  buildPatternSystemNotifications,
   collectArchiveTurnPairs,
   resolvePatternDeviceState,
 } from '@/lib/eza/patternDeviceSync';
@@ -70,6 +71,12 @@ describe('patternDeviceSync', () => {
       archives: [{ ...sampleChat(), pinned: undefined, titlePinned: undefined }],
     });
     expect(state).toBe('has_data');
+  });
+
+  it('builds notification when chats exist but pattern is pending', () => {
+    const notifications = buildPatternSystemNotifications('chats_pending_pattern');
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.body).toContain('ilişki deseni');
   });
 
   it('skips backfill when not in browser', () => {

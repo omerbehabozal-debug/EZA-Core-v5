@@ -145,6 +145,10 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     expect(layer.className).toContain('saina-canvas-scene-image--bundled');
     expect((layer as HTMLElement).style.backgroundImage).toMatch(/url\(/);
     expect(container.querySelector('.saina-canvas-overlay--pattern-dim')).toBeTruthy();
+    expect(screen.getByTestId('saina-scene-live')).toBeInTheDocument();
+    expect(container.querySelector('.saina-scene-live__glow')).toBeTruthy();
+    expect(container.querySelector('.saina-scene-live__river')).toBeTruthy();
+    expect(container.querySelector('.saina-scene-live__stars')).toBeTruthy();
   });
 
   it('shows premium mirror expand tab when panel is collapsed', () => {

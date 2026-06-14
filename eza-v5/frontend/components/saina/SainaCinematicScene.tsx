@@ -16,6 +16,11 @@ export default function SainaCinematicScene() {
         style={{ backgroundImage: `url('${sceneUrl}')` }}
         data-testid="saina-scene-image-layer"
       />
+      <div className="saina-scene-live" data-testid="saina-scene-live">
+        <div className="saina-scene-live__glow" />
+        <div className="saina-scene-live__river" />
+        <div className="saina-scene-live__stars" />
+      </div>
       <div className="saina-canvas-overlay saina-canvas-overlay--left" />
       <div className="saina-canvas-overlay saina-canvas-overlay--center" />
       <div className="saina-canvas-overlay saina-canvas-overlay--pattern-dim" />

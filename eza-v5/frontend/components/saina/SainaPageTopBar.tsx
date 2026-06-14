@@ -3,6 +3,7 @@
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SAINA_TOP_SEARCH_PLACEHOLDER } from '@/lib/eza/sainaCopy';
+import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import SainaNotificationsDropdown from './SainaNotificationsDropdown';
 import SainaProfileMenu from './SainaProfileMenu';
 
@@ -31,6 +32,8 @@ export default function SainaPageTopBar({
     onSafeOnlyModeChange != null &&
     onAnalysisModelChange != null &&
     analysisModelId != null;
+
+  const notifications = useSainaChromeStore((s) => s.notifications ?? []);
 
   const openPalette = () => {
     onOpenCommandPalette?.();
@@ -74,7 +77,7 @@ export default function SainaPageTopBar({
           role="group"
           aria-label="Bildirimler ve profil"
         >
-          <SainaNotificationsDropdown />
+          <SainaNotificationsDropdown notifications={notifications} />
           {showSettings ? (
             <SainaProfileMenu
               safeOnlyMode={safeOnlyMode}

@@ -73,7 +73,7 @@ export default function SainaPatternPageInner() {
   const planResolved = !isPlanLoading;
   const isPremium = planResolved && gatePremiumFeature(planTier) === 'allow';
 
-  const { entries, deviceState, patternDeviceNotice } = usePatternDeviceSync({
+  const { entries, deviceState, systemNotifications } = usePatternDeviceSync({
     isPremium,
     archives,
   });
@@ -138,7 +138,7 @@ export default function SainaPatternPageInner() {
     onSafeOnlyModeChange: setSafeOnlyMode,
     analysisModelId,
     onAnalysisModelChange: setAnalysisModelId,
-    patternDeviceNotice: isPremium ? patternDeviceNotice : null,
+    notifications: isPremium ? systemNotifications : [],
   });
 
   return (

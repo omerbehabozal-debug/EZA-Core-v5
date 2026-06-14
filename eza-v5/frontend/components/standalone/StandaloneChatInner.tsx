@@ -293,7 +293,7 @@ export default function StandaloneChatInner() {
   const planResolved = !isPlanLoading;
   const isPremium = planResolved && gatePremiumFeature(planTier) === 'allow';
 
-  const { patternDeviceNotice } = usePatternDeviceSync({
+  const { systemNotifications } = usePatternDeviceSync({
     isPremium,
     archives,
   });
@@ -780,7 +780,7 @@ export default function StandaloneChatInner() {
     analysisModelId,
     onAnalysisModelChange: setAnalysisModelId,
     settingsDisabled: isLoading,
-    patternDeviceNotice: isPremium ? patternDeviceNotice : null,
+    notifications: isPremium ? systemNotifications : [],
   });
 
   if (!ready) {
