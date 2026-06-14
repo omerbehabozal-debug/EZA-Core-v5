@@ -3,37 +3,25 @@
 import '@/styles/saina-mirror.css';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Menu, MessageSquare, Sparkles } from 'lucide-react';
+import { Menu, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SAINA_MIRROR_EXPAND_LABEL, SAINA_MIRROR_EXPAND_TAB } from '@/lib/eza/sainaCopy';
 import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
+import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
+import {
+  DEFAULT_MIRROR_MOBILE_CONTEXT,
+  type MirrorMobileContext,
+} from '@/lib/eza/mirrorMobileState';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCommandPalette from './SainaCommandPalette';
 import SainaCinematicScene from './SainaCinematicScene';
 import SainaHeroScene from './SainaHeroScene';
+import SainaMobileMirrorRail from './SainaMobileMirrorRail';
 import SainaPageTopBar from './SainaPageTopBar';
 import SainaStandaloneMirrorPanel from './SainaStandaloneMirrorPanel';
-
-type MobileView = 'chat' | 'mirror';
-
-const SAINA_DESKTOP_SIDEBAR_MIN_PX = 1024;
-
-function useMinWidth(minWidth: number) {
-  const [matches, setMatches] = useState(true);
-
-  useEffect(() => {
-    const query = window.matchMedia(`(min-width: ${minWidth}px)`);
-    const update = () => setMatches(query.matches);
-    update();
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, [minWidth]);
-
-  return matches;
-}
 
 export type SainaStandaloneShellProps = {
   heroTitle: string;
@@ -49,6 +37,7 @@ export type SainaStandaloneShellProps = {
   onUpgrade?: () => void;
   onRequestLogin?: () => void;
   onRequestMirror?: () => boolean;
+  mirrorMobileContext?: MirrorMobileContext;
   safeOnlyMode: boolean;
   onSafeOnlyModeChange: (enabled: boolean) => void;
   analysisModelId: string;
@@ -73,6 +62,8 @@ function SainaChatSurface({
   onMobileMenu,
   showMobileMenu,
   onMirrorControlReady,
+  isCompactShell,
+  mirrorMobileContext,
 }: {
   heroTitle: string;
   isEmpty: boolean;
@@ -88,15 +79,15 @@ function SainaChatSurface({
   onMobileMenu?: () => void;
   showMobileMenu: boolean;
   onMirrorControlReady?: (openMirror: () => void) => void;
+  isCompactShell: boolean;
+  mirrorMobileContext: MirrorMobileContext;
 }) {
-  const [mobileView, setMobileView] = useState<MobileView>('chat');
   const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
   const showMessages = !isEmpty && messages != null;
 
   const tryOpenMirror = useCallback(() => {
     if (onRequestMirror && !onRequestMirror()) return;
     setMirrorCollapsed(false);
-    setMobileView('mirror');
   }, [onRequestMirror]);
 
   useEffect(() => {
@@ -111,7 +102,7 @@ function SainaChatSurface({
           mirrorCollapsed && 'saina-center-wrap--mirror-collapsed'
         )}
       >
-        <div className={cn('saina-chat-col', mobileView === 'chat' && 'saina-chat-col--visible')}>
+        <div className="saina-chat-col saina-chat-col--visible">
           <div className="saina-main">
             {showMobileMenu ? (
               <div className="saina-standalone-mobile-bar">
@@ -136,39 +127,59 @@ function SainaChatSurface({
             />
             <div className="saina-main-body" data-testid="saina-main-body">
               <SainaHeroScene title={heroTitle} />
-              <div className="saina-chat-column" data-testid="saina-chat-column">
-                {showMessages ? (
-                  <div className="saina-chat-float">
-                    <div
-                      className="saina-chat-card saina-chat-card--growth"
-                      data-testid="saina-chat-card"
-                    >
+              <div
+                className={cn(
+                  'saina-chat-column',
+                  !isCompactShell && 'saina-chat-column--mobile-rail'
+                )}
+                data-testid="saina-chat-column"
+              >
+                <div className="saina-chat-scroll-region">
+                  {showMessages ? (
+                    <div className="saina-chat-float">
                       <div
-                        className="saina-standalone-messages-scroll"
-                        data-testid="saina-chat-messages-scroll"
+                        className="saina-chat-card saina-chat-card--growth"
+                        data-testid="saina-chat-card"
                       >
-                        {messages}
+                        <div
+                          className="saina-standalone-messages-scroll"
+                          data-testid="saina-chat-messages-scroll"
+                        >
+                          {messages}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ) : null}
-                <div className="saina-composer-zone saina-standalone-composer">{composer}</div>
+                  ) : null}
+                </div>
+
+                <div className="saina-chat-bottom-anchor" data-testid="saina-chat-bottom-anchor">
+                  {!isCompactShell ? (
+                    <SainaMobileMirrorRail
+                      context={mirrorMobileContext}
+                      panelOpen={!mirrorCollapsed}
+                      onOpen={tryOpenMirror}
+                      onCollapse={() => setMirrorCollapsed(true)}
+                    />
+                  ) : null}
+                  <div className="saina-composer-zone saina-standalone-composer">{composer}</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div
-          className={cn(
-            'saina-mirror-col',
-            mobileView === 'mirror' && 'saina-mirror-col--visible',
-            mirrorCollapsed ? 'saina-mirror-col--collapsed' : 'saina-mirror-col--open'
-          )}
-        >
-          <SainaStandaloneMirrorPanel showCollapse onCollapse={() => setMirrorCollapsed(true)} />
-        </div>
+        {isCompactShell ? (
+          <div
+            className={cn(
+              'saina-mirror-col',
+              mirrorCollapsed ? 'saina-mirror-col--collapsed' : 'saina-mirror-col--open'
+            )}
+          >
+            <SainaStandaloneMirrorPanel showCollapse onCollapse={() => setMirrorCollapsed(true)} />
+          </div>
+        ) : null}
 
-        {mirrorCollapsed ? (
+        {isCompactShell && mirrorCollapsed ? (
           <button
             type="button"
             className="saina-mirror-expand-pill"
@@ -181,25 +192,6 @@ function SainaChatSurface({
           </button>
         ) : null}
       </div>
-
-      <nav className="saina-mobile-tabs" aria-label="Mobil görünüm">
-        <button
-          type="button"
-          className={cn('saina-mobile-tab', mobileView === 'chat' && 'saina-mobile-tab--active')}
-          onClick={() => setMobileView('chat')}
-        >
-          <MessageSquare size={16} />
-          Sohbet
-        </button>
-        <button
-          type="button"
-          className={cn('saina-mobile-tab', mobileView === 'mirror' && 'saina-mobile-tab--active')}
-          onClick={tryOpenMirror}
-        >
-          <Sparkles size={16} />
-          Ayna
-        </button>
-      </nav>
     </>
   );
 }
@@ -218,6 +210,7 @@ export default function SainaStandaloneShell({
   onUpgrade,
   onRequestLogin,
   onRequestMirror,
+  mirrorMobileContext = DEFAULT_MIRROR_MOBILE_CONTEXT,
   safeOnlyMode,
   onSafeOnlyModeChange,
   analysisModelId,
@@ -227,7 +220,7 @@ export default function SainaStandaloneShell({
 }: SainaStandaloneShellProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const isDesktopLayout = useMinWidth(SAINA_DESKTOP_SIDEBAR_MIN_PX);
+  const isCompactShell = useSainaCompactShell();
   const openMobileSidebar = useSainaChromeStore((s) => s.openMobileSidebar);
   const openCommandPaletteFromStore = useSainaChromeStore((s) => s.openCommandPalette);
   const setChrome = useSainaChromeStore((s) => s.setChrome);
@@ -262,10 +255,12 @@ export default function SainaStandaloneShell({
       onAnalysisModelChange={onAnalysisModelChange}
       settingsDisabled={settingsDisabled}
       onRequestMirror={onRequestMirror}
+      mirrorMobileContext={mirrorMobileContext}
       onMobileMenu={
         embedded ? () => openMobileSidebar?.() : () => setMobileSidebarOpen(true)
       }
-      showMobileMenu={!isDesktopLayout}
+      showMobileMenu={!isCompactShell}
+      isCompactShell={isCompactShell}
       onMirrorControlReady={(openMirror) => {
         mirrorControlRef.current = openMirror;
       }}
@@ -292,7 +287,7 @@ export default function SainaStandaloneShell({
               onRequestLogin={onRequestLogin}
               mobileOpen={mobileSidebarOpen}
               onMobileClose={() => setMobileSidebarOpen(false)}
-              showMobileChrome={!isDesktopLayout}
+              showMobileChrome={!isCompactShell}
             />
           </div>
           <div className="saina-main-col">

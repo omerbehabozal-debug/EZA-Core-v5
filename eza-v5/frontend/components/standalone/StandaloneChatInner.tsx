@@ -57,6 +57,7 @@ import {
 } from '@/lib/standaloneModels';
 import { buildChatHistoryPayload } from '@/lib/standaloneChatHistory';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
+import type { MirrorMobileContext } from '@/lib/eza/mirrorMobileState';
 
 interface Message {
   id: string;
@@ -751,6 +752,16 @@ export default function StandaloneChatInner() {
     return title || SAINA_HERO_DEFAULT_TITLE;
   }, [chatId, messages]);
 
+  const mirrorMobileContext = useMemo<MirrorMobileContext>(() => {
+    const hasAssistantResponse = messages.some((message) => !message.isUser);
+    const hasMirrorSignal = messages.some(
+      (message) =>
+        !message.isUser &&
+        (message.behavioral != null || message.standaloneObservation != null)
+    );
+    return { hasAssistantResponse, hasMirrorSignal };
+  }, [messages]);
+
   const composer = (
     <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={isLimitReached} />
   );
@@ -803,6 +814,7 @@ export default function StandaloneChatInner() {
         onUpgrade={handleOpenUpgrade}
         onRequestLogin={handleRequestLogin}
         onRequestMirror={handleRequestMirror}
+        mirrorMobileContext={mirrorMobileContext}
         safeOnlyMode={safeOnlyMode}
         onSafeOnlyModeChange={setSafeOnlyMode}
         analysisModelId={analysisModelId}

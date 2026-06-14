@@ -197,6 +197,15 @@ export const SAINA_MIRROR_EXPAND_TAB = 'Ayna';
 
 export const SAINA_MIRROR_READY_BADGE = 'Hazır';
 
+export const SAINA_MOBILE_MIRROR_CTA_EMPTY =
+  '✦ Ayna — sohbet ettikçe yansıman oluşur';
+
+export const SAINA_MOBILE_MIRROR_CTA_AFTER_RESPONSE =
+  '✦ Ayna — sohbetini yansıt';
+
+export const SAINA_MOBILE_MIRROR_CTA_SIGNAL_READY =
+  '✦ Ayna hazır — ilişkinin ilk izi oluştu';
+
 /** Production /standalone placeholder — mirror generate not wired in B.1 */
 export const SAINA_STANDALONE_MIRROR_PLACEHOLDER_TITLE =
   'Bu sohbetin aynası burada görünecek';

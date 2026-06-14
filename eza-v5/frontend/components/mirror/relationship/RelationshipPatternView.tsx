@@ -191,7 +191,7 @@ export default function RelationshipPatternView({
         )}
       >
         {level === 'map' ? (
-          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_minmax(200px,240px)] lg:items-stretch">
+          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto min-[900px]:grid-cols-[minmax(0,1fr)_minmax(200px,240px)] min-[900px]:items-stretch">
             <section
               className={sp.mapCard}
               aria-labelledby="behavior-islands-title"

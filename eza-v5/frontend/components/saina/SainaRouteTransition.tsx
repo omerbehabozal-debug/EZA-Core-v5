@@ -5,6 +5,7 @@ import '@/styles/saina-transitions.css';
 
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import { useEffect, useState, type ReactNode } from 'react';
+import { SAINA_MOBILE_MAX_PX } from '@/lib/eza/sainaBreakpoints';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import type { SainaAppView } from '@/lib/eza/sainaRoutes';
 import {
@@ -18,7 +19,7 @@ function useNarrowViewport() {
   const [narrow, setNarrow] = useState(false);
 
   useEffect(() => {
-    const query = window.matchMedia('(max-width: 1023px)');
+    const query = window.matchMedia(`(max-width: ${SAINA_MOBILE_MAX_PX}px)`);
     const update = () => setNarrow(query.matches);
     update();
     query.addEventListener('change', update);

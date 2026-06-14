@@ -102,7 +102,7 @@
   animation: saina-content-crossfade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 899px) {
   .saina-route-transition-glow {
     animation-duration: 0.52s;
   }

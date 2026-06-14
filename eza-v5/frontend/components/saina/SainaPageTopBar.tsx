@@ -42,16 +42,6 @@ export default function SainaPageTopBar({
   return (
     <header className={cn('saina-top-bar', className)}>
       <div className="saina-top-bar-inner">
-        <button
-          type="button"
-          className="saina-search-mobile-btn"
-          data-testid="saina-mobile-search-btn"
-          aria-label="Ara"
-          onClick={openPalette}
-        >
-          <Search size={18} aria-hidden />
-        </button>
-
         <div className="saina-search-wrap">
           <Search size={16} className="saina-search-icon" aria-hidden />
           <input

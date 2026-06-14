@@ -3,9 +3,10 @@
 import '@/styles/saina-mirror.css';
 import '@/styles/saina-pattern.css';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
+import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
@@ -13,22 +14,6 @@ import SainaConversationSidebar from '@/components/saina/SainaConversationSideba
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
 import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
 import SainaPageTopBar from '@/components/saina/SainaPageTopBar';
-
-const SAINA_DESKTOP_SIDEBAR_MIN_PX = 1024;
-
-function useDesktopSidebar(minWidth: number) {
-  const [matches, setMatches] = useState(true);
-
-  useEffect(() => {
-    const query = window.matchMedia(`(min-width: ${minWidth}px)`);
-    const update = () => setMatches(query.matches);
-    update();
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, [minWidth]);
-
-  return matches;
-}
 
 export type SainaPatternShellProps = {
   children: React.ReactNode;
@@ -119,7 +104,7 @@ export default function SainaPatternShell({
 }: SainaPatternShellProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const isDesktopLayout = useDesktopSidebar(SAINA_DESKTOP_SIDEBAR_MIN_PX);
+  const isCompactShell = useSainaCompactShell();
   const openMobileSidebar = useSainaChromeStore((s) => s.openMobileSidebar);
   const openCommandPaletteFromStore = useSainaChromeStore((s) => s.openCommandPalette);
 
@@ -136,7 +121,7 @@ export default function SainaPatternShell({
       onMobileMenu={
         embedded ? () => openMobileSidebar?.() : () => setMobileSidebarOpen(true)
       }
-      showMobileMenu={!isDesktopLayout}
+      showMobileMenu={!isCompactShell}
       safeOnlyMode={safeOnlyMode}
       onSafeOnlyModeChange={onSafeOnlyModeChange}
       analysisModelId={analysisModelId}
@@ -167,7 +152,7 @@ export default function SainaPatternShell({
               onRequestLogin={onRequestLogin}
               mobileOpen={mobileSidebarOpen}
               onMobileClose={() => setMobileSidebarOpen(false)}
-              showMobileChrome={!isDesktopLayout}
+              showMobileChrome={!isCompactShell}
             />
           </div>
           <div className="saina-main-col saina-pattern-main-col">

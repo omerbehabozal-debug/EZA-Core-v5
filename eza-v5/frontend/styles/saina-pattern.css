@@ -54,7 +54,7 @@
   align-content: start;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 900px) {
   .saina-pattern-insights-cards {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

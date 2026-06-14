@@ -4,32 +4,17 @@ import '@/lib/eza/matchMediaPolyfill';
 import '@/styles/saina-mirror.css';
 import '@/styles/saina-transitions.css';
 
-import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
+import { useCallback, useLayoutEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { resolveSainaAppView } from '@/lib/eza/sainaRoutes';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
+import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
 import SainaPersistentScene from '@/components/saina/SainaPersistentScene';
 import SainaRouteTransition from '@/components/saina/SainaRouteTransition';
-
-const SAINA_DESKTOP_SIDEBAR_MIN_PX = 1024;
-
-function useMinWidth(minWidth: number) {
-  const [matches, setMatches] = useState(true);
-
-  useEffect(() => {
-    const query = window.matchMedia(`(min-width: ${minWidth}px)`);
-    const update = () => setMatches(query.matches);
-    update();
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, [minWidth]);
-
-  return matches;
-}
 
 type SainaAppRootLayoutProps = {
   children: ReactNode;
@@ -42,7 +27,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
   const setChrome = useSainaChromeStore((s) => s.setChrome);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const isDesktopLayout = useMinWidth(SAINA_DESKTOP_SIDEBAR_MIN_PX);
+  const isCompactShell = useSainaCompactShell();
 
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
@@ -85,7 +70,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               onRequestLogin={chrome.onRequestLogin}
               mobileOpen={mobileSidebarOpen}
               onMobileClose={() => setMobileSidebarOpen(false)}
-              showMobileChrome={!isDesktopLayout}
+              showMobileChrome={!isCompactShell}
             />
           </div>
 
