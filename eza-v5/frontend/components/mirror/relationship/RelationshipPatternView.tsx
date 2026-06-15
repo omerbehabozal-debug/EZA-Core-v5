@@ -139,15 +139,9 @@ export default function RelationshipPatternView({
       className={cn('relative z-[1] flex w-full min-h-0 flex-1 flex-col', className)}
       aria-label="AI İlişki Haritası"
     >
-      <header className="saina-pattern-header shrink-0">
-        <span className="saina-pattern-eyebrow">AKTİF GÖRÜNÜM</span>
-        <h1 className="saina-pattern-title">İlişki Haritası</h1>
-        <p className="saina-pattern-subtitle">
-          Son 30 günde sohbetlerin arasında oluşan düşünce ağı.
-        </p>
-      </header>
+      <h1 className="saina-pattern-page-title shrink-0">İlişki Haritası</h1>
 
-      <div className="mt-4 flex shrink-0 flex-wrap items-center justify-between gap-2 saina-pattern-controls">
+      <div className="saina-pattern-controls-wrap flex shrink-0 flex-wrap items-center justify-between gap-2 saina-pattern-controls">
         <nav
           className={sp.levelNav}
           role="tablist"
@@ -186,12 +180,12 @@ export default function RelationshipPatternView({
       <div
         key={fadeKey}
         className={cn(
-          'relative mt-3 flex min-h-0 flex-1 flex-col',
+          'saina-pattern-body-wrap relative',
           animated && fadeKey > 0 && 'saina-content-crossfade'
         )}
       >
         {level === 'map' ? (
-          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto min-[900px]:grid-cols-[minmax(0,1fr)_minmax(200px,240px)] min-[900px]:items-stretch">
+          <div className="saina-pattern-card-grid grid min-h-0 flex-1 overflow-y-auto saina-pattern-scroll-pad-bottom min-[900px]:grid-cols-[minmax(0,1fr)_minmax(200px,240px)] min-[900px]:items-stretch">
             <section
               className={sp.mapCard}
               aria-labelledby="behavior-islands-title"
@@ -199,12 +193,12 @@ export default function RelationshipPatternView({
               <div className="flex shrink-0 items-baseline justify-between gap-2">
                 <p
                   id="behavior-islands-title"
-                  className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0F3D32]/65"
+                  className="text-[11px] font-semibold uppercase tracking-[0.14em] saina-pattern-text-label"
                 >
                   Davranış Adaların
                 </p>
                 {metrics.isEmpty ? (
-                  <p className="text-[11px] text-[#6B6B62]">{emptyMapCaption}</p>
+                  <p className="text-[11px] saina-pattern-text-muted">{emptyMapCaption}</p>
                 ) : null}
               </div>
 
@@ -247,18 +241,18 @@ export default function RelationshipPatternView({
             {previewMode ? (
               <section className="pointer-events-none grid select-none gap-4 opacity-45 saturate-[0.55] md:grid-cols-2">
                 <div className={sp.trendCard}>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-[#6B6B62]">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold saina-pattern-text-muted">
                     <ArrowUpRight className="h-4 w-4" strokeWidth={2} aria-hidden />
                     Büyüyen alanlar
                   </h3>
-                  <p className="mt-3 text-sm text-[#6B6B62]">—</p>
+                  <p className="mt-3 text-sm saina-pattern-text-muted">—</p>
                 </div>
                 <div className={sp.trendCard}>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-[#6B6B62]">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold saina-pattern-text-muted">
                     <ArrowDownRight className="h-4 w-4" strokeWidth={2} aria-hidden />
                     Azalan alanlar
                   </h3>
-                  <p className="mt-3 text-sm text-[#6B6B62]">—</p>
+                  <p className="mt-3 text-sm saina-pattern-text-muted">—</p>
                 </div>
               </section>
             ) : metrics.isEmpty ? (
@@ -266,7 +260,7 @@ export default function RelationshipPatternView({
             ) : (
               <section className="grid gap-4 md:grid-cols-2">
                 <div className={sp.trendCard}>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-[#0F3D32]">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold saina-pattern-text">
                     <ArrowUpRight className="h-4 w-4" strokeWidth={2} aria-hidden />
                     Büyüyen alanlar
                   </h3>
@@ -275,7 +269,7 @@ export default function RelationshipPatternView({
                       {growingIslands.map((i) => (
                         <li
                           key={i.id}
-                          className="rounded-full px-3 py-1 text-xs font-medium text-[#18332D]"
+                          className="saina-pattern-chip rounded-full px-3 py-1 text-xs font-medium"
                           style={{ background: `${i.color}66` }}
                         >
                           {i.label} · %{i.percent}
@@ -283,12 +277,12 @@ export default function RelationshipPatternView({
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-3 text-sm text-[#6B6B62]">Belirgin bir yükseliş yok.</p>
+                    <p className="mt-3 text-sm saina-pattern-text-muted">Belirgin bir yükseliş yok.</p>
                   )}
                 </div>
 
                 <div className={sp.trendCard}>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-[#8B6914]">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold saina-pattern-text-accent">
                     <ArrowDownRight className="h-4 w-4" strokeWidth={2} aria-hidden />
                     Azalan alanlar
                   </h3>
@@ -297,7 +291,7 @@ export default function RelationshipPatternView({
                       {fadingIslands.map((i) => (
                         <li
                           key={i.id}
-                          className="rounded-full px-3 py-1 text-xs font-medium text-[#18332D]"
+                          className="saina-pattern-chip rounded-full px-3 py-1 text-xs font-medium"
                           style={{ background: `${i.color}66` }}
                         >
                           {i.label} · %{i.percent}
@@ -305,7 +299,7 @@ export default function RelationshipPatternView({
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-3 text-sm text-[#6B6B62]">Eğilimlerin dengede.</p>
+                    <p className="mt-3 text-sm saina-pattern-text-muted">Eğilimlerin dengede.</p>
                   )}
                 </div>
               </section>
@@ -328,7 +322,7 @@ export default function RelationshipPatternView({
         {level === 'insights' ? (
           <div className="saina-pattern-insights-panel">
             {previewMode ? (
-              <section className="saina-pattern-insights-summary pointer-events-none select-none rounded-[1.5rem] border border-[#D8B16A]/20 bg-[#FFFCF5]/85 p-4 opacity-45 saturate-[0.55]">
+              <section className="saina-pattern-insights-summary saina-pattern-preview-shell pointer-events-none select-none rounded-[1.5rem] p-4 opacity-45 saturate-[0.55]">
                 <dl className="grid gap-2 sm:grid-cols-2">
                   {[
                     'En çok gelişen alan',
@@ -337,8 +331,8 @@ export default function RelationshipPatternView({
                     'En dikkat çekici değişim',
                   ].map((label) => (
                     <div key={label} className={sp.insightTile}>
-                      <dt className="text-xs font-medium text-[#6B6B62]">{label}</dt>
-                      <dd className="mt-0.5 text-sm font-semibold text-[#6B6B62]/50">—</dd>
+                      <dt className="text-xs font-medium saina-pattern-text-muted">{label}</dt>
+                      <dd className="mt-0.5 text-sm font-semibold saina-pattern-text-muted opacity-50">—</dd>
                     </div>
                   ))}
                 </dl>
@@ -349,26 +343,26 @@ export default function RelationshipPatternView({
               <section className={cn(sp.insightCard, 'saina-pattern-insights-summary')}>
                 <dl className="grid gap-2 sm:grid-cols-2">
                   <div className={sp.insightTile}>
-                    <dt className="text-xs font-medium text-[#6B6B62]">En çok gelişen alan</dt>
-                    <dd className="mt-0.5 text-sm font-semibold text-[#18332D]">
+                    <dt className="text-xs font-medium saina-pattern-text-muted">En çok gelişen alan</dt>
+                    <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
                       {risingLabel ?? 'Belirgin yükseliş yok'}
                     </dd>
                   </div>
                   <div className={sp.insightTile}>
-                    <dt className="text-xs font-medium text-[#6B6B62]">En aktif dönem</dt>
-                    <dd className="mt-0.5 text-sm font-semibold text-[#18332D]">
+                    <dt className="text-xs font-medium saina-pattern-text-muted">En aktif dönem</dt>
+                    <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
                       {peakActive ? `${peakActive.label} · %${peakActive.percent}` : '—'}
                     </dd>
                   </div>
                   <div className={sp.insightTile}>
-                    <dt className="text-xs font-medium text-[#6B6B62]">Baskın biçim</dt>
-                    <dd className="mt-0.5 text-sm font-semibold text-[#18332D]">
+                    <dt className="text-xs font-medium saina-pattern-text-muted">Baskın biçim</dt>
+                    <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
                       {dominantLabel ?? '—'}
                     </dd>
                   </div>
                   <div className={sp.insightTile}>
-                    <dt className="text-xs font-medium text-[#6B6B62]">En dikkat çekici değişim</dt>
-                    <dd className="mt-0.5 text-sm font-semibold text-[#18332D]">
+                    <dt className="text-xs font-medium saina-pattern-text-muted">En dikkat çekici değişim</dt>
+                    <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
                       {growingIslands[0]
                         ? `${growingIslands[0].label} yükselişte`
                         : fadingIslands[0]

@@ -468,18 +468,18 @@ export const standaloneSkin = {
       'pointer-events-none absolute inset-0 z-[1] hidden opacity-[0.4] sm:block',
   },
 
-  /** SAINA İlişki Deseni — Sprint C.1 / C.1.4 glass card system */
+  /** SAINA İlişki Haritası — premium dark glass (aligned with chat card) */
   sainaPatternPolish: {
-    levelNav: 'inline-flex rounded-full border p-1 saina-pattern-glass-pill',
+    levelNav: 'inline-flex rounded-full p-1 saina-pattern-glass-pill',
     levelTabActive:
-      'rounded-full bg-[#0F3D32] px-3.5 py-1.5 text-[13px] font-medium text-[#F3EEE2] shadow-sm',
+      'saina-pattern-tab saina-pattern-tab--active px-3.5 py-1.5 text-[13px] font-medium',
     levelTabIdle:
-      'rounded-full px-3.5 py-1.5 text-[13px] font-medium text-[#6B6B62]/90 transition-colors hover:bg-[rgba(246,244,239,0.35)] hover:text-[#18332D]',
-    periodNav: 'inline-flex rounded-full border p-0.5 saina-pattern-glass-pill',
+      'saina-pattern-tab saina-pattern-tab--idle px-3.5 py-1.5 text-[13px] font-medium',
+    periodNav: 'inline-flex rounded-full p-0.5 saina-pattern-glass-pill',
     periodTabActive:
-      'rounded-full bg-[#0F3D32] px-3 py-1.5 text-xs font-semibold text-[#F3EEE2] shadow-sm',
+      'saina-pattern-tab saina-pattern-tab--active px-3 py-1.5 text-xs font-semibold',
     periodTabIdle:
-      'rounded-full px-3 py-1.5 text-xs font-semibold text-[#6B6B62]/90 transition-colors hover:bg-[rgba(246,244,239,0.35)] hover:text-[#18332D]',
+      'saina-pattern-tab saina-pattern-tab--idle px-3 py-1.5 text-xs font-semibold',
     mapCard:
       'relative flex min-h-0 flex-col overflow-hidden rounded-[2rem] p-3 sm:p-5 saina-pattern-map-surface',
     sideCard: 'saina-pattern-glass-side rounded-[1.75rem] p-5',
@@ -487,11 +487,11 @@ export const standaloneSkin = {
     insightCard: 'saina-pattern-glass-side rounded-[2rem] p-5',
     insightTile: 'saina-pattern-glass-tile rounded-2xl px-4 py-3',
     emptyState:
-      'saina-pattern-glass-tile rounded-2xl border-dashed border-[#D8B16A]/28 px-4 py-6 text-center text-sm text-[#6B6B62]',
+      'saina-pattern-glass-tile rounded-2xl border-dashed border-[#D8B16A]/28 px-4 py-6 text-center text-sm saina-pattern-text-muted',
     upsellBanner:
-      'saina-pattern-glass-side relative overflow-hidden rounded-2xl px-4 py-4 sm:px-5',
+      'saina-pattern-upsell-banner relative overflow-hidden rounded-2xl px-4 py-4 sm:px-5',
     upsellCta:
-      'inline-flex flex-shrink-0 items-center justify-center gap-1.5 self-start rounded-full bg-[#0F3D32] px-5 py-2.5 text-sm font-medium text-[#F3EEE2] transition-colors hover:bg-[#0c3329] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D8B16A]/60 sm:self-center',
+      'saina-pattern-upsell-cta inline-flex flex-shrink-0 items-center justify-center gap-1.5 self-start rounded-full px-5 py-2.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D8B16A]/60 sm:self-center',
   },
 
   motion: {

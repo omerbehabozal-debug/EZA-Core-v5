@@ -134,7 +134,7 @@ describe('RelationshipPatternView (14A)', () => {
 
   it('shows premium title İlişki Haritası', () => {
     expect(patternViewSrc).toContain('İlişki Haritası');
-    expect(patternViewSrc).toContain('AKTİF GÖRÜNÜM');
+    expect(patternViewSrc).toContain('saina-pattern-page-title');
   });
 
   it('shows empty state copy', () => {

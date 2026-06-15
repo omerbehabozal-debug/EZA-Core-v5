@@ -22,8 +22,8 @@ export default function RelationshipTimelineChart({
   const innerW = width - padX * 2;
   const innerH = height - padY * 2;
 
-  const strokeColor = preview ? '#d4d4d8' : '#7B61FF';
-  const fillStart = preview ? '#e7e5e4' : '#7B61FF';
+  const strokeColor = preview ? 'rgba(208,198,180,0.5)' : '#d8b16a';
+  const fillStart = preview ? 'rgba(208,198,180,0.5)' : '#d8b16a';
 
   const coords = points.map((p, i) => {
     const x = padX + (i / Math.max(1, points.length - 1)) * innerW;
@@ -40,15 +40,15 @@ export default function RelationshipTimelineChart({
   return (
     <article
       className={cn(
-        'rounded-[1.75rem] border border-white/80 bg-white/80 p-5 shadow-[0_10px_36px_-16px_rgba(23,32,51,0.12)]',
+        'saina-pattern-glass-side saina-pattern-metric-card',
         preview && 'pointer-events-none select-none opacity-45 saturate-[0.55]',
         className
       )}
     >
-      <h3 className={cn('text-sm font-semibold text-[#172033]', preview && 'text-stone-500')}>
+      <h3 className={cn('text-sm font-semibold saina-pattern-text', preview && 'opacity-60')}>
         Zaman İçinde Denge
       </h3>
-      <p className={cn('mt-1 text-xs text-[#667085]', preview && 'text-stone-400')}>
+      <p className={cn('mt-1 text-xs saina-pattern-text-muted', preview && 'opacity-60')}>
         Etkileşim yoğunluğunun sakin özeti
       </p>
       <div className="mt-4 flex justify-center">
@@ -79,7 +79,7 @@ export default function RelationshipTimelineChart({
                 cx={c.x}
                 cy={c.y}
                 r="4"
-                fill="#fff"
+                fill="rgba(6,12,16,0.5)"
                 stroke={strokeColor}
                 strokeWidth="2"
               />
@@ -87,7 +87,8 @@ export default function RelationshipTimelineChart({
                 x={c.x}
                 y={height - 4}
                 textAnchor="middle"
-                className={cn('fill-[#667085] text-[9px]', preview && 'fill-stone-300')}
+                fill={preview ? 'rgba(208,198,180,0.5)' : 'rgba(208,198,180,0.84)'}
+                className="text-[9px]"
               >
                 {c.label}
               </text>

@@ -17,12 +17,12 @@ export default function ActiveTimeCard({
   return (
     <article
       className={cn(
-        'rounded-[1.75rem] border border-white/80 bg-white/80 p-5 shadow-[0_10px_36px_-16px_rgba(23,32,51,0.12)]',
+        'saina-pattern-glass-side saina-pattern-metric-card',
         preview && 'pointer-events-none select-none opacity-45 saturate-[0.55]',
         className
       )}
     >
-      <h3 className={cn('text-sm font-semibold text-[#172033]', preview && 'text-stone-500')}>
+      <h3 className={cn('text-sm font-semibold saina-pattern-text', preview && 'opacity-60')}>
         En aktif olduğun zamanlar
       </h3>
       <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -30,19 +30,19 @@ export default function ActiveTimeCard({
           <li
             key={b.id}
             className={cn(
-              'rounded-2xl border border-[#EDE8F8] bg-[#F8F6F1]/80 px-3 py-2.5 text-center',
-              preview && 'border-stone-200 bg-stone-50/80'
+              'saina-pattern-glass-tile rounded-2xl px-3 py-2.5 text-center',
+              preview && 'opacity-70'
             )}
           >
             <p
-              className={cn('text-[11px] font-medium text-[#172033]/80', preview && 'text-stone-400')}
+              className={cn('text-[11px] font-medium saina-pattern-text-muted', preview && 'opacity-60')}
             >
               {b.label}
             </p>
             <p
               className={cn(
-                'mt-0.5 text-lg font-bold tabular-nums text-[#7B61FF]',
-                preview && 'text-base font-medium text-stone-300'
+                'mt-0.5 text-lg font-bold tabular-nums saina-pattern-text-accent',
+                preview && 'text-base font-medium opacity-50'
               )}
             >
               {preview ? '—' : `%${b.percent}`}

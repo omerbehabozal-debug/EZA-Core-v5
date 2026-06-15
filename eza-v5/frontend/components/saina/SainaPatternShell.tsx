@@ -77,7 +77,7 @@ function SainaPatternSurface({
 
       <div className="saina-pattern-content-scroll">
         <div className="saina-pattern-column">
-          <div className="saina-pattern-stage flex min-h-0 flex-1 flex-col gap-3 pb-4 pt-2">
+          <div className="saina-pattern-stage flex min-h-0 flex-1 flex-col">
             {children}
           </div>
         </div>

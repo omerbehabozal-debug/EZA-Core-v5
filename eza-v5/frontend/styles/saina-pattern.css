@@ -1,20 +1,55 @@
 /**
- * SAINA İlişki Deseni — Sprint C.1 / C.1.4 glass card system.
- * Aligns with .saina-chat-card (rgba(246,244,239) + blur + white border).
+ * SAINA İlişki Haritası — premium dark glass (aligned with .saina-chat-card).
  */
 
 .saina-pattern-shell {
-  --saina-pattern-parchment: #f3eee2;
-  --saina-pattern-parchment-alt: #efe8da;
-  --saina-pattern-deep-green: #0f3d32;
-  --saina-pattern-gold: #d8b16a;
-  --saina-pattern-text: #18332d;
-  --saina-pattern-muted: #6b6b62;
-  --saina-pattern-line: rgba(216, 177, 106, 0.42);
-  --saina-pattern-glass-bg: rgba(246, 244, 239, 0.58);
-  --saina-pattern-glass-bg-strong: rgba(246, 244, 239, 0.66);
-  --saina-pattern-glass-border: rgba(255, 255, 255, 0.38);
-  --saina-pattern-glass-blur: blur(24px) saturate(1.1);
+  --saina-pattern-text: rgba(238, 232, 218, 0.96);
+  --saina-pattern-text-muted: rgba(208, 198, 180, 0.84);
+  --saina-pattern-text-label: rgba(196, 168, 118, 0.82);
+  --saina-pattern-text-accent: #e7b45b;
+  --saina-pattern-glass-border: rgba(216, 177, 106, 0.38);
+  --saina-pattern-glass-highlight: rgba(255, 255, 255, 0.32);
+  --saina-pattern-glass-blur: blur(38px) saturate(1.18);
+}
+
+.saina-pattern-main {
+  --saina-pattern-text: var(--saina-glass-text, rgba(238, 232, 218, 0.96));
+  --saina-pattern-text-muted: var(--saina-glass-text-muted, rgba(208, 198, 180, 0.84));
+  --saina-pattern-text-label: rgba(196, 168, 118, 0.82);
+  --saina-pattern-text-accent: var(--saina-logo-gold, #e7b45b);
+  --saina-pattern-glass-border: var(--saina-glass-border, rgba(216, 177, 106, 0.38));
+  --saina-pattern-glass-highlight: var(--saina-glass-highlight, rgba(255, 255, 255, 0.32));
+  --saina-pattern-glass-blur: var(--saina-glass-blur, blur(38px) saturate(1.18));
+}
+
+.saina-pattern-text {
+  color: var(--saina-pattern-text);
+}
+
+.saina-pattern-text-muted {
+  color: var(--saina-pattern-text-muted);
+}
+
+.saina-pattern-text-label {
+  color: var(--saina-pattern-text-label);
+}
+
+.saina-pattern-text-accent {
+  color: var(--saina-pattern-text-accent);
+}
+
+.saina-pattern-main {
+  --saina-pattern-gap-title-controls: 0.875rem;
+  --saina-pattern-gap-controls-content: 1.125rem;
+  --saina-pattern-gap-cards: 1rem;
+}
+
+@media (min-width: 900px) {
+  .saina-pattern-main {
+    --saina-pattern-gap-title-controls: 1rem;
+    --saina-pattern-gap-controls-content: 1.25rem;
+    --saina-pattern-gap-cards: 1.125rem;
+  }
 }
 
 .saina-pattern-stage {
@@ -25,6 +60,34 @@
   flex: 1;
   flex-direction: column;
   width: 100%;
+  gap: var(--saina-pattern-gap-controls-content);
+}
+
+.saina-pattern-controls-wrap {
+  margin-top: var(--saina-pattern-gap-title-controls);
+}
+
+.saina-pattern-body-wrap {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  margin-top: var(--saina-pattern-gap-controls-content);
+}
+
+.saina-pattern-card-grid {
+  gap: var(--saina-pattern-gap-cards);
+}
+
+.saina-pattern-scroll-pad-bottom {
+  padding-bottom: var(--saina-topbar-safe-top, 1.5rem);
+  box-sizing: border-box;
+}
+
+@media (max-width: 899px) {
+  .saina-pattern-scroll-pad-bottom {
+    padding-bottom: max(var(--saina-topbar-safe-top, 1.5rem), env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .saina-pattern-insights-panel {
@@ -68,12 +131,14 @@
 
 .saina-pattern-metric-card h3 {
   font-size: 0.8125rem;
+  color: var(--saina-pattern-text);
 }
 
 .saina-pattern-metric-card p {
   margin-top: 0.25rem;
   font-size: 0.6875rem;
   line-height: 1.35;
+  color: var(--saina-pattern-text-muted);
 }
 
 .saina-pattern-metric-card ul {
@@ -92,42 +157,98 @@
 .saina-pattern-metric-card .text-3xl {
   font-size: 1.5rem;
   line-height: 1.2;
+  color: var(--saina-pattern-text);
 }
 
 .saina-pattern-metric-card .text-lg {
   font-size: 1rem;
 }
 
-/* Shared glass surface — matches chat card language */
-.saina-pattern-glass-pill {
-  border-color: rgba(255, 255, 255, 0.34);
-  background: rgba(246, 244, 239, 0.48);
-  -webkit-backdrop-filter: blur(20px) saturate(1.08);
-  backdrop-filter: blur(20px) saturate(1.08);
+/* Shared glass surface — mirrors .saina-chat-card */
+.saina-pattern-glass-surface {
+  position: relative;
+  border: 1px solid var(--saina-pattern-glass-border);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 12, 16, 0.4) 0%,
+      rgba(6, 12, 16, 0.54) 100%
+    ),
+    linear-gradient(
+      155deg,
+      rgba(246, 244, 239, 0.1) 0%,
+      rgba(246, 244, 239, 0.05) 42%,
+      rgba(8, 16, 14, 0.3) 100%
+    );
+  -webkit-backdrop-filter: var(--saina-pattern-glass-blur);
+  backdrop-filter: var(--saina-pattern-glass-blur);
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    0 18px 48px rgba(0, 0, 0, 0.22),
+    0 0 36px rgba(196, 122, 58, 0.05),
+    inset 0 1px 0 var(--saina-pattern-glass-highlight),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.saina-pattern-glass-pill {
+  border: 1px solid var(--saina-pattern-glass-border);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 12, 16, 0.34) 0%,
+      rgba(6, 12, 16, 0.46) 100%
+    ),
+    linear-gradient(
+      155deg,
+      rgba(246, 244, 239, 0.08) 0%,
+      rgba(8, 16, 14, 0.26) 100%
+    );
+  -webkit-backdrop-filter: blur(28px) saturate(1.12);
+  backdrop-filter: blur(28px) saturate(1.12);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .saina-pattern-glass-side {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  background: rgba(246, 244, 239, 0.56);
-  -webkit-backdrop-filter: blur(24px) saturate(1.1);
-  backdrop-filter: blur(24px) saturate(1.1);
+  border: 1px solid var(--saina-pattern-glass-border);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 12, 16, 0.38) 0%,
+      rgba(6, 12, 16, 0.52) 100%
+    ),
+    linear-gradient(
+      155deg,
+      rgba(246, 244, 239, 0.09) 0%,
+      rgba(246, 244, 239, 0.04) 42%,
+      rgba(8, 16, 14, 0.28) 100%
+    );
+  -webkit-backdrop-filter: var(--saina-pattern-glass-blur);
+  backdrop-filter: var(--saina-pattern-glass-blur);
   box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.12),
-    0 0 24px rgba(196, 122, 58, 0.03),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    0 14px 40px rgba(0, 0, 0, 0.2),
+    0 0 28px rgba(196, 122, 58, 0.04),
+    inset 0 1px 0 var(--saina-pattern-glass-highlight),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .saina-pattern-glass-tile {
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(246, 244, 239, 0.46);
-  -webkit-backdrop-filter: blur(18px) saturate(1.06);
-  backdrop-filter: blur(18px) saturate(1.06);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(6, 12, 16, 0.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.08);
+  backdrop-filter: blur(22px) saturate(1.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.saina-pattern-page-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--saina-pattern-text);
 }
 
 .saina-pattern-header {
@@ -135,40 +256,94 @@
   z-index: 1;
   padding: 0.875rem 1rem;
   border-radius: 1.5rem;
+}
+
+.saina-pattern-header.saina-pattern-glass-surface,
+.saina-pattern-header {
   border: 1px solid var(--saina-pattern-glass-border);
-  background: rgba(246, 244, 239, 0.64);
-  -webkit-backdrop-filter: blur(26px) saturate(1.12);
-  backdrop-filter: blur(26px) saturate(1.12);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 12, 16, 0.4) 0%,
+      rgba(6, 12, 16, 0.54) 100%
+    ),
+    linear-gradient(
+      155deg,
+      rgba(246, 244, 239, 0.1) 0%,
+      rgba(246, 244, 239, 0.05) 42%,
+      rgba(8, 16, 14, 0.3) 100%
+    );
+  -webkit-backdrop-filter: var(--saina-pattern-glass-blur);
+  backdrop-filter: var(--saina-pattern-glass-blur);
   box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.12),
+    0 14px 40px rgba(0, 0, 0, 0.2),
     0 0 28px rgba(196, 122, 58, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    inset 0 1px 0 var(--saina-pattern-glass-highlight),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .saina-pattern-controls {
   padding: 0.5rem 0.625rem;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  background: rgba(246, 244, 239, 0.52);
-  -webkit-backdrop-filter: blur(22px) saturate(1.08);
-  backdrop-filter: blur(22px) saturate(1.08);
+  border: 1px solid var(--saina-pattern-glass-border);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 12, 16, 0.34) 0%,
+      rgba(6, 12, 16, 0.46) 100%
+    ),
+    linear-gradient(
+      155deg,
+      rgba(246, 244, 239, 0.08) 0%,
+      rgba(8, 16, 14, 0.26) 100%
+    );
+  -webkit-backdrop-filter: blur(28px) saturate(1.12);
+  backdrop-filter: blur(28px) saturate(1.12);
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    0 10px 28px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.saina-pattern-tab {
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.saina-pattern-tab--active {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(5, 72, 58, 0.86);
+  color: var(--saina-pattern-text);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.saina-pattern-tab--idle {
+  color: var(--saina-pattern-text-muted);
+}
+
+@media (hover: hover) {
+  .saina-pattern-tab--idle:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--saina-pattern-text);
+  }
 }
 
 .saina-pattern-eyebrow {
   display: inline-flex;
   align-items: center;
   border-radius: 9999px;
-  border: 1px solid rgba(216, 177, 106, 0.34);
-  background: rgba(255, 252, 245, 0.55);
+  border: 1px solid rgba(216, 177, 106, 0.28);
+  background: rgba(255, 255, 255, 0.06);
   padding: 0.25rem 0.65rem;
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--saina-pattern-deep-green);
+  color: var(--saina-pattern-text-label);
 }
 
 .saina-pattern-title {
@@ -185,25 +360,32 @@
   max-width: 34rem;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: var(--saina-pattern-muted);
+  color: var(--saina-pattern-text-muted);
 }
 
 .saina-pattern-map-surface {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  background: linear-gradient(
-    165deg,
-    rgba(246, 244, 239, 0.58) 0%,
-    rgba(243, 238, 226, 0.5) 48%,
-    rgba(239, 232, 218, 0.44) 100%
-  );
-  -webkit-backdrop-filter: blur(22px) saturate(1.08);
-  backdrop-filter: blur(22px) saturate(1.08);
+  border: 1px solid var(--saina-pattern-glass-border);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 12, 16, 0.36) 0%,
+      rgba(6, 12, 16, 0.5) 100%
+    ),
+    linear-gradient(
+      165deg,
+      rgba(246, 244, 239, 0.08) 0%,
+      rgba(243, 238, 226, 0.04) 48%,
+      rgba(8, 16, 14, 0.26) 100%
+    );
+  -webkit-backdrop-filter: var(--saina-pattern-glass-blur);
+  backdrop-filter: var(--saina-pattern-glass-blur);
   box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.14),
+    0 14px 40px rgba(0, 0, 0, 0.2),
     0 0 28px rgba(196, 122, 58, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    inset 0 1px 0 var(--saina-pattern-glass-highlight),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .saina-pattern-map-surface::after {
@@ -213,16 +395,16 @@
   pointer-events: none;
   border-radius: inherit;
   background:
-    radial-gradient(ellipse 78% 62% at 50% 42%, rgba(255, 252, 245, 0.2), transparent 68%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23D8B16A' stroke-opacity='0.06' stroke-width='0.45'%3E%3Cpath d='M60 8 L112 60 L60 112 L8 60 Z'/%3E%3Cpath d='M60 24 L96 60 L60 96 L24 60 Z'/%3E%3C/g%3E%3C/svg%3E");
+    radial-gradient(ellipse 78% 62% at 50% 42%, rgba(216, 177, 106, 0.1), transparent 68%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23D8B16A' stroke-opacity='0.05' stroke-width='0.45'%3E%3Cpath d='M60 8 L112 60 L60 112 L8 60 Z'/%3E%3Cpath d='M60 24 L96 60 L60 96 L24 60 Z'/%3E%3C/g%3E%3C/svg%3E");
   background-size: auto, 120px 120px;
 }
 
 .saina-pattern-map-atmosphere {
   background:
-    radial-gradient(ellipse 72% 56% at 50% 44%, rgba(216, 177, 106, 0.26), transparent 64%),
-    radial-gradient(ellipse 48% 40% at 20% 24%, rgba(15, 61, 50, 0.14), transparent 68%),
-    radial-gradient(ellipse 52% 44% at 78% 72%, rgba(196, 122, 58, 0.1), transparent 72%);
+    radial-gradient(ellipse 72% 56% at 50% 44%, rgba(216, 177, 106, 0.18), transparent 64%),
+    radial-gradient(ellipse 48% 40% at 20% 24%, rgba(15, 61, 50, 0.12), transparent 68%),
+    radial-gradient(ellipse 52% 44% at 78% 72%, rgba(196, 122, 58, 0.08), transparent 72%);
 }
 
 .saina-pattern-connection-glow {
@@ -239,6 +421,73 @@
 }
 
 .saina-pattern-island-ghost .saina-pattern-island-label {
-  color: rgba(24, 51, 45, 0.82);
+  color: rgba(238, 232, 218, 0.82);
   font-weight: 600;
+}
+
+.saina-pattern-close-btn {
+  color: var(--saina-pattern-text-muted);
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+
+@media (hover: hover) {
+  .saina-pattern-close-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--saina-pattern-text);
+  }
+}
+
+.saina-pattern-divider {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.saina-pattern-bar-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.saina-pattern-chip {
+  color: rgba(238, 232, 218, 0.94);
+}
+
+.saina-pattern-preview-shell {
+  border: 1px solid rgba(216, 177, 106, 0.2);
+  background: rgba(6, 12, 16, 0.28);
+  -webkit-backdrop-filter: blur(20px) saturate(1.06);
+  backdrop-filter: blur(20px) saturate(1.06);
+}
+
+.saina-pattern-upsell-banner {
+  border: 1px solid var(--saina-pattern-glass-border);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 12, 16, 0.38) 0%,
+      rgba(6, 12, 16, 0.52) 100%
+    ),
+    linear-gradient(
+      120deg,
+      rgba(216, 177, 106, 0.1) 0%,
+      rgba(8, 16, 14, 0.28) 58%,
+      rgba(5, 72, 58, 0.22) 100%
+    );
+  -webkit-backdrop-filter: var(--saina-pattern-glass-blur);
+  backdrop-filter: var(--saina-pattern-glass-blur);
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 var(--saina-pattern-glass-highlight);
+}
+
+.saina-pattern-upsell-cta {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(5, 72, 58, 0.9);
+  color: var(--saina-pattern-text);
+  transition: background-color 0.18s ease;
+}
+
+@media (hover: hover) {
+  .saina-pattern-upsell-cta:hover {
+    background: rgba(5, 72, 58, 1);
+  }
 }

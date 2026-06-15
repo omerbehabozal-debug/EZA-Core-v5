@@ -33,7 +33,7 @@ export default function RelationshipSummaryCard({
       <div className="flex items-start gap-4">
         <div className="relative h-[4.5rem] w-[4.5rem] shrink-0">
           <svg className="h-full w-full -rotate-90" viewBox="0 0 64 64" aria-hidden>
-            <circle cx="32" cy="32" r="28" fill="none" stroke="#EFE8DA" strokeWidth="5" />
+            <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="5" />
             <circle
               cx="32"
               cy="32"
@@ -49,7 +49,7 @@ export default function RelationshipSummaryCard({
               <defs>
                 <linearGradient id="balanceRing" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#D8B16A" />
-                  <stop offset="100%" stopColor="#0F3D32" />
+                  <stop offset="100%" stopColor="#05483a" />
                 </linearGradient>
               </defs>
             ) : null}
@@ -66,24 +66,24 @@ export default function RelationshipSummaryCard({
         <div className="min-w-0 flex-1">
           <p
             className={cn(
-              'text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B6B62]',
-              preview && 'text-stone-400'
+              'text-[10px] font-semibold uppercase tracking-[0.14em] saina-pattern-text-label',
+              preview && 'opacity-60'
             )}
           >
             Genel Denge
           </p>
           <p
             className={cn(
-              'mt-1 text-base font-semibold leading-snug text-[#18332D]',
-              preview && 'text-stone-400'
+              'mt-1 text-base font-semibold leading-snug saina-pattern-text',
+              preview && 'opacity-60'
             )}
           >
             {label}
           </p>
           <p
             className={cn(
-              'mt-1.5 text-xs leading-relaxed text-[#667085]/90',
-              preview && 'text-stone-400'
+              'mt-1.5 text-xs leading-relaxed saina-pattern-text-muted',
+              preview && 'opacity-60'
             )}
           >
             {hint}

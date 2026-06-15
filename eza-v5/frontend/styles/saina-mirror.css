@@ -81,14 +81,6 @@ html:has(.saina-page) body {
     0 0 120px -32px rgba(216, 177, 106, 0.1);
 }
 
-.saina-app-root .saina-sidebar {
-  background:
-    radial-gradient(circle at 48px 48px, rgba(231, 180, 91, 0.07), transparent 130px),
-    linear-gradient(180deg, #07181a 0%, #051317 48%, #041114 100%);
-  border-right: 1px solid rgba(231, 180, 91, 0.1);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
-}
-
 .saina-app-root .saina-sidebar .saina-conv-title {
   color: rgba(245, 245, 240, 0.9);
 }
@@ -120,10 +112,29 @@ html:has(.saina-page) body {
   flex-shrink: 0;
   flex-direction: column;
   background:
-    radial-gradient(circle at 48px 48px, rgba(231, 180, 91, 0.07), transparent 130px),
-    linear-gradient(180deg, #07181a 0%, #051317 48%, #041114 100%);
+    radial-gradient(circle at 52px 48px, rgba(231, 180, 91, 0.07), transparent 130px),
+    linear-gradient(
+      180deg,
+      rgba(7, 24, 26, 0.96) 0%,
+      rgba(5, 19, 23, 0.94) 48%,
+      rgba(4, 17, 20, 0.96) 100%
+    );
+  -webkit-backdrop-filter: blur(14px) saturate(118%);
+  backdrop-filter: blur(14px) saturate(118%);
   border-right: 1px solid rgba(231, 180, 91, 0.1);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+@media (max-width: 768px) {
+  .saina-sidebar {
+    -webkit-backdrop-filter: blur(8px) saturate(108%);
+    backdrop-filter: blur(8px) saturate(108%);
+    background:
+      radial-gradient(circle at 52px 48px, rgba(231, 180, 91, 0.06), transparent 120px),
+      linear-gradient(180deg, rgba(7, 24, 26, 0.97) 0%, rgba(5, 19, 23, 0.96) 100%);
+  }
 }
 
 @media (min-width: 900px) {

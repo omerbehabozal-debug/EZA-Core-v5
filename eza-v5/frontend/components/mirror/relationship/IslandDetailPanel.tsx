@@ -29,7 +29,7 @@ const TREND_VIEW: Record<
     label: 'Dengede',
     sentence: 'Bu davranış dengede; istikrarlı bir biçimin.',
     Icon: Minus,
-    tone: 'text-[#667085]',
+    tone: 'saina-pattern-text-muted',
   },
   fading: {
     label: 'Azalıyor',
@@ -63,7 +63,7 @@ export default function IslandDetailPanel({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[#6B6B62]/70 transition-colors hover:bg-[#EFE8DA] hover:text-[#18332D] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D8B16A]/40"
+          className="saina-pattern-close-btn absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D8B16A]/40"
           aria-label="Ayrıntıyı kapat"
         >
           <X className="h-4 w-4" />
@@ -80,13 +80,13 @@ export default function IslandDetailPanel({
           >
             <span className="h-2 w-2 rounded-full" style={{ background: `${island.color}99` }} />
           </span>
-          <h3 className="text-lg font-semibold tracking-tight text-[#18332D]/85">{island.label}</h3>
+          <h3 className="text-lg font-semibold tracking-tight saina-pattern-text opacity-85">{island.label}</h3>
         </div>
 
-        <p className="relative mt-4 text-[15px] font-medium leading-relaxed text-[#172033]/80">
+        <p className="relative mt-4 text-[15px] font-medium leading-relaxed saina-pattern-text opacity-80">
           Bu alanda henüz yeterli davranış sinyali oluşmadı.
         </p>
-        <p className="relative mt-2 text-sm leading-relaxed text-[#667085]">
+        <p className="relative mt-2 text-sm leading-relaxed saina-pattern-text-muted">
           EZA bu davranış alanını gözlemliyor; bu yönde birkaç etkileşim biriktiğinde ada canlanıp
           haritada belirginleşecek.
         </p>
@@ -109,7 +109,7 @@ export default function IslandDetailPanel({
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[#6B6B62]/70 transition-colors hover:bg-[#EFE8DA] hover:text-[#18332D] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D8B16A]/40"
+        className="saina-pattern-close-btn absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D8B16A]/40"
         aria-label="Ayrıntıyı kapat"
       >
         <X className="h-4 w-4" />
@@ -126,17 +126,17 @@ export default function IslandDetailPanel({
         >
           <span className="h-2 w-2 rounded-full" style={{ background: island.color }} />
         </span>
-        <h3 className="text-lg font-semibold tracking-tight text-[#172033]">{island.label}</h3>
+        <h3 className="text-lg font-semibold tracking-tight saina-pattern-text">{island.label}</h3>
       </div>
 
       {/* Anlam cümlesi — veri değil, his */}
-      <p className="relative mt-4 text-[15px] font-medium leading-relaxed text-[#172033]">
+      <p className="relative mt-4 text-[15px] font-medium leading-relaxed saina-pattern-text">
         {trend.sentence}
       </p>
 
-      <div className="relative mt-4 flex items-center gap-5 border-t border-stone-100 pt-4">
+      <div className="relative mt-4 flex items-center gap-5 border-t border-white/10 pt-4">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#667085]/80">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] saina-pattern-text-muted opacity-80">
             Durum
           </p>
           <p className={cn('mt-1 inline-flex items-center gap-1 text-sm font-semibold', trend.tone)}>
@@ -144,19 +144,19 @@ export default function IslandDetailPanel({
             {trend.label}
           </p>
         </div>
-        <div className="h-8 w-px bg-stone-100" aria-hidden />
+        <div className="saina-pattern-divider h-8 w-px" aria-hidden />
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#667085]/80">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] saina-pattern-text-muted opacity-80">
             Pay
           </p>
-          <p className="mt-1 text-sm font-semibold tabular-nums text-[#172033]/70">
+          <p className="mt-1 text-sm font-semibold tabular-nums saina-pattern-text opacity-70">
             %{island.percent}
           </p>
         </div>
       </div>
 
       {island.description ? (
-        <p className="relative mt-4 text-sm leading-relaxed text-[#475467]">{island.description}</p>
+        <p className="relative mt-4 text-sm leading-relaxed saina-pattern-text-muted">{island.description}</p>
       ) : null}
     </article>
   );
