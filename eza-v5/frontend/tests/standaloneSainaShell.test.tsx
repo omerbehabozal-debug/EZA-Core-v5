@@ -18,6 +18,7 @@ import {
   SAINA_MOBILE_MIRROR_CTA_EMPTY,
   SAINA_MOBILE_MIRROR_CTA_SIGNAL_READY,
   SAINA_POWERED,
+  SAINA_PREMIUM_OBSERVING,
   SAINA_SAFE_MODE_LABEL,
   SAINA_TAGLINE,
   SAINA_USER_LABEL,
@@ -223,26 +224,30 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
 });
 
 describe('MessageList / ChatBubble variant=saina (Sprint B.2B)', () => {
-  it('renders user on right and SAINA on left with labels', () => {
+  it('renders user bubble without identity chrome and SAINA brand only on first assistant turn', () => {
     const { container } = render(
       <MessageList
         variant="saina"
         messages={[
           { id: '1', text: 'Merhaba', isUser: true },
           { id: '2', text: 'Selam', isUser: false },
+          { id: '3', text: 'Devam', isUser: false },
         ]}
         isLoading={false}
       />
     );
 
     expect(screen.getByTestId('saina-msg-user')).toBeInTheDocument();
-    expect(screen.getByTestId('saina-msg-ai')).toBeInTheDocument();
-    expect(screen.getByText(SAINA_USER_LABEL)).toBeInTheDocument();
-    expect(screen.getByText(SAINA_ASSISTANT_LABEL)).toBeInTheDocument();
+    expect(screen.getAllByTestId('saina-msg-ai')).toHaveLength(2);
+    expect(screen.queryByText(SAINA_USER_LABEL)).not.toBeInTheDocument();
+    expect(screen.getAllByText(SAINA_ASSISTANT_LABEL)).toHaveLength(1);
+    expect(screen.getAllByTestId('saina-msg-ai-header')).toHaveLength(1);
+    expect(container.querySelector('.saina-msg-avatar')).toBeNull();
     expect(container.querySelector('.saina-msg-row--user')).toBeTruthy();
     expect(container.querySelector('.saina-msg-row--ai')).toBeTruthy();
     expect(screen.getByText('Merhaba')).toBeInTheDocument();
     expect(screen.getByText('Selam')).toBeInTheDocument();
+    expect(screen.getByText('Devam')).toBeInTheDocument();
   });
 
   it('preserves safety badge and feedback in saina variant', () => {
@@ -614,7 +619,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="premium" />);
 
     expect(screen.getByText('SAINA Premium Aktif')).toBeInTheDocument();
-    expect(screen.getByText('Şu an ilişkiyi gözlemliyor...')).toBeInTheDocument();
+    expect(screen.getByText(SAINA_PREMIUM_OBSERVING)).toBeInTheDocument();
     expect(screen.getAllByText('Conversation Mirror').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('İlişki Haritası').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();

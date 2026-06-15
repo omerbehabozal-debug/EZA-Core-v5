@@ -3,6 +3,7 @@
 import { useCallback, useState, type KeyboardEvent } from 'react';
 import { ArrowUp, Mic } from 'lucide-react';
 import {
+  SAINA_BRAND,
   SAINA_CHIPS_TOGGLE,
   SAINA_COMPOSER_PLACEHOLDER,
   SAINA_QUICK_CHIPS,
@@ -12,6 +13,7 @@ import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
 import SainaGeometricMark from './SainaGeometricMark';
 import SainaHeroScene from './SainaHeroScene';
 import SainaPageTopBar from './SainaPageTopBar';
+import SainaMessageBody from '@/components/standalone/SainaMessageBody';
 
 export type SainaMockMessage = {
   role: 'user' | 'ai';
@@ -95,27 +97,41 @@ export default function SainaConversationMain({
             <div className="saina-chat-float">
               <div className="saina-chat-card" data-testid="saina-chat-card">
                 <div className="saina-chat-messages">
-                  {messages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`saina-msg-row saina-msg-row--${msg.role === 'user' ? 'user' : 'ai'}`}
-                      data-testid={`saina-msg-${msg.role}`}
-                    >
-                      {msg.role === 'ai' ? (
-                        <div className="saina-msg-avatar saina-msg-avatar--saina">
-                          <SainaGeometricMark size={18} variant="gold" />
-                        </div>
-                      ) : (
-                        <div className="saina-msg-avatar">{msg.initial}</div>
-                      )}
-                      <div className="saina-msg-content">
-                        <p className="saina-msg-label">{msg.label}</p>
-                        <div className={msg.role === 'user' ? 'saina-msg-user' : 'saina-msg-ai'}>
-                          {msg.text}
+                  {messages.map((msg, i) => {
+                    const isFirstAi =
+                      msg.role === 'ai' &&
+                      !messages.slice(0, i).some((prior) => prior.role === 'ai');
+
+                    return (
+                      <div
+                        key={i}
+                        className={`saina-msg-row saina-msg-row--${msg.role === 'user' ? 'user' : 'ai'}`}
+                        data-testid={`saina-msg-${msg.role}`}
+                      >
+                        <div className="saina-msg-content">
+                          {isFirstAi ? (
+                            <div className="saina-msg-ai-header">
+                              <SainaGeometricMark
+                                size={18}
+                                variant="gold"
+                                className="saina-msg-ai-mark"
+                              />
+                              <span className="saina-msg-ai-title">{SAINA_BRAND}</span>
+                            </div>
+                          ) : null}
+                          <div
+                            className={
+                              msg.role === 'user'
+                                ? 'saina-msg-user saina-msg-user--standalone'
+                                : 'saina-msg-ai'
+                            }
+                          >
+                            <SainaMessageBody message={msg.text} role={msg.role} />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

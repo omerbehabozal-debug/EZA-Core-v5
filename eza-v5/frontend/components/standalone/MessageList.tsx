@@ -8,7 +8,6 @@ import LoadingDots from './LoadingDots';
 import TypingIndicator from './TypingIndicator';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
-import SainaGeometricMark from '@/components/saina/SainaGeometricMark';
 
 interface Message {
   id: string;
@@ -34,9 +33,6 @@ interface MessageListProps {
 function SainaTypingRow() {
   return (
     <div className="saina-msg-row saina-msg-row--ai" data-testid="saina-typing-row">
-      <div className="saina-msg-avatar saina-msg-avatar--saina">
-        <SainaGeometricMark size={18} variant="gold" />
-      </div>
       <div className="saina-msg-content">
         <div className="saina-msg-ai saina-msg-ai--typing">
           <LoadingDots />
@@ -65,22 +61,29 @@ export default function MessageList({
 
   const content = (
     <>
-      {messages.map((message) => (
-        <ChatBubble
-          key={message.id}
-          message={message.text}
-          isUser={message.isUser}
-          userScore={message.userScore}
-          assistantScore={message.assistantScore}
-          safety={message.safety}
-          safeOnlyMode={message.safeOnlyMode}
-          timestamp={message.timestamp}
-          behavioral={message.behavioral}
-          feedback={message.feedback}
-          variant={variant}
-          userInitial={userInitial}
-        />
-      ))}
+      {messages.map((message, index) => {
+        const isFirstAssistantMessage =
+          !message.isUser &&
+          !messages.slice(0, index).some((prior) => !prior.isUser);
+
+        return (
+          <ChatBubble
+            key={message.id}
+            message={message.text}
+            isUser={message.isUser}
+            userScore={message.userScore}
+            assistantScore={message.assistantScore}
+            safety={message.safety}
+            safeOnlyMode={message.safeOnlyMode}
+            timestamp={message.timestamp}
+            behavioral={message.behavioral}
+            feedback={message.feedback}
+            variant={variant}
+            userInitial={userInitial}
+            isFirstAssistantMessage={isFirstAssistantMessage}
+          />
+        );
+      })}
 
       {isTyping ? (
         isSaina ? (

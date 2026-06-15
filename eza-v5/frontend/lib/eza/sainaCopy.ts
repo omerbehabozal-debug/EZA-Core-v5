@@ -150,7 +150,7 @@ export const SAINA_FREE_CTA = SAINA_ANON_FREE_CTA;
 /** @deprecated Use SAINA_ANON_FREE_NOTE */
 export const SAINA_FREE_NOTE = SAINA_ANON_FREE_NOTE;
 
-export const SAINA_PREMIUM_OBSERVING = 'Şu an ilişkiyi gözlemliyor...';
+export const SAINA_PREMIUM_OBSERVING = 'Şu an ilişki gözlemleniyor...';
 
 export const SAINA_PREMIUM_MIRROR_LABEL = 'Conversation Mirror';
 

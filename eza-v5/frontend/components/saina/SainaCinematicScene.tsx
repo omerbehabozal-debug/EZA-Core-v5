@@ -41,12 +41,13 @@ export default function SainaCinematicScene() {
                 <span
                   key={lamp.id}
                   className="saina-scene-live__lamp"
+                  data-lamp-id={lamp.id}
                   style={{
                     left: `${lamp.x}%`,
                     top: `${lamp.y}%`,
                     width: `${lamp.w}%`,
                     height: `${lamp.h}%`,
-                    backgroundColor: lamp.color,
+                    ['--lamp-core' as string]: lamp.color,
                     animationDelay: `${lamp.delay}s`,
                   }}
                 />

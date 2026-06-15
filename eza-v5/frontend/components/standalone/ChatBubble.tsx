@@ -7,8 +7,9 @@ import BehavioralSummary from './BehavioralSummary';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import StandaloneFeedbackChips from './StandaloneFeedbackChips';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
-import { SAINA_ASSISTANT_LABEL, SAINA_USER_LABEL } from '@/lib/eza/sainaCopy';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 import SainaGeometricMark from '@/components/saina/SainaGeometricMark';
+import SainaMessageBody from './SainaMessageBody';
 
 export type ChatBubbleVariant = 'legacy' | 'saina';
 
@@ -24,6 +25,8 @@ interface ChatBubbleProps {
   feedback?: StandaloneFeedbackContext | null;
   variant?: ChatBubbleVariant;
   userInitial?: string;
+  /** First assistant turn in thread — shows SAINA brand header. */
+  isFirstAssistantMessage?: boolean;
 }
 
 export default function ChatBubble({
@@ -38,6 +41,7 @@ export default function ChatBubble({
   feedback,
   variant = 'legacy',
   userInitial = 'E',
+  isFirstAssistantMessage = true,
 }: ChatBubbleProps) {
   if (variant === 'saina') {
     const rowClass = isUser ? 'saina-msg-row--user' : 'saina-msg-row--ai';
@@ -47,17 +51,15 @@ export default function ChatBubble({
         className={`saina-msg-row ${rowClass}`}
         data-testid={isUser ? 'saina-msg-user' : 'saina-msg-ai'}
       >
-        {isUser ? (
-          <div className="saina-msg-avatar">{userInitial}</div>
-        ) : (
-          <div className="saina-msg-avatar saina-msg-avatar--saina">
-            <SainaGeometricMark size={18} variant="gold" />
-          </div>
-        )}
         <div className="saina-msg-content">
-          <p className="saina-msg-label">{isUser ? SAINA_USER_LABEL : SAINA_ASSISTANT_LABEL}</p>
+          {!isUser && isFirstAssistantMessage ? (
+            <div className="saina-msg-ai-header" data-testid="saina-msg-ai-header">
+              <SainaGeometricMark size={18} variant="gold" className="saina-msg-ai-mark" />
+              <span className="saina-msg-ai-title">{SAINA_BRAND}</span>
+            </div>
+          ) : null}
           <div className={isUser ? 'saina-msg-user saina-msg-user--standalone' : 'saina-msg-ai'}>
-            {message}
+            <SainaMessageBody message={message} role={isUser ? 'user' : 'ai'} />
           </div>
           <div className="saina-msg-meta">
             {isUser ? (
@@ -68,6 +70,7 @@ export default function ChatBubble({
                     ezaScore={userScore}
                     context="user"
                     align="end"
+                    variant="saina"
                   />
                 </div>
               ) : null
@@ -82,6 +85,7 @@ export default function ChatBubble({
                   ezaScore={assistantScore}
                   context="assistant"
                   align="start"
+                  variant="saina"
                 />
               </div>
             )}
