@@ -9,7 +9,7 @@ import {
   SAINA_MIRROR_TITLE,
   SAINA_CREATE_MIRROR,
 } from '@/lib/eza/sainaCopy';
-import { useMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
+import { useMirrorEntries, useActiveConversationMirrorId } from '@/components/standalone/MirrorEntriesContext';
 import StandaloneObservationExperience from '@/components/standalone/StandaloneObservationExperience';
 
 type SainaStandaloneMirrorPanelProps = {
@@ -23,6 +23,7 @@ export default function SainaStandaloneMirrorPanel({
   onCollapse,
 }: SainaStandaloneMirrorPanelProps) {
   const entries = useMirrorEntries();
+  const conversationId = useActiveConversationMirrorId();
 
   return (
     <aside
@@ -56,6 +57,7 @@ export default function SainaStandaloneMirrorPanel({
           <StandaloneObservationExperience
             entries={entries}
             embedded
+            conversationId={conversationId ?? undefined}
             createButtonLabel={SAINA_CREATE_MIRROR}
           />
         </div>

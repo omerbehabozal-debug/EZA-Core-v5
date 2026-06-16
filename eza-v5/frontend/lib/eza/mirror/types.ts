@@ -27,6 +27,8 @@ import type { DailyAvatarType } from '@/lib/eza/mirror/dailyAvatarRegistry';
 /** Minimum interactions before mirror insights are considered reliable. */
 export const MIRROR_MIN_SAMPLES = 3;
 
+export type MirrorPipelineVersion = 'v1' | 'v2';
+
 export type MirrorDataSource = 'local_history';
 
 export type MirrorIslandTrend = 'growing' | 'stable' | 'fading';
@@ -149,6 +151,11 @@ export interface DailyMirrorCardModel {
   mirrorMoment?: string;
   sceneArchetypeId?: import('@/lib/eza/mirror/narrativeTypes').SceneArchetypeId;
   sceneArchetypeLabel?: string;
+  /** V2 cinematic poster pipeline metadata. */
+  mirrorPipelineVersion?: MirrorPipelineVersion;
+  mirrorSeason?: string;
+  closingLine?: string;
+  mirrorV2Payload?: import('@/lib/eza/mirror/conversationMirrorV2/types').SainaMirrorPayload;
 }
 
 export interface RelationshipPatternModel {
@@ -169,6 +176,7 @@ export interface MirrorStateMeta {
   source: MirrorDataSource;
   generatedAt: string;
   warnings: string[];
+  pipelineVersion?: MirrorPipelineVersion;
 }
 
 export interface MirrorStateResult {
@@ -184,6 +192,8 @@ export interface BuildMirrorStateOptions {
   seed?: string;
   /** Override generation timestamp (tests). */
   generatedAt?: string;
+  /** Active chat thread id — Conversation Mirror scope. */
+  conversationId?: string;
 }
 
 export type { SavedBehavioralEntry };

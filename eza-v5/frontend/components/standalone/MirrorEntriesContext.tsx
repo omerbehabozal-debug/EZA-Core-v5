@@ -15,19 +15,33 @@ import {
   type SavedBehavioralEntry,
 } from '@/lib/behavioralHistory';
 
+/** Sentinel while chat shell is active but chat id is not yet assigned. */
+export const PENDING_CONVERSATION_MIRROR_ID = '__pending_conversation__';
+
 type MirrorEntriesContextValue = {
   entries: SavedBehavioralEntry[];
-  setConversationEntries: (entries: SavedBehavioralEntry[]) => void;
+  activeConversationId: string | null;
+  setConversationEntries: (
+    entries: SavedBehavioralEntry[],
+    conversationId?: string | null
+  ) => void;
 };
 
 const MirrorEntriesContext = createContext<MirrorEntriesContextValue>({
   entries: [],
+  activeConversationId: null,
   setConversationEntries: () => {},
 });
 
-/** Ayna alt görünümlerinin (Günlük / İlişki / sohbet paneli) paylaştığı davranış geçmişi. */
+/** Conversation Mirror entries — scoped to the active chat when in chat shell. */
 export function useMirrorEntries(): SavedBehavioralEntry[] {
   return useContext(MirrorEntriesContext).entries;
+}
+
+export function useActiveConversationMirrorId(): string | null {
+  const id = useContext(MirrorEntriesContext).activeConversationId;
+  if (!id || id === PENDING_CONVERSATION_MIRROR_ID) return null;
+  return id;
 }
 
 export function useSetConversationMirrorEntries(): MirrorEntriesContextValue['setConversationEntries'] {
@@ -36,7 +50,10 @@ export function useSetConversationMirrorEntries(): MirrorEntriesContextValue['se
 
 export function MirrorEntriesProvider({ children }: { children: ReactNode }) {
   const [globalEntries, setGlobalEntries] = useState<SavedBehavioralEntry[]>([]);
-  const [conversationEntries, setConversationEntries] = useState<SavedBehavioralEntry[]>([]);
+  const [conversationEntries, setConversationEntriesState] = useState<SavedBehavioralEntry[]>(
+    []
+  );
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   const refreshGlobal = useCallback(() => {
     setGlobalEntries(readBehavioralHistory());
@@ -58,14 +75,24 @@ export function MirrorEntriesProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshGlobal]);
 
-  const entries = useMemo(
-    () => (conversationEntries.length > 0 ? conversationEntries : globalEntries),
-    [conversationEntries, globalEntries]
+  const setConversationEntries = useCallback(
+    (entries: SavedBehavioralEntry[], conversationId?: string | null) => {
+      setConversationEntriesState(entries);
+      if (conversationId !== undefined) {
+        setActiveConversationId(conversationId);
+      }
+    },
+    []
   );
 
+  const entries = useMemo(() => {
+    if (activeConversationId !== null) return conversationEntries;
+    return globalEntries;
+  }, [activeConversationId, conversationEntries, globalEntries]);
+
   const value = useMemo(
-    () => ({ entries, setConversationEntries }),
-    [entries, setConversationEntries]
+    () => ({ entries, activeConversationId, setConversationEntries }),
+    [entries, activeConversationId, setConversationEntries]
   );
 
   return (

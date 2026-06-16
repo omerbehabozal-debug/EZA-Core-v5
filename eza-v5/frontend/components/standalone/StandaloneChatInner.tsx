@@ -37,7 +37,7 @@ import {
   buildConversationMirrorEntries,
   persistChatTurnFromResponse,
 } from '@/lib/eza/mirror/conversationMirrorEntries';
-import { useSetConversationMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
+import { useSetConversationMirrorEntries, PENDING_CONVERSATION_MIRROR_ID } from '@/components/standalone/MirrorEntriesContext';
 import {
   CHATS_UPDATED_EVENT,
   createStandaloneChat,
@@ -347,9 +347,12 @@ export default function StandaloneChatInner() {
   }, [refreshPlan]);
 
   useEffect(() => {
-    setConversationMirrorEntries(buildConversationMirrorEntries(messages));
-    return () => setConversationMirrorEntries([]);
-  }, [messages, setConversationMirrorEntries]);
+    setConversationMirrorEntries(
+      buildConversationMirrorEntries(messages),
+      chatId ?? PENDING_CONVERSATION_MIRROR_ID
+    );
+    return () => setConversationMirrorEntries([], null);
+  }, [messages, chatId, setConversationMirrorEntries]);
 
   const sainaConversations = useMemo(
     () => mapArchivesToSainaConversations(archives),

@@ -55,6 +55,7 @@ export const TOPIC_CUE_RULES: readonly TopicCueRule[] = [
   rule('3 serisi', 'vehicle', ['3 serisi', '3 series', 'serie 3']),
 
   rule('özbekistan', 'travel', ['özbekistan', 'uzbekistan', 'özbek']),
+  rule('japonya', 'travel', ['japonya', 'japan', 'tokyo', 'kyoto', 'osaka']),
   rule('semerkant', 'travel', ['semerkant', 'samarkand', 'registan']),
   rule('buhara', 'travel', ['buhara', 'bukhara', 'hive']),
   rule('seyahat', 'travel', ['seyahat', 'travel', 'trip', 'journey', 'gezi']),
@@ -80,11 +81,26 @@ export const TOPIC_CUE_RULES: readonly TopicCueRule[] = [
   rule('risk', 'finance', ['risk', 'saving', 'spend']),
 
   rule('sağlık', 'health', ['sağlık', 'health', 'wellness', 'fitness']),
-  rule('uyku', 'health', ['uyku', 'sleep', 'beslenme', 'nutrition']),
+  rule('beslenme', 'health', ['beslenme', 'nutrition', 'diet']),
+  rule('yürüyüş', 'health', ['yürüyüş', 'walk', 'walking', 'yürüyus']),
+  rule('diş macunu', 'health', ['diş macunu', 'dis macunu', 'toothpaste', 'diş macun']),
+  rule('florür', 'health', ['florür', 'florurlu', 'florursuz', 'fluoride']),
+  rule('hassas diş', 'health', ['hassas diş', 'hassas dişler', 'hassasiyet']),
+  rule('beyazlatıcı', 'health', [
+    'beyazlatıcı',
+    'beyazlatici',
+    'beyazlatma',
+    'whitening',
+    'beyazlatıcı diş',
+    'beyazlatici dis',
+  ]),
+  rule('uyku', 'health', ['uyku', 'sleep']),
   rule('iyi oluş', 'health', ['iyi oluş', 'wellbeing']),
 
   rule('yemek', 'food_culture', ['yemek', 'food', 'meal', 'ne yiyebilirim', 'ne yiyelim']),
   rule('tarif', 'food_culture', ['tarif', 'recipe', 'mutfak', 'kitchen', 'cook', 'cooking']),
+  rule('baklava', 'food_culture', ['baklava']),
+  rule('sütlaç', 'food_culture', ['sütlaç', 'sutlac']),
   rule('gluten', 'food_culture', ['gluten', 'culinary', 'beslen']),
 
   rule('aile', 'family', ['aile', 'family', 'ebeveyn', 'parent', 'çocuk', 'child']),
