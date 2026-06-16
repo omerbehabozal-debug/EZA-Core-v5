@@ -627,7 +627,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders premium plan card without quota when planTier is premium', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="premium" />);
 
-    expect(screen.getByText('SAINA Premium Aktif')).toBeInTheDocument();
+    expect(screen.getByText(/SAINA Premium Aktif/)).toBeInTheDocument();
     expect(screen.getByText(SAINA_PREMIUM_OBSERVING)).toBeInTheDocument();
     expect(screen.getAllByText('Conversation Mirror').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('İlişki Haritası').length).toBeGreaterThanOrEqual(1);

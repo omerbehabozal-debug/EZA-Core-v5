@@ -109,7 +109,7 @@ export const SAINA_REGENERATE = 'Yeniden Oluştur';
 
 export const SAINA_FREE_TITLE = 'SAINA Free';
 
-export const SAINA_PREMIUM_TITLE = 'SAINA Premium Aktif';
+export const SAINA_PREMIUM_TITLE = 'SAINA Premium Aktif ✦';
 
 export const SAINA_PLAN_ACTIVE = 'Aktif';
 

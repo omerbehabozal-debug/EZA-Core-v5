@@ -356,7 +356,7 @@ export default function SainaConversationSidebar({
             <button
               type="button"
               className={cn(
-                'saina-pattern-nav saina-pattern-nav--dark',
+                'saina-pattern-nav saina-pattern-nav--dark saina-relationship-card',
                 activeSection === 'pattern' && 'saina-pattern-nav--active'
               )}
               onClick={handlePatternOpen}
