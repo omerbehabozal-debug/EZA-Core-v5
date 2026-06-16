@@ -87,11 +87,16 @@ type DailyMirrorStatus =
 
 interface StandaloneObservationExperienceProps {
   entries: SavedBehavioralEntry[];
+  /** Embedded in SAINA conversation mirror column. */
+  embedded?: boolean;
+  createButtonLabel?: string;
 }
 
 /** Ayna → Günlük Ayna görünümü (üst nav ve ortak kabuk artık mirror layout'ta). */
 export default function StandaloneObservationExperience({
   entries,
+  embedded = false,
+  createButtonLabel,
 }: StandaloneObservationExperienceProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -227,6 +232,36 @@ export default function StandaloneObservationExperience({
     },
     [commitMirrorReady, isPlus, resetGeneratedCardState]
   );
+
+  const showExistingMirrorCard = useCallback(() => {
+    const mirrorEntries = entriesForDisplayedMirror(entries, todaysSnapshot);
+    const state = buildMirrorState(mirrorEntries);
+    if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) {
+      return false;
+    }
+
+    hydratedFromSnapshotRef.current = true;
+    const card = state.dailyMirrorCard;
+    setGeneratedDailyCard(card);
+    setGeneratedDailyMeta(state.meta);
+    setStyleLensSession(resolveStyleLensSessionForCard(card));
+    setHybridTextFallback(false);
+
+    const sceneCache = readMirrorSceneCache(card);
+    if (sceneCache) {
+      setSceneImageUrl(sceneCache.sceneImageUrl);
+      setSceneImageStatus('ready');
+      setSceneExtras(sceneCache.provider ? { imageProvider: sceneCache.provider } : {});
+      sceneAutoKeyRef.current = null;
+    } else {
+      setSceneImageUrl(null);
+      setSceneImageStatus('idle');
+      setSceneExtras({});
+      sceneAutoKeyRef.current = null;
+    }
+    setDailyStatus('ready');
+    return true;
+  }, [entries, todaysSnapshot]);
 
   /** Sayfa yenileme — bugünkü snapshot ile kartı sessizce göster; aynı veride sahne üretme. */
   useEffect(() => {
@@ -473,6 +508,9 @@ export default function StandaloneObservationExperience({
     }
 
     if (snap && !hasNewDataSinceSnapshot(entries, snap)) {
+      if (!showExistingMirrorCard()) {
+        runMirrorWithReveal(entries);
+      }
       return;
     }
 
@@ -487,7 +525,7 @@ export default function StandaloneObservationExperience({
     }
 
     runMirrorWithReveal(entries);
-  }, [entries, isPlus, resetGeneratedCardState, runMirrorWithReveal]);
+  }, [entries, isPlus, resetGeneratedCardState, runMirrorWithReveal, showExistingMirrorCard]);
 
   const handleMirrorRefresh = useCallback(() => {
     const snap = readTodaysSnapshot();
@@ -654,7 +692,7 @@ export default function StandaloneObservationExperience({
           {isSceneLoading ? (
             <MirrorLoadingExperience sceneImageStatus={sceneImageStatus} />
           ) : isScenePosterVisible ? (
-            <DailyMirrorCardEntrance className={cn('w-full', ms.dailyPosterFrame)}>
+            <DailyMirrorCardEntrance className={cn('w-full', ms.dailyPosterFrame, embedded && 'saina-mirror-embedded-poster')}>
               <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
                 <DailyMirrorPosterCard
                   card={cardForRender}
@@ -741,7 +779,15 @@ export default function StandaloneObservationExperience({
     }
 
     return (
-      <DailyMirrorCreatePrompt variant={promptVariant} onGenerate={handleGenerateDailyMirror} />
+      <DailyMirrorCreatePrompt
+        variant={promptVariant}
+        onGenerate={handleGenerateDailyMirror}
+        buttonLabel={createButtonLabel}
+        compact={embedded}
+        embedded={embedded}
+        sampleCount={entries.length}
+        minSamples={MIRROR_MIN_SAMPLES}
+      />
     );
   };
 
@@ -750,6 +796,7 @@ export default function StandaloneObservationExperience({
       <div
         className={cn(
           ms.dailyStage,
+          embedded && 'saina-mirror-embedded-stage',
           'overflow-x-hidden overflow-y-auto',
           dailyStatus === 'ready' && ms.dailyStageReady,
           dailyStatus === 'idle' ||

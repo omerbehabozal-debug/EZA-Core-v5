@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react';
@@ -14,23 +15,36 @@ import {
   type SavedBehavioralEntry,
 } from '@/lib/behavioralHistory';
 
-const MirrorEntriesContext = createContext<SavedBehavioralEntry[]>([]);
+type MirrorEntriesContextValue = {
+  entries: SavedBehavioralEntry[];
+  setConversationEntries: (entries: SavedBehavioralEntry[]) => void;
+};
 
-/** Ayna alt görünümlerinin (Günlük / İlişki) paylaştığı davranış geçmişi. */
+const MirrorEntriesContext = createContext<MirrorEntriesContextValue>({
+  entries: [],
+  setConversationEntries: () => {},
+});
+
+/** Ayna alt görünümlerinin (Günlük / İlişki / sohbet paneli) paylaştığı davranış geçmişi. */
 export function useMirrorEntries(): SavedBehavioralEntry[] {
-  return useContext(MirrorEntriesContext);
+  return useContext(MirrorEntriesContext).entries;
+}
+
+export function useSetConversationMirrorEntries(): MirrorEntriesContextValue['setConversationEntries'] {
+  return useContext(MirrorEntriesContext).setConversationEntries;
 }
 
 export function MirrorEntriesProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<SavedBehavioralEntry[]>([]);
+  const [globalEntries, setGlobalEntries] = useState<SavedBehavioralEntry[]>([]);
+  const [conversationEntries, setConversationEntries] = useState<SavedBehavioralEntry[]>([]);
 
-  const refresh = useCallback(() => {
-    setItems(readBehavioralHistory());
+  const refreshGlobal = useCallback(() => {
+    setGlobalEntries(readBehavioralHistory());
   }, []);
 
   useEffect(() => {
-    refresh();
-    const onUpdate = () => refresh();
+    refreshGlobal();
+    const onUpdate = () => refreshGlobal();
     window.addEventListener(BEHAVIORAL_HISTORY_UPDATED, onUpdate);
     window.addEventListener('focus', onUpdate);
     const onVisibility = () => {
@@ -42,9 +56,19 @@ export function MirrorEntriesProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', onUpdate);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [refresh]);
+  }, [refreshGlobal]);
+
+  const entries = useMemo(
+    () => (conversationEntries.length > 0 ? conversationEntries : globalEntries),
+    [conversationEntries, globalEntries]
+  );
+
+  const value = useMemo(
+    () => ({ entries, setConversationEntries }),
+    [entries, setConversationEntries]
+  );
 
   return (
-    <MirrorEntriesContext.Provider value={items}>{children}</MirrorEntriesContext.Provider>
+    <MirrorEntriesContext.Provider value={value}>{children}</MirrorEntriesContext.Provider>
   );
 }

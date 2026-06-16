@@ -2540,8 +2540,89 @@ html:has(.saina-page) body {
 .saina-msg-prose p + p,
 .saina-msg-prose p + .saina-msg-prose-list,
 .saina-msg-prose-list + p,
-.saina-msg-prose-list + .saina-msg-prose-list {
+.saina-msg-prose-list + .saina-msg-prose-list,
+.saina-msg-prose--markdown > :not(:first-child) {
   margin-top: 1.05rem;
+}
+
+.saina-msg-prose-list--ordered {
+  list-style: decimal;
+}
+
+.saina-msg-prose-strong {
+  font-weight: 600;
+  color: var(--saina-glass-text, rgba(238, 232, 218, 0.96));
+}
+
+.saina-msg-prose-em {
+  font-style: italic;
+  color: var(--saina-glass-text-muted, rgba(208, 198, 180, 0.9));
+}
+
+.saina-msg-prose-link {
+  color: var(--saina-logo-gold, #e7b45b);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.saina-msg-prose-link:hover {
+  color: rgba(231, 180, 91, 0.88);
+}
+
+.saina-msg-prose-code {
+  border-radius: 0.35rem;
+  border: 1px solid rgba(216, 177, 106, 0.22);
+  background: rgba(6, 12, 16, 0.36);
+  padding: 0.1rem 0.35rem;
+  font-size: 0.88em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.saina-msg-prose-pre {
+  margin: 0;
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(216, 177, 106, 0.22);
+  background: rgba(6, 12, 16, 0.42);
+  padding: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.saina-msg-prose-pre code {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+.saina-msg-prose-heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: var(--saina-glass-text, rgba(238, 232, 218, 0.96));
+}
+
+.saina-msg-prose-subheading {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--saina-glass-text, rgba(238, 232, 218, 0.94));
+}
+
+.saina-msg-prose-quote {
+  margin: 0;
+  border-left: 2px solid rgba(216, 177, 106, 0.42);
+  padding-left: 0.875rem;
+  color: var(--saina-glass-text-muted, rgba(208, 198, 180, 0.88));
+  font-style: italic;
+}
+
+.saina-msg-prose--markdown > :first-child {
+  margin-top: 0;
 }
 
 .saina-msg-prose-list {
@@ -3074,9 +3155,44 @@ html:has(.saina-page) body {
   flex: 1;
   flex-direction: column;
   gap: 0.75rem;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   padding: 1rem 1.125rem;
+}
+
+.saina-mirror-panel-experience {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.saina-mirror-embedded-stage {
+  min-height: 0;
+  flex: 1;
+  justify-content: flex-start !important;
+  padding: 0 !important;
+  gap: 0.5rem !important;
+}
+
+.saina-mirror-embedded-poster {
+  width: 100% !important;
+  max-height: min(52vh, 28rem) !important;
+  max-width: 100% !important;
+}
+
+.saina-mirror-create-prompt--compact h2 {
+  font-size: 1rem !important;
+}
+
+.saina-mirror-create-prompt--compact p {
+  font-size: 11px !important;
+}
+
+.saina-mirror-how--compact {
+  flex-shrink: 0;
+  padding-top: 0.25rem;
 }
 
 .saina-mirror-header {

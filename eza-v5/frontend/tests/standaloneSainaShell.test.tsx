@@ -3,13 +3,21 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/context/OrganizationContext', () => ({
   useOrganization: () => ({ currentOrganization: null }),
 }));
+
+vi.mock('@/components/standalone/StandaloneObservationExperience', () => ({
+  default: ({ createButtonLabel }: { createButtonLabel?: string }) => (
+    <div data-testid="saina-mirror-experience-stub">
+      <button type="button">{createButtonLabel ?? 'Ayna Oluştur'}</button>
+    </div>
+  ),
+}));
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
   SAINA_ANALYSIS_MODEL_LABEL,
   SAINA_ASSISTANT_LABEL,
   SAINA_BRAND,
   SAINA_COMPOSER_PLACEHOLDER,
-  SAINA_EMPTY_TITLE,
+  SAINA_CREATE_MIRROR,
   SAINA_HERO_DEFAULT_TITLE,
   SAINA_MIRROR_COLLAPSE_LABEL,
   SAINA_MIRROR_EXPAND_LABEL,
@@ -92,7 +100,8 @@ describe('SainaStandaloneShell (Sprint B.2A)', () => {
 
     fireEvent.click(screen.getByLabelText(SAINA_MIRROR_EXPAND_LABEL));
     expect(screen.getByTestId('saina-standalone-mirror-panel')).toBeInTheDocument();
-    expect(screen.getByText(SAINA_EMPTY_TITLE)).toBeInTheDocument();
+    expect(screen.getByTestId('saina-mirror-experience-stub')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: SAINA_CREATE_MIRROR })).toBeInTheDocument();
     expect(screen.queryByTestId('saina-mirror-expand-pill')).not.toBeInTheDocument();
   });
 

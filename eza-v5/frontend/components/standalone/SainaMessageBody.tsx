@@ -1,4 +1,4 @@
-import { splitSainaMessageIntoBlocks } from '@/lib/eza/sainaMessageBlocks';
+import SainaMarkdown from './SainaMarkdown';
 
 type SainaMessageBodyProps = {
   message: string;
@@ -6,25 +6,14 @@ type SainaMessageBodyProps = {
 };
 
 export default function SainaMessageBody({ message, role }: SainaMessageBodyProps) {
-  if (role === 'user') {
-    return <p className="saina-msg-prose saina-msg-prose--user">{message}</p>;
-  }
-
-  const blocks = splitSainaMessageIntoBlocks(message);
+  const proseClass =
+    role === 'user'
+      ? 'saina-msg-prose saina-msg-prose--user saina-msg-prose--markdown'
+      : 'saina-msg-prose saina-msg-prose--markdown';
 
   return (
-    <div className="saina-msg-prose" data-testid="saina-msg-prose">
-      {blocks.map((block, index) =>
-        block.type === 'paragraph' ? (
-          <p key={`p-${index}`}>{block.text}</p>
-        ) : (
-          <ul key={`l-${index}`} className="saina-msg-prose-list">
-            {block.items.map((item, itemIndex) => (
-              <li key={`li-${index}-${itemIndex}`}>{item}</li>
-            ))}
-          </ul>
-        )
-      )}
+    <div className={proseClass} data-testid="saina-msg-prose">
+      <SainaMarkdown content={message} />
     </div>
   );
 }

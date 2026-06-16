@@ -33,8 +33,11 @@ import type {
   StandaloneObservation,
 } from '@/lib/types';
 import { parseStandaloneObservation } from '@/lib/standaloneObservation';
-import { appendBehavioralTurn } from '@/lib/behavioralHistory';
-import { extractStoryCueTokens } from '@/lib/eza/mirror/storyTopicResolver';
+import {
+  buildConversationMirrorEntries,
+  persistChatTurnFromResponse,
+} from '@/lib/eza/mirror/conversationMirrorEntries';
+import { useSetConversationMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
 import {
   CHATS_UPDATED_EVENT,
   createStandaloneChat,
@@ -103,6 +106,7 @@ export default function StandaloneChatInner() {
   const [upgradeFeature, setUpgradeFeature] = useState<string>('saina_sidebar');
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { startStream, reset: resetStream } = useStreamResponse();
+  const setConversationMirrorEntries = useSetConversationMirrorEntries();
   const currentAssistantMessageRef = useRef<string | null>(null);
   const assistantScoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const skipAutosaveRef = useRef(true);
@@ -315,7 +319,7 @@ export default function StandaloneChatInner() {
   }, [planTier, openGateModal, router]);
 
   const handleRequestMirror = useCallback((): boolean => {
-    if (gatePremiumFeature(planTier) !== 'allow') {
+    if (planTier === 'session_invalid') {
       openGateModal('conversation_mirror');
       return false;
     }
@@ -341,6 +345,11 @@ export default function StandaloneChatInner() {
   useEffect(() => {
     void refreshPlan();
   }, [refreshPlan]);
+
+  useEffect(() => {
+    setConversationMirrorEntries(buildConversationMirrorEntries(messages));
+    return () => setConversationMirrorEntries([]);
+  }, [messages, setConversationMirrorEntries]);
 
   const sainaConversations = useMemo(
     () => mapArchivesToSainaConversations(archives),
@@ -475,12 +484,22 @@ export default function StandaloneChatInner() {
                 ) ??
                 null;
 
-              if (data.behavioral || standaloneObservation) {
-                const snapshot = (data.behavioral as BehavioralSnapshot | null) ?? null;
-                const mirrorCueHints = extractStoryCueTokens(text);
-                appendBehavioralTurn(snapshot, standaloneObservation, {
-                  mirrorCueHints: mirrorCueHints.length ? mirrorCueHints : undefined,
-                });
+              const snapshot = (data.behavioral as BehavioralSnapshot | null) ?? null;
+              persistChatTurnFromResponse({
+                userText: text,
+                interactionId: assistantMessageId,
+                behavioral: snapshot,
+                standaloneObservation,
+                userScore: data.userScore,
+                assistantScore: data.assistantScore,
+              });
+
+              if (
+                snapshot ||
+                standaloneObservation ||
+                data.userScore !== undefined ||
+                data.assistantScore !== undefined
+              ) {
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id === assistantMessageId || msg.id === userMessageId) {
@@ -626,11 +645,28 @@ export default function StandaloneChatInner() {
           ezaScore: (response as { eza_score?: number }).eza_score ?? (data as { assistant_score?: number }).assistant_score,
           riskLevel: (response as { risk_level?: string }).risk_level,
         });
-        if (behavioralFallback || standaloneObservationFallback) {
-          const mirrorCueHints = extractStoryCueTokens(text);
-          appendBehavioralTurn(behavioralFallback, standaloneObservationFallback, {
-            mirrorCueHints: mirrorCueHints.length ? mirrorCueHints : undefined,
+        if (behavioralFallback || standaloneObservationFallback || data.user_score !== undefined || data.assistant_score !== undefined) {
+          persistChatTurnFromResponse({
+            userText: text,
+            interactionId: assistantMessageId,
+            behavioral: behavioralFallback,
+            standaloneObservation: standaloneObservationFallback,
+            userScore: (data as { user_score?: number }).user_score,
+            assistantScore: (data as { assistant_score?: number }).assistant_score,
           });
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === assistantMessageId || msg.id === userMessageId) {
+                return {
+                  ...msg,
+                  behavioral: behavioralFallback ?? msg.behavioral,
+                  standaloneObservation:
+                    standaloneObservationFallback ?? msg.standaloneObservation,
+                };
+              }
+              return msg;
+            })
+          );
         }
 
         // Increment daily count

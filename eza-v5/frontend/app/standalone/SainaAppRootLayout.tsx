@@ -15,6 +15,8 @@ import SainaConversationSidebar from '@/components/saina/SainaConversationSideba
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
 import SainaPersistentScene from '@/components/saina/SainaPersistentScene';
 import SainaRouteTransition from '@/components/saina/SainaRouteTransition';
+import { MirrorEntriesProvider } from '@/components/standalone/MirrorEntriesContext';
+import PlanHydrator from '@/components/plan/PlanHydrator';
 
 type SainaAppRootLayoutProps = {
   children: ReactNode;
@@ -47,7 +49,9 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
   }
 
   return (
-    <div
+    <MirrorEntriesProvider>
+      <PlanHydrator />
+      <div
       className={cn(
         'saina-page saina-app-root',
         view === 'chat' ? 'saina-standalone-shell' : 'saina-pattern-shell'
@@ -93,5 +97,6 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
         onOpenPattern={chrome.onOpenPattern}
       />
     </div>
+    </MirrorEntriesProvider>
   );
 }
