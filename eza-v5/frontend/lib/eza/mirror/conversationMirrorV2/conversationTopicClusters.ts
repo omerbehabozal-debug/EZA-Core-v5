@@ -54,7 +54,7 @@ export const CONVERSATION_TOPIC_CLUSTERS: readonly ConversationTopicCluster[] = 
     id: 'facade_material',
     label: 'Cephe malzeme bilgisi',
     storyTopicId: 'architecture',
-    anchors: ['cephe', 'malzeme', 'mimari', 'restorasyon'],
+    anchors: ['cephe', 'malzeme', 'mimari', 'restorasyon', 'facade', 'architecture', 'building'],
     minAnchors: 1,
   },
   {

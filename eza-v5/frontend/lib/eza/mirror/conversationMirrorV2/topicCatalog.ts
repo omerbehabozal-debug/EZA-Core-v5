@@ -19,17 +19,17 @@ export type TopicMirrorTemplate = {
 export const TOPIC_MIRROR_TEMPLATES: Record<StoryTopicId, TopicMirrorTemplate> = {
   travel: {
     topicLabel: 'Seyahat ve keşif',
-    titles: ['Doğuya Açılan Kapı', 'Uzak Ritimler', 'Yolun Ötesinde'],
+    titles: ['Uzak Doğuda Yeni Bir Bakış', 'Doğuya Açılan Kapı', 'Yolun Ötesinde'],
     mirrorTexts: [
-      'Bugün bir rotayı yalnızca haritada değil, uzakta duran bir yaşam ritmi gibi düşündün. Merakın, gidilecek yerlerden çok orada nasıl hissedeceğine yöneldi.',
-      'Konuşman bir varış noktasından çok bir atmosfer arayışı taşıyordu. İlgin, mesafeden çok deneyimin dokusuna kaydı.',
+      'Bugün Japonya\'yı konuştun. Sadece bir seyahat planlamadın, farklı bir yaşam kültürüne pencere açtın.',
+      'Konuşman bir varış noktasından çok uzakta duran bir ritmi hissetmekti. Merakın, mesafeden çok deneyimin dokusuna kaydı.',
     ],
     closingLines: ['Bazı yolculuklar haritada değil, iç sesinde başlar.'],
     sceneMetaphors: [
-      'Mist over a quiet path at golden hour',
-      'Distant lantern light on a calm street at dusk',
+      'Figure facing a vast golden horizon at dusk — wonder, distance, curiosity, atmospheric depth',
+      'Quiet lantern glow on an empty path at blue hour — discovery, stillness, faraway light',
     ],
-    visualKeywords: ['travel', 'quiet street', 'lanterns', 'mountain silhouette', 'soft gold light'],
+    visualKeywords: ['wonder', 'distance', 'curiosity', 'golden hour', 'atmospheric depth', 'quiet horizon'],
     defaultTone: 'curious',
   },
   vehicle: {
@@ -53,27 +53,30 @@ export const TOPIC_MIRROR_TEMPLATES: Record<StoryTopicId, TopicMirrorTemplate> =
     topicLabel: 'Mimari ve cephe kararları',
     titles: ['Bir Yapının Hafızası', 'Işığın Çerçevesi', 'Malzemenin Sesi'],
     mirrorTexts: [
-      'Bugün cepheyi yalnızca güzelleştirmeye çalışmadın. Malzeme, oran ve ışık üzerinden kalıcı bir iz bırakmanın yolunu aradın.',
+      'Bugün cepheleri, malzemeleri ve detayları konuştun. Ama aslında kalıcı, anlamlı ve sana ait bir şey inşa etmeye çalışıyordun.',
       'Konuşman bir görünümden çok bir yapının zaman içinde nasıl yaşanacağına odaklandı.',
     ],
     closingLines: ['Bazı yapılar önce zihinde tamamlanır.'],
     sceneMetaphors: [
-      'Architectural model and warm city light',
-      'Facade study with golden hour shadows',
+      'Handmade material textures in warm shadow — memory, permanence, craft, belonging',
+      'Model study bathed in golden hour light — proportion, patience, lasting form',
     ],
-    visualKeywords: ['architecture', 'facade', 'model', 'golden hour', 'premium materials'],
+    visualKeywords: ['memory', 'permanence', 'craft', 'warm shadow', 'material texture', 'belonging'],
     defaultTone: 'focused',
   },
   technology_ai: {
     topicLabel: 'Yapay zeka ve teknoloji',
     titles: ['Görünmeyeni Anlamak', 'Yeni Bir Dil', 'Güvenin Eşiği'],
     mirrorTexts: [
-      'Bugün teknolojiyi bir araç olarak değil, nasıl düşündüğünü genişletebilecek bir alan olarak tarttın. Soruların hızdan çok anlamaya yöneldi.',
+      'Bugün yapay zekayı konuştun. Ama aslında onun insan üzerindeki etkisini anlamaya çalışıyordun.',
       'Merakın, yeniliğin kendisinden çok onun sana ne hissettireceğine kaydı.',
     ],
     closingLines: ['Bazı sistemler önce merakla anlaşılır.'],
-    sceneMetaphors: ['Soft light on a quiet desk with abstract data glow'],
-    visualKeywords: ['technology', 'quiet desk', 'soft glow', 'reflection', 'minimal'],
+    sceneMetaphors: [
+      'Person at a quiet desk, city glow through window — human reflection, curiosity, unseen connections',
+      'Soft interior light, abstract distant glow — contemplation, not robots or dashboards',
+    ],
+    visualKeywords: ['human reflection', 'curiosity', 'quiet interior', 'unseen connections', 'soft glow', 'contemplation'],
     defaultTone: 'curious',
   },
   finance: {
@@ -140,12 +143,15 @@ export const TOPIC_MIRROR_TEMPLATES: Record<StoryTopicId, TopicMirrorTemplate> =
     topicLabel: 'Manevi düşünce',
     titles: ['İçe Dönen Yol', 'Sessiz Anlam', 'Zamanın İzleri'],
     mirrorTexts: [
-      'Bugün anlamı dışarıda aramaktan çok iç sesinde dinlemeye yöneldin. Soruların acele etmeden derinleşti.',
+      'Bugün maneviyatı, zikiri ve kalbin sesini konuştun. Ama aslında daha derine inmek, kendini anlamak ve huzura yaklaşmak istiyordun.',
       'Konuşman bir cevap arayışından çok bir duraklama ve farkındalık hissi taşıyordu.',
     ],
     closingLines: ['Bazı yollar, sessizlikte açılır.'],
-    sceneMetaphors: ['Candlelight and stone texture in soft shadow'],
-    visualKeywords: ['spiritual', 'stone texture', 'candlelight', 'shadow', 'stillness'],
+    sceneMetaphors: [
+      'Stone courtyard in soft candlelight — inward path, stillness, sacred quiet',
+      'Silhouette in warm shadow near ancient texture — reflection, depth, calm',
+    ],
+    visualKeywords: ['inward path', 'stillness', 'warm shadow', 'stone texture', 'sacred quiet', 'depth'],
     defaultTone: 'reflective',
   },
   general_curiosity: {
@@ -172,7 +178,7 @@ export function pickTopicTemplate(
 export function composeTopicMirrorCopy(
   topicId: StoryTopicId,
   seed: string,
-  storyLine?: string
+  _storyLine?: string
 ): Pick<TopicMirrorTemplate, 'topicLabel'> & {
   mirrorTitle: string;
   mirrorText: string;
@@ -182,9 +188,7 @@ export function composeTopicMirrorCopy(
   emotionalTone: SainaMirrorEmotionalTone;
 } {
   const template = pickTopicTemplate(topicId, seed);
-  const mirrorText = storyLine?.trim()
-    ? trimWordCount(storyLine, 50)
-    : hashPick(`${seed}-text`, template.mirrorTexts);
+  const mirrorText = hashPick(`${seed}-text`, template.mirrorTexts);
 
   return {
     topicLabel: template.topicLabel,

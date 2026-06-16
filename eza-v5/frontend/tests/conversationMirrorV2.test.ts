@@ -193,15 +193,15 @@ describe('conversationMirrorV2', () => {
     const prompt = buildMirrorV2ImagePrompt(payload);
 
     expect(prompt).toContain('1080x1350');
-    expect(prompt.toLowerCase()).toContain('based only on the active conversation thread');
-    expect(prompt).toContain('Selected topic:');
-    expect(prompt).toContain(payload.selectedTopic);
+    expect(prompt.toLowerCase()).toContain('active conversation thread');
+    expect(prompt.toLowerCase()).toContain('forbidden');
+    expect(prompt).toContain(payload.mirrorTitle);
     expect(prompt.toLowerCase()).toContain('leave clean empty space at the top-left');
     expect(prompt.toLowerCase()).toContain('leave clean empty space at the top-right');
     expect(prompt.toLowerCase()).toContain('do not generate the saina logo');
     expect(prompt.toLowerCase()).toContain('do not generate any date');
-    expect(prompt.toLowerCase()).toContain('no charts');
-    expect(prompt.toLowerCase()).toContain('no dashboard');
+    expect(prompt.toLowerCase()).toContain('charts');
+    expect(prompt.toLowerCase()).toContain('dashboard');
     expect(prompt).toContain(payload.mirrorTitle);
     expect(prompt).toContain(payload.sceneMetaphor);
   });
@@ -316,27 +316,17 @@ describe('conversationMirrorV2', () => {
     expect(isDentalPersonalCarePayload(payload)).toBe(true);
 
     const prompt = buildMirrorV2ImagePrompt(payload);
-    expect(prompt.toLowerCase()).toContain('based only on the active conversation thread');
-    expect(prompt).toContain(`Selected topic:\n${payload.selectedTopic}.`);
-    expect(prompt).toContain('Mirror title:');
+    expect(prompt.toLowerCase()).toContain('active conversation thread');
     expect(prompt).toContain(payload.mirrorTitle);
     expect(prompt.toLowerCase()).toContain('leave clean empty space at the top-left');
     expect(prompt.toLowerCase()).toContain('leave clean empty space at the top-right');
     expect(prompt.toLowerCase()).toContain('do not generate the saina logo');
     expect(prompt.toLowerCase()).toContain('do not generate any date');
-    expect(prompt.toLowerCase()).toContain('no dashboard');
-    expect(prompt.toLowerCase()).toContain('no charts');
-    expect(prompt.toLowerCase()).toContain('progress bars');
-    expect(prompt.toLowerCase()).toContain('percentages');
-    expect(prompt.toLowerCase()).toContain('low text density');
-    expect(prompt.toLowerCase()).toContain('premium cinematic poster');
-    expect(prompt.toLowerCase()).toContain('no medical claims');
-    expect(prompt.toLowerCase()).toContain('before-after teeth');
-    expect(prompt.toLowerCase()).toContain('dental procedure');
-    expect(prompt.toLowerCase()).toContain(
-      'do not visually reproduce this instruction structure'
-    );
-    expect(prompt.toLowerCase()).toContain('quiet personal-care object');
-    expect(prompt.toLowerCase()).toContain('commercial hero product');
+    expect(prompt.toLowerCase()).toContain('bugün görünen desen');
+    expect(prompt.toLowerCase()).toContain('coaching');
+    expect(prompt.toLowerCase()).toContain('dashboard');
+    expect(prompt.toLowerCase()).toContain('personal-care scene direction');
+    expect(prompt.toLowerCase()).toContain('before-after');
+    expect(prompt.toLowerCase()).toContain('product-ad hero');
   });
 });

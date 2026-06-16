@@ -35,9 +35,9 @@ import { mergeDailyCardSceneVisual, type DailyCardSceneVisualExtras } from '@/li
 import { withDevVehicleCueHints } from '@/lib/eza/mirror/mirrorIntentContext';
 import { generateMirrorScene, MirrorSceneError } from '@/lib/eza/mirror/generateSceneApi';
 import {
-  resolveV2SceneDisplayUrl,
+  resolveMirrorSceneDisplayUrl,
   revokePosterObjectUrl,
-} from '@/lib/eza/mirror/conversationMirrorV2/applyV2SceneOverlay';
+} from '@/lib/eza/mirror/resolveMirrorSceneDisplayUrl';
 import {
   resolveMirrorRenderMode,
   setDevRenderMode,
@@ -155,7 +155,7 @@ export default function StandaloneObservationExperience({
 
   const resolveSceneDisplayUrl = useCallback(
     async (rawUrl: string, card: DailyMirrorCardModel | null): Promise<string> => {
-      const displayUrl = await resolveV2SceneDisplayUrl(rawUrl, card, {
+      const displayUrl = await resolveMirrorSceneDisplayUrl(rawUrl, card, {
         previousDisplayUrl: sceneDisplayBlobUrlRef.current,
       });
       if (displayUrl.startsWith('blob:')) {

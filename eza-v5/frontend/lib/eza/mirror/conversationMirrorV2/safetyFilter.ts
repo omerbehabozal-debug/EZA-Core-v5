@@ -43,11 +43,21 @@ function collectCueText(entries: SavedBehavioralEntry[]): string {
   return tokens.join(' ').toLowerCase();
 }
 
+function cueMatches(haystack: string, cue: string): boolean {
+  const escaped = cue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (cue.length <= 4) {
+    return new RegExp(`(?:^|[\\s,.;:!?'"()\\[\\]-])${escaped}(?:$|[\\s,.;:!?'"()\\[\\]-])`, 'i').test(
+      ` ${haystack} `
+    );
+  }
+  return haystack.includes(cue);
+}
+
 export function assessMirrorSafetyLevel(entries: SavedBehavioralEntry[]): SainaMirrorSafetyLevel {
   const haystack = collectCueText(entries);
   if (!haystack) return 'normal';
-  if (RESTRICTED_CUES.some((c) => haystack.includes(c))) return 'restricted';
-  if (SENSITIVE_CUES.some((c) => haystack.includes(c))) return 'sensitive';
+  if (RESTRICTED_CUES.some((c) => cueMatches(haystack, c))) return 'restricted';
+  if (SENSITIVE_CUES.some((c) => cueMatches(haystack, c))) return 'sensitive';
   return 'normal';
 }
 

@@ -6,7 +6,7 @@ import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
 export const MIRROR_SCENE_CACHE_STORAGE_KEY = 'eza_daily_mirror_scene_v1';
 export const CONVERSATION_MIRROR_SCENE_CACHE_STORAGE_KEY =
-  'eza_conversation_mirror_scene_v1';
+  'eza_conversation_mirror_scene_conversationMirrorV3_refinement_3_1';
 
 export type MirrorSceneCacheRecord = {
   cardDate: string;

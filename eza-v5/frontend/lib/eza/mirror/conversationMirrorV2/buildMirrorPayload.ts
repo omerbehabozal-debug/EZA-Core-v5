@@ -5,7 +5,6 @@
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import { buildDailyObservationFromEntries } from '@/lib/eza/dailyObservation';
 import { composeEmotionalReflection } from '@/lib/eza/mirror/reflectionToneEngine';
-import { composeMirrorStory } from '@/lib/eza/mirror/mirrorStoryEngine';
 import type {
   SainaMirrorEmotionalTone,
   SainaMirrorPayload,
@@ -22,6 +21,7 @@ import {
 } from '@/lib/eza/mirror/conversationMirrorV2/topicCatalog';
 import { composeSelectedTopicMirrorCopy } from '@/lib/eza/mirror/conversationMirrorV2/selectedTopicMirrorCopy';
 import { resolveActiveConversationTopics } from '@/lib/eza/mirror/conversationMirrorV2/conversationTopicSelection';
+import { polishMirrorPayloadCopy } from '@/lib/eza/mirror/conversationMirrorV2/cinematicCopyContract';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
 import type { ReflectionToneId } from '@/lib/eza/mirror/reflectionToneEngine';
 
@@ -90,23 +90,7 @@ export function buildMirrorPayload(
     personaFamilyId,
   });
 
-  const story = composeMirrorStory({
-    entries,
-    seed,
-    reflectionTone: emotional.reflectionTone,
-    emotionalRhythm: emotional.emotionalRhythm,
-    personaFamilyId,
-    observationCategoryId: observation.categoryId,
-    reflectionSignals: emotional.reflectionSignals,
-    microMood: emotional.microMood,
-  });
-
-  const storyLine = story.dailyJourney || story.mirrorStory || emotional.quote;
-  const selectedCopy = composeSelectedTopicMirrorCopy(
-    topicResolution.selectedTopic,
-    seed,
-    storyLine
-  );
+  const selectedCopy = composeSelectedTopicMirrorCopy(topicResolution.selectedTopic, seed);
   const topicCopy = selectedCopy
     ? {
         topicLabel: topicResolution.selectedTopic,
@@ -117,7 +101,7 @@ export function buildMirrorPayload(
         visualKeywords: selectedCopy.visualKeywords,
         emotionalTone: selectedCopy.emotionalTone,
       }
-    : composeTopicMirrorCopy(topicResolution.primaryTopic, seed, storyLine);
+    : composeTopicMirrorCopy(topicResolution.primaryTopic, seed);
 
   const emotionalTone = selectedCopy
     ? topicCopy.emotionalTone
@@ -128,30 +112,23 @@ export function buildMirrorPayload(
 
   const topicSummary = trimWordCount(
     selectedCopy?.topicSummary ??
-      (observation.primaryInsight ||
-        topicResolution.selectedTopic ||
-        topicCopy.topicLabel),
+      topicResolution.selectedTopic ??
+      topicCopy.topicLabel,
     28
   );
 
-  const sceneBase = selectedCopy
-    ? topicCopy.sceneMetaphor
-    : story.visualAtmosphereBoost
-      ? `${topicCopy.sceneMetaphor}. ${story.visualAtmosphereBoost}`
-      : topicCopy.sceneMetaphor;
-
-  const keywords = (
-    selectedCopy
-      ? topicCopy.visualKeywords
-      : Array.from(
-          new Set([...topicCopy.visualKeywords, ...story.visualStoryHints.slice(0, 4)])
-        )
-  ).slice(0, 8);
+  const polished = polishMirrorPayloadCopy({
+    mirrorTitle: topicCopy.mirrorTitle,
+    mirrorText: topicCopy.mirrorText,
+    closingLine: topicCopy.closingLine,
+    sceneMetaphor: topicCopy.sceneMetaphor,
+    visualKeywords: topicCopy.visualKeywords,
+  });
 
   const safeScene = applySafetyToScene({
     safetyLevel,
-    sceneMetaphor: sceneBase,
-    visualKeywords: keywords,
+    sceneMetaphor: polished.sceneMetaphor,
+    visualKeywords: polished.visualKeywords,
   });
 
   return {
@@ -163,10 +140,9 @@ export function buildMirrorPayload(
     candidateTopics: topicResolution.candidateTopics,
     topicSummary,
     emotionalTone,
-    mirrorTitle: topicCopy.mirrorTitle,
-    mirrorText: topicCopy.mirrorText,
-    visiblePattern: emotional.emotionalRhythm,
-    closingLine: topicCopy.closingLine,
+    mirrorTitle: polished.mirrorTitle,
+    mirrorText: polished.mirrorText,
+    closingLine: polished.closingLine,
     sceneMetaphor: safeScene.sceneMetaphor,
     visualKeywords: safeScene.visualKeywords,
     safetyLevel,

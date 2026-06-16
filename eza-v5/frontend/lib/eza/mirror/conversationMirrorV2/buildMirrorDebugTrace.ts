@@ -274,7 +274,7 @@ function buildStoryEngineTrace(
   });
 
   const storyLine = story.dailyJourney || story.mirrorStory || emotional.quote;
-  const selectedCopy = composeSelectedTopicMirrorCopy(selectedTopic, seed, storyLine);
+  const selectedCopy = composeSelectedTopicMirrorCopy(selectedTopic, seed);
   const template = pickTopicTemplate(primaryStoryTopicId, seed);
 
   const mirrorTitleCandidates = selectedCopy

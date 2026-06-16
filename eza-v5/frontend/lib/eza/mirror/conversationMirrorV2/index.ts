@@ -37,6 +37,7 @@ export {
 
 export {
   isMirrorPipelineV2,
+  isMirrorPipelineV3,
   resolveMirrorPipelineVersion,
   setDevMirrorPipeline,
   clearDevMirrorPipeline,

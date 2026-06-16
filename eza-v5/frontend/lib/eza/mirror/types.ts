@@ -27,7 +27,7 @@ import type { DailyAvatarType } from '@/lib/eza/mirror/dailyAvatarRegistry';
 /** Minimum interactions before mirror insights are considered reliable. */
 export const MIRROR_MIN_SAMPLES = 3;
 
-export type MirrorPipelineVersion = 'v1' | 'v2';
+export type MirrorPipelineVersion = 'v1' | 'v2' | 'v3';
 
 export type MirrorDataSource = 'local_history';
 
@@ -156,6 +156,7 @@ export interface DailyMirrorCardModel {
   mirrorSeason?: string;
   closingLine?: string;
   mirrorV2Payload?: import('@/lib/eza/mirror/conversationMirrorV2/types').SainaMirrorPayload;
+  mirrorV3Payload?: import('@/lib/eza/mirror/conversationMirrorV3/types').SainaMirrorV3Payload;
 }
 
 export interface RelationshipPatternModel {

@@ -38,6 +38,7 @@ import {
   shouldUseHybridPosterLayout,
 } from '@/lib/eza/mirror/mirrorPosterLayout';
 import { isV2MirrorCard } from '@/lib/eza/mirror/conversationMirrorV2/applyV2SceneOverlay';
+import { isV3MirrorCard } from '@/lib/eza/mirror/conversationMirrorV3/applyV3SceneOverlay';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 
 function rhythmInsightDescription(statusWord: string): string {
@@ -140,12 +141,17 @@ export default function DailyMirrorPosterCard({
     () => rhythmInsightDescription(content.rhythm.word),
     [content.rhythm.word]
   );
+  const v3ImageOnlyPoster = isV3MirrorCard(card);
   const sceneCarriesPosterArt =
-    layoutDebug.usedLayout === 'hybrid_middle_with_scene' || isV2MirrorCard(card);
-  const embeddedScenePreview = embedded && sceneCarriesPosterArt;
-  const hideFrontendMiddle = layoutDebug.frontendMiddleOverlayHidden;
-  const hideRhythmAndFooter = sceneCarriesPosterArt;
-  const hideMasthead = isV2MirrorCard(card) && sceneCarriesPosterArt;
+    layoutDebug.usedLayout === 'hybrid_middle_with_scene' ||
+    isV2MirrorCard(card) ||
+    v3ImageOnlyPoster;
+  const embeddedScenePreview =
+    v3ImageOnlyPoster || (embedded && sceneCarriesPosterArt);
+  const hideFrontendMiddle = layoutDebug.frontendMiddleOverlayHidden || v3ImageOnlyPoster;
+  const hideRhythmAndFooter = sceneCarriesPosterArt || v3ImageOnlyPoster;
+  const hideMasthead =
+    (isV2MirrorCard(card) && sceneCarriesPosterArt) || v3ImageOnlyPoster;
 
   const cardStyle = useMemo(
     () => ({

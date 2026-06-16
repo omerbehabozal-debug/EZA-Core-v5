@@ -37,11 +37,18 @@ export function buildPosterOverlaySpec(payload: SainaMirrorPayload): MirrorPoste
   };
 }
 
+export type PosterBrandSignature = {
+  line1: string;
+  line2: string;
+};
+
 export type ApplyPosterOverlayOptions = {
   /** Optional logo image (SAINA mark). When omitted, text fallback is used. */
   logoImage?: CanvasImageSource | null;
   logoText?: string;
   fontFamily?: string;
+  /** V3 — bottom-center brand signature (system-rendered, not OpenAI). */
+  brandSignature?: PosterBrandSignature | null;
 };
 
 /**
@@ -88,6 +95,22 @@ export async function applyPosterBrandOverlay(
   ctx.textAlign = spec.date.align;
   ctx.textBaseline = 'top';
   ctx.fillText(spec.date.text, spec.date.x, spec.date.y);
+
+  if (options?.brandSignature) {
+    const sig = options.brandSignature;
+    const centerX = canvas.width / 2;
+    const bottomY = canvas.height - MIRROR_V2_SAFE_MARGIN_Y;
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.font = `600 14px ${fontFamily}`;
+    ctx.fillStyle = 'rgba(231, 180, 91, 0.92)';
+    ctx.fillText(sig.line1, centerX, bottomY - 18);
+
+    ctx.font = `400 11px ${fontFamily}`;
+    ctx.fillStyle = 'rgba(245, 245, 240, 0.62)';
+    ctx.fillText(sig.line2, centerX, bottomY);
+  }
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
