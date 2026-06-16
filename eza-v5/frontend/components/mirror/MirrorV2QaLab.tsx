@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { buildMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/buildMirrorPayload';
+import { buildMirrorDebugTrace } from '@/lib/eza/mirror/conversationMirrorV2/buildMirrorDebugTrace';
 import { buildMirrorV2ImagePrompt } from '@/lib/eza/mirror/conversationMirrorV2/promptBuilder';
 import { buildMirrorStateV2 } from '@/lib/eza/mirror/conversationMirrorV2/buildMirrorStateV2';
 import { getSeasonProfile } from '@/lib/eza/mirror/conversationMirrorV2/seasonRegistry';
@@ -20,6 +21,7 @@ import {
   type MirrorV2QaScore,
 } from '@/lib/eza/mirror/conversationMirrorV2/qaScenarios';
 import { isMirrorPipelineV2, setDevMirrorPipeline } from '@/lib/eza/mirror/conversationMirrorV2/resolvePipelineVersion';
+import MirrorV2DebugTracePanel from '@/components/mirror/MirrorV2DebugTracePanel';
 
 type ScenarioPreview = {
   payloadJson: string;
@@ -38,13 +40,13 @@ function buildScenarioPreview(scenarioId: string): ScenarioPreview | null {
   const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === scenarioId);
   if (!scenario) return null;
   const entries = scenario.buildEntries();
+  const conversationId =
+    scenario.conversationId ??
+    (scenario.id === 'toothpaste-choice' ? 'demo-toothpaste-thread' : `qa-${scenario.id}`);
   const payload = buildMirrorPayload(entries, {
     seed: `qa-${scenario.id}`,
     season: scenario.season,
-    conversationId:
-      scenario.id === 'toothpaste-choice'
-        ? 'demo-toothpaste-thread'
-        : `qa-${scenario.id}`,
+    conversationId,
   });
   const season = getSeasonProfile(payload.season);
   return {
@@ -59,6 +61,24 @@ function buildScenarioPreview(scenarioId: string): ScenarioPreview | null {
     selectedTopic: payload.selectedTopic,
     candidateTopicsJson: JSON.stringify(payload.candidateTopics, null, 2),
   };
+}
+
+function buildScenarioDebugTrace(scenarioId: string) {
+  const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === scenarioId);
+  if (!scenario) return null;
+  const entries = scenario.buildEntries();
+  const conversationId =
+    scenario.conversationId ??
+    (scenario.id === 'toothpaste-choice' ? 'demo-toothpaste-thread' : `qa-${scenario.id}`);
+  return buildMirrorDebugTrace({
+    entries,
+    options: {
+      conversationId,
+      seed: `qa-${scenario.id}`,
+      season: scenario.season,
+      conversationMessages: scenario.conversationMessages,
+    },
+  });
 }
 
 export default function MirrorV2QaLab() {
@@ -81,6 +101,7 @@ export default function MirrorV2QaLab() {
   }, [previewUrl]);
 
   const preview = useMemo(() => buildScenarioPreview(activeId), [activeId]);
+  const debugTrace = useMemo(() => buildScenarioDebugTrace(activeId), [activeId]);
   const activeScore = scores[activeId] ?? {};
 
   const updateScore = useCallback(
@@ -136,7 +157,8 @@ export default function MirrorV2QaLab() {
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Mirror V2 Lab</h1>
         <p className="mt-2 max-w-2xl text-sm text-[rgba(246,244,239,0.72)]">
-          11 senaryo için payload, topic seçimi, prompt, sezon ve güvenlik çıktıları. V2 pipeline:{' '}
+          11 senaryo için payload, topic seçimi, prompt, sezon, güvenlik ve DEBUG TRACE çıktıları. V2
+          pipeline:{' '}
           <span className={pipelineV2 ? 'text-emerald-400' : 'text-amber-300'}>
             {pipelineV2 ? 'aktif' : 'kapalı (V1)'}
           </span>
@@ -232,6 +254,8 @@ export default function MirrorV2QaLab() {
                   </pre>
                 </div>
               </section>
+
+              {debugTrace ? <MirrorV2DebugTracePanel trace={debugTrace} /> : null}
 
               <section className="rounded-2xl border border-[rgba(255,255,255,0.08)] p-4">
                 <h3 className="text-sm font-semibold">QA matrisi (1–5)</h3>

@@ -51,3 +51,10 @@ export {
   saveMirrorV2QaScore,
   type MirrorV2QaScore,
 } from '@/lib/eza/mirror/conversationMirrorV2/qaScenarios';
+
+export { buildMirrorDebugTrace, debugMatchTurnClusters } from '@/lib/eza/mirror/conversationMirrorV2/buildMirrorDebugTrace';
+export type {
+  MirrorV2DebugTrace,
+  BuildMirrorDebugTraceOptions,
+  MirrorDebugRedFlag,
+} from '@/lib/eza/mirror/conversationMirrorV2/mirrorDebugTypes';

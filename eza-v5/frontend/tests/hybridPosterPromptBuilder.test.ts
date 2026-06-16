@@ -130,15 +130,16 @@ describe('hybridPosterPromptBuilder (Sprint 13C)', () => {
 
   it('DailyMirrorPosterCard hybrid mode hides frontend headline/theme/quote zones', () => {
     expect(posterSrc).toContain('isHybridMiddle');
-    expect(posterSrc).toContain('!isHybridMiddle');
-    expect(posterSrc).toContain('v8d-hybrid-middle');
+    expect(posterSrc).toContain('hideFrontendMiddle');
+    expect(posterSrc).toContain('!hideFrontendMiddle');
+    expect(posterSrc).toContain('embeddedScenePreview');
     expect(posterSrc).toContain('data-mirror-render-mode');
   });
 
   it('scene_only mode still references frontend text overlays in source', () => {
-    expect(posterSrc).toContain('content.journeyHeadline');
-    expect(posterSrc).toContain('content.storyLine');
-    expect(posterSrc).toContain('content.quote');
+    expect(posterSrc).toContain('PosterIdentityHeadline');
+    expect(posterSrc).toContain('content.rhythm.word');
+    expect(posterSrc).toContain('PosterTomorrowHint');
   });
 
   it('feature flag false resolves to scene_only by default', () => {

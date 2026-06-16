@@ -4,7 +4,15 @@
 
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import type { SainaMirrorSeason } from '@/lib/eza/mirror/conversationMirrorV2/types';
-import { buildToothpasteMirrorEntries } from '@/lib/eza/mirror/conversationMirrorV2/toothpasteConversationFixture';
+import {
+  buildToothpasteMirrorEntries,
+  TOOTHPASTE_CONVERSATION_ID,
+  TOOTHPASTE_CONVERSATION_MESSAGES,
+} from '@/lib/eza/mirror/conversationMirrorV2/toothpasteConversationFixture';
+import {
+  buildConversationMirrorEntries,
+  type ConversationMirrorMessage,
+} from '@/lib/eza/mirror/conversationMirrorEntries';
 
 export type MirrorV2QaScore = {
   cinematicImpact?: number;
@@ -19,6 +27,8 @@ export type MirrorV2QaScenario = {
   id: string;
   label: string;
   season?: SainaMirrorSeason;
+  conversationId?: string;
+  conversationMessages?: ConversationMirrorMessage[];
   buildEntries: () => SavedBehavioralEntry[];
 };
 
@@ -66,23 +76,77 @@ function threeTurns(hintsPerTurn: string[][]): SavedBehavioralEntry[] {
   );
 }
 
+const JAPAN_TRAVEL_MESSAGES: ConversationMirrorMessage[] = [
+  {
+    id: 'jp-1u',
+    text: "Japonya'ya ilk kez gideceğim",
+    isUser: true,
+    timestamp: new Date('2026-05-31T09:00:00Z'),
+  },
+  {
+    id: 'jp-1a',
+    text: 'Tokyo ve Kyoto arasında seçim yapmak heyecan verici olabilir. Her iki şehir de farklı bir ritim sunar.',
+    isUser: false,
+    assistantScore: 84,
+    timestamp: new Date('2026-05-31T09:01:00Z'),
+  },
+  {
+    id: 'jp-2u',
+    text: 'Tokyo mu Kyoto mu?',
+    isUser: true,
+    timestamp: new Date('2026-05-31T09:02:00Z'),
+  },
+  {
+    id: 'jp-2a',
+    text: 'Tokyo daha dinamik; Kyoto ise daha sakin ve geleneksel bir atmosfer sunar.',
+    isUser: false,
+    assistantScore: 86,
+    timestamp: new Date('2026-05-31T09:03:00Z'),
+  },
+  {
+    id: 'jp-3u',
+    text: 'Sokak kültürünü merak ediyorum',
+    isUser: true,
+    timestamp: new Date('2026-05-31T09:04:00Z'),
+  },
+  {
+    id: 'jp-3a',
+    text: 'Yerel mahalleler, küçük dükkanlar ve sokak yemekleri Japonya deneyiminin önemli bir parçasıdır.',
+    isUser: false,
+    assistantScore: 88,
+    timestamp: new Date('2026-05-31T09:05:00Z'),
+  },
+  {
+    id: 'jp-4u',
+    text: 'Yerel deneyimler yaşamak istiyorum',
+    isUser: true,
+    timestamp: new Date('2026-05-31T09:06:00Z'),
+  },
+  {
+    id: 'jp-4a',
+    text: 'Yerel ritimlere uyum sağlamak, seyahati turistik rotalardan uzaklaştırıp daha kişisel kılar.',
+    isUser: false,
+    assistantScore: 90,
+    timestamp: new Date('2026-05-31T09:07:00Z'),
+  },
+];
+
 export const MIRROR_V2_QA_SCENARIOS: MirrorV2QaScenario[] = [
   {
     id: 'toothpaste-choice',
     label: 'Diş macunu seçimi',
     season: 'bright_cinematic',
+    conversationId: TOOTHPASTE_CONVERSATION_ID,
+    conversationMessages: TOOTHPASTE_CONVERSATION_MESSAGES,
     buildEntries: () => buildToothpasteMirrorEntries(),
   },
   {
     id: 'japan-travel',
     label: 'Japonya seyahati',
     season: 'golden_hour',
-    buildEntries: () =>
-      threeTurns([
-        ['japan', 'tokyo', 'travel', 'kyoto'],
-        ['culture', 'itinerary', 'trip'],
-        ['experience', 'curious', 'explore'],
-      ]),
+    conversationId: 'qa-japan-travel',
+    conversationMessages: JAPAN_TRAVEL_MESSAGES,
+    buildEntries: () => buildConversationMirrorEntries(JAPAN_TRAVEL_MESSAGES),
   },
   {
     id: 'bmw-mercedes',

@@ -37,6 +37,7 @@ import {
   resolveEffectiveRenderMode,
   shouldUseHybridPosterLayout,
 } from '@/lib/eza/mirror/mirrorPosterLayout';
+import { isV2MirrorCard } from '@/lib/eza/mirror/conversationMirrorV2/applyV2SceneOverlay';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 
 function rhythmInsightDescription(statusWord: string): string {
@@ -69,6 +70,8 @@ export type DailyMirrorPosterCardProps = {
   onForceBmwMercedes?: () => void;
   onToggleHybridMode?: () => void;
   hybridTextFallback?: boolean;
+  /** Sidebar preview — scene-only when hybrid/V2 poster art is baked into the image. */
+  embedded?: boolean;
 };
 
 /**
@@ -83,6 +86,7 @@ export default function DailyMirrorPosterCard({
   onForceBmwMercedes,
   onToggleHybridMode,
   hybridTextFallback = false,
+  embedded = false,
 }: DailyMirrorPosterCardProps) {
   const isReady =
     Boolean(meta?.hasEnoughData) &&
@@ -136,6 +140,12 @@ export default function DailyMirrorPosterCard({
     () => rhythmInsightDescription(content.rhythm.word),
     [content.rhythm.word]
   );
+  const sceneCarriesPosterArt =
+    layoutDebug.usedLayout === 'hybrid_middle_with_scene' || isV2MirrorCard(card);
+  const embeddedScenePreview = embedded && sceneCarriesPosterArt;
+  const hideFrontendMiddle = layoutDebug.frontendMiddleOverlayHidden;
+  const hideRhythmAndFooter = sceneCarriesPosterArt;
+  const hideMasthead = isV2MirrorCard(card) && sceneCarriesPosterArt;
 
   const cardStyle = useMemo(
     () => ({
@@ -162,9 +172,10 @@ export default function DailyMirrorPosterCard({
       data-mirror-palette={palette}
       data-mirror-scene-tone={sceneTone.id}
       data-mirror-density={composition.density}
+      data-mirror-embedded-preview={embeddedScenePreview ? 'scene-only' : undefined}
       className={skin.root}
       style={cardStyle}
-      aria-labelledby="daily-mirror-poster-title"
+      aria-labelledby={embeddedScenePreview ? undefined : 'daily-mirror-poster-title'}
     >
       <FullCanvasScene
         personaFamilyId={card.personaFamilyId}
@@ -176,94 +187,106 @@ export default function DailyMirrorPosterCard({
         onSceneImageError={onSceneImageError}
       />
 
-      <div className={skin.overlayScrim} aria-hidden>
-        <div className={skin.overlayTopScrim} aria-hidden />
-        <div className={skin.overlayBottomScrim} aria-hidden />
-      </div>
+      {!embeddedScenePreview ? (
+        <>
+          <div className={skin.overlayScrim} aria-hidden>
+            <div className={skin.overlayTopScrim} aria-hidden />
+            <div className={skin.overlayBottomScrim} aria-hidden />
+          </div>
 
-      <div className={skin.grain} aria-hidden />
+          <div className={skin.grain} aria-hidden />
+        </>
+      ) : null}
 
-      <div className={skin.overlayStack}>
-        <header className={skin.overlayHeader}>
-          {showHybridFallback && cardRenderMode === 'hybrid_middle' ? (
-            <p
-              className="mb-1 w-full rounded-md border border-amber-300/50 bg-amber-950/40 px-2 py-1 text-[9px] font-medium text-amber-50 backdrop-blur-md"
-              role="status"
-            >
-              Hybrid typography generation failed — fallback overlay active
-            </p>
+      {!embeddedScenePreview ? (
+        <div className={skin.overlayStack}>
+          {!hideMasthead ? (
+            <header className={skin.overlayHeader}>
+              {showHybridFallback && cardRenderMode === 'hybrid_middle' ? (
+                <p
+                  className="mb-1 w-full rounded-md border border-amber-300/50 bg-amber-950/40 px-2 py-1 text-[9px] font-medium text-amber-50 backdrop-blur-md"
+                  role="status"
+                >
+                  Hybrid typography generation failed — fallback overlay active
+                </p>
+              ) : null}
+              <p
+                className={cn(skin.logoText, 'flex items-center gap-2')}
+                style={POSTER_READABILITY_INLINE.masthead}
+              >
+                <span className={skin.logoMark}>
+                  <Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden />
+                </span>
+                EZA · AI İlişki Aynası
+              </p>
+              <span className={skin.datePillGlass}>
+                <span className={skin.datePill} style={POSTER_READABILITY_INLINE.masthead}>
+                  <Calendar className="mr-1 inline h-3 w-3 opacity-90" strokeWidth={1.5} aria-hidden />
+                  {card.dayLabel}
+                </span>
+              </span>
+            </header>
           ) : null}
-          <p
-            className={cn(skin.logoText, 'flex items-center gap-2')}
-            style={POSTER_READABILITY_INLINE.masthead}
-          >
-            <span className={skin.logoMark}>
-              <Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden />
-            </span>
-            EZA · AI İlişki Aynası
-          </p>
-          <span className={skin.datePillGlass}>
-            <span className={skin.datePill} style={POSTER_READABILITY_INLINE.masthead}>
-              <Calendar className="mr-1 inline h-3 w-3 opacity-90" strokeWidth={1.5} aria-hidden />
-              {card.dayLabel}
-            </span>
-          </span>
-        </header>
 
-        <PosterIdentityHeadline identity={identity} skin={skin} isSparse={isSparse} />
+          {!hideFrontendMiddle ? (
+            <PosterIdentityHeadline identity={identity} skin={skin} isSparse={isSparse} />
+          ) : null}
 
-        <div className="min-h-0 flex-1" aria-hidden />
+          <div className="min-h-0 flex-1" aria-hidden />
 
-        {!isSparse ? (
-          <section
-            className={skin.rhythmWhisperZone ?? skin.overlayReflection}
-            aria-label="İlişki ritmi"
-          >
-            <p
-              className={cn(skin.rhythmWhisperEyebrow, 'flex items-center gap-2')}
-              style={POSTER_READABILITY_INLINE.panelLabel}
+          {!isSparse && !hideRhythmAndFooter ? (
+            <section
+              className={skin.rhythmWhisperZone ?? skin.overlayReflection}
+              aria-label="İlişki ritmi"
             >
-              <Crown className="h-3.5 w-3.5 text-[#E8D5B5]" strokeWidth={1.5} aria-hidden />
-              {content.rhythm.eyebrow}
-            </p>
-            <p className={skin.rhythmWhisperWord} style={POSTER_READABILITY_INLINE.headline}>
-              {content.rhythm.word}
-            </p>
-            <p className={skin.insightPanelDesc} style={POSTER_READABILITY_INLINE.panelBody}>
-              {rhythmDescription}
-            </p>
-            <div className={skin.insightPanelScores}>
-              <span className={skin.insightPanelScoreItem} style={POSTER_READABILITY_INLINE.panelBody}>
-                <User className="h-3.5 w-3.5 text-[#F0EEEA]" strokeWidth={1.5} aria-hidden />
-                Sen
-                <span className={skin.insightPanelScoreValue} style={POSTER_READABILITY_INLINE.headline}>
-                  {scores.sen}
+              <p
+                className={cn(skin.rhythmWhisperEyebrow, 'flex items-center gap-2')}
+                style={POSTER_READABILITY_INLINE.panelLabel}
+              >
+                <Crown className="h-3.5 w-3.5 text-[#E8D5B5]" strokeWidth={1.5} aria-hidden />
+                {content.rhythm.eyebrow}
+              </p>
+              <p className={skin.rhythmWhisperWord} style={POSTER_READABILITY_INLINE.headline}>
+                {content.rhythm.word}
+              </p>
+              <p className={skin.insightPanelDesc} style={POSTER_READABILITY_INLINE.panelBody}>
+                {rhythmDescription}
+              </p>
+              <div className={skin.insightPanelScores}>
+                <span className={skin.insightPanelScoreItem} style={POSTER_READABILITY_INLINE.panelBody}>
+                  <User className="h-3.5 w-3.5 text-[#F0EEEA]" strokeWidth={1.5} aria-hidden />
+                  Sen
+                  <span className={skin.insightPanelScoreValue} style={POSTER_READABILITY_INLINE.headline}>
+                    {scores.sen}
+                  </span>
                 </span>
-              </span>
-              <span className={skin.insightPanelScoreDivider} aria-hidden>
-                ·
-              </span>
-              <span className={skin.insightPanelScoreItem} style={POSTER_READABILITY_INLINE.panelBody}>
-                <Bot className="h-3.5 w-3.5 text-[#F0EEEA]" strokeWidth={1.5} aria-hidden />
-                AI
-                <span className={skin.insightPanelScoreValue} style={POSTER_READABILITY_INLINE.headline}>
-                  {scores.ai}
+                <span className={skin.insightPanelScoreDivider} aria-hidden>
+                  ·
                 </span>
-              </span>
-            </div>
-          </section>
-        ) : null}
+                <span className={skin.insightPanelScoreItem} style={POSTER_READABILITY_INLINE.panelBody}>
+                  <Bot className="h-3.5 w-3.5 text-[#F0EEEA]" strokeWidth={1.5} aria-hidden />
+                  AI
+                  <span className={skin.insightPanelScoreValue} style={POSTER_READABILITY_INLINE.headline}>
+                    {scores.ai}
+                  </span>
+                </span>
+              </div>
+            </section>
+          ) : null}
 
-        <div className={cn(skin.overlayFooter, 'flex min-h-0 flex-col justify-end')}>
-          <div className={skin.overlayFooterScrim} aria-hidden />
-          <PosterTomorrowHint
-            tomorrowHint={card.tomorrowHint}
-            skin={skin}
-            isSparse={isSparse}
-            readabilityStyle={POSTER_READABILITY_INLINE.footer}
-          />
+          {!hideRhythmAndFooter ? (
+            <div className={cn(skin.overlayFooter, 'flex min-h-0 flex-col justify-end')}>
+              <div className={skin.overlayFooterScrim} aria-hidden />
+              <PosterTomorrowHint
+                tomorrowHint={card.tomorrowHint}
+                skin={skin}
+                isSparse={isSparse}
+                readabilityStyle={POSTER_READABILITY_INLINE.footer}
+              />
+            </div>
+          ) : null}
         </div>
-      </div>
+      ) : null}
 
       <MirrorLiveDebugPanel
         card={card}

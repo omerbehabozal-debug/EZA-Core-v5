@@ -3196,9 +3196,17 @@ html:has(.saina-page) body {
 }
 
 .saina-mirror-embedded-poster {
-  width: 100% !important;
-  max-height: min(52vh, 28rem) !important;
+  width: min(100%, calc(min(52vh, 28rem) * 9 / 16)) !important;
   max-width: 100% !important;
+  max-height: min(52vh, 28rem) !important;
+  margin-inline: auto !important;
+  flex-shrink: 0;
+}
+
+.saina-mirror-embedded-poster [data-mirror-card-root] {
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: none !important;
 }
 
 .saina-mirror-create-prompt--compact h2 {

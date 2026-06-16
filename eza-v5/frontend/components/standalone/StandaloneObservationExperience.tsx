@@ -860,12 +860,17 @@ export default function StandaloneObservationExperience({
           {isSceneLoading ? (
             <MirrorLoadingExperience sceneImageStatus={sceneImageStatus} />
           ) : isScenePosterVisible ? (
-            <DailyMirrorCardEntrance className={cn('w-full', ms.dailyPosterFrame, embedded && 'saina-mirror-embedded-poster')}>
+            <DailyMirrorCardEntrance
+              className={cn(
+                embedded ? 'saina-mirror-embedded-poster' : cn('w-full', ms.dailyPosterFrame)
+              )}
+            >
               <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
                 <DailyMirrorPosterCard
                   card={cardForRender}
                   entries={displayEntries}
                   meta={generatedDailyMeta ?? undefined}
+                  embedded={embedded}
                   onSceneImageLoad={handleSceneImageLoad}
                   onSceneImageError={handleSceneImageError}
                   onForceBmwMercedes={handleForceBmwMercedes}
