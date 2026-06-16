@@ -592,17 +592,12 @@ export default function StandaloneChatInner() {
         // Use normal endpoint
         const { apiClient } = await import('@/lib/apiClient');
         const response = await apiClient.post<{
-          ok: boolean;
-          data?: {
-            assistant_answer?: string;
-            user_score?: number;
-            assistant_score?: number;
-            safe_answer?: string;
-            mode?: string;
-          };
-          error?: {
-            error_message?: string;
-          };
+          assistant_answer?: string;
+          user_score?: number;
+          assistant_score?: number;
+          safe_answer?: string;
+          mode?: string;
+          safety?: string;
         }>('/api/standalone', {
           body: {
             query: text,
@@ -640,19 +635,24 @@ export default function StandaloneChatInner() {
           (response as { governance?: unknown }).governance
         );
         const feedbackFallback = feedbackContextFromGovernance(governanceFallback, {
-          safety: (data as { safety?: string }).safety,
-          assistantScore: (data as { assistant_score?: number }).assistant_score,
-          ezaScore: (response as { eza_score?: number }).eza_score ?? (data as { assistant_score?: number }).assistant_score,
+          safety: data.safety,
+          assistantScore: data.assistant_score,
+          ezaScore: (response as { eza_score?: number }).eza_score ?? data.assistant_score,
           riskLevel: (response as { risk_level?: string }).risk_level,
         });
-        if (behavioralFallback || standaloneObservationFallback || data.user_score !== undefined || data.assistant_score !== undefined) {
+        if (
+          behavioralFallback ||
+          standaloneObservationFallback ||
+          data.user_score !== undefined ||
+          data.assistant_score !== undefined
+        ) {
           persistChatTurnFromResponse({
             userText: text,
             interactionId: assistantMessageId,
             behavioral: behavioralFallback,
             standaloneObservation: standaloneObservationFallback,
-            userScore: (data as { user_score?: number }).user_score,
-            assistantScore: (data as { assistant_score?: number }).assistant_score,
+            userScore: data.user_score,
+            assistantScore: data.assistant_score,
           });
           setMessages((prev) =>
             prev.map((msg) => {
