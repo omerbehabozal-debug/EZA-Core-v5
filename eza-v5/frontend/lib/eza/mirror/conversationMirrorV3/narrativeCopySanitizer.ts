@@ -42,12 +42,19 @@ export function hasConversationSummaryLanguage(text: string): boolean {
   return CONVERSATION_SUMMARY_PATTERNS.some((pattern) => pattern.test(text));
 }
 
+function normalizeTopicToken(raw: string): string {
+  return raw
+    .replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
 export function extractTopicTokens(...sources: (string | undefined)[]): string[] {
   const tokens = new Set<string>();
   for (const source of sources) {
     if (!source?.trim()) continue;
     for (const raw of source.split(/[\s,/\-–—]+/)) {
-      const token = raw.replace(/[^\p{L}\p{N}]/gu, '').trim().toLowerCase();
+      const token = normalizeTopicToken(raw);
       if (token.length < 3 || TOPIC_TOKEN_STOPWORDS.has(token)) continue;
       tokens.add(token);
     }
@@ -62,7 +69,7 @@ export function containsDirectTopicReference(
   const lower = text.toLowerCase();
   return topicTokens.some((token) => {
     if (token.length < 3) return false;
-    const re = new RegExp(`\\b${escapeRegExp(token)}\\b`, 'iu');
+    const re = new RegExp(`\\b${escapeRegExp(token)}\\b`, 'i');
     return re.test(lower);
   });
 }

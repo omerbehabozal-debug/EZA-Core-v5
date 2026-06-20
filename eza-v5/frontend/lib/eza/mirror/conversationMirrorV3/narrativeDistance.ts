@@ -24,10 +24,9 @@ const SCENE_GUIDANCE_BY_LEVEL: Record<NarrativeDistanceLevel, string> = {
   3: 'Pure cinematic metaphor — beautiful to a stranger, recognizable to the participant through feeling alone. No summary language.',
 };
 
-const TARGET_LEVELS: NarrativeDistanceLevel[] = [2, 3];
-
 export function resolveNarrativeDistance(seed: string): NarrativeDistanceResult {
-  const level = hashPick(`${seed}-narrative-distance`, TARGET_LEVELS) as NarrativeDistanceLevel;
+  const picked = hashPick(`${seed}-narrative-distance`, ['2', '3']);
+  const level = (picked === '3' ? 3 : 2) as NarrativeDistanceLevel;
   return {
     level,
     label: DISTANCE_LABELS[level],
