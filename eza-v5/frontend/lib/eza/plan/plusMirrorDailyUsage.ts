@@ -123,7 +123,7 @@ export function consumePlusMirrorProduction(
 
 export function formatPlusMirrorQuotaHint(remaining: number): string {
   if (remaining <= 0) {
-    return 'Bugünkü üretim hakkın doldu. Mevcut kartını paylaşabilir veya indirebilirsin.';
+    return 'Bugünkü üretim hakkın doldu. Mevcut kartını paylaşabilirsin.';
   }
   if (remaining === 1) {
     return 'Bugün 1 üretim hakkın kaldı.';

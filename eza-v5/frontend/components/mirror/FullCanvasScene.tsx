@@ -18,6 +18,7 @@ export type FullCanvasSceneProps = {
     contrast: number;
     saturate: number;
   };
+  imageFit?: 'cover' | 'contain';
   onSceneImageLoad?: () => void;
   onSceneImageError?: () => void;
 };
@@ -36,6 +37,7 @@ export default function FullCanvasScene({
     contrast: 1.06,
     saturate: 1.05,
   },
+  imageFit = 'cover',
   onSceneImageLoad,
   onSceneImageError,
 }: FullCanvasSceneProps) {
@@ -55,6 +57,7 @@ export default function FullCanvasScene({
         sceneImageStatus={sceneImageStatus}
         className={skin.fullCanvasSceneImage}
         sceneFilter={sceneFilter}
+        imageFit={imageFit}
         onSceneImageLoad={onSceneImageLoad}
         onSceneImageError={onSceneImageError}
       />

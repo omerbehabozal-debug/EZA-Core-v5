@@ -118,7 +118,7 @@ export const MIRROR_EPHEMERAL_FREE =
   'Bugünkü aynan gece sıfırlanır. Paylaşılabilir poster Plus ile açılır.';
 
 export const MIRROR_EPHEMERAL_PLUS =
-  'Bugünkü aynan gece sıfırlanır. Paylaşarak veya indirerek saklayabilirsin.';
+  'Bugünkü aynan gece sıfırlanır. Paylaşarak saklayabilirsin.';
 
 export const MIRROR_FREE_SHARE_POSTER_HINT =
   'Paylaşım posteri Plus ile açılır. Bugünkü kartını uygulama içinde görebilirsin.';

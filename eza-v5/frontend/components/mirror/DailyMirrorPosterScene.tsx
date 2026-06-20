@@ -23,6 +23,8 @@ export type DailyMirrorPosterSceneProps = {
   /** P2 — contained window vs legacy full-bleed backdrop */
   layout?: 'bleed' | 'contained';
   sceneFilter?: SceneFilterProfile;
+  /** cover = full-bleed crop; contain = show entire poster without cropping */
+  imageFit?: 'cover' | 'contain';
   onSceneImageLoad?: () => void;
   onSceneImageError?: () => void;
 };
@@ -61,6 +63,7 @@ export default function DailyMirrorPosterScene({
   className,
   layout = 'bleed',
   sceneFilter = DEFAULT_FILTER,
+  imageFit = 'cover',
   onSceneImageLoad,
   onSceneImageError,
 }: DailyMirrorPosterSceneProps) {
@@ -87,6 +90,7 @@ export default function DailyMirrorPosterScene({
   };
 
   const isContained = layout === 'contained';
+  const isContainFit = imageFit === 'contain';
 
   return (
     <div
@@ -120,7 +124,12 @@ export default function DailyMirrorPosterScene({
         <img
           src={sceneImageUrl!}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-[center_32%] eza-mirror-scene-image-enter"
+          className={cn(
+            'absolute inset-0 h-full w-full eza-mirror-scene-image-enter',
+            isContainFit
+              ? 'object-contain object-center'
+              : 'object-cover object-[center_32%]'
+          )}
           style={filterStyle}
           crossOrigin={sceneImageCrossOrigin(sceneImageUrl!)}
           onLoad={() => onSceneImageLoad?.()}
@@ -135,7 +144,7 @@ export default function DailyMirrorPosterScene({
           className="absolute inset-0 bg-gradient-to-b from-[rgba(248,246,241,0.35)] via-transparent via-[18%] to-[rgba(243,241,236,0.42)]"
           aria-hidden
         />
-      ) : isContained ? (
+      ) : isContained || isContainFit ? (
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-[rgba(123,97,255,0.08)]"
           aria-hidden

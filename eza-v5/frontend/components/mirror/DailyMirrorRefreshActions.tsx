@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Download, Loader2, Share2, Sparkles } from 'lucide-react';
+import { Loader2, Share2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MIRROR_CURRENT_BADGE,
@@ -10,7 +10,6 @@ import {
   MIRROR_NEW_SCENE_LABEL,
   MIRROR_SCENE_STYLE_PREFIX,
   MIRROR_SCENE_GENERATING,
-  MIRROR_SHARE_DOWNLOAD_LABEL,
   MIRROR_SHARE_LABEL,
   MIRROR_UPDATE_LABEL,
   MIRROR_UPDATE_SIGNAL_HINT,
@@ -43,12 +42,10 @@ export type DailyMirrorRefreshActionsProps = {
   sceneImageStatus?: MirrorSceneImageStatus;
   hasProductionQuota?: boolean;
   showShare?: boolean;
-  showDownload?: boolean;
   onUpdate: () => void;
   onNewScene?: () => void;
   activeStyleLensLabel?: string;
   onShare?: () => void;
-  onDownload?: () => void;
   freePlusHint?: string;
   /** Poster-visible ready state — icon-only action row, no badge or hint copy. */
   minimal?: boolean;
@@ -94,12 +91,10 @@ export default function DailyMirrorRefreshActions({
   sceneImageStatus = 'idle',
   hasProductionQuota = true,
   showShare = false,
-  showDownload = false,
   onUpdate,
   onNewScene,
   activeStyleLensLabel,
   onShare,
-  onDownload,
   freePlusHint,
   minimal = false,
   children,
@@ -109,7 +104,7 @@ export default function DailyMirrorRefreshActions({
     isPlus && cardReady && refreshCta === 'current' && typeof onNewScene === 'function';
 
   if (refreshCta === 'current' && minimal) {
-    const hasActions = showShare || showDownload || showNewScene;
+    const hasActions = showShare || showNewScene;
     if (!hasActions) return null;
 
     const isGenerating = sceneImageStatus === 'generating';
@@ -125,17 +120,6 @@ export default function DailyMirrorRefreshActions({
             title={MIRROR_SHARE_LABEL}
           >
             <Share2 className="h-4 w-4 opacity-90" aria-hidden />
-          </button>
-        ) : null}
-        {showDownload && onDownload ? (
-          <button
-            type="button"
-            onClick={onDownload}
-            className={ms.mirrorIconBtn}
-            aria-label={MIRROR_SHARE_DOWNLOAD_LABEL}
-            title={MIRROR_SHARE_DOWNLOAD_LABEL}
-          >
-            <Download className="h-4 w-4 opacity-80" aria-hidden />
           </button>
         ) : null}
         {showNewScene && onNewScene ? (
@@ -179,12 +163,6 @@ export default function DailyMirrorRefreshActions({
             {MIRROR_SHARE_LABEL}
           </button>
         ) : null}
-        {showDownload && onDownload ? (
-          <button type="button" onClick={onDownload} className={actionBtnClass}>
-            <Download className="h-3.5 w-3.5 opacity-70" aria-hidden />
-            {MIRROR_SHARE_DOWNLOAD_LABEL}
-          </button>
-        ) : null}
         {showNewScene && onNewScene ? (
           <PlusNewSceneBlock
             sceneImageStatus={sceneImageStatus}
@@ -213,12 +191,6 @@ export default function DailyMirrorRefreshActions({
         <button type="button" onClick={onShare} className={primaryShareClass}>
           <Share2 className="h-4 w-4 opacity-90" aria-hidden />
           {MIRROR_SHARE_LABEL}
-        </button>
-      ) : null}
-      {isPlus && showDownload && onDownload ? (
-        <button type="button" onClick={onDownload} className={actionBtnClass}>
-          <Download className="h-3.5 w-3.5 opacity-70" aria-hidden />
-          {MIRROR_SHARE_DOWNLOAD_LABEL}
         </button>
       ) : null}
       <button

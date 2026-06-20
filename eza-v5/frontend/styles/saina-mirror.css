@@ -3196,9 +3196,8 @@ html:has(.saina-page) body {
 }
 
 .saina-mirror-embedded-poster {
-  width: min(100%, calc(min(52vh, 28rem) * 9 / 16)) !important;
+  width: min(100%, 17.5rem) !important;
   max-width: 100% !important;
-  max-height: min(52vh, 28rem) !important;
   margin-inline: auto !important;
   flex-shrink: 0;
 }
@@ -3206,7 +3205,33 @@ html:has(.saina-page) body {
 .saina-mirror-embedded-poster [data-mirror-card-root] {
   width: 100% !important;
   max-width: 100% !important;
-  max-height: none !important;
+  height: auto !important;
+}
+
+.saina-mirror-embedded-poster [data-mirror-aspect='4-5'] {
+  aspect-ratio: 4 / 5 !important;
+}
+
+.saina-mirror-poster-preview-trigger {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 34px;
+  text-align: inherit;
+}
+
+.saina-mirror-poster-preview-trigger:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.55);
+  outline-offset: 3px;
+}
+
+.saina-mirror-poster-preview-trigger [data-mirror-embedded-preview='scene-only'] img.eza-mirror-scene-image-enter {
+  object-fit: contain !important;
+  object-position: center !important;
 }
 
 .saina-mirror-create-prompt--compact h2 {

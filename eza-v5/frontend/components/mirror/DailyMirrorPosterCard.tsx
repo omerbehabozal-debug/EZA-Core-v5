@@ -167,10 +167,13 @@ export default function DailyMirrorPosterCard({
     [composition, editorial, palette]
   );
 
+  const posterUsesFourFive =
+    v3ImageOnlyPoster || (embeddedScenePreview && sceneCarriesPosterArt);
+
   return (
     <article
       data-mirror-card-root
-      data-mirror-aspect="9-16"
+      data-mirror-aspect={posterUsesFourFive ? '4-5' : '9-16'}
       data-mirror-poster={posterVersion}
       data-mirror-render-mode={cardRenderMode}
       data-mirror-effective-render-mode={effectiveRenderMode}
@@ -179,7 +182,7 @@ export default function DailyMirrorPosterCard({
       data-mirror-scene-tone={sceneTone.id}
       data-mirror-density={composition.density}
       data-mirror-embedded-preview={embeddedScenePreview ? 'scene-only' : undefined}
-      className={skin.root}
+      className={cn(skin.root, posterUsesFourFive && 'aspect-[4/5]')}
       style={cardStyle}
       aria-labelledby={embeddedScenePreview ? undefined : 'daily-mirror-poster-title'}
     >
@@ -189,6 +192,7 @@ export default function DailyMirrorPosterCard({
         sceneImageUrl={card.visual?.sceneImageUrl}
         sceneImageStatus={card.visual?.sceneImageStatus}
         skin={skin}
+        imageFit={embeddedScenePreview ? 'contain' : 'cover'}
         onSceneImageLoad={onSceneImageLoad}
         onSceneImageError={onSceneImageError}
       />

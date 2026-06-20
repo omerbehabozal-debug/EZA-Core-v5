@@ -71,9 +71,17 @@ describe('P4-D access gates (source)', () => {
     expect(sceneBtnSrc).not.toContain('MIRROR_SCENE_READY');
   });
 
-  it('Plus refresh actions expose share and download', () => {
-    expect(refreshSrc).toContain('showDownload');
-    expect(refreshSrc).toContain('MIRROR_SHARE_DOWNLOAD_LABEL');
+  it('opens poster lightbox from preview and share modal has no download', () => {
+    expect(experienceSrc).toContain('MirrorPosterLightbox');
+    expect(experienceSrc).toContain('saina-mirror-poster-preview-trigger');
+    expect(experienceSrc).not.toContain('showDownload');
+    expect(experienceSrc).not.toContain('handleCardDownload');
+  });
+
+  it('Plus refresh actions expose share only (no download)', () => {
+    expect(refreshSrc).toContain('showShare');
+    expect(refreshSrc).not.toContain('showDownload');
+    expect(refreshSrc).not.toContain('MIRROR_SHARE_DOWNLOAD_LABEL');
     expect(refreshSrc).toContain('primaryShareClass');
   });
 });
@@ -81,7 +89,7 @@ describe('P4-D access gates (source)', () => {
 describe('P4-D ephemeral copy constants', () => {
   it('defines distinct Free and Plus ephemeral strings', () => {
     expect(MIRROR_EPHEMERAL_FREE).toMatch(/Plus ile açılır/i);
-    expect(MIRROR_EPHEMERAL_PLUS).toMatch(/Paylaşarak veya indirerek/i);
+    expect(MIRROR_EPHEMERAL_PLUS).toMatch(/Paylaşarak saklayabilirsin/i);
   });
 });
 

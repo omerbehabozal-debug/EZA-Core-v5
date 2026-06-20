@@ -1,10 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Download, Loader2, Share2, X } from 'lucide-react';
+import { Loader2, Share2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  MIRROR_SHARE_DOWNLOAD_LABEL,
   MIRROR_SHARE_EXPORT_PRIVACY,
   MIRROR_SHARE_LABEL,
   MIRROR_SHARE_MODAL_TITLE,
@@ -21,7 +20,6 @@ export interface MirrorShareModalProps {
   loading: boolean;
   error: string | null;
   onCapture: () => Promise<void>;
-  onDownload: () => Promise<boolean>;
   onShare: () => Promise<void>;
   onCopyText: () => Promise<boolean>;
 }
@@ -33,12 +31,11 @@ export default function MirrorShareModal({
   loading,
   error,
   onCapture,
-  onDownload,
   onShare,
   onCopyText,
 }: MirrorShareModalProps) {
   const [copied, setCopied] = useState(false);
-  const [busy, setBusy] = useState<'download' | 'share' | null>(null);
+  const [busy, setBusy] = useState<'share' | null>(null);
   const fileShareAvailable = canShareFiles();
 
   useEffect(() => {
@@ -66,15 +63,6 @@ export default function MirrorShareModal({
       window.setTimeout(() => setCopied(false), 2000);
     }
   }, [onCopyText]);
-
-  const handleDownload = useCallback(async () => {
-    setBusy('download');
-    try {
-      await onDownload();
-    } finally {
-      setBusy(null);
-    }
-  }, [onDownload]);
 
   const handleShare = useCallback(async () => {
     setBusy('share');
@@ -153,19 +141,6 @@ export default function MirrorShareModal({
           ) : null}
           <button
             type="button"
-            onClick={handleDownload}
-            disabled={loading || !previewUrl || busy !== null}
-            className={cn(sh.secondaryBtn, 'inline-flex items-center justify-center gap-2')}
-          >
-            {busy === 'download' ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <Download className="h-4 w-4" aria-hidden />
-            )}
-            {MIRROR_SHARE_DOWNLOAD_LABEL}
-          </button>
-          <button
-            type="button"
             onClick={handleCopy}
             disabled={loading || busy !== null}
             className={cn(sh.secondaryBtn, 'sm:flex-1')}
@@ -177,7 +152,7 @@ export default function MirrorShareModal({
         <p className={sh.hint}>{MIRROR_SHARE_EXPORT_PRIVACY}</p>
         {!fileShareAvailable && typeof navigator !== 'undefined' && 'share' in navigator ? (
           <p className="text-center text-[11px] text-stone-400">
-            Bu cihazda görsel doğrudan paylaşılamayabilir; indirme kullanılır.
+            Bu cihazda görsel doğrudan paylaşılamayabilir; metni kopyalayabilirsin.
           </p>
         ) : null}
       </div>

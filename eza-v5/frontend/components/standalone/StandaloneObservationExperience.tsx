@@ -55,6 +55,7 @@ import DailyMirrorReveal from '@/components/mirror/DailyMirrorReveal';
 import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance';
 import MirrorLoadingExperience from '@/components/mirror/MirrorLoadingExperience';
 import DailyMirrorReadyFooter from '@/components/mirror/DailyMirrorReadyFooter';
+import MirrorPosterLightbox from '@/components/mirror/MirrorPosterLightbox';
 import MirrorShareModal from '@/components/mirror/MirrorShareModal';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
@@ -115,6 +116,7 @@ export default function StandaloneObservationExperience({
   conversationId,
 }: StandaloneObservationExperienceProps) {
   const [shareOpen, setShareOpen] = useState(false);
+  const [posterLightboxOpen, setPosterLightboxOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeVariant, setUpgradeVariant] = useState<UpgradeModalVariant>('upgrade');
   const [dailyStatus, setDailyStatus] = useState<DailyMirrorStatus>('idle');
@@ -762,22 +764,15 @@ export default function StandaloneObservationExperience({
     setShareOpen(true);
   }, [isPlus]);
 
-  const handleCardDownload = useCallback(async () => {
-    if (!isPlus) return;
-    const blob = await mirrorExport.captureCard();
-    if (blob) {
-      await mirrorExport.download(generatedDailyCard);
-    }
-  }, [isPlus, mirrorExport, generatedDailyCard]);
+  const handlePosterPreviewOpen = useCallback(() => {
+    if (!sceneImageUrl?.trim()) return;
+    setPosterLightboxOpen(true);
+  }, [sceneImageUrl]);
 
   const handleShareCapture = useCallback(async () => {
     if (!isPlus) return;
     await mirrorExport.captureCard();
   }, [isPlus, mirrorExport]);
-
-  const handleShareDownload = useCallback(async () => {
-    return mirrorExport.download(generatedDailyCard);
-  }, [mirrorExport, generatedDailyCard]);
 
   const handleShareNative = useCallback(async () => {
     await mirrorExport.share(generatedDailyCard);
@@ -806,8 +801,6 @@ export default function StandaloneObservationExperience({
     isScenePosterVisible &&
     generatedDailyCard !== null &&
     generatedDailyCard.shareEnabled;
-
-  const showDownloadAction = showShareAction;
 
   const showSceneLoginCta =
     !isAuthenticated &&
@@ -872,39 +865,46 @@ export default function StandaloneObservationExperience({
           {isSceneLoading ? (
             <MirrorLoadingExperience sceneImageStatus={sceneImageStatus} />
           ) : isScenePosterVisible ? (
-            <DailyMirrorCardEntrance
-              className={cn(
-                embedded ? 'saina-mirror-embedded-poster' : cn('w-full', ms.dailyPosterFrame)
-              )}
+            <button
+              type="button"
+              className="saina-mirror-poster-preview-trigger"
+              onClick={handlePosterPreviewOpen}
+              aria-label="Aynayı tam boyutta gör"
             >
-              <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
-                <DailyMirrorPosterCard
-                  card={cardForRender}
-                  entries={displayEntries}
-                  meta={generatedDailyMeta ?? undefined}
-                  embedded={embedded}
-                  onSceneImageLoad={handleSceneImageLoad}
-                  onSceneImageError={handleSceneImageError}
-                  onForceBmwMercedes={handleForceBmwMercedes}
-                  onToggleHybridMode={handleToggleHybridMode}
-                  hybridTextFallback={hybridTextFallback}
-                />
-                {isPlus ? (
-                  <div
-                    className="pointer-events-none fixed left-[-9999px] top-0 z-[-1] w-[432px] max-w-none opacity-100"
-                    aria-hidden
-                  >
-                    <DailyMirrorSharePoster
-                      card={cardForRender}
-                      sceneImageUrl={cardForRender.visual?.sceneImageUrl}
-                      sceneImageStatus={sceneImageStatus}
-                      onSceneImageLoad={handleSceneImageLoad}
-                      onSceneImageError={handleSceneImageError}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </DailyMirrorCardEntrance>
+              <DailyMirrorCardEntrance
+                className={cn(
+                  embedded ? 'saina-mirror-embedded-poster' : cn('w-full', ms.dailyPosterFrame)
+                )}
+              >
+                <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
+                  <DailyMirrorPosterCard
+                    card={cardForRender}
+                    entries={displayEntries}
+                    meta={generatedDailyMeta ?? undefined}
+                    embedded={embedded}
+                    onSceneImageLoad={handleSceneImageLoad}
+                    onSceneImageError={handleSceneImageError}
+                    onForceBmwMercedes={handleForceBmwMercedes}
+                    onToggleHybridMode={handleToggleHybridMode}
+                    hybridTextFallback={hybridTextFallback}
+                  />
+                  {isPlus ? (
+                    <div
+                      className="pointer-events-none fixed left-[-9999px] top-0 z-[-1] w-[432px] max-w-none opacity-100"
+                      aria-hidden
+                    >
+                      <DailyMirrorSharePoster
+                        card={cardForRender}
+                        sceneImageUrl={cardForRender.visual?.sceneImageUrl}
+                        sceneImageStatus={sceneImageStatus}
+                        onSceneImageLoad={handleSceneImageLoad}
+                        onSceneImageError={handleSceneImageError}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </DailyMirrorCardEntrance>
+            </button>
           ) : null}
 
           {!isSceneLoading ? (
@@ -915,9 +915,7 @@ export default function StandaloneObservationExperience({
               sceneImageStatus={sceneImageStatus}
               hasProductionQuota={hasPlusProductionQuota}
               showShare={showShareAction}
-              showDownload={showDownloadAction}
               onShare={handleShareOpen}
-              onDownload={() => void handleCardDownload()}
               onUpdate={handleMirrorRefresh}
               onNewScene={handleNewMirrorScene}
               activeStyleLensLabel={isPlus ? activeStyleLensLabel : undefined}
@@ -1003,9 +1001,15 @@ export default function StandaloneObservationExperience({
         loading={mirrorExport.loading}
         error={mirrorExport.error}
         onCapture={handleShareCapture}
-        onDownload={handleShareDownload}
         onShare={handleShareNative}
         onCopyText={() => mirrorExport.copyText(generatedDailyCard)}
+      />
+
+      <MirrorPosterLightbox
+        open={posterLightboxOpen}
+        imageUrl={sceneImageUrl}
+        title={generatedDailyCard?.dailyThemeTitle}
+        onClose={() => setPosterLightboxOpen(false)}
       />
 
       <UpgradeModal
