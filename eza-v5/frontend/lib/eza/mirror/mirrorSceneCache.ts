@@ -3,6 +3,7 @@
  */
 
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
+import { isV31SceneCacheFingerprint } from '@/lib/eza/mirror/conversationMirrorV3/mirrorSceneCacheMigration';
 
 export const MIRROR_SCENE_CACHE_STORAGE_KEY = 'eza_daily_mirror_scene_v1';
 export const CONVERSATION_MIRROR_SCENE_CACHE_STORAGE_KEY =
@@ -113,11 +114,14 @@ function writeConversationSceneStore(store: ConversationSceneCacheStore): void {
 
 export function readConversationMirrorSceneCache(
   conversationId: string,
-  card: Pick<DailyMirrorCardModel, 'date' | 'visual'> | null
+  card: Pick<DailyMirrorCardModel, 'date' | 'visual' | 'mirrorPipelineVersion'> | null
 ): MirrorSceneCacheRecord | null {
   if (!conversationId.trim() || !card?.visual) return null;
   const fingerprint = card.visual.intentFingerprint ?? '';
   if (!fingerprint) return null;
+  if (card.mirrorPipelineVersion === 'v3' && !isV31SceneCacheFingerprint(fingerprint)) {
+    return null;
+  }
   const record = readConversationSceneStore()[conversationId];
   if (!record) return null;
   if (record.cardDate !== card.date) return null;

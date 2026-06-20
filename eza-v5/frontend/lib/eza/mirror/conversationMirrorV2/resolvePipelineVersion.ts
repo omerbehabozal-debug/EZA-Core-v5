@@ -48,6 +48,11 @@ export function isMirrorPipelineV3(override?: MirrorPipelineVersion): boolean {
   return resolveMirrorPipelineVersion(override) === 'v3';
 }
 
+/** Conversation Mirror always uses V3.1 — not overridable by dev v1/v2 toggles. */
+export function resolveConversationMirrorPipelineVersion(): MirrorPipelineVersion {
+  return 'v3';
+}
+
 export function setDevMirrorPipeline(version: MirrorPipelineVersion): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(DEV_PIPELINE_KEY, version);

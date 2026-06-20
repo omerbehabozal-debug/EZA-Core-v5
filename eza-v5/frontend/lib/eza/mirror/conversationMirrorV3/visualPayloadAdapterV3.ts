@@ -15,6 +15,9 @@ import {
 } from '@/lib/eza/mirror/conversationMirrorV3/sceneCacheFingerprint';
 import { getSeasonProfile } from '@/lib/eza/mirror/conversationMirrorV2/seasonRegistry';
 
+/** Backend-accepted style preset (mirror_image_service ALLOWED_STYLE_PRESETS). */
+export const MIRROR_V3_STYLE_PRESET = 'eza_mirror_professional_v1' as const;
+
 export function buildVisualPayloadFromMirrorV3(
   payload: SainaMirrorV3Payload,
   options?: {
@@ -35,7 +38,7 @@ export function buildVisualPayloadFromMirrorV3(
     emotionLabel: payload.emotionalTone,
     prompt,
     negativePrompt: MIRROR_V3_NEGATIVE_PROMPT,
-    stylePreset: `saina_mirror_v3_${payload.season}`,
+    stylePreset: MIRROR_V3_STYLE_PRESET,
     seedHint,
     qualityHints: [
       'vertical 4:5 poster 1080x1350',

@@ -13,6 +13,7 @@ import { buildMirrorStateV3 } from '@/lib/eza/mirror/conversationMirrorV3/buildM
 import {
   isMirrorPipelineV2,
   isMirrorPipelineV3,
+  resolveConversationMirrorPipelineVersion,
 } from '@/lib/eza/mirror/conversationMirrorV2/resolvePipelineVersion';
 
 export type BuildConversationMirrorStateOptions = BuildMirrorStateOptions & {
@@ -23,10 +24,14 @@ export function buildConversationMirrorState(
   entries: SavedBehavioralEntry[],
   options?: BuildConversationMirrorStateOptions
 ): MirrorStateResult {
-  if (isMirrorPipelineV3(options?.pipelineVersion)) {
+  const pipelineVersion = options?.conversationId
+    ? resolveConversationMirrorPipelineVersion()
+    : options?.pipelineVersion;
+
+  if (isMirrorPipelineV3(pipelineVersion)) {
     return buildMirrorStateV3(entries, options);
   }
-  if (isMirrorPipelineV2(options?.pipelineVersion)) {
+  if (isMirrorPipelineV2(pipelineVersion)) {
     return buildMirrorStateV2(entries, options);
   }
   return buildMirrorState(entries, options);
@@ -36,4 +41,5 @@ export {
   isMirrorPipelineV2,
   isMirrorPipelineV3,
   resolveMirrorPipelineVersion,
+  resolveConversationMirrorPipelineVersion,
 } from '@/lib/eza/mirror/conversationMirrorV2/resolvePipelineVersion';

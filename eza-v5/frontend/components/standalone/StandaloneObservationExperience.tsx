@@ -74,6 +74,8 @@ import {
   readMirrorSceneCacheForScope,
   saveMirrorSceneCacheForScope,
 } from '@/lib/eza/mirror/mirrorSceneCache';
+import { purgeLegacyMirrorSceneCaches } from '@/lib/eza/mirror/conversationMirrorV3/mirrorSceneCacheMigration';
+import { isV3MirrorCard } from '@/lib/eza/mirror/conversationMirrorV3/applyV3SceneOverlay';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -179,6 +181,12 @@ export default function StandaloneObservationExperience({
     },
     [resolveSceneDisplayUrl]
   );
+
+  useEffect(() => {
+    if (conversationId) {
+      purgeLegacyMirrorSceneCaches();
+    }
+  }, [conversationId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -417,6 +425,8 @@ export default function StandaloneObservationExperience({
 
   const runHybridOcrProbe = useCallback(
     async (url: string) => {
+      if (generatedDailyCard && isV3MirrorCard(generatedDailyCard)) return;
+
       const mode =
         generatedDailyCard?.visual?.renderMode ?? resolveMirrorRenderMode();
       if (mode !== 'hybrid_middle') return;
@@ -460,6 +470,7 @@ export default function StandaloneObservationExperience({
     setSceneImageUrl(null);
     clearMirrorSceneCacheForScope(conversationId);
     sceneAutoKeyRef.current = null;
+    if (generatedDailyCard && isV3MirrorCard(generatedDailyCard)) return;
     const mode =
       generatedDailyCard?.visual?.renderMode ?? resolveMirrorRenderMode();
     if (mode === 'hybrid_middle') {
@@ -504,6 +515,7 @@ export default function StandaloneObservationExperience({
           result.provider
         );
         if (
+          !isV3MirrorCard(generatedDailyCard) &&
           (visual.renderMode ?? resolveMirrorRenderMode()) === 'hybrid_middle' &&
           isMockSceneImageUrl(result.sceneImageUrl)
         ) {
@@ -527,7 +539,7 @@ export default function StandaloneObservationExperience({
           }
         }
         const mode = visual.renderMode ?? resolveMirrorRenderMode();
-        if (mode === 'hybrid_middle') {
+        if (!isV3MirrorCard(generatedDailyCard) && mode === 'hybrid_middle') {
           setHybridTextFallback(true);
           setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
         }

@@ -10,6 +10,11 @@ export {
   buildMirrorV3IntentFingerprint,
   buildMirrorV3SeedHint,
 } from '@/lib/eza/mirror/conversationMirrorV3/sceneCacheFingerprint';
+export {
+  purgeLegacyMirrorSceneCaches,
+  isV31SceneCacheFingerprint,
+} from '@/lib/eza/mirror/conversationMirrorV3/mirrorSceneCacheMigration';
+export { MIRROR_V3_STYLE_PRESET } from '@/lib/eza/mirror/conversationMirrorV3/visualPayloadAdapterV3';
 
 export { resolveNarrativeLayer } from '@/lib/eza/mirror/conversationMirrorV3/narrativeLayer';
 export { resolveNarrativeDistance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';

@@ -17,6 +17,7 @@ import {
 } from '@/lib/eza/mirror/posterCardSkin';
 import { resolveCardRenderMode } from '@/lib/eza/mirror/mirrorPosterLayout';
 import FullCanvasScene from '@/components/mirror/FullCanvasScene';
+import { isV3MirrorCard } from '@/lib/eza/mirror/conversationMirrorV3/applyV3SceneOverlay';
 
 export type DailyMirrorSharePosterProps = {
   card: DailyMirrorCardModel;
@@ -55,6 +56,7 @@ export default function DailyMirrorSharePoster({
     : '';
   const themeTitle = identity.themeTitle?.trim() || card.dailyThemeTitle?.trim() || '';
   const themeSubtitle = identity.themeSubtitle?.trim() || card.dailyThemeSubtitle?.trim() || '';
+  const v3SharePoster = isV3MirrorCard(card) && Boolean(sceneUrl?.trim());
 
   const cardStyle = useMemo(
     () => ({
@@ -68,7 +70,7 @@ export default function DailyMirrorSharePoster({
     <article
       data-mirror-share-root
       data-mirror-aspect="9-16"
-      data-mirror-poster="share-story-v1"
+      data-mirror-poster={v3SharePoster ? 'v3-scene-only' : 'share-story-v1'}
       data-mirror-scene-tone={sceneTone.id}
       className={skin.root}
       style={cardStyle}
@@ -85,85 +87,89 @@ export default function DailyMirrorSharePoster({
         onSceneImageError={onSceneImageError}
       />
 
-      <div className={skin.overlayScrim} aria-hidden>
-        <div className={skin.overlayTopScrim} aria-hidden />
-        <div className={skin.overlayBottomScrim} aria-hidden />
-        <div className={sharePosterReadabilityLayers.top} aria-hidden />
-        <div className={sharePosterReadabilityLayers.bottom} aria-hidden />
-      </div>
+      {!v3SharePoster ? (
+        <>
+          <div className={skin.overlayScrim} aria-hidden>
+            <div className={skin.overlayTopScrim} aria-hidden />
+            <div className={skin.overlayBottomScrim} aria-hidden />
+            <div className={sharePosterReadabilityLayers.top} aria-hidden />
+            <div className={sharePosterReadabilityLayers.bottom} aria-hidden />
+          </div>
 
-      <div className={skin.grain} aria-hidden />
+          <div className={skin.grain} aria-hidden />
 
-      <div className={skin.overlayStack}>
-        <header className={skin.shareMasthead}>
-          <span
-            className={cn(
-              skin.shareMastheadBrand,
-              sharePosterReadabilityText.masthead,
-              'inline-flex items-center gap-1'
-            )}
-          >
-            <Sparkles className="h-2.5 w-2.5 text-amber-100/90" aria-hidden />
-            EZA · AI İlişki Aynası
-          </span>
-          <span className={cn(skin.shareMastheadDate, sharePosterReadabilityText.masthead)}>
-            {card.dayLabel}
-          </span>
-        </header>
+          <div className={skin.overlayStack}>
+            <header className={skin.shareMasthead}>
+              <span
+                className={cn(
+                  skin.shareMastheadBrand,
+                  sharePosterReadabilityText.masthead,
+                  'inline-flex items-center gap-1'
+                )}
+              >
+                <Sparkles className="h-2.5 w-2.5 text-amber-100/90" aria-hidden />
+                EZA · AI İlişki Aynası
+              </span>
+              <span className={cn(skin.shareMastheadDate, sharePosterReadabilityText.masthead)}>
+                {card.dayLabel}
+              </span>
+            </header>
 
-        <div className="min-h-0 flex-1" aria-hidden />
+            <div className="min-h-0 flex-1" aria-hidden />
 
-        <section
-          className={cn(
-            skin.shareIdentityZone,
-            'mx-auto max-w-[92%] items-center justify-center text-center'
-          )}
-          aria-label={avatarName || 'Kimlik'}
-        >
-          {avatarName ? (
-            <h2
+            <section
               className={cn(
-                skin.shareAvatarName,
-                sharePosterReadabilityText.headline,
-                'font-serif text-[clamp(1.75rem,9vw,2.65rem)]'
+                skin.shareIdentityZone,
+                'mx-auto max-w-[92%] items-center justify-center text-center'
               )}
+              aria-label={avatarName || 'Kimlik'}
             >
-              {avatarName}
-            </h2>
-          ) : null}
-          {momentDisplay ? (
-            <p
-              className={cn(
-                skin.shareMirrorMoment,
-                sharePosterReadabilityText.quote,
-                'mx-auto max-w-[88%]'
-              )}
-            >
-              {momentDisplay}
-            </p>
-          ) : null}
-          {themeTitle ? (
-            <p
-              className={cn(
-                skin.shareThemeLine,
-                sharePosterReadabilityText.body,
-                'mx-auto max-w-[90%]'
-              )}
-            >
-              <span className={skin.shareThemeTitle}>{themeTitle}</span>
-              {themeSubtitle ? (
-                <span className={skin.shareThemeSubtitle}> · {themeSubtitle}</span>
+              {avatarName ? (
+                <h2
+                  className={cn(
+                    skin.shareAvatarName,
+                    sharePosterReadabilityText.headline,
+                    'font-serif text-[clamp(1.75rem,9vw,2.65rem)]'
+                  )}
+                >
+                  {avatarName}
+                </h2>
               ) : null}
-            </p>
-          ) : null}
-        </section>
+              {momentDisplay ? (
+                <p
+                  className={cn(
+                    skin.shareMirrorMoment,
+                    sharePosterReadabilityText.quote,
+                    'mx-auto max-w-[88%]'
+                  )}
+                >
+                  {momentDisplay}
+                </p>
+              ) : null}
+              {themeTitle ? (
+                <p
+                  className={cn(
+                    skin.shareThemeLine,
+                    sharePosterReadabilityText.body,
+                    'mx-auto max-w-[90%]'
+                  )}
+                >
+                  <span className={skin.shareThemeTitle}>{themeTitle}</span>
+                  {themeSubtitle ? (
+                    <span className={skin.shareThemeSubtitle}> · {themeSubtitle}</span>
+                  ) : null}
+                </p>
+              ) : null}
+            </section>
 
-        <footer className={cn(skin.shareFooter, sharePosterReadabilityText.footer)}>
-          <span>EZA</span>
-          <span className="text-center">#EZAİlişkiAynası</span>
-          <span className="text-right">eza.ai</span>
-        </footer>
-      </div>
+            <footer className={cn(skin.shareFooter, sharePosterReadabilityText.footer)}>
+              <span>EZA</span>
+              <span className="text-center">#EZAİlişkiAynası</span>
+              <span className="text-right">eza.ai</span>
+            </footer>
+          </div>
+        </>
+      ) : null}
     </article>
   );
 }

@@ -134,7 +134,7 @@ describe('conversationMirrorV3', () => {
 
     expect(card.energyLabel).toBe('');
     expect(card.balanceLine).toBe('');
-    expect(card.visual?.stylePreset).toMatch(/^saina_mirror_v3_/);
+    expect(card.visual?.stylePreset).toMatch(/^eza_mirror_professional/);
     expect(hasConversationSummaryLanguage(card.shortInsight)).toBe(false);
   });
 
@@ -157,6 +157,33 @@ describe('conversationMirrorV3', () => {
     expect(visual.intentFingerprint).toBe(fingerprint);
     expect(visual.seedHint).toContain(MIRROR_V3_SCENE_CACHE_KEY);
     expect(visual.intentFingerprint).not.toMatch(/^v3:/);
+  });
+
+  it('conversation scope always routes to V3 regardless of pipeline override', () => {
+    const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
+    const state = buildConversationMirrorState(scenario.buildEntries(), {
+      conversationId: 'conv-force-v3',
+      pipelineVersion: 'v1',
+    });
+
+    expect(state.meta.pipelineVersion).toBe('v3');
+    expect(state.dailyMirrorCard.mirrorV3Payload?.refinementVersion).toBe('3.1');
+    expect(hasConversationSummaryLanguage(state.dailyMirrorCard.shortInsight)).toBe(false);
+  });
+
+  it('V3 visual uses backend-accepted style preset and cache fingerprint', () => {
+    const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
+    const state = buildMirrorStateV3(scenario.buildEntries(), {
+      conversationId: 'qa-v31-style',
+      seed: 'qa-v31-style',
+    });
+
+    expect(state.dailyMirrorCard.visual?.stylePreset).toBe('eza_mirror_professional_v1');
+    expect(state.dailyMirrorCard.visual?.intentFingerprint).toContain(
+      MIRROR_V3_SCENE_CACHE_KEY
+    );
+    expect(state.dailyMirrorCard.visual?.prompt).toContain('Narrative distance:');
+    expect(state.dailyMirrorCard.visual?.prompt).not.toContain('Bugün Japonya');
   });
 
   it('brand signature matches spec', () => {
