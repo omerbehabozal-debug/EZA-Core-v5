@@ -10,6 +10,7 @@ export type MirrorSeasonProfile = {
   mood: string;
   palette: string;
   visualLanguage: string;
+  lightingRecipe: string;
   promptBlock: string;
 };
 
@@ -21,6 +22,8 @@ export const MIRROR_SEASON_REGISTRY: Record<SainaMirrorSeason, MirrorSeasonProfi
     palette: 'Warm gold, ivory, soft teal, pale sky, natural shadows.',
     visualLanguage:
       'Premium editorial photography, cinematic sunlight, human-centered composition, soft depth of field, quiet luxury, golden-hour atmosphere.',
+    lightingRecipe:
+      'Soft key light from a 45-degree window, warm fill bounce, natural shadow falloff, clear air, no artificial bloom.',
     promptBlock: `Season art direction:
 Aydınlık Sinematik
 
@@ -45,6 +48,8 @@ golden-hour atmosphere.`,
     palette: 'Navy, deep teal, warm gold, city lights, wet reflections.',
     visualLanguage:
       'Cinematic night photography, rain reflections, quiet urban atmosphere, soft bokeh, subtle golden highlights.',
+    lightingRecipe:
+      'Single practical light source, wet reflective ground or glass reflection, low-key exposure, controlled highlights, deep navy shadows.',
     promptBlock: `Season art direction:
 Gece ve Keşif
 
@@ -68,6 +73,8 @@ subtle golden highlights.`,
     palette: 'Ivory, charcoal, muted gold, soft natural tones.',
     visualLanguage:
       'Luxury magazine cover, Monocle / Kinfolk style, clean composition, strong negative space, premium editorial typography.',
+    lightingRecipe:
+      'Softbox-like daylight, clean wall or sky background, restrained contrast, precise composition, no clutter.',
     promptBlock: `Season art direction:
 Editorial Magazine
 
@@ -91,6 +98,8 @@ premium editorial typography.`,
     palette: 'Deep contrast, gold highlights, cinematic shadows.',
     visualLanguage:
       'A24-style quiet drama, cinematic poster layout, single strong scene, human silhouette, powerful atmosphere.',
+    lightingRecipe:
+      'Low-key cinematic light, one rim light, 60% shadow, emotional silhouette, dramatic but quiet contrast.',
     promptBlock: `Season art direction:
 Film Posteri
 
@@ -114,6 +123,8 @@ powerful atmosphere.`,
     palette: 'Deep charcoal, muted teal, soft ivory, restrained gold accents.',
     visualLanguage:
       'Quiet luxury interior, tactile materials, soft window light, minimal composition, editorial restraint.',
+    lightingRecipe:
+      'Diffused north light, tactile surfaces, matte reflections, natural texture, no specular hotspots.',
     promptBlock: `Season art direction:
 Sessiz Lüks
 
@@ -137,6 +148,8 @@ editorial restraint.`,
     palette: 'Amber gold, honey light, soft shadows, pale horizon.',
     visualLanguage:
       'Golden hour photography, long shadows, warm haze, cinematic landscape, human scale in frame.',
+    lightingRecipe:
+      'Real low sun angle, long shadows, warm edge light, natural haze, no fake lens flare, no HDR glow.',
     promptBlock: `Season art direction:
 Altın Saat
 

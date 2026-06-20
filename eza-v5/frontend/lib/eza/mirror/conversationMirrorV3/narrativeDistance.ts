@@ -33,3 +33,21 @@ export function resolveNarrativeDistance(seed: string): NarrativeDistanceResult 
     sceneGuidance: SCENE_GUIDANCE_BY_LEVEL[level],
   };
 }
+
+/** V3.2 — narrative distance as actionable visual behavior for OpenAI. */
+export function getNarrativeDistanceVisualGuidance(distance: NarrativeDistanceLevel): string {
+  if (distance === 2) {
+    return `Narrative distance visual behavior:
+- Intimate emotional meaning.
+- Prefer medium shot or near-subject composition.
+- Human scale, interior detail, tactile surface, emotional legibility.
+- The viewer should feel close to the decision or curiosity.`;
+  }
+
+  return `Narrative distance visual behavior:
+- Universal cinematic meaning.
+- Prefer wide atmospheric tableau.
+- Figure, if present, should be small: max 15% of frame height.
+- Atmosphere, scale and silence should carry the emotion.
+- The viewer should feel distance, wonder and possibility.`;
+}

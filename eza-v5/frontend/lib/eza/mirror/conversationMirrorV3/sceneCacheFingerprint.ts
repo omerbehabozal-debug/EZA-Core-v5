@@ -1,5 +1,5 @@
 /**
- * V3.1 scene cache namespace — bump when poster contract changes so stale scenes are not reused.
+ * V3.2 scene cache namespace — bump when poster contract changes so stale scenes are not reused.
  */
 
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';

@@ -5,10 +5,10 @@
 import type { SainaMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/types';
 
 export const MIRROR_PIPELINE_VERSION = 'v3' as const;
-export const MIRROR_REFINEMENT_VERSION = '3.1' as const;
+export const MIRROR_REFINEMENT_VERSION = '3.2' as const;
 
 /** Scene + client cache bust — bump on V3 contract changes. */
-export const MIRROR_V3_SCENE_CACHE_KEY = 'conversationMirrorV3:refinement:3.1' as const;
+export const MIRROR_V3_SCENE_CACHE_KEY = 'conversationMirrorV3:refinement:3.2' as const;
 
 export const MIRROR_V3_BRAND_SIGNATURE = {
   line1: 'SAINA',
@@ -17,7 +17,7 @@ export const MIRROR_V3_BRAND_SIGNATURE = {
 
 export type SainaMirrorV3Payload = SainaMirrorPayload & {
   pipelineVersion: 'v3';
-  refinementVersion: '3.1';
+  refinementVersion: '3.2';
   /** Topic → meaning layer (emotional essence, not literal subject). */
   meaning: string;
   /** Narrative theme label for art direction. */

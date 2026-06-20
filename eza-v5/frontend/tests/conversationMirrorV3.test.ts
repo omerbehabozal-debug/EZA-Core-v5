@@ -11,6 +11,7 @@ import {
   extractTopicTokens,
 } from '@/lib/eza/mirror/conversationMirrorV3/narrativeCopySanitizer';
 import { resolveNarrativeDistance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';
+import { resolveShotMode } from '@/lib/eza/mirror/conversationMirrorV3/artDirectionV32';
 import {
   MIRROR_REFINEMENT_VERSION,
   MIRROR_V3_BRAND_SIGNATURE,
@@ -29,7 +30,7 @@ describe('conversationMirrorV3', () => {
     });
 
     expect(payload.pipelineVersion).toBe('v3');
-    expect(payload.refinementVersion).toBe('3.1');
+    expect(payload.refinementVersion).toBe(MIRROR_REFINEMENT_VERSION);
     expect(payload.narrativeTheme).toBeTruthy();
     expect(payload.meaning).toBeTruthy();
     expect(payload.emotionalAtmosphere).toBeTruthy();
@@ -110,6 +111,39 @@ describe('conversationMirrorV3', () => {
     expect(hasConversationSummaryLanguage(payload.mirrorText)).toBe(false);
   });
 
+  it('V3.2 prompt includes cinematography, lighting, shot mode, and typography grid', () => {
+    const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
+    const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
+      seed: 'qa-v32-japan',
+      conversationId: 'qa-v32-japan',
+      season: 'golden_hour',
+    });
+    const prompt = buildMirrorV3ImagePrompt(payload);
+
+    expect(prompt).toContain('Cinematography contract:');
+    expect(prompt).toContain('Typography grid:');
+    expect(prompt).toContain('Visual metaphor translation:');
+    expect(prompt).toContain('Lighting recipe:');
+    expect(prompt).toContain('Shot mode (');
+    expect(prompt).toContain('Reference tier:');
+    expect(prompt).toContain('Narrative distance visual behavior:');
+    expect(prompt).toContain('no fake lens flare');
+    expect(prompt).toContain('Avoid:');
+    expect(prompt).toContain('stock photo smiling tourist');
+    expect(prompt.indexOf('Cinematography contract:')).toBeLessThan(
+      prompt.indexOf('Brand safe zones')
+    );
+  });
+
+  it('V3.2 shot mode is deterministic per conversation seed', () => {
+    const a = resolveShotMode('conv-a:v32');
+    const b = resolveShotMode('conv-a:v32');
+    const c = resolveShotMode('conv-b:v32');
+    expect(a.mode).toBe(b.mode);
+    expect(a.description).toBe(b.description);
+    expect(typeof c.mode).toBe('string');
+  });
+
   it('buildConversationMirrorState routes to V3 pipeline', () => {
     const scenario = MIRROR_V2_QA_SCENARIOS[0]!;
     const state = buildConversationMirrorState(scenario.buildEntries(), {
@@ -167,7 +201,7 @@ describe('conversationMirrorV3', () => {
     });
 
     expect(state.meta.pipelineVersion).toBe('v3');
-    expect(state.dailyMirrorCard.mirrorV3Payload?.refinementVersion).toBe('3.1');
+    expect(state.dailyMirrorCard.mirrorV3Payload?.refinementVersion).toBe(MIRROR_REFINEMENT_VERSION);
     expect(hasConversationSummaryLanguage(state.dailyMirrorCard.shortInsight)).toBe(false);
   });
 
@@ -183,6 +217,7 @@ describe('conversationMirrorV3', () => {
       MIRROR_V3_SCENE_CACHE_KEY
     );
     expect(state.dailyMirrorCard.visual?.prompt).toContain('Narrative distance:');
+    expect(state.dailyMirrorCard.visual?.prompt).toContain('Cinematography contract:');
     expect(state.dailyMirrorCard.visual?.prompt).not.toContain('Bugün Japonya');
   });
 

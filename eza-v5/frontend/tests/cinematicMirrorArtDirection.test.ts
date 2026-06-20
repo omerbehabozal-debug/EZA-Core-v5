@@ -9,7 +9,11 @@ import {
 import { buildMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/buildMirrorPayload';
 import { buildMirrorV2ImagePrompt } from '@/lib/eza/mirror/conversationMirrorV2/promptBuilder';
 import { buildToothpasteMirrorEntries, TOOTHPASTE_CONVERSATION_ID } from '@/lib/eza/mirror/conversationMirrorV2/toothpasteConversationFixture';
-import { buildConversationMirrorEntries } from '@/lib/eza/mirror/conversationMirrorEntries';
+import { buildMirrorPayloadV3 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorPayloadV3';
+import { buildMirrorV3ImagePrompt } from '@/lib/eza/mirror/conversationMirrorV3/promptBuilderV3';
+import { getNarrativeDistanceVisualGuidance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';
+import { resolveShotMode } from '@/lib/eza/mirror/conversationMirrorV3/artDirectionV32';
+import { getSeasonProfile } from '@/lib/eza/mirror/conversationMirrorV2/seasonRegistry';
 import { MIRROR_V2_QA_SCENARIOS } from '@/lib/eza/mirror/conversationMirrorV2/qaScenarios';
 
 describe('cinematicCopyContract', () => {
@@ -85,5 +89,71 @@ describe('mirror v2 cinematic art direction', () => {
     });
     expect(payload.safetyLevel).toBe('normal');
     expect(payload.sceneMetaphor.toLowerCase()).toMatch(/memory|craft|permanence|material|shadow/);
+  });
+});
+
+const V32_SCENARIO_IDS = [
+  'japan-travel',
+  'architecture-facade',
+  'toothpaste-choice',
+  'bmw-mercedes',
+  'ai-trust',
+  'spirituality',
+] as const;
+
+describe('mirror v3.2 art direction prompt contract', () => {
+  for (const id of V32_SCENARIO_IDS) {
+    it(`${id} prompt includes director-level art direction blocks`, () => {
+      const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === id)!;
+      const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
+        seed: `qa-v32-${id}`,
+        conversationId: `qa-v32-${id}`,
+        season: scenario.season,
+      });
+      const prompt = buildMirrorV3ImagePrompt(payload);
+      const season = getSeasonProfile(payload.season);
+
+      expect(prompt).toContain('Cinematography contract:');
+      expect(prompt).toContain('Typography grid:');
+      expect(prompt).toContain('Visual metaphor translation:');
+      expect(prompt).toContain('Lighting recipe:');
+      expect(prompt).toContain(season.lightingRecipe);
+      expect(prompt).toContain('Shot mode (');
+      expect(prompt).toContain('Reference tier:');
+      expect(prompt).toMatch(/Narrative distance visual behavior:/);
+      expect(prompt).not.toMatch(/Reference tier:[\s\S]*Reference tier:/);
+    });
+  }
+
+  it('narrative distance visual guidance differs by level', () => {
+    const d2 = getNarrativeDistanceVisualGuidance(2);
+    const d3 = getNarrativeDistanceVisualGuidance(3);
+    expect(d2.toLowerCase()).toContain('intimate');
+    expect(d3.toLowerCase()).toContain('wide atmospheric');
+    expect(d3).toContain('15%');
+  });
+
+  it('all seasons expose lighting recipes', () => {
+    for (const seasonId of [
+      'bright_cinematic',
+      'night_discovery',
+      'editorial_magazine',
+      'film_poster',
+      'quiet_luxury',
+      'golden_hour',
+    ] as const) {
+      expect(getSeasonProfile(seasonId).lightingRecipe.length).toBeGreaterThan(20);
+    }
+  });
+
+  it('shot rotation includes silhouette at most 20% of sample seeds', () => {
+    let silhouettes = 0;
+    for (let i = 0; i < 100; i += 1) {
+      if (resolveShotMode(`sample-seed-${i}`).mode === 'walking_away_silhouette') {
+        silhouettes += 1;
+      }
+    }
+    expect(silhouettes).toBeLessThanOrEqual(25);
+    expect(silhouettes).toBeGreaterThanOrEqual(10);
   });
 });
