@@ -182,8 +182,15 @@ export default function DailyMirrorPosterCard({
       data-mirror-scene-tone={sceneTone.id}
       data-mirror-density={composition.density}
       data-mirror-embedded-preview={embeddedScenePreview ? 'scene-only' : undefined}
-      className={cn(skin.root, posterUsesFourFive && 'aspect-[4/5]')}
-      style={cardStyle}
+      className={cn(
+        skin.root,
+        posterUsesFourFive && 'aspect-[4/5]',
+        embeddedScenePreview && 'overflow-visible'
+      )}
+      style={{
+        ...cardStyle,
+        ...(posterUsesFourFive ? { aspectRatio: '4 / 5' } : {}),
+      }}
       aria-labelledby={embeddedScenePreview ? undefined : 'daily-mirror-poster-title'}
     >
       <FullCanvasScene

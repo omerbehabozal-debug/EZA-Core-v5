@@ -871,6 +871,11 @@ export default function StandaloneObservationExperience({
               onClick={handlePosterPreviewOpen}
               aria-label="Aynayı tam boyutta gör"
             >
+              {embedded ? (
+                <span className="saina-mirror-preview-expand-hint" aria-hidden>
+                  Büyüt
+                </span>
+              ) : null}
               <DailyMirrorCardEntrance
                 className={cn(
                   embedded ? 'saina-mirror-embedded-poster' : cn('w-full', ms.dailyPosterFrame)

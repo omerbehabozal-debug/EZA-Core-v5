@@ -3196,7 +3196,7 @@ html:has(.saina-page) body {
 }
 
 .saina-mirror-embedded-poster {
-  width: min(100%, 17.5rem) !important;
+  width: min(100%, 15.5rem) !important;
   max-width: 100% !important;
   margin-inline: auto !important;
   flex-shrink: 0;
@@ -3206,13 +3206,24 @@ html:has(.saina-page) body {
   width: 100% !important;
   max-width: 100% !important;
   height: auto !important;
+  max-height: none !important;
 }
 
 .saina-mirror-embedded-poster [data-mirror-aspect='4-5'] {
   aspect-ratio: 4 / 5 !important;
 }
 
+.saina-mirror-embedded-poster [data-mirror-embedded-preview='scene-only'] {
+  overflow: visible !important;
+}
+
+.saina-mirror-embedded-poster [data-mirror-embedded-preview='scene-only'] img.eza-mirror-scene-image-enter {
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
 .saina-mirror-poster-preview-trigger {
+  position: relative;
   display: block;
   width: 100%;
   margin: 0;
@@ -3232,6 +3243,29 @@ html:has(.saina-page) body {
 .saina-mirror-poster-preview-trigger [data-mirror-embedded-preview='scene-only'] img.eza-mirror-scene-image-enter {
   object-fit: contain !important;
   object-position: center !important;
+}
+
+.saina-mirror-preview-expand-hint {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  z-index: 6;
+  pointer-events: none;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(14, 6, 22, 0.58);
+  padding: 0.2rem 0.55rem;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.82;
+  transition: opacity 0.2s ease;
+}
+
+.saina-mirror-poster-preview-trigger:hover .saina-mirror-preview-expand-hint,
+.saina-mirror-poster-preview-trigger:focus-visible .saina-mirror-preview-expand-hint {
+  opacity: 1;
 }
 
 .saina-mirror-create-prompt--compact h2 {
