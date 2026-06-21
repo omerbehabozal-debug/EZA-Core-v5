@@ -26,7 +26,7 @@ type EvidenceSeed = Omit<ConversationEvidence, 'source' | 'role'>;
 const RECENCY_WINDOW = 3;
 const RECENCY_BOOST = 1.35;
 const MIN_EVIDENCE = 3;
-const MAX_EVIDENCE = 6;
+const MAX_EVIDENCE = 7;
 
 const TOKEN_EVIDENCE: Record<string, EvidenceSeed> = {
   japonya: {
@@ -591,7 +591,7 @@ export type ResolveConversationEvidenceInput = {
 };
 
 /**
- * Extract 3–6 concrete visual traces from the active conversation only.
+ * Extract 3–7 concrete visual traces from the active conversation only.
  * Never invents topics outside cue hints and matched clusters.
  */
 export function resolveConversationEvidence(
@@ -676,19 +676,9 @@ export function formatConversationEvidenceBlock(
   );
 
   return [
-    'Conversation evidence:',
-    'Use these concrete traces from the active conversation as visible scene details.',
-    'They must be recognizable enough for viewers to infer what the user talked about.',
-    'Do not turn them into a checklist.',
-    'Do not write them as bullet points in the poster.',
-    'Integrate them naturally into the cinematic scene.',
+    'Conversation evidence (20%):',
+    'Concrete visual clues from the active conversation — visible in the hero scene.',
+    'Never abstract symbols. Never a checklist on the poster.',
     ...lines,
-    '',
-    'Evidence weight:',
-    'Conversation evidence: 60% of scene design.',
-    'Meaning and emotion: 25% mood shaping.',
-    'Art direction finish: 15%.',
-    'The final poster should visually communicate the conversation topic within 3 seconds.',
-    'Use evidence as the primary scene design driver; mood must not erase the topic.',
   ].join('\n');
 }

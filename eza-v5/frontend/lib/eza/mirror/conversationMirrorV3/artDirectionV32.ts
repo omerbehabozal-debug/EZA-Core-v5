@@ -64,10 +64,13 @@ function hashMod(seed: string, mod: number): number {
   return Math.abs(h) % mod;
 }
 
-/** Deterministic shot mode — same seed always yields same mode; silhouette at most 1/5. */
-export function resolveShotMode(seed: string): { mode: ShotMode; description: string } {
+/** Deterministic shot mode — evidence posters never use walking-away silhouette cliché. */
+export function resolveShotMode(
+  seed: string,
+  options?: { hasConcreteEvidence?: boolean }
+): { mode: ShotMode; description: string } {
   const roll = hashMod(`${seed}-v32-shot`, 5);
-  if (roll === 0) {
+  if (!options?.hasConcreteEvidence && roll === 0) {
     const mode: ShotMode = 'walking_away_silhouette';
     return { mode, description: SHOT_MODE_DESCRIPTIONS[mode] };
   }

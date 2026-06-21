@@ -1,5 +1,6 @@
 /**
- * Mirror V3.1 — build cinematic poster payload with narrative distance copy.
+ * Mirror V4 — build cinematic poster payload.
+ * Pipeline: Topic → Evidence → Scene → Meaning → Emotion.
  */
 
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
@@ -9,15 +10,11 @@ import {
 } from '@/lib/eza/mirror/conversationMirrorV2/buildMirrorPayload';
 import { polishMirrorPayloadCopy } from '@/lib/eza/mirror/conversationMirrorV2/cinematicCopyContract';
 import { resolveActiveConversationTopics } from '@/lib/eza/mirror/conversationMirrorV2/conversationTopicSelection';
-import { resolveMeaningMirrorCopy } from '@/lib/eza/mirror/conversationMirrorV3/meaningMirrorCopy';
-import {
-  polishNarrativeMirrorText,
-  sanitizeNarrativeMirrorCopy,
-  extractTopicTokens,
-} from '@/lib/eza/mirror/conversationMirrorV3/narrativeCopySanitizer';
+import { resolveEvidenceMirrorCopy } from '@/lib/eza/mirror/conversationMirrorV3/evidenceAwareMirrorCopy';
 import { resolveNarrativeDistance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';
 import { resolveNarrativeLayer } from '@/lib/eza/mirror/conversationMirrorV3/narrativeLayer';
 import { resolveConversationEvidence } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
+import { resolveSceneComposition } from '@/lib/eza/mirror/conversationMirrorV3/sceneCompositionV4';
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import {
   MIRROR_PIPELINE_VERSION,
@@ -35,38 +32,6 @@ export function buildMirrorPayloadV3(
     `v3-${options.conversationId}-${entries.length}-${entries[0]?.interaction_id ?? 'empty'}`;
   const base = buildMirrorPayload(entries, { ...options, seed });
   const topicResolution = resolveActiveConversationTopics(entries, seed);
-  const narrativeDistance = resolveNarrativeDistance(seed);
-  const narrative = resolveNarrativeLayer({
-    storyTopicId: topicResolution.primaryTopic,
-    emotionalTone: base.emotionalTone,
-    visualKeywords: base.visualKeywords,
-    sceneMetaphor: base.sceneMetaphor,
-    narrativeDistance: narrativeDistance.level,
-  });
-
-  const meaningCopy = resolveMeaningMirrorCopy({
-    storyTopicId: topicResolution.primaryTopic,
-    selectedTopic: topicResolution.selectedTopic,
-    seed,
-    narrativeDistance: narrativeDistance.level,
-  });
-
-  const topicTokens = extractTopicTokens(
-    topicResolution.selectedTopic,
-    base.topic,
-    base.selectedTopic
-  );
-  const mirrorText = polishNarrativeMirrorText(
-    sanitizeNarrativeMirrorCopy(meaningCopy, topicTokens) || meaningCopy
-  );
-
-  const polishedVisual = polishMirrorPayloadCopy({
-    mirrorTitle: base.mirrorTitle,
-    mirrorText,
-    closingLine: base.closingLine,
-    sceneMetaphor: base.sceneMetaphor,
-    visualKeywords: base.visualKeywords,
-  });
 
   const conversationEvidence = resolveConversationEvidence({
     entries,
@@ -75,11 +40,44 @@ export function buildMirrorPayloadV3(
     candidateTopics: topicResolution.candidateTopics,
   });
 
+  const sceneComposition = resolveSceneComposition({
+    evidence: conversationEvidence,
+    storyTopicId: topicResolution.primaryTopic,
+    selectedTopic: topicResolution.selectedTopic,
+    fallbackSceneMetaphor: base.sceneMetaphor,
+  });
+
+  const narrativeDistance = resolveNarrativeDistance(seed);
+  const narrative = resolveNarrativeLayer({
+    storyTopicId: topicResolution.primaryTopic,
+    emotionalTone: base.emotionalTone,
+    visualKeywords: base.visualKeywords,
+    sceneMetaphor: sceneComposition.sceneMetaphor,
+    narrativeDistance: narrativeDistance.level,
+  });
+
+  const evidenceCopy = resolveEvidenceMirrorCopy({
+    evidence: conversationEvidence,
+    selectedTopic: topicResolution.selectedTopic,
+    storyTopicId: topicResolution.primaryTopic,
+    seed,
+  });
+
+  const polishedVisual = polishMirrorPayloadCopy({
+    mirrorTitle: evidenceCopy.mirrorTitle,
+    mirrorText: evidenceCopy.mirrorText,
+    closingLine: undefined,
+    sceneMetaphor: sceneComposition.sceneMetaphor,
+    visualKeywords: base.visualKeywords,
+  });
+
   return {
     ...base,
     pipelineVersion: MIRROR_PIPELINE_VERSION,
     refinementVersion: MIRROR_REFINEMENT_VERSION,
+    storyTopicId: topicResolution.primaryTopic,
     conversationEvidence,
+    sceneComposition,
     narrativeTheme: narrative.narrativeTheme,
     meaning: narrative.meaning,
     emotion: narrative.emotion,
@@ -88,7 +86,7 @@ export function buildMirrorPayloadV3(
     emotionalAtmosphere: narrative.emotionalAtmosphere,
     mirrorTitle: polishedVisual.mirrorTitle,
     mirrorText: polishedVisual.mirrorText,
-    closingLine: polishedVisual.closingLine,
+    closingLine: undefined,
     sceneMetaphor: polishedVisual.sceneMetaphor,
     visualKeywords: polishedVisual.visualKeywords,
   };

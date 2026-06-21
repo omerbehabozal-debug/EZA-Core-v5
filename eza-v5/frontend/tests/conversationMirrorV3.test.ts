@@ -11,7 +11,7 @@ import {
   extractTopicTokens,
 } from '@/lib/eza/mirror/conversationMirrorV3/narrativeCopySanitizer';
 import { resolveNarrativeDistance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';
-import { resolveShotMode } from '@/lib/eza/mirror/conversationMirrorV3/artDirectionV32';
+import { resolveTopicShotMode } from '@/lib/eza/mirror/conversationMirrorV3/shotDirectorV43';
 import {
   MIRROR_REFINEMENT_VERSION,
   MIRROR_V3_BRAND_SIGNATURE,
@@ -37,37 +37,41 @@ describe('conversationMirrorV3', () => {
     expect(payload.narrativeDistance).toBeGreaterThanOrEqual(2);
     expect(payload.narrativeDistance).toBeLessThanOrEqual(3);
     expect(payload.visiblePattern).toBeUndefined();
-    expect(payload.mirrorTitle).toBe('Uzak Doğuda Yeni Bir Bakış');
+    expect(payload.mirrorTitle).not.toMatch(/Kyoto|Gion|Japonya/i);
+    expect(payload.mirrorTitle).toMatch(/Fener|Gece|Sokak|Rota/i);
+    expect(payload.mirrorText).not.toMatch(/şafak sisi|iç sesinde|ufuk açılıyor/i);
+    expect(payload.closingLine).toBeUndefined();
+    expect(payload.sceneComposition.sceneMetaphor).not.toMatch(/golden horizon|vast golden|atmospheric depth/i);
   });
 
-  it('V3.1 mirror copy has no conversation summary or direct topic references', () => {
+  it('V4 mirror copy is topic-visible and not poetic emotion fallback', () => {
     const scenarios = ['japan-travel', 'architecture-facade', 'toothpaste-choice'] as const;
     for (const id of scenarios) {
       const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === id)!;
       const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
-        seed: `qa-v31-${id}`,
-        conversationId: `qa-v31-${id}`,
+        seed: `qa-v4-${id}`,
+        conversationId: `qa-v4-${id}`,
       });
-      const tokens = extractTopicTokens(payload.selectedTopic, payload.topic);
 
       expect(hasConversationSummaryLanguage(payload.mirrorText)).toBe(false);
-      expect(containsDirectTopicReference(payload.mirrorText, tokens)).toBe(false);
       expect(payload.mirrorText.toLowerCase()).not.toMatch(/\bbugün\b/);
       expect(payload.mirrorText.toLowerCase()).not.toMatch(/\bkonuştun\b/);
       expect(payload.mirrorText.toLowerCase()).not.toMatch(/\bkonuşman\b/);
       expect(payload.mirrorText.toLowerCase()).not.toMatch(/\bsohbet\b/);
+      expect(payload.mirrorText).not.toMatch(/şafak sisi|iç sesinde|ufuk açılıyor/i);
+      expect(payload.closingLine).toBeUndefined();
     }
   });
 
-  it('japan V3.1 copy describes meaning without naming Japan', () => {
+  it('japan V4 copy uses editorial observation, not evidence inventory', () => {
     const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
     const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
-      seed: 'qa-v31-japan-fixed',
-      conversationId: 'qa-v31-japan',
+      seed: 'qa-v4-japan-fixed',
+      conversationId: 'qa-v4-japan',
     });
 
-    expect(payload.mirrorText.toLowerCase()).not.toContain('japonya');
-    expect(payload.mirrorText.toLowerCase()).not.toContain('japan');
+    expect(payload.mirrorText.toLowerCase()).not.toMatch(/keşif|tren bileti|rota notları|fenerli sokaklar/);
+    expect(payload.mirrorTitle).not.toMatch(/Kyoto|Gion|Japonya/i);
     expect(payload.mirrorText.length).toBeGreaterThan(20);
   });
 
@@ -92,57 +96,86 @@ describe('conversationMirrorV3', () => {
     ).toBe(false);
   });
 
-  it('prompt contract includes narrative distance and forbids summary language', () => {
+  it('V4.5 prompt excludes evidence bullet lists and uses fusion + world layer', () => {
     const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'architecture-facade')!;
     const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
-      seed: 'qa-v3-arch',
-      conversationId: 'qa-v3-arch',
+      seed: 'qa-v44-arch',
+      conversationId: 'qa-v44-arch',
     });
     const prompt = buildMirrorV3ImagePrompt(payload);
 
-    expect(prompt).toContain('Narrative distance:');
-    expect(prompt).toContain('scene direction');
-    expect(prompt).toContain('Conversation evidence:');
-    expect(prompt).toContain('Meaning:');
-    expect(prompt).toContain('Emotion:');
-    expect(prompt.toLowerCase()).toContain('not a summary');
-    expect(prompt.toLowerCase()).toContain('bugün konuştun');
+    expect(prompt).toContain('conversation poster');
+    expect(prompt).toContain('Evidence fusion scene');
+    expect(prompt).toContain('World Layer:');
+    expect(prompt).not.toContain('Conversation evidence (20%)');
+    expect(prompt).not.toContain('Supporting evidence');
+    expect(prompt).not.toContain('Narrative distance:');
+    expect(prompt).not.toContain('Meaning:');
+    expect(prompt).not.toContain('Emotion:');
     expect(containsForbiddenMirrorPhrase(payload.mirrorTitle)).toBe(false);
     expect(hasConversationSummaryLanguage(payload.mirrorText)).toBe(false);
   });
 
-  it('V3.3 prompt includes evidence layer, cinematography, and typography director', () => {
+  it('V4.5 prompt includes fusion scene and world layer', () => {
     const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
     const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
-      seed: 'qa-v33-japan',
-      conversationId: 'qa-v33-japan',
+      seed: 'qa-v44-japan',
+      conversationId: 'qa-v44-japan',
       season: 'golden_hour',
     });
     const prompt = buildMirrorV3ImagePrompt(payload);
 
     expect(payload.conversationEvidence.length).toBeGreaterThanOrEqual(3);
-    expect(prompt).toContain('Conversation evidence:');
-    expect(prompt).toContain('Topic visibility rule:');
-    expect(prompt).toContain('Typography director:');
-    expect(prompt).toContain('Cinematography contract:');
-    expect(prompt).toContain('Lighting recipe:');
-    expect(prompt).toContain('Shot mode (');
-    expect(prompt).toContain('Reference tier:');
-    expect(prompt.indexOf('Conversation evidence:')).toBeLessThan(
-      prompt.indexOf('Cinematography contract:')
-    );
-    expect(prompt.indexOf('Typography director:')).toBeLessThan(
-      prompt.indexOf('Brand safe zones')
-    );
+    expect(payload.sceneComposition.evidenceFusionScene.length).toBeGreaterThan(40);
+    expect(prompt).toContain('World Layer:');
+    expect(prompt).toContain('Unified frame rule:');
+    expect(prompt).toContain('Poster test:');
+    expect(prompt).toContain('Typography (10%)');
+    expect(prompt).toContain('Visual style:');
+    expect(prompt).toContain('Shot:');
+    expect(prompt).toContain('Lighting:');
+    expect(prompt.indexOf('Evidence fusion scene')).toBeLessThan(prompt.indexOf('Visual style:'));
   });
 
-  it('V3.2 shot mode is deterministic per conversation seed', () => {
-    const a = resolveShotMode('conv-a:v32');
-    const b = resolveShotMode('conv-a:v32');
-    const c = resolveShotMode('conv-b:v32');
-    expect(a.mode).toBe(b.mode);
-    expect(a.description).toBe(b.description);
-    expect(typeof c.mode).toBe('string');
+  it('V4.3 prompt uses topic-aware shot mode (not seed rotation)', () => {
+    const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
+    const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
+      seed: 'qa-v43-japan-shot',
+      conversationId: 'qa-v43-japan-shot',
+    });
+    const prompt = buildMirrorV3ImagePrompt(payload);
+
+    expect(payload.storyTopicId).toBe('travel');
+    expect(prompt).toContain('Shot: documentary_wide');
+    expect(prompt).not.toContain('macro_material');
+  });
+
+  it('V4.3 shot mode is topic-aware per conversation topic', () => {
+    const japan = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
+    const japanPayload = buildMirrorPayloadV3(japan.buildEntries(), {
+      seed: 'conv-a:v43',
+      conversationId: 'conv-a:v43',
+    });
+    const bmw = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'bmw-mercedes')!;
+    const bmwPayload = buildMirrorPayloadV3(bmw.buildEntries(), {
+      seed: 'conv-a:v43',
+      conversationId: 'conv-a:v43',
+    });
+
+    const japanShot = resolveTopicShotMode({
+      storyTopicId: japanPayload.storyTopicId,
+      evidence: japanPayload.conversationEvidence,
+      selectedTopic: japanPayload.selectedTopic,
+    });
+    const bmwShot = resolveTopicShotMode({
+      storyTopicId: bmwPayload.storyTopicId,
+      evidence: bmwPayload.conversationEvidence,
+      selectedTopic: bmwPayload.selectedTopic,
+    });
+
+    expect(japanShot.mode).toBe('documentary_wide');
+    expect(japanShot.source).toBe('topic-aware');
+    expect(bmwShot.mode).toBe('cinematic_garage');
   });
 
   it('buildConversationMirrorState routes to V3 pipeline', () => {
@@ -217,8 +250,8 @@ describe('conversationMirrorV3', () => {
     expect(state.dailyMirrorCard.visual?.intentFingerprint).toContain(
       MIRROR_V3_SCENE_CACHE_KEY
     );
-    expect(state.dailyMirrorCard.visual?.prompt).toContain('Narrative distance:');
-    expect(state.dailyMirrorCard.visual?.prompt).toContain('Cinematography contract:');
+    expect(state.dailyMirrorCard.visual?.prompt).toContain('Evidence fusion scene');
+    expect(state.dailyMirrorCard.visual?.prompt).toContain('Poster test:');
     expect(state.dailyMirrorCard.visual?.prompt).not.toContain('Bugün Japonya');
   });
 

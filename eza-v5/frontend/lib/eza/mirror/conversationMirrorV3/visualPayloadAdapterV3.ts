@@ -10,6 +10,10 @@ import {
   MIRROR_V3_NEGATIVE_PROMPT,
 } from '@/lib/eza/mirror/conversationMirrorV3/promptBuilderV3';
 import {
+  buildConversationMirrorV4QualityReport,
+  shouldRegeneratePromptForTopicVisibility,
+} from '@/lib/eza/mirror/conversationMirrorV3/conversationMirrorV33Quality';
+import {
   buildMirrorV3IntentFingerprint,
   buildMirrorV3SeedHint,
 } from '@/lib/eza/mirror/conversationMirrorV3/sceneCacheFingerprint';
@@ -18,6 +22,27 @@ import { getSeasonProfile } from '@/lib/eza/mirror/conversationMirrorV2/seasonRe
 /** Backend-accepted style preset (mirror_image_service ALLOWED_STYLE_PRESETS). */
 export const MIRROR_V3_STYLE_PRESET = 'eza_mirror_professional_v1' as const;
 
+/** Reinforce prompt when topic visibility score is below V4 target (≥ 8). */
+function applyTopicVisibilityQualityGate(
+  payload: SainaMirrorV3Payload,
+  prompt: string
+): string {
+  const report = buildConversationMirrorV4QualityReport(payload, prompt);
+  if (!shouldRegeneratePromptForTopicVisibility(report)) {
+    return prompt;
+  }
+
+  return [
+    prompt,
+    '',
+    'QUALITY GATE — topic visibility below target:',
+    'Strengthen hero scene and concrete conversation evidence visibility.',
+    'A stranger must identify the topic within 3 seconds — no generic emotional fallback.',
+    `Primary evidence: ${payload.conversationEvidence[0]?.label ?? payload.selectedTopic}.`,
+    `Hero scene: ${payload.sceneComposition?.evidenceFusionScene ?? payload.sceneMetaphor}.`,
+  ].join('\n');
+}
+
 export function buildVisualPayloadFromMirrorV3(
   payload: SainaMirrorV3Payload,
   options?: {
@@ -25,7 +50,10 @@ export function buildVisualPayloadFromMirrorV3(
     seedHint?: string;
   }
 ): MirrorVisualPromptPayload {
-  const prompt = buildMirrorV3ImagePrompt(payload);
+  const prompt = applyTopicVisibilityQualityGate(
+    payload,
+    buildMirrorV3ImagePrompt(payload)
+  );
   const season = getSeasonProfile(payload.season);
   const seedHint = buildMirrorV3SeedHint(payload, options?.seedHint);
 
@@ -49,7 +77,10 @@ export function buildVisualPayloadFromMirrorV3(
       'openai composes all typography in-image',
       'logo safe zone top-left, date safe zone top-right',
     ],
-    sceneIntentLabel: payload.sceneMetaphor.slice(0, 120),
+    sceneIntentLabel: (payload.sceneComposition?.heroScene ?? payload.sceneMetaphor).slice(
+      0,
+      120
+    ),
     intentFingerprint: buildMirrorV3IntentFingerprint(payload),
     renderMode: 'hybrid_middle',
     hybridTextPayload: {

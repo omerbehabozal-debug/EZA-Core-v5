@@ -19,11 +19,20 @@ export { MIRROR_V3_STYLE_PRESET } from '@/lib/eza/mirror/conversationMirrorV3/vi
 export { resolveConversationEvidence, formatConversationEvidenceBlock } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
 export type { ConversationEvidence } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
 export {
+  buildConversationMirrorV4QualityReport,
+  meetsConversationMirrorV4QualityTarget,
+  shouldRegeneratePromptForTopicVisibility,
+  CONVERSATION_MIRROR_V4_TARGET_SCORE,
   buildConversationMirrorV33QualityReport,
   meetsConversationMirrorV33QualityTarget,
   CONVERSATION_MIRROR_V33_TARGET_SCORE,
 } from '@/lib/eza/mirror/conversationMirrorV3/conversationMirrorV33Quality';
-export type { ConversationMirrorV33QualityReport } from '@/lib/eza/mirror/conversationMirrorV3/conversationMirrorV33Quality';
+export type {
+  ConversationMirrorV4QualityReport,
+  ConversationMirrorV33QualityReport,
+} from '@/lib/eza/mirror/conversationMirrorV3/conversationMirrorV33Quality';
+export { resolveSceneComposition, formatSceneCompositionBlock } from '@/lib/eza/mirror/conversationMirrorV3/sceneCompositionV4';
+export type { SceneComposition } from '@/lib/eza/mirror/conversationMirrorV3/sceneCompositionV4';
 export { resolveNarrativeLayer } from '@/lib/eza/mirror/conversationMirrorV3/narrativeLayer';
 export { resolveNarrativeDistance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';
 export { resolveMeaningMirrorCopy } from '@/lib/eza/mirror/conversationMirrorV3/meaningMirrorCopy';
@@ -39,8 +48,13 @@ export {
   containsForbiddenMirrorPhrase,
 } from '@/lib/eza/mirror/conversationMirrorV3/forbiddenLexicon';
 
-export { buildMirrorPayloadV3 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorPayloadV3';
-export {
+export { resolveEvidenceFusion, formatEvidenceFusionBlock } from '@/lib/eza/mirror/conversationMirrorV3/evidenceFusionV44';
+export type { EvidenceFusion } from '@/lib/eza/mirror/conversationMirrorV3/evidenceFusionV44';
+export { resolveTopicShotMode, inferStoryTopicFromEvidence } from '@/lib/eza/mirror/conversationMirrorV3/shotDirectorV43';
+export type { TopicShotMode } from '@/lib/eza/mirror/conversationMirrorV3/shotDirectorV43';
+export { resolveEvidenceMirrorCopy } from '@/lib/eza/mirror/conversationMirrorV3/evidenceAwareMirrorCopy';
+
+export { buildMirrorPayloadV3 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorPayloadV3';export {
   buildMirrorV3ImagePrompt,
   MIRROR_V3_NEGATIVE_PROMPT,
 } from '@/lib/eza/mirror/conversationMirrorV3/promptBuilderV3';

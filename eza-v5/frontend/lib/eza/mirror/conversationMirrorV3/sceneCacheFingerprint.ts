@@ -9,12 +9,14 @@ export function buildMirrorV3IntentFingerprint(payload: SainaMirrorV3Payload): s
   const evidenceKey = (payload.conversationEvidence ?? [])
     .map((item) => item.label)
     .join('|');
+  const heroKey = payload.sceneComposition?.heroScene?.slice(0, 60) ?? '';
   return [
     MIRROR_V3_SCENE_CACHE_KEY,
     payload.season,
     `d${payload.narrativeDistance}`,
     payload.narrativeTheme,
     evidenceKey.slice(0, 80),
+    heroKey,
     payload.conversationId,
   ].join(':');
 }

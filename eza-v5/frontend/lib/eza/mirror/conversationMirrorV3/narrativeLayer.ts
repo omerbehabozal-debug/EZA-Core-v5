@@ -1,5 +1,5 @@
 /**
- * V3.1 — Topic → Meaning → Emotion → Narrative Distance → Scene.
+ * V4 — Topic → Evidence → Scene → Meaning → Emotion.
  */
 
 import type { StoryTopicId } from '@/lib/eza/mirror/storyTopicTypes';

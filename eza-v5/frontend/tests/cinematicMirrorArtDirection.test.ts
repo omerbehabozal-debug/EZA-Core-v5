@@ -35,7 +35,7 @@ describe('cinematicCopyContract', () => {
 
   it('clamps title and mirror text word counts', () => {
     expect(clampWords('Uzak Doğuda Yeni Bir Bakış', 5)).toBe('Uzak Doğuda Yeni Bir Bakış');
-    expect(polishMirrorText('a '.repeat(50)).split(/\s+/).length).toBeLessThanOrEqual(40);
+    expect(polishMirrorText('a '.repeat(50)).split(/\s+/).length).toBeLessThanOrEqual(45);
   });
 });
 
@@ -101,29 +101,27 @@ const V32_SCENARIO_IDS = [
   'spirituality',
 ] as const;
 
-describe('mirror v3.3 art direction prompt contract', () => {
+describe('mirror v4.2 art direction prompt contract', () => {
   for (const id of V32_SCENARIO_IDS) {
-    it(`${id} prompt includes evidence-first director blocks`, () => {
+    it(`${id} prompt is simplified conversation poster`, () => {
       const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === id)!;
       const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
-        seed: `qa-v33-${id}`,
-        conversationId: `qa-v33-${id}`,
+        seed: `qa-v42-${id}`,
+        conversationId: `qa-v42-${id}`,
         season: scenario.season,
       });
       const prompt = buildMirrorV3ImagePrompt(payload);
       const season = getSeasonProfile(payload.season);
 
       expect(payload.conversationEvidence.length).toBeGreaterThanOrEqual(3);
-      expect(prompt).toContain('Conversation evidence:');
-      expect(prompt).toContain('Topic visibility rule:');
-      expect(prompt).toContain('Typography director:');
-      expect(prompt).toContain('Cinematography contract:');
-      expect(prompt).toContain('Lighting recipe:');
-      expect(prompt).toContain(season.lightingRecipe);
-      expect(prompt).toContain('Shot mode (');
-      expect(prompt).toContain('Reference tier:');
-      expect(prompt).toMatch(/Narrative distance visual behavior:/);
-      expect(prompt).not.toMatch(/Reference tier:[\s\S]*Reference tier:/);
+      expect(prompt).toContain('Evidence fusion scene');
+      expect(prompt).toContain('World Layer:');
+      expect(prompt).toContain('Poster test:');
+      expect(prompt).toContain('Typography (10%)');
+      expect(prompt).toContain(`Lighting: ${season.lightingRecipe}`);
+      expect(prompt).toContain('Shot:');
+      expect(prompt).not.toContain('Narrative distance visual behavior');
+      expect(prompt).not.toContain('Emotional atmosphere:');
     });
   }
 

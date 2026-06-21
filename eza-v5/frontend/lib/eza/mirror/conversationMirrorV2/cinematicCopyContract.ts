@@ -5,9 +5,9 @@
 
 import type { SainaMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/types';
 
-export const MIRROR_TITLE_MAX_WORDS = 5;
-export const MIRROR_TEXT_MIN_WORDS = 12;
-export const MIRROR_TEXT_MAX_WORDS = 40;
+export const MIRROR_TITLE_MAX_WORDS = 8;
+export const MIRROR_TEXT_MIN_WORDS = 20;
+export const MIRROR_TEXT_MAX_WORDS = 45;
 export const MIRROR_CLOSING_MAX_WORDS = 10;
 
 const COACHING_PHRASE =

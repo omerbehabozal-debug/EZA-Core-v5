@@ -3,13 +3,15 @@
  */
 
 import type { SainaMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/types';
+import type { StoryTopicId } from '@/lib/eza/mirror/storyTopicTypes';
 import type { ConversationEvidence } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
+import type { SceneComposition } from '@/lib/eza/mirror/conversationMirrorV3/sceneCompositionV4';
 
 export const MIRROR_PIPELINE_VERSION = 'v3' as const;
-export const MIRROR_REFINEMENT_VERSION = '3.3' as const;
+export const MIRROR_REFINEMENT_VERSION = '4.5' as const;
 
 /** Scene + client cache bust — bump on V3 contract changes. */
-export const MIRROR_V3_SCENE_CACHE_KEY = 'conversationMirrorV3:refinement:3.3' as const;
+export const MIRROR_V3_SCENE_CACHE_KEY = 'conversationMirrorV3:refinement:4.5' as const;
 
 export const MIRROR_V3_BRAND_SIGNATURE = {
   line1: 'SAINA',
@@ -18,9 +20,13 @@ export const MIRROR_V3_BRAND_SIGNATURE = {
 
 export type SainaMirrorV3Payload = SainaMirrorPayload & {
   pipelineVersion: 'v3';
-  refinementVersion: '3.3';
-  /** Concrete visual traces from active conversation (V3.3). */
+  refinementVersion: '4.5';
+  /** Primary story topic for shot mode and editorial copy (V4.3). */
+  storyTopicId: StoryTopicId;
+  /** Concrete visual traces from active conversation (V4). */
   conversationEvidence: ConversationEvidence[];
+  /** Evidence-first hero scene composition (V4). */
+  sceneComposition: SceneComposition;
   /** Topic → meaning layer (emotional essence, not literal subject). */
   meaning: string;
   /** Narrative theme label for art direction. */

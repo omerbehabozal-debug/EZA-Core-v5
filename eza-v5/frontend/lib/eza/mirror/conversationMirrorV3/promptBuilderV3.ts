@@ -1,13 +1,12 @@
 /**
- * Mirror V3.3 — OpenAI prompt contract (conversation evidence + premium poster).
+ * Mirror V4.5 — evidence fusion + world layer art direction.
+ * Pipeline: Topic → Evidence Fusion → World Layer → Poster.
  */
 
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import { getSeasonProfile } from '@/lib/eza/mirror/conversationMirrorV2/seasonRegistry';
 import {
   countWords,
-  MIRROR_CLOSING_MAX_WORDS,
-  MIRROR_TEXT_MAX_WORDS,
   MIRROR_TITLE_MAX_WORDS,
 } from '@/lib/eza/mirror/conversationMirrorV2/cinematicCopyContract';
 import {
@@ -15,134 +14,103 @@ import {
   FORBIDDEN_MIRROR_PHRASES,
 } from '@/lib/eza/mirror/conversationMirrorV3/forbiddenLexicon';
 import { isDentalPersonalCarePayload } from '@/lib/eza/mirror/conversationMirrorV2/promptBuilder';
-import {
-  ART_DIRECTION_AVOID_BLOCK,
-  CINEMATOGRAPHY_CONTRACT,
-  getReferenceTierBlock,
-  resolveReferenceTier,
-  resolveShotMode,
-  TYPOGRAPHY_GRID_CONTRACT,
-} from '@/lib/eza/mirror/conversationMirrorV3/artDirectionV32';
-import {
-  ABSTRACTION_LIMIT,
-  EVIDENCE_SCENE_AVOID,
-  OPENAI_POSTER_TEXT_CONTRACT,
-  SCENE_CLARITY_RULE,
-  TOPIC_VISIBILITY_RULE,
-  TYPOGRAPHY_DIRECTOR_CONTRACT,
-  VISUAL_METAPHOR_TRANSLATION_V33,
-} from '@/lib/eza/mirror/conversationMirrorV3/artDirectionV33';
-import { formatConversationEvidenceBlock } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
-import { getNarrativeDistanceVisualGuidance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';
-import { buildMirrorV3SeedHint } from '@/lib/eza/mirror/conversationMirrorV3/sceneCacheFingerprint';
+import { ART_DIRECTION_AVOID_BLOCK } from '@/lib/eza/mirror/conversationMirrorV3/artDirectionV32';
+import { formatEvidenceFusionBlock } from '@/lib/eza/mirror/conversationMirrorV3/evidenceFusionV44';
+import { resolveTopicShotMode } from '@/lib/eza/mirror/conversationMirrorV3/shotDirectorV43';
 
-const HUMAN_READABLE_STYLE = `Style: premium editorial photograph — NOT illustration, NOT 3D render, NOT CGI villa, NOT stock photo template.
-Documentary authenticity with recognizable conversation traces, not fantasy illustration.`;
+const POSTER_TASK = `Create a premium cinematic SAINA Conversation Mirror poster, vertical 4:5, 1080x1350.
+This is a conversation poster — NOT an emotion poster, NOT a summary card, NOT coaching UI.
+The user shares what they explored with AI today. The topic itself is the story.`;
 
-const NARRATIVE_MEANING_BLOCK = `Meaning layer (25% — mood, not topic erasure):
-- Mirror copy describes why the topic mattered emotionally — never a conversation recap.
-- Forbidden in mirror copy: "today you discussed", "you talked about", "bugün … konuştun", "bugün … araştırdın".
-- Selected topic and evidence guide the scene — do not name them verbatim in poster text unless already in mirror title/copy.
-- A stranger should infer the topic from scene evidence within 3 seconds; the participant should feel ownership through recognizable traces.`;
+const CRITICAL_RULE = `Critical rule:
+Do not transform the topic into a metaphor.
+Do not replace the topic with emotion, atmosphere, or philosophy.
+Render one unified, recognizable hero scene — never an object catalog or moodboard.`;
 
-const FORBIDDEN_CONCEPTS_BLOCK = `Strictly forbidden concepts:
-- ${FORBIDDEN_MIRROR_PHRASES.join(', ')}.
-- Animal archetypes, personality types, character engine concepts.
-- Metrics, scores, progress bars, charts, analytics cards, dashboard UI.
-- Coaching language, self-help language, tips, advice, homework.
-- Concepts: ${FORBIDDEN_MIRROR_CONCEPTS.slice(0, 12).join(', ')}.`;
+const POSTER_TEST = `Poster test:
+What was this person talking about?
+If the answer is obvious within 3 seconds — PASS.
+If the answer is "not sure" — FAIL.`;
 
-const BRAND_SAFE_ZONE_RULES = `Brand safe zones (system adds these — you must NOT render them):
-- Top-left: empty for SAINA logo.
-- Top-right: empty for date.
-- Bottom-center: empty band for small brand signature (two lines).
-- Do not place any logo, date, or footer signature.
-- No watermark. No fake UI chrome.`;
+const VISUAL_WEIGHT = `Visual weight:
+Evidence fusion scene: 70%
+Typography: 10%
+Everything else: 0% — meaning and emotion must NOT influence the image.`;
+
+const FORBIDDEN_VISUALS = `Forbidden visuals:
+- generic silhouette, person facing horizon, foggy wanderer
+- abstract path, generic mountain, inner journey
+- symbolic discovery, emotional landscape, universal wonder
+- cinematic possibility, distance-and-curiosity scene
+- picture-in-picture inset, collage, diptych, split frame
+- lonely figure in fog, walking away from camera as hero subject`;
+
+const VISUAL_STYLE = `Visual style:
+Premium editorial photograph — NOT illustration, NOT 3D render, NOT stock template.
+Documentary authenticity. One hero anchor. Vertical 4:5. 35–45% negative space for type.
+Recognizable conversation traces visible in the scene — not abstract interpretation.`;
+
+const TYPOGRAPHY_RULES = `Typography (10%):
+Title: 100 — embed exactly as given, 2–5 words preferred, max ${MIRROR_TITLE_MAX_WORDS} words, max 2 lines.
+Body: 25 — embed exactly as given, max 2 lines, 20–45 words.
+Maximum 2 text zones: one title, one body. No closing line, footer quote, badges, or panels.
+OpenAI owns placement and scale. System adds logo (top-left), date (top-right), signature (bottom) — do NOT render these.`;
+
+const BRAND_SAFE_ZONE_RULES = `Brand safe zones (system overlay only — do NOT render):
+Top-left: SAINA logo. Top-right: date. Bottom-center: signature band.`;
+
+const FORBIDDEN_CONCEPTS_BLOCK = `Forbidden text/UI:
+- ${FORBIDDEN_MIRROR_PHRASES.slice(0, 8).join(', ')}.
+- Dashboard, metrics, scores, coaching, insight cards, widgets.
+- Concepts: ${FORBIDDEN_MIRROR_CONCEPTS.slice(0, 10).join(', ')}.`;
+
+const SCENE_AVOID = `Scene avoid:
+tourism brochure, postcard, stock tourist, product ad, robot, neon brain, dashboard UI, checklist layout, generic fog silhouette, interchangeable emotional landscape.`;
 
 export function buildMirrorV3ImagePrompt(payload: SainaMirrorV3Payload): string {
   const season = getSeasonProfile(payload.season);
   const dentalCare = isDentalPersonalCarePayload(payload);
-  const seedKey = buildMirrorV3SeedHint(payload);
-  const shot = resolveShotMode(seedKey);
-  const referenceTier = resolveReferenceTier(seedKey, payload.season);
-  const evidenceBlock = formatConversationEvidenceBlock(payload.conversationEvidence ?? []);
-
-  const closing = payload.closingLine?.trim()
-    ? `Optional closing line (max ${MIRROR_CLOSING_MAX_WORDS} words, poetic only — no advice): "${payload.closingLine}"`
-    : 'No closing line — scene may end without footer text.';
+  const shot = resolveTopicShotMode({
+    storyTopicId: payload.storyTopicId,
+    evidence: payload.conversationEvidence ?? [],
+    selectedTopic: payload.selectedTopic,
+  });
+  const fusionBlock = formatEvidenceFusionBlock({
+    heroScene: payload.sceneComposition?.heroScene ?? payload.sceneMetaphor,
+    evidenceFusionScene:
+      payload.sceneComposition?.evidenceFusionScene ?? payload.sceneMetaphor,
+    worldLayer: payload.sceneComposition?.worldLayer ?? '',
+  });
 
   const blocks = [
-    // 1. Poster task
-    'Create a premium cinematic SAINA Conversation Mirror poster, vertical 4:5, 1080x1350.',
-    'Transform the active conversation topic into a cinematic, premium, shareable poster.',
-    'This is not a summary card, dashboard, or coaching UI.',
+    POSTER_TASK,
     '',
-    // 2. Selected topic
-    `Selected topic (scene direction — do NOT recap as bullet text): "${payload.selectedTopic}"`,
-    `Primary story topic: ${payload.topic}`,
+    `Topic: "${payload.selectedTopic}"`,
     '',
-    // 3. Conversation evidence
-    evidenceBlock,
+    fusionBlock,
+    CRITICAL_RULE,
+    FORBIDDEN_VISUALS,
+    POSTER_TEST,
+    VISUAL_WEIGHT,
     '',
-    // 4. Topic visibility rule
-    TOPIC_VISIBILITY_RULE,
-    ABSTRACTION_LIMIT,
+    `Mirror title (embed exactly): "${payload.mirrorTitle}"`,
+    `Mirror copy (embed exactly — ${countWords(payload.mirrorText)} words): "${payload.mirrorText}"`,
     '',
-    // 5–6. Mirror title + copy
-    `Mirror title (embed exactly, ${MIRROR_TITLE_MAX_WORDS} words max): "${payload.mirrorTitle}"`,
-    `Mirror copy (embed exactly — meaning layer, no conversation recap — ${countWords(payload.mirrorText)} words, max ${MIRROR_TEXT_MAX_WORDS}):`,
-    `"${payload.mirrorText}"`,
-    closing,
+    VISUAL_STYLE,
+    `Shot: ${shot.mode} — ${shot.description}`,
+    `Lighting: ${season.lightingRecipe}`,
     '',
-    // 7. Meaning / emotion
-    NARRATIVE_MEANING_BLOCK,
-    `Narrative theme: ${payload.narrativeTheme}`,
-    `Meaning: ${payload.meaning}`,
-    `Emotion: ${payload.emotion}`,
-    `Narrative distance: level ${payload.narrativeDistance} — ${payload.narrativeDistanceLabel}`,
-    `Scene metaphor (support evidence — do not replace concrete traces): ${payload.sceneMetaphor}`,
-    `Emotional atmosphere: ${payload.emotionalAtmosphere}. Tone: ${payload.emotionalTone}.`,
-    getNarrativeDistanceVisualGuidance(payload.narrativeDistance),
-    '',
-    // 8. Cinematography contract
-    CINEMATOGRAPHY_CONTRACT,
-    SCENE_CLARITY_RULE,
-    '',
-    `Shot mode (${shot.mode}):`,
-    shot.description,
-    '',
-    getReferenceTierBlock(referenceTier),
-    HUMAN_READABLE_STYLE,
-    '',
-    // 9. Typography director
-    TYPOGRAPHY_DIRECTOR_CONTRACT,
-    TYPOGRAPHY_GRID_CONTRACT,
-    OPENAI_POSTER_TEXT_CONTRACT,
-    '',
-    // 10. Season lighting
-    'Season art direction:',
-    `${season.labelTr}. Mood: ${season.mood}. Palette: ${season.palette}.`,
-    `${season.visualLanguage}`,
-    '',
-    'Lighting recipe:',
-    season.lightingRecipe,
-    '',
-    // 11. Visual metaphor rules
-    VISUAL_METAPHOR_TRANSLATION_V33,
-    '',
-    // 12. Brand safe zones
+    TYPOGRAPHY_RULES,
     BRAND_SAFE_ZONE_RULES,
-    '',
-    // 13. Negative list
-    ART_DIRECTION_AVOID_BLOCK,
-    EVIDENCE_SCENE_AVOID,
     FORBIDDEN_CONCEPTS_BLOCK,
+    SCENE_AVOID,
+    ART_DIRECTION_AVOID_BLOCK,
   ];
 
   if (dentalCare) {
     blocks.push(
       '',
-      'Personal-care scene: calm premium morning light, ivory and warm gold, bathroom counter ritual, quiet decision between products. No product ad, no mouth close-up, no clinical treatment.'
+      'Topic scene: calm bathroom counter, two products, morning light. No clinical close-up, no product ad.'
     );
   }
 
@@ -152,54 +120,37 @@ export function buildMirrorV3ImagePrompt(payload: SainaMirrorV3Payload): string 
 /** Art-direction failures first — backend truncates negative append to ~600 chars. */
 export const MIRROR_V3_NEGATIVE_PROMPT = [
   'stock photo smiling tourist',
-  'centered motivational quote layout',
+  'person facing horizon',
+  'person walking away',
+  'lonely silhouette',
+  'foggy wanderer',
+  'generic silhouette',
+  'abstract path',
+  'generic mountain',
+  'inner journey',
+  'symbolic discovery',
+  'emotional landscape',
+  'universal wonder',
+  'cinematic possibility',
+  'distance and curiosity',
+  'golden horizon silhouette',
   'oversaturated HDR',
   'fake lens flare',
-  'AI gloss',
-  'plastic skin',
-  '3D architectural render',
+  '3D render',
   'CGI villa',
-  'Pinterest filter pack',
-  'generic drone landscape',
-  'symmetrical pagoda',
-  'temple checklist',
-  'mount fuji postcard',
-  'kimono tourist',
-  'robot face',
-  'neon circuit brain',
   'tourism brochure',
-  'product advertisement',
-  'commercial hero product',
   'motivational poster',
-  'generic AI art',
-  'stock photo template',
   'dashboard',
-  'chart',
-  'graph',
-  'progress bar',
-  'score',
-  'infographic',
   'coaching card',
-  'self-help',
-  'UI card template',
-  'checklist layout',
+  'picture in picture',
+  'inset photo',
+  'collage',
+  'diptych',
+  'postcard layout',
+  'robot face',
+  'neon cyberpunk',
+  'conversation summary',
+  'bugün konuştun',
   'logo',
   'watermark',
-  'neon cyberpunk',
-  'hologram brain',
-  'ai dashboard',
-  'busy UI',
-  'fake date stamp',
-  'bugün görünen desen',
-  'yarın için ipucu',
-  'today you discussed',
-  'bugün konuştun',
-  'conversation summary',
-  'panda',
-  'fox',
-  'deer',
-  'archetype',
-  'insight block',
-  'postcard layout',
-  'showroom commercial',
 ].join(', ');
