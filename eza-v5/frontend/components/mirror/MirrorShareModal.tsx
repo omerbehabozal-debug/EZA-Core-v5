@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, Share2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -34,9 +35,14 @@ export default function MirrorShareModal({
   onShare,
   onCopyText,
 }: MirrorShareModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<'share' | null>(null);
   const fileShareAvailable = canShareFiles();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -73,9 +79,9 @@ export default function MirrorShareModal({
     }
   }, [onShare]);
 
-  if (!open) return null;
+  if (!mounted || !open) return null;
 
-  return (
+  return createPortal(
     <div
       className={sh.backdrop}
       role="dialog"
@@ -156,6 +162,7 @@ export default function MirrorShareModal({
           </p>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

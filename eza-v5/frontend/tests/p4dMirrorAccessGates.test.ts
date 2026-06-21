@@ -12,6 +12,10 @@ const refreshSrc = readFileSync(
   join(process.cwd(), 'components/mirror/DailyMirrorRefreshActions.tsx'),
   'utf8'
 );
+const lightboxSrc = readFileSync(
+  join(process.cwd(), 'components/mirror/MirrorPosterLightbox.tsx'),
+  'utf8'
+);
 const copySrc = readFileSync(join(process.cwd(), 'lib/eza/mirror/copy.ts'), 'utf8');
 const sceneBtnSrc = readFileSync(
   join(process.cwd(), 'components/mirror/MirrorSceneGenerateButton.tsx'),
@@ -76,6 +80,8 @@ describe('P4-D access gates (source)', () => {
     expect(experienceSrc).toContain('saina-mirror-poster-preview-trigger');
     expect(experienceSrc).not.toContain('showDownload');
     expect(experienceSrc).not.toContain('handleCardDownload');
+    expect(lightboxSrc).toContain('createPortal');
+    expect(lightboxSrc).toContain('document.body');
   });
 
   it('Plus refresh actions expose share only (no download)', () => {

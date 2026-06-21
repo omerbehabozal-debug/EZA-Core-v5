@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,12 @@ export default function MirrorPosterLightbox({
   title,
   onClose,
 }: MirrorPosterLightboxProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -27,11 +34,11 @@ export default function MirrorPosterLightbox({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open || !imageUrl?.trim()) return null;
+  if (!mounted || !open || !imageUrl?.trim()) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[220] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+      className="saina-mirror-poster-lightbox fixed inset-0 z-[220] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={title?.trim() || 'Ayna posteri'}
@@ -49,13 +56,16 @@ export default function MirrorPosterLightbox({
       >
         <X className="h-5 w-5" aria-hidden />
       </button>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={imageUrl}
-        alt={title?.trim() || 'SAINA Conversation Mirror posteri'}
-        className="max-h-[min(94vh,1350px)] max-w-[min(94vw,1080px)] h-auto w-auto object-contain rounded-xl shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      />
-    </div>
+      <div className="flex max-h-full max-w-full items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt={title?.trim() || 'SAINA Conversation Mirror posteri'}
+          className="max-h-[min(92vh,1350px)] max-w-[min(92vw,1080px)] h-auto w-auto object-contain rounded-xl shadow-2xl"
+          onClick={(event) => event.stopPropagation()}
+        />
+      </div>
+    </div>,
+    document.body
   );
 }
