@@ -137,7 +137,7 @@ export default function StandaloneObservationExperience({
   const hydratedFromSnapshotRef = useRef(false);
   const sceneDisplayBlobUrlRef = useRef<string | null>(null);
   const mirrorExport = useMirrorCardExport();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAuthReady } = useAuth();
   const { isPlus, refreshPlan } = usePlan();
 
   const plusProductionRemaining = useMemo(
@@ -492,6 +492,7 @@ export default function StandaloneObservationExperience({
   const handleGenerateMirrorScene = useCallback(
     async (sessionOverride?: MirrorStyleLensSession) => {
       if (sceneImageStatus === 'generating') return;
+      if (!isAuthReady || !isAuthenticated) return;
       if (!generatedDailyCard?.visual) return;
       const visual = generatedDailyCard.visual;
       const session = sessionOverride ?? styleLensSession;
@@ -533,6 +534,7 @@ export default function StandaloneObservationExperience({
         setSceneImageStatus('error');
         if (err instanceof MirrorSceneError) {
           if (err.code === 'auth_required') {
+            sceneAutoKeyRef.current = null;
             setUpgradeVariant('auth_required');
             setUpgradeOpen(true);
           } else if (err.code === 'upgrade_required') {
@@ -547,7 +549,7 @@ export default function StandaloneObservationExperience({
         }
       }
     },
-    [generatedDailyCard, conversationId, isPlus, openUpgrade, resolveSceneDisplayUrl, sceneImageStatus, styleLensSession]
+    [generatedDailyCard, conversationId, isAuthReady, isAuthenticated, isPlus, openUpgrade, resolveSceneDisplayUrl, sceneImageStatus, styleLensSession]
   );
 
   /** Plus — aynı kart; sıradaki Style Lens ile sahne (snapshot / buildConversationMirrorState yok). */
@@ -583,6 +585,7 @@ export default function StandaloneObservationExperience({
   }, [dailyStatus, generatedDailyCard, generatedDailyCard?.date, generatedDailyCard?.visual?.intentFingerprint]);
 
   useEffect(() => {
+    if (!isAuthReady || !isAuthenticated) return;
     if (dailyStatus !== 'ready' || !generatedDailyCard?.visual?.prompt) return;
     if (sceneImageStatus !== 'idle' && sceneImageStatus !== 'error') return;
 
@@ -602,6 +605,7 @@ export default function StandaloneObservationExperience({
     sceneImageStatus,
     sceneImageUrl,
     mirrorRevision,
+    isAuthReady,
     isAuthenticated,
     handleGenerateMirrorScene,
   ]);

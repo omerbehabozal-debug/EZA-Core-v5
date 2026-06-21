@@ -62,7 +62,7 @@ export async function generateMirrorScene(
       res.error?.error_message ??
       res.error?.message ??
       'Mirror sahnesi şu an hazırlanamadı.';
-    if (code === 'auth_required') {
+    if (code === 'auth_required' || code === 'HTTP_401') {
       throw new MirrorSceneError(msg, 'auth_required');
     }
     if (code === 'upgrade_required') {

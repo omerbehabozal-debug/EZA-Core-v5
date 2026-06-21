@@ -81,9 +81,17 @@ class ApiClient {
     // Add authentication if required
     if (auth) {
       const token = this.getToken();
-      if (token) {
-        requestHeaders['Authorization'] = `Bearer ${token}`;
+      if (!token) {
+        return {
+          ok: false,
+          error: {
+            error_code: 'auth_required',
+            error_message: 'Authentication required',
+            message: 'Authentication required',
+          },
+        };
       }
+      requestHeaders['Authorization'] = `Bearer ${token}`;
     }
 
     // Build request config
@@ -138,6 +146,10 @@ class ApiClient {
         } else {
           errorCode = data.error?.error_code || data.error || `HTTP_${response.status}`;
           errorMessage = data.error?.error_message || data.error?.message || data.detail || data.message || 'Request failed';
+        }
+
+        if (response.status === 401 && !errorCode) {
+          errorCode = 'auth_required';
         }
         
         return {

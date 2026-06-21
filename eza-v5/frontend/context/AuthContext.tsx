@@ -36,6 +36,8 @@ interface AuthContextType extends AuthState {
   setAuth: (token: string, user: UserInfo) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  /** False until localStorage auth has been read (avoids pre-hydration API calls). */
+  isAuthReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: null,
     role: null,
   });
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Load auth from localStorage on mount
   useEffect(() => {
@@ -70,7 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Clear corrupted data
         localStorage.removeItem(TOKEN_STORAGE_KEY);
         localStorage.removeItem(USER_STORAGE_KEY);
+      } finally {
+        setIsAuthReady(true);
       }
+    } else {
+      setIsAuthReady(true);
     }
   }, []);
 
@@ -116,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth,
     logout,
     isAuthenticated: !!authState.token,
+    isAuthReady,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
