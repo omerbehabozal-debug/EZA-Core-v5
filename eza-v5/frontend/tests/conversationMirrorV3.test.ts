@@ -101,8 +101,8 @@ describe('conversationMirrorV3', () => {
     const prompt = buildMirrorV3ImagePrompt(payload);
 
     expect(prompt).toContain('Narrative distance:');
-    expect(prompt).toContain('art direction only');
-    expect(prompt).toContain('Narrative theme:');
+    expect(prompt).toContain('scene direction');
+    expect(prompt).toContain('Conversation evidence:');
     expect(prompt).toContain('Meaning:');
     expect(prompt).toContain('Emotion:');
     expect(prompt.toLowerCase()).toContain('not a summary');
@@ -111,26 +111,27 @@ describe('conversationMirrorV3', () => {
     expect(hasConversationSummaryLanguage(payload.mirrorText)).toBe(false);
   });
 
-  it('V3.2 prompt includes cinematography, lighting, shot mode, and typography grid', () => {
+  it('V3.3 prompt includes evidence layer, cinematography, and typography director', () => {
     const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
     const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
-      seed: 'qa-v32-japan',
-      conversationId: 'qa-v32-japan',
+      seed: 'qa-v33-japan',
+      conversationId: 'qa-v33-japan',
       season: 'golden_hour',
     });
     const prompt = buildMirrorV3ImagePrompt(payload);
 
+    expect(payload.conversationEvidence.length).toBeGreaterThanOrEqual(3);
+    expect(prompt).toContain('Conversation evidence:');
+    expect(prompt).toContain('Topic visibility rule:');
+    expect(prompt).toContain('Typography director:');
     expect(prompt).toContain('Cinematography contract:');
-    expect(prompt).toContain('Typography grid:');
-    expect(prompt).toContain('Visual metaphor translation:');
     expect(prompt).toContain('Lighting recipe:');
     expect(prompt).toContain('Shot mode (');
     expect(prompt).toContain('Reference tier:');
-    expect(prompt).toContain('Narrative distance visual behavior:');
-    expect(prompt).toContain('no fake lens flare');
-    expect(prompt).toContain('Avoid:');
-    expect(prompt).toContain('stock photo smiling tourist');
-    expect(prompt.indexOf('Cinematography contract:')).toBeLessThan(
+    expect(prompt.indexOf('Conversation evidence:')).toBeLessThan(
+      prompt.indexOf('Cinematography contract:')
+    );
+    expect(prompt.indexOf('Typography director:')).toBeLessThan(
       prompt.indexOf('Brand safe zones')
     );
   });

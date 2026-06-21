@@ -16,6 +16,14 @@ export {
 } from '@/lib/eza/mirror/conversationMirrorV3/mirrorSceneCacheMigration';
 export { MIRROR_V3_STYLE_PRESET } from '@/lib/eza/mirror/conversationMirrorV3/visualPayloadAdapterV3';
 
+export { resolveConversationEvidence, formatConversationEvidenceBlock } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
+export type { ConversationEvidence } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
+export {
+  buildConversationMirrorV33QualityReport,
+  meetsConversationMirrorV33QualityTarget,
+  CONVERSATION_MIRROR_V33_TARGET_SCORE,
+} from '@/lib/eza/mirror/conversationMirrorV3/conversationMirrorV33Quality';
+export type { ConversationMirrorV33QualityReport } from '@/lib/eza/mirror/conversationMirrorV3/conversationMirrorV33Quality';
 export { resolveNarrativeLayer } from '@/lib/eza/mirror/conversationMirrorV3/narrativeLayer';
 export { resolveNarrativeDistance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';
 export { resolveMeaningMirrorCopy } from '@/lib/eza/mirror/conversationMirrorV3/meaningMirrorCopy';

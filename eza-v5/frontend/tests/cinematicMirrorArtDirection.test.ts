@@ -101,21 +101,23 @@ const V32_SCENARIO_IDS = [
   'spirituality',
 ] as const;
 
-describe('mirror v3.2 art direction prompt contract', () => {
+describe('mirror v3.3 art direction prompt contract', () => {
   for (const id of V32_SCENARIO_IDS) {
-    it(`${id} prompt includes director-level art direction blocks`, () => {
+    it(`${id} prompt includes evidence-first director blocks`, () => {
       const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === id)!;
       const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
-        seed: `qa-v32-${id}`,
-        conversationId: `qa-v32-${id}`,
+        seed: `qa-v33-${id}`,
+        conversationId: `qa-v33-${id}`,
         season: scenario.season,
       });
       const prompt = buildMirrorV3ImagePrompt(payload);
       const season = getSeasonProfile(payload.season);
 
+      expect(payload.conversationEvidence.length).toBeGreaterThanOrEqual(3);
+      expect(prompt).toContain('Conversation evidence:');
+      expect(prompt).toContain('Topic visibility rule:');
+      expect(prompt).toContain('Typography director:');
       expect(prompt).toContain('Cinematography contract:');
-      expect(prompt).toContain('Typography grid:');
-      expect(prompt).toContain('Visual metaphor translation:');
       expect(prompt).toContain('Lighting recipe:');
       expect(prompt).toContain(season.lightingRecipe);
       expect(prompt).toContain('Shot mode (');

@@ -17,6 +17,7 @@ import {
 } from '@/lib/eza/mirror/conversationMirrorV3/narrativeCopySanitizer';
 import { resolveNarrativeDistance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';
 import { resolveNarrativeLayer } from '@/lib/eza/mirror/conversationMirrorV3/narrativeLayer';
+import { resolveConversationEvidence } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import {
   MIRROR_PIPELINE_VERSION,
@@ -67,10 +68,18 @@ export function buildMirrorPayloadV3(
     visualKeywords: base.visualKeywords,
   });
 
+  const conversationEvidence = resolveConversationEvidence({
+    entries,
+    storyTopicId: topicResolution.primaryTopic,
+    selectedTopic: topicResolution.selectedTopic,
+    candidateTopics: topicResolution.candidateTopics,
+  });
+
   return {
     ...base,
     pipelineVersion: MIRROR_PIPELINE_VERSION,
     refinementVersion: MIRROR_REFINEMENT_VERSION,
+    conversationEvidence,
     narrativeTheme: narrative.narrativeTheme,
     meaning: narrative.meaning,
     emotion: narrative.emotion,

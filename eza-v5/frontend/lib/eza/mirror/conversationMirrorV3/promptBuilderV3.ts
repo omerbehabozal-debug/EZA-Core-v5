@@ -1,5 +1,5 @@
 /**
- * Mirror V3.2 — OpenAI prompt contract (director's shot list + editorial poster).
+ * Mirror V3.3 — OpenAI prompt contract (conversation evidence + premium poster).
  */
 
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';
@@ -22,29 +22,28 @@ import {
   resolveReferenceTier,
   resolveShotMode,
   TYPOGRAPHY_GRID_CONTRACT,
-  VISUAL_METAPHOR_TRANSLATION,
 } from '@/lib/eza/mirror/conversationMirrorV3/artDirectionV32';
+import {
+  ABSTRACTION_LIMIT,
+  EVIDENCE_SCENE_AVOID,
+  OPENAI_POSTER_TEXT_CONTRACT,
+  SCENE_CLARITY_RULE,
+  TOPIC_VISIBILITY_RULE,
+  TYPOGRAPHY_DIRECTOR_CONTRACT,
+  VISUAL_METAPHOR_TRANSLATION_V33,
+} from '@/lib/eza/mirror/conversationMirrorV3/artDirectionV33';
+import { formatConversationEvidenceBlock } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
 import { getNarrativeDistanceVisualGuidance } from '@/lib/eza/mirror/conversationMirrorV3/narrativeDistance';
 import { buildMirrorV3SeedHint } from '@/lib/eza/mirror/conversationMirrorV3/sceneCacheFingerprint';
 
-const VISUAL_WEIGHT = `Visual weight:
-- 80–90% cinematic scene photography.
-- 10–20% integrated editorial typography.
-- User should feel first, then read — never read first.`;
+const HUMAN_READABLE_STYLE = `Style: premium editorial photograph — NOT illustration, NOT 3D render, NOT CGI villa, NOT stock photo template.
+Documentary authenticity with recognizable conversation traces, not fantasy illustration.`;
 
-const BRAND_SAFE_ZONE_RULES = `Brand safe zones (system adds these — you must NOT render them):
-- Top-left: empty for SAINA logo.
-- Top-right: empty for date.
-- Bottom-center: empty band for small brand signature (two lines).
-- Do not place any logo, date, or footer signature.
-- No watermark. No fake UI chrome.`;
-
-const NARRATIVE_COPY_RULES = `Narrative copy rules:
-- This is a cinematic interpretation of a conversation — NOT a summary.
-- Mirror copy describes meaning and feeling — never what was discussed.
+const NARRATIVE_MEANING_BLOCK = `Meaning layer (25% — mood, not topic erasure):
+- Mirror copy describes why the topic mattered emotionally — never a conversation recap.
 - Forbidden in mirror copy: "today you discussed", "you talked about", "bugün … konuştun", "bugün … araştırdın".
-- Selected topic is for internal art direction only — do not name it in the poster text.
-- A stranger should find the poster beautiful; the participant should recognize themselves through emotion alone.`;
+- Selected topic and evidence guide the scene — do not name them verbatim in poster text unless already in mirror title/copy.
+- A stranger should infer the topic from scene evidence within 3 seconds; the participant should feel ownership through recognizable traces.`;
 
 const FORBIDDEN_CONCEPTS_BLOCK = `Strictly forbidden concepts:
 - ${FORBIDDEN_MIRROR_PHRASES.join(', ')}.
@@ -53,8 +52,12 @@ const FORBIDDEN_CONCEPTS_BLOCK = `Strictly forbidden concepts:
 - Coaching language, self-help language, tips, advice, homework.
 - Concepts: ${FORBIDDEN_MIRROR_CONCEPTS.slice(0, 12).join(', ')}.`;
 
-const HUMAN_READABLE_STYLE = `Style: premium editorial photograph — NOT illustration, NOT 3D render, NOT CGI villa, NOT stock photo template.
-Documentary authenticity, not fantasy illustration.`;
+const BRAND_SAFE_ZONE_RULES = `Brand safe zones (system adds these — you must NOT render them):
+- Top-left: empty for SAINA logo.
+- Top-right: empty for date.
+- Bottom-center: empty band for small brand signature (two lines).
+- Do not place any logo, date, or footer signature.
+- No watermark. No fake UI chrome.`;
 
 export function buildMirrorV3ImagePrompt(payload: SainaMirrorV3Payload): string {
   const season = getSeasonProfile(payload.season);
@@ -62,6 +65,7 @@ export function buildMirrorV3ImagePrompt(payload: SainaMirrorV3Payload): string 
   const seedKey = buildMirrorV3SeedHint(payload);
   const shot = resolveShotMode(seedKey);
   const referenceTier = resolveReferenceTier(seedKey, payload.season);
+  const evidenceBlock = formatConversationEvidenceBlock(payload.conversationEvidence ?? []);
 
   const closing = payload.closingLine?.trim()
     ? `Optional closing line (max ${MIRROR_CLOSING_MAX_WORDS} words, poetic only — no advice): "${payload.closingLine}"`
@@ -70,23 +74,52 @@ export function buildMirrorV3ImagePrompt(payload: SainaMirrorV3Payload): string 
   const blocks = [
     // 1. Poster task
     'Create a premium cinematic SAINA Conversation Mirror poster, vertical 4:5, 1080x1350.',
-    'This is not a summary card. This is a cinematic interpretation of a conversation\'s meaning.',
+    'Transform the active conversation topic into a cinematic, premium, shareable poster.',
+    'This is not a summary card, dashboard, or coaching UI.',
     '',
-    // 2. Conversation meaning payload
+    // 2. Selected topic
+    `Selected topic (scene direction — do NOT recap as bullet text): "${payload.selectedTopic}"`,
+    `Primary story topic: ${payload.topic}`,
+    '',
+    // 3. Conversation evidence
+    evidenceBlock,
+    '',
+    // 4. Topic visibility rule
+    TOPIC_VISIBILITY_RULE,
+    ABSTRACTION_LIMIT,
+    '',
+    // 5–6. Mirror title + copy
     `Mirror title (embed exactly, ${MIRROR_TITLE_MAX_WORDS} words max): "${payload.mirrorTitle}"`,
-    `Mirror copy (embed exactly — meaning only, no conversation recap — ${countWords(payload.mirrorText)} words, max ${MIRROR_TEXT_MAX_WORDS}):`,
+    `Mirror copy (embed exactly — meaning layer, no conversation recap — ${countWords(payload.mirrorText)} words, max ${MIRROR_TEXT_MAX_WORDS}):`,
     `"${payload.mirrorText}"`,
     closing,
     '',
-    `Selected topic (art direction only — do NOT echo in poster text): "${payload.selectedTopic}"`,
+    // 7. Meaning / emotion
+    NARRATIVE_MEANING_BLOCK,
     `Narrative theme: ${payload.narrativeTheme}`,
     `Meaning: ${payload.meaning}`,
     `Emotion: ${payload.emotion}`,
     `Narrative distance: level ${payload.narrativeDistance} — ${payload.narrativeDistanceLabel}`,
-    `Scene metaphor (interpret atmospherically, do not literalize): ${payload.sceneMetaphor}`,
+    `Scene metaphor (support evidence — do not replace concrete traces): ${payload.sceneMetaphor}`,
     `Emotional atmosphere: ${payload.emotionalAtmosphere}. Tone: ${payload.emotionalTone}.`,
+    getNarrativeDistanceVisualGuidance(payload.narrativeDistance),
     '',
-    // 3. Art direction
+    // 8. Cinematography contract
+    CINEMATOGRAPHY_CONTRACT,
+    SCENE_CLARITY_RULE,
+    '',
+    `Shot mode (${shot.mode}):`,
+    shot.description,
+    '',
+    getReferenceTierBlock(referenceTier),
+    HUMAN_READABLE_STYLE,
+    '',
+    // 9. Typography director
+    TYPOGRAPHY_DIRECTOR_CONTRACT,
+    TYPOGRAPHY_GRID_CONTRACT,
+    OPENAI_POSTER_TEXT_CONTRACT,
+    '',
+    // 10. Season lighting
     'Season art direction:',
     `${season.labelTr}. Mood: ${season.mood}. Palette: ${season.palette}.`,
     `${season.visualLanguage}`,
@@ -94,42 +127,22 @@ export function buildMirrorV3ImagePrompt(payload: SainaMirrorV3Payload): string 
     'Lighting recipe:',
     season.lightingRecipe,
     '',
-    `Shot mode (${shot.mode}):`,
-    shot.description,
+    // 11. Visual metaphor rules
+    VISUAL_METAPHOR_TRANSLATION_V33,
     '',
-    getReferenceTierBlock(referenceTier),
-    '',
-    HUMAN_READABLE_STYLE,
-    '',
-    VISUAL_WEIGHT,
-    '',
-    // 4. Cinematography contract
-    CINEMATOGRAPHY_CONTRACT,
-    '',
-    // 5. Typography grid
-    TYPOGRAPHY_GRID_CONTRACT,
-    '',
-    // 6. Narrative distance visual behavior
-    getNarrativeDistanceVisualGuidance(payload.narrativeDistance),
-    '',
-    NARRATIVE_COPY_RULES,
-    '',
-    // 7. Visual metaphor translation
-    VISUAL_METAPHOR_TRANSLATION,
-    '',
-    // 8. Brand safe zones
+    // 12. Brand safe zones
     BRAND_SAFE_ZONE_RULES,
     '',
-    // 9. Negative list + forbidden concepts
+    // 13. Negative list
     ART_DIRECTION_AVOID_BLOCK,
-    '',
+    EVIDENCE_SCENE_AVOID,
     FORBIDDEN_CONCEPTS_BLOCK,
   ];
 
   if (dentalCare) {
     blocks.push(
       '',
-      'Personal-care scene: calm premium morning light, ivory and warm gold, subtle water reflections, quiet decision-making. No product ad, no mouth close-up.'
+      'Personal-care scene: calm premium morning light, ivory and warm gold, bathroom counter ritual, quiet decision between products. No product ad, no mouth close-up, no clinical treatment.'
     );
   }
 
@@ -186,4 +199,7 @@ export const MIRROR_V3_NEGATIVE_PROMPT = [
   'fox',
   'deer',
   'archetype',
+  'insight block',
+  'postcard layout',
+  'showroom commercial',
 ].join(', ');
