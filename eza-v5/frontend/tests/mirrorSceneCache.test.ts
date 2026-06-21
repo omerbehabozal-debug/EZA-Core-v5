@@ -4,6 +4,7 @@ import {
   MIRROR_SCENE_CACHE_STORAGE_KEY,
   readMirrorSceneCache,
   saveMirrorSceneCache,
+  shouldPersistSceneImageUrl,
 } from '@/lib/eza/mirror/mirrorSceneCache';
 
 const card = {
@@ -49,5 +50,12 @@ describe('mirrorSceneCache', () => {
     saveMirrorSceneCache(card, 'https://cdn.example/scene.png');
     clearMirrorSceneCache();
     expect(localStorage.getItem(MIRROR_SCENE_CACHE_STORAGE_KEY)).toBeNull();
+  });
+
+  it('skips oversized data URLs for localStorage', () => {
+    const hugeDataUrl = `data:image/png;base64,${'a'.repeat(300_000)}`;
+    expect(shouldPersistSceneImageUrl(hugeDataUrl)).toBe(false);
+    saveMirrorSceneCache(card, hugeDataUrl);
+    expect(readMirrorSceneCache(card)).toBeNull();
   });
 });

@@ -72,6 +72,11 @@ describe('P4-D access gates (source)', () => {
     expect(experienceSrc).toMatch(/if \(!isAuthReady \|\| !isAuthenticated\) return;/);
   });
 
+  it('marks scene auto-generation complete to prevent duplicate API calls', () => {
+    expect(experienceSrc).toContain(':complete');
+    expect(experienceSrc).toContain('sceneGenerationInFlightRef');
+  });
+
   it('Free does not get scene retry button on ready panel', () => {
     expect(experienceSrc).not.toContain('MirrorSceneGenerateButton');
   });

@@ -9,6 +9,25 @@ export const MIRROR_SCENE_CACHE_STORAGE_KEY = 'eza_daily_mirror_scene_v1';
 export const CONVERSATION_MIRROR_SCENE_CACHE_STORAGE_KEY =
   'eza_conversation_mirror_scene_conversationMirrorV3_refinement_3_1';
 
+/** localStorage cannot hold multi-MB OpenAI base64 payloads — skip those. */
+const MAX_CACHEABLE_SCENE_URL_CHARS = 280_000;
+
+export function shouldPersistSceneImageUrl(sceneImageUrl: string): boolean {
+  const url = sceneImageUrl.trim();
+  if (!url) return false;
+  if (url.startsWith('data:') && url.length > MAX_CACHEABLE_SCENE_URL_CHARS) return false;
+  return true;
+}
+
+function safeStorageSet(key: string, value: string): boolean {
+  try {
+    storage()?.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export type MirrorSceneCacheRecord = {
   cardDate: string;
   intentFingerprint: string;
@@ -72,7 +91,7 @@ export function saveMirrorSceneCache(
   provider?: string
 ): void {
   const fingerprint = card.visual?.intentFingerprint ?? '';
-  if (!fingerprint || !sceneImageUrl.trim()) return;
+  if (!fingerprint || !shouldPersistSceneImageUrl(sceneImageUrl)) return;
   const record: MirrorSceneCacheRecord = {
     cardDate: card.date,
     intentFingerprint: fingerprint,
@@ -80,7 +99,7 @@ export function saveMirrorSceneCache(
     provider,
     cachedAt: new Date().toISOString(),
   };
-  storage()?.setItem(MIRROR_SCENE_CACHE_STORAGE_KEY, JSON.stringify(record));
+  safeStorageSet(MIRROR_SCENE_CACHE_STORAGE_KEY, JSON.stringify(record));
 }
 
 export function clearMirrorSceneCache(): void {
@@ -109,7 +128,10 @@ function readConversationSceneStore(): ConversationSceneCacheStore {
 }
 
 function writeConversationSceneStore(store: ConversationSceneCacheStore): void {
-  storage()?.setItem(CONVERSATION_MIRROR_SCENE_CACHE_STORAGE_KEY, JSON.stringify(store));
+  safeStorageSet(
+    CONVERSATION_MIRROR_SCENE_CACHE_STORAGE_KEY,
+    JSON.stringify(store)
+  );
 }
 
 export function readConversationMirrorSceneCache(
@@ -136,7 +158,9 @@ export function saveConversationMirrorSceneCache(
   provider?: string
 ): void {
   const fingerprint = card.visual?.intentFingerprint ?? '';
-  if (!conversationId.trim() || !fingerprint || !sceneImageUrl.trim()) return;
+  if (!conversationId.trim() || !fingerprint || !shouldPersistSceneImageUrl(sceneImageUrl)) {
+    return;
+  }
   const record: MirrorSceneCacheRecord = {
     cardDate: card.date,
     intentFingerprint: fingerprint,

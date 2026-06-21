@@ -134,6 +134,8 @@ export default function StandaloneObservationExperience({
   );
   const [plusUsageRevision, setPlusUsageRevision] = useState(0);
   const sceneAutoKeyRef = useRef<string | null>(null);
+  const sceneGenerationInFlightRef = useRef(false);
+  const lastRawSceneUrlRef = useRef<string | null>(null);
   const hydratedFromSnapshotRef = useRef(false);
   const sceneDisplayBlobUrlRef = useRef<string | null>(null);
   const mirrorExport = useMirrorCardExport();
@@ -468,10 +470,15 @@ export default function StandaloneObservationExperience({
   }, [sceneImageUrl, runHybridOcrProbe]);
 
   const handleSceneImageError = useCallback(() => {
+    const raw = lastRawSceneUrlRef.current;
+    if (raw && (!sceneImageUrl || sceneImageUrl.startsWith('blob:'))) {
+      setSceneImageUrl(raw);
+      setSceneImageStatus('ready');
+      return;
+    }
     setSceneImageStatus('error');
     setSceneImageUrl(null);
     clearMirrorSceneCacheForScope(conversationId);
-    sceneAutoKeyRef.current = null;
     if (generatedDailyCard && isV3MirrorCard(generatedDailyCard)) return;
     const mode =
       generatedDailyCard?.visual?.renderMode ?? resolveMirrorRenderMode();
@@ -482,28 +489,40 @@ export default function StandaloneObservationExperience({
         hybridFallbackReason: 'scene_image_load_error',
       }));
     }
-  }, [conversationId, generatedDailyCard?.visual?.renderMode]);
+  }, [conversationId, generatedDailyCard, sceneImageUrl]);
 
   const openUpgrade = useCallback((variant: UpgradeModalVariant = 'upgrade') => {
     setUpgradeVariant(variant);
     setUpgradeOpen(true);
   }, []);
 
+  const buildSceneAutoKey = useCallback(
+    (card: DailyMirrorCardModel) =>
+      `${card.date}:${card.visual?.intentFingerprint ?? ''}:${mirrorRevision}`,
+    [mirrorRevision]
+  );
+
   const handleGenerateMirrorScene = useCallback(
     async (sessionOverride?: MirrorStyleLensSession) => {
+      if (sceneGenerationInFlightRef.current) return;
       if (sceneImageStatus === 'generating') return;
       if (!isAuthReady || !isAuthenticated) return;
       if (!generatedDailyCard?.visual) return;
       const visual = generatedDailyCard.visual;
+      const autoKey = buildSceneAutoKey(generatedDailyCard);
+      if (sceneAutoKeyRef.current === `${autoKey}:complete`) return;
       const session = sessionOverride ?? styleLensSession;
       const { lensId, variationIndex } = resolveLensForGeneration(isPlus, session);
       const visualForApi = applyStyleLensToVisual(visual, lensId, variationIndex);
+      sceneGenerationInFlightRef.current = true;
+      sceneAutoKeyRef.current = autoKey;
       setSceneImageStatus('generating');
       setSceneImageUrl(null);
       setHybridTextFallback(false);
       setSceneExtras({});
       try {
         const result = await generateMirrorScene(visualForApi, generatedDailyCard.date);
+        lastRawSceneUrlRef.current = result.sceneImageUrl;
         const displayUrl = await resolveSceneDisplayUrl(
           result.sceneImageUrl,
           generatedDailyCard
@@ -517,6 +536,7 @@ export default function StandaloneObservationExperience({
           result.sceneImageUrl,
           result.provider
         );
+        sceneAutoKeyRef.current = `${autoKey}:complete`;
         if (
           !isV3MirrorCard(generatedDailyCard) &&
           (visual.renderMode ?? resolveMirrorRenderMode()) === 'hybrid_middle' &&
@@ -542,6 +562,8 @@ export default function StandaloneObservationExperience({
             setUpgradeOpen(true);
           } else if (err.code === 'generation_failed') {
             sceneAutoKeyRef.current = null;
+          } else {
+            sceneAutoKeyRef.current = null;
           }
         } else {
           sceneAutoKeyRef.current = null;
@@ -551,9 +573,21 @@ export default function StandaloneObservationExperience({
           setHybridTextFallback(true);
           setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
         }
+      } finally {
+        sceneGenerationInFlightRef.current = false;
       }
     },
-    [generatedDailyCard, conversationId, isAuthReady, isAuthenticated, isPlus, openUpgrade, resolveSceneDisplayUrl, sceneImageStatus, styleLensSession]
+    [
+      generatedDailyCard,
+      conversationId,
+      isAuthReady,
+      isAuthenticated,
+      isPlus,
+      buildSceneAutoKey,
+      resolveSceneDisplayUrl,
+      sceneImageStatus,
+      styleLensSession,
+    ]
   );
 
   /** Plus — aynı kart; sıradaki Style Lens ile sahne (snapshot / buildConversationMirrorState yok). */
@@ -598,19 +632,22 @@ export default function StandaloneObservationExperience({
       sceneAutoKeyRef.current = null;
     }
 
-    const fingerprint = generatedDailyCard.visual.intentFingerprint ?? '';
-    const autoKey = `${generatedDailyCard.date}:${fingerprint}:${mirrorRevision}`;
-    if (sceneAutoKeyRef.current === autoKey) return;
-    sceneAutoKeyRef.current = autoKey;
+    const autoKey = buildSceneAutoKey(generatedDailyCard);
+    if (
+      sceneAutoKeyRef.current === autoKey ||
+      sceneAutoKeyRef.current === `${autoKey}:complete`
+    ) {
+      return;
+    }
     void handleGenerateMirrorScene();
   }, [
     dailyStatus,
     generatedDailyCard,
     sceneImageStatus,
-    sceneImageUrl,
     mirrorRevision,
     isAuthReady,
     isAuthenticated,
+    buildSceneAutoKey,
     handleGenerateMirrorScene,
   ]);
 
