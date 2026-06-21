@@ -540,7 +540,11 @@ export default function StandaloneObservationExperience({
           } else if (err.code === 'upgrade_required') {
             setUpgradeVariant('upgrade');
             setUpgradeOpen(true);
+          } else if (err.code === 'generation_failed') {
+            sceneAutoKeyRef.current = null;
           }
+        } else {
+          sceneAutoKeyRef.current = null;
         }
         const mode = visual.renderMode ?? resolveMirrorRenderMode();
         if (!isV3MirrorCard(generatedDailyCard) && mode === 'hybrid_middle') {

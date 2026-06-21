@@ -12,7 +12,7 @@ export const HYBRID_PROMPT_MARKERS = [
   'do not generate ui cards',
 ] as const;
 
-export const OPENAI_MIRROR_PROMPT_MAX = 4000;
+export const OPENAI_MIRROR_PROMPT_MAX = 8000;
 
 export type UsedPromptType = 'hybrid_middle' | 'scene_only_director';
 

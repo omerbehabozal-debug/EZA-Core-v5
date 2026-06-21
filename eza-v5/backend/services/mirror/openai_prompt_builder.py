@@ -3,8 +3,8 @@
 
 from backend.services.mirror.types import MirrorImageRequest
 
-# OpenAI image models accept shorter prompts than our validation max.
-MAX_OPENAI_COMBINED_PROMPT_LEN = 4000
+# gpt-image-1 / dall-e-3 accept longer prompts; keep under frontend MAX_PROMPT_LEN.
+MAX_OPENAI_COMBINED_PROMPT_LEN = 8000
 _MAX_NEGATIVE_APPEND = 600
 _MAX_HINTS_APPEND = 400
 

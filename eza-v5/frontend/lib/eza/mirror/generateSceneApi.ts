@@ -21,7 +21,11 @@ export type MirrorGenerateSceneRequest = {
   cardDate: string;
 };
 
-export type MirrorSceneErrorCode = 'auth_required' | 'upgrade_required' | 'unknown';
+export type MirrorSceneErrorCode =
+  | 'auth_required'
+  | 'upgrade_required'
+  | 'generation_failed'
+  | 'unknown';
 
 export class MirrorSceneError extends Error {
   readonly code: MirrorSceneErrorCode;
@@ -54,7 +58,7 @@ export async function generateMirrorScene(
   const body = buildMirrorGenerateScenePayload(visual, cardDate);
   const res = await apiClient.post<MirrorGenerateSceneResponse>(
     '/api/standalone/mirror/generate-scene',
-    { body, auth: true }
+    { body, auth: true, directBackend: true }
   );
   if (!res.ok) {
     const code = res.error?.error_code;
@@ -67,6 +71,9 @@ export async function generateMirrorScene(
     }
     if (code === 'upgrade_required') {
       throw new MirrorSceneError(msg, 'upgrade_required');
+    }
+    if (code === 'generation_failed' || code === 'HTTP_502') {
+      throw new MirrorSceneError(msg, 'generation_failed');
     }
     throw new MirrorSceneError(msg, 'unknown');
   }

@@ -8,8 +8,19 @@
  * Get the API base URL from environment variables
  * Throws error if not set in production
  */
+/** Production Railway API — use for long-running requests (mirror scene gen). */
+export const EZA_PRODUCTION_API_ORIGIN = 'https://api.ezacore.ai';
+
 function isEzacoreFrontendHost(hostname: string): boolean {
   return hostname === 'ezacore.ai' || hostname.endsWith('.ezacore.ai');
+}
+
+/** Direct backend origin on *.ezacore.ai (bypasses Vercel /api rewrite timeout). */
+export function getDirectApiBaseUrl(): string {
+  if (typeof window !== 'undefined' && isEzacoreFrontendHost(window.location.hostname)) {
+    return EZA_PRODUCTION_API_ORIGIN;
+  }
+  return getApiUrl();
 }
 
 export function getApiUrl(): string {

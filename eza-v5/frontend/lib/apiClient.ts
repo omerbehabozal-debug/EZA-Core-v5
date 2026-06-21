@@ -3,7 +3,7 @@
  * Centralized API client with authentication support
  */
 
-import { getApiUrl, getWebSocketUrl } from './apiUrl';
+import { getApiUrl, getDirectApiBaseUrl, getWebSocketUrl } from './apiUrl';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
@@ -12,6 +12,8 @@ interface RequestOptions {
   params?: Record<string, string>;
   auth?: boolean; // If true, add JWT token from auth store
   headers?: Record<string, string>;
+  /** Call api.ezacore.ai directly (skip Vercel rewrite — for long mirror scene generation). */
+  directBackend?: boolean;
 }
 
 interface ApiResponse<T = any> {
@@ -39,9 +41,13 @@ class ApiClient {
   /**
    * Get full URL for request
    */
-  private getRequestUrl(path: string, params?: Record<string, string>): string {
-    // Always use full backend URL (direct communication)
-    let url = `${this.baseURL}${path}`;
+  private getRequestUrl(
+    path: string,
+    params?: Record<string, string>,
+    directBackend?: boolean
+  ): string {
+    const base = directBackend ? getDirectApiBaseUrl() : this.baseURL;
+    let url = `${base}${path}`;
     if (params) {
       const searchParams = new URLSearchParams(params);
       url += `?${searchParams.toString()}`;
@@ -67,10 +73,9 @@ class ApiClient {
     path: string,
     options: RequestOptions = {}
   ): Promise<ApiResponse<T>> {
-    const { body, params, auth = false, headers = {} } = options;
+    const { body, params, auth = false, headers = {}, directBackend = false } = options;
 
-    // Build URL (always use direct backend URL)
-    const url = this.getRequestUrl(path, params);
+    const url = this.getRequestUrl(path, params, directBackend);
 
     // Build headers
     const requestHeaders: HeadersInit = {
@@ -150,6 +155,9 @@ class ApiClient {
 
         if (response.status === 401 && !errorCode) {
           errorCode = 'auth_required';
+        }
+        if (response.status === 502 && !errorCode) {
+          errorCode = 'generation_failed';
         }
         
         return {

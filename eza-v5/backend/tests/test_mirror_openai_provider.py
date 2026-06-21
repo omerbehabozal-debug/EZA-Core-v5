@@ -44,7 +44,7 @@ def test_build_openai_mirror_prompt_includes_core_negative_and_hints():
     assert "text, letters" in combined
     assert "Quality:" in combined
     assert "eza_mirror_professional_v1" in combined
-    assert len(combined) <= 4000
+    assert len(combined) <= 8000
 
 
 @pytest.mark.asyncio

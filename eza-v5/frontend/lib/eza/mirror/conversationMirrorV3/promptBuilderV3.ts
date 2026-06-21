@@ -14,7 +14,6 @@ import {
   FORBIDDEN_MIRROR_PHRASES,
 } from '@/lib/eza/mirror/conversationMirrorV3/forbiddenLexicon';
 import { isDentalPersonalCarePayload } from '@/lib/eza/mirror/conversationMirrorV2/promptBuilder';
-import { ART_DIRECTION_AVOID_BLOCK } from '@/lib/eza/mirror/conversationMirrorV3/artDirectionV32';
 import { formatEvidenceFusionBlock } from '@/lib/eza/mirror/conversationMirrorV3/evidenceFusionV44';
 import { resolveTopicShotMode } from '@/lib/eza/mirror/conversationMirrorV3/shotDirectorV43';
 
@@ -104,7 +103,6 @@ export function buildMirrorV3ImagePrompt(payload: SainaMirrorV3Payload): string 
     BRAND_SAFE_ZONE_RULES,
     FORBIDDEN_CONCEPTS_BLOCK,
     SCENE_AVOID,
-    ART_DIRECTION_AVOID_BLOCK,
   ];
 
   if (dentalCare) {

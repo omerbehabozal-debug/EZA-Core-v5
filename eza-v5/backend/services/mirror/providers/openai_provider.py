@@ -81,10 +81,16 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
         try:
             response = await client.post(OPENAI_IMAGES_URL, headers=headers, json=payload)
             if response.status_code >= 400:
+                body_preview = ""
+                try:
+                    body_preview = response.text[:240]
+                except Exception:
+                    pass
                 logger.warning(
-                    "mirror_openai_images_failed seed=%s status=%s",
+                    "mirror_openai_images_failed seed=%s status=%s body=%s",
                     seed,
                     response.status_code,
+                    body_preview,
                 )
                 raise MirrorImageProviderError(_USER_ERROR_MESSAGE)
             return response.json()
