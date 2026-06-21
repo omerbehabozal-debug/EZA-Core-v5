@@ -600,19 +600,19 @@ export function resolveConversationEvidence(
   const map = new Map<string, ConversationEvidence>();
   const tokenWeights = aggregateTokens(input.entries);
 
-  for (const [token, weight] of tokenWeights) {
+  tokenWeights.forEach((weight, token) => {
     const seed = TOKEN_EVIDENCE[token];
     if (seed) {
       upsertEvidence(map, seed, weight);
     }
-  }
+  });
 
-  for (const [token, weight] of tokenWeights) {
+  tokenWeights.forEach((weight, token) => {
     const clusters = matchTurnToClusters([token]);
     for (const cluster of clusters) {
       addClusterEvidence(map, cluster, weight);
     }
-  }
+  });
 
   const selectedLower = input.selectedTopic.trim().toLowerCase();
   if (selectedLower) {
@@ -642,7 +642,7 @@ export function resolveConversationEvidence(
     upsertEvidence(map, seed, 0.75);
   }
 
-  const sorted = [...map.values()]
+  const sorted = Array.from(map.values())
     .sort((a, b) => b.importance - a.importance)
     .slice(0, MAX_EVIDENCE);
 
