@@ -170,8 +170,17 @@ export default function MirrorLiveDebugPanel({
         {snap.v5IntelligenceDebug ? (
           <DebugBlock label="V5 intelligence brief" value={snap.v5IntelligenceDebug} />
         ) : null}
-        {snap.v5RenderPrompt ? (
-          <DebugBlock label="V5 OpenAI render prompt" value={snap.v5RenderPrompt} />
+        {snap.v5FrontendMinimalPrompt ? (
+          <DebugBlock label="V5 Frontend Minimal Prompt" value={snap.v5FrontendMinimalPrompt} />
+        ) : null}
+        {snap.v5ProviderFinalPrompt ? (
+          <DebugBlock label="V5 Provider Final Prompt" value={snap.v5ProviderFinalPrompt} />
+        ) : null}
+        {snap.v5PromptSameAsFrontend ? (
+          <DebugRow label="V5 promptSameAsFrontend" value={snap.v5PromptSameAsFrontend} />
+        ) : null}
+        {snap.v5BackendAppendApplied ? (
+          <DebugRow label="V5 backendAppendApplied" value={snap.v5BackendAppendApplied} />
         ) : null}
 
         <div className="flex flex-col gap-2 sm:flex-row">

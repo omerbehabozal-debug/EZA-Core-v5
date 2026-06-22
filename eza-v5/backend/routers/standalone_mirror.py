@@ -36,6 +36,7 @@ async def generate_mirror_scene_endpoint(
         style_preset=body.stylePreset,
         card_date=body.cardDate,
         quality_hints=body.qualityHints,
+        prompt_contract=body.promptContract,
     )
     provider = result.provider
     if provider not in ("mock", "openai", "replicate", "stability"):

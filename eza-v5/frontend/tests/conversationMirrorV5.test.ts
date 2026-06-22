@@ -9,7 +9,9 @@ import {
 } from '@/lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
 import { buildMirrorV5RenderDebugTrace } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorV5DebugTrace';
 import type { MirrorLightMode } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
-import { MIRROR_V5_MAX_RENDER_PROMPT_CHARS } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
+import { MIRROR_V5_MAX_RENDER_PROMPT_CHARS, MIRROR_V5_PROMPT_CONTRACT } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
+import { auditMirrorProviderPrompt } from '@/lib/eza/mirror/conversationMirrorV3/mirrorProviderPromptBuilder';
+import { buildVisualPayloadFromMirrorV3 } from '@/lib/eza/mirror/conversationMirrorV3/visualPayloadAdapterV3';
 
 function thyroidEntry(): SavedBehavioralEntry {
   return {
@@ -182,9 +184,43 @@ describe('conversationMirrorV5 render layer', () => {
       expect(trace.render.evidenceListSent).toBe(false);
       expect(trace.render.seedQuestionsSent).toBe(false);
       expect(trace.render.bodyOnPoster).toBe(false);
+      expect(trace.render.promptSameAsFrontend).toBe(true);
+      expect(trace.render.backendAppendApplied).toBe(false);
+      expect(trace.render.containsLegacyAvoid).toBe(false);
+      expect(trace.render.containsQualityBlock).toBe(false);
+      expect(trace.render.containsStyleBlock).toBe(false);
       expect(trace.intelligence.evidenceLabels.length).toBeGreaterThanOrEqual(0);
     });
   }
+
+  it('visual payload sends V5 prompt contract and provider prompt matches frontend', () => {
+    const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
+    const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
+      seed: 'qa-v5-contract',
+      conversationId: 'qa-v5-contract',
+    });
+    const visual = buildVisualPayloadFromMirrorV3(payload);
+    const audit = auditMirrorProviderPrompt(visual);
+
+    expect(visual.promptContract).toBe(MIRROR_V5_PROMPT_CONTRACT);
+    expect(visual.qualityHints).toEqual([]);
+    expect(audit.promptSameAsFrontend).toBe(true);
+    expect(audit.backendAppendedSections).toEqual([]);
+    expect(audit.containsLegacyAvoid).toBe(false);
+  });
+
+  it('health thyroid provider prompt has no legacy append', () => {
+    const payload = buildMirrorPayloadV3([thyroidEntry()], {
+      seed: 'qa-v5-thyroid-provider',
+      conversationId: 'qa-v5-thyroid-provider',
+    });
+    const visual = buildVisualPayloadFromMirrorV3(payload);
+    const audit = auditMirrorProviderPrompt(visual);
+
+    expect(audit.promptSameAsFrontend).toBe(true);
+    expect(audit.backendAppendApplied).toBe(false);
+    expect(audit.backendProviderPrompt).toMatch(/never alarming|Thyroid health/i);
+  });
 
   it('health thyroid prompt uses abstract_safe safety language', () => {
     const payload = buildMirrorPayloadV3([thyroidEntry()], {

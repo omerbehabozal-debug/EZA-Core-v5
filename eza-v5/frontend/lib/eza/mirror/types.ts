@@ -95,6 +95,8 @@ export interface MirrorVisualPromptPayload {
   masterPosterText?: { headline: string; quote: string };
   sceneSubtopicId?: import('@/lib/eza/mirror/sceneSubtopicTypes').SceneSubtopicId;
   sceneKeywords?: string[];
+  /** V5 minimal render contract — backend passthrough, no legacy append. */
+  promptContract?: string;
 }
 
 export interface DailyMirrorCardModel {

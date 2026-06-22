@@ -171,8 +171,12 @@ export type MirrorIntentDebugSnapshot = {
   hybridEnvDebug: string;
   /** V5 render layer — intelligence brief (dev). */
   v5IntelligenceDebug?: string;
-  /** V5 render layer — minimal OpenAI prompt (dev). */
-  v5RenderPrompt?: string;
+  /** V5 frontend minimal prompt (dev). */
+  v5FrontendMinimalPrompt?: string;
+  /** V5 provider final prompt — mirrors backend openai_prompt_builder (dev). */
+  v5ProviderFinalPrompt?: string;
+  v5BackendAppendApplied?: string;
+  v5PromptSameAsFrontend?: string;
 };
 
 export function buildMirrorIntentDebugSnapshot(input: {
@@ -230,11 +234,17 @@ export function buildMirrorIntentDebugSnapshot(input: {
       : '';
 
   let v5IntelligenceDebug: string | undefined;
-  let v5RenderPrompt: string | undefined;
+  let v5FrontendMinimalPrompt: string | undefined;
+  let v5ProviderFinalPrompt: string | undefined;
+  let v5BackendAppendApplied: string | undefined;
+  let v5PromptSameAsFrontend: string | undefined;
   if (card?.mirrorV3Payload) {
     const v5 = buildMirrorV5RenderDebugTrace(card.mirrorV3Payload);
     v5IntelligenceDebug = formatMirrorV5RenderDebugTrace(v5).split('=== B)')[0]?.trim();
-    v5RenderPrompt = v5.render.finalMinimalPrompt;
+    v5FrontendMinimalPrompt = v5.render.frontendMinimalPrompt;
+    v5ProviderFinalPrompt = v5.render.backendProviderPrompt;
+    v5BackendAppendApplied = String(v5.render.backendAppendApplied);
+    v5PromptSameAsFrontend = String(v5.render.promptSameAsFrontend);
   }
 
   return {
@@ -295,7 +305,10 @@ export function buildMirrorIntentDebugSnapshot(input: {
     hybridOcrProbe: card?.visual?.hybridOcrProbe ?? '—',
     hybridEnvDebug: getHybridEnvDebug(),
     v5IntelligenceDebug,
-    v5RenderPrompt,
+    v5FrontendMinimalPrompt,
+    v5ProviderFinalPrompt,
+    v5BackendAppendApplied,
+    v5PromptSameAsFrontend,
   };
 }
 

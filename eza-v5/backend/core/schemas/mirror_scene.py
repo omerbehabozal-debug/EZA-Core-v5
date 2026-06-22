@@ -13,6 +13,8 @@ class MirrorGenerateSceneRequest(BaseModel):
     stylePreset: str = Field(..., min_length=1)
     qualityHints: Optional[List[str]] = None
     cardDate: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    """V5 minimal render contract — backend must not append legacy Avoid/Quality/Style."""
+    promptContract: Optional[str] = None
 
 
 class MirrorGenerateSceneResponse(BaseModel):

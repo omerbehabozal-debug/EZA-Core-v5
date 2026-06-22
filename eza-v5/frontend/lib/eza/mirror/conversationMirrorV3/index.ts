@@ -74,6 +74,13 @@ export {
   buildMirrorV5RenderDebugTrace,
   formatMirrorV5RenderDebugTrace,
 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorV5DebugTrace';
+export {
+  buildMirrorProviderPrompt,
+  auditMirrorProviderPrompt,
+  isV5MinimalVisual,
+  MIRROR_V5_PROMPT_CONTRACT,
+  MIRROR_V5_RENDER_CONTRACT_MARKER,
+} from '@/lib/eza/mirror/conversationMirrorV3/mirrorProviderPromptBuilder';
 export { buildVisualPayloadFromMirrorV3 } from '@/lib/eza/mirror/conversationMirrorV3/visualPayloadAdapterV3';
 export { buildMirrorStateV3 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorStateV3';
 

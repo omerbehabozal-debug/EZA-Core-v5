@@ -5,6 +5,11 @@
 import type { MirrorRenderBrief } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
 import { buildMirrorRenderBrief } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorRenderBrief';
 import { buildOpenAIRenderPromptFromPayload } from '@/lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
+import {
+  auditMirrorProviderPrompt,
+  buildMirrorProviderPrompt,
+} from '@/lib/eza/mirror/conversationMirrorV3/mirrorProviderPromptBuilder';
+import { buildVisualPayloadFromMirrorV3 } from '@/lib/eza/mirror/conversationMirrorV3/visualPayloadAdapterV3';
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';
 
 export type MirrorIntelligenceDebugOutput = {
@@ -23,9 +28,17 @@ export type MirrorIntelligenceDebugOutput = {
 };
 
 export type MirrorOpenAIRenderDebugOutput = {
-  finalMinimalPrompt: string;
+  frontendMinimalPrompt: string;
+  backendProviderPrompt: string;
   promptLength: number;
+  providerPromptLength: number;
   withinLimit: boolean;
+  promptSameAsFrontend: boolean;
+  backendAppendApplied: boolean;
+  backendAppendedSections: string[];
+  containsLegacyAvoid: boolean;
+  containsQualityBlock: boolean;
+  containsStyleBlock: boolean;
   rawConversationSent: false;
   fullSummarySent: false;
   evidenceListSent: false;
@@ -43,13 +56,24 @@ export function buildMirrorV5RenderDebugTrace(
 ): MirrorV5RenderDebugTrace {
   const brief = buildMirrorRenderBrief(payload);
   const { prompt, promptLength, withinLimit } = buildOpenAIRenderPromptFromPayload(brief);
+  const visual = buildVisualPayloadFromMirrorV3(payload);
+  const audit = auditMirrorProviderPrompt(visual);
+  const providerPrompt = buildMirrorProviderPrompt(visual);
 
   return {
     intelligence: buildIntelligenceDebug(payload, brief),
     render: {
-      finalMinimalPrompt: prompt,
+      frontendMinimalPrompt: prompt,
+      backendProviderPrompt: providerPrompt,
       promptLength,
+      providerPromptLength: audit.providerPromptLength,
       withinLimit,
+      promptSameAsFrontend: audit.promptSameAsFrontend,
+      backendAppendApplied: audit.backendAppendApplied,
+      backendAppendedSections: audit.backendAppendedSections,
+      containsLegacyAvoid: audit.containsLegacyAvoid,
+      containsQualityBlock: audit.containsQualityBlock,
+      containsStyleBlock: audit.containsStyleBlock,
       rawConversationSent: false,
       fullSummarySent: false,
       evidenceListSent: false,
@@ -95,15 +119,24 @@ export function formatMirrorV5RenderDebugTrace(trace: MirrorV5RenderDebugTrace):
     `body (landing only): ${i.body}`,
     `evidence: ${i.evidenceLabels.join(', ') || '—'}`,
   ].join('\n').concat(
-    '\n\n=== B) OpenAI Render Prompt ===\n',
-    `promptLength: ${r.promptLength}`,
+    '\n\n=== B) OpenAI Provider Prompt ===\n',
+    `frontendPromptLength: ${r.promptLength}`,
+    `providerPromptLength: ${r.providerPromptLength}`,
     `withinLimit (≤1400): ${r.withinLimit}`,
+    `promptSameAsFrontend: ${r.promptSameAsFrontend}`,
+    `backendAppendApplied: ${r.backendAppendApplied}`,
+    `backendAppendedSections: ${r.backendAppendedSections.join(', ') || '—'}`,
+    `containsLegacyAvoid: ${r.containsLegacyAvoid}`,
+    `containsQualityBlock: ${r.containsQualityBlock}`,
+    `containsStyleBlock: ${r.containsStyleBlock}`,
     `rawConversationSent: ${r.rawConversationSent}`,
     `fullSummarySent: ${r.fullSummarySent}`,
     `evidenceListSent: ${r.evidenceListSent}`,
     `seedQuestionsSent: ${r.seedQuestionsSent}`,
     `bodyOnPoster: ${r.bodyOnPoster}`,
-    '\n\n',
-    r.finalMinimalPrompt
+    '\n\n--- Frontend Minimal Prompt ---\n',
+    r.frontendMinimalPrompt,
+    '\n\n--- Provider Final Prompt ---\n',
+    r.backendProviderPrompt
   );
 }

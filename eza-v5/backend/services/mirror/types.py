@@ -14,6 +14,8 @@ class MirrorImageRequest:
     style_preset: str
     card_date: str
     quality_hints: List[str] = field(default_factory=list)
+    """V5 minimal render contract — when set, provider prompt is passthrough."""
+    prompt_contract: Optional[str] = None
 
 
 def _utc_now_iso() -> str:

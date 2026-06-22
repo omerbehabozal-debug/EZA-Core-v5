@@ -19,6 +19,7 @@ export type MirrorGenerateSceneRequest = {
   stylePreset: string;
   qualityHints?: string[];
   cardDate: string;
+  promptContract?: string;
 };
 
 export type MirrorSceneErrorCode =
@@ -48,6 +49,7 @@ export function buildMirrorGenerateScenePayload(
     stylePreset: visual.stylePreset,
     qualityHints: visual.qualityHints,
     cardDate,
+    promptContract: visual.promptContract,
   };
 }
 

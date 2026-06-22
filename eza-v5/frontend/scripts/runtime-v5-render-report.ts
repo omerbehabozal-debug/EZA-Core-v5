@@ -3,8 +3,10 @@ import type { SavedBehavioralEntry } from '../lib/behavioralHistory';
 import { MIRROR_V2_QA_SCENARIOS } from '../lib/eza/mirror/conversationMirrorV2/qaScenarios';
 import { buildMirrorPayloadV3 } from '../lib/eza/mirror/conversationMirrorV3/buildMirrorPayloadV3';
 import { buildMirrorRenderBrief } from '../lib/eza/mirror/conversationMirrorV3/buildMirrorRenderBrief';
-import { buildOpenAIRenderPromptFromPayload } from '../lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
 import { buildMirrorV5RenderDebugTrace } from '../lib/eza/mirror/conversationMirrorV3/buildMirrorV5DebugTrace';
+import { buildVisualPayloadFromMirrorV3 } from '../lib/eza/mirror/conversationMirrorV3/visualPayloadAdapterV3';
+import { MIRROR_V5_PROMPT_CONTRACT } from '../lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
+import { MIRROR_REFINEMENT_VERSION, MIRROR_V3_SCENE_CACHE_KEY } from '../lib/eza/mirror/conversationMirrorV3/types';
 
 function thyroidEntry(): SavedBehavioralEntry {
   return {
@@ -96,7 +98,16 @@ const SCENARIOS: { label: string; buildEntries: () => SavedBehavioralEntry[] }[]
   },
 ];
 
-const sections: string[] = ['=== SAINA Mirror V5 Render Layer Report ===', ''];
+const sections: string[] = [
+  '=== SAINA Mirror V5 Render Layer Report ===',
+  `refinementVersion: ${MIRROR_REFINEMENT_VERSION}`,
+  `cacheKey: ${MIRROR_V3_SCENE_CACHE_KEY}`,
+  `promptContract: ${MIRROR_V5_PROMPT_CONTRACT}`,
+  '',
+];
+
+let allPass = true;
+let healthScenarioOk = false;
 
 for (const scenario of SCENARIOS) {
   const id = scenario.label.replace(/^\d+\.\s*/, '').replace(/\s+/g, '-').toLowerCase();
@@ -105,8 +116,29 @@ for (const scenario of SCENARIOS) {
     conversationId: `runtime-v5-${id}`,
   });
   const brief = buildMirrorRenderBrief(payload);
-  const { prompt, promptLength } = buildOpenAIRenderPromptFromPayload(brief);
+  const visual = buildVisualPayloadFromMirrorV3(payload);
   const trace = buildMirrorV5RenderDebugTrace(payload);
+  const r = trace.render;
+
+  const healthOk =
+    scenario.label.includes('Guatr') &&
+    brief.safetyMode === 'abstract_safe' &&
+    brief.lightMode === 'clean_health_daylight' &&
+    /No clinical diagnosis, treatment claims, before\/after/i.test(r.backendProviderPrompt) &&
+    !/(treatment promise|cure|guaranteed result|panic|alarming|fear-based medical poster)/i.test(
+      r.backendProviderPrompt.replace(/never alarming|No fear-based medical poster/gi, '')
+    );
+  const scenarioPass =
+    r.promptSameAsFrontend &&
+    !r.backendAppendApplied &&
+    r.providerPromptLength <= 1400 &&
+    !r.containsLegacyAvoid &&
+    !r.containsQualityBlock &&
+    !r.containsStyleBlock &&
+    (!scenario.label.includes('Guatr') || healthOk);
+
+  if (!scenarioPass) allPass = false;
+  if (healthOk) healthScenarioOk = true;
 
   sections.push(`--- ${scenario.label} ---`);
   sections.push(`title: ${brief.title}`);
@@ -116,16 +148,37 @@ for (const scenario of SCENARIOS) {
   sections.push(`visualDirection: ${brief.visualDirection}`);
   sections.push(`lightMode: ${brief.lightMode}`);
   sections.push(`safetyMode: ${brief.safetyMode}`);
-  sections.push(`promptLength: ${promptLength}`);
-  sections.push(`rawConversationSent: ${trace.render.rawConversationSent}`);
-  sections.push(`fullSummarySent: ${trace.render.fullSummarySent}`);
-  sections.push(`evidenceListSent: ${trace.render.evidenceListSent}`);
-  sections.push(`defaultCinematic: ${/\bcinematic\b/i.test(prompt)}`);
+  sections.push(`promptContract: ${visual.promptContract ?? '—'}`);
+  sections.push(`frontendMinimalPromptLength: ${r.promptLength}`);
+  sections.push(`backendProviderPromptLength: ${r.providerPromptLength}`);
+  sections.push(`promptSameAsFrontend: ${r.promptSameAsFrontend}`);
+  sections.push(`backendAppendedSections: [${r.backendAppendedSections.join(', ')}]`);
+  sections.push(`backendAppendApplied: ${r.backendAppendApplied}`);
+  sections.push(`containsLegacyAvoid: ${r.containsLegacyAvoid}`);
+  sections.push(`containsQualityBlock: ${r.containsQualityBlock}`);
+  sections.push(`containsStyleBlock: ${r.containsStyleBlock}`);
+  sections.push(`rawConversationSent: ${r.rawConversationSent}`);
+  sections.push(`fullSummarySent: ${r.fullSummarySent}`);
+  sections.push(`evidenceListSent: ${r.evidenceListSent}`);
+  sections.push(`seedQuestionsSent: ${r.seedQuestionsSent}`);
+  sections.push(`defaultCinematic: ${/\bcinematic\b/i.test(r.backendProviderPrompt)}`);
+  if (scenario.label.includes('Guatr')) {
+    sections.push(`healthScenarioOk: ${healthOk}`);
+  }
+  sections.push(`scenarioPass: ${scenarioPass}`);
   sections.push('');
-  sections.push('FINAL OPENAI PROMPT:');
-  sections.push(prompt);
+  sections.push('A) frontendMinimalPrompt:');
+  sections.push(r.frontendMinimalPrompt);
+  sections.push('');
+  sections.push('B) backendProviderPrompt:');
+  sections.push(r.backendProviderPrompt);
   sections.push('');
 }
+
+sections.push('=== OVERALL ===');
+sections.push(`AUDIT: ${allPass ? 'PASS' : 'FAIL'}`);
+sections.push(`healthScenarioOk: ${healthScenarioOk}`);
+sections.push(`debugPanelAccuracy: frontendMinimalPrompt + backendProviderPrompt separated`);
 
 const out = sections.join('\n');
 writeFileSync('runtime-v5-render-report.txt', out, 'utf8');

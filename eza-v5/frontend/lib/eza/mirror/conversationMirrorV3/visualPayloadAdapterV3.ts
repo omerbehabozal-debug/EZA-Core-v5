@@ -10,6 +10,7 @@ import {
   buildOpenAIRenderPromptFromPayload,
   MIRROR_V5_NEGATIVE_PROMPT,
 } from '@/lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
+import { MIRROR_V5_PROMPT_CONTRACT } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
 import {
   buildMirrorV3IntentFingerprint,
   buildMirrorV3SeedHint,
@@ -41,14 +42,9 @@ export function buildVisualPayloadFromMirrorV3(
     prompt,
     negativePrompt: MIRROR_V5_NEGATIVE_PROMPT,
     stylePreset: MIRROR_V3_STYLE_PRESET,
+    promptContract: MIRROR_V5_PROMPT_CONTRACT,
     seedHint,
-    qualityHints: [
-      'photographic realism',
-      'premium magazine cover',
-      'vertical 4:5',
-      'natural light',
-      'elegant negative space',
-    ],
+    qualityHints: [],
     sceneIntentLabel: renderBrief.publicTopicHint.slice(0, 120),
     intentFingerprint: buildMirrorV3IntentFingerprint(payload),
     renderMode: 'hybrid_middle',

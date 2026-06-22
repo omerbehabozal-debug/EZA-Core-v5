@@ -83,6 +83,7 @@ def validate_and_build_request(
     style_preset: str,
     card_date: str,
     quality_hints: Optional[List[str]] = None,
+    prompt_contract: Optional[str] = None,
 ) -> MirrorImageRequest:
     p = (prompt or "").strip()
     if not p:
@@ -121,6 +122,8 @@ def validate_and_build_request(
     if quality_hints is not None and len(quality_hints) > MAX_QUALITY_HINTS:
         _reject("too_many_quality_hints", "qualityHints listesi çok uzun.")
 
+    contract = (prompt_contract or "").strip() or None
+
     return MirrorImageRequest(
         prompt=p,
         negative_prompt=neg,
@@ -128,6 +131,7 @@ def validate_and_build_request(
         style_preset=preset,
         card_date=date_str,
         quality_hints=hints,
+        prompt_contract=contract,
     )
 
 
@@ -139,6 +143,7 @@ async def generate_mirror_scene(
     style_preset: str,
     card_date: str,
     quality_hints: Optional[List[str]] = None,
+    prompt_contract: Optional[str] = None,
 ) -> MirrorImageResult:
     request = validate_and_build_request(
         prompt=prompt,
@@ -147,6 +152,7 @@ async def generate_mirror_scene(
         style_preset=style_preset,
         card_date=card_date,
         quality_hints=quality_hints,
+        prompt_contract=prompt_contract,
     )
     provider = get_mirror_image_provider()
     try:
