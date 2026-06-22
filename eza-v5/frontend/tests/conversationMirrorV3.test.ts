@@ -239,20 +239,27 @@ describe('conversationMirrorV3', () => {
     expect(hasConversationSummaryLanguage(state.dailyMirrorCard.shortInsight)).toBe(false);
   });
 
-  it('V3 visual uses backend-accepted style preset and cache fingerprint', () => {
+  it('V3 visual uses V5 minimal render prompt (not intelligence dump)', () => {
     const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
     const state = buildMirrorStateV3(scenario.buildEntries(), {
       conversationId: 'qa-v31-style',
       seed: 'qa-v31-style',
     });
 
+    const prompt = state.dailyMirrorCard.visual?.prompt ?? '';
+
     expect(state.dailyMirrorCard.visual?.stylePreset).toBe('eza_mirror_professional_v1');
     expect(state.dailyMirrorCard.visual?.intentFingerprint).toContain(
       MIRROR_V3_SCENE_CACHE_KEY
     );
-    expect(state.dailyMirrorCard.visual?.prompt).toContain('Evidence fusion scene');
-    expect(state.dailyMirrorCard.visual?.prompt).toContain('Poster test:');
-    expect(state.dailyMirrorCard.visual?.prompt).not.toContain('Bugün Japonya');
+    expect(prompt).toContain('Create a premium editorial SAINA Mirror poster');
+    expect(prompt).toContain('TOPIC HINT:');
+    expect(prompt).toContain('VISUAL DIRECTION:');
+    expect(prompt.length).toBeLessThanOrEqual(1400);
+    expect(prompt.toLowerCase()).not.toMatch(/\bcinematic\b/);
+    expect(prompt).not.toContain('Evidence fusion scene');
+    expect(prompt).not.toContain('Poster test:');
+    expect(prompt).not.toContain(state.dailyMirrorCard.shortInsight);
   });
 
   it('brand signature matches spec', () => {

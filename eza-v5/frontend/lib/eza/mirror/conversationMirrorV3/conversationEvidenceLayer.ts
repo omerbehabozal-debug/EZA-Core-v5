@@ -142,6 +142,43 @@ const TOKEN_EVIDENCE: Record<string, EvidenceSeed> = {
     importance: 72,
   },
 
+  guatr: {
+    label: 'Guatr merakı',
+    visualHint: 'calm neck-area focus, clean natural light, dignified health editorial',
+    importance: 88,
+  },
+  thyroid: {
+    label: 'Tiroid sağlığı',
+    visualHint: 'soft neckline hint, premium health editorial, calm curiosity',
+    importance: 86,
+  },
+  tiroid: {
+    label: 'Tiroid',
+    visualHint: 'gentle neck-area editorial, natural light, no clinical alarm',
+    importance: 84,
+  },
+  boyun: {
+    label: 'Boyun bölgesi',
+    visualHint: 'subtle neckline focus, calm health editorial, dignified tone',
+    importance: 80,
+  },
+
+  product: {
+    label: 'Ürün fikri',
+    visualHint: 'bright desk, sketch notes, product concept mood, morning light',
+    importance: 78,
+  },
+  shopping: {
+    label: 'Alışveriş tercihi',
+    visualHint: 'two product options, calm comparison, personal choice moment',
+    importance: 76,
+  },
+  purchase: {
+    label: 'Satın alma kararı',
+    visualHint: 'product packaging detail, handwritten note, quiet decision',
+    importance: 72,
+  },
+
   'diş macunu': {
     label: 'Diş macunu seçimi',
     visualHint: 'bathroom counter, toothbrush, two product tubes side by side, morning light',

@@ -58,9 +58,9 @@ function buildMultiTopicEntries(): SavedBehavioralEntry[] {
 }
 
 describe('conversationMirrorV4', () => {
-  it('bumps refinement version and cache key to 4.5', () => {
-    expect(MIRROR_REFINEMENT_VERSION).toBe('4.5');
-    expect(MIRROR_V3_SCENE_CACHE_KEY).toBe('conversationMirrorV3:refinement:4.5');
+  it('bumps refinement version and cache key to 5.0', () => {
+    expect(MIRROR_REFINEMENT_VERSION).toBe('5.0');
+    expect(MIRROR_V3_SCENE_CACHE_KEY).toBe('conversationMirrorV3:refinement:5.0');
   });
 
   it('payload includes conversation evidence and scene composition', () => {
@@ -70,7 +70,7 @@ describe('conversationMirrorV4', () => {
       conversationId: 'qa-v4-japan',
     });
 
-    expect(payload.refinementVersion).toBe('4.5');
+    expect(payload.refinementVersion).toBe('5.0');
     expect(payload.conversationEvidence.length).toBeGreaterThanOrEqual(3);
     expect(payload.conversationEvidence.length).toBeLessThanOrEqual(7);
     expect(payload.conversationEvidence.every((item) => item.source === 'active_conversation')).toBe(
@@ -98,7 +98,7 @@ describe('conversationMirrorV4', () => {
     );
   });
 
-  it('V4.5 prompt includes evidence fusion and world layer (no evidence bullets)', () => {
+  it('legacy V4.5 prompt builder still includes evidence fusion (not sent to OpenAI in V5)', () => {
     const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
     const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
       seed: 'qa-v44-order',

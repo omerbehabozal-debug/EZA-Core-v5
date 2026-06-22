@@ -81,6 +81,7 @@ export const TOPIC_CUE_RULES: readonly TopicCueRule[] = [
   rule('risk', 'finance', ['risk', 'saving', 'spend']),
 
   rule('sağlık', 'health', ['sağlık', 'health', 'wellness', 'fitness']),
+  rule('guatr', 'health', ['guatr', 'goiter', 'thyroid', 'tiroid']),
   rule('beslenme', 'health', ['beslenme', 'nutrition', 'diet']),
   rule('yürüyüş', 'health', ['yürüyüş', 'walk', 'walking', 'yürüyus']),
   rule('diş macunu', 'health', ['diş macunu', 'dis macunu', 'toothpaste', 'diş macun']),

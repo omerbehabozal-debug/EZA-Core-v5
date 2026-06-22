@@ -54,10 +54,26 @@ export { resolveTopicShotMode, inferStoryTopicFromEvidence } from '@/lib/eza/mir
 export type { TopicShotMode } from '@/lib/eza/mirror/conversationMirrorV3/shotDirectorV43';
 export { resolveEvidenceMirrorCopy } from '@/lib/eza/mirror/conversationMirrorV3/evidenceAwareMirrorCopy';
 
-export { buildMirrorPayloadV3 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorPayloadV3';export {
+export { buildMirrorPayloadV3 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorPayloadV3';
+export {
   buildMirrorV3ImagePrompt,
   MIRROR_V3_NEGATIVE_PROMPT,
 } from '@/lib/eza/mirror/conversationMirrorV3/promptBuilderV3';
+export {
+  buildMirrorRenderBrief,
+  resolvePublicTopicHint,
+  resolveVisualDirection,
+} from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorRenderBrief';
+export {
+  buildMinimalOpenAIRenderPrompt,
+  buildOpenAIRenderPromptFromPayload,
+  MIRROR_V5_NEGATIVE_PROMPT,
+} from '@/lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
+export type { MirrorRenderBrief, MirrorLightMode } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
+export {
+  buildMirrorV5RenderDebugTrace,
+  formatMirrorV5RenderDebugTrace,
+} from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorV5DebugTrace';
 export { buildVisualPayloadFromMirrorV3 } from '@/lib/eza/mirror/conversationMirrorV3/visualPayloadAdapterV3';
 export { buildMirrorStateV3 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorStateV3';
 

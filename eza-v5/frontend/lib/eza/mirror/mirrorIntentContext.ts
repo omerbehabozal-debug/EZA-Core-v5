@@ -41,6 +41,10 @@ import {
 } from '@/lib/eza/mirror/hybridPosterDebug';
 import { resolveCardRenderMode } from '@/lib/eza/mirror/mirrorPosterLayout';
 import {
+  buildMirrorV5RenderDebugTrace,
+  formatMirrorV5RenderDebugTrace,
+} from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorV5DebugTrace';
+import {
   getHybridEnvDebug,
   isHybridEnabled,
   resolveMirrorRenderMode,
@@ -165,6 +169,10 @@ export type MirrorIntentDebugSnapshot = {
   mockSceneImage: string;
   hybridOcrProbe: string;
   hybridEnvDebug: string;
+  /** V5 render layer — intelligence brief (dev). */
+  v5IntelligenceDebug?: string;
+  /** V5 render layer — minimal OpenAI prompt (dev). */
+  v5RenderPrompt?: string;
 };
 
 export function buildMirrorIntentDebugSnapshot(input: {
@@ -220,6 +228,14 @@ export function buildMirrorIntentDebugSnapshot(input: {
     : card?.visual?.sceneImageUrl
       ? 'Sahne görseli cache’te; intent/prompt değiştiyse Sahneyi Oluştur’u yeniden çalıştırın.'
       : '';
+
+  let v5IntelligenceDebug: string | undefined;
+  let v5RenderPrompt: string | undefined;
+  if (card?.mirrorV3Payload) {
+    const v5 = buildMirrorV5RenderDebugTrace(card.mirrorV3Payload);
+    v5IntelligenceDebug = formatMirrorV5RenderDebugTrace(v5).split('=== B)')[0]?.trim();
+    v5RenderPrompt = v5.render.finalMinimalPrompt;
+  }
 
   return {
     selectedPrimaryIntent: live.primaryIntentId,
@@ -278,6 +294,8 @@ export function buildMirrorIntentDebugSnapshot(input: {
     mockSceneImage: mockScene ? 'YES (mock/picsum)' : sceneUrl ? 'no' : '—',
     hybridOcrProbe: card?.visual?.hybridOcrProbe ?? '—',
     hybridEnvDebug: getHybridEnvDebug(),
+    v5IntelligenceDebug,
+    v5RenderPrompt,
   };
 }
 

@@ -167,6 +167,12 @@ export default function MirrorLiveDebugPanel({
 
         <DebugBlock label="promptPreview (first 800)" value={snap.promptPreview} />
         <DebugBlock label="visual.prompt (first 800 legacy)" value={snap.visualPromptPreview} />
+        {snap.v5IntelligenceDebug ? (
+          <DebugBlock label="V5 intelligence brief" value={snap.v5IntelligenceDebug} />
+        ) : null}
+        {snap.v5RenderPrompt ? (
+          <DebugBlock label="V5 OpenAI render prompt" value={snap.v5RenderPrompt} />
+        ) : null}
 
         <div className="flex flex-col gap-2 sm:flex-row">
           {onToggleHybridMode ? (

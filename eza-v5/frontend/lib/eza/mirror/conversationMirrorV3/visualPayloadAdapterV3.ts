@@ -1,18 +1,15 @@
 /**
- * Mirror V3 — adapt payload to scene API (OpenAI owns all poster typography).
+ * Mirror V5 — adapt payload to scene API (minimal OpenAI render prompt).
  */
 
 import type { MirrorVisualPromptPayload } from '@/lib/eza/mirror/types';
 import type { PersonaFamilyId } from '@/lib/eza/standalonePersonas';
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';
+import { buildMirrorRenderBrief } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorRenderBrief';
 import {
-  buildMirrorV3ImagePrompt,
-  MIRROR_V3_NEGATIVE_PROMPT,
-} from '@/lib/eza/mirror/conversationMirrorV3/promptBuilderV3';
-import {
-  buildConversationMirrorV4QualityReport,
-  shouldRegeneratePromptForTopicVisibility,
-} from '@/lib/eza/mirror/conversationMirrorV3/conversationMirrorV33Quality';
+  buildOpenAIRenderPromptFromPayload,
+  MIRROR_V5_NEGATIVE_PROMPT,
+} from '@/lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
 import {
   buildMirrorV3IntentFingerprint,
   buildMirrorV3SeedHint,
@@ -22,27 +19,6 @@ import { getSeasonProfile } from '@/lib/eza/mirror/conversationMirrorV2/seasonRe
 /** Backend-accepted style preset (mirror_image_service ALLOWED_STYLE_PRESETS). */
 export const MIRROR_V3_STYLE_PRESET = 'eza_mirror_professional_v1' as const;
 
-/** Reinforce prompt when topic visibility score is below V4 target (≥ 8). */
-function applyTopicVisibilityQualityGate(
-  payload: SainaMirrorV3Payload,
-  prompt: string
-): string {
-  const report = buildConversationMirrorV4QualityReport(payload, prompt);
-  if (!shouldRegeneratePromptForTopicVisibility(report)) {
-    return prompt;
-  }
-
-  return [
-    prompt,
-    '',
-    'QUALITY GATE — topic visibility below target:',
-    'Strengthen hero scene and concrete conversation evidence visibility.',
-    'A stranger must identify the topic within 3 seconds — no generic emotional fallback.',
-    `Primary evidence: ${payload.conversationEvidence[0]?.label ?? payload.selectedTopic}.`,
-    `Hero scene: ${payload.sceneComposition?.evidenceFusionScene ?? payload.sceneMetaphor}.`,
-  ].join('\n');
-}
-
 export function buildVisualPayloadFromMirrorV3(
   payload: SainaMirrorV3Payload,
   options?: {
@@ -50,10 +26,8 @@ export function buildVisualPayloadFromMirrorV3(
     seedHint?: string;
   }
 ): MirrorVisualPromptPayload {
-  const prompt = applyTopicVisibilityQualityGate(
-    payload,
-    buildMirrorV3ImagePrompt(payload)
-  );
+  const renderBrief = buildMirrorRenderBrief(payload);
+  const { prompt } = buildOpenAIRenderPromptFromPayload(renderBrief);
   const season = getSeasonProfile(payload.season);
   const seedHint = buildMirrorV3SeedHint(payload, options?.seedHint);
 
@@ -65,22 +39,17 @@ export function buildVisualPayloadFromMirrorV3(
     atmosphereLabel: season.labelTr,
     emotionLabel: payload.emotionalTone,
     prompt,
-    negativePrompt: MIRROR_V3_NEGATIVE_PROMPT,
+    negativePrompt: MIRROR_V5_NEGATIVE_PROMPT,
     stylePreset: MIRROR_V3_STYLE_PRESET,
     seedHint,
     qualityHints: [
-      '50mm editorial lens, T2.8, natural color grade, subtle film grain',
-      'single motivated light source, 3-layer depth, 40% negative space for type',
-      'printed poster typography integrated into scene',
-      'documentary authenticity, not fantasy illustration',
-      'vertical 4:5 poster 1080x1350',
-      'openai composes all typography in-image',
-      'logo safe zone top-left, date safe zone top-right',
+      'photographic realism',
+      'premium magazine cover',
+      'vertical 4:5',
+      'natural light',
+      'elegant negative space',
     ],
-    sceneIntentLabel: (payload.sceneComposition?.heroScene ?? payload.sceneMetaphor).slice(
-      0,
-      120
-    ),
+    sceneIntentLabel: renderBrief.publicTopicHint.slice(0, 120),
     intentFingerprint: buildMirrorV3IntentFingerprint(payload),
     renderMode: 'hybrid_middle',
     hybridTextPayload: {
@@ -98,3 +67,6 @@ export function buildVisualPayloadFromMirrorV3(
     usedPromptType: 'hybrid_middle',
   };
 }
+
+export { buildMirrorRenderBrief };
+export type { MirrorRenderBrief } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';

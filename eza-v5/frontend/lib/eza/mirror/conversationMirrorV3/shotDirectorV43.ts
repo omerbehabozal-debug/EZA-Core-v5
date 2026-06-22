@@ -65,6 +65,8 @@ export function inferStoryTopicFromEvidence(
 
   if (/car|garage|bmw|mercedes|vehicle|sedan|araba|otomobil/.test(blob)) return 'vehicle';
   if (/kyoto|japan|japonya|travel|gion|lantern|seyahat/.test(blob)) return 'travel';
+  if (/uzbek|özbek|samarkand|semerkant|buhara/.test(blob)) return 'travel';
+  if (/shopping|product|ürün|urun|purchase|mvp|startup/.test(blob)) return storyTopicId;
   if (/route|rota|ticket|notebook|map/.test(blob) && !/garage|sedan|car|bmw|mercedes/.test(blob)) {
     return 'travel';
   }
@@ -77,6 +79,7 @@ export function inferStoryTopicFromEvidence(
   if (/yapay zeka|yapay|technology|openai|screen|desk|diagram|research|\bai\b/.test(blob)) {
     return 'technology_ai';
   }
+  if (/thyroid|guatr|tiroid|boyun/.test(blob)) return 'health';
   if (/toothpaste|bathroom|brush|sink|diş|florür|bakım/.test(blob)) return 'health';
   return storyTopicId;
 }
