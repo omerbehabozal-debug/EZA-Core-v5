@@ -14,6 +14,8 @@ interface RequestOptions {
   headers?: Record<string, string>;
   /** Call api.ezacore.ai directly (skip Vercel rewrite — for long mirror scene generation). */
   directBackend?: boolean;
+  /** Abort the request after this many milliseconds. */
+  timeoutMs?: number;
 }
 
 interface ApiResponse<T = any> {
@@ -73,7 +75,14 @@ class ApiClient {
     path: string,
     options: RequestOptions = {}
   ): Promise<ApiResponse<T>> {
-    const { body, params, auth = false, headers = {}, directBackend = false } = options;
+    const {
+      body,
+      params,
+      auth = false,
+      headers = {},
+      directBackend = false,
+      timeoutMs,
+    } = options;
 
     const url = this.getRequestUrl(path, params, directBackend);
 
@@ -107,6 +116,13 @@ class ApiClient {
 
     if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
       config.body = JSON.stringify(body);
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (timeoutMs && timeoutMs > 0) {
+      const controller = new AbortController();
+      config.signal = controller.signal;
+      timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     }
 
     try {
@@ -185,10 +201,19 @@ class ApiClient {
         name: error.name,
         stack: error.stack?.substring(0, 200)
       });
-      
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
       // More specific error messages
+      let errorCode = 'NETWORK_ERROR';
       let errorMessage = 'Network request failed';
-      if (error.message) {
+      if (error?.name === 'AbortError') {
+        errorCode = 'REQUEST_TIMEOUT';
+        errorMessage =
+          'İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.';
+      } else if (error.message) {
         if (error.message.includes('fetch')) {
           errorMessage = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
         } else if (error.message.includes('Failed to fetch')) {
@@ -197,15 +222,19 @@ class ApiClient {
           errorMessage = error.message;
         }
       }
-      
+
       return {
         ok: false,
         error: {
-          error_code: 'NETWORK_ERROR',
+          error_code: errorCode,
           error_message: errorMessage,
           message: errorMessage,
         },
       };
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 

@@ -3200,6 +3200,52 @@ html:has(.saina-page) body {
   gap: 0.5rem !important;
 }
 
+/* Mirror poster — same gold glass frame language as ilişki haritası / davranış adaları. */
+.saina-mirror-poster-glass-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2rem;
+  border: 1px solid var(--saina-glass-border, rgba(216, 177, 106, 0.38));
+  padding: 3px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(246, 244, 239, 0.34) 100%
+    ),
+    linear-gradient(
+      155deg,
+      rgba(246, 244, 239, 0.22) 0%,
+      rgba(243, 238, 226, 0.1) 48%,
+      rgba(8, 16, 14, 0.04) 100%
+    );
+  -webkit-backdrop-filter: blur(20px) saturate(1.12);
+  backdrop-filter: blur(20px) saturate(1.12);
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.14),
+    0 0 28px rgba(196, 122, 58, 0.05),
+    inset 0 1px 0 var(--saina-glass-highlight, rgba(255, 255, 255, 0.32)),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.saina-mirror-poster-glass-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(216, 177, 106, 0.1);
+}
+
+.saina-mirror-poster-glass-frame [data-mirror-card-root] {
+  border: none !important;
+  box-shadow: none !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  outline: none;
+  border-radius: calc(2rem - 3px);
+}
+
 .saina-mirror-embedded-poster {
   width: min(100%, 15.5rem) !important;
   max-width: 100% !important;
@@ -3236,7 +3282,7 @@ html:has(.saina-page) body {
   border: 0;
   background: transparent;
   cursor: zoom-in;
-  border-radius: 34px;
+  border-radius: 2rem;
   text-align: inherit;
 }
 

@@ -60,7 +60,7 @@ export async function generateMirrorScene(
   const body = buildMirrorGenerateScenePayload(visual, cardDate);
   const res = await apiClient.post<MirrorGenerateSceneResponse>(
     '/api/standalone/mirror/generate-scene',
-    { body, auth: true, directBackend: true }
+    { body, auth: true, directBackend: true, timeoutMs: 130_000 }
   );
   if (!res.ok) {
     const code = res.error?.error_code;
@@ -74,7 +74,12 @@ export async function generateMirrorScene(
     if (code === 'upgrade_required') {
       throw new MirrorSceneError(msg, 'upgrade_required');
     }
-    if (code === 'generation_failed' || code === 'HTTP_502') {
+    if (
+      code === 'generation_failed' ||
+      code === 'HTTP_502' ||
+      code === 'REQUEST_TIMEOUT' ||
+      code === 'NETWORK_ERROR'
+    ) {
       throw new MirrorSceneError(msg, 'generation_failed');
     }
     throw new MirrorSceneError(msg, 'unknown');

@@ -142,6 +142,8 @@ export const standaloneSkin = {
     /** 9:16 in-app poster — editorial hero; 13rem reserves nav + minimal icon actions. */
     dailyPosterFrame:
       'w-full shrink-0 mx-auto max-h-[calc(100dvh-13rem)] [width:min(100%,clamp(23rem,50vw,38rem),calc((100dvh-13rem)*9/16))]',
+    /** Gold glass frame — aligned with ilişki haritası / davranış adaları kartları. */
+    dailyPosterGlassFrame: 'saina-mirror-poster-glass-frame',
     mirrorLoadingRoot:
       'flex min-h-[min(58vh,460px)] w-full max-w-[min(100%,26rem)] flex-col items-center justify-center px-8 py-12 text-center sm:min-h-[min(62vh,500px)]',
     mirrorLoadingRing: [

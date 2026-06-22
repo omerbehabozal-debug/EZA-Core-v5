@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import {
+  MIRROR_SCENE_RETRY,
+  MIRROR_SCENE_SLOW_HINT,
+  MIRROR_SCENE_UNAVAILABLE,
+} from '@/lib/eza/mirror/copy';
 import type { MirrorSceneImageStatus } from '@/lib/eza/mirror/types';
 
 const LOADING_STEPS = [
@@ -15,6 +20,7 @@ const LOADING_STEPS = [
 
 export type MirrorLoadingExperienceProps = {
   sceneImageStatus?: MirrorSceneImageStatus;
+  onRetry?: () => void;
   className?: string;
 };
 
@@ -25,9 +31,11 @@ const ms = standaloneSkin.mirrorSurface;
  */
 export default function MirrorLoadingExperience({
   sceneImageStatus = 'generating',
+  onRetry,
   className,
 }: MirrorLoadingExperienceProps) {
   const [activeStep, setActiveStep] = useState(0);
+  const [showSlowHint, setShowSlowHint] = useState(false);
   const isError = sceneImageStatus === 'error';
 
   useEffect(() => {
@@ -36,6 +44,15 @@ export default function MirrorLoadingExperience({
       setActiveStep((prev) => (prev + 1) % LOADING_STEPS.length);
     }, 2400);
     return () => window.clearInterval(timer);
+  }, [isError]);
+
+  useEffect(() => {
+    if (isError) {
+      setShowSlowHint(false);
+      return;
+    }
+    const slowTimer = window.setTimeout(() => setShowSlowHint(true), 25_000);
+    return () => window.clearTimeout(slowTimer);
   }, [isError]);
 
   const headline = useMemo(() => {
@@ -58,9 +75,26 @@ export default function MirrorLoadingExperience({
       <p className={ms.mirrorLoadingTitle}>{headline}</p>
       <p className={ms.mirrorLoadingSubtitle}>
         {isError
-          ? 'Sayfayı yenile veya biraz sonra tekrar dene.'
-          : 'Sahnen sakin bir ışıkla hazırlanıyor…'}
+          ? MIRROR_SCENE_UNAVAILABLE
+          : showSlowHint
+            ? MIRROR_SCENE_SLOW_HINT
+            : 'Sahnen sakin bir ışıkla hazırlanıyor…'}
       </p>
+
+      {isError && onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className={cn(
+            'mt-2 inline-flex items-center justify-center rounded-full border border-violet-200/50',
+            'bg-violet-50/90 px-5 py-2 text-xs font-medium text-violet-900',
+            'transition-colors hover:border-violet-300/60 hover:bg-violet-100/90',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/50'
+          )}
+        >
+          {MIRROR_SCENE_RETRY}
+        </button>
+      ) : null}
 
       {!isError ? (
         <ul className={ms.mirrorLoadingSteps} aria-hidden>

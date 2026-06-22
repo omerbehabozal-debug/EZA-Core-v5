@@ -140,6 +140,9 @@ export const MIRROR_SCENE_RETRY = 'Tekrar dene';
 export const MIRROR_SCENE_UNAVAILABLE =
   'Sahne görseli şu an hazırlanamadı. Sayfayı yenile veya biraz sonra tekrar dene.';
 
+export const MIRROR_SCENE_SLOW_HINT =
+  'Sahne üretimi 1–2 dakika sürebilir. Lütfen bu ekranda kal.';
+
 export const MIRROR_SCENE_LOGIN_HINT =
   'Tam kart görseli için giriş yapman gerekiyor.';
 

@@ -321,7 +321,10 @@ export default function StandaloneObservationExperience({
             setMirrorRevision((r) => r + 1);
           }
           const ok = commitMirrorReady(sourceEntries);
-          if (!ok) return;
+          if (!ok) {
+            setDailyStatus('insufficient');
+            return;
+          }
           if (isPlus) {
             consumePlusMirrorProduction(
               options?.isUpdate ? 'update_mirror' : 'create_card'
@@ -823,6 +826,11 @@ export default function StandaloneObservationExperience({
     await mirrorExport.share(generatedDailyCard);
   }, [mirrorExport, generatedDailyCard]);
 
+  const handleRetryMirrorScene = useCallback(() => {
+    sceneAutoKeyRef.current = null;
+    void handleGenerateMirrorScene();
+  }, [handleGenerateMirrorScene]);
+
   const isScenePosterVisible = useMemo(
     () =>
       dailyStatus === 'ready' &&
@@ -834,12 +842,22 @@ export default function StandaloneObservationExperience({
   const isSceneLoading = useMemo(() => {
     if (dailyStatus !== 'ready') return false;
     if (isScenePosterVisible) return false;
-    return (
-      sceneImageStatus === 'generating' ||
-      sceneImageStatus === 'idle' ||
-      (sceneImageStatus === 'error' && !sceneImageUrl?.trim())
-    );
-  }, [dailyStatus, isScenePosterVisible, sceneImageStatus, sceneImageUrl]);
+    if (sceneImageStatus === 'generating') return true;
+    if (sceneImageStatus === 'error' && !sceneImageUrl?.trim()) return true;
+    if (sceneImageStatus === 'idle') {
+      if (!isAuthReady) return true;
+      if (!isAuthenticated) return false;
+      return true;
+    }
+    return false;
+  }, [
+    dailyStatus,
+    isScenePosterVisible,
+    sceneImageStatus,
+    sceneImageUrl,
+    isAuthReady,
+    isAuthenticated,
+  ]);
 
   const showShareAction =
     isPlus &&
@@ -908,7 +926,10 @@ export default function StandaloneObservationExperience({
           )}
         >
           {isSceneLoading ? (
-            <MirrorLoadingExperience sceneImageStatus={sceneImageStatus} />
+            <MirrorLoadingExperience
+              sceneImageStatus={sceneImageStatus}
+              onRetry={sceneImageStatus === 'error' ? handleRetryMirrorScene : undefined}
+            />
           ) : isScenePosterVisible ? (
             <button
               type="button"
@@ -923,6 +944,7 @@ export default function StandaloneObservationExperience({
               ) : null}
               <DailyMirrorCardEntrance
                 className={cn(
+                  ms.dailyPosterGlassFrame,
                   embedded ? 'saina-mirror-embedded-poster' : cn('w-full', ms.dailyPosterFrame)
                 )}
               >
@@ -955,7 +977,27 @@ export default function StandaloneObservationExperience({
                 </div>
               </DailyMirrorCardEntrance>
             </button>
-          ) : null}
+          ) : (
+            <DailyMirrorCardEntrance
+              className={cn(
+                embedded ? 'saina-mirror-embedded-poster' : cn('w-full', ms.dailyPosterFrame)
+              )}
+            >
+              <div ref={mirrorExport.cardRef} data-mirror-card className="w-full">
+                <DailyMirrorPosterCard
+                  card={cardForRender}
+                  entries={displayEntries}
+                  meta={generatedDailyMeta ?? undefined}
+                  embedded={embedded}
+                  onSceneImageLoad={handleSceneImageLoad}
+                  onSceneImageError={handleSceneImageError}
+                  onForceBmwMercedes={handleForceBmwMercedes}
+                  onToggleHybridMode={handleToggleHybridMode}
+                  hybridTextFallback={hybridTextFallback}
+                />
+              </div>
+            </DailyMirrorCardEntrance>
+          )}
 
           {!isSceneLoading ? (
             <DailyMirrorRefreshActions
