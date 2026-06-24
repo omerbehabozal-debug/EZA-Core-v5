@@ -143,6 +143,9 @@ export const MIRROR_SCENE_UNAVAILABLE =
 export const MIRROR_SCENE_SLOW_HINT =
   'Sahne üretimi 1–2 dakika sürebilir. Lütfen bu ekranda kal.';
 
+export const MIRROR_SCENE_RATE_LIMIT =
+  'Çok hızlı istek gönderildi. Yaklaşık 1 dakika bekle, sonra Tekrar dene.';
+
 export const MIRROR_SCENE_LOGIN_HINT =
   'Tam kart görseli için giriş yapman gerekiyor.';
 

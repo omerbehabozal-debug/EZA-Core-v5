@@ -563,10 +563,13 @@ export default function StandaloneObservationExperience({
           } else if (err.code === 'upgrade_required') {
             setUpgradeVariant('upgrade');
             setUpgradeOpen(true);
+          } else if (err.code === 'rate_limit') {
+            sceneAutoKeyRef.current = `${autoKey}:rate_limited`;
+            setSceneExtras({ hybridFallbackReason: 'rate_limit' });
           } else if (err.code === 'generation_failed') {
-            sceneAutoKeyRef.current = null;
+            sceneAutoKeyRef.current = `${autoKey}:failed`;
           } else {
-            sceneAutoKeyRef.current = null;
+            sceneAutoKeyRef.current = `${autoKey}:failed`;
           }
         } else {
           sceneAutoKeyRef.current = null;
@@ -628,10 +631,10 @@ export default function StandaloneObservationExperience({
   useEffect(() => {
     if (!isAuthReady || !isAuthenticated) return;
     if (dailyStatus !== 'ready' || !generatedDailyCard?.visual?.prompt) return;
-    if (sceneImageStatus !== 'idle' && sceneImageStatus !== 'error') return;
+    if (sceneImageStatus !== 'idle') return;
 
     if (sceneAutoKeyRef.current?.endsWith(':hydrate')) {
-      if (sceneImageUrl && sceneImageStatus !== 'error') return;
+      if (sceneImageUrl) return;
       sceneAutoKeyRef.current = null;
     }
 
@@ -828,6 +831,7 @@ export default function StandaloneObservationExperience({
 
   const handleRetryMirrorScene = useCallback(() => {
     sceneAutoKeyRef.current = null;
+    setSceneExtras({});
     void handleGenerateMirrorScene();
   }, [handleGenerateMirrorScene]);
 
@@ -928,6 +932,7 @@ export default function StandaloneObservationExperience({
           {isSceneLoading ? (
             <MirrorLoadingExperience
               sceneImageStatus={sceneImageStatus}
+              rateLimited={sceneExtras.hybridFallbackReason === 'rate_limit'}
               onRetry={sceneImageStatus === 'error' ? handleRetryMirrorScene : undefined}
             />
           ) : isScenePosterVisible ? (

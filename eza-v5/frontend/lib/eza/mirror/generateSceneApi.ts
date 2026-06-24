@@ -26,6 +26,7 @@ export type MirrorSceneErrorCode =
   | 'auth_required'
   | 'upgrade_required'
   | 'generation_failed'
+  | 'rate_limit'
   | 'unknown';
 
 export class MirrorSceneError extends Error {
@@ -73,6 +74,9 @@ export async function generateMirrorScene(
     }
     if (code === 'upgrade_required') {
       throw new MirrorSceneError(msg, 'upgrade_required');
+    }
+    if (code === 'rate_limit' || code === 'HTTP_429') {
+      throw new MirrorSceneError(msg, 'rate_limit');
     }
     if (
       code === 'generation_failed' ||

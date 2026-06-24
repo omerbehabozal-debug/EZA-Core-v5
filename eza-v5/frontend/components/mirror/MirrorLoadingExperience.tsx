@@ -5,6 +5,7 @@ import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
+  MIRROR_SCENE_RATE_LIMIT,
   MIRROR_SCENE_RETRY,
   MIRROR_SCENE_SLOW_HINT,
   MIRROR_SCENE_UNAVAILABLE,
@@ -20,6 +21,7 @@ const LOADING_STEPS = [
 
 export type MirrorLoadingExperienceProps = {
   sceneImageStatus?: MirrorSceneImageStatus;
+  rateLimited?: boolean;
   onRetry?: () => void;
   className?: string;
 };
@@ -31,6 +33,7 @@ const ms = standaloneSkin.mirrorSurface;
  */
 export default function MirrorLoadingExperience({
   sceneImageStatus = 'generating',
+  rateLimited = false,
   onRetry,
   className,
 }: MirrorLoadingExperienceProps) {
@@ -56,9 +59,11 @@ export default function MirrorLoadingExperience({
   }, [isError]);
 
   const headline = useMemo(() => {
-    if (isError) return 'Sahne şu an hazırlanamadı';
+    if (isError) {
+      return rateLimited ? 'Çok fazla istek' : 'Sahne şu an hazırlanamadı';
+    }
     return LOADING_STEPS[activeStep];
-  }, [activeStep, isError]);
+  }, [activeStep, isError, rateLimited]);
 
   return (
     <section
@@ -75,7 +80,9 @@ export default function MirrorLoadingExperience({
       <p className={ms.mirrorLoadingTitle}>{headline}</p>
       <p className={ms.mirrorLoadingSubtitle}>
         {isError
-          ? MIRROR_SCENE_UNAVAILABLE
+          ? rateLimited
+            ? MIRROR_SCENE_RATE_LIMIT
+            : MIRROR_SCENE_UNAVAILABLE
           : showSlowHint
             ? MIRROR_SCENE_SLOW_HINT
             : 'Sahnen sakin bir ışıkla hazırlanıyor…'}
