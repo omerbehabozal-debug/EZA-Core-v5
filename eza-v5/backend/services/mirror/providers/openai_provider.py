@@ -9,6 +9,8 @@ from typing import Any, Optional
 import httpx
 
 from backend.config import get_settings
+from backend.core.openai.config import build_openai_request_headers
+from backend.core.openai.diagnostic import parse_openai_http_error
 from backend.services.mirror.mirror_image_provider import MockMirrorImageProvider, MirrorImageProvider
 from backend.services.mirror.openai_prompt_builder import build_openai_mirror_prompt
 from backend.services.mirror.types import MirrorImageProviderError, MirrorImageRequest, MirrorImageResult
@@ -71,28 +73,32 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
         return payload
 
     async def _post_images(self, prompt: str, *, seed: str) -> dict[str, Any]:
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json",
-        }
+        headers = build_openai_request_headers(self._api_key)
         payload = self._build_payload(prompt)
         own_client = self._http_client is None
         client = self._http_client or httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS)
         try:
             response = await client.post(OPENAI_IMAGES_URL, headers=headers, json=payload)
             if response.status_code >= 400:
-                body_preview = ""
-                try:
-                    body_preview = response.text[:240]
-                except Exception:
-                    pass
-                logger.warning(
-                    "mirror_openai_images_failed seed=%s status=%s body=%s",
-                    seed,
+                diagnostic = parse_openai_http_error(
                     response.status_code,
-                    body_preview,
+                    response.text,
+                    dict(response.headers),
                 )
-                raise MirrorImageProviderError(_USER_ERROR_MESSAGE)
+                logger.warning(
+                    "mirror_openai_images_failed seed=%s status=%s code=%s type=%s request_id=%s",
+                    seed,
+                    diagnostic.get("httpStatus"),
+                    diagnostic.get("errorCode"),
+                    diagnostic.get("errorType"),
+                    diagnostic.get("requestId"),
+                )
+                raise MirrorImageProviderError(
+                    _USER_ERROR_MESSAGE,
+                    source="openai",
+                    http_status=int(diagnostic.get("httpStatus") or response.status_code),
+                    diagnostic=diagnostic,
+                )
             return response.json()
         except httpx.HTTPError as exc:
             logger.warning(

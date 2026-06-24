@@ -32,3 +32,16 @@ class MirrorImageResult:
 
 class MirrorImageProviderError(Exception):
     """Raised when a provider fails to generate a scene."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        source: str = "provider",
+        http_status: int | None = None,
+        diagnostic: dict | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.source = source
+        self.http_status = http_status
+        self.diagnostic = diagnostic

@@ -566,6 +566,9 @@ export default function StandaloneObservationExperience({
           } else if (err.code === 'rate_limit') {
             sceneAutoKeyRef.current = `${autoKey}:rate_limited`;
             setSceneExtras({ hybridFallbackReason: 'rate_limit' });
+          } else if (err.code === 'openai_insufficient_quota') {
+            sceneAutoKeyRef.current = `${autoKey}:quota`;
+            setSceneExtras({ hybridFallbackReason: 'openai_quota' });
           } else if (err.code === 'generation_failed') {
             sceneAutoKeyRef.current = `${autoKey}:failed`;
           } else {
@@ -933,6 +936,7 @@ export default function StandaloneObservationExperience({
             <MirrorLoadingExperience
               sceneImageStatus={sceneImageStatus}
               rateLimited={sceneExtras.hybridFallbackReason === 'rate_limit'}
+              openaiQuota={sceneExtras.hybridFallbackReason === 'openai_quota'}
               onRetry={sceneImageStatus === 'error' ? handleRetryMirrorScene : undefined}
             />
           ) : isScenePosterVisible ? (

@@ -146,6 +146,9 @@ export const MIRROR_SCENE_SLOW_HINT =
 export const MIRROR_SCENE_RATE_LIMIT =
   'Çok hızlı istek gönderildi. Yaklaşık 1 dakika bekle, sonra Tekrar dene.';
 
+export const MIRROR_SCENE_OPENAI_QUOTA =
+  'AI görsel servisi şu an kullanılamıyor (OpenAI kota/ödeme). Yönetici billing kontrolü yapmalı.';
+
 export const MIRROR_SCENE_LOGIN_HINT =
   'Tam kart görseli için giriş yapman gerekiyor.';
 

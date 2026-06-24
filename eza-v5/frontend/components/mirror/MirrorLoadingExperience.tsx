@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   MIRROR_SCENE_RATE_LIMIT,
+  MIRROR_SCENE_OPENAI_QUOTA,
   MIRROR_SCENE_RETRY,
   MIRROR_SCENE_SLOW_HINT,
   MIRROR_SCENE_UNAVAILABLE,
@@ -22,6 +23,7 @@ const LOADING_STEPS = [
 export type MirrorLoadingExperienceProps = {
   sceneImageStatus?: MirrorSceneImageStatus;
   rateLimited?: boolean;
+  openaiQuota?: boolean;
   onRetry?: () => void;
   className?: string;
 };
@@ -34,6 +36,7 @@ const ms = standaloneSkin.mirrorSurface;
 export default function MirrorLoadingExperience({
   sceneImageStatus = 'generating',
   rateLimited = false,
+  openaiQuota = false,
   onRetry,
   className,
 }: MirrorLoadingExperienceProps) {
@@ -60,10 +63,11 @@ export default function MirrorLoadingExperience({
 
   const headline = useMemo(() => {
     if (isError) {
+      if (openaiQuota) return 'AI servisi kotası';
       return rateLimited ? 'Çok fazla istek' : 'Sahne şu an hazırlanamadı';
     }
     return LOADING_STEPS[activeStep];
-  }, [activeStep, isError, rateLimited]);
+  }, [activeStep, isError, rateLimited, openaiQuota]);
 
   return (
     <section
@@ -80,7 +84,9 @@ export default function MirrorLoadingExperience({
       <p className={ms.mirrorLoadingTitle}>{headline}</p>
       <p className={ms.mirrorLoadingSubtitle}>
         {isError
-          ? rateLimited
+          ? openaiQuota
+            ? MIRROR_SCENE_OPENAI_QUOTA
+            : rateLimited
             ? MIRROR_SCENE_RATE_LIMIT
             : MIRROR_SCENE_UNAVAILABLE
           : showSlowHint

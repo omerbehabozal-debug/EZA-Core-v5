@@ -27,6 +27,7 @@ export type MirrorSceneErrorCode =
   | 'upgrade_required'
   | 'generation_failed'
   | 'rate_limit'
+  | 'openai_insufficient_quota'
   | 'unknown';
 
 export class MirrorSceneError extends Error {
@@ -77,6 +78,16 @@ export async function generateMirrorScene(
     }
     if (code === 'rate_limit' || code === 'HTTP_429') {
       throw new MirrorSceneError(msg, 'rate_limit');
+    }
+    if (
+      code === 'openai_insufficient_quota' ||
+      code === 'insufficient_quota' ||
+      code === 'HTTP_402'
+    ) {
+      throw new MirrorSceneError(
+        'OpenAI hesap kotası veya ödeme kısıtı nedeniyle sahne üretilemiyor. Biraz sonra tekrar dene veya yönetici billing kontrolü yapsın.',
+        'openai_insufficient_quota'
+      );
     }
     if (
       code === 'generation_failed' ||

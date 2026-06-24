@@ -300,9 +300,24 @@ async def stream_standalone_response(
             yield f'data: {json.dumps(completion_data)}\n\n'
     
     except Exception as e:
-        # Send error
-        error_msg = str(e).replace('"', '\\"')
-        yield f'data: {{"error": "{error_msg}"}}\n\n'
+        from backend.core.openai.config import sanitize_text
+        from backend.core.openai.diagnostic import create_openai_diagnostic
+
+        diagnostic = create_openai_diagnostic(e)
+        user_message = "SAINA şu an yanıt veremiyor. Lütfen biraz sonra tekrar dene."
+        if diagnostic.get("errorCode") == "insufficient_quota" or "insufficient_quota" in str(e):
+            user_message = (
+                "OpenAI hesap kotası veya ödeme kısıtı nedeniyle yanıt verilemiyor. "
+                "Billing kontrolü gerekli."
+            )
+        safe_error = sanitize_text(str(e))[:500]
+        payload = {
+            "error": user_message,
+            "code": diagnostic.get("errorCode") or "stream_error",
+            "diagnosticHint": diagnostic.get("diagnosticHint"),
+            "debug": safe_error,
+        }
+        yield f"data: {json.dumps(payload)}\n\n"
 
 
 def _resolve_openai_model_name(analysis_model: Optional[str]) -> str:

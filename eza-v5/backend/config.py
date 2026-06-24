@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     
     # AI Gateway providers - Tüm LLM anahtarları expose ediliyor
     OPENAI_API_KEY: Optional[str] = None
+    OPENAI_ORG_ID: Optional[str] = None
+    OPENAI_PROJECT_ID: Optional[str] = None
+    EZA_DEBUG_SECRET: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
     LOCAL_LLM_URL: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None

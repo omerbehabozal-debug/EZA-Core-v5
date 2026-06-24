@@ -175,6 +175,9 @@ class ApiClient {
         if (response.status === 502 && !errorCode) {
           errorCode = 'generation_failed';
         }
+        if (response.status === 402 && !errorCode) {
+          errorCode = 'openai_insufficient_quota';
+        }
         
         return {
           ok: false,

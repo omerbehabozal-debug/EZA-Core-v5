@@ -7,6 +7,7 @@ from typing import List, Optional
 
 from fastapi import HTTPException, status
 
+from backend.core.openai.diagnostic import build_api_error_detail, http_status_for_openai_diagnostic
 from backend.services.mirror.mirror_image_provider import get_mirror_image_provider
 from backend.services.mirror.types import (
     MirrorImageProviderError,
@@ -50,8 +51,18 @@ _PII_PATTERNS = [
 def _reject(code: str, message: str, status_code: int = status.HTTP_400_BAD_REQUEST) -> None:
     raise HTTPException(
         status_code=status_code,
-        detail={"ok": False, "error": code, "message": message},
+        detail={"ok": False, "error": code, "code": code, "message": message},
     )
+
+
+def _reject_openai(exc: MirrorImageProviderError) -> None:
+    diagnostic = exc.diagnostic or {}
+    status_code = http_status_for_openai_diagnostic(diagnostic)
+    detail = build_api_error_detail(
+        diagnostic,
+        user_message=str(exc) or "Mirror sahnesi şu an hazırlanamadı.",
+    )
+    raise HTTPException(status_code=status_code, detail=detail)
 
 
 def _contains_likely_pii(text: str) -> bool:
@@ -157,9 +168,11 @@ async def generate_mirror_scene(
     provider = get_mirror_image_provider()
     try:
         return await provider.generate_scene(request)
-    except MirrorImageProviderError:
+    except MirrorImageProviderError as exc:
+        if exc.source == "openai" and exc.diagnostic:
+            _reject_openai(exc)
         _reject(
             "generation_failed",
-            "Mirror sahnesi şu an hazırlanamadı. Daha sonra tekrar deneyebilirsin.",
+            str(exc) or "Mirror sahnesi şu an hazırlanamadı. Daha sonra tekrar deneyebilirsin.",
             status.HTTP_502_BAD_GATEWAY,
         )
