@@ -18,6 +18,8 @@ export const MIRROR_V3_BRAND_SIGNATURE = {
   line2: 'İlişkiyi dinler, deseni zamanla görür.',
 } as const;
 
+import type { MirrorCuriosityBundle } from '@/lib/eza/mirror-network/types';
+
 export type SainaMirrorV3Payload = SainaMirrorPayload & {
   pipelineVersion: 'v3';
   refinementVersion: '5.0';
@@ -38,4 +40,6 @@ export type SainaMirrorV3Payload = SainaMirrorPayload & {
   narrativeDistanceLabel: string;
   /** Atmosphere string passed to OpenAI (abstract, non-literal). */
   emotionalAtmosphere: string;
+  /** Stage 0 — landing/seed only; never on card or image prompt. */
+  curiosityBundle?: MirrorCuriosityBundle;
 };

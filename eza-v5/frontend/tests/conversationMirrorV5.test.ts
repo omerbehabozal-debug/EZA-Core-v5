@@ -12,6 +12,8 @@ import type { MirrorLightMode } from '@/lib/eza/mirror/conversationMirrorV3/mirr
 import { MIRROR_V5_MAX_RENDER_PROMPT_CHARS, MIRROR_V5_PROMPT_CONTRACT } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
 import { auditMirrorProviderPrompt } from '@/lib/eza/mirror/conversationMirrorV3/mirrorProviderPromptBuilder';
 import { buildVisualPayloadFromMirrorV3 } from '@/lib/eza/mirror/conversationMirrorV3/visualPayloadAdapterV3';
+import { auditMirrorImagePromptLeakage } from '@/lib/eza/mirror-network/auditImagePrompt';
+import { buildMirrorCuriosityBundle } from '@/lib/eza/mirror-network/buildMirrorCuriosity';
 
 function thyroidEntry(): SavedBehavioralEntry {
   return {
@@ -139,7 +141,7 @@ const V5_SCENARIOS: V5Scenario[] = [
 
 function assertV5PromptClean(prompt: string, payloadBody: string): void {
   expect(prompt.length).toBeLessThanOrEqual(MIRROR_V5_MAX_RENDER_PROMPT_CHARS);
-  expect(prompt.length).toBeGreaterThanOrEqual(600);
+  expect(prompt.length).toBeGreaterThanOrEqual(180);
   expect(prompt.toLowerCase()).not.toMatch(/\bcinematic\b/);
   expect(prompt).toContain('Create a premium editorial SAINA Mirror poster');
   expect(prompt).not.toContain('Evidence fusion scene');
@@ -184,6 +186,11 @@ describe('conversationMirrorV5 render layer', () => {
       expect(trace.render.evidenceListSent).toBe(false);
       expect(trace.render.seedQuestionsSent).toBe(false);
       expect(trace.render.bodyOnPoster).toBe(false);
+      expect(trace.stage0.philosophy.passed).toBe(true);
+      expect(trace.stage0.coreCuriosity.length).toBeGreaterThan(8);
+      expect(trace.stage0.promptLeakage.curiosityContextInPrompt).toBe(false);
+      expect(trace.stage0.promptLeakage.seedQuestionsInPrompt).toBe(false);
+      expect(trace.stage0.promptLeakage.topicHintInPrompt).toBe(false);
       expect(trace.render.promptSameAsFrontend).toBe(true);
       expect(trace.render.backendAppendApplied).toBe(false);
       expect(trace.render.containsLegacyAvoid).toBe(false);
@@ -231,8 +238,45 @@ describe('conversationMirrorV5 render layer', () => {
     const prompt = buildMinimalOpenAIRenderPrompt(brief);
 
     expect(brief.safetyMode).toBe('abstract_safe');
-    expect(prompt).toMatch(/clinical diagnosis|never alarming/i);
-    expect(prompt).toContain('Premium health editorial only');
+    expect(prompt).toMatch(/clinical diagnosis|never alarming|never clinical/i);
+    expect(prompt).toContain('Clean calm health editorial');
+  });
+
+  it('curiosityContext and seed questions stay out of image prompt', () => {
+    const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
+    const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
+      seed: 'qa-v5-stage0-leak',
+      conversationId: 'qa-v5-stage0-leak',
+    });
+    const brief = buildMirrorRenderBrief(payload);
+    const bundle = payload.curiosityBundle ?? buildMirrorCuriosityBundle(payload);
+    const { prompt } = buildOpenAIRenderPromptFromPayload(brief);
+    const leakage = auditMirrorImagePromptLeakage(prompt, payload, brief, bundle);
+
+    expect(bundle.curiosityContext.text.length).toBeGreaterThan(10);
+    expect(bundle.coreCuriosity.length).toBeGreaterThan(10);
+    expect(bundle.seedQuestions.length).toBeGreaterThan(0);
+    expect(leakage.passed).toBe(true);
+    expect(prompt).not.toContain(bundle.curiosityContext.text);
+    expect(prompt).not.toContain(bundle.coreCuriosity);
+    for (const q of bundle.seedQuestions) {
+      expect(prompt).not.toContain(q);
+    }
+  });
+
+  it('visual payload hybrid text is title-only (no mirror body)', () => {
+    const scenario = MIRROR_V2_QA_SCENARIOS.find((s) => s.id === 'japan-travel')!;
+    const payload = buildMirrorPayloadV3(scenario.buildEntries(), {
+      seed: 'qa-v5-hybrid-title',
+      conversationId: 'qa-v5-hybrid-title',
+    });
+    const visual = buildVisualPayloadFromMirrorV3(payload);
+
+    expect(visual.hybridTextPayload?.description).toBe('');
+    expect(visual.hybridTextPayload?.themeDescription).toBe('');
+    expect(visual.hybridTextPayload?.quote).toBe('');
+    expect(visual.masterPosterText?.quote).toBe('');
+    expect(visual.hybridTextPayload?.headline).toBe(payload.mirrorTitle);
   });
 
   it('publicTopicHint stays short — no conversation dump', () => {

@@ -31,6 +31,7 @@ import PosterIdentityHeadline from '@/components/mirror/PosterIdentityHeadline';
 import FullCanvasScene from '@/components/mirror/FullCanvasScene';
 import PosterTomorrowHint from '@/components/mirror/PosterTomorrowHint';
 import MirrorLiveDebugPanel from '@/components/mirror/MirrorLiveDebugPanel';
+import MirrorStage0MinimalOverlay from '@/components/mirror/MirrorStage0MinimalOverlay';
 import {
   buildMirrorLayoutDebug,
   resolveCardRenderMode,
@@ -141,17 +142,21 @@ export default function DailyMirrorPosterCard({
     () => rhythmInsightDescription(content.rhythm.word),
     [content.rhythm.word]
   );
-  const v3ImageOnlyPoster = isV3MirrorCard(card);
+  const v3ConversationMirror = isV3MirrorCard(card);
   const sceneCarriesPosterArt =
     layoutDebug.usedLayout === 'hybrid_middle_with_scene' ||
     isV2MirrorCard(card) ||
-    v3ImageOnlyPoster;
+    (v3ConversationMirror && !showHybridFallback && Boolean(card.visual?.sceneImageUrl?.trim()));
   const embeddedScenePreview =
-    v3ImageOnlyPoster || (embedded && sceneCarriesPosterArt);
-  const hideFrontendMiddle = layoutDebug.frontendMiddleOverlayHidden || v3ImageOnlyPoster;
-  const hideRhythmAndFooter = sceneCarriesPosterArt || v3ImageOnlyPoster;
+    v3ConversationMirror
+      ? sceneCarriesPosterArt && !showHybridFallback
+      : embedded && sceneCarriesPosterArt;
+  const showStage0MinimalOverlay =
+    v3ConversationMirror && !embeddedScenePreview;
+  const hideFrontendMiddle = layoutDebug.frontendMiddleOverlayHidden || v3ConversationMirror;
+  const hideRhythmAndFooter = sceneCarriesPosterArt || v3ConversationMirror;
   const hideMasthead =
-    (isV2MirrorCard(card) && sceneCarriesPosterArt) || v3ImageOnlyPoster;
+    (isV2MirrorCard(card) && sceneCarriesPosterArt) || v3ConversationMirror;
 
   const cardStyle = useMemo(
     () => ({
@@ -168,7 +173,7 @@ export default function DailyMirrorPosterCard({
   );
 
   const posterUsesFourFive =
-    v3ImageOnlyPoster || (embeddedScenePreview && sceneCarriesPosterArt);
+    v3ConversationMirror || (embeddedScenePreview && sceneCarriesPosterArt);
 
   return (
     <article
@@ -191,7 +196,11 @@ export default function DailyMirrorPosterCard({
         ...cardStyle,
         ...(posterUsesFourFive ? { aspectRatio: '4 / 5' } : {}),
       }}
-      aria-labelledby={embeddedScenePreview ? undefined : 'daily-mirror-poster-title'}
+      aria-labelledby={
+        embeddedScenePreview && !showStage0MinimalOverlay
+          ? undefined
+          : 'daily-mirror-poster-title'
+      }
     >
       <FullCanvasScene
         personaFamilyId={card.personaFamilyId}
@@ -204,7 +213,7 @@ export default function DailyMirrorPosterCard({
         onSceneImageError={onSceneImageError}
       />
 
-      {!embeddedScenePreview ? (
+      {!embeddedScenePreview && !showStage0MinimalOverlay ? (
         <>
           <div className={skin.overlayScrim} aria-hidden>
             <div className={skin.overlayTopScrim} aria-hidden />
@@ -215,7 +224,7 @@ export default function DailyMirrorPosterCard({
         </>
       ) : null}
 
-      {!embeddedScenePreview ? (
+      {!embeddedScenePreview && !showStage0MinimalOverlay ? (
         <div className={skin.overlayStack}>
           {!hideMasthead ? (
             <header className={skin.overlayHeader}>
@@ -303,6 +312,10 @@ export default function DailyMirrorPosterCard({
             </div>
           ) : null}
         </div>
+      ) : null}
+
+      {showStage0MinimalOverlay ? (
+        <MirrorStage0MinimalOverlay card={card} skin={skin} />
       ) : null}
 
       <MirrorLiveDebugPanel

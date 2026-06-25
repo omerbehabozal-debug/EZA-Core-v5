@@ -20,6 +20,7 @@ import {
   MIRROR_PIPELINE_VERSION,
   MIRROR_REFINEMENT_VERSION,
 } from '@/lib/eza/mirror/conversationMirrorV3/types';
+import { buildMirrorCuriosityBundle } from '@/lib/eza/mirror-network/buildMirrorCuriosity';
 
 export type BuildMirrorPayloadV3Options = BuildMirrorPayloadOptions;
 
@@ -71,7 +72,7 @@ export function buildMirrorPayloadV3(
     visualKeywords: base.visualKeywords,
   });
 
-  return {
+  const payload: SainaMirrorV3Payload = {
     ...base,
     pipelineVersion: MIRROR_PIPELINE_VERSION,
     refinementVersion: MIRROR_REFINEMENT_VERSION,
@@ -89,5 +90,10 @@ export function buildMirrorPayloadV3(
     closingLine: undefined,
     sceneMetaphor: polishedVisual.sceneMetaphor,
     visualKeywords: polishedVisual.visualKeywords,
+  };
+
+  return {
+    ...payload,
+    curiosityBundle: buildMirrorCuriosityBundle(payload),
   };
 }

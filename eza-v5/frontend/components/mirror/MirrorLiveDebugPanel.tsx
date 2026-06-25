@@ -167,11 +167,48 @@ export default function MirrorLiveDebugPanel({
 
         <DebugBlock label="promptPreview (first 800)" value={snap.promptPreview} />
         <DebugBlock label="visual.prompt (first 800 legacy)" value={snap.visualPromptPreview} />
+
+        {snap.v5CardTitle ? (
+          <>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-900/80">
+              Stage 0 — Card / Landing / Image separation
+            </p>
+            {snap.v5PhilosophyCheck ? (
+              <DebugBlock label="Mirror Philosophy Check" value={snap.v5PhilosophyCheck} />
+            ) : null}
+            <DebugRow label="cardTitle" value={snap.v5CardTitle} />
+            {snap.v5CoreCuriosity ? (
+              <DebugBlock
+                label="coreCuriosity (landing/discovery only — NOT card/prompt)"
+                value={snap.v5CoreCuriosity}
+              />
+            ) : null}
+            {(snap.v5MirrorSeed ?? snap.v5TopicDNA) ? (
+              <DebugBlock
+                label="MirrorSeed (landing prep)"
+                value={snap.v5MirrorSeed ?? snap.v5TopicDNA ?? '—'}
+              />
+            ) : null}
+            {snap.v5CuriosityContext ? (
+              <DebugBlock
+                label="curiosityContext (landing only — NOT card/prompt)"
+                value={snap.v5CuriosityContext}
+              />
+            ) : null}
+            {snap.v5PromptLeakage ? (
+              <DebugBlock
+                label="image prompt leakage audit"
+                value={snap.v5PromptLeakage}
+              />
+            ) : null}
+          </>
+        ) : null}
+
         {snap.v5IntelligenceDebug ? (
-          <DebugBlock label="V5 intelligence brief" value={snap.v5IntelligenceDebug} />
+          <DebugBlock label="V5 intelligence brief (private)" value={snap.v5IntelligenceDebug} />
         ) : null}
         {snap.v5FrontendMinimalPrompt ? (
-          <DebugBlock label="V5 Frontend Minimal Prompt" value={snap.v5FrontendMinimalPrompt} />
+          <DebugBlock label="Stage 0 — final minimal image prompt" value={snap.v5FrontendMinimalPrompt} />
         ) : null}
         {snap.v5ProviderFinalPrompt ? (
           <DebugBlock label="V5 Provider Final Prompt" value={snap.v5ProviderFinalPrompt} />

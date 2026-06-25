@@ -36,4 +36,4 @@ export const MIRROR_V5_SHOW_SUBTITLE_ON_POSTER = false;
 export const MIRROR_V5_DEFAULT_LIGHT_MODE: MirrorLightMode = 'premium_editorial_daylight';
 
 export const MIRROR_V5_PROMPT_CONTRACT = 'saina_mirror_v5_minimal' as const;
-export const MIRROR_V5_RENDER_CONTRACT_MARKER = 'SAINA_RENDER_CONTRACT: V5_MINIMAL' as const;
+export const MIRROR_V5_RENDER_CONTRACT_MARKER = 'SAINA_RENDER_CONTRACT: V5_STAGE0_MINIMAL' as const;

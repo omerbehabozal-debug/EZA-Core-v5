@@ -1,5 +1,7 @@
 /**
- * V5 — Layer A output: short render brief from Mirror Intelligence payload.
+ * Curiosity Seed Intelligence — Layer A (private).
+ * Derives render brief + landing hints from V3 payload; not shown on card.
+ * Former name: "Mirror Intelligence" / buildMirrorRenderBrief.
  */
 
 import type { ConversationEvidence } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';

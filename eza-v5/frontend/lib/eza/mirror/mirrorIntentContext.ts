@@ -44,6 +44,7 @@ import {
   buildMirrorV5RenderDebugTrace,
   formatMirrorV5RenderDebugTrace,
 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorV5DebugTrace';
+import { formatMirrorPhilosophyCheck } from '@/lib/eza/mirror-network/philosophy';
 import {
   getHybridEnvDebug,
   isHybridEnabled,
@@ -169,8 +170,22 @@ export type MirrorIntentDebugSnapshot = {
   mockSceneImage: string;
   hybridOcrProbe: string;
   hybridEnvDebug: string;
-  /** V5 render layer — intelligence brief (dev). */
+  /** V5 intelligence brief (private / landing prep). */
   v5IntelligenceDebug?: string;
+  /** V5 Stage 0 — card title (surface only). */
+  v5CardTitle?: string;
+  /** V5 Stage 0 — core curiosity (landing/discovery only; title ≠ curiosity). */
+  v5CoreCuriosity?: string;
+  /** V5 Stage 0 — MirrorSeed JSON (landing prep). */
+  v5MirrorSeed?: string;
+  /** @deprecated Use v5MirrorSeed */
+  v5TopicDNA?: string;
+  /** V5 Stage 0 — curiosityContext (landing only, not on card/prompt). */
+  v5CuriosityContext?: string;
+  /** V5 Stage 0 — leakage audit summary. */
+  v5PromptLeakage?: string;
+  /** V5 Stage 0 — product philosophy check (not just technical). */
+  v5PhilosophyCheck?: string;
   /** V5 frontend minimal prompt (dev). */
   v5FrontendMinimalPrompt?: string;
   /** V5 provider final prompt — mirrors backend openai_prompt_builder (dev). */
@@ -234,6 +249,13 @@ export function buildMirrorIntentDebugSnapshot(input: {
       : '';
 
   let v5IntelligenceDebug: string | undefined;
+  let v5CardTitle: string | undefined;
+  let v5CoreCuriosity: string | undefined;
+  let v5MirrorSeed: string | undefined;
+  let v5TopicDNA: string | undefined;
+  let v5CuriosityContext: string | undefined;
+  let v5PromptLeakage: string | undefined;
+  let v5PhilosophyCheck: string | undefined;
   let v5FrontendMinimalPrompt: string | undefined;
   let v5ProviderFinalPrompt: string | undefined;
   let v5BackendAppendApplied: string | undefined;
@@ -241,6 +263,30 @@ export function buildMirrorIntentDebugSnapshot(input: {
   if (card?.mirrorV3Payload) {
     const v5 = buildMirrorV5RenderDebugTrace(card.mirrorV3Payload);
     v5IntelligenceDebug = formatMirrorV5RenderDebugTrace(v5).split('=== B)')[0]?.trim();
+    v5CardTitle = v5.stage0.cardTitle;
+    v5CoreCuriosity = v5.stage0.coreCuriosity;
+    v5MirrorSeed = JSON.stringify(v5.stage0.seed, null, 2);
+    v5TopicDNA = v5MirrorSeed;
+    v5CuriosityContext = v5.stage0.curiosityContext;
+    v5PhilosophyCheck = formatMirrorPhilosophyCheck(v5.stage0.philosophy);
+    const l = v5.stage0.promptLeakage;
+    v5PromptLeakage = [
+      `passed: ${l.passed}`,
+      `mirrorBodyInPrompt: ${l.mirrorBodyInPrompt}`,
+      `coreCuriosityInPrompt: ${l.coreCuriosityInPrompt}`,
+      `curiosityContextInPrompt: ${l.curiosityContextInPrompt}`,
+      `seedQuestionsInPrompt: ${l.seedQuestionsInPrompt}`,
+      `conversationSummaryInPrompt: ${l.conversationSummaryInPrompt}`,
+      `emailInPrompt: ${l.emailInPrompt}`,
+      `phoneInPrompt: ${l.phoneInPrompt}`,
+      `personalEntityInPrompt: ${l.personalEntityInPrompt}`,
+      `topicHintInPrompt: ${l.topicHintInPrompt}`,
+      `visualDirectionInPrompt: ${l.visualDirectionInPrompt}`,
+      `evidenceLabelsInPrompt: ${l.evidenceLabelsInPrompt}`,
+      `moodInImagePrompt: ${v5.stage0.moodInImagePrompt}`,
+      `rawConversationSent: false`,
+      `fullSummarySent: false`,
+    ].join('\n');
     v5FrontendMinimalPrompt = v5.render.frontendMinimalPrompt;
     v5ProviderFinalPrompt = v5.render.backendProviderPrompt;
     v5BackendAppendApplied = String(v5.render.backendAppendApplied);
@@ -305,6 +351,13 @@ export function buildMirrorIntentDebugSnapshot(input: {
     hybridOcrProbe: card?.visual?.hybridOcrProbe ?? '—',
     hybridEnvDebug: getHybridEnvDebug(),
     v5IntelligenceDebug,
+    v5CardTitle,
+    v5CoreCuriosity,
+    v5MirrorSeed,
+    v5TopicDNA,
+    v5CuriosityContext,
+    v5PromptLeakage,
+    v5PhilosophyCheck,
     v5FrontendMinimalPrompt,
     v5ProviderFinalPrompt,
     v5BackendAppendApplied,

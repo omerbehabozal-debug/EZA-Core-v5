@@ -1,5 +1,20 @@
 /**
- * V5 — Layer B: minimal OpenAI image prompt from MirrorRenderBrief only.
+ * SAINA Mirror Philosophy
+ *
+ * A Mirror is not a conversation summary.
+ * A Mirror is not an insight report.
+ * A Mirror is not an AI answer.
+ *
+ * A Mirror is a cinematic curiosity artifact.
+ *
+ * The card creates curiosity.
+ * The landing provides context.
+ * The conversation delivers knowledge.
+ *
+ * Never move contextual information back onto the card.
+ *
+ * Stage 0 image prompt: title + category + optional mood + minimal render brief.
+ * Curiosity Seed Intelligence fields never enter this file's output.
  */
 
 import type {
@@ -7,80 +22,21 @@ import type {
   MirrorRenderBrief,
 } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
 import { MIRROR_V5_MAX_RENDER_PROMPT_CHARS } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
+import { MIRROR_STAGE0_INCLUDE_MOOD_IN_IMAGE_PROMPT } from '@/lib/eza/mirror-network/philosophy';
 
-const STYLE_BY_LIGHT_MODE: Record<MirrorLightMode, string> = {
-  premium_editorial_daylight: [
-    'Premium editorial photography.',
-    'Natural daylight.',
-    'Magazine cover quality.',
-    'Elegant composition.',
-    'Quiet luxury aesthetic.',
-    'Open visual space.',
-    'Emotion through light rather than darkness.',
-    'Photographic realism.',
-  ].join(' '),
-  golden_hour_travel: [
-    'Quiet luxury travel editorial.',
-    'National Geographic premium cover quality.',
-    'Monocle magazine aesthetic.',
-    'Golden hour or fresh morning light.',
-    'Open visual space.',
-    'Photographic realism.',
-  ].join(' '),
-  soft_architectural_daylight: [
-    'Architectural Digest editorial photography.',
-    'Soft daylight.',
-    'Refined materials.',
-    'Precise composition.',
-    'Open space.',
-    'Photographic realism.',
-  ].join(' '),
-  clean_health_daylight: [
-    'Clean natural light.',
-    'Calm premium health editorial.',
-    'Soft skin tones.',
-    'Fresh air, clarity, care.',
-    'No fear-based medical poster.',
-    'Photographic realism.',
-  ].join(' '),
-  modern_technology_light: [
-    'Modern bright workspace.',
-    'Editorial technology photography.',
-    'Clean reflections.',
-    'Human-centered, no robot clichés.',
-    'Photographic realism.',
-  ].join(' '),
-  golden_hour_road: [
-    'Golden hour road editorial.',
-    'Premium automotive lifestyle.',
-    'Elegant motion, no commercial showroom.',
-    'Photographic realism.',
-  ].join(' '),
-  contemplative_morning: [
-    'Morning light or warm sunset.',
-    'Quiet contemplative editorial.',
-    'Soft atmosphere.',
-    'Respectful and serene.',
-    'Photographic realism.',
-  ].join(' '),
-  quiet_luxury_evening: [
-    'Quiet luxury evening editorial.',
-    'Warm lantern or soft twilight — not horror darkness.',
-    'Elegant composition.',
-    'Open visual space.',
-    'Photographic realism.',
-  ].join(' '),
+const LIGHT_MODE_STYLE_LINE: Record<MirrorLightMode, string> = {
+  premium_editorial_daylight: 'Premium editorial daylight, magazine cover quality, quiet luxury.',
+  golden_hour_travel: 'Golden-hour travel editorial, open space, photographic realism.',
+  soft_architectural_daylight: 'Soft architectural daylight, refined materials, open composition.',
+  clean_health_daylight: 'Clean calm health editorial, natural light, dignified — never alarming.',
+  modern_technology_light: 'Bright human-centered technology editorial, no robot clichés.',
+  golden_hour_road: 'Golden-hour road editorial, elegant motion, lifestyle not showroom.',
+  contemplative_morning: 'Morning or warm sunset, quiet contemplative editorial.',
+  quiet_luxury_evening: 'Quiet luxury evening, warm twilight — not horror darkness.',
 };
 
-const NORMAL_SAFETY =
-  'No dashboard UI, scores, bullet lists, labels, infographics, or conversation summaries.';
-
-const HEALTH_SAFETY = [
-  'Premium health editorial only.',
-  'Calm, dignified, informative curiosity — never alarming.',
-  'No clinical diagnosis, treatment claims, before/after, or graphic medical imagery.',
-  'No dashboard UI, scores, bullet lists, or summaries.',
-].join(' ');
+const STAGE0_SAFETY =
+  'No dashboard, scores, bullet lists, summaries, labels, infographics, or conversation text.';
 
 export const MIRROR_V5_NEGATIVE_PROMPT = [
   'collage',
@@ -97,54 +53,39 @@ export const MIRROR_V5_NEGATIVE_PROMPT = [
   'neon cyberpunk',
   'watermark',
   'conversation summary',
+  'theme list',
+  'subtitle paragraph',
 ].join(', ');
 
 export function buildMinimalOpenAIRenderPrompt(brief: MirrorRenderBrief): string {
-  const style = STYLE_BY_LIGHT_MODE[brief.lightMode];
-  const safety = brief.safetyMode === 'abstract_safe' ? HEALTH_SAFETY : NORMAL_SAFETY;
+  const styleLine = LIGHT_MODE_STYLE_LINE[brief.lightMode];
 
   const blocks = [
     'Create a premium editorial SAINA Mirror poster.',
-    '',
-    'This is not a summary, not an infographic, not a dashboard, not an advertisement.',
-    'The card should create curiosity and make the viewer want to open the Mirror.',
+    'Curiosity poster — evoke wonder; do not explain the topic.',
+    STAGE0_SAFETY,
     '',
     `TITLE:\n"${brief.title}"`,
-    '',
-    `TOPIC HINT:\n${brief.publicTopicHint}`,
     '',
     `CATEGORY:\n${brief.topicCategory}`,
   ];
 
-  if (brief.mood) {
+  if (brief.mood && MIRROR_STAGE0_INCLUDE_MOOD_IN_IMAGE_PROMPT) {
     blocks.push('', `MOOD:\n${brief.mood}`);
   }
 
   blocks.push(
     '',
-    `VISUAL DIRECTION:\n${brief.visualDirection}`,
+    `RENDER BRIEF:\n${styleLine}`,
     '',
-    `STYLE:\n${style}`,
-    '',
-    'Create one powerful, memorable visual interpretation.',
-    'Use minimum text.',
-    'The title may appear if it improves the poster.',
-    'Do not explain the topic.',
-    'Do not add summaries, labels, bullet points, charts, UI, badges or panels.',
-    '',
-    'Let OpenAI choose the composition, lighting, perspective, depth, typography and atmosphere.',
-    '',
-    'Format:',
-    'Vertical 4:5.',
-    'Photographic realism.',
-    'Premium magazine cover quality.',
-    'Elegant negative space.',
-    'Shareable wow effect.',
-    '',
-    `Safety mode:\n${safety}`
+    'Vertical 4:5. Photographic realism. Elegant negative space.',
+    'Title may appear if it strengthens the poster. No body copy or theme lists.',
+    brief.safetyMode === 'abstract_safe'
+      ? 'Sensitive health topic — abstract, calm, never clinical or alarming.'
+      : ''
   );
 
-  let prompt = blocks.join('\n');
+  let prompt = blocks.filter(Boolean).join('\n');
   if (prompt.length > MIRROR_V5_MAX_RENDER_PROMPT_CHARS) {
     prompt = prompt.slice(0, MIRROR_V5_MAX_RENDER_PROMPT_CHARS).trimEnd();
   }
