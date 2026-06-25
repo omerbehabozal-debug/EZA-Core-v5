@@ -27,7 +27,7 @@ from backend.routers import (
     standalone, proxy, proxy_lite, admin, media, autonomy,
     institution, gateway, regulator_router, btk_router, eu_ai_router,
     platform_router, corporate_router, internal_proxy, multimodal,
-    test_results, monitor, monitor_ws, standalone_mirror, debug_openai,
+    test_results, monitor, monitor_ws, standalone_mirror, debug_openai, mirror_network,
 )
 from backend.routers import proxy_lite_media
 from backend.core.utils.dependencies import init_db, init_redis, init_vector_db, get_db
@@ -279,6 +279,8 @@ app.include_router(admin_governance_router)
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(standalone_mirror.router)
 app.include_router(debug_openai.router)
+app.include_router(mirror_network.router)
+app.include_router(mirror_network.debug_router)
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])
 from backend.routers import proxy_corporate, proxy_websocket, proxy_audit, proxy_pipeline, proxy_analysis, organization, policy_management, usage_analytics, billing, sla_monitoring, telemetry_websocket, alerting
 from backend.routers import rtuk_endpoints, sanayi_endpoints, finance_endpoints, health_endpoints

@@ -87,6 +87,7 @@ async def init_db():
         AuditLog, TelemetryEvent, AlertEvent, Invitation,
         IntentLog, ImpactEvent
     )
+    from backend.models.mirror_network import MirrorNetworkNode
     from backend.models.behavioral import (
         BehavioralLog,
         BehavioralBaseline,

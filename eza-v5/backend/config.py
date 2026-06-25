@@ -107,6 +107,7 @@ class Settings(BaseSettings):
     EZA_MIRROR_MOCK_SCENE_URL: Optional[str] = None
     EZA_MIRROR_OPENAI_IMAGE_MODEL: str = "gpt-image-1"
     EZA_MIRROR_IMAGE_SIZE: str = "1024x1536"
+    EZA_MIRROR_PUBLIC_BASE_URL: Optional[str] = None  # e.g. https://saina.app — shareUrl /m/{slug}
 
     # Pipeline Settings
     PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout
