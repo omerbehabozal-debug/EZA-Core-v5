@@ -79,6 +79,7 @@ function buildTreeMetadata(
     seedCategory: session.seedCategory,
     seedMood: session.seedMood,
     isGuestSession: true,
+    branchCandidates: session.thoughtCards.map((card) => card.label),
   };
 }
 

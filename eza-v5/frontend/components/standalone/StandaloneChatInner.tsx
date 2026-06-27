@@ -60,6 +60,22 @@ import {
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { MIRROR_GUEST_CHAT_REPLY_PARAM } from '@/lib/eza/mirror-network/mirrorGuestConversation';
+import MirrorBranchSuggestion from '@/components/standalone/MirrorBranchSuggestion';
+import { shouldShowBranchSuggestion } from '@/lib/eza/conversation-tree/branchSuggestionPolicy';
+import {
+  isBranchSuggestionDismissed,
+  isBranchSuggestionShown,
+  markBranchSuggestionDismissed,
+  markBranchSuggestionShown,
+} from '@/lib/eza/conversation-tree/branchSuggestionSession';
+import {
+  resolveBranchCardsForChat,
+  startMirrorBranchConversation,
+} from '@/lib/eza/conversation-tree/mirrorBranchConversation';
+import {
+  trackBranchCardClicked,
+  trackBranchSuggestionShown,
+} from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
 import {
   fromArchivedMessages,
   toArchivedMessages,
@@ -116,6 +132,9 @@ export default function StandaloneChatInner() {
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [conversationGroups, setConversationGroups] = useState<ConversationGroup[]>([]);
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const [branchSuggestionVisible, setBranchSuggestionVisible] = useState(false);
+  const [branchCards, setBranchCards] = useState<string[]>([]);
+  const lastUserMessageAtRef = useRef<number | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeVariant, setUpgradeVariant] = useState<UpgradeModalVariant>('upgrade');
   const [upgradeFeature, setUpgradeFeature] = useState<string>('saina_sidebar');
@@ -455,6 +474,8 @@ export default function StandaloneChatInner() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    lastUserMessageAtRef.current = Date.now();
+    setBranchSuggestionVisible(false);
 
     // Soft limit: Apply random throttle delay (0-300ms) during typing indicator
     const throttleDelay = dailyCount >= DAILY_LIMIT_SOFT && dailyCount < DAILY_LIMIT_HARD
@@ -842,6 +863,79 @@ export default function StandaloneChatInner() {
     void handleSend(pending);
   }, [ready, mirrorReplyFromUrl, chatIdFromUrl, chatId, router]);
 
+  const activeArchive = chatId ? getChatArchive(chatId) : null;
+  const sourceType = activeArchive?.treeMetadata?.sourceType ?? (activeArchive?.mirrorOrigin ? 'mirror' : 'direct');
+  const assistantIsDone = Boolean(
+    chatId &&
+      messages.some((m) => m.isUser) &&
+      messages.some((m) => !m.isUser && m.text.trim()) &&
+      !isLoading &&
+      !isTyping
+  );
+
+  useEffect(() => {
+    if (!chatId || !ready) {
+      setBranchSuggestionVisible(false);
+      return;
+    }
+
+    const tick = () => {
+      const show = shouldShowBranchSuggestion({
+        sourceType: sourceType === 'mirror' ? 'mirror' : sourceType,
+        assistantIsDone,
+        isLoading,
+        isTyping,
+        lastUserMessageAt: lastUserMessageAtRef.current,
+        dismissed: isBranchSuggestionDismissed(chatId),
+        shownInSession: isBranchSuggestionShown(chatId),
+        isActiveConversation: true,
+      });
+
+      if (!show) return;
+
+      const cards = resolveBranchCardsForChat(getChatArchive(chatId));
+      setBranchCards(cards);
+      setBranchSuggestionVisible(true);
+      markBranchSuggestionShown(chatId);
+      trackBranchSuggestionShown(chatId);
+    };
+
+    const interval = window.setInterval(tick, 30_000);
+    tick();
+    return () => window.clearInterval(interval);
+  }, [chatId, ready, sourceType, assistantIsDone, isLoading, isTyping]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    const lastUser = [...messages].reverse().find((m) => m.isUser && m.text.trim());
+    if (lastUser?.timestamp) {
+      lastUserMessageAtRef.current = lastUser.timestamp.getTime();
+    }
+  }, [messages, chatId]);
+
+  const handleBranchSelect = useCallback(
+    (branchTitle: string) => {
+      if (!chatId) return;
+      const parent = getChatArchive(chatId);
+      if (!parent) return;
+      trackBranchCardClicked(chatId, branchTitle);
+      const created = startMirrorBranchConversation({ parentChat: parent, branchTitle });
+      if (!created) return;
+      setBranchSuggestionVisible(false);
+      markBranchSuggestionDismissed(chatId);
+      router.push(
+        `/standalone?chat=${created.chatId}&${MIRROR_GUEST_CHAT_REPLY_PARAM}=1`
+      );
+    },
+    [chatId, router]
+  );
+
+  const handleBranchDismiss = useCallback(() => {
+    if (!chatId) return;
+    markBranchSuggestionDismissed(chatId);
+    setBranchSuggestionVisible(false);
+  }, [chatId]);
+
   const isEmpty = messages.length === 0 && !isLoading && !isTyping;
 
   const heroTitle = useMemo(() => {
@@ -862,7 +956,16 @@ export default function StandaloneChatInner() {
   }, [messages]);
 
   const composer = (
-    <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={isLimitReached} />
+    <>
+      {branchSuggestionVisible && branchCards.length > 0 ? (
+        <MirrorBranchSuggestion
+          cards={branchCards}
+          onSelect={handleBranchSelect}
+          onDismiss={handleBranchDismiss}
+        />
+      ) : null}
+      <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={isLimitReached} />
+    </>
   );
 
   const messageList =

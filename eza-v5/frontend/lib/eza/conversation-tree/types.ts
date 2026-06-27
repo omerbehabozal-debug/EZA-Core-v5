@@ -31,6 +31,8 @@ export type ConversationTreeMetadata = {
   seedCategory?: string | null;
   seedMood?: string | null;
   isGuestSession?: boolean;
+  /** Editorial thought-card labels for inactivity branch suggestions. */
+  branchCandidates?: string[];
 };
 
 export type ConversationTreeGroupNode = {

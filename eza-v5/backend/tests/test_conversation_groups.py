@@ -107,3 +107,21 @@ def test_branch_metadata_fields():
     dumped = meta.model_dump_json()
     assert "mirrorBody" not in dumped
     assert meta.branchTitle == "Yerel kafeler"
+
+
+def test_build_branch_suggestion_cards_max_three():
+    from backend.services.conversation_tree.branch_suggestions import build_branch_suggestion_cards
+
+    cards = build_branch_suggestion_cards(
+        seed_questions=[
+            "Kyoto'nun gizli tapınakları?",
+            "Yerel kafeler",
+            "Akşam yürüyüş rotaları",
+            "Ekstra",
+        ],
+        discovery_signals=["travel"],
+        collection_tags=["japan"],
+    )
+    assert len(cards) <= 3
+    assert "?" not in cards[0]
+    assert cards
