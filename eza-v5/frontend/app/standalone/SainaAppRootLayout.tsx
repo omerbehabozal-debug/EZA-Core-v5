@@ -64,6 +64,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
           <div className="saina-standalone-sidebar-wrap">
             <SainaConversationSidebar
               conversations={chrome.conversations}
+              conversationGroups={chrome.conversationGroups}
               activeChatId={chrome.activeChatId}
               activeSection={view === 'pattern' ? 'pattern' : 'chat'}
               onNewChat={chrome.onNewChat}

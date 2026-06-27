@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
+import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
 import type { SainaNotificationItem } from '@/components/saina/SainaNotificationsDropdown';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { DEFAULT_ANALYSIS_MODEL_ID } from '@/lib/standaloneModels';
@@ -8,6 +9,7 @@ import type { SainaAppView } from '@/lib/eza/sainaRoutes';
 export type SainaChromeState = {
   activeSection: SainaAppView;
   conversations: SainaConversationItem[];
+  conversationGroups?: ConversationTreeGroupNode[];
   activeChatId: string | null;
   planTier?: SainaPlanTier;
   onNewChat?: () => void;

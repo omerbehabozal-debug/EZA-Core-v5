@@ -55,6 +55,9 @@ describe('mirror guest conversation (Stage 2B slice 2)', () => {
       firstUserMessage: 'Şehri yavaşça oku',
     });
     const origin = getChatArchive(created!.chatId)?.mirrorOrigin;
+    const chat = getChatArchive(created!.chatId);
+    expect(created?.groupId).toBeTruthy();
+    expect(chat?.groupId).toBe(created?.groupId);
     expect(origin?.startedFromMirrorId).toBe('child-mirror');
     expect(origin?.parentMirrorId).toBe('parent-mirror');
     expect(origin?.rootMirrorId).toBe('root-mirror');

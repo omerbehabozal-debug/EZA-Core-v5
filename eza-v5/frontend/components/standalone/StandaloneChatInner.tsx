@@ -21,6 +21,16 @@ import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
+import NewChatGroupPicker from '@/components/saina/NewChatGroupPicker';
+import {
+  createConversationGroup,
+  listConversationGroups,
+  GROUPS_UPDATED_EVENT,
+} from '@/lib/eza/conversation-tree/conversationGroups';
+import { buildConversationTree } from '@/lib/eza/conversation-tree/groupTree';
+import { rememberActiveGroupExpanded } from '@/lib/eza/conversation-tree/groupExpandedState';
+import { trackConversationGroupCreated } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
+import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
 import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
@@ -104,6 +114,8 @@ export default function StandaloneChatInner() {
   const [isLimitReached, setIsLimitReached] = useState(false);
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
+  const [conversationGroups, setConversationGroups] = useState<ConversationGroup[]>([]);
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeVariant, setUpgradeVariant] = useState<UpgradeModalVariant>('upgrade');
   const [upgradeFeature, setUpgradeFeature] = useState<string>('saina_sidebar');
@@ -270,26 +282,50 @@ export default function StandaloneChatInner() {
 
   const refreshArchives = useCallback(() => {
     setArchives(listChatArchives());
+    setConversationGroups(listConversationGroups());
   }, []);
 
   useEffect(() => {
     refreshArchives();
     window.addEventListener(CHATS_UPDATED_EVENT, refreshArchives);
+    window.addEventListener(GROUPS_UPDATED_EVENT, refreshArchives);
     window.addEventListener('focus', refreshArchives);
     return () => {
       window.removeEventListener(CHATS_UPDATED_EVENT, refreshArchives);
+      window.removeEventListener(GROUPS_UPDATED_EVENT, refreshArchives);
       window.removeEventListener('focus', refreshArchives);
     };
   }, [refreshArchives]);
 
+  const openChatInGroup = useCallback(
+    (groupId: string) => {
+      if (chatId && !skipAutosaveRef.current && toArchivedMessages(messages).length > 0) {
+        flushSave(chatId, messages);
+      }
+      const newId = createStandaloneChat({ groupId });
+      rememberActiveGroupExpanded(groupId);
+      setGroupPickerOpen(false);
+      router.push(`/standalone?chat=${newId}`, { scroll: false });
+      loadChatIntoState(newId);
+    },
+    [chatId, messages, flushSave, router, loadChatIntoState]
+  );
+
   const handleNewChat = useCallback(() => {
-    // Mevcut sohbette içerik varsa kaydet, sonra boş taslağa dön (yeni boş kayıt açma).
     if (chatId && !skipAutosaveRef.current && toArchivedMessages(messages).length > 0) {
       flushSave(chatId, messages);
     }
-    router.replace('/standalone', { scroll: false });
-    startDraft();
-  }, [chatId, messages, flushSave, router, startDraft]);
+    setGroupPickerOpen(true);
+  }, [chatId, messages, flushSave]);
+
+  const handleCreateGroupAndChat = useCallback(
+    (title: string) => {
+      const group = createConversationGroup({ title, source: 'manual' });
+      trackConversationGroupCreated(group.id);
+      openChatInGroup(group.id);
+    },
+    [openChatInGroup]
+  );
 
   const handleSelectChat = useCallback(
     (id: string) => {
@@ -361,6 +397,11 @@ export default function StandaloneChatInner() {
   const sainaConversations = useMemo(
     () => mapArchivesToSainaConversations(archives),
     [archives]
+  );
+
+  const sainaConversationGroups = useMemo(
+    () => buildConversationTree(archives, conversationGroups),
+    [archives, conversationGroups]
   );
 
   const incrementDailyCount = useCallback(() => {
@@ -837,6 +878,7 @@ export default function StandaloneChatInner() {
   useSyncSainaChrome({
     activeSection: 'chat',
     conversations: sainaConversations,
+    conversationGroups: sainaConversationGroups,
     activeChatId: chatId,
     planTier,
     onNewChat: handleNewChat,
@@ -858,6 +900,13 @@ export default function StandaloneChatInner() {
 
   return (
     <>
+      <NewChatGroupPicker
+        open={groupPickerOpen}
+        groups={conversationGroups}
+        onClose={() => setGroupPickerOpen(false)}
+        onSelectExisting={openChatInGroup}
+        onCreateNew={handleCreateGroupAndChat}
+      />
       <SainaStandaloneShell
         heroTitle={heroTitle}
         isEmpty={isEmpty}

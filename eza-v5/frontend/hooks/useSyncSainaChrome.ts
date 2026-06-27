@@ -7,6 +7,7 @@ import { useSainaChromeStore, type SainaChromeState } from '@/lib/eza/sainaChrom
 export function useSyncSainaChrome({
   activeSection,
   conversations,
+  conversationGroups,
   activeChatId,
   planTier,
   onNewChat,
@@ -28,6 +29,7 @@ export function useSyncSainaChrome({
     setChrome({
       activeSection,
       conversations,
+      conversationGroups,
       activeChatId,
       planTier,
       onNewChat,
@@ -47,6 +49,7 @@ export function useSyncSainaChrome({
     setChrome,
     activeSection,
     conversations,
+    conversationGroups,
     activeChatId,
     planTier,
     onNewChat,

@@ -3,6 +3,12 @@
  * Arşiv sayfası yok; yan menüden sekmeye dönünce kaldığın yerden devam.
  */
 
+import { touchConversationGroup } from '@/lib/eza/conversation-tree/conversationGroups';
+import type { ConversationTreeMetadata } from '@/lib/eza/conversation-tree/types';
+import {
+  trackConversationCreatedInGroup,
+} from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
+
 export const CHATS_UPDATED_EVENT = 'eza-standalone-archive-updated';
 /** @deprecated */
 export const ARCHIVE_UPDATED_EVENT = CHATS_UPDATED_EVENT;
@@ -48,13 +54,18 @@ export interface ArchivedChat {
   pinned?: boolean;
   /** Kullanıcı başlığı elle değiştirdi → autosave başlığı yeniden hesaplamasın. */
   titlePinned?: boolean;
+  /** @deprecated Prefer treeMetadata — kept for Stage 2B mirror guest flow */
   mirrorOrigin?: MirrorConversationOrigin;
+  groupId?: string | null;
+  treeMetadata?: ConversationTreeMetadata;
 }
 
 export type ArchivedChatSummary = Pick<
   ArchivedChat,
-  'id' | 'title' | 'preview' | 'savedAt' | 'messageCount' | 'pinned' | 'titlePinned'
->;
+  'id' | 'title' | 'preview' | 'savedAt' | 'messageCount' | 'pinned' | 'titlePinned' | 'groupId'
+> & {
+  isMirrorSource?: boolean;
+};
 
 function notifyChatsUpdated(): void {
   if (typeof window === 'undefined') return;
@@ -118,6 +129,44 @@ export function summarizeArchiveTitle(text: string, maxLen = ARCHIVE_TITLE_MAX_L
   return `${cut.trim()}…`;
 }
 
+function isMirrorSourceChat(chat: ArchivedChat): boolean {
+  if (chat.treeMetadata?.sourceType === 'mirror' || chat.treeMetadata?.sourceType === 'mirror_branch') {
+    return true;
+  }
+  return Boolean(chat.mirrorOrigin?.startedFromMirrorId);
+}
+
+function resolveTreeMetadata(chat: ArchivedChat): ConversationTreeMetadata | undefined {
+  if (chat.treeMetadata) return chat.treeMetadata;
+  if (!chat.mirrorOrigin) return undefined;
+  const o = chat.mirrorOrigin;
+  return {
+    groupId: chat.groupId ?? null,
+    sourceType: 'mirror',
+    startedFromMirrorId: o.startedFromMirrorId,
+    parentMirrorId: o.parentMirrorId,
+    rootMirrorId: o.rootMirrorId,
+    seedTopic: o.seedTopic,
+    seedCategory: o.seedCategory,
+    seedMood: o.seedMood,
+    isGuestSession: o.isGuestSession,
+  };
+}
+
+function toSummary(chat: ArchivedChat): ArchivedChatSummary {
+  return {
+    id: chat.id,
+    title: chat.title,
+    preview: chat.preview,
+    savedAt: chat.savedAt,
+    messageCount: chat.messageCount,
+    pinned: chat.pinned,
+    titlePinned: chat.titlePinned,
+    groupId: chat.groupId ?? chat.treeMetadata?.groupId ?? null,
+    isMirrorSource: isMirrorSourceChat(chat),
+  };
+}
+
 function buildTitle(messages: ArchivedChatMessage[]): string {
   const firstUser = messages.find((m) => m.isUser && m.text.trim());
   if (!firstUser) return 'Yeni sohbet';
@@ -150,19 +199,78 @@ function buildChatEntry(id: string, messages: ArchivedChatMessage[]): ArchivedCh
     ...(existing?.pinned ? { pinned: true } : {}),
     ...(existing?.titlePinned ? { titlePinned: true } : {}),
     ...(existing?.mirrorOrigin ? { mirrorOrigin: existing.mirrorOrigin } : {}),
+    ...(existing?.groupId != null ? { groupId: existing.groupId } : {}),
+    ...(existing?.treeMetadata ? { treeMetadata: existing.treeMetadata } : {}),
   };
 }
 
-export function listChatArchives(): ArchivedChatSummary[] {
-  return readAll().map(({ id, title, preview, savedAt, messageCount, pinned, titlePinned }) => ({
+export type CreateStandaloneChatOptions = {
+  groupId?: string | null;
+  treeMetadata?: ConversationTreeMetadata;
+  title?: string;
+  idPrefix?: string;
+};
+
+export function createStandaloneChat(options?: CreateStandaloneChatOptions): string {
+  const id = `${options?.idPrefix ?? 'chat'}-${Date.now()}`;
+  const groupId = options?.groupId ?? options?.treeMetadata?.groupId ?? null;
+  const entry: ArchivedChat = {
     id,
-    title,
-    preview,
-    savedAt,
-    messageCount,
-    pinned,
-    titlePinned,
-  }));
+    title: options?.title?.trim() || 'Yeni sohbet',
+    preview: '',
+    savedAt: new Date().toISOString(),
+    messageCount: 0,
+    messages: [],
+    groupId,
+    ...(options?.treeMetadata
+      ? {
+          treeMetadata: {
+            ...options.treeMetadata,
+            groupId: groupId ?? options.treeMetadata.groupId ?? null,
+          },
+        }
+      : groupId
+        ? { treeMetadata: { sourceType: 'direct' as const, groupId } }
+        : {}),
+  };
+  writeAll([entry, ...readAll()]);
+  writeActiveChatId(id);
+  if (groupId) {
+    touchConversationGroup(groupId);
+    trackConversationCreatedInGroup(id, groupId);
+  }
+  return id;
+}
+
+export function upsertChatArchive(entry: ArchivedChat): void {
+  const rest = readAll().filter((a) => a.id !== entry.id);
+  writeAll([entry, ...rest]);
+  writeActiveChatId(entry.id);
+  const groupId = entry.groupId ?? entry.treeMetadata?.groupId;
+  if (groupId) touchConversationGroup(groupId);
+}
+
+export function assignChatToGroup(chatId: string, groupId: string): void {
+  const list = readAll();
+  const idx = list.findIndex((a) => a.id === chatId);
+  if (idx === -1) return;
+  const existing = list[idx];
+  const treeMetadata: ConversationTreeMetadata = {
+    ...(resolveTreeMetadata(existing) ?? { sourceType: 'direct' }),
+    groupId,
+  };
+  list[idx] = {
+    ...existing,
+    groupId,
+    treeMetadata,
+  };
+  writeAll(list);
+  touchConversationGroup(groupId);
+  trackConversationCreatedInGroup(chatId, groupId);
+}
+
+export function listChatArchives(): ArchivedChatSummary[] {
+  return readAll().map(toSummary);
 }
 
 /** Full archives including messages (backfill / migration). */
@@ -214,21 +322,6 @@ export function writeActiveChatId(id: string): void {
   }
 }
 
-export function createStandaloneChat(): string {
-  const id = `chat-${Date.now()}`;
-  const entry: ArchivedChat = {
-    id,
-    title: 'Yeni sohbet',
-    preview: '',
-    savedAt: new Date().toISOString(),
-    messageCount: 0,
-    messages: [],
-  };
-  writeAll([entry, ...readAll()]);
-  writeActiveChatId(id);
-  return id;
-}
-
 /** Mevcut sohbeti günceller veya boş liste ile başlığı korur */
 export function saveStandaloneChat(
   id: string,
@@ -240,6 +333,8 @@ export function saveStandaloneChat(
   const rest = readAll().filter((a) => a.id !== id);
   writeAll([entry, ...rest]);
   writeActiveChatId(id);
+  const groupId = entry.groupId ?? entry.treeMetadata?.groupId;
+  if (groupId) touchConversationGroup(groupId);
   return entry;
 }
 

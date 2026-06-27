@@ -3,18 +3,21 @@
  * Uses only public session fields + user message; no private mirror payload.
  */
 
+import {
+  createConversationGroup,
+  listConversationGroups,
+} from '@/lib/eza/conversation-tree/conversationGroups';
+import { inferMirrorGroupTitle } from '@/lib/eza/conversation-tree/inferMirrorGroupTitle';
+import type { ConversationTreeMetadata } from '@/lib/eza/conversation-tree/types';
+import { trackConversationGroupCreated } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
 import type { MirrorSohbetSession } from '@/lib/eza/mirror-network/sohbetTypes';
 import {
   summarizeArchiveTitle,
   type ArchivedChat,
   type ArchivedChatMessage,
   type MirrorConversationOrigin,
+  upsertChatArchive,
 } from '@/lib/standaloneChatArchive';
-
-const CHATS_UPDATED_EVENT = 'eza-standalone-archive-updated';
-const STORAGE_KEY = 'eza_standalone_chat_archive';
-const ACTIVE_CHAT_ID_KEY = 'eza_standalone_active_chat_id';
-const MAX_CHATS = 30;
 
 const FORBIDDEN_MIRROR_ORIGIN_KEYS = [
   'userId',
@@ -34,32 +37,19 @@ export type StartMirrorGuestChatInput = {
 
 export type StartMirrorGuestChatResult = {
   chatId: string;
+  groupId: string;
   mirrorOrigin: MirrorConversationOrigin;
 };
 
-function readAllRaw(): ArchivedChat[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeAll(list: ArchivedChat[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const sorted = [...list].sort(
-      (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
-    );
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted.slice(0, MAX_CHATS)));
-    window.dispatchEvent(new CustomEvent(CHATS_UPDATED_EVENT));
-  } catch {
-    /* quota */
-  }
+function resolveMirrorGroupId(session: MirrorSohbetSession): string {
+  const title = inferMirrorGroupTitle(session);
+  const existing = listConversationGroups().find(
+    (g) => g.title.toLowerCase() === title.toLowerCase()
+  );
+  if (existing) return existing.id;
+  const group = createConversationGroup({ title, source: 'mirror' });
+  trackConversationGroupCreated(group.id);
+  return group.id;
 }
 
 function buildMirrorOrigin(session: MirrorSohbetSession): MirrorConversationOrigin {
@@ -72,6 +62,23 @@ function buildMirrorOrigin(session: MirrorSohbetSession): MirrorConversationOrig
     seedMood: session.seedMood,
     isGuestSession: true,
     autoReplyPending: true,
+  };
+}
+
+function buildTreeMetadata(
+  session: MirrorSohbetSession,
+  groupId: string
+): ConversationTreeMetadata {
+  return {
+    groupId,
+    sourceType: 'mirror',
+    startedFromMirrorId: session.mirrorSlug,
+    parentMirrorId: session.parentMirrorId,
+    rootMirrorId: session.rootMirrorId,
+    seedTopic: session.seedTopic,
+    seedCategory: session.seedCategory,
+    seedMood: session.seedMood,
+    isGuestSession: true,
   };
 }
 
@@ -98,6 +105,7 @@ export function startMirrorGuestChat(
   if (!text) return null;
 
   const { session } = input;
+  const groupId = resolveMirrorGroupId(session);
   const chatId = `chat-mirror-${Date.now()}`;
   const mirrorOrigin = buildMirrorOrigin(session);
   mirrorOrigin.pendingUserMessage = text;
@@ -111,17 +119,14 @@ export function startMirrorGuestChat(
     savedAt: new Date().toISOString(),
     messageCount: messages.length,
     messages,
+    groupId,
+    treeMetadata: buildTreeMetadata(session, groupId),
     mirrorOrigin,
   };
 
-  writeAll([entry, ...readAllRaw()]);
-  try {
-    localStorage.setItem(ACTIVE_CHAT_ID_KEY, chatId);
-  } catch {
-    /* ignore */
-  }
+  upsertChatArchive(entry);
 
-  return { chatId, mirrorOrigin };
+  return { chatId, groupId, mirrorOrigin };
 }
 
 /** QA helper — ensure mirror origin JSON has no private leakage keys. */

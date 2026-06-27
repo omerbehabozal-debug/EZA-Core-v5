@@ -29,8 +29,14 @@ import {
   SAINA_RELATIONSHIP_PATTERN_TITLE,
 } from '@/lib/eza/sainaCopy';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
+import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
+import {
+  readGroupExpanded,
+  writeGroupExpanded,
+} from '@/lib/eza/conversation-tree/groupExpandedState';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import SainaGeometricMark from './SainaGeometricMark';
+import { useCallback, useState } from 'react';
 
 export type { SainaConversationItem, SainaPlanTier };
 
@@ -102,6 +108,7 @@ export const MOCK_SAINA_CONVERSATIONS: SainaConversationItem[] = [
 
 type SainaConversationSidebarProps = {
   conversations?: SainaConversationItem[];
+  conversationGroups?: ConversationTreeGroupNode[];
   activeChatId?: string | null;
   /** Highlights İlişki Deseni nav when on pattern route. */
   activeSection?: 'chat' | 'pattern';
@@ -122,6 +129,7 @@ type SainaConversationSidebarProps = {
 
 export default function SainaConversationSidebar({
   conversations,
+  conversationGroups,
   activeChatId = null,
   activeSection = 'chat',
   onNewChat,
@@ -137,8 +145,71 @@ export default function SainaConversationSidebar({
   interactionsDisabled = false,
 }: SainaConversationSidebarProps) {
   const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
-  const isMock = conversations == null;
+  const isMock = conversations == null && conversationGroups == null;
   const disabled = interactionsDisabled || isMock;
+  const useTree = Boolean(conversationGroups && conversationGroups.length > 0);
+
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  const isGroupExpanded = useCallback(
+    (groupId: string) => {
+      if (groupId in expandedGroups) return expandedGroups[groupId]!;
+      return readGroupExpanded(groupId);
+    },
+    [expandedGroups]
+  );
+
+  const toggleGroup = useCallback((groupId: string) => {
+    const next = !isGroupExpanded(groupId);
+    writeGroupExpanded(groupId, next);
+    setExpandedGroups((prev) => ({ ...prev, [groupId]: next }));
+  }, [isGroupExpanded]);
+
+  const renderConversationRow = (
+    item: {
+      id: string;
+      title: string;
+      preview: string;
+      time: string;
+      thumbGradient: string;
+      isMirrorSource?: boolean;
+    },
+    nested = false
+  ) => {
+    const active = activeChatId != null && item.id === activeChatId;
+    return (
+      <button
+        key={item.id}
+        type="button"
+        disabled={disabled && !onSelectChat}
+        className={cn(
+          'saina-conv-row',
+          active && 'saina-conv-row--active',
+          nested && 'saina-conv-row--nested'
+        )}
+        data-testid={`saina-conv-row-${item.id}`}
+        onClick={() => {
+          onSelectChat?.(item.id);
+          onMobileClose?.();
+        }}
+      >
+        <div className="saina-conv-thumb" style={{ background: item.thumbGradient }} />
+        <div className="saina-conv-body">
+          <p className="saina-conv-title">
+            {item.isMirrorSource ? (
+              <span className="saina-conv-mirror-mark" aria-hidden>
+                ✦{' '}
+              </span>
+            ) : null}
+            {item.title}
+          </p>
+          <p className="saina-conv-preview">{item.preview}</p>
+          <p className="saina-conv-meta">{item.time}</p>
+        </div>
+        {active ? <span className="saina-conv-active-dot" aria-hidden /> : null}
+      </button>
+    );
+  };
 
   const renderPlanCard = () => {
     if (planTier === 'loading') {
@@ -312,33 +383,32 @@ export default function SainaConversationSidebar({
             </button>
           </div>
 
-          <div className="saina-conv-list">
-            {items.map((item) => {
-              const active = activeChatId != null && item.id === activeChatId;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  disabled={disabled && !onSelectChat}
-                  className={cn('saina-conv-row', active && 'saina-conv-row--active')}
-                  onClick={() => {
-                    onSelectChat?.(item.id);
-                    onMobileClose?.();
-                  }}
-                >
-                  <div
-                    className="saina-conv-thumb"
-                    style={{ background: item.thumbGradient }}
-                  />
-                  <div className="saina-conv-body">
-                    <p className="saina-conv-title">{item.title}</p>
-                    <p className="saina-conv-preview">{item.preview}</p>
-                    <p className="saina-conv-meta">{item.time}</p>
-                  </div>
-                  {active ? <span className="saina-conv-active-dot" aria-hidden /> : null}
-                </button>
-              );
-            })}
+          <div className="saina-conv-list" data-testid="saina-conv-list">
+            {useTree && conversationGroups
+              ? conversationGroups.map((group) => {
+                  const expanded = isGroupExpanded(group.id);
+                  return (
+                    <div key={group.id} className="saina-conv-group" data-testid={`saina-conv-group-${group.id}`}>
+                      <button
+                        type="button"
+                        className="saina-conv-group-header"
+                        onClick={() => toggleGroup(group.id)}
+                        aria-expanded={expanded}
+                      >
+                        <span className="saina-conv-group-chevron" aria-hidden>
+                          {expanded ? '▾' : '▸'}
+                        </span>
+                        <span className="saina-conv-group-title">{group.title}</span>
+                      </button>
+                      {expanded ? (
+                        <div className="saina-conv-group-children">
+                          {group.conversations.map((item) => renderConversationRow(item, true))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })
+              : items.map((item) => renderConversationRow(item))}
           </div>
 
           <div className="saina-sidebar-bottom">
