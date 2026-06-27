@@ -13,11 +13,17 @@ from backend.core.schemas.mirror_network import (
     MirrorNetworkDebugReport,
     MirrorNetworkPublicPayload,
 )
-from backend.core.utils.dependencies import get_db
+from backend.core.schemas.mirror_sohbet import (
+    MirrorSohbetSessionRequest,
+    MirrorSohbetSessionResponse,
+)
+from backend.security.rate_limit import rate_limit_standalone
 from backend.models.mirror_network import MirrorNetworkNode
 from backend.services.mirror_network.fixtures import build_fixture_mirror_node
 from backend.services.mirror_network.repository import create_mirror_network_node
+from backend.core.utils.dependencies import get_db
 from backend.services.mirror_network.service import fetch_debug_mirror_by_slug, fetch_public_mirror_by_slug
+from backend.services.mirror_network.sohbet_session import create_sohbet_session
 
 router = APIRouter(prefix="/api/mirror-network", tags=["Mirror Network"])
 debug_router = APIRouter(prefix="/api/debug/mirror-network", tags=["Debug — Mirror Network"])
@@ -59,6 +65,26 @@ async def get_public_mirror(
     full intelligence, or private metadata.
     """
     return await fetch_public_mirror_by_slug(db, slug)
+
+
+@router.post(
+    "/{slug}/sohbet/session",
+    response_model=MirrorSohbetSessionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_mirror_sohbet_session(
+    slug: str,
+    body: MirrorSohbetSessionRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+) -> MirrorSohbetSessionResponse:
+    """
+    Start a guest sohbet from public mirror curiosity only.
+
+    Never uses private payload, raw conversation, or user identity.
+    """
+    guest = body.guestToken if body else None
+    return await create_sohbet_session(db, slug, guest)
 
 
 @debug_router.get("/{slug}", response_model=MirrorNetworkDebugReport)

@@ -21,6 +21,11 @@ export {
 
 export { fetchPublicMirrorBySlug } from '@/lib/eza/mirror-network/fetchPublicMirror';
 
+export { createMirrorSohbetSession, loadCachedSohbetSession, cacheSohbetSession } from '@/lib/eza/mirror-network/createSohbetSession';
+export { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
+export { trackSeedStart, SEED_START_EVENT } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
+export type { MirrorSohbetSession, MirrorThoughtCard } from '@/lib/eza/mirror-network/sohbetTypes';
+
 export type {
   MirrorCuriosityBundle,
   MirrorCuriosityContext,

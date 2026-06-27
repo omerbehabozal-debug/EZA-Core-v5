@@ -7,11 +7,12 @@
  * Landing preserves curiosity.
  * Conversation satisfies curiosity.
  *
- * Renders only: mirror image, title, curiosityContext, date, single CTA (placeholder).
+ * Renders only: mirror image, title, curiosityContext, date, CTA to sohbet.
  * No hooks, seedQuestions, tags, coreCuriosity, or discovery metadata.
  */
 
 import { Calendar, Sparkles } from 'lucide-react';
+import MirrorLandingCta from '@/components/mirror-landing/MirrorLandingCta';
 import { MIRROR_V3_BRAND_SIGNATURE } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import type { MirrorLandingSurface } from '@/lib/eza/mirror-network/publicTypes';
 import { cn } from '@/lib/utils';
@@ -81,17 +82,7 @@ export default function MirrorLandingExperience({
           </p>
         ) : null}
 
-        <div className="mt-auto pt-10">
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            className="w-full rounded-full border border-[#e8d5b5]/25 bg-[#e8d5b5]/10 px-6 py-3.5 text-sm font-semibold tracking-wide text-[#f5ead8] opacity-70"
-          >
-            Bu konudan devam et
-          </button>
-          <p className="mt-2 text-center text-[11px] text-[#8a8074]">Yakında</p>
-        </div>
+        <MirrorLandingCta slug={surface.slug} />
       </div>
     </article>
   );
