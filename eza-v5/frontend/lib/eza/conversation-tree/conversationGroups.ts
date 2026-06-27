@@ -101,3 +101,8 @@ export function renameConversationGroup(id: string, title: string): void {
 export function deleteConversationGroup(id: string): void {
   writeAll(readAllRaw().filter((g) => g.id !== id));
 }
+
+/** Replace full group list (login merge / migration). */
+export function replaceConversationGroups(list: ConversationGroup[]): void {
+  writeAll(list);
+}

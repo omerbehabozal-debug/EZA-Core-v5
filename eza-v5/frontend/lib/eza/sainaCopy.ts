@@ -132,7 +132,8 @@ export const SAINA_ANON_FREE_BODY = 'Temel sohbet deneyimi açık.';
 
 export const SAINA_ANON_FREE_CTA = 'Şimdi Premium Ol';
 
-export const SAINA_ANON_FREE_NOTE = 'Mirror ve İlişki Deseni için giriş yap.';
+export const SAINA_ANON_FREE_NOTE =
+  'Sohbet etmek için giriş gerekmez. Mirror kaydetmek veya İlişki Deseni için giriş yapabilirsin.';
 
 export const SAINA_LOGGEDIN_FREE_BODY = 'Hesabın hazır.';
 

@@ -278,6 +278,11 @@ export function readChatArchives(): ArchivedChat[] {
   return readAll();
 }
 
+/** Replace full chat archive list (login merge / migration). */
+export function replaceChatArchives(list: ArchivedChat[]): void {
+  writeAll(list);
+}
+
 /** Sohbeti sabitler / sabitlemeyi kaldırır (localStorage). */
 export function setChatPinned(id: string, pinned: boolean): void {
   const list = readAll();

@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -107,6 +109,69 @@ def test_branch_metadata_fields():
     dumped = meta.model_dump_json()
     assert "mirrorBody" not in dumped
     assert meta.branchTitle == "Yerel kafeler"
+
+
+def test_claim_guest_conversation_groups_dedupes_by_title():
+    from backend.services.conversation_tree.groups import claim_guest_conversation_groups
+
+    user_id = uuid4()
+    guest_row = _fake_row(title="Japonya", guest_token="fp-guest", user_id=None)
+    user_row = _fake_row(title="Japonya", user_id=user_id)
+
+    mock_db = AsyncMock()
+    guest_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [guest_row]))
+    user_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [user_row]))
+    mock_db.execute = AsyncMock(side_effect=[guest_result, user_result])
+    mock_db.delete = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.refresh = AsyncMock()
+
+    claimed, merged = asyncio.run(
+        claim_guest_conversation_groups(
+            mock_db,
+            user_id=user_id,
+            guest_token="guest-token-abcdefghijklmnop",
+        )
+    )
+
+    assert claimed == []
+    assert merged == 1
+    mock_db.delete.assert_awaited_once_with(guest_row)
+
+
+def test_claim_guest_endpoint_requires_auth():
+    response = client.post(
+        "/api/conversation-groups/claim-guest",
+        json={"guestToken": "guest-token-abcdefghijklmnop"},
+    )
+    assert response.status_code == 401
+
+
+def test_claim_guest_endpoint_mocked():
+    from backend.auth.deps import get_current_user
+
+    user_id = uuid4()
+    row = _fake_row(title="Japonya", user_id=user_id)
+
+    app.dependency_overrides[get_current_user] = lambda: {"user_id": str(user_id)}
+    try:
+        with patch(
+            "backend.routers.conversation_groups.claim_guest_conversation_groups",
+            new=AsyncMock(return_value=([row], 0)),
+        ):
+            response = client.post(
+                "/api/conversation-groups/claim-guest",
+                json={"guestToken": "guest-token-abcdefghijklmnop"},
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["merged"] == 0
+        assert body["claimed"][0]["title"] == "Japonya"
+        assert body["claimed"][0]["userId"] == str(user_id)
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_build_branch_suggestion_cards_max_three():

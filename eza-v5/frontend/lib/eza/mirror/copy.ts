@@ -243,6 +243,13 @@ export const PLAN_UPGRADE_MODAL_DISMISS = 'Şimdilik kapat';
 
 export const PLAN_UPGRADE_LOGIN_CTA = 'Giriş Yap';
 
+export const PLAN_UPGRADE_MIRROR_SAVE_TITLE = 'Bu merakı hesabına kaydet';
+
+export const PLAN_UPGRADE_MIRROR_SAVE_BODY =
+  'Bu merakı kendi hesabına kaydetmek ister misin? Giriş yaptığında sohbetlerin ve başlıkların seninle kalır.';
+
+export const PLAN_UPGRADE_MIRROR_SAVE_CTA = 'Hesabına bağla';
+
 export const PLAN_UPGRADE_AUTH_TITLE = 'Giriş yap ve Plus’u keşfet';
 
 export const PLAN_UPGRADE_AUTH_BODY =

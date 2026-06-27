@@ -10,6 +10,9 @@ import {
   PLAN_UPGRADE_AUTH_TITLE,
   PLAN_UPGRADE_BADGE,
   PLAN_UPGRADE_LOGIN_CTA,
+  PLAN_UPGRADE_MIRROR_SAVE_BODY,
+  PLAN_UPGRADE_MIRROR_SAVE_CTA,
+  PLAN_UPGRADE_MIRROR_SAVE_TITLE,
   PLAN_UPGRADE_MODAL_BODY,
   PLAN_UPGRADE_MODAL_DISMISS,
   PLAN_UPGRADE_MODAL_NOTE,
@@ -47,8 +50,18 @@ export default function UpgradeModal({
   if (!open) return null;
 
   const isAuth = variant === 'auth_required';
-  const title = isAuth ? PLAN_UPGRADE_AUTH_TITLE : PLAN_UPGRADE_MODAL_TITLE;
-  const body = isAuth ? PLAN_UPGRADE_AUTH_BODY : PLAN_UPGRADE_MODAL_BODY;
+  const isMirrorSave = feature === 'conversation_mirror';
+  const title = isAuth
+    ? isMirrorSave
+      ? PLAN_UPGRADE_MIRROR_SAVE_TITLE
+      : PLAN_UPGRADE_AUTH_TITLE
+    : PLAN_UPGRADE_MODAL_TITLE;
+  const body = isAuth
+    ? isMirrorSave
+      ? PLAN_UPGRADE_MIRROR_SAVE_BODY
+      : PLAN_UPGRADE_AUTH_BODY
+    : PLAN_UPGRADE_MODAL_BODY;
+  const loginCta = isMirrorSave && isAuth ? PLAN_UPGRADE_MIRROR_SAVE_CTA : PLAN_UPGRADE_LOGIN_CTA;
 
   return (
     <div
@@ -112,7 +125,7 @@ export default function UpgradeModal({
               onClick={onClose}
               className="inline-flex w-full items-center justify-center rounded-full bg-stone-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
             >
-              {PLAN_UPGRADE_LOGIN_CTA}
+              {loginCta}
             </Link>
           ) : null}
           <button

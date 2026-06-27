@@ -130,6 +130,26 @@ Her madde için: `[ ]` işaretle, not al.
 | Private data | `mirrorBody`, `conversationId`, `userId`, `coreCuriosity` UI/network response’ta yok |
 | Login duvarı | Guest sohbet + branch için **yok**; Mirror kaydetmede **olabilir** |
 
+### Faz 6 — Guest → Login (conversation tree bind)
+
+| # | Adım | Beklenen | Kontrol |
+|---|------|----------|---------|
+| 19 | Guest olarak Japonya ağacını oluştur (✦ + branch) | Sidebar: **▾ Japonya** → ✦ + Yerel kafeler | `[ ]` |
+| 20 | **Mirror kaydet** veya Plus gate → giriş | Modal: **“Bu merakı kendi hesabına kaydetmek ister misin?”** — “Devam etmek için giriş yap” **yok** | `[ ]` |
+| 21 | Giriş yap | Aynı sidebar ağacı korunur; duplicate **Japonya** grubu **yok** | `[ ]` |
+| 22 | Sayfayı yenile | Ağaç hâlâ kullanıcıya bağlı; guest flag temiz | `[ ]` |
+
+**API (claim-guest):**
+
+```powershell
+curl -s -X POST "http://127.0.0.1:8000/api/conversation-groups/claim-guest" `
+  -H "Authorization: Bearer $token" `
+  -H "Content-Type: application/json" `
+  -d '{"guestToken":"qa-guest-token-abcdefghijklmnop"}' | jq .
+```
+
+**Beklenen:** `claimed` dizisi veya `merged` sayısı; private mirror alanları yok.
+
 ---
 
 ## API doğrulama (curl)
@@ -172,14 +192,16 @@ Projede Playwright/Cypress **kurulu değil**. Aşağıdaki testler döngünün p
 | Dosya | Kapsam |
 |-------|--------|
 | `frontend/tests/mirrorViralLoopQa.test.ts` | Landing surface, guest chat, grup ağacı, branch metadata, leakage |
+| `frontend/tests/mergeGuestConversationTree.test.ts` | Guest → login tree bind, dedupe, idempotency |
 | `backend/tests/test_mirror_viral_loop_qa.py` | Public API + sohbet session + fixture audit |
+| `backend/tests/test_conversation_groups.py` | claim-guest endpoint + title dedupe |
 
 ```powershell
 cd eza-v5\frontend
-npx vitest run tests/mirrorViralLoopQa.test.ts
+npx vitest run tests/mirrorViralLoopQa.test.ts tests/mergeGuestConversationTree.test.ts
 
 cd ..\backend
-python -m pytest tests/test_mirror_viral_loop_qa.py -q
+python -m pytest tests/test_mirror_viral_loop_qa.py tests/test_conversation_groups.py -q
 ```
 
 ---
@@ -196,6 +218,7 @@ python -m pytest tests/test_mirror_viral_loop_qa.py -q
 
 - [ ] Landing minimal (6 alan)
 - [ ] Guest sohbet login’siz
+- [ ] Login sonrası Japonya ağacı korunur (duplicate yok)
 - [ ] ✦ Japonya grubunda
 - [ ] Branch metadata zinciri tam
 - [ ] UI’da seed / Araştırmalarım yok

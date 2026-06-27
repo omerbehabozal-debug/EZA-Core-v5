@@ -5,8 +5,10 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { notifyAuthChanged } from '@/lib/eza/plan/planStore';
+import { mergeGuestConversationTree } from '@/lib/eza/conversation-tree/mergeGuestConversationTree';
+import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
 
 // Proxy roles (operational users)
 export type ProxyRole = 'proxy_user' | 'reviewer' | 'auditor';
@@ -52,6 +54,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: null,
   });
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const guestMergeRanRef = useRef(false);
+
+  const bindGuestConversationTree = (token: string, user: UserInfo) => {
+    void mergeGuestConversationTree({
+      userId: user.user_id,
+      guestToken: getOrCreateMirrorGuestToken(),
+      authToken: token,
+    });
+  };
 
   // Load auth from localStorage on mount
   useEffect(() => {
@@ -81,6 +92,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Re-bind guest tree after refresh when session already exists.
+  useEffect(() => {
+    if (!isAuthReady || !authState.token || !authState.user?.user_id) return;
+    if (guestMergeRanRef.current) return;
+    guestMergeRanRef.current = true;
+    bindGuestConversationTree(authState.token, authState.user);
+  }, [isAuthReady, authState.token, authState.user?.user_id]);
+
   const setAuth = (token: string, user: UserInfo) => {
     const newState = {
       token,
@@ -98,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Failed to save auth to localStorage:', error);
       }
       notifyAuthChanged();
+      bindGuestConversationTree(token, user);
     }
   };
 

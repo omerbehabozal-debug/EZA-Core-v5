@@ -61,11 +61,63 @@ async def fetch_conversation_groups(
     db: AsyncSession,
     *,
     guest_token: Optional[str] = None,
+    user_id: Optional[UUID] = None,
     limit: int = 50,
 ) -> List[ConversationGroup]:
     query = select(ConversationGroup).order_by(ConversationGroup.sort_order.desc())
     if guest_token:
         fp = guest_token_fingerprint(guest_token.strip())
         query = query.where(ConversationGroup.guest_token == fp)
+    if user_id is not None:
+        query = query.where(ConversationGroup.user_id == user_id)
     result = await db.execute(query.limit(limit))
     return list(result.scalars().all())
+
+
+def _normalize_title(title: str) -> str:
+    return title.strip().casefold()
+
+
+async def claim_guest_conversation_groups(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    guest_token: str,
+) -> tuple[List[ConversationGroup], int]:
+    """Assign guest groups to user; dedupe by normalized title."""
+    fp = guest_token_fingerprint(guest_token.strip())
+
+    guest_result = await db.execute(
+        select(ConversationGroup).where(
+            ConversationGroup.guest_token == fp,
+            ConversationGroup.user_id.is_(None),
+        )
+    )
+    guest_rows = list(guest_result.scalars().all())
+    if not guest_rows:
+        return [], 0
+
+    user_result = await db.execute(
+        select(ConversationGroup).where(ConversationGroup.user_id == user_id)
+    )
+    user_rows = list(user_result.scalars().all())
+    user_by_title = {_normalize_title(row.title): row for row in user_rows}
+
+    claimed: List[ConversationGroup] = []
+    merged = 0
+
+    for row in guest_rows:
+        key = _normalize_title(row.title)
+        if key in user_by_title:
+            await db.delete(row)
+            merged += 1
+            continue
+        row.user_id = user_id
+        claimed.append(row)
+        user_by_title[key] = row
+
+    await db.commit()
+    for row in claimed:
+        await db.refresh(row)
+
+    return claimed, merged
