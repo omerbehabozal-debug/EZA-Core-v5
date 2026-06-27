@@ -40,6 +40,7 @@ import {
 import { useSetConversationMirrorEntries, PENDING_CONVERSATION_MIRROR_ID } from '@/components/standalone/MirrorEntriesContext';
 import {
   CHATS_UPDATED_EVENT,
+  clearMirrorAutoReplyPending,
   createStandaloneChat,
   getChatArchive,
   listChatArchives,
@@ -48,6 +49,7 @@ import {
   writeActiveChatId,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
+import { MIRROR_GUEST_CHAT_REPLY_PARAM } from '@/lib/eza/mirror-network/mirrorGuestConversation';
 import {
   fromArchivedMessages,
   toArchivedMessages,
@@ -90,6 +92,7 @@ export default function StandaloneChatInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const chatIdFromUrl = searchParams?.get('chat') ?? null;
+  const mirrorReplyFromUrl = searchParams?.get(MIRROR_GUEST_CHAT_REPLY_PARAM) === '1';
 
   const [chatId, setChatId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -112,6 +115,7 @@ export default function StandaloneChatInner() {
   const skipAutosaveRef = useRef(true);
   /** İlk açılış/yenilemede URL’deki eski ?chat= ile yanlış sohbet yüklenmesin */
   const urlSyncEnabledRef = useRef(false);
+  const mirrorReplyFiredRef = useRef<string | null>(null);
   const messagesRef = useRef(messages);
   const chatIdRef = useRef(chatId);
   messagesRef.current = messages;
@@ -781,6 +785,21 @@ export default function StandaloneChatInner() {
       setIsLoading(false);
     }
   };
+
+  // Mirror guest sohbet: pending first message → normal standalone send/stream
+  useEffect(() => {
+    if (!ready || !mirrorReplyFromUrl || !chatIdFromUrl || chatId !== chatIdFromUrl) return;
+    if (mirrorReplyFiredRef.current === chatIdFromUrl) return;
+
+    const archived = getChatArchive(chatIdFromUrl);
+    const pending = archived?.mirrorOrigin?.pendingUserMessage?.trim();
+    if (!archived?.mirrorOrigin?.autoReplyPending || !pending) return;
+
+    mirrorReplyFiredRef.current = chatIdFromUrl;
+    clearMirrorAutoReplyPending(chatIdFromUrl);
+    router.replace(`/standalone?chat=${chatIdFromUrl}`, { scroll: false });
+    void handleSend(pending);
+  }, [ready, mirrorReplyFromUrl, chatIdFromUrl, chatId, router]);
 
   const isEmpty = messages.length === 0 && !isLoading && !isTyping;
 

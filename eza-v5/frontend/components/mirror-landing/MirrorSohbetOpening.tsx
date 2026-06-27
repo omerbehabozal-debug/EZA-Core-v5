@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import MirrorThoughtCardButton from '@/components/mirror-landing/MirrorThoughtCard';
 import { createMirrorSohbetSession } from '@/lib/eza/mirror-network/createSohbetSession';
+import {
+  MIRROR_GUEST_CHAT_REPLY_PARAM,
+  startMirrorGuestChat,
+} from '@/lib/eza/mirror-network/mirrorGuestConversation';
 import { trackSeedStart } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import type { MirrorSohbetSession, MirrorThoughtCard } from '@/lib/eza/mirror-network/sohbetTypes';
 import { cn } from '@/lib/utils';
@@ -20,9 +25,11 @@ export default function MirrorSohbetOpening({
   cardTitle,
   className,
 }: MirrorSohbetOpeningProps) {
+  const router = useRouter();
   const [session, setSession] = useState<MirrorSohbetSession | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [draft, setDraft] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,11 +49,39 @@ export default function MirrorSohbetOpening({
     };
   }, [slug]);
 
-  const handleThoughtSelect = useCallback((card: MirrorThoughtCard) => {
-    setDraft(card.label);
-  }, []);
+  const beginGuestChat = useCallback(
+    (message: string) => {
+      if (!session || submitting) return;
+      const text = message.trim();
+      if (!text) return;
+
+      setSubmitting(true);
+      const created = startMirrorGuestChat({ session, firstUserMessage: text });
+      if (!created) {
+        setSubmitting(false);
+        return;
+      }
+
+      router.push(
+        `/standalone?chat=${created.chatId}&${MIRROR_GUEST_CHAT_REPLY_PARAM}=1`
+      );
+    },
+    [router, session, submitting]
+  );
+
+  const handleThoughtSelect = useCallback(
+    (card: MirrorThoughtCard) => {
+      beginGuestChat(card.label);
+    },
+    [beginGuestChat]
+  );
+
+  const handleSendDraft = useCallback(() => {
+    beginGuestChat(draft);
+  }, [beginGuestChat, draft]);
 
   const openingParagraphs = session?.openingMessage.split('\n\n') ?? [];
+  const canSend = draft.trim().length > 0 && !submitting;
 
   return (
     <div
@@ -121,18 +156,22 @@ export default function MirrorSohbetOpening({
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Kendi sorunu yaz…"
                 rows={3}
-                className="w-full resize-none rounded-xl border border-white/10 bg-[#141210] px-4 py-3 text-sm text-[#f4f0e8] placeholder:text-[#6f675c] focus:border-[#e8d5b5]/30 focus:outline-none"
+                disabled={submitting}
+                className="w-full resize-none rounded-xl border border-white/10 bg-[#141210] px-4 py-3 text-sm text-[#f4f0e8] placeholder:text-[#6f675c] focus:border-[#e8d5b5]/30 focus:outline-none disabled:opacity-60"
               />
               <button
                 type="button"
-                disabled
-                aria-disabled="true"
-                className="mt-3 w-full rounded-full border border-[#e8d5b5]/25 bg-[#e8d5b5]/10 px-6 py-3 text-sm font-semibold text-[#f5ead8] opacity-60"
+                disabled={!canSend}
+                onClick={handleSendDraft}
+                className={cn(
+                  'mt-3 w-full rounded-full border border-[#e8d5b5]/25 bg-[#e8d5b5]/10 px-6 py-3 text-sm font-semibold text-[#f5ead8]',
+                  !canSend && 'opacity-60'
+                )}
               >
-                Gönder
+                {submitting ? 'Açılıyor…' : 'Gönder'}
               </button>
               <p className="mt-2 text-center text-[11px] text-[#8a8074]">
-                Tam sohbet akışı yakında. Kendi Mirror&apos;ını üretmek için giriş gerekir.
+                Kendi Mirror&apos;ını üretmek için giriş gerekir.
               </p>
             </div>
           </>

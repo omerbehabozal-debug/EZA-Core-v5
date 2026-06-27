@@ -15,6 +15,11 @@ const SAMPLE_SESSION: MirrorSohbetSession = {
     "Bu Mirror, Kyoto'nun akşam ritmini keşfetme merakından doğdu.\n\nŞimdi bu yolculuk senin sorularınla devam ediyor.",
   thoughtCards: [{ id: 'thought-1', label: 'Akşam sokaklarını keşfet' }],
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
+  parentMirrorId: 'sokak-lambalari-test',
+  rootMirrorId: 'sokak-lambalari-test',
+  seedTopic: 'Sokak Lambaları',
+  seedCategory: 'travel',
+  seedMood: 'discovery',
 };
 
 describe('mirror sohbet (Stage 2B)', () => {

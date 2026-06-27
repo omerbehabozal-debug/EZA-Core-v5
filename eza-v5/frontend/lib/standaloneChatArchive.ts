@@ -23,6 +23,20 @@ export interface ArchivedChatMessage {
   timestamp?: string;
 }
 
+/** Guest mirror-origin metadata — internal field names; never label "seed" in UI. */
+export interface MirrorConversationOrigin {
+  startedFromMirrorId: string;
+  parentMirrorId: string;
+  rootMirrorId: string;
+  seedTopic: string;
+  seedCategory: string;
+  seedMood: string;
+  isGuestSession: true;
+  /** First user message awaits assistant stream on standalone load. */
+  autoReplyPending?: boolean;
+  pendingUserMessage?: string;
+}
+
 export interface ArchivedChat {
   id: string;
   title: string;
@@ -34,6 +48,7 @@ export interface ArchivedChat {
   pinned?: boolean;
   /** Kullanıcı başlığı elle değiştirdi → autosave başlığı yeniden hesaplamasın. */
   titlePinned?: boolean;
+  mirrorOrigin?: MirrorConversationOrigin;
 }
 
 export type ArchivedChatSummary = Pick<
@@ -134,6 +149,7 @@ function buildChatEntry(id: string, messages: ArchivedChatMessage[]): ArchivedCh
     messages: normalized,
     ...(existing?.pinned ? { pinned: true } : {}),
     ...(existing?.titlePinned ? { titlePinned: true } : {}),
+    ...(existing?.mirrorOrigin ? { mirrorOrigin: existing.mirrorOrigin } : {}),
   };
 }
 
@@ -247,4 +263,22 @@ export function pruneEmptyChats(exceptId?: string): void {
     (c) => c.id === exceptId || c.messageCount > 0
   );
   if (kept.length !== readAll().length) writeAll(kept);
+}
+
+/** Clear mirror auto-reply flag after standalone consumes pending message. */
+export function clearMirrorAutoReplyPending(id: string): void {
+  const list = readAll();
+  const idx = list.findIndex((a) => a.id === id);
+  if (idx === -1) return;
+  const origin = list[idx].mirrorOrigin;
+  if (!origin?.autoReplyPending) return;
+  list[idx] = {
+    ...list[idx],
+    mirrorOrigin: {
+      ...origin,
+      autoReplyPending: false,
+      pendingUserMessage: undefined,
+    },
+  };
+  writeAll(list);
 }

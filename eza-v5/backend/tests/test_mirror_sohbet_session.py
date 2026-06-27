@@ -17,6 +17,7 @@ from backend.services.mirror_network.sohbet_session import (
     build_sohbet_session_response,
     build_thought_cards,
     derive_curiosity_anchor,
+    resolve_mirror_lineage_ids,
 )
 
 client = TestClient(app)
@@ -68,6 +69,20 @@ def test_session_response_excludes_private_fields():
     assert "coreCuriosity" not in session.model_dump_json()
     assert session.openingMessage
     assert session.guestToken
+    assert session.parentMirrorId == session.mirrorSlug
+    assert session.rootMirrorId == session.mirrorSlug
+    assert session.seedTopic == session.cardTitle
+    assert session.seedCategory == "travel"
+    assert session.seedMood == "discovery"
+
+
+def test_resolve_mirror_lineage_ids_with_parent():
+    parent, root = resolve_mirror_lineage_ids(
+        slug="child-mirror",
+        parent_slug="parent-mirror",
+    )
+    assert parent == "parent-mirror"
+    assert root == "parent-mirror"
 
 
 def test_start_sohbet_session_endpoint():
@@ -87,5 +102,10 @@ def test_start_sohbet_session_endpoint():
     assert body["mirrorSlug"] == public.slug
     assert body["openingMessage"]
     assert body["thoughtCards"]
+    assert body["parentMirrorId"]
+    assert body["rootMirrorId"]
+    assert body["seedTopic"] == public.cardTitle
+    assert body["seedCategory"] == "travel"
+    assert body["seedMood"] == "discovery"
     for key in FORBIDDEN_RESPONSE_KEYS:
         assert key not in body

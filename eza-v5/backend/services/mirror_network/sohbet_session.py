@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.mirror_network import MirrorNetworkPublicPayload
 from backend.core.schemas.mirror_sohbet import MirrorSohbetSessionResponse, MirrorThoughtCard
+from backend.services.mirror_network.repository import get_mirror_network_node_by_slug
 from backend.services.mirror_network.service import fetch_public_mirror_by_slug
 
 MAX_THOUGHT_CARDS = 3
@@ -131,9 +132,66 @@ def build_thought_cards(public: MirrorNetworkPublicPayload) -> List[MirrorThough
     return cards
 
 
+def resolve_mirror_lineage_ids(
+    *,
+    slug: str,
+    parent_slug: str | None,
+    lineage_chain: list[str] | None = None,
+) -> tuple[str, str]:
+    """
+    Returns (parentMirrorId, rootMirrorId) as mirror slugs.
+    parentMirrorId is the direct parent or self when root.
+    rootMirrorId is the chain root or self when no parent.
+    """
+    normalized = slug.strip().lower()
+    parent = (parent_slug or "").strip().lower() or None
+
+    if not parent or parent == normalized:
+        return normalized, normalized
+
+    chain = [s.strip().lower() for s in (lineage_chain or []) if s and str(s).strip()]
+    if chain:
+        return parent, chain[-1]
+
+    return parent, parent
+
+
+async def resolve_mirror_lineage_from_db(
+    db: AsyncSession,
+    slug: str,
+    parent_slug: str | None,
+) -> tuple[str, str]:
+    """Walk parent_slug chain to find root mirror id."""
+    normalized = slug.strip().lower()
+    parent = (parent_slug or "").strip().lower() or None
+    if not parent or parent == normalized:
+        return normalized, normalized
+
+    root = parent
+    current = parent
+    visited: set[str] = {normalized}
+    for _ in range(16):
+        if current in visited:
+            break
+        visited.add(current)
+        root = current
+        node = await get_mirror_network_node_by_slug(db, current)
+        if not node or not node.parent_slug:
+            break
+        next_parent = node.parent_slug.strip().lower()
+        if not next_parent or next_parent == current:
+            break
+        current = next_parent
+
+    return parent, root
+
+
 def build_sohbet_session_response(
     public: MirrorNetworkPublicPayload,
     guest_token: str | None,
+    *,
+    parent_mirror_id: str | None = None,
+    root_mirror_id: str | None = None,
 ) -> MirrorSohbetSessionResponse:
     token = _normalize_guest_token(guest_token)
     anchor = derive_curiosity_anchor(
@@ -142,6 +200,12 @@ def build_sohbet_session_response(
         core_curiosity=public.coreCuriosity,
     )
     expires = datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)
+    parent_id, root_id = resolve_mirror_lineage_ids(
+        slug=public.slug,
+        parent_slug=parent_mirror_id or public.lineage,
+    )
+    if root_mirror_id:
+        root_id = root_mirror_id.strip().lower()
 
     return MirrorSohbetSessionResponse(
         sessionId=str(uuid.uuid4()),
@@ -151,6 +215,11 @@ def build_sohbet_session_response(
         openingMessage=build_opening_message(anchor),
         thoughtCards=build_thought_cards(public),
         expiresAt=expires.isoformat(),
+        parentMirrorId=parent_id,
+        rootMirrorId=root_id,
+        seedTopic=public.cardTitle,
+        seedCategory=public.seed.topicCategory,
+        seedMood=public.seed.mood,
     )
 
 
@@ -160,7 +229,15 @@ async def create_sohbet_session(
     guest_token: str | None,
 ) -> MirrorSohbetSessionResponse:
     public = await fetch_public_mirror_by_slug(db, slug)
-    return build_sohbet_session_response(public, guest_token)
+    node = await get_mirror_network_node_by_slug(db, slug)
+    parent_slug = node.parent_slug if node else public.lineage
+    parent_id, root_id = await resolve_mirror_lineage_from_db(db, public.slug, parent_slug)
+    return build_sohbet_session_response(
+        public,
+        guest_token,
+        parent_mirror_id=parent_id,
+        root_mirror_id=root_id,
+    )
 
 
 def guest_token_fingerprint(token: str) -> str:

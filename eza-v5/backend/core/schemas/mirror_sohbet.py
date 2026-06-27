@@ -25,3 +25,9 @@ class MirrorSohbetSessionResponse(BaseModel):
     openingMessage: str
     thoughtCards: List[MirrorThoughtCard] = Field(default_factory=list)
     expiresAt: str
+    # Guest conversation metadata (internal API names — never shown as "seed" in UI)
+    parentMirrorId: str
+    rootMirrorId: str
+    seedTopic: str
+    seedCategory: str
+    seedMood: str

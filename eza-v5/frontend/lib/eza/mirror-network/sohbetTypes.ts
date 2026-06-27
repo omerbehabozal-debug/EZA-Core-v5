@@ -15,6 +15,11 @@ export type MirrorSohbetSession = {
   openingMessage: string;
   thoughtCards: MirrorThoughtCard[];
   expiresAt: string;
+  parentMirrorId: string;
+  rootMirrorId: string;
+  seedTopic: string;
+  seedCategory: string;
+  seedMood: string;
 };
 
 export const MIRROR_SOHBET_SESSION_STORAGE_PREFIX = 'saina_mirror_sohbet_session:';
