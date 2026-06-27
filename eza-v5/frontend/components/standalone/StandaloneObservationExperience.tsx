@@ -89,6 +89,8 @@ import {
   getPlusMirrorProductionRemaining,
 } from '@/lib/eza/plan/plusMirrorDailyUsage';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
+import { MIRROR_BIRTH_GENERATE_EVENT } from '@/lib/eza/mirror-birth/mirrorBirthAnalytics';
+import { markMirrorBirthMirrorCreated } from '@/lib/eza/mirror-birth/mirrorBirthSession';
 
 type DailyMirrorStatus =
   | 'idle'
@@ -300,6 +302,7 @@ export default function StandaloneObservationExperience({
           sourceEntries,
           state.dailyMirrorCard.date
         );
+        markMirrorBirthMirrorCreated(conversationId);
       } else {
         saveDailyMirrorSnapshot(sourceEntries, state.dailyMirrorCard.date);
         if (!isPlus) {
@@ -740,6 +743,19 @@ export default function StandaloneObservationExperience({
     runMirrorWithReveal,
     showExistingMirrorCard,
   ]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const onMirrorBirthGenerate = (event: Event) => {
+      const detail = (event as CustomEvent<{ conversationId?: string }>).detail;
+      if (detail?.conversationId !== conversationId) return;
+      handleGenerateDailyMirror();
+    };
+
+    window.addEventListener(MIRROR_BIRTH_GENERATE_EVENT, onMirrorBirthGenerate);
+    return () => window.removeEventListener(MIRROR_BIRTH_GENERATE_EVENT, onMirrorBirthGenerate);
+  }, [conversationId, handleGenerateDailyMirror]);
 
   const handleMirrorRefresh = useCallback(() => {
     if (conversationId) {

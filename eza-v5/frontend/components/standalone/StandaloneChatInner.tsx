@@ -61,6 +61,7 @@ import {
 } from '@/lib/standaloneChatArchive';
 import { MIRROR_GUEST_CHAT_REPLY_PARAM } from '@/lib/eza/mirror-network/mirrorGuestConversation';
 import MirrorBranchSuggestion from '@/components/standalone/MirrorBranchSuggestion';
+import MirrorBirthSuggestion from '@/components/standalone/MirrorBirthSuggestion';
 import { shouldShowBranchSuggestion } from '@/lib/eza/conversation-tree/branchSuggestionPolicy';
 import {
   isBranchSuggestionDismissed,
@@ -76,6 +77,25 @@ import {
   trackBranchCardClicked,
   trackBranchSuggestionShown,
 } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
+import {
+  evaluateMirrorBirth,
+  shouldShowMirrorBirthSuggestion,
+} from '@/lib/eza/mirror-birth/mirrorBirthPolicy';
+import {
+  isMirrorBirthDismissed,
+  isMirrorBirthShown,
+  markMirrorBirthDismissed,
+  markMirrorBirthShown,
+} from '@/lib/eza/mirror-birth/mirrorBirthSession';
+import { hasConversationMirrorArtifact } from '@/lib/eza/mirror-birth/mirrorBirthConversation';
+import {
+  requestMirrorBirthGeneration,
+  trackMirrorBirthAccepted,
+  trackMirrorBirthDismissed,
+  trackMirrorBirthSuggested,
+} from '@/lib/eza/mirror-birth/mirrorBirthAnalytics';
+import { setMirrorBirthDebugState } from '@/lib/eza/mirror-birth/mirrorBirthDebugState';
+import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import {
   fromArchivedMessages,
   toArchivedMessages,
@@ -134,7 +154,10 @@ export default function StandaloneChatInner() {
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const [branchSuggestionVisible, setBranchSuggestionVisible] = useState(false);
   const [branchCards, setBranchCards] = useState<string[]>([]);
+  const [mirrorBirthVisible, setMirrorBirthVisible] = useState(false);
   const lastUserMessageAtRef = useRef<number | null>(null);
+  const lastAssistantDoneAtRef = useRef<number | null>(null);
+  const onOpenMirror = useSainaChromeStore((state) => state.onOpenMirror);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeVariant, setUpgradeVariant] = useState<UpgradeModalVariant>('upgrade');
   const [upgradeFeature, setUpgradeFeature] = useState<string>('saina_sidebar');
@@ -913,6 +936,85 @@ export default function StandaloneChatInner() {
     }
   }, [messages, chatId]);
 
+  useEffect(() => {
+    if (!chatId || isLoading || isTyping) return;
+    const last = messages[messages.length - 1];
+    if (last?.isUser) {
+      lastAssistantDoneAtRef.current = null;
+      setMirrorBirthVisible(false);
+      return;
+    }
+    if (last && !last.isUser && last.text.trim()) {
+      lastAssistantDoneAtRef.current = Date.now();
+    }
+  }, [messages, isLoading, isTyping, chatId]);
+
+  useEffect(() => {
+    if (!chatId || !ready) {
+      setMirrorBirthVisible(false);
+      return;
+    }
+
+    const entries = buildConversationMirrorEntries(messages);
+    const baseInput = {
+      messages,
+      entries,
+      assistantIsDone,
+      isLoading,
+      isTyping,
+      dismissed: isMirrorBirthDismissed(chatId),
+      shownInSession: isMirrorBirthShown(chatId),
+      mirrorAlreadyCreated: hasConversationMirrorArtifact(chatId),
+      lastAssistantDoneAt: lastAssistantDoneAtRef.current,
+    };
+
+    const tick = () => {
+      const evaluation = evaluateMirrorBirth({
+        ...baseInput,
+        lastAssistantDoneAt: lastAssistantDoneAtRef.current,
+      });
+      setMirrorBirthDebugState(evaluation);
+
+      if (hasConversationMirrorArtifact(chatId) || isMirrorBirthDismissed(chatId)) {
+        setMirrorBirthVisible(false);
+        return;
+      }
+
+      const show = shouldShowMirrorBirthSuggestion({
+        ...baseInput,
+        lastAssistantDoneAt: lastAssistantDoneAtRef.current,
+      });
+
+      if (!show) return;
+
+      setMirrorBirthVisible(true);
+      if (!isMirrorBirthShown(chatId)) {
+        markMirrorBirthShown(chatId);
+        trackMirrorBirthSuggested(chatId);
+      }
+    };
+
+    const interval = window.setInterval(tick, 1000);
+    tick();
+    return () => window.clearInterval(interval);
+  }, [chatId, ready, messages, assistantIsDone, isLoading, isTyping]);
+
+  const handleMirrorBirthAccept = useCallback(() => {
+    if (!chatId) return;
+    trackMirrorBirthAccepted(chatId);
+    setMirrorBirthVisible(false);
+    if (!handleRequestMirror()) return;
+    onOpenMirror?.();
+    requestMirrorBirthGeneration(chatId);
+  }, [chatId, handleRequestMirror, onOpenMirror]);
+
+  const handleMirrorBirthDismiss = useCallback(() => {
+    if (!chatId) return;
+    markMirrorBirthDismissed(chatId);
+    trackMirrorBirthDismissed(chatId);
+    setMirrorBirthVisible(false);
+  }, [chatId]);
+
   const handleBranchSelect = useCallback(
     (branchTitle: string) => {
       if (!chatId) return;
@@ -970,12 +1072,20 @@ export default function StandaloneChatInner() {
 
   const messageList =
     !isEmpty ? (
-      <MessageList
-        variant="saina"
-        messages={messages}
-        isLoading={isLoading}
-        isTyping={isTyping}
-      />
+      <>
+        <MessageList
+          variant="saina"
+          messages={messages}
+          isLoading={isLoading}
+          isTyping={isTyping}
+        />
+        {mirrorBirthVisible ? (
+          <MirrorBirthSuggestion
+            onAccept={handleMirrorBirthAccept}
+            onDismiss={handleMirrorBirthDismiss}
+          />
+        ) : null}
+      </>
     ) : null;
 
   useSyncSainaChrome({

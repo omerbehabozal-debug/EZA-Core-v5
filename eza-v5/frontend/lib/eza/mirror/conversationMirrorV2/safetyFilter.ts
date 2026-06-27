@@ -55,10 +55,23 @@ function cueMatches(haystack: string, cue: string): boolean {
 
 export function assessMirrorSafetyLevel(entries: SavedBehavioralEntry[]): SainaMirrorSafetyLevel {
   const haystack = collectCueText(entries);
+  return assessMirrorSafetyHaystack(haystack);
+}
+
+function assessMirrorSafetyHaystack(haystack: string): SainaMirrorSafetyLevel {
   if (!haystack) return 'normal';
   if (RESTRICTED_CUES.some((c) => cueMatches(haystack, c))) return 'restricted';
   if (SENSITIVE_CUES.some((c) => cueMatches(haystack, c))) return 'sensitive';
   return 'normal';
+}
+
+/** Scan raw conversation text when cue hints are not yet materialized. */
+export function assessMirrorSafetyFromTexts(texts: string[]): SainaMirrorSafetyLevel {
+  const haystack = texts
+    .map((text) => text.toLowerCase())
+    .join(' ')
+    .trim();
+  return assessMirrorSafetyHaystack(haystack);
 }
 
 export const SAFE_METAPHOR_SCENE =

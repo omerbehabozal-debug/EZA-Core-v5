@@ -193,6 +193,7 @@ Projede Playwright/Cypress **kurulu değil**. Aşağıdaki testler döngünün p
 |-------|--------|
 | `frontend/tests/mirrorViralLoopQa.test.ts` | Landing surface, guest chat, grup ağacı, branch metadata, leakage |
 | `frontend/tests/mergeGuestConversationTree.test.ts` | Guest → login tree bind, dedupe, idempotency |
+| `frontend/tests/mirrorBirthIntelligence.test.ts` | Mirror Birth Intelligence policy, safety, analytics |
 | `backend/tests/test_mirror_viral_loop_qa.py` | Public API + sohbet session + fixture audit |
 | `backend/tests/test_conversation_groups.py` | claim-guest endpoint + title dedupe |
 

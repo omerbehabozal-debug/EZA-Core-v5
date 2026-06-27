@@ -10,6 +10,8 @@ import {
 } from '@/lib/eza/mirror/mirrorRenderMode';
 import type { MirrorLayoutDebug } from '@/lib/eza/mirror/mirrorPosterLayout';
 
+import MirrorBirthDebugSection from '@/components/mirror/MirrorBirthDebugSection';
+
 function DebugRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-0.5">
@@ -219,6 +221,8 @@ export default function MirrorLiveDebugPanel({
         {snap.v5BackendAppendApplied ? (
           <DebugRow label="V5 backendAppendApplied" value={snap.v5BackendAppendApplied} />
         ) : null}
+
+        <MirrorBirthDebugSection />
 
         <div className="flex flex-col gap-2 sm:flex-row">
           {onToggleHybridMode ? (
