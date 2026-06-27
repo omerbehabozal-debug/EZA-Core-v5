@@ -11,6 +11,10 @@
  * The landing provides context.
  * The conversation delivers knowledge.
  *
+ * Mirror creates curiosity.
+ * Landing preserves curiosity.
+ * Conversation satisfies curiosity.
+ *
  * Never move contextual information back onto the card.
  */
 
@@ -25,6 +29,10 @@ A Mirror is a cinematic curiosity artifact.
 The card creates curiosity.
 The landing provides context.
 The conversation delivers knowledge.
+
+Mirror creates curiosity.
+Landing preserves curiosity.
+Conversation satisfies curiosity.
 
 Never move contextual information back onto the card.`;
 

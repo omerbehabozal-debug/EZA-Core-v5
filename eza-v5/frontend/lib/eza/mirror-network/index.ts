@@ -9,6 +9,19 @@ export {
 export type { MirrorPhilosophyCheck } from '@/lib/eza/mirror-network/philosophy';
 
 export type {
+  MirrorLandingSurface,
+  MirrorNetworkPublicApiResponse,
+} from '@/lib/eza/mirror-network/publicTypes';
+
+export {
+  assertMirrorLandingSurfaceClean,
+  formatMirrorLandingDate,
+  pickMirrorLandingSurface,
+} from '@/lib/eza/mirror-network/landingSurface';
+
+export { fetchPublicMirrorBySlug } from '@/lib/eza/mirror-network/fetchPublicMirror';
+
+export type {
   MirrorCuriosityBundle,
   MirrorCuriosityContext,
   MirrorCuriosityPipeline,
