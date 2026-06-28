@@ -4,6 +4,7 @@ export {
   evaluateMirrorPhilosophyCheck,
   formatMirrorPhilosophyCheck,
   SAINA_MIRROR_PHILOSOPHY_MANIFESTO,
+  SAINA_SHARE_ARCHITECTURE_MANIFESTO,
 } from '@/lib/eza/mirror-network/philosophy';
 
 export type { MirrorPhilosophyCheck } from '@/lib/eza/mirror-network/philosophy';

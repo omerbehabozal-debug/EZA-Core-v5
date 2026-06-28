@@ -7,6 +7,7 @@ import {
   buildDailyMirrorExportFilename,
   buildDailyMirrorShareText,
 } from '@/lib/eza/mirror/dailyMirrorShareText';
+import { resolveMirrorShareCaption } from '@/lib/eza/mirror-share/resolveMirrorShareCaption';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
 export type MirrorExportFormat = 'png';
@@ -89,6 +90,9 @@ export function buildMirrorExportFilename(dateIso?: string): string {
 }
 
 export function resolveMirrorShareText(card?: DailyMirrorCardModel | null): string {
+  if (card?.mirrorShare || card?.mirrorV3Payload) {
+    return resolveMirrorShareCaption(card);
+  }
   if (card) {
     return buildDailyMirrorShareText(card);
   }

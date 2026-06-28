@@ -18,6 +18,9 @@ import { buildVisualPayloadFromMirrorV3 } from '@/lib/eza/mirror/conversationMir
 import { buildMirrorV3SeedHint } from '@/lib/eza/mirror/conversationMirrorV3/sceneCacheFingerprint';
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import { MIRROR_PIPELINE_VERSION } from '@/lib/eza/mirror/conversationMirrorV3/types';
+import { buildMirrorCuriosityBundle } from '@/lib/eza/mirror-network/buildMirrorCuriosity';
+import { buildShareBlueprint } from '@/lib/eza/mirror-share/buildShareBlueprint';
+import type { MirrorShareIdentity } from '@/lib/eza/mirror-share/types';
 
 function sortNewestFirst(entries: SavedBehavioralEntry[]): SavedBehavioralEntry[] {
   return [...entries].sort(
@@ -45,6 +48,18 @@ function adaptPayloadToDailyCard(
   const visual = buildVisualPayloadFromMirrorV3(payload, {
     seedHint: buildMirrorV3SeedHint(payload),
   });
+
+  const pipeline = payload.curiosityBundle ?? buildMirrorCuriosityBundle(payload);
+  const blob = (payload.conversationEvidence ?? [])
+    .map((item) => `${item.label} ${item.visualHint ?? ''}`)
+    .join(' ')
+    .toLowerCase();
+  const shareVoice = pipeline.shareVoice!;
+  const mirrorShare: MirrorShareIdentity = {
+    blueprint: buildShareBlueprint(pipeline, blob),
+    shareVoice,
+    shareUrl: null,
+  };
 
   return {
     date: dateIso,
@@ -74,6 +89,7 @@ function adaptPayloadToDailyCard(
     mirrorSeason: payload.season,
     closingLine: payload.closingLine,
     mirrorV3Payload: payload,
+    mirrorShare,
   };
 }
 

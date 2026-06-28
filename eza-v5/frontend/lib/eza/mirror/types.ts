@@ -159,6 +159,8 @@ export interface DailyMirrorCardModel {
   closingLine?: string;
   mirrorV2Payload?: import('@/lib/eza/mirror/conversationMirrorV2/types').SainaMirrorPayload;
   mirrorV3Payload?: import('@/lib/eza/mirror/conversationMirrorV3/types').SainaMirrorV3Payload;
+  /** Stage 4B — Share Architecture identity (blueprint + shareVoice). */
+  mirrorShare?: import('@/lib/eza/mirror-share/types').MirrorShareIdentity;
 }
 
 export interface RelationshipPatternModel {

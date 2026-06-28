@@ -56,7 +56,7 @@ import DailyMirrorCardEntrance from '@/components/mirror/DailyMirrorCardEntrance
 import MirrorLoadingExperience from '@/components/mirror/MirrorLoadingExperience';
 import DailyMirrorReadyFooter from '@/components/mirror/DailyMirrorReadyFooter';
 import MirrorPosterLightbox from '@/components/mirror/MirrorPosterLightbox';
-import MirrorShareModal from '@/components/mirror/MirrorShareModal';
+import MirrorShareExperience from '@/components/mirror/MirrorShareExperience';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
 import {
@@ -1111,9 +1111,10 @@ export default function StandaloneObservationExperience({
         {renderDailyPanel()}
       </div>
 
-      <MirrorShareModal
+      <MirrorShareExperience
         open={shareOpen && isPlus}
         onClose={handleShareClose}
+        card={generatedDailyCard}
         previewUrl={mirrorExport.previewUrl}
         loading={mirrorExport.loading}
         error={mirrorExport.error}

@@ -20,6 +20,7 @@ import type {
   MirrorSeed,
   MirrorTopicMood,
 } from '@/lib/eza/mirror-network/types';
+import { buildShareVoice } from '@/lib/eza/mirror-share/buildShareVoice';
 
 const MAX_SUBTOPICS = 4;
 const MAX_HOOKS = 3;
@@ -242,6 +243,8 @@ export function buildMirrorCuriosityPipeline(
   const hooks = seed.curiosityHooks;
   const seedQuestions = seed.seedQuestions;
 
+  const shareVoice = buildShareVoice(seed, blob);
+
   return {
     seed,
     cardTitle,
@@ -252,6 +255,7 @@ export function buildMirrorCuriosityPipeline(
     seedQuestions,
     discoverySignals: buildDiscoverySignals(seed),
     collectionTags: buildCollectionTags(seed),
+    shareVoice,
   };
 }
 

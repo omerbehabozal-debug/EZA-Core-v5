@@ -18,6 +18,7 @@ export type MirrorNetworkPublicApiResponse = {
   collectionTags?: string[];
   seed?: Record<string, unknown>;
   lineage?: string | null;
+  shareVoice?: string | null;
 };
 
 /**

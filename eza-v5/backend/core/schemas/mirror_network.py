@@ -43,6 +43,7 @@ class MirrorNetworkPublicPayload(BaseModel):
     collectionTags: List[str] = Field(default_factory=list)
     seed: MirrorSeedPublic
     lineage: Optional[str] = None
+    shareVoice: Optional[str] = None
 
 
 # Stage 2 landing UI: show at most this many hooks / seed starters (card shows none).

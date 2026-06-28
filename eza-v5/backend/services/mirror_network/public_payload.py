@@ -112,6 +112,12 @@ def build_public_payload_from_curiosity(
         )[:8],
         seed=build_mirror_seed_public(seed_raw),
         lineage=parent_slug or _as_str(seed_raw.get("lineage")) or None,
+        shareVoice=_as_str(
+            (curiosity_public.get("shareVoice") or {}).get("text")
+            if isinstance(curiosity_public.get("shareVoice"), dict)
+            else curiosity_public.get("shareVoice")
+        )
+        or None,
     )
 
 
@@ -201,6 +207,7 @@ def split_curiosity_payloads(
         "discoverySignals": curiosity_bundle.get("discoverySignals"),
         "collectionTags": curiosity_bundle.get("collectionTags"),
         "seed": curiosity_bundle.get("seed"),
+        "shareVoice": curiosity_bundle.get("shareVoice"),
     }
 
     public_payload = build_public_payload_from_curiosity(

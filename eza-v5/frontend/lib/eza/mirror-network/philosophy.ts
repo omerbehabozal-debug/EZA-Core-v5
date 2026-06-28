@@ -7,13 +7,17 @@
  *
  * A Mirror is a cinematic curiosity artifact.
  *
- * The card creates curiosity.
- * The landing provides context.
- * The conversation delivers knowledge.
+ * Four surfaces (Stage 4B — do not collapse):
+ *   Mirror creates curiosity.
+ *   Caption creates intent.
+ *   Landing preserves curiosity.
+ *   Conversation satisfies curiosity.
  *
- * Mirror creates curiosity.
- * Landing preserves curiosity.
- * Conversation satisfies curiosity.
+ * Four rules:
+ *   Mirror never explains.
+ *   Caption never explains. It only invites.
+ *   Landing never overwhelms.
+ *   Conversation never copies.
  *
  * Never move contextual information back onto the card.
  */
@@ -26,15 +30,45 @@ A Mirror is not an AI answer.
 
 A Mirror is a cinematic curiosity artifact.
 
-The card creates curiosity.
-The landing provides context.
-The conversation delivers knowledge.
-
 Mirror creates curiosity.
+Caption creates intent.
 Landing preserves curiosity.
 Conversation satisfies curiosity.
 
+Mirror never explains.
+Caption never explains. It only invites.
+Landing never overwhelms.
+Conversation never copies.
+
 Never move contextual information back onto the card.`;
+
+export const SAINA_SHARE_ARCHITECTURE_MANIFESTO = `SAINA Share Architecture (Stage 4B)
+
+SAINA is not a sharing app.
+SAINA is not a chat app.
+SAINA makes the relationship between curiosity and AI visible.
+
+Mirror is the trace of that relationship.
+Share is the journey of that trace.
+Landing is the invitation.
+Conversation is the continuation of curiosity.
+
+Share Experience never celebrates. It simply prepares.
+The celebration happens when another curiosity begins.
+
+Caption speaks to the reader — never about the Mirror.
+Caption never says: "This Mirror was created from…"
+Caption says: "You can live this curiosity too."
+
+Three caption layers:
+  1. shareVoice — Mirror's spirit (one sentence, human)
+  2. Invitation — conversation is the product
+  3. CTA + shareUrl — never URL alone`;
+
+/** @deprecated Use SAINA_MIRROR_PHILOSOPHY_MANIFESTO — kept for transitional imports. */
+export const SAINA_MIRROR_PHILOSOPHY_LEGACY_THREE_SURFACE = `The card creates curiosity.
+The landing provides context.
+The conversation delivers knowledge.`;
 
 /** Curiosity Seed Intelligence — analysis target is curiosity born from chat, not the chat itself. */
 export const CURIOSITY_SEED_INTELLIGENCE_LABEL = 'Curiosity Seed Intelligence' as const;

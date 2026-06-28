@@ -15,6 +15,7 @@
  */
 
 import type { StoryTopicId } from '@/lib/eza/mirror/storyTopicTypes';
+import type { ShareVoiceLine } from '@/lib/eza/mirror-share/types';
 
 export type MirrorTopicMood =
   | 'discovery'
@@ -70,6 +71,8 @@ export type MirrorCuriosityPipeline = {
   discoverySignals: string[];
   /** Stage 4+ — collection / browse facets. */
   collectionTags: string[];
+  /** Mirror Intelligence — caption layer 1; landing/card/image prompt'ta görünmez. */
+  shareVoice?: ShareVoiceLine;
 };
 
 export type MirrorCuriosityBundle = MirrorCuriosityPipeline;
