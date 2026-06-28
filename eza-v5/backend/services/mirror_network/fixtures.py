@@ -33,6 +33,10 @@ JAPAN_FIXTURE_BUNDLE: Dict[str, Any] = {
         "locale": "tr",
         "safetyTier": "open",
     },
+    "shareVoice": {
+        "text": "Bazı şehirler gündüz değil, akşam anlaşılır.",
+        "preset": "quiet_editorial_minimal",
+    },
 }
 
 JAPAN_FIXTURE_INTELLIGENCE_PRIVATE: Dict[str, Any] = {

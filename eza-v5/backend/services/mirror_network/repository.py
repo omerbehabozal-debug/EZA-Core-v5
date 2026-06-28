@@ -46,3 +46,30 @@ async def get_mirror_network_node_by_id(
 ) -> Optional[MirrorNetworkNode]:
     result = await db.execute(select(MirrorNetworkNode).where(MirrorNetworkNode.id == node_id))
     return result.scalar_one_or_none()
+
+
+async def get_mirror_network_node_by_conversation(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    conversation_id: str,
+) -> Optional[MirrorNetworkNode]:
+    normalized = (conversation_id or "").strip()
+    if not normalized:
+        return None
+    result = await db.execute(
+        select(MirrorNetworkNode).where(
+            MirrorNetworkNode.user_id == user_id,
+            MirrorNetworkNode.conversation_id == normalized,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_mirror_network_node(
+    db: AsyncSession,
+    node: MirrorNetworkNode,
+) -> MirrorNetworkNode:
+    await db.commit()
+    await db.refresh(node)
+    return node

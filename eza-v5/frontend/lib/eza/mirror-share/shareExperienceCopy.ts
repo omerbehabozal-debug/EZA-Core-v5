@@ -30,5 +30,10 @@ export const SHARE_INVITATION_OWN_JOURNEY =
 
 export const SHARE_CTA_CONTINUE_FROM_HERE = '→ Buradan devam et.';
 
-export const SHARE_URL_PENDING_NOTE =
-  'Ağ bağlantısı yayınlandığında paylaşım metnine eklenir.';
+/** Stage 4C — quiet fallback when share link preparation fails. */
+export const SHARE_LINK_PREPARE_FAILED =
+  'Paylaşım bağlantısı hazırlanamadı. Tekrar dene.';
+
+export const SHARE_LINK_PREPARE_RETRY = 'Tekrar dene';
+
+export const SHARE_LINK_PREPARING = 'Paylaşım bağlantısı hazırlanıyor…';

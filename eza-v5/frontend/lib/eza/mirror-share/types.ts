@@ -37,4 +37,5 @@ export type MirrorShareIdentity = {
   blueprint: ShareBlueprint;
   shareVoice: ShareVoiceLine;
   shareUrl?: string | null;
+  networkSlug?: string | null;
 };

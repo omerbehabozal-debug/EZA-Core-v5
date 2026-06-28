@@ -86,3 +86,16 @@ class MirrorNetworkDebugReport(BaseModel):
     privatePayloadPresent: bool
     privateFieldCount: int
     philosophyCheck: str
+
+
+class MirrorNetworkPublishRequest(BaseModel):
+    """Stage 4C — auto-register Mirror to network on creation (authenticated)."""
+
+    cardTitle: str = Field(..., min_length=1, max_length=200)
+    cardDate: str = Field(..., min_length=8, max_length=10)
+    conversationId: Optional[str] = Field(default=None, max_length=128)
+    sceneImageUrl: Optional[str] = None
+    curiosityBundle: Dict[str, Any]
+    intelligencePrivate: Optional[Dict[str, Any]] = None
+    safetyLevel: Optional[str] = "normal"
+    parentSlug: Optional[str] = Field(default=None, max_length=64)

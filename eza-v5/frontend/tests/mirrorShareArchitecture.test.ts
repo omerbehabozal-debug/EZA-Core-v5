@@ -70,7 +70,7 @@ describe('Share Architecture (Stage 4B Foundation)', () => {
     expect(caption).not.toContain('AI ile konuştum');
   });
 
-  it('omits URL bridge when shareUrl is not yet published', () => {
+  it('omits URL bridge when shareUrl is absent (legacy cards)', () => {
     const caption = buildInstagramShareCaption({
       captionLine: 'Bazı şehirler gündüz değil, akşam anlaşılır.',
       invitation: SHARE_INVITATION_CONTINUE_QUESTIONS,

@@ -91,6 +91,16 @@ import {
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import { MIRROR_BIRTH_GENERATE_EVENT } from '@/lib/eza/mirror-birth/mirrorBirthAnalytics';
 import { markMirrorBirthMirrorCreated } from '@/lib/eza/mirror-birth/mirrorBirthSession';
+import {
+  readMirrorShareLink,
+  saveMirrorShareLink,
+} from '@/lib/eza/mirror-share/mirrorShareLinkCache';
+import {
+  applyShareUrlToCard,
+  mergeCachedShareLinkIntoCard,
+  publishMirrorToNetwork,
+} from '@/lib/eza/mirror-share/publishMirrorToNetwork';
+import type { MirrorShareLinkStatus } from '@/components/mirror/MirrorShareExperience';
 
 type DailyMirrorStatus =
   | 'idle'
@@ -118,6 +128,8 @@ export default function StandaloneObservationExperience({
   conversationId,
 }: StandaloneObservationExperienceProps) {
   const [shareOpen, setShareOpen] = useState(false);
+  const [shareLinkStatus, setShareLinkStatus] = useState<MirrorShareLinkStatus>('idle');
+  const [shareLinkError, setShareLinkError] = useState<string | null>(null);
   const [posterLightboxOpen, setPosterLightboxOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeVariant, setUpgradeVariant] = useState<UpgradeModalVariant>('upgrade');
@@ -140,6 +152,7 @@ export default function StandaloneObservationExperience({
   const lastRawSceneUrlRef = useRef<string | null>(null);
   const hydratedFromSnapshotRef = useRef(false);
   const sceneDisplayBlobUrlRef = useRef<string | null>(null);
+  const shareLinkInFlightRef = useRef(false);
   const mirrorExport = useMirrorCardExport();
   const { isAuthenticated, isAuthReady } = useAuth();
   const { isPlus, refreshPlan } = usePlan();
@@ -277,7 +290,71 @@ export default function StandaloneObservationExperience({
     setSceneImageStatus('idle');
     setHybridTextFallback(false);
     setSceneExtras({});
+    setShareLinkStatus('idle');
+    setShareLinkError(null);
   }, [conversationId]);
+
+  const prepareMirrorShareLink = useCallback(
+    async (
+      card: DailyMirrorCardModel,
+      sceneUrl?: string | null,
+      options?: { refreshScene?: boolean }
+    ) => {
+      if (!isAuthReady || !isAuthenticated) return;
+      if (!card.mirrorV3Payload) return;
+      if (shareLinkInFlightRef.current) return;
+
+      if (card.mirrorShare?.shareUrl && !options?.refreshScene) {
+        setShareLinkStatus('ready');
+        setShareLinkError(null);
+        return;
+      }
+
+      shareLinkInFlightRef.current = true;
+      setShareLinkStatus('preparing');
+      setShareLinkError(null);
+
+      const rawScene =
+        sceneUrl ??
+        lastRawSceneUrlRef.current ??
+        readMirrorSceneCacheForScope(conversationId, card)?.sceneImageUrl ??
+        null;
+
+      const result = await publishMirrorToNetwork({
+        card,
+        conversationId,
+        sceneImageUrl: rawScene,
+      });
+
+      shareLinkInFlightRef.current = false;
+
+      if (result.ok) {
+        if (conversationId) {
+          saveMirrorShareLink(conversationId, result.slug, result.shareUrl);
+        }
+        setGeneratedDailyCard((prev) =>
+          prev ? applyShareUrlToCard(prev, result.shareUrl, result.slug) : prev
+        );
+        setShareLinkStatus('ready');
+        setShareLinkError(null);
+        return;
+      }
+
+      if (card.mirrorShare?.shareUrl && options?.refreshScene) {
+        setShareLinkStatus('ready');
+        return;
+      }
+
+      setShareLinkStatus('failed');
+      setShareLinkError(result.message);
+    },
+    [conversationId, isAuthReady, isAuthenticated]
+  );
+
+  const handleRetryShareLink = useCallback(() => {
+    if (!generatedDailyCard) return;
+    void prepareMirrorShareLink(generatedDailyCard);
+  }, [generatedDailyCard, prepareMirrorShareLink]);
 
   const commitMirrorReady = useCallback(
     (sourceEntries: SavedBehavioralEntry[]) => {
@@ -287,31 +364,46 @@ export default function StandaloneObservationExperience({
         setDailyStatus('insufficient');
         return false;
       }
-      setGeneratedDailyCard(state.dailyMirrorCard);
+      const cachedLink = conversationId ? readMirrorShareLink(conversationId) : null;
+      const card = mergeCachedShareLinkIntoCard(state.dailyMirrorCard, cachedLink);
+      setGeneratedDailyCard(card);
       setGeneratedDailyMeta(state.meta);
-      setStyleLensSession(resetStyleLensSessionForCard(state.dailyMirrorCard));
+      setStyleLensSession(resetStyleLensSessionForCard(card));
       clearMirrorSceneCacheForScope(conversationId);
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
       setHybridTextFallback(false);
       setSceneExtras({});
       setDailyStatus('ready');
+      if (card.mirrorShare?.shareUrl) {
+        setShareLinkStatus('ready');
+        setShareLinkError(null);
+      } else {
+        setShareLinkStatus('idle');
+        void prepareMirrorShareLink(card);
+      }
       if (conversationId) {
         saveConversationMirrorSnapshot(
           conversationId,
           sourceEntries,
-          state.dailyMirrorCard.date
+          card.date
         );
         markMirrorBirthMirrorCreated(conversationId);
       } else {
-        saveDailyMirrorSnapshot(sourceEntries, state.dailyMirrorCard.date);
+        saveDailyMirrorSnapshot(sourceEntries, card.date);
         if (!isPlus) {
-          markFreeMirrorUsedToday(state.dailyMirrorCard.date);
+          markFreeMirrorUsedToday(card.date);
         }
       }
       return true;
     },
-    [conversationId, isPlus, mirrorBuildOptions, resetGeneratedCardState]
+    [
+      conversationId,
+      isPlus,
+      mirrorBuildOptions,
+      prepareMirrorShareLink,
+      resetGeneratedCardState,
+    ]
   );
 
   const runMirrorWithReveal = useCallback(
@@ -353,11 +445,17 @@ export default function StandaloneObservationExperience({
     }
 
     hydratedFromSnapshotRef.current = true;
-    const card = state.dailyMirrorCard;
+    const cachedLink = conversationId ? readMirrorShareLink(conversationId) : null;
+    const card = mergeCachedShareLinkIntoCard(state.dailyMirrorCard, cachedLink);
     setGeneratedDailyCard(card);
     setGeneratedDailyMeta(state.meta);
     setStyleLensSession(resolveStyleLensSessionForCard(card));
     setHybridTextFallback(false);
+    if (card.mirrorShare?.shareUrl) {
+      setShareLinkStatus('ready');
+    } else {
+      void prepareMirrorShareLink(card);
+    }
 
     const sceneCache = readMirrorSceneCacheForScope(conversationId, card);
     if (sceneCache) {
@@ -376,6 +474,7 @@ export default function StandaloneObservationExperience({
     entries,
     hydrateSceneFromCache,
     mirrorBuildOptions,
+    prepareMirrorShareLink,
     todaysSnapshot,
   ]);
 
@@ -392,11 +491,17 @@ export default function StandaloneObservationExperience({
     if (!state.meta.hasEnoughData || !state.dailyMirrorCard.shareEnabled) return;
 
     hydratedFromSnapshotRef.current = true;
-    const card = state.dailyMirrorCard;
+    const cachedLink = conversationId ? readMirrorShareLink(conversationId) : null;
+    const card = mergeCachedShareLinkIntoCard(state.dailyMirrorCard, cachedLink);
     setGeneratedDailyCard(card);
     setGeneratedDailyMeta(state.meta);
     setStyleLensSession(resolveStyleLensSessionForCard(card));
     setHybridTextFallback(false);
+    if (card.mirrorShare?.shareUrl) {
+      setShareLinkStatus('ready');
+    } else {
+      void prepareMirrorShareLink(card);
+    }
 
     const sceneCache = readMirrorSceneCacheForScope(conversationId, card);
     if (sceneCache) {
@@ -418,6 +523,7 @@ export default function StandaloneObservationExperience({
     todaysSnapshot,
     hydrateSceneFromCache,
     mirrorBuildOptions,
+    prepareMirrorShareLink,
   ]);
 
   const cardForRender = useMemo(
@@ -543,6 +649,9 @@ export default function StandaloneObservationExperience({
           result.provider
         );
         sceneAutoKeyRef.current = `${autoKey}:complete`;
+        void prepareMirrorShareLink(generatedDailyCard, result.sceneImageUrl, {
+          refreshScene: true,
+        });
         if (
           !isV3MirrorCard(generatedDailyCard) &&
           (visual.renderMode ?? resolveMirrorRenderMode()) === 'hybrid_middle' &&
@@ -596,6 +705,7 @@ export default function StandaloneObservationExperience({
       isAuthenticated,
       isPlus,
       buildSceneAutoKey,
+      prepareMirrorShareLink,
       resolveSceneDisplayUrl,
       sceneImageStatus,
       styleLensSession,
@@ -1118,6 +1228,9 @@ export default function StandaloneObservationExperience({
         previewUrl={mirrorExport.previewUrl}
         loading={mirrorExport.loading}
         error={mirrorExport.error}
+        shareLinkStatus={shareLinkStatus}
+        shareLinkError={shareLinkError}
+        onRetryShareLink={handleRetryShareLink}
         onCapture={handleShareCapture}
         onShare={handleShareNative}
         onCopyText={() => mirrorExport.copyText(generatedDailyCard)}

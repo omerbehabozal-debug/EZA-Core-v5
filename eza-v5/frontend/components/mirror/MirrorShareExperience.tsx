@@ -17,11 +17,15 @@ import {
   SHARE_EXPERIENCE_PRIVACY,
   SHARE_EXPERIENCE_SUBTITLE,
   SHARE_EXPERIENCE_TITLE,
-  SHARE_URL_PENDING_NOTE,
+  SHARE_LINK_PREPARE_FAILED,
+  SHARE_LINK_PREPARE_RETRY,
+  SHARE_LINK_PREPARING,
 } from '@/lib/eza/mirror-share/shareExperienceCopy';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 const sh = standaloneSkin.share;
+
+export type MirrorShareLinkStatus = 'idle' | 'preparing' | 'ready' | 'failed';
 
 export interface MirrorShareExperienceProps {
   open: boolean;
@@ -30,6 +34,9 @@ export interface MirrorShareExperienceProps {
   previewUrl: string | null;
   loading: boolean;
   error: string | null;
+  shareLinkStatus?: MirrorShareLinkStatus;
+  shareLinkError?: string | null;
+  onRetryShareLink?: () => void;
   onCapture: () => Promise<void>;
   onShare: () => Promise<void>;
   onCopyText: () => Promise<boolean>;
@@ -45,6 +52,9 @@ export default function MirrorShareExperience({
   previewUrl,
   loading,
   error,
+  shareLinkStatus = 'idle',
+  shareLinkError = null,
+  onRetryShareLink,
   onCapture,
   onShare,
   onCopyText,
@@ -56,6 +66,8 @@ export default function MirrorShareExperience({
 
   const captionPreview = card ? resolveMirrorShareCaption(card) : '';
   const hasShareUrl = Boolean(card?.mirrorShare?.shareUrl);
+  const shareLinkBusy = shareLinkStatus === 'preparing';
+  const shareLinkFailed = shareLinkStatus === 'failed';
 
   useEffect(() => {
     setMounted(true);
@@ -158,8 +170,25 @@ export default function MirrorShareExperience({
           >
             {captionPreview}
           </pre>
-          {!hasShareUrl ? (
-            <p className="mt-2 text-[11px] text-stone-400">{SHARE_URL_PENDING_NOTE}</p>
+          {!hasShareUrl && shareLinkBusy ? (
+            <p className="mt-2 text-[11px] text-stone-400">{SHARE_LINK_PREPARING}</p>
+          ) : null}
+          {shareLinkFailed ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-[11px] text-stone-500">
+                {shareLinkError ?? SHARE_LINK_PREPARE_FAILED}
+              </p>
+              {onRetryShareLink ? (
+                <button
+                  type="button"
+                  onClick={onRetryShareLink}
+                  className="text-[11px] font-medium text-violet-600 hover:text-violet-700"
+                  data-testid="mirror-share-link-retry"
+                >
+                  {SHARE_LINK_PREPARE_RETRY}
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
@@ -170,7 +199,7 @@ export default function MirrorShareExperience({
             <button
               type="button"
               onClick={handleShare}
-              disabled={loading || !previewUrl || busy !== null}
+              disabled={loading || !previewUrl || busy !== null || !hasShareUrl || shareLinkBusy}
               className={cn(sh.primaryBtn, 'inline-flex items-center justify-center gap-2')}
               data-testid="mirror-share-native"
             >

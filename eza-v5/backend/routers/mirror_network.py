@@ -12,16 +12,20 @@ from backend.config import get_settings
 from backend.core.schemas.mirror_network import (
     MirrorNetworkDebugReport,
     MirrorNetworkPublicPayload,
+    MirrorNetworkPublishRequest,
 )
 from backend.core.schemas.mirror_sohbet import (
     MirrorSohbetSessionRequest,
     MirrorSohbetSessionResponse,
 )
 from backend.security.rate_limit import rate_limit_standalone
+from backend.auth.mirror_entitlement import require_mirror_authenticated_user
 from backend.models.mirror_network import MirrorNetworkNode
+from backend.models.production import User
 from backend.services.mirror_network.fixtures import build_fixture_mirror_node
 from backend.services.mirror_network.repository import create_mirror_network_node
 from backend.core.utils.dependencies import get_db
+from backend.services.mirror_network.publish import publish_mirror_to_network
 from backend.services.mirror_network.service import fetch_debug_mirror_by_slug, fetch_public_mirror_by_slug
 from backend.services.mirror_network.sohbet_session import create_sohbet_session
 
@@ -51,6 +55,25 @@ def _verify_debug_access(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"ok": False, "error": "debug_secret_required", "message": "Unauthorized"},
         )
+
+
+@router.post(
+    "/publish",
+    response_model=MirrorNetworkPublicPayload,
+    status_code=status.HTTP_201_CREATED,
+)
+async def publish_mirror_network_node(
+    body: MirrorNetworkPublishRequest,
+    user: User = Depends(require_mirror_authenticated_user),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+) -> MirrorNetworkPublicPayload:
+    """
+    Register Mirror to network on creation — share link is prepared automatically.
+
+    No separate user-facing publish step; curiosity-only public payload.
+    """
+    return await publish_mirror_to_network(db, user, body)
 
 
 @router.get("/{slug}", response_model=MirrorNetworkPublicPayload)
