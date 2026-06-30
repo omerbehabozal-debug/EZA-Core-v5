@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     # Universal Event — pipeline hook (Stage 3)
     EZA_EVENT_LOGGING_ENABLED: bool = False  # Non-blocking eza_events write after pipeline
 
+    # EZA Observation — product experience events (SAINA and future products)
+    EXPERIENCE_EVENT_LOGGING_ENABLED: bool = False  # Non-blocking experience_events ingest
+    EXPERIENCE_EVENT_RETENTION_DAYS: int = 30
+
     # Standalone — lightweight rule-based observation (no LLM; default off)
     STANDALONE_OBSERVATION_ENABLED: bool = False
 

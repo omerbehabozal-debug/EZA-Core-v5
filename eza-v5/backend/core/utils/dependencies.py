@@ -94,6 +94,7 @@ async def init_db():
         BehavioralFeedback,
     )
     from backend.models.eza_event import EzaEvent
+    from backend.models.experience_event import ExperienceEvent
     # Import legacy models to ensure they are registered
     from backend.models.user import LegacyUser
     from backend.models.role import Role
