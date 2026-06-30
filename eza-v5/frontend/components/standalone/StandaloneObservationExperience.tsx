@@ -89,7 +89,10 @@ import {
   getPlusMirrorProductionRemaining,
 } from '@/lib/eza/plan/plusMirrorDailyUsage';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
-import { MIRROR_BIRTH_GENERATE_EVENT } from '@/lib/eza/mirror-birth/mirrorBirthAnalytics';
+import {
+  MIRROR_BIRTH_GENERATE_EVENT,
+  trackMirrorCreated,
+} from '@/lib/eza/mirror-birth/mirrorBirthAnalytics';
 import { markMirrorBirthMirrorCreated } from '@/lib/eza/mirror-birth/mirrorBirthSession';
 import {
   readMirrorShareLink,
@@ -101,6 +104,10 @@ import {
   publishMirrorToNetwork,
 } from '@/lib/eza/mirror-share/publishMirrorToNetwork';
 import type { MirrorShareLinkStatus } from '@/components/mirror/MirrorShareExperience';
+import {
+  trackMirrorShareOpened,
+  trackMirrorShared,
+} from '@/lib/eza/mirror-share/mirrorShareAnalytics';
 
 type DailyMirrorStatus =
   | 'idle'
@@ -389,6 +396,7 @@ export default function StandaloneObservationExperience({
           card.date
         );
         markMirrorBirthMirrorCreated(conversationId);
+        trackMirrorCreated(conversationId, card.mirrorShare?.networkSlug ?? null);
       } else {
         saveDailyMirrorSnapshot(sourceEntries, card.date);
         if (!isPlus) {
@@ -942,7 +950,11 @@ export default function StandaloneObservationExperience({
   const handleShareOpen = useCallback(() => {
     if (!isPlus) return;
     setShareOpen(true);
-  }, [isPlus]);
+    trackMirrorShareOpened(
+      generatedDailyCard?.mirrorShare?.networkSlug ?? conversationId ?? null,
+      conversationId
+    );
+  }, [isPlus, generatedDailyCard, conversationId]);
 
   const handlePosterPreviewOpen = useCallback(() => {
     if (!sceneImageUrl?.trim()) return;
@@ -956,7 +968,11 @@ export default function StandaloneObservationExperience({
 
   const handleShareNative = useCallback(async () => {
     await mirrorExport.share(generatedDailyCard);
-  }, [mirrorExport, generatedDailyCard]);
+    trackMirrorShared(
+      generatedDailyCard?.mirrorShare?.networkSlug ?? conversationId ?? null,
+      conversationId
+    );
+  }, [mirrorExport, generatedDailyCard, conversationId]);
 
   const handleRetryMirrorScene = useCallback(() => {
     sceneAutoKeyRef.current = null;

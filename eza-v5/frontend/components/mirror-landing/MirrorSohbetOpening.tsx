@@ -10,7 +10,10 @@ import {
   MIRROR_GUEST_CHAT_REPLY_PARAM,
   startMirrorGuestChat,
 } from '@/lib/eza/mirror-network/mirrorGuestConversation';
-import { trackSeedStart } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
+import {
+  trackSeedStart,
+  trackGuestConversationStarted,
+} from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import type { MirrorSohbetSession, MirrorThoughtCard } from '@/lib/eza/mirror-network/sohbetTypes';
 import { cn } from '@/lib/utils';
 
@@ -61,6 +64,8 @@ export default function MirrorSohbetOpening({
         setSubmitting(false);
         return;
       }
+
+      trackGuestConversationStarted(session.mirrorSlug, session.guestToken);
 
       router.push(
         `/standalone?chat=${created.chatId}&${MIRROR_GUEST_CHAT_REPLY_PARAM}=1`

@@ -11,10 +11,12 @@
  * No hooks, seedQuestions, tags, coreCuriosity, or discovery metadata.
  */
 
+import { useEffect } from 'react';
 import { Calendar, Sparkles } from 'lucide-react';
 import MirrorLandingCta from '@/components/mirror-landing/MirrorLandingCta';
 import { MIRROR_V3_BRAND_SIGNATURE } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import type { MirrorLandingSurface } from '@/lib/eza/mirror-network/publicTypes';
+import { trackLandingViewed } from '@/lib/eza/mirror-network/landingAnalytics';
 import { cn } from '@/lib/utils';
 
 export type MirrorLandingExperienceProps = {
@@ -27,6 +29,10 @@ export default function MirrorLandingExperience({
   className,
 }: MirrorLandingExperienceProps) {
   const hasImage = Boolean(surface.sceneImageUrl);
+
+  useEffect(() => {
+    trackLandingViewed(surface.slug);
+  }, [surface.slug]);
 
   return (
     <article

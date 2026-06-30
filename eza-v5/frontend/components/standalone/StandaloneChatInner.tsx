@@ -60,6 +60,7 @@ import {
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { MIRROR_GUEST_CHAT_REPLY_PARAM } from '@/lib/eza/mirror-network/mirrorGuestConversation';
+import { trackSecondUserMessageSent } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import MirrorBranchSuggestion from '@/components/standalone/MirrorBranchSuggestion';
 import MirrorBirthSuggestion from '@/components/standalone/MirrorBirthSuggestion';
 import { shouldShowBranchSuggestion } from '@/lib/eza/conversation-tree/branchSuggestionPolicy';
@@ -485,6 +486,16 @@ export default function StandaloneChatInner() {
     }
 
     const chatHistory = buildChatHistoryPayload(messages);
+
+    const activeChat = chatId ? getChatArchive(chatId) : null;
+    const isGuestMirrorSession = Boolean(activeChat?.mirrorOrigin?.isGuestSession);
+    const priorUserMessages = messages.filter((m) => m.isUser).length;
+    if (isGuestMirrorSession && priorUserMessages === 1) {
+      trackSecondUserMessageSent(
+        chatId ?? chatIdFromUrl ?? 'unknown',
+        activeChat?.mirrorOrigin?.startedFromMirrorId ?? activeChat?.mirrorOrigin?.rootMirrorId ?? null
+      );
+    }
 
     // Add user message immediately with placeholder score (gray badge)
     const userMessageId = `user-${Date.now()}`;

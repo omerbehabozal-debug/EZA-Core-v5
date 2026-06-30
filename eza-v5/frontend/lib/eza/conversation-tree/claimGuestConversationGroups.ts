@@ -4,6 +4,7 @@
 
 import { apiClient } from '@/lib/apiClient';
 import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
+import { trackGuestTreeClaimed } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
 
 export type ClaimGuestConversationGroupsResponse = {
   claimed: ConversationGroup[];
@@ -29,5 +30,9 @@ export async function claimGuestConversationGroups(
     throw new Error(message);
   }
 
-  return response.data ?? { claimed: [], merged: 0 };
+  const data = response.data ?? { claimed: [], merged: 0 };
+  if (data.claimed.length > 0 || data.merged > 0) {
+    trackGuestTreeClaimed(data.claimed.length + data.merged);
+  }
+  return data;
 }

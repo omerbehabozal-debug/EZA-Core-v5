@@ -23,6 +23,7 @@ import {
   readStoredAnalysisModel,
   writeStoredAnalysisModel,
 } from '@/lib/standaloneModels';
+import { trackRelationshipPatternViewed } from '@/lib/eza/mirror/relationshipPatternAnalytics';
 
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
 
@@ -68,6 +69,10 @@ export default function SainaPatternPageInner() {
   useEffect(() => {
     void refreshPlan();
   }, [refreshPlan]);
+
+  useEffect(() => {
+    trackRelationshipPatternViewed();
+  }, []);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
   const planResolved = !isPlanLoading;
