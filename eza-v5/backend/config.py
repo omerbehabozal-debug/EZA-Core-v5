@@ -102,6 +102,12 @@ class Settings(BaseSettings):
     # EZA Observation — product experience events (SAINA and future products)
     EXPERIENCE_EVENT_LOGGING_ENABLED: bool = False  # Non-blocking experience_events ingest
     EXPERIENCE_EVENT_RETENTION_DAYS: int = 30
+    EXPERIENCE_EVENT_RATE_LIMIT_PER_MIN: int = 60
+    EXPERIENCE_EVENT_MAX_BODY_BYTES: int = 4096
+    EXPERIENCE_EVENT_MAX_STRING_LEN: int = 128
+    EXPERIENCE_EVENT_MAX_CONTEXT_KEYS: int = 12
+    EXPERIENCE_EVENT_MAX_METRICS_KEYS: int = 12
+    EXPERIENCE_EVENT_MAX_NESTING_DEPTH: int = 2
 
     # Standalone — lightweight rule-based observation (no LLM; default off)
     STANDALONE_OBSERVATION_ENABLED: bool = False

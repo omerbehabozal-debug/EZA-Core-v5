@@ -7,6 +7,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { MIRROR_GUEST_TOKEN_KEY } from '@/lib/eza/mirror-network/sohbetTypes';
 
 const SESSION_STORAGE_KEY = 'eza_experience_session_id';
 const PRODUCT_ID = 'saina';
@@ -34,10 +35,8 @@ export type ExperienceTrackPayload = {
   rootMirrorId?: string | null;
   parentMirrorId?: string | null;
   guestToken?: string | null;
-  userId?: string | null;
   sessionId?: string | null;
   productVersion?: string | null;
-  tenantId?: string | null;
   context?: Record<string, unknown>;
   metrics?: Record<string, unknown>;
 };
@@ -58,13 +57,22 @@ function getOrCreateSessionId(): string {
   }
 }
 
-function resolveUserId(explicit?: string | null): string | null {
+function resolveGuestToken(explicit?: string | null): string | null {
   if (explicit) return explicit;
   if (typeof window === 'undefined') return null;
   try {
-    return localStorage.getItem('eza_user_id');
+    return localStorage.getItem(MIRROR_GUEST_TOKEN_KEY);
   } catch {
     return null;
+  }
+}
+
+function hasAuthToken(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return Boolean(localStorage.getItem('eza_token'));
+  } catch {
+    return false;
   }
 }
 
@@ -75,16 +83,18 @@ async function postExperienceEvent(
   if (typeof window === 'undefined') return;
   if (!EXPERIENCE_EVENT_ALLOWLIST.has(eventType)) return;
 
+  const sessionId = payload.sessionId ?? getOrCreateSessionId();
+  const guestToken = resolveGuestToken(payload.guestToken);
+
   try {
     await apiClient.post('/api/eza/experience-events', {
+      auth: hasAuthToken(),
       body: {
         productId: PRODUCT_ID,
         productVersion: payload.productVersion ?? undefined,
-        tenantId: payload.tenantId ?? undefined,
         eventType,
-        sessionId: payload.sessionId ?? getOrCreateSessionId(),
-        userId: resolveUserId(payload.userId),
-        guestToken: payload.guestToken ?? undefined,
+        sessionId,
+        guestToken: guestToken ?? undefined,
         conversationId: payload.conversationId ?? undefined,
         mirrorId: payload.mirrorId ?? undefined,
         rootMirrorId: payload.rootMirrorId ?? undefined,

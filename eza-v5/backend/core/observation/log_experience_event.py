@@ -128,10 +128,15 @@ def build_normalized_experience_event(
     parent_mirror_id: Optional[str] = None,
     context_json: Optional[Dict[str, Any]] = None,
     metrics_json: Optional[Dict[str, Any]] = None,
+    privacy_json: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     settings = get_settings()
     now = datetime.now(timezone.utc)
     retention_days = max(1, int(settings.EXPERIENCE_EVENT_RETENTION_DAYS or 30))
+
+    from backend.core.observation.experience_event_privacy import build_privacy_json
+
+    resolved_privacy = privacy_json if privacy_json else build_privacy_json(pii_scan_passed=False)
 
     return {
         "product_id": product_id,
@@ -149,7 +154,7 @@ def build_normalized_experience_event(
         "parent_mirror_id": parent_mirror_id,
         "context_json": context_json,
         "metrics_json": metrics_json,
-        "privacy_json": build_privacy_json(),
+        "privacy_json": resolved_privacy,
         "schema_version": EXPERIENCE_EVENT_SCHEMA_VERSION,
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(days=retention_days)).isoformat(),

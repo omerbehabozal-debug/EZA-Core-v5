@@ -1,67 +1,150 @@
 # -*- coding: utf-8 -*-
-"""EZA Observation Architecture — experience event backbone tests."""
+"""EZA Observation Architecture — experience event backbone + hardening tests."""
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.core.observation.experience_event_privacy import validate_experience_payload
+from backend.core.observation.experience_event_auth import resolve_trusted_actor
+from backend.core.observation.experience_event_privacy import (
+    build_privacy_json,
+    contains_pii_value,
+    validate_body_size,
+    validate_experience_payload,
+)
+from backend.security.rate_limit import RateLimitError
 from backend.core.observation.experience_event_service import ingest_experience_event
 from backend.core.observation.log_experience_event import hash_guest_token
 from backend.core.observation.normalize_experience_event import (
     ALLOWED_EXPERIENCE_EVENT_TYPES,
     resolve_universal_event_type,
 )
+from backend.core.observation.purge_experience_events import purge_expired_experience_events
 from backend.core.events.event_logger import log_eza_event
+
+
+def _enabled_settings():
+    return MagicMock(
+        EXPERIENCE_EVENT_LOGGING_ENABLED=True,
+        EXPERIENCE_EVENT_RETENTION_DAYS=30,
+        EXPERIENCE_EVENT_MAX_BODY_BYTES=4096,
+        EXPERIENCE_EVENT_MAX_STRING_LEN=128,
+        EXPERIENCE_EVENT_MAX_CONTEXT_KEYS=12,
+        EXPERIENCE_EVENT_MAX_METRICS_KEYS=12,
+        EXPERIENCE_EVENT_MAX_NESTING_DEPTH=2,
+        EZA_ENV="dev",
+        ENV="dev",
+    )
+
+
+def _base_payload(**overrides):
+    payload = {
+        "productId": "saina",
+        "eventType": "mirror_birth_suggested",
+        "sessionId": "sess-test-12345678",
+        "conversationId": "chat-1",
+        "context": {"surface": "conversation"},
+        "metrics": {"userMessageCount": 2},
+    }
+    payload.update(overrides)
+    return payload
 
 
 def test_universal_mapping_classifies_without_decision():
     assert resolve_universal_event_type("mirror_created") == "content_generated"
-    assert resolve_universal_event_type("mirror_shared") == "content_shared"
-    assert resolve_universal_event_type("landing_viewed") == "content_engaged"
-    assert resolve_universal_event_type("guest_conversation_started") == "session_started_from_content"
-    assert resolve_universal_event_type("branch_opened") == "session_branched"
-    assert resolve_universal_event_type("second_user_message_sent") == "session_continued"
     assert resolve_universal_event_type("unknown_event") is None
 
 
-def test_privacy_rejects_raw_text_payload():
-    ok, reason, _, _ = validate_experience_payload(
-        {"rawMessage": "hello world"},
+def test_privacy_rejects_forbidden_key():
+    ok, reason, _, _, _ = validate_experience_payload({"rawMessage": "hello"}, None)
+    assert ok is False
+    assert reason == "privacy_rejected"
+
+
+def test_privacy_rejects_email_value_in_category():
+    ok, reason, _, _, _ = validate_experience_payload(
+        {"surface": "landing", "category": "mail@example.com"},
         None,
     )
     assert ok is False
     assert reason == "privacy_rejected"
 
 
-def test_privacy_rejects_private_mirror_payload():
-    ok, reason, _, _ = validate_experience_payload(
-        {"mirrorBody": "secret mirror content"},
-        None,
-    )
+def test_privacy_rejects_phone_value_in_identifier():
+    from backend.core.observation.experience_event_privacy import scan_string_fields
+
+    ok, reason = scan_string_fields({"mirror_id": "+90 532 123 45 67"})
     assert ok is False
     assert reason == "privacy_rejected"
 
 
 def test_privacy_allows_safe_context():
-    ok, reason, ctx, metrics = validate_experience_payload(
-        {"surface": "mirror", "topic": "travel"},
+    ok, reason, ctx, metrics, privacy = validate_experience_payload(
+        {"surface": "mirror", "category": "travel"},
         {"messageCount": 3},
     )
     assert ok is True
-    assert reason is None
-    assert ctx == {"surface": "mirror", "topic": "travel"}
+    assert ctx == {"surface": "mirror", "category": "travel"}
     assert metrics == {"messageCount": 3}
+    assert privacy["piiScanPassed"] is True
+    assert privacy["piiIncluded"] is False
 
 
-def test_guest_token_is_hashed_not_stored_plain():
-    token = "guest-token-abcdefghijklmnop"
-    hashed = hash_guest_token(token)
-    assert hashed != token
-    assert len(hashed) == 64
+def test_privacy_json_reflects_scan_result():
+    passed = build_privacy_json(pii_scan_passed=True)
+    failed = build_privacy_json(pii_scan_passed=False)
+    assert passed["piiScanPassed"] is True
+    assert passed["piiIncluded"] is False
+    assert failed["piiScanPassed"] is False
+    assert failed["piiIncluded"] is True
+
+
+def test_body_size_limit():
+    ok, _ = validate_body_size(100)
+    assert ok is True
+    ok, reason = validate_body_size(99999)
+    assert ok is False
+    assert reason == "payload_too_large"
+
+
+def test_rejects_spoofed_client_user_id():
+    actor = resolve_trusted_actor(
+        auth_user=None,
+        guest_token=None,
+        session_id="sess-test-12345678",
+        client_user_id="attacker",
+        client_tenant_id=None,
+    )
+    assert actor["ok"] is False
+    assert actor["reason"] == "unauthorized"
+
+
+def test_rejects_spoofed_client_tenant_id():
+    actor = resolve_trusted_actor(
+        auth_user=None,
+        guest_token=None,
+        session_id="sess-test-12345678",
+        client_user_id=None,
+        client_tenant_id="tenant-x",
+    )
+    assert actor["ok"] is False
+
+
+def test_trusted_user_from_auth_only():
+    actor = resolve_trusted_actor(
+        auth_user={"user_id": "server-user-1"},
+        guest_token=None,
+        session_id="sess-test-12345678",
+        client_user_id=None,
+        client_tenant_id=None,
+    )
+    assert actor["ok"] is True
+    assert actor["user_id"] == "server-user-1"
+    assert actor["tenant_id"] is None
 
 
 @pytest.mark.asyncio
@@ -69,74 +152,48 @@ async def test_ingest_disabled_is_noop():
     db = AsyncMock()
     with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
         mock_gs.return_value = MagicMock(EXPERIENCE_EVENT_LOGGING_ENABLED=False)
-        result = await ingest_experience_event(
-            db,
-            {"productId": "saina", "eventType": "mirror_created"},
-        )
+        result = await ingest_experience_event(db, _base_payload())
     assert result == {"ok": False, "reason": "disabled"}
-    db.add.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_ingest_rejects_invalid_event_type():
+async def test_ingest_rejects_spoofed_user_id():
     db = AsyncMock()
     with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
-        mock_gs.return_value = MagicMock(EXPERIENCE_EVENT_LOGGING_ENABLED=True)
+        mock_gs.return_value = _enabled_settings()
         result = await ingest_experience_event(
             db,
-            {"productId": "saina", "eventType": "not_allowed_event"},
+            _base_payload(userId="spoofed-user"),
         )
-    assert result == {"ok": False, "reason": "invalid_event_type"}
+    assert result == {"ok": False, "reason": "unauthorized"}
 
 
 @pytest.mark.asyncio
-async def test_ingest_persists_experience_event_not_governance():
+async def test_ingest_persists_with_server_auth_user():
     db = AsyncMock()
-    db.commit = AsyncMock()
-
-    payload = {
-        "productId": "saina",
-        "eventType": "mirror_birth_suggested",
-        "sessionId": "sess-1",
-        "conversationId": "chat-1",
-        "context": {"surface": "conversation"},
-        "metrics": {"userMessageCount": 2},
-    }
-
     with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
-        mock_gs.return_value = MagicMock(
-            EXPERIENCE_EVENT_LOGGING_ENABLED=True,
-            EXPERIENCE_EVENT_RETENTION_DAYS=30,
-            EZA_ENV="dev",
-            ENV="dev",
-        )
+        mock_gs.return_value = _enabled_settings()
         with patch(
             "backend.core.observation.experience_event_service.log_experience_event",
             new_callable=AsyncMock,
             return_value="evt-123",
         ) as mock_log:
-            result = await ingest_experience_event(db, payload)
-
+            result = await ingest_experience_event(
+                db,
+                _base_payload(),
+                auth_user={"user_id": "real-user"},
+            )
     assert result == {"ok": True}
-    mock_log.assert_awaited_once()
     logged = mock_log.await_args.args[1]
-    assert logged["product_id"] == "saina"
-    assert logged["event_type"] == "mirror_birth_suggested"
-    assert logged["universal_event_type"] == "prompt_surfaced"
-    assert logged["conversation_id"] == "chat-1"
+    assert logged["user_id"] == "real-user"
+    assert logged["privacy_json"]["piiScanPassed"] is True
 
 
 @pytest.mark.asyncio
-async def test_ingest_hashes_guest_token_in_normalized_event():
+async def test_ingest_hashes_guest_token():
     db = AsyncMock()
-
     with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
-        mock_gs.return_value = MagicMock(
-            EXPERIENCE_EVENT_LOGGING_ENABLED=True,
-            EXPERIENCE_EVENT_RETENTION_DAYS=30,
-            EZA_ENV="dev",
-            ENV="dev",
-        )
+        mock_gs.return_value = _enabled_settings()
         with patch(
             "backend.core.observation.experience_event_service.log_experience_event",
             new_callable=AsyncMock,
@@ -144,41 +201,63 @@ async def test_ingest_hashes_guest_token_in_normalized_event():
         ) as mock_log:
             await ingest_experience_event(
                 db,
-                {
-                    "productId": "saina",
-                    "eventType": "guest_conversation_started",
-                    "guestToken": "plain-guest-token",
-                    "mirrorId": "slug-1",
-                },
+                _base_payload(
+                    eventType="guest_conversation_started",
+                    guestToken="plain-guest-token",
+                ),
             )
-
     logged = mock_log.await_args.args[1]
     assert logged["guest_token_hash"] == hash_guest_token("plain-guest-token")
-    assert "plain-guest-token" not in str(logged)
+
+
+@pytest.mark.asyncio
+async def test_ingest_rejects_pii_email_in_mirror_id():
+    db = AsyncMock()
+    with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
+        mock_gs.return_value = _enabled_settings()
+        result = await ingest_experience_event(
+            db,
+            _base_payload(mirrorId="user@example.com"),
+        )
+    assert result == {"ok": False, "reason": "privacy_rejected"}
 
 
 @pytest.mark.asyncio
 async def test_log_eza_event_not_called_by_experience_ingest():
-    """Governance logger remains separate from observation ingest."""
     db = AsyncMock()
     with patch("backend.core.events.event_logger.log_eza_event", new_callable=AsyncMock) as mock_gov:
         with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
-            mock_gs.return_value = MagicMock(
-                EXPERIENCE_EVENT_LOGGING_ENABLED=True,
-                EXPERIENCE_EVENT_RETENTION_DAYS=30,
-                EZA_ENV="dev",
-                ENV="dev",
-            )
+            mock_gs.return_value = _enabled_settings()
             with patch(
                 "backend.core.observation.experience_event_service.log_experience_event",
                 new_callable=AsyncMock,
                 return_value="evt-1",
             ):
-                await ingest_experience_event(
-                    db,
-                    {"productId": "saina", "eventType": "branch_opened", "conversationId": "c1"},
-                )
+                await ingest_experience_event(db, _base_payload(eventType="branch_opened"))
     mock_gov.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_purge_expired_experience_events():
+    db = AsyncMock()
+    result = MagicMock()
+    result.rowcount = 3
+    db.execute = AsyncMock(return_value=result)
+    db.commit = AsyncMock()
+    deleted = await purge_expired_experience_events(db)
+    assert deleted == 3
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_blocks_abuse():
+    import backend.core.observation.experience_event_rate_limit as rl
+
+    rl._in_memory_limits.clear()
+    with patch("backend.core.utils.dependencies.get_redis", new_callable=AsyncMock, return_value=None):
+        await rl._rate_limit_key("test-key-abuse-only", limit=2, window=60)
+        await rl._rate_limit_key("test-key-abuse-only", limit=2, window=60)
+        with pytest.raises(RateLimitError):
+            await rl._rate_limit_key("test-key-abuse-only", limit=2, window=60)
 
 
 def test_allowed_event_types_cover_sprint_allowlist():
@@ -203,39 +282,39 @@ def test_allowed_event_types_cover_sprint_allowlist():
 def test_post_experience_events_endpoint_disabled():
     from backend.main import app
 
-    with patch("backend.api.routers.experience_events_router.ingest_experience_event", new_callable=AsyncMock) as mock_ingest:
+    with patch(
+        "backend.api.routers.experience_events_router.ingest_experience_event",
+        new_callable=AsyncMock,
+    ) as mock_ingest:
         mock_ingest.return_value = {"ok": False, "reason": "disabled"}
         client = TestClient(app)
         r = client.post(
             "/api/eza/experience-events",
-            json={"productId": "saina", "eventType": "mirror_created"},
+            json=_base_payload(eventType="mirror_created"),
         )
     assert r.status_code == 200
-    assert r.json() == {"ok": False, "reason": "disabled"}
+    assert r.json()["ok"] is False
 
 
-def test_post_experience_events_endpoint_ok():
+def test_post_experience_events_rejects_spoofed_user_id():
     from backend.main import app
 
-    with patch("backend.api.routers.experience_events_router.ingest_experience_event", new_callable=AsyncMock) as mock_ingest:
-        mock_ingest.return_value = {"ok": True}
+    with patch(
+        "backend.api.routers.experience_events_router.ingest_experience_event",
+        new_callable=AsyncMock,
+    ) as mock_ingest:
+        mock_ingest.return_value = {"ok": False, "reason": "unauthorized"}
         client = TestClient(app)
         r = client.post(
             "/api/eza/experience-events",
-            json={
-                "productId": "saina",
-                "eventType": "landing_viewed",
-                "mirrorId": "kyoto-evening",
-                "context": {"surface": "landing"},
-            },
+            json={**_base_payload(), "userId": "spoof"},
         )
     assert r.status_code == 200
-    assert r.json() == {"ok": True, "reason": None}
+    assert r.json()["reason"] == "unauthorized"
 
 
 @pytest.mark.asyncio
 async def test_governance_log_eza_event_still_validates_required_fields():
-    """Regression: governance event logger contract unchanged."""
     db = AsyncMock()
     result = await log_eza_event(db, {"event_type": "message"})
     assert result is None

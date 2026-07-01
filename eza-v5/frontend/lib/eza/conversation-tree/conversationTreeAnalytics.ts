@@ -56,7 +56,7 @@ export function trackBranchCardClicked(conversationId: string, branchTitle: stri
   );
   ezaExperience.track('branch_opened', {
     conversationId,
-    context: { surface: 'conversation', source: 'branch', topic: branchTitle },
+    context: { surface: 'conversation', source: 'branch' },
   });
 }
 
