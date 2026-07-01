@@ -18,8 +18,6 @@ from backend.services.mirror_network.sohbet_session import guest_token_fingerpri
 def group_to_response(row: ConversationGroup) -> ConversationGroupResponse:
     return ConversationGroupResponse(
         id=str(row.id),
-        userId=str(row.user_id) if row.user_id else None,
-        guestToken=row.guest_token,
         title=row.title,
         source=row.source,  # type: ignore[arg-type]
         parentGroupId=str(row.parent_group_id) if row.parent_group_id else None,
@@ -64,12 +62,15 @@ async def fetch_conversation_groups(
     user_id: Optional[UUID] = None,
     limit: int = 50,
 ) -> List[ConversationGroup]:
+    if user_id is None and not guest_token:
+        return []
+
     query = select(ConversationGroup).order_by(ConversationGroup.sort_order.desc())
-    if guest_token:
-        fp = guest_token_fingerprint(guest_token.strip())
-        query = query.where(ConversationGroup.guest_token == fp)
     if user_id is not None:
         query = query.where(ConversationGroup.user_id == user_id)
+    elif guest_token:
+        fp = guest_token_fingerprint(guest_token.strip())
+        query = query.where(ConversationGroup.guest_token == fp)
     result = await db.execute(query.limit(limit))
     return list(result.scalars().all())
 

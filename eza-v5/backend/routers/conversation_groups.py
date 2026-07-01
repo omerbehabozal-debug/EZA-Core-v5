@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.auth.deps import get_current_user
+from backend.auth.deps import get_current_user, security
+from backend.auth.jwt import get_user_from_token
 from backend.core.schemas.conversation_tree import (
     ClaimGuestConversationGroupsRequest,
     ClaimGuestConversationGroupsResponse,
@@ -22,7 +25,6 @@ from backend.services.conversation_tree.groups import (
     group_to_response,
     persist_conversation_group,
 )
-from uuid import UUID
 
 router = APIRouter(prefix="/api/conversation-groups", tags=["Conversation Groups"])
 
@@ -43,8 +45,26 @@ async def create_conversation_group(
 async def list_conversation_groups(
     guestToken: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> List[ConversationGroupResponse]:
-    rows = await fetch_conversation_groups(db, guest_token=guestToken)
+    user_id: Optional[UUID] = None
+    if credentials is not None:
+        user = get_user_from_token(credentials.credentials)
+        if user is not None:
+            user_id = UUID(str(user["user_id"]))
+
+    guest = guestToken.strip() if guestToken else None
+    if user_id is None and not guest:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="authentication_required",
+        )
+
+    rows = await fetch_conversation_groups(
+        db,
+        guest_token=None if user_id is not None else guest,
+        user_id=user_id,
+    )
     return [group_to_response(r) for r in rows]
 
 

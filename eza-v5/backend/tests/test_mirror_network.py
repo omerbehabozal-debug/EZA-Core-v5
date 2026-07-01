@@ -81,6 +81,58 @@ def test_public_payload_audit_passes_fixture():
     assert not audit.forbiddenKeysFound
 
 
+def test_public_payload_rejects_phone_in_hooks():
+    node = build_fixture_mirror_node(slug_suffix="phone1")
+    public = node_to_public_payload(node)
+    public.hooks = ["+90 532 123 45 67"]
+    audit = audit_public_payload(public)
+    assert audit.passed is False
+    assert audit.forbiddenValuePatternsFound
+
+
+def test_public_payload_rejects_address_like_context():
+    node = build_fixture_mirror_node(slug_suffix="addr1")
+    public = node_to_public_payload(node)
+    public.curiosityContext = "Ataturk Mah. No 5"
+    audit = audit_public_payload(public)
+    assert audit.passed is False
+
+
+def test_public_payload_rejects_jwt_like_value():
+    node = build_fixture_mirror_node(slug_suffix="jwt1")
+    public = node_to_public_payload(node)
+    public.landingContext = (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+        "eyJzdWIiOiIxMjM0NTY3ODkwIn0."
+        "dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+    )
+    audit = audit_public_payload(public)
+    assert audit.passed is False
+
+
+def test_public_payload_rejects_credential_url():
+    node = build_fixture_mirror_node(slug_suffix="cred1")
+    public = node_to_public_payload(node)
+    public.shareVoice = "https://user:secret@cdn.example.com/scene.jpg"
+    audit = audit_public_payload(public)
+    assert audit.passed is False
+
+
+def test_split_curiosity_rejects_private_bundle_keys():
+    node = build_fixture_mirror_node(slug_suffix="privkeys1")
+    with pytest.raises(ValueError, match="public_payload_audit_failed"):
+        split_curiosity_payloads(
+            slug=node.slug,
+            card_title=node.card_title,
+            card_date=node.card_date,
+            scene_image_url=node.scene_image_url,
+            user_id=str(node.user_id),
+            conversation_id=node.conversation_id,
+            curiosity_bundle={**JAPAN_FIXTURE_BUNDLE, "mirrorBody": "leak"},
+            intelligence_private=JAPAN_FIXTURE_INTELLIGENCE_PRIVATE,
+        )
+
+
 def test_safety_gate_blocks_restricted_and_private():
     restricted = build_fixture_mirror_node(slug_suffix="rest1", safety_status="restricted")
     assert evaluate_mirror_network_safety(restricted).passed is False

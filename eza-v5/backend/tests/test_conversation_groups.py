@@ -91,7 +91,23 @@ def test_list_conversation_groups_endpoint_mocked():
         listed = client.get("/api/conversation-groups", params={"guestToken": "guest-list-token"})
 
     assert listed.status_code == 200
-    assert listed.json()[0]["title"] == "Mimarlık"
+    body = listed.json()[0]
+    assert body["title"] == "Mimarlık"
+    assert "userId" not in body
+    assert "guestToken" not in body
+
+
+def test_list_conversation_groups_requires_auth_or_guest():
+    response = client.get("/api/conversation-groups")
+    assert response.status_code == 401
+
+
+def test_fetch_conversation_groups_requires_scope():
+    from backend.services.conversation_tree.groups import fetch_conversation_groups
+
+    db = AsyncMock()
+    assert asyncio.run(fetch_conversation_groups(db)) == []
+    db.execute.assert_not_awaited()
 
 
 def test_branch_metadata_fields():
@@ -169,7 +185,8 @@ def test_claim_guest_endpoint_mocked():
         body = response.json()
         assert body["merged"] == 0
         assert body["claimed"][0]["title"] == "Japonya"
-        assert body["claimed"][0]["userId"] == str(user_id)
+        assert "userId" not in body["claimed"][0]
+        assert "guestToken" not in body["claimed"][0]
     finally:
         app.dependency_overrides.pop(get_current_user, None)
 

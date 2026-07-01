@@ -4,6 +4,7 @@ Test Error Handling (10 tests)
 """
 
 import pytest
+from fastapi import HTTPException
 from backend.api.pipeline_runner import run_full_pipeline
 from backend.test_tools.llm_override import BrokenLLM
 from backend.test_tools.assert_tools import assert_response_schema
@@ -27,13 +28,12 @@ async def test_error_handling_llm_failure():
 @pytest.mark.asyncio
 async def test_error_handling_empty_input():
     """Test handling of empty input"""
-    result = await run_full_pipeline(
-        user_input="",
-        mode="standalone"
-    )
-    
-    # Should handle gracefully
-    assert_response_schema(result)
+    with pytest.raises(HTTPException) as exc:
+        await run_full_pipeline(
+            user_input="",
+            mode="standalone",
+        )
+    assert exc.value.status_code == 400
 
 
 @pytest.mark.asyncio

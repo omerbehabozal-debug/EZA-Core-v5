@@ -116,6 +116,71 @@ async def test_publish_mirror_to_network_returns_share_url():
     assert captured["node"].user_id == user.id
 
 
+@pytest.mark.asyncio
+async def test_publish_mirror_to_network_recovers_from_duplicate_insert():
+    from sqlalchemy.exc import IntegrityError
+
+    from backend.core.schemas.mirror_network import MirrorNetworkPublishRequest
+
+    user = _make_user()
+    db = AsyncMock()
+    db.rollback = AsyncMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+
+    raced_node = SimpleNamespace(
+        id=uuid.uuid4(),
+        slug="sokak-lambalari-raced",
+        user_id=user.id,
+        conversation_id="conv-publish-1",
+        visibility="public",
+        safety_status="open",
+        card_title="Sokak Lambaları",
+        card_date="2026-05-31",
+        scene_image_url="https://cdn.example/mirror-scene.jpg",
+        public_payload={},
+        private_payload={},
+        parent_slug=None,
+        published_at=None,
+        created_at=None,
+    )
+
+    async def _create_raises(_db, _node):
+        raise IntegrityError("insert", {}, Exception("duplicate"))
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_conversation",
+            new=AsyncMock(side_effect=[None, raced_node]),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.slug_exists",
+            new=AsyncMock(return_value=False),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.create_mirror_network_node",
+            new=AsyncMock(side_effect=_create_raises),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new=AsyncMock(return_value=raced_node),
+        ) as mock_update,
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNode",
+            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+        ),
+    ):
+        result = await publish_mirror_to_network(
+            db,
+            user,
+            MirrorNetworkPublishRequest.model_validate(_publish_body()),
+        )
+
+    assert result.slug == "sokak-lambalari-raced"
+    db.rollback.assert_awaited_once()
+    mock_update.assert_awaited_once()
+
+
 def test_publish_endpoint_requires_auth():
     response = client.post("/api/mirror-network/publish", json=_publish_body())
     assert response.status_code == 401

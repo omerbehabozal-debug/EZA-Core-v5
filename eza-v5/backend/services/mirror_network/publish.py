@@ -8,6 +8,7 @@ from typing import Any, Mapping, Optional, Tuple
 from uuid import uuid4
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.mirror_network import (
@@ -43,6 +44,34 @@ def _serialize_curiosity_bundle(bundle: Mapping[str, Any]) -> dict[str, Any]:
     return dict(bundle)
 
 
+def _apply_node_fields(
+    node: MirrorNetworkNode,
+    *,
+    card_title: str,
+    card_date: str,
+    scene_image_url: Optional[str],
+    public_dict: dict[str, Any],
+    private_dict: dict[str, Any],
+    safety_status: str,
+    visibility: str,
+    parent_slug: Optional[str],
+    now: datetime,
+    is_new: bool,
+) -> None:
+    node.card_title = card_title
+    node.card_date = card_date
+    node.scene_image_url = scene_image_url
+    node.public_payload = public_dict
+    node.private_payload = private_dict
+    node.safety_status = safety_status
+    node.visibility = visibility
+    node.parent_slug = parent_slug
+    node.published_at = node.published_at or now
+    node.updated_at = now
+    if is_new:
+        node.published_at = now
+
+
 async def publish_mirror_to_network(
     db: AsyncSession,
     user: User,
@@ -52,6 +81,7 @@ async def publish_mirror_to_network(
     Create or update a Mirror Network node for the authenticated user.
 
     Mirror creation and network registration are one product action — no separate publish step.
+    Concurrent publishes for the same conversation resolve to a single node (unique constraint).
     """
     card_title = body.cardTitle.strip()
     if not card_title:
@@ -64,8 +94,8 @@ async def publish_mirror_to_network(
     curiosity_bundle = _serialize_curiosity_bundle(body.curiosityBundle or {})
     intelligence_private = dict(body.intelligencePrivate or {})
 
-    existing = None
     conversation_id = (body.conversationId or "").strip() or None
+    existing = None
     if conversation_id:
         existing = await get_mirror_network_node_by_conversation(
             db,
@@ -113,17 +143,23 @@ async def publish_mirror_to_network(
     now = datetime.now(timezone.utc)
     public_dict = public_payload.model_dump()
     private_dict = private_payload.model_dump()
+    scene_image_url = (body.sceneImageUrl or "").strip() or None
+    parent_slug = (body.parentSlug or "").strip() or None
 
     if existing:
-        existing.card_title = card_title
-        existing.card_date = body.cardDate.strip()
-        existing.scene_image_url = (body.sceneImageUrl or "").strip() or None
-        existing.public_payload = public_dict
-        existing.private_payload = private_dict
-        existing.safety_status = safety_status
-        existing.visibility = visibility
-        existing.published_at = existing.published_at or now
-        existing.updated_at = now
+        _apply_node_fields(
+            existing,
+            card_title=card_title,
+            card_date=body.cardDate.strip(),
+            scene_image_url=scene_image_url,
+            public_dict=public_dict,
+            private_dict=private_dict,
+            safety_status=safety_status,
+            visibility=visibility,
+            parent_slug=parent_slug,
+            now=now,
+            is_new=False,
+        )
         node = await update_mirror_network_node(db, existing)
     else:
         node = MirrorNetworkNode(
@@ -135,13 +171,39 @@ async def publish_mirror_to_network(
             safety_status=safety_status,
             card_title=card_title,
             card_date=body.cardDate.strip(),
-            scene_image_url=(body.sceneImageUrl or "").strip() or None,
+            scene_image_url=scene_image_url,
             public_payload=public_dict,
             private_payload=private_dict,
-            parent_slug=(body.parentSlug or "").strip() or None,
+            parent_slug=parent_slug,
             published_at=now,
         )
-        node = await create_mirror_network_node(db, node)
+        try:
+            node = await create_mirror_network_node(db, node)
+        except IntegrityError:
+            await db.rollback()
+            if not conversation_id:
+                raise
+            raced = await get_mirror_network_node_by_conversation(
+                db,
+                user_id=user.id,
+                conversation_id=conversation_id,
+            )
+            if raced is None:
+                raise
+            _apply_node_fields(
+                raced,
+                card_title=card_title,
+                card_date=body.cardDate.strip(),
+                scene_image_url=scene_image_url,
+                public_dict=public_dict,
+                private_dict=private_dict,
+                safety_status=safety_status,
+                visibility=visibility,
+                parent_slug=parent_slug,
+                now=now,
+                is_new=False,
+            )
+            node = await update_mirror_network_node(db, raced)
 
     record = MirrorNetworkNodeRecord.from_orm(node)
     return node_to_public_payload(record)

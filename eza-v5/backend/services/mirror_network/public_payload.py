@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Mapping, Optional
 
+from backend.core.privacy.sensitive_content import contains_pii_value
 from backend.core.schemas.mirror_network import (
     MirrorNetworkPrivatePayload,
     MirrorNetworkPublicAudit,
@@ -45,18 +46,66 @@ FORBIDDEN_PUBLIC_TOP_LEVEL_KEYS = frozenset(
         "aiLine",
         "entries",
         "messages",
+        "guestToken",
+        "guest_token",
+        "password",
+        "phone",
+        "address",
+        "tckimlik",
+        "rawMessage",
+        "transcript",
     }
 )
 
 FORBIDDEN_VALUE_PATTERNS: List[re.Pattern[str]] = [
-    re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I),
     re.compile(r"\bconversation summary\b", re.I),
     re.compile(r"\bsohbet özeti\b", re.I),
 ]
 
+# Server-generated fields — key-name scan only, not value PII scan.
+SKIP_PII_VALUE_SCAN_KEYS = frozenset({"slug", "shareUrl", "cardDate"})
+
+FORBIDDEN_CURIOSITY_BUNDLE_KEYS = frozenset(
+    {
+        "mirrorBody",
+        "mirror_body",
+        "topicSummary",
+        "topic_summary",
+        "evidenceLabels",
+        "evidence_labels",
+        "intelligenceBrief",
+        "intelligence_brief",
+        "behavioralSnapshot",
+        "behavioral_snapshot",
+        "curiosityPipeline",
+        "curiosity_pipeline",
+        "privatePayload",
+        "private_payload",
+        "userId",
+        "user_id",
+        "conversationId",
+        "conversation_id",
+        "messages",
+        "entries",
+        "email",
+        "phone",
+        "password",
+        "guestToken",
+        "guest_token",
+    }
+)
+
 
 def _as_str(value: Any) -> str:
     return str(value).strip() if value is not None else ""
+
+
+def audit_curiosity_bundle_keys(curiosity_bundle: Mapping[str, Any]) -> List[str]:
+    forbidden: List[str] = []
+    for key in curiosity_bundle.keys():
+        if str(key) in FORBIDDEN_CURIOSITY_BUNDLE_KEYS or _is_private_key(str(key)):
+            forbidden.append(str(key))
+    return sorted(set(forbidden))
 
 
 def build_mirror_seed_public(seed: Mapping[str, Any]) -> MirrorSeedPublic:
@@ -154,6 +203,9 @@ def audit_public_payload(payload: MirrorNetworkPublicPayload) -> MirrorNetworkPu
             for i, item in enumerate(obj):
                 walk(item, f"{path}[{i}]")
         elif isinstance(obj, str):
+            leaf_key = path.rsplit(".", 1)[-1].split("[", 1)[0]
+            if leaf_key not in SKIP_PII_VALUE_SCAN_KEYS and contains_pii_value(obj):
+                forbidden_patterns.append(f"{path}: pii_value")
             for pattern in FORBIDDEN_VALUE_PATTERNS:
                 if pattern.search(obj):
                     forbidden_patterns.append(f"{path}: {pattern.pattern}")
@@ -198,6 +250,15 @@ def split_curiosity_payloads(
     parent_slug: Optional[str] = None,
 ) -> tuple[MirrorNetworkPublicPayload, MirrorNetworkPrivatePayload]:
     """Build validated public + private payloads from a curiosity bundle."""
+    forbidden_bundle_keys = audit_curiosity_bundle_keys(curiosity_bundle)
+    if forbidden_bundle_keys:
+        raise ValueError(
+            f"public_payload_audit_failed: keys={forbidden_bundle_keys} patterns=[]"
+        )
+
+    if scene_image_url and contains_pii_value(scene_image_url):
+        raise ValueError("public_payload_audit_failed: scene_image_url contains sensitive content")
+
     public_curiosity: Dict[str, Any] = {
         "coreCuriosity": curiosity_bundle.get("coreCuriosity"),
         "curiosityContext": curiosity_bundle.get("curiosityContext"),

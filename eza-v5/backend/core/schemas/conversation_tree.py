@@ -35,8 +35,6 @@ class ConversationGroupCreate(BaseModel):
 
 class ConversationGroupResponse(BaseModel):
     id: str
-    userId: Optional[str] = None
-    guestToken: Optional[str] = None
     title: str
     source: ConversationGroupSource
     parentGroupId: Optional[str] = None

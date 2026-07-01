@@ -103,6 +103,7 @@ import {
   mergeCachedShareLinkIntoCard,
   publishMirrorToNetwork,
 } from '@/lib/eza/mirror-share/publishMirrorToNetwork';
+import { shouldSkipShareLinkPrepare } from '@/lib/eza/mirror-share/shareLinkPrepareIntent';
 import type { MirrorShareLinkStatus } from '@/components/mirror/MirrorShareExperience';
 import {
   trackMirrorShareOpened,
@@ -309,7 +310,9 @@ export default function StandaloneObservationExperience({
     ) => {
       if (!isAuthReady || !isAuthenticated) return;
       if (!card.mirrorV3Payload) return;
-      if (shareLinkInFlightRef.current) return;
+      if (shouldSkipShareLinkPrepare({ inFlight: shareLinkInFlightRef.current, refreshScene: options?.refreshScene })) {
+        return;
+      }
 
       if (card.mirrorShare?.shareUrl && !options?.refreshScene) {
         setShareLinkStatus('ready');
@@ -327,33 +330,35 @@ export default function StandaloneObservationExperience({
         readMirrorSceneCacheForScope(conversationId, card)?.sceneImageUrl ??
         null;
 
-      const result = await publishMirrorToNetwork({
-        card,
-        conversationId,
-        sceneImageUrl: rawScene,
-      });
+      try {
+        const result = await publishMirrorToNetwork({
+          card,
+          conversationId,
+          sceneImageUrl: rawScene,
+        });
 
-      shareLinkInFlightRef.current = false;
-
-      if (result.ok) {
-        if (conversationId) {
-          saveMirrorShareLink(conversationId, result.slug, result.shareUrl);
+        if (result.ok) {
+          if (conversationId) {
+            saveMirrorShareLink(conversationId, result.slug, result.shareUrl);
+          }
+          setGeneratedDailyCard((prev) =>
+            prev ? applyShareUrlToCard(prev, result.shareUrl, result.slug) : prev
+          );
+          setShareLinkStatus('ready');
+          setShareLinkError(null);
+          return;
         }
-        setGeneratedDailyCard((prev) =>
-          prev ? applyShareUrlToCard(prev, result.shareUrl, result.slug) : prev
-        );
-        setShareLinkStatus('ready');
-        setShareLinkError(null);
-        return;
-      }
 
-      if (card.mirrorShare?.shareUrl && options?.refreshScene) {
-        setShareLinkStatus('ready');
-        return;
-      }
+        if (card.mirrorShare?.shareUrl && options?.refreshScene) {
+          setShareLinkStatus('ready');
+          return;
+        }
 
-      setShareLinkStatus('failed');
-      setShareLinkError(result.message);
+        setShareLinkStatus('failed');
+        setShareLinkError(result.message);
+      } finally {
+        shareLinkInFlightRef.current = false;
+      }
     },
     [conversationId, isAuthReady, isAuthenticated]
   );
