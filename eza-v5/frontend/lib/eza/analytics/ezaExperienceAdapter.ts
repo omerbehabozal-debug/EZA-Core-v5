@@ -2,7 +2,7 @@
  * EZA Observation — Experience Event Adapter
  *
  * EZA observes. SAINA decides.
- * Fire-and-forget POST to /api/eza/experience-events.
+ * Fire-and-forget POST to /api/eza/experience-events when enabled.
  * Never affects UX; never receives actions or recommendations.
  */
 
@@ -40,6 +40,11 @@ export type ExperienceTrackPayload = {
   context?: Record<string, unknown>;
   metrics?: Record<string, unknown>;
 };
+
+/** Default false — observation ingest is opt-in via env on staging/prod. */
+export function isExperienceEventLoggingEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_EXPERIENCE_EVENT_LOGGING_ENABLED === 'true';
+}
 
 function getOrCreateSessionId(): string {
   if (typeof window === 'undefined') return 'server';
@@ -81,6 +86,7 @@ async function postExperienceEvent(
   payload: ExperienceTrackPayload = {}
 ): Promise<void> {
   if (typeof window === 'undefined') return;
+  if (!isExperienceEventLoggingEnabled()) return;
   if (!EXPERIENCE_EVENT_ALLOWLIST.has(eventType)) return;
 
   const sessionId = payload.sessionId ?? getOrCreateSessionId();

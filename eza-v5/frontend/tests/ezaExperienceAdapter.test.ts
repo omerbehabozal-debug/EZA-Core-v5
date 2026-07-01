@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ezaExperience,
   EXPERIENCE_EVENT_ALLOWLIST,
+  isExperienceEventLoggingEnabled,
   postExperienceEvent,
 } from '@/lib/eza/analytics/ezaExperienceAdapter';
 import {
@@ -22,14 +23,29 @@ vi.mock('@/lib/apiClient', () => ({
 import { apiClient } from '@/lib/apiClient';
 
 describe('ezaExperienceAdapter', () => {
+  const prevFlag = process.env.NEXT_PUBLIC_EXPERIENCE_EVENT_LOGGING_ENABLED;
+
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
     localStorage.clear();
+    process.env.NEXT_PUBLIC_EXPERIENCE_EVENT_LOGGING_ENABLED = 'true';
   });
 
   afterEach(() => {
+    if (prevFlag === undefined) {
+      delete process.env.NEXT_PUBLIC_EXPERIENCE_EVENT_LOGGING_ENABLED;
+    } else {
+      process.env.NEXT_PUBLIC_EXPERIENCE_EVENT_LOGGING_ENABLED = prevFlag;
+    }
     vi.restoreAllMocks();
+  });
+
+  it('logging flag defaults off unless explicitly enabled', () => {
+    delete process.env.NEXT_PUBLIC_EXPERIENCE_EVENT_LOGGING_ENABLED;
+    expect(isExperienceEventLoggingEnabled()).toBe(false);
+    process.env.NEXT_PUBLIC_EXPERIENCE_EVENT_LOGGING_ENABLED = 'true';
+    expect(isExperienceEventLoggingEnabled()).toBe(true);
   });
 
   it('allowlist covers sprint event names', () => {
@@ -38,7 +54,13 @@ describe('ezaExperienceAdapter', () => {
     expect(EXPERIENCE_EVENT_ALLOWLIST.has('relationship_pattern_viewed')).toBe(true);
   });
 
-  it('fire-and-forget posts to observation endpoint', async () => {
+  it('does not POST when logging flag is disabled', async () => {
+    process.env.NEXT_PUBLIC_EXPERIENCE_EVENT_LOGGING_ENABLED = 'false';
+    await postExperienceEvent('mirror_created', { conversationId: 'chat-1' });
+    expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it('fire-and-forget posts to observation endpoint when enabled', async () => {
     await postExperienceEvent('mirror_created', {
       conversationId: 'chat-1',
       context: { surface: 'mirror' },
@@ -61,20 +83,32 @@ describe('ezaExperienceAdapter', () => {
     await new Promise((r) => setTimeout(r, 0));
   });
 
-  it('mirror birth track preserves CustomEvent and posts observation event', () => {
+  it('mirror birth track preserves CustomEvent and posts observation event when enabled', () => {
     const handler = vi.fn();
     window.addEventListener(MIRROR_BIRTH_SUGGESTED_EVENT, handler);
 
     trackMirrorBirthSuggested('chat-analytics');
 
     expect(handler).toHaveBeenCalledTimes(1);
-    ezaExperience.track('mirror_birth_suggested', { conversationId: 'chat-analytics' });
     expect(apiClient.post).toHaveBeenCalled();
 
     window.removeEventListener(MIRROR_BIRTH_SUGGESTED_EVENT, handler);
   });
 
-  it('branch opened maps to observation event while keeping CustomEvent', () => {
+  it('mirror birth track preserves CustomEvent without POST when flag disabled', () => {
+    process.env.NEXT_PUBLIC_EXPERIENCE_EVENT_LOGGING_ENABLED = 'false';
+    const handler = vi.fn();
+    window.addEventListener(MIRROR_BIRTH_SUGGESTED_EVENT, handler);
+
+    trackMirrorBirthSuggested('chat-analytics');
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(apiClient.post).not.toHaveBeenCalled();
+
+    window.removeEventListener(MIRROR_BIRTH_SUGGESTED_EVENT, handler);
+  });
+
+  it('branch opened maps to observation event while keeping CustomEvent when enabled', () => {
     const handler = vi.fn();
     window.addEventListener(BRANCH_CARD_CLICKED_EVENT, handler);
 

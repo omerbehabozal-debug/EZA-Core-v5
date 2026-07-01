@@ -5,7 +5,8 @@ EZA Observation — experience event ingest API.
 POST /api/eza/experience-events
 
 EZA observes. SAINA decides.
-This endpoint never returns actions, prompts, or UX decisions.
+When EXPERIENCE_EVENT_LOGGING_ENABLED=false the endpoint is a silent no-op:
+no body read, auth, rate limit, or DB work.
 """
 
 from __future__ import annotations
@@ -13,23 +14,25 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.security import HTTPAuthorizationCredentials
 
+from backend.auth.deps import security
+from backend.auth.jwt import get_user_from_token
 from backend.core.observation.experience_event_auth import (
     ExperienceAuthContext,
-    get_experience_event_auth,
     payload_has_forbidden_client_ids,
 )
 from backend.core.observation.experience_event_body import (
     ExperienceBodyTooLarge,
     read_limited_experience_body,
 )
+from backend.core.observation.experience_event_flags import is_experience_event_logging_enabled
 from backend.core.observation.experience_event_rate_limit import rate_limit_experience_events
 from backend.core.observation.experience_event_service import ingest_experience_event
 from backend.core.observation.log_experience_event import hash_guest_token
-from backend.core.utils.dependencies import get_db
+from backend.core.utils.dependencies import AsyncSessionLocal
 
 router = APIRouter(prefix="/api/eza", tags=["EZA Observation"])
 
@@ -55,17 +58,27 @@ class ExperienceEventResponse(BaseModel):
     reason: Optional[str] = None
 
 
+async def _resolve_auth_context(request: Request) -> ExperienceAuthContext:
+    credentials: Optional[HTTPAuthorizationCredentials] = await security(request)
+    if credentials is None:
+        return ExperienceAuthContext(kind="anonymous", user=None)
+    user = get_user_from_token(credentials.credentials)
+    if user is None:
+        return ExperienceAuthContext(kind="invalid_token", user=None)
+    return ExperienceAuthContext(kind="authenticated", user=user)
+
+
 @router.post("/experience-events", response_model=ExperienceEventResponse)
-async def post_experience_event(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    auth_context: ExperienceAuthContext = Depends(get_experience_event_auth),
-) -> ExperienceEventResponse:
+async def post_experience_event(request: Request) -> ExperienceEventResponse:
     """
     Ingest a product experience event.
 
     EZA observes only — never returns actions like show_mirror_prompt.
     """
+    if not is_experience_event_logging_enabled():
+        return ExperienceEventResponse(ok=False, reason="disabled")
+
+    auth_context = await _resolve_auth_context(request)
     if auth_context.kind == "invalid_token":
         return ExperienceEventResponse(ok=False, reason="unauthorized")
 
@@ -108,9 +121,10 @@ async def post_experience_event(
         guest_token_hash=guest_hash,
     )
 
-    result = await ingest_experience_event(
-        db,
-        body.model_dump(),
-        auth_user=auth_context.user if auth_context.kind == "authenticated" else None,
-    )
+    async with AsyncSessionLocal() as db:
+        result = await ingest_experience_event(
+            db,
+            body.model_dump(),
+            auth_user=auth_context.user if auth_context.kind == "authenticated" else None,
+        )
     return ExperienceEventResponse(**result)

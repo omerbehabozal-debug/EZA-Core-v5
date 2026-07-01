@@ -270,14 +270,21 @@ async def test_purge_expired_experience_events():
 
 @pytest.mark.asyncio
 async def test_purge_script_run_purge():
-    from scripts import purge_experience_events as purge_script
+    from backend.scripts import purge_experience_events as purge_script
 
     with patch(
-        "scripts.purge_experience_events.purge_expired_experience_events",
+        "backend.scripts.purge_experience_events.purge_expired_experience_events",
         new_callable=AsyncMock,
         return_value=2,
     ):
         assert await purge_script.run_purge() == 0
+
+
+def test_purge_script_module_import_path():
+    from backend.scripts import purge_experience_events as purge_script
+
+    assert purge_script.main is not None
+    assert purge_script._EZA_V5_ROOT.name == "eza-v5"
 
 
 @pytest.mark.asyncio
@@ -315,25 +322,69 @@ def test_post_experience_events_endpoint_disabled():
     from backend.main import app
 
     with patch(
-        "backend.api.routers.experience_events_router.ingest_experience_event",
-        new_callable=AsyncMock,
-    ) as mock_ingest:
-        mock_ingest.return_value = {"ok": False, "reason": "disabled"}
-        client = TestClient(app)
-        r = client.post("/api/eza/experience-events", json=_base_payload(eventType="mirror_created"))
+        "backend.api.routers.experience_events_router.is_experience_event_logging_enabled",
+        return_value=False,
+    ):
+        with patch(
+            "backend.api.routers.experience_events_router.read_limited_experience_body",
+            new_callable=AsyncMock,
+        ) as mock_read_body:
+            with patch(
+                "backend.api.routers.experience_events_router.ingest_experience_event",
+                new_callable=AsyncMock,
+            ) as mock_ingest:
+                with patch(
+                    "backend.api.routers.experience_events_router.rate_limit_experience_events",
+                    new_callable=AsyncMock,
+                ) as mock_rate:
+                    client = TestClient(app)
+                    r = client.post(
+                        "/api/eza/experience-events",
+                        json=_base_payload(eventType="mirror_created"),
+                        headers={"Authorization": "Bearer invalid-token"},
+                    )
     assert r.status_code == 200
-    assert r.json()["ok"] is False
-    mock_ingest.assert_awaited_once()
+    assert r.json() == {"ok": False, "reason": "disabled"}
+    mock_read_body.assert_not_awaited()
+    mock_ingest.assert_not_awaited()
+    mock_rate.assert_not_awaited()
+
+
+def test_post_experience_events_disabled_large_body_not_413():
+    from backend.main import app
+
+    with patch(
+        "backend.api.routers.experience_events_router.is_experience_event_logging_enabled",
+        return_value=False,
+    ):
+        with patch(
+            "backend.api.routers.experience_events_router.read_limited_experience_body",
+            new_callable=AsyncMock,
+        ) as mock_read_body:
+            client = TestClient(app)
+            body = json.dumps({**_base_payload(), "pad": "x" * 500_000})
+            r = client.post(
+                "/api/eza/experience-events",
+                content=body.encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+    assert r.status_code == 200
+    assert r.json() == {"ok": False, "reason": "disabled"}
+    mock_read_body.assert_not_awaited()
 
 
 def test_post_experience_events_rejects_extra_user_id():
     from backend.main import app
 
-    client = TestClient(app)
-    r = client.post(
-        "/api/eza/experience-events",
-        json={**_base_payload(), "userId": "spoof"},
-    )
+    with patch(
+        "backend.api.routers.experience_events_router.is_experience_event_logging_enabled",
+        return_value=True,
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/api/eza/experience-events",
+            json={**_base_payload(), "userId": "spoof"},
+        )
     assert r.status_code == 200
     assert r.json()["reason"] == "unauthorized"
 
@@ -341,13 +392,17 @@ def test_post_experience_events_rejects_extra_user_id():
 def test_post_experience_events_rejects_invalid_bearer():
     from backend.main import app
 
-    with patch("backend.auth.jwt.get_user_from_token", return_value=None):
-        client = TestClient(app)
-        r = client.post(
-            "/api/eza/experience-events",
-            json=_base_payload(),
-            headers={"Authorization": "Bearer invalid-token"},
-        )
+    with patch(
+        "backend.api.routers.experience_events_router.is_experience_event_logging_enabled",
+        return_value=True,
+    ):
+        with patch("backend.auth.jwt.get_user_from_token", return_value=None):
+            client = TestClient(app)
+            r = client.post(
+                "/api/eza/experience-events",
+                json=_base_payload(),
+                headers={"Authorization": "Bearer invalid-token"},
+            )
     assert r.status_code == 200
     assert r.json() == {"ok": False, "reason": "unauthorized"}
 
@@ -355,15 +410,19 @@ def test_post_experience_events_rejects_invalid_bearer():
 def test_post_experience_events_large_body_returns_413():
     from backend.main import app
 
-    with patch("backend.core.observation.experience_event_body.get_settings") as mock_gs:
-        mock_gs.return_value = MagicMock(EXPERIENCE_EVENT_MAX_BODY_BYTES=128)
-        client = TestClient(app)
-        body = json.dumps({**_base_payload(), "pad": "x" * 500})
-        r = client.post(
-            "/api/eza/experience-events",
-            content=body.encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
+    with patch(
+        "backend.api.routers.experience_events_router.is_experience_event_logging_enabled",
+        return_value=True,
+    ):
+        with patch("backend.core.observation.experience_event_body.get_settings") as mock_gs:
+            mock_gs.return_value = MagicMock(EXPERIENCE_EVENT_MAX_BODY_BYTES=128)
+            client = TestClient(app)
+            body = json.dumps({**_base_payload(), "pad": "x" * 500})
+            r = client.post(
+                "/api/eza/experience-events",
+                content=body.encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
     assert r.status_code == 413
     assert r.json()["detail"]["reason"] == "payload_too_large"
 
