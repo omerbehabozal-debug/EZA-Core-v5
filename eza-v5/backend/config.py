@@ -108,6 +108,7 @@ class Settings(BaseSettings):
     EXPERIENCE_EVENT_MAX_CONTEXT_KEYS: int = 12
     EXPERIENCE_EVENT_MAX_METRICS_KEYS: int = 12
     EXPERIENCE_EVENT_MAX_NESTING_DEPTH: int = 2
+    TRUSTED_PROXY_HEADERS_ENABLED: bool = False
 
     # Standalone — lightweight rule-based observation (no LLM; default off)
     STANDALONE_OBSERVATION_ENABLED: bool = False

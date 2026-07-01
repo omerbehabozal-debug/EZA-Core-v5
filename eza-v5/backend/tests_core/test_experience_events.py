@@ -3,20 +3,22 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.core.observation.experience_event_auth import resolve_trusted_actor
+from backend.core.observation.experience_event_auth import (
+    payload_has_forbidden_client_ids,
+    resolve_trusted_actor,
+)
 from backend.core.observation.experience_event_privacy import (
     build_privacy_json,
     contains_pii_value,
-    validate_body_size,
+    scan_string_fields,
     validate_experience_payload,
 )
-from backend.security.rate_limit import RateLimitError
 from backend.core.observation.experience_event_service import ingest_experience_event
 from backend.core.observation.log_experience_event import hash_guest_token
 from backend.core.observation.normalize_experience_event import (
@@ -25,6 +27,7 @@ from backend.core.observation.normalize_experience_event import (
 )
 from backend.core.observation.purge_experience_events import purge_expired_experience_events
 from backend.core.events.event_logger import log_eza_event
+from backend.security.rate_limit import RateLimitError, get_trusted_client_ip
 
 
 def _enabled_settings():
@@ -36,6 +39,7 @@ def _enabled_settings():
         EXPERIENCE_EVENT_MAX_CONTEXT_KEYS=12,
         EXPERIENCE_EVENT_MAX_METRICS_KEYS=12,
         EXPERIENCE_EVENT_MAX_NESTING_DEPTH=2,
+        TRUSTED_PROXY_HEADERS_ENABLED=False,
         EZA_ENV="dev",
         ENV="dev",
     )
@@ -75,9 +79,14 @@ def test_privacy_rejects_email_value_in_category():
 
 
 def test_privacy_rejects_phone_value_in_identifier():
-    from backend.core.observation.experience_event_privacy import scan_string_fields
-
     ok, reason = scan_string_fields({"mirror_id": "+90 532 123 45 67"})
+    assert ok is False
+    assert reason == "privacy_rejected"
+
+
+def test_privacy_rejects_short_address_like_value():
+    assert contains_pii_value("Ataturk Mah. No 5") is True
+    ok, reason = scan_string_fields({"mirror_id": "Ataturk Mah. No 5"})
     assert ok is False
     assert reason == "privacy_rejected"
 
@@ -103,48 +112,55 @@ def test_privacy_json_reflects_scan_result():
     assert failed["piiIncluded"] is True
 
 
-def test_body_size_limit():
-    ok, _ = validate_body_size(100)
-    assert ok is True
-    ok, reason = validate_body_size(99999)
-    assert ok is False
-    assert reason == "payload_too_large"
+def test_payload_forbidden_client_ids():
+    assert payload_has_forbidden_client_ids({"userId": "x"}) is True
+    assert payload_has_forbidden_client_ids({"tenantId": "x"}) is True
+    assert payload_has_forbidden_client_ids(_base_payload()) is False
 
 
-def test_rejects_spoofed_client_user_id():
+def test_guest_token_without_valid_session_rejected():
     actor = resolve_trusted_actor(
         auth_user=None,
-        guest_token=None,
-        session_id="sess-test-12345678",
-        client_user_id="attacker",
-        client_tenant_id=None,
+        guest_token="guest-only-token",
+        session_id=None,
     )
     assert actor["ok"] is False
     assert actor["reason"] == "unauthorized"
 
 
-def test_rejects_spoofed_client_tenant_id():
+def test_anonymous_requires_valid_session():
     actor = resolve_trusted_actor(
         auth_user=None,
         guest_token=None,
-        session_id="sess-test-12345678",
-        client_user_id=None,
-        client_tenant_id="tenant-x",
+        session_id=None,
     )
     assert actor["ok"] is False
 
+    actor_ok = resolve_trusted_actor(
+        auth_user=None,
+        guest_token=None,
+        session_id="sess-test-12345678",
+    )
+    assert actor_ok["ok"] is True
 
-def test_trusted_user_from_auth_only():
+
+def test_trusted_user_from_auth_without_session():
     actor = resolve_trusted_actor(
         auth_user={"user_id": "server-user-1"},
         guest_token=None,
-        session_id="sess-test-12345678",
-        client_user_id=None,
-        client_tenant_id=None,
+        session_id=None,
     )
     assert actor["ok"] is True
     assert actor["user_id"] == "server-user-1"
-    assert actor["tenant_id"] is None
+
+
+def test_trusted_client_ip_ignores_spoofed_xff_by_default():
+    request = MagicMock()
+    request.headers = {"X-Forwarded-For": "1.2.3.4"}
+    request.client = MagicMock(host="10.0.0.5")
+    with patch("backend.security.rate_limit.get_settings") as mock_gs:
+        mock_gs.return_value = MagicMock(TRUSTED_PROXY_HEADERS_ENABLED=False)
+        assert get_trusted_client_ip(request) == "10.0.0.5"
 
 
 @pytest.mark.asyncio
@@ -157,7 +173,7 @@ async def test_ingest_disabled_is_noop():
 
 
 @pytest.mark.asyncio
-async def test_ingest_rejects_spoofed_user_id():
+async def test_ingest_rejects_spoofed_user_id_in_payload():
     db = AsyncMock()
     with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
         mock_gs.return_value = _enabled_settings()
@@ -190,7 +206,23 @@ async def test_ingest_persists_with_server_auth_user():
 
 
 @pytest.mark.asyncio
-async def test_ingest_hashes_guest_token():
+async def test_ingest_guest_requires_session():
+    db = AsyncMock()
+    with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
+        mock_gs.return_value = _enabled_settings()
+        result = await ingest_experience_event(
+            db,
+            _base_payload(
+                eventType="guest_conversation_started",
+                guestToken="plain-guest-token",
+                sessionId=None,
+            ),
+        )
+    assert result == {"ok": False, "reason": "unauthorized"}
+
+
+@pytest.mark.asyncio
+async def test_ingest_hashes_guest_token_with_session():
     db = AsyncMock()
     with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
         mock_gs.return_value = _enabled_settings()
@@ -208,18 +240,6 @@ async def test_ingest_hashes_guest_token():
             )
     logged = mock_log.await_args.args[1]
     assert logged["guest_token_hash"] == hash_guest_token("plain-guest-token")
-
-
-@pytest.mark.asyncio
-async def test_ingest_rejects_pii_email_in_mirror_id():
-    db = AsyncMock()
-    with patch("backend.core.observation.experience_event_service.get_settings") as mock_gs:
-        mock_gs.return_value = _enabled_settings()
-        result = await ingest_experience_event(
-            db,
-            _base_payload(mirrorId="user@example.com"),
-        )
-    assert result == {"ok": False, "reason": "privacy_rejected"}
 
 
 @pytest.mark.asyncio
@@ -246,6 +266,18 @@ async def test_purge_expired_experience_events():
     db.commit = AsyncMock()
     deleted = await purge_expired_experience_events(db)
     assert deleted == 3
+
+
+@pytest.mark.asyncio
+async def test_purge_script_run_purge():
+    from scripts import purge_experience_events as purge_script
+
+    with patch(
+        "scripts.purge_experience_events.purge_expired_experience_events",
+        new_callable=AsyncMock,
+        return_value=2,
+    ):
+        assert await purge_script.run_purge() == 0
 
 
 @pytest.mark.asyncio
@@ -288,29 +320,52 @@ def test_post_experience_events_endpoint_disabled():
     ) as mock_ingest:
         mock_ingest.return_value = {"ok": False, "reason": "disabled"}
         client = TestClient(app)
-        r = client.post(
-            "/api/eza/experience-events",
-            json=_base_payload(eventType="mirror_created"),
-        )
+        r = client.post("/api/eza/experience-events", json=_base_payload(eventType="mirror_created"))
     assert r.status_code == 200
     assert r.json()["ok"] is False
+    mock_ingest.assert_awaited_once()
 
 
-def test_post_experience_events_rejects_spoofed_user_id():
+def test_post_experience_events_rejects_extra_user_id():
     from backend.main import app
 
-    with patch(
-        "backend.api.routers.experience_events_router.ingest_experience_event",
-        new_callable=AsyncMock,
-    ) as mock_ingest:
-        mock_ingest.return_value = {"ok": False, "reason": "unauthorized"}
+    client = TestClient(app)
+    r = client.post(
+        "/api/eza/experience-events",
+        json={**_base_payload(), "userId": "spoof"},
+    )
+    assert r.status_code == 200
+    assert r.json()["reason"] == "unauthorized"
+
+
+def test_post_experience_events_rejects_invalid_bearer():
+    from backend.main import app
+
+    with patch("backend.auth.jwt.get_user_from_token", return_value=None):
         client = TestClient(app)
         r = client.post(
             "/api/eza/experience-events",
-            json={**_base_payload(), "userId": "spoof"},
+            json=_base_payload(),
+            headers={"Authorization": "Bearer invalid-token"},
         )
     assert r.status_code == 200
-    assert r.json()["reason"] == "unauthorized"
+    assert r.json() == {"ok": False, "reason": "unauthorized"}
+
+
+def test_post_experience_events_large_body_returns_413():
+    from backend.main import app
+
+    with patch("backend.core.observation.experience_event_body.get_settings") as mock_gs:
+        mock_gs.return_value = MagicMock(EXPERIENCE_EVENT_MAX_BODY_BYTES=128)
+        client = TestClient(app)
+        body = json.dumps({**_base_payload(), "pad": "x" * 500})
+        r = client.post(
+            "/api/eza/experience-events",
+            content=body.encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+    assert r.status_code == 413
+    assert r.json()["detail"]["reason"] == "payload_too_large"
 
 
 @pytest.mark.asyncio

@@ -80,9 +80,15 @@ URL_WITH_CREDS_RE = re.compile(
     re.IGNORECASE,
 )
 ADDRESS_LIKE_RE = re.compile(
-    r"\b(?:sokak|sok\.|cadde|cad\.|mahalle|mah\.|apt\.|apartment|street|avenue|ave\.)\b",
+    r"\b(?:sokak|sok\.?|cadde|cad\.?|mahalle|mah\.?|bulvar|blv\.?|"
+    r"apt\.?|apartment|daire|street|avenue|ave\.?)\b",
     re.IGNORECASE,
 )
+SHORT_ADDRESS_RE = re.compile(
+    r"(?:mah\.?|mahallesi)\b.+\bno\.?\s*\d+",
+    re.IGNORECASE,
+)
+ADDRESS_NO_RE = re.compile(r"\bno\.?\s*\d+\b", re.IGNORECASE)
 
 
 def _limits() -> Dict[str, int]:
@@ -98,6 +104,18 @@ def _limits() -> Dict[str, int]:
 
 def _is_forbidden_key(key: str) -> bool:
     return key.lower() in FORBIDDEN_CONTENT_KEYS
+
+
+def contains_address_like(value: str) -> bool:
+    stripped = value.strip()
+    if SHORT_ADDRESS_RE.search(stripped):
+        return True
+    lower = stripped.lower()
+    if ADDRESS_NO_RE.search(lower) and ADDRESS_LIKE_RE.search(lower):
+        return True
+    if len(stripped) > 40 and ADDRESS_LIKE_RE.search(stripped):
+        return True
+    return False
 
 
 def contains_pii_value(value: str) -> bool:
@@ -118,7 +136,7 @@ def contains_pii_value(value: str) -> bool:
     digits = re.sub(r"\D", "", stripped)
     if len(digits) >= 10 and PHONE_RE.search(stripped):
         return True
-    if len(stripped) > 40 and ADDRESS_LIKE_RE.search(stripped):
+    if contains_address_like(stripped):
         return True
     if "password" in stripped.lower() and len(stripped) > 6:
         return True
@@ -253,15 +271,3 @@ def build_privacy_json(*, pii_scan_passed: bool) -> Dict[str, Any]:
         "piiScanPassed": pii_scan_passed,
         "storageTier": "event",
     }
-
-
-def validate_body_size(content_length: Optional[int]) -> Tuple[bool, Optional[str]]:
-    if content_length is None:
-        return True, None
-    try:
-        size = int(content_length)
-    except (TypeError, ValueError):
-        return False, "payload_too_large"
-    if size > _limits()["max_body_bytes"]:
-        return False, "payload_too_large"
-    return True, None

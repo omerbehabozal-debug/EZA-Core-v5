@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import Request
 
 from backend.config import get_settings
-from backend.security.rate_limit import RateLimitError, _get_client_ip
+from backend.security.rate_limit import RateLimitError, get_trusted_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ async def rate_limit_experience_events(
     settings = get_settings()
     limit = int(getattr(settings, "EXPERIENCE_EVENT_RATE_LIMIT_PER_MIN", 60) or 60)
     limit = max(2, min(limit, 1000))
-    ip = _get_client_ip(request)
+    ip = get_trusted_client_ip(request)
     user_part = user_id or "anon"
     guest_part = (guest_token_hash or "none")[:16]
     key = f"experience_events:{ip}:{user_part}:{guest_part}"

@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, Literal, Optional
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials
@@ -17,6 +18,16 @@ SESSION_ID_RE = re.compile(
     re.IGNORECASE,
 )
 
+FORBIDDEN_CLIENT_ID_FIELDS = frozenset({"userId", "tenantId"})
+
+AuthKind = Literal["authenticated", "anonymous", "invalid_token"]
+
+
+@dataclass
+class ExperienceAuthContext:
+    kind: AuthKind
+    user: Optional[Dict[str, Any]] = None
+
 
 def is_valid_session_id(value: Optional[str]) -> bool:
     if not value or not isinstance(value, str):
@@ -26,45 +37,67 @@ def is_valid_session_id(value: Optional[str]) -> bool:
     return bool(SESSION_ID_RE.match(value.strip()))
 
 
-async def get_optional_current_user(
+def payload_has_forbidden_client_ids(payload: Dict[str, Any]) -> bool:
+    return bool(FORBIDDEN_CLIENT_ID_FIELDS.intersection(payload.keys()))
+
+
+async def get_experience_event_auth(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Optional[Dict[str, Any]]:
-    """Optional JWT — returns None when unauthenticated."""
+) -> ExperienceAuthContext:
+    """
+    Resolve JWT for experience ingest.
+
+    - No header → anonymous (session/guest rules apply later)
+    - Invalid header → invalid_token (must not fall through to anonymous)
+    - Valid header → authenticated
+    """
     if credentials is None:
-        return None
-    return get_user_from_token(credentials.credentials)
+        return ExperienceAuthContext(kind="anonymous", user=None)
+
+    user = get_user_from_token(credentials.credentials)
+    if user is None:
+        return ExperienceAuthContext(kind="invalid_token", user=None)
+
+    return ExperienceAuthContext(kind="authenticated", user=user)
 
 
 def resolve_trusted_actor(
-  *,
-  auth_user: Optional[Dict[str, Any]],
-  guest_token: Optional[str],
-  session_id: Optional[str],
-  client_user_id: Optional[str],
-  client_tenant_id: Optional[str],
+    *,
+    auth_user: Optional[Dict[str, Any]],
+    guest_token: Optional[str],
+    session_id: Optional[str],
+    client_user_id: Optional[str] = None,
+    client_tenant_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Resolve trusted identity for observation ingest.
 
-    Client-supplied userId/tenantId are never trusted.
+    Rules:
+    - Client userId/tenantId are never accepted.
+    - Without JWT: valid sessionId is mandatory.
+    - guestToken alone is never sufficient; guest events require sessionId + guestToken.
     """
     if client_user_id or client_tenant_id:
         return {"ok": False, "reason": "unauthorized"}
+
+    has_session = is_valid_session_id(session_id)
+    has_guest = bool(guest_token and isinstance(guest_token, str) and guest_token.strip())
 
     user_id = None
     if auth_user and auth_user.get("user_id"):
         user_id = str(auth_user["user_id"])
 
+    if has_guest and not has_session:
+        return {"ok": False, "reason": "unauthorized"}
+
+    if not user_id and not has_session:
+        return {"ok": False, "reason": "unauthorized"}
+
     guest_token_hash = None
-    if guest_token and isinstance(guest_token, str) and guest_token.strip():
+    if has_guest:
         from backend.core.observation.log_experience_event import hash_guest_token
 
         guest_token_hash = hash_guest_token(guest_token.strip())
-
-    has_session = is_valid_session_id(session_id)
-
-    if not user_id and not guest_token_hash and not has_session:
-        return {"ok": False, "reason": "unauthorized"}
 
     return {
         "ok": True,

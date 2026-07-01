@@ -8,7 +8,10 @@ from typing import Any, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
-from backend.core.observation.experience_event_auth import resolve_trusted_actor
+from backend.core.observation.experience_event_auth import (
+    payload_has_forbidden_client_ids,
+    resolve_trusted_actor,
+)
 from backend.core.observation.experience_event_privacy import (
     scan_string_fields,
     validate_experience_payload,
@@ -43,12 +46,13 @@ async def ingest_experience_event(
     if event_type not in ALLOWED_EXPERIENCE_EVENT_TYPES:
         return {"ok": False, "reason": "invalid_event_type"}
 
+    if payload_has_forbidden_client_ids(payload):
+        return {"ok": False, "reason": "unauthorized"}
+
     actor = resolve_trusted_actor(
         auth_user=auth_user,
         guest_token=payload.get("guestToken"),
         session_id=payload.get("sessionId"),
-        client_user_id=payload.get("userId"),
-        client_tenant_id=payload.get("tenantId"),
     )
     if not actor.get("ok"):
         return {"ok": False, "reason": actor.get("reason", "unauthorized")}

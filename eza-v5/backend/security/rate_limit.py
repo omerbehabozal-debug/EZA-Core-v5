@@ -33,21 +33,35 @@ _in_memory_limits: dict[str, list[float]] = {}
 
 
 def _get_client_ip(request: Request) -> str:
-    """Extract client IP from request"""
+    """Extract client IP from request (honors X-Forwarded-For when present)."""
     # Check for forwarded IP (behind proxy)
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
-    
+
     # Check for real IP
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:
         return real_ip
-    
+
     # Fallback to direct client
     if request.client:
         return request.client.host
-    
+
+    return "unknown"
+
+
+def get_trusted_client_ip(request: Request) -> str:
+    """
+    Client IP for abuse-sensitive endpoints.
+
+    X-Forwarded-For is used only when TRUSTED_PROXY_HEADERS_ENABLED=true.
+    """
+    settings = get_settings()
+    if bool(getattr(settings, "TRUSTED_PROXY_HEADERS_ENABLED", False)):
+        return _get_client_ip(request)
+    if request.client:
+        return request.client.host
     return "unknown"
 
 
