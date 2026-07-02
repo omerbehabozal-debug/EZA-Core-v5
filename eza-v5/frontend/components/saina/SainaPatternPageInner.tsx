@@ -89,7 +89,7 @@ export default function SainaPatternPageInner() {
   });
 
   const conversations = useMemo(
-    () => mapArchivesToSainaConversations(archives),
+    () => mapArchivesToSainaConversations(archives, readActiveChatId()),
     [archives]
   );
 

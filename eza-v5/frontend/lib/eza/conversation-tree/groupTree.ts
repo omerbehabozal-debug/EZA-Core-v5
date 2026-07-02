@@ -11,6 +11,7 @@ import {
   formatSainaConversationTime,
   thumbGradientForChatId,
 } from '@/lib/eza/sainaConversationList';
+import { isChatDeleted } from '@/lib/standaloneChatDelete';
 import { summarizeArchiveTitle, type ArchivedChatSummary } from '@/lib/standaloneChatArchive';
 
 export type ArchivedChatSummaryWithTree = ArchivedChatSummary & {
@@ -30,20 +31,30 @@ function toTreeChatItem(item: ArchivedChatSummaryWithTree): ConversationTreeChat
   };
 }
 
-function sortChats(items: ConversationTreeChatItem[]): ConversationTreeChatItem[] {
-  return [...items].sort(
-    (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
-  );
+function sortChats(
+  items: ConversationTreeChatItem[],
+  activeChatId?: string | null
+): ConversationTreeChatItem[] {
+  const activeId = (activeChatId || '').trim() || null;
+  return [...items].sort((a, b) => {
+    if (activeId) {
+      if (a.id === activeId && b.id !== activeId) return -1;
+      if (b.id === activeId && a.id !== activeId) return 1;
+    }
+    return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
+  });
 }
 
 export function buildConversationTree(
   archives: ArchivedChatSummaryWithTree[],
-  groups: ConversationGroup[] = listConversationGroups()
+  groups: ConversationGroup[] = listConversationGroups(),
+  activeChatId?: string | null
 ): ConversationTreeGroupNode[] {
+  const visibleArchives = archives.filter((item) => !isChatDeleted(item.id));
   const byGroup = new Map<string, ConversationTreeChatItem[]>();
   const ungrouped: ConversationTreeChatItem[] = [];
 
-  for (const item of archives) {
+  for (const item of visibleArchives) {
     const chat = toTreeChatItem(item);
     const groupId = item.groupId?.trim();
     if (!groupId) {
@@ -62,7 +73,7 @@ export function buildConversationTree(
       title: g.title,
       updatedAt: g.updatedAt,
       sortOrder: g.sortOrder ?? 0,
-      conversations: sortChats(byGroup.get(g.id) ?? []),
+      conversations: sortChats(byGroup.get(g.id) ?? [], activeChatId),
     }))
     .sort((a, b) => {
       if (a.sortOrder !== b.sortOrder) return b.sortOrder - a.sortOrder;
@@ -78,7 +89,7 @@ export function buildConversationTree(
       title: 'Diğer',
       updatedAt: latest.savedAt,
       sortOrder: -1,
-      conversations: sortChats(ungrouped),
+      conversations: sortChats(ungrouped, activeChatId),
     });
   }
 

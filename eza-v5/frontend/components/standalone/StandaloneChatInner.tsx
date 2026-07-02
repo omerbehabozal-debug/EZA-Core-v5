@@ -522,13 +522,13 @@ export default function StandaloneChatInner() {
   }, [messages, chatId, setConversationMirrorEntries]);
 
   const sainaConversations = useMemo(
-    () => mapArchivesToSainaConversations(archives),
-    [archives]
+    () => mapArchivesToSainaConversations(archives, chatId),
+    [archives, chatId]
   );
 
   const sainaConversationGroups = useMemo(
-    () => buildConversationTree(archives, conversationGroups),
-    [archives, conversationGroups]
+    () => buildConversationTree(archives, conversationGroups, chatId),
+    [archives, conversationGroups, chatId]
   );
 
   const incrementDailyCount = useCallback(() => {

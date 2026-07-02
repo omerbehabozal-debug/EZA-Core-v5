@@ -1,5 +1,6 @@
 import type { ArchivedChatSummary } from '@/lib/standaloneChatArchive';
 import { summarizeArchiveTitle } from '@/lib/standaloneChatArchive';
+import { isChatDeleted } from '@/lib/standaloneChatDelete';
 
 export type SainaConversationItem = {
   id: string;
@@ -8,6 +9,25 @@ export type SainaConversationItem = {
   time: string;
   thumbGradient: string;
 };
+
+export type SidebarSortableArchive = Pick<ArchivedChatSummary, 'id' | 'savedAt'>;
+
+/** Active chat first, then most recently updated. Does not mutate archive timestamps. */
+export function sortArchivesForSidebar<T extends SidebarSortableArchive>(
+  archives: T[],
+  activeChatId?: string | null
+): T[] {
+  const activeId = (activeChatId || '').trim() || null;
+  return [...archives]
+    .filter((item) => !isChatDeleted(item.id))
+    .sort((a, b) => {
+      if (activeId) {
+        if (a.id === activeId && b.id !== activeId) return -1;
+        if (b.id === activeId && a.id !== activeId) return 1;
+      }
+      return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
+    });
+}
 
 const THUMB_GRADIENTS = [
   'linear-gradient(135deg, #173B45, #0F2B25, #041B17)',
@@ -62,9 +82,10 @@ export function formatSainaConversationTime(savedAt: string): string {
 }
 
 export function mapArchivesToSainaConversations(
-  archives: ArchivedChatSummary[]
+  archives: ArchivedChatSummary[],
+  activeChatId?: string | null
 ): SainaConversationItem[] {
-  return archives.map((item) => ({
+  return sortArchivesForSidebar(archives, activeChatId).map((item) => ({
     id: item.id,
     title: summarizeArchiveTitle(item.title) || 'Yeni sohbet',
     preview: item.preview?.trim() || 'SAINA ile düşün, keşfet…',
