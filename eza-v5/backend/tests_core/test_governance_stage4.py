@@ -30,10 +30,11 @@ def test_production_blocks_snapshot_even_if_test_mode_true(monkeypatch):
 
 
 def test_get_settings_forces_test_mode_false_in_production(monkeypatch):
-    from backend.config import get_settings, Settings
+    from backend.config import get_settings
 
     get_settings.cache_clear()
     monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("EZA_ENV", "production")
     monkeypatch.setenv("TEST_MODE", "true")
     get_settings.cache_clear()
     s = get_settings()
