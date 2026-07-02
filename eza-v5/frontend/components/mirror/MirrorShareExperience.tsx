@@ -129,8 +129,10 @@ export default function MirrorShareExperience({
   }, [open, impactSlug, shareLinkStatus]);
 
   const showImpactBlock = impactLoaded && !impactFailed && impactStats !== null;
-
-  useEffect(() => {
+  const showContinuation = Boolean(
+    impactStats?.continuationStartsVerified && impactStats.continuationStarts > 0
+  );
+  const showYansi = Boolean(impactStats && impactStats.yansiCount > 0);
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -156,7 +158,9 @@ export default function MirrorShareExperience({
     }
   }, [onShare]);
 
-  if (!mounted || !open) return null;
+  const showYansi = Boolean(impactStats && impactStats.yansiCount > 0);
+
+  useEffect(() => {
 
   return createPortal(
     <div
@@ -245,15 +249,12 @@ export default function MirrorShareExperience({
             className="mx-5 mb-2 rounded-xl border border-stone-200/70 bg-stone-50/70 px-4 py-3 text-sm text-stone-600"
             data-testid="mirror-share-impact"
           >
-            {impactStats &&
-            (impactStats.continuationStarts > 0 || impactStats.yansiCount > 0) ? (
+            {showContinuation || showYansi ? (
               <div className="space-y-1">
-                {impactStats.continuationStarts > 0 ? (
+                {showContinuation ? (
                   <p>{formatShareImpactContinuation(impactStats.continuationStarts)}</p>
                 ) : null}
-                {impactStats.yansiCount > 0 ? (
-                  <p>{formatShareImpactYansi(impactStats.yansiCount)}</p>
-                ) : null}
+                {showYansi ? <p>{formatShareImpactYansi(impactStats.yansiCount)}</p> : null}
               </div>
             ) : (
               <p>{SHARE_IMPACT_EMPTY}</p>

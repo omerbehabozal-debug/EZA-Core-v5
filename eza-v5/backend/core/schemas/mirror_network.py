@@ -110,5 +110,6 @@ class MirrorNetworkImpactStats(BaseModel):
     publicSlug: str
     shareUrl: str
     continuationStarts: int = Field(default=0, ge=0)
+    continuationStartsVerified: bool = False
     yansiCount: int = Field(default=0, ge=0)
     landingViews: int = Field(default=0, ge=0)

@@ -39,6 +39,7 @@ describe('mirror network impact (Faz 2)', () => {
         publicSlug: 'parent-slug',
         shareUrl: 'https://saina.app/m/parent-slug',
         continuationStarts: 18,
+        continuationStartsVerified: false,
         yansiCount: 3,
         landingViews: 10,
       },
@@ -59,7 +60,8 @@ describe('mirror network impact (Faz 2)', () => {
         mirrorId: 'parent-slug',
         publicSlug: 'parent-slug',
         shareUrl: 'https://saina.app/m/parent-slug',
-        continuationStarts: 1,
+        continuationStarts: 0,
+        continuationStartsVerified: false,
         yansiCount: 1,
         landingViews: 0,
         userId: 'leak',
@@ -77,6 +79,7 @@ describe('mirror network impact (Faz 2)', () => {
         publicSlug: 'a',
         shareUrl: 'https://saina.app/m/a',
         continuationStarts: 0,
+        continuationStartsVerified: false,
         yansiCount: 0,
         landingViews: 0,
       })
@@ -87,11 +90,31 @@ describe('mirror network impact (Faz 2)', () => {
         publicSlug: 'a',
         shareUrl: 'https://saina.app/m/a',
         continuationStarts: 0,
+        continuationStartsVerified: false,
         yansiCount: 0,
         landingViews: 0,
         conversationId: 'x',
       })
     ).toBe(false);
+  });
+
+  it('hides continuation line unless verified', () => {
+    const shareSrc = readFileSync(
+      join(process.cwd(), 'components/mirror/MirrorShareExperience.tsx'),
+      'utf8'
+    );
+    expect(shareSrc).toContain('continuationStartsVerified');
+    expect(shareSrc).toContain('showContinuation');
+    expect(shareSrc).not.toMatch(/continuationStarts\s*>\s*0\s*\?/);
+  });
+
+  it('shows only yansi line when continuation is unverified', () => {
+    const shareSrc = readFileSync(
+      join(process.cwd(), 'components/mirror/MirrorShareExperience.tsx'),
+      'utf8'
+    );
+    expect(shareSrc).toContain('showYansi');
+    expect(shareSrc).toContain('formatShareImpactYansi');
   });
 
   it('share impact copy uses calm Ayna language', () => {

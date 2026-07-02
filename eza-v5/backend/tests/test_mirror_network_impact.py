@@ -18,6 +18,7 @@ from backend.services.mirror_network.impact import (
     count_landing_views,
     count_yansi_children,
     get_mirror_impact_stats,
+    is_eligible_yansi_child,
 )
 from backend.services.mirror_network.service import node_to_public_payload
 from backend.services.production_auth import create_access_token
@@ -61,9 +62,52 @@ def _make_node_record(*, slug: str, user_id, parent_slug: str | None = None):
 
 
 @pytest.mark.asyncio
+async def test_count_yansi_children_only_eligible_children():
+    db = AsyncMock()
+    eligible = SimpleNamespace(
+        slug="child-open",
+        visibility="public",
+        safety_status="open",
+        parent_slug="parent-slug",
+    )
+    private_child = SimpleNamespace(
+        slug="child-private",
+        visibility="private",
+        safety_status="open",
+        parent_slug="parent-slug",
+    )
+    db.execute = AsyncMock(
+        return_value=SimpleNamespace(scalars=lambda: lambda: [eligible, private_child])
+    )
+    # scalars().all() chain
+    scalars_mock = SimpleNamespace(all=lambda: [eligible, private_child])
+    db.execute = AsyncMock(return_value=SimpleNamespace(scalars=lambda: scalars_mock))
+    assert await count_yansi_children(db, "parent-slug") == 1
+
+
+def test_is_eligible_yansi_child_filters_private_and_restricted():
+    assert is_eligible_yansi_child(
+        SimpleNamespace(visibility="public", safety_status="open", parent_slug="p")
+    )
+    assert not is_eligible_yansi_child(
+        SimpleNamespace(visibility="private", safety_status="open", parent_slug="p")
+    )
+    assert not is_eligible_yansi_child(
+        SimpleNamespace(visibility="public", safety_status="restricted", parent_slug="p")
+    )
+
+
+@pytest.mark.asyncio
 async def test_count_yansi_children_by_parent_slug():
     db = AsyncMock()
-    db.execute = AsyncMock(return_value=SimpleNamespace(scalar=lambda: 2))
+    child = SimpleNamespace(
+        slug="child-1",
+        visibility="public",
+        safety_status="open",
+        parent_slug="parent-slug",
+    )
+    scalars_mock = SimpleNamespace(all=lambda: [child, child])
+    db.execute = AsyncMock(return_value=SimpleNamespace(scalars=lambda: scalars_mock))
     assert await count_yansi_children(db, "parent-slug") == 2
 
 
@@ -110,8 +154,16 @@ async def test_get_mirror_impact_stats_owner_success():
             new=AsyncMock(return_value=42),
         ),
         patch(
+            "backend.services.mirror_network.impact._CONTINUATION_STARTS_VERIFIED",
+            False,
+        ),
+        patch(
             "backend.services.mirror_network.impact.count_yansi_children",
             new=AsyncMock(return_value=7),
+        ),
+        patch(
+            "backend.services.mirror_network.impact.is_experience_event_logging_enabled",
+            return_value=True,
         ),
         patch(
             "backend.services.mirror_network.impact.count_landing_views",
@@ -122,7 +174,8 @@ async def test_get_mirror_impact_stats_owner_success():
 
     assert stats.mirrorId == "parent-ayna-abc123"
     assert stats.publicSlug == "parent-ayna-abc123"
-    assert stats.continuationStarts == 42
+    assert stats.continuationStarts == 0
+    assert stats.continuationStartsVerified is False
     assert stats.yansiCount == 7
     assert stats.landingViews == 120
     payload = stats.model_dump()
@@ -163,7 +216,8 @@ def test_impact_endpoint_owner_200():
         "mirrorId": "parent-ayna-abc123",
         "publicSlug": "parent-ayna-abc123",
         "shareUrl": "https://saina.app/m/parent-ayna-abc123",
-        "continuationStarts": 18,
+        "continuationStarts": 0,
+        "continuationStartsVerified": False,
         "yansiCount": 3,
         "landingViews": 50,
     }
@@ -184,7 +238,8 @@ def test_impact_endpoint_owner_200():
 
     assert response.status_code == 200
     body = response.json()
-    assert body["continuationStarts"] == 18
+    assert body["continuationStarts"] == 0
+    assert body["continuationStartsVerified"] is False
     assert body["yansiCount"] == 3
     assert json.dumps(body)
     for key in FORBIDDEN_IMPACT_KEYS:

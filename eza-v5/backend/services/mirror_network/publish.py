@@ -17,6 +17,11 @@ from backend.core.schemas.mirror_network import (
 )
 from backend.models.mirror_network import MirrorNetworkNode
 from backend.models.production import User
+from backend.services.mirror_network.parent_lineage import (
+    normalize_parent_slug,
+    resolve_stored_parent_slug,
+    validate_parent_slug,
+)
 from backend.services.mirror_network.public_payload import split_curiosity_payloads
 from backend.services.mirror_network.repository import (
     create_mirror_network_node,
@@ -152,6 +157,20 @@ async def publish_mirror_to_network(
                 },
             )
 
+    requested_parent_slug = normalize_parent_slug(body.parentSlug)
+    validated_parent_slug = None
+    if requested_parent_slug:
+        validated_parent_slug = await validate_parent_slug(
+            db,
+            parent_slug=requested_parent_slug,
+            child_slug=slug,
+        )
+
+    parent_slug = resolve_stored_parent_slug(
+        existing_parent_slug=existing.parent_slug if existing else None,
+        validated_parent_slug=validated_parent_slug,
+    )
+
     try:
         public_payload, private_payload = split_curiosity_payloads(
             slug=slug,
@@ -162,7 +181,7 @@ async def publish_mirror_to_network(
             conversation_id=conversation_id,
             curiosity_bundle=curiosity_bundle,
             intelligence_private=intelligence_private,
-            parent_slug=(body.parentSlug or "").strip() or None,
+            parent_slug=parent_slug,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -176,7 +195,6 @@ async def publish_mirror_to_network(
     now = datetime.now(timezone.utc)
     public_dict = public_payload.model_dump()
     private_dict = private_payload.model_dump()
-    parent_slug = (body.parentSlug or "").strip() or None
 
     if existing:
         _apply_node_fields(

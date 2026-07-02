@@ -9,6 +9,7 @@ export type MirrorNetworkImpactStats = {
   publicSlug: string;
   shareUrl: string;
   continuationStarts: number;
+  continuationStartsVerified: boolean;
   yansiCount: number;
   landingViews: number;
 };
@@ -18,6 +19,7 @@ const IMPACT_ALLOWLIST = new Set([
   'publicSlug',
   'shareUrl',
   'continuationStarts',
+  'continuationStartsVerified',
   'yansiCount',
   'landingViews',
 ]);
@@ -31,6 +33,7 @@ export function isMirrorImpactStats(value: unknown): value is MirrorNetworkImpac
     typeof row.publicSlug === 'string' &&
     typeof row.shareUrl === 'string' &&
     typeof row.continuationStarts === 'number' &&
+    typeof row.continuationStartsVerified === 'boolean' &&
     typeof row.yansiCount === 'number' &&
     typeof row.landingViews === 'number'
   );
