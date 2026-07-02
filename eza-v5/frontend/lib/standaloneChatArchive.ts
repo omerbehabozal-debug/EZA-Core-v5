@@ -6,6 +6,11 @@
 import { touchConversationGroup } from '@/lib/eza/conversation-tree/conversationGroups';
 import type { ConversationTreeMetadata } from '@/lib/eza/conversation-tree/types';
 import {
+  isChatDeleted,
+  markChatDeleted,
+  purgeConversationLocalState,
+} from '@/lib/standaloneChatDelete';
+import {
   trackConversationCreatedInGroup,
 } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
 
@@ -245,6 +250,7 @@ export function createStandaloneChat(options?: CreateStandaloneChatOptions): str
 }
 
 export function upsertChatArchive(entry: ArchivedChat): void {
+  if (isChatDeleted(entry.id)) return;
   const rest = readAll().filter((a) => a.id !== entry.id);
   writeAll([entry, ...rest]);
   writeActiveChatId(entry.id);
@@ -273,6 +279,14 @@ export function assignChatToGroup(chatId: string, groupId: string): void {
 
 export function listChatArchives(): ArchivedChatSummary[] {
   return readAll().map(toSummary);
+}
+
+export function resolveChatRouteAfterDelete(): string {
+  const remaining = listChatArchives();
+  if (remaining.length > 0) {
+    return `/standalone?chat=${remaining[0]!.id}`;
+  }
+  return '/standalone';
 }
 
 /** Full archives including messages (backfill / migration). */
@@ -335,6 +349,7 @@ export function saveStandaloneChat(
   messages: ArchivedChatMessage[]
 ): ArchivedChat | null {
   if (typeof window === 'undefined') return null;
+  if (isChatDeleted(id)) return null;
 
   const entry = buildChatEntry(id, messages);
   const rest = readAll().filter((a) => a.id !== id);
@@ -346,9 +361,13 @@ export function saveStandaloneChat(
 }
 
 export function deleteChatArchive(id: string): void {
-  const remaining = readAll().filter((a) => a.id !== id);
+  const normalized = id.trim();
+  if (!normalized) return;
+  markChatDeleted(normalized);
+  purgeConversationLocalState(normalized);
+  const remaining = readAll().filter((a) => a.id !== normalized);
   writeAll(remaining);
-  if (readActiveChatId() === id) {
+  if (readActiveChatId() === normalized) {
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem(ACTIVE_CHAT_ID_KEY);

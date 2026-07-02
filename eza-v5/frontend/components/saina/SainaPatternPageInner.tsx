@@ -7,6 +7,8 @@ import {
   confirmDeleteChatArchive,
   getChatArchive,
   listChatArchives,
+  readActiveChatId,
+  resolveChatRouteAfterDelete,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { useMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
@@ -111,11 +113,19 @@ export default function SainaPatternPageInner() {
     [router]
   );
 
-  const handleDeleteChat = useCallback((id: string) => {
-    const archive = getChatArchive(id);
-    if (!archive) return;
-    confirmDeleteChatArchive(id, archive.title);
-  }, []);
+  const handleDeleteChat = useCallback(
+    (id: string) => {
+      const archive = getChatArchive(id);
+      if (!archive) return;
+      if (!confirmDeleteChatArchive(id, archive.title)) return;
+
+      const activeId = readActiveChatId();
+      if (activeId === id) {
+        router.push(resolveChatRouteAfterDelete(), { scroll: false });
+      }
+    },
+    [router]
+  );
 
   const handleOpenPattern = useCallback(() => {
     /* Already on pattern route — keep sidebar card active. */

@@ -56,11 +56,13 @@ import {
   getChatArchive,
   listChatArchives,
   pruneEmptyChats,
+  resolveChatRouteAfterDelete,
   saveStandaloneChat,
   writeActiveChatId,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { MIRROR_GUEST_CHAT_REPLY_PARAM } from '@/lib/eza/mirror-network/mirrorGuestConversation';
+import { isChatDeleted } from '@/lib/standaloneChatDelete';
 import { trackSecondUserMessageSent } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import MirrorBranchSuggestion from '@/components/standalone/MirrorBranchSuggestion';
 import MirrorBirthSuggestion from '@/components/standalone/MirrorBirthSuggestion';
@@ -172,14 +174,36 @@ export default function StandaloneChatInner() {
   /** İlk açılış/yenilemede URL’deki eski ?chat= ile yanlış sohbet yüklenmesin */
   const urlSyncEnabledRef = useRef(false);
   const mirrorReplyFiredRef = useRef<string | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesRef = useRef(messages);
   const chatIdRef = useRef(chatId);
   messagesRef.current = messages;
   chatIdRef.current = chatId;
 
   const flushSave = useCallback((id: string, msgs: Message[]) => {
+    if (isChatDeleted(id)) return;
     saveStandaloneChat(id, toArchivedMessages(msgs));
   }, []);
+
+  const cancelPendingAutosave = useCallback(() => {
+    if (autosaveTimerRef.current != null) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+  }, []);
+
+  const resetStateAfterActiveDelete = useCallback(() => {
+    cancelPendingAutosave();
+    skipAutosaveRef.current = true;
+    resetStream();
+    setChatId(null);
+    setMessages([]);
+    setIsLoading(false);
+    setIsTyping(false);
+    setBranchSuggestionVisible(false);
+    setMirrorBirthVisible(false);
+    setConversationMirrorEntries([], PENDING_CONVERSATION_MIRROR_ID);
+  }, [cancelPendingAutosave, resetStream, setConversationMirrorEntries]);
 
   const loadChatIntoState = useCallback(
     (id: string) => {
@@ -286,7 +310,7 @@ export default function StandaloneChatInner() {
     if (chatIdFromUrl === chatId) return;
 
     const prevId = chatIdRef.current;
-    if (prevId && !skipAutosaveRef.current) {
+    if (prevId && !skipAutosaveRef.current && !isChatDeleted(prevId)) {
       flushSave(prevId, messagesRef.current);
     }
 
@@ -298,17 +322,21 @@ export default function StandaloneChatInner() {
   }, [chatIdFromUrl, chatId, ready, flushSave, loadChatIntoState, router, startDraft]);
 
   useEffect(() => {
-    if (skipAutosaveRef.current || !chatId) return;
-    const timer = window.setTimeout(() => {
+    if (skipAutosaveRef.current || !chatId || isChatDeleted(chatId)) return;
+    cancelPendingAutosave();
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
       flushSave(chatId, messages);
     }, 400);
-    return () => window.clearTimeout(timer);
-  }, [messages, chatId, flushSave]);
+    return () => {
+      cancelPendingAutosave();
+    };
+  }, [messages, chatId, flushSave, cancelPendingAutosave]);
 
   useEffect(() => {
     return () => {
       const id = chatIdRef.current;
-      if (id && !skipAutosaveRef.current) {
+      if (id && !skipAutosaveRef.current && !isChatDeleted(id)) {
         flushSave(id, messagesRef.current);
       }
     };
@@ -382,25 +410,38 @@ export default function StandaloneChatInner() {
     (id: string) => {
       const archive = getChatArchive(id);
       if (!archive) return;
-      if (
-        chatId === id &&
-        !skipAutosaveRef.current &&
-        toArchivedMessages(messages).length > 0
-      ) {
-        flushSave(chatId, messages);
-      }
-      if (!confirmDeleteChatArchive(id, archive.title)) return;
 
-      if (chatId === id) {
+      const wasActive = chatId === id;
+      if (wasActive) {
+        cancelPendingAutosave();
+        skipAutosaveRef.current = true;
+      }
+
+      if (!confirmDeleteChatArchive(id, archive.title)) {
+        if (wasActive) {
+          window.setTimeout(() => {
+            skipAutosaveRef.current = false;
+          }, 0);
+        }
+        return;
+      }
+
+      if (wasActive) {
+        resetStateAfterActiveDelete();
+        router.push(resolveChatRouteAfterDelete(), { scroll: false });
         const remaining = listChatArchives();
-        if (remaining.length > 0) {
-          router.push(`/standalone?chat=${remaining[0]!.id}`, { scroll: false });
-        } else {
-          router.push('/standalone', { scroll: false });
+        if (remaining.length === 0) {
+          startDraft();
         }
       }
     },
-    [chatId, messages, flushSave, router]
+    [
+      chatId,
+      router,
+      cancelPendingAutosave,
+      resetStateAfterActiveDelete,
+      startDraft,
+    ]
   );
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
