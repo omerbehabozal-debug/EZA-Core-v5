@@ -69,7 +69,7 @@ export default function MirrorFullScreenModal({ open, onClose }: MirrorFullScree
                   &ldquo;Bazen yolun kendisi, varılacak yerden daha çok şey öğretir.&rdquo;
                 </p>
               </div>
-              <p className="saina-modal-poster-meta">9:16 · SAINA Mirror</p>
+              <p className="saina-modal-poster-meta">9:16 · SAINA Ayna</p>
             </div>
           </div>
         </div>

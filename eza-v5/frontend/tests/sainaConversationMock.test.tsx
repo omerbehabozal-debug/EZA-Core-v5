@@ -51,7 +51,7 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
 
   it('exposes core mock copy', () => {
     expect(SAINA_BRAND).toBe('SAINA');
-    expect(SAINA_MIRROR_TITLE).toBe('Conversation Mirror');
+    expect(SAINA_MIRROR_TITLE).toBe('Ayna');
     expect(SAINA_CREATE_MIRROR).toBe('Ayna Oluştur');
     expect(SAINA_CHIPS_TOGGLE).toBe('Öneriler →');
     expect(SAINA_MIRROR_EXPAND_TAB).toBe('Ayna');

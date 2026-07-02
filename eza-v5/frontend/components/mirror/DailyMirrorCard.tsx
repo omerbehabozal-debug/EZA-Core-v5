@@ -94,7 +94,7 @@ export default function DailyMirrorCard({
           <div className="space-y-1">
             <p className="inline-flex items-center gap-1.5 rounded-full bg-violet-100/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700">
               <Sparkles className="h-3 w-3" aria-hidden />
-              EZA Mirror
+              EZA Ayna
             </p>
             <p className="text-xs text-stone-500">{card.dayLabel}</p>
             <p className="max-w-prose text-xs leading-relaxed text-stone-500">

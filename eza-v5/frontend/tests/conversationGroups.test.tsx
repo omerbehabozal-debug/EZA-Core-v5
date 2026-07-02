@@ -19,7 +19,7 @@ const MIRROR_SESSION: MirrorSohbetSession = {
   guestToken: 'guest-token-abcdefghijklmnop',
   mirrorSlug: 'sokak-lambalari-test',
   cardTitle: 'Sokak Lambaları',
-  openingMessage: 'Bu Mirror, Kyoto merakından doğdu.',
+  openingMessage: 'Bu Ayna, Kyoto merakından doğdu.',
   thoughtCards: [],
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
   parentMirrorId: 'sokak-lambalari-test',

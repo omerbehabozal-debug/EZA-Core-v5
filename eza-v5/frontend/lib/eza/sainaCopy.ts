@@ -8,7 +8,7 @@
 
 export const SAINA_BRAND = 'SAINA';
 
-export const SAINA_TAGLINE = 'Your Human-AI Mirror';
+export const SAINA_TAGLINE = 'Your Human-AI reflection';
 
 export const SAINA_POWERED = 'Powered by EZA';
 
@@ -45,7 +45,7 @@ export const SAINA_NOTIFICATIONS_EMPTY_NOTE =
 
 
 
-export const SAINA_MIRROR_TITLE = 'Conversation Mirror';
+export const SAINA_MIRROR_TITLE = 'Ayna';
 
 export const SAINA_MIRROR_SUBTITLE = 'Bu sohbetten doğan anlamı aynada görün.';
 
@@ -81,7 +81,7 @@ export const SAINA_CHECKLIST = [
 
   'Desenler belirlenir',
 
-  'Mirror kartı hazırlanır',
+  'Ayna kartı hazırlanır',
 
 ] as const;
 
@@ -133,14 +133,14 @@ export const SAINA_ANON_FREE_BODY = 'Temel sohbet deneyimi açık.';
 export const SAINA_ANON_FREE_CTA = 'Şimdi Premium Ol';
 
 export const SAINA_ANON_FREE_NOTE =
-  'Sohbet etmek için giriş gerekmez. Mirror kaydetmek veya İlişki Deseni için giriş yapabilirsin.';
+  'Sohbet etmek için giriş gerekmez. Ayna kaydetmek veya İlişki Deseni için giriş yapabilirsin.';
 
 export const SAINA_LOGGEDIN_FREE_BODY = 'Hesabın hazır.';
 
 export const SAINA_LOGGEDIN_FREE_CTA = "Premium'a Geç";
 
 export const SAINA_LOGGEDIN_FREE_NOTE =
-  "Conversation Mirror ve İlişki Deseni Premium'da aktif.";
+  "Ayna ve İlişki Deseni Premium'da aktif.";
 
 /** @deprecated Use SAINA_ANON_FREE_BODY */
 export const SAINA_FREE_BODY = SAINA_ANON_FREE_BODY;
@@ -153,7 +153,7 @@ export const SAINA_FREE_NOTE = SAINA_ANON_FREE_NOTE;
 
 export const SAINA_PREMIUM_OBSERVING = 'Şu an ilişki gözlemleniyor...';
 
-export const SAINA_PREMIUM_MIRROR_LABEL = 'Conversation Mirror';
+export const SAINA_PREMIUM_MIRROR_LABEL = 'Ayna';
 
 export const SAINA_PREMIUM_PATTERN_LABEL = 'İlişki Haritası';
 
@@ -190,7 +190,7 @@ export const SAINA_CHIPS_TOGGLE = 'Öneriler →';
 
 
 
-export const SAINA_MIRROR_COLLAPSE_LABEL = 'Mirror panelini gizle';
+export const SAINA_MIRROR_COLLAPSE_LABEL = 'Ayna panelini gizle';
 
 export const SAINA_MIRROR_EXPAND_LABEL = 'Ayna panelini aç';
 
@@ -212,7 +212,7 @@ export const SAINA_STANDALONE_MIRROR_PLACEHOLDER_TITLE =
   'Bu sohbetin aynası burada görünecek';
 
 export const SAINA_STANDALONE_MIRROR_PLACEHOLDER_BODY =
-  'Sohbet ilerledikçe Conversation Mirror bu alanda hazır olacak. Şimdilik sohbet akışına odaklanabilirsin.';
+  'Sohbet ilerledikçe Ayna bu alanda hazır olacak. Şimdilik sohbet akışına odaklanabilirsin.';
 
 export const SAINA_UPSELL_TITLE = 'SAINA Premium ile';
 

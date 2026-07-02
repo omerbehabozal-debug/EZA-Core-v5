@@ -49,7 +49,7 @@ def test_derive_curiosity_anchor_kyoto():
 
 def test_opening_message_has_two_parts():
     msg = build_opening_message("Kyoto'nun akşam ritmini keşfetme")
-    assert "Bu Mirror," in msg
+    assert "Bu Ayna," in msg
     assert "senin sorularınla devam ediyor" in msg
     assert "sohbetten" not in msg.lower()
 

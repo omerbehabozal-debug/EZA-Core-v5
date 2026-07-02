@@ -13,7 +13,7 @@ const SAMPLE_SESSION: MirrorSohbetSession = {
   mirrorSlug: 'sokak-lambalari-test',
   cardTitle: 'Sokak Lambaları',
   openingMessage:
-    "Bu Mirror, Kyoto'nun akşam ritmini keşfetme merakından doğdu.\n\nŞimdi bu yolculuk senin sorularınla devam ediyor.",
+    "Bu Ayna, Kyoto'nun akşam ritmini keşfetme merakından doğdu.\n\nŞimdi bu yolculuk senin sorularınla devam ediyor.",
   thoughtCards: [{ id: 'thought-1', label: 'Akşam sokaklarını keşfet' }],
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
   parentMirrorId: 'sokak-lambalari-test',
@@ -40,7 +40,7 @@ describe('mirror guest conversation (Stage 2B slice 2)', () => {
     const chat = getChatArchive(created!.chatId);
     expect(chat?.mirrorOrigin?.pendingUserMessage).toBe(hookLabel);
     expect(chat?.messages.some((m) => m.isUser && m.text === hookLabel)).toBe(false);
-    expect(chat?.messages.some((m) => !m.isUser && m.text.includes('Bu Mirror,'))).toBe(true);
+    expect(chat?.messages.some((m) => !m.isUser && m.text.includes('Bu Ayna,'))).toBe(true);
   });
 
   it('writes guest conversation metadata with mirror lineage ids', () => {

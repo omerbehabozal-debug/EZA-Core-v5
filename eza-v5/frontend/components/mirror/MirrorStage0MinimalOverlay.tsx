@@ -32,7 +32,7 @@ export default function MirrorStage0MinimalOverlay({
   skin,
   className,
 }: MirrorStage0MinimalOverlayProps) {
-  const title = card.headline?.trim() || card.dailyJourney?.trim() || 'SAINA Mirror';
+  const title = card.headline?.trim() || card.dailyJourney?.trim() || 'SAINA';
 
   return (
     <div

@@ -5,7 +5,7 @@
 export const SHARE_EXPERIENCE_TITLE = 'Paylaşıma hazır';
 
 export const SHARE_EXPERIENCE_SUBTITLE =
-  'Mirror hazır. İstersen bu merakı dışarı taşıyabilirsin.';
+  'Ayna hazır. İstersen bu merakı dışarı taşıyabilirsin.';
 
 export const SHARE_EXPERIENCE_CAPTION_LABEL = 'Paylaşım metni';
 

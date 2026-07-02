@@ -12,7 +12,7 @@ const SAMPLE_SESSION: MirrorSohbetSession = {
   mirrorSlug: 'sokak-lambalari-test',
   cardTitle: 'Sokak Lambaları',
   openingMessage:
-    "Bu Mirror, Kyoto'nun akşam ritmini keşfetme merakından doğdu.\n\nŞimdi bu yolculuk senin sorularınla devam ediyor.",
+    "Bu Ayna, Kyoto'nun akşam ritmini keşfetme merakından doğdu.\n\nŞimdi bu yolculuk senin sorularınla devam ediyor.",
   thoughtCards: [{ id: 'thought-1', label: 'Akşam sokaklarını keşfet' }],
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
   parentMirrorId: 'sokak-lambalari-test',

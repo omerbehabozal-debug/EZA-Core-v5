@@ -53,7 +53,7 @@ const FIXTURE_SESSION: MirrorSohbetSession = {
   mirrorSlug: FIXTURE_SLUG,
   cardTitle: 'Sokak Lambaları',
   openingMessage:
-    "Bu Mirror, Kyoto'nun akşam ritmini keşfetme merakından doğdu.\n\nŞimdi bu yolculuk senin sorularınla devam ediyor.",
+    "Bu Ayna, Kyoto'nun akşam ritmini keşfetme merakından doğdu.\n\nŞimdi bu yolculuk senin sorularınla devam ediyor.",
   thoughtCards: [
     { id: 'thought-1', label: 'Akşam sokaklarını keşfet' },
     { id: 'thought-2', label: 'Yerel kafeleri bul' },
@@ -115,7 +115,7 @@ describe('mirror viral loop QA (programmatic)', () => {
 
     const chat = getChatArchive(created!.chatId);
     expect(chat?.mirrorOrigin?.pendingUserMessage).toBe(hookLabel);
-    expect(chat?.messages.some((m) => !m.isUser && m.text.includes('Bu Mirror,'))).toBe(true);
+    expect(chat?.messages.some((m) => !m.isUser && m.text.includes('Bu Ayna,'))).toBe(true);
     expect(chat?.messages.some((m) => m.isUser)).toBe(false);
 
     const japanGroup = listConversationGroups().find((g) => g.title === 'Japonya');

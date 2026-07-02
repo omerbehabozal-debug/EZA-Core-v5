@@ -9,7 +9,7 @@ export const MIRROR_ROUTE = '/standalone/mirror';
 export const MIRROR_DAILY_ROUTE = '/standalone/mirror/daily';
 export const MIRROR_PATTERN_ROUTE = '/standalone/mirror/pattern';
 
-export const MIRROR_PAGE_TITLE = 'EZA Mirror';
+export const MIRROR_PAGE_TITLE = 'EZA Ayna';
 
 export const MIRROR_PAGE_SUBTITLE = 'AI ile kurduğun bağın yansıması.';
 
@@ -17,7 +17,7 @@ export const MIRROR_TAB_DAILY = 'AI Ayna';
 
 export const MIRROR_TAB_PATTERN = 'AI İlişki Deseni';
 
-export const MIRROR_NAV_ARIA = 'EZA Mirror sekmeleri';
+export const MIRROR_NAV_ARIA = 'EZA Ayna sekmeleri';
 
 export const MIRROR_SHARE_LABEL = 'Aynanı Paylaş';
 
@@ -34,7 +34,7 @@ export const MIRROR_DAILY_PRIVACY_HINT =
   'Mesaj içeriğin paylaşılmaz; yalnızca yansıman görünür.';
 
 export const MIRROR_INSUFFICIENT =
-  'EZA Mirror’ın seni daha doğru yansıtabilmesi için birkaç etkileşime daha ihtiyacı var.';
+  'EZA Ayna’nın seni daha doğru yansıtabilmesi için birkaç etkileşime daha ihtiyacı var.';
 
 export const MIRROR_SPARSE_ENERGY_HINT =
   'Birkaç sohbetten sonra enerji ve ritim izleri burada belirecek.';

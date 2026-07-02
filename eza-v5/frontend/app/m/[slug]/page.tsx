@@ -15,11 +15,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const result = await fetchPublicMirrorBySlug(slug, { revalidateSeconds: 300 });
   if (!result.ok) {
-    return { title: 'Mirror bulunamadı · SAINA' };
+    return { title: 'Ayna bulunamadı · SAINA' };
   }
   const surface = pickMirrorLandingSurface(result.data);
   return {
-    title: `${surface.cardTitle} · SAINA Mirror`,
+    title: `${surface.cardTitle} · SAINA`,
     description: surface.curiosityContext.slice(0, 160),
     openGraph: surface.sceneImageUrl
       ? { images: [{ url: surface.sceneImageUrl, width: 1080, height: 1350 }] }

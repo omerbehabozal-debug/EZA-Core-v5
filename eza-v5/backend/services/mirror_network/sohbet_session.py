@@ -58,7 +58,7 @@ def derive_curiosity_anchor(
         return core
 
     context = (curiosity_context or "").strip()
-    for prefix in ("Bu merak alanı, ", "Bu Mirror, "):
+    for prefix in ("Bu merak alanı, ", "Bu Mirror, ", "Bu Ayna, "):
         if context.lower().startswith(prefix.lower()):
             context = context[len(prefix) :]
     for cut in (" üzerine doğmuş", " etrafında açılır", " — ", " ilham alır"):
@@ -79,7 +79,7 @@ def build_opening_message(anchor: str) -> str:
             safe = "bu merak alanı"
             break
     return (
-        f"Bu Mirror, {safe} merakından doğdu.\n\n"
+        f"Bu Ayna, {safe} merakından doğdu.\n\n"
         "Şimdi bu yolculuk senin sorularınla devam ediyor."
     )
 

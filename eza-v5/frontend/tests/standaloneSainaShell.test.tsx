@@ -14,6 +14,7 @@ vi.mock('@/components/standalone/StandaloneObservationExperience', () => ({
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
   SAINA_ANALYSIS_MODEL_LABEL,
+  SAINA_ANON_FREE_NOTE,
   SAINA_ASSISTANT_LABEL,
   SAINA_BRAND,
   SAINA_COMPOSER_PLACEHOLDER,
@@ -607,7 +608,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
 
     expect(screen.getByText('SAINA Free')).toBeInTheDocument();
     expect(screen.getByText('Şimdi Premium Ol')).toBeInTheDocument();
-    expect(screen.getByText('Mirror ve İlişki Deseni için giriş yap.')).toBeInTheDocument();
+    expect(screen.getByText(SAINA_ANON_FREE_NOTE)).toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
@@ -618,7 +619,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     expect(screen.getByText('SAINA Free')).toBeInTheDocument();
     expect(screen.getByText("Premium'a Geç")).toBeInTheDocument();
     expect(
-      screen.getByText("Conversation Mirror ve İlişki Deseni Premium'da aktif."),
+      screen.getByText("Ayna ve İlişki Deseni Premium'da aktif."),
     ).toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
@@ -629,7 +630,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
 
     expect(screen.getByText(/SAINA Premium Aktif/)).toBeInTheDocument();
     expect(screen.getByText(SAINA_PREMIUM_OBSERVING)).toBeInTheDocument();
-    expect(screen.getAllByText('Conversation Mirror').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Ayna').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('İlişki Haritası').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();

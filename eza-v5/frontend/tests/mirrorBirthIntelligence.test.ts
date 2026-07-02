@@ -174,6 +174,6 @@ describe('Mirror Birth Intelligence (Stage 4A)', () => {
     expect(blob).not.toContain('paylaş');
     expect(blob).not.toContain('tamamlandı');
     expect(blob).not.toContain('başarı');
-    expect(MIRROR_BIRTH_SUGGESTION_CTA).toBe('Mirror oluştur');
+    expect(MIRROR_BIRTH_SUGGESTION_CTA).toBe('Ayna oluştur');
   });
 });

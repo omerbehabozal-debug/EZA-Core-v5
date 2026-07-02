@@ -122,7 +122,7 @@ export default function MirrorSohbetOpening({
 
         {status === 'error' ? (
           <p className="mt-8 text-sm text-[#c8a090]">
-            Bu Mirror için sohbet şu an açılamıyor.
+            Bu Ayna için sohbet şu an açılamıyor.
           </p>
         ) : null}
 
@@ -176,7 +176,7 @@ export default function MirrorSohbetOpening({
                 {submitting ? 'Açılıyor…' : 'Gönder'}
               </button>
               <p className="mt-2 text-center text-[11px] text-[#8a8074]">
-                Kendi Mirror&apos;ını üretmek için giriş gerekir.
+                Kendi Ayna&apos;nı üretmek için giriş gerekir.
               </p>
             </div>
           </>

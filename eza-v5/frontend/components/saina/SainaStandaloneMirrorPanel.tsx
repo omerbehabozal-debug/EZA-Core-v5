@@ -28,7 +28,7 @@ export default function SainaStandaloneMirrorPanel({
   return (
     <aside
       className="saina-mirror-panel"
-      aria-label="Conversation Mirror"
+      aria-label={SAINA_MIRROR_TITLE}
       data-testid="saina-standalone-mirror-panel"
     >
       <div className="saina-mirror-inner">
