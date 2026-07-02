@@ -138,6 +138,33 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
 
+  it('shows delete control for real conversations and calls onDeleteChat', () => {
+    const onDeleteChat = vi.fn();
+    render(
+      <SainaConversationSidebar
+        conversations={[
+          {
+            id: 'chat-delete-me',
+            title: 'Kyoto Akşamları',
+            preview: 'İpek Yolu…',
+            time: 'Az önce',
+            thumbGradient: 'linear-gradient(135deg, #173B45, #0F2B25)',
+          },
+        ]}
+        onSelectChat={vi.fn()}
+        onDeleteChat={onDeleteChat}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Kyoto Akşamları sil' }));
+    expect(onDeleteChat).toHaveBeenCalledWith('chat-delete-me');
+  });
+
+  it('hides delete control on mock sidebar without handler', () => {
+    render(<SainaConversationSidebar interactionsDisabled />);
+    expect(screen.queryByTestId(/saina-conv-delete-/)).not.toBeInTheDocument();
+  });
+
   it('renders default scene overlays with bundled image layer', () => {
     const { container } = render(<SainaCinematicScene />);
     const layer = screen.getByTestId('saina-scene-image-layer');

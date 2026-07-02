@@ -51,6 +51,7 @@ import { useSetConversationMirrorEntries, PENDING_CONVERSATION_MIRROR_ID } from 
 import {
   CHATS_UPDATED_EVENT,
   clearMirrorAutoReplyPending,
+  confirmDeleteChatArchive,
   createStandaloneChat,
   getChatArchive,
   listChatArchives,
@@ -375,6 +376,31 @@ export default function StandaloneChatInner() {
       router.push(`/standalone?chat=${id}`, { scroll: false });
     },
     [router]
+  );
+
+  const handleDeleteChat = useCallback(
+    (id: string) => {
+      const archive = getChatArchive(id);
+      if (!archive) return;
+      if (
+        chatId === id &&
+        !skipAutosaveRef.current &&
+        toArchivedMessages(messages).length > 0
+      ) {
+        flushSave(chatId, messages);
+      }
+      if (!confirmDeleteChatArchive(id, archive.title)) return;
+
+      if (chatId === id) {
+        const remaining = listChatArchives();
+        if (remaining.length > 0) {
+          router.push(`/standalone?chat=${remaining[0]!.id}`, { scroll: false });
+        } else {
+          router.push('/standalone', { scroll: false });
+        }
+      }
+    },
+    [chatId, messages, flushSave, router]
   );
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
@@ -1107,6 +1133,7 @@ export default function StandaloneChatInner() {
     planTier,
     onNewChat: handleNewChat,
     onSelectChat: handleSelectChat,
+    onDeleteChat: handleDeleteChat,
     onOpenPattern: handleOpenPattern,
     onUpgrade: handleOpenUpgrade,
     onRequestLogin: handleRequestLogin,
@@ -1140,6 +1167,7 @@ export default function StandaloneChatInner() {
         activeChatId={chatId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
+        onDeleteChat={handleDeleteChat}
         onOpenPattern={handleOpenPattern}
         planTier={planTier}
         onUpgrade={handleOpenUpgrade}

@@ -14,6 +14,7 @@ export type SainaChromeState = {
   planTier?: SainaPlanTier;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
+  onDeleteChat?: (id: string) => void;
   onOpenPattern?: () => void;
   onUpgrade?: () => void;
   onRequestLogin?: () => void;

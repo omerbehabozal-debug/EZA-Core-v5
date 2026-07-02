@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageSquarePlus, X } from 'lucide-react';
+import { MessageSquarePlus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   SAINA_BRAND,
@@ -114,6 +114,7 @@ type SainaConversationSidebarProps = {
   activeSection?: 'chat' | 'pattern';
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
+  onDeleteChat?: (id: string) => void;
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;
@@ -134,6 +135,7 @@ export default function SainaConversationSidebar({
   activeSection = 'chat',
   onNewChat,
   onSelectChat,
+  onDeleteChat,
   onOpenPattern,
   planTier = 'premium',
   onUpgrade,
@@ -177,37 +179,58 @@ export default function SainaConversationSidebar({
     nested = false
   ) => {
     const active = activeChatId != null && item.id === activeChatId;
+    const canDelete = Boolean(onDeleteChat) && !disabled;
     return (
-      <button
+      <div
         key={item.id}
-        type="button"
-        disabled={disabled && !onSelectChat}
-        className={cn(
-          'saina-conv-row',
-          active && 'saina-conv-row--active',
-          nested && 'saina-conv-row--nested'
-        )}
-        data-testid={`saina-conv-row-${item.id}`}
-        onClick={() => {
-          onSelectChat?.(item.id);
-          onMobileClose?.();
-        }}
+        className={cn('saina-conv-row-wrap', nested && 'saina-conv-row-wrap--nested')}
       >
-        <div className="saina-conv-thumb" style={{ background: item.thumbGradient }} />
-        <div className="saina-conv-body">
-          <p className="saina-conv-title">
-            {item.isMirrorSource ? (
-              <span className="saina-conv-mirror-mark" aria-hidden>
-                ✦{' '}
-              </span>
-            ) : null}
-            {item.title}
-          </p>
-          <p className="saina-conv-preview">{item.preview}</p>
-          <p className="saina-conv-meta">{item.time}</p>
-        </div>
-        {active ? <span className="saina-conv-active-dot" aria-hidden /> : null}
-      </button>
+        <button
+          type="button"
+          disabled={disabled && !onSelectChat}
+          className={cn(
+            'saina-conv-row',
+            active && 'saina-conv-row--active',
+            nested && 'saina-conv-row--nested'
+          )}
+          data-testid={`saina-conv-row-${item.id}`}
+          onClick={() => {
+            onSelectChat?.(item.id);
+            onMobileClose?.();
+          }}
+        >
+          <div className="saina-conv-thumb" style={{ background: item.thumbGradient }} />
+          <div className="saina-conv-body">
+            <p className="saina-conv-title">
+              {item.isMirrorSource ? (
+                <span className="saina-conv-mirror-mark" aria-hidden>
+                  ✦{' '}
+                </span>
+              ) : null}
+              {item.title}
+            </p>
+            <p className="saina-conv-preview">{item.preview}</p>
+            <p className="saina-conv-meta">{item.time}</p>
+          </div>
+          {active ? <span className="saina-conv-active-dot" aria-hidden /> : null}
+        </button>
+        {canDelete ? (
+          <button
+            type="button"
+            className="saina-conv-delete-btn"
+            data-testid={`saina-conv-delete-${item.id}`}
+            aria-label={`${item.title} sil`}
+            title="Sil"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDeleteChat?.(item.id);
+            }}
+          >
+            <Trash2 size={14} aria-hidden />
+          </button>
+        ) : null}
+      </div>
     );
   };
 

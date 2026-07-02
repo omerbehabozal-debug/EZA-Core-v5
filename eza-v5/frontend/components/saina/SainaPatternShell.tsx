@@ -21,6 +21,7 @@ export type SainaPatternShellProps = {
   activeChatId?: string | null;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
+  onDeleteChat?: (id: string) => void;
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;
@@ -92,6 +93,7 @@ export default function SainaPatternShell({
   activeChatId = null,
   onNewChat,
   onSelectChat,
+  onDeleteChat,
   onOpenPattern,
   planTier,
   onUpgrade,
@@ -146,6 +148,7 @@ export default function SainaPatternShell({
               activeSection="pattern"
               onNewChat={onNewChat}
               onSelectChat={onSelectChat}
+              onDeleteChat={onDeleteChat}
               onOpenPattern={onOpenPattern}
               planTier={planTier}
               onUpgrade={onUpgrade}

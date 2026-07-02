@@ -69,6 +69,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               activeSection={view === 'pattern' ? 'pattern' : 'chat'}
               onNewChat={chrome.onNewChat}
               onSelectChat={chrome.onSelectChat}
+              onDeleteChat={chrome.onDeleteChat}
               onOpenPattern={chrome.onOpenPattern}
               planTier={chrome.planTier}
               onUpgrade={chrome.onUpgrade}

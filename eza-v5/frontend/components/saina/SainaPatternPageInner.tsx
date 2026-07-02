@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CHATS_UPDATED_EVENT,
+  confirmDeleteChatArchive,
+  getChatArchive,
   listChatArchives,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
@@ -109,6 +111,12 @@ export default function SainaPatternPageInner() {
     [router]
   );
 
+  const handleDeleteChat = useCallback((id: string) => {
+    const archive = getChatArchive(id);
+    if (!archive) return;
+    confirmDeleteChatArchive(id, archive.title);
+  }, []);
+
   const handleOpenPattern = useCallback(() => {
     /* Already on pattern route — keep sidebar card active. */
   }, []);
@@ -136,6 +144,7 @@ export default function SainaPatternPageInner() {
     planTier,
     onNewChat: handleNewChat,
     onSelectChat: handleSelectChat,
+    onDeleteChat: handleDeleteChat,
     onOpenPattern: handleOpenPattern,
     onUpgrade: handleUpgrade,
     onRequestLogin: handleRequestLogin,
@@ -153,6 +162,7 @@ export default function SainaPatternPageInner() {
         activeChatId={null}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
+        onDeleteChat={handleDeleteChat}
         onOpenPattern={handleOpenPattern}
         planTier={planTier}
         onUpgrade={handleUpgrade}

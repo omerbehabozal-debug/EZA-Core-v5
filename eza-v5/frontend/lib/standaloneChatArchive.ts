@@ -359,6 +359,15 @@ export function deleteChatArchive(id: string): void {
   }
 }
 
+/** Confirm dialog then remove a chat from local archive. */
+export function confirmDeleteChatArchive(id: string, title: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const label = summarizeArchiveTitle(title) || 'Bu sohbet';
+  if (!window.confirm(`"${label}" silinsin mi?`)) return false;
+  deleteChatArchive(id);
+  return true;
+}
+
 /** Boş sohbetleri temizle (isteğe bağlı) */
 export function pruneEmptyChats(exceptId?: string): void {
   const kept = readAll().filter(

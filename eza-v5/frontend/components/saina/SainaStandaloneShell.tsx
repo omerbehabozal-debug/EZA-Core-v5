@@ -32,6 +32,7 @@ export type SainaStandaloneShellProps = {
   activeChatId: string | null;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
+  onDeleteChat?: (id: string) => void;
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;
@@ -205,6 +206,7 @@ export default function SainaStandaloneShell({
   activeChatId,
   onNewChat,
   onSelectChat,
+  onDeleteChat,
   onOpenPattern,
   planTier,
   onUpgrade,
@@ -281,6 +283,7 @@ export default function SainaStandaloneShell({
               activeChatId={activeChatId}
               onNewChat={onNewChat}
               onSelectChat={onSelectChat}
+              onDeleteChat={onDeleteChat}
               onOpenPattern={onOpenPattern}
               planTier={planTier}
               onUpgrade={onUpgrade}
