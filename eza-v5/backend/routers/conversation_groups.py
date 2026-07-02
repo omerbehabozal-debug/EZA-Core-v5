@@ -50,8 +50,12 @@ async def list_conversation_groups(
     user_id: Optional[UUID] = None
     if credentials is not None:
         user = get_user_from_token(credentials.credentials)
-        if user is not None:
-            user_id = UUID(str(user["user_id"]))
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="unauthorized",
+            )
+        user_id = UUID(str(user["user_id"]))
 
     guest = guestToken.strip() if guestToken else None
     if user_id is None and not guest:

@@ -44,6 +44,25 @@ def _serialize_curiosity_bundle(bundle: Mapping[str, Any]) -> dict[str, Any]:
     return dict(bundle)
 
 
+def resolve_scene_image_url(
+    *,
+    existing_scene: Optional[str],
+    incoming_scene: Optional[str],
+) -> Optional[str]:
+    """
+    Non-null wins: never clear an existing scene image with a null publish.
+
+    - incoming non-null → use incoming
+    - incoming null + existing non-null → keep existing
+    - both null → null
+    """
+    existing = (existing_scene or "").strip() or None
+    incoming = (incoming_scene or "").strip() or None
+    if incoming:
+        return incoming
+    return existing
+
+
 def _apply_node_fields(
     node: MirrorNetworkNode,
     *,
@@ -58,9 +77,15 @@ def _apply_node_fields(
     now: datetime,
     is_new: bool,
 ) -> None:
+    resolved_scene = resolve_scene_image_url(
+        existing_scene=getattr(node, "scene_image_url", None),
+        incoming_scene=scene_image_url,
+    )
     node.card_title = card_title
     node.card_date = card_date
-    node.scene_image_url = scene_image_url
+    node.scene_image_url = resolved_scene
+    public_dict = dict(public_dict)
+    public_dict["sceneImageUrl"] = resolved_scene
     node.public_payload = public_dict
     node.private_payload = private_dict
     node.safety_status = safety_status
@@ -82,6 +107,7 @@ async def publish_mirror_to_network(
 
     Mirror creation and network registration are one product action — no separate publish step.
     Concurrent publishes for the same conversation resolve to a single node (unique constraint).
+    Scene image updates use non-null-wins semantics.
     """
     card_title = body.cardTitle.strip()
     if not card_title:
@@ -95,6 +121,8 @@ async def publish_mirror_to_network(
     intelligence_private = dict(body.intelligencePrivate or {})
 
     conversation_id = (body.conversationId or "").strip() or None
+    incoming_scene = (body.sceneImageUrl or "").strip() or None
+
     existing = None
     if conversation_id:
         existing = await get_mirror_network_node_by_conversation(
@@ -102,6 +130,11 @@ async def publish_mirror_to_network(
             user_id=user.id,
             conversation_id=conversation_id,
         )
+
+    resolved_scene = resolve_scene_image_url(
+        existing_scene=existing.scene_image_url if existing else None,
+        incoming_scene=incoming_scene,
+    )
 
     slug = existing.slug if existing else None
     if not slug:
@@ -124,7 +157,7 @@ async def publish_mirror_to_network(
             slug=slug,
             card_title=card_title,
             card_date=body.cardDate.strip(),
-            scene_image_url=(body.sceneImageUrl or "").strip() or None,
+            scene_image_url=resolved_scene,
             user_id=str(user.id),
             conversation_id=conversation_id,
             curiosity_bundle=curiosity_bundle,
@@ -143,7 +176,6 @@ async def publish_mirror_to_network(
     now = datetime.now(timezone.utc)
     public_dict = public_payload.model_dump()
     private_dict = private_payload.model_dump()
-    scene_image_url = (body.sceneImageUrl or "").strip() or None
     parent_slug = (body.parentSlug or "").strip() or None
 
     if existing:
@@ -151,7 +183,7 @@ async def publish_mirror_to_network(
             existing,
             card_title=card_title,
             card_date=body.cardDate.strip(),
-            scene_image_url=scene_image_url,
+            scene_image_url=incoming_scene,
             public_dict=public_dict,
             private_dict=private_dict,
             safety_status=safety_status,
@@ -171,7 +203,7 @@ async def publish_mirror_to_network(
             safety_status=safety_status,
             card_title=card_title,
             card_date=body.cardDate.strip(),
-            scene_image_url=scene_image_url,
+            scene_image_url=resolved_scene,
             public_payload=public_dict,
             private_payload=private_dict,
             parent_slug=parent_slug,
@@ -194,7 +226,7 @@ async def publish_mirror_to_network(
                 raced,
                 card_title=card_title,
                 card_date=body.cardDate.strip(),
-                scene_image_url=scene_image_url,
+                scene_image_url=incoming_scene,
                 public_dict=public_dict,
                 private_dict=private_dict,
                 safety_status=safety_status,

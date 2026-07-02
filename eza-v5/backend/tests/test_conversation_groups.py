@@ -102,6 +102,15 @@ def test_list_conversation_groups_requires_auth_or_guest():
     assert response.status_code == 401
 
 
+def test_list_conversation_groups_invalid_bearer_returns_401_even_with_guest():
+    response = client.get(
+        "/api/conversation-groups",
+        params={"guestToken": "guest-list-token"},
+        headers={"Authorization": "Bearer invalid-token"},
+    )
+    assert response.status_code == 401
+
+
 def test_fetch_conversation_groups_requires_scope():
     from backend.services.conversation_tree.groups import fetch_conversation_groups
 

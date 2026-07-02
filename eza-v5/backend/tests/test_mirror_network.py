@@ -118,6 +118,30 @@ def test_public_payload_rejects_credential_url():
     assert audit.passed is False
 
 
+def test_public_payload_rejects_openai_key_in_hooks():
+    node = build_fixture_mirror_node(slug_suffix="sk1")
+    public = node_to_public_payload(node)
+    public.hooks = ["sk-proj-abcdefghijklmnopqrstuvwxyz123456"]
+    audit = audit_public_payload(public)
+    assert audit.passed is False
+
+
+def test_public_payload_rejects_bearer_token_in_context():
+    node = build_fixture_mirror_node(slug_suffix="bearer1")
+    public = node_to_public_payload(node)
+    public.curiosityContext = "Bearer abcdefghijklmnopqrstuvwxyz123456"
+    audit = audit_public_payload(public)
+    assert audit.passed is False
+
+
+def test_public_payload_rejects_embedded_tc():
+    node = build_fixture_mirror_node(slug_suffix="tc1")
+    public = node_to_public_payload(node)
+    public.landingContext = "TC: 12345678901"
+    audit = audit_public_payload(public)
+    assert audit.passed is False
+
+
 def test_split_curiosity_rejects_private_bundle_keys():
     node = build_fixture_mirror_node(slug_suffix="privkeys1")
     with pytest.raises(ValueError, match="public_payload_audit_failed"):

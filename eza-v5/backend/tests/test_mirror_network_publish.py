@@ -13,7 +13,11 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.services.mirror_network.fixtures import JAPAN_FIXTURE_BUNDLE
-from backend.services.mirror_network.publish import map_mirror_safety_level, publish_mirror_to_network
+from backend.services.mirror_network.publish import (
+    map_mirror_safety_level,
+    publish_mirror_to_network,
+    resolve_scene_image_url,
+)
 from backend.services.production_auth import create_access_token
 
 client = TestClient(app)
@@ -65,6 +69,134 @@ def test_map_mirror_safety_level():
     assert map_mirror_safety_level("normal") == ("open", "public")
     assert map_mirror_safety_level("elevated") == ("review", "unlisted")
     assert map_mirror_safety_level("restricted") == ("restricted", "private")
+
+
+def test_resolve_scene_image_url_non_null_wins():
+    assert resolve_scene_image_url(
+        existing_scene="https://cdn.example/a.jpg",
+        incoming_scene=None,
+    ) == "https://cdn.example/a.jpg"
+    assert resolve_scene_image_url(
+        existing_scene=None,
+        incoming_scene="https://cdn.example/b.jpg",
+    ) == "https://cdn.example/b.jpg"
+
+
+@pytest.mark.asyncio
+async def test_null_publish_does_not_clear_existing_scene():
+    from backend.core.schemas.mirror_network import MirrorNetworkPublishRequest
+
+    user = _make_user()
+    existing = SimpleNamespace(
+        id=uuid.uuid4(),
+        slug="sokak-lambalari-existing",
+        user_id=user.id,
+        conversation_id="conv-publish-1",
+        visibility="public",
+        safety_status="open",
+        card_title="Sokak Lambaları",
+        card_date="2026-05-31",
+        scene_image_url="https://cdn.example/existing-scene.jpg",
+        public_payload={"sceneImageUrl": "https://cdn.example/existing-scene.jpg"},
+        private_payload={},
+        parent_slug=None,
+        published_at=None,
+        created_at=None,
+    )
+    db = AsyncMock()
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_conversation",
+            new=AsyncMock(return_value=existing),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new=AsyncMock(return_value=existing),
+        ) as mock_update,
+    ):
+        body = _publish_body()
+        body["sceneImageUrl"] = None
+        result = await publish_mirror_to_network(
+            db,
+            user,
+            MirrorNetworkPublishRequest.model_validate(body),
+        )
+
+    assert result.sceneImageUrl == "https://cdn.example/existing-scene.jpg"
+    mock_update.assert_awaited_once()
+    assert existing.scene_image_url == "https://cdn.example/existing-scene.jpg"
+
+
+@pytest.mark.asyncio
+async def test_parallel_publish_interleaving_non_null_wins():
+    """
+    Deterministic interleaving (not real DB transactions):
+    non-null scene insert wins race; null publish IntegrityError recovery must not erase scene.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from backend.core.schemas.mirror_network import MirrorNetworkPublishRequest
+
+    user = _make_user()
+    db = AsyncMock()
+    db.rollback = AsyncMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+
+    raced_node = SimpleNamespace(
+        id=uuid.uuid4(),
+        slug="sokak-lambalari-raced",
+        user_id=user.id,
+        conversation_id="conv-publish-1",
+        visibility="public",
+        safety_status="open",
+        card_title="Sokak Lambaları",
+        card_date="2026-05-31",
+        scene_image_url="https://cdn.example/raced-scene.jpg",
+        public_payload={"sceneImageUrl": "https://cdn.example/raced-scene.jpg"},
+        private_payload={},
+        parent_slug=None,
+        published_at=None,
+        created_at=None,
+    )
+
+    async def _create_raises(_db, _node):
+        raise IntegrityError("insert", {}, Exception("duplicate"))
+
+    body = _publish_body()
+    body["sceneImageUrl"] = None
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_conversation",
+            new=AsyncMock(side_effect=[None, raced_node]),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.slug_exists",
+            new=AsyncMock(return_value=False),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.create_mirror_network_node",
+            new=AsyncMock(side_effect=_create_raises),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new=AsyncMock(return_value=raced_node),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNode",
+            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+        ),
+    ):
+        result = await publish_mirror_to_network(
+            db,
+            user,
+            MirrorNetworkPublishRequest.model_validate(body),
+        )
+
+    assert result.sceneImageUrl == "https://cdn.example/raced-scene.jpg"
+    assert raced_node.scene_image_url == "https://cdn.example/raced-scene.jpg"
 
 
 @pytest.mark.asyncio
@@ -232,6 +364,7 @@ def test_publish_endpoint_returns_public_payload():
     body = response.json()
     assert body["shareUrl"]
     assert body["slug"]
+    assert body["sceneImageUrl"]
     assert "userId" not in body
     assert "mirrorBody" not in body
     assert "conversationId" not in body
