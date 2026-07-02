@@ -13,8 +13,6 @@ import {
   pruneExpiredDeletedChatTombstones,
 } from '@/lib/standaloneChatDelete';
 import {
-  confirmChatDeletion,
-  confirmDeleteChatArchive,
   createStandaloneChat,
   deleteChatArchive,
   getChatArchive,
@@ -44,16 +42,12 @@ function seedTwoChats() {
   });
 }
 
-/** Mirrors SainaPatternPageInner delete flow. */
+/** Mirrors SainaPatternPageInner executeDeleteChat after modal confirm. */
 function patternDeleteChat(id: string): { deleted: boolean; wasActive: boolean; route: string | null } {
   const archive = getChatArchive(id);
   if (!archive) return { deleted: false, wasActive: false, route: null };
 
   const wasActive = readActiveChatId() === id;
-  if (!confirmChatDeletion(archive.title)) {
-    return { deleted: false, wasActive, route: null };
-  }
-
   deleteChatArchive(id);
   return {
     deleted: true,
@@ -62,7 +56,7 @@ function patternDeleteChat(id: string): { deleted: boolean; wasActive: boolean; 
   };
 }
 
-/** Mirrors StandaloneChatInner delete flow (without router/state). */
+/** Mirrors StandaloneChatInner executeDeleteChat after modal confirm. */
 function standaloneDeleteChat(
   activeChatId: string | null,
   targetId: string
@@ -71,14 +65,6 @@ function standaloneDeleteChat(
   if (!archive) return { deleted: false, wasActive: false };
 
   const wasActive = activeChatId === targetId;
-  if (!confirmChatDeletion(archive.title)) {
-    return { deleted: false, wasActive };
-  }
-
-  if (wasActive) {
-    // autosave would be cancelled here in the component
-  }
-
   deleteChatArchive(targetId);
   return { deleted: true, wasActive };
 }
@@ -87,11 +73,11 @@ describe('standalone chat delete hardening', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
-    vi.stubGlobal('confirm', vi.fn(() => true));
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('blocks saveStandaloneChat for deleted chat ids', () => {
@@ -143,21 +129,14 @@ describe('standalone chat delete hardening', () => {
     expect(localStorage.getItem(DELETED_CHAT_IDS_STORAGE_KEY)).toBe('[]');
   });
 
-  it('confirm cancel preserves chat and later save', () => {
-    vi.mocked(globalThis.confirm).mockReturnValue(false);
+  it('delete preserves chat when archive is missing', () => {
     seedTwoChats();
-    const id = 'chat-newer';
-
-    const result = standaloneDeleteChat('chat-newer', id);
+    const result = standaloneDeleteChat('chat-newer', 'chat-missing');
     expect(result.deleted).toBe(false);
-    expect(getChatArchive(id)).not.toBeNull();
-
-    const saved = saveStandaloneChat(id, [{ id: 'm3', text: 'still here', isUser: true }]);
-    expect(saved).not.toBeNull();
+    expect(listChatArchives()).toHaveLength(2);
   });
 
-  it('confirm true deletes and blocks resurrection', () => {
-    vi.mocked(globalThis.confirm).mockReturnValue(true);
+  it('confirmed delete removes archive and blocks resurrection', () => {
     seedTwoChats();
 
     const result = standaloneDeleteChat('chat-newer', 'chat-newer');
@@ -212,12 +191,11 @@ describe('standalone chat delete hardening', () => {
     vi.useRealTimers();
   });
 
-  it('confirmDeleteChatArchive removes archive and clears active chat id', () => {
+  it('deleteChatArchive removes archive and clears active chat id', () => {
     const id = createStandaloneChat({ title: 'Aktif' });
     expect(readActiveChatId()).toBe(id);
 
-    const ok = confirmDeleteChatArchive(id, 'Aktif');
-    expect(ok).toBe(true);
+    deleteChatArchive(id);
     expect(getChatArchive(id)).toBeNull();
     expect(readActiveChatId()).toBeNull();
   });

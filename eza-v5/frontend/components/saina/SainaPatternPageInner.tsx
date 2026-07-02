@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CHATS_UPDATED_EVENT,
-  confirmChatDeletion,
   deleteChatArchive,
   getChatArchive,
   listChatArchives,
@@ -12,6 +11,7 @@ import {
   resolveChatRouteAfterDelete,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
+import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { useMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
 import RelationshipPatternView from '@/components/mirror/RelationshipPatternView';
 import PatternPlusUpsellBanner from '@/components/mirror/relationship/PatternPlusUpsellBanner';
@@ -114,14 +114,12 @@ export default function SainaPatternPageInner() {
     [router]
   );
 
-  const handleDeleteChat = useCallback(
+  const executeDeleteChat = useCallback(
     (id: string) => {
       const archive = getChatArchive(id);
       if (!archive) return;
 
       const wasActive = readActiveChatId() === id;
-      if (!confirmChatDeletion(archive.title)) return;
-
       deleteChatArchive(id);
 
       if (wasActive) {
@@ -129,6 +127,18 @@ export default function SainaPatternPageInner() {
       }
     },
     [router]
+  );
+
+  const { requestDelete, deleteModal } = useSainaDeleteChatModal({
+    onConfirmDelete: executeDeleteChat,
+  });
+
+  const handleDeleteChat = useCallback(
+    (id: string) => {
+      if (!getChatArchive(id)) return;
+      requestDelete(id);
+    },
+    [requestDelete]
   );
 
   const handleOpenPattern = useCallback(() => {
@@ -213,6 +223,7 @@ export default function SainaPatternPageInner() {
         variant={upgradeVariant}
         feature={upgradeFeature}
       />
+      {deleteModal}
     </>
   );
 }

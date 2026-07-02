@@ -19,6 +19,7 @@ import MessageList from '@/components/standalone/MessageList';
 import SainaComposer from '@/components/saina/SainaComposer';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
+import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
 import NewChatGroupPicker from '@/components/saina/NewChatGroupPicker';
@@ -51,7 +52,6 @@ import { useSetConversationMirrorEntries, PENDING_CONVERSATION_MIRROR_ID } from 
 import {
   CHATS_UPDATED_EVENT,
   clearMirrorAutoReplyPending,
-  confirmChatDeletion,
   createStandaloneChat,
   deleteChatArchive,
   getChatArchive,
@@ -410,14 +410,12 @@ export default function StandaloneChatInner() {
     [router]
   );
 
-  const handleDeleteChat = useCallback(
+  const executeDeleteChat = useCallback(
     (id: string) => {
       const archive = getChatArchive(id);
       if (!archive) return;
 
       const wasActive = chatId === id;
-      if (!confirmChatDeletion(archive.title)) return;
-
       if (wasActive) {
         cancelPendingAutosave();
         skipAutosaveRef.current = true;
@@ -440,6 +438,18 @@ export default function StandaloneChatInner() {
       resetStateAfterActiveDelete,
       startDraft,
     ]
+  );
+
+  const { requestDelete, deleteModal } = useSainaDeleteChatModal({
+    onConfirmDelete: executeDeleteChat,
+  });
+
+  const handleDeleteChat = useCallback(
+    (id: string) => {
+      if (!getChatArchive(id)) return;
+      requestDelete(id);
+    },
+    [requestDelete]
   );
 
   useEffect(() => {
@@ -1245,6 +1255,7 @@ export default function StandaloneChatInner() {
         variant={upgradeVariant}
         feature={upgradeFeature}
       />
+      {deleteModal}
     </>
   );
 }

@@ -284,6 +284,15 @@ export const SAINA_MODAL_TITLE = 'İpek Yolu Aynası';
 
 export const SAINA_MODAL_MOCK_NOTE = 'Statik önizleme — Sprint A mock';
 
+export const SAINA_DELETE_CHAT_TITLE = 'Bu sohbet silinsin mi?';
+
+export const SAINA_DELETE_CHAT_DESCRIPTION =
+  'Bu işlem yalnızca bu cihazdaki sohbet kaydını siler. Paylaşılmış Aynalar etkilenmez.';
+
+export const SAINA_DELETE_CHAT_CANCEL = 'Vazgeç';
+
+export const SAINA_DELETE_CHAT_CONFIRM = 'Sohbeti sil';
+
 
 
 export const SAINA_CONCEPT_FEELING_TITLE = 'Bu arka plan nasıl bir his verir?';

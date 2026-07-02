@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import SainaDeleteChatModal from '@/components/saina/SainaDeleteChatModal';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   CHATS_UPDATED_EVENT,
@@ -88,6 +89,7 @@ export default function StandaloneSidebar({
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [deletePending, setDeletePending] = useState<ArchivedChatSummary | null>(null);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
 
   const refreshChats = useCallback(() => {
@@ -153,8 +155,13 @@ export default function StandaloneSidebar({
   const handleDeleteChat = (e: React.MouseEvent, item: ArchivedChatSummary) => {
     e.preventDefault();
     e.stopPropagation();
-    const label = summarizeArchiveTitle(item.title) || 'Bu sohbet';
-    if (!window.confirm(`"${label}" silinsin mi?`)) return;
+    setDeletePending(item);
+  };
+
+  const handleConfirmDeleteChat = () => {
+    if (!deletePending) return;
+    const item = deletePending;
+    setDeletePending(null);
 
     deleteChatArchive(item.id);
 
@@ -163,7 +170,6 @@ export default function StandaloneSidebar({
       if (remaining.length > 0) {
         router.push(`/standalone?chat=${remaining[0]!.id}`);
       } else {
-        // Boş kayıt açma; temiz bir taslakla /standalone'a dön.
         router.push('/standalone');
       }
     }
@@ -423,6 +429,12 @@ export default function StandaloneSidebar({
           </div>
         </div>
       </aside>
+
+      <SainaDeleteChatModal
+        open={deletePending != null}
+        onCancel={() => setDeletePending(null)}
+        onConfirm={handleConfirmDeleteChat}
+      />
     </>
   );
 }
