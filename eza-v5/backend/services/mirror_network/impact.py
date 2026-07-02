@@ -18,8 +18,8 @@ from backend.services.mirror_network.repository import get_mirror_network_node_b
 from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
 from backend.services.mirror_network.slug import build_mirror_share_url
 
-# Continuation starts are counted from server-issued proofs (sohbet/session).
-_CONTINUATION_STARTS_VERIFIED = True
+# Continuation starts remain unverified until abuse-resistant server session identity ships.
+_CONTINUATION_STARTS_VERIFIED = False
 
 _IMPACT_FORBIDDEN_RESPONSE_KEYS = frozenset(
     {

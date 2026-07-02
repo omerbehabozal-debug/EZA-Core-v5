@@ -177,7 +177,7 @@ async def publish_mirror_to_network(
         )
 
     validated_parent_slug = None
-    if not existing_parent_slug:
+    if not existing_parent_slug and not existing:
         if proof_token:
             validated_parent_slug = await resolve_parent_slug_from_proof(
                 db,

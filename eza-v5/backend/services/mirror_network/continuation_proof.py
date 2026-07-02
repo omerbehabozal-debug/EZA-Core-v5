@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Server-verified lineage proofs for mirror continuation (Faz 2.2)."""
+"""Server-verified lineage proofs for mirror continuation (Faz 2.2+)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Optional
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.mirror_continuation_proof import MirrorContinuationProof
@@ -32,6 +32,13 @@ _PROOF_FORBIDDEN_RESPONSE_KEYS = frozenset(
 def _bad_proof(code: str, message: str) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
+        detail={"code": code, "message": message},
+    )
+
+
+def _conflict_proof(code: str, message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
         detail={"code": code, "message": message},
     )
 
@@ -96,6 +103,40 @@ def _actor_matches(
     return False
 
 
+def _proof_expired(proof: MirrorContinuationProof, *, now: datetime) -> bool:
+    expires_at = proof.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    return expires_at < now
+
+
+async def atomically_consume_continuation_proof(
+    db: AsyncSession,
+    *,
+    proof_id: UUID,
+    user_id: UUID,
+    conversation_id: str | None,
+) -> Optional[MirrorContinuationProof]:
+    """Single-winner consume — only one publish may mark a proof consumed."""
+    now = datetime.now(timezone.utc)
+    stmt = (
+        update(MirrorContinuationProof)
+        .where(
+            MirrorContinuationProof.id == proof_id,
+            MirrorContinuationProof.consumed_at.is_(None),
+            MirrorContinuationProof.expires_at > now,
+        )
+        .values(
+            consumed_at=now,
+            conversation_id=conversation_id,
+            user_id=user_id,
+        )
+        .returning(MirrorContinuationProof)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
 async def resolve_parent_slug_from_proof(
     db: AsyncSession,
     *,
@@ -109,7 +150,7 @@ async def resolve_parent_slug_from_proof(
     """
     Validate a server-issued proof and return the parent slug.
 
-  When consume=True, binds conversation_id and marks proof consumed.
+    When consume=True, atomically binds conversation_id and marks proof consumed.
     """
     normalized_token = (proof_token or "").strip()
     if not normalized_token:
@@ -125,23 +166,18 @@ async def resolve_parent_slug_from_proof(
         raise _bad_proof("lineage_proof_invalid", "lineageProofToken is invalid")
 
     now = datetime.now(timezone.utc)
-    expires_at = proof.expires_at
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at < now:
+    if _proof_expired(proof, now=now):
         raise _bad_proof("lineage_proof_expired", "lineageProofToken has expired")
 
     if not _actor_matches(proof, user_id=user_id, guest_token=guest_token):
         raise _bad_proof("lineage_proof_forbidden", "lineageProofToken actor mismatch")
 
     normalized_conversation_id = (conversation_id or "").strip() or None
+
     if proof.consumed_at:
         if proof.conversation_id and normalized_conversation_id == proof.conversation_id:
             return proof.source_mirror_slug
-        raise _bad_proof("lineage_proof_consumed", "lineageProofToken already used")
-
-    if proof.conversation_id and normalized_conversation_id and proof.conversation_id != normalized_conversation_id:
-        raise _bad_proof("lineage_proof_mismatch", "lineageProofToken conversation mismatch")
+        raise _conflict_proof("lineage_proof_consumed", "lineageProofToken already used")
 
     parent_slug = await validate_parent_slug(
         db,
@@ -149,15 +185,27 @@ async def resolve_parent_slug_from_proof(
         child_slug=child_slug,
     )
 
-    if consume:
-        proof.conversation_id = normalized_conversation_id
-        proof.consumed_at = now
-        if not proof.user_id:
-            proof.user_id = user_id
-        await db.commit()
-        await db.refresh(proof)
+    if not consume:
+        return parent_slug
 
-    return parent_slug
+    consumed = await atomically_consume_continuation_proof(
+        db,
+        proof_id=proof_id,
+        user_id=user_id,
+        conversation_id=normalized_conversation_id,
+    )
+    if consumed is not None:
+        await db.commit()
+        return parent_slug
+
+    raced = await get_continuation_proof_by_id(db, proof_id)
+    if not raced:
+        raise _bad_proof("lineage_proof_invalid", "lineageProofToken is invalid")
+    if _proof_expired(raced, now=now):
+        raise _bad_proof("lineage_proof_expired", "lineageProofToken has expired")
+    if raced.consumed_at and raced.conversation_id == normalized_conversation_id:
+        return raced.source_mirror_slug
+    raise _conflict_proof("lineage_proof_consumed", "lineageProofToken already used")
 
 
 async def count_verified_continuation_starts(db: AsyncSession, mirror_slug: str) -> int:

@@ -155,7 +155,7 @@ async def test_get_mirror_impact_stats_owner_success():
         ),
         patch(
             "backend.services.mirror_network.impact._CONTINUATION_STARTS_VERIFIED",
-            True,
+            False,
         ),
         patch(
             "backend.services.mirror_network.impact.count_yansi_children",
@@ -174,8 +174,8 @@ async def test_get_mirror_impact_stats_owner_success():
 
     assert stats.mirrorId == "parent-ayna-abc123"
     assert stats.publicSlug == "parent-ayna-abc123"
-    assert stats.continuationStarts == 42
-    assert stats.continuationStartsVerified is True
+    assert stats.continuationStarts == 0
+    assert stats.continuationStartsVerified is False
     assert stats.yansiCount == 7
     assert stats.landingViews == 120
     payload = stats.model_dump()
@@ -216,8 +216,8 @@ def test_impact_endpoint_owner_200():
         "mirrorId": "parent-ayna-abc123",
         "publicSlug": "parent-ayna-abc123",
         "shareUrl": "https://saina.app/m/parent-ayna-abc123",
-        "continuationStarts": 42,
-        "continuationStartsVerified": True,
+        "continuationStarts": 0,
+        "continuationStartsVerified": False,
         "yansiCount": 3,
         "landingViews": 50,
     }
@@ -238,8 +238,8 @@ def test_impact_endpoint_owner_200():
 
     assert response.status_code == 200
     body = response.json()
-    assert body["continuationStarts"] == 42
-    assert body["continuationStartsVerified"] is True
+    assert body["continuationStarts"] == 0
+    assert body["continuationStartsVerified"] is False
     assert body["yansiCount"] == 3
     assert json.dumps(body)
     for key in FORBIDDEN_IMPACT_KEYS:
