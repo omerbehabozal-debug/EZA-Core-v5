@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import * as sainaCopy from '@/lib/eza/sainaCopy';
 import * as mirrorCopy from '@/lib/eza/mirror/copy';
@@ -72,5 +74,21 @@ describe('ayna public copy regression (Faz 1)', () => {
     expect(bodyText).not.toMatch(MIRROR_WORD_RE);
     expect(bodyText).not.toMatch(LANDING_WORD_RE);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Bu Ayna bulunamadı');
+  });
+
+  it('share export and lightbox fallbacks use Ayna language', () => {
+    const shareSrc = readFileSync(join(process.cwd(), 'lib/eza/mirror/shareExport.ts'), 'utf8');
+    const lightboxSrc = readFileSync(
+      join(process.cwd(), 'components/mirror/MirrorPosterLightbox.tsx'),
+      'utf8'
+    );
+    const sohbetSrc = readFileSync(
+      join(process.cwd(), 'components/mirror-landing/MirrorSohbetOpening.tsx'),
+      'utf8'
+    );
+    expect(shareSrc).toContain("'EZA Ayna'");
+    expect(lightboxSrc).toContain("'SAINA Ayna posteri'");
+    expect(sohbetSrc).toMatch(/>\s*Ayna\s*</);
+    expect(sohbetSrc).not.toMatch(/>\s*Mirror\s*</);
   });
 });

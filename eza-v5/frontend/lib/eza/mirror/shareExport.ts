@@ -137,7 +137,7 @@ export async function shareMirrorCardPng(
     return 'unsupported';
   }
 
-  const title = options?.title ?? 'EZA Mirror';
+  const title = options?.title ?? 'EZA Ayna';
   const text = options?.text ?? MIRROR_SHARE_EXPORT_TEXT;
   const filename = options?.filename ?? buildMirrorExportFilename();
   const file = new File([blob], filename, { type: 'image/png' });

@@ -60,7 +60,7 @@ export default function MirrorPosterLightbox({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
-          alt={title?.trim() || 'SAINA Conversation Mirror posteri'}
+          alt={title?.trim() || 'SAINA Ayna posteri'}
           className="max-h-[min(92vh,1350px)] max-w-[min(92vw,1080px)] h-auto w-auto object-contain rounded-xl shadow-2xl"
           onClick={(event) => event.stopPropagation()}
         />

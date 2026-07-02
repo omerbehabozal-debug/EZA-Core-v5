@@ -103,7 +103,7 @@ export default function MirrorSohbetOpening({
           className="inline-flex items-center gap-1 text-xs text-[#a89f92] hover:text-[#e8dfd0]"
         >
           <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
-          Mirror
+          Ayna
         </Link>
         <span className="ml-auto flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-[#8a8074]">
           <Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden />
