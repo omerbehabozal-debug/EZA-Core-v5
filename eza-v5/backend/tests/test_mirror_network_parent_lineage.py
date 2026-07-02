@@ -186,6 +186,58 @@ async def test_publish_retry_does_not_change_existing_parent_slug():
 
 
 @pytest.mark.asyncio
+async def test_publish_retry_ignores_invalid_parent_when_existing_parent_set():
+    user = _make_user()
+    existing = SimpleNamespace(
+        id=uuid.uuid4(),
+        slug="child-ayna-abc123",
+        user_id=user.id,
+        conversation_id="conv-publish-1",
+        visibility="public",
+        safety_status="open",
+        card_title="Sokak Lambaları",
+        card_date="2026-05-31",
+        scene_image_url="https://cdn.example/existing-scene.jpg",
+        public_payload={"sceneImageUrl": "https://cdn.example/existing-scene.jpg"},
+        private_payload={},
+        parent_slug="original-parent",
+        published_at=None,
+        created_at=None,
+    )
+    db = AsyncMock()
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_conversation",
+            new=AsyncMock(return_value=existing),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.validate_parent_slug",
+            new=AsyncMock(
+                side_effect=HTTPException(
+                    status_code=400,
+                    detail={"code": "parent_not_found", "message": "missing"},
+                )
+            ),
+        ) as mock_validate,
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new=AsyncMock(return_value=existing),
+        ),
+    ):
+        body = _publish_body()
+        body["parentSlug"] = "fake-parent-slug"
+        await publish_mirror_to_network(
+            db,
+            user,
+            MirrorNetworkPublishRequest.model_validate(body),
+        )
+
+    mock_validate.assert_not_awaited()
+    assert existing.parent_slug == "original-parent"
+
+
+@pytest.mark.asyncio
 async def test_publish_persists_valid_parent_slug_on_first_publish():
     user = _make_user()
     db = AsyncMock()

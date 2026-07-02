@@ -158,8 +158,11 @@ async def publish_mirror_to_network(
             )
 
     requested_parent_slug = normalize_parent_slug(body.parentSlug)
+    existing_parent_slug = (
+        normalize_parent_slug(existing.parent_slug) if existing else None
+    )
     validated_parent_slug = None
-    if requested_parent_slug:
+    if requested_parent_slug and not existing_parent_slug:
         validated_parent_slug = await validate_parent_slug(
             db,
             parent_slug=requested_parent_slug,

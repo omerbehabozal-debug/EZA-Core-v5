@@ -22,6 +22,10 @@ vi.mock('@/lib/standaloneChatArchive', () => ({
   getChatArchive: vi.fn(),
 }));
 
+vi.mock('@/lib/eza/mirror-network/impactStatsFeature', () => ({
+  isSainaImpactStatsEnabled: vi.fn(() => true),
+}));
+
 import { apiClient } from '@/lib/apiClient';
 import { getChatArchive } from '@/lib/standaloneChatArchive';
 
@@ -157,6 +161,15 @@ describe('mirror network impact (Faz 2)', () => {
     );
     expect(landingSrc).not.toContain('mirror-share-impact');
     expect(landingSrc).not.toContain('fetchMirrorImpact');
+  });
+
+  it('MirrorShareExperience gates impact behind feature flag', () => {
+    const shareSrc = readFileSync(
+      join(process.cwd(), 'components/mirror/MirrorShareExperience.tsx'),
+      'utf8'
+    );
+    expect(shareSrc).toContain('isSainaImpactStatsEnabled');
+    expect(shareSrc).toContain('impactStatsEnabled');
   });
 
   it('MirrorShareExperience hides impact on fetch failure', () => {

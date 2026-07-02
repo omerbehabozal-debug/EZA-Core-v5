@@ -28,6 +28,7 @@ import {
   fetchMirrorImpact,
   type MirrorNetworkImpactStats,
 } from '@/lib/eza/mirror-network/fetchMirrorImpact';
+import { isSainaImpactStatsEnabled } from '@/lib/eza/mirror-network/impactStatsFeature';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 const sh = standaloneSkin.share;
@@ -98,7 +99,12 @@ export default function MirrorShareExperience({
   }, [open, onCapture]);
 
   useEffect(() => {
-    if (!open || shareLinkStatus !== 'ready' || !impactSlug?.trim()) {
+    if (
+      !isSainaImpactStatsEnabled() ||
+      !open ||
+      shareLinkStatus !== 'ready' ||
+      !impactSlug?.trim()
+    ) {
       setImpactStats(null);
       setImpactLoaded(false);
       setImpactFailed(false);
@@ -128,11 +134,15 @@ export default function MirrorShareExperience({
     };
   }, [open, impactSlug, shareLinkStatus]);
 
-  const showImpactBlock = impactLoaded && !impactFailed && impactStats !== null;
+  const impactStatsEnabled = isSainaImpactStatsEnabled();
+  const showImpactBlock =
+    impactStatsEnabled && impactLoaded && !impactFailed && impactStats !== null;
   const showContinuation = Boolean(
     impactStats?.continuationStartsVerified && impactStats.continuationStarts > 0
   );
   const showYansi = Boolean(impactStats && impactStats.yansiCount > 0);
+
+  useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -158,9 +168,7 @@ export default function MirrorShareExperience({
     }
   }, [onShare]);
 
-  const showYansi = Boolean(impactStats && impactStats.yansiCount > 0);
-
-  useEffect(() => {
+  if (!mounted || !open) return null;
 
   return createPortal(
     <div
