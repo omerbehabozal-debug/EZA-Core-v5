@@ -93,6 +93,7 @@ import {
   MIRROR_BIRTH_GENERATE_EVENT,
   trackMirrorCreated,
 } from '@/lib/eza/mirror-birth/mirrorBirthAnalytics';
+import { resolveMirrorPublishLineage } from '@/lib/eza/mirror-share/resolveMirrorPublishLineage';
 import { markMirrorBirthMirrorCreated } from '@/lib/eza/mirror-birth/mirrorBirthSession';
 import {
   readMirrorShareLink,
@@ -401,7 +402,15 @@ export default function StandaloneObservationExperience({
           card.date
         );
         markMirrorBirthMirrorCreated(conversationId);
-        trackMirrorCreated(conversationId, card.mirrorShare?.networkSlug ?? null);
+        const lineage = resolveMirrorPublishLineage({
+          conversationId,
+          curiosityLineage: card.mirrorV3Payload?.curiosityBundle?.seed?.lineage,
+          currentMirrorId: card.mirrorShare?.networkSlug ?? null,
+        });
+        trackMirrorCreated(conversationId, card.mirrorShare?.networkSlug ?? null, {
+          parentMirrorId: lineage.parentMirrorId,
+          rootMirrorId: lineage.rootMirrorId,
+        });
       } else {
         saveDailyMirrorSnapshot(sourceEntries, card.date);
         if (!isPlus) {
@@ -1251,6 +1260,9 @@ export default function StandaloneObservationExperience({
         error={mirrorExport.error}
         shareLinkStatus={shareLinkStatus}
         shareLinkError={shareLinkError}
+        impactSlug={
+          shareLinkStatus === 'ready' ? generatedDailyCard?.mirrorShare?.networkSlug ?? null : null
+        }
         onRetryShareLink={handleRetryShareLink}
         onCapture={handleShareCapture}
         onShare={handleShareNative}

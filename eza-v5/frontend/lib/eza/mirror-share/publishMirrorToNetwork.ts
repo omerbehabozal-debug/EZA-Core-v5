@@ -7,6 +7,7 @@ import { buildMirrorCuriosityBundle } from '@/lib/eza/mirror-network/buildMirror
 import type { MirrorNetworkPublicApiResponse } from '@/lib/eza/mirror-network/publicTypes';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { MirrorShareIdentity } from '@/lib/eza/mirror-share/types';
+import { resolveMirrorPublishLineage } from '@/lib/eza/mirror-share/resolveMirrorPublishLineage';
 
 export type PublishMirrorToNetworkInput = {
   card: DailyMirrorCardModel;
@@ -51,6 +52,10 @@ function buildPublishBody(input: PublishMirrorToNetworkInput) {
   }
 
   const curiosityBundle = payload.curiosityBundle ?? buildMirrorCuriosityBundle(payload);
+  const lineage = resolveMirrorPublishLineage({
+    conversationId,
+    curiosityLineage: curiosityBundle.seed?.lineage,
+  });
 
   return {
     cardTitle: card.headline || payload.mirrorTitle,
@@ -60,7 +65,7 @@ function buildPublishBody(input: PublishMirrorToNetworkInput) {
     curiosityBundle,
     intelligencePrivate: buildIntelligencePrivate(card),
     safetyLevel: payload.safetyLevel ?? 'normal',
-    parentSlug: curiosityBundle.seed?.lineage ?? undefined,
+    parentSlug: lineage.parentSlug,
   };
 }
 

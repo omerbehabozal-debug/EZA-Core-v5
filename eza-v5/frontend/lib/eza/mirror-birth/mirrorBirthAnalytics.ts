@@ -3,6 +3,7 @@
  */
 
 import { ezaExperience } from '@/lib/eza/analytics/ezaExperienceAdapter';
+import type { MirrorPublishLineage } from '@/lib/eza/mirror-share/resolveMirrorPublishLineage';
 
 export const MIRROR_BIRTH_SUGGESTED_EVENT = 'saina:mirror-birth-suggested';
 export const MIRROR_BIRTH_DISMISSED_EVENT = 'saina:mirror-birth-dismissed';
@@ -45,7 +46,11 @@ export function trackMirrorBirthAccepted(conversationId: string): void {
   });
 }
 
-export function trackMirrorCreated(conversationId: string, mirrorId?: string | null): void {
+export function trackMirrorCreated(
+  conversationId: string,
+  mirrorId?: string | null,
+  lineage?: Pick<MirrorPublishLineage, 'parentMirrorId' | 'rootMirrorId'>
+): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(
     new CustomEvent(MIRROR_CREATED_EVENT, {
@@ -55,6 +60,8 @@ export function trackMirrorCreated(conversationId: string, mirrorId?: string | n
   ezaExperience.track('mirror_created', {
     conversationId,
     mirrorId: mirrorId ?? undefined,
+    parentMirrorId: lineage?.parentMirrorId,
+    rootMirrorId: lineage?.rootMirrorId,
     context: { surface: 'mirror' },
   });
 }

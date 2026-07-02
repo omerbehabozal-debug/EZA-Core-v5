@@ -39,5 +39,6 @@ jobs:
             tests/test_conversation_groups.py \
             tests/test_mirror_network.py \
             tests/test_mirror_network_publish.py \
+            tests/test_mirror_network_impact.py \
             tests/test_mirror_viral_loop_qa.py \
             -q --disable-warnings

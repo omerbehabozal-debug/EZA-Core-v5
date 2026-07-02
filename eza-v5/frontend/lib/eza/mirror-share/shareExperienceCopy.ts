@@ -37,3 +37,13 @@ export const SHARE_LINK_PREPARE_FAILED =
 export const SHARE_LINK_PREPARE_RETRY = 'Tekrar dene';
 
 export const SHARE_LINK_PREPARING = 'Paylaşım bağlantısı hazırlanıyor…';
+
+export const SHARE_IMPACT_EMPTY = 'Yansılar burada görünecek.';
+
+export function formatShareImpactContinuation(count: number): string {
+  return `Bu Ayna'dan ${count} sohbet başladı.`;
+}
+
+export function formatShareImpactYansi(count: number): string {
+  return `${count} Yansı oluştu.`;
+}

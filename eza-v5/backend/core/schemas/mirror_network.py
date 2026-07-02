@@ -99,3 +99,16 @@ class MirrorNetworkPublishRequest(BaseModel):
     intelligencePrivate: Optional[Dict[str, Any]] = None
     safetyLevel: Optional[str] = "normal"
     parentSlug: Optional[str] = Field(default=None, max_length=64)
+
+
+class MirrorNetworkImpactStats(BaseModel):
+    """Owner-only aggregate impact — no identity or private mirror payload."""
+
+    model_config = {"extra": "forbid"}
+
+    mirrorId: str
+    publicSlug: str
+    shareUrl: str
+    continuationStarts: int = Field(default=0, ge=0)
+    yansiCount: int = Field(default=0, ge=0)
+    landingViews: int = Field(default=0, ge=0)

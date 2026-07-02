@@ -17,10 +17,17 @@ import {
   SHARE_EXPERIENCE_PRIVACY,
   SHARE_EXPERIENCE_SUBTITLE,
   SHARE_EXPERIENCE_TITLE,
+  SHARE_IMPACT_EMPTY,
+  formatShareImpactContinuation,
+  formatShareImpactYansi,
   SHARE_LINK_PREPARE_FAILED,
   SHARE_LINK_PREPARE_RETRY,
   SHARE_LINK_PREPARING,
 } from '@/lib/eza/mirror-share/shareExperienceCopy';
+import {
+  fetchMirrorImpact,
+  type MirrorNetworkImpactStats,
+} from '@/lib/eza/mirror-network/fetchMirrorImpact';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 const sh = standaloneSkin.share;
@@ -36,6 +43,7 @@ export interface MirrorShareExperienceProps {
   error: string | null;
   shareLinkStatus?: MirrorShareLinkStatus;
   shareLinkError?: string | null;
+  impactSlug?: string | null;
   onRetryShareLink?: () => void;
   onCapture: () => Promise<void>;
   onShare: () => Promise<void>;
@@ -54,6 +62,7 @@ export default function MirrorShareExperience({
   error,
   shareLinkStatus = 'idle',
   shareLinkError = null,
+  impactSlug = null,
   onRetryShareLink,
   onCapture,
   onShare,
@@ -62,6 +71,9 @@ export default function MirrorShareExperience({
   const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<'share' | null>(null);
+  const [impactStats, setImpactStats] = useState<MirrorNetworkImpactStats | null>(null);
+  const [impactLoaded, setImpactLoaded] = useState(false);
+  const [impactFailed, setImpactFailed] = useState(false);
   const fileShareAvailable = canShareFiles();
 
   const captionPreview = card ? resolveMirrorShareCaption(card) : '';
@@ -77,10 +89,46 @@ export default function MirrorShareExperience({
     if (!open) {
       setCopied(false);
       setBusy(null);
+      setImpactStats(null);
+      setImpactLoaded(false);
+      setImpactFailed(false);
       return;
     }
     void onCapture();
   }, [open, onCapture]);
+
+  useEffect(() => {
+    if (!open || shareLinkStatus !== 'ready' || !impactSlug?.trim()) {
+      setImpactStats(null);
+      setImpactLoaded(false);
+      setImpactFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    setImpactLoaded(false);
+    setImpactFailed(false);
+
+    (async () => {
+      const result = await fetchMirrorImpact(impactSlug);
+      if (cancelled) return;
+      if (!result.ok) {
+        setImpactFailed(true);
+        setImpactStats(null);
+        setImpactLoaded(true);
+        return;
+      }
+      setImpactStats(result.data);
+      setImpactFailed(false);
+      setImpactLoaded(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, impactSlug, shareLinkStatus]);
+
+  const showImpactBlock = impactLoaded && !impactFailed && impactStats !== null;
 
   useEffect(() => {
     if (!open) return;
@@ -191,6 +239,27 @@ export default function MirrorShareExperience({
             </div>
           ) : null}
         </div>
+
+        {showImpactBlock ? (
+          <div
+            className="mx-5 mb-2 rounded-xl border border-stone-200/70 bg-stone-50/70 px-4 py-3 text-sm text-stone-600"
+            data-testid="mirror-share-impact"
+          >
+            {impactStats &&
+            (impactStats.continuationStarts > 0 || impactStats.yansiCount > 0) ? (
+              <div className="space-y-1">
+                {impactStats.continuationStarts > 0 ? (
+                  <p>{formatShareImpactContinuation(impactStats.continuationStarts)}</p>
+                ) : null}
+                {impactStats.yansiCount > 0 ? (
+                  <p>{formatShareImpactYansi(impactStats.yansiCount)}</p>
+                ) : null}
+              </div>
+            ) : (
+              <p>{SHARE_IMPACT_EMPTY}</p>
+            )}
+          </div>
+        ) : null}
 
         {error ? <p className={sh.error}>{error}</p> : null}
 

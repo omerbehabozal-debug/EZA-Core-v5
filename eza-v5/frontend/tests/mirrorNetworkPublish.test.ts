@@ -56,11 +56,17 @@ vi.mock('@/lib/apiClient', () => ({
   },
 }));
 
+vi.mock('@/lib/standaloneChatArchive', () => ({
+  getChatArchive: vi.fn(),
+}));
+
 import { apiClient } from '@/lib/apiClient';
+import { getChatArchive } from '@/lib/standaloneChatArchive';
 
 describe('Mirror Network Publish (Stage 4C)', () => {
   beforeEach(() => {
     vi.mocked(apiClient.post).mockReset();
+    vi.mocked(getChatArchive).mockReturnValue(null);
   });
 
   it('publishMirrorToNetwork calls backend with curiosity bundle only in public path', async () => {
@@ -100,6 +106,39 @@ describe('Mirror Network Publish (Stage 4C)', () => {
     const body = vi.mocked(apiClient.post).mock.calls[0][1]?.body as Record<string, unknown>;
     expect(body).not.toHaveProperty('userId');
     expect(body).not.toHaveProperty('conversationId', undefined);
+  });
+
+  it('publishMirrorToNetwork sends parentSlug from conversation lineage', async () => {
+    vi.mocked(getChatArchive).mockReturnValue({
+      id: 'chat-lineage',
+      title: 't',
+      preview: 'p',
+      savedAt: 'now',
+      messageCount: 1,
+      messages: [],
+      treeMetadata: {
+        groupId: 'g1',
+        sourceType: 'mirror',
+        startedFromMirrorId: 'parent-slug-xyz',
+        parentMirrorId: 'parent-slug-xyz',
+        rootMirrorId: 'root-slug-xyz',
+      },
+    });
+
+    vi.mocked(apiClient.post).mockResolvedValue({
+      ok: true,
+      slug: 'child-slug-abc',
+      shareUrl: 'https://saina.app/m/child-slug-abc',
+      cardTitle: 'Sokak Lambaları',
+    });
+
+    await publishMirrorToNetwork({
+      card: buildTestCard(),
+      conversationId: 'chat-lineage',
+    });
+
+    const body = vi.mocked(apiClient.post).mock.calls[0][1]?.body as Record<string, unknown>;
+    expect(body.parentSlug).toBe('parent-slug-xyz');
   });
 
   it('applyShareUrlToCard sets shareUrl for caption layer 3', () => {

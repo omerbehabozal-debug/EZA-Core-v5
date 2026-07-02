@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config import get_settings
 from backend.core.schemas.mirror_network import (
     MirrorNetworkDebugReport,
+    MirrorNetworkImpactStats,
     MirrorNetworkPublicPayload,
     MirrorNetworkPublishRequest,
 )
@@ -26,6 +27,7 @@ from backend.services.mirror_network.fixtures import build_fixture_mirror_node
 from backend.services.mirror_network.repository import create_mirror_network_node
 from backend.core.utils.dependencies import get_db
 from backend.services.mirror_network.publish import publish_mirror_to_network
+from backend.services.mirror_network.impact import get_mirror_impact_stats
 from backend.services.mirror_network.service import fetch_debug_mirror_by_slug, fetch_public_mirror_by_slug
 from backend.services.mirror_network.sohbet_session import create_sohbet_session
 
@@ -74,6 +76,21 @@ async def publish_mirror_network_node(
     No separate user-facing publish step; curiosity-only public payload.
     """
     return await publish_mirror_to_network(db, user, body)
+
+
+@router.get("/{slug}/impact", response_model=MirrorNetworkImpactStats)
+async def get_mirror_network_impact(
+    slug: str,
+    user: User = Depends(require_mirror_authenticated_user),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+) -> MirrorNetworkImpactStats:
+    """
+    Owner-only aggregate stats for a Mirror node.
+
+    Returns counts only — never actor identity, conversation content, or raw events.
+    """
+    return await get_mirror_impact_stats(db, slug, user.id)
 
 
 @router.get("/{slug}", response_model=MirrorNetworkPublicPayload)
