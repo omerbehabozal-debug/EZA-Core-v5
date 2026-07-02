@@ -60,6 +60,10 @@ vi.mock('@/lib/standaloneChatArchive', () => ({
   getChatArchive: vi.fn(),
 }));
 
+vi.mock('@/lib/eza/mirror-network/guestToken', () => ({
+  getOrCreateMirrorGuestToken: vi.fn(() => 'guest-token-abcdefghijklmnop'),
+}));
+
 import { apiClient } from '@/lib/apiClient';
 import { getChatArchive } from '@/lib/standaloneChatArchive';
 
@@ -108,7 +112,7 @@ describe('Mirror Network Publish (Stage 4C)', () => {
     expect(body).not.toHaveProperty('conversationId', undefined);
   });
 
-  it('publishMirrorToNetwork sends parentSlug from conversation lineage', async () => {
+  it('publishMirrorToNetwork sends lineageProofToken from conversation archive', async () => {
     vi.mocked(getChatArchive).mockReturnValue({
       id: 'chat-lineage',
       title: 't',
@@ -122,6 +126,8 @@ describe('Mirror Network Publish (Stage 4C)', () => {
         startedFromMirrorId: 'parent-slug-xyz',
         parentMirrorId: 'parent-slug-xyz',
         rootMirrorId: 'root-slug-xyz',
+        lineageProofToken: 'proof-token-abc',
+        isGuestSession: true,
       },
     });
 
@@ -138,7 +144,9 @@ describe('Mirror Network Publish (Stage 4C)', () => {
     });
 
     const body = vi.mocked(apiClient.post).mock.calls[0][1]?.body as Record<string, unknown>;
-    expect(body.parentSlug).toBe('parent-slug-xyz');
+    expect(body.lineageProofToken).toBe('proof-token-abc');
+    expect(body.guestToken).toBeTruthy();
+    expect(body).not.toHaveProperty('parentSlug');
   });
 
   it('applyShareUrlToCard sets shareUrl for caption layer 3', () => {

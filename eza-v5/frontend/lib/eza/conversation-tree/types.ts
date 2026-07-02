@@ -30,6 +30,7 @@ export type ConversationTreeMetadata = {
   seedTopic?: string | null;
   seedCategory?: string | null;
   seedMood?: string | null;
+  lineageProofToken?: string | null;
   isGuestSession?: boolean;
   /** Editorial thought-card labels for inactivity branch suggestions. */
   branchCandidates?: string[];

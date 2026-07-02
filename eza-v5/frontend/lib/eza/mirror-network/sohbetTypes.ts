@@ -20,6 +20,7 @@ export type MirrorSohbetSession = {
   seedTopic: string;
   seedCategory: string;
   seedMood: string;
+  lineageProofToken?: string | null;
 };
 
 export const MIRROR_SOHBET_SESSION_STORAGE_PREFIX = 'saina_mirror_sohbet_session:';

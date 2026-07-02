@@ -259,7 +259,7 @@ async def test_publish_persists_valid_parent_slug_on_first_publish():
             new=AsyncMock(return_value=False),
         ),
         patch(
-            "backend.services.mirror_network.publish.validate_parent_slug",
+            "backend.services.mirror_network.publish.resolve_parent_slug_from_proof",
             new=AsyncMock(return_value="parent-ayna-abc123"),
         ),
         patch(
@@ -272,7 +272,8 @@ async def test_publish_persists_valid_parent_slug_on_first_publish():
         ),
     ):
         body = _publish_body()
-        body["parentSlug"] = "parent-ayna-abc123"
+        body["lineageProofToken"] = str(uuid.uuid4())
+        body["guestToken"] = "guest-token-abcdefghijklmnop"
         await publish_mirror_to_network(
             db,
             user,

@@ -72,6 +72,7 @@ export function startMirrorBranchConversation(
     startedFromMirrorId: parentMeta.startedFromMirrorId,
     parentMirrorId: parentMeta.startedFromMirrorId ?? parentMeta.parentMirrorId,
     rootMirrorId: parentMeta.rootMirrorId,
+    lineageProofToken: parentMeta.lineageProofToken ?? null,
   };
 
   const messages: ArchivedChatMessage[] = [

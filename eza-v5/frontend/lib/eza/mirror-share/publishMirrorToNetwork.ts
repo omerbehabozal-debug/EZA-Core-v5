@@ -65,7 +65,8 @@ function buildPublishBody(input: PublishMirrorToNetworkInput) {
     curiosityBundle,
     intelligencePrivate: buildIntelligencePrivate(card),
     safetyLevel: payload.safetyLevel ?? 'normal',
-    parentSlug: lineage.parentSlug,
+    lineageProofToken: lineage.lineageProofToken,
+    guestToken: lineage.guestToken,
   };
 }
 

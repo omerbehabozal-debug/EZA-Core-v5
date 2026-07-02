@@ -43,7 +43,7 @@ describe('mirror network impact (Faz 2)', () => {
         publicSlug: 'parent-slug',
         shareUrl: 'https://saina.app/m/parent-slug',
         continuationStarts: 18,
-        continuationStartsVerified: false,
+        continuationStartsVerified: true,
         yansiCount: 3,
         landingViews: 10,
       },

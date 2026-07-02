@@ -2,15 +2,23 @@
  * Resolve parent/root mirror lineage for network publish and observation events.
  */
 
+import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
 import { getChatArchive } from '@/lib/standaloneChatArchive';
 
 export type MirrorPublishLineage = {
   parentSlug?: string;
   parentMirrorId?: string;
   rootMirrorId?: string;
+  lineageProofToken?: string;
+  guestToken?: string;
 };
 
 function normalizeSlug(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+function normalizeToken(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed || undefined;
 }
@@ -24,11 +32,16 @@ export function resolveMirrorPublishLineage(input: {
   const origin = chat?.mirrorOrigin;
   const tree = chat?.treeMetadata;
 
+  const lineageProofToken =
+    normalizeToken(origin?.lineageProofToken) ??
+    normalizeToken(tree?.lineageProofToken) ??
+    undefined;
+
   const parentSlug =
     normalizeSlug(origin?.startedFromMirrorId) ??
     normalizeSlug(tree?.startedFromMirrorId) ??
     normalizeSlug(tree?.parentMirrorId) ??
-    normalizeSlug(input.curiosityLineage) ??
+    (lineageProofToken ? undefined : normalizeSlug(input.curiosityLineage)) ??
     undefined;
 
   const parentMirrorId =
@@ -43,5 +56,10 @@ export function resolveMirrorPublishLineage(input: {
     normalizeSlug(input.currentMirrorId) ??
     undefined;
 
-  return { parentSlug, parentMirrorId, rootMirrorId };
+  const guestToken =
+    origin?.isGuestSession || tree?.isGuestSession
+      ? getOrCreateMirrorGuestToken()
+      : undefined;
+
+  return { parentSlug, parentMirrorId, rootMirrorId, lineageProofToken, guestToken };
 }

@@ -60,6 +60,7 @@ function buildMirrorOrigin(session: MirrorSohbetSession): MirrorConversationOrig
     seedTopic: session.seedTopic,
     seedCategory: session.seedCategory,
     seedMood: session.seedMood,
+    lineageProofToken: session.lineageProofToken ?? undefined,
     isGuestSession: true,
     autoReplyPending: true,
   };
@@ -78,6 +79,7 @@ function buildTreeMetadata(
     seedTopic: session.seedTopic,
     seedCategory: session.seedCategory,
     seedMood: session.seedMood,
+    lineageProofToken: session.lineageProofToken ?? null,
     isGuestSession: true,
     branchCandidates: session.thoughtCards.map((card) => card.label),
   };

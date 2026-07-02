@@ -6,6 +6,10 @@ vi.mock('@/lib/standaloneChatArchive', () => ({
   getChatArchive: vi.fn(),
 }));
 
+vi.mock('@/lib/eza/mirror-network/guestToken', () => ({
+  getOrCreateMirrorGuestToken: vi.fn(() => 'guest-token-abcdefghijklmnop'),
+}));
+
 describe('resolveMirrorPublishLineage', () => {
   beforeEach(() => {
     vi.mocked(getChatArchive).mockReset();
@@ -38,7 +42,32 @@ describe('resolveMirrorPublishLineage', () => {
     expect(lineage.rootMirrorId).toBe('root-from-tree');
   });
 
-  it('falls back to curiosity lineage seed', () => {
+  it('reads lineage proof from mirrorOrigin', () => {
+    vi.mocked(getChatArchive).mockReturnValue({
+      id: 'chat-2',
+      title: 't',
+      preview: 'p',
+      savedAt: 'now',
+      messageCount: 1,
+      messages: [],
+      mirrorOrigin: {
+        startedFromMirrorId: 'parent-from-origin',
+        parentMirrorId: 'parent-from-origin',
+        rootMirrorId: 'root-from-origin',
+        seedTopic: 't',
+        seedCategory: 'travel',
+        seedMood: 'discovery',
+        lineageProofToken: 'proof-from-origin',
+        isGuestSession: true,
+      },
+    });
+
+    const lineage = resolveMirrorPublishLineage({ conversationId: 'chat-2' });
+    expect(lineage.lineageProofToken).toBe('proof-from-origin');
+    expect(lineage.guestToken).toBe('guest-token-abcdefghijklmnop');
+  });
+
+  it('falls back to curiosity lineage seed only without proof token', () => {
     vi.mocked(getChatArchive).mockReturnValue(null);
     const lineage = resolveMirrorPublishLineage({
       conversationId: 'chat-3',

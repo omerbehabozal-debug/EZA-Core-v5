@@ -220,6 +220,7 @@ def build_sohbet_session_response(
         seedTopic=public.cardTitle,
         seedCategory=public.seed.topicCategory,
         seedMood=public.seed.mood,
+        lineageProofToken=None,
     )
 
 
@@ -232,12 +233,21 @@ async def create_sohbet_session(
     node = await get_mirror_network_node_by_slug(db, slug)
     parent_slug = node.parent_slug if node else public.lineage
     parent_id, root_id = await resolve_mirror_lineage_from_db(db, public.slug, parent_slug)
-    return build_sohbet_session_response(
+    session = build_sohbet_session_response(
         public,
         guest_token,
         parent_mirror_id=parent_id,
         root_mirror_id=root_id,
     )
+    from backend.services.mirror_network.continuation_proof import create_continuation_proof
+
+    proof = await create_continuation_proof(
+        db,
+        source_mirror_slug=public.slug,
+        session_id=session.sessionId,
+        guest_token=session.guestToken,
+    )
+    return session.model_copy(update={"lineageProofToken": str(proof.id)})
 
 
 def guest_token_fingerprint(token: str) -> str:

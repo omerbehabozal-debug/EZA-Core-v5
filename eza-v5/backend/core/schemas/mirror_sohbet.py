@@ -31,3 +31,4 @@ class MirrorSohbetSessionResponse(BaseModel):
     seedTopic: str
     seedCategory: str
     seedMood: str
+    lineageProofToken: Optional[str] = None

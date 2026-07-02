@@ -37,6 +37,8 @@ export interface MirrorConversationOrigin {
   seedTopic: string;
   seedCategory: string;
   seedMood: string;
+  /** Server-issued proof for verified Yansı lineage at publish time. */
+  lineageProofToken?: string;
   isGuestSession: true;
   /** First user message awaits assistant stream on standalone load. */
   autoReplyPending?: boolean;

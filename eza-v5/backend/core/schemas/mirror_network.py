@@ -99,6 +99,8 @@ class MirrorNetworkPublishRequest(BaseModel):
     intelligencePrivate: Optional[Dict[str, Any]] = None
     safetyLevel: Optional[str] = "normal"
     parentSlug: Optional[str] = Field(default=None, max_length=64)
+    lineageProofToken: Optional[str] = Field(default=None, max_length=64)
+    guestToken: Optional[str] = Field(default=None, max_length=256)
 
 
 class MirrorNetworkImpactStats(BaseModel):

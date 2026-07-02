@@ -13,13 +13,13 @@ from backend.core.observation.experience_event_flags import is_experience_event_
 from backend.core.schemas.mirror_network import MirrorNetworkImpactStats
 from backend.models.experience_event import ExperienceEvent
 from backend.models.mirror_network import MirrorNetworkNode
+from backend.services.mirror_network.continuation_proof import count_verified_continuation_starts
 from backend.services.mirror_network.repository import get_mirror_network_node_by_slug
 from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
 from backend.services.mirror_network.slug import build_mirror_share_url
 
-# guest_conversation_started events are client-emitted today; do not expose counts until
-# server-side session attribution is wired (sohbet/session proof).
-_CONTINUATION_STARTS_VERIFIED = False
+# Continuation starts are counted from server-issued proofs (sohbet/session).
+_CONTINUATION_STARTS_VERIFIED = True
 
 _IMPACT_FORBIDDEN_RESPONSE_KEYS = frozenset(
     {
@@ -129,7 +129,7 @@ async def get_mirror_impact_stats(
     continuation_verified = _CONTINUATION_STARTS_VERIFIED and observation_enabled
     continuation_starts = 0
     if continuation_verified:
-        continuation_starts = await count_continuation_starts(db, normalized_slug)
+        continuation_starts = await count_verified_continuation_starts(db, normalized_slug)
 
     landing_views = 0
     if observation_enabled:

@@ -17,6 +17,9 @@ from backend.core.schemas.mirror_network import (
 )
 from backend.models.mirror_network import MirrorNetworkNode
 from backend.models.production import User
+from backend.services.mirror_network.continuation_proof import (
+    resolve_parent_slug_from_proof,
+)
 from backend.services.mirror_network.parent_lineage import (
     normalize_parent_slug,
     resolve_stored_parent_slug,
@@ -161,13 +164,36 @@ async def publish_mirror_to_network(
     existing_parent_slug = (
         normalize_parent_slug(existing.parent_slug) if existing else None
     )
-    validated_parent_slug = None
-    if requested_parent_slug and not existing_parent_slug:
-        validated_parent_slug = await validate_parent_slug(
-            db,
-            parent_slug=requested_parent_slug,
-            child_slug=slug,
+    proof_token = (body.lineageProofToken or "").strip() or None
+    guest_token = (body.guestToken or "").strip() or None
+
+    if requested_parent_slug and not proof_token and not existing_parent_slug:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "lineage_proof_required",
+                "message": "parentSlug requires a server-verified lineageProofToken",
+            },
         )
+
+    validated_parent_slug = None
+    if not existing_parent_slug:
+        if proof_token:
+            validated_parent_slug = await resolve_parent_slug_from_proof(
+                db,
+                proof_token=proof_token,
+                user_id=user.id,
+                guest_token=guest_token,
+                conversation_id=conversation_id,
+                child_slug=slug,
+                consume=True,
+            )
+        elif requested_parent_slug:
+            validated_parent_slug = await validate_parent_slug(
+                db,
+                parent_slug=requested_parent_slug,
+                child_slug=slug,
+            )
 
     parent_slug = resolve_stored_parent_slug(
         existing_parent_slug=existing.parent_slug if existing else None,
