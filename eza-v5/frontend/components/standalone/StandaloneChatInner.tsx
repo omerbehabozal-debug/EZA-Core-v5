@@ -174,7 +174,7 @@ export default function StandaloneChatInner() {
   /** İlk açılış/yenilemede URL’deki eski ?chat= ile yanlış sohbet yüklenmesin */
   const urlSyncEnabledRef = useRef(false);
   const mirrorReplyFiredRef = useRef<string | null>(null);
-  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveTimerRef = useRef<number | null>(null);
   const messagesRef = useRef(messages);
   const chatIdRef = useRef(chatId);
   messagesRef.current = messages;

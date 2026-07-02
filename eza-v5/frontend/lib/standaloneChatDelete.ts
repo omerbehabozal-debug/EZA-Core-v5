@@ -27,7 +27,9 @@ function readDeletedChatIds(): Set<string> {
     if (!raw) return new Set();
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((id): id is string => typeof id === 'string' && id.trim()));
+    return new Set(
+      parsed.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+    );
   } catch {
     return new Set();
   }
@@ -37,7 +39,7 @@ function writeDeletedChatIds(ids: Set<string>): void {
   const store = session();
   if (!store) return;
   try {
-    store.setItem(DELETED_CHAT_IDS_SESSION_KEY, JSON.stringify([...ids]));
+    store.setItem(DELETED_CHAT_IDS_SESSION_KEY, JSON.stringify(Array.from(ids)));
   } catch {
     /* ignore */
   }
