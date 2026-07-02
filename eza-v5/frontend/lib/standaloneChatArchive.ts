@@ -378,11 +378,16 @@ export function deleteChatArchive(id: string): void {
   }
 }
 
-/** Confirm dialog then remove a chat from local archive. */
-export function confirmDeleteChatArchive(id: string, title: string): boolean {
+/** User confirmation only — does not delete or cancel autosave. */
+export function confirmChatDeletion(title: string): boolean {
   if (typeof window === 'undefined') return false;
   const label = summarizeArchiveTitle(title) || 'Bu sohbet';
-  if (!window.confirm(`"${label}" silinsin mi?`)) return false;
+  return window.confirm(`"${label}" silinsin mi?`);
+}
+
+/** Confirm dialog then remove a chat from local archive. */
+export function confirmDeleteChatArchive(id: string, title: string): boolean {
+  if (!confirmChatDeletion(title)) return false;
   deleteChatArchive(id);
   return true;
 }

@@ -51,8 +51,9 @@ import { useSetConversationMirrorEntries, PENDING_CONVERSATION_MIRROR_ID } from 
 import {
   CHATS_UPDATED_EVENT,
   clearMirrorAutoReplyPending,
-  confirmDeleteChatArchive,
+  confirmChatDeletion,
   createStandaloneChat,
+  deleteChatArchive,
   getChatArchive,
   listChatArchives,
   pruneEmptyChats,
@@ -62,7 +63,10 @@ import {
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { MIRROR_GUEST_CHAT_REPLY_PARAM } from '@/lib/eza/mirror-network/mirrorGuestConversation';
-import { isChatDeleted } from '@/lib/standaloneChatDelete';
+import {
+  DELETED_CHAT_IDS_STORAGE_KEY,
+  isChatDeleted,
+} from '@/lib/standaloneChatDelete';
 import { trackSecondUserMessageSent } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import MirrorBranchSuggestion from '@/components/standalone/MirrorBranchSuggestion';
 import MirrorBirthSuggestion from '@/components/standalone/MirrorBirthSuggestion';
@@ -412,25 +416,19 @@ export default function StandaloneChatInner() {
       if (!archive) return;
 
       const wasActive = chatId === id;
+      if (!confirmChatDeletion(archive.title)) return;
+
       if (wasActive) {
         cancelPendingAutosave();
         skipAutosaveRef.current = true;
       }
 
-      if (!confirmDeleteChatArchive(id, archive.title)) {
-        if (wasActive) {
-          window.setTimeout(() => {
-            skipAutosaveRef.current = false;
-          }, 0);
-        }
-        return;
-      }
+      deleteChatArchive(id);
 
       if (wasActive) {
         resetStateAfterActiveDelete();
         router.push(resolveChatRouteAfterDelete(), { scroll: false });
-        const remaining = listChatArchives();
-        if (remaining.length === 0) {
+        if (listChatArchives().length === 0) {
           startDraft();
         }
       }
@@ -443,6 +441,25 @@ export default function StandaloneChatInner() {
       startDraft,
     ]
   );
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== DELETED_CHAT_IDS_STORAGE_KEY) return;
+      const currentId = chatIdRef.current;
+      if (!currentId || !isChatDeleted(currentId)) return;
+
+      cancelPendingAutosave();
+      skipAutosaveRef.current = true;
+      resetStateAfterActiveDelete();
+      router.push(resolveChatRouteAfterDelete(), { scroll: false });
+      if (listChatArchives().length === 0) {
+        startDraft();
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [cancelPendingAutosave, resetStateAfterActiveDelete, router, startDraft]);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
   const planResolved = !isPlanLoading;

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CHATS_UPDATED_EVENT,
-  confirmDeleteChatArchive,
+  confirmChatDeletion,
+  deleteChatArchive,
   getChatArchive,
   listChatArchives,
   readActiveChatId,
@@ -117,10 +118,13 @@ export default function SainaPatternPageInner() {
     (id: string) => {
       const archive = getChatArchive(id);
       if (!archive) return;
-      if (!confirmDeleteChatArchive(id, archive.title)) return;
 
-      const activeId = readActiveChatId();
-      if (activeId === id) {
+      const wasActive = readActiveChatId() === id;
+      if (!confirmChatDeletion(archive.title)) return;
+
+      deleteChatArchive(id);
+
+      if (wasActive) {
         router.push(resolveChatRouteAfterDelete(), { scroll: false });
       }
     },

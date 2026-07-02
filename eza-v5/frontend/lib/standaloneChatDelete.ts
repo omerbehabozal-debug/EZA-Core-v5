@@ -9,54 +9,77 @@ import { clearConversationMirrorSnapshot } from '@/lib/eza/mirror/conversationMi
 import { clearConversationMirrorSceneCache } from '@/lib/eza/mirror/mirrorSceneCache';
 import { clearMirrorShareLink } from '@/lib/eza/mirror-share/mirrorShareLinkCache';
 
-const DELETED_CHAT_IDS_SESSION_KEY = 'eza_deleted_chat_ids_v1';
+export const DELETED_CHAT_IDS_STORAGE_KEY = 'eza_deleted_chat_ids_v1';
+export const DELETED_CHAT_TOMBSTONE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-function session(): Storage | null {
+type DeletedChatTombstone = {
+  id: string;
+  deletedAt: number;
+};
+
+function localStore(): Storage | null {
   try {
-    return typeof window !== 'undefined' ? window.sessionStorage ?? null : null;
+    return typeof window !== 'undefined' ? window.localStorage ?? null : null;
   } catch {
     return null;
   }
 }
 
-function readDeletedChatIds(): Set<string> {
-  const store = session();
-  if (!store) return new Set();
+function readTombstones(now: number = Date.now()): DeletedChatTombstone[] {
+  const store = localStore();
+  if (!store) return [];
   try {
-    const raw = store.getItem(DELETED_CHAT_IDS_SESSION_KEY);
-    if (!raw) return new Set();
+    const raw = store.getItem(DELETED_CHAT_IDS_STORAGE_KEY);
+    if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(
-      parsed.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-    );
+    if (!Array.isArray(parsed)) return [];
+
+    const valid: DeletedChatTombstone[] = [];
+    for (const row of parsed) {
+      if (!row || typeof row !== 'object') continue;
+      const record = row as Record<string, unknown>;
+      const id = typeof record.id === 'string' ? record.id.trim() : '';
+      const deletedAt = typeof record.deletedAt === 'number' ? record.deletedAt : NaN;
+      if (!id || !Number.isFinite(deletedAt)) continue;
+      if (now - deletedAt > DELETED_CHAT_TOMBSTONE_TTL_MS) continue;
+      valid.push({ id, deletedAt });
+    }
+
+    if (valid.length !== parsed.length) {
+      writeTombstones(valid);
+    }
+    return valid;
   } catch {
-    return new Set();
+    return [];
   }
 }
 
-function writeDeletedChatIds(ids: Set<string>): void {
-  const store = session();
+function writeTombstones(records: DeletedChatTombstone[]): void {
+  const store = localStore();
   if (!store) return;
   try {
-    store.setItem(DELETED_CHAT_IDS_SESSION_KEY, JSON.stringify(Array.from(ids)));
+    store.setItem(DELETED_CHAT_IDS_STORAGE_KEY, JSON.stringify(records));
   } catch {
     /* ignore */
   }
 }
 
-export function markChatDeleted(id: string): void {
+export function markChatDeleted(id: string, now: number = Date.now()): void {
   const key = id.trim();
   if (!key) return;
-  const ids = readDeletedChatIds();
-  ids.add(key);
-  writeDeletedChatIds(ids);
+  const records = readTombstones(now).filter((row) => row.id !== key);
+  records.push({ id: key, deletedAt: now });
+  writeTombstones(records);
 }
 
-export function isChatDeleted(id: string): boolean {
+export function isChatDeleted(id: string, now: number = Date.now()): boolean {
   const key = id.trim();
   if (!key) return false;
-  return readDeletedChatIds().has(key);
+  return readTombstones(now).some((row) => row.id === key);
+}
+
+export function pruneExpiredDeletedChatTombstones(now: number = Date.now()): void {
+  readTombstones(now);
 }
 
 /** Per-conversation client caches — safe to purge; network publish is untouched. */

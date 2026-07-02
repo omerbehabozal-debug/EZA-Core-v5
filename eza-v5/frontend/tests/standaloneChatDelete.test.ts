@@ -4,9 +4,16 @@ import {
   markBranchSuggestionDismissed,
 } from '@/lib/eza/conversation-tree/branchSuggestionSession';
 import { isMirrorBirthDismissed, markMirrorBirthDismissed } from '@/lib/eza/mirror-birth/mirrorBirthSession';
-import { saveMirrorShareLink, readMirrorShareLink } from '@/lib/eza/mirror-share/mirrorShareLinkCache';
-import { isChatDeleted } from '@/lib/standaloneChatDelete';
+import { readMirrorShareLink, saveMirrorShareLink } from '@/lib/eza/mirror-share/mirrorShareLinkCache';
 import {
+  DELETED_CHAT_IDS_STORAGE_KEY,
+  DELETED_CHAT_TOMBSTONE_TTL_MS,
+  isChatDeleted,
+  markChatDeleted,
+  pruneExpiredDeletedChatTombstones,
+} from '@/lib/standaloneChatDelete';
+import {
+  confirmChatDeletion,
   confirmDeleteChatArchive,
   createStandaloneChat,
   deleteChatArchive,
@@ -18,7 +25,65 @@ import {
   upsertChatArchive,
 } from '@/lib/standaloneChatArchive';
 
-describe('standalone chat delete hotfix', () => {
+function seedTwoChats() {
+  upsertChatArchive({
+    id: 'chat-older',
+    title: 'Eski',
+    preview: 'a',
+    savedAt: new Date(Date.now() - 1000).toISOString(),
+    messageCount: 1,
+    messages: [{ id: 'm1', text: 'a', isUser: true }],
+  });
+  upsertChatArchive({
+    id: 'chat-newer',
+    title: 'Yeni',
+    preview: 'b',
+    savedAt: new Date().toISOString(),
+    messageCount: 1,
+    messages: [{ id: 'm2', text: 'b', isUser: true }],
+  });
+}
+
+/** Mirrors SainaPatternPageInner delete flow. */
+function patternDeleteChat(id: string): { deleted: boolean; wasActive: boolean; route: string | null } {
+  const archive = getChatArchive(id);
+  if (!archive) return { deleted: false, wasActive: false, route: null };
+
+  const wasActive = readActiveChatId() === id;
+  if (!confirmChatDeletion(archive.title)) {
+    return { deleted: false, wasActive, route: null };
+  }
+
+  deleteChatArchive(id);
+  return {
+    deleted: true,
+    wasActive,
+    route: wasActive ? resolveChatRouteAfterDelete() : null,
+  };
+}
+
+/** Mirrors StandaloneChatInner delete flow (without router/state). */
+function standaloneDeleteChat(
+  activeChatId: string | null,
+  targetId: string
+): { deleted: boolean; wasActive: boolean } {
+  const archive = getChatArchive(targetId);
+  if (!archive) return { deleted: false, wasActive: false };
+
+  const wasActive = activeChatId === targetId;
+  if (!confirmChatDeletion(archive.title)) {
+    return { deleted: false, wasActive };
+  }
+
+  if (wasActive) {
+    // autosave would be cancelled here in the component
+  }
+
+  deleteChatArchive(targetId);
+  return { deleted: true, wasActive };
+}
+
+describe('standalone chat delete hardening', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
@@ -56,23 +121,73 @@ describe('standalone chat delete hotfix', () => {
     expect(getChatArchive(id)).toBeNull();
   });
 
+  it('stores tombstone in localStorage for multi-tab guard', () => {
+    markChatDeleted('chat-tab-1');
+    const raw = localStorage.getItem(DELETED_CHAT_IDS_STORAGE_KEY);
+    expect(raw).toBeTruthy();
+    expect(isChatDeleted('chat-tab-1')).toBe(true);
+
+    saveStandaloneChat('chat-tab-1', [{ id: 'm1', text: 'cross-tab', isUser: true }]);
+    expect(getChatArchive('chat-tab-1')).toBeNull();
+  });
+
+  it('prunes expired tombstones after TTL', () => {
+    const expiredAt = Date.now() - DELETED_CHAT_TOMBSTONE_TTL_MS - 1;
+    localStorage.setItem(
+      DELETED_CHAT_IDS_STORAGE_KEY,
+      JSON.stringify([{ id: 'chat-expired', deletedAt: expiredAt }])
+    );
+
+    pruneExpiredDeletedChatTombstones();
+    expect(isChatDeleted('chat-expired')).toBe(false);
+    expect(localStorage.getItem(DELETED_CHAT_IDS_STORAGE_KEY)).toBe('[]');
+  });
+
+  it('confirm cancel preserves chat and later save', () => {
+    vi.mocked(globalThis.confirm).mockReturnValue(false);
+    seedTwoChats();
+    const id = 'chat-newer';
+
+    const result = standaloneDeleteChat('chat-newer', id);
+    expect(result.deleted).toBe(false);
+    expect(getChatArchive(id)).not.toBeNull();
+
+    const saved = saveStandaloneChat(id, [{ id: 'm3', text: 'still here', isUser: true }]);
+    expect(saved).not.toBeNull();
+  });
+
+  it('confirm true deletes and blocks resurrection', () => {
+    vi.mocked(globalThis.confirm).mockReturnValue(true);
+    seedTwoChats();
+
+    const result = standaloneDeleteChat('chat-newer', 'chat-newer');
+    expect(result.deleted).toBe(true);
+    expect(getChatArchive('chat-newer')).toBeNull();
+    expect(saveStandaloneChat('chat-newer', [{ id: 'm1', text: 'nope', isUser: true }])).toBeNull();
+  });
+
+  it('pattern active delete redirects using wasActive captured before delete', () => {
+    seedTwoChats();
+    expect(readActiveChatId()).toBe('chat-newer');
+
+    const result = patternDeleteChat('chat-newer');
+    expect(result.deleted).toBe(true);
+    expect(result.wasActive).toBe(true);
+    expect(result.route).toBe('/standalone?chat=chat-older');
+    expect(readActiveChatId()).toBeNull();
+  });
+
+  it('pattern non-active delete does not redirect', () => {
+    seedTwoChats();
+    const result = patternDeleteChat('chat-older');
+    expect(result.deleted).toBe(true);
+    expect(result.wasActive).toBe(false);
+    expect(result.route).toBeNull();
+    expect(getChatArchive('chat-newer')).not.toBeNull();
+  });
+
   it('deletes active chat and routes to next newest chat', () => {
-    upsertChatArchive({
-      id: 'chat-older',
-      title: 'Eski',
-      preview: 'a',
-      savedAt: new Date(Date.now() - 1000).toISOString(),
-      messageCount: 1,
-      messages: [{ id: 'm1', text: 'a', isUser: true }],
-    });
-    upsertChatArchive({
-      id: 'chat-newer',
-      title: 'Yeni',
-      preview: 'b',
-      savedAt: new Date().toISOString(),
-      messageCount: 1,
-      messages: [{ id: 'm2', text: 'b', isUser: true }],
-    });
+    seedTwoChats();
     deleteChatArchive('chat-newer');
 
     expect(listChatArchives().map((c) => c.id)).toEqual(['chat-older']);
@@ -146,29 +261,5 @@ describe('standalone chat delete hotfix', () => {
 
     expect(getChatArchive('chat-keep')?.title).toBe('Kalacak');
     expect(getChatArchive('chat-remove')).toBeNull();
-  });
-
-  it('pattern-style active delete redirects to remaining chat', () => {
-    upsertChatArchive({
-      id: 'chat-active',
-      title: 'Aktif pattern',
-      preview: 'a',
-      savedAt: new Date(Date.now() - 1000).toISOString(),
-      messageCount: 1,
-      messages: [{ id: 'm1', text: 'a', isUser: true }],
-    });
-    upsertChatArchive({
-      id: 'chat-other',
-      title: 'Diğer',
-      preview: 'b',
-      savedAt: new Date().toISOString(),
-      messageCount: 1,
-      messages: [{ id: 'm2', text: 'b', isUser: true }],
-    });
-    expect(readActiveChatId()).toBe('chat-other');
-
-    deleteChatArchive('chat-other');
-    expect(resolveChatRouteAfterDelete()).toBe('/standalone?chat=chat-active');
-    expect(getChatArchive('chat-active')).not.toBeNull();
   });
 });
