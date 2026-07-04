@@ -134,6 +134,51 @@ def test_generate_scene_endpoint_success():
     assert "T" in data["generatedAt"]
 
 
+def test_generate_scene_endpoint_persists_data_url_to_durable_https(tmp_path, monkeypatch):
+    """OpenAI-style data URLs from provider are normalized to durable HTTPS asset URLs."""
+    from backend.services.mirror.types import MirrorImageResult
+
+    monkeypatch.setenv("EZA_MIRROR_SCENE_ASSET_DIR", str(tmp_path))
+    monkeypatch.setenv("EZA_MIRROR_SCENE_ASSET_BASE_URL", "https://api.test.eza.ai")
+    from backend.config import get_settings
+
+    get_settings.cache_clear()
+
+    tiny_png_data_url = (
+        "data:image/png;base64,"
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    fake = MirrorImageResult(
+        scene_image_url=tiny_png_data_url,
+        provider="openai",
+        cached=False,
+    )
+    plus_user = _make_plus_user()
+    with patch(
+        "backend.auth.mirror_entitlement.get_production_user_by_id",
+        new_callable=AsyncMock,
+        return_value=plus_user,
+    ), patch(
+        "backend.services.mirror.mirror_image_service.get_mirror_image_provider"
+    ) as get_prov:
+        mock_provider = MockMirrorImageProvider()
+        mock_provider.generate_scene = AsyncMock(return_value=fake)
+        get_prov.return_value = mock_provider
+
+        res = client.post(
+            "/api/standalone/mirror/generate-scene",
+            json=VALID_BODY,
+            headers=_auth_header(plus_user),
+        )
+
+    get_settings.cache_clear()
+    assert res.status_code == 200
+    data = res.json()
+    assert data["provider"] == "openai"
+    assert data["sceneImageUrl"].startswith("https://api.test.eza.ai/api/public/mirror-scene-assets/")
+    assert not data["sceneImageUrl"].startswith("data:")
+
+
 def test_generate_scene_rejects_empty_prompt():
     body = {**VALID_BODY, "prompt": ""}
     plus_user = _make_plus_user()

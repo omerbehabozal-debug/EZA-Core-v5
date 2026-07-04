@@ -93,7 +93,21 @@ def test_public_asset_endpoint_serves_saved_file(asset_dir: Path):
     res = client.get(f"/api/public/mirror-scene-assets/{filename}")
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("image/png")
+    assert res.headers.get("x-content-type-options") == "nosniff"
+    assert res.headers.get("cache-control") == "public, max-age=31536000, immutable"
     assert res.content == TINY_PNG
+
+
+def test_public_asset_endpoint_rejects_path_traversal(asset_dir: Path):
+    client = TestClient(app)
+    res = client.get("/api/public/mirror-scene-assets/../../etc/passwd")
+    assert res.status_code == 404
+
+
+def test_public_asset_endpoint_rejects_invalid_filename(asset_dir: Path):
+    client = TestClient(app)
+    res = client.get("/api/public/mirror-scene-assets/not-a-valid-uuid.png")
+    assert res.status_code == 404
 
 
 @pytest.mark.asyncio

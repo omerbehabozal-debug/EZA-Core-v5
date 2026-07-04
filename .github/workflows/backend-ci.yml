@@ -43,4 +43,8 @@ jobs:
             tests/test_mirror_network_parent_lineage.py \
             tests/test_mirror_continuation_proof.py \
             tests/test_mirror_viral_loop_qa.py \
+            tests/test_mirror_scene_asset_store.py \
+            tests/test_mirror_scene_asset_config.py \
+            tests/test_mirror_openai_provider.py \
+            tests/test_mirror_generate_scene.py \
             -q --disable-warnings

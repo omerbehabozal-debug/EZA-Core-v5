@@ -34,5 +34,17 @@ jobs:
         env:
           EZA_ENV: "ci"
         run: |
-          echo "Running CI-safe tests…"
-          python run_tests.py ci || true
+          python -m pytest tests_core \
+            tests/test_sensitive_content.py \
+            tests/test_conversation_groups.py \
+            tests/test_mirror_network.py \
+            tests/test_mirror_network_publish.py \
+            tests/test_mirror_network_impact.py \
+            tests/test_mirror_network_parent_lineage.py \
+            tests/test_mirror_continuation_proof.py \
+            tests/test_mirror_viral_loop_qa.py \
+            tests/test_mirror_scene_asset_store.py \
+            tests/test_mirror_scene_asset_config.py \
+            tests/test_mirror_openai_provider.py \
+            tests/test_mirror_generate_scene.py \
+            -q --disable-warnings

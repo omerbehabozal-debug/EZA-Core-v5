@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 
 from backend.services.mirror.mirror_scene_asset_store import (
     detect_image_mime,
+    mirror_scene_asset_response_headers,
     resolve_mirror_scene_asset_path,
 )
 
@@ -27,7 +28,5 @@ async def get_mirror_scene_asset(asset_filename: str) -> FileResponse:
     return FileResponse(
         path,
         media_type=media_type,
-        headers={
-            "Cache-Control": "public, max-age=31536000, immutable",
-        },
+        headers=mirror_scene_asset_response_headers(media_type),
     )

@@ -35,6 +35,10 @@ from backend.security.logger_filter import setup_security_logging
 from backend.learning.vector_store import VectorStore
 from backend.config import get_settings
 from backend.core.openai.config import log_openai_config_startup
+from backend.services.mirror.mirror_scene_asset_config import (
+    MirrorSceneAssetConfigError,
+    validate_mirror_scene_asset_startup_config,
+)
 from backend.api.pipeline_runner import run_full_pipeline
 from backend.api.streaming import stream_standalone_response
 from backend.core.schemas.pipeline import (
@@ -100,6 +104,13 @@ async def lifespan(app: FastAPI):
         log_openai_config_startup()
     except Exception as e:
         logging.warning(f"OpenAI config startup log failed: {e}")
+
+    try:
+        validate_mirror_scene_asset_startup_config()
+        logging.info("Mirror scene asset config validated")
+    except MirrorSceneAssetConfigError as e:
+        logging.error(str(e))
+        raise
 
     yield
     

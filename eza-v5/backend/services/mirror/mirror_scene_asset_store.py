@@ -70,8 +70,9 @@ def resolve_mirror_scene_asset_dir() -> Path:
     configured = (getattr(settings, "EZA_MIRROR_SCENE_ASSET_DIR", None) or "").strip()
     if configured:
         return Path(configured)
-    backend_dir = Path(__file__).resolve().parents[2]
-    return backend_dir / "data" / "mirror_scene_assets"
+    from backend.services.mirror.mirror_scene_asset_config import default_mirror_scene_asset_dir
+
+    return default_mirror_scene_asset_dir()
 
 
 def build_mirror_scene_asset_public_url(filename: str) -> str:
@@ -136,12 +137,20 @@ def resolve_mirror_scene_asset_path(filename: str) -> Path | None:
     safe_name = Path(filename).name
     if not _ASSET_FILENAME_RE.match(safe_name):
         return None
-    asset_dir = resolve_mirror_scene_asset_dir()
+    asset_dir = resolve_mirror_scene_asset_dir().resolve()
     candidate = (asset_dir / safe_name).resolve()
     try:
-        candidate.relative_to(asset_dir.resolve())
+        candidate.relative_to(asset_dir)
     except ValueError:
         return None
     if not candidate.is_file():
         return None
     return candidate
+
+
+def mirror_scene_asset_response_headers(media_type: str) -> dict[str, str]:
+    return {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Type": media_type,
+    }
