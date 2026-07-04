@@ -234,11 +234,33 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
 
   it('crossfades conversation identity scene over bundled default', async () => {
     const sceneUrl = 'https://cdn.example/conversation-scene.jpg';
-    render(<SainaCinematicScene sceneImageUrl={sceneUrl} />);
-    const identityLayer = await screen.findByTestId('saina-scene-identity-layer');
-    expect(identityLayer).toBeInTheDocument();
-    expect((identityLayer as HTMLElement).style.backgroundImage).toContain(sceneUrl);
-    expect(identityLayer.className).toContain('saina-canvas-scene-image--identity-visible');
+    const OriginalImage = window.Image;
+    class MockImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      private _src = '';
+      set src(value: string) {
+        this._src = value;
+        queueMicrotask(() => this.onload?.());
+      }
+      get src() {
+        return this._src;
+      }
+    }
+    // @ts-expect-error test shim
+    window.Image = MockImage;
+
+    try {
+      render(<SainaCinematicScene sceneImageUrl={sceneUrl} />);
+      const identityLayer = await screen.findByTestId('saina-scene-identity-layer');
+      expect(identityLayer).toBeInTheDocument();
+      expect((identityLayer as HTMLElement).style.backgroundImage).toContain(sceneUrl);
+      await waitFor(() => {
+        expect(identityLayer.className).toContain('saina-canvas-scene-image--identity-visible');
+      });
+    } finally {
+      window.Image = OriginalImage;
+    }
   });
 
   it('ignores non-persistable scene URLs', () => {

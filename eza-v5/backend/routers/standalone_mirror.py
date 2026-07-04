@@ -10,6 +10,7 @@ from backend.core.schemas.mirror_scene import (
 )
 from backend.models.production import User
 from backend.security.rate_limit import rate_limit_standalone
+from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_mirror_scene_url
 from backend.services.mirror.mirror_image_service import generate_mirror_scene
 
 router = APIRouter(prefix="/api/standalone/mirror", tags=["Standalone — Mirror"])
@@ -41,8 +42,20 @@ async def generate_mirror_scene_endpoint(
     provider = result.provider
     if provider not in ("mock", "openai", "replicate", "stability"):
         provider = "mock"
+    persisted_url = ensure_persistable_mirror_scene_url(result.scene_image_url)
+    if not persisted_url:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "ok": False,
+                "code": "scene_asset_persist_failed",
+                "message": "Mirror sahnesi şu an hazırlanamadı.",
+            },
+        )
     return MirrorGenerateSceneResponse(
-        sceneImageUrl=result.scene_image_url,
+        sceneImageUrl=persisted_url,
         provider=provider,  # type: ignore[arg-type]
         cached=result.cached,
         generatedAt=result.generated_at or "",

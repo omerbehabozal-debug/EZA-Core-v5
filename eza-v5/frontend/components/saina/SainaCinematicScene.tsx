@@ -11,6 +11,8 @@ const defaultSceneUrl =
     ? defaultSceneImage
     : (defaultSceneImage as { src: string }).src;
 
+const IDENTITY_FADE_MS = 420;
+
 type SainaCinematicSceneProps = {
   sceneImageUrl?: string | null;
 };
@@ -28,22 +30,34 @@ export default function SainaCinematicScene({ sceneImageUrl }: SainaCinematicSce
   useEffect(() => {
     if (!identityUrl) {
       setIdentityVisible(false);
-      setActiveIdentityUrl(null);
-      return;
+      const timer = window.setTimeout(() => setActiveIdentityUrl(null), IDENTITY_FADE_MS);
+      return () => window.clearTimeout(timer);
     }
 
-    if (identityUrl === activeIdentityUrl) {
-      setIdentityVisible(true);
-      return;
-    }
-
+    let cancelled = false;
     setIdentityVisible(false);
-    setActiveIdentityUrl(identityUrl);
-    const frame = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setIdentityVisible(true));
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [identityUrl, activeIdentityUrl]);
+
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      setActiveIdentityUrl(identityUrl);
+      requestAnimationFrame(() => {
+        if (!cancelled) setIdentityVisible(true);
+      });
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      setIdentityVisible(false);
+      setActiveIdentityUrl(null);
+    };
+    img.src = identityUrl;
+
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [identityUrl]);
 
   return (
     <div className="saina-canvas-bg saina-canvas-bg--default-scene" aria-hidden>

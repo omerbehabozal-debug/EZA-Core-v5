@@ -24,6 +24,14 @@ describe('conversationSceneIdentity', () => {
       expect(isPersistableConversationSceneUrl('blob:https://localhost/uuid')).toBe(false);
       expect(isPersistableConversationSceneUrl('not-a-url')).toBe(false);
     });
+
+    it('rejects plain HTTP in production builds', () => {
+      const previous = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      expect(isPersistableConversationSceneUrl('http://cdn.example/scene.jpg')).toBe(false);
+      expect(isPersistableConversationSceneUrl('https://cdn.example/scene.jpg')).toBe(true);
+      process.env.NODE_ENV = previous;
+    });
   });
 
   describe('setConversationSceneIdentity', () => {

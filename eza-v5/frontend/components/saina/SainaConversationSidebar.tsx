@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { MessageSquarePlus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -46,6 +46,11 @@ function SainaConversationThumb({
   thumbImageUrl?: string | null;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [thumbImageUrl]);
+
   const showImage = Boolean(thumbImageUrl) && !imageFailed;
 
   return (

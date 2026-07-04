@@ -26,6 +26,7 @@ from backend.services.mirror_network.parent_lineage import (
     validate_parent_slug,
 )
 from backend.services.mirror_network.public_payload import split_curiosity_payloads
+from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_mirror_scene_url
 from backend.services.mirror_network.repository import (
     create_mirror_network_node,
     get_mirror_network_node_by_conversation,
@@ -64,10 +65,13 @@ def resolve_scene_image_url(
     - incoming null + existing non-null → keep existing
     - both null → null
     """
-    existing = (existing_scene or "").strip() or None
-    incoming = (incoming_scene or "").strip() or None
-    if incoming:
-        return incoming
+    existing = ensure_persistable_mirror_scene_url(existing_scene)
+    incoming_raw = (incoming_scene or "").strip() or None
+    if incoming_raw:
+        incoming = ensure_persistable_mirror_scene_url(incoming_raw)
+        if incoming:
+            return incoming
+        return existing
     return existing
 
 

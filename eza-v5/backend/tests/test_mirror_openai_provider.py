@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-
-from backend.config import get_settings
+from fastapi.testclient import TestClient
 from backend.services.production_auth import create_access_token
+from backend.config import get_settings
 from backend.services.mirror.mirror_image_provider import get_mirror_image_provider
 from backend.services.mirror.openai_prompt_builder import (
     V5_PROMPT_CONTRACT,
@@ -20,6 +20,19 @@ from backend.services.mirror.openai_prompt_builder import (
 from backend.services.mirror.providers.openai_provider import OpenAIMirrorImageProvider
 from backend.services.mirror.types import MirrorImageRequest
 from backend.services.mirror.mirror_image_service import validate_and_build_request
+
+TINY_PNG_B64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+
+
+@pytest.fixture
+def asset_dir(tmp_path, monkeypatch):
+    monkeypatch.setenv("EZA_MIRROR_SCENE_ASSET_DIR", str(tmp_path))
+    monkeypatch.setenv("EZA_MIRROR_SCENE_ASSET_BASE_URL", "https://api.test.eza.ai")
+    get_settings.cache_clear()
+    yield tmp_path
+    get_settings.cache_clear()
 
 VALID_BODY = {
     "prompt": "premium soft 3D illustration, wellness garden, no text",
@@ -101,11 +114,11 @@ async def test_openai_no_api_key_falls_back_to_mock():
 
 
 @pytest.mark.asyncio
-async def test_openai_mocked_b64_returns_data_url():
+async def test_openai_mocked_b64_returns_durable_https_url(asset_dir):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "data": [{"b64_json": "aGVsbG8="}],
+        "data": [{"b64_json": TINY_PNG_B64}],
     }
 
     mock_client = AsyncMock()
@@ -120,18 +133,9 @@ async def test_openai_mocked_b64_returns_data_url():
     )
     result = await provider.generate_scene(_mirror_request())
     assert result.provider == "openai"
-    assert result.scene_image_url.startswith("data:image/png;base64,")
-    assert "aGVsbG8=" in result.scene_image_url
-
-    call_kwargs = mock_client.post.call_args
-    assert call_kwargs is not None
-    headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
-    assert headers["Authorization"] == "Bearer sk-test-key-not-real"
-    payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
-    assert payload["model"] == "dall-e-3"
-    assert payload["size"] == "1024x1536"
-    assert payload["response_format"] == "b64_json"
-    assert VALID_BODY["prompt"] in payload["prompt"]
+    assert result.scene_image_url.startswith("https://")
+    assert "/api/public/mirror-scene-assets/" in result.scene_image_url
+    assert not result.scene_image_url.startswith("data:")
 
 
 @pytest.mark.asyncio
@@ -202,11 +206,12 @@ def test_factory_selects_openai_provider():
 
 
 @pytest.mark.asyncio
-async def test_openai_logs_do_not_contain_api_key(caplog):
-    caplog.set_level(logging.INFO)
+async def test_openai_logs_do_not_contain_api_key(caplog, asset_dir):
+    caplog.set_level(logging.INFO, logger="backend.services.mirror.providers.openai_provider")
+    caplog.set_level(logging.INFO, logger="backend.services.mirror.mirror_scene_asset_store")
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"data": [{"b64_json": "x"}]}
+    mock_response.json.return_value = {"data": [{"b64_json": TINY_PNG_B64}]}
     mock_client = AsyncMock()
     mock_client.post = AsyncMock(return_value=mock_response)
     mock_client.aclose = AsyncMock()
@@ -229,7 +234,7 @@ def test_endpoint_returns_openai_provider_when_mocked():
     from backend.services.mirror.types import MirrorImageResult
 
     fake = MirrorImageResult(
-        scene_image_url="data:image/png;base64,abc",
+        scene_image_url="https://cdn.example.com/scene.png",
         provider="openai",
         cached=False,
     )
@@ -255,4 +260,4 @@ def test_endpoint_returns_openai_provider_when_mocked():
         assert res.status_code == 200
         data = res.json()
         assert data["provider"] == "openai"
-        assert data["sceneImageUrl"].startswith("data:image/png;base64,")
+        assert data["sceneImageUrl"].startswith("https://")

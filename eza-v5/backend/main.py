@@ -336,9 +336,10 @@ app.include_router(corporate_router.router, prefix="/api/corporate", tags=["Corp
 app.include_router(test_results.router, prefix="/api/test-results", tags=["Test Results"])
 
 # Public Test Results API (Snapshot-based, cached, key-protected)
-from backend.routers import public_test_results, publish_test_snapshot
+from backend.routers import public_test_results, publish_test_snapshot, mirror_scene_assets
 app.include_router(public_test_results.router, prefix="/api/public", tags=["Public Benchmarks"])
 app.include_router(publish_test_snapshot.router, prefix="/api/public", tags=["Public Benchmarks"])
+app.include_router(mirror_scene_assets.router, prefix="/api/public", tags=["Public Mirror Assets"])
 
 # Monitor API (Live Telemetry - HTTP)
 app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitor"])

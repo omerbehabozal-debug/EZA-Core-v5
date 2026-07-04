@@ -5,7 +5,7 @@
 
 export type ConversationSceneSource = 'mirror_local' | 'mirror_network' | 'mirror_guest';
 
-/** HTTP(S) only — rejects data:, blob:, and non-URL strings. */
+/** HTTP(S) only — rejects data:, blob:, and non-URL strings. Production requires HTTPS. */
 export function isPersistableConversationSceneUrl(url: string): boolean {
   const trimmed = url.trim();
   if (!trimmed) return false;
@@ -13,7 +13,11 @@ export function isPersistableConversationSceneUrl(url: string): boolean {
   if (lower.startsWith('data:') || lower.startsWith('blob:')) return false;
   try {
     const parsed = new URL(trimmed);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    return true;
   } catch {
     return false;
   }

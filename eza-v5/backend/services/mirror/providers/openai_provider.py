@@ -12,6 +12,7 @@ from backend.config import get_settings
 from backend.core.openai.config import build_openai_request_headers
 from backend.core.openai.diagnostic import parse_openai_http_error
 from backend.services.mirror.mirror_image_provider import MockMirrorImageProvider, MirrorImageProvider
+from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_mirror_scene_url
 from backend.services.mirror.openai_prompt_builder import build_openai_mirror_prompt
 from backend.services.mirror.types import MirrorImageProviderError, MirrorImageRequest, MirrorImageResult
 
@@ -140,8 +141,12 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
             raise MirrorImageProviderError(_USER_ERROR_MESSAGE)
 
         scene_url = _scene_url_from_openai_item(data[0])
+        persisted_url = ensure_persistable_mirror_scene_url(scene_url)
+        if not persisted_url:
+            logger.warning("mirror_openai_scene_not_persistable seed=%s", seed)
+            raise MirrorImageProviderError(_USER_ERROR_MESSAGE)
         return MirrorImageResult(
-            scene_image_url=scene_url,
+            scene_image_url=persisted_url,
             provider="openai",
             cached=False,
         )
