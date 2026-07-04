@@ -16,7 +16,12 @@ export type MirrorPanelCopy = {
 };
 
 export function isContinuationMirrorChat(chat: ArchivedChat | null | undefined): boolean {
-  return Boolean(chat?.mirrorOrigin?.startedFromMirrorId);
+  if (!chat) return false;
+  if (chat.mirrorOrigin?.startedFromMirrorId) return true;
+  const tree = chat.treeMetadata;
+  if (tree?.startedFromMirrorId || tree?.parentMirrorId) return true;
+  if (tree?.sourceType === 'mirror' || tree?.sourceType === 'mirror_branch') return true;
+  return false;
 }
 
 export function resolveMirrorPanelCopy(isContinuation: boolean): MirrorPanelCopy {

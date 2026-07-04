@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -13,7 +12,11 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.core.schemas.mirror_network import DiscoverMirrorItem, DiscoverMirrorListResponse
-from backend.services.mirror_network.discover import list_discover_mirrors
+from backend.services.mirror_network.discover import (
+    is_public_discover_scene_url,
+    is_public_discover_yansi_child,
+    list_discover_mirrors,
+)
 from backend.services.mirror_network.fixtures import build_fixture_mirror_node
 
 client = TestClient(app)
@@ -37,13 +40,33 @@ def _root_node(*, slug: str, scene: str = "https://cdn.example/mirror.png"):
     return record
 
 
-def _child_node(*, slug: str, parent: str):
+def _child_node(*, slug: str, parent: str, visibility: str = "public", safety: str = "open"):
     record = build_fixture_mirror_node(slug_suffix=slug.split("-")[-1])
     record.slug = slug
     record.parent_slug = parent
-    record.visibility = "public"
-    record.safety_status = "open"
+    record.visibility = visibility
+    record.safety_status = safety
     return record
+
+
+def test_is_public_discover_scene_url_rejects_side_effect_schemes():
+    assert is_public_discover_scene_url("https://cdn.example/a.png") is True
+    assert is_public_discover_scene_url("http://cdn.example/a.png") is False
+    assert is_public_discover_scene_url("data:image/png;base64,abc") is False
+    assert is_public_discover_scene_url("blob:https://example.com/uuid") is False
+    assert is_public_discover_scene_url("") is False
+
+
+def test_is_public_discover_yansi_child_excludes_review_and_private():
+    public_child = _child_node(slug="child-public", parent="root-a")
+    review_child = _child_node(slug="child-review", parent="root-a", visibility="review")
+    private_child = _child_node(slug="child-private", parent="root-a", visibility="private")
+    restricted_child = _child_node(slug="child-restricted", parent="root-a", safety="restricted")
+
+    assert is_public_discover_yansi_child(public_child) is True
+    assert is_public_discover_yansi_child(review_child) is False
+    assert is_public_discover_yansi_child(private_child) is False
+    assert is_public_discover_yansi_child(restricted_child) is False
 
 
 @pytest.mark.asyncio
@@ -61,11 +84,30 @@ async def test_list_discover_mirrors_root_only_sorted_by_yansi():
     db.execute = AsyncMock(side_effect=[roots_result, children_result])
 
     response = await list_discover_mirrors(db, limit=10, offset=0)
+
     assert response.total == 2
     assert [item.slug for item in response.items] == ["root-a", "root-b"]
     assert response.items[0].yansiCount == 2
     assert response.items[1].yansiCount == 1
     assert response.items[0].sceneImageUrl.startswith("https://")
+
+
+@pytest.mark.asyncio
+async def test_list_discover_excludes_data_scene_and_review_yansi():
+    db = AsyncMock()
+    root_https = _root_node(slug="root-open", scene="https://cdn.example/open.png")
+    root_data = _root_node(slug="root-data", scene="data:image/png;base64,abc")
+    review_child = _child_node(slug="child-review", parent="root-open", visibility="review")
+
+    roots_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [root_https, root_data]))
+    children_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [review_child]))
+
+    db.execute = AsyncMock(side_effect=[roots_result, children_result])
+
+    response = await list_discover_mirrors(db, limit=10, offset=0)
+    assert response.total == 1
+    assert response.items[0].slug == "root-open"
+    assert response.items[0].yansiCount == 0
 
 
 @pytest.mark.asyncio

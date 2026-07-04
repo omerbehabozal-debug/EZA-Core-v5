@@ -41,6 +41,7 @@ jobs:
             tests/test_mirror_network_publish.py \
             tests/test_mirror_network_impact.py \
             tests/test_mirror_network_parent_lineage.py \
+            tests/test_mirror_network_discover.py \
             tests/test_mirror_continuation_proof.py \
             tests/test_mirror_viral_loop_qa.py \
             tests/test_mirror_scene_asset_store.py \

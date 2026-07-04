@@ -42,6 +42,9 @@ jobs:
           tests/ezaExperienceAdapter.test.ts
           tests/conversationGroups.test.tsx
           tests/shareLinkPrepareIntent.test.ts
+          tests/discoverCopy.test.ts
+          tests/discoverCard.test.tsx
+          tests/mirrorPanelCopy.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-

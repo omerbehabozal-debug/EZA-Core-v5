@@ -48,4 +48,25 @@ describe('resolveMirrorPanelCopy', () => {
     expect(isContinuationMirrorChat(chat)).toBe(true);
     expect(resolveMirrorPanelCopyForChat(chat).emptyBody).toContain('Yansı');
   });
+
+  it('detects continuation from treeMetadata after mirrorOrigin is cleared', () => {
+    const chat = {
+      id: 'chat-2',
+      title: 'Merged',
+      preview: '',
+      savedAt: '',
+      messageCount: 1,
+      messages: [],
+      treeMetadata: {
+        sourceType: 'mirror',
+        startedFromMirrorId: 'parent-slug',
+        parentMirrorId: 'parent-slug',
+        rootMirrorId: 'parent-slug',
+      },
+    } as ArchivedChat;
+
+    expect(isContinuationMirrorChat(chat)).toBe(true);
+    expect(resolveMirrorPanelCopyForChat(chat).generating).toContain('Yansın');
+    expect(resolveMirrorPanelCopyForChat(chat).ready).toContain('Yansın');
+  });
 });

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   SAINA_DISCOVER_CTA,
@@ -14,11 +15,13 @@ export type SainaDiscoverCardProps = {
 export default function SainaDiscoverCard({ item }: SainaDiscoverCardProps) {
   const href = `/m/${encodeURIComponent(item.slug)}/sohbet`;
   const hasImage = Boolean(item.sceneImageUrl?.trim());
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = hasImage && !imageFailed;
 
   return (
     <article className="saina-discover-card" data-testid={`saina-discover-card-${item.slug}`}>
       <div className="saina-discover-card__visual">
-        {hasImage ? (
+        {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- public mirror scene URL
           <img
             src={item.sceneImageUrl!}
@@ -26,9 +29,11 @@ export default function SainaDiscoverCard({ item }: SainaDiscoverCardProps) {
             className="saina-discover-card__image"
             loading="lazy"
             decoding="async"
+            onError={() => setImageFailed(true)}
+            data-testid="saina-discover-card-image"
           />
         ) : (
-          <div className="saina-discover-card__placeholder" aria-hidden />
+          <div className="saina-discover-card__placeholder" aria-hidden data-testid="saina-discover-card-placeholder" />
         )}
       </div>
 

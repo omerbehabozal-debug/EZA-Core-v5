@@ -85,6 +85,7 @@ async def get_mirror_network_discover(
     limit: int = 24,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
 ) -> DiscoverMirrorListResponse:
     """
     Public discover list — root Aynalar only.

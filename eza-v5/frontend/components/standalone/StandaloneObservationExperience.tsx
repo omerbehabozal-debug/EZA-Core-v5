@@ -237,6 +237,7 @@ export default function StandaloneObservationExperience({
   const panelOnboardingTitle = embedded ? mirrorPanelCopy?.emptyTitle : undefined;
   const panelOnboardingBody = embedded ? mirrorPanelCopy?.emptyBody : undefined;
   const panelGeneratingHeadline = embedded ? mirrorPanelCopy?.generating : undefined;
+  const panelReadyHeadline = embedded ? mirrorPanelCopy?.ready : undefined;
   const isConversationScope = Boolean(conversationId);
   const mirrorBuildOptions = useMemo(
     () => (conversationId ? { conversationId } : undefined),
@@ -1199,7 +1200,17 @@ export default function StandaloneObservationExperience({
           )}
 
           {!isSceneLoading ? (
-            <DailyMirrorRefreshActions
+            <>
+              {panelReadyHeadline ? (
+                <p
+                  className={cn(ms.sceneWrap, 'text-center text-[11px] font-medium text-stone-600')}
+                  role="status"
+                  data-testid="saina-mirror-ready-headline"
+                >
+                  {panelReadyHeadline}
+                </p>
+              ) : null}
+              <DailyMirrorRefreshActions
               refreshCta={readyRefreshCta}
               isPlus={isPlus}
               cardReady={isScenePosterVisible}
@@ -1214,6 +1225,7 @@ export default function StandaloneObservationExperience({
             >
               {readyLoginCta}
             </DailyMirrorRefreshActions>
+            </>
           ) : null}
         </div>
       );
