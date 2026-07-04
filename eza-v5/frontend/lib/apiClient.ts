@@ -119,7 +119,7 @@ class ApiClient {
     try {
       // Log API URL for validation (only in production or build)
       if (typeof window === 'undefined' || process.env.NODE_ENV === 'production') {
-        console.log('[API Client] Backend URL:', this.baseURL);
+        console.log('[API Client] Request URL:', url);
       }
       console.log('API Request:', { method, url, body: body ? JSON.stringify(body).substring(0, 100) : null });
       
