@@ -7,7 +7,10 @@
 
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import { fetchDiscoverMirrors } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
-import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
+import {
+  isPersistableConversationSceneUrl,
+  type ConversationSceneSource,
+} from '@/lib/eza/conversationSceneIdentity';
 import {
   type ArchivedChat,
   getChatArchive,
@@ -69,9 +72,17 @@ function isMirrorSourceChat(chat: ArchivedChat): boolean {
   return Boolean(chat.mirrorOrigin?.startedFromMirrorId);
 }
 
+const COMPLETED_DISCOVER_SCENE_SOURCES = new Set<ConversationSceneSource>([
+  'mirror_local',
+  'mirror_network',
+]);
+
 export function hasCompletedMirrorVisual(chat: ArchivedChat): boolean {
   const url = chat.conversationSceneUrl;
-  return Boolean(url && isPersistableConversationSceneUrl(url));
+  const source = chat.conversationSceneSource;
+  if (!url || !isPersistableConversationSceneUrl(url)) return false;
+  if (!source || !COMPLETED_DISCOVER_SCENE_SOURCES.has(source)) return false;
+  return true;
 }
 
 export function resolveMirrorRootSlugFromChat(chat: ArchivedChat): string | null {
