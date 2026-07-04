@@ -8,8 +8,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
+import { buildApiUrl } from '@/lib/apiUrl';
 
 // Force dynamic rendering to avoid Suspense issues with search params
 export const dynamic = 'force-dynamic';
@@ -78,7 +77,7 @@ export default function PlatformRegisterPage() {
         requestBody.invitation_token = invitationToken;
       }
       
-      const response = await fetch(`${API_URL}/api/auth/register`, {
+      const response = await fetch(buildApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

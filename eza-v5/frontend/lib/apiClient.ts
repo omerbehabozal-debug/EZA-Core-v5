@@ -31,15 +31,6 @@ interface ApiResponse<T = any> {
 }
 
 class ApiClient {
-  private baseURL: string;
-  private wsBaseURL: string;
-
-  constructor() {
-    // Always use direct backend URL (no local proxy routes)
-    this.baseURL = getApiUrl();
-    this.wsBaseURL = getWebSocketUrl();
-  }
-  
   /**
    * Get full URL for request
    */
@@ -48,7 +39,7 @@ class ApiClient {
     params?: Record<string, string>,
     directBackend?: boolean
   ): string {
-    const base = directBackend ? getDirectApiBaseUrl() : this.baseURL;
+    const base = directBackend ? getDirectApiBaseUrl() : getApiUrl();
     let url = `${base}${path}`;
     if (params) {
       const searchParams = new URLSearchParams(params);
@@ -275,7 +266,7 @@ class ApiClient {
   getWebSocketURL(path: string, token?: string | null): string {
     const tokenToUse = token || this.getToken();
     const tokenParam = tokenToUse ? `?token=${encodeURIComponent(tokenToUse)}` : '';
-    return `${this.wsBaseURL}${path}${tokenParam}`;
+    return `${getWebSocketUrl()}${path}${tokenParam}`;
   }
 }
 

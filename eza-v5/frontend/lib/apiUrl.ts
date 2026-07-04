@@ -66,6 +66,12 @@ export function getApiUrl(): string {
   return apiUrl;
 }
 
+/** Resolve a full API path at request time (never at module load). */
+export function buildApiUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${getApiUrl()}${normalizedPath}`;
+}
+
 /**
  * Get the WebSocket base URL from environment variables
  */

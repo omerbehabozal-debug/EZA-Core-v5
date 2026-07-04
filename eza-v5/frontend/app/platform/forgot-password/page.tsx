@@ -7,8 +7,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-
-const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
+import { buildApiUrl } from '@/lib/apiUrl';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -49,7 +48,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+      const response = await fetch(buildApiUrl('/api/auth/reset-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

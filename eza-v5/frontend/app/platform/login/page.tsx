@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { getApiUrl } from '@/lib/apiUrl';
+import { buildApiUrl } from '@/lib/apiUrl';
 
 function PlatformLoginPageContent() {
   const [email, setEmail] = useState('');
@@ -40,7 +40,7 @@ function PlatformLoginPageContent() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/auth/login`, {
+      const response = await fetch(buildApiUrl('/api/auth/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -4,9 +4,7 @@
 
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import { getApiUrl } from './apiUrl';
-
-const API_URL = getApiUrl();
+import { buildApiUrl } from './apiUrl';
 
 export interface LoginCredentials {
   email: string;
@@ -31,7 +29,7 @@ export interface User {
 
 export async function login(credentials: LoginCredentials): Promise<TokenResponse> {
   const response = await axios.post<TokenResponse>(
-    `${API_URL}/api/auth/login`,
+    buildApiUrl('/api/auth/login'),
     credentials
   );
   

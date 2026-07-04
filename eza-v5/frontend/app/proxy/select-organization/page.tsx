@@ -17,8 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization, Organization } from '@/context/OrganizationContext';
 import RequireAuth from '@/components/auth/RequireAuth';
-
-const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
+import { buildApiUrl } from '@/lib/apiUrl';
 
 function ProxyOrganizationSelectionContent() {
   const router = useRouter();
@@ -42,7 +41,7 @@ function ProxyOrganizationSelectionContent() {
       setError(null);
 
       try {
-        const response = await fetch(`${API_URL}/api/platform/proxy/organizations`, {
+        const response = await fetch(buildApiUrl('/api/platform/proxy/organizations'), {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
