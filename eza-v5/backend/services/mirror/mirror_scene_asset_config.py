@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Production startup validation for mirror scene durable asset storage."""
+"""Production startup validation for mirror deploy (scene assets + OpenAI provider)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from backend.config import Settings, get_settings
 
 
 class MirrorSceneAssetConfigError(RuntimeError):
-    """Raised when mirror scene asset configuration is invalid for production."""
+    """Raised when production mirror deploy configuration is invalid."""
 
 
 def is_production_environment(settings: Settings | None = None) -> bool:
@@ -19,6 +19,15 @@ def is_production_environment(settings: Settings | None = None) -> bool:
     env_lower = (settings.ENV or "").lower()
     eza_lower = (settings.EZA_ENV or "").lower() if settings.EZA_ENV else ""
     return env_lower in ("prod", "production") or eza_lower in ("prod", "production")
+
+
+def has_production_deploy_intent(settings: Settings) -> bool:
+    """Detect prod-like config without ENV=prod (validation bypass guard)."""
+    if (getattr(settings, "EZA_MIRROR_SCENE_ASSET_BASE_URL", None) or "").strip():
+        return True
+    provider = (getattr(settings, "EZA_MIRROR_IMAGE_PROVIDER", None) or "").strip().lower()
+    api_key = (getattr(settings, "OPENAI_API_KEY", None) or "").strip()
+    return provider == "openai" and bool(api_key)
 
 
 def default_mirror_scene_asset_dir() -> Path:
@@ -29,10 +38,29 @@ def default_mirror_scene_asset_dir() -> Path:
 def collect_mirror_scene_asset_config_errors(settings: Settings | None = None) -> list[str]:
     """Return human-readable config errors. Empty list means valid."""
     settings = settings or get_settings()
-    if not is_production_environment(settings):
+    prod_marked = is_production_environment(settings)
+    prod_intent = prod_marked or has_production_deploy_intent(settings)
+    if not prod_intent:
         return []
 
     errors: list[str] = []
+
+    if not prod_marked:
+        errors.append(
+            "ENV or EZA_ENV must be explicitly set to prod (or production). "
+            "Production mirror configuration was detected without a production env flag."
+        )
+
+    if prod_marked:
+        provider = (settings.EZA_MIRROR_IMAGE_PROVIDER or "mock").strip().lower()
+        if provider != "openai":
+            errors.append(
+                "EZA_MIRROR_IMAGE_PROVIDER must be openai in production "
+                f"(got {provider!r})."
+            )
+
+        if not (settings.OPENAI_API_KEY or "").strip():
+            errors.append("OPENAI_API_KEY is required in production.")
 
     base_url = (getattr(settings, "EZA_MIRROR_SCENE_ASSET_BASE_URL", None) or "").strip()
     if not base_url:
@@ -72,10 +100,11 @@ def collect_mirror_scene_asset_config_errors(settings: Settings | None = None) -
 
 
 def format_mirror_scene_asset_config_errors(errors: Iterable[str]) -> str:
-    lines = ["Mirror scene asset configuration is invalid for production:"]
+    lines = ["Production mirror deploy configuration is invalid:"]
     lines.extend(f"  - {item}" for item in errors)
     lines.append(
-        "Set EZA_MIRROR_SCENE_ASSET_BASE_URL=https://<api-host> and "
+        "Set ENV=prod (or EZA_ENV=prod), EZA_MIRROR_IMAGE_PROVIDER=openai, OPENAI_API_KEY, "
+        "EZA_MIRROR_SCENE_ASSET_BASE_URL=https://<api-host>, and "
         "EZA_MIRROR_SCENE_ASSET_DIR=/data/mirror_scene_assets on a Railway persistent volume."
     )
     return "\n".join(lines)

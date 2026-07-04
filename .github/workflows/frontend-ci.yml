@@ -42,3 +42,10 @@ jobs:
           tests/ezaExperienceAdapter.test.ts
           tests/conversationGroups.test.tsx
           tests/shareLinkPrepareIntent.test.ts
+
+      - name: Run Visual Identity regression tests
+        run: >-
+          npx vitest run
+          tests/conversationSceneIdentity.test.ts
+          tests/mirrorGuestConversation.test.ts
+          tests/standaloneSainaShell.test.tsx

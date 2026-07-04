@@ -1,56 +1,122 @@
-# Mirror Scene Asset Deploy Notes
+# Mirror Scene Asset & Production Deploy Guide
 
-Ayna Visual Identity durable scene storage requires explicit production configuration.
+Ayna Visual Identity and Mirror Network production deploy checklist.
 
-## Required environment variables (production)
+## 1. Database migration (before or with backend deploy)
 
-| Variable | Example | Purpose |
-|---|---|---|
-| `EZA_MIRROR_SCENE_ASSET_BASE_URL` | `https://api.ezacore.ai` | Public HTTPS prefix returned to clients |
-| `EZA_MIRROR_SCENE_ASSET_DIR` | `/data/mirror_scene_assets` | Writable directory for persisted PNG/JPEG/WebP files |
-| `ENV` or `EZA_ENV` | `prod` | Enables startup validation |
+Run from `eza-v5/backend`:
 
-Optional (dev/CI only):
+```bash
+alembic current
+alembic upgrade head
+```
 
-- If `EZA_MIRROR_SCENE_ASSET_BASE_URL` is unset, backend falls back to `LOADTEST_BASE_URL` or `http://localhost:8000`.
-- If `EZA_MIRROR_SCENE_ASSET_DIR` is unset, backend uses `backend/data/mirror_scene_assets` (ephemeral).
+Expected HEAD revision: `add_mirror_continuation_proofs`
 
-## Railway persistent volume (required)
+### Migration chain
+
+```text
+4c2bee92df6f
+→ add_deleted_by_user
+→ 20260516_governance
+→ add_user_mirror_plan
+→ add_mirror_network_nodes
+→ add_conversation_groups
+→ add_experience_events
+→ add_mirror_network_publish_unique   ← duplicate preflight required
+→ add_mirror_continuation_proofs      ← HEAD
+```
+
+### Duplicate preflight (required before `add_mirror_network_publish_unique`)
+
+If this revision is not yet applied, run on production Postgres:
+
+```sql
+SELECT user_id, conversation_id, COUNT(*) AS row_count
+FROM mirror_network_nodes
+WHERE conversation_id IS NOT NULL
+GROUP BY user_id, conversation_id
+HAVING COUNT(*) > 1;
+```
+
+Must return **0 rows**. Resolve duplicates manually before migration.
+
+### Post-migration verification
+
+```sql
+SELECT EXISTS (
+  SELECT 1 FROM information_schema.tables
+  WHERE table_name = 'mirror_continuation_proofs'
+);
+```
+
+## 2. Railway persistent volume (required)
 
 Without a persistent volume, scene files are lost on redeploy and public URLs return 404.
 
-1. Attach a Railway volume (e.g. mount at `/data`).
+1. Attach a Railway volume mounted at `/data`.
 2. Set `EZA_MIRROR_SCENE_ASSET_DIR=/data/mirror_scene_assets`.
-3. Set `EZA_MIRROR_SCENE_ASSET_BASE_URL=https://<your-api-host>` (must be `https://`).
+3. Ensure the directory is writable by the API process.
 
-## Multiple replicas
+### Multiple replicas
 
-If the API runs more than one replica, all instances must share the same `EZA_MIRROR_SCENE_ASSET_DIR` via a **shared volume** (or future object storage migration). Otherwise a scene written on replica A will 404 when fetched via replica B.
+All API replicas must share the same `EZA_MIRROR_SCENE_ASSET_DIR` via a **shared volume**. Otherwise a scene written on replica A returns 404 from replica B.
 
-## Startup validation
+## 3. Backend environment variables (production)
 
-On production boot, the API fails fast when:
+| Variable | Example | Required |
+|---|---|---|
+| `ENV` or `EZA_ENV` | `prod` | Yes — enables startup validation |
+| `EZA_MIRROR_IMAGE_PROVIDER` | `openai` | Yes |
+| `OPENAI_API_KEY` | `sk-...` | Yes |
+| `EZA_MIRROR_SCENE_ASSET_BASE_URL` | `https://api.ezacore.ai` | Yes — must be `https://` |
+| `EZA_MIRROR_SCENE_ASSET_DIR` | `/data/mirror_scene_assets` | Yes — not the container default |
+| `DATABASE_URL` | Postgres connection string | Yes |
 
-- `EZA_MIRROR_SCENE_ASSET_BASE_URL` is missing
-- Base URL is not `https://`
-- `EZA_MIRROR_SCENE_ASSET_DIR` is missing or equals the container-local default path
+Startup **fails fast** (process exits) when production config is invalid.
 
-Error message is logged and the process exits before serving traffic.
+Bypass guard: if `OPENAI_API_KEY` + `EZA_MIRROR_IMAGE_PROVIDER=openai` or `EZA_MIRROR_SCENE_ASSET_BASE_URL` is set without `ENV/EZA_ENV=prod`, startup also fails.
 
-## Post-deploy smoke test
+## 4. Frontend environment variables (production)
 
-After deploy or redeploy:
+| Variable | Example | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_EZA_API_URL` | `https://api.ezacore.ai` | Must match asset base host |
 
-1. Generate a mirror scene (OpenAI provider) and confirm `sceneImageUrl` is `https://.../api/public/mirror-scene-assets/{uuid}.png`.
-2. `GET` that URL directly — expect `200`, `Content-Type: image/*`, `X-Content-Type-Options: nosniff`.
-3. Open the owning chat — background/sidebar thumb should load the same URL.
-4. Publish mirror — public `/m/{slug}` and guest `/sohbet/session` should expose the same HTTPS scene URL.
+Optional:
+
+| Variable | Recommended launch value |
+|---|---|
+| `NEXT_PUBLIC_SAINA_IMPACT_STATS_ENABLED` | unset or `false` |
+
+## 5. Startup validation summary
+
+On production boot, the API fails when:
+
+- `ENV` or `EZA_ENV` is not `prod` / `production` (including prod-intent bypass)
+- `EZA_MIRROR_IMAGE_PROVIDER` is not `openai`
+- `OPENAI_API_KEY` is missing
+- `EZA_MIRROR_SCENE_ASSET_BASE_URL` is missing or not `https://`
+- `EZA_MIRROR_SCENE_ASSET_DIR` is missing or equals the ephemeral default path
+
+## 6. Post-deploy smoke test
+
+1. **Generate mirror scene** — `POST /api/standalone/mirror/generate-scene` returns `sceneImageUrl` like `https://.../api/public/mirror-scene-assets/{uuid}.png` (no `data:` / `blob:`).
+2. **Asset fetch** — `curl -I <sceneImageUrl>` → `200`, `x-content-type-options: nosniff`, `cache-control: public, max-age=31536000, immutable`.
+3. **Archive / Visual Identity** — owning chat background crossfade + sidebar thumb use the same URL.
+4. **Publish** — `POST /api/mirror-network/publish` succeeds; archive `conversationSceneSource` becomes `mirror_network`.
+5. **Public mirror** — `/m/{slug}` shows the same scene image.
+6. **Guest session** — `/sohbet/session` response includes the same `sceneImageUrl`.
+7. **Redeploy persistence** — repeat `curl -I` on the same asset URL after redeploy → still `200`.
 
 ```bash
 curl -I "https://api.ezacore.ai/api/public/mirror-scene-assets/<uuid>.png"
 ```
 
-Expected headers include:
+## 7. Manual steps not automated in repo
 
-- `cache-control: public, max-age=31536000, immutable`
-- `x-content-type-options: nosniff`
+- Railway volume attach + mount path
+- Setting platform env vars (no `railway.toml` in repo)
+- `alembic upgrade head` on production (not in Dockerfile `CMD`)
+- Duplicate preflight SQL before first publish_unique migration
+- Production smoke test execution
