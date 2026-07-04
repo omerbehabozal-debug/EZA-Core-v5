@@ -1,12 +1,10 @@
 'use client';
 
+import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import SainaCinematicScene from './SainaCinematicScene';
 
-/** Scene inside the main canvas — persists across chat ↔ pattern; clipped by the app frame. */
+/** Shared route-level scene — reads active conversation visual identity from chrome store. */
 export default function SainaPersistentScene() {
-  return (
-    <div className="saina-persistent-scene" aria-hidden data-testid="saina-persistent-scene">
-      <SainaCinematicScene />
-    </div>
-  );
+  const conversationSceneUrl = useSainaChromeStore((s) => s.conversationSceneUrl);
+  return <SainaCinematicScene sceneImageUrl={conversationSceneUrl} />;
 }

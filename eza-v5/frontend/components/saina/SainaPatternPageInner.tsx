@@ -20,6 +20,7 @@ import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import UpgradeModal from '@/components/plan/UpgradeModal';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
+import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { usePlan } from '@/lib/eza/plan/usePlan';
@@ -93,6 +94,13 @@ export default function SainaPatternPageInner() {
     [archives]
   );
 
+  const conversationSceneUrl = useMemo(() => {
+    const activeId = readActiveChatId();
+    if (!activeId) return null;
+    const url = getChatArchive(activeId)?.conversationSceneUrl;
+    return url && isPersistableConversationSceneUrl(url) ? url : null;
+  }, [archives]);
+
   const openGateModal = useCallback(
     (feature: string) => {
       const outcome = gatePremiumFeature(planTier);
@@ -165,6 +173,7 @@ export default function SainaPatternPageInner() {
     activeSection: 'pattern',
     conversations,
     activeChatId: null,
+    conversationSceneUrl,
     planTier,
     onNewChat: handleNewChat,
     onSelectChat: handleSelectChat,

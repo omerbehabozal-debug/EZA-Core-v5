@@ -24,6 +24,36 @@ describe('sainaConversationList', () => {
     expect(rows[0]?.thumbGradient).toBe(thumbGradientForChatId('chat-abc'));
   });
 
+  it('maps persistable conversation scene URL to sidebar thumb', () => {
+    const rows = mapArchivesToSainaConversations([
+      {
+        id: 'chat-scene',
+        title: 'Ayna sohbeti',
+        preview: 'Sokak lambaları',
+        savedAt: new Date().toISOString(),
+        messageCount: 2,
+        conversationSceneUrl: 'https://cdn.example/mirror-scene.jpg',
+      },
+    ]);
+
+    expect(rows[0]?.thumbImageUrl).toBe('https://cdn.example/mirror-scene.jpg');
+  });
+
+  it('omits non-persistable scene URLs from sidebar thumb', () => {
+    const rows = mapArchivesToSainaConversations([
+      {
+        id: 'chat-blob',
+        title: 'Geçici sahne',
+        preview: 'Önizleme',
+        savedAt: new Date().toISOString(),
+        messageCount: 1,
+        conversationSceneUrl: 'blob:https://localhost/scene',
+      },
+    ]);
+
+    expect(rows[0]?.thumbImageUrl).toBeNull();
+  });
+
   it('formats recent archive time as Az önce', () => {
     const savedAt = new Date(Date.now() - 5 * 60_000).toISOString();
     expect(formatSainaConversationTime(savedAt)).toBe('Az önce');

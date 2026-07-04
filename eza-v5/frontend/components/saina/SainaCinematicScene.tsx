@@ -1,15 +1,50 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import defaultSceneImage from '../../public/saina/default-conversation-scene.png';
 import { SCENE_ENTRANCE_LAMPS, SCENE_IMAGE_ASPECT } from '@/lib/eza/sceneLampPositions';
+import { cn } from '@/lib/utils';
+import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 
-const sceneUrl =
+const defaultSceneUrl =
   typeof defaultSceneImage === 'string'
     ? defaultSceneImage
     : (defaultSceneImage as { src: string }).src;
 
-/** Full-width default conversation atmosphere behind chat + mirror columns. */
-export default function SainaCinematicScene() {
+type SainaCinematicSceneProps = {
+  sceneImageUrl?: string | null;
+};
+
+/** Full-width conversation atmosphere — default scene with optional Ayna identity crossfade. */
+export default function SainaCinematicScene({ sceneImageUrl }: SainaCinematicSceneProps) {
+  const identityUrl =
+    sceneImageUrl && isPersistableConversationSceneUrl(sceneImageUrl)
+      ? sceneImageUrl.trim()
+      : null;
+
+  const [activeIdentityUrl, setActiveIdentityUrl] = useState<string | null>(null);
+  const [identityVisible, setIdentityVisible] = useState(false);
+
+  useEffect(() => {
+    if (!identityUrl) {
+      setIdentityVisible(false);
+      setActiveIdentityUrl(null);
+      return;
+    }
+
+    if (identityUrl === activeIdentityUrl) {
+      setIdentityVisible(true);
+      return;
+    }
+
+    setIdentityVisible(false);
+    setActiveIdentityUrl(identityUrl);
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setIdentityVisible(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [identityUrl, activeIdentityUrl]);
+
   return (
     <div className="saina-canvas-bg saina-canvas-bg--default-scene" aria-hidden>
       <div className="saina-scene-fit">
@@ -19,9 +54,19 @@ export default function SainaCinematicScene() {
         >
           <div
             className="saina-canvas-scene-image saina-canvas-scene-image--bundled"
-            style={{ backgroundImage: `url('${sceneUrl}')` }}
+            style={{ backgroundImage: `url('${defaultSceneUrl}')` }}
             data-testid="saina-scene-image-layer"
           />
+          {activeIdentityUrl ? (
+            <div
+              className={cn(
+                'saina-canvas-scene-image saina-canvas-scene-image--identity',
+                identityVisible && 'saina-canvas-scene-image--identity-visible'
+              )}
+              style={{ backgroundImage: `url('${activeIdentityUrl}')` }}
+              data-testid="saina-scene-identity-layer"
+            />
+          ) : null}
         </div>
       </div>
 

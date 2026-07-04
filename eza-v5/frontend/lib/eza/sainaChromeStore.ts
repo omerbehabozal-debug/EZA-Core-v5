@@ -11,6 +11,7 @@ export type SainaChromeState = {
   conversations: SainaConversationItem[];
   conversationGroups?: ConversationTreeGroupNode[];
   activeChatId: string | null;
+  conversationSceneUrl?: string | null;
   planTier?: SainaPlanTier;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
@@ -38,6 +39,7 @@ const initialChrome: SainaChromeState = {
   activeSection: 'chat',
   conversations: [],
   activeChatId: null,
+  conversationSceneUrl: null,
   safeOnlyMode: false,
   analysisModelId: DEFAULT_ANALYSIS_MODEL_ID,
   onSafeOnlyModeChange: () => {},

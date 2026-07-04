@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useState } from 'react';
 import { MessageSquarePlus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -36,7 +37,32 @@ import {
 } from '@/lib/eza/conversation-tree/groupExpandedState';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import SainaGeometricMark from './SainaGeometricMark';
-import { useCallback, useState } from 'react';
+
+function SainaConversationThumb({
+  thumbGradient,
+  thumbImageUrl,
+}: {
+  thumbGradient: string;
+  thumbImageUrl?: string | null;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(thumbImageUrl) && !imageFailed;
+
+  return (
+    <div className="saina-conv-thumb" style={{ background: thumbGradient }}>
+      {showImage ? (
+        <img
+          src={thumbImageUrl!}
+          alt=""
+          className="saina-conv-thumb__image"
+          loading="lazy"
+          decoding="async"
+          onError={() => setImageFailed(true)}
+        />
+      ) : null}
+    </div>
+  );
+}
 
 export type { SainaConversationItem, SainaPlanTier };
 
@@ -167,6 +193,16 @@ export default function SainaConversationSidebar({
     setExpandedGroups((prev) => ({ ...prev, [groupId]: next }));
   }, [isGroupExpanded]);
 
+  const renderConversationThumb = (item: {
+    thumbGradient: string;
+    thumbImageUrl?: string | null;
+  }) => (
+    <SainaConversationThumb
+      thumbGradient={item.thumbGradient}
+      thumbImageUrl={item.thumbImageUrl}
+    />
+  );
+
   const renderConversationRow = (
     item: {
       id: string;
@@ -174,6 +210,7 @@ export default function SainaConversationSidebar({
       preview: string;
       time: string;
       thumbGradient: string;
+      thumbImageUrl?: string | null;
       isMirrorSource?: boolean;
     },
     nested = false
@@ -199,7 +236,7 @@ export default function SainaConversationSidebar({
             onMobileClose?.();
           }}
         >
-          <div className="saina-conv-thumb" style={{ background: item.thumbGradient }} />
+          {renderConversationThumb(item)}
           <div className="saina-conv-body">
             <p className="saina-conv-title">
               {item.isMirrorSource ? (

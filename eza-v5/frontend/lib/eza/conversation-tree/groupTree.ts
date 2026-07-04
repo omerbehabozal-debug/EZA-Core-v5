@@ -11,6 +11,7 @@ import {
   formatSainaConversationTime,
   thumbGradientForChatId,
 } from '@/lib/eza/sainaConversationList';
+import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { isChatDeleted } from '@/lib/standaloneChatDelete';
 import { summarizeArchiveTitle, type ArchivedChatSummary } from '@/lib/standaloneChatArchive';
 
@@ -26,6 +27,11 @@ function toTreeChatItem(item: ArchivedChatSummaryWithTree): ConversationTreeChat
     preview: item.preview?.trim() || 'SAINA ile düşün, keşfet…',
     time: formatSainaConversationTime(item.savedAt),
     thumbGradient: thumbGradientForChatId(item.id),
+    thumbImageUrl:
+      item.conversationSceneUrl &&
+      isPersistableConversationSceneUrl(item.conversationSceneUrl)
+        ? item.conversationSceneUrl
+        : null,
     savedAt: item.savedAt,
     isMirrorSource: Boolean(item.isMirrorSource),
   };

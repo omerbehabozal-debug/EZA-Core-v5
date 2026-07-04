@@ -106,6 +106,8 @@ import {
 } from '@/lib/eza/mirror-share/publishMirrorToNetwork';
 import { shouldSkipShareLinkPrepare } from '@/lib/eza/mirror-share/shareLinkPrepareIntent';
 import type { MirrorShareLinkStatus } from '@/components/mirror/MirrorShareExperience';
+import { setConversationSceneIdentity } from '@/lib/standaloneChatArchive';
+import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import {
   trackMirrorShareOpened,
   trackMirrorShared,
@@ -206,8 +208,14 @@ export default function StandaloneObservationExperience({
       setSceneImageStatus('ready');
       setSceneExtras(provider ? { imageProvider: provider } : {});
       sceneAutoKeyRef.current = null;
+      if (conversationId && isPersistableConversationSceneUrl(rawUrl)) {
+        setConversationSceneIdentity(conversationId, {
+          url: rawUrl,
+          source: 'mirror_local',
+        });
+      }
     },
-    [resolveSceneDisplayUrl]
+    [conversationId, resolveSceneDisplayUrl]
   );
 
   useEffect(() => {
@@ -341,6 +349,17 @@ export default function StandaloneObservationExperience({
         if (result.ok) {
           if (conversationId) {
             saveMirrorShareLink(conversationId, result.slug, result.shareUrl);
+            const publishedScene =
+              result.publicPayload.sceneImageUrl?.trim() ||
+              rawScene?.trim() ||
+              null;
+            if (publishedScene && isPersistableConversationSceneUrl(publishedScene)) {
+              setConversationSceneIdentity(conversationId, {
+                url: publishedScene,
+                source: 'mirror_network',
+                slug: result.slug,
+              });
+            }
           }
           setGeneratedDailyCard((prev) =>
             prev ? applyShareUrlToCard(prev, result.shareUrl, result.slug) : prev
@@ -671,6 +690,12 @@ export default function StandaloneObservationExperience({
           result.provider
         );
         sceneAutoKeyRef.current = `${autoKey}:complete`;
+        if (conversationId && isPersistableConversationSceneUrl(result.sceneImageUrl)) {
+          setConversationSceneIdentity(conversationId, {
+            url: result.sceneImageUrl,
+            source: 'mirror_local',
+          });
+        }
         void prepareMirrorShareLink(generatedDailyCard, result.sceneImageUrl, {
           refreshScene: true,
         });

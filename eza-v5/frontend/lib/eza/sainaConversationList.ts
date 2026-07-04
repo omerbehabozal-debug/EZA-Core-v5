@@ -1,5 +1,6 @@
 import type { ArchivedChatSummary } from '@/lib/standaloneChatArchive';
 import { summarizeArchiveTitle } from '@/lib/standaloneChatArchive';
+import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { isChatDeleted } from '@/lib/standaloneChatDelete';
 
 export type SainaConversationItem = {
@@ -8,6 +9,7 @@ export type SainaConversationItem = {
   preview: string;
   time: string;
   thumbGradient: string;
+  thumbImageUrl?: string | null;
 };
 
 export type SidebarSortableArchive = Pick<ArchivedChatSummary, 'id' | 'savedAt'>;
@@ -91,5 +93,10 @@ export function mapArchivesToSainaConversations(
     preview: item.preview?.trim() || 'SAINA ile düşün, keşfet…',
     time: formatSainaConversationTime(item.savedAt),
     thumbGradient: thumbGradientForChatId(item.id),
+    thumbImageUrl:
+      item.conversationSceneUrl &&
+      isPersistableConversationSceneUrl(item.conversationSceneUrl)
+        ? item.conversationSceneUrl
+        : null,
   }));
 }

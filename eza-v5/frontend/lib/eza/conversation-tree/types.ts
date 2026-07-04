@@ -50,6 +50,7 @@ export type ConversationTreeChatItem = {
   preview: string;
   time: string;
   thumbGradient: string;
+  thumbImageUrl?: string | null;
   savedAt: string;
   isMirrorSource: boolean;
 };

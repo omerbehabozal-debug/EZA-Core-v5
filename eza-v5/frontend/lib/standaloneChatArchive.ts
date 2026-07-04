@@ -81,7 +81,17 @@ export interface ArchivedChat {
 
 export type ArchivedChatSummary = Pick<
   ArchivedChat,
-  'id' | 'title' | 'preview' | 'savedAt' | 'messageCount' | 'pinned' | 'titlePinned' | 'groupId'
+  | 'id'
+  | 'title'
+  | 'preview'
+  | 'savedAt'
+  | 'messageCount'
+  | 'pinned'
+  | 'titlePinned'
+  | 'groupId'
+  | 'conversationSceneUrl'
+  | 'conversationSceneSource'
+  | 'conversationSceneSlug'
 > & {
   isMirrorSource?: boolean;
 };
@@ -183,6 +193,9 @@ function toSummary(chat: ArchivedChat): ArchivedChatSummary {
     titlePinned: chat.titlePinned,
     groupId: chat.groupId ?? chat.treeMetadata?.groupId ?? null,
     isMirrorSource: isMirrorSourceChat(chat),
+    conversationSceneUrl: chat.conversationSceneUrl ?? null,
+    conversationSceneSource: chat.conversationSceneSource ?? null,
+    conversationSceneSlug: chat.conversationSceneSlug ?? null,
   };
 }
 
@@ -305,10 +318,18 @@ export function createStandaloneChat(options?: CreateStandaloneChatOptions): str
 
 export function upsertChatArchive(entry: ArchivedChat): void {
   if (isChatDeleted(entry.id)) return;
+  const existing = readAll().find((a) => a.id === entry.id);
+  const merged: ArchivedChat = {
+    ...existing,
+    ...entry,
+    ...pickConversationSceneFields(
+      entry.conversationSceneUrl != null ? entry : existing
+    ),
+  };
   const rest = readAll().filter((a) => a.id !== entry.id);
-  writeAll([entry, ...rest]);
+  writeAll([merged, ...rest]);
   writeActiveChatId(entry.id);
-  const groupId = entry.groupId ?? entry.treeMetadata?.groupId;
+  const groupId = merged.groupId ?? merged.treeMetadata?.groupId;
   if (groupId) touchConversationGroup(groupId);
 }
 

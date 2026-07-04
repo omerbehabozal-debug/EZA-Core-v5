@@ -33,6 +33,7 @@ import { rememberActiveGroupExpanded } from '@/lib/eza/conversation-tree/groupEx
 import { trackConversationGroupCreated } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
 import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
+import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
 import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
 import { usePlan } from '@/lib/eza/plan/usePlan';
@@ -992,6 +993,10 @@ export default function StandaloneChatInner() {
   }, [ready, mirrorReplyFromUrl, chatIdFromUrl, chatId, router]);
 
   const activeArchive = chatId ? getChatArchive(chatId) : null;
+  const conversationSceneUrl = useMemo(() => {
+    const url = activeArchive?.conversationSceneUrl;
+    return url && isPersistableConversationSceneUrl(url) ? url : null;
+  }, [activeArchive?.conversationSceneUrl]);
   const sourceType = activeArchive?.treeMetadata?.sourceType ?? (activeArchive?.mirrorOrigin ? 'mirror' : 'direct');
   const assistantIsDone = Boolean(
     chatId &&
@@ -1198,6 +1203,7 @@ export default function StandaloneChatInner() {
     conversations: sainaConversations,
     conversationGroups: sainaConversationGroups,
     activeChatId: chatId,
+    conversationSceneUrl,
     planTier,
     onNewChat: handleNewChat,
     onSelectChat: handleSelectChat,

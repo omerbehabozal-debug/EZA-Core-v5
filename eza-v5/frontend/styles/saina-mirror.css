@@ -1146,6 +1146,35 @@ html:has(.saina-page) body {
   filter: brightness(1.13) contrast(1.17) saturate(1.1);
 }
 
+.saina-canvas-scene-image--identity {
+  z-index: 1;
+  opacity: 0;
+  filter: brightness(1.08) contrast(1.12) saturate(1.08);
+  transition: opacity 420ms ease;
+}
+
+.saina-canvas-scene-image--identity-visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saina-canvas-scene-image--identity {
+    transition: none;
+  }
+
+  .saina-canvas-scene-image--identity-visible {
+    opacity: 1;
+  }
+}
+
+.saina-conv-thumb__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
 /* Premium live atmosphere — top of scene stack, below UI chrome. */
 .saina-scene-live {
   position: absolute;
