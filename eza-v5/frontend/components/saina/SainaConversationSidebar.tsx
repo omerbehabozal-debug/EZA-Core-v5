@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { MessageSquarePlus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -29,6 +30,13 @@ import {
   SAINA_RELATIONSHIP_PATTERN_CTA,
   SAINA_RELATIONSHIP_PATTERN_TITLE,
 } from '@/lib/eza/sainaCopy';
+import {
+  SAINA_DISCOVER_NAV_BODY,
+  SAINA_DISCOVER_NAV_CTA,
+  SAINA_DISCOVER_TITLE,
+} from '@/lib/eza/mirror-network/discoverCopy';
+import { SAINA_DISCOVER_ROUTE } from '@/lib/eza/sainaRoutes';
+import type { SainaAppView } from '@/lib/eza/sainaRoutes';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
 import {
@@ -141,8 +149,8 @@ type SainaConversationSidebarProps = {
   conversations?: SainaConversationItem[];
   conversationGroups?: ConversationTreeGroupNode[];
   activeChatId?: string | null;
-  /** Highlights İlişki Deseni nav when on pattern route. */
-  activeSection?: 'chat' | 'pattern';
+  /** Highlights section nav when on discover / pattern routes. */
+  activeSection?: SainaAppView;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
   onDeleteChat?: (id: string) => void;
@@ -177,6 +185,7 @@ export default function SainaConversationSidebar({
   className,
   interactionsDisabled = false,
 }: SainaConversationSidebarProps) {
+  const router = useRouter();
   const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
   const isMock = conversations == null && conversationGroups == null;
   const disabled = interactionsDisabled || isMock;
@@ -487,6 +496,33 @@ export default function SainaConversationSidebar({
             >
               {renderPlanCard()}
             </div>
+
+            <button
+              type="button"
+              className={cn(
+                'saina-pattern-nav saina-pattern-nav--dark saina-discover-nav',
+                activeSection === 'discover' && 'saina-pattern-nav--active'
+              )}
+              onClick={() => {
+                router.push(SAINA_DISCOVER_ROUTE);
+                onMobileClose?.();
+              }}
+              aria-current={activeSection === 'discover' ? 'page' : undefined}
+              data-testid="saina-discover-nav"
+            >
+              <div className="saina-pattern-nav-main">
+                <SainaGeometricMark size={18} variant="gold" />
+                <div className="saina-pattern-nav-text">
+                  <span className="saina-pattern-nav-title saina-sidebar-card-title">
+                    {SAINA_DISCOVER_TITLE}
+                  </span>
+                  <span className="saina-pattern-nav-body">{SAINA_DISCOVER_NAV_BODY}</span>
+                </div>
+              </div>
+              <span className="saina-pattern-nav-cta">
+                {activeSection === 'discover' ? 'Açık' : SAINA_DISCOVER_NAV_CTA}
+              </span>
+            </button>
 
             <button
               type="button"

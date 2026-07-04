@@ -1,14 +1,15 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Check, PanelRightClose, Sparkles } from 'lucide-react';
 import {
   SAINA_CHECKLIST,
   SAINA_MIRROR_COLLAPSE_LABEL,
   SAINA_MIRROR_HOW_LABEL,
-  SAINA_MIRROR_SUBTITLE,
   SAINA_MIRROR_TITLE,
-  SAINA_CREATE_MIRROR,
 } from '@/lib/eza/sainaCopy';
+import { resolveMirrorPanelCopyForChat } from '@/lib/eza/mirror/resolveMirrorPanelCopy';
+import { getChatArchive } from '@/lib/standaloneChatArchive';
 import { useMirrorEntries, useActiveConversationMirrorId } from '@/components/standalone/MirrorEntriesContext';
 import StandaloneObservationExperience from '@/components/standalone/StandaloneObservationExperience';
 
@@ -24,6 +25,11 @@ export default function SainaStandaloneMirrorPanel({
 }: SainaStandaloneMirrorPanelProps) {
   const entries = useMirrorEntries();
   const conversationId = useActiveConversationMirrorId();
+
+  const mirrorPanelCopy = useMemo(() => {
+    const chat = conversationId ? getChatArchive(conversationId) : null;
+    return resolveMirrorPanelCopyForChat(chat);
+  }, [conversationId]);
 
   return (
     <aside
@@ -50,7 +56,7 @@ export default function SainaStandaloneMirrorPanel({
               </button>
             ) : null}
           </div>
-          <p className="saina-mirror-subtitle">{SAINA_MIRROR_SUBTITLE}</p>
+          <p className="saina-mirror-subtitle">{mirrorPanelCopy.panelSubtitle}</p>
         </header>
 
         <div className="saina-mirror-panel-experience">
@@ -58,7 +64,7 @@ export default function SainaStandaloneMirrorPanel({
             entries={entries}
             embedded
             conversationId={conversationId ?? undefined}
-            createButtonLabel={SAINA_CREATE_MIRROR}
+            mirrorPanelCopy={mirrorPanelCopy}
           />
         </div>
 

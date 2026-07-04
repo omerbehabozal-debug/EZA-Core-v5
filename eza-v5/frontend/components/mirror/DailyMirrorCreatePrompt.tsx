@@ -25,6 +25,8 @@ export type DailyMirrorCreatePromptProps = {
   onGenerate: () => void;
   className?: string;
   buttonLabel?: string;
+  onboardingTitle?: string;
+  onboardingBody?: string;
   compact?: boolean;
   /** SAINA conversation mirror column — hide standalone-only CTAs. */
   embedded?: boolean;
@@ -59,6 +61,8 @@ export default function DailyMirrorCreatePrompt({
   onGenerate,
   className,
   buttonLabel,
+  onboardingTitle,
+  onboardingBody,
   compact = false,
   embedded = false,
   sampleCount = 0,
@@ -72,7 +76,7 @@ export default function DailyMirrorCreatePrompt({
     ? MIRROR_ERROR_TITLE
     : isInsufficient
       ? MIRROR_INSUFFICIENT_TITLE
-      : MIRROR_ONBOARDING_TITLE;
+      : (onboardingTitle ?? MIRROR_ONBOARDING_TITLE);
 
   const body = isError
     ? MIRROR_ERROR_BODY
@@ -80,7 +84,7 @@ export default function DailyMirrorCreatePrompt({
       ? embedded && sampleCount > 0 && sampleCount < minSamples
         ? `Ayna için ${minSamples} yanıt gerekli. Şu an ${sampleCount}/${minSamples} hazır — sohbete devam et.`
         : MIRROR_INSUFFICIENT_BODY
-      : MIRROR_ONBOARDING_SUBTITLE;
+      : (onboardingBody ?? MIRROR_ONBOARDING_SUBTITLE);
 
   return (
     <section

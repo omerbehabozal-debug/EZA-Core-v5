@@ -54,9 +54,19 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
       <div
       className={cn(
         'saina-page saina-app-root',
-        view === 'chat' ? 'saina-standalone-shell' : 'saina-pattern-shell'
+        view === 'chat'
+          ? 'saina-standalone-shell'
+          : view === 'discover'
+            ? 'saina-discover-shell'
+            : 'saina-pattern-shell'
       )}
-      data-testid={view === 'chat' ? 'saina-standalone-shell' : 'saina-pattern-shell'}
+      data-testid={
+        view === 'chat'
+          ? 'saina-standalone-shell'
+          : view === 'discover'
+            ? 'saina-discover-shell'
+            : 'saina-pattern-shell'
+      }
       data-saina-view={view}
     >
       <div className="saina-app-frame">
@@ -66,7 +76,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               conversations={chrome.conversations}
               conversationGroups={chrome.conversationGroups}
               activeChatId={chrome.activeChatId}
-              activeSection={view === 'pattern' ? 'pattern' : 'chat'}
+              activeSection={view === 'pattern' ? 'pattern' : view === 'discover' ? 'discover' : 'chat'}
               onNewChat={chrome.onNewChat}
               onSelectChat={chrome.onSelectChat}
               onDeleteChat={chrome.onDeleteChat}
@@ -80,8 +90,8 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
             />
           </div>
 
-          <div className={cn('saina-main-col', view === 'pattern' && 'saina-pattern-main-col')}>
-            <div className={cn('saina-canvas', view === 'pattern' && 'saina-pattern-canvas-wrap')}>
+          <div className={cn('saina-main-col', (view === 'pattern' || view === 'discover') && 'saina-pattern-main-col')}>
+            <div className={cn('saina-canvas', view === 'pattern' && 'saina-pattern-canvas-wrap', view === 'discover' && 'saina-discover-canvas-wrap')}>
               <SainaPersistentScene />
               <SainaRouteTransition routeKey={view}>{children}</SainaRouteTransition>
             </div>

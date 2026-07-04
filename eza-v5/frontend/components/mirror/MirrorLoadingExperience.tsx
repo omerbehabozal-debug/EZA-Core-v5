@@ -26,6 +26,8 @@ export type MirrorLoadingExperienceProps = {
   openaiQuota?: boolean;
   onRetry?: () => void;
   className?: string;
+  /** When set, replaces rotating step headlines (embedded mirror panel). */
+  generatingHeadline?: string;
 };
 
 const ms = standaloneSkin.mirrorSurface;
@@ -39,6 +41,7 @@ export default function MirrorLoadingExperience({
   openaiQuota = false,
   onRetry,
   className,
+  generatingHeadline,
 }: MirrorLoadingExperienceProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [showSlowHint, setShowSlowHint] = useState(false);
@@ -66,8 +69,8 @@ export default function MirrorLoadingExperience({
       if (openaiQuota) return 'AI servisi kotası';
       return rateLimited ? 'Çok fazla istek' : 'Sahne şu an hazırlanamadı';
     }
-    return LOADING_STEPS[activeStep];
-  }, [activeStep, isError, rateLimited, openaiQuota]);
+    return generatingHeadline ?? LOADING_STEPS[activeStep];
+  }, [activeStep, generatingHeadline, isError, openaiQuota, rateLimited]);
 
   return (
     <section

@@ -58,7 +58,7 @@ import DailyMirrorReadyFooter from '@/components/mirror/DailyMirrorReadyFooter';
 import MirrorPosterLightbox from '@/components/mirror/MirrorPosterLightbox';
 import MirrorShareExperience from '@/components/mirror/MirrorShareExperience';
 import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
-import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
+import type { MirrorPanelCopy } from '@/lib/eza/mirror/resolveMirrorPanelCopy';
 import {
   advanceStyleLensSession,
   clearStyleLensSession,
@@ -127,6 +127,7 @@ interface StandaloneObservationExperienceProps {
   /** Embedded in SAINA conversation mirror column. */
   embedded?: boolean;
   createButtonLabel?: string;
+  mirrorPanelCopy?: MirrorPanelCopy;
   /** Active chat thread — Conversation Mirror scope (not daily aggregate). */
   conversationId?: string;
 }
@@ -136,6 +137,7 @@ export default function StandaloneObservationExperience({
   entries,
   embedded = false,
   createButtonLabel,
+  mirrorPanelCopy,
   conversationId,
 }: StandaloneObservationExperienceProps) {
   const [shareOpen, setShareOpen] = useState(false);
@@ -229,6 +231,11 @@ export default function StandaloneObservationExperience({
     void refreshPlan();
   }, [isAuthenticated, refreshPlan]);
 
+  const panelCreateLabel =
+    createButtonLabel ?? mirrorPanelCopy?.createButton;
+  const panelOnboardingTitle = embedded ? mirrorPanelCopy?.emptyTitle : undefined;
+  const panelOnboardingBody = embedded ? mirrorPanelCopy?.emptyBody : undefined;
+  const panelGeneratingHeadline = embedded ? mirrorPanelCopy?.generating : undefined;
   const isConversationScope = Boolean(conversationId);
   const mirrorBuildOptions = useMemo(
     () => (conversationId ? { conversationId } : undefined),
@@ -1119,6 +1126,7 @@ export default function StandaloneObservationExperience({
               rateLimited={sceneExtras.hybridFallbackReason === 'rate_limit'}
               openaiQuota={sceneExtras.hybridFallbackReason === 'openai_quota'}
               onRetry={sceneImageStatus === 'error' ? handleRetryMirrorScene : undefined}
+              generatingHeadline={panelGeneratingHeadline}
             />
           ) : isScenePosterVisible ? (
             <button
@@ -1247,7 +1255,9 @@ export default function StandaloneObservationExperience({
       <DailyMirrorCreatePrompt
         variant={promptVariant}
         onGenerate={handleGenerateDailyMirror}
-        buttonLabel={createButtonLabel}
+        buttonLabel={panelCreateLabel}
+        onboardingTitle={panelOnboardingTitle}
+        onboardingBody={panelOnboardingBody}
         compact={embedded}
         embedded={embedded}
         sampleCount={entries.length}

@@ -103,6 +103,26 @@ class MirrorNetworkPublishRequest(BaseModel):
     guestToken: Optional[str] = Field(default=None, max_length=256)
 
 
+class DiscoverMirrorItem(BaseModel):
+    """Public discover card — root Ayna only."""
+
+    slug: str
+    title: str
+    description: Optional[str] = None
+    sceneImageUrl: Optional[str] = None
+    yansiCount: int = Field(default=0, ge=0)
+    createdAt: Optional[str] = None
+
+
+class DiscoverMirrorListResponse(BaseModel):
+    """GET /api/mirror-network/discover"""
+
+    model_config = {"extra": "forbid"}
+
+    items: List[DiscoverMirrorItem] = Field(default_factory=list)
+    total: int = Field(default=0, ge=0)
+
+
 class MirrorNetworkImpactStats(BaseModel):
     """Owner-only aggregate impact — no identity or private mirror payload."""
 

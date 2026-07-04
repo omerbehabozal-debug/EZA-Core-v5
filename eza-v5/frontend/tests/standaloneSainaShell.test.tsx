@@ -7,7 +7,7 @@ vi.mock('@/context/OrganizationContext', () => ({
 vi.mock('@/components/standalone/StandaloneObservationExperience', () => ({
   default: ({ createButtonLabel }: { createButtonLabel?: string }) => (
     <div data-testid="saina-mirror-experience-stub">
-      <button type="button">{createButtonLabel ?? 'Ayna Oluştur'}</button>
+      <button type="button">{createButtonLabel ?? 'Görseli Oluştur'}</button>
     </div>
   ),
 }));

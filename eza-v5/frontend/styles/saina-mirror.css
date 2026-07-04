@@ -4490,3 +4490,183 @@ html:has(.saina-page) body {
   min-height: 44px;
   min-width: 44px;
 }
+
+/* ── Keşfet (Discover V1) ── */
+.saina-discover-shell .saina-discover-canvas-wrap {
+  overflow-y: auto;
+}
+
+.saina-discover-page {
+  margin: 0 auto;
+  max-width: 40rem;
+  padding: 1.5rem 1.25rem 3rem;
+  color: #f4f0e8;
+}
+
+.saina-discover-hero {
+  margin-bottom: 2rem;
+}
+
+.saina-discover-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #c9bba8;
+}
+
+.saina-discover-headline {
+  margin: 0.65rem 0 0.5rem;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  line-height: 1.25;
+  color: #f8f4ec;
+}
+
+.saina-discover-subhead {
+  margin: 0;
+  max-width: 28rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: rgba(244, 240, 232, 0.72);
+}
+
+.saina-discover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.saina-discover-card {
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 11, 10, 0.72);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.saina-discover-card__visual {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  background: #141210;
+}
+
+.saina-discover-card__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.saina-discover-card__placeholder {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #2a2520 0%, #141210 55%, #0c0b0a 100%);
+}
+
+.saina-discover-card__body {
+  padding: 1.15rem 1.25rem 1.35rem;
+}
+
+.saina-discover-card__title {
+  margin: 0 0 0.65rem;
+  font-size: 1.15rem;
+  line-height: 1.35;
+  color: #f8f4ec;
+}
+
+.saina-discover-card__yansi {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: #c9bba8;
+}
+
+.saina-discover-card__cta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e8d5b5;
+  text-decoration: none;
+}
+
+.saina-discover-card__cta:hover {
+  color: #f5ead8;
+}
+
+.saina-discover-state {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.saina-discover-state__title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #f4f0e8;
+}
+
+.saina-discover-state__body {
+  margin: 0;
+  font-size: 0.88rem;
+  color: rgba(244, 240, 232, 0.68);
+}
+
+.saina-discover-retry {
+  margin-top: 1rem;
+  border: 1px solid rgba(232, 213, 181, 0.35);
+  border-radius: 999px;
+  background: rgba(232, 213, 181, 0.12);
+  color: #f5ead8;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.saina-discover-skeleton-block,
+.saina-discover-skeleton-line {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: saina-discover-shimmer 1.4s ease-in-out infinite;
+}
+
+.saina-discover-skeleton-line {
+  height: 0.75rem;
+  border-radius: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+
+.saina-discover-skeleton-line--title {
+  width: 85%;
+  height: 1rem;
+}
+
+.saina-discover-skeleton-line--short {
+  width: 35%;
+}
+
+.saina-discover-skeleton-line--cta {
+  width: 45%;
+  margin-top: 0.35rem;
+}
+
+@keyframes saina-discover-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saina-discover-skeleton-block,
+  .saina-discover-skeleton-line {
+    animation: none;
+  }
+}

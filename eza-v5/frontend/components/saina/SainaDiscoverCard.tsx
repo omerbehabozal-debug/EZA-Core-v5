@@ -1,0 +1,44 @@
+'use client';
+
+import Link from 'next/link';
+import {
+  SAINA_DISCOVER_CTA,
+  formatDiscoverYansiCount,
+} from '@/lib/eza/mirror-network/discoverCopy';
+import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
+
+export type SainaDiscoverCardProps = {
+  item: DiscoverMirror;
+};
+
+export default function SainaDiscoverCard({ item }: SainaDiscoverCardProps) {
+  const href = `/m/${encodeURIComponent(item.slug)}/sohbet`;
+  const hasImage = Boolean(item.sceneImageUrl?.trim());
+
+  return (
+    <article className="saina-discover-card" data-testid={`saina-discover-card-${item.slug}`}>
+      <div className="saina-discover-card__visual">
+        {hasImage ? (
+          // eslint-disable-next-line @next/next/no-img-element -- public mirror scene URL
+          <img
+            src={item.sceneImageUrl!}
+            alt=""
+            className="saina-discover-card__image"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div className="saina-discover-card__placeholder" aria-hidden />
+        )}
+      </div>
+
+      <div className="saina-discover-card__body">
+        <h2 className="saina-discover-card__title saina-serif">{item.title}</h2>
+        <p className="saina-discover-card__yansi">{formatDiscoverYansiCount(item.yansiCount)}</p>
+        <Link href={href} className="saina-discover-card__cta">
+          {SAINA_DISCOVER_CTA}
+        </Link>
+      </div>
+    </article>
+  );
+}

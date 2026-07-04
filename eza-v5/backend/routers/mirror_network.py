@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
 from backend.core.schemas.mirror_network import (
+    DiscoverMirrorListResponse,
     MirrorNetworkDebugReport,
     MirrorNetworkImpactStats,
     MirrorNetworkPublicPayload,
@@ -26,6 +27,7 @@ from backend.models.production import User
 from backend.services.mirror_network.fixtures import build_fixture_mirror_node
 from backend.services.mirror_network.repository import create_mirror_network_node
 from backend.core.utils.dependencies import get_db
+from backend.services.mirror_network.discover import list_discover_mirrors
 from backend.services.mirror_network.publish import publish_mirror_to_network
 from backend.services.mirror_network.impact import get_mirror_impact_stats
 from backend.services.mirror_network.service import fetch_debug_mirror_by_slug, fetch_public_mirror_by_slug
@@ -76,6 +78,20 @@ async def publish_mirror_network_node(
     No separate user-facing publish step; curiosity-only public payload.
     """
     return await publish_mirror_to_network(db, user, body)
+
+
+@router.get("/discover", response_model=DiscoverMirrorListResponse)
+async def get_mirror_network_discover(
+    limit: int = 24,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+) -> DiscoverMirrorListResponse:
+    """
+    Public discover list — root Aynalar only.
+
+    Never returns user identity, guest tokens, raw conversation, or private payload.
+    """
+    return await list_discover_mirrors(db, limit=limit, offset=offset)
 
 
 @router.get("/{slug}/impact", response_model=MirrorNetworkImpactStats)

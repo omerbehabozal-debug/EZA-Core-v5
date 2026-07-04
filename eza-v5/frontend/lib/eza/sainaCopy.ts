@@ -65,7 +65,11 @@ export const SAINA_EMPTY_BODY =
 
   'Konuşmanın desenlerini, fikirlerini ve içgörülerini senin için bir araya getirebilirim.';
 
-export const SAINA_CREATE_MIRROR = 'Ayna Oluştur';
+/** User intent — visualize conversation; system names outcome Ayna or Yansı. */
+export const SAINA_CREATE_VISUAL = 'Görseli Oluştur';
+
+/** @deprecated Use SAINA_CREATE_VISUAL */
+export const SAINA_CREATE_MIRROR = SAINA_CREATE_VISUAL;
 
 
 
@@ -87,9 +91,11 @@ export const SAINA_CHECKLIST = [
 
 
 
-export const SAINA_GENERATING = 'Yansıman hazırlanıyor…';
+/** Default generating copy — prefer resolveMirrorPanelCopy() per chat context. */
+export const SAINA_GENERATING = 'Aynan hazırlanıyor…';
 
-export const SAINA_READY_TITLE = 'Aynanız hazır';
+/** Default ready copy — prefer resolveMirrorPanelCopy() per chat context. */
+export const SAINA_READY_TITLE = 'Aynan hazır.';
 
 export const SAINA_READY_POSTER_TITLE = 'İpek Yolu Sohbeti';
 
