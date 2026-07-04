@@ -8,8 +8,9 @@ export const SAINA_DISCOVER_NAV_CTA = 'Keşfet →';
 
 export const SAINA_DISCOVER_HERO_LINE_1 = 'Bugün dünyanın en ilginç merakları';
 
-export const SAINA_DISCOVER_HERO_LINE_2 =
-  'Başkalarının başlattığı sohbetleri keşfet, kendi yolculuğunu başlat.';
+export const SAINA_DISCOVER_HERO_LINE_2 = 'Bir merak seç.';
+
+export const SAINA_DISCOVER_HERO_LINE_3 = 'Kendi yolculuğunu başlat.';
 
 export const SAINA_DISCOVER_CTA = 'Bu sohbete katıl →';
 

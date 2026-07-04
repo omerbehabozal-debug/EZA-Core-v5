@@ -50,6 +50,23 @@ describe('mirror guest conversation (Stage 2B slice 2)', () => {
     expect(chat?.messages.some((m) => !m.isUser && m.text.includes('Bu Ayna,'))).toBe(true);
   });
 
+  it('marks root mirror as discover-experienced when guest chat starts', () => {
+    const sessionWithParent: MirrorSohbetSession = {
+      ...SAMPLE_SESSION,
+      mirrorSlug: 'child-mirror',
+      parentMirrorId: 'parent-mirror',
+      rootMirrorId: 'root-mirror',
+    };
+    startMirrorGuestChat({
+      session: sessionWithParent,
+      firstUserMessage: 'Şehri yavaşça oku',
+    });
+
+    const raw = localStorage.getItem('eza_discover_experienced_mirror_slugs');
+    expect(raw).toContain('root-mirror');
+    expect(raw).not.toContain('child-mirror');
+  });
+
   it('writes guest conversation metadata with mirror lineage ids', () => {
     const sessionWithParent: MirrorSohbetSession = {
       ...SAMPLE_SESSION,

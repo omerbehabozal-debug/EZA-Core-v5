@@ -44,6 +44,7 @@ jobs:
           tests/shareLinkPrepareIntent.test.ts
           tests/discoverCopy.test.ts
           tests/discoverCard.test.tsx
+          tests/discoverExperiencedMirrors.test.ts
           tests/mirrorPanelCopy.test.ts
 
       - name: Run Visual Identity regression tests

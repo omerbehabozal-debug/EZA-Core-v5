@@ -9,15 +9,15 @@ import {
   SAINA_DISCOVER_ERROR_RETRY,
   SAINA_DISCOVER_HERO_LINE_1,
   SAINA_DISCOVER_HERO_LINE_2,
+  SAINA_DISCOVER_HERO_LINE_3,
   SAINA_DISCOVER_TITLE,
 } from '@/lib/eza/mirror-network/discoverCopy';
-import {
-  fetchDiscoverMirrors,
-  type DiscoverMirror,
-} from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
+import { fetchDiscoverMirrorsForViewer } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
+import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import SainaDiscoverList from '@/components/saina/SainaDiscoverList';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
+import { CHATS_UPDATED_EVENT } from '@/lib/standaloneChatArchive';
 
 export default function SainaDiscoverPage() {
   const router = useRouter();
@@ -25,6 +25,7 @@ export default function SainaDiscoverPage() {
   const [items, setItems] = useState<DiscoverMirror[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [allExperienced, setAllExperienced] = useState(false);
 
   useSyncSainaChrome({
     activeSection: 'discover',
@@ -51,14 +52,16 @@ export default function SainaDiscoverPage() {
   const loadDiscover = useCallback(async () => {
     setLoading(true);
     setError(false);
-    const result = await fetchDiscoverMirrors({ limit: 24, revalidateSeconds: 0 });
+    const result = await fetchDiscoverMirrorsForViewer({ targetCount: 24 });
     if (!result.ok) {
       setError(true);
       setItems([]);
+      setAllExperienced(false);
       setLoading(false);
       return;
     }
-    setItems(result.data.items);
+    setItems(result.items);
+    setAllExperienced(result.allExperienced);
     setLoading(false);
   }, []);
 
@@ -66,12 +69,24 @@ export default function SainaDiscoverPage() {
     void loadDiscover();
   }, [loadDiscover]);
 
+  useEffect(() => {
+    const refresh = () => {
+      void loadDiscover();
+    };
+    window.addEventListener(CHATS_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CHATS_UPDATED_EVENT, refresh);
+  }, [loadDiscover]);
+
   return (
     <div className="saina-discover-page" data-testid="saina-discover-page">
       <header className="saina-discover-hero">
         <p className="saina-discover-eyebrow">{SAINA_DISCOVER_TITLE}</p>
         <h1 className="saina-discover-headline saina-serif">{SAINA_DISCOVER_HERO_LINE_1}</h1>
-        <p className="saina-discover-subhead">{SAINA_DISCOVER_HERO_LINE_2}</p>
+        <p className="saina-discover-subhead">
+          {SAINA_DISCOVER_HERO_LINE_2}
+          <br />
+          {SAINA_DISCOVER_HERO_LINE_3}
+        </p>
       </header>
 
       {error ? (
@@ -87,7 +102,11 @@ export default function SainaDiscoverPage() {
       {!error && !loading && items.length === 0 ? (
         <div className="saina-discover-state" data-testid="saina-discover-empty">
           <p className="saina-discover-state__title">{SAINA_DISCOVER_EMPTY_TITLE}</p>
-          <p className="saina-discover-state__body">{SAINA_DISCOVER_EMPTY_BODY}</p>
+          <p className="saina-discover-state__body">
+            {allExperienced
+              ? 'Şimdilik deneyebileceğin yeni merak kalmadı. Biraz sonra tekrar bak.'
+              : SAINA_DISCOVER_EMPTY_BODY}
+          </p>
           <button
             type="button"
             className="saina-discover-retry"
