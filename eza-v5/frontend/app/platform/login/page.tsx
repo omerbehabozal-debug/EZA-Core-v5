@@ -11,8 +11,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-
-const API_URL = process.env.NEXT_PUBLIC_EZA_API_URL || 'https://eza-core-v5-production.up.railway.app';
+import { getApiUrl } from '@/lib/apiUrl';
 
 function PlatformLoginPageContent() {
   const [email, setEmail] = useState('');
@@ -41,7 +40,7 @@ function PlatformLoginPageContent() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -53,8 +52,17 @@ function PlatformLoginPageContent() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Login failed');
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 502 || response.status === 503) {
+          throw new Error('SERVER_UNAVAILABLE');
+        }
+        const detail =
+          typeof errorData.detail === 'string'
+            ? errorData.detail
+            : typeof errorData.message === 'string'
+              ? errorData.message
+              : 'Login failed';
+        throw new Error(detail);
       }
 
       const data = await response.json();
@@ -78,9 +86,11 @@ function PlatformLoginPageContent() {
       router.push(returnTo && returnTo.startsWith('/') ? returnTo : '/platform');
     } catch (err: any) {
       console.error('Login error:', err);
-      if (err.message.includes('401') || err.message.includes('Incorrect')) {
+      if (err.message === 'SERVER_UNAVAILABLE') {
+        setError('Sunucu şu anda yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin.');
+      } else if (err.message.includes('401') || err.message.includes('Incorrect')) {
         setError('Geçersiz e-posta veya şifre. Şifrenizi unuttuysanız şifre sıfırlama sayfasını kullanabilirsiniz.');
-      } else if (err.message.includes('Network') || err.message.includes('fetch')) {
+      } else if (err.message.includes('Network') || err.message.includes('fetch') || err.message.includes('Failed to fetch')) {
         setError('Ağ hatası. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
       } else {
         setError(err.message || 'Giriş başarısız. Lütfen tekrar deneyin.');

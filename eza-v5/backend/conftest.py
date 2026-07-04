@@ -482,6 +482,16 @@ class TestArtifactSystem:
 artifact_system = TestArtifactSystem()
 
 
+@pytest.fixture(autouse=True)
+def _reset_standalone_rate_limit_between_tests():
+    """Prevent shared in-memory rate limit bucket from leaking across TestClient calls."""
+    from backend.security.rate_limit import _in_memory_limits
+
+    _in_memory_limits.clear()
+    yield
+    _in_memory_limits.clear()
+
+
 # Pytest Hooks
 def pytest_sessionstart(session):
     """Called after the Session object has been created"""
