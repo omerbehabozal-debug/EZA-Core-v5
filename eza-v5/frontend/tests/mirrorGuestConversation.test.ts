@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import {
   mirrorOriginHasPrivateLeak,
   startMirrorGuestChat,
@@ -6,6 +6,12 @@ import {
 import type { MirrorSohbetSession } from '@/lib/eza/mirror-network/sohbetTypes';
 import { getChatArchive } from '@/lib/standaloneChatArchive';
 import { createStandaloneChat } from '@/lib/standaloneChatArchive';
+
+vi.mock('@/lib/eza/mirror-network/fetchPublicMirror', () => ({
+  fetchPublicMirrorBySlug: vi.fn(() => {
+    throw new Error('fetchPublicMirrorBySlug must not be called in guest chat flow');
+  }),
+}));
 
 const SAMPLE_SESSION: MirrorSohbetSession = {
   sessionId: 'sess-1',
@@ -21,6 +27,7 @@ const SAMPLE_SESSION: MirrorSohbetSession = {
   seedTopic: 'Sokak Lambaları',
   seedCategory: 'travel',
   seedMood: 'discovery',
+  sceneImageUrl: 'https://picsum.photos/seed/mirror-guest-scene/1080/1350',
 };
 
 describe('mirror guest conversation (Stage 2B slice 2)', () => {
@@ -99,5 +106,31 @@ describe('mirror guest conversation (Stage 2B slice 2)', () => {
     const chat = getChatArchive(id);
     expect(chat?.mirrorOrigin).toBeUndefined();
     expect(chat?.messages).toHaveLength(0);
+  });
+
+  it('writes guest scene identity from session.sceneImageUrl without public mirror fetch', async () => {
+    const created = startMirrorGuestChat({
+      session: SAMPLE_SESSION,
+      firstUserMessage: 'Akşam sokaklarını keşfet',
+    });
+    expect(created).not.toBeNull();
+
+    const chat = getChatArchive(created!.chatId);
+    expect(chat?.conversationSceneUrl).toBe(SAMPLE_SESSION.sceneImageUrl);
+    expect(chat?.conversationSceneSource).toBe('mirror_guest');
+    expect(chat?.conversationSceneSlug).toBe('sokak-lambalari-test');
+
+    const { fetchPublicMirrorBySlug } = await import('@/lib/eza/mirror-network/fetchPublicMirror');
+    expect(fetchPublicMirrorBySlug).not.toHaveBeenCalled();
+  });
+
+  it('skips scene identity when session sceneImageUrl is not persistable', () => {
+    const created = startMirrorGuestChat({
+      session: { ...SAMPLE_SESSION, sceneImageUrl: 'data:image/png;base64,abc' },
+      firstUserMessage: 'Test',
+    });
+    const chat = getChatArchive(created!.chatId);
+    expect(chat?.conversationSceneUrl).toBeUndefined();
+    expect(chat?.conversationSceneSource).toBeUndefined();
   });
 });

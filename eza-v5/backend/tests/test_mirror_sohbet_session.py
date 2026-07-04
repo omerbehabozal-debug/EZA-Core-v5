@@ -18,6 +18,7 @@ from backend.services.mirror_network.sohbet_session import (
     build_thought_cards,
     derive_curiosity_anchor,
     resolve_mirror_lineage_ids,
+    resolve_public_scene_image_url,
 )
 
 client = TestClient(app)
@@ -74,6 +75,15 @@ def test_session_response_excludes_private_fields():
     assert session.seedTopic == session.cardTitle
     assert session.seedCategory == "travel"
     assert session.seedMood == "discovery"
+    assert session.sceneImageUrl
+    assert session.sceneImageUrl.startswith("https://")
+
+
+def test_resolve_public_scene_image_url_rejects_data_and_blob():
+    assert resolve_public_scene_image_url("https://cdn.example/a.jpg") == "https://cdn.example/a.jpg"
+    assert resolve_public_scene_image_url("data:image/png;base64,abc") is None
+    assert resolve_public_scene_image_url("blob:https://x") is None
+    assert resolve_public_scene_image_url(None) is None
 
 
 def test_resolve_mirror_lineage_ids_with_parent():
@@ -107,5 +117,6 @@ def test_start_sohbet_session_endpoint():
     assert body["seedTopic"] == public.cardTitle
     assert body["seedCategory"] == "travel"
     assert body["seedMood"] == "discovery"
+    assert body.get("sceneImageUrl")
     for key in FORBIDDEN_RESPONSE_KEYS:
         assert key not in body

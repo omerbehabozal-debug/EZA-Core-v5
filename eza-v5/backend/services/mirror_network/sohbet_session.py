@@ -186,6 +186,19 @@ async def resolve_mirror_lineage_from_db(
     return parent, root
 
 
+def resolve_public_scene_image_url(scene_image_url: str | None) -> str | None:
+    """Public HTTP(S) scene URLs only — never data:/blob: in guest session."""
+    raw = (scene_image_url or "").strip()
+    if not raw:
+        return None
+    lower = raw.lower()
+    if lower.startswith(("data:", "blob:")):
+        return None
+    if raw.startswith(("http://", "https://")):
+        return raw
+    return None
+
+
 def build_sohbet_session_response(
     public: MirrorNetworkPublicPayload,
     guest_token: str | None,
@@ -221,6 +234,7 @@ def build_sohbet_session_response(
         seedCategory=public.seed.topicCategory,
         seedMood=public.seed.mood,
         lineageProofToken=None,
+        sceneImageUrl=resolve_public_scene_image_url(public.sceneImageUrl),
     )
 
 

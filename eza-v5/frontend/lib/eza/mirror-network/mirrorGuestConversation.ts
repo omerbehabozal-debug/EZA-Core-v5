@@ -11,6 +11,7 @@ import { inferMirrorGroupTitle } from '@/lib/eza/conversation-tree/inferMirrorGr
 import type { ConversationTreeMetadata } from '@/lib/eza/conversation-tree/types';
 import { trackConversationGroupCreated } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
 import type { MirrorSohbetSession } from '@/lib/eza/mirror-network/sohbetTypes';
+import { buildConversationSceneIdentityFields } from '@/lib/eza/conversationSceneIdentity';
 import {
   summarizeArchiveTitle,
   type ArchivedChat,
@@ -115,6 +116,12 @@ export function startMirrorGuestChat(
 
   const messages: ArchivedChatMessage[] = [buildOpeningMessage(session)];
 
+  const sceneIdentity = buildConversationSceneIdentityFields({
+    url: session.sceneImageUrl,
+    source: 'mirror_guest',
+    slug: session.mirrorSlug,
+  });
+
   const entry: ArchivedChat = {
     id: chatId,
     title: summarizeArchiveTitle(text) || session.cardTitle,
@@ -125,6 +132,7 @@ export function startMirrorGuestChat(
     groupId,
     treeMetadata: buildTreeMetadata(session, groupId),
     mirrorOrigin,
+    ...(sceneIdentity ?? {}),
   };
 
   upsertChatArchive(entry);

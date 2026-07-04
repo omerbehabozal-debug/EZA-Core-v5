@@ -11,8 +11,16 @@ import {
   purgeConversationLocalState,
 } from '@/lib/standaloneChatDelete';
 import {
+  buildConversationSceneIdentityFields,
+  type ConversationSceneIdentityInput,
+  type ConversationSceneSource,
+} from '@/lib/eza/conversationSceneIdentity';
+import {
   trackConversationCreatedInGroup,
 } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
+
+export type { ConversationSceneSource } from '@/lib/eza/conversationSceneIdentity';
+export { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 
 export const CHATS_UPDATED_EVENT = 'eza-standalone-archive-updated';
 /** @deprecated */
@@ -65,6 +73,10 @@ export interface ArchivedChat {
   mirrorOrigin?: MirrorConversationOrigin;
   groupId?: string | null;
   treeMetadata?: ConversationTreeMetadata;
+  /** Sohbet görsel kimliği — mirror runtime sceneImageUrl'den ayrı. */
+  conversationSceneUrl?: string | null;
+  conversationSceneSource?: ConversationSceneSource | null;
+  conversationSceneSlug?: string | null;
 }
 
 export type ArchivedChatSummary = Pick<
@@ -174,6 +186,21 @@ function toSummary(chat: ArchivedChat): ArchivedChatSummary {
   };
 }
 
+function pickConversationSceneFields(chat?: ArchivedChat | null): Partial<ArchivedChat> {
+  if (!chat) return {};
+  const out: Partial<ArchivedChat> = {};
+  if (chat.conversationSceneUrl != null) {
+    out.conversationSceneUrl = chat.conversationSceneUrl;
+  }
+  if (chat.conversationSceneSource != null) {
+    out.conversationSceneSource = chat.conversationSceneSource;
+  }
+  if (chat.conversationSceneSlug != null) {
+    out.conversationSceneSlug = chat.conversationSceneSlug;
+  }
+  return out;
+}
+
 function buildTitle(messages: ArchivedChatMessage[]): string {
   const firstUser = messages.find((m) => m.isUser && m.text.trim());
   if (!firstUser) return 'Yeni sohbet';
@@ -208,7 +235,34 @@ function buildChatEntry(id: string, messages: ArchivedChatMessage[]): ArchivedCh
     ...(existing?.mirrorOrigin ? { mirrorOrigin: existing.mirrorOrigin } : {}),
     ...(existing?.groupId != null ? { groupId: existing.groupId } : {}),
     ...(existing?.treeMetadata ? { treeMetadata: existing.treeMetadata } : {}),
+    ...pickConversationSceneFields(existing),
   };
+}
+
+/** Set conversation visual identity on an existing archive row. */
+export function setConversationSceneIdentity(
+  chatId: string,
+  input: ConversationSceneIdentityInput
+): ArchivedChat | null {
+  if (typeof window === 'undefined') return null;
+  const normalized = chatId.trim();
+  if (!normalized || isChatDeleted(normalized)) return null;
+
+  const fields = buildConversationSceneIdentityFields(input);
+  if (!fields) return null;
+
+  const list = readAll();
+  const idx = list.findIndex((a) => a.id === normalized);
+  if (idx === -1) return null;
+
+  list[idx] = {
+    ...list[idx],
+    conversationSceneUrl: fields.conversationSceneUrl,
+    conversationSceneSource: fields.conversationSceneSource,
+    conversationSceneSlug: fields.conversationSceneSlug,
+  };
+  writeAll(list);
+  return list[idx] ?? null;
 }
 
 export type CreateStandaloneChatOptions = {

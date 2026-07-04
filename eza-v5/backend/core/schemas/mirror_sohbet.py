@@ -32,3 +32,4 @@ class MirrorSohbetSessionResponse(BaseModel):
     seedCategory: str
     seedMood: str
     lineageProofToken: Optional[str] = None
+    sceneImageUrl: Optional[str] = None
