@@ -1,12 +1,16 @@
 /**
  * Keşfet — locally experienced root Aynalar (client-only hide list).
  * Does not mutate Mirror Network; only filters the default Discover view.
+ *
+ * Hide rule: user completed their own mirror visual (Ayna/Yansı), not merely opened sohbet.
  */
 
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import { fetchDiscoverMirrors } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
+import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import {
   type ArchivedChat,
+  getChatArchive,
   readChatArchives,
 } from '@/lib/standaloneChatArchive';
 
@@ -58,19 +62,50 @@ export function markDiscoverMirrorExperienced(slug: string): void {
   writeExperiencedSet(set);
 }
 
-export function resolveExperiencedSlugFromChat(chat: ArchivedChat): string | null {
+function isMirrorSourceChat(chat: ArchivedChat): boolean {
+  if (chat.treeMetadata?.sourceType === 'mirror' || chat.treeMetadata?.sourceType === 'mirror_branch') {
+    return true;
+  }
+  return Boolean(chat.mirrorOrigin?.startedFromMirrorId);
+}
+
+export function hasCompletedMirrorVisual(chat: ArchivedChat): boolean {
+  const url = chat.conversationSceneUrl;
+  return Boolean(url && isPersistableConversationSceneUrl(url));
+}
+
+export function resolveMirrorRootSlugFromChat(chat: ArchivedChat): string | null {
+  if (!isMirrorSourceChat(chat)) return null;
   const tree = chat.treeMetadata;
   const origin = chat.mirrorOrigin;
   const raw =
     tree?.rootMirrorId ??
-    tree?.startedFromMirrorId ??
     origin?.rootMirrorId ??
+    tree?.startedFromMirrorId ??
     origin?.startedFromMirrorId;
   if (!raw?.trim()) return null;
   return normalizeDiscoverMirrorSlug(raw);
 }
 
-/** Merge archive lineage into the hide list (guest merge, login, existing sessions). */
+/** Completed journey only — opening sohbet alone does not qualify. */
+export function resolveExperiencedSlugFromChat(chat: ArchivedChat): string | null {
+  if (!hasCompletedMirrorVisual(chat)) return null;
+  return resolveMirrorRootSlugFromChat(chat);
+}
+
+/** Call when conversation mirror scene generation succeeds. */
+export function markDiscoverMirrorCompletedForConversation(
+  conversationId: string | undefined
+): void {
+  if (!conversationId) return;
+  const chat = getChatArchive(conversationId);
+  if (!chat) return;
+  const slug = resolveExperiencedSlugFromChat(chat);
+  if (!slug) return;
+  markDiscoverMirrorExperienced(slug);
+}
+
+/** Merge completed mirror journeys from archive into the hide list. */
 export function syncDiscoverExperiencedFromArchive(): void {
   if (typeof window === 'undefined') return;
   const set = readExperiencedSet();

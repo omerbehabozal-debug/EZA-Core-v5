@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   filterDiscoverMirrorsForViewer,
+  hasCompletedMirrorVisual,
+  markDiscoverMirrorCompletedForConversation,
   markDiscoverMirrorExperienced,
   normalizeDiscoverMirrorSlug,
   resolveExperiencedSlugFromChat,
@@ -29,7 +31,7 @@ describe('discoverExperiencedMirrors', () => {
     expect(visible.map((item) => item.slug)).toEqual(['japan-kyoto', 'space-orbit']);
   });
 
-  it('resolves experienced slug from archive lineage metadata', () => {
+  it('does not treat mirror lineage without visual as completed', () => {
     const chat = {
       id: 'chat-1',
       title: 'Guest',
@@ -44,13 +46,59 @@ describe('discoverExperiencedMirrors', () => {
       },
     } as ArchivedChat;
 
+    expect(hasCompletedMirrorVisual(chat)).toBe(false);
+    expect(resolveExperiencedSlugFromChat(chat)).toBeNull();
+    localStorage.setItem('eza_standalone_chat_archive', JSON.stringify([chat]));
+
+    const visible = filterDiscoverMirrorsForViewer(sampleItems);
+    expect(visible.map((item) => item.slug)).toEqual(['bmw-sport', 'japan-kyoto', 'space-orbit']);
+  });
+
+  it('syncs completed journeys from archive conversation scene identity', () => {
+    const chat = {
+      id: 'chat-2',
+      title: 'Done',
+      preview: '',
+      savedAt: '',
+      messageCount: 4,
+      messages: [],
+      conversationSceneUrl: 'https://cdn.example/scene.png',
+      conversationSceneSource: 'mirror_local',
+      treeMetadata: {
+        sourceType: 'mirror',
+        startedFromMirrorId: 'bmw-sport',
+        rootMirrorId: 'bmw-sport',
+      },
+    } as ArchivedChat;
+
     expect(resolveExperiencedSlugFromChat(chat)).toBe('bmw-sport');
-    localStorage.setItem(
-      'eza_standalone_chat_archive',
-      JSON.stringify([chat])
-    );
+    localStorage.setItem('eza_standalone_chat_archive', JSON.stringify([chat]));
 
     const visible = filterDiscoverMirrorsForViewer(sampleItems);
     expect(visible.map((item) => item.slug)).toEqual(['japan-kyoto', 'space-orbit']);
+  });
+
+  it('marks discover completion from conversation after visual identity is saved', () => {
+    const chat = {
+      id: 'chat-3',
+      title: 'Done',
+      preview: '',
+      savedAt: '',
+      messageCount: 4,
+      messages: [],
+      conversationSceneUrl: 'https://cdn.example/scene.png',
+      conversationSceneSource: 'mirror_local',
+      treeMetadata: {
+        sourceType: 'mirror',
+        startedFromMirrorId: 'japan-kyoto',
+        rootMirrorId: 'japan-kyoto',
+      },
+    } as ArchivedChat;
+    localStorage.setItem('eza_standalone_chat_archive', JSON.stringify([chat]));
+
+    markDiscoverMirrorCompletedForConversation('chat-3');
+
+    const raw = localStorage.getItem('eza_discover_experienced_mirror_slugs');
+    expect(raw).toContain('japan-kyoto');
   });
 });

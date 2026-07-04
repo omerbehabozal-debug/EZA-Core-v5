@@ -107,8 +107,9 @@ import {
 } from '@/lib/eza/mirror-share/publishMirrorToNetwork';
 import { shouldSkipShareLinkPrepare } from '@/lib/eza/mirror-share/shareLinkPrepareIntent';
 import type { MirrorShareLinkStatus } from '@/components/mirror/MirrorShareExperience';
-import { setConversationSceneIdentity } from '@/lib/standaloneChatArchive';
+import { markDiscoverMirrorCompletedForConversation } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
+import { setConversationSceneIdentity } from '@/lib/standaloneChatArchive';
 import {
   trackMirrorShareOpened,
   trackMirrorShared,
@@ -216,6 +217,7 @@ export default function StandaloneObservationExperience({
           url: rawUrl,
           source: 'mirror_local',
         });
+        markDiscoverMirrorCompletedForConversation(conversationId);
       }
     },
     [conversationId, resolveSceneDisplayUrl]
@@ -704,6 +706,7 @@ export default function StandaloneObservationExperience({
             url: result.sceneImageUrl,
             source: 'mirror_local',
           });
+          markDiscoverMirrorCompletedForConversation(conversationId);
         }
         void prepareMirrorShareLink(generatedDailyCard, result.sceneImageUrl, {
           refreshScene: true,

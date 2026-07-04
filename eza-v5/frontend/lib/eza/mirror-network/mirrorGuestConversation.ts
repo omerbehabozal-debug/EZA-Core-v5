@@ -10,9 +10,6 @@ import {
 import { inferMirrorGroupTitle } from '@/lib/eza/conversation-tree/inferMirrorGroupTitle';
 import type { ConversationTreeMetadata } from '@/lib/eza/conversation-tree/types';
 import { trackConversationGroupCreated } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
-import {
-  markDiscoverMirrorExperienced,
-} from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
 import type { MirrorSohbetSession } from '@/lib/eza/mirror-network/sohbetTypes';
 import { buildConversationSceneIdentityFields } from '@/lib/eza/conversationSceneIdentity';
 import {
@@ -139,8 +136,6 @@ export function startMirrorGuestChat(
   };
 
   upsertChatArchive(entry);
-
-  markDiscoverMirrorExperienced(session.rootMirrorId || session.mirrorSlug);
 
   return { chatId, groupId, mirrorOrigin };
 }
