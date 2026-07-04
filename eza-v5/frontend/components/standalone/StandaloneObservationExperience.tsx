@@ -79,6 +79,7 @@ import { purgeLegacyMirrorSceneCaches } from '@/lib/eza/mirror/conversationMirro
 import { isV3MirrorCard } from '@/lib/eza/mirror/conversationMirrorV3/applyV3SceneOverlay';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import { useAuth } from '@/context/AuthContext';
+import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
 import {
   canCreateFreeMirrorToday,
   markFreeMirrorUsedToday,
