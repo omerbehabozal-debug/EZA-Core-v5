@@ -17,6 +17,7 @@ import {
 import type { MirrorSohbetSession, MirrorThoughtCard } from '@/lib/eza/mirror-network/sohbetTypes';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
+import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
 import {
   isQuotaLimitReason,
   resolveDiscoverLimitMessage,
@@ -38,7 +39,13 @@ export default function MirrorSohbetOpening({
 }: MirrorSohbetOpeningProps) {
   const router = useRouter();
   const { isPlus, isLoading: isPlanLoading, source } = usePlan();
-  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const { entitlements: accountEntitlements } = useAccountEntitlements();
+  const planTier = resolveSainaPlanTier({
+    isPlus,
+    isLoading: isPlanLoading,
+    source,
+    accountTier: accountEntitlements.tier,
+  });
   const { handleOpenUpgrade, gateModals } = useSainaGateModals({
     planTier,
     defaultUpgradeFeature: 'saina_discover',

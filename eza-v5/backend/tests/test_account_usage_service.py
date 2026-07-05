@@ -50,14 +50,13 @@ async def test_record_account_usage_event_guest():
             db,
             event_type=CHAT_MESSAGE,
             guest_fingerprint="abc123",
-            source_id="conv-1",
             metadata={"chars": 42},
         )
         mock_model.assert_called_once_with(
             user_id=None,
             guest_fingerprint="abc123",
             event_type=CHAT_MESSAGE,
-            source_id="conv-1",
+            source_id=None,
             event_metadata={"chars": 42},
         )
         assert event is mock_event

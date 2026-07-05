@@ -3,6 +3,8 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
+import { GUEST_TOKEN_HEADER } from '@/lib/eza/plan/guestTokenHeader';
 import type { MirrorVisualPromptPayload } from '@/lib/eza/mirror/types';
 
 export type MirrorGenerateSceneResponse = {
@@ -63,9 +65,18 @@ export async function generateMirrorScene(
   cardDate: string
 ): Promise<MirrorGenerateSceneResponse> {
   const body = buildMirrorGenerateScenePayload(visual, cardDate);
+  const token =
+    typeof window !== 'undefined' ? window.localStorage.getItem('eza_token') : null;
+  const headers: Record<string, string> = {};
+  if (!token && typeof window !== 'undefined') {
+    const guestToken = getOrCreateMirrorGuestToken();
+    if (guestToken) {
+      headers[GUEST_TOKEN_HEADER] = guestToken;
+    }
+  }
   const res = await apiClient.post<MirrorGenerateSceneResponse>(
     '/api/standalone/mirror/generate-scene',
-    { body, auth: true, directBackend: true, timeoutMs: 130_000 }
+    { body, auth: Boolean(token), headers, directBackend: true, timeoutMs: 130_000 }
   );
   if (!res.ok) {
     const detail = res.detail as Record<string, unknown> | undefined;

@@ -64,7 +64,12 @@ export default function SainaDiscoverPage() {
     setArchives(listChatArchives());
   }, []);
 
-  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const planTier = resolveSainaPlanTier({
+    isPlus,
+    isLoading: isPlanLoading,
+    source,
+    accountTier: accountEntitlements.tier,
+  });
   const discoverLimitReached = !canStartDiscoverFromEntitlements(accountEntitlements);
   const discoverLimitMessage = resolveDiscoverLimitMessage(accountEntitlements.tier);
   const isCompactShell = useSainaCompactShell();

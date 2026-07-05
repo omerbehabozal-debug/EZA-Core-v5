@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 """Mirror consumer entitlement helpers (Sprint 2)."""
 
+from dataclasses import dataclass
 from typing import Literal
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth.deps import security
 from backend.auth.jwt import get_user_from_token
+from backend.core.account.guest_identity import GUEST_TOKEN_HEADER, resolve_guest_fingerprint
 from backend.core.utils.dependencies import get_db
 from backend.models.production import User
 
@@ -66,6 +68,47 @@ async def _require_mirror_authenticated_user(
         )
 
     return user
+
+
+@dataclass(frozen=True)
+class MirrorSceneActor:
+    user: User | None
+    guest_fingerprint: str | None
+
+
+async def resolve_mirror_scene_actor(
+    credentials: HTTPAuthorizationCredentials | None,
+    db: AsyncSession,
+    guest_token: str | None,
+) -> MirrorSceneActor:
+    """Authenticated user or guest with valid X-Guest-Token for scene generation."""
+    if credentials is not None:
+        user_info = get_user_from_token(credentials.credentials)
+        if user_info is not None:
+            user = await get_production_user_by_id(db, user_info["user_id"])
+            if user is not None and user.is_active:
+                return MirrorSceneActor(user=user, guest_fingerprint=None)
+
+    guest_fingerprint = resolve_guest_fingerprint(guest_token)
+    if guest_fingerprint:
+        return MirrorSceneActor(user=None, guest_fingerprint=guest_fingerprint)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={
+            "code": "auth_required",
+            "message": "Authentication or guest token required",
+            "header": GUEST_TOKEN_HEADER,
+        },
+    )
+
+
+async def require_mirror_scene_actor(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+    x_guest_token: str | None = Header(None, alias=GUEST_TOKEN_HEADER),
+) -> MirrorSceneActor:
+    return await resolve_mirror_scene_actor(credentials, db, x_guest_token)
 
 
 async def require_mirror_authenticated_user(

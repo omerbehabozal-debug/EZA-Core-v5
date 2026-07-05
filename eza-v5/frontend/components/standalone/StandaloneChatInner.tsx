@@ -455,7 +455,12 @@ export default function StandaloneChatInner() {
     return () => window.removeEventListener('storage', onStorage);
   }, [cancelPendingAutosave, resetStateAfterActiveDelete, router, startDraft]);
 
-  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const planTier = resolveSainaPlanTier({
+    isPlus,
+    isLoading: isPlanLoading,
+    source,
+    accountTier: accountEntitlements.tier,
+  });
   const mapAccess = getRelationshipMapAccess(accountEntitlements);
   const canViewMapData = canViewRelationshipMapData(mapAccess);
   const {

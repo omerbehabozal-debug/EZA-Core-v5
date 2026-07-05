@@ -48,11 +48,14 @@ export function clampRelationshipPeriodForAccess(
 
 export function filterEntriesForMapAccess(
   entries: SavedBehavioralEntry[],
-  access: RelationshipMapAccess
+  access: RelationshipMapAccess,
+  cutoffIso?: string | null
 ): SavedBehavioralEntry[] {
   if (access !== 'last_90_days') return entries;
-  const cutoff = Date.now() - NINETY_DAY_MS;
-  return entries.filter((entry) => new Date(entry.savedAt).getTime() >= cutoff);
+  const cutoffMs = cutoffIso
+    ? new Date(cutoffIso).getTime()
+    : Date.now() - NINETY_DAY_MS;
+  return entries.filter((entry) => new Date(entry.savedAt).getTime() >= cutoffMs);
 }
 
 export function resolveRelationshipMapAccessLabel(tier: AccountTier | string): string {

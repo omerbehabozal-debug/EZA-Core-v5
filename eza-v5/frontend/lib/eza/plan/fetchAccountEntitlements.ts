@@ -25,28 +25,32 @@ function normalizeTier(raw: string | undefined): AccountTier {
   return 'guest';
 }
 
+function normalizeLimit(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  return Number(raw);
+}
+
 function normalizeEntitlements(raw: Record<string, unknown> | undefined): TierEntitlements | null {
   if (!raw || typeof raw !== 'object') return null;
   const tier = normalizeTier(String(raw.tier ?? ''));
   return {
     tier,
-    dailyMessageLimit: Number(raw.dailyMessageLimit ?? 0),
+    dailyMessageLimit: normalizeLimit(raw.dailyMessageLimit),
     maxMessageChars: Number(raw.maxMessageChars ?? 0),
     mirrorCooldownHours:
       raw.mirrorCooldownHours === null || raw.mirrorCooldownHours === undefined
         ? null
         : Number(raw.mirrorCooldownHours),
-    dailyMirrorLimit:
-      raw.dailyMirrorLimit === null || raw.dailyMirrorLimit === undefined
-        ? null
-        : Number(raw.dailyMirrorLimit),
-    dailyDiscoverStartLimit: Number(raw.dailyDiscoverStartLimit ?? 0),
+    dailyMirrorLimit: normalizeLimit(raw.dailyMirrorLimit),
+    dailyDiscoverStartLimit: normalizeLimit(raw.dailyDiscoverStartLimit),
     relationshipMapAccess:
       raw.relationshipMapAccess === 'last_90_days' ||
       raw.relationshipMapAccess === 'all' ||
       raw.relationshipMapAccess === 'locked'
         ? raw.relationshipMapAccess
         : 'locked',
+    relationshipMapCutoffIso:
+      typeof raw.relationshipMapCutoffIso === 'string' ? raw.relationshipMapCutoffIso : null,
     imageQuality:
       raw.imageQuality === 'high' || raw.imageQuality === 'highest' || raw.imageQuality === 'medium'
         ? raw.imageQuality
@@ -59,14 +63,11 @@ function normalizeUsage(raw: Record<string, unknown> | undefined): AccountUsageS
   if (!raw || typeof raw !== 'object') return null;
   return {
     dailyMessagesUsed: Number(raw.dailyMessagesUsed ?? 0),
-    dailyMessagesLimit: Number(raw.dailyMessagesLimit ?? 0),
+    dailyMessagesLimit: normalizeLimit(raw.dailyMessagesLimit),
     dailyDiscoverStartsUsed: Number(raw.dailyDiscoverStartsUsed ?? 0),
-    dailyDiscoverStartsLimit: Number(raw.dailyDiscoverStartsLimit ?? 0),
+    dailyDiscoverStartsLimit: normalizeLimit(raw.dailyDiscoverStartsLimit),
     visualCreationsUsed: Number(raw.visualCreationsUsed ?? 0),
-    visualCreationsLimit:
-      raw.visualCreationsLimit === null || raw.visualCreationsLimit === undefined
-        ? null
-        : Number(raw.visualCreationsLimit),
+    visualCreationsLimit: normalizeLimit(raw.visualCreationsLimit),
     nextVisualAvailableAt:
       typeof raw.nextVisualAvailableAt === 'string' ? raw.nextVisualAvailableAt : null,
   };

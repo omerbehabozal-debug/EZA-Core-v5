@@ -49,4 +49,10 @@ jobs:
             tests/test_mirror_openai_provider.py \
             tests/test_mirror_generate_scene.py \
             tests/test_mirror_sohbet_session.py \
+            tests/test_account_entitlements.py \
+            tests/test_account_usage_service.py \
+            tests/test_message_quota_guard.py \
+            tests/test_visual_quota_guard.py \
+            tests/test_discover_quota_guard.py \
+            tests/test_relationship_map_access.py \
             -q --disable-warnings

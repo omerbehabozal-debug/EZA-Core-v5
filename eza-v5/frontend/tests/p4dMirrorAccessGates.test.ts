@@ -55,21 +55,23 @@ describe('P4-D access gates (source)', () => {
     expect(experienceSrc).not.toContain('formatPlusMirrorQuotaHint');
   });
 
-  it('wires Plus production quota', () => {
-    expect(experienceSrc).toContain('plusMirrorDailyUsage');
-    expect(experienceSrc).toContain('consumePlusMirrorProduction');
-    expect(experienceSrc).toContain('hasPlusProductionQuota');
+  it('wires account entitlements visual quota', () => {
+    expect(experienceSrc).toContain('canCreateVisualFromEntitlements');
+    expect(experienceSrc).toContain('canCreateVisual');
+    expect(experienceSrc).toContain('useAccountEntitlements');
+    expect(experienceSrc).not.toContain('plusMirrorDailyUsage');
+    expect(experienceSrc).not.toContain('consumePlusMirrorProduction');
+  });
+
+  it('allows guest scene generation when visual quota is available', () => {
+    expect(experienceSrc).toContain('if (!isAuthReady || !canCreateVisual) return');
+    expect(experienceSrc).not.toMatch(/if \(!isAuthReady \|\| !isAuthenticated\) return;/);
   });
 
   it('does not permanently block scene generation after snapshot hydrate', () => {
     expect(experienceSrc).not.toMatch(/endsWith\(':hydrate'\)\)\s*return;/);
-    expect(experienceSrc).toContain('sceneImageStatus !== \'idle\' && sceneImageStatus !== \'error\'');
+    expect(experienceSrc).toContain("sceneImageStatus !== 'idle'");
     expect(experienceSrc).toContain('refreshPlan');
-  });
-
-  it('waits for auth hydration before auto scene generation', () => {
-    expect(experienceSrc).toContain('isAuthReady');
-    expect(experienceSrc).toMatch(/if \(!isAuthReady \|\| !isAuthenticated\) return;/);
   });
 
   it('marks scene auto-generation complete to prevent duplicate API calls', () => {

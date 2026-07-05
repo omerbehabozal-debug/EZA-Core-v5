@@ -15,9 +15,8 @@ MIRROR_CREATED: QuotaEventType = "mirror_created"
 YANSI_CREATED: QuotaEventType = "yansi_created"
 DISCOVER_CONVERSATION_STARTED: QuotaEventType = "discover_conversation_started"
 
-VISUAL_EVENT_TYPES: tuple[QuotaEventType, QuotaEventType] = (
+VISUAL_EVENT_TYPES: tuple[QuotaEventType, ...] = (
     MIRROR_CREATED,
-    YANSI_CREATED,
 )
 
 ALL_QUOTA_EVENT_TYPES: tuple[QuotaEventType, ...] = (

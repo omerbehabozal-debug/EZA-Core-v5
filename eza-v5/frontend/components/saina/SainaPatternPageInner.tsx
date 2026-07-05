@@ -83,7 +83,12 @@ export default function SainaPatternPageInner() {
     trackRelationshipPatternViewed();
   }, []);
 
-  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const planTier = resolveSainaPlanTier({
+    isPlus,
+    isLoading: isPlanLoading,
+    source,
+    accountTier: accountEntitlements.tier,
+  });
   const mapAccess = getRelationshipMapAccess(accountEntitlements);
   const canViewMapData = canViewRelationshipMapData(mapAccess);
   const {
@@ -99,8 +104,13 @@ export default function SainaPatternPageInner() {
   });
 
   const displayEntries = useMemo(
-    () => filterEntriesForMapAccess(entries, mapAccess),
-    [entries, mapAccess]
+    () =>
+      filterEntriesForMapAccess(
+        entries,
+        mapAccess,
+        accountEntitlements.entitlements.relationshipMapCutoffIso
+      ),
+    [entries, mapAccess, accountEntitlements.entitlements.relationshipMapCutoffIso]
   );
 
   const { conversations, conversationGroups, activeChatId } = useSainaSidebarConversations(archives);

@@ -18,6 +18,7 @@ from backend.services.production_auth import (
 from backend.models.production import User
 from backend.auth.deps import get_current_user
 from backend.auth.mirror_entitlement import get_production_user_by_id, normalize_mirror_plan
+from backend.core.account.tiers import resolve_user_account_tier
 from sqlalchemy import select, func
 from backend.services.production_org import create_organization
 from backend.config import get_settings
@@ -61,6 +62,7 @@ class AuthMeResponse(BaseModel):
     email: str
     role: str
     mirror_plan: str
+    account_tier: str | None = None
 
 
 @router.get("/me", response_model=AuthMeResponse)
@@ -83,6 +85,11 @@ async def get_auth_me(
         email=user.email,
         role=user.role,
         mirror_plan=normalize_mirror_plan(getattr(user, "mirror_plan", "free")),
+        account_tier=resolve_user_account_tier(
+            mirror_plan=getattr(user, "mirror_plan", "free"),
+            account_tier=getattr(user, "account_tier", None),
+            is_authenticated=True,
+        ).value,
     )
 
 

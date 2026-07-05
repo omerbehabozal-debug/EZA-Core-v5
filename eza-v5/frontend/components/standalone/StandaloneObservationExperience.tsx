@@ -662,7 +662,8 @@ export default function StandaloneObservationExperience({
     async (sessionOverride?: MirrorStyleLensSession) => {
       if (sceneGenerationInFlightRef.current) return;
       if (sceneImageStatus === 'generating') return;
-      if (!isAuthReady || !isAuthenticated) return;
+      if (!isAuthReady) return;
+      if (!canCreateVisual) return;
       if (!generatedDailyCard?.visual) return;
       const visual = generatedDailyCard.visual;
       const autoKey = buildSceneAutoKey(generatedDailyCard);
@@ -805,7 +806,7 @@ export default function StandaloneObservationExperience({
   }, [dailyStatus, generatedDailyCard, generatedDailyCard?.date, generatedDailyCard?.visual?.intentFingerprint]);
 
   useEffect(() => {
-    if (!isAuthReady || !isAuthenticated) return;
+    if (!isAuthReady || !canCreateVisual) return;
     if (dailyStatus !== 'ready' || !generatedDailyCard?.visual?.prompt) return;
     if (sceneImageStatus !== 'idle') return;
 
@@ -828,7 +829,7 @@ export default function StandaloneObservationExperience({
     sceneImageStatus,
     mirrorRevision,
     isAuthReady,
-    isAuthenticated,
+    canCreateVisual,
     buildSceneAutoKey,
     handleGenerateMirrorScene,
   ]);

@@ -120,6 +120,27 @@ def test_validate_uses_negative_fallback():
     assert req.negative_prompt == STANDARD_NEGATIVE_FALLBACK
 
 
+def test_generate_scene_endpoint_guest_with_token():
+    guest_token = "guest-token-abcdefghijklmnop"
+    with patch(
+        "backend.services.mirror.mirror_image_service.get_mirror_image_provider",
+        return_value=MockMirrorImageProvider(),
+    ):
+        res = client.post(
+            "/api/standalone/mirror/generate-scene",
+            json=VALID_BODY,
+            headers={"X-Guest-Token": guest_token},
+        )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["sceneImageUrl"].startswith("http")
+
+
+def test_generate_scene_endpoint_requires_auth_or_guest():
+    res = client.post("/api/standalone/mirror/generate-scene", json=VALID_BODY)
+    assert res.status_code == 401
+
+
 def test_generate_scene_endpoint_success():
     """Authenticated user (free or plus) can generate scene."""
     plus_user = _make_plus_user()

@@ -51,15 +51,32 @@ async def record_account_usage_event(
     source_id: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> AccountUsageEvent:
-    """Insert a quota usage event. Requires user_id and/or guest_fingerprint."""
+    """Insert a quota usage event. Idempotent when source_id is provided."""
     if not user_id and not guest_fingerprint:
         raise ValueError("user_id or guest_fingerprint is required")
+
+    normalized_source = (source_id or "").strip() or None
+    if normalized_source:
+        subject = _subject_filter(user_id=user_id, guest_fingerprint=guest_fingerprint)
+        if subject is not None:
+            existing = await db.execute(
+                select(AccountUsageEvent).where(
+                    and_(
+                        subject,
+                        AccountUsageEvent.event_type == event_type,
+                        AccountUsageEvent.source_id == normalized_source,
+                    )
+                )
+            )
+            found = existing.scalar_one_or_none()
+            if found is not None:
+                return found
 
     event = AccountUsageEvent(
         user_id=str(user_id) if user_id else None,
         guest_fingerprint=guest_fingerprint,
         event_type=event_type,
-        source_id=source_id,
+        source_id=normalized_source,
         event_metadata=metadata,
     )
     db.add(event)

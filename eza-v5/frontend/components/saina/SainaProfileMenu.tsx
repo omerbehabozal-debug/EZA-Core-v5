@@ -6,6 +6,7 @@ import { ChevronDown, LogOut, Settings, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/lib/eza/plan/usePlan';
+import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { isSainaPaidTier } from '@/lib/eza/plan/sainaAccountTiers';
 import {
@@ -58,7 +59,13 @@ export default function SainaProfileMenu({
   const returnUrl = useSainaAuthReturnUrl();
   const { isAuthenticated, user, logout, isAuthReady } = useAuth();
   const { isPlus, isLoading, source } = usePlan();
-  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isLoading || !isAuthReady, source });
+  const { entitlements: accountEntitlements } = useAccountEntitlements();
+  const planTier = resolveSainaPlanTier({
+    isPlus,
+    isLoading: isLoading || !isAuthReady,
+    source,
+    accountTier: accountEntitlements.tier,
+  });
   const isGuest = !isAuthenticated;
   const displayName = resolveSainaUserDisplayName(user?.email, user?.full_name);
   const userInitial = resolveSainaUserInitial(user?.email);

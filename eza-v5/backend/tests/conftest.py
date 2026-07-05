@@ -571,14 +571,6 @@ def _ci_stub_account_usage(request):
 
     with (
         patch(
-            "backend.services.mirror_network.publish.assert_can_create_visual",
-            new_callable=AsyncMock,
-        ),
-        patch(
-            "backend.services.mirror_network.publish.record_account_usage_event",
-            new_callable=AsyncMock,
-        ),
-        patch(
             "backend.routers.mirror_network.assert_can_start_discover_conversation",
             new_callable=AsyncMock,
             return_value=subject,

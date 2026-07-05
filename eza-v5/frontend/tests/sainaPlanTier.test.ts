@@ -26,9 +26,25 @@ describe('resolveSainaPlanTier', () => {
     ).toBe('free');
   });
 
-  it('maps default source to anonymous', () => {
+  it('prefers account tier from entitlements over legacy plus flag', () => {
     expect(
-      resolveSainaPlanTier({ isPlus: false, isLoading: false, source: 'default' }),
+      resolveSainaPlanTier({
+        isPlus: false,
+        isLoading: false,
+        source: 'server',
+        accountTier: 'mini',
+      }),
+    ).toBe('mini');
+  });
+
+  it('maps guest entitlements tier to anonymous', () => {
+    expect(
+      resolveSainaPlanTier({
+        isPlus: false,
+        isLoading: false,
+        source: 'default',
+        accountTier: 'guest',
+      }),
     ).toBe('anonymous');
   });
 });

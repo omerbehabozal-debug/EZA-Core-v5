@@ -13,18 +13,18 @@ export const SAINA_UPGRADE_PLANS: readonly SainaUpgradePlanCard[] = [
   {
     id: 'mini',
     name: 'Mini',
-    features: ['Günlük kullanım', 'Medium kalite', 'Geçmiş Aynalar'],
+    features: ['Daha fazla mesaj', 'Medium kalite görsel', 'İlişki Deseni (90 gün)'],
   },
   {
     id: 'standard',
     name: 'Standard',
-    features: ['High kalite', 'Daha fazla Ayna', 'Koleksiyon', 'Öncelikli üretim'],
+    features: ['High kalite görsel', 'Günlük Ayna', 'Tam İlişki Deseni', 'Öncelikli üretim'],
     recommended: true,
   },
   {
     id: 'premium',
     name: 'Premium',
-    features: ['En yüksek kalite', 'En hızlı üretim', 'Yeni özellikler', 'Profesyonel kullanım'],
+    features: ['En yüksek kalite', 'En hızlı üretim', 'Tam İlişki Deseni', 'Geniş kullanım'],
   },
 ] as const;
 

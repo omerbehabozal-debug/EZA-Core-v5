@@ -14,7 +14,7 @@ from backend.core.account.quota_events import (
     MIRROR_CREATED,
 )
 from backend.core.account.subject import AccountSubject, resolve_account_subject
-from backend.core.account.tiers import AccountTier, get_entitlements_for_tier, resolve_account_tier
+from backend.core.account.tiers import AccountTier, get_entitlements_for_tier, resolve_user_account_tier
 from backend.core.account.usage_service import (
     build_account_usage_snapshot,
     record_account_usage_event,
@@ -135,8 +135,9 @@ async def assert_can_send_message(
 
 def _subject_from_user(user: User) -> AccountSubject:
     return AccountSubject(
-        tier=resolve_account_tier(
-            normalize_mirror_plan(getattr(user, "mirror_plan", "free")),
+        tier=resolve_user_account_tier(
+            mirror_plan=normalize_mirror_plan(getattr(user, "mirror_plan", "free")),
+            account_tier=getattr(user, "account_tier", None),
             is_authenticated=True,
         ),
         user_id=str(user.id),
@@ -167,6 +168,19 @@ async def assert_can_create_visual(
 
     entitlements = get_entitlements_for_tier(subject.tier)
     daily_limit = entitlements["dailyMirrorLimit"]
+
+    if not subject.is_authenticated and not subject.guest_fingerprint:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "allowed": False,
+                "reason": "guest_token_required",
+                "upgradeRequired": False,
+                "currentTier": subject.tier.value,
+                "recommendedTier": None,
+                "header": GUEST_TOKEN_HEADER,
+            },
+        )
 
     if daily_limit == 0:
         raise _quota_denied(

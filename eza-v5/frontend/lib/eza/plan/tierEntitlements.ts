@@ -10,21 +10,22 @@ export type ImageQuality = 'medium' | 'high' | 'highest';
 
 export type TierEntitlements = {
   tier: AccountTier;
-  dailyMessageLimit: number;
+  dailyMessageLimit: number | null;
   maxMessageChars: number;
   mirrorCooldownHours: number | null;
   dailyMirrorLimit: number | null;
-  dailyDiscoverStartLimit: number;
+  dailyDiscoverStartLimit: number | null;
   relationshipMapAccess: RelationshipMapAccess;
+  relationshipMapCutoffIso?: string | null;
   imageQuality: ImageQuality;
   priorityGeneration: boolean;
 };
 
 export type AccountUsageSnapshot = {
   dailyMessagesUsed: number;
-  dailyMessagesLimit: number;
+  dailyMessagesLimit: number | null;
   dailyDiscoverStartsUsed: number;
-  dailyDiscoverStartsLimit: number;
+  dailyDiscoverStartsLimit: number | null;
   visualCreationsUsed: number;
   visualCreationsLimit: number | null;
   nextVisualAvailableAt: string | null;

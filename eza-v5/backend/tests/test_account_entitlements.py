@@ -18,7 +18,7 @@ from backend.services.production_auth import create_access_token
 client = TestClient(app)
 
 
-def _make_user(*, email: str, mirror_plan: str):
+def _make_user(*, email: str, mirror_plan: str, account_tier: str | None = None):
     return SimpleNamespace(
         id=uuid.uuid4(),
         email=email,
@@ -26,6 +26,7 @@ def _make_user(*, email: str, mirror_plan: str):
         role="user",
         is_active=True,
         mirror_plan=mirror_plan,
+        account_tier=account_tier,
     )
 
 
@@ -73,6 +74,8 @@ def test_entitlements_free_authenticated_user(mock_get_user, mock_usage):
         "dailyMessagesLimit": 20,
         "dailyDiscoverStartsUsed": 0,
         "dailyDiscoverStartsLimit": 1,
+        "visualCreationsUsed": 0,
+        "visualCreationsLimit": 0,
         "nextVisualAvailableAt": None,
     }
 
@@ -97,6 +100,8 @@ def test_entitlements_plus_maps_to_premium(mock_get_user, mock_usage):
         "dailyMessagesLimit": 5000,
         "dailyDiscoverStartsUsed": 0,
         "dailyDiscoverStartsLimit": 200,
+        "visualCreationsUsed": 0,
+        "visualCreationsLimit": 50,
         "nextVisualAvailableAt": None,
     }
 
@@ -107,6 +112,10 @@ def test_entitlements_plus_maps_to_premium(mock_get_user, mock_usage):
     assert data["label"] == "SAINA Premium"
     assert data["entitlements"]["imageQuality"] == "highest"
     assert data["entitlements"]["priorityGeneration"] is True
+    assert data["entitlements"]["dailyMessageLimit"] is None
+    assert data["entitlements"]["dailyMirrorLimit"] is None
+    assert data["usage"]["dailyMessagesLimit"] is None
+    assert data["usage"]["visualCreationsLimit"] is None
 
 
 def test_mini_and_standard_config_ready():
@@ -125,6 +134,8 @@ def test_entitlements_guest_token_header_rollup(mock_usage):
         "dailyMessagesLimit": 10,
         "dailyDiscoverStartsUsed": 1,
         "dailyDiscoverStartsLimit": 1,
+        "visualCreationsUsed": 0,
+        "visualCreationsLimit": 1,
         "nextVisualAvailableAt": None,
     }
     guest_token = "guest-token-abcdefghijklmnop"
@@ -140,3 +151,26 @@ def test_entitlements_guest_token_header_rollup(mock_usage):
     mock_usage.assert_awaited_once()
     assert mock_usage.await_args.kwargs["guest_fingerprint"] is not None
     assert mock_usage.await_args.kwargs["user_id"] is None
+
+
+@patch("backend.routers.account_entitlements.build_account_usage_snapshot", new_callable=AsyncMock)
+@patch("backend.routers.account_entitlements.get_production_user_by_id", new_callable=AsyncMock)
+def test_entitlements_mini_account_tier(mock_get_user, mock_usage):
+    mini_user = _make_user(email="mini@test.eza.ai", mirror_plan="free", account_tier="mini")
+    mock_get_user.return_value = mini_user
+    mock_usage.return_value = {
+        "dailyMessagesUsed": 1,
+        "dailyMessagesLimit": 50,
+        "dailyDiscoverStartsUsed": 0,
+        "dailyDiscoverStartsLimit": 10,
+        "visualCreationsUsed": 0,
+        "visualCreationsLimit": None,
+        "nextVisualAvailableAt": None,
+    }
+
+    res = client.get("/api/account/entitlements", headers=_auth_header(mini_user))
+    assert res.status_code == 200
+    data = res.json()
+    assert data["tier"] == "mini"
+    assert data["entitlements"]["relationshipMapAccess"] == "last_90_days"
+    assert data["entitlements"]["relationshipMapCutoffIso"] is not None

@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from backend.auth.mirror_entitlement import MirrorPlanId, normalize_mirror_plan
 
@@ -34,9 +35,9 @@ class TierEntitlements(TypedDict):
 
 class AccountUsageSnapshot(TypedDict):
     dailyMessagesUsed: int
-    dailyMessagesLimit: int
+    dailyMessagesLimit: int | None
     dailyDiscoverStartsUsed: int
-    dailyDiscoverStartsLimit: int
+    dailyDiscoverStartsLimit: int | None
     visualCreationsUsed: int
     visualCreationsLimit: int | None
     nextVisualAvailableAt: str | None
@@ -150,6 +151,53 @@ def resolve_account_tier(
         except ValueError:
             pass
     return map_mirror_plan_to_tier(mirror_plan, is_authenticated=is_authenticated)
+
+
+def resolve_user_account_tier(
+    *,
+    mirror_plan: str | None,
+    account_tier: str | None,
+    is_authenticated: bool,
+) -> AccountTier:
+    """Resolve tier from production user columns."""
+    return resolve_account_tier(
+        mirror_plan,
+        is_authenticated=is_authenticated,
+        explicit_tier=(account_tier or "").strip() or None,
+    )
+
+
+def relationship_map_cutoff_iso(tier: AccountTier, now: datetime | None = None) -> str | None:
+    """Server-authoritative cutoff for mini-tier map window."""
+    if get_entitlements_for_tier(tier)["relationshipMapAccess"] != "last_90_days":
+        return None
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return (current - timedelta(days=90)).isoformat()
+
+
+def to_public_entitlements(tier: AccountTier, entitlements: TierEntitlements) -> dict[str, Any]:
+    """Strip internal premium caps from API-facing entitlement payload."""
+    public: dict[str, Any] = dict(entitlements)
+    if tier == AccountTier.PREMIUM:
+        public["dailyMessageLimit"] = None
+        public["dailyMirrorLimit"] = None
+        public["dailyDiscoverStartLimit"] = None
+    public["relationshipMapCutoffIso"] = relationship_map_cutoff_iso(tier)
+    return public
+
+
+def to_public_usage_snapshot(tier: AccountTier, usage: AccountUsageSnapshot) -> AccountUsageSnapshot:
+    """Hide internal premium caps in usage limits shown to clients."""
+    if tier != AccountTier.PREMIUM:
+        return usage
+    return {
+        **usage,
+        "dailyMessagesLimit": None,  # type: ignore[typeddict-item]
+        "visualCreationsLimit": None,
+        "dailyDiscoverStartsLimit": None,  # type: ignore[typeddict-item]
+    }
 
 
 def build_stub_usage(entitlements: TierEntitlements) -> AccountUsageSnapshot:

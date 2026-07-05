@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.auth.jwt import get_user_from_token
 from backend.auth.mirror_entitlement import get_production_user_by_id, normalize_mirror_plan
 from backend.core.account.guest_identity import resolve_guest_fingerprint
-from backend.core.account.tiers import AccountTier, resolve_account_tier
+from backend.core.account.tiers import AccountTier, resolve_user_account_tier
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,7 @@ async def resolve_account_subject(
 ) -> AccountSubject:
     is_authenticated = False
     mirror_plan: str | None = None
+    account_tier: str | None = None
     user_id: str | None = None
 
     if credentials is not None:
@@ -40,8 +41,13 @@ async def resolve_account_subject(
                 is_authenticated = True
                 user_id = str(user.id)
                 mirror_plan = normalize_mirror_plan(getattr(user, "mirror_plan", "free"))
+                account_tier = getattr(user, "account_tier", None)
 
-    tier = resolve_account_tier(mirror_plan, is_authenticated=is_authenticated)
+    tier = resolve_user_account_tier(
+        mirror_plan=mirror_plan,
+        account_tier=account_tier,
+        is_authenticated=is_authenticated,
+    )
     guest_fingerprint = None if is_authenticated else resolve_guest_fingerprint(guest_token)
 
     return AccountSubject(

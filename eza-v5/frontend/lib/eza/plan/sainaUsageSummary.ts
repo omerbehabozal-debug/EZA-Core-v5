@@ -27,14 +27,18 @@ export function buildAccountUsageLines(
       label: SAINA_USAGE_MESSAGES_LABEL,
       used: usage.dailyMessagesUsed,
       limit: usage.dailyMessagesLimit,
-      atLimit: usage.dailyMessagesUsed >= usage.dailyMessagesLimit,
+      atLimit:
+        usage.dailyMessagesLimit != null &&
+        usage.dailyMessagesUsed >= usage.dailyMessagesLimit,
     },
     {
       key: 'discover',
       label: SAINA_USAGE_DISCOVER_LABEL,
       used: usage.dailyDiscoverStartsUsed,
       limit: usage.dailyDiscoverStartsLimit,
-      atLimit: usage.dailyDiscoverStartsUsed >= usage.dailyDiscoverStartsLimit,
+      atLimit:
+        usage.dailyDiscoverStartsLimit != null &&
+        usage.dailyDiscoverStartsUsed >= usage.dailyDiscoverStartsLimit,
     },
   ];
 

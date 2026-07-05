@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth.deps import security
-from backend.auth.mirror_entitlement import require_mirror_authenticated_user
+from backend.auth.mirror_entitlement import MirrorSceneActor, require_mirror_scene_actor
 from backend.core.account.guest_identity import GUEST_TOKEN_HEADER
 from backend.core.account.guards import assert_can_create_visual
 from backend.core.account.quota_events import MIRROR_CREATED
@@ -15,7 +15,6 @@ from backend.core.schemas.mirror_scene import (
     MirrorGenerateSceneResponse,
 )
 from backend.core.utils.dependencies import get_db
-from backend.models.production import User
 from backend.security.rate_limit import rate_limit_standalone
 from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_mirror_scene_url
 from backend.services.mirror.mirror_image_service import generate_mirror_scene
@@ -30,7 +29,7 @@ router = APIRouter(prefix="/api/standalone/mirror", tags=["Standalone — Mirror
 )
 async def generate_mirror_scene_endpoint(
     body: MirrorGenerateSceneRequest,
-    user: User = Depends(require_mirror_authenticated_user),
+    actor: MirrorSceneActor = Depends(require_mirror_scene_actor),
     db: AsyncSession = Depends(get_db),
     credentials=Depends(security),
     x_guest_token: str | None = Header(None, alias=GUEST_TOKEN_HEADER),
@@ -38,13 +37,14 @@ async def generate_mirror_scene_endpoint(
 ) -> MirrorGenerateSceneResponse:
     """
     Generate a textless Daily Mirror scene image from visual prompt metadata only.
-    No chat/message content is accepted or forwarded to providers.
+    Authenticated users and guests (X-Guest-Token) may consume visual quota.
     """
+    user_id = str(actor.user.id) if actor.user is not None else None
     await assert_can_create_visual(
         db,
         credentials=credentials,
         guest_token=x_guest_token,
-        user=user,
+        user=actor.user,
     )
 
     result = await generate_mirror_scene(
@@ -75,7 +75,8 @@ async def generate_mirror_scene_endpoint(
     await record_account_usage_event(
         db,
         event_type=MIRROR_CREATED,
-        user_id=str(user.id),
+        user_id=user_id,
+        guest_fingerprint=actor.guest_fingerprint,
         source_id=body.cardDate,
         metadata={"provider": provider},
     )
