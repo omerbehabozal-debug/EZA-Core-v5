@@ -27,7 +27,7 @@ export function gateRelationshipMapFromEntitlements(
   if (canViewRelationshipMapData(access)) return 'allow';
 
   const tier = snapshot.tier;
-  if (tier === 'guest' || tier === 'anonymous') return 'auth_required';
+  if (tier === 'guest') return 'auth_required';
   return 'upgrade_required';
 }
 
