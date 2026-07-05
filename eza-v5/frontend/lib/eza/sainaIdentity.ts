@@ -27,11 +27,24 @@ export function resolveSafeAuthReturnPath(returnPath: string | null | undefined)
   return returnPath;
 }
 
-export function resolveSainaUserDisplayName(email?: string | null): string {
+export function resolveSainaUserDisplayName(
+  email?: string | null,
+  fullName?: string | null
+): string {
+  if (fullName?.trim()) return fullName.trim();
   if (!email?.trim()) return 'Misafir';
   const local = email.split('@')[0]?.trim();
   if (!local) return 'Misafir';
-  return local.charAt(0).toUpperCase() + local.slice(1);
+
+  if (local.includes('.') || local.includes('_') || local.includes('-')) {
+    return local
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  return local.charAt(0).toUpperCase() + local.slice(1).toLowerCase();
 }
 
 export function resolveSainaUserInitial(email?: string | null): string {

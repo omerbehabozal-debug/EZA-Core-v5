@@ -200,7 +200,7 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     onAnalysisModelChange: vi.fn(),
   };
 
-  it('opens profile menu with Güvenli Mod and Analiz Modeli', () => {
+  it('opens profile menu with Güvenli Mod and model selector', () => {
     render(<SainaStandaloneShell {...settingsProps} />);
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
@@ -217,7 +217,7 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     );
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
-    fireEvent.click(screen.getByTestId('saina-safe-mode-toggle'));
+    fireEvent.click(screen.getByTestId('saina-safe-mode-on'));
     expect(onSafeOnlyModeChange).toHaveBeenCalledWith(true);
   });
 
@@ -232,7 +232,8 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     );
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
-    fireEvent.click(screen.getByRole('option', { name: nextModel.label }));
+    fireEvent.click(screen.getByTestId('saina-profile-model-trigger'));
+    fireEvent.click(screen.getByTestId(`saina-profile-model-${nextModel.id}`));
     expect(onAnalysisModelChange).toHaveBeenCalledWith(nextModel.id);
   });
 

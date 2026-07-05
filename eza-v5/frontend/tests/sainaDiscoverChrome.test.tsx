@@ -12,6 +12,7 @@ vi.mock('next/navigation', () => ({
     push: mockPush,
     replace: mockReplace,
   }),
+  usePathname: () => '/standalone/discover',
 }));
 
 vi.mock('@/lib/eza/mirror-network/discoverExperiencedMirrors', () => ({
@@ -20,6 +21,20 @@ vi.mock('@/lib/eza/mirror-network/discoverExperiencedMirrors', () => ({
     items: [],
     allExperienced: false,
   })),
+}));
+
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: vi.fn(() => ({
+    isAuthenticated: false,
+    user: null,
+    logout: vi.fn(),
+    isAuthReady: true,
+    setAuth: vi.fn(),
+  })),
+}));
+
+vi.mock('@/hooks/useSainaMinWidth', () => ({
+  useSainaCompactShell: vi.fn(() => true),
 }));
 
 vi.mock('@/lib/eza/plan/usePlan', () => ({
@@ -91,5 +106,13 @@ describe('SainaDiscoverPage chrome actions', () => {
 
     useSainaChromeStore.getState().onUpgrade?.();
     expect(await screen.findByTestId('upgrade-modal-stub')).toBeInTheDocument();
+  });
+
+  it('renders unified top bar with search and profile on discover', async () => {
+    render(<SainaDiscoverPage />);
+
+    expect(screen.getByTestId('saina-top-search-trigger')).toBeInTheDocument();
+    expect(screen.getByTestId('saina-profile-menu-trigger')).toBeInTheDocument();
+    expect(screen.getByTestId('saina-notifications-trigger')).toBeInTheDocument();
   });
 });

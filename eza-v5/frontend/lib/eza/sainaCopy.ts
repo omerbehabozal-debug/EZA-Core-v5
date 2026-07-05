@@ -268,7 +268,7 @@ export const SAINA_USER_LABEL = 'SEN';
 
 export const SAINA_ASSISTANT_LABEL = 'SAINA';
 
-export const SAINA_MENU_ACCOUNT = 'Hesap';
+export const SAINA_MENU_ACCOUNT = 'SAINA hesabın';
 
 export const SAINA_MENU_SETTINGS = 'Ayarlar';
 
@@ -348,9 +348,13 @@ export const SAINA_AUTH_GOOGLE_UNAVAILABLE =
 
 export const SAINA_SAFE_MODE_LABEL = 'Güvenli Mod';
 
-export const SAINA_SAFE_MODE_NOTE = 'Yanıtlar güvenli ve uyumlu olacak şekilde yeniden yazılır.';
+export const SAINA_SAFE_MODE_NOTE = 'Yanıtlar daha dikkatli hazırlanır.';
 
-export const SAINA_ANALYSIS_MODEL_LABEL = 'Analiz Modeli';
+export const SAINA_SAFE_MODE_OFF = 'Kapalı';
+
+export const SAINA_SAFE_MODE_ON = 'Açık';
+
+export const SAINA_ANALYSIS_MODEL_LABEL = 'Model';
 
 
 

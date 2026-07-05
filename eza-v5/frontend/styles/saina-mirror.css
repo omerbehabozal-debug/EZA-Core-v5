@@ -348,6 +348,23 @@ html:has(.saina-page) body {
   justify-content: center;
 }
 
+.saina-conv-body--stacked {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.saina-conv-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-height: 1.125rem;
+  padding-right: 0.15rem;
+}
+
 .saina-conv-title-row {
   display: flex;
   align-items: flex-start;
@@ -366,12 +383,12 @@ html:has(.saina-page) body {
   font-size: 10px;
   font-weight: 500;
   line-height: 1.25;
-  color: rgba(217, 196, 163, 0.48);
-  padding-top: 2px;
+  letter-spacing: 0.01em;
+  color: rgba(217, 196, 163, 0.38);
 }
 
 .saina-conv-row--active .saina-conv-time {
-  color: rgba(217, 196, 163, 0.68);
+  color: rgba(217, 196, 163, 0.58);
 }
 
 .saina-sidebar-card-title {
@@ -542,7 +559,7 @@ html:has(.saina-page) body {
   gap: 0.75rem;
   border: none;
   background: transparent;
-  padding: 0.45rem 0.5rem;
+  padding: 0.45rem 2.35rem 0.45rem 0.5rem;
   text-align: left;
   color: inherit;
   cursor: pointer;
@@ -557,6 +574,19 @@ html:has(.saina-page) body {
   display: flex;
   flex-shrink: 0;
   align-items: center;
+}
+
+.saina-conv-menu--meta {
+  position: absolute;
+  right: 0.2rem;
+  bottom: 0.2rem;
+  z-index: 2;
+}
+
+.saina-conv-menu--meta .saina-conv-menu-btn {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0.25rem;
 }
 
 .saina-conv-menu-btn {
@@ -2703,6 +2733,81 @@ html:has(.saina-page) body {
   transform: translateX(1.125rem);
 }
 
+.saina-safe-mode-segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(15, 61, 50, 0.12);
+  background: rgba(246, 244, 239, 0.72);
+}
+
+.saina-safe-mode-segment {
+  min-height: 36px;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b8a7a;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.saina-safe-mode-segment--active {
+  background: rgba(15, 61, 50, 0.92);
+  color: #f6f4ef;
+  box-shadow: 0 2px 8px rgba(8, 18, 15, 0.14);
+}
+
+.saina-safe-mode-segment:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.saina-profile-model-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 40px;
+  border: 1px solid rgba(15, 61, 50, 0.14);
+  border-radius: 0.65rem;
+  background: rgba(246, 244, 239, 0.82);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #1a1b1c;
+  cursor: pointer;
+}
+
+.saina-profile-model-trigger svg {
+  flex-shrink: 0;
+  opacity: 0.55;
+  transition: transform 0.15s ease;
+}
+
+.saina-profile-model-trigger svg.rotate-180 {
+  transform: rotate(180deg);
+}
+
+.saina-profile-model-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.15rem;
+  padding: 0.25rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(15, 61, 50, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 20px rgba(8, 18, 15, 0.12);
+}
+
 .saina-profile-model-list {
   display: flex;
   flex-direction: column;
@@ -4765,6 +4870,23 @@ html:has(.saina-page) body {
 
 /* ── Keşfet (Discover V1) ── */
 .saina-discover-shell .saina-discover-canvas-wrap {
+  overflow: hidden;
+}
+
+.saina-discover-main {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.saina-discover-content-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
@@ -4953,29 +5075,42 @@ html:has(.saina-page) body {
 }
 
 .saina-profile-menu-account-block {
-  padding: 0.35rem 0.75rem 0.65rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin: -0.375rem -0.375rem 0.5rem;
+  padding: 0.85rem 0.85rem 0.75rem;
+  border-radius: 0.85rem 0.85rem 0.65rem 0.65rem;
+  background:
+    radial-gradient(ellipse 90% 80% at 50% 0%, rgba(231, 180, 91, 0.1), transparent 55%),
+    linear-gradient(165deg, rgba(12, 32, 28, 0.98), rgba(8, 22, 18, 0.99));
+  border-bottom: none;
 }
 
 .saina-profile-menu-section-label--plain {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(246, 244, 239, 0.52);
 }
 
 .saina-profile-menu-account-name {
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   font-weight: 600;
-  color: rgba(246, 244, 239, 0.92);
+  line-height: 1.25;
+  color: #ffffff;
 }
 
 .saina-profile-menu-plan-label {
-  margin: 0.2rem 0 0;
-  font-size: 0.75rem;
-  color: rgba(246, 244, 239, 0.55);
+  margin: 0.3rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(246, 244, 239, 0.62);
 }
 
 .saina-profile-menu-plan-label--premium {
-  color: rgba(231, 180, 91, 0.88);
+  color: #e7b45b;
+  text-shadow: 0 0 18px rgba(231, 180, 91, 0.22);
 }
 
 .saina-profile-menu-benefits {

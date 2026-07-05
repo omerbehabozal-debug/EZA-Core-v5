@@ -355,16 +355,16 @@ export default function SainaConversationSidebar({
           }}
         >
           {renderConversationThumb(item)}
-          <div className="saina-conv-body saina-conv-body--compact">
-            <div className="saina-conv-title-row">
-              <p className="saina-conv-title">
-                {item.isMirrorSource ? (
-                  <span className="saina-conv-mirror-mark" aria-hidden>
-                    ✦{' '}
-                  </span>
-                ) : null}
-                {item.title}
-              </p>
+          <div className="saina-conv-body saina-conv-body--stacked">
+            <p className="saina-conv-title">
+              {item.isMirrorSource ? (
+                <span className="saina-conv-mirror-mark" aria-hidden>
+                  ✦{' '}
+                </span>
+              ) : null}
+              {item.title}
+            </p>
+            <div className="saina-conv-meta-row">
               <span className="saina-conv-time">{item.time}</span>
             </div>
           </div>
@@ -372,7 +372,7 @@ export default function SainaConversationSidebar({
 
         {canManage ? (
           <div
-            className="saina-conv-menu"
+            className="saina-conv-menu saina-conv-menu--meta"
             data-conv-menu-root={item.id}
             onBlurCapture={(event) => {
               const root = event.currentTarget;

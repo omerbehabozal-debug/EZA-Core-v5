@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, LogOut, Settings, User } from 'lucide-react';
+import { ChevronDown, LogOut, Settings, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/lib/eza/plan/usePlan';
@@ -27,6 +27,8 @@ import {
   SAINA_MENU_SETTINGS,
   SAINA_SAFE_MODE_LABEL,
   SAINA_SAFE_MODE_NOTE,
+  SAINA_SAFE_MODE_OFF,
+  SAINA_SAFE_MODE_ON,
 } from '@/lib/eza/sainaCopy';
 import {
   STANDALONE_ANALYSIS_MODELS,
@@ -49,13 +51,15 @@ export default function SainaProfileMenu({
   disabled = false,
 }: SainaProfileMenuProps) {
   const [open, setOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const modelRef = useRef<HTMLDivElement>(null);
   const returnUrl = useSainaAuthReturnUrl();
   const { isAuthenticated, user, logout, isAuthReady } = useAuth();
   const { isPlus, isLoading, source } = usePlan();
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isLoading || !isAuthReady, source });
   const isGuest = !isAuthenticated;
-  const displayName = resolveSainaUserDisplayName(user?.email);
+  const displayName = resolveSainaUserDisplayName(user?.email, user?.full_name);
   const userInitial = resolveSainaUserInitial(user?.email);
   const planLabel = resolveSainaPlanLabel(planTier);
   const currentModel = getAnalysisModelById(analysisModelId);
@@ -67,13 +71,28 @@ export default function SainaProfileMenu({
     const onDoc = (event: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
         setOpen(false);
+        setModelOpen(false);
       }
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  const close = () => setOpen(false);
+  useEffect(() => {
+    if (!modelOpen) return;
+    const onDoc = (event: MouseEvent) => {
+      if (modelRef.current && !modelRef.current.contains(event.target as Node)) {
+        setModelOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [modelOpen]);
+
+  const close = () => {
+    setOpen(false);
+    setModelOpen(false);
+  };
 
   return (
     <div ref={rootRef} className="saina-profile-menu-root">
@@ -155,50 +174,89 @@ export default function SainaProfileMenu({
               {SAINA_MENU_SETTINGS}
             </p>
 
-            <div className="saina-profile-menu-row">
-              <div className="saina-profile-menu-row-text">
-                <span className="saina-profile-menu-row-title">{SAINA_SAFE_MODE_LABEL}</span>
-                <span className="saina-profile-menu-row-note">{SAINA_SAFE_MODE_NOTE}</span>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={safeOnlyMode}
-                aria-label={safeOnlyMode ? 'Güvenli Mod açık' : 'Güvenli Mod kapalı'}
-                disabled={disabled}
-                className={cn('saina-profile-toggle', safeOnlyMode && 'saina-profile-toggle--on')}
-                onClick={() => onSafeOnlyModeChange(!safeOnlyMode)}
-                data-testid="saina-safe-mode-toggle"
+            <div className="saina-profile-menu-row saina-profile-menu-row--stack">
+              <span className="saina-profile-menu-row-title">{SAINA_SAFE_MODE_LABEL}</span>
+              <div
+                className="saina-safe-mode-segmented"
+                role="group"
+                aria-label={SAINA_SAFE_MODE_LABEL}
               >
-                <span className="saina-profile-toggle-knob" />
-              </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className={cn(
+                    'saina-safe-mode-segment',
+                    !safeOnlyMode && 'saina-safe-mode-segment--active'
+                  )}
+                  aria-pressed={!safeOnlyMode}
+                  onClick={() => onSafeOnlyModeChange(false)}
+                  data-testid="saina-safe-mode-off"
+                >
+                  {SAINA_SAFE_MODE_OFF}
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className={cn(
+                    'saina-safe-mode-segment',
+                    safeOnlyMode && 'saina-safe-mode-segment--active'
+                  )}
+                  aria-pressed={safeOnlyMode}
+                  onClick={() => onSafeOnlyModeChange(true)}
+                  data-testid="saina-safe-mode-on"
+                >
+                  {SAINA_SAFE_MODE_ON}
+                </button>
+              </div>
+              <span className="saina-profile-menu-row-note">{SAINA_SAFE_MODE_NOTE}</span>
             </div>
 
-            <div className="saina-profile-menu-row saina-profile-menu-row--stack">
+            <div className="saina-profile-menu-row saina-profile-menu-row--stack" ref={modelRef}>
               <span className="saina-profile-menu-row-title">{SAINA_ANALYSIS_MODEL_LABEL}</span>
-              <div className="saina-profile-model-list" role="listbox" aria-label={SAINA_ANALYSIS_MODEL_LABEL}>
-                {STANDALONE_ANALYSIS_MODELS.map((model) => {
-                  const active = model.id === analysisModelId;
-                  return (
-                    <button
-                      key={model.id}
-                      type="button"
-                      role="option"
-                      aria-selected={active}
-                      disabled={disabled}
-                      className={cn(
-                        'saina-profile-model-option',
-                        active && 'saina-profile-model-option--active'
-                      )}
-                      onClick={() => onAnalysisModelChange(model.id)}
-                    >
-                      <span>{model.label}</span>
-                      {active ? <ChevronRight size={14} className="opacity-50" aria-hidden /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-              <span className="saina-profile-menu-row-note">Seçili: {currentModel.label}</span>
+              <button
+                type="button"
+                disabled={disabled}
+                className="saina-profile-model-trigger"
+                aria-haspopup="listbox"
+                aria-expanded={modelOpen}
+                data-testid="saina-profile-model-trigger"
+                onClick={() => setModelOpen((value) => !value)}
+              >
+                <span>{currentModel.label}</span>
+                <ChevronDown size={14} aria-hidden className={cn(modelOpen && 'rotate-180')} />
+              </button>
+              {modelOpen ? (
+                <div
+                  className="saina-profile-model-dropdown"
+                  role="listbox"
+                  aria-label={SAINA_ANALYSIS_MODEL_LABEL}
+                  data-testid="saina-profile-model-dropdown"
+                >
+                  {STANDALONE_ANALYSIS_MODELS.map((model) => {
+                    const active = model.id === analysisModelId;
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        disabled={disabled}
+                        className={cn(
+                          'saina-profile-model-option',
+                          active && 'saina-profile-model-option--active'
+                        )}
+                        data-testid={`saina-profile-model-${model.id}`}
+                        onClick={() => {
+                          onAnalysisModelChange(model.id);
+                          setModelOpen(false);
+                        }}
+                      >
+                        {model.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           </div>
 

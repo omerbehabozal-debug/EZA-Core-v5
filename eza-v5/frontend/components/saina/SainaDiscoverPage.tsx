@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Menu } from 'lucide-react';
+import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
+import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
+import SainaPageTopBar from '@/components/saina/SainaPageTopBar';
 import {
   SAINA_DISCOVER_EMPTY_BODY,
   SAINA_DISCOVER_EMPTY_TITLE,
@@ -58,6 +62,9 @@ export default function SainaDiscoverPage() {
   }, []);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const isCompactShell = useSainaCompactShell();
+  const openMobileSidebar = useSainaChromeStore((s) => s.openMobileSidebar);
+  const openCommandPalette = useSainaChromeStore((s) => s.openCommandPalette);
   const {
     openGateModal,
     handleRequestLogin,
@@ -198,7 +205,31 @@ export default function SainaDiscoverPage() {
 
   return (
     <>
-      <div className="saina-discover-page" data-testid="saina-discover-page">
+      <div className="saina-main saina-discover-main">
+        {!isCompactShell ? (
+          <div className="saina-standalone-mobile-bar">
+            <button
+              type="button"
+              className="saina-standalone-menu-btn"
+              data-testid="saina-discover-mobile-menu-btn"
+              onClick={() => openMobileSidebar?.()}
+              aria-label="Menü"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
+        ) : null}
+
+        <SainaPageTopBar
+          onOpenCommandPalette={() => openCommandPalette?.()}
+          safeOnlyMode={safeOnlyMode}
+          onSafeOnlyModeChange={setSafeOnlyMode}
+          analysisModelId={analysisModelId}
+          onAnalysisModelChange={setAnalysisModelId}
+        />
+
+        <div className="saina-discover-content-scroll">
+          <div className="saina-discover-page" data-testid="saina-discover-page">
         <header className="saina-discover-hero">
           <p className="saina-discover-eyebrow">{SAINA_DISCOVER_TITLE}</p>
           <h1 className="saina-discover-headline saina-serif">{SAINA_DISCOVER_HERO_LINE_1}</h1>
@@ -240,6 +271,8 @@ export default function SainaDiscoverPage() {
         {!error && (loading || items.length > 0) ? (
           <SainaDiscoverList items={items} loading={loading} />
         ) : null}
+          </div>
+        </div>
       </div>
 
       {gateModals}

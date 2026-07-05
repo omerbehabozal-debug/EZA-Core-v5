@@ -26,6 +26,7 @@ interface UserInfo {
   email: string;
   role: string;
   user_id: string;
+  full_name?: string;
 }
 
 interface AuthState {
