@@ -6,10 +6,8 @@ import { Compass, GitBranch, MessageSquarePlus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   SAINA_BRAND,
-  SAINA_ANON_FREE_CTA,
-  SAINA_FREE_TITLE,
-  SAINA_LOGGEDIN_FREE_CTA,
   SAINA_NEW_CHAT,
+  SAINA_SIDEBAR_FREE_FOOTER,
   SAINA_PLAN_LOADING_BODY,
   SAINA_PLAN_LOGIN_CTA,
   SAINA_PLAN_SESSION_INVALID_BODY,
@@ -304,19 +302,15 @@ export default function SainaConversationSidebar({
       );
     }
 
-    const isAnonymous = planTier === 'anonymous';
     return (
-      <>
-        <span className="saina-sidebar-plan-footer-label">{SAINA_FREE_TITLE}</span>
-        <button
-          type="button"
-          className="saina-sidebar-plan-footer-cta"
-          data-testid="saina-plan-upgrade-cta"
-          onClick={() => onUpgrade?.()}
-        >
-          {isAnonymous ? SAINA_ANON_FREE_CTA : SAINA_LOGGEDIN_FREE_CTA} →
-        </button>
-      </>
+      <button
+        type="button"
+        className="saina-sidebar-plan-footer-cta saina-sidebar-plan-footer-cta--full"
+        data-testid="saina-plan-upgrade-cta"
+        onClick={() => onUpgrade?.()}
+      >
+        {SAINA_SIDEBAR_FREE_FOOTER}
+      </button>
     );
   };
 

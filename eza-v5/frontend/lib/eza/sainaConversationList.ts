@@ -92,21 +92,40 @@ export function formatSainaConversationTime(savedAt: string): string {
 
 const TIME_BUCKET_ORDER = ['Bugün', 'Dün', 'Bu hafta', 'Geçen hafta', 'Daha eski', 'Sohbetler'] as const;
 
-export function getConversationTimeBucketLabel(savedAt: string): string {
+const MS_PER_DAY = 86_400_000;
+
+/** Local midnight for a calendar day. */
+export function startOfLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+/** Monday 00:00 local for the week containing `date`. */
+export function startOfWeekMonday(date: Date): number {
+  const day = date.getDay();
+  const daysSinceMonday = (day + 6) % 7;
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - daysSinceMonday);
+  return startOfLocalDay(monday);
+}
+
+export function getConversationTimeBucketLabel(
+  savedAt: string,
+  referenceDate: Date = new Date()
+): string {
   const date = new Date(savedAt);
   if (Number.isNaN(date.getTime())) return 'Sohbetler';
 
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startOfYesterday = startOfToday - 86_400_000;
-  const t = date.getTime();
+  const itemDay = startOfLocalDay(date);
+  const todayStart = startOfLocalDay(referenceDate);
+  const yesterdayStart = todayStart - MS_PER_DAY;
 
-  if (t >= startOfToday) return 'Bugün';
-  if (t >= startOfYesterday) return 'Dün';
+  if (itemDay >= todayStart) return 'Bugün';
+  if (itemDay >= yesterdayStart) return 'Dün';
 
-  const diffDays = Math.floor((startOfToday - t) / 86_400_000);
-  if (diffDays < 7) return 'Bu hafta';
-  if (diffDays < 30) return 'Geçen hafta';
+  const thisWeekStart = startOfWeekMonday(referenceDate);
+  const lastWeekStart = thisWeekStart - 7 * MS_PER_DAY;
+
+  if (itemDay >= thisWeekStart) return 'Bu hafta';
+  if (itemDay >= lastWeekStart) return 'Geçen hafta';
   return 'Daha eski';
 }
 

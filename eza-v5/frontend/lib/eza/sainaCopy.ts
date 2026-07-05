@@ -115,6 +115,9 @@ export const SAINA_REGENERATE = 'Yeniden Oluştur';
 
 export const SAINA_FREE_TITLE = 'SAINA Free';
 
+/** Sidebar footer — free and anonymous tiers (single quiet CTA). */
+export const SAINA_SIDEBAR_FREE_FOOTER = `${SAINA_FREE_TITLE} · Premium'a Geç →`;
+
 export const SAINA_PREMIUM_TITLE = 'SAINA Premium Aktif ✦';
 
 export const SAINA_PLAN_ACTIVE = 'Aktif';

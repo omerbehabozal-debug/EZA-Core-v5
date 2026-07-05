@@ -6,6 +6,14 @@ import {
   mapArchivesToSainaConversations,
   thumbGradientForChatId,
 } from '@/lib/eza/sainaConversationList';
+import { SAINA_SIDEBAR_FREE_FOOTER } from '@/lib/eza/sainaCopy';
+
+/** Reference: Sunday 5 July 2026, 12:00 local — week starts Monday 29 June. */
+const REF_SUNDAY_JULY_5_2026 = new Date(2026, 6, 5, 12, 0, 0);
+
+function isoLocal(year: number, month: number, day: number, hour = 12): string {
+  return new Date(year, month, day, hour, 0, 0).toISOString();
+}
 
 describe('sainaConversationList', () => {
   it('maps archive summaries to SAINA conversation rows', () => {
@@ -89,5 +97,19 @@ describe('sainaConversationList', () => {
     expect(groups[0]?.items[0]?.id).toBe('chat-today');
     expect(getConversationTimeBucketLabel(today)).toBe('Bugün');
     expect(getConversationTimeBucketLabel(yesterday)).toBe('Dün');
+  });
+
+  it('uses calendar week buckets with Monday week start', () => {
+    const ref = REF_SUNDAY_JULY_5_2026;
+
+    expect(getConversationTimeBucketLabel(isoLocal(2026, 6, 5), ref)).toBe('Bugün');
+    expect(getConversationTimeBucketLabel(isoLocal(2026, 6, 4), ref)).toBe('Dün');
+    expect(getConversationTimeBucketLabel(isoLocal(2026, 6, 2), ref)).toBe('Bu hafta');
+    expect(getConversationTimeBucketLabel(isoLocal(2026, 5, 28), ref)).toBe('Geçen hafta');
+    expect(getConversationTimeBucketLabel(isoLocal(2026, 5, 14), ref)).toBe('Daha eski');
+  });
+
+  it('renders sidebar free footer copy constant', () => {
+    expect(SAINA_SIDEBAR_FREE_FOOTER).toBe("SAINA Free · Premium'a Geç →");
   });
 });

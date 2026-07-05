@@ -17,9 +17,9 @@ import RelationshipPatternView from '@/components/mirror/RelationshipPatternView
 import PatternPlusUpsellBanner from '@/components/mirror/relationship/PatternPlusUpsellBanner';
 import SainaPatternShell from '@/components/saina/SainaPatternShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
+import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import UpgradeModal from '@/components/plan/UpgradeModal';
-import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
@@ -89,17 +89,13 @@ export default function SainaPatternPageInner() {
     archives,
   });
 
-  const conversations = useMemo(
-    () => mapArchivesToSainaConversations(archives, readActiveChatId()),
-    [archives]
-  );
+  const { conversations, conversationGroups, activeChatId } = useSainaSidebarConversations(archives);
 
   const conversationSceneUrl = useMemo(() => {
-    const activeId = readActiveChatId();
-    if (!activeId) return null;
-    const url = getChatArchive(activeId)?.conversationSceneUrl;
+    if (!activeChatId) return null;
+    const url = getChatArchive(activeChatId)?.conversationSceneUrl;
     return url && isPersistableConversationSceneUrl(url) ? url : null;
-  }, [archives]);
+  }, [archives, activeChatId]);
 
   const openGateModal = useCallback(
     (feature: string) => {
@@ -172,7 +168,8 @@ export default function SainaPatternPageInner() {
   useSyncSainaChrome({
     activeSection: 'pattern',
     conversations,
-    activeChatId: null,
+    conversationGroups,
+    activeChatId,
     conversationSceneUrl,
     planTier,
     onNewChat: handleNewChat,
@@ -192,7 +189,7 @@ export default function SainaPatternPageInner() {
     <>
       <SainaPatternShell
         conversations={conversations}
-        activeChatId={null}
+        activeChatId={activeChatId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
         onDeleteChat={handleDeleteChat}
