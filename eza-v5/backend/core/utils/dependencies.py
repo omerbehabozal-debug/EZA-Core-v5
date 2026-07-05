@@ -162,6 +162,27 @@ async def init_db():
                 logging.info("Added mirror_plan column to production_users")
         except Exception as e:
             logging.warning(f"Could not add mirror_plan column (may already exist): {e}")
+
+        # account_tier — SAINA tier SKU (free | mini | standard | premium)
+        try:
+            check_result = await conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'production_users'
+                AND column_name = 'account_tier'
+            """))
+            if not check_result.scalar_one_or_none():
+                await conn.execute(text("""
+                    ALTER TABLE production_users
+                    ADD COLUMN account_tier VARCHAR(20)
+                """))
+                await conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS ix_production_users_account_tier
+                    ON production_users(account_tier)
+                """))
+                logging.info("Added account_tier column to production_users")
+        except Exception as e:
+            logging.warning(f"Could not add account_tier column (may already exist): {e}")
         
         # Add analysis_mode column to production_organizations if it doesn't exist
         try:
