@@ -2,7 +2,6 @@
 """Mirror consumer entitlement helpers (Sprint 2)."""
 
 from dataclasses import dataclass
-from typing import Literal
 
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
@@ -12,14 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.auth.deps import security
 from backend.auth.jwt import get_user_from_token
 from backend.core.account.guest_identity import GUEST_TOKEN_HEADER, resolve_guest_fingerprint
+from backend.core.account.mirror_plan import MirrorPlanId, normalize_mirror_plan
 from backend.core.utils.dependencies import get_db
 from backend.models.production import User
-
-MirrorPlanId = Literal["free", "plus"]
-
-
-def normalize_mirror_plan(raw: str | None) -> MirrorPlanId:
-    return "plus" if raw == "plus" else "free"
 
 
 async def get_production_user_by_id(db: AsyncSession, user_id: str) -> User | None:

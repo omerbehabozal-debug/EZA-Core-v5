@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Literal, TypedDict
 
-from backend.auth.mirror_entitlement import MirrorPlanId, normalize_mirror_plan
+from backend.core.account.mirror_plan import normalize_mirror_plan
 
 RelationshipMapAccess = Literal["locked", "last_90_days", "all"]
 ImageQuality = Literal["medium", "high", "highest"]
