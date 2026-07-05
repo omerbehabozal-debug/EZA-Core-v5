@@ -169,8 +169,10 @@ export default function StandaloneChatInner() {
   const onOpenMirror = useSainaChromeStore((state) => state.onOpenMirror);
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
+  const messageLimit = accountEntitlements.usage.dailyMessagesLimit;
   const isMessageLimitReached =
-    accountEntitlements.usage.dailyMessagesUsed >= accountEntitlements.usage.dailyMessagesLimit;
+    messageLimit != null &&
+    accountEntitlements.usage.dailyMessagesUsed >= messageLimit;
   const quotaHeaders = useMemo(() => buildSainaQuotaHeaders(), []);
   const { startStream, reset: resetStream } = useStreamResponse();
   const setConversationMirrorEntries = useSetConversationMirrorEntries();
