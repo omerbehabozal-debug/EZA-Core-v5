@@ -14,7 +14,6 @@ vi.mock('@/components/standalone/StandaloneObservationExperience', () => ({
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
   SAINA_ANALYSIS_MODEL_LABEL,
-  SAINA_ANON_FREE_NOTE,
   SAINA_ASSISTANT_LABEL,
   SAINA_BRAND,
   SAINA_COMPOSER_PLACEHOLDER,
@@ -27,7 +26,6 @@ import {
   SAINA_MOBILE_MIRROR_CTA_EMPTY,
   SAINA_MOBILE_MIRROR_CTA_SIGNAL_READY,
   SAINA_POWERED,
-  SAINA_PREMIUM_OBSERVING,
   SAINA_SAFE_MODE_LABEL,
   SAINA_TAGLINE,
   SAINA_USER_LABEL,
@@ -639,57 +637,49 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     expect(screen.queryByLabelText('Sohbet listesini daralt')).not.toBeInTheDocument();
   });
 
-  it('renders anonymous plan card for first-time visitors', () => {
+  it('renders anonymous plan footer for first-time visitors', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="anonymous" />);
 
     expect(screen.getByText('SAINA Free')).toBeInTheDocument();
-    expect(screen.getByText('Şimdi Premium Ol')).toBeInTheDocument();
-    expect(screen.getByText(SAINA_ANON_FREE_NOTE)).toBeInTheDocument();
+    expect(screen.getByText('Şimdi Premium Ol →')).toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
 
-  it('renders logged-in free plan card when planTier is free', () => {
+  it('renders logged-in free plan footer when planTier is free', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="free" />);
 
     expect(screen.getByText('SAINA Free')).toBeInTheDocument();
-    expect(screen.getByText("Premium'a Geç")).toBeInTheDocument();
-    expect(
-      screen.getByText("Ayna ve İlişki Deseni Premium'da aktif."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Premium'a Geç →")).toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
 
-  it('renders premium plan card without quota when planTier is premium', () => {
+  it('renders premium plan footer when planTier is premium', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="premium" />);
 
     expect(screen.getByText(/SAINA Premium Aktif/)).toBeInTheDocument();
-    expect(screen.getByText(SAINA_PREMIUM_OBSERVING)).toBeInTheDocument();
-    expect(screen.getAllByText('Ayna').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('İlişki Haritası').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
+    expect(screen.queryByText('Şu an ilişki gözlemleniyor')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
 
-  it('renders loading plan card without misleading free tier', () => {
+  it('renders loading plan footer without misleading free tier', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="loading" />);
 
     const planCard = screen.getByTestId('saina-plan-card');
     expect(planCard).toHaveAttribute('data-plan-tier', 'loading');
-    expect(within(planCard).getByText('SAINA')).toBeInTheDocument();
     expect(within(planCard).getByText('Plan bilgisi kontrol ediliyor...')).toBeInTheDocument();
     expect(screen.queryByText('SAINA Free')).not.toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
   });
 
-  it('renders session_invalid plan card with login CTA', () => {
+  it('renders session_invalid plan footer with login CTA', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="session_invalid" />);
 
     const planCard = screen.getByTestId('saina-plan-card');
     expect(planCard).toHaveAttribute('data-plan-tier', 'session_invalid');
-    expect(within(planCard).getByText('SAINA')).toBeInTheDocument();
     expect(within(planCard).getByText('Oturum doğrulanamadı')).toBeInTheDocument();
     expect(within(planCard).getByText('Giriş yap')).toBeInTheDocument();
     expect(screen.queryByText('SAINA Free')).not.toBeInTheDocument();
@@ -722,11 +712,14 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     expect(screen.getByTestId('saina-standalone-mirror-panel')).toBeInTheDocument();
   });
 
-  it('renders sidebar pattern nav with readable copy', () => {
+  it('renders sidebar dock nav links', () => {
     render(<SainaStandaloneShell {...shellProps} />);
 
+    expect(screen.getByTestId('saina-discover-nav')).toBeInTheDocument();
+    expect(screen.getByTestId('saina-pattern-nav')).toBeInTheDocument();
     expect(screen.getAllByText('İlişki Haritası').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Aç →')).toBeInTheDocument();
+    expect(screen.queryByText('Aç →')).not.toBeInTheDocument();
+    expect(screen.queryByText('Keşfet →')).not.toBeInTheDocument();
   });
 });
 

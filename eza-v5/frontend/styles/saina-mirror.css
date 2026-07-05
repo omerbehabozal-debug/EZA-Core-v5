@@ -196,6 +196,177 @@ html:has(.saina-page) body {
   padding-top: 0.375rem;
 }
 
+.saina-sidebar-dock {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin-top: auto;
+  padding-top: 0.625rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.saina-sidebar-dock-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.35rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: rgba(246, 244, 239, 0.62);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.saina-sidebar-dock-icon {
+  flex-shrink: 0;
+  opacity: 0.72;
+  color: rgba(217, 196, 163, 0.75);
+}
+
+@media (hover: hover) {
+  .saina-sidebar-dock-link:hover:not(.saina-sidebar-dock-link--active) {
+    color: rgba(246, 244, 239, 0.88);
+    background: rgba(255, 255, 255, 0.035);
+  }
+}
+
+.saina-sidebar-dock-link--active {
+  color: rgba(246, 244, 239, 0.92);
+  background: rgba(19, 96, 80, 0.16);
+}
+
+.saina-sidebar-dock-link--active .saina-sidebar-dock-icon {
+  color: var(--saina-logo-gold, #e7b45b);
+  opacity: 1;
+}
+
+.saina-sidebar-plan-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.35rem 0.125rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.saina-sidebar-plan-footer-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(217, 196, 163, 0.62);
+}
+
+.saina-sidebar-plan-footer-text {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(217, 196, 163, 0.62);
+}
+
+.saina-sidebar-plan-footer-text--premium {
+  color: rgba(231, 180, 91, 0.82);
+  font-weight: 500;
+}
+
+.saina-sidebar-plan-footer-cta {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--saina-logo-gold, #e7b45b);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.saina-sidebar-plan-footer-cta:hover {
+  text-decoration: underline;
+}
+
+.saina-time-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.saina-time-group + .saina-time-group {
+  margin-top: 0.5rem;
+}
+
+.saina-time-group-label {
+  margin: 0;
+  padding: 0.35rem 0.35rem 0.15rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(217, 196, 163, 0.48);
+}
+
+.saina-conv-group-header--quiet {
+  padding: 0.35rem 0.35rem 0.2rem;
+  border: none;
+  background: transparent;
+  color: rgba(217, 196, 163, 0.55);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.saina-conv-row--quiet {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.45rem 0.5rem;
+}
+
+@media (hover: hover) {
+  .saina-conv-row--quiet:hover:not(:disabled):not(.saina-conv-row--active) {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: transparent;
+  }
+}
+
+.saina-conv-body--compact {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.saina-conv-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.saina-conv-title-row .saina-conv-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.saina-conv-time {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: rgba(217, 196, 163, 0.48);
+  padding-top: 2px;
+}
+
+.saina-conv-row--active .saina-conv-time {
+  color: rgba(217, 196, 163, 0.68);
+}
+
 .saina-sidebar-card-title {
   margin: 0;
   font-size: 12.5px;

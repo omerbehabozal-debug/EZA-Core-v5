@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatSainaConversationTime,
+  getConversationTimeBucketLabel,
+  groupConversationsByTimeBucket,
   mapArchivesToSainaConversations,
   thumbGradientForChatId,
 } from '@/lib/eza/sainaConversationList';
@@ -57,5 +59,35 @@ describe('sainaConversationList', () => {
   it('formats recent archive time as Az önce', () => {
     const savedAt = new Date(Date.now() - 5 * 60_000).toISOString();
     expect(formatSainaConversationTime(savedAt)).toBe('Az önce');
+  });
+
+  it('groups conversations into time buckets for sidebar', () => {
+    const now = new Date();
+    const today = now.toISOString();
+    const yesterday = new Date(now.getTime() - 86_400_000).toISOString();
+
+    const groups = groupConversationsByTimeBucket(
+      mapArchivesToSainaConversations([
+        {
+          id: 'chat-today',
+          title: 'Bugün',
+          preview: 'a',
+          savedAt: today,
+          messageCount: 1,
+        },
+        {
+          id: 'chat-yesterday',
+          title: 'Dün',
+          preview: 'b',
+          savedAt: yesterday,
+          messageCount: 1,
+        },
+      ])
+    );
+
+    expect(groups.map((g) => g.label)).toEqual(['Bugün', 'Dün']);
+    expect(groups[0]?.items[0]?.id).toBe('chat-today');
+    expect(getConversationTimeBucketLabel(today)).toBe('Bugün');
+    expect(getConversationTimeBucketLabel(yesterday)).toBe('Dün');
   });
 });

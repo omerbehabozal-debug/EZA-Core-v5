@@ -1,43 +1,27 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageSquarePlus, Trash2, X } from 'lucide-react';
+import { Compass, GitBranch, MessageSquarePlus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   SAINA_BRAND,
-  SAINA_CONVERSATIONS_TITLE,
-  SAINA_ANON_FREE_BODY,
   SAINA_ANON_FREE_CTA,
-  SAINA_ANON_FREE_NOTE,
   SAINA_FREE_TITLE,
-  SAINA_LOGGEDIN_FREE_BODY,
   SAINA_LOGGEDIN_FREE_CTA,
-  SAINA_LOGGEDIN_FREE_NOTE,
   SAINA_NEW_CHAT,
-  SAINA_PLAN_ACTIVE,
   SAINA_PLAN_LOADING_BODY,
   SAINA_PLAN_LOGIN_CTA,
   SAINA_PLAN_SESSION_INVALID_BODY,
-  SAINA_PLAN_SESSION_INVALID_NOTE,
   SAINA_POWERED,
-  SAINA_PREMIUM_LIVE_STATUS,
-  SAINA_PREMIUM_MIRROR_LABEL,
-  SAINA_PREMIUM_OBSERVING,
-  SAINA_PREMIUM_PATTERN_LABEL,
   SAINA_PREMIUM_TITLE,
-  SAINA_RELATIONSHIP_PATTERN_BODY,
-  SAINA_RELATIONSHIP_PATTERN_CTA,
   SAINA_RELATIONSHIP_PATTERN_TITLE,
 } from '@/lib/eza/sainaCopy';
-import {
-  SAINA_DISCOVER_NAV_BODY,
-  SAINA_DISCOVER_NAV_CTA,
-  SAINA_DISCOVER_TITLE,
-} from '@/lib/eza/mirror-network/discoverCopy';
+import { SAINA_DISCOVER_TITLE } from '@/lib/eza/mirror-network/discoverCopy';
 import { SAINA_DISCOVER_ROUTE } from '@/lib/eza/sainaRoutes';
 import type { SainaAppView } from '@/lib/eza/sainaRoutes';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
+import { groupConversationsByTimeBucket } from '@/lib/eza/sainaConversationList';
 import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
 import {
   readGroupExpanded,
@@ -190,6 +174,10 @@ export default function SainaConversationSidebar({
   const isMock = conversations == null && conversationGroups == null;
   const disabled = interactionsDisabled || isMock;
   const useTree = Boolean(conversationGroups && conversationGroups.length > 0);
+  const timeGroups = useMemo(
+    () => (useTree ? null : groupConversationsByTimeBucket(items)),
+    [useTree, items]
+  );
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
@@ -241,7 +229,7 @@ export default function SainaConversationSidebar({
           disabled={disabled && !onSelectChat}
           className={cn(
             'saina-conv-row',
-            active && 'saina-conv-row--active',
+            active ? 'saina-conv-row--active' : 'saina-conv-row--quiet',
             nested && 'saina-conv-row--nested'
           )}
           data-testid={`saina-conv-row-${item.id}`}
@@ -251,19 +239,19 @@ export default function SainaConversationSidebar({
           }}
         >
           {renderConversationThumb(item)}
-          <div className="saina-conv-body">
-            <p className="saina-conv-title">
-              {item.isMirrorSource ? (
-                <span className="saina-conv-mirror-mark" aria-hidden>
-                  ✦{' '}
-                </span>
-              ) : null}
-              {item.title}
-            </p>
-            <p className="saina-conv-preview">{item.preview}</p>
-            <p className="saina-conv-meta">{item.time}</p>
+          <div className="saina-conv-body saina-conv-body--compact">
+            <div className="saina-conv-title-row">
+              <p className="saina-conv-title">
+                {item.isMirrorSource ? (
+                  <span className="saina-conv-mirror-mark" aria-hidden>
+                    ✦{' '}
+                  </span>
+                ) : null}
+                {item.title}
+              </p>
+              <span className="saina-conv-time">{item.time}</span>
+            </div>
           </div>
-          {active ? <span className="saina-conv-active-dot" aria-hidden /> : null}
         </button>
         {canDelete ? (
           <button
@@ -285,104 +273,49 @@ export default function SainaConversationSidebar({
     );
   };
 
-  const renderPlanCard = () => {
+  const renderPlanFooter = () => {
     if (planTier === 'loading') {
       return (
-        <>
-          <div className="saina-premium-mini-row">
-            <span className="saina-premium-mini-title">{SAINA_BRAND}</span>
-          </div>
-          <p className="saina-plan-card-body saina-plan-card-body--loading">{SAINA_PLAN_LOADING_BODY}</p>
-        </>
+        <p className="saina-sidebar-plan-footer-text">{SAINA_PLAN_LOADING_BODY}</p>
       );
     }
 
     if (planTier === 'session_invalid') {
       return (
         <>
-          <div className="saina-premium-mini-row">
-            <span className="saina-premium-mini-title">{SAINA_BRAND}</span>
-          </div>
-          <p className="saina-plan-card-body">{SAINA_PLAN_SESSION_INVALID_BODY}</p>
+          <span className="saina-sidebar-plan-footer-text">{SAINA_PLAN_SESSION_INVALID_BODY}</span>
           <button
             type="button"
-            className="saina-plan-card-cta"
+            className="saina-sidebar-plan-footer-cta"
             data-testid="saina-plan-login-cta"
             onClick={() => onRequestLogin?.()}
           >
             {SAINA_PLAN_LOGIN_CTA}
           </button>
-          <p className="saina-plan-card-note">{SAINA_PLAN_SESSION_INVALID_NOTE}</p>
         </>
       );
     }
 
-    if (planTier === 'anonymous') {
+    if (planTier === 'premium') {
       return (
-        <>
-          <div className="saina-premium-mini-row">
-            <span className="saina-premium-mini-title">{SAINA_FREE_TITLE}</span>
-            <span className="saina-premium-mini-badge">{SAINA_PLAN_ACTIVE}</span>
-          </div>
-          <p className="saina-plan-card-body">{SAINA_ANON_FREE_BODY}</p>
-          <button
-            type="button"
-            className="saina-plan-card-cta"
-            data-testid="saina-plan-upgrade-cta"
-            onClick={() => onUpgrade?.()}
-          >
-            {SAINA_ANON_FREE_CTA}
-          </button>
-          <p className="saina-plan-card-note">{SAINA_ANON_FREE_NOTE}</p>
-        </>
+        <span className="saina-sidebar-plan-footer-text saina-sidebar-plan-footer-text--premium">
+          {SAINA_PREMIUM_TITLE}
+        </span>
       );
     }
 
-    const isPremium = planTier === 'premium';
-
+    const isAnonymous = planTier === 'anonymous';
     return (
       <>
-        {isPremium ? (
-          <>
-            <p className="saina-sidebar-card-title">{SAINA_PREMIUM_TITLE}</p>
-            <p className="saina-plan-card-body saina-plan-card-body--observing">
-              {SAINA_PREMIUM_OBSERVING}
-            </p>
-            <ul className="saina-plan-status-list" aria-label="SAINA sistem durumu">
-              <li className="saina-plan-status-item">
-                <span className="saina-plan-status-dot" aria-hidden />
-                <div className="saina-plan-status-copy">
-                  <span className="saina-plan-status-name">{SAINA_PREMIUM_MIRROR_LABEL}</span>
-                  <span className="saina-plan-status-live">{SAINA_PREMIUM_LIVE_STATUS}</span>
-                </div>
-              </li>
-              <li className="saina-plan-status-item">
-                <span className="saina-plan-status-dot" aria-hidden />
-                <div className="saina-plan-status-copy">
-                  <span className="saina-plan-status-name">{SAINA_PREMIUM_PATTERN_LABEL}</span>
-                  <span className="saina-plan-status-live">{SAINA_PREMIUM_LIVE_STATUS}</span>
-                </div>
-              </li>
-            </ul>
-          </>
-        ) : (
-          <>
-            <div className="saina-premium-mini-row">
-              <span className="saina-premium-mini-title">{SAINA_FREE_TITLE}</span>
-              <span className="saina-premium-mini-badge">{SAINA_PLAN_ACTIVE}</span>
-            </div>
-            <p className="saina-plan-card-body">{SAINA_LOGGEDIN_FREE_BODY}</p>
-            <button
-              type="button"
-              className="saina-plan-card-cta"
-              data-testid="saina-plan-upgrade-cta"
-              onClick={() => onUpgrade?.()}
-            >
-              {SAINA_LOGGEDIN_FREE_CTA}
-            </button>
-            <p className="saina-plan-card-note">{SAINA_LOGGEDIN_FREE_NOTE}</p>
-          </>
-        )}
+        <span className="saina-sidebar-plan-footer-label">{SAINA_FREE_TITLE}</span>
+        <button
+          type="button"
+          className="saina-sidebar-plan-footer-cta"
+          data-testid="saina-plan-upgrade-cta"
+          onClick={() => onUpgrade?.()}
+        >
+          {isAnonymous ? SAINA_ANON_FREE_CTA : SAINA_LOGGEDIN_FREE_CTA} →
+        </button>
       </>
     );
   };
@@ -441,8 +374,6 @@ export default function SainaConversationSidebar({
               ) : null}
             </div>
 
-            <p className="saina-section-label">{SAINA_CONVERSATIONS_TITLE}</p>
-
             <button
               type="button"
               className="saina-new-chat-btn"
@@ -465,7 +396,7 @@ export default function SainaConversationSidebar({
                     <div key={group.id} className="saina-conv-group" data-testid={`saina-conv-group-${group.id}`}>
                       <button
                         type="button"
-                        className="saina-conv-group-header"
+                        className="saina-conv-group-header saina-conv-group-header--quiet"
                         onClick={() => toggleGroup(group.id)}
                         aria-expanded={expanded}
                       >
@@ -482,26 +413,22 @@ export default function SainaConversationSidebar({
                     </div>
                   );
                 })
-              : items.map((item) => renderConversationRow(item))}
+              : timeGroups
+                ? timeGroups.map((group) => (
+                    <div key={group.label} className="saina-time-group" data-testid={`saina-time-group-${group.label}`}>
+                      <p className="saina-time-group-label">{group.label}</p>
+                      {group.items.map((item) => renderConversationRow(item))}
+                    </div>
+                  ))
+                : items.map((item) => renderConversationRow(item))}
           </div>
 
-          <div className="saina-sidebar-bottom">
-            <div
-              className={cn(
-                'saina-premium-card saina-premium-card--mini saina-premium-card--dark saina-plan-card',
-                planTier === 'premium' && 'saina-plan-card--premium-system'
-              )}
-              data-testid="saina-plan-card"
-              data-plan-tier={planTier}
-            >
-              {renderPlanCard()}
-            </div>
-
+          <nav className="saina-sidebar-dock" aria-label="SAINA gezinme">
             <button
               type="button"
               className={cn(
-                'saina-pattern-nav saina-pattern-nav--dark saina-discover-nav',
-                activeSection === 'discover' && 'saina-pattern-nav--active'
+                'saina-sidebar-dock-link',
+                activeSection === 'discover' && 'saina-sidebar-dock-link--active'
               )}
               onClick={() => {
                 router.push(SAINA_DISCOVER_ROUTE);
@@ -510,43 +437,32 @@ export default function SainaConversationSidebar({
               aria-current={activeSection === 'discover' ? 'page' : undefined}
               data-testid="saina-discover-nav"
             >
-              <div className="saina-pattern-nav-main">
-                <SainaGeometricMark size={18} variant="gold" />
-                <div className="saina-pattern-nav-text">
-                  <span className="saina-pattern-nav-title saina-sidebar-card-title">
-                    {SAINA_DISCOVER_TITLE}
-                  </span>
-                  <span className="saina-pattern-nav-body">{SAINA_DISCOVER_NAV_BODY}</span>
-                </div>
-              </div>
-              <span className="saina-pattern-nav-cta">
-                {activeSection === 'discover' ? 'Açık' : SAINA_DISCOVER_NAV_CTA}
-              </span>
+              <Compass size={15} className="saina-sidebar-dock-icon" aria-hidden />
+              <span>{SAINA_DISCOVER_TITLE}</span>
             </button>
 
             <button
               type="button"
               className={cn(
-                'saina-pattern-nav saina-pattern-nav--dark saina-relationship-card',
-                activeSection === 'pattern' && 'saina-pattern-nav--active'
+                'saina-sidebar-dock-link',
+                activeSection === 'pattern' && 'saina-sidebar-dock-link--active'
               )}
               onClick={handlePatternOpen}
               aria-current={activeSection === 'pattern' ? 'page' : undefined}
+              data-testid="saina-pattern-nav"
             >
-              <div className="saina-pattern-nav-main">
-                <SainaGeometricMark size={18} variant="gold" />
-                <div className="saina-pattern-nav-text">
-                  <span className="saina-pattern-nav-title saina-sidebar-card-title">
-                    {SAINA_RELATIONSHIP_PATTERN_TITLE}
-                  </span>
-                  <span className="saina-pattern-nav-body">{SAINA_RELATIONSHIP_PATTERN_BODY}</span>
-                </div>
-              </div>
-              <span className="saina-pattern-nav-cta">
-                {activeSection === 'pattern' ? 'Açık' : SAINA_RELATIONSHIP_PATTERN_CTA}
-              </span>
+              <GitBranch size={15} className="saina-sidebar-dock-icon" aria-hidden />
+              <span>{SAINA_RELATIONSHIP_PATTERN_TITLE}</span>
             </button>
-          </div>
+
+            <div
+              className="saina-sidebar-plan-footer"
+              data-testid="saina-plan-card"
+              data-plan-tier={planTier}
+            >
+              {renderPlanFooter()}
+            </div>
+          </nav>
         </div>
       </aside>
     </>

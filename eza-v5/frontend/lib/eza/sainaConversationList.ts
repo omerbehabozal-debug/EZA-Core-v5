@@ -8,8 +8,15 @@ export type SainaConversationItem = {
   title: string;
   preview: string;
   time: string;
+  /** ISO timestamp — sidebar time buckets (Bugün / Dün / …). */
+  savedAt?: string;
   thumbGradient: string;
   thumbImageUrl?: string | null;
+};
+
+export type SainaConversationTimeGroup = {
+  label: string;
+  items: SainaConversationItem[];
 };
 
 export type SidebarSortableArchive = Pick<ArchivedChatSummary, 'id' | 'savedAt'>;
@@ -83,6 +90,46 @@ export function formatSainaConversationTime(savedAt: string): string {
   return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
+const TIME_BUCKET_ORDER = ['Bugün', 'Dün', 'Bu hafta', 'Geçen hafta', 'Daha eski', 'Sohbetler'] as const;
+
+export function getConversationTimeBucketLabel(savedAt: string): string {
+  const date = new Date(savedAt);
+  if (Number.isNaN(date.getTime())) return 'Sohbetler';
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfYesterday = startOfToday - 86_400_000;
+  const t = date.getTime();
+
+  if (t >= startOfToday) return 'Bugün';
+  if (t >= startOfYesterday) return 'Dün';
+
+  const diffDays = Math.floor((startOfToday - t) / 86_400_000);
+  if (diffDays < 7) return 'Bu hafta';
+  if (diffDays < 30) return 'Geçen hafta';
+  return 'Daha eski';
+}
+
+export function groupConversationsByTimeBucket(
+  items: SainaConversationItem[]
+): SainaConversationTimeGroup[] {
+  const buckets = new Map<string, SainaConversationItem[]>();
+
+  for (const item of items) {
+    const label = item.savedAt
+      ? getConversationTimeBucketLabel(item.savedAt)
+      : 'Sohbetler';
+    const list = buckets.get(label) ?? [];
+    list.push(item);
+    buckets.set(label, list);
+  }
+
+  return TIME_BUCKET_ORDER.filter((label) => buckets.has(label)).map((label) => ({
+    label,
+    items: buckets.get(label)!,
+  }));
+}
+
 export function mapArchivesToSainaConversations(
   archives: ArchivedChatSummary[],
   activeChatId?: string | null
@@ -92,6 +139,7 @@ export function mapArchivesToSainaConversations(
     title: summarizeArchiveTitle(item.title) || 'Yeni sohbet',
     preview: item.preview?.trim() || 'SAINA ile düşün, keşfet…',
     time: formatSainaConversationTime(item.savedAt),
+    savedAt: item.savedAt,
     thumbGradient: thumbGradientForChatId(item.id),
     thumbImageUrl:
       item.conversationSceneUrl &&
