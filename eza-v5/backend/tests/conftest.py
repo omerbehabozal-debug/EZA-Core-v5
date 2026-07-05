@@ -537,3 +537,74 @@ def pytest_sessionfinish(session, exitstatus):
     """Called after whole test run finished"""
     print("\n[GENERATE] Generating Test Artifacts...")
     artifact_system.generate_reports()
+
+
+_ACCOUNT_QUOTA_TEST_MODULES = frozenset({
+    "test_account_entitlements",
+    "test_account_usage_service",
+    "test_message_quota_guard",
+    "test_visual_quota_guard",
+    "test_discover_quota_guard",
+    "test_relationship_map_access",
+})
+
+
+@pytest.fixture(autouse=True)
+def _ci_stub_account_usage(request):
+    """
+    CI DB lacks account_usage_events migration; stub quota guards for integration tests.
+    Dedicated quota/account tests opt out and exercise guards directly.
+    """
+    if os.environ.get("EZA_ENV") != "ci":
+        yield
+        return
+
+    module_name = getattr(request.module, "__name__", "").split(".")[-1]
+    if module_name in _ACCOUNT_QUOTA_TEST_MODULES:
+        yield
+        return
+
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, patch
+
+    subject = SimpleNamespace(user_id="ci-user", guest_fingerprint="ci-guest-fp")
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.assert_can_create_visual",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.record_account_usage_event",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "backend.routers.mirror_network.assert_can_start_discover_conversation",
+            new_callable=AsyncMock,
+            return_value=subject,
+        ),
+        patch(
+            "backend.routers.mirror_network.record_account_usage_event",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "backend.routers.standalone_mirror.assert_can_create_visual",
+            new_callable=AsyncMock,
+            return_value=subject,
+        ),
+        patch(
+            "backend.routers.standalone_mirror.record_account_usage_event",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "backend.main.assert_can_send_message",
+            new_callable=AsyncMock,
+            return_value=subject,
+        ),
+        patch(
+            "backend.core.account.usage_service.count_usage_events",
+            new_callable=AsyncMock,
+            return_value=0,
+        ),
+    ):
+        yield
