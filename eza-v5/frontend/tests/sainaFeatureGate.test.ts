@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
 
 describe('gatePremiumFeature', () => {
-  it('allows premium users', () => {
+  it('allows standard and premium users', () => {
     expect(gatePremiumFeature('premium')).toBe('allow');
+    expect(gatePremiumFeature('standard')).toBe('allow');
   });
 
-  it('requires upgrade for logged-in free users', () => {
+  it('requires upgrade for logged-in free and mini users', () => {
     expect(gatePremiumFeature('free')).toBe('upgrade_required');
+    expect(gatePremiumFeature('mini')).toBe('upgrade_required');
   });
 
   it('requires auth for anonymous users', () => {

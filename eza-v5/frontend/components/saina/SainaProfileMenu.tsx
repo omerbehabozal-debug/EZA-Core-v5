@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
+import { isSainaPaidTier } from '@/lib/eza/plan/sainaAccountTiers';
 import {
   buildSainaAuthHref,
   resolveSainaPlanLabel,
@@ -158,7 +159,7 @@ export default function SainaProfileMenu({
                   <p
                     className={cn(
                       'saina-profile-menu-plan-label',
-                      planTier === 'premium' && 'saina-profile-menu-plan-label--premium'
+                      isSainaPaidTier(planTier) && 'saina-profile-menu-plan-label--premium'
                     )}
                   >
                     {planLabel}

@@ -665,8 +665,9 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders anonymous plan footer for first-time visitors', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="anonymous" />);
 
-    expect(screen.getByText("SAINA Guest · Giriş Yap →")).toBeInTheDocument();
-    expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
+    expect(screen.getByText('SAINA Guest')).toBeInTheDocument();
+    expect(screen.getByText('Giriş Yap →')).toBeInTheDocument();
+    expect(screen.queryByText('Hesabını Yükselt')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
@@ -674,7 +675,8 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders logged-in free plan footer when planTier is free', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="free" />);
 
-    expect(screen.getByText("SAINA Free · Premium'a Geç →")).toBeInTheDocument();
+    expect(screen.getByText('SAINA Free')).toBeInTheDocument();
+    expect(screen.getByText('Hesabını Yükselt →')).toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();

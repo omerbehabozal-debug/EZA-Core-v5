@@ -123,11 +123,15 @@ export const SAINA_FREE_TITLE = 'SAINA Free';
 
 export const SAINA_GUEST_TITLE = 'SAINA Guest';
 
-/** Sidebar footer — logged-in free user. */
-export const SAINA_SIDEBAR_FREE_FOOTER = `${SAINA_FREE_TITLE} · Premium'a Geç →`;
+/** Sidebar footer — logged-in free user. @deprecated Use resolveSainaSidebarFooter */
+export const SAINA_SIDEBAR_FREE_FOOTER = `${SAINA_FREE_TITLE} · Hesabını Yükselt →`;
 
-/** Sidebar footer — guest / anonymous user. */
+/** Sidebar footer — guest / anonymous user. @deprecated Use resolveSainaSidebarFooter */
 export const SAINA_SIDEBAR_GUEST_FOOTER = `${SAINA_GUEST_TITLE} · Giriş Yap →`;
+
+export const SAINA_MINI_TITLE = 'SAINA Mini ✦';
+
+export const SAINA_STANDARD_TITLE = 'SAINA Standard ✦';
 
 export const SAINA_PREMIUM_TITLE = 'SAINA Premium ✦';
 
@@ -152,17 +156,17 @@ export const SAINA_PLAN_CHECK_ACCOUNT = SAINA_PLAN_LOGIN_CTA;
 
 export const SAINA_ANON_FREE_BODY = 'Temel sohbet deneyimi açık.';
 
-export const SAINA_ANON_FREE_CTA = 'Şimdi Premium Ol';
+export const SAINA_ANON_FREE_CTA = 'Hesabını Yükselt';
 
 export const SAINA_ANON_FREE_NOTE =
   'Sohbet etmek için giriş gerekmez. Ayna kaydetmek veya İlişki Deseni için giriş yapabilirsin.';
 
 export const SAINA_LOGGEDIN_FREE_BODY = 'Hesabın hazır.';
 
-export const SAINA_LOGGEDIN_FREE_CTA = "Premium'a Geç";
+export const SAINA_LOGGEDIN_FREE_CTA = 'Hesabını Yükselt';
 
 export const SAINA_LOGGEDIN_FREE_NOTE =
-  "Ayna ve İlişki Deseni Premium'da aktif.";
+  'Ayna ve İlişki Haritası ücretli hesap seviyelerinde aktif.';
 
 /** @deprecated Use SAINA_ANON_FREE_BODY */
 export const SAINA_FREE_BODY = SAINA_ANON_FREE_BODY;
@@ -301,9 +305,26 @@ export const SAINA_IDENTITY_MODAL_REGISTER = 'Hesap Oluştur';
 
 export const SAINA_IDENTITY_MODAL_DISMISS = 'Şimdilik devam et';
 
-/** Premium upgrade modal — logged-in free users only. */
-export const SAINA_PREMIUM_MODAL_TITLE = 'SAINA Premium';
+/** Account upgrade modal — logged-in users below Premium. */
+export const SAINA_UPGRADE_MODAL_TITLE = 'Hesabını Yükselt';
 
+export const SAINA_UPGRADE_MODAL_SUBTITLE = 'Senin kullanımına uygun hesabı seç.';
+
+export const SAINA_UPGRADE_MODAL_DISMISS = 'Şimdilik kapat';
+
+export const SAINA_UPGRADE_MODAL_NOTE =
+  'Ödeme sistemi yakında. Planlar şimdilik önizleme.';
+
+export const SAINA_UPGRADE_PLAN_MONTHLY_LABEL = 'Aylık';
+
+export const SAINA_UPGRADE_PLAN_COMING_SOON = 'Yakında';
+
+export const SAINA_UPGRADE_STANDARD_BADGE = 'En çok önerilen';
+
+/** @deprecated Use SAINA_UPGRADE_MODAL_TITLE */
+export const SAINA_PREMIUM_MODAL_TITLE = SAINA_UPGRADE_MODAL_TITLE;
+
+/** @deprecated */
 export const SAINA_PREMIUM_MODAL_FEATURES = [
   'Limitsiz Ayna',
   'Limitsiz Yansı',
@@ -313,12 +334,14 @@ export const SAINA_PREMIUM_MODAL_FEATURES = [
   'Öncelikli üretim',
 ] as const;
 
-export const SAINA_PREMIUM_MODAL_CTA = 'Premium yakında';
+/** @deprecated */
+export const SAINA_PREMIUM_MODAL_CTA = 'Yakında';
 
-export const SAINA_PREMIUM_MODAL_DISMISS = 'Şimdilik kapat';
+/** @deprecated Use SAINA_UPGRADE_MODAL_DISMISS */
+export const SAINA_PREMIUM_MODAL_DISMISS = SAINA_UPGRADE_MODAL_DISMISS;
 
-export const SAINA_PREMIUM_MODAL_NOTE =
-  'Ödeme sistemi yakında. Şimdilik bu, Premium deneyiminin bir önizlemesidir.';
+/** @deprecated Use SAINA_UPGRADE_MODAL_NOTE */
+export const SAINA_PREMIUM_MODAL_NOTE = SAINA_UPGRADE_MODAL_NOTE;
 
 /** SAINA auth pages (standalone return). */
 export const SAINA_AUTH_LOGIN_TITLE = 'Sohbetlerin seni bekliyor.';

@@ -301,6 +301,30 @@ html:has(.saina-page) body {
   text-decoration: none;
 }
 
+.saina-sidebar-plan-footer-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.saina-sidebar-plan-footer-tier {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(217, 196, 163, 0.72);
+}
+
+.saina-sidebar-plan-footer-tier--paid {
+  color: rgba(231, 180, 91, 0.88);
+  font-weight: 600;
+}
+
+.saina-sidebar-plan-footer-action {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--saina-logo-gold, #e7b45b);
+}
+
 .saina-sidebar-plan-footer-cta:hover {
   text-decoration: underline;
 }
@@ -4615,6 +4639,90 @@ html:has(.saina-page) body {
 .saina-modal-cta--disabled {
   cursor: not-allowed;
   opacity: 0.85;
+}
+
+.saina-upgrade-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .saina-upgrade-plan-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.saina-upgrade-plan-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem 0.9rem;
+  text-align: left;
+}
+
+.saina-upgrade-plan-card--recommended {
+  border-color: rgba(231, 180, 91, 0.28);
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(231, 180, 91, 0.12), transparent 55%),
+    rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 1px rgba(231, 180, 91, 0.08);
+}
+
+.saina-upgrade-plan-badge {
+  align-self: flex-start;
+  border-radius: 999px;
+  background: rgba(231, 180, 91, 0.14);
+  padding: 0.2rem 0.55rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #e7b45b;
+}
+
+.saina-upgrade-plan-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #f6f4ef;
+}
+
+.saina-upgrade-plan-features {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+.saina-upgrade-plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(246, 244, 239, 0.78);
+}
+
+.saina-upgrade-plan-features li span:first-child {
+  color: #e7b45b;
+  flex-shrink: 0;
+}
+
+.saina-upgrade-plan-price {
+  margin: 0;
+  font-size: 0.72rem;
+  color: rgba(246, 244, 239, 0.45);
+}
+
+.saina-upgrade-plan-cta {
+  margin-top: auto;
 }
 
 .saina-spin {

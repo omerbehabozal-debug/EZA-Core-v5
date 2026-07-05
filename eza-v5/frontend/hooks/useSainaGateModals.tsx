@@ -3,6 +3,7 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import IdentityModal from '@/components/plan/IdentityModal';
 import UpgradeModal from '@/components/plan/UpgradeModal';
+import { canUpgradeSainaAccount } from '@/lib/eza/plan/sainaAccountTiers';
 import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 
@@ -38,7 +39,7 @@ export function useSainaGateModals({
 
   const handleOpenUpgrade = useCallback(
     (feature = defaultUpgradeFeature) => {
-      if (planTier === 'free') {
+      if (canUpgradeSainaAccount(planTier)) {
         setUpgradeFeature(feature);
         setUpgradeOpen(true);
         return;

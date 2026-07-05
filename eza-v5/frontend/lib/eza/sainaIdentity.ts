@@ -54,10 +54,11 @@ export function resolveSainaUserInitial(email?: string | null): string {
   return local.charAt(0).toUpperCase();
 }
 
-export function resolveSainaPlanLabel(planTier: string): string | null {
-  if (planTier === 'premium') return 'SAINA Premium ✦';
-  if (planTier === 'free') return 'SAINA Free';
-  return null;
+import { resolveSainaAccountLabel } from '@/lib/eza/plan/sainaAccountTiers';
+import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
+
+export function resolveSainaPlanLabel(planTier: SainaPlanTier | string): string | null {
+  return resolveSainaAccountLabel(planTier as SainaPlanTier);
 }
 
 export function isSainaAuthReturnPath(returnPath: string | null | undefined): boolean {

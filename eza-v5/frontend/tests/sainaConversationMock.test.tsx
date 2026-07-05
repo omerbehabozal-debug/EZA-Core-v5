@@ -105,7 +105,7 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
   it('renders dark sidebar without concept footer on page', () => {
     render(<SainaConversationSidebar interactionsDisabled />);
     expect(screen.getByText('Yeni Sohbet')).toBeInTheDocument();
-    expect(screen.getByText(SAINA_PREMIUM_TITLE)).toBeInTheDocument();
+    expect(screen.getByText('SAINA Premium ✦')).toBeInTheDocument();
     expect(screen.queryByText(SAINA_TAGLINE)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Sohbet listesini daralt')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
@@ -134,15 +134,17 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
       />
     );
 
-    expect(screen.getByText(SAINA_SIDEBAR_GUEST_FOOTER)).toBeInTheDocument();
-    expect(screen.queryByText(SAINA_SIDEBAR_FREE_FOOTER)).not.toBeInTheDocument();
+    expect(screen.getByText('SAINA Guest')).toBeInTheDocument();
+    expect(screen.getByText('Giriş Yap →')).toBeInTheDocument();
+    expect(screen.queryByText('Hesabını Yükselt →')).not.toBeInTheDocument();
   });
 
   it('renders free plan footer without quota when planTier is free', () => {
     render(<SainaConversationSidebar planTier="free" interactionsDisabled />);
 
-    expect(screen.getByText(SAINA_SIDEBAR_FREE_FOOTER)).toBeInTheDocument();
-    expect(screen.queryByText(SAINA_PREMIUM_TITLE)).not.toBeInTheDocument();
+    expect(screen.getByText('SAINA Free')).toBeInTheDocument();
+    expect(screen.getByText('Hesabını Yükselt →')).toBeInTheDocument();
+    expect(screen.queryByText('SAINA Premium ✦')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
@@ -150,7 +152,7 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
   it('renders premium plan footer without quota by default', () => {
     render(<SainaConversationSidebar interactionsDisabled />);
 
-    expect(screen.getByText(SAINA_PREMIUM_TITLE)).toBeInTheDocument();
+    expect(screen.getByText('SAINA Premium ✦')).toBeInTheDocument();
     expect(screen.queryByText(SAINA_PREMIUM_OBSERVING)).not.toBeInTheDocument();
     expect(screen.queryByText(SAINA_PREMIUM_MIRROR_LABEL)).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();

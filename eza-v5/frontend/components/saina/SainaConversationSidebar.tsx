@@ -10,15 +10,13 @@ import {
   SAINA_CONV_MENU_LABEL,
   SAINA_CONV_RENAME,
   SAINA_NEW_CHAT,
-  SAINA_SIDEBAR_FREE_FOOTER,
-  SAINA_SIDEBAR_GUEST_FOOTER,
   SAINA_PLAN_LOADING_BODY,
   SAINA_PLAN_LOGIN_CTA,
   SAINA_PLAN_SESSION_INVALID_BODY,
   SAINA_POWERED,
-  SAINA_PREMIUM_TITLE,
   SAINA_RELATIONSHIP_PATTERN_TITLE,
 } from '@/lib/eza/sainaCopy';
+import { resolveSainaSidebarFooter } from '@/lib/eza/plan/sainaAccountTiers';
 import { SAINA_DISCOVER_TITLE } from '@/lib/eza/mirror-network/discoverCopy';
 import { SAINA_DISCOVER_ROUTE } from '@/lib/eza/sainaRoutes';
 import type { SainaAppView } from '@/lib/eza/sainaRoutes';
@@ -469,15 +467,49 @@ export default function SainaConversationSidebar({
       );
     }
 
-    if (planTier === 'premium') {
+    if (planTier === 'premium' || planTier === 'mini' || planTier === 'standard') {
+      const footer = resolveSainaSidebarFooter(planTier);
+      if (!footer) return null;
+
+      if (!footer.showUpgrade) {
+        return (
+          <span
+            className={cn(
+              'saina-sidebar-plan-footer-text',
+              footer.paidAccent && 'saina-sidebar-plan-footer-text--premium'
+            )}
+          >
+            {footer.tierLabel}
+          </span>
+        );
+      }
+
       return (
-        <span className="saina-sidebar-plan-footer-text saina-sidebar-plan-footer-text--premium">
-          {SAINA_PREMIUM_TITLE}
-        </span>
+        <button
+          type="button"
+          className="saina-sidebar-plan-footer-cta saina-sidebar-plan-footer-cta--full"
+          data-testid="saina-plan-upgrade-cta"
+          onClick={() => onUpgrade?.()}
+        >
+          <span className="saina-sidebar-plan-footer-stack">
+            <span
+              className={cn(
+                'saina-sidebar-plan-footer-tier',
+                footer.paidAccent && 'saina-sidebar-plan-footer-tier--paid'
+              )}
+            >
+              {footer.tierLabel}
+            </span>
+            <span className="saina-sidebar-plan-footer-action">{footer.actionLabel}</span>
+          </span>
+        </button>
       );
     }
 
     if (planTier === 'anonymous') {
+      const footer = resolveSainaSidebarFooter(planTier);
+      if (!footer) return null;
+
       return (
         <button
           type="button"
@@ -485,21 +517,34 @@ export default function SainaConversationSidebar({
           data-testid="saina-plan-login-cta"
           onClick={() => onRequestLogin?.()}
         >
-          {SAINA_SIDEBAR_GUEST_FOOTER}
+          <span className="saina-sidebar-plan-footer-stack">
+            <span className="saina-sidebar-plan-footer-tier">{footer.tierLabel}</span>
+            <span className="saina-sidebar-plan-footer-action">{footer.actionLabel}</span>
+          </span>
         </button>
       );
     }
 
-    return (
-      <button
-        type="button"
-        className="saina-sidebar-plan-footer-cta saina-sidebar-plan-footer-cta--full"
-        data-testid="saina-plan-upgrade-cta"
-        onClick={() => onUpgrade?.()}
-      >
-        {SAINA_SIDEBAR_FREE_FOOTER}
-      </button>
-    );
+    if (planTier === 'free') {
+      const footer = resolveSainaSidebarFooter(planTier);
+      if (!footer) return null;
+
+      return (
+        <button
+          type="button"
+          className="saina-sidebar-plan-footer-cta saina-sidebar-plan-footer-cta--full"
+          data-testid="saina-plan-upgrade-cta"
+          onClick={() => onUpgrade?.()}
+        >
+          <span className="saina-sidebar-plan-footer-stack">
+            <span className="saina-sidebar-plan-footer-tier">{footer.tierLabel}</span>
+            <span className="saina-sidebar-plan-footer-action">{footer.actionLabel}</span>
+          </span>
+        </button>
+      );
+    }
+
+    return null;
   };
 
   const handlePatternOpen = () => {

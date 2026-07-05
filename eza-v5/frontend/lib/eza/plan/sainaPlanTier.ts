@@ -5,6 +5,8 @@ export type SainaPlanTier =
   | 'loading'
   | 'anonymous'
   | 'free'
+  | 'mini'
+  | 'standard'
   | 'premium'
   | 'session_invalid';
 

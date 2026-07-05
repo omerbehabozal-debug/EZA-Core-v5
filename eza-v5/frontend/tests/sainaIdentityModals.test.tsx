@@ -2,7 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import IdentityModal from '@/components/plan/IdentityModal';
 import UpgradeModal from '@/components/plan/UpgradeModal';
-import { SAINA_IDENTITY_MODAL_REGISTER, SAINA_PREMIUM_MODAL_CTA } from '@/lib/eza/sainaCopy';
+import {
+  SAINA_IDENTITY_MODAL_REGISTER,
+  SAINA_UPGRADE_MODAL_TITLE,
+  SAINA_UPGRADE_PLAN_COMING_SOON,
+  SAINA_UPGRADE_STANDARD_BADGE,
+} from '@/lib/eza/sainaCopy';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/standalone',
@@ -57,12 +62,18 @@ describe('SAINA identity modals', () => {
   });
 
   describe('UpgradeModal', () => {
-    it('shows disabled premium CTA without closing modal on click', () => {
+    it('shows three account plan cards with coming-soon CTAs', () => {
       render(<UpgradeModal open onClose={onClose} feature="pattern" />);
 
-      const premiumCta = screen.getByTestId('saina-premium-upgrade-cta');
+      expect(screen.getByText(SAINA_UPGRADE_MODAL_TITLE)).toBeInTheDocument();
+      expect(screen.getByTestId('saina-upgrade-plan-mini')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-upgrade-plan-standard')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-upgrade-plan-premium')).toBeInTheDocument();
+      expect(screen.getByText(SAINA_UPGRADE_STANDARD_BADGE)).toBeInTheDocument();
+
+      const premiumCta = screen.getByTestId('saina-upgrade-plan-cta-premium');
       expect(premiumCta).toBeDisabled();
-      expect(premiumCta).toHaveTextContent(SAINA_PREMIUM_MODAL_CTA);
+      expect(premiumCta).toHaveTextContent(SAINA_UPGRADE_PLAN_COMING_SOON);
       fireEvent.click(premiumCta);
       expect(onClose).not.toHaveBeenCalled();
     });
