@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Compass, GitBranch, MessageSquarePlus, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -183,21 +183,58 @@ export default function SainaConversationSidebar({
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPlacement, setMenuPlacement] = useState<'above' | 'below'>('below');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const renameInputRef = useRef<HTMLInputElement | null>(null);
+  const openMenuBtnRef = useRef<HTMLButtonElement | null>(null);
+  const firstMenuItemRef = useRef<HTMLButtonElement | null>(null);
+  const skipRenameBlurCommitRef = useRef(false);
+
+  const closeMenu = useCallback(() => {
+    setOpenMenuId(null);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!openMenuId) return;
+    const btn = openMenuBtnRef.current;
+    const list = btn?.closest('.saina-conv-list');
+    if (!btn || !list) return;
+
+    const dropdownEstimatePx = 108;
+    const btnRect = btn.getBoundingClientRect();
+    const listRect = list.getBoundingClientRect();
+    const spaceBelow = listRect.bottom - btnRect.bottom;
+    const spaceAbove = btnRect.top - listRect.top;
+    const openAbove = spaceBelow < dropdownEstimatePx && spaceAbove > spaceBelow;
+    setMenuPlacement(openAbove ? 'above' : 'below');
+  }, [openMenuId]);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    firstMenuItemRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [closeMenu, openMenuId]);
 
   useEffect(() => {
     if (!openMenuId) return;
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest(`[data-conv-menu-root="${openMenuId}"]`)) {
-        setOpenMenuId(null);
+        closeMenu();
       }
     };
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
-  }, [openMenuId]);
+  }, [closeMenu, openMenuId]);
 
   useEffect(() => {
     if (!editingId) return;
@@ -213,9 +250,21 @@ export default function SainaConversationSidebar({
   }, []);
 
   const cancelRename = useCallback(() => {
+    skipRenameBlurCommitRef.current = true;
     setEditingId(null);
     setEditTitle('');
   }, []);
+
+  const handleRenameBlur = useCallback(
+    (id: string, title: string) => {
+      if (skipRenameBlurCommitRef.current) {
+        skipRenameBlurCommitRef.current = false;
+        return;
+      }
+      commitRename(id, title);
+    },
+    [commitRename]
+  );
 
   const isGroupExpanded = useCallback(
     (groupId: string) => {
@@ -279,7 +328,7 @@ export default function SainaConversationSidebar({
                 cancelRename();
               }
             }}
-            onBlur={() => commitRename(item.id, editTitle)}
+            onBlur={() => handleRenameBlur(item.id, editTitle)}
           />
         </div>
       );
@@ -321,13 +370,23 @@ export default function SainaConversationSidebar({
         </button>
 
         {canManage ? (
-          <div className="saina-conv-menu" data-conv-menu-root={item.id}>
+          <div
+            className="saina-conv-menu"
+            data-conv-menu-root={item.id}
+            onBlurCapture={(event) => {
+              const root = event.currentTarget;
+              if (!root.contains(event.relatedTarget as Node | null)) {
+                closeMenu();
+              }
+            }}
+          >
             <button
               type="button"
+              ref={openMenuId === item.id ? openMenuBtnRef : undefined}
               className="saina-conv-menu-btn"
               data-testid={`saina-conv-menu-${item.id}`}
               aria-label={`${item.title} — ${SAINA_CONV_MENU_LABEL}`}
-              aria-haspopup="menu"
+              aria-haspopup="true"
               aria-expanded={openMenuId === item.id}
               onClick={(e) => {
                 e.preventDefault();
@@ -338,16 +397,25 @@ export default function SainaConversationSidebar({
               <MoreHorizontal size={16} aria-hidden />
             </button>
             {openMenuId === item.id ? (
-              <div className="saina-conv-menu-dropdown" role="menu">
+              <div
+                className={cn(
+                  'saina-conv-menu-dropdown',
+                  menuPlacement === 'above'
+                    ? 'saina-conv-menu-dropdown--above'
+                    : 'saina-conv-menu-dropdown--below'
+                )}
+                data-testid={`saina-conv-menu-dropdown-${item.id}`}
+                data-placement={menuPlacement}
+              >
                 <button
                   type="button"
-                  role="menuitem"
+                  ref={firstMenuItemRef}
                   className="saina-conv-menu-item"
                   data-testid={`saina-conv-rename-${item.id}`}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setOpenMenuId(null);
+                    closeMenu();
                     setEditingId(item.id);
                     setEditTitle(item.title);
                   }}
@@ -357,13 +425,12 @@ export default function SainaConversationSidebar({
                 </button>
                 <button
                   type="button"
-                  role="menuitem"
                   className="saina-conv-menu-item saina-conv-menu-item--danger"
                   data-testid={`saina-conv-delete-${item.id}`}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setOpenMenuId(null);
+                    closeMenu();
                     onDeleteChat?.(item.id);
                   }}
                 >

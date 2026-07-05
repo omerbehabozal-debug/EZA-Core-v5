@@ -515,6 +515,7 @@ html:has(.saina-page) body {
 
 .saina-conv-row,
 .saina-chat-item {
+  position: relative;
   display: flex;
   width: 100%;
   align-items: stretch;
@@ -598,8 +599,7 @@ html:has(.saina-page) body {
 .saina-conv-menu-dropdown {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 0.25rem);
-  z-index: 20;
+  z-index: 30;
   min-width: 10.5rem;
   display: flex;
   flex-direction: column;
@@ -611,13 +611,21 @@ html:has(.saina-page) body {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
 
+.saina-conv-menu-dropdown--below {
+  top: calc(100% + 0.25rem);
+}
+
+.saina-conv-menu-dropdown--above {
+  bottom: calc(100% + 0.25rem);
+}
+
 .saina-conv-menu-item {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  min-height: 36px;
-  padding: 0.45rem 0.55rem;
+  min-height: 44px;
+  padding: 0.5rem 0.55rem;
   border: none;
   border-radius: 0.45rem;
   background: transparent;
