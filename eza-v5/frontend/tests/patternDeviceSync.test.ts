@@ -53,7 +53,7 @@ describe('patternDeviceSync', () => {
 
   it('resolves chats_pending_pattern when archives exist but map is empty', () => {
     const state = resolvePatternDeviceState({
-      isPremium: true,
+      hasMapDataAccess: true,
       entries: [],
       archives: [{ ...sampleChat(), pinned: undefined, titlePinned: undefined }],
     });
@@ -66,7 +66,7 @@ describe('patternDeviceSync', () => {
   it('resolves has_data after backfill entries', () => {
     const entries = buildBehavioralEntriesFromArchives([sampleChat()]);
     const state = resolvePatternDeviceState({
-      isPremium: true,
+      hasMapDataAccess: true,
       entries,
       archives: [{ ...sampleChat(), pinned: undefined, titlePinned: undefined }],
     });

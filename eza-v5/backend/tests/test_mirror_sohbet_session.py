@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from types import SimpleNamespace
 
 from backend.core.schemas.mirror_network import MirrorNetworkPublicPayload
 from backend.main import app
@@ -97,10 +98,20 @@ def test_resolve_mirror_lineage_ids_with_parent():
 
 def test_start_sohbet_session_endpoint():
     public = _public_payload()
-    with patch(
-        "backend.routers.mirror_network.create_sohbet_session",
-        new=AsyncMock(
-            return_value=build_sohbet_session_response(public, guest_token="guest-existing-token-12345")
+    with (
+        patch(
+            "backend.routers.mirror_network.assert_can_start_discover_conversation",
+            new=AsyncMock(return_value=SimpleNamespace(user_id=None, guest_fingerprint="fp")),
+        ),
+        patch(
+            "backend.routers.mirror_network.record_account_usage_event",
+            new=AsyncMock(),
+        ),
+        patch(
+            "backend.routers.mirror_network.create_sohbet_session",
+            new=AsyncMock(
+                return_value=build_sohbet_session_response(public, guest_token="guest-existing-token-12345")
+            ),
         ),
     ):
         response = client.post(

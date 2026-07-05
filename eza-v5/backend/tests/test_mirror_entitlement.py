@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.core.account.tiers import AccountTier
 from backend.services.mirror.mirror_image_provider import MockMirrorImageProvider
 from backend.services.production_auth import create_access_token
 
@@ -49,8 +50,10 @@ def test_generate_scene_anonymous_returns_401():
 
 @patch("backend.services.mirror.mirror_image_service.get_mirror_image_provider")
 @patch("backend.auth.mirror_entitlement.get_production_user_by_id", new_callable=AsyncMock)
-def test_generate_scene_free_user_returns_200(mock_get_user, mock_get_provider):
-    """Free authenticated user can generate daily card scene (quota is client-side)."""
+def test_generate_scene_free_user_returns_403(mock_get_user, mock_get_provider):
+    """Free tier cannot generate visuals (dailyMirrorLimit: 0)."""
+    from backend.services.mirror.mirror_image_provider import MockMirrorImageProvider
+
     free_user = _make_user(email="free@test.eza.ai", mirror_plan="free")
     mock_get_user.return_value = free_user
     mock_get_provider.return_value = MockMirrorImageProvider()
@@ -59,17 +62,20 @@ def test_generate_scene_free_user_returns_200(mock_get_user, mock_get_provider):
         json=VALID_BODY,
         headers=_auth_header(free_user),
     )
-    assert res.status_code == 200
-    data = res.json()
-    assert data["sceneImageUrl"].startswith("http")
+    assert res.status_code == 403
+    detail = res.json()["detail"]
+    assert detail["reason"] == "visual_not_available_on_tier"
 
 
+@patch("backend.routers.standalone_mirror.record_account_usage_event", new_callable=AsyncMock)
+@patch("backend.routers.standalone_mirror.assert_can_create_visual", new_callable=AsyncMock)
 @patch("backend.services.mirror.mirror_image_service.get_mirror_image_provider")
 @patch("backend.auth.mirror_entitlement.get_production_user_by_id", new_callable=AsyncMock)
-def test_generate_scene_plus_user_returns_200(mock_get_user, mock_get_provider):
+def test_generate_scene_plus_user_returns_200(mock_get_user, mock_get_provider, mock_guard, mock_record):
     plus_user = _make_user(email="plus@test.eza.ai", mirror_plan="plus")
     mock_get_user.return_value = plus_user
     mock_get_provider.return_value = MockMirrorImageProvider()
+    mock_guard.return_value = SimpleNamespace(tier=AccountTier.PREMIUM)
     res = client.post(
         "/api/standalone/mirror/generate-scene",
         json=VALID_BODY,

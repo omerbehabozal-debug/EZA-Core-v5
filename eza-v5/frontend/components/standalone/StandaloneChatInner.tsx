@@ -6,7 +6,7 @@
  * Features:
  * - Score-only mode (0-100 badges)
  * - SAFE-only mode (rewrite enabled)
- * - Daily limit (30-50 messages/day)
+ * - Tier-based message limits (backend authority)
  * - Çoklu sohbet sekmeleri; otomatik kayıt; sekmeye dönünce kaldığın yerden devam
  * - Minimal UI (no tooltips, no extra info)
  */
@@ -35,8 +35,19 @@ import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
-import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
+import {
+  canViewRelationshipMapData,
+  getRelationshipMapAccess,
+} from '@/lib/eza/plan/sainaRelationshipMapAccess';
+import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
 import { usePlan } from '@/lib/eza/plan/usePlan';
+import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
+import {
+  extractQuotaDetail,
+  isQuotaLimitReason,
+  resolveChatLimitMessage,
+} from '@/lib/eza/plan/sainaQuotaMessages';
+import { buildSainaQuotaHeaders, hasSainaAuthToken } from '@/lib/eza/plan/sainaQuotaHeaders';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
 import type {
@@ -133,16 +144,8 @@ interface Message {
   feedback?: StandaloneFeedbackContext | null;
 }
 
-// Daily limit constants
-const DAILY_LIMIT_SOFT = 40; // Soft limit (start throttling)
-const DAILY_LIMIT_HARD = 50; // Hard limit (block completely)
-const THROTTLE_DELAY_MIN = 0; // Min throttle delay (ms)
-const THROTTLE_DELAY_MAX = 300; // Max throttle delay (ms) - typing indicator süresinde
-
 // localStorage keys
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
-const STORAGE_KEY_DAILY_COUNT = 'eza_standalone_daily_count';
-const STORAGE_KEY_LAST_DATE = 'eza_standalone_last_date';
 export default function StandaloneChatInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -155,8 +158,6 @@ export default function StandaloneChatInner() {
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
-  const [dailyCount, setDailyCount] = useState(0);
-  const [isLimitReached, setIsLimitReached] = useState(false);
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [conversationGroups, setConversationGroups] = useState<ConversationGroup[]>([]);
@@ -168,6 +169,10 @@ export default function StandaloneChatInner() {
   const lastAssistantDoneAtRef = useRef<number | null>(null);
   const onOpenMirror = useSainaChromeStore((state) => state.onOpenMirror);
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
+  const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
+  const isMessageLimitReached =
+    accountEntitlements.usage.dailyMessagesUsed >= accountEntitlements.usage.dailyMessagesLimit;
+  const quotaHeaders = useMemo(() => buildSainaQuotaHeaders(), []);
   const { startStream, reset: resetStream } = useStreamResponse();
   const setConversationMirrorEntries = useSetConversationMirrorEntries();
   const currentAssistantMessageRef = useRef<string | null>(null);
@@ -249,24 +254,6 @@ export default function StandaloneChatInner() {
       setSafeOnlyMode(savedSafeOnly === 'true');
     }
     setAnalysisModelId(readStoredAnalysisModel());
-
-    // Check daily count
-    const lastDate = localStorage.getItem(STORAGE_KEY_LAST_DATE);
-    const today = new Date().toDateString();
-    
-    if (lastDate === today) {
-      // Same day - load count
-      const savedCount = localStorage.getItem(STORAGE_KEY_DAILY_COUNT);
-      const count = savedCount ? parseInt(savedCount, 10) : 0;
-      setDailyCount(count);
-      setIsLimitReached(count >= DAILY_LIMIT_HARD);
-    } else {
-      // New day - reset count
-      localStorage.setItem(STORAGE_KEY_LAST_DATE, today);
-      localStorage.setItem(STORAGE_KEY_DAILY_COUNT, '0');
-      setDailyCount(0);
-      setIsLimitReached(false);
-    }
   }, []);
 
   // Save safeOnlyMode to localStorage
@@ -470,6 +457,8 @@ export default function StandaloneChatInner() {
   }, [cancelPendingAutosave, resetStateAfterActiveDelete, router, startDraft]);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const mapAccess = getRelationshipMapAccess(accountEntitlements);
+  const canViewMapData = canViewRelationshipMapData(mapAccess);
   const {
     openGateModal,
     handleRequestLogin,
@@ -477,20 +466,15 @@ export default function StandaloneChatInner() {
     gateModals,
   } = useSainaGateModals({ planTier, defaultUpgradeFeature: 'saina_sidebar' });
   const planResolved = !isPlanLoading;
-  const isPremium = planResolved && gatePremiumFeature(planTier) === 'allow';
 
   const { systemNotifications } = usePatternDeviceSync({
-    isPremium,
+    hasMapDataAccess: canViewMapData,
     archives,
   });
 
   const handleOpenPattern = useCallback(() => {
-    if (gatePremiumFeature(planTier) !== 'allow') {
-      openGateModal('relationship_pattern');
-      return;
-    }
     router.push(MIRROR_PATTERN_ROUTE, { scroll: false });
-  }, [planTier, openGateModal, router]);
+  }, [router]);
 
   const handleRequestMirror = useCallback((): boolean => {
     if (planTier === 'session_invalid') {
@@ -522,23 +506,15 @@ export default function StandaloneChatInner() {
     [archives, conversationGroups, chatId]
   );
 
-  const incrementDailyCount = useCallback(() => {
-    const newCount = dailyCount + 1;
-    setDailyCount(newCount);
-    localStorage.setItem(STORAGE_KEY_DAILY_COUNT, newCount.toString());
-    
-    if (newCount >= DAILY_LIMIT_HARD) {
-      setIsLimitReached(true);
-      // Show limit message
-      const limitMessage: Message = {
-        id: `limit-${Date.now()}`,
-        text: 'Bugünkü skor analizlerin tamamlandı.\nYarın tekrar görüşebiliriz.\n\nDaha detaylı analiz istiyorsanız Proxy-Lite\'ı inceleyebilirsiniz.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, limitMessage]);
-    }
-  }, [dailyCount]);
+  const showChatLimitMessage = useCallback(() => {
+    const limitMessage: Message = {
+      id: `limit-${Date.now()}`,
+      text: resolveChatLimitMessage(accountEntitlements.tier),
+      isUser: false,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, limitMessage]);
+  }, [accountEntitlements.tier]);
 
   const handleSend = async (text: string) => {
     // Lazy creation: ilk mesajda arşiv kaydını burada oluştur.
@@ -549,10 +525,16 @@ export default function StandaloneChatInner() {
       router.replace(`/standalone?chat=${newId}`, { scroll: false });
     }
 
-    if (isLimitReached || dailyCount >= DAILY_LIMIT_HARD) {
+    if (isMessageLimitReached) {
+      showChatLimitMessage();
+      return;
+    }
+
+    const maxChars = accountEntitlements.entitlements.maxMessageChars;
+    if (text.length > maxChars) {
       const limitMessage: Message = {
         id: `limit-${Date.now()}`,
-        text: 'Bugünkü skor analizlerin tamamlandı. Yarın tekrar görüşebiliriz.',
+        text: 'Mesajın bu hesap için çok uzun. Kısaltıp tekrar deneyebilirsin.',
         isUser: false,
         timestamp: new Date(),
       };
@@ -586,18 +568,8 @@ export default function StandaloneChatInner() {
     lastUserMessageAtRef.current = Date.now();
     setBranchSuggestionVisible(false);
 
-    // Soft limit: Apply random throttle delay (0-300ms) during typing indicator
-    const throttleDelay = dailyCount >= DAILY_LIMIT_SOFT && dailyCount < DAILY_LIMIT_HARD
-      ? Math.floor(Math.random() * (THROTTLE_DELAY_MAX - THROTTLE_DELAY_MIN + 1)) + THROTTLE_DELAY_MIN
-      : 0;
-
     // Show typing indicator
     setIsTyping(true);
-    
-    // Apply throttle delay during typing indicator (user won't notice)
-    if (throttleDelay > 0) {
-      await new Promise(resolve => setTimeout(resolve, throttleDelay));
-    }
 
     // Create assistant message placeholder for streaming
     const assistantMessageId = `eza-${Date.now()}`;
@@ -630,6 +602,7 @@ export default function StandaloneChatInner() {
         }
         const result = await startStream('/api/standalone/stream', streamBody,
           {
+            headers: quotaHeaders,
             onToken: (token: string) => {
               // Update assistant message with streaming text
               setMessages((prev) =>
@@ -748,8 +721,7 @@ export default function StandaloneChatInner() {
                 );
               }
 
-              // Increment daily count
-              incrementDailyCount();
+              void refreshEntitlements();
             }
           }
         );
@@ -783,10 +755,21 @@ export default function StandaloneChatInner() {
             model: analysisModelId,
             ...(chatHistory.length > 0 ? { history: chatHistory } : {}),
           },
-          auth: false,
+          auth: hasSainaAuthToken(),
+          headers: quotaHeaders,
         });
 
         if (!response.ok) {
+          const detail =
+            typeof response.detail === 'object' && response.detail !== null
+              ? (response.detail as { reason?: string })
+              : null;
+          if (detail?.reason && isQuotaLimitReason(detail.reason)) {
+            const quotaError = new Error(resolveChatLimitMessage(accountEntitlements.tier));
+            (quotaError as Error & { quotaDetail?: unknown }).quotaDetail = detail;
+            throw quotaError;
+          }
+
           // Check for demo limit errors
           const errorCode = response.error?.error_code || response.error?.error;
           const errorMessage = response.error?.error_message || response.error?.message || 'Request failed';
@@ -847,8 +830,7 @@ export default function StandaloneChatInner() {
           );
         }
 
-        // Increment daily count
-        incrementDailyCount();
+        void refreshEntitlements();
 
         // Handle response based on mode
         if (safeOnlyMode && (data as any).mode === 'safe-only') {
@@ -926,20 +908,29 @@ export default function StandaloneChatInner() {
       
       // Show error message
       let errorText = 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.';
-      const errorCode = error?.code || error?.response?.data?.error;
-      
-      // Handle demo limit errors
-      if (errorCode === 'DEMO_TOKEN_LIMIT_REACHED') {
-        errorText = 'Günlük Demo Limiti Doldu\n\nBu sayfa, EZA\'nın herkese açık demo ortamıdır. Sistem stabilitesi ve adil kullanım için günlük bir kapasite ile çalışır.\n\nLütfen daha sonra tekrar deneyin.';
-      } else if (errorCode === 'DEMO_TEXT_LIMIT_EXCEEDED') {
-        errorText = 'Demo ortamında uzun metin analizi sınırlıdır. Daha kapsamlı analizler kurumsal kullanım için sunulmaktadır.';
-      } else if (error.message) {
-        if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-          errorText = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
-        } else if (error.message.includes('404') || error.message.includes('bulunamadı')) {
-          errorText = 'Backend endpoint bulunamadı. Lütfen backend\'in çalıştığından emin olun.';
-        } else {
-          errorText = error.message;
+      const quotaDetail = extractQuotaDetail(error);
+      if (quotaDetail?.reason && isQuotaLimitReason(quotaDetail.reason)) {
+        errorText = resolveChatLimitMessage(
+          quotaDetail.currentTier ?? accountEntitlements.tier
+        );
+        void refreshEntitlements();
+      } else {
+        const errorCode = error?.code || error?.response?.data?.error;
+
+        if (errorCode === 'DEMO_TOKEN_LIMIT_REACHED') {
+          errorText =
+            'Günlük Demo Limiti Doldu\n\nBu sayfa, EZA\'nın herkese açık demo ortamıdır. Sistem stabilitesi ve adil kullanım için günlük bir kapasite ile çalışır.\n\nLütfen daha sonra tekrar deneyin.';
+        } else if (errorCode === 'DEMO_TEXT_LIMIT_EXCEEDED') {
+          errorText =
+            'Demo ortamında uzun metin analizi sınırlıdır. Daha kapsamlı analizler kurumsal kullanım için sunulmaktadır.';
+        } else if (error.message) {
+          if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+            errorText = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
+          } else if (error.message.includes('404') || error.message.includes('bulunamadı')) {
+            errorText = 'Backend endpoint bulunamadı. Lütfen backend\'in çalıştığından emin olun.';
+          } else {
+            errorText = error.message;
+          }
         }
       }
       
@@ -1156,7 +1147,7 @@ export default function StandaloneChatInner() {
           onDismiss={handleBranchDismiss}
         />
       ) : null}
-      <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={isLimitReached} />
+      <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={isMessageLimitReached} />
     </>
   );
 
@@ -1196,7 +1187,7 @@ export default function StandaloneChatInner() {
     analysisModelId,
     onAnalysisModelChange: setAnalysisModelId,
     settingsDisabled: isLoading,
-    notifications: isPremium ? systemNotifications : [],
+    notifications: canViewMapData ? systemNotifications : [],
   });
 
   if (!ready) {

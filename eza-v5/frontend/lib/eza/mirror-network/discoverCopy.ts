@@ -14,6 +14,8 @@ export const SAINA_DISCOVER_HERO_LINE_3 = 'Kendi yolculuğunu başlat.';
 
 export const SAINA_DISCOVER_CTA = 'Bu sohbete katıl →';
 
+export const SAINA_DISCOVER_LIMIT_CTA = 'Hesabını Yükselt →';
+
 export const SAINA_DISCOVER_EMPTY_TITLE = 'Henüz keşfedilecek Ayna yok.';
 
 export const SAINA_DISCOVER_EMPTY_BODY = 'İlk Aynayı sen oluştur.';

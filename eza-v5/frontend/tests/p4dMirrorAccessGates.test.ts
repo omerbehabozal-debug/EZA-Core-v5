@@ -104,7 +104,7 @@ describe('P4-D access gates (source)', () => {
 
 describe('P4-D ephemeral copy constants', () => {
   it('defines distinct Free and Plus ephemeral strings', () => {
-    expect(MIRROR_EPHEMERAL_FREE).toMatch(/Plus ile açılır/i);
+    expect(MIRROR_EPHEMERAL_FREE).toMatch(/hesabını yükselttiğinde açılır/i);
     expect(MIRROR_EPHEMERAL_PLUS).toMatch(/Paylaşarak saklayabilirsin/i);
   });
 });

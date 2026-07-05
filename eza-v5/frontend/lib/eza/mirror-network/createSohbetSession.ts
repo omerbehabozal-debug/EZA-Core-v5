@@ -8,10 +8,12 @@ import {
   MIRROR_SOHBET_SESSION_STORAGE_PREFIX,
   type MirrorSohbetSession,
 } from '@/lib/eza/mirror-network/sohbetTypes';
+import { buildSainaQuotaHeaders } from '@/lib/eza/plan/sainaQuotaHeaders';
+import type { QuotaErrorDetail } from '@/lib/eza/plan/sainaQuotaMessages';
 
 export type CreateSohbetSessionResult =
   | { ok: true; session: MirrorSohbetSession }
-  | { ok: false; status: number };
+  | { ok: false; status: number; quotaDetail?: QuotaErrorDetail };
 
 function sessionStorageKey(slug: string): string {
   return `${MIRROR_SOHBET_SESSION_STORAGE_PREFIX}${slug}`;
@@ -36,6 +38,21 @@ export function cacheSohbetSession(session: MirrorSohbetSession): void {
   sessionStorage.setItem(sessionStorageKey(session.mirrorSlug), JSON.stringify(session));
 }
 
+function buildSessionHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    ...buildSainaQuotaHeaders(),
+  };
+  if (typeof window !== 'undefined') {
+    const authToken = window.localStorage.getItem('eza_token');
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`;
+    }
+  }
+  return headers;
+}
+
 export async function createMirrorSohbetSession(
   slug: string,
   options?: { guestToken?: string; forceNew?: boolean }
@@ -55,11 +72,21 @@ export async function createMirrorSohbetSession(
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: buildSessionHeaders(),
       body: JSON.stringify({ guestToken }),
     });
 
     if (!response.ok) {
+      if (response.status === 403) {
+        try {
+          const data = (await response.json()) as { detail?: QuotaErrorDetail };
+          if (data.detail?.reason) {
+            return { ok: false, status: 403, quotaDetail: data.detail };
+          }
+        } catch {
+          // fall through
+        }
+      }
       return { ok: false, status: response.status };
     }
 

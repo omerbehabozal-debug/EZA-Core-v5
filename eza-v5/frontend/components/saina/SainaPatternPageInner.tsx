@@ -12,7 +12,6 @@ import {
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
-import { useMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
 import RelationshipPatternView from '@/components/mirror/RelationshipPatternView';
 import PatternPlusUpsellBanner from '@/components/mirror/relationship/PatternPlusUpsellBanner';
 import SainaPatternShell from '@/components/saina/SainaPatternShell';
@@ -21,8 +20,13 @@ import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversatio
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
-import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
+import {
+  canViewRelationshipMapData,
+  filterEntriesForMapAccess,
+  getRelationshipMapAccess,
+} from '@/lib/eza/plan/sainaRelationshipMapAccess';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
+import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import {
   DEFAULT_ANALYSIS_MODEL_ID,
@@ -36,6 +40,8 @@ const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
 export default function SainaPatternPageInner() {
   const router = useRouter();
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
+  const { entitlements: accountEntitlements, isLoading: entitlementsLoading } =
+    useAccountEntitlements();
 
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
@@ -78,19 +84,24 @@ export default function SainaPatternPageInner() {
   }, []);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const mapAccess = getRelationshipMapAccess(accountEntitlements);
+  const canViewMapData = canViewRelationshipMapData(mapAccess);
   const {
-    openGateModal,
     handleRequestLogin,
     handleOpenUpgrade: handleUpgrade,
     gateModals,
   } = useSainaGateModals({ planTier, defaultUpgradeFeature: 'relationship_pattern' });
-  const planResolved = !isPlanLoading;
-  const isPremium = planResolved && gatePremiumFeature(planTier) === 'allow';
+  const planResolved = !isPlanLoading && !entitlementsLoading;
 
   const { entries, deviceState, systemNotifications } = usePatternDeviceSync({
-    isPremium,
+    hasMapDataAccess: canViewMapData,
     archives,
   });
+
+  const displayEntries = useMemo(
+    () => filterEntriesForMapAccess(entries, mapAccess),
+    [entries, mapAccess]
+  );
 
   const { conversations, conversationGroups, activeChatId } = useSainaSidebarConversations(archives);
 
@@ -161,7 +172,7 @@ export default function SainaPatternPageInner() {
     onSafeOnlyModeChange: setSafeOnlyMode,
     analysisModelId,
     onAnalysisModelChange: setAnalysisModelId,
-    notifications: isPremium ? systemNotifications : [],
+    notifications: canViewMapData ? systemNotifications : [],
   });
 
   return (
@@ -186,16 +197,17 @@ export default function SainaPatternPageInner() {
           <div className="saina-route-fallback min-h-[32vh] flex-1" aria-hidden />
         ) : (
           <>
-            {!isPremium ? (
+            {!canViewMapData ? (
               <PatternPlusUpsellBanner
                 className="relative z-[1] shrink-0"
                 onCtaClick={handleUpgrade}
               />
             ) : null}
             <RelationshipPatternView
-              entries={entries}
+              entries={displayEntries}
               deviceState={deviceState}
-              previewMode={!isPremium}
+              previewMode={!canViewMapData}
+              mapAccess={mapAccess}
               className="relative z-[1] min-h-0 flex-1"
             />
           </>

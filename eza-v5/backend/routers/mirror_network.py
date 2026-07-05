@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
@@ -20,6 +21,10 @@ from backend.core.schemas.mirror_sohbet import (
     MirrorSohbetSessionRequest,
     MirrorSohbetSessionResponse,
 )
+from backend.auth.deps import security
+from backend.core.account.guards import assert_can_start_discover_conversation
+from backend.core.account.quota_events import DISCOVER_CONVERSATION_STARTED
+from backend.core.account.usage_service import record_account_usage_event
 from backend.security.rate_limit import rate_limit_standalone
 from backend.auth.mirror_entitlement import require_mirror_authenticated_user
 from backend.models.mirror_network import MirrorNetworkNode
@@ -133,6 +138,7 @@ async def start_mirror_sohbet_session(
     slug: str,
     body: MirrorSohbetSessionRequest | None = None,
     db: AsyncSession = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     _: None = Depends(rate_limit_standalone),
 ) -> MirrorSohbetSessionResponse:
     """
@@ -141,7 +147,24 @@ async def start_mirror_sohbet_session(
     Never uses private payload, raw conversation, or user identity.
     """
     guest = body.guestToken if body else None
-    return await create_sohbet_session(db, slug, guest)
+    subject = await assert_can_start_discover_conversation(
+        db,
+        credentials=credentials,
+        guest_token=guest,
+        mirror_slug=slug,
+        record_on_success=False,
+    )
+    result = await create_sohbet_session(db, slug, guest)
+    await record_account_usage_event(
+        db,
+        event_type=DISCOVER_CONVERSATION_STARTED,
+        user_id=subject.user_id,
+        guest_fingerprint=subject.guest_fingerprint,
+        source_id=slug,
+        metadata={"mirrorSlug": slug},
+    )
+    await db.commit()
+    return result
 
 
 @debug_router.get("/{slug}", response_model=MirrorNetworkDebugReport)

@@ -115,13 +115,13 @@ export const MIRROR_EPHEMERAL_NOTE =
 
 /** P4-D — ephemeral daily mirror (plan-specific) */
 export const MIRROR_EPHEMERAL_FREE =
-  'Bugünkü aynan gece sıfırlanır. Paylaşılabilir poster Plus ile açılır.';
+  'Bugünkü aynan gece sıfırlanır. Paylaşılabilir poster hesabını yükselttiğinde açılır.';
 
 export const MIRROR_EPHEMERAL_PLUS =
   'Bugünkü aynan gece sıfırlanır. Paylaşarak saklayabilirsin.';
 
 export const MIRROR_FREE_SHARE_POSTER_HINT =
-  'Paylaşım posteri Plus ile açılır. Bugünkü kartını uygulama içinde görebilirsin.';
+  'Paylaşım posteri üst hesap seviyelerinde açılır. Bugünkü kartını uygulama içinde görebilirsin.';
 
 export const MIRROR_PATTERN_REDIRECT =
   'Zaman içindeki değişimini AI İlişki Deseni\'nde görebilirsin.';
@@ -196,15 +196,15 @@ export const MINI_MIRROR_LOCKED_HEADING = 'Tam aynanda seni bekleyenler';
 export const FREE_MIRROR_LIMIT_TITLE = 'Bugünkü ücretsiz ayna hakkını kullandın';
 
 export const FREE_MIRROR_LIMIT_BODY =
-  'Yarın tekrar ücretsiz ayna oluşturabilirsin. Gün içinde yeni ayna oluşturmak için Plus\'a geç.';
+  'Yarın tekrar ücretsiz ayna oluşturabilirsin. Gün içinde yeni ayna oluşturmak için hesabını yükseltebilirsin.';
 
 export const FREE_MIRROR_LIMIT_NEXT_LABEL = 'Yarın';
 
 export const FREE_MIRROR_LIMIT_PLUS_HINT =
-  'Plus ile gün içinde aynayı güncelle, paylaşım ve ilişki deseni açılır.';
+  'Üst hesap seviyelerinde gün içinde aynayı güncelleme, paylaşım ve ilişki haritası açılır.';
 
 export const FREE_MIRROR_READY_PLUS_HINT =
-  'Plus ile gün içinde aynayı güncelle, paylaşım posteri ve ilişki deseni açılır.';
+  'Üst hesap seviyelerinde gün içinde aynayı güncelleme, paylaşım posteri ve ilişki haritası açılır.';
 
 export const MIRROR_CURRENT_BADGE = 'Bugünkü aynan güncel';
 
@@ -213,15 +213,15 @@ export const MIRROR_CURRENT_HINT =
 
 export const MIRROR_UPDATE_SIGNAL_HINT = 'Yeni sohbet sinyalleri algılandı.';
 
-export const FREE_MIRROR_LIMIT_CTA = "Plus'a Geç";
+export const FREE_MIRROR_LIMIT_CTA = 'Hesabını Yükselt';
 
 /** Plan gate / upgrade */
-export const PLAN_UPGRADE_CTA = "Plus'a Geç";
+export const PLAN_UPGRADE_CTA = 'Hesabını Yükselt';
 
-export const PLAN_UPGRADE_MODAL_TITLE = "Plus'a Geç";
+export const PLAN_UPGRADE_MODAL_TITLE = 'Hesabını Yükselt';
 
 export const PLAN_PLUS_FEATURE_HINT =
-  'Gün içi güncelleme, paylaşım ve ilişki deseni Plus ile açılır.';
+  'Gün içi güncelleme, paylaşım ve ilişki haritası üst hesap seviyelerinde açılır.';
 
 export const MIRROR_UPDATE_LABEL = 'Aynanı Güncelle';
 
@@ -234,10 +234,10 @@ export const MIRROR_NEW_SCENE_HINT =
 export const MIRROR_SCENE_STYLE_PREFIX = 'Sahne stili:';
 
 export const PLAN_UPGRADE_MODAL_BODY =
-  'Plus ile persona görselin, tam hikâyen, paylaşılabilir posterin ve AI ile zaman içindeki ilişki desenin açılır.';
+  'Üst hesap seviyelerinde persona görselin, tam hikâyen, paylaşılabilir posterin ve ilişki haritan açılır.';
 
 export const PLAN_UPGRADE_MODAL_NOTE =
-  'Ödeme sistemi yakında. Şimdilik bu, Plus deneyiminin bir önizlemesidir.';
+  'Ödeme sistemi hazırlanıyor.';
 
 export const PLAN_UPGRADE_MODAL_DISMISS = 'Şimdilik kapat';
 
@@ -250,24 +250,24 @@ export const PLAN_UPGRADE_MIRROR_SAVE_BODY =
 
 export const PLAN_UPGRADE_MIRROR_SAVE_CTA = 'Hesabına bağla';
 
-export const PLAN_UPGRADE_AUTH_TITLE = 'Giriş yap ve Plus’u keşfet';
+export const PLAN_UPGRADE_AUTH_TITLE = 'Giriş yap ve hesabını oluştur';
 
 export const PLAN_UPGRADE_AUTH_BODY =
-  'Sahne üretimi ve tam ayna deneyimi için giriş yapman gerekiyor. Plus ile tüm özellikler açılır.';
+  'Sahne üretimi ve tam ayna deneyimi için giriş yapman gerekiyor. Hesabını yükselterek tüm özellikleri açabilirsin.';
 
-export const PLAN_UPGRADE_BADGE = 'Plus';
+export const PLAN_UPGRADE_BADGE = 'Yükselt';
 
 /** Relationship Pattern (Free upsell) */
-export const PATTERN_UPSELL_TITLE = 'AI İlişki Haritası canlı hale gelsin';
+export const PATTERN_UPSELL_TITLE = 'İlişki Haritası canlı hale gelsin';
 
 export const PATTERN_UPSELL_BODY =
-  'Plus ile davranış adaların gerçek sohbetlerinden oluşur; trendler, içgörüler ve zaman içindeki dönüşümün açılır.';
+  'Üst hesap seviyelerinde davranış adaların gerçek sohbetlerinden oluşur; trendler, içgörüler ve zaman içindeki dönüşümün açılır.';
 
-export const PATTERN_UPSELL_CTA = 'Plus seviyesine geç';
+export const PATTERN_UPSELL_CTA = 'Hesabını Yükselt';
 
 /** @deprecated blur gate kaldırıldı — upsell metinleri için PATTERN_UPSELL_* kullan */
 export const PATTERN_LOCK_TITLE = 'AI ile zaman içindeki dönüşümünü keşfet';
 
 /** @deprecated blur gate kaldırıldı */
-export const PATTERN_LOCK_BODY = 'Plus ile açılır';
+export const PATTERN_LOCK_BODY = 'Hesabını yükselttiğinde açılır';
 

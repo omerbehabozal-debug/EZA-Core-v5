@@ -22,6 +22,35 @@ vi.mock('@/lib/eza/plan/usePlan', () => ({
   })),
 }));
 
+vi.mock('@/lib/eza/plan/useAccountEntitlements', () => ({
+  useAccountEntitlements: vi.fn(() => ({
+    entitlements: {
+      tier: 'guest',
+      label: 'SAINA Guest',
+      entitlements: {
+        tier: 'guest',
+        dailyMessageLimit: 10,
+        maxMessageChars: 500,
+        mirrorCooldownHours: null,
+        dailyMirrorLimit: 1,
+        dailyDiscoverStartLimit: 1,
+        relationshipMapAccess: 'locked',
+        imageQuality: 'medium',
+        priorityGeneration: false,
+      },
+      usage: {
+        dailyMessagesUsed: 0,
+        dailyMessagesLimit: 10,
+        dailyDiscoverStartsUsed: 0,
+        dailyDiscoverStartsLimit: 1,
+        nextVisualAvailableAt: null,
+      },
+    },
+    isLoading: false,
+    refreshEntitlements: vi.fn(),
+  })),
+}));
+
 vi.mock('@/hooks/useStreamResponse', () => ({
   useStreamResponse: () => ({
     startStream: vi.fn(),

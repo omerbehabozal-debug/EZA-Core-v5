@@ -13,7 +13,7 @@ import {
 } from '@/lib/eza/patternDeviceSync';
 
 export function usePatternDeviceSync(options: {
-  isPremium: boolean;
+  hasMapDataAccess: boolean;
   archives: ArchivedChatSummary[];
 }): {
   entries: SavedBehavioralEntry[];
@@ -24,27 +24,27 @@ export function usePatternDeviceSync(options: {
   const backfillAttempted = useRef(false);
 
   useEffect(() => {
-    if (!options.isPremium) return;
+    if (!options.hasMapDataAccess) return;
     if (realEntries.length > 0) return;
     if (!options.archives.some((a) => a.messageCount > 0)) return;
     if (backfillAttempted.current) return;
     backfillAttempted.current = true;
     backfillBehavioralHistoryFromArchives();
-  }, [options.isPremium, options.archives, realEntries.length]);
+  }, [options.hasMapDataAccess, options.archives, realEntries.length]);
 
   const entries = useMemo(
-    () => (options.isPremium ? realEntries : []),
-    [options.isPremium, realEntries]
+    () => (options.hasMapDataAccess ? realEntries : []),
+    [options.hasMapDataAccess, realEntries]
   );
 
   const deviceState = useMemo(
     () =>
       resolvePatternDeviceState({
-        isPremium: options.isPremium,
+        hasMapDataAccess: options.hasMapDataAccess,
         entries,
         archives: options.archives,
       }),
-    [options.isPremium, entries, options.archives]
+    [options.hasMapDataAccess, entries, options.archives]
   );
 
   const systemNotifications = useMemo(

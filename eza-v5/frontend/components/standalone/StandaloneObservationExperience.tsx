@@ -79,17 +79,13 @@ import {
 import { purgeLegacyMirrorSceneCaches } from '@/lib/eza/mirror/conversationMirrorV3/mirrorSceneCacheMigration';
 import { isV3MirrorCard } from '@/lib/eza/mirror/conversationMirrorV3/applyV3SceneOverlay';
 import { usePlan } from '@/lib/eza/plan/usePlan';
+import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
+import { canCreateVisualFromEntitlements } from '@/lib/eza/plan/sainaVisualQuota';
+import {
+  resolveVisualLimitMessage,
+} from '@/lib/eza/plan/sainaQuotaMessages';
 import { useAuth } from '@/context/AuthContext';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
-import {
-  canCreateFreeMirrorToday,
-  markFreeMirrorUsedToday,
-} from '@/lib/eza/plan/freeMirrorUsage';
-import {
-  canConsumePlusMirrorProduction,
-  consumePlusMirrorProduction,
-  getPlusMirrorProductionRemaining,
-} from '@/lib/eza/plan/plusMirrorDailyUsage';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   MIRROR_BIRTH_GENERATE_EVENT,
@@ -162,7 +158,6 @@ export default function StandaloneObservationExperience({
   const [styleLensSession, setStyleLensSession] = useState<MirrorStyleLensSession>(() =>
     createDefaultStyleLensSession({ date: '', visual: undefined })
   );
-  const [plusUsageRevision, setPlusUsageRevision] = useState(0);
   const sceneAutoKeyRef = useRef<string | null>(null);
   const sceneGenerationInFlightRef = useRef(false);
   const lastRawSceneUrlRef = useRef<string | null>(null);
@@ -172,12 +167,14 @@ export default function StandaloneObservationExperience({
   const mirrorExport = useMirrorCardExport();
   const { isAuthenticated, isAuthReady } = useAuth();
   const { isPlus, refreshPlan } = usePlan();
+  const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
 
-  const plusProductionRemaining = useMemo(
-    () => (isPlus ? getPlusMirrorProductionRemaining() : 0),
-    [isPlus, plusUsageRevision]
+  const canCreateVisual = useMemo(
+    () => canCreateVisualFromEntitlements(accountEntitlements),
+    [accountEntitlements]
   );
-  const hasPlusProductionQuota = isPlus && plusProductionRemaining > 0;
+
+  const hasProductionQuota = canCreateVisual;
 
   useEffect(() => {
     clearStaleDailyMirrorSnapshot();
@@ -444,9 +441,6 @@ export default function StandaloneObservationExperience({
         });
       } else {
         saveDailyMirrorSnapshot(sourceEntries, card.date);
-        if (!isPlus) {
-          markFreeMirrorUsedToday(card.date);
-        }
       }
       return true;
     },
@@ -473,19 +467,13 @@ export default function StandaloneObservationExperience({
             setDailyStatus('insufficient');
             return;
           }
-          if (isPlus) {
-            consumePlusMirrorProduction(
-              options?.isUpdate ? 'update_mirror' : 'create_card'
-            );
-            setPlusUsageRevision((r) => r + 1);
-          }
         } catch {
           resetGeneratedCardState();
           setDailyStatus('error');
         }
       }, MIRROR_REVEAL_DURATION_MS);
     },
-    [commitMirrorReady, isPlus, resetGeneratedCardState]
+    [commitMirrorReady, resetGeneratedCardState]
   );
 
   const showExistingMirrorCard = useCallback(() => {
@@ -715,6 +703,7 @@ export default function StandaloneObservationExperience({
         void prepareMirrorShareLink(generatedDailyCard, result.sceneImageUrl, {
           refreshScene: true,
         });
+        void refreshEntitlements();
         if (
           !isV3MirrorCard(generatedDailyCard) &&
           (visual.renderMode ?? resolveMirrorRenderMode()) === 'hybrid_middle' &&
@@ -734,8 +723,16 @@ export default function StandaloneObservationExperience({
           if (err.code === 'auth_required') {
             sceneAutoKeyRef.current = null;
             setIdentityOpen(true);
-          } else if (err.code === 'upgrade_required') {
+          } else if (
+            err.code === 'upgrade_required' ||
+            err.code === 'visual_not_available_on_tier' ||
+            err.code === 'visual_daily_limit_reached'
+          ) {
             setUpgradeOpen(true);
+            setDailyStatus('daily_limit');
+          } else if (err.code === 'visual_cooldown_active') {
+            sceneAutoKeyRef.current = `${autoKey}:cooldown`;
+            setDailyStatus('plus_limit');
           } else if (err.code === 'rate_limit') {
             sceneAutoKeyRef.current = `${autoKey}:rate_limited`;
             setSceneExtras({ hybridFallbackReason: 'rate_limit' });
@@ -770,6 +767,7 @@ export default function StandaloneObservationExperience({
       resolveSceneDisplayUrl,
       sceneImageStatus,
       styleLensSession,
+      refreshEntitlements,
     ]
   );
 
@@ -777,13 +775,14 @@ export default function StandaloneObservationExperience({
   const handleNewMirrorScene = useCallback(() => {
     if (!isPlus) return;
     if (dailyStatus !== 'ready') return;
-    if (!canConsumePlusMirrorProduction()) return;
-    if (!consumePlusMirrorProduction('new_scene')) return;
-    setPlusUsageRevision((r) => r + 1);
+    if (!canCreateVisual) {
+      setDailyStatus('plus_limit');
+      return;
+    }
     const nextSession = advanceStyleLensSession(styleLensSession);
     setStyleLensSession(nextSession);
     void handleGenerateMirrorScene(nextSession);
-  }, [isPlus, dailyStatus, handleGenerateMirrorScene, styleLensSession]);
+  }, [isPlus, dailyStatus, handleGenerateMirrorScene, styleLensSession, canCreateVisual]);
 
   const activeStyleLensLabel = useMemo(
     () => getStyleLensDisplayLabel(styleLensSession.selectedStyleLensId),
@@ -834,6 +833,10 @@ export default function StandaloneObservationExperience({
     handleGenerateMirrorScene,
   ]);
 
+  const visualLimitStatus = useCallback((): 'daily_limit' | 'plus_limit' => {
+    return accountEntitlements.usage.nextVisualAvailableAt ? 'plus_limit' : 'daily_limit';
+  }, [accountEntitlements.usage.nextVisualAvailableAt]);
+
   const handleGenerateDailyMirror = useCallback(() => {
     if (entries.length < MIRROR_MIN_SAMPLES) {
       resetGeneratedCardState();
@@ -849,8 +852,8 @@ export default function StandaloneObservationExperience({
           setDailyStatus('daily_limit');
           return;
         }
-        if (!canConsumePlusMirrorProduction()) {
-          setDailyStatus('plus_limit');
+        if (!canCreateVisual) {
+          setDailyStatus(visualLimitStatus());
           return;
         }
         runMirrorWithReveal(entries, { isUpdate: true });
@@ -864,8 +867,8 @@ export default function StandaloneObservationExperience({
         return;
       }
 
-      if (isPlus && !canConsumePlusMirrorProduction()) {
-        setDailyStatus('plus_limit');
+      if (!canCreateVisual) {
+        setDailyStatus(visualLimitStatus());
         return;
       }
 
@@ -880,8 +883,8 @@ export default function StandaloneObservationExperience({
         setDailyStatus('daily_limit');
         return;
       }
-      if (!canConsumePlusMirrorProduction()) {
-        setDailyStatus('plus_limit');
+      if (!canCreateVisual) {
+        setDailyStatus(visualLimitStatus());
         return;
       }
       runMirrorWithReveal(entries, { isUpdate: true });
@@ -895,13 +898,8 @@ export default function StandaloneObservationExperience({
       return;
     }
 
-    if (!isPlus && !canCreateFreeMirrorToday()) {
-      setDailyStatus('daily_limit');
-      return;
-    }
-
-    if (isPlus && !canConsumePlusMirrorProduction()) {
-      setDailyStatus('plus_limit');
+    if (!canCreateVisual) {
+      setDailyStatus(visualLimitStatus());
       return;
     }
 
@@ -910,6 +908,8 @@ export default function StandaloneObservationExperience({
     conversationId,
     entries,
     isPlus,
+    canCreateVisual,
+    visualLimitStatus,
     resetGeneratedCardState,
     runMirrorWithReveal,
     showExistingMirrorCard,
@@ -938,8 +938,8 @@ export default function StandaloneObservationExperience({
         return;
       }
 
-      if (!canConsumePlusMirrorProduction()) {
-        setDailyStatus('plus_limit');
+      if (!canCreateVisual) {
+        setDailyStatus(visualLimitStatus());
         return;
       }
 
@@ -956,14 +956,14 @@ export default function StandaloneObservationExperience({
       return;
     }
 
-    if (!canConsumePlusMirrorProduction()) {
-      setDailyStatus('plus_limit');
+    if (!canCreateVisual) {
+      setDailyStatus(visualLimitStatus());
       return;
     }
 
     if (entries.length < MIRROR_MIN_SAMPLES) return;
     runMirrorWithReveal(entries, { isUpdate: true });
-  }, [conversationId, entries, isPlus, runMirrorWithReveal]);
+  }, [conversationId, entries, isPlus, canCreateVisual, visualLimitStatus, runMirrorWithReveal]);
 
   const handleForceBmwMercedes = useCallback(() => {
     const boosted = withDevVehicleCueHints(entries);
@@ -1101,12 +1101,17 @@ export default function StandaloneObservationExperience({
     }
 
     if (dailyStatus === 'plus_limit') {
+      const cooldownMessage =
+        accountEntitlements.usage.nextVisualAvailableAt != null
+          ? resolveVisualLimitMessage({
+              reason: 'visual_cooldown_active',
+              nextVisualAvailableAt: accountEntitlements.usage.nextVisualAvailableAt,
+            })
+          : PLUS_MIRROR_QUOTA_EXCEEDED_BODY;
       return (
         <div className={cn(ms.dailyReadyStack, 'max-w-sm px-4 text-center')}>
           <h3 className="text-sm font-medium text-stone-800">{PLUS_MIRROR_QUOTA_EXCEEDED_TITLE}</h3>
-          <p className="mt-2 text-[11px] leading-relaxed text-stone-500">
-            {PLUS_MIRROR_QUOTA_EXCEEDED_BODY}
-          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-stone-500">{cooldownMessage}</p>
           <button
             type="button"
             className="mt-4 text-[11px] text-violet-700 underline"
@@ -1220,7 +1225,7 @@ export default function StandaloneObservationExperience({
               isPlus={isPlus}
               cardReady={isScenePosterVisible}
               sceneImageStatus={sceneImageStatus}
-              hasProductionQuota={hasPlusProductionQuota}
+              hasProductionQuota={hasProductionQuota}
               showShare={showShareAction}
               onShare={handleShareOpen}
               onUpdate={handleMirrorRefresh}
@@ -1242,7 +1247,7 @@ export default function StandaloneObservationExperience({
           <DailyMirrorRefreshActions
             refreshCta="current"
             isPlus={isPlus}
-            hasProductionQuota={hasPlusProductionQuota}
+            hasProductionQuota={hasProductionQuota}
             onUpdate={handleMirrorRefresh}
           />
         </div>
@@ -1262,7 +1267,7 @@ export default function StandaloneObservationExperience({
           <DailyMirrorRefreshActions
             refreshCta="update"
             isPlus={isPlus}
-            hasProductionQuota={hasPlusProductionQuota}
+            hasProductionQuota={hasProductionQuota}
             onUpdate={handleMirrorRefresh}
           />
         </div>

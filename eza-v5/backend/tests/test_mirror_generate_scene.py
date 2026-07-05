@@ -23,6 +23,18 @@ from backend.services.mirror.mirror_image_service import (
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _mock_visual_quota_guards():
+    with patch(
+        "backend.routers.standalone_mirror.assert_can_create_visual",
+        new_callable=AsyncMock,
+    ), patch(
+        "backend.routers.standalone_mirror.record_account_usage_event",
+        new_callable=AsyncMock,
+    ):
+        yield
+
+
 def _make_plus_user():
     return SimpleNamespace(
         id=uuid.uuid4(),

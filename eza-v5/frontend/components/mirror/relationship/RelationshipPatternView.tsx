@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
@@ -10,9 +10,14 @@ import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import type { MirrorStateMeta } from '@/lib/eza/mirror/types';
 import {
   buildRelationshipDashboardMetrics,
-  RELATIONSHIP_PERIOD_OPTIONS,
   type RelationshipPeriodFilter,
 } from '@/lib/eza/mirror/relationshipPatternMetrics';
+import {
+  clampRelationshipPeriodForAccess,
+  getRelationshipPeriodOptionsForAccess,
+} from '@/lib/eza/plan/sainaRelationshipMapAccess';
+import type { RelationshipMapAccess } from '@/lib/eza/plan/tierEntitlements';
+import { SAINA_RELATIONSHIP_MAP_WINDOW_NOTE } from '@/lib/eza/sainaCopy';
 import {
   PATTERN_DEVICE_DEFAULT_EMPTY_HINT,
   PATTERN_DEVICE_EMPTY_HINT,
@@ -44,6 +49,8 @@ export type RelationshipPatternViewProps = {
   className?: string;
   /** Free plan — trend/içgörü alanları silik sabit placeholder. */
   previewMode?: boolean;
+  /** Entitlement window — hides "Tümü" for last_90_days tiers. */
+  mapAccess?: RelationshipMapAccess;
   /** Premium device sync — empty vs chats-without-history copy. */
   deviceState?: PatternDeviceState;
 };
@@ -62,9 +69,23 @@ export default function RelationshipPatternView({
   entries,
   className,
   previewMode = false,
+  mapAccess = 'locked',
   deviceState = 'free',
 }: RelationshipPatternViewProps) {
   const [period, setPeriod] = useState<RelationshipPeriodFilter>(30);
+  const periodOptions = useMemo(
+    () => getRelationshipPeriodOptionsForAccess(mapAccess),
+    [mapAccess]
+  );
+  const effectivePeriod = useMemo(
+    () => clampRelationshipPeriodForAccess(period, mapAccess),
+    [period, mapAccess]
+  );
+
+  useEffect(() => {
+    const clamped = clampRelationshipPeriodForAccess(period, mapAccess);
+    if (clamped !== period) setPeriod(clamped);
+  }, [mapAccess, period]);
   const [level, setLevel] = useState<PatternLevel>('map');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [fadeKey, setFadeKey] = useState(0);
@@ -72,11 +93,11 @@ export default function RelationshipPatternView({
 
   const metrics = useMemo(() => {
     try {
-      return buildRelationshipDashboardMetrics(entries, period);
+      return buildRelationshipDashboardMetrics(entries, effectivePeriod);
     } catch {
-      return buildRelationshipDashboardMetrics([], period);
+      return buildRelationshipDashboardMetrics([], effectivePeriod);
     }
-  }, [entries, period]);
+  }, [entries, effectivePeriod]);
 
   const emptyMapCaption =
     deviceState === 'chats_pending_pattern'
@@ -162,19 +183,24 @@ export default function RelationshipPatternView({
         </nav>
 
         <div className={sp.periodNav} role="tablist" aria-label="Dönem filtresi">
-          {RELATIONSHIP_PERIOD_OPTIONS.map((p) => (
+          {periodOptions.map((p) => (
             <button
               key={String(p.value)}
               type="button"
               role="tab"
-              aria-selected={period === p.value}
+              aria-selected={effectivePeriod === p.value}
               onClick={() => handlePeriod(p.value)}
-              className={period === p.value ? sp.periodTabActive : sp.periodTabIdle}
+              className={effectivePeriod === p.value ? sp.periodTabActive : sp.periodTabIdle}
             >
               {p.label}
             </button>
           ))}
         </div>
+        {mapAccess === 'last_90_days' ? (
+          <p className="mt-2 text-[11px] saina-pattern-text-muted" data-testid="saina-relationship-map-window-note">
+            {SAINA_RELATIONSHIP_MAP_WINDOW_NOTE}
+          </p>
+        ) : null}
       </div>
 
       <div

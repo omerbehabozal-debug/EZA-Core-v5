@@ -29,7 +29,7 @@ export default function InteractionDepthCard({
       </h3>
       {showForming ? (
         <p className={cn('mt-3 text-sm saina-pattern-text-muted', preview && 'opacity-60')}>
-          {preview ? 'Plus ile oluşur' : metric.label}
+          {preview ? 'Hesabını yükselttiğinde oluşur' : metric.label}
         </p>
       ) : (
         <>

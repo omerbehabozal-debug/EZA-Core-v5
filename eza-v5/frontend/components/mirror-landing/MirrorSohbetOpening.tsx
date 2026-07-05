@@ -15,6 +15,14 @@ import {
   trackGuestConversationStarted,
 } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import type { MirrorSohbetSession, MirrorThoughtCard } from '@/lib/eza/mirror-network/sohbetTypes';
+import { useSainaGateModals } from '@/hooks/useSainaGateModals';
+import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
+import {
+  isQuotaLimitReason,
+  resolveDiscoverLimitMessage,
+  type QuotaErrorDetail,
+} from '@/lib/eza/plan/sainaQuotaMessages';
+import { usePlan } from '@/lib/eza/plan/usePlan';
 import { cn } from '@/lib/utils';
 
 export type MirrorSohbetOpeningProps = {
@@ -29,8 +37,15 @@ export default function MirrorSohbetOpening({
   className,
 }: MirrorSohbetOpeningProps) {
   const router = useRouter();
+  const { isPlus, isLoading: isPlanLoading, source } = usePlan();
+  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const { handleOpenUpgrade, gateModals } = useSainaGateModals({
+    planTier,
+    defaultUpgradeFeature: 'saina_discover',
+  });
   const [session, setSession] = useState<MirrorSohbetSession | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'quota'>('loading');
+  const [quotaDetail, setQuotaDetail] = useState<QuotaErrorDetail | null>(null);
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,6 +56,11 @@ export default function MirrorSohbetOpening({
       const result = await createMirrorSohbetSession(slug);
       if (cancelled) return;
       if (!result.ok) {
+        if (result.status === 403 && result.quotaDetail && isQuotaLimitReason(result.quotaDetail.reason)) {
+          setQuotaDetail(result.quotaDetail);
+          setStatus('quota');
+          return;
+        }
         setStatus('error');
         return;
       }
@@ -87,6 +107,7 @@ export default function MirrorSohbetOpening({
 
   const openingParagraphs = session?.openingMessage.split('\n\n') ?? [];
   const canSend = draft.trim().length > 0 && !submitting;
+  const quotaMessage = resolveDiscoverLimitMessage(quotaDetail?.currentTier ?? planTier);
 
   return (
     <div
@@ -124,6 +145,21 @@ export default function MirrorSohbetOpening({
           <p className="mt-8 text-sm text-[#c8a090]">
             Bu Ayna için sohbet şu an açılamıyor.
           </p>
+        ) : null}
+
+        {status === 'quota' ? (
+          <div className="mt-8 space-y-4">
+            <p className="whitespace-pre-line text-sm text-[#d8cfc0]">{quotaMessage}</p>
+            {quotaDetail?.upgradeRequired !== false ? (
+              <button
+                type="button"
+                onClick={() => handleOpenUpgrade('saina_discover')}
+                className="rounded-full border border-[#e8d5b5]/25 bg-[#e8d5b5]/10 px-6 py-3 text-sm font-semibold text-[#f5ead8]"
+              >
+                Hesabını Yükselt
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         {status === 'ready' && session ? (
@@ -182,6 +218,7 @@ export default function MirrorSohbetOpening({
           </>
         ) : null}
       </div>
+      {gateModals}
     </div>
   );
 }

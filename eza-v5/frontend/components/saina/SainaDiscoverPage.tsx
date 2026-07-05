@@ -24,8 +24,10 @@ import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
-import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
+import { canStartDiscoverFromEntitlements } from '@/lib/eza/plan/sainaDiscoverQuota';
+import { resolveDiscoverLimitMessage } from '@/lib/eza/plan/sainaQuotaMessages';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
+import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import {
@@ -48,6 +50,7 @@ const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
 export default function SainaDiscoverPage() {
   const router = useRouter();
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
+  const { entitlements: accountEntitlements } = useAccountEntitlements();
 
   const [items, setItems] = useState<DiscoverMirror[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,11 +65,12 @@ export default function SainaDiscoverPage() {
   }, []);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const discoverLimitReached = !canStartDiscoverFromEntitlements(accountEntitlements);
+  const discoverLimitMessage = resolveDiscoverLimitMessage(accountEntitlements.tier);
   const isCompactShell = useSainaCompactShell();
   const openMobileSidebar = useSainaChromeStore((s) => s.openMobileSidebar);
   const openCommandPalette = useSainaChromeStore((s) => s.openCommandPalette);
   const {
-    openGateModal,
     handleRequestLogin,
     handleOpenUpgrade: handleUpgrade,
     gateModals,
@@ -119,13 +123,13 @@ export default function SainaDiscoverPage() {
     [requestDelete]
   );
 
+  const handleOpenDiscoverUpgrade = useCallback(() => {
+    handleUpgrade('saina_discover');
+  }, [handleUpgrade]);
+
   const handleOpenPattern = useCallback(() => {
-    if (gatePremiumFeature(planTier) !== 'allow') {
-      openGateModal('relationship_pattern');
-      return;
-    }
     router.push(MIRROR_PATTERN_ROUTE, { scroll: false });
-  }, [planTier, openGateModal, router]);
+  }, [router]);
 
 
   useSyncSainaChrome({
@@ -240,6 +244,25 @@ export default function SainaDiscoverPage() {
           </p>
         </header>
 
+        {discoverLimitReached ? (
+          <div
+            className="saina-discover-state saina-discover-state--limit"
+            data-testid="saina-discover-limit-banner"
+            role="status"
+          >
+            <p className="saina-discover-state__body saina-discover-state__body--preline">
+              {discoverLimitMessage}
+            </p>
+            <button
+              type="button"
+              className="saina-discover-retry"
+              onClick={handleOpenDiscoverUpgrade}
+            >
+              Hesabını Yükselt
+            </button>
+          </div>
+        ) : null}
+
         {error ? (
           <div className="saina-discover-state saina-discover-state--error" role="alert">
             <p className="saina-discover-state__title">{SAINA_DISCOVER_ERROR}</p>
@@ -269,7 +292,12 @@ export default function SainaDiscoverPage() {
         ) : null}
 
         {!error && (loading || items.length > 0) ? (
-          <SainaDiscoverList items={items} loading={loading} />
+          <SainaDiscoverList
+            items={items}
+            loading={loading}
+            discoverLimitReached={discoverLimitReached}
+            onDiscoverLimit={handleOpenDiscoverUpgrade}
+          />
         ) : null}
           </div>
         </div>

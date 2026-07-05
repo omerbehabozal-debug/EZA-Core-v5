@@ -329,6 +329,70 @@ html:has(.saina-page) body {
   text-decoration: underline;
 }
 
+.saina-sidebar-usage-banner {
+  margin-bottom: 0.65rem;
+}
+
+.saina-usage-banner {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.55rem 0.65rem;
+}
+
+.saina-usage-banner__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.saina-usage-banner__title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(217, 196, 163, 0.72);
+}
+
+.saina-usage-banner__upgrade {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--saina-logo-gold, #e7b45b);
+}
+
+.saina-usage-banner__upgrade:hover {
+  color: rgba(246, 244, 239, 0.92);
+}
+
+.saina-usage-banner__grid {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.saina-usage-banner__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: rgba(246, 244, 239, 0.78);
+}
+
+.saina-usage-banner__row dt {
+  color: rgba(217, 196, 163, 0.72);
+}
+
+.saina-usage-banner__row--limit dd {
+  color: #e7b45b;
+  font-weight: 600;
+}
+
+.saina-usage-banner__row--muted {
+  opacity: 0.72;
+}
+
 .saina-time-group {
   display: flex;
   flex-direction: column;
@@ -4639,6 +4703,45 @@ html:has(.saina-page) body {
 .saina-modal-cta--disabled {
   cursor: not-allowed;
   opacity: 0.85;
+}
+
+.saina-upgrade-usage-summary {
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.85rem 1rem;
+}
+
+.saina-upgrade-usage-summary__title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(217, 196, 163, 0.78);
+}
+
+.saina-upgrade-usage-summary__grid {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.saina-upgrade-usage-summary__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: rgba(246, 244, 239, 0.82);
+}
+
+.saina-upgrade-usage-summary__row dt {
+  color: rgba(217, 196, 163, 0.78);
+}
+
+.saina-upgrade-usage-summary__row--limit dd {
+  color: #e7b45b;
+  font-weight: 600;
 }
 
 .saina-upgrade-plan-grid {

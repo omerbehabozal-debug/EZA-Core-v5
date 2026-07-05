@@ -6,6 +6,8 @@ import SainaDiscoverCard from '@/components/saina/SainaDiscoverCard';
 export type SainaDiscoverListProps = {
   items: DiscoverMirror[];
   loading?: boolean;
+  discoverLimitReached?: boolean;
+  onDiscoverLimit?: () => void;
 };
 
 function DiscoverSkeletonCard() {
@@ -21,7 +23,12 @@ function DiscoverSkeletonCard() {
   );
 }
 
-export default function SainaDiscoverList({ items, loading = false }: SainaDiscoverListProps) {
+export default function SainaDiscoverList({
+  items,
+  loading = false,
+  discoverLimitReached = false,
+  onDiscoverLimit,
+}: SainaDiscoverListProps) {
   if (loading) {
     return (
       <div className="saina-discover-list" data-testid="saina-discover-list-loading">
@@ -35,7 +42,12 @@ export default function SainaDiscoverList({ items, loading = false }: SainaDisco
   return (
     <div className="saina-discover-list" data-testid="saina-discover-list">
       {items.map((item) => (
-        <SainaDiscoverCard key={item.slug} item={item} />
+        <SainaDiscoverCard
+          key={item.slug}
+          item={item}
+          discoverLimitReached={discoverLimitReached}
+          onDiscoverLimit={onDiscoverLimit}
+        />
       ))}
     </div>
   );

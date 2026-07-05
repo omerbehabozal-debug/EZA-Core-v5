@@ -61,7 +61,7 @@ export type PatternDeviceState =
   | 'chats_pending_pattern';
 
 export type PatternDeviceResolveInput = {
-  isPremium: boolean;
+  hasMapDataAccess: boolean;
   entries: SavedBehavioralEntry[];
   archives: ArchivedChatSummary[];
 };
@@ -230,7 +230,7 @@ export function backfillBehavioralHistoryFromArchives(): ArchiveBackfillResult {
 }
 
 export function resolvePatternDeviceState(input: PatternDeviceResolveInput): PatternDeviceState {
-  if (!input.isPremium) return 'free';
+  if (!input.hasMapDataAccess) return 'free';
 
   const hasChats = archivesHaveMessages(input.archives);
   const metrics =

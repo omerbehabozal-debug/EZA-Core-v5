@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { ArrowUp, Mic } from 'lucide-react';
-import { SAINA_COMPOSER_PLACEHOLDER } from '@/lib/eza/sainaCopy';
+import { SAINA_COMPOSER_LIMIT_PLACEHOLDER, SAINA_COMPOSER_PLACEHOLDER } from '@/lib/eza/sainaCopy';
 import SainaGeometricMark from './SainaGeometricMark';
 
 export type SainaComposerProps = {
@@ -35,7 +35,7 @@ export default function SainaComposer({ onSend, isLoading, disabled = false }: S
     }
   };
 
-  const placeholder = disabled ? 'Günlük limit doldu' : SAINA_COMPOSER_PLACEHOLDER;
+  const placeholder = disabled ? SAINA_COMPOSER_LIMIT_PLACEHOLDER : SAINA_COMPOSER_PLACEHOLDER;
 
   return (
     <div className="saina-composer-inner" data-testid="saina-composer">

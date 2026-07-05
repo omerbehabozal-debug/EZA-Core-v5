@@ -4,15 +4,22 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   SAINA_DISCOVER_CTA,
+  SAINA_DISCOVER_LIMIT_CTA,
   formatDiscoverYansiCount,
 } from '@/lib/eza/mirror-network/discoverCopy';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 
 export type SainaDiscoverCardProps = {
   item: DiscoverMirror;
+  discoverLimitReached?: boolean;
+  onDiscoverLimit?: () => void;
 };
 
-export default function SainaDiscoverCard({ item }: SainaDiscoverCardProps) {
+export default function SainaDiscoverCard({
+  item,
+  discoverLimitReached = false,
+  onDiscoverLimit,
+}: SainaDiscoverCardProps) {
   const href = `/m/${encodeURIComponent(item.slug)}/sohbet`;
   const hasImage = Boolean(item.sceneImageUrl?.trim());
   const [imageFailed, setImageFailed] = useState(false);
@@ -40,9 +47,20 @@ export default function SainaDiscoverCard({ item }: SainaDiscoverCardProps) {
       <div className="saina-discover-card__body">
         <h2 className="saina-discover-card__title saina-serif">{item.title}</h2>
         <p className="saina-discover-card__yansi">{formatDiscoverYansiCount(item.yansiCount)}</p>
-        <Link href={href} className="saina-discover-card__cta">
-          {SAINA_DISCOVER_CTA}
-        </Link>
+        {discoverLimitReached ? (
+          <button
+            type="button"
+            className="saina-discover-card__cta"
+            onClick={onDiscoverLimit}
+            data-testid={`saina-discover-card-limit-${item.slug}`}
+          >
+            {SAINA_DISCOVER_LIMIT_CTA}
+          </button>
+        ) : (
+          <Link href={href} className="saina-discover-card__cta">
+            {SAINA_DISCOVER_CTA}
+          </Link>
+        )}
       </div>
     </article>
   );

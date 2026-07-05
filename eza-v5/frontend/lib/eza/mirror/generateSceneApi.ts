@@ -25,6 +25,9 @@ export type MirrorGenerateSceneRequest = {
 export type MirrorSceneErrorCode =
   | 'auth_required'
   | 'upgrade_required'
+  | 'visual_not_available_on_tier'
+  | 'visual_cooldown_active'
+  | 'visual_daily_limit_reached'
   | 'generation_failed'
   | 'rate_limit'
   | 'openai_insufficient_quota'
@@ -65,6 +68,8 @@ export async function generateMirrorScene(
     { body, auth: true, directBackend: true, timeoutMs: 130_000 }
   );
   if (!res.ok) {
+    const detail = res.detail as Record<string, unknown> | undefined;
+    const reason = typeof detail?.reason === 'string' ? detail.reason : undefined;
     const code = res.error?.error_code;
     const msg =
       res.error?.error_message ??
@@ -73,8 +78,14 @@ export async function generateMirrorScene(
     if (code === 'auth_required' || code === 'HTTP_401') {
       throw new MirrorSceneError(msg, 'auth_required');
     }
-    if (code === 'upgrade_required') {
-      throw new MirrorSceneError(msg, 'upgrade_required');
+    if (code === 'upgrade_required' || reason === 'visual_not_available_on_tier') {
+      throw new MirrorSceneError(msg, reason === 'visual_not_available_on_tier' ? 'visual_not_available_on_tier' : 'upgrade_required');
+    }
+    if (reason === 'visual_cooldown_active') {
+      throw new MirrorSceneError(msg, 'visual_cooldown_active');
+    }
+    if (reason === 'visual_daily_limit_reached') {
+      throw new MirrorSceneError(msg, 'visual_daily_limit_reached');
     }
     if (code === 'rate_limit' || code === 'HTTP_429') {
       throw new MirrorSceneError(msg, 'rate_limit');

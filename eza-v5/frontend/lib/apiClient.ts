@@ -172,11 +172,12 @@ class ApiClient {
         
         return {
           ok: false,
+          detail: data.detail,
           error: {
             error_code: errorCode || `HTTP_${response.status}`,
             error_message: errorMessage,
             message: errorMessage,
-            error: errorCode, // Also include error code in error field for compatibility
+            error: errorCode,
           },
         };
       }

@@ -122,8 +122,8 @@ describe('relationshipPatternMetrics', () => {
 });
 
 describe('RelationshipPatternView (14A)', () => {
-  it('renders period filters 7/30/90/Tümü', () => {
-    expect(patternViewSrc).toContain('RELATIONSHIP_PERIOD_OPTIONS');
+  it('renders entitlement-aware period filters', () => {
+    expect(patternViewSrc).toContain('getRelationshipPeriodOptionsForAccess');
     expect(RELATIONSHIP_PERIOD_OPTIONS.some((p) => p.label === 'Tümü')).toBe(true);
   });
 
@@ -138,7 +138,7 @@ describe('RelationshipPatternView (14A)', () => {
   });
 
   it('shows empty state copy', () => {
-    expect(patternViewSrc).toContain('Desen henüz oluşmadı');
+    expect(patternViewSrc).toContain('Harita henüz oluşmadı');
   });
 
   it('does not call OpenAI or generate-scene API', () => {

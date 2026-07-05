@@ -39,18 +39,18 @@ export const PATTERN_PREVIEW_TIME_BUCKETS: TimeOfDayBucket[] = [
 
 export const PATTERN_PREVIEW_DEPTH: InteractionDepthMetric = {
   score: null,
-  label: 'Plus ile oluşur',
+  label: 'Hesabını yükselttiğinde oluşur',
   deltaPercent: null,
   forming: true,
 };
 
 export const PATTERN_PREVIEW_INSIGHT =
-  'Plus ile sohbetlerinden kişisel içgörüler ve ilişki haritan burada belirir.';
+  'Sohbetlerinden kişisel içgörüler ve ilişki haritan hesabını yükselttiğinde burada belirir.';
 
-export const PATTERN_PREVIEW_BALANCE_LABEL = 'Plus ile canlanır';
+export const PATTERN_PREVIEW_BALANCE_LABEL = 'Hesabını yükselttiğinde canlanır';
 
 export const PATTERN_PREVIEW_BALANCE_HINT =
-  'Gerçek denge özeti, Plus ile sohbetlerinden oluşur.';
+  'Gerçek denge özeti, sohbetlerinden hesabını yükselttiğinde oluşur.';
 
 export const PATTERN_PREVIEW_SECTION_NOTE =
-  'Bu alanlar Plus ile sohbetlerinden canlanır.';
+  'Bu alanlar sohbetlerinden hesabını yükselttiğinde canlanır.';

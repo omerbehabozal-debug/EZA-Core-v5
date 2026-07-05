@@ -17,6 +17,8 @@ import {
   SAINA_RELATIONSHIP_PATTERN_TITLE,
 } from '@/lib/eza/sainaCopy';
 import { resolveSainaSidebarFooter } from '@/lib/eza/plan/sainaAccountTiers';
+import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
+import SainaUsageBanner from '@/components/saina/SainaUsageBanner';
 import { SAINA_DISCOVER_TITLE } from '@/lib/eza/mirror-network/discoverCopy';
 import { SAINA_DISCOVER_ROUTE } from '@/lib/eza/sainaRoutes';
 import type { SainaAppView } from '@/lib/eza/sainaRoutes';
@@ -171,6 +173,7 @@ export default function SainaConversationSidebar({
   interactionsDisabled = false,
 }: SainaConversationSidebarProps) {
   const router = useRouter();
+  const { entitlements: accountEntitlements } = useAccountEntitlements();
   const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
   const isMock = conversations == null && conversationGroups == null;
   const disabled = interactionsDisabled || isMock;
@@ -687,6 +690,11 @@ export default function SainaConversationSidebar({
               data-testid="saina-plan-card"
               data-plan-tier={planTier}
             >
+              <SainaUsageBanner
+                snapshot={accountEntitlements}
+                onUpgrade={onUpgrade}
+                className="saina-sidebar-usage-banner"
+              />
               {renderPlanFooter()}
             </div>
           </nav>

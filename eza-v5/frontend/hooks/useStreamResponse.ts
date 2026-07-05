@@ -28,7 +28,15 @@ interface UseStreamResponseReturn {
   streamText: string;
   isStreaming: boolean;
   error: string | null;
-  startStream: (url: string, body: any, options?: { onToken?: (token: string) => void; onDone?: (data: any) => void }) => Promise<StreamResponse>;
+  startStream: (
+    url: string,
+    body: any,
+    options?: {
+      onToken?: (token: string) => void;
+      onDone?: (data: any) => void;
+      headers?: Record<string, string>;
+    }
+  ) => Promise<StreamResponse>;
   reset: () => void;
 }
 
@@ -41,7 +49,11 @@ export function useStreamResponse(): UseStreamResponseReturn {
   const startStream = useCallback(async (
     url: string,
     body: any,
-    options?: { onToken?: (token: string) => void; onDone?: (data: any) => void }
+    options?: {
+      onToken?: (token: string) => void;
+      onDone?: (data: any) => void;
+      headers?: Record<string, string>;
+    }
   ): Promise<StreamResponse> => {
     // Reset state
     setStreamText('');
@@ -59,10 +71,15 @@ export function useStreamResponse(): UseStreamResponseReturn {
       const baseURL = getApiUrl();
       const fullUrl = `${baseURL}${url}`;
 
+      const authToken =
+        typeof window !== 'undefined' ? window.localStorage.getItem('eza_token') : null;
+
       const response = await fetch(fullUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          ...(options?.headers ?? {}),
         },
         body: JSON.stringify(body),
         signal: abortController.signal,
@@ -84,6 +101,15 @@ export function useStreamResponse(): UseStreamResponseReturn {
         } catch {
           // If not JSON, use status text
           errorData = { detail: response.statusText };
+        }
+
+        const detail = errorData.detail;
+        if (response.status === 403 && detail && typeof detail === 'object' && detail.reason) {
+          const quotaError = new Error(
+            typeof detail.message === 'string' ? detail.message : 'Sohbet limitine ulaştın.'
+          );
+          (quotaError as Error & { quotaDetail?: unknown }).quotaDetail = detail;
+          throw quotaError;
         }
         
         throw new Error(

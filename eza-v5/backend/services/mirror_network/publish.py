@@ -36,6 +36,9 @@ from backend.services.mirror_network.repository import (
 from backend.services.mirror_network.service import node_to_public_payload
 from backend.services.mirror_network.slug import generate_mirror_slug
 from backend.services.mirror_network.types import MirrorNetworkNodeRecord
+from backend.core.account.guards import assert_can_create_visual
+from backend.core.account.quota_events import YANSI_CREATED
+from backend.core.account.usage_service import record_account_usage_event
 
 
 def map_mirror_safety_level(safety_level: Optional[str]) -> Tuple[str, str]:
@@ -204,6 +207,10 @@ async def publish_mirror_to_network(
         validated_parent_slug=validated_parent_slug,
     )
 
+    is_new_node = existing is None
+    if is_new_node:
+        await assert_can_create_visual(db, user=user, guest_token=guest_token)
+
     try:
         public_payload, private_payload = split_curiosity_payloads(
             slug=slug,
@@ -262,6 +269,13 @@ async def publish_mirror_to_network(
         )
         try:
             node = await create_mirror_network_node(db, node)
+            if parent_slug:
+                await record_account_usage_event(
+                    db,
+                    event_type=YANSI_CREATED,
+                    user_id=str(user.id),
+                    source_id=slug,
+                )
         except IntegrityError:
             await db.rollback()
             if not conversation_id:

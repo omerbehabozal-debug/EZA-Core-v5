@@ -6,6 +6,12 @@ import { cn } from '@/lib/utils';
 import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 import { SAINA_UPGRADE_PLANS } from '@/lib/eza/plan/sainaAccountTiers';
 import {
+  buildAccountUsageLines,
+  formatAccountUsageValue,
+  resolveUpgradeFeatureHint,
+} from '@/lib/eza/plan/sainaUsageSummary';
+import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
+import {
   SAINA_UPGRADE_MODAL_DISMISS,
   SAINA_UPGRADE_MODAL_NOTE,
   SAINA_UPGRADE_MODAL_SUBTITLE,
@@ -13,6 +19,7 @@ import {
   SAINA_UPGRADE_PLAN_COMING_SOON,
   SAINA_UPGRADE_PLAN_MONTHLY_LABEL,
   SAINA_UPGRADE_STANDARD_BADGE,
+  SAINA_UPGRADE_USAGE_HEADING,
 } from '@/lib/eza/sainaCopy';
 
 export interface UpgradeModalProps {
@@ -26,6 +33,9 @@ export interface UpgradeModalProps {
 export default function UpgradeModal({ open, onClose, feature }: UpgradeModalProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dismissRef = useRef<HTMLButtonElement | null>(null);
+  const { entitlements: accountEntitlements } = useAccountEntitlements();
+  const usageLines = buildAccountUsageLines(accountEntitlements);
+  const featureHint = resolveUpgradeFeatureHint(feature);
 
   useModalFocusTrap({
     open,
@@ -79,7 +89,32 @@ export default function UpgradeModal({ open, onClose, feature }: UpgradeModalPro
             {SAINA_UPGRADE_MODAL_TITLE}
           </h2>
           <p className="mt-2 text-sm text-white/62">{SAINA_UPGRADE_MODAL_SUBTITLE}</p>
+          {featureHint ? (
+            <p className="mt-2 text-sm text-[#d8c4a0]/90" data-testid="saina-upgrade-feature-hint">
+              {featureHint}
+            </p>
+          ) : null}
         </div>
+
+        {accountEntitlements.tier !== 'premium' ? (
+          <div className="saina-upgrade-usage-summary mt-5" data-testid="saina-upgrade-usage-summary">
+            <p className="saina-upgrade-usage-summary__title">{SAINA_UPGRADE_USAGE_HEADING}</p>
+            <dl className="saina-upgrade-usage-summary__grid">
+              {usageLines.map((line) => (
+                <div
+                  key={line.key}
+                  className={cn(
+                    'saina-upgrade-usage-summary__row',
+                    line.atLimit && 'saina-upgrade-usage-summary__row--limit'
+                  )}
+                >
+                  <dt>{line.label}</dt>
+                  <dd>{formatAccountUsageValue(line)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
 
         <div className="saina-upgrade-plan-grid mt-6">
           {SAINA_UPGRADE_PLANS.map((plan) => (

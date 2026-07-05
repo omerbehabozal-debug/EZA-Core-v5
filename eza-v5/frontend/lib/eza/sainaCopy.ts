@@ -268,6 +268,31 @@ export const SAINA_HERO_SUBTITLE =
 
 export const SAINA_COMPOSER_PLACEHOLDER = "SAINA'ya bir şey sor...";
 
+export const SAINA_COMPOSER_LIMIT_PLACEHOLDER = 'Sohbet limitine ulaştın';
+
+export const SAINA_CHAT_LIMIT_REACHED =
+  'Bugünkü sohbet limitine ulaştın.\nDevam etmek için hesabını yükseltebilirsin.';
+
+export const SAINA_GUEST_CHAT_LIMIT_REACHED =
+  'Sohbet limitine ulaştın.\nDevam etmek için giriş yapabilir veya hesabını yükseltebilirsin.';
+
+export const SAINA_VISUAL_COOLDOWN_PREFIX = 'Yeni görsel oluşturmak için';
+
+export const SAINA_VISUAL_LIMIT_REACHED =
+  'Görsel oluşturma limitine ulaştın.\nDevam etmek için hesabını yükseltebilirsin.';
+
+export const SAINA_VISUAL_NOT_ON_TIER =
+  'Bu hesapta görsel oluşturma kullanılamıyor.\nDevam etmek için hesabını yükseltebilirsin.';
+
+export const SAINA_DISCOVER_LIMIT_REACHED =
+  'Bugünkü Keşfet sohbet hakkını kullandın.\nDevam etmek için hesabını yükseltebilirsin.';
+
+export const SAINA_GUEST_DISCOVER_LIMIT_REACHED =
+  'Keşfet sohbet hakkını kullandın.\nDevam etmek için giriş yapabilir veya hesabını yükseltebilirsin.';
+
+export const SAINA_RELATIONSHIP_MAP_WINDOW_NOTE =
+  'İlişki haritasında son 90 günün verileri görünür.';
+
 export const SAINA_USER_LABEL = 'SEN';
 
 export const SAINA_ASSISTANT_LABEL = 'SAINA';
@@ -312,14 +337,44 @@ export const SAINA_UPGRADE_MODAL_SUBTITLE = 'Senin kullanımına uygun hesabı s
 
 export const SAINA_UPGRADE_MODAL_DISMISS = 'Şimdilik kapat';
 
-export const SAINA_UPGRADE_MODAL_NOTE =
-  'Ödeme sistemi yakında. Planlar şimdilik önizleme.';
+export const SAINA_UPGRADE_MODAL_NOTE = 'Ödeme sistemi hazırlanıyor.';
 
 export const SAINA_UPGRADE_PLAN_MONTHLY_LABEL = 'Aylık';
 
 export const SAINA_UPGRADE_PLAN_COMING_SOON = 'Yakında';
 
-export const SAINA_UPGRADE_STANDARD_BADGE = 'En çok önerilen';
+export const SAINA_UPGRADE_STANDARD_BADGE = 'Önerilen';
+
+export const SAINA_USAGE_TODAY_LABEL = 'Bugün';
+
+export const SAINA_USAGE_MESSAGES_LABEL = 'Sohbet';
+
+export const SAINA_USAGE_DISCOVER_LABEL = 'Keşfet';
+
+export const SAINA_USAGE_VISUAL_LABEL = 'Görsel';
+
+export const SAINA_USAGE_UNAVAILABLE = '—';
+
+export const SAINA_UPGRADE_USAGE_HEADING = 'Bugünkü kullanımın';
+
+export const SAINA_UPGRADE_FEATURE_HINT_DISCOVER =
+  'Keşfet sohbet hakkını artırmak için hesabını yükselt.';
+
+export const SAINA_UPGRADE_FEATURE_HINT_PATTERN =
+  'İlişki haritasının tamamını açmak için hesabını yükselt.';
+
+export const SAINA_UPGRADE_FEATURE_HINT_MESSAGES =
+  'Günlük sohbet hakkını artırmak için hesabını yükselt.';
+
+export const SAINA_UPGRADE_FEATURE_HINT_VISUAL =
+  'Görsel oluşturma hakkını açmak için hesabını yükselt.';
+
+export const SAINA_PATTERN_UPSELL_TITLE = 'İlişki Haritası canlı hale gelsin';
+
+export const SAINA_PATTERN_UPSELL_BODY =
+  'Üst hesap seviyelerinde davranış adaların gerçek sohbetlerinden oluşur; trendler ve içgörüler açılır.';
+
+export const SAINA_PATTERN_UPSELL_CTA = 'Hesabını Yükselt';
 
 /** @deprecated Use SAINA_UPGRADE_MODAL_TITLE */
 export const SAINA_PREMIUM_MODAL_TITLE = SAINA_UPGRADE_MODAL_TITLE;

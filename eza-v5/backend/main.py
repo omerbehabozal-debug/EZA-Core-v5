@@ -13,7 +13,7 @@ backend_dir = Path(__file__).parent
 project_root = backend_dir.parent
 sys.path.insert(0, str(project_root))
 
-from fastapi import FastAPI, HTTPException, status, Depends, Request
+from fastapi import FastAPI, HTTPException, status, Depends, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -52,6 +52,9 @@ from backend.security.rate_limit import (
 )
 from backend.security.public_demo_guard import enforce_public_demo_limits
 from backend.auth.api_key import require_api_key
+from backend.auth.deps import security
+from backend.core.account.guards import assert_can_send_message
+from backend.core.account.guest_identity import GUEST_TOKEN_HEADER
 
 # Configure logging
 logging.basicConfig(
@@ -275,8 +278,9 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # Include routers
 # OLD auth.router removed - using production_auth.router instead
-from backend.routers import production_auth
+from backend.routers import production_auth, account_entitlements
 app.include_router(production_auth.router, prefix="/api/auth", tags=["Production Auth"])
+app.include_router(account_entitlements.router, prefix="/api/account", tags=["Account Entitlements"])
 
 from backend.api.routers.safemode_router import router as safemode_router
 app.include_router(safemode_router)
@@ -402,7 +406,9 @@ async def root():
 async def standalone_endpoint(
     request: StandaloneRequest,
     db=Depends(get_db),
-    _: None = Depends(rate_limit_standalone)  # Rate limiting (no auth required)
+    credentials=Depends(security),
+    x_guest_token: str | None = Header(None, alias=GUEST_TOKEN_HEADER),
+    _: None = Depends(rate_limit_standalone),
 ):
     """
     Standalone mode endpoint - Unified pipeline
@@ -411,8 +417,16 @@ async def standalone_endpoint(
     - Score mode (safe_only=False): assistant_answer, user_score, assistant_score
     - SAFE-only mode (safe_only=True): assistant_answer, safe_answer, mode="safe-only"
     
-    Note: Public endpoint, no authentication required.
+    Note: Public endpoint; message quota enforced per account tier.
     """
+    await assert_can_send_message(
+        db,
+        message_text=request.query_value,
+        credentials=credentials,
+        guest_token=x_guest_token,
+    )
+    await db.commit()
+
     chat_history = (
         [{"role": h.role, "content": h.content} for h in request.history]
         if request.history
@@ -426,7 +440,6 @@ async def standalone_endpoint(
         analysis_model=request.model,
         chat_history=chat_history,
     )
-    # Always return 200, even if ok=False (for frontend convenience)
     return result
 
 
@@ -439,7 +452,9 @@ async def standalone_endpoint(
 async def standalone_stream_endpoint(
     request: StandaloneRequest,
     db=Depends(get_db),
-    _: None = Depends(rate_limit_standalone)  # Rate limiting (no auth required)
+    credentials=Depends(security),
+    x_guest_token: str | None = Header(None, alias=GUEST_TOKEN_HEADER),
+    _: None = Depends(rate_limit_standalone),
 ):
     """
     Standalone mode streaming endpoint
@@ -450,9 +465,17 @@ async def standalone_stream_endpoint(
     - ...
     - data: {"done": true, "assistant_score": 42, "user_score": 85}
     
-    Note: Public endpoint, no authentication required.
+    Note: Public endpoint; message quota enforced per account tier.
     """
     from backend.api.standalone_chat_memory import serialized_history_text
+
+    await assert_can_send_message(
+        db,
+        message_text=request.query_value,
+        credentials=credentials,
+        guest_token=x_guest_token,
+    )
+    await db.commit()
 
     chat_history = (
         [{"role": h.role, "content": h.content} for h in request.history]
