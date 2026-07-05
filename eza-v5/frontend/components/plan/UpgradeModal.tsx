@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useRef } from 'react';
 import { Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 import {
   SAINA_PREMIUM_MODAL_CTA,
   SAINA_PREMIUM_MODAL_DISMISS,
@@ -20,14 +21,15 @@ export interface UpgradeModalProps {
 
 /** Premium upgrade — logged-in free users only. Guests use IdentityModal. */
 export default function UpgradeModal({ open, onClose, feature }: UpgradeModalProps) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const dismissRef = useRef<HTMLButtonElement | null>(null);
+
+  useModalFocusTrap({
+    open,
+    onClose,
+    containerRef: panelRef,
+    initialFocusRef: dismissRef,
+  });
 
   if (!open) return null;
 
@@ -47,6 +49,7 @@ export default function UpgradeModal({ open, onClose, feature }: UpgradeModalPro
       />
 
       <div
+        ref={panelRef}
         className={cn(
           'relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 p-6 text-center shadow-[0_24px_70px_-24px_rgba(0,0,0,0.65)]',
           'bg-[rgba(8,22,18,0.96)] text-[#f6f4ef] animate-slide-up'
@@ -55,7 +58,7 @@ export default function UpgradeModal({ open, onClose, feature }: UpgradeModalPro
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/6 hover:text-white/80"
+          className="saina-modal-close-btn absolute right-3 top-3 flex items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/6 hover:text-white/80"
           aria-label="Kapat"
         >
           <X className="h-4 w-4" />
@@ -91,16 +94,18 @@ export default function UpgradeModal({ open, onClose, feature }: UpgradeModalPro
         <div className="mt-5 flex flex-col gap-2">
           <button
             type="button"
-            onClick={onClose}
-            className="inline-flex w-full items-center justify-center rounded-full bg-[#f6f4ef] px-6 py-2.5 text-sm font-medium text-[#0b1612] transition-colors hover:bg-white"
+            disabled
+            className="saina-modal-cta saina-modal-cta--disabled inline-flex w-full items-center justify-center rounded-full bg-white/10 px-6 text-sm font-medium text-white/72"
             data-testid="saina-premium-upgrade-cta"
+            aria-disabled="true"
           >
             {SAINA_PREMIUM_MODAL_CTA}
           </button>
           <button
+            ref={dismissRef}
             type="button"
             onClick={onClose}
-            className="inline-flex w-full items-center justify-center rounded-full border border-white/14 px-6 py-2.5 text-sm font-medium text-white/72 transition-colors hover:bg-white/6"
+            className="saina-modal-cta inline-flex w-full items-center justify-center rounded-full border border-white/14 px-6 text-sm font-medium text-white/88 transition-colors hover:bg-white/6"
           >
             {SAINA_PREMIUM_MODAL_DISMISS}
           </button>

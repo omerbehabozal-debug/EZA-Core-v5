@@ -2,17 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { ChevronRight, LogOut, Settings, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import {
+  buildSainaAuthHref,
   resolveSainaPlanLabel,
   resolveSainaUserDisplayName,
   resolveSainaUserInitial,
 } from '@/lib/eza/sainaIdentity';
+import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import {
   SAINA_ANALYSIS_MODEL_LABEL,
   SAINA_MENU_ACCOUNT,
@@ -40,11 +41,6 @@ export type SainaProfileMenuProps = {
   disabled?: boolean;
 };
 
-function buildAuthHref(pathname: string, page: 'login' | 'register') {
-  const returnTo = encodeURIComponent(pathname || '/standalone');
-  return `/platform/${page}?return=${returnTo}`;
-}
-
 export default function SainaProfileMenu({
   safeOnlyMode,
   onSafeOnlyModeChange,
@@ -54,7 +50,7 @@ export default function SainaProfileMenu({
 }: SainaProfileMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
+  const returnUrl = useSainaAuthReturnUrl();
   const { isAuthenticated, user, logout, isAuthReady } = useAuth();
   const { isPlus, isLoading, source } = usePlan();
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isLoading || !isAuthReady, source });
@@ -63,8 +59,8 @@ export default function SainaProfileMenu({
   const userInitial = resolveSainaUserInitial(user?.email);
   const planLabel = resolveSainaPlanLabel(planTier);
   const currentModel = getAnalysisModelById(analysisModelId);
-  const loginHref = buildAuthHref(pathname || '/standalone', 'login');
-  const registerHref = buildAuthHref(pathname || '/standalone', 'register');
+  const loginHref = buildSainaAuthHref(returnUrl, 'login');
+  const registerHref = buildSainaAuthHref(returnUrl, 'register');
 
   useEffect(() => {
     if (!open) return;

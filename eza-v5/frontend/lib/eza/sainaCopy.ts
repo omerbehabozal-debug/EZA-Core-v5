@@ -313,7 +313,7 @@ export const SAINA_PREMIUM_MODAL_FEATURES = [
   'Öncelikli üretim',
 ] as const;
 
-export const SAINA_PREMIUM_MODAL_CTA = "Premium'a Geç";
+export const SAINA_PREMIUM_MODAL_CTA = 'Premium yakında';
 
 export const SAINA_PREMIUM_MODAL_DISMISS = 'Şimdilik kapat';
 

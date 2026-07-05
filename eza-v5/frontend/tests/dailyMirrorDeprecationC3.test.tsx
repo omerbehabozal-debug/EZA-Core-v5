@@ -7,7 +7,17 @@ const mockReplace = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace, push: vi.fn() }),
-  usePathname: () => null,
+  usePathname: () => '/standalone',
+}));
+
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: vi.fn(() => ({
+    isAuthenticated: false,
+    user: null,
+    logout: vi.fn(),
+    isAuthReady: true,
+    setAuth: vi.fn(),
+  })),
 }));
 
 vi.mock('@/lib/eza/plan/usePlan', () => ({
@@ -66,7 +76,7 @@ describe('Sprint C.3 — Daily Mirror user-facing deprecation', () => {
     render(<SainaPatternPageInner />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('saina-pattern-shell')).toBeInTheDocument();
+      expect(screen.getByText('İlişki Haritası')).toBeInTheDocument();
     });
 
     expect(screen.queryByText(/Günlük Ayna/i)).not.toBeInTheDocument();
@@ -91,8 +101,9 @@ describe('Sprint C.3 — Daily Mirror user-facing deprecation', () => {
     expect(insightsSrc).not.toContain('MIRROR_DAILY_ROUTE');
   });
 
-  it('uses /standalone as IdentityModal auth fallback, not daily', () => {
-    expect(identityModalSrc).toContain("pathname || '/standalone'");
+  it('uses shared return URL helpers for auth links, not daily mirror route', () => {
+    expect(identityModalSrc).toContain('useSainaAuthReturnUrl');
+    expect(identityModalSrc).toContain('buildSainaAuthHref');
     expect(identityModalSrc).not.toContain('/standalone/mirror/daily');
   });
 

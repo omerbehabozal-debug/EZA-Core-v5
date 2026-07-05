@@ -6,9 +6,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { buildApiUrl } from '@/lib/apiUrl';
+import { buildSainaAuthHref, resolveSafeAuthReturnPath } from '@/lib/eza/sainaIdentity';
 import {
   SAINA_AUTH_EMAIL_LABEL,
-  SAINA_AUTH_GOOGLE_UNAVAILABLE,
   SAINA_AUTH_HAS_ACCOUNT,
   SAINA_AUTH_LOGIN_SUBMIT,
   SAINA_AUTH_LOGIN_TITLE,
@@ -16,11 +16,7 @@ import {
   SAINA_AUTH_PASSWORD_LABEL,
   SAINA_AUTH_REGISTER_SUBMIT,
 } from '@/lib/eza/sainaCopy';
-import SainaAuthShell, {
-  SainaAuthDivider,
-  SainaAuthGoogleButton,
-  SainaAuthLink,
-} from '@/components/saina/SainaAuthShell';
+import SainaAuthShell, { SainaAuthLink } from '@/components/saina/SainaAuthShell';
 
 type SainaLoginViewProps = {
   returnPath: string | null;
@@ -38,9 +34,8 @@ export default function SainaLoginView({
   const router = useRouter();
   const { setAuth } = useAuth();
 
-  const registerHref = returnPath
-    ? `/platform/register?return=${encodeURIComponent(returnPath)}`
-    : '/platform/register';
+  const safeReturn = resolveSafeAuthReturnPath(returnPath);
+  const registerHref = buildSainaAuthHref(safeReturn, 'register');
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -82,7 +77,7 @@ export default function SainaLoginView({
         user_id: data.user_id,
       });
 
-      router.push(returnPath && returnPath.startsWith('/') ? returnPath : '/standalone');
+      router.push(safeReturn);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Giriş başarısız';
       if (message === 'SERVER_UNAVAILABLE') {
@@ -106,13 +101,6 @@ export default function SainaLoginView({
           Hesabın hazır. Giriş yapabilirsin.
         </p>
       ) : null}
-
-      <SainaAuthGoogleButton
-        disabled={loading}
-        onClick={() => setError(SAINA_AUTH_GOOGLE_UNAVAILABLE)}
-      />
-
-      <SainaAuthDivider />
 
       <form onSubmit={handleLogin}>
         <div className="saina-auth-field">

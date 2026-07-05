@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { buildApiUrl } from '@/lib/apiUrl';
-import { isSainaAuthReturnPath } from '@/lib/eza/sainaIdentity';
+import { isSainaAuthReturnPath, resolveSafeAuthReturnPath } from '@/lib/eza/sainaIdentity';
 import SainaLoginView from '@/components/saina/SainaLoginView';
 
 function PlatformLoginPageContent() {
@@ -102,7 +102,7 @@ function PlatformLoginPageContent() {
         typeof window !== 'undefined'
           ? new URLSearchParams(window.location.search).get('return')
           : null;
-      router.push(returnTo && returnTo.startsWith('/') ? returnTo : '/platform');
+      router.push(resolveSafeAuthReturnPath(returnTo ?? '/platform'));
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.message === 'SERVER_UNAVAILABLE') {

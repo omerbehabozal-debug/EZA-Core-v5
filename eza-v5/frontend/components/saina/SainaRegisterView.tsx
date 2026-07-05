@@ -5,9 +5,9 @@ import '@/styles/saina-mirror.css';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { buildApiUrl } from '@/lib/apiUrl';
+import { buildSainaAuthHref, resolveSafeAuthReturnPath } from '@/lib/eza/sainaIdentity';
 import {
   SAINA_AUTH_EMAIL_LABEL,
-  SAINA_AUTH_GOOGLE_UNAVAILABLE,
   SAINA_AUTH_HAS_ACCOUNT,
   SAINA_AUTH_LOGIN_SUBMIT,
   SAINA_AUTH_NAME_LABEL,
@@ -15,11 +15,7 @@ import {
   SAINA_AUTH_REGISTER_SUBMIT,
   SAINA_AUTH_REGISTER_TITLE,
 } from '@/lib/eza/sainaCopy';
-import SainaAuthShell, {
-  SainaAuthDivider,
-  SainaAuthGoogleButton,
-  SainaAuthLink,
-} from '@/components/saina/SainaAuthShell';
+import SainaAuthShell, { SainaAuthLink } from '@/components/saina/SainaAuthShell';
 
 type SainaRegisterViewProps = {
   returnPath: string | null;
@@ -34,9 +30,8 @@ export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const loginHref = returnPath
-    ? `/platform/login?return=${encodeURIComponent(returnPath)}`
-    : '/platform/login';
+  const safeReturn = resolveSafeAuthReturnPath(returnPath);
+  const loginHref = buildSainaAuthHref(safeReturn, 'login');
 
   const handleRegister = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -87,9 +82,7 @@ export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps
         throw new Error(detail);
       }
 
-      const loginReturn = returnPath
-        ? `/platform/login?return=${encodeURIComponent(returnPath)}&registered=true`
-        : '/platform/login?registered=true';
+      const loginReturn = `${buildSainaAuthHref(safeReturn, 'login')}&registered=true`;
       router.push(loginReturn);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Kayıt başarısız';
@@ -101,13 +94,6 @@ export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps
 
   return (
     <SainaAuthShell title={SAINA_AUTH_REGISTER_TITLE}>
-      <SainaAuthGoogleButton
-        disabled={loading}
-        onClick={() => setError(SAINA_AUTH_GOOGLE_UNAVAILABLE)}
-      />
-
-      <SainaAuthDivider />
-
       <form onSubmit={handleRegister}>
         <div className="saina-auth-field">
           <label htmlFor="saina-register-name">{SAINA_AUTH_NAME_LABEL}</label>
