@@ -25,6 +25,7 @@ import {
   SAINA_MIRROR_TITLE,
   SAINA_OPEN_PREVIEW,
   SAINA_SIDEBAR_FREE_FOOTER,
+  SAINA_SIDEBAR_GUEST_FOOTER,
   SAINA_PREMIUM_MIRROR_LABEL,
   SAINA_PREMIUM_OBSERVING,
   SAINA_PREMIUM_TITLE,
@@ -113,6 +114,28 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     render(<SainaConversationMockPage />);
     expect(screen.queryByText(SAINA_CONCEPT_FEELING_TITLE)).not.toBeInTheDocument();
     expect(screen.queryByText(SAINA_CONCEPT_NEXT_TITLE)).not.toBeInTheDocument();
+  });
+
+  it('renders guest plan footer for anonymous tier', () => {
+    render(
+      <SainaConversationSidebar
+        planTier="anonymous"
+        conversations={[
+          {
+            id: 'chat-guest',
+            title: 'Misafir sohbet',
+            preview: '…',
+            time: 'Az önce',
+            thumbGradient: 'linear-gradient(135deg, #173B45, #0F2B25)',
+          },
+        ]}
+        onRequestLogin={vi.fn()}
+        onDeleteChat={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(SAINA_SIDEBAR_GUEST_FOOTER)).toBeInTheDocument();
+    expect(screen.queryByText(SAINA_SIDEBAR_FREE_FOOTER)).not.toBeInTheDocument();
   });
 
   it('renders free plan footer without quota when planTier is free', () => {

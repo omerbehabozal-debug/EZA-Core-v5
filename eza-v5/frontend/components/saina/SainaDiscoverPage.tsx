@@ -15,7 +15,7 @@ import {
 import { fetchDiscoverMirrorsForViewer } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import SainaDiscoverList from '@/components/saina/SainaDiscoverList';
-import UpgradeModal from '@/components/plan/UpgradeModal';
+import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
@@ -52,15 +52,18 @@ export default function SainaDiscoverPage() {
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [upgradeVariant, setUpgradeVariant] = useState<'upgrade' | 'auth_required'>('upgrade');
-  const [upgradeFeature, setUpgradeFeature] = useState('saina_sidebar');
 
   const refreshArchives = useCallback(() => {
     setArchives(listChatArchives());
   }, []);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const {
+    openGateModal,
+    handleRequestLogin,
+    handleOpenUpgrade: handleUpgrade,
+    gateModals,
+  } = useSainaGateModals({ planTier, defaultUpgradeFeature: 'saina_sidebar' });
 
   const { conversations, conversationGroups, activeChatId } = useSainaSidebarConversations(archives);
 
@@ -70,15 +73,6 @@ export default function SainaDiscoverPage() {
     return url && isPersistableConversationSceneUrl(url) ? url : null;
   }, [archives, activeChatId]);
 
-  const openGateModal = useCallback(
-    (feature: string) => {
-      const outcome = gatePremiumFeature(planTier);
-      setUpgradeFeature(feature);
-      setUpgradeVariant(outcome === 'upgrade_required' ? 'upgrade' : 'auth_required');
-      setUpgradeOpen(true);
-    },
-    [planTier]
-  );
 
   const handleNewChat = useCallback(() => {
     router.replace('/standalone', { scroll: false });
@@ -126,21 +120,6 @@ export default function SainaDiscoverPage() {
     router.push(MIRROR_PATTERN_ROUTE, { scroll: false });
   }, [planTier, openGateModal, router]);
 
-  const handleUpgrade = useCallback(() => {
-    if (planTier === 'free') {
-      setUpgradeFeature('saina_sidebar');
-      setUpgradeVariant('upgrade');
-      setUpgradeOpen(true);
-      return;
-    }
-    openGateModal('saina_sidebar');
-  }, [planTier, openGateModal]);
-
-  const handleRequestLogin = useCallback(() => {
-    setUpgradeFeature('saina_session');
-    setUpgradeVariant('auth_required');
-    setUpgradeOpen(true);
-  }, []);
 
   useSyncSainaChrome({
     activeSection: 'discover',
@@ -263,12 +242,7 @@ export default function SainaDiscoverPage() {
         ) : null}
       </div>
 
-      <UpgradeModal
-        open={upgradeOpen}
-        onClose={() => setUpgradeOpen(false)}
-        variant={upgradeVariant}
-        feature={upgradeFeature}
-      />
+      {gateModals}
       {deleteModal}
     </>
   );

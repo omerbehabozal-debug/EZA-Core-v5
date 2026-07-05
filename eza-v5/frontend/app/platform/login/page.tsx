@@ -12,6 +12,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { buildApiUrl } from '@/lib/apiUrl';
+import { isSainaAuthReturnPath } from '@/lib/eza/sainaIdentity';
+import SainaLoginView from '@/components/saina/SainaLoginView';
 
 function PlatformLoginPageContent() {
   const [email, setEmail] = useState('');
@@ -21,6 +23,8 @@ function PlatformLoginPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showRegisteredMessage, setShowRegisteredMessage] = useState(false);
+  const [returnPath, setReturnPath] = useState<string | null>(null);
+  const [skinReady, setSkinReady] = useState(false);
   const router = useRouter();
   const { setAuth } = useAuth();
 
@@ -31,8 +35,23 @@ function PlatformLoginPageContent() {
       if (urlParams.get('registered') === 'true') {
         setShowRegisteredMessage(true);
       }
+      setReturnPath(urlParams.get('return'));
+      setSkinReady(true);
     }
   }, []);
+
+  if (!skinReady) {
+    return null;
+  }
+
+  if (isSainaAuthReturnPath(returnPath)) {
+    return (
+      <SainaLoginView
+        returnPath={returnPath}
+        showRegisteredMessage={showRegisteredMessage}
+      />
+    );
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

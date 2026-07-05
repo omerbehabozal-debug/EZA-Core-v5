@@ -1,6 +1,6 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { Search, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SAINA_TOP_SEARCH_PLACEHOLDER } from '@/lib/eza/sainaCopy';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
@@ -15,7 +15,6 @@ type SainaPageTopBarProps = {
   analysisModelId?: string;
   onAnalysisModelChange?: (modelId: string) => void;
   settingsDisabled?: boolean;
-  userInitial?: string;
 };
 
 export default function SainaPageTopBar({
@@ -26,7 +25,6 @@ export default function SainaPageTopBar({
   analysisModelId,
   onAnalysisModelChange,
   settingsDisabled = false,
-  userInitial = 'E',
 }: SainaPageTopBarProps) {
   const showSettings =
     onSafeOnlyModeChange != null &&
@@ -75,11 +73,12 @@ export default function SainaPageTopBar({
               analysisModelId={analysisModelId}
               onAnalysisModelChange={onAnalysisModelChange}
               disabled={settingsDisabled}
-              userInitial={userInitial}
             />
           ) : (
             <div className="saina-top-avatar-wrap">
-              <div className="saina-profile-avatar saina-profile-avatar--top">{userInitial}</div>
+              <div className="saina-profile-avatar saina-profile-avatar--top saina-profile-avatar--guest">
+                <User size={16} aria-hidden />
+              </div>
               <span className="saina-status-dot" aria-hidden />
             </div>
           )}

@@ -11,6 +11,7 @@ import {
   SAINA_CONV_RENAME,
   SAINA_NEW_CHAT,
   SAINA_SIDEBAR_FREE_FOOTER,
+  SAINA_SIDEBAR_GUEST_FOOTER,
   SAINA_PLAN_LOADING_BODY,
   SAINA_PLAN_LOGIN_CTA,
   SAINA_PLAN_SESSION_INVALID_BODY,
@@ -473,6 +474,19 @@ export default function SainaConversationSidebar({
         <span className="saina-sidebar-plan-footer-text saina-sidebar-plan-footer-text--premium">
           {SAINA_PREMIUM_TITLE}
         </span>
+      );
+    }
+
+    if (planTier === 'anonymous') {
+      return (
+        <button
+          type="button"
+          className="saina-sidebar-plan-footer-cta saina-sidebar-plan-footer-cta--full"
+          data-testid="saina-plan-login-cta"
+          onClick={() => onRequestLogin?.()}
+        >
+          {SAINA_SIDEBAR_GUEST_FOOTER}
+        </button>
       );
     }
 

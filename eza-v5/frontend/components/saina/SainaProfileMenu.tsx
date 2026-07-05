@@ -1,12 +1,28 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ChevronRight, LogOut, Settings, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { usePlan } from '@/lib/eza/plan/usePlan';
+import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
+import {
+  resolveSainaPlanLabel,
+  resolveSainaUserDisplayName,
+  resolveSainaUserInitial,
+} from '@/lib/eza/sainaIdentity';
 import {
   SAINA_ANALYSIS_MODEL_LABEL,
   SAINA_MENU_ACCOUNT,
-  SAINA_MENU_COMING_SOON,
+  SAINA_MENU_GUEST_LABEL,
+  SAINA_MENU_GUEST_MULTI_DEVICE,
+  SAINA_MENU_GUEST_SAVE_CHATS,
+  SAINA_MENU_GUEST_SYNC_MIRRORS,
+  SAINA_MENU_LOGIN,
+  SAINA_MENU_LOGOUT,
+  SAINA_MENU_REGISTER,
   SAINA_MENU_SETTINGS,
   SAINA_SAFE_MODE_LABEL,
   SAINA_SAFE_MODE_NOTE,
@@ -22,8 +38,12 @@ export type SainaProfileMenuProps = {
   analysisModelId: string;
   onAnalysisModelChange: (modelId: string) => void;
   disabled?: boolean;
-  userInitial?: string;
 };
+
+function buildAuthHref(pathname: string, page: 'login' | 'register') {
+  const returnTo = encodeURIComponent(pathname || '/standalone');
+  return `/platform/${page}?return=${returnTo}`;
+}
 
 export default function SainaProfileMenu({
   safeOnlyMode,
@@ -31,11 +51,20 @@ export default function SainaProfileMenu({
   analysisModelId,
   onAnalysisModelChange,
   disabled = false,
-  userInitial = 'E',
 }: SainaProfileMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const { isAuthenticated, user, logout, isAuthReady } = useAuth();
+  const { isPlus, isLoading, source } = usePlan();
+  const planTier = resolveSainaPlanTier({ isPlus, isLoading: isLoading || !isAuthReady, source });
+  const isGuest = !isAuthenticated;
+  const displayName = resolveSainaUserDisplayName(user?.email);
+  const userInitial = resolveSainaUserInitial(user?.email);
+  const planLabel = resolveSainaPlanLabel(planTier);
   const currentModel = getAnalysisModelById(analysisModelId);
+  const loginHref = buildAuthHref(pathname || '/standalone', 'login');
+  const registerHref = buildAuthHref(pathname || '/standalone', 'register');
 
   useEffect(() => {
     if (!open) return;
@@ -48,28 +77,81 @@ export default function SainaProfileMenu({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
+  const close = () => setOpen(false);
+
   return (
     <div ref={rootRef} className="saina-profile-menu-root">
       <button
         type="button"
         className="saina-top-avatar-wrap saina-profile-menu-trigger"
         onClick={() => setOpen((value) => !value)}
-        aria-haspopup="menu"
+        aria-haspopup="true"
         aria-expanded={open}
         aria-label="Profil ve ayarlar"
         data-testid="saina-profile-menu-trigger"
       >
-        <div className="saina-profile-avatar saina-profile-avatar--top">{userInitial}</div>
+        {isGuest ? (
+          <div
+            className="saina-profile-avatar saina-profile-avatar--top saina-profile-avatar--guest"
+            aria-hidden
+          >
+            <User size={16} />
+          </div>
+        ) : (
+          <div className="saina-profile-avatar saina-profile-avatar--top">{userInitial}</div>
+        )}
         <span className="saina-status-dot" aria-hidden />
       </button>
 
       {open ? (
-        <div className="saina-profile-menu" role="menu" data-testid="saina-profile-menu">
-          <button type="button" className="saina-profile-menu-item" role="menuitem" disabled>
-            <User size={15} aria-hidden />
-            <span>{SAINA_MENU_ACCOUNT}</span>
-            <span className="saina-profile-menu-soon">{SAINA_MENU_COMING_SOON}</span>
-          </button>
+        <div className="saina-profile-menu" data-testid="saina-profile-menu">
+          <div className="saina-profile-menu-account-block">
+            <p className="saina-profile-menu-section-label saina-profile-menu-section-label--plain">
+              {SAINA_MENU_ACCOUNT}
+            </p>
+            {isGuest ? (
+              <>
+                <p className="saina-profile-menu-account-name">{SAINA_MENU_GUEST_LABEL}</p>
+                <ul className="saina-profile-menu-benefits">
+                  <li>{SAINA_MENU_GUEST_SAVE_CHATS}</li>
+                  <li>{SAINA_MENU_GUEST_SYNC_MIRRORS}</li>
+                  <li>{SAINA_MENU_GUEST_MULTI_DEVICE}</li>
+                </ul>
+                <div className="saina-profile-menu-auth-actions">
+                  <Link
+                    href={loginHref}
+                    className="saina-profile-menu-auth-btn saina-profile-menu-auth-btn--primary"
+                    data-testid="saina-profile-login"
+                    onClick={close}
+                  >
+                    {SAINA_MENU_LOGIN}
+                  </Link>
+                  <Link
+                    href={registerHref}
+                    className="saina-profile-menu-auth-btn"
+                    data-testid="saina-profile-register"
+                    onClick={close}
+                  >
+                    {SAINA_MENU_REGISTER}
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="saina-profile-menu-account-name">{displayName}</p>
+                {planLabel ? (
+                  <p
+                    className={cn(
+                      'saina-profile-menu-plan-label',
+                      planTier === 'premium' && 'saina-profile-menu-plan-label--premium'
+                    )}
+                  >
+                    {planLabel}
+                  </p>
+                ) : null}
+              </>
+            )}
+          </div>
 
           <div className="saina-profile-menu-section">
             <p className="saina-profile-menu-section-label">
@@ -124,11 +206,20 @@ export default function SainaProfileMenu({
             </div>
           </div>
 
-          <button type="button" className="saina-profile-menu-item" role="menuitem" disabled>
-            <LogOut size={15} aria-hidden />
-            <span>Çıkış</span>
-            <span className="saina-profile-menu-soon">{SAINA_MENU_COMING_SOON}</span>
-          </button>
+          {!isGuest ? (
+            <button
+              type="button"
+              className="saina-profile-menu-item"
+              data-testid="saina-profile-logout"
+              onClick={() => {
+                close();
+                logout();
+              }}
+            >
+              <LogOut size={15} aria-hidden />
+              <span>{SAINA_MENU_LOGOUT}</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -42,8 +42,8 @@ const mirrorIndexSrc = readFileSync(
 );
 const reportsSrc = readFileSync(join(process.cwd(), 'app/standalone/reports/page.tsx'), 'utf8');
 const insightsSrc = readFileSync(join(process.cwd(), 'app/standalone/insights/page.tsx'), 'utf8');
-const upgradeModalSrc = readFileSync(
-  join(process.cwd(), 'components/plan/UpgradeModal.tsx'),
+const identityModalSrc = readFileSync(
+  join(process.cwd(), 'components/plan/IdentityModal.tsx'),
   'utf8'
 );
 const dailyPageSrc = readFileSync(
@@ -91,9 +91,9 @@ describe('Sprint C.3 — Daily Mirror user-facing deprecation', () => {
     expect(insightsSrc).not.toContain('MIRROR_DAILY_ROUTE');
   });
 
-  it('uses /standalone as UpgradeModal login fallback, not daily', () => {
-    expect(upgradeModalSrc).toContain("pathname || '/standalone'");
-    expect(upgradeModalSrc).not.toContain('/standalone/mirror/daily');
+  it('uses /standalone as IdentityModal auth fallback, not daily', () => {
+    expect(identityModalSrc).toContain("pathname || '/standalone'");
+    expect(identityModalSrc).not.toContain('/standalone/mirror/daily');
   });
 
   it('keeps MIRROR_DAILY_ROUTE constant for backward compatibility', () => {

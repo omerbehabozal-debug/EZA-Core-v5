@@ -21,7 +21,7 @@ import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
-import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
+import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import NewChatGroupPicker from '@/components/saina/NewChatGroupPicker';
 import {
   createConversationGroup,
@@ -167,9 +167,6 @@ export default function StandaloneChatInner() {
   const lastUserMessageAtRef = useRef<number | null>(null);
   const lastAssistantDoneAtRef = useRef<number | null>(null);
   const onOpenMirror = useSainaChromeStore((state) => state.onOpenMirror);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [upgradeVariant, setUpgradeVariant] = useState<UpgradeModalVariant>('upgrade');
-  const [upgradeFeature, setUpgradeFeature] = useState<string>('saina_sidebar');
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { startStream, reset: resetStream } = useStreamResponse();
   const setConversationMirrorEntries = useSetConversationMirrorEntries();
@@ -473,6 +470,12 @@ export default function StandaloneChatInner() {
   }, [cancelPendingAutosave, resetStateAfterActiveDelete, router, startDraft]);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const {
+    openGateModal,
+    handleRequestLogin,
+    handleOpenUpgrade,
+    gateModals,
+  } = useSainaGateModals({ planTier, defaultUpgradeFeature: 'saina_sidebar' });
   const planResolved = !isPlanLoading;
   const isPremium = planResolved && gatePremiumFeature(planTier) === 'allow';
 
@@ -480,13 +483,6 @@ export default function StandaloneChatInner() {
     isPremium,
     archives,
   });
-
-  const openGateModal = useCallback((feature: string) => {
-    const outcome = gatePremiumFeature(planTier);
-    setUpgradeFeature(feature);
-    setUpgradeVariant(outcome === 'upgrade_required' ? 'upgrade' : 'auth_required');
-    setUpgradeOpen(true);
-  }, [planTier]);
 
   const handleOpenPattern = useCallback(() => {
     if (gatePremiumFeature(planTier) !== 'allow') {
@@ -503,22 +499,6 @@ export default function StandaloneChatInner() {
     }
     return true;
   }, [planTier, openGateModal]);
-
-  const handleOpenUpgrade = useCallback(() => {
-    if (planTier === 'free') {
-      setUpgradeFeature('saina_sidebar');
-      setUpgradeVariant('upgrade');
-      setUpgradeOpen(true);
-      return;
-    }
-    openGateModal('saina_sidebar');
-  }, [planTier, openGateModal]);
-
-  const handleRequestLogin = useCallback(() => {
-    setUpgradeFeature('saina_session');
-    setUpgradeVariant('auth_required');
-    setUpgradeOpen(true);
-  }, []);
 
   useEffect(() => {
     void refreshPlan();
@@ -1255,12 +1235,7 @@ export default function StandaloneChatInner() {
         settingsDisabled={isLoading}
         embedded
       />
-      <UpgradeModal
-        open={upgradeOpen}
-        onClose={() => setUpgradeOpen(false)}
-        variant={upgradeVariant}
-        feature={upgradeFeature}
-      />
+      {gateModals}
       {deleteModal}
     </>
   );

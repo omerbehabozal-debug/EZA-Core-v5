@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SainaDiscoverPage from '@/components/saina/SainaDiscoverPage';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
+import { usePlan } from '@/lib/eza/plan/usePlan';
 
 const mockPush = vi.fn();
 const mockReplace = vi.fn();
@@ -22,17 +23,22 @@ vi.mock('@/lib/eza/mirror-network/discoverExperiencedMirrors', () => ({
 }));
 
 vi.mock('@/lib/eza/plan/usePlan', () => ({
-  usePlan: () => ({
+  usePlan: vi.fn(() => ({
     isPlus: false,
     isLoading: false,
     source: 'anonymous',
     refreshPlan: vi.fn(),
-  }),
+  })),
 }));
 
 vi.mock('@/components/plan/UpgradeModal', () => ({
   default: ({ open }: { open: boolean }) =>
     open ? <div data-testid="upgrade-modal-stub">upgrade</div> : null,
+}));
+
+vi.mock('@/components/plan/IdentityModal', () => ({
+  default: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="identity-modal-stub">identity</div> : null,
 }));
 
 describe('SainaDiscoverPage chrome actions', () => {
@@ -66,10 +72,20 @@ describe('SainaDiscoverPage chrome actions', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it('opens identity modal from discover when guest taps login footer', async () => {
+    render(<SainaDiscoverPage />);
+
+    useSainaChromeStore.getState().onRequestLogin?.();
+    expect(await screen.findByTestId('identity-modal-stub')).toBeInTheDocument();
+  });
+
   it('opens upgrade modal from discover when free user taps premium footer', async () => {
-    useSainaChromeStore.getState().setChrome({
-      planTier: 'free',
-    });
+    vi.mocked(usePlan).mockReturnValue({
+      isPlus: false,
+      isLoading: false,
+      source: 'server',
+      refreshPlan: vi.fn(),
+    } as ReturnType<typeof usePlan>);
 
     render(<SainaDiscoverPage />);
 

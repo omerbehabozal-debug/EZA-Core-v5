@@ -19,7 +19,7 @@ import SainaPatternShell from '@/components/saina/SainaPatternShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
-import UpgradeModal from '@/components/plan/UpgradeModal';
+import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { gatePremiumFeature } from '@/lib/eza/plan/sainaFeatureGate';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
@@ -40,9 +40,6 @@ export default function SainaPatternPageInner() {
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [upgradeVariant, setUpgradeVariant] = useState<'upgrade' | 'auth_required'>('upgrade');
-  const [upgradeFeature, setUpgradeFeature] = useState('relationship_pattern');
 
   const refreshArchives = useCallback(() => {
     setArchives(listChatArchives());
@@ -81,6 +78,12 @@ export default function SainaPatternPageInner() {
   }, []);
 
   const planTier = resolveSainaPlanTier({ isPlus, isLoading: isPlanLoading, source });
+  const {
+    openGateModal,
+    handleRequestLogin,
+    handleOpenUpgrade: handleUpgrade,
+    gateModals,
+  } = useSainaGateModals({ planTier, defaultUpgradeFeature: 'relationship_pattern' });
   const planResolved = !isPlanLoading;
   const isPremium = planResolved && gatePremiumFeature(planTier) === 'allow';
 
@@ -97,15 +100,6 @@ export default function SainaPatternPageInner() {
     return url && isPersistableConversationSceneUrl(url) ? url : null;
   }, [archives, activeChatId]);
 
-  const openGateModal = useCallback(
-    (feature: string) => {
-      const outcome = gatePremiumFeature(planTier);
-      setUpgradeFeature(feature);
-      setUpgradeVariant(outcome === 'upgrade_required' ? 'upgrade' : 'auth_required');
-      setUpgradeOpen(true);
-    },
-    [planTier]
-  );
 
   const handleNewChat = useCallback(() => {
     router.replace('/standalone', { scroll: false });
@@ -149,21 +143,6 @@ export default function SainaPatternPageInner() {
     /* Already on pattern route — keep sidebar card active. */
   }, []);
 
-  const handleUpgrade = useCallback(() => {
-    if (planTier === 'free') {
-      setUpgradeFeature('relationship_pattern');
-      setUpgradeVariant('upgrade');
-      setUpgradeOpen(true);
-      return;
-    }
-    openGateModal('relationship_pattern');
-  }, [planTier, openGateModal]);
-
-  const handleRequestLogin = useCallback(() => {
-    setUpgradeFeature('saina_session');
-    setUpgradeVariant('auth_required');
-    setUpgradeOpen(true);
-  }, []);
 
   useSyncSainaChrome({
     activeSection: 'pattern',
@@ -223,12 +202,7 @@ export default function SainaPatternPageInner() {
         )}
       </SainaPatternShell>
 
-      <UpgradeModal
-        open={upgradeOpen}
-        onClose={() => setUpgradeOpen(false)}
-        variant={upgradeVariant}
-        feature={upgradeFeature}
-      />
+      {gateModals}
       {deleteModal}
     </>
   );

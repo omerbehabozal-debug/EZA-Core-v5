@@ -121,10 +121,17 @@ export const SAINA_REGENERATE = 'Yeniden Oluştur';
 
 export const SAINA_FREE_TITLE = 'SAINA Free';
 
-/** Sidebar footer — free and anonymous tiers (single quiet CTA). */
+export const SAINA_GUEST_TITLE = 'SAINA Guest';
+
+/** Sidebar footer — logged-in free user. */
 export const SAINA_SIDEBAR_FREE_FOOTER = `${SAINA_FREE_TITLE} · Premium'a Geç →`;
 
-export const SAINA_PREMIUM_TITLE = 'SAINA Premium Aktif ✦';
+/** Sidebar footer — guest / anonymous user. */
+export const SAINA_SIDEBAR_GUEST_FOOTER = `${SAINA_GUEST_TITLE} · Giriş Yap →`;
+
+export const SAINA_PREMIUM_TITLE = 'SAINA Premium ✦';
+
+export const SAINA_PREMIUM_ACTIVE_LABEL = 'SAINA Premium Aktif ✦';
 
 export const SAINA_PLAN_ACTIVE = 'Aktif';
 
@@ -266,6 +273,78 @@ export const SAINA_MENU_ACCOUNT = 'Hesap';
 export const SAINA_MENU_SETTINGS = 'Ayarlar';
 
 export const SAINA_MENU_COMING_SOON = 'Yakında';
+
+export const SAINA_MENU_GUEST_LABEL = 'Misafir';
+
+export const SAINA_MENU_GUEST_SAVE_CHATS = 'Sohbetlerini kaydet';
+
+export const SAINA_MENU_GUEST_SYNC_MIRRORS = 'Yansıları senkronize et';
+
+export const SAINA_MENU_GUEST_MULTI_DEVICE = 'Tüm cihazlarında devam et';
+
+export const SAINA_MENU_LOGIN = 'Giriş Yap';
+
+export const SAINA_MENU_REGISTER = 'Hesap Oluştur';
+
+export const SAINA_MENU_LOGOUT = 'Çıkış';
+
+/** Identity modal — guest save / sign-in (no Premium language). */
+export const SAINA_IDENTITY_MODAL_LINES = [
+  'Sohbetlerini kaydet.',
+  'Aynalarını sakla.',
+  'Yansılarına her cihazdan ulaş.',
+] as const;
+
+export const SAINA_IDENTITY_MODAL_LOGIN = 'Giriş Yap';
+
+export const SAINA_IDENTITY_MODAL_REGISTER = 'Hesap Oluştur';
+
+export const SAINA_IDENTITY_MODAL_DISMISS = 'Şimdilik devam et';
+
+/** Premium upgrade modal — logged-in free users only. */
+export const SAINA_PREMIUM_MODAL_TITLE = 'SAINA Premium';
+
+export const SAINA_PREMIUM_MODAL_FEATURES = [
+  'Limitsiz Ayna',
+  'Limitsiz Yansı',
+  'Geçmiş Aynalar',
+  'Premium kalite',
+  'Yeni sezonlar',
+  'Öncelikli üretim',
+] as const;
+
+export const SAINA_PREMIUM_MODAL_CTA = "Premium'a Geç";
+
+export const SAINA_PREMIUM_MODAL_DISMISS = 'Şimdilik kapat';
+
+export const SAINA_PREMIUM_MODAL_NOTE =
+  'Ödeme sistemi yakında. Şimdilik bu, Premium deneyiminin bir önizlemesidir.';
+
+/** SAINA auth pages (standalone return). */
+export const SAINA_AUTH_LOGIN_TITLE = 'Sohbetlerin seni bekliyor.';
+
+export const SAINA_AUTH_REGISTER_TITLE = 'Yeni bir merak yolculuğu başlat.';
+
+export const SAINA_AUTH_GOOGLE_CTA = 'Google ile devam et';
+
+export const SAINA_AUTH_OR_DIVIDER = 'veya';
+
+export const SAINA_AUTH_EMAIL_LABEL = 'E-posta';
+
+export const SAINA_AUTH_PASSWORD_LABEL = 'Şifre';
+
+export const SAINA_AUTH_NAME_LABEL = 'Ad';
+
+export const SAINA_AUTH_LOGIN_SUBMIT = 'Devam Et';
+
+export const SAINA_AUTH_REGISTER_SUBMIT = 'Hesap Oluştur';
+
+export const SAINA_AUTH_NO_ACCOUNT = 'Hesabın yok mu?';
+
+export const SAINA_AUTH_HAS_ACCOUNT = 'Zaten hesabın var mı?';
+
+export const SAINA_AUTH_GOOGLE_UNAVAILABLE =
+  'Google ile giriş yakında aktif olacak. Şimdilik e-posta ile devam edebilirsin.';
 
 export const SAINA_SAFE_MODE_LABEL = 'Güvenli Mod';
 

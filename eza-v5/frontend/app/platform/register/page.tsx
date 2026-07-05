@@ -9,6 +9,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { buildApiUrl } from '@/lib/apiUrl';
+import { isSainaAuthReturnPath } from '@/lib/eza/sainaIdentity';
+import SainaRegisterView from '@/components/saina/SainaRegisterView';
 
 // Force dynamic rendering to avoid Suspense issues with search params
 export const dynamic = 'force-dynamic';
@@ -23,6 +25,8 @@ export default function PlatformRegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
+  const [returnPath, setReturnPath] = useState<string | null>(null);
+  const [skinReady, setSkinReady] = useState(false);
   const router = useRouter();
 
   // Check for invitation token in URL (using window.location.search to avoid Suspense requirement)
@@ -33,8 +37,18 @@ export default function PlatformRegisterPage() {
       if (token) {
         setInvitationToken(token);
       }
+      setReturnPath(params.get('return'));
+      setSkinReady(true);
     }
   }, []);
+
+  if (!skinReady) {
+    return null;
+  }
+
+  if (isSainaAuthReturnPath(returnPath) && !invitationToken) {
+    return <SainaRegisterView returnPath={returnPath} />;
+  }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -57,7 +57,8 @@ import MirrorLoadingExperience from '@/components/mirror/MirrorLoadingExperience
 import DailyMirrorReadyFooter from '@/components/mirror/DailyMirrorReadyFooter';
 import MirrorPosterLightbox from '@/components/mirror/MirrorPosterLightbox';
 import MirrorShareExperience from '@/components/mirror/MirrorShareExperience';
-import UpgradeModal, { type UpgradeModalVariant } from '@/components/plan/UpgradeModal';
+import UpgradeModal from '@/components/plan/UpgradeModal';
+import IdentityModal from '@/components/plan/IdentityModal';
 import type { MirrorPanelCopy } from '@/lib/eza/mirror/resolveMirrorPanelCopy';
 import {
   advanceStyleLensSession,
@@ -146,8 +147,8 @@ export default function StandaloneObservationExperience({
   const [shareLinkStatus, setShareLinkStatus] = useState<MirrorShareLinkStatus>('idle');
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
   const [posterLightboxOpen, setPosterLightboxOpen] = useState(false);
+  const [identityOpen, setIdentityOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [upgradeVariant, setUpgradeVariant] = useState<UpgradeModalVariant>('upgrade');
   const [dailyStatus, setDailyStatus] = useState<DailyMirrorStatus>('idle');
   const [generatedDailyCard, setGeneratedDailyCard] = useState<DailyMirrorCardModel | null>(
     null
@@ -655,8 +656,11 @@ export default function StandaloneObservationExperience({
     }
   }, [conversationId, generatedDailyCard, sceneImageUrl]);
 
-  const openUpgrade = useCallback((variant: UpgradeModalVariant = 'upgrade') => {
-    setUpgradeVariant(variant);
+  const openUpgrade = useCallback((variant: 'upgrade' | 'auth' = 'upgrade') => {
+    if (variant === 'auth') {
+      setIdentityOpen(true);
+      return;
+    }
     setUpgradeOpen(true);
   }, []);
 
@@ -729,10 +733,8 @@ export default function StandaloneObservationExperience({
         if (err instanceof MirrorSceneError) {
           if (err.code === 'auth_required') {
             sceneAutoKeyRef.current = null;
-            setUpgradeVariant('auth_required');
-            setUpgradeOpen(true);
+            setIdentityOpen(true);
           } else if (err.code === 'upgrade_required') {
-            setUpgradeVariant('upgrade');
             setUpgradeOpen(true);
           } else if (err.code === 'rate_limit') {
             sceneAutoKeyRef.current = `${autoKey}:rate_limited`;
@@ -1077,7 +1079,7 @@ export default function StandaloneObservationExperience({
         ephemeralNote=""
         loginOnly
         showLoginPrimary
-        onLogin={() => openUpgrade('auth_required')}
+        onLogin={() => openUpgrade('auth')}
       />
     ) : null;
 
@@ -1327,9 +1329,9 @@ export default function StandaloneObservationExperience({
         onClose={() => setPosterLightboxOpen(false)}
       />
 
+      <IdentityModal open={identityOpen} onClose={() => setIdentityOpen(false)} />
       <UpgradeModal
         open={upgradeOpen}
-        variant={upgradeVariant}
         feature="mirror_scene_generate"
         onClose={() => setUpgradeOpen(false)}
       />

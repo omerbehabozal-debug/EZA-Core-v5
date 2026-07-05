@@ -4927,3 +4927,252 @@ html:has(.saina-page) body {
     animation: none;
   }
 }
+
+/* --- SAINA identity: profile menu account block --- */
+.saina-profile-avatar--guest {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(246, 244, 239, 0.62);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.saina-profile-menu-account-block {
+  padding: 0.35rem 0.75rem 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.saina-profile-menu-section-label--plain {
+  margin-bottom: 0.35rem;
+}
+
+.saina-profile-menu-account-name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgba(246, 244, 239, 0.92);
+}
+
+.saina-profile-menu-plan-label {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(246, 244, 239, 0.55);
+}
+
+.saina-profile-menu-plan-label--premium {
+  color: rgba(231, 180, 91, 0.88);
+}
+
+.saina-profile-menu-benefits {
+  margin: 0.5rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgba(246, 244, 239, 0.58);
+}
+
+.saina-profile-menu-auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+
+.saina-profile-menu-auth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: rgba(246, 244, 239, 0.86);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.saina-profile-menu-auth-btn--primary {
+  border-color: rgba(231, 180, 91, 0.22);
+  background: rgba(231, 180, 91, 0.12);
+  color: #f6f4ef;
+}
+
+/* --- SAINA auth pages --- */
+.saina-auth-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  color: #f6f4ef;
+}
+
+.saina-auth-page__backdrop {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(231, 180, 91, 0.08), transparent 42%),
+    radial-gradient(circle at 80% 85%, rgba(22, 94, 78, 0.18), transparent 48%),
+    linear-gradient(160deg, #041b17 0%, #0b1612 45%, #0f2b25 100%);
+  backdrop-filter: blur(2px);
+}
+
+.saina-auth-page__inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 26rem;
+}
+
+.saina-auth-page__brand {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.saina-auth-page__brand-title {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 1.5rem;
+  letter-spacing: 0.08em;
+  color: #f6f4ef;
+}
+
+.saina-auth-page__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: rgba(246, 244, 239, 0.82);
+}
+
+.saina-auth-page__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: rgba(246, 244, 239, 0.48);
+}
+
+.saina-auth-page__card {
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 22, 18, 0.72);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  padding: 1.5rem;
+  backdrop-filter: blur(12px);
+}
+
+.saina-auth-page__footer {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: rgba(246, 244, 239, 0.48);
+}
+
+.saina-auth-google-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(246, 244, 239, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.saina-auth-google-btn__icon {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #fff;
+  color: #4285f4;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.saina-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  color: rgba(246, 244, 239, 0.38);
+  font-size: 0.75rem;
+}
+
+.saina-auth-divider::before,
+.saina-auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.saina-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.875rem;
+}
+
+.saina-auth-field label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(246, 244, 239, 0.62);
+}
+
+.saina-auth-field input {
+  min-height: 44px;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.625rem 0.75rem;
+  color: #f6f4ef;
+  font-size: 0.875rem;
+}
+
+.saina-auth-field input:focus {
+  outline: none;
+  border-color: rgba(231, 180, 91, 0.35);
+  box-shadow: 0 0 0 2px rgba(231, 180, 91, 0.12);
+}
+
+.saina-auth-submit {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 0.25rem;
+  border: none;
+  border-radius: 999px;
+  background: #f6f4ef;
+  color: #0b1612;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.saina-auth-submit:disabled {
+  opacity: 0.55;
+}
+
+.saina-auth-error {
+  margin-bottom: 0.875rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(248, 140, 130, 0.22);
+  background: rgba(220, 80, 70, 0.12);
+  color: rgba(255, 200, 195, 0.95);
+  font-size: 0.8125rem;
+}
+
+.saina-auth-link {
+  color: rgba(231, 180, 91, 0.92);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.saina-auth-link:hover {
+  text-decoration: underline;
+}

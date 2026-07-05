@@ -4,6 +4,30 @@ vi.mock('@/context/OrganizationContext', () => ({
   useOrganization: () => ({ currentOrganization: null }),
 }));
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => '/standalone',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    isAuthenticated: false,
+    user: null,
+    logout: vi.fn(),
+    isAuthReady: true,
+  }),
+}));
+
+vi.mock('@/lib/eza/plan/usePlan', () => ({
+  usePlan: () => ({
+    isPlus: false,
+    isLoading: false,
+    source: 'anonymous',
+    refreshPlan: vi.fn(),
+  }),
+}));
+
 vi.mock('@/components/standalone/StandaloneObservationExperience', () => ({
   default: ({ createButtonLabel }: { createButtonLabel?: string }) => (
     <div data-testid="saina-mirror-experience-stub">
@@ -640,7 +664,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders anonymous plan footer for first-time visitors', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="anonymous" />);
 
-    expect(screen.getByText("SAINA Free · Premium'a Geç →")).toBeInTheDocument();
+    expect(screen.getByText("SAINA Guest · Giriş Yap →")).toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
@@ -658,7 +682,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders premium plan footer when planTier is premium', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="premium" />);
 
-    expect(screen.getByText(/SAINA Premium Aktif/)).toBeInTheDocument();
+    expect(screen.getByText('SAINA Premium ✦')).toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Şu an ilişki gözlemleniyor')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();

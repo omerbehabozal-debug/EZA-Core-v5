@@ -1,43 +1,25 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  PLAN_UPGRADE_AUTH_BODY,
-  PLAN_UPGRADE_AUTH_TITLE,
-  PLAN_UPGRADE_BADGE,
-  PLAN_UPGRADE_LOGIN_CTA,
-  PLAN_UPGRADE_MIRROR_SAVE_BODY,
-  PLAN_UPGRADE_MIRROR_SAVE_CTA,
-  PLAN_UPGRADE_MIRROR_SAVE_TITLE,
-  PLAN_UPGRADE_MODAL_BODY,
-  PLAN_UPGRADE_MODAL_DISMISS,
-  PLAN_UPGRADE_MODAL_NOTE,
-  PLAN_UPGRADE_MODAL_TITLE,
-} from '@/lib/eza/mirror/copy';
-
-export type UpgradeModalVariant = 'upgrade' | 'auth_required';
+  SAINA_PREMIUM_MODAL_CTA,
+  SAINA_PREMIUM_MODAL_DISMISS,
+  SAINA_PREMIUM_MODAL_FEATURES,
+  SAINA_PREMIUM_MODAL_NOTE,
+  SAINA_PREMIUM_MODAL_TITLE,
+} from '@/lib/eza/sainaCopy';
 
 export interface UpgradeModalProps {
   open: boolean;
   onClose: () => void;
-  variant?: UpgradeModalVariant;
   /** Hangi özellikten tetiklendi (analitik/etiket amaçlı). */
   feature?: string;
 }
 
-export default function UpgradeModal({
-  open,
-  onClose,
-  variant = 'upgrade',
-  feature,
-}: UpgradeModalProps) {
-  const pathname = usePathname();
-  const loginHref = `/platform/login?return=${encodeURIComponent(pathname || '/standalone')}`;
-
+/** Premium upgrade — logged-in free users only. Guests use IdentityModal. */
+export default function UpgradeModal({ open, onClose, feature }: UpgradeModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -49,20 +31,6 @@ export default function UpgradeModal({
 
   if (!open) return null;
 
-  const isAuth = variant === 'auth_required';
-  const isMirrorSave = feature === 'conversation_mirror';
-  const title = isAuth
-    ? isMirrorSave
-      ? PLAN_UPGRADE_MIRROR_SAVE_TITLE
-      : PLAN_UPGRADE_AUTH_TITLE
-    : PLAN_UPGRADE_MODAL_TITLE;
-  const body = isAuth
-    ? isMirrorSave
-      ? PLAN_UPGRADE_MIRROR_SAVE_BODY
-      : PLAN_UPGRADE_AUTH_BODY
-    : PLAN_UPGRADE_MODAL_BODY;
-  const loginCta = isMirrorSave && isAuth ? PLAN_UPGRADE_MIRROR_SAVE_CTA : PLAN_UPGRADE_LOGIN_CTA;
-
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center p-4"
@@ -70,75 +38,71 @@ export default function UpgradeModal({
       aria-modal="true"
       aria-labelledby="plan-upgrade-title"
       data-upgrade-feature={feature}
+      data-testid="saina-premium-modal"
     >
       <div
-        className="absolute inset-0 bg-stone-900/35 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-stone-950/45 backdrop-blur-sm animate-fade-in"
         onClick={onClose}
         aria-hidden
       />
 
       <div
         className={cn(
-          'relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/60 bg-white/95 p-6 text-center shadow-[0_24px_70px_-24px_rgba(99,102,241,0.45)] backdrop-blur-xl',
-          'animate-slide-up'
+          'relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 p-6 text-center shadow-[0_24px_70px_-24px_rgba(0,0,0,0.65)]',
+          'bg-[rgba(8,22,18,0.96)] text-[#f6f4ef] animate-slide-up'
         )}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/6 hover:text-white/80"
           aria-label="Kapat"
         >
           <X className="h-4 w-4" />
         </button>
 
         <div
-          className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-[0_8px_24px_-8px_rgba(139,92,246,0.7)]"
+          className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(231,180,91,0.22)] bg-gradient-to-br from-[rgba(231,180,91,0.18)] to-[rgba(22,94,78,0.35)] text-[#e7b45b]"
           aria-hidden
         >
           <Sparkles className="h-5 w-5" strokeWidth={1.75} />
         </div>
 
-        <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-700">
-          {PLAN_UPGRADE_BADGE}
-        </span>
-
         <h2
           id="plan-upgrade-title"
-          className="mt-3 text-lg font-semibold tracking-[-0.02em] text-stone-900"
+          className="saina-serif text-xl font-semibold tracking-[-0.02em] text-[#f6f4ef]"
         >
-          {title}
+          {SAINA_PREMIUM_MODAL_TITLE}
         </h2>
 
-        <p className="mt-2 text-sm leading-relaxed text-stone-600">{body}</p>
+        <ul className="mt-4 space-y-2 text-left text-sm text-white/82">
+          {SAINA_PREMIUM_MODAL_FEATURES.map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="mt-0.5 text-[#e7b45b]" aria-hidden>
+                ✓
+              </span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
 
-        {!isAuth ? (
-          <p className="mt-4 text-[11px] leading-relaxed text-stone-400">
-            {PLAN_UPGRADE_MODAL_NOTE}
-          </p>
-        ) : null}
+        <p className="mt-4 text-[11px] leading-relaxed text-white/42">{SAINA_PREMIUM_MODAL_NOTE}</p>
 
         <div className="mt-5 flex flex-col gap-2">
-          {isAuth ? (
-            <Link
-              href={loginHref}
-              onClick={onClose}
-              className="inline-flex w-full items-center justify-center rounded-full bg-stone-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
-            >
-              {loginCta}
-            </Link>
-          ) : null}
           <button
             type="button"
             onClick={onClose}
-            className={cn(
-              'inline-flex w-full items-center justify-center rounded-full px-6 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-              isAuth
-                ? 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 focus-visible:outline-stone-400'
-                : 'bg-stone-900 text-white hover:bg-stone-800 focus-visible:outline-stone-400'
-            )}
+            className="inline-flex w-full items-center justify-center rounded-full bg-[#f6f4ef] px-6 py-2.5 text-sm font-medium text-[#0b1612] transition-colors hover:bg-white"
+            data-testid="saina-premium-upgrade-cta"
           >
-            {PLAN_UPGRADE_MODAL_DISMISS}
+            {SAINA_PREMIUM_MODAL_CTA}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex w-full items-center justify-center rounded-full border border-white/14 px-6 py-2.5 text-sm font-medium text-white/72 transition-colors hover:bg-white/6"
+          >
+            {SAINA_PREMIUM_MODAL_DISMISS}
           </button>
         </div>
       </div>
