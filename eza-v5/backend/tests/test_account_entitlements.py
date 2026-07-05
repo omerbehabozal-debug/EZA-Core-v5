@@ -154,6 +154,28 @@ def test_entitlements_guest_token_header_rollup(mock_usage):
 
 
 @patch("backend.routers.account_entitlements.build_account_usage_snapshot", new_callable=AsyncMock)
+def test_relationship_map_access_endpoint_guest_locked(mock_usage):
+    mock_usage.return_value = {
+        "dailyMessagesUsed": 0,
+        "dailyMessagesLimit": 10,
+        "dailyDiscoverStartsUsed": 0,
+        "dailyDiscoverStartsLimit": 1,
+        "visualCreationsUsed": 0,
+        "visualCreationsLimit": 1,
+        "nextVisualAvailableAt": None,
+    }
+    guest_token = "guest-token-abcdefghijklmnop"
+    res = client.get(
+        "/api/account/relationship-map-access",
+        headers={"X-Guest-Token": guest_token},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["access"] == "locked"
+    assert data["relationshipMapCutoffIso"] is None
+
+
+@patch("backend.routers.account_entitlements.build_account_usage_snapshot", new_callable=AsyncMock)
 @patch("backend.routers.account_entitlements.get_production_user_by_id", new_callable=AsyncMock)
 def test_entitlements_mini_account_tier(mock_get_user, mock_usage):
     mini_user = _make_user(email="mini@test.eza.ai", mirror_plan="free", account_tier="mini")

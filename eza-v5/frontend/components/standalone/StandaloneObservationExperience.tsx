@@ -159,6 +159,7 @@ export default function StandaloneObservationExperience({
     createDefaultStyleLensSession({ date: '', visual: undefined })
   );
   const sceneAutoKeyRef = useRef<string | null>(null);
+  const sceneRequestIdByAutoKeyRef = useRef<Map<string, string>>(new Map());
   const sceneGenerationInFlightRef = useRef(false);
   const lastRawSceneUrlRef = useRef<string | null>(null);
   const hydratedFromSnapshotRef = useRef(false);
@@ -658,6 +659,17 @@ export default function StandaloneObservationExperience({
     [mirrorRevision]
   );
 
+  const resolveSceneGenerationRequestId = useCallback((autoKey: string) => {
+    const existing = sceneRequestIdByAutoKeyRef.current.get(autoKey);
+    if (existing) return existing;
+    const created =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `scene-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    sceneRequestIdByAutoKeyRef.current.set(autoKey, created);
+    return created;
+  }, []);
+
   const handleGenerateMirrorScene = useCallback(
     async (sessionOverride?: MirrorStyleLensSession) => {
       if (sceneGenerationInFlightRef.current) return;
@@ -678,7 +690,11 @@ export default function StandaloneObservationExperience({
       setHybridTextFallback(false);
       setSceneExtras({});
       try {
-        const result = await generateMirrorScene(visualForApi, generatedDailyCard.date);
+        const generationRequestId = resolveSceneGenerationRequestId(autoKey);
+        const result = await generateMirrorScene(visualForApi, generatedDailyCard.date, {
+          conversationId: conversationId ?? undefined,
+          generationRequestId,
+        });
         lastRawSceneUrlRef.current = result.sceneImageUrl;
         const displayUrl = await resolveSceneDisplayUrl(
           result.sceneImageUrl,

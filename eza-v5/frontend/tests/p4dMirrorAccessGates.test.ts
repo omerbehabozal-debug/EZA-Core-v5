@@ -65,7 +65,10 @@ describe('P4-D access gates (source)', () => {
 
   it('allows guest scene generation when visual quota is available', () => {
     expect(experienceSrc).toContain('if (!isAuthReady || !canCreateVisual) return');
-    expect(experienceSrc).not.toMatch(/if \(!isAuthReady \|\| !isAuthenticated\) return;/);
+    expect(experienceSrc).toContain('generationRequestId');
+    expect(experienceSrc).toMatch(
+      /handleGenerateMirrorScene[\s\S]*if \(!isAuthReady\) return;[\s\S]*if \(!canCreateVisual\) return;/
+    );
   });
 
   it('does not permanently block scene generation after snapshot hydrate', () => {

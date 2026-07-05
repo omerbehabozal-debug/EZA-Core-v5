@@ -55,4 +55,6 @@ jobs:
             tests/test_visual_quota_guard.py \
             tests/test_discover_quota_guard.py \
             tests/test_relationship_map_access.py \
+            tests/test_visual_source.py \
+            tests/test_consume_usage_atomic.py \
             -q --disable-warnings

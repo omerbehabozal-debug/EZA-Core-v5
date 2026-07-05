@@ -13,6 +13,9 @@ class MirrorGenerateSceneRequest(BaseModel):
     stylePreset: str = Field(..., min_length=1)
     qualityHints: Optional[List[str]] = None
     cardDate: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    conversationId: Optional[str] = Field(default=None, max_length=128)
+    generationRequestId: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    cardId: Optional[str] = Field(default=None, max_length=128)
     """V5 minimal render contract — backend must not append legacy Avoid/Quality/Style."""
     promptContract: Optional[str] = None
 

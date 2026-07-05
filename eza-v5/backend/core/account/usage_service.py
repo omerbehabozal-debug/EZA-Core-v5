@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+import zlib
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.account.quota_events import (
@@ -16,6 +19,30 @@ from backend.core.account.quota_events import (
 )
 from backend.core.account.tiers import AccountTier, AccountUsageSnapshot, TierEntitlements
 from backend.models.account_usage_event import AccountUsageEvent
+
+
+class UsageQuotaExceeded(Exception):
+    """Domain quota denial — map to HTTP 403, never 500."""
+
+    def __init__(
+        self,
+        *,
+        reason: str,
+        tier: AccountTier,
+        upgrade_required: bool = True,
+        next_visual_available_at: str | None = None,
+    ) -> None:
+        self.reason = reason
+        self.tier = tier
+        self.upgrade_required = upgrade_required
+        self.next_visual_available_at = next_visual_available_at
+        super().__init__(reason)
+
+
+@dataclass(frozen=True)
+class UsageConsumeResult:
+    event: AccountUsageEvent
+    created: bool
 
 
 def utc_day_start(now: datetime | None = None) -> datetime:
@@ -42,6 +69,182 @@ def _subject_filter(
     return or_(*clauses)
 
 
+def _quota_lock_key(*, user_id: str | None, guest_fingerprint: str | None, event_type: str) -> int:
+    raw = f"{user_id or ''}:{guest_fingerprint or ''}:{event_type}"
+    return zlib.crc32(raw.encode("utf-8")) & 0x7FFFFFFF
+
+
+async def _acquire_subject_quota_lock(
+    db: AsyncSession,
+    *,
+    user_id: str | None,
+    guest_fingerprint: str | None,
+    event_type: str,
+) -> None:
+    bind = db.get_bind()
+    if bind is None or bind.dialect.name != "postgresql":
+        return
+    lock_id = _quota_lock_key(
+        user_id=user_id, guest_fingerprint=guest_fingerprint, event_type=event_type
+    )
+    await db.execute(text("SELECT pg_advisory_xact_lock(:lock_id)"), {"lock_id": lock_id})
+
+
+async def _find_usage_event_by_source(
+    db: AsyncSession,
+    *,
+    event_type: str,
+    user_id: str | None,
+    guest_fingerprint: str | None,
+    source_id: str,
+) -> AccountUsageEvent | None:
+    subject = _subject_filter(user_id=user_id, guest_fingerprint=guest_fingerprint)
+    if subject is None:
+        return None
+    result = await db.execute(
+        select(AccountUsageEvent).where(
+            and_(
+                subject,
+                AccountUsageEvent.event_type == event_type,
+                AccountUsageEvent.source_id == source_id,
+            )
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _assert_visual_quota_available(
+    db: AsyncSession,
+    *,
+    tier: AccountTier,
+    entitlements: TierEntitlements,
+    user_id: str | None,
+    guest_fingerprint: str | None,
+    now: datetime | None = None,
+) -> None:
+    daily_limit = entitlements["dailyMirrorLimit"]
+    if daily_limit == 0:
+        raise UsageQuotaExceeded(
+            reason="visual_not_available_on_tier",
+            tier=tier,
+            upgrade_required=True,
+        )
+
+    usage = await build_account_usage_snapshot(
+        db,
+        tier=tier,
+        entitlements=entitlements,
+        user_id=user_id,
+        guest_fingerprint=guest_fingerprint,
+        now=now,
+    )
+
+    if usage["nextVisualAvailableAt"]:
+        raise UsageQuotaExceeded(
+            reason="visual_cooldown_active",
+            tier=tier,
+            upgrade_required=tier != AccountTier.PREMIUM,
+            next_visual_available_at=usage["nextVisualAvailableAt"],
+        )
+
+    visual_limit = usage["visualCreationsLimit"]
+    visual_used = usage["visualCreationsUsed"]
+    if visual_limit is not None and visual_used >= visual_limit:
+        raise UsageQuotaExceeded(
+            reason="visual_daily_limit_reached",
+            tier=tier,
+            upgrade_required=tier != AccountTier.PREMIUM,
+            next_visual_available_at=usage["nextVisualAvailableAt"],
+        )
+
+
+async def consume_usage_event_atomic(
+    db: AsyncSession,
+    *,
+    event_type: str,
+    user_id: str | None = None,
+    guest_fingerprint: str | None = None,
+    source_id: str,
+    tier: AccountTier,
+    entitlements: TierEntitlements,
+    metadata: dict[str, Any] | None = None,
+    now: datetime | None = None,
+) -> UsageConsumeResult:
+    """
+    Atomically enforce quota and insert (or return existing) usage event.
+
+    Idempotent for the same source_id. Race-safe for parallel different source_ids.
+    """
+    if not user_id and not guest_fingerprint:
+        raise ValueError("user_id or guest_fingerprint is required")
+
+    normalized_source = (source_id or "").strip()
+    if not normalized_source:
+        raise ValueError("source_id is required for atomic consume")
+
+    await _acquire_subject_quota_lock(
+        db,
+        user_id=user_id,
+        guest_fingerprint=guest_fingerprint,
+        event_type=event_type,
+    )
+
+    existing = await _find_usage_event_by_source(
+        db,
+        event_type=event_type,
+        user_id=user_id,
+        guest_fingerprint=guest_fingerprint,
+        source_id=normalized_source,
+    )
+    if existing is not None:
+        return UsageConsumeResult(event=existing, created=False)
+
+    await _assert_visual_quota_available(
+        db,
+        tier=tier,
+        entitlements=entitlements,
+        user_id=user_id,
+        guest_fingerprint=guest_fingerprint,
+        now=now,
+    )
+
+    event = AccountUsageEvent(
+        user_id=str(user_id) if user_id else None,
+        guest_fingerprint=guest_fingerprint,
+        event_type=event_type,
+        source_id=normalized_source,
+        event_metadata=metadata,
+    )
+    db.add(event)
+    try:
+        async with db.begin_nested():
+            await db.flush()
+        return UsageConsumeResult(event=event, created=True)
+    except IntegrityError:
+        raced = await _find_usage_event_by_source(
+            db,
+            event_type=event_type,
+            user_id=user_id,
+            guest_fingerprint=guest_fingerprint,
+            source_id=normalized_source,
+        )
+        if raced is not None:
+            return UsageConsumeResult(event=raced, created=False)
+        await _assert_visual_quota_available(
+            db,
+            tier=tier,
+            entitlements=entitlements,
+            user_id=user_id,
+            guest_fingerprint=guest_fingerprint,
+            now=now,
+        )
+        raise UsageQuotaExceeded(
+            reason="visual_daily_limit_reached",
+            tier=tier,
+            upgrade_required=tier != AccountTier.PREMIUM,
+        )
+
+
 async def record_account_usage_event(
     db: AsyncSession,
     *,
@@ -57,20 +260,15 @@ async def record_account_usage_event(
 
     normalized_source = (source_id or "").strip() or None
     if normalized_source:
-        subject = _subject_filter(user_id=user_id, guest_fingerprint=guest_fingerprint)
-        if subject is not None:
-            existing = await db.execute(
-                select(AccountUsageEvent).where(
-                    and_(
-                        subject,
-                        AccountUsageEvent.event_type == event_type,
-                        AccountUsageEvent.source_id == normalized_source,
-                    )
-                )
-            )
-            found = existing.scalar_one_or_none()
-            if found is not None:
-                return found
+        found = await _find_usage_event_by_source(
+            db,
+            event_type=event_type,
+            user_id=user_id,
+            guest_fingerprint=guest_fingerprint,
+            source_id=normalized_source,
+        )
+        if found is not None:
+            return found
 
     event = AccountUsageEvent(
         user_id=str(user_id) if user_id else None,

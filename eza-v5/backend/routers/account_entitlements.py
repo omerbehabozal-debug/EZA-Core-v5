@@ -12,7 +12,7 @@ from backend.auth.deps import security
 from backend.auth.jwt import get_user_from_token
 from backend.auth.mirror_entitlement import get_production_user_by_id, normalize_mirror_plan
 from backend.core.account.guest_identity import GUEST_TOKEN_HEADER, resolve_guest_fingerprint
-from backend.core.account.guards import assert_relationship_map_data_access
+from backend.core.account.guards import relationship_map_access_for_tier
 from backend.core.account.subject import resolve_account_subject
 from backend.core.account.tiers import (
     AccountTier,
@@ -113,13 +113,13 @@ async def get_relationship_map_access(
     db: AsyncSession = Depends(get_db),
     x_guest_token: str | None = Header(None, alias=GUEST_TOKEN_HEADER),
 ) -> RelationshipMapAccessResponse:
-    """Backend authority for relationship map data window (403 when locked)."""
+    """Backend authority for relationship map data window."""
     subject = await resolve_account_subject(
         db,
         credentials=credentials,
         guest_token=x_guest_token,
     )
-    access = assert_relationship_map_data_access(subject)
+    access = relationship_map_access_for_tier(subject.tier)
     entitlements = get_entitlements_for_tier(subject.tier)
     public = to_public_entitlements(subject.tier, entitlements)
     return RelationshipMapAccessResponse(

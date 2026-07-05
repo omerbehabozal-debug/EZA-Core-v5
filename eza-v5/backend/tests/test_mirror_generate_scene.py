@@ -2,6 +2,7 @@
 """Tests for POST /api/standalone/mirror/generate-scene."""
 
 import uuid
+from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -24,15 +25,27 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def _mock_visual_quota_guards():
+def _mock_visual_quota_consume():
     with patch(
-        "backend.routers.standalone_mirror.assert_can_create_visual",
+        "backend.routers.standalone_mirror.consume_usage_event_atomic",
         new_callable=AsyncMock,
-    ), patch(
-        "backend.routers.standalone_mirror.record_account_usage_event",
-        new_callable=AsyncMock,
-    ):
+    ) as mock_consume:
+        from backend.core.account.usage_service import UsageConsumeResult
+
+        mock_consume.return_value = UsageConsumeResult(event=SimpleNamespace(), created=True)
         yield
+
+
+VALID_BODY = {
+    "prompt": "premium soft 3D illustration, wellness garden, no text",
+    "negativePrompt": "text, letters, logo",
+    "seedHint": "mirror-visual-abc123",
+    "stylePreset": "eza_mirror_professional_v1",
+    "qualityHints": ["9:16 vertical safe composition"],
+    "cardDate": "2026-05-21",
+    "conversationId": "conv-scene-test",
+    "generationRequestId": "req-abcdef12",
+}
 
 
 def _make_plus_user():
@@ -50,14 +63,37 @@ def _auth_header(user) -> dict[str, str]:
     token = create_access_token(user)
     return {"Authorization": f"Bearer {token}"}
 
-VALID_BODY = {
-    "prompt": "premium soft 3D illustration, wellness garden, no text",
-    "negativePrompt": "text, letters, logo",
-    "seedHint": "mirror-visual-abc123",
-    "stylePreset": "eza_mirror_professional_v1",
-    "qualityHints": ["9:16 vertical safe composition"],
-    "cardDate": "2026-05-21",
-}
+
+@contextmanager
+def _patch_production_user(user):
+    with (
+        patch(
+            "backend.auth.mirror_entitlement.get_production_user_by_id",
+            new_callable=AsyncMock,
+            return_value=user,
+        ),
+        patch(
+            "backend.core.account.subject.get_production_user_by_id",
+            new_callable=AsyncMock,
+            return_value=user,
+        ),
+    ):
+        yield
+
+
+def test_generate_scene_requires_visual_source_id():
+    body = {**VALID_BODY}
+    del body["generationRequestId"]
+    del body["conversationId"]
+    plus_user = _make_plus_user()
+    with _patch_production_user(plus_user):
+        res = client.post(
+            "/api/standalone/mirror/generate-scene",
+            json=body,
+            headers=_auth_header(plus_user),
+        )
+    assert res.status_code == 422
+    assert res.json()["detail"]["reason"] == "visual_source_id_required"
 
 
 @pytest.mark.asyncio
@@ -120,6 +156,17 @@ def test_validate_uses_negative_fallback():
     assert req.negative_prompt == STANDARD_NEGATIVE_FALLBACK
 
 
+GUEST_VALID_BODY = {
+    "prompt": VALID_BODY["prompt"],
+    "negativePrompt": VALID_BODY["negativePrompt"],
+    "seedHint": VALID_BODY["seedHint"],
+    "stylePreset": VALID_BODY["stylePreset"],
+    "qualityHints": VALID_BODY["qualityHints"],
+    "cardDate": VALID_BODY["cardDate"],
+    "generationRequestId": "req-guestabcd",
+}
+
+
 def test_generate_scene_endpoint_guest_with_token():
     guest_token = "guest-token-abcdefghijklmnop"
     with patch(
@@ -128,7 +175,7 @@ def test_generate_scene_endpoint_guest_with_token():
     ):
         res = client.post(
             "/api/standalone/mirror/generate-scene",
-            json=VALID_BODY,
+            json=GUEST_VALID_BODY,
             headers={"X-Guest-Token": guest_token},
         )
     assert res.status_code == 200
@@ -144,11 +191,7 @@ def test_generate_scene_endpoint_requires_auth_or_guest():
 def test_generate_scene_endpoint_success():
     """Authenticated user (free or plus) can generate scene."""
     plus_user = _make_plus_user()
-    with patch(
-        "backend.auth.mirror_entitlement.get_production_user_by_id",
-        new_callable=AsyncMock,
-        return_value=plus_user,
-    ), patch(
+    with _patch_production_user(plus_user), patch(
         "backend.services.mirror.mirror_image_service.get_mirror_image_provider",
         return_value=MockMirrorImageProvider(),
     ):
@@ -187,11 +230,7 @@ def test_generate_scene_endpoint_persists_data_url_to_durable_https(tmp_path, mo
         cached=False,
     )
     plus_user = _make_plus_user()
-    with patch(
-        "backend.auth.mirror_entitlement.get_production_user_by_id",
-        new_callable=AsyncMock,
-        return_value=plus_user,
-    ), patch(
+    with _patch_production_user(plus_user), patch(
         "backend.services.mirror.mirror_image_service.get_mirror_image_provider"
     ) as get_prov:
         mock_provider = MockMirrorImageProvider()
@@ -215,11 +254,7 @@ def test_generate_scene_endpoint_persists_data_url_to_durable_https(tmp_path, mo
 def test_generate_scene_rejects_empty_prompt():
     body = {**VALID_BODY, "prompt": ""}
     plus_user = _make_plus_user()
-    with patch(
-        "backend.auth.mirror_entitlement.get_production_user_by_id",
-        new_callable=AsyncMock,
-        return_value=plus_user,
-    ):
+    with _patch_production_user(plus_user):
         res = client.post(
             "/api/standalone/mirror/generate-scene",
             json=body,
@@ -231,11 +266,7 @@ def test_generate_scene_rejects_empty_prompt():
 def test_generate_scene_rejects_invalid_style_preset():
     body = {**VALID_BODY, "stylePreset": "invalid_preset"}
     plus_user = _make_plus_user()
-    with patch(
-        "backend.auth.mirror_entitlement.get_production_user_by_id",
-        new_callable=AsyncMock,
-        return_value=plus_user,
-    ):
+    with _patch_production_user(plus_user):
         res = client.post(
             "/api/standalone/mirror/generate-scene",
             json=body,

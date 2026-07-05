@@ -22,6 +22,13 @@ export type MirrorGenerateSceneRequest = {
   qualityHints?: string[];
   cardDate: string;
   promptContract?: string;
+  conversationId?: string;
+  generationRequestId?: string;
+};
+
+export type MirrorSceneGenerationOptions = {
+  conversationId?: string | null;
+  generationRequestId?: string;
 };
 
 export type MirrorSceneErrorCode =
@@ -47,7 +54,8 @@ export class MirrorSceneError extends Error {
 
 export function buildMirrorGenerateScenePayload(
   visual: MirrorVisualPromptPayload,
-  cardDate: string
+  cardDate: string,
+  options?: MirrorSceneGenerationOptions
 ): MirrorGenerateSceneRequest {
   return {
     prompt: visual.prompt,
@@ -57,14 +65,17 @@ export function buildMirrorGenerateScenePayload(
     qualityHints: visual.qualityHints,
     cardDate,
     promptContract: visual.promptContract,
+    conversationId: options?.conversationId ?? undefined,
+    generationRequestId: options?.generationRequestId,
   };
 }
 
 export async function generateMirrorScene(
   visual: MirrorVisualPromptPayload,
-  cardDate: string
+  cardDate: string,
+  options?: MirrorSceneGenerationOptions
 ): Promise<MirrorGenerateSceneResponse> {
-  const body = buildMirrorGenerateScenePayload(visual, cardDate);
+  const body = buildMirrorGenerateScenePayload(visual, cardDate, options);
   const token =
     typeof window !== 'undefined' ? window.localStorage.getItem('eza_token') : null;
   const headers: Record<string, string> = {};

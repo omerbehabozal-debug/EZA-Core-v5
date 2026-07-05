@@ -546,6 +546,8 @@ _ACCOUNT_QUOTA_TEST_MODULES = frozenset({
     "test_visual_quota_guard",
     "test_discover_quota_guard",
     "test_relationship_map_access",
+    "test_visual_source",
+    "test_consume_usage_atomic",
 })
 
 
@@ -567,7 +569,10 @@ def _ci_stub_account_usage(request):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, patch
 
+    from backend.core.account.usage_service import UsageConsumeResult
+
     subject = SimpleNamespace(user_id="ci-user", guest_fingerprint="ci-guest-fp")
+    usage_event = SimpleNamespace()
 
     with (
         patch(
@@ -580,13 +585,9 @@ def _ci_stub_account_usage(request):
             new_callable=AsyncMock,
         ),
         patch(
-            "backend.routers.standalone_mirror.assert_can_create_visual",
+            "backend.routers.standalone_mirror.consume_usage_event_atomic",
             new_callable=AsyncMock,
-            return_value=subject,
-        ),
-        patch(
-            "backend.routers.standalone_mirror.record_account_usage_event",
-            new_callable=AsyncMock,
+            return_value=UsageConsumeResult(event=usage_event, created=True),
         ),
         patch(
             "backend.main.assert_can_send_message",

@@ -20,11 +20,8 @@ import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversatio
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
-import {
-  canViewRelationshipMapData,
-  filterEntriesForMapAccess,
-  getRelationshipMapAccess,
-} from '@/lib/eza/plan/sainaRelationshipMapAccess';
+import { filterEntriesForMapAccess } from '@/lib/eza/plan/sainaRelationshipMapAccess';
+import { useRelationshipMapAccess } from '@/lib/eza/plan/useRelationshipMapAccess';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
 import { usePlan } from '@/lib/eza/plan/usePlan';
@@ -89,14 +86,18 @@ export default function SainaPatternPageInner() {
     source,
     accountTier: accountEntitlements.tier,
   });
-  const mapAccess = getRelationshipMapAccess(accountEntitlements);
-  const canViewMapData = canViewRelationshipMapData(mapAccess);
+  const {
+    isLoading: mapAccessLoading,
+    canViewMapData,
+    mapAccess,
+    cutoffIso,
+  } = useRelationshipMapAccess();
   const {
     handleRequestLogin,
     handleOpenUpgrade: handleUpgrade,
     gateModals,
   } = useSainaGateModals({ planTier, defaultUpgradeFeature: 'relationship_pattern' });
-  const planResolved = !isPlanLoading && !entitlementsLoading;
+  const planResolved = !isPlanLoading && !entitlementsLoading && !mapAccessLoading;
 
   const { entries, deviceState, systemNotifications } = usePatternDeviceSync({
     hasMapDataAccess: canViewMapData,
@@ -104,13 +105,8 @@ export default function SainaPatternPageInner() {
   });
 
   const displayEntries = useMemo(
-    () =>
-      filterEntriesForMapAccess(
-        entries,
-        mapAccess,
-        accountEntitlements.entitlements.relationshipMapCutoffIso
-      ),
-    [entries, mapAccess, accountEntitlements.entitlements.relationshipMapCutoffIso]
+    () => filterEntriesForMapAccess(entries, mapAccess, cutoffIso),
+    [entries, mapAccess, cutoffIso]
   );
 
   const { conversations, conversationGroups, activeChatId } = useSainaSidebarConversations(archives);
