@@ -18,6 +18,12 @@ export const SAINA_CONVERSATIONS_TITLE = 'Sohbetlerim';
 
 export const SAINA_NEW_CHAT = 'Yeni sohbet';
 
+export const SAINA_CONV_MENU_LABEL = 'Sohbet seçenekleri';
+
+export const SAINA_CONV_RENAME = 'Yeniden adlandır';
+
+export const SAINA_CONV_DELETE = 'Sil';
+
 export const SAINA_TOP_SEARCH_PLACEHOLDER = 'Bir şey ara...';
 
 export const SAINA_COMMAND_DIALOG_LABEL = 'Komut paleti';

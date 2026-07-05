@@ -1,11 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Compass, GitBranch, MessageSquarePlus, Trash2, X } from 'lucide-react';
+import { Compass, GitBranch, MessageSquarePlus, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   SAINA_BRAND,
+  SAINA_CONV_DELETE,
+  SAINA_CONV_MENU_LABEL,
+  SAINA_CONV_RENAME,
   SAINA_NEW_CHAT,
   SAINA_SIDEBAR_FREE_FOOTER,
   SAINA_PLAN_LOADING_BODY,
@@ -26,6 +29,7 @@ import {
   writeGroupExpanded,
 } from '@/lib/eza/conversation-tree/groupExpandedState';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
+import { renameChat } from '@/lib/standaloneChatArchive';
 import SainaGeometricMark from './SainaGeometricMark';
 
 function SainaConversationThumb({
@@ -178,6 +182,40 @@ export default function SainaConversationSidebar({
   );
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(`[data-conv-menu-root="${openMenuId}"]`)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [openMenuId]);
+
+  useEffect(() => {
+    if (!editingId) return;
+    renameInputRef.current?.focus();
+    renameInputRef.current?.select();
+  }, [editingId]);
+
+  const commitRename = useCallback((id: string, title: string) => {
+    const next = title.trim();
+    if (next) renameChat(id, next);
+    setEditingId(null);
+    setEditTitle('');
+  }, []);
+
+  const cancelRename = useCallback(() => {
+    setEditingId(null);
+    setEditTitle('');
+  }, []);
 
   const isGroupExpanded = useCallback(
     (groupId: string) => {
@@ -216,21 +254,51 @@ export default function SainaConversationSidebar({
     nested = false
   ) => {
     const active = activeChatId != null && item.id === activeChatId;
-    const canDelete = Boolean(onDeleteChat) && !disabled;
+    const canManage = Boolean(onDeleteChat) && !disabled;
+
+    if (editingId === item.id) {
+      return (
+        <div
+          key={item.id}
+          className={cn('saina-conv-row saina-conv-row--editing', nested && 'saina-conv-row--nested')}
+          data-testid={`saina-conv-row-${item.id}`}
+        >
+          <input
+            ref={renameInputRef}
+            type="text"
+            className="saina-conv-rename-input"
+            value={editTitle}
+            aria-label={`${item.title} yeniden adlandır`}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitRename(item.id, editTitle);
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelRename();
+              }
+            }}
+            onBlur={() => commitRename(item.id, editTitle)}
+          />
+        </div>
+      );
+    }
+
     return (
       <div
         key={item.id}
-        className={cn('saina-conv-row-wrap', nested && 'saina-conv-row-wrap--nested')}
+        className={cn(
+          'saina-conv-row',
+          active ? 'saina-conv-row--active' : 'saina-conv-row--quiet',
+          nested && 'saina-conv-row--nested'
+        )}
+        data-testid={`saina-conv-row-${item.id}`}
       >
         <button
           type="button"
           disabled={disabled && !onSelectChat}
-          className={cn(
-            'saina-conv-row',
-            active ? 'saina-conv-row--active' : 'saina-conv-row--quiet',
-            nested && 'saina-conv-row--nested'
-          )}
-          data-testid={`saina-conv-row-${item.id}`}
+          className="saina-conv-row-main"
           onClick={() => {
             onSelectChat?.(item.id);
             onMobileClose?.();
@@ -251,21 +319,60 @@ export default function SainaConversationSidebar({
             </div>
           </div>
         </button>
-        {canDelete ? (
-          <button
-            type="button"
-            className="saina-conv-delete-btn"
-            data-testid={`saina-conv-delete-${item.id}`}
-            aria-label={`${item.title} sil`}
-            title="Sil"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onDeleteChat?.(item.id);
-            }}
-          >
-            <Trash2 size={14} aria-hidden />
-          </button>
+
+        {canManage ? (
+          <div className="saina-conv-menu" data-conv-menu-root={item.id}>
+            <button
+              type="button"
+              className="saina-conv-menu-btn"
+              data-testid={`saina-conv-menu-${item.id}`}
+              aria-label={`${item.title} — ${SAINA_CONV_MENU_LABEL}`}
+              aria-haspopup="menu"
+              aria-expanded={openMenuId === item.id}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpenMenuId((current) => (current === item.id ? null : item.id));
+              }}
+            >
+              <MoreHorizontal size={16} aria-hidden />
+            </button>
+            {openMenuId === item.id ? (
+              <div className="saina-conv-menu-dropdown" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="saina-conv-menu-item"
+                  data-testid={`saina-conv-rename-${item.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setOpenMenuId(null);
+                    setEditingId(item.id);
+                    setEditTitle(item.title);
+                  }}
+                >
+                  <Pencil size={14} aria-hidden />
+                  {SAINA_CONV_RENAME}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="saina-conv-menu-item saina-conv-menu-item--danger"
+                  data-testid={`saina-conv-delete-${item.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setOpenMenuId(null);
+                    onDeleteChat?.(item.id);
+                  }}
+                >
+                  <Trash2 size={14} aria-hidden />
+                  {SAINA_CONV_DELETE}
+                </button>
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </div>
     );

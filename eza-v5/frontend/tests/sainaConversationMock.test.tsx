@@ -24,9 +24,7 @@ import {
   SAINA_MIRROR_HOW_LABEL,
   SAINA_MIRROR_TITLE,
   SAINA_OPEN_PREVIEW,
-  SAINA_LOGGEDIN_FREE_CTA,
-  SAINA_FREE_TITLE,
-  SAINA_PLAN_ACTIVE,
+  SAINA_SIDEBAR_FREE_FOOTER,
   SAINA_PREMIUM_MIRROR_LABEL,
   SAINA_PREMIUM_OBSERVING,
   SAINA_PREMIUM_TITLE,
@@ -117,28 +115,26 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     expect(screen.queryByText(SAINA_CONCEPT_NEXT_TITLE)).not.toBeInTheDocument();
   });
 
-  it('renders free plan card without quota when planTier is free', () => {
+  it('renders free plan footer without quota when planTier is free', () => {
     render(<SainaConversationSidebar planTier="free" interactionsDisabled />);
 
-    expect(screen.getByText(SAINA_FREE_TITLE)).toBeInTheDocument();
-    expect(screen.getByText(SAINA_LOGGEDIN_FREE_CTA)).toBeInTheDocument();
-    expect(screen.getByText(SAINA_PLAN_ACTIVE)).toBeInTheDocument();
+    expect(screen.getByText(SAINA_SIDEBAR_FREE_FOOTER)).toBeInTheDocument();
     expect(screen.queryByText(SAINA_PREMIUM_TITLE)).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
 
-  it('renders premium plan card without quota by default', () => {
+  it('renders premium plan footer without quota by default', () => {
     render(<SainaConversationSidebar interactionsDisabled />);
 
     expect(screen.getByText(SAINA_PREMIUM_TITLE)).toBeInTheDocument();
-    expect(screen.getByText(SAINA_PREMIUM_OBSERVING)).toBeInTheDocument();
-    expect(screen.getByText(SAINA_PREMIUM_MIRROR_LABEL)).toBeInTheDocument();
+    expect(screen.queryByText(SAINA_PREMIUM_OBSERVING)).not.toBeInTheDocument();
+    expect(screen.queryByText(SAINA_PREMIUM_MIRROR_LABEL)).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
 
-  it('shows delete control for real conversations and calls onDeleteChat', () => {
+  it('shows conv menu with delete action for real conversations', () => {
     const onDeleteChat = vi.fn();
     render(
       <SainaConversationSidebar
@@ -156,13 +152,14 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Kyoto Akşamları sil' }));
+    fireEvent.click(screen.getByTestId('saina-conv-menu-chat-delete-me'));
+    fireEvent.click(screen.getByTestId('saina-conv-delete-chat-delete-me'));
     expect(onDeleteChat).toHaveBeenCalledWith('chat-delete-me');
   });
 
-  it('hides delete control on mock sidebar without handler', () => {
+  it('hides conv menu on mock sidebar without handler', () => {
     render(<SainaConversationSidebar interactionsDisabled />);
-    expect(screen.queryByTestId(/saina-conv-delete-/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(/saina-conv-menu-/)).not.toBeInTheDocument();
   });
 
   it('renders default scene overlays with bundled image layer', () => {
