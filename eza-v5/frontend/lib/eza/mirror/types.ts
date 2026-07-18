@@ -199,6 +199,11 @@ export interface BuildMirrorStateOptions {
   generatedAt?: string;
   /** Active chat thread id — Conversation Mirror scope. */
   conversationId?: string;
+  /**
+   * Raw user message texts for semantic meaning summary.
+   * Must be forwarded into buildMirrorPayloadV3 — do not drop at V3 state boundary.
+   */
+  conversationTexts?: readonly string[];
 }
 
 export type { SavedBehavioralEntry };

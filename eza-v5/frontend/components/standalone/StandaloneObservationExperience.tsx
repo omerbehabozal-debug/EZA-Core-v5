@@ -38,6 +38,7 @@ import {
   resolveMirrorSceneDisplayUrl,
   revokePosterObjectUrl,
 } from '@/lib/eza/mirror/resolveMirrorSceneDisplayUrl';
+import { getChatArchive } from '@/lib/standaloneChatArchive';
 import {
   resolveMirrorRenderMode,
   setDevRenderMode,
@@ -240,9 +241,23 @@ export default function StandaloneObservationExperience({
   const panelGeneratingHeadline = embedded ? mirrorPanelCopy?.generating : undefined;
   const panelReadyHeadline = embedded ? mirrorPanelCopy?.ready : undefined;
   const isConversationScope = Boolean(conversationId);
+  const conversationTexts = useMemo(() => {
+    if (!conversationId) return undefined;
+    const archive = getChatArchive(conversationId);
+    if (!archive?.messages?.length) return undefined;
+    return archive.messages
+      .filter((message) => message.isUser && message.text.trim())
+      .map((message) => message.text.trim());
+  }, [conversationId, entries.length]);
   const mirrorBuildOptions = useMemo(
-    () => (conversationId ? { conversationId } : undefined),
-    [conversationId]
+    () =>
+      conversationId
+        ? {
+            conversationId,
+            ...(conversationTexts?.length ? { conversationTexts } : {}),
+          }
+        : undefined,
+    [conversationId, conversationTexts]
   );
 
   const conversationSnapshot = useMemo(

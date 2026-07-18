@@ -32,7 +32,9 @@ export function buildMirrorPayloadV3(
     options.seed ??
     `v3-${options.conversationId}-${entries.length}-${entries[0]?.interaction_id ?? 'empty'}`;
   const base = buildMirrorPayload(entries, { ...options, seed });
-  const topicResolution = resolveActiveConversationTopics(entries, seed);
+  const topicResolution = resolveActiveConversationTopics(entries, seed, {
+    conversationTexts: options.conversationTexts,
+  });
 
   const conversationEvidence = resolveConversationEvidence({
     entries,

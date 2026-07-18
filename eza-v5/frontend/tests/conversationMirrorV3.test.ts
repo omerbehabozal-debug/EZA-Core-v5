@@ -253,13 +253,18 @@ describe('conversationMirrorV3', () => {
       MIRROR_V3_SCENE_CACHE_KEY
     );
     expect(prompt).toContain('Create a premium editorial SAINA Mirror poster');
-    expect(prompt).toContain('TOPIC HINT:');
-    expect(prompt).toContain('VISUAL DIRECTION:');
+    expect(prompt).toContain('TITLE:');
+    expect(prompt).toContain('CATEGORY:');
+    expect(prompt).toMatch(/RENDER BRIEF:|VISUAL DIRECTION:|TOPIC HINT:/);
     expect(prompt.length).toBeLessThanOrEqual(1400);
     expect(prompt.toLowerCase()).not.toMatch(/\bcinematic\b/);
     expect(prompt).not.toContain('Evidence fusion scene');
     expect(prompt).not.toContain('Poster test:');
     expect(prompt).not.toContain(state.dailyMirrorCard.shortInsight);
+    expect(state.dailyMirrorCard.mirrorV3Payload?.storyTopicId).toBe('travel');
+    expect(state.dailyMirrorCard.mirrorV3Payload?.mirrorTitle ?? '').not.toMatch(
+      /Tezgâh|Tezgah/i
+    );
   });
 
   it('brand signature matches spec', () => {

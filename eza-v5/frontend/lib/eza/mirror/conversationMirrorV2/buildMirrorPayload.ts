@@ -31,6 +31,8 @@ export type BuildMirrorPayloadOptions = {
   date?: Date;
   season?: SainaMirrorSeason;
   seed?: string;
+  /** Raw user message texts — preferred input for semantic meaning summary. */
+  conversationTexts?: readonly string[];
 };
 
 function formatDateIso(d: Date): string {
@@ -74,7 +76,9 @@ export function buildMirrorPayload(
     `v2-${options.conversationId}-${entries.length}-${entries[0]?.interaction_id ?? 'empty'}-${dateIso}`;
   const conversationId = options.conversationId;
 
-  const topicResolution = resolveActiveConversationTopics(entries, seed);
+  const topicResolution = resolveActiveConversationTopics(entries, seed, {
+    conversationTexts: options.conversationTexts,
+  });
   const observation = buildDailyObservationFromEntries(entries, {
     seed,
     tone: 'standalone',

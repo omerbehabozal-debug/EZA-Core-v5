@@ -109,6 +109,9 @@ export function buildMirrorStateV3(
     conversationId:
       options?.conversationId ??
       `mirror-v3-${sampleCount}-${sortNewestFirst(entries)[0]?.interaction_id ?? 'empty'}`,
+    ...(options?.conversationTexts?.length
+      ? { conversationTexts: options.conversationTexts }
+      : {}),
   });
   const patternState = buildRelationshipPatternState(entries, options?.periodDays, {
     generatedAt,

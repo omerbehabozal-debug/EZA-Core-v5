@@ -75,14 +75,15 @@ export const CONVERSATION_TOPIC_CLUSTERS: readonly ConversationTopicCluster[] = 
     id: 'japan_travel',
     label: 'Japonya seyahati',
     storyTopicId: 'travel',
-    anchors: ['japonya', 'japan', 'tokyo', 'kyoto'],
+    anchors: ['japonya', 'japan', 'tokyo', 'kyoto', 'osaka', 'gion', 'pontocho'],
     minAnchors: 1,
   },
   {
     id: 'health_wellness',
     label: 'Sağlık ve beslenme',
     storyTopicId: 'health',
-    anchors: ['sağlık', 'beslenme', 'yürüyüş', 'health', 'walk'],
+    // Walk alone is ambiguous (travel/architecture). Require true health anchors.
+    anchors: ['sağlık', 'beslenme', 'health', 'fitness', 'kalori', 'adım', 'wellness'],
     minAnchors: 1,
   },
   {

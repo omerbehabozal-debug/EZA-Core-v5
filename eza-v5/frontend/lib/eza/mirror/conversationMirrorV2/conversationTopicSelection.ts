@@ -1,6 +1,10 @@
 /**
  * Conversation Mirror V2 — topic extraction scoped to a single active chat thread.
- * SAINA selects topics; OpenAI only renders the chosen cinematic narrative.
+ *
+ * Decision order (semantic-first):
+ * 1. Conversation meaning summary (entities + intent + domain signals)
+ * 2. Cue/cluster scoring as supporting evidence
+ * 3. Consistency gate — high-confidence meaning cannot be overridden by ambiguous cues
  */
 
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
@@ -17,6 +21,13 @@ import {
   matchTurnToClusters,
   type ConversationTopicCluster,
 } from '@/lib/eza/mirror/conversationMirrorV2/conversationTopicClusters';
+import {
+  AMBIGUOUS_TOPIC_TOKENS,
+  buildConversationMeaningSummary,
+  isTopicConsistentWithMeaning,
+  remapAmbiguousCueToken,
+  type ConversationMeaningSummary,
+} from '@/lib/eza/mirror/conversationMirrorV2/conversationMeaningSummary';
 
 export type ConversationCandidateTopic = SainaMirrorPayload['candidateTopics'][number];
 
@@ -29,6 +40,8 @@ const MAX_CANDIDATES = 5;
 const RECENCY_WINDOW = 3;
 const RECENCY_BOOST = 1.5;
 const SINGLE_TOPIC_DOMINANCE_RATIO = 0.7;
+/** Meaning confidence at/above this blocks cue overrides from ambiguous tokens. */
+const MEANING_AUTHORITY_CONFIDENCE = 0.62;
 
 const TOKEN_DISPLAY_LABEL = new Map<string, string>(
   TOPIC_CUE_RULES.map((rule) => [rule.token, rule.token])
@@ -95,13 +108,64 @@ function upsertCandidate(
   prev.weight = Math.round((prev.weight + next.weightDelta) * 10) / 10;
 }
 
+function collectAllCueTokens(entries: SavedBehavioralEntry[]): string[] {
+  const tokens: string[] = [];
+  for (const entry of entries) {
+    for (const hint of entry.mirrorCueHints ?? []) {
+      const t = String(hint).trim().toLowerCase();
+      if (t && !tokens.includes(t)) tokens.push(t);
+    }
+  }
+  return tokens;
+}
+
+function filterClustersForMeaning(
+  clusters: ConversationTopicCluster[],
+  meaning: ConversationMeaningSummary,
+  tokens: readonly string[]
+): ConversationTopicCluster[] {
+  if (meaning.confidence < MEANING_AUTHORITY_CONFIDENCE) return clusters;
+
+  return clusters.filter((cluster) => {
+    if (isTopicConsistentWithMeaning(cluster.storyTopicId, meaning)) return true;
+
+    // Drop health/wellness hits that only come from ambiguous walk cues under travel meaning.
+    const onlyAmbiguous =
+      tokens.length > 0 &&
+      tokens.every((token) => AMBIGUOUS_TOPIC_TOKENS.has(token.toLowerCase()));
+    if (
+      cluster.storyTopicId === 'health' &&
+      meaning.primaryTopic === 'travel' &&
+      onlyAmbiguous
+    ) {
+      return false;
+    }
+    if (
+      cluster.storyTopicId === 'health' &&
+      meaning.primaryTopic === 'travel' &&
+      cluster.id === 'health_wellness'
+    ) {
+      return false;
+    }
+    return false;
+  });
+}
+
 /**
  * Extract weighted candidate topics from active conversation entries only.
  * Never reads global history or other chat threads.
  */
 export function extractConversationCandidateTopics(
-  entries: SavedBehavioralEntry[]
+  entries: SavedBehavioralEntry[],
+  options?: { conversationTexts?: readonly string[]; meaning?: ConversationMeaningSummary }
 ): InternalCandidate[] {
+  const meaning =
+    options?.meaning ??
+    buildConversationMeaningSummary({
+      conversationTexts: options?.conversationTexts,
+      cueTokens: collectAllCueTokens(entries),
+    });
+
   const map = new Map<string, InternalCandidate>();
   const chronological = [...entries].sort((a, b) => a.savedAt.localeCompare(b.savedAt));
   const total = chronological.length;
@@ -111,12 +175,42 @@ export function extractConversationCandidateTopics(
     const recencyWeight = recencyRank < RECENCY_WINDOW ? RECENCY_BOOST : 1;
     const engagement = turnEngagement(entry);
 
-    const tokens = canonicalizeCoverageTokens(
+    const rawTokens = canonicalizeCoverageTokens(
       (entry.mirrorCueHints ?? []).map((hint) => String(hint))
     );
-    if (!tokens.length) return;
+    if (!rawTokens.length) return;
 
-    const clusters = matchTurnToClusters(tokens);
+    const remapped = rawTokens.map((token) => remapAmbiguousCueToken(token, meaning));
+    const tokens = remapped.map((item) => item.token);
+    const topicOverrides = remapped
+      .map((item) => item.topicOverride)
+      .filter((topic): topic is StoryTopicId => Boolean(topic));
+
+    let clusters = matchTurnToClusters(tokens);
+    clusters = filterClustersForMeaning(clusters, meaning, tokens);
+
+    // If remapping forced travel/architecture for ambiguous walk, inject synthetic cluster weight.
+    if (
+      !clusters.length &&
+      topicOverrides.includes(meaning.primaryTopic) &&
+      meaning.confidence >= MEANING_AUTHORITY_CONFIDENCE
+    ) {
+      const label =
+        TOPIC_MIRROR_TEMPLATES[meaning.primaryTopic]?.topicLabel ?? meaning.primaryTopic;
+      const key = `meaning:${meaning.primaryTopic}`;
+      const depthDelta = Math.round(tokens.length * engagement * recencyWeight * 10) / 10;
+      upsertCandidate(map, key, {
+        topic: label,
+        source: 'active_conversation',
+        storyTopicId: meaning.primaryTopic,
+        clusterId: key,
+        messageCount: 1,
+        depthDelta,
+        weightDelta: Math.round((4 + depthDelta) * 10) / 10,
+      });
+      return;
+    }
+
     const depthDelta = Math.round(tokens.length * engagement * recencyWeight * 10) / 10;
 
     if (clusters.length > 0) {
@@ -137,9 +231,23 @@ export function extractConversationCandidateTopics(
       return;
     }
 
-    for (const token of tokens) {
-      const storyTopicId = resolveStoryTopicForToken(token) ?? 'general_curiosity';
-      const topic = displayLabelForToken(token, storyTopicId);
+    for (const item of remapped) {
+      const storyTopicId =
+        item.topicOverride ??
+        resolveStoryTopicForToken(item.token) ??
+        'general_curiosity';
+
+      // Skip ambiguous→health when meaning says otherwise
+      if (
+        AMBIGUOUS_TOPIC_TOKENS.has(item.token) &&
+        storyTopicId === 'health' &&
+        meaning.primaryTopic !== 'health' &&
+        meaning.confidence >= MEANING_AUTHORITY_CONFIDENCE
+      ) {
+        continue;
+      }
+
+      const topic = displayLabelForToken(item.token, storyTopicId);
       const key = tokenFallbackKey(topic, storyTopicId);
       const weightDelta =
         Math.round((1.5 + depthDelta / tokens.length + (recencyWeight > 1 ? 0.5 : 0)) * 10) /
@@ -155,6 +263,27 @@ export function extractConversationCandidateTopics(
       });
     }
   });
+
+  // Seed meaning primary only when no cue/cluster candidate already covers it.
+  if (meaning.confidence >= MEANING_AUTHORITY_CONFIDENCE) {
+    const hasAligned = Array.from(map.values()).some(
+      (candidate) => candidate.storyTopicId === meaning.primaryTopic
+    );
+    if (!hasAligned) {
+      const label =
+        TOPIC_MIRROR_TEMPLATES[meaning.primaryTopic]?.topicLabel ?? meaning.primaryTopic;
+      const key = `meaning:${meaning.primaryTopic}`;
+      upsertCandidate(map, key, {
+        topic: label,
+        source: 'active_conversation',
+        storyTopicId: meaning.primaryTopic,
+        clusterId: key,
+        messageCount: Math.max(1, entries.length),
+        depthDelta: 5,
+        weightDelta: Math.round((6 + meaning.confidence * 4) * 10) / 10,
+      });
+    }
+  }
 
   return Array.from(map.values())
     .sort((a, b) => b.weight - a.weight)
@@ -189,20 +318,77 @@ export type ActiveConversationTopicResolution = {
   selectedTopic: string;
   candidateTopics: ConversationCandidateTopic[];
   primaryTopic: StoryTopicId;
+  meaning: ConversationMeaningSummary;
+};
+
+export type ResolveActiveConversationTopicsOptions = {
+  conversationTexts?: readonly string[];
 };
 
 /**
  * Resolve the cinematic topic for one conversation thread.
- * Selected topic is always grounded in that thread's messages.
+ * Semantic meaning is the primary authority when confidence is high.
  */
 export function resolveActiveConversationTopics(
   entries: SavedBehavioralEntry[],
-  seed: string
+  seed: string,
+  options?: ResolveActiveConversationTopicsOptions
 ): ActiveConversationTopicResolution {
-  const candidates = extractConversationCandidateTopics(entries);
-  const picked = selectWeightedConversationTopic(candidates, seed);
+  const meaning = buildConversationMeaningSummary({
+    conversationTexts: options?.conversationTexts,
+    cueTokens: collectAllCueTokens(entries),
+  });
 
-  const primaryTopic = picked?.storyTopicId ?? 'general_curiosity';
+  const candidates = extractConversationCandidateTopics(entries, {
+    conversationTexts: options?.conversationTexts,
+    meaning,
+  });
+
+  let picked: InternalCandidate | null = null;
+
+  if (meaning.confidence >= MEANING_AUTHORITY_CONFIDENCE) {
+    const aligned = candidates
+      .filter((candidate) => candidate.storyTopicId === meaning.primaryTopic)
+      .sort((a, b) => b.weight - a.weight);
+    if (aligned.length) {
+      // Prefer specific place/cluster labels over generic token labels.
+      const japanPreferred = aligned.find((candidate) =>
+        /japonya seyahati/i.test(candidate.topic)
+      );
+      picked = japanPreferred ?? aligned[0] ?? null;
+    }
+  }
+
+  if (!picked) {
+    picked = selectWeightedConversationTopic(candidates, seed);
+  }
+
+  // Consistency validation: high-confidence meaning wins over conflicting cue pick.
+  if (
+    picked &&
+    meaning.confidence >= MEANING_AUTHORITY_CONFIDENCE &&
+    !isTopicConsistentWithMeaning(picked.storyTopicId, meaning)
+  ) {
+    const meaningCandidate = candidates
+      .filter((c) => c.storyTopicId === meaning.primaryTopic)
+      .sort((a, b) => b.weight - a.weight)[0];
+    if (meaningCandidate) {
+      picked = meaningCandidate;
+    } else {
+      picked = {
+        topic:
+          TOPIC_MIRROR_TEMPLATES[meaning.primaryTopic]?.topicLabel ?? meaning.primaryTopic,
+        source: 'active_conversation',
+        weight: meaning.confidence * 10,
+        messageCount: entries.length,
+        depthScore: 5,
+        storyTopicId: meaning.primaryTopic,
+        clusterId: `meaning:${meaning.primaryTopic}`,
+      };
+    }
+  }
+
+  const primaryTopic = picked?.storyTopicId ?? meaning.primaryTopic ?? 'general_curiosity';
   const selectedTopic =
     picked?.topic ??
     TOPIC_MIRROR_TEMPLATES[primaryTopic]?.topicLabel ??
@@ -220,5 +406,6 @@ export function resolveActiveConversationTopics(
       })
     ),
     primaryTopic,
+    meaning,
   };
 }

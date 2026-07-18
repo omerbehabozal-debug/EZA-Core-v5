@@ -55,13 +55,15 @@ export const TOPIC_CUE_RULES: readonly TopicCueRule[] = [
   rule('3 serisi', 'vehicle', ['3 serisi', '3 series', 'serie 3']),
 
   rule('özbekistan', 'travel', ['özbekistan', 'uzbekistan', 'özbek']),
-  rule('japonya', 'travel', ['japonya', 'japan', 'tokyo', 'kyoto', 'osaka']),
+  rule('japonya', 'travel', ['japonya', 'japan', 'tokyo', 'kyoto', 'osaka', 'gion', 'pontocho']),
+  rule('roma', 'travel', ['roma', 'rome', 'italya', 'italy', 'paris', 'istanbul']),
   rule('semerkant', 'travel', ['semerkant', 'samarkand', 'registan']),
   rule('buhara', 'travel', ['buhara', 'bukhara', 'hive']),
-  rule('seyahat', 'travel', ['seyahat', 'travel', 'trip', 'journey', 'gezi']),
+  rule('seyahat', 'travel', ['seyahat', 'travel', 'trip', 'journey', 'gezi', 'gezmek']),
   rule('rota', 'travel', ['rota', 'route', 'itinerary', 'yolculuk']),
   rule('harita', 'travel', ['harita', 'map', 'station', 'tren']),
   rule('keşif', 'travel', ['keşif', 'explore', 'exploration']),
+  rule('yağmur', 'travel', ['yağmur', 'yagmur', 'rainy', 'rain']),
 
   rule('mimari', 'architecture', ['mimari', 'architecture', 'architect']),
   rule('restorasyon', 'architecture', ['restorasyon', 'restoration', 'restore']),
@@ -69,6 +71,13 @@ export const TOPIC_CUE_RULES: readonly TopicCueRule[] = [
   rule('cami', 'architecture', ['cami', 'mosque', 'minare']),
   rule('villa', 'architecture', ['villa', 'courtyard', 'atelier']),
   rule('malzeme', 'architecture', ['malzeme', 'material', 'stone', 'heritage']),
+  rule('yürüyüş yolu', 'architecture', [
+    'yürüyüş yolu',
+    'yuruyus yolu',
+    'kaldırım',
+    'kaldirim',
+    'yaya aks',
+  ]),
 
   rule('eza', 'technology_ai', ['eza', 'ezacore']),
   rule('cursor', 'technology_ai', ['cursor']),
@@ -83,7 +92,9 @@ export const TOPIC_CUE_RULES: readonly TopicCueRule[] = [
   rule('sağlık', 'health', ['sağlık', 'health', 'wellness', 'fitness']),
   rule('guatr', 'health', ['guatr', 'goiter', 'thyroid', 'tiroid']),
   rule('beslenme', 'health', ['beslenme', 'nutrition', 'diet']),
-  rule('yürüyüş', 'health', ['yürüyüş', 'walk', 'walking', 'yürüyus']),
+  // Ambiguous alone — meaning summary remaps using conversation context.
+  rule('yürüyüş', 'health', ['yürüyüş', 'walk', 'walking', 'yürüyus', 'yuruyus']),
+  rule('adım', 'health', ['adım', 'adim', '10 bin adım', 'kalori']),
   rule('diş macunu', 'health', ['diş macunu', 'dis macunu', 'toothpaste', 'diş macun']),
   rule('florür', 'health', ['florür', 'florurlu', 'florursuz', 'fluoride']),
   rule('hassas diş', 'health', ['hassas diş', 'hassas dişler', 'hassasiyet']),

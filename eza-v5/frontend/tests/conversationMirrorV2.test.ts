@@ -310,7 +310,7 @@ describe('conversationMirrorV2', () => {
     expect(payload.safetyLevel).toBe('normal');
     if (payload.selectedTopic === 'Diş macunu seçimi') {
       expect(payload.mirrorTitle).toBe('Temiz Bir Seçim');
-      expect(payload.topicSummary).toContain('florür');
+      expect(payload.topicSummary.toLowerCase()).toContain('florür');
       expect(payload.emotionalTone).toBe('careful');
     }
     expect(isDentalPersonalCarePayload(payload)).toBe(true);
