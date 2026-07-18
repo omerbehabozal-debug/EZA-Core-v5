@@ -39,6 +39,8 @@ import {
   revokePosterObjectUrl,
 } from '@/lib/eza/mirror/resolveMirrorSceneDisplayUrl';
 import { getChatArchive } from '@/lib/standaloneChatArchive';
+import { getActiveConversationLiveMessages } from '@/lib/eza/mirror/activeConversationLiveMessages';
+import { resolveMirrorBuildConversationTexts } from '@/lib/eza/mirror/collectConversationTextsForMirror';
 import {
   resolveMirrorRenderMode,
   setDevRenderMode,
@@ -243,11 +245,11 @@ export default function StandaloneObservationExperience({
   const isConversationScope = Boolean(conversationId);
   const conversationTexts = useMemo(() => {
     if (!conversationId) return undefined;
-    const archive = getChatArchive(conversationId);
-    if (!archive?.messages?.length) return undefined;
-    return archive.messages
-      .filter((message) => message.isUser && message.text.trim())
-      .map((message) => message.text.trim());
+    return resolveMirrorBuildConversationTexts({
+      conversationId,
+      getArchiveMessages: (id) => getChatArchive(id)?.messages ?? null,
+      getLiveMessages: (id) => getActiveConversationLiveMessages(id),
+    });
   }, [conversationId, entries.length]);
   const mirrorBuildOptions = useMemo(
     () =>

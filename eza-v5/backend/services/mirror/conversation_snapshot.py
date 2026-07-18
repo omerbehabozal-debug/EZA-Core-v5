@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Safe conversation snapshot for Mirror Meaning Analysis (PR A).
+"""Safe conversation snapshot for Mirror Meaning Analysis.
 
-User messages are the primary source. No user IDs, tokens, archive metadata,
-or private system fields are included.
+PRODUCTION AUTHORITY for Director LLM analysis input.
+Frontend may send permitted message DTOs only; this module performs
+clean / dedupe / head-tail selection / char caps / privacy stripping.
+
+Do not duplicate this algorithm as a second production path on the client.
 """
 
 from __future__ import annotations

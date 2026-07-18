@@ -30,9 +30,12 @@ export type MirrorMeaningAnalysisV1 = {
 export type MirrorMeaningFailureCode =
   | 'timeout'
   | 'rate_limit'
+  | 'insufficient_quota'
+  | 'auth_config'
   | 'invalid_json'
   | 'schema_validation'
   | 'provider_error'
+  | 'empty_response'
   | 'low_confidence'
   | 'missing_api_key'
   | 'empty_snapshot';

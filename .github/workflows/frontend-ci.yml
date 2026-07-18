@@ -46,6 +46,9 @@ jobs:
           tests/discoverCard.test.tsx
           tests/discoverExperiencedMirrors.test.ts
           tests/mirrorPanelCopy.test.ts
+          tests/conversationMeaningSummary.test.ts
+          tests/mirrorDirectorPrA.test.ts
+          tests/mirrorExperienceWiring.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-
@@ -53,3 +56,5 @@ jobs:
           tests/conversationSceneIdentity.test.ts
           tests/mirrorGuestConversation.test.ts
           tests/standaloneSainaShell.test.tsx
+          tests/conversationMirrorV2.test.ts
+          tests/conversationMirrorV3.test.ts

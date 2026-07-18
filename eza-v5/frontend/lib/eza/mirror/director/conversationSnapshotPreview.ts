@@ -1,6 +1,14 @@
 /**
- * Safe conversation snapshot for Mirror Meaning Analysis (PR A).
- * User messages are primary. No user IDs, tokens, or archive metadata.
+ * PREVIEW / TEST HELPER ONLY — not production snapshot authority.
+ *
+ * Production Mirror Director analysis snapshots are built by:
+ *   eza-v5/backend/services/mirror/conversation_snapshot.py
+ *
+ * Frontend sends permitted message DTOs; backend cleans, dedupes, selects,
+ * and applies token/char caps. Do not use this module as a second production
+ * implementation for LLM analysis input.
+ *
+ * Kept for local Vitest fixtures and UI preview experiments.
  */
 
 export type SnapshotMessage = {
@@ -60,7 +68,8 @@ function selectUserMessages(users: string[]): string[] {
   return users.filter((u) => chosen.has(u));
 }
 
-export function buildMirrorConversationSnapshot(input: {
+/** @deprecated Preview/test only — production authority is backend conversation_snapshot.py */
+export function buildMirrorConversationSnapshotPreview(input: {
   title?: string | null;
   userMessages?: readonly string[] | null;
   assistantMessages?: readonly string[] | null;
@@ -128,6 +137,9 @@ export function buildMirrorConversationSnapshot(input: {
     truncated,
   };
 }
+
+/** @deprecated Use buildMirrorConversationSnapshotPreview */
+export const buildMirrorConversationSnapshot = buildMirrorConversationSnapshotPreview;
 
 export function snapshotToModelInput(snapshot: MirrorConversationSnapshot): {
   title: string | null;

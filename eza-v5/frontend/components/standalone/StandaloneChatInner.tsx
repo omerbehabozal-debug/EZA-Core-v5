@@ -61,6 +61,10 @@ import {
 } from '@/lib/eza/mirror/conversationMirrorEntries';
 import { useSetConversationMirrorEntries, PENDING_CONVERSATION_MIRROR_ID } from '@/components/standalone/MirrorEntriesContext';
 import {
+  clearActiveConversationLiveMessages,
+  setActiveConversationLiveMessages,
+} from '@/lib/eza/mirror/activeConversationLiveMessages';
+import {
   CHATS_UPDATED_EVENT,
   clearMirrorAutoReplyPending,
   createStandaloneChat,
@@ -499,7 +503,16 @@ export default function StandaloneChatInner() {
       buildConversationMirrorEntries(messages),
       chatId ?? PENDING_CONVERSATION_MIRROR_ID
     );
-    return () => setConversationMirrorEntries([], null);
+    if (chatId) {
+      setActiveConversationLiveMessages(
+        chatId,
+        messages.map((m) => ({ id: m.id, text: m.text, isUser: m.isUser }))
+      );
+    }
+    return () => {
+      setConversationMirrorEntries([], null);
+      if (chatId) clearActiveConversationLiveMessages(chatId);
+    };
   }, [messages, chatId, setConversationMirrorEntries]);
 
   const sainaConversations = useMemo(
@@ -1095,9 +1108,16 @@ export default function StandaloneChatInner() {
     trackMirrorBirthAccepted(chatId);
     setMirrorBirthVisible(false);
     if (!handleRequestMirror()) return;
+    // Ensure archive includes latest in-memory turns before Mirror build reads it.
+    cancelPendingAutosave();
+    flushSave(chatId, messagesRef.current);
+    setActiveConversationLiveMessages(
+      chatId,
+      messagesRef.current.map((m) => ({ id: m.id, text: m.text, isUser: m.isUser }))
+    );
     onOpenMirror?.();
     requestMirrorBirthGeneration(chatId);
-  }, [chatId, handleRequestMirror, onOpenMirror]);
+  }, [chatId, handleRequestMirror, onOpenMirror, cancelPendingAutosave, flushSave]);
 
   const handleMirrorBirthDismiss = useCallback(() => {
     if (!chatId) return;

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Mirror Director V1 — Meaning Analysis schemas (PR A).
+"""Mirror Director V1 — Meaning Analysis schemas (PR A / A.1).
 
 Controlled topic enum + normalized topicCategory. Not wired to production routes yet.
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MIRROR_DIRECTOR_SCHEMA_VERSION: Literal["mirror-director-v1"] = "mirror-director-v1"
 
@@ -79,8 +79,28 @@ def normalize_mirror_director_topic(raw: str | None) -> MirrorDirectorPrimaryTop
     return "other"
 
 
+def _dedupe_str_list(values: list[str], *, max_items: int, max_item_len: int = 120) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in values:
+        text = str(item).strip()
+        if not text:
+            continue
+        clipped = text[:max_item_len]
+        key = clipped.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(clipped)
+        if len(out) >= max_items:
+            break
+    return out
+
+
 class MirrorMeaningAnalysis(BaseModel):
     """Structured meaning analysis produced before Mirror draft/scene (Director V1)."""
+
+    model_config = ConfigDict(extra="forbid")
 
     schemaVersion: Literal["mirror-director-v1"] = MIRROR_DIRECTOR_SCHEMA_VERSION
     primaryTopic: MirrorDirectorPrimaryTopic
@@ -101,27 +121,58 @@ class MirrorMeaningAnalysis(BaseModel):
     def _coerce_topic(cls, value: object) -> str:
         return normalize_mirror_director_topic(str(value) if value is not None else None)
 
-    @field_validator("secondaryTopics", "emotionalTone", "visualMotifs", "forbiddenSymbols", "suggestedPalette", mode="before")
+    @field_validator(
+        "secondaryTopics",
+        "emotionalTone",
+        "visualMotifs",
+        "forbiddenSymbols",
+        "suggestedPalette",
+        mode="before",
+    )
     @classmethod
     def _coerce_str_list(cls, value: object) -> list:
         if value is None:
             return []
         if not isinstance(value, list):
             return []
-        out: list[str] = []
-        for item in value:
-            text = str(item).strip()
-            if text:
-                out.append(text[:120])
-        return out
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    @field_validator("userIntent", "narrative", "suggestedComposition", mode="before")
+    @classmethod
+    def _strip_required_strings(cls, value: object) -> str:
+        text = str(value or "").strip()
+        if not text:
+            raise ValueError("required string field is empty")
+        return text
+
+    @model_validator(mode="after")
+    def _align_topics_and_dedupe(self) -> MirrorMeaningAnalysis:
+        primary = self.primaryTopic
+        category = self.topicCategory
+        if primary != "other":
+            category = primary
+        elif category != "other":
+            # Promote known category when primary was unresolved
+            primary = category
+        self.primaryTopic = primary
+        self.topicCategory = category
+        self.secondaryTopics = _dedupe_str_list(self.secondaryTopics, max_items=12)
+        self.emotionalTone = _dedupe_str_list(self.emotionalTone, max_items=8)
+        self.visualMotifs = _dedupe_str_list(self.visualMotifs, max_items=12)
+        self.forbiddenSymbols = _dedupe_str_list(self.forbiddenSymbols, max_items=16)
+        self.suggestedPalette = _dedupe_str_list(self.suggestedPalette, max_items=8)
+        return self
 
 
 MirrorMeaningFailureCode = Literal[
     "timeout",
     "rate_limit",
+    "insufficient_quota",
+    "auth_config",
     "invalid_json",
     "schema_validation",
     "provider_error",
+    "empty_response",
     "low_confidence",
     "missing_api_key",
     "empty_snapshot",
@@ -129,6 +180,8 @@ MirrorMeaningFailureCode = Literal[
 
 
 class MirrorMeaningAnalysisFailure(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     ok: Literal[False] = False
     code: MirrorMeaningFailureCode
     message: str = Field(..., max_length=240)
@@ -137,6 +190,8 @@ class MirrorMeaningAnalysisFailure(BaseModel):
 
 
 class MirrorMeaningAnalysisSuccess(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     ok: Literal[True] = True
     analysis: MirrorMeaningAnalysis
     model: Optional[str] = None

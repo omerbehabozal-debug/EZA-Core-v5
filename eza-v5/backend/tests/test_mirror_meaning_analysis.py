@@ -227,3 +227,73 @@ def test_parse_meaning_analysis_payload_alias():
     )
     assert parsed.primaryTopic == "architecture"
     assert parsed.topicCategory == "architecture"
+
+
+def test_schema_aligns_conflicting_primary_and_category():
+    analysis = MirrorMeaningAnalysis.model_validate(
+        {
+            "primaryTopic": "travel",
+            "topicCategory": "health",
+            "userIntent": "visit Kyoto",
+            "narrative": "Rainy evening in Kyoto",
+            "suggestedComposition": "lantern street",
+            "confidence": 0.9,
+            "secondaryTopics": ["Kyoto", "kyoto", "Rain"],
+            "emotionalTone": ["calm", "Calm", ""],
+        }
+    )
+    assert analysis.primaryTopic == "travel"
+    assert analysis.topicCategory == "travel"
+    assert analysis.secondaryTopics == ["Kyoto", "Rain"]
+    assert analysis.emotionalTone == ["calm"]
+
+
+def test_schema_rejects_extra_fields():
+    with pytest.raises(Exception):
+        MirrorMeaningAnalysis.model_validate(
+            {
+                "primaryTopic": "travel",
+                "topicCategory": "travel",
+                "userIntent": "visit",
+                "narrative": "story",
+                "suggestedComposition": "scene",
+                "confidence": 0.9,
+                "rawConversation": "secret",
+            }
+        )
+
+
+def test_schema_rejects_empty_strings():
+    with pytest.raises(Exception):
+        MirrorMeaningAnalysis.model_validate(
+            {
+                "primaryTopic": "travel",
+                "topicCategory": "travel",
+                "userIntent": "   ",
+                "narrative": "story",
+                "suggestedComposition": "scene",
+                "confidence": 0.9,
+            }
+        )
+
+
+@pytest.mark.asyncio
+async def test_programming_error_in_completer_is_not_swallowed():
+    async def broken(_payload):
+        raise TypeError("simulated coding bug")
+
+    snap = build_mirror_conversation_snapshot(user_messages=["hello"])
+    with pytest.raises(TypeError, match="simulated coding bug"):
+        await analyze_mirror_meaning(snap, completer=broken)
+
+
+@pytest.mark.asyncio
+async def test_insufficient_quota_signal():
+    async def quota(_payload):
+        raise MirrorMeaningProviderSignal("insufficient_quota", "billing", retryable=False)
+
+    snap = build_mirror_conversation_snapshot(user_messages=["hello"])
+    result = await analyze_mirror_meaning(snap, completer=quota)
+    assert result.ok is False
+    assert result.code == "insufficient_quota"
+    assert result.retryable is False

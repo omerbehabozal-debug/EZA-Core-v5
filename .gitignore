@@ -62,6 +62,15 @@ docker-compose.override.yml
 *.tmp
 temp_*.txt
 *_outer.txt
+tmp-chunk*.js
+
+# TypeScript build info (local incremental cache)
+**/tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Local Mirror runtime / QA dump reports (do not commit)
+eza-v5/frontend/runtime-*.txt
+eza-v5/frontend/runtime-*-report*.txt
 
 # Cleanup reports (keep in logs/)
 EZA_CLEANUP_*.json

@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Mirror Meaning Analysis service (PR A) — isolated, not wired to production routes.
+"""Mirror Meaning Analysis service (PR A / A.1) — isolated, not wired to production routes.
 
 Does NOT consume visual quota. Callers may inject an HTTP completer for tests.
+
+Exception policy:
+- Typed provider/parse failures → MirrorMeaningAnalysisFailure (safe fallback signal)
+- Programming errors (AttributeError, TypeError, KeyError, …) are NOT swallowed
+  into silent fallback; they propagate (or raise in CI after structured log).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from typing import Any, Awaitable, Callable, Optional
 
@@ -73,6 +79,20 @@ def _failure(
     return MirrorMeaningAnalysisFailure(ok=False, code=code, message=message, retryable=retryable)  # type: ignore[arg-type]
 
 
+def _is_ci_or_test() -> bool:
+    env = (os.getenv("EZA_ENV") or os.getenv("ENV") or "").strip().lower()
+    return env in {"ci", "test"} or bool(os.getenv("PYTEST_CURRENT_TEST"))
+
+
+def re_strip_fence(text: str) -> str:
+    lines = text.splitlines()
+    if lines and lines[0].startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].strip().startswith("```"):
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
 def _extract_json_object(raw: str) -> dict[str, Any]:
     text = (raw or "").strip()
     if not text:
@@ -92,29 +112,63 @@ def _extract_json_object(raw: str) -> dict[str, Any]:
     return data
 
 
-def re_strip_fence(text: str) -> str:
-    lines = text.splitlines()
-    if lines and lines[0].startswith("```"):
-        lines = lines[1:]
-    if lines and lines[-1].strip().startswith("```"):
-        lines = lines[:-1]
-    return "\n".join(lines).strip()
-
-
 def parse_meaning_analysis_payload(data: dict[str, Any]) -> MirrorMeaningAnalysis:
     """Validate + normalize a model JSON object into MirrorMeaningAnalysis."""
     primary = normalize_mirror_director_topic(data.get("primaryTopic") or data.get("topicCategory"))
     category = normalize_mirror_director_topic(data.get("topicCategory") or primary)
-    # Keep topicCategory aligned with primary when primary is known
     if primary != "other":
         category = primary
+    allowed = {
+        "schemaVersion",
+        "primaryTopic",
+        "topicCategory",
+        "secondaryTopics",
+        "userIntent",
+        "emotionalTone",
+        "narrative",
+        "visualMotifs",
+        "forbiddenSymbols",
+        "suggestedPalette",
+        "suggestedComposition",
+        "confidence",
+    }
+    cleaned = {k: v for k, v in data.items() if k in allowed}
     payload = {
-        **data,
+        **cleaned,
         "schemaVersion": MIRROR_DIRECTOR_SCHEMA_VERSION,
         "primaryTopic": primary,
         "topicCategory": category,
     }
     return MirrorMeaningAnalysis.model_validate(payload)
+
+
+class MirrorMeaningProviderSignal(Exception):
+    def __init__(self, code: str, message: str, *, retryable: bool = False) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.retryable = retryable
+
+
+def _classify_http_error(status_code: int, body_text: str) -> MirrorMeaningProviderSignal:
+    lowered = (body_text or "").lower()
+    if status_code == 429 and ("insufficient_quota" in lowered or "billing" in lowered):
+        return MirrorMeaningProviderSignal(
+            "insufficient_quota",
+            "provider insufficient quota",
+            retryable=False,
+        )
+    if status_code == 429:
+        return MirrorMeaningProviderSignal("rate_limit", "provider rate limited", retryable=True)
+    if status_code in (401, 403):
+        return MirrorMeaningProviderSignal("auth_config", f"provider auth HTTP {status_code}")
+    if status_code >= 500:
+        return MirrorMeaningProviderSignal(
+            "provider_error",
+            f"provider HTTP {status_code}",
+            retryable=True,
+        )
+    return MirrorMeaningProviderSignal("provider_error", f"provider HTTP {status_code}")
 
 
 async def _default_openai_completer(payload: dict[str, Any]) -> dict[str, Any]:
@@ -127,21 +181,16 @@ async def _default_openai_completer(payload: dict[str, Any]) -> dict[str, Any]:
     headers = build_openai_request_headers(api_key)
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(OPENAI_CHAT_URL, headers=headers, json=payload)
-    if response.status_code == 429:
-        raise MirrorMeaningProviderSignal("rate_limit", "provider rate limited", retryable=True)
-    if response.status_code >= 500:
-        raise MirrorMeaningProviderSignal("provider_error", f"provider HTTP {response.status_code}", retryable=True)
     if response.status_code >= 400:
-        raise MirrorMeaningProviderSignal("provider_error", f"provider HTTP {response.status_code}")
-    return response.json()
-
-
-class MirrorMeaningProviderSignal(Exception):
-    def __init__(self, code: str, message: str, *, retryable: bool = False) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.retryable = retryable
+        # Never log response body (may echo prompt fragments).
+        raise _classify_http_error(response.status_code, response.text[:400])
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise MirrorMeaningProviderSignal("invalid_json", "provider returned non-JSON body") from exc
+    if not isinstance(data, dict):
+        raise MirrorMeaningProviderSignal("empty_response", "provider JSON root invalid")
+    return data
 
 
 async def analyze_mirror_meaning(
@@ -155,7 +204,7 @@ async def analyze_mirror_meaning(
     """
     Run one structured meaning analysis call.
 
-    Visual quota is never touched here. On any typed failure, callers should use
+    Visual quota is never touched here. On typed failure, callers should use
     the heuristic fallback (frontend semantic-first).
     """
     if not snapshot.messages:
@@ -189,17 +238,17 @@ async def analyze_mirror_meaning(
     except httpx.TimeoutException:
         logger.info("mirror_meaning_analysis_failed code=timeout")
         return _failure("timeout", "analysis timed out", retryable=True)
-    except httpx.HTTPError as exc:
+    except httpx.HTTPError:
         logger.info("mirror_meaning_analysis_failed code=provider_error")
         return _failure("provider_error", "provider HTTP error", retryable=True)
-    except Exception:
-        logger.info("mirror_meaning_analysis_failed code=provider_error")
-        return _failure("provider_error", "unexpected provider failure")
+    # Do not catch Exception here — programming bugs must surface.
 
     latency_ms = int((time.perf_counter() - started) * 1000)
 
     try:
         content = _content_from_chat_response(raw_response)
+        if not content.strip():
+            return _failure("empty_response", "model returned empty content")
         data = _extract_json_object(content)
         analysis = parse_meaning_analysis_payload(data)
     except json.JSONDecodeError:
@@ -208,8 +257,16 @@ async def analyze_mirror_meaning(
         return _failure("schema_validation", "model JSON failed schema validation")
     except ValueError:
         return _failure("invalid_json", "model content could not be parsed as JSON object")
-    except Exception:
-        return _failure("schema_validation", "unable to parse meaning analysis")
+    except (KeyError, TypeError, AttributeError) as exc:
+        # Malformed provider envelope — typed empty/invalid, not a silent swallow of logic bugs
+        # in our own code paths beyond content extraction.
+        logger.warning(
+            "mirror_meaning_analysis_envelope_error type=%s",
+            type(exc).__name__,
+        )
+        if _is_ci_or_test():
+            raise
+        return _failure("empty_response", "provider response envelope invalid")
 
     below = analysis.confidence < low_confidence_threshold
     return MirrorMeaningAnalysisSuccess(

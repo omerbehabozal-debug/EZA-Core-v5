@@ -5,10 +5,10 @@ import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import { buildConversationMirrorState } from '@/lib/eza/mirror/buildConversationMirrorState';
 import {
   assertSnapshotHasNoPrivateKeys,
-  buildMirrorConversationSnapshot,
+  buildMirrorConversationSnapshotPreview,
   DEFAULT_MAX_SNAPSHOT_CHARS,
   snapshotToModelInput,
-} from '@/lib/eza/mirror/director/conversationSnapshotForAnalysis';
+} from '@/lib/eza/mirror/director/conversationSnapshotPreview';
 import {
   buildHeuristicDirectorAnalysis,
   parseMirrorMeaningAnalysisJson,
@@ -206,10 +206,10 @@ describe('LLM result fallback resolution', () => {
   });
 });
 
-describe('conversation snapshot', () => {
+describe('conversation snapshot preview (non-authority)', () => {
   it('applies token/char cap and keeps head+tail users', () => {
     const users = Array.from({ length: 40 }, (_, i) => `Mesaj ${i}: ${'içerik '.repeat(20)}`);
-    const snap = buildMirrorConversationSnapshot({
+    const snap = buildMirrorConversationSnapshotPreview({
       title: 'Kyoto',
       userMessages: users,
       maxChars: 1800,
@@ -220,7 +220,7 @@ describe('conversation snapshot', () => {
   });
 
   it('model input excludes private archive metadata keys', () => {
-    const snap = buildMirrorConversationSnapshot({
+    const snap = buildMirrorConversationSnapshotPreview({
       title: 'Rainy Kyoto',
       userMessages: KYOTO_TEXTS,
     });
