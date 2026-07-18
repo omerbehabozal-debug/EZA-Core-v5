@@ -735,6 +735,10 @@ export default function StandaloneChatInner() {
         if (result.error) {
           throw new Error(result.error);
         }
+        // Empty successful stream (e.g. ignored SSE error) → use non-stream fallback.
+        if (!result.text?.trim()) {
+          throw new Error('empty_stream');
+        }
       } catch {
         setIsTyping(false);
         useNormalEndpoint = true;

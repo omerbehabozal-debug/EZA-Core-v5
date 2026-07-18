@@ -175,6 +175,11 @@ export function useStreamResponse(): UseStreamResponseReturn {
             const jsonStr = line.slice(6); // Remove "data: " prefix
             try {
               const data = JSON.parse(jsonStr);
+
+              // Backend may return HTTP 200 with an SSE error payload (e.g. OpenAI 429).
+              if (typeof data.error === 'string' && data.error.trim()) {
+                throw new Error(data.error);
+              }
               
               if (data.token) {
                 // Token chunk

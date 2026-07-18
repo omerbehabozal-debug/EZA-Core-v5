@@ -3,7 +3,9 @@
 Streaming utilities for EZA Standalone
 """
 
+import asyncio
 import json
+import logging
 import re
 import httpx
 from typing import AsyncGenerator, Optional, Dict, Any, List
@@ -20,7 +22,58 @@ from backend.core.engines.redirect_engine import should_redirect
 from backend.behavioral.interaction import analyze_interaction_turn
 from backend.config import get_settings
 from backend.core.engines.model_router import LLM_API_KEY, LLM_MODEL, OPENAI_BASE_URL
+from backend.core.openai.diagnostic import parse_openai_http_error
 from backend.core.utils.model_router import ModelRouter
+
+logger = logging.getLogger(__name__)
+
+OPENAI_CHAT_MAX_ATTEMPTS = 4
+OPENAI_CHAT_MAX_RETRY_DELAY_S = 12.0
+
+
+class OpenAIHTTPError(Exception):
+    """OpenAI HTTP failure with parsed diagnostic for retry/user messaging."""
+
+    def __init__(self, diagnostic: Dict[str, Any], *, raw_body: str = "") -> None:
+        self.diagnostic = diagnostic
+        self.raw_body = raw_body
+        status = diagnostic.get("httpStatus")
+        code = diagnostic.get("errorCode") or "unknown"
+        message = diagnostic.get("errorMessage") or raw_body or "OpenAI request failed"
+        super().__init__(f"OpenAI API error: {status} code={code} - {message}")
+
+
+def _openai_http_error(status_code: int, body: str, headers: Any) -> OpenAIHTTPError:
+    header_map = {str(k).lower(): str(v) for k, v in dict(headers or {}).items()}
+    diagnostic = parse_openai_http_error(status_code, body or "", header_map)
+    return OpenAIHTTPError(diagnostic, raw_body=body or "")
+
+
+def _is_retryable_openai_error(error: OpenAIHTTPError) -> bool:
+    diagnostic = error.diagnostic or {}
+    code = diagnostic.get("errorCode")
+    status = diagnostic.get("httpStatus")
+    if code == "insufficient_quota":
+        return False
+    if status in (401, 403):
+        return False
+    if code == "rate_limit_exceeded" or status == 429:
+        return True
+    if isinstance(status, int) and status >= 500:
+        return True
+    return False
+
+
+def _retry_delay_seconds(headers: Any, attempt: int) -> float:
+    header_map = {str(k).lower(): str(v) for k, v in dict(headers or {}).items()}
+    retry_after = header_map.get("retry-after")
+    if retry_after:
+        try:
+            return min(float(retry_after), OPENAI_CHAT_MAX_RETRY_DELAY_S)
+        except ValueError:
+            pass
+    # 1s, 2s, 4s … capped
+    return min(float(2 ** attempt), OPENAI_CHAT_MAX_RETRY_DELAY_S)
 
 
 def _attach_stream_standalone_observation(
@@ -303,7 +356,11 @@ async def stream_standalone_response(
         from backend.core.openai.config import sanitize_text
         from backend.core.openai.diagnostic import create_openai_diagnostic
 
-        diagnostic = create_openai_diagnostic(e)
+        diagnostic = (
+            e.diagnostic
+            if isinstance(e, OpenAIHTTPError)
+            else create_openai_diagnostic(e)
+        )
         user_message = "SAINA şu an yanıt veremiyor. Lütfen biraz sonra tekrar dene."
         if diagnostic.get("errorCode") == "insufficient_quota" or "insufficient_quota" in str(e):
             user_message = (
@@ -336,6 +393,7 @@ async def _stream_llm_response(
 ) -> AsyncGenerator[str, None]:
     """
     Stream LLM response token by token (OpenAI stream) or word-chunk fallback for other providers.
+    Retries transient OpenAI 429/5xx before the first token is yielded.
     """
     model_id = analysis_model or "openai/gpt-4o-mini"
     llm_messages = build_standalone_llm_messages(query, chat_history)
@@ -372,43 +430,84 @@ async def _stream_llm_response(
         "stream": True  # Enable streaming
     }
     
-    timeout = httpx.Timeout(30.0, connect=5.0)
-    
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        async with client.stream('POST', OPENAI_BASE_URL, headers=headers, json=payload) as response:
-            if response.status_code != 200:
-                error_text = await response.aread()
-                raise Exception(f"OpenAI API error: {response.status_code} - {error_text.decode()}")
-            
-            buffer = ""
-            async for chunk in response.aiter_text():
-                buffer += chunk
-                
-                # Process complete lines
-                while '\n' in buffer:
-                    line, buffer = buffer.split('\n', 1)
-                    line = line.strip()
-                    
-                    if not line or not line.startswith('data: '):
-                        continue
-                    
-                    # Remove "data: " prefix
-                    data_str = line[6:]
-                    
-                    # Skip [DONE] marker
-                    if data_str == '[DONE]':
-                        return
-                    
-                    try:
-                        data = json.loads(data_str)
-                        choices = data.get('choices', [])
-                        if choices:
-                            delta = choices[0].get('delta', {})
-                            content = delta.get('content', '')
-                            if content:
-                                yield content
-                    except json.JSONDecodeError:
-                        continue
+    timeout = httpx.Timeout(60.0, connect=5.0)
+    last_error: Optional[Exception] = None
+
+    for attempt in range(OPENAI_CHAT_MAX_ATTEMPTS):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream(
+                    "POST", OPENAI_BASE_URL, headers=headers, json=payload
+                ) as response:
+                    if response.status_code != 200:
+                        error_text = (await response.aread()).decode(errors="replace")
+                        err = _openai_http_error(
+                            response.status_code, error_text, response.headers
+                        )
+                        if (
+                            _is_retryable_openai_error(err)
+                            and attempt < OPENAI_CHAT_MAX_ATTEMPTS - 1
+                        ):
+                            delay = _retry_delay_seconds(response.headers, attempt)
+                            logger.warning(
+                                "OpenAI stream %s — retry %s/%s in %.1fs",
+                                response.status_code,
+                                attempt + 1,
+                                OPENAI_CHAT_MAX_ATTEMPTS - 1,
+                                delay,
+                            )
+                            last_error = err
+                            await asyncio.sleep(delay)
+                            continue
+                        raise err
+
+                    buffer = ""
+                    async for chunk in response.aiter_text():
+                        buffer += chunk
+
+                        while "\n" in buffer:
+                            line, buffer = buffer.split("\n", 1)
+                            line = line.strip()
+
+                            if not line or not line.startswith("data: "):
+                                continue
+
+                            data_str = line[6:]
+
+                            if data_str == "[DONE]":
+                                return
+
+                            try:
+                                data = json.loads(data_str)
+                                choices = data.get("choices", [])
+                                if choices:
+                                    delta = choices[0].get("delta", {})
+                                    content = delta.get("content", "")
+                                    if content:
+                                        yield content
+                            except json.JSONDecodeError:
+                                continue
+                    return
+        except OpenAIHTTPError:
+            raise
+        except httpx.HTTPError as exc:
+            last_error = exc
+            if attempt < OPENAI_CHAT_MAX_ATTEMPTS - 1:
+                delay = _retry_delay_seconds({}, attempt)
+                logger.warning(
+                    "OpenAI stream transport error — retry %s/%s in %.1fs: %s",
+                    attempt + 1,
+                    OPENAI_CHAT_MAX_ATTEMPTS - 1,
+                    delay,
+                    exc,
+                )
+                await asyncio.sleep(delay)
+                continue
+            raise
+
+    if last_error:
+        raise last_error
+    raise Exception("OpenAI stream failed after retries")
 
 
 async def _get_llm_response(
@@ -418,7 +517,8 @@ async def _get_llm_response(
     chat_history: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """
-    Get full LLM response (non-streaming, for SAFE-only mode or scoring)
+    Get full LLM response (non-streaming, for SAFE-only mode or scoring).
+    Retries transient OpenAI 429/5xx with backoff.
     """
     model_id = analysis_model or "openai/gpt-4o-mini"
     llm_messages = build_standalone_llm_messages(query, chat_history)
@@ -452,14 +552,57 @@ async def _get_llm_response(
         "max_tokens": settings.STANDALONE_MAX_TOKENS if hasattr(settings, 'STANDALONE_MAX_TOKENS') else 180,
     }
     
-    timeout = httpx.Timeout(30.0, connect=5.0)
-    
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.post(OPENAI_BASE_URL, headers=headers, json=payload)
-        
-        if response.status_code != 200:
-            raise Exception(f"OpenAI API error: {response.status_code}")
-        
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
+    timeout = httpx.Timeout(60.0, connect=5.0)
+    last_error: Optional[Exception] = None
+
+    for attempt in range(OPENAI_CHAT_MAX_ATTEMPTS):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(
+                    OPENAI_BASE_URL, headers=headers, json=payload
+                )
+
+                if response.status_code != 200:
+                    err = _openai_http_error(
+                        response.status_code, response.text, response.headers
+                    )
+                    if (
+                        _is_retryable_openai_error(err)
+                        and attempt < OPENAI_CHAT_MAX_ATTEMPTS - 1
+                    ):
+                        delay = _retry_delay_seconds(response.headers, attempt)
+                        logger.warning(
+                            "OpenAI chat %s — retry %s/%s in %.1fs",
+                            response.status_code,
+                            attempt + 1,
+                            OPENAI_CHAT_MAX_ATTEMPTS - 1,
+                            delay,
+                        )
+                        last_error = err
+                        await asyncio.sleep(delay)
+                        continue
+                    raise err
+
+                data = response.json()
+                return data["choices"][0]["message"]["content"]
+        except OpenAIHTTPError:
+            raise
+        except httpx.HTTPError as exc:
+            last_error = exc
+            if attempt < OPENAI_CHAT_MAX_ATTEMPTS - 1:
+                delay = _retry_delay_seconds({}, attempt)
+                logger.warning(
+                    "OpenAI chat transport error — retry %s/%s in %.1fs: %s",
+                    attempt + 1,
+                    OPENAI_CHAT_MAX_ATTEMPTS - 1,
+                    delay,
+                    exc,
+                )
+                await asyncio.sleep(delay)
+                continue
+            raise
+
+    if last_error:
+        raise last_error
+    raise Exception("OpenAI chat failed after retries")
 
