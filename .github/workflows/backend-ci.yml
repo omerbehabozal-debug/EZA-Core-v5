@@ -50,6 +50,7 @@ jobs:
             tests/test_mirror_generate_scene.py \
             tests/test_mirror_sohbet_session.py \
             tests/test_mirror_meaning_analysis.py \
+            tests/test_mirror_director_draft.py \
             tests/test_account_entitlements.py \
             tests/test_account_usage_service.py \
             tests/test_message_quota_guard.py \
