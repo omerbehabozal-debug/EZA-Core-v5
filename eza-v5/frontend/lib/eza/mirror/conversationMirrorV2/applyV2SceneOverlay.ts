@@ -54,24 +54,18 @@ export type ResolveV2SceneDisplayUrlOptions = {
 };
 
 /**
- * Returns overlay URL for V2 cards, or the raw scene URL for V1.
+ * Returns raw scene URL for display (PR D0 — no canvas text burn-in).
+ * Use applyV2PosterBrandOverlayUrl explicitly for share/QA composition.
  */
 export async function resolveV2SceneDisplayUrl(
   rawSceneImageUrl: string,
-  card: DailyMirrorCardModel | null,
+  _card: DailyMirrorCardModel | null,
   options?: ResolveV2SceneDisplayUrlOptions
 ): Promise<string> {
-  if (!isV2MirrorCard(card)) return rawSceneImageUrl;
-
   if (options?.previousDisplayUrl) {
     revokePosterObjectUrl(options.previousDisplayUrl);
   }
-
-  try {
-    return await applyV2PosterBrandOverlayUrl(rawSceneImageUrl, card.mirrorV2Payload);
-  } catch {
-    return rawSceneImageUrl;
-  }
+  return rawSceneImageUrl;
 }
 
 export { revokePosterObjectUrl };

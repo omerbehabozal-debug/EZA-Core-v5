@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Map Final Mirror Draft → existing V5 minimal prompt contract (PR C).
+"""Map Final Mirror Draft → existing V5 minimal prompt contract (PR C + D0).
 
 Does not invent a parallel image-prompt system.
-Title authority: finalDraft.title when draftSource is llm_* .
+Title authority: finalDraft.title remains metadata (mappedPrompt.title) for UI/landing.
+PR D0: title string must never enter the image provider prompt.
 """
 
 from __future__ import annotations
@@ -13,11 +14,18 @@ from backend.core.schemas.mirror_prepare_director import MirrorV5MappedPrompt
 MIRROR_V5_PROMPT_CONTRACT = "saina_mirror_v5_minimal"
 MIRROR_V5_MAX_PROMPT_CHARS = 1400
 
+MIRROR_TEXT_FREE_SCENE_RULE = (
+    "Create a natural cinematic scene with no text, typography, captions, title, logo, "
+    "watermark, labels, UI, poster layout, or readable signage. "
+    "Use abstract or illegible signage only when architecturally necessary."
+)
+
 MIRROR_V5_NEGATIVE = (
     "collage, inset, moodboard, dashboard, infographic, stock tourist, "
     "motivational poster, oversaturated HDR, fake lens flare, 3D render, "
     "robot face, neon cyberpunk, watermark, conversation summary, theme list, "
-    "subtitle paragraph"
+    "subtitle paragraph, text, typography, caption, title, logo, "
+    "readable signage, readable letters, UI elements, poster layout"
 )
 
 _SEASON_STYLE = {
@@ -53,11 +61,9 @@ def map_mirror_draft_to_v5_prompt(
     camera = sanitize_display_text(draft.camera, max_len=100)
 
     blocks = [
-        "Create a premium editorial SAINA Mirror poster.",
-        "Curiosity poster — evoke wonder; do not explain the topic.",
+        MIRROR_TEXT_FREE_SCENE_RULE,
+        "Curiosity atmosphere — evoke wonder; do not explain the topic.",
         "No dashboard, scores, bullet lists, summaries, labels, infographics, or conversation text.",
-        "",
-        f'TITLE:\n"{title}"',
         "",
         f"CATEGORY:\n{topic}",
     ]
@@ -81,7 +87,6 @@ def map_mirror_draft_to_v5_prompt(
         blocks.append(f"Palette: {palette}")
     if forbidden:
         blocks.append(f"Avoid: {forbidden}")
-    blocks.append("Typography space: clean upper third for title; do not render text in the image.")
 
     prompt = "\n".join(blocks).strip()
     if len(prompt) > MIRROR_V5_MAX_PROMPT_CHARS:

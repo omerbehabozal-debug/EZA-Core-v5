@@ -11,15 +11,15 @@ from backend.services.mirror.openai_prompt_builder import (
 )
 from backend.services.mirror.types import MirrorImageRequest
 
-V5_SAMPLE_PROMPT = """Create a premium editorial SAINA Mirror poster.
+V5_SAMPLE_PROMPT = """Create a natural cinematic scene with no text, typography, captions, title, logo, watermark, labels, UI, poster layout, or readable signage. Use abstract or illegible signage only when architecturally necessary.
 
-TITLE:
-"Sokak Lambaları"
+CATEGORY:
+travel
 
 TOPIC HINT:
 Japan travel atmosphere
 
-STYLE:
+RENDER BRIEF:
 Quiet luxury travel editorial. Natural light."""
 
 

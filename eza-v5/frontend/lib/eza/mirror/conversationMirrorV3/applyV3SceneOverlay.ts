@@ -1,5 +1,9 @@
 /**
- * Mirror V3 — apply brand overlay after scene generation (browser only).
+ * Mirror V3 — scene display URL resolution (PR D0 text-free).
+ *
+ * Brand/date/signature canvas overlays must not be burned into the raw Mirror
+ * scene used for in-app display. Share/export may still call
+ * applyV3PosterBrandOverlayUrl explicitly when composing a share artifact.
  */
 
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';
@@ -21,6 +25,7 @@ export function isV3MirrorCard(
   return card?.mirrorPipelineVersion === 'v3' && card.mirrorV3Payload != null;
 }
 
+/** Optional share/export helper — not used for raw in-app scene display (PR D0). */
 export async function applyV3PosterBrandOverlayUrl(
   rawSceneImageUrl: string,
   payload: SainaMirrorV3Payload
@@ -38,22 +43,18 @@ export type ResolveV3SceneDisplayUrlOptions = {
   previousDisplayUrl?: string | null;
 };
 
+/**
+ * PR D0: return the provider scene as-is (no canvas text/logo burn-in).
+ */
 export async function resolveV3SceneDisplayUrl(
   rawSceneImageUrl: string,
-  card: DailyMirrorCardModel | null,
+  _card: DailyMirrorCardModel | null,
   options?: ResolveV3SceneDisplayUrlOptions
 ): Promise<string> {
-  if (!isV3MirrorCard(card)) return rawSceneImageUrl;
-
   if (options?.previousDisplayUrl) {
     revokePosterObjectUrl(options.previousDisplayUrl);
   }
-
-  try {
-    return await applyV3PosterBrandOverlayUrl(rawSceneImageUrl, card.mirrorV3Payload);
-  } catch {
-    return rawSceneImageUrl;
-  }
+  return rawSceneImageUrl;
 }
 
 export { revokePosterObjectUrl };

@@ -43,15 +43,15 @@ VALID_BODY = {
     "cardDate": "2026-05-21",
 }
 
-V5_MINIMAL_PROMPT = """Create a premium editorial SAINA Mirror poster.
+V5_MINIMAL_PROMPT = """Create a natural cinematic scene with no text, typography, captions, title, logo, watermark, labels, UI, poster layout, or readable signage. Use abstract or illegible signage only when architecturally necessary.
 
-TITLE:
-"Sakin Sağlık Merakı"
+CATEGORY:
+health
 
 TOPIC HINT:
 Thyroid health
 
-STYLE:
+RENDER BRIEF:
 Clean natural light. Calm premium health editorial."""
 
 

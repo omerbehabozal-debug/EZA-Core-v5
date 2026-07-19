@@ -154,7 +154,10 @@ async def test_prepare_flag_on_pipeline_and_cache(monkeypatch):
         "heuristic_draft",
         "safe_fallback",
     }
-    assert "TITLE:" in first.mappedPrompt.prompt
+    assert "TITLE:" not in first.mappedPrompt.prompt
+    assert f'"{first.mappedPrompt.title}"' not in first.mappedPrompt.prompt
+    assert "no text" in first.mappedPrompt.prompt.lower()
+    assert "typography" in first.mappedPrompt.prompt.lower()
     assert first.metadata is not None
     assert first.contentHash
 
@@ -185,6 +188,9 @@ def test_v5_mapper_title_authority_and_bounds():
     assert mapped.season == "night_discovery"
     assert len(mapped.prompt) <= 1400
     assert mapped.promptContract == "saina_mirror_v5_minimal"
+    assert "TITLE:" not in mapped.prompt
+    assert f'"{mapped.title}"' not in mapped.prompt
+    assert "Create a natural cinematic scene with no text" in mapped.prompt
 
 
 def test_heuristic_meaning_travel_and_health():

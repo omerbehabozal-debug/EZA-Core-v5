@@ -6,6 +6,7 @@ import { buildMirrorRenderBrief } from '@/lib/eza/mirror/conversationMirrorV3/bu
 import {
   buildMinimalOpenAIRenderPrompt,
   buildOpenAIRenderPromptFromPayload,
+  MIRROR_TEXT_FREE_SCENE_RULE,
 } from '@/lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
 import { buildMirrorV5RenderDebugTrace } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorV5DebugTrace';
 import type { MirrorLightMode } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
@@ -142,8 +143,9 @@ const V5_SCENARIOS: V5Scenario[] = [
 function assertV5PromptClean(prompt: string, payloadBody: string): void {
   expect(prompt.length).toBeLessThanOrEqual(MIRROR_V5_MAX_RENDER_PROMPT_CHARS);
   expect(prompt.length).toBeGreaterThanOrEqual(180);
-  expect(prompt.toLowerCase()).not.toMatch(/\bcinematic\b/);
-  expect(prompt).toContain('Create a premium editorial SAINA Mirror poster');
+  expect(prompt).toContain(MIRROR_TEXT_FREE_SCENE_RULE);
+  expect(prompt).not.toContain('TITLE:');
+  expect(prompt).not.toContain('Title may appear');
   expect(prompt).not.toContain('Evidence fusion scene');
   expect(prompt).not.toContain('World Layer:');
   expect(prompt).not.toContain('conversation summary');
@@ -226,7 +228,7 @@ describe('conversationMirrorV5 render layer', () => {
 
     expect(audit.promptSameAsFrontend).toBe(true);
     expect(audit.backendAppendApplied).toBe(false);
-    expect(audit.backendProviderPrompt).toMatch(/never alarming|Thyroid health/i);
+    expect(audit.backendProviderPrompt).toMatch(/never alarming|never clinical|Clean calm health/i);
   });
 
   it('health thyroid prompt uses abstract_safe safety language', () => {

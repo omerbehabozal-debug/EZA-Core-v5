@@ -1,5 +1,6 @@
 /**
- * Unified mirror scene display URL — V3 brand overlay, then V2, else raw.
+ * Unified mirror scene display URL — PR D0 text-free passthrough.
+ * Canvas brand overlays are opt-in for share/QA, not in-app raw scene display.
  */
 
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';

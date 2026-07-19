@@ -63,3 +63,5 @@ jobs:
           tests/standaloneSainaShell.test.tsx
           tests/conversationMirrorV2.test.ts
           tests/conversationMirrorV3.test.ts
+          tests/conversationMirrorV5.test.ts
+          tests/textFreeMirrorD0.test.ts

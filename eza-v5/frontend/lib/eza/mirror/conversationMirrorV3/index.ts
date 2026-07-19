@@ -67,6 +67,7 @@ export {
 export {
   buildMinimalOpenAIRenderPrompt,
   buildOpenAIRenderPromptFromPayload,
+  MIRROR_TEXT_FREE_SCENE_RULE,
   MIRROR_V5_NEGATIVE_PROMPT,
 } from '@/lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
 export type { MirrorRenderBrief, MirrorLightMode } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';

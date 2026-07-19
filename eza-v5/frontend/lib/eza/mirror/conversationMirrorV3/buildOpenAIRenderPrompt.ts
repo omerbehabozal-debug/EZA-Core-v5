@@ -7,13 +7,9 @@
  *
  * A Mirror is a cinematic curiosity artifact.
  *
- * The card creates curiosity.
- * The landing provides context.
- * The conversation delivers knowledge.
+ * PR D0 — Text-free raw image:
+ * Title stays in metadata / UI only. It must never enter the provider prompt.
  *
- * Never move contextual information back onto the card.
- *
- * Stage 0 image prompt: title + category + optional mood + minimal render brief.
  * Curiosity Seed Intelligence fields never enter this file's output.
  */
 
@@ -35,6 +31,10 @@ const LIGHT_MODE_STYLE_LINE: Record<MirrorLightMode, string> = {
   quiet_luxury_evening: 'Quiet luxury evening, warm twilight — not horror darkness.',
 };
 
+/** Hard contract: raw Mirror scene must stay text-free (PR D0). */
+export const MIRROR_TEXT_FREE_SCENE_RULE =
+  'Create a natural cinematic scene with no text, typography, captions, title, logo, watermark, labels, UI, poster layout, or readable signage. Use abstract or illegible signage only when architecturally necessary.';
+
 const STAGE0_SAFETY =
   'No dashboard, scores, bullet lists, summaries, labels, infographics, or conversation text.';
 
@@ -55,17 +55,24 @@ export const MIRROR_V5_NEGATIVE_PROMPT = [
   'conversation summary',
   'theme list',
   'subtitle paragraph',
+  'text',
+  'typography',
+  'caption',
+  'title',
+  'logo',
+  'readable signage',
+  'readable letters',
+  'UI elements',
+  'poster layout',
 ].join(', ');
 
 export function buildMinimalOpenAIRenderPrompt(brief: MirrorRenderBrief): string {
   const styleLine = LIGHT_MODE_STYLE_LINE[brief.lightMode];
 
   const blocks = [
-    'Create a premium editorial SAINA Mirror poster.',
-    'Curiosity poster — evoke wonder; do not explain the topic.',
+    MIRROR_TEXT_FREE_SCENE_RULE,
+    'Curiosity atmosphere — evoke wonder; do not explain the topic.',
     STAGE0_SAFETY,
-    '',
-    `TITLE:\n"${brief.title}"`,
     '',
     `CATEGORY:\n${brief.topicCategory}`,
   ];
@@ -79,7 +86,6 @@ export function buildMinimalOpenAIRenderPrompt(brief: MirrorRenderBrief): string
     `RENDER BRIEF:\n${styleLine}`,
     '',
     'Vertical 4:5. Photographic realism. Elegant negative space.',
-    'Title may appear if it strengthens the poster. No body copy or theme lists.',
     brief.safetyMode === 'abstract_safe'
       ? 'Sensitive health topic — abstract, calm, never clinical or alarming.'
       : ''

@@ -3,6 +3,7 @@ import { buildMirrorPayloadV3 } from '@/lib/eza/mirror/conversationMirrorV3/buil
 import { buildMirrorV3ImagePrompt } from '@/lib/eza/mirror/conversationMirrorV3/promptBuilderV3';
 import { buildMirrorStateV3 } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorStateV3';
 import { buildConversationMirrorState } from '@/lib/eza/mirror/buildConversationMirrorState';
+import { MIRROR_TEXT_FREE_SCENE_RULE } from '@/lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
 import { containsForbiddenMirrorPhrase } from '@/lib/eza/mirror/conversationMirrorV3/forbiddenLexicon';
 import {
   hasConversationSummaryLanguage,
@@ -252,15 +253,17 @@ describe('conversationMirrorV3', () => {
     expect(state.dailyMirrorCard.visual?.intentFingerprint).toContain(
       MIRROR_V3_SCENE_CACHE_KEY
     );
-    expect(prompt).toContain('Create a premium editorial SAINA Mirror poster');
-    expect(prompt).toContain('TITLE:');
+    expect(prompt).toContain(MIRROR_TEXT_FREE_SCENE_RULE);
     expect(prompt).toContain('CATEGORY:');
-    expect(prompt).toMatch(/RENDER BRIEF:|VISUAL DIRECTION:|TOPIC HINT:/);
+    expect(prompt).not.toContain('TITLE:');
+    expect(prompt).not.toContain('Title may appear');
+    expect(prompt).toMatch(/RENDER BRIEF:/);
     expect(prompt.length).toBeLessThanOrEqual(1400);
-    expect(prompt.toLowerCase()).not.toMatch(/\bcinematic\b/);
     expect(prompt).not.toContain('Evidence fusion scene');
     expect(prompt).not.toContain('Poster test:');
     expect(prompt).not.toContain(state.dailyMirrorCard.shortInsight);
+    expect(prompt).not.toContain(state.dailyMirrorCard.headline);
+    expect(state.dailyMirrorCard.headline).toBeTruthy();
     expect(state.dailyMirrorCard.mirrorV3Payload?.storyTopicId).toBe('travel');
     expect(state.dailyMirrorCard.mirrorV3Payload?.mirrorTitle ?? '').not.toMatch(
       /Tezgâh|Tezgah/i

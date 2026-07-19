@@ -3,10 +3,9 @@
 /**
  * Mirror overlay intentionally stays minimal.
  *
- * The Mirror is an artwork.
- * The landing page carries the context.
- *
- * Do not add summaries, CTA, or metadata here.
+ * PR D0 — Text-free raw image plane:
+ * Do not draw title (or other poster copy) on top of the scene.
+ * Title remains card metadata for UI / landing outside this overlay.
  *
  * SAINA Mirror Philosophy — see @/lib/eza/mirror-network/philosophy.ts
  */
@@ -25,7 +24,7 @@ export type MirrorStage0MinimalOverlayProps = {
 };
 
 /**
- * Stage 0 — card surface: brand + title + date only (no body, themes, CTA, scores).
+ * Stage 0 — chrome only (brand + date). Title is not composited onto the scene.
  */
 export default function MirrorStage0MinimalOverlay({
   card,
@@ -38,8 +37,14 @@ export default function MirrorStage0MinimalOverlay({
     <div
       className={cn(skin.overlayStack, 'pointer-events-none', className)}
       data-mirror-stage0-minimal
+      data-mirror-stage0-text-free="true"
       aria-label={title}
     >
+      {/* Hidden title hook for aria-labelledby — not painted on the scene */}
+      <h2 id="daily-mirror-poster-title" className="sr-only">
+        {title}
+      </h2>
+
       <header className={cn(skin.overlayHeader, 'shrink-0')}>
         <p
           className={cn(skin.logoText, 'flex items-center gap-2')}
@@ -57,16 +62,6 @@ export default function MirrorStage0MinimalOverlay({
           </span>
         </span>
       </header>
-
-      <div className="flex min-h-0 flex-1 flex-col justify-end pb-6">
-        <h2
-          id="daily-mirror-poster-title"
-          className={cn(skin.rhythmWhisperWord, 'text-balance')}
-          style={POSTER_READABILITY_INLINE.headline}
-        >
-          {title}
-        </h2>
-      </div>
     </div>
   );
 }
