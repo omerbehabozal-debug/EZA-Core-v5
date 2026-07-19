@@ -229,8 +229,8 @@ async def test_openai_logs_do_not_contain_api_key(caplog, asset_dir):
 
 
 def test_endpoint_returns_openai_provider_when_mocked():
-    from fastapi.testclient import TestClient
     from backend.main import app
+    from backend.core.account.usage_service import UsageConsumeResult
     from backend.services.mirror.types import MirrorImageResult
 
     fake = MirrorImageResult(
@@ -239,13 +239,31 @@ def test_endpoint_returns_openai_provider_when_mocked():
         cached=False,
     )
     plus_user = _make_plus_user()
+    body = {
+        **VALID_BODY,
+        "conversationId": "conv-openai-provider",
+        "generationRequestId": "req-openai01",
+    }
 
-    with patch(
-        "backend.services.mirror.mirror_image_service.get_mirror_image_provider"
-    ) as get_prov, patch(
-        "backend.auth.mirror_entitlement.get_production_user_by_id",
-        new_callable=AsyncMock,
-        return_value=plus_user,
+    with (
+        patch(
+            "backend.services.mirror.mirror_image_service.get_mirror_image_provider"
+        ) as get_prov,
+        patch(
+            "backend.auth.mirror_entitlement.get_production_user_by_id",
+            new_callable=AsyncMock,
+            return_value=plus_user,
+        ),
+        patch(
+            "backend.core.account.subject.get_production_user_by_id",
+            new_callable=AsyncMock,
+            return_value=plus_user,
+        ),
+        patch(
+            "backend.routers.standalone_mirror.consume_usage_event_atomic",
+            new_callable=AsyncMock,
+            return_value=UsageConsumeResult(event=SimpleNamespace(), created=True),
+        ),
     ):
         mock_provider = MagicMock()
         mock_provider.generate_scene = AsyncMock(return_value=fake)
@@ -254,7 +272,7 @@ def test_endpoint_returns_openai_provider_when_mocked():
         client = TestClient(app)
         res = client.post(
             "/api/standalone/mirror/generate-scene",
-            json=VALID_BODY,
+            json=body,
             headers=_auth_header(plus_user),
         )
         assert res.status_code == 200
