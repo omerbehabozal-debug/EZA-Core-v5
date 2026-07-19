@@ -59,7 +59,9 @@ export type DraftSource =
   | 'llm_draft_approved'
   | 'llm_draft_revised'
   | 'heuristic_draft'
-  | 'safe_fallback';
+  | 'safe_fallback'
+  | 'interpretation_llm'
+  | 'interpretation_heuristic';
 
 export type MirrorDraftEvidenceMap = {
   titleEvidence: string[];

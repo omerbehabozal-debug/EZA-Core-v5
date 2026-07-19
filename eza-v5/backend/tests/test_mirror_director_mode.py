@@ -65,19 +65,23 @@ def test_execution_policies():
     legacy = get_mirror_director_execution_policy("LEGACY")
     assert legacy.run_director_pipeline is False
     assert legacy.affect_user_output is False
+    assert legacy.use_interpretation_v1 is False
 
     shadow = get_mirror_director_execution_policy("SHADOW")
     assert shadow.run_director_pipeline is True
+    assert shadow.use_interpretation_v1 is True
     assert shadow.use_director_title is False
     assert shadow.use_director_prompt is False
     assert shadow.affect_user_output is False
 
     soft = get_mirror_director_execution_policy("SOFT")
+    assert soft.use_interpretation_v1 is True
     assert soft.use_director_title is True
-    assert soft.use_director_prompt is False
+    assert soft.use_director_prompt is True
     assert soft.affect_user_output is True
 
     full = get_mirror_director_execution_policy("FULL")
+    assert full.use_interpretation_v1 is True
     assert full.use_director_title is True
     assert full.use_director_prompt is True
     assert full.affect_user_output is True
@@ -190,13 +194,38 @@ async def test_legacy_no_provider_calls(monkeypatch):
 @pytest.mark.asyncio
 async def test_shadow_runs_but_does_not_affect_output(monkeypatch):
     monkeypatch.setenv("EZA_MIRROR_DIRECTOR_MODE", "SHADOW")
+
+    async def interp_ok(_p):
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "title": "Yağmur Altında Kyoto",
+                                "interpretationSummary": "Kyoto evening reshaped by rain.",
+                                "rationale": "User wants atmosphere over checklist tourism.",
+                                "imageIntent": "Feel a damp Kyoto lane at dusk.",
+                                "visualNarrative": (
+                                    "A narrow lantern-lit lane at dusk with wet stones "
+                                    "and a quiet café doorway — one natural moment."
+                                ),
+                                "exclusions": ["object collage", "poster typography"],
+                                "confidence": 0.9,
+                                "topicCategory": "travel",
+                                "atmosphereHint": "humid dusk",
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
     out = await prepare_mirror_director_draft(
         conversation_id="c1",
         generation_request_id="req-shadow01",
         messages=_msgs(),
-        meaning_completer=_ok_meaning,
-        draft_completer=_ok_draft,
-        review_completer=_ok_review,
+        interpretation_completer=interp_ok,
     )
     assert out.directorMode == "SHADOW"
     assert out.directorExecuted is True
@@ -205,45 +234,97 @@ async def test_shadow_runs_but_does_not_affect_output(monkeypatch):
     assert out.applyPrompt is False
     assert out.mappedPrompt is None
     assert out.shadowMappedPrompt is not None
+    assert out.finalInterpretation is not None
     assert out.titleSource == "legacy_heuristic"
     assert out.promptSource == "legacy_heuristic"
 
 
 @pytest.mark.asyncio
-async def test_soft_title_only(monkeypatch):
+async def test_soft_applies_title_and_prompt(monkeypatch):
     monkeypatch.setenv("EZA_MIRROR_DIRECTOR_MODE", "SOFT")
+
+    async def interp_ok(_p):
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "title": "Yağmur Altında Kyoto",
+                                "interpretationSummary": "Kyoto evening reshaped by rain.",
+                                "rationale": "User wants atmosphere over checklist tourism.",
+                                "imageIntent": "Feel a damp Kyoto lane at dusk.",
+                                "visualNarrative": (
+                                    "A narrow lantern-lit lane at dusk with wet stones "
+                                    "and a quiet café doorway — one natural moment."
+                                ),
+                                "exclusions": ["object collage", "poster typography"],
+                                "confidence": 0.9,
+                                "topicCategory": "travel",
+                                "atmosphereHint": "humid dusk",
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
     out = await prepare_mirror_director_draft(
         conversation_id="c1",
         generation_request_id="req-soft0001",
         messages=_msgs(),
-        meaning_completer=_ok_meaning,
-        draft_completer=_ok_draft,
-        review_completer=_ok_review,
+        interpretation_completer=interp_ok,
     )
     assert out.directorMode == "SOFT"
     assert out.applyTitle is True
-    assert out.applyPrompt is False
+    assert out.applyPrompt is True
     assert out.mappedPrompt is not None
     assert out.titleSource != "legacy_heuristic"
-    assert out.promptSource == "legacy_heuristic"
+    assert out.promptSource == "interpretation_v5_mapper"
 
 
 @pytest.mark.asyncio
 async def test_full_title_and_prompt(monkeypatch):
     monkeypatch.setenv("EZA_MIRROR_DIRECTOR_MODE", "FULL")
+
+    async def interp_ok(_p):
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "title": "Yağmur Altında Kyoto",
+                                "interpretationSummary": "Kyoto evening reshaped by rain.",
+                                "rationale": "User wants atmosphere over checklist tourism.",
+                                "imageIntent": "Feel a damp Kyoto lane at dusk.",
+                                "visualNarrative": (
+                                    "A narrow lantern-lit lane at dusk with wet stones "
+                                    "and a quiet café doorway — one natural moment."
+                                ),
+                                "exclusions": ["object collage", "poster typography"],
+                                "confidence": 0.9,
+                                "topicCategory": "travel",
+                                "atmosphereHint": "humid dusk",
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
     out = await prepare_mirror_director_draft(
         conversation_id="c1",
         generation_request_id="req-full0001",
         messages=_msgs(),
-        meaning_completer=_ok_meaning,
-        draft_completer=_ok_draft,
-        review_completer=_ok_review,
+        interpretation_completer=interp_ok,
     )
     assert out.directorMode == "FULL"
     assert out.applyTitle is True
     assert out.applyPrompt is True
     assert out.mappedPrompt is not None
-    assert out.promptSource == "director_v5_mapper"
+    assert out.promptSource == "interpretation_v5_mapper"
+    assert out.finalInterpretation is not None
 
 
 @pytest.mark.asyncio

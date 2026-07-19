@@ -12,6 +12,8 @@ from backend.core.schemas.mirror_draft import (
     MirrorDraft,
     sanitize_display_text,
 )
+from backend.core.schemas.mirror_conversation_context import MirrorConversationContextV1
+from backend.core.schemas.mirror_interpretation import MirrorInterpretationV1
 
 
 class MirrorConversationMessageDTO(BaseModel):
@@ -80,3 +82,7 @@ class MirrorPrepareDirectorDraftResponse(BaseModel):
     message: Optional[str] = None
     titleSource: Optional[str] = None
     promptSource: Optional[str] = None
+    """PR D1 — evidence package; creativeAuthority is always none (not visual authority)."""
+    conversationContext: Optional[MirrorConversationContextV1] = None
+    """PR D2 — creative interpretation (authority when rollout uses interpretation v1)."""
+    finalInterpretation: Optional[MirrorInterpretationV1] = None

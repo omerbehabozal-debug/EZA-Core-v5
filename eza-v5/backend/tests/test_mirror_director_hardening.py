@@ -94,6 +94,33 @@ async def _ok_draft(_p):
     return {"choices": [{"message": {"content": json.dumps(_draft_payload())}}]}
 
 
+async def _ok_interp(_p):
+    return {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "title": "Yağmur Altında Kyoto",
+                            "interpretationSummary": "Kyoto evening reshaped by rain.",
+                            "rationale": "User wants atmosphere over checklist tourism.",
+                            "imageIntent": "Feel a damp Kyoto lane at dusk.",
+                            "visualNarrative": (
+                                "A narrow lantern-lit lane at dusk with wet stones "
+                                "and a quiet café doorway — one natural moment."
+                            ),
+                            "exclusions": ["object collage", "poster typography"],
+                            "confidence": 0.9,
+                            "topicCategory": "travel",
+                            "atmosphereHint": "humid dusk",
+                        }
+                    )
+                }
+            }
+        ]
+    }
+
+
 async def _ok_review(_p):
     return {
         "choices": [
@@ -318,9 +345,9 @@ async def test_prepare_cache_content_hash_mismatch_reruns(monkeypatch):
     monkeypatch.setenv("EZA_MIRROR_DIRECTOR_MODE", "FULL")
     calls = {"n": 0}
 
-    async def meaning_counting(payload):
+    async def interp_counting(payload):
         calls["n"] += 1
-        return await _ok_meaning(payload)
+        return await _ok_interp(payload)
 
     msgs_a = _msgs("Kyoto yağmur bir")
     first = await prepare_mirror_director_draft(
@@ -328,9 +355,7 @@ async def test_prepare_cache_content_hash_mismatch_reruns(monkeypatch):
         generation_request_id="req-hash0001",
         messages=msgs_a,
         scope_key="user:a",
-        meaning_completer=meaning_counting,
-        draft_completer=_ok_draft,
-        review_completer=_ok_review,
+        interpretation_completer=interp_counting,
     )
     assert first.reusedCache is False
     assert calls["n"] == 1
@@ -340,9 +365,7 @@ async def test_prepare_cache_content_hash_mismatch_reruns(monkeypatch):
         generation_request_id="req-hash0001",
         messages=_msgs("Tamamen farklı içerik iki"),
         scope_key="user:a",
-        meaning_completer=meaning_counting,
-        draft_completer=_ok_draft,
-        review_completer=_ok_review,
+        interpretation_completer=interp_counting,
     )
     assert second.reusedCache is False
     assert calls["n"] == 2
@@ -356,7 +379,7 @@ async def test_coding_bug_falls_back_but_emits_visible_event(monkeypatch):
     def _capture(event, **fields):
         events.append((event, fields))
 
-    async def boom_orch(**_kwargs):
+    async def boom_interp(_context, **_kwargs):
         raise AttributeError("simulated coding bug")
 
     with (
@@ -365,8 +388,8 @@ async def test_coding_bug_falls_back_but_emits_visible_event(monkeypatch):
             side_effect=_capture,
         ),
         patch(
-            "backend.services.mirror.mirror_director_prepare.run_mirror_director_orchestration",
-            side_effect=boom_orch,
+            "backend.services.mirror.mirror_director_prepare.generate_mirror_interpretation",
+            side_effect=boom_interp,
         ),
     ):
         out = await prepare_mirror_director_draft(
@@ -374,9 +397,7 @@ async def test_coding_bug_falls_back_but_emits_visible_event(monkeypatch):
             generation_request_id="req-bug00001",
             messages=_msgs("Kyoto"),
             scope_key="user:a",
-            meaning_completer=_ok_meaning,
-            draft_completer=_ok_draft,
-            review_completer=_ok_review,
+            interpretation_completer=_ok_interp,
         )
 
     assert out.usedDirector is False

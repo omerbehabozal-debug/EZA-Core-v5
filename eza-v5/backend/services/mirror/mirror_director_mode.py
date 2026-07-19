@@ -44,10 +44,17 @@ class MirrorDirectorExecutionPolicy:
     use_director_prompt: bool
     persist_director_metadata: bool
     affect_user_output: bool
+    """PR D2: when True, Interpretation V1 is creative authority (not Meaning/Draft)."""
+    use_interpretation_v1: bool
 
     @property
     def run_director_pipeline(self) -> bool:
-        return self.run_meaning_analysis or self.run_draft or self.run_review
+        return (
+            self.run_meaning_analysis
+            or self.run_draft
+            or self.run_review
+            or self.use_interpretation_v1
+        )
 
 
 _POLICIES: dict[MirrorDirectorMode, MirrorDirectorExecutionPolicy] = {
@@ -60,36 +67,41 @@ _POLICIES: dict[MirrorDirectorMode, MirrorDirectorExecutionPolicy] = {
         use_director_prompt=False,
         persist_director_metadata=False,
         affect_user_output=False,
+        use_interpretation_v1=False,
     ),
     "SHADOW": MirrorDirectorExecutionPolicy(
         mode="SHADOW",
-        run_meaning_analysis=True,
-        run_draft=True,
-        run_review=True,
+        run_meaning_analysis=False,
+        run_draft=False,
+        run_review=False,
         use_director_title=False,
         use_director_prompt=False,
         persist_director_metadata=True,
         affect_user_output=False,
+        use_interpretation_v1=True,
     ),
     "SOFT": MirrorDirectorExecutionPolicy(
         mode="SOFT",
-        run_meaning_analysis=True,
-        run_draft=True,
-        run_review=True,
+        run_meaning_analysis=False,
+        run_draft=False,
+        run_review=False,
         use_director_title=True,
-        use_director_prompt=False,
+        # D2: interpretation must reach the image path (old SOFT title-only was insufficient).
+        use_director_prompt=True,
         persist_director_metadata=True,
         affect_user_output=True,
+        use_interpretation_v1=True,
     ),
     "FULL": MirrorDirectorExecutionPolicy(
         mode="FULL",
-        run_meaning_analysis=True,
-        run_draft=True,
-        run_review=True,
+        run_meaning_analysis=False,
+        run_draft=False,
+        run_review=False,
         use_director_title=True,
         use_director_prompt=True,
         persist_director_metadata=True,
         affect_user_output=True,
+        use_interpretation_v1=True,
     ),
 }
 
@@ -135,7 +147,22 @@ def get_mirror_director_execution_policy(
     mode: MirrorDirectorMode | None = None,
 ) -> MirrorDirectorExecutionPolicy:
     resolved = mode or resolve_mirror_director_mode()
-    return _POLICIES[resolved]
+    policy = _POLICIES[resolved]
+    # Kill-switch: force legacy Meaning/Draft path even in SHADOW/SOFT/FULL.
+    interp_env = _truthy(os.getenv("EZA_MIRROR_INTERPRETATION_V1"))
+    if interp_env is False and policy.use_interpretation_v1:
+        return MirrorDirectorExecutionPolicy(
+            mode=policy.mode,
+            run_meaning_analysis=True,
+            run_draft=True,
+            run_review=True,
+            use_director_title=policy.use_director_title,
+            use_director_prompt=policy.use_director_prompt if policy.mode == "FULL" else False,
+            persist_director_metadata=policy.persist_director_metadata,
+            affect_user_output=policy.affect_user_output,
+            use_interpretation_v1=False,
+        )
+    return policy
 
 
 def is_mirror_director_pipeline_enabled() -> bool:

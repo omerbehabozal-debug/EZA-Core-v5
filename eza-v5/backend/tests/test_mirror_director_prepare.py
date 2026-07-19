@@ -83,48 +83,38 @@ async def test_prepare_flag_off_zero_llm(monkeypatch):
 async def test_prepare_flag_on_pipeline_and_cache(monkeypatch):
     monkeypatch.setenv("EZA_MIRROR_DIRECTOR_MODE", "FULL")
 
-    async def meaning_ok(_p):
+    async def interpretation_ok(_p):
         return {
             "choices": [
                 {
                     "message": {
                         "content": json.dumps(
                             {
-                                "primaryTopic": "travel",
+                                "title": "Yağmur Altında Kyoto",
+                                "interpretationSummary": (
+                                    "A Kyoto evening walk reshaped by rain and narrow streets."
+                                ),
+                                "rationale": (
+                                    "User sought atmosphere over checklist tourism; rain and "
+                                    "Pontocho leanings matter."
+                                ),
+                                "imageIntent": (
+                                    "A stranger should feel a damp Kyoto evening street before rain."
+                                ),
+                                "visualNarrative": (
+                                    "A narrow Pontocho-like lane at dusk, wet stone beginning to "
+                                    "shine, warm lantern glow, a quiet café doorway ahead — one "
+                                    "continuous natural moment, no collage."
+                                ),
+                                "exclusions": [
+                                    "object collage",
+                                    "geisha cliché",
+                                    "poster typography",
+                                    "readable signs",
+                                ],
+                                "confidence": 0.91,
                                 "topicCategory": "travel",
-                                "secondaryTopics": ["Kyoto"],
-                                "userIntent": "rainy evening plan",
-                                "emotionalTone": ["calm"],
-                                "narrative": "Rain softens Kyoto's evening streets.",
-                                "visualMotifs": ["lanterns"],
-                                "forbiddenSymbols": ["bathroom mirror"],
-                                "suggestedPalette": ["amber"],
-                                "suggestedComposition": "street-level lantern reflections at dusk",
-                                "confidence": 0.93,
-                            }
-                        )
-                    }
-                }
-            ]
-        }
-
-    async def draft_ok(_p):
-        return {"choices": [{"message": {"content": json.dumps(_draft_payload())}}]}
-
-    async def review_ok(_p):
-        return {
-            "choices": [
-                {
-                    "message": {
-                        "content": json.dumps(
-                            {
-                                "decision": "approve",
-                                "overallScore": 0.9,
-                                "reasonCodes": [],
-                                "summary": "Good",
-                                "requiredChanges": [],
-                                "revisedDraft": None,
-                                "confidence": 0.9,
+                                "atmosphereHint": "humid dusk before rain",
                             }
                         )
                     }
@@ -140,26 +130,26 @@ async def test_prepare_flag_on_pipeline_and_cache(monkeypatch):
             "Yağmur yağarsa plan nasıl değişir?",
         ),
         scope_key="user:test-scope",
-        meaning_completer=meaning_ok,
-        draft_completer=draft_ok,
-        review_completer=review_ok,
+        interpretation_completer=interpretation_ok,
     )
     assert first.directorEnabled is True
     assert first.usedDirector is True
     assert first.mappedPrompt is not None
     assert first.mappedPrompt.title == "Yağmur Altında Kyoto"
     assert first.mappedPrompt.titleSource in {
-        "llm_draft_approved",
-        "llm_draft_revised",
-        "heuristic_draft",
-        "safe_fallback",
+        "interpretation_llm",
+        "interpretation_heuristic",
     }
+    assert first.finalInterpretation is not None
+    assert first.conversationContext is not None
+    assert first.conversationContext.creativeAuthority == "none"
     assert "TITLE:" not in first.mappedPrompt.prompt
     assert f'"{first.mappedPrompt.title}"' not in first.mappedPrompt.prompt
     assert "no text" in first.mappedPrompt.prompt.lower()
-    assert "typography" in first.mappedPrompt.prompt.lower()
+    assert "VISUAL NARRATIVE" in first.mappedPrompt.prompt
     assert first.metadata is not None
     assert first.contentHash
+    assert first.applyPrompt is True
 
     second = await prepare_mirror_director_draft(
         conversation_id="chat-kyoto",
@@ -169,9 +159,7 @@ async def test_prepare_flag_on_pipeline_and_cache(monkeypatch):
             "Yağmur yağarsa plan nasıl değişir?",
         ),
         scope_key="user:test-scope",
-        meaning_completer=meaning_ok,
-        draft_completer=draft_ok,
-        review_completer=review_ok,
+        interpretation_completer=interpretation_ok,
     )
     assert second.reusedCache is True
     assert second.mappedPrompt is not None

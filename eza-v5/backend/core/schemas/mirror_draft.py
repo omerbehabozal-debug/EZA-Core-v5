@@ -113,6 +113,8 @@ DraftSource = Literal[
     "llm_draft_revised",
     "heuristic_draft",
     "safe_fallback",
+    "interpretation_llm",
+    "interpretation_heuristic",
 ]
 
 GENERIC_TITLES: frozenset[str] = frozenset(

@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Production prepare-director-draft pipeline (PR C).
+"""Production prepare-director-draft pipeline (PR C + D1 + D2).
 
-Order: resolve mode/policy → (optional) snapshot → meaning → orchestrator → V5 map.
+Order (D2 default for SHADOW/SOFT/FULL):
+  resolve mode → D1 conversation context → Interpretation V1 → V5 map → cache
+
+Legacy (LEGACY mode, or EZA_MIRROR_INTERPRETATION_V1=false):
+  snapshot → Meaning → Draft → Review → V5 map
+
 Does NOT consume visual quota or generate images.
-
 Output authority is controlled solely by MirrorDirectorExecutionPolicy.
 """
 
@@ -18,13 +22,26 @@ from backend.core.schemas.mirror_prepare_director import (
     MirrorConversationMessageDTO,
     MirrorPrepareDirectorDraftResponse,
 )
+from backend.core.schemas.mirror_conversation_context import MirrorConversationContextV1
 from backend.services.mirror.conversation_snapshot import build_mirror_conversation_snapshot
 from backend.services.mirror.mirror_content_hash import build_mirror_director_content_hash
+from backend.services.mirror.mirror_conversation_context import (
+    build_mirror_conversation_context_v1,
+    select_assistant_texts_for_snapshot,
+)
 from backend.services.mirror.mirror_director_mode import get_mirror_director_execution_policy
 from backend.services.mirror.mirror_director_orchestrator import run_mirror_director_orchestration
 from backend.services.mirror.mirror_director_prepare_cache import cache_get, cache_set
 from backend.services.mirror.mirror_director_telemetry import emit_director_event
 from backend.services.mirror.mirror_draft_to_v5 import map_mirror_draft_to_v5_prompt
+from backend.services.mirror.mirror_interpretation import (
+    build_heuristic_interpretation,
+    generate_mirror_interpretation,
+)
+from backend.services.mirror.mirror_interpretation_to_v5 import (
+    interpretation_hash,
+    map_interpretation_to_v5_prompt,
+)
 from backend.services.mirror.mirror_meaning_analysis import (
     ChatCompleter,
     analyze_mirror_meaning,
@@ -48,16 +65,22 @@ def _dto_to_snapshot(
     )
     users = [m.text for m in ordered if m.role == "user"]
     assistants = [m.text for m in ordered if m.role == "assistant"]
+    # PR D1: keep first + latest assistants (not earliest-only [:2]).
+    assistant_snippets = select_assistant_texts_for_snapshot(assistants)
     return build_mirror_conversation_snapshot(
         title=title,
         user_messages=users,
-        assistant_messages=assistants[:2] if assistants else None,
+        assistant_messages=assistant_snippets if assistant_snippets else None,
         conversation_summary=conversation_summary,
-        include_assistant=bool(assistants),
+        include_assistant=bool(assistant_snippets),
     )
 
 
-def _legacy_response(*, message: str = "director_legacy") -> MirrorPrepareDirectorDraftResponse:
+def _legacy_response(
+    *,
+    message: str = "director_legacy",
+    conversation_context: MirrorConversationContextV1 | None = None,
+) -> MirrorPrepareDirectorDraftResponse:
     return MirrorPrepareDirectorDraftResponse(
         directorEnabled=False,
         usedDirector=False,
@@ -69,6 +92,7 @@ def _legacy_response(*, message: str = "director_legacy") -> MirrorPrepareDirect
         titleSource="legacy_heuristic",
         promptSource="legacy_heuristic",
         message=message,
+        conversationContext=conversation_context,
     )
 
 
@@ -83,8 +107,31 @@ async def prepare_mirror_director_draft(
     meaning_completer: Optional[ChatCompleter] = None,
     draft_completer: Optional[Callable[..., Awaitable[Any]]] = None,
     review_completer: Optional[Callable[..., Awaitable[Any]]] = None,
+    interpretation_completer: Optional[ChatCompleter] = None,
 ) -> MirrorPrepareDirectorDraftResponse:
     policy = get_mirror_director_execution_policy()
+
+    # PR D1 — evidence package (non-authoritative for creative output).
+    conversation_context = build_mirror_conversation_context_v1(
+        messages,
+        conversation_id=conversation_id,
+        locale="tr",
+    )
+    emit_director_event(
+        "conversation_context_built",
+        conversationId=conversation_id[:48],
+        generationRequestId=generation_request_id[:48],
+        directorMode=policy.mode,
+        sourceMessageCount=conversation_context.diagnostics.sourceMessageCount,
+        selectedMessageCount=conversation_context.diagnostics.selectedMessageCount,
+        omittedMessageCount=conversation_context.diagnostics.omittedMessageCount,
+        charEstimate=conversation_context.diagnostics.charEstimate,
+        truncationReason=conversation_context.diagnostics.truncationReason,
+        correctionCount=conversation_context.diagnostics.correctionCount,
+        preferenceCount=conversation_context.diagnostics.preferenceCount,
+        unresolvedQuestionCount=conversation_context.diagnostics.unresolvedQuestionCount,
+        contextVersion=conversation_context.diagnostics.contextVersion,
+    )
 
     if not policy.run_director_pipeline:
         emit_director_event(
@@ -93,7 +140,7 @@ async def prepare_mirror_director_draft(
             generationRequestId=generation_request_id[:48],
             directorMode=policy.mode,
         )
-        return _legacy_response()
+        return _legacy_response(conversation_context=conversation_context)
 
     snapshot = _dto_to_snapshot(
         messages, title=title, conversation_summary=conversation_summary
@@ -120,8 +167,155 @@ async def prepare_mirror_director_draft(
         conversationId=conversation_id[:48],
         generationRequestId=generation_request_id[:48],
         directorMode=policy.mode,
+        useInterpretationV1=policy.use_interpretation_v1,
     )
 
+    def _fallback_response(*, reason: str) -> MirrorPrepareDirectorDraftResponse:
+        return MirrorPrepareDirectorDraftResponse(
+            directorEnabled=True,
+            usedDirector=False,
+            directorMode=policy.mode,
+            directorExecuted=False,
+            directorAffectedOutput=False,
+            applyTitle=False,
+            applyPrompt=False,
+            titleSource="legacy_heuristic",
+            promptSource="legacy_heuristic",
+            fallbackReason=reason,
+            contentHash=content_hash,
+            message="director_failed_use_legacy",
+            conversationContext=conversation_context,
+        )
+
+    apply_title = bool(policy.use_director_title and policy.affect_user_output)
+    apply_prompt = bool(policy.use_director_prompt and policy.affect_user_output)
+
+    # ── PR D2: Interpretation is creative authority ─────────────────────────
+    if policy.use_interpretation_v1:
+        try:
+            interp_result = await generate_mirror_interpretation(
+                conversation_context,
+                completer=interpretation_completer,
+            )
+            if interp_result.ok:
+                interpretation = interp_result.interpretation
+                source = interp_result.source
+                latency_ms = interp_result.latency_ms
+            else:
+                interpretation = build_heuristic_interpretation(conversation_context)
+                source = "interpretation_heuristic"
+                latency_ms = 0
+                emit_director_event(
+                    "interpretation_fallback",
+                    reason=interp_result.code,
+                    directorMode=policy.mode,
+                )
+
+            mapped = map_interpretation_to_v5_prompt(
+                interpretation,
+                title_source=source,
+                art_direction_source="interpretation_v1",
+            )
+            ihash = interpretation_hash(interpretation)
+            user_title_source = source if apply_title else "legacy_heuristic"
+            user_prompt_source = (
+                "interpretation_v5_mapper" if apply_prompt else "legacy_heuristic"
+            )
+
+            from backend.core.schemas.mirror_director import normalize_mirror_director_topic
+            from backend.core.schemas.mirror_draft import MirrorDirectorMetadataContract
+            from backend.core.schemas.mirror_interpretation import (
+                MIRROR_INTERPRETATION_SCHEMA_VERSION,
+            )
+
+            meta_source: str = (
+                "interpretation_llm"
+                if source == "interpretation_llm"
+                else "interpretation_heuristic"
+            )
+            meta = MirrorDirectorMetadataContract(
+                analysisSchemaVersion=MIRROR_INTERPRETATION_SCHEMA_VERSION,
+                draftSchemaVersion=MIRROR_INTERPRETATION_SCHEMA_VERSION,
+                analysisSource="interpretation_v1",
+                draftSource=meta_source,  # type: ignore[arg-type]
+                analysisConfidence=None,
+                draftConfidence=interpretation.confidence,
+                directorConfidence=interpretation.confidence,
+                directorDecision=None,
+                directorReasonCodes=[],
+                revisionCount=0,
+                fallbackReason=None,
+                topicCategory=normalize_mirror_director_topic(interpretation.topicCategory),
+                draftDurationMs=latency_ms,
+                reviewDurationMs=0,
+                totalDirectorDurationMs=latency_ms,
+                contentHash=content_hash,
+            )
+
+            response = MirrorPrepareDirectorDraftResponse(
+                directorEnabled=True,
+                usedDirector=True,
+                reusedCache=False,
+                directorMode=policy.mode,
+                directorExecuted=True,
+                directorAffectedOutput=policy.affect_user_output,
+                applyTitle=apply_title,
+                applyPrompt=apply_prompt,
+                mappedPrompt=mapped if (apply_title or apply_prompt) else None,
+                shadowMappedPrompt=mapped if policy.mode == "SHADOW" else None,
+                finalDraft=None,
+                finalInterpretation=interpretation if policy.persist_director_metadata else None,
+                metadata=meta if policy.persist_director_metadata else None,
+                contentHash=content_hash,
+                titleSource=user_title_source,
+                promptSource=user_prompt_source,
+                conversationContext=conversation_context,
+            )
+            emit_director_event(
+                "interpretation_completed",
+                generationRequestId=generation_request_id[:48],
+                contentHash=content_hash,
+                interpretationSource=source,
+                interpretationHash=ihash,
+                confidence=interpretation.confidence,
+                latencyMs=latency_ms,
+                evidenceCoverage=conversation_context.sourceCoverage,
+                rolloutArm=policy.mode,
+                directorMode=policy.mode,
+                applyTitle=apply_title,
+                applyPrompt=apply_prompt,
+                interpretationVersion=interpretation.version,
+            )
+            cache_set(
+                generation_request_id,
+                response.model_dump(),
+                director_mode=policy.mode,
+                content_hash=content_hash,
+                scope_key=scope_key,
+            )
+            return response
+        except Exception as exc:
+            coding_bug = isinstance(
+                exc,
+                (TypeError, AttributeError, KeyError, AssertionError, NameError, IndexError),
+            )
+            logger.exception(
+                "interpretation_%s",
+                "coding_bug" if coding_bug else "unexpected",
+            )
+            emit_director_event(
+                "director_coding_bug" if coding_bug else "director_total_fallback",
+                reason="interpretation_exception",
+                errorType=type(exc).__name__,
+                errorMessage=str(exc)[:160],
+                directorMode=policy.mode,
+                contentHash=content_hash,
+            )
+            return _fallback_response(
+                reason="coding_bug" if coding_bug else "interpretation_exception"
+            )
+
+    # ── Legacy Meaning → Draft → Review (kill-switch / pre-D2 path) ─────────
     analysis_source = "llm"
     analysis: MirrorMeaningAnalysis
     meaning_ms = 0
@@ -167,24 +361,7 @@ async def prepare_mirror_director_draft(
         analysis = build_heuristic_meaning_from_snapshot(snapshot)
         analysis_source = "heuristic_policy_skip"
 
-    def _fallback_response(*, reason: str) -> MirrorPrepareDirectorDraftResponse:
-        return MirrorPrepareDirectorDraftResponse(
-            directorEnabled=True,
-            usedDirector=False,
-            directorMode=policy.mode,
-            directorExecuted=False,
-            directorAffectedOutput=False,
-            applyTitle=False,
-            applyPrompt=False,
-            titleSource="legacy_heuristic",
-            promptSource="legacy_heuristic",
-            fallbackReason=reason,
-            contentHash=content_hash,
-            message="director_failed_use_legacy",
-        )
-
     try:
-        # force=True: mode already resolved; orchestrator must not re-check boolean alone
         orch = await run_mirror_director_orchestration(
             snapshot=snapshot,
             analysis=analysis,
@@ -217,18 +394,8 @@ async def prepare_mirror_director_draft(
             }
         )
 
-        apply_title = bool(policy.use_director_title and policy.affect_user_output)
-        apply_prompt = bool(policy.use_director_prompt and policy.affect_user_output)
-
-        if apply_title:
-            user_title_source = title_source_internal
-        else:
-            user_title_source = "legacy_heuristic"
-
-        if apply_prompt:
-            user_prompt_source = "director_v5_mapper"
-        else:
-            user_prompt_source = "legacy_heuristic"
+        user_title_source = title_source_internal if apply_title else "legacy_heuristic"
+        user_prompt_source = "director_v5_mapper" if apply_prompt else "legacy_heuristic"
 
         response = MirrorPrepareDirectorDraftResponse(
             directorEnabled=True,
@@ -247,10 +414,9 @@ async def prepare_mirror_director_draft(
             contentHash=content_hash,
             titleSource=user_title_source,
             promptSource=user_prompt_source,
+            conversationContext=conversation_context,
         )
     except Exception as exc:
-        # Provider/transient failures and coding bugs both keep legacy UX.
-        # Coding bugs must be visible in logs + telemetry (no silent swallow).
         coding_bug = isinstance(
             exc,
             (TypeError, AttributeError, KeyError, AssertionError, NameError, IndexError),

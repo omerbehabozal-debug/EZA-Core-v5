@@ -39,6 +39,10 @@ export type PrepareDirectorDraftResult = {
   titleSource?: string | null;
   promptSource?: string | null;
   finalDraft?: { title?: string; artDirection?: string } | null;
+  /** PR D1 — evidence package; never drives image prompt in applyDirectorPrepareToCard. */
+  conversationContext?: unknown | null;
+  /** PR D2 — creative interpretation; visuals come from mappedPrompt only. */
+  finalInterpretation?: unknown | null;
 };
 
 function isSeason(value: string): value is SainaMirrorSeason {
