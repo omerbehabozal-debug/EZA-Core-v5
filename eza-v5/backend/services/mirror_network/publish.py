@@ -26,6 +26,9 @@ from backend.services.mirror_network.parent_lineage import (
     validate_parent_slug,
 )
 from backend.services.mirror_network.public_payload import split_curiosity_payloads
+from backend.services.mirror.mirror_director_metadata_sanitize import (
+    sanitize_intelligence_private_for_persist,
+)
 from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_mirror_scene_url
 from backend.services.mirror_network.repository import (
     create_mirror_network_node,
@@ -130,7 +133,10 @@ async def publish_mirror_to_network(
 
     safety_status, visibility = map_mirror_safety_level(body.safetyLevel)
     curiosity_bundle = _serialize_curiosity_bundle(body.curiosityBundle or {})
-    intelligence_private = dict(body.intelligencePrivate or {})
+    # Backend authority: strip non-allowlisted Director fields before private_payload write.
+    intelligence_private = sanitize_intelligence_private_for_persist(
+        body.intelligencePrivate or {}
+    )
 
     conversation_id = (body.conversationId or "").strip() or None
     incoming_scene = (body.sceneImageUrl or "").strip() or None

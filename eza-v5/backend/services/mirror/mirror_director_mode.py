@@ -9,6 +9,14 @@ Config priority:
    true → FULL, false → LEGACY
 3. Default → LEGACY
 
+Runtime note:
+  Mode is resolved per request from process environment / Settings.
+  `get_settings()` is process-cached (lru_cache). Changing MODE or ENABLED
+  on the host typically requires a process restart or redeploy for Settings
+  values to apply; do not assume live hot-reload across all deployment models.
+  Prefer setting EZA_MIRROR_DIRECTOR_MODE in the platform env and restarting
+  the API workers after changes.
+
 Future percentage rollout should sit ABOVE this resolver as a separate layer
 (account allowlist + hash bucket + emergency override) — not inside this enum.
 """

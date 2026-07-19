@@ -284,7 +284,8 @@ def split_curiosity_payloads(
         "mirrorBody": (intelligence_private or {}).get("mirrorBody") or (intelligence_private or {}).get("body"),
         "topicSummary": (intelligence_private or {}).get("topicSummary"),
         "evidenceLabels": (intelligence_private or {}).get("evidenceLabels") or [],
-        "intelligenceBrief": intelligence_private,
+        # Only sanitized brief (mirrorDirector allowlist) — never dump full client blob.
+        "intelligenceBrief": (intelligence_private or {}).get("intelligenceBrief"),
         "behavioralSnapshot": (intelligence_private or {}).get("behavioralSnapshot"),
         "curiosityPipeline": curiosity_bundle,
     }

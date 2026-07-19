@@ -53,6 +53,7 @@ jobs:
             tests/test_mirror_director_draft.py \
             tests/test_mirror_director_prepare.py \
             tests/test_mirror_director_mode.py \
+            tests/test_mirror_director_hardening.py \
             tests/test_account_entitlements.py \
             tests/test_account_usage_service.py \
             tests/test_message_quota_guard.py \

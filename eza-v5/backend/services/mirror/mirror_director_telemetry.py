@@ -12,6 +12,20 @@ logger = logging.getLogger("eza.mirror.director")
 def emit_director_event(event: str, **fields: Any) -> None:
     safe = {k: v for k, v in fields.items() if v is not None}
     # Never accept these keys even if passed by mistake
-    for banned in ("conversation", "prompt", "messages", "raw", "providerResponse", "snapshot"):
+    for banned in (
+        "conversation",
+        "prompt",
+        "messages",
+        "raw",
+        "providerResponse",
+        "snapshot",
+        "evidence",
+        "token",
+        "apiKey",
+    ):
         safe.pop(banned, None)
-    logger.info("mirror_director_event event=%s fields=%s", event, safe)
+    # Coding-bug events should stand out in log aggregation.
+    if event == "director_coding_bug":
+        logger.error("mirror_director_event event=%s fields=%s", event, safe)
+    else:
+        logger.info("mirror_director_event event=%s fields=%s", event, safe)

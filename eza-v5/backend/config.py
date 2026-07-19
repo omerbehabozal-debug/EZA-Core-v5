@@ -121,9 +121,13 @@ class Settings(BaseSettings):
     EZA_MIRROR_PUBLIC_BASE_URL: Optional[str] = None  # e.g. https://saina.app — shareUrl /m/{slug}
     EZA_MIRROR_SCENE_ASSET_DIR: Optional[str] = None  # default: backend/data/mirror_scene_assets
     EZA_MIRROR_SCENE_ASSET_BASE_URL: Optional[str] = None  # e.g. https://api.ezacore.ai
-    """Server-side Mirror Director create-path (default off). Env: EZA_MIRROR_DIRECTOR_ENABLED."""
+    """Server-side Mirror Director create-path (default off). Env: EZA_MIRROR_DIRECTOR_ENABLED.
+    Boolean compat: true→FULL, false→LEGACY. Prefer EZA_MIRROR_DIRECTOR_MODE.
+    Settings are process-cached — restart/redeploy API workers after env changes;
+    do not assume hot-reload."""
     EZA_MIRROR_DIRECTOR_ENABLED: bool = False
-    """Rollout mode: LEGACY | SHADOW | SOFT | FULL. When set, overrides boolean ENABLED."""
+    """Rollout mode: LEGACY | SHADOW | SOFT | FULL. When set, overrides boolean ENABLED.
+    Requires process restart/redeploy for Settings-backed values to take effect."""
     EZA_MIRROR_DIRECTOR_MODE: str = ""
     EZA_MIRROR_MEANING_MODEL: str = "gpt-4o-mini"
     EZA_MIRROR_DRAFT_MODEL: str = "gpt-4o-mini"

@@ -221,7 +221,10 @@ describe('Mirror Network Publish (Stage 4C)', () => {
       promptSource: 'director_v5_mapper',
       draftSource: 'llm_draft_approved',
       contentHash: 'abc123hash',
+      reasonCodes: [],
     });
+    expect(director).not.toHaveProperty('topicCategory');
+    expect(director).not.toHaveProperty('analysisSource');
     expect(director).not.toHaveProperty('prompt');
     expect(director).not.toHaveProperty('messages');
     expect(director).not.toHaveProperty('conversation');

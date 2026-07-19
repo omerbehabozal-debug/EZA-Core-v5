@@ -198,14 +198,20 @@ async def prepare_director_draft_endpoint(
             },
         )
 
-    # db unused for quota — keep session for subject resolution only
-    _ = actor
+    # Scope cache by authenticated user or guest fingerprint (no cross-account reuse).
+    scope_key: str | None = None
+    if subject.is_authenticated and actor.user is not None:
+        scope_key = f"user:{str(actor.user.id)}"
+    elif subject.guest_fingerprint:
+        scope_key = f"guest:{subject.guest_fingerprint}"
+
     result = await prepare_mirror_director_draft(
         conversation_id=body.conversationId,
         generation_request_id=body.generationRequestId,
         messages=list(body.messages),
         title=body.title,
         conversation_summary=body.conversationSummary,
+        scope_key=scope_key,
     )
     if result.usedDirector and result.mappedPrompt:
         emit_director_event(

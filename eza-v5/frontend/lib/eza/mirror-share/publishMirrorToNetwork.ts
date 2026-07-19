@@ -37,34 +37,26 @@ function buildIntelligencePrivate(card: DailyMirrorCardModel) {
   if (!payload) return undefined;
 
   const directorMeta = card.mirrorDirectorMetadata;
-  // PII-safe allowlist only — never raw conversation, snapshot, prompt, or provider bodies.
-  // Persists under existing mirror_network_nodes.private_payload.intelligenceBrief.mirrorDirector
-  // (no new table / migration).
+  // Frontend sends only allowlisted Director fields. Backend re-validates and is authority.
   const safeDirector =
     directorMeta && typeof directorMeta === 'object'
       ? {
-          analysisSchemaVersion: directorMeta.analysisSchemaVersion,
-          draftSchemaVersion: directorMeta.draftSchemaVersion,
-          reviewSchemaVersion: directorMeta.reviewSchemaVersion,
-          analysisSource: directorMeta.analysisSource,
-          draftSource: directorMeta.draftSource,
-          titleSource: directorMeta.titleSource,
-          promptSource: directorMeta.promptSource,
           directorMode: directorMeta.directorMode,
           directorExecuted: directorMeta.directorExecuted,
           directorAffectedOutput: directorMeta.directorAffectedOutput,
-          topicCategory: directorMeta.topicCategory,
-          analysisConfidence: directorMeta.analysisConfidence,
-          draftConfidence: directorMeta.draftConfidence,
-          directorConfidence: directorMeta.directorConfidence,
+          draftSource: directorMeta.draftSource,
+          titleSource: directorMeta.titleSource,
+          promptSource: directorMeta.promptSource,
           directorDecision: directorMeta.directorDecision,
-          directorReasonCodes: directorMeta.directorReasonCodes,
           revisionCount: directorMeta.revisionCount,
           fallbackReason: directorMeta.fallbackReason,
           contentHash: directorMeta.contentHash,
-          draftDurationMs: directorMeta.draftDurationMs,
-          reviewDurationMs: directorMeta.reviewDurationMs,
-          totalDirectorDurationMs: directorMeta.totalDirectorDurationMs,
+          reasonCodes: directorMeta.directorReasonCodes,
+          confidence: directorMeta.directorConfidence,
+          latency: directorMeta.totalDirectorDurationMs,
+          analysisSchemaVersion: directorMeta.analysisSchemaVersion,
+          draftSchemaVersion: directorMeta.draftSchemaVersion,
+          reviewSchemaVersion: directorMeta.reviewSchemaVersion,
           draftModel: directorMeta.draftModel,
           reviewModel: directorMeta.reviewModel,
         }

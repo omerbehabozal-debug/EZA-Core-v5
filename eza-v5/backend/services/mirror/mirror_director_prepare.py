@@ -79,6 +79,7 @@ async def prepare_mirror_director_draft(
     messages: list[MirrorConversationMessageDTO],
     title: str | None = None,
     conversation_summary: str | None = None,
+    scope_key: str | None = None,
     meaning_completer: Optional[ChatCompleter] = None,
     draft_completer: Optional[Callable[..., Awaitable[Any]]] = None,
     review_completer: Optional[Callable[..., Awaitable[Any]]] = None,
@@ -94,13 +95,23 @@ async def prepare_mirror_director_draft(
         )
         return _legacy_response()
 
-    cached = cache_get(generation_request_id)
+    snapshot = _dto_to_snapshot(
+        messages, title=title, conversation_summary=conversation_summary
+    )
+    content_hash = build_mirror_director_content_hash(snapshot)
+
+    cached = cache_get(
+        generation_request_id,
+        director_mode=policy.mode,
+        content_hash=content_hash,
+        scope_key=scope_key,
+    )
     if cached:
         emit_director_event(
             "director_cache_hit",
             generationRequestId=generation_request_id[:48],
-            contentHash=cached.get("contentHash"),
-            directorMode=cached.get("directorMode"),
+            contentHash=content_hash,
+            directorMode=policy.mode,
         )
         return MirrorPrepareDirectorDraftResponse.model_validate({**cached, "reusedCache": True})
 
@@ -110,11 +121,6 @@ async def prepare_mirror_director_draft(
         generationRequestId=generation_request_id[:48],
         directorMode=policy.mode,
     )
-
-    snapshot = _dto_to_snapshot(
-        messages, title=title, conversation_summary=conversation_summary
-    )
-    content_hash = build_mirror_director_content_hash(snapshot)
 
     analysis_source = "llm"
     analysis: MirrorMeaningAnalysis
@@ -161,26 +167,7 @@ async def prepare_mirror_director_draft(
         analysis = build_heuristic_meaning_from_snapshot(snapshot)
         analysis_source = "heuristic_policy_skip"
 
-    try:
-        # force=True: mode already resolved; orchestrator must not re-check boolean alone
-        orch = await run_mirror_director_orchestration(
-            snapshot=snapshot,
-            analysis=analysis,
-            draft_completer=draft_completer if policy.run_draft else None,
-            review_completer=review_completer if policy.run_review else None,
-            force=True,
-            analysis_source=analysis_source,
-        )
-    except TypeError:
-        raise
-    except Exception:
-        logger.exception("director_orchestrator_unexpected")
-        emit_director_event(
-            "director_total_fallback",
-            reason="orchestrator_exception",
-            directorMode=policy.mode,
-        )
-        # Shadow/Soft/Full provider failure → user keeps legacy output
+    def _fallback_response(*, reason: str) -> MirrorPrepareDirectorDraftResponse:
         return MirrorPrepareDirectorDraftResponse(
             directorEnabled=True,
             usedDirector=False,
@@ -191,67 +178,99 @@ async def prepare_mirror_director_draft(
             applyPrompt=False,
             titleSource="legacy_heuristic",
             promptSource="legacy_heuristic",
-            fallbackReason="orchestrator_exception",
+            fallbackReason=reason,
             contentHash=content_hash,
             message="director_failed_use_legacy",
         )
 
-    title_source_internal = orch.draftSource
-    if orch.draftSource in {"llm_draft_approved", "llm_draft_revised"}:
-        art_source = "llm_draft"
-    elif orch.draftSource == "heuristic_draft":
-        art_source = "heuristic_draft"
-        title_source_internal = "heuristic_draft"
-    else:
-        art_source = "safe_fallback"
-        title_source_internal = "safe_fallback"
+    try:
+        # force=True: mode already resolved; orchestrator must not re-check boolean alone
+        orch = await run_mirror_director_orchestration(
+            snapshot=snapshot,
+            analysis=analysis,
+            draft_completer=draft_completer if policy.run_draft else None,
+            review_completer=review_completer if policy.run_review else None,
+            force=True,
+            analysis_source=analysis_source,
+        )
 
-    mapped = map_mirror_draft_to_v5_prompt(
-        orch.finalDraft,
-        title_source=title_source_internal,
-        art_direction_source=art_source,
-    )
+        title_source_internal = orch.draftSource
+        if orch.draftSource in {"llm_draft_approved", "llm_draft_revised"}:
+            art_source = "llm_draft"
+        elif orch.draftSource == "heuristic_draft":
+            art_source = "heuristic_draft"
+            title_source_internal = "heuristic_draft"
+        else:
+            art_source = "safe_fallback"
+            title_source_internal = "safe_fallback"
 
-    meta = orch.metadata.model_copy(
-        update={
-            "analysisSource": analysis_source,
-            "contentHash": content_hash,
-        }
-    )
+        mapped = map_mirror_draft_to_v5_prompt(
+            orch.finalDraft,
+            title_source=title_source_internal,
+            art_direction_source=art_source,
+        )
 
-    apply_title = bool(policy.use_director_title and policy.affect_user_output)
-    apply_prompt = bool(policy.use_director_prompt and policy.affect_user_output)
+        meta = orch.metadata.model_copy(
+            update={
+                "analysisSource": analysis_source,
+                "contentHash": content_hash,
+            }
+        )
 
-    # User-facing sources
-    if apply_title:
-        user_title_source = title_source_internal
-    else:
-        user_title_source = "legacy_heuristic"
+        apply_title = bool(policy.use_director_title and policy.affect_user_output)
+        apply_prompt = bool(policy.use_director_prompt and policy.affect_user_output)
 
-    if apply_prompt:
-        user_prompt_source = "director_v5_mapper"
-    else:
-        user_prompt_source = "legacy_heuristic"
+        if apply_title:
+            user_title_source = title_source_internal
+        else:
+            user_title_source = "legacy_heuristic"
 
-    response = MirrorPrepareDirectorDraftResponse(
-        directorEnabled=True,
-        usedDirector=True,
-        reusedCache=False,
-        directorMode=policy.mode,
-        directorExecuted=True,
-        directorAffectedOutput=policy.affect_user_output,
-        applyTitle=apply_title,
-        applyPrompt=apply_prompt,
-        # User-facing mapped prompt only when it may affect output
-        mappedPrompt=mapped if (apply_title or apply_prompt) else None,
-        shadowMappedPrompt=mapped if policy.mode == "SHADOW" else None,
-        finalDraft=orch.finalDraft if policy.persist_director_metadata else None,
-        metadata=meta if policy.persist_director_metadata else None,
-        fallbackReason=orch.fallbackReason,
-        contentHash=content_hash,
-        titleSource=user_title_source,
-        promptSource=user_prompt_source,
-    )
+        if apply_prompt:
+            user_prompt_source = "director_v5_mapper"
+        else:
+            user_prompt_source = "legacy_heuristic"
+
+        response = MirrorPrepareDirectorDraftResponse(
+            directorEnabled=True,
+            usedDirector=True,
+            reusedCache=False,
+            directorMode=policy.mode,
+            directorExecuted=True,
+            directorAffectedOutput=policy.affect_user_output,
+            applyTitle=apply_title,
+            applyPrompt=apply_prompt,
+            mappedPrompt=mapped if (apply_title or apply_prompt) else None,
+            shadowMappedPrompt=mapped if policy.mode == "SHADOW" else None,
+            finalDraft=orch.finalDraft if policy.persist_director_metadata else None,
+            metadata=meta if policy.persist_director_metadata else None,
+            fallbackReason=orch.fallbackReason,
+            contentHash=content_hash,
+            titleSource=user_title_source,
+            promptSource=user_prompt_source,
+        )
+    except Exception as exc:
+        # Provider/transient failures and coding bugs both keep legacy UX.
+        # Coding bugs must be visible in logs + telemetry (no silent swallow).
+        coding_bug = isinstance(
+            exc,
+            (TypeError, AttributeError, KeyError, AssertionError, NameError, IndexError),
+        )
+        logger.exception(
+            "director_orchestrator_%s",
+            "coding_bug" if coding_bug else "unexpected",
+        )
+        emit_director_event(
+            "director_coding_bug" if coding_bug else "director_total_fallback",
+            reason="coding_bug" if coding_bug else "orchestrator_exception",
+            errorType=type(exc).__name__,
+            errorMessage=str(exc)[:160],
+            directorMode=policy.mode,
+            contentHash=content_hash,
+            generationRequestId=generation_request_id[:48],
+        )
+        return _fallback_response(
+            reason="coding_bug" if coding_bug else "orchestrator_exception"
+        )
 
     emit_director_event(
         "director_completed",
@@ -266,8 +285,8 @@ async def prepare_mirror_director_draft(
         meaningMs=meaning_ms,
         directorMode=policy.mode,
         directorAffectedOutput=policy.affect_user_output,
-        applyTitle=apply_title,
-        applyPrompt=apply_prompt,
+        applyTitle=response.applyTitle,
+        applyPrompt=response.applyPrompt,
     )
     if orch.directorDecision == "approve":
         emit_director_event("review_approve", contentHash=content_hash, directorMode=policy.mode)
@@ -276,5 +295,11 @@ async def prepare_mirror_director_draft(
             "review_revise", contentHash=content_hash, revisionCount=1, directorMode=policy.mode
         )
 
-    cache_set(generation_request_id, response.model_dump())
+    cache_set(
+        generation_request_id,
+        response.model_dump(),
+        director_mode=policy.mode,
+        content_hash=content_hash,
+        scope_key=scope_key,
+    )
     return response

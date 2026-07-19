@@ -139,6 +139,7 @@ async def test_prepare_flag_on_pipeline_and_cache(monkeypatch):
             "Kyoto'da akşam yürüyüşü",
             "Yağmur yağarsa plan nasıl değişir?",
         ),
+        scope_key="user:test-scope",
         meaning_completer=meaning_ok,
         draft_completer=draft_ok,
         review_completer=review_ok,
@@ -160,7 +161,11 @@ async def test_prepare_flag_on_pipeline_and_cache(monkeypatch):
     second = await prepare_mirror_director_draft(
         conversation_id="chat-kyoto",
         generation_request_id="req-kyoto0001",
-        messages=_msgs("ignored on cache"),
+        messages=_msgs(
+            "Kyoto'da akşam yürüyüşü",
+            "Yağmur yağarsa plan nasıl değişir?",
+        ),
+        scope_key="user:test-scope",
         meaning_completer=meaning_ok,
         draft_completer=draft_ok,
         review_completer=review_ok,
