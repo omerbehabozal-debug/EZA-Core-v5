@@ -18,6 +18,7 @@ from backend.services.mirror.mirror_director_metadata_sanitize import (
 )
 from backend.services.mirror.mirror_director_prepare import prepare_mirror_director_draft
 from backend.services.mirror.mirror_director_prepare_cache import (
+    build_prepare_cache_contract_fingerprint,
     cache_clear_for_tests,
     cache_get,
     cache_set,
@@ -266,12 +267,14 @@ def test_split_curiosity_public_unchanged_private_director_allowlisted():
 
 
 def test_cache_mode_mismatch_miss():
+    fp = build_prepare_cache_contract_fingerprint(use_interpretation_v1=True)
     cache_set(
         "req-same0001",
         {"directorMode": "FULL", "usedDirector": True},
         director_mode="FULL",
         content_hash="hash-a",
         scope_key="user:1",
+        contract_fingerprint=fp,
     )
     assert (
         cache_get(
@@ -279,18 +282,21 @@ def test_cache_mode_mismatch_miss():
             director_mode="SHADOW",
             content_hash="hash-a",
             scope_key="user:1",
+            contract_fingerprint=fp,
         )
         is None
     )
 
 
 def test_cache_content_hash_mismatch_miss():
+    fp = build_prepare_cache_contract_fingerprint(use_interpretation_v1=True)
     cache_set(
         "req-same0002",
         {"directorMode": "FULL", "usedDirector": True},
         director_mode="FULL",
         content_hash="hash-a",
         scope_key="user:1",
+        contract_fingerprint=fp,
     )
     assert (
         cache_get(
@@ -298,36 +304,42 @@ def test_cache_content_hash_mismatch_miss():
             director_mode="FULL",
             content_hash="hash-b",
             scope_key="user:1",
+            contract_fingerprint=fp,
         )
         is None
     )
 
 
 def test_cache_same_request_hit():
+    fp = build_prepare_cache_contract_fingerprint(use_interpretation_v1=True)
     cache_set(
         "req-same0003",
         {"directorMode": "FULL", "usedDirector": True, "contentHash": "hash-a"},
         director_mode="FULL",
         content_hash="hash-a",
         scope_key="user:1",
+        contract_fingerprint=fp,
     )
     hit = cache_get(
         "req-same0003",
         director_mode="FULL",
         content_hash="hash-a",
         scope_key="user:1",
+        contract_fingerprint=fp,
     )
     assert hit is not None
     assert hit["usedDirector"] is True
 
 
 def test_cache_scope_mismatch_miss():
+    fp = build_prepare_cache_contract_fingerprint(use_interpretation_v1=True)
     cache_set(
         "req-same0004",
         {"directorMode": "FULL"},
         director_mode="FULL",
         content_hash="hash-a",
         scope_key="user:1",
+        contract_fingerprint=fp,
     )
     assert (
         cache_get(
@@ -335,6 +347,7 @@ def test_cache_scope_mismatch_miss():
             director_mode="FULL",
             content_hash="hash-a",
             scope_key="user:2",
+            contract_fingerprint=fp,
         )
         is None
     )

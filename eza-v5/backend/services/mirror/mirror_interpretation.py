@@ -233,8 +233,12 @@ async def generate_mirror_interpretation(
             async with httpx.AsyncClient(timeout=timeout_seconds) as client:
                 response = await client.post(OPENAI_CHAT_URL, headers=headers, json=request_body)
                 if response.status_code >= 400:
-                    code, retryable = _classify_http_error(response.status_code, response.text)
-                    return MirrorInterpretationFailure(code, response.text[:200], retryable=retryable)
+                    signal = _classify_http_error(response.status_code, response.text)
+                    return MirrorInterpretationFailure(
+                        signal.code,
+                        (signal.message or response.text)[:200],
+                        retryable=signal.retryable,
+                    )
                 data = response.json()
 
         content = ""

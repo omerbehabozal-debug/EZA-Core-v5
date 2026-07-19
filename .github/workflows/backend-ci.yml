@@ -54,6 +54,7 @@ jobs:
             tests/test_mirror_director_prepare.py \
             tests/test_mirror_conversation_context_d1.py \
             tests/test_mirror_interpretation_d2.py \
+            tests/test_mirror_prepare_cache_and_http_fix.py \
             tests/test_mirror_director_mode.py \
             tests/test_mirror_director_hardening.py \
             tests/test_account_entitlements.py \

@@ -31,7 +31,12 @@ from backend.services.mirror.mirror_conversation_context import (
 )
 from backend.services.mirror.mirror_director_mode import get_mirror_director_execution_policy
 from backend.services.mirror.mirror_director_orchestrator import run_mirror_director_orchestration
-from backend.services.mirror.mirror_director_prepare_cache import cache_get, cache_set
+from backend.services.mirror.mirror_director_prepare_cache import (
+    build_prepare_cache_contract_fingerprint,
+    cache_get,
+    cache_set,
+    describe_prepare_cache_contract,
+)
 from backend.services.mirror.mirror_director_telemetry import emit_director_event
 from backend.services.mirror.mirror_draft_to_v5 import map_mirror_draft_to_v5_prompt
 from backend.services.mirror.mirror_interpretation import (
@@ -146,12 +151,17 @@ async def prepare_mirror_director_draft(
         messages, title=title, conversation_summary=conversation_summary
     )
     content_hash = build_mirror_director_content_hash(snapshot)
+    contract_fingerprint = build_prepare_cache_contract_fingerprint(
+        use_interpretation_v1=policy.use_interpretation_v1,
+    )
+    contract_meta = describe_prepare_cache_contract(contract_fingerprint)
 
     cached = cache_get(
         generation_request_id,
         director_mode=policy.mode,
         content_hash=content_hash,
         scope_key=scope_key,
+        contract_fingerprint=contract_fingerprint,
     )
     if cached:
         emit_director_event(
@@ -159,8 +169,23 @@ async def prepare_mirror_director_draft(
             generationRequestId=generation_request_id[:48],
             contentHash=content_hash,
             directorMode=policy.mode,
+            authorityPath=contract_meta.get("authorityPath"),
+            useInterpretationV1=policy.use_interpretation_v1,
+            contractFingerprint=contract_fingerprint[:120],
+            interpretationVersion=contract_meta.get("interpretationVersion"),
+            mapperVersion=contract_meta.get("mapperVersion"),
         )
         return MirrorPrepareDirectorDraftResponse.model_validate({**cached, "reusedCache": True})
+
+    emit_director_event(
+        "director_cache_miss",
+        generationRequestId=generation_request_id[:48],
+        contentHash=content_hash,
+        directorMode=policy.mode,
+        authorityPath=contract_meta.get("authorityPath"),
+        useInterpretationV1=policy.use_interpretation_v1,
+        contractFingerprint=contract_fingerprint[:120],
+    )
 
     emit_director_event(
         "director_started",
@@ -168,6 +193,8 @@ async def prepare_mirror_director_draft(
         generationRequestId=generation_request_id[:48],
         directorMode=policy.mode,
         useInterpretationV1=policy.use_interpretation_v1,
+        authorityPath=contract_meta.get("authorityPath"),
+        contractFingerprint=contract_fingerprint[:120],
     )
 
     def _fallback_response(*, reason: str) -> MirrorPrepareDirectorDraftResponse:
@@ -292,6 +319,7 @@ async def prepare_mirror_director_draft(
                 director_mode=policy.mode,
                 content_hash=content_hash,
                 scope_key=scope_key,
+                contract_fingerprint=contract_fingerprint,
             )
             return response
         except Exception as exc:
@@ -467,5 +495,6 @@ async def prepare_mirror_director_draft(
         director_mode=policy.mode,
         content_hash=content_hash,
         scope_key=scope_key,
+        contract_fingerprint=contract_fingerprint,
     )
     return response

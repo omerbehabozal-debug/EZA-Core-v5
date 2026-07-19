@@ -15,6 +15,9 @@ from backend.services.mirror.mirror_draft_to_v5 import (
     MIRROR_V5_PROMPT_CONTRACT,
 )
 
+# Bump when Interpretation→V5 mapping contract changes (cache isolation).
+MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v1"
+
 
 def interpretation_hash(interpretation: MirrorInterpretationV1) -> str:
     payload = "|".join(
