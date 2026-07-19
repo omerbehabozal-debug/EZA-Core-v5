@@ -8,20 +8,35 @@ const experienceSrc = readFileSync(
 );
 
 describe('Daily Mirror create preflight', () => {
-  it('checks sample count before daily quota and reveal', () => {
+  it('checks sample count before reveal', () => {
     const samplesIdx = experienceSrc.indexOf('MIRROR_MIN_SAMPLES');
-    const quotaIdx = experienceSrc.indexOf('canCreateFreeMirrorToday');
     const revealIdx = experienceSrc.indexOf("setDailyStatus('revealing')");
     expect(samplesIdx).toBeGreaterThan(-1);
-    expect(quotaIdx).toBeGreaterThan(samplesIdx);
-    expect(revealIdx).toBeGreaterThan(quotaIdx);
+    expect(revealIdx).toBeGreaterThan(samplesIdx);
   });
 
-  it('marks free quota only after successful ready in commitMirrorReady', () => {
-    expect(experienceSrc).toMatch(/saveDailyMirrorSnapshot/);
+  it('gates visual create on account entitlements before generate-scene', () => {
+    expect(experienceSrc).toContain('canCreateVisual');
+    expect(experienceSrc).toContain('canCreateVisualFromEntitlements');
+    const canIdx = experienceSrc.indexOf('if (!canCreateVisual) return');
+    const generateIdx = experienceSrc.indexOf('generateMirrorScene(');
+    expect(canIdx).toBeGreaterThan(-1);
+    expect(generateIdx).toBeGreaterThan(canIdx);
+  });
+
+  it('arms auto scene generation only on explicit create/update paths', () => {
+    expect(experienceSrc).toContain('allowAutoSceneGenerationRef');
+    expect(experienceSrc).toContain('shouldAutoGenerateMirrorScene');
     expect(experienceSrc).toMatch(
-      /setDailyStatus\('ready'\);\s*\r?\n\s*saveDailyMirrorSnapshot[\s\S]*?if \(!isPlus\) \{\s*\r?\n\s*markFreeMirrorUsedToday/
+      /allowAutoSceneGenerationRef\.current = true[\s\S]*setDailyStatus\('ready'\)/
     );
+  });
+
+  it('defers network publish until scene exists', () => {
+    expect(experienceSrc).toContain('Defer network publish until scene exists');
+    const commitIdx = experienceSrc.indexOf('const commitMirrorReady');
+    const commitBlock = experienceSrc.slice(commitIdx, commitIdx + 1800);
+    expect(commitBlock).not.toMatch(/void prepareMirrorShareLink\(card\)/);
   });
 
   it('uses daily_limit and DailyLimitUpgrade for free quota', () => {

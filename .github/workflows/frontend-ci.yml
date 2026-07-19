@@ -51,6 +51,9 @@ jobs:
           tests/mirrorExperienceWiring.test.ts
           tests/mirrorDraftContract.test.ts
           tests/mirrorDirectorPreparePrC.test.ts
+          tests/shouldAutoGenerateMirrorScene.test.ts
+          tests/explicitSceneGenerationGuard.test.ts
+          tests/dailyMirrorCreatePreflight.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-

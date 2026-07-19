@@ -118,6 +118,10 @@ import { markDiscoverMirrorCompletedForConversation } from '@/lib/eza/mirror-net
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { setConversationSceneIdentity } from '@/lib/standaloneChatArchive';
 import {
+  shouldAutoGenerateMirrorScene,
+  shouldHydrateExistingMirrorScene,
+} from '@/lib/eza/mirror/shouldAutoGenerateMirrorScene';
+import {
   trackMirrorShareOpened,
   trackMirrorShared,
 } from '@/lib/eza/mirror-share/mirrorShareAnalytics';
@@ -171,6 +175,8 @@ export default function StandaloneObservationExperience({
   const sceneAutoKeyRef = useRef<string | null>(null);
   const sceneRequestIdByAutoKeyRef = useRef<Map<string, string>>(new Map());
   const sceneGenerationInFlightRef = useRef(false);
+  /** Armed only by explicit create / update / retry / new-scene — blocks chat remount regen. */
+  const allowAutoSceneGenerationRef = useRef(false);
   const lastRawSceneUrlRef = useRef<string | null>(null);
   const hydratedFromSnapshotRef = useRef(false);
   const sceneDisplayBlobUrlRef = useRef<string | null>(null);
@@ -220,7 +226,9 @@ export default function StandaloneObservationExperience({
       setSceneImageUrl(displayUrl);
       setSceneImageStatus('ready');
       setSceneExtras(provider ? { imageProvider: provider } : {});
-      sceneAutoKeyRef.current = null;
+      const fp = card.visual?.intentFingerprint ?? '';
+      sceneAutoKeyRef.current = `${card.date}:${fp}:hydrate`;
+      allowAutoSceneGenerationRef.current = false;
       if (conversationId && isPersistableConversationSceneUrl(rawUrl)) {
         setConversationSceneIdentity(conversationId, {
           url: rawUrl,
@@ -298,6 +306,7 @@ export default function StandaloneObservationExperience({
   useEffect(() => {
     hydratedFromSnapshotRef.current = false;
     sceneAutoKeyRef.current = null;
+    allowAutoSceneGenerationRef.current = false;
     setMirrorRevision(0);
     clearStyleLensSession();
     clearMirrorSceneCacheForScope(conversationId);
@@ -315,6 +324,7 @@ export default function StandaloneObservationExperience({
     if (entries.length === 0) {
       hydratedFromSnapshotRef.current = false;
       sceneAutoKeyRef.current = null;
+      allowAutoSceneGenerationRef.current = false;
       setMirrorRevision(0);
       clearStyleLensSession();
       clearMirrorSceneCacheForScope(conversationId);
@@ -331,6 +341,7 @@ export default function StandaloneObservationExperience({
 
   const resetGeneratedCardState = useCallback(() => {
     sceneAutoKeyRef.current = null;
+    allowAutoSceneGenerationRef.current = false;
     setMirrorRevision(0);
     clearStyleLensSession();
     clearMirrorSceneCacheForScope(conversationId);
@@ -432,6 +443,7 @@ export default function StandaloneObservationExperience({
       }
       const cachedLink = conversationId ? readMirrorShareLink(conversationId) : null;
       const card = mergeCachedShareLinkIntoCard(state.dailyMirrorCard, cachedLink);
+      allowAutoSceneGenerationRef.current = true;
       setGeneratedDailyCard(card);
       setGeneratedDailyMeta(state.meta);
       setStyleLensSession(resetStyleLensSessionForCard(card));
@@ -445,8 +457,9 @@ export default function StandaloneObservationExperience({
         setShareLinkStatus('ready');
         setShareLinkError(null);
       } else {
+        // Defer network publish until scene exists (avoids double publish + chat-time spam).
         setShareLinkStatus('idle');
-        void prepareMirrorShareLink(card);
+        setShareLinkError(null);
       }
       if (conversationId) {
         saveConversationMirrorSnapshot(
@@ -473,7 +486,6 @@ export default function StandaloneObservationExperience({
       conversationId,
       isPlus,
       mirrorBuildOptions,
-      prepareMirrorShareLink,
       resetGeneratedCardState,
     ]
   );
@@ -524,8 +536,16 @@ export default function StandaloneObservationExperience({
     }
 
     const sceneCache = readMirrorSceneCacheForScope(conversationId, card);
-    if (sceneCache) {
-      void hydrateSceneFromCache(card, sceneCache.sceneImageUrl, sceneCache.provider);
+    const archiveUrl = conversationId
+      ? getChatArchive(conversationId)?.conversationSceneUrl?.trim() || null
+      : null;
+    const archiveScene =
+      archiveUrl && isPersistableConversationSceneUrl(archiveUrl) ? archiveUrl : null;
+    const existingScene = sceneCache?.sceneImageUrl ?? archiveScene;
+
+    if (existingScene) {
+      allowAutoSceneGenerationRef.current = false;
+      void hydrateSceneFromCache(card, existingScene, sceneCache?.provider);
     } else {
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
@@ -570,8 +590,27 @@ export default function StandaloneObservationExperience({
     }
 
     const sceneCache = readMirrorSceneCacheForScope(conversationId, card);
-    if (sceneCache) {
+    const archiveUrl = conversationId
+      ? getChatArchive(conversationId)?.conversationSceneUrl?.trim() || null
+      : null;
+    const archiveScene =
+      archiveUrl && isPersistableConversationSceneUrl(archiveUrl) ? archiveUrl : null;
+    const existingScene = sceneCache?.sceneImageUrl ?? archiveScene;
+
+    if (
+      existingScene &&
+      shouldHydrateExistingMirrorScene({
+        allowAuto: allowAutoSceneGenerationRef.current,
+        existingPersistableSceneUrl: existingScene,
+      })
+    ) {
+      allowAutoSceneGenerationRef.current = false;
+      void hydrateSceneFromCache(card, existingScene, sceneCache?.provider);
+    } else if (sceneCache) {
       void hydrateSceneFromCache(card, sceneCache.sceneImageUrl, sceneCache.provider);
+    } else if (archiveScene) {
+      allowAutoSceneGenerationRef.current = false;
+      void hydrateSceneFromCache(card, archiveScene, undefined);
     } else {
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
@@ -739,7 +778,7 @@ export default function StandaloneObservationExperience({
                 (prepared.applyTitle || prepared.applyPrompt || prepared.metadata)
               ) {
                 cardForScene = applyDirectorPrepareToCard(cardForScene, prepared);
-                setGeneratedDailyCard(cardForScene);
+                // Defer React card update until after scene completes — avoids autoKey churn mid-flight.
               }
             } catch {
               // Soft-fail to legacy heuristic visual/title.
@@ -758,9 +797,11 @@ export default function StandaloneObservationExperience({
           result.sceneImageUrl,
           cardForScene
         );
+        setGeneratedDailyCard(cardForScene);
         setSceneImageUrl(displayUrl);
         setSceneImageStatus('ready');
         setSceneExtras({ imageProvider: result.provider });
+        allowAutoSceneGenerationRef.current = false;
         saveMirrorSceneCacheForScope(
           conversationId,
           cardForScene,
@@ -856,6 +897,7 @@ export default function StandaloneObservationExperience({
       setDailyStatus('plus_limit');
       return;
     }
+    allowAutoSceneGenerationRef.current = true;
     const nextSession = advanceStyleLensSession(styleLensSession);
     setStyleLensSession(nextSession);
     void handleGenerateMirrorScene(nextSession);
@@ -892,12 +934,41 @@ export default function StandaloneObservationExperience({
     }
 
     const autoKey = buildSceneAutoKey(generatedDailyCard);
+    const archiveUrl = conversationId
+      ? getChatArchive(conversationId)?.conversationSceneUrl?.trim() || null
+      : null;
+    const existingPersistableSceneUrl =
+      archiveUrl && isPersistableConversationSceneUrl(archiveUrl) ? archiveUrl : null;
+
     if (
-      sceneAutoKeyRef.current === autoKey ||
-      sceneAutoKeyRef.current === `${autoKey}:complete`
+      !shouldAutoGenerateMirrorScene({
+        allowAuto: allowAutoSceneGenerationRef.current,
+        isAuthReady,
+        canCreateVisual,
+        dailyStatus,
+        sceneImageStatus,
+        hasVisualPrompt: Boolean(generatedDailyCard.visual?.prompt),
+        autoKey,
+        sceneAutoKey: sceneAutoKeyRef.current,
+        existingPersistableSceneUrl,
+      })
     ) {
+      if (
+        existingPersistableSceneUrl &&
+        shouldHydrateExistingMirrorScene({
+          allowAuto: allowAutoSceneGenerationRef.current,
+          existingPersistableSceneUrl,
+        })
+      ) {
+        void hydrateSceneFromCache(
+          generatedDailyCard,
+          existingPersistableSceneUrl,
+          undefined
+        );
+      }
       return;
     }
+
     void handleGenerateMirrorScene();
   }, [
     dailyStatus,
@@ -908,6 +979,9 @@ export default function StandaloneObservationExperience({
     canCreateVisual,
     buildSceneAutoKey,
     handleGenerateMirrorScene,
+    conversationId,
+    sceneImageUrl,
+    hydrateSceneFromCache,
   ]);
 
   const visualLimitStatus = useCallback((): 'daily_limit' | 'plus_limit' => {
@@ -1106,6 +1180,7 @@ export default function StandaloneObservationExperience({
 
   const handleRetryMirrorScene = useCallback(() => {
     sceneAutoKeyRef.current = null;
+    allowAutoSceneGenerationRef.current = true;
     setSceneExtras({});
     void handleGenerateMirrorScene();
   }, [handleGenerateMirrorScene]);
