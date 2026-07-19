@@ -178,4 +178,53 @@ describe('Mirror Network Publish (Stage 4C)', () => {
     if (result.ok) return;
     expect(result.message).toContain('hazırlanamadı');
   });
+
+  it('persists PII-safe Director rollout fields under intelligenceBrief.mirrorDirector', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      ok: true,
+      slug: 'director-meta-abc',
+      shareUrl: 'https://saina.app/m/director-meta-abc',
+      cardTitle: 'Sokak Lambaları',
+    });
+
+    const card = buildTestCard();
+    card.mirrorDirectorMetadata = {
+      analysisSchemaVersion: 'mirror_meaning_analysis.v1',
+      draftSchemaVersion: 'mirror_draft.v1',
+      reviewSchemaVersion: 'mirror_director_review.v1',
+      analysisSource: 'llm',
+      draftSource: 'llm_draft_approved',
+      titleSource: 'llm_draft_approved',
+      promptSource: 'director_v5_mapper',
+      directorMode: 'FULL',
+      directorExecuted: true,
+      directorAffectedOutput: true,
+      topicCategory: 'travel',
+      directorReasonCodes: [],
+      revisionCount: 0,
+      contentHash: 'abc123hash',
+    };
+
+    await publishMirrorToNetwork({ card, conversationId: 'conv-dir' });
+
+    const body = vi.mocked(apiClient.post).mock.calls[0][1]?.body as {
+      intelligencePrivate?: {
+        intelligenceBrief?: { mirrorDirector?: Record<string, unknown> };
+      };
+    };
+    const director = body.intelligencePrivate?.intelligenceBrief?.mirrorDirector;
+    expect(director).toMatchObject({
+      directorMode: 'FULL',
+      directorExecuted: true,
+      directorAffectedOutput: true,
+      titleSource: 'llm_draft_approved',
+      promptSource: 'director_v5_mapper',
+      draftSource: 'llm_draft_approved',
+      contentHash: 'abc123hash',
+    });
+    expect(director).not.toHaveProperty('prompt');
+    expect(director).not.toHaveProperty('messages');
+    expect(director).not.toHaveProperty('conversation');
+    expect(director).not.toHaveProperty('providerResponse');
+  });
 });

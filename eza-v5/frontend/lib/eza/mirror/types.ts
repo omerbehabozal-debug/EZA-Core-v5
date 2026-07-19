@@ -161,6 +161,10 @@ export interface DailyMirrorCardModel {
   mirrorV3Payload?: import('@/lib/eza/mirror/conversationMirrorV3/types').SainaMirrorV3Payload;
   /** Stage 4B — Share Architecture identity (blueprint + shareVoice). */
   mirrorShare?: import('@/lib/eza/mirror-share/types').MirrorShareIdentity;
+  /** PR C — PII-safe Director metadata (optional; not for public landing). */
+  mirrorDirectorMetadata?: import('@/lib/eza/mirror/director/mirrorDraftTypes').MirrorDirectorMetadataContract & {
+    titleSource?: string;
+  };
 }
 
 export interface RelationshipPatternModel {

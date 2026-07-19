@@ -50,6 +50,7 @@ jobs:
           tests/mirrorDirectorPrA.test.ts
           tests/mirrorExperienceWiring.test.ts
           tests/mirrorDraftContract.test.ts
+          tests/mirrorDirectorPreparePrC.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-

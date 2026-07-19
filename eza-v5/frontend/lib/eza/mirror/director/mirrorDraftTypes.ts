@@ -120,6 +120,13 @@ export type MirrorDirectorMetadataContract = {
   contentHash: string;
   draftModel?: string | null;
   reviewModel?: string | null;
+  /** PR C — which system owned the final title. */
+  titleSource?: string | null;
+  /** PR C rollout mode fields */
+  directorMode?: string | null;
+  directorExecuted?: boolean | null;
+  directorAffectedOutput?: boolean | null;
+  promptSource?: string | null;
 };
 
 /** Required draft field names — parity fixture with Python schema. */

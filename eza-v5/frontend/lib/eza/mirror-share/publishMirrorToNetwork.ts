@@ -36,11 +36,48 @@ function buildIntelligencePrivate(card: DailyMirrorCardModel) {
   const payload = card.mirrorV3Payload;
   if (!payload) return undefined;
 
+  const directorMeta = card.mirrorDirectorMetadata;
+  // PII-safe allowlist only — never raw conversation, snapshot, prompt, or provider bodies.
+  // Persists under existing mirror_network_nodes.private_payload.intelligenceBrief.mirrorDirector
+  // (no new table / migration).
+  const safeDirector =
+    directorMeta && typeof directorMeta === 'object'
+      ? {
+          analysisSchemaVersion: directorMeta.analysisSchemaVersion,
+          draftSchemaVersion: directorMeta.draftSchemaVersion,
+          reviewSchemaVersion: directorMeta.reviewSchemaVersion,
+          analysisSource: directorMeta.analysisSource,
+          draftSource: directorMeta.draftSource,
+          titleSource: directorMeta.titleSource,
+          promptSource: directorMeta.promptSource,
+          directorMode: directorMeta.directorMode,
+          directorExecuted: directorMeta.directorExecuted,
+          directorAffectedOutput: directorMeta.directorAffectedOutput,
+          topicCategory: directorMeta.topicCategory,
+          analysisConfidence: directorMeta.analysisConfidence,
+          draftConfidence: directorMeta.draftConfidence,
+          directorConfidence: directorMeta.directorConfidence,
+          directorDecision: directorMeta.directorDecision,
+          directorReasonCodes: directorMeta.directorReasonCodes,
+          revisionCount: directorMeta.revisionCount,
+          fallbackReason: directorMeta.fallbackReason,
+          contentHash: directorMeta.contentHash,
+          draftDurationMs: directorMeta.draftDurationMs,
+          reviewDurationMs: directorMeta.reviewDurationMs,
+          totalDirectorDurationMs: directorMeta.totalDirectorDurationMs,
+          draftModel: directorMeta.draftModel,
+          reviewModel: directorMeta.reviewModel,
+        }
+      : undefined;
+
   return {
     mirrorBody: payload.mirrorText,
     topicSummary: payload.topic,
     evidenceLabels: (payload.conversationEvidence ?? []).map((item) => item.label).filter(Boolean),
     behavioralSnapshot: undefined,
+    intelligenceBrief: safeDirector
+      ? { mirrorDirector: safeDirector }
+      : undefined,
   };
 }
 

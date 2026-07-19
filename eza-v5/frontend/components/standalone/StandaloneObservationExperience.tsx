@@ -35,12 +35,19 @@ import { mergeDailyCardSceneVisual, type DailyCardSceneVisualExtras } from '@/li
 import { withDevVehicleCueHints } from '@/lib/eza/mirror/mirrorIntentContext';
 import { generateMirrorScene, MirrorSceneError } from '@/lib/eza/mirror/generateSceneApi';
 import {
+  applyDirectorPrepareToCard,
+} from '@/lib/eza/mirror/applyDirectorPrepareToCard';
+import {
+  buildPrepareMessageDtos,
+  prepareDirectorDraft,
+} from '@/lib/eza/mirror/prepareDirectorDraftApi';
+import { getActiveConversationLiveMessages } from '@/lib/eza/mirror/activeConversationLiveMessages';
+import { resolveMirrorBuildConversationTexts } from '@/lib/eza/mirror/collectConversationTextsForMirror';
+import {
   resolveMirrorSceneDisplayUrl,
   revokePosterObjectUrl,
 } from '@/lib/eza/mirror/resolveMirrorSceneDisplayUrl';
 import { getChatArchive } from '@/lib/standaloneChatArchive';
-import { getActiveConversationLiveMessages } from '@/lib/eza/mirror/activeConversationLiveMessages';
-import { resolveMirrorBuildConversationTexts } from '@/lib/eza/mirror/collectConversationTextsForMirror';
 import {
   resolveMirrorRenderMode,
   setDevRenderMode,
@@ -694,12 +701,11 @@ export default function StandaloneObservationExperience({
       if (!isAuthReady) return;
       if (!canCreateVisual) return;
       if (!generatedDailyCard?.visual) return;
-      const visual = generatedDailyCard.visual;
-      const autoKey = buildSceneAutoKey(generatedDailyCard);
+      let cardForScene = generatedDailyCard;
+      const autoKey = buildSceneAutoKey(cardForScene);
       if (sceneAutoKeyRef.current === `${autoKey}:complete`) return;
       const session = sessionOverride ?? styleLensSession;
       const { lensId, variationIndex } = resolveLensForGeneration(isPlus, session);
-      const visualForApi = applyStyleLensToVisual(visual, lensId, variationIndex);
       sceneGenerationInFlightRef.current = true;
       sceneAutoKeyRef.current = autoKey;
       setSceneImageStatus('generating');
@@ -708,21 +714,56 @@ export default function StandaloneObservationExperience({
       setSceneExtras({});
       try {
         const generationRequestId = resolveSceneGenerationRequestId(autoKey);
-        const result = await generateMirrorScene(visualForApi, generatedDailyCard.date, {
+
+        // Director prepare — backend flag authority; never consumes visual quota.
+        if (conversationId) {
+          const archive = getChatArchive(conversationId);
+          const live = getActiveConversationLiveMessages(conversationId);
+          const merged = [
+            ...(archive?.messages ?? []),
+            ...live.filter(
+              (m) => !(archive?.messages ?? []).some((a) => a.id === m.id)
+            ),
+          ];
+          const messages = buildPrepareMessageDtos(merged);
+          if (messages.some((m) => m.role === 'user')) {
+            try {
+              const prepared = await prepareDirectorDraft({
+                conversationId,
+                generationRequestId,
+                messages,
+                title: archive?.title,
+              });
+              if (
+                prepared.usedDirector &&
+                (prepared.applyTitle || prepared.applyPrompt || prepared.metadata)
+              ) {
+                cardForScene = applyDirectorPrepareToCard(cardForScene, prepared);
+                setGeneratedDailyCard(cardForScene);
+              }
+            } catch {
+              // Soft-fail to legacy heuristic visual/title.
+            }
+          }
+        }
+
+        const visual = cardForScene.visual!;
+        const visualForApi = applyStyleLensToVisual(visual, lensId, variationIndex);
+        const result = await generateMirrorScene(visualForApi, cardForScene.date, {
           conversationId: conversationId ?? undefined,
           generationRequestId,
         });
         lastRawSceneUrlRef.current = result.sceneImageUrl;
         const displayUrl = await resolveSceneDisplayUrl(
           result.sceneImageUrl,
-          generatedDailyCard
+          cardForScene
         );
         setSceneImageUrl(displayUrl);
         setSceneImageStatus('ready');
         setSceneExtras({ imageProvider: result.provider });
         saveMirrorSceneCacheForScope(
           conversationId,
-          generatedDailyCard,
+          cardForScene,
           result.sceneImageUrl,
           result.provider
         );
@@ -734,12 +775,12 @@ export default function StandaloneObservationExperience({
           });
           markDiscoverMirrorCompletedForConversation(conversationId);
         }
-        void prepareMirrorShareLink(generatedDailyCard, result.sceneImageUrl, {
+        void prepareMirrorShareLink(cardForScene, result.sceneImageUrl, {
           refreshScene: true,
         });
         void refreshEntitlements();
         if (
-          !isV3MirrorCard(generatedDailyCard) &&
+          !isV3MirrorCard(cardForScene) &&
           (visual.renderMode ?? resolveMirrorRenderMode()) === 'hybrid_middle' &&
           isMockSceneImageUrl(result.sceneImageUrl)
         ) {
@@ -753,6 +794,7 @@ export default function StandaloneObservationExperience({
       } catch (err) {
         setSceneImageUrl(null);
         setSceneImageStatus('error');
+        const visual = cardForScene.visual;
         if (err instanceof MirrorSceneError) {
           if (err.code === 'auth_required') {
             sceneAutoKeyRef.current = null;
@@ -781,8 +823,8 @@ export default function StandaloneObservationExperience({
         } else {
           sceneAutoKeyRef.current = null;
         }
-        const mode = visual.renderMode ?? resolveMirrorRenderMode();
-        if (!isV3MirrorCard(generatedDailyCard) && mode === 'hybrid_middle') {
+        const mode = visual?.renderMode ?? resolveMirrorRenderMode();
+        if (!isV3MirrorCard(cardForScene) && mode === 'hybrid_middle') {
           setHybridTextFallback(true);
           setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
         }
@@ -794,11 +836,12 @@ export default function StandaloneObservationExperience({
       generatedDailyCard,
       conversationId,
       isAuthReady,
-      isAuthenticated,
+      canCreateVisual,
       isPlus,
       buildSceneAutoKey,
       prepareMirrorShareLink,
       resolveSceneDisplayUrl,
+      resolveSceneGenerationRequestId,
       sceneImageStatus,
       styleLensSession,
       refreshEntitlements,

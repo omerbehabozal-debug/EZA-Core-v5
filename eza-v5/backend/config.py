@@ -121,6 +121,13 @@ class Settings(BaseSettings):
     EZA_MIRROR_PUBLIC_BASE_URL: Optional[str] = None  # e.g. https://saina.app — shareUrl /m/{slug}
     EZA_MIRROR_SCENE_ASSET_DIR: Optional[str] = None  # default: backend/data/mirror_scene_assets
     EZA_MIRROR_SCENE_ASSET_BASE_URL: Optional[str] = None  # e.g. https://api.ezacore.ai
+    """Server-side Mirror Director create-path (default off). Env: EZA_MIRROR_DIRECTOR_ENABLED."""
+    EZA_MIRROR_DIRECTOR_ENABLED: bool = False
+    """Rollout mode: LEGACY | SHADOW | SOFT | FULL. When set, overrides boolean ENABLED."""
+    EZA_MIRROR_DIRECTOR_MODE: str = ""
+    EZA_MIRROR_MEANING_MODEL: str = "gpt-4o-mini"
+    EZA_MIRROR_DRAFT_MODEL: str = "gpt-4o-mini"
+    EZA_MIRROR_REVIEW_MODEL: str = "gpt-4o-mini"
 
     # Pipeline Settings
     PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout
