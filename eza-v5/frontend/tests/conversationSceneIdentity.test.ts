@@ -5,6 +5,7 @@ import {
 } from '@/lib/eza/conversationSceneIdentity';
 import {
   createStandaloneChat,
+  clearConversationSceneIdentity,
   deleteChatArchive,
   getChatArchive,
   saveStandaloneChat,
@@ -57,6 +58,21 @@ describe('conversationSceneIdentity', () => {
 
       const chat = getChatArchive(id);
       expect(chat?.conversationSceneUrl).toBe('https://cdn.example/mirror-scene.jpg');
+    });
+
+    it('clears scene identity so create/update can drop the previous background', () => {
+      const id = createStandaloneChat({ title: 'Clear scene' });
+      setConversationSceneIdentity(id, {
+        url: 'https://cdn.example/old-scene.jpg',
+        source: 'mirror_local',
+        slug: 'old-slug',
+      });
+
+      const cleared = clearConversationSceneIdentity(id);
+      expect(cleared?.conversationSceneUrl).toBeNull();
+      expect(cleared?.conversationSceneSource).toBeNull();
+      expect(cleared?.conversationSceneSlug).toBeNull();
+      expect(getChatArchive(id)?.conversationSceneUrl).toBeNull();
     });
 
     it('does not write non-persistable URLs', () => {

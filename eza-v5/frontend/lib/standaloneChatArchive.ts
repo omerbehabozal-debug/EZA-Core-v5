@@ -278,6 +278,27 @@ export function setConversationSceneIdentity(
   return list[idx] ?? null;
 }
 
+/** Clear conversation background scene while a new Mirror is being generated. */
+export function clearConversationSceneIdentity(chatId: string): ArchivedChat | null {
+  if (typeof window === 'undefined') return null;
+  const normalized = chatId.trim();
+  if (!normalized || isChatDeleted(normalized)) return null;
+
+  const list = readAll();
+  const idx = list.findIndex((a) => a.id === normalized);
+  if (idx === -1) return null;
+
+  const prev = list[idx];
+  list[idx] = {
+    ...prev,
+    conversationSceneUrl: null,
+    conversationSceneSource: null,
+    conversationSceneSlug: null,
+  };
+  writeAll(list);
+  return list[idx] ?? null;
+}
+
 export type CreateStandaloneChatOptions = {
   groupId?: string | null;
   treeMetadata?: ConversationTreeMetadata;

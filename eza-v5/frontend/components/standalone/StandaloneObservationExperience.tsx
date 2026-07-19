@@ -116,7 +116,11 @@ import { shouldSkipShareLinkPrepare } from '@/lib/eza/mirror-share/shareLinkPrep
 import type { MirrorShareLinkStatus } from '@/components/mirror/MirrorShareExperience';
 import { markDiscoverMirrorCompletedForConversation } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
-import { setConversationSceneIdentity } from '@/lib/standaloneChatArchive';
+import {
+  clearConversationSceneIdentity,
+  setConversationSceneIdentity,
+} from '@/lib/standaloneChatArchive';
+import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import {
   shouldAutoGenerateMirrorScene,
   shouldHydrateExistingMirrorScene,
@@ -219,6 +223,14 @@ export default function StandaloneObservationExperience({
     },
     []
   );
+
+  const clearChatBackgroundScene = useCallback((id: string | null | undefined) => {
+    if (!id?.trim()) return;
+    clearConversationSceneIdentity(id);
+    // Chrome store drives SainaPersistentScene; clear immediately so create UX
+    // does not keep showing the previous Mirror while the new one generates.
+    useSainaChromeStore.getState().setChrome({ conversationSceneUrl: null });
+  }, []);
 
   const hydrateSceneFromCache = useCallback(
     async (card: DailyMirrorCardModel, rawUrl: string, provider?: string) => {
@@ -444,6 +456,7 @@ export default function StandaloneObservationExperience({
       const cachedLink = conversationId ? readMirrorShareLink(conversationId) : null;
       const card = mergeCachedShareLinkIntoCard(state.dailyMirrorCard, cachedLink);
       allowAutoSceneGenerationRef.current = true;
+      clearChatBackgroundScene(conversationId);
       setGeneratedDailyCard(card);
       setGeneratedDailyMeta(state.meta);
       setStyleLensSession(resetStyleLensSessionForCard(card));
@@ -483,6 +496,7 @@ export default function StandaloneObservationExperience({
       return true;
     },
     [
+      clearChatBackgroundScene,
       conversationId,
       isPlus,
       mirrorBuildOptions,
@@ -492,6 +506,14 @@ export default function StandaloneObservationExperience({
 
   const runMirrorWithReveal = useCallback(
     (sourceEntries: SavedBehavioralEntry[], options?: { isUpdate?: boolean }) => {
+      // Drop stale chat background + cache immediately so create/update UX
+      // never shows the previous Mirror while the new one is generating.
+      clearChatBackgroundScene(conversationId);
+      clearMirrorSceneCacheForScope(conversationId);
+      allowAutoSceneGenerationRef.current = true;
+      setSceneImageUrl(null);
+      setSceneImageStatus('idle');
+      setSceneExtras({});
       setDailyStatus('revealing');
       window.setTimeout(() => {
         try {
@@ -510,7 +532,7 @@ export default function StandaloneObservationExperience({
         }
       }, MIRROR_REVEAL_DURATION_MS);
     },
-    [commitMirrorReady, resetGeneratedCardState]
+    [clearChatBackgroundScene, commitMirrorReady, conversationId, resetGeneratedCardState]
   );
 
   const showExistingMirrorCard = useCallback(() => {
@@ -813,6 +835,9 @@ export default function StandaloneObservationExperience({
           setConversationSceneIdentity(conversationId, {
             url: result.sceneImageUrl,
             source: 'mirror_local',
+          });
+          useSainaChromeStore.getState().setChrome({
+            conversationSceneUrl: result.sceneImageUrl,
           });
           markDiscoverMirrorCompletedForConversation(conversationId);
         }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect } from 'react';
+import { resolveChromeConversationSceneUrl } from '@/lib/eza/resolveChromeConversationSceneUrl';
 import { useSainaChromeStore, type SainaChromeState } from '@/lib/eza/sainaChromeStore';
 
 /** Registers sidebar/topbar state before paint so route changes keep chrome stable. */
@@ -33,7 +34,10 @@ export function useSyncSainaChrome({
       conversations,
       conversationGroups,
       activeChatId,
-      conversationSceneUrl,
+      conversationSceneUrl: resolveChromeConversationSceneUrl(
+        activeChatId,
+        conversationSceneUrl
+      ),
       planTier,
       onNewChat,
       onSelectChat,

@@ -66,6 +66,16 @@ describe('remount / mobile panel hydrate without regen', () => {
   });
 });
 
+describe('explicit create clears previous chat background', () => {
+  it('runMirrorWithReveal clears conversation scene identity and cache before reveal', () => {
+    expect(experienceSrc).toContain('clearChatBackgroundScene');
+    expect(experienceSrc).toContain('clearConversationSceneIdentity');
+    expect(experienceSrc).toMatch(
+      /runMirrorWithReveal[\s\S]*clearChatBackgroundScene\(conversationId\)[\s\S]*clearMirrorSceneCacheForScope\(conversationId\)/
+    );
+  });
+});
+
 describe('publish happens once after scene, not in commitMirrorReady', () => {
   it('commitMirrorReady does not publish before scene exists', () => {
     const commitIdx = experienceSrc.indexOf('const commitMirrorReady');
