@@ -178,7 +178,7 @@ def test_v5_mapper_title_authority_and_bounds():
     assert mapped.promptContract == "saina_mirror_v5_minimal"
     assert "TITLE:" not in mapped.prompt
     assert f'"{mapped.title}"' not in mapped.prompt
-    assert "Create a natural cinematic scene with no text" in mapped.prompt
+    assert "Create a natural editorial scene with no text" in mapped.prompt
 
 
 def test_heuristic_meaning_travel_and_health():

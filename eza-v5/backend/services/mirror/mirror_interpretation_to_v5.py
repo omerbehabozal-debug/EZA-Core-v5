@@ -16,7 +16,27 @@ from backend.services.mirror.mirror_draft_to_v5 import (
 )
 
 # Bump when Interpretation→V5 mapping contract changes (cache isolation).
-MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v1"
+MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v4"
+
+# Shared provider obligation — subject-agnostic; does not prescribe creative choices.
+MIRROR_CONTEXTUAL_SPECIFICITY_RULE = (
+    "Do not merely name the subject — render distinctive visual details that make it "
+    "recognizably itself (architecture, space, materials, culture, environment, era) "
+    "only from the narrative. Do not swap it for a generic cinematic trope or unrelated "
+    "geographies, cultures, or periods. For personal or abstract topics with no famous "
+    "place, do not invent landmarks or cultural symbols; preserve lived scale, setting, "
+    "materials, and behavior. Text-free."
+)
+
+# SAINA visual language: editorial legibility over dark cinema grading (mobile-first).
+MIRROR_EDITORIAL_EXPOSURE_RULE = (
+    "Favor premium editorial photography over dark cinematic grading. "
+    "Night should feel atmospheric, not underexposed. "
+    "Stay clear at mobile thumbnail size — faces, architecture, materials, and key "
+    "cues must be instantly readable. Use light as storytelling, not as an obstacle "
+    "to visibility. Do not flatten lighting or force bright daytime. "
+    "Avoid crushed blacks unless required. Preserve atmosphere."
+)
 
 
 def interpretation_hash(interpretation: MirrorInterpretationV1) -> str:
@@ -43,17 +63,17 @@ def map_interpretation_to_v5_prompt(
         (interpretation.topicCategory or "general curiosity").replace("_", " "),
         max_len=64,
     )
-    intent = sanitize_display_text(interpretation.imageIntent, max_len=420)
-    narrative = sanitize_display_text(interpretation.visualNarrative, max_len=700)
-    summary = sanitize_display_text(interpretation.interpretationSummary, max_len=280)
+    intent = sanitize_display_text(interpretation.imageIntent, max_len=320)
+    narrative = sanitize_display_text(interpretation.visualNarrative, max_len=560)
+    summary = sanitize_display_text(interpretation.interpretationSummary, max_len=200)
     atmosphere = sanitize_display_text(interpretation.atmosphereHint or "", max_len=180)
     exclusions = ", ".join(interpretation.exclusions[:8])
 
     blocks = [
         MIRROR_TEXT_FREE_SCENE_RULE,
-        "Curiosity atmosphere — evoke wonder; do not explain the topic.",
-        "One natural scene. Not a poster collage, not an object catalog, not stock tourism.",
-        "No dashboard, scores, bullet lists, summaries, labels, infographics, or conversation text.",
+        MIRROR_CONTEXTUAL_SPECIFICITY_RULE,
+        MIRROR_EDITORIAL_EXPOSURE_RULE,
+        "One natural scene — evoke curiosity; not collage, catalog, stock tourism, or dashboard.",
         "",
         f"CATEGORY:\n{topic}",
         "",
@@ -61,14 +81,19 @@ def map_interpretation_to_v5_prompt(
         "",
         f"VISUAL NARRATIVE:\n{narrative}",
     ]
+    optional: list[str] = []
     if summary:
-        blocks.extend(["", f"INTERPRETATION NOTE:\n{summary}"])
+        optional.extend(["", f"INTERPRETATION NOTE:\n{summary}"])
     if atmosphere:
-        blocks.extend(["", f"ATMOSPHERE:\n{atmosphere}"])
+        optional.extend(["", f"ATMOSPHERE:\n{atmosphere}"])
     if exclusions:
-        blocks.append(f"Avoid: {exclusions}")
+        optional.append(f"Avoid: {exclusions}")
 
-    prompt = "\n".join(blocks).strip()
+    prompt = "\n".join(blocks + optional).strip()
+    # Prefer dropping optional tail before hard-cutting the narrative core.
+    while len(prompt) > MIRROR_V5_MAX_PROMPT_CHARS and optional:
+        optional.pop()
+        prompt = "\n".join(blocks + optional).strip()
     if len(prompt) > MIRROR_V5_MAX_PROMPT_CHARS:
         prompt = prompt[: MIRROR_V5_MAX_PROMPT_CHARS - 1].rstrip() + "…"
 

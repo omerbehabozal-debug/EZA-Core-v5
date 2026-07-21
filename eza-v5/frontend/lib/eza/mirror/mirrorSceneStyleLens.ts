@@ -4,6 +4,9 @@
 
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import {
+  resolveBenchmarkStyleLensId,
+} from '@/lib/eza/mirror/mirrorBenchmarkMode';
+import {
   DEFAULT_STYLE_LENS_ID,
   getNextStyleLensId,
   getStyleLens,
@@ -92,7 +95,7 @@ export function createDefaultStyleLensSession(
     dayKey: dayKeyFromDate(now),
     cardDate: card.date?.slice(0, 10) ?? dayKeyFromDate(now),
     intentFingerprint: card.visual?.intentFingerprint ?? '',
-    selectedStyleLensId: DEFAULT_STYLE_LENS_ID,
+    selectedStyleLensId: resolveBenchmarkStyleLensId(DEFAULT_STYLE_LENS_ID),
     sceneVariationIndex: 0,
   };
 }
@@ -138,9 +141,11 @@ export function resetStyleLensSessionForCard(
 export function advanceStyleLensSession(
   session: MirrorStyleLensSession
 ): MirrorStyleLensSession {
+  const candidate = getNextStyleLensId(session.selectedStyleLensId);
+  const nextLens = resolveBenchmarkStyleLensId(candidate);
   const next: MirrorStyleLensSession = {
     ...session,
-    selectedStyleLensId: getNextStyleLensId(session.selectedStyleLensId),
+    selectedStyleLensId: nextLens,
     sceneVariationIndex: session.sceneVariationIndex + 1,
   };
   saveStyleLensSession(next);
@@ -151,11 +156,9 @@ export function resolveLensForGeneration(
   isPlus: boolean,
   session: MirrorStyleLensSession
 ): { lensId: StyleLensId; variationIndex: number } {
-  if (!isPlus) {
-    return { lensId: DEFAULT_STYLE_LENS_ID, variationIndex: session.sceneVariationIndex };
-  }
+  const base = isPlus ? session.selectedStyleLensId : DEFAULT_STYLE_LENS_ID;
   return {
-    lensId: session.selectedStyleLensId,
+    lensId: resolveBenchmarkStyleLensId(base),
     variationIndex: session.sceneVariationIndex,
   };
 }

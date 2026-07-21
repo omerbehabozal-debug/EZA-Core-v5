@@ -33,7 +33,7 @@ const LIGHT_MODE_STYLE_LINE: Record<MirrorLightMode, string> = {
 
 /** Hard contract: raw Mirror scene must stay text-free (PR D0). */
 export const MIRROR_TEXT_FREE_SCENE_RULE =
-  'Create a natural cinematic scene with no text, typography, captions, title, logo, watermark, labels, UI, poster layout, or readable signage. Use abstract or illegible signage only when architecturally necessary.';
+  'Create a natural editorial scene with no text, typography, captions, title, logo, watermark, labels, UI, poster layout, or readable signage. Use abstract or illegible signage only when architecturally necessary.';
 
 const STAGE0_SAFETY =
   'No dashboard, scores, bullet lists, summaries, labels, infographics, or conversation text.';

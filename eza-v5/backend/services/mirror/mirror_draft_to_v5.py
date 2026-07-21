@@ -15,7 +15,7 @@ MIRROR_V5_PROMPT_CONTRACT = "saina_mirror_v5_minimal"
 MIRROR_V5_MAX_PROMPT_CHARS = 1400
 
 MIRROR_TEXT_FREE_SCENE_RULE = (
-    "Create a natural cinematic scene with no text, typography, captions, title, logo, "
+    "Create a natural editorial scene with no text, typography, captions, title, logo, "
     "watermark, labels, UI, poster layout, or readable signage. "
     "Use abstract or illegible signage only when architecturally necessary."
 )

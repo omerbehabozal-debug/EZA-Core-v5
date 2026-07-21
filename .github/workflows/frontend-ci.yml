@@ -53,6 +53,7 @@ jobs:
           tests/mirrorDirectorPreparePrC.test.ts
           tests/mirrorConversationContextD1.test.ts
           tests/mirrorInterpretationD2.test.ts
+          tests/mirrorBenchmarkMode.test.ts
           tests/shouldAutoGenerateMirrorScene.test.ts
           tests/explicitSceneGenerationGuard.test.ts
           tests/dailyMirrorCreatePreflight.test.ts
