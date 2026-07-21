@@ -8,7 +8,6 @@ import {
 } from '@/lib/eza/mirror/mirrorBenchmarkMode';
 import {
   DEFAULT_STYLE_LENS_ID,
-  getNextStyleLensId,
   getStyleLens,
   STYLE_LENS_PLUS_CYCLE,
   type StyleLensId,
@@ -137,28 +136,28 @@ export function resetStyleLensSessionForCard(
   return fresh;
 }
 
-/** Plus — advance to next lens before generating a new scene. */
+/**
+ * Plus “Yeni Sahne” — bump variation index only.
+ * Style Lens character rotation is retired (prompt injection removed).
+ */
 export function advanceStyleLensSession(
   session: MirrorStyleLensSession
 ): MirrorStyleLensSession {
-  const candidate = getNextStyleLensId(session.selectedStyleLensId);
-  const nextLens = resolveBenchmarkStyleLensId(candidate);
   const next: MirrorStyleLensSession = {
     ...session,
-    selectedStyleLensId: nextLens,
     sceneVariationIndex: session.sceneVariationIndex + 1,
   };
   saveStyleLensSession(next);
   return next;
 }
 
+/** @deprecated Lens id is unused at generate time; variationIndex still used for seed. */
 export function resolveLensForGeneration(
-  isPlus: boolean,
+  _isPlus: boolean,
   session: MirrorStyleLensSession
 ): { lensId: StyleLensId; variationIndex: number } {
-  const base = isPlus ? session.selectedStyleLensId : DEFAULT_STYLE_LENS_ID;
   return {
-    lensId: resolveBenchmarkStyleLensId(base),
+    lensId: resolveBenchmarkStyleLensId(DEFAULT_STYLE_LENS_ID),
     variationIndex: session.sceneVariationIndex,
   };
 }

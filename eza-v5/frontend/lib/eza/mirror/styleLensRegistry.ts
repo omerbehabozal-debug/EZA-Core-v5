@@ -1,5 +1,7 @@
 /**
- * P4-C5 — Style Lens registry (visual interpretation variants; narrative fixed).
+ * P4-C5 — Style Lens registry (legacy catalog).
+ * Prompt injection into generate-scene is retired — see styleLensPrompt.ts.
+ * IDs may still appear in localStorage sessions; they no longer affect OpenAI prompts.
  */
 
 export type StyleLensId =

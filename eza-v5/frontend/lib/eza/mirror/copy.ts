@@ -229,8 +229,9 @@ export const MIRROR_UPDATE_LABEL = 'Aynanı Güncelle';
 export const MIRROR_NEW_SCENE_LABEL = '✨ Yeni Sahne Oluştur';
 
 export const MIRROR_NEW_SCENE_HINT =
-  'Aynı hikâye; yeni görsel yorum (Style Lens).';
+  'Aynı hikâye; OpenAI ile yeni bir sahne denemesi (anlatı değişmez).';
 
+/** @deprecated Style Lens UI retired — kept for any leftover imports. */
 export const MIRROR_SCENE_STYLE_PREFIX = 'Sahne stili:';
 
 export const PLAN_UPGRADE_MODAL_BODY =

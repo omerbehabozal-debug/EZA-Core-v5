@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import type { MirrorVisualPromptPayload } from '@/lib/eza/mirror/types';
-import { applyStyleLensToVisual } from '@/lib/eza/mirror/styleLensPrompt';
+import {
+  applyStyleLensToVisual,
+  stripLegacyStyleLensFromPrompt,
+  withSceneVariationSeed,
+} from '@/lib/eza/mirror/styleLensPrompt';
 
 const baseVisual: MirrorVisualPromptPayload = {
   characterId: 'curiosity_exploration',
@@ -16,30 +20,30 @@ const baseVisual: MirrorVisualPromptPayload = {
   seedHint: 'seed-base-abc',
 };
 
-describe('styleLensPrompt', () => {
-  it('does not mutate the original visual', () => {
+describe('styleLensPrompt (injection retired)', () => {
+  it('applyStyleLensToVisual is a no-op (no character injection)', () => {
     const patched = applyStyleLensToVisual(baseVisual, 'curious_panda', 1);
-    expect(patched.prompt).not.toBe(baseVisual.prompt);
-    expect(baseVisual.prompt).not.toContain('style lens:');
-    expect(patched.prompt).toContain('style lens:');
+    expect(patched).toBe(baseVisual);
+    expect(patched.prompt).not.toContain('style lens:');
+    expect(patched.prompt).not.toMatch(/anthropomorphic curious panda/i);
+    expect(patched.prompt).not.toMatch(/cinematic real human subject/i);
   });
 
-  it('extends seedHint with lens and variation index', () => {
-    const patched = applyStyleLensToVisual(baseVisual, 'explorer_fox', 3);
-    expect(patched.seedHint).toContain('lens:explorer_fox');
-    expect(patched.seedHint).toContain('v3');
+  it('withSceneVariationSeed only extends seedHint', () => {
+    const patched = withSceneVariationSeed(baseVisual, 3);
+    expect(patched.prompt).toBe(baseVisual.prompt);
+    expect(patched.seedHint).toContain('scene_var:3');
+    expect(patched.seedHint).not.toContain('lens:');
   });
 
-  it('strips panda avoid for curious_panda but keeps sticker/cartoon negatives', () => {
-    const patched = applyStyleLensToVisual(baseVisual, 'curious_panda', 0);
-    expect(patched.prompt).not.toMatch(/do not depict a panda/i);
-    expect(patched.prompt).toMatch(/premium anthropomorphic curious panda/i);
-    expect(patched.negativePrompt).toMatch(/sticker/i);
-    expect(patched.negativePrompt).toMatch(/children book/i);
-  });
-
-  it('keeps mascot avoid for premium_human', () => {
-    const patched = applyStyleLensToVisual(baseVisual, 'premium_human', 0);
-    expect(patched.prompt).toMatch(/do not depict a panda/i);
+  it('strips legacy style lens tails from cached prompts', () => {
+    const dirty =
+      'Mardin stone terrace at dusk. style lens: premium anthropomorphic curious panda, adult cinematic editorial character.';
+    expect(stripLegacyStyleLensFromPrompt(dirty)).toBe(
+      'Mardin stone terrace at dusk.'
+    );
+    expect(withSceneVariationSeed({ ...baseVisual, prompt: dirty }, 0).prompt).toBe(
+      'Mardin stone terrace at dusk.'
+    );
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Mirror benchmark mode — Style Lens must stay on cinematic_no_character.
+ * Mirror benchmark mode + retired Style Lens injection.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -13,7 +13,10 @@ import {
   createDefaultStyleLensSession,
   resolveLensForGeneration,
 } from '@/lib/eza/mirror/mirrorSceneStyleLens';
-import { applyStyleLensToVisual } from '@/lib/eza/mirror/styleLensPrompt';
+import {
+  applyStyleLensToVisual,
+  withSceneVariationSeed,
+} from '@/lib/eza/mirror/styleLensPrompt';
 import type { MirrorVisualPromptPayload } from '@/lib/eza/mirror/types';
 
 describe('mirrorBenchmarkMode style lens', () => {
@@ -47,7 +50,7 @@ describe('mirrorBenchmarkMode style lens', () => {
     expect(resolved.lensId).toBe('cinematic_no_character');
   });
 
-  it('does not rotate to curious_panda under benchmark', () => {
+  it('advance bumps variation only (no panda rotation)', () => {
     enableMirrorBenchmarkMode();
     const session = createDefaultStyleLensSession({
       date: '2026-07-19',
@@ -55,9 +58,10 @@ describe('mirrorBenchmarkMode style lens', () => {
     });
     const next = advanceStyleLensSession(session);
     expect(next.selectedStyleLensId).toBe('cinematic_no_character');
+    expect(next.sceneVariationIndex).toBe(1);
   });
 
-  it('applyStyleLens does not inject panda/human for cinematic_no_character', () => {
+  it('never injects panda/human into generate prompt', () => {
     const visual: MirrorVisualPromptPayload = {
       characterId: 'saina',
       characterName: 'SAINA',
@@ -66,7 +70,7 @@ describe('mirrorBenchmarkMode style lens', () => {
       atmosphereLabel: 'x',
       emotionLabel: 'calm',
       prompt:
-        'Create a natural cinematic scene with no text. do not depict a panda, fox, animal doctor mascot, cartoon animal, or literal character costume. CATEGORY:\ntravel\nVISUAL NARRATIVE:\nKyoto Pontocho rain.',
+        'Create a natural editorial scene with no text. CATEGORY:\ntravel\nVISUAL NARRATIVE:\nMardin stone terrace.',
       negativePrompt: 'text',
       stylePreset: 'eza_mirror_professional_v1',
       promptContract: 'saina_mirror_v5_minimal',
@@ -75,11 +79,14 @@ describe('mirrorBenchmarkMode style lens', () => {
       sceneIntentLabel: 'travel',
       intentFingerprint: 'fp',
     };
-    const out = applyStyleLensToVisual(visual, 'cinematic_no_character', 0);
-    expect(out.prompt.toLowerCase()).toContain('no central character');
-    expect(out.prompt.toLowerCase()).not.toContain('anthropomorphic curious panda');
-    expect(out.prompt.toLowerCase()).not.toContain('cinematic real human subject');
-    // stripMascotAvoidForLens only applies to mascot lenses — avoidance remains.
-    expect(out.prompt).toContain('do not depict a panda');
+    for (const lens of ['curious_panda', 'premium_human', 'cinematic_no_character'] as const) {
+      const out = applyStyleLensToVisual(visual, lens, 0);
+      expect(out.prompt).toBe(visual.prompt);
+      expect(out.prompt.toLowerCase()).not.toContain('anthropomorphic curious panda');
+      expect(out.prompt.toLowerCase()).not.toContain('cinematic real human subject');
+    }
+    const varied = withSceneVariationSeed(visual, 2);
+    expect(varied.prompt).toBe(visual.prompt);
+    expect(varied.seedHint).toContain('scene_var:2');
   });
 });

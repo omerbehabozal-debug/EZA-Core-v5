@@ -8,7 +8,6 @@ import {
   MIRROR_CURRENT_HINT,
   MIRROR_NEW_SCENE_HINT,
   MIRROR_NEW_SCENE_LABEL,
-  MIRROR_SCENE_STYLE_PREFIX,
   MIRROR_SCENE_GENERATING,
   MIRROR_SHARE_LABEL,
   MIRROR_UPDATE_LABEL,
@@ -44,6 +43,7 @@ export type DailyMirrorRefreshActionsProps = {
   showShare?: boolean;
   onUpdate: () => void;
   onNewScene?: () => void;
+  /** @deprecated Style Lens label retired — ignored. */
   activeStyleLensLabel?: string;
   onShare?: () => void;
   freePlusHint?: string;
@@ -93,7 +93,6 @@ export default function DailyMirrorRefreshActions({
   showShare = false,
   onUpdate,
   onNewScene,
-  activeStyleLensLabel,
   onShare,
   freePlusHint,
   minimal = false,
@@ -169,11 +168,6 @@ export default function DailyMirrorRefreshActions({
             hasProductionQuota={hasProductionQuota}
             onNewScene={onNewScene}
           />
-        ) : null}
-        {showNewScene && activeStyleLensLabel ? (
-          <p className={cn(ms.sceneWrap, 'text-center text-[11px] font-medium text-violet-700/85')}>
-            {MIRROR_SCENE_STYLE_PREFIX} {activeStyleLensLabel}
-          </p>
         ) : null}
         {!isPlus && freePlusHint ? (
           <p className={cn(ms.sceneWrap, 'text-center text-[11px] text-stone-500')}>{freePlusHint}</p>

@@ -43,7 +43,7 @@ describe('Scene variation vs mirror update (source)', () => {
     expect(MIRROR_UPDATE_LABEL).toBe('Aynanı Güncelle');
     expect(MIRROR_NEW_SCENE_LABEL).toContain('Yeni Sahne Oluştur');
     expect(MIRROR_NEW_SCENE_HINT).toMatch(/Aynı hikâye/i);
-    expect(MIRROR_NEW_SCENE_HINT).toMatch(/Style Lens/i);
+    expect(MIRROR_NEW_SCENE_HINT).not.toMatch(/Style Lens/i);
     expect(refreshSrc).toContain('MIRROR_NEW_SCENE_LABEL');
     expect(refreshSrc).toContain('MIRROR_UPDATE_LABEL');
   });
@@ -62,14 +62,15 @@ describe('Scene variation vs mirror update (source)', () => {
     );
     expect(fnBlock).toContain('handleGenerateMirrorScene');
     expect(fnBlock).toContain('advanceStyleLensSession');
+    expect(fnBlock).toContain('sceneAutoKeyRef.current = null');
     expect(fnBlock).not.toContain('buildMirrorState');
     expect(fnBlock).not.toContain('saveDailyMirrorSnapshot');
   });
 
-  it('scene generation applies Style Lens without rebuilding card', () => {
-    expect(experienceSrc).toContain('applyStyleLensToVisual');
+  it('scene generation does not inject Style Lens into the OpenAI prompt', () => {
+    expect(experienceSrc).toContain('withSceneVariationSeed');
+    expect(experienceSrc).not.toContain('applyStyleLensToVisual');
     expect(experienceSrc).toContain('resetStyleLensSessionForCard');
-    expect(refreshSrc).toContain('MIRROR_SCENE_STYLE_PREFIX');
   });
 
   it('handleMirrorRefresh uses runMirrorWithReveal (card update path)', () => {

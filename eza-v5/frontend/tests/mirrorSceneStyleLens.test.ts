@@ -45,28 +45,30 @@ describe('mirrorSceneStyleLens', () => {
     expect(session.sceneVariationIndex).toBe(0);
   });
 
-  it('advances Plus cycle on new scene', () => {
+  it('advances variation index only (no character lens rotation)', () => {
     let session = createDefaultStyleLensSession(cardA);
     saveAndLoad(session);
     session = advanceStyleLensSession(session);
-    expect(session.selectedStyleLensId).toBe('curious_panda');
+    expect(session.selectedStyleLensId).toBe(DEFAULT_STYLE_LENS_ID);
     expect(session.sceneVariationIndex).toBe(1);
     session = advanceStyleLensSession(session);
-    expect(session.selectedStyleLensId).toBe('cinematic_no_character');
+    expect(session.selectedStyleLensId).toBe(DEFAULT_STYLE_LENS_ID);
+    expect(session.sceneVariationIndex).toBe(2);
   });
 
   it('resets to premium_human when intent fingerprint changes', () => {
     let session = createDefaultStyleLensSession(cardA);
     localStorage.setItem(MIRROR_STYLE_LENS_STORAGE_KEY, JSON.stringify(session));
     session = advanceStyleLensSession(session);
-    expect(session.selectedStyleLensId).toBe('curious_panda');
+    expect(session.sceneVariationIndex).toBe(1);
 
     const resolved = resolveStyleLensSessionForCard(cardB);
     expect(resolved.selectedStyleLensId).toBe('premium_human');
     expect(resolved.intentFingerprint).toBe('fp-updated-data');
+    expect(resolved.sceneVariationIndex).toBe(0);
   });
 
-  it('resetStyleLensSessionForCard clears advanced lens', () => {
+  it('resetStyleLensSessionForCard clears variation', () => {
     let session = createDefaultStyleLensSession(cardA);
     session = advanceStyleLensSession(session);
     const reset = resetStyleLensSessionForCard(cardA);

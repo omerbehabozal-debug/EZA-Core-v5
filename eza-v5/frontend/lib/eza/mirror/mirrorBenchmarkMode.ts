@@ -1,12 +1,12 @@
 /**
  * Controlled Mirror benchmark mode (D2 quality runs).
  *
- * Enable (client-only, product Style Lens unchanged by default):
+ * Enable (client-only):
  * - URL: ?mirrorBenchmark=1
  * - or localStorage: eza_mirror_benchmark_v1 = "1"
  *
- * Forces cinematic_no_character and freezes lens rotation so
- * premium_human / curious_panda cannot contaminate the generate prompt.
+ * Historical: forced cinematic_no_character. Style Lens prompt injection is
+ * now retired globally; this flag remains for QA / future gates.
  */
 
 import {

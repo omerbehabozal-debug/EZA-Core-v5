@@ -74,13 +74,12 @@ import {
   advanceStyleLensSession,
   clearStyleLensSession,
   createDefaultStyleLensSession,
-  getStyleLensDisplayLabel,
   resetStyleLensSessionForCard,
   resolveLensForGeneration,
   resolveStyleLensSessionForCard,
   type MirrorStyleLensSession,
 } from '@/lib/eza/mirror/mirrorSceneStyleLens';
-import { applyStyleLensToVisual } from '@/lib/eza/mirror/styleLensPrompt';
+import { withSceneVariationSeed } from '@/lib/eza/mirror/styleLensPrompt';
 import {
   clearMirrorSceneCacheForScope,
   readMirrorSceneCacheForScope,
@@ -766,7 +765,7 @@ export default function StandaloneObservationExperience({
       const autoKey = buildSceneAutoKey(cardForScene);
       if (sceneAutoKeyRef.current === `${autoKey}:complete`) return;
       const session = sessionOverride ?? styleLensSession;
-      const { lensId, variationIndex } = resolveLensForGeneration(isPlus, session);
+      const { variationIndex } = resolveLensForGeneration(isPlus, session);
       sceneGenerationInFlightRef.current = true;
       sceneAutoKeyRef.current = autoKey;
       setSceneImageStatus('generating');
@@ -809,7 +808,8 @@ export default function StandaloneObservationExperience({
         }
 
         const visual = cardForScene.visual!;
-        const visualForApi = applyStyleLensToVisual(visual, lensId, variationIndex);
+        // Style Lens prompt injection retired — D2/mapped prompt is sole creative authority.
+        const visualForApi = withSceneVariationSeed(visual, variationIndex);
         const result = await generateMirrorScene(visualForApi, cardForScene.date, {
           conversationId: conversationId ?? undefined,
           generationRequestId,
@@ -914,7 +914,7 @@ export default function StandaloneObservationExperience({
     ]
   );
 
-  /** Plus — aynı kart; sıradaki Style Lens ile sahne (snapshot / buildConversationMirrorState yok). */
+  /** Plus — aynı kart; yeni seed ile aynı anlatıdan sahne (Style Lens yok). */
   const handleNewMirrorScene = useCallback(() => {
     if (!isPlus) return;
     if (dailyStatus !== 'ready') return;
@@ -922,16 +922,24 @@ export default function StandaloneObservationExperience({
       setDailyStatus('plus_limit');
       return;
     }
+    if (generatedDailyCard) {
+      const autoKey = buildSceneAutoKey(generatedDailyCard);
+      sceneRequestIdByAutoKeyRef.current.delete(autoKey);
+    }
+    sceneAutoKeyRef.current = null;
     allowAutoSceneGenerationRef.current = true;
     const nextSession = advanceStyleLensSession(styleLensSession);
     setStyleLensSession(nextSession);
     void handleGenerateMirrorScene(nextSession);
-  }, [isPlus, dailyStatus, handleGenerateMirrorScene, styleLensSession, canCreateVisual]);
-
-  const activeStyleLensLabel = useMemo(
-    () => getStyleLensDisplayLabel(styleLensSession.selectedStyleLensId),
-    [styleLensSession.selectedStyleLensId]
-  );
+  }, [
+    isPlus,
+    dailyStatus,
+    handleGenerateMirrorScene,
+    styleLensSession,
+    canCreateVisual,
+    generatedDailyCard,
+    buildSceneAutoKey,
+  ]);
 
   useEffect(() => {
     if (dailyStatus !== 'ready' || !generatedDailyCard) return;
@@ -1407,7 +1415,6 @@ export default function StandaloneObservationExperience({
               onShare={handleShareOpen}
               onUpdate={handleMirrorRefresh}
               onNewScene={handleNewMirrorScene}
-              activeStyleLensLabel={isPlus ? activeStyleLensLabel : undefined}
               minimal={isScenePosterVisible}
             >
               {readyLoginCta}
