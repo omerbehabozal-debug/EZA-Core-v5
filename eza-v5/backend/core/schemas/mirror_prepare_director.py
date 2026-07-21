@@ -53,7 +53,7 @@ class MirrorV5MappedPrompt(BaseModel):
     topicCategory: str
     season: str
     mood: Optional[str] = None
-    prompt: str = Field(..., min_length=12, max_length=1400)
+    prompt: str = Field(..., min_length=12, max_length=2000)
     negativePrompt: str = Field(default="", max_length=2000)
     promptContract: Literal["saina_mirror_v5_minimal"] = "saina_mirror_v5_minimal"
     titleSource: str

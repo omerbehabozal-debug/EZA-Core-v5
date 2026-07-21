@@ -12,7 +12,9 @@ from backend.core.schemas.mirror_draft import MirrorDraft, sanitize_display_text
 from backend.core.schemas.mirror_prepare_director import MirrorV5MappedPrompt
 
 MIRROR_V5_PROMPT_CONTRACT = "saina_mirror_v5_minimal"
-MIRROR_V5_MAX_PROMPT_CHARS = 1400
+# Must stay in sync with openai_prompt_builder.MAX_V5_MINIMAL_PROMPT_LEN.
+# Raised so D2 visualNarrative survives after short shared rules.
+MIRROR_V5_MAX_PROMPT_CHARS = 2000
 
 MIRROR_TEXT_FREE_SCENE_RULE = (
     "Create a natural editorial scene with no text, typography, captions, title, logo, "

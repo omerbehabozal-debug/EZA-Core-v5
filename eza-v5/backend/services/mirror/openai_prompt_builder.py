@@ -17,7 +17,8 @@ _MAX_HINTS_APPEND = 400
 # V5 minimal render contract — provider prompt must stay passthrough.
 V5_PROMPT_CONTRACT = "saina_mirror_v5_minimal"
 V5_RENDER_CONTRACT_MARKER = "SAINA_RENDER_CONTRACT: V5_MINIMAL"
-MAX_V5_MINIMAL_PROMPT_LEN = 1400
+# Keep aligned with mirror_draft_to_v5.MIRROR_V5_MAX_PROMPT_CHARS.
+MAX_V5_MINIMAL_PROMPT_LEN = 2000
 
 _LEGACY_APPEND_PREFIXES = ("Avoid:", "Quality:", "Style:")
 

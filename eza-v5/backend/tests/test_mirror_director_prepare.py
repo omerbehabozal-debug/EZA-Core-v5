@@ -174,7 +174,7 @@ def test_v5_mapper_title_authority_and_bounds():
     assert mapped.title == "Yağmur Altında Kyoto"
     assert mapped.titleSource == "llm_draft_approved"
     assert mapped.season == "night_discovery"
-    assert len(mapped.prompt) <= 1400
+    assert len(mapped.prompt) <= 2000
     assert mapped.promptContract == "saina_mirror_v5_minimal"
     assert "TITLE:" not in mapped.prompt
     assert f'"{mapped.title}"' not in mapped.prompt

@@ -182,7 +182,7 @@ async def test_openai_provider_sends_v5_minimal_prompt_without_legacy_append():
     payload = mock_client.post.call_args.kwargs.get("json")
     assert result.provider == "openai"
     assert payload["prompt"] == V5_MINIMAL_PROMPT
-    assert len(payload["prompt"]) <= 1400
+    assert len(payload["prompt"]) <= 2000
     assert "Avoid:" not in payload["prompt"]
     assert "Quality:" not in payload["prompt"]
     assert "Style:" not in payload["prompt"]

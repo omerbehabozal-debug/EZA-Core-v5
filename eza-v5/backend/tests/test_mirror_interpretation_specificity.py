@@ -6,13 +6,17 @@ from __future__ import annotations
 import inspect
 
 from backend.core.schemas.mirror_interpretation import MirrorInterpretationV1
-from backend.services.mirror.mirror_draft_to_v5 import MIRROR_TEXT_FREE_SCENE_RULE
+from backend.services.mirror.mirror_draft_to_v5 import (
+    MIRROR_TEXT_FREE_SCENE_RULE,
+    MIRROR_V5_MAX_PROMPT_CHARS,
+)
 from backend.services.mirror.mirror_interpretation_to_v5 import (
     MIRROR_CONTEXTUAL_SPECIFICITY_RULE,
     MIRROR_EDITORIAL_EXPOSURE_RULE,
     MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION,
     map_interpretation_to_v5_prompt,
 )
+from backend.services.mirror.openai_prompt_builder import MAX_V5_MINIMAL_PROMPT_LEN
 
 
 def _interp(**overrides) -> MirrorInterpretationV1:
@@ -42,7 +46,7 @@ def test_1_shared_prompt_contains_contextual_specificity():
     )
     assert MIRROR_CONTEXTUAL_SPECIFICITY_RULE in mapped.prompt
     assert "recognizably itself" in mapped.prompt
-    assert "generic cinematic trope" in mapped.prompt
+    assert "generic cinematic tropes" in mapped.prompt
 
 
 def test_2_no_kyoto_specific_hardcoding_in_mapper():
@@ -90,14 +94,14 @@ def test_4_interpretation_content_preserved_without_rewrite():
     mapped = map_interpretation_to_v5_prompt(interp, title_source="interpretation_llm")
     assert f"VISUAL NARRATIVE:\n{narrative}" in mapped.prompt
     assert f"IMAGE INTENT:\n{intent}" in mapped.prompt
-    # Mapper adds obligation; does not rewrite narrative wording.
     assert narrative in mapped.prompt
+    # Narrative must lead so provider truncation cannot drop the scene.
+    assert mapped.prompt.startswith("VISUAL NARRATIVE:")
 
 
 def test_5_abstract_topics_must_not_invent_landmarks():
-    assert "do not invent landmarks" in MIRROR_CONTEXTUAL_SPECIFICITY_RULE.lower()
-    assert "cultural symbols" in MIRROR_CONTEXTUAL_SPECIFICITY_RULE.lower()
-    assert "personal or abstract" in MIRROR_CONTEXTUAL_SPECIFICITY_RULE.lower()
+    assert "invented landmarks" in MIRROR_CONTEXTUAL_SPECIFICITY_RULE.lower()
+    assert "famous place" in MIRROR_CONTEXTUAL_SPECIFICITY_RULE.lower()
     mapped = map_interpretation_to_v5_prompt(
         _interp(
             title="Gece Düşüncesi",
@@ -114,12 +118,10 @@ def test_5_abstract_topics_must_not_invent_landmarks():
         title_source="interpretation_llm",
     )
     assert MIRROR_CONTEXTUAL_SPECIFICITY_RULE in mapped.prompt
-    low = MIRROR_CONTEXTUAL_SPECIFICITY_RULE.lower()
-    assert "no famous place" in low or "personal or abstract" in low
 
 
 def test_mapper_version_bumped_for_contract_change():
-    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v4"
+    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v5"
 
 
 def test_6_editorial_exposure_rule_present():
@@ -127,9 +129,11 @@ def test_6_editorial_exposure_rule_present():
         _interp(), title_source="interpretation_llm"
     )
     assert MIRROR_EDITORIAL_EXPOSURE_RULE in mapped.prompt
-    assert "atmospheric, not underexposed" in mapped.prompt
+    assert "atmospheric not underexposed" in mapped.prompt
     assert "premium editorial photography" in mapped.prompt.lower()
     assert "crushed blacks" in mapped.prompt.lower()
+    # Prefer material/architecture cues over inviting a default face subject.
+    assert "faces" not in MIRROR_EDITORIAL_EXPOSURE_RULE.lower()
 
 
 def test_7_text_free_rule_prefers_editorial_wording():
@@ -147,12 +151,61 @@ def test_8_mobile_thumbnail_legibility_without_flattening():
     )
     assert MIRROR_EDITORIAL_EXPOSURE_RULE in mapped.prompt
     assert "mobile thumbnail" in mapped.prompt.lower()
-    assert "instantly readable" in mapped.prompt.lower()
-    assert "light as storytelling" in mapped.prompt.lower()
-    assert "do not flatten lighting" in mapped.prompt.lower()
-    assert "force bright daytime" in mapped.prompt.lower()
-    # Existing contracts remain intact.
+    assert "do not flatten" in mapped.prompt.lower()
     assert MIRROR_CONTEXTUAL_SPECIFICITY_RULE in mapped.prompt
     assert MIRROR_TEXT_FREE_SCENE_RULE in mapped.prompt
-    assert "recognizably itself" in mapped.prompt
-    assert "generic cinematic trope" in mapped.prompt
+
+
+def test_9_long_narrative_survives_full_budget():
+    """Regression: long shared rules used to truncate lived scene detail at 1400."""
+    narrative = (
+        "A narrow, cobblestone street in Mardin during the golden hour, where the warm "
+        "hues of the sun bathe the ancient stone buildings. In the foreground, a simple "
+        "wooden chair sits on a small terrace, with a clothesline gently swaying in the "
+        "soft breeze. The silhouette of a distant mosque rises against the sky, adding a "
+        "spiritual touch to the scene. Long shadows stretch across the street."
+    )
+    mapped = map_interpretation_to_v5_prompt(
+        _interp(
+            title="Mardin's Evening Essence",
+            visualNarrative=narrative,
+            imageIntent=(
+                "A stranger should sense a tranquil connection to Mardin's heritage "
+                "and the beauty of its streets at dusk."
+            ),
+            exclusions=["modern elements", "crowded scenes", "tourist attractions"],
+        ),
+        title_source="interpretation_llm",
+    )
+    assert "clothesline" in mapped.prompt
+    assert "wooden chair" in mapped.prompt
+    assert "mosque" in mapped.prompt
+    assert "cobblestone" in mapped.prompt
+    assert "Mardin" in mapped.prompt
+    assert mapped.prompt.startswith("VISUAL NARRATIVE:")
+    assert len(mapped.prompt) <= MIRROR_V5_MAX_PROMPT_CHARS
+    assert MIRROR_V5_MAX_PROMPT_CHARS == MAX_V5_MINIMAL_PROMPT_LEN
+    # Subject-agnostic: no hard bans on portraits, coats, stations, or sculpture.
+    low = mapped.prompt.lower()
+    assert "trench" not in low
+    assert "portrait" not in low
+    assert "sculpture" not in low
+    assert "statue" not in low
+
+
+def test_10_mapper_source_stays_subject_agnostic():
+    src = inspect.getsource(
+        __import__(
+            "backend.services.mirror.mirror_interpretation_to_v5",
+            fromlist=["*"],
+        )
+    ).lower()
+    for banned in (
+        "trench",
+        "fashion model",
+        "portrait hero",
+        "modern art monument",
+        "railway station",
+        "sculpture landmark",
+    ):
+        assert banned not in src, f"mapper must not hardcode {banned!r}"
