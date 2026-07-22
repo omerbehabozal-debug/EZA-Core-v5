@@ -103,9 +103,9 @@ describe('explicit retry and new-scene re-arm generation', () => {
     );
   });
 
-  it('new-scene arms allowAuto then calls generate with next session', () => {
+  it('new-scene arms allowAuto then calls generate with next session and reuseMappedPrompt', () => {
     expect(experienceSrc).toMatch(
-      /handleNewMirrorScene[\s\S]*allowAutoSceneGenerationRef\.current = true[\s\S]*handleGenerateMirrorScene\(nextSession\)/
+      /handleNewMirrorScene[\s\S]*allowAutoSceneGenerationRef\.current = true[\s\S]*handleGenerateMirrorScene\(nextSession,\s*\{\s*reuseMappedPrompt:\s*true\s*\}\)/
     );
   });
 });

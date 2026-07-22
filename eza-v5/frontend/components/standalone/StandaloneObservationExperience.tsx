@@ -80,6 +80,7 @@ import {
   type MirrorStyleLensSession,
 } from '@/lib/eza/mirror/mirrorSceneStyleLens';
 import { withSceneVariationSeed } from '@/lib/eza/mirror/styleLensPrompt';
+import { hasPinnedMappedMirrorPrompt } from '@/lib/eza/mirror/pinnedMappedMirrorPrompt';
 import {
   clearMirrorSceneCacheForScope,
   readMirrorSceneCacheForScope,
@@ -755,7 +756,10 @@ export default function StandaloneObservationExperience({
   }, []);
 
   const handleGenerateMirrorScene = useCallback(
-    async (sessionOverride?: MirrorStyleLensSession) => {
+    async (
+      sessionOverride?: MirrorStyleLensSession,
+      options?: { reuseMappedPrompt?: boolean }
+    ) => {
       if (sceneGenerationInFlightRef.current) return;
       if (sceneImageStatus === 'generating') return;
       if (!isAuthReady) return;
@@ -776,7 +780,11 @@ export default function StandaloneObservationExperience({
         const generationRequestId = resolveSceneGenerationRequestId(autoKey);
 
         // Director prepare — backend flag authority; never consumes visual quota.
-        if (conversationId) {
+        // Plus “Yeni Sahne”: keep the pinned D2/mapped story; only re-roll the image.
+        const reuseMappedPrompt =
+          Boolean(options?.reuseMappedPrompt) &&
+          hasPinnedMappedMirrorPrompt(cardForScene);
+        if (conversationId && !reuseMappedPrompt) {
           const archive = getChatArchive(conversationId);
           const live = getActiveConversationLiveMessages(conversationId);
           const merged = [
@@ -924,7 +932,7 @@ export default function StandaloneObservationExperience({
     ]
   );
 
-  /** Plus — aynı kart; yeni seed ile aynı anlatıdan sahne (Style Lens yok). */
+  /** Plus — aynı kart; yeni seed ile aynı anlatıdan sahne (Interpretation yeniden koşmaz). */
   const handleNewMirrorScene = useCallback(() => {
     if (!isPlus) return;
     if (dailyStatus !== 'ready') return;
@@ -940,7 +948,7 @@ export default function StandaloneObservationExperience({
     allowAutoSceneGenerationRef.current = true;
     const nextSession = advanceStyleLensSession(styleLensSession);
     setStyleLensSession(nextSession);
-    void handleGenerateMirrorScene(nextSession);
+    void handleGenerateMirrorScene(nextSession, { reuseMappedPrompt: true });
   }, [
     isPlus,
     dailyStatus,
