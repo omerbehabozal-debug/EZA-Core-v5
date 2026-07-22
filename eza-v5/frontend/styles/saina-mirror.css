@@ -1488,8 +1488,9 @@ html:has(.saina-page) body {
   position: absolute;
   inset: 0;
   background-image: var(--saina-default-scene, url('/saina/default-conversation-scene.png'));
+  /* Cover crop — never stretch; focal via --mirror-focal-position (default center). */
   background-size: cover;
-  background-position: center center;
+  background-position: var(--mirror-focal-position, center center);
   background-repeat: no-repeat;
 }
 
@@ -1512,8 +1513,9 @@ html:has(.saina-page) body {
 }
 
 .saina-scene-fit__frame .saina-canvas-scene-image {
-  background-size: 100% 100%;
-  background-position: center center;
+  /* Immersive cover crop from the same canonical master — no distortion. */
+  background-size: cover;
+  background-position: var(--mirror-focal-position, center center);
 }
 
 .saina-canvas-scene-image--bundled {
@@ -1547,7 +1549,7 @@ html:has(.saina-page) body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  object-position: var(--mirror-focal-position, center center);
 }
 
 /* Premium live atmosphere — top of scene stack, below UI chrome. */

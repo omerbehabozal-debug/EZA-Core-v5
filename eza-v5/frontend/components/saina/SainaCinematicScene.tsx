@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react';
 import defaultSceneImage from '../../public/saina/default-conversation-scene.png';
 import { SCENE_ENTRANCE_LAMPS, SCENE_IMAGE_ASPECT } from '@/lib/eza/sceneLampPositions';
+import {
+  mirrorFocalCssVars,
+  type MirrorSceneFocalPoint,
+} from '@/lib/eza/mirror/mirrorSceneFocal';
 import { cn } from '@/lib/utils';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 
@@ -15,14 +19,29 @@ const IDENTITY_FADE_MS = 420;
 
 type SainaCinematicSceneProps = {
   sceneImageUrl?: string | null;
+  /** Optional 0–1 focal; omitted → safe center (legacy images). */
+  focalX?: number | null;
+  focalY?: number | null;
 };
 
 /** Full-width conversation atmosphere — default scene with optional Ayna identity crossfade. */
-export default function SainaCinematicScene({ sceneImageUrl }: SainaCinematicSceneProps) {
+export default function SainaCinematicScene({
+  sceneImageUrl,
+  focalX,
+  focalY,
+}: SainaCinematicSceneProps) {
   const identityUrl =
     sceneImageUrl && isPersistableConversationSceneUrl(sceneImageUrl)
       ? sceneImageUrl.trim()
       : null;
+  const focal: Partial<MirrorSceneFocalPoint> | null =
+    focalX != null || focalY != null
+      ? {
+          ...(typeof focalX === 'number' ? { focalX } : {}),
+          ...(typeof focalY === 'number' ? { focalY } : {}),
+        }
+      : null;
+  const focalStyle = mirrorFocalCssVars(focal);
 
   const [activeIdentityUrl, setActiveIdentityUrl] = useState<string | null>(null);
   const [identityVisible, setIdentityVisible] = useState(false);
@@ -68,7 +87,7 @@ export default function SainaCinematicScene({ sceneImageUrl }: SainaCinematicSce
         >
           <div
             className="saina-canvas-scene-image saina-canvas-scene-image--bundled"
-            style={{ backgroundImage: `url('${defaultSceneUrl}')` }}
+            style={{ backgroundImage: `url('${defaultSceneUrl}')`, ...focalStyle }}
             data-testid="saina-scene-image-layer"
           />
           {activeIdentityUrl ? (
@@ -77,7 +96,7 @@ export default function SainaCinematicScene({ sceneImageUrl }: SainaCinematicSce
                 'saina-canvas-scene-image saina-canvas-scene-image--identity',
                 identityVisible && 'saina-canvas-scene-image--identity-visible'
               )}
-              style={{ backgroundImage: `url('${activeIdentityUrl}')` }}
+              style={{ backgroundImage: `url('${activeIdentityUrl}')`, ...focalStyle }}
               data-testid="saina-scene-identity-layer"
             />
           ) : null}

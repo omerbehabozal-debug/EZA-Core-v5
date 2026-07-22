@@ -13,13 +13,18 @@ from backend.core.openai.config import build_openai_request_headers
 from backend.core.openai.diagnostic import parse_openai_http_error
 from backend.services.mirror.mirror_image_provider import MockMirrorImageProvider, MirrorImageProvider
 from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_mirror_scene_url
+from backend.services.mirror.mirror_image_size import (
+    MIRROR_CANONICAL_IMAGE_SIZE,
+    MIRROR_OPENAI_ALLOWED_IMAGE_SIZES,
+    normalize_mirror_image_size,
+)
 from backend.services.mirror.openai_prompt_builder import build_openai_mirror_prompt
 from backend.services.mirror.types import MirrorImageProviderError, MirrorImageRequest, MirrorImageResult
 
 logger = logging.getLogger(__name__)
 
 OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations"
-ALLOWED_IMAGE_SIZES = frozenset({"1024x1024", "1024x1536", "1536x1024", "auto"})
+ALLOWED_IMAGE_SIZES = MIRROR_OPENAI_ALLOWED_IMAGE_SIZES
 REQUEST_TIMEOUT_SECONDS = 120.0
 
 _USER_ERROR_MESSAGE = "Mirror sahnesi şu an hazırlanamadı. Daha sonra tekrar deneyebilirsin."
@@ -30,8 +35,7 @@ def _seed_log(request: MirrorImageRequest) -> str:
 
 
 def _normalize_size(size: str) -> str:
-    s = (size or "").strip()
-    return s if s in ALLOWED_IMAGE_SIZES else "1024x1536"
+    return normalize_mirror_image_size(size)
 
 
 def _scene_url_from_openai_item(item: dict[str, Any]) -> str:
@@ -58,7 +62,9 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
         settings = get_settings()
         self._api_key = (api_key if api_key is not None else settings.OPENAI_API_KEY or "").strip()
         self._model = (model or settings.EZA_MIRROR_OPENAI_IMAGE_MODEL or "gpt-image-1").strip()
-        self._size = _normalize_size(size or settings.EZA_MIRROR_IMAGE_SIZE or "1024x1536")
+        self._size = _normalize_size(
+            size or settings.EZA_MIRROR_IMAGE_SIZE or MIRROR_CANONICAL_IMAGE_SIZE
+        )
         self._http_client = http_client
 
     def _build_payload(self, prompt: str) -> dict[str, Any]:

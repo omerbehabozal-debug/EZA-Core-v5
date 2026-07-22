@@ -76,6 +76,9 @@ export interface MirrorVisualPromptPayload {
   /** Optional AI scene background (injected by UI when available). */
   sceneImageUrl?: string | null;
   sceneImageStatus?: MirrorSceneImageStatus;
+  /** Optional normalized crop focal (0–1); absent → safe center. */
+  sceneFocalX?: number | null;
+  sceneFocalY?: number | null;
   /** Sprint 13C — scene_only (textless) vs hybrid_middle (embedded copy). */
   renderMode?: MirrorRenderMode;
   /** Exact Turkish copy sent to OpenAI in hybrid mode. */

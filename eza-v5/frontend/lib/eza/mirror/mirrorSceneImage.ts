@@ -11,6 +11,9 @@ export type DailyCardSceneVisualExtras = {
   imageProvider?: string;
   hybridOcrProbe?: string;
   hybridFallbackReason?: string;
+  /** Only set when API returns real focal; never invent defaults for persistence. */
+  sceneFocalX?: number | null;
+  sceneFocalY?: number | null;
 };
 
 export function mergeDailyCardSceneVisual(
@@ -57,6 +60,12 @@ export function mergeDailyCardSceneVisual(
       ...(extras?.hybridOcrProbe ? { hybridOcrProbe: extras.hybridOcrProbe } : {}),
       ...(extras?.hybridFallbackReason
         ? { hybridFallbackReason: extras.hybridFallbackReason, hybridTextRisk: true }
+        : {}),
+      ...(typeof extras?.sceneFocalX === 'number'
+        ? { sceneFocalX: extras.sceneFocalX }
+        : {}),
+      ...(typeof extras?.sceneFocalY === 'number'
+        ? { sceneFocalY: extras.sceneFocalY }
         : {}),
     },
   };

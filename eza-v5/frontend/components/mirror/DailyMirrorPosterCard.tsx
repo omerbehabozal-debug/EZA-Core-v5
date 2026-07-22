@@ -207,6 +207,8 @@ export default function DailyMirrorPosterCard({
         renderMode={effectiveRenderMode}
         sceneImageUrl={card.visual?.sceneImageUrl}
         sceneImageStatus={card.visual?.sceneImageStatus}
+        focalX={card.visual?.sceneFocalX}
+        focalY={card.visual?.sceneFocalY}
         skin={skin}
         imageFit={embeddedScenePreview ? 'contain' : 'cover'}
         onSceneImageLoad={onSceneImageLoad}

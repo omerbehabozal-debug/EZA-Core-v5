@@ -822,7 +822,11 @@ export default function StandaloneObservationExperience({
         setGeneratedDailyCard(cardForScene);
         setSceneImageUrl(displayUrl);
         setSceneImageStatus('ready');
-        setSceneExtras({ imageProvider: result.provider });
+        setSceneExtras({
+          imageProvider: result.provider,
+          ...(typeof result.focalX === 'number' ? { sceneFocalX: result.focalX } : {}),
+          ...(typeof result.focalY === 'number' ? { sceneFocalY: result.focalY } : {}),
+        });
         allowAutoSceneGenerationRef.current = false;
         saveMirrorSceneCacheForScope(
           conversationId,
@@ -838,6 +842,12 @@ export default function StandaloneObservationExperience({
           });
           useSainaChromeStore.getState().setChrome({
             conversationSceneUrl: result.sceneImageUrl,
+            ...(typeof result.focalX === 'number'
+              ? { conversationSceneFocalX: result.focalX }
+              : {}),
+            ...(typeof result.focalY === 'number'
+              ? { conversationSceneFocalY: result.focalY }
+              : {}),
           });
           markDiscoverMirrorCompletedForConversation(conversationId);
         }

@@ -12,6 +12,9 @@ export type SainaChromeState = {
   conversationGroups?: ConversationTreeGroupNode[];
   activeChatId: string | null;
   conversationSceneUrl?: string | null;
+  /** Optional crop focal (0–1); omitted → CSS center. */
+  conversationSceneFocalX?: number | null;
+  conversationSceneFocalY?: number | null;
   planTier?: SainaPlanTier;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
@@ -40,6 +43,8 @@ const initialChrome: SainaChromeState = {
   conversations: [],
   activeChatId: null,
   conversationSceneUrl: null,
+  conversationSceneFocalX: null,
+  conversationSceneFocalY: null,
   safeOnlyMode: false,
   analysisModelId: DEFAULT_ANALYSIS_MODEL_ID,
   onSafeOnlyModeChange: () => {},

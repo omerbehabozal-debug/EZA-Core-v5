@@ -12,6 +12,9 @@ export type MirrorGenerateSceneResponse = {
   provider: 'mock' | 'openai' | 'replicate' | 'stability';
   cached: boolean;
   generatedAt: string;
+  /** Optional 0–1 focal; omitted → safe center. Never invent client-side fakes to persist. */
+  focalX?: number | null;
+  focalY?: number | null;
 };
 
 export type MirrorGenerateSceneRequest = {

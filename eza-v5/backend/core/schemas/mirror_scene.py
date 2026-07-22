@@ -25,3 +25,7 @@ class MirrorGenerateSceneResponse(BaseModel):
     provider: Literal["mock", "openai", "replicate", "stability"]
     cached: bool = False
     generatedAt: str
+    # Optional normalized focal (0–1). Omitted → clients use safe center.
+    # Not inferred/saved until a real focal pipeline exists.
+    focalX: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    focalY: Optional[float] = Field(default=None, ge=0.0, le=1.0)

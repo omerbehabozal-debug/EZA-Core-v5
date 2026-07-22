@@ -12,6 +12,8 @@ export type FullCanvasSceneProps = {
   renderMode?: MirrorRenderMode;
   sceneImageUrl?: string | null;
   sceneImageStatus?: MirrorSceneImageStatus;
+  focalX?: number | null;
+  focalY?: number | null;
   skin: PosterSkinTokens;
   sceneFilter?: {
     brightness: number;
@@ -31,6 +33,8 @@ export default function FullCanvasScene({
   renderMode = 'scene_only',
   sceneImageUrl,
   sceneImageStatus,
+  focalX,
+  focalY,
   skin,
   sceneFilter = {
     brightness: 1.04,
@@ -55,6 +59,8 @@ export default function FullCanvasScene({
         renderMode={renderMode}
         sceneImageUrl={sceneImageUrl}
         sceneImageStatus={sceneImageStatus}
+        focalX={focalX}
+        focalY={focalY}
         className={skin.fullCanvasSceneImage}
         sceneFilter={sceneFilter}
         imageFit={imageFit}

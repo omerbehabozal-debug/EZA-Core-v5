@@ -7,6 +7,10 @@ import { FAMILY_ASSET_SLOTS, PERSONA_COLOR_GRADIENT } from '@/lib/eza/personaAss
 import type { MirrorSceneImageStatus } from '@/lib/eza/mirror/types';
 import type { MirrorRenderMode } from '@/lib/eza/mirror/mirrorRenderMode';
 import { shouldUseHybridPosterLayout } from '@/lib/eza/mirror/mirrorPosterLayout';
+import {
+  mirrorFocalToCssPosition,
+  type MirrorSceneFocalPoint,
+} from '@/lib/eza/mirror/mirrorSceneFocal';
 
 export type SceneFilterProfile = {
   brightness: number;
@@ -25,6 +29,9 @@ export type DailyMirrorPosterSceneProps = {
   sceneFilter?: SceneFilterProfile;
   /** cover = full-bleed crop; contain = show entire poster without cropping */
   imageFit?: 'cover' | 'contain';
+  /** Optional 0–1 focal for cover crops; omitted → safe center. */
+  focalX?: number | null;
+  focalY?: number | null;
   onSceneImageLoad?: () => void;
   onSceneImageError?: () => void;
 };
@@ -64,10 +71,20 @@ export default function DailyMirrorPosterScene({
   layout = 'bleed',
   sceneFilter = DEFAULT_FILTER,
   imageFit = 'cover',
+  focalX,
+  focalY,
   onSceneImageLoad,
   onSceneImageError,
 }: DailyMirrorPosterSceneProps) {
   const [bgError, setBgError] = useState(false);
+  const focal: Partial<MirrorSceneFocalPoint> | null =
+    focalX != null || focalY != null
+      ? {
+          ...(typeof focalX === 'number' ? { focalX } : {}),
+          ...(typeof focalY === 'number' ? { focalY } : {}),
+        }
+      : null;
+  const objectPosition = mirrorFocalToCssPosition(focal);
   const isHybridPlaceholder = shouldUseHybridPosterLayout(renderMode, false);
   const colorToken = FAMILY_ASSET_SLOTS[personaFamilyId]?.colorToken ?? 'violet';
   const gradient =
@@ -85,13 +102,13 @@ export default function DailyMirrorPosterScene({
       sceneImageStatus !== 'generating'
   );
 
-  const filterStyle = {
-    filter: `brightness(${sceneFilter.brightness}) contrast(${sceneFilter.contrast}) saturate(${sceneFilter.saturate})`,
-  };
-
   const isContained = layout === 'contained';
   const isContainFit = imageFit === 'contain';
 
+  const imageStyle = {
+    filter: `brightness(${sceneFilter.brightness}) contrast(${sceneFilter.contrast}) saturate(${sceneFilter.saturate})`,
+    ...(isContainFit ? {} : { objectPosition }),
+  };
   return (
     <div
       className={cn(
@@ -126,11 +143,9 @@ export default function DailyMirrorPosterScene({
           alt=""
           className={cn(
             'absolute inset-0 h-full w-full eza-mirror-scene-image-enter',
-            isContainFit
-              ? 'object-contain object-center'
-              : 'object-cover object-[center_32%]'
+            isContainFit ? 'object-contain object-center' : 'object-cover'
           )}
-          style={filterStyle}
+          style={imageStyle}
           crossOrigin={sceneImageCrossOrigin(sceneImageUrl!)}
           onLoad={() => onSceneImageLoad?.()}
           onError={() => {

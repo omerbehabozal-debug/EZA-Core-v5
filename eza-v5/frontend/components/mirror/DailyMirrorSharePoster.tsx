@@ -81,6 +81,8 @@ export default function DailyMirrorSharePoster({
         renderMode={renderMode}
         sceneImageUrl={sceneUrl}
         sceneImageStatus={sceneStatus}
+        focalX={card.visual?.sceneFocalX}
+        focalY={card.visual?.sceneFocalY}
         skin={skin}
         sceneFilter={{ brightness: 1.06, contrast: 1.08, saturate: 1.06 }}
         onSceneImageLoad={onSceneImageLoad}

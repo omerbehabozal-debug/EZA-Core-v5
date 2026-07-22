@@ -8,12 +8,15 @@ import { pickStandalonePersona } from '@/lib/eza/standalonePersonas';
 import { FAMILY_ASSET_SLOTS, PERSONA_COLOR_GRADIENT } from '@/lib/eza/personaAssets';
 import PersonaVisual from '@/components/standalone/PersonaVisual';
 import type { MirrorSceneImageStatus } from '@/lib/eza/mirror/types';
+import { mirrorFocalToCssPosition } from '@/lib/eza/mirror/mirrorSceneFocal';
 
 export interface DailyMirrorSceneProps {
   personaFamilyId: PersonaFamilyId;
   characterName: string;
   sceneImageUrl?: string | null;
   sceneImageStatus?: MirrorSceneImageStatus;
+  focalX?: number | null;
+  focalY?: number | null;
   className?: string;
   subdued?: boolean;
   onSceneImageLoad?: () => void;
@@ -29,6 +32,8 @@ export default function DailyMirrorScene({
   characterName,
   sceneImageUrl,
   sceneImageStatus,
+  focalX,
+  focalY,
   className,
   subdued = false,
   onSceneImageLoad,
@@ -76,6 +81,12 @@ export default function DailyMirrorScene({
           src={sceneImageUrl!}
           alt=""
           className="absolute inset-0 z-[1] h-full w-full object-cover"
+          style={{
+            objectPosition: mirrorFocalToCssPosition({
+              ...(typeof focalX === 'number' ? { focalX } : {}),
+              ...(typeof focalY === 'number' ? { focalY } : {}),
+            }),
+          }}
           crossOrigin={
             sceneImageNeedsCrossOrigin(sceneImageUrl!) ? 'anonymous' : undefined
           }
