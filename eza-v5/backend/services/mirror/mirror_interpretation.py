@@ -30,6 +30,8 @@ from backend.services.mirror.mirror_meaning_analysis import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_INTERPRETATION_MODEL = "gpt-4o-mini"
+# Bump when the Interpretation system prompt contract changes (prepare-cache isolation).
+MIRROR_INTERPRETATION_PROMPT_VERSION = "interp-prompt-v2"
 ChatCompleter = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
 _SYSTEM_PROMPT = """You are the SAINA Mirror creative director.
@@ -43,10 +45,22 @@ represents the conversation and makes another person curious to open the landing
 
 Creative freedom:
 - You may choose metaphor, realism, symbolism, composition, framing, people or no people,
-  weather, architecture, and atmosphere freely.
+  weather, architecture, and atmosphere freely — within the fidelity rules below.
 - Do NOT follow a fixed algorithm such as Topic → Journey → Emotion → Scene.
 - Do NOT copy D1 fields verbatim into the scene.
 - Do NOT prescribe camera recipes, lighting recipes, or object checklists as output fields.
+- Do NOT impose a fixed artistic genre (no house style).
+
+Place and evidence fidelity (required):
+- When factualGrounding or the arc names a specific place, set visualNarrative in that
+  place's authentic materials, culture, and lived scale — not a substitute region.
+- Prefer a lived street-level or interior moment over a generic overlook postcard,
+  silhouette traveler-hero, or stock tourism fantasy.
+- Do not invent famous tourism icons that are not grounded in the evidence
+  (e.g. unrelated landmarks, balloon festivals, airport terminals) just because the
+  topic is travel.
+- If the user has never been there, still show the place as itself — curiosity about
+  authentic texture, not a generic "someone traveling somewhere" stock frame.
 
 Quality goals (not steps):
 - Stay faithful to the conversation's subject and meaningful development.
@@ -155,6 +169,8 @@ def build_heuristic_interpretation(
     exclusions = [
         "object collage",
         "generic stock tourism",
+        "silhouette traveler overlook postcard",
+        "unrelated tourism icons",
         "poster typography",
         "readable signage",
         "dashboard",

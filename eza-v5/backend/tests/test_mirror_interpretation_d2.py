@@ -406,3 +406,20 @@ async def test_generate_interpretation_success_path():
     assert result.ok
     assert result.interpretation.title == "Yağmur Altında Kyoto"
     assert result.source == "interpretation_llm"
+
+
+def test_interpretation_system_prompt_requires_place_fidelity():
+    from backend.services.mirror.mirror_interpretation import (
+        MIRROR_INTERPRETATION_PROMPT_VERSION,
+        _SYSTEM_PROMPT,
+    )
+
+    assert MIRROR_INTERPRETATION_PROMPT_VERSION == "interp-prompt-v2"
+    low = _SYSTEM_PROMPT.lower()
+    assert "place and evidence fidelity" in low
+    assert "lived street-level" in low
+    assert "stock tourism" in low
+    assert "substitute region" in low
+    # No place/benchmark hardcodes in the director prompt.
+    for banned in ("mardin", "trench", "panda", "cappadocia", "kyoto"):
+        assert banned not in low

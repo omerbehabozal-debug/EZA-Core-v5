@@ -20,6 +20,7 @@ import time
 from typing import Any
 
 from backend.core.schemas.mirror_interpretation import MIRROR_INTERPRETATION_SCHEMA_VERSION
+from backend.services.mirror.mirror_interpretation import MIRROR_INTERPRETATION_PROMPT_VERSION
 from backend.services.mirror.mirror_interpretation_to_v5 import (
     MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION,
 )
@@ -43,17 +44,22 @@ def build_prepare_cache_contract_fingerprint(
     use_interpretation_v1: bool,
     interpretation_version: str | None = None,
     mapper_version: str | None = None,
+    interpretation_prompt_version: str | None = None,
 ) -> str:
     """Deterministic, metadata-only cache identity (no conversation content)."""
     if use_interpretation_v1:
         authority_path = "interpretation-v1"
         schema = (interpretation_version or MIRROR_INTERPRETATION_SCHEMA_VERSION).strip()
         mapper = (mapper_version or MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION).strip()
+        prompt_v = (
+            interpretation_prompt_version or MIRROR_INTERPRETATION_PROMPT_VERSION
+        ).strip()
         enabled = "true"
     else:
         authority_path = "legacy"
         schema = "none"
         mapper = "none"
+        prompt_v = "none"
         enabled = "false"
     return "|".join(
         [
@@ -61,6 +67,7 @@ def build_prepare_cache_contract_fingerprint(
             f"authorityPath={authority_path}",
             f"useInterpretationV1={enabled}",
             f"interpretationVersion={schema}",
+            f"interpretationPromptVersion={prompt_v}",
             f"mapperVersion={mapper}",
         ]
     )
@@ -76,6 +83,7 @@ def describe_prepare_cache_contract(fingerprint: str) -> dict[str, str]:
                 "authorityPath",
                 "useInterpretationV1",
                 "interpretationVersion",
+                "interpretationPromptVersion",
                 "mapperVersion",
             }:
                 out[key] = value[:64]
