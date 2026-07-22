@@ -67,7 +67,7 @@ def test_shared_rules_within_target_budget():
 
 
 def test_mapper_version_v6():
-    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v6"
+    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v7"
 
 
 def test_safe_composition_contract_budget_and_presence():
@@ -82,6 +82,19 @@ def test_safe_composition_contract_budget_and_presence():
     rules_idx = mapped.prompt.index(MIRROR_ONE_SCENE_RULE)
     comp_idx = mapped.prompt.index(MIRROR_SAFE_COMPOSITION_RULE)
     assert rules_idx < comp_idx
+
+
+def test_provider_prompt_omits_topic_category_enum():
+    """CATEGORY: travel primes stock traveler frames — keep topic on metadata only."""
+    mapped = map_interpretation_to_v5_prompt(
+        _interp(topicCategory="travel", visualNarrative=MARDIN_NARRATIVE),
+        title_source="interpretation_llm",
+    )
+    assert mapped.topicCategory == "travel"
+    assert "CATEGORY:" not in mapped.prompt
+    assert "\ntravel\n" not in mapped.prompt
+    assert "Follow the visual narrative exactly" in mapped.prompt
+    assert "substitute travel settings" in mapped.prompt
 
 
 def test_limits_aligned_across_stack():
@@ -106,11 +119,11 @@ def test_four_product_obligations_present():
     assert MIRROR_VISIBILITY_RULE in mapped.prompt
     assert MIRROR_ONE_SCENE_RULE in mapped.prompt
     assert "Follow the visual narrative" in mapped.prompt
-    assert "authentic place, materials, culture, and context" in mapped.prompt
+    assert "authentic place and materials" in mapped.prompt
     assert "small previews" in mapped.prompt
     assert "underexposure" in mapped.prompt.lower()
     assert "One coherent natural scene" in mapped.prompt
-    assert "Text-free scene: no typography" in mapped.prompt
+    assert "Text-free: no typography" in mapped.prompt
 
 
 def test_shared_contract_is_style_neutral():

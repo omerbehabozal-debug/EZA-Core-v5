@@ -25,7 +25,7 @@ from backend.services.mirror.mirror_draft_to_v5 import (
 )
 
 # Bump when Interpretation→V5 mapping contract changes (cache isolation).
-MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v6"
+MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v7"
 
 # Shared contract: universal constraints only — style-neutral (no house genre).
 # Visual language emerges from VISUAL NARRATIVE / interpretation, not from these lines.
@@ -36,20 +36,20 @@ MIRROR_COMPOSITION_RULES_MAX_CHARS = 180
 MIRROR_V5_RESERVED_NARRATIVE_CHARS = 450
 
 MIRROR_TEXT_FREE_SCENE_RULE = (
-    "Text-free scene: no typography, captions, logos, watermarks, UI, or signage."
+    "Text-free: no typography, captions, logos, watermarks, UI, or signage."
 )
 
 MIRROR_CONTEXTUAL_SPECIFICITY_RULE = (
-    "Follow the visual narrative; keep authentic place, materials, culture, and context. "
-    "No unrelated geographies; lived scale if no famous place."
+    "Follow the visual narrative exactly — authentic place and materials. "
+    "No substitute travel settings or unrelated geographies; lived scale if unnamed place."
 )
 
 # Visibility / exposure quality — not an aesthetic genre.
 MIRROR_VISIBILITY_RULE = (
-    "Key details clear in small previews — avoid underexposure and crushed blacks."
+    "Key details clear in small previews — avoid underexposure/crushed blacks."
 )
 
-MIRROR_ONE_SCENE_RULE = "One coherent natural scene — not collage or catalog."
+MIRROR_ONE_SCENE_RULE = "One coherent natural scene — not collage."
 
 MIRROR_SHARED_RENDER_RULES = "\n".join(
     [
@@ -135,19 +135,20 @@ def _assemble(
     composition: str,
     *,
     intent: str,
-    topic: str,
     atmosphere: str,
     summary: str,
     exclusions: str,
 ) -> str:
-    """Narrative first; contracts; optionals last. Caller enforces budgets."""
+    """Narrative first; contracts; optionals last. Caller enforces budgets.
+
+    topicCategory stays on mappedPrompt metadata only — never inject enum labels
+    like "travel" into the image prompt (they prime stock traveler imagery).
+    """
     constraints = _constraints_block(shared, composition)
     parts = [f"VISUAL NARRATIVE:\n{narrative_body}", "", constraints]
     # Optionals — lowest priority last (dropped first under pressure).
     if intent:
         parts.extend(["", f"IMAGE INTENT:\n{intent}"])
-    if topic:
-        parts.extend(["", f"CATEGORY:\n{topic}"])
     if atmosphere:
         parts.extend(["", f"ATMOSPHERE:\n{atmosphere}"])
     if summary:
@@ -178,10 +179,6 @@ def map_interpretation_to_v5_prompt(
         )
 
     title = sanitize_display_text(interpretation.title, max_len=64)
-    topic = sanitize_display_text(
-        (interpretation.topicCategory or "general curiosity").replace("_", " "),
-        max_len=64,
-    )
     intent = sanitize_display_text(interpretation.imageIntent, max_len=320)
     narrative_body = sanitize_display_text(interpretation.visualNarrative, max_len=560)
     summary = sanitize_display_text(interpretation.interpretationSummary, max_len=160)
@@ -198,7 +195,6 @@ def map_interpretation_to_v5_prompt(
         shared,
         composition,
         intent=intent,
-        topic=topic,
         atmosphere=atmosphere,
         summary=summary,
         exclusions=exclusions,
@@ -209,7 +205,7 @@ def map_interpretation_to_v5_prompt(
         "INTERPRETATION NOTE:",
         "ATMOSPHERE:",
         "Avoid:",
-        "CATEGORY:",
+        "CATEGORY:",  # legacy prompts only; mapper no longer emits CATEGORY
         "IMAGE INTENT:",
     )
     while len(prompt) > limit:

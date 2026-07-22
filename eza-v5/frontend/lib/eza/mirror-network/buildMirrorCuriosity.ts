@@ -153,7 +153,7 @@ function buildCuriosityContextText(
           ? 'planlama'
           : 'merak';
 
-  return `Bu merak alanı, ${theme} üzerine doğmuş bir ${moodWord} izinden ilham alır; sohbet özeti değil, güvenli bir giriş kapısıdır.`;
+  return `Bu merak alanı, ${theme} üzerine doğmuş bir ${moodWord} izinden ilham alır; güvenli bir giriş kapısıdır, konuşmayı yeniden anlatmaz.`;
 }
 
 /** Stage: Seed — topic category, mood, subtopics, hooks (extensible). */

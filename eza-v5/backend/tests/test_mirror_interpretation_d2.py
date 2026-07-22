@@ -16,12 +16,12 @@ from backend.services.mirror.mirror_conversation_context import (
 from backend.services.mirror.mirror_director_mode import get_mirror_director_execution_policy
 from backend.services.mirror.mirror_director_prepare import prepare_mirror_director_draft
 from backend.services.mirror.mirror_director_prepare_cache import cache_clear_for_tests
-from backend.services.mirror.mirror_draft_to_v5 import MIRROR_TEXT_FREE_SCENE_RULE
 from backend.services.mirror.mirror_interpretation import (
     build_heuristic_interpretation,
     generate_mirror_interpretation,
 )
 from backend.services.mirror.mirror_interpretation_to_v5 import (
+    MIRROR_TEXT_FREE_SCENE_RULE,
     interpretation_hash,
     map_interpretation_to_v5_prompt,
 )
