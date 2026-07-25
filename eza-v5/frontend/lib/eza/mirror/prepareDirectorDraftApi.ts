@@ -1,6 +1,8 @@
 /**
  * Client for POST /api/standalone/mirror/prepare-director-draft (PR C).
  * Does not consume visual quota. Backend flag authority.
+ *
+ * Fail-closed: HTTP / empty failures throw — callers must not soft-continue to V3.
  */
 
 import { apiClient } from '@/lib/apiClient';
@@ -21,6 +23,16 @@ export type PrepareDirectorDraftRequest = {
   title?: string;
   conversationSummary?: string;
 };
+
+export class MirrorPrepareError extends Error {
+  readonly code: string;
+
+  constructor(message: string, code = 'prepare_failed') {
+    super(message);
+    this.name = 'MirrorPrepareError';
+    this.code = code;
+  }
+}
 
 export async function prepareDirectorDraft(
   body: PrepareDirectorDraftRequest
@@ -45,20 +57,19 @@ export async function prepareDirectorDraft(
   );
 
   if (!res.ok) {
-    // Soft-fail to legacy — never block image path on prepare HTTP errors
-    return {
-      directorEnabled: false,
-      usedDirector: false,
-      fallbackReason: 'prepare_http_error',
-    };
+    throw new MirrorPrepareError(
+      'Director prepare başarısız oldu.',
+      'prepare_http_error'
+    );
   }
-  return (
-    res.data ?? {
-      directorEnabled: false,
-      usedDirector: false,
-      fallbackReason: 'prepare_empty_response',
-    }
-  );
+  const data = res.data;
+  if (!data || typeof data !== 'object') {
+    throw new MirrorPrepareError(
+      'Director prepare boş yanıt döndü.',
+      'prepare_empty_response'
+    );
+  }
+  return data;
 }
 
 /** Build permitted DTOs from archive + live messages (user primary). */

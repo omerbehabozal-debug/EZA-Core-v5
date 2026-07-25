@@ -5,6 +5,7 @@
  */
 
 import type { MirrorRenderBrief } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
+import { MIRROR_V5_MAX_RENDER_PROMPT_CHARS } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
 import { buildMirrorRenderBrief } from '@/lib/eza/mirror/conversationMirrorV3/buildMirrorRenderBrief';
 import { buildOpenAIRenderPromptFromPayload } from '@/lib/eza/mirror/conversationMirrorV3/buildOpenAIRenderPrompt';
 import {
@@ -194,7 +195,7 @@ export function formatMirrorV5RenderDebugTrace(trace: MirrorV5RenderDebugTrace):
   ].join('\n').concat(
     '\n\n=== C) Minimal Image Prompt ===\n',
     `promptLength: ${r.promptLength}`,
-    `withinLimit (≤1400): ${r.withinLimit}`,
+    `withinLimit (≤${MIRROR_V5_MAX_RENDER_PROMPT_CHARS}): ${r.withinLimit}`,
     `promptSameAsFrontend: ${r.promptSameAsFrontend}`,
     '\n\n--- Final Minimal Image Prompt ---\n',
     s.finalMinimalImagePrompt,

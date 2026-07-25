@@ -21,6 +21,10 @@ from backend.services.mirror.mirror_image_size import (
     normalize_mirror_image_size,
 )
 from backend.services.mirror.openai_prompt_builder import build_openai_mirror_prompt_result
+from backend.services.mirror.mirror_scene_prompt_guard import (
+    MirrorScenePromptGuardError,
+    assert_d2_provider_prompt,
+)
 from backend.services.mirror.types import MirrorImageProviderError, MirrorImageRequest, MirrorImageResult
 
 logger = logging.getLogger(__name__)
@@ -145,12 +149,31 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
 
         built = build_openai_mirror_prompt_result(request)
         prompt = built.prompt
-        provider_hash = _provider_prompt_hash(prompt)
+        # Final boundary: hash must match the exact string sent to OpenAI.
+        try:
+            provider_hash = assert_d2_provider_prompt(
+                prompt=prompt,
+                generation_id=request.generation_id,
+                generation_pipeline=request.generation_pipeline,
+                final_scene_prompt_hash=request.final_scene_prompt_hash,
+            )
+        except MirrorScenePromptGuardError as guard_exc:
+            logger.error(
+                "mirror_openai_prompt_guard_blocked seed=%s code=%s generationId=%s",
+                seed,
+                guard_exc.code,
+                (request.generation_id or "")[:48],
+            )
+            raise MirrorImageProviderError(
+                guard_exc.message,
+                source="prompt_guard",
+                diagnostic={"errorCode": guard_exc.code},
+            ) from guard_exc
         mapped_hash = _provider_prompt_hash((request.prompt or "").strip())
         logger.info(
             "mirror_openai_generate seed=%s model=%s size=%s prompt_len=%d "
             "providerPromptHash=%s mappedPromptHash=%s hashesEqual=%s "
-            "v5=%s truncated=%s contract=%s",
+            "v5=%s truncated=%s contract=%s generationId=%s pipeline=%s",
             seed,
             self._model,
             self._size,
@@ -161,6 +184,8 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
             built.v5_minimal,
             built.truncated,
             built.contract,
+            (request.generation_id or "")[:48],
+            request.generation_pipeline or "D2_V5",
         )
 
         try:

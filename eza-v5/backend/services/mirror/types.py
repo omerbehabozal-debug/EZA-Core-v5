@@ -16,6 +16,9 @@ class MirrorImageRequest:
     quality_hints: List[str] = field(default_factory=list)
     """V5 minimal render contract — when set, provider prompt is passthrough."""
     prompt_contract: Optional[str] = None
+    generation_id: Optional[str] = None
+    generation_pipeline: Optional[str] = None
+    final_scene_prompt_hash: Optional[str] = None
 
 
 def _utc_now_iso() -> str:

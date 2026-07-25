@@ -188,13 +188,18 @@ describe('applyDirectorPrepareToCard title authority', () => {
 });
 
 describe('create-path wiring presence', () => {
-  it('Experience calls prepare before generateMirrorScene', () => {
+  it('Experience calls prepare before generateMirrorScene via fail-closed orchestrator', () => {
     const src = readFileSync(
       join(process.cwd(), 'components/standalone/StandaloneObservationExperience.tsx'),
       'utf8'
     );
+    const orch = readFileSync(
+      join(process.cwd(), 'lib/eza/mirror/runFailClosedMirrorSceneGeneration.ts'),
+      'utf8'
+    );
     expect(src).toContain('prepareDirectorDraft');
-    expect(src).toContain('applyDirectorPrepareToCard');
+    expect(src).toContain('runFailClosedMirrorSceneGeneration');
+    expect(orch).toContain('applyDirectorPrepareToCard');
     const prepareIdx = src.indexOf('prepareDirectorDraft');
     const generateIdx = src.indexOf('generateMirrorScene(visualForApi');
     expect(prepareIdx).toBeGreaterThan(0);

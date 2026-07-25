@@ -45,6 +45,7 @@ VALID_BODY = {
     "cardDate": "2026-05-21",
     "conversationId": "conv-scene-test",
     "generationRequestId": "req-abcdef12",
+    "generationPipeline": "LEGACY_V3",
 }
 
 
@@ -164,6 +165,7 @@ GUEST_VALID_BODY = {
     "qualityHints": VALID_BODY["qualityHints"],
     "cardDate": VALID_BODY["cardDate"],
     "generationRequestId": "req-guestabcd",
+    "generationPipeline": "LEGACY_V3",
 }
 
 

@@ -35,12 +35,11 @@ import { mergeDailyCardSceneVisual, type DailyCardSceneVisualExtras } from '@/li
 import { withDevVehicleCueHints } from '@/lib/eza/mirror/mirrorIntentContext';
 import { generateMirrorScene, MirrorSceneError } from '@/lib/eza/mirror/generateSceneApi';
 import {
-  applyDirectorPrepareToCard,
-} from '@/lib/eza/mirror/applyDirectorPrepareToCard';
-import {
   buildPrepareMessageDtos,
   prepareDirectorDraft,
 } from '@/lib/eza/mirror/prepareDirectorDraftApi';
+import { runFailClosedMirrorSceneGeneration } from '@/lib/eza/mirror/runFailClosedMirrorSceneGeneration';
+import { logMirrorSceneLineage } from '@/lib/eza/mirror/d2SceneGenerationGuard';
 import { getActiveConversationLiveMessages } from '@/lib/eza/mirror/activeConversationLiveMessages';
 import { resolveMirrorBuildConversationTexts } from '@/lib/eza/mirror/collectConversationTextsForMirror';
 import {
@@ -178,6 +177,8 @@ export default function StandaloneObservationExperience({
   );
   const sceneAutoKeyRef = useRef<string | null>(null);
   const sceneRequestIdByAutoKeyRef = useRef<Map<string, string>>(new Map());
+  /** Active generationId — accept scenes only when response matches this. */
+  const activeGenerationIdRef = useRef<string | null>(null);
   const sceneGenerationInFlightRef = useRef(false);
   /** Armed only by explicit create / update / retry / new-scene — blocks chat remount regen. */
   const allowAutoSceneGenerationRef = useRef(false);
@@ -744,15 +745,10 @@ export default function StandaloneObservationExperience({
     [mirrorRevision]
   );
 
-  const resolveSceneGenerationRequestId = useCallback((autoKey: string) => {
-    const existing = sceneRequestIdByAutoKeyRef.current.get(autoKey);
-    if (existing) return existing;
-    const created =
-      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `scene-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    sceneRequestIdByAutoKeyRef.current.set(autoKey, created);
-    return created;
+  const createSceneGenerationId = useCallback(() => {
+    return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `scene-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }, []);
 
   const handleGenerateMirrorScene = useCallback(
@@ -770,22 +766,38 @@ export default function StandaloneObservationExperience({
       if (sceneAutoKeyRef.current === `${autoKey}:complete`) return;
       const session = sessionOverride ?? styleLensSession;
       const { variationIndex } = resolveLensForGeneration(isPlus, session);
+
+      // New generationId per attempt — cancel/ignore prior in-flight by id mismatch.
+      const generationRequestId = createSceneGenerationId();
+      sceneRequestIdByAutoKeyRef.current.set(autoKey, generationRequestId);
+      activeGenerationIdRef.current = generationRequestId;
+
       sceneGenerationInFlightRef.current = true;
       sceneAutoKeyRef.current = autoKey;
       setSceneImageStatus('generating');
       setSceneImageUrl(null);
       setHybridTextFallback(false);
       setSceneExtras({});
-      try {
-        const generationRequestId = resolveSceneGenerationRequestId(autoKey);
 
-        // Director prepare — backend flag authority; never consumes visual quota.
-        // Plus “Yeni Sahne”: keep the pinned D2/mapped story; only re-roll the image.
+      logMirrorSceneLineage('generation_start', {
+        generationId: generationRequestId,
+        conversationId,
+        generationPipeline: 'D2_V5',
+        prepareAttempt: 0,
+        prepareSucceeded: false,
+      });
+
+      try {
         const reuseMappedPrompt =
           Boolean(options?.reuseMappedPrompt) &&
           hasPinnedMappedMirrorPrompt(cardForScene);
+
+        let shouldPrepare = false;
+        let prepareMessages: ReturnType<typeof buildPrepareMessageDtos> = [];
+        let archiveTitle: string | undefined;
         if (conversationId && !reuseMappedPrompt) {
           const archive = getChatArchive(conversationId);
+          archiveTitle = archive?.title;
           const live = getActiveConversationLiveMessages(conversationId);
           const merged = [
             ...(archive?.messages ?? []),
@@ -793,40 +805,66 @@ export default function StandaloneObservationExperience({
               (m) => !(archive?.messages ?? []).some((a) => a.id === m.id)
             ),
           ];
-          const messages = buildPrepareMessageDtos(merged);
-          if (messages.some((m) => m.role === 'user')) {
-            try {
-              const prepared = await prepareDirectorDraft({
-                conversationId,
-                generationRequestId,
-                messages,
-                title: archive?.title,
-              });
-              if (
-                prepared.usedDirector &&
-                (prepared.applyTitle || prepared.applyPrompt || prepared.metadata)
-              ) {
-                cardForScene = applyDirectorPrepareToCard(cardForScene, prepared);
-                // Defer React card update until after scene completes — avoids autoKey churn mid-flight.
-              }
-            } catch {
-              // Soft-fail to legacy heuristic visual/title.
-            }
-          }
+          prepareMessages = buildPrepareMessageDtos(merged);
+          shouldPrepare = prepareMessages.some((m) => m.role === 'user');
         }
 
-        const visual = cardForScene.visual!;
-        // Style Lens prompt injection retired — D2/mapped prompt is sole creative authority.
-        const visualForApi = withSceneVariationSeed(visual, variationIndex);
-        const result = await generateMirrorScene(visualForApi, cardForScene.date, {
-          conversationId: conversationId ?? undefined,
-          generationRequestId,
+        // Defer React card update until after scene completes — avoids autoKey churn mid-flight.
+        const outcome = await runFailClosedMirrorSceneGeneration({
+          generationId: generationRequestId,
+          conversationId,
+          card: cardForScene,
+          reuseMappedPrompt,
+          shouldPrepare,
+          // Conversation Mirror is D2; daily aggregate remains explicit LEGACY until migrated.
+          generationPipeline: conversationId ? 'D2_V5' : 'LEGACY_V3',
+          isGenerationStillActive: (id) => activeGenerationIdRef.current === id,
+          prepare: () =>
+            prepareDirectorDraft({
+              conversationId: conversationId!,
+              generationRequestId,
+              messages: prepareMessages,
+              title: archiveTitle,
+            }),
+          generate: async ({
+            card,
+            generationId,
+            generationPipeline,
+            finalScenePromptHash,
+          }) => {
+            const visual = card.visual!;
+            const visualForApi = withSceneVariationSeed(visual, variationIndex);
+            return generateMirrorScene(visualForApi, card.date, {
+              conversationId: conversationId ?? undefined,
+              generationRequestId: generationId,
+              generationPipeline,
+              finalScenePromptHash,
+            });
+          },
         });
+
+        if (!outcome.ok) {
+          throw outcome.error;
+        }
+
+        if (activeGenerationIdRef.current !== generationRequestId) {
+          throw new MirrorSceneError('Stale generation ignored.', 'stale_generation');
+        }
+
+        cardForScene = outcome.card;
+        const result = outcome.result;
+        const visual = cardForScene.visual!;
+
         lastRawSceneUrlRef.current = result.sceneImageUrl;
         const displayUrl = await resolveSceneDisplayUrl(
           result.sceneImageUrl,
           cardForScene
         );
+
+        if (activeGenerationIdRef.current !== generationRequestId) {
+          throw new MirrorSceneError('Stale generation ignored.', 'stale_generation');
+        }
+
         setGeneratedDailyCard(cardForScene);
         setSceneImageUrl(displayUrl);
         setSceneImageStatus('ready');
@@ -876,6 +914,16 @@ export default function StandaloneObservationExperience({
           });
         }
       } catch (err) {
+        if (
+          err instanceof MirrorSceneError &&
+          err.code === 'stale_generation'
+        ) {
+          // Newer generation owns the UI — do not clobber.
+          return;
+        }
+        if (activeGenerationIdRef.current !== generationRequestId) {
+          return;
+        }
         setSceneImageUrl(null);
         setSceneImageStatus('error');
         const visual = cardForScene.visual;
@@ -899,6 +947,12 @@ export default function StandaloneObservationExperience({
           } else if (err.code === 'openai_insufficient_quota') {
             sceneAutoKeyRef.current = `${autoKey}:quota`;
             setSceneExtras({ hybridFallbackReason: 'openai_quota' });
+          } else if (
+            err.code === 'prepare_failed' ||
+            err.code === 'd2_prompt_invalid'
+          ) {
+            sceneAutoKeyRef.current = `${autoKey}:prepare_failed`;
+            setSceneExtras({ hybridFallbackReason: err.code });
           } else if (err.code === 'generation_failed') {
             sceneAutoKeyRef.current = `${autoKey}:failed`;
           } else {
@@ -913,7 +967,9 @@ export default function StandaloneObservationExperience({
           setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
         }
       } finally {
-        sceneGenerationInFlightRef.current = false;
+        if (activeGenerationIdRef.current === generationRequestId) {
+          sceneGenerationInFlightRef.current = false;
+        }
       }
     },
     [
@@ -923,9 +979,9 @@ export default function StandaloneObservationExperience({
       canCreateVisual,
       isPlus,
       buildSceneAutoKey,
+      createSceneGenerationId,
       prepareMirrorShareLink,
       resolveSceneDisplayUrl,
-      resolveSceneGenerationRequestId,
       sceneImageStatus,
       styleLensSession,
       refreshEntitlements,

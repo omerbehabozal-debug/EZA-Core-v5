@@ -131,7 +131,7 @@ for (const scenario of SCENARIOS) {
   const scenarioPass =
     r.promptSameAsFrontend &&
     !r.backendAppendApplied &&
-    r.providerPromptLength <= 1400 &&
+    r.providerPromptLength <= 2000 &&
     !r.containsLegacyAvoid &&
     !r.containsQualityBlock &&
     !r.containsStyleBlock &&

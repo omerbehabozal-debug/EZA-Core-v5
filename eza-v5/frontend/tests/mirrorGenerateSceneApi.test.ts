@@ -21,16 +21,25 @@ const visual: MirrorVisualPromptPayload = {
 describe('buildMirrorGenerateScenePayload', () => {
   it('maps visual fields without chat content', () => {
     const payload = buildMirrorGenerateScenePayload(visual, '2026-05-21');
-    expect(payload).toEqual({
-      prompt: visual.prompt,
-      negativePrompt: visual.negativePrompt,
-      seedHint: visual.seedHint,
-      stylePreset: visual.stylePreset,
-      qualityHints: visual.qualityHints,
-      cardDate: '2026-05-21',
-      promptContract: MIRROR_V5_PROMPT_CONTRACT,
-    });
+    expect(payload.prompt).toBe(visual.prompt);
+    expect(payload.negativePrompt).toBe(visual.negativePrompt);
+    expect(payload.seedHint).toBe(visual.seedHint);
+    expect(payload.stylePreset).toBe(visual.stylePreset);
+    expect(payload.qualityHints).toEqual(visual.qualityHints);
+    expect(payload.cardDate).toBe('2026-05-21');
+    expect(payload.promptContract).toBe(MIRROR_V5_PROMPT_CONTRACT);
     expect(payload).not.toHaveProperty('messages');
     expect(payload).not.toHaveProperty('entries');
+  });
+
+  it('forwards D2 pipeline and finalScenePromptHash', () => {
+    const payload = buildMirrorGenerateScenePayload(visual, '2026-05-21', {
+      generationRequestId: 'gen-abc',
+      generationPipeline: 'D2_V5',
+      finalScenePromptHash: 'a'.repeat(64),
+    });
+    expect(payload.generationRequestId).toBe('gen-abc');
+    expect(payload.generationPipeline).toBe('D2_V5');
+    expect(payload.finalScenePromptHash).toBe('a'.repeat(64));
   });
 });

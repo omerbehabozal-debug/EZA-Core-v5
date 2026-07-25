@@ -63,6 +63,8 @@ def _mirror_request() -> MirrorImageRequest:
         style_preset=VALID_BODY["stylePreset"],
         card_date=VALID_BODY["cardDate"],
         quality_hints=VALID_BODY["qualityHints"],
+        generation_pipeline="LEGACY_V3",
+        generation_id="legacy-openai-test-gen",
     )
 
 
@@ -75,6 +77,8 @@ def _v5_mirror_request() -> MirrorImageRequest:
         card_date="2026-05-21",
         quality_hints=["premium magazine cover"],
         prompt_contract=V5_PROMPT_CONTRACT,
+        generation_pipeline="LEGACY_V3",
+        generation_id="legacy-v5-openai-test-gen",
     )
 
 
@@ -280,6 +284,7 @@ def test_endpoint_returns_openai_provider_when_mocked():
         **VALID_BODY,
         "conversationId": "conv-openai-provider",
         "generationRequestId": "req-openai01",
+        "generationPipeline": "LEGACY_V3",
     }
 
     with (

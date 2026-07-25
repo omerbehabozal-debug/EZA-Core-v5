@@ -9,6 +9,10 @@ from fastapi import HTTPException, status
 
 from backend.core.openai.diagnostic import build_api_error_detail, http_status_for_openai_diagnostic
 from backend.services.mirror.mirror_image_provider import get_mirror_image_provider
+from backend.services.mirror.mirror_scene_prompt_guard import (
+    MirrorScenePromptGuardError,
+    assert_d2_provider_prompt,
+)
 from backend.services.mirror.types import (
     MirrorImageProviderError,
     MirrorImageRequest,
@@ -95,6 +99,9 @@ def validate_and_build_request(
     card_date: str,
     quality_hints: Optional[List[str]] = None,
     prompt_contract: Optional[str] = None,
+    generation_id: Optional[str] = None,
+    generation_pipeline: Optional[str] = None,
+    final_scene_prompt_hash: Optional[str] = None,
 ) -> MirrorImageRequest:
     p = (prompt or "").strip()
     if not p:
@@ -134,6 +141,11 @@ def validate_and_build_request(
         _reject("too_many_quality_hints", "qualityHints listesi çok uzun.")
 
     contract = (prompt_contract or "").strip() or None
+    gen_id = (generation_id or "").strip() or None
+    pipeline = (generation_pipeline or "").strip().upper() or None
+    if pipeline and pipeline not in ("D2_V5", "LEGACY_V3"):
+        _reject("invalid_generation_pipeline", "generationPipeline geçersiz.")
+    final_hash = (final_scene_prompt_hash or "").strip() or None
 
     return MirrorImageRequest(
         prompt=p,
@@ -143,6 +155,9 @@ def validate_and_build_request(
         card_date=date_str,
         quality_hints=hints,
         prompt_contract=contract,
+        generation_id=gen_id,
+        generation_pipeline=pipeline,
+        final_scene_prompt_hash=final_hash,
     )
 
 
@@ -155,6 +170,9 @@ async def generate_mirror_scene(
     card_date: str,
     quality_hints: Optional[List[str]] = None,
     prompt_contract: Optional[str] = None,
+    generation_id: Optional[str] = None,
+    generation_pipeline: Optional[str] = None,
+    final_scene_prompt_hash: Optional[str] = None,
 ) -> MirrorImageResult:
     request = validate_and_build_request(
         prompt=prompt,
@@ -164,13 +182,36 @@ async def generate_mirror_scene(
         card_date=card_date,
         quality_hints=quality_hints,
         prompt_contract=prompt_contract,
+        generation_id=generation_id,
+        generation_pipeline=generation_pipeline,
+        final_scene_prompt_hash=final_scene_prompt_hash,
     )
     provider = get_mirror_image_provider()
     try:
+        # Fail-closed D2 assert before any provider (including mock).
+        try:
+            assert_d2_provider_prompt(
+                prompt=request.prompt,
+                generation_id=request.generation_id,
+                generation_pipeline=request.generation_pipeline,
+                final_scene_prompt_hash=request.final_scene_prompt_hash,
+            )
+        except MirrorScenePromptGuardError as guard_exc:
+            raise MirrorImageProviderError(
+                guard_exc.message,
+                source="prompt_guard",
+                diagnostic={"errorCode": guard_exc.code},
+            ) from guard_exc
         return await provider.generate_scene(request)
     except MirrorImageProviderError as exc:
         if exc.source == "openai" and exc.diagnostic:
             _reject_openai(exc)
+        if exc.source == "prompt_guard":
+            _reject(
+                str((exc.diagnostic or {}).get("errorCode") or "d2_prompt_invalid"),
+                str(exc) or "Mirror sahnesi şu an hazırlanamadı.",
+                status.HTTP_400_BAD_REQUEST,
+            )
         _reject(
             "generation_failed",
             str(exc) or "Mirror sahnesi şu an hazırlanamadı. Daha sonra tekrar deneyebilirsin.",

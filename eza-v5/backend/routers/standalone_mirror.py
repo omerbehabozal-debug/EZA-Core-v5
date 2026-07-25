@@ -138,6 +138,9 @@ async def generate_mirror_scene_endpoint(
         card_date=body.cardDate,
         quality_hints=body.qualityHints,
         prompt_contract=body.promptContract,
+        generation_id=body.generationRequestId,
+        generation_pipeline=body.generationPipeline,
+        final_scene_prompt_hash=body.finalScenePromptHash,
     )
     provider = result.provider
     if provider not in ("mock", "openai", "replicate", "stability"):
@@ -160,6 +163,7 @@ async def generate_mirror_scene_endpoint(
         provider=provider,  # type: ignore[arg-type]
         cached=result.cached,
         generatedAt=result.generated_at or "",
+        generationRequestId=body.generationRequestId,
     )
 
 

@@ -22,6 +22,8 @@ VALID_BODY = {
     "stylePreset": "eza_mirror_professional_v1",
     "qualityHints": ["9:16 vertical safe composition"],
     "cardDate": "2026-05-21",
+    "generationRequestId": "req-entitle12",
+    "generationPipeline": "LEGACY_V3",
 }
 
 

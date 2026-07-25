@@ -30,7 +30,7 @@ export type MirrorRenderBrief = {
   showSubtitleOnPoster: boolean;
 };
 
-export const MIRROR_V5_MAX_RENDER_PROMPT_CHARS = 1400;
+export const MIRROR_V5_MAX_RENDER_PROMPT_CHARS = 2000;
 export const MIRROR_V5_SHOW_SUBTITLE_ON_POSTER = false;
 
 export const MIRROR_V5_DEFAULT_LIGHT_MODE: MirrorLightMode = 'premium_editorial_daylight';

@@ -18,6 +18,10 @@ class MirrorGenerateSceneRequest(BaseModel):
     cardId: Optional[str] = Field(default=None, max_length=128)
     """V5 minimal render contract — backend must not append legacy Avoid/Quality/Style."""
     promptContract: Optional[str] = None
+    """Explicit pipeline discriminator — D2_V5 is fail-closed; LEGACY_V3 must be explicit."""
+    generationPipeline: Optional[Literal["D2_V5", "LEGACY_V3"]] = None
+    """SHA-256 of the exact prompt the client intends to send (D2 hash assert)."""
+    finalScenePromptHash: Optional[str] = Field(default=None, min_length=16, max_length=128)
 
 
 class MirrorGenerateSceneResponse(BaseModel):
@@ -25,6 +29,7 @@ class MirrorGenerateSceneResponse(BaseModel):
     provider: Literal["mock", "openai", "replicate", "stability"]
     cached: bool = False
     generatedAt: str
+    generationRequestId: Optional[str] = None
     # Optional normalized focal (0–1). Omitted → clients use safe center.
     # Not inferred/saved until a real focal pipeline exists.
     focalX: Optional[float] = Field(default=None, ge=0.0, le=1.0)

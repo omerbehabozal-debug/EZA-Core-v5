@@ -7,16 +7,6 @@ import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken
 import { GUEST_TOKEN_HEADER } from '@/lib/eza/plan/guestTokenHeader';
 import type { MirrorVisualPromptPayload } from '@/lib/eza/mirror/types';
 
-export type MirrorGenerateSceneResponse = {
-  sceneImageUrl: string;
-  provider: 'mock' | 'openai' | 'replicate' | 'stability';
-  cached: boolean;
-  generatedAt: string;
-  /** Optional 0–1 focal; omitted → safe center. Never invent client-side fakes to persist. */
-  focalX?: number | null;
-  focalY?: number | null;
-};
-
 export type MirrorGenerateSceneRequest = {
   prompt: string;
   negativePrompt: string;
@@ -27,11 +17,29 @@ export type MirrorGenerateSceneRequest = {
   promptContract?: string;
   conversationId?: string;
   generationRequestId?: string;
+  /** Explicit pipeline discriminator — never infer LEGACY from missing data. */
+  generationPipeline?: 'D2_V5' | 'LEGACY_V3';
+  /** SHA-256 of the exact prompt about to be sent (D2 fail-closed). */
+  finalScenePromptHash?: string;
 };
 
 export type MirrorSceneGenerationOptions = {
   conversationId?: string | null;
   generationRequestId?: string;
+  generationPipeline?: 'D2_V5' | 'LEGACY_V3';
+  finalScenePromptHash?: string;
+};
+
+export type MirrorGenerateSceneResponse = {
+  sceneImageUrl: string;
+  provider: 'mock' | 'openai' | 'replicate' | 'stability';
+  cached: boolean;
+  generatedAt: string;
+  /** Echo of request generation id for race guards. */
+  generationRequestId?: string | null;
+  /** Optional 0–1 focal; omitted → safe center. Never invent client-side fakes to persist. */
+  focalX?: number | null;
+  focalY?: number | null;
 };
 
 export type MirrorSceneErrorCode =
@@ -41,6 +49,9 @@ export type MirrorSceneErrorCode =
   | 'visual_cooldown_active'
   | 'visual_daily_limit_reached'
   | 'generation_failed'
+  | 'prepare_failed'
+  | 'd2_prompt_invalid'
+  | 'stale_generation'
   | 'rate_limit'
   | 'openai_insufficient_quota'
   | 'unknown';
@@ -70,6 +81,8 @@ export function buildMirrorGenerateScenePayload(
     promptContract: visual.promptContract,
     conversationId: options?.conversationId ?? undefined,
     generationRequestId: options?.generationRequestId,
+    generationPipeline: options?.generationPipeline,
+    finalScenePromptHash: options?.finalScenePromptHash,
   };
 }
 
@@ -126,6 +139,19 @@ export async function generateMirrorScene(
       );
     }
     if (
+      code === 'prepare_failed' ||
+      code === 'd2_prompt_invalid' ||
+      code === 'd2_prompt_invalid_prefix' ||
+      code === 'd2_prompt_contains_category' ||
+      code === 'provider_prompt_hash_mismatch' ||
+      code === 'generation_id_required'
+    ) {
+      throw new MirrorSceneError(
+        msg,
+        code === 'prepare_failed' ? 'prepare_failed' : 'd2_prompt_invalid'
+      );
+    }
+    if (
       code === 'generation_failed' ||
       code === 'HTTP_502' ||
       code === 'REQUEST_TIMEOUT' ||
@@ -139,5 +165,8 @@ export async function generateMirrorScene(
   if (!payload.sceneImageUrl) {
     throw new Error('Mirror sahnesi şu an hazırlanamadı.');
   }
-  return payload;
+  return {
+    ...payload,
+    generationRequestId: payload.generationRequestId ?? body.generationRequestId,
+  };
 }

@@ -258,7 +258,7 @@ describe('conversationMirrorV3', () => {
     expect(prompt).not.toContain('TITLE:');
     expect(prompt).not.toContain('Title may appear');
     expect(prompt).toMatch(/RENDER BRIEF:/);
-    expect(prompt.length).toBeLessThanOrEqual(1400);
+    expect(prompt.length).toBeLessThanOrEqual(2000);
     expect(prompt).not.toContain('Evidence fusion scene');
     expect(prompt).not.toContain('Poster test:');
     expect(prompt).not.toContain(state.dailyMirrorCard.shortInsight);

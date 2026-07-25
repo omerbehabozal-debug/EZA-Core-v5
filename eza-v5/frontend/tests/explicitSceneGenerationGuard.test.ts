@@ -86,7 +86,7 @@ describe('publish happens once after scene, not in commitMirrorReady', () => {
 
   it('successful generate-scene path publishes once via prepareMirrorShareLink', () => {
     const genIdx = experienceSrc.indexOf('const handleGenerateMirrorScene');
-    const genBlock = experienceSrc.slice(genIdx, genIdx + 5500);
+    const genBlock = experienceSrc.slice(genIdx, genIdx + 12000);
     expect(genBlock).toContain('generateMirrorScene(visualForApi');
     expect(genBlock).toMatch(
       /prepareMirrorShareLink\(cardForScene, result\.sceneImageUrl,\s*\{\s*refreshScene:\s*true/
@@ -113,15 +113,15 @@ describe('explicit retry and new-scene re-arm generation', () => {
 describe('Director card update does not mid-flight setState churn', () => {
   it('defers setGeneratedDailyCard until after generate-scene succeeds', () => {
     const genIdx = experienceSrc.indexOf('const handleGenerateMirrorScene');
-    const genBlock = experienceSrc.slice(genIdx, genIdx + 5500);
-    const applyIdx = genBlock.indexOf('applyDirectorPrepareToCard');
-    const setCardAfterApply = genBlock.indexOf('setGeneratedDailyCard(cardForScene)', applyIdx);
-    const generateIdx = genBlock.indexOf('generateMirrorScene(visualForApi');
-    expect(applyIdx).toBeGreaterThan(-1);
-    expect(generateIdx).toBeGreaterThan(applyIdx);
-    // Card React update happens after generateMirrorScene call site
-    expect(setCardAfterApply).toBeGreaterThan(generateIdx);
+    const genBlock = experienceSrc.slice(genIdx, genIdx + 12000);
+    expect(genBlock).toContain('runFailClosedMirrorSceneGeneration');
     expect(genBlock).toContain('Defer React card update until after scene completes');
+    const setCardIdx = genBlock.indexOf('setGeneratedDailyCard(cardForScene)');
+    const generateIdx = genBlock.indexOf('generateMirrorScene(visualForApi');
+    expect(setCardIdx).toBeGreaterThan(-1);
+    expect(generateIdx).toBeGreaterThan(-1);
+    // Card React update happens after generateMirrorScene call site
+    expect(setCardIdx).toBeGreaterThan(generateIdx);
   });
 });
 
