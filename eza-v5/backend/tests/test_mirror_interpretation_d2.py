@@ -414,7 +414,7 @@ def test_interpretation_system_prompt_requires_place_fidelity():
         _SYSTEM_PROMPT,
     )
 
-    assert MIRROR_INTERPRETATION_PROMPT_VERSION == "interp-prompt-v2"
+    assert MIRROR_INTERPRETATION_PROMPT_VERSION == "interp-prompt-v3"
     low = _SYSTEM_PROMPT.lower()
     assert "place and evidence fidelity" in low
     assert "lived street-level" in low

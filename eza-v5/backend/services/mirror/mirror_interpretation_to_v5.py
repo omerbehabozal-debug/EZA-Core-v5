@@ -6,9 +6,11 @@ The image model is the artist — visual language emerges from VISUAL NARRATIVE.
 
 Prompt budget (Option 2 — separately budgeted composition contract):
 - VISUAL NARRATIVE first (hard reserved body ≥450)
-- Shared constraints ≤350 chars (style-neutral)
+- Shared constraints ≤350 chars (style-neutral fidelity lock)
 - Safe-composition contract ≤180 chars (universal crop protection; not a genre)
-- Optionals yield before narrative; composition never displaces narrative
+- Optionals (intent/atmosphere/summary) are NOT sent to the image model —
+  they dilute concrete narrative into editorial stock frames
+- Baseline Avoid always present (anti stock-architecture / fashion-hero drift)
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from backend.services.mirror.mirror_draft_to_v5 import (
 )
 
 # Bump when Interpretation→V5 mapping contract changes (cache isolation).
-MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v7"
+MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v8"
 
 # Shared contract: universal constraints only — style-neutral (no house genre).
 # Visual language emerges from VISUAL NARRATIVE / interpretation, not from these lines.
@@ -39,9 +41,11 @@ MIRROR_TEXT_FREE_SCENE_RULE = (
     "Text-free: no typography, captions, logos, watermarks, UI, or signage."
 )
 
+# Fidelity lock — known gpt-image failure class is inventing alternate interiors /
+# fashion-hero travelers when narrative is a lived street or local place.
 MIRROR_CONTEXTUAL_SPECIFICITY_RULE = (
-    "Follow the visual narrative exactly — authentic place and materials. "
-    "No substitute travel settings or unrelated geographies; lived scale if unnamed place."
+    "Render ONLY the VISUAL NARRATIVE; every named place, material, and prop must appear. "
+    "No substitute geography or invented interiors."
 )
 
 # Visibility / exposure quality — not an aesthetic genre.
@@ -65,6 +69,13 @@ MIRROR_SAFE_COMPOSITION_RULE = (
     "Keep essential story elements within a generous central safe region, "
     "with enough surrounding environment for natural phone, tablet, desktop, "
     "and social crops."
+)
+
+# Always-on Avoid — place-agnostic stock-drift blockers (merged with interpretation exclusions).
+# Do not name specific cities or coat brands; keep failure-mode language only.
+MIRROR_BASELINE_AVOID = (
+    "modern atrium, spiral stairwell, glass museum lobby, fashion-coat traveler hero, "
+    "airport terminal, train-station stock frame, substitute geography, collage"
 )
 
 
@@ -129,32 +140,40 @@ def _fit_constraints_into_room(room: int, shared: str, composition: str) -> str:
     return composition[:room].rstrip()
 
 
+def _merge_avoid(exclusions: str) -> str:
+    parts: list[str] = []
+    seen: set[str] = set()
+    for raw in f"{MIRROR_BASELINE_AVOID}, {exclusions}".split(","):
+        item = raw.strip()
+        if not item:
+            continue
+        key = item.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        parts.append(item)
+    return ", ".join(parts)
+
+
 def _assemble(
     narrative_body: str,
     shared: str,
     composition: str,
     *,
-    intent: str,
-    atmosphere: str,
-    summary: str,
-    exclusions: str,
+    avoid: str,
 ) -> str:
-    """Narrative first; contracts; optionals last. Caller enforces budgets.
+    """Narrative first; contracts; Avoid last.
 
     topicCategory stays on mappedPrompt metadata only — never inject enum labels
-    like "travel" into the image prompt (they prime stock traveler imagery).
+    like \"travel\" into the image prompt (they prime stock traveler imagery).
+
+    IMAGE INTENT / ATMOSPHERE / INTERPRETATION NOTE are intentionally omitted from
+    the provider prompt — abstract mood lines dilute concrete narrative fidelity.
     """
     constraints = _constraints_block(shared, composition)
     parts = [f"VISUAL NARRATIVE:\n{narrative_body}", "", constraints]
-    # Optionals — lowest priority last (dropped first under pressure).
-    if intent:
-        parts.extend(["", f"IMAGE INTENT:\n{intent}"])
-    if atmosphere:
-        parts.extend(["", f"ATMOSPHERE:\n{atmosphere}"])
-    if summary:
-        parts.extend(["", f"INTERPRETATION NOTE:\n{summary}"])
-    if exclusions:
-        parts.extend(["", f"Avoid: {exclusions}"])
+    if avoid:
+        parts.extend(["", f"Avoid: {avoid}"])
     return "\n".join(parts).strip()
 
 
@@ -179,11 +198,9 @@ def map_interpretation_to_v5_prompt(
         )
 
     title = sanitize_display_text(interpretation.title, max_len=64)
-    intent = sanitize_display_text(interpretation.imageIntent, max_len=320)
     narrative_body = sanitize_display_text(interpretation.visualNarrative, max_len=560)
-    summary = sanitize_display_text(interpretation.interpretationSummary, max_len=160)
-    atmosphere = sanitize_display_text(interpretation.atmosphereHint or "", max_len=120)
     exclusions = ", ".join(interpretation.exclusions[:8])
+    avoid = _merge_avoid(exclusions)
 
     shared = MIRROR_SHARED_RENDER_RULES
     composition = MIRROR_SAFE_COMPOSITION_RULE
@@ -194,18 +211,15 @@ def map_interpretation_to_v5_prompt(
         narrative_body,
         shared,
         composition,
-        intent=intent,
-        atmosphere=atmosphere,
-        summary=summary,
-        exclusions=exclusions,
+        avoid=avoid,
     )
 
-    # 1) Drop optional metadata before touching narrative (lowest priority first).
+    # 1) Drop Avoid before touching narrative if over budget (lowest priority).
     optional_drop_order = (
-        "INTERPRETATION NOTE:",
-        "ATMOSPHERE:",
         "Avoid:",
-        "CATEGORY:",  # legacy prompts only; mapper no longer emits CATEGORY
+        "INTERPRETATION NOTE:",  # legacy cached prompts
+        "ATMOSPHERE:",
+        "CATEGORY:",
         "IMAGE INTENT:",
     )
     while len(prompt) > limit:
@@ -251,8 +265,8 @@ def map_interpretation_to_v5_prompt(
         prompt = prompt[: limit - 1].rstrip() + "…"
 
     neg = MIRROR_V5_NEGATIVE
-    if exclusions:
-        neg = f"{neg}, {exclusions}"
+    if avoid:
+        neg = f"{neg}, {avoid}"
 
     return MirrorV5MappedPrompt(
         title=title,

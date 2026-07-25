@@ -66,8 +66,8 @@ def test_shared_rules_within_target_budget():
     assert MIRROR_ONE_SCENE_RULE in MIRROR_SHARED_RENDER_RULES
 
 
-def test_mapper_version_v6():
-    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v7"
+def test_mapper_version_v8():
+    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v8"
 
 
 def test_safe_composition_contract_budget_and_presence():
@@ -78,10 +78,11 @@ def test_safe_composition_contract_budget_and_presence():
     assert "social crops" in MIRROR_SAFE_COMPOSITION_RULE
     mapped = map_interpretation_to_v5_prompt(_interp(), title_source="interpretation_llm")
     assert MIRROR_SAFE_COMPOSITION_RULE in mapped.prompt
-    # After shared rules, before optional IMAGE INTENT when present.
+    # After shared rules, before Avoid when present.
     rules_idx = mapped.prompt.index(MIRROR_ONE_SCENE_RULE)
     comp_idx = mapped.prompt.index(MIRROR_SAFE_COMPOSITION_RULE)
     assert rules_idx < comp_idx
+    assert mapped.prompt.index(MIRROR_SAFE_COMPOSITION_RULE) < mapped.prompt.index("Avoid:")
 
 
 def test_provider_prompt_omits_topic_category_enum():
@@ -93,8 +94,12 @@ def test_provider_prompt_omits_topic_category_enum():
     assert mapped.topicCategory == "travel"
     assert "CATEGORY:" not in mapped.prompt
     assert "\ntravel\n" not in mapped.prompt
-    assert "Follow the visual narrative exactly" in mapped.prompt
-    assert "substitute travel settings" in mapped.prompt
+    assert "Render ONLY the VISUAL NARRATIVE" in mapped.prompt
+    assert "substitute geography" in mapped.prompt.lower()
+    assert "IMAGE INTENT:" not in mapped.prompt
+    assert "INTERPRETATION NOTE:" not in mapped.prompt
+    assert "spiral stairwell" in mapped.prompt.lower()
+    assert "fashion-coat traveler hero" in mapped.prompt.lower()
 
 
 def test_limits_aligned_across_stack():
@@ -118,12 +123,26 @@ def test_four_product_obligations_present():
     assert MIRROR_CONTEXTUAL_SPECIFICITY_RULE in mapped.prompt
     assert MIRROR_VISIBILITY_RULE in mapped.prompt
     assert MIRROR_ONE_SCENE_RULE in mapped.prompt
-    assert "Follow the visual narrative" in mapped.prompt
-    assert "authentic place and materials" in mapped.prompt
+    assert "Render ONLY the VISUAL NARRATIVE" in mapped.prompt
+    assert "named place, material, and prop" in mapped.prompt
     assert "small previews" in mapped.prompt
     assert "underexposure" in mapped.prompt.lower()
     assert "One coherent natural scene" in mapped.prompt
     assert "Text-free: no typography" in mapped.prompt
+
+
+def test_provider_prompt_omits_diluting_mood_sections():
+    """Abstract intent/summary/atmosphere prime editorial stock; keep them out of image prompt."""
+    mapped = map_interpretation_to_v5_prompt(
+        _interp(visualNarrative=MARDIN_NARRATIVE),
+        title_source="interpretation_llm",
+    )
+    assert "IMAGE INTENT:" not in mapped.prompt
+    assert "ATMOSPHERE:" not in mapped.prompt
+    assert "INTERPRETATION NOTE:" not in mapped.prompt
+    assert mapped.prompt.startswith("VISUAL NARRATIVE:")
+    assert "Avoid:" in mapped.prompt
+    assert "modern atrium" in mapped.prompt.lower()
 
 
 def test_shared_contract_is_style_neutral():
@@ -152,9 +171,9 @@ def test_shared_contract_is_style_neutral():
         _interp(visualNarrative=MARDIN_NARRATIVE),
         title_source="interpretation_llm",
     )
-    # Constraint region only (after narrative block) — exclude optional Avoid lines.
+    # Constraint region only (after narrative block) — exclude Avoid lines.
     after_narr = mapped.prompt.split("\n\n", 1)[1]
-    constraint_only = after_narr.split("IMAGE INTENT:", 1)[0].lower()
+    constraint_only = after_narr.split("Avoid:", 1)[0].lower()
     for term in banned:
         assert term not in constraint_only, f"provider prompt constraints impose genre {term!r}"
     assert "poster" not in constraint_only

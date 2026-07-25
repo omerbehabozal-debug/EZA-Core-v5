@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_INTERPRETATION_MODEL = "gpt-4o-mini"
 # Bump when the Interpretation system prompt contract changes (prepare-cache isolation).
-MIRROR_INTERPRETATION_PROMPT_VERSION = "interp-prompt-v2"
+MIRROR_INTERPRETATION_PROMPT_VERSION = "interp-prompt-v3"
 ChatCompleter = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
 _SYSTEM_PROMPT = """You are the SAINA Mirror creative director.
@@ -61,6 +61,11 @@ Place and evidence fidelity (required):
   topic is travel.
 - If the user has never been there, still show the place as itself — curiosity about
   authentic texture, not a generic "someone traveling somewhere" stock frame.
+- visualNarrative is the only scene recipe. imageIntent is felt effect only — never an
+  alternate setting (no modern atrium / spiral-stair interiors / fashion-coat heroes
+  when evidence points to lived streets, homes, or local places).
+- Put concrete props from the conversation into visualNarrative (chair, clothesline,
+  stone, doorway, etc. when present); do not leave them only in summary fields.
 
 Quality goals (not steps):
 - Stay faithful to the conversation's subject and meaningful development.
