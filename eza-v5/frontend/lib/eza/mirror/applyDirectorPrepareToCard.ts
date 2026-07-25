@@ -2,6 +2,9 @@
  * Apply Director prepare result onto Daily Mirror card + V5 visual (PR C).
  * Authority is driven by backend applyTitle / applyPrompt flags (SOFT vs FULL).
  * SHADOW must not call this with apply flags true.
+ *
+ * Phase 0: when finalized D2 Interpretation is present, rebuild curiosityBundle
+ * from Interpretation (never leave stale V3 architecture/material meaning).
  */
 
 import type { DailyMirrorCardModel, MirrorVisualPromptPayload } from '@/lib/eza/mirror/types';
@@ -9,6 +12,11 @@ import type { MirrorDirectorMetadataContract } from '@/lib/eza/mirror/director/m
 import type { SainaMirrorSeason } from '@/lib/eza/mirror/conversationMirrorV2/types';
 import { MIRROR_ART_DIRECTION_IDS } from '@/lib/eza/mirror/director/mirrorDraftTypes';
 import { MIRROR_V5_PROMPT_CONTRACT } from '@/lib/eza/mirror/conversationMirrorV3/mirrorRenderBriefTypes';
+import {
+  isMirrorInterpretationV1,
+  type MirrorInterpretationV1,
+} from '@/lib/eza/mirror/mirrorInterpretationTypes';
+import { buildCuriosityFromInterpretation } from '@/lib/eza/mirror-network/buildCuriosityFromInterpretation';
 
 export type PrepareDirectorMappedPrompt = {
   title: string;
@@ -42,11 +50,42 @@ export type PrepareDirectorDraftResult = {
   /** PR D1 — evidence package; never drives image prompt in applyDirectorPrepareToCard. */
   conversationContext?: unknown | null;
   /** PR D2 — creative interpretation; visuals come from mappedPrompt only. */
-  finalInterpretation?: unknown | null;
+  finalInterpretation?: MirrorInterpretationV1 | unknown | null;
 };
 
 function isSeason(value: string): value is SainaMirrorSeason {
   return (MIRROR_ART_DIRECTION_IDS as readonly string[]).includes(value);
+}
+
+function applyD2Curiosity(
+  card: DailyMirrorCardModel,
+  interpretation: MirrorInterpretationV1
+): DailyMirrorCardModel {
+  const { bundle } = buildCuriosityFromInterpretation(interpretation);
+  const payload = card.mirrorV3Payload
+    ? {
+        ...card.mirrorV3Payload,
+        mirrorTitle: bundle.cardTitle || card.mirrorV3Payload.mirrorTitle,
+        topic: interpretation.topicCategory || card.mirrorV3Payload.topic,
+        storyTopicId: bundle.seed.topicCategory,
+        curiosityBundle: bundle,
+      }
+    : undefined;
+
+  return {
+    ...card,
+    mirrorFinalInterpretation: interpretation,
+    mirrorSemanticSource: 'd2_interpretation',
+    headline: bundle.cardTitle || card.headline,
+    dailyThemeTitle: bundle.cardTitle || card.dailyThemeTitle,
+    mirrorV3Payload: payload,
+    mirrorShare: card.mirrorShare
+      ? {
+          ...card.mirrorShare,
+          shareVoice: bundle.shareVoice ?? card.mirrorShare.shareVoice,
+        }
+      : card.mirrorShare,
+  };
 }
 
 export function applyDirectorPrepareToCard(
@@ -150,8 +189,14 @@ export function applyDirectorPrepareToCard(
       }
     : undefined;
 
-  return {
+  next = {
     ...next,
     ...(meta ? { mirrorDirectorMetadata: meta } : {}),
   };
+
+  if (isMirrorInterpretationV1(prepared.finalInterpretation)) {
+    next = applyD2Curiosity(next, prepared.finalInterpretation);
+  }
+
+  return next;
 }

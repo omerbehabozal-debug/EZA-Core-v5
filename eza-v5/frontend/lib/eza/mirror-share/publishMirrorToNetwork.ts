@@ -1,18 +1,31 @@
 /**
  * Stage 4C — auto-register Mirror to network on creation (share URL guarantee).
+ * Phase 0 — D2 Interpretation is canonical publish meaning when present.
  */
 
 import { apiClient } from '@/lib/apiClient';
 import { buildMirrorCuriosityBundle } from '@/lib/eza/mirror-network/buildMirrorCuriosity';
+import { buildCuriosityFromInterpretation } from '@/lib/eza/mirror-network/buildCuriosityFromInterpretation';
+import type { MirrorCuriosityBundle } from '@/lib/eza/mirror-network/types';
 import type { MirrorNetworkPublicApiResponse } from '@/lib/eza/mirror-network/publicTypes';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { MirrorShareIdentity } from '@/lib/eza/mirror-share/types';
 import { resolveMirrorPublishLineage } from '@/lib/eza/mirror-share/resolveMirrorPublishLineage';
+import { isMirrorInterpretationV1 } from '@/lib/eza/mirror/mirrorInterpretationTypes';
+import {
+  interpretationHash,
+  mappedPromptHash,
+  publishBundleHash,
+  type MirrorPublishLineageMeta,
+  type MirrorSemanticSource,
+} from '@/lib/eza/mirror/mirrorLineageHash';
 
 export type PublishMirrorToNetworkInput = {
   card: DailyMirrorCardModel;
   conversationId?: string;
   sceneImageUrl?: string | null;
+  generationId?: string;
+  generationAction?: 'first' | 'update' | 'new_scene';
 };
 
 export type PublishMirrorToNetworkSuccess = {
@@ -20,6 +33,8 @@ export type PublishMirrorToNetworkSuccess = {
   slug: string;
   shareUrl: string;
   publicPayload: MirrorNetworkPublicApiResponse;
+  semanticSource: MirrorSemanticSource;
+  lineage?: MirrorPublishLineageMeta;
 };
 
 export type PublishMirrorToNetworkFailure = {
@@ -32,7 +47,45 @@ export type PublishMirrorToNetworkResult =
   | PublishMirrorToNetworkSuccess
   | PublishMirrorToNetworkFailure;
 
-function buildIntelligencePrivate(card: DailyMirrorCardModel) {
+function sceneAssetIdFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(/mirror-scene-assets\/([^/?#]+)/i);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Resolve publish curiosity: D2 wins over any stale V3 curiosityBundle.
+ */
+export function resolvePublishCuriosityBundle(card: DailyMirrorCardModel): {
+  bundle: MirrorCuriosityBundle;
+  semanticSource: MirrorSemanticSource;
+} {
+  if (isMirrorInterpretationV1(card.mirrorFinalInterpretation)) {
+    const built = buildCuriosityFromInterpretation(card.mirrorFinalInterpretation);
+    return { bundle: built.bundle, semanticSource: 'd2_interpretation' };
+  }
+
+  const payload = card.mirrorV3Payload;
+  if (!payload) {
+    throw new Error('mirror_v3_payload_required');
+  }
+
+  const existing = payload.curiosityBundle;
+  if (existing?.semanticSource === 'd2_interpretation') {
+    return { bundle: existing, semanticSource: 'd2_interpretation' };
+  }
+
+  const bundle: MirrorCuriosityBundle = {
+    ...(existing ?? buildMirrorCuriosityBundle(payload)),
+    semanticSource: 'legacy_v3_fallback',
+  };
+  return { bundle, semanticSource: 'legacy_v3_fallback' };
+}
+
+function buildIntelligencePrivate(
+  card: DailyMirrorCardModel,
+  lineage: MirrorPublishLineageMeta
+) {
   const payload = card.mirrorV3Payload;
   if (!payload) return undefined;
 
@@ -67,35 +120,72 @@ function buildIntelligencePrivate(card: DailyMirrorCardModel) {
     topicSummary: payload.topic,
     evidenceLabels: (payload.conversationEvidence ?? []).map((item) => item.label).filter(Boolean),
     behavioralSnapshot: undefined,
-    intelligenceBrief: safeDirector
-      ? { mirrorDirector: safeDirector }
-      : undefined,
+    intelligenceBrief: {
+      ...(safeDirector ? { mirrorDirector: safeDirector } : {}),
+      mirrorLineage: lineage,
+    },
   };
 }
 
-function buildPublishBody(input: PublishMirrorToNetworkInput) {
-  const { card, conversationId, sceneImageUrl } = input;
+async function buildPublishBody(input: PublishMirrorToNetworkInput) {
+  const { card, conversationId, sceneImageUrl, generationId } = input;
   const payload = card.mirrorV3Payload;
   if (!payload) {
     throw new Error('mirror_v3_payload_required');
   }
 
-  const curiosityBundle = payload.curiosityBundle ?? buildMirrorCuriosityBundle(payload);
-  const lineage = resolveMirrorPublishLineage({
+  const { bundle: curiosityBundle, semanticSource } = resolvePublishCuriosityBundle(card);
+
+  const interpHash = isMirrorInterpretationV1(card.mirrorFinalInterpretation)
+    ? await interpretationHash(card.mirrorFinalInterpretation)
+    : undefined;
+  const mappedHash = card.visual?.prompt
+    ? await mappedPromptHash(card.visual.prompt)
+    : undefined;
+  const bundleHash = await publishBundleHash({
+    cardTitle: curiosityBundle.cardTitle,
+    coreCuriosity: curiosityBundle.coreCuriosity,
+    landingContext: curiosityBundle.landingContext,
+    hooks: curiosityBundle.hooks,
+    seed: curiosityBundle.seed,
+    semanticSource,
+  });
+
+  const lineage: MirrorPublishLineageMeta = {
+    semanticSource,
+    interpretationHash: interpHash,
+    mappedPromptHash: mappedHash,
+    publishBundleHash: bundleHash,
+    contentHash: card.mirrorDirectorMetadata?.contentHash ?? null,
+    generationId,
+    conversationId: conversationId?.trim() || undefined,
+    sceneAssetId: sceneAssetIdFromUrl(sceneImageUrl),
+  };
+
+  const publishLineage = resolveMirrorPublishLineage({
     conversationId,
     curiosityLineage: curiosityBundle.seed?.lineage,
   });
 
+  const cardTitle =
+    semanticSource === 'd2_interpretation'
+      ? curiosityBundle.cardTitle || card.headline || payload.mirrorTitle
+      : card.headline || payload.mirrorTitle;
+
   return {
-    cardTitle: card.headline || payload.mirrorTitle,
-    cardDate: card.date,
-    conversationId: conversationId?.trim() || undefined,
-    sceneImageUrl: sceneImageUrl?.trim() || undefined,
-    curiosityBundle,
-    intelligencePrivate: buildIntelligencePrivate(card),
-    safetyLevel: payload.safetyLevel ?? 'normal',
-    lineageProofToken: lineage.lineageProofToken,
-    guestToken: lineage.guestToken,
+    body: {
+      cardTitle,
+      cardDate: card.date,
+      conversationId: conversationId?.trim() || undefined,
+      sceneImageUrl: sceneImageUrl?.trim() || undefined,
+      curiosityBundle,
+      intelligencePrivate: buildIntelligencePrivate(card, lineage),
+      safetyLevel: payload.safetyLevel ?? 'normal',
+      lineageProofToken: publishLineage.lineageProofToken,
+      guestToken: publishLineage.guestToken,
+    },
+    semanticSource,
+    lineage,
   };
 }
 
@@ -130,7 +220,7 @@ export async function publishMirrorToNetwork(
   input: PublishMirrorToNetworkInput
 ): Promise<PublishMirrorToNetworkResult> {
   try {
-    const body = buildPublishBody(input);
+    const { body, semanticSource, lineage } = await buildPublishBody(input);
     const response = await apiClient.post<MirrorNetworkPublicApiResponse>(
       '/api/mirror-network/publish',
       { body, auth: true, timeoutMs: 30_000 }
@@ -155,6 +245,8 @@ export async function publishMirrorToNetwork(
       slug: payload.slug,
       shareUrl: payload.shareUrl,
       publicPayload: payload,
+      semanticSource,
+      lineage,
     };
   } catch {
     return {

@@ -256,6 +256,7 @@ export function buildMirrorCuriosityPipeline(
     discoverySignals: buildDiscoverySignals(seed),
     collectionTags: buildCollectionTags(seed),
     shareVoice,
+    semanticSource: 'legacy_v3_fallback',
   };
 }
 

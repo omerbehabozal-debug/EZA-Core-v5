@@ -168,6 +168,10 @@ export interface DailyMirrorCardModel {
   mirrorDirectorMetadata?: import('@/lib/eza/mirror/director/mirrorDraftTypes').MirrorDirectorMetadataContract & {
     titleSource?: string;
   };
+  /** Phase 0 — finalized D2 Interpretation (canonical publish meaning). */
+  mirrorFinalInterpretation?: import('@/lib/eza/mirror/mirrorInterpretationTypes').MirrorInterpretationV1 | null;
+  /** Phase 0 — which semantic authority currently backs publish curiosity. */
+  mirrorSemanticSource?: import('@/lib/eza/mirror-network/types').MirrorCuriositySemanticSource;
 }
 
 export interface RelationshipPatternModel {

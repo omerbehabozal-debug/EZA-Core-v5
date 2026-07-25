@@ -53,6 +53,10 @@ export type MirrorCuriosityContext = {
   text: string;
 };
 
+export type MirrorCuriositySemanticSource =
+  | 'd2_interpretation'
+  | 'legacy_v3_fallback';
+
 /**
  * Layered curiosity pipeline — each stage may grow independently.
  * Seed → Title → Core Curiosity → Context → Hooks → Landing → Questions → Discovery → Tags
@@ -73,6 +77,11 @@ export type MirrorCuriosityPipeline = {
   collectionTags: string[];
   /** Mirror Intelligence — caption layer 1; landing/card/image prompt'ta görünmez. */
   shareVoice?: ShareVoiceLine;
+  /**
+   * Phase 0 lineage — which semantic authority produced this bundle.
+   * D2-backed mirrors must never silently keep a V3 architecture/material bundle.
+   */
+  semanticSource?: MirrorCuriositySemanticSource;
 };
 
 export type MirrorCuriosityBundle = MirrorCuriosityPipeline;

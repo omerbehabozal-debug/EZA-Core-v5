@@ -106,11 +106,48 @@ def test_build_openai_mirror_prompt_includes_core_negative_and_hints():
 
 
 @pytest.mark.asyncio
-async def test_openai_no_api_key_falls_back_to_mock():
-    provider = OpenAIMirrorImageProvider(api_key="")
+async def test_openai_no_api_key_falls_back_to_mock_in_non_prod():
+    provider = OpenAIMirrorImageProvider(api_key="", allow_mock_fallback=True)
     result = await provider.generate_scene(_mirror_request())
     assert result.provider == "mock"
     assert result.scene_image_url.startswith("http")
+
+
+@pytest.mark.asyncio
+async def test_openai_no_api_key_fails_in_production():
+    provider = OpenAIMirrorImageProvider(api_key="", allow_mock_fallback=False)
+    with pytest.raises(Exception) as excinfo:
+        await provider.generate_scene(_mirror_request())
+    assert "hazırlanamadı" in str(excinfo.value).lower() or "mirror" in str(excinfo.value).lower()
+    diagnostic = getattr(excinfo.value, "diagnostic", None) or {}
+    assert diagnostic.get("errorCode") == "openai_api_key_missing"
+
+
+@pytest.mark.asyncio
+async def test_openai_logs_provider_prompt_hash(caplog, asset_dir):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "data": [{"b64_json": TINY_PNG_B64}],
+    }
+    mock_client = AsyncMock()
+    mock_client.post = AsyncMock(return_value=mock_response)
+    mock_client.aclose = AsyncMock()
+
+    provider = OpenAIMirrorImageProvider(
+        api_key="sk-test-key-not-real",
+        model="dall-e-3",
+        size="1024x1024",
+        http_client=mock_client,
+    )
+    with caplog.at_level(
+        logging.INFO, logger="backend.services.mirror.providers.openai_provider"
+    ):
+        await provider.generate_scene(_v5_mirror_request())
+    joined = " ".join(r.message for r in caplog.records)
+    assert "providerPromptHash=" in joined
+    assert "mappedPromptHash=" in joined
+    assert "hashesEqual=" in joined
 
 
 @pytest.mark.asyncio

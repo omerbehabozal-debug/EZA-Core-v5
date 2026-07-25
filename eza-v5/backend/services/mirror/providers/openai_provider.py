@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Any, Optional
 
@@ -12,13 +13,14 @@ from backend.config import get_settings
 from backend.core.openai.config import build_openai_request_headers
 from backend.core.openai.diagnostic import parse_openai_http_error
 from backend.services.mirror.mirror_image_provider import MockMirrorImageProvider, MirrorImageProvider
+from backend.services.mirror.mirror_scene_asset_config import is_production_environment
 from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_mirror_scene_url
 from backend.services.mirror.mirror_image_size import (
     MIRROR_CANONICAL_IMAGE_SIZE,
     MIRROR_OPENAI_ALLOWED_IMAGE_SIZES,
     normalize_mirror_image_size,
 )
-from backend.services.mirror.openai_prompt_builder import build_openai_mirror_prompt
+from backend.services.mirror.openai_prompt_builder import build_openai_mirror_prompt_result
 from backend.services.mirror.types import MirrorImageProviderError, MirrorImageRequest, MirrorImageResult
 
 logger = logging.getLogger(__name__)
@@ -36,6 +38,10 @@ def _seed_log(request: MirrorImageRequest) -> str:
 
 def _normalize_size(size: str) -> str:
     return normalize_mirror_image_size(size)
+
+
+def _provider_prompt_hash(prompt: str) -> str:
+    return hashlib.sha256((prompt or "").encode("utf-8")).hexdigest()
 
 
 def _scene_url_from_openai_item(item: dict[str, Any]) -> str:
@@ -58,6 +64,7 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
         model: Optional[str] = None,
         size: Optional[str] = None,
         http_client: Optional[httpx.AsyncClient] = None,
+        allow_mock_fallback: Optional[bool] = None,
     ) -> None:
         settings = get_settings()
         self._api_key = (api_key if api_key is not None else settings.OPENAI_API_KEY or "").strip()
@@ -66,6 +73,11 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
             size or settings.EZA_MIRROR_IMAGE_SIZE or MIRROR_CANONICAL_IMAGE_SIZE
         )
         self._http_client = http_client
+        if allow_mock_fallback is None:
+            # Production: never silent-mock. Dev/test/ci: allow unless explicitly disabled.
+            self._allow_mock_fallback = not is_production_environment(settings)
+        else:
+            self._allow_mock_fallback = allow_mock_fallback
 
     def _build_payload(self, prompt: str) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -121,16 +133,34 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
     async def generate_scene(self, request: MirrorImageRequest) -> MirrorImageResult:
         seed = _seed_log(request)
         if not self._api_key:
-            logger.warning("mirror_openai_no_api_key seed=%s — mock fallback", seed)
+            if not self._allow_mock_fallback:
+                logger.error("mirror_openai_no_api_key seed=%s — refusing mock in production", seed)
+                raise MirrorImageProviderError(
+                    _USER_ERROR_MESSAGE,
+                    source="openai",
+                    diagnostic={"errorCode": "openai_api_key_missing"},
+                )
+            logger.warning("mirror_openai_no_api_key seed=%s — mock fallback (non-prod)", seed)
             return await MockMirrorImageProvider().generate_scene(request)
 
-        prompt = build_openai_mirror_prompt(request)
+        built = build_openai_mirror_prompt_result(request)
+        prompt = built.prompt
+        provider_hash = _provider_prompt_hash(prompt)
+        mapped_hash = _provider_prompt_hash((request.prompt or "").strip())
         logger.info(
-            "mirror_openai_generate seed=%s model=%s size=%s prompt_len=%d",
+            "mirror_openai_generate seed=%s model=%s size=%s prompt_len=%d "
+            "providerPromptHash=%s mappedPromptHash=%s hashesEqual=%s "
+            "v5=%s truncated=%s contract=%s",
             seed,
             self._model,
             self._size,
             len(prompt),
+            provider_hash,
+            mapped_hash,
+            provider_hash == mapped_hash,
+            built.v5_minimal,
+            built.truncated,
+            built.contract,
         )
 
         try:

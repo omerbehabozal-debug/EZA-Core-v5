@@ -31,6 +31,7 @@ export type {
   MirrorCuriosityBundle,
   MirrorCuriosityContext,
   MirrorCuriosityPipeline,
+  MirrorCuriositySemanticSource,
   MirrorImagePromptLeakageAudit,
   MirrorSeed,
   MirrorTopicDNA,
@@ -46,6 +47,11 @@ export {
   buildMirrorSeed,
   buildMirrorTopicDNA,
 } from '@/lib/eza/mirror-network/buildMirrorCuriosity';
+
+export {
+  buildCuriosityFromInterpretation,
+  mapInterpretationTopicToStoryTopicId,
+} from '@/lib/eza/mirror-network/buildCuriosityFromInterpretation';
 
 export {
   auditMirrorImagePromptLeakage,

@@ -7,7 +7,11 @@ import os
 import re
 
 from backend.config import get_settings
-from backend.services.mirror.types import MirrorImageRequest, MirrorImageResult
+from backend.services.mirror.types import (
+    MirrorImageProviderError,
+    MirrorImageRequest,
+    MirrorImageResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +61,33 @@ def resolve_mirror_image_provider_name() -> str:
 
 
 def get_mirror_image_provider(provider_name: str | None = None) -> MirrorImageProvider:
-    """Return provider implementation. Unknown names fall back to mock."""
+    """Return provider implementation.
+
+    Production: unknown / unimplemented providers and bare mock are refused
+    when ENV marks production (see mirror_scene_asset_config).
+    """
+    from backend.services.mirror.mirror_scene_asset_config import is_production_environment
+
     name = (provider_name or resolve_mirror_image_provider_name()).strip().lower()
+    prod = is_production_environment()
+
     if name not in KNOWN_PROVIDERS:
+        if prod:
+            raise MirrorImageProviderError(
+                "Mirror image provider misconfigured for production.",
+                source="config",
+                diagnostic={"errorCode": "unknown_provider", "provider": name},
+            )
         logger.warning("Unknown mirror image provider %r — using mock", name)
         name = "mock"
 
     if name == "mock":
+        if prod:
+            raise MirrorImageProviderError(
+                "Mock mirror image provider is not allowed in production.",
+                source="config",
+                diagnostic={"errorCode": "mock_forbidden_in_production"},
+            )
         return MockMirrorImageProvider()
 
     if name == "openai":
@@ -71,5 +95,11 @@ def get_mirror_image_provider(provider_name: str | None = None) -> MirrorImagePr
 
         return OpenAIMirrorImageProvider()
 
+    if prod:
+        raise MirrorImageProviderError(
+            f"Mirror image provider {name!r} is not implemented for production.",
+            source="config",
+            diagnostic={"errorCode": "provider_unimplemented", "provider": name},
+        )
     logger.info("Mirror provider %r not implemented yet — using mock", name)
     return MockMirrorImageProvider()
