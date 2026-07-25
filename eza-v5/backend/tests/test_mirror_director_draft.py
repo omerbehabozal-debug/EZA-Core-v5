@@ -364,7 +364,13 @@ async def test_review_timeout_and_typeerror():
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_disabled_without_force():
+async def test_orchestrator_disabled_without_force(monkeypatch):
+    monkeypatch.delenv("EZA_MIRROR_DIRECTOR_MODE", raising=False)
+    monkeypatch.setenv("EZA_MIRROR_DIRECTOR_ENABLED", "false")
+    monkeypatch.setattr(
+        "backend.services.mirror.mirror_director_mode.get_settings",
+        lambda: type("S", (), {"EZA_MIRROR_DIRECTOR_MODE": "", "EZA_MIRROR_DIRECTOR_ENABLED": False})(),
+    )
     with pytest.raises(MirrorDirectorDisabledError):
         await run_mirror_director_orchestration(
             snapshot=_kyoto_snapshot(),

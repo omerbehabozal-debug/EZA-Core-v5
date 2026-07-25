@@ -21,10 +21,10 @@ from backend.services.mirror.mirror_director_prepare_cache import (
     cache_get,
     cache_set,
 )
-from backend.services.mirror.mirror_draft_to_v5 import MIRROR_TEXT_FREE_SCENE_RULE
 from backend.services.mirror.mirror_interpretation import generate_mirror_interpretation
 from backend.services.mirror.mirror_interpretation_to_v5 import (
     MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION,
+    MIRROR_TEXT_FREE_SCENE_RULE,
     map_interpretation_to_v5_prompt,
 )
 from backend.core.schemas.mirror_interpretation import MirrorInterpretationV1

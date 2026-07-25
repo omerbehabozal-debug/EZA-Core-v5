@@ -34,12 +34,22 @@ def test_resolver_defaults_to_legacy(monkeypatch):
 
 
 def test_resolver_enabled_true_maps_to_full(monkeypatch):
+    monkeypatch.delenv("EZA_MIRROR_DIRECTOR_MODE", raising=False)
     monkeypatch.setenv("EZA_MIRROR_DIRECTOR_ENABLED", "true")
+    monkeypatch.setattr(
+        "backend.services.mirror.mirror_director_mode.get_settings",
+        lambda: type("S", (), {"EZA_MIRROR_DIRECTOR_MODE": "", "EZA_MIRROR_DIRECTOR_ENABLED": True})(),
+    )
     assert resolve_mirror_director_mode() == "FULL"
 
 
 def test_resolver_enabled_false_maps_to_legacy(monkeypatch):
+    monkeypatch.delenv("EZA_MIRROR_DIRECTOR_MODE", raising=False)
     monkeypatch.setenv("EZA_MIRROR_DIRECTOR_ENABLED", "false")
+    monkeypatch.setattr(
+        "backend.services.mirror.mirror_director_mode.get_settings",
+        lambda: type("S", (), {"EZA_MIRROR_DIRECTOR_MODE": "", "EZA_MIRROR_DIRECTOR_ENABLED": False})(),
+    )
     assert resolve_mirror_director_mode() == "LEGACY"
 
 
