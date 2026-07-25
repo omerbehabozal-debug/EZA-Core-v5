@@ -50,6 +50,7 @@ jobs:
             tests/test_mirror_scene_asset_config.py \
             tests/test_mirror_openai_provider.py \
             tests/test_mirror_generate_scene.py \
+            tests/test_mirror_d2_prompt_guard.py \
             tests/test_mirror_sohbet_session.py \
             tests/test_mirror_meaning_analysis.py \
             tests/test_mirror_director_draft.py \

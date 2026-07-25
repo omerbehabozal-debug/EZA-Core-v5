@@ -57,6 +57,7 @@ jobs:
           tests/shouldAutoGenerateMirrorScene.test.ts
           tests/explicitSceneGenerationGuard.test.ts
           tests/dailyMirrorCreatePreflight.test.ts
+          tests/d2FailClosedSceneGeneration.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-

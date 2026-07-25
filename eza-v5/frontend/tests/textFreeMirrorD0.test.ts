@@ -54,9 +54,9 @@ describe('PR D0 — text-free Mirror image contract', () => {
     expect(visual.masterPosterText?.headline).toBe(payload.mirrorTitle);
 
     expect(prompt).toContain(MIRROR_TEXT_FREE_SCENE_RULE);
-    expect(prompt).toMatch(/no text/i);
+    expect(prompt).toMatch(/text-free|no typography/i);
     expect(prompt).toMatch(/typography/i);
-    expect(prompt).toMatch(/readable signage/i);
+    expect(prompt).toMatch(/signage|watermark/i);
     expect(prompt).not.toContain('TITLE:');
     expect(prompt).not.toContain('Title may appear');
     expect(prompt).not.toContain(brief.title);

@@ -87,6 +87,16 @@ def test_assert_d2_success_hashes_equal():
     assert out == h
 
 
+def test_assert_unset_pipeline_skips_d2_enforcement():
+    """Missing pipeline must not infer D2 (unit/provider callers without discriminator)."""
+    h = assert_d2_provider_prompt(
+        prompt="CATEGORY: architecture\nsoft daylight",
+        generation_id=None,
+        generation_pipeline=None,
+    )
+    assert len(h) == 64
+
+
 def test_assert_legacy_allows_category():
     h = assert_d2_provider_prompt(
         prompt="CATEGORY: architecture\nsoft daylight",
