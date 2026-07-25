@@ -182,12 +182,20 @@ class ApiClient {
         };
       }
 
-      // Backend response format: { ok: true, data: {...}, mode: "...", eza_score: ... }
-      // We want to preserve the structure but make data easily accessible
+      // Chat/stream style: { ok: true, data: {...}, mode, ... }
+      // FastAPI response_model style (prepare-director-draft, etc.): body IS the payload
+      // (no nested `data`). Prefer nested data only when the key exists.
+      const payload =
+        data !== null &&
+        typeof data === 'object' &&
+        Object.prototype.hasOwnProperty.call(data, 'data')
+          ? (data as { data: unknown }).data
+          : data;
+
       return {
         ok: true,
-        ...data,  // Spread all fields (mode, eza_score, etc.)
-        data: data.data,  // Extract the data field (this contains assistant_answer, user_score, etc.)
+        ...data, // Spread all fields (mode, eza_score, director fields, etc.)
+        data: payload,
       };
     } catch (error: any) {
       console.error('API Request Error:', error);

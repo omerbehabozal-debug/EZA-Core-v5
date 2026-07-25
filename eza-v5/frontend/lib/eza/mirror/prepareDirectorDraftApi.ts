@@ -62,14 +62,48 @@ export async function prepareDirectorDraft(
       'prepare_http_error'
     );
   }
-  const data = res.data;
-  if (!data || typeof data !== 'object') {
+  // apiClient may place FastAPI response_model fields on `res` itself when the
+  // body has no nested `data` key. Prefer res.data, then unwrapped body fields.
+  const data = unwrapPrepareDirectorResult(res);
+  if (!data) {
     throw new MirrorPrepareError(
       'Director prepare boş yanıt döndü.',
       'prepare_empty_response'
     );
   }
   return data;
+}
+
+/** Normalize apiClient envelope vs raw FastAPI prepare body. */
+export function unwrapPrepareDirectorResult(
+  res: Record<string, unknown> & { data?: unknown; ok?: boolean }
+): PrepareDirectorDraftResult | null {
+  const nested = res.data;
+  if (nested && typeof nested === 'object' && isPrepareDirectorShape(nested)) {
+    return nested as PrepareDirectorDraftResult;
+  }
+  if (isPrepareDirectorShape(res)) {
+    const {
+      ok: _ok,
+      error: _error,
+      detail: _detail,
+      data: _data,
+      ...rest
+    } = res;
+    return rest as unknown as PrepareDirectorDraftResult;
+  }
+  return null;
+}
+
+function isPrepareDirectorShape(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.usedDirector === 'boolean' ||
+    typeof v.directorEnabled === 'boolean' ||
+    typeof v.directorMode === 'string' ||
+    v.mappedPrompt != null
+  );
 }
 
 /** Build permitted DTOs from archive + live messages (user primary). */

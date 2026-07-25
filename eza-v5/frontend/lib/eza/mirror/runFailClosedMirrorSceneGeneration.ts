@@ -114,7 +114,9 @@ async function runPrepareWithRetry(
   prepare: FailClosedPrepareFn
 ): Promise<{ prepared: PrepareDirectorDraftResult; attempt: number }> {
   let lastError: unknown;
+  let lastAttempt = 0;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
+    lastAttempt = attempt;
     try {
       const prepared = await prepare();
       return { prepared, attempt };
@@ -123,10 +125,13 @@ async function runPrepareWithRetry(
       if (attempt === 2) break;
     }
   }
-  if (lastError instanceof MirrorPrepareError) {
-    throw prepareFailedError(lastError.message);
-  }
-  throw prepareFailedError();
+  const err =
+    lastError instanceof MirrorPrepareError
+      ? prepareFailedError(lastError.message)
+      : prepareFailedError();
+  (err as MirrorSceneError & { prepareAttempt?: number }).prepareAttempt =
+    lastAttempt;
+  throw err;
 }
 
 function requireD2PrepareSuccess(prepared: PrepareDirectorDraftResult): void {
@@ -347,6 +352,14 @@ export async function runFailClosedMirrorSceneGeneration(
       directorMode,
     };
   } catch (err) {
+    if (
+      err instanceof MirrorSceneError &&
+      typeof (err as MirrorSceneError & { prepareAttempt?: number }).prepareAttempt ===
+        'number'
+    ) {
+      prepareAttempt = (err as MirrorSceneError & { prepareAttempt: number })
+        .prepareAttempt;
+    }
     if (err instanceof MirrorSceneError) {
       return fail(err, err.code);
     }
