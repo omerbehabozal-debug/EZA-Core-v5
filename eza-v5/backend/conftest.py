@@ -4,11 +4,20 @@ EZA Global AI Safety OS - Test Artifact System
 Root-level pytest configuration for all test suites
 """
 
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# CI / local: cwd is often eza-v5/backend; `import backend` needs eza-v5 on sys.path.
+_EZA_V5_ROOT = Path(__file__).resolve().parent.parent
+if str(_EZA_V5_ROOT) not in sys.path:
+    sys.path.insert(0, str(_EZA_V5_ROOT))
+
 import pytest
 import json
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Any
 from collections import defaultdict
 
