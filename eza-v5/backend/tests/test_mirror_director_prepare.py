@@ -12,6 +12,7 @@ from backend.core.schemas.mirror_prepare_director import MirrorConversationMessa
 from backend.services.mirror.mirror_director_prepare import prepare_mirror_director_draft
 from backend.services.mirror.mirror_director_prepare_cache import cache_clear_for_tests
 from backend.services.mirror.mirror_draft_to_v5 import map_mirror_draft_to_v5_prompt
+from backend.services.mirror.mirror_interpretation_to_v5 import MIRROR_TEXT_FREE_SCENE_RULE
 from backend.services.mirror.mirror_meaning_heuristic import build_heuristic_meaning_from_snapshot
 from backend.services.mirror.conversation_snapshot import build_mirror_conversation_snapshot
 
@@ -145,7 +146,7 @@ async def test_prepare_flag_on_pipeline_and_cache(monkeypatch):
     assert first.conversationContext.creativeAuthority == "none"
     assert "TITLE:" not in first.mappedPrompt.prompt
     assert f'"{first.mappedPrompt.title}"' not in first.mappedPrompt.prompt
-    assert "no text" in first.mappedPrompt.prompt.lower()
+    assert MIRROR_TEXT_FREE_SCENE_RULE in first.mappedPrompt.prompt
     assert "VISUAL NARRATIVE" in first.mappedPrompt.prompt
     assert first.metadata is not None
     assert first.contentHash
