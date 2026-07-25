@@ -1,6 +1,9 @@
 /**
  * Minimal lineage hashing for Mirror Phase 0 observability.
  * Matches backend interpretation_hash join shape for cross-layer comparison.
+ *
+ * Prefer Web Crypto SHA-256; fall back to deterministic DJB2 when SubtleCrypto
+ * is unavailable (some CI / Vitest node environments).
  */
 
 import type { MirrorInterpretationV1 } from '@/lib/eza/mirror/mirrorInterpretationTypes';
@@ -11,20 +14,42 @@ function toHex(buffer: ArrayBuffer): string {
     .join('');
 }
 
-/** SHA-256 hex — browser / Node 18+ (Vitest). */
-export async function sha256Hex(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return toHex(digest);
-}
-
-/** Sync DJB2 hex for lightweight bundle fingerprints when async is unavailable. */
+/** Sync DJB2 hex for lightweight fingerprints / SubtleCrypto fallback. */
 export function djb2Hex(input: string): string {
   let hash = 5381;
   for (let i = 0; i < input.length; i += 1) {
     hash = (hash * 33) ^ input.charCodeAt(i);
   }
   return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * Expand DJB2 into a stable 64-char hex stand-in when SHA-256 is unavailable.
+ * Not cryptographically strong — lineage comparison only.
+ */
+function djb2HexExpanded(input: string): string {
+  const parts: string[] = [];
+  let cursor = input;
+  for (let i = 0; i < 8; i += 1) {
+    parts.push(djb2Hex(`${i}:${cursor}`));
+    cursor = `${parts[parts.length - 1]}:${cursor.length}`;
+  }
+  return parts.join('');
+}
+
+/** SHA-256 hex when available; otherwise expanded DJB2. */
+export async function sha256Hex(input: string): Promise<string> {
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle && typeof subtle.digest === 'function') {
+    try {
+      const data = new TextEncoder().encode(input);
+      const digest = await subtle.digest('SHA-256', data);
+      return toHex(digest);
+    } catch {
+      // fall through
+    }
+  }
+  return djb2HexExpanded(input);
 }
 
 /** Same field join as backend `interpretation_hash`. */
