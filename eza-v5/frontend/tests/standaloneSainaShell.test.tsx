@@ -92,7 +92,8 @@ describe('SainaStandaloneShell (Sprint B.2A)', () => {
     expect(screen.getByTestId('saina-conversation-sidebar')).toBeInTheDocument();
     expect(screen.getByText(SAINA_BRAND)).toBeInTheDocument();
     expect(screen.getByText(SAINA_POWERED)).toBeInTheDocument();
-    expect(screen.queryByText('EZA', { exact: true })).not.toBeInTheDocument();
+    // Pattern dock label is intentionally "EZA"; brand wordmark must stay SAINA.
+    expect(screen.getByTestId('saina-pattern-nav')).toHaveTextContent('EZA');
     expect(screen.queryByText('Standalone', { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByText(SAINA_TAGLINE)).not.toBeInTheDocument();
     expect(screen.queryByText(/YOUR HUMAN-AI MIRROR/i)).not.toBeInTheDocument();
