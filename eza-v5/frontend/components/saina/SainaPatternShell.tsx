@@ -160,7 +160,7 @@ export default function SainaPatternShell({
           </div>
           <div className="saina-main-col saina-pattern-main-col">
             <div className="saina-canvas saina-pattern-canvas-wrap">
-              <SainaCinematicScene />
+              <SainaCinematicScene atmosphere="analysis" />
               {patternSurface}
             </div>
           </div>

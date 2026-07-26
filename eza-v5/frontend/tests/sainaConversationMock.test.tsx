@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import {
   DEFAULT_SAINA_CONVERSATION_SCENE,
+  SAINA_ANALYSIS_ATMOSPHERE_SCENE,
   SAINA_CHAT_COLUMN_WIDTH,
   SAINA_COLORS,
   SAINA_SEARCH_MAX_WIDTH,
@@ -41,6 +42,7 @@ import SainaConversationMockPage from '@/app/dev/saina-conversation/page';
 describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
   it('exposes chat column width and scene glass tokens', () => {
     expect(DEFAULT_SAINA_CONVERSATION_SCENE).toBe('/saina/default-conversation-scene.png');
+    expect(SAINA_ANALYSIS_ATMOSPHERE_SCENE).toBe('/saina/analysis-atmosphere.png');
     expect(SAINA_CHAT_COLUMN_WIDTH).toBe('min(68vw, 860px)');
     expect(SAINA_SEARCH_MAX_WIDTH).toBe('440px');
     expect(SAINA_COLORS.sceneGlass).toBe('rgba(246,244,239,0.42)');

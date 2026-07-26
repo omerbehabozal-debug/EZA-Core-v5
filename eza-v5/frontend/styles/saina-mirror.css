@@ -1579,6 +1579,16 @@ html:has(.saina-page) body {
   background-color: #0a1218;
 }
 
+/* Keşfet / EZA — quieter architectural lock; no chat/mirror identity swap */
+.saina-canvas-bg--analysis-atmosphere {
+  background-color: #0b0e12;
+}
+
+.saina-canvas-bg--analysis-atmosphere .saina-canvas-scene-image--bundled {
+  filter: brightness(0.9) contrast(1.06) saturate(0.92);
+  background-position: center center;
+}
+
 .saina-canvas-scene-image {
   position: absolute;
   inset: 0;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import defaultSceneImage from '../../public/saina/default-conversation-scene.png';
+import analysisAtmosphereImage from '../../public/saina/analysis-atmosphere.png';
 import { SCENE_ENTRANCE_LAMPS, SCENE_IMAGE_ASPECT } from '@/lib/eza/sceneLampPositions';
 import {
   mirrorFocalCssVars,
@@ -15,13 +16,25 @@ const defaultSceneUrl =
     ? defaultSceneImage
     : (defaultSceneImage as { src: string }).src;
 
+const analysisAtmosphereUrl =
+  typeof analysisAtmosphereImage === 'string'
+    ? analysisAtmosphereImage
+    : (analysisAtmosphereImage as { src: string }).src;
+
 const IDENTITY_FADE_MS = 420;
+
+export type SainaSceneAtmosphere = 'conversation' | 'analysis';
 
 type SainaCinematicSceneProps = {
   sceneImageUrl?: string | null;
   /** Optional 0–1 focal; omitted → safe center (legacy images). */
   focalX?: number | null;
   focalY?: number | null;
+  /**
+   * Fixed surface atmosphere. `analysis` locks Keşfet / EZA to a static architectural
+   * backdrop — chat/mirror identity scenes never appear.
+   */
+  atmosphere?: SainaSceneAtmosphere;
 };
 
 /** Full-width conversation atmosphere — default scene with optional Ayna identity crossfade. */
@@ -29,13 +42,17 @@ export default function SainaCinematicScene({
   sceneImageUrl,
   focalX,
   focalY,
+  atmosphere = 'conversation',
 }: SainaCinematicSceneProps) {
+  const lockedAnalysis = atmosphere === 'analysis';
+  const bundledSceneUrl = lockedAnalysis ? analysisAtmosphereUrl : defaultSceneUrl;
+
   const identityUrl =
-    sceneImageUrl && isPersistableConversationSceneUrl(sceneImageUrl)
+    !lockedAnalysis && sceneImageUrl && isPersistableConversationSceneUrl(sceneImageUrl)
       ? sceneImageUrl.trim()
       : null;
   const focal: Partial<MirrorSceneFocalPoint> | null =
-    focalX != null || focalY != null
+    !lockedAnalysis && (focalX != null || focalY != null)
       ? {
           ...(typeof focalX === 'number' ? { focalX } : {}),
           ...(typeof focalY === 'number' ? { focalY } : {}),
@@ -79,16 +96,25 @@ export default function SainaCinematicScene({
   }, [identityUrl]);
 
   return (
-    <div className="saina-canvas-bg saina-canvas-bg--default-scene" aria-hidden>
+    <div
+      className={cn(
+        'saina-canvas-bg saina-canvas-bg--default-scene',
+        lockedAnalysis && 'saina-canvas-bg--analysis-atmosphere'
+      )}
+      aria-hidden
+      data-saina-atmosphere={atmosphere}
+    >
       <div className="saina-scene-fit">
         <div
           className="saina-scene-fit__frame"
-          style={{ aspectRatio: `${SCENE_IMAGE_ASPECT}` }}
+          style={{ aspectRatio: lockedAnalysis ? '16 / 9' : `${SCENE_IMAGE_ASPECT}` }}
         >
           <div
             className="saina-canvas-scene-image saina-canvas-scene-image--bundled"
-            style={{ backgroundImage: `url('${defaultSceneUrl}')`, ...focalStyle }}
-            data-testid="saina-scene-image-layer"
+            style={{ backgroundImage: `url('${bundledSceneUrl}')`, ...focalStyle }}
+            data-testid={
+              lockedAnalysis ? 'saina-scene-analysis-layer' : 'saina-scene-image-layer'
+            }
           />
           {activeIdentityUrl ? (
             <div
@@ -108,32 +134,34 @@ export default function SainaCinematicScene({
       <div className="saina-canvas-overlay saina-canvas-overlay--pattern-dim" />
       <div className="saina-canvas-overlay saina-canvas-overlay--right" />
       <div className="saina-canvas-vignette saina-canvas-vignette--scene" />
-      <div className="saina-scene-live" data-testid="saina-scene-live">
-        <div className="saina-scene-fit saina-scene-fit--lamps">
-          <div
-            className="saina-scene-fit__frame"
-            style={{ aspectRatio: `${SCENE_IMAGE_ASPECT}` }}
-          >
-            <div className="saina-scene-live__lamps" data-testid="saina-scene-live-lamps">
-              {SCENE_ENTRANCE_LAMPS.map((lamp) => (
-                <span
-                  key={lamp.id}
-                  className="saina-scene-live__lamp"
-                  data-lamp-id={lamp.id}
-                  style={{
-                    left: `${lamp.x}%`,
-                    top: `${lamp.y}%`,
-                    width: `${lamp.w}%`,
-                    height: `${lamp.h}%`,
-                    ['--lamp-core' as string]: lamp.color,
-                    animationDelay: `${lamp.delay}s`,
-                  }}
-                />
-              ))}
+      {!lockedAnalysis ? (
+        <div className="saina-scene-live" data-testid="saina-scene-live">
+          <div className="saina-scene-fit saina-scene-fit--lamps">
+            <div
+              className="saina-scene-fit__frame"
+              style={{ aspectRatio: `${SCENE_IMAGE_ASPECT}` }}
+            >
+              <div className="saina-scene-live__lamps" data-testid="saina-scene-live-lamps">
+                {SCENE_ENTRANCE_LAMPS.map((lamp) => (
+                  <span
+                    key={lamp.id}
+                    className="saina-scene-live__lamp"
+                    data-lamp-id={lamp.id}
+                    style={{
+                      left: `${lamp.x}%`,
+                      top: `${lamp.y}%`,
+                      width: `${lamp.w}%`,
+                      height: `${lamp.h}%`,
+                      ['--lamp-core' as string]: lamp.color,
+                      animationDelay: `${lamp.delay}s`,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

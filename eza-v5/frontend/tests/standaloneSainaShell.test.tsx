@@ -291,6 +291,22 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     render(<SainaCinematicScene sceneImageUrl="blob:https://localhost/scene" />);
     expect(screen.queryByTestId('saina-scene-identity-layer')).not.toBeInTheDocument();
   });
+
+  it('locks analysis atmosphere without conversation identity or lamps', () => {
+    const { container } = render(
+      <SainaCinematicScene
+        atmosphere="analysis"
+        sceneImageUrl="https://cdn.example/mirror-should-not-appear.jpg"
+      />
+    );
+
+    const layer = screen.getByTestId('saina-scene-analysis-layer');
+    expect(layer).toBeInTheDocument();
+    expect((layer as HTMLElement).style.backgroundImage).toMatch(/analysis-atmosphere/);
+    expect(screen.queryByTestId('saina-scene-identity-layer')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('saina-scene-live')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-saina-atmosphere="analysis"]')).toBeTruthy();
+  });
 });
 
 describe('MessageList / ChatBubble variant=saina (Sprint B.2B)', () => {

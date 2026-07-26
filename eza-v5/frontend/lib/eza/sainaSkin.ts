@@ -8,6 +8,9 @@ import { cn } from '@/lib/utils';
 /** Default shared atmosphere for new conversations (topic-agnostic, until mirror scene replaces it). */
 export const DEFAULT_SAINA_CONVERSATION_SCENE = '/saina/default-conversation-scene.png';
 
+/** Fixed architectural atmosphere for Keşfet + EZA (relationship map) surfaces. */
+export const SAINA_ANALYSIS_ATMOSPHERE_SCENE = '/saina/analysis-atmosphere.png';
+
 /** Shared width for hero, chat card, composer, and suggestion row. */
 export const SAINA_CHAT_COLUMN_WIDTH = 'min(68vw, 860px)';
 
