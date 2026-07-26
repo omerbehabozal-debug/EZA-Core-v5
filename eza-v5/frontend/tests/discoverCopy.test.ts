@@ -11,8 +11,8 @@ describe('discoverCopy', () => {
     expect(formatDiscoverYansiCount(8421)).toMatch(/8\.421 Yansı/);
   });
 
-  it('uses sohbete katıl CTA', () => {
-    expect(SAINA_DISCOVER_CTA).toBe('Bu sohbete katıl →');
+  it('uses curiosity CTA that opens chat directly', () => {
+    expect(SAINA_DISCOVER_CTA).toBe('Bu konuyu ben de merak ediyorum');
   });
 
   it('uses curiosity-first hero lines', () => {

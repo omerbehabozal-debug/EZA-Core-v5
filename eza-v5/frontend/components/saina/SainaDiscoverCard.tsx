@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   SAINA_DISCOVER_CTA,
   SAINA_DISCOVER_LIMIT_CTA,
   formatDiscoverYansiCount,
 } from '@/lib/eza/mirror-network/discoverCopy';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
+import { startDiscoverGuestChatFromSlug } from '@/lib/eza/mirror-network/startDiscoverGuestChat';
+import { isQuotaLimitReason } from '@/lib/eza/plan/sainaQuotaMessages';
 
 export type SainaDiscoverCardProps = {
   item: DiscoverMirror;
@@ -20,10 +22,32 @@ export default function SainaDiscoverCard({
   discoverLimitReached = false,
   onDiscoverLimit,
 }: SainaDiscoverCardProps) {
-  const href = `/m/${encodeURIComponent(item.slug)}/sohbet`;
+  const router = useRouter();
   const hasImage = Boolean(item.sceneImageUrl?.trim());
   const [imageFailed, setImageFailed] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState(false);
   const showImage = hasImage && !imageFailed;
+  const summary = item.description?.trim() || null;
+
+  const handleStartChat = useCallback(async () => {
+    if (starting) return;
+    setStarting(true);
+    setStartError(false);
+
+    const result = await startDiscoverGuestChatFromSlug(item.slug, SAINA_DISCOVER_CTA);
+    if (!result.ok) {
+      setStarting(false);
+      if (result.status === 403 && result.quotaDetail && isQuotaLimitReason(result.quotaDetail.reason)) {
+        onDiscoverLimit?.();
+        return;
+      }
+      setStartError(true);
+      return;
+    }
+
+    router.push(result.href);
+  }, [item.slug, onDiscoverLimit, router, starting]);
 
   return (
     <article className="saina-discover-card" data-testid={`saina-discover-card-${item.slug}`}>
@@ -40,12 +64,17 @@ export default function SainaDiscoverCard({
             data-testid="saina-discover-card-image"
           />
         ) : (
-          <div className="saina-discover-card__placeholder" aria-hidden data-testid="saina-discover-card-placeholder" />
+          <div
+            className="saina-discover-card__placeholder"
+            aria-hidden
+            data-testid="saina-discover-card-placeholder"
+          />
         )}
       </div>
 
       <div className="saina-discover-card__body">
         <h2 className="saina-discover-card__title saina-serif">{item.title}</h2>
+        {summary ? <p className="saina-discover-card__summary">{summary}</p> : null}
         <p className="saina-discover-card__yansi">{formatDiscoverYansiCount(item.yansiCount)}</p>
         {discoverLimitReached ? (
           <button
@@ -57,10 +86,21 @@ export default function SainaDiscoverCard({
             {SAINA_DISCOVER_LIMIT_CTA}
           </button>
         ) : (
-          <Link href={href} className="saina-discover-card__cta">
-            {SAINA_DISCOVER_CTA}
-          </Link>
+          <button
+            type="button"
+            className="saina-discover-card__cta"
+            onClick={() => void handleStartChat()}
+            disabled={starting}
+            data-testid={`saina-discover-card-cta-${item.slug}`}
+          >
+            {starting ? 'Sohbet açılıyor…' : SAINA_DISCOVER_CTA}
+          </button>
         )}
+        {startError ? (
+          <p className="saina-discover-card__error" role="alert">
+            Bu merak için sohbet şu an açılamıyor.
+          </p>
+        ) : null}
       </div>
     </article>
   );

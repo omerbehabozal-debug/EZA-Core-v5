@@ -12,7 +12,7 @@ export const SAINA_DISCOVER_HERO_LINE_2 = 'Bir merak seç.';
 
 export const SAINA_DISCOVER_HERO_LINE_3 = 'Kendi yolculuğunu başlat.';
 
-export const SAINA_DISCOVER_CTA = 'Bu sohbete katıl →';
+export const SAINA_DISCOVER_CTA = 'Bu konuyu ben de merak ediyorum';
 
 export const SAINA_DISCOVER_LIMIT_CTA = 'Hesabını Yükselt →';
 
