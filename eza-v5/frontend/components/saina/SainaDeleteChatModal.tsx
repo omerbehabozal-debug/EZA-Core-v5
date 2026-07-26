@@ -62,11 +62,11 @@ export default function SainaDeleteChatModal({
           </p>
         </div>
 
-        <div className="saina-btn-row saina-modal-actions saina-delete-chat-modal__actions">
+        <div className="saina-delete-chat-modal__actions">
           <button
             ref={cancelRef}
             type="button"
-            className="saina-secondary-btn saina-secondary-btn--full"
+            className="saina-secondary-btn"
             onClick={onCancel}
             data-testid="saina-delete-chat-cancel"
           >
@@ -74,7 +74,7 @@ export default function SainaDeleteChatModal({
           </button>
           <button
             type="button"
-            className="saina-danger-btn saina-danger-btn--full"
+            className="saina-danger-btn"
             onClick={onConfirm}
             data-testid="saina-delete-chat-confirm"
           >

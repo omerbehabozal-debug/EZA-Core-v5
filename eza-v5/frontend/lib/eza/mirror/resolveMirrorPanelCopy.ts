@@ -27,7 +27,7 @@ export function isContinuationMirrorChat(chat: ArchivedChat | null | undefined):
 export function resolveMirrorPanelCopy(isContinuation: boolean): MirrorPanelCopy {
   if (isContinuation) {
     return {
-      panelSubtitle: 'Bu sohbet, başka bir merak yolculuğunun devamında doğdu.',
+      panelSubtitle: 'Merak yolculuğunun devamındaki yansıma.',
       emptyTitle: 'Bu sohbet, başka bir merak yolculuğunun devamında doğdu.',
       emptyBody:
         'Sen de bu yolculuğa kendi bakışını kattın. Bu sohbetten sana ait yeni bir Yansı doğabilir.',
@@ -38,9 +38,9 @@ export function resolveMirrorPanelCopy(isContinuation: boolean): MirrorPanelCopy
   }
 
   return {
-    panelSubtitle: 'Bu sohbet henüz bir Aynaya sahip değil.',
+    panelSubtitle: 'Bu sohbetten doğan anlamı aynada görün.',
     emptyTitle: 'Bu sohbet henüz bir Aynaya sahip değil.',
-    emptyBody: 'Bu sohbeti temsil edecek görsel kimliği oluştur.',
+    emptyBody: '',
     createButton: SAINA_CREATE_VISUAL,
     generating: 'Aynan hazırlanıyor…',
     ready: 'Aynan hazır.',

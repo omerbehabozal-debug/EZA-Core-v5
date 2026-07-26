@@ -50,7 +50,7 @@ describe('MirrorOnboardingPreview', () => {
 
   it('DailyMirrorCreatePrompt shows CTA before preview slider on idle', () => {
     expect(promptSrc).toContain('MirrorOnboardingPreview');
-    expect(promptSrc).toContain('from-violet-600');
+    expect(promptSrc).toContain('saina-primary-btn');
     const previewUse = promptSrc.indexOf('<MirrorOnboardingPreview');
     const ctaUse = promptSrc.indexOf('onClick={onGenerate}');
     expect(previewUse).toBeGreaterThan(-1);

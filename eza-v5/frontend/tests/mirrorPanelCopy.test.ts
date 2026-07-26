@@ -12,14 +12,18 @@ describe('resolveMirrorPanelCopy', () => {
     const copy = resolveMirrorPanelCopy(false);
     expect(copy.createButton).toBe(SAINA_CREATE_VISUAL);
     expect(copy.emptyTitle).toContain('Aynaya sahip değil');
+    expect(copy.panelSubtitle).not.toBe(copy.emptyTitle);
+    expect(copy.panelSubtitle).toContain('anlamı aynada');
     expect(copy.generating).toContain('Aynan');
     expect(copy.ready).toContain('Aynan');
+    expect(copy.emptyBody).toBe('');
     expect(copy.emptyBody).not.toContain('Yansı');
   });
 
   it('continuation copy teaches Yansı in narrative only', () => {
     const copy = resolveMirrorPanelCopy(true);
     expect(copy.createButton).toBe(SAINA_CREATE_VISUAL);
+    expect(copy.panelSubtitle).not.toBe(copy.emptyTitle);
     expect(copy.emptyBody).toContain('Yansı doğabilir');
     expect(copy.generating).toContain('Yansın');
     expect(copy.ready).toContain('Yansın');
