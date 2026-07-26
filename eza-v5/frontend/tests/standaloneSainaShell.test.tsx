@@ -744,7 +744,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
 
     expect(screen.getByTestId('saina-discover-nav')).toBeInTheDocument();
     expect(screen.getByTestId('saina-pattern-nav')).toBeInTheDocument();
-    expect(screen.getAllByText('İlişki Haritası').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByTestId('saina-pattern-nav')).toHaveTextContent('EZA');
     expect(screen.queryByText('Aç →')).not.toBeInTheDocument();
     expect(screen.queryByText('Keşfet →')).not.toBeInTheDocument();
   });

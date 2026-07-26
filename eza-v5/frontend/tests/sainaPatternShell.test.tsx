@@ -90,8 +90,9 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
       expect(screen.getByText('Açık')).toBeInTheDocument();
     });
 
-    const patternBtn = screen.getByRole('button', { name: /İlişki Haritası/i });
-    expect(patternBtn).toHaveClass('saina-pattern-nav--active');
+    const patternBtn = screen.getByRole('button', { name: /^EZA$/i });
+    expect(patternBtn).toHaveAttribute('data-testid', 'saina-pattern-nav');
+    expect(patternBtn).toHaveClass('saina-sidebar-dock-link--active');
   });
 
   it('shows İlişki Deseni title and period filters', async () => {

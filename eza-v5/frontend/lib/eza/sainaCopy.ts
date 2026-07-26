@@ -204,7 +204,7 @@ export const SAINA_PREMIUM_BODY_SHORT = 'Ayna haklarınız aktif.';
 
 
 
-export const SAINA_RELATIONSHIP_PATTERN_TITLE = 'İlişki Haritası';
+export const SAINA_RELATIONSHIP_PATTERN_TITLE = 'EZA';
 
 export const SAINA_RELATIONSHIP_PATTERN_BODY = 'Uzun dönem ilişki haritanı gör.';
 
