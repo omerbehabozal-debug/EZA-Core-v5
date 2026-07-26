@@ -44,6 +44,14 @@ class MirrorNetworkPublicPayload(BaseModel):
     seed: MirrorSeedPublic
     lineage: Optional[str] = None
     shareVoice: Optional[str] = None
+    # Public landing contract v1 (preferred over curiosityContext for UI)
+    publicTitle: Optional[str] = None
+    publicSummary: Optional[str] = None
+    continuationContext: Optional[str] = None
+    contractVersion: Optional[str] = None
+    interpretationHash: Optional[str] = None
+    publicLandingHash: Optional[str] = None
+    semanticSource: Optional[str] = None
 
 
 # Stage 2 landing UI: show at most this many hooks / seed starters (card shows none).

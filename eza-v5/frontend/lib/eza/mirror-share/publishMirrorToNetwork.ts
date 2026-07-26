@@ -4,9 +4,8 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
-import { buildMirrorCuriosityBundle } from '@/lib/eza/mirror-network/buildMirrorCuriosity';
 import { buildCuriosityFromInterpretation } from '@/lib/eza/mirror-network/buildCuriosityFromInterpretation';
-import type { MirrorCuriosityBundle } from '@/lib/eza/mirror-network/types';
+import type { MirrorCuriosityBundle, MirrorSeed } from '@/lib/eza/mirror-network/types';
 import type { MirrorNetworkPublicApiResponse } from '@/lib/eza/mirror-network/publicTypes';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { MirrorShareIdentity } from '@/lib/eza/mirror-share/types';
@@ -19,6 +18,12 @@ import {
   type MirrorPublishLineageMeta,
   type MirrorSemanticSource,
 } from '@/lib/eza/mirror/mirrorLineageHash';
+import {
+  assertPublicLandingPublishable,
+  buildSafePublicMirrorLandingFallback,
+  hashPublicMirrorLanding,
+  MIRROR_PUBLIC_LANDING_CONTRACT_VERSION,
+} from '@/lib/eza/mirror-network/publicMirrorLanding';
 
 export type PublishMirrorToNetworkInput = {
   card: DailyMirrorCardModel;
@@ -54,7 +59,8 @@ function sceneAssetIdFromUrl(url: string | null | undefined): string | null {
 }
 
 /**
- * Resolve publish curiosity: D2 wins over any stale V3 curiosityBundle.
+ * Resolve publish curiosity: D2 public landing wins.
+ * Without D2, never interpolate V3 evidence labels into public copy — safe fallback only.
  */
 export function resolvePublishCuriosityBundle(card: DailyMirrorCardModel): {
   bundle: MirrorCuriosityBundle;
@@ -62,6 +68,7 @@ export function resolvePublishCuriosityBundle(card: DailyMirrorCardModel): {
 } {
   if (isMirrorInterpretationV1(card.mirrorFinalInterpretation)) {
     const built = buildCuriosityFromInterpretation(card.mirrorFinalInterpretation);
+    assertPublicLandingPublishable(built.publicLanding);
     return { bundle: built.bundle, semanticSource: 'd2_interpretation' };
   }
 
@@ -71,15 +78,41 @@ export function resolvePublishCuriosityBundle(card: DailyMirrorCardModel): {
   }
 
   const existing = payload.curiosityBundle;
-  if (existing?.semanticSource === 'd2_interpretation') {
+  if (
+    existing?.semanticSource === 'd2_interpretation' &&
+    existing.publicLanding?.contractVersion === MIRROR_PUBLIC_LANDING_CONTRACT_VERSION &&
+    existing.publicLanding.semanticSource === 'd2_interpretation'
+  ) {
+    assertPublicLandingPublishable(existing.publicLanding);
     return { bundle: existing, semanticSource: 'd2_interpretation' };
   }
 
-  const bundle: MirrorCuriosityBundle = {
-    ...(existing ?? buildMirrorCuriosityBundle(payload)),
-    semanticSource: 'legacy_v3_fallback',
+  // Fail-closed: no D2 → safe neutral public landing (never seed.subtopics / evidence labels).
+  const title = card.headline || payload.mirrorTitle || undefined;
+  const publicLanding = buildSafePublicMirrorLandingFallback({ title });
+  const seed: MirrorSeed = {
+    primaryTopic: publicLanding.publicTitle,
+    topicCategory: 'general_curiosity',
+    mood: 'discovery',
+    subtopics: [],
+    curiosityHooks: [publicLanding.continuationContext],
+    seedQuestions: ['Bu konuyu kendi yolculuğun için nasıl keşfetmek istersin?'],
+    locale: 'tr',
   };
-  return { bundle, semanticSource: 'legacy_v3_fallback' };
+  const bundle: MirrorCuriosityBundle = {
+    seed,
+    cardTitle: publicLanding.publicTitle,
+    coreCuriosity: publicLanding.continuationContext,
+    curiosityContext: { text: publicLanding.publicSummary },
+    hooks: [publicLanding.continuationContext],
+    landingContext: publicLanding.publicSummary,
+    seedQuestions: seed.seedQuestions,
+    discoverySignals: [publicLanding.publicTitle, 'discovery'],
+    collectionTags: ['general-curiosity', 'discovery'],
+    semanticSource: 'safe_fallback',
+    publicLanding,
+  };
+  return { bundle, semanticSource: 'safe_fallback' };
 }
 
 function buildIntelligencePrivate(
@@ -135,6 +168,11 @@ async function buildPublishBody(input: PublishMirrorToNetworkInput) {
   }
 
   const { bundle: curiosityBundle, semanticSource } = resolvePublishCuriosityBundle(card);
+  const publicLanding = curiosityBundle.publicLanding;
+  if (!publicLanding) {
+    throw new Error('public_landing_required');
+  }
+  assertPublicLandingPublishable(publicLanding);
 
   const interpHash = isMirrorInterpretationV1(card.mirrorFinalInterpretation)
     ? await interpretationHash(card.mirrorFinalInterpretation)
@@ -142,13 +180,14 @@ async function buildPublishBody(input: PublishMirrorToNetworkInput) {
   const mappedHash = card.visual?.prompt
     ? await mappedPromptHash(card.visual.prompt)
     : undefined;
+  const publicLandingHash = await hashPublicMirrorLanding(publicLanding);
   const bundleHash = await publishBundleHash({
     cardTitle: curiosityBundle.cardTitle,
-    coreCuriosity: curiosityBundle.coreCuriosity,
-    landingContext: curiosityBundle.landingContext,
-    hooks: curiosityBundle.hooks,
-    seed: curiosityBundle.seed,
+    publicTitle: publicLanding.publicTitle,
+    publicSummary: publicLanding.publicSummary,
+    continuationContext: publicLanding.continuationContext,
     semanticSource,
+    contractVersion: publicLanding.contractVersion,
   });
 
   const lineage: MirrorPublishLineageMeta = {
@@ -156,10 +195,12 @@ async function buildPublishBody(input: PublishMirrorToNetworkInput) {
     interpretationHash: interpHash,
     mappedPromptHash: mappedHash,
     publishBundleHash: bundleHash,
+    publicLandingHash,
     contentHash: card.mirrorDirectorMetadata?.contentHash ?? null,
     generationId,
     conversationId: conversationId?.trim() || undefined,
     sceneAssetId: sceneAssetIdFromUrl(sceneImageUrl),
+    contractVersion: publicLanding.contractVersion,
   };
 
   const publishLineage = resolveMirrorPublishLineage({
@@ -167,10 +208,7 @@ async function buildPublishBody(input: PublishMirrorToNetworkInput) {
     curiosityLineage: curiosityBundle.seed?.lineage,
   });
 
-  const cardTitle =
-    semanticSource === 'd2_interpretation'
-      ? curiosityBundle.cardTitle || card.headline || payload.mirrorTitle
-      : card.headline || payload.mirrorTitle;
+  const cardTitle = publicLanding.publicTitle || card.headline || payload.mirrorTitle;
 
   return {
     body: {

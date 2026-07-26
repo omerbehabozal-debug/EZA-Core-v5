@@ -1,21 +1,16 @@
 /**
  * SAINA Mirror Philosophy
  *
- * A Mirror is not a conversation summary.
- * A Mirror is not an insight report.
- * A Mirror is not an AI answer.
+ * A Mirror is not a conversation transcript.
+ * A public landing must still explain the curiosity that produced the image.
  *
- * A Mirror is a cinematic curiosity artifact.
- *
- * The card creates curiosity.
- * The landing provides context.
- * The conversation delivers knowledge.
- *
- * Never move contextual information back onto the card.
+ * Never move contextual information back onto the card image.
+ * Never interpolate internal evidence labels into public landing copy.
  */
 
 import type { StoryTopicId } from '@/lib/eza/mirror/storyTopicTypes';
 import type { ShareVoiceLine } from '@/lib/eza/mirror-share/types';
+import type { PublicMirrorLanding } from '@/lib/eza/mirror-network/publicMirrorLanding';
 
 export type MirrorTopicMood =
   | 'discovery'
@@ -48,13 +43,14 @@ export type MirrorSeed = {
 /** @deprecated Use MirrorSeed — kept for transitional imports. */
 export type MirrorTopicDNA = MirrorSeed;
 
-/** Safe short curiosity framing for Mirror Landing (not a chat summary). */
+/** @deprecated Prefer PublicMirrorLanding.publicSummary — kept for API compat. */
 export type MirrorCuriosityContext = {
   text: string;
 };
 
 export type MirrorCuriositySemanticSource =
   | 'd2_interpretation'
+  | 'safe_fallback'
   | 'legacy_v3_fallback';
 
 /**
@@ -66,9 +62,13 @@ export type MirrorCuriosityPipeline = {
   cardTitle: string;
   /** Title ≠ curiosity — landing / discovery / search only; never on card. */
   coreCuriosity: string;
+  /**
+   * @deprecated Mirror of publicLanding.publicSummary for older readers.
+   * New surfaces must prefer `publicLanding`.
+   */
   curiosityContext: MirrorCuriosityContext;
   hooks: string[];
-  /** Landing copy anchor (Stage 2+); today mirrors curiosityContext.text. */
+  /** @deprecated Mirror of publicLanding.publicSummary. */
   landingContext: string;
   seedQuestions: string[];
   /** Stage 4+ — conversion / related-mirror signals. */
@@ -82,6 +82,8 @@ export type MirrorCuriosityPipeline = {
    * D2-backed mirrors must never silently keep a V3 architecture/material bundle.
    */
   semanticSource?: MirrorCuriositySemanticSource;
+  /** Public landing contract v1 — title / summary / continuation. */
+  publicLanding?: PublicMirrorLanding;
 };
 
 export type MirrorCuriosityBundle = MirrorCuriosityPipeline;

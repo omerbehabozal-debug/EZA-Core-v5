@@ -1,7 +1,7 @@
 /**
  * SAINA Mirror Philosophy
  *
- * A Mirror is not a conversation summary.
+ * A Mirror is not a conversation transcript.
  * A Mirror is not an insight report.
  * A Mirror is not an AI answer.
  *
@@ -10,14 +10,12 @@
  * Four surfaces (Stage 4B — do not collapse):
  *   Mirror creates curiosity.
  *   Caption creates intent.
- *   Landing preserves curiosity.
+ *   Landing explains the public semantic link between conversation and image.
  *   Conversation satisfies curiosity.
  *
- * Four rules:
- *   Mirror never explains.
- *   Caption never explains. It only invites.
- *   Landing never overwhelms.
- *   Conversation never copies.
+ * Privacy does not mean semantic emptiness.
+ * Landing must never interpolate internal evidence labels into visible copy.
+ * Landing must never reproduce the chat transcript.
  *
  * Never move contextual information back onto the card.
  */

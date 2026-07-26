@@ -1,6 +1,6 @@
 /**
- * Phase 0 — D2 Interpretation → publish/share curiosity meaning.
- * Never uses V3 story-topic heuristics (no Mardin→architecture default).
+ * D2 Interpretation → publish/share curiosity + public landing v1.
+ * Never uses V3 story-topic heuristics or evidence-label interpolation for public copy.
  */
 
 import type { StoryTopicId } from '@/lib/eza/mirror/storyTopicTypes';
@@ -12,6 +12,10 @@ import type {
 } from '@/lib/eza/mirror-network/types';
 import type { ShareVoiceLine } from '@/lib/eza/mirror-share/types';
 import { interpretationHashSync } from '@/lib/eza/mirror/mirrorLineageHash';
+import {
+  buildPublicMirrorLandingFromInterpretation,
+  type PublicMirrorLanding,
+} from '@/lib/eza/mirror-network/publicMirrorLanding';
 
 const MAX_HOOKS = 3;
 const MAX_SEED_QUESTIONS = 3;
@@ -69,6 +73,7 @@ function moodForTopic(topic: StoryTopicId): MirrorTopicMood {
   return 'discovery';
 }
 
+/** Internal-only scene anchors from narrative — never used as public copy. */
 function subtopicsFromNarrative(narrative: string, atmosphere?: string | null): string[] {
   const blob = `${narrative} ${atmosphere ?? ''}`.toLowerCase();
   const cues: Array<[RegExp, string]> = [
@@ -156,32 +161,20 @@ function shareVoiceForTopic(topic: StoryTopicId): ShareVoiceLine {
   };
 }
 
-function contextFromInterpretation(
-  interpretation: MirrorInterpretationV1,
-  topic: StoryTopicId,
-  subtopics: string[]
-): string {
-  const summary = clean(interpretation.interpretationSummary, 220);
-  if (summary) {
-    // Public landing framing — creative summary, not chat replay.
-    return `Bu merak alanı, ${summary.replace(/\.$/, '')} — sohbeti yeniden anlatmaz, keşfe kapı açar.`;
-  }
-  const theme = subtopics.length > 0 ? subtopics.slice(0, 2).join(', ') : topic.replace(/_/g, ' ');
-  return `Bu merak alanı, ${theme} üzerine doğmuş bir keşif izinden ilham alır.`;
-}
-
 export type D2CuriosityBuildResult = {
   bundle: MirrorCuriosityBundle;
   semanticSource: 'd2_interpretation';
   interpretationHash: string;
+  publicLanding: PublicMirrorLanding;
 };
 
 /**
  * Canonical publish meaning from finalized D2 Interpretation.
- * Does not read V3 evidence, coverage cues, or architecture defaults.
+ * Does not read V3 evidence, coverage cues, or architecture defaults for public copy.
  */
 export function buildCuriosityFromInterpretation(
-  interpretation: MirrorInterpretationV1
+  interpretation: MirrorInterpretationV1,
+  options?: { generationId?: string }
 ): D2CuriosityBuildResult {
   const topic = mapInterpretationTopicToStoryTopicId(interpretation.topicCategory);
   const mood = moodForTopic(topic);
@@ -191,6 +184,9 @@ export function buildCuriosityFromInterpretation(
   );
   const hooks = hooksFromInterpretation(interpretation, topic);
   const seedQuestions = seedQuestionsForTopic(topic).slice(0, MAX_SEED_QUESTIONS);
+  const publicLanding = buildPublicMirrorLandingFromInterpretation(interpretation, {
+    generationId: options?.generationId,
+  });
   const seed: MirrorSeed = {
     primaryTopic: clean(interpretation.title, 48) || topic,
     topicCategory: topic,
@@ -200,31 +196,32 @@ export function buildCuriosityFromInterpretation(
     seedQuestions,
     locale: 'tr',
   };
-  const curiosityContext = {
-    text: contextFromInterpretation(interpretation, topic, subtopics),
-  };
-  const coreCuriosity = hooks[0] || `${seed.primaryTopic} etrafında ne keşfedilmeyi bekliyor?`;
+  const coreCuriosity =
+    publicLanding.continuationContext.slice(0, 140) ||
+    hooks[0] ||
+    `${seed.primaryTopic} etrafında ne keşfedilmeyi bekliyor?`;
   const collectionTags = [topic.replace(/_/g, '-'), mood];
   const discoverySignals = [seed.primaryTopic, mood, ...subtopics.slice(0, 2)].filter(Boolean);
 
   const bundle: MirrorCuriosityBundle = {
     seed,
-    cardTitle: clean(interpretation.title, 64),
+    cardTitle: publicLanding.publicTitle,
     coreCuriosity,
-    curiosityContext,
+    curiosityContext: { text: publicLanding.publicSummary },
     hooks,
-    landingContext: curiosityContext.text,
+    landingContext: publicLanding.publicSummary,
     seedQuestions,
     discoverySignals: discoverySignals.slice(0, 4),
     collectionTags: collectionTags.slice(0, 5),
     shareVoice: shareVoiceForTopic(topic),
     semanticSource: 'd2_interpretation',
+    publicLanding,
   };
 
   return {
     bundle,
     semanticSource: 'd2_interpretation',
-    // Sync fingerprint for card state; publish recomputes SHA-256 to match backend.
     interpretationHash: interpretationHashSync(interpretation),
+    publicLanding,
   };
 }

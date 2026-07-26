@@ -19,11 +19,18 @@ export type MirrorNetworkPublicApiResponse = {
   seed?: Record<string, unknown>;
   lineage?: string | null;
   shareVoice?: string | null;
+  publicTitle?: string | null;
+  publicSummary?: string | null;
+  continuationContext?: string | null;
+  contractVersion?: string | null;
+  interpretationHash?: string | null;
+  publicLandingHash?: string | null;
+  semanticSource?: string | null;
 };
 
 /**
- * Stage 2A landing surface — only fields allowed on /m/[slug].
- * hooks, seedQuestions, tags, coreCuriosity intentionally omitted.
+ * Landing surface — title + public summary only.
+ * continuationContext is intentionally omitted from UI.
  */
 export type MirrorLandingSurface = {
   slug: string;
@@ -32,4 +39,5 @@ export type MirrorLandingSurface = {
   dayLabel: string;
   sceneImageUrl: string | null;
   curiosityContext: string;
+  publicSummary?: string;
 };

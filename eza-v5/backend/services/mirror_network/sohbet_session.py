@@ -207,10 +207,11 @@ def build_sohbet_session_response(
     root_mirror_id: str | None = None,
 ) -> MirrorSohbetSessionResponse:
     token = _normalize_guest_token(guest_token)
+    continuation = (public.continuationContext or "").strip()
     anchor = derive_curiosity_anchor(
-        curiosity_context=public.curiosityContext,
-        card_title=public.cardTitle,
-        core_curiosity=public.coreCuriosity,
+        curiosity_context=public.publicSummary or public.curiosityContext,
+        card_title=public.publicTitle or public.cardTitle,
+        core_curiosity=continuation or public.coreCuriosity,
     )
     expires = datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)
     parent_id, root_id = resolve_mirror_lineage_ids(

@@ -72,6 +72,9 @@ tmp-chunk*.js
 eza-v5/frontend/runtime-*.txt
 eza-v5/frontend/runtime-*-report*.txt
 
+# Public landing migration rollback snapshots (contain prior payloads)
+eza-v5/backend/scripts/_landing_migration_rollbacks/
+
 # Cleanup reports (keep in logs/)
 EZA_CLEANUP_*.json
 EZA_CLEANUP_*.md

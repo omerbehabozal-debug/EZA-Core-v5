@@ -124,6 +124,33 @@ def build_mirror_seed_public(seed: Mapping[str, Any]) -> MirrorSeedPublic:
     )
 
 
+def _extract_public_landing(curiosity_public: Mapping[str, Any]) -> Dict[str, Any]:
+    landing = curiosity_public.get("publicLanding") or curiosity_public.get("public_landing")
+    if not isinstance(landing, dict):
+        landing = {}
+    return {
+        "publicTitle": _as_str(landing.get("publicTitle") or landing.get("public_title")) or None,
+        "publicSummary": _as_str(landing.get("publicSummary") or landing.get("public_summary")) or None,
+        "continuationContext": _as_str(
+            landing.get("continuationContext") or landing.get("continuation_context")
+        )
+        or None,
+        "contractVersion": _as_str(landing.get("contractVersion") or landing.get("contract_version"))
+        or None,
+        "interpretationHash": _as_str(
+            landing.get("interpretationHash") or landing.get("interpretation_hash")
+        )
+        or None,
+        "publicLandingHash": _as_str(
+            landing.get("publicLandingHash") or landing.get("public_landing_hash")
+        )
+        or None,
+        "semanticSource": _as_str(landing.get("semanticSource") or landing.get("semantic_source"))
+        or _as_str(curiosity_public.get("semanticSource"))
+        or None,
+    }
+
+
 def build_public_payload_from_curiosity(
     *,
     slug: str,
@@ -137,20 +164,31 @@ def build_public_payload_from_curiosity(
     if not isinstance(seed_raw, dict):
         seed_raw = {}
 
+    landing_fields = _extract_public_landing(curiosity_public)
+    public_summary = landing_fields.get("publicSummary")
+    curiosity_context = _as_str(
+        (curiosity_public.get("curiosityContext") or {}).get("text")
+        if isinstance(curiosity_public.get("curiosityContext"), dict)
+        else curiosity_public.get("curiosityContext")
+        or curiosity_public.get("curiosity_context")
+    )
+    if public_summary:
+        curiosity_context = public_summary
+    landing_context = _as_str(
+        curiosity_public.get("landingContext") or curiosity_public.get("landing_context")
+    )
+    if public_summary:
+        landing_context = public_summary
+
     return MirrorNetworkPublicPayload(
         slug=slug,
         shareUrl=build_mirror_share_url(slug),
-        cardTitle=card_title,
+        cardTitle=_as_str(landing_fields.get("publicTitle")) or card_title,
         cardDate=card_date,
         sceneImageUrl=scene_image_url,
         coreCuriosity=_as_str(curiosity_public.get("coreCuriosity") or curiosity_public.get("core_curiosity")),
-        curiosityContext=_as_str(
-            (curiosity_public.get("curiosityContext") or {}).get("text")
-            if isinstance(curiosity_public.get("curiosityContext"), dict)
-            else curiosity_public.get("curiosityContext")
-            or curiosity_public.get("curiosity_context")
-        ),
-        landingContext=_as_str(curiosity_public.get("landingContext") or curiosity_public.get("landing_context")),
+        curiosityContext=curiosity_context,
+        landingContext=landing_context,
         hooks=list(curiosity_public.get("hooks") or [])[:6],
         seedQuestions=list(curiosity_public.get("seedQuestions") or curiosity_public.get("seed_questions") or [])[:5],
         discoverySignals=list(
@@ -167,6 +205,13 @@ def build_public_payload_from_curiosity(
             else curiosity_public.get("shareVoice")
         )
         or None,
+        publicTitle=landing_fields.get("publicTitle"),
+        publicSummary=landing_fields.get("publicSummary"),
+        continuationContext=landing_fields.get("continuationContext"),
+        contractVersion=landing_fields.get("contractVersion"),
+        interpretationHash=landing_fields.get("interpretationHash"),
+        publicLandingHash=landing_fields.get("publicLandingHash"),
+        semanticSource=landing_fields.get("semanticSource"),
     )
 
 
@@ -269,6 +314,8 @@ def split_curiosity_payloads(
         "collectionTags": curiosity_bundle.get("collectionTags"),
         "seed": curiosity_bundle.get("seed"),
         "shareVoice": curiosity_bundle.get("shareVoice"),
+        "publicLanding": curiosity_bundle.get("publicLanding"),
+        "semanticSource": curiosity_bundle.get("semanticSource"),
     }
 
     public_payload = build_public_payload_from_curiosity(

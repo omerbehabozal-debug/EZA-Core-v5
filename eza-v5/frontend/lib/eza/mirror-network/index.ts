@@ -20,6 +20,18 @@ export {
   pickMirrorLandingSurface,
 } from '@/lib/eza/mirror-network/landingSurface';
 
+export {
+  buildPublicMirrorLandingFromInterpretation,
+  buildSafePublicMirrorLandingFallback,
+  isLegacyAntiSummaryLandingCopy,
+  MIRROR_PUBLIC_LANDING_CONTRACT_VERSION,
+  SAFE_PUBLIC_LANDING_FALLBACK_SUMMARY,
+} from '@/lib/eza/mirror-network/publicMirrorLanding';
+
+export type { PublicMirrorLanding } from '@/lib/eza/mirror-network/publicMirrorLanding';
+
+export { migrateLegacyPublicLanding } from '@/lib/eza/mirror-network/migrateLegacyPublicLanding';
+
 export { fetchPublicMirrorBySlug } from '@/lib/eza/mirror-network/fetchPublicMirror';
 
 export { createMirrorSohbetSession, loadCachedSohbetSession, cacheSohbetSession } from '@/lib/eza/mirror-network/createSohbetSession';

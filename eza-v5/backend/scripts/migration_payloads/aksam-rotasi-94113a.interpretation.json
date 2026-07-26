@@ -1,0 +1,12 @@
+{
+  "version": "mirror-interpretation-v1",
+  "title": "Mardin'de Sessiz Bir Akşam",
+  "interpretationSummary": "Turistik rotalardan uzakta Mardin'in mahalle hissini ve sakin bir çay anını arıyor.",
+  "rationale": "Operator-approved repair for legacy V3 public copy on aksam-rotasi-94113a; grounded in the published Mardin scene and travel curiosity.",
+  "imageIntent": "Turistik olmayan şehir köşeleri, yerel mahalle atmosferi ve sessiz şehir deneyimleri üzerine konuşmayı sürdür.",
+  "visualNarrative": "Sarı taşlı bir sokakta, çamaşır ipleri ve uzaktaki minareler arasında tahta sandalyede içilen sakin bir çay anı.",
+  "exclusions": ["modern buildings", "tourist crowds", "stock imagery"],
+  "confidence": 0.9,
+  "topicCategory": "travel",
+  "atmosphereHint": "serene and inviting"
+}

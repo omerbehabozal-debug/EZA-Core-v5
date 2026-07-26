@@ -35,8 +35,30 @@ describe('mirror landing surface (Stage 2A)', () => {
 
     const keys = Object.keys(surface).sort();
     expect(keys).toEqual(
-      ['cardDate', 'cardTitle', 'curiosityContext', 'dayLabel', 'sceneImageUrl', 'slug'].sort()
+      [
+        'cardDate',
+        'cardTitle',
+        'curiosityContext',
+        'dayLabel',
+        'publicSummary',
+        'sceneImageUrl',
+        'slug',
+      ].sort()
     );
+  });
+
+  it('prefers publicSummary over legacy curiosityContext', () => {
+    const surface = pickMirrorLandingSurface({
+      ...FULL_API_PAYLOAD,
+      publicTitle: "Mardin'de Sessiz Bir Akşam",
+      publicSummary:
+        'Sarı taşlı bir sokakta sakin bir çay anı. Bu Ayna, Mardin’in mahalle hissini arıyor.',
+      curiosityContext:
+        'Bu merak alanı, Cephe malzemesi üzerine doğmuş bir keşif izinden ilham alır; güvenli bir giriş kapısıdır, konuşmayı yeniden anlatmaz.',
+    });
+    expect(surface.cardTitle).toBe("Mardin'de Sessiz Bir Akşam");
+    expect(surface.curiosityContext).toMatch(/sarı taşlı/i);
+    expect(surface.curiosityContext).not.toMatch(/Cephe malzemesi|güvenli bir giriş/);
   });
 
   it('does not expose coreCuriosity, hooks, or seedQuestions on surface', () => {

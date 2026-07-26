@@ -1,13 +1,16 @@
 /**
- * Stage 2A — landing surface contract.
- *
- * Landing preserves curiosity. It does not explain, list hooks, or preview chat.
+ * Landing surface contract — public title + public summary.
+ * continuationContext is never rendered here.
  */
 
 import type {
   MirrorLandingSurface,
   MirrorNetworkPublicApiResponse,
 } from '@/lib/eza/mirror-network/publicTypes';
+import {
+  pickVisibleLandingSummary,
+  pickVisibleLandingTitle,
+} from '@/lib/eza/mirror-network/publicMirrorLanding';
 
 const MONTHS_TR = [
   'Ocak',
@@ -38,18 +41,24 @@ export function formatMirrorLandingDate(cardDate: string): string {
 export function pickMirrorLandingSurface(
   payload: MirrorNetworkPublicApiResponse
 ): MirrorLandingSurface {
-  const context =
-    payload.curiosityContext?.trim() ||
-    payload.landingContext?.trim() ||
-    '';
+  const summary = pickVisibleLandingSummary({
+    publicSummary: payload.publicSummary,
+    curiosityContext: payload.curiosityContext,
+    landingContext: payload.landingContext,
+  });
+  const title = pickVisibleLandingTitle({
+    publicTitle: payload.publicTitle,
+    cardTitle: payload.cardTitle,
+  });
 
   return {
     slug: payload.slug,
-    cardTitle: payload.cardTitle,
+    cardTitle: title,
     cardDate: payload.cardDate,
     dayLabel: formatMirrorLandingDate(payload.cardDate),
     sceneImageUrl: payload.sceneImageUrl?.trim() || null,
-    curiosityContext: context,
+    curiosityContext: summary,
+    publicSummary: summary,
   };
 }
 
@@ -64,6 +73,7 @@ export function assertMirrorLandingSurfaceClean(surface: MirrorLandingSurface): 
     'collectionTags',
     'seed',
     'tags',
+    'continuationContext',
   ];
   for (const key of forbidden) {
     if (key in record) {

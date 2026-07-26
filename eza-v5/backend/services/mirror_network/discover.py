@@ -68,15 +68,36 @@ def is_public_discover_yansi_child(node: MirrorNetworkNode) -> bool:
     return evaluate_mirror_network_safety(node).passed
 
 
+_SAFE_FALLBACK_DESCRIPTION = (
+    "Bu Ayna, paylaşılan bir deneyim ve onun uyandırdığı meraktan doğdu."
+)
+
+
+def _is_legacy_anti_summary(text: str) -> bool:
+    lower = text.lower()
+    if "güvenli bir giriş kapısıdır" in lower:
+        return True
+    if "konuşmayı yeniden anlatmaz" in lower:
+        return True
+    if "sohbeti yeniden anlatmaz" in lower:
+        return True
+    if "bu merak alanı," in lower and "üzerine doğmuş" in lower:
+        return True
+    return False
+
+
 def _resolve_description(public_payload: Mapping[str, Any] | None) -> Optional[str]:
     if not public_payload:
         return None
-    for key in ("curiosityContext", "landingContext"):
+    for key in ("publicSummary", "curiosityContext", "landingContext"):
         raw = public_payload.get(key)
         if isinstance(raw, str):
             trimmed = raw.strip()
-            if trimmed:
-                return trimmed[:400]
+            if not trimmed:
+                continue
+            if _is_legacy_anti_summary(trimmed):
+                return _SAFE_FALLBACK_DESCRIPTION
+            return trimmed[:400]
     return None
 
 
@@ -120,9 +141,11 @@ def _to_discover_item(
     yansi_count: int,
 ) -> DiscoverMirrorItem:
     payload = node.public_payload if isinstance(node.public_payload, dict) else {}
+    public_title = payload.get("publicTitle") if isinstance(payload.get("publicTitle"), str) else None
+    title = (public_title or node.card_title or "").strip() or node.slug
     return DiscoverMirrorItem(
         slug=node.slug,
-        title=(node.card_title or "").strip() or node.slug,
+        title=title,
         description=_resolve_description(payload),
         sceneImageUrl=scene_url,
         yansiCount=yansi_count,

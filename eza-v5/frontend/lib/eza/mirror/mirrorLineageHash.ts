@@ -81,16 +81,21 @@ export async function publishBundleHash(bundle: unknown): Promise<string> {
   return sha256Hex(JSON.stringify(bundle ?? {}));
 }
 
-export type MirrorSemanticSource = 'd2_interpretation' | 'legacy_v3_fallback';
+export type MirrorSemanticSource =
+  | 'd2_interpretation'
+  | 'safe_fallback'
+  | 'legacy_v3_fallback';
 
 export type MirrorPublishLineageMeta = {
   semanticSource: MirrorSemanticSource;
   interpretationHash?: string;
   mappedPromptHash?: string;
   publishBundleHash?: string;
+  publicLandingHash?: string;
   contentHash?: string | null;
   mapperVersion?: string;
   generationId?: string;
   conversationId?: string;
   sceneAssetId?: string | null;
+  contractVersion?: string;
 };

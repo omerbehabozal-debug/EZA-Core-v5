@@ -1,12 +1,12 @@
 /**
  * SAINA Mirror Philosophy — see ./philosophy.ts
  *
- * Curiosity Seed Intelligence pipeline (landing / discovery only).
- * V3 render brief feeds this layer; outputs never go on card or image prompt.
+ * Curiosity Seed Intelligence pipeline (internal routing / share hooks).
+ * Public landing copy is NOT produced here — see publicMirrorLanding.ts +
+ * buildCuriosityFromInterpretation (D2 only).
  *
- * Pipeline stages (extensible):
- *   Seed → Title → Core Curiosity → Context → Hooks → Landing → Seed Questions
- *   → Discovery Signals → Collection Tags
+ * V3 templates below remain for internal diagnostics only and must never be
+ * published as visible Discover / landing description.
  */
 
 import type { ConversationEvidence } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';

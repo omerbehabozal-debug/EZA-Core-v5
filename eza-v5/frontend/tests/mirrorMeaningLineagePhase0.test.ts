@@ -111,7 +111,9 @@ describe('Phase 0 — D2 publish meaning lineage', () => {
     expect(built.bundle.cardTitle).toBe('Quiet Moments in Mardin');
     expect(built.bundle.collectionTags.join(' ')).not.toMatch(/architecture/);
     expect(built.bundle.hooks.join(' ')).not.toMatch(/Taş ve ışık bir cephede/i);
-    expect(built.bundle.curiosityContext.text).not.toMatch(/mimari malzeme/i);
+    expect(built.bundle.curiosityContext.text).not.toMatch(/mimari malzeme|Cephe malzemesi/i);
+    expect(built.bundle.curiosityContext.text).not.toMatch(/güvenli bir giriş kapısıdır|sohbeti yeniden anlatmaz/i);
+    expect(built.bundle.publicLanding?.publicSummary).toMatch(/Mardin|stone|street|chair|clothesline|minaret/i);
     expect(built.bundle.seed.subtopics.some((s) => /sandalye|çamaşır|minare|sarı taş/i.test(s))).toBe(
       true
     );
@@ -199,10 +201,24 @@ describe('Phase 0 — D2 publish meaning lineage', () => {
       seed: { topicCategory: string };
       hooks: string[];
       semanticSource: string;
+      publicLanding?: {
+        publicTitle: string;
+        publicSummary: string;
+        continuationContext: string;
+        contractVersion: string;
+        interpretationHash: string;
+      };
     };
     expect(curiosity.semanticSource).toBe('d2_interpretation');
     expect(curiosity.seed.topicCategory).toBe('travel');
     expect(curiosity.hooks.join(' ')).not.toMatch(/Taş ve ışık bir cephede/i);
+    expect(curiosity.publicLanding?.publicTitle).toBe('Quiet Moments in Mardin');
+    expect(curiosity.publicLanding?.publicSummary).toBeTruthy();
+    expect(curiosity.publicLanding?.continuationContext).toBeTruthy();
+    expect(curiosity.publicLanding?.contractVersion).toBe('mirror-public-landing-v1');
+    expect(curiosity.publicLanding?.interpretationHash).toBeTruthy();
+    expect(result.lineage?.publicLandingHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.lineage?.contractVersion).toBe('mirror-public-landing-v1');
 
     const intelligence = body.intelligencePrivate as {
       intelligenceBrief: { mirrorLineage: { semanticSource: string } };
@@ -210,11 +226,13 @@ describe('Phase 0 — D2 publish meaning lineage', () => {
     expect(intelligence.intelligenceBrief.mirrorLineage.semanticSource).toBe('d2_interpretation');
   });
 
-  it('legacy Mirror without D2 uses explicit legacy_v3_fallback', () => {
+  it('legacy Mirror without D2 uses safe_fallback public landing (never evidence labels)', () => {
     const card = buildCardWithStaleArchitectureCuriosity();
     const resolved = resolvePublishCuriosityBundle(card);
-    expect(resolved.semanticSource).toBe('legacy_v3_fallback');
-    expect(resolved.bundle.semanticSource).toBe('legacy_v3_fallback');
-    expect(resolved.bundle.seed.topicCategory).toBe('architecture');
+    expect(resolved.semanticSource).toBe('safe_fallback');
+    expect(resolved.bundle.semanticSource).toBe('safe_fallback');
+    expect(resolved.bundle.publicLanding?.publicSummary).toMatch(/paylaşılan bir deneyim/i);
+    expect(resolved.bundle.curiosityContext.text).not.toMatch(/Cephe malzemesi|mimari malzeme/i);
+    expect(resolved.bundle.seed.subtopics).toEqual([]);
   });
 });
