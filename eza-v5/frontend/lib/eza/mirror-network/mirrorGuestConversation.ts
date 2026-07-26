@@ -34,6 +34,8 @@ const FORBIDDEN_MIRROR_ORIGIN_KEYS = [
 export type StartMirrorGuestChatInput = {
   session: MirrorSohbetSession;
   firstUserMessage: string;
+  /** When set (e.g. Keşfet landing title), used for sidebar/header and pinned against autosave. */
+  chatTitle?: string;
 };
 
 export type StartMirrorGuestChatResult = {
@@ -122,9 +124,16 @@ export function startMirrorGuestChat(
     slug: session.mirrorSlug,
   });
 
+  const landingTitle = input.chatTitle?.trim() || '';
+  const title =
+    summarizeArchiveTitle(landingTitle) ||
+    summarizeArchiveTitle(text) ||
+    session.cardTitle;
+
   const entry: ArchivedChat = {
     id: chatId,
-    title: summarizeArchiveTitle(text) || session.cardTitle,
+    title,
+    ...(landingTitle ? { titlePinned: true } : {}),
     preview: text.slice(0, 80),
     savedAt: new Date().toISOString(),
     messageCount: messages.length,

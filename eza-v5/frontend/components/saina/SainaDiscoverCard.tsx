@@ -35,7 +35,11 @@ export default function SainaDiscoverCard({
     setStarting(true);
     setStartError(false);
 
-    const result = await startDiscoverGuestChatFromSlug(item.slug, SAINA_DISCOVER_CTA);
+    const result = await startDiscoverGuestChatFromSlug(
+      item.slug,
+      SAINA_DISCOVER_CTA,
+      item.title
+    );
     if (!result.ok) {
       setStarting(false);
       if (result.status === 403 && result.quotaDetail && isQuotaLimitReason(result.quotaDetail.reason)) {
@@ -47,7 +51,7 @@ export default function SainaDiscoverCard({
     }
 
     router.push(result.href);
-  }, [item.slug, onDiscoverLimit, router, starting]);
+  }, [item.slug, item.title, onDiscoverLimit, router, starting]);
 
   return (
     <article className="saina-discover-card" data-testid={`saina-discover-card-${item.slug}`}>

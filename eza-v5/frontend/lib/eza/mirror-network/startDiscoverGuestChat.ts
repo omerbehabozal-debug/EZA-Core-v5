@@ -19,7 +19,8 @@ export type StartDiscoverGuestChatResult =
 
 export async function startDiscoverGuestChatFromSlug(
   slug: string,
-  firstUserMessage: string
+  firstUserMessage: string,
+  chatTitle?: string
 ): Promise<StartDiscoverGuestChatResult> {
   const text = firstUserMessage.trim();
   if (!text) return { ok: false, status: 400 };
@@ -34,9 +35,11 @@ export async function startDiscoverGuestChatFromSlug(
     };
   }
 
+  const landingTitle = chatTitle?.trim() || sessionResult.session.cardTitle;
   const created = startMirrorGuestChat({
     session: sessionResult.session,
     firstUserMessage: text,
+    chatTitle: landingTitle,
   });
   if (!created) return { ok: false, status: 500 };
 

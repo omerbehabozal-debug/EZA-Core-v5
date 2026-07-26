@@ -44,7 +44,7 @@ describe('startDiscoverGuestChatFromSlug', () => {
     });
     startMirrorGuestChat.mockReturnValue({ chatId: 'chat-9', groupId: 'g1', mirrorOrigin: {} });
 
-    const result = await startDiscoverGuestChatFromSlug('kyoto', SAINA_DISCOVER_CTA);
+    const result = await startDiscoverGuestChatFromSlug('kyoto', SAINA_DISCOVER_CTA, 'Kyoto Yolculuğu');
 
     expect(result).toEqual({
       ok: true,
@@ -54,6 +54,7 @@ describe('startDiscoverGuestChatFromSlug', () => {
     expect(startMirrorGuestChat).toHaveBeenCalledWith({
       session: expect.objectContaining({ mirrorSlug: 'kyoto' }),
       firstUserMessage: SAINA_DISCOVER_CTA,
+      chatTitle: 'Kyoto Yolculuğu',
     });
   });
 });

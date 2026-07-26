@@ -36,6 +36,17 @@ describe('mirror guest conversation (Stage 2B slice 2)', () => {
     sessionStorage.clear();
   });
 
+  it('uses landing chatTitle for archive title and pins it against autosave', () => {
+    const created = startMirrorGuestChat({
+      session: SAMPLE_SESSION,
+      firstUserMessage: 'Bu konuyu ben de merak ediyorum',
+      chatTitle: 'Akşam Rotası',
+    });
+    const chat = getChatArchive(created!.chatId);
+    expect(chat?.title).toBe('Akşam Rotası');
+    expect(chat?.titlePinned).toBe(true);
+  });
+
   it('hook card message becomes pending chat message, not textarea prefill', () => {
     const hookLabel = 'Akşam sokaklarını keşfet';
     const created = startMirrorGuestChat({

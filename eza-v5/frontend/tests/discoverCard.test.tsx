@@ -46,7 +46,11 @@ describe('SainaDiscoverCard', () => {
     fireEvent.click(screen.getByTestId('saina-discover-card-cta-kyoto-journey'));
 
     await waitFor(() => {
-      expect(startDiscoverGuestChatFromSlug).toHaveBeenCalledWith('kyoto-journey', SAINA_DISCOVER_CTA);
+      expect(startDiscoverGuestChatFromSlug).toHaveBeenCalledWith(
+        'kyoto-journey',
+        SAINA_DISCOVER_CTA,
+        'Kyoto Yolculuğu'
+      );
       expect(push).toHaveBeenCalledWith('/standalone?chat=chat-1&mirrorReply=1');
     });
   });
