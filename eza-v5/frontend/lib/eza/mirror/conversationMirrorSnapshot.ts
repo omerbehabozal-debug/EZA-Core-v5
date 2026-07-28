@@ -7,6 +7,9 @@ import {
   computeEntrySignals,
   type MirrorRefreshCta,
 } from '@/lib/eza/mirror/dailyMirrorSnapshot';
+import { peekConversationMirrorSceneCache } from '@/lib/eza/mirror/mirrorSceneCache';
+import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
+import { getChatArchive } from '@/lib/standaloneChatArchive';
 
 export const CONVERSATION_MIRROR_SNAPSHOTS_STORAGE_KEY =
   'eza_conversation_mirror_snapshots_v1';
@@ -134,12 +137,23 @@ export function entriesForDisplayedConversationMirror(
   return sorted.slice(0, snapshot.entryCount);
 }
 
+export function hasPersistedConversationMirror(conversationId: string): boolean {
+  if (!conversationId.trim()) return false;
+  if (readConversationSnapshot(conversationId)) return true;
+  if (peekConversationMirrorSceneCache(conversationId)?.sceneImageUrl) return true;
+  const archiveUrl = getChatArchive(conversationId)?.conversationSceneUrl?.trim() || null;
+  return Boolean(archiveUrl && isPersistableConversationSceneUrl(archiveUrl));
+}
+
 export function resolveConversationMirrorRefreshCta(
   conversationId: string,
   entries: SavedBehavioralEntry[]
 ): MirrorRefreshCta {
   const snap = readConversationSnapshot(conversationId);
-  if (!snap) return 'open_first';
+  if (!snap) {
+    // Keşfet → sohbet remount: snapshot may be missing while scene cache/archive remains.
+    return hasPersistedConversationMirror(conversationId) ? 'current' : 'open_first';
+  }
   if (hasNewDataSinceConversationSnapshot(entries, snap)) return 'update';
   return 'current';
 }

@@ -880,6 +880,10 @@ export default function StandaloneObservationExperience({
           result.sceneImageUrl,
           result.provider
         );
+        // Ensure snapshot exists for Keşfet → sohbet remount hydrate (CTA ≠ open_first).
+        if (conversationId) {
+          saveConversationMirrorSnapshot(conversationId, entries, cardForScene.date);
+        }
         sceneAutoKeyRef.current = `${autoKey}:complete`;
         if (conversationId && isPersistableConversationSceneUrl(result.sceneImageUrl)) {
           setConversationSceneIdentity(conversationId, {
@@ -975,6 +979,7 @@ export default function StandaloneObservationExperience({
     [
       generatedDailyCard,
       conversationId,
+      entries,
       isAuthReady,
       canCreateVisual,
       isPlus,

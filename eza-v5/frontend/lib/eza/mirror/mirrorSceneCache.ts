@@ -134,6 +134,13 @@ function writeConversationSceneStore(store: ConversationSceneCacheStore): void {
   );
 }
 
+export function peekConversationMirrorSceneCache(
+  conversationId: string
+): MirrorSceneCacheRecord | null {
+  if (!conversationId.trim()) return null;
+  return readConversationSceneStore()[conversationId] ?? null;
+}
+
 export function readConversationMirrorSceneCache(
   conversationId: string,
   card: Pick<DailyMirrorCardModel, 'date' | 'visual' | 'mirrorPipelineVersion'> | null

@@ -73,6 +73,10 @@ describe('remount / mobile panel hydrate without regen', () => {
     expect(remountEffect).toBeTruthy();
     expect(remountEffect).not.toContain('clearMirrorSceneCacheForScope');
   });
+
+  it('Keşfet remount keeps snapshot after scene success for hydrate CTA', () => {
+    expect(experienceSrc).toContain('saveConversationMirrorSnapshot(conversationId, entries');
+  });
 });
 
 describe('explicit create clears previous chat background', () => {
