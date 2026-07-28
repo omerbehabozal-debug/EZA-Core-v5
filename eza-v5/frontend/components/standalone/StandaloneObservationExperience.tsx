@@ -317,12 +317,13 @@ export default function StandaloneObservationExperience({
   const ms = standaloneSkin.mirrorSurface;
 
   useEffect(() => {
+    // Remount / reopen must NOT wipe scene cache — hydrate restores from cache/archive.
+    // Cache clears only on explicit create/update/reset (runMirrorWithReveal, resetGeneratedCardState).
     hydratedFromSnapshotRef.current = false;
     sceneAutoKeyRef.current = null;
     allowAutoSceneGenerationRef.current = false;
     setMirrorRevision(0);
     clearStyleLensSession();
-    clearMirrorSceneCacheForScope(conversationId);
     setStyleLensSession(createDefaultStyleLensSession({ date: '', visual: undefined }));
     setGeneratedDailyCard(null);
     setGeneratedDailyMeta(null);
@@ -340,7 +341,6 @@ export default function StandaloneObservationExperience({
       allowAutoSceneGenerationRef.current = false;
       setMirrorRevision(0);
       clearStyleLensSession();
-      clearMirrorSceneCacheForScope(conversationId);
       setStyleLensSession(createDefaultStyleLensSession({ date: '', visual: undefined }));
       setGeneratedDailyCard(null);
       setGeneratedDailyMeta(null);

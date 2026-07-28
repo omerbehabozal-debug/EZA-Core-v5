@@ -171,6 +171,13 @@ export function buildContinuationContextFromInterpretation(
   const base = intent || summary;
   if (!base) return SAFE_CONTINUATION_CONTEXT;
   const line = base.endsWith('.') ? base.slice(0, -1) : base;
+  // imageIntent often already ends with “üzerine konuşmayı sürdür” — don't double it.
+  if (/üzerine konuşmayı sürdür\s*$/i.test(line)) {
+    return clean(
+      `${line}; turistik klişelerden uzak, yerel ve kişisel bir merakla devam et.`,
+      280
+    );
+  }
   return clean(
     `${line} üzerine konuşmayı sürdür; turistik klişelerden uzak, yerel ve kişisel bir merakla devam et.`,
     280

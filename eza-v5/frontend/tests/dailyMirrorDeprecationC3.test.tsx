@@ -38,6 +38,7 @@ vi.mock('@/components/standalone/MirrorEntriesContext', () => ({
 
 import SainaPatternPageInner from '@/components/saina/SainaPatternPageInner';
 import StandaloneMirrorIndex from '@/app/standalone/mirror/page';
+import StandaloneMirrorDailyRedirect from '@/app/standalone/mirror/daily/page';
 import StandaloneReportsRedirect from '@/app/standalone/reports/page';
 import StandaloneInsightsRedirect from '@/app/standalone/insights/page';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
@@ -58,6 +59,18 @@ const identityModalSrc = readFileSync(
 );
 const dailyPageSrc = readFileSync(
   join(process.cwd(), 'app/standalone/mirror/daily/page.tsx'),
+  'utf8'
+);
+const layoutClientSrc = readFileSync(
+  join(process.cwd(), 'app/standalone/mirror/MirrorLayoutClient.tsx'),
+  'utf8'
+);
+const mirrorNavSrc = readFileSync(
+  join(process.cwd(), 'components/standalone/MirrorNav.tsx'),
+  'utf8'
+);
+const sidebarSrc = readFileSync(
+  join(process.cwd(), 'components/standalone/StandaloneSidebar.tsx'),
   'utf8'
 );
 const copySrc = readFileSync(join(process.cwd(), 'lib/eza/mirror/copy.ts'), 'utf8');
@@ -107,12 +120,23 @@ describe('Sprint C.3 — Daily Mirror user-facing deprecation', () => {
     expect(identityModalSrc).not.toContain('/standalone/mirror/daily');
   });
 
-  it('keeps MIRROR_DAILY_ROUTE constant for backward compatibility', () => {
+  it('keeps MIRROR_DAILY_ROUTE constant only as legacy path id', () => {
     expect(copySrc).toContain("export const MIRROR_DAILY_ROUTE = '/standalone/mirror/daily'");
   });
 
-  it('keeps direct daily route page intact', () => {
-    expect(dailyPageSrc).toContain('StandaloneObservationExperience');
-    expect(dailyPageSrc).toContain('useMirrorEntries');
+  it('redirects legacy /standalone/mirror/daily to /standalone', () => {
+    render(<StandaloneMirrorDailyRedirect />);
+    expect(mockReplace).toHaveBeenCalledWith('/standalone');
+    expect(dailyPageSrc).toContain("router.replace('/standalone')");
+    expect(dailyPageSrc).not.toContain('StandaloneObservationExperience');
+  });
+
+  it('does not mount light Daily shell or Daily tab entry points', () => {
+    expect(layoutClientSrc).not.toContain('MirrorDailyShell');
+    expect(layoutClientSrc).not.toContain('MirrorNav');
+    expect(mirrorNavSrc).not.toContain('MIRROR_DAILY_ROUTE');
+    expect(mirrorNavSrc).not.toContain('MIRROR_TAB_DAILY');
+    expect(sidebarSrc).not.toContain('MIRROR_DAILY_ROUTE');
+    expect(sidebarSrc).toContain('MIRROR_PATTERN_ROUTE');
   });
 });

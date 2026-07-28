@@ -28,7 +28,7 @@ import {
   summarizeArchiveTitle,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
-import { MIRROR_DAILY_ROUTE, MIRROR_ROUTE, MIRROR_SIDEBAR_LABEL } from '@/lib/eza/mirror/copy';
+import { MIRROR_PATTERN_ROUTE, MIRROR_ROUTE, MIRROR_SIDEBAR_LABEL } from '@/lib/eza/mirror/copy';
 
 type ChatGroup = { label: string; items: ArchivedChatSummary[] };
 
@@ -244,11 +244,12 @@ export default function StandaloneSidebar({
               Sohbet
             </Link>
             <Link
-              href={MIRROR_DAILY_ROUTE}
+              href={MIRROR_PATTERN_ROUTE}
               onClick={onMobileClose}
               className={cn(
                 standaloneSkin.sidebarNavItem,
                 navActive(MIRROR_ROUTE) ||
+                  navActive(MIRROR_PATTERN_ROUTE) ||
                   navActive('/standalone/reports') ||
                   navActive('/standalone/insights')
                   ? 'bg-white/80 text-standalone-text'

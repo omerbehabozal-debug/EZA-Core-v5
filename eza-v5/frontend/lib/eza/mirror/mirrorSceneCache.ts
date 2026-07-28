@@ -139,15 +139,16 @@ export function readConversationMirrorSceneCache(
   card: Pick<DailyMirrorCardModel, 'date' | 'visual' | 'mirrorPipelineVersion'> | null
 ): MirrorSceneCacheRecord | null {
   if (!conversationId.trim() || !card?.visual) return null;
-  const fingerprint = card.visual.intentFingerprint ?? '';
-  if (!fingerprint) return null;
-  if (card.mirrorPipelineVersion === 'v3' && !isV31SceneCacheFingerprint(fingerprint)) {
-    return null;
-  }
   const record = readConversationSceneStore()[conversationId];
   if (!record) return null;
   if (record.cardDate !== card.date) return null;
-  if (record.intentFingerprint !== fingerprint) return null;
+
+  const fingerprint = card.visual.intentFingerprint ?? '';
+  if (fingerprint && record.intentFingerprint === fingerprint) return record;
+
+  // Remount after D2 prepare often rebuilds a different fingerprint.
+  // Accept the conversation's latest same-day scene only when the stored entry is V3.1+.
+  if (!isV31SceneCacheFingerprint(record.intentFingerprint)) return null;
   return record;
 }
 

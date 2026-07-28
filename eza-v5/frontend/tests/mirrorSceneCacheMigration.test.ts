@@ -82,4 +82,28 @@ describe('mirrorSceneCacheMigration', () => {
 
     expect(hit).toBeNull();
   });
+
+  it('restores same-day V3.1 scene when remount fingerprint differs', () => {
+    const storedFp = `${MIRROR_V3_SCENE_CACHE_KEY}:golden_hour:d2:Merak:chat-2`;
+    localStorage.setItem(
+      CONVERSATION_MIRROR_SCENE_CACHE_STORAGE_KEY,
+      JSON.stringify({
+        'chat-2': {
+          cardDate: '2026-05-31',
+          intentFingerprint: storedFp,
+          sceneImageUrl: 'https://cdn.example/mardin.png',
+        },
+      })
+    );
+
+    const hit = readConversationMirrorSceneCache('chat-2', {
+      date: '2026-05-31',
+      mirrorPipelineVersion: 'v3',
+      visual: {
+        intentFingerprint: `${MIRROR_V3_SCENE_CACHE_KEY}:rebuilt:without:d2:chat-2`,
+      },
+    });
+
+    expect(hit?.sceneImageUrl).toBe('https://cdn.example/mardin.png');
+  });
 });

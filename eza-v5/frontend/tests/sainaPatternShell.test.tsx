@@ -176,14 +176,12 @@ describe('MirrorLayoutClient route split', () => {
   it('bypasses StandalonePageShell for pattern route', () => {
     expect(mirrorLayoutSrc).toContain('MIRROR_PATTERN_ROUTE');
     expect(mirrorLayoutSrc).toContain('MirrorPatternProviders');
-    const patternBranch = mirrorLayoutSrc.split('if (isPattern)')[1]?.split('return <MirrorDailyShell>')[0] ?? '';
-    expect(patternBranch).not.toContain('StandalonePageShell');
-    expect(patternBranch).not.toContain('MirrorNav');
+    expect(mirrorLayoutSrc).not.toContain('StandalonePageShell');
+    expect(mirrorLayoutSrc).not.toContain('MirrorNav');
   });
 
-  it('keeps MirrorNav only in daily shell branch', () => {
-    const dailySection = mirrorLayoutSrc.split('function MirrorDailyShell')[1] ?? '';
-    expect(dailySection).toContain('<MirrorNav />');
-    expect(dailySection).toContain('StandalonePageShell');
+  it('does not mount light Daily shell for non-pattern mirror paths', () => {
+    expect(mirrorLayoutSrc).not.toContain('MirrorDailyShell');
+    expect(mirrorLayoutSrc).not.toContain('StandalonePageShell');
   });
 });

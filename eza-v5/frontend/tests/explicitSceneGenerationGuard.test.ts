@@ -64,6 +64,15 @@ describe('remount / mobile panel hydrate without regen', () => {
       /hydrateSceneFromCache[\s\S]*allowAutoSceneGenerationRef\.current = false/
     );
   });
+
+  it('remount / conversationId reset does not wipe scene cache', () => {
+    // React state may reset; localStorage scene must survive Discover → chat reopen.
+    const remountEffect = experienceSrc.match(
+      /useEffect\(\(\) => \{[\s\S]*?\}, \[conversationId\]\);/
+    )?.[0];
+    expect(remountEffect).toBeTruthy();
+    expect(remountEffect).not.toContain('clearMirrorSceneCacheForScope');
+  });
 });
 
 describe('explicit create clears previous chat background', () => {
