@@ -20,6 +20,7 @@ import {
 import {
   entriesForDisplayedConversationMirror,
   hasNewDataSinceConversationSnapshot,
+  hasPersistedConversationMirror,
   readConversationSnapshot,
   resolveConversationMirrorRefreshCta,
   saveConversationMirrorSnapshot,
@@ -591,7 +592,12 @@ export default function StandaloneObservationExperience({
   useEffect(() => {
     if (hydratedFromSnapshotRef.current || generatedDailyCard) return;
     if (dailyStatus !== 'idle') return;
-    if (refreshCta === 'open_first' || entries.length < MIRROR_MIN_SAMPLES) return;
+    const persisted =
+      Boolean(conversationId) && hasPersistedConversationMirror(conversationId!);
+    // Keşfet → sohbet: snapshot may lag; archive/cache still counts as existing Mirror.
+    if ((refreshCta === 'open_first' && !persisted) || entries.length < MIRROR_MIN_SAMPLES) {
+      return;
+    }
 
     const mirrorEntries = conversationId
       ? entriesForDisplayedConversationMirror(entries, conversationSnapshot)
@@ -653,6 +659,14 @@ export default function StandaloneObservationExperience({
     mirrorBuildOptions,
     prepareMirrorShareLink,
   ]);
+
+  /** current + idle fallback — force hydrate if the silent effect missed a remount race. */
+  useEffect(() => {
+    if (refreshCta !== 'current' || dailyStatus !== 'idle') return;
+    if (hydratedFromSnapshotRef.current || generatedDailyCard) return;
+    if (entries.length < MIRROR_MIN_SAMPLES) return;
+    showExistingMirrorCard();
+  }, [refreshCta, dailyStatus, generatedDailyCard, entries.length, showExistingMirrorCard]);
 
   const cardForRender = useMemo(
     () =>

@@ -149,15 +149,30 @@ interface Message {
 
 // localStorage keys
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
+
+/** Hydrate chat from ?chat= on first paint — avoids empty Ayna flash after Keşfet remount. */
+function readChatStateFromUrl(chatIdFromUrl: string | null): {
+  chatId: string | null;
+  messages: Message[];
+} {
+  if (!chatIdFromUrl || isChatDeleted(chatIdFromUrl)) {
+    return { chatId: null, messages: [] };
+  }
+  const chat = getChatArchive(chatIdFromUrl);
+  if (!chat) return { chatId: null, messages: [] };
+  return { chatId: chatIdFromUrl, messages: fromArchivedMessages(chat.messages) };
+}
+
 export default function StandaloneChatInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const chatIdFromUrl = searchParams?.get('chat') ?? null;
   const mirrorReplyFromUrl = searchParams?.get(MIRROR_GUEST_CHAT_REPLY_PARAM) === '1';
 
-  const [chatId, setChatId] = useState<string | null>(null);
+  const initialChat = readChatStateFromUrl(chatIdFromUrl);
+  const [chatId, setChatId] = useState<string | null>(initialChat.chatId);
   const [ready, setReady] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(initialChat.messages);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
@@ -510,7 +525,8 @@ export default function StandaloneChatInner() {
       );
     }
     return () => {
-      setConversationMirrorEntries([], null);
+      // Keep conversation mirror scope across Keşfet/EZA route remounts.
+      // Clearing to null made Ayna fall back to open_first empty state.
       if (chatId) clearActiveConversationLiveMessages(chatId);
     };
   }, [messages, chatId, setConversationMirrorEntries]);

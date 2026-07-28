@@ -31,6 +31,7 @@ import {
   writeStoredAnalysisModel,
 } from '@/lib/standaloneModels';
 import { trackRelationshipPatternViewed } from '@/lib/eza/mirror/relationshipPatternAnalytics';
+import { useSetConversationMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
 
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
 
@@ -39,6 +40,7 @@ export default function SainaPatternPageInner() {
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, isLoading: entitlementsLoading } =
     useAccountEntitlements();
+  const setConversationMirrorEntries = useSetConversationMirrorEntries();
 
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
@@ -47,6 +49,11 @@ export default function SainaPatternPageInner() {
   const refreshArchives = useCallback(() => {
     setArchives(listChatArchives());
   }, []);
+
+  useEffect(() => {
+    // Pattern map reads global behavioral history — release conversation scope.
+    setConversationMirrorEntries([], null);
+  }, [setConversationMirrorEntries]);
 
   useEffect(() => {
     refreshArchives();

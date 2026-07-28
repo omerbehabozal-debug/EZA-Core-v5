@@ -77,6 +77,28 @@ describe('remount / mobile panel hydrate without regen', () => {
   it('Keşfet remount keeps snapshot after scene success for hydrate CTA', () => {
     expect(experienceSrc).toContain('saveConversationMirrorSnapshot(conversationId, entries');
   });
+
+  it('hydrates when archive/cache persists even if refresh CTA is open_first', () => {
+    expect(experienceSrc).toContain('hasPersistedConversationMirror');
+    expect(experienceSrc).toMatch(
+      /refreshCta === 'open_first' && !persisted/
+    );
+  });
+
+  it('chat unmount does not wipe conversation mirror entries to null', () => {
+    const effectCleanup = chatSrc.match(
+      /useEffect\(\(\) => \{[\s\S]*?setConversationMirrorEntries\([\s\S]*?return \(\) => \{[\s\S]*?\};[\s\S]*?\}, \[messages, chatId/
+    )?.[0];
+    expect(effectCleanup).toBeTruthy();
+    expect(effectCleanup).not.toMatch(
+      /return \(\) => \{[\s\S]*setConversationMirrorEntries\(\[\], null\)/
+    );
+  });
+
+  it('chat first paint hydrates from ?chat= archive to avoid empty Ayna flash', () => {
+    expect(chatSrc).toContain('readChatStateFromUrl');
+    expect(chatSrc).toContain('useState<string | null>(initialChat.chatId)');
+  });
 });
 
 describe('explicit create clears previous chat background', () => {
