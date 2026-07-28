@@ -11,16 +11,38 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/standalone/mirror/pattern',
 }));
 
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: vi.fn(() => ({
+    isAuthenticated: false,
+    user: null,
+    logout: vi.fn(),
+    isAuthReady: true,
+    setAuth: vi.fn(),
+  })),
+}));
+
 vi.mock('@/lib/eza/plan/usePlan', () => ({
   usePlan: vi.fn(),
 }));
 
+vi.mock('@/lib/eza/plan/useRelationshipMapAccess', () => ({
+  useRelationshipMapAccess: vi.fn(() => ({
+    isLoading: false,
+    canViewMapData: true,
+    mapAccess: 'all',
+    cutoffIso: null,
+    refreshMapAccess: vi.fn(),
+  })),
+}));
+
 vi.mock('@/components/standalone/MirrorEntriesContext', () => ({
   useMirrorEntries: vi.fn(() => []),
+  useSetConversationMirrorEntries: vi.fn(() => vi.fn()),
   MirrorEntriesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 import { usePlan } from '@/lib/eza/plan/usePlan';
+import { useRelationshipMapAccess } from '@/lib/eza/plan/useRelationshipMapAccess';
 import SainaPatternPageInner from '@/components/saina/SainaPatternPageInner';
 import SainaAppRootLayout from '@/app/standalone/SainaAppRootLayout';
 
@@ -51,6 +73,13 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
       setPlan: vi.fn(),
       refreshPlan: vi.fn(),
     });
+    vi.mocked(useRelationshipMapAccess).mockReturnValue({
+      isLoading: false,
+      canViewMapData: true,
+      mapAccess: 'all',
+      cutoffIso: null,
+      refreshMapAccess: vi.fn(),
+    });
   });
 
   it('renders SAINA pattern shell with conversation sidebar', async () => {
@@ -66,8 +95,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     renderPatternApp();
 
     await waitFor(() => {
-      expect(screen.getByTestId('saina-persistent-scene')).toBeInTheDocument();
-      expect(screen.getByTestId('saina-scene-image-layer')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-scene-analysis-layer')).toBeInTheDocument();
       expect(document.querySelector('.saina-pattern-canvas-wrap')).toBeTruthy();
     });
   });
@@ -87,12 +115,9 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     renderPatternApp();
 
     await waitFor(() => {
-      expect(screen.getByText('Açık')).toBeInTheDocument();
+      const patternBtn = screen.getByTestId('saina-pattern-nav');
+      expect(patternBtn).toHaveClass('saina-sidebar-dock-link--active');
     });
-
-    const patternBtn = screen.getByRole('button', { name: /^EZA$/i });
-    expect(patternBtn).toHaveAttribute('data-testid', 'saina-pattern-nav');
-    expect(patternBtn).toHaveClass('saina-sidebar-dock-link--active');
   });
 
   it('shows İlişki Deseni title and period filters', async () => {
@@ -107,7 +132,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     });
   });
 
-  it('navigates new chat to /standalone', async () => {
+  it('navigates new chat to /standalone?new=1', async () => {
     renderPatternApp();
 
     await waitFor(() => {
@@ -115,7 +140,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Yeni sohbet/i }));
-    expect(mockReplace).toHaveBeenCalledWith('/standalone', { scroll: false });
+    expect(mockReplace).toHaveBeenCalledWith('/standalone?new=1', { scroll: false });
   });
 
   it('navigates chat selection to /standalone?chat=...', async () => {
@@ -153,11 +178,18 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
       setPlan: vi.fn(),
       refreshPlan: vi.fn(),
     });
+    vi.mocked(useRelationshipMapAccess).mockReturnValue({
+      isLoading: false,
+      canViewMapData: false,
+      mapAccess: 'locked',
+      cutoffIso: null,
+      refreshMapAccess: vi.fn(),
+    });
 
     renderPatternApp();
 
     await waitFor(() => {
-      expect(screen.getByText(/AI İlişki Haritası canlı hale gelsin/i)).toBeInTheDocument();
+      expect(screen.getByText(/İlişki Haritası canlı hale gelsin/i)).toBeInTheDocument();
     });
   });
 
@@ -166,9 +198,10 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('saina-pattern-shell')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'İlişki Haritası' })).toBeInTheDocument();
     });
 
-    expect(screen.queryByText(/AI İlişki Haritası canlı hale gelsin/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/İlişki Haritası canlı hale gelsin/i)).not.toBeInTheDocument();
   });
 });
 

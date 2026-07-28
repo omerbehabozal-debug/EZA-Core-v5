@@ -23,6 +23,7 @@ import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
+import { SAINA_NEW_CHAT_ROUTE } from '@/lib/eza/sainaRoutes';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
 import { canStartDiscoverFromEntitlements } from '@/lib/eza/plan/sainaDiscoverQuota';
 import { resolveDiscoverLimitMessage } from '@/lib/eza/plan/sainaQuotaMessages';
@@ -91,7 +92,7 @@ export default function SainaDiscoverPage() {
 
 
   const handleNewChat = useCallback(() => {
-    router.replace('/standalone', { scroll: false });
+    router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
   }, [router]);
 
   const handleSelectChat = useCallback(
@@ -289,7 +290,7 @@ export default function SainaDiscoverPage() {
             <button
               type="button"
               className="saina-discover-retry"
-              onClick={() => router.push('/standalone')}
+              onClick={() => router.push(SAINA_NEW_CHAT_ROUTE)}
             >
               Sohbete git
             </button>

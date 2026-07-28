@@ -35,6 +35,11 @@ describe('sainaIdentity return URL helpers', () => {
   });
 
   it('resolveSafeAuthReturnPath rejects protocol-relative URLs', () => {
-    expect(resolveSafeAuthReturnPath('//evil.example')).toBe('/standalone');
+    expect(resolveSafeAuthReturnPath('//evil.example')).toBe('/standalone/discover');
+  });
+
+  it('defaults empty auth return path to Keşfet home', () => {
+    expect(resolveSafeAuthReturnPath(null)).toBe('/standalone/discover');
+    expect(buildSainaAuthReturnUrl({})).toBe('/standalone/discover');
   });
 });

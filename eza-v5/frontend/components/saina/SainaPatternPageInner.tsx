@@ -32,6 +32,7 @@ import {
 } from '@/lib/standaloneModels';
 import { trackRelationshipPatternViewed } from '@/lib/eza/mirror/relationshipPatternAnalytics';
 import { useSetConversationMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
+import { SAINA_NEW_CHAT_ROUTE } from '@/lib/eza/sainaRoutes';
 
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
 
@@ -126,7 +127,7 @@ export default function SainaPatternPageInner() {
 
 
   const handleNewChat = useCallback(() => {
-    router.replace('/standalone', { scroll: false });
+    router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
   }, [router]);
 
   const handleSelectChat = useCallback(

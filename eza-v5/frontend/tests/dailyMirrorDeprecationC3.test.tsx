@@ -34,6 +34,7 @@ vi.mock('@/lib/eza/plan/usePlan', () => ({
 
 vi.mock('@/components/standalone/MirrorEntriesContext', () => ({
   useMirrorEntries: vi.fn(() => []),
+  useSetConversationMirrorEntries: vi.fn(() => vi.fn()),
 }));
 
 import SainaPatternPageInner from '@/components/saina/SainaPatternPageInner';
@@ -95,15 +96,15 @@ describe('Sprint C.3 — Daily Mirror user-facing deprecation', () => {
     expect(screen.queryByText(/Günlük Ayna/i)).not.toBeInTheDocument();
   });
 
-  it('redirects /standalone/mirror to /standalone', () => {
+  it('redirects /standalone/mirror to Keşfet home', () => {
     render(<StandaloneMirrorIndex />);
-    expect(mockReplace).toHaveBeenCalledWith('/standalone');
+    expect(mockReplace).toHaveBeenCalledWith('/standalone/discover');
     expect(mirrorIndexSrc).not.toContain('MIRROR_DAILY_ROUTE');
   });
 
-  it('redirects /standalone/reports to /standalone', () => {
+  it('redirects /standalone/reports to Keşfet home', () => {
     render(<StandaloneReportsRedirect />);
-    expect(mockReplace).toHaveBeenCalledWith('/standalone');
+    expect(mockReplace).toHaveBeenCalledWith('/standalone/discover');
     expect(reportsSrc).not.toContain('MIRROR_ROUTE');
   });
 
@@ -124,10 +125,10 @@ describe('Sprint C.3 — Daily Mirror user-facing deprecation', () => {
     expect(copySrc).toContain("export const MIRROR_DAILY_ROUTE = '/standalone/mirror/daily'");
   });
 
-  it('redirects legacy /standalone/mirror/daily to /standalone', () => {
+  it('redirects legacy /standalone/mirror/daily to Keşfet home', () => {
     render(<StandaloneMirrorDailyRedirect />);
-    expect(mockReplace).toHaveBeenCalledWith('/standalone');
-    expect(dailyPageSrc).toContain("router.replace('/standalone')");
+    expect(mockReplace).toHaveBeenCalledWith('/standalone/discover');
+    expect(dailyPageSrc).toContain("router.replace('/standalone/discover')");
     expect(dailyPageSrc).not.toContain('StandaloneObservationExperience');
   });
 

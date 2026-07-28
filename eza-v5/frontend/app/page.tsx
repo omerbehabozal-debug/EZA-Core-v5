@@ -11,7 +11,7 @@ export default function HomePage() {
   const portals = [
     {
       name: 'Standalone',
-      path: '/standalone',
+      path: '/standalone/discover',
       description: 'Standalone AI chat interface',
       color: 'bg-blue-500 hover:bg-blue-600',
     },

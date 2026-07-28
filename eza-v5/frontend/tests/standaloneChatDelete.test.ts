@@ -173,11 +173,11 @@ describe('standalone chat delete hardening', () => {
     expect(resolveChatRouteAfterDelete()).toBe('/standalone?chat=chat-older');
   });
 
-  it('routes to empty standalone when last chat is deleted', () => {
+  it('routes to Keşfet home when last chat is deleted', () => {
     const only = createStandaloneChat({ title: 'Son' });
     deleteChatArchive(only);
     expect(listChatArchives()).toHaveLength(0);
-    expect(resolveChatRouteAfterDelete()).toBe('/standalone');
+    expect(resolveChatRouteAfterDelete()).toBe('/standalone/discover');
   });
 
   it('pending autosave cannot resurrect deleted chat', () => {

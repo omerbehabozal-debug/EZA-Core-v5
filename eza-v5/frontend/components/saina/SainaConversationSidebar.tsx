@@ -601,18 +601,38 @@ export default function SainaConversationSidebar({
               ) : null}
             </div>
 
-            <button
-              type="button"
-              className="saina-new-chat-btn"
-              disabled={disabled && !onNewChat}
-              onClick={() => {
-                onNewChat?.();
-                onMobileClose?.();
-              }}
-            >
-              <MessageSquarePlus size={16} className="saina-new-chat-icon" />
-              {SAINA_NEW_CHAT}
-            </button>
+            <div className="saina-sidebar-primary-nav">
+              <button
+                type="button"
+                className={cn(
+                  'saina-sidebar-dock-link saina-sidebar-home-link',
+                  activeSection === 'discover' && 'saina-sidebar-dock-link--active'
+                )}
+                onClick={() => {
+                  router.push(SAINA_DISCOVER_ROUTE);
+                  onMobileClose?.();
+                }}
+                aria-current={activeSection === 'discover' ? 'page' : undefined}
+                data-testid="saina-discover-nav"
+              >
+                <Compass size={15} className="saina-sidebar-dock-icon" aria-hidden />
+                <span>{SAINA_DISCOVER_TITLE}</span>
+              </button>
+
+              <button
+                type="button"
+                className="saina-sidebar-dock-link"
+                disabled={disabled && !onNewChat}
+                onClick={() => {
+                  onNewChat?.();
+                  onMobileClose?.();
+                }}
+                data-testid="saina-new-chat-btn"
+              >
+                <MessageSquarePlus size={15} className="saina-sidebar-dock-icon" aria-hidden />
+                <span>{SAINA_NEW_CHAT}</span>
+              </button>
+            </div>
           </div>
 
           <div className="saina-conv-list" data-testid="saina-conv-list">
@@ -651,23 +671,6 @@ export default function SainaConversationSidebar({
           </div>
 
           <nav className="saina-sidebar-dock" aria-label="SAINA gezinme">
-            <button
-              type="button"
-              className={cn(
-                'saina-sidebar-dock-link',
-                activeSection === 'discover' && 'saina-sidebar-dock-link--active'
-              )}
-              onClick={() => {
-                router.push(SAINA_DISCOVER_ROUTE);
-                onMobileClose?.();
-              }}
-              aria-current={activeSection === 'discover' ? 'page' : undefined}
-              data-testid="saina-discover-nav"
-            >
-              <Compass size={15} className="saina-sidebar-dock-icon" aria-hidden />
-              <span>{SAINA_DISCOVER_TITLE}</span>
-            </button>
-
             <button
               type="button"
               className={cn(

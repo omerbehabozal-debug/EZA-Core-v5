@@ -3,7 +3,7 @@ export function buildSainaAuthReturnUrl(parts: {
   search?: string | null;
   hash?: string | null;
 }): string {
-  const pathname = parts.pathname?.trim() || '/standalone';
+  const pathname = parts.pathname?.trim() || '/standalone/discover';
   let search = parts.search ?? '';
   if (search && !search.startsWith('?')) {
     search = `?${search}`;
@@ -16,14 +16,14 @@ export function buildSainaAuthReturnUrl(parts: {
 }
 
 export function buildSainaAuthHref(returnUrl: string, page: 'login' | 'register'): string {
-  const safe = returnUrl.trim() || '/standalone';
+  const safe = returnUrl.trim() || '/standalone/discover';
   return `/platform/${page}?return=${encodeURIComponent(safe)}`;
 }
 
 /** Validates post-login redirect target (relative path only). */
 export function resolveSafeAuthReturnPath(returnPath: string | null | undefined): string {
-  if (!returnPath?.startsWith('/')) return '/standalone';
-  if (returnPath.startsWith('//')) return '/standalone';
+  if (!returnPath?.startsWith('/')) return '/standalone/discover';
+  if (returnPath.startsWith('//')) return '/standalone/discover';
   return returnPath;
 }
 

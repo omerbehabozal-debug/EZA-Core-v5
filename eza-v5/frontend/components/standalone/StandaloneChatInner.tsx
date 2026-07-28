@@ -79,6 +79,11 @@ import {
 } from '@/lib/standaloneChatArchive';
 import { MIRROR_GUEST_CHAT_REPLY_PARAM } from '@/lib/eza/mirror-network/mirrorGuestConversation';
 import {
+  isSainaNewChatRequest,
+  SAINA_DISCOVER_ROUTE,
+  SAINA_NEW_CHAT_ROUTE,
+} from '@/lib/eza/sainaRoutes';
+import {
   DELETED_CHAT_IDS_STORAGE_KEY,
   isChatDeleted,
 } from '@/lib/standaloneChatDelete';
@@ -287,7 +292,8 @@ export default function StandaloneChatInner() {
 
   // Lazy: sayfa açılışında/yenilemede boş sohbet OLUŞTURULMAZ.
   // Geçerli ?chat= → mevcut sohbet yüklenir (deep-link / F5 korunur).
-  // Aksi halde → boş taslak (arşive yazılmaz). Birikmiş boşlar prune edilir.
+  // ?new=1 → bilinçli yeni taslak.
+  // Aksi halde Keşfet (home) — programa giriş Keşfet’ten başlar.
   useEffect(() => {
     if (ready) return;
 
@@ -306,13 +312,26 @@ export default function StandaloneChatInner() {
     }
 
     pruneEmptyChats();
+
     if (chatIdFromUrl) {
-      router.replace('/standalone', { scroll: false });
+      // Stale/missing ?chat= — drop to home rather than inventing a draft.
+      router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
+      setReady(true);
+      enableUrlSync();
+      return;
     }
-    startDraft();
+
+    if (isSainaNewChatRequest(searchParams?.toString() ?? null)) {
+      startDraft();
+      setReady(true);
+      enableUrlSync();
+      return;
+    }
+
+    router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
     setReady(true);
     enableUrlSync();
-  }, [ready, chatIdFromUrl, router, loadChatIntoState, startDraft]);
+  }, [ready, chatIdFromUrl, router, loadChatIntoState, startDraft, searchParams]);
 
   useEffect(() => {
     if (!ready || !urlSyncEnabledRef.current || !chatIdFromUrl) return;
@@ -325,10 +344,9 @@ export default function StandaloneChatInner() {
 
     if (loadChatIntoState(chatIdFromUrl)) return;
 
-    // Arşivde olmayan (silinmiş/eski) ?chat= → boş kayıt açma, taslağa düş.
-    router.replace('/standalone', { scroll: false });
-    startDraft();
-  }, [chatIdFromUrl, chatId, ready, flushSave, loadChatIntoState, router, startDraft]);
+    // Arşivde olmayan (silinmiş/eski) ?chat= → Keşfet home.
+    router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
+  }, [chatIdFromUrl, chatId, ready, flushSave, loadChatIntoState, router]);
 
   useEffect(() => {
     if (skipAutosaveRef.current || !chatId || isChatDeleted(chatId)) return;
@@ -431,9 +449,6 @@ export default function StandaloneChatInner() {
       if (wasActive) {
         resetStateAfterActiveDelete();
         router.push(resolveChatRouteAfterDelete(), { scroll: false });
-        if (listChatArchives().length === 0) {
-          startDraft();
-        }
       }
     },
     [
@@ -441,7 +456,6 @@ export default function StandaloneChatInner() {
       router,
       cancelPendingAutosave,
       resetStateAfterActiveDelete,
-      startDraft,
     ]
   );
 
@@ -467,14 +481,11 @@ export default function StandaloneChatInner() {
       skipAutosaveRef.current = true;
       resetStateAfterActiveDelete();
       router.push(resolveChatRouteAfterDelete(), { scroll: false });
-      if (listChatArchives().length === 0) {
-        startDraft();
-      }
     };
 
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, [cancelPendingAutosave, resetStateAfterActiveDelete, router, startDraft]);
+  }, [cancelPendingAutosave, resetStateAfterActiveDelete, router]);
 
   const planTier = resolveSainaPlanTier({
     isPlus,

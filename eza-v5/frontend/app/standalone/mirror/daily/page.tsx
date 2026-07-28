@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 export default function StandaloneMirrorDailyRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace('/standalone');
+    router.replace('/standalone/discover');
   }, [router]);
   return null;
 }

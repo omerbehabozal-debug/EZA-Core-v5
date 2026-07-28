@@ -8,7 +8,8 @@ export function ensureMatchMediaListenerPolyfill(): void {
     removeListener?: (listener: () => void) => void;
   };
 
-  if (!proto || typeof proto.addListener === 'function') return;
+  // Never patch Object.prototype (vitest/jsdom often returns a plain mock object).
+  if (!proto || proto === Object.prototype || typeof proto.addListener === 'function') return;
 
   proto.addListener = function addListener(listener: () => void) {
     this.addEventListener('change', listener);

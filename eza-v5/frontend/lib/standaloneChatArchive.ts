@@ -382,7 +382,7 @@ export function resolveChatRouteAfterDelete(): string {
   if (remaining.length > 0) {
     return `/standalone?chat=${remaining[0]!.id}`;
   }
-  return '/standalone';
+  return '/standalone/discover';
 }
 
 /** Full archives including messages (backfill / migration). */
