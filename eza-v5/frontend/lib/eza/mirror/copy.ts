@@ -21,6 +21,29 @@ export const MIRROR_NAV_ARIA = 'EZA Ayna sekmeleri';
 
 export const MIRROR_SHARE_LABEL = 'Aynanı Paylaş';
 
+/** Keşfet’e yayınla — owner preview primary CTA */
+export const MIRROR_PUBLISH_LABEL = 'Yayınla';
+
+/** Republish updated local Mirror to the same public node */
+export const MIRROR_REPUBLISH_LABEL = 'Güncelle';
+
+/** Open published public landing */
+export const MIRROR_PUBLISH_DONE_LABEL = "Keşfet'te gör";
+
+/** Social share secondary CTA */
+export const MIRROR_SHARE_SOCIAL_LABEL = 'Paylaş';
+
+/** Published mirror still shown on conversation return */
+export const MIRROR_PUBLISHED_STATUS = "Keşfet'te canlı";
+
+/** One-time explanation when Share publishes first */
+export const MIRROR_SHARE_PUBLISH_CONSENT =
+  'Paylaşılabilir bağlantı oluşturmak için Yansı önce Keşfet\'te yayınlanacaktır.';
+
+export const MIRROR_SHARE_PUBLISH_CONSENT_CONFIRM = 'Devam et';
+
+export const MIRROR_SHARE_PUBLISH_CONSENT_CANCEL = 'Vazgeç';
+
 export const MIRROR_SHARE_DOWNLOAD_LABEL = 'Kartı İndir';
 
 /** Kısa gizlilik — tüm Mirror yüzeylerinde */

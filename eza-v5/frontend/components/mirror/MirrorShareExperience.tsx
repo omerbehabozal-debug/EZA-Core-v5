@@ -5,6 +5,9 @@ import { createPortal } from 'react-dom';
 import { Loader2, Share2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
+import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
+import type { MirrorPublicPreviewContent } from '@/lib/eza/mirror-share/resolveMirrorPublicPreview';
+import { MIRROR_PUBLISHED_STATUS } from '@/lib/eza/mirror/copy';
 import { canShareFiles } from '@/lib/eza/mirror/shareExport';
 import { resolveMirrorShareCaption } from '@/lib/eza/mirror-share/resolveMirrorShareCaption';
 import {
@@ -39,6 +42,8 @@ export interface MirrorShareExperienceProps {
   open: boolean;
   onClose: () => void;
   card: DailyMirrorCardModel | null;
+  /** Same public card fields as Discover / landing / owner preview. */
+  publicPreview?: MirrorPublicPreviewContent | null;
   previewUrl: string | null;
   loading: boolean;
   error: string | null;
@@ -58,6 +63,7 @@ export default function MirrorShareExperience({
   open,
   onClose,
   card,
+  publicPreview = null,
   previewUrl,
   loading,
   error,
@@ -198,10 +204,19 @@ export default function MirrorShareExperience({
         <div
           className={cn(
             sh.previewWrap,
-            'flex min-h-[10rem] items-center justify-center bg-stone-100/80'
+            'flex min-h-[10rem] items-center justify-center bg-[#0c0b0a]/40 px-3 py-4'
           )}
         >
-          {loading ? (
+          {publicPreview ? (
+            <MirrorPublicCard
+              title={publicPreview.title}
+              summary={publicPreview.summary}
+              sceneImageUrl={publicPreview.sceneImageUrl}
+              metaLabel={hasShareUrl ? MIRROR_PUBLISHED_STATUS : null}
+              testIdPrefix="mirror-share-public-card"
+              className="w-full max-w-[18rem]"
+            />
+          ) : loading ? (
             <div className="flex flex-col items-center gap-3 py-8 text-stone-500">
               <Loader2 className="h-8 w-8 animate-spin text-violet-500" aria-hidden />
               <p className="text-sm">{SHARE_EXPERIENCE_PREVIEW_LOADING}</p>
@@ -277,7 +292,7 @@ export default function MirrorShareExperience({
             <button
               type="button"
               onClick={handleShare}
-              disabled={loading || !previewUrl || busy !== null || !hasShareUrl || shareLinkBusy}
+              disabled={busy !== null || !hasShareUrl || shareLinkBusy}
               className={cn(sh.primaryBtn, 'inline-flex items-center justify-center gap-2')}
               data-testid="mirror-share-native"
             >

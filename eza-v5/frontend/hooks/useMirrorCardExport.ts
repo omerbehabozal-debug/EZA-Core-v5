@@ -84,27 +84,47 @@ export function useMirrorCardExport() {
 
   const share = useCallback(
     async (card?: DailyMirrorCardModel | null): Promise<MirrorShareResult> => {
-      const blob = exportBlob ?? (await captureCard());
-      if (!blob) return 'failed';
-
       const text = resolveMirrorShareText(card);
-      const filename = resolveMirrorExportFilename(card, card?.date);
-      const result = await shareMirrorCardPng(blob, {
-        title: 'EZA · AI İlişki Aynası',
-        text,
-        filename,
-      });
+      const publicUrl = card?.mirrorShare?.shareUrl?.trim() || null;
 
-      if (result === 'unsupported' || result === 'failed') {
-        downloadMirrorCardPng(blob, filename);
-        return 'downloaded';
+      const blob = exportBlob ?? (await captureCard());
+      if (blob) {
+        const filename = resolveMirrorExportFilename(card, card?.date);
+        const result = await shareMirrorCardPng(blob, {
+          title: 'EZA · AI İlişki Aynası',
+          text,
+          filename,
+        });
+        if (result === 'aborted') return 'aborted';
+        if (result === 'shared') return 'shared';
+      } else if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        try {
+          await navigator.share({
+            title: 'EZA · AI İlişki Aynası',
+            text,
+            ...(publicUrl ? { url: publicUrl } : {}),
+          });
+          return 'shared';
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            return 'aborted';
+          }
+        }
       }
-      return result;
+
+      // Fallback: copy public URL (or caption text), never auto-download.
+      const copyPayload = publicUrl || text;
+      const copied = await copyMirrorShareText(copyPayload);
+      return copied ? 'copied' : 'failed';
     },
     [captureCard, exportBlob]
   );
 
   const copyText = useCallback(async (card?: DailyMirrorCardModel | null): Promise<boolean> => {
+    const publicUrl = card?.mirrorShare?.shareUrl?.trim();
+    if (publicUrl) {
+      return copyMirrorShareText(publicUrl);
+    }
     return copyMirrorShareText(resolveMirrorShareText(card));
   }, []);
 

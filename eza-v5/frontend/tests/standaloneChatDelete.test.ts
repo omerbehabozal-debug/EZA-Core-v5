@@ -205,13 +205,13 @@ describe('standalone chat delete hardening', () => {
     const other = 'chat-purge-2';
     markMirrorBirthDismissed(id);
     markBranchSuggestionDismissed(id);
-    saveMirrorShareLink(id, 'published-slug', 'https://saina.app/m/published-slug');
+    saveMirrorShareLink(id, 'published-slug', 'https://saina.app/m/published-slug', 'user-a');
 
     deleteChatArchive(id);
 
     expect(isMirrorBirthDismissed(id)).toBe(false);
     expect(isBranchSuggestionDismissed(id)).toBe(false);
-    expect(readMirrorShareLink(id)).toBeNull();
+    expect(readMirrorShareLink(id, 'user-a')).toBeNull();
 
     markMirrorBirthDismissed(other);
     deleteChatArchive(other);

@@ -301,12 +301,18 @@ export function applyShareUrlToCard(
   slug?: string
 ): DailyMirrorCardModel {
   const existing = card.mirrorShare;
-  if (!existing) return card;
-
   const mirrorShare: MirrorShareIdentity = {
-    ...existing,
+    blueprint: existing?.blueprint ?? {
+      shareVoice: 'quiet_editorial_minimal',
+      tone: 'editorial',
+      invitationStyle: 'own_journey',
+    },
+    shareVoice: existing?.shareVoice ?? {
+      text: '',
+      preset: 'quiet_editorial_minimal',
+    },
     shareUrl,
-    networkSlug: slug ?? existing.networkSlug ?? null,
+    networkSlug: slug ?? existing?.networkSlug ?? null,
   };
 
   return { ...card, mirrorShare };

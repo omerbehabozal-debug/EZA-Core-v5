@@ -29,7 +29,13 @@ export function resolveMirrorExportCaptureNode(
   return cardRoot ?? container;
 }
 
-export type MirrorShareResult = 'shared' | 'downloaded' | 'copied' | 'unsupported' | 'failed';
+export type MirrorShareResult =
+  | 'shared'
+  | 'downloaded'
+  | 'copied'
+  | 'aborted'
+  | 'unsupported'
+  | 'failed';
 
 export interface MirrorExportOptions {
   format?: MirrorExportFormat;
@@ -151,7 +157,7 @@ export async function shareMirrorCardPng(
     return 'shared';
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      return 'failed';
+      return 'aborted';
     }
     return 'failed';
   }

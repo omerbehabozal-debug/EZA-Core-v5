@@ -5598,6 +5598,39 @@ html:has(.saina-page) body {
   color: rgba(200, 160, 144, 0.9);
 }
 
+.saina-mirror-public-card__meta {
+  margin: 0.35rem 0 0.85rem;
+}
+
+.saina-mirror-public-preview {
+  text-align: left;
+  cursor: default;
+}
+
+.saina-mirror-public-preview__expand {
+  position: absolute;
+  right: 0.65rem;
+  top: 0.65rem;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(12, 14, 18, 0.55);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(246, 244, 239, 0.88);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.saina-mirror-public-preview__status {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: rgba(231, 180, 91, 0.78);
+}
+
 .saina-discover-state {
   padding: 2rem 1rem;
   text-align: center;
