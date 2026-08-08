@@ -133,6 +133,10 @@ class Settings(BaseSettings):
     EZA_MIRROR_MEANING_MODEL: str = "gpt-4o-mini"
     EZA_MIRROR_DRAFT_MODEL: str = "gpt-4o-mini"
     EZA_MIRROR_REVIEW_MODEL: str = "gpt-4o-mini"
+    """Phase 1 Journey identity: publish by journeyId (default off). Env: EZA_MIRROR_JOURNEY_V1.
+    When true, optional publish.journeyId uses slug identity; conversationId is provenance only.
+    Requires process restart for Settings-backed values."""
+    EZA_MIRROR_JOURNEY_V1: bool = False
 
     # Pipeline Settings
     PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout

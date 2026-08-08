@@ -23,6 +23,8 @@ class MirrorNetworkNodeRecord:
     public_payload: Dict[str, Any]
     private_payload: Dict[str, Any]
     parent_slug: Optional[str] = None
+    artifact_kind: str = "legacy_landing"
+    journey_version: int = 1
     created_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
 
@@ -41,6 +43,8 @@ class MirrorNetworkNodeRecord:
             public_payload=dict(node.public_payload or {}),
             private_payload=dict(node.private_payload or {}),
             parent_slug=node.parent_slug,
+            artifact_kind=getattr(node, "artifact_kind", None) or "legacy_landing",
+            journey_version=int(getattr(node, "journey_version", None) or 1),
             created_at=getattr(node, "created_at", None),
             published_at=getattr(node, "published_at", None),
         )

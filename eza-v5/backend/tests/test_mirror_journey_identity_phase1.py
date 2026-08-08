@@ -1,0 +1,291 @@
+# -*- coding: utf-8 -*-
+"""Phase 1 — Mirror Journey identity (flag + journeyId publish path)."""
+
+from __future__ import annotations
+
+import uuid
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from backend.core.schemas.mirror_network import MirrorNetworkPublishRequest
+from backend.models.mirror_network import (
+    ARTIFACT_KIND_JOURNEY_V1,
+    ARTIFACT_KIND_LEGACY_LANDING,
+)
+from backend.services.mirror_network.fixtures import JAPAN_FIXTURE_BUNDLE
+from backend.services.mirror_network.journey_identity import normalize_journey_id
+from backend.services.mirror_network.publish import publish_mirror_to_network
+
+
+def _user():
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        email="journey@test.eza.ai",
+        password_hash="hash",
+        role="user",
+        is_active=True,
+        mirror_plan="plus",
+    )
+
+
+def _body(**extra) -> MirrorNetworkPublishRequest:
+    payload = {
+        "cardTitle": "Aile SUV Merakı",
+        "cardDate": "2026-08-08",
+        "conversationId": "conv-shared-1",
+        "sceneImageUrl": "https://cdn.example/mirror-scene.jpg",
+        "curiosityBundle": JAPAN_FIXTURE_BUNDLE,
+        "intelligencePrivate": {
+            "intelligenceBrief": {
+                "mirrorLineage": {
+                    "generationId": "gen-1",
+                    "generationAcceptedAt": 1_700_000_000_000,
+                }
+            }
+        },
+        "safetyLevel": "normal",
+        **extra,
+    }
+    return MirrorNetworkPublishRequest(**payload)
+
+
+def test_normalize_journey_id():
+    assert normalize_journey_id("  My_Journey/A  ") == "my-journey-a"
+    assert normalize_journey_id("") is None
+    assert normalize_journey_id("---") is None
+
+
+@pytest.mark.asyncio
+async def test_flag_off_ignores_journey_id_uses_conversation_upsert():
+    user = _user()
+    db = AsyncMock()
+    existing = SimpleNamespace(
+        id=uuid.uuid4(),
+        slug="existing-legacy",
+        user_id=user.id,
+        conversation_id="conv-shared-1",
+        scene_image_url="https://cdn.example/old.jpg",
+        parent_slug=None,
+        published_at=None,
+        artifact_kind=ARTIFACT_KIND_LEGACY_LANDING,
+        journey_version=1,
+        private_payload={},
+        public_payload={},
+    )
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.mirror_journey_v1_enabled",
+            return_value=False,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_conversation",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ) as by_conv,
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_slug_for_user",
+            new_callable=AsyncMock,
+        ) as by_slug,
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.node_to_public_payload",
+            return_value=SimpleNamespace(slug="existing-legacy", shareUrl="/m/existing-legacy"),
+        ),
+    ):
+        await publish_mirror_to_network(
+            db,
+            user,
+            _body(journeyId="should-be-ignored"),
+        )
+        by_conv.assert_awaited()
+        by_slug.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_flag_on_same_conversation_two_journey_ids_create_two_nodes():
+    user = _user()
+    db = AsyncMock()
+    created: list[SimpleNamespace] = []
+
+    async def _create(_db, node):
+        created.append(node)
+        return node
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.mirror_journey_v1_enabled",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNode",
+            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_slug_for_user",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.slug_exists",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.create_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=_create,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_conversation",
+            new_callable=AsyncMock,
+        ) as by_conv,
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNodeRecord.from_orm",
+            side_effect=lambda node: node,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.node_to_public_payload",
+            side_effect=lambda record: SimpleNamespace(
+                slug=record.slug, shareUrl=f"/m/{record.slug}"
+            ),
+        ),
+    ):
+        await publish_mirror_to_network(db, user, _body(journeyId="journey-a"))
+        await publish_mirror_to_network(db, user, _body(journeyId="journey-b"))
+
+        by_conv.assert_not_awaited()
+        assert len(created) == 2
+        assert {n.slug for n in created} == {"journey-a", "journey-b"}
+        assert all(n.conversation_id == "conv-shared-1" for n in created)
+        assert all(n.artifact_kind == ARTIFACT_KIND_JOURNEY_V1 for n in created)
+        assert all(n.journey_version == 1 for n in created)
+
+
+@pytest.mark.asyncio
+async def test_flag_on_same_journey_id_updates_and_bumps_version():
+    user = _user()
+    db = AsyncMock()
+    existing = SimpleNamespace(
+        id=uuid.uuid4(),
+        slug="journey-a",
+        user_id=user.id,
+        conversation_id="conv-shared-1",
+        scene_image_url="https://cdn.example/old.jpg",
+        parent_slug=None,
+        published_at=None,
+        artifact_kind=ARTIFACT_KIND_JOURNEY_V1,
+        journey_version=1,
+        private_payload={"intelligenceBrief": {"mirrorLineage": {"generationId": "gen-1"}}},
+        public_payload={},
+        card_title="old",
+        card_date="2026-08-08",
+        safety_status="open",
+        visibility="public",
+        updated_at=None,
+    )
+
+    async def _update(_db, node):
+        return node
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.mirror_journey_v1_enabled",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_slug_for_user",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=_update,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.create_mirror_network_node",
+            new_callable=AsyncMock,
+        ) as create,
+        patch(
+            "backend.services.mirror_network.publish.node_to_public_payload",
+            return_value=SimpleNamespace(slug="journey-a", shareUrl="/m/journey-a"),
+        ),
+    ):
+        await publish_mirror_to_network(db, user, _body(journeyId="journey-a"))
+        create.assert_not_awaited()
+        assert existing.journey_version == 2
+        assert existing.artifact_kind == ARTIFACT_KIND_JOURNEY_V1
+
+
+@pytest.mark.asyncio
+async def test_legacy_artifact_kind_default_on_conversation_path():
+    user = _user()
+    db = AsyncMock()
+    created: list = []
+
+    async def _create(_db, node):
+        created.append(node)
+        return node
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.mirror_journey_v1_enabled",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNode",
+            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_conversation",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.slug_exists",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.generate_mirror_slug",
+            return_value="legacy-auto-slug",
+        ),
+        patch(
+            "backend.services.mirror_network.publish.create_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=_create,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNodeRecord.from_orm",
+            side_effect=lambda node: node,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.node_to_public_payload",
+            return_value=SimpleNamespace(slug="legacy-auto-slug", shareUrl="/m/legacy-auto-slug"),
+        ),
+    ):
+        # Flag on but no journeyId → legacy path still works; not journey_v1.
+        await publish_mirror_to_network(db, user, _body())
+        assert len(created) == 1
+        assert created[0].artifact_kind == ARTIFACT_KIND_LEGACY_LANDING
+        assert created[0].slug == "legacy-auto-slug"
+
+
+def test_legacy_conversation_lookup_source_excludes_unfiltered_fallback():
+    """Regression: never fall back to 'latest any artifact_kind' for a conversation."""
+    import inspect
+
+    from backend.services.mirror_network import repository as repo
+
+    src = inspect.getsource(repo.get_mirror_network_node_by_conversation)
+    assert "ARTIFACT_KIND_LEGACY_LANDING" in src
+    assert "created_at.desc()" in src
+    # Must not re-query without artifact_kind filter after a miss.
+    assert src.count("db.execute") == 1

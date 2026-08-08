@@ -121,6 +121,8 @@ def sanitize_intelligence_private_for_persist(
             "conversationId",
             "sceneAssetId",
             "contractVersion",
+            "journeyId",
+            "artifactKind",
         }
         brief_out["mirrorLineage"] = {
             k: v for k, v in lineage.items() if k in allowed and v is not None

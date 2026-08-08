@@ -104,6 +104,9 @@ class MirrorNetworkPublishRequest(BaseModel):
     cardTitle: str = Field(..., min_length=1, max_length=200)
     cardDate: str = Field(..., min_length=8, max_length=10)
     conversationId: Optional[str] = Field(default=None, max_length=128)
+    """Phase 1: when EZA_MIRROR_JOURNEY_V1 and set, publish/update is keyed by this slug
+    (journeyId). conversationId remains provenance only — not unique."""
+    journeyId: Optional[str] = Field(default=None, max_length=64)
     sceneImageUrl: Optional[str] = None
     curiosityBundle: Dict[str, Any]
     intelligencePrivate: Optional[Dict[str, Any]] = None

@@ -15,7 +15,11 @@ from backend.core.schemas.mirror_network import (
     MirrorNetworkPublicPayload,
     MirrorNetworkPublishRequest,
 )
-from backend.models.mirror_network import MirrorNetworkNode
+from backend.models.mirror_network import (
+    ARTIFACT_KIND_JOURNEY_V1,
+    ARTIFACT_KIND_LEGACY_LANDING,
+    MirrorNetworkNode,
+)
 from backend.models.production import User
 from backend.services.mirror_network.continuation_proof import (
     resolve_parent_slug_from_proof,
@@ -33,13 +37,17 @@ from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_
 from backend.services.mirror_network.repository import (
     create_mirror_network_node,
     get_mirror_network_node_by_conversation,
+    get_mirror_network_node_by_slug_for_user,
     slug_exists,
     update_mirror_network_node,
 )
 from backend.services.mirror_network.service import node_to_public_payload
 from backend.services.mirror_network.slug import generate_mirror_slug
 from backend.services.mirror_network.types import MirrorNetworkNodeRecord
-
+from backend.services.mirror_network.journey_identity import (
+    mirror_journey_v1_enabled,
+    normalize_journey_id,
+)
 
 def map_mirror_safety_level(safety_level: Optional[str]) -> Tuple[str, str]:
     """Map client safety to stored safety_status + visibility."""
@@ -189,6 +197,8 @@ def _apply_node_fields(
     parent_slug: Optional[str],
     now: datetime,
     is_new: bool,
+    artifact_kind: Optional[str] = None,
+    bump_journey_version: bool = False,
 ) -> None:
     resolved_scene = resolve_scene_image_url(
         existing_scene=getattr(node, "scene_image_url", None),
@@ -206,8 +216,15 @@ def _apply_node_fields(
     node.parent_slug = parent_slug
     node.published_at = node.published_at or now
     node.updated_at = now
+    if artifact_kind is not None:
+        node.artifact_kind = artifact_kind
+    if bump_journey_version and not is_new:
+        current = int(getattr(node, "journey_version", None) or 1)
+        node.journey_version = current + 1
     if is_new:
         node.published_at = now
+        if getattr(node, "journey_version", None) is None:
+            node.journey_version = 1
 
 
 async def publish_mirror_to_network(
@@ -218,9 +235,9 @@ async def publish_mirror_to_network(
     """
     Create or update a Mirror Network node for the authenticated user.
 
-    Mirror creation and network registration are one product action — no separate publish step.
-    Concurrent publishes for the same conversation resolve to a single node (unique constraint).
-    Scene image updates use non-null-wins semantics.
+    Default (flag off / no journeyId): upsert by conversation_id (legacy).
+    Phase 1 journey path (EZA_MIRROR_JOURNEY_V1 + journeyId): upsert by slug/journeyId;
+    conversation_id is provenance only — one conversation may own N journeys.
     """
     card_title = body.cardTitle.strip()
     if not card_title:
@@ -239,8 +256,26 @@ async def publish_mirror_to_network(
     conversation_id = (body.conversationId or "").strip() or None
     incoming_scene = (body.sceneImageUrl or "").strip() or None
 
+    journey_id = normalize_journey_id(getattr(body, "journeyId", None))
+    use_journey_identity = mirror_journey_v1_enabled() and bool(journey_id)
+
     existing = None
-    if conversation_id:
+    if use_journey_identity:
+        assert journey_id is not None
+        existing = await get_mirror_network_node_by_slug_for_user(
+            db,
+            user_id=user.id,
+            slug=journey_id,
+        )
+        if existing is not None and existing.user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "journey_forbidden",
+                    "message": "journeyId belongs to another user",
+                },
+            )
+    elif conversation_id:
         existing = await get_mirror_network_node_by_conversation(
             db,
             user_id=user.id,
@@ -252,21 +287,33 @@ async def publish_mirror_to_network(
         incoming_scene=incoming_scene,
     )
 
-    slug = existing.slug if existing else None
-    if not slug:
-        for _ in range(5):
-            candidate = generate_mirror_slug(card_title)
-            if not await slug_exists(db, candidate):
-                slug = candidate
-                break
-        if not slug:
+    if use_journey_identity:
+        assert journey_id is not None
+        slug = journey_id
+        if existing is None and await slug_exists(db, slug):
             raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                status_code=status.HTTP_409_CONFLICT,
                 detail={
-                    "code": "slug_collision",
-                    "message": "Could not allocate share link",
+                    "code": "journey_slug_taken",
+                    "message": "journeyId is already in use",
                 },
             )
+    else:
+        slug = existing.slug if existing else None
+        if not slug:
+            for _ in range(5):
+                candidate = generate_mirror_slug(card_title)
+                if not await slug_exists(db, candidate):
+                    slug = candidate
+                    break
+            if not slug:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail={
+                        "code": "slug_collision",
+                        "message": "Could not allocate share link",
+                    },
+                )
 
     requested_parent_slug = normalize_parent_slug(body.parentSlug)
     existing_parent_slug = (
@@ -308,8 +355,6 @@ async def publish_mirror_to_network(
         validated_parent_slug=validated_parent_slug,
     )
 
-    is_new_node = existing is None
-
     try:
         public_payload, private_payload = split_curiosity_payloads(
             slug=slug,
@@ -335,6 +380,12 @@ async def publish_mirror_to_network(
     public_dict = public_payload.model_dump()
     private_dict = private_payload.model_dump()
     incoming_lineage = extract_mirror_lineage(intelligence_private)
+    if use_journey_identity:
+        incoming_lineage = {
+            **incoming_lineage,
+            "journeyId": slug,
+            "artifactKind": ARTIFACT_KIND_JOURNEY_V1,
+        }
 
     if existing:
         assert_publish_generation_not_stale(
@@ -346,6 +397,17 @@ async def publish_mirror_to_network(
         private_dict,
         incoming_lineage=incoming_lineage,
         now=now,
+    )
+
+    artifact_kind = (
+        ARTIFACT_KIND_JOURNEY_V1
+        if use_journey_identity
+        else ARTIFACT_KIND_LEGACY_LANDING
+    )
+    bump_version = bool(
+        use_journey_identity
+        and existing is not None
+        and getattr(existing, "artifact_kind", None) == ARTIFACT_KIND_JOURNEY_V1
     )
 
     if existing:
@@ -361,7 +423,12 @@ async def publish_mirror_to_network(
             parent_slug=parent_slug,
             now=now,
             is_new=False,
+            artifact_kind=artifact_kind if use_journey_identity else None,
+            bump_journey_version=bump_version,
         )
+        # Keep provenance conversation_id if newly provided.
+        if conversation_id and not existing.conversation_id:
+            existing.conversation_id = conversation_id
         node = await update_mirror_network_node(db, existing)
     else:
         node = MirrorNetworkNode(
@@ -377,44 +444,80 @@ async def publish_mirror_to_network(
             public_payload=public_dict,
             private_payload=private_dict,
             parent_slug=parent_slug,
+            artifact_kind=artifact_kind,
+            journey_version=1,
             published_at=now,
         )
         try:
             node = await create_mirror_network_node(db, node)
         except IntegrityError:
             await db.rollback()
-            if not conversation_id:
-                raise
-            raced = await get_mirror_network_node_by_conversation(
-                db,
-                user_id=user.id,
-                conversation_id=conversation_id,
-            )
-            if raced is None:
-                raise
-            assert_publish_generation_not_stale(
-                existing_private=_as_mapping(getattr(raced, "private_payload", None)),
-                incoming_lineage=incoming_lineage,
-            )
-            private_dict = merge_lineage_into_private_payload(
-                private_dict,
-                incoming_lineage=incoming_lineage,
-                now=now,
-            )
-            _apply_node_fields(
-                raced,
-                card_title=card_title,
-                card_date=body.cardDate.strip(),
-                scene_image_url=incoming_scene,
-                public_dict=public_dict,
-                private_dict=private_dict,
-                safety_status=safety_status,
-                visibility=visibility,
-                parent_slug=parent_slug,
-                now=now,
-                is_new=False,
-            )
-            node = await update_mirror_network_node(db, raced)
+            if use_journey_identity:
+                raced = await get_mirror_network_node_by_slug_for_user(
+                    db,
+                    user_id=user.id,
+                    slug=slug,
+                )
+                if raced is None:
+                    raise
+                assert_publish_generation_not_stale(
+                    existing_private=_as_mapping(getattr(raced, "private_payload", None)),
+                    incoming_lineage=incoming_lineage,
+                )
+                private_dict = merge_lineage_into_private_payload(
+                    private_dict,
+                    incoming_lineage=incoming_lineage,
+                    now=now,
+                )
+                _apply_node_fields(
+                    raced,
+                    card_title=card_title,
+                    card_date=body.cardDate.strip(),
+                    scene_image_url=incoming_scene,
+                    public_dict=public_dict,
+                    private_dict=private_dict,
+                    safety_status=safety_status,
+                    visibility=visibility,
+                    parent_slug=parent_slug,
+                    now=now,
+                    is_new=False,
+                    artifact_kind=ARTIFACT_KIND_JOURNEY_V1,
+                    bump_journey_version=True,
+                )
+                node = await update_mirror_network_node(db, raced)
+            else:
+                if not conversation_id:
+                    raise
+                raced = await get_mirror_network_node_by_conversation(
+                    db,
+                    user_id=user.id,
+                    conversation_id=conversation_id,
+                )
+                if raced is None:
+                    raise
+                assert_publish_generation_not_stale(
+                    existing_private=_as_mapping(getattr(raced, "private_payload", None)),
+                    incoming_lineage=incoming_lineage,
+                )
+                private_dict = merge_lineage_into_private_payload(
+                    private_dict,
+                    incoming_lineage=incoming_lineage,
+                    now=now,
+                )
+                _apply_node_fields(
+                    raced,
+                    card_title=card_title,
+                    card_date=body.cardDate.strip(),
+                    scene_image_url=incoming_scene,
+                    public_dict=public_dict,
+                    private_dict=private_dict,
+                    safety_status=safety_status,
+                    visibility=visibility,
+                    parent_slug=parent_slug,
+                    now=now,
+                    is_new=False,
+                )
+                node = await update_mirror_network_node(db, raced)
 
     record = MirrorNetworkNodeRecord.from_orm(node)
     return node_to_public_payload(record)

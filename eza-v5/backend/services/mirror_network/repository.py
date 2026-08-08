@@ -9,7 +9,10 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.mirror_network import MirrorNetworkNode
+from backend.models.mirror_network import (
+    ARTIFACT_KIND_LEGACY_LANDING,
+    MirrorNetworkNode,
+)
 
 
 async def get_mirror_network_node_by_slug(
@@ -21,6 +24,25 @@ async def get_mirror_network_node_by_slug(
         return None
     result = await db.execute(
         select(MirrorNetworkNode).where(MirrorNetworkNode.slug == normalized)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_mirror_network_node_by_slug_for_user(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    slug: str,
+) -> Optional[MirrorNetworkNode]:
+    """Owner-scoped journey lookup (Phase 1 journeyId identity)."""
+    normalized = (slug or "").strip().lower()
+    if not normalized:
+        return None
+    result = await db.execute(
+        select(MirrorNetworkNode).where(
+            MirrorNetworkNode.user_id == user_id,
+            MirrorNetworkNode.slug == normalized,
+        )
     )
     return result.scalar_one_or_none()
 
@@ -54,14 +76,30 @@ async def get_mirror_network_node_by_conversation(
     user_id: UUID,
     conversation_id: str,
 ) -> Optional[MirrorNetworkNode]:
+    """
+    Legacy publish lookup: only legacy_landing for this conversation.
+
+    After journey identity, multiple nodes may share conversation_id — never
+    return a journey_v1 node as the legacy upsert target (would corrupt identity).
+    Migration sets artifact_kind default; null kind treated as legacy.
+    """
+    from sqlalchemy import or_
+
     normalized = (conversation_id or "").strip()
     if not normalized:
         return None
     result = await db.execute(
-        select(MirrorNetworkNode).where(
+        select(MirrorNetworkNode)
+        .where(
             MirrorNetworkNode.user_id == user_id,
             MirrorNetworkNode.conversation_id == normalized,
+            or_(
+                MirrorNetworkNode.artifact_kind == ARTIFACT_KIND_LEGACY_LANDING,
+                MirrorNetworkNode.artifact_kind.is_(None),
+            ),
         )
+        .order_by(MirrorNetworkNode.created_at.desc())
+        .limit(1)
     )
     return result.scalar_one_or_none()
 
