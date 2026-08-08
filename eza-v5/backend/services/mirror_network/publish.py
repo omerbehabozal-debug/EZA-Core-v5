@@ -27,7 +27,6 @@ from backend.services.mirror_network.continuation_proof import (
 from backend.services.mirror_network.parent_lineage import (
     normalize_parent_slug,
     resolve_stored_parent_slug,
-    validate_parent_slug,
 )
 from backend.services.mirror_network.public_payload import split_curiosity_payloads
 from backend.services.mirror.mirror_director_metadata_sanitize import (
@@ -37,6 +36,7 @@ from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_
 from backend.services.mirror_network.repository import (
     create_mirror_network_node,
     get_mirror_network_node_by_conversation,
+    get_mirror_network_node_by_slug,
     get_mirror_network_node_by_slug_for_user,
     slug_exists,
     update_mirror_network_node,
@@ -49,6 +49,12 @@ from backend.services.mirror_network.journey_publish_contract import (
 )
 from backend.services.mirror_network.journey_steps import (
     replace_journey_steps_for_version,
+)
+from backend.services.mirror_network.journey_window_contract import (
+    resolve_requested_parent_slug,
+)
+from backend.services.mirror_network.same_conversation_parent import (
+    resolve_same_conversation_parent,
 )
 
 def map_mirror_safety_level(safety_level: Optional[str]) -> Tuple[str, str]:
@@ -201,6 +207,9 @@ def _apply_node_fields(
     is_new: bool,
     artifact_kind: Optional[str] = None,
     bump_journey_version: bool = False,
+    window_index: Optional[int] = None,
+    window_start: Optional[int] = None,
+    window_end: Optional[int] = None,
 ) -> None:
     resolved_scene = resolve_scene_image_url(
         existing_scene=getattr(node, "scene_image_url", None),
@@ -227,7 +236,12 @@ def _apply_node_fields(
         node.published_at = now
         if getattr(node, "journey_version", None) is None:
             node.journey_version = 1
-
+    if window_index is not None:
+        node.window_index = int(window_index)
+    if window_start is not None:
+        node.window_start = int(window_start)
+    if window_end is not None:
+        node.window_end = int(window_end)
 
 async def publish_mirror_to_network(
     db: AsyncSession,
@@ -265,12 +279,18 @@ async def publish_mirror_to_network(
             for step in body.selectedSteps
         ]
 
-    publish_mode, journey_id, normalized_steps = resolve_journey_publish_mode(
+    publish_mode, journey_id, normalized_steps, window_tuple = resolve_journey_publish_mode(
         conversation_id=conversation_id,
         journey_id_raw=getattr(body, "journeyId", None),
         selected_steps=raw_steps,
+        window_index=getattr(body, "windowIndex", None),
+        window_start=getattr(body, "windowStart", None),
+        window_end=getattr(body, "windowEnd", None),
     )
     use_journey_identity = publish_mode == "journey"
+    window_index = window_tuple[0] if window_tuple else None
+    window_start = window_tuple[1] if window_tuple else None
+    window_end = window_tuple[2] if window_tuple else None
 
     existing = None
     if use_journey_identity:
@@ -328,21 +348,15 @@ async def publish_mirror_to_network(
                     },
                 )
 
-    requested_parent_slug = normalize_parent_slug(body.parentSlug)
+    requested_parent_slug = resolve_requested_parent_slug(
+        parent_slug=body.parentSlug,
+        parent_journey_id=getattr(body, "parentJourneyId", None),
+    )
     existing_parent_slug = (
         normalize_parent_slug(existing.parent_slug) if existing else None
     )
     proof_token = (body.lineageProofToken or "").strip() or None
     guest_token = (body.guestToken or "").strip() or None
-
-    if requested_parent_slug and not proof_token and not existing_parent_slug:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "code": "lineage_proof_required",
-                "message": "parentSlug requires a server-verified lineageProofToken",
-            },
-        )
 
     validated_parent_slug = None
     if not existing_parent_slug and not existing:
@@ -356,12 +370,46 @@ async def publish_mirror_to_network(
                 child_slug=slug,
                 consume=True,
             )
+            # If client also sent parentSlug, it must match the proof result.
+            if requested_parent_slug and validated_parent_slug != requested_parent_slug:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "code": "journey_parent_invalid",
+                        "message": "parentSlug does not match lineageProofToken parent",
+                    },
+                )
         elif requested_parent_slug:
-            validated_parent_slug = await validate_parent_slug(
-                db,
-                parent_slug=requested_parent_slug,
-                child_slug=slug,
+            # Mode A: same-conversation deterministic continuation (no proof token).
+            # Mode B: external/public continuation still requires lineageProofToken.
+            parent_probe = await get_mirror_network_node_by_slug(db, requested_parent_slug)
+            same_owner_same_conv = (
+                parent_probe is not None
+                and parent_probe.user_id == user.id
+                and conversation_id
+                and (parent_probe.conversation_id or "").strip() == conversation_id
+                and use_journey_identity
+                and window_index is not None
+                and window_start is not None
             )
+            if same_owner_same_conv:
+                validated_parent_slug = await resolve_same_conversation_parent(
+                    db,
+                    user_id=user.id,
+                    conversation_id=conversation_id,
+                    requested_parent_slug=requested_parent_slug,
+                    child_slug=slug,
+                    child_window_index=int(window_index),
+                    child_window_start=int(window_start),
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "code": "lineage_proof_required",
+                        "message": "parentSlug requires a server-verified lineageProofToken",
+                    },
+                )
 
     parent_slug = resolve_stored_parent_slug(
         existing_parent_slug=existing.parent_slug if existing else None,
@@ -438,6 +486,9 @@ async def publish_mirror_to_network(
             is_new=False,
             artifact_kind=artifact_kind if use_journey_identity else None,
             bump_journey_version=bump_version,
+            window_index=window_index if use_journey_identity else None,
+            window_start=window_start if use_journey_identity else None,
+            window_end=window_end if use_journey_identity else None,
         )
         # Keep provenance conversation_id if newly provided.
         if conversation_id and not existing.conversation_id:
@@ -459,6 +510,9 @@ async def publish_mirror_to_network(
             parent_slug=parent_slug,
             artifact_kind=artifact_kind,
             journey_version=1,
+            window_index=window_index if use_journey_identity else None,
+            window_start=window_start if use_journey_identity else None,
+            window_end=window_end if use_journey_identity else None,
             published_at=now,
         )
         try:
@@ -496,6 +550,9 @@ async def publish_mirror_to_network(
                     is_new=False,
                     artifact_kind=ARTIFACT_KIND_JOURNEY_V1,
                     bump_journey_version=True,
+                    window_index=window_index,
+                    window_start=window_start,
+                    window_end=window_end,
                 )
                 node = await update_mirror_network_node(db, raced)
             else:

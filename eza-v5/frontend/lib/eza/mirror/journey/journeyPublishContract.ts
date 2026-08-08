@@ -19,6 +19,10 @@ export type JourneyPublishContractOk = {
   journeyId: string;
   selectedSteps: Review8SelectedStep[];
   draft: Review8Draft;
+  windowIndex: number;
+  windowStart: number;
+  windowEnd: number;
+  parentJourneyId: string | null;
 };
 
 export type JourneyPublishContractFail = {
@@ -28,7 +32,8 @@ export type JourneyPublishContractFail = {
     | 'journey_id_required'
     | 'invalid_steps'
     | 'draft_invalid'
-    | 'user_required';
+    | 'user_required'
+    | 'window_required';
   message: string;
 };
 
@@ -103,10 +108,29 @@ export function resolveJourneyPublishContract(input: {
     };
   }
 
+  const windowIndex = validated.draft.windowIndex;
+  const windowStart = validated.draft.windowStartSequence;
+  const windowEnd = validated.draft.windowEndSequence;
+  if (
+    typeof windowIndex !== 'number' ||
+    typeof windowStart !== 'number' ||
+    typeof windowEnd !== 'number'
+  ) {
+    return {
+      ok: false,
+      code: 'window_required',
+      message: 'Onaylı Yansı pencere kimliği eksik.',
+    };
+  }
+
   return {
     ok: true,
     journeyId,
     selectedSteps: validated.draft.selectedSteps,
     draft: validated.draft,
+    windowIndex,
+    windowStart,
+    windowEnd,
+    parentJourneyId: validated.draft.parentJourneyId ?? null,
   };
 }

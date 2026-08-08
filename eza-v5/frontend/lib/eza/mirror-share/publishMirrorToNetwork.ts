@@ -47,12 +47,20 @@ export type PublishMirrorToNetworkInput = {
   journeyId?: string;
   /** Child journey lineage — maps to network parentSlug. */
   parentSlug?: string;
+  windowIndex?: number;
+  windowStart?: number;
+  windowEnd?: number;
   selectedSteps?: Array<{
-    index: number;
-    userMessageId: string;
-    assistantMessageId: string;
+    stepIndex: number;
+    sourceOrder: number;
+    sourceUserMessageId: string;
+    sourceAssistantMessageId: string;
     publicQuestion: string;
     publicAnswer: string;
+    /** @deprecated wire aliases — prefer stepIndex / source* ids */
+    index?: number;
+    userMessageId?: string;
+    assistantMessageId?: string;
   }>;
   sceneImageUrl?: string | null;
   generationId?: string;
@@ -227,6 +235,9 @@ async function buildPublishBody(
     journeyId,
     parentSlug,
     selectedSteps,
+    windowIndex,
+    windowStart,
+    windowEnd,
     sceneImageUrl,
     generationId,
     generationAcceptedAt,
@@ -310,11 +321,16 @@ async function buildPublishBody(
       cardDate: card.date,
       conversationId: conversationId?.trim() || undefined,
       journeyId: journeyId?.trim() || undefined,
+      windowIndex: typeof windowIndex === 'number' ? windowIndex : undefined,
+      windowStart: typeof windowStart === 'number' ? windowStart : undefined,
+      windowEnd: typeof windowEnd === 'number' ? windowEnd : undefined,
       selectedSteps: selectedSteps?.length
         ? selectedSteps.map((s) => ({
-            index: s.index,
-            userMessageId: s.userMessageId,
-            assistantMessageId: s.assistantMessageId,
+            stepIndex: s.stepIndex ?? s.index!,
+            sourceOrder: s.sourceOrder,
+            sourceUserMessageId: s.sourceUserMessageId ?? s.userMessageId!,
+            sourceAssistantMessageId:
+              s.sourceAssistantMessageId ?? s.assistantMessageId!,
             publicQuestion: s.publicQuestion,
             publicAnswer: s.publicAnswer,
           }))
@@ -380,10 +396,29 @@ export async function publishMirrorToNetwork(
         journeyId: input.journeyId?.trim() || journeyContract.journeyId,
         selectedSteps: input.selectedSteps?.length
           ? input.selectedSteps
-          : journeyContract.selectedSteps,
+          : journeyContract.selectedSteps.map((s) => ({
+              stepIndex: s.index,
+              sourceOrder: s.sourceOrder,
+              sourceUserMessageId: s.userMessageId,
+              sourceAssistantMessageId: s.assistantMessageId,
+              publicQuestion: s.publicQuestion,
+              publicAnswer: s.publicAnswer,
+            })),
+        windowIndex:
+          typeof input.windowIndex === 'number'
+            ? input.windowIndex
+            : journeyContract.windowIndex,
+        windowStart:
+          typeof input.windowStart === 'number'
+            ? input.windowStart
+            : journeyContract.windowStart,
+        windowEnd:
+          typeof input.windowEnd === 'number'
+            ? input.windowEnd
+            : journeyContract.windowEnd,
         parentSlug:
           input.parentSlug?.trim() ||
-          journeyContract.draft.parentJourneyId?.trim() ||
+          journeyContract.parentJourneyId?.trim() ||
           undefined,
       };
     }

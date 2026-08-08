@@ -86,6 +86,11 @@ class MirrorNetworkNode(Base):
     )
     journey_version = Column(Integer, nullable=False, default=1, server_default="1")
 
+    # Deterministic 8-question window identity (Phase 2 production closure).
+    window_index = Column(Integer, nullable=True)
+    window_start = Column(Integer, nullable=True)
+    window_end = Column(Integer, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     published_at = Column(DateTime(timezone=True), nullable=True)
@@ -122,6 +127,7 @@ class MirrorJourneyStep(Base):
     )
     journey_version = Column(Integer, nullable=False, default=1, server_default="1")
     step_index = Column(Integer, nullable=False)
+    source_order = Column(Integer, nullable=True)
     source_user_message_id = Column(String(128), nullable=True)
     source_assistant_message_id = Column(String(128), nullable=True)
     public_question = Column(Text, nullable=False)

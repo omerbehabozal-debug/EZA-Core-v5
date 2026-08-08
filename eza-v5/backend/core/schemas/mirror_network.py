@@ -103,9 +103,10 @@ class MirrorJourneySelectedStep(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    index: int = Field(..., ge=1, le=8)
-    userMessageId: str = Field(..., min_length=1, max_length=128)
-    assistantMessageId: str = Field(..., min_length=1, max_length=128)
+    stepIndex: int = Field(..., ge=1, le=8)
+    sourceOrder: int = Field(..., ge=0)
+    sourceUserMessageId: str = Field(..., min_length=1, max_length=128)
+    sourceAssistantMessageId: str = Field(..., min_length=1, max_length=128)
     publicQuestion: str = Field(..., min_length=1)
     publicAnswer: str = Field(..., min_length=1)
 
@@ -120,11 +121,17 @@ class MirrorNetworkPublishRequest(BaseModel):
     journeyId: Optional[str] = Field(default=None, max_length=64)
     """When journey mode: exactly 8 frozen Q/A pairs from Review 8."""
     selectedSteps: Optional[List[MirrorJourneySelectedStep]] = None
+    """Deterministic window identity — required in journey mode (do not infer)."""
+    windowIndex: Optional[int] = Field(default=None, ge=0, le=1)
+    windowStart: Optional[int] = Field(default=None, ge=0)
+    windowEnd: Optional[int] = Field(default=None, ge=0)
     sceneImageUrl: Optional[str] = None
     curiosityBundle: Dict[str, Any]
     intelligencePrivate: Optional[Dict[str, Any]] = None
     safetyLevel: Optional[str] = "normal"
     parentSlug: Optional[str] = Field(default=None, max_length=64)
+    """Alias for parentSlug (same-conversation deterministic chain)."""
+    parentJourneyId: Optional[str] = Field(default=None, max_length=64)
     lineageProofToken: Optional[str] = Field(default=None, max_length=64)
     guestToken: Optional[str] = Field(default=None, max_length=256)
 

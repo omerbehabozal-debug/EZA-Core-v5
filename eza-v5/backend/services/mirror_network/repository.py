@@ -104,6 +104,30 @@ async def get_mirror_network_node_by_conversation(
     return result.scalar_one_or_none()
 
 
+async def list_journey_nodes_for_conversation(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    conversation_id: str,
+) -> list[MirrorNetworkNode]:
+    """Owner journey_v1 nodes for one source conversation (deterministic parent chain)."""
+    from backend.models.mirror_network import ARTIFACT_KIND_JOURNEY_V1
+
+    normalized = (conversation_id or "").strip()
+    if not normalized:
+        return []
+    result = await db.execute(
+        select(MirrorNetworkNode)
+        .where(
+            MirrorNetworkNode.user_id == user_id,
+            MirrorNetworkNode.conversation_id == normalized,
+            MirrorNetworkNode.artifact_kind == ARTIFACT_KIND_JOURNEY_V1,
+        )
+        .order_by(MirrorNetworkNode.created_at.asc())
+    )
+    return list(result.scalars().all())
+
+
 async def update_mirror_network_node(
     db: AsyncSession,
     node: MirrorNetworkNode,

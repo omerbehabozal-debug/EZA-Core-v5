@@ -1,14 +1,18 @@
 /**
  * Deterministic 8-question Journey windows — product model reset.
  *
- * Conversation max: 20 eligible completed Q/A pairs.
+ * Conversation max: 20 eligible user questions (completed OR pending answer).
  * Yansı size: exactly 8 chronological pairs per window.
  * Windows: [0–7], [8–15]. (Q17–Q20 never form a full Yansı.)
  *
  * No best-8 scoring. No topic clustering. No cross-window mixing.
  */
 
-import { extractQaPairs } from './extractQaPairs';
+import {
+  extractQaPairs,
+  isEligiblePairingMessage,
+  resolveJourneyMessageRole,
+} from './extractQaPairs';
 import type { EligibleQaPair, JourneyMessageLike } from './types';
 
 export const JOURNEY_WINDOW_SIZE = 8 as const;
@@ -42,10 +46,45 @@ export type JourneyConversationState = {
   sourceConversationId: string;
   /** Completed eligible Q/A pair count last synced. */
   eligiblePairCount: number;
+  /**
+   * Completed pairs + pending unpaired eligible user question.
+   * Used for the hard 20-question send cap (blocks Q21 while A20 streams).
+   */
+  acceptedEligibleQuestionCount: number;
   windows: JourneyWindowRecord[];
   conversationClosed: boolean;
   updatedAt: string;
+  /** Monotonic revision for multi-tab CAS writes. */
+  stateVersion: number;
 };
+
+/**
+ * Count accepted eligible user questions:
+ * completed Q/A pairs + at most one trailing unpaired eligible user turn.
+ */
+export function countAcceptedEligibleUserQuestions(
+  messages: JourneyMessageLike[]
+): number {
+  const pairs = extractQaPairs(messages);
+  const pairedUserIds = new Set(pairs.map((p) => p.userMessageId));
+
+  let lastEligibleUser: JourneyMessageLike | null = null;
+  for (const msg of messages) {
+    const role = resolveJourneyMessageRole(msg);
+    if (role === 'user' && isEligiblePairingMessage(msg)) {
+      lastEligibleUser = msg;
+      continue;
+    }
+    if (role === 'assistant' && isEligiblePairingMessage(msg)) {
+      // Complete assistant consumes the pending user for slot accounting.
+      lastEligibleUser = null;
+    }
+  }
+
+  const pending =
+    lastEligibleUser && !pairedUserIds.has(lastEligibleUser.id) ? 1 : 0;
+  return pairs.length + pending;
+}
 
 export function windowRange(windowIndex: number): {
   startSequence: number;
@@ -100,15 +139,18 @@ export function createEmptyJourneyConversationState(input: {
     ownerUserId: input.ownerUserId,
     sourceConversationId: input.sourceConversationId,
     eligiblePairCount: 0,
+    acceptedEligibleQuestionCount: 0,
     windows: [],
     conversationClosed: false,
     updatedAt: new Date().toISOString(),
+    stateVersion: 0,
   };
 }
 
 /**
  * Sync conversation journey state from live/archive messages.
  * Idempotent: skipped/confirmed windows are never re-prompted.
+ * Does not bump stateVersion — callers persist via CAS save.
  */
 export function syncJourneyConversationState(input: {
   state: JourneyConversationState | null;
@@ -130,6 +172,9 @@ export function syncJourneyConversationState(input: {
 
   const pairs = extractQaPairs(input.messages);
   const eligiblePairCount = pairs.length;
+  const acceptedEligibleQuestionCount = countAcceptedEligibleUserQuestions(
+    input.messages
+  );
   const windows = [...base.windows];
 
   for (let w = 0; w < JOURNEY_MAX_PUBLISHABLE_WINDOWS; w += 1) {
@@ -161,8 +206,10 @@ export function syncJourneyConversationState(input: {
   return {
     ...base,
     eligiblePairCount,
+    acceptedEligibleQuestionCount,
     windows,
-    conversationClosed: eligiblePairCount >= JOURNEY_CONVERSATION_MAX_PAIRS,
+    conversationClosed:
+      acceptedEligibleQuestionCount >= JOURNEY_CONVERSATION_MAX_PAIRS,
     updatedAt: now,
   };
 }
@@ -302,6 +349,15 @@ export function canSendMoreJourneyQuestions(
 ): boolean {
   if (!state) return true;
   return !state.conversationClosed;
+}
+
+/** Live send guard — also blocks Q21 while A20 is still streaming. */
+export function canAcceptAnotherJourneyQuestion(
+  messages: JourneyMessageLike[]
+): boolean {
+  return (
+    countAcceptedEligibleUserQuestions(messages) < JOURNEY_CONVERSATION_MAX_PAIRS
+  );
 }
 
 export function listPublishedJourneyChain(

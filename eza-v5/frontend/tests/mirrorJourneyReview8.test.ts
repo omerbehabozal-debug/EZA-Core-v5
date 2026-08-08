@@ -3,6 +3,7 @@ import {
   allocateDraftKey,
   allocateJourneyId,
   buildReview8Draft,
+  buildReview8DraftFromWindow,
   clearAllReview8Drafts,
   confirmReview8Draft,
   extractQaPairs,
@@ -355,13 +356,15 @@ describe('journey publish contract gate', () => {
     }
   });
 
-  it('flag on with confirmed draft → journeyId + 8 steps', () => {
-    const pathReady = proposeCandidate8(buildTopicChat(8, 'suv'));
-    if (pathReady.status !== 'ready') throw new Error('ready');
-    const built = buildReview8Draft({
+  it('flag on with confirmed draft → journeyId + 8 steps + window', () => {
+    const pairs = extractQaPairs(buildTopicChat(8, 'suv'));
+    const built = buildReview8DraftFromWindow({
       ownerUserId: 'u1',
       sourceConversationId: 'c1',
-      path: pathReady.paths[0]!,
+      windowIndex: 0,
+      pairs,
+      draftKey: 'win-c1-0',
+      parentJourneyId: null,
     });
     const confirmed = confirmReview8Draft(built);
     if (!confirmed.ok) throw new Error('confirm');
@@ -376,6 +379,10 @@ describe('journey publish contract gate', () => {
     if (result.ok && !('legacy' in result)) {
       expect(result.journeyId).toBeTruthy();
       expect(result.selectedSteps).toHaveLength(8);
+      expect(result.windowIndex).toBe(0);
+      expect(result.windowStart).toBe(0);
+      expect(result.windowEnd).toBe(7);
+      expect(result.parentJourneyId).toBeNull();
     }
   });
 });

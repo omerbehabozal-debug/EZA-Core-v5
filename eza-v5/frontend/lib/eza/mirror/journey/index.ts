@@ -57,6 +57,8 @@ export {
   canSendMoreJourneyQuestions,
   listPublishedJourneyChain,
   allocateWindowDraftKey,
+  countAcceptedEligibleUserQuestions,
+  canAcceptAnotherJourneyQuestion,
   type JourneyWindowStatus,
   type JourneyWindowRecord,
   type JourneyConversationState,
@@ -69,6 +71,7 @@ export {
   clearAllJourneyConversationStates,
   ensureJourneyConversationState,
   JOURNEY_WINDOW_STATE_STORAGE_KEY,
+  type SaveJourneyStateResult,
 } from './journeyWindowStore';
 
 export {

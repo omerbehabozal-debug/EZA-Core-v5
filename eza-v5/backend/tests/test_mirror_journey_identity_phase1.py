@@ -30,16 +30,17 @@ def _user():
     )
 
 
-def _eight_steps():
+def _eight_steps(start: int = 0):
     return [
         {
-            "index": i,
-            "userMessageId": f"u{i}",
-            "assistantMessageId": f"a{i}",
-            "publicQuestion": f"Soru {i}?",
-            "publicAnswer": f"Cevap {i}.",
+            "stepIndex": i + 1,
+            "sourceOrder": start + i,
+            "sourceUserMessageId": f"u{start + i + 1}",
+            "sourceAssistantMessageId": f"a{start + i + 1}",
+            "publicQuestion": f"Soru {start + i + 1}?",
+            "publicAnswer": f"Cevap {start + i + 1}.",
         }
-        for i in range(1, 9)
+        for i in range(8)
     ]
 
 
@@ -62,7 +63,11 @@ def _body(**extra) -> MirrorNetworkPublishRequest:
         **extra,
     }
     if payload.get("journeyId") and "selectedSteps" not in payload:
-        payload["selectedSteps"] = _eight_steps()
+        payload["selectedSteps"] = _eight_steps(0)
+    if payload.get("journeyId") and "windowIndex" not in payload:
+        payload["windowIndex"] = 0
+        payload["windowStart"] = 0
+        payload["windowEnd"] = 7
     return MirrorNetworkPublishRequest(**payload)
 
 
