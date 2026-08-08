@@ -24,12 +24,19 @@ import {
   hashPublicMirrorLanding,
   MIRROR_PUBLIC_LANDING_CONTRACT_VERSION,
 } from '@/lib/eza/mirror-network/publicMirrorLanding';
+import {
+  MirrorApiContractError,
+  validatePublishResponse,
+} from '@/lib/eza/mirror/mirrorApiContracts';
 
 export type PublishMirrorToNetworkInput = {
   card: DailyMirrorCardModel;
   conversationId?: string;
   sceneImageUrl?: string | null;
   generationId?: string;
+  generationAcceptedAt?: number;
+  replacesGenerationId?: string;
+  forceRepublish?: boolean;
   generationAction?: 'first' | 'update' | 'new_scene';
 };
 
@@ -67,9 +74,16 @@ export function resolvePublishCuriosityBundle(card: DailyMirrorCardModel): {
   semanticSource: MirrorSemanticSource;
 } {
   if (isMirrorInterpretationV1(card.mirrorFinalInterpretation)) {
-    const built = buildCuriosityFromInterpretation(card.mirrorFinalInterpretation);
+    const semanticSource =
+      card.mirrorSemanticSource === 'heuristic_fallback'
+        ? 'heuristic_fallback'
+        : 'd2_interpretation';
+    const built = buildCuriosityFromInterpretation(card.mirrorFinalInterpretation, {
+      locale: card.mirrorV3Payload?.curiosityBundle?.seed?.locale,
+      semanticSource,
+    });
     assertPublicLandingPublishable(built.publicLanding);
-    return { bundle: built.bundle, semanticSource: 'd2_interpretation' };
+    return { bundle: built.bundle, semanticSource };
   }
 
   const payload = card.mirrorV3Payload;
@@ -79,12 +93,20 @@ export function resolvePublishCuriosityBundle(card: DailyMirrorCardModel): {
 
   const existing = payload.curiosityBundle;
   if (
-    existing?.semanticSource === 'd2_interpretation' &&
+    (existing?.semanticSource === 'd2_interpretation' ||
+      existing?.semanticSource === 'heuristic_fallback') &&
     existing.publicLanding?.contractVersion === MIRROR_PUBLIC_LANDING_CONTRACT_VERSION &&
-    existing.publicLanding.semanticSource === 'd2_interpretation'
+    (existing.publicLanding.semanticSource === 'd2_interpretation' ||
+      existing.publicLanding.semanticSource === 'heuristic_fallback')
   ) {
     assertPublicLandingPublishable(existing.publicLanding);
-    return { bundle: existing, semanticSource: 'd2_interpretation' };
+    return {
+      bundle: existing,
+      semanticSource:
+        existing.semanticSource === 'heuristic_fallback'
+          ? 'heuristic_fallback'
+          : 'd2_interpretation',
+    };
   }
 
   // Fail-closed: no D2 → safe neutral public landing (never seed.subtopics / evidence labels).
@@ -161,7 +183,15 @@ function buildIntelligencePrivate(
 }
 
 async function buildPublishBody(input: PublishMirrorToNetworkInput) {
-  const { card, conversationId, sceneImageUrl, generationId } = input;
+  const {
+    card,
+    conversationId,
+    sceneImageUrl,
+    generationId,
+    generationAcceptedAt,
+    replacesGenerationId,
+    forceRepublish,
+  } = input;
   const payload = card.mirrorV3Payload;
   if (!payload) {
     throw new Error('mirror_v3_payload_required');
@@ -198,6 +228,9 @@ async function buildPublishBody(input: PublishMirrorToNetworkInput) {
     publicLandingHash,
     contentHash: card.mirrorDirectorMetadata?.contentHash ?? null,
     generationId,
+    generationAcceptedAt: generationAcceptedAt ?? (generationId ? Date.now() : undefined),
+    replacesGenerationId,
+    forceRepublish,
     conversationId: conversationId?.trim() || undefined,
     sceneAssetId: sceneAssetIdFromUrl(sceneImageUrl),
     contractVersion: publicLanding.contractVersion,
@@ -269,24 +302,24 @@ export async function publishMirrorToNetwork(
       return { ok: false, ...parsed };
     }
 
-    const payload = (response.data ?? response) as MirrorNetworkPublicApiResponse;
-    if (!payload.shareUrl || !payload.slug) {
-      return {
-        ok: false,
-        code: 'publish_failed',
-        message: 'Paylaşım bağlantısı hazırlanamadı.',
-      };
-    }
+    const payload = validatePublishResponse(response.data ?? response);
 
     return {
       ok: true,
       slug: payload.slug,
       shareUrl: payload.shareUrl,
-      publicPayload: payload,
+      publicPayload: payload as unknown as MirrorNetworkPublicApiResponse,
       semanticSource,
       lineage,
     };
-  } catch {
+  } catch (err) {
+    if (err instanceof MirrorApiContractError) {
+      return {
+        ok: false,
+        code: err.code,
+        message: err.message,
+      };
+    }
     return {
       ok: false,
       code: 'publish_failed',
@@ -298,9 +331,13 @@ export async function publishMirrorToNetwork(
 export function applyShareUrlToCard(
   card: DailyMirrorCardModel,
   shareUrl: string,
-  slug?: string
+  slug?: string,
+  landing?: { publicTitle?: string | null; publicSummary?: string | null }
 ): DailyMirrorCardModel {
   const existing = card.mirrorShare;
+  const nextTitle = landing?.publicTitle?.trim() || existing?.publicTitle?.trim() || null;
+  const nextSummary =
+    landing?.publicSummary?.trim() || existing?.publicSummary?.trim() || null;
   const mirrorShare: MirrorShareIdentity = {
     blueprint: existing?.blueprint ?? {
       shareVoice: 'quiet_editorial_minimal',
@@ -313,6 +350,8 @@ export function applyShareUrlToCard(
     },
     shareUrl,
     networkSlug: slug ?? existing?.networkSlug ?? null,
+    publicTitle: nextTitle,
+    publicSummary: nextSummary,
   };
 
   return { ...card, mirrorShare };
@@ -320,8 +359,19 @@ export function applyShareUrlToCard(
 
 export function mergeCachedShareLinkIntoCard(
   card: DailyMirrorCardModel,
-  cached: { shareUrl: string; slug: string } | null | undefined
+  cached:
+    | {
+        shareUrl: string;
+        slug: string;
+        publicTitle?: string | null;
+        publicSummary?: string | null;
+      }
+    | null
+    | undefined
 ): DailyMirrorCardModel {
   if (!cached?.shareUrl) return card;
-  return applyShareUrlToCard(card, cached.shareUrl, cached.slug);
+  return applyShareUrlToCard(card, cached.shareUrl, cached.slug, {
+    publicTitle: cached.publicTitle,
+    publicSummary: cached.publicSummary,
+  });
 }

@@ -163,7 +163,7 @@ function shareVoiceForTopic(topic: StoryTopicId): ShareVoiceLine {
 
 export type D2CuriosityBuildResult = {
   bundle: MirrorCuriosityBundle;
-  semanticSource: 'd2_interpretation';
+  semanticSource: 'd2_interpretation' | 'heuristic_fallback';
   interpretationHash: string;
   publicLanding: PublicMirrorLanding;
 };
@@ -174,7 +174,11 @@ export type D2CuriosityBuildResult = {
  */
 export function buildCuriosityFromInterpretation(
   interpretation: MirrorInterpretationV1,
-  options?: { generationId?: string }
+  options?: {
+    generationId?: string;
+    locale?: string | null;
+    semanticSource?: 'd2_interpretation' | 'heuristic_fallback';
+  }
 ): D2CuriosityBuildResult {
   const topic = mapInterpretationTopicToStoryTopicId(interpretation.topicCategory);
   const mood = moodForTopic(topic);
@@ -184,9 +188,20 @@ export function buildCuriosityFromInterpretation(
   );
   const hooks = hooksFromInterpretation(interpretation, topic);
   const seedQuestions = seedQuestionsForTopic(topic).slice(0, MAX_SEED_QUESTIONS);
+  const semanticSource =
+    options?.semanticSource === 'heuristic_fallback'
+      ? 'heuristic_fallback'
+      : 'd2_interpretation';
   const publicLanding = buildPublicMirrorLandingFromInterpretation(interpretation, {
     generationId: options?.generationId,
+    semanticSource,
   });
+  const localeRaw = (options?.locale || 'tr').trim().toLowerCase();
+  const locale: 'tr' | 'en' | 'ar' = localeRaw.startsWith('en')
+    ? 'en'
+    : localeRaw.startsWith('ar')
+      ? 'ar'
+      : 'tr';
   const seed: MirrorSeed = {
     primaryTopic: clean(interpretation.title, 48) || topic,
     topicCategory: topic,
@@ -194,7 +209,8 @@ export function buildCuriosityFromInterpretation(
     subtopics,
     curiosityHooks: hooks,
     seedQuestions,
-    locale: 'tr',
+    // Preserve interpretation locale when provided — do not translate independently.
+    locale,
   };
   const coreCuriosity =
     publicLanding.continuationContext.slice(0, 140) ||
@@ -214,13 +230,13 @@ export function buildCuriosityFromInterpretation(
     discoverySignals: discoverySignals.slice(0, 4),
     collectionTags: collectionTags.slice(0, 5),
     shareVoice: shareVoiceForTopic(topic),
-    semanticSource: 'd2_interpretation',
+    semanticSource,
     publicLanding,
   };
 
   return {
     bundle,
-    semanticSource: 'd2_interpretation',
+    semanticSource,
     interpretationHash: interpretationHashSync(interpretation),
     publicLanding,
   };

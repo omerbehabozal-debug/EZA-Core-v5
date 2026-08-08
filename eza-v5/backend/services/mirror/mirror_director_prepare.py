@@ -42,6 +42,7 @@ from backend.services.mirror.mirror_draft_to_v5 import map_mirror_draft_to_v5_pr
 from backend.services.mirror.mirror_interpretation import (
     build_heuristic_interpretation,
     generate_mirror_interpretation,
+    heuristic_passes_grounding,
 )
 from backend.services.mirror.mirror_interpretation_to_v5 import (
     interpretation_hash,
@@ -117,10 +118,15 @@ async def prepare_mirror_director_draft(
     policy = get_mirror_director_execution_policy()
 
     # PR D1 — evidence package (non-authoritative for creative output).
+    from backend.services.mirror.resolve_conversation_locale import (
+        resolve_conversation_locale,
+    )
+
+    resolved_locale = resolve_conversation_locale(messages)
     conversation_context = build_mirror_conversation_context_v1(
         messages,
         conversation_id=conversation_id,
-        locale="tr",
+        locale=resolved_locale,
     )
     emit_director_event(
         "conversation_context_built",
@@ -224,6 +230,7 @@ async def prepare_mirror_director_draft(
                 conversation_context,
                 completer=interpretation_completer,
             )
+            interp_failure_code: str | None = None
             if interp_result.ok:
                 interpretation = interp_result.interpretation
                 source = interp_result.source
@@ -232,11 +239,32 @@ async def prepare_mirror_director_draft(
                 interpretation = build_heuristic_interpretation(conversation_context)
                 source = "interpretation_heuristic"
                 latency_ms = 0
+                interp_failure_code = interp_result.code
                 emit_director_event(
                     "interpretation_fallback",
                     reason=interp_result.code,
                     directorMode=policy.mode,
                 )
+
+            # Map internal source → public interpretationSource label.
+            interpretation_source_label = (
+                "d2_llm" if source == "interpretation_llm" else "heuristic_fallback"
+            )
+
+            # Heuristic must never be published as normal D2 when it fails grounding
+            # for modes that affect user output (SOFT/FULL).
+            if (
+                source == "interpretation_heuristic"
+                and policy.affect_user_output
+                and not heuristic_passes_grounding(conversation_context, interpretation)
+            ):
+                emit_director_event(
+                    "interpretation_grounding_failed",
+                    reason=interp_failure_code or "heuristic_grounding_failed",
+                    directorMode=policy.mode,
+                    contentHash=content_hash,
+                )
+                return _fallback_response(reason="heuristic_grounding_failed")
 
             mapped = map_interpretation_to_v5_prompt(
                 interpretation,
@@ -271,7 +299,7 @@ async def prepare_mirror_director_draft(
                 directorDecision=None,
                 directorReasonCodes=[],
                 revisionCount=0,
-                fallbackReason=None,
+                fallbackReason=interp_failure_code if source == "interpretation_heuristic" else None,
                 topicCategory=normalize_mirror_director_topic(interpretation.topicCategory),
                 draftDurationMs=latency_ms,
                 reviewDurationMs=0,
@@ -292,7 +320,9 @@ async def prepare_mirror_director_draft(
                 shadowMappedPrompt=mapped if policy.mode == "SHADOW" else None,
                 finalDraft=None,
                 finalInterpretation=interpretation if policy.persist_director_metadata else None,
+                interpretationSource=interpretation_source_label,
                 metadata=meta if policy.persist_director_metadata else None,
+                fallbackReason=interp_failure_code if source == "interpretation_heuristic" else None,
                 contentHash=content_hash,
                 titleSource=user_title_source,
                 promptSource=user_prompt_source,
@@ -303,6 +333,7 @@ async def prepare_mirror_director_draft(
                 generationRequestId=generation_request_id[:48],
                 contentHash=content_hash,
                 interpretationSource=source,
+                interpretationSourceLabel=interpretation_source_label,
                 interpretationHash=ihash,
                 confidence=interpretation.confidence,
                 latencyMs=latency_ms,

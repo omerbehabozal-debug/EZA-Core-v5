@@ -13,6 +13,8 @@ export type MirrorShareLinkRecord = {
   shareUrl: string;
   updatedAt: string;
   userId: string;
+  publicTitle?: string | null;
+  publicSummary?: string | null;
 };
 
 type UserStore = Record<string, MirrorShareLinkRecord>;
@@ -58,6 +60,10 @@ function readRoot(): RootStore {
             shareUrl: row.shareUrl,
             updatedAt: row.updatedAt,
             userId: typeof row.userId === 'string' ? row.userId : uid,
+            publicTitle:
+              typeof row.publicTitle === 'string' ? row.publicTitle : null,
+            publicSummary:
+              typeof row.publicSummary === 'string' ? row.publicSummary : null,
           };
         }
       }
@@ -136,17 +142,27 @@ export function saveMirrorShareLink(
   slug: string,
   shareUrl: string,
   userId?: string | null,
-  now: Date = new Date()
+  now: Date = new Date(),
+  landing?: { publicTitle?: string | null; publicSummary?: string | null }
 ): MirrorShareLinkRecord | null {
   const conv = conversationId.trim();
   const uid = normalizeUserId(userId);
   if (!conv || !uid) return null;
+  const existing = readRoot()[uid]?.[conv];
   const record: MirrorShareLinkRecord = {
     conversationId: conv,
     slug: slug.trim(),
     shareUrl: shareUrl.trim(),
     updatedAt: now.toISOString(),
     userId: uid,
+    publicTitle:
+      landing?.publicTitle?.trim() ||
+      existing?.publicTitle?.trim() ||
+      null,
+    publicSummary:
+      landing?.publicSummary?.trim() ||
+      existing?.publicSummary?.trim() ||
+      null,
   };
   const root = readRoot();
   const userStore = root[uid] ?? {};

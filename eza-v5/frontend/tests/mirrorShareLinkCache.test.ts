@@ -19,6 +19,23 @@ describe('mirrorShareLinkCache user scope', () => {
     expect(readMirrorShareLink('conv-1', null)).toBeNull();
   });
 
+  it('persists published landing fields for preview remount', () => {
+    saveMirrorShareLink(
+      'conv-1',
+      'slug-a',
+      'https://saina.app/m/slug-a',
+      'user-1',
+      new Date(),
+      {
+        publicTitle: 'Choosing the Right Family SUV',
+        publicSummary: 'Inside a modern car showroom.',
+      }
+    );
+    const row = readMirrorShareLink('conv-1', 'user-1');
+    expect(row?.publicTitle).toBe('Choosing the Right Family SUV');
+    expect(row?.publicSummary).toBe('Inside a modern car showroom.');
+  });
+
   it('clears a conversation across users when userId omitted', () => {
     saveMirrorShareLink('conv-x', 'slug-a', 'https://saina.app/m/slug-a', 'user-1');
     saveMirrorShareLink('conv-x', 'slug-b', 'https://saina.app/m/slug-b', 'user-2');

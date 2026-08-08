@@ -4,6 +4,10 @@
 
 import { getApiUrl } from '@/lib/apiUrl';
 import type { MirrorNetworkPublicApiResponse } from '@/lib/eza/mirror-network/publicTypes';
+import {
+  MirrorApiContractError,
+  validatePublicMirrorBySlug,
+} from '@/lib/eza/mirror/mirrorApiContracts';
 
 export type FetchPublicMirrorResult =
   | { ok: true; data: MirrorNetworkPublicApiResponse }
@@ -37,8 +41,12 @@ export async function fetchPublicMirrorBySlug(
     }
 
     const data = (await response.json()) as MirrorNetworkPublicApiResponse;
-    return { ok: true, data };
-  } catch {
+    const validated = validatePublicMirrorBySlug(data);
+    return { ok: true, data: { ...data, slug: validated.slug } };
+  } catch (err) {
+    if (err instanceof MirrorApiContractError) {
+      return { ok: false, status: 502 };
+    }
     return { ok: false, status: 502 };
   }
 }

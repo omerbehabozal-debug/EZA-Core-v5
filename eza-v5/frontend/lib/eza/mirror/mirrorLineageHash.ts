@@ -83,6 +83,7 @@ export async function publishBundleHash(bundle: unknown): Promise<string> {
 
 export type MirrorSemanticSource =
   | 'd2_interpretation'
+  | 'heuristic_fallback'
   | 'safe_fallback'
   | 'legacy_v3_fallback';
 
@@ -95,6 +96,11 @@ export type MirrorPublishLineageMeta = {
   contentHash?: string | null;
   mapperVersion?: string;
   generationId?: string;
+  /** Epoch ms when this generation was accepted client-side. */
+  generationAcceptedAt?: number;
+  /** Prior generationId this publish replaces (Yeni Sahne / Aynayı Güncelle). */
+  replacesGenerationId?: string;
+  forceRepublish?: boolean;
   conversationId?: string;
   sceneAssetId?: string | null;
   contractVersion?: string;

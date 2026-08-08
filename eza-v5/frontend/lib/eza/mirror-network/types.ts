@@ -33,7 +33,7 @@ export type MirrorSeed = {
   curiosityHooks: string[];
   /** Landing / seed only — must not appear on card or image prompt. */
   seedQuestions: string[];
-  locale: 'tr' | 'en';
+  locale: 'tr' | 'en' | 'ar';
   /** Reserved — parent mirror slug when lineage ships (Stage 1+). */
   lineage?: string;
   /** Reserved — safety tier for public landing. */
@@ -50,6 +50,7 @@ export type MirrorCuriosityContext = {
 
 export type MirrorCuriositySemanticSource =
   | 'd2_interpretation'
+  | 'heuristic_fallback'
   | 'safe_fallback'
   | 'legacy_v3_fallback';
 

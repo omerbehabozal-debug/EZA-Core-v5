@@ -83,7 +83,8 @@ def sanitize_intelligence_private_for_persist(
     Rebuild intelligencePrivate for private_payload construction.
 
     Keeps existing non-director private fields; replaces mirrorDirector with
-    backend-validated allowlist only. Extra client keys are dropped.
+    backend-validated allowlist only. Preserves mirrorLineage for generation binding.
+    Extra client keys are dropped.
     """
     src = dict(intelligence_private or {})
     out: dict[str, Any] = {}
@@ -92,7 +93,39 @@ def sanitize_intelligence_private_for_persist(
         if key in src and src[key] is not None:
             out[key] = src[key]
 
+    brief_out: dict[str, Any] = {}
     sanitized = sanitize_mirror_director_metadata(extract_raw_mirror_director(src))
     if sanitized:
-        out["intelligenceBrief"] = {"mirrorDirector": sanitized}
+        brief_out["mirrorDirector"] = sanitized
+
+    src_brief = src.get("intelligenceBrief")
+    lineage = None
+    if isinstance(src_brief, Mapping):
+        lineage = src_brief.get("mirrorLineage")
+    if lineage is None:
+        lineage = src.get("mirrorLineage")
+    if isinstance(lineage, Mapping) and lineage:
+        # Allowlist lineage keys used for publish binding / stale guards.
+        allowed = {
+            "semanticSource",
+            "interpretationHash",
+            "mappedPromptHash",
+            "publishBundleHash",
+            "publicLandingHash",
+            "contentHash",
+            "mapperVersion",
+            "generationId",
+            "generationAcceptedAt",
+            "replacesGenerationId",
+            "forceRepublish",
+            "conversationId",
+            "sceneAssetId",
+            "contractVersion",
+        }
+        brief_out["mirrorLineage"] = {
+            k: v for k, v in lineage.items() if k in allowed and v is not None
+        }
+
+    if brief_out:
+        out["intelligenceBrief"] = brief_out
     return out

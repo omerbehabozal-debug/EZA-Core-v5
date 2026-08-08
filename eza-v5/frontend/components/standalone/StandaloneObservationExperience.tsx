@@ -116,6 +116,7 @@ import {
   mergeCachedShareLinkIntoCard,
   publishMirrorToNetwork,
 } from '@/lib/eza/mirror-share/publishMirrorToNetwork';
+import { fetchPublicMirrorBySlug } from '@/lib/eza/mirror-network/fetchPublicMirror';
 import { shouldSkipShareLinkPrepare } from '@/lib/eza/mirror-share/shareLinkPrepareIntent';
 import type { MirrorShareLinkStatus } from '@/components/mirror/MirrorShareExperience';
 import { markDiscoverMirrorCompletedForConversation } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
@@ -187,6 +188,8 @@ export default function StandaloneObservationExperience({
   const sceneRequestIdByAutoKeyRef = useRef<Map<string, string>>(new Map());
   /** Active generationId — accept scenes only when response matches this. */
   const activeGenerationIdRef = useRef<string | null>(null);
+  /** Last generationId successfully bound at publish — for stale/supersede checks. */
+  const lastPublishedGenerationIdRef = useRef<string | null>(null);
   const sceneGenerationInFlightRef = useRef(false);
   /** Armed only by explicit create / update / retry / new-scene — blocks chat remount regen. */
   const allowAutoSceneGenerationRef = useRef(false);
@@ -194,6 +197,7 @@ export default function StandaloneObservationExperience({
   const hydratedFromSnapshotRef = useRef(false);
   const sceneDisplayBlobUrlRef = useRef<string | null>(null);
   const shareLinkInFlightRef = useRef(false);
+  const publishedLandingHydrateRef = useRef<string | null>(null);
   const mirrorExport = useMirrorCardExport();
   const { isAuthenticated, isAuthReady, user } = useAuth();
   const shareCacheUserId = user?.user_id ?? null;
@@ -411,11 +415,41 @@ export default function StandaloneObservationExperience({
           card,
           conversationId,
           sceneImageUrl: rawScene,
+          generationId: activeGenerationIdRef.current ?? undefined,
+          generationAcceptedAt: Date.now(),
+          forceRepublish: Boolean(options?.refreshScene),
+          replacesGenerationId:
+            lastPublishedGenerationIdRef.current &&
+            activeGenerationIdRef.current &&
+            lastPublishedGenerationIdRef.current !== activeGenerationIdRef.current
+              ? lastPublishedGenerationIdRef.current
+              : undefined,
         });
 
         if (result.ok) {
+          if (activeGenerationIdRef.current) {
+            lastPublishedGenerationIdRef.current = activeGenerationIdRef.current;
+          }
+          const landing = {
+            publicTitle:
+              result.publicPayload.publicTitle?.trim() ||
+              result.publicPayload.cardTitle?.trim() ||
+              null,
+            publicSummary:
+              result.publicPayload.publicSummary?.trim() ||
+              result.publicPayload.curiosityContext?.trim() ||
+              result.publicPayload.landingContext?.trim() ||
+              null,
+          };
           if (conversationId) {
-            saveMirrorShareLink(conversationId, result.slug, result.shareUrl, shareCacheUserId);
+            saveMirrorShareLink(
+              conversationId,
+              result.slug,
+              result.shareUrl,
+              shareCacheUserId,
+              new Date(),
+              landing
+            );
             const publishedScene =
               result.publicPayload.sceneImageUrl?.trim() ||
               rawScene?.trim() ||
@@ -429,7 +463,9 @@ export default function StandaloneObservationExperience({
             }
           }
           setGeneratedDailyCard((prev) =>
-            prev ? applyShareUrlToCard(prev, result.shareUrl, result.slug) : prev
+            prev
+              ? applyShareUrlToCard(prev, result.shareUrl, result.slug, landing)
+              : prev
           );
           setShareLinkStatus('ready');
           setShareLinkError(null);
@@ -1407,6 +1443,61 @@ export default function StandaloneObservationExperience({
   }, [cardForRender, sceneImageUrl]);
 
   const isPublished = Boolean(generatedDailyCard?.mirrorShare?.shareUrl);
+
+  /** Already-published mirrors: restore Discover title/summary when local D2 was lost. */
+  useEffect(() => {
+    const share = generatedDailyCard?.mirrorShare;
+    const slug = share?.networkSlug?.trim();
+    if (!slug || !share?.shareUrl) return;
+    if (share.publicTitle?.trim() && share.publicSummary?.trim()) return;
+    if (publishedLandingHydrateRef.current === slug) return;
+    publishedLandingHydrateRef.current = slug;
+
+    let cancelled = false;
+    void (async () => {
+      const result = await fetchPublicMirrorBySlug(slug);
+      if (cancelled || !result.ok) return;
+      const landing = {
+        publicTitle:
+          result.data.publicTitle?.trim() || result.data.cardTitle?.trim() || null,
+        publicSummary:
+          result.data.publicSummary?.trim() ||
+          result.data.curiosityContext?.trim() ||
+          result.data.landingContext?.trim() ||
+          null,
+      };
+      if (!landing.publicTitle && !landing.publicSummary) return;
+
+      setGeneratedDailyCard((prev) => {
+        if (!prev?.mirrorShare?.shareUrl) return prev;
+        return applyShareUrlToCard(
+          prev,
+          prev.mirrorShare.shareUrl,
+          prev.mirrorShare.networkSlug ?? slug,
+          landing
+        );
+      });
+
+      if (conversationId && shareCacheUserId) {
+        saveMirrorShareLink(
+          conversationId,
+          slug,
+          share.shareUrl,
+          shareCacheUserId,
+          new Date(),
+          landing
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    conversationId,
+    generatedDailyCard?.mirrorShare,
+    shareCacheUserId,
+  ]);
 
   const isSceneLoading = useMemo(() => {
     if (dailyStatus !== 'ready') return false;

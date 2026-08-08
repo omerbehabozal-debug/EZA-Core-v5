@@ -222,7 +222,17 @@ export async function runFailClosedMirrorSceneGeneration(
 
       const modeUpper = (prepared.directorMode || '').trim().toUpperCase();
       if (modeUpper === 'LEGACY' || modeUpper === 'SHADOW') {
-        // Explicit legacy path only when backend reports LEGACY/SHADOW.
+        // Never demote D2_V5 (or default D2) to LEGACY_V3 from prepare mode.
+        // Only an explicit caller LEGACY_V3 may proceed on director LEGACY/SHADOW.
+        if (input.generationPipeline !== 'LEGACY_V3') {
+          return fail(
+            new MirrorSceneError(
+              'Director returned LEGACY/SHADOW while D2_V5 pipeline is required for conversation Mirror.',
+              'd2_pipeline_required'
+            ),
+            `director_${modeUpper.toLowerCase()}_not_allowed`
+          );
+        }
         generationPipeline = 'LEGACY_V3';
         fallbackPath = `director_${modeUpper.toLowerCase()}`;
         if (prepared.usedDirector && (prepared.applyTitle || prepared.applyPrompt || prepared.metadata)) {

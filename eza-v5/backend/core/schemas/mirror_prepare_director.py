@@ -86,3 +86,5 @@ class MirrorPrepareDirectorDraftResponse(BaseModel):
     conversationContext: Optional[MirrorConversationContextV1] = None
     """PR D2 — creative interpretation (authority when rollout uses interpretation v1)."""
     finalInterpretation: Optional[MirrorInterpretationV1] = None
+    """Where finalInterpretation came from — never claim d2_llm for heuristic output."""
+    interpretationSource: Optional[Literal["d2_llm", "heuristic_fallback"]] = None

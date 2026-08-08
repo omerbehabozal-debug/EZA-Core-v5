@@ -154,10 +154,16 @@ describe('Mirror Network Publish (Stage 4C)', () => {
     const updated = applyShareUrlToCard(
       card,
       'https://saina.app/m/sokak-lambalari-abc123',
-      'sokak-lambalari-abc123'
+      'sokak-lambalari-abc123',
+      {
+        publicTitle: 'Sokak Lambaları',
+        publicSummary: 'Gece yürüyüşünde duraksayan bir ışık.',
+      }
     );
 
     expect(updated.mirrorShare?.shareUrl).toBe('https://saina.app/m/sokak-lambalari-abc123');
+    expect(updated.mirrorShare?.publicTitle).toBe('Sokak Lambaları');
+    expect(updated.mirrorShare?.publicSummary).toContain('ışık');
     const caption = resolveMirrorShareCaption(updated);
     expect(caption).toContain('→ Buradan devam et.');
     expect(caption).toContain('saina.app/m/sokak-lambalari-abc123');

@@ -3,6 +3,10 @@
  */
 
 import { getApiUrl } from '@/lib/apiUrl';
+import {
+  MirrorApiContractError,
+  validateDiscoverList,
+} from '@/lib/eza/mirror/mirrorApiContracts';
 
 export type DiscoverMirror = {
   slug: string;
@@ -52,7 +56,9 @@ export async function fetchDiscoverMirrors(options?: {
       return { ok: false, status: response.status };
     }
 
-    const data = (await response.json()) as DiscoverMirrorListResponse;
+    const raw = await response.json();
+    const validated = validateDiscoverList(raw);
+    const data = validated as DiscoverMirrorListResponse;
     const json = JSON.stringify(data);
     for (const key of FORBIDDEN_KEYS) {
       if (json.includes(`"${key}"`)) {
@@ -61,6 +67,9 @@ export async function fetchDiscoverMirrors(options?: {
     }
     return { ok: true, data };
   } catch (err) {
+    if (err instanceof MirrorApiContractError) {
+      return { ok: false, status: 0 };
+    }
     if (err instanceof Error && err.message.startsWith('discover_forbidden_field:')) {
       throw err;
     }

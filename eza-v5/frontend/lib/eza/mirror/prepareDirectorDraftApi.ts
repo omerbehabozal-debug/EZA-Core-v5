@@ -2,13 +2,17 @@
  * Client for POST /api/standalone/mirror/prepare-director-draft (PR C).
  * Does not consume visual quota. Backend flag authority.
  *
- * Fail-closed: HTTP / empty failures throw — callers must not soft-continue to V3.
+ * Fail-closed: HTTP / empty / contract failures throw — callers must not soft-continue to V3.
  */
 
 import { apiClient } from '@/lib/apiClient';
 import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
 import { GUEST_TOKEN_HEADER } from '@/lib/eza/plan/guestTokenHeader';
 import type { PrepareDirectorDraftResult } from '@/lib/eza/mirror/applyDirectorPrepareToCard';
+import {
+  MirrorApiContractError,
+  validatePrepareDirectorResponse,
+} from '@/lib/eza/mirror/mirrorApiContracts';
 
 export type MirrorPrepareMessageDTO = {
   role: 'user' | 'assistant';
@@ -62,48 +66,29 @@ export async function prepareDirectorDraft(
       'prepare_http_error'
     );
   }
-  // apiClient may place FastAPI response_model fields on `res` itself when the
-  // body has no nested `data` key. Prefer res.data, then unwrapped body fields.
-  const data = unwrapPrepareDirectorResult(res);
-  if (!data) {
+  try {
+    // Prefer nested data / double-wrap via contract unwrap; reject soft shapes.
+    return validatePrepareDirectorResponse(res) as PrepareDirectorDraftResult;
+  } catch (err) {
+    if (err instanceof MirrorApiContractError) {
+      throw new MirrorPrepareError(err.message, err.code);
+    }
     throw new MirrorPrepareError(
       'Director prepare boş yanıt döndü.',
       'prepare_empty_response'
     );
   }
-  return data;
 }
 
-/** Normalize apiClient envelope vs raw FastAPI prepare body. */
+/** @deprecated Prefer validatePrepareDirectorResponse — kept for transitional callers. */
 export function unwrapPrepareDirectorResult(
   res: Record<string, unknown> & { data?: unknown; ok?: boolean }
 ): PrepareDirectorDraftResult | null {
-  const nested = res.data;
-  if (nested && typeof nested === 'object' && isPrepareDirectorShape(nested)) {
-    return nested as PrepareDirectorDraftResult;
+  try {
+    return validatePrepareDirectorResponse(res) as PrepareDirectorDraftResult;
+  } catch {
+    return null;
   }
-  if (isPrepareDirectorShape(res)) {
-    const {
-      ok: _ok,
-      error: _error,
-      detail: _detail,
-      data: _data,
-      ...rest
-    } = res;
-    return rest as unknown as PrepareDirectorDraftResult;
-  }
-  return null;
-}
-
-function isPrepareDirectorShape(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false;
-  const v = value as Record<string, unknown>;
-  return (
-    typeof v.usedDirector === 'boolean' ||
-    typeof v.directorEnabled === 'boolean' ||
-    typeof v.directorMode === 'string' ||
-    v.mappedPrompt != null
-  );
 }
 
 /** Build permitted DTOs from archive + live messages (user primary). */

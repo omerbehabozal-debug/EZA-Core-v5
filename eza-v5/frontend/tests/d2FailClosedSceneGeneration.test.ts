@@ -216,6 +216,7 @@ describe('runFailClosedMirrorSceneGeneration', () => {
       card: baseCard(V3_CATEGORY_PROMPT),
       reuseMappedPrompt: false,
       shouldPrepare: true,
+      generationPipeline: 'LEGACY_V3',
       prepare,
       generate,
       isGenerationStillActive: () => true,
@@ -224,6 +225,67 @@ describe('runFailClosedMirrorSceneGeneration', () => {
     expect(out.ok).toBe(true);
     if (!out.ok) return;
     expect(out.generationPipeline).toBe('LEGACY_V3');
+  });
+
+  it('5b. D2_V5 never demotes to LEGACY_V3 when prepare returns LEGACY', async () => {
+    const prepare = vi.fn(async () =>
+      d2PrepareResult({
+        directorMode: 'LEGACY',
+        usedDirector: false,
+        applyPrompt: false,
+        applyTitle: false,
+        mappedPrompt: null,
+      })
+    );
+    const generate = vi.fn();
+
+    const out = await runFailClosedMirrorSceneGeneration({
+      generationId: 'gen-5b',
+      conversationId: 'conv-1',
+      card: baseCard(V3_CATEGORY_PROMPT),
+      reuseMappedPrompt: false,
+      shouldPrepare: true,
+      generationPipeline: 'D2_V5',
+      prepare,
+      generate,
+      isGenerationStillActive: () => true,
+    });
+
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.error.code).toBe('d2_pipeline_required');
+    expect(out.fallbackPath).toBe('director_legacy_not_allowed');
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it('5c. D2_V5 never demotes when prepare returns SHADOW', async () => {
+    const prepare = vi.fn(async () =>
+      d2PrepareResult({
+        directorMode: 'SHADOW',
+        usedDirector: false,
+        applyPrompt: false,
+        applyTitle: false,
+        mappedPrompt: null,
+      })
+    );
+    const generate = vi.fn();
+
+    const out = await runFailClosedMirrorSceneGeneration({
+      generationId: 'gen-5c',
+      conversationId: 'conv-1',
+      card: baseCard(V3_CATEGORY_PROMPT),
+      reuseMappedPrompt: false,
+      shouldPrepare: true,
+      generationPipeline: 'D2_V5',
+      prepare,
+      generate,
+      isGenerationStillActive: () => true,
+    });
+
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.error.code).toBe('d2_pipeline_required');
+    expect(generate).not.toHaveBeenCalled();
   });
 
   it('6. race — stale generation cannot accept scene', async () => {

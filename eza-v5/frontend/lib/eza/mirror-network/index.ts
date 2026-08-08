@@ -26,6 +26,7 @@ export {
   isLegacyAntiSummaryLandingCopy,
   MIRROR_PUBLIC_LANDING_CONTRACT_VERSION,
   SAFE_PUBLIC_LANDING_FALLBACK_SUMMARY,
+  safePublicLandingCopy,
 } from '@/lib/eza/mirror-network/publicMirrorLanding';
 
 export type { PublicMirrorLanding } from '@/lib/eza/mirror-network/publicMirrorLanding';

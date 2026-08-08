@@ -13,6 +13,7 @@ export const MIRROR_PUBLIC_LANDING_CONTRACT_VERSION = 'mirror-public-landing-v1'
 
 export type PublicMirrorLandingSemanticSource =
   | 'd2_interpretation'
+  | 'heuristic_fallback'
   | 'safe_fallback';
 
 export type PublicMirrorLanding = {
@@ -35,6 +36,42 @@ export const SAFE_PUBLIC_LANDING_FALLBACK_TITLE = 'Paylaşılan Merak';
 
 export const SAFE_CONTINUATION_CONTEXT =
   'Bu Ayna’daki merak alanını kendi sorularınla sürdürmek istiyorsun.';
+
+const SAFE_LANDING_BY_LOCALE: Record<
+  string,
+  { title: string; summary: string; continuation: string }
+> = {
+  tr: {
+    title: SAFE_PUBLIC_LANDING_FALLBACK_TITLE,
+    summary: SAFE_PUBLIC_LANDING_FALLBACK_SUMMARY,
+    continuation: SAFE_CONTINUATION_CONTEXT,
+  },
+  en: {
+    title: 'Shared Curiosity',
+    summary: 'This Mirror grew from a shared experience and the curiosity it stirred.',
+    continuation: 'Continue this Mirror’s curiosity with your own questions.',
+  },
+  ar: {
+    title: 'فضول مشترك',
+    summary: 'ولدت هذه المرآة من تجربة مشتركة والفضول الذي أيقظته.',
+    continuation: 'تابع فضول هذه المرآة بأسئلتك الخاصة.',
+  },
+};
+
+export function resolveSafeLandingLocale(locale?: string | null): 'tr' | 'en' | 'ar' {
+  const raw = (locale || 'tr').trim().toLowerCase();
+  if (raw.startsWith('en')) return 'en';
+  if (raw.startsWith('ar')) return 'ar';
+  return 'tr';
+}
+
+export function safePublicLandingCopy(locale?: string | null): {
+  title: string;
+  summary: string;
+  continuation: string;
+} {
+  return SAFE_LANDING_BY_LOCALE[resolveSafeLandingLocale(locale)];
+}
 
 /** Phrases from the old anti-summary gateway — never emit on new landings. */
 export const FORBIDDEN_PUBLIC_LANDING_PHRASES = [
@@ -137,11 +174,8 @@ export function buildPublicSummaryFromInterpretation(
   let summary: string;
   if (scene && curiosity && scene.toLowerCase() !== curiosity.toLowerCase()) {
     const c2 = curiosity.endsWith('.') ? curiosity : `${curiosity.replace(/\.$/, '')}.`;
-    // Lead curiosity with “Bu Ayna” only when summary is abstract; keep natural prose.
-    const curiositySentence = /^(bu ayna|this mirror)\b/i.test(c2)
-      ? c2
-      : `Bu Ayna, ${c2.charAt(0).toLowerCase()}${c2.slice(1)}`;
-    summary = `${scene.endsWith('.') ? scene : `${scene}.`} ${curiositySentence}`;
+    // Do not invent a second-language lead-in; keep interpretation prose as-is.
+    summary = `${scene.endsWith('.') ? scene : `${scene}.`} ${c2}`;
   } else if (scene) {
     summary = scene.endsWith('.') ? scene : `${scene}.`;
   } else if (curiosity) {
@@ -186,35 +220,46 @@ export function buildContinuationContextFromInterpretation(
 
 export function buildPublicMirrorLandingFromInterpretation(
   interpretation: MirrorInterpretationV1,
-  options?: { generationId?: string }
+  options?: {
+    generationId?: string;
+    semanticSource?: PublicMirrorLandingSemanticSource;
+  }
 ): PublicMirrorLanding {
   const publicTitle = polishTitle(interpretation.title);
   const publicSummary = buildPublicSummaryFromInterpretation(interpretation);
   const continuationContext = buildContinuationContextFromInterpretation(interpretation);
   const topicCategory = clean(interpretation.topicCategory || 'general_curiosity', 48);
   const interpretationHash = interpretationHashSync(interpretation);
+  const semanticSource =
+    options?.semanticSource === 'heuristic_fallback'
+      ? 'heuristic_fallback'
+      : options?.semanticSource === 'safe_fallback'
+        ? 'safe_fallback'
+        : 'd2_interpretation';
 
   return {
     publicTitle,
     publicSummary,
     continuationContext,
     topicCategory,
-    semanticSource: 'd2_interpretation',
+    semanticSource,
     interpretationHash,
     generationId: options?.generationId,
     contractVersion: MIRROR_PUBLIC_LANDING_CONTRACT_VERSION,
-    isFallback: false,
+    isFallback: semanticSource !== 'd2_interpretation',
   };
 }
 
 export function buildSafePublicMirrorLandingFallback(options?: {
   title?: string;
   generationId?: string;
+  locale?: string | null;
 }): PublicMirrorLanding {
+  const copy = safePublicLandingCopy(options?.locale);
   return {
-    publicTitle: polishTitle(options?.title || SAFE_PUBLIC_LANDING_FALLBACK_TITLE),
-    publicSummary: SAFE_PUBLIC_LANDING_FALLBACK_SUMMARY,
-    continuationContext: SAFE_CONTINUATION_CONTEXT,
+    publicTitle: polishTitle(options?.title || copy.title),
+    publicSummary: copy.summary,
+    continuationContext: copy.continuation,
     topicCategory: 'general_curiosity',
     semanticSource: 'safe_fallback',
     interpretationHash: 'none',
@@ -276,18 +321,17 @@ export function assertLandingMatchesInterpretationHash(
 export function pickVisibleLandingTitle(payload: {
   publicTitle?: string | null;
   cardTitle?: string | null;
+  locale?: string | null;
 }): string {
-  return (
-    payload.publicTitle?.trim() ||
-    payload.cardTitle?.trim() ||
-    SAFE_PUBLIC_LANDING_FALLBACK_TITLE
-  );
+  const fallback = safePublicLandingCopy(payload.locale).title;
+  return payload.publicTitle?.trim() || payload.cardTitle?.trim() || fallback;
 }
 
 export function pickVisibleLandingSummary(payload: {
   publicSummary?: string | null;
   curiosityContext?: string | null;
   landingContext?: string | null;
+  locale?: string | null;
 }): string {
   const preferred = payload.publicSummary?.trim();
   if (preferred && !isLegacyAntiSummaryLandingCopy(preferred)) return preferred;
@@ -297,5 +341,5 @@ export function pickVisibleLandingSummary(payload: {
   if (legacy && !isLegacyAntiSummaryLandingCopy(legacy)) return legacy;
 
   // Legacy anti-summary or empty → safe fallback for display (migration surface).
-  return SAFE_PUBLIC_LANDING_FALLBACK_SUMMARY;
+  return safePublicLandingCopy(payload.locale).summary;
 }

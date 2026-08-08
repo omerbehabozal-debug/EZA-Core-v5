@@ -368,3 +368,134 @@ def test_publish_endpoint_returns_public_payload():
     assert "userId" not in body
     assert "mirrorBody" not in body
     assert "conversationId" not in body
+
+
+def test_assert_publish_generation_not_stale_rejects_older():
+    from fastapi import HTTPException
+
+    from backend.services.mirror_network.publish import assert_publish_generation_not_stale
+
+    existing = {
+        "intelligenceBrief": {
+            "mirrorLineage": {
+                "generationId": "gen-new",
+                "generationAcceptedAt": 2_000,
+            }
+        }
+    }
+    incoming = {
+        "generationId": "gen-old",
+        "generationAcceptedAt": 1_000,
+    }
+    with pytest.raises(HTTPException) as exc:
+        assert_publish_generation_not_stale(
+            existing_private=existing,
+            incoming_lineage=incoming,
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "stale_publish"
+
+
+def test_assert_publish_generation_allows_same_generation_and_supersede():
+    from backend.services.mirror_network.publish import assert_publish_generation_not_stale
+
+    existing = {
+        "intelligenceBrief": {
+            "mirrorLineage": {
+                "generationId": "gen-1",
+                "generationAcceptedAt": 1_000,
+            }
+        }
+    }
+    # Same generation — allow scene refresh
+    assert_publish_generation_not_stale(
+        existing_private=existing,
+        incoming_lineage={"generationId": "gen-1", "generationAcceptedAt": 1_500},
+    )
+    # Explicit replace
+    assert_publish_generation_not_stale(
+        existing_private=existing,
+        incoming_lineage={
+            "generationId": "gen-2",
+            "generationAcceptedAt": 500,
+            "replacesGenerationId": "gen-1",
+        },
+    )
+    # Newer acceptedAt
+    assert_publish_generation_not_stale(
+        existing_private=existing,
+        incoming_lineage={"generationId": "gen-3", "generationAcceptedAt": 3_000},
+    )
+
+
+@pytest.mark.asyncio
+async def test_publish_same_slug_update_persists_lineage():
+    from backend.core.schemas.mirror_network import MirrorNetworkPublishRequest
+
+    user = _make_user()
+    existing = SimpleNamespace(
+        id=uuid.uuid4(),
+        slug="family-suv-existing",
+        user_id=user.id,
+        conversation_id="conv-lineage-1",
+        visibility="public",
+        safety_status="open",
+        card_title="Old Title",
+        card_date="2026-05-31",
+        scene_image_url="https://cdn.example/old.jpg",
+        public_payload={"sceneImageUrl": "https://cdn.example/old.jpg"},
+        private_payload={
+            "intelligenceBrief": {
+                "mirrorLineage": {
+                    "generationId": "gen-a",
+                    "generationAcceptedAt": 1_000,
+                }
+            }
+        },
+        parent_slug=None,
+        published_at=None,
+        updated_at=None,
+        created_at=None,
+    )
+    db = AsyncMock()
+    body = {
+        **_publish_body("conv-lineage-1"),
+        "cardTitle": "Updated Title",
+        "sceneImageUrl": "https://cdn.example/new.jpg",
+        "intelligencePrivate": {
+            "mirrorBody": "private",
+            "intelligenceBrief": {
+                "mirrorLineage": {
+                    "generationId": "gen-a",
+                    "generationAcceptedAt": 2_000,
+                    "interpretationHash": "ihash",
+                    "publicLandingHash": "phash",
+                }
+            },
+        },
+    }
+
+    with (
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_conversation",
+            new=AsyncMock(return_value=existing),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new=AsyncMock(return_value=existing),
+        ) as mock_update,
+    ):
+        result = await publish_mirror_to_network(
+            db,
+            user,
+            MirrorNetworkPublishRequest.model_validate(body),
+        )
+
+    mock_update.assert_awaited_once()
+    assert result.slug == "family-suv-existing"
+    lineage = (existing.private_payload.get("intelligenceBrief") or {}).get(
+        "mirrorLineage"
+    ) or {}
+    assert lineage.get("generationId") == "gen-a"
+    assert lineage.get("interpretationHash") == "ihash"
+    assert lineage.get("publicLandingHash") == "phash"

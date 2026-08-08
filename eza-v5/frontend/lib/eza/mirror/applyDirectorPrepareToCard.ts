@@ -51,6 +51,8 @@ export type PrepareDirectorDraftResult = {
   conversationContext?: unknown | null;
   /** PR D2 — creative interpretation; visuals come from mappedPrompt only. */
   finalInterpretation?: MirrorInterpretationV1 | unknown | null;
+  /** d2_llm vs heuristic_fallback — never claim d2_llm for heuristic output. */
+  interpretationSource?: 'd2_llm' | 'heuristic_fallback' | null;
 };
 
 function isSeason(value: string): value is SainaMirrorSeason {
@@ -59,9 +61,20 @@ function isSeason(value: string): value is SainaMirrorSeason {
 
 function applyD2Curiosity(
   card: DailyMirrorCardModel,
-  interpretation: MirrorInterpretationV1
+  interpretation: MirrorInterpretationV1,
+  options?: {
+    locale?: string | null;
+    semanticSource?: 'd2_interpretation' | 'heuristic_fallback';
+  }
 ): DailyMirrorCardModel {
-  const { bundle } = buildCuriosityFromInterpretation(interpretation);
+  const semanticSource =
+    options?.semanticSource === 'heuristic_fallback'
+      ? 'heuristic_fallback'
+      : 'd2_interpretation';
+  const { bundle } = buildCuriosityFromInterpretation(interpretation, {
+    locale: options?.locale,
+    semanticSource,
+  });
   const payload = card.mirrorV3Payload
     ? {
         ...card.mirrorV3Payload,
@@ -75,7 +88,7 @@ function applyD2Curiosity(
   return {
     ...card,
     mirrorFinalInterpretation: interpretation,
-    mirrorSemanticSource: 'd2_interpretation',
+    mirrorSemanticSource: semanticSource,
     headline: bundle.cardTitle || card.headline,
     dailyThemeTitle: bundle.cardTitle || card.dailyThemeTitle,
     mirrorV3Payload: payload,
@@ -195,7 +208,20 @@ export function applyDirectorPrepareToCard(
   };
 
   if (isMirrorInterpretationV1(prepared.finalInterpretation)) {
-    next = applyD2Curiosity(next, prepared.finalInterpretation);
+    const semanticSource =
+      prepared.interpretationSource === 'heuristic_fallback'
+        ? 'heuristic_fallback'
+        : 'd2_interpretation';
+    const locale =
+      prepared.conversationContext &&
+      typeof prepared.conversationContext === 'object' &&
+      'locale' in (prepared.conversationContext as Record<string, unknown>)
+        ? String((prepared.conversationContext as { locale?: string }).locale || 'tr')
+        : card.mirrorV3Payload?.curiosityBundle?.seed?.locale || 'tr';
+    next = applyD2Curiosity(next, prepared.finalInterpretation, {
+      locale,
+      semanticSource,
+    });
   }
 
   return next;

@@ -87,14 +87,35 @@ def test_assert_d2_success_hashes_equal():
     assert out == h
 
 
-def test_assert_unset_pipeline_skips_d2_enforcement():
-    """Missing pipeline must not infer D2 (unit/provider callers without discriminator)."""
-    h = assert_d2_provider_prompt(
-        prompt="CATEGORY: architecture\nsoft daylight",
-        generation_id=None,
-        generation_pipeline=None,
-    )
-    assert len(h) == 64
+def test_assert_unset_pipeline_fail_closed_as_d2():
+    """Missing pipeline is treated as D2_V5 — CATEGORY prompts must fail closed."""
+    with pytest.raises(MirrorScenePromptGuardError) as exc:
+        assert_d2_provider_prompt(
+            prompt="CATEGORY: architecture\nsoft daylight",
+            generation_id=None,
+            generation_pipeline=None,
+        )
+    assert exc.value.code == "generation_id_required"
+
+
+def test_assert_unknown_pipeline_fail_closed_as_d2():
+    with pytest.raises(MirrorScenePromptGuardError) as exc:
+        assert_d2_provider_prompt(
+            prompt="CATEGORY: architecture\nsoft daylight",
+            generation_id="gen-unknown",
+            generation_pipeline="SOMETHING_ELSE",
+        )
+    assert exc.value.code == "d2_prompt_invalid_prefix"
+
+
+def test_assert_empty_pipeline_requires_generation_id_for_valid_d2_prompt():
+    with pytest.raises(MirrorScenePromptGuardError) as exc:
+        assert_d2_provider_prompt(
+            prompt=D2_PROMPT,
+            generation_id=None,
+            generation_pipeline="",
+        )
+    assert exc.value.code == "generation_id_required"
 
 
 def test_assert_legacy_allows_category():

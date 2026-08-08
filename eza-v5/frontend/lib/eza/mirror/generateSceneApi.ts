@@ -6,6 +6,10 @@ import { apiClient } from '@/lib/apiClient';
 import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
 import { GUEST_TOKEN_HEADER } from '@/lib/eza/plan/guestTokenHeader';
 import type { MirrorVisualPromptPayload } from '@/lib/eza/mirror/types';
+import {
+  MirrorApiContractError,
+  validateGenerateSceneResponse,
+} from '@/lib/eza/mirror/mirrorApiContracts';
 
 export type MirrorGenerateSceneRequest = {
   prompt: string;
@@ -51,6 +55,7 @@ export type MirrorSceneErrorCode =
   | 'generation_failed'
   | 'prepare_failed'
   | 'd2_prompt_invalid'
+  | 'd2_pipeline_required'
   | 'stale_generation'
   | 'rate_limit'
   | 'openai_insufficient_quota'
@@ -161,12 +166,27 @@ export async function generateMirrorScene(
     }
     throw new MirrorSceneError(msg, 'unknown');
   }
-  const payload = (res.data ?? res) as MirrorGenerateSceneResponse;
-  if (!payload.sceneImageUrl) {
-    throw new Error('Mirror sahnesi şu an hazırlanamadı.');
+  try {
+    const payload = validateGenerateSceneResponse(res.data ?? res);
+    return {
+      sceneImageUrl: payload.sceneImageUrl,
+      provider: (payload.provider as MirrorGenerateSceneResponse['provider']) ?? 'mock',
+      cached: Boolean(payload.cached),
+      generatedAt:
+        typeof payload.generatedAt === 'string'
+          ? payload.generatedAt
+          : new Date().toISOString(),
+      generationRequestId:
+        (typeof payload.generationRequestId === 'string'
+          ? payload.generationRequestId
+          : null) ?? body.generationRequestId,
+      focalX: typeof payload.focalX === 'number' ? payload.focalX : null,
+      focalY: typeof payload.focalY === 'number' ? payload.focalY : null,
+    };
+  } catch (err) {
+    if (err instanceof MirrorApiContractError) {
+      throw new MirrorSceneError(err.message, 'generation_failed');
+    }
+    throw new MirrorSceneError('Mirror sahnesi şu an hazırlanamadı.', 'generation_failed');
   }
-  return {
-    ...payload,
-    generationRequestId: payload.generationRequestId ?? body.generationRequestId,
-  };
 }

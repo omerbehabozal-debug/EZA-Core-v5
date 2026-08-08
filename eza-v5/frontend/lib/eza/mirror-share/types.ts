@@ -38,4 +38,7 @@ export type MirrorShareIdentity = {
   shareVoice: ShareVoiceLine;
   shareUrl?: string | null;
   networkSlug?: string | null;
+  /** Published Discover landing — same fields Keşfet /m reads. */
+  publicTitle?: string | null;
+  publicSummary?: string | null;
 };

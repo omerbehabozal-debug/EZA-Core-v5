@@ -48,9 +48,9 @@ def assert_d2_provider_prompt(
 ) -> str:
     """Validate D2 prompt immediately before OpenAI. Returns providerPromptHash.
 
-    Enforcement is explicit: only ``D2_V5`` is fail-closed.
-    Missing pipeline does not infer LEGACY or D2 — it skips D2 asserts
-    (production FE always sends generationPipeline).
+    Fail-closed by default: missing, empty, or unknown ``generation_pipeline``
+    is treated as ``D2_V5`` (same asserts). Only an explicit ``LEGACY_V3``
+    value skips D2 asserts — never inferred from absence.
     """
     pipeline = (generation_pipeline or "").strip().upper()
     provider_hash = prompt_sha256(prompt)
@@ -64,15 +64,16 @@ def assert_d2_provider_prompt(
         )
         return provider_hash
 
-    if pipeline != "D2_V5":
+    # Missing / unknown / empty → D2_V5 fail-closed (do not skip asserts).
+    if pipeline and pipeline != "D2_V5":
         logger.info(
-            "mirror_provider_guard pipeline=%s (no D2 assert) generationId=%s providerPromptHash=%s classification=%s",
-            pipeline or "unset",
+            "mirror_provider_guard pipeline=%s (treated as D2_V5 fail-closed) generationId=%s "
+            "providerPromptHash=%s classification=%s",
+            pipeline,
             (generation_id or "")[:48],
             provider_hash,
             classify_scene_prompt(prompt),
         )
-        return provider_hash
 
     if not (generation_id or "").strip():
         raise MirrorScenePromptGuardError(

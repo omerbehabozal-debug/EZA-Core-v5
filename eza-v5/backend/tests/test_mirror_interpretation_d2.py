@@ -299,6 +299,7 @@ async def test_full_uses_interpretation_not_meaning_draft(monkeypatch):
     assert "VISUAL NARRATIVE" in out.mappedPrompt.prompt
     assert out.metadata is not None
     assert out.metadata.draftSource == "interpretation_llm"
+    assert out.interpretationSource == "d2_llm"
     assert interpretation_hash(out.finalInterpretation)
 
 
@@ -412,9 +413,10 @@ def test_interpretation_system_prompt_requires_place_fidelity():
     from backend.services.mirror.mirror_interpretation import (
         MIRROR_INTERPRETATION_PROMPT_VERSION,
         _SYSTEM_PROMPT,
+        _system_prompt_for_locale,
     )
 
-    assert MIRROR_INTERPRETATION_PROMPT_VERSION == "interp-prompt-v3"
+    assert MIRROR_INTERPRETATION_PROMPT_VERSION == "interp-prompt-v4"
     low = _SYSTEM_PROMPT.lower()
     assert "place and evidence fidelity" in low
     assert "lived street-level" in low
@@ -423,3 +425,137 @@ def test_interpretation_system_prompt_requires_place_fidelity():
     # No place/benchmark hardcodes in the director prompt.
     for banned in ("mardin", "trench", "panda", "cappadocia", "kyoto"):
         assert banned not in low
+    locale_prompt = _system_prompt_for_locale("en").lower()
+    assert 'locale="en"' in locale_prompt
+    assert "language (required)" in locale_prompt
+
+
+@pytest.mark.asyncio
+async def test_interpretation_retry_then_success():
+    calls = {"n": 0}
+
+    async def flaky(_p):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise TimeoutError("transient")
+        return await _interp_ok(_p)
+
+    ctx = build_mirror_conversation_context_v1(
+        [_msg("user", "Kyoto'da yağmurlu akşam", 0)],
+        conversation_id="d2-retry",
+    )
+    result = await generate_mirror_interpretation(ctx, completer=flaky)
+    assert result.ok
+    assert calls["n"] == 2
+    assert result.source == "interpretation_llm"
+
+
+@pytest.mark.asyncio
+async def test_permanent_interpretation_failure_uses_heuristic_identity(monkeypatch):
+    monkeypatch.setenv("EZA_MIRROR_DIRECTOR_MODE", "FULL")
+
+    async def permanent_fail(_p):
+        return {"choices": [{"message": {"content": "not-json"}}]}
+
+    out = await prepare_mirror_director_draft(
+        conversation_id="d2-heur",
+        generation_request_id="req-d2heur0001",
+        messages=[
+            _msg("user", "Mardin'de sarı taş avlu ve sandalye", 0),
+            _msg("assistant", "Avlu ve çamaşır ipi öneririm.", 1),
+        ],
+        interpretation_completer=permanent_fail,
+    )
+    assert out.interpretationSource == "heuristic_fallback"
+    assert out.fallbackReason == "invalid_json"
+    assert out.metadata is not None
+    assert out.metadata.draftSource == "interpretation_heuristic"
+    assert out.metadata.fallbackReason == "invalid_json"
+    assert out.finalInterpretation is not None
+    assert out.usedDirector is True
+
+
+@pytest.mark.asyncio
+async def test_heuristic_grounding_failure_fail_closed(monkeypatch):
+    monkeypatch.setenv("EZA_MIRROR_DIRECTOR_MODE", "FULL")
+
+    from backend.core.schemas.mirror_interpretation import MirrorInterpretationV1
+
+    async def permanent_fail(_p):
+        return {"choices": [{"message": {"content": "not-json"}}]}
+
+    def ungrounded(_ctx):
+        return MirrorInterpretationV1.model_validate(
+            {
+                "title": "Vague Light",
+                "interpretationSummary": "Short abstract summary without cues.",
+                "rationale": "No grounding tokens here at all.",
+                "imageIntent": "Generic mood without place cues.",
+                "visualNarrative": "A vague soft light somewhere in the distance over empty fields.",
+                "exclusions": ["collage"],
+                "confidence": 0.2,
+                "topicCategory": "other",
+                "atmosphereHint": None,
+            }
+        )
+
+    monkeypatch.setattr(
+        "backend.services.mirror.mirror_director_prepare.build_heuristic_interpretation",
+        ungrounded,
+    )
+    monkeypatch.setattr(
+        "backend.services.mirror.mirror_director_prepare.heuristic_passes_grounding",
+        lambda _c, _i: False,
+    )
+
+    out = await prepare_mirror_director_draft(
+        conversation_id="d2-ground",
+        generation_request_id="req-d2ground01",
+        messages=[_msg("user", "Mardin sarı taş avlu", 0)],
+        interpretation_completer=permanent_fail,
+    )
+    assert out.usedDirector is False
+    assert out.fallbackReason == "heuristic_grounding_failed"
+    assert out.interpretationSource is None
+    assert out.finalInterpretation is None
+
+
+def test_heuristic_locale_copy_tr_en_ar():
+    from backend.services.mirror.mirror_interpretation import build_heuristic_interpretation
+
+    msgs = [_msg("user", "Kyoto evening walk with rain", 0)]
+    for locale, needle in (
+        ("tr", "Sohbet"),
+        ("en", "Conversation"),
+        ("ar", "محادثة"),
+    ):
+        ctx = build_mirror_conversation_context_v1(
+            msgs, conversation_id=f"loc-{locale}", locale=locale
+        )
+        # Force short arc title fallback path by emptying current when needed —
+        # copy strings still appear in summary/rationale.
+        interp = build_heuristic_interpretation(ctx)
+        blob = " ".join(
+            [
+                interp.title,
+                interp.interpretationSummary,
+                interp.rationale,
+                interp.imageIntent,
+                interp.visualNarrative,
+            ]
+        )
+        assert needle.lower() in blob.lower() or needle in blob
+
+
+def test_heuristic_passes_grounding_requires_cue():
+    from backend.services.mirror.mirror_interpretation import (
+        build_heuristic_interpretation,
+        heuristic_passes_grounding,
+    )
+
+    msgs = [
+        _msg("user", "Mardin'de sarı taş avlu ve sandalye istiyorum.", 0),
+    ]
+    ctx = build_mirror_conversation_context_v1(msgs, conversation_id="ground-ok")
+    good = build_heuristic_interpretation(ctx)
+    assert heuristic_passes_grounding(ctx, good) is True

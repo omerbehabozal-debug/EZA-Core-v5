@@ -1,6 +1,10 @@
 /**
  * D2 scene generation guard — fail-closed for SOFT/FULL director paths.
  * Prevents V3 CATEGORY / soft-fail visuals from reaching the image provider.
+ *
+ * LEGACY_V3 is never inferred from missing data, director mode, or prepare
+ * SHADOW/LEGACY responses. Callers must pass `explicit: 'LEGACY_V3'` (e.g. Daily
+ * path without conversationId). Conversation create paths must stay on D2_V5.
  */
 
 import { djb2Hex, sha256Hex } from '@/lib/eza/mirror/mirrorLineageHash';
@@ -91,6 +95,20 @@ export function resolveGenerationPipeline(input: {
   if (isDirectorAffectingMode(input.directorMode)) return 'D2_V5';
   // Default for conversation Mirror create path: D2 (fail-closed). Explicit LEGACY only.
   return 'D2_V5';
+}
+
+/**
+ * Conversation Mirror paths must stay on D2_V5.
+ * LEGACY_V3 is never inferred — only an explicit caller choice is allowed.
+ */
+export function assertConversationPipelineIsD2(
+  pipeline: MirrorGenerationPipeline | null | undefined
+): asserts pipeline is 'D2_V5' {
+  if (pipeline !== 'D2_V5') {
+    throw new Error(
+      `Conversation Mirror requires D2_V5 (got ${pipeline ?? 'unset'}); LEGACY_V3 is never inferred.`
+    );
+  }
 }
 
 export type MirrorSceneLineageLog = {

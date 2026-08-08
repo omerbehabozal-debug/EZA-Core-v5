@@ -78,6 +78,104 @@ def resolve_scene_image_url(
     return existing
 
 
+def _as_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return dict(value)
+    return {}
+
+
+def extract_mirror_lineage(intelligence_private: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Read mirrorLineage from intelligencePrivate.intelligenceBrief (or top-level)."""
+    root = _as_mapping(intelligence_private)
+    brief = _as_mapping(root.get("intelligenceBrief"))
+    lineage = _as_mapping(brief.get("mirrorLineage"))
+    if lineage:
+        return lineage
+    # Top-level fallback if client flattened lineage.
+    top = _as_mapping(root.get("mirrorLineage"))
+    return top
+
+
+def _parse_generation_accepted_at(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and value.strip():
+        text = value.strip()
+        try:
+            return float(text)
+        except ValueError:
+            pass
+        try:
+            # ISO timestamp → epoch ms
+            dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            return dt.timestamp() * 1000.0
+        except ValueError:
+            return None
+    return None
+
+
+def assert_publish_generation_not_stale(
+    *,
+    existing_private: Mapping[str, Any] | None,
+    incoming_lineage: Mapping[str, Any],
+) -> None:
+    """Reject publish when incoming generation is older than the accepted one.
+
+    Same generationId → allow (scene update / retry).
+    Different generationId → allow when replacesGenerationId matches, forceRepublish,
+    or incoming generationAcceptedAt is strictly newer than existing.
+    """
+    existing_lineage = extract_mirror_lineage(existing_private)
+    g_old = str(existing_lineage.get("generationId") or "").strip()
+    g_new = str(incoming_lineage.get("generationId") or "").strip()
+    if not g_old or not g_new or g_old == g_new:
+        return
+
+    replaces = str(incoming_lineage.get("replacesGenerationId") or "").strip()
+    force = bool(incoming_lineage.get("forceRepublish"))
+    if force or (replaces and replaces == g_old):
+        return
+
+    old_at = _parse_generation_accepted_at(existing_lineage.get("generationAcceptedAt"))
+    new_at = _parse_generation_accepted_at(incoming_lineage.get("generationAcceptedAt"))
+    if old_at is not None and new_at is not None and new_at < old_at:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "stale_publish",
+                "message": "Incoming Mirror generation is older than the accepted publish.",
+            },
+        )
+    if old_at is not None and new_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "stale_publish",
+                "message": "Publish requires generationAcceptedAt or replacesGenerationId for a new generation.",
+            },
+        )
+
+
+def merge_lineage_into_private_payload(
+    private_dict: dict[str, Any],
+    *,
+    incoming_lineage: Mapping[str, Any],
+    now: datetime,
+) -> dict[str, Any]:
+    """Persist generation binding under intelligenceBrief.mirrorLineage."""
+    out = dict(private_dict)
+    brief = _as_mapping(out.get("intelligenceBrief"))
+    lineage = _as_mapping(brief.get("mirrorLineage"))
+    lineage.update({k: v for k, v in incoming_lineage.items() if v is not None})
+    if lineage.get("generationId") and not lineage.get("generationAcceptedAt"):
+        lineage["generationAcceptedAt"] = int(now.timestamp() * 1000)
+    brief["mirrorLineage"] = lineage
+    out["intelligenceBrief"] = brief
+    return out
+
+
 def _apply_node_fields(
     node: MirrorNetworkNode,
     *,
@@ -236,6 +334,19 @@ async def publish_mirror_to_network(
     now = datetime.now(timezone.utc)
     public_dict = public_payload.model_dump()
     private_dict = private_payload.model_dump()
+    incoming_lineage = extract_mirror_lineage(intelligence_private)
+
+    if existing:
+        assert_publish_generation_not_stale(
+            existing_private=_as_mapping(getattr(existing, "private_payload", None)),
+            incoming_lineage=incoming_lineage,
+        )
+
+    private_dict = merge_lineage_into_private_payload(
+        private_dict,
+        incoming_lineage=incoming_lineage,
+        now=now,
+    )
 
     if existing:
         _apply_node_fields(
@@ -281,6 +392,15 @@ async def publish_mirror_to_network(
             )
             if raced is None:
                 raise
+            assert_publish_generation_not_stale(
+                existing_private=_as_mapping(getattr(raced, "private_payload", None)),
+                incoming_lineage=incoming_lineage,
+            )
+            private_dict = merge_lineage_into_private_payload(
+                private_dict,
+                incoming_lineage=incoming_lineage,
+                now=now,
+            )
             _apply_node_fields(
                 raced,
                 card_title=card_title,
