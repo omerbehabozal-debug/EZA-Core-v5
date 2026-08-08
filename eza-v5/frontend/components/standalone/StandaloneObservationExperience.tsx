@@ -68,6 +68,14 @@ import MirrorLoadingExperience from '@/components/mirror/MirrorLoadingExperience
 import DailyMirrorReadyFooter from '@/components/mirror/DailyMirrorReadyFooter';
 import MirrorPosterLightbox from '@/components/mirror/MirrorPosterLightbox';
 import MirrorShareExperience from '@/components/mirror/MirrorShareExperience';
+import Review8Screen from '@/components/mirror/Review8Screen';
+import {
+  isMirrorJourneyV1ClientEnabled,
+  isReview8DraftConfirmed,
+  loadReview8DraftForConversation,
+  type JourneyMessageLike,
+  type Review8Draft,
+} from '@/lib/eza/mirror/journey';
 import UpgradeModal from '@/components/plan/UpgradeModal';
 import IdentityModal from '@/components/plan/IdentityModal';
 import type { MirrorPanelCopy } from '@/lib/eza/mirror/resolveMirrorPanelCopy';
@@ -169,6 +177,7 @@ export default function StandaloneObservationExperience({
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
   const [publishBusy, setPublishBusy] = useState(false);
   const [sharePublishConsentOpen, setSharePublishConsentOpen] = useState(false);
+  const [review8Open, setReview8Open] = useState(false);
   const [posterLightboxOpen, setPosterLightboxOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -416,6 +425,9 @@ export default function StandaloneObservationExperience({
         const result = await publishMirrorToNetwork({
           card,
           conversationId,
+          journeyId: isMirrorJourneyV1ClientEnabled()
+            ? loadReview8DraftForConversation(conversationId ?? '')?.journeyId ?? undefined
+            : undefined,
           sceneImageUrl: rawScene,
           generationId: activeGenerationIdRef.current ?? undefined,
           generationAcceptedAt: Date.now(),
@@ -1425,13 +1437,44 @@ export default function StandaloneObservationExperience({
     }
     if (!generatedDailyCard) return;
 
+    if (
+      isMirrorJourneyV1ClientEnabled() &&
+      conversationId &&
+      !isReview8DraftConfirmed(loadReview8DraftForConversation(conversationId))
+    ) {
+      setReview8Open(true);
+      return;
+    }
+
     if (!generatedDailyCard.mirrorShare?.shareUrl) {
       setSharePublishConsentOpen(true);
       return;
     }
 
     openShareExperience();
-  }, [isPlus, isAuthenticated, generatedDailyCard, openShareExperience]);
+  }, [isPlus, isAuthenticated, generatedDailyCard, openShareExperience, conversationId]);
+
+  const review8Messages = useMemo((): JourneyMessageLike[] => {
+    if (!conversationId) return [];
+    const live = getActiveConversationLiveMessages(conversationId);
+    if (live?.length) {
+      return live.map((m) => ({ id: m.id, text: m.text, isUser: m.isUser }));
+    }
+    const archived = getChatArchive(conversationId)?.messages ?? [];
+    return archived.map((m) => ({ id: m.id, text: m.text, isUser: m.isUser }));
+  }, [conversationId, review8Open]);
+
+  const handleReview8Confirmed = useCallback(
+    (_draft: Review8Draft) => {
+      setReview8Open(false);
+      if (!generatedDailyCard?.mirrorShare?.shareUrl) {
+        setSharePublishConsentOpen(true);
+        return;
+      }
+      openShareExperience();
+    },
+    [generatedDailyCard, openShareExperience]
+  );
 
   const handleConfirmSharePublish = useCallback(async () => {
     if (!generatedDailyCard) return;
@@ -1859,6 +1902,17 @@ export default function StandaloneObservationExperience({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {review8Open && conversationId ? (
+        <Review8Screen
+          sourceConversationId={conversationId}
+          messages={review8Messages}
+          titleSeed={generatedDailyCard?.headline}
+          initialDraft={loadReview8DraftForConversation(conversationId)}
+          onConfirmed={handleReview8Confirmed}
+          onCancel={() => setReview8Open(false)}
+        />
       ) : null}
 
       <MirrorPosterLightbox

@@ -1,12 +1,13 @@
 # RFC — Mirror Journey Identity + Review 8
 
-Status: **Accepted product locks; Phase 1 PASS closure** (identity + DB + strict flag)  
+Status: **Accepted product locks; Phase 1 PASS + Phase 2 Review 8 draft (client)**  
 Date: 2026-08-08  
-Scope: Phase 1 code = DB + identity + flag only (no Review UI / scoped D2 / replay)  
+Scope: Phase 1 = DB + identity + flag; Phase 2 = pairing + Candidate 8 + Review 8 draft (no scoped D2 / replay yet)  
 Depends on: D2 reliability baseline, Semantic Anchors, Curiosity Builder, Narrative Alignment  
 
 **Phase 1 notes:** see `journey-identity-phase1.md`. Versioning **option A** locked (same slug, bump `journey_version`).  
-**PASS closure:** legacy partial unique index; `mirror_journey_steps.journey_version`; strict `EZA_MIRROR_JOURNEY_V1` parse.
+**PASS closure:** legacy partial unique index; `mirror_journey_steps.journey_version`; strict `EZA_MIRROR_JOURNEY_V1` parse.  
+**Phase 2 notes:** see `journey-phase2-review8.md`.
 
 ---
 

@@ -40,6 +40,8 @@ import {
 export type PublishMirrorToNetworkInput = {
   card: DailyMirrorCardModel;
   conversationId?: string;
+  /** Phase 2: when journey flag on + Review 8 confirmed, publish identity is this slug. */
+  journeyId?: string;
   sceneImageUrl?: string | null;
   generationId?: string;
   generationAcceptedAt?: number;
@@ -210,6 +212,7 @@ async function buildPublishBody(
   const {
     card,
     conversationId,
+    journeyId,
     sceneImageUrl,
     generationId,
     generationAcceptedAt,
@@ -286,6 +289,7 @@ async function buildPublishBody(
       cardTitle,
       cardDate: card.date,
       conversationId: conversationId?.trim() || undefined,
+      journeyId: journeyId?.trim() || undefined,
       sceneImageUrl: sceneImageUrl?.trim() || undefined,
       curiosityBundle,
       intelligencePrivate: buildIntelligencePrivate(card, lineage),
