@@ -28,6 +28,14 @@ import {
   MirrorApiContractError,
   validatePublishResponse,
 } from '@/lib/eza/mirror/mirrorApiContracts';
+import {
+  apiImageClaimDetector,
+  NARRATIVE_ALIGNMENT_PUBLISH_ERROR,
+  runNarrativeAlignmentPublishGate,
+  type DetectImageClaimsFn,
+  type NarrativeAlignmentLineage,
+  type RegenerateSceneFn,
+} from '@/lib/eza/mirror/narrativeAlignment';
 
 export type PublishMirrorToNetworkInput = {
   card: DailyMirrorCardModel;
@@ -38,6 +46,17 @@ export type PublishMirrorToNetworkInput = {
   replacesGenerationId?: string;
   forceRepublish?: boolean;
   generationAction?: 'first' | 'update' | 'new_scene';
+  /**
+   * Narrative Alignment Phase 1.
+   * Opt-in: when set (and not skip), gate runs before POST for D2 landings with anchors.
+   */
+  narrativeAlignment?: {
+    detectClaims?: DetectImageClaimsFn;
+    regenerateScene?: RegenerateSceneFn;
+    skip?: boolean;
+    /** Default false — D2 fail-safe blocks when vision unavailable. */
+    allowDegradedPublishWhenUnavailable?: boolean;
+  };
 };
 
 export type PublishMirrorToNetworkSuccess = {
@@ -47,12 +66,14 @@ export type PublishMirrorToNetworkSuccess = {
   publicPayload: MirrorNetworkPublicApiResponse;
   semanticSource: MirrorSemanticSource;
   lineage?: MirrorPublishLineageMeta;
+  narrativeAlignment?: NarrativeAlignmentLineage;
 };
 
 export type PublishMirrorToNetworkFailure = {
   ok: false;
   code: string;
   message: string;
+  narrativeAlignment?: NarrativeAlignmentLineage;
 };
 
 export type PublishMirrorToNetworkResult =
@@ -182,7 +203,10 @@ function buildIntelligencePrivate(
   };
 }
 
-async function buildPublishBody(input: PublishMirrorToNetworkInput) {
+async function buildPublishBody(
+  input: PublishMirrorToNetworkInput,
+  alignmentLineage?: NarrativeAlignmentLineage | null
+) {
   const {
     card,
     conversationId,
@@ -234,6 +258,20 @@ async function buildPublishBody(input: PublishMirrorToNetworkInput) {
     conversationId: conversationId?.trim() || undefined,
     sceneAssetId: sceneAssetIdFromUrl(sceneImageUrl),
     contractVersion: publicLanding.contractVersion,
+    ...(alignmentLineage
+      ? {
+          narrativeAlignment: {
+            alignmentVersion: alignmentLineage.alignmentVersion,
+            alignmentStatus: alignmentLineage.alignmentStatus,
+            verificationState: alignmentLineage.verificationState,
+            requiredClaimsHash: alignmentLineage.requiredClaimsHash,
+            detectedClaimsHash: alignmentLineage.detectedClaimsHash,
+            missingClaims: alignmentLineage.missingClaims,
+            retryAttempt: alignmentLineage.retryAttempt,
+            anchorsHash: alignmentLineage.anchorsHash,
+          },
+        }
+      : {}),
   };
 
   const publishLineage = resolveMirrorPublishLineage({
@@ -291,7 +329,64 @@ export async function publishMirrorToNetwork(
   input: PublishMirrorToNetworkInput
 ): Promise<PublishMirrorToNetworkResult> {
   try {
-    const { body, semanticSource, lineage } = await buildPublishBody(input);
+    let sceneImageUrl = input.sceneImageUrl;
+    let alignmentObs: NarrativeAlignmentLineage | undefined;
+
+    const alignmentOpts = input.narrativeAlignment;
+    const shouldAlign =
+      Boolean(alignmentOpts) &&
+      !alignmentOpts?.skip &&
+      Boolean(sceneImageUrl?.trim()) &&
+      isMirrorInterpretationV1(input.card.mirrorFinalInterpretation);
+
+    if (shouldAlign && sceneImageUrl) {
+      const { bundle } = resolvePublishCuriosityBundle(input.card);
+      const landing = bundle.publicLanding;
+      const anchors = landing?.semanticAnchors;
+      if (landing && anchors) {
+        const publicLandingHash = await hashPublicMirrorLanding(landing);
+        const interpHash = await interpretationHash(input.card.mirrorFinalInterpretation!);
+        const gate = await runNarrativeAlignmentPublishGate({
+          anchors,
+          interpretation: input.card.mirrorFinalInterpretation,
+          landing,
+          sceneImageUrl,
+          detectClaims: alignmentOpts?.detectClaims ?? apiImageClaimDetector,
+          regenerateScene: alignmentOpts?.regenerateScene,
+          generationId: input.generationId,
+          interpretationHash: interpHash,
+          publicLandingHash,
+          sceneAssetId: sceneAssetIdFromUrl(sceneImageUrl),
+          allowDegradedPublishWhenUnavailable:
+            alignmentOpts?.allowDegradedPublishWhenUnavailable === true,
+        });
+        alignmentObs = gate.observability;
+        if (!gate.ok) {
+          return {
+            ok: false,
+            code: gate.code || NARRATIVE_ALIGNMENT_PUBLISH_ERROR,
+            message: gate.message,
+            narrativeAlignment: alignmentObs,
+          };
+        }
+        // Image may change on retry; landing never mutates.
+        sceneImageUrl = gate.sceneImageUrl;
+        if (gate.sceneAssetId) {
+          alignmentObs = {
+            ...alignmentObs,
+            sceneAssetId: gate.sceneAssetId,
+          };
+        }
+      }
+    }
+
+    const { body, semanticSource, lineage } = await buildPublishBody(
+      {
+        ...input,
+        sceneImageUrl,
+      },
+      alignmentObs
+    );
     const response = await apiClient.post<MirrorNetworkPublicApiResponse>(
       '/api/mirror-network/publish',
       { body, auth: true, timeoutMs: 30_000 }
@@ -299,7 +394,7 @@ export async function publishMirrorToNetwork(
 
     if (!response.ok) {
       const parsed = parseApiError(response.error ?? response);
-      return { ok: false, ...parsed };
+      return { ok: false, ...parsed, narrativeAlignment: alignmentObs };
     }
 
     const payload = validatePublishResponse(response.data ?? response);
@@ -311,6 +406,7 @@ export async function publishMirrorToNetwork(
       publicPayload: payload as unknown as MirrorNetworkPublicApiResponse,
       semanticSource,
       lineage,
+      narrativeAlignment: alignmentObs,
     };
   } catch (err) {
     if (err instanceof MirrorApiContractError) {

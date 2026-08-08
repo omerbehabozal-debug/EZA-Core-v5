@@ -46,11 +46,11 @@ const ARCH_INTERPRETATION: MirrorInterpretationV1 = {
 };
 
 describe('publicMirrorLanding v1', () => {
-  it('Mardin travel interpretation explains scene without facade labels', () => {
+  it('Mardin travel interpretation invites curiosity without facade labels', () => {
     const landing = buildPublicMirrorLandingFromInterpretation(MARDIN_INTERPRETATION);
     expect(landing.publicTitle).toMatch(/Mardin/i);
-    expect(landing.publicSummary).toMatch(/sarı taş|çay|minare|sokak/i);
-    expect(landing.publicSummary).toMatch(/merak|Ayna|mahalle|turistik/i);
+    expect(landing.publicSummary).toMatch(/Mardin|yerel|mahalle|turist|sessiz|çay|sokak/i);
+    expect(landing.publicSummary).not.toMatch(/^(Bu Mirror|This conversation)/i);
     for (const label of FORBIDDEN_INTERNAL_LABELS) {
       expect(landing.publicSummary).not.toContain(label);
     }

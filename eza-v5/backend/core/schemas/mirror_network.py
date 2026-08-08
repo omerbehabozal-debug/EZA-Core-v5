@@ -52,6 +52,8 @@ class MirrorNetworkPublicPayload(BaseModel):
     interpretationHash: Optional[str] = None
     publicLandingHash: Optional[str] = None
     semanticSource: Optional[str] = None
+    # Phase 1 Semantic Anchors — optional; Vision Verify not required.
+    semanticAnchors: Optional[Dict[str, Any]] = None
 
 
 # Stage 2 landing UI: show at most this many hooks / seed starters (card shows none).

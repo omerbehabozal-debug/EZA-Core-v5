@@ -2,12 +2,19 @@
  * Public Mirror Landing v1 — visible title/summary + continuation context.
  *
  * Privacy: not a conversation transcript.
- * Semantics: must explain why the image belongs to this Mirror's curiosity.
- * Authority: finalInterpretation (D2) only — never V3 evidence labels / subtopics.
+ * Pipeline: D2 → Semantic Anchors → Curiosity Builder (+ Click Test) → Landing.
+ * Authority: D2 interpretation + Semantic Anchors only — never V3 curiosity / taxonomy.
  */
 
+import { buildCuriosityCard } from '@/lib/eza/mirror/curiosityBuilder';
 import type { MirrorInterpretationV1 } from '@/lib/eza/mirror/mirrorInterpretationTypes';
 import { interpretationHashSync, sha256Hex } from '@/lib/eza/mirror/mirrorLineageHash';
+import type { MirrorSemanticAnchorsV1 } from '@/lib/eza/mirror/semanticAnchors/types';
+import {
+  buildSemanticAnchors,
+  semanticAnchorsAreGrounded,
+  type SemanticAnchorEvidenceItem,
+} from '@/lib/eza/mirror/semanticAnchors';
 
 export const MIRROR_PUBLIC_LANDING_CONTRACT_VERSION = 'mirror-public-landing-v1' as const;
 
@@ -27,6 +34,8 @@ export type PublicMirrorLanding = {
   contractVersion: typeof MIRROR_PUBLIC_LANDING_CONTRACT_VERSION;
   publicLandingHash?: string;
   isFallback?: boolean;
+  /** Phase 1 Semantic Anchors — optional; Vision Verify not required. */
+  semanticAnchors?: MirrorSemanticAnchorsV1 | null;
 };
 
 export const SAFE_PUBLIC_LANDING_FALLBACK_SUMMARY =
@@ -153,14 +162,19 @@ function polishTitle(raw: string): string {
 }
 
 /**
- * Deterministic public summary from D2 fields only.
- * Sentence 1 ≈ concrete scene (visualNarrative).
- * Sentence 2 ≈ curiosity (interpretationSummary / imageIntent).
+ * Legacy scene+curiosity summary (pre–Curiosity Builder).
+ * Prefer buildCuriosityCard for public landing; kept for enrich helpers / migrations.
  */
 export function buildPublicSummaryFromInterpretation(
-  interpretation: MirrorInterpretationV1
+  interpretation: MirrorInterpretationV1,
+  options?: { anchors?: MirrorSemanticAnchorsV1 | null }
 ): string {
-  const scene = firstSentence(interpretation.visualNarrative, 170);
+  let scene = firstSentence(interpretation.visualNarrative, 170);
+  const anchors = options?.anchors;
+  if (anchors && semanticAnchorsAreGrounded(anchors)) {
+    scene = enrichSceneSentenceWithAnchors(scene, anchors);
+  }
+
   const curiosityRaw =
     clean(interpretation.interpretationSummary, 180) ||
     clean(interpretation.imageIntent, 160);
@@ -197,6 +211,30 @@ export function buildPublicSummaryFromInterpretation(
   return summary;
 }
 
+/** Ensure place + missing concrete scene props appear in the visible scene sentence. */
+export function enrichSceneSentenceWithAnchors(
+  sceneSentence: string,
+  anchors: MirrorSemanticAnchorsV1
+): string {
+  let scene = clean(sceneSentence, 200);
+  const lower = scene.toLowerCase();
+
+  if (anchors.place && !lower.includes(anchors.place.toLowerCase())) {
+    scene = clean(`${anchors.place}: ${scene}`, 200);
+  }
+
+  const missing = anchors.scene
+    .filter((prop) => prop && !lower.includes(prop.toLowerCase()))
+    .slice(0, 3);
+  if (missing.length) {
+    const extras = missing.join(', ');
+    const base = scene.endsWith('.') ? scene.slice(0, -1) : scene;
+    scene = clean(`${base}; ${extras}.`, 220);
+  }
+
+  return scene;
+}
+
 export function buildContinuationContextFromInterpretation(
   interpretation: MirrorInterpretationV1
 ): string {
@@ -223,11 +261,39 @@ export function buildPublicMirrorLandingFromInterpretation(
   options?: {
     generationId?: string;
     semanticSource?: PublicMirrorLandingSemanticSource;
+    evidence?: ReadonlyArray<SemanticAnchorEvidenceItem> | null;
+    semanticAnchors?: MirrorSemanticAnchorsV1 | null;
+    locale?: string | null;
   }
 ): PublicMirrorLanding {
-  const publicTitle = polishTitle(interpretation.title);
-  const publicSummary = buildPublicSummaryFromInterpretation(interpretation);
-  const continuationContext = buildContinuationContextFromInterpretation(interpretation);
+  const anchors =
+    options?.semanticAnchors ??
+    buildSemanticAnchors({
+      interpretation,
+      evidence: options?.evidence,
+      locale: options?.locale,
+    });
+
+  const curiosity = buildCuriosityCard({
+    anchors,
+    interpretation,
+    locale: options?.locale,
+  });
+
+  let publicTitle = polishTitle(curiosity.publicTitle);
+  let publicSummary = stripForbiddenPhrases(clean(curiosity.publicSummary, SUMMARY_MAX));
+  let continuationContext = clean(curiosity.continuationContext, 280);
+
+  if (!publicSummary || publicSummaryContainsForbiddenContent(publicSummary)) {
+    publicSummary = buildPublicSummaryFromInterpretation(interpretation, { anchors });
+  }
+  if (!publicTitle) {
+    publicTitle = polishTitle(interpretation.title);
+  }
+  if (!continuationContext) {
+    continuationContext = buildContinuationContextFromInterpretation(interpretation);
+  }
+
   const topicCategory = clean(interpretation.topicCategory || 'general_curiosity', 48);
   const interpretationHash = interpretationHashSync(interpretation);
   const semanticSource =
@@ -247,6 +313,7 @@ export function buildPublicMirrorLandingFromInterpretation(
     generationId: options?.generationId,
     contractVersion: MIRROR_PUBLIC_LANDING_CONTRACT_VERSION,
     isFallback: semanticSource !== 'd2_interpretation',
+    semanticAnchors: anchors,
   };
 }
 

@@ -65,6 +65,12 @@ function applyD2Curiosity(
   options?: {
     locale?: string | null;
     semanticSource?: 'd2_interpretation' | 'heuristic_fallback';
+    evidence?: ReadonlyArray<{
+      text: string;
+      epistemic?: string | null;
+      kind?: string | null;
+      speaker?: string | null;
+    }> | null;
   }
 ): DailyMirrorCardModel {
   const semanticSource =
@@ -74,6 +80,7 @@ function applyD2Curiosity(
   const { bundle } = buildCuriosityFromInterpretation(interpretation, {
     locale: options?.locale,
     semanticSource,
+    evidence: options?.evidence,
   });
   const payload = card.mirrorV3Payload
     ? {
@@ -212,15 +219,43 @@ export function applyDirectorPrepareToCard(
       prepared.interpretationSource === 'heuristic_fallback'
         ? 'heuristic_fallback'
         : 'd2_interpretation';
+    const ctx =
+      prepared.conversationContext && typeof prepared.conversationContext === 'object'
+        ? (prepared.conversationContext as {
+            locale?: string;
+            factualGrounding?: Array<{
+              text?: string;
+              epistemic?: string;
+              kind?: string;
+              speaker?: string;
+            }>;
+            salientDetails?: Array<{
+              text?: string;
+              epistemic?: string;
+              kind?: string;
+              speaker?: string;
+            }>;
+          })
+        : null;
     const locale =
-      prepared.conversationContext &&
-      typeof prepared.conversationContext === 'object' &&
-      'locale' in (prepared.conversationContext as Record<string, unknown>)
-        ? String((prepared.conversationContext as { locale?: string }).locale || 'tr')
-        : card.mirrorV3Payload?.curiosityBundle?.seed?.locale || 'tr';
+      ctx?.locale ||
+      card.mirrorV3Payload?.curiosityBundle?.seed?.locale ||
+      'tr';
+    const evidence = [
+      ...(ctx?.factualGrounding ?? []),
+      ...(ctx?.salientDetails ?? []),
+    ]
+      .filter((row) => typeof row?.text === 'string' && row.text.trim())
+      .map((row) => ({
+        text: String(row.text),
+        epistemic: row.epistemic ?? null,
+        kind: row.kind ?? null,
+        speaker: row.speaker ?? null,
+      }));
     next = applyD2Curiosity(next, prepared.finalInterpretation, {
       locale,
       semanticSource,
+      evidence,
     });
   }
 

@@ -25,12 +25,17 @@ from backend.core.schemas.mirror_prepare_director import (
     MirrorPrepareDirectorDraftRequest,
     MirrorPrepareDirectorDraftResponse,
 )
+from backend.core.schemas.mirror_narrative_alignment import (
+    MirrorDetectImageClaimsRequest,
+    MirrorDetectImageClaimsResponse,
+)
 from backend.core.utils.dependencies import get_db
 from backend.security.rate_limit import rate_limit_standalone
 from backend.services.mirror.mirror_scene_asset_store import ensure_persistable_mirror_scene_url
 from backend.services.mirror.mirror_image_service import generate_mirror_scene
 from backend.services.mirror.mirror_director_prepare import prepare_mirror_director_draft
 from backend.services.mirror.mirror_director_telemetry import emit_director_event
+from backend.services.mirror.narrative_alignment_detect import detect_image_claims
 
 router = APIRouter(prefix="/api/standalone/mirror", tags=["Standalone — Mirror"])
 
@@ -225,3 +230,26 @@ async def prepare_director_draft_endpoint(
             titleSource=result.mappedPrompt.titleSource,
         )
     return result
+
+
+@router.post(
+    "/detect-image-claims",
+    response_model=MirrorDetectImageClaimsResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def detect_image_claims_endpoint(
+    body: MirrorDetectImageClaimsRequest,
+    actor: MirrorSceneActor = Depends(require_mirror_scene_actor),
+    _: None = Depends(rate_limit_standalone),
+) -> MirrorDetectImageClaimsResponse:
+    """
+    Lightweight vision claim detection for Narrative Alignment Phase 1.
+    Structured claims only — no beauty/composition/mood scores.
+    """
+    _ = actor  # auth required; no quota consume
+    result = await detect_image_claims(scene_image_url=body.sceneImageUrl)
+    return MirrorDetectImageClaimsResponse(
+        detectedClaims=[{"type": c.type, "value": c.value} for c in result.detectedClaims],
+        source=result.source,  # type: ignore[arg-type]
+        generationId=body.generationId,
+    )

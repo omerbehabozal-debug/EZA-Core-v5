@@ -26,6 +26,8 @@ export type MirrorNetworkPublicApiResponse = {
   interpretationHash?: string | null;
   publicLandingHash?: string | null;
   semanticSource?: string | null;
+  /** Phase 1 Semantic Anchors — optional. */
+  semanticAnchors?: Record<string, unknown> | null;
 };
 
 /**

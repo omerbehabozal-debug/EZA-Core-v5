@@ -116,6 +116,7 @@ import {
   mergeCachedShareLinkIntoCard,
   publishMirrorToNetwork,
 } from '@/lib/eza/mirror-share/publishMirrorToNetwork';
+import { createAlignmentSceneRegenerator } from '@/lib/eza/mirror/narrativeAlignment';
 import { fetchPublicMirrorBySlug } from '@/lib/eza/mirror-network/fetchPublicMirror';
 import { shouldSkipShareLinkPrepare } from '@/lib/eza/mirror-share/shareLinkPrepareIntent';
 import type { MirrorShareLinkStatus } from '@/components/mirror/MirrorShareExperience';
@@ -411,6 +412,7 @@ export default function StandaloneObservationExperience({
         null;
 
       try {
+        const { variationIndex } = resolveLensForGeneration(isPlus, styleLensSession);
         const result = await publishMirrorToNetwork({
           card,
           conversationId,
@@ -424,11 +426,47 @@ export default function StandaloneObservationExperience({
             lastPublishedGenerationIdRef.current !== activeGenerationIdRef.current
               ? lastPublishedGenerationIdRef.current
               : undefined,
+          // Narrative Alignment Phase 1 — FAIL → one regenerate → recheck → publish/block.
+          narrativeAlignment: rawScene
+            ? {
+                regenerateScene: createAlignmentSceneRegenerator({
+                  card,
+                  conversationId,
+                  generationId: activeGenerationIdRef.current,
+                  variationIndex,
+                  onSceneReady: async (sceneImageUrl) => {
+                    lastRawSceneUrlRef.current = sceneImageUrl;
+                    const displayUrl = await resolveSceneDisplayUrl(sceneImageUrl, card);
+                    setSceneImageUrl(displayUrl);
+                    saveMirrorSceneCacheForScope(conversationId, card, sceneImageUrl);
+                    if (
+                      conversationId &&
+                      isPersistableConversationSceneUrl(sceneImageUrl)
+                    ) {
+                      setConversationSceneIdentity(conversationId, {
+                        url: sceneImageUrl,
+                        source: 'mirror_local',
+                      });
+                    }
+                  },
+                }),
+              }
+            : undefined,
         });
 
         if (result.ok) {
           if (activeGenerationIdRef.current) {
             lastPublishedGenerationIdRef.current = activeGenerationIdRef.current;
+          }
+          // Prefer gate-accepted scene (may be retry URL).
+          if (result.lineage?.sceneAssetId || result.publicPayload.sceneImageUrl) {
+            const publishedScene =
+              result.publicPayload.sceneImageUrl?.trim() ||
+              lastRawSceneUrlRef.current ||
+              rawScene;
+            if (publishedScene) {
+              lastRawSceneUrlRef.current = publishedScene;
+            }
           }
           const landing = {
             publicTitle:
@@ -452,6 +490,7 @@ export default function StandaloneObservationExperience({
             );
             const publishedScene =
               result.publicPayload.sceneImageUrl?.trim() ||
+              lastRawSceneUrlRef.current?.trim() ||
               rawScene?.trim() ||
               null;
             if (publishedScene && isPersistableConversationSceneUrl(publishedScene)) {
@@ -484,7 +523,15 @@ export default function StandaloneObservationExperience({
         shareLinkInFlightRef.current = false;
       }
     },
-    [conversationId, isAuthReady, isAuthenticated, shareCacheUserId]
+    [
+      conversationId,
+      isAuthReady,
+      isAuthenticated,
+      shareCacheUserId,
+      isPlus,
+      styleLensSession,
+      resolveSceneDisplayUrl,
+    ]
   );
 
   const handleRetryShareLink = useCallback(() => {

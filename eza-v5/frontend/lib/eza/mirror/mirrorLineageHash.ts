@@ -104,4 +104,15 @@ export type MirrorPublishLineageMeta = {
   conversationId?: string;
   sceneAssetId?: string | null;
   contractVersion?: string;
+  /** Narrative Alignment Phase 1 — persisted under intelligenceBrief.mirrorLineage */
+  narrativeAlignment?: {
+    alignmentVersion: string;
+    alignmentStatus: 'PASS' | 'FAIL' | 'UNAVAILABLE';
+    verificationState: 'verified_pass' | 'verified_fail' | 'verification_unavailable';
+    requiredClaimsHash: string;
+    detectedClaimsHash: string;
+    missingClaims: string[];
+    retryAttempt: 0 | 1;
+    anchorsHash?: string | null;
+  };
 };

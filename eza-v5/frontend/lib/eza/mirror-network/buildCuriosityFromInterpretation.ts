@@ -178,6 +178,7 @@ export function buildCuriosityFromInterpretation(
     generationId?: string;
     locale?: string | null;
     semanticSource?: 'd2_interpretation' | 'heuristic_fallback';
+    evidence?: ReadonlyArray<import('@/lib/eza/mirror/semanticAnchors').SemanticAnchorEvidenceItem> | null;
   }
 ): D2CuriosityBuildResult {
   const topic = mapInterpretationTopicToStoryTopicId(interpretation.topicCategory);
@@ -195,6 +196,8 @@ export function buildCuriosityFromInterpretation(
   const publicLanding = buildPublicMirrorLandingFromInterpretation(interpretation, {
     generationId: options?.generationId,
     semanticSource,
+    evidence: options?.evidence,
+    locale: options?.locale,
   });
   const localeRaw = (options?.locale || 'tr').trim().toLowerCase();
   const locale: 'tr' | 'en' | 'ar' = localeRaw.startsWith('en')

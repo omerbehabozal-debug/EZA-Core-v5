@@ -74,7 +74,8 @@ describe('mirrorReliabilityClosureInvariant', () => {
 
     const preview = resolveMirrorPublicPreview(card, null);
     expect(preview.title).toBe(built.publicLanding.publicTitle);
-    expect(preview.summary).toContain('yellow-stone');
+    expect(preview.summary.toLowerCase()).toMatch(/mardin|yerel|mahalle|turist|sessiz|courtyard/);
+    expect(preview.title).toMatch(/Mardin/i);
     expect(preview.title).not.toBe('V3 Headline Must Not Win');
     expect(preview.summary).not.toContain('V3 story tension');
 

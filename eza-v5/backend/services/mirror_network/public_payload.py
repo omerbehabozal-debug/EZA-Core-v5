@@ -148,6 +148,13 @@ def _extract_public_landing(curiosity_public: Mapping[str, Any]) -> Dict[str, An
         "semanticSource": _as_str(landing.get("semanticSource") or landing.get("semantic_source"))
         or _as_str(curiosity_public.get("semanticSource"))
         or None,
+        "semanticAnchors": (
+            landing.get("semanticAnchors")
+            if isinstance(landing.get("semanticAnchors"), dict)
+            else landing.get("semantic_anchors")
+            if isinstance(landing.get("semantic_anchors"), dict)
+            else None
+        ),
     }
 
 
@@ -212,6 +219,7 @@ def build_public_payload_from_curiosity(
         interpretationHash=landing_fields.get("interpretationHash"),
         publicLandingHash=landing_fields.get("publicLandingHash"),
         semanticSource=landing_fields.get("semanticSource"),
+        semanticAnchors=landing_fields.get("semanticAnchors"),
     )
 
 

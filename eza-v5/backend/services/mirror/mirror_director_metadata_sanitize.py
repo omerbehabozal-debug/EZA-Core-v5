@@ -125,6 +125,24 @@ def sanitize_intelligence_private_for_persist(
         brief_out["mirrorLineage"] = {
             k: v for k, v in lineage.items() if k in allowed and v is not None
         }
+        # Narrative Alignment Phase 1 — nested allowlist (no conversation text).
+        raw_na = lineage.get("narrativeAlignment")
+        if isinstance(raw_na, Mapping) and raw_na:
+            na_allowed = {
+                "alignmentVersion",
+                "alignmentStatus",
+                "verificationState",
+                "requiredClaimsHash",
+                "detectedClaimsHash",
+                "missingClaims",
+                "retryAttempt",
+                "anchorsHash",
+            }
+            cleaned_na = {
+                k: v for k, v in raw_na.items() if k in na_allowed and v is not None
+            }
+            if cleaned_na:
+                brief_out["mirrorLineage"]["narrativeAlignment"] = cleaned_na
 
     if brief_out:
         out["intelligenceBrief"] = brief_out
