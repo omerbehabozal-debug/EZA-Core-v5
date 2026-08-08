@@ -6,8 +6,9 @@ EZA V6 - Centralized Configuration
 
 import os
 from dotenv import load_dotenv
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from functools import lru_cache
 
 # Load .env file ONCE at module import time
@@ -26,6 +27,46 @@ if os.getenv("ANTHROPIC_API_KEY"):
     _loaded_keys.append("ANTHROPIC_API_KEY")
 
 print("[ENV] LOADED:", ", ".join(_loaded_keys) if _loaded_keys else "No API keys loaded")
+
+# Fail-safe env bool: unknown strings must never coerce to True.
+_STRICT_ENV_TRUE = frozenset({"true", "1"})
+_STRICT_ENV_FALSE = frozenset({"false", "0", ""})
+
+
+def parse_strict_env_bool(value: Any, *, field_name: str = "flag") -> bool:
+    """Strict env bool: unset/false/0 → False; true/1 → True; else configuration error."""
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        if value == 1:
+            return True
+        if value == 0:
+            return False
+        raise ValueError(
+            f"{field_name} must be true/false/1/0 (unset→false); got {value!r}"
+        )
+    if isinstance(value, float):
+        if value == 1.0:
+            return True
+        if value == 0.0:
+            return False
+        raise ValueError(
+            f"{field_name} must be true/false/1/0 (unset→false); got {value!r}"
+        )
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _STRICT_ENV_FALSE:
+            return False
+        if normalized in _STRICT_ENV_TRUE:
+            return True
+        raise ValueError(
+            f"{field_name} must be true/false/1/0 (unset→false); got {value!r}"
+        )
+    raise ValueError(
+        f"{field_name} must be true/false/1/0 (unset→false); got {type(value).__name__}"
+    )
 
 
 class Settings(BaseSettings):
@@ -135,8 +176,14 @@ class Settings(BaseSettings):
     EZA_MIRROR_REVIEW_MODEL: str = "gpt-4o-mini"
     """Phase 1 Journey identity: publish by journeyId (default off). Env: EZA_MIRROR_JOURNEY_V1.
     When true, optional publish.journeyId uses slug identity; conversationId is provenance only.
+    Strict parse: true/1 → on; false/0/unset → off; anything else → configuration error.
     Requires process restart for Settings-backed values."""
     EZA_MIRROR_JOURNEY_V1: bool = False
+
+    @field_validator("EZA_MIRROR_JOURNEY_V1", mode="before")
+    @classmethod
+    def _strict_mirror_journey_v1(cls, value: Any) -> bool:
+        return parse_strict_env_bool(value, field_name="EZA_MIRROR_JOURNEY_V1")
 
     # Pipeline Settings
     PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout
