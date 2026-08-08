@@ -56,9 +56,9 @@ function tokenize(text: string): Set<string> {
 function jaccard(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 && b.size === 0) return 0;
   let inter = 0;
-  for (const t of a) {
+  Array.from(a).forEach((t) => {
     if (b.has(t)) inter += 1;
-  }
+  });
   const union = a.size + b.size - inter;
   return union === 0 ? 0 : inter / union;
 }
@@ -70,7 +70,7 @@ export function scorePairForPath(
 ): number {
   const qTokens = tokenize(pair.publicQuestion);
   const aTokens = tokenize(pair.publicAnswer);
-  const self = new Set([...qTokens, ...aTokens]);
+  const self = new Set(Array.from(qTokens).concat(Array.from(aTokens)));
 
   if (prior.length === 0) {
     // Prefer substantive openers
@@ -78,10 +78,11 @@ export function scorePairForPath(
   }
 
   const last = prior[prior.length - 1]!;
-  const lastTokens = new Set([
-    ...tokenize(last.publicQuestion),
-    ...tokenize(last.publicAnswer),
-  ]);
+  const lastTokens = new Set(
+    Array.from(tokenize(last.publicQuestion)).concat(
+      Array.from(tokenize(last.publicAnswer))
+    )
+  );
   const overlap = jaccard(self, lastTokens);
 
   // Mild preference for moderate answer length (not empty spam, not novelas).
