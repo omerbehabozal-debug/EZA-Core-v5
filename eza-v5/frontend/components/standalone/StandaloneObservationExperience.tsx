@@ -1447,8 +1447,10 @@ export default function StandaloneObservationExperience({
   /** Already-published mirrors: restore Discover title/summary when local D2 was lost. */
   useEffect(() => {
     const share = generatedDailyCard?.mirrorShare;
-    const slug = share?.networkSlug?.trim();
-    if (!slug || !share?.shareUrl) return;
+    if (!share) return;
+    const slug = share.networkSlug?.trim();
+    const shareUrl = share.shareUrl?.trim();
+    if (!slug || !shareUrl) return;
     if (share.publicTitle?.trim() && share.publicSummary?.trim()) return;
     if (publishedLandingHydrateRef.current === slug) return;
     publishedLandingHydrateRef.current = slug;
@@ -1482,7 +1484,7 @@ export default function StandaloneObservationExperience({
         saveMirrorShareLink(
           conversationId,
           slug,
-          share.shareUrl,
+          shareUrl,
           shareCacheUserId,
           new Date(),
           landing

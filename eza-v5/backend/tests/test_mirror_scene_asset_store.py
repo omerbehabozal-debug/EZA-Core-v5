@@ -136,6 +136,8 @@ async def test_openai_b64_json_returns_durable_https_url(asset_dir: Path):
         seed_hint="mirror-asset-test",
         style_preset="eza_mirror_professional_v1",
         card_date="2026-05-21",
+        # Asset-store unit path — not Conversation Mirror D2; explicit LEGACY only.
+        generation_pipeline="LEGACY_V3",
     )
     provider = OpenAIMirrorImageProvider(
         api_key="sk-test",

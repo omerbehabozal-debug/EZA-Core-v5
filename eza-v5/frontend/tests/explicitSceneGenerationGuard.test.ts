@@ -119,15 +119,14 @@ describe('publish happens once after scene, not in commitMirrorReady', () => {
     expect(commitBlock).not.toMatch(/void prepareMirrorShareLink\(card\)/);
   });
 
-  it('successful generate-scene path publishes once via prepareMirrorShareLink', () => {
+  it('successful generate-scene path does not auto-publish (Yayınla is explicit)', () => {
     const genIdx = experienceSrc.indexOf('const handleGenerateMirrorScene');
     const genBlock = experienceSrc.slice(genIdx, genIdx + 12000);
     expect(genBlock).toContain('generateMirrorScene(visualForApi');
-    expect(genBlock).toMatch(
-      /prepareMirrorShareLink\(cardForScene, result\.sceneImageUrl,\s*\{\s*refreshScene:\s*true/
+    expect(genBlock).toContain('Yayınla is explicit');
+    expect(genBlock).not.toMatch(
+      /prepareMirrorShareLink\(cardForScene,\s*result\.sceneImageUrl/
     );
-    const publishCalls = genBlock.match(/prepareMirrorShareLink\(/g) ?? [];
-    expect(publishCalls.length).toBe(1);
   });
 });
 
