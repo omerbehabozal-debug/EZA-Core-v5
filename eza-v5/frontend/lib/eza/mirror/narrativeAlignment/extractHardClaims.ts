@@ -60,7 +60,7 @@ const SETTING_HINTS = [
 function isSoft(value: string): boolean {
   const n = normalizeClaimText(value);
   if (SOFT_LEXICON.has(n)) return true;
-  return [...SOFT_LEXICON].some((s) => n === s || (s.length > 4 && n.includes(s)));
+  return Array.from(SOFT_LEXICON).some((s) => n === s || (s.length > 4 && n.includes(s)));
 }
 
 function pushUnique(
@@ -270,7 +270,9 @@ export function extractHardClaims(input: ExtractHardClaimsInput): ExtractedClaim
     }
   }
 
-  const uniqSoft = [...new Set(softClaims.map((s) => normalizeClaimText(s)).filter(Boolean))];
+  const uniqSoft = Array.from(
+    new Set(softClaims.map((s) => normalizeClaimText(s)).filter(Boolean))
+  );
 
   const requiredClaimsHash = djb2Hex(
     JSON.stringify(

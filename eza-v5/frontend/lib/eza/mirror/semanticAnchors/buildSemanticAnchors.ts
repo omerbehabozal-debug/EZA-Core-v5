@@ -96,7 +96,7 @@ function extractPlace(
     if (!text) continue;
     const kind = (row.kind || '').toLowerCase();
     if (kind === 'entity' && text.length <= 40 && !/\s{3,}/.test(text)) {
-      if (/^[A-ZÇĞİÖŞÜ][\p{L}'-]{1,40}$/u.test(text) || PLACE_HINTS.test(text)) {
+      if (/^[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü'-]{1,40}$/.test(text) || PLACE_HINTS.test(text)) {
         return text;
       }
     }

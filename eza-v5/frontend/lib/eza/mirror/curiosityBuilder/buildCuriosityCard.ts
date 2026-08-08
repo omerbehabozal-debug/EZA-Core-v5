@@ -366,7 +366,9 @@ export function buildCuriosityCard(input: BuildCuriosityCardInput): CuriosityBui
     ...alternate,
     variant: 1,
     clickTestPassed: false,
-    clickTestFailures: [...new Set([...primaryTest.failures, ...altTest.failures])],
+    clickTestFailures: Array.from(
+      new Set([...primaryTest.failures, ...altTest.failures])
+    ),
   };
 }
 

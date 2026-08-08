@@ -31,7 +31,7 @@ const CLAIM_ALIAS_GROUPS_RAW: ReadonlyArray<ReadonlyArray<string>> = [
 
 /** Pre-normalized alias groups for matching after diacritic fold. */
 export const CLAIM_ALIAS_GROUPS: ReadonlyArray<ReadonlyArray<string>> = CLAIM_ALIAS_GROUPS_RAW.map(
-  (group) => [...new Set(group.map((g) => normalizeClaimText(g)))]
+  (group) => Array.from(new Set(group.map((g) => normalizeClaimText(g))))
 );
 
 export function claimKey(value: string): string {
