@@ -1,9 +1,12 @@
 /**
- * Candidate 8 — propose exactly 8 Q/A pairs as a coherent path.
- * Lexical / progression heuristic (no LLM). RFC §4.3.
+ * Candidate 8 — coherent curiosity journey selection (Phase 2 PASS).
+ * Lexical / clustering heuristic only — no Anchors / D2.
  */
 
-import { extractQaPairs } from './extractQaPairs';
+import {
+  extractQaPairs,
+  isLowInformationQuestion,
+} from './extractQaPairs';
 import {
   JOURNEY_CANDIDATE_COUNT,
   type Candidate8Result,
@@ -43,6 +46,10 @@ const STOP = new Set([
   'it',
 ]);
 
+const NEAR_DUP_THRESHOLD = 0.82;
+const CLUSTER_OVERLAP_THRESHOLD = 0.18;
+const MIN_PATH_COHERENCE = 0.12;
+
 function tokenize(text: string): Set<string> {
   const tokens = text
     .toLowerCase()
@@ -63,34 +70,91 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 0 : inter / union;
 }
 
-/** Score how well a pair continues a running path (lexical overlap + length balance). */
+function questionTokens(pair: EligibleQaPair): Set<string> {
+  return tokenize(pair.publicQuestion);
+}
+
+function pairTokens(pair: EligibleQaPair): Set<string> {
+  return new Set(
+    Array.from(tokenize(pair.publicQuestion)).concat(
+      Array.from(tokenize(pair.publicAnswer))
+    )
+  );
+}
+
+export function areNearDuplicateQuestions(a: EligibleQaPair, b: EligibleQaPair): boolean {
+  return jaccard(questionTokens(a), questionTokens(b)) >= NEAR_DUP_THRESHOLD;
+}
+
+/** Drop near-duplicate questions (keep earlier sourceOrder). */
+export function dedupeNearDuplicatePairs(pairs: EligibleQaPair[]): EligibleQaPair[] {
+  const kept: EligibleQaPair[] = [];
+  for (const pair of pairs) {
+    if (isLowInformationQuestion(pair.publicQuestion)) continue;
+    const dup = kept.some((k) => areNearDuplicateQuestions(k, pair));
+    if (dup) continue;
+    kept.push(pair);
+  }
+  return kept;
+}
+
+function clusterPairs(pairs: EligibleQaPair[]): EligibleQaPair[][] {
+  const clusters: EligibleQaPair[][] = [];
+  for (const pair of pairs) {
+    let bestIdx = -1;
+    let bestScore = 0;
+    const tokens = pairTokens(pair);
+    for (let i = 0; i < clusters.length; i += 1) {
+      const centroid = pairTokens(clusters[i]![0]!);
+      // compare against cluster mean-ish: max overlap with any member
+      let local = 0;
+      for (const member of clusters[i]!) {
+        local = Math.max(local, jaccard(tokens, pairTokens(member)));
+      }
+      const seed = jaccard(tokens, centroid);
+      const score = Math.max(local, seed);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx >= 0 && bestScore >= CLUSTER_OVERLAP_THRESHOLD) {
+      clusters[bestIdx]!.push(pair);
+    } else {
+      clusters.push([pair]);
+    }
+  }
+  return clusters.sort((a, b) => b.length - a.length);
+}
+
 export function scorePairForPath(
   pair: EligibleQaPair,
   prior: EligibleQaPair[]
 ): number {
-  const qTokens = tokenize(pair.publicQuestion);
-  const aTokens = tokenize(pair.publicAnswer);
-  const self = new Set(Array.from(qTokens).concat(Array.from(aTokens)));
-
+  const self = pairTokens(pair);
   if (prior.length === 0) {
-    // Prefer substantive openers
-    return Math.min(1, (qTokens.size + aTokens.size) / 12);
+    return Math.min(1, self.size / 12);
   }
-
   const last = prior[prior.length - 1]!;
-  const lastTokens = new Set(
-    Array.from(tokenize(last.publicQuestion)).concat(
-      Array.from(tokenize(last.publicAnswer))
-    )
-  );
-  const overlap = jaccard(self, lastTokens);
-
-  // Mild preference for moderate answer length (not empty spam, not novelas).
+  const overlap = jaccard(self, pairTokens(last));
   const ansLen = pair.publicAnswer.length;
   const lengthScore =
     ansLen < 40 ? 0.2 : ansLen < 1200 ? 0.55 : ansLen < 4000 ? 0.35 : 0.1;
-
   return overlap * 0.7 + lengthScore * 0.3;
+}
+
+function pathCoherence(pairs: EligibleQaPair[]): number {
+  if (pairs.length < 2) return pairs.length === 1 ? 0.2 : 0;
+  let total = 0;
+  for (let i = 1; i < pairs.length; i += 1) {
+    total += jaccard(pairTokens(pairs[i - 1]!), pairTokens(pairs[i]!));
+  }
+  return total / (pairs.length - 1);
+}
+
+/** Always display / freeze in source conversation order. */
+export function sortPairsBySourceOrder(pairs: EligibleQaPair[]): EligibleQaPair[] {
+  return [...pairs].sort((a, b) => a.sourceOrder - b.sourceOrder);
 }
 
 function pickGreedyPath(pairs: EligibleQaPair[], count: number): CandidatePath {
@@ -102,28 +166,28 @@ function pickGreedyPath(pairs: EligibleQaPair[], count: number): CandidatePath {
     let bestIdx = 0;
     let bestScore = -1;
     for (let i = 0; i < remaining.length; i += 1) {
-      const s = scorePairForPath(remaining[i]!, selected);
-      // Prefer chronological when scores tie — earlier index in original order.
+      const candidate = remaining[i]!;
+      if (selected.some((s) => areNearDuplicateQuestions(s, candidate))) continue;
+      const s = scorePairForPath(candidate, selected);
       if (s > bestScore + 1e-9 || (Math.abs(s - bestScore) < 1e-9 && i < bestIdx)) {
         bestScore = s;
         bestIdx = i;
       }
     }
+    if (bestScore < 0) break;
     const next = remaining.splice(bestIdx, 1)[0]!;
     selected.push(next);
     totalScore += bestScore;
   }
 
+  const ordered = sortPairsBySourceOrder(selected);
   return {
-    pathId: `path-primary-${selected.map((p) => p.userMessageId).join('-').slice(0, 48)}`,
-    pairRefs: selected,
-    score: totalScore / Math.max(1, selected.length),
+    pathId: `path-${ordered.map((p) => p.userMessageId).join('-').slice(0, 48)}`,
+    pairRefs: ordered,
+    score: totalScore / Math.max(1, ordered.length),
   };
 }
 
-/**
- * Alternate path: chronological windows (early / mid / late) when enough pairs.
- */
 function chronologicalWindow(
   pairs: EligibleQaPair[],
   start: number,
@@ -132,15 +196,13 @@ function chronologicalWindow(
   if (pairs.length < JOURNEY_CANDIDATE_COUNT) return null;
   const maxStart = pairs.length - JOURNEY_CANDIDATE_COUNT;
   const clamped = Math.max(0, Math.min(start, maxStart));
-  const slice = pairs.slice(clamped, clamped + JOURNEY_CANDIDATE_COUNT);
-  let score = 0;
-  for (let i = 0; i < slice.length; i += 1) {
-    score += scorePairForPath(slice[i]!, slice.slice(0, i));
-  }
+  const slice = sortPairsBySourceOrder(
+    pairs.slice(clamped, clamped + JOURNEY_CANDIDATE_COUNT)
+  );
   return {
     pathId,
     pairRefs: slice,
-    score: score / JOURNEY_CANDIDATE_COUNT,
+    score: pathCoherence(slice),
   };
 }
 
@@ -148,25 +210,107 @@ export function proposeCandidatePaths(
   pairs: EligibleQaPair[],
   maxPaths = 3
 ): Candidate8Result {
-  if (pairs.length < JOURNEY_CANDIDATE_COUNT) {
+  const cleaned = dedupeNearDuplicatePairs(pairs);
+  if (cleaned.length < JOURNEY_CANDIDATE_COUNT) {
     return {
       status: 'not_ready',
-      pairCount: pairs.length,
+      pairCount: cleaned.length,
       needed: JOURNEY_CANDIDATE_COUNT,
+      reason: 'insufficient_pairs',
     };
   }
 
+  const clusters = clusterPairs(cleaned);
+  const dominant = clusters[0] ?? [];
+  const second = clusters[1];
+  const third = clusters[2];
+
+  // Topic drift: multiple material clusters — do not auto-compress into one journey.
+  const materialClusters = clusters.filter((c) => c.length >= 4);
+  if (
+    materialClusters.length >= 2 &&
+    dominant.length < JOURNEY_CANDIDATE_COUNT
+  ) {
+    return {
+      status: 'review_required',
+      pairCount: cleaned.length,
+      reason: 'insufficient_coherence',
+      paths: [],
+    };
+  }
+  if (
+    materialClusters.length >= 2 &&
+    dominant.length < cleaned.length * 0.55
+  ) {
+    return {
+      status: 'review_required',
+      pairCount: cleaned.length,
+      reason: 'insufficient_coherence',
+      paths: [],
+    };
+  }
+
+  // Topic drift: largest cluster < 8 and a second cluster is material.
+  if (
+    dominant.length < JOURNEY_CANDIDATE_COUNT &&
+    second &&
+    second.length >= 3 &&
+    dominant.length < cleaned.length * 0.7
+  ) {
+    return {
+      status: 'review_required',
+      pairCount: cleaned.length,
+      reason: 'insufficient_coherence',
+      paths: [],
+    };
+  }
+
+  // Three distinct topics each with enough pairs → never auto-pick one 8.
+  if (third && second && dominant.length >= 4 && second.length >= 4 && third.length >= 4) {
+    return {
+      status: 'review_required',
+      pairCount: cleaned.length,
+      reason: 'insufficient_coherence',
+      paths: [],
+    };
+  }
+
+  const pool =
+    dominant.length >= JOURNEY_CANDIDATE_COUNT ? dominant : cleaned;
+
   const paths: CandidatePath[] = [];
-  const primary = pickGreedyPath(pairs, JOURNEY_CANDIDATE_COUNT);
-  paths.push(primary);
+  const primary = pickGreedyPath(pool, JOURNEY_CANDIDATE_COUNT);
+  if (primary.pairRefs.length < JOURNEY_CANDIDATE_COUNT) {
+    return {
+      status: 'not_ready',
+      pairCount: cleaned.length,
+      needed: JOURNEY_CANDIDATE_COUNT,
+      reason: 'insufficient_coherence',
+    };
+  }
+
+  const coherence = pathCoherence(primary.pairRefs);
+  if (coherence < MIN_PATH_COHERENCE && pool === cleaned && clusters.length > 1) {
+    return {
+      status: 'review_required',
+      pairCount: cleaned.length,
+      reason: 'insufficient_coherence',
+      paths: [{ ...primary, score: coherence }],
+    };
+  }
+
+  paths.push({ ...primary, score: Math.max(primary.score, coherence) });
 
   if (maxPaths > 1) {
-    const early = chronologicalWindow(pairs, 0, 'path-chrono-early');
+    const early = chronologicalWindow(pool, 0, 'path-chrono-early');
     if (early && early.pathId !== primary.pathId) paths.push(early);
   }
-  if (maxPaths > 2 && pairs.length > JOURNEY_CANDIDATE_COUNT) {
-    const lateStart = pairs.length - JOURNEY_CANDIDATE_COUNT;
-    const late = chronologicalWindow(pairs, lateStart, 'path-chrono-late');
+  if (maxPaths > 2 && pool.length > JOURNEY_CANDIDATE_COUNT) {
+    const late = chronologicalWindow(
+      pool,
+      pool.length - JOURNEY_CANDIDATE_COUNT,
+      'path-chrono-late'
+    );
     if (late) {
       const dup = paths.some(
         (p) =>
@@ -180,7 +324,7 @@ export function proposeCandidatePaths(
   return {
     status: 'ready',
     paths: paths.slice(0, maxPaths),
-    pairCount: pairs.length,
+    pairCount: cleaned.length,
   };
 }
 

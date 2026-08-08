@@ -17,6 +17,29 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
 import SainaComposer from '@/components/saina/SainaComposer';
+import JourneyWindowDecisionBanner from '@/components/mirror/JourneyWindowDecisionBanner';
+import JourneyGenerationStatus from '@/components/mirror/JourneyGenerationStatus';
+import Review8Screen from '@/components/mirror/Review8Screen';
+import {
+  canSendMoreJourneyQuestions,
+  confirmJourneyWindow,
+  extractQaPairs,
+  getAwaitingDecisionWindow,
+  isMirrorJourneyV1ClientEnabled,
+  markJourneyWindowReady,
+  markJourneyWindowReviewing,
+  pairsForWindow,
+  reopenJourneyWindowDecision,
+  resolveParentJourneyId,
+  saveJourneyConversationState,
+  skipJourneyWindow,
+  syncJourneyConversationState,
+  type JourneyConversationState,
+  type Review8Draft,
+} from '@/lib/eza/mirror/journey';
+import { loadJourneyConversationState } from '@/lib/eza/mirror/journey/journeyWindowStore';
+import { MIRROR_JOURNEY_CONVERSATION_CLOSED } from '@/lib/eza/mirror/copy';
+import { useAuth } from '@/context/AuthContext';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
@@ -150,6 +173,8 @@ interface Message {
   behavioral?: BehavioralSnapshot | null;
   standaloneObservation?: StandaloneObservation | null;
   feedback?: StandaloneFeedbackContext | null;
+  /** Streaming assistant — not an eligible Journey Q/A until complete. */
+  incomplete?: boolean;
 }
 
 // localStorage keys
@@ -193,10 +218,21 @@ export default function StandaloneChatInner() {
   const onOpenMirror = useSainaChromeStore((state) => state.onOpenMirror);
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
+  const { user, isAuthenticated } = useAuth();
+  const journeyOwnerId = user?.user_id?.trim() || '';
+  const [journeyState, setJourneyState] = useState<JourneyConversationState | null>(null);
+  const [journeyReviewOpen, setJourneyReviewOpen] = useState(false);
+  const [journeyReviewWindowIndex, setJourneyReviewWindowIndex] = useState<number | null>(
+    null
+  );
   const messageLimit = accountEntitlements.usage.dailyMessagesLimit;
   const isMessageLimitReached =
     messageLimit != null &&
     accountEntitlements.usage.dailyMessagesUsed >= messageLimit;
+  const journeyV1On = isMirrorJourneyV1ClientEnabled();
+  const journeyClosed =
+    journeyV1On && isAuthenticated && !canSendMoreJourneyQuestions(journeyState);
+  const composerDisabled = isMessageLimitReached || journeyClosed;
   const quotaHeaders = useMemo(() => buildSainaQuotaHeaders(), []);
   const { startStream, reset: resetStream } = useStreamResponse();
   const setConversationMirrorEntries = useSetConversationMirrorEntries();
@@ -542,6 +578,82 @@ export default function StandaloneChatInner() {
     };
   }, [messages, chatId, setConversationMirrorEntries]);
 
+  useEffect(() => {
+    if (!journeyV1On || !isAuthenticated || !journeyOwnerId || !chatId) {
+      setJourneyState(null);
+      return;
+    }
+    const prev = loadJourneyConversationState(journeyOwnerId, chatId);
+    const next = syncJourneyConversationState({
+      state: prev,
+      ownerUserId: journeyOwnerId,
+      sourceConversationId: chatId,
+      messages: messages.map((m) => ({
+        id: m.id,
+        text: m.text,
+        isUser: m.isUser,
+        incomplete: m.incomplete,
+      })),
+    });
+    setJourneyState(next);
+    saveJourneyConversationState(next);
+  }, [messages, chatId, journeyOwnerId, journeyV1On, isAuthenticated]);
+
+  const awaitingJourneyWindow = getAwaitingDecisionWindow(journeyState);
+  const generatingWindow = journeyState?.windows.find((w) => w.status === 'generating');
+  const readyWindow = journeyState?.windows.find((w) => w.status === 'ready');
+
+  const handleJourneySkip = useCallback(() => {
+    if (!journeyState || awaitingJourneyWindow == null) return;
+    const next = skipJourneyWindow(journeyState, awaitingJourneyWindow.windowIndex);
+    setJourneyState(next);
+    saveJourneyConversationState(next);
+    setJourneyReviewOpen(false);
+    setJourneyReviewWindowIndex(null);
+  }, [journeyState, awaitingJourneyWindow]);
+
+  const handleJourneyCreate = useCallback(() => {
+    if (!journeyState || awaitingJourneyWindow == null) return;
+    const next = markJourneyWindowReviewing(
+      journeyState,
+      awaitingJourneyWindow.windowIndex
+    );
+    setJourneyState(next);
+    saveJourneyConversationState(next);
+    setJourneyReviewWindowIndex(awaitingJourneyWindow.windowIndex);
+    setJourneyReviewOpen(true);
+  }, [journeyState, awaitingJourneyWindow]);
+
+  const handleJourneyReviewConfirmed = useCallback(
+    (draft: Review8Draft) => {
+      if (!journeyState || journeyReviewWindowIndex == null || !draft.journeyId) {
+        setJourneyReviewOpen(false);
+        return;
+      }
+      const windowIndex = journeyReviewWindowIndex;
+      const next = confirmJourneyWindow({
+        state: journeyState,
+        windowIndex,
+        journeyId: draft.journeyId,
+        draftKey: draft.draftKey,
+      });
+      setJourneyState(next);
+      saveJourneyConversationState(next);
+      setJourneyReviewOpen(false);
+      setJourneyReviewWindowIndex(null);
+      // Phase 3 will run meaning pipeline; keep chat free — flip to ready async.
+      window.setTimeout(() => {
+        setJourneyState((prev) => {
+          if (!prev) return prev;
+          const ready = markJourneyWindowReady(prev, windowIndex);
+          saveJourneyConversationState(ready);
+          return ready;
+        });
+      }, 0);
+    },
+    [journeyState, journeyReviewWindowIndex]
+  );
+
   const sainaConversations = useMemo(
     () => mapArchivesToSainaConversations(archives, chatId),
     [archives, chatId]
@@ -573,6 +685,17 @@ export default function StandaloneChatInner() {
 
     if (isMessageLimitReached) {
       showChatLimitMessage();
+      return;
+    }
+
+    if (journeyClosed) {
+      const limitMessage: Message = {
+        id: `limit-journey-${Date.now()}`,
+        text: MIRROR_JOURNEY_CONVERSATION_CLOSED,
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, limitMessage]);
       return;
     }
 
@@ -619,10 +742,11 @@ export default function StandaloneChatInner() {
 
     // Create assistant message placeholder for streaming
     const assistantMessageId = `eza-${Date.now()}`;
-    const       assistantMessage: Message = {
+    const assistantMessage: Message = {
         id: assistantMessageId,
         text: '',
         isUser: false,
+        incomplete: true,
         assistantScore: undefined, // Will be shown 0.4s after streaming completes
         safeOnlyMode: safeOnlyMode,
         safety: safeOnlyMode ? 'Safe' : undefined, // Default to Safe in safe-only mode, will be updated from backend
@@ -666,6 +790,15 @@ export default function StandaloneChatInner() {
             onDone: (data: any) => {
               setIsTyping(false);
               setIsLoading(false);
+
+              // Mark assistant turn complete for Journey eligible pairing.
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, incomplete: false }
+                    : msg
+                )
+              );
 
               const governance = parseGovernance(data.governance);
               const feedbackCtx = feedbackContextFromGovernance(governance, {
@@ -1197,6 +1330,18 @@ export default function StandaloneChatInner() {
 
   const composer = (
     <>
+      {journeyV1On && generatingWindow ? (
+        <JourneyGenerationStatus status="generating" />
+      ) : null}
+      {journeyV1On && readyWindow && !generatingWindow ? (
+        <JourneyGenerationStatus status="ready" />
+      ) : null}
+      {journeyV1On && awaitingJourneyWindow && !journeyReviewOpen ? (
+        <JourneyWindowDecisionBanner
+          onCreate={handleJourneyCreate}
+          onSkip={handleJourneySkip}
+        />
+      ) : null}
       {branchSuggestionVisible && branchCards.length > 0 ? (
         <MirrorBranchSuggestion
           cards={branchCards}
@@ -1204,7 +1349,7 @@ export default function StandaloneChatInner() {
           onDismiss={handleBranchDismiss}
         />
       ) : null}
-      <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={isMessageLimitReached} />
+      <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={composerDisabled} />
     </>
   );
 
@@ -1285,6 +1430,49 @@ export default function StandaloneChatInner() {
       />
       {gateModals}
       {deleteModal}
+      {journeyReviewOpen &&
+      journeyState &&
+      journeyReviewWindowIndex != null &&
+      journeyOwnerId &&
+      chatId ? (
+        <Review8Screen
+          ownerUserId={journeyOwnerId}
+          sourceConversationId={chatId}
+          windowIndex={journeyReviewWindowIndex}
+          windowPairs={pairsForWindow(
+            extractQaPairs(
+              messages.map((m) => ({
+                id: m.id,
+                text: m.text,
+                isUser: m.isUser,
+                incomplete: m.incomplete,
+              }))
+            ),
+            journeyReviewWindowIndex
+          )}
+          draftKey={
+            journeyState.windows.find((w) => w.windowIndex === journeyReviewWindowIndex)
+              ?.draftKey || `win-${chatId}-${journeyReviewWindowIndex}`
+          }
+          parentJourneyId={resolveParentJourneyId(
+            journeyState,
+            journeyReviewWindowIndex
+          )}
+          onConfirmed={handleJourneyReviewConfirmed}
+          onCancel={() => {
+            if (journeyState && journeyReviewWindowIndex != null) {
+              const next = reopenJourneyWindowDecision(
+                journeyState,
+                journeyReviewWindowIndex
+              );
+              setJourneyState(next);
+              saveJourneyConversationState(next);
+            }
+            setJourneyReviewOpen(false);
+            setJourneyReviewWindowIndex(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }

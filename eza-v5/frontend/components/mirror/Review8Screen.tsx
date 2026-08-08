@@ -1,25 +1,24 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
-  buildReview8Draft,
+  buildReview8DraftFromWindow,
   confirmReview8Draft,
-  extractQaPairs,
   JOURNEY_CANDIDATE_COUNT,
-  proposeCandidate8,
-  replaceReview8Step,
   saveReview8Draft,
-  type CandidatePath,
   type EligibleQaPair,
-  type JourneyMessageLike,
   type Review8Draft,
-  type Review8StepIndex,
 } from '@/lib/eza/mirror/journey';
 
 export type Review8ScreenProps = {
+  ownerUserId: string;
   sourceConversationId: string;
-  messages: JourneyMessageLike[];
+  /** Exact chronological window pairs (length 8). */
+  windowPairs: EligibleQaPair[];
+  windowIndex: number;
+  draftKey: string;
+  parentJourneyId?: string | null;
   titleSeed?: string;
   initialDraft?: Review8Draft | null;
   onConfirmed: (draft: Review8Draft) => void;
@@ -27,43 +26,45 @@ export type Review8ScreenProps = {
   className?: string;
 };
 
+/**
+ * Review 8 — publication/privacy consent for one deterministic window.
+ * Not a semantic selector: no Candidate 8, no reordering, no cross-window mixing.
+ */
 export default function Review8Screen({
+  ownerUserId,
   sourceConversationId,
-  messages,
+  windowPairs,
+  windowIndex,
+  draftKey,
+  parentJourneyId = null,
   titleSeed,
   initialDraft,
   onConfirmed,
   onCancel,
   className,
 }: Review8ScreenProps) {
-  const candidateResult = useMemo(() => proposeCandidate8(messages), [messages]);
-  const allPairs = useMemo(() => extractQaPairs(messages), [messages]);
-
-  const [path, setPath] = useState<CandidatePath | null>(() =>
-    candidateResult.status === 'ready' ? candidateResult.paths[0] ?? null : null
-  );
   const [draft, setDraft] = useState<Review8Draft | null>(() => {
-    if (initialDraft?.selectedSteps?.length === JOURNEY_CANDIDATE_COUNT) {
-      return initialDraft;
+    if (
+      initialDraft?.ownerUserId === ownerUserId &&
+      initialDraft.draftKey === draftKey &&
+      initialDraft.selectedSteps?.length === JOURNEY_CANDIDATE_COUNT
+    ) {
+      return { ...initialDraft, status: 'reviewing', snapshotHash: null };
     }
-    if (candidateResult.status === 'ready' && candidateResult.paths[0]) {
-      return buildReview8Draft({
-        sourceConversationId,
-        path: candidateResult.paths[0],
-        titleSeed,
-      });
-    }
-    return null;
+    if (windowPairs.length !== JOURNEY_CANDIDATE_COUNT) return null;
+    return buildReview8DraftFromWindow({
+      ownerUserId,
+      sourceConversationId,
+      windowIndex,
+      pairs: windowPairs,
+      draftKey,
+      parentJourneyId,
+      titleSeed,
+    });
   });
-  const [replaceIndex, setReplaceIndex] = useState<Review8StepIndex | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  const unusedPairs = useMemo(() => {
-    if (!draft) return allPairs;
-    const used = new Set(draft.selectedSteps.map((s) => s.userMessageId));
-    return allPairs.filter((p) => !used.has(p.userMessageId));
-  }, [allPairs, draft]);
-
-  if (candidateResult.status === 'not_ready') {
+  if (!draft || windowPairs.length !== JOURNEY_CANDIDATE_COUNT) {
     return (
       <div
         className={cn(
@@ -72,25 +73,14 @@ export default function Review8Screen({
         )}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="review8-not-ready-title"
-        data-testid="review8-not-ready"
+        data-testid="review8-invalid-window"
       >
-        <div
-          className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141210] p-5 text-[#f4f0e8] shadow-xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <h2 id="review8-not-ready-title" className="text-base font-semibold">
-            Henüz 8 soruluk yol yok
-          </h2>
-          <p className="mt-2 text-sm text-[rgba(246,244,239,0.75)]">
-            Bu sohbette {candidateResult.pairCount} uygun soru-cevap çifti var. Yansı için en az{' '}
-            {candidateResult.needed} çift gerekir.
-          </p>
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141210] p-5 text-[#f4f0e8]">
+          <p className="text-sm">Bu Yansı henüz 8 geçerli adım içermiyor.</p>
           <button
             type="button"
-            className="mt-4 inline-flex w-full items-center justify-center rounded-full border border-white/10 px-4 py-2.5 text-xs font-medium"
+            className="mt-4 w-full rounded-full border border-white/10 py-2.5 text-xs"
             onClick={onCancel}
-            data-testid="review8-not-ready-close"
           >
             Kapat
           </button>
@@ -99,32 +89,14 @@ export default function Review8Screen({
     );
   }
 
-  if (!draft || !path) {
-    return null;
-  }
-
-  const selectPath = (next: CandidatePath) => {
-    setPath(next);
-    setDraft(
-      buildReview8Draft({
-        sourceConversationId,
-        path: next,
-        titleSeed,
-      })
-    );
-    setReplaceIndex(null);
-  };
-
-  const applyReplace = (pair: EligibleQaPair) => {
-    if (replaceIndex == null) return;
-    setDraft((prev) => (prev ? replaceReview8Step(prev, replaceIndex, pair) : prev));
-    setReplaceIndex(null);
-  };
-
   const handleConfirm = () => {
-    const confirmed = confirmReview8Draft(draft);
-    saveReview8Draft(confirmed);
-    onConfirmed(confirmed);
+    const result = confirmReview8Draft(draft);
+    if (!result.ok) {
+      setConfirmError(result.message);
+      return;
+    }
+    saveReview8Draft(result.draft);
+    onConfirmed(result.draft);
   };
 
   return (
@@ -148,31 +120,10 @@ export default function Review8Screen({
             8 soruyu gözden geçir
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-[rgba(246,244,239,0.65)]">
-            Yayımlanacak merak yolculuğu bu 8 soru-cevaptan oluşur. Onaydan sonra görsel ve anlam
-            yalnızca bunlara bakacak.
+            Bu Yansı, sohbetindeki bu 8 soru-cevaptan oluşur. Onay yayın kararıdır; sorular
+            yeniden seçilmez.
           </p>
         </header>
-
-        {candidateResult.paths.length > 1 ? (
-          <div className="flex gap-2 overflow-x-auto border-b border-white/5 px-4 py-2">
-            {candidateResult.paths.map((p, i) => (
-              <button
-                key={p.pathId}
-                type="button"
-                className={cn(
-                  'shrink-0 rounded-full border px-3 py-1 text-[11px]',
-                  path.pathId === p.pathId
-                    ? 'border-[rgba(231,180,91,0.5)] bg-[rgba(231,180,91,0.18)] text-[#f6f0e4]'
-                    : 'border-white/10 text-[rgba(217,196,163,0.8)]'
-                )}
-                onClick={() => selectPath(p)}
-                data-testid={`review8-path-${i}`}
-              >
-                Yol {i + 1}
-              </button>
-            ))}
-          </div>
-        ) : null}
 
         <ol className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {draft.selectedSteps.map((step) => (
@@ -181,20 +132,10 @@ export default function Review8Screen({
               className="rounded-xl border border-white/8 bg-white/[0.03] p-3"
               data-testid={`review8-step-${step.index}`}
             >
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgba(231,180,91,0.85)]">
-                  {step.index} / 8
-                </span>
-                <button
-                  type="button"
-                  className="text-[10px] text-[rgba(217,196,163,0.75)] underline-offset-2 hover:underline"
-                  onClick={() => setReplaceIndex(step.index)}
-                  data-testid={`review8-replace-${step.index}`}
-                >
-                  Değiştir
-                </button>
-              </div>
-              <p className="text-sm font-medium leading-snug">{step.publicQuestion}</p>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgba(231,180,91,0.85)]">
+                {step.index} / 8
+              </span>
+              <p className="mt-1 text-sm font-medium leading-snug">{step.publicQuestion}</p>
               <p className="mt-1.5 text-xs leading-relaxed text-[rgba(246,244,239,0.62)]">
                 {step.publicAnswer.length > 280
                   ? `${step.publicAnswer.slice(0, 280)}…`
@@ -204,39 +145,10 @@ export default function Review8Screen({
           ))}
         </ol>
 
-        {replaceIndex != null ? (
-          <div
-            className="border-t border-white/10 bg-black/30 px-4 py-3"
-            data-testid="review8-replace-panel"
-          >
-            <p className="mb-2 text-xs text-[rgba(246,244,239,0.7)]">
-              Adım {replaceIndex} için alternatif çift seç
-            </p>
-            {unusedPairs.length === 0 ? (
-              <p className="text-xs text-[rgba(246,244,239,0.5)]">Başka uygun çift yok.</p>
-            ) : (
-              <ul className="max-h-40 space-y-2 overflow-y-auto">
-                {unusedPairs.slice(0, 12).map((pair) => (
-                  <li key={pair.userMessageId}>
-                    <button
-                      type="button"
-                      className="w-full rounded-lg border border-white/10 px-3 py-2 text-left text-xs hover:border-[rgba(231,180,91,0.35)]"
-                      onClick={() => applyReplace(pair)}
-                    >
-                      {pair.publicQuestion.slice(0, 120)}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button
-              type="button"
-              className="mt-2 text-[11px] text-[rgba(217,196,163,0.7)]"
-              onClick={() => setReplaceIndex(null)}
-            >
-              Vazgeç
-            </button>
-          </div>
+        {confirmError ? (
+          <p className="px-4 text-xs text-[#f0b4a0]" data-testid="review8-confirm-error">
+            {confirmError}
+          </p>
         ) : null}
 
         <footer className="flex flex-col gap-2 border-t border-white/10 px-4 py-4">

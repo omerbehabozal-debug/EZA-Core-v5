@@ -1,13 +1,15 @@
 # RFC — Mirror Journey Identity + Review 8
 
-Status: **Accepted product locks; Phase 1 PASS + Phase 2 Review 8 draft (client)**  
-Date: 2026-08-08  
-Scope: Phase 1 = DB + identity + flag; Phase 2 = pairing + Candidate 8 + Review 8 draft (no scoped D2 / replay yet)  
+Status: **Accepted product locks; Phase 1 PASS + Phase 2 deterministic 8-window lifecycle**  
+Date: 2026-08-08 (window model reset 2026-08-09)  
+Scope: Phase 1 = DB + identity + flag; Phase 2 = eligible pairing + **deterministic 8-question windows** + Review 8 consent (no scoped D2 / replay yet)  
 Depends on: D2 reliability baseline, Semantic Anchors, Curiosity Builder, Narrative Alignment  
 
 **Phase 1 notes:** see `journey-identity-phase1.md`. Versioning **option A** locked (same slug, bump `journey_version`).  
 **PASS closure:** legacy partial unique index; `mirror_journey_steps.journey_version`; strict `EZA_MIRROR_JOURNEY_V1` parse.  
-**Phase 2 notes:** see `journey-phase2-review8.md`.
+**Phase 2 notes:** see `journey-phase2-review8.md` + `journey-phase2-pass-closure.md`.  
+
+**Product model reset:** Journey V1 authority is chronological windows (Q1–Q8, Q9–Q16) under a 20-question conversation cap. Candidate 8 / best-8 / topic clustering are **not** Journey V1 authority.
 
 ---
 
@@ -32,8 +34,8 @@ Today:
 
 Target:
 
-- One published **Yansı** = exactly 8 selected user questions + 8 stored AI answers.
-- Same source conversation may publish multiple journeys.
+- One published **Yansı** = exactly 8 chronological eligible user questions + 8 stored AI answers (one frozen window).
+- Same source conversation may publish multiple journeys (vertical parent chain).
 - Visitor replays Q1→A1→…→Q8 as natural chat; after A8, free continuation may fork a child journey.
 
 ---
@@ -170,10 +172,21 @@ for each message M in chronological order:
 
 Reject: orphan assistants, consecutive users without answer, duplicate reuse of same user turn.
 
-### 4.3 Selection propose (when >8)
+### 4.3 Window selection (Journey V1 — locked)
 
-Score each pair for coherence with a candidate path (topic embedding or lexical cluster + progression).  
-Return 1..N **candidate paths**, each with exactly 8 pair refs (or fewer if not ready).
+Conversation max = **20** eligible completed pairs.  
+Yansı size = **8**. Publishable windows are chronological:
+
+- Window 0: pairs 0–7 (Q1–Q8)
+- Window 1: pairs 8–15 (Q9–Q16)
+- Pairs 16–19 (Q17–Q20) never form a Yansı
+
+After each full window completes, the user decides:
+
+- create Yansı (Review 8 consent on **that exact window**) and continue, or
+- skip (window unpublished forever; never mixed with later windows)
+
+**Superseded:** Candidate 8 / best-8 scoring / topic clustering are **not** Journey V1 authority.
 
 User confirm writes `selectedSteps[8]` into draft; answers copied by value (frozen).
 
@@ -181,8 +194,8 @@ User confirm writes `selectedSteps[8]` into draft; answers copied by value (froz
 
 | Risk | Mitigation |
 |------|------------|
-| Pairing heuristic wrong | Confirm UI shows Q+A together; user replaces pair as unit |
-| Answer references unselected prior | Selection warn; optional sanitization pass |
+| Pairing heuristic wrong | Confirm UI shows Q+A together; window is chronological only |
+| Answer references earlier skipped context | Accept for v1; Phase 3 scoped meaning may note continuity |
 | Source message later deleted | Published copy is frozen text; IDs are provenance only |
 | Extremely long answers | Store full; UI progressive reveal + scroll (no silent truncate in v1) |
 
@@ -191,15 +204,16 @@ User confirm writes `selectedSteps[8]` into draft; answers copied by value (froz
 ## 5. Review 8 → meaning pipeline (order locked)
 
 ```
-Eligible pairs from source conversation
+Eligible pairs from source conversation (max 20)
         ↓
-AI propose candidate path(s) of 8
+Every completed chronological 8 → user decision
         ↓
-USER REVIEW / CONFIRM 8          ← hard gate
+[Create] exact window → USER REVIEW / CONFIRM 8   ← hard gate (consent only)
+[Skip]   window unpublished forever
         ↓
 Build publish-scoped message package = only those 8 Q/A
         ↓
-D1/D2 on scoped package only     ← no unselected contamination
+D1/D2 on scoped package only     ← Phase 3 (not yet)
         ↓
 Semantic Anchors
         ↓
@@ -304,9 +318,9 @@ Feature flag: `EZA_MIRROR_JOURNEY_V1=1`.
 1. **RFC freeze** (this doc) + flag  
 2. DB: steps table + `artifact_kind`; dual-write readiness  
 3. Drop conversation unique under flag (with rollback plan)  
-4. Pairing + candidates API  
-5. Review 8 UX + draft persist  
-6. Scoped D2 prepare from draft  
+4. Pairing + **deterministic window** state (20-cap; 8-step windows)  
+5. Decision UI + Review 8 consent + draft persist (multi-journey draftKey)  
+6. Scoped D2 prepare from confirmed window (**Phase 3**)  
 7. Publish writes `journey_v1` + 8 steps (no conversation upsert)  
 8. Replay API + UI  
 9. Discover CTA → replay for `journey_v1` only  
@@ -316,14 +330,14 @@ Feature flag: `EZA_MIRROR_JOURNEY_V1=1`.
 
 ## 12. Tests required (when coding)
 
-- Pairing: consecutive users, orphan assistant, stable IDs  
-- Candidates: >8 proposes 8; <8 not ready  
-- Confirm freezes answer text  
+- Pairing: consecutive users, orphan assistant, system/tool/noise, incomplete  
+- Windows A–K: create/skip/parent chain/20-end/refresh/independence/flag-off  
+- Confirm freezes answer text (exact chronological 8)  
 - Publish does not upsert by conversationId  
-- Two journeys same `sourceConversationId`  
+- Two journeys same `sourceConversationId` with distinct draft/window identity  
 - Legacy GET journey → not replayable  
-- Scoped D2 ignores unselected messages (fixture)  
-- NA/CB still pass on scoped meaning  
+- Scoped D2 ignores out-of-window messages (fixture) — Phase 3  
+- NA/CB still pass on scoped meaning — Phase 3  
 - yansiCount counts children only  
 
 ---

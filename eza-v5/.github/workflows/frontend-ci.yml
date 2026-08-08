@@ -46,6 +46,7 @@ jobs:
           tests/discoverCard.test.tsx
           tests/discoverExperiencedMirrors.test.ts
           tests/mirrorPanelCopy.test.ts
+          tests/mirrorJourneyReview8.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-

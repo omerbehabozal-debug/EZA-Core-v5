@@ -106,7 +106,7 @@ async def test_legacy_parallel_publish_integrity_error_recovers_single_node():
 
     with (
         patch(
-            "backend.services.mirror_network.publish.mirror_journey_v1_enabled",
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
             return_value=False,
         ),
         patch(

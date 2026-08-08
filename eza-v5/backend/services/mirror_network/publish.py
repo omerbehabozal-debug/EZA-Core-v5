@@ -44,9 +44,11 @@ from backend.services.mirror_network.repository import (
 from backend.services.mirror_network.service import node_to_public_payload
 from backend.services.mirror_network.slug import generate_mirror_slug
 from backend.services.mirror_network.types import MirrorNetworkNodeRecord
-from backend.services.mirror_network.journey_identity import (
-    mirror_journey_v1_enabled,
-    normalize_journey_id,
+from backend.services.mirror_network.journey_publish_contract import (
+    resolve_journey_publish_mode,
+)
+from backend.services.mirror_network.journey_steps import (
+    replace_journey_steps_for_version,
 )
 
 def map_mirror_safety_level(safety_level: Optional[str]) -> Tuple[str, str]:
@@ -256,8 +258,19 @@ async def publish_mirror_to_network(
     conversation_id = (body.conversationId or "").strip() or None
     incoming_scene = (body.sceneImageUrl or "").strip() or None
 
-    journey_id = normalize_journey_id(getattr(body, "journeyId", None))
-    use_journey_identity = mirror_journey_v1_enabled() and bool(journey_id)
+    raw_steps = None
+    if body.selectedSteps is not None:
+        raw_steps = [
+            step.model_dump() if hasattr(step, "model_dump") else dict(step)
+            for step in body.selectedSteps
+        ]
+
+    publish_mode, journey_id, normalized_steps = resolve_journey_publish_mode(
+        conversation_id=conversation_id,
+        journey_id_raw=getattr(body, "journeyId", None),
+        selected_steps=raw_steps,
+    )
+    use_journey_identity = publish_mode == "journey"
 
     existing = None
     if use_journey_identity:
@@ -520,4 +533,11 @@ async def publish_mirror_to_network(
                 node = await update_mirror_network_node(db, raced)
 
     record = MirrorNetworkNodeRecord.from_orm(node)
+    if use_journey_identity and normalized_steps is not None:
+        await replace_journey_steps_for_version(
+            db,
+            journey_slug=record.slug,
+            journey_version=int(getattr(node, "journey_version", None) or 1),
+            steps=normalized_steps,
+        )
     return node_to_public_payload(record)

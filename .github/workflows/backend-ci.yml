@@ -41,6 +41,9 @@ jobs:
             tests/test_conversation_groups.py \
             tests/test_mirror_network.py \
             tests/test_mirror_network_publish.py \
+            tests/test_mirror_journey_identity_phase1.py \
+            tests/test_mirror_journey_identity_pass_closure.py \
+            tests/test_mirror_journey_publish_contract.py \
             tests/test_mirror_network_impact.py \
             tests/test_mirror_network_parent_lineage.py \
             tests/test_mirror_network_discover.py \

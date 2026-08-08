@@ -1,10 +1,11 @@
 /**
- * Mirror Journey Phase 2 — Q/A pairing, Candidate 8, Review 8 draft.
- * RFC: eza-v5/docs/mirror/rfc-journey-identity-review8.md §4–9
+ * Mirror Journey — deterministic 8-question windows (product model reset).
+ * Candidate 8 / topic clustering are NOT Journey V1 authority.
  */
 
 export type {
   JourneyMessageLike,
+  JourneyMessageRole,
   EligibleQaPair,
   CandidatePath,
   Candidate8Result,
@@ -20,24 +21,84 @@ export {
   MIRROR_JOURNEY_CLIENT_FLAG,
 } from './types';
 
-export { extractQaPairs } from './extractQaPairs';
+export {
+  extractQaPairs,
+  resolveJourneyMessageRole,
+  isEligiblePairingMessage,
+  isLowInformationQuestion,
+} from './extractQaPairs';
+
+/** @deprecated Not Journey V1 authority — kept for tests/legacy helpers only. */
 export {
   proposeCandidate8,
   proposeCandidatePaths,
   scorePairForPath,
+  sortPairsBySourceOrder,
+  dedupeNearDuplicatePairs,
+  areNearDuplicateQuestions,
 } from './proposeCandidate8';
+
+export {
+  JOURNEY_WINDOW_SIZE,
+  JOURNEY_CONVERSATION_MAX_PAIRS,
+  JOURNEY_MAX_PUBLISHABLE_WINDOWS,
+  syncJourneyConversationState,
+  createEmptyJourneyConversationState,
+  getAwaitingDecisionWindow,
+  skipJourneyWindow,
+  markJourneyWindowReviewing,
+  reopenJourneyWindowDecision,
+  confirmJourneyWindow,
+  markJourneyWindowReady,
+  resolveParentJourneyId,
+  pairsForWindow,
+  isFullWindow,
+  windowRange,
+  canSendMoreJourneyQuestions,
+  listPublishedJourneyChain,
+  allocateWindowDraftKey,
+  type JourneyWindowStatus,
+  type JourneyWindowRecord,
+  type JourneyConversationState,
+} from './journeyWindows';
+
+export {
+  loadJourneyConversationState,
+  saveJourneyConversationState,
+  clearJourneyConversationState,
+  clearAllJourneyConversationStates,
+  ensureJourneyConversationState,
+  JOURNEY_WINDOW_STATE_STORAGE_KEY,
+} from './journeyWindowStore';
+
 export {
   allocateJourneyId,
+  allocateDraftKey,
   buildReview8Draft,
+  buildReview8DraftFromWindow,
   confirmReview8Draft,
   replaceReview8Step,
   isReview8DraftConfirmed,
+  validateReview8Draft,
+  computeReview8SnapshotHash,
+  reindexSelectedSteps,
+  pairsToSelectedSteps,
 } from './review8Draft';
+
 export {
   saveReview8Draft,
   loadReview8Draft,
+  loadActiveReview8Draft,
   loadReview8DraftForConversation,
+  listReview8DraftsForConversation,
+  setActiveReview8DraftKey,
   clearReview8Draft,
-  clearReview8DraftForConversation,
+  clearReview8DraftsForUser,
+  clearAllReview8Drafts,
 } from './review8DraftStore';
+
 export { isMirrorJourneyV1ClientEnabled } from './journeyClientFlag';
+export {
+  resolveJourneyPublishContract,
+  type JourneyPublishContractResult,
+} from './journeyPublishContract';

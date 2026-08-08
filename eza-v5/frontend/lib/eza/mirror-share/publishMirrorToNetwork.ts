@@ -36,12 +36,24 @@ import {
   type NarrativeAlignmentLineage,
   type RegenerateSceneFn,
 } from '@/lib/eza/mirror/narrativeAlignment';
+import { resolveJourneyPublishContract } from '@/lib/eza/mirror/journey';
 
 export type PublishMirrorToNetworkInput = {
   card: DailyMirrorCardModel;
   conversationId?: string;
+  /** Authenticated owner — required for journey Review 8 contract when flag on. */
+  ownerUserId?: string | null;
   /** Phase 2: when journey flag on + Review 8 confirmed, publish identity is this slug. */
   journeyId?: string;
+  /** Child journey lineage — maps to network parentSlug. */
+  parentSlug?: string;
+  selectedSteps?: Array<{
+    index: number;
+    userMessageId: string;
+    assistantMessageId: string;
+    publicQuestion: string;
+    publicAnswer: string;
+  }>;
   sceneImageUrl?: string | null;
   generationId?: string;
   generationAcceptedAt?: number;
@@ -213,6 +225,8 @@ async function buildPublishBody(
     card,
     conversationId,
     journeyId,
+    parentSlug,
+    selectedSteps,
     sceneImageUrl,
     generationId,
     generationAcceptedAt,
@@ -284,18 +298,34 @@ async function buildPublishBody(
 
   const cardTitle = publicLanding.publicTitle || card.headline || payload.mirrorTitle;
 
+  // Journey V1: parent comes only from confirmed window draft (may be null).
+  // Do not fall back to Discover tree parent for journey publishes.
+  const resolvedParentSlug = journeyId?.trim()
+    ? parentSlug?.trim() || undefined
+    : parentSlug?.trim() || publishLineage.parentSlug || undefined;
+
   return {
     body: {
       cardTitle,
       cardDate: card.date,
       conversationId: conversationId?.trim() || undefined,
       journeyId: journeyId?.trim() || undefined,
+      selectedSteps: selectedSteps?.length
+        ? selectedSteps.map((s) => ({
+            index: s.index,
+            userMessageId: s.userMessageId,
+            assistantMessageId: s.assistantMessageId,
+            publicQuestion: s.publicQuestion,
+            publicAnswer: s.publicAnswer,
+          }))
+        : undefined,
       sceneImageUrl: sceneImageUrl?.trim() || undefined,
       curiosityBundle,
       intelligencePrivate: buildIntelligencePrivate(card, lineage),
       safetyLevel: payload.safetyLevel ?? 'normal',
       lineageProofToken: publishLineage.lineageProofToken,
       guestToken: publishLineage.guestToken,
+      parentSlug: resolvedParentSlug,
     },
     semanticSource,
     lineage,
@@ -333,6 +363,31 @@ export async function publishMirrorToNetwork(
   input: PublishMirrorToNetworkInput
 ): Promise<PublishMirrorToNetworkResult> {
   try {
+    const journeyContract = resolveJourneyPublishContract({
+      ownerUserId: input.ownerUserId,
+      conversationId: input.conversationId,
+    });
+    if (!('legacy' in journeyContract) && !journeyContract.ok) {
+      return {
+        ok: false,
+        code: journeyContract.code,
+        message: journeyContract.message,
+      };
+    }
+    if (journeyContract.ok && !('legacy' in journeyContract)) {
+      input = {
+        ...input,
+        journeyId: input.journeyId?.trim() || journeyContract.journeyId,
+        selectedSteps: input.selectedSteps?.length
+          ? input.selectedSteps
+          : journeyContract.selectedSteps,
+        parentSlug:
+          input.parentSlug?.trim() ||
+          journeyContract.draft.parentJourneyId?.trim() ||
+          undefined,
+      };
+    }
+
     let sceneImageUrl = input.sceneImageUrl;
     let alignmentObs: NarrativeAlignmentLineage | undefined;
 

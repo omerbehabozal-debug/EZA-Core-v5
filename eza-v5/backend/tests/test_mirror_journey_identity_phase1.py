@@ -30,6 +30,19 @@ def _user():
     )
 
 
+def _eight_steps():
+    return [
+        {
+            "index": i,
+            "userMessageId": f"u{i}",
+            "assistantMessageId": f"a{i}",
+            "publicQuestion": f"Soru {i}?",
+            "publicAnswer": f"Cevap {i}.",
+        }
+        for i in range(1, 9)
+    ]
+
+
 def _body(**extra) -> MirrorNetworkPublishRequest:
     payload = {
         "cardTitle": "Aile SUV Merakı",
@@ -48,6 +61,8 @@ def _body(**extra) -> MirrorNetworkPublishRequest:
         "safetyLevel": "normal",
         **extra,
     }
+    if payload.get("journeyId") and "selectedSteps" not in payload:
+        payload["selectedSteps"] = _eight_steps()
     return MirrorNetworkPublishRequest(**payload)
 
 
@@ -77,7 +92,11 @@ async def test_flag_off_ignores_journey_id_uses_conversation_upsert():
 
     with (
         patch(
-            "backend.services.mirror_network.publish.mirror_journey_v1_enabled",
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
+            return_value=False,
+        ),
+        patch(
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
             return_value=False,
         ),
         patch(
@@ -120,8 +139,16 @@ async def test_flag_on_same_conversation_two_journey_ids_create_two_nodes():
 
     with (
         patch(
-            "backend.services.mirror_network.publish.mirror_journey_v1_enabled",
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
             return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.replace_journey_steps_for_version",
+            new_callable=AsyncMock,
         ),
         patch(
             "backend.services.mirror_network.publish.MirrorNetworkNode",
@@ -196,8 +223,16 @@ async def test_flag_on_same_journey_id_updates_and_bumps_version():
 
     with (
         patch(
-            "backend.services.mirror_network.publish.mirror_journey_v1_enabled",
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
             return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.replace_journey_steps_for_version",
+            new_callable=AsyncMock,
         ),
         patch(
             "backend.services.mirror_network.publish.get_mirror_network_node_by_slug_for_user",
@@ -236,12 +271,12 @@ async def test_legacy_artifact_kind_default_on_conversation_path():
 
     with (
         patch(
-            "backend.services.mirror_network.publish.mirror_journey_v1_enabled",
-            return_value=True,
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
+            return_value=False,
         ),
         patch(
-            "backend.services.mirror_network.publish.MirrorNetworkNode",
-            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
+            return_value=False,
         ),
         patch(
             "backend.services.mirror_network.publish.get_mirror_network_node_by_conversation",
@@ -258,6 +293,10 @@ async def test_legacy_artifact_kind_default_on_conversation_path():
             return_value="legacy-auto-slug",
         ),
         patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNode",
+            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+        ),
+        patch(
             "backend.services.mirror_network.publish.create_mirror_network_node",
             new_callable=AsyncMock,
             side_effect=_create,
@@ -268,10 +307,12 @@ async def test_legacy_artifact_kind_default_on_conversation_path():
         ),
         patch(
             "backend.services.mirror_network.publish.node_to_public_payload",
-            return_value=SimpleNamespace(slug="legacy-auto-slug", shareUrl="/m/legacy-auto-slug"),
+            return_value=SimpleNamespace(
+                slug="legacy-auto-slug", shareUrl="/m/legacy-auto-slug"
+            ),
         ),
     ):
-        # Flag on but no journeyId → legacy path still works; not journey_v1.
+        # Flag off → legacy path; not journey_v1.
         await publish_mirror_to_network(db, user, _body())
         assert len(created) == 1
         assert created[0].artifact_kind == ARTIFACT_KIND_LEGACY_LANDING

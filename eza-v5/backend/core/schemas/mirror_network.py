@@ -98,15 +98,28 @@ class MirrorNetworkDebugReport(BaseModel):
     philosophyCheck: str
 
 
+class MirrorJourneySelectedStep(BaseModel):
+    """Frozen Review 8 Q/A pair for journey_v1 publish (exactly 8 required)."""
+
+    model_config = {"extra": "forbid"}
+
+    index: int = Field(..., ge=1, le=8)
+    userMessageId: str = Field(..., min_length=1, max_length=128)
+    assistantMessageId: str = Field(..., min_length=1, max_length=128)
+    publicQuestion: str = Field(..., min_length=1)
+    publicAnswer: str = Field(..., min_length=1)
+
+
 class MirrorNetworkPublishRequest(BaseModel):
     """Stage 4C — auto-register Mirror to network on creation (authenticated)."""
 
     cardTitle: str = Field(..., min_length=1, max_length=200)
     cardDate: str = Field(..., min_length=8, max_length=10)
     conversationId: Optional[str] = Field(default=None, max_length=128)
-    """Phase 1: when EZA_MIRROR_JOURNEY_V1 and set, publish/update is keyed by this slug
-    (journeyId). conversationId remains provenance only — not unique."""
+    """When EZA_MIRROR_JOURNEY_V1 + conversationId: required. Identity = slug."""
     journeyId: Optional[str] = Field(default=None, max_length=64)
+    """When journey mode: exactly 8 frozen Q/A pairs from Review 8."""
+    selectedSteps: Optional[List[MirrorJourneySelectedStep]] = None
     sceneImageUrl: Optional[str] = None
     curiosityBundle: Dict[str, Any]
     intelligencePrivate: Optional[Dict[str, Any]] = None

@@ -58,6 +58,8 @@ jobs:
           tests/explicitSceneGenerationGuard.test.ts
           tests/dailyMirrorCreatePreflight.test.ts
           tests/d2FailClosedSceneGeneration.test.ts
+          tests/mirrorJourneyReview8.test.ts
+          tests/mirrorJourneyWindows.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-

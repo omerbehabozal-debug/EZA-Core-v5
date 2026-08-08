@@ -44,6 +44,15 @@ export const MIRROR_SHARE_PUBLISH_CONSENT_CONFIRM = 'Devam et';
 
 export const MIRROR_SHARE_PUBLISH_CONSENT_CANCEL = 'Vazgeç';
 
+/** Journey V1 — 8-question window decision (user-facing; no graph language). */
+export const MIRROR_JOURNEY_DECISION_BODY = '8 soruluk bir Yansı hazır.';
+export const MIRROR_JOURNEY_DECISION_CREATE = 'Yansı oluştur ve devam et';
+export const MIRROR_JOURNEY_DECISION_SKIP = 'Yansı oluşturmadan devam et';
+export const MIRROR_JOURNEY_STATUS_GENERATING = 'Yansı hazırlanıyor…';
+export const MIRROR_JOURNEY_STATUS_READY = 'Yansı hazır';
+export const MIRROR_JOURNEY_CONVERSATION_CLOSED =
+  'Bu sohbet 20 soruya ulaştı. Yeni soru için yeni bir sohbet başlatabilirsin.';
+
 export const MIRROR_SHARE_DOWNLOAD_LABEL = 'Kartı İndir';
 
 /** Kısa gizlilik — tüm Mirror yüzeylerinde */
