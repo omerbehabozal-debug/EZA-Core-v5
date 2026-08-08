@@ -27,6 +27,7 @@ from backend.services.mirror_network.continuation_proof import (
 from backend.services.mirror_network.parent_lineage import (
     normalize_parent_slug,
     resolve_stored_parent_slug,
+    validate_parent_slug,
 )
 from backend.services.mirror_network.public_payload import split_curiosity_payloads
 from backend.services.mirror.mirror_director_metadata_sanitize import (
@@ -361,6 +362,7 @@ async def publish_mirror_to_network(
     validated_parent_slug = None
     if not existing_parent_slug and not existing:
         if proof_token:
+            # Proof is authoritative — client parentSlug is ignored when present.
             validated_parent_slug = await resolve_parent_slug_from_proof(
                 db,
                 proof_token=proof_token,
@@ -370,38 +372,44 @@ async def publish_mirror_to_network(
                 child_slug=slug,
                 consume=True,
             )
-            # If client also sent parentSlug, it must match the proof result.
-            if requested_parent_slug and validated_parent_slug != requested_parent_slug:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={
-                        "code": "journey_parent_invalid",
-                        "message": "parentSlug does not match lineageProofToken parent",
-                    },
-                )
         elif requested_parent_slug:
-            # Mode A: same-conversation deterministic continuation (no proof token).
-            # Mode B: external/public continuation still requires lineageProofToken.
-            parent_probe = await get_mirror_network_node_by_slug(db, requested_parent_slug)
-            same_owner_same_conv = (
-                parent_probe is not None
-                and parent_probe.user_id == user.id
+            # Mode A: same-conversation deterministic continuation (journey + window).
+            # Mode B: everything else still requires lineageProofToken.
+            if (
+                use_journey_identity
                 and conversation_id
-                and (parent_probe.conversation_id or "").strip() == conversation_id
-                and use_journey_identity
                 and window_index is not None
                 and window_start is not None
-            )
-            if same_owner_same_conv:
-                validated_parent_slug = await resolve_same_conversation_parent(
-                    db,
-                    user_id=user.id,
-                    conversation_id=conversation_id,
-                    requested_parent_slug=requested_parent_slug,
-                    child_slug=slug,
-                    child_window_index=int(window_index),
-                    child_window_start=int(window_start),
+            ):
+                parent_probe = await get_mirror_network_node_by_slug(
+                    db, requested_parent_slug
                 )
+                same_owner_same_conv = (
+                    parent_probe is not None
+                    and getattr(parent_probe, "user_id", None) == user.id
+                    and (getattr(parent_probe, "conversation_id", None) or "").strip()
+                    == conversation_id
+                )
+                if same_owner_same_conv:
+                    validated_parent_slug = await resolve_same_conversation_parent(
+                        db,
+                        user_id=user.id,
+                        conversation_id=conversation_id,
+                        requested_parent_slug=requested_parent_slug,
+                        child_slug=slug,
+                        child_window_index=int(window_index),
+                        child_window_start=int(window_start),
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={
+                            "code": "lineage_proof_required",
+                            "message": (
+                                "parentSlug requires a server-verified lineageProofToken"
+                            ),
+                        },
+                    )
             else:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
