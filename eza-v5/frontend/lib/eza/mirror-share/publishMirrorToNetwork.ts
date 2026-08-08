@@ -310,10 +310,14 @@ async function buildPublishBody(
   const cardTitle = publicLanding.publicTitle || card.headline || payload.mirrorTitle;
 
   // Journey V1: parent comes only from confirmed window draft (may be null).
-  // Do not fall back to Discover tree parent for journey publishes.
+  // Proof path: lineageProofToken is authoritative — do not also send archive parentSlug.
+  // Legacy Discover without proof: may send resolved tree parentSlug.
+  const explicitParentSlug = parentSlug?.trim() || undefined;
   const resolvedParentSlug = journeyId?.trim()
-    ? parentSlug?.trim() || undefined
-    : parentSlug?.trim() || publishLineage.parentSlug || undefined;
+    ? explicitParentSlug
+    : publishLineage.lineageProofToken
+      ? explicitParentSlug
+      : explicitParentSlug || publishLineage.parentSlug || undefined;
 
   return {
     body: {
@@ -341,7 +345,8 @@ async function buildPublishBody(
       safetyLevel: payload.safetyLevel ?? 'normal',
       lineageProofToken: publishLineage.lineageProofToken,
       guestToken: publishLineage.guestToken,
-      parentSlug: resolvedParentSlug,
+      // Omit key when absent — proof path must not send archive parentSlug.
+      ...(resolvedParentSlug ? { parentSlug: resolvedParentSlug } : {}),
     },
     semanticSource,
     lineage,
