@@ -150,6 +150,42 @@ export {
   JOURNEY_GENERATION_ARTIFACT_STORAGE_KEY,
 } from './journeyGenerationArtifactStore';
 
+export {
+  type MirrorJourneyArtifactStatus,
+  type MirrorJourneyArtifactPublish,
+  type MirrorJourneyArtifact,
+  cloneMirrorJourneyArtifact,
+  isMirrorJourneyArtifact,
+  artifactIdentityKey,
+  buildGeneratingMirrorJourneyArtifact,
+  buildReadyMirrorJourneyArtifactFromLineage,
+  applyPublishSuccessToArtifact,
+  applyPublishFailureToArtifact,
+  applyGenerationFailureToArtifact,
+} from './mirrorJourneyArtifact';
+
+export {
+  listJourneyArtifactsForConversation,
+  listMirrorJourneyArtifactsForConversation,
+  loadMirrorJourneyArtifact,
+  saveMirrorJourneyArtifact,
+  upsertMirrorJourneyArtifact,
+  markMirrorJourneyArtifactGenerating,
+  markMirrorJourneyArtifactReadyFromLineage,
+  markMirrorJourneyArtifactPublished,
+  markMirrorJourneyArtifactPublishFailed,
+  markMirrorJourneyArtifactFailed,
+  clearMirrorJourneyArtifactsForUser,
+  clearAllMirrorJourneyArtifactsForTests,
+  MIRROR_JOURNEY_ARTIFACT_PANEL_STORAGE_KEY,
+  type SaveMirrorJourneyArtifactResult,
+} from './mirrorJourneyArtifactStore';
+
+export {
+  resolveJourneyArtifactShareIdentity,
+  previewFieldsFromArtifact,
+} from './resolveJourneyArtifactShareIdentity';
+
 export { completeJourneyGenerationLineageSeal } from './completeJourneyGenerationLineageSeal';
 
 export { isMirrorJourneyV1ClientEnabled } from './journeyClientFlag';

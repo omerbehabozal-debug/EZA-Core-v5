@@ -13,11 +13,28 @@ import {
   type JourneyGenerationLineagePartial,
 } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
 import { saveJourneyGenerationArtifact } from '@/lib/eza/mirror/journey/journeyGenerationArtifactStore';
+import { markMirrorJourneyArtifactReadyFromLineage } from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
 
 function sceneAssetIdFromUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   const match = url.match(/mirror-scene-assets\/([^/?#]+)/i);
   return match?.[1] ?? null;
+}
+
+function persistReadyPanelArtifact(
+  ownerUserId: string | null | undefined,
+  lineage: JourneyGenerationLineage,
+  card: DailyMirrorCardModel,
+  sceneImageUrl?: string | null
+): void {
+  const landing = card.mirrorV3Payload?.curiosityBundle?.publicLanding;
+  markMirrorJourneyArtifactReadyFromLineage(ownerUserId, {
+    lineage,
+    sceneImageUrl: sceneImageUrl || null,
+    publicTitle: landing?.publicTitle ?? null,
+    publicSummary: landing?.publicSummary ?? null,
+    continuationContext: landing?.continuationContext ?? null,
+  });
 }
 
 export async function completeJourneyGenerationLineageSeal(input: {
@@ -50,10 +67,22 @@ export async function completeJourneyGenerationLineageSeal(input: {
         sceneAssetId: sceneAssetIdFromUrl(input.sceneImageUrl),
       };
       saveJourneyGenerationArtifact(input.ownerUserId, withScene);
+      persistReadyPanelArtifact(
+        input.ownerUserId,
+        withScene,
+        input.card,
+        input.sceneImageUrl
+      );
       return { ...input.card, mirrorJourneyGenerationLineage: withScene };
     }
     if (isPublishableJourneyGenerationLineage(existing)) {
       saveJourneyGenerationArtifact(input.ownerUserId, existing);
+      persistReadyPanelArtifact(
+        input.ownerUserId,
+        existing,
+        input.card,
+        input.sceneImageUrl
+      );
     }
     return input.card;
   }
@@ -96,6 +125,12 @@ export async function completeJourneyGenerationLineageSeal(input: {
   }
 
   saveJourneyGenerationArtifact(input.ownerUserId, sealedPartial);
+  persistReadyPanelArtifact(
+    input.ownerUserId,
+    sealedPartial,
+    input.card,
+    input.sceneImageUrl
+  );
   return {
     ...input.card,
     mirrorJourneyGenerationLineage: sealedPartial,

@@ -118,7 +118,13 @@ import { markMirrorBirthMirrorCreated } from '@/lib/eza/mirror-birth/mirrorBirth
 import {
   readMirrorShareLink,
   saveMirrorShareLink,
+  saveMirrorShareLinkForJourney,
 } from '@/lib/eza/mirror-share/mirrorShareLinkCache';
+import {
+  markMirrorJourneyArtifactPublished,
+  markMirrorJourneyArtifactPublishFailed,
+} from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
+import { isPublishableJourneyGenerationLineage } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
 import {
   applyShareUrlToCard,
   mergeCachedShareLinkIntoCard,
@@ -520,6 +526,38 @@ export default function StandaloneObservationExperience({
               new Date(),
               landing
             );
+            const lineage = card.mirrorJourneyGenerationLineage;
+            if (
+              shareCacheUserId &&
+              isPublishableJourneyGenerationLineage(lineage)
+            ) {
+              saveMirrorShareLinkForJourney({
+                userId: shareCacheUserId,
+                conversationId,
+                journeyId: lineage.journeyId,
+                journeyVersion: lineage.journeyVersion,
+                slug: result.slug,
+                shareUrl: result.shareUrl,
+                publicTitle: landing.publicTitle,
+                publicSummary: landing.publicSummary,
+              });
+              markMirrorJourneyArtifactPublished(shareCacheUserId, {
+                journeyId: lineage.journeyId,
+                journeyVersion: lineage.journeyVersion,
+                slug: result.slug,
+                shareUrl: result.shareUrl,
+                publicTitle: landing.publicTitle,
+                publicSummary: landing.publicSummary,
+                continuationContext:
+                  card.mirrorV3Payload?.curiosityBundle?.publicLanding?.continuationContext?.trim() ||
+                  null,
+                sceneImageUrl:
+                  result.publicPayload.sceneImageUrl?.trim() ||
+                  lastRawSceneUrlRef.current?.trim() ||
+                  rawScene?.trim() ||
+                  null,
+              });
+            }
             const publishedScene =
               result.publicPayload.sceneImageUrl?.trim() ||
               lastRawSceneUrlRef.current?.trim() ||
@@ -548,6 +586,17 @@ export default function StandaloneObservationExperience({
           return true;
         }
 
+        const failedLineage = card.mirrorJourneyGenerationLineage;
+        if (
+          shareCacheUserId &&
+          isPublishableJourneyGenerationLineage(failedLineage)
+        ) {
+          markMirrorJourneyArtifactPublishFailed(shareCacheUserId, {
+            journeyId: failedLineage.journeyId,
+            journeyVersion: failedLineage.journeyVersion,
+            message: result.message || 'publish_failed',
+          });
+        }
         setShareLinkStatus('failed');
         setShareLinkError(result.message);
         return false;

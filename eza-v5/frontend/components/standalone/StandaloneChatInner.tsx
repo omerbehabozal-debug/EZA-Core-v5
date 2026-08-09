@@ -29,6 +29,7 @@ import {
   isMirrorJourneyV1ClientEnabled,
   markJourneyWindowReady,
   markJourneyWindowReviewing,
+  markMirrorJourneyArtifactGenerating,
   pairsForWindow,
   reopenJourneyWindowDecision,
   resolveParentJourneyId,
@@ -689,8 +690,16 @@ export default function StandaloneChatInner() {
         windowIndex,
         journeyId: draft.journeyId,
         draftKey: draft.draftKey,
+        selectedCount: draft.selectedSteps?.length,
       });
       persistJourneyMutation(next);
+      markMirrorJourneyArtifactGenerating(journeyOwnerId, {
+        journeyId: draft.journeyId,
+        journeyVersion: draft.journeyVersion ?? 1,
+        sourceConversationId: draft.sourceConversationId || chatId || '',
+        blockIndex: draft.windowIndex ?? windowIndex,
+        selectedCount: draft.selectedSteps?.length,
+      });
       setJourneyReviewOpen(false);
       setJourneyReviewWindowIndex(null);
       // Phase 3 will run meaning pipeline; keep chat free — flip to ready async.
@@ -703,7 +712,7 @@ export default function StandaloneChatInner() {
         });
       }, 0);
     },
-    [journeyState, journeyReviewWindowIndex, persistJourneyMutation]
+    [journeyState, journeyReviewWindowIndex, persistJourneyMutation, journeyOwnerId, chatId]
   );
 
   const sainaConversations = useMemo(
