@@ -37,6 +37,12 @@ import {
   type RegenerateSceneFn,
 } from '@/lib/eza/mirror/narrativeAlignment';
 import { resolveJourneyPublishContract } from '@/lib/eza/mirror/journey';
+import { isMirrorJourneyV1ClientEnabled } from '@/lib/eza/mirror/journey/journeyClientFlag';
+import {
+  isPublishableJourneyGenerationLineage,
+  type JourneyGenerationLineage,
+} from '@/lib/eza/mirror/journey/journeyGenerationLineage';
+import { completeJourneyGenerationLineageSeal } from '@/lib/eza/mirror/journey/completeJourneyGenerationLineageSeal';
 
 export type PublishMirrorToNetworkInput = {
   card: DailyMirrorCardModel;
@@ -106,6 +112,16 @@ function sceneAssetIdFromUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   const match = url.match(/mirror-scene-assets\/([^/?#]+)/i);
   return match?.[1] ?? null;
+}
+
+function isMirrorJourneyV1NeedsLineage(
+  input: PublishMirrorToNetworkInput
+): boolean {
+  return (
+    isMirrorJourneyV1ClientEnabled() &&
+    Boolean(input.conversationId?.trim()) &&
+    Boolean(input.ownerUserId?.trim())
+  );
 }
 
 /**
@@ -297,6 +313,10 @@ async function buildPublishBody(
             missingClaims: alignmentLineage.missingClaims,
             retryAttempt: alignmentLineage.retryAttempt,
             anchorsHash: alignmentLineage.anchorsHash,
+            generationId: alignmentLineage.generationId,
+            interpretationHash: alignmentLineage.interpretationHash,
+            publicLandingHash: alignmentLineage.publicLandingHash,
+            sceneAssetId: alignmentLineage.sceneAssetId,
           },
         }
       : {}),
@@ -318,6 +338,74 @@ async function buildPublishBody(
     : publishLineage.lineageProofToken
       ? explicitParentSlug
       : explicitParentSlug || publishLineage.parentSlug || undefined;
+
+  const generationLineage = isPublishableJourneyGenerationLineage(
+    card.mirrorJourneyGenerationLineage
+  )
+    ? (card.mirrorJourneyGenerationLineage as JourneyGenerationLineage)
+    : null;
+
+  if (alignmentLineage && generationLineage && lineage.narrativeAlignment) {
+    lineage.narrativeAlignment = {
+      ...lineage.narrativeAlignment,
+      journeyId: generationLineage.journeyId,
+      journeyVersion: generationLineage.journeyVersion,
+      windowHash: generationLineage.windowHash,
+      generationId: generationLineage.generationId,
+      publicLandingHash: generationLineage.publicLandingHash,
+      sceneAssetId:
+        alignmentLineage.sceneAssetId ||
+        generationLineage.sceneAssetId ||
+        sceneAssetIdFromUrl(sceneImageUrl),
+    };
+  }
+
+  const journeyLineageFields = generationLineage
+    ? {
+        journeyVersion: generationLineage.journeyVersion,
+        sourceConversationId: generationLineage.sourceConversationId,
+        windowHash: generationLineage.windowHash,
+        scopedInputHash: generationLineage.scopedInputHash,
+        selectedStepsHash: generationLineage.selectedStepsHash,
+        interpretationHash: generationLineage.interpretationHash,
+        anchorsHash: generationLineage.anchorsHash ?? undefined,
+        publicLandingHash: generationLineage.publicLandingHash,
+        mappedPromptHash: generationLineage.mappedPromptHash,
+        generationId: generationLineage.generationId,
+        sceneAssetId:
+          generationLineage.sceneAssetId ||
+          sceneAssetIdFromUrl(sceneImageUrl) ||
+          undefined,
+        journeyGenerationLineage: {
+          contractVersion: generationLineage.contractVersion,
+          journeyId: generationLineage.journeyId,
+          journeyVersion: generationLineage.journeyVersion,
+          sourceConversationId: generationLineage.sourceConversationId,
+          parentJourneyId: generationLineage.parentJourneyId ?? null,
+          windowIndex: generationLineage.windowIndex,
+          windowStart: generationLineage.windowStart,
+          windowEnd: generationLineage.windowEnd,
+          windowHash: generationLineage.windowHash,
+          scopedInputHash: generationLineage.scopedInputHash,
+          selectedStepsHash: generationLineage.selectedStepsHash,
+          interpretationHash: generationLineage.interpretationHash,
+          anchorsHash: generationLineage.anchorsHash ?? null,
+          publicLandingHash: generationLineage.publicLandingHash,
+          mappedPromptHash: generationLineage.mappedPromptHash,
+          generationId: generationLineage.generationId,
+          sceneAssetId:
+            generationLineage.sceneAssetId ||
+            sceneAssetIdFromUrl(sceneImageUrl) ||
+            null,
+        },
+      }
+    : {
+        generationId,
+        interpretationHash: interpHash,
+        mappedPromptHash: mappedHash,
+        publicLandingHash,
+        sceneAssetId: sceneAssetIdFromUrl(sceneImageUrl) || undefined,
+      };
 
   return {
     body: {
@@ -347,6 +435,7 @@ async function buildPublishBody(
       guestToken: publishLineage.guestToken,
       // Omit key when absent — proof path must not send archive parentSlug.
       ...(resolvedParentSlug ? { parentSlug: resolvedParentSlug } : {}),
+      ...journeyLineageFields,
     },
     semanticSource,
     lineage,
@@ -384,9 +473,27 @@ export async function publishMirrorToNetwork(
   input: PublishMirrorToNetworkInput
 ): Promise<PublishMirrorToNetworkResult> {
   try {
+    // Seal landing/scene onto lineage before publish when prepare sealed a partial.
+    let card = input.card;
+    if (card.mirrorJourneyGenerationLineage) {
+      card = await completeJourneyGenerationLineageSeal({
+        card,
+        sceneImageUrl: input.sceneImageUrl,
+        generationId: input.generationId,
+        ownerUserId: input.ownerUserId,
+      });
+    }
+
     const journeyContract = resolveJourneyPublishContract({
       ownerUserId: input.ownerUserId,
       conversationId: input.conversationId,
+      generationLineage: card.mirrorJourneyGenerationLineage,
+      journeyId: input.journeyId,
+      journeyVersion: isPublishableJourneyGenerationLineage(
+        card.mirrorJourneyGenerationLineage
+      )
+        ? card.mirrorJourneyGenerationLineage.journeyVersion
+        : undefined,
     });
     if (!('legacy' in journeyContract) && !journeyContract.ok) {
       return {
@@ -396,36 +503,71 @@ export async function publishMirrorToNetwork(
       };
     }
     if (journeyContract.ok && !('legacy' in journeyContract)) {
+      const fromLineage = journeyContract.source === 'generation_lineage';
+      // After a scene is generated, require sealed lineage — never fall back to live draft.
+      if (
+        !fromLineage &&
+        Boolean(input.sceneImageUrl?.trim()) &&
+        isMirrorJourneyV1NeedsLineage(input)
+      ) {
+        return {
+          ok: false,
+          code: 'lineage_required',
+          message:
+            'Generated Mirror must publish from its sealed generation lineage. Regenerate after changing the selected 8.',
+        };
+      }
       input = {
         ...input,
-        journeyId: input.journeyId?.trim() || journeyContract.journeyId,
-        selectedSteps: input.selectedSteps?.length
-          ? input.selectedSteps
-          : journeyContract.selectedSteps.map((s) => ({
+        card,
+        journeyId: fromLineage
+          ? journeyContract.journeyId
+          : input.journeyId?.trim() || journeyContract.journeyId,
+        selectedSteps: fromLineage
+          ? journeyContract.selectedSteps.map((s) => ({
               stepIndex: s.index,
               sourceOrder: s.sourceOrder,
               sourceUserMessageId: s.userMessageId,
               sourceAssistantMessageId: s.assistantMessageId,
               publicQuestion: s.publicQuestion,
               publicAnswer: s.publicAnswer,
-            })),
-        windowIndex:
-          typeof input.windowIndex === 'number'
+            }))
+          : input.selectedSteps?.length
+            ? input.selectedSteps
+            : journeyContract.selectedSteps.map((s) => ({
+                stepIndex: s.index,
+                sourceOrder: s.sourceOrder,
+                sourceUserMessageId: s.userMessageId,
+                sourceAssistantMessageId: s.assistantMessageId,
+                publicQuestion: s.publicQuestion,
+                publicAnswer: s.publicAnswer,
+              })),
+        windowIndex: fromLineage
+          ? journeyContract.windowIndex
+          : typeof input.windowIndex === 'number'
             ? input.windowIndex
             : journeyContract.windowIndex,
-        windowStart:
-          typeof input.windowStart === 'number'
+        windowStart: fromLineage
+          ? journeyContract.windowStart
+          : typeof input.windowStart === 'number'
             ? input.windowStart
             : journeyContract.windowStart,
-        windowEnd:
-          typeof input.windowEnd === 'number'
+        windowEnd: fromLineage
+          ? journeyContract.windowEnd
+          : typeof input.windowEnd === 'number'
             ? input.windowEnd
             : journeyContract.windowEnd,
-        parentSlug:
-          input.parentSlug?.trim() ||
-          journeyContract.parentJourneyId?.trim() ||
-          undefined,
+        parentSlug: fromLineage
+          ? journeyContract.parentJourneyId?.trim() || undefined
+          : input.parentSlug?.trim() ||
+            journeyContract.parentJourneyId?.trim() ||
+            undefined,
+        generationId: fromLineage
+          ? journeyContract.generationLineage!.generationId
+          : input.generationId,
       };
+    } else {
+      input = { ...input, card };
     }
 
     let sceneImageUrl = input.sceneImageUrl;

@@ -120,6 +120,26 @@ export {
   type MirrorJourneyPromptLineage,
 } from './canReuseMappedPromptForJourney';
 
+export {
+  JOURNEY_GENERATION_LINEAGE_VERSION,
+  isPublishableJourneyGenerationLineage,
+  readJourneyGenerationLineage,
+  sealJourneyGenerationLineage,
+  cloneJourneyGenerationLineage,
+  type JourneyGenerationLineage,
+  type JourneyGenerationLineagePartial,
+  type JourneyGenerationLineageSelectedStep,
+} from './journeyGenerationLineage';
+
+export {
+  saveJourneyGenerationArtifact,
+  loadJourneyGenerationArtifact,
+  clearJourneyGenerationArtifactsForUser,
+  JOURNEY_GENERATION_ARTIFACT_STORAGE_KEY,
+} from './journeyGenerationArtifactStore';
+
+export { completeJourneyGenerationLineageSeal } from './completeJourneyGenerationLineageSeal';
+
 export { isMirrorJourneyV1ClientEnabled } from './journeyClientFlag';
 export {
   resolveJourneyPublishContract,

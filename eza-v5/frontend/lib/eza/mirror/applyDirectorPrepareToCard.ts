@@ -19,6 +19,7 @@ import {
 import { buildCuriosityFromInterpretation } from '@/lib/eza/mirror-network/buildCuriosityFromInterpretation';
 import { interpretationHashSync } from '@/lib/eza/mirror/mirrorLineageHash';
 import { JOURNEY_MAPPER_VERSION_V5 } from '@/lib/eza/mirror/journey/canReuseMappedPromptForJourney';
+import { sealJourneyGenerationLineage } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
 
 export type PrepareDirectorMappedPrompt = {
   title: string;
@@ -63,6 +64,15 @@ export type PrepareDirectorDraftResult = {
   scopedInputHash?: string | null;
   selectedStepsHash?: string | null;
   journeyVersion?: number | null;
+  journeyGenerationLineage?: Record<string, unknown> | null;
+  journeySelectedSteps?: Array<{
+    stepIndex: number;
+    sourceOrder: number;
+    sourceUserMessageId: string;
+    sourceAssistantMessageId: string;
+    publicQuestion: string;
+    publicAnswer: string;
+  }> | null;
 };
 
 function isSeason(value: string): value is SainaMirrorSeason {
@@ -292,6 +302,39 @@ export function applyDirectorPrepareToCard(
     const interpretationHash = isMirrorInterpretationV1(prepared.finalInterpretation)
       ? interpretationHashSync(prepared.finalInterpretation)
       : null;
+    const serverLineage =
+      prepared.journeyGenerationLineage &&
+      typeof prepared.journeyGenerationLineage === 'object'
+        ? prepared.journeyGenerationLineage
+        : null;
+    const sealed = sealJourneyGenerationLineage({
+      existing: next.mirrorJourneyGenerationLineage,
+      prepareLineage: {
+        ...(serverLineage || {}),
+        journeyId: prepared.semanticSourceJourneyId,
+        journeyVersion: prepared.journeyVersion ?? 1,
+        windowHash: prepared.semanticWindowHash,
+        scopedInputHash: prepared.scopedInputHash,
+        selectedStepsHash: prepared.selectedStepsHash,
+        interpretationHash:
+          (serverLineage?.interpretationHash as string | undefined) ||
+          interpretationHash,
+        mappedPromptHash: serverLineage?.mappedPromptHash as string | undefined,
+        generationId: serverLineage?.generationId as string | undefined,
+        windowIndex: serverLineage?.windowIndex as number | undefined,
+        windowStart: serverLineage?.windowStart as number | undefined,
+        windowEnd: serverLineage?.windowEnd as number | undefined,
+        sourceConversationId: serverLineage?.sourceConversationId as
+          | string
+          | undefined,
+        parentJourneyId: serverLineage?.parentJourneyId as string | null | undefined,
+      },
+      selectedSteps: prepared.journeySelectedSteps ?? null,
+      interpretationHash:
+        (serverLineage?.interpretationHash as string | undefined) || interpretationHash,
+      mappedPromptHash: serverLineage?.mappedPromptHash as string | undefined,
+      generationId: serverLineage?.generationId as string | undefined,
+    });
     next = {
       ...next,
       mirrorJourneyLineage: {
@@ -300,9 +343,14 @@ export function applyDirectorPrepareToCard(
         journeyVersion: prepared.journeyVersion ?? 1,
         windowHash: prepared.semanticWindowHash,
         scopedInputHash: prepared.scopedInputHash,
-        interpretationHash,
+        // Prefer server SHA-256 for publish equality; sync DJB2 is reuse-only fallback.
+        interpretationHash:
+          (typeof serverLineage?.interpretationHash === 'string' &&
+            serverLineage.interpretationHash) ||
+          interpretationHash,
         mapperVersion: JOURNEY_MAPPER_VERSION_V5,
       },
+      mirrorJourneyGenerationLineage: sealed,
     };
   }
 

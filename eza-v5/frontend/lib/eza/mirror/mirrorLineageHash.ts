@@ -114,5 +114,12 @@ export type MirrorPublishLineageMeta = {
     missingClaims: string[];
     retryAttempt: 0 | 1;
     anchorsHash?: string | null;
+    generationId?: string | null;
+    interpretationHash?: string | null;
+    publicLandingHash?: string | null;
+    sceneAssetId?: string | null;
+    journeyId?: string | null;
+    journeyVersion?: number | null;
+    windowHash?: string | null;
   };
 };

@@ -15,8 +15,10 @@ from backend.core.privacy.sensitive_content import (
     JWT_LIKE_RE,
     OPENAI_KEY_RE,
     BEARER_TOKEN_RE,
-    contains_pii_value,
+    contains_address_like,
     contains_opaque_secret,
+    contains_pii_value,
+    contains_tc_kimlik,
 )
 from backend.core.schemas.mirror_draft import sanitize_display_text
 from backend.services.mirror.journey_window_hashes import (
@@ -50,6 +52,10 @@ def _flags_for_text(text: str) -> list[str]:
         flags.append("opaque_secret")
     if PRIVATE_MARKER_RE.search(text):
         flags.append("private_marker")
+    if contains_tc_kimlik(text):
+        flags.append("tc_kimlik")
+    if contains_address_like(text):
+        flags.append("address")
     if contains_pii_value(text) and not flags:
         flags.append("pii")
     return flags
@@ -69,6 +75,9 @@ def _redact_text(text: str) -> tuple[str, list[str]]:
     if "private_marker" in flags:
         # Private markers in the selected 8 are material — do not silently invent public copy.
         return out, flags
+    if "tc_kimlik" in flags or "address" in flags:
+        # Detectors exist; surgical rewrite is not supported — block for review.
+        return out, flags
     cleaned = sanitize_display_text(out, max_len=4000) or ""
     return cleaned, flags
 
@@ -76,14 +85,17 @@ def _redact_text(text: str) -> tuple[str, list[str]]:
 def _materially_changed(original: str, sanitized: str, flags: Sequence[str]) -> bool:
     if "private_marker" in flags:
         return True
+    if "tc_kimlik" in flags or "address" in flags:
+        return True
     if "opaque_secret" in flags and "[secret]" not in sanitized and original == sanitized:
         return True
     o = (original or "").strip()
     s = (sanitized or "").strip()
     if not s and o:
         return True
-    # More than half of non-whitespace content removed → require review.
-    if o and len(s) < max(8, int(len(o) * 0.5)):
+    # Half-content rule only for meaningfully long strings (short Q/A like "Soru 1?"
+    # must not false-positive on max(8, …)).
+    if len(o) >= 16 and len(s) < max(8, int(len(o) * 0.5)):
         return True
     return False
 

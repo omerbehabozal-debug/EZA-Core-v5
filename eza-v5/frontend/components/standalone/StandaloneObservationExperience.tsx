@@ -74,6 +74,7 @@ import {
   resolveJourneyPublishContract,
   resolveScopedJourneyMeaning,
   canReuseMappedPromptForJourney,
+  completeJourneyGenerationLineageSeal,
 } from '@/lib/eza/mirror/journey';
 import UpgradeModal from '@/components/plan/UpgradeModal';
 import IdentityModal from '@/components/plan/IdentityModal';
@@ -223,6 +224,7 @@ export default function StandaloneObservationExperience({
     const contract = resolveJourneyPublishContract({
       ownerUserId,
       conversationId,
+      generationLineage: generatedDailyCard?.mirrorJourneyGenerationLineage,
     });
     if ('legacy' in contract && contract.ok) return true;
     if (contract.ok) return true;
@@ -232,7 +234,7 @@ export default function StandaloneObservationExperience({
         'Önce sohbette 8 soruluk Yansı kararını verip onaylaman gerekir.'
     );
     return false;
-  }, [conversationId, user?.user_id]);
+  }, [conversationId, generatedDailyCard?.mirrorJourneyGenerationLineage, user?.user_id]);
 
   const canCreateVisual = useMemo(
     () => canCreateVisualFromEntitlements(accountEntitlements),
@@ -999,8 +1001,8 @@ export default function StandaloneObservationExperience({
           // Conversation Mirror is D2; daily aggregate remains explicit LEGACY until migrated.
           generationPipeline: conversationId ? 'D2_V5' : 'LEGACY_V3',
           isGenerationStillActive: (id) => activeGenerationIdRef.current === id,
-          prepare: () =>
-            prepareDirectorDraft({
+          prepare: async () => {
+            const prepared = await prepareDirectorDraft({
               conversationId: conversationId!,
               generationRequestId,
               messages: prepareMessages,
@@ -1008,7 +1010,15 @@ export default function StandaloneObservationExperience({
               ...(journeySemanticScope
                 ? { journeySemanticScope }
                 : { title: archiveTitle }),
-            }),
+            });
+            if (journeySemanticScope?.selectedSteps?.length === 8) {
+              return {
+                ...prepared,
+                journeySelectedSteps: journeySemanticScope.selectedSteps,
+              };
+            }
+            return prepared;
+          },
           generate: async ({
             card,
             generationId,
@@ -1037,6 +1047,13 @@ export default function StandaloneObservationExperience({
         cardForScene = outcome.card;
         const result = outcome.result;
         const visual = cardForScene.visual!;
+
+        cardForScene = await completeJourneyGenerationLineageSeal({
+          card: cardForScene,
+          sceneImageUrl: result.sceneImageUrl,
+          generationId: generationRequestId,
+          ownerUserId: user?.user_id ?? null,
+        });
 
         lastRawSceneUrlRef.current = result.sceneImageUrl;
         const displayUrl = await resolveSceneDisplayUrl(

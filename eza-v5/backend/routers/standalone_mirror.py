@@ -246,6 +246,7 @@ async def prepare_director_draft_endpoint(
             journey_scope=body.journeySemanticScope.model_dump(),
             messages=[m.model_dump() for m in body.messages],
             existing_published_version=existing_published_version,
+            request_conversation_id=body.conversationId,
         )
         scope_key = append_journey_scope_key(scope_key, journey_meta)
         emit_director_event(
@@ -275,6 +276,40 @@ async def prepare_director_draft_endpoint(
         scope_key=scope_key,
     )
     if journey_meta is not None:
+        from backend.services.mirror.journey_generation_lineage import (
+            build_journey_generation_lineage,
+        )
+        from backend.services.mirror.mirror_interpretation_to_v5 import (
+            interpretation_hash as interp_hash_fn,
+        )
+        import hashlib
+
+        interp_hash = None
+        if result.finalInterpretation is not None:
+            interp_hash = interp_hash_fn(result.finalInterpretation)
+        mapped_hash = None
+        if result.mappedPrompt and result.mappedPrompt.prompt:
+            mapped_hash = hashlib.sha256(
+                result.mappedPrompt.prompt.strip().encode("utf-8")
+            ).hexdigest()
+
+        lineage = build_journey_generation_lineage(
+            journey_id=str(journey_meta.get("journeyId") or ""),
+            journey_version=int(journey_meta.get("journeyVersion") or 1),
+            source_conversation_id=str(
+                journey_meta.get("sourceConversationId") or body.conversationId
+            ),
+            window_index=int(journey_meta.get("windowIndex") or 0),
+            window_start=int(journey_meta.get("windowStart") or 0),
+            window_end=int(journey_meta.get("windowEnd") or 0),
+            window_hash=str(journey_meta.get("windowHash") or ""),
+            scoped_input_hash=str(journey_meta.get("scopedInputHash") or ""),
+            selected_steps_hash=str(journey_meta.get("selectedStepsHash") or ""),
+            generation_id=body.generationRequestId,
+            interpretation_hash=interp_hash,
+            mapped_prompt_hash=mapped_hash,
+            parent_journey_id=journey_meta.get("parentJourneyId"),
+        )
         result = result.model_copy(
             update={
                 "semanticScope": journey_meta.get("semanticScope"),
@@ -284,6 +319,7 @@ async def prepare_director_draft_endpoint(
                 "scopedInputHash": journey_meta.get("scopedInputHash"),
                 "selectedStepsHash": journey_meta.get("selectedStepsHash"),
                 "journeyVersion": journey_meta.get("journeyVersion"),
+                "journeyGenerationLineage": lineage,
             }
         )
     if result.usedDirector and result.mappedPrompt:

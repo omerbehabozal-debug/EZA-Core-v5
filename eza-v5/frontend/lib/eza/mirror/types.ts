@@ -182,6 +182,11 @@ export interface DailyMirrorCardModel {
     interpretationHash?: string | null;
     mapperVersion?: string | null;
   } | null;
+  /**
+   * Phase 3.6 — immutable publish authority for a generated Journey artifact.
+   * Publish must use this snapshot; never re-read the live Review 8 draft.
+   */
+  mirrorJourneyGenerationLineage?: import('@/lib/eza/mirror/journey/journeyGenerationLineage').JourneyGenerationLineagePartial | null;
 }
 
 export interface RelationshipPatternModel {

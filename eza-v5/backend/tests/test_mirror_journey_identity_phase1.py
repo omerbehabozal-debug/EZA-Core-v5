@@ -44,6 +44,66 @@ def _eight_steps(start: int = 0):
     ]
 
 
+def _attach_generation_lineage(payload: dict) -> dict:
+    """Phase 3.6 — journey publish requires authoritative generation lineage."""
+    from backend.services.mirror.journey_generation_lineage import (
+        build_journey_generation_lineage,
+        recompute_hashes_from_steps,
+    )
+
+    journey_id = str(payload.get("journeyId") or "").strip().lower()
+    steps = payload.get("selectedSteps") or _eight_steps(0)
+    window_index = int(payload.get("windowIndex", 0))
+    window_start = int(payload.get("windowStart", 0))
+    window_end = int(payload.get("windowEnd", 7))
+    version = int(payload.get("journeyVersion") or 1)
+    conv = str(payload.get("conversationId") or "conv-shared-1")
+    hashes = recompute_hashes_from_steps(
+        journey_id=journey_id,
+        journey_version=version,
+        source_conversation_id=conv,
+        window_index=window_index,
+        window_start=window_start,
+        window_end=window_end,
+        steps=steps,
+    )
+    lineage = build_journey_generation_lineage(
+        journey_id=journey_id,
+        journey_version=version,
+        source_conversation_id=conv,
+        window_index=window_index,
+        window_start=window_start,
+        window_end=window_end,
+        window_hash=hashes["windowHash"],
+        scoped_input_hash=hashes["scopedInputHash"],
+        selected_steps_hash=hashes["selectedStepsHash"],
+        generation_id=str(
+            payload.get("generationId")
+            or ((payload.get("intelligencePrivate") or {})
+                .get("intelligenceBrief", {})
+                .get("mirrorLineage", {})
+                .get("generationId"))
+            or "gen-1"
+        ),
+        interpretation_hash=str(payload.get("interpretationHash") or "interp-test"),
+        public_landing_hash=str(payload.get("publicLandingHash") or "landing-test"),
+        mapped_prompt_hash=str(payload.get("mappedPromptHash") or "prompt-test"),
+        scene_asset_id=str(payload.get("sceneAssetId") or "scene-test"),
+    )
+    payload.setdefault("journeyVersion", version)
+    payload.setdefault("sourceConversationId", conv)
+    payload.setdefault("windowHash", lineage["windowHash"])
+    payload.setdefault("scopedInputHash", lineage["scopedInputHash"])
+    payload.setdefault("selectedStepsHash", lineage["selectedStepsHash"])
+    payload.setdefault("interpretationHash", lineage["interpretationHash"])
+    payload.setdefault("publicLandingHash", lineage["publicLandingHash"])
+    payload.setdefault("mappedPromptHash", lineage["mappedPromptHash"])
+    payload.setdefault("generationId", lineage["generationId"])
+    payload.setdefault("sceneAssetId", lineage["sceneAssetId"])
+    payload.setdefault("journeyGenerationLineage", lineage)
+    return payload
+
+
 def _body(**extra) -> MirrorNetworkPublishRequest:
     payload = {
         "cardTitle": "Aile SUV Merakı",
@@ -68,6 +128,8 @@ def _body(**extra) -> MirrorNetworkPublishRequest:
         payload["windowIndex"] = 0
         payload["windowStart"] = 0
         payload["windowEnd"] = 7
+    if payload.get("journeyId"):
+        payload = _attach_generation_lineage(payload)
     return MirrorNetworkPublishRequest(**payload)
 
 
@@ -258,7 +320,9 @@ async def test_flag_on_same_journey_id_updates_and_bumps_version():
             return_value=SimpleNamespace(slug="journey-a", shareUrl="/m/journey-a"),
         ),
     ):
-        await publish_mirror_to_network(db, user, _body(journeyId="journey-a"))
+        await publish_mirror_to_network(
+            db, user, _body(journeyId="journey-a", journeyVersion=2, generationId="gen-2")
+        )
         create.assert_not_awaited()
         assert existing.journey_version == 2
         assert existing.artifact_kind == ARTIFACT_KIND_JOURNEY_V1

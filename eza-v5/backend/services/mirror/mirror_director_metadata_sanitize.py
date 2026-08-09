@@ -122,7 +122,16 @@ def sanitize_intelligence_private_for_persist(
             "sceneAssetId",
             "contractVersion",
             "journeyId",
+            "journeyVersion",
             "artifactKind",
+            "windowHash",
+            "scopedInputHash",
+            "selectedStepsHash",
+            "anchorsHash",
+            "sourceConversationId",
+            "windowIndex",
+            "windowStart",
+            "windowEnd",
         }
         brief_out["mirrorLineage"] = {
             k: v for k, v in lineage.items() if k in allowed and v is not None
@@ -139,6 +148,13 @@ def sanitize_intelligence_private_for_persist(
                 "missingClaims",
                 "retryAttempt",
                 "anchorsHash",
+                "generationId",
+                "interpretationHash",
+                "publicLandingHash",
+                "sceneAssetId",
+                "journeyId",
+                "journeyVersion",
+                "windowHash",
             }
             cleaned_na = {
                 k: v for k, v in raw_na.items() if k in na_allowed and v is not None

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -135,3 +135,5 @@ class MirrorPrepareDirectorDraftResponse(BaseModel):
     scopedInputHash: Optional[str] = None
     selectedStepsHash: Optional[str] = None
     journeyVersion: Optional[int] = None
+    """Phase 3.6 — authoritative generation lineage snapshot (no private Q/A text)."""
+    journeyGenerationLineage: Optional[Dict[str, Any]] = None

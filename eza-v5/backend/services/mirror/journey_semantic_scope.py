@@ -55,6 +55,7 @@ def validate_journey_semantic_scope(
     journey_scope: Mapping[str, Any] | None,
     messages: Sequence[Mapping[str, Any]] | None,
     existing_published_version: int | None = None,
+    request_conversation_id: str | None = None,
 ) -> dict[str, Any]:
     """
     When journey semantic scope is present, require a valid window + messages that
@@ -74,6 +75,18 @@ def validate_journey_semantic_scope(
     journey_id = str(scope.get("journeyId") or "").strip().lower()
     if not journey_id:
         raise _scope_invalid("journeyId is required on journeySemanticScope")
+
+    source_conversation_id = (
+        str(scope.get("sourceConversationId") or "").strip() or None
+    )
+    request_conv = str(request_conversation_id or "").strip() or None
+    if request_conv and source_conversation_id and request_conv != source_conversation_id:
+        raise _scope_invalid(
+            "journeySemanticScope.sourceConversationId must equal conversationId",
+            reason="source_conversation_mismatch",
+        )
+    if request_conv and not source_conversation_id:
+        source_conversation_id = request_conv
 
     raw_steps = scope.get("selectedSteps")
     steps = normalize_selected_journey_steps(
@@ -122,10 +135,6 @@ def validate_journey_semantic_scope(
     journey_version = resolve_authoritative_journey_version(
         existing_published_version=existing_published_version,
         client_version=client_version,
-    )
-
-    source_conversation_id = (
-        str(scope.get("sourceConversationId") or "").strip() or None
     )
 
     steps_with_hashes = attach_step_content_hashes(steps)

@@ -132,6 +132,19 @@ class MirrorNetworkPublishRequest(BaseModel):
     parentSlug: Optional[str] = Field(default=None, max_length=64)
     """Alias for parentSlug (same-conversation deterministic chain)."""
     parentJourneyId: Optional[str] = Field(default=None, max_length=64)
+    """Phase 3.6 — authoritative generation lineage from the generated artifact."""
+    journeyVersion: Optional[int] = Field(default=None, ge=1, le=10_000)
+    windowHash: Optional[str] = Field(default=None, max_length=128)
+    scopedInputHash: Optional[str] = Field(default=None, max_length=128)
+    selectedStepsHash: Optional[str] = Field(default=None, max_length=128)
+    interpretationHash: Optional[str] = Field(default=None, max_length=128)
+    anchorsHash: Optional[str] = Field(default=None, max_length=128)
+    publicLandingHash: Optional[str] = Field(default=None, max_length=128)
+    mappedPromptHash: Optional[str] = Field(default=None, max_length=128)
+    generationId: Optional[str] = Field(default=None, max_length=128)
+    sceneAssetId: Optional[str] = Field(default=None, max_length=128)
+    sourceConversationId: Optional[str] = Field(default=None, max_length=128)
+    journeyGenerationLineage: Optional[Dict[str, Any]] = None
     lineageProofToken: Optional[str] = Field(default=None, max_length=64)
     guestToken: Optional[str] = Field(default=None, max_length=256)
 

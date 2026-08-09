@@ -49,6 +49,7 @@ from backend.services.mirror_network.journey_publish_contract import (
     resolve_journey_publish_mode,
 )
 from backend.services.mirror_network.journey_steps import (
+    get_lineage_selected_steps_hash_for_version,
     replace_journey_steps_for_version,
 )
 from backend.services.mirror_network.journey_window_contract import (
@@ -193,6 +194,47 @@ def merge_lineage_into_private_payload(
     return out
 
 
+def _build_claimed_journey_generation_lineage(
+    body: MirrorNetworkPublishRequest,
+) -> dict[str, Any]:
+    """Merge nested lineage + flat publish fields (nested wins when both set)."""
+    nested = getattr(body, "journeyGenerationLineage", None)
+    claimed: dict[str, Any] = dict(nested) if isinstance(nested, Mapping) else {}
+    flat_keys = (
+        ("journeyId", getattr(body, "journeyId", None)),
+        ("journeyVersion", getattr(body, "journeyVersion", None)),
+        ("sourceConversationId", getattr(body, "sourceConversationId", None)),
+        ("windowIndex", getattr(body, "windowIndex", None)),
+        ("windowStart", getattr(body, "windowStart", None)),
+        ("windowEnd", getattr(body, "windowEnd", None)),
+        ("windowHash", getattr(body, "windowHash", None)),
+        ("scopedInputHash", getattr(body, "scopedInputHash", None)),
+        ("selectedStepsHash", getattr(body, "selectedStepsHash", None)),
+        ("interpretationHash", getattr(body, "interpretationHash", None)),
+        ("anchorsHash", getattr(body, "anchorsHash", None)),
+        ("publicLandingHash", getattr(body, "publicLandingHash", None)),
+        ("mappedPromptHash", getattr(body, "mappedPromptHash", None)),
+        ("generationId", getattr(body, "generationId", None)),
+        ("sceneAssetId", getattr(body, "sceneAssetId", None)),
+    )
+    for key, value in flat_keys:
+        if claimed.get(key) is None and value is not None:
+            claimed[key] = value
+    if not claimed.get("sourceConversationId") and getattr(body, "conversationId", None):
+        claimed["sourceConversationId"] = body.conversationId
+    return claimed
+
+
+def _extract_narrative_alignment_binding(
+    intelligence_private: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    lineage = extract_mirror_lineage(intelligence_private)
+    raw = lineage.get("narrativeAlignment")
+    if not isinstance(raw, Mapping) or not raw:
+        return None
+    return dict(raw)
+
+
 def _apply_node_fields(
     node: MirrorNetworkNode,
     *,
@@ -208,6 +250,7 @@ def _apply_node_fields(
     is_new: bool,
     artifact_kind: Optional[str] = None,
     bump_journey_version: bool = False,
+    set_journey_version: Optional[int] = None,
     window_index: Optional[int] = None,
     window_start: Optional[int] = None,
     window_end: Optional[int] = None,
@@ -233,6 +276,8 @@ def _apply_node_fields(
     if bump_journey_version and not is_new:
         current = int(getattr(node, "journey_version", None) or 1)
         node.journey_version = current + 1
+    if set_journey_version is not None:
+        node.journey_version = int(set_journey_version)
     if is_new:
         node.published_at = now
         if getattr(node, "journey_version", None) is None:
@@ -293,26 +338,14 @@ async def publish_mirror_to_network(
     window_start = window_tuple[1] if window_tuple else None
     window_end = window_tuple[2] if window_tuple else None
 
+    # Lineage equality uses the generation-time steps (pre-sanitize).
+    lineage_validation_steps = (
+        [dict(s) for s in normalized_steps] if normalized_steps is not None else None
+    )
+
     journey_step_original_hashes = None
-    if use_journey_identity and normalized_steps is not None:
-        from backend.services.mirror.journey_step_sanitization import (
-            sanitize_selected_journey_steps,
-        )
-
-        sanitized = sanitize_selected_journey_steps(normalized_steps)
-        if sanitized.get("status") == "blocked":
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "code": "journey_step_privacy_blocked",
-                    "message": sanitized.get("blockedReason")
-                    or "Selected steps require privacy review before publish.",
-                    "flags": sanitized.get("flags") or [],
-                },
-            )
-        normalized_steps = sanitized.get("steps") or normalized_steps
-        journey_step_original_hashes = sanitized.get("originalHashes")
-
+    journey_publish_version: Optional[int] = None
+    journey_selected_steps_hash: Optional[str] = None
     existing = None
     if use_journey_identity:
         assert journey_id is not None
@@ -329,6 +362,129 @@ async def publish_mirror_to_network(
                     "message": "journeyId belongs to another user",
                 },
             )
+
+        from backend.services.mirror.journey_generation_lineage import (
+            validate_narrative_alignment_binding,
+            validate_publish_journey_lineage,
+        )
+
+        claimed_lineage = _build_claimed_journey_generation_lineage(body)
+        existing_version = None
+        existing_steps_hash = None
+        if existing is not None and getattr(existing, "artifact_kind", None) == ARTIFACT_KIND_JOURNEY_V1:
+            existing_version = int(getattr(existing, "journey_version", None) or 1)
+            existing_steps_hash = await get_lineage_selected_steps_hash_for_version(
+                db,
+                journey_slug=journey_id,
+                journey_version=existing_version,
+            )
+            # Prefer lineage hash from prior private payload when steps missing.
+            if not existing_steps_hash:
+                prior = extract_mirror_lineage(
+                    _as_mapping(getattr(existing, "private_payload", None))
+                )
+                existing_steps_hash = str(prior.get("selectedStepsHash") or "").strip() or None
+
+        if lineage_validation_steps is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "code": "journey_publish_lineage_mismatch",
+                    "reason": "steps_hash_mismatch",
+                    "message": "selectedSteps required for Journey publish lineage",
+                },
+            )
+        if (
+            window_index is None
+            or window_start is None
+            or window_end is None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "code": "journey_publish_lineage_mismatch",
+                    "reason": "window_mismatch",
+                    "message": "Window identity required for Journey publish lineage",
+                },
+            )
+
+        claimed_version = claimed_lineage.get("journeyVersion")
+        try:
+            publish_journey_version_claim = int(
+                claimed_version
+                if claimed_version is not None
+                else getattr(body, "journeyVersion", None)
+            )
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "code": "journey_publish_lineage_mismatch",
+                    "reason": "version_mismatch",
+                    "message": "journeyVersion required on generation lineage",
+                },
+            ) from exc
+
+        lineage_ok = validate_publish_journey_lineage(
+            request_conversation_id=conversation_id,
+            journey_id=journey_id,
+            journey_version=publish_journey_version_claim,
+            source_conversation_id=getattr(body, "sourceConversationId", None)
+            or claimed_lineage.get("sourceConversationId"),
+            window_index=int(window_index),
+            window_start=int(window_start),
+            window_end=int(window_end),
+            selected_steps=lineage_validation_steps,
+            claimed=claimed_lineage,
+            existing_published_version=existing_version,
+            existing_selected_steps_hash=existing_steps_hash,
+            flat_overrides={
+                "windowHash": getattr(body, "windowHash", None),
+                "scopedInputHash": getattr(body, "scopedInputHash", None),
+                "selectedStepsHash": getattr(body, "selectedStepsHash", None),
+                "interpretationHash": getattr(body, "interpretationHash", None),
+                "publicLandingHash": getattr(body, "publicLandingHash", None),
+                "mappedPromptHash": getattr(body, "mappedPromptHash", None),
+                "generationId": getattr(body, "generationId", None),
+                "journeyVersion": getattr(body, "journeyVersion", None),
+            },
+        )
+        journey_publish_version = int(lineage_ok["publishVersion"])
+        journey_selected_steps_hash = str(lineage_ok["selectedStepsHash"])
+
+        # Bind Narrative Alignment to the same generation/scene/landing when present.
+        na_binding = _extract_narrative_alignment_binding(intelligence_private)
+        validate_narrative_alignment_binding(
+            claimed_lineage={
+                **claimed_lineage,
+                "sceneAssetId": claimed_lineage.get("sceneAssetId")
+                or getattr(body, "sceneAssetId", None),
+                "publicLandingHash": lineage_ok.get("publicLandingHash"),
+                "generationId": lineage_ok.get("generationId"),
+                "journeyId": journey_id,
+                "journeyVersion": journey_publish_version,
+                "windowHash": lineage_ok.get("windowHash"),
+            },
+            alignment=na_binding,
+        )
+
+        from backend.services.mirror.journey_step_sanitization import (
+            sanitize_selected_journey_steps,
+        )
+
+        sanitized = sanitize_selected_journey_steps(lineage_validation_steps)
+        if sanitized.get("status") == "blocked":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "code": "journey_step_privacy_blocked",
+                    "message": sanitized.get("blockedReason")
+                    or "Selected steps require privacy review before publish.",
+                    "flags": sanitized.get("flags") or [],
+                },
+            )
+        normalized_steps = sanitized.get("steps") or lineage_validation_steps
+        journey_step_original_hashes = sanitized.get("originalHashes")
     elif conversation_id:
         existing = await get_mirror_network_node_by_conversation(
             db,
@@ -474,6 +630,18 @@ async def publish_mirror_to_network(
             **incoming_lineage,
             "journeyId": slug,
             "artifactKind": ARTIFACT_KIND_JOURNEY_V1,
+            "journeyVersion": journey_publish_version,
+            "selectedStepsHash": journey_selected_steps_hash,
+            "windowHash": getattr(body, "windowHash", None)
+            or (_build_claimed_journey_generation_lineage(body).get("windowHash")),
+            "scopedInputHash": getattr(body, "scopedInputHash", None),
+            "interpretationHash": getattr(body, "interpretationHash", None),
+            "publicLandingHash": getattr(body, "publicLandingHash", None),
+            "mappedPromptHash": getattr(body, "mappedPromptHash", None),
+            "generationId": getattr(body, "generationId", None)
+            or incoming_lineage.get("generationId"),
+            "sceneAssetId": getattr(body, "sceneAssetId", None)
+            or incoming_lineage.get("sceneAssetId"),
         }
 
     if existing:
@@ -493,11 +661,6 @@ async def publish_mirror_to_network(
         if use_journey_identity
         else ARTIFACT_KIND_LEGACY_LANDING
     )
-    bump_version = bool(
-        use_journey_identity
-        and existing is not None
-        and getattr(existing, "artifact_kind", None) == ARTIFACT_KIND_JOURNEY_V1
-    )
 
     if existing:
         _apply_node_fields(
@@ -513,7 +676,8 @@ async def publish_mirror_to_network(
             now=now,
             is_new=False,
             artifact_kind=artifact_kind if use_journey_identity else None,
-            bump_journey_version=bump_version,
+            bump_journey_version=False,
+            set_journey_version=journey_publish_version if use_journey_identity else None,
             window_index=window_index if use_journey_identity else None,
             window_start=window_start if use_journey_identity else None,
             window_end=window_end if use_journey_identity else None,
@@ -537,7 +701,7 @@ async def publish_mirror_to_network(
             private_payload=private_dict,
             parent_slug=parent_slug,
             artifact_kind=artifact_kind,
-            journey_version=1,
+            journey_version=journey_publish_version if use_journey_identity else 1,
             window_index=window_index if use_journey_identity else None,
             window_start=window_start if use_journey_identity else None,
             window_end=window_end if use_journey_identity else None,
@@ -577,7 +741,8 @@ async def publish_mirror_to_network(
                     now=now,
                     is_new=False,
                     artifact_kind=ARTIFACT_KIND_JOURNEY_V1,
-                    bump_journey_version=True,
+                    bump_journey_version=False,
+                    set_journey_version=journey_publish_version,
                     window_index=window_index,
                     window_start=window_start,
                     window_end=window_end,
@@ -622,8 +787,13 @@ async def publish_mirror_to_network(
         await replace_journey_steps_for_version(
             db,
             journey_slug=record.slug,
-            journey_version=int(getattr(node, "journey_version", None) or 1),
+            journey_version=int(
+                journey_publish_version
+                or getattr(node, "journey_version", None)
+                or 1
+            ),
             steps=normalized_steps,
             original_hashes=journey_step_original_hashes,
+            selected_steps_hash=journey_selected_steps_hash,
         )
     return node_to_public_payload(record)
