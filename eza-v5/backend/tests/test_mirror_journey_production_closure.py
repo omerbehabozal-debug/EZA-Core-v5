@@ -114,10 +114,61 @@ def test_resolve_mode_with_window():
     assert window == (0, 0, 7)
 
 
-def test_validate_selected_steps_requires_exactly_eight():
+def test_validate_selected_steps_accepts_six_to_eight():
+    six = normalize_selected_journey_steps(_eight_steps(0)[:6])
+    assert len(six) == 6
+    assert [s["stepIndex"] for s in six] == [1, 2, 3, 4, 5, 6]
+
     with pytest.raises(HTTPException) as exc:
-        validate_selected_journey_steps(_eight_steps(0)[:7])
+        validate_selected_journey_steps(_eight_steps(0)[:5])
     assert exc.value.detail["code"] == "journey_steps_required"
+
+
+def test_subset_selection_inside_block_ok():
+    # Deselect sourceOrder 1 and 3 from block 0 → 6 steps with gaps
+    raw = [
+        {
+            "stepIndex": i + 1,
+            "sourceOrder": order,
+            "sourceUserMessageId": f"u{order + 1}",
+            "sourceAssistantMessageId": f"a{order + 1}",
+            "publicQuestion": f"Soru {order + 1}?",
+            "publicAnswer": f"Cevap {order + 1}.",
+        }
+        for i, order in enumerate([0, 2, 4, 5, 6, 7])
+    ]
+    steps = normalize_selected_journey_steps(raw)
+    assert validate_journey_window_identity(
+        window_index=0, window_start=0, window_end=7, steps=steps
+    ) == (0, 0, 7)
+
+
+def test_cross_block_selection_rejected():
+    cross = [
+        {
+            "stepIndex": i + 1,
+            "sourceOrder": order,
+            "sourceUserMessageId": f"u{order}",
+            "sourceAssistantMessageId": f"a{order}",
+            "publicQuestion": f"Q{order}?",
+            "publicAnswer": f"A{order}.",
+        }
+        for i, order in enumerate([0, 1, 2, 3, 4, 8])
+    ]
+    steps = normalize_selected_journey_steps(cross)
+    with pytest.raises(HTTPException) as exc:
+        validate_journey_window_identity(
+            window_index=0, window_start=0, window_end=7, steps=steps
+        )
+    assert exc.value.detail["code"] == "journey_window_contract_invalid"
+    assert exc.value.detail.get("reason") == "cross_block_selection"
+
+
+def test_high_block_index_ok():
+    steps = normalize_selected_journey_steps(_eight_steps(24))
+    assert validate_journey_window_identity(
+        window_index=3, window_start=24, window_end=31, steps=steps
+    ) == (3, 24, 31)
 
 
 def test_flag_off_legacy():

@@ -51,7 +51,7 @@ export const MIRROR_JOURNEY_DECISION_SKIP = 'Yansı oluşturmadan devam et';
 export const MIRROR_JOURNEY_STATUS_GENERATING = 'Yansı hazırlanıyor…';
 export const MIRROR_JOURNEY_STATUS_READY = 'Yansı hazır';
 export const MIRROR_JOURNEY_CONVERSATION_CLOSED =
-  'Bu sohbet 20 soruya ulaştı. Yeni soru için yeni bir sohbet başlatabilirsin.';
+  'Bu başlıkta sohbet sınırına ulaştınız.';
 
 export const MIRROR_SHARE_DOWNLOAD_LABEL = 'Kartı İndir';
 

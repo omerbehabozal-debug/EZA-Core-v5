@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from backend.services.mirror.journey_window_hashes import (
     compute_scoped_input_hash,
     compute_selected_steps_hash,
+    compute_source_block_hash,
     compute_window_hash,
 )
 from backend.services.mirror_network.journey_window_contract import (
@@ -38,8 +39,17 @@ def build_journey_generation_lineage(
     mapped_prompt_hash: str | None = None,
     scene_asset_id: str | None = None,
     parent_journey_id: str | None = None,
+    source_block_hash: str | None = None,
+    selected_count: int | None = None,
+    selected_steps: Sequence[Mapping[str, Any]] | None = None,
+    scene_image_url: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    count = (
+        int(selected_count)
+        if selected_count is not None
+        else (len(selected_steps) if selected_steps is not None else None)
+    )
+    payload: dict[str, Any] = {
         "contractVersion": JOURNEY_GENERATION_LINEAGE_VERSION,
         "journeyId": str(journey_id).strip().lower(),
         "journeyVersion": int(journey_version),
@@ -47,19 +57,33 @@ def build_journey_generation_lineage(
         "parentJourneyId": (str(parent_journey_id).strip() or None)
         if parent_journey_id
         else None,
+        # Compatibility aliases (window*) + Phase 3.7 source-block fields
         "windowIndex": int(window_index),
         "windowStart": int(window_start),
         "windowEnd": int(window_end),
+        "blockIndex": int(window_index),
+        "blockStart": int(window_start),
+        "blockEnd": int(window_end),
         "windowHash": str(window_hash),
+        "sourceBlockHash": (str(source_block_hash).strip() or None)
+        if source_block_hash
+        else None,
         "scopedInputHash": str(scoped_input_hash),
         "selectedStepsHash": str(selected_steps_hash),
+        "selectedCount": count,
         "interpretationHash": interpretation_hash,
         "anchorsHash": anchors_hash,
         "publicLandingHash": public_landing_hash,
         "mappedPromptHash": mapped_prompt_hash,
         "generationId": str(generation_id).strip(),
         "sceneAssetId": scene_asset_id,
+        "sceneImageUrl": (str(scene_image_url).strip() or None)
+        if scene_image_url
+        else None,
     }
+    if selected_steps is not None:
+        payload["selectedSteps"] = [dict(s) for s in selected_steps]
+    return payload
 
 
 def _lineage_mismatch(reason: str, message: str) -> HTTPException:
@@ -86,6 +110,7 @@ def recompute_hashes_from_steps(
     window_start: int,
     window_end: int,
     steps: Sequence[Mapping[str, Any]],
+    source_block_steps: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, str]:
     ordered = normalize_selected_journey_steps(list(steps))
     validate_journey_window_identity(
@@ -93,8 +118,9 @@ def recompute_hashes_from_steps(
         window_start=window_start,
         window_end=window_end,
         steps=ordered,
+        source_block_steps=source_block_steps,
     )
-    return {
+    out: dict[str, str] = {
         "windowHash": compute_window_hash(ordered),
         "selectedStepsHash": compute_selected_steps_hash(ordered),
         "scopedInputHash": compute_scoped_input_hash(
@@ -107,6 +133,9 @@ def recompute_hashes_from_steps(
             steps=ordered,
         ),
     }
+    if source_block_steps is not None:
+        out["sourceBlockHash"] = compute_source_block_hash(list(source_block_steps))
+    return out
 
 
 def validate_publish_journey_lineage(
@@ -246,6 +275,22 @@ def validate_publish_journey_lineage(
                 reason, f"{key} does not match server recompute from selectedSteps"
             )
 
+    claimed_block_hash = _norm(claimed.get("sourceBlockHash"))
+    if claimed_block_hash and "sourceBlockHash" in recomputed:
+        if claimed_block_hash != recomputed["sourceBlockHash"]:
+            raise _lineage_mismatch(
+                "source_block_hash_mismatch",
+                "sourceBlockHash does not match server recompute from source block",
+            )
+    elif claimed_block_hash and len(selected_steps) == 8:
+        # Exact-8 selection: source block == selected package provenance by range.
+        from_selected = compute_source_block_hash(list(selected_steps))
+        if claimed_block_hash != from_selected:
+            raise _lineage_mismatch(
+                "source_block_hash_mismatch",
+                "sourceBlockHash does not match selectedSteps as source block",
+            )
+
     for key, reason in (
         ("interpretationHash", "interpretation_mismatch"),
         ("publicLandingHash", "landing_mismatch"),
@@ -363,6 +408,19 @@ def validate_against_server_generation_record(
             raise _lineage_mismatch(
                 reason, f"{key} missing on lineage but present on generation record"
             )
+
+    record_block = _norm(record.get("sourceBlockHash"))
+    claimed_block = _norm(claimed.get("sourceBlockHash"))
+    if record_block and claimed_block and record_block != claimed_block:
+        raise _lineage_mismatch(
+            "source_block_hash_mismatch",
+            "sourceBlockHash does not match server generation record",
+        )
+    if record_block and not claimed_block:
+        raise _lineage_mismatch(
+            "source_block_hash_mismatch",
+            "sourceBlockHash missing on lineage but present on generation record",
+        )
 
     record_interp = _norm(record.get("interpretationHash"))
     claimed_interp = _norm(claimed.get("interpretationHash"))

@@ -6,7 +6,10 @@ import {
   buildReview8DraftFromWindow,
   confirmReview8Draft,
   JOURNEY_CANDIDATE_COUNT,
+  JOURNEY_SELECTED_MIN,
+  MIN_SELECTED_COPY,
   saveReview8Draft,
+  toggleReviewSourceOrder,
   type EligibleQaPair,
   type Review8Draft,
 } from '@/lib/eza/mirror/journey';
@@ -14,7 +17,7 @@ import {
 export type Review8ScreenProps = {
   ownerUserId: string;
   sourceConversationId: string;
-  /** Exact chronological window pairs (length 8). */
+  /** Exact chronological source-block pairs (length 8). */
   windowPairs: EligibleQaPair[];
   windowIndex: number;
   draftKey: string;
@@ -27,8 +30,8 @@ export type Review8ScreenProps = {
 };
 
 /**
- * Review 8 — publication/privacy consent for one deterministic window.
- * Not a semantic selector: no Candidate 8, no reordering, no cross-window mixing.
+ * Review — publication/privacy consent for one source block.
+ * Starts with all 8 selected; user may deselect up to 2 (min 6).
  */
 export default function Review8Screen({
   ownerUserId,
@@ -47,9 +50,22 @@ export default function Review8Screen({
     if (
       initialDraft?.ownerUserId === ownerUserId &&
       initialDraft.draftKey === draftKey &&
-      initialDraft.selectedSteps?.length === JOURNEY_CANDIDATE_COUNT
+      (initialDraft.sourceBlockSteps?.length === JOURNEY_CANDIDATE_COUNT ||
+        initialDraft.selectedSteps?.length === JOURNEY_CANDIDATE_COUNT)
     ) {
-      return { ...initialDraft, status: 'reviewing', snapshotHash: null };
+      return {
+        ...initialDraft,
+        status: 'reviewing',
+        snapshotHash: null,
+        sourceBlockSteps:
+          initialDraft.sourceBlockSteps?.length === JOURNEY_CANDIDATE_COUNT
+            ? initialDraft.sourceBlockSteps
+            : windowPairs,
+        selectedSourceOrders:
+          initialDraft.selectedSourceOrders?.length
+            ? initialDraft.selectedSourceOrders
+            : initialDraft.selectedSteps.map((s) => s.sourceOrder),
+      };
     }
     if (windowPairs.length !== JOURNEY_CANDIDATE_COUNT) return null;
     return buildReview8DraftFromWindow({
@@ -89,7 +105,28 @@ export default function Review8Screen({
     );
   }
 
+  const block = draft.sourceBlockSteps?.length
+    ? draft.sourceBlockSteps
+    : windowPairs;
+  const selectedSet = new Set(
+    draft.selectedSourceOrders?.length
+      ? draft.selectedSourceOrders
+      : draft.selectedSteps.map((s) => s.sourceOrder)
+  );
+  const selectedCount = selectedSet.size;
+  const belowMinimum = selectedCount < JOURNEY_SELECTED_MIN;
+
+  const handleToggle = (sourceOrder: number) => {
+    setConfirmError(null);
+    setDraft((prev) => (prev ? toggleReviewSourceOrder(prev, sourceOrder) : prev));
+  };
+
   const handleConfirm = () => {
+    if (!draft) return;
+    if (belowMinimum) {
+      setConfirmError(MIN_SELECTED_COPY);
+      return;
+    }
     const result = confirmReview8Draft(draft);
     if (!result.ok) {
       setConfirmError(result.message);
@@ -117,48 +154,71 @@ export default function Review8Screen({
       >
         <header className="border-b border-white/10 px-5 py-4">
           <h2 id="review8-title" className="text-base font-semibold tracking-tight">
-            8 soruyu gözden geçir
+            Yansı sorularını gözden geçir
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-[rgba(246,244,239,0.65)]">
-            Bu Yansı, sohbetindeki bu 8 soru-cevaptan oluşur. Onay yayın kararıdır; sorular
-            yeniden seçilmez.
+            Bu kaynak bloktaki 8 soru-cevaptan 6–8 tanesini seçebilirsin. En fazla 2
+            soruyu çıkarabilirsin; seçilmeyenler özel sohbette kalır.
+          </p>
+          <p
+            className="mt-2 text-[11px] text-[rgba(231,180,91,0.9)]"
+            data-testid="review8-selected-count"
+          >
+            Seçili: {selectedCount} / 8
           </p>
         </header>
 
         <ol className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
-          {draft.selectedSteps.map((step) => (
-            <li
-              key={`${step.index}-${step.userMessageId}`}
-              className="rounded-xl border border-white/8 bg-white/[0.03] p-3"
-              data-testid={`review8-step-${step.index}`}
-            >
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgba(231,180,91,0.85)]">
-                {step.index} / 8
-              </span>
-              <p className="mt-1 text-sm font-medium leading-snug">{step.publicQuestion}</p>
-              <p className="mt-1.5 text-xs leading-relaxed text-[rgba(246,244,239,0.62)]">
-                {step.publicAnswer.length > 280
-                  ? `${step.publicAnswer.slice(0, 280)}…`
-                  : step.publicAnswer}
-              </p>
-            </li>
-          ))}
+          {block.map((step, i) => {
+            const selected = selectedSet.has(step.sourceOrder);
+            return (
+              <li key={`${step.sourceOrder}-${step.userMessageId}`}>
+                <button
+                  type="button"
+                  className={cn(
+                    'w-full rounded-xl border p-3 text-left transition',
+                    selected
+                      ? 'border-white/8 bg-white/[0.03]'
+                      : 'border-white/5 bg-black/20 opacity-55'
+                  )}
+                  data-testid={`review8-step-${i + 1}`}
+                  data-source-order={step.sourceOrder}
+                  data-selected={selected ? 'true' : 'false'}
+                  onClick={() => handleToggle(step.sourceOrder)}
+                  aria-pressed={selected}
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgba(231,180,91,0.85)]">
+                    {selected ? 'Seçili' : 'Çıkarıldı'} · Q{step.sourceOrder + 1}
+                  </span>
+                  <p className="mt-1 text-sm font-medium leading-snug">
+                    {step.publicQuestion}
+                  </p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[rgba(246,244,239,0.62)]">
+                    {step.publicAnswer.length > 280
+                      ? `${step.publicAnswer.slice(0, 280)}…`
+                      : step.publicAnswer}
+                  </p>
+                </button>
+              </li>
+            );
+          })}
         </ol>
 
-        {confirmError ? (
+        {confirmError || belowMinimum ? (
           <p className="px-4 text-xs text-[#f0b4a0]" data-testid="review8-confirm-error">
-            {confirmError}
+            {confirmError || MIN_SELECTED_COPY}
           </p>
         ) : null}
 
         <footer className="flex flex-col gap-2 border-t border-white/10 px-4 py-4">
           <button
             type="button"
-            className="inline-flex w-full items-center justify-center rounded-full border border-[rgba(231,180,91,0.42)] bg-[linear-gradient(165deg,rgba(231,180,91,0.28)_0%,rgba(231,180,91,0.14)_100%)] px-4 py-2.5 text-xs font-semibold text-[#f6f0e4]"
+            className="inline-flex w-full items-center justify-center rounded-full border border-[rgba(231,180,91,0.42)] bg-[linear-gradient(165deg,rgba(231,180,91,0.28)_0%,rgba(231,180,91,0.14)_100%)] px-4 py-2.5 text-xs font-semibold text-[#f6f0e4] disabled:opacity-40"
             onClick={handleConfirm}
+            disabled={belowMinimum}
             data-testid="review8-confirm"
           >
-            Bu 8 soruyu onayla
+            Seçilen {selectedCount} soruyu onayla
           </button>
           <button
             type="button"

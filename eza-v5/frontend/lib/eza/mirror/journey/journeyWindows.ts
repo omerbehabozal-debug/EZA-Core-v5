@@ -1,11 +1,10 @@
 /**
- * Deterministic 8-question Journey windows — product model reset.
+ * Deterministic Journey source blocks — Phase 3.7 product contract.
  *
- * Conversation max: 20 eligible user questions (completed OR pending answer).
- * Yansı size: exactly 8 chronological pairs per window.
- * Windows: [0–7], [8–15]. (Q17–Q20 never form a full Yansı.)
- *
- * No best-8 scoring. No topic clustering. No cross-window mixing.
+ * Source block: contiguous 8 eligible Q/A (blockStart = N*8 … blockEnd = N*8+7).
+ * Yansı: confirmed 6–8 from that block only.
+ * Journey Mode: unlimited blocks (no product-level max).
+ * Private Mode: permanent after explicit "Yansı oluşturmadan devam et"; 20-question cap.
  */
 
 import {
@@ -16,9 +15,20 @@ import {
 import type { EligibleQaPair, JourneyMessageLike } from './types';
 
 export const JOURNEY_WINDOW_SIZE = 8 as const;
+export const JOURNEY_SOURCE_BLOCK_SIZE = 8 as const;
+export const JOURNEY_SELECTED_MIN = 6 as const;
+export const JOURNEY_SELECTED_MAX = 8 as const;
+/** Private Mode only — Journey Mode has no product-level question cap. */
 export const JOURNEY_CONVERSATION_MAX_PAIRS = 20 as const;
-/** Only full 8-pair windows can become a Yansı (indices 0 and 1). */
-export const JOURNEY_MAX_PUBLISHABLE_WINDOWS = 2 as const;
+/**
+ * @deprecated Phase 3.7 — Journey Mode is unlimited. Kept as null sentinel so
+ * accidental max-2 checks fail closed rather than silently capping.
+ */
+export const JOURNEY_MAX_PUBLISHABLE_WINDOWS = null;
+
+export type JourneyMode =
+  | 'journey_mode'
+  | 'private_chat_mode';
 
 export type JourneyWindowStatus =
   | 'pending'
@@ -27,10 +37,12 @@ export type JourneyWindowStatus =
   | 'reviewing'
   | 'confirmed'
   | 'generating'
-  | 'ready';
+  | 'ready'
+  | 'failed';
 
 export type JourneyWindowRecord = {
   windowIndex: number;
+  /** Alias: blockIndex */
   startSequence: number;
   endSequence: number;
   status: JourneyWindowStatus;
@@ -39,6 +51,7 @@ export type JourneyWindowRecord = {
   parentJourneyId: string | null;
   decidedAt: string | null;
   confirmedAt: string | null;
+  selectedCount?: number | null;
 };
 
 export type JourneyConversationState = {
@@ -48,10 +61,16 @@ export type JourneyConversationState = {
   eligiblePairCount: number;
   /**
    * Completed pairs + pending unpaired eligible user question.
-   * Used for the hard 20-question send cap (blocks Q21 while A20 streams).
+   * Used for Private Mode Q20/Q21 guard only.
    */
   acceptedEligibleQuestionCount: number;
   windows: JourneyWindowRecord[];
+  /**
+   * Permanent Private Mode for this conversation.
+   * Only set by explicit PRIVATE_CONTINUE ("Yansı oluşturmadan devam et").
+   */
+  journeyMode: JourneyMode;
+  /** True when private_chat_mode and acceptedEligibleQuestionCount >= 20. */
   conversationClosed: boolean;
   updatedAt: string;
   /** Monotonic revision for multi-tab CAS writes. */
@@ -76,7 +95,6 @@ export function countAcceptedEligibleUserQuestions(
       continue;
     }
     if (role === 'assistant' && isEligiblePairingMessage(msg)) {
-      // Complete assistant consumes the pending user for slot accounting.
       lastEligibleUser = null;
     }
   }
@@ -96,6 +114,8 @@ export function windowRange(windowIndex: number): {
     endSequence: startSequence + JOURNEY_WINDOW_SIZE - 1,
   };
 }
+
+export const blockRange = windowRange;
 
 export function pairsForWindow(
   pairs: EligibleQaPair[],
@@ -128,6 +148,7 @@ function emptyWindow(windowIndex: number): JourneyWindowRecord {
     parentJourneyId: null,
     decidedAt: null,
     confirmedAt: null,
+    selectedCount: null,
   };
 }
 
@@ -141,15 +162,28 @@ export function createEmptyJourneyConversationState(input: {
     eligiblePairCount: 0,
     acceptedEligibleQuestionCount: 0,
     windows: [],
+    journeyMode: 'journey_mode',
     conversationClosed: false,
     updatedAt: new Date().toISOString(),
     stateVersion: 0,
   };
 }
 
+function normalizeLoadedState(
+  state: JourneyConversationState
+): JourneyConversationState {
+  return {
+    ...state,
+    journeyMode: state.journeyMode === 'private_chat_mode'
+      ? 'private_chat_mode'
+      : 'journey_mode',
+  };
+}
+
 /**
  * Sync conversation journey state from live/archive messages.
  * Idempotent: skipped/confirmed windows are never re-prompted.
+ * Private Mode: never opens new block decisions.
  * Does not bump stateVersion — callers persist via CAS save.
  */
 export function syncJourneyConversationState(input: {
@@ -164,7 +198,7 @@ export function syncJourneyConversationState(input: {
     input.state &&
     input.state.ownerUserId === input.ownerUserId &&
     input.state.sourceConversationId === input.sourceConversationId
-      ? input.state
+      ? normalizeLoadedState(input.state)
       : createEmptyJourneyConversationState({
           ownerUserId: input.ownerUserId,
           sourceConversationId: input.sourceConversationId,
@@ -176,40 +210,48 @@ export function syncJourneyConversationState(input: {
     input.messages
   );
   const windows = [...base.windows];
+  const inPrivate = base.journeyMode === 'private_chat_mode';
 
-  for (let w = 0; w < JOURNEY_MAX_PUBLISHABLE_WINDOWS; w += 1) {
-    if (!isFullWindow(pairs, w)) continue;
-    let rec = windows.find((x) => x.windowIndex === w);
-    if (!rec) {
-      rec = emptyWindow(w);
-      windows.push(rec);
-    }
-    // Remount mid-review: return to decision (not skip/confirmed — those stay frozen).
-    if (rec.status === 'reviewing') {
-      rec = { ...rec, status: 'awaiting_decision' };
-      const idx = windows.findIndex((x) => x.windowIndex === w);
-      windows[idx] = rec;
-    }
-    if (rec.status === 'pending') {
-      rec = {
-        ...rec,
-        status: 'awaiting_decision',
-        draftKey: rec.draftKey || allocateWindowDraftKey(input.sourceConversationId, w),
-      };
-      const idx = windows.findIndex((x) => x.windowIndex === w);
-      windows[idx] = rec;
+  if (!inPrivate) {
+    const completedBlocks = Math.floor(eligiblePairCount / JOURNEY_WINDOW_SIZE);
+    for (let w = 0; w < completedBlocks; w += 1) {
+      if (!isFullWindow(pairs, w)) continue;
+      let rec = windows.find((x) => x.windowIndex === w);
+      if (!rec) {
+        rec = emptyWindow(w);
+        windows.push(rec);
+      }
+      // Remount mid-review: return to decision (not skip/confirmed — those stay frozen).
+      if (rec.status === 'reviewing') {
+        rec = { ...rec, status: 'awaiting_decision' };
+        const idx = windows.findIndex((x) => x.windowIndex === w);
+        windows[idx] = rec;
+      }
+      if (rec.status === 'pending') {
+        rec = {
+          ...rec,
+          status: 'awaiting_decision',
+          draftKey:
+            rec.draftKey || allocateWindowDraftKey(input.sourceConversationId, w),
+        };
+        const idx = windows.findIndex((x) => x.windowIndex === w);
+        windows[idx] = rec;
+      }
     }
   }
 
   windows.sort((a, b) => a.windowIndex - b.windowIndex);
+
+  const conversationClosed =
+    inPrivate &&
+    acceptedEligibleQuestionCount >= JOURNEY_CONVERSATION_MAX_PAIRS;
 
   return {
     ...base,
     eligiblePairCount,
     acceptedEligibleQuestionCount,
     windows,
-    conversationClosed:
-      acceptedEligibleQuestionCount >= JOURNEY_CONVERSATION_MAX_PAIRS,
+    conversationClosed,
     updatedAt: now,
   };
 }
@@ -217,36 +259,59 @@ export function syncJourneyConversationState(input: {
 export function getAwaitingDecisionWindow(
   state: JourneyConversationState | null
 ): JourneyWindowRecord | null {
-  if (!state) return null;
+  if (!state || state.journeyMode === 'private_chat_mode') return null;
   return state.windows.find((w) => w.status === 'awaiting_decision') ?? null;
 }
 
+/**
+ * Explicit PRIVATE_CONTINUE — permanent Private Mode for this conversation.
+ * Review cancel must NOT call this.
+ */
+export function enterPrivateChatMode(
+  state: JourneyConversationState,
+  windowIndex?: number
+): JourneyConversationState {
+  const now = new Date().toISOString();
+  const windows =
+    typeof windowIndex === 'number'
+      ? state.windows.map((w) =>
+          w.windowIndex === windowIndex
+            ? {
+                ...w,
+                status: 'skipped' as const,
+                decidedAt: now,
+                draftKey: null,
+                journeyId: null,
+              }
+            : w
+        )
+      : state.windows;
+
+  return {
+    ...state,
+    journeyMode: 'private_chat_mode',
+    windows,
+    conversationClosed:
+      state.acceptedEligibleQuestionCount >= JOURNEY_CONVERSATION_MAX_PAIRS,
+    updatedAt: now,
+  };
+}
+
+/**
+ * @deprecated Prefer enterPrivateChatMode — skip is permanent Private Mode (LOCK 5).
+ */
 export function skipJourneyWindow(
   state: JourneyConversationState,
   windowIndex: number
 ): JourneyConversationState {
-  const now = new Date().toISOString();
-  return {
-    ...state,
-    windows: state.windows.map((w) =>
-      w.windowIndex === windowIndex
-        ? {
-            ...w,
-            status: 'skipped' as const,
-            decidedAt: now,
-            draftKey: null,
-            journeyId: null,
-          }
-        : w
-    ),
-    updatedAt: now,
-  };
+  return enterPrivateChatMode(state, windowIndex);
 }
 
 export function markJourneyWindowReviewing(
   state: JourneyConversationState,
   windowIndex: number
 ): JourneyConversationState {
+  if (state.journeyMode === 'private_chat_mode') return state;
   const now = new Date().toISOString();
   return {
     ...state,
@@ -266,7 +331,7 @@ export function markJourneyWindowReviewing(
   };
 }
 
-/** Cancel Review 8 — return to decision without publishing. */
+/** Cancel Review — return to decision_required. Does NOT enter Private Mode. */
 export function reopenJourneyWindowDecision(
   state: JourneyConversationState,
   windowIndex: number
@@ -283,7 +348,10 @@ export function reopenJourneyWindowDecision(
   };
 }
 
-/** Most recent confirmed/ready/generating journey in this conversation. */
+/**
+ * Parent = latest prior ready Journey in this conversation chain.
+ * Do not use a still-generating artifact as published parent authority.
+ */
 export function resolveParentJourneyId(
   state: JourneyConversationState,
   forWindowIndex: number
@@ -293,9 +361,7 @@ export function resolveParentJourneyId(
       (w) =>
         w.windowIndex < forWindowIndex &&
         w.journeyId &&
-        (w.status === 'confirmed' ||
-          w.status === 'generating' ||
-          w.status === 'ready')
+        w.status === 'ready'
     )
     .sort((a, b) => b.windowIndex - a.windowIndex);
   return prior[0]?.journeyId ?? null;
@@ -306,6 +372,7 @@ export function confirmJourneyWindow(input: {
   windowIndex: number;
   journeyId: string;
   draftKey: string;
+  selectedCount?: number;
 }): JourneyConversationState {
   const now = new Date().toISOString();
   const parentJourneyId = resolveParentJourneyId(input.state, input.windowIndex);
@@ -319,6 +386,7 @@ export function confirmJourneyWindow(input: {
             journeyId: input.journeyId,
             draftKey: input.draftKey,
             parentJourneyId,
+            selectedCount: input.selectedCount ?? w.selectedCount ?? null,
             decidedAt: w.decidedAt || now,
             confirmedAt: now,
           }
@@ -344,17 +412,39 @@ export function markJourneyWindowReady(
   };
 }
 
+export function markJourneyWindowFailed(
+  state: JourneyConversationState,
+  windowIndex: number
+): JourneyConversationState {
+  const now = new Date().toISOString();
+  return {
+    ...state,
+    windows: state.windows.map((w) =>
+      w.windowIndex === windowIndex && w.status === 'generating'
+        ? { ...w, status: 'failed' as const }
+        : w
+    ),
+    updatedAt: now,
+  };
+}
+
 export function canSendMoreJourneyQuestions(
   state: JourneyConversationState | null
 ): boolean {
   if (!state) return true;
+  if (state.journeyMode !== 'private_chat_mode') return true;
   return !state.conversationClosed;
 }
 
-/** Live send guard — also blocks Q21 while A20 is still streaming. */
+/** Live send guard — Private Mode blocks Q21 while A20 may still stream. */
 export function canAcceptAnotherJourneyQuestion(
-  messages: JourneyMessageLike[]
+  messages: JourneyMessageLike[],
+  state?: JourneyConversationState | null
 ): boolean {
+  if (!state || state.journeyMode !== 'private_chat_mode') {
+    // Journey Mode: unlimited
+    return true;
+  }
   return (
     countAcceptedEligibleUserQuestions(messages) < JOURNEY_CONVERSATION_MAX_PAIRS
   );
@@ -369,11 +459,18 @@ export function listPublishedJourneyChain(
         w.journeyId &&
         (w.status === 'confirmed' ||
           w.status === 'generating' ||
-          w.status === 'ready')
+          w.status === 'ready' ||
+          w.status === 'failed')
     )
     .map((w) => ({
       windowIndex: w.windowIndex,
       journeyId: w.journeyId!,
       parentJourneyId: w.parentJourneyId,
     }));
+}
+
+export function isPrivateChatMode(
+  state: JourneyConversationState | null
+): boolean {
+  return state?.journeyMode === 'private_chat_mode';
 }

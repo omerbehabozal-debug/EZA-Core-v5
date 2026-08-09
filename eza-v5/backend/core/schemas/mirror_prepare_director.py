@@ -47,8 +47,20 @@ class MirrorJourneySelectedStepScopeDTO(BaseModel):
     publicAnswer: str = Field(..., min_length=1)
 
 
+class MirrorJourneySourceBlockStepDTO(BaseModel):
+    """One of the 8 source-block pairs (private prepare provenance)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sourceOrder: int = Field(..., ge=0)
+    sourceUserMessageId: str = Field(..., min_length=1, max_length=128)
+    sourceAssistantMessageId: str = Field(..., min_length=1, max_length=128)
+    publicQuestion: str = Field(..., min_length=1)
+    publicAnswer: str = Field(..., min_length=1)
+
+
 class MirrorJourneySemanticScopeDTO(BaseModel):
-    """Phase 3 — explicit Journey window semantic scope for prepare/D2."""
+    """Phase 3/3.7 — explicit Journey source-block semantic scope for prepare/D2."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -57,17 +69,27 @@ class MirrorJourneySemanticScopeDTO(BaseModel):
     journeyVersion: int = Field(default=1, ge=1, le=10_000)
     sourceConversationId: str = Field(..., min_length=1, max_length=128)
     parentJourneyId: Optional[str] = Field(default=None, max_length=64)
-    windowIndex: int = Field(..., ge=0, le=1)
+    """Compatibility alias for blockIndex — unlimited Journey Mode (no le=1)."""
+    windowIndex: int = Field(..., ge=0)
     windowStart: int = Field(..., ge=0)
     windowEnd: int = Field(..., ge=0)
+    blockIndex: Optional[int] = Field(default=None, ge=0)
+    blockStart: Optional[int] = Field(default=None, ge=0)
+    blockEnd: Optional[int] = Field(default=None, ge=0)
     """Client debug only — server recomputes and is authoritative."""
     windowHash: Optional[str] = Field(default=None, max_length=128)
+    """Stable identity of the full source block of 8 (server-authoritative)."""
+    sourceBlockHash: Optional[str] = Field(default=None, max_length=128)
     """Client debug only — server recomputes and is authoritative."""
     scopedInputHash: Optional[str] = Field(default=None, max_length=128)
     """Client debug only — server recomputes and is authoritative."""
     selectedStepsHash: Optional[str] = Field(default=None, max_length=128)
     selectedSteps: List[MirrorJourneySelectedStepScopeDTO] = Field(
-        ..., min_length=8, max_length=8
+        ..., min_length=6, max_length=8
+    )
+    """Required when selectedCount is 6 or 7; optional when exact-8 covers the block."""
+    sourceBlockSteps: Optional[List[MirrorJourneySourceBlockStepDTO]] = Field(
+        default=None, min_length=8, max_length=8
     )
 
 

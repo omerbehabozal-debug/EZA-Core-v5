@@ -36,11 +36,22 @@ export type PrepareDirectorDraftRequest = {
     windowIndex: number;
     windowStart: number;
     windowEnd: number;
+    blockIndex?: number;
+    blockStart?: number;
+    blockEnd?: number;
     windowHash?: string;
+    sourceBlockHash?: string;
     scopedInputHash?: string;
     selectedStepsHash?: string;
     selectedSteps: Array<{
       stepIndex: number;
+      sourceOrder: number;
+      sourceUserMessageId: string;
+      sourceAssistantMessageId: string;
+      publicQuestion: string;
+      publicAnswer: string;
+    }>;
+    sourceBlockSteps?: Array<{
       sourceOrder: number;
       sourceUserMessageId: string;
       sourceAssistantMessageId: string;

@@ -99,7 +99,7 @@ class MirrorNetworkDebugReport(BaseModel):
 
 
 class MirrorJourneySelectedStep(BaseModel):
-    """Frozen Review 8 Q/A pair for journey_v1 publish (exactly 8 required)."""
+    """Frozen confirmed Q/A pair for journey_v1 publish (6–8 required)."""
 
     model_config = {"extra": "forbid"}
 
@@ -119,10 +119,12 @@ class MirrorNetworkPublishRequest(BaseModel):
     conversationId: Optional[str] = Field(default=None, max_length=128)
     """When EZA_MIRROR_JOURNEY_V1 + conversationId: required. Identity = slug."""
     journeyId: Optional[str] = Field(default=None, max_length=64)
-    """When journey mode: exactly 8 frozen Q/A pairs from Review 8."""
-    selectedSteps: Optional[List[MirrorJourneySelectedStep]] = None
-    """Deterministic window identity — required in journey mode (do not infer)."""
-    windowIndex: Optional[int] = Field(default=None, ge=0, le=1)
+    """When journey mode: confirmed 6–8 frozen Q/A pairs from Review."""
+    selectedSteps: Optional[List[MirrorJourneySelectedStep]] = Field(
+        default=None, min_length=6, max_length=8
+    )
+    """Deterministic source-block identity — required in journey mode (do not infer)."""
+    windowIndex: Optional[int] = Field(default=None, ge=0)
     windowStart: Optional[int] = Field(default=None, ge=0)
     windowEnd: Optional[int] = Field(default=None, ge=0)
     sceneImageUrl: Optional[str] = None
@@ -135,6 +137,7 @@ class MirrorNetworkPublishRequest(BaseModel):
     """Phase 3.6 — authoritative generation lineage from the generated artifact."""
     journeyVersion: Optional[int] = Field(default=None, ge=1, le=10_000)
     windowHash: Optional[str] = Field(default=None, max_length=128)
+    sourceBlockHash: Optional[str] = Field(default=None, max_length=128)
     scopedInputHash: Optional[str] = Field(default=None, max_length=128)
     selectedStepsHash: Optional[str] = Field(default=None, max_length=128)
     interpretationHash: Optional[str] = Field(default=None, max_length=128)

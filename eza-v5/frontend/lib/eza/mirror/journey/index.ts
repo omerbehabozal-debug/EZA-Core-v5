@@ -1,5 +1,5 @@
 /**
- * Mirror Journey — deterministic 8-question windows (product model reset).
+ * Mirror Journey — deterministic source-block windows (Phase 3.7).
  * Candidate 8 / topic clustering are NOT Journey V1 authority.
  */
 
@@ -17,6 +17,8 @@ export type {
 
 export {
   JOURNEY_CANDIDATE_COUNT,
+  JOURNEY_SELECTED_MIN,
+  JOURNEY_SELECTED_MAX,
   REVIEW8_DRAFT_STORAGE_KEY,
   MIRROR_JOURNEY_CLIENT_FLAG,
 } from './types';
@@ -40,25 +42,31 @@ export {
 
 export {
   JOURNEY_WINDOW_SIZE,
+  JOURNEY_SOURCE_BLOCK_SIZE,
   JOURNEY_CONVERSATION_MAX_PAIRS,
   JOURNEY_MAX_PUBLISHABLE_WINDOWS,
   syncJourneyConversationState,
   createEmptyJourneyConversationState,
   getAwaitingDecisionWindow,
   skipJourneyWindow,
+  enterPrivateChatMode,
   markJourneyWindowReviewing,
   reopenJourneyWindowDecision,
   confirmJourneyWindow,
   markJourneyWindowReady,
+  markJourneyWindowFailed,
   resolveParentJourneyId,
   pairsForWindow,
   isFullWindow,
   windowRange,
+  blockRange,
   canSendMoreJourneyQuestions,
   listPublishedJourneyChain,
   allocateWindowDraftKey,
   countAcceptedEligibleUserQuestions,
   canAcceptAnotherJourneyQuestion,
+  isPrivateChatMode,
+  type JourneyMode,
   type JourneyWindowStatus,
   type JourneyWindowRecord,
   type JourneyConversationState,
@@ -81,11 +89,14 @@ export {
   buildReview8DraftFromWindow,
   confirmReview8Draft,
   replaceReview8Step,
+  toggleReviewSourceOrder,
   isReview8DraftConfirmed,
   validateReview8Draft,
   computeReview8SnapshotHash,
+  computeSourceBlockHash,
   reindexSelectedSteps,
   pairsToSelectedSteps,
+  MIN_SELECTED_COPY,
 } from './review8Draft';
 
 export {
@@ -134,6 +145,7 @@ export {
 export {
   saveJourneyGenerationArtifact,
   loadJourneyGenerationArtifact,
+  listJourneyGenerationArtifactsForConversation,
   clearJourneyGenerationArtifactsForUser,
   JOURNEY_GENERATION_ARTIFACT_STORAGE_KEY,
 } from './journeyGenerationArtifactStore';

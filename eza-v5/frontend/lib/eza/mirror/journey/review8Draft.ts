@@ -1,9 +1,11 @@
 /**
- * Review 8 draft builders + snapshot integrity (Phase 2 PASS).
+ * Review draft builders + snapshot integrity (Phase 2 → Phase 3.7: 6–8 selection).
  */
 
 import {
   JOURNEY_CANDIDATE_COUNT,
+  JOURNEY_SELECTED_MAX,
+  JOURNEY_SELECTED_MIN,
   type CandidatePath,
   type EligibleQaPair,
   type Review8Draft,
@@ -48,7 +50,7 @@ export function allocateDraftKey(sourceConversationId: string): string {
   );
 }
 
-/** Deterministic snapshot fingerprint for confirmed drafts. */
+/** Deterministic snapshot fingerprint for confirmed selected steps. */
 export function computeReview8SnapshotHash(
   steps: Review8SelectedStep[]
 ): string {
@@ -66,13 +68,55 @@ export function computeReview8SnapshotHash(
   return `h${(hash >>> 0).toString(16)}`;
 }
 
+/** Stable source-block hash over all 8 pairs (independent of deselection). */
+export function computeSourceBlockHash(pairs: EligibleQaPair[]): string {
+  const ordered = sortPairsBySourceOrder(pairs);
+  const payload = ordered
+    .map(
+      (s) =>
+        `${s.sourceOrder}|${s.userMessageId}|${s.assistantMessageId}|${s.publicQuestion}|${s.publicAnswer}`
+    )
+    .join('\n');
+  let hash = 2166136261;
+  for (let i = 0; i < payload.length; i += 1) {
+    hash ^= payload.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `b${(hash >>> 0).toString(16)}`;
+}
+
+export async function computeSelectedStepsHash(
+  steps: Review8SelectedStep[]
+): Promise<string> {
+  const rows = [...steps]
+    .sort((a, b) => a.index - b.index)
+    .map((step) => ({
+      stepIndex: step.index,
+      sourceOrder: step.sourceOrder,
+      sourceUserMessageId: step.userMessageId,
+      sourceAssistantMessageId: step.assistantMessageId,
+      publicQuestion: step.publicQuestion,
+      publicAnswer: step.publicAnswer,
+    }));
+  const payload = JSON.stringify(rows);
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const buf = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(payload)
+    );
+    const hex = Array.from(new Uint8Array(buf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    return `t${hex.slice(0, 32)}`;
+  }
+  // Node/test fallback — not used for authority; server recomputes.
+  let h = 0;
+  for (let i = 0; i < payload.length; i += 1) h = (h * 31 + payload.charCodeAt(i)) >>> 0;
+  return `t${h.toString(16).padStart(8, '0').repeat(4).slice(0, 32)}`;
+}
+
 export function pairsToSelectedSteps(pairs: EligibleQaPair[]): Review8SelectedStep[] {
   const ordered = sortPairsBySourceOrder(pairs);
-  if (ordered.length !== JOURNEY_CANDIDATE_COUNT) {
-    throw new Error(
-      `Review 8 requires exactly ${JOURNEY_CANDIDATE_COUNT} pairs; got ${ordered.length}`
-    );
-  }
   return ordered.map((pair, i) => ({
     ...pair,
     publicQuestion: pair.publicQuestion.trim(),
@@ -103,21 +147,29 @@ export function buildReview8DraftFromWindow(input: {
 }): Review8Draft {
   const ownerUserId = (input.ownerUserId || '').trim();
   if (!ownerUserId) {
-    throw new Error('Review 8 draft requires ownerUserId');
+    throw new Error('Review draft requires ownerUserId');
   }
   if (input.pairs.length !== JOURNEY_CANDIDATE_COUNT) {
     throw new Error(
-      `Window Review 8 requires exactly ${JOURNEY_CANDIDATE_COUNT} pairs`
+      `Source block requires exactly ${JOURNEY_CANDIDATE_COUNT} pairs`
     );
   }
   const now = new Date().toISOString();
   const startSequence = input.windowIndex * JOURNEY_CANDIDATE_COUNT;
+  const block = sortPairsBySourceOrder(input.pairs).map((p) => ({
+    ...p,
+    publicQuestion: p.publicQuestion.trim(),
+    publicAnswer: p.publicAnswer.trim(),
+  }));
+  const selected = pairsToSelectedSteps(block);
   return {
     ownerUserId,
     draftKey: input.draftKey,
     sourceConversationId: input.sourceConversationId,
     journeyId: null,
-    selectedSteps: pairsToSelectedSteps(input.pairs),
+    selectedSteps: selected,
+    sourceBlockSteps: block,
+    selectedSourceOrders: block.map((p) => p.sourceOrder),
     status: 'reviewing',
     updatedAt: now,
     titleSeed: input.titleSeed,
@@ -126,6 +178,7 @@ export function buildReview8DraftFromWindow(input: {
     windowStartSequence: startSequence,
     windowEndSequence: startSequence + JOURNEY_CANDIDATE_COUNT - 1,
     parentJourneyId: input.parentJourneyId ?? null,
+    sourceBlockHash: computeSourceBlockHash(block),
   };
 }
 
@@ -139,15 +192,18 @@ export function buildReview8Draft(input: {
   /** @deprecated Prefer buildReview8DraftFromWindow — CandidatePath is not Journey V1 authority. */
   const ownerUserId = (input.ownerUserId || '').trim();
   if (!ownerUserId) {
-    throw new Error('Review 8 draft requires ownerUserId');
+    throw new Error('Review draft requires ownerUserId');
   }
   const now = new Date().toISOString();
+  const selected = pairsToSelectedSteps(input.path.pairRefs);
   return {
     ownerUserId,
     draftKey: input.draftKey || allocateDraftKey(input.sourceConversationId),
     sourceConversationId: input.sourceConversationId,
     journeyId: null,
-    selectedSteps: pairsToSelectedSteps(input.path.pairRefs),
+    selectedSteps: selected,
+    sourceBlockSteps: sortPairsBySourceOrder(input.path.pairRefs),
+    selectedSourceOrders: selected.map((s) => s.sourceOrder),
     status: 'reviewing',
     updatedAt: now,
     titleSeed: input.titleSeed,
@@ -157,17 +213,54 @@ export function buildReview8Draft(input: {
 
 export type ConfirmReview8Result =
   | { ok: true; draft: Review8Draft }
-  | { ok: false; code: 'invalid_step_count' | 'invalid_steps'; message: string };
+  | {
+      ok: false;
+      code: 'invalid_step_count' | 'invalid_steps' | 'below_minimum';
+      message: string;
+    };
+
+const MIN_SELECTED_COPY =
+  'Yansı oluşturulabilmesi için en az 6 soru seçili olmalı.';
 
 export function confirmReview8Draft(draft: Review8Draft): ConfirmReview8Result {
-  if (draft.selectedSteps.length !== JOURNEY_CANDIDATE_COUNT) {
+  const block = draft.sourceBlockSteps?.length
+    ? sortPairsBySourceOrder(draft.sourceBlockSteps)
+    : sortPairsBySourceOrder(draft.selectedSteps);
+
+  const selectedOrders =
+    draft.selectedSourceOrders?.length
+      ? [...draft.selectedSourceOrders]
+      : draft.selectedSteps.map((s) => s.sourceOrder);
+
+  const uniqueOrders = [...new Set(selectedOrders)].sort((a, b) => a - b);
+  if (uniqueOrders.length < JOURNEY_SELECTED_MIN) {
+    return {
+      ok: false,
+      code: 'below_minimum',
+      message: MIN_SELECTED_COPY,
+    };
+  }
+  if (uniqueOrders.length > JOURNEY_SELECTED_MAX) {
     return {
       ok: false,
       code: 'invalid_step_count',
-      message: `Onay için tam ${JOURNEY_CANDIDATE_COUNT} geçerli soru-cevap gerekir.`,
+      message: `En fazla ${JOURNEY_SELECTED_MAX} soru seçilebilir.`,
     };
   }
-  for (const step of draft.selectedSteps) {
+
+  const selectedPairs = uniqueOrders
+    .map((order) => block.find((p) => p.sourceOrder === order))
+    .filter((p): p is EligibleQaPair => Boolean(p));
+
+  if (selectedPairs.length !== uniqueOrders.length) {
+    return {
+      ok: false,
+      code: 'invalid_steps',
+      message: 'Seçilen adımlar kaynak blokta bulunamadı.',
+    };
+  }
+
+  for (const step of selectedPairs) {
     if (
       !step.userMessageId ||
       !step.assistantMessageId ||
@@ -182,7 +275,7 @@ export function confirmReview8Draft(draft: Review8Draft): ConfirmReview8Result {
     }
   }
 
-  const frozen = reindexSelectedSteps(draft.selectedSteps);
+  const frozen = reindexSelectedSteps(selectedPairs);
   const journeyId =
     draft.journeyId?.trim() ||
     allocateJourneyId(
@@ -194,9 +287,47 @@ export function confirmReview8Draft(draft: Review8Draft): ConfirmReview8Result {
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
     selectedSteps: frozen,
+    sourceBlockSteps: block,
+    selectedSourceOrders: uniqueOrders,
     snapshotHash: computeReview8SnapshotHash(frozen),
+    sourceBlockHash: computeSourceBlockHash(block),
   };
   return { ok: true, draft: confirmed };
+}
+
+/** Toggle Q+A atomically by sourceOrder. Never auto-repair below 6. */
+export function toggleReviewSourceOrder(
+  draft: Review8Draft,
+  sourceOrder: number
+): Review8Draft {
+  const block = draft.sourceBlockSteps?.length
+    ? draft.sourceBlockSteps
+    : draft.selectedSteps;
+  if (!block.some((p) => p.sourceOrder === sourceOrder)) {
+    return draft;
+  }
+  const current = new Set(
+    draft.selectedSourceOrders?.length
+      ? draft.selectedSourceOrders
+      : draft.selectedSteps.map((s) => s.sourceOrder)
+  );
+  if (current.has(sourceOrder)) {
+    current.delete(sourceOrder);
+  } else {
+    current.add(sourceOrder);
+  }
+  const orders = [...current].sort((a, b) => a - b);
+  const selectedPairs = orders
+    .map((o) => block.find((p) => p.sourceOrder === o)!)
+    .filter(Boolean);
+  return {
+    ...draft,
+    selectedSourceOrders: orders,
+    selectedSteps: reindexSelectedSteps(selectedPairs),
+    status: 'reviewing',
+    snapshotHash: null,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 export function replaceReview8Step(
@@ -216,9 +347,9 @@ export function replaceReview8Step(
   return {
     ...draft,
     selectedSteps: reindexSelectedSteps(nextPairs),
+    selectedSourceOrders: nextPairs.map((p) => p.sourceOrder).sort((a, b) => a - b),
     status: 'reviewing',
     snapshotHash: null,
-    // Keep journeyId if already allocated, but require re-confirm.
     journeyId: draft.journeyId,
     updatedAt: new Date().toISOString(),
   };
@@ -250,7 +381,7 @@ export function validateReview8Draft(
   }
 ): DraftValidationSuccess | DraftValidationFailure {
   if (!draft) {
-    return { ok: false, reason: 'missing', message: 'Review 8 taslağı yok.' };
+    return { ok: false, reason: 'missing', message: 'Review taslağı yok.' };
   }
   if ((draft.ownerUserId || '').trim() !== (expected.ownerUserId || '').trim()) {
     return {
@@ -279,11 +410,12 @@ export function validateReview8Draft(
       message: 'Taslak kimliği eşleşmiyor.',
     };
   }
-  if (draft.selectedSteps?.length !== JOURNEY_CANDIDATE_COUNT) {
+  const count = draft.selectedSteps?.length ?? 0;
+  if (count < JOURNEY_SELECTED_MIN || count > JOURNEY_SELECTED_MAX) {
     return {
       ok: false,
       reason: 'step_count',
-      message: `Taslakta ${JOURNEY_CANDIDATE_COUNT} adım olmalı.`,
+      message: `Taslakta ${JOURNEY_SELECTED_MIN}–${JOURNEY_SELECTED_MAX} adım olmalı.`,
     };
   }
   for (const step of draft.selectedSteps) {
@@ -305,7 +437,7 @@ export function validateReview8Draft(
       return {
         ok: false,
         reason: 'unconfirmed',
-        message: 'Review 8 henüz onaylanmadı.',
+        message: 'Review henüz onaylanmadı.',
       };
     }
     const expectedHash = computeReview8SnapshotHash(draft.selectedSteps);
@@ -331,3 +463,5 @@ export function isReview8DraftConfirmed(
   });
   return result.ok;
 }
+
+export { MIN_SELECTED_COPY };

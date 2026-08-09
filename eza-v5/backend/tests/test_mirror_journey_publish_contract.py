@@ -26,9 +26,12 @@ def _eight_steps(start: int = 0):
     ]
 
 
-def test_validate_selected_steps_requires_exactly_eight():
+def test_validate_selected_steps_requires_six_to_eight():
+    rows7 = validate_selected_journey_steps(_eight_steps()[:7])
+    assert len(rows7) == 7
+
     with pytest.raises(HTTPException) as exc:
-        validate_selected_journey_steps(_eight_steps()[:7])
+        validate_selected_journey_steps(_eight_steps()[:5])
     assert exc.value.detail["code"] == "journey_steps_required"
 
     with pytest.raises(HTTPException) as exc9:

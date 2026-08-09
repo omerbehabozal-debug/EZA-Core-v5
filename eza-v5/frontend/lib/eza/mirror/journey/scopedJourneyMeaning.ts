@@ -1,14 +1,25 @@
 /**
- * Journey V1 Phase 3 — scoped meaning package from confirmed Review 8 window.
+ * Journey V1 Phase 3/3.7 — scoped meaning from confirmed Review selection (6–8).
  *
- * The confirmed 8 Q/A pairs are the ONLY semantic input for D1→D2→Anchors→CB→image→NA.
- * Full conversation must not be re-read for meaning after confirm.
+ * Confirmed selected Q/A ONLY enter D1→D2→Anchors→CB→image→NA.
+ * Deselected source-block pairs stay private and never enter scoped messages.
  */
 
 import { djb2Hex } from '@/lib/eza/mirror/mirrorLineageHash';
 import type { MirrorPrepareMessageDTO } from '@/lib/eza/mirror/prepareDirectorDraftApi';
-import { JOURNEY_CANDIDATE_COUNT, type Review8Draft, type Review8SelectedStep } from './types';
-import { computeReview8SnapshotHash, isReview8DraftConfirmed } from './review8Draft';
+import {
+  JOURNEY_CANDIDATE_COUNT,
+  JOURNEY_SELECTED_MAX,
+  JOURNEY_SELECTED_MIN,
+  type EligibleQaPair,
+  type Review8Draft,
+  type Review8SelectedStep,
+} from './types';
+import {
+  computeReview8SnapshotHash,
+  computeSourceBlockHash,
+  isReview8DraftConfirmed,
+} from './review8Draft';
 
 export const JOURNEY_SEMANTIC_SCOPE_V1 = 'journey_window_v1' as const;
 
@@ -20,9 +31,11 @@ export type ConfirmedJourneyWindow = {
   windowStart: number;
   windowEnd: number;
   selectedSteps: Review8SelectedStep[];
+  sourceBlockSteps: EligibleQaPair[];
   journeyVersion?: number;
   draftKey?: string;
   snapshotHash?: string | null;
+  sourceBlockHash?: string | null;
 };
 
 export type JourneySemanticScopePayload = {
@@ -34,10 +47,21 @@ export type JourneySemanticScopePayload = {
   windowIndex: number;
   windowStart: number;
   windowEnd: number;
+  blockIndex: number;
+  blockStart: number;
+  blockEnd: number;
   windowHash: string;
+  sourceBlockHash: string;
   scopedInputHash: string;
   selectedSteps: Array<{
     stepIndex: number;
+    sourceOrder: number;
+    sourceUserMessageId: string;
+    sourceAssistantMessageId: string;
+    publicQuestion: string;
+    publicAnswer: string;
+  }>;
+  sourceBlockSteps: Array<{
     sourceOrder: number;
     sourceUserMessageId: string;
     sourceAssistantMessageId: string;
@@ -58,7 +82,9 @@ export type ScopedJourneyMeaningOk = {
   messages: MirrorPrepareMessageDTO[];
   scope: JourneySemanticScopePayload;
   windowHash: string;
+  sourceBlockHash: string;
   scopedInputHash: string;
+  selectedCount: number;
 };
 
 function fail(message: string): ScopedJourneyMeaningFail {
@@ -121,7 +147,15 @@ export function confirmedJourneyWindowFromDraft(
   ) {
     return null;
   }
-  if (draft.selectedSteps?.length !== JOURNEY_CANDIDATE_COUNT) return null;
+  const count = draft.selectedSteps?.length ?? 0;
+  if (count < JOURNEY_SELECTED_MIN || count > JOURNEY_SELECTED_MAX) return null;
+  const block =
+    draft.sourceBlockSteps?.length === JOURNEY_CANDIDATE_COUNT
+      ? draft.sourceBlockSteps
+      : count === JOURNEY_CANDIDATE_COUNT
+        ? draft.selectedSteps
+        : null;
+  if (!block || block.length !== JOURNEY_CANDIDATE_COUNT) return null;
   return {
     journeyId: draft.journeyId.trim(),
     sourceConversationId: draft.sourceConversationId,
@@ -130,24 +164,26 @@ export function confirmedJourneyWindowFromDraft(
     windowStart: draft.windowStartSequence,
     windowEnd: draft.windowEndSequence,
     selectedSteps: draft.selectedSteps,
+    sourceBlockSteps: block,
     journeyVersion:
       typeof draft.journeyVersion === 'number' && draft.journeyVersion >= 1
         ? draft.journeyVersion
         : 1,
     draftKey: draft.draftKey,
     snapshotHash: draft.snapshotHash,
+    sourceBlockHash: draft.sourceBlockHash ?? computeSourceBlockHash(block),
   };
 }
 
 /**
  * Fail-closed builder: confirmed draft → scoped prepare messages + scope payload.
- * Never falls back to full conversation.
+ * Never falls back to full conversation or V3.
  */
 export function resolveScopedJourneyMeaning(
   draft: Review8Draft | null | undefined
 ): ScopedJourneyMeaningOk | ScopedJourneyMeaningFail {
   if (!draft) {
-    return fail('Journey meaning requires a confirmed Review 8 draft.');
+    return fail('Journey meaning requires a confirmed Review draft.');
   }
   const window = confirmedJourneyWindowFromDraft(draft);
   if (!window) {
@@ -161,17 +197,32 @@ export function resolveScopedJourneyMeaning(
   }
 
   const ordered = [...window.selectedSteps].sort((a, b) => a.index - b.index);
+  const selectedCount = ordered.length;
+  if (selectedCount < JOURNEY_SELECTED_MIN || selectedCount > JOURNEY_SELECTED_MAX) {
+    return fail(
+      `selectedCount must be ${JOURNEY_SELECTED_MIN}–${JOURNEY_SELECTED_MAX}.`
+    );
+  }
+
   for (let i = 0; i < ordered.length; i += 1) {
     const step = ordered[i]!;
     if (step.index !== i + 1) {
-      return fail('selectedSteps stepIndex must be contiguous 1..8.');
+      return fail(`selectedSteps stepIndex must be contiguous 1..${selectedCount}.`);
     }
-    if (step.sourceOrder !== window.windowStart + i) {
-      return fail('sourceOrder must match the declared window.');
+    if (
+      step.sourceOrder < window.windowStart ||
+      step.sourceOrder > window.windowEnd
+    ) {
+      return fail('sourceOrder outside declared source block.');
     }
     if (!step.publicQuestion.trim() || !step.publicAnswer.trim()) {
       return fail('Each selected step requires publicQuestion and publicAnswer.');
     }
+  }
+
+  const orders = ordered.map((s) => s.sourceOrder);
+  if (orders.some((o, i) => i > 0 && o <= orders[i - 1]!)) {
+    return fail('selectedSteps sourceOrder must be strictly increasing.');
   }
 
   const windowHash = computeJourneyWindowHash(ordered);
@@ -179,9 +230,25 @@ export function resolveScopedJourneyMeaning(
     return fail('Confirmed snapshot hash does not match selected steps.');
   }
 
+  const sourceBlockHash = computeSourceBlockHash(window.sourceBlockSteps);
   const messages = buildScopedPrepareMessagesFromSteps(ordered);
-  if (messages.length !== JOURNEY_CANDIDATE_COUNT * 2) {
-    return fail('Scoped prepare messages must contain exactly 16 turns (8 Q/A).');
+  if (messages.length !== selectedCount * 2) {
+    return fail(
+      `Scoped prepare messages must contain exactly ${selectedCount * 2} turns.`
+    );
+  }
+
+  // Provenance: every selected pair must be in the source block of 8.
+  const blockIds = new Set(
+    window.sourceBlockSteps.map(
+      (p) => `${p.userMessageId}|${p.assistantMessageId}|${p.sourceOrder}`
+    )
+  );
+  for (const step of ordered) {
+    const key = `${step.userMessageId}|${step.assistantMessageId}|${step.sourceOrder}`;
+    if (!blockIds.has(key)) {
+      return fail('Selected step is not a member of the declared source block.');
+    }
   }
 
   const scopedInputHash = computeScopedJourneyInputHash({
@@ -198,10 +265,21 @@ export function resolveScopedJourneyMeaning(
     windowIndex: window.windowIndex,
     windowStart: window.windowStart,
     windowEnd: window.windowEnd,
+    blockIndex: window.windowIndex,
+    blockStart: window.windowStart,
+    blockEnd: window.windowEnd,
     windowHash,
+    sourceBlockHash,
     scopedInputHash,
     selectedSteps: ordered.map((s) => ({
       stepIndex: s.index,
+      sourceOrder: s.sourceOrder,
+      sourceUserMessageId: s.userMessageId,
+      sourceAssistantMessageId: s.assistantMessageId,
+      publicQuestion: s.publicQuestion,
+      publicAnswer: s.publicAnswer,
+    })),
+    sourceBlockSteps: window.sourceBlockSteps.map((s) => ({
       sourceOrder: s.sourceOrder,
       sourceUserMessageId: s.userMessageId,
       sourceAssistantMessageId: s.assistantMessageId,
@@ -212,10 +290,12 @@ export function resolveScopedJourneyMeaning(
 
   return {
     ok: true,
-    window: { ...window, selectedSteps: ordered },
+    window: { ...window, selectedSteps: ordered, sourceBlockHash },
     messages,
     scope,
     windowHash,
+    sourceBlockHash,
     scopedInputHash,
+    selectedCount,
   };
 }

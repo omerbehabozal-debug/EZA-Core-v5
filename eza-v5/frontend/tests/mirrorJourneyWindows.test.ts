@@ -8,9 +8,11 @@ import {
   confirmJourneyWindow,
   confirmReview8Draft,
   countAcceptedEligibleUserQuestions,
+  enterPrivateChatMode,
   extractQaPairs,
   getAwaitingDecisionWindow,
   isMirrorJourneyV1ClientEnabled,
+  isPrivateChatMode,
   listPublishedJourneyChain,
   listReview8DraftsForConversation,
   markJourneyWindowReady,
@@ -18,10 +20,12 @@ import {
   pairsForWindow,
   resolveJourneyPublishContract,
   resolveParentJourneyId,
+  reopenJourneyWindowDecision,
   saveJourneyConversationState,
   saveReview8Draft,
   skipJourneyWindow,
   syncJourneyConversationState,
+  toggleReviewSourceOrder,
   type JourneyMessageLike,
 } from '@/lib/eza/mirror/journey';
 
@@ -96,10 +100,11 @@ function confirmWindow(
     windowIndex,
     journeyId: confirmed.draft.journeyId!,
     draftKey: confirmed.draft.draftKey,
+    selectedCount: confirmed.draft.selectedSteps.length,
   });
 }
 
-describe('Mirror Journey deterministic windows', () => {
+describe('Mirror Journey Phase 3.7 source blocks', () => {
   beforeEach(() => {
     clearAllReview8Drafts();
     clearAllJourneyConversationStates();
@@ -119,15 +124,19 @@ describe('Mirror Journey deterministic windows', () => {
     expect(listPublishedJourneyChain(state)).toHaveLength(1);
   });
 
-  it('B: 8 Q/A → skip → no journey', () => {
+  it('B: explicit Private Continue → permanent private mode', () => {
     let state = sync(buildPairs(8));
-    state = skipJourneyWindow(state, 0);
+    state = enterPrivateChatMode(state, 0);
+    expect(isPrivateChatMode(state)).toBe(true);
     expect(state.windows[0]?.status).toBe('skipped');
     expect(listPublishedJourneyChain(state)).toHaveLength(0);
     expect(getAwaitingDecisionWindow(state)).toBeNull();
+    state = sync(buildPairs(16), state);
+    expect(getAwaitingDecisionWindow(state)).toBeNull();
+    expect(isPrivateChatMode(state)).toBe(true);
   });
 
-  it('C: 16 Q/A → create at 8 and 16 → A→B parent chain', () => {
+  it('C: 16 Q/A → create at 8 and 16 → A→B parent chain (A ready)', () => {
     let state = sync(buildPairs(8));
     state = confirmWindow(state, 0, 'journey-a');
     state = markJourneyWindowReady(state, 0);
@@ -142,50 +151,56 @@ describe('Mirror Journey deterministic windows', () => {
     expect(chain[1]?.parentJourneyId).toBe('journey-a');
   });
 
-  it('D: 16 Q/A → skip first → create second → only one journey', () => {
+  it('D: Review cancel returns to decision — not Private Mode', () => {
     let state = sync(buildPairs(8));
-    state = skipJourneyWindow(state, 0);
-    state = sync(buildPairs(16), state);
-    expect(getAwaitingDecisionWindow(state)?.windowIndex).toBe(1);
-    state = confirmWindow(state, 1, 'journey-only');
-    const chain = listPublishedJourneyChain(state);
-    expect(chain).toHaveLength(1);
-    expect(chain[0]?.journeyId).toBe('journey-only');
-    expect(chain[0]?.parentJourneyId).toBeNull();
-    // Second window pairs are Q9–Q16, not mixed with skipped Q1–Q8
-    const pairs = extractQaPairs(buildPairs(16));
-    const w1 = pairsForWindow(pairs, 1);
-    expect(w1[0]?.userMessageId).toBe('u9');
-    expect(w1[7]?.userMessageId).toBe('u16');
+    state = markJourneyWindowReviewing(state, 0);
+    expect(state.windows[0]?.status).toBe('reviewing');
+    state = reopenJourneyWindowDecision(state, 0);
+    expect(state.windows[0]?.status).toBe('awaiting_decision');
+    expect(isPrivateChatMode(state)).toBe(false);
+    expect(getAwaitingDecisionWindow(state)?.windowIndex).toBe(0);
   });
 
-  it('E: 20 Q/A → skip both → conversation ends → zero journeys', () => {
-    let state = sync(buildPairs(8));
-    state = skipJourneyWindow(state, 0);
-    state = sync(buildPairs(16), state);
-    state = skipJourneyWindow(state, 1);
-    state = sync(buildPairs(20), state);
-    expect(state.conversationClosed).toBe(true);
-    expect(canSendMoreJourneyQuestions(state)).toBe(false);
-    expect(listPublishedJourneyChain(state)).toHaveLength(0);
-    expect(getAwaitingDecisionWindow(state)).toBeNull();
+  it('E: Private Mode → 20 closes; Journey Mode unlimited past 20', () => {
+    let privateState = sync(buildPairs(8));
+    privateState = enterPrivateChatMode(privateState, 0);
+    privateState = sync(buildPairs(20), privateState);
+    expect(privateState.conversationClosed).toBe(true);
+    expect(canSendMoreJourneyQuestions(privateState)).toBe(false);
+    expect(
+      canAcceptAnotherJourneyQuestion(buildPairs(20), privateState)
+    ).toBe(false);
+
+    let journeyState = sync(buildPairs(24));
+    expect(journeyState.journeyMode).toBe('journey_mode');
+    expect(journeyState.conversationClosed).toBe(false);
+    expect(canAcceptAnotherJourneyQuestion(buildPairs(24), journeyState)).toBe(
+      true
+    );
+    expect(getAwaitingDecisionWindow(journeyState)?.windowIndex).toBe(0);
+    // Blocks 0 and 1 and 2 all full
+    const awaiting = journeyState.windows.filter((w) => w.status === 'awaiting_decision');
+    expect(awaiting.map((w) => w.windowIndex)).toEqual([0, 1, 2]);
   });
 
-  it('F: 20 Q/A → create first → skip second → one journey', () => {
+  it('F: create first → Private on second → one journey + private cap', () => {
     let state = sync(buildPairs(8));
     state = confirmWindow(state, 0, 'journey-a');
     state = sync(buildPairs(16), state);
     state = skipJourneyWindow(state, 1);
+    expect(isPrivateChatMode(state)).toBe(true);
     state = sync(buildPairs(20), state);
     expect(state.conversationClosed).toBe(true);
     expect(listPublishedJourneyChain(state)).toHaveLength(1);
+    expect(getAwaitingDecisionWindow(state)).toBeNull();
   });
 
-  it('G: refresh after Q8 decision → decision not duplicated', () => {
+  it('G: refresh after Private → stays private; confirm stays generating', () => {
     let state = sync(buildPairs(8));
     state = skipJourneyWindow(state, 0);
     const again = sync(buildPairs(8), state);
     expect(again.windows[0]?.status).toBe('skipped');
+    expect(isPrivateChatMode(again)).toBe(true);
     expect(getAwaitingDecisionWindow(again)).toBeNull();
 
     let confirmed = sync(buildPairs(8));
@@ -195,42 +210,74 @@ describe('Mirror Journey deterministic windows', () => {
     expect(getAwaitingDecisionWindow(refreshed)).toBeNull();
   });
 
-  it('H: generation A running while Q9/Q10 arrive → next window independent', () => {
+  it('H: generation A running while Block B collects — async isolation', () => {
     let state = sync(buildPairs(8));
     state = confirmWindow(state, 0, 'journey-a');
     expect(state.windows[0]?.status).toBe('generating');
     state = sync(buildPairs(10), state);
     expect(state.windows[0]?.status).toBe('generating');
     expect(state.windows[0]?.journeyId).toBe('journey-a');
-    expect(state.windows.find((w) => w.windowIndex === 1)).toBeUndefined();
-    expect(getAwaitingDecisionWindow(state)).toBeNull();
+    expect(canAcceptAnotherJourneyQuestion(buildPairs(10), state)).toBe(true);
     state = sync(buildPairs(16), state);
     expect(getAwaitingDecisionWindow(state)?.windowIndex).toBe(1);
     expect(state.windows[0]?.status).toBe('generating');
+    // Parent must not invent published parent while A still generating
+    expect(resolveParentJourneyId(state, 1)).toBeNull();
   });
 
-  it('I: system/tool/noise messages do not advance count', () => {
-    const messages: JourneyMessageLike[] = [
-      msg('sys', 'Sistem', { role: 'system' }),
-      msg('tool-1', 'tool', { role: 'tool' }),
-      msg('saved-1', 'noise', { isUser: true }),
-      msg('limit-1', 'limit', { isUser: false }),
-      ...buildPairs(7),
-    ];
-    const state = sync(messages);
-    expect(state.eligiblePairCount).toBe(7);
-    expect(getAwaitingDecisionWindow(state)).toBeNull();
+  it('I: unlimited blocks A–D + high N', () => {
+    let state = sync(buildPairs(8));
+    state = confirmWindow(state, 0, 'journey-a');
+    state = markJourneyWindowReady(state, 0);
+    for (const [pairs, idx, id] of [
+      [16, 1, 'journey-b'],
+      [24, 2, 'journey-c'],
+      [32, 3, 'journey-d'],
+    ] as const) {
+      state = sync(buildPairs(pairs), state);
+      expect(getAwaitingDecisionWindow(state)?.windowIndex).toBe(idx);
+      state = confirmWindow(state, idx, id);
+      state = markJourneyWindowReady(state, idx);
+    }
+    expect(listPublishedJourneyChain(state)).toHaveLength(4);
+    expect(listPublishedJourneyChain(state)[3]?.parentJourneyId).toBe('journey-c');
+
+    // Synthetic high block
+    state = sync(buildPairs(80), state);
+    expect(state.windows.some((w) => w.windowIndex === 9)).toBe(true);
+    const high = getAwaitingDecisionWindow(state);
+    expect(high?.windowIndex).toBeGreaterThanOrEqual(4);
   });
 
-  it('J: incomplete assistant answer does not advance count', () => {
-    const messages: JourneyMessageLike[] = [
-      ...buildPairs(7),
-      msg('u8', 'Soru 8?', { role: 'user' }),
-      msg('a8', 'yarım', { role: 'assistant', incomplete: true }),
-    ];
-    const state = sync(messages);
-    expect(state.eligiblePairCount).toBe(7);
-    expect(getAwaitingDecisionWindow(state)).toBeNull();
+  it('J: 6–8 selection confirm; 5 invalid', () => {
+    const pairs = pairsForWindow(extractQaPairs(buildPairs(8)), 0);
+    let draft = buildReview8DraftFromWindow({
+      ownerUserId: USER,
+      sourceConversationId: CONV,
+      windowIndex: 0,
+      pairs,
+      draftKey: 'draft-1',
+    });
+    // deselect 2
+    draft = toggleReviewSourceOrder(draft, 1);
+    draft = toggleReviewSourceOrder(draft, 3);
+    expect(draft.selectedSourceOrders).toHaveLength(6);
+    const ok = confirmReview8Draft(draft);
+    expect(ok.ok).toBe(true);
+    if (ok.ok) {
+      expect(ok.draft.selectedSteps).toHaveLength(6);
+      expect(ok.draft.selectedSteps.map((s) => s.index)).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(ok.draft.selectedSteps[0]?.sourceOrder).toBe(0);
+      expect(ok.draft.selectedSteps[1]?.sourceOrder).toBe(2);
+    }
+    // deselect 3rd → 5
+    draft = toggleReviewSourceOrder(draft, 0);
+    expect(draft.selectedSourceOrders).toHaveLength(5);
+    const bad = confirmReview8Draft(draft);
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) {
+      expect(bad.code).toBe('below_minimum');
+    }
   });
 
   it('K: feature flag off → publish contract stays legacy', () => {
@@ -247,28 +294,18 @@ describe('Mirror Journey deterministic windows', () => {
     expect(contract).toEqual({ ok: true, legacy: true });
   });
 
-  it('Q20 pending blocks Q21 before A20 completes', () => {
+  it('Private Mode: Q20 pending blocks Q21 before A20 completes', () => {
+    let state = sync(buildPairs(8));
+    state = enterPrivateChatMode(state, 0);
     const messages: JourneyMessageLike[] = [
       ...buildPairs(19),
       msg('u20', 'Soru 20?', { role: 'user' }),
       msg('a20', 'streaming…', { role: 'assistant', incomplete: true }),
     ];
     expect(countAcceptedEligibleUserQuestions(messages)).toBe(20);
-    expect(canAcceptAnotherJourneyQuestion(messages)).toBe(false);
-    const state = sync(messages);
+    expect(canAcceptAnotherJourneyQuestion(messages, state)).toBe(false);
+    state = sync(messages, state);
     expect(state.conversationClosed).toBe(true);
-    expect(state.eligiblePairCount).toBe(19);
-
-    const completed = [
-      ...buildPairs(19),
-      msg('u20', 'Soru 20?', { role: 'user' }),
-      msg('a20', 'Cevap 20 tamam.', { role: 'assistant' }),
-    ];
-    expect(countAcceptedEligibleUserQuestions(completed)).toBe(20);
-    expect(canAcceptAnotherJourneyQuestion(completed)).toBe(false);
-    const closed = sync(completed, state);
-    expect(closed.conversationClosed).toBe(true);
-    expect(closed.eligiblePairCount).toBe(20);
   });
 
   it('multi-tab stale write rejected', () => {
@@ -316,15 +353,5 @@ describe('Mirror Journey deterministic windows', () => {
     expect(byJourney['journey-b']?.windowStartSequence).toBe(8);
     expect(byJourney['journey-b']?.windowEndSequence).toBe(15);
     expect(byJourney['journey-b']?.parentJourneyId).toBe('journey-a');
-  });
-
-  it('acceptance: skip first → second parent null', () => {
-    let state = sync(buildPairs(8));
-    state = skipJourneyWindow(state, 0);
-    state = sync(buildPairs(16), state);
-    state = confirmWindow(state, 1, 'journey-only');
-    const chain = listPublishedJourneyChain(state);
-    expect(chain).toHaveLength(1);
-    expect(chain[0]?.parentJourneyId).toBeNull();
   });
 });

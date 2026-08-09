@@ -28,16 +28,22 @@ export type JourneyGenerationLineage = {
   windowIndex: number;
   windowStart: number;
   windowEnd: number;
+  /** Phase 3.7 aliases — same values as window* */
+  blockIndex?: number;
+  blockStart?: number;
+  blockEnd?: number;
   windowHash: string;
+  sourceBlockHash?: string | null;
   scopedInputHash: string;
   selectedStepsHash: string;
+  selectedCount?: number;
   interpretationHash: string;
   anchorsHash?: string | null;
   publicLandingHash: string;
   mappedPromptHash: string;
   generationId: string;
   sceneAssetId?: string | null;
-  /** Frozen 8 Q/A used for this generation — publish authority. */
+  /** Frozen 6–8 Q/A used for this generation — publish authority. */
   selectedSteps: JourneyGenerationLineageSelectedStep[];
   sealedAt: string;
 };
@@ -67,7 +73,7 @@ export function isPublishableJourneyGenerationLineage(
   if (!raw || typeof raw !== 'object') return false;
   const row = raw as JourneyGenerationLineagePartial;
   const steps = row.selectedSteps;
-  if (!Array.isArray(steps) || steps.length !== 8) return false;
+  if (!Array.isArray(steps) || steps.length < 6 || steps.length > 8) return false;
   return Boolean(
     asTrimmed(row.journeyId) &&
       Number(row.journeyVersion) >= 1 &&
@@ -127,11 +133,26 @@ export function sealJourneyGenerationLineage(input: {
   }
 
   const steps =
-    input.selectedSteps?.length === 8
+    Array.isArray(input.selectedSteps) &&
+    input.selectedSteps.length >= 6 &&
+    input.selectedSteps.length <= 8
       ? input.selectedSteps.map((s) => ({ ...s }))
-      : Array.isArray(existing.selectedSteps) && existing.selectedSteps.length === 8
+      : Array.isArray(existing.selectedSteps) &&
+          existing.selectedSteps.length >= 6 &&
+          existing.selectedSteps.length <= 8
         ? existing.selectedSteps.map((s) => ({ ...s }))
         : [];
+
+  const windowIndex =
+    typeof prep.windowIndex === 'number'
+      ? prep.windowIndex
+      : existing.windowIndex;
+  const windowStart =
+    typeof prep.windowStart === 'number'
+      ? prep.windowStart
+      : existing.windowStart;
+  const windowEnd =
+    typeof prep.windowEnd === 'number' ? prep.windowEnd : existing.windowEnd;
 
   return {
     contractVersion: JOURNEY_GENERATION_LINEAGE_VERSION,
@@ -143,21 +164,32 @@ export function sealJourneyGenerationLineage(input: {
       (prep.parentJourneyId as string | null | undefined) ??
       existing.parentJourneyId ??
       null,
-    windowIndex:
-      typeof prep.windowIndex === 'number'
-        ? prep.windowIndex
-        : existing.windowIndex,
-    windowStart:
-      typeof prep.windowStart === 'number'
-        ? prep.windowStart
-        : existing.windowStart,
-    windowEnd:
-      typeof prep.windowEnd === 'number' ? prep.windowEnd : existing.windowEnd,
+    windowIndex,
+    windowStart,
+    windowEnd,
+    blockIndex:
+      typeof prep.blockIndex === 'number'
+        ? prep.blockIndex
+        : existing.blockIndex ?? windowIndex,
+    blockStart:
+      typeof prep.blockStart === 'number'
+        ? prep.blockStart
+        : existing.blockStart ?? windowStart,
+    blockEnd:
+      typeof prep.blockEnd === 'number'
+        ? prep.blockEnd
+        : existing.blockEnd ?? windowEnd,
     windowHash: asTrimmed(prep.windowHash) || asTrimmed(existing.windowHash),
+    sourceBlockHash:
+      asTrimmed(prep.sourceBlockHash) || asTrimmed(existing.sourceBlockHash) || null,
     scopedInputHash:
       asTrimmed(prep.scopedInputHash) || asTrimmed(existing.scopedInputHash),
     selectedStepsHash:
       asTrimmed(prep.selectedStepsHash) || asTrimmed(existing.selectedStepsHash),
+    selectedCount:
+      typeof prep.selectedCount === 'number'
+        ? prep.selectedCount
+        : existing.selectedCount ?? (steps.length || undefined),
     interpretationHash:
       asTrimmed(input.interpretationHash) ||
       asTrimmed(prep.interpretationHash) ||

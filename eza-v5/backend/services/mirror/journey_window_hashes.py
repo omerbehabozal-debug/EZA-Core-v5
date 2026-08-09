@@ -43,9 +43,12 @@ def compute_answer_hash(answer: str) -> str:
 
 def compute_window_hash(steps: Sequence[Mapping[str, Any]]) -> str:
     """
-    windowHash = h{fnv32} over:
+    windowHash = h{fnv32} over selected steps:
       stepIndex|sourceUserMessageId|sourceAssistantMessageId|publicQuestion|publicAnswer
     (aligned with frontend computeReview8SnapshotHash using index/user/assistant ids).
+
+    Note: this fingerprints the *selection* package (6–8), not the full source block.
+    Use compute_source_block_hash for stable block identity across deselection.
     """
     lines: list[str] = []
     for step in steps:
@@ -58,6 +61,31 @@ def compute_window_hash(steps: Sequence[Mapping[str, Any]]) -> str:
         a = str(step.get("publicAnswer") or "")
         lines.append(f"{idx}|{user_id}|{asst_id}|{q}|{a}")
     return f"h{_fnv1a32_hex(chr(10).join(lines))}"
+
+
+def compute_source_block_hash(steps: Sequence[Mapping[str, Any]]) -> str:
+    """
+    sourceBlockHash = h{fnv32} over the complete source block of 8, keyed by sourceOrder:
+      sourceOrder|sourceUserMessageId|sourceAssistantMessageId|publicQuestion|publicAnswer
+
+    Same block + different deselection → identical sourceBlockHash.
+    Does not appear as raw Q/A in public Discover payloads — only the hash does.
+    """
+    ordered = sorted(
+        list(steps),
+        key=lambda step: int(step.get("sourceOrder") or 0),
+    )
+    lines: list[str] = []
+    for step in ordered:
+        order = step.get("sourceOrder")
+        user_id = step.get("sourceUserMessageId") or step.get("userMessageId") or ""
+        asst_id = (
+            step.get("sourceAssistantMessageId") or step.get("assistantMessageId") or ""
+        )
+        q = str(step.get("publicQuestion") or "")
+        a = str(step.get("publicAnswer") or "")
+        lines.append(f"{order}|{user_id}|{asst_id}|{q}|{a}")
+    return f"b{_fnv1a32_hex(chr(10).join(lines))}"
 
 
 def compute_selected_steps_hash(steps: Sequence[Mapping[str, Any]]) -> str:

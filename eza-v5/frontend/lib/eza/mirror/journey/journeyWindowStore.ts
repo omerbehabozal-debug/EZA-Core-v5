@@ -51,6 +51,8 @@ function normalizeLoaded(
         ? row.acceptedEligibleQuestionCount
         : row.eligiblePairCount ?? 0,
     stateVersion: typeof row.stateVersion === 'number' ? row.stateVersion : 0,
+    journeyMode:
+      row.journeyMode === 'private_chat_mode' ? 'private_chat_mode' : 'journey_mode',
   };
 }
 

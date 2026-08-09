@@ -74,6 +74,33 @@ export function loadJourneyGenerationArtifact(
   return row ? cloneJourneyGenerationLineage(row) : null;
 }
 
+/**
+ * Multi-artifact foundation (Phase 3.7) — ordered list for one source conversation.
+ * Does not build Ayna UI; only data isolation for coexisting Journey A/B/….
+ */
+export function listJourneyGenerationArtifactsForConversation(
+  ownerUserId: string | null | undefined,
+  sourceConversationId: string
+): JourneyGenerationLineage[] {
+  const owner = (ownerUserId || '').trim();
+  const conv = (sourceConversationId || '').trim();
+  if (!owner || !conv) return [];
+  const store = readStore();
+  const prefix = `${owner}::`;
+  const out: JourneyGenerationLineage[] = [];
+  for (const [key, value] of Object.entries(store)) {
+    if (!key.startsWith(prefix)) continue;
+    if (value.sourceConversationId !== conv) continue;
+    out.push(cloneJourneyGenerationLineage(value));
+  }
+  out.sort((a, b) => {
+    const bi = (a.blockIndex ?? a.windowIndex) - (b.blockIndex ?? b.windowIndex);
+    if (bi !== 0) return bi;
+    return a.journeyVersion - b.journeyVersion;
+  });
+  return out;
+}
+
 export function clearJourneyGenerationArtifactsForUser(
   ownerUserId: string | null | undefined
 ): void {

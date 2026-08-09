@@ -245,7 +245,7 @@ export default function StandaloneChatInner() {
     journeyV1On &&
     isAuthenticated &&
     (!canSendMoreJourneyQuestions(journeyState) ||
-      !canAcceptAnotherJourneyQuestion(journeyMessages));
+      !canAcceptAnotherJourneyQuestion(journeyMessages, journeyState));
   const composerDisabled = isMessageLimitReached || journeyClosed;
   const quotaHeaders = useMemo(() => buildSainaQuotaHeaders(), []);
   const { startStream, reset: resetStream } = useStreamResponse();

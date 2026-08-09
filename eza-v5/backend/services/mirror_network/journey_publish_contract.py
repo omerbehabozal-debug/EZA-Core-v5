@@ -13,6 +13,7 @@ from backend.services.mirror_network.journey_identity import (
 )
 from backend.services.mirror_network.journey_window_contract import (
     JOURNEY_STEP_COUNT,
+    block_range,
     normalize_selected_journey_steps,
     validate_journey_window_identity,
 )
@@ -68,10 +69,16 @@ def resolve_journey_publish_mode(
                 steps=steps,
             )
         else:
-            window = (
-                int(steps[0]["sourceOrder"] // JOURNEY_STEP_COUNT),
-                int(steps[0]["sourceOrder"]),
-                int(steps[-1]["sourceOrder"]),
+            # Infer deterministic source-block identity from first selected sourceOrder.
+            # Never invent a different block to make invalid subsets pass.
+            first_order = int(steps[0]["sourceOrder"])
+            inferred_index = first_order // JOURNEY_STEP_COUNT
+            inferred_start, inferred_end = block_range(inferred_index)
+            window = validate_journey_window_identity(
+                window_index=inferred_index,
+                window_start=inferred_start,
+                window_end=inferred_end,
+                steps=steps,
             )
         return "journey", journey_id, steps, window
 
