@@ -53,6 +53,12 @@ export type PrepareDirectorDraftResult = {
   finalInterpretation?: MirrorInterpretationV1 | unknown | null;
   /** d2_llm vs heuristic_fallback — never claim d2_llm for heuristic output. */
   interpretationSource?: 'd2_llm' | 'heuristic_fallback' | null;
+  /** Phase 3 Journey V1 scope provenance. */
+  semanticScope?: string | null;
+  semanticSourceJourneyId?: string | null;
+  semanticWindowIndex?: number | null;
+  semanticWindowHash?: string | null;
+  scopedInputHash?: string | null;
 };
 
 function isSeason(value: string): value is SainaMirrorSeason {
@@ -71,6 +77,10 @@ function applyD2Curiosity(
       kind?: string | null;
       speaker?: string | null;
     }> | null;
+    journeyProvenance?: {
+      journeyId: string;
+      windowHash: string;
+    } | null;
   }
 ): DailyMirrorCardModel {
   const semanticSource =
@@ -81,6 +91,7 @@ function applyD2Curiosity(
     locale: options?.locale,
     semanticSource,
     evidence: options?.evidence,
+    journeyProvenance: options?.journeyProvenance,
   });
   const payload = card.mirrorV3Payload
     ? {
@@ -256,6 +267,15 @@ export function applyDirectorPrepareToCard(
       locale,
       semanticSource,
       evidence,
+      journeyProvenance:
+        prepared.semanticScope === 'journey_window_v1' &&
+        prepared.semanticSourceJourneyId &&
+        prepared.semanticWindowHash
+          ? {
+              journeyId: prepared.semanticSourceJourneyId,
+              windowHash: prepared.semanticWindowHash,
+            }
+          : null,
     });
   }
 

@@ -264,6 +264,10 @@ export function buildPublicMirrorLandingFromInterpretation(
     evidence?: ReadonlyArray<SemanticAnchorEvidenceItem> | null;
     semanticAnchors?: MirrorSemanticAnchorsV1 | null;
     locale?: string | null;
+    journeyProvenance?: {
+      journeyId: string;
+      windowHash: string;
+    } | null;
   }
 ): PublicMirrorLanding {
   const anchors =
@@ -272,6 +276,7 @@ export function buildPublicMirrorLandingFromInterpretation(
       interpretation,
       evidence: options?.evidence,
       locale: options?.locale,
+      journeyProvenance: options?.journeyProvenance,
     });
 
   const curiosity = buildCuriosityCard({

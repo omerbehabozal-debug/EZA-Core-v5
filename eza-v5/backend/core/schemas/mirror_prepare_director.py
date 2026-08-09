@@ -34,6 +34,39 @@ class MirrorConversationMessageDTO(BaseModel):
         return text
 
 
+class MirrorJourneySelectedStepScopeDTO(BaseModel):
+    """Frozen selected step for Journey V1 scoped meaning (prepare)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stepIndex: int = Field(..., ge=1, le=8)
+    sourceOrder: int = Field(..., ge=0)
+    sourceUserMessageId: str = Field(..., min_length=1, max_length=128)
+    sourceAssistantMessageId: str = Field(..., min_length=1, max_length=128)
+    publicQuestion: str = Field(..., min_length=1)
+    publicAnswer: str = Field(..., min_length=1)
+
+
+class MirrorJourneySemanticScopeDTO(BaseModel):
+    """Phase 3 — explicit Journey window semantic scope for prepare/D2."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    semanticScope: Literal["journey_window_v1"] = "journey_window_v1"
+    journeyId: str = Field(..., min_length=1, max_length=64)
+    journeyVersion: int = Field(default=1, ge=1, le=10_000)
+    sourceConversationId: str = Field(..., min_length=1, max_length=128)
+    parentJourneyId: Optional[str] = Field(default=None, max_length=64)
+    windowIndex: int = Field(..., ge=0, le=1)
+    windowStart: int = Field(..., ge=0)
+    windowEnd: int = Field(..., ge=0)
+    windowHash: str = Field(..., min_length=1, max_length=128)
+    scopedInputHash: str = Field(..., min_length=1, max_length=128)
+    selectedSteps: List[MirrorJourneySelectedStepScopeDTO] = Field(
+        ..., min_length=8, max_length=8
+    )
+
+
 class MirrorPrepareDirectorDraftRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -42,6 +75,8 @@ class MirrorPrepareDirectorDraftRequest(BaseModel):
     title: Optional[str] = Field(default=None, max_length=160)
     messages: List[MirrorConversationMessageDTO] = Field(..., min_length=1, max_length=200)
     conversationSummary: Optional[str] = Field(default=None, max_length=400)
+    """When set, prepare/D2 must use only the confirmed Journey window (fail-closed)."""
+    journeySemanticScope: Optional[MirrorJourneySemanticScopeDTO] = None
 
 
 class MirrorV5MappedPrompt(BaseModel):
@@ -88,3 +123,9 @@ class MirrorPrepareDirectorDraftResponse(BaseModel):
     finalInterpretation: Optional[MirrorInterpretationV1] = None
     """Where finalInterpretation came from — never claim d2_llm for heuristic output."""
     interpretationSource: Optional[Literal["d2_llm", "heuristic_fallback"]] = None
+    """Phase 3 Journey V1 — semantic scope provenance (no private text)."""
+    semanticScope: Optional[str] = None
+    semanticSourceJourneyId: Optional[str] = None
+    semanticWindowIndex: Optional[int] = None
+    semanticWindowHash: Optional[str] = None
+    scopedInputHash: Optional[str] = None

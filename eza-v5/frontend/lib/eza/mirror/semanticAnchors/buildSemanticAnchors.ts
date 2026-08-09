@@ -312,6 +312,13 @@ export function buildSemanticAnchors(
     ...core,
     anchorsHash: hashAnchors(core),
     evidenceCount: stated.length,
+    ...(input.journeyProvenance
+      ? {
+          anchorsScope: 'journey_window_v1' as const,
+          journeyId: input.journeyProvenance.journeyId,
+          windowHash: input.journeyProvenance.windowHash,
+        }
+      : {}),
   };
 }
 

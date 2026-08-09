@@ -2,7 +2,7 @@
 
 Status: **implemented (window identity + parent modes + Q20 guard + CAS)**  
 Depends on: Phase 2 deterministic windows  
-Phase 3 Scoped D2: **not started**
+Phase 3 Scoped D2: **implemented** — see `journey-phase3-scoped-d2.md`
 
 ## Closure items
 

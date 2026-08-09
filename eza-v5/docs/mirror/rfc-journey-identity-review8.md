@@ -213,7 +213,7 @@ Every completed chronological 8 → user decision
         ↓
 Build publish-scoped message package = only those 8 Q/A
         ↓
-D1/D2 on scoped package only     ← Phase 3 (not yet)
+D1/D2 on scoped package only     ← Phase 3 (`journey-phase3-scoped-d2.md`)
         ↓
 Semantic Anchors
         ↓

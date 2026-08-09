@@ -56,6 +56,7 @@ export type MirrorSceneErrorCode =
   | 'prepare_failed'
   | 'd2_prompt_invalid'
   | 'd2_pipeline_required'
+  | 'journey_semantic_scope_invalid'
   | 'stale_generation'
   | 'rate_limit'
   | 'openai_insufficient_quota'

@@ -214,20 +214,60 @@ async def prepare_director_draft_endpoint(
     elif subject.guest_fingerprint:
         scope_key = f"guest:{subject.guest_fingerprint}"
 
+    journey_meta = None
+    if body.journeySemanticScope is not None:
+        from backend.services.mirror.journey_semantic_scope import (
+            append_journey_scope_key,
+            validate_journey_semantic_scope,
+        )
+
+        journey_meta = validate_journey_semantic_scope(
+            journey_scope=body.journeySemanticScope.model_dump(),
+            messages=[m.model_dump() for m in body.messages],
+        )
+        scope_key = append_journey_scope_key(scope_key, journey_meta)
+        emit_director_event(
+            "journey_semantic_scope_bound",
+            generationRequestId=body.generationRequestId[:48],
+            conversationId=body.conversationId[:48],
+            journeyId=str(journey_meta.get("journeyId") or "")[:48],
+            semanticScope=journey_meta.get("semanticScope"),
+            windowIndex=journey_meta.get("windowIndex"),
+            windowHash=str(journey_meta.get("windowHash") or "")[:48] or None,
+            scopedInputHash=str(journey_meta.get("scopedInputHash") or "")[:48] or None,
+            journeyVersion=journey_meta.get("journeyVersion"),
+        )
+
+    # Journey scoped prepare: messages alone are semantic input — ignore chat title/summary.
+    prepare_title = None if journey_meta is not None else body.title
+    prepare_summary = None if journey_meta is not None else body.conversationSummary
+
     result = await prepare_mirror_director_draft(
         conversation_id=body.conversationId,
         generation_request_id=body.generationRequestId,
         messages=list(body.messages),
-        title=body.title,
-        conversation_summary=body.conversationSummary,
+        title=prepare_title,
+        conversation_summary=prepare_summary,
         scope_key=scope_key,
     )
+    if journey_meta is not None:
+        result = result.model_copy(
+            update={
+                "semanticScope": journey_meta.get("semanticScope"),
+                "semanticSourceJourneyId": journey_meta.get("journeyId"),
+                "semanticWindowIndex": journey_meta.get("windowIndex"),
+                "semanticWindowHash": journey_meta.get("windowHash"),
+                "scopedInputHash": journey_meta.get("scopedInputHash"),
+            }
+        )
     if result.usedDirector and result.mappedPrompt:
         emit_director_event(
             "prepare_ready_for_image",
             generationRequestId=body.generationRequestId[:48],
             contentHash=result.contentHash,
             titleSource=result.mappedPrompt.titleSource,
+            semanticScope=result.semanticScope,
+            journeyId=(result.semanticSourceJourneyId or "")[:48] or None,
         )
     return result
 

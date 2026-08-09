@@ -26,6 +26,27 @@ export type PrepareDirectorDraftRequest = {
   messages: MirrorPrepareMessageDTO[];
   title?: string;
   conversationSummary?: string;
+  /** Phase 3 — when set, backend fail-closes unless messages match the window. */
+  journeySemanticScope?: {
+    semanticScope: 'journey_window_v1';
+    journeyId: string;
+    journeyVersion: number;
+    sourceConversationId: string;
+    parentJourneyId?: string | null;
+    windowIndex: number;
+    windowStart: number;
+    windowEnd: number;
+    windowHash: string;
+    scopedInputHash: string;
+    selectedSteps: Array<{
+      stepIndex: number;
+      sourceOrder: number;
+      sourceUserMessageId: string;
+      sourceAssistantMessageId: string;
+      publicQuestion: string;
+      publicAnswer: string;
+    }>;
+  };
 };
 
 export class MirrorPrepareError extends Error {
@@ -61,10 +82,15 @@ export async function prepareDirectorDraft(
   );
 
   if (!res.ok) {
-    throw new MirrorPrepareError(
-      'Director prepare başarısız oldu.',
-      'prepare_http_error'
-    );
+    const code =
+      (typeof res.error?.error_code === 'string' && res.error.error_code) ||
+      (typeof res.error?.error === 'string' && res.error.error) ||
+      'prepare_http_error';
+    const message =
+      (typeof res.error?.error_message === 'string' && res.error.error_message) ||
+      (typeof res.error?.message === 'string' && res.error.message) ||
+      'Director prepare başarısız oldu.';
+    throw new MirrorPrepareError(message, code);
   }
   try {
     // Prefer nested data / double-wrap via contract unwrap; reject soft shapes.

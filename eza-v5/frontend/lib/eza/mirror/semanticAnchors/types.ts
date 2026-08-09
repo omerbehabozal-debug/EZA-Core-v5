@@ -28,6 +28,10 @@ export type MirrorSemanticAnchorsV1 = {
   anchorsHash: string;
   /** How many user_stated evidence strings contributed. */
   evidenceCount: number;
+  /** Phase 3 Journey V1 provenance — not semantic content. */
+  anchorsScope?: 'journey_window_v1';
+  journeyId?: string;
+  windowHash?: string;
 };
 
 export type SemanticAnchorEvidenceItem = {
@@ -49,4 +53,9 @@ export type BuildSemanticAnchorsInput = {
   /** D1 factualGrounding / salientDetails — prefer user_stated. */
   evidence?: ReadonlyArray<SemanticAnchorEvidenceItem> | null;
   locale?: string | null;
+  /** Journey V1 provenance stamped onto anchors (does not affect hash). */
+  journeyProvenance?: {
+    journeyId: string;
+    windowHash: string;
+  } | null;
 };

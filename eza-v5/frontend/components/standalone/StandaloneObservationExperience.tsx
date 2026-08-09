@@ -70,7 +70,9 @@ import MirrorPosterLightbox from '@/components/mirror/MirrorPosterLightbox';
 import MirrorShareExperience from '@/components/mirror/MirrorShareExperience';
 import {
   isMirrorJourneyV1ClientEnabled,
+  loadActiveReview8Draft,
   resolveJourneyPublishContract,
+  resolveScopedJourneyMeaning,
 } from '@/lib/eza/mirror/journey';
 import UpgradeModal from '@/components/plan/UpgradeModal';
 import IdentityModal from '@/components/plan/IdentityModal';
@@ -940,18 +942,40 @@ export default function StandaloneObservationExperience({
         let shouldPrepare = false;
         let prepareMessages: ReturnType<typeof buildPrepareMessageDtos> = [];
         let archiveTitle: string | undefined;
+        let journeySemanticScope:
+          | import('@/lib/eza/mirror/journey').JourneySemanticScopePayload
+          | undefined;
         if (conversationId && !reuseMappedPrompt) {
           const archive = getChatArchive(conversationId);
           archiveTitle = archive?.title;
-          const live = getActiveConversationLiveMessages(conversationId);
-          const merged = [
-            ...(archive?.messages ?? []),
-            ...live.filter(
-              (m) => !(archive?.messages ?? []).some((a) => a.id === m.id)
-            ),
-          ];
-          prepareMessages = buildPrepareMessageDtos(merged);
-          shouldPrepare = prepareMessages.some((m) => m.role === 'user');
+
+          // Journey V1: meaning from confirmed 8-window only (fail-closed).
+          if (isMirrorJourneyV1ClientEnabled()) {
+            const ownerId = user?.user_id?.trim() || '';
+            const draft = ownerId
+              ? loadActiveReview8Draft(ownerId, conversationId)
+              : null;
+            const scoped = resolveScopedJourneyMeaning(draft);
+            if (!scoped.ok) {
+              throw new MirrorSceneError(
+                scoped.message || 'Yansı anlam kapsamı geçersiz.',
+                scoped.code
+              );
+            }
+            prepareMessages = scoped.messages;
+            journeySemanticScope = scoped.scope;
+            shouldPrepare = true;
+          } else {
+            const live = getActiveConversationLiveMessages(conversationId);
+            const merged = [
+              ...(archive?.messages ?? []),
+              ...live.filter(
+                (m) => !(archive?.messages ?? []).some((a) => a.id === m.id)
+              ),
+            ];
+            prepareMessages = buildPrepareMessageDtos(merged);
+            shouldPrepare = prepareMessages.some((m) => m.role === 'user');
+          }
         }
 
         // Defer React card update until after scene completes — avoids autoKey churn mid-flight.
@@ -969,7 +993,10 @@ export default function StandaloneObservationExperience({
               conversationId: conversationId!,
               generationRequestId,
               messages: prepareMessages,
-              title: archiveTitle,
+              // Journey V1: archive title must not alter scoped meaning.
+              ...(journeySemanticScope
+                ? { journeySemanticScope }
+                : { title: archiveTitle }),
             }),
           generate: async ({
             card,

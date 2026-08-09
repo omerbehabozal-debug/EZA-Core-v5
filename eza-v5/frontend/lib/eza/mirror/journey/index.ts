@@ -100,6 +100,19 @@ export {
   clearAllReview8Drafts,
 } from './review8DraftStore';
 
+export {
+  JOURNEY_SEMANTIC_SCOPE_V1,
+  computeJourneyWindowHash,
+  computeScopedJourneyInputHash,
+  buildScopedPrepareMessagesFromSteps,
+  confirmedJourneyWindowFromDraft,
+  resolveScopedJourneyMeaning,
+  type ConfirmedJourneyWindow,
+  type JourneySemanticScopePayload,
+  type ScopedJourneyMeaningOk,
+  type ScopedJourneyMeaningFail,
+} from './scopedJourneyMeaning';
+
 export { isMirrorJourneyV1ClientEnabled } from './journeyClientFlag';
 export {
   resolveJourneyPublishContract,

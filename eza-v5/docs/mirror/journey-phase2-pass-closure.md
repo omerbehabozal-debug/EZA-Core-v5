@@ -30,11 +30,13 @@ Product reset: supersedes Candidate 8 / best-8 as Journey V1 authority
 - topic-drift grouping as publish requirement
 - one draft / one Review 8 per conversation
 
-## Phase 3 boundary (do **not** implement yet)
+## Phase 3 boundary
 
-- Scoped D2
-- Semantic Anchors / Curiosity Builder / image / Narrative Alignment wiring from window
-- Replay progressive reveal
-- Vision changes
+Scoped D2 is implemented — see `journey-phase3-scoped-d2.md`.
 
-Confirmed 8 does **not** yet scope D1/D2 inputs.
+Still deferred:
+
+- Replay / progressive reveal
+- New Vision features beyond existing NA image claim detection
+
+Confirmed Review 8 windows now scope D1/D2 → Anchors → CB → image → NA claims.
