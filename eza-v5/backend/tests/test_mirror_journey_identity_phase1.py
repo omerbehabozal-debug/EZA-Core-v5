@@ -45,10 +45,17 @@ def _eight_steps(start: int = 0):
 
 
 def _attach_generation_lineage(payload: dict) -> dict:
-    """Phase 3.6 — journey publish requires authoritative generation lineage."""
+    """Phase 3.6/3.6b — lineage + server generation record for journey publish."""
     from backend.services.mirror.journey_generation_lineage import (
         build_journey_generation_lineage,
         recompute_hashes_from_steps,
+    )
+    from backend.services.mirror.journey_generation_record import (
+        upsert_journey_generation_record,
+    )
+    from backend.services.mirror.public_landing_hash import (
+        compute_public_landing_hash,
+        extract_public_landing_from_curiosity,
     )
 
     journey_id = str(payload.get("journeyId") or "").strip().lower()
@@ -58,6 +65,26 @@ def _attach_generation_lineage(payload: dict) -> dict:
     window_end = int(payload.get("windowEnd", 7))
     version = int(payload.get("journeyVersion") or 1)
     conv = str(payload.get("conversationId") or "conv-shared-1")
+    scene_asset_id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+    scene_url = (
+        f"https://api.test.eza.ai/api/public/mirror-scene-assets/{scene_asset_id}.png"
+    )
+    payload.setdefault("sceneImageUrl", scene_url)
+
+    bundle = dict(payload.get("curiosityBundle") or {})
+    if not isinstance(bundle.get("publicLanding"), dict):
+        bundle["publicLanding"] = {
+            "publicTitle": str(payload.get("cardTitle") or "Test Title"),
+            "publicSummary": "Test public summary for journey publish binding.",
+            "continuationContext": "Test continuation context.",
+            "contractVersion": "mirror-public-landing-v1",
+            "semanticSource": "d2_interpretation",
+        }
+        payload["curiosityBundle"] = bundle
+
+    landing_fields = extract_public_landing_from_curiosity(bundle)
+    landing_hash = compute_public_landing_hash(landing_fields)
+
     hashes = recompute_hashes_from_steps(
         journey_id=journey_id,
         journey_version=version,
@@ -67,6 +94,12 @@ def _attach_generation_lineage(payload: dict) -> dict:
         window_end=window_end,
         steps=steps,
     )
+    generation_id = str(
+        payload.get("generationId")
+        or f"gen-{journey_id}-v{version}"
+    )
+    interp = str(payload.get("interpretationHash") or "interp-test")
+    mapped = str(payload.get("mappedPromptHash") or "prompt-test")
     lineage = build_journey_generation_lineage(
         journey_id=journey_id,
         journey_version=version,
@@ -77,18 +110,30 @@ def _attach_generation_lineage(payload: dict) -> dict:
         window_hash=hashes["windowHash"],
         scoped_input_hash=hashes["scopedInputHash"],
         selected_steps_hash=hashes["selectedStepsHash"],
-        generation_id=str(
-            payload.get("generationId")
-            or ((payload.get("intelligencePrivate") or {})
-                .get("intelligenceBrief", {})
-                .get("mirrorLineage", {})
-                .get("generationId"))
-            or "gen-1"
-        ),
-        interpretation_hash=str(payload.get("interpretationHash") or "interp-test"),
-        public_landing_hash=str(payload.get("publicLandingHash") or "landing-test"),
-        mapped_prompt_hash=str(payload.get("mappedPromptHash") or "prompt-test"),
-        scene_asset_id=str(payload.get("sceneAssetId") or "scene-test"),
+        generation_id=generation_id,
+        interpretation_hash=interp,
+        public_landing_hash=landing_hash,
+        mapped_prompt_hash=mapped,
+        scene_asset_id=scene_asset_id,
+    )
+    upsert_journey_generation_record(
+        generation_id,
+        {
+            "journeyId": journey_id,
+            "journeyVersion": version,
+            "sourceConversationId": conv,
+            "windowIndex": window_index,
+            "windowStart": window_start,
+            "windowEnd": window_end,
+            "windowHash": hashes["windowHash"],
+            "scopedInputHash": hashes["scopedInputHash"],
+            "selectedStepsHash": hashes["selectedStepsHash"],
+            "interpretationHash": interp,
+            "mappedPromptHash": mapped,
+            "publicLandingHash": landing_hash,
+            "sceneAssetId": scene_asset_id,
+            "sceneImageUrl": scene_url,
+        },
     )
     payload.setdefault("journeyVersion", version)
     payload.setdefault("sourceConversationId", conv)
@@ -109,7 +154,10 @@ def _body(**extra) -> MirrorNetworkPublishRequest:
         "cardTitle": "Aile SUV Merakı",
         "cardDate": "2026-08-08",
         "conversationId": "conv-shared-1",
-        "sceneImageUrl": "https://cdn.example/mirror-scene.jpg",
+        "sceneImageUrl": (
+            "https://api.test.eza.ai/api/public/mirror-scene-assets/"
+            "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png"
+        ),
         "curiosityBundle": JAPAN_FIXTURE_BUNDLE,
         "intelligencePrivate": {
             "intelligenceBrief": {

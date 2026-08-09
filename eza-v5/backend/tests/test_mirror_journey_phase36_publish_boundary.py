@@ -396,13 +396,15 @@ def test_narrative_alignment_old_scene_rejects_new_scene():
                 "journeyId": "journey-a",
                 "journeyVersion": 1,
                 "windowHash": "hwindow",
-                "generationId": "gen-old",
+                "generationId": "gen-new",
                 "sceneAssetId": "scene-old",
                 "publicLandingHash": "landing-new",
             },
+            actual_scene_asset_id="scene-new",
+            actual_public_landing_hash="landing-new",
         )
     assert exc.value.detail["code"] == "journey_publish_lineage_mismatch"
-    assert exc.value.detail["reason"] == "generation_mismatch"
+    assert exc.value.detail["reason"] == "scene_asset_mismatch"
 
 
 def test_privacy_email_phone_token_private_marker():

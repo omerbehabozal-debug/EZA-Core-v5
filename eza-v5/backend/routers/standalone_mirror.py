@@ -161,6 +161,24 @@ async def generate_mirror_scene_endpoint(
             },
         )
 
+    # Phase 3.6b — bind scene asset to the same generationId used at prepare.
+    if body.generationRequestId:
+        from backend.services.mirror.journey_generation_record import (
+            bind_scene_asset_to_generation,
+            get_journey_generation_record,
+        )
+        from backend.services.mirror.scene_asset_identity import (
+            resolve_scene_asset_id_from_url,
+        )
+
+        asset_id = resolve_scene_asset_id_from_url(persisted_url)
+        if asset_id and get_journey_generation_record(body.generationRequestId):
+            bind_scene_asset_to_generation(
+                body.generationRequestId,
+                scene_asset_id=asset_id,
+                scene_image_url=persisted_url,
+            )
+
     await db.commit()
 
     return MirrorGenerateSceneResponse(
@@ -309,6 +327,27 @@ async def prepare_director_draft_endpoint(
             interpretation_hash=interp_hash,
             mapped_prompt_hash=mapped_hash,
             parent_journey_id=journey_meta.get("parentJourneyId"),
+        )
+        from backend.services.mirror.journey_generation_record import (
+            upsert_journey_generation_record,
+        )
+
+        upsert_journey_generation_record(
+            body.generationRequestId,
+            {
+                "journeyId": lineage["journeyId"],
+                "journeyVersion": lineage["journeyVersion"],
+                "sourceConversationId": lineage["sourceConversationId"],
+                "parentJourneyId": lineage.get("parentJourneyId"),
+                "windowIndex": lineage["windowIndex"],
+                "windowStart": lineage["windowStart"],
+                "windowEnd": lineage["windowEnd"],
+                "windowHash": lineage["windowHash"],
+                "scopedInputHash": lineage["scopedInputHash"],
+                "selectedStepsHash": lineage["selectedStepsHash"],
+                "interpretationHash": interp_hash,
+                "mappedPromptHash": mapped_hash,
+            },
         )
         result = result.model_copy(
             update={

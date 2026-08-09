@@ -346,6 +346,8 @@ async def publish_mirror_to_network(
     journey_step_original_hashes = None
     journey_publish_version: Optional[int] = None
     journey_selected_steps_hash: Optional[str] = None
+    actual_public_landing_hash: Optional[str] = None
+    actual_scene_asset_id: Optional[str] = None
     existing = None
     if use_journey_identity:
         assert journey_id is not None
@@ -452,20 +454,83 @@ async def publish_mirror_to_network(
         journey_publish_version = int(lineage_ok["publishVersion"])
         journey_selected_steps_hash = str(lineage_ok["selectedStepsHash"])
 
-        # Bind Narrative Alignment to the same generation/scene/landing when present.
+        # Phase 3.6b — prove actual payload against server-owned generation record.
+        from backend.services.mirror.journey_generation_lineage import (
+            validate_against_server_generation_record,
+        )
+        from backend.services.mirror.journey_generation_record import (
+            get_journey_generation_record,
+            seal_public_landing_on_generation,
+        )
+        from backend.services.mirror.public_landing_hash import (
+            compute_public_landing_hash,
+            extract_public_landing_from_curiosity,
+        )
+        from backend.services.mirror.scene_asset_identity import (
+            assert_journey_scene_url_acceptable,
+        )
+
+        landing_fields = extract_public_landing_from_curiosity(curiosity_bundle)
+        actual_public_landing_hash = compute_public_landing_hash(landing_fields)
+        try:
+            actual_scene_asset_id = assert_journey_scene_url_acceptable(incoming_scene)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "code": "journey_publish_lineage_mismatch",
+                    "reason": "scene_asset_mismatch",
+                    "message": "Journey V1 requires a valid Mirror scene asset URL",
+                },
+            ) from None
+
+        generation_id = str(lineage_ok.get("generationId") or "").strip()
+        server_record = get_journey_generation_record(generation_id)
+        binding = validate_against_server_generation_record(
+            claimed={
+                **claimed_lineage,
+                "interpretationHash": lineage_ok.get("interpretationHash"),
+                "mappedPromptHash": lineage_ok.get("mappedPromptHash"),
+                "publicLandingHash": lineage_ok.get("publicLandingHash"),
+                "generationId": generation_id,
+                "sceneAssetId": claimed_lineage.get("sceneAssetId")
+                or getattr(body, "sceneAssetId", None),
+                "windowHash": lineage_ok.get("windowHash"),
+                "scopedInputHash": lineage_ok.get("scopedInputHash"),
+                "selectedStepsHash": lineage_ok.get("selectedStepsHash"),
+                "journeyId": journey_id,
+                "journeyVersion": journey_publish_version,
+                "sourceConversationId": getattr(body, "sourceConversationId", None)
+                or claimed_lineage.get("sourceConversationId")
+                or conversation_id,
+            },
+            record=server_record,
+            actual_public_landing_hash=actual_public_landing_hash,
+            actual_scene_asset_id=actual_scene_asset_id,
+        )
+        # First verified publish seals landing onto the generation record.
+        if server_record is not None and not str(
+            server_record.get("publicLandingHash") or ""
+        ).strip():
+            seal_public_landing_on_generation(
+                generation_id, public_landing_hash=actual_public_landing_hash
+            )
+
+        # Bind Narrative Alignment to the same generation + actual payload.
         na_binding = _extract_narrative_alignment_binding(intelligence_private)
         validate_narrative_alignment_binding(
             claimed_lineage={
                 **claimed_lineage,
-                "sceneAssetId": claimed_lineage.get("sceneAssetId")
-                or getattr(body, "sceneAssetId", None),
-                "publicLandingHash": lineage_ok.get("publicLandingHash"),
-                "generationId": lineage_ok.get("generationId"),
+                "sceneAssetId": binding["sceneAssetId"],
+                "publicLandingHash": binding["publicLandingHash"],
+                "generationId": binding["generationId"],
                 "journeyId": journey_id,
                 "journeyVersion": journey_publish_version,
                 "windowHash": lineage_ok.get("windowHash"),
             },
             alignment=na_binding,
+            actual_scene_asset_id=actual_scene_asset_id,
+            actual_public_landing_hash=actual_public_landing_hash,
         )
 
         from backend.services.mirror.journey_step_sanitization import (
@@ -636,11 +701,13 @@ async def publish_mirror_to_network(
             or (_build_claimed_journey_generation_lineage(body).get("windowHash")),
             "scopedInputHash": getattr(body, "scopedInputHash", None),
             "interpretationHash": getattr(body, "interpretationHash", None),
-            "publicLandingHash": getattr(body, "publicLandingHash", None),
+            "publicLandingHash": actual_public_landing_hash
+            or getattr(body, "publicLandingHash", None),
             "mappedPromptHash": getattr(body, "mappedPromptHash", None),
             "generationId": getattr(body, "generationId", None)
             or incoming_lineage.get("generationId"),
-            "sceneAssetId": getattr(body, "sceneAssetId", None)
+            "sceneAssetId": actual_scene_asset_id
+            or getattr(body, "sceneAssetId", None)
             or incoming_lineage.get("sceneAssetId"),
         }
 

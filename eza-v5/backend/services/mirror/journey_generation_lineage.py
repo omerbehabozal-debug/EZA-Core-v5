@@ -281,6 +281,8 @@ def validate_narrative_alignment_binding(
     *,
     claimed_lineage: Mapping[str, Any],
     alignment: Mapping[str, Any] | None,
+    actual_scene_asset_id: str | None = None,
+    actual_public_landing_hash: str | None = None,
 ) -> None:
     if not alignment:
         return
@@ -289,7 +291,7 @@ def validate_narrative_alignment_binding(
         ("journeyId", "journey_mismatch"),
         ("journeyVersion", "version_mismatch"),
         ("windowHash", "window_mismatch"),
-        ("publicLandingHash", "landing_mismatch"),
+        ("publicLandingHash", "public_landing_hash_mismatch"),
     ):
         a = _norm(alignment.get(key))
         c = _norm(claimed_lineage.get(key))
@@ -302,6 +304,133 @@ def validate_narrative_alignment_binding(
     scene_c = _norm(claimed_lineage.get("sceneAssetId"))
     if scene_a and scene_c and scene_a != scene_c:
         raise _lineage_mismatch(
-            "generation_mismatch",
+            "scene_asset_mismatch",
             "Narrative Alignment sceneAssetId does not match generation lineage",
         )
+    actual_scene = _norm(actual_scene_asset_id)
+    if scene_a and actual_scene and scene_a != actual_scene:
+        raise _lineage_mismatch(
+            "scene_asset_mismatch",
+            "Narrative Alignment sceneAssetId does not match actual scene URL",
+        )
+    align_landing = _norm(alignment.get("publicLandingHash"))
+    actual_landing = _norm(actual_public_landing_hash)
+    if align_landing and actual_landing and align_landing != actual_landing:
+        raise _lineage_mismatch(
+            "public_landing_hash_mismatch",
+            "Narrative Alignment publicLandingHash does not match actual landing",
+        )
+
+
+def validate_against_server_generation_record(
+    *,
+    claimed: Mapping[str, Any],
+    record: Mapping[str, Any] | None,
+    actual_public_landing_hash: str,
+    actual_scene_asset_id: str,
+) -> dict[str, Any]:
+    """
+    generationId → server-owned JourneyGenerationRecord is the join key.
+    Prompt/interpretation hashes come from the record, not frontend claims alone.
+    """
+    generation_id = _norm(claimed.get("generationId"))
+    if not generation_id:
+        raise _lineage_mismatch("generation_mismatch", "generationId required")
+    if not record:
+        raise _lineage_mismatch(
+            "generation_mismatch",
+            "Unknown or expired generationId — regenerate before publish",
+        )
+    record_gid = _norm(record.get("generationId"))
+    if record_gid != generation_id:
+        raise _lineage_mismatch("generation_mismatch", "generationId record mismatch")
+
+    for key, reason in (
+        ("journeyId", "journey_mismatch"),
+        ("journeyVersion", "version_mismatch"),
+        ("sourceConversationId", "conversation_mismatch"),
+        ("windowHash", "window_mismatch"),
+        ("scopedInputHash", "steps_hash_mismatch"),
+        ("selectedStepsHash", "steps_hash_mismatch"),
+    ):
+        claimed_val = _norm(claimed.get(key))
+        record_val = _norm(record.get(key))
+        if record_val and claimed_val and record_val != claimed_val:
+            raise _lineage_mismatch(
+                reason, f"{key} does not match server generation record"
+            )
+        if record_val and not claimed_val:
+            raise _lineage_mismatch(
+                reason, f"{key} missing on lineage but present on generation record"
+            )
+
+    record_interp = _norm(record.get("interpretationHash"))
+    claimed_interp = _norm(claimed.get("interpretationHash"))
+    if not record_interp:
+        raise _lineage_mismatch(
+            "interpretation_mismatch",
+            "Server generation record missing interpretationHash",
+        )
+    if claimed_interp != record_interp:
+        raise _lineage_mismatch(
+            "interpretation_mismatch",
+            "interpretationHash does not match server generation record",
+        )
+
+    record_prompt = _norm(record.get("mappedPromptHash"))
+    claimed_prompt = _norm(claimed.get("mappedPromptHash"))
+    if not record_prompt:
+        raise _lineage_mismatch(
+            "prompt_mismatch",
+            "Server generation record missing mappedPromptHash",
+        )
+    if claimed_prompt != record_prompt:
+        raise _lineage_mismatch(
+            "prompt_mismatch",
+            "mappedPromptHash does not match server generation record",
+        )
+
+    claimed_landing = _norm(claimed.get("publicLandingHash"))
+    if actual_public_landing_hash != claimed_landing:
+        raise _lineage_mismatch(
+            "public_landing_hash_mismatch",
+            "Actual public landing does not match sealed lineage publicLandingHash",
+        )
+    record_landing = _norm(record.get("publicLandingHash"))
+    if record_landing and record_landing != actual_public_landing_hash:
+        raise _lineage_mismatch(
+            "public_landing_hash_mismatch",
+            "Actual public landing does not match server generation record",
+        )
+
+    claimed_scene = _norm(claimed.get("sceneAssetId"))
+    if not actual_scene_asset_id:
+        raise _lineage_mismatch(
+            "scene_asset_mismatch",
+            "Journey V1 requires a Mirror scene asset URL",
+        )
+    if claimed_scene and claimed_scene != actual_scene_asset_id:
+        raise _lineage_mismatch(
+            "scene_asset_mismatch",
+            "Actual scene URL does not match lineage sceneAssetId",
+        )
+    record_scene = _norm(record.get("sceneAssetId"))
+    if record_scene and record_scene != actual_scene_asset_id:
+        raise _lineage_mismatch(
+            "scene_asset_mismatch",
+            "Actual scene URL does not match server generation record sceneAssetId",
+        )
+    if claimed_scene and record_scene and claimed_scene != record_scene:
+        raise _lineage_mismatch(
+            "scene_asset_mismatch",
+            "Lineage sceneAssetId does not match server generation record",
+        )
+
+    return {
+        "generationId": generation_id,
+        "interpretationHash": record_interp,
+        "mappedPromptHash": record_prompt,
+        "publicLandingHash": actual_public_landing_hash,
+        "sceneAssetId": actual_scene_asset_id,
+        "record": dict(record),
+    }

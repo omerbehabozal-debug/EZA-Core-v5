@@ -61,11 +61,13 @@ async def replace_journey_steps_for_version(
     steps: Sequence[Mapping[str, Any]],
     original_hashes: Sequence[Mapping[str, str]] | None = None,
     selected_steps_hash: str | None = None,
+    require_selected_steps_hash: bool = True,
 ) -> None:
     """Replace all steps for (slug, version). Caller must already validate length/shape.
 
-    Same-version replace is allowed only when the incoming authoritative
-    selectedStepsHash matches the previously stored lineage hash (idempotent retry).
+    Journey V1: selected_steps_hash is mandatory. Same-version replace is allowed
+    only when the incoming authoritative selectedStepsHash matches the previously
+    stored lineage hash (idempotent retry).
     """
     slug = (journey_slug or "").strip().lower()
     version = int(journey_version or 1)
@@ -73,6 +75,15 @@ async def replace_journey_steps_for_version(
         return
 
     incoming_hash = str(selected_steps_hash or "").strip() or None
+    if require_selected_steps_hash and not incoming_hash:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "journey_publish_lineage_mismatch",
+                "reason": "steps_hash_mismatch",
+                "message": "selectedStepsHash is required for Journey V1 step writes",
+            },
+        )
     existing_hash = await get_lineage_selected_steps_hash_for_version(
         db, journey_slug=slug, journey_version=version
     )
@@ -86,6 +97,15 @@ async def replace_journey_steps_for_version(
                     "Same journeyVersion cannot replace steps with a different "
                     "selectedStepsHash"
                 ),
+            },
+        )
+    if existing_hash and not incoming_hash:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "journey_publish_lineage_mismatch",
+                "reason": "steps_hash_mismatch",
+                "message": "Cannot replace existing Journey steps without selectedStepsHash",
             },
         )
 
