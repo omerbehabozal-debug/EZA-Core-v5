@@ -232,7 +232,7 @@ export function confirmReview8Draft(draft: Review8Draft): ConfirmReview8Result {
       ? [...draft.selectedSourceOrders]
       : draft.selectedSteps.map((s) => s.sourceOrder);
 
-  const uniqueOrders = [...new Set(selectedOrders)].sort((a, b) => a - b);
+  const uniqueOrders = Array.from(new Set(selectedOrders)).sort((a, b) => a - b);
   if (uniqueOrders.length < JOURNEY_SELECTED_MIN) {
     return {
       ok: false,
@@ -316,7 +316,7 @@ export function toggleReviewSourceOrder(
   } else {
     current.add(sourceOrder);
   }
-  const orders = [...current].sort((a, b) => a - b);
+  const orders = Array.from(current).sort((a, b) => a - b);
   const selectedPairs = orders
     .map((o) => block.find((p) => p.sourceOrder === o)!)
     .filter(Boolean);
