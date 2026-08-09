@@ -172,6 +172,16 @@ export interface DailyMirrorCardModel {
   mirrorFinalInterpretation?: import('@/lib/eza/mirror/mirrorInterpretationTypes').MirrorInterpretationV1 | null;
   /** Phase 0 — which semantic authority currently backs publish curiosity. */
   mirrorSemanticSource?: import('@/lib/eza/mirror-network/types').MirrorCuriositySemanticSource;
+  /** Phase 3.5 — Journey mapped-prompt reuse lineage (not public landing). */
+  mirrorJourneyLineage?: {
+    semanticScope: 'journey_window_v1';
+    journeyId: string;
+    journeyVersion: number;
+    windowHash: string;
+    scopedInputHash: string;
+    interpretationHash?: string | null;
+    mapperVersion?: string | null;
+  } | null;
 }
 
 export interface RelationshipPatternModel {

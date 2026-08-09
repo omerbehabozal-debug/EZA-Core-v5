@@ -73,6 +73,7 @@ import {
   loadActiveReview8Draft,
   resolveJourneyPublishContract,
   resolveScopedJourneyMeaning,
+  canReuseMappedPromptForJourney,
 } from '@/lib/eza/mirror/journey';
 import UpgradeModal from '@/components/plan/UpgradeModal';
 import IdentityModal from '@/components/plan/IdentityModal';
@@ -935,7 +936,7 @@ export default function StandaloneObservationExperience({
       });
 
       try {
-        const reuseMappedPrompt =
+        const reuseMappedPromptRequested =
           Boolean(options?.reuseMappedPrompt) &&
           hasPinnedMappedMirrorPrompt(cardForScene);
 
@@ -945,7 +946,9 @@ export default function StandaloneObservationExperience({
         let journeySemanticScope:
           | import('@/lib/eza/mirror/journey').JourneySemanticScopePayload
           | undefined;
-        if (conversationId && !reuseMappedPrompt) {
+        let reuseMappedPrompt = reuseMappedPromptRequested;
+
+        if (conversationId) {
           const archive = getChatArchive(conversationId);
           archiveTitle = archive?.title;
 
@@ -962,10 +965,18 @@ export default function StandaloneObservationExperience({
                 scoped.code
               );
             }
-            prepareMessages = scoped.messages;
-            journeySemanticScope = scoped.scope;
-            shouldPrepare = true;
-          } else {
+            reuseMappedPrompt =
+              reuseMappedPromptRequested &&
+              canReuseMappedPromptForJourney({
+                card: cardForScene,
+                scope: scoped.scope,
+              });
+            if (!reuseMappedPrompt) {
+              prepareMessages = scoped.messages;
+              journeySemanticScope = scoped.scope;
+              shouldPrepare = true;
+            }
+          } else if (!reuseMappedPrompt) {
             const live = getActiveConversationLiveMessages(conversationId);
             const merged = [
               ...(archive?.messages ?? []),

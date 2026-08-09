@@ -11,6 +11,10 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.mirror_network import MirrorJourneyStep
+from backend.services.mirror.journey_window_hashes import (
+    compute_answer_hash,
+    compute_question_hash,
+)
 
 
 def _text_hash(value: str) -> str:
@@ -23,6 +27,7 @@ async def replace_journey_steps_for_version(
     journey_slug: str,
     journey_version: int,
     steps: Sequence[Mapping[str, Any]],
+    original_hashes: Sequence[Mapping[str, str]] | None = None,
 ) -> None:
     """Replace all steps for (slug, version). Caller must already validate length/shape."""
     slug = (journey_slug or "").strip().lower()
@@ -36,7 +41,7 @@ async def replace_journey_steps_for_version(
             MirrorJourneyStep.journey_version == version,
         )
     )
-    for row in steps:
+    for i, row in enumerate(steps):
         step_index = int(row.get("stepIndex") if row.get("stepIndex") is not None else row["index"])
         question = str(row["publicQuestion"])
         answer = str(row["publicAnswer"])
@@ -47,6 +52,23 @@ async def replace_journey_steps_for_version(
             row.get("sourceAssistantMessageId") or row.get("assistantMessageId") or ""
         ) or None
         source_order = row.get("sourceOrder")
+        q_hash = str(row.get("questionHash") or "") or compute_question_hash(question)
+        a_hash = str(row.get("answerHash") or "") or compute_answer_hash(answer)
+        flags = row.get("sanitizationFlags")
+        if not isinstance(flags, list):
+            flags = None
+        orig = None
+        if original_hashes and i < len(original_hashes):
+            orig = original_hashes[i]
+        sanitization_payload = None
+        if flags or orig:
+            sanitization_payload = {
+                "flags": flags or [],
+                "originalQuestionHash": (orig or {}).get("questionHash"),
+                "originalAnswerHash": (orig or {}).get("answerHash"),
+                "publicQuestionHash": q_hash,
+                "publicAnswerHash": a_hash,
+            }
         db.add(
             MirrorJourneyStep(
                 id=uuid4(),
@@ -58,8 +80,9 @@ async def replace_journey_steps_for_version(
                 source_assistant_message_id=assistant_id,
                 public_question=question,
                 public_answer=answer,
-                question_hash=_text_hash(question),
-                answer_hash=_text_hash(answer),
+                question_hash=q_hash or _text_hash(question),
+                answer_hash=a_hash or _text_hash(answer),
+                sanitization_flags=sanitization_payload,
             )
         )
     await db.commit()

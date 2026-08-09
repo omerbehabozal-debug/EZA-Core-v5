@@ -36,8 +36,9 @@ export type PrepareDirectorDraftRequest = {
     windowIndex: number;
     windowStart: number;
     windowEnd: number;
-    windowHash: string;
-    scopedInputHash: string;
+    windowHash?: string;
+    scopedInputHash?: string;
+    selectedStepsHash?: string;
     selectedSteps: Array<{
       stepIndex: number;
       sourceOrder: number;

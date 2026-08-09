@@ -17,6 +17,8 @@ import {
   type MirrorInterpretationV1,
 } from '@/lib/eza/mirror/mirrorInterpretationTypes';
 import { buildCuriosityFromInterpretation } from '@/lib/eza/mirror-network/buildCuriosityFromInterpretation';
+import { interpretationHashSync } from '@/lib/eza/mirror/mirrorLineageHash';
+import { JOURNEY_MAPPER_VERSION_V5 } from '@/lib/eza/mirror/journey/canReuseMappedPromptForJourney';
 
 export type PrepareDirectorMappedPrompt = {
   title: string;
@@ -59,6 +61,8 @@ export type PrepareDirectorDraftResult = {
   semanticWindowIndex?: number | null;
   semanticWindowHash?: string | null;
   scopedInputHash?: string | null;
+  selectedStepsHash?: string | null;
+  journeyVersion?: number | null;
 };
 
 function isSeason(value: string): value is SainaMirrorSeason {
@@ -277,6 +281,29 @@ export function applyDirectorPrepareToCard(
             }
           : null,
     });
+  }
+
+  if (
+    prepared.semanticScope === 'journey_window_v1' &&
+    prepared.semanticSourceJourneyId &&
+    prepared.semanticWindowHash &&
+    prepared.scopedInputHash
+  ) {
+    const interpretationHash = isMirrorInterpretationV1(prepared.finalInterpretation)
+      ? interpretationHashSync(prepared.finalInterpretation)
+      : null;
+    next = {
+      ...next,
+      mirrorJourneyLineage: {
+        semanticScope: 'journey_window_v1',
+        journeyId: prepared.semanticSourceJourneyId,
+        journeyVersion: prepared.journeyVersion ?? 1,
+        windowHash: prepared.semanticWindowHash,
+        scopedInputHash: prepared.scopedInputHash,
+        interpretationHash,
+        mapperVersion: JOURNEY_MAPPER_VERSION_V5,
+      },
+    };
   }
 
   return next;

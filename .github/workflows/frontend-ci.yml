@@ -62,6 +62,7 @@ jobs:
           tests/mirrorJourneyWindows.test.ts
           tests/mirrorJourneyScopedD2.test.ts
           tests/mirrorJourneyScopedD2LivePrepare.test.ts
+          tests/mirrorJourneyPhase35Reuse.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-

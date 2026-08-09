@@ -84,4 +84,6 @@ export type Review8Draft = {
   windowStartSequence?: number;
   windowEndSequence?: number;
   parentJourneyId?: string | null;
+  /** Authoritative journey version for prepare/publish lineage (default 1). */
+  journeyVersion?: number;
 };

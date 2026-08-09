@@ -8,7 +8,6 @@ Privacy: Q9 marker SECRET_PERSON_42 never enters scoped prepare.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from typing import Any
@@ -113,14 +112,21 @@ def _messages_from_steps(steps: list[dict[str, Any]]) -> list[MirrorConversation
 
 
 def _scope_payload(steps: list[dict[str, Any]]) -> dict[str, Any]:
-    window_hash = "w" + hashlib.sha256(
-        "|".join(f"{s['publicQuestion']}|{s['publicAnswer']}" for s in steps).encode(
-            "utf-8"
-        )
-    ).hexdigest()[:16]
-    scoped_input_hash = "s" + hashlib.sha256(
-        json.dumps(steps, ensure_ascii=False, sort_keys=True).encode("utf-8")
-    ).hexdigest()[:16]
+    from backend.services.mirror.journey_window_hashes import (
+        compute_scoped_input_hash,
+        compute_window_hash,
+    )
+
+    window_hash = compute_window_hash(steps)
+    scoped_input_hash = compute_scoped_input_hash(
+        journey_id="journey-bmw-live",
+        journey_version=1,
+        source_conversation_id="conv-live-scoped",
+        window_index=0,
+        window_start=0,
+        window_end=7,
+        steps=steps,
+    )
     return {
         "semanticScope": JOURNEY_SEMANTIC_SCOPE_V1,
         "journeyId": "journey-bmw-live",
@@ -374,6 +380,8 @@ async def test_live_prepare_fixture_matches_runner_output():
     assert loaded["finalInterpretation"] == payload["finalInterpretation"]
     assert loaded["mappedPrompt"] == payload["mappedPrompt"]
     assert loaded["scopedMessages"] == payload["scopedMessages"]
+    assert loaded["windowHash"] == meta["windowHash"]
+    assert loaded["scopedInputHash"] == meta["scopedInputHash"]
     _assert_no_outside_leak(json.dumps(loaded, ensure_ascii=False), label="fixture")
 
 

@@ -221,9 +221,31 @@ async def prepare_director_draft_endpoint(
             validate_journey_semantic_scope,
         )
 
+        existing_published_version = None
+        journey_slug = str(body.journeySemanticScope.journeyId or "").strip().lower()
+        if (
+            subject.is_authenticated
+            and actor.user is not None
+            and journey_slug
+        ):
+            from backend.services.mirror_network.repository import (
+                get_mirror_network_node_by_slug_for_user,
+            )
+
+            existing_node = await get_mirror_network_node_by_slug_for_user(
+                db,
+                user_id=actor.user.id,
+                slug=journey_slug,
+            )
+            if existing_node is not None:
+                existing_published_version = int(
+                    getattr(existing_node, "journey_version", None) or 1
+                )
+
         journey_meta = validate_journey_semantic_scope(
             journey_scope=body.journeySemanticScope.model_dump(),
             messages=[m.model_dump() for m in body.messages],
+            existing_published_version=existing_published_version,
         )
         scope_key = append_journey_scope_key(scope_key, journey_meta)
         emit_director_event(
@@ -235,6 +257,8 @@ async def prepare_director_draft_endpoint(
             windowIndex=journey_meta.get("windowIndex"),
             windowHash=str(journey_meta.get("windowHash") or "")[:48] or None,
             scopedInputHash=str(journey_meta.get("scopedInputHash") or "")[:48] or None,
+            selectedStepsHash=str(journey_meta.get("selectedStepsHash") or "")[:48]
+            or None,
             journeyVersion=journey_meta.get("journeyVersion"),
         )
 
@@ -258,6 +282,8 @@ async def prepare_director_draft_endpoint(
                 "semanticWindowIndex": journey_meta.get("windowIndex"),
                 "semanticWindowHash": journey_meta.get("windowHash"),
                 "scopedInputHash": journey_meta.get("scopedInputHash"),
+                "selectedStepsHash": journey_meta.get("selectedStepsHash"),
+                "journeyVersion": journey_meta.get("journeyVersion"),
             }
         )
     if result.usedDirector and result.mappedPrompt:

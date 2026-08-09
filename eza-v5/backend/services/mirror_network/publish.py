@@ -293,6 +293,26 @@ async def publish_mirror_to_network(
     window_start = window_tuple[1] if window_tuple else None
     window_end = window_tuple[2] if window_tuple else None
 
+    journey_step_original_hashes = None
+    if use_journey_identity and normalized_steps is not None:
+        from backend.services.mirror.journey_step_sanitization import (
+            sanitize_selected_journey_steps,
+        )
+
+        sanitized = sanitize_selected_journey_steps(normalized_steps)
+        if sanitized.get("status") == "blocked":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "code": "journey_step_privacy_blocked",
+                    "message": sanitized.get("blockedReason")
+                    or "Selected steps require privacy review before publish.",
+                    "flags": sanitized.get("flags") or [],
+                },
+            )
+        normalized_steps = sanitized.get("steps") or normalized_steps
+        journey_step_original_hashes = sanitized.get("originalHashes")
+
     existing = None
     if use_journey_identity:
         assert journey_id is not None
@@ -604,5 +624,6 @@ async def publish_mirror_to_network(
             journey_slug=record.slug,
             journey_version=int(getattr(node, "journey_version", None) or 1),
             steps=normalized_steps,
+            original_hashes=journey_step_original_hashes,
         )
     return node_to_public_payload(record)

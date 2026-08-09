@@ -113,6 +113,13 @@ export {
   type ScopedJourneyMeaningFail,
 } from './scopedJourneyMeaning';
 
+export {
+  canReuseMappedPromptForJourney,
+  readJourneyPromptLineage,
+  JOURNEY_MAPPER_VERSION_V5,
+  type MirrorJourneyPromptLineage,
+} from './canReuseMappedPromptForJourney';
+
 export { isMirrorJourneyV1ClientEnabled } from './journeyClientFlag';
 export {
   resolveJourneyPublishContract,

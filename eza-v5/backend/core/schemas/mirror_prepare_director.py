@@ -60,8 +60,12 @@ class MirrorJourneySemanticScopeDTO(BaseModel):
     windowIndex: int = Field(..., ge=0, le=1)
     windowStart: int = Field(..., ge=0)
     windowEnd: int = Field(..., ge=0)
-    windowHash: str = Field(..., min_length=1, max_length=128)
-    scopedInputHash: str = Field(..., min_length=1, max_length=128)
+    """Client debug only — server recomputes and is authoritative."""
+    windowHash: Optional[str] = Field(default=None, max_length=128)
+    """Client debug only — server recomputes and is authoritative."""
+    scopedInputHash: Optional[str] = Field(default=None, max_length=128)
+    """Client debug only — server recomputes and is authoritative."""
+    selectedStepsHash: Optional[str] = Field(default=None, max_length=128)
     selectedSteps: List[MirrorJourneySelectedStepScopeDTO] = Field(
         ..., min_length=8, max_length=8
     )
@@ -129,3 +133,5 @@ class MirrorPrepareDirectorDraftResponse(BaseModel):
     semanticWindowIndex: Optional[int] = None
     semanticWindowHash: Optional[str] = None
     scopedInputHash: Optional[str] = None
+    selectedStepsHash: Optional[str] = None
+    journeyVersion: Optional[int] = None

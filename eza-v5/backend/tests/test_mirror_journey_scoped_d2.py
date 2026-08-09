@@ -51,8 +51,7 @@ def _scope(start: int = 0, **extra):
         "windowIndex": 0 if start == 0 else 1,
         "windowStart": start,
         "windowEnd": start + 7,
-        "windowHash": "h-test",
-        "scopedInputHash": "s-test",
+        # Omit client hashes — server recomputes (Phase 3.5 authority).
         "selectedSteps": steps,
     }
     payload.update(extra)

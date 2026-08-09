@@ -130,7 +130,10 @@ export function confirmedJourneyWindowFromDraft(
     windowStart: draft.windowStartSequence,
     windowEnd: draft.windowEndSequence,
     selectedSteps: draft.selectedSteps,
-    journeyVersion: 1,
+    journeyVersion:
+      typeof draft.journeyVersion === 'number' && draft.journeyVersion >= 1
+        ? draft.journeyVersion
+        : 1,
     draftKey: draft.draftKey,
     snapshotHash: draft.snapshotHash,
   };
