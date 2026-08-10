@@ -175,8 +175,10 @@ export {
   markMirrorJourneyArtifactPublished,
   markMirrorJourneyArtifactPublishFailed,
   markMirrorJourneyArtifactFailed,
+  patchMirrorJourneyArtifactMetrics,
   clearMirrorJourneyArtifactsForUser,
   clearAllMirrorJourneyArtifactsForTests,
+  subscribeMirrorJourneyArtifactStore,
   MIRROR_JOURNEY_ARTIFACT_PANEL_STORAGE_KEY,
   type SaveMirrorJourneyArtifactResult,
 } from './mirrorJourneyArtifactStore';
@@ -187,6 +189,16 @@ export {
 } from './resolveJourneyArtifactShareIdentity';
 
 export { completeJourneyGenerationLineageSeal } from './completeJourneyGenerationLineageSeal';
+
+export {
+  buildPublishCardFromArtifact,
+  artifactMatchesLiveCard,
+} from './buildPublishCardFromArtifact';
+
+export {
+  resolveAuthorDisplayName,
+  formatParentLineageLabel,
+} from './aynaAuthorDisplay';
 
 export { isMirrorJourneyV1ClientEnabled } from './journeyClientFlag';
 export {

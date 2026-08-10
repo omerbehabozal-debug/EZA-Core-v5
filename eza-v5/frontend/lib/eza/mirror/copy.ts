@@ -48,8 +48,12 @@ export const MIRROR_SHARE_PUBLISH_CONSENT_CANCEL = 'Vazgeç';
 export const MIRROR_JOURNEY_DECISION_BODY = '8 soruluk bir Yansı hazır.';
 export const MIRROR_JOURNEY_DECISION_CREATE = 'Yansı oluştur ve devam et';
 export const MIRROR_JOURNEY_DECISION_SKIP = 'Yansı oluşturmadan devam et';
-export const MIRROR_JOURNEY_STATUS_GENERATING = 'Yansı hazırlanıyor…';
-export const MIRROR_JOURNEY_STATUS_READY = 'Yansı hazır';
+export const MIRROR_JOURNEY_STATUS_GENERATING = 'Hazırlanıyor';
+export const MIRROR_JOURNEY_STATUS_READY = 'Hazır';
+export const MIRROR_AYNA_STATUS_PUBLISHED = 'Yayında';
+export const MIRROR_AYNA_EMPTY_TITLE = 'Henüz Yansı yok';
+export const MIRROR_AYNA_EMPTY_BODY =
+  'Bu sohbetten dünyaya açılan Yansıların burada birer birer görünecek.';
 export const MIRROR_JOURNEY_CONVERSATION_CLOSED =
   'Bu başlıkta sohbet sınırına ulaştınız.';
 

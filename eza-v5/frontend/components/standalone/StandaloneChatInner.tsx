@@ -27,11 +27,13 @@ import {
   extractQaPairs,
   getAwaitingDecisionWindow,
   isMirrorJourneyV1ClientEnabled,
+  loadMirrorJourneyArtifact,
   markJourneyWindowReady,
   markJourneyWindowReviewing,
   markMirrorJourneyArtifactGenerating,
   pairsForWindow,
   reopenJourneyWindowDecision,
+  resolveAuthorDisplayName,
   resolveParentJourneyId,
   saveJourneyConversationState,
   skipJourneyWindow,
@@ -693,12 +695,48 @@ export default function StandaloneChatInner() {
         selectedCount: draft.selectedSteps?.length,
       });
       persistJourneyMutation(next);
+      const parentJourneyId = resolveParentJourneyId(
+        next,
+        windowIndex
+      );
+      let parentSlug: string | null = null;
+      let parentAuthorDisplayName: string | null = null;
+      let parentPublicTitle: string | null = null;
+      if (parentJourneyId && journeyOwnerId) {
+        const parentArtifact = loadMirrorJourneyArtifact(
+          journeyOwnerId,
+          parentJourneyId,
+          1
+        );
+        // Navigate only to a published parent identity — never leak private parent metadata.
+        parentSlug =
+          parentArtifact?.status === 'published'
+            ? parentArtifact.publish.slug?.trim().toLowerCase() ||
+              parentJourneyId
+            : null;
+        parentAuthorDisplayName =
+          parentArtifact?.authorDisplayName?.trim() || null;
+        parentPublicTitle =
+          parentArtifact?.status === 'published'
+            ? parentArtifact.publicTitle?.trim() || null
+            : null;
+      }
       markMirrorJourneyArtifactGenerating(journeyOwnerId, {
         journeyId: draft.journeyId,
         journeyVersion: draft.journeyVersion ?? 1,
         sourceConversationId: draft.sourceConversationId || chatId || '',
         blockIndex: draft.windowIndex ?? windowIndex,
         selectedCount: draft.selectedSteps?.length,
+        authorUserId: journeyOwnerId || null,
+        authorDisplayName: resolveAuthorDisplayName({
+          fullName: user?.full_name,
+          email: user?.email,
+          userId: journeyOwnerId,
+        }),
+        parentJourneyId,
+        parentSlug,
+        parentAuthorDisplayName,
+        parentPublicTitle,
       });
       setJourneyReviewOpen(false);
       setJourneyReviewWindowIndex(null);
@@ -712,7 +750,7 @@ export default function StandaloneChatInner() {
         });
       }, 0);
     },
-    [journeyState, journeyReviewWindowIndex, persistJourneyMutation, journeyOwnerId, chatId]
+    [journeyState, journeyReviewWindowIndex, persistJourneyMutation, journeyOwnerId, chatId, user]
   );
 
   const sainaConversations = useMemo(

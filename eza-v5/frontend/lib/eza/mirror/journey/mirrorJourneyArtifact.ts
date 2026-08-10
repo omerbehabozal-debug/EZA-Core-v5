@@ -62,6 +62,33 @@ export type MirrorJourneyArtifact = {
   /** Immutable sealed lineage when ready/published; may be null while generating. */
   sealedLineage: JourneyGenerationLineage | null;
 
+  /**
+   * Snapshot of public landing at seal time — enables artifact-scoped publish
+   * when the live card has moved on to another Journey.
+   */
+  sealedPublicLanding?: {
+    publicTitle: string;
+    publicSummary: string;
+    continuationContext: string;
+    topicCategory?: string;
+    semanticSource?: string;
+    interpretationHash?: string;
+    publicLandingHash?: string;
+    contractVersion?: string;
+    semanticAnchors?: Record<string, unknown> | null;
+  } | null;
+
+  /** Author of THIS artifact — not inferred from live session at render time. */
+  authorUserId?: string | null;
+  authorDisplayName?: string | null;
+  authorAvatarUrl?: string | null;
+
+  /** Parent Yansı attribution (curiosity lineage — separate from author). */
+  parentJourneyId?: string | null;
+  parentSlug?: string | null;
+  parentAuthorDisplayName?: string | null;
+  parentPublicTitle?: string | null;
+
   /** Leave undefined until real metrics exist. */
   experienceCount?: number;
   childYansiCount?: number;
@@ -129,6 +156,13 @@ export function buildGeneratingMirrorJourneyArtifact(input: {
   blockIndex: number;
   generationId?: string | null;
   selectedCount?: number;
+  authorUserId?: string | null;
+  authorDisplayName?: string | null;
+  authorAvatarUrl?: string | null;
+  parentJourneyId?: string | null;
+  parentSlug?: string | null;
+  parentAuthorDisplayName?: string | null;
+  parentPublicTitle?: string | null;
   now?: string;
 }): MirrorJourneyArtifact {
   const now = input.now || new Date().toISOString();
@@ -143,6 +177,13 @@ export function buildGeneratingMirrorJourneyArtifact(input: {
     status: 'generating',
     publish: {},
     sealedLineage: null,
+    authorUserId: input.authorUserId?.trim() || null,
+    authorDisplayName: input.authorDisplayName?.trim() || null,
+    authorAvatarUrl: input.authorAvatarUrl?.trim() || null,
+    parentJourneyId: input.parentJourneyId?.trim().toLowerCase() || null,
+    parentSlug: input.parentSlug?.trim().toLowerCase() || null,
+    parentAuthorDisplayName: input.parentAuthorDisplayName?.trim() || null,
+    parentPublicTitle: input.parentPublicTitle?.trim() || null,
     createdAt: now,
     updatedAt: now,
     stateVersion: 0,
@@ -155,6 +196,7 @@ export function buildReadyMirrorJourneyArtifactFromLineage(input: {
   publicTitle?: string | null;
   publicSummary?: string | null;
   continuationContext?: string | null;
+  sealedPublicLanding?: MirrorJourneyArtifact['sealedPublicLanding'];
   alignmentStatus?: string | null;
   existing?: MirrorJourneyArtifact | null;
   now?: string;
@@ -163,6 +205,7 @@ export function buildReadyMirrorJourneyArtifactFromLineage(input: {
   const now = input.now || new Date().toISOString();
   const existing = input.existing;
   const wasPublished = existing?.status === 'published';
+  const landing = input.sealedPublicLanding ?? existing?.sealedPublicLanding ?? null;
   return {
     journeyId: input.lineage.journeyId,
     journeyVersion: input.lineage.journeyVersion,
@@ -187,6 +230,29 @@ export function buildReadyMirrorJourneyArtifactFromLineage(input: {
     alignmentStatus: input.alignmentStatus ?? existing?.alignmentStatus ?? null,
     generationError: null,
     sealedLineage: cloneJourneyGenerationLineage(input.lineage),
+    sealedPublicLanding: landing
+      ? {
+          publicTitle: landing.publicTitle,
+          publicSummary: landing.publicSummary,
+          continuationContext: landing.continuationContext,
+          topicCategory: landing.topicCategory,
+          semanticSource: landing.semanticSource,
+          interpretationHash: landing.interpretationHash,
+          publicLandingHash: landing.publicLandingHash,
+          contractVersion: landing.contractVersion,
+          semanticAnchors: landing.semanticAnchors ?? null,
+        }
+      : null,
+    authorUserId: existing?.authorUserId ?? null,
+    authorDisplayName: existing?.authorDisplayName ?? null,
+    authorAvatarUrl: existing?.authorAvatarUrl ?? null,
+    parentJourneyId:
+      existing?.parentJourneyId ||
+      input.lineage.parentJourneyId ||
+      null,
+    parentSlug: existing?.parentSlug ?? null,
+    parentAuthorDisplayName: existing?.parentAuthorDisplayName ?? null,
+    parentPublicTitle: existing?.parentPublicTitle ?? null,
     experienceCount: existing?.experienceCount,
     childYansiCount: existing?.childYansiCount,
     createdAt: existing?.createdAt || now,

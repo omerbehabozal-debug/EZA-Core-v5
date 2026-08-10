@@ -5998,3 +5998,137 @@ html:has(.saina-page) body {
 .saina-auth-link:hover {
   text-decoration: underline;
 }
+
+/* Phase 3.8 — Ayna vertical Yansý reel */
+.ayna-journey-reel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  gap: 0;
+  width: 100%;
+}
+
+.ayna-journey-reel--empty {
+  scroll-snap-type: none;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ayna-journey-slide {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  flex: 0 0 auto;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 0.35rem 0.15rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.ayna-journey-slide__inner {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ayna-journey-slide__card {
+  flex: 0 0 auto;
+}
+
+.ayna-journey-slide__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0 0.15rem;
+}
+
+.ayna-journey-slide__title {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  color: rgba(246, 244, 239, 0.96);
+}
+
+.ayna-journey-slide__summary {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: rgba(217, 196, 163, 0.78);
+}
+
+.ayna-journey-slide__status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ayna-journey-slide__metrics {
+  margin: 0;
+  font-size: 0.65rem;
+  color: rgba(217, 196, 163, 0.7);
+}
+
+.ayna-journey-slide__skeleton,
+.ayna-journey-slide__failed {
+  display: flex;
+  min-height: 12rem;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+}
+
+.ayna-journey-slide__skeleton-visual {
+  min-height: 8.5rem;
+  border-radius: 1rem;
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(231, 180, 91, 0.08) 45%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ayna-journey-slide__skeleton-visual {
+    animation: ayna-skel-shine 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes ayna-skel-shine {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Mobile rail: taller snap slides within available open panel height */
+.saina-mobile-mirror-rail .ayna-journey-slide {
+  min-height: min(48vh, 380px);
+}
+
+.saina-mirror-panel-experience:has(.ayna-journey-reel) {
+  overflow: hidden;
+  padding: 0;
+}
+
+.saina-mirror-panel-experience .ayna-journey-reel {
+  padding: 0.35rem 0.55rem 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ayna-journey-reel {
+    scroll-snap-type: y proximity;
+  }
+}

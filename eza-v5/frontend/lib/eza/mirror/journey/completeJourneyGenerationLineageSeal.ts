@@ -34,6 +34,21 @@ function persistReadyPanelArtifact(
     publicTitle: landing?.publicTitle ?? null,
     publicSummary: landing?.publicSummary ?? null,
     continuationContext: landing?.continuationContext ?? null,
+    sealedPublicLanding: landing
+      ? {
+          publicTitle: landing.publicTitle,
+          publicSummary: landing.publicSummary,
+          continuationContext: landing.continuationContext,
+          topicCategory: landing.topicCategory,
+          semanticSource: landing.semanticSource,
+          interpretationHash: landing.interpretationHash,
+          publicLandingHash: landing.publicLandingHash,
+          contractVersion: landing.contractVersion,
+          semanticAnchors: landing.semanticAnchors
+            ? (landing.semanticAnchors as unknown as Record<string, unknown>)
+            : null,
+        }
+      : null,
   });
 }
 

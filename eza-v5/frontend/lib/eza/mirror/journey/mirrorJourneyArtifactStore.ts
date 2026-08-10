@@ -65,8 +65,25 @@ function readStore(): PanelStore {
   }
 }
 
+const artifactStoreListeners = new Set<() => void>();
+
 function writeStore(store: PanelStore): void {
   storage()?.setItem(MIRROR_JOURNEY_ARTIFACT_PANEL_STORAGE_KEY, JSON.stringify(store));
+  artifactStoreListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch {
+      /* ignore listener errors */
+    }
+  });
+}
+
+/** Phase 3.8 — notify Ayna reel when panel artifacts change (same-tab). */
+export function subscribeMirrorJourneyArtifactStore(listener: () => void): () => void {
+  artifactStoreListeners.add(listener);
+  return () => {
+    artifactStoreListeners.delete(listener);
+  };
 }
 
 export function loadMirrorJourneyArtifact(
@@ -185,12 +202,24 @@ export function upsertMirrorJourneyArtifact(
               }
             : next.publish,
         sealedLineage: next.sealedLineage || existing.sealedLineage,
+        sealedPublicLanding:
+          next.sealedPublicLanding ?? existing.sealedPublicLanding,
         publicTitle: next.publicTitle ?? existing.publicTitle,
         publicSummary: next.publicSummary ?? existing.publicSummary,
         continuationContext:
           next.continuationContext ?? existing.continuationContext,
         sceneImageUrl: next.sceneImageUrl ?? existing.sceneImageUrl,
         sceneAssetId: next.sceneAssetId ?? existing.sceneAssetId,
+        authorUserId: next.authorUserId ?? existing.authorUserId,
+        authorDisplayName: next.authorDisplayName ?? existing.authorDisplayName,
+        authorAvatarUrl: next.authorAvatarUrl ?? existing.authorAvatarUrl,
+        parentJourneyId: next.parentJourneyId ?? existing.parentJourneyId,
+        parentSlug: next.parentSlug ?? existing.parentSlug,
+        parentAuthorDisplayName:
+          next.parentAuthorDisplayName ?? existing.parentAuthorDisplayName,
+        parentPublicTitle: next.parentPublicTitle ?? existing.parentPublicTitle,
+        experienceCount: next.experienceCount ?? existing.experienceCount,
+        childYansiCount: next.childYansiCount ?? existing.childYansiCount,
       }
     : next;
   const saved = saveMirrorJourneyArtifact(owner, merged);
@@ -206,6 +235,13 @@ export function markMirrorJourneyArtifactGenerating(
     blockIndex: number;
     generationId?: string | null;
     selectedCount?: number;
+    authorUserId?: string | null;
+    authorDisplayName?: string | null;
+    authorAvatarUrl?: string | null;
+    parentJourneyId?: string | null;
+    parentSlug?: string | null;
+    parentAuthorDisplayName?: string | null;
+    parentPublicTitle?: string | null;
   }
 ): MirrorJourneyArtifact | null {
   const existing = loadMirrorJourneyArtifact(
@@ -233,6 +269,7 @@ export function markMirrorJourneyArtifactReadyFromLineage(
     publicTitle?: string | null;
     publicSummary?: string | null;
     continuationContext?: string | null;
+    sealedPublicLanding?: MirrorJourneyArtifact['sealedPublicLanding'];
     alignmentStatus?: string | null;
   }
 ): MirrorJourneyArtifact | null {
@@ -310,6 +347,36 @@ export function markMirrorJourneyArtifactFailed(
   );
   if (!existing) return null;
   const next = applyGenerationFailureToArtifact(existing, input.message);
+  return upsertMirrorJourneyArtifact(ownerUserId, next);
+}
+
+export function patchMirrorJourneyArtifactMetrics(
+  ownerUserId: string | null | undefined,
+  input: {
+    journeyId: string;
+    journeyVersion: number;
+    experienceCount?: number;
+    childYansiCount?: number;
+  }
+): MirrorJourneyArtifact | null {
+  const existing = loadMirrorJourneyArtifact(
+    ownerUserId,
+    input.journeyId,
+    input.journeyVersion
+  );
+  if (!existing) return null;
+  const next: MirrorJourneyArtifact = {
+    ...existing,
+    experienceCount:
+      typeof input.experienceCount === 'number'
+        ? input.experienceCount
+        : existing.experienceCount,
+    childYansiCount:
+      typeof input.childYansiCount === 'number'
+        ? input.childYansiCount
+        : existing.childYansiCount,
+    updatedAt: new Date().toISOString(),
+  };
   return upsertMirrorJourneyArtifact(ownerUserId, next);
 }
 

@@ -75,7 +75,26 @@ import {
   resolveScopedJourneyMeaning,
   canReuseMappedPromptForJourney,
   completeJourneyGenerationLineageSeal,
+  listJourneyArtifactsForConversation,
+  subscribeMirrorJourneyArtifactStore,
+  resolveJourneyArtifactShareIdentity,
+  buildPublishCardFromArtifact,
+  patchMirrorJourneyArtifactMetrics,
+  markMirrorJourneyArtifactPublished,
+  markMirrorJourneyArtifactPublishFailed,
 } from '@/lib/eza/mirror/journey';
+import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
+import AynaJourneyReel from '@/components/mirror/ayna/AynaJourneyReel';
+import {
+  authorProfilePath,
+  parentChildrenPath,
+} from '@/lib/eza/mirror-network/fetchAuthorPublished';
+import { fetchMirrorImpact } from '@/lib/eza/mirror-network/fetchMirrorImpact';
+import {
+  MIRROR_AYNA_EMPTY_BODY,
+  MIRROR_AYNA_EMPTY_TITLE,
+} from '@/lib/eza/mirror/copy';
+import type { AynaJourneySlideActions } from '@/components/mirror/ayna/AynaJourneySlide';
 import UpgradeModal from '@/components/plan/UpgradeModal';
 import IdentityModal from '@/components/plan/IdentityModal';
 import type { MirrorPanelCopy } from '@/lib/eza/mirror/resolveMirrorPanelCopy';
@@ -120,10 +139,6 @@ import {
   saveMirrorShareLink,
   saveMirrorShareLinkForJourney,
 } from '@/lib/eza/mirror-share/mirrorShareLinkCache';
-import {
-  markMirrorJourneyArtifactPublished,
-  markMirrorJourneyArtifactPublishFailed,
-} from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
 import { isPublishableJourneyGenerationLineage } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
 import {
   applyShareUrlToCard,
@@ -182,6 +197,13 @@ export default function StandaloneObservationExperience({
   const [shareLinkStatus, setShareLinkStatus] = useState<MirrorShareLinkStatus>('idle');
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
   const [publishBusy, setPublishBusy] = useState(false);
+  const [publishBusyJourneyId, setPublishBusyJourneyId] = useState<string | null>(
+    null
+  );
+  const [shareBusyJourneyId, setShareBusyJourneyId] = useState<string | null>(null);
+  const [artifactRevision, setArtifactRevision] = useState(0);
+  const [shareTargetArtifact, setShareTargetArtifact] =
+    useState<MirrorJourneyArtifact | null>(null);
   const [sharePublishConsentOpen, setSharePublishConsentOpen] = useState(false);
   const [posterLightboxOpen, setPosterLightboxOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
@@ -1576,31 +1598,6 @@ export default function StandaloneObservationExperience({
     requireConfirmedReview8OrOpen,
   ]);
 
-  const handleConfirmSharePublish = useCallback(async () => {
-    if (!generatedDailyCard) return;
-    if (!requireConfirmedReview8OrOpen()) {
-      setSharePublishConsentOpen(false);
-      return;
-    }
-    setSharePublishConsentOpen(false);
-    setPublishBusy(true);
-    try {
-      const ok = await prepareMirrorShareLink(generatedDailyCard, sceneImageUrl, {
-        refreshScene: true,
-      });
-      if (!ok) return;
-      openShareExperience();
-    } finally {
-      setPublishBusy(false);
-    }
-  }, [
-    generatedDailyCard,
-    prepareMirrorShareLink,
-    sceneImageUrl,
-    openShareExperience,
-    requireConfirmedReview8OrOpen,
-  ]);
-
   const handlePosterPreviewOpen = useCallback(() => {
     if (!sceneImageUrl?.trim()) return;
     setPosterLightboxOpen(true);
@@ -1621,6 +1618,228 @@ export default function StandaloneObservationExperience({
       );
     }
   }, [mirrorExport, generatedDailyCard, conversationId]);
+
+  const journeyV1PanelOn = isMirrorJourneyV1ClientEnabled();
+
+  useEffect(() => {
+    if (!journeyV1PanelOn) return;
+    return subscribeMirrorJourneyArtifactStore(() => {
+      setArtifactRevision((n) => n + 1);
+    });
+  }, [journeyV1PanelOn]);
+
+  const journeyArtifacts = useMemo(() => {
+    if (!journeyV1PanelOn || !conversationId || !shareCacheUserId) return [];
+    void artifactRevision;
+    return listJourneyArtifactsForConversation(shareCacheUserId, conversationId);
+  }, [journeyV1PanelOn, conversationId, shareCacheUserId, artifactRevision]);
+
+  const useAynaJourneyReel =
+    journeyV1PanelOn && Boolean(conversationId) && Boolean(shareCacheUserId);
+
+  /** Hydrate real metrics for published artifacts only — never invent. */
+  useEffect(() => {
+    if (!useAynaJourneyReel || !shareCacheUserId) return;
+    let cancelled = false;
+    void (async () => {
+      for (const artifact of journeyArtifacts) {
+        if (artifact.status !== 'published') continue;
+        const slug = artifact.publish.slug?.trim();
+        if (!slug) continue;
+        if (
+          typeof artifact.childYansiCount === 'number' &&
+          typeof artifact.experienceCount === 'number'
+        ) {
+          continue;
+        }
+        const impact = await fetchMirrorImpact(slug);
+        if (cancelled || !impact.ok) continue;
+        const patch: {
+          journeyId: string;
+          journeyVersion: number;
+          experienceCount?: number;
+          childYansiCount?: number;
+        } = {
+          journeyId: artifact.journeyId,
+          journeyVersion: artifact.journeyVersion,
+        };
+        // Only verified experiences count as experienceCount.
+        if (
+          impact.data.continuationStartsVerified &&
+          typeof impact.data.continuationStarts === 'number'
+        ) {
+          patch.experienceCount = impact.data.continuationStarts;
+        }
+        if (typeof impact.data.yansiCount === 'number') {
+          patch.childYansiCount = impact.data.yansiCount;
+        }
+        patchMirrorJourneyArtifactMetrics(shareCacheUserId, patch);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [useAynaJourneyReel, journeyArtifacts, shareCacheUserId]);
+
+  const prepareArtifactShareLink = useCallback(
+    async (
+      artifact: MirrorJourneyArtifact,
+      options?: { refreshScene?: boolean; openShareAfter?: boolean }
+    ): Promise<boolean> => {
+      if (!isAuthReady || !isAuthenticated) {
+        setIdentityOpen(true);
+        return false;
+      }
+      const card = buildPublishCardFromArtifact({
+        artifact,
+        liveCard: generatedDailyCard,
+      });
+      if (!card) {
+        setShareLinkError(
+          'Bu Yansı için yayınlanabilir içerik henüz hazır değil.'
+        );
+        return false;
+      }
+      setPublishBusyJourneyId(artifact.journeyId);
+      setPublishBusy(true);
+      try {
+        const ok = await prepareMirrorShareLink(
+          card,
+          artifact.sceneImageUrl || sceneImageUrl,
+          { refreshScene: options?.refreshScene }
+        );
+        if (ok && options?.openShareAfter) {
+          setShareTargetArtifact(artifact);
+          openShareExperience();
+        }
+        return ok;
+      } finally {
+        setPublishBusy(false);
+        setPublishBusyJourneyId(null);
+      }
+    },
+    [
+      isAuthReady,
+      isAuthenticated,
+      generatedDailyCard,
+      prepareMirrorShareLink,
+      sceneImageUrl,
+      openShareExperience,
+    ]
+  );
+
+  const aynaReelActions = useMemo<AynaJourneySlideActions>(
+    () => ({
+      onPublish: (artifact) => {
+        void prepareArtifactShareLink(artifact, { refreshScene: true });
+      },
+      onShare: (artifact) => {
+        if (!isPlus) {
+          setUpgradeOpen(true);
+          return;
+        }
+        if (!isAuthenticated) {
+          setIdentityOpen(true);
+          return;
+        }
+        const identity = resolveJourneyArtifactShareIdentity({
+          ownerUserId: shareCacheUserId,
+          journeyId: artifact.journeyId,
+          journeyVersion: artifact.journeyVersion,
+          conversationId,
+          allowConversationLegacyFallback: false,
+        });
+        if (identity?.shareUrl) {
+          setShareTargetArtifact(artifact);
+          setShareBusyJourneyId(artifact.journeyId);
+          openShareExperience();
+          setShareBusyJourneyId(null);
+          return;
+        }
+        setSharePublishConsentOpen(true);
+        setShareTargetArtifact(artifact);
+      },
+      onOpenDiscover: (artifact) => {
+        const identity = resolveJourneyArtifactShareIdentity({
+          ownerUserId: shareCacheUserId,
+          journeyId: artifact.journeyId,
+          journeyVersion: artifact.journeyVersion,
+          conversationId,
+          allowConversationLegacyFallback: false,
+        });
+        const slug =
+          identity?.slug?.trim() || artifact.publish.slug?.trim() || null;
+        if (!slug) return;
+        router.push(`/m/${encodeURIComponent(slug)}`);
+      },
+      onOpenAuthorProfile: (artifact) => {
+        const authorId = artifact.authorUserId?.trim();
+        if (!authorId) return;
+        router.push(authorProfilePath(authorId));
+      },
+      onOpenParent: (artifact) => {
+        const slug = artifact.parentSlug?.trim();
+        if (!slug) return;
+        router.push(`/m/${encodeURIComponent(slug)}`);
+      },
+      onOpenChildren: (artifact) => {
+        const slug =
+          artifact.publish.slug?.trim() ||
+          resolveJourneyArtifactShareIdentity({
+            ownerUserId: shareCacheUserId,
+            journeyId: artifact.journeyId,
+            journeyVersion: artifact.journeyVersion,
+          })?.slug;
+        if (!slug || typeof artifact.childYansiCount !== 'number') return;
+        router.push(parentChildrenPath(slug));
+      },
+    }),
+    [
+      prepareArtifactShareLink,
+      isPlus,
+      isAuthenticated,
+      shareCacheUserId,
+      conversationId,
+      openShareExperience,
+      router,
+    ]
+  );
+
+  const handleConfirmSharePublish = useCallback(async () => {
+    if (shareTargetArtifact && useAynaJourneyReel) {
+      setSharePublishConsentOpen(false);
+      await prepareArtifactShareLink(shareTargetArtifact, {
+        refreshScene: true,
+        openShareAfter: true,
+      });
+      return;
+    }
+    if (!generatedDailyCard) return;
+    if (!requireConfirmedReview8OrOpen()) {
+      setSharePublishConsentOpen(false);
+      return;
+    }
+    setSharePublishConsentOpen(false);
+    setPublishBusy(true);
+    try {
+      const ok = await prepareMirrorShareLink(generatedDailyCard, sceneImageUrl, {
+        refreshScene: true,
+      });
+      if (!ok) return;
+      openShareExperience();
+    } finally {
+      setPublishBusy(false);
+    }
+  }, [
+    shareTargetArtifact,
+    useAynaJourneyReel,
+    prepareArtifactShareLink,
+    generatedDailyCard,
+    prepareMirrorShareLink,
+    sceneImageUrl,
+    openShareExperience,
+    requireConfirmedReview8OrOpen,
+  ]);
 
   const handleRetryMirrorScene = useCallback(() => {
     sceneAutoKeyRef.current = null;
@@ -1943,8 +2162,10 @@ export default function StandaloneObservationExperience({
         className={cn(
           ms.dailyStage,
           embedded && 'saina-mirror-embedded-stage',
-          'overflow-x-hidden overflow-y-auto',
-          dailyStatus === 'ready' && ms.dailyStageReady,
+          useAynaJourneyReel
+            ? 'overflow-hidden'
+            : 'overflow-x-hidden overflow-y-auto',
+          dailyStatus === 'ready' && !useAynaJourneyReel && ms.dailyStageReady,
           dailyStatus === 'idle' ||
             dailyStatus === 'insufficient' ||
             dailyStatus === 'error' ||
@@ -1953,8 +2174,34 @@ export default function StandaloneObservationExperience({
             ? 'gap-0 py-0 sm:gap-0 sm:py-1'
             : undefined
         )}
+        data-testid={
+          useAynaJourneyReel ? 'ayna-journey-panel' : 'ayna-legacy-panel'
+        }
       >
-        {renderDailyPanel()}
+        {useAynaJourneyReel ? (
+          <AynaJourneyReel
+            artifacts={journeyArtifacts}
+            actions={aynaReelActions}
+            publishBusyJourneyId={publishBusyJourneyId}
+            shareBusyJourneyId={shareBusyJourneyId}
+            canShare={isPlus}
+            emptyState={
+              <div
+                className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center"
+                data-testid="ayna-empty-state"
+              >
+                <p className="saina-serif text-sm text-[rgba(246,244,239,0.92)]">
+                  {MIRROR_AYNA_EMPTY_TITLE}
+                </p>
+                <p className="text-[11px] leading-relaxed text-[rgba(217,196,163,0.75)]">
+                  {MIRROR_AYNA_EMPTY_BODY}
+                </p>
+              </div>
+            }
+          />
+        ) : (
+          renderDailyPanel()
+        )}
       </div>
 
       <MirrorShareExperience
@@ -1968,7 +2215,11 @@ export default function StandaloneObservationExperience({
         shareLinkStatus={shareLinkStatus}
         shareLinkError={shareLinkError}
         impactSlug={
-          shareLinkStatus === 'ready' ? generatedDailyCard?.mirrorShare?.networkSlug ?? null : null
+          shareLinkStatus === 'ready'
+            ? shareTargetArtifact?.publish.slug ??
+              generatedDailyCard?.mirrorShare?.networkSlug ??
+              null
+            : null
         }
         onRetryShareLink={handleRetryShareLink}
         onCapture={handleShareCapture}

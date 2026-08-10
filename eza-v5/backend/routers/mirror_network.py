@@ -37,6 +37,13 @@ from backend.services.mirror_network.publish import publish_mirror_to_network
 from backend.services.mirror_network.impact import get_mirror_impact_stats
 from backend.services.mirror_network.service import fetch_debug_mirror_by_slug, fetch_public_mirror_by_slug
 from backend.services.mirror_network.sohbet_session import create_sohbet_session
+from backend.services.mirror_network.author_profile import (
+    list_published_direct_children,
+    list_published_mirrors_for_author,
+)
+from uuid import UUID
+from pydantic import BaseModel, Field
+from typing import List, Optional
 
 router = APIRouter(prefix="/api/mirror-network", tags=["Mirror Network"])
 debug_router = APIRouter(prefix="/api/debug/mirror-network", tags=["Debug — Mirror Network"])
@@ -98,6 +105,87 @@ async def get_mirror_network_discover(
     Never returns user identity, guest tokens, raw conversation, or private payload.
     """
     return await list_discover_mirrors(db, limit=limit, offset=offset)
+
+
+class AuthorPublishedYansiItem(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    slug: str
+    shareUrl: str
+    publicTitle: str
+    publicSummary: Optional[str] = None
+    sceneImageUrl: Optional[str] = None
+    publishedAt: Optional[str] = None
+    parentSlug: Optional[str] = None
+
+
+class AuthorPublishedYansiResponse(BaseModel):
+    """GET /api/mirror-network/authors/{userId}/published — published only."""
+
+    model_config = {"extra": "forbid"}
+
+    userId: str
+    displayName: str
+    items: List[AuthorPublishedYansiItem] = Field(default_factory=list)
+    total: int = Field(default=0, ge=0)
+
+
+class ParentChildrenYansiResponse(BaseModel):
+    """GET /api/mirror-network/{slug}/children — direct published children."""
+
+    model_config = {"extra": "forbid"}
+
+    parentSlug: str
+    parentTitle: Optional[str] = None
+    items: List[AuthorPublishedYansiItem] = Field(default_factory=list)
+    total: int = Field(default=0, ge=0)
+
+
+@router.get(
+    "/authors/{user_id}/published",
+    response_model=AuthorPublishedYansiResponse,
+)
+async def get_author_published_yansilar(
+    user_id: UUID,
+    limit: int = 48,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+) -> AuthorPublishedYansiResponse:
+    """
+    Public author profile contract — published Yansılar only.
+
+    Never exposes generating / ready / failed private Ayna panel states.
+    """
+    payload = await list_published_mirrors_for_author(
+        db, user_id=user_id, limit=limit, offset=offset
+    )
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "author_not_found", "message": "Author not found"},
+        )
+    return AuthorPublishedYansiResponse(**payload)
+
+
+@router.get("/{slug}/children", response_model=ParentChildrenYansiResponse)
+async def get_mirror_network_children(
+    slug: str,
+    limit: int = 48,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+) -> ParentChildrenYansiResponse:
+    """Direct published child Yansılar of a public parent — curiosity branches only."""
+    payload = await list_published_direct_children(
+        db, parent_slug=slug, limit=limit, offset=offset
+    )
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "mirror_not_found", "message": "Mirror not found"},
+        )
+    return ParentChildrenYansiResponse(**payload)
 
 
 @router.get("/{slug}/impact", response_model=MirrorNetworkImpactStats)
