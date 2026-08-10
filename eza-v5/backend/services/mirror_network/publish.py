@@ -58,6 +58,16 @@ from backend.services.mirror_network.journey_window_contract import (
 from backend.services.mirror_network.same_conversation_parent import (
     resolve_same_conversation_parent,
 )
+from backend.services.mirror_network.frozen_journey_artifact import (
+    FREEZE_STATUS_FROZEN,
+    assert_frozen_content_immutable,
+    attach_frozen_journey_artifact,
+    build_durable_frozen_journey_artifact,
+    read_frozen_journey_artifact_from_private,
+)
+import logging
+
+logger = logging.getLogger(__name__)
 
 def map_mirror_safety_level(safety_level: Optional[str]) -> Tuple[str, str]:
     """Map client safety to stored safety_status + visibility."""
@@ -254,6 +264,8 @@ def _apply_node_fields(
     window_index: Optional[int] = None,
     window_start: Optional[int] = None,
     window_end: Optional[int] = None,
+    freeze_status: Optional[str] = None,
+    frozen_at: Optional[datetime] = None,
 ) -> None:
     resolved_scene = resolve_scene_image_url(
         existing_scene=getattr(node, "scene_image_url", None),
@@ -288,6 +300,12 @@ def _apply_node_fields(
         node.window_start = int(window_start)
     if window_end is not None:
         node.window_end = int(window_end)
+    if freeze_status is not None:
+        node.freeze_status = freeze_status
+    if frozen_at is not None:
+        node.frozen_at = frozen_at
+        if freeze_status is None:
+            node.freeze_status = "frozen"
 
 async def publish_mirror_to_network(
     db: AsyncSession,
@@ -709,6 +727,10 @@ async def publish_mirror_to_network(
             "sceneAssetId": actual_scene_asset_id
             or getattr(body, "sceneAssetId", None)
             or incoming_lineage.get("sceneAssetId"),
+            "sourceBlockHash": getattr(body, "sourceBlockHash", None)
+            or incoming_lineage.get("sourceBlockHash"),
+            "anchorsHash": getattr(body, "anchorsHash", None)
+            or incoming_lineage.get("anchorsHash"),
         }
 
     if existing:
@@ -729,138 +751,344 @@ async def publish_mirror_to_network(
         else ARTIFACT_KIND_LEGACY_LANDING
     )
 
-    if existing:
-        _apply_node_fields(
-            existing,
-            card_title=card_title,
-            card_date=body.cardDate.strip(),
-            scene_image_url=incoming_scene,
-            public_dict=public_dict,
-            private_dict=private_dict,
-            safety_status=safety_status,
-            visibility=visibility,
-            parent_slug=parent_slug,
-            now=now,
-            is_new=False,
-            artifact_kind=artifact_kind if use_journey_identity else None,
-            bump_journey_version=False,
-            set_journey_version=journey_publish_version if use_journey_identity else None,
-            window_index=window_index if use_journey_identity else None,
-            window_start=window_start if use_journey_identity else None,
-            window_end=window_end if use_journey_identity else None,
+    freeze_status_for_write: Optional[str] = None
+    frozen_at_for_write: Optional[datetime] = None
+    atomic_journey_freeze = bool(
+        use_journey_identity and normalized_steps is not None
+    )
+
+    if atomic_journey_freeze:
+        assert journey_publish_version is not None
+        assert journey_selected_steps_hash is not None
+        assert actual_public_landing_hash is not None
+        assert actual_scene_asset_id is not None
+
+        from backend.services.mirror.public_landing_hash import (
+            extract_public_landing_from_curiosity,
         )
-        # Keep provenance conversation_id if newly provided.
-        if conversation_id and not existing.conversation_id:
-            existing.conversation_id = conversation_id
-        node = await update_mirror_network_node(db, existing)
-    else:
-        node = MirrorNetworkNode(
-            id=uuid4(),
-            slug=slug,
-            user_id=user.id,
-            conversation_id=conversation_id,
-            visibility=visibility,
-            safety_status=safety_status,
-            card_title=card_title,
-            card_date=body.cardDate.strip(),
-            scene_image_url=resolved_scene,
-            public_payload=public_dict,
-            private_payload=private_dict,
-            parent_slug=parent_slug,
-            artifact_kind=artifact_kind,
-            journey_version=journey_publish_version if use_journey_identity else 1,
-            window_index=window_index if use_journey_identity else None,
-            window_start=window_start if use_journey_identity else None,
-            window_end=window_end if use_journey_identity else None,
-            published_at=now,
-        )
-        try:
-            node = await create_mirror_network_node(db, node)
-        except IntegrityError:
-            await db.rollback()
-            if use_journey_identity:
-                raced = await get_mirror_network_node_by_slug_for_user(
-                    db,
-                    user_id=user.id,
-                    slug=slug,
+
+        landing_fields = extract_public_landing_from_curiosity(curiosity_bundle)
+        existing_frozen = None
+        if existing is not None:
+            existing_frozen = read_frozen_journey_artifact_from_private(
+                _as_mapping(getattr(existing, "private_payload", None)),
+                journey_version=int(journey_publish_version),
+            )
+            if existing_frozen is not None:
+                assert_frozen_content_immutable(
+                    existing_frozen=existing_frozen,
+                    selected_steps_hash=journey_selected_steps_hash,
+                    public_landing_hash=actual_public_landing_hash,
+                    scene_asset_id=actual_scene_asset_id,
+                    generation_id=str(
+                        incoming_lineage.get("generationId")
+                        or getattr(body, "generationId", None)
+                        or ""
+                    ).strip()
+                    or None,
                 )
-                if raced is None:
-                    raise
-                assert_publish_generation_not_stale(
-                    existing_private=_as_mapping(getattr(raced, "private_payload", None)),
-                    incoming_lineage=incoming_lineage,
+
+        if existing_frozen is not None:
+            # Same-version identical retry: reuse seal (idempotent).
+            durable_freeze = dict(existing_frozen)
+            freeze_status_for_write = FREEZE_STATUS_FROZEN
+            frozen_at_for_write = getattr(existing, "frozen_at", None) or now
+            private_dict = attach_frozen_journey_artifact(
+                private_dict, durable_freeze, archive_previous=False
+            )
+        else:
+            durable_freeze = build_durable_frozen_journey_artifact(
+                journey_id=str(slug),
+                journey_version=int(journey_publish_version),
+                source_conversation_id=conversation_id,
+                author_user_id=str(user.id),
+                parent_slug=parent_slug,
+                block_index=int(window_index) if window_index is not None else None,
+                block_start=int(window_start) if window_start is not None else None,
+                block_end=int(window_end) if window_end is not None else None,
+                source_block_hash=str(
+                    incoming_lineage.get("sourceBlockHash")
+                    or getattr(body, "sourceBlockHash", None)
+                    or ""
+                ).strip()
+                or None,
+                selected_steps=list(normalized_steps),
+                public_title=str(
+                    landing_fields.get("publicTitle") or card_title or ""
+                ).strip()
+                or card_title,
+                public_summary=str(landing_fields.get("publicSummary") or "").strip(),
+                continuation_context=str(
+                    landing_fields.get("continuationContext") or ""
+                ).strip()
+                or None,
+                public_landing_hash=str(actual_public_landing_hash),
+                public_landing_contract_version=str(
+                    landing_fields.get("contractVersion") or "mirror-public-landing-v1"
+                ),
+                scene_asset_id=str(actual_scene_asset_id),
+                scene_image_url=resolved_scene or incoming_scene,
+                generation_id=str(
+                    incoming_lineage.get("generationId")
+                    or getattr(body, "generationId", None)
+                    or ""
+                ).strip(),
+                selected_steps_hash=str(journey_selected_steps_hash),
+                scoped_input_hash=str(
+                    incoming_lineage.get("scopedInputHash")
+                    or getattr(body, "scopedInputHash", None)
+                    or ""
+                ).strip()
+                or None,
+                window_hash=str(
+                    incoming_lineage.get("windowHash")
+                    or getattr(body, "windowHash", None)
+                    or ""
+                ).strip()
+                or None,
+                interpretation_hash=str(
+                    incoming_lineage.get("interpretationHash")
+                    or getattr(body, "interpretationHash", None)
+                    or ""
+                ).strip()
+                or None,
+                anchors_hash=str(
+                    incoming_lineage.get("anchorsHash")
+                    or getattr(body, "anchorsHash", None)
+                    or ""
+                ).strip()
+                or None,
+                mapped_prompt_hash=str(
+                    incoming_lineage.get("mappedPromptHash")
+                    or getattr(body, "mappedPromptHash", None)
+                    or ""
+                ).strip()
+                or None,
+                narrative_alignment=_extract_narrative_alignment_binding(
+                    intelligence_private
+                ),
+                sanitization_status="sanitized",
+                sanitization_flags=[],
+                original_step_hashes=journey_step_original_hashes,
+                public_step_hashes=None,
+                frozen_at=now,
+            )
+            freeze_status_for_write = FREEZE_STATUS_FROZEN
+            frozen_at_for_write = now
+            private_dict = attach_frozen_journey_artifact(private_dict, durable_freeze)
+            logger.info(
+                "mirror_journey_freeze_ready journey_id=%s journey_version=%s "
+                "generation_id=%s slug=%s freeze_status=%s selected_count=%s "
+                "selected_steps_hash=%s public_landing_hash=%s scene_asset_id=%s",
+                durable_freeze.get("journeyId"),
+                durable_freeze.get("journeyVersion"),
+                durable_freeze.get("generationId"),
+                durable_freeze.get("slug"),
+                durable_freeze.get("freezeStatus"),
+                durable_freeze.get("selectedCount"),
+                durable_freeze.get("selectedStepsHash"),
+                durable_freeze.get("publicLandingHash"),
+                durable_freeze.get("sceneAssetId"),
+            )
+
+    try:
+        if existing:
+            _apply_node_fields(
+                existing,
+                card_title=card_title,
+                card_date=body.cardDate.strip(),
+                scene_image_url=incoming_scene,
+                public_dict=public_dict,
+                private_dict=private_dict,
+                safety_status=safety_status,
+                visibility=visibility,
+                parent_slug=parent_slug,
+                now=now,
+                is_new=False,
+                artifact_kind=artifact_kind if use_journey_identity else None,
+                bump_journey_version=False,
+                set_journey_version=journey_publish_version if use_journey_identity else None,
+                window_index=window_index if use_journey_identity else None,
+                window_start=window_start if use_journey_identity else None,
+                window_end=window_end if use_journey_identity else None,
+                freeze_status=freeze_status_for_write,
+                frozen_at=frozen_at_for_write,
+            )
+            # Keep provenance conversation_id if newly provided.
+            if conversation_id and not existing.conversation_id:
+                existing.conversation_id = conversation_id
+            node = await update_mirror_network_node(
+                db, existing, commit=not atomic_journey_freeze
+            )
+        else:
+            node = MirrorNetworkNode(
+                id=uuid4(),
+                slug=slug,
+                user_id=user.id,
+                conversation_id=conversation_id,
+                visibility=visibility,
+                safety_status=safety_status,
+                card_title=card_title,
+                card_date=body.cardDate.strip(),
+                scene_image_url=resolved_scene,
+                public_payload=public_dict,
+                private_payload=private_dict,
+                parent_slug=parent_slug,
+                artifact_kind=artifact_kind,
+                journey_version=journey_publish_version if use_journey_identity else 1,
+                window_index=window_index if use_journey_identity else None,
+                window_start=window_start if use_journey_identity else None,
+                window_end=window_end if use_journey_identity else None,
+                freeze_status=freeze_status_for_write or "non_frozen",
+                frozen_at=frozen_at_for_write,
+                published_at=now,
+            )
+            try:
+                node = await create_mirror_network_node(
+                    db, node, commit=not atomic_journey_freeze
                 )
-                private_dict = merge_lineage_into_private_payload(
-                    private_dict,
-                    incoming_lineage=incoming_lineage,
-                    now=now,
+            except IntegrityError:
+                await db.rollback()
+                if use_journey_identity:
+                    raced = await get_mirror_network_node_by_slug_for_user(
+                        db,
+                        user_id=user.id,
+                        slug=slug,
+                    )
+                    if raced is None:
+                        raise
+                    assert_publish_generation_not_stale(
+                        existing_private=_as_mapping(
+                            getattr(raced, "private_payload", None)
+                        ),
+                        incoming_lineage=incoming_lineage,
+                    )
+                    private_dict = merge_lineage_into_private_payload(
+                        private_dict,
+                        incoming_lineage=incoming_lineage,
+                        now=now,
+                    )
+                    if atomic_journey_freeze:
+                        raced_frozen = read_frozen_journey_artifact_from_private(
+                            _as_mapping(getattr(raced, "private_payload", None)),
+                            journey_version=int(journey_publish_version or 1),
+                        )
+                        if raced_frozen is not None:
+                            assert_frozen_content_immutable(
+                                existing_frozen=raced_frozen,
+                                selected_steps_hash=journey_selected_steps_hash,
+                                public_landing_hash=actual_public_landing_hash,
+                                scene_asset_id=actual_scene_asset_id,
+                                generation_id=str(
+                                    incoming_lineage.get("generationId") or ""
+                                ).strip()
+                                or None,
+                            )
+                            private_dict = attach_frozen_journey_artifact(
+                                private_dict, raced_frozen, archive_previous=False
+                            )
+                            freeze_status_for_write = FREEZE_STATUS_FROZEN
+                            frozen_at_for_write = (
+                                getattr(raced, "frozen_at", None) or now
+                            )
+                    _apply_node_fields(
+                        raced,
+                        card_title=card_title,
+                        card_date=body.cardDate.strip(),
+                        scene_image_url=incoming_scene,
+                        public_dict=public_dict,
+                        private_dict=private_dict,
+                        safety_status=safety_status,
+                        visibility=visibility,
+                        parent_slug=parent_slug,
+                        now=now,
+                        is_new=False,
+                        artifact_kind=ARTIFACT_KIND_JOURNEY_V1,
+                        bump_journey_version=False,
+                        set_journey_version=journey_publish_version,
+                        window_index=window_index,
+                        window_start=window_start,
+                        window_end=window_end,
+                        freeze_status=freeze_status_for_write,
+                        frozen_at=frozen_at_for_write,
+                    )
+                    node = await update_mirror_network_node(
+                        db, raced, commit=not atomic_journey_freeze
+                    )
+                else:
+                    if not conversation_id:
+                        raise
+                    raced = await get_mirror_network_node_by_conversation(
+                        db,
+                        user_id=user.id,
+                        conversation_id=conversation_id,
+                    )
+                    if raced is None:
+                        raise
+                    assert_publish_generation_not_stale(
+                        existing_private=_as_mapping(
+                            getattr(raced, "private_payload", None)
+                        ),
+                        incoming_lineage=incoming_lineage,
+                    )
+                    private_dict = merge_lineage_into_private_payload(
+                        private_dict,
+                        incoming_lineage=incoming_lineage,
+                        now=now,
+                    )
+                    _apply_node_fields(
+                        raced,
+                        card_title=card_title,
+                        card_date=body.cardDate.strip(),
+                        scene_image_url=incoming_scene,
+                        public_dict=public_dict,
+                        private_dict=private_dict,
+                        safety_status=safety_status,
+                        visibility=visibility,
+                        parent_slug=parent_slug,
+                        now=now,
+                        is_new=False,
+                    )
+                    node = await update_mirror_network_node(db, raced)
+
+        if atomic_journey_freeze and node is not None:
+            await replace_journey_steps_for_version(
+                db,
+                journey_slug=str(getattr(node, "slug", "") or slug),
+                journey_version=int(
+                    journey_publish_version
+                    or getattr(node, "journey_version", None)
+                    or 1
+                ),
+                steps=list(normalized_steps),
+                original_hashes=journey_step_original_hashes,
+                selected_steps_hash=journey_selected_steps_hash,
+                commit=False,
+            )
+            try:
+                await db.commit()
+                await db.refresh(node)
+            except Exception:
+                await db.rollback()
+                logger.exception(
+                    "mirror_journey_freeze_commit_failed journey_id=%s slug=%s",
+                    getattr(node, "id", None),
+                    getattr(node, "slug", None),
                 )
-                _apply_node_fields(
-                    raced,
-                    card_title=card_title,
-                    card_date=body.cardDate.strip(),
-                    scene_image_url=incoming_scene,
-                    public_dict=public_dict,
-                    private_dict=private_dict,
-                    safety_status=safety_status,
-                    visibility=visibility,
-                    parent_slug=parent_slug,
-                    now=now,
-                    is_new=False,
-                    artifact_kind=ARTIFACT_KIND_JOURNEY_V1,
-                    bump_journey_version=False,
-                    set_journey_version=journey_publish_version,
-                    window_index=window_index,
-                    window_start=window_start,
-                    window_end=window_end,
-                )
-                node = await update_mirror_network_node(db, raced)
-            else:
-                if not conversation_id:
-                    raise
-                raced = await get_mirror_network_node_by_conversation(
-                    db,
-                    user_id=user.id,
-                    conversation_id=conversation_id,
-                )
-                if raced is None:
-                    raise
-                assert_publish_generation_not_stale(
-                    existing_private=_as_mapping(getattr(raced, "private_payload", None)),
-                    incoming_lineage=incoming_lineage,
-                )
-                private_dict = merge_lineage_into_private_payload(
-                    private_dict,
-                    incoming_lineage=incoming_lineage,
-                    now=now,
-                )
-                _apply_node_fields(
-                    raced,
-                    card_title=card_title,
-                    card_date=body.cardDate.strip(),
-                    scene_image_url=incoming_scene,
-                    public_dict=public_dict,
-                    private_dict=private_dict,
-                    safety_status=safety_status,
-                    visibility=visibility,
-                    parent_slug=parent_slug,
-                    now=now,
-                    is_new=False,
-                )
-                node = await update_mirror_network_node(db, raced)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail={
+                        "code": "journey_freeze_persist_failed",
+                        "message": (
+                            "Published Journey freeze could not be persisted atomically"
+                        ),
+                    },
+                ) from None
+    except HTTPException:
+        raise
+    except Exception:
+        await db.rollback()
+        raise
 
     record = MirrorNetworkNodeRecord.from_orm(node)
-    if use_journey_identity and normalized_steps is not None:
-        await replace_journey_steps_for_version(
-            db,
-            journey_slug=record.slug,
-            journey_version=int(
-                journey_publish_version
-                or getattr(node, "journey_version", None)
-                or 1
-            ),
-            steps=normalized_steps,
-            original_hashes=journey_step_original_hashes,
-            selected_steps_hash=journey_selected_steps_hash,
-        )
     return node_to_public_payload(record)

@@ -35,6 +35,32 @@ def node_to_public_payload(node: MirrorNetworkNodeRecord) -> MirrorNetworkPublic
     payload.sceneImageUrl = node.scene_image_url
     if node.parent_slug:
         payload.lineage = node.parent_slug
+
+    # Phase 4: prefer durable freeze seal for landing/scene when present.
+    try:
+        from backend.services.mirror_network.frozen_journey_artifact import (
+            read_frozen_journey_artifact_from_private,
+        )
+
+        frozen = read_frozen_journey_artifact_from_private(
+            node.private_payload if isinstance(node.private_payload, dict) else None
+        )
+        if frozen:
+            landing = frozen.get("publicLanding") if isinstance(frozen.get("publicLanding"), dict) else {}
+            if landing.get("publicTitle"):
+                payload.publicTitle = str(landing["publicTitle"])
+            if landing.get("publicSummary"):
+                payload.publicSummary = str(landing["publicSummary"])
+            if landing.get("continuationContext") is not None:
+                payload.continuationContext = str(landing.get("continuationContext") or "") or None
+            if landing.get("contractVersion"):
+                payload.contractVersion = str(landing["contractVersion"])
+            if frozen.get("publicLandingHash"):
+                payload.publicLandingHash = str(frozen["publicLandingHash"])
+            if frozen.get("sceneImageUrl"):
+                payload.sceneImageUrl = str(frozen["sceneImageUrl"])
+    except Exception:
+        pass
     return payload
 
 

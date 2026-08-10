@@ -200,7 +200,7 @@ async def test_publish_uses_proof_instead_of_client_parent_slug():
     db.refresh = AsyncMock()
     captured: dict = {}
 
-    async def _capture_create(_db, node):
+    async def _capture_create(_db, node, **_kwargs):
         captured["node"] = node
         return node
 

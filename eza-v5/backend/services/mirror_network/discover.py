@@ -101,6 +101,27 @@ def _resolve_description(public_payload: Mapping[str, Any] | None) -> Optional[s
     return None
 
 
+def _frozen_public_fields(node: MirrorNetworkNode) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Return (title, summary, sceneImageUrl) from durable freeze seal when present."""
+    try:
+        from backend.services.mirror_network.frozen_journey_artifact import (
+            read_frozen_journey_artifact_from_private,
+        )
+
+        frozen = read_frozen_journey_artifact_from_private(
+            node.private_payload if isinstance(node.private_payload, dict) else None
+        )
+        if not frozen:
+            return None, None, None
+        landing = frozen.get("publicLanding") if isinstance(frozen.get("publicLanding"), dict) else {}
+        title = str(landing.get("publicTitle") or "").strip() or None
+        summary = str(landing.get("publicSummary") or "").strip() or None
+        scene = str(frozen.get("sceneImageUrl") or "").strip() or None
+        return title, summary, scene
+    except Exception:
+        return None, None, None
+
+
 def _is_discoverable_root(node: MirrorNetworkNode) -> Optional[str]:
     if (node.parent_slug or "").strip():
         return None
@@ -110,7 +131,8 @@ def _is_discoverable_root(node: MirrorNetworkNode) -> Optional[str]:
         return None
     if not evaluate_mirror_network_safety(node).passed:
         return None
-    return _public_discover_scene_url(node.scene_image_url)
+    _, _, frozen_scene = _frozen_public_fields(node)
+    return _public_discover_scene_url(frozen_scene or node.scene_image_url)
 
 
 def _batch_yansi_counts(
@@ -141,12 +163,22 @@ def _to_discover_item(
     yansi_count: int,
 ) -> DiscoverMirrorItem:
     payload = node.public_payload if isinstance(node.public_payload, dict) else {}
-    public_title = payload.get("publicTitle") if isinstance(payload.get("publicTitle"), str) else None
+    frozen_title, frozen_summary, _ = _frozen_public_fields(node)
+    public_title = (
+        frozen_title
+        if frozen_title
+        else (payload.get("publicTitle") if isinstance(payload.get("publicTitle"), str) else None)
+    )
     title = (public_title or node.card_title or "").strip() or node.slug
+    description = None
+    if frozen_summary:
+        description = frozen_summary[:400]
+    else:
+        description = _resolve_description(payload)
     return DiscoverMirrorItem(
         slug=node.slug,
         title=title,
-        description=_resolve_description(payload),
+        description=description,
         sceneImageUrl=scene_url,
         yansiCount=yansi_count,
         createdAt=_published_iso(node),

@@ -184,3 +184,77 @@ class MirrorNetworkImpactStats(BaseModel):
     continuationStartsVerified: bool = False
     yansiCount: int = Field(default=0, ge=0)
     landingViews: int = Field(default=0, ge=0)
+
+
+class FrozenJourneyPublicStep(BaseModel):
+    """Public-safe frozen Q/A step (Phase 4 replay source; no private raw text)."""
+
+    model_config = {"extra": "forbid"}
+
+    stepIndex: int
+    sourceOrder: Optional[int] = None
+    sourceUserMessageId: Optional[str] = None
+    sourceAssistantMessageId: Optional[str] = None
+    publicQuestion: str
+    publicAnswer: str
+    questionHash: Optional[str] = None
+    answerHash: Optional[str] = None
+    sanitizationFlags: Optional[Any] = None
+
+
+class FrozenJourneyArtifactPublicResponse(BaseModel):
+    """GET /api/mirror-network/{slug}/frozen — durable published Journey."""
+
+    model_config = {"extra": "forbid"}
+
+    contractVersion: str
+    freezeStatus: Literal["frozen", "non_frozen"]
+    replayReady: bool = False
+    artifactId: str
+    journeyId: str
+    journeyVersion: int
+    slug: str
+    artifactKind: str = "journey_v1"
+    authorUserId: str
+    parentSlug: Optional[str] = None
+    parentJourneyId: Optional[str] = None
+    selectedCount: int
+    selectedSteps: List[FrozenJourneyPublicStep] = Field(default_factory=list)
+    publicTitle: Optional[str] = None
+    publicSummary: Optional[str] = None
+    continuationContext: Optional[str] = None
+    sceneAssetId: Optional[str] = None
+    sceneImageUrl: Optional[str] = None
+    publishedAt: Optional[str] = None
+    frozenAt: Optional[str] = None
+
+
+class OwnerPublishedJourneyItem(BaseModel):
+    """Owner Ayna rehydration item — published durable identity only."""
+
+    model_config = {"extra": "forbid"}
+
+    slug: str
+    journeyId: str
+    journeyVersion: int
+    artifactKind: Optional[str] = None
+    freezeStatus: str
+    publicTitle: Optional[str] = None
+    publicSummary: Optional[str] = None
+    continuationContext: Optional[str] = None
+    sceneImageUrl: Optional[str] = None
+    sceneAssetId: Optional[str] = None
+    parentSlug: Optional[str] = None
+    authorUserId: Optional[str] = None
+    selectedCount: Optional[int] = None
+    publishedAt: Optional[str] = None
+    frozenAt: Optional[str] = None
+    sourceConversationId: Optional[str] = None
+
+
+class OwnerPublishedJourneysResponse(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    conversationId: str
+    items: List[OwnerPublishedJourneyItem] = Field(default_factory=list)
+    total: int = Field(default=0, ge=0)

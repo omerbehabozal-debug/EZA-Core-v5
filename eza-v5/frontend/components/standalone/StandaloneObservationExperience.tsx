@@ -86,6 +86,7 @@ import {
   resolveMirrorJourneySharePayload,
   buildShareCardFromJourneyPayload,
   publicPreviewFromJourneySharePayload,
+  hydratePublishedJourneysFromServer,
   type MirrorJourneySharePayload,
 } from '@/lib/eza/mirror/journey';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
@@ -1679,6 +1680,26 @@ export default function StandaloneObservationExperience({
       setArtifactRevision((n) => n + 1);
     });
   }, [journeyV1PanelOn]);
+
+  /** Phase 4 — recover published Yansılar from durable server after localStorage loss. */
+  useEffect(() => {
+    if (!journeyV1PanelOn || !conversationId || !shareCacheUserId || !isAuthenticated) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const items = await hydratePublishedJourneysFromServer({
+        ownerUserId: shareCacheUserId,
+        conversationId,
+      });
+      if (!cancelled && items.length > 0) {
+        setArtifactRevision((n) => n + 1);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [journeyV1PanelOn, conversationId, shareCacheUserId, isAuthenticated]);
 
   const journeyArtifacts = useMemo(() => {
     if (!journeyV1PanelOn || !conversationId || !shareCacheUserId) return [];

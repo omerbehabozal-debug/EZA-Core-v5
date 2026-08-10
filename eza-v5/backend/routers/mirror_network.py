@@ -12,10 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config import get_settings
 from backend.core.schemas.mirror_network import (
     DiscoverMirrorListResponse,
+    FrozenJourneyArtifactPublicResponse,
     MirrorNetworkDebugReport,
     MirrorNetworkImpactStats,
     MirrorNetworkPublicPayload,
     MirrorNetworkPublishRequest,
+    OwnerPublishedJourneysResponse,
 )
 from backend.core.schemas.mirror_sohbet import (
     MirrorSohbetSessionRequest,
@@ -41,9 +43,13 @@ from backend.services.mirror_network.author_profile import (
     list_published_direct_children,
     list_published_mirrors_for_author,
 )
+from backend.services.mirror_network.frozen_journey_artifact import (
+    get_frozen_journey_artifact,
+    list_owner_published_journeys_for_conversation,
+)
 from uuid import UUID
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 
 router = APIRouter(prefix="/api/mirror-network", tags=["Mirror Network"])
 debug_router = APIRouter(prefix="/api/debug/mirror-network", tags=["Debug — Mirror Network"])
@@ -168,6 +174,33 @@ async def get_author_published_yansilar(
     return AuthorPublishedYansiResponse(**payload)
 
 
+@router.get(
+    "/me/conversations/{conversation_id}/published-journeys",
+    response_model=OwnerPublishedJourneysResponse,
+)
+async def get_owner_published_journeys_for_conversation(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> OwnerPublishedJourneysResponse:
+    """
+    Owner Ayna rehydration — published Journey identities from durable server state.
+
+    Generating/ready unpublished artifacts remain client-local (documented).
+    """
+    items = await list_owner_published_journeys_for_conversation(
+        db,
+        user_id=user.id,
+        conversation_id=conversation_id,
+    )
+    return OwnerPublishedJourneysResponse(
+        conversationId=conversation_id,
+        items=items,
+        total=len(items),
+    )
+
+
 @router.get("/{slug}/children", response_model=ParentChildrenYansiResponse)
 async def get_mirror_network_children(
     slug: str,
@@ -186,6 +219,48 @@ async def get_mirror_network_children(
             detail={"code": "mirror_not_found", "message": "Mirror not found"},
         )
     return ParentChildrenYansiResponse(**payload)
+
+
+@router.get("/{slug}/frozen", response_model=FrozenJourneyArtifactPublicResponse)
+async def get_frozen_published_journey(
+    slug: str,
+    journeyVersion: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+) -> FrozenJourneyArtifactPublicResponse:
+    """
+    Durable Frozen Journey Artifact (Phase 4).
+
+    Does not require JourneyGenerationRecord TTL or localStorage.
+    Omitting journeyVersion returns Option A current published version.
+    """
+    frozen = await get_frozen_journey_artifact(
+        db, slug=slug, journey_version=journeyVersion
+    )
+    if frozen is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "frozen_journey_not_found",
+                "message": "Frozen published Journey not found",
+            },
+        )
+    # Strip internal integrity hashes from public response.
+    public = {
+        k: v
+        for k, v in frozen.items()
+        if k
+        not in {
+            "integrity",
+            "sanitization",
+            "narrativeAlignment",
+            "sourceConversationId",
+            "blockIndex",
+            "blockStart",
+            "blockEnd",
+        }
+    }
+    return FrozenJourneyArtifactPublicResponse.model_validate(public)
 
 
 @router.get("/{slug}/impact", response_model=MirrorNetworkImpactStats)

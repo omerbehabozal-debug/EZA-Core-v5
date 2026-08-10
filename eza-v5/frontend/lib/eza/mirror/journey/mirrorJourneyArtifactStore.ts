@@ -6,7 +6,9 @@
  *
  * Persistence class:
  * - Survives refresh (localStorage)
- * - Not server-durable Phase 4 freeze
+ * - Phase 4: published artifacts are also server-durable; hydrate via
+ *   hydratePublishedJourneysFromServer after localStorage loss
+ * - Generating/ready unpublished may remain local-only
  * - Cross-user isolated by ownerUserId prefix
  */
 

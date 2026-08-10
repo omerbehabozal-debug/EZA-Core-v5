@@ -91,6 +91,16 @@ class MirrorNetworkNode(Base):
     window_start = Column(Integer, nullable=True)
     window_end = Column(Integer, nullable=True)
 
+    # Phase 4 — durable freeze seal (journey_v1 publish boundary).
+    freeze_status = Column(
+        String(32),
+        nullable=False,
+        default="non_frozen",
+        server_default="non_frozen",
+        index=True,
+    )
+    frozen_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     published_at = Column(DateTime(timezone=True), nullable=True)

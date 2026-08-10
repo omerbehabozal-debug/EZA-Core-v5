@@ -62,6 +62,7 @@ async def replace_journey_steps_for_version(
     original_hashes: Sequence[Mapping[str, str]] | None = None,
     selected_steps_hash: str | None = None,
     require_selected_steps_hash: bool = True,
+    commit: bool = True,
 ) -> None:
     """Replace all steps for (slug, version). Caller must already validate length/shape.
 
@@ -161,4 +162,7 @@ async def replace_journey_steps_for_version(
                 sanitization_flags=sanitization_payload,
             )
         )
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()

@@ -215,3 +215,10 @@ export {
   resolveJourneyPublishContract,
   type JourneyPublishContractResult,
 } from './journeyPublishContract';
+
+export {
+  hydratePublishedJourneysFromServer,
+  fetchFrozenJourneyArtifact,
+  type OwnerPublishedJourneyServerItem,
+  type OwnerPublishedJourneysResponse,
+} from './hydratePublishedJourneysFromServer';

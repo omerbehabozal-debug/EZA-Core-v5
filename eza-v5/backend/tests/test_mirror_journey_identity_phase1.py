@@ -248,7 +248,7 @@ async def test_flag_on_same_conversation_two_journey_ids_create_two_nodes():
     db = AsyncMock()
     created: list[SimpleNamespace] = []
 
-    async def _create(_db, node):
+    async def _create(_db, node, **_kwargs):
         created.append(node)
         return node
 
@@ -333,7 +333,7 @@ async def test_flag_on_same_journey_id_updates_and_bumps_version():
         updated_at=None,
     )
 
-    async def _update(_db, node):
+    async def _update(_db, node, **_kwargs):
         return node
 
     with (
@@ -382,7 +382,7 @@ async def test_legacy_artifact_kind_default_on_conversation_path():
     db = AsyncMock()
     created: list = []
 
-    async def _create(_db, node):
+    async def _create(_db, node, **_kwargs):
         created.append(node)
         return node
 

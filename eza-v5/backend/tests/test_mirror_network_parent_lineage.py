@@ -245,7 +245,7 @@ async def test_publish_persists_valid_parent_slug_on_first_publish():
     db.refresh = AsyncMock()
     captured: dict = {}
 
-    async def _capture_create(_db, node):
+    async def _capture_create(_db, node, **_kwargs):
         captured["node"] = node
         return node
 

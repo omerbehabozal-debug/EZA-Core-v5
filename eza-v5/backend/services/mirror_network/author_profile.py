@@ -28,13 +28,32 @@ def _public_display_name_from_email(email: str | None) -> str:
 
 def _item_from_node(node: MirrorNetworkNode) -> dict[str, Any]:
     public = node.public_payload if isinstance(node.public_payload, dict) else {}
+    frozen_landing: dict[str, Any] = {}
+    frozen_scene = None
+    try:
+        from backend.services.mirror_network.frozen_journey_artifact import (
+            read_frozen_journey_artifact_from_private,
+        )
+
+        frozen = read_frozen_journey_artifact_from_private(
+            node.private_payload if isinstance(node.private_payload, dict) else None
+        )
+        if frozen:
+            raw_landing = frozen.get("publicLanding")
+            if isinstance(raw_landing, dict):
+                frozen_landing = raw_landing
+            frozen_scene = frozen.get("sceneImageUrl")
+    except Exception:
+        pass
     title = (
-        str(public.get("publicTitle") or "").strip()
+        str(frozen_landing.get("publicTitle") or "").strip()
+        or str(public.get("publicTitle") or "").strip()
         or str(node.card_title or "").strip()
         or "Yansı"
     )
     summary = (
-        str(public.get("publicSummary") or "").strip()
+        str(frozen_landing.get("publicSummary") or "").strip()
+        or str(public.get("publicSummary") or "").strip()
         or str(public.get("curiosityContext") or "").strip()
         or None
     )
@@ -43,7 +62,7 @@ def _item_from_node(node: MirrorNetworkNode) -> dict[str, Any]:
         "shareUrl": build_mirror_share_url(node.slug),
         "publicTitle": title,
         "publicSummary": summary,
-        "sceneImageUrl": node.scene_image_url,
+        "sceneImageUrl": frozen_scene or node.scene_image_url,
         "publishedAt": node.published_at.isoformat() if node.published_at else None,
         "parentSlug": (node.parent_slug or None),
     }

@@ -161,7 +161,7 @@ async def test_parallel_publish_interleaving_non_null_wins():
         created_at=None,
     )
 
-    async def _create_raises(_db, _node):
+    async def _create_raises(_db, _node, **_kwargs):
         raise IntegrityError("insert", {}, Exception("duplicate"))
 
     body = _publish_body()
@@ -208,7 +208,7 @@ async def test_publish_mirror_to_network_returns_share_url():
 
     captured: dict = {}
 
-    async def _capture_create(_db, node):
+    async def _capture_create(_db, node, **_kwargs):
         captured["node"] = node
         return node
 
@@ -277,7 +277,7 @@ async def test_publish_mirror_to_network_recovers_from_duplicate_insert():
         created_at=None,
     )
 
-    async def _create_raises(_db, _node):
+    async def _create_raises(_db, _node, **_kwargs):
         raise IntegrityError("insert", {}, Exception("duplicate"))
 
     with (

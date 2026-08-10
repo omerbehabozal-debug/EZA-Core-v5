@@ -55,9 +55,14 @@ async def slug_exists(db: AsyncSession, slug: str) -> bool:
 async def create_mirror_network_node(
     db: AsyncSession,
     node: MirrorNetworkNode,
+    *,
+    commit: bool = True,
 ) -> MirrorNetworkNode:
     db.add(node)
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     await db.refresh(node)
     return node
 
@@ -131,7 +136,12 @@ async def list_journey_nodes_for_conversation(
 async def update_mirror_network_node(
     db: AsyncSession,
     node: MirrorNetworkNode,
+    *,
+    commit: bool = True,
 ) -> MirrorNetworkNode:
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     await db.refresh(node)
     return node
