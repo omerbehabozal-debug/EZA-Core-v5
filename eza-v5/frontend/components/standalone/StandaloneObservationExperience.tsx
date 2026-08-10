@@ -82,6 +82,11 @@ import {
   patchMirrorJourneyArtifactMetrics,
   markMirrorJourneyArtifactPublished,
   markMirrorJourneyArtifactPublishFailed,
+  loadMirrorJourneyArtifact,
+  resolveMirrorJourneySharePayload,
+  buildShareCardFromJourneyPayload,
+  publicPreviewFromJourneySharePayload,
+  type MirrorJourneySharePayload,
 } from '@/lib/eza/mirror/journey';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
 import AynaJourneyReel from '@/components/mirror/ayna/AynaJourneyReel';
@@ -204,6 +209,9 @@ export default function StandaloneObservationExperience({
   const [artifactRevision, setArtifactRevision] = useState(0);
   const [shareTargetArtifact, setShareTargetArtifact] =
     useState<MirrorJourneyArtifact | null>(null);
+  /** Phase 3.8.1 — frozen share session; identity never tracks live card while open. */
+  const [shareSessionPayload, setShareSessionPayload] =
+    useState<MirrorJourneySharePayload | null>(null);
   const [sharePublishConsentOpen, setSharePublishConsentOpen] = useState(false);
   const [posterLightboxOpen, setPosterLightboxOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
@@ -1529,6 +1537,8 @@ export default function StandaloneObservationExperience({
   const handleShareClose = useCallback(() => {
     setShareOpen(false);
     setSharePublishConsentOpen(false);
+    setShareTargetArtifact(null);
+    setShareSessionPayload(null);
     mirrorExport.reset();
   }, [mirrorExport]);
 
@@ -1563,13 +1573,34 @@ export default function StandaloneObservationExperience({
     router.push(`/m/${encodeURIComponent(slug)}`);
   }, [generatedDailyCard, router]);
 
-  const openShareExperience = useCallback(() => {
-    setShareOpen(true);
-    trackMirrorShareOpened(
-      generatedDailyCard?.mirrorShare?.networkSlug ?? conversationId ?? null,
-      conversationId
-    );
-  }, [generatedDailyCard, conversationId]);
+  const freezeArtifactShareSession = useCallback(
+    (artifact: MirrorJourneyArtifact) => {
+      const payload = resolveMirrorJourneySharePayload({
+        artifact,
+        ownerUserId: shareCacheUserId,
+        conversationId,
+      });
+      setShareTargetArtifact(artifact);
+      setShareSessionPayload(payload);
+      return payload;
+    },
+    [shareCacheUserId, conversationId]
+  );
+
+  const openShareExperience = useCallback(
+    (openedSlug?: string | null) => {
+      setShareOpen(true);
+      trackMirrorShareOpened(
+        openedSlug ??
+          shareSessionPayload?.slug ??
+          generatedDailyCard?.mirrorShare?.networkSlug ??
+          conversationId ??
+          null,
+        conversationId
+      );
+    },
+    [generatedDailyCard, conversationId, shareSessionPayload?.slug]
+  );
 
   const handleShareOpen = useCallback(() => {
     if (!isPlus) {
@@ -1603,21 +1634,42 @@ export default function StandaloneObservationExperience({
     setPosterLightboxOpen(true);
   }, [sceneImageUrl]);
 
-  const handleShareCapture = useCallback(async () => {
-    if (!isPlus) return;
-    await mirrorExport.captureCard();
-  }, [isPlus, mirrorExport]);
+  const handleShareCapture = useCallback(
+    async (node?: HTMLElement | null) => {
+      if (!isPlus) return;
+      await mirrorExport.captureCard(node ? { node } : undefined);
+    },
+    [isPlus, mirrorExport]
+  );
 
   const handleShareNative = useCallback(async () => {
-    const result = await mirrorExport.share(generatedDailyCard);
+    const cardForShare = shareSessionPayload
+      ? buildShareCardFromJourneyPayload(shareSessionPayload)
+      : generatedDailyCard;
+    const result = await mirrorExport.share(cardForShare);
     if (result === 'aborted') return;
     if (result === 'shared' || result === 'copied') {
       trackMirrorShared(
-        generatedDailyCard?.mirrorShare?.networkSlug ?? conversationId ?? null,
+        shareSessionPayload?.slug ??
+          cardForShare?.mirrorShare?.networkSlug ??
+          conversationId ??
+          null,
         conversationId
       );
     }
-  }, [mirrorExport, generatedDailyCard, conversationId]);
+  }, [
+    mirrorExport,
+    generatedDailyCard,
+    conversationId,
+    shareSessionPayload,
+  ]);
+
+  const handleShareCopyText = useCallback(async () => {
+    const cardForShare = shareSessionPayload
+      ? buildShareCardFromJourneyPayload(shareSessionPayload)
+      : generatedDailyCard;
+    return mirrorExport.copyText(cardForShare);
+  }, [mirrorExport, shareSessionPayload, generatedDailyCard]);
 
   const journeyV1PanelOn = isMirrorJourneyV1ClientEnabled();
 
@@ -1690,6 +1742,7 @@ export default function StandaloneObservationExperience({
         setIdentityOpen(true);
         return false;
       }
+      // Never borrow a foreign live card for this artifact's publish body.
       const card = buildPublishCardFromArtifact({
         artifact,
         liveCard: generatedDailyCard,
@@ -1705,12 +1758,20 @@ export default function StandaloneObservationExperience({
       try {
         const ok = await prepareMirrorShareLink(
           card,
-          artifact.sceneImageUrl || sceneImageUrl,
+          artifact.sceneImageUrl || null,
           { refreshScene: options?.refreshScene }
         );
-        if (ok && options?.openShareAfter) {
-          setShareTargetArtifact(artifact);
-          openShareExperience();
+        if (ok) {
+          const updated =
+            loadMirrorJourneyArtifact(
+              shareCacheUserId,
+              artifact.journeyId,
+              artifact.journeyVersion
+            ) || artifact;
+          const payload = freezeArtifactShareSession(updated);
+          if (options?.openShareAfter) {
+            openShareExperience(payload.slug);
+          }
         }
         return ok;
       } finally {
@@ -1723,7 +1784,8 @@ export default function StandaloneObservationExperience({
       isAuthenticated,
       generatedDailyCard,
       prepareMirrorShareLink,
-      sceneImageUrl,
+      shareCacheUserId,
+      freezeArtifactShareSession,
       openShareExperience,
     ]
   );
@@ -1750,14 +1812,15 @@ export default function StandaloneObservationExperience({
           allowConversationLegacyFallback: false,
         });
         if (identity?.shareUrl) {
-          setShareTargetArtifact(artifact);
           setShareBusyJourneyId(artifact.journeyId);
-          openShareExperience();
+          const payload = freezeArtifactShareSession(artifact);
+          openShareExperience(payload.slug);
           setShareBusyJourneyId(null);
           return;
         }
-        setSharePublishConsentOpen(true);
         setShareTargetArtifact(artifact);
+        freezeArtifactShareSession(artifact);
+        setSharePublishConsentOpen(true);
       },
       onOpenDiscover: (artifact) => {
         const identity = resolveJourneyArtifactShareIdentity({
@@ -1800,6 +1863,7 @@ export default function StandaloneObservationExperience({
       isAuthenticated,
       shareCacheUserId,
       conversationId,
+      freezeArtifactShareSession,
       openShareExperience,
       router,
     ]
@@ -1826,7 +1890,9 @@ export default function StandaloneObservationExperience({
         refreshScene: true,
       });
       if (!ok) return;
-      openShareExperience();
+      openShareExperience(
+        generatedDailyCard.mirrorShare?.networkSlug ?? null
+      );
     } finally {
       setPublishBusy(false);
     }
@@ -1839,6 +1905,28 @@ export default function StandaloneObservationExperience({
     sceneImageUrl,
     openShareExperience,
     requireConfirmedReview8OrOpen,
+  ]);
+
+  const handleRetryJourneyOrLegacyShareLink = useCallback(() => {
+    if (shareSessionPayload && useAynaJourneyReel) {
+      const artifact =
+        loadMirrorJourneyArtifact(
+          shareCacheUserId,
+          shareSessionPayload.journeyId,
+          shareSessionPayload.journeyVersion
+        ) || shareTargetArtifact;
+      if (!artifact) return;
+      void prepareArtifactShareLink(artifact, { refreshScene: true });
+      return;
+    }
+    handleRetryShareLink();
+  }, [
+    shareSessionPayload,
+    useAynaJourneyReel,
+    shareCacheUserId,
+    shareTargetArtifact,
+    prepareArtifactShareLink,
+    handleRetryShareLink,
   ]);
 
   const handleRetryMirrorScene = useCallback(() => {
@@ -1860,6 +1948,20 @@ export default function StandaloneObservationExperience({
     if (!cardForRender) return null;
     return resolveMirrorPublicPreview(cardForRender, sceneImageUrl);
   }, [cardForRender, sceneImageUrl]);
+
+  const shareExperienceCard = useMemo(() => {
+    if (shareSessionPayload) {
+      return buildShareCardFromJourneyPayload(shareSessionPayload);
+    }
+    return generatedDailyCard;
+  }, [shareSessionPayload, generatedDailyCard]);
+
+  const shareExperiencePreview = useMemo(() => {
+    if (shareSessionPayload) {
+      return publicPreviewFromJourneySharePayload(shareSessionPayload);
+    }
+    return publicPreview;
+  }, [shareSessionPayload, publicPreview]);
 
   const isPublished = Boolean(generatedDailyCard?.mirrorShare?.shareUrl);
 
@@ -2207,8 +2309,9 @@ export default function StandaloneObservationExperience({
       <MirrorShareExperience
         open={shareOpen && isPlus}
         onClose={handleShareClose}
-        card={generatedDailyCard}
-        publicPreview={publicPreview}
+        card={shareExperienceCard}
+        publicPreview={shareExperiencePreview}
+        journeySharePayload={shareSessionPayload}
         previewUrl={mirrorExport.previewUrl}
         loading={mirrorExport.loading}
         error={mirrorExport.error}
@@ -2216,15 +2319,15 @@ export default function StandaloneObservationExperience({
         shareLinkError={shareLinkError}
         impactSlug={
           shareLinkStatus === 'ready'
-            ? shareTargetArtifact?.publish.slug ??
+            ? shareSessionPayload?.slug ??
               generatedDailyCard?.mirrorShare?.networkSlug ??
               null
             : null
         }
-        onRetryShareLink={handleRetryShareLink}
+        onRetryShareLink={handleRetryJourneyOrLegacyShareLink}
         onCapture={handleShareCapture}
         onShare={handleShareNative}
-        onCopyText={() => mirrorExport.copyText(generatedDailyCard)}
+        onCopyText={handleShareCopyText}
       />
 
       {sharePublishConsentOpen ? (

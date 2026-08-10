@@ -196,6 +196,16 @@ export {
 } from './buildPublishCardFromArtifact';
 
 export {
+  type MirrorJourneySharePayload,
+  resolveMirrorJourneySharePayload,
+  withJourneySharePublishIdentity,
+  publicPreviewFromJourneySharePayload,
+  resolveJourneyShareCaption,
+  buildShareCardFromJourneyPayload,
+  isSameJourneyShareSession,
+} from './resolveMirrorJourneySharePayload';
+
+export {
   resolveAuthorDisplayName,
   formatParentLineageLabel,
 } from './aynaAuthorDisplay';

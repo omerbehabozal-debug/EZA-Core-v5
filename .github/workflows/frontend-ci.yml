@@ -67,6 +67,7 @@ jobs:
           tests/mirrorJourneyPhase37CoreContract.test.ts
           tests/mirrorJourneyPhase375PanelReadiness.test.ts
           tests/mirrorJourneyPhase38AynaReel.test.tsx
+          tests/mirrorJourneyPhase381ShareClosure.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-

@@ -33,8 +33,12 @@ export function useMirrorCardExport() {
   }, []);
 
   const captureCard = useCallback(
-    async (options?: MirrorExportOptions): Promise<Blob | null> => {
-      const target = resolveMirrorExportCaptureNode(cardRef.current);
+    async (
+      options?: MirrorExportOptions & { node?: HTMLElement | null }
+    ): Promise<Blob | null> => {
+      const target = resolveMirrorExportCaptureNode(
+        options?.node ?? cardRef.current
+      );
       if (!target) {
         setError(MIRROR_EXPORT_ERROR_MESSAGE);
         return null;
@@ -86,12 +90,17 @@ export function useMirrorCardExport() {
     async (card?: DailyMirrorCardModel | null): Promise<MirrorShareResult> => {
       const text = resolveMirrorShareText(card);
       const publicUrl = card?.mirrorShare?.shareUrl?.trim() || null;
+      const shareTitle =
+        card?.mirrorShare?.publicTitle?.trim() ||
+        card?.dailyThemeTitle?.trim() ||
+        card?.headline?.trim() ||
+        'EZA · AI İlişki Aynası';
 
       const blob = exportBlob ?? (await captureCard());
       if (blob) {
         const filename = resolveMirrorExportFilename(card, card?.date);
         const result = await shareMirrorCardPng(blob, {
-          title: 'EZA · AI İlişki Aynası',
+          title: shareTitle,
           text,
           filename,
         });
@@ -100,7 +109,7 @@ export function useMirrorCardExport() {
       } else if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
         try {
           await navigator.share({
-            title: 'EZA · AI İlişki Aynası',
+            title: shareTitle,
             text,
             ...(publicUrl ? { url: publicUrl } : {}),
           });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2, Share2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,10 @@ import type { MirrorPublicPreviewContent } from '@/lib/eza/mirror-share/resolveM
 import { MIRROR_PUBLISHED_STATUS } from '@/lib/eza/mirror/copy';
 import { canShareFiles } from '@/lib/eza/mirror/shareExport';
 import { resolveMirrorShareCaption } from '@/lib/eza/mirror-share/resolveMirrorShareCaption';
+import {
+  resolveJourneyShareCaption,
+  type MirrorJourneySharePayload,
+} from '@/lib/eza/mirror/journey/resolveMirrorJourneySharePayload';
 import {
   SHARE_EXPERIENCE_CAPTION_LABEL,
   SHARE_EXPERIENCE_COPY_CTA,
@@ -44,6 +48,11 @@ export interface MirrorShareExperienceProps {
   card: DailyMirrorCardModel | null;
   /** Same public card fields as Discover / landing / owner preview. */
   publicPreview?: MirrorPublicPreviewContent | null;
+  /**
+   * Phase 3.8.1 — when set, Share Experience is frozen to this Journey artifact.
+   * Overrides live card / publicPreview for caption, preview, and share URL.
+   */
+  journeySharePayload?: MirrorJourneySharePayload | null;
   previewUrl: string | null;
   loading: boolean;
   error: string | null;
@@ -51,7 +60,8 @@ export interface MirrorShareExperienceProps {
   shareLinkError?: string | null;
   impactSlug?: string | null;
   onRetryShareLink?: () => void;
-  onCapture: () => Promise<void>;
+  /** Optional capture node from the share preview (artifact-scoped). */
+  onCapture: (node?: HTMLElement | null) => Promise<void>;
   onShare: () => Promise<void>;
   onCopyText: () => Promise<boolean>;
 }
@@ -64,6 +74,7 @@ export default function MirrorShareExperience({
   onClose,
   card,
   publicPreview = null,
+  journeySharePayload = null,
   previewUrl,
   loading,
   error,
@@ -81,12 +92,32 @@ export default function MirrorShareExperience({
   const [impactStats, setImpactStats] = useState<MirrorNetworkImpactStats | null>(null);
   const [impactLoaded, setImpactLoaded] = useState(false);
   const [impactFailed, setImpactFailed] = useState(false);
+  const previewCaptureRef = useRef<HTMLDivElement | null>(null);
   const fileShareAvailable = canShareFiles();
 
-  const captionPreview = card ? resolveMirrorShareCaption(card) : '';
-  const hasShareUrl = Boolean(card?.mirrorShare?.shareUrl);
+  const resolvedPreview: MirrorPublicPreviewContent | null = journeySharePayload
+    ? {
+        title: journeySharePayload.publicTitle,
+        summary: journeySharePayload.publicSummary,
+        sceneImageUrl: journeySharePayload.sceneImageUrl,
+      }
+    : publicPreview;
+
+  const captionPreview = journeySharePayload
+    ? resolveJourneyShareCaption(journeySharePayload)
+    : card
+      ? resolveMirrorShareCaption(card)
+      : '';
+  const hasShareUrl = Boolean(
+    journeySharePayload?.shareUrl?.trim() || card?.mirrorShare?.shareUrl
+  );
   const shareLinkBusy = shareLinkStatus === 'preparing';
   const shareLinkFailed = shareLinkStatus === 'failed';
+  const resolvedImpactSlug =
+    impactSlug?.trim() ||
+    journeySharePayload?.slug?.trim() ||
+    card?.mirrorShare?.networkSlug?.trim() ||
+    null;
 
   useEffect(() => {
     setMounted(true);
@@ -101,15 +132,19 @@ export default function MirrorShareExperience({
       setImpactFailed(false);
       return;
     }
-    void onCapture();
-  }, [open, onCapture]);
+    // Wait one frame so the artifact-scoped preview node is mounted before capture.
+    const frame = window.requestAnimationFrame(() => {
+      void onCapture(previewCaptureRef.current);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, onCapture, journeySharePayload?.journeyId, journeySharePayload?.journeyVersion]);
 
   useEffect(() => {
     if (
       !isSainaImpactStatsEnabled() ||
       !open ||
       shareLinkStatus !== 'ready' ||
-      !impactSlug?.trim()
+      !resolvedImpactSlug
     ) {
       setImpactStats(null);
       setImpactLoaded(false);
@@ -122,7 +157,7 @@ export default function MirrorShareExperience({
     setImpactFailed(false);
 
     (async () => {
-      const result = await fetchMirrorImpact(impactSlug);
+      const result = await fetchMirrorImpact(resolvedImpactSlug);
       if (cancelled) return;
       if (!result.ok) {
         setImpactFailed(true);
@@ -138,7 +173,7 @@ export default function MirrorShareExperience({
     return () => {
       cancelled = true;
     };
-  }, [open, impactSlug, shareLinkStatus]);
+  }, [open, resolvedImpactSlug, shareLinkStatus]);
 
   const impactStatsEnabled = isSainaImpactStatsEnabled();
   const showImpactBlock =
@@ -207,15 +242,28 @@ export default function MirrorShareExperience({
             'flex min-h-[10rem] items-center justify-center bg-[#0c0b0a]/40 px-3 py-4'
           )}
         >
-          {publicPreview ? (
-            <MirrorPublicCard
-              title={publicPreview.title}
-              summary={publicPreview.summary}
-              sceneImageUrl={publicPreview.sceneImageUrl}
-              metaLabel={hasShareUrl ? MIRROR_PUBLISHED_STATUS : null}
-              testIdPrefix="mirror-share-public-card"
+          {resolvedPreview ? (
+            <div
+              ref={previewCaptureRef}
+              data-mirror-share-root
+              data-testid="mirror-share-capture-root"
+              data-journey-id={journeySharePayload?.journeyId ?? undefined}
+              data-journey-version={
+                journeySharePayload
+                  ? String(journeySharePayload.journeyVersion)
+                  : undefined
+              }
               className="w-full max-w-[18rem]"
-            />
+            >
+              <MirrorPublicCard
+                title={resolvedPreview.title}
+                summary={resolvedPreview.summary}
+                sceneImageUrl={resolvedPreview.sceneImageUrl}
+                metaLabel={hasShareUrl ? MIRROR_PUBLISHED_STATUS : null}
+                testIdPrefix="mirror-share-public-card"
+                className="w-full"
+              />
+            </div>
           ) : loading ? (
             <div className="flex flex-col items-center gap-3 py-8 text-stone-500">
               <Loader2 className="h-8 w-8 animate-spin text-violet-500" aria-hidden />
