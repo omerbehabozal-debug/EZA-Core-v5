@@ -16,6 +16,10 @@ from backend.services.mirror.journey_window_hashes import (
     compute_answer_hash,
     compute_question_hash,
 )
+from backend.services.mirror_network.frozen_step_eza import (
+    assert_eza_bound_to_assistant,
+    normalize_frozen_step_eza_snapshot,
+)
 
 
 def _text_hash(value: str) -> str:
@@ -146,6 +150,16 @@ async def replace_journey_steps_for_version(
             }
             if incoming_hash:
                 sanitization_payload["lineageSelectedStepsHash"] = incoming_hash
+        eza_raw = row.get("ezaSnapshot") or row.get("eza_snapshot")
+        eza_norm = normalize_frozen_step_eza_snapshot(
+            eza_raw if isinstance(eza_raw, Mapping) else None,
+            source_assistant_message_id=assistant_id,
+            source_user_message_id=user_id,
+        )
+        assert_eza_bound_to_assistant(
+            snapshot=eza_norm,
+            source_assistant_message_id=assistant_id or "",
+        )
         db.add(
             MirrorJourneyStep(
                 id=uuid4(),
@@ -160,6 +174,7 @@ async def replace_journey_steps_for_version(
                 question_hash=q_hash or _text_hash(question),
                 answer_hash=a_hash or _text_hash(answer),
                 sanitization_flags=sanitization_payload,
+                eza_snapshot=eza_norm,
             )
         )
     if commit:

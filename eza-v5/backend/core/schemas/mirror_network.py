@@ -109,6 +109,8 @@ class MirrorJourneySelectedStep(BaseModel):
     sourceAssistantMessageId: str = Field(..., min_length=1, max_length=128)
     publicQuestion: str = Field(..., min_length=1)
     publicAnswer: str = Field(..., min_length=1)
+    """Optional interaction-level EZA for this exact Q/A (Phase 4.2)."""
+    ezaSnapshot: Optional[Dict[str, Any]] = None
 
 
 class MirrorNetworkPublishRequest(BaseModel):
@@ -186,47 +188,56 @@ class MirrorNetworkImpactStats(BaseModel):
     landingViews: int = Field(default=0, ge=0)
 
 
-class FrozenJourneyPublicStep(BaseModel):
-    """Public-safe frozen Q/A step (Phase 4 replay source; no private raw text)."""
+class PublicFrozenStepEzaSnapshot(BaseModel):
+    """Allowlisted interaction-level EZA for public frozen replay (Phase 4.2)."""
 
     model_config = {"extra": "forbid"}
 
-    stepIndex: int
-    sourceOrder: Optional[int] = None
-    sourceUserMessageId: Optional[str] = None
-    sourceAssistantMessageId: Optional[str] = None
+    assistantScore: Optional[float] = None
+    userScore: Optional[float] = None
+    ezaFinal: Optional[float] = None
+    outputHealth: Optional[float] = None
+    inputHealth: Optional[float] = None
+    alignmentScore: Optional[float] = None
+    redirect: Optional[bool] = None
+    redirectBenign: Optional[bool] = None
+    intent: Optional[str] = None
+
+
+class PublicFrozenJourneyStep(BaseModel):
+    """Public replay-safe frozen Q/A (+ optional EZA snapshot)."""
+
+    model_config = {"extra": "forbid"}
+
+    stepIndex: int = Field(ge=1, le=8)
     publicQuestion: str
     publicAnswer: str
-    questionHash: Optional[str] = None
-    answerHash: Optional[str] = None
-    sanitizationFlags: Optional[Any] = None
+    ezaSnapshot: Optional[PublicFrozenStepEzaSnapshot] = None
 
 
-class FrozenJourneyArtifactPublicResponse(BaseModel):
-    """GET /api/mirror-network/{slug}/frozen — durable published Journey."""
+class PublicFrozenJourneyArtifact(BaseModel):
+    """GET /api/mirror-network/{slug}/frozen — allowlisted public projection."""
 
     model_config = {"extra": "forbid"}
 
-    contractVersion: str
-    freezeStatus: Literal["frozen", "non_frozen"]
-    replayReady: bool = False
-    artifactId: str
-    journeyId: str
-    journeyVersion: int
     slug: str
-    artifactKind: str = "journey_v1"
-    authorUserId: str
-    parentSlug: Optional[str] = None
-    parentJourneyId: Optional[str] = None
-    selectedCount: int
-    selectedSteps: List[FrozenJourneyPublicStep] = Field(default_factory=list)
+    journeyId: str
+    journeyVersion: int = Field(ge=1)
     publicTitle: Optional[str] = None
     publicSummary: Optional[str] = None
     continuationContext: Optional[str] = None
-    sceneAssetId: Optional[str] = None
     sceneImageUrl: Optional[str] = None
+    authorUserId: str
+    parentSlug: Optional[str] = None
+    selectedCount: int = Field(ge=6, le=8)
+    steps: List[PublicFrozenJourneyStep] = Field(default_factory=list)
     publishedAt: Optional[str] = None
-    frozenAt: Optional[str] = None
+    replayReady: bool = True
+
+
+# Backward-compatible aliases (Phase 4 names → Phase 4.1 public DTOs).
+FrozenJourneyPublicStep = PublicFrozenJourneyStep
+FrozenJourneyArtifactPublicResponse = PublicFrozenJourneyArtifact
 
 
 class OwnerPublishedJourneyItem(BaseModel):
@@ -243,13 +254,11 @@ class OwnerPublishedJourneyItem(BaseModel):
     publicSummary: Optional[str] = None
     continuationContext: Optional[str] = None
     sceneImageUrl: Optional[str] = None
-    sceneAssetId: Optional[str] = None
     parentSlug: Optional[str] = None
     authorUserId: Optional[str] = None
     selectedCount: Optional[int] = None
     publishedAt: Optional[str] = None
     frozenAt: Optional[str] = None
-    sourceConversationId: Optional[str] = None
 
 
 class OwnerPublishedJourneysResponse(BaseModel):

@@ -51,6 +51,8 @@ jobs:
             tests/test_mirror_journey_phase36_publish_boundary.py \
             tests/test_mirror_journey_phase36b_payload_binding.py \
             tests/test_mirror_journey_phase37_core_contract.py \
+            tests/test_mirror_journey_phase4_frozen_artifact.py \
+            tests/test_mirror_journey_phase42_frozen_step_eza.py \
             tests/test_mirror_network_impact.py \
             tests/test_mirror_network_parent_lineage.py \
             tests/test_mirror_network_discover.py \

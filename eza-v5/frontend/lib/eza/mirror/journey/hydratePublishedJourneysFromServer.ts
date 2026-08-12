@@ -23,13 +23,11 @@ export type OwnerPublishedJourneyServerItem = {
   publicSummary?: string | null;
   continuationContext?: string | null;
   sceneImageUrl?: string | null;
-  sceneAssetId?: string | null;
   parentSlug?: string | null;
   authorUserId?: string | null;
   selectedCount?: number | null;
   publishedAt?: string | null;
   frozenAt?: string | null;
-  sourceConversationId?: string | null;
 };
 
 export type OwnerPublishedJourneysResponse = {
@@ -52,14 +50,13 @@ function toPanelArtifact(
   return {
     journeyId,
     journeyVersion: Number(item.journeyVersion) || 1,
-    sourceConversationId:
-      (item.sourceConversationId || conversationId || '').trim() || conversationId,
+    sourceConversationId: conversationId,
     blockIndex: 0,
     generationId: `server-frozen:${journeyId}:v${item.journeyVersion}`,
     selectedCount,
     selectedStepsHash: `server-frozen:${journeyId}:v${item.journeyVersion}`,
     sceneImageUrl: item.sceneImageUrl ?? null,
-    sceneAssetId: item.sceneAssetId ?? null,
+    sceneAssetId: null,
     publicTitle: item.publicTitle ?? null,
     publicSummary: item.publicSummary ?? null,
     continuationContext: item.continuationContext ?? null,

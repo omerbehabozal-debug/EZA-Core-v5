@@ -37,6 +37,7 @@ import {
   type RegenerateSceneFn,
 } from '@/lib/eza/mirror/narrativeAlignment';
 import { resolveJourneyPublishContract } from '@/lib/eza/mirror/journey';
+import { attachEzaSnapshotsToSelectedSteps } from '@/lib/eza/mirror/journey/attachEzaSnapshotsToSelectedSteps';
 import { isMirrorJourneyV1ClientEnabled } from '@/lib/eza/mirror/journey/journeyClientFlag';
 import {
   isPublishableJourneyGenerationLineage,
@@ -63,6 +64,12 @@ export type PublishMirrorToNetworkInput = {
     sourceAssistantMessageId: string;
     publicQuestion: string;
     publicAnswer: string;
+    /** Phase 4.2 — interaction EZA for this exact Q/A (optional). */
+    ezaSnapshot?: {
+      assistantScore?: number | null;
+      userScore?: number | null;
+      behavioral?: unknown;
+    } | null;
     /** @deprecated wire aliases — prefer stepIndex / source* ids */
     index?: number;
     userMessageId?: string;
@@ -417,14 +424,26 @@ async function buildPublishBody(
       windowStart: typeof windowStart === 'number' ? windowStart : undefined,
       windowEnd: typeof windowEnd === 'number' ? windowEnd : undefined,
       selectedSteps: selectedSteps?.length
-        ? selectedSteps.map((s) => ({
-            stepIndex: s.stepIndex ?? s.index!,
+        ? attachEzaSnapshotsToSelectedSteps(
+            selectedSteps.map((s) => ({
+              stepIndex: s.stepIndex ?? s.index!,
+              sourceOrder: s.sourceOrder,
+              sourceUserMessageId: s.sourceUserMessageId ?? s.userMessageId!,
+              sourceAssistantMessageId:
+                s.sourceAssistantMessageId ?? s.assistantMessageId!,
+              publicQuestion: s.publicQuestion,
+              publicAnswer: s.publicAnswer,
+              ezaSnapshot: s.ezaSnapshot ?? null,
+            })),
+            { conversationId }
+          ).map((s) => ({
+            stepIndex: s.stepIndex,
             sourceOrder: s.sourceOrder,
-            sourceUserMessageId: s.sourceUserMessageId ?? s.userMessageId!,
-            sourceAssistantMessageId:
-              s.sourceAssistantMessageId ?? s.assistantMessageId!,
+            sourceUserMessageId: s.sourceUserMessageId,
+            sourceAssistantMessageId: s.sourceAssistantMessageId,
             publicQuestion: s.publicQuestion,
             publicAnswer: s.publicAnswer,
+            ...(s.ezaSnapshot ? { ezaSnapshot: s.ezaSnapshot } : {}),
           }))
         : undefined,
       sceneImageUrl: sceneImageUrl?.trim() || undefined,

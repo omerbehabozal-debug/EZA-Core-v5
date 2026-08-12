@@ -7,6 +7,7 @@ import {
   type SavedBehavioralEntry,
   isValidBehavioralEntry,
 } from '@/lib/behavioralHistory';
+import { canWriteEzaProfileHistory } from '@/lib/eza/ezaUserPrefs';
 import { extractStoryCueTokens } from '@/lib/eza/mirror/storyTopicResolver';
 import type { BehavioralSnapshot, StandaloneObservation } from '@/lib/types';
 
@@ -121,7 +122,10 @@ export function persistChatTurnFromResponse(params: {
   standaloneObservation?: StandaloneObservation | null;
   userScore?: number;
   assistantScore?: number;
+  /** Phase 4.3 — gate private EZA profile / Relationship Map writes. */
+  ownerUserId?: string | null;
 }): void {
+  if (!canWriteEzaProfileHistory(params.ownerUserId)) return;
   const hasSignal =
     params.behavioral != null ||
     params.standaloneObservation != null ||
@@ -139,5 +143,6 @@ export function persistChatTurnFromResponse(params: {
   const mirrorCueHints = extractStoryCueTokens(params.userText);
   appendBehavioralTurn(snapshot, params.standaloneObservation, {
     mirrorCueHints: mirrorCueHints.length ? mirrorCueHints : undefined,
+    ownerUserId: params.ownerUserId,
   });
 }

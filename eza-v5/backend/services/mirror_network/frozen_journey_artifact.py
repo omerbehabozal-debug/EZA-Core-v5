@@ -261,6 +261,7 @@ async def list_frozen_steps_for_version(
     journey_slug: str,
     journey_version: int,
 ) -> list[dict[str, Any]]:
+    """Internal step rows (includes provenance). Not for public HTTP responses."""
     slug = (journey_slug or "").strip().lower()
     version = int(journey_version or 1)
     if not slug:
@@ -287,9 +288,142 @@ async def list_frozen_steps_for_version(
                 "questionHash": row.question_hash,
                 "answerHash": row.answer_hash,
                 "sanitizationFlags": row.sanitization_flags,
+                "ezaSnapshot": getattr(row, "eza_snapshot", None),
             }
         )
     return out
+
+
+def project_public_frozen_steps(
+    steps: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Allowlisted public step projection — stepIndex + public Q/A (+ EZA)."""
+    from backend.services.mirror_network.frozen_step_eza import (
+        project_public_frozen_step_eza,
+    )
+
+    public_steps: list[dict[str, Any]] = []
+    for row in sorted(steps, key=lambda s: int(s.get("stepIndex") or 0)):
+        question = str(row.get("publicQuestion") or "").strip()
+        answer = str(row.get("publicAnswer") or "").strip()
+        if not question or not answer:
+            continue
+        step: dict[str, Any] = {
+            "stepIndex": int(row["stepIndex"]),
+            "publicQuestion": question,
+            "publicAnswer": answer,
+        }
+        eza_public = project_public_frozen_step_eza(
+            row.get("ezaSnapshot") if isinstance(row.get("ezaSnapshot"), Mapping) else None
+        )
+        if eza_public:
+            step["ezaSnapshot"] = eza_public
+        public_steps.append(step)
+    return public_steps
+
+
+def steps_sequence_is_valid(
+    steps: Sequence[Mapping[str, Any]],
+    *,
+    selected_count: int,
+) -> bool:
+    if selected_count < 6 or selected_count > 8:
+        return False
+    if len(steps) != selected_count:
+        return False
+    indices: list[int] = []
+    for row in steps:
+        try:
+            idx = int(row.get("stepIndex"))
+        except (TypeError, ValueError):
+            return False
+        question = str(row.get("publicQuestion") or "").strip()
+        answer = str(row.get("publicAnswer") or "").strip()
+        if not question or not answer:
+            return False
+        indices.append(idx)
+    expected = list(range(1, selected_count + 1))
+    return sorted(indices) == expected
+
+
+def is_frozen_replay_ready(
+    *,
+    freeze_status: str | None,
+    selected_count: int,
+    steps: Sequence[Mapping[str, Any]],
+    node_publicly_servable: bool,
+) -> bool:
+    if not node_publicly_servable:
+        return False
+    if str(freeze_status or "").strip().lower() != FREEZE_STATUS_FROZEN:
+        return False
+    return steps_sequence_is_valid(steps, selected_count=selected_count)
+
+
+def to_public_frozen_journey_artifact(
+    internal: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """
+    Explicit allowlist public serializer (Phase 4.1).
+
+    Never returns INTERNAL OBJECT minus blacklisted keys.
+    """
+    if not bool(internal.get("replayReady")):
+        return None
+    steps_raw = internal.get("selectedSteps") or internal.get("steps") or []
+    if not isinstance(steps_raw, list):
+        return None
+    public_steps = project_public_frozen_steps(steps_raw)
+    selected_count = int(internal.get("selectedCount") or 0)
+    if not steps_sequence_is_valid(public_steps, selected_count=selected_count):
+        return None
+    author = str(internal.get("authorUserId") or "").strip()
+    slug = str(internal.get("slug") or "").strip().lower()
+    journey_id = str(internal.get("journeyId") or slug).strip().lower()
+    if not author or not slug or not journey_id:
+        return None
+    parent = internal.get("parentSlug")
+    parent_slug = str(parent).strip().lower() if parent else None
+    return {
+        "slug": slug,
+        "journeyId": journey_id,
+        "journeyVersion": int(internal.get("journeyVersion") or 1),
+        "publicTitle": (
+            str(internal.get("publicTitle")).strip()
+            if internal.get("publicTitle") is not None
+            else None
+        )
+        or None,
+        "publicSummary": (
+            str(internal.get("publicSummary")).strip()
+            if internal.get("publicSummary") is not None
+            else None
+        )
+        or None,
+        "continuationContext": (
+            str(internal.get("continuationContext")).strip()
+            if internal.get("continuationContext") is not None
+            else None
+        )
+        or None,
+        "sceneImageUrl": (
+            str(internal.get("sceneImageUrl")).strip()
+            if internal.get("sceneImageUrl") is not None
+            else None
+        )
+        or None,
+        "authorUserId": author,
+        "parentSlug": parent_slug or None,
+        "selectedCount": selected_count,
+        "steps": public_steps,
+        "publishedAt": (
+            str(internal.get("publishedAt")).strip()
+            if internal.get("publishedAt") is not None
+            else None
+        )
+        or None,
+        "replayReady": True,
+    }
 
 
 async def get_frozen_journey_artifact(
@@ -299,15 +433,13 @@ async def get_frozen_journey_artifact(
     journey_version: int | None = None,
 ) -> dict[str, Any] | None:
     """
-    Durable public+steps freeze package.
+    Internal durable freeze package (includes provenance).
 
     Does not require JourneyGenerationRecord. Returns None if not frozen.
-
-    Option A: omitting journey_version returns the node's current published
-    version. Explicit journey_version may resolve an archived frozen seal for
-    an older version (steps + landing/scene provenance) when present.
+    Public HTTP must pass this through to_public_frozen_journey_artifact().
     """
     from backend.services.mirror_network.repository import get_mirror_network_node_by_slug
+    from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
 
     node = await get_mirror_network_node_by_slug(db, slug)
     if node is None:
@@ -336,11 +468,12 @@ async def get_frozen_journey_artifact(
         db, journey_slug=node.slug, journey_version=version
     )
     selected_count = int(frozen.get("selectedCount") or len(steps) or 0)
-    # Replay-ready only when freezeStatus is frozen AND 6–8 steps exist.
-    replay_ready = (
-        str(frozen.get("freezeStatus") or "").strip().lower() == FREEZE_STATUS_FROZEN
-        and 6 <= selected_count <= 8
-        and len(steps) == selected_count
+    safety_ok = evaluate_mirror_network_safety(node).passed
+    replay_ready = is_frozen_replay_ready(
+        freeze_status=str(frozen.get("freezeStatus") or getattr(node, "freeze_status", None)),
+        selected_count=selected_count,
+        steps=steps,
+        node_publicly_servable=safety_ok,
     )
     return {
         "contractVersion": frozen.get("contractVersion")
@@ -406,6 +539,21 @@ async def get_frozen_journey_artifact(
     }
 
 
+async def get_public_frozen_journey_artifact(
+    db: AsyncSession,
+    *,
+    slug: str,
+    journey_version: int | None = None,
+) -> dict[str, Any] | None:
+    """Public allowlisted projection; None when not replay-ready."""
+    internal = await get_frozen_journey_artifact(
+        db, slug=slug, journey_version=journey_version
+    )
+    if internal is None:
+        return None
+    return to_public_frozen_journey_artifact(internal)
+
+
 async def list_published_journey_nodes_for_conversation(
     db: AsyncSession,
     *,
@@ -455,7 +603,6 @@ async def list_owner_published_journeys_for_conversation(
                 "continuationContext": landing.get("continuationContext")
                 or public.get("continuationContext"),
                 "sceneImageUrl": frozen.get("sceneImageUrl") or node.scene_image_url,
-                "sceneAssetId": frozen.get("sceneAssetId"),
                 "parentSlug": frozen.get("parentSlug") or getattr(node, "parent_slug", None),
                 "authorUserId": frozen.get("authorUserId") or str(node.user_id),
                 "selectedCount": frozen.get("selectedCount"),
@@ -467,7 +614,6 @@ async def list_owner_published_journeys_for_conversation(
                     if getattr(node, "frozen_at", None)
                     else frozen.get("frozenAt")
                 ),
-                "sourceConversationId": getattr(node, "conversation_id", None),
             }
         )
     return out

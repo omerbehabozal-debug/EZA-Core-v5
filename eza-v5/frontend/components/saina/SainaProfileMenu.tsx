@@ -18,6 +18,12 @@ import {
 import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import {
   SAINA_ANALYSIS_MODEL_LABEL,
+  SAINA_EZA_PREF_OFF,
+  SAINA_EZA_PREF_ON,
+  SAINA_EZA_PROCESSING_LABEL,
+  SAINA_EZA_PROCESSING_NOTE,
+  SAINA_EZA_VISIBILITY_LABEL,
+  SAINA_EZA_VISIBILITY_NOTE,
   SAINA_MENU_ACCOUNT,
   SAINA_MENU_GUEST_LABEL,
   SAINA_MENU_GUEST_MULTI_DEVICE,
@@ -32,6 +38,12 @@ import {
   SAINA_SAFE_MODE_OFF,
   SAINA_SAFE_MODE_ON,
 } from '@/lib/eza/sainaCopy';
+import {
+  getEzaUserPreferences,
+  setEzaUserPreferences,
+  subscribeEzaUserPreferences,
+  type EzaUserPreferences,
+} from '@/lib/eza/ezaUserPrefs';
 import {
   STANDALONE_ANALYSIS_MODELS,
   getAnalysisModelById,
@@ -54,10 +66,14 @@ export default function SainaProfileMenu({
 }: SainaProfileMenuProps) {
   const [open, setOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
+  const [ezaPrefs, setEzaPrefs] = useState<EzaUserPreferences>(() =>
+    getEzaUserPreferences(null)
+  );
   const rootRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
   const returnUrl = useSainaAuthReturnUrl();
   const { isAuthenticated, user, logout, isAuthReady } = useAuth();
+  const ownerUserId = user?.user_id?.trim() || null;
   const { isPlus, isLoading, source } = usePlan();
   const { entitlements: accountEntitlements } = useAccountEntitlements();
   const planTier = resolveSainaPlanTier({
@@ -73,6 +89,13 @@ export default function SainaProfileMenu({
   const currentModel = getAnalysisModelById(analysisModelId);
   const loginHref = buildSainaAuthHref(returnUrl, 'login');
   const registerHref = buildSainaAuthHref(returnUrl, 'register');
+
+  useEffect(() => {
+    setEzaPrefs(getEzaUserPreferences(ownerUserId));
+    return subscribeEzaUserPreferences(() => {
+      setEzaPrefs(getEzaUserPreferences(ownerUserId));
+    });
+  }, [ownerUserId]);
 
   useEffect(() => {
     if (!open) return;
@@ -100,6 +123,10 @@ export default function SainaProfileMenu({
   const close = () => {
     setOpen(false);
     setModelOpen(false);
+  };
+
+  const patchEzaPref = (patch: Partial<EzaUserPreferences>) => {
+    setEzaPrefs(setEzaUserPreferences(ownerUserId, patch));
   };
 
   return (
@@ -217,6 +244,80 @@ export default function SainaProfileMenu({
                 </button>
               </div>
               <span className="saina-profile-menu-row-note">{SAINA_SAFE_MODE_NOTE}</span>
+            </div>
+
+            <div className="saina-profile-menu-row saina-profile-menu-row--stack">
+              <span className="saina-profile-menu-row-title">{SAINA_EZA_VISIBILITY_LABEL}</span>
+              <div
+                className="saina-safe-mode-segmented"
+                role="group"
+                aria-label={SAINA_EZA_VISIBILITY_LABEL}
+              >
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className={cn(
+                    'saina-safe-mode-segment',
+                    ezaPrefs.ezaVisibilityEnabled && 'saina-safe-mode-segment--active'
+                  )}
+                  aria-pressed={ezaPrefs.ezaVisibilityEnabled}
+                  onClick={() => patchEzaPref({ ezaVisibilityEnabled: true })}
+                  data-testid="saina-eza-visibility-on"
+                >
+                  {SAINA_EZA_PREF_ON}
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className={cn(
+                    'saina-safe-mode-segment',
+                    !ezaPrefs.ezaVisibilityEnabled && 'saina-safe-mode-segment--active'
+                  )}
+                  aria-pressed={!ezaPrefs.ezaVisibilityEnabled}
+                  onClick={() => patchEzaPref({ ezaVisibilityEnabled: false })}
+                  data-testid="saina-eza-visibility-off"
+                >
+                  {SAINA_EZA_PREF_OFF}
+                </button>
+              </div>
+              <span className="saina-profile-menu-row-note">{SAINA_EZA_VISIBILITY_NOTE}</span>
+            </div>
+
+            <div className="saina-profile-menu-row saina-profile-menu-row--stack">
+              <span className="saina-profile-menu-row-title">{SAINA_EZA_PROCESSING_LABEL}</span>
+              <div
+                className="saina-safe-mode-segmented"
+                role="group"
+                aria-label={SAINA_EZA_PROCESSING_LABEL}
+              >
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className={cn(
+                    'saina-safe-mode-segment',
+                    ezaPrefs.ezaDataProcessingEnabled && 'saina-safe-mode-segment--active'
+                  )}
+                  aria-pressed={ezaPrefs.ezaDataProcessingEnabled}
+                  onClick={() => patchEzaPref({ ezaDataProcessingEnabled: true })}
+                  data-testid="saina-eza-processing-on"
+                >
+                  {SAINA_EZA_PREF_ON}
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className={cn(
+                    'saina-safe-mode-segment',
+                    !ezaPrefs.ezaDataProcessingEnabled && 'saina-safe-mode-segment--active'
+                  )}
+                  aria-pressed={!ezaPrefs.ezaDataProcessingEnabled}
+                  onClick={() => patchEzaPref({ ezaDataProcessingEnabled: false })}
+                  data-testid="saina-eza-processing-off"
+                >
+                  {SAINA_EZA_PREF_OFF}
+                </button>
+              </div>
+              <span className="saina-profile-menu-row-note">{SAINA_EZA_PROCESSING_NOTE}</span>
             </div>
 
             <div className="saina-profile-menu-row saina-profile-menu-row--stack" ref={modelRef}>

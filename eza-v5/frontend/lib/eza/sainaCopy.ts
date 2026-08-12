@@ -432,6 +432,20 @@ export const SAINA_SAFE_MODE_OFF = 'Kapalı';
 
 export const SAINA_SAFE_MODE_ON = 'Açık';
 
+export const SAINA_EZA_VISIBILITY_LABEL = 'EZA Görünümü';
+
+export const SAINA_EZA_VISIBILITY_NOTE =
+  'Sohbetlerde ve Yansı deneyimlerinde EZA değerlendirmelerini gösterir.';
+
+export const SAINA_EZA_PROCESSING_LABEL = 'EZA Analizi ve Veri İşleme';
+
+export const SAINA_EZA_PROCESSING_NOTE =
+  'Etkileşimlerinizin özel EZA profiliniz ve İlişki Haritanız için işlenmesini kontrol eder.';
+
+export const SAINA_EZA_PREF_OFF = 'Kapalı';
+
+export const SAINA_EZA_PREF_ON = 'Açık';
+
 export const SAINA_ANALYSIS_MODEL_LABEL = 'Model';
 
 

@@ -28,6 +28,8 @@ interface MessageListProps {
   isTyping?: boolean;
   variant?: ChatBubbleVariant;
   userInitial?: string;
+  /** Phase 4.3 — presentation preference; independent of data processing. */
+  ezaVisibilityEnabled?: boolean;
 }
 
 function SainaTypingRow() {
@@ -48,6 +50,7 @@ export default function MessageList({
   isTyping = false,
   variant = 'legacy',
   userInitial = 'E',
+  ezaVisibilityEnabled = true,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isEmpty = messages.length === 0 && !isLoading && !isTyping;
@@ -81,6 +84,7 @@ export default function MessageList({
             variant={variant}
             userInitial={userInitial}
             isFirstAssistantMessage={isFirstAssistantMessage}
+            ezaVisibilityEnabled={ezaVisibilityEnabled}
           />
         );
       })}

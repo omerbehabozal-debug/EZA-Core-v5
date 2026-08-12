@@ -713,3 +713,249 @@ async def test_freeze_commit_failure_reports_not_success():
             )
         assert exc.value.detail["code"] == "journey_freeze_persist_failed"
         db.rollback.assert_awaited()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4.1 — public frozen privacy (allowlist projection)
+# ---------------------------------------------------------------------------
+
+_PUBLIC_FORBIDDEN_KEYS = frozenset(
+    {
+        "sourceUserMessageId",
+        "sourceAssistantMessageId",
+        "sourceOrder",
+        "questionHash",
+        "answerHash",
+        "sanitizationFlags",
+        "integrity",
+        "narrativeAlignment",
+        "sanitization",
+        "generationId",
+        "mappedPromptHash",
+        "interpretationHash",
+        "scopedInputHash",
+        "selectedStepsHash",
+        "sourceBlockHash",
+        "windowHash",
+        "anchorsHash",
+        "sourceConversationId",
+        "sceneAssetId",
+        "artifactId",
+        "blockIndex",
+        "blockStart",
+        "blockEnd",
+        "contractVersion",
+        "freezeStatus",
+        "parentJourneyId",
+        "selectedSteps",
+    }
+)
+
+
+def _assert_public_frozen_privacy(payload: dict):
+    for key in _PUBLIC_FORBIDDEN_KEYS:
+        assert key not in payload, f"leaked top-level key: {key}"
+    assert set(payload.keys()) <= {
+        "slug",
+        "journeyId",
+        "journeyVersion",
+        "publicTitle",
+        "publicSummary",
+        "continuationContext",
+        "sceneImageUrl",
+        "authorUserId",
+        "parentSlug",
+        "selectedCount",
+        "steps",
+        "publishedAt",
+        "replayReady",
+    }
+    for step in payload.get("steps") or []:
+        allowed = {"stepIndex", "publicQuestion", "publicAnswer", "ezaSnapshot"}
+        assert set(step.keys()) <= allowed
+        assert "sourceUserMessageId" not in step
+        assert "sourceAssistantMessageId" not in step
+        assert "sourceOrder" not in step
+        assert "questionHash" not in step
+        assert "answerHash" not in step
+        assert "sanitizationFlags" not in step
+        if "ezaSnapshot" in step and step["ezaSnapshot"] is not None:
+            assert set(step["ezaSnapshot"].keys()) <= {
+                "assistantScore",
+                "userScore",
+                "ezaFinal",
+                "outputHealth",
+                "inputHealth",
+                "alignmentScore",
+                "redirect",
+                "redirectBenign",
+                "intent",
+            }
+
+
+def _internal_package(*, n: int, deselected=None, tag="P"):
+    steps = _steps(n=n, tag=tag, deselected=deselected or set())
+    return {
+        "replayReady": True,
+        "slug": "journey-privacy",
+        "journeyId": "journey-privacy",
+        "journeyVersion": 1,
+        "publicTitle": "Public Title",
+        "publicSummary": "Public Summary",
+        "continuationContext": "Cont",
+        "sceneImageUrl": URL_A,
+        "authorUserId": "user-public",
+        "parentSlug": None,
+        "selectedCount": n,
+        "selectedSteps": [
+            {
+                **s,
+                "questionHash": "qh-secret",
+                "answerHash": "ah-secret",
+                "sanitizationFlags": {"flags": ["email"], "lineageSelectedStepsHash": "x"},
+            }
+            for s in steps
+        ],
+        "integrity": {
+            "generationId": "gen-secret",
+            "mappedPromptHash": "map-secret",
+            "interpretationHash": "interp-secret",
+        },
+        "narrativeAlignment": {"status": "accepted", "generationId": "gen-secret"},
+        "sanitization": {"status": "sanitized", "flags": ["email"]},
+        "sourceConversationId": "conv-secret",
+        "sceneAssetId": SCENE_A,
+        "generationId": "gen-secret",
+        "artifactId": "artifact-secret",
+    }
+
+
+@pytest.mark.parametrize("n,deselected", [(6, {6, 7}), (7, {7}), (8, set())])
+def test_public_projection_allowlist_6_7_8(n, deselected):
+    from backend.services.mirror_network.frozen_journey_artifact import (
+        to_public_frozen_journey_artifact,
+    )
+
+    public = to_public_frozen_journey_artifact(_internal_package(n=n, deselected=deselected))
+    assert public is not None
+    assert public["replayReady"] is True
+    assert public["selectedCount"] == n
+    assert len(public["steps"]) == n
+    assert [s["stepIndex"] for s in public["steps"]] == list(range(1, n + 1))
+    _assert_public_frozen_privacy(public)
+    # Deselected secret never present
+    assert "SECRET_DESELECTED" not in str(public)
+
+
+def test_public_projection_sanitized_text_only_no_flags():
+    from backend.services.mirror_network.frozen_journey_artifact import (
+        to_public_frozen_journey_artifact,
+    )
+
+    steps = _steps(8)
+    steps[0]["publicAnswer"] = "Bana yaz: alice@example.com"
+    sanitized = sanitize_selected_journey_steps(steps)
+    assert sanitized["status"] == "sanitized"
+    assert "email" in (sanitized.get("flags") or [])
+    package = _internal_package(n=8)
+    package["selectedSteps"] = [
+        {
+            **s,
+            "questionHash": "qh",
+            "answerHash": "ah",
+            "sanitizationFlags": {"flags": sanitized.get("flags") or []},
+        }
+        for s in sanitized["steps"]
+    ]
+    public = to_public_frozen_journey_artifact(package)
+    assert public is not None
+    assert "[email]" in public["steps"][0]["publicAnswer"]
+    assert "alice@example.com" not in public["steps"][0]["publicAnswer"]
+    _assert_public_frozen_privacy(public)
+    # Sanitizer metadata must not ride along as step fields.
+    assert all("sanitizationFlags" not in step for step in public["steps"])
+
+
+def test_public_projection_not_ready_returns_none():
+    from backend.services.mirror_network.frozen_journey_artifact import (
+        to_public_frozen_journey_artifact,
+    )
+
+    package = _internal_package(n=8)
+    package["replayReady"] = False
+    assert to_public_frozen_journey_artifact(package) is None
+
+
+def test_private_marker_blocked_never_public_frozen():
+    """Blocked privacy status never becomes a public replay projection."""
+    from backend.services.mirror_network.frozen_journey_artifact import (
+        to_public_frozen_journey_artifact,
+    )
+
+    steps = _steps(8)
+    steps[0]["publicAnswer"] = "SECRET_PERSON_42 kim?"
+    out = sanitize_selected_journey_steps(steps)
+    assert out["status"] == "blocked"
+    assert (
+        to_public_frozen_journey_artifact(
+            {
+                "replayReady": False,
+                "slug": "blocked",
+                "journeyId": "blocked",
+                "journeyVersion": 1,
+                "authorUserId": "u",
+                "selectedCount": 8,
+                "selectedSteps": steps,
+            }
+        )
+        is None
+    )
+
+
+def test_owner_hydrate_omits_conversation_and_asset_ids():
+    from backend.services.mirror_network.frozen_journey_artifact import (
+        list_owner_published_journeys_for_conversation,
+    )
+
+    # Shape contract: keys must not include provenance secrets.
+    item_keys = {
+        "slug",
+        "journeyId",
+        "journeyVersion",
+        "artifactKind",
+        "freezeStatus",
+        "publicTitle",
+        "publicSummary",
+        "continuationContext",
+        "sceneImageUrl",
+        "parentSlug",
+        "authorUserId",
+        "selectedCount",
+        "publishedAt",
+        "frozenAt",
+    }
+    assert "sourceConversationId" not in item_keys
+    assert "sceneAssetId" not in item_keys
+    assert callable(list_owner_published_journeys_for_conversation)
+
+
+def test_public_frozen_dto_extra_forbid():
+    from backend.core.schemas.mirror_network import PublicFrozenJourneyArtifact
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        PublicFrozenJourneyArtifact.model_validate(
+            {
+                "slug": "a",
+                "journeyId": "a",
+                "journeyVersion": 1,
+                "authorUserId": "u",
+                "selectedCount": 8,
+                "steps": [
+                    {"stepIndex": i, "publicQuestion": f"q{i}", "publicAnswer": f"a{i}"}
+                    for i in range(1, 9)
+                ],
+                "replayReady": True,
+                "generationId": "must-not-pass",
+            }
+        )

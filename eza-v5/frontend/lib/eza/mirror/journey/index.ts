@@ -222,3 +222,9 @@ export {
   type OwnerPublishedJourneyServerItem,
   type OwnerPublishedJourneysResponse,
 } from './hydratePublishedJourneysFromServer';
+
+export {
+  attachEzaSnapshotsToSelectedSteps,
+  type FrozenStepEzaSnapshotInput,
+  type JourneyPublishStepWithOptionalEza,
+} from './attachEzaSnapshotsToSelectedSteps';

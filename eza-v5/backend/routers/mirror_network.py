@@ -12,12 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config import get_settings
 from backend.core.schemas.mirror_network import (
     DiscoverMirrorListResponse,
-    FrozenJourneyArtifactPublicResponse,
     MirrorNetworkDebugReport,
     MirrorNetworkImpactStats,
     MirrorNetworkPublicPayload,
     MirrorNetworkPublishRequest,
     OwnerPublishedJourneysResponse,
+    PublicFrozenJourneyArtifact,
 )
 from backend.core.schemas.mirror_sohbet import (
     MirrorSohbetSessionRequest,
@@ -44,12 +44,12 @@ from backend.services.mirror_network.author_profile import (
     list_published_mirrors_for_author,
 )
 from backend.services.mirror_network.frozen_journey_artifact import (
-    get_frozen_journey_artifact,
+    get_public_frozen_journey_artifact,
     list_owner_published_journeys_for_conversation,
 )
 from uuid import UUID
 from pydantic import BaseModel, Field
-from typing import List, Optional, Any
+from typing import List, Optional
 
 router = APIRouter(prefix="/api/mirror-network", tags=["Mirror Network"])
 debug_router = APIRouter(prefix="/api/debug/mirror-network", tags=["Debug — Mirror Network"])
@@ -221,46 +221,30 @@ async def get_mirror_network_children(
     return ParentChildrenYansiResponse(**payload)
 
 
-@router.get("/{slug}/frozen", response_model=FrozenJourneyArtifactPublicResponse)
+@router.get("/{slug}/frozen", response_model=PublicFrozenJourneyArtifact)
 async def get_frozen_published_journey(
     slug: str,
     journeyVersion: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit_standalone),
-) -> FrozenJourneyArtifactPublicResponse:
+) -> PublicFrozenJourneyArtifact:
     """
-    Durable Frozen Journey Artifact (Phase 4).
+    Public Frozen Journey Artifact (Phase 4.1 allowlisted projection).
 
-    Does not require JourneyGenerationRecord TTL or localStorage.
-    Omitting journeyVersion returns Option A current published version.
+    Returns only replay-safe fields. Non-frozen / incomplete → 404.
     """
-    frozen = await get_frozen_journey_artifact(
+    public = await get_public_frozen_journey_artifact(
         db, slug=slug, journey_version=journeyVersion
     )
-    if frozen is None:
+    if public is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
                 "code": "frozen_journey_not_found",
-                "message": "Frozen published Journey not found",
+                "message": "Frozen published Journey not found or not replay-ready",
             },
         )
-    # Strip internal integrity hashes from public response.
-    public = {
-        k: v
-        for k, v in frozen.items()
-        if k
-        not in {
-            "integrity",
-            "sanitization",
-            "narrativeAlignment",
-            "sourceConversationId",
-            "blockIndex",
-            "blockStart",
-            "blockEnd",
-        }
-    }
-    return FrozenJourneyArtifactPublicResponse.model_validate(public)
+    return PublicFrozenJourneyArtifact.model_validate(public)
 
 
 @router.get("/{slug}/impact", response_model=MirrorNetworkImpactStats)

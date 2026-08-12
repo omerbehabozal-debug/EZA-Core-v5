@@ -4,6 +4,7 @@
  */
 
 import type { BehavioralSnapshot, StandaloneObservation } from '@/lib/types';
+import { canWriteEzaProfileHistory } from '@/lib/eza/ezaUserPrefs';
 
 const STORAGE_KEY = 'eza_standalone_behavioral_history';
 const MAX_ITEMS = 50;
@@ -51,6 +52,8 @@ function placeholderSnapshot(interactionId: string): BehavioralSnapshot {
 
 export type AppendBehavioralOptions = {
   mirrorCueHints?: string[];
+  /** User scope for Phase 4.3 processing gate. */
+  ownerUserId?: string | null;
 };
 
 /** Persist turn; observation-only turns use a neutral placeholder vector. */
@@ -59,6 +62,7 @@ export function appendBehavioralTurn(
   standaloneObservation?: StandaloneObservation | null,
   options?: AppendBehavioralOptions
 ): void {
+  if (!canWriteEzaProfileHistory(options?.ownerUserId)) return;
   if (!snapshot && !standaloneObservation) return;
   const base = snapshot ?? placeholderSnapshot(`obs-${Date.now()}`);
   appendBehavioralSnapshot(base, standaloneObservation, options);
@@ -69,6 +73,7 @@ export function appendBehavioralSnapshot(
   standaloneObservation?: StandaloneObservation | null,
   options?: AppendBehavioralOptions
 ): void {
+  if (!canWriteEzaProfileHistory(options?.ownerUserId)) return;
   if (!snapshot || typeof window === 'undefined') return;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);

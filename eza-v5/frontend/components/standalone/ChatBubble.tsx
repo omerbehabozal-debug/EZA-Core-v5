@@ -20,6 +20,8 @@ interface ChatBubbleProps {
   assistantScore?: number;
   safety?: 'Safe' | 'Warning' | 'Blocked';
   safeOnlyMode?: boolean;
+  /** Phase 4.3 — hide EZA evaluation UI when false (independent of SAFE mode). */
+  ezaVisibilityEnabled?: boolean;
   timestamp?: Date;
   behavioral?: BehavioralSnapshot | null;
   feedback?: StandaloneFeedbackContext | null;
@@ -36,6 +38,7 @@ export default function ChatBubble({
   assistantScore,
   safety,
   safeOnlyMode = false,
+  ezaVisibilityEnabled = true,
   timestamp,
   behavioral,
   feedback,
@@ -43,6 +46,7 @@ export default function ChatBubble({
   userInitial = 'E',
   isFirstAssistantMessage = true,
 }: ChatBubbleProps) {
+  const showEzaEvaluation = !safeOnlyMode && ezaVisibilityEnabled;
   if (variant === 'saina') {
     const rowClass = isUser ? 'saina-msg-row--user' : 'saina-msg-row--ai';
 
@@ -63,7 +67,7 @@ export default function ChatBubble({
           </div>
           <div className="saina-msg-meta">
             {isUser ? (
-              !safeOnlyMode ? (
+              showEzaEvaluation ? (
                 <div className="saina-msg-meta-chip">
                   <BehavioralSummary
                     data={behavioral}
@@ -78,7 +82,7 @@ export default function ChatBubble({
               <div className="saina-msg-meta-chip">
                 <SafetyBadge safety={safety || 'Safe'} />
               </div>
-            ) : (
+            ) : showEzaEvaluation ? (
               <div className="saina-msg-meta-chip">
                 <BehavioralSummary
                   data={behavioral}
@@ -88,7 +92,7 @@ export default function ChatBubble({
                   variant="saina"
                 />
               </div>
-            )}
+            ) : null}
             {feedback?.eventId ? (
               <div className="saina-msg-meta-feedback">
                 <StandaloneFeedbackChips context={feedback} className="saina-feedback-chips" />
@@ -113,7 +117,7 @@ export default function ChatBubble({
             <p className={standaloneSkin.messageText}>{message}</p>
           </div>
 
-          {!safeOnlyMode ? (
+          {showEzaEvaluation ? (
             <div className={standaloneSkin.insightWrap}>
               <BehavioralSummary data={behavioral} ezaScore={userScore} context="user" align="end" />
             </div>
@@ -143,11 +147,11 @@ export default function ChatBubble({
           <div className={standaloneSkin.insightWrap}>
             <SafetyBadge safety={safety || 'Safe'} />
           </div>
-        ) : (
+        ) : showEzaEvaluation ? (
           <div className={standaloneSkin.insightWrap}>
             <BehavioralSummary data={behavioral} ezaScore={assistantScore} context="assistant" />
           </div>
-        )}
+        ) : null}
 
         {feedback?.eventId ? <StandaloneFeedbackChips context={feedback} /> : null}
 

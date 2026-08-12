@@ -86,6 +86,11 @@ import {
   buildConversationMirrorEntries,
   persistChatTurnFromResponse,
 } from '@/lib/eza/mirror/conversationMirrorEntries';
+import {
+  getEzaUserPreferences,
+  shouldShowEzaInExperience,
+  subscribeEzaUserPreferences,
+} from '@/lib/eza/ezaUserPrefs';
 import { useSetConversationMirrorEntries, PENDING_CONVERSATION_MIRROR_ID } from '@/components/standalone/MirrorEntriesContext';
 import {
   clearActiveConversationLiveMessages,
@@ -224,6 +229,14 @@ export default function StandaloneChatInner() {
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
   const { user, isAuthenticated } = useAuth();
   const journeyOwnerId = user?.user_id?.trim() || '';
+  const [ezaPrefsTick, setEzaPrefsTick] = useState(0);
+  useEffect(() => subscribeEzaUserPreferences(() => setEzaPrefsTick((n) => n + 1)), []);
+  const ezaPrefs = useMemo(
+    () => getEzaUserPreferences(journeyOwnerId || null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tick forces re-read after settings mutate
+    [journeyOwnerId, ezaPrefsTick]
+  );
+  const ezaVisibilityEnabled = shouldShowEzaInExperience(ezaPrefs);
   const [journeyState, setJourneyState] = useState<JourneyConversationState | null>(null);
   const [journeyReviewOpen, setJourneyReviewOpen] = useState(false);
   const [journeyReviewWindowIndex, setJourneyReviewWindowIndex] = useState<number | null>(
@@ -921,6 +934,7 @@ export default function StandaloneChatInner() {
                 standaloneObservation,
                 userScore: data.userScore,
                 assistantScore: data.assistantScore,
+                ownerUserId: journeyOwnerId || null,
               });
 
               if (
@@ -1096,6 +1110,7 @@ export default function StandaloneChatInner() {
             standaloneObservation: standaloneObservationFallback,
             userScore: data.user_score,
             assistantScore: data.assistant_score,
+            ownerUserId: journeyOwnerId || null,
           });
           setMessages((prev) =>
             prev.map((msg) => {
@@ -1460,6 +1475,7 @@ export default function StandaloneChatInner() {
           messages={messages}
           isLoading={isLoading}
           isTyping={isTyping}
+          ezaVisibilityEnabled={ezaVisibilityEnabled}
         />
         {mirrorBirthVisible ? (
           <MirrorBirthSuggestion

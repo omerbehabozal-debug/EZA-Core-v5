@@ -145,4 +145,6 @@ class MirrorJourneyStep(Base):
     question_hash = Column(String(64), nullable=True)
     answer_hash = Column(String(64), nullable=True)
     sanitization_flags = Column(JSON, nullable=True)
+    # Phase 4.2 — immutable interaction-level EZA snapshot for this frozen step.
+    eza_snapshot = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
