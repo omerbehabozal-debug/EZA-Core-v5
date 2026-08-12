@@ -1,12 +1,23 @@
 /**
  * Local persistence for behavioral snapshots (demo / standalone only).
  * No PII — only numeric vectors returned by the pipeline.
+ *
+ * Phase 4.3.1:
+ * - User-scoped storage keys (Alice ≠ Bob).
+ * - ALL write paths gated by canWriteEzaProfileHistory (fail-closed).
+ * - Legacy global key is never attributed to an authenticated user.
  */
 
 import type { BehavioralSnapshot, StandaloneObservation } from '@/lib/types';
-import { canWriteEzaProfileHistory } from '@/lib/eza/ezaUserPrefs';
+import {
+  canWriteEzaProfileHistory,
+  resolveEzaOwnerScope,
+} from '@/lib/eza/ezaUserPrefs';
 
-const STORAGE_KEY = 'eza_standalone_behavioral_history';
+/** @deprecated Legacy global bucket — never attach to authenticated users. */
+export const LEGACY_BEHAVIORAL_HISTORY_STORAGE_KEY = 'eza_standalone_behavioral_history';
+
+const STORAGE_PREFIX = 'eza_standalone_behavioral_history_v2:';
 const MAX_ITEMS = 50;
 
 /** Rapor sayfası ve diğer dinleyiciler için (aynı sekme). */
@@ -23,6 +34,10 @@ export type SavedBehavioralEntry = BehavioralSnapshot & {
   /** Frontend-only cues from user message (Mirror intent lock; no chat text stored). */
   mirrorCueHints?: string[];
 };
+
+export function behavioralHistoryStorageKey(ownerUserId?: string | null): string {
+  return `${STORAGE_PREFIX}${resolveEzaOwnerScope(ownerUserId)}`;
+}
 
 function placeholderSnapshot(interactionId: string): BehavioralSnapshot {
   return {
@@ -52,9 +67,41 @@ function placeholderSnapshot(interactionId: string): BehavioralSnapshot {
 
 export type AppendBehavioralOptions = {
   mirrorCueHints?: string[];
-  /** User scope for Phase 4.3 processing gate. */
+  /** User scope for Phase 4.3 processing gate + storage key. */
   ownerUserId?: string | null;
 };
+
+function parseEntries(raw: string | null): SavedBehavioralEntry[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidBehavioralEntry);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * One-time: copy legacy global history into the guest bucket only.
+ * Never assigns legacy data to an authenticated user.
+ */
+function migrateLegacyIntoGuestBucketOnce(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const guestKey = behavioralHistoryStorageKey(null);
+    const guestExisting = parseEntries(localStorage.getItem(guestKey));
+    if (guestExisting.length > 0) return;
+    const legacy = parseEntries(localStorage.getItem(LEGACY_BEHAVIORAL_HISTORY_STORAGE_KEY));
+    if (!legacy.length) return;
+    localStorage.setItem(guestKey, JSON.stringify(legacy.slice(0, MAX_ITEMS)));
+    // Leave legacy key in place but unused for auth users; remove to avoid
+    // double-counting if guest later writes — safe after successful guest copy.
+    localStorage.removeItem(LEGACY_BEHAVIORAL_HISTORY_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Persist turn; observation-only turns use a neutral placeholder vector. */
 export function appendBehavioralTurn(
@@ -76,8 +123,8 @@ export function appendBehavioralSnapshot(
   if (!canWriteEzaProfileHistory(options?.ownerUserId)) return;
   if (!snapshot || typeof window === 'undefined') return;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const list: SavedBehavioralEntry[] = raw ? JSON.parse(raw) : [];
+    const key = behavioralHistoryStorageKey(options?.ownerUserId);
+    const list = parseEntries(localStorage.getItem(key));
     const entry: SavedBehavioralEntry = {
       ...snapshot,
       savedAt: new Date().toISOString(),
@@ -85,7 +132,7 @@ export function appendBehavioralSnapshot(
       ...(options?.mirrorCueHints?.length ? { mirrorCueHints: options.mirrorCueHints } : {}),
     };
     list.unshift(entry);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_ITEMS)));
+    localStorage.setItem(key, JSON.stringify(list.slice(0, MAX_ITEMS)));
     notifyBehavioralHistoryUpdated();
   } catch {
     // ignore quota / parse errors
@@ -105,37 +152,47 @@ export function isValidBehavioralEntry(
   );
 }
 
-export function readBehavioralHistory(): SavedBehavioralEntry[] {
+export function readBehavioralHistory(ownerUserId?: string | null): SavedBehavioralEntry[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidBehavioralEntry);
+    const scope = resolveEzaOwnerScope(ownerUserId);
+    if (scope === 'guest') {
+      migrateLegacyIntoGuestBucketOnce();
+    }
+    return parseEntries(localStorage.getItem(behavioralHistoryStorageKey(ownerUserId)));
   } catch {
     return [];
   }
 }
 
-export function clearBehavioralHistory(): void {
+export function clearBehavioralHistory(ownerUserId?: string | null): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(behavioralHistoryStorageKey(ownerUserId));
     notifyBehavioralHistoryUpdated();
   } catch {
     /* empty */
   }
 }
 
-/** Seed history only when empty (archive backfill / future server hydrate). */
-export function seedBehavioralHistoryFromEntries(entries: SavedBehavioralEntry[]): boolean {
+/**
+ * Seed history only when empty (archive backfill / future server hydrate).
+ * Gated by ezaDataProcessingEnabled — fail-closed when prefs unreadable.
+ */
+export function seedBehavioralHistoryFromEntries(
+  entries: SavedBehavioralEntry[],
+  ownerUserId?: string | null
+): boolean {
+  if (!canWriteEzaProfileHistory(ownerUserId)) return false;
   if (typeof window === 'undefined' || !entries.length) return false;
-  if (readBehavioralHistory().length > 0) return false;
+  if (readBehavioralHistory(ownerUserId).length > 0) return false;
   try {
     const normalized = entries.filter(isValidBehavioralEntry).slice(0, MAX_ITEMS);
     if (!normalized.length) return false;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    localStorage.setItem(
+      behavioralHistoryStorageKey(ownerUserId),
+      JSON.stringify(normalized)
+    );
     notifyBehavioralHistoryUpdated();
     return true;
   } catch {

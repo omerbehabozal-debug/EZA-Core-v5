@@ -81,6 +81,8 @@ describe('attachEzaSnapshotsToSelectedSteps', () => {
     expect(steps[0].ezaSnapshot?.assistantScore).toBe(95);
     expect(steps[0].ezaSnapshot?.userScore).toBe(80);
     expect(steps[0].ezaSnapshot?.behavioral?.interaction_id).toBe('eza-1');
+    expect(steps[0].ezaSnapshot?.sourceAssistantMessageId).toBe('eza-1');
+    expect(steps[0].ezaSnapshot?.sourceUserMessageId).toBe('user-1');
     expect(steps[1].ezaSnapshot).toBeUndefined();
   });
 

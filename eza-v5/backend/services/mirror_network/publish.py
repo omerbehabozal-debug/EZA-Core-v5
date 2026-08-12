@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Mapping, Optional, Tuple
+from typing import Any, Mapping, Optional, Sequence, Tuple
 from uuid import uuid4
 
 from fastapi import HTTPException, status
@@ -65,10 +65,49 @@ from backend.services.mirror_network.frozen_journey_artifact import (
     build_durable_frozen_journey_artifact,
     read_frozen_journey_artifact_from_private,
 )
+from backend.services.mirror_network.frozen_step_eza import (
+    compute_frozen_eza_snapshots_hash,
+    prove_and_normalize_frozen_step_eza_snapshot,
+)
 import logging
 
 logger = logging.getLogger(__name__)
 
+
+def _compute_publish_frozen_eza_hash(
+    steps: Sequence[Mapping[str, Any]] | None,
+) -> str | None:
+    """Prove+normalize EZA on each step, then hash (omit unproven)."""
+    if not steps:
+        return None
+    hash_rows: list[dict[str, Any]] = []
+    for row in steps:
+        assistant_id = str(
+            row.get("sourceAssistantMessageId") or row.get("assistantMessageId") or ""
+        ).strip() or None
+        user_id = str(
+            row.get("sourceUserMessageId") or row.get("userMessageId") or ""
+        ).strip() or None
+        eza_raw = row.get("ezaSnapshot") or row.get("eza_snapshot")
+        eza_norm = prove_and_normalize_frozen_step_eza_snapshot(
+            eza_raw if isinstance(eza_raw, Mapping) else None,
+            source_assistant_message_id=assistant_id,
+            source_user_message_id=user_id,
+        )
+        hash_rows.append(
+            {
+                "stepIndex": int(
+                    row.get("stepIndex")
+                    if row.get("stepIndex") is not None
+                    else row.get("index")
+                    or 0
+                ),
+                "sourceAssistantMessageId": assistant_id,
+                "sourceUserMessageId": user_id,
+                "ezaSnapshot": eza_norm,
+            }
+        )
+    return compute_frozen_eza_snapshots_hash(hash_rows)
 def map_mirror_safety_level(safety_level: Optional[str]) -> Tuple[str, str]:
     """Map client safety to stored safety_status + visibility."""
     level = (safety_level or "normal").strip().lower()
@@ -768,6 +807,7 @@ async def publish_mirror_to_network(
         )
 
         landing_fields = extract_public_landing_from_curiosity(curiosity_bundle)
+        journey_frozen_eza_hash = _compute_publish_frozen_eza_hash(normalized_steps)
         existing_frozen = None
         if existing is not None:
             existing_frozen = read_frozen_journey_artifact_from_private(
@@ -786,6 +826,7 @@ async def publish_mirror_to_network(
                         or ""
                     ).strip()
                     or None,
+                    frozen_eza_snapshots_hash=journey_frozen_eza_hash,
                 )
 
         if existing_frozen is not None:
@@ -872,6 +913,7 @@ async def publish_mirror_to_network(
                 original_step_hashes=journey_step_original_hashes,
                 public_step_hashes=None,
                 frozen_at=now,
+                frozen_eza_snapshots_hash=journey_frozen_eza_hash,
             )
             freeze_status_for_write = FREEZE_STATUS_FROZEN
             frozen_at_for_write = now
@@ -983,6 +1025,9 @@ async def publish_mirror_to_network(
                                     incoming_lineage.get("generationId") or ""
                                 ).strip()
                                 or None,
+                                frozen_eza_snapshots_hash=_compute_publish_frozen_eza_hash(
+                                    normalized_steps
+                                ),
                             )
                             private_dict = attach_frozen_journey_artifact(
                                 private_dict, raced_frozen, archive_previous=False
@@ -1063,6 +1108,7 @@ async def publish_mirror_to_network(
                 steps=list(normalized_steps),
                 original_hashes=journey_step_original_hashes,
                 selected_steps_hash=journey_selected_steps_hash,
+                frozen_eza_snapshots_hash=journey_frozen_eza_hash,
                 commit=False,
             )
             try:

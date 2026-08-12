@@ -63,6 +63,7 @@ def build_durable_frozen_journey_artifact(
     original_step_hashes: Sequence[Mapping[str, Any]] | None,
     public_step_hashes: Sequence[Mapping[str, Any]] | None,
     frozen_at: datetime | None = None,
+    frozen_eza_snapshots_hash: str | None = None,
 ) -> dict[str, Any]:
     """
     Canonical durable freeze package.
@@ -86,6 +87,13 @@ def build_durable_frozen_journey_artifact(
         run_sanitization=False,  # already sanitized at publish boundary
     )
     selected_count = len(source.get("selectedSteps") or selected_steps)
+    from backend.services.mirror_network.frozen_step_eza import (
+        compute_frozen_eza_snapshots_hash,
+    )
+
+    eza_hash = str(frozen_eza_snapshots_hash or "").strip() or compute_frozen_eza_snapshots_hash(
+        selected_steps
+    )
     return {
         "contractVersion": FROZEN_JOURNEY_ARTIFACT_CONTRACT,
         "freezeStatus": FREEZE_STATUS_FROZEN,
@@ -103,6 +111,7 @@ def build_durable_frozen_journey_artifact(
         "sourceBlockHash": source_block_hash,
         "selectedCount": selected_count,
         "selectedStepsHash": selected_steps_hash or source.get("selectedStepsHash"),
+        "frozenEzaSnapshotsHash": eza_hash,
         "scopedInputHash": scoped_input_hash or source.get("serverScopedInputHash"),
         "windowHash": window_hash or source.get("serverWindowHash"),
         "interpretationHash": interpretation_hash,
@@ -215,6 +224,7 @@ def assert_frozen_content_immutable(
     public_landing_hash: str | None,
     scene_asset_id: str | None,
     generation_id: str | None,
+    frozen_eza_snapshots_hash: str | None = None,
 ) -> None:
     """Same journeyVersion may only retry identical verified content."""
     from fastapi import HTTPException, status
@@ -252,6 +262,14 @@ def assert_frozen_content_immutable(
             _mismatch(
                 "generation_id_mismatch",
                 "Frozen journeyVersion cannot change generationId",
+            )
+    if frozen_eza_snapshots_hash and existing_frozen.get("frozenEzaSnapshotsHash"):
+        if str(existing_frozen["frozenEzaSnapshotsHash"]) != str(
+            frozen_eza_snapshots_hash
+        ):
+            _mismatch(
+                "eza_snapshot_mismatch",
+                "Frozen journeyVersion cannot change frozenEzaSnapshotsHash",
             )
 
 
@@ -524,6 +542,7 @@ async def get_frozen_journey_artifact(
         "integrity": {
             "sourceBlockHash": frozen.get("sourceBlockHash"),
             "selectedStepsHash": frozen.get("selectedStepsHash"),
+            "frozenEzaSnapshotsHash": frozen.get("frozenEzaSnapshotsHash"),
             "scopedInputHash": frozen.get("scopedInputHash"),
             "windowHash": frozen.get("windowHash"),
             "interpretationHash": frozen.get("interpretationHash"),

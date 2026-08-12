@@ -434,7 +434,7 @@ async function buildPublishBody(
               publicAnswer: s.publicAnswer,
               ezaSnapshot: s.ezaSnapshot ?? null,
             })),
-            { conversationId }
+            { conversationId, ownerUserId: input.ownerUserId }
           ).map((s) => ({
             stepIndex: s.stepIndex,
             sourceOrder: s.sourceOrder,

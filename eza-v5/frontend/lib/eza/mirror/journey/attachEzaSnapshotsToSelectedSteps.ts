@@ -17,6 +17,9 @@ export type FrozenStepEzaSnapshotInput = {
   assistantScore?: number | null;
   userScore?: number | null;
   behavioral?: BehavioralSnapshot | null;
+  /** Provenance — required for server binding proof (Phase 4.3.1). */
+  sourceAssistantMessageId?: string | null;
+  sourceUserMessageId?: string | null;
 };
 
 export type JourneyPublishStepWithOptionalEza = {
@@ -70,11 +73,27 @@ function resolveEzaForAssistant(input: {
   const assistantMsg = input.messagesById.get(assistantId);
   const userMsg = userId ? input.messagesById.get(userId) : undefined;
 
-  const behavioral =
+  const behavioralRaw =
     assistantMsg?.behavioral ||
     userMsg?.behavioral ||
     findBehavioralByAssistantId(assistantId, input.history) ||
     null;
+
+  // Fail closed on ambiguous / mismatched interaction identity.
+  if (
+    behavioralRaw?.interaction_id &&
+    String(behavioralRaw.interaction_id).trim() &&
+    String(behavioralRaw.interaction_id).trim() !== assistantId
+  ) {
+    return null;
+  }
+
+  const behavioral = behavioralRaw
+    ? {
+        ...behavioralRaw,
+        interaction_id: String(behavioralRaw.interaction_id || assistantId).trim() || assistantId,
+      }
+    : null;
 
   const assistantScore =
     asScore(assistantMsg?.assistantScore) ??
@@ -88,6 +107,8 @@ function resolveEzaForAssistant(input: {
   }
 
   return {
+    sourceAssistantMessageId: assistantId,
+    ...(userId ? { sourceUserMessageId: userId } : {}),
     ...(assistantScore != null ? { assistantScore } : {}),
     ...(userScore != null ? { userScore } : {}),
     ...(behavioral ? { behavioral } : {}),
@@ -97,6 +118,7 @@ function resolveEzaForAssistant(input: {
 /**
  * Attach per-step EZA snapshots from conversation messages / behavioral history.
  * Does not invent scores. Missing EZA → omit field.
+ * Always stamps source message ids for server binding proof (Phase 4.3.1).
  */
 export function attachEzaSnapshotsToSelectedSteps<
   T extends {
@@ -113,6 +135,7 @@ export function attachEzaSnapshotsToSelectedSteps<
   options?: {
     conversationId?: string | null;
     messages?: MessageLike[] | ArchivedChatMessage[] | null;
+    ownerUserId?: string | null;
   }
 ): T[] {
   const messagesById = new Map<string, MessageLike>();
@@ -127,15 +150,31 @@ export function attachEzaSnapshotsToSelectedSteps<
       if (msg?.id) messagesById.set(String(msg.id), msg as MessageLike);
     }
   }
-  const history = readBehavioralHistory();
+  const history = readBehavioralHistory(options?.ownerUserId);
 
   return steps.map((step) => {
+    const assistantId = (step.sourceAssistantMessageId || '').trim();
+    const userId = (step.sourceUserMessageId || '').trim();
     if (step.ezaSnapshot) {
-      return step;
+      const stamped: FrozenStepEzaSnapshotInput = {
+        ...step.ezaSnapshot,
+        sourceAssistantMessageId:
+          step.ezaSnapshot.sourceAssistantMessageId || assistantId || null,
+        sourceUserMessageId: step.ezaSnapshot.sourceUserMessageId || userId || null,
+        behavioral: step.ezaSnapshot.behavioral
+          ? {
+              ...step.ezaSnapshot.behavioral,
+              interaction_id:
+                String(step.ezaSnapshot.behavioral.interaction_id || assistantId).trim() ||
+                assistantId,
+            }
+          : step.ezaSnapshot.behavioral,
+      };
+      return { ...step, ezaSnapshot: stamped };
     }
     const ezaSnapshot = resolveEzaForAssistant({
-      assistantMessageId: step.sourceAssistantMessageId,
-      userMessageId: step.sourceUserMessageId,
+      assistantMessageId: assistantId,
+      userMessageId: userId,
       messagesById,
       history,
     });

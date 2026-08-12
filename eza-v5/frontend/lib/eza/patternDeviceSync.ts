@@ -7,6 +7,7 @@ import {
   seedBehavioralHistoryFromEntries,
   type SavedBehavioralEntry,
 } from '@/lib/behavioralHistory';
+import { canWriteEzaProfileHistory } from '@/lib/eza/ezaUserPrefs';
 import {
   readChatArchives,
   type ArchivedChat,
@@ -70,7 +71,13 @@ export type ArchiveBackfillResult = {
   attempted: boolean;
   seeded: boolean;
   entryCount: number;
-  reason: 'not_needed' | 'no_archives' | 'no_pairs' | 'seeded' | 'already_has_history';
+  reason:
+    | 'not_needed'
+    | 'no_archives'
+    | 'no_pairs'
+    | 'seeded'
+    | 'already_has_history'
+    | 'processing_disabled';
 };
 
 type ArchiveTurnPair = {
@@ -201,12 +208,23 @@ export function archivesHaveMessages(archives: ArchivedChatSummary[]): boolean {
   return archives.some((a) => a.messageCount > 0);
 }
 
-export function backfillBehavioralHistoryFromArchives(): ArchiveBackfillResult {
+export function backfillBehavioralHistoryFromArchives(
+  ownerUserId?: string | null
+): ArchiveBackfillResult {
   if (typeof window === 'undefined') {
     return { attempted: false, seeded: false, entryCount: 0, reason: 'not_needed' };
   }
 
-  if (readBehavioralHistory().length > 0) {
+  if (!canWriteEzaProfileHistory(ownerUserId)) {
+    return {
+      attempted: true,
+      seeded: false,
+      entryCount: 0,
+      reason: 'processing_disabled',
+    };
+  }
+
+  if (readBehavioralHistory(ownerUserId).length > 0) {
     return { attempted: false, seeded: false, entryCount: 0, reason: 'already_has_history' };
   }
 
@@ -220,7 +238,7 @@ export function backfillBehavioralHistoryFromArchives(): ArchiveBackfillResult {
     return { attempted: true, seeded: false, entryCount: 0, reason: 'no_pairs' };
   }
 
-  const seeded = seedBehavioralHistoryFromEntries(entries);
+  const seeded = seedBehavioralHistoryFromEntries(entries, ownerUserId);
   return {
     attempted: true,
     seeded,

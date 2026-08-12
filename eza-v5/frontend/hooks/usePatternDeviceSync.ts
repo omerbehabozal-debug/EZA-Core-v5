@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { SavedBehavioralEntry } from '@/lib/behavioralHistory';
 import type { ArchivedChatSummary } from '@/lib/standaloneChatArchive';
 import { useMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   backfillBehavioralHistoryFromArchives,
   buildPatternSystemNotifications,
@@ -21,6 +22,8 @@ export function usePatternDeviceSync(options: {
   systemNotifications: PatternSystemNotification[];
 } {
   const realEntries = useMirrorEntries();
+  const { user } = useAuth();
+  const ownerUserId = user?.user_id?.trim() || null;
   const backfillAttempted = useRef(false);
 
   useEffect(() => {
@@ -29,8 +32,8 @@ export function usePatternDeviceSync(options: {
     if (!options.archives.some((a) => a.messageCount > 0)) return;
     if (backfillAttempted.current) return;
     backfillAttempted.current = true;
-    backfillBehavioralHistoryFromArchives();
-  }, [options.hasMapDataAccess, options.archives, realEntries.length]);
+    backfillBehavioralHistoryFromArchives(ownerUserId);
+  }, [options.hasMapDataAccess, options.archives, realEntries.length, ownerUserId]);
 
   const entries = useMemo(
     () => (options.hasMapDataAccess ? realEntries : []),

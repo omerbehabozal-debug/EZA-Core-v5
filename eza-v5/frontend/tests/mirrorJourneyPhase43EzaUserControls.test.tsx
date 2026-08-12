@@ -87,7 +87,8 @@ const FOUR_STATES: Array<{
 
 beforeEach(() => {
   clearEzaUserPreferencesForTests();
-  clearBehavioralHistory();
+  clearBehavioralHistory('user-a');
+  clearBehavioralHistory(null);
   localStorage.clear();
 });
 
@@ -159,7 +160,7 @@ describe('Phase 4.3 Relationship Map processing gate', () => {
       assistantScore: 88,
       ownerUserId: 'user-a',
     });
-    expect(readBehavioralHistory()).toHaveLength(1);
+    expect(readBehavioralHistory('user-a')).toHaveLength(1);
   });
 
   it('D. processing OFF → behavioral history write blocked', () => {
@@ -174,7 +175,7 @@ describe('Phase 4.3 Relationship Map processing gate', () => {
       assistantScore: 88,
       ownerUserId: 'user-a',
     });
-    expect(readBehavioralHistory()).toHaveLength(0);
+    expect(readBehavioralHistory('user-a')).toHaveLength(0);
   });
 
   it('E. visibility OFF + processing ON → UI hidden, processing allowed', () => {
@@ -186,7 +187,7 @@ describe('Phase 4.3 Relationship Map processing gate', () => {
     expect(shouldShowEzaInExperience(prefs)).toBe(false);
     expect(canWriteEzaProfileHistory('user-a')).toBe(true);
     appendBehavioralSnapshot(SAMPLE_BEHAVIORAL, null, { ownerUserId: 'user-a' });
-    expect(readBehavioralHistory()).toHaveLength(1);
+    expect(readBehavioralHistory('user-a')).toHaveLength(1);
   });
 
   it('F. visibility ON + processing OFF → UI visible, processing blocked', () => {
@@ -203,13 +204,13 @@ describe('Phase 4.3 Relationship Map processing gate', () => {
       behavioral: SAMPLE_BEHAVIORAL,
       ownerUserId: 'user-a',
     });
-    expect(readBehavioralHistory()).toHaveLength(0);
+    expect(readBehavioralHistory('user-a')).toHaveLength(0);
   });
 
   it('G. processing OFF does not delete historical Relationship Map', () => {
     setEzaUserPreferences('user-a', { ezaDataProcessingEnabled: true });
     appendBehavioralSnapshot(SAMPLE_BEHAVIORAL, null, { ownerUserId: 'user-a' });
-    expect(readBehavioralHistory()).toHaveLength(1);
+    expect(readBehavioralHistory('user-a')).toHaveLength(1);
 
     setEzaUserPreferences('user-a', { ezaDataProcessingEnabled: false });
     persistChatTurnFromResponse({
@@ -218,7 +219,7 @@ describe('Phase 4.3 Relationship Map processing gate', () => {
       behavioral: { ...SAMPLE_BEHAVIORAL, interaction_id: 'asst-2' },
       ownerUserId: 'user-a',
     });
-    const history = readBehavioralHistory();
+    const history = readBehavioralHistory('user-a');
     expect(history).toHaveLength(1);
     expect(history[0]?.interaction_id).toBe('asst-1');
   });

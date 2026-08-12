@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Phase 4.2 — frozen per-step EZA interaction snapshot.
+"""Phase 4.2 / 4.3.1 — frozen per-step EZA interaction snapshot.
 
 Canonical source model: BehavioralSnapshot (+ userScore/assistantScore) from the
 chat turn that produced the Q/A. NOT Relationship Map / user profile aggregates.
 
-Internal storage keeps enough of the behavioral vector to freeze historical
-display. Public HTTP uses an explicit allowlist only.
+Phase 4.3.1:
+- Exact Q/A ↔ EZA binding must be proven (no auto-stamp of unbound snapshots).
+- Version-level frozenEzaSnapshotsHash for same-version immutability.
 """
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional
+import hashlib
+import json
+from typing import Any, Mapping, Optional, Sequence
 
 FROZEN_STEP_EZA_CONTRACT = "frozen_step_eza_v1"
 
@@ -137,6 +140,46 @@ def _normalize_asymmetry(raw: Mapping[str, Any] | None) -> dict[str, Any] | None
     }
 
 
+def _extract_behavioral_in(raw: Mapping[str, Any]) -> dict[str, Any]:
+    behavioral_in = _as_mapping(raw.get("behavioral") or raw.get("BehavioralSnapshot"))
+    if not behavioral_in and isinstance(raw.get("vector"), Mapping):
+        behavioral_in = {
+            "schema_version": raw.get("schema_version") or 1,
+            "interaction_id": raw.get("interaction_id"),
+            "mode": raw.get("mode") or "standalone",
+            "vector": raw.get("vector"),
+            "asymmetry": raw.get("asymmetry"),
+        }
+    return behavioral_in
+
+
+def _claimed_assistant_id(raw: Mapping[str, Any], behavioral_in: Mapping[str, Any]) -> str:
+    return str(
+        raw.get("sourceAssistantMessageId")
+        or raw.get("source_assistant_message_id")
+        or behavioral_in.get("interaction_id")
+        or ""
+    ).strip()
+
+
+def _claimed_user_id(raw: Mapping[str, Any]) -> str:
+    return str(
+        raw.get("sourceUserMessageId") or raw.get("source_user_message_id") or ""
+    ).strip()
+
+
+def _raise_eza_binding_mismatch(message: str) -> None:
+    from fastapi import HTTPException, status
+
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail={
+            "code": "journey_eza_snapshot_mismatch",
+            "message": message,
+        },
+    )
+
+
 def normalize_frozen_step_eza_snapshot(
     raw: Mapping[str, Any] | None,
     *,
@@ -148,6 +191,10 @@ def normalize_frozen_step_eza_snapshot(
 
     Returns None when no usable interaction-level scores/vector exist.
     Rejects / strips profile-level and detector-only fields.
+
+    Callers that accept publish-time snapshots MUST use
+    prove_and_normalize_frozen_step_eza_snapshot instead — this helper may stamp
+    step ids only after binding has already been proven.
     """
     if not isinstance(raw, Mapping) or not raw:
         return None
@@ -164,16 +211,7 @@ def normalize_frozen_step_eza_snapshot(
         if key in raw:
             return None
 
-    behavioral_in = _as_mapping(raw.get("behavioral") or raw.get("BehavioralSnapshot"))
-    if not behavioral_in and isinstance(raw.get("vector"), Mapping):
-        behavioral_in = {
-            "schema_version": raw.get("schema_version") or 1,
-            "interaction_id": raw.get("interaction_id"),
-            "mode": raw.get("mode") or "standalone",
-            "vector": raw.get("vector"),
-            "asymmetry": raw.get("asymmetry"),
-        }
-
+    behavioral_in = _extract_behavioral_in(raw)
     vector = _normalize_vector(_as_mapping(behavioral_in.get("vector")))
     asymmetry = _normalize_asymmetry(_as_mapping(behavioral_in.get("asymmetry")))
 
@@ -195,16 +233,16 @@ def normalize_frozen_step_eza_snapshot(
     if assistant_score is None and user_score is None and vector is None:
         return None
 
+    assistant_id = (source_assistant_message_id or "").strip() or None
+    user_id = (source_user_message_id or "").strip() or None
+
     behavioral_out: dict[str, Any] | None = None
     if vector is not None:
+        interaction_id = str(behavioral_in.get("interaction_id") or "").strip() or None
+        # After prove_*: interaction_id must already match or be empty; stamp proven id.
         behavioral_out = {
             "schema_version": int(behavioral_in.get("schema_version") or 1),
-            "interaction_id": str(
-                behavioral_in.get("interaction_id")
-                or source_assistant_message_id
-                or ""
-            ).strip()
-            or None,
+            "interaction_id": interaction_id or assistant_id,
             "mode": str(behavioral_in.get("mode") or "standalone").strip() or "standalone",
             "vector": vector,
         }
@@ -213,12 +251,71 @@ def normalize_frozen_step_eza_snapshot(
 
     return {
         "contractVersion": FROZEN_STEP_EZA_CONTRACT,
-        "sourceUserMessageId": (source_user_message_id or "").strip() or None,
-        "sourceAssistantMessageId": (source_assistant_message_id or "").strip() or None,
+        "sourceUserMessageId": user_id,
+        "sourceAssistantMessageId": assistant_id,
         "assistantScore": assistant_score,
         "userScore": user_score,
         "behavioral": behavioral_out,
     }
+
+
+def prove_and_normalize_frozen_step_eza_snapshot(
+    raw: Mapping[str, Any] | None,
+    *,
+    source_assistant_message_id: str | None,
+    source_user_message_id: str | None = None,
+) -> dict[str, Any] | None:
+    """
+    Accept EZA only when backend can prove it belongs to this selected step.
+
+    Fail-closed behavior:
+    - Missing provenance → omit (None); do NOT auto-stamp and accept.
+    - Explicit mismatch / ambiguous ids → raise journey_eza_snapshot_mismatch.
+    - Missing EZA entirely → None (valid; step publishes without snapshot).
+    """
+    if not isinstance(raw, Mapping) or not raw:
+        return None
+
+    expected_assistant = str(source_assistant_message_id or "").strip()
+    expected_user = str(source_user_message_id or "").strip()
+    if not expected_assistant:
+        return None
+
+    behavioral_in = _extract_behavioral_in(raw)
+    outer_assistant = str(
+        raw.get("sourceAssistantMessageId")
+        or raw.get("source_assistant_message_id")
+        or ""
+    ).strip()
+    inner_assistant = str(behavioral_in.get("interaction_id") or "").strip()
+    claimed_assistant = _claimed_assistant_id(raw, behavioral_in)
+    claimed_user = _claimed_user_id(raw)
+
+    # Ambiguous: outer and behavioral disagree.
+    if outer_assistant and inner_assistant and outer_assistant != inner_assistant:
+        _raise_eza_binding_mismatch(
+            "EZA snapshot has ambiguous assistant binding identities"
+        )
+
+    # No provenance → omit (do not fabricate binding).
+    if not claimed_assistant:
+        return None
+
+    if claimed_assistant != expected_assistant:
+        _raise_eza_binding_mismatch(
+            "EZA snapshot does not bind to this step's assistant message"
+        )
+
+    if claimed_user and expected_user and claimed_user != expected_user:
+        _raise_eza_binding_mismatch(
+            "EZA snapshot does not bind to this step's user message"
+        )
+
+    return normalize_frozen_step_eza_snapshot(
+        raw,
+        source_assistant_message_id=expected_assistant,
+        source_user_message_id=expected_user or claimed_user or None,
+    )
 
 
 def project_public_frozen_step_eza(
@@ -283,13 +380,140 @@ def assert_eza_bound_to_assistant(
         return
     bound = str(snapshot.get("sourceAssistantMessageId") or "").strip()
     expected = str(source_assistant_message_id or "").strip()
-    if bound and expected and bound != expected:
-        from fastapi import HTTPException, status
-
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "code": "journey_eza_snapshot_mismatch",
-                "message": "EZA snapshot does not bind to this step's assistant message",
-            },
+    if not expected:
+        return
+    # Proven snapshots must carry the binding.
+    if not bound:
+        _raise_eza_binding_mismatch(
+            "EZA snapshot missing proven assistant binding"
         )
+    if bound != expected:
+        _raise_eza_binding_mismatch(
+            "EZA snapshot does not bind to this step's assistant message"
+        )
+    behavioral = _as_mapping(snapshot.get("behavioral"))
+    interaction_id = str(behavioral.get("interaction_id") or "").strip()
+    if interaction_id and interaction_id != expected:
+        _raise_eza_binding_mismatch(
+            "EZA behavioral interaction_id does not bind to this step"
+        )
+
+
+def canonical_frozen_eza_snapshot_for_hash(
+    snapshot: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Deterministic subset of a normalized internal snapshot for hashing."""
+    if not isinstance(snapshot, Mapping) or not snapshot:
+        return None
+    behavioral = _as_mapping(snapshot.get("behavioral"))
+    vector = _as_mapping(behavioral.get("vector"))
+    asymmetry = _as_mapping(behavioral.get("asymmetry"))
+    out: dict[str, Any] = {
+        "contractVersion": str(snapshot.get("contractVersion") or FROZEN_STEP_EZA_CONTRACT),
+        "sourceAssistantMessageId": str(snapshot.get("sourceAssistantMessageId") or "")
+        or None,
+        "sourceUserMessageId": str(snapshot.get("sourceUserMessageId") or "") or None,
+        "assistantScore": _clamp_score_0_100(snapshot.get("assistantScore")),
+        "userScore": _clamp_score_0_100(snapshot.get("userScore")),
+    }
+    if vector:
+        out["vector"] = {
+            "input_health": vector.get("input_health"),
+            "output_health": vector.get("output_health"),
+            "alignment_score": vector.get("alignment_score"),
+            "eza_final": vector.get("eza_final"),
+            "intent": vector.get("intent"),
+            "redirect": vector.get("redirect"),
+            "redirect_benign": vector.get("redirect_benign")
+            if "redirect_benign" in vector
+            else None,
+        }
+        out["interaction_id"] = str(behavioral.get("interaction_id") or "") or None
+    if asymmetry:
+        out["asymmetry"] = {
+            "health_gap": asymmetry.get("health_gap"),
+            "risk_delta_output_minus_input": asymmetry.get(
+                "risk_delta_output_minus_input"
+            ),
+            "index": asymmetry.get("index"),
+        }
+    return out
+
+
+def compute_frozen_eza_snapshots_hash(
+    steps: Sequence[Mapping[str, Any]],
+) -> str:
+    """
+    Version-level integrity hash over ordered selected steps' EZA snapshots.
+
+    Includes explicit null markers for steps without EZA. Does not include
+    Relationship Map / private profile data.
+    """
+    rows: list[dict[str, Any]] = []
+    ordered = sorted(
+        steps,
+        key=lambda s: int(
+            s.get("stepIndex")
+            if s.get("stepIndex") is not None
+            else s.get("step_index")
+            if s.get("step_index") is not None
+            else s.get("index")
+            or 0
+        ),
+    )
+    for step in ordered:
+        step_index = int(
+            step.get("stepIndex")
+            if step.get("stepIndex") is not None
+            else step.get("step_index")
+            if step.get("step_index") is not None
+            else step.get("index")
+            or 0
+        )
+        assistant_id = str(
+            step.get("sourceAssistantMessageId")
+            or step.get("source_assistant_message_id")
+            or step.get("assistantMessageId")
+            or ""
+        ).strip() or None
+        eza_raw = step.get("ezaSnapshot")
+        if eza_raw is None and "eza_snapshot" in step:
+            eza_raw = step.get("eza_snapshot")
+        eza_norm: dict[str, Any] | None
+        if isinstance(eza_raw, Mapping):
+            # Prefer already-normalized stored shape; else normalize without inventing
+            # binding (hash uses content as provided on the step rows).
+            if eza_raw.get("contractVersion") == FROZEN_STEP_EZA_CONTRACT:
+                eza_norm = dict(eza_raw)
+            else:
+                eza_norm = normalize_frozen_step_eza_snapshot(
+                    eza_raw,
+                    source_assistant_message_id=assistant_id,
+                    source_user_message_id=str(
+                        step.get("sourceUserMessageId")
+                        or step.get("source_user_message_id")
+                        or ""
+                    ).strip()
+                    or None,
+                )
+        else:
+            eza_norm = None
+        rows.append(
+            {
+                "stepIndex": step_index,
+                "sourceAssistantMessageId": assistant_id,
+                "ezaSnapshot": canonical_frozen_eza_snapshot_for_hash(eza_norm),
+            }
+        )
+    payload = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def snapshots_equal_for_immutability(
+    left: Mapping[str, Any] | None,
+    right: Mapping[str, Any] | None,
+) -> bool:
+    """Compare normalized snapshots by canonical hash content."""
+    return canonical_frozen_eza_snapshot_for_hash(left) == canonical_frozen_eza_snapshot_for_hash(
+        right
+    )

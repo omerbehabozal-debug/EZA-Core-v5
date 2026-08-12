@@ -70,6 +70,7 @@ jobs:
           tests/mirrorJourneyPhase381ShareClosure.test.ts
           tests/mirrorJourneyPhase42FrozenStepEza.test.ts
           tests/mirrorJourneyPhase43EzaUserControls.test.tsx
+          tests/mirrorJourneyPhase431Closure.test.tsx
 
       - name: Run Visual Identity regression tests
         run: >-

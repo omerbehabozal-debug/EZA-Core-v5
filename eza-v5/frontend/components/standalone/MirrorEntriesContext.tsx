@@ -14,6 +14,7 @@ import {
   readBehavioralHistory,
   type SavedBehavioralEntry,
 } from '@/lib/behavioralHistory';
+import { useAuth } from '@/context/AuthContext';
 
 /** Sentinel while chat shell is active but chat id is not yet assigned. */
 export const PENDING_CONVERSATION_MIRROR_ID = '__pending_conversation__';
@@ -49,6 +50,8 @@ export function useSetConversationMirrorEntries(): MirrorEntriesContextValue['se
 }
 
 export function MirrorEntriesProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const ownerUserId = user?.user_id?.trim() || null;
   const [globalEntries, setGlobalEntries] = useState<SavedBehavioralEntry[]>([]);
   const [conversationEntries, setConversationEntriesState] = useState<SavedBehavioralEntry[]>(
     []
@@ -56,8 +59,8 @@ export function MirrorEntriesProvider({ children }: { children: ReactNode }) {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   const refreshGlobal = useCallback(() => {
-    setGlobalEntries(readBehavioralHistory());
-  }, []);
+    setGlobalEntries(readBehavioralHistory(ownerUserId));
+  }, [ownerUserId]);
 
   useEffect(() => {
     refreshGlobal();
