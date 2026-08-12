@@ -21,6 +21,7 @@ export const EXPERIENCE_EVENT_ALLOWLIST = new Set([
   'mirror_shared',
   'landing_viewed',
   'landing_cta_clicked',
+  'yansi_experience_started',
   'guest_conversation_started',
   'second_user_message_sent',
   'branch_suggestion_shown',

@@ -1,20 +1,27 @@
 'use client';
 
 /**
- * Stage 2A — Mirror Landing Experience
+ * Stage 2A / Phase 5.0 — Mirror Landing Experience
  *
  * Mirror creates curiosity.
  * Landing preserves curiosity.
- * Conversation satisfies curiosity.
+ * Progressive frozen replay lets the viewer ask each question themselves.
+ * Continuation uses the existing /sohbet path.
  */
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Calendar, Sparkles } from 'lucide-react';
 import MirrorLandingCta from '@/components/mirror-landing/MirrorLandingCta';
+import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
 import { MIRROR_V3_BRAND_SIGNATURE } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import type { MirrorLandingSurface } from '@/lib/eza/mirror-network/publicTypes';
 import { trackLandingViewed } from '@/lib/eza/mirror-network/landingAnalytics';
+import {
+  fetchPublicFrozenJourneyArtifact,
+  type PublicFrozenJourneyArtifact,
+} from '@/lib/eza/mirror/journey';
+import { trackYansiExperienceStarted } from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
 import { cn } from '@/lib/utils';
 
 export type MirrorLandingExperienceProps = {
@@ -22,13 +29,64 @@ export type MirrorLandingExperienceProps = {
   className?: string;
 };
 
+type FrozenLoadState =
+  | { status: 'loading' }
+  | { status: 'ready'; artifact: PublicFrozenJourneyArtifact }
+  | { status: 'unavailable' }
+  | { status: 'error' };
+
 export default function MirrorLandingExperience({
   surface,
   className,
 }: MirrorLandingExperienceProps) {
+  const [frozenState, setFrozenState] = useState<FrozenLoadState>({ status: 'loading' });
+  const [replayStarted, setReplayStarted] = useState(false);
+
   useEffect(() => {
     trackLandingViewed(surface.slug);
   }, [surface.slug]);
+
+  const loadFrozen = useCallback(async () => {
+    setFrozenState({ status: 'loading' });
+    try {
+      const artifact = await fetchPublicFrozenJourneyArtifact({ slug: surface.slug });
+      if (!artifact) {
+        setFrozenState({ status: 'unavailable' });
+        return;
+      }
+      setFrozenState({ status: 'ready', artifact });
+    } catch {
+      setFrozenState({ status: 'error' });
+    }
+  }, [surface.slug]);
+
+  useEffect(() => {
+    void loadFrozen();
+  }, [loadFrozen]);
+
+  const handleStartExperience = () => {
+    if (frozenState.status !== 'ready') return;
+    trackYansiExperienceStarted({
+      slug: frozenState.artifact.slug,
+      journeyVersion: frozenState.artifact.journeyVersion,
+    });
+    setReplayStarted(true);
+  };
+
+  const title =
+    frozenState.status === 'ready'
+      ? frozenState.artifact.publicTitle || surface.cardTitle
+      : surface.cardTitle;
+  const summary =
+    frozenState.status === 'ready'
+      ? frozenState.artifact.publicSummary ||
+        surface.curiosityContext ||
+        surface.publicSummary
+      : surface.curiosityContext || surface.publicSummary;
+  const sceneImageUrl =
+    frozenState.status === 'ready'
+      ? frozenState.artifact.sceneImageUrl || surface.sceneImageUrl
+      : surface.sceneImageUrl;
 
   return (
     <div
@@ -38,6 +96,7 @@ export default function MirrorLandingExperience({
       )}
       data-mirror-landing
       data-mirror-landing-slug={surface.slug}
+      data-replay-started={replayStarted ? 'true' : 'false'}
     >
       <header className="flex items-center justify-between px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.22em] text-[#c9bba8]">
@@ -50,16 +109,75 @@ export default function MirrorLandingExperience({
         </span>
       </header>
 
-      <div className="flex flex-1 flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
-        <MirrorPublicCard
-          title={surface.cardTitle}
-          summary={surface.curiosityContext || surface.publicSummary}
-          sceneImageUrl={surface.sceneImageUrl}
-          slug={surface.slug}
-          testIdPrefix="mirror-landing-card"
-          className="mx-auto w-full max-w-md border-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
-          footer={<MirrorLandingCta slug={surface.slug} />}
-        />
+      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
+        {!replayStarted ? (
+          <MirrorPublicCard
+            title={title}
+            summary={summary}
+            sceneImageUrl={sceneImageUrl}
+            slug={surface.slug}
+            testIdPrefix="mirror-landing-card"
+            className="mx-auto w-full max-w-md border-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+            footer={
+              frozenState.status === 'ready' ? (
+                <div className="mt-auto space-y-3 pt-10">
+                  <button
+                    type="button"
+                    onClick={handleStartExperience}
+                    className="flex w-full items-center justify-center rounded-full border border-[#e8d5b5]/40 bg-[#e8d5b5]/15 px-6 py-3.5 text-sm font-semibold tracking-wide text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/25"
+                    data-testid="mirror-experience-start"
+                  >
+                    Bu merakı deneyimle
+                  </button>
+                </div>
+              ) : frozenState.status === 'loading' ? (
+                <div className="mt-auto pt-10 text-center text-xs text-[#a89880]">
+                  Deneyim hazırlanıyor…
+                </div>
+              ) : frozenState.status === 'error' ? (
+                <div className="mt-auto space-y-3 pt-10">
+                  <p className="text-center text-xs text-[#a89880]">
+                    Deneyim yüklenemedi.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void loadFrozen()}
+                    className="flex w-full items-center justify-center rounded-full border border-white/15 px-6 py-3 text-sm text-[#e8dfd0]"
+                    data-testid="mirror-experience-retry"
+                  >
+                    Yeniden dene
+                  </button>
+                  <MirrorLandingCta slug={surface.slug} />
+                </div>
+              ) : (
+                // Not replay-ready / no freeze — preserve legacy continuation CTA.
+                <MirrorLandingCta slug={surface.slug} />
+              )
+            }
+          />
+        ) : frozenState.status === 'ready' ? (
+          <>
+            <div className="mb-4 shrink-0">
+              <MirrorPublicCard
+                title={title}
+                summary={summary}
+                sceneImageUrl={sceneImageUrl}
+                slug={surface.slug}
+                testIdPrefix="mirror-landing-card"
+                className="mx-auto w-full max-w-md border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
+              />
+            </div>
+            <MirrorFrozenReplay artifact={frozenState.artifact} className="min-h-0 flex-1" />
+          </>
+        ) : (
+          <div
+            className="flex flex-1 flex-col items-center justify-center gap-3 text-center"
+            data-testid="mirror-experience-unavailable"
+          >
+            <p className="text-sm text-[#c9bba8]">Bu Yansı şu an deneyimlenemiyor.</p>
+            <MirrorLandingCta slug={surface.slug} />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -219,9 +219,34 @@ export {
 export {
   hydratePublishedJourneysFromServer,
   fetchFrozenJourneyArtifact,
+  fetchPublicFrozenJourneyArtifact,
   type OwnerPublishedJourneyServerItem,
   type OwnerPublishedJourneysResponse,
 } from './hydratePublishedJourneysFromServer';
+
+export {
+  parsePublicFrozenJourneyArtifact,
+  type PublicFrozenJourneyArtifact,
+  type PublicFrozenJourneyStep,
+  type PublicFrozenStepEzaSnapshot,
+} from './publicFrozenTypes';
+
+export {
+  createIdleReplaySession,
+  startReplaySession,
+  getNextReplayStep,
+  afterQuestionTapped,
+  afterAnswerRevealed,
+  loadFrozenReplayProgress,
+  saveFrozenReplayProgress,
+  clearFrozenReplayProgress,
+  clearAllFrozenReplayProgressForTests,
+  type FrozenReplaySession,
+  type FrozenReplayPhase,
+  type FrozenReplayProgress,
+} from './frozenReplaySession';
+
+export { trackYansiExperienceStarted } from './yansiExperienceAnalytics';
 
 export {
   attachEzaSnapshotsToSelectedSteps,

@@ -12,6 +12,10 @@ import {
   loadMirrorJourneyArtifact,
   saveMirrorJourneyArtifact,
 } from './mirrorJourneyArtifactStore';
+import {
+  parsePublicFrozenJourneyArtifact,
+  type PublicFrozenJourneyArtifact,
+} from './publicFrozenTypes';
 
 export type OwnerPublishedJourneyServerItem = {
   slug: string;
@@ -131,7 +135,7 @@ export async function hydratePublishedJourneysFromServer(input: {
   return items;
 }
 
-/** Public frozen read — no auth; used by share /m adapters. */
+/** Public frozen read — no auth; used by share /m adapters + Phase 5.0 replay. */
 export async function fetchFrozenJourneyArtifact(input: {
   slug: string;
   journeyVersion?: number | null;
@@ -153,4 +157,13 @@ export async function fetchFrozenJourneyArtifact(input: {
   } catch {
     return null;
   }
+}
+
+/** Typed public frozen read — fail closed when not replay-ready / malformed. */
+export async function fetchPublicFrozenJourneyArtifact(input: {
+  slug: string;
+  journeyVersion?: number | null;
+}): Promise<PublicFrozenJourneyArtifact | null> {
+  const raw = await fetchFrozenJourneyArtifact(input);
+  return parsePublicFrozenJourneyArtifact(raw);
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import '@/styles/saina-mirror.css';
 
 /**
  * Public mirror landing — no app chrome, editorial full-bleed.
