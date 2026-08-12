@@ -34,11 +34,21 @@ import { useAuth } from '@/context/AuthContext';
 import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 import { trackLandingCtaClicked } from '@/lib/eza/mirror-network/landingAnalytics';
 import { trackSeedStart } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
+import {
+  trackYansiExperienceCompleted,
+  trackYansiExperienceStarted,
+} from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
 import { cn } from '@/lib/utils';
 
 export type MirrorFrozenReplayProps = {
   artifact: PublicFrozenJourneyArtifact;
   className?: string;
+  /** Phase 5.1 — fired once when final frozen answer completes. */
+  onReplayCompleted?: (artifact: PublicFrozenJourneyArtifact) => void;
+  /** Own-path CTA label (default Phase 5.1 copy). */
+  continueLabel?: string;
+  /** When true, fire experience_started on first question tap (child Yansılar). */
+  trackStartOnFirstQuestion?: boolean;
 };
 
 type RevealedTurn = {
@@ -88,7 +98,13 @@ function RevealingAssistantBubble({
   );
 }
 
-export default function MirrorFrozenReplay({ artifact, className }: MirrorFrozenReplayProps) {
+export default function MirrorFrozenReplay({
+  artifact,
+  className,
+  onReplayCompleted,
+  continueLabel = 'Kendi merakımla devam et',
+  trackStartOnFirstQuestion = false,
+}: MirrorFrozenReplayProps) {
   const { user } = useAuth();
   const ownerUserId = user?.user_id?.trim() || null;
   const [prefsTick, setPrefsTick] = useState(0);
@@ -99,6 +115,10 @@ export default function MirrorFrozenReplay({ artifact, className }: MirrorFrozen
     [ownerUserId, prefsTick]
   );
   const ezaVisibilityEnabled = shouldShowEzaInExperience(ezaPrefs);
+  const startedTrackedRef = useRef(!trackStartOnFirstQuestion);
+  const completedTrackedRef = useRef(false);
+  const onCompletedRef = useRef(onReplayCompleted);
+  onCompletedRef.current = onReplayCompleted;
 
   const pinnedVersionRef = useRef(artifact.journeyVersion);
   const pinnedArtifactRef = useRef(artifact);
@@ -138,6 +158,17 @@ export default function MirrorFrozenReplay({ artifact, className }: MirrorFrozen
   }, [session]);
 
   useEffect(() => {
+    if (session.replayCompleted && !completedTrackedRef.current) {
+      completedTrackedRef.current = true;
+      trackYansiExperienceCompleted({
+        slug: frozen.slug,
+        journeyVersion: frozen.journeyVersion,
+      });
+      onCompletedRef.current?.(frozen);
+    }
+  }, [session.replayCompleted, frozen]);
+
+  useEffect(() => {
     const root = scrollRootRef.current;
     if (!root) return;
     const onScroll = () => {
@@ -167,6 +198,13 @@ export default function MirrorFrozenReplay({ artifact, className }: MirrorFrozen
   const handleAskNext = () => {
     if (!nextStep || session.phase === 'revealing') return;
     const step = nextStep;
+    if (!startedTrackedRef.current) {
+      startedTrackedRef.current = true;
+      trackYansiExperienceStarted({
+        slug: frozen.slug,
+        journeyVersion: frozen.journeyVersion,
+      });
+    }
     userScrolledUp.current = false;
     setSession(afterQuestionTapped(session));
     setTurns((prev) => [
@@ -247,7 +285,7 @@ export default function MirrorFrozenReplay({ artifact, className }: MirrorFrozen
             data-testid="mirror-frozen-replay-complete"
           >
             <p className="text-center text-sm text-[#c9bba8]">
-              Bu merakın yolculuğu burada tamamlandı.
+              Bu Yansı burada tamamlandı.
             </p>
             <Link
               href={continueHref}
@@ -258,20 +296,11 @@ export default function MirrorFrozenReplay({ artifact, className }: MirrorFrozen
               className="flex w-full items-center justify-center rounded-full border border-[#e8d5b5]/40 bg-[#e8d5b5]/15 px-6 py-3.5 text-sm font-semibold tracking-wide text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/25"
               data-testid="mirror-frozen-replay-continue"
             >
-              Bu merakı devam ettir
+              {continueLabel}
             </Link>
-            <Link
-              href={`/m/${encodeURIComponent(frozen.slug)}`}
-              className="text-center text-xs text-[#a89880] underline-offset-2 hover:underline"
-              data-testid="mirror-frozen-replay-back"
-              onClick={(e) => {
-                // Soft reset to landing identity without inventing a new route.
-                e.preventDefault();
-                window.location.assign(`/m/${encodeURIComponent(frozen.slug)}`);
-              }}
-            >
-              Yansı&apos;ya dön
-            </Link>
+            <p className="text-center text-[11px] text-[#a89880]">
+              Aşağı kaydırarak diğer yolları keşfedebilirsin.
+            </p>
           </div>
         ) : nextStep && session.phase !== 'revealing' ? (
           <button

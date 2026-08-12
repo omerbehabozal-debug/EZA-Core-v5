@@ -188,7 +188,7 @@ describe('Phase 5.0 UI', () => {
     render(<MirrorFrozenReplay artifact={artifact} />);
     const continueLink = await screen.findByTestId('mirror-frozen-replay-continue');
     expect(continueLink).toHaveAttribute('href', '/m/demo-yansi/sohbet');
-    expect(continueLink).toHaveTextContent('Bu merakı devam ettir');
+    expect(continueLink).toHaveTextContent('Kendi merakımla devam et');
   });
 
   it('landing start CTA appears when frozen ready', async () => {

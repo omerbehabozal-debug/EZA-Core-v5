@@ -22,6 +22,7 @@ export const EXPERIENCE_EVENT_ALLOWLIST = new Set([
   'landing_viewed',
   'landing_cta_clicked',
   'yansi_experience_started',
+  'yansi_experience_completed',
   'guest_conversation_started',
   'second_user_message_sent',
   'branch_suggestion_shown',

@@ -246,7 +246,19 @@ export {
   type FrozenReplayProgress,
 } from './frozenReplaySession';
 
-export { trackYansiExperienceStarted } from './yansiExperienceAnalytics';
+export { trackYansiExperienceStarted, trackYansiExperienceCompleted } from './yansiExperienceAnalytics';
+
+export {
+  loadChildContinuationPlan,
+  selectPrimaryAndAlternatives,
+  type EligibleChildContinuation,
+  type ChildContinuationPlan,
+} from './yansiChildContinuation';
+
+export {
+  resolvePublicAuthorDisplayName,
+  clearPublicAuthorDisplayCacheForTests,
+} from './resolvePublicAuthorDisplay';
 
 export {
   attachEzaSnapshotsToSelectedSteps,

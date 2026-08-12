@@ -1,18 +1,16 @@
 'use client';
 
 /**
- * Stage 2A / Phase 5.0 — Mirror Landing Experience
+ * Stage 2A / Phase 5.0–5.1 — Mirror Landing Experience
  *
- * Mirror creates curiosity.
- * Landing preserves curiosity.
- * Progressive frozen replay lets the viewer ask each question themselves.
- * Continuation uses the existing /sohbet path.
+ * Progressive frozen replay + continuous published-child scroll.
+ * Own continuation uses existing /sohbet path from the active Yansı.
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { Calendar, Sparkles } from 'lucide-react';
 import MirrorLandingCta from '@/components/mirror-landing/MirrorLandingCta';
-import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
+import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
 import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
 import { MIRROR_V3_BRAND_SIGNATURE } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import type { MirrorLandingSurface } from '@/lib/eza/mirror-network/publicTypes';
@@ -91,14 +89,14 @@ export default function MirrorLandingExperience({
   return (
     <div
       className={cn(
-        'mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col bg-[#0c0b0a] text-[#f4f0e8]',
+        'relative mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col bg-[#0c0b0a] text-[#f4f0e8]',
         className
       )}
       data-mirror-landing
       data-mirror-landing-slug={surface.slug}
       data-replay-started={replayStarted ? 'true' : 'false'}
     >
-      <header className="flex items-center justify-between px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
+      <header className="relative z-[2] flex items-center justify-between px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.22em] text-[#c9bba8]">
           <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
           {MIRROR_V3_BRAND_SIGNATURE.line1}
@@ -109,7 +107,7 @@ export default function MirrorLandingExperience({
         </span>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
+      <div className="relative z-[1] flex min-h-0 flex-1 flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
         {!replayStarted ? (
           <MirrorPublicCard
             title={title}
@@ -150,25 +148,15 @@ export default function MirrorLandingExperience({
                   <MirrorLandingCta slug={surface.slug} />
                 </div>
               ) : (
-                // Not replay-ready / no freeze — preserve legacy continuation CTA.
                 <MirrorLandingCta slug={surface.slug} />
               )
             }
           />
         ) : frozenState.status === 'ready' ? (
-          <>
-            <div className="mb-4 shrink-0">
-              <MirrorPublicCard
-                title={title}
-                summary={summary}
-                sceneImageUrl={sceneImageUrl}
-                slug={surface.slug}
-                testIdPrefix="mirror-landing-card"
-                className="mx-auto w-full max-w-md border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
-              />
-            </div>
-            <MirrorFrozenReplay artifact={frozenState.artifact} className="min-h-0 flex-1" />
-          </>
+          <MirrorYansiChainExperience
+            rootArtifact={frozenState.artifact}
+            className="min-h-0 flex-1"
+          />
         ) : (
           <div
             className="flex flex-1 flex-col items-center justify-center gap-3 text-center"
