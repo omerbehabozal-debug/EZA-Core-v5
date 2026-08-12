@@ -37,7 +37,10 @@ import {
   type RegenerateSceneFn,
 } from '@/lib/eza/mirror/narrativeAlignment';
 import { resolveJourneyPublishContract } from '@/lib/eza/mirror/journey';
-import { attachEzaSnapshotsToSelectedSteps } from '@/lib/eza/mirror/journey/attachEzaSnapshotsToSelectedSteps';
+import {
+  attachEzaSnapshotsToSelectedSteps,
+  type FrozenStepEzaSnapshotInput,
+} from '@/lib/eza/mirror/journey/attachEzaSnapshotsToSelectedSteps';
 import { isMirrorJourneyV1ClientEnabled } from '@/lib/eza/mirror/journey/journeyClientFlag';
 import {
   isPublishableJourneyGenerationLineage,
@@ -65,11 +68,7 @@ export type PublishMirrorToNetworkInput = {
     publicQuestion: string;
     publicAnswer: string;
     /** Phase 4.2 — interaction EZA for this exact Q/A (optional). */
-    ezaSnapshot?: {
-      assistantScore?: number | null;
-      userScore?: number | null;
-      behavioral?: unknown;
-    } | null;
+    ezaSnapshot?: FrozenStepEzaSnapshotInput | null;
     /** @deprecated wire aliases — prefer stepIndex / source* ids */
     index?: number;
     userMessageId?: string;
