@@ -115,6 +115,10 @@ beforeEach(() => {
       total: 0,
     },
   }));
+  vi.mocked(fetchPublishedChildren).mockResolvedValue({
+    ok: true,
+    data: { parentSlug: 'yansi-a', items: [], total: 0 },
+  });
   class IO {
     observe() {}
     unobserve() {}

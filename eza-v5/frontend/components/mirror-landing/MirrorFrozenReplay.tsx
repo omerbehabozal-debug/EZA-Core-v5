@@ -32,6 +32,7 @@ import {
 } from '@/lib/eza/ezaUserPrefs';
 import { useAuth } from '@/context/AuthContext';
 import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
+import { YANSI_OWN_CONTINUATION_CTA } from '@/lib/eza/mirror/copy';
 import { trackLandingCtaClicked } from '@/lib/eza/mirror-network/landingAnalytics';
 import { trackSeedStart } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import {
@@ -40,15 +41,30 @@ import {
 } from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
 import { cn } from '@/lib/utils';
 
+export type FrozenReplayProgressNotice = {
+  slug: string;
+  journeyVersion: number;
+  completedStepCount: number;
+  replayCompleted: boolean;
+  selectedCount: number;
+};
+
 export type MirrorFrozenReplayProps = {
   artifact: PublicFrozenJourneyArtifact;
   className?: string;
   /** Phase 5.1 — fired once when final frozen answer completes. */
   onReplayCompleted?: (artifact: PublicFrozenJourneyArtifact) => void;
+  /** Phase 5.1.2 — live progress for skip/resume (does not mutate other Yansılar). */
+  onReplayProgress?: (notice: FrozenReplayProgressNotice) => void;
   /** Own-path CTA label (default Phase 5.1 copy). */
   continueLabel?: string;
   /** When true, fire experience_started on first question tap (child Yansılar). */
   trackStartOnFirstQuestion?: boolean;
+  /**
+   * Phase 5.1.2 — embed in the vertical chain: let the parent scroller move,
+   * so the user can leave a partial Yansı without a nested scroll trap.
+   */
+  chainEmbedded?: boolean;
 };
 
 type RevealedTurn = {
@@ -102,8 +118,10 @@ export default function MirrorFrozenReplay({
   artifact,
   className,
   onReplayCompleted,
-  continueLabel = 'Kendi merakımla devam et',
+  onReplayProgress,
+  continueLabel = YANSI_OWN_CONTINUATION_CTA,
   trackStartOnFirstQuestion = false,
+  chainEmbedded = false,
 }: MirrorFrozenReplayProps) {
   const { user } = useAuth();
   const ownerUserId = user?.user_id?.trim() || null;
@@ -119,6 +137,8 @@ export default function MirrorFrozenReplay({
   const completedTrackedRef = useRef(false);
   const onCompletedRef = useRef(onReplayCompleted);
   onCompletedRef.current = onReplayCompleted;
+  const onProgressRef = useRef(onReplayProgress);
+  onProgressRef.current = onReplayProgress;
 
   const pinnedVersionRef = useRef(artifact.journeyVersion);
   const pinnedArtifactRef = useRef(artifact);
@@ -155,7 +175,14 @@ export default function MirrorFrozenReplay({
 
   useEffect(() => {
     saveFrozenReplayProgress(session);
-  }, [session]);
+    onProgressRef.current?.({
+      slug: session.slug,
+      journeyVersion: session.journeyVersion,
+      completedStepCount: session.completedStepCount,
+      replayCompleted: session.replayCompleted,
+      selectedCount: frozen.steps.length,
+    });
+  }, [session, frozen.steps.length]);
 
   useEffect(() => {
     if (session.replayCompleted && !completedTrackedRef.current) {
@@ -232,6 +259,25 @@ export default function MirrorFrozenReplay({
   );
 
   const continueHref = `/m/${encodeURIComponent(frozen.slug)}/sohbet`;
+  const replayFinished = session.phase === 'completed' || session.replayCompleted;
+
+  const continueLink = (
+    <Link
+      href={continueHref}
+      onClick={() => {
+        trackLandingCtaClicked(frozen.slug);
+        trackSeedStart(frozen.slug);
+      }}
+      className={
+        replayFinished
+          ? 'flex w-full items-center justify-center rounded-full border border-[#e8d5b5]/40 bg-[#e8d5b5]/15 px-6 py-3.5 text-sm font-semibold tracking-wide text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/25'
+          : 'flex w-full items-center justify-center px-2 py-1.5 text-center text-[11px] font-medium text-[#c9bba8] underline-offset-4 hover:underline'
+      }
+      data-testid="mirror-frozen-replay-continue"
+    >
+      {continueLabel}
+    </Link>
+  );
 
   return (
     <section
@@ -242,7 +288,10 @@ export default function MirrorFrozenReplay({
     >
       <div
         ref={scrollRootRef}
-        className="saina-message-list min-h-0 flex-1 overflow-y-auto px-1"
+        className={cn(
+          'saina-message-list px-1',
+          chainEmbedded ? 'overflow-visible' : 'min-h-0 flex-1 overflow-y-auto'
+        )}
         data-testid="mirror-frozen-replay-thread"
       >
         <div className="saina-message-thread">
@@ -279,7 +328,7 @@ export default function MirrorFrozenReplay({
       </div>
 
       <div className="shrink-0 space-y-3 pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        {session.phase === 'completed' || session.replayCompleted ? (
+        {replayFinished ? (
           <div
             className="flex flex-col gap-3"
             data-testid="mirror-frozen-replay-complete"
@@ -287,36 +336,31 @@ export default function MirrorFrozenReplay({
             <p className="text-center text-sm text-[#c9bba8]">
               Bu Yansı burada tamamlandı.
             </p>
-            <Link
-              href={continueHref}
-              onClick={() => {
-                trackLandingCtaClicked(frozen.slug);
-                trackSeedStart(frozen.slug);
-              }}
-              className="flex w-full items-center justify-center rounded-full border border-[#e8d5b5]/40 bg-[#e8d5b5]/15 px-6 py-3.5 text-sm font-semibold tracking-wide text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/25"
-              data-testid="mirror-frozen-replay-continue"
-            >
-              {continueLabel}
-            </Link>
+            {continueLink}
             <p className="text-center text-[11px] text-[#a89880]">
               Aşağı kaydırarak diğer yolları keşfedebilirsin.
             </p>
           </div>
-        ) : nextStep && session.phase !== 'revealing' ? (
-          <button
-            type="button"
-            onClick={handleAskNext}
-            className="flex w-full items-center justify-center rounded-2xl border border-[#e8d5b5]/35 bg-[#e8d5b5]/10 px-5 py-3.5 text-left text-sm font-medium leading-snug text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/18"
-            data-testid="mirror-frozen-replay-next-question"
-            data-step-index={nextStep.stepIndex}
-          >
-            {nextStep.publicQuestion}
-          </button>
-        ) : session.phase === 'revealing' ? (
-          <p className="text-center text-xs text-[#a89880]" aria-live="polite">
-            Yanıt açılıyor…
-          </p>
-        ) : null}
+        ) : (
+          <div className="flex flex-col gap-2">
+            {nextStep && session.phase !== 'revealing' ? (
+              <button
+                type="button"
+                onClick={handleAskNext}
+                className="flex w-full items-center justify-center rounded-2xl border border-[#e8d5b5]/35 bg-[#e8d5b5]/10 px-5 py-3.5 text-left text-sm font-medium leading-snug text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/18"
+                data-testid="mirror-frozen-replay-next-question"
+                data-step-index={nextStep.stepIndex}
+              >
+                {nextStep.publicQuestion}
+              </button>
+            ) : session.phase === 'revealing' ? (
+              <p className="text-center text-xs text-[#a89880]" aria-live="polite">
+                Yanıt açılıyor…
+              </p>
+            ) : null}
+            {continueLink}
+          </div>
+        )}
       </div>
     </section>
   );

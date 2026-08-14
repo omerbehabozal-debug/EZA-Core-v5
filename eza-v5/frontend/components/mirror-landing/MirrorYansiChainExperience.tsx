@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * Phase 5.1 / 5.1.1 — continuous vertical Yansı chain after progressive replay.
- * Scroll down → published child; CTA → own continuation from ACTIVE slug.
- * Completing A may preload B below — never auto-scroll or auto-activate B.
+ * Phase 5.1 / 5.1.1 / 5.1.2 — continuous vertical Yansı chain after progressive replay.
+ * Scroll down → published child (completion not required). CTA → own continuation from ACTIVE slug.
+ * Completing or entering A may preload B below — never auto-scroll or auto-activate B.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,11 +21,24 @@ import {
 } from '@/lib/eza/mirror/journey/yansiChildContinuation';
 import { resolvePublicAuthorDisplayName } from '@/lib/eza/mirror/journey/resolvePublicAuthorDisplay';
 import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished';
+import { YANSI_OWN_CONTINUATION_CTA, YANSI_SKIP_TO_NEXT_MERAK } from '@/lib/eza/mirror/copy';
+import {
+  shouldRecordYansiSkip,
+  trackYansiExperienceSkipped,
+} from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
+import { loadFrozenReplayProgress } from '@/lib/eza/mirror/journey/frozenReplaySession';
 import { cn } from '@/lib/utils';
 
 export type MirrorYansiChainExperienceProps = {
   rootArtifact: PublicFrozenJourneyArtifact;
   className?: string;
+};
+
+type ReplayNodeProgress = {
+  completedStepCount: number;
+  replayCompleted: boolean;
+  selectedCount: number;
+  journeyVersion: number;
 };
 
 type ChainNode = {
@@ -84,16 +97,27 @@ export default function MirrorYansiChainExperience({
   const [activeSlug, setActiveSlug] = useState(rootArtifact.slug);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetAlts, setSheetAlts] = useState<EligibleChildContinuation[]>([]);
+  const [replayProgress, setReplayProgress] = useState<Record<string, ReplayNodeProgress>>(
+    {}
+  );
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
   const scrollRootRef = useRef<HTMLDivElement | null>(null);
   const loadingChildrenRef = useRef<Set<string>>(new Set());
   const childrenResolvedRef = useRef<Set<string>>(new Set());
   const pendingScrollSlugRef = useRef<string | null>(null);
+  const previousActiveSlugRef = useRef(rootArtifact.slug);
+  const skipFiredRef = useRef<Set<string>>(new Set());
+  const replayProgressRef = useRef(replayProgress);
+  replayProgressRef.current = replayProgress;
 
   useEffect(() => {
     let cancelled = false;
     void enrichNode(rootArtifact).then((node) => {
-      if (!cancelled) setNodes([node]);
+      if (cancelled) return;
+      setNodes((prev) => {
+        if (prev.some((n) => n.artifact.slug === node.artifact.slug)) return prev;
+        return [node, ...prev];
+      });
     });
     return () => {
       cancelled = true;
@@ -152,10 +176,9 @@ export default function MirrorYansiChainExperience({
     setActiveSlug(child.artifact.slug);
   }, []);
 
-  const handleReplayCompleted = useCallback(
-    async (artifact: PublicFrozenJourneyArtifact) => {
-      const slug = artifact.slug;
-      if (loadingChildrenRef.current.has(slug) || childrenResolvedRef.current.has(slug)) {
+  const ensureChildrenLoaded = useCallback(
+    async (slug: string) => {
+      if (!slug || loadingChildrenRef.current.has(slug) || childrenResolvedRef.current.has(slug)) {
         return;
       }
       loadingChildrenRef.current.add(slug);
@@ -178,12 +201,111 @@ export default function MirrorYansiChainExperience({
           // Prepare B below A — never auto-scroll / never auto-activate.
           await prepareChildBelow(plan.primary);
         }
+      } catch {
+        /* Fail closed: A stays usable, no fake skip affordance. */
       } finally {
         loadingChildrenRef.current.delete(slug);
       }
     },
     [prepareChildBelow]
   );
+
+  useEffect(() => {
+    if (!activeSlug) return;
+    if (!nodes.some((n) => n.artifact.slug === activeSlug)) return;
+    void ensureChildrenLoaded(activeSlug);
+  }, [activeSlug, nodes, ensureChildrenLoaded]);
+
+  const handleReplayCompleted = useCallback(
+    async (artifact: PublicFrozenJourneyArtifact) => {
+      await ensureChildrenLoaded(artifact.slug);
+    },
+    [ensureChildrenLoaded]
+  );
+
+  const handleReplayProgress = useCallback(
+    (notice: {
+      slug: string;
+      journeyVersion: number;
+      completedStepCount: number;
+      replayCompleted: boolean;
+      selectedCount: number;
+    }) => {
+      setReplayProgress((prev) => ({
+        ...prev,
+        [notice.slug]: {
+          completedStepCount: notice.completedStepCount,
+          replayCompleted: notice.replayCompleted,
+          selectedCount: notice.selectedCount,
+          journeyVersion: notice.journeyVersion,
+        },
+      }));
+    },
+    []
+  );
+
+  useEffect(() => {
+    const fromSlug = previousActiveSlugRef.current;
+    if (fromSlug === activeSlug) return;
+    const toSlug = activeSlug;
+    const timer = window.setTimeout(() => {
+      previousActiveSlugRef.current = toSlug;
+      const fromNode = nodes.find((n) => n.artifact.slug === fromSlug);
+      const live = replayProgressRef.current[fromSlug];
+      const stored = fromNode
+        ? loadFrozenReplayProgress(fromNode.artifact.slug, fromNode.artifact.journeyVersion)
+        : null;
+      const fromProgress = live ??
+        (stored
+          ? {
+              completedStepCount: stored.completedStepCount,
+              replayCompleted: stored.replayCompleted,
+              selectedCount: fromNode?.artifact.selectedCount ?? fromNode?.artifact.steps.length ?? 0,
+              journeyVersion: fromNode?.artifact.journeyVersion ?? 1,
+            }
+          : null);
+      if (
+        !shouldRecordYansiSkip({
+          fromSlug,
+          toSlug,
+          fromProgress,
+        })
+      ) {
+        return;
+      }
+      const skipKey = `${fromSlug}:${fromProgress?.journeyVersion ?? 1}`;
+      if (skipFiredRef.current.has(skipKey)) return;
+      skipFiredRef.current.add(skipKey);
+      trackYansiExperienceSkipped({
+        slug: fromSlug,
+        journeyVersion: fromProgress?.journeyVersion ?? 1,
+        completedStepCount: fromProgress?.completedStepCount ?? 0,
+        selectedCount: fromProgress?.selectedCount ?? 0,
+        destinationSlug: toSlug,
+      });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [activeSlug, nodes]);
+
+  const scrollTowardNextChild = (index: number) => {
+    const next = nodes[index + 1];
+    if (!next) return;
+    const el = sectionRefs.current.get(next.artifact.slug);
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    pendingScrollSlugRef.current = next.artifact.slug;
+  };
+
+  const nodeReplayComplete = (node: ChainNode) => {
+    const live = replayProgress[node.artifact.slug];
+    if (live) return live.replayCompleted;
+    return Boolean(
+      loadFrozenReplayProgress(node.artifact.slug, node.artifact.journeyVersion)
+        ?.replayCompleted
+    );
+  };
 
   const openAlternatives = (node: ChainNode) => {
     setSheetAlts(node.alternatives);
@@ -208,7 +330,7 @@ export default function MirrorYansiChainExperience({
 
       <div
         ref={scrollRootRef}
-        className="relative z-[1] flex min-h-0 flex-1 flex-col gap-10 overflow-y-auto px-0 pb-8"
+        className="relative z-[1] flex min-h-0 flex-1 flex-col gap-10 overflow-y-auto overscroll-y-contain px-0 pb-8"
         data-testid="mirror-yansi-chain-scroll"
       >
         {nodes.map((node, index) => {
@@ -258,10 +380,26 @@ export default function MirrorYansiChainExperience({
               <MirrorFrozenReplay
                 artifact={node.artifact}
                 className="min-h-0 flex-1"
-                continueLabel="Kendi merakımla devam et"
+                continueLabel={YANSI_OWN_CONTINUATION_CTA}
                 trackStartOnFirstQuestion={index > 0}
+                chainEmbedded
                 onReplayCompleted={handleReplayCompleted}
+                onReplayProgress={handleReplayProgress}
               />
+
+              {node.childrenLoaded &&
+              node.eligibleChildCount > 0 &&
+              nodes[index + 1] &&
+              !nodeReplayComplete(node) ? (
+                <button
+                  type="button"
+                  className="mx-auto mt-3 block px-2 py-1 text-center text-[11px] font-medium tracking-wide text-[#a89880] underline-offset-4 hover:text-[#c9bba8] hover:underline"
+                  onClick={() => scrollTowardNextChild(index)}
+                  data-testid="mirror-skip-to-next"
+                >
+                  {YANSI_SKIP_TO_NEXT_MERAK}
+                </button>
+              ) : null}
 
               {node.childrenLoaded && node.eligibleChildCount > 0 ? (
                 <p

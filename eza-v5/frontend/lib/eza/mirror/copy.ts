@@ -57,6 +57,12 @@ export const MIRROR_AYNA_EMPTY_BODY =
 export const MIRROR_JOURNEY_CONVERSATION_CLOSED =
   'Bu başlıkta sohbet sınırına ulaştınız.';
 
+/** Phase 5.1 / 5.1.2 — own continuation from the active Yansı (complete or partial). */
+export const YANSI_OWN_CONTINUATION_CTA = 'Kendi merakımla devam et';
+
+/** Phase 5.1.2 — quiet skip into the next eligible child. Not a primary CTA. */
+export const YANSI_SKIP_TO_NEXT_MERAK = 'Sonraki meraka geç ↓';
+
 export const MIRROR_SHARE_DOWNLOAD_LABEL = 'Kartı İndir';
 
 /** Kısa gizlilik — tüm Mirror yüzeylerinde */
