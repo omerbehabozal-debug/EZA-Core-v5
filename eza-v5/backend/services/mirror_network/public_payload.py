@@ -63,7 +63,16 @@ FORBIDDEN_VALUE_PATTERNS: List[re.Pattern[str]] = [
 ]
 
 # Server-generated fields — key-name scan only, not value PII scan.
-SKIP_PII_VALUE_SCAN_KEYS = frozenset({"slug", "shareUrl", "cardDate"})
+# Integrity hashes are public DTO fields (hex), not secrets.
+SKIP_PII_VALUE_SCAN_KEYS = frozenset(
+    {
+        "slug",
+        "shareUrl",
+        "cardDate",
+        "publicLandingHash",
+        "interpretationHash",
+    }
+)
 
 FORBIDDEN_CURIOSITY_BUNDLE_KEYS = frozenset(
     {

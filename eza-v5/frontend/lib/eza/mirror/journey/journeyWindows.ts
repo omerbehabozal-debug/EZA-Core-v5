@@ -75,6 +75,12 @@ export type JourneyConversationState = {
   updatedAt: string;
   /** Monotonic revision for multi-tab CAS writes. */
   stateVersion: number;
+  /**
+   * Phase 5.2 — verified continuation origin (startedFromMirrorId).
+   * Seeds parent for window 0 when no prior READY Journey exists in this chat.
+   * Null for ordinary (non-Yansı) chats — first Journey stays a root.
+   */
+  originatingParentJourneyId: string | null;
 };
 
 /**
@@ -152,9 +158,17 @@ function emptyWindow(windowIndex: number): JourneyWindowRecord {
   };
 }
 
+function normalizeOriginatingParentId(
+  value: string | null | undefined
+): string | null {
+  const slug = (value || '').trim().toLowerCase();
+  return slug || null;
+}
+
 export function createEmptyJourneyConversationState(input: {
   ownerUserId: string;
   sourceConversationId: string;
+  originatingParentJourneyId?: string | null;
 }): JourneyConversationState {
   return {
     ownerUserId: input.ownerUserId,
@@ -166,6 +180,9 @@ export function createEmptyJourneyConversationState(input: {
     conversationClosed: false,
     updatedAt: new Date().toISOString(),
     stateVersion: 0,
+    originatingParentJourneyId: normalizeOriginatingParentId(
+      input.originatingParentJourneyId
+    ),
   };
 }
 
@@ -177,6 +194,9 @@ function normalizeLoadedState(
     journeyMode: state.journeyMode === 'private_chat_mode'
       ? 'private_chat_mode'
       : 'journey_mode',
+    originatingParentJourneyId: normalizeOriginatingParentId(
+      state.originatingParentJourneyId
+    ),
   };
 }
 
@@ -192,6 +212,7 @@ export function syncJourneyConversationState(input: {
   sourceConversationId: string;
   messages: JourneyMessageLike[];
   now?: string;
+  originatingParentJourneyId?: string | null;
 }): JourneyConversationState {
   const now = input.now || new Date().toISOString();
   const base =
@@ -202,7 +223,11 @@ export function syncJourneyConversationState(input: {
       : createEmptyJourneyConversationState({
           ownerUserId: input.ownerUserId,
           sourceConversationId: input.sourceConversationId,
+          originatingParentJourneyId: input.originatingParentJourneyId,
         });
+  const originatingParentJourneyId =
+    normalizeOriginatingParentId(input.originatingParentJourneyId) ??
+    base.originatingParentJourneyId;
 
   const pairs = extractQaPairs(input.messages);
   const eligiblePairCount = pairs.length;
@@ -252,6 +277,7 @@ export function syncJourneyConversationState(input: {
     acceptedEligibleQuestionCount,
     windows,
     conversationClosed,
+    originatingParentJourneyId,
     updatedAt: now,
   };
 }
@@ -349,7 +375,8 @@ export function reopenJourneyWindowDecision(
 }
 
 /**
- * Parent = latest prior ready Journey in this conversation chain.
+ * Parent = latest prior READY Journey in this conversation chain.
+ * Else originating published Yansı (Phase 5.2 continuation seed).
  * Do not use a still-generating artifact as published parent authority.
  */
 export function resolveParentJourneyId(
@@ -364,7 +391,8 @@ export function resolveParentJourneyId(
         w.status === 'ready'
     )
     .sort((a, b) => b.windowIndex - a.windowIndex);
-  return prior[0]?.journeyId ?? null;
+  if (prior[0]?.journeyId) return prior[0].journeyId;
+  return normalizeOriginatingParentId(state.originatingParentJourneyId);
 }
 
 export function confirmJourneyWindow(input: {

@@ -11,7 +11,7 @@ import type {
   JourneyMessageRole,
 } from './types';
 
-const NOISE_ID_PREFIXES = ['saved-', 'limit-'] as const;
+const NOISE_ID_PREFIXES = ['saved-', 'limit-', 'mirror-open-'] as const;
 
 const LOW_INFO_QUESTION =
   /^(evet|hayır|peki|başka|tamam|ok|okay|yes|no|hm+|hmm+|eee+)\.?$/i;

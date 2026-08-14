@@ -53,6 +53,11 @@ function normalizeLoaded(
     stateVersion: typeof row.stateVersion === 'number' ? row.stateVersion : 0,
     journeyMode:
       row.journeyMode === 'private_chat_mode' ? 'private_chat_mode' : 'journey_mode',
+    originatingParentJourneyId:
+      typeof row.originatingParentJourneyId === 'string' &&
+      row.originatingParentJourneyId.trim()
+        ? row.originatingParentJourneyId.trim().toLowerCase()
+        : null,
   };
 }
 

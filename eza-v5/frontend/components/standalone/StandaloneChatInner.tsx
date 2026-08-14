@@ -620,6 +620,11 @@ export default function StandaloneChatInner() {
         isUser: m.isUser,
         incomplete: m.incomplete,
       }));
+    const archive = getChatArchive(chatId);
+    const originatingParentJourneyId =
+      archive?.mirrorOrigin?.startedFromMirrorId?.trim() ||
+      archive?.treeMetadata?.startedFromMirrorId?.trim() ||
+      null;
     const persist = (candidate: JourneyConversationState) => {
       const saved = saveJourneyConversationState(candidate);
       if (saved.ok) {
@@ -632,6 +637,7 @@ export default function StandaloneChatInner() {
         ownerUserId: journeyOwnerId,
         sourceConversationId: chatId,
         messages: mapMessages(),
+        originatingParentJourneyId,
       });
       const again = saveJourneyConversationState(merged);
       setJourneyState(again.ok ? again.state : saved.current);
@@ -643,12 +649,14 @@ export default function StandaloneChatInner() {
       ownerUserId: journeyOwnerId,
       sourceConversationId: chatId,
       messages: mapMessages(),
+      originatingParentJourneyId,
     });
     const changed =
       !prev ||
       prev.conversationClosed !== next.conversationClosed ||
       prev.acceptedEligibleQuestionCount !== next.acceptedEligibleQuestionCount ||
       prev.eligiblePairCount !== next.eligiblePairCount ||
+      prev.originatingParentJourneyId !== next.originatingParentJourneyId ||
       JSON.stringify(prev.windows) !== JSON.stringify(next.windows);
     if (changed) {
       persist(next);
@@ -722,17 +730,20 @@ export default function StandaloneChatInner() {
           1
         );
         // Navigate only to a published parent identity — never leak private parent metadata.
-        parentSlug =
-          parentArtifact?.status === 'published'
-            ? parentArtifact.publish.slug?.trim().toLowerCase() ||
-              parentJourneyId
-            : null;
-        parentAuthorDisplayName =
-          parentArtifact?.authorDisplayName?.trim() || null;
-        parentPublicTitle =
-          parentArtifact?.status === 'published'
-            ? parentArtifact.publicTitle?.trim() || null
-            : null;
+        if (parentArtifact?.status === 'published') {
+          parentSlug =
+            parentArtifact.publish.slug?.trim().toLowerCase() ||
+            parentJourneyId;
+          parentAuthorDisplayName =
+            parentArtifact.authorDisplayName?.trim() || null;
+          parentPublicTitle = parentArtifact.publicTitle?.trim() || null;
+        } else if (
+          next.originatingParentJourneyId &&
+          parentJourneyId === next.originatingParentJourneyId
+        ) {
+          // Originating Yansı slug is already a public published identity.
+          parentSlug = parentJourneyId;
+        }
       }
       markMirrorJourneyArtifactGenerating(journeyOwnerId, {
         journeyId: draft.journeyId,

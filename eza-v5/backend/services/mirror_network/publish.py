@@ -57,6 +57,7 @@ from backend.services.mirror_network.journey_window_contract import (
 )
 from backend.services.mirror_network.same_conversation_parent import (
     resolve_same_conversation_parent,
+    resolve_verified_continuation_parent,
 )
 from backend.services.mirror_network.frozen_journey_artifact import (
     FREEZE_STATUS_FROZEN,
@@ -660,8 +661,8 @@ async def publish_mirror_to_network(
     validated_parent_slug = None
     if not existing_parent_slug and not existing:
         if proof_token:
-            # Proof is authoritative — client parentSlug is ignored when present.
-            validated_parent_slug = await resolve_parent_slug_from_proof(
+            # Proof is authoritative for continuation origin.
+            origin_parent = await resolve_parent_slug_from_proof(
                 db,
                 proof_token=proof_token,
                 user_id=user.id,
@@ -670,6 +671,27 @@ async def publish_mirror_to_network(
                 child_slug=slug,
                 consume=True,
             )
+            if origin_parent:
+                if (
+                    use_journey_identity
+                    and conversation_id
+                    and window_index is not None
+                ):
+                    validated_parent_slug = await resolve_verified_continuation_parent(
+                        db,
+                        origin_parent_slug=origin_parent,
+                        requested_parent_slug=requested_parent_slug,
+                        user_id=user.id,
+                        conversation_id=conversation_id,
+                        child_slug=slug,
+                        child_window_index=int(window_index),
+                        child_window_start=int(window_start)
+                        if window_start is not None
+                        else 0,
+                    )
+                else:
+                    # Legacy Discover: proof parent wins; ignore client parentSlug.
+                    validated_parent_slug = origin_parent
         elif requested_parent_slug:
             # Mode A: same-conversation deterministic continuation (journey + window).
             # Mode B: everything else still requires lineageProofToken.
