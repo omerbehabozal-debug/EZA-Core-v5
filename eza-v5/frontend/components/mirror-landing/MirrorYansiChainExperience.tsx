@@ -88,6 +88,7 @@ export default function MirrorYansiChainExperience({
   const scrollRootRef = useRef<HTMLDivElement | null>(null);
   const loadingChildrenRef = useRef<Set<string>>(new Set());
   const childrenResolvedRef = useRef<Set<string>>(new Set());
+  const pendingScrollSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +121,15 @@ export default function MirrorYansiChainExperience({
     return () => observer.disconnect();
   }, [nodes]);
 
+  useEffect(() => {
+    const slug = pendingScrollSlugRef.current;
+    if (!slug) return;
+    const el = sectionRefs.current.get(slug);
+    if (!el) return;
+    pendingScrollSlugRef.current = null;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [nodes, activeSlug]);
+
   /** Preload below viewport — does NOT activate or scroll. */
   const prepareChildBelow = useCallback(async (child: EligibleChildContinuation) => {
     preloadSceneImage(child.artifact.sceneImageUrl);
@@ -134,16 +144,12 @@ export default function MirrorYansiChainExperience({
   const activateChosenChild = useCallback(async (child: EligibleChildContinuation) => {
     preloadSceneImage(child.artifact.sceneImageUrl);
     const node = await enrichNode(child.artifact, []);
+    pendingScrollSlugRef.current = child.artifact.slug;
     setNodes((prev) => {
       if (prev.some((n) => n.artifact.slug === child.artifact.slug)) return prev;
       return [...prev, node];
     });
     setActiveSlug(child.artifact.slug);
-    requestAnimationFrame(() => {
-      sectionRefs.current
-        .get(child.artifact.slug)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
   }, []);
 
   const handleReplayCompleted = useCallback(

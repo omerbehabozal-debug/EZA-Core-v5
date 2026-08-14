@@ -306,8 +306,8 @@ describe('Phase 5.1 continuous chain UI', () => {
     );
 
     // Scene identity remains A while A is active
-    const scene = screen.getByTestId('mirror-yansi-scene-crossfade');
-    expect(scene.querySelector('img')?.getAttribute('src')).toBe(
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
+      'src',
       'https://cdn.example/yansi-a.jpg'
     );
 

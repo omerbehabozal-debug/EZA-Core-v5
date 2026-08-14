@@ -186,10 +186,11 @@ describe('Phase 5.1.1 no auto-scroll / preload vs activation', () => {
     expect(started.filter((s) => s === 'yansi-b')).toHaveLength(0);
     expect(loadFrozenReplayProgress('yansi-b', 1)).toBeNull();
 
-    // Scene remains A
-    expect(
-      screen.getByTestId('mirror-yansi-scene-crossfade').querySelector('img')?.getAttribute('src')
-    ).toBe('https://cdn.example/yansi-a.jpg');
+    // Scene remains A (current layer — not the first img during a later crossfade)
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
+      'src',
+      'https://cdn.example/yansi-a.jpg'
+    );
 
     window.removeEventListener(YANSI_EXPERIENCE_STARTED_EVENT, onStarted);
   });
@@ -237,13 +238,18 @@ describe('Phase 5.1.1 no auto-scroll / preload vs activation', () => {
     await waitFor(() => {
       expect(screen.getByTestId('mirror-yansi-section-yansi-c')).toBeTruthy();
     });
-    expect(scrollSpy).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(scrollSpy).toHaveBeenCalled();
+    });
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
       'data-active-slug',
       'yansi-c'
     );
-    expect(
-      screen.getByTestId('mirror-yansi-scene-crossfade').querySelector('img')?.getAttribute('src')
-    ).toBe('https://cdn.example/yansi-c.jpg');
+    await waitFor(() => {
+      expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
+        'src',
+        'https://cdn.example/yansi-c.jpg'
+      );
+    });
   });
 });

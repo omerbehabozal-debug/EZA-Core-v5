@@ -64,6 +64,7 @@ export default function MirrorYansiSceneCrossfade({
         <img
           src={back}
           alt=""
+          data-scene-layer="outgoing"
           className="absolute inset-0 h-full w-full object-cover opacity-100"
         />
       ) : null}
@@ -72,6 +73,8 @@ export default function MirrorYansiSceneCrossfade({
         <img
           src={front}
           alt=""
+          data-scene-layer="current"
+          data-testid="mirror-yansi-scene-current"
           className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ease-out"
           style={{ opacity: frontOpacity }}
           onError={(e) => {
