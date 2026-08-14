@@ -243,8 +243,11 @@ describe('Phase 5.1 replay isolation', () => {
 });
 
 describe('Phase 5.1 continuous chain UI', () => {
-  it('G/H/I + identity: complete A appends B with stored title/scene/author', async () => {
-    const a = makeArtifact('yansi-a', { authorUserId: 'author-a' });
+  it('G/H/I + 5.1.1: complete A prepares B without auto-scroll/activation', async () => {
+    const a = makeArtifact('yansi-a', {
+      authorUserId: 'author-a',
+      sceneImageUrl: 'https://cdn.example/yansi-a.jpg',
+    });
     const b = makeArtifact('yansi-b', {
       parentSlug: 'yansi-a',
       authorUserId: 'author-b',
@@ -276,35 +279,46 @@ describe('Phase 5.1 continuous chain UI', () => {
       })
     );
 
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy;
+
     render(<MirrorYansiChainExperience rootArtifact={a} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-chain')).toBeTruthy();
-    });
-
-    expect(screen.getByTestId('mirror-yansi-section-yansi-a')).toBeTruthy();
-    expect(screen.getByText('Title yansi-a')).toBeTruthy();
-    expect(screen.getByText('Name a')).toBeTruthy();
 
     await waitFor(() => {
       expect(screen.getByTestId('mirror-yansi-section-yansi-b')).toBeTruthy();
     });
 
+    // Preload only — no automatic viewport move
+    expect(scrollSpy).not.toHaveBeenCalled();
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
+      'data-active-slug',
+      'yansi-a'
+    );
+
+    const sectionA = screen.getByTestId('mirror-yansi-section-yansi-a');
+    expect(within(sectionA).getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
+      'href',
+      '/m/yansi-a/sohbet'
+    );
+    expect(within(sectionA).getByText('Bu Yansı burada tamamlandı.')).toBeTruthy();
+    expect(screen.getByTestId('mirror-continuation-cue')).toHaveTextContent(
+      '1 Yansı buradan devam etti'
+    );
+
+    // Scene identity remains A while A is active
+    const scene = screen.getByTestId('mirror-yansi-scene-crossfade');
+    expect(scene.querySelector('img')?.getAttribute('src')).toBe(
+      'https://cdn.example/yansi-a.jpg'
+    );
+
     const sectionB = screen.getByTestId('mirror-yansi-section-yansi-b');
     expect(within(sectionB).getByText('Title yansi-b')).toBeTruthy();
-    expect(within(sectionB).getByText('Name b')).toBeTruthy();
     expect(within(sectionB).getByTestId('mirror-frozen-replay-next-question')).toHaveTextContent(
       'yansi-b Soru 1?'
     );
+    // B not started
+    expect(loadFrozenReplayProgress('yansi-b', 1)).toBeNull();
 
-    const scene = screen.getByTestId('mirror-yansi-scene-crossfade');
-    expect(scene.querySelector('img')?.getAttribute('src')).toMatch(/yansi-/);
-
-    // No generation / scoring endpoints during child append
-    const fetchSpy = vi.fn();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).fetch = fetchSpy;
-    expect(fetchSpy).not.toHaveBeenCalled();
     expect(vi.mocked(fetchPublishedChildren)).toHaveBeenCalledWith('yansi-a');
   });
 

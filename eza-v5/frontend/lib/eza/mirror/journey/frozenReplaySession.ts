@@ -137,6 +137,8 @@ export function loadFrozenReplayProgress(
 
 export function saveFrozenReplayProgress(session: FrozenReplaySession): void {
   if (!session.replayStarted || session.journeyVersion < 1) return;
+  // Phase 5.1.1 — do not persist mere mount/preload (completedStepCount still 0).
+  if (session.completedStepCount <= 0 && !session.replayCompleted) return;
   const ls = storage();
   if (!ls) return;
   try {

@@ -53,7 +53,12 @@ def _forbidden() -> HTTPException:
 
 
 def is_eligible_yansi_child(node: MirrorNetworkNode) -> bool:
-    """Count only shareable, non-restricted child mirrors."""
+    """
+    Count shareable, non-restricted child mirrors (impact / owner stats).
+
+    This is NOT the Phase 5.1.1 public frozen continuation gate.
+    Replay-ready Journey children use author_profile.is_eligible_frozen_continuation_child.
+    """
     visibility = (node.visibility or "public").lower()
     safety_status = (node.safety_status or "open").lower()
     if visibility == "private" or safety_status == "restricted":

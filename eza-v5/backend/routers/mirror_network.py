@@ -137,7 +137,7 @@ class AuthorPublishedYansiResponse(BaseModel):
 
 
 class ParentChildrenYansiResponse(BaseModel):
-    """GET /api/mirror-network/{slug}/children — direct published children."""
+    """Direct published child Yansılar eligible for public frozen continuation."""
 
     model_config = {"extra": "forbid"}
 
@@ -209,7 +209,7 @@ async def get_mirror_network_children(
     db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit_standalone),
 ) -> ParentChildrenYansiResponse:
-    """Direct published child Yansılar of a public parent — curiosity branches only."""
+    """Direct published child Yansılar of a public parent — frozen replay-ready only."""
     payload = await list_published_direct_children(
         db, parent_slug=slug, limit=limit, offset=offset
     )

@@ -73,6 +73,7 @@ jobs:
           tests/mirrorJourneyPhase431Closure.test.tsx
           tests/mirrorJourneyPhase50ProgressiveReplay.test.tsx
           tests/mirrorJourneyPhase51ContinuousChildScroll.test.tsx
+          tests/mirrorJourneyPhase511NoAutoScroll.test.tsx
 
       - name: Run Visual Identity regression tests
         run: >-

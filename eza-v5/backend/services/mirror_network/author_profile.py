@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Phase 3.8 — public author published Yansılar + direct child listing."""
+"""Phase 3.8 / 5.1.1 — public author published Yansılar + direct child listing."""
 
 from __future__ import annotations
 
@@ -9,12 +9,24 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.mirror_network import MirrorNetworkNode
+from backend.models.mirror_network import ARTIFACT_KIND_JOURNEY_V1, MirrorNetworkNode
 from backend.models.production import User
+from backend.services.mirror_network.frozen_journey_artifact import (
+    FREEZE_STATUS_FROZEN,
+    get_public_frozen_journey_artifact,
+)
 from backend.services.mirror_network.impact import is_eligible_yansi_child
 from backend.services.mirror_network.repository import get_mirror_network_node_by_slug
 from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
 from backend.services.mirror_network.slug import build_mirror_share_url
+
+# Deterministic /children ordering (Phase 5.1.1):
+# published_at DESC NULLS LAST, created_at DESC, slug ASC (immutable tie-breaker).
+CHILDREN_ORDER_BY = (
+    MirrorNetworkNode.published_at.desc().nullslast(),
+    MirrorNetworkNode.created_at.desc(),
+    MirrorNetworkNode.slug.asc(),
+)
 
 
 def _public_display_name_from_email(email: str | None) -> str:
@@ -77,6 +89,43 @@ def _is_public_published(node: MirrorNetworkNode) -> bool:
     return True
 
 
+def is_candidate_frozen_continuation_child(node: MirrorNetworkNode) -> bool:
+    """
+    Fast structural gates for public frozen Yansı continuation (Phase 5.1.1).
+
+    Publication proof: published_at IS NOT NULL.
+    Journey kind: artifact_kind == journey_v1.
+    Freeze seal: freeze_status == frozen.
+    Public/safety: visibility public + safety gate (same family as Discover).
+
+    Replay-ready (6–8 valid public steps) is verified separately via
+    get_public_frozen_journey_artifact — same invariant as GET …/frozen.
+    """
+    if getattr(node, "published_at", None) is None:
+        return False
+    if (getattr(node, "visibility", None) or "public").lower() != "public":
+        return False
+    if getattr(node, "artifact_kind", None) != ARTIFACT_KIND_JOURNEY_V1:
+        return False
+    freeze = (getattr(node, "freeze_status", None) or "").strip().lower()
+    if freeze != FREEZE_STATUS_FROZEN:
+        return False
+    if not is_eligible_yansi_child(node):
+        return False
+    return True
+
+
+async def is_eligible_frozen_continuation_child(
+    db: AsyncSession,
+    node: MirrorNetworkNode,
+) -> bool:
+    """Structural gates + same replay-ready projection as GET …/frozen."""
+    if not is_candidate_frozen_continuation_child(node):
+        return False
+    public = await get_public_frozen_journey_artifact(db, slug=node.slug)
+    return public is not None
+
+
 async def list_published_mirrors_for_author(
     db: AsyncSession,
     *,
@@ -115,7 +164,15 @@ async def list_published_direct_children(
     limit: int = 48,
     offset: int = 0,
 ) -> dict[str, Any] | None:
-    """Direct published children of a public parent Yansı — not a follower graph."""
+    """
+    Direct children eligible for public frozen Yansı continuation (Phase 5.1.1).
+
+    Returns only: direct child + published_at set + public + safety-ok +
+    journey_v1 + freeze_status frozen + replayReady (same as GET …/frozen).
+
+    Ordering: published_at DESC, created_at DESC, slug ASC.
+    total = count of eligible children (not raw DB child count).
+    """
     normalized = (parent_slug or "").strip().lower()
     if not normalized:
         return None
@@ -125,12 +182,24 @@ async def list_published_direct_children(
 
     result = await db.execute(
         select(MirrorNetworkNode)
-        .where(func.lower(MirrorNetworkNode.parent_slug) == normalized)
-        .order_by(MirrorNetworkNode.published_at.desc().nullslast(), MirrorNetworkNode.created_at.desc())
+        .where(
+            func.lower(MirrorNetworkNode.parent_slug) == normalized,
+            MirrorNetworkNode.published_at.isnot(None),
+            MirrorNetworkNode.artifact_kind == ARTIFACT_KIND_JOURNEY_V1,
+            MirrorNetworkNode.freeze_status == FREEZE_STATUS_FROZEN,
+        )
+        .order_by(*CHILDREN_ORDER_BY)
     )
-    children = [n for n in result.scalars().all() if is_eligible_yansi_child(n)]
-    total = len(children)
-    page = children[offset : offset + max(1, min(limit, 100))]
+    candidates = [
+        n for n in result.scalars().all() if is_candidate_frozen_continuation_child(n)
+    ]
+    eligible: list[MirrorNetworkNode] = []
+    for node in candidates:
+        if await is_eligible_frozen_continuation_child(db, node):
+            eligible.append(node)
+
+    total = len(eligible)
+    page = eligible[offset : offset + max(1, min(limit, 100))]
     return {
         "parentSlug": normalized,
         "parentTitle": (

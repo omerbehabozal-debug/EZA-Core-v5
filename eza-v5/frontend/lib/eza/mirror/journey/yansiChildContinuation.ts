@@ -1,6 +1,6 @@
 /**
- * Phase 5.1 — published child Yansı continuation helpers.
- * Children list is public metadata; replay eligibility requires /frozen parse.
+ * Phase 5.1 / 5.1.1 — published child Yansı continuation helpers.
+ * /children is the eligibility authority; /frozen supplies replay content.
  */
 
 import { fetchPublishedChildren } from '@/lib/eza/mirror-network/fetchAuthorPublished';
@@ -15,16 +15,23 @@ export type EligibleChildContinuation = {
 
 export type ChildContinuationPlan = {
   parentSlug: string;
+  /** First eligible child in deterministic server order. */
   primary: EligibleChildContinuation | null;
+  /** Remaining eligible siblings (same order). */
   alternatives: EligibleChildContinuation[];
-  /** Direct published children that were not replay-ready (skipped). */
+  /**
+   * Eligible/public frozen continuation count from /children `total`
+   * (not raw DB children; not impact yansiCount).
+   */
+  eligibleCount: number;
+  /** Listed children that failed /frozen defense-in-depth probe. */
   skippedCount: number;
 };
 
 /**
- * Deterministic primary = first eligible by server order (publishedAt desc).
+ * Primary = first eligible by server /children order.
  * Alternatives = remaining eligible siblings.
- * Lazy: only freezes next N candidates until primary found + a few alts.
+ * Lazy: hydrate frozen artifacts for listed items only (no descendant recursion).
  */
 export async function loadChildContinuationPlan(
   parentSlug: string,
@@ -38,6 +45,7 @@ export async function loadChildContinuationPlan(
     parentSlug: slug,
     primary: null,
     alternatives: [],
+    eligibleCount: 0,
     skippedCount: 0,
   };
   if (!slug) return empty;
@@ -45,17 +53,19 @@ export async function loadChildContinuationPlan(
   const listed = await fetchPublishedChildren(slug);
   if (!listed.ok) return empty;
 
+  const eligibleCount =
+    typeof listed.data.total === 'number' ? listed.data.total : listed.data.items.length;
   const candidates = listed.data.items.slice(0, maxProbe);
   const eligible: EligibleChildContinuation[] = [];
   let skipped = 0;
 
   for (const meta of candidates) {
+    // Defense-in-depth: server already filters; still require /frozen body for replay.
     const artifact = await fetchPublicFrozenJourneyArtifact({ slug: meta.slug });
     if (!artifact) {
       skipped += 1;
       continue;
     }
-    // Prefer stored scene/title from frozen; fall back to list meta only if missing.
     eligible.push({
       meta: {
         ...meta,
@@ -74,6 +84,7 @@ export async function loadChildContinuationPlan(
     parentSlug: slug,
     primary: primary ?? null,
     alternatives,
+    eligibleCount,
     skippedCount: skipped,
   };
 }
