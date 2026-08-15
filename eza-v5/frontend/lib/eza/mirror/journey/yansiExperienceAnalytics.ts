@@ -1,15 +1,28 @@
 /**
- * Phase 5.0 / 5.1 / 5.1.2 — experience analytics boundaries (counting = Phase 6).
+ * Phase 5–6.0 — Yansı experience events.
  *
- * Skip is a frontend CustomEvent only until Phase 6 ingest exists.
- * Do not equate page view, child preload, or post-completion scroll with skip.
+ * CustomEvents remain for in-app observers.
+ * Durable started/completed/skipped ingest is POST /api/mirror-network/{slug}/experience-events.
+ * Observation TTL (`ezaExperience.track`) is not the durable measurement store.
+ *
+ * STARTED = first frozen-question engagement (not landing, preload, or IO).
+ * COMPLETED = final frozen answer reveal.
+ * SKIPPED = started, incomplete, left for another Yansı (completedStepCount > 0).
  */
 
-import { ezaExperience } from '@/lib/eza/analytics/ezaExperienceAdapter';
+import { buildApiUrl } from '@/lib/apiUrl';
+import {
+  allocateSkipEventId,
+  getOrCreateYansiExperienceSession,
+} from './yansiExperienceSession';
 
 export const YANSI_EXPERIENCE_STARTED_EVENT = 'saina:yansi-experience-started';
 export const YANSI_EXPERIENCE_COMPLETED_EVENT = 'saina:yansi-experience-completed';
 export const YANSI_EXPERIENCE_SKIPPED_EVENT = 'saina:yansi-experience-skipped';
+
+export const YANSI_EXPERIENCE_STARTED = 'yansi_experience_started';
+export const YANSI_EXPERIENCE_COMPLETED = 'yansi_experience_completed';
+export const YANSI_EXPERIENCE_SKIPPED = 'yansi_experience_skipped';
 
 export type YansiReplayProgressSnapshot = {
   completedStepCount: number;
@@ -34,51 +47,95 @@ export function shouldRecordYansiSkip(input: {
   return true;
 }
 
+function optionalAuthHeader(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (typeof window === 'undefined') return headers;
+  try {
+    const token = localStorage.getItem('eza_token');
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } catch {
+    /* guest */
+  }
+  return headers;
+}
+
+function postYansiExperienceEvent(
+  slug: string,
+  body: Record<string, unknown>
+): void {
+  if (typeof window === 'undefined') return;
+  const path = `/api/mirror-network/${encodeURIComponent(slug)}/experience-events`;
+  void (async () => {
+    try {
+      await fetch(buildApiUrl(path), {
+        method: 'POST',
+        headers: optionalAuthHeader(),
+        body: JSON.stringify(body),
+        keepalive: true,
+      });
+    } catch {
+      // Analytics must never block replay.
+    }
+  })();
+}
+
 export function trackYansiExperienceStarted(input: {
   slug: string;
   journeyVersion: number;
+  completedStepCount?: number;
 }): void {
   if (typeof window === 'undefined') return;
   const slug = input.slug.trim().toLowerCase();
+  const session = getOrCreateYansiExperienceSession(slug, input.journeyVersion);
+  const occurredAt = new Date().toISOString();
   window.dispatchEvent(
     new CustomEvent(YANSI_EXPERIENCE_STARTED_EVENT, {
       detail: {
         mirrorSlug: slug,
         journeyVersion: input.journeyVersion,
-        at: new Date().toISOString(),
+        completedStepCount: input.completedStepCount ?? 0,
+        experienceSessionId: session.experienceSessionId,
+        at: occurredAt,
       },
     })
   );
-  ezaExperience.track('yansi_experience_started', {
-    mirrorId: slug,
-    context: {
-      surface: 'frozen_replay',
-      journeyVersion: input.journeyVersion,
-    },
+  postYansiExperienceEvent(slug, {
+    eventId: session.startedEventId,
+    experienceSessionId: session.experienceSessionId,
+    eventType: YANSI_EXPERIENCE_STARTED,
+    journeyVersion: input.journeyVersion,
+    completedStepCount: input.completedStepCount ?? 0,
+    occurredAt,
   });
 }
 
 export function trackYansiExperienceCompleted(input: {
   slug: string;
   journeyVersion: number;
+  completedStepCount: number;
 }): void {
   if (typeof window === 'undefined') return;
   const slug = input.slug.trim().toLowerCase();
+  const session = getOrCreateYansiExperienceSession(slug, input.journeyVersion);
+  const occurredAt = new Date().toISOString();
   window.dispatchEvent(
     new CustomEvent(YANSI_EXPERIENCE_COMPLETED_EVENT, {
       detail: {
         mirrorSlug: slug,
         journeyVersion: input.journeyVersion,
-        at: new Date().toISOString(),
+        completedStepCount: input.completedStepCount,
+        experienceSessionId: session.experienceSessionId,
+        at: occurredAt,
       },
     })
   );
-  ezaExperience.track('yansi_experience_completed', {
-    mirrorId: slug,
-    context: {
-      surface: 'frozen_replay',
-      journeyVersion: input.journeyVersion,
-    },
+  postYansiExperienceEvent(slug, {
+    eventId: session.completedEventId,
+    experienceSessionId: session.experienceSessionId,
+    eventType: YANSI_EXPERIENCE_COMPLETED,
+    journeyVersion: input.journeyVersion,
+    completedStepCount: input.completedStepCount,
+    occurredAt,
   });
 }
 
@@ -106,6 +163,14 @@ export function trackYansiExperienceSkipped(input: {
   }
   const slug = input.slug.trim().toLowerCase();
   const destination = (input.destinationSlug || '').trim().toLowerCase() || null;
+  if (!destination) return;
+  const occurredAt = new Date().toISOString();
+  const ids = allocateSkipEventId(
+    slug,
+    input.journeyVersion,
+    input.completedStepCount,
+    destination
+  );
   window.dispatchEvent(
     new CustomEvent(YANSI_EXPERIENCE_SKIPPED_EVENT, {
       detail: {
@@ -114,9 +179,18 @@ export function trackYansiExperienceSkipped(input: {
         completedStepCount: input.completedStepCount,
         selectedCount: input.selectedCount,
         destinationSlug: destination,
-        at: new Date().toISOString(),
+        experienceSessionId: ids.experienceSessionId,
+        at: occurredAt,
       },
     })
   );
-  // Phase 6 may ingest this; do not POST to observation until backend allowlists it.
+  postYansiExperienceEvent(slug, {
+    eventId: ids.eventId,
+    experienceSessionId: ids.experienceSessionId,
+    eventType: YANSI_EXPERIENCE_SKIPPED,
+    journeyVersion: input.journeyVersion,
+    completedStepCount: input.completedStepCount,
+    destinationSlug: destination,
+    occurredAt,
+  });
 }

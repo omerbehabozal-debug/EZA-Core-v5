@@ -161,6 +161,9 @@ def _to_discover_item(
     *,
     scene_url: str,
     yansi_count: int,
+    journey_version: int | None = None,
+    experience_started_count: int | None = None,
+    direct_child_yansi_count: int | None = None,
 ) -> DiscoverMirrorItem:
     payload = node.public_payload if isinstance(node.public_payload, dict) else {}
     frozen_title, frozen_summary, _ = _frozen_public_fields(node)
@@ -175,6 +178,11 @@ def _to_discover_item(
         description = frozen_summary[:400]
     else:
         description = _resolve_description(payload)
+    version = (
+        int(journey_version)
+        if journey_version is not None
+        else int(getattr(node, "journey_version", None) or 1)
+    )
     return DiscoverMirrorItem(
         slug=node.slug,
         title=title,
@@ -182,6 +190,9 @@ def _to_discover_item(
         sceneImageUrl=scene_url,
         yansiCount=yansi_count,
         createdAt=_published_iso(node),
+        journeyVersion=version,
+        experienceStartedCount=experience_started_count,
+        directChildYansiCount=direct_child_yansi_count,
     )
 
 
@@ -242,10 +253,39 @@ async def list_discover_mirrors(
 
     eligible.sort(key=sort_key)
     page = eligible[safe_offset : safe_offset + safe_limit]
-    items = [
-        _to_discover_item(node, scene_url=scene_url, yansi_count=yansi_by_parent.get(node.slug.lower(), 0))
-        for node, scene_url in page
-    ]
+    metrics_by_key: dict[tuple[str, int], dict[str, int]] = {}
+    try:
+        from backend.services.mirror_network.yansi_metrics import get_yansi_public_metrics_batch
+
+        pairs = [
+            (
+                node.slug.strip().lower(),
+                int(getattr(node, "journey_version", None) or 1),
+            )
+            for node, _ in page
+        ]
+        metrics_by_key = await get_yansi_public_metrics_batch(db, pairs)
+    except Exception:
+        metrics_by_key = {}
+
+    items = []
+    for node, scene_url in page:
+        version = int(getattr(node, "journey_version", None) or 1)
+        row = metrics_by_key.get((node.slug.strip().lower(), version))
+        items.append(
+            _to_discover_item(
+                node,
+                scene_url=scene_url,
+                yansi_count=yansi_by_parent.get(node.slug.lower(), 0),
+                journey_version=version,
+                experience_started_count=(
+                    row.get("experienceStartedCount") if row else None
+                ),
+                direct_child_yansi_count=(
+                    row.get("directChildYansiCount") if row else None
+                ),
+            )
+        )
 
     payload = DiscoverMirrorListResponse(items=items, total=len(eligible))
     leaked = _DISCOVER_FORBIDDEN_KEYS.intersection(payload.model_dump().keys())

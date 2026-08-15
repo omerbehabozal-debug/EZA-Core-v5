@@ -155,7 +155,15 @@ class MirrorNetworkPublishRequest(BaseModel):
 
 
 class DiscoverMirrorItem(BaseModel):
-    """Public discover card — root Ayna only."""
+    """Public discover card — root Ayna only.
+
+    yansiCount is a legacy Discover child aggregate (public/open/safety-pass).
+    Deprecated for UI: do not label it as “deneyim” or as Phase 5.1.1 Yansı.
+
+    Phase 6.2.1 canonical projection (optional; omitted if batch fails):
+    experienceStartedCount = distinct STARTED sessions for journeyVersion
+    directChildYansiCount = Phase 5.1.1 eligible direct children (slug-level)
+    """
 
     slug: str
     title: str
@@ -163,6 +171,9 @@ class DiscoverMirrorItem(BaseModel):
     sceneImageUrl: Optional[str] = None
     yansiCount: int = Field(default=0, ge=0)
     createdAt: Optional[str] = None
+    journeyVersion: Optional[int] = Field(default=None, ge=1)
+    experienceStartedCount: Optional[int] = Field(default=None, ge=0)
+    directChildYansiCount: Optional[int] = Field(default=None, ge=0)
 
 
 class DiscoverMirrorListResponse(BaseModel):
@@ -186,6 +197,29 @@ class MirrorNetworkImpactStats(BaseModel):
     continuationStartsVerified: bool = False
     yansiCount: int = Field(default=0, ge=0)
     landingViews: int = Field(default=0, ge=0)
+
+
+class YansiPublicMetrics(BaseModel):
+    """
+    Phase 6.1 — privacy-safe public aggregates for one published Yansı version.
+
+    experienceStartedCount = distinct STARTED experience sessions
+      (the future “N deneyim” number — not page views).
+    directChildYansiCount = direct eligible published children (slug-level).
+    Rates are null when started=0. No viewer/session identifiers.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    slug: str
+    journeyVersion: int = Field(ge=1)
+    experienceStartedCount: int = Field(ge=0)
+    experienceCompletedCount: int = Field(ge=0)
+    experienceSkippedSessionCount: int = Field(ge=0)
+    completionRate: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    skipRate: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    observedAverageDepth: Optional[float] = Field(default=None, ge=0.0)
+    directChildYansiCount: int = Field(ge=0)
 
 
 class PublicFrozenStepEzaSnapshot(BaseModel):

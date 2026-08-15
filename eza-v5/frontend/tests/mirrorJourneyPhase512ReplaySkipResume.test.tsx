@@ -246,10 +246,14 @@ describe('Phase 5.1.2 skip semantics (pure)', () => {
 describe('Phase 5.1.2 partial skip + resume', () => {
   it('Q1–Q3 then enter B: A stays 3/8 incomplete, B starts at Q1', async () => {
     const { a } = mockAbChain();
-    const fetchSpy = vi.fn();
+    const prevFetch = globalThis.fetch;
+    const fetchSpy = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      return prevFetch(input as RequestInfo, init);
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).fetch = fetchSpy;
 
+    try {
     render(<MirrorYansiChainExperience rootArtifact={a} />);
     await waitFor(() => {
       expect(screen.getByTestId('mirror-yansi-section-yansi-b')).toBeTruthy();
@@ -299,7 +303,15 @@ describe('Phase 5.1.2 partial skip + resume', () => {
       'src',
       'https://cdn.example/yansi-b.jpg'
     );
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(
+      fetchSpy.mock.calls.filter(([url]) => {
+        const u = String(url);
+        return !u.includes('/experience-events') && !u.includes('/metrics');
+      })
+    ).toHaveLength(0);
+    } finally {
+      (globalThis as typeof globalThis).fetch = prevFetch;
+    }
   });
 
   it('return to A resumes at Q4 — does not restart or complete', async () => {

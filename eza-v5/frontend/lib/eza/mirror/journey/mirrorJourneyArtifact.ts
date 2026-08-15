@@ -89,9 +89,12 @@ export type MirrorJourneyArtifact = {
   parentAuthorDisplayName?: string | null;
   parentPublicTitle?: string | null;
 
-  /** Leave undefined until real metrics exist. */
+  /** Leave undefined until real metrics exist. Do not render as “deneyim”. */
   experienceCount?: number;
   childYansiCount?: number;
+  /** Phase 6.2.1 canonical projection. Public “deneyim · Yansı” uses only these. */
+  experienceStartedCount?: number;
+  directChildYansiCount?: number;
 
   createdAt: string;
   updatedAt: string;
@@ -255,6 +258,8 @@ export function buildReadyMirrorJourneyArtifactFromLineage(input: {
     parentPublicTitle: existing?.parentPublicTitle ?? null,
     experienceCount: existing?.experienceCount,
     childYansiCount: existing?.childYansiCount,
+    experienceStartedCount: existing?.experienceStartedCount,
+    directChildYansiCount: existing?.directChildYansiCount,
     createdAt: existing?.createdAt || now,
     updatedAt: now,
     stateVersion: existing?.stateVersion ?? 0,

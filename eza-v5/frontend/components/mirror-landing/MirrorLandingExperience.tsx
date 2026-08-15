@@ -19,8 +19,8 @@ import {
   fetchPublicFrozenJourneyArtifact,
   type PublicFrozenJourneyArtifact,
 } from '@/lib/eza/mirror/journey';
-import { trackYansiExperienceStarted } from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
 import { cn } from '@/lib/utils';
+import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
 
 export type MirrorLandingExperienceProps = {
   surface: MirrorLandingSurface;
@@ -64,10 +64,8 @@ export default function MirrorLandingExperience({
 
   const handleStartExperience = () => {
     if (frozenState.status !== 'ready') return;
-    trackYansiExperienceStarted({
-      slug: frozenState.artifact.slug,
-      journeyVersion: frozenState.artifact.journeyVersion,
-    });
+    // Landing CTA only opens the replay container. STARTED fires on first
+    // frozen-question engagement inside MirrorFrozenReplay.
     setReplayStarted(true);
   };
 
@@ -116,6 +114,15 @@ export default function MirrorLandingExperience({
             slug={surface.slug}
             testIdPrefix="mirror-landing-card"
             className="mx-auto w-full max-w-md border-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+            meta={
+              frozenState.status === 'ready' ? (
+                <YansiPublicMetricsLine
+                  slug={frozenState.artifact.slug}
+                  journeyVersion={frozenState.artifact.journeyVersion}
+                  variant="card"
+                />
+              ) : null
+            }
             footer={
               frozenState.status === 'ready' ? (
                 <div className="mt-auto space-y-3 pt-10">

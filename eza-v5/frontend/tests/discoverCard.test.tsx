@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SainaDiscoverCard from '@/components/saina/SainaDiscoverCard';
 import { SAINA_DISCOVER_CTA } from '@/lib/eza/mirror-network/discoverCopy';
@@ -70,5 +72,46 @@ describe('SainaDiscoverCard', () => {
     const img = screen.getByTestId('saina-discover-card-image');
     fireEvent.error(img);
     expect(screen.getByTestId('saina-discover-card-placeholder')).toBeInTheDocument();
+  });
+
+  it('Phase 6.2.1: legacy yansiCount alone does not render a deneyim row', () => {
+    render(
+      <SainaDiscoverCard
+        item={{
+          slug: 'kyoto-journey',
+          title: 'Kyoto Yolculuğu',
+          sceneImageUrl: 'https://cdn.example/kyoto.png',
+          yansiCount: 2,
+        }}
+      />
+    );
+    expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
+    expect(screen.queryByText('2 Yansı')).toBeNull();
+  });
+});
+
+describe('Phase 6.2 feed N+1 audit', () => {
+  it('Discover and profile grids do not import Phase 6.1 /metrics fetch', () => {
+    const discover = readFileSync(
+      join(process.cwd(), 'components/saina/SainaDiscoverCard.tsx'),
+      'utf8'
+    );
+    const profile = readFileSync(
+      join(process.cwd(), 'components/mirror/ayna/AynaJourneySlide.tsx'),
+      'utf8'
+    );
+    const authorGrid = readFileSync(
+      join(process.cwd(), 'lib/eza/mirror-network/fetchAuthorPublished.ts'),
+      'utf8'
+    );
+    const discoverList = readFileSync(
+      join(process.cwd(), 'lib/eza/mirror-network/fetchDiscoverMirrors.ts'),
+      'utf8'
+    );
+    for (const src of [discover, profile, authorGrid, discoverList]) {
+      expect(src).not.toContain('fetchYansiPublicMetrics');
+      expect(src).not.toContain("'/metrics'");
+      expect(src).not.toContain('"/metrics"');
+    }
   });
 });

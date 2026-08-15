@@ -246,7 +246,15 @@ export {
   type FrozenReplayProgress,
 } from './frozenReplaySession';
 
-export { trackYansiExperienceStarted, trackYansiExperienceCompleted } from './yansiExperienceAnalytics';
+export {
+  trackYansiExperienceStarted,
+  trackYansiExperienceCompleted,
+  trackYansiExperienceSkipped,
+} from './yansiExperienceAnalytics';
+export {
+  getOrCreateYansiExperienceSession,
+  clearYansiExperienceSessionsForTests,
+} from './yansiExperienceSession';
 
 export {
   loadChildContinuationPlan,

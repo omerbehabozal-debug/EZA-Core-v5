@@ -58,7 +58,10 @@ export type MirrorFrozenReplayProps = {
   onReplayProgress?: (notice: FrozenReplayProgressNotice) => void;
   /** Own-path CTA label (default Phase 5.1 copy). */
   continueLabel?: string;
-  /** When true, fire experience_started on first question tap (child Yansılar). */
+  /**
+   * @deprecated Phase 6.0 — STARTED always fires on first frozen-question tap
+   * for root and child. Kept so existing callers do not break; ignored.
+   */
   trackStartOnFirstQuestion?: boolean;
   /**
    * Phase 5.1.2 — embed in the vertical chain: let the parent scroller move,
@@ -120,7 +123,6 @@ export default function MirrorFrozenReplay({
   onReplayCompleted,
   onReplayProgress,
   continueLabel = YANSI_OWN_CONTINUATION_CTA,
-  trackStartOnFirstQuestion = false,
   chainEmbedded = false,
 }: MirrorFrozenReplayProps) {
   const { user } = useAuth();
@@ -133,7 +135,7 @@ export default function MirrorFrozenReplay({
     [ownerUserId, prefsTick]
   );
   const ezaVisibilityEnabled = shouldShowEzaInExperience(ezaPrefs);
-  const startedTrackedRef = useRef(!trackStartOnFirstQuestion);
+  const startedTrackedRef = useRef(false);
   const completedTrackedRef = useRef(false);
   const onCompletedRef = useRef(onReplayCompleted);
   onCompletedRef.current = onReplayCompleted;
@@ -190,6 +192,7 @@ export default function MirrorFrozenReplay({
       trackYansiExperienceCompleted({
         slug: frozen.slug,
         journeyVersion: frozen.journeyVersion,
+        completedStepCount: frozen.steps.length,
       });
       onCompletedRef.current?.(frozen);
     }
@@ -230,6 +233,7 @@ export default function MirrorFrozenReplay({
       trackYansiExperienceStarted({
         slug: frozen.slug,
         journeyVersion: frozen.journeyVersion,
+        completedStepCount: session.completedStepCount,
       });
     }
     userScrolledUp.current = false;

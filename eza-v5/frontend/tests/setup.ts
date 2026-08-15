@@ -63,3 +63,55 @@ Object.defineProperty(window, 'localStorage', {
   writable: true,
 });
 
+const originalFetch = globalThis.fetch?.bind(globalThis);
+globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input instanceof Request
+          ? input.url
+          : String(input);
+  if (url.includes('/experience-events')) {
+    return Promise.resolve(
+      new Response(JSON.stringify({ accepted: true, duplicate: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+  }
+  if (url.includes('/metrics')) {
+    const slugMatch = url.match(/mirror-network\/([^/?]+)\/metrics/i);
+    const slug = decodeURIComponent(slugMatch?.[1] || 'unknown').toLowerCase();
+    let version = 1;
+    try {
+      const parsed = new URL(url, 'http://local.test');
+      const q = parsed.searchParams.get('journeyVersion');
+      if (q) version = Number(q) || 1;
+    } catch {
+      /* keep 1 */
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          slug,
+          journeyVersion: version,
+          experienceStartedCount: 0,
+          experienceCompletedCount: 0,
+          experienceSkippedSessionCount: 0,
+          completionRate: null,
+          skipRate: null,
+          observedAverageDepth: null,
+          directChildYansiCount: 0,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+  }
+  if (typeof originalFetch === 'function') {
+    return originalFetch(input, init);
+  }
+  return Promise.reject(new Error(`fetch not mocked: ${url}`));
+};
+

@@ -110,6 +110,8 @@ function readyArtifact(
     parentPublicTitle: extras.parentPublicTitle,
     experienceCount: extras.experienceCount,
     childYansiCount: extras.childYansiCount,
+    experienceStartedCount: extras.experienceStartedCount,
+    directChildYansiCount: extras.directChildYansiCount,
     status: extras.status ?? 'ready',
     publish: extras.publish ?? {},
   };
@@ -462,8 +464,10 @@ describe('mirrorJourneyPhase38AynaReel', () => {
     expect(screen.queryByTestId('ayna-slide-metrics')).toBeNull();
     cleanup();
     const withMetrics = readyArtifact('m2', {
-      experienceCount: 140,
-      childYansiCount: 7,
+      experienceCount: 42,
+      childYansiCount: 99,
+      experienceStartedCount: 140,
+      directChildYansiCount: 7,
     });
     render(
       <AynaJourneySlide
@@ -478,10 +482,11 @@ describe('mirrorJourneyPhase38AynaReel', () => {
         }}
       />
     );
-    expect(screen.getByTestId('ayna-slide-metrics').textContent).toContain(
-      '140 deneyim'
+    expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
+      '140 deneyim · 7 Yansı'
     );
-    expect(screen.getByTestId('ayna-child-count').textContent).toContain('7 yansı');
+    expect(screen.queryByText('42 deneyim')).toBeNull();
+    expect(screen.queryByTestId('ayna-child-count')).toBeNull();
   });
 
   it('N/O. AUTHOR — artifact author, not logged-in inference; child keeps own author', () => {
@@ -618,11 +623,11 @@ describe('mirrorJourneyPhase38AynaReel', () => {
     expect(screen.getAllByText('Title child').length).toBeGreaterThan(0);
   });
 
-  it('W. CHILD COUNT — interactive only with real count', () => {
+  it('W. CHILD COUNT — canonical row is not a navigator; legacy count is not “deneyim”', () => {
     const onOpenChildren = vi.fn();
     render(
       <AynaJourneySlide
-        artifact={readyArtifact('w', { childYansiCount: 7 })}
+        artifact={readyArtifact('w', { childYansiCount: 7, experienceCount: 42 })}
         actions={{
           onPublish: () => undefined,
           onShare: () => undefined,
@@ -633,8 +638,9 @@ describe('mirrorJourneyPhase38AynaReel', () => {
         }}
       />
     );
-    fireEvent.click(screen.getByTestId('ayna-child-count'));
-    expect(onOpenChildren).toHaveBeenCalled();
+    expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
+    expect(screen.queryByText('42 deneyim')).toBeNull();
+    expect(screen.queryByTestId('ayna-child-count')).toBeNull();
   });
 
   it('X. LEGACY — flag-off path still present in ObservationExperience', () => {

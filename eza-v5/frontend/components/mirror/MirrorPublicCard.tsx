@@ -17,6 +17,8 @@ export type MirrorPublicCardProps = {
   onOpenFullscreen?: () => void;
   expandLabel?: string;
   footer?: ReactNode;
+  /** Quiet metadata row (Phase 6.2). Takes precedence over metaLabel. */
+  meta?: ReactNode;
   /** Capture root for share PNG / export. */
   captureRef?: React.Ref<HTMLElement>;
 };
@@ -37,6 +39,7 @@ export default function MirrorPublicCard({
   onOpenFullscreen,
   expandLabel = 'Büyüt',
   footer,
+  meta,
   captureRef,
 }: MirrorPublicCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -93,7 +96,9 @@ export default function MirrorPublicCard({
         {summary?.trim() ? (
           <p className="saina-discover-card__summary">{summary.trim()}</p>
         ) : null}
-        {metaLabel?.trim() ? (
+        {meta ? (
+          meta
+        ) : metaLabel?.trim() ? (
           <p
             className="saina-discover-card__yansi saina-mirror-public-card__meta"
             data-testid={`${testIdPrefix}-meta`}

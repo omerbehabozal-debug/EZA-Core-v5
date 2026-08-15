@@ -28,6 +28,7 @@ import {
 } from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
 import { loadFrozenReplayProgress } from '@/lib/eza/mirror/journey/frozenReplaySession';
 import { cn } from '@/lib/utils';
+import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
 
 export type MirrorYansiChainExperienceProps = {
   rootArtifact: PublicFrozenJourneyArtifact;
@@ -273,7 +274,7 @@ export default function MirrorYansiChainExperience({
       ) {
         return;
       }
-      const skipKey = `${fromSlug}:${fromProgress?.journeyVersion ?? 1}`;
+      const skipKey = `${fromSlug}:${fromProgress?.journeyVersion ?? 1}:${fromProgress?.completedStepCount ?? 0}:${toSlug}`;
       if (skipFiredRef.current.has(skipKey)) return;
       skipFiredRef.current.add(skipKey);
       trackYansiExperienceSkipped({
@@ -375,13 +376,17 @@ export default function MirrorYansiChainExperience({
                     }
                   />
                 ) : null}
+                <YansiPublicMetricsLine
+                  slug={node.artifact.slug}
+                  journeyVersion={node.artifact.journeyVersion}
+                  variant="section"
+                />
               </header>
 
               <MirrorFrozenReplay
                 artifact={node.artifact}
                 className="min-h-0 flex-1"
                 continueLabel={YANSI_OWN_CONTINUATION_CTA}
-                trackStartOnFirstQuestion={index > 0}
                 chainEmbedded
                 onReplayCompleted={handleReplayCompleted}
                 onReplayProgress={handleReplayProgress}

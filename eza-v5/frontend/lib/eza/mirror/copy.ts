@@ -63,6 +63,10 @@ export const YANSI_OWN_CONTINUATION_CTA = 'Kendi merakımla devam et';
 /** Phase 5.1.2 — quiet skip into the next eligible child. Not a primary CTA. */
 export const YANSI_SKIP_TO_NEXT_MERAK = 'Sonraki meraka geç ↓';
 
+/** Phase 6.2 — compact public social proof (STARTED sessions · direct children). */
+export const YANSI_PUBLIC_METRIC_EXPERIENCE = 'deneyim';
+export const YANSI_PUBLIC_METRIC_CHILD = 'Yansı';
+
 export const MIRROR_SHARE_DOWNLOAD_LABEL = 'Kartı İndir';
 
 /** Kısa gizlilik — tüm Mirror yüzeylerinde */

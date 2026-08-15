@@ -57,6 +57,9 @@ jobs:
             tests/test_mirror_journey_phase511_children_eligibility.py \
             tests/test_mirror_journey_phase52_child_lineage.py \
             tests/test_mirror_journey_phase521_http_loop.py \
+            tests/test_yansi_experience_events_phase60.py \
+            tests/test_yansi_metrics_phase61.py \
+            tests/test_yansi_metrics_phase621.py \
             tests/test_mirror_network_impact.py \
             tests/test_mirror_network_parent_lineage.py \
             tests/test_mirror_network_discover.py \

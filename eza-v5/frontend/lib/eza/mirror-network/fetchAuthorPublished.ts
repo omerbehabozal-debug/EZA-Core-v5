@@ -12,6 +12,9 @@ export type AuthorPublishedYansiItem = {
   sceneImageUrl?: string | null;
   publishedAt?: string | null;
   parentSlug?: string | null;
+  journeyVersion?: number | null;
+  experienceStartedCount?: number | null;
+  directChildYansiCount?: number | null;
 };
 
 export type AuthorPublishedYansiResponse = {
@@ -28,10 +31,35 @@ export type ParentChildrenYansiResponse = {
   total: number;
 };
 
-function isItem(raw: unknown): raw is AuthorPublishedYansiItem {
-  if (!raw || typeof raw !== 'object') return false;
+function parseNonNegInt(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    return null;
+  }
+  return value;
+}
+
+function parseItem(raw: unknown): AuthorPublishedYansiItem | null {
+  if (!raw || typeof raw !== 'object') return null;
   const row = raw as Record<string, unknown>;
-  return typeof row.slug === 'string' && typeof row.publicTitle === 'string';
+  if (typeof row.slug !== 'string' || typeof row.publicTitle !== 'string') {
+    return null;
+  }
+  const version = parseNonNegInt(row.journeyVersion);
+  const started = parseNonNegInt(row.experienceStartedCount);
+  const children = parseNonNegInt(row.directChildYansiCount);
+  const canonicalOk = started !== null && children !== null;
+  return {
+    slug: row.slug,
+    shareUrl: typeof row.shareUrl === 'string' ? row.shareUrl : '',
+    publicTitle: row.publicTitle,
+    publicSummary: typeof row.publicSummary === 'string' ? row.publicSummary : null,
+    sceneImageUrl: typeof row.sceneImageUrl === 'string' ? row.sceneImageUrl : null,
+    publishedAt: typeof row.publishedAt === 'string' ? row.publishedAt : null,
+    parentSlug: typeof row.parentSlug === 'string' ? row.parentSlug : null,
+    journeyVersion: version && version >= 1 ? version : null,
+    experienceStartedCount: canonicalOk ? started : null,
+    directChildYansiCount: canonicalOk ? children : null,
+  };
 }
 
 export async function fetchAuthorPublishedYansilar(
@@ -58,7 +86,9 @@ export async function fetchAuthorPublishedYansilar(
         typeof data.displayName === 'string' && data.displayName.trim()
           ? data.displayName
           : 'Yazar',
-      items: data.items.filter(isItem),
+      items: data.items
+        .map(parseItem)
+        .filter((item): item is AuthorPublishedYansiItem => item !== null),
       total: typeof data.total === 'number' ? data.total : data.items.length,
     },
   };
@@ -86,7 +116,9 @@ export async function fetchPublishedChildren(
       parentSlug: data.parentSlug,
       parentTitle:
         typeof data.parentTitle === 'string' ? data.parentTitle : null,
-      items: data.items.filter(isItem),
+      items: data.items
+        .map(parseItem)
+        .filter((item): item is AuthorPublishedYansiItem => item !== null),
       total: typeof data.total === 'number' ? data.total : data.items.length,
     },
   };

@@ -6,6 +6,23 @@ import {
   fetchAuthorPublishedYansilar,
   type AuthorPublishedYansiItem,
 } from '@/lib/eza/mirror-network/fetchAuthorPublished';
+import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
+import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
+
+function ProfileYansiMetrics({ item }: { item: AuthorPublishedYansiItem }) {
+  const canonical = parseYansiPublicSocialProofInput(item);
+  if (!canonical) return null;
+  return (
+    <YansiPublicMetricsView
+      experienceStartedCount={canonical.experienceStartedCount}
+      directChildYansiCount={canonical.directChildYansiCount}
+      slug={item.slug}
+      journeyVersion={item.journeyVersion ?? undefined}
+      className="pt-1 text-stone-500"
+      variant="section"
+    />
+  );
+}
 
 type Props = {
   userId: string;
@@ -102,6 +119,7 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
                       {item.publicSummary}
                     </p>
                   ) : null}
+                  <ProfileYansiMetrics item={item} />
                 </div>
               </Link>
             </li>

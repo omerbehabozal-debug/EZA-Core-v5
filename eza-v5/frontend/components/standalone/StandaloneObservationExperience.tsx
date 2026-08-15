@@ -79,7 +79,6 @@ import {
   subscribeMirrorJourneyArtifactStore,
   resolveJourneyArtifactShareIdentity,
   buildPublishCardFromArtifact,
-  patchMirrorJourneyArtifactMetrics,
   markMirrorJourneyArtifactPublished,
   markMirrorJourneyArtifactPublishFailed,
   loadMirrorJourneyArtifact,
@@ -95,7 +94,6 @@ import {
   authorProfilePath,
   parentChildrenPath,
 } from '@/lib/eza/mirror-network/fetchAuthorPublished';
-import { fetchMirrorImpact } from '@/lib/eza/mirror-network/fetchMirrorImpact';
 import {
   MIRROR_AYNA_EMPTY_BODY,
   MIRROR_AYNA_EMPTY_TITLE,
@@ -1709,50 +1707,6 @@ export default function StandaloneObservationExperience({
 
   const useAynaJourneyReel =
     journeyV1PanelOn && Boolean(conversationId) && Boolean(shareCacheUserId);
-
-  /** Hydrate real metrics for published artifacts only — never invent. */
-  useEffect(() => {
-    if (!useAynaJourneyReel || !shareCacheUserId) return;
-    let cancelled = false;
-    void (async () => {
-      for (const artifact of journeyArtifacts) {
-        if (artifact.status !== 'published') continue;
-        const slug = artifact.publish.slug?.trim();
-        if (!slug) continue;
-        if (
-          typeof artifact.childYansiCount === 'number' &&
-          typeof artifact.experienceCount === 'number'
-        ) {
-          continue;
-        }
-        const impact = await fetchMirrorImpact(slug);
-        if (cancelled || !impact.ok) continue;
-        const patch: {
-          journeyId: string;
-          journeyVersion: number;
-          experienceCount?: number;
-          childYansiCount?: number;
-        } = {
-          journeyId: artifact.journeyId,
-          journeyVersion: artifact.journeyVersion,
-        };
-        // Only verified experiences count as experienceCount.
-        if (
-          impact.data.continuationStartsVerified &&
-          typeof impact.data.continuationStarts === 'number'
-        ) {
-          patch.experienceCount = impact.data.continuationStarts;
-        }
-        if (typeof impact.data.yansiCount === 'number') {
-          patch.childYansiCount = impact.data.yansiCount;
-        }
-        patchMirrorJourneyArtifactMetrics(shareCacheUserId, patch);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [useAynaJourneyReel, journeyArtifacts, shareCacheUserId]);
 
   const prepareArtifactShareLink = useCallback(
     async (

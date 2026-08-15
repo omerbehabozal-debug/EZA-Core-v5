@@ -18,6 +18,7 @@ from backend.core.schemas.mirror_network import (
     MirrorNetworkPublishRequest,
     OwnerPublishedJourneysResponse,
     PublicFrozenJourneyArtifact,
+    YansiPublicMetrics,
 )
 from backend.core.schemas.mirror_sohbet import (
     MirrorSohbetSessionRequest,
@@ -47,8 +48,18 @@ from backend.services.mirror_network.frozen_journey_artifact import (
     get_public_frozen_journey_artifact,
     list_owner_published_journeys_for_conversation,
 )
+from backend.services.mirror_network.yansi_experience_events import (
+    YansiExperienceIngestError,
+    ingest_yansi_experience_event,
+)
+from backend.services.mirror_network.yansi_metrics import (
+    YansiMetricsError,
+    get_yansi_public_metrics,
+)
+from backend.core.observation.experience_event_rate_limit import rate_limit_experience_events
+from backend.auth.jwt import get_user_from_token
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 
 router = APIRouter(prefix="/api/mirror-network", tags=["Mirror Network"])
@@ -123,6 +134,9 @@ class AuthorPublishedYansiItem(BaseModel):
     sceneImageUrl: Optional[str] = None
     publishedAt: Optional[str] = None
     parentSlug: Optional[str] = None
+    journeyVersion: Optional[int] = Field(default=None, ge=1)
+    experienceStartedCount: Optional[int] = Field(default=None, ge=0)
+    directChildYansiCount: Optional[int] = Field(default=None, ge=0)
 
 
 class AuthorPublishedYansiResponse(BaseModel):
@@ -245,6 +259,97 @@ async def get_frozen_published_journey(
             },
         )
     return PublicFrozenJourneyArtifact.model_validate(public)
+
+
+@router.get("/{slug}/metrics", response_model=YansiPublicMetrics)
+async def get_yansi_metrics(
+    slug: str,
+    journeyVersion: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+) -> YansiPublicMetrics:
+    """
+    Phase 6.1 — public aggregate metrics for a replayable Yansı.
+
+    Independent of /frozen. Does not return viewer identity or ranking.
+    Default version = current published Journey version.
+    """
+    try:
+        payload = await get_yansi_public_metrics(
+            db, slug=slug, journey_version=journeyVersion
+        )
+    except YansiMetricsError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.reason, "message": "Yansı metrics not found"},
+        ) from exc
+    return YansiPublicMetrics.model_validate(payload)
+
+
+class YansiExperienceEventRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    eventId: str = Field(..., min_length=8, max_length=36)
+    experienceSessionId: str = Field(..., min_length=8, max_length=36)
+    eventType: str = Field(..., min_length=1, max_length=64)
+    journeyVersion: int
+    completedStepCount: Optional[int] = None
+    destinationSlug: Optional[str] = Field(None, max_length=128)
+    occurredAt: Optional[str] = None
+
+
+class YansiExperienceEventResponse(BaseModel):
+    accepted: bool
+    duplicate: bool = False
+    reason: Optional[str] = None
+
+
+def _optional_viewer_user_id(
+    credentials: HTTPAuthorizationCredentials | None,
+) -> str | None:
+    if credentials is None:
+        return None
+    user = get_user_from_token(credentials.credentials)
+    if not user:
+        return None
+    uid = user.get("user_id") or user.get("sub")
+    return str(uid).strip() or None if uid else None
+
+
+@router.post(
+    "/{slug}/experience-events",
+    response_model=YansiExperienceEventResponse,
+)
+async def post_yansi_experience_event(
+    slug: str,
+    body: YansiExperienceEventRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> YansiExperienceEventResponse:
+    """
+    Phase 6.0 — durable started/completed/skipped ingest.
+    Best-effort measurement; never returns ranking or viewer identity.
+    """
+    viewer_user_id = _optional_viewer_user_id(credentials)
+    await rate_limit_experience_events(
+        request,
+        user_id=viewer_user_id,
+        guest_token_hash=body.experienceSessionId[:16],
+    )
+    try:
+        result = await ingest_yansi_experience_event(
+            db,
+            slug=slug,
+            payload=body.model_dump(),
+            viewer_user_id=viewer_user_id,
+        )
+    except YansiExperienceIngestError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"accepted": False, "duplicate": False, "reason": exc.reason},
+        ) from exc
+    return YansiExperienceEventResponse(**result)
 
 
 @router.get("/{slug}/impact", response_model=MirrorNetworkImpactStats)

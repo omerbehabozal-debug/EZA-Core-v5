@@ -8,6 +8,8 @@ import MirrorPublishShareActions from '@/components/mirror/MirrorPublishShareAct
 import AynaAuthorRow from '@/components/mirror/ayna/AynaAuthorRow';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
+import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
+import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
 import {
   MIRROR_JOURNEY_STATUS_GENERATING,
   MIRROR_JOURNEY_STATUS_READY,
@@ -49,20 +51,6 @@ function statusLabel(artifact: MirrorJourneyArtifact): string {
   }
 }
 
-function formatMetrics(artifact: MirrorJourneyArtifact): string | null {
-  const parts: string[] = [];
-  if (typeof artifact.experienceCount === 'number') {
-    parts.push(`${artifact.experienceCount} deneyim`);
-  }
-  if (typeof artifact.childYansiCount === 'number') {
-    parts.push(`${artifact.childYansiCount} yansı`);
-  }
-  return parts.length ? parts.join(' · ') : null;
-}
-
-/**
- * One Yansı viewport — all actions bind to the supplied artifact only.
- */
 export default function AynaJourneySlide({
   artifact,
   actions,
@@ -81,7 +69,7 @@ export default function AynaJourneySlide({
   const showParent = Boolean(
     artifact.parentJourneyId || artifact.parentSlug || artifact.parentAuthorDisplayName
   );
-  const metrics = formatMetrics(artifact);
+  const canonical = parseYansiPublicSocialProofInput(artifact);
   const isPublished = artifact.status === 'published';
   const isReady = artifact.status === 'ready';
   const isGenerating = artifact.status === 'generating';
@@ -203,30 +191,14 @@ export default function AynaJourneySlide({
               ) : null}
             </div>
 
-            {metrics ? (
-              <p className="ayna-journey-slide__metrics" data-testid="ayna-slide-metrics">
-                {typeof artifact.experienceCount === 'number' ? (
-                  <span>{artifact.experienceCount} deneyim</span>
-                ) : null}
-                {typeof artifact.experienceCount === 'number' &&
-                typeof artifact.childYansiCount === 'number'
-                  ? ' · '
-                  : null}
-                {typeof artifact.childYansiCount === 'number' ? (
-                  actions.onOpenChildren ? (
-                    <button
-                      type="button"
-                      className="underline-offset-2 hover:underline"
-                      onClick={() => actions.onOpenChildren?.(artifact)}
-                      data-testid="ayna-child-count"
-                    >
-                      {artifact.childYansiCount} yansı
-                    </button>
-                  ) : (
-                    <span>{artifact.childYansiCount} yansı</span>
-                  )
-                ) : null}
-              </p>
+            {canonical ? (
+              <YansiPublicMetricsView
+                experienceStartedCount={canonical.experienceStartedCount}
+                directChildYansiCount={canonical.directChildYansiCount}
+                slug={artifact.publish.slug ?? artifact.journeyId}
+                journeyVersion={artifact.journeyVersion}
+                className="ayna-journey-slide__metrics"
+              />
             ) : null}
 
             {(isReady || isPublished) && (

@@ -6,11 +6,12 @@ import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
 import {
   SAINA_DISCOVER_CTA,
   SAINA_DISCOVER_LIMIT_CTA,
-  formatDiscoverYansiCount,
 } from '@/lib/eza/mirror-network/discoverCopy';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import { startDiscoverGuestChatFromSlug } from '@/lib/eza/mirror-network/startDiscoverGuestChat';
 import { isQuotaLimitReason } from '@/lib/eza/plan/sainaQuotaMessages';
+import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
+import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
 
 export type SainaDiscoverCardProps = {
   item: DiscoverMirror;
@@ -27,6 +28,7 @@ export default function SainaDiscoverCard({
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(false);
   const summary = item.description?.trim() || null;
+  const canonical = parseYansiPublicSocialProofInput(item);
 
   const handleStartChat = useCallback(async () => {
     if (starting) return;
@@ -56,7 +58,17 @@ export default function SainaDiscoverCard({
       title={item.title}
       summary={summary}
       sceneImageUrl={item.sceneImageUrl}
-      metaLabel={formatDiscoverYansiCount(item.yansiCount)}
+      meta={
+        canonical ? (
+          <YansiPublicMetricsView
+            experienceStartedCount={canonical.experienceStartedCount}
+            directChildYansiCount={canonical.directChildYansiCount}
+            variant="card"
+            slug={item.slug}
+            journeyVersion={item.journeyVersion ?? undefined}
+          />
+        ) : null
+      }
       slug={item.slug}
       testIdPrefix="saina-discover-card"
       loadingLazy
