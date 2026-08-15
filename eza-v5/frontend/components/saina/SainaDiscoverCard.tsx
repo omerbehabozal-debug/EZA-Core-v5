@@ -12,6 +12,7 @@ import { startDiscoverGuestChatFromSlug } from '@/lib/eza/mirror-network/startDi
 import { isQuotaLimitReason } from '@/lib/eza/plan/sainaQuotaMessages';
 import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
 import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
+import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 
 export type SainaDiscoverCardProps = {
   item: DiscoverMirror;
@@ -54,6 +55,11 @@ export default function SainaDiscoverCard({
   }, [item.slug, item.title, onDiscoverLimit, router, starting]);
 
   return (
+    <YansiExposureRoot
+      slug={item.slug}
+      journeyVersion={item.journeyVersion ?? null}
+      context="discover"
+    >
     <MirrorPublicCard
       title={item.title}
       summary={summary}
@@ -102,5 +108,6 @@ export default function SainaDiscoverCard({
         </>
       }
     />
+    </YansiExposureRoot>
   );
 }

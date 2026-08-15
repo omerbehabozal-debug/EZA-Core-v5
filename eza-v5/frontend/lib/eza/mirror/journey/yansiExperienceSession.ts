@@ -1,12 +1,21 @@
 /**
- * Phase 6.0 — opaque experience session identity for Yansı ingest.
+ * Phase 6.0 / 6.2.2 — opaque experience session identity for Yansı ingest.
  *
  * Keyed by slug + pinned journeyVersion so refresh/resume reuses the same
  * experienceSessionId and eventIds. No frozen Q/A, EZA, tokens, IP, or UA.
+ * Auth user id does not collapse or replace this unit.
  *
- * A genuinely new replay attempt mints a new id only when this key is absent
- * (cleared storage, or a later phase that explicitly starts a new attempt).
- * There is no TTL rotation.
+ * Replay-attempt lifecycle (Phase 6.2.2):
+ * The same localStorage record is the SAME experience session across rerender,
+ * in-flow navigation, page refresh, skip-return/resume, and completed revisit.
+ * There is no TTL and no time-based mint.
+ *
+ * A genuinely NEW session is created only by:
+ * - explicit future "Bu Yansı'yı yeniden deneyimle" / Replay Again
+ *   (resetYansiExperienceSession — not called by current replay UI), or
+ * - missing key after manual storage clear (unavoidable; no fingerprinting).
+ *
+ * A v1 and A v2 use different keys, so they are independent attempts.
  */
 
 const SESSION_KEY_PREFIX = 'eza_yansi_experience_session_v1:';
@@ -90,6 +99,23 @@ export function getOrCreateYansiExperienceSession(
   const key = yansiExperienceSessionStorageKey(slug, journeyVersion);
   const existing = parseRecord(storage()?.getItem(key) ?? null);
   if (existing) return existing;
+  const created = emptyRecord();
+  persist(key, created);
+  return created;
+}
+
+/**
+ * Mint a new experience session for an explicit future Replay Again action.
+ *
+ * Current product MUST NOT call this from landing, chain, refresh, resume,
+ * skip-return, or completed revisit. Doing so would start a second STARTED
+ * count. No TTL wrapper exists — time passing never calls this.
+ */
+export function resetYansiExperienceSession(
+  slug: string,
+  journeyVersion: number
+): YansiExperienceSessionRecord {
+  const key = yansiExperienceSessionStorageKey(slug, journeyVersion);
   const created = emptyRecord();
   persist(key, created);
   return created;

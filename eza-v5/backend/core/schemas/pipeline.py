@@ -60,6 +60,11 @@ class StandaloneRequest(BaseModel):
         None,
         description="Analysis target model id (e.g. openai/gpt-4o-mini). EZA scoring layer unchanged.",
     )
+    lineageProofToken: Optional[str] = Field(
+        None,
+        max_length=64,
+        description="Optional verified continuation proof; measurement only, never required for chat.",
+    )
     
     @model_validator(mode='before')
     @classmethod

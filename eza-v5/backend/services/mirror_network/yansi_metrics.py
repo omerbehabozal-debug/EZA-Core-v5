@@ -313,6 +313,9 @@ async def get_yansi_public_metrics(
     Explicit journeyVersion stays on that pinned version; v1 events never move to v2.
 
     directChildYansiCount is slug-level (parent_slug), not parent-version-scoped.
+
+    Phase 6.3 signal semantics consume this DTO. Do not re-aggregate here for
+    ranking, and do not add attraction/engagement/generativity to this payload.
     """
     slug_n = (slug or "").strip().lower()
     if not slug_n:

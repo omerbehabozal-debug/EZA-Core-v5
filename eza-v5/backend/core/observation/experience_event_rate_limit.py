@@ -64,3 +64,34 @@ async def rate_limit_experience_events(
     guest_part = (guest_token_hash or "none")[:16]
     key = f"experience_events:{ip}:{user_part}:{guest_part}"
     await _rate_limit_key(key, limit=limit, window=60)
+
+
+# Phase 6.5 — actor-scoped burst hardening. Session id is NOT in the key,
+# so minting new experience/exposure session UUIDs cannot bypass the cap.
+# IP is used only as an abuse bucket for guests — not unique-human identity.
+YANSI_EXPERIENCE_ACTOR_RATE_PER_MIN = 60
+YANSI_EXPOSURE_ACTOR_RATE_PER_MIN = 180
+
+
+async def rate_limit_yansi_actor_ingest(
+    request: Request,
+    *,
+    user_id: Optional[str] = None,
+    kind: str = "experience",
+) -> None:
+    """
+    Pathological-burst cap per authenticated user (or guest IP).
+
+    experience: 60/min — STARTED/COMPLETED/SKIPPED spam.
+    exposure: 180/min — Discover scroll needs more headroom than replay.
+    Continuation ingest is server-side after accepted chat; not limited here.
+    """
+    limit = (
+        YANSI_EXPOSURE_ACTOR_RATE_PER_MIN
+        if kind == "exposure"
+        else YANSI_EXPERIENCE_ACTOR_RATE_PER_MIN
+    )
+    ip = get_trusted_client_ip(request)
+    actor = (user_id or "").strip() or f"anon:{ip}"
+    key = f"yansi_actor:{kind}:{actor}"
+    await _rate_limit_key(key, limit=limit, window=60)

@@ -52,11 +52,18 @@ from backend.services.mirror_network.yansi_experience_events import (
     YansiExperienceIngestError,
     ingest_yansi_experience_event,
 )
+from backend.services.mirror_network.yansi_exposure import (
+    YansiExposureIngestError,
+    ingest_yansi_exposure_event,
+)
 from backend.services.mirror_network.yansi_metrics import (
     YansiMetricsError,
     get_yansi_public_metrics,
 )
-from backend.core.observation.experience_event_rate_limit import rate_limit_experience_events
+from backend.core.observation.experience_event_rate_limit import (
+    rate_limit_experience_events,
+    rate_limit_yansi_actor_ingest,
+)
 from backend.auth.jwt import get_user_from_token
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
@@ -337,6 +344,9 @@ async def post_yansi_experience_event(
         user_id=viewer_user_id,
         guest_token_hash=body.experienceSessionId[:16],
     )
+    await rate_limit_yansi_actor_ingest(
+        request, user_id=viewer_user_id, kind="experience"
+    )
     try:
         result = await ingest_yansi_experience_event(
             db,
@@ -350,6 +360,61 @@ async def post_yansi_experience_event(
             detail={"accepted": False, "duplicate": False, "reason": exc.reason},
         ) from exc
     return YansiExperienceEventResponse(**result)
+
+
+class YansiExposureEventRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    eventId: str = Field(..., min_length=8, max_length=36)
+    exposureSessionId: str = Field(..., min_length=8, max_length=36)
+    journeyVersion: int
+    context: str = Field(..., min_length=1, max_length=32)
+    occurredAt: Optional[str] = None
+
+
+class YansiExposureEventResponse(BaseModel):
+    accepted: bool
+    duplicate: bool = False
+    reason: Optional[str] = None
+
+
+@router.post(
+    "/{slug}/exposure-events",
+    response_model=YansiExposureEventResponse,
+)
+async def post_yansi_exposure_event(
+    slug: str,
+    body: YansiExposureEventRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> YansiExposureEventResponse:
+    """
+    Phase 6.4 — durable meaningful-visibility ingest.
+    Best-effort measurement; never blocks Discover/landing/chain.
+    """
+    viewer_user_id = _optional_viewer_user_id(credentials)
+    await rate_limit_experience_events(
+        request,
+        user_id=viewer_user_id,
+        guest_token_hash=body.exposureSessionId[:16],
+    )
+    await rate_limit_yansi_actor_ingest(
+        request, user_id=viewer_user_id, kind="exposure"
+    )
+    try:
+        result = await ingest_yansi_exposure_event(
+            db,
+            slug=slug,
+            payload=body.model_dump(),
+            viewer_user_id=viewer_user_id,
+        )
+    except YansiExposureIngestError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"accepted": False, "duplicate": False, "reason": exc.reason},
+        ) from exc
+    return YansiExposureEventResponse(**result)
 
 
 @router.get("/{slug}/impact", response_model=MirrorNetworkImpactStats)

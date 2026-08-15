@@ -63,7 +63,29 @@ Object.defineProperty(window, 'localStorage', {
   writable: true,
 });
 
-const originalFetch = globalThis.fetch?.bind(globalThis);
+Object.defineProperty(window, 'sessionStorage', {
+  value: {
+    getItem: (key: string) => localStore.get(`ss:${key}`) ?? null,
+    setItem: (key: string, value: string) => {
+      localStore.set(`ss:${key}`, value);
+    },
+    removeItem: (key: string) => {
+      localStore.delete(`ss:${key}`);
+    },
+    clear: () => {
+      Array.from(localStore.keys())
+        .filter((k) => k.startsWith('ss:'))
+        .forEach((k) => localStore.delete(k));
+    },
+    get length() {
+      return Array.from(localStore.keys()).filter((k) => k.startsWith('ss:')).length;
+    },
+    key: (index: number) =>
+      Array.from(localStore.keys()).filter((k) => k.startsWith('ss:'))[index]?.slice(3) ??
+      null,
+  },
+  writable: true,
+});
 globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const url =
     typeof input === 'string'
@@ -73,7 +95,7 @@ globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
         : input instanceof Request
           ? input.url
           : String(input);
-  if (url.includes('/experience-events')) {
+          if (url.includes('/experience-events') || url.includes('/exposure-events')) {
     return Promise.resolve(
       new Response(JSON.stringify({ accepted: true, duplicate: false }), {
         status: 200,

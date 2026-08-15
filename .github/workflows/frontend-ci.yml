@@ -76,6 +76,13 @@ jobs:
           tests/mirrorJourneyPhase511NoAutoScroll.test.tsx
           tests/mirrorJourneyPhase512ReplaySkipResume.test.tsx
           tests/mirrorJourneyPhase52ChildCreation.test.ts
+          tests/mirrorJourneyPhase60ExperienceIngest.test.tsx
+          tests/yansiPublicMetricsPhase61.test.ts
+          tests/yansiPublicMetricsCopyPhase62.test.ts
+          tests/mirrorJourneyPhase62PublicMetricsUi.test.tsx
+          tests/yansiPublicMetricsPhase621.test.tsx
+          tests/yansiExperienceSessionPhase622.test.ts
+          tests/yansiExposurePhase64.test.ts
 
       - name: Run Visual Identity regression tests
         run: >-

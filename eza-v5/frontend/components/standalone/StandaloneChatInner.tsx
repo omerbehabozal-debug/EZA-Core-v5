@@ -837,6 +837,8 @@ export default function StandaloneChatInner() {
     const chatHistory = buildChatHistoryPayload(messages);
 
     const activeChat = chatId ? getChatArchive(chatId) : null;
+    const lineageProofTokenForSend =
+      activeChat?.mirrorOrigin?.lineageProofToken?.trim() || undefined;
     const isGuestMirrorSession = Boolean(activeChat?.mirrorOrigin?.isGuestSession);
     const priorUserMessages = messages.filter((m) => m.isUser).length;
     if (isGuestMirrorSession && priorUserMessages === 1) {
@@ -890,6 +892,10 @@ export default function StandaloneChatInner() {
           safe_only: safeOnlyMode,
           model: analysisModelId,
         };
+        const lineageProofToken = lineageProofTokenForSend;
+        if (lineageProofToken) {
+          streamBody.lineageProofToken = lineageProofToken;
+        }
         if (chatHistory.length > 0) {
           streamBody.history = chatHistory;
         }
@@ -1061,6 +1067,7 @@ export default function StandaloneChatInner() {
             safe_only: safeOnlyMode,
             model: analysisModelId,
             ...(chatHistory.length > 0 ? { history: chatHistory } : {}),
+            ...(lineageProofTokenForSend ? { lineageProofToken: lineageProofTokenForSend } : {}),
           },
           auth: hasSainaAuthToken(),
           headers: quotaHeaders,

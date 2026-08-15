@@ -8,6 +8,9 @@ per experience session; skip rows unique per (session, step-count, destination).
 COMPLETED without STARTED uses Option B: atomically synthesize STARTED
 (stable uuid5 event id) so a lost start plus a verified completion still
 records a started session. SKIPPED without STARTED is rejected.
+
+Phase 6.2.2: STARTED authorization for SKIPPED (and _ensure_started) is
+scoped to exact experience_session_id + mirror_slug + journey_version.
 """
 
 from __future__ import annotations
@@ -129,12 +132,20 @@ async def _require_public_frozen(
 
 
 async def _session_has_event(
-    db: AsyncSession, *, experience_session_id: str, event_type: str
+    db: AsyncSession,
+    *,
+    experience_session_id: str,
+    event_type: str,
+    mirror_slug: str,
+    journey_version: int,
 ) -> bool:
+    """True only when the event exists for this exact session + slug + version."""
     result = await db.execute(
         select(YansiExperienceEvent.id).where(
             YansiExperienceEvent.experience_session_id == experience_session_id,
             YansiExperienceEvent.event_type == event_type,
+            YansiExperienceEvent.mirror_slug == mirror_slug,
+            YansiExperienceEvent.journey_version == journey_version,
         ).limit(1)
     )
     return result.scalar_one_or_none() is not None
@@ -218,6 +229,8 @@ async def _ensure_started(
         db,
         experience_session_id=experience_session_id,
         event_type=YANSI_EXPERIENCE_STARTED,
+        mirror_slug=slug,
+        journey_version=journey_version,
     ):
         return
     row = YansiExperienceEvent(
@@ -332,6 +345,8 @@ async def ingest_yansi_experience_event(
             db,
             experience_session_id=session_id,
             event_type=YANSI_EXPERIENCE_STARTED,
+            mirror_slug=slug_n,
+            journey_version=journey_version,
         ):
             raise YansiExperienceIngestError("started_required")
 

@@ -8,6 +8,7 @@ import {
 } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
 import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
+import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 
 function ProfileYansiMetrics({ item }: { item: AuthorPublishedYansiItem }) {
   const canonical = parseYansiPublicSocialProofInput(item);
@@ -96,6 +97,11 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
         <ul className="flex flex-col gap-4" data-testid="author-published-list">
           {items.map((item) => (
             <li key={item.slug}>
+              <YansiExposureRoot
+                slug={item.slug}
+                journeyVersion={item.journeyVersion ?? null}
+                context="public_profile"
+              >
               <Link
                 href={`/m/${encodeURIComponent(item.slug)}`}
                 className="block overflow-hidden rounded-2xl border border-stone-200 bg-white transition hover:border-stone-300"
@@ -122,6 +128,7 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
                   <ProfileYansiMetrics item={item} />
                 </div>
               </Link>
+              </YansiExposureRoot>
             </li>
           ))}
         </ul>

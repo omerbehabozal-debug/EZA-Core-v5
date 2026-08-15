@@ -253,6 +253,8 @@ export {
 } from './yansiExperienceAnalytics';
 export {
   getOrCreateYansiExperienceSession,
+  resetYansiExperienceSession,
+  yansiExperienceSessionStorageKey,
   clearYansiExperienceSessionsForTests,
 } from './yansiExperienceSession';
 

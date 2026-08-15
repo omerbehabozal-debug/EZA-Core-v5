@@ -21,6 +21,7 @@ import {
 } from '@/lib/eza/mirror/journey';
 import { cn } from '@/lib/utils';
 import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
+import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 
 export type MirrorLandingExperienceProps = {
   surface: MirrorLandingSurface;
@@ -107,6 +108,15 @@ export default function MirrorLandingExperience({
 
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
         {!replayStarted ? (
+          <YansiExposureRoot
+            slug={surface.slug}
+            journeyVersion={
+              frozenState.status === 'ready'
+                ? frozenState.artifact.journeyVersion
+                : null
+            }
+            context="landing"
+          >
           <MirrorPublicCard
             title={title}
             summary={summary}
@@ -159,6 +169,7 @@ export default function MirrorLandingExperience({
               )
             }
           />
+          </YansiExposureRoot>
         ) : frozenState.status === 'ready' ? (
           <MirrorYansiChainExperience
             rootArtifact={frozenState.artifact}

@@ -96,6 +96,8 @@ async def init_db():
     from backend.models.eza_event import EzaEvent
     from backend.models.experience_event import ExperienceEvent
     from backend.models.yansi_experience_event import YansiExperienceEvent
+    from backend.models.yansi_exposure_event import YansiExposureEvent
+    from backend.models.yansi_own_continuation_event import YansiOwnContinuationEvent
     from backend.models.account_usage_event import AccountUsageEvent
     # Import legacy models to ensure they are registered
     from backend.models.user import LegacyUser

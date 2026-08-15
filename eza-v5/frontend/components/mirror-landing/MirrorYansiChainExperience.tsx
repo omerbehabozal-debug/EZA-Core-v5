@@ -29,6 +29,7 @@ import {
 import { loadFrozenReplayProgress } from '@/lib/eza/mirror/journey/frozenReplaySession';
 import { cn } from '@/lib/utils';
 import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
+import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 
 export type MirrorYansiChainExperienceProps = {
   rootArtifact: PublicFrozenJourneyArtifact;
@@ -339,6 +340,12 @@ export default function MirrorYansiChainExperience({
           const summary = node.artifact.publicSummary;
           const isActive = node.artifact.slug === activeSlug;
           return (
+            <YansiExposureRoot
+              key={`${node.artifact.slug}:v${node.artifact.journeyVersion}`}
+              slug={node.artifact.slug}
+              journeyVersion={node.artifact.journeyVersion}
+              context="chain"
+            >
             <section
               key={`${node.artifact.slug}:v${node.artifact.journeyVersion}`}
               ref={(el) => {
@@ -430,6 +437,7 @@ export default function MirrorYansiChainExperience({
                 </div>
               ) : null}
             </section>
+            </YansiExposureRoot>
           );
         })}
       </div>

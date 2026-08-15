@@ -54,6 +54,9 @@ from backend.security.public_demo_guard import enforce_public_demo_limits
 from backend.auth.api_key import require_api_key
 from backend.auth.deps import security
 from backend.core.account.guards import assert_can_send_message
+from backend.services.mirror_network.yansi_own_continuation import (
+    record_own_continuation_started_best_effort,
+)
 from backend.core.account.guest_identity import GUEST_TOKEN_HEADER
 
 # Configure logging
@@ -426,6 +429,13 @@ async def standalone_endpoint(
         guest_token=x_guest_token,
     )
     await db.commit()
+    await record_own_continuation_started_best_effort(
+        db,
+        lineage_proof_token=request.lineageProofToken,
+        history=request.history,
+        guest_token=x_guest_token,
+        credentials=credentials,
+    )
 
     chat_history = (
         [{"role": h.role, "content": h.content} for h in request.history]
@@ -476,6 +486,13 @@ async def standalone_stream_endpoint(
         guest_token=x_guest_token,
     )
     await db.commit()
+    await record_own_continuation_started_best_effort(
+        db,
+        lineage_proof_token=request.lineageProofToken,
+        history=request.history,
+        guest_token=x_guest_token,
+        credentials=credentials,
+    )
 
     chat_history = (
         [{"role": h.role, "content": h.content} for h in request.history]

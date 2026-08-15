@@ -61,6 +61,11 @@ jobs:
             tests/test_yansi_experience_events_phase60.py \
             tests/test_yansi_metrics_phase61.py \
             tests/test_yansi_metrics_phase621.py \
+            tests/test_yansi_signal_semantics_phase63.py \
+            tests/test_yansi_exposure_phase64.py \
+            tests/test_yansi_own_continuation_phase64.py \
+            tests/test_yansi_signal_completion_phase64.py \
+            tests/test_yansi_normalization_phase65.py \
             tests/test_mirror_network_impact.py \
             tests/test_mirror_network_parent_lineage.py \
             tests/test_mirror_network_discover.py \

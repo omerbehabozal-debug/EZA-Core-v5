@@ -543,6 +543,51 @@ async def test_skip_without_started_rejected(db):
 
 
 @pytest.mark.asyncio
+async def test_phase622_skip_cross_slug_rejected(db):
+    """STARTED on A must not authorize SKIPPED on B for the same session."""
+    sid = str(uuid.uuid4())
+    await _start(db, sid)
+    with pytest.raises(YansiExperienceIngestError) as exc:
+        await _ingest(
+            db,
+            slug="yansi-b",
+            eventId=str(uuid.uuid4()),
+            experienceSessionId=sid,
+            eventType=YANSI_EXPERIENCE_SKIPPED,
+            journeyVersion=1,
+            completedStepCount=3,
+            destinationSlug="yansi-a",
+        )
+    assert exc.value.reason == "started_required"
+    types = [r.event_type for r in await list_yansi_experience_events(db, experience_session_id=sid)]
+    assert types == [YANSI_EXPERIENCE_STARTED]
+    assert (await list_yansi_experience_events(db, experience_session_id=sid))[0].mirror_slug == "yansi-a"
+
+
+@pytest.mark.asyncio
+async def test_phase622_skip_cross_version_rejected(db):
+    """STARTED on A v1 must not authorize SKIPPED on A v2 for the same session."""
+    sid = str(uuid.uuid4())
+    await _start(db, sid)
+    with pytest.raises(YansiExperienceIngestError) as exc:
+        await _ingest(
+            db,
+            slug="yansi-a",
+            eventId=str(uuid.uuid4()),
+            experienceSessionId=sid,
+            eventType=YANSI_EXPERIENCE_SKIPPED,
+            journeyVersion=2,
+            completedStepCount=3,
+            destinationSlug="yansi-b",
+        )
+    assert exc.value.reason == "started_required"
+    rows = await list_yansi_experience_events(db, experience_session_id=sid)
+    assert len(rows) == 1
+    assert rows[0].journey_version == 1
+    assert rows[0].event_type == YANSI_EXPERIENCE_STARTED
+
+
+@pytest.mark.asyncio
 async def test_http_contract_duplicate_and_forbid_extra():
     from unittest.mock import AsyncMock, patch
 

@@ -211,15 +211,13 @@ async def is_eligible_frozen_continuation_child(
     return public is not None
 
 
-async def count_eligible_direct_children_batch(
+async def _eligible_direct_children_by_parent(
     db: AsyncSession,
     parent_slugs: list[str],
-) -> dict[str, int]:
+) -> dict[str, list[MirrorNetworkNode]]:
     """
-    Phase 6.2.1 — slug-level eligible direct child counts for a page of parents.
-
-    One children query + one frozen-steps query. Preserves Phase 5.1.1 gates:
-    direct, published, public, safe, journey_v1, frozen, replayReady.
+    One children query + one frozen-steps query. Preserves Phase 5.1.1 gates.
+    Internal helper for public counts (6.2.1) and ranking-evidence authors (6.5).
     """
     parents = sorted(
         {
@@ -228,9 +226,9 @@ async def count_eligible_direct_children_batch(
             if (slug or "").strip()
         }
     )
-    counts = {slug: 0 for slug in parents}
+    by_parent: dict[str, list[MirrorNetworkNode]] = {slug: [] for slug in parents}
     if not parents:
-        return counts
+        return by_parent
 
     result = await db.execute(
         select(MirrorNetworkNode).where(
@@ -242,12 +240,12 @@ async def count_eligible_direct_children_batch(
     )
     raw_nodes = result.scalars().all()
     if not isinstance(raw_nodes, (list, tuple)):
-        return counts
+        return by_parent
     candidates = [
         n for n in raw_nodes if is_candidate_frozen_continuation_child(n)
     ]
     if not candidates:
-        return counts
+        return by_parent
 
     version_conds = [
         and_(
@@ -259,7 +257,7 @@ async def count_eligible_direct_children_batch(
     steps_result = await db.execute(select(MirrorJourneyStep).where(or_(*version_conds)))
     step_rows = steps_result.scalars().all()
     if not isinstance(step_rows, (list, tuple)):
-        return counts
+        return by_parent
     steps_by_key: dict[tuple[str, int], list[MirrorJourneyStep]] = {}
     for row in step_rows:
         key = (str(row.journey_slug), int(row.journey_version))
@@ -267,13 +265,44 @@ async def count_eligible_direct_children_batch(
 
     for node in candidates:
         parent = (node.parent_slug or "").strip().lower()
-        if parent not in counts:
+        if parent not in by_parent:
             continue
         version = int(getattr(node, "journey_version", None) or 1)
         steps = _steps_as_public_dicts(steps_by_key.get((node.slug, version), []))
         if is_replay_ready_from_loaded_child(node, steps):
-            counts[parent] += 1
-    return counts
+            by_parent[parent].append(node)
+    return by_parent
+
+
+async def count_eligible_direct_children_batch(
+    db: AsyncSession,
+    parent_slugs: list[str],
+) -> dict[str, int]:
+    """
+    Phase 6.2.1 — slug-level eligible direct child counts for a page of parents.
+
+    One children query + one frozen-steps query. Preserves Phase 5.1.1 gates:
+    direct, published, public, safe, journey_v1, frozen, replayReady.
+    """
+    by_parent = await _eligible_direct_children_by_parent(db, parent_slugs)
+    return {slug: len(nodes) for slug, nodes in by_parent.items()}
+
+
+async def list_eligible_direct_child_author_ids_batch(
+    db: AsyncSession,
+    parent_slugs: list[str],
+) -> dict[str, list[str]]:
+    """
+    Phase 6.5 — internal child-author ids for generativity diversity.
+
+    Same eligibility as count_eligible_direct_children_batch.
+    Never return this map from a public API.
+    """
+    by_parent = await _eligible_direct_children_by_parent(db, parent_slugs)
+    return {
+        slug: [str(getattr(node, "user_id", "") or "") for node in nodes]
+        for slug, nodes in by_parent.items()
+    }
 
 
 async def list_published_mirrors_for_author(
