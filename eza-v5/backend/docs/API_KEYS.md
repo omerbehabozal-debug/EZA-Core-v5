@@ -17,8 +17,8 @@ EZA_ADMIN_API_KEY=your-secret-admin-key-here
 ```
 
 **Swagger/API Testing**:
-- Header: `X-Api-Key: your-secret-admin-key-here`
-- Development mode: If not set, uses `"dev-key"` automatically
+- Header: `X-Api-Key: $EZA_ADMIN_API_KEY` (or paste the configured admin key in Swagger)
+- **LOCAL DEVELOPMENT ONLY**: if `EZA_ADMIN_API_KEY` is unset and `ENV=dev`, the API may accept `dev-key`. Production rejects `dev-key`.
 
 ### 2. Organization API Key (ezak_ prefix)
 
@@ -62,17 +62,19 @@ Body:
 1. Use organization API key: `X-Api-Key: ezak_<your-org-key>`
 2. Also requires JWT token: `Authorization: Bearer <jwt-token>`
 
-## Development Mode
+## Development Mode (LOCAL DEVELOPMENT ONLY)
 
 In development mode (`ENV=dev`):
 - Admin API key is **optional** (uses `"dev-key"` if not set)
+- `"dev-key"` is **never** valid against production
 - Organization API keys still work normally
 - JWT token is still required for most endpoints
 
 ## Production Mode
 
-In production mode:
+In production mode (`ENV=production` or `EZA_ENV=production`):
 - `EZA_ADMIN_API_KEY` **must** be set
+- `X-Api-Key: dev-key` is rejected
 - All API key validations are enforced
 - Invalid keys return `401 Unauthorized`
 

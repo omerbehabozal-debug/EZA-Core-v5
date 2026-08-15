@@ -37,6 +37,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/eza-v5
         run: |
           python -m pytest tests_core \
+            tests_security/test_jwt_production_fail_closed.py \
             tests/test_sensitive_content.py \
             tests/test_conversation_groups.py \
             tests/test_mirror_network.py \

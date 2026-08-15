@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from jose import jwt
 
-from backend.config import get_settings
+from backend.config import get_settings, resolve_jwt_secret
 from backend.models.production import User, Organization, OrganizationUser
 from backend.auth.jwt import create_jwt
 
@@ -259,15 +259,7 @@ def create_access_token(user: User, expires_in_hours: int = 8) -> str:
     """Create JWT access token for user"""
     try:
         settings = get_settings()
-        # Try EZA_JWT_SECRET first (from env), then JWT_SECRET (default)
-        jwt_secret = getattr(settings, "EZA_JWT_SECRET", None)
-        if not jwt_secret:
-            jwt_secret = getattr(settings, "JWT_SECRET", None)
-        # If still None, use default fallback
-        if not jwt_secret:
-            jwt_secret = "supersecretkey"  # Fallback default
-            logger.warning("JWT_SECRET not found in settings, using default fallback. This should be set in production!")
-        
+        jwt_secret = resolve_jwt_secret(settings)
         logger.debug(f"Using JWT_SECRET (length: {len(jwt_secret) if jwt_secret else 0})")
         
         expire = datetime.utcnow() + timedelta(hours=expires_in_hours)
@@ -295,6 +287,8 @@ def create_access_token(user: User, expires_in_hours: int = 8) -> str:
             logger.error(f"Payload: {payload}")
             logger.error(f"JWT Secret length: {len(jwt_secret) if jwt_secret else 0}")
             raise ValueError(f"Failed to encode JWT token: {str(encode_error)}")
+    except RuntimeError:
+        raise
     except ValueError:
         # Re-raise ValueError as-is
         raise

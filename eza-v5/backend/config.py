@@ -95,7 +95,8 @@ class Settings(BaseSettings):
     # Public Snapshot Publishing
     PUBLIC_SNAPSHOT_KEY: Optional[str] = None  # Required for publishing and reading snapshots
     
-    # Security
+    # Security — signing secret precedence: EZA_JWT_SECRET, then JWT_SECRET.
+    # Production rejects these defaults (see resolve_jwt_secret).
     JWT_SECRET: str = "supersecretkey"
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
     EZA_JWT_SECRET: Optional[str] = None  # Production JWT secret (from env)
@@ -244,6 +245,43 @@ class Settings(BaseSettings):
         extra = "forbid"
 
 
+# Dev-only pydantic defaults. Production must never sign tokens with these.
+JWT_DEV_FALLBACK = "supersecretkey"
+JWT_UNSAFE_PLACEHOLDERS = frozenset(
+    {
+        "supersecretkey",
+        "your-secret-key-change-in-production",
+    }
+)
+PRODUCTION_ENV_VALUES = frozenset({"prod", "production"})
+
+
+def is_production_settings(settings: Settings) -> bool:
+    """Match existing detector: ENV or EZA_ENV in prod / production."""
+    env_lower = (settings.ENV or "").strip().lower()
+    eza_lower = (settings.EZA_ENV or "").strip().lower() if settings.EZA_ENV else ""
+    return env_lower in PRODUCTION_ENV_VALUES or eza_lower in PRODUCTION_ENV_VALUES
+
+
+def resolve_jwt_secret(settings: Optional[Settings] = None) -> str:
+    """
+    Canonical JWT signing secret.
+
+    Precedence: EZA_JWT_SECRET, then JWT_SECRET.
+    Production: fail closed if missing or a known placeholder. Never log the value.
+    """
+    if settings is None:
+        settings = get_settings()
+    eza = (getattr(settings, "EZA_JWT_SECRET", None) or "").strip()
+    jwt_secret = (getattr(settings, "JWT_SECRET", None) or "").strip()
+    chosen = eza or jwt_secret
+    if is_production_settings(settings):
+        if not chosen or chosen.lower() in JWT_UNSAFE_PLACEHOLDERS:
+            raise RuntimeError("JWT secret must be configured in production")
+        return chosen
+    return chosen or JWT_DEV_FALLBACK
+
+
 @lru_cache()
 def get_settings() -> Settings:
     """Get settings singleton"""
@@ -254,13 +292,12 @@ def get_settings() -> Settings:
         settings.ENV = settings.EZA_ENV
     
     # Set DEBUG based on ENV
-    env_lower = (settings.ENV or "").lower()
-    eza_lower = (settings.EZA_ENV or "").lower() if settings.EZA_ENV else ""
-    is_production = env_lower in ("prod", "production") or eza_lower in ("prod", "production")
+    is_production = is_production_settings(settings)
 
     if is_production:
         settings.DEBUG = False
         settings.TEST_MODE = False  # Never allow case_snapshot in production
+        resolve_jwt_secret(settings)
     elif settings.ENV == "ci":
         settings.DEBUG = False  # CI mode: minimal logging
     else:

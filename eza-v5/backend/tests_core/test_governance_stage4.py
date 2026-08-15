@@ -35,6 +35,7 @@ def test_get_settings_forces_test_mode_false_in_production(monkeypatch):
     get_settings.cache_clear()
     monkeypatch.setenv("ENV", "prod")
     monkeypatch.setenv("EZA_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET", "unit-test-production-jwt-secret")
     monkeypatch.setenv("TEST_MODE", "true")
     get_settings.cache_clear()
     s = get_settings()

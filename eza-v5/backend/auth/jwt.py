@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, Literal
 from jose import JWTError, jwt
 import logging
 
-from backend.config import get_settings
+from backend.config import get_settings, resolve_jwt_secret
 from backend.auth.models import UserRole
 
 logger = logging.getLogger(__name__)
@@ -32,9 +32,7 @@ def create_jwt(
         JWT token string
     """
     settings = get_settings()
-    
-    # Get JWT secret from env (EZA_JWT_SECRET) or fallback to JWT_SECRET
-    jwt_secret = getattr(settings, "EZA_JWT_SECRET", None) or settings.JWT_SECRET
+    jwt_secret = resolve_jwt_secret(settings)
     
     # Calculate expiration
     expire = datetime.utcnow() + timedelta(hours=expires_in_hours)
@@ -71,9 +69,7 @@ def decode_jwt(token: str) -> Optional[Dict[str, Any]]:
         Decoded payload dict or None if invalid
     """
     settings = get_settings()
-    
-    # Get JWT secret from env (EZA_JWT_SECRET) or fallback to JWT_SECRET
-    jwt_secret = getattr(settings, "EZA_JWT_SECRET", None) or settings.JWT_SECRET
+    jwt_secret = resolve_jwt_secret(settings)
     
     try:
         payload = jwt.decode(
