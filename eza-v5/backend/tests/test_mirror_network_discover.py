@@ -37,7 +37,13 @@ def _root_node(*, slug: str, scene: str = "https://cdn.example/mirror.png"):
     record.visibility = "public"
     record.safety_status = "open"
     record.scene_image_url = scene
+    record.artifact_kind = "journey_v1"
+    record.freeze_status = "frozen"
     return record
+
+
+def _empty_result():
+    return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
 
 
 def _child_node(*, slug: str, parent: str, visibility: str = "public", safety: str = "open"):
@@ -70,7 +76,7 @@ def test_is_public_discover_yansi_child_excludes_review_and_private():
 
 
 @pytest.mark.asyncio
-async def test_list_discover_mirrors_root_only_sorted_by_yansi():
+async def test_list_discover_mirrors_root_only_preserves_yansi_count_dto():
     db = AsyncMock()
     root_a = _root_node(slug="root-a")
     root_b = _root_node(slug="root-b")
@@ -79,16 +85,23 @@ async def test_list_discover_mirrors_root_only_sorted_by_yansi():
     child_b1 = _child_node(slug="child-b1", parent="root-b")
 
     roots_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [root_a, root_b]))
-    children_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [child_a1, child_a2, child_b1]))
+    children_result = SimpleNamespace(
+        scalars=lambda: SimpleNamespace(all=lambda: [child_a1, child_a2, child_b1])
+    )
 
-    db.execute = AsyncMock(side_effect=[roots_result, children_result])
+    db.execute = AsyncMock(side_effect=[roots_result, _empty_result(), children_result])
 
-    response = await list_discover_mirrors(db, limit=10, offset=0)
+    with patch(
+        "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+        return_value=True,
+    ):
+        response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
 
     assert response.total == 2
-    assert [item.slug for item in response.items] == ["root-a", "root-b"]
-    assert response.items[0].yansiCount == 2
-    assert response.items[1].yansiCount == 1
+    assert response.mode == "newest"
+    by_slug = {item.slug: item for item in response.items}
+    assert by_slug["root-a"].yansiCount == 2
+    assert by_slug["root-b"].yansiCount == 1
     assert response.items[0].sceneImageUrl.startswith("https://")
 
 
@@ -102,9 +115,13 @@ async def test_list_discover_excludes_data_scene_and_review_yansi():
     roots_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [root_https, root_data]))
     children_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [review_child]))
 
-    db.execute = AsyncMock(side_effect=[roots_result, children_result])
+    db.execute = AsyncMock(side_effect=[roots_result, _empty_result(), children_result])
 
-    response = await list_discover_mirrors(db, limit=10, offset=0)
+    with patch(
+        "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+        return_value=True,
+    ):
+        response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
     assert response.total == 1
     assert response.items[0].slug == "root-open"
     assert response.items[0].yansiCount == 0
@@ -121,9 +138,13 @@ async def test_list_discover_excludes_restricted_and_child_nodes():
     roots_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [root, restricted, child_as_root]))
     children_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
 
-    db.execute = AsyncMock(side_effect=[roots_result, children_result])
+    db.execute = AsyncMock(side_effect=[roots_result, _empty_result(), children_result])
 
-    response = await list_discover_mirrors(db, limit=10, offset=0)
+    with patch(
+        "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+        return_value=True,
+    ):
+        response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
     assert response.total == 1
     assert response.items[0].slug == "root-open"
 

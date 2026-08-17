@@ -274,6 +274,8 @@ async def test_semantics_do_not_reorder_discover():
             published_at=ts,
             created_at=ts,
             journey_version=1,
+            artifact_kind="journey_v1",
+            freeze_status="frozen",
         )
 
     popular = _root("popular", 1.0)
@@ -297,9 +299,11 @@ async def test_semantics_do_not_reorder_discover():
         safety_status="open",
     )
     db = AsyncMock()
+    empty = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
     db.execute = AsyncMock(
         side_effect=[
             SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [popular, children_rich])),
+            empty,
             SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [child_a, child_b, child_c])),
         ]
     )
@@ -319,6 +323,10 @@ async def test_semantics_do_not_reorder_discover():
             return_value=SimpleNamespace(passed=True),
         ),
         patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
+        ),
+        patch(
             "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
             new=AsyncMock(
                 return_value={
@@ -334,7 +342,7 @@ async def test_semantics_do_not_reorder_discover():
             ),
         ),
     ):
-        response = await list_discover_mirrors(db, limit=10, offset=0)
+        response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
     assert [item.slug for item in response.items] == ["children-rich", "popular"]
     dumped = response.model_dump()
     leaked = FORBIDDEN_PUBLIC_LEAK_KEYS.intersection(_flat_keys(dumped))

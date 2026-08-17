@@ -75,6 +75,9 @@ eza-v5/frontend/runtime-*-report*.txt
 # Public landing migration rollback snapshots (contain prior payloads)
 eza-v5/backend/scripts/_landing_migration_rollbacks/
 
+# Phase 7.4.3 production corpus shadow artifacts (real ranking traces; do not commit)
+eza-v5/backend/data/internal_shadow_eval/
+
 # Cleanup reports (keep in logs/)
 EZA_CLEANUP_*.json
 EZA_CLEANUP_*.md

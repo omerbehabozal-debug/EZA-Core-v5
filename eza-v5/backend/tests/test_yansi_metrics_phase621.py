@@ -114,12 +114,18 @@ def _root(slug: str, published_ts: float):
         published_at=ts,
         created_at=ts,
         journey_version=1,
+        artifact_kind="journey_v1",
+        freeze_status="frozen",
     )
+
+
+def _empty_result():
+    return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
 
 
 @pytest.mark.asyncio
 async def test_discover_order_unchanged_and_not_sorted_by_started():
-    """Existing yansiCount sort is preserved; started counts must not rerank."""
+    """En Yeni is published_at DESC; STARTED counts must not rerank."""
     high_started = _root("popular", 1.0)
     recent_more_children = _root("children-rich", 2.0)
     child_a = SimpleNamespace(
@@ -148,7 +154,7 @@ async def test_discover_order_unchanged_and_not_sorted_by_started():
     children = SimpleNamespace(
         scalars=lambda: SimpleNamespace(all=lambda: [child_a, child_b, child_c])
     )
-    db.execute = AsyncMock(side_effect=[roots, children])
+    db.execute = AsyncMock(side_effect=[roots, _empty_result(), children])
 
     captured: list[list[tuple[str, int]]] = []
 
@@ -172,12 +178,15 @@ async def test_discover_order_unchanged_and_not_sorted_by_started():
             return_value=SimpleNamespace(passed=True),
         ),
         patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
+        ),
+        patch(
             "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
             new=fake_batch,
         ),
     ):
-        # Discover currently sorts by legacy yansiCount (children-rich=2 before popular=1).
-        response = await list_discover_mirrors(db, limit=10, offset=0)
+        response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
 
     assert [item.slug for item in response.items] == ["children-rich", "popular"]
     assert response.items[0].experienceStartedCount == 1
@@ -192,6 +201,7 @@ async def test_discover_pagination_batches_page_only():
     db.execute = AsyncMock(
         side_effect=[
             SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: roots)),
+            _empty_result(),
             SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [])),
         ]
     )
@@ -211,14 +221,18 @@ async def test_discover_pagination_batches_page_only():
             return_value=SimpleNamespace(passed=True),
         ),
         patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
+        ),
+        patch(
             "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
             new=fake_batch,
         ),
     ):
-        await list_discover_mirrors(db, limit=1, offset=0)
+        await list_discover_mirrors(db, limit=1, offset=0, mode="newest")
 
     assert len(captured[0]) == 1
-    assert captured[0][0][0] == "r2"  # highest published_at after 0-yansi tie → epoch sort
+    assert captured[0][0][0] == "r2"  # published_at DESC, page-only metrics batch
 
 
 @pytest.mark.asyncio
@@ -228,6 +242,7 @@ async def test_discover_metrics_failure_keeps_feed():
     db.execute = AsyncMock(
         side_effect=[
             SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [root])),
+            _empty_result(),
             SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [])),
         ]
     )
@@ -243,6 +258,10 @@ async def test_discover_metrics_failure_keeps_feed():
         patch(
             "backend.services.mirror_network.discover.evaluate_mirror_network_safety",
             return_value=SimpleNamespace(passed=True),
+        ),
+        patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
         ),
         patch(
             "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
@@ -264,6 +283,7 @@ async def test_discover_payload_has_no_session_identity():
     db.execute = AsyncMock(
         side_effect=[
             SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [root])),
+            _empty_result(),
             SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [])),
         ]
     )
@@ -281,6 +301,10 @@ async def test_discover_payload_has_no_session_identity():
         patch(
             "backend.services.mirror_network.discover.evaluate_mirror_network_safety",
             return_value=SimpleNamespace(passed=True),
+        ),
+        patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
         ),
         patch(
             "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",

@@ -24,6 +24,19 @@ export const SAINA_DISCOVER_ERROR = 'Keşfet şu anda yüklenemedi.';
 
 export const SAINA_DISCOVER_ERROR_RETRY = 'Lütfen biraz sonra tekrar dene.';
 
+export const SAINA_DISCOVER_MODE_RASTLANTISAL = 'Rastlantısal';
+
+export const SAINA_DISCOVER_MODE_STRONG_CURIOSITY = 'Güçlü Merak';
+
+export const SAINA_DISCOVER_MODE_NEWEST = 'En Yeni';
+
+export const SAINA_DISCOVER_STRONG_CURIOSITY_TITLE = 'Güçlü Merak henüz hazır değil.';
+
+export const SAINA_DISCOVER_STRONG_CURIOSITY_BODY =
+  'Bu sıralama bir sonraki aşamada gelecek. Rastlantısal veya En Yeni ile bakabilirsin.';
+
+export const SAINA_DISCOVER_INVALID_MODE = 'Bu Keşfet görünümü geçerli değil.';
+
 export function formatDiscoverYansiCount(count: number): string {
   const n = Math.max(0, Math.floor(count));
   return `${n.toLocaleString('tr-TR')} Yansı`;

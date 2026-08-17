@@ -51,7 +51,7 @@ describe('discoverExperiencedMirrors', () => {
     expect(normalizeDiscoverMirrorSlug(' BMW-Sport ')).toBe('bmw-sport');
   });
 
-  it('hides experienced root slugs from the default discover view', () => {
+  it('hides experienced root slugs from Rastlantısal only', () => {
     markDiscoverMirrorExperienced('bmw-sport');
     const visible = filterDiscoverMirrorsForViewer(sampleItems);
     expect(visible.map((item) => item.slug)).toEqual(['japan-kyoto', 'space-orbit']);

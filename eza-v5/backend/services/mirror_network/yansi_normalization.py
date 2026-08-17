@@ -34,6 +34,7 @@ from backend.services.mirror_network.author_profile import (
 )
 from backend.services.mirror_network.frozen_journey_artifact import (
     get_public_frozen_journey_artifact,
+    get_public_frozen_journey_artifact_batch,
 )
 from backend.services.mirror_network.yansi_metrics import (
     PUBLIC_METRIC_KEYS,
@@ -903,11 +904,12 @@ async def get_yansi_normalized_signal_evidence_batch(
     continuation_viewers = await _load_continuation_viewers(db, slugs)
     exposure_counts, exposure_viewers = await _load_exposure_viewers(db, pairs)
     child_authors = await list_eligible_direct_child_author_ids_batch(db, slugs)
+    public_by_pair = await get_public_frozen_journey_artifact_batch(
+        db, pairs, nodes_by_slug=nodes_by_slug
+    )
 
     for slug, version in pairs:
-        public = await get_public_frozen_journey_artifact(
-            db, slug=slug, journey_version=version
-        )
+        public = public_by_pair.get((slug, version))
         if public is None:
             continue
         selected = int(public.get("selectedCount") or 0)

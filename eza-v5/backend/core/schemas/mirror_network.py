@@ -183,6 +183,9 @@ class DiscoverMirrorListResponse(BaseModel):
 
     items: List[DiscoverMirrorItem] = Field(default_factory=list)
     total: int = Field(default=0, ge=0)
+    mode: str = Field(default="random")
+    randomSession: Optional[str] = None
+    strongCuriosityReady: bool = False
 
 
 class MirrorNetworkImpactStats(BaseModel):

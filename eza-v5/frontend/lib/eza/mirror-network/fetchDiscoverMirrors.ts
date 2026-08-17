@@ -7,6 +7,11 @@ import {
   MirrorApiContractError,
   validateDiscoverList,
 } from '@/lib/eza/mirror/mirrorApiContracts';
+import {
+  DEFAULT_DISCOVER_MODE,
+  type DiscoverMode,
+  parseDiscoverMode,
+} from '@/lib/eza/mirror-network/discoverModes';
 import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
 
 export type DiscoverMirror = {
@@ -28,6 +33,9 @@ export type DiscoverMirror = {
 export type DiscoverMirrorListResponse = {
   items: DiscoverMirror[];
   total: number;
+  mode: DiscoverMode;
+  randomSession?: string | null;
+  strongCuriosityReady: boolean;
 };
 
 export type FetchDiscoverMirrorsResult =
@@ -77,21 +85,45 @@ function parseDiscoverItem(raw: unknown): DiscoverMirror | null {
   };
 }
 
+export function buildDiscoverListUrl(options?: {
+  limit?: number;
+  offset?: number;
+  mode?: DiscoverMode;
+  randomSession?: string | null;
+}): string {
+  const limit = options?.limit ?? 24;
+  const offset = options?.offset ?? 0;
+  const parsed = parseDiscoverMode(options?.mode ?? null);
+  const mode = parsed.ok ? parsed.mode : DEFAULT_DISCOVER_MODE;
+  const base = getApiUrl().replace(/\/$/, '');
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+    mode,
+  });
+  if (mode === 'random' && options?.randomSession) {
+    params.set('randomSession', options.randomSession);
+  }
+  return `${base}/api/mirror-network/discover?${params.toString()}`;
+}
+
 export async function fetchDiscoverMirrors(options?: {
   limit?: number;
   offset?: number;
   revalidateSeconds?: number;
+  mode?: DiscoverMode;
+  randomSession?: string | null;
+  signal?: AbortSignal;
 }): Promise<FetchDiscoverMirrorsResult> {
-  const limit = options?.limit ?? 24;
-  const offset = options?.offset ?? 0;
-  const base = getApiUrl().replace(/\/$/, '');
-  const url = `${base}/api/mirror-network/discover?limit=${limit}&offset=${offset}`;
+  const url = buildDiscoverListUrl(options);
 
   try {
     const response = await fetch(url, {
       method: 'GET',
       headers: { Accept: 'application/json' },
-      next: { revalidate: options?.revalidateSeconds ?? 60 },
+      cache: 'no-store',
+      next: { revalidate: options?.revalidateSeconds ?? 0 },
+      signal: options?.signal,
     });
 
     if (!response.ok) {
@@ -103,9 +135,16 @@ export async function fetchDiscoverMirrors(options?: {
     const items = (validated.items || [])
       .map(parseDiscoverItem)
       .filter((item): item is DiscoverMirror => item !== null);
+    const parsedMode = parseDiscoverMode(
+      typeof validated.mode === 'string' ? validated.mode : options?.mode ?? null
+    );
     const data: DiscoverMirrorListResponse = {
       items,
       total: typeof validated.total === 'number' ? validated.total : items.length,
+      mode: parsedMode.ok ? parsedMode.mode : DEFAULT_DISCOVER_MODE,
+      randomSession:
+        typeof validated.randomSession === 'string' ? validated.randomSession : null,
+      strongCuriosityReady: validated.strongCuriosityReady === true,
     };
     const json = JSON.stringify(data);
     for (const key of FORBIDDEN_KEYS) {
@@ -115,6 +154,12 @@ export async function fetchDiscoverMirrors(options?: {
     }
     return { ok: true, data };
   } catch (err) {
+    if (
+      (typeof DOMException !== 'undefined' && err instanceof DOMException && err.name === 'AbortError') ||
+      (err instanceof Error && err.name === 'AbortError')
+    ) {
+      return { ok: false, status: 0 };
+    }
     if (err instanceof MirrorApiContractError) {
       return { ok: false, status: 0 };
     }

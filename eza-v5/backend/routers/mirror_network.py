@@ -35,7 +35,10 @@ from backend.models.production import User
 from backend.services.mirror_network.fixtures import build_fixture_mirror_node
 from backend.services.mirror_network.repository import create_mirror_network_node
 from backend.core.utils.dependencies import get_db
-from backend.services.mirror_network.discover import list_discover_mirrors
+from backend.services.mirror_network.discover import (
+    DiscoverModeError,
+    list_discover_mirrors,
+)
 from backend.services.mirror_network.publish import publish_mirror_to_network
 from backend.services.mirror_network.impact import get_mirror_impact_stats
 from backend.services.mirror_network.service import fetch_debug_mirror_by_slug, fetch_public_mirror_by_slug
@@ -120,15 +123,30 @@ async def publish_mirror_network_node(
 async def get_mirror_network_discover(
     limit: int = 24,
     offset: int = 0,
+    mode: Optional[str] = None,
+    randomSession: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit_standalone),
 ) -> DiscoverMirrorListResponse:
     """
     Public discover list — root Aynalar only.
 
+    Modes: random (default / Rastlantısal), newest, strong_curiosity (placeholder).
     Never returns user identity, guest tokens, raw conversation, or private payload.
     """
-    return await list_discover_mirrors(db, limit=limit, offset=offset)
+    try:
+        return await list_discover_mirrors(
+            db,
+            limit=limit,
+            offset=offset,
+            mode=mode,
+            random_session=randomSession,
+        )
+    except DiscoverModeError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"ok": False, "error": exc.reason},
+        ) from exc
 
 
 class AuthorPublishedYansiItem(BaseModel):

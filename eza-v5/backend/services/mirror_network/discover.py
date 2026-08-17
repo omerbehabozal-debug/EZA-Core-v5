@@ -1,17 +1,36 @@
 # -*- coding: utf-8 -*-
-"""Public discover list — root Aynalar only (Stage Discover V1)."""
+"""
+Public Discover list — root Aynalar only.
+
+Phase 7.1: one pipeline, three modes (random / strong_curiosity / newest).
+Default = random (Rastlantısal). Ordering must not use yansiCount or Phase 6 signals.
+Güçlü Merak is a contract placeholder — not legacy ranking.
+"""
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import re
+import uuid
 from datetime import datetime
-from typing import Any, Mapping, Optional
+from typing import Any, Literal, Mapping, Optional
 from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.mirror_network import DiscoverMirrorItem, DiscoverMirrorListResponse
-from backend.models.mirror_network import MirrorNetworkNode
+from backend.models.mirror_network import (
+    ARTIFACT_KIND_JOURNEY_V1,
+    MirrorJourneyStep,
+    MirrorNetworkNode,
+)
+from backend.services.mirror_network.author_profile import (
+    _steps_as_public_dicts,
+    is_replay_ready_from_loaded_child,
+)
+from backend.services.mirror_network.frozen_journey_artifact import FREEZE_STATUS_FROZEN
 from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
 
 _DISCOVER_FORBIDDEN_KEYS = frozenset(
@@ -31,7 +50,70 @@ _DISCOVER_FORBIDDEN_KEYS = frozenset(
 DEFAULT_DISCOVER_LIMIT = 24
 MAX_DISCOVER_LIMIT = 48
 MAX_DISCOVER_OFFSET = 500
-MAX_DISCOVER_CANDIDATE_SCAN = 250
+# Overflow cap by stable identity (slug), never newest/popularity window.
+MAX_DISCOVER_ELIGIBLE_LOAD = 10_000
+
+DiscoverMode = Literal["random", "strong_curiosity", "newest"]
+
+DISCOVER_MODE_RANDOM: DiscoverMode = "random"
+DISCOVER_MODE_STRONG_CURIOSITY: DiscoverMode = "strong_curiosity"
+DISCOVER_MODE_NEWEST: DiscoverMode = "newest"
+DEFAULT_DISCOVER_MODE: DiscoverMode = DISCOVER_MODE_RANDOM
+DISCOVER_MODES = frozenset(
+    {
+        DISCOVER_MODE_RANDOM,
+        DISCOVER_MODE_STRONG_CURIOSITY,
+        DISCOVER_MODE_NEWEST,
+    }
+)
+
+_RANDOM_SESSION_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+
+
+class DiscoverModeError(Exception):
+    def __init__(self, reason: str, *, status_code: int = 422):
+        super().__init__(reason)
+        self.reason = reason
+        self.status_code = status_code
+
+
+def parse_discover_mode(raw: str | None) -> DiscoverMode:
+    """Missing/blank → Rastlantısal. Garbage is rejected, never remapped."""
+    if raw is None:
+        return DEFAULT_DISCOVER_MODE
+    value = str(raw).strip().lower()
+    if not value:
+        return DEFAULT_DISCOVER_MODE
+    if value not in DISCOVER_MODES:
+        raise DiscoverModeError("invalid_discover_mode")
+    return value  # type: ignore[return-value]
+
+
+def parse_random_session(raw: str | None) -> str:
+    """Opaque permutation seed. Not a ranking weight. Invalid → 422."""
+    if raw is None:
+        return str(uuid.uuid4())
+    value = str(raw).strip()
+    if not value:
+        return str(uuid.uuid4())
+    if not _RANDOM_SESSION_RE.fullmatch(value):
+        raise DiscoverModeError("invalid_random_session")
+    return value
+
+
+def random_discover_sort_key(seed: str, slug: str) -> tuple[str, str]:
+    """
+    Deterministic permutation key.
+
+    Hash of seed + slug only. Popularity and recency are not inputs.
+    """
+    identity = (slug or "").strip().lower()
+    digest = hmac.new(
+        seed.encode("utf-8"),
+        identity.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return (digest, identity)
 
 
 def is_public_discover_scene_url(raw: str | None) -> bool:
@@ -122,17 +204,34 @@ def _frozen_public_fields(node: MirrorNetworkNode) -> tuple[Optional[str], Optio
         return None, None, None
 
 
-def _is_discoverable_root(node: MirrorNetworkNode) -> Optional[str]:
-    if (node.parent_slug or "").strip():
-        return None
-    if (node.visibility or "").lower() != "public":
-        return None
-    if (node.safety_status or "").lower() != "open":
-        return None
+def is_canonical_discover_root_structure(node: MirrorNetworkNode) -> bool:
+    """
+    Discover pool structural gates — aligned with Phase 5 frozen Journey,
+    plus root-only. replayReady is verified separately with the same helper
+    used by GET …/frozen (is_replay_ready_from_loaded_child).
+    """
+    if (getattr(node, "parent_slug", None) or "").strip():
+        return False
+    if getattr(node, "published_at", None) is None:
+        return False
+    if (getattr(node, "visibility", None) or "").lower() != "public":
+        return False
+    if (getattr(node, "safety_status", None) or "").lower() != "open":
+        return False
+    if getattr(node, "artifact_kind", None) != ARTIFACT_KIND_JOURNEY_V1:
+        return False
+    freeze = (getattr(node, "freeze_status", None) or "").strip().lower()
+    if freeze != FREEZE_STATUS_FROZEN:
+        return False
     if not evaluate_mirror_network_safety(node).passed:
-        return None
+        return False
+    return True
+
+
+def discover_scene_url_for_card(node: MirrorNetworkNode) -> Optional[str]:
+    """HTTPS scene is a Discover card presentation gate, not Journey eligibility."""
     _, _, frozen_scene = _frozen_public_fields(node)
-    return _public_discover_scene_url(frozen_scene or node.scene_image_url)
+    return _public_discover_scene_url(frozen_scene or getattr(node, "scene_image_url", None))
 
 
 def _batch_yansi_counts(
@@ -150,7 +249,7 @@ def _batch_yansi_counts(
 
 
 def _published_iso(node: MirrorNetworkNode) -> Optional[str]:
-    ts = node.published_at or node.created_at
+    ts = getattr(node, "published_at", None)
     if isinstance(ts, datetime):
         return ts.isoformat()
     return None
@@ -215,44 +314,133 @@ async def _fetch_children_for_parents(
     return list(result.scalars().all())
 
 
-async def list_discover_mirrors(
+async def _load_steps_by_slug_version(
     db: AsyncSession,
-    *,
-    limit: int = DEFAULT_DISCOVER_LIMIT,
-    offset: int = 0,
-) -> DiscoverMirrorListResponse:
-    safe_limit = max(1, min(limit, MAX_DISCOVER_LIMIT))
-    safe_offset = max(0, min(offset, MAX_DISCOVER_OFFSET))
+    nodes: list[MirrorNetworkNode],
+) -> dict[tuple[str, int], list]:
+    if not nodes:
+        return {}
+    wanted = {
+        (n.slug, int(getattr(n, "journey_version", None) or 1))
+        for n in nodes
+        if (getattr(n, "slug", None) or "").strip()
+    }
+    slugs = [slug for slug, _ in wanted]
+    steps_result = await db.execute(
+        select(MirrorJourneyStep).where(MirrorJourneyStep.journey_slug.in_(slugs))
+    )
+    step_rows = steps_result.scalars().all()
+    steps_by_key: dict[tuple[str, int], list] = {}
+    if not isinstance(step_rows, (list, tuple)):
+        return steps_by_key
+    for row in step_rows:
+        key = (str(row.journey_slug), int(row.journey_version))
+        if key not in wanted:
+            continue
+        steps_by_key.setdefault(key, []).append(row)
+    return steps_by_key
 
+
+def _newest_sort_key(node: MirrorNetworkNode) -> tuple:
+    ts = getattr(node, "published_at", None)
+    epoch = ts.timestamp() if isinstance(ts, datetime) else 0.0
+    return (-epoch, (getattr(node, "slug", "") or "").strip().lower())
+
+
+def _order_eligible(
+    eligible: list[tuple[MirrorNetworkNode, str]],
+    *,
+    mode: DiscoverMode,
+    random_session: str,
+) -> list[tuple[MirrorNetworkNode, str]]:
+    if mode == DISCOVER_MODE_NEWEST:
+        return sorted(eligible, key=lambda item: _newest_sort_key(item[0]))
+    if mode == DISCOVER_MODE_RANDOM:
+        return sorted(
+            eligible,
+            key=lambda item: random_discover_sort_key(random_session, item[0].slug),
+        )
+    return eligible
+
+
+async def load_discover_eligible_roots(
+    db: AsyncSession,
+) -> list[tuple[MirrorNetworkNode, str]]:
+    """
+    Canonical Phase 7.1 Discover pool (root, public, frozen, replayReady, scene).
+    Unordered load; callers apply mode-specific ordering. Not a ranking helper.
+    """
     result = await db.execute(
         select(MirrorNetworkNode)
         .where(
             MirrorNetworkNode.visibility == "public",
             MirrorNetworkNode.safety_status == "open",
             MirrorNetworkNode.parent_slug.is_(None),
+            MirrorNetworkNode.published_at.isnot(None),
+            MirrorNetworkNode.artifact_kind == ARTIFACT_KIND_JOURNEY_V1,
+            MirrorNetworkNode.freeze_status == FREEZE_STATUS_FROZEN,
         )
-        .order_by(MirrorNetworkNode.published_at.desc())
-        .limit(MAX_DISCOVER_CANDIDATE_SCAN)
+        .order_by(MirrorNetworkNode.slug.asc())
+        .limit(MAX_DISCOVER_ELIGIBLE_LOAD)
     )
+    structural = [
+        node
+        for node in result.scalars().all()
+        if is_canonical_discover_root_structure(node)
+    ]
+    steps_by_key = await _load_steps_by_slug_version(db, structural)
     eligible: list[tuple[MirrorNetworkNode, str]] = []
-    for node in result.scalars().all():
-        scene_url = _is_discoverable_root(node)
-        if scene_url:
-            eligible.append((node, scene_url))
+    for node in structural:
+        version = int(getattr(node, "journey_version", None) or 1)
+        steps = _steps_as_public_dicts(steps_by_key.get((node.slug, version), []))
+        if not is_replay_ready_from_loaded_child(node, steps):
+            continue
+        scene_url = discover_scene_url_for_card(node)
+        if not scene_url:
+            continue
+        eligible.append((node, scene_url))
+    return eligible
 
-    slugs = [node.slug for node, _ in eligible]
-    children = await _fetch_children_for_parents(db, slugs)
-    yansi_by_parent = _batch_yansi_counts(children)
 
-    def sort_key(item: tuple[MirrorNetworkNode, str]) -> tuple[int, float]:
-        node, _ = item
-        yansi = yansi_by_parent.get(node.slug.lower(), 0)
-        ts = node.published_at or node.created_at
-        epoch = ts.timestamp() if isinstance(ts, datetime) else 0.0
-        return (-yansi, -epoch)
+async def list_discover_mirrors(
+    db: AsyncSession,
+    *,
+    limit: int = DEFAULT_DISCOVER_LIMIT,
+    offset: int = 0,
+    mode: str | None = None,
+    random_session: str | None = None,
+) -> DiscoverMirrorListResponse:
+    parsed_mode = parse_discover_mode(mode)
+    safe_limit = max(1, min(limit, MAX_DISCOVER_LIMIT))
+    safe_offset = max(0, min(offset, MAX_DISCOVER_OFFSET))
+    session = parse_random_session(random_session) if parsed_mode == DISCOVER_MODE_RANDOM else None
 
-    eligible.sort(key=sort_key)
+    if parsed_mode == DISCOVER_MODE_STRONG_CURIOSITY:
+        payload = DiscoverMirrorListResponse(
+            items=[],
+            total=0,
+            mode=parsed_mode,
+            randomSession=None,
+            strongCuriosityReady=False,
+        )
+        leaked = _DISCOVER_FORBIDDEN_KEYS.intersection(payload.model_dump().keys())
+        if leaked:
+            raise RuntimeError(f"discover_response_privacy_violation:{','.join(sorted(leaked))}")
+        return payload
+
+    eligible = await load_discover_eligible_roots(db)
+    eligible = _order_eligible(
+        eligible, mode=parsed_mode, random_session=session or ""
+    )
     page = eligible[safe_offset : safe_offset + safe_limit]
+
+    yansi_by_parent: dict[str, int] = {}
+    if page:
+        children = await _fetch_children_for_parents(
+            db, [node.slug for node, _ in page]
+        )
+        yansi_by_parent = _batch_yansi_counts(children)
+
     metrics_by_key: dict[tuple[str, int], dict[str, int]] = {}
     try:
         from backend.services.mirror_network.yansi_metrics import get_yansi_public_metrics_batch
@@ -287,7 +475,13 @@ async def list_discover_mirrors(
             )
         )
 
-    payload = DiscoverMirrorListResponse(items=items, total=len(eligible))
+    payload = DiscoverMirrorListResponse(
+        items=items,
+        total=len(eligible),
+        mode=parsed_mode,
+        randomSession=session,
+        strongCuriosityReady=False,
+    )
     leaked = _DISCOVER_FORBIDDEN_KEYS.intersection(payload.model_dump().keys())
     if leaked:
         raise RuntimeError(f"discover_response_privacy_violation:{','.join(sorted(leaked))}")

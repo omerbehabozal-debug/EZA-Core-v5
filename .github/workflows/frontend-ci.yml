@@ -45,6 +45,8 @@ jobs:
           tests/discoverCopy.test.ts
           tests/discoverCard.test.tsx
           tests/discoverExperiencedMirrors.test.ts
+          tests/discoverModesPhase71.test.ts
+          tests/sainaDiscoverModesPhase71.test.tsx
           tests/mirrorPanelCopy.test.ts
           tests/conversationMeaningSummary.test.ts
           tests/mirrorDirectorPrA.test.ts

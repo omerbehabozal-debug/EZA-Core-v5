@@ -1,10 +1,15 @@
 /**
  * Keşfet — locally experienced root Aynalar (client-only hide list).
- * Does not mutate Mirror Network; only filters the default Discover view.
+ * Rastlantısal (random) may skip locally completed slugs as repetition reduction.
+ * En Yeni and Güçlü Merak do not use this hide list — they must not become
+ * “newest except whatever this browser already experienced”.
+ * This is client-only hide-list filtering, not personalization.
  *
  * Hide rule: user completed their own mirror visual (Ayna/Yansı), not merely opened sohbet.
  */
 
+import type { DiscoverMode } from '@/lib/eza/mirror-network/discoverModes';
+import { DEFAULT_DISCOVER_MODE, shouldHideExperiencedDiscoverItems } from '@/lib/eza/mirror-network/discoverModes';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import { fetchDiscoverMirrors } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import {
@@ -130,7 +135,13 @@ export function syncDiscoverExperiencedFromArchive(): void {
   if (changed) writeExperiencedSet(set);
 }
 
-export function filterDiscoverMirrorsForViewer(items: DiscoverMirror[]): DiscoverMirror[] {
+export function filterDiscoverMirrorsForViewer(
+  items: DiscoverMirror[],
+  mode: DiscoverMode = DEFAULT_DISCOVER_MODE
+): DiscoverMirror[] {
+  if (!shouldHideExperiencedDiscoverItems(mode)) {
+    return items;
+  }
   syncDiscoverExperiencedFromArchive();
   const hidden = readExperiencedSet();
   return items.filter((item) => !hidden.has(normalizeDiscoverMirrorSlug(item.slug)));
@@ -138,23 +149,45 @@ export function filterDiscoverMirrorsForViewer(items: DiscoverMirror[]): Discove
 
 export async function fetchDiscoverMirrorsForViewer(options?: {
   targetCount?: number;
+  mode?: DiscoverMode;
+  randomSession?: string | null;
+  signal?: AbortSignal;
 }): Promise<
-  | { ok: true; items: DiscoverMirror[]; totalAvailable: number; allExperienced: boolean }
+  | {
+      ok: true;
+      items: DiscoverMirror[];
+      totalAvailable: number;
+      allExperienced: boolean;
+      mode: DiscoverMode;
+      randomSession?: string | null;
+      strongCuriosityReady: boolean;
+    }
   | { ok: false; status: number }
 > {
   const targetCount = options?.targetCount ?? DEFAULT_VIEWER_TARGET;
-  syncDiscoverExperiencedFromArchive();
-  const hidden = readExperiencedSet();
+  const mode = options?.mode ?? DEFAULT_DISCOVER_MODE;
+  const hideExperienced = shouldHideExperiencedDiscoverItems(mode);
+  if (hideExperienced) {
+    syncDiscoverExperiencedFromArchive();
+  }
+  const hidden = hideExperienced ? readExperiencedSet() : new Set<string>();
 
   const visible: DiscoverMirror[] = [];
   let offset = 0;
   let totalAvailable = 0;
+  let randomSession = options?.randomSession ?? null;
+  let strongCuriosityReady = false;
 
-  for (let page = 0; page < MAX_VIEWER_PAGES; page += 1) {
+  const maxPages = hideExperienced ? MAX_VIEWER_PAGES : 1;
+
+  for (let page = 0; page < maxPages; page += 1) {
     const result = await fetchDiscoverMirrors({
       limit: VIEWER_PAGE_SIZE,
       offset,
       revalidateSeconds: 0,
+      mode,
+      randomSession: mode === 'random' ? randomSession : null,
+      signal: options?.signal,
     });
     if (!result.ok) {
       return visible.length > 0
@@ -163,11 +196,16 @@ export async function fetchDiscoverMirrorsForViewer(options?: {
             items: visible,
             totalAvailable,
             allExperienced: totalAvailable > 0 && visible.length === 0,
+            mode,
+            randomSession,
+            strongCuriosityReady,
           }
         : { ok: false, status: result.status };
     }
 
     totalAvailable = result.data.total;
+    randomSession = result.data.randomSession ?? randomSession;
+    strongCuriosityReady = result.data.strongCuriosityReady;
     if (result.data.items.length === 0) break;
 
     for (const item of result.data.items) {
@@ -179,6 +217,9 @@ export async function fetchDiscoverMirrorsForViewer(options?: {
           items: visible,
           totalAvailable,
           allExperienced: false,
+          mode: result.data.mode,
+          randomSession,
+          strongCuriosityReady,
         };
       }
     }
@@ -191,6 +232,9 @@ export async function fetchDiscoverMirrorsForViewer(options?: {
     ok: true,
     items: visible,
     totalAvailable,
-    allExperienced: totalAvailable > 0 && visible.length === 0,
+    allExperienced: hideExperienced && totalAvailable > 0 && visible.length === 0,
+    mode,
+    randomSession,
+    strongCuriosityReady,
   };
 }

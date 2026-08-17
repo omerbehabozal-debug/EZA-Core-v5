@@ -103,5 +103,5 @@ def test_discover_still_does_not_import_semantics_or_exposure_counts():
     assert "yansi_signal_semantics" not in src
     assert "count_exposures_by_context" not in src
     assert "own_continuation" not in src
-    assert "return (-yansi, -epoch)" in src
-    assert "experienceStartedCount" not in src.split("def sort_key")[1].split("eligible.sort")[0]
+    assert "yansiCount" not in inspect.getsource(discover_mod.random_discover_sort_key)
+    assert "experienceStartedCount" not in inspect.getsource(discover_mod._order_eligible)

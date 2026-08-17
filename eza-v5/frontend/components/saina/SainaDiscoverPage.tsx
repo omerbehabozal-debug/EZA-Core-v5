@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
@@ -14,11 +14,23 @@ import {
   SAINA_DISCOVER_HERO_LINE_1,
   SAINA_DISCOVER_HERO_LINE_2,
   SAINA_DISCOVER_HERO_LINE_3,
+  SAINA_DISCOVER_INVALID_MODE,
+  SAINA_DISCOVER_STRONG_CURIOSITY_BODY,
+  SAINA_DISCOVER_STRONG_CURIOSITY_TITLE,
   SAINA_DISCOVER_TITLE,
 } from '@/lib/eza/mirror-network/discoverCopy';
 import { fetchDiscoverMirrorsForViewer } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
+import {
+  DEFAULT_DISCOVER_MODE,
+  discoverHrefForMode,
+  getOrCreateDiscoverRandomSession,
+  parseDiscoverModeFromSearch,
+  shouldApplyDiscoverResponse,
+  type DiscoverMode,
+} from '@/lib/eza/mirror-network/discoverModes';
 import SainaDiscoverList from '@/components/saina/SainaDiscoverList';
+import SainaDiscoverModeSelector from '@/components/saina/SainaDiscoverModeSelector';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
@@ -57,6 +69,11 @@ export default function SainaDiscoverPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [allExperienced, setAllExperienced] = useState(false);
+  const [mode, setMode] = useState<DiscoverMode>(DEFAULT_DISCOVER_MODE);
+  const [modeInvalid, setModeInvalid] = useState(false);
+  const [strongCuriosityReady, setStrongCuriosityReady] = useState(false);
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
@@ -157,11 +174,30 @@ export default function SainaDiscoverPage() {
     onAnalysisModelChange: setAnalysisModelId,
   });
 
-  const loadDiscover = useCallback(async () => {
+  const loadDiscover = useCallback(async (nextMode: DiscoverMode) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     setLoading(true);
     setError(false);
-    const result = await fetchDiscoverMirrorsForViewer({ targetCount: 24 });
+    setItems([]);
+    setAllExperienced(false);
+    setStrongCuriosityReady(false);
+    const randomSession =
+      nextMode === 'random' ? getOrCreateDiscoverRandomSession() : null;
+    const result = await fetchDiscoverMirrorsForViewer({
+      targetCount: 24,
+      mode: nextMode,
+      randomSession,
+      signal: controller.signal,
+    });
+    if (!shouldApplyDiscoverResponse(requestId, requestIdRef.current)) {
+      return;
+    }
     if (!result.ok) {
+      if (controller.signal.aborted) return;
       setError(true);
       setItems([]);
       setAllExperienced(false);
@@ -170,12 +206,49 @@ export default function SainaDiscoverPage() {
     }
     setItems(result.items);
     setAllExperienced(result.allExperienced);
+    setStrongCuriosityReady(result.strongCuriosityReady);
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    void loadDiscover();
+  const applySearchMode = useCallback(() => {
+    const parsed = parseDiscoverModeFromSearch(
+      typeof window === 'undefined' ? '' : window.location.search
+    );
+    if (!parsed.ok) {
+      abortRef.current?.abort();
+      requestIdRef.current += 1;
+      setModeInvalid(true);
+      setMode(DEFAULT_DISCOVER_MODE);
+      setItems([]);
+      setLoading(false);
+      setError(false);
+      return;
+    }
+    setModeInvalid(false);
+    setMode(parsed.mode);
+    void loadDiscover(parsed.mode);
   }, [loadDiscover]);
+
+  const handleModeChange = useCallback(
+    (next: DiscoverMode) => {
+      if (next === mode && !modeInvalid) return;
+      setModeInvalid(false);
+      setMode(next);
+      router.replace(discoverHrefForMode(next), { scroll: false });
+      void loadDiscover(next);
+    },
+    [loadDiscover, mode, modeInvalid, router]
+  );
+
+  useEffect(() => {
+    applySearchMode();
+    const onPop = () => applySearchMode();
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      abortRef.current?.abort();
+    };
+  }, [applySearchMode]);
 
   useEffect(() => {
     refreshArchives();
@@ -189,11 +262,11 @@ export default function SainaDiscoverPage() {
 
   useEffect(() => {
     const refresh = () => {
-      void loadDiscover();
+      void loadDiscover(mode);
     };
     window.addEventListener(CHATS_UPDATED_EVENT, refresh);
     return () => window.removeEventListener(CHATS_UPDATED_EVENT, refresh);
-  }, [loadDiscover]);
+  }, [loadDiscover, mode]);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY_SAFE_ONLY);
@@ -250,7 +323,15 @@ export default function SainaDiscoverPage() {
           </p>
         </header>
 
-        {discoverLimitReached ? (
+        <SainaDiscoverModeSelector mode={mode} onChange={handleModeChange} />
+
+        {modeInvalid ? (
+          <div className="saina-discover-state saina-discover-state--error" role="alert">
+            <p className="saina-discover-state__title">{SAINA_DISCOVER_INVALID_MODE}</p>
+          </div>
+        ) : null}
+
+        {discoverLimitReached && !modeInvalid ? (
           <div
             className="saina-discover-state saina-discover-state--limit"
             data-testid="saina-discover-limit-banner"
@@ -269,17 +350,28 @@ export default function SainaDiscoverPage() {
           </div>
         ) : null}
 
-        {error ? (
+        {error && !modeInvalid ? (
           <div className="saina-discover-state saina-discover-state--error" role="alert">
             <p className="saina-discover-state__title">{SAINA_DISCOVER_ERROR}</p>
             <p className="saina-discover-state__body">{SAINA_DISCOVER_ERROR_RETRY}</p>
-            <button type="button" className="saina-discover-retry" onClick={() => void loadDiscover()}>
+            <button type="button" className="saina-discover-retry" onClick={() => void loadDiscover(mode)}>
               Tekrar dene
             </button>
           </div>
         ) : null}
 
-        {!error && !loading && items.length === 0 ? (
+        {!error && !modeInvalid && !loading && mode === 'strong_curiosity' && items.length === 0 ? (
+          <div
+            className="saina-discover-state"
+            data-testid="saina-discover-strong-curiosity-pending"
+            data-strong-curiosity-ready={strongCuriosityReady ? 'true' : 'false'}
+          >
+            <p className="saina-discover-state__title">{SAINA_DISCOVER_STRONG_CURIOSITY_TITLE}</p>
+            <p className="saina-discover-state__body">{SAINA_DISCOVER_STRONG_CURIOSITY_BODY}</p>
+          </div>
+        ) : null}
+
+        {!error && !modeInvalid && mode !== 'strong_curiosity' && items.length === 0 && !loading ? (
           <div className="saina-discover-state" data-testid="saina-discover-empty">
             <p className="saina-discover-state__title">{SAINA_DISCOVER_EMPTY_TITLE}</p>
             <p className="saina-discover-state__body">
@@ -297,7 +389,9 @@ export default function SainaDiscoverPage() {
           </div>
         ) : null}
 
-        {!error && (loading || items.length > 0) ? (
+        {!error &&
+        !modeInvalid &&
+        (loading || (mode !== 'strong_curiosity' && items.length > 0)) ? (
           <SainaDiscoverList
             items={items}
             loading={loading}

@@ -336,11 +336,18 @@ def test_public_metrics_and_ui_contract_unchanged():
 def test_discover_does_not_import_normalization():
     src = inspect.getsource(discover_mod)
     assert "yansi_normalization" not in src
+    assert "yansi_strong_curiosity_candidate" not in src
+    assert "yansi_strong_curiosity_shadow" not in src
+    assert "yansi_strong_curiosity_evaluation" not in src
+    assert "yansi_strong_curiosity_policy" not in src
+    assert "yansi_strong_curiosity_final_shadow" not in src
+    assert "yansi_strong_curiosity_production_shadow" not in src
+    assert "yansi_strong_curiosity_staging_seed" not in src
+    assert "seed_strong_curiosity" not in src
     assert "get_yansi_normalized_signal_evidence" not in src
-    assert "return (-yansi, -epoch)" in src
-    sort_src = src.split("def sort_key")[1].split("eligible.sort")[0]
-    assert "experienceStartedCount" not in sort_src
-    assert "rankingEligible" not in sort_src
+    assert "yansiCount" not in inspect.getsource(discover_mod.random_discover_sort_key)
+    assert "experienceStartedCount" not in inspect.getsource(discover_mod._order_eligible)
+    assert "rankingEligible" not in inspect.getsource(discover_mod._order_eligible)
 
 
 def test_rate_limit_hardening_is_wired():
@@ -408,6 +415,10 @@ async def test_query_time_self_and_unique_from_events(db):
         patch(
             "backend.services.mirror_network.yansi_normalization.get_public_frozen_journey_artifact",
             new=_lookup,
+        ),
+        patch(
+            "backend.services.mirror_network.yansi_normalization.get_public_frozen_journey_artifact_batch",
+            new=AsyncMock(return_value={("yansi-a", 1): _artifact()}),
         ),
         patch(
             "backend.services.mirror_network.yansi_normalization._load_nodes_by_slug",

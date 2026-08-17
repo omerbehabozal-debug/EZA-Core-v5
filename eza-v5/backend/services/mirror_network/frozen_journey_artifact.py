@@ -273,6 +273,21 @@ def assert_frozen_content_immutable(
             )
 
 
+def _internal_step_from_row(row: MirrorJourneyStep) -> dict[str, Any]:
+    return {
+        "stepIndex": int(row.step_index),
+        "sourceOrder": row.source_order,
+        "sourceUserMessageId": row.source_user_message_id,
+        "sourceAssistantMessageId": row.source_assistant_message_id,
+        "publicQuestion": row.public_question,
+        "publicAnswer": row.public_answer,
+        "questionHash": row.question_hash,
+        "answerHash": row.answer_hash,
+        "sanitizationFlags": row.sanitization_flags,
+        "ezaSnapshot": getattr(row, "eza_snapshot", None),
+    }
+
+
 async def list_frozen_steps_for_version(
     db: AsyncSession,
     *,
@@ -292,23 +307,43 @@ async def list_frozen_steps_for_version(
         )
         .order_by(MirrorJourneyStep.step_index.asc())
     )
-    rows = list(result.scalars().all())
-    out: list[dict[str, Any]] = []
-    for row in rows:
-        out.append(
-            {
-                "stepIndex": int(row.step_index),
-                "sourceOrder": row.source_order,
-                "sourceUserMessageId": row.source_user_message_id,
-                "sourceAssistantMessageId": row.source_assistant_message_id,
-                "publicQuestion": row.public_question,
-                "publicAnswer": row.public_answer,
-                "questionHash": row.question_hash,
-                "answerHash": row.answer_hash,
-                "sanitizationFlags": row.sanitization_flags,
-                "ezaSnapshot": getattr(row, "eza_snapshot", None),
-            }
-        )
+    return [_internal_step_from_row(row) for row in result.scalars().all()]
+
+
+async def list_frozen_steps_for_versions_batch(
+    db: AsyncSession,
+    pairs: Sequence[tuple[str, int]],
+) -> dict[tuple[str, int], list[dict[str, Any]]]:
+    """
+    One steps query for a page of slug+version pairs.
+
+    Same row projection as list_frozen_steps_for_version.
+    Does not change GET …/frozen.
+    """
+    wanted: set[tuple[str, int]] = set()
+    slugs: list[str] = []
+    seen_slugs: set[str] = set()
+    for slug, version in pairs:
+        key = ((slug or "").strip().lower(), int(version or 0))
+        if not key[0] or key[1] < 1 or key in wanted:
+            continue
+        wanted.add(key)
+        if key[0] not in seen_slugs:
+            seen_slugs.add(key[0])
+            slugs.append(key[0])
+    out: dict[tuple[str, int], list[dict[str, Any]]] = {key: [] for key in wanted}
+    if not slugs:
+        return out
+    result = await db.execute(
+        select(MirrorJourneyStep)
+        .where(MirrorJourneyStep.journey_slug.in_(slugs))
+        .order_by(MirrorJourneyStep.step_index.asc())
+    )
+    for row in result.scalars().all():
+        key = (str(row.journey_slug).strip().lower(), int(row.journey_version))
+        if key not in wanted:
+            continue
+        out[key].append(_internal_step_from_row(row))
     return out
 
 
@@ -444,24 +479,19 @@ def to_public_frozen_journey_artifact(
     }
 
 
-async def get_frozen_journey_artifact(
-    db: AsyncSession,
+def assemble_frozen_journey_artifact_from_loaded(
+    node: MirrorNetworkNode,
     *,
-    slug: str,
-    journey_version: int | None = None,
+    journey_version: int | None,
+    steps: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any] | None:
     """
-    Internal durable freeze package (includes provenance).
+    Same freeze/replay assembly as get_frozen_journey_artifact, without I/O.
 
-    Does not require JourneyGenerationRecord. Returns None if not frozen.
-    Public HTTP must pass this through to_public_frozen_journey_artifact().
+    Used by the public single-slug path and by the internal batch helper.
     """
-    from backend.services.mirror_network.repository import get_mirror_network_node_by_slug
     from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
 
-    node = await get_mirror_network_node_by_slug(db, slug)
-    if node is None:
-        return None
     if getattr(node, "artifact_kind", None) != ARTIFACT_KIND_JOURNEY_V1:
         return None
 
@@ -482,15 +512,13 @@ async def get_frozen_journey_artifact(
 
     public = _as_mapping(getattr(node, "public_payload", None))
     landing = _as_mapping(frozen.get("publicLanding"))
-    steps = await list_frozen_steps_for_version(
-        db, journey_slug=node.slug, journey_version=version
-    )
-    selected_count = int(frozen.get("selectedCount") or len(steps) or 0)
+    step_rows = [dict(row) for row in steps] if steps else []
+    selected_count = int(frozen.get("selectedCount") or len(step_rows) or 0)
     safety_ok = evaluate_mirror_network_safety(node).passed
     replay_ready = is_frozen_replay_ready(
         freeze_status=str(frozen.get("freezeStatus") or getattr(node, "freeze_status", None)),
         selected_count=selected_count,
-        steps=steps,
+        steps=step_rows,
         node_publicly_servable=safety_ok,
     )
     return {
@@ -519,7 +547,7 @@ async def get_frozen_journey_artifact(
         if frozen.get("blockEnd") is not None
         else getattr(node, "window_end", None),
         "selectedCount": selected_count,
-        "selectedSteps": steps if replay_ready else [],
+        "selectedSteps": step_rows if replay_ready else [],
         "publicTitle": landing.get("publicTitle")
         or (public.get("publicTitle") if version == node_version else None)
         or (node.card_title if version == node_version else None),
@@ -558,6 +586,43 @@ async def get_frozen_journey_artifact(
     }
 
 
+async def get_frozen_journey_artifact(
+    db: AsyncSession,
+    *,
+    slug: str,
+    journey_version: int | None = None,
+) -> dict[str, Any] | None:
+    """
+    Internal durable freeze package (includes provenance).
+
+    Does not require JourneyGenerationRecord. Returns None if not frozen.
+    Public HTTP must pass this through to_public_frozen_journey_artifact().
+    """
+    from backend.services.mirror_network.repository import get_mirror_network_node_by_slug
+
+    node = await get_mirror_network_node_by_slug(db, slug)
+    if node is None:
+        return None
+    node_version = int(getattr(node, "journey_version", None) or 1)
+    version = int(journey_version) if journey_version is not None else node_version
+    frozen = read_frozen_journey_artifact_from_private(
+        _as_mapping(getattr(node, "private_payload", None)),
+        journey_version=version,
+    )
+    if frozen is None and version == node_version and node_is_frozen(node):
+        return None
+    if frozen is None:
+        return None
+    if not node_is_frozen(node) and version == node_version:
+        return None
+    steps = await list_frozen_steps_for_version(
+        db, journey_slug=node.slug, journey_version=version
+    )
+    return assemble_frozen_journey_artifact_from_loaded(
+        node, journey_version=version, steps=steps
+    )
+
+
 async def get_public_frozen_journey_artifact(
     db: AsyncSession,
     *,
@@ -571,6 +636,63 @@ async def get_public_frozen_journey_artifact(
     if internal is None:
         return None
     return to_public_frozen_journey_artifact(internal)
+
+
+async def get_public_frozen_journey_artifact_batch(
+    db: AsyncSession,
+    items: Sequence[tuple[str, int]],
+    *,
+    nodes_by_slug: Mapping[str, MirrorNetworkNode] | None = None,
+) -> dict[tuple[str, int], dict[str, Any]]:
+    """
+    Internal page loader for Phase 6.5/7.x evaluation.
+
+    Reuses already-loaded nodes when provided, then one steps query.
+    Same replayReady / selectedCount 6–8 gates as GET …/frozen via
+    to_public_frozen_journey_artifact. Does not change that HTTP handler.
+    """
+    pairs: list[tuple[str, int]] = []
+    seen: set[tuple[str, int]] = set()
+    for slug, version in items:
+        key = ((slug or "").strip().lower(), int(version or 0))
+        if not key[0] or key[1] < 1 or key in seen:
+            continue
+        seen.add(key)
+        pairs.append(key)
+    if not pairs:
+        return {}
+
+    loaded: dict[str, MirrorNetworkNode] = {
+        str(slug).strip().lower(): node
+        for slug, node in (nodes_by_slug or {}).items()
+        if node is not None
+    }
+    missing = sorted({slug for slug, _ in pairs if slug not in loaded})
+    if missing:
+        result = await db.execute(
+            select(MirrorNetworkNode).where(MirrorNetworkNode.slug.in_(missing))
+        )
+        for node in result.scalars().all():
+            loaded[str(node.slug).strip().lower()] = node
+
+    steps_by_key = await list_frozen_steps_for_versions_batch(db, pairs)
+    out: dict[tuple[str, int], dict[str, Any]] = {}
+    for slug, version in pairs:
+        node = loaded.get(slug)
+        if node is None:
+            continue
+        internal = assemble_frozen_journey_artifact_from_loaded(
+            node,
+            journey_version=version,
+            steps=steps_by_key.get((slug, version), []),
+        )
+        if internal is None:
+            continue
+        public = to_public_frozen_journey_artifact(internal)
+        if public is None:
+            continue
+        out[(slug, version)] = public
+    return out
 
 
 async def list_published_journey_nodes_for_conversation(
