@@ -84,8 +84,8 @@ export default function SainaDiscoverPage() {
   const [strongCuriosityReady, setStrongCuriosityReady] = useState(false);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
-  const scrollRootRef = useRef<HTMLDivElement | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const scrollRootRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
   const hasMoreRef = useRef(false);
   const randomSessionRef = useRef<string | null>(null);

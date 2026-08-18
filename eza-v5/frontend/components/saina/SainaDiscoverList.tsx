@@ -14,7 +14,7 @@ export type SainaDiscoverListProps = {
   loadingMore?: boolean;
   loadMoreError?: boolean;
   onRetryLoadMore?: () => void;
-  sentinelRef?: RefObject<HTMLDivElement | null>;
+  sentinelRef?: RefObject<HTMLDivElement>;
   discoverLimitReached?: boolean;
   onDiscoverLimit?: () => void;
 };
