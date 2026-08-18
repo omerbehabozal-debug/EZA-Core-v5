@@ -404,7 +404,8 @@ def evaluate_strong_curiosity_final_shadow(
         },
     }
     dependence = {
-        name: _pairwise_agreement(final_pos, values) for name, values in series.items()
+        name: _pairwise_agreement(final_pos, values, series_key=name)
+        for name, values in series.items()
     }
     started_dep = dependence["rankingEligibleStartedCount"]
     mass_before = final_pos.get("mass-popularity", 99)

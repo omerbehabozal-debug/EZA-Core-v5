@@ -28,6 +28,9 @@ from backend.services.mirror_network.yansi_strong_curiosity_candidate import (
     FORBIDDEN_CANDIDATE_SCORE_KEYS,
     build_strong_curiosity_candidate,
 )
+from backend.services.mirror_network.yansi_strong_curiosity_pairwise_diagnostic import (
+    pairwise_volume_agreement_diagnostic,
+)
 from backend.services.mirror_network.yansi_strong_curiosity_shadow import (
     FORBIDDEN_SHADOW_SCORE_KEYS,
     HIGH_VOLUME_DEPENDENCE_RATIO,
@@ -645,32 +648,18 @@ def _family_kind(row: dict[str, Any]) -> str:
     return str(bucket or "unclassified")
 
 
-def _pairwise_agreement(positions: dict[str, int], volumes: dict[str, float]) -> dict[str, Any]:
-    slugs = [slug for slug in positions if slug in volumes]
-    concordant = 0
-    comparable = 0
-    for left, right in combinations(slugs, 2):
-        delta_volume = volumes[left] - volumes[right]
-        if delta_volume == 0:
-            continue
-        comparable += 1
-        delta_pos = positions[left] - positions[right]
-        if (delta_volume > 0 and delta_pos < 0) or (delta_volume < 0 and delta_pos > 0):
-            concordant += 1
-    ratio = (concordant / comparable) if comparable else None
-    flag = (
-        "HIGH_MONOTONIC_DEPENDENCE"
-        if ratio is not None and ratio >= DEPENDENCE_WARNING_RATIO
-        else "NOT_PROVEN"
+def _pairwise_agreement(
+    positions: dict[str, int],
+    volumes: dict[str, float],
+    *,
+    series_key: str = "default",
+) -> dict[str, Any]:
+    return pairwise_volume_agreement_diagnostic(
+        positions,
+        volumes,
+        series_key=series_key,
+        warning_ratio=DEPENDENCE_WARNING_RATIO,
     )
-    return {
-        "comparablePairs": comparable,
-        "concordantWithHigherVolumeFirst": concordant,
-        "agreementRatio": ratio,
-        "dependence": flag,
-        "warningThreshold": DEPENDENCE_WARNING_RATIO,
-        "thresholdKind": "engineering_warning_not_quality",
-    }
 
 
 def _series_from_candidates(candidates: Sequence[dict[str, Any]]) -> dict[str, dict[str, float]]:
@@ -1087,7 +1076,7 @@ def evaluate_strong_curiosity_shadow(
         strategy = result["strategy"]
         pos = _positions(result)
         deps = {
-            name: _pairwise_agreement(pos, values)
+            name: _pairwise_agreement(pos, values, series_key=f"{strategy}:{name}")
             for name, values in series.items()
             if values
         }

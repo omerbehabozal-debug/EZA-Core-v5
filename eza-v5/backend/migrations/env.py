@@ -16,6 +16,7 @@ sys.path.insert(0, str(BASE_DIR))
 # Import settings and Base model
 from backend.config import get_settings
 from backend.core.utils.dependencies import Base
+from backend.migrations.alembic_version_capacity import ensure_alembic_version_capacity
 
 # Alembic Config object
 config = context.config
@@ -85,6 +86,8 @@ def run_migrations_online() -> None:
         )
 
         with context.begin_transaction():
+            # Must run before Alembic persists any revision. Default version_num is VARCHAR(32).
+            ensure_alembic_version_capacity(connection, apply=True)
             context.run_migrations()
 
 

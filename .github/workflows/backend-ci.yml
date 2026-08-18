@@ -15,6 +15,21 @@ jobs:
       run:
         working-directory: eza-v5/backend
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: eza_ci
+          POSTGRES_DB: eza_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eza_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,6 +50,8 @@ jobs:
           EZA_ENV: "ci"
           # eza-v5 must be importable as the `backend` package root
           PYTHONPATH: ${{ github.workspace }}/eza-v5
+          # Disposable GitHub service DB for migration reproducibility (not production).
+          EZA_MIGRATION_TEST_DATABASE_URL: postgresql+psycopg2://eza_ci@localhost:5432/eza_ci
         run: |
           python -m pytest tests_core \
             tests_security/test_jwt_production_fail_closed.py \
@@ -75,6 +92,8 @@ jobs:
             tests/test_yansi_strong_curiosity_production_shadow_phase743.py \
             tests/test_yansi_strong_curiosity_staging_seed_phase743a.py \
             tests/test_yansi_strong_curiosity_author_concentration_phase743c.py \
+            tests/test_yansi_strong_curiosity_diagnostic_scale_phase743d.py \
+            tests/test_alembic_version_capacity_phase743d.py \
             tests/test_mirror_network_impact.py \
             tests/test_mirror_network_parent_lineage.py \
             tests/test_mirror_network_discover.py \

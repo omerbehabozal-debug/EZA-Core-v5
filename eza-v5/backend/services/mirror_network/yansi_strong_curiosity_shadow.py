@@ -20,6 +20,9 @@ from backend.services.mirror_network.yansi_strong_curiosity_candidate import (
     LOW_SAMPLE_STARTED_THRESHOLD,
     evaluate_discover_strong_curiosity_pool,
 )
+from backend.services.mirror_network.yansi_strong_curiosity_pairwise_diagnostic import (
+    pairwise_volume_agreement_diagnostic,
+)
 
 ShadowStrategy = Literal[
     "control_input_order",
@@ -619,30 +622,17 @@ def _top_slugs(result: dict[str, Any], k: int) -> list[str]:
 
 
 def _pairwise_volume_agreement(
-    positions: dict[str, int], volumes: dict[str, int]
+    positions: dict[str, int],
+    volumes: dict[str, int],
+    *,
+    series_key: str = "default",
 ) -> dict[str, Any]:
-    slugs = [slug for slug in positions if slug in volumes]
-    concordant = 0
-    comparable = 0
-    for left, right in combinations(slugs, 2):
-        delta_volume = volumes[left] - volumes[right]
-        if delta_volume == 0:
-            continue
-        comparable += 1
-        delta_pos = positions[left] - positions[right]
-        # Higher volume with better (lower) ordinal is concordance with popularity.
-        if (delta_volume > 0 and delta_pos < 0) or (delta_volume < 0 and delta_pos > 0):
-            concordant += 1
-    ratio = (concordant / comparable) if comparable else None
-    dependence = "HIGH_MONOTONIC_DEPENDENCE" if (
-        ratio is not None and ratio >= HIGH_VOLUME_DEPENDENCE_RATIO
-    ) else "NOT_PROVEN"
-    return {
-        "comparablePairs": comparable,
-        "concordantWithHigherVolumeFirst": concordant,
-        "agreementRatio": ratio,
-        "dependence": dependence,
-    }
+    return pairwise_volume_agreement_diagnostic(
+        positions,
+        volumes,
+        series_key=series_key,
+        warning_ratio=HIGH_VOLUME_DEPENDENCE_RATIO,
+    )
 
 
 def compare_shadow_strategy_results(
@@ -709,12 +699,20 @@ def compare_shadow_strategy_results(
         popularity.append(
             {
                 "strategy": row["strategy"],
-                "vsRawStartedCount": _pairwise_volume_agreement(positions, volume_started),
+                "vsRawStartedCount": _pairwise_volume_agreement(
+                    positions, volume_started, series_key=f"{row['strategy']}:vsRawStartedCount"
+                ),
                 "vsRawDirectChildYansiCount": _pairwise_volume_agreement(
-                    positions, volume_children
+                    positions,
+                    volume_children,
+                    series_key=f"{row['strategy']}:vsRawDirectChildYansiCount",
                 ),
                 "vsLegacyYansiCount": (
-                    _pairwise_volume_agreement(positions, volume_legacy)
+                    _pairwise_volume_agreement(
+                        positions,
+                        volume_legacy,
+                        series_key=f"{row['strategy']}:vsLegacyYansiCount",
+                    )
                     if volume_legacy
                     else {"availability": "UNAVAILABLE"}
                 ),
@@ -737,7 +735,9 @@ def compare_shadow_strategy_results(
                 {
                     "strategy": row["strategy"],
                     "olderVolumeBias": _pairwise_volume_agreement(
-                        _positions(row), numeric_age
+                        _positions(row),
+                        numeric_age,
+                        series_key=f"{row['strategy']}:olderVolumeBias",
                     )
                     if numeric_age
                     else {"availability": "UNAVAILABLE"},

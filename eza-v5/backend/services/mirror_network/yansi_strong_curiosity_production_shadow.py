@@ -606,7 +606,10 @@ def evaluate_production_corpus_shadow(
             if (age := _age_days(row)) is not None
         },
     }
-    dependence = {name: _pairwise_agreement(final_pos, values) for name, values in series.items()}
+    dependence = {
+        name: _pairwise_agreement(final_pos, values, series_key=name)
+        for name, values in series.items()
+    }
 
     started_board = _leaderboard(pool, volume=series["publicStartedCount"], descending=True)
     child_board = _leaderboard(pool, volume=series["directChildYansiCount"], descending=True)
