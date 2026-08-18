@@ -10,6 +10,12 @@
 
 import type { DiscoverMode } from '@/lib/eza/mirror-network/discoverModes';
 import { DEFAULT_DISCOVER_MODE, shouldHideExperiencedDiscoverItems } from '@/lib/eza/mirror-network/discoverModes';
+import {
+  DISCOVER_PAGE_SIZE,
+  canRequestDiscoverOffset,
+  discoverPageHasMore,
+  nextDiscoverPageOffset,
+} from '@/lib/eza/mirror-network/discoverFeed';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import { fetchDiscoverMirrors } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import {
@@ -145,6 +151,77 @@ export function filterDiscoverMirrorsForViewer(
   syncDiscoverExperiencedFromArchive();
   const hidden = readExperiencedSet();
   return items.filter((item) => !hidden.has(normalizeDiscoverMirrorSlug(item.slug)));
+}
+
+export type DiscoverPageForViewerResult =
+  | {
+      ok: true;
+      items: DiscoverMirror[];
+      rawCount: number;
+      totalAvailable: number;
+      allExperienced: boolean;
+      mode: DiscoverMode;
+      randomSession?: string | null;
+      strongCuriosityReady: boolean;
+      offset: number;
+      nextOffset: number;
+      hasMore: boolean;
+    }
+  | { ok: false; status: number };
+
+/**
+ * One Discover API page. Network fetch is not exposure.
+ * Rastlantısal may hide locally completed slugs after the page arrives.
+ */
+export async function fetchDiscoverPageForViewer(options: {
+  offset?: number;
+  mode?: DiscoverMode;
+  randomSession?: string | null;
+  signal?: AbortSignal;
+}): Promise<DiscoverPageForViewerResult> {
+  const mode = options.mode ?? DEFAULT_DISCOVER_MODE;
+  const offset = options.offset ?? 0;
+  if (!canRequestDiscoverOffset(offset)) {
+    return { ok: false, status: 0 };
+  }
+
+  const result = await fetchDiscoverMirrors({
+    limit: DISCOVER_PAGE_SIZE,
+    offset,
+    revalidateSeconds: 0,
+    mode,
+    randomSession: mode === 'random' ? options.randomSession ?? null : null,
+    signal: options.signal,
+  });
+  if (!result.ok) {
+    return { ok: false, status: result.status };
+  }
+
+  const rawItems = result.data.items;
+  const visible = filterDiscoverMirrorsForViewer(rawItems, result.data.mode);
+  const nextOffset = nextDiscoverPageOffset(offset);
+  const hasMore = discoverPageHasMore({
+    offset,
+    receivedCount: rawItems.length,
+    total: result.data.total,
+  });
+  return {
+    ok: true,
+    items: visible,
+    rawCount: rawItems.length,
+    totalAvailable: result.data.total,
+    allExperienced:
+      shouldHideExperiencedDiscoverItems(result.data.mode) &&
+      result.data.total > 0 &&
+      visible.length === 0 &&
+      !hasMore,
+    mode: result.data.mode,
+    randomSession: result.data.randomSession ?? options.randomSession ?? null,
+    strongCuriosityReady: result.data.strongCuriosityReady,
+    offset,
+    nextOffset,
+    hasMore,
+  };
 }
 
 export async function fetchDiscoverMirrorsForViewer(options?: {

@@ -92,6 +92,7 @@ describe('Phase 7.1 discover mode contract', () => {
     const files = [
       'lib/eza/mirror-network/fetchDiscoverMirrors.ts',
       'lib/eza/mirror-network/discoverExperiencedMirrors.ts',
+      'lib/eza/mirror-network/discoverFeed.ts',
       'components/saina/SainaDiscoverPage.tsx',
       'components/saina/SainaDiscoverCard.tsx',
     ];

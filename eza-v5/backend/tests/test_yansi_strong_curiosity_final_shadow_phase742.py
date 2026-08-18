@@ -521,7 +521,7 @@ def test_public_api_and_ui_unchanged():
     assert "policyVersion" not in dumped
     copy_path = EZA_V5 / "frontend" / "lib" / "eza" / "mirror-network" / "discoverCopy.ts"
     text = copy_path.read_text(encoding="utf-8")
-    assert "Güçlü Merak henüz hazır değil." in text
+    assert "Güçlü Merak şu anda kullanılamıyor." in text
     item_fields = set(DiscoverMirrorItem.model_fields)
     assert "strongCuriosityScore" not in item_fields
     assert "reasonCodes" not in item_fields
@@ -618,7 +618,11 @@ async def test_live_modes_unchanged_and_placeholder_empty():
         random_b = await list_discover_mirrors(
             db, mode="random", limit=10, random_session="seed-stable-01"
         )
-        gm = await list_discover_mirrors(db, mode="strong_curiosity", limit=10)
+        with patch(
+            "backend.services.mirror_network.yansi_strong_curiosity_live.is_strong_curiosity_discover_enabled",
+            return_value=False,
+        ):
+            gm = await list_discover_mirrors(db, mode="strong_curiosity", limit=10)
 
     assert [item.slug for item in newest.items] == ["keep-me"]
     assert newest.items[0].experienceStartedCount == 140

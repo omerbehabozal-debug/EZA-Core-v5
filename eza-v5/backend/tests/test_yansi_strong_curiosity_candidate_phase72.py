@@ -462,7 +462,11 @@ async def test_discover_modes_remain_unranked_and_placeholder():
         random = await list_discover_mirrors(
             db, mode="random", limit=10, random_session="seed-stable-01"
         )
-        gm = await list_discover_mirrors(db, mode="strong_curiosity", limit=10)
+        with patch(
+            "backend.services.mirror_network.yansi_strong_curiosity_live.is_strong_curiosity_discover_enabled",
+            return_value=False,
+        ):
+            gm = await list_discover_mirrors(db, mode="strong_curiosity", limit=10)
 
     assert [item.slug for item in newest.items] == ["keep-me"]
     assert newest.items[0].experienceStartedCount == 140

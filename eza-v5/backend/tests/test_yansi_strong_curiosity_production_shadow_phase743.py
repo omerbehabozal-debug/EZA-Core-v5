@@ -358,7 +358,11 @@ async def test_rastlantisal_en_yeni_and_placeholder_unchanged():
         random_b = await list_discover_mirrors(
             db, mode="random", limit=10, random_session="seed-stable-01"
         )
-        gm = await list_discover_mirrors(db, mode="strong_curiosity", limit=10)
+        with patch(
+            "backend.services.mirror_network.yansi_strong_curiosity_live.is_strong_curiosity_discover_enabled",
+            return_value=False,
+        ):
+            gm = await list_discover_mirrors(db, mode="strong_curiosity", limit=10)
 
     assert DEFAULT_DISCOVER_MODE == "random"
     assert [item.slug for item in newest.items] == ["keep-me"]
@@ -388,7 +392,7 @@ def test_copy_placeholder_unchanged():
     text = (
         EZA_V5 / "frontend" / "lib" / "eza" / "mirror-network" / "discoverCopy.ts"
     ).read_text(encoding="utf-8")
-    assert "Güçlü Merak henüz hazır değil." in text
+    assert "Güçlü Merak şu anda kullanılamıyor." in text
 
 
 def test_markdown_and_artifact_roundtrip(report, tmp_path):

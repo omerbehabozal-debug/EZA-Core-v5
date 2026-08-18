@@ -186,6 +186,19 @@ class Settings(BaseSettings):
     def _strict_mirror_journey_v1(cls, value: Any) -> bool:
         return parse_strict_env_bool(value, field_name="EZA_MIRROR_JOURNEY_V1")
 
+    """Phase 7.5 Güçlü Merak live Discover ranking (default on). Env: STRONG_CURIOSITY_DISCOVER_ENABLED.
+    When false, mode=strong_curiosity fail-closes (empty, not Rastlantısal/En Yeni).
+    Strict parse: true/1/unset → on; false/0 → off; anything else → configuration error.
+    Requires process restart for Settings-backed values."""
+    STRONG_CURIOSITY_DISCOVER_ENABLED: bool = True
+
+    @field_validator("STRONG_CURIOSITY_DISCOVER_ENABLED", mode="before")
+    @classmethod
+    def _strict_strong_curiosity_discover(cls, value: Any) -> bool:
+        if value is None:
+            return True
+        return parse_strict_env_bool(value, field_name="STRONG_CURIOSITY_DISCOVER_ENABLED")
+
     # Pipeline Settings
     PIPELINE_TIMEOUT_SECONDS: float = 30.0  # Overall pipeline timeout
     STANDALONE_MAX_TOKENS: int = 2048  # Max tokens for standalone mode (increased for full responses)

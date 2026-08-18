@@ -450,17 +450,20 @@ async def test_public_metrics_still_projected_on_page():
         response = await list_discover_mirrors(db, mode="newest", limit=10)
     assert response.items[0].experienceStartedCount == 140
     assert response.items[0].directChildYansiCount == 7
-    src = inspect.getsource(list_discover_mirrors)
+    src = inspect.getsource(discover_mod._project_discover_page)
     assert "get_yansi_public_metrics_batch" in src
     assert "get_yansi_public_metrics(" not in src.replace("get_yansi_public_metrics_batch", "")
 
 
 @pytest.mark.asyncio
-async def test_strong_curiosity_is_empty_placeholder_not_legacy_ranking():
+async def test_strong_curiosity_disabled_fail_closes_not_legacy_ranking():
     popular = _root("hot")
     quiet = _root("quiet")
     db = _db([popular, quiet])
-    with _ready():
+    with patch(
+        "backend.services.mirror_network.yansi_strong_curiosity_live.is_strong_curiosity_discover_enabled",
+        return_value=False,
+    ), _ready():
         response = await list_discover_mirrors(db, mode="strong_curiosity", limit=10)
     assert response.mode == "strong_curiosity"
     assert response.strongCuriosityReady is False
@@ -468,7 +471,6 @@ async def test_strong_curiosity_is_empty_placeholder_not_legacy_ranking():
     assert response.total == 0
     db.execute.assert_not_called()
     src = inspect.getsource(list_discover_mirrors)
-    assert "evaluate_strong_curiosity" not in src
     assert "evaluate_discover_strong_curiosity_pool" not in src
     assert "run_strong_curiosity_shadow_ordering" not in src
     assert "yansi_strong_curiosity_shadow" not in inspect.getsource(discover_mod)

@@ -338,6 +338,9 @@ def test_live_discover_isolation_and_placeholder():
 async def test_strong_curiosity_still_placeholder():
     db = AsyncMock()
     with patch(
+        "backend.services.mirror_network.yansi_strong_curiosity_live.is_strong_curiosity_discover_enabled",
+        return_value=False,
+    ), patch(
         "backend.services.mirror_network.discover.load_discover_eligible_roots",
         new=AsyncMock(return_value=[]),
     ):

@@ -30,12 +30,16 @@ export const SAINA_DISCOVER_MODE_STRONG_CURIOSITY = 'Güçlü Merak';
 
 export const SAINA_DISCOVER_MODE_NEWEST = 'En Yeni';
 
-export const SAINA_DISCOVER_STRONG_CURIOSITY_TITLE = 'Güçlü Merak henüz hazır değil.';
+export const SAINA_DISCOVER_STRONG_CURIOSITY_TITLE = 'Güçlü Merak şu anda kullanılamıyor.';
 
 export const SAINA_DISCOVER_STRONG_CURIOSITY_BODY =
-  'Bu sıralama bir sonraki aşamada gelecek. Rastlantısal veya En Yeni ile bakabilirsin.';
+  'Rastlantısal veya En Yeni ile bakabilirsin.';
 
 export const SAINA_DISCOVER_INVALID_MODE = 'Bu Keşfet görünümü geçerli değil.';
+
+export const SAINA_DISCOVER_MORE_ERROR = 'Daha fazla Yansı şu an yüklenemedi.';
+
+export const SAINA_DISCOVER_MORE_RETRY = 'Tekrar dene';
 
 export function formatDiscoverYansiCount(count: number): string {
   const n = Math.max(0, Math.floor(count));

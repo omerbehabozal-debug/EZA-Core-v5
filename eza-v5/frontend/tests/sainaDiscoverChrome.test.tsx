@@ -16,6 +16,19 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/lib/eza/mirror-network/discoverExperiencedMirrors', () => ({
+  fetchDiscoverPageForViewer: vi.fn(async () => ({
+    ok: true,
+    items: [],
+    rawCount: 0,
+    totalAvailable: 0,
+    allExperienced: false,
+    mode: 'random',
+    randomSession: 'session-test-aa',
+    strongCuriosityReady: false,
+    offset: 0,
+    nextOffset: 24,
+    hasMore: false,
+  })),
   fetchDiscoverMirrorsForViewer: vi.fn(async () => ({
     ok: true,
     items: [],

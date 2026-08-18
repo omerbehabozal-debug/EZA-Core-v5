@@ -131,7 +131,8 @@ async def get_mirror_network_discover(
     """
     Public discover list — root Aynalar only.
 
-    Modes: random (default / Rastlantısal), newest, strong_curiosity (placeholder).
+    Modes: random (default / Rastlantısal), newest (En Yeni), strong_curiosity (Güçlü Merak).
+    Güçlü Merak uses the frozen Phase 7.4.2 policy when STRONG_CURIOSITY_DISCOVER_ENABLED.
     Never returns user identity, guest tokens, raw conversation, or private payload.
     """
     try:

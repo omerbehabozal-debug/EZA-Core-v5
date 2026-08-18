@@ -19,7 +19,7 @@ import {
   SAINA_DISCOVER_STRONG_CURIOSITY_TITLE,
   SAINA_DISCOVER_TITLE,
 } from '@/lib/eza/mirror-network/discoverCopy';
-import { fetchDiscoverMirrorsForViewer } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
+import { fetchDiscoverPageForViewer } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import {
   DEFAULT_DISCOVER_MODE,
@@ -29,6 +29,13 @@ import {
   shouldApplyDiscoverResponse,
   type DiscoverMode,
 } from '@/lib/eza/mirror-network/discoverModes';
+import {
+  DISCOVER_FIRST_EMPTY_FILL_PAGES,
+  appendDiscoverItems,
+  createDiscoverNextPageGate,
+  discoverPrefetchObserverOptions,
+  shouldAcceptDiscoverPage,
+} from '@/lib/eza/mirror-network/discoverFeed';
 import SainaDiscoverList from '@/components/saina/SainaDiscoverList';
 import SainaDiscoverModeSelector from '@/components/saina/SainaDiscoverModeSelector';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
@@ -67,6 +74,9 @@ export default function SainaDiscoverPage() {
 
   const [items, setItems] = useState<DiscoverMirror[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(false);
   const [allExperienced, setAllExperienced] = useState(false);
   const [mode, setMode] = useState<DiscoverMode>(DEFAULT_DISCOVER_MODE);
@@ -74,6 +84,14 @@ export default function SainaDiscoverPage() {
   const [strongCuriosityReady, setStrongCuriosityReady] = useState(false);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const scrollRootRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const offsetRef = useRef(0);
+  const hasMoreRef = useRef(false);
+  const randomSessionRef = useRef<string | null>(null);
+  const modeRef = useRef<DiscoverMode>(DEFAULT_DISCOVER_MODE);
+  const nextPageGateRef = useRef(createDiscoverNextPageGate());
+  const loadNextPageRef = useRef<() => void>(() => {});
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
@@ -180,35 +198,118 @@ export default function SainaDiscoverPage() {
     abortRef.current = controller;
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    nextPageGateRef.current.reset();
+    modeRef.current = nextMode;
+    offsetRef.current = 0;
+    hasMoreRef.current = false;
+    setHasMore(false);
     setLoading(true);
+    setLoadingMore(false);
+    setLoadMoreError(false);
     setError(false);
     setItems([]);
     setAllExperienced(false);
     setStrongCuriosityReady(false);
     const randomSession =
       nextMode === 'random' ? getOrCreateDiscoverRandomSession() : null;
-    const result = await fetchDiscoverMirrorsForViewer({
-      targetCount: 24,
-      mode: nextMode,
-      randomSession,
-      signal: controller.signal,
-    });
-    if (!shouldApplyDiscoverResponse(requestId, requestIdRef.current)) {
-      return;
+    randomSessionRef.current = randomSession;
+
+    const collected: DiscoverMirror[] = [];
+    let nextOffset = 0;
+    let pageHasMore = false;
+    let ready = false;
+    let experienced = false;
+    const maxPages = nextMode === 'random' ? DISCOVER_FIRST_EMPTY_FILL_PAGES : 1;
+
+    for (let page = 0; page < maxPages; page += 1) {
+      const result = await fetchDiscoverPageForViewer({
+        offset: nextOffset,
+        mode: nextMode,
+        randomSession: nextMode === 'random' ? randomSessionRef.current : null,
+        signal: controller.signal,
+      });
+      if (!shouldApplyDiscoverResponse(requestId, requestIdRef.current)) {
+        return;
+      }
+      if (!result.ok) {
+        if (controller.signal.aborted) return;
+        if (collected.length > 0) {
+          setItems(collected);
+          setLoading(false);
+          setLoadMoreError(true);
+          return;
+        }
+        setError(true);
+        setItems([]);
+        setAllExperienced(false);
+        setLoading(false);
+        return;
+      }
+      randomSessionRef.current = result.randomSession ?? randomSessionRef.current;
+      ready = result.strongCuriosityReady;
+      experienced = result.allExperienced;
+      const merged = appendDiscoverItems(collected, result.items);
+      collected.splice(0, collected.length, ...merged.items);
+      offsetRef.current = result.nextOffset;
+      nextOffset = result.nextOffset;
+      pageHasMore = result.hasMore;
+      hasMoreRef.current = pageHasMore;
+      if (collected.length > 0 || !pageHasMore) break;
     }
-    if (!result.ok) {
-      if (controller.signal.aborted) return;
-      setError(true);
-      setItems([]);
-      setAllExperienced(false);
-      setLoading(false);
-      return;
-    }
-    setItems(result.items);
-    setAllExperienced(result.allExperienced);
-    setStrongCuriosityReady(result.strongCuriosityReady);
+
+    setItems(collected);
+    setAllExperienced(experienced && collected.length === 0);
+    setStrongCuriosityReady(ready);
+    setHasMore(pageHasMore);
     setLoading(false);
+
+    if (pageHasMore) {
+      void loadNextPageRef.current();
+    }
   }, []);
+
+  const loadNextPage = useCallback(async () => {
+    if (!hasMoreRef.current) return;
+    if (!nextPageGateRef.current.tryBegin()) return;
+    const requestId = requestIdRef.current;
+    const expectedOffset = offsetRef.current;
+    const nextMode = modeRef.current;
+    setLoadMoreError(false);
+    setLoadingMore(true);
+    const result = await fetchDiscoverPageForViewer({
+      offset: expectedOffset,
+      mode: nextMode,
+      randomSession: nextMode === 'random' ? randomSessionRef.current : null,
+      signal: abortRef.current?.signal,
+    });
+    if (
+      !shouldAcceptDiscoverPage({
+        requestId,
+        currentId: requestIdRef.current,
+        expectedOffset,
+        receivedOffset: result.ok ? result.offset : expectedOffset,
+      })
+    ) {
+      nextPageGateRef.current.end();
+      setLoadingMore(false);
+      return;
+    }
+    nextPageGateRef.current.end();
+    setLoadingMore(false);
+    if (!result.ok) {
+      if (abortRef.current?.signal.aborted) return;
+      setLoadMoreError(true);
+      return;
+    }
+    randomSessionRef.current = result.randomSession ?? randomSessionRef.current;
+    setStrongCuriosityReady(result.strongCuriosityReady);
+    offsetRef.current = result.nextOffset;
+    hasMoreRef.current = result.hasMore;
+    setHasMore(result.hasMore);
+    setItems((prev) => appendDiscoverItems(prev, result.items).items);
+  }, []);
+
+  loadNextPageRef.current = loadNextPage;
 
   const applySearchMode = useCallback(() => {
     const parsed = parseDiscoverModeFromSearch(
@@ -249,6 +350,20 @@ export default function SainaDiscoverPage() {
       abortRef.current?.abort();
     };
   }, [applySearchMode]);
+
+  useEffect(() => {
+    if (loading || !hasMore || items.length === 0) return;
+    const root = scrollRootRef.current;
+    const target = sentinelRef.current;
+    if (!root || !target || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        loadNextPageRef.current();
+      }
+    }, discoverPrefetchObserverOptions(root));
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, items.length, loading]);
 
   useEffect(() => {
     refreshArchives();
@@ -311,7 +426,7 @@ export default function SainaDiscoverPage() {
           onAnalysisModelChange={setAnalysisModelId}
         />
 
-        <div className="saina-discover-content-scroll">
+        <div className="saina-discover-content-scroll" ref={scrollRootRef}>
           <div className="saina-discover-page" data-testid="saina-discover-page">
         <header className="saina-discover-hero">
           <p className="saina-discover-eyebrow">{SAINA_DISCOVER_TITLE}</p>
@@ -360,18 +475,27 @@ export default function SainaDiscoverPage() {
           </div>
         ) : null}
 
-        {!error && !modeInvalid && !loading && mode === 'strong_curiosity' && items.length === 0 ? (
+        {!error &&
+        !modeInvalid &&
+        !loading &&
+        mode === 'strong_curiosity' &&
+        items.length === 0 &&
+        !strongCuriosityReady ? (
           <div
             className="saina-discover-state"
             data-testid="saina-discover-strong-curiosity-pending"
-            data-strong-curiosity-ready={strongCuriosityReady ? 'true' : 'false'}
+            data-strong-curiosity-ready="false"
           >
             <p className="saina-discover-state__title">{SAINA_DISCOVER_STRONG_CURIOSITY_TITLE}</p>
             <p className="saina-discover-state__body">{SAINA_DISCOVER_STRONG_CURIOSITY_BODY}</p>
           </div>
         ) : null}
 
-        {!error && !modeInvalid && mode !== 'strong_curiosity' && items.length === 0 && !loading ? (
+        {!error &&
+        !modeInvalid &&
+        items.length === 0 &&
+        !loading &&
+        (mode !== 'strong_curiosity' || strongCuriosityReady) ? (
           <div className="saina-discover-state" data-testid="saina-discover-empty">
             <p className="saina-discover-state__title">{SAINA_DISCOVER_EMPTY_TITLE}</p>
             <p className="saina-discover-state__body">
@@ -389,12 +513,14 @@ export default function SainaDiscoverPage() {
           </div>
         ) : null}
 
-        {!error &&
-        !modeInvalid &&
-        (loading || (mode !== 'strong_curiosity' && items.length > 0)) ? (
+        {!error && !modeInvalid && (loading || items.length > 0) ? (
           <SainaDiscoverList
             items={items}
             loading={loading}
+            loadingMore={loadingMore}
+            loadMoreError={loadMoreError}
+            onRetryLoadMore={() => loadNextPageRef.current()}
+            sentinelRef={sentinelRef}
             discoverLimitReached={discoverLimitReached}
             onDiscoverLimit={handleOpenDiscoverUpgrade}
           />

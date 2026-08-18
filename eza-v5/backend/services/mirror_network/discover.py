@@ -2,15 +2,17 @@
 """
 Public Discover list — root Aynalar only.
 
-Phase 7.1: one pipeline, three modes (random / strong_curiosity / newest).
-Default = random (Rastlantısal). Ordering must not use yansiCount or Phase 6 signals.
-Güçlü Merak is a contract placeholder — not legacy ranking.
+Phase 7.1–7.5: one pipeline, three modes (random / strong_curiosity / newest).
+Default = random (Rastlantısal). Rastlantısal and En Yeni must not use yansiCount,
+Phase 6 signals, or the Strong Curiosity policy.
+Güçlü Merak uses the frozen Phase 7.4.2 layered policy when enabled.
 """
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import re
 import uuid
 from datetime import datetime
@@ -32,6 +34,8 @@ from backend.services.mirror_network.author_profile import (
 )
 from backend.services.mirror_network.frozen_journey_artifact import FREEZE_STATUS_FROZEN
 from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
+
+logger = logging.getLogger(__name__)
 
 _DISCOVER_FORBIDDEN_KEYS = frozenset(
     {
@@ -402,38 +406,10 @@ async def load_discover_eligible_roots(
     return eligible
 
 
-async def list_discover_mirrors(
+async def _project_discover_page(
     db: AsyncSession,
-    *,
-    limit: int = DEFAULT_DISCOVER_LIMIT,
-    offset: int = 0,
-    mode: str | None = None,
-    random_session: str | None = None,
-) -> DiscoverMirrorListResponse:
-    parsed_mode = parse_discover_mode(mode)
-    safe_limit = max(1, min(limit, MAX_DISCOVER_LIMIT))
-    safe_offset = max(0, min(offset, MAX_DISCOVER_OFFSET))
-    session = parse_random_session(random_session) if parsed_mode == DISCOVER_MODE_RANDOM else None
-
-    if parsed_mode == DISCOVER_MODE_STRONG_CURIOSITY:
-        payload = DiscoverMirrorListResponse(
-            items=[],
-            total=0,
-            mode=parsed_mode,
-            randomSession=None,
-            strongCuriosityReady=False,
-        )
-        leaked = _DISCOVER_FORBIDDEN_KEYS.intersection(payload.model_dump().keys())
-        if leaked:
-            raise RuntimeError(f"discover_response_privacy_violation:{','.join(sorted(leaked))}")
-        return payload
-
-    eligible = await load_discover_eligible_roots(db)
-    eligible = _order_eligible(
-        eligible, mode=parsed_mode, random_session=session or ""
-    )
-    page = eligible[safe_offset : safe_offset + safe_limit]
-
+    page: list[tuple[MirrorNetworkNode, str]],
+) -> list[DiscoverMirrorItem]:
     yansi_by_parent: dict[str, int] = {}
     if page:
         children = await _fetch_children_for_parents(
@@ -474,6 +450,88 @@ async def list_discover_mirrors(
                 ),
             )
         )
+    return items
+
+
+def _strong_curiosity_unavailable_response() -> DiscoverMirrorListResponse:
+    return DiscoverMirrorListResponse(
+        items=[],
+        total=0,
+        mode=DISCOVER_MODE_STRONG_CURIOSITY,
+        randomSession=None,
+        strongCuriosityReady=False,
+    )
+
+
+def _privacy_check(payload: DiscoverMirrorListResponse) -> DiscoverMirrorListResponse:
+    leaked = _DISCOVER_FORBIDDEN_KEYS.intersection(payload.model_dump().keys())
+    if leaked:
+        raise RuntimeError(f"discover_response_privacy_violation:{','.join(sorted(leaked))}")
+    return payload
+
+
+async def _list_strong_curiosity_discover(
+    db: AsyncSession,
+    *,
+    safe_limit: int,
+    safe_offset: int,
+) -> DiscoverMirrorListResponse:
+    try:
+        from backend.services.mirror_network.yansi_strong_curiosity_live import (
+            is_strong_curiosity_discover_enabled,
+            log_strong_curiosity_outcome,
+            order_eligible_roots_for_strong_curiosity,
+        )
+
+        if not is_strong_curiosity_discover_enabled():
+            log_strong_curiosity_outcome("disabled")
+            return _strong_curiosity_unavailable_response()
+
+        eligible = await load_discover_eligible_roots(db)
+        ranked = await order_eligible_roots_for_strong_curiosity(
+            db, eligible, page_offset=safe_offset
+        )
+        ordered = list(ranked.get("ordered") or [])
+        page = ordered[safe_offset : safe_offset + safe_limit]
+        items = await _project_discover_page(db, page)
+        return DiscoverMirrorListResponse(
+            items=items,
+            total=len(ordered),
+            mode=DISCOVER_MODE_STRONG_CURIOSITY,
+            randomSession=None,
+            strongCuriosityReady=True,
+        )
+    except Exception:
+        logger.warning("strong_curiosity_fail_closed", exc_info=False)
+        return _strong_curiosity_unavailable_response()
+
+
+async def list_discover_mirrors(
+    db: AsyncSession,
+    *,
+    limit: int = DEFAULT_DISCOVER_LIMIT,
+    offset: int = 0,
+    mode: str | None = None,
+    random_session: str | None = None,
+) -> DiscoverMirrorListResponse:
+    parsed_mode = parse_discover_mode(mode)
+    safe_limit = max(1, min(limit, MAX_DISCOVER_LIMIT))
+    safe_offset = max(0, min(offset, MAX_DISCOVER_OFFSET))
+    session = parse_random_session(random_session) if parsed_mode == DISCOVER_MODE_RANDOM else None
+
+    if parsed_mode == DISCOVER_MODE_STRONG_CURIOSITY:
+        return _privacy_check(
+            await _list_strong_curiosity_discover(
+                db, safe_limit=safe_limit, safe_offset=safe_offset
+            )
+        )
+
+    eligible = await load_discover_eligible_roots(db)
+    eligible = _order_eligible(
+        eligible, mode=parsed_mode, random_session=session or ""
+    )
+    page = eligible[safe_offset : safe_offset + safe_limit]
+    items = await _project_discover_page(db, page)
 
     payload = DiscoverMirrorListResponse(
         items=items,
@@ -482,7 +540,4 @@ async def list_discover_mirrors(
         randomSession=session,
         strongCuriosityReady=False,
     )
-    leaked = _DISCOVER_FORBIDDEN_KEYS.intersection(payload.model_dump().keys())
-    if leaked:
-        raise RuntimeError(f"discover_response_privacy_violation:{','.join(sorted(leaked))}")
-    return payload
+    return _privacy_check(payload)

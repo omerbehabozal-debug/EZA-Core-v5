@@ -47,6 +47,10 @@ jobs:
           tests/discoverExperiencedMirrors.test.ts
           tests/discoverModesPhase71.test.ts
           tests/sainaDiscoverModesPhase71.test.tsx
+          tests/sainaDiscoverStrongCuriosityPhase75.test.tsx
+          tests/discoverFeedPhase751.test.ts
+          tests/sainaDiscoverDeliveryPhase751.test.tsx
+          tests/yansiExposurePrefetchPhase751.test.tsx
           tests/mirrorPanelCopy.test.ts
           tests/conversationMeaningSummary.test.ts
           tests/mirrorDirectorPrA.test.ts

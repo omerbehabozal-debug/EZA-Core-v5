@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SainaDiscoverPage from '@/components/saina/SainaDiscoverPage';
-import { fetchDiscoverMirrorsForViewer } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
+import { fetchDiscoverPageForViewer } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
 import { DISCOVER_MODE_LABELS } from '@/lib/eza/mirror-network/discoverModes';
 import {
   SAINA_DISCOVER_MODE_NEWEST,
@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/lib/eza/mirror-network/discoverExperiencedMirrors', () => ({
-  fetchDiscoverMirrorsForViewer: vi.fn(),
+  fetchDiscoverPageForViewer: vi.fn(),
 }));
 
 vi.mock('@/context/AuthContext', () => ({
@@ -55,7 +55,7 @@ vi.mock('@/components/plan/IdentityModal', () => ({
   default: () => null,
 }));
 
-const fetchMock = vi.mocked(fetchDiscoverMirrorsForViewer);
+const fetchMock = vi.mocked(fetchDiscoverPageForViewer);
 
 function okResult(
   mode: 'random' | 'strong_curiosity' | 'newest',
@@ -72,11 +72,15 @@ function okResult(
       experienceStartedCount: 1,
       directChildYansiCount: 0,
     })),
+    rawCount: slugs.length,
     totalAvailable: slugs.length,
     allExperienced: false,
     mode,
     randomSession: mode === 'random' ? 'session-test-aa' : null,
     strongCuriosityReady: false,
+    offset: 0,
+    nextOffset: 24,
+    hasMore: false,
   };
 }
 
@@ -121,11 +125,15 @@ describe('Phase 7.1 Discover mode UI', () => {
         return {
           ok: true as const,
           items: [],
+          rawCount: 0,
           totalAvailable: 0,
           allExperienced: false,
           mode: 'strong_curiosity',
           randomSession: null,
           strongCuriosityReady: false,
+          offset: 0,
+          nextOffset: 24,
+          hasMore: false,
         };
       }
       if (options?.mode === 'newest') {

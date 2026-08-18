@@ -7,6 +7,7 @@ import inspect
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import func, select
@@ -163,7 +164,11 @@ async def test_seed_idempotency_cleanup_eligibility_and_coverage(db: AsyncSessio
     assert first["validation"]["selfPlay"] >= 1
     assert first["validation"]["authConcentrated"] >= 1
 
-    gm = await list_discover_mirrors(db, mode="strong_curiosity", limit=10)
+    with patch(
+        "backend.services.mirror_network.yansi_strong_curiosity_live.is_strong_curiosity_discover_enabled",
+        return_value=False,
+    ):
+        gm = await list_discover_mirrors(db, mode="strong_curiosity", limit=10)
     assert gm.items == []
     assert gm.total == 0
     assert gm.strongCuriosityReady is False

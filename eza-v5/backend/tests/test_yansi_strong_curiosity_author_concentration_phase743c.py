@@ -252,7 +252,7 @@ def test_live_discover_unchanged_and_does_not_import_diagnosis():
     assert DEFAULT_DISCOVER_MODE == "random"
     assert parse_discover_mode(None) == "random"
     assert "published_at" in inspect.getsource(discover_mod._newest_sort_key)
-    assert "Güçlü Merak henüz hazır değil." in (
+    assert "Güçlü Merak şu anda kullanılamıyor." in (
         Path(__file__).resolve().parents[2]
         / "frontend"
         / "lib"
@@ -266,6 +266,9 @@ def test_live_discover_unchanged_and_does_not_import_diagnosis():
 async def test_strong_curiosity_placeholder_and_no_public_api():
     db = AsyncMock()
     with patch(
+        "backend.services.mirror_network.yansi_strong_curiosity_live.is_strong_curiosity_discover_enabled",
+        return_value=False,
+    ), patch(
         "backend.services.mirror_network.discover.load_discover_eligible_roots",
         new=AsyncMock(return_value=[]),
     ):
