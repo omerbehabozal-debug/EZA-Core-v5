@@ -14,6 +14,13 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.compiler import compiles
 
+# Shared Base mapper registry — required before sqlite User queries.
+from backend.models.institution import Institution  # noqa: F401
+from backend.models.role import Role  # noqa: F401
+from backend.models.user import LegacyUser  # noqa: F401
+from backend.models.api_key import APIKey  # noqa: F401
+from backend.models.application import Application  # noqa: F401
+
 from backend.models.mirror_network import MirrorJourneyStep, MirrorNetworkNode
 from backend.models.production import User
 from backend.models.yansi_experience_event import (
@@ -303,6 +310,8 @@ def test_live_discover_does_not_import_seed():
     assert "yansi_strong_curiosity_staging_seed" not in src
     assert "seed_strong_curiosity_staging_corpus" not in list_src
     assert "yansi_strong_curiosity_staging_seed" not in router_src
+    assert "yansi_strong_curiosity_author_concentration_diagnosis" not in src
+    assert "yansi_strong_curiosity_author_concentration_diagnosis" not in router_src
 
 
 def test_phase742_and_743_versions_unchanged():
