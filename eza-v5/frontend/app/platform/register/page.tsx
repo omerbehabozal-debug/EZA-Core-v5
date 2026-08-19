@@ -8,8 +8,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 import { buildApiUrl } from '@/lib/apiUrl';
-import { isSainaAuthReturnPath } from '@/lib/eza/sainaIdentity';
+import {
+  isSainaAuthReturnPath,
+  resolveSafeAuthReturnPath,
+} from '@/lib/eza/sainaIdentity';
 import SainaRegisterView from '@/components/saina/SainaRegisterView';
 
 // Force dynamic rendering to avoid Suspense issues with search params
@@ -28,6 +32,7 @@ export default function PlatformRegisterPage() {
   const [returnPath, setReturnPath] = useState<string | null>(null);
   const [skinReady, setSkinReady] = useState(false);
   const router = useRouter();
+  const { setAuth } = useAuth();
 
   // Check for invitation token in URL (using window.location.search to avoid Suspense requirement)
   useEffect(() => {
@@ -107,12 +112,18 @@ export default function PlatformRegisterPage() {
       const data = await response.json();
       
       // Validate response
-      if (!data.access_token || !data.role) {
+      if (!data.access_token || !data.role || !data.user_id) {
         throw new Error('Invalid response from server');
       }
 
-      // Registration successful - redirect to login page
-      router.push('/platform/login?registered=true');
+      // Phase 8.3 — authenticate immediately from register JWT (no password replay).
+      setAuth(data.access_token, {
+        email: data.email || email.trim().toLowerCase(),
+        role: data.role,
+        user_id: data.user_id,
+        full_name: fullName.trim() || undefined,
+      });
+      router.push(resolveSafeAuthReturnPath(returnPath) || '/platform');
     } catch (err: any) {
       console.error('Register error:', err);
       if (err.message.includes('already exists') || err.message.includes('duplicate')) {

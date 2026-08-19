@@ -1,6 +1,6 @@
 /**
- * Bind guest conversation tree to authenticated user on login.
- * Preserves group headings, chat IDs, and mirror lineage — no duplicate groups/chats.
+ * Bind guest conversation tree to authenticated user on login/register.
+ * Preserves group headings, chat IDs, chat bodies, and mirror lineage proof.
  */
 
 import {
@@ -8,7 +8,9 @@ import {
   replaceConversationGroups,
 } from '@/lib/eza/conversation-tree/conversationGroups';
 import { claimGuestConversationGroups } from '@/lib/eza/conversation-tree/claimGuestConversationGroups';
+import { migrateGuestEzaPrefsToUser } from '@/lib/eza/conversation-tree/migrateGuestEzaPrefs';
 import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
+import { rotateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
 import {
   readChatArchives,
   replaceChatArchives,
@@ -19,6 +21,8 @@ export type MergeGuestConversationTreeInput = {
   userId: string;
   guestToken: string;
   authToken?: string | null;
+  /** When true (default), rotate guest token after successful claim attempt. */
+  rotateGuestTokenAfterClaim?: boolean;
 };
 
 export type MergeGuestConversationTreeResult = {
@@ -26,6 +30,9 @@ export type MergeGuestConversationTreeResult = {
   groupsClaimed: number;
   chatsUpdated: number;
   groupIdRemap: Record<string, string>;
+  claimAttempted: boolean;
+  claimOk: boolean;
+  guestTokenRotated: boolean;
 };
 
 function normalizeTitle(title: string): string {
@@ -67,8 +74,15 @@ function bindGuestChat(chat: ArchivedChat, groupIdRemap: Record<string, string>)
     return changed ? next : chat;
   }
 
+  const lineageProofToken =
+    next.treeMetadata?.lineageProofToken ?? next.mirrorOrigin?.lineageProofToken ?? null;
+
   const treeMetadata = next.treeMetadata
-    ? { ...next.treeMetadata, isGuestSession: false }
+    ? {
+        ...next.treeMetadata,
+        isGuestSession: false,
+        ...(lineageProofToken ? { lineageProofToken } : {}),
+      }
     : next.mirrorOrigin
       ? {
           groupId: next.groupId ?? null,
@@ -79,6 +93,7 @@ function bindGuestChat(chat: ArchivedChat, groupIdRemap: Record<string, string>)
           seedTopic: next.mirrorOrigin.seedTopic,
           seedCategory: next.mirrorOrigin.seedCategory,
           seedMood: next.mirrorOrigin.seedMood,
+          lineageProofToken,
           isGuestSession: false,
         }
       : undefined;
@@ -93,6 +108,7 @@ function bindGuestChat(chat: ArchivedChat, groupIdRemap: Record<string, string>)
 
 /**
  * Idempotent: guest groups gain userId; duplicate titles merge into existing user groups.
+ * Always attempts server claim when authToken is present (even if local empty).
  */
 export async function mergeGuestConversationTree(
   input: MergeGuestConversationTreeInput
@@ -102,6 +118,9 @@ export async function mergeGuestConversationTree(
     groupsClaimed: 0,
     chatsUpdated: 0,
     groupIdRemap: {},
+    claimAttempted: false,
+    claimOk: false,
+    guestTokenRotated: false,
   };
 
   if (typeof window === 'undefined') return empty;
@@ -115,10 +134,6 @@ export async function mergeGuestConversationTree(
   const userGroups = groups.filter((g) => g.userId === userId);
   const chats = readChatArchives();
   const hasGuestChats = chats.some(isGuestChat);
-
-  if (guestGroups.length === 0 && !hasGuestChats) {
-    return empty;
-  }
 
   const groupIdRemap: Record<string, string> = {};
   const groupsToRemove = new Set<string>();
@@ -156,27 +171,43 @@ export async function mergeGuestConversationTree(
     groupsToRemove.size > 0 ||
     updatedGroups.some((g, i) => g !== groups[i]);
 
-  if (!groupsChanged && chatsUpdated === 0) {
-    return empty;
-  }
+  const localWork = groupsChanged || chatsUpdated > 0 || guestGroups.length > 0 || hasGuestChats;
 
-  replaceConversationGroups(updatedGroups);
-  if (chatsUpdated > 0) {
-    replaceChatArchives(updatedChats);
-  }
-
-  if (input.authToken) {
-    try {
-      await claimGuestConversationGroups(guestToken);
-    } catch (error) {
-      console.warn('[mergeGuestConversationTree] claim-guest failed:', error);
+  if (groupsChanged || chatsUpdated > 0) {
+    replaceConversationGroups(updatedGroups);
+    if (chatsUpdated > 0) {
+      replaceChatArchives(updatedChats);
     }
   }
 
+  migrateGuestEzaPrefsToUser(userId);
+
+  let claimAttempted = false;
+  let claimOk = false;
+  if (input.authToken) {
+    claimAttempted = true;
+    try {
+      await claimGuestConversationGroups(guestToken);
+      claimOk = true;
+    } catch {
+      claimOk = false;
+    }
+  }
+
+  let guestTokenRotated = false;
+  const shouldRotate = input.rotateGuestTokenAfterClaim !== false;
+  if (shouldRotate && claimOk) {
+    rotateMirrorGuestToken();
+    guestTokenRotated = true;
+  }
+
   return {
-    merged: true,
+    merged: localWork || claimOk,
     groupsClaimed,
     chatsUpdated,
     groupIdRemap,
+    claimAttempted,
+    claimOk,
+    guestTokenRotated,
   };
 }

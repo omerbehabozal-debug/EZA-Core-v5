@@ -4,6 +4,7 @@ import '@/styles/saina-mirror.css';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { buildApiUrl } from '@/lib/apiUrl';
 import { buildSainaAuthHref, resolveSafeAuthReturnPath } from '@/lib/eza/sainaIdentity';
 import {
@@ -21,6 +22,13 @@ type SainaRegisterViewProps = {
   returnPath: string | null;
 };
 
+type RegisterTokenResponse = {
+  access_token?: string;
+  user_id?: string;
+  role?: string;
+  email?: string;
+};
+
 export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,6 +37,7 @@ export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { setAuth } = useAuth();
 
   const safeReturn = resolveSafeAuthReturnPath(returnPath);
   const loginHref = buildSainaAuthHref(safeReturn, 'login');
@@ -82,6 +91,22 @@ export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps
         throw new Error(detail);
       }
 
+      const data = (await response.json()) as RegisterTokenResponse;
+
+      // Phase 8.3 — backend already returns JWT; authenticate immediately (no second-login trap).
+      // Never persist or replay the password for a silent login.
+      if (data.access_token && data.user_id && data.role) {
+        setAuth(data.access_token, {
+          email: data.email || email.trim().toLowerCase(),
+          role: data.role,
+          user_id: data.user_id,
+          full_name: fullName.trim() || undefined,
+        });
+        router.push(safeReturn);
+        return;
+      }
+
+      // Fallback only if token material is absent — preserve return path.
       const loginReturn = `${buildSainaAuthHref(safeReturn, 'login')}&registered=true`;
       router.push(loginReturn);
     } catch (err: unknown) {

@@ -149,6 +149,57 @@ describe('mergeGuestConversationTree', () => {
     expect(listConversationGroups().filter((g) => g.title === 'Japonya')).toHaveLength(1);
   });
 
+  it('preserves lineageProofToken when binding guest chat from mirrorOrigin', async () => {
+    const group = createConversationGroup({
+      title: 'Japonya',
+      guestToken: GUEST_TOKEN,
+    });
+    upsertChatArchive({
+      id: 'chat-lineage',
+      title: 'Sokak Lambaları',
+      preview: 'Kyoto',
+      savedAt: new Date().toISOString(),
+      messageCount: 2,
+      messages: [
+        { id: 'm1', text: 'Merhaba', isUser: false },
+        { id: 'm2', text: 'Devam', isUser: true },
+      ],
+      groupId: group.id,
+      mirrorOrigin: {
+        startedFromMirrorId: 'slug-1',
+        parentMirrorId: 'slug-1',
+        rootMirrorId: 'slug-1',
+        seedTopic: 'Sokak Lambaları',
+        seedCategory: 'travel',
+        seedMood: 'discovery',
+        lineageProofToken: 'proof-token-uuid-abc',
+        isGuestSession: true,
+      },
+    });
+
+    await mergeGuestConversationTree({ userId: USER_ID, guestToken: GUEST_TOKEN });
+
+    const chat = readChatArchives().find((c) => c.id === 'chat-lineage');
+    expect(chat?.mirrorOrigin).toBeUndefined();
+    expect(chat?.treeMetadata?.lineageProofToken).toBe('proof-token-uuid-abc');
+    expect(chat?.treeMetadata?.startedFromMirrorId).toBe('slug-1');
+    expect(chat?.messages).toHaveLength(2);
+  });
+
+  it('attempts claim even when local guest state is empty', async () => {
+    const { claimGuestConversationGroups } = await import(
+      '@/lib/eza/conversation-tree/claimGuestConversationGroups'
+    );
+    const result = await mergeGuestConversationTree({
+      userId: USER_ID,
+      guestToken: GUEST_TOKEN,
+      authToken: 'jwt-test',
+      rotateGuestTokenAfterClaim: false,
+    });
+    expect(result.claimAttempted).toBe(true);
+    expect(claimGuestConversationGroups).toHaveBeenCalledWith(GUEST_TOKEN);
+  });
+
   it('does not leak private mirror fields when binding guest chat', async () => {
     const group = createConversationGroup({
       title: 'Japonya',

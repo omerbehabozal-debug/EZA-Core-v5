@@ -34,8 +34,13 @@ describe('sainaIdentity return URL helpers', () => {
     expect(resolveSafeAuthReturnPath('/standalone?chat=abc')).toBe('/standalone?chat=abc');
   });
 
-  it('resolveSafeAuthReturnPath rejects protocol-relative URLs', () => {
+  it('rejects protocol-relative URLs', () => {
     expect(resolveSafeAuthReturnPath('//evil.example')).toBe('/standalone/discover');
+  });
+
+  it('rejects absolute and backslash return URLs', () => {
+    expect(resolveSafeAuthReturnPath('https://evil.example')).toBe('/standalone/discover');
+    expect(resolveSafeAuthReturnPath('/\\evil')).toBe('/standalone/discover');
   });
 
   it('defaults empty auth return path to Keşfet home', () => {

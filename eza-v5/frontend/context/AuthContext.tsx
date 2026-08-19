@@ -8,7 +8,10 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { notifyAuthChanged } from '@/lib/eza/plan/planStore';
 import { mergeGuestConversationTree } from '@/lib/eza/conversation-tree/mergeGuestConversationTree';
-import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
+import {
+  peekMirrorGuestToken,
+  rotateMirrorGuestToken,
+} from '@/lib/eza/mirror-network/guestToken';
 
 // Proxy roles (operational users)
 export type ProxyRole = 'proxy_user' | 'reviewer' | 'auditor';
@@ -58,9 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const guestMergeRanRef = useRef(false);
 
   const bindGuestConversationTree = (token: string, user: UserInfo) => {
+    const guestToken = peekMirrorGuestToken();
+    if (!guestToken) return;
     void mergeGuestConversationTree({
       userId: user.user_id,
-      guestToken: getOrCreateMirrorGuestToken(),
+      guestToken,
       authToken: token,
     });
   };
@@ -108,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: (user.role as UserRole) || null,
     };
     setAuthState(newState);
+    guestMergeRanRef.current = true;
     
     // Persist to localStorage
     if (typeof window !== 'undefined') {
@@ -124,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setAuthState({ token: null, user: null, role: null });
+    guestMergeRanRef.current = false;
     
     // Clear localStorage
     if (typeof window !== 'undefined') {
@@ -132,6 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(USER_STORAGE_KEY);
         // Also clear legacy storage keys for backward compatibility
         localStorage.removeItem('eza_auth');
+        // Phase 8.3 — new anonymous identity after logout (shared-device isolation).
+        rotateMirrorGuestToken();
       } catch (error) {
         console.error('Failed to clear auth from localStorage:', error);
       }

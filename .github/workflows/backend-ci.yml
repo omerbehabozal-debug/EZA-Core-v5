@@ -101,6 +101,7 @@ jobs:
             tests/test_yansi_strong_curiosity_live_phase75.py \
             tests/test_yansi_discover_delivery_phase751.py \
             tests/test_phase82_share_discover_loop.py \
+            tests/test_phase83_guest_auth_continuity.py \
             tests/test_mirror_network_impact.py \
             tests/test_mirror_network_parent_lineage.py \
             tests/test_mirror_network_discover.py \

@@ -114,6 +114,9 @@ async def claim_guest_conversation_groups(
             merged += 1
             continue
         row.user_id = user_id
+        # Phase 8.3 — clear guest fingerprint after claim so the same token
+        # cannot be re-claimed into another account (idempotent for this user).
+        row.guest_token = None
         claimed.append(row)
         user_by_title[key] = row
 

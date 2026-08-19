@@ -20,10 +20,14 @@ export function buildSainaAuthHref(returnUrl: string, page: 'login' | 'register'
   return `/platform/${page}?return=${encodeURIComponent(safe)}`;
 }
 
-/** Validates post-login redirect target (relative path only). */
+/** Validates post-auth redirect target (same-origin relative path only). */
 export function resolveSafeAuthReturnPath(returnPath: string | null | undefined): string {
-  if (!returnPath?.startsWith('/')) return '/standalone/discover';
-  if (returnPath.startsWith('//')) return '/standalone/discover';
+  const fallback = '/standalone/discover';
+  if (!returnPath?.startsWith('/')) return fallback;
+  if (returnPath.startsWith('//')) return fallback;
+  if (returnPath.includes('\\')) return fallback;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(returnPath.slice(1))) return fallback;
+  if (returnPath.includes('://')) return fallback;
   return returnPath;
 }
 
