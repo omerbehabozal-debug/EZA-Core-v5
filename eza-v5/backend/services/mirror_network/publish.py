@@ -116,6 +116,8 @@ def map_mirror_safety_level(safety_level: Optional[str]) -> Tuple[str, str]:
         return "restricted", "private"
     if level in ("elevated", "review", "caution"):
         return "review", "unlisted"
+    if level == "sensitive":
+        return "review", "unlisted"
     return "open", "public"
 
 

@@ -53,7 +53,7 @@ def build_mirror_share_url(slug: str) -> str:
     settings = get_settings()
     base = (
         (getattr(settings, "EZA_MIRROR_PUBLIC_BASE_URL", None) or "").strip()
-        or "https://saina.app"
+        or "https://standalone.ezacore.ai"
     ).rstrip("/")
     safe_slug = re.sub(r"[^a-zA-Z0-9_-]", "", slug)[:_SLUG_MAX] or "mirror"
     return f"{base}/m/{safe_slug}"

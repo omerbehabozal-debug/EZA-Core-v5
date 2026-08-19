@@ -67,7 +67,7 @@ export const TIER_ENTITLEMENTS: Record<AccountTier, TierEntitlements> = {
     dailyMessageLimit: 20,
     maxMessageChars: 500,
     mirrorCooldownHours: null,
-    dailyMirrorLimit: 0,
+    dailyMirrorLimit: 1,
     dailyDiscoverStartLimit: 1,
     relationshipMapAccess: 'locked',
     imageQuality: 'medium',

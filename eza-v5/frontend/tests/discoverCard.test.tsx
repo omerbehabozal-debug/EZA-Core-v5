@@ -3,32 +3,20 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SainaDiscoverCard from '@/components/saina/SainaDiscoverCard';
-import { SAINA_DISCOVER_CTA } from '@/lib/eza/mirror-network/discoverCopy';
+import { SAINA_DISCOVER_OPEN_CTA } from '@/lib/eza/mirror-network/discoverCopy';
 
 const push = vi.fn();
-const startDiscoverGuestChatFromSlug = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }));
 
-vi.mock('@/lib/eza/mirror-network/startDiscoverGuestChat', () => ({
-  startDiscoverGuestChatFromSlug: (...args: unknown[]) => startDiscoverGuestChatFromSlug(...args),
-}));
-
-describe('SainaDiscoverCard', () => {
+describe('SainaDiscoverCard Phase 8.2', () => {
   beforeEach(() => {
     push.mockReset();
-    startDiscoverGuestChatFromSlug.mockReset();
   });
 
-  it('renders square landing body with title, summary, and CTA into chat', async () => {
-    startDiscoverGuestChatFromSlug.mockResolvedValue({
-      ok: true,
-      chatId: 'chat-1',
-      href: '/standalone?chat=chat-1&mirrorReply=1',
-    });
-
+  it('opens canonical public Yansı landing instead of starting sohbet', async () => {
     render(
       <SainaDiscoverCard
         item={{
@@ -41,20 +29,20 @@ describe('SainaDiscoverCard', () => {
       />
     );
 
-    expect(screen.getByText('Kyoto Yolculuğu')).toBeInTheDocument();
-    expect(screen.getByText('Akşam ritmi ve yavaş keşif.')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: SAINA_DISCOVER_CTA })).not.toBeInTheDocument();
-
+    expect(screen.getByText(SAINA_DISCOVER_OPEN_CTA)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('saina-discover-card-cta-kyoto-journey'));
 
     await waitFor(() => {
-      expect(startDiscoverGuestChatFromSlug).toHaveBeenCalledWith(
-        'kyoto-journey',
-        SAINA_DISCOVER_CTA,
-        'Kyoto Yolculuğu'
-      );
-      expect(push).toHaveBeenCalledWith('/standalone?chat=chat-1&mirrorReply=1');
+      expect(push).toHaveBeenCalledWith('/m/kyoto-journey');
     });
+  });
+
+  it('does not import startDiscoverGuestChat', () => {
+    const src = readFileSync(
+      join(process.cwd(), 'components/saina/SainaDiscoverCard.tsx'),
+      'utf8'
+    );
+    expect(src).not.toContain('startDiscoverGuestChat');
   });
 
   it('falls back to placeholder when image fails to load', () => {
@@ -72,21 +60,6 @@ describe('SainaDiscoverCard', () => {
     const img = screen.getByTestId('saina-discover-card-image');
     fireEvent.error(img);
     expect(screen.getByTestId('saina-discover-card-placeholder')).toBeInTheDocument();
-  });
-
-  it('Phase 6.2.1: legacy yansiCount alone does not render a deneyim row', () => {
-    render(
-      <SainaDiscoverCard
-        item={{
-          slug: 'kyoto-journey',
-          title: 'Kyoto Yolculuğu',
-          sceneImageUrl: 'https://cdn.example/kyoto.png',
-          yansiCount: 2,
-        }}
-      />
-    );
-    expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
-    expect(screen.queryByText('2 Yansı')).toBeNull();
   });
 });
 

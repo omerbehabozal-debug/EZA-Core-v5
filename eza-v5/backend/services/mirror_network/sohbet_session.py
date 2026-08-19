@@ -14,10 +14,14 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List
 
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.mirror_network import MirrorNetworkPublicPayload
 from backend.core.schemas.mirror_sohbet import MirrorSohbetSessionResponse, MirrorThoughtCard
+from backend.services.mirror_network.frozen_journey_artifact import (
+    get_public_frozen_journey_artifact,
+)
 from backend.services.mirror_network.repository import get_mirror_network_node_by_slug
 from backend.services.mirror_network.service import fetch_public_mirror_by_slug
 
@@ -245,6 +249,15 @@ async def create_sohbet_session(
     guest_token: str | None,
 ) -> MirrorSohbetSessionResponse:
     public = await fetch_public_mirror_by_slug(db, slug)
+    frozen = await get_public_frozen_journey_artifact(db, slug=slug)
+    if frozen is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "frozen_journey_not_found",
+                "message": "Continuation requires a replay-ready frozen Yansı",
+            },
+        )
     node = await get_mirror_network_node_by_slug(db, slug)
     parent_slug = node.parent_slug if node else public.lineage
     parent_id, root_id = await resolve_mirror_lineage_from_db(db, public.slug, parent_slug)

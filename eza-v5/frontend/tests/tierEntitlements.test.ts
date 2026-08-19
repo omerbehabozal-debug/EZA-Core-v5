@@ -28,7 +28,7 @@ describe('tierEntitlements', () => {
 
   it('matches product spec highlights per tier', () => {
     expect(getEntitlementsForTier('guest').dailyMessageLimit).toBe(10);
-    expect(getEntitlementsForTier('free').dailyMirrorLimit).toBe(0);
+    expect(getEntitlementsForTier('free').dailyMirrorLimit).toBe(1);
     expect(getEntitlementsForTier('mini').mirrorCooldownHours).toBe(48);
     expect(getEntitlementsForTier('standard').dailyMirrorLimit).toBe(1);
     expect(getEntitlementsForTier('premium').dailyMessageLimit).toBeGreaterThan(1000);
@@ -42,7 +42,7 @@ describe('tierEntitlements', () => {
       dailyDiscoverStartsUsed: 0,
       dailyDiscoverStartsLimit: 1,
       visualCreationsUsed: 0,
-      visualCreationsLimit: 0,
+      visualCreationsLimit: 1,
       nextVisualAvailableAt: null,
     });
   });

@@ -161,7 +161,7 @@ class Settings(BaseSettings):
     EZA_MIRROR_OPENAI_IMAGE_MODEL: str = "gpt-image-1"
     # Canonical master: square 1024x1024 (crop-safe across devices). Override via env.
     EZA_MIRROR_IMAGE_SIZE: str = "1024x1024"
-    EZA_MIRROR_PUBLIC_BASE_URL: Optional[str] = None  # e.g. https://saina.app — shareUrl /m/{slug}
+    EZA_MIRROR_PUBLIC_BASE_URL: Optional[str] = None  # e.g. https://standalone.ezacore.ai — shareUrl /m/{slug}
     EZA_MIRROR_SCENE_ASSET_DIR: Optional[str] = None  # default: backend/data/mirror_scene_assets
     EZA_MIRROR_SCENE_ASSET_BASE_URL: Optional[str] = None  # e.g. https://api.ezacore.ai
     """Server-side Mirror Director create-path (default off). Env: EZA_MIRROR_DIRECTOR_ENABLED.

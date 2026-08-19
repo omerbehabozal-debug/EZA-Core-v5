@@ -85,7 +85,7 @@ def test_entitlements_free_authenticated_user(mock_get_user, mock_usage):
     assert data["tier"] == "free"
     assert data["label"] == "SAINA Free"
     assert data["entitlements"]["dailyMessageLimit"] == 20
-    assert data["entitlements"]["dailyMirrorLimit"] == 0
+    assert data["entitlements"]["dailyMirrorLimit"] == 1
     assert data["usage"]["dailyMessagesUsed"] == 5
     assert data["usage"]["dailyDiscoverStartsLimit"] == 1
 

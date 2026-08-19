@@ -9,7 +9,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Calendar, Sparkles } from 'lucide-react';
-import MirrorLandingCta from '@/components/mirror-landing/MirrorLandingCta';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
 import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
 import { MIRROR_V3_BRAND_SIGNATURE } from '@/lib/eza/mirror/conversationMirrorV3/types';
@@ -162,10 +161,14 @@ export default function MirrorLandingExperience({
                   >
                     Yeniden dene
                   </button>
-                  <MirrorLandingCta slug={surface.slug} />
                 </div>
               ) : (
-                <MirrorLandingCta slug={surface.slug} />
+                <p
+                  className="mt-auto pt-10 text-center text-xs text-[#a89880]"
+                  data-testid="mirror-experience-unavailable-inline"
+                >
+                  Bu Yansı şu an deneyimlenemiyor.
+                </p>
               )
             }
           />
@@ -181,7 +184,6 @@ export default function MirrorLandingExperience({
             data-testid="mirror-experience-unavailable"
           >
             <p className="text-sm text-[#c9bba8]">Bu Yansı şu an deneyimlenemiyor.</p>
-            <MirrorLandingCta slug={surface.slug} />
           </div>
         )}
       </div>

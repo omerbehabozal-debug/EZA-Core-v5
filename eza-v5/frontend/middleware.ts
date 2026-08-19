@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { isPublicMirrorNetworkPath } from '@/lib/eza/mirror-network/mirrorPublicUrl';
 import { shouldBlockProductionFrontendSurface } from '@/lib/eza/productionSurfaceGuard';
 
 /**
@@ -71,6 +72,11 @@ export function middleware(request: NextRequest) {
 
   // Statik dosyalar ve API'ler → rewrite etme
   if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Phase 8.2 — public Yansı routes (/m/{slug}) must survive domain rewrite (deep links).
+  if (isPublicMirrorNetworkPath(pathname)) {
     return NextResponse.next();
   }
 

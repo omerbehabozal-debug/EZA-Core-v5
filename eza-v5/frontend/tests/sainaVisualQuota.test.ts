@@ -12,7 +12,7 @@ const baseSnapshot = (
     dailyMessageLimit: 20,
     maxMessageChars: 500,
     mirrorCooldownHours: null,
-    dailyMirrorLimit: 0,
+    dailyMirrorLimit: 1,
     dailyDiscoverStartLimit: 1,
     relationshipMapAccess: 'locked',
     imageQuality: 'medium',
@@ -24,15 +24,29 @@ const baseSnapshot = (
     dailyDiscoverStartsUsed: 0,
     dailyDiscoverStartsLimit: 1,
     visualCreationsUsed: 0,
-    visualCreationsLimit: 0,
+    visualCreationsLimit: 1,
     nextVisualAvailableAt: null,
   },
   ...overrides,
 });
 
 describe('sainaVisualQuota', () => {
-  it('blocks free tier visual creation', () => {
-    expect(canCreateVisualFromEntitlements(baseSnapshot())).toBe(false);
+  it('allows free tier first daily visual', () => {
+    expect(canCreateVisualFromEntitlements(baseSnapshot())).toBe(true);
+  });
+
+  it('blocks free tier when daily visual limit reached', () => {
+    expect(
+      canCreateVisualFromEntitlements(
+        baseSnapshot({
+          usage: {
+            ...baseSnapshot().usage,
+            visualCreationsUsed: 1,
+            visualCreationsLimit: 1,
+          },
+        })
+      )
+    ).toBe(false);
   });
 
   it('allows premium when under limit', () => {

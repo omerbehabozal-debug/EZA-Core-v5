@@ -55,15 +55,15 @@ def _noop_rate_limit():
 
 @patch("backend.core.account.guards.build_account_usage_snapshot", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_assert_can_create_visual_blocks_free_tier(mock_usage):
+async def test_assert_can_create_visual_blocks_free_tier_when_daily_limit_reached(mock_usage):
     free_user = _make_user(email="free@test.eza.ai", mirror_plan="free")
     mock_usage.return_value = {
         "dailyMessagesUsed": 0,
         "dailyMessagesLimit": 20,
         "dailyDiscoverStartsUsed": 0,
         "dailyDiscoverStartsLimit": 1,
-        "visualCreationsUsed": 0,
-        "visualCreationsLimit": 0,
+        "visualCreationsUsed": 1,
+        "visualCreationsLimit": 1,
         "nextVisualAvailableAt": None,
     }
 
@@ -74,7 +74,7 @@ async def test_assert_can_create_visual_blocks_free_tier(mock_usage):
         )
 
     assert exc.value.status_code == 403
-    assert exc.value.detail["reason"] == "visual_not_available_on_tier"
+    assert exc.value.detail["reason"] == "visual_daily_limit_reached"
 
 
 @patch("backend.core.account.guards.build_account_usage_snapshot", new_callable=AsyncMock)
@@ -117,7 +117,7 @@ def test_generate_scene_free_user_blocked_by_visual_guard(
     mock_get_user.return_value = free_user
     mock_get_subject_user.return_value = free_user
     mock_consume.side_effect = UsageQuotaExceeded(
-        reason="visual_not_available_on_tier",
+        reason="visual_daily_limit_reached",
         tier=AccountTier.FREE,
         upgrade_required=True,
     )
@@ -132,4 +132,4 @@ def test_generate_scene_free_user_blocked_by_visual_guard(
         headers=_auth_header(free_user),
     )
     assert res.status_code == 403
-    assert res.json()["detail"]["reason"] == "visual_not_available_on_tier"
+    assert res.json()["detail"]["reason"] == "visual_daily_limit_reached"

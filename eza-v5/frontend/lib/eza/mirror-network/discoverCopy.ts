@@ -12,7 +12,17 @@ export const SAINA_DISCOVER_HERO_LINE_2 = 'Bir merak seç.';
 
 export const SAINA_DISCOVER_HERO_LINE_3 = 'Kendi yolculuğunu başlat.';
 
+/** Phase 8.2 — minimal first-user comprehension (not full onboarding). */
+export const SAINA_DISCOVER_EXPLAINER_BILIGN =
+  'biligN, merakını Ayna ile görünür kılan bir deneyimdir.';
+
+export const SAINA_DISCOVER_EXPLAINER_YANSI =
+  'Yansı, bir merakın dondurulmuş yolculuğudur — önce deneyimle, sonra kendi merakınla devam et.';
+
 export const SAINA_DISCOVER_CTA = 'Bu konuyu ben de merak ediyorum';
+
+/** Discover card → canonical public landing (/m/{slug}), not live sohbet. */
+export const SAINA_DISCOVER_OPEN_CTA = 'Bu merakı deneyimle';
 
 export const SAINA_DISCOVER_LIMIT_CTA = 'Hesabını Yükselt →';
 

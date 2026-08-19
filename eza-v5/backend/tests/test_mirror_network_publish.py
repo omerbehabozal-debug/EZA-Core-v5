@@ -67,6 +67,7 @@ def _publish_body(conversation_id: str = "conv-publish-1") -> dict:
 
 def test_map_mirror_safety_level():
     assert map_mirror_safety_level("normal") == ("open", "public")
+    assert map_mirror_safety_level("sensitive") == ("review", "unlisted")
     assert map_mirror_safety_level("elevated") == ("review", "unlisted")
     assert map_mirror_safety_level("restricted") == ("restricted", "private")
 

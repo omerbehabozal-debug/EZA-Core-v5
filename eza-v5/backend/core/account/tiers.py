@@ -73,7 +73,7 @@ TIER_ENTITLEMENTS: dict[AccountTier, TierEntitlements] = {
         "dailyMessageLimit": 20,
         "maxMessageChars": 500,
         "mirrorCooldownHours": None,
-        "dailyMirrorLimit": 0,
+        "dailyMirrorLimit": 1,
         "dailyDiscoverStartLimit": 1,
         "relationshipMapAccess": "locked",
         "imageQuality": "medium",
