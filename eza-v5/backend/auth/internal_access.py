@@ -36,7 +36,7 @@ async def validate_internal_api_key(
     provided = (x_api_key or "").strip()
     if not provided or provided != expected:
         if provided:
-            logger.warning("Invalid internal API key attempt (prefix=%s)", provided[:8])
+            logger.warning("Invalid internal API key")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",

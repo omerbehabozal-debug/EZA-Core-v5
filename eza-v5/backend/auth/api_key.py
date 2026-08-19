@@ -49,7 +49,7 @@ def validate_api_key(x_api_key: Optional[str] = Header(None, alias="X-Api-Key"))
         )
     
     if x_api_key != admin_api_key:
-        logger.warning(f"Invalid API key attempt from {x_api_key[:10]}...")
+        logger.warning("Invalid API key")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key"

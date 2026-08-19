@@ -22,6 +22,7 @@ export const NON_PRODUCTION_FRONTEND_PATH_PREFIXES = [
   '/standalone/mirror-v2-lab',
   '/dev',
   '/docs/test-suite',
+  '/connection_test',
 ] as const;
 
 function isEzacoreProductionHost(hostname: string): boolean {
