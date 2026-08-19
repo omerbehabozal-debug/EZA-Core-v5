@@ -9,6 +9,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 
 from backend.config import get_settings
 from backend.core.openai.health import run_openai_health_checks
+from backend.security.production_surface import assert_non_production_surface
 
 router = APIRouter(prefix="/api/debug", tags=["Debug"])
 
@@ -33,6 +34,7 @@ def _verify_debug_access(
     x_debug_secret: str | None = Header(default=None, alias="X-Debug-Secret"),
     debug_secret: str | None = Header(default=None, alias="DEBUG_SECRET"),
 ) -> None:
+    assert_non_production_surface(surface="debug/openai-health")
     expected = _configured_debug_secret()
     if not expected:
         # Hide endpoint when secret is not configured (especially production).

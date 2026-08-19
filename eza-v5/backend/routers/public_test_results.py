@@ -9,6 +9,7 @@ No authentication required - public access.
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from backend.services.publish_test_snapshot import get_latest_snapshot
+from backend.security.production_surface import assert_non_production_surface
 
 router = APIRouter()
 
@@ -44,6 +45,7 @@ async def read_public_test_snapshot(
     Raises:
         HTTPException: 404 if no snapshot available
     """
+    assert_non_production_surface(surface="public/test-safety-benchmarks")
     # Get snapshot (no test calculation - just read from storage)
     snapshot = get_latest_snapshot(period)
     

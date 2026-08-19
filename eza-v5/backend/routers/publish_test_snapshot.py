@@ -9,6 +9,10 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from backend.services.publish_test_snapshot import publish_snapshot
 from backend.config import get_settings
+from backend.security.production_surface import (
+    assert_non_production_surface,
+    public_internal_error_content,
+)
 
 router = APIRouter()
 
@@ -79,6 +83,7 @@ async def publish_test_snapshot_endpoint(
     Raises:
         HTTPException: 403 if key is missing/invalid, 500 on publish failure
     """
+    assert_non_production_surface(surface="public/publish-test-snapshot")
     # Verify publish key
     verify_publish_key(request)
     
@@ -98,6 +103,6 @@ async def publish_test_snapshot_endpoint(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to publish snapshot: {str(e)}"
-        )
+            detail=public_internal_error_content(),
+        ) from e
 

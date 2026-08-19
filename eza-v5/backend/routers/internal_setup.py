@@ -17,6 +17,10 @@ from backend.core.utils.dependencies import get_db
 from backend.models.production import User
 from backend.services.production_auth import hash_password, normalize_email
 from backend.config import get_settings
+from backend.security.production_surface import (
+    assert_non_production_surface,
+    public_internal_error_content,
+)
 
 router = APIRouter(prefix="/internal", tags=["internal-setup"])
 logger = logging.getLogger(__name__)
@@ -44,6 +48,7 @@ async def create_test_regulator_user(
     ⚠️ SECURITY: Protected by INTERNAL_SETUP_KEY header
     This endpoint should be disabled or key changed after use.
     """
+    assert_non_production_surface(surface="internal/create-test-regulator-user")
     settings = get_settings()
     
     # Get INTERNAL_SETUP_KEY from environment
@@ -135,6 +140,6 @@ async def create_test_regulator_user(
         logger.error(f"[InternalSetup] Error creating test regulator user: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal error: {str(e)}"
+            detail=public_internal_error_content(),
         )
 

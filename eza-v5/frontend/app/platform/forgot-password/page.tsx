@@ -8,8 +8,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { buildApiUrl } from '@/lib/apiUrl';
+import { isExplicitNonProductionFrontendSurfaceAllowed } from '@/lib/eza/productionSurfaceGuard';
 
 export default function ForgotPasswordPage() {
+  const productionSurface = !isExplicitNonProductionFrontendSurfaceAllowed();
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,6 +25,11 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setError(null);
     setSuccess(false);
+
+    if (productionSurface) {
+      setError('Şifre sıfırlama şu an yalnızca destek kanalı üzerinden yapılabilir.');
+      return;
+    }
 
     // Validation
     if (!email.trim()) {
@@ -94,7 +101,9 @@ export default function ForgotPasswordPage() {
             Şifre Sıfırlama
           </h1>
           <p className="text-sm" style={{ color: '#94A3B8' }}>
-            E-posta adresinizi ve yeni şifrenizi giriniz
+            {productionSurface
+              ? 'Canlı ortamda şifre sıfırlama için destek ekibiyle iletişime geçin.'
+              : 'E-posta adresinizi ve yeni şifrenizi giriniz'}
           </p>
         </div>
 
@@ -119,6 +128,22 @@ export default function ForgotPasswordPage() {
                 </svg>
                 <span style={{ color: '#86EFAC' }}>Şifreniz başarıyla sıfırlandı. Giriş sayfasına dönebilirsiniz.</span>
               </div>
+              <Link
+                href="/platform/login"
+                className="inline-block px-6 py-3 rounded-xl font-medium transition-all"
+                style={{
+                  backgroundColor: '#3B82F6',
+                  color: '#FFFFFF',
+                }}
+              >
+                Giriş Sayfasına Dön
+              </Link>
+            </div>
+          ) : productionSurface ? (
+            <div className="text-center space-y-4">
+              <p className="text-sm" style={{ color: '#94A3B8' }}>
+                Güvenlik nedeniyle doğrudan şifre sıfırlama bu ortamda devre dışıdır.
+              </p>
               <Link
                 href="/platform/login"
                 className="inline-block px-6 py-3 rounded-xl font-medium transition-all"

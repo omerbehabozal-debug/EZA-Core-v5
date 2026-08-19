@@ -16,6 +16,10 @@ from backend.services.comprehensive_test_results import (
     ComprehensiveTestResults
 )
 from backend.auth.api_key import require_api_key
+from backend.security.production_surface import (
+    assert_non_production_surface,
+    public_internal_error_content,
+)
 
 router = APIRouter()
 
@@ -45,14 +49,15 @@ async def get_latest_test_results_endpoint(
     Returns:
         TestResultsResponse: Latest test results with all suite information
     """
+    assert_non_production_surface(surface="test-results/latest")
     try:
         results = get_latest_test_results()
         return results
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve test results: {str(e)}"
-        )
+            detail=public_internal_error_content(),
+        ) from e
 
 
 @router.get(
@@ -76,14 +81,15 @@ async def get_comprehensive_test_results_endpoint(
         - Major test runs (last 3 major runs)
         - Improvements summary
     """
+    assert_non_production_surface(surface="test-results/comprehensive")
     try:
         results = get_comprehensive_test_results()
         return results
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve comprehensive test results: {str(e)}"
-        )
+            detail=public_internal_error_content(),
+        ) from e
 
 
 @router.get(
@@ -100,6 +106,7 @@ async def test_results_health():
     Returns:
         str: "ok" if service is operational
     """
+    assert_non_production_surface(surface="test-results/health")
     from fastapi.responses import PlainTextResponse
     try:
         # Try to get results to verify service is working

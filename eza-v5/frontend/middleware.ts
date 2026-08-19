@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { shouldBlockProductionFrontendSurface } from '@/lib/eza/productionSurfaceGuard';
 
 /**
  * Domain → Target Path Mapping
@@ -62,6 +63,11 @@ export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const pathname = url.pathname;
   const hostname = getHostname(request);
+
+  // Phase 8.1 — dev/lab surfaces absent on production hosts (direct URL access).
+  if (shouldBlockProductionFrontendSurface(pathname, hostname)) {
+    return new NextResponse('Not Found', { status: 404 });
+  }
 
   // Statik dosyalar ve API'ler → rewrite etme
   if (isPublicPath(pathname)) {

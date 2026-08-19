@@ -59,6 +59,7 @@ from backend.services.mirror_network.yansi_exposure import (
     YansiExposureIngestError,
     ingest_yansi_exposure_event,
 )
+from backend.security.production_surface import assert_non_production_surface
 from backend.services.mirror_network.yansi_metrics import (
     YansiMetricsError,
     get_yansi_public_metrics,
@@ -89,6 +90,7 @@ def _verify_debug_access(
     x_debug_secret: str | None = Header(default=None, alias="X-Debug-Secret"),
     debug_secret: str | None = Header(default=None, alias="DEBUG_SECRET"),
 ) -> None:
+    assert_non_production_surface(surface="debug/mirror-network")
     expected = _configured_debug_secret()
     if not expected:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")

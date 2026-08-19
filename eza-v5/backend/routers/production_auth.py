@@ -22,6 +22,10 @@ from backend.core.account.tiers import resolve_user_account_tier
 from sqlalchemy import select, func
 from backend.services.production_org import create_organization
 from backend.config import get_settings
+from backend.security.production_surface import (
+    assert_non_production_surface,
+    is_production_runtime,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -289,11 +293,12 @@ async def login(
         
         if not user_exists:
             logger.warning(f"[Login] Step 3: User not found: {normalized_email}")
-            # Try to find similar emails for debugging
-            all_users_result = await db.execute(select(User.email, User.role).limit(10))
-            all_emails = [(row[0], row[1]) for row in all_users_result.all()]
-            logger.warning(f"[Login] Available users in DB (sample): {all_emails}")
-            logger.warning(f"[Login] Searched for normalized email: '{normalized_email}'")
+            if not is_production_runtime():
+                # Dev-only diagnostic — never sample user directory in production logs.
+                all_users_result = await db.execute(select(User.email, User.role).limit(10))
+                all_emails = [(row[0], row[1]) for row in all_users_result.all()]
+                logger.warning(f"[Login] Available users in DB (sample): {all_emails}")
+                logger.warning(f"[Login] Searched for normalized email: '{normalized_email}'")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password"
@@ -367,10 +372,12 @@ async def reset_password(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Reset user password by email
-    NOTE: In production, this should require email verification or admin access
-    For now, this is a simple reset endpoint for development/testing
+    Dev/CI-only direct password reset (email + new_password).
+
+    Production: route absent (404). No token-based reset lifecycle exists yet;
+    real forgot-password flow belongs to a later Phase 8 auth slice.
     """
+    assert_non_production_surface(surface="reset-password")
     try:
         logger.info(f"[ResetPassword] Step 1: Starting password reset for email: {request.email}")
         logger.info(f"[ResetPassword] Step 2: Calling reset_user_password...")
@@ -411,6 +418,7 @@ async def debug_check_email(
     Debug endpoint to check if email exists in database
     Returns email variations found in DB
     """
+    assert_non_production_surface(surface="debug/check-email")
     normalized = normalize_email(email)
     
     # Try exact match
@@ -467,6 +475,7 @@ async def debug_test_login(
     """
     Debug endpoint to test login with detailed logging
     """
+    assert_non_production_surface(surface="debug/test-login")
     from backend.services.production_auth import authenticate_user, verify_password, normalize_email
     from sqlalchemy import select, func
     

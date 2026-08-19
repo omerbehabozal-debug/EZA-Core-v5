@@ -50,6 +50,10 @@ from backend.security.rate_limit import (
     rate_limit_proxy,
     rate_limit_regulator_feed,
 )
+from backend.security.production_surface import (
+    public_internal_error_content,
+    normalize_public_http_error_content,
+)
 from backend.security.public_demo_guard import enforce_public_demo_limits
 from backend.auth.api_key import require_api_key
 from backend.auth.deps import security
@@ -248,7 +252,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail},
+        content=normalize_public_http_error_content(exc.status_code, exc.detail),
         headers={
             "Access-Control-Allow-Origin": cors_origin,
             "Access-Control-Allow-Credentials": "true",
@@ -270,7 +274,7 @@ async def general_exception_handler(request: Request, exc: Exception):
     
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error", "error": str(exc)},
+        content=public_internal_error_content(),
         headers={
             "Access-Control-Allow-Origin": cors_origin,
             "Access-Control-Allow-Credentials": "true",
