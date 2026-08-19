@@ -416,25 +416,17 @@ def require_role(allowed_roles: List[str]):
 
 
 def require_internal():
-    """Require EZA internal or admin role"""
-    # TEMPORARY: Authentication disabled for development
-    # TODO: Re-enable authentication when ready
-    async def no_auth():
-        return None
-    return no_auth
-    # ORIGINAL CODE - DISABLED
-    # return require_role(["eza_internal", "admin"])
+    """Require explicit non-production env + valid EZA_ADMIN_API_KEY (X-Api-Key)."""
+    from backend.auth.internal_access import require_internal_dependency
+
+    return require_internal_dependency()
 
 
 def require_institution_auditor():
-    """Require institution auditor or admin role"""
-    # TEMPORARY: Authentication disabled for development
-    # TODO: Re-enable authentication when ready
-    async def no_auth():
-        return None
-    return no_auth
-    # ORIGINAL CODE - DISABLED
-    # return require_role(["institution_auditor", "admin"])
+    """Institution auditor routes — same internal guard until RBAC is restored."""
+    from backend.auth.internal_access import require_internal_dependency
+
+    return require_internal_dependency()
 
 
 async def get_api_key_user(

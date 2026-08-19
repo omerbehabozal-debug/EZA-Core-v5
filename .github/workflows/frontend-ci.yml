@@ -36,7 +36,7 @@ jobs:
         run: npm run test:validation
 
       - name: Run Phase 8.1 security surface tests
-        run: npx vitest run tests/productionSurfaceGuardPhase81.test.ts tests/productionSurfaceGuardPhase811.test.ts
+        run: npx vitest run tests/productionSurfaceGuardPhase81.test.ts tests/productionSurfaceGuardPhase811.test.ts tests/productionSurfaceGuardPhase812.test.ts
 
       - name: Run mirror and observation regression tests
         run: >-

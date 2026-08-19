@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.auth.api_key import require_api_key
+from backend.auth.internal_access import validate_internal_api_key
 from backend.gateway.router_adapter import call_llm_provider
 from backend.config import get_settings
 from backend.regulation.policy_packs.rtuk_pack import RTUKPolicyPack
@@ -278,7 +278,7 @@ async def run_debug_pipeline(
 @router.post("/run", response_model=ProxyInternalResponse)
 async def run_proxy_internal(
     req: ProxyInternalRequest,
-    _: str = require_api_key()  # API key required
+    _: str = Depends(validate_internal_api_key),
 ):
     """
     Full Internal Proxy API
@@ -300,7 +300,7 @@ async def run_proxy_internal(
 @router.get("/history")
 async def list_proxy_internal_history(
     limit: int = 20,
-    _: str = require_api_key()  # API key required
+    _: str = Depends(validate_internal_api_key),
 ):
     """
     Return last N internal proxy sessions (for sidebar history list).
@@ -326,7 +326,7 @@ async def list_proxy_internal_history(
 @router.get("/session/{session_id}")
 async def get_proxy_internal_session(
     session_id: str,
-    _: str = require_api_key()  # API key required
+    _: str = Depends(validate_internal_api_key),
 ):
     """
     Return full debug data for a specific session.

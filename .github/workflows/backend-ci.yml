@@ -57,6 +57,7 @@ jobs:
             tests_security/test_jwt_production_fail_closed.py \
             tests_security/test_phase81_production_surface_closure.py \
             tests_security/test_phase811_security_closure.py \
+            tests_security/test_phase812_internal_api_authorization.py \
             tests/test_sensitive_content.py \
             tests/test_conversation_groups.py \
             tests/test_mirror_network.py \
