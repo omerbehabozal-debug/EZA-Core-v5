@@ -294,6 +294,35 @@ def test_postgres_varchar32_cannot_store_longest_revision():
         engine.dispose()
 
 
+def _ensure_stub_fk_parents(database_url: str) -> None:
+    """
+    Stamp does not create schema. Phase 8.4+ migrations add FKs to
+    production_users / mirror_network_nodes, so a phase42-stamped empty DB
+    needs minimal parent tables before upgrade-to-head can succeed.
+    """
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS production_users (
+                    id UUID PRIMARY KEY
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS mirror_network_nodes (
+                    id UUID PRIMARY KEY
+                )
+                """
+            )
+        )
+    engine.dispose()
+
+
 def test_clean_db_upgrade_head_and_phase6_from_phase42():
     if not _pg_url():
         pytest.skip("EZA_MIGRATION_TEST_DATABASE_URL not set")
@@ -317,16 +346,24 @@ def test_clean_db_upgrade_head_and_phase6_from_phase42():
             assert capacity["sufficient"] is True
             assert capacity["versionNumLength"] >= 128
         engine.dispose()
+
+        # Phase 8.4 yansi_reports + Phase 8.5 public_display_name require parents.
+        _ensure_stub_fk_parents(url)
+
         upgraded = _run_alembic(["upgrade", "head"], url)
         assert upgraded.returncode == 0, _redacted(upgraded.stderr or upgraded.stdout)
         engine = create_engine(url)
         with engine.connect() as connection:
             current = connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
             assert current == HEAD_REVISION
-            assert len(current) == 36
+            assert len(current) == len(HEAD_REVISION)
             tables = set(sa_inspect(connection).get_table_names())
             for name in PHASE6_TABLES:
                 assert name in tables
+            assert "yansi_reports" in tables
+            assert "public_display_name" in {
+                c["name"] for c in sa_inspect(connection).get_columns("production_users")
+            }
             capacity = inspect_alembic_version_capacity(connection)
             assert capacity["sufficient"] is True
         engine.dispose()
