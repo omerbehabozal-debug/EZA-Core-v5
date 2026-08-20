@@ -147,7 +147,7 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
             </div>
           ) : null}
 
-          {showEmpty && status !== 'error' ? (
+          {showEmpty ? (
             <p
               className="bilign-profile-state"
               role="status"
