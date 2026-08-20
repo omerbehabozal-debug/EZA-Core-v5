@@ -1,32 +1,38 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { patchPublicIdentity } from '@/lib/eza/plan/fetchAuthMe';
 import {
   PUBLIC_DISPLAY_NAME_FALLBACK,
   PUBLIC_DISPLAY_NAME_MAX_LEN,
 } from '@/lib/eza/mirror/publicIdentity';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 type Props = {
   open: boolean;
   onClose: () => void;
   initialName: string;
   onSaved: (resolvedName: string) => void;
+  /** Phase 8.5B.1 — restore focus to Profili düzenle (or caller trigger). */
+  returnFocusRef?: RefObject<HTMLElement | null>;
 };
 
 /**
  * Phase 8.5B — minimal public display-name editor (sheet / modal).
  * Name only — no avatar upload, bio, or interests.
+ * Phase 8.5B.1 — focus trap + focus return via useModalFocusTrap.
  */
 export default function ProfileEditSheet({
   open,
   onClose,
   initialName,
   onSaved,
+  returnFocusRef,
 }: Props) {
   const titleId = useId();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const { token, user, setAuth } = useAuth();
   const [draft, setDraft] = useState(initialName);
   const [busy, setBusy] = useState(false);
@@ -39,18 +45,15 @@ export default function ProfileEditSheet({
     );
     setError(null);
     setBusy(false);
-    const t = window.setTimeout(() => inputRef.current?.focus(), 40);
-    return () => window.clearTimeout(t);
   }, [open, initialName]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  useModalFocusTrap({
+    open,
+    onClose,
+    containerRef: panelRef,
+    initialFocusRef: inputRef,
+    returnFocusRef,
+  });
 
   if (!open) return null;
 
@@ -91,6 +94,7 @@ export default function ProfileEditSheet({
       data-testid="bilign-profile-edit-backdrop"
     >
       <div
+        ref={panelRef}
         className="bilign-profile-edit-sheet"
         role="dialog"
         aria-modal="true"
@@ -131,6 +135,7 @@ export default function ProfileEditSheet({
             className="bilign-profile-edit-btn bilign-profile-edit-btn--ghost"
             onClick={onClose}
             disabled={busy}
+            data-testid="bilign-profile-edit-cancel"
           >
             Vazgeç
           </button>

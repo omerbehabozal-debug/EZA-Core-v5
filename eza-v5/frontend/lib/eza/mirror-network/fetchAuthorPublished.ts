@@ -203,3 +203,24 @@ export function ownerVisibilityLabel(item: {
   if (vis === 'private') return 'Gizli';
   return vis || 'Gizli';
 }
+
+/**
+ * Phase 8.5B.1 — append pages by unique slug.
+ * First occurrence wins; stable order preserved.
+ */
+export function mergeProfileItemsBySlug(
+  existing: AuthorPublishedYansiItem[],
+  incoming: AuthorPublishedYansiItem[]
+): AuthorPublishedYansiItem[] {
+  const seen = new Set(
+    existing.map((item) => item.slug.trim().toLowerCase()).filter(Boolean)
+  );
+  const out = [...existing];
+  for (const item of incoming) {
+    const key = item.slug.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}

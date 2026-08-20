@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchAuthorPublishedYansilar,
   fetchOwnerProfileYansilar,
+  mergeProfileItemsBySlug,
   PROFILE_YANSI_PAGE_SIZE,
   type AuthorPublishedYansiItem,
 } from '@/lib/eza/mirror-network/fetchAuthorPublished';
@@ -22,6 +23,7 @@ type LoadStatus = 'loading' | 'ready' | 'empty' | 'error';
 /**
  * Phase 8.5B — biligN public/owner profile.
  * Quiet identity + Yansı cards (visual → title → summary). No social graph.
+ * Phase 8.5B.1 — load-more in-flight guard + slug dedupe.
  */
 export default function AuthorPublishedYansiProfile({ userId }: Props) {
   const { user, isAuthenticated, isAuthReady } = useAuth();
@@ -37,39 +39,58 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const loadMoreInFlightRef = useRef(false);
+  const editTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const loadPage = useCallback(
     async (offset: number, append: boolean) => {
       if (!ownershipResolved) return;
-      if (!append) setStatus('loading');
-      else setLoadingMore(true);
-
-      const result = isOwner
-        ? await fetchOwnerProfileYansilar({
-            limit: PROFILE_YANSI_PAGE_SIZE,
-            offset,
-          })
-        : await fetchAuthorPublishedYansilar(userId, {
-            limit: PROFILE_YANSI_PAGE_SIZE,
-            offset,
-          });
-
-      if (!result.ok) {
-        if (!append) setStatus('error');
-        setLoadingMore(false);
-        return;
+      if (append) {
+        if (loadMoreInFlightRef.current) return;
+        loadMoreInFlightRef.current = true;
+        setLoadingMore(true);
+      } else {
+        setStatus('loading');
       }
 
-      setDisplayName(result.data.displayName);
-      setTotal(result.data.total);
-      setItems((prev) =>
-        append ? [...prev, ...result.data.items] : result.data.items
-      );
-      const nextLen = append
-        ? offset + result.data.items.length
-        : result.data.items.length;
-      setStatus(nextLen === 0 && result.data.total === 0 ? 'empty' : 'ready');
-      setLoadingMore(false);
+      try {
+        const result = isOwner
+          ? await fetchOwnerProfileYansilar({
+              limit: PROFILE_YANSI_PAGE_SIZE,
+              offset,
+            })
+          : await fetchAuthorPublishedYansilar(userId, {
+              limit: PROFILE_YANSI_PAGE_SIZE,
+              offset,
+            });
+
+        if (!result.ok) {
+          if (!append) setStatus('error');
+          return;
+        }
+
+        setDisplayName(result.data.displayName);
+        setTotal(result.data.total);
+        setItems((prev) =>
+          append
+            ? mergeProfileItemsBySlug(prev, result.data.items)
+            : result.data.items
+        );
+        if (!append) {
+          setStatus(
+            result.data.items.length === 0 && result.data.total === 0
+              ? 'empty'
+              : 'ready'
+          );
+        } else {
+          setStatus('ready');
+        }
+      } finally {
+        if (append) {
+          loadMoreInFlightRef.current = false;
+          setLoadingMore(false);
+        }
+      }
     },
     [isOwner, ownershipResolved, userId]
   );
@@ -121,6 +142,7 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
             </h1>
             {isOwner ? (
               <button
+                ref={editTriggerRef}
                 type="button"
                 className="bilign-profile-edit-trigger"
                 onClick={() => setEditOpen(true)}
@@ -195,6 +217,7 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
           onClose={() => setEditOpen(false)}
           initialName={displayName}
           onSaved={(name) => setDisplayName(name)}
+          returnFocusRef={editTriggerRef}
         />
       ) : null}
     </main>

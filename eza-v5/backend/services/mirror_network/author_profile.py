@@ -32,6 +32,14 @@ from backend.services.mirror_network.visibility_access import (
 from backend.services.mirror_network.public_identity import resolve_public_display_name
 from backend.services.mirror_network.slug import build_mirror_share_url
 
+# Deterministic profile listing order (Phase 8.5B.1).
+# Popularity/metrics never participate.
+PROFILE_LIST_ORDER_BY = (
+    MirrorNetworkNode.published_at.desc().nullslast(),
+    MirrorNetworkNode.created_at.desc(),
+    MirrorNetworkNode.slug.asc(),
+)
+
 # Deterministic /children ordering (Phase 5.1.1):
 # published_at DESC NULLS LAST, created_at DESC, slug ASC (immutable tie-breaker).
 CHILDREN_ORDER_BY = (
@@ -324,7 +332,7 @@ async def list_published_mirrors_for_author(
     result = await db.execute(
         select(MirrorNetworkNode)
         .where(MirrorNetworkNode.user_id == user_id)
-        .order_by(MirrorNetworkNode.published_at.desc().nullslast(), MirrorNetworkNode.created_at.desc())
+        .order_by(*PROFILE_LIST_ORDER_BY)
     )
     nodes = [n for n in result.scalars().all() if _is_public_published(n)]
     total = len(nodes)
@@ -388,10 +396,7 @@ async def list_owner_profile_yansilar(
     result = await db.execute(
         select(MirrorNetworkNode)
         .where(MirrorNetworkNode.user_id == owner_user_id)
-        .order_by(
-            MirrorNetworkNode.published_at.desc().nullslast(),
-            MirrorNetworkNode.created_at.desc(),
-        )
+        .order_by(*PROFILE_LIST_ORDER_BY)
     )
     nodes = list(result.scalars().all())
     total = len(nodes)
