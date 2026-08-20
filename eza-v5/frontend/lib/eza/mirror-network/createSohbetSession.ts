@@ -1,15 +1,20 @@
 /**
  * Create mirror sohbet session from public slug (no auth).
+ *
+ * Phase 8.4.1 — sessionStorage cache is convenience only. Backend + live
+ * public/frozen eligibility remain authority before reuse.
  */
 
 import { getApiUrl } from '@/lib/apiUrl';
 import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
+import { fetchPublicMirrorBySlug } from '@/lib/eza/mirror-network/fetchPublicMirror';
 import {
   MIRROR_SOHBET_SESSION_STORAGE_PREFIX,
   type MirrorSohbetSession,
 } from '@/lib/eza/mirror-network/sohbetTypes';
 import { buildSainaQuotaHeaders } from '@/lib/eza/plan/sainaQuotaHeaders';
 import type { QuotaErrorDetail } from '@/lib/eza/plan/sainaQuotaMessages';
+import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 
 export type CreateSohbetSessionResult =
   | { ok: true; session: MirrorSohbetSession }
@@ -38,6 +43,30 @@ export function cacheSohbetSession(session: MirrorSohbetSession): void {
   sessionStorage.setItem(sessionStorageKey(session.mirrorSlug), JSON.stringify(session));
 }
 
+export function clearCachedSohbetSession(slug: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(sessionStorageKey(slug.trim().toLowerCase()));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Live eligibility for continuing from a cached sohbet session.
+ * Private / withdrawn / restricted / non-replayable → false.
+ */
+export async function isSohbetSourceStillEligible(slug: string): Promise<boolean> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return false;
+  const publicResult = await fetchPublicMirrorBySlug(normalized, {
+    trustAuthoritative: true,
+  });
+  if (!publicResult.ok) return false;
+  const frozen = await fetchPublicFrozenJourneyArtifact({ slug: normalized });
+  return frozen != null;
+}
+
 function buildSessionHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -62,7 +91,14 @@ export async function createMirrorSohbetSession(
 
   if (!options?.forceNew) {
     const cached = loadCachedSohbetSession(normalized);
-    if (cached) return { ok: true, session: cached };
+    if (cached) {
+      const eligible = await isSohbetSourceStillEligible(normalized);
+      if (eligible) {
+        return { ok: true, session: cached };
+      }
+      clearCachedSohbetSession(normalized);
+      // Fall through — backend remains authority; create will 404 if still ineligible.
+    }
   }
 
   const guestToken = options?.guestToken || getOrCreateMirrorGuestToken();
@@ -74,6 +110,7 @@ export async function createMirrorSohbetSession(
       method: 'POST',
       headers: buildSessionHeaders(),
       body: JSON.stringify({ guestToken }),
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -87,6 +124,7 @@ export async function createMirrorSohbetSession(
           // fall through
         }
       }
+      clearCachedSohbetSession(normalized);
       return { ok: false, status: response.status };
     }
 

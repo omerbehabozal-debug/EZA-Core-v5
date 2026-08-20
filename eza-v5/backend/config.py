@@ -104,7 +104,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
     # API Keys
-    EZA_ADMIN_API_KEY: Optional[str] = None  # Admin API key for internal endpoints
+    EZA_ADMIN_API_KEY: Optional[str] = None  # Admin API key for internal endpoints (non-prod gated)
+    # Phase 8.4.1 — production-safe trust/moderation for Yansı safety-remove only.
+    # Prefer this over EZA_ADMIN_API_KEY when both are set.
+    EZA_YANSI_TRUST_ADMIN_API_KEY: Optional[str] = None
     INTERNAL_SETUP_KEY: Optional[str] = None  # Internal setup key for test user creation (⚠️ CHANGE IN PRODUCTION)
     
     # Redis (for rate limiting)

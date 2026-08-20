@@ -210,7 +210,8 @@ def test_router_registers_phase84_endpoints():
     assert "/{slug}/report" in src
     assert "/{slug}/safety-remove" in src
     assert "/{slug}/visibility" in src
-    assert "require_internal" in src
+    assert "require_yansi_trust_admin_dependency" in src
+    assert "Depends(require_internal())" not in src
 
 
 def test_author_profile_uses_profile_listable_gate():
@@ -230,3 +231,5 @@ def test_audit_script_is_read_only():
     assert "op.execute" not in src
     assert ".update(" not in src
     assert "DELETE FROM" not in src.upper()
+    assert "aggregate_yansi_visibility_audit" in src
+    assert "discover_eligible_with_review" not in src

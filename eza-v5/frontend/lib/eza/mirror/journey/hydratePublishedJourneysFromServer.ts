@@ -151,6 +151,8 @@ export async function fetchFrozenJourneyArtifact(input: {
     const response = await fetch(url, {
       method: 'GET',
       headers: { Accept: 'application/json' },
+      // Phase 8.4.1 — withdrawn/restricted must not replay from HTTP cache.
+      cache: 'no-store',
     });
     if (!response.ok) return null;
     return (await response.json()) as Record<string, unknown>;

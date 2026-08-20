@@ -34,7 +34,8 @@ from backend.models.mirror_network import MirrorNetworkNode
 from backend.models.production import User
 from backend.services.mirror_network.fixtures import build_fixture_mirror_node
 from backend.services.mirror_network.repository import create_mirror_network_node
-from backend.core.utils.dependencies import get_db, require_internal
+from backend.core.utils.dependencies import get_db
+from backend.auth.yansi_trust_admin import require_yansi_trust_admin_dependency
 from backend.services.mirror_network.yansi_visibility_controls import (
     YansiNotFoundError,
     YansiOwnershipError,
@@ -622,9 +623,14 @@ async def report_mirror_network_yansi(
 async def safety_remove_mirror_network_yansi(
     slug: str,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(require_internal()),
+    _: str = Depends(require_yansi_trust_admin_dependency()),
 ) -> YansiSafetyRemoveResponse:
-    """Internal post-publish safety removal — restricted + private."""
+    """
+    Post-publish safety removal — restricted + private.
+
+    Phase 8.4.1: production-safe trust admin key (X-Api-Key), separate from
+    Phase 8.1 require_internal() which remains non-production-only.
+    """
     try:
         result = await apply_yansi_safety_removal(db, slug=slug)
     except YansiNotFoundError as exc:

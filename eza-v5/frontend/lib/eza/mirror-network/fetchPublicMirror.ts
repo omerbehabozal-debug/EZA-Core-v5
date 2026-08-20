@@ -1,5 +1,8 @@
 /**
  * Fetch public Mirror Network payload (no auth).
+ *
+ * Phase 8.4.1 — trust-authoritative by default: no Next/HTTP cache so
+ * withdrawn / private / restricted Yansı cannot linger after state change.
  */
 
 import { getApiUrl } from '@/lib/apiUrl';
@@ -13,9 +16,21 @@ export type FetchPublicMirrorResult =
   | { ok: true; data: MirrorNetworkPublicApiResponse }
   | { ok: false; status: number };
 
+export type FetchPublicMirrorOptions = {
+  /**
+   * @deprecated Ignored for trust-authoritative fetches (Phase 8.4.1).
+   * Public slug visibility always uses cache: 'no-store'.
+   */
+  revalidateSeconds?: number;
+  /**
+   * When true (default), bypass caches. Set false only for non-trust probes.
+   */
+  trustAuthoritative?: boolean;
+};
+
 export async function fetchPublicMirrorBySlug(
   slug: string,
-  options?: { revalidateSeconds?: number }
+  options?: FetchPublicMirrorOptions
 ): Promise<FetchPublicMirrorResult> {
   const normalized = slug.trim().toLowerCase();
   if (!normalized) {
@@ -24,12 +39,22 @@ export async function fetchPublicMirrorBySlug(
 
   const base = getApiUrl().replace(/\/$/, '');
   const url = `${base}/api/mirror-network/${encodeURIComponent(normalized)}`;
+  const trustAuthoritative = options?.trustAuthoritative !== false;
 
   try {
     const response = await fetch(url, {
       method: 'GET',
       headers: { Accept: 'application/json' },
-      next: { revalidate: options?.revalidateSeconds ?? 120 },
+      ...(trustAuthoritative
+        ? { cache: 'no-store' as RequestCache, next: { revalidate: 0 } }
+        : {
+            next: {
+              revalidate:
+                typeof options?.revalidateSeconds === 'number'
+                  ? options.revalidateSeconds
+                  : 120,
+            },
+          }),
     });
 
     if (response.status === 404) {
