@@ -40,8 +40,21 @@ vi.mock('@/lib/eza/mirror-network/fetchAuthorPublished', async () => {
   return {
     ...actual,
     fetchAuthorPublishedYansilar: vi.fn(),
+    fetchOwnerProfileYansilar: vi.fn(),
   };
 });
+
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isAuthReady: true,
+    token: null,
+    setAuth: vi.fn(),
+    logout: vi.fn(),
+    role: null,
+  }),
+}));
 
 import { fetchAuthorPublishedYansilar } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 
@@ -158,7 +171,7 @@ describe('Phase 6.2.1 Profile projection UI', () => {
     vi.mocked(fetchYansiPublicMetrics).mockReset();
   });
 
-  it('shows 140 deneyim not legacy experienceCount 42', async () => {
+  it('Phase 8.5B — profile cards omit Phase 6.2 popularity metrics', async () => {
     vi.mocked(fetchAuthorPublishedYansilar).mockResolvedValue({
       ok: true,
       data: {
@@ -170,8 +183,8 @@ describe('Phase 6.2.1 Profile projection UI', () => {
             slug: 'yansi-a',
             shareUrl: '/m/yansi-a',
             publicTitle: 'Title yansi-a',
-            publicSummary: 'Summary',
-            sceneImageUrl: null,
+            publicSummary: 'Summary about curiosity',
+            sceneImageUrl: 'https://cdn.example/a.png',
             journeyVersion: 1,
             experienceStartedCount: 140,
             directChildYansiCount: 0,
@@ -180,10 +193,11 @@ describe('Phase 6.2.1 Profile projection UI', () => {
       },
     });
     render(<AuthorPublishedYansiProfile userId="author-1" />);
-    expect(await screen.findByTestId('yansi-public-metrics')).toHaveTextContent(
-      '140 deneyim'
-    );
-    expect(screen.queryByText('42 deneyim')).toBeNull();
+    expect(await screen.findByTestId('author-published-item')).toBeTruthy();
+    expect(screen.getByText('Title yansi-a')).toBeTruthy();
+    expect(screen.getByText('Summary about curiosity')).toBeTruthy();
+    expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
+    expect(screen.queryByText('140 deneyim')).toBeNull();
     expect(fetchYansiPublicMetrics).not.toHaveBeenCalled();
   });
 
@@ -199,6 +213,7 @@ describe('Phase 6.2.1 Profile projection UI', () => {
             slug: 'yansi-a',
             shareUrl: '/m/yansi-a',
             publicTitle: 'Title yansi-a',
+            publicSummary: 'Summary',
           },
         ],
       },

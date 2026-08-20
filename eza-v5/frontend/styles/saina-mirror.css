@@ -6184,3 +6184,376 @@ html:has(.saina-page) body {
     scroll-snap-type: y proximity;
   }
 }
+
+/* —— Phase 8.5B biligN profile —— */
+.bilign-profile {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 52.5rem; /* ~840px */
+  padding-left: 1rem;
+  padding-right: 1rem;
+  color: var(--saina-chrome-text, rgba(246, 244, 239, 0.94));
+}
+
+.bilign-profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0 1.25rem;
+}
+
+.bilign-profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem; /* 56px */
+  height: 3.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.bilign-profile-avatar--lg {
+  width: 4rem; /* 64px */
+  height: 4rem;
+}
+
+@media (min-width: 768px) {
+  .bilign-profile-avatar--lg {
+    width: 4.5rem; /* 72px */
+    height: 4.5rem;
+  }
+}
+
+.bilign-profile-avatar__glyph {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(246, 244, 239, 0.92);
+  line-height: 1;
+  user-select: none;
+}
+
+.bilign-profile-avatar--lg .bilign-profile-avatar__glyph {
+  font-size: 1.35rem;
+}
+
+.bilign-profile-name {
+  margin: 0;
+  max-width: 100%;
+  font-family: var(--saina-serif, Georgia, 'Times New Roman', serif);
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  color: rgba(246, 244, 239, 0.96);
+}
+
+.bilign-profile-edit-trigger {
+  min-height: 2.75rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 177, 106, 0.28);
+  background: transparent;
+  color: rgba(246, 244, 239, 0.88);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.bilign-profile-edit-trigger:hover {
+  border-color: rgba(216, 177, 106, 0.45);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.bilign-profile-edit-trigger:focus-visible {
+  outline: 2px solid rgba(231, 180, 91, 0.5);
+  outline-offset: 2px;
+}
+
+.bilign-profile-section-label {
+  margin: 0 0 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(217, 196, 163, 0.62);
+}
+
+.bilign-profile-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 720px) {
+  .bilign-profile-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.35rem;
+  }
+}
+
+.bilign-profile-card-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.bilign-profile-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 1.15rem;
+}
+
+.bilign-profile-card-link:focus-visible {
+  outline: 2px solid rgba(231, 180, 91, 0.5);
+  outline-offset: 3px;
+}
+
+.bilign-profile .bilign-profile-card.saina-discover-card {
+  max-width: none;
+  width: 100%;
+}
+
+.bilign-profile .saina-discover-card__summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bilign-profile-card-owner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+  position: relative;
+}
+
+.bilign-profile-visibility-chip {
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: rgba(217, 196, 163, 0.72);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bilign-profile-overflow-btn {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(246, 244, 239, 0.9);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bilign-profile-overflow-btn:focus-visible {
+  outline: 2px solid rgba(231, 180, 91, 0.5);
+  outline-offset: 2px;
+}
+
+.bilign-profile-overflow-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 20;
+  min-width: 11rem;
+  padding: 0.35rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(18, 16, 14, 0.96);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.bilign-profile-overflow-menu button {
+  text-align: left;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.65rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: rgba(246, 244, 239, 0.9);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.bilign-profile-overflow-menu button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bilign-profile-owner-msg {
+  width: 100%;
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(217, 196, 163, 0.75);
+}
+
+.bilign-profile-state {
+  margin: 0.5rem 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: rgba(217, 196, 163, 0.72);
+}
+
+.bilign-profile-retry,
+.bilign-profile-load-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  margin: 0.75rem auto 0;
+  padding: 0.5rem 1.25rem;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 177, 106, 0.28);
+  background: transparent;
+  color: rgba(246, 244, 239, 0.9);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.bilign-profile-load-more {
+  display: flex;
+  width: fit-content;
+}
+
+.bilign-profile-skeleton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 0;
+}
+
+.bilign-profile-skeleton__avatar {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bilign-profile-skeleton__name {
+  width: 10rem;
+  height: 1.25rem;
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bilign-profile-skeleton__card {
+  width: 100%;
+  max-width: 22rem;
+  height: 16rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  margin-top: 0.5rem;
+}
+
+.bilign-profile-edit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .bilign-profile-edit-backdrop {
+    align-items: center;
+    padding: 1.5rem;
+  }
+}
+
+.bilign-profile-edit-sheet {
+  width: 100%;
+  max-width: 26rem;
+  padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+  border-radius: 1.15rem 1.15rem 0 0;
+  background: #161410;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(246, 244, 239, 0.94);
+}
+
+@media (min-width: 640px) {
+  .bilign-profile-edit-sheet {
+    border-radius: 1.15rem;
+    padding-bottom: 1.25rem;
+  }
+}
+
+.bilign-profile-edit-title {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.bilign-profile-edit-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  color: rgba(217, 196, 163, 0.78);
+}
+
+.bilign-profile-edit-input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+  font-size: 1rem;
+}
+
+.bilign-profile-edit-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgba(217, 196, 163, 0.65);
+}
+
+.bilign-profile-edit-error {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #f0a8a0;
+}
+
+.bilign-profile-edit-actions {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 1.15rem;
+  justify-content: flex-end;
+}
+
+.bilign-profile-edit-btn {
+  min-height: 2.75rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.bilign-profile-edit-btn--ghost {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: inherit;
+}
+
+.bilign-profile-edit-btn--primary {
+  border: 1px solid rgba(216, 177, 106, 0.4);
+  background: rgba(216, 177, 106, 0.18);
+  color: rgba(246, 244, 239, 0.96);
+}

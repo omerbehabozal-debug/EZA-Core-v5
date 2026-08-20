@@ -1,252 +1,201 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import {
   fetchAuthorPublishedYansilar,
+  fetchOwnerProfileYansilar,
+  PROFILE_YANSI_PAGE_SIZE,
   type AuthorPublishedYansiItem,
 } from '@/lib/eza/mirror-network/fetchAuthorPublished';
-import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
-import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
-import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
-import { useAuth } from '@/context/AuthContext';
 import { PUBLIC_DISPLAY_NAME_FALLBACK } from '@/lib/eza/mirror/publicIdentity';
-import { apiClient } from '@/lib/apiClient';
-import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished';
-
-function ProfileYansiMetrics({ item }: { item: AuthorPublishedYansiItem }) {
-  const canonical = parseYansiPublicSocialProofInput(item);
-  if (!canonical) return null;
-  return (
-    <YansiPublicMetricsView
-      experienceStartedCount={canonical.experienceStartedCount}
-      directChildYansiCount={canonical.directChildYansiCount}
-      slug={item.slug}
-      journeyVersion={item.journeyVersion ?? undefined}
-      className="pt-1 text-stone-500"
-      variant="section"
-    />
-  );
-}
-
-type OwnerItem = AuthorPublishedYansiItem & {
-  visibility?: string | null;
-  safetyStatus?: string | null;
-  isPublicListable?: boolean | null;
-};
+import ProfileDefaultAvatar from '@/components/mirror/ayna/ProfileDefaultAvatar';
+import ProfileEditSheet from '@/components/mirror/ayna/ProfileEditSheet';
+import ProfileYansiCard from '@/components/mirror/ayna/ProfileYansiCard';
 
 type Props = {
   userId: string;
 };
 
-function visibilityLabel(item: OwnerItem): string {
-  if (item.isPublicListable) return 'Herkese açık';
-  const vis = (item.visibility || '').toLowerCase();
-  if (vis === 'unlisted') return 'Bağlantıyla';
-  if (vis === 'private') return 'Gizli / çekilmiş';
-  return vis || 'Gizli';
-}
+type LoadStatus = 'loading' | 'ready' | 'empty' | 'error';
 
 /**
- * Public profile — published Yansılar only. No follow/follower semantics.
- * Owner viewing own UUID also sees non-public inventory (Phase 8.5).
+ * Phase 8.5B — biligN public/owner profile.
+ * Quiet identity + Yansı cards (visual → title → summary). No social graph.
  */
 export default function AuthorPublishedYansiProfile({ userId }: Props) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isAuthReady } = useAuth();
+  const ownershipResolved = isAuthReady;
   const isOwner =
+    ownershipResolved &&
     Boolean(isAuthenticated && user?.user_id && user.user_id === userId.trim());
+
   const [displayName, setDisplayName] = useState(PUBLIC_DISPLAY_NAME_FALLBACK);
   const [items, setItems] = useState<AuthorPublishedYansiItem[]>([]);
-  const [ownerItems, setOwnerItems] = useState<OwnerItem[]>([]);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>(
-    'loading'
+  const [total, setTotal] = useState(0);
+  const [status, setStatus] = useState<LoadStatus>('loading');
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const loadPage = useCallback(
+    async (offset: number, append: boolean) => {
+      if (!ownershipResolved) return;
+      if (!append) setStatus('loading');
+      else setLoadingMore(true);
+
+      const result = isOwner
+        ? await fetchOwnerProfileYansilar({
+            limit: PROFILE_YANSI_PAGE_SIZE,
+            offset,
+          })
+        : await fetchAuthorPublishedYansilar(userId, {
+            limit: PROFILE_YANSI_PAGE_SIZE,
+            offset,
+          });
+
+      if (!result.ok) {
+        if (!append) setStatus('error');
+        setLoadingMore(false);
+        return;
+      }
+
+      setDisplayName(result.data.displayName);
+      setTotal(result.data.total);
+      setItems((prev) =>
+        append ? [...prev, ...result.data.items] : result.data.items
+      );
+      const nextLen = append
+        ? offset + result.data.items.length
+        : result.data.items.length;
+      setStatus(nextLen === 0 && result.data.total === 0 ? 'empty' : 'ready');
+      setLoadingMore(false);
+    },
+    [isOwner, ownershipResolved, userId]
   );
 
   useEffect(() => {
-    let cancelled = false;
-    setStatus('loading');
-    void (async () => {
-      if (isOwner) {
-        const response = await apiClient.get<{
-          displayName?: string;
-          items?: OwnerItem[];
-          total?: number;
-        }>('/api/mirror-network/me/profile-yansilar', {
-          auth: true,
-          timeoutMs: 15_000,
-        });
-        if (cancelled) return;
-        if (!response.ok) {
-          setStatus('error');
-          return;
-        }
-        const data = (response.data ?? response) as {
-          displayName?: string;
-          items?: OwnerItem[];
-        };
-        setDisplayName(
-          typeof data.displayName === 'string' && data.displayName.trim()
-            ? data.displayName
-            : PUBLIC_DISPLAY_NAME_FALLBACK
-        );
-        const list = Array.isArray(data.items) ? data.items : [];
-        setOwnerItems(list);
-        setItems(list.filter((row) => row.isPublicListable));
-        setStatus(list.length ? 'ready' : 'empty');
-        return;
-      }
+    if (!ownershipResolved) {
+      setStatus('loading');
+      return;
+    }
+    void loadPage(0, false);
+  }, [ownershipResolved, isOwner, userId, reloadKey, loadPage]);
 
-      const result = await fetchAuthorPublishedYansilar(userId);
-      if (cancelled) return;
-      if (!result.ok) {
-        setStatus('error');
-        return;
-      }
-      setDisplayName(result.data.displayName);
-      setItems(result.data.items);
-      setOwnerItems([]);
-      setStatus(result.data.items.length ? 'ready' : 'empty');
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, isOwner]);
-
-  const listForPublic = isOwner ? items : items;
-  const showOwnerInventory = isOwner && ownerItems.length > 0;
+  const hasMore = items.length < total;
+  const showEmpty = status === 'empty' || (status === 'ready' && items.length === 0);
 
   return (
     <main
-      className="mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col gap-6 px-4 py-8"
+      className="bilign-profile"
       style={{
-        paddingTop: 'max(2rem, env(safe-area-inset-top))',
+        paddingTop: 'max(1.5rem, env(safe-area-inset-top))',
         paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
       }}
       data-testid="author-published-profile"
+      data-profile-owner={isOwner ? 'true' : 'false'}
+      data-auth-ready={ownershipResolved ? 'true' : 'false'}
     >
-      <header>
-        <p className="text-xs uppercase tracking-[0.18em] text-stone-500">
-          Yayınlanan Yansılar
-        </p>
-        <h1 className="mt-2 font-serif text-2xl text-stone-900">{displayName}</h1>
-        <p className="mt-2 text-sm text-stone-600">
-          {isOwner
-            ? 'Başkaları yalnızca herkese açık Yansılarınızı ve seçtiğiniz adı görür.'
-            : 'Bu kişinin dünyaya açtığı Yansılar.'}
-        </p>
-        {isOwner ? (
-          <p className="mt-1 text-xs text-stone-500" data-testid="owner-profile-url-hint">
-            Profil bağlantınız: {authorProfilePath(userId)}
-          </p>
-        ) : null}
-      </header>
-
-      {status === 'loading' ? (
-        <p className="text-sm text-stone-500" role="status">
-          Yükleniyor…
-        </p>
-      ) : null}
-      {status === 'error' ? (
-        <p className="text-sm text-stone-500" role="status">
-          Profil şu an açılamıyor.
-        </p>
-      ) : null}
-      {status === 'empty' && !showOwnerInventory ? (
-        <p className="text-sm text-stone-500" role="status">
-          Henüz yayınlanmış Yansı yok.
-        </p>
+      {!ownershipResolved || status === 'loading' ? (
+        <div className="bilign-profile-skeleton" data-testid="bilign-profile-skeleton">
+          <div className="bilign-profile-skeleton__avatar" />
+          <div className="bilign-profile-skeleton__name" />
+          <div className="bilign-profile-skeleton__card" />
+          <div className="bilign-profile-skeleton__card" />
+        </div>
       ) : null}
 
-      {showOwnerInventory ? (
-        <section data-testid="owner-profile-inventory">
-          <h2 className="text-sm font-medium text-stone-800">Yansılarınız</h2>
-          <ul className="mt-3 flex flex-col gap-3">
-            {ownerItems.map((item) => (
-              <li
-                key={item.slug}
-                className="rounded-xl border border-stone-200 bg-white px-3 py-2"
+      {ownershipResolved && status !== 'loading' ? (
+        <>
+          <header className="bilign-profile-header">
+            <ProfileDefaultAvatar
+              displayName={displayName}
+              userId={userId}
+              size="lg"
+            />
+            <h1
+              className="bilign-profile-name"
+              data-testid="bilign-profile-display-name"
+            >
+              {displayName}
+            </h1>
+            {isOwner ? (
+              <button
+                type="button"
+                className="bilign-profile-edit-trigger"
+                onClick={() => setEditOpen(true)}
+                data-testid="bilign-profile-edit-trigger"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <Link
-                    href={`/m/${encodeURIComponent(item.slug)}`}
-                    className="text-sm font-medium text-stone-900 hover:underline"
-                  >
-                    {item.publicTitle}
-                  </Link>
-                  <span className="shrink-0 text-xs text-stone-500">
-                    {visibilityLabel(item)}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+                Profili düzenle
+              </button>
+            ) : null}
+          </header>
+
+          <h2 className="bilign-profile-section-label">Yansılar</h2>
+
+          {status === 'error' ? (
+            <div className="bilign-profile-state" role="status">
+              <p>Profil şu an açılamıyor.</p>
+              <button
+                type="button"
+                className="bilign-profile-retry"
+                onClick={() => setReloadKey((k) => k + 1)}
+                data-testid="bilign-profile-retry"
+              >
+                Tekrar dene
+              </button>
+            </div>
+          ) : null}
+
+          {showEmpty && status !== 'error' ? (
+            <p
+              className="bilign-profile-state"
+              role="status"
+              data-testid="bilign-profile-empty"
+            >
+              {isOwner
+                ? 'Henüz bir Yansı yok. Sohbetinden ilk Yansını oluşturabilirsin.'
+                : 'Henüz herkese açık Yansı yok.'}
+            </p>
+          ) : null}
+
+          {status === 'ready' && items.length > 0 ? (
+            <ul
+              className="bilign-profile-grid"
+              data-testid="author-published-list"
+            >
+              {items.map((item) => (
+                <ProfileYansiCard
+                  key={item.slug}
+                  item={item}
+                  isOwner={isOwner}
+                  onOwnerMutated={() => setReloadKey((k) => k + 1)}
+                />
+              ))}
+            </ul>
+          ) : null}
+
+          {hasMore && status === 'ready' ? (
+            <button
+              type="button"
+              className="bilign-profile-load-more"
+              disabled={loadingMore}
+              onClick={() => void loadPage(items.length, true)}
+              data-testid="bilign-profile-load-more"
+            >
+              {loadingMore ? 'Yükleniyor…' : 'Daha fazla göster'}
+            </button>
+          ) : null}
+        </>
       ) : null}
 
-      {!isOwner && status === 'ready' ? (
-        <ul className="flex flex-col gap-4" data-testid="author-published-list">
-          {listForPublic.map((item) => (
-            <li key={item.slug}>
-              <YansiExposureRoot
-                slug={item.slug}
-                journeyVersion={item.journeyVersion ?? null}
-                context="public_profile"
-              >
-              <Link
-                href={`/m/${encodeURIComponent(item.slug)}`}
-                className="block overflow-hidden rounded-2xl border border-stone-200 bg-white transition hover:border-stone-300"
-                data-testid="author-published-item"
-              >
-                {item.sceneImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.sceneImageUrl}
-                    alt=""
-                    className="aspect-[4/5] w-full object-cover"
-                    loading="lazy"
-                  />
-                ) : null}
-                <div className="space-y-1 p-4">
-                  <h2 className="text-base font-medium text-stone-900">
-                    {item.publicTitle}
-                  </h2>
-                  {item.publicSummary ? (
-                    <p className="line-clamp-3 text-sm text-stone-600">
-                      {item.publicSummary}
-                    </p>
-                  ) : null}
-                  <ProfileYansiMetrics item={item} />
-                </div>
-              </Link>
-              </YansiExposureRoot>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {isOwner && listForPublic.length > 0 ? (
-        <section data-testid="author-published-list">
-          <h2 className="text-sm font-medium text-stone-800">
-            Başkalarının gördüğü
-          </h2>
-          <ul className="mt-3 flex flex-col gap-4">
-            {listForPublic.map((item) => (
-              <li key={`public-${item.slug}`}>
-                <Link
-                  href={`/m/${encodeURIComponent(item.slug)}`}
-                  className="block overflow-hidden rounded-2xl border border-stone-200 bg-white transition hover:border-stone-300"
-                  data-testid="author-published-item"
-                >
-                  <div className="space-y-1 p-4">
-                    <h2 className="text-base font-medium text-stone-900">
-                      {item.publicTitle}
-                    </h2>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {isOwner ? (
+        <ProfileEditSheet
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          initialName={displayName}
+          onSaved={(name) => setDisplayName(name)}
+        />
       ) : null}
     </main>
   );
