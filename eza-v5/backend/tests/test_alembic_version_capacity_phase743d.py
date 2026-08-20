@@ -43,11 +43,12 @@ def _pg_url() -> str | None:
 def test_revision_identifier_lengths():
     audit = revision_length_audit()
     assert audit["headRevision"] == HEAD_REVISION
-    assert audit["headLength"] == len(HEAD_REVISION) == 25
+    assert audit["headLength"] == len(HEAD_REVISION) == 36
     assert audit["maxLength"] == 40
     assert audit["longestRevision"] == "add_mirror_journey_identity_pass_closure"
     assert len("add_mirror_journey_identity_pass_closure") == 40
     assert len("add_mirror_journey_phase42_eza_snapshot") == 39
+    assert len("add_user_public_display_name_phase85") == 36
     assert audit["varchar32Insufficient"] is True
     ids = load_revision_identifiers()
     assert HEAD_REVISION in ids
@@ -322,7 +323,7 @@ def test_clean_db_upgrade_head_and_phase6_from_phase42():
         with engine.connect() as connection:
             current = connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
             assert current == HEAD_REVISION
-            assert len(current) == 25
+            assert len(current) == 36
             tables = set(sa_inspect(connection).get_table_names())
             for name in PHASE6_TABLES:
                 assert name in tables
