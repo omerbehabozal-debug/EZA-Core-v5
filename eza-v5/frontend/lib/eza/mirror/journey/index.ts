@@ -210,7 +210,16 @@ export {
   formatParentLineageLabel,
 } from './aynaAuthorDisplay';
 
-export { isMirrorJourneyV1ClientEnabled } from './journeyClientFlag';
+export { isMirrorJourneyV1ClientEnabled, parseMirrorJourneyV1Flag } from './journeyClientFlag';
+export {
+  JOURNEY_AYNA_GENERATE_EVENT,
+  requestJourneyAynaGeneration,
+  type JourneyAynaGenerateDetail,
+} from './journeyAynaGenerate';
+export {
+  recoverPublishedJourneyAfterLostResponse,
+  type RecoverPublishedJourneyResult,
+} from './recoverPublishedJourney';
 export {
   resolveJourneyPublishContract,
   type JourneyPublishContractResult,

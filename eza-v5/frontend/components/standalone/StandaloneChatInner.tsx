@@ -33,6 +33,7 @@ import {
   markMirrorJourneyArtifactGenerating,
   pairsForWindow,
   reopenJourneyWindowDecision,
+  requestJourneyAynaGeneration,
   resolveAuthorDisplayName,
   resolveParentJourneyId,
   saveJourneyConversationState,
@@ -763,6 +764,14 @@ export default function StandaloneChatInner() {
         parentAuthorDisplayName,
         parentPublicTitle,
       });
+      // Phase 8.6 — kick scene pipeline; Ayna reel hides legacy create CTA.
+      if (chatId && draft.journeyId) {
+        requestJourneyAynaGeneration({
+          conversationId: chatId,
+          journeyId: draft.journeyId,
+          journeyVersion: draft.journeyVersion ?? 1,
+        });
+      }
       setJourneyReviewOpen(false);
       setJourneyReviewWindowIndex(null);
       // Phase 3 will run meaning pipeline; keep chat free — flip to ready async.

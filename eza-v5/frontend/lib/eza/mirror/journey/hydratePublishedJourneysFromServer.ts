@@ -120,15 +120,15 @@ export async function hydratePublishedJourneysFromServer(input: {
       artifact.journeyId,
       artifact.journeyVersion
     );
-    // Do not clobber richer local generating/ready rows or sealed published lineage.
+    // Do not clobber richer sealed published lineage (client seal + share).
     if (existing && existing.status === 'published' && existing.sealedLineage) {
       continue;
     }
-    if (existing && (existing.status === 'ready' || existing.status === 'generating')) {
-      continue;
-    }
+    // Phase 8.6 — server frozen publish is authority over local ready/generating.
+    // Lost publish responses must upgrade the draft instead of leaving a false unpublished state.
     saveMirrorJourneyArtifact(owner, {
       ...artifact,
+      sealedLineage: existing?.sealedLineage ?? artifact.sealedLineage,
       stateVersion: existing?.stateVersion ?? 0,
     });
   }

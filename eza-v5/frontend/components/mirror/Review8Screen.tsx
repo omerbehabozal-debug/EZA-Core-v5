@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
   buildReview8DraftFromWindow,
@@ -79,6 +79,9 @@ export default function Review8Screen({
     });
   });
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  /** Phase 8.6 — sync guard: double-click must not allocate two journeyIds. */
+  const confirmInFlightRef = useRef(false);
 
   if (!draft || windowPairs.length !== JOURNEY_CANDIDATE_COUNT) {
     return (
@@ -123,6 +126,7 @@ export default function Review8Screen({
 
   const handleConfirm = () => {
     if (!draft) return;
+    if (confirmInFlightRef.current || confirming) return;
     if (belowMinimum) {
       setConfirmError(MIN_SELECTED_COPY);
       return;
@@ -132,6 +136,10 @@ export default function Review8Screen({
       setConfirmError(result.message);
       return;
     }
+    confirmInFlightRef.current = true;
+    setConfirming(true);
+    // Keep allocated journeyId in local state so a remount/retry cannot mint another.
+    setDraft(result.draft);
     saveReview8Draft(result.draft);
     onConfirmed(result.draft);
   };
@@ -215,10 +223,11 @@ export default function Review8Screen({
             type="button"
             className="inline-flex w-full items-center justify-center rounded-full border border-[rgba(231,180,91,0.42)] bg-[linear-gradient(165deg,rgba(231,180,91,0.28)_0%,rgba(231,180,91,0.14)_100%)] px-4 py-2.5 text-xs font-semibold text-[#f6f0e4] disabled:opacity-40"
             onClick={handleConfirm}
-            disabled={belowMinimum}
+            disabled={belowMinimum || confirming}
             data-testid="review8-confirm"
+            aria-busy={confirming}
           >
-            Seçilen {selectedCount} soruyu onayla
+            {confirming ? 'Onaylanıyor…' : `Seçilen ${selectedCount} soruyu onayla`}
           </button>
           <button
             type="button"

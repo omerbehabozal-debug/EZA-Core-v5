@@ -81,11 +81,15 @@ import {
   buildPublishCardFromArtifact,
   markMirrorJourneyArtifactPublished,
   markMirrorJourneyArtifactPublishFailed,
+  markMirrorJourneyArtifactFailed,
   loadMirrorJourneyArtifact,
   resolveMirrorJourneySharePayload,
   buildShareCardFromJourneyPayload,
   publicPreviewFromJourneySharePayload,
   hydratePublishedJourneysFromServer,
+  JOURNEY_AYNA_GENERATE_EVENT,
+  recoverPublishedJourneyAfterLostResponse,
+  type JourneyAynaGenerateDetail,
   type MirrorJourneySharePayload,
 } from '@/lib/eza/mirror/journey';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
@@ -610,16 +614,48 @@ export default function StandaloneObservationExperience({
           return true;
         }
 
-        if (card.mirrorShare?.shareUrl && options?.refreshScene) {
-          setShareLinkStatus('ready');
-          return true;
-        }
-
+        // Phase 8.6 — never treat prior local shareUrl as publish success after a failed attempt.
+        // Lost HTTP response: recover from durable owner published-journeys.
         const failedLineage = card.mirrorJourneyGenerationLineage;
         if (
           shareCacheUserId &&
+          conversationId &&
           isPublishableJourneyGenerationLineage(failedLineage)
         ) {
+          const recovered = await recoverPublishedJourneyAfterLostResponse({
+            ownerUserId: shareCacheUserId,
+            conversationId,
+            journeyId: failedLineage.journeyId,
+            journeyVersion: failedLineage.journeyVersion,
+          });
+          if (recovered.recovered && recovered.item?.slug) {
+            const shareUrl =
+              recovered.artifact?.publish.shareUrl ||
+              `/m/${recovered.item.slug}`;
+            saveMirrorShareLink(
+              conversationId,
+              recovered.item.slug,
+              shareUrl,
+              shareCacheUserId,
+              new Date(),
+              {
+                publicTitle: recovered.item.publicTitle ?? null,
+                publicSummary: recovered.item.publicSummary ?? null,
+              }
+            );
+            setGeneratedDailyCard((prev) =>
+              prev
+                ? applyShareUrlToCard(prev, shareUrl, recovered.item!.slug, {
+                    publicTitle: recovered.item!.publicTitle ?? null,
+                    publicSummary: recovered.item!.publicSummary ?? null,
+                  })
+                : prev
+            );
+            setShareLinkStatus('ready');
+            setShareLinkError(null);
+            setArtifactRevision((n) => n + 1);
+            return true;
+          }
           markMirrorJourneyArtifactPublishFailed(shareCacheUserId, {
             journeyId: failedLineage.journeyId,
             journeyVersion: failedLineage.journeyVersion,
@@ -1466,6 +1502,43 @@ export default function StandaloneObservationExperience({
     return () => window.removeEventListener(MIRROR_BIRTH_GENERATE_EVENT, onMirrorBirthGenerate);
   }, [conversationId, handleGenerateDailyMirror]);
 
+  /** Phase 8.6 — Review confirm → force Ayna scene create (reel hides create CTA). */
+  useEffect(() => {
+    if (!conversationId || !isMirrorJourneyV1ClientEnabled()) return;
+
+    const onJourneyAynaGenerate = (event: Event) => {
+      const detail = (event as CustomEvent<JourneyAynaGenerateDetail>).detail;
+      if (!detail || detail.conversationId !== conversationId) return;
+      if (entries.length < MIRROR_MIN_SAMPLES) {
+        if (shareCacheUserId && detail.journeyId) {
+          markMirrorJourneyArtifactFailed(shareCacheUserId, {
+            journeyId: detail.journeyId,
+            journeyVersion: detail.journeyVersion ?? 1,
+            message: 'Yansı için sohbet henüz yeterli değil.',
+          });
+          setArtifactRevision((n) => n + 1);
+        }
+        return;
+      }
+      if (!canCreateVisual) {
+        setDailyStatus(visualLimitStatus());
+        return;
+      }
+      runMirrorWithReveal(entries, { isUpdate: true });
+    };
+
+    window.addEventListener(JOURNEY_AYNA_GENERATE_EVENT, onJourneyAynaGenerate);
+    return () =>
+      window.removeEventListener(JOURNEY_AYNA_GENERATE_EVENT, onJourneyAynaGenerate);
+  }, [
+    conversationId,
+    entries,
+    canCreateVisual,
+    visualLimitStatus,
+    runMirrorWithReveal,
+    shareCacheUserId,
+  ]);
+
   const handleMirrorRefresh = useCallback(() => {
     if (conversationId) {
       const snap = readConversationSnapshot(conversationId);
@@ -1770,6 +1843,19 @@ export default function StandaloneObservationExperience({
       onPublish: (artifact) => {
         void prepareArtifactShareLink(artifact, { refreshScene: true });
       },
+      onRetry: (artifact) => {
+        if (artifact.status !== 'failed' && artifact.status !== 'generating') {
+          return;
+        }
+        if (!conversationId) return;
+        if (entries.length < MIRROR_MIN_SAMPLES) return;
+        if (!canCreateVisual) {
+          setDailyStatus(visualLimitStatus());
+          return;
+        }
+        // Re-kick the same Review→scene path; do not allocate a new journeyId.
+        runMirrorWithReveal(entries, { isUpdate: true });
+      },
       onShare: (artifact) => {
         if (!isPlus) {
           setUpgradeOpen(true);
@@ -1841,6 +1927,10 @@ export default function StandaloneObservationExperience({
       freezeArtifactShareSession,
       openShareExperience,
       router,
+      entries,
+      canCreateVisual,
+      visualLimitStatus,
+      runMirrorWithReveal,
     ]
   );
 

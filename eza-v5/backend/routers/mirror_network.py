@@ -90,6 +90,34 @@ router = APIRouter(prefix="/api/mirror-network", tags=["Mirror Network"])
 debug_router = APIRouter(prefix="/api/debug/mirror-network", tags=["Debug — Mirror Network"])
 
 
+class MirrorNetworkCapabilitiesResponse(BaseModel):
+    """Phase 8.6 — FE/BE Journey V1 flag parity surface (read-only)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    journeyV1Enabled: bool
+    artifactKind: str = "journey_v1"
+    clientFlag: str = "NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1"
+    serverFlag: str = "EZA_MIRROR_JOURNEY_V1"
+
+
+@router.get("/capabilities", response_model=MirrorNetworkCapabilitiesResponse)
+async def get_mirror_network_capabilities(
+    _: None = Depends(rate_limit_standalone),
+) -> MirrorNetworkCapabilitiesResponse:
+    """
+    Public read of Journey V1 enablement so clients can detect FE/BE flag skew.
+    Does not expose secrets or internal scoring.
+    """
+    from backend.services.mirror_network.journey_identity import (
+        mirror_journey_v1_enabled,
+    )
+
+    return MirrorNetworkCapabilitiesResponse(
+        journeyV1Enabled=bool(mirror_journey_v1_enabled()),
+    )
+
+
 def _configured_debug_secret() -> str | None:
     settings = get_settings()
     return (
