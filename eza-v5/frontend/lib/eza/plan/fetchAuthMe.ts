@@ -65,8 +65,12 @@ export async function patchPublicIdentity(
     auth: true,
   });
   if (!res.ok) {
+    const detail =
+      res.detail && typeof res.detail === 'object'
+        ? (res.detail as { code?: string })
+        : null;
     const code = String(
-      res.error?.error_code || res.error?.code || res.error?.error || ''
+      res.error?.error_code || detail?.code || res.error?.error || ''
     );
     return { ok: false, code: code || undefined };
   }
