@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
 import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
+import YansiTrustActions from '@/components/mirror-landing/YansiTrustActions';
 
 export type MirrorLandingExperienceProps = {
   surface: MirrorLandingSurface;
@@ -143,6 +144,11 @@ export default function MirrorLandingExperience({
                   >
                     Bu merakı deneyimle
                   </button>
+                  <YansiTrustActions
+                    slug={surface.slug}
+                    authorUserId={frozenState.artifact.authorUserId}
+                    className="pt-1"
+                  />
                 </div>
               ) : frozenState.status === 'loading' ? (
                 <div className="mt-auto pt-10 text-center text-xs text-[#a89880]">

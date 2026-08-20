@@ -34,7 +34,18 @@ from backend.models.mirror_network import MirrorNetworkNode
 from backend.models.production import User
 from backend.services.mirror_network.fixtures import build_fixture_mirror_node
 from backend.services.mirror_network.repository import create_mirror_network_node
-from backend.core.utils.dependencies import get_db
+from backend.core.utils.dependencies import get_db, require_internal
+from backend.services.mirror_network.yansi_visibility_controls import (
+    YansiNotFoundError,
+    YansiOwnershipError,
+    apply_yansi_safety_removal,
+    set_yansi_visibility_for_owner,
+    unpublish_yansi_for_owner,
+)
+from backend.services.mirror_network.yansi_report import (
+    YansiReportTargetError,
+    create_yansi_report,
+)
 from backend.services.mirror_network.discover import (
     DiscoverModeError,
     list_discover_mirrors,
@@ -451,6 +462,182 @@ async def get_mirror_network_impact(
     Returns counts only — never actor identity, conversation content, or raw events.
     """
     return await get_mirror_impact_stats(db, slug, user.id)
+
+
+class YansiUnpublishResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    slug: str
+    visibility: str
+    safetyStatus: str
+
+
+class YansiVisibilityRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    visibility: str = Field(..., min_length=1, max_length=20)
+
+
+class YansiVisibilityResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    slug: str
+    visibility: str
+    safetyStatus: str
+    reason: Optional[str] = None
+
+
+class YansiReportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(..., min_length=1, max_length=32)
+
+
+class YansiReportResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    slug: str
+    reason: str
+
+
+class YansiSafetyRemoveResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    slug: str
+    visibility: str
+    safetyStatus: str
+
+
+@router.post("/{slug}/unpublish", response_model=YansiUnpublishResponse)
+async def unpublish_mirror_network_yansi(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> YansiUnpublishResponse:
+    """Owner withdraw — stops Discover, profile, direct link, frozen, sohbet."""
+    try:
+        result = await unpublish_yansi_for_owner(
+            db, slug=slug, owner_user_id=user.id
+        )
+    except YansiNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "mirror_not_found", "message": "Yansı bulunamadı"},
+        ) from exc
+    except YansiOwnershipError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "forbidden", "message": "Bu Yansı için yetkin yok"},
+        ) from exc
+    return YansiUnpublishResponse(
+        status=result.status,
+        slug=result.slug,
+        visibility=result.visibility,
+        safetyStatus=result.safety_status,
+    )
+
+
+@router.post("/{slug}/visibility", response_model=YansiVisibilityResponse)
+async def set_mirror_network_yansi_visibility(
+    slug: str,
+    body: YansiVisibilityRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> YansiVisibilityResponse:
+    """Owner toggle public ↔ unlisted (Discover off while keeping link-access)."""
+    try:
+        result = await set_yansi_visibility_for_owner(
+            db,
+            slug=slug,
+            owner_user_id=user.id,
+            visibility=body.visibility,
+        )
+    except YansiNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "mirror_not_found", "message": "Yansı bulunamadı"},
+        ) from exc
+    except YansiOwnershipError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "forbidden", "message": "Bu Yansı için yetkin yok"},
+        ) from exc
+    if result.status == "rejected":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": result.reason or "visibility_rejected",
+                "message": "Görünürlük değiştirilemedi",
+            },
+        )
+    return YansiVisibilityResponse(
+        status=result.status,
+        slug=result.slug,
+        visibility=result.visibility,
+        safetyStatus=result.safety_status,
+        reason=result.reason,
+    )
+
+
+@router.post("/{slug}/report", response_model=YansiReportResponse)
+async def report_mirror_network_yansi(
+    slug: str,
+    body: YansiReportRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> YansiReportResponse:
+    """Minimal authenticated report — does not auto-hide or affect ranking/metrics."""
+    try:
+        result = await create_yansi_report(
+            db,
+            slug=slug,
+            reporter_user_id=user.id,
+            reason=body.reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_reason", "message": "Geçersiz bildirim nedeni"},
+        ) from exc
+    except YansiReportTargetError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "mirror_not_found", "message": "Yansı bulunamadı"},
+        ) from exc
+    return YansiReportResponse(
+        status=result.status,
+        slug=result.slug,
+        reason=result.reason,
+    )
+
+
+@router.post("/{slug}/safety-remove", response_model=YansiSafetyRemoveResponse)
+async def safety_remove_mirror_network_yansi(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(require_internal()),
+) -> YansiSafetyRemoveResponse:
+    """Internal post-publish safety removal — restricted + private."""
+    try:
+        result = await apply_yansi_safety_removal(db, slug=slug)
+    except YansiNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "mirror_not_found", "message": "Yansı bulunamadı"},
+        ) from exc
+    return YansiSafetyRemoveResponse(
+        status=result.status,
+        slug=result.slug,
+        visibility=result.visibility,
+        safetyStatus=result.safety_status,
+    )
 
 
 @router.get("/{slug}", response_model=MirrorNetworkPublicPayload)

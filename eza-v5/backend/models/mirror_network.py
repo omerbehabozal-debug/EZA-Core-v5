@@ -148,3 +148,35 @@ class MirrorJourneyStep(Base):
     # Phase 4.2 — immutable interaction-level EZA snapshot for this frozen step.
     eza_snapshot = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class YansiReport(Base):
+    """Phase 8.4 — minimal user report of a public/link-accessible Yansı."""
+
+    __tablename__ = "yansi_reports"
+    __table_args__ = (
+        UniqueConstraint(
+            "mirror_slug",
+            "reporter_user_id",
+            name="uq_yansi_reports_slug_reporter",
+        ),
+        Index("ix_yansi_reports_slug_created", "mirror_slug", "created_at"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    mirror_slug = Column(String(64), nullable=False, index=True)
+    mirror_node_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("mirror_network_nodes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    reporter_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("production_users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    reason = Column(String(32), nullable=False)
+    status = Column(String(20), nullable=False, default="open", server_default="open")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

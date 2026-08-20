@@ -25,6 +25,10 @@ from backend.services.mirror_network.frozen_journey_artifact import (
 from backend.services.mirror_network.impact import is_eligible_yansi_child
 from backend.services.mirror_network.repository import get_mirror_network_node_by_slug
 from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
+from backend.services.mirror_network.visibility_access import (
+    is_children_parent_accessible,
+    is_profile_listable,
+)
 from backend.services.mirror_network.slug import build_mirror_share_url
 
 # Deterministic /children ordering (Phase 5.1.1):
@@ -106,12 +110,8 @@ def _item_from_node(
 
 
 def _is_public_published(node: MirrorNetworkNode) -> bool:
-    visibility = (node.visibility or "public").lower()
-    if visibility == "private":
-        return False
-    if not evaluate_mirror_network_safety(node).passed:
-        return False
-    return True
+    """Legacy name — profile/Discover-family public listing (excludes unlisted)."""
+    return is_profile_listable(node)
 
 
 def is_candidate_frozen_continuation_child(node: MirrorNetworkNode) -> bool:
@@ -382,7 +382,7 @@ async def _eligible_direct_child_nodes(
     if not normalized:
         return None
     parent = await get_mirror_network_node_by_slug(db, normalized)
-    if parent is None or not _is_public_published(parent):
+    if parent is None or not is_children_parent_accessible(parent):
         return None
 
     result = await db.execute(
