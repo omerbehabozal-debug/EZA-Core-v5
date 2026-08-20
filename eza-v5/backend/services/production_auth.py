@@ -42,7 +42,8 @@ async def create_user(
     password: str,
     role: str = "user",
     is_active: bool = True,
-    is_internal_test_user: bool = False
+    is_internal_test_user: bool = False,
+    public_display_name: str | None = None,
 ) -> User:
     """Create a new user"""
     try:
@@ -72,7 +73,8 @@ async def create_user(
             password_hash=password_hash,
             role=role,
             is_active=is_active,
-            is_internal_test_user=is_internal_test_user
+            is_internal_test_user=is_internal_test_user,
+            public_display_name=public_display_name,
         )
         logger.info(f"[create_user] Step 8: Adding user to database session...")
         db.add(user)

@@ -35,7 +35,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     role: str = "user"  # admin, org_admin, user, ops, regulator (ignored if invitation_token provided)
-    full_name: str | None = None  # Optional full name (not stored in DB yet)
+    full_name: str | None = None  # Optional; when valid, stored as public_display_name (Phase 8.5)
     invitation_token: str | None = None  # Optional invitation token for enterprise flow
 
 
@@ -67,6 +67,29 @@ class AuthMeResponse(BaseModel):
     role: str
     mirror_plan: str
     account_tier: str | None = None
+    # Phase 8.5 — owner-private identity control (not a public DTO).
+    public_display_name: str | None = None
+
+
+class PublicIdentityUpdateRequest(BaseModel):
+    public_display_name: str
+
+
+class PublicIdentityUpdateResponse(BaseModel):
+    public_display_name: str
+    resolved_public_display_name: str
+
+
+def _optional_explicit_public_name(raw: str | None) -> str | None:
+    """Register-time optional name — invalid values are ignored (do not fail register)."""
+    if raw is None or not str(raw).strip():
+        return None
+    try:
+        from backend.services.mirror_network.public_identity import validate_public_display_name
+
+        return validate_public_display_name(raw)
+    except ValueError:
+        return None
 
 
 @router.get("/me", response_model=AuthMeResponse)
@@ -84,6 +107,7 @@ async def get_auth_me(
                 "message": "User not found or inactive",
             },
         )
+    chosen = getattr(user, "public_display_name", None)
     return AuthMeResponse(
         user_id=str(user.id),
         email=user.email,
@@ -94,6 +118,47 @@ async def get_auth_me(
             account_tier=getattr(user, "account_tier", None),
             is_authenticated=True,
         ).value,
+        public_display_name=(str(chosen).strip() if chosen else None) or None,
+    )
+
+
+@router.patch("/me/public-identity", response_model=PublicIdentityUpdateResponse)
+async def patch_public_identity(
+    body: PublicIdentityUpdateRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Phase 8.5 — authenticated owner sets explicit public display name.
+
+    Never derives from email. Logs event without private name payloads.
+    """
+    from backend.services.mirror_network.public_identity import (
+        resolve_public_display_name,
+        validate_public_display_name,
+    )
+
+    user = await get_production_user_by_id(db, current_user["user_id"])
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "auth_required", "message": "User not found or inactive"},
+        )
+    try:
+        validated = validate_public_display_name(body.public_display_name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": str(exc), "message": "Invalid public display name"},
+        ) from exc
+
+    user.public_display_name = validated
+    await db.commit()
+    await db.refresh(user)
+    logger.info("public_profile_updated user_id=%s", user.id)
+    return PublicIdentityUpdateResponse(
+        public_display_name=validated,
+        resolved_public_display_name=resolve_public_display_name(user),
     )
 
 
@@ -169,7 +234,8 @@ async def register(
                 db=db,
                 email=request.email,
                 password=request.password,
-                role="user"  # Default role, actual role comes from OrganizationUser
+                role="user",  # Default role, actual role comes from OrganizationUser
+                public_display_name=_optional_explicit_public_name(request.full_name),
             )
         
         # Accept invitation and create OrganizationUser
@@ -221,11 +287,13 @@ async def register(
             )
         
         logger.info(f"[Register] Step 2: Creating new user...")
+        explicit_name = _optional_explicit_public_name(request.full_name)
         user = await create_user(
             db=db,
             email=request.email,
             password=request.password,
-            role=final_role
+            role=final_role,
+            public_display_name=explicit_name,
         )
         logger.info(f"[Register] Step 3: User created successfully. User ID: {user.id}, Email: {user.email}")
         

@@ -29,6 +29,7 @@ from backend.services.mirror_network.visibility_access import (
     is_children_parent_accessible,
     is_profile_listable,
 )
+from backend.services.mirror_network.public_identity import resolve_public_display_name
 from backend.services.mirror_network.slug import build_mirror_share_url
 
 # Deterministic /children ordering (Phase 5.1.1):
@@ -41,12 +42,12 @@ CHILDREN_ORDER_BY = (
 
 
 def _public_display_name_from_email(email: str | None) -> str:
-    raw = (email or "").strip()
-    if "@" in raw:
-        local = raw.split("@", 1)[0].strip()
-        if local:
-            return local
-    return "Yazar"
+    """
+    DEPRECATED — Phase 8.5.
+
+    Kept as a no-op shim so accidental calls never leak email local-part.
+    """
+    return resolve_public_display_name(None)
 
 
 def _item_from_node(
@@ -361,9 +362,54 @@ async def list_published_mirrors_for_author(
         )
     return {
         "userId": str(user_id),
-        "displayName": _public_display_name_from_email(getattr(user, "email", None)),
+        "displayName": resolve_public_display_name(user),
         "items": items,
         "total": total,
+    }
+
+
+async def list_owner_profile_yansilar(
+    db: AsyncSession,
+    *,
+    owner_user_id: UUID,
+    limit: int = 48,
+    offset: int = 0,
+) -> dict[str, Any] | None:
+    """
+    Owner-only profile inventory (Phase 8.5).
+
+    Includes non-public / withdrawn rows with visibility + safety so the owner
+    can understand what others see. Never used for public profile.
+    """
+    user = await db.get(User, owner_user_id)
+    if user is None or not bool(getattr(user, "is_active", True)):
+        return None
+
+    result = await db.execute(
+        select(MirrorNetworkNode)
+        .where(MirrorNetworkNode.user_id == owner_user_id)
+        .order_by(
+            MirrorNetworkNode.published_at.desc().nullslast(),
+            MirrorNetworkNode.created_at.desc(),
+        )
+    )
+    nodes = list(result.scalars().all())
+    total = len(nodes)
+    page = nodes[offset : offset + max(1, min(limit, 100))]
+    items: list[dict[str, Any]] = []
+    for n in page:
+        base = _item_from_node(n)
+        base["visibility"] = (getattr(n, "visibility", None) or "private").lower()
+        base["safetyStatus"] = (getattr(n, "safety_status", None) or "open").lower()
+        base["isPublicListable"] = is_profile_listable(n)
+        items.append(base)
+    return {
+        "userId": str(owner_user_id),
+        "displayName": resolve_public_display_name(user),
+        "publicDisplayName": getattr(user, "public_display_name", None),
+        "items": items,
+        "total": total,
+        "view": "owner",
     }
 
 

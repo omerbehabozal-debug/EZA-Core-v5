@@ -1,23 +1,21 @@
 /**
- * Phase 3.8 — resolve safe author display for Ayna panel stamping.
- * Never invent popularity; display name only.
+ * Phase 3.8 / 8.5 — resolve safe author display for Ayna panel stamping.
+ * Never invent popularity; never derive from email local-part.
  */
+
+import { PUBLIC_DISPLAY_NAME_FALLBACK } from '@/lib/eza/mirror/publicIdentity';
 
 export function resolveAuthorDisplayName(input: {
   fullName?: string | null;
+  publicDisplayName?: string | null;
   email?: string | null;
   userId?: string | null;
 }): string {
-  const full = (input.fullName || '').trim();
-  if (full) return full;
-  const email = (input.email || '').trim();
-  if (email.includes('@')) {
-    const local = email.split('@')[0]?.trim();
-    if (local) return local;
-  }
-  const uid = (input.userId || '').trim();
-  if (uid) return `Yazar ${uid.slice(0, 6)}`;
-  return 'Yazar';
+  const chosen = (input.publicDisplayName || input.fullName || '').trim();
+  if (chosen) return chosen;
+  // Phase 8.5 — email / local-part must never become a public display name.
+  void input.email;
+  return PUBLIC_DISPLAY_NAME_FALLBACK;
 }
 
 export function formatParentLineageLabel(

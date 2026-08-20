@@ -104,6 +104,7 @@ jobs:
             tests/test_phase83_guest_auth_continuity.py \
             tests/test_phase84_publication_visibility_trust.py \
             tests/test_phase841_trust_enforcement.py \
+            tests/test_phase85_public_profile_identity_privacy.py \
             tests/test_mirror_network_impact.py \
             tests/test_mirror_network_parent_lineage.py \
             tests/test_mirror_network_discover.py \

@@ -44,6 +44,8 @@ interface UserInfo {
   role: string;
   user_id: string;
   full_name?: string;
+  /** Phase 8.5 — explicit public display name (owner-controlled). */
+  public_display_name?: string | null;
 }
 
 interface AuthState {
@@ -174,6 +176,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user_id: result.session.user_id,
                 email: result.session.email || user.email,
                 role: result.session.role || user.role,
+                public_display_name:
+                  result.session.public_display_name !== undefined
+                    ? result.session.public_display_name
+                    : user.public_display_name,
               }
             : user;
 

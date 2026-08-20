@@ -270,6 +270,13 @@ class ApiClient {
   }
 
   /**
+   * PATCH request
+   */
+  async patch<T = any>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
+    return this.request<T>('PATCH', path, options);
+  }
+
+  /**
    * Get WebSocket URL with token
    */
   getWebSocketURL(path: string, token?: string | null): string {

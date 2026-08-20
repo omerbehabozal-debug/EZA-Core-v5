@@ -72,7 +72,7 @@ export default function SainaProfileMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
   const returnUrl = useSainaAuthReturnUrl();
-  const { isAuthenticated, user, logout, isAuthReady } = useAuth();
+  const { isAuthenticated, user, logout, isAuthReady, setAuth, token } = useAuth();
   const ownerUserId = user?.user_id?.trim() || null;
   const { isPlus, isLoading, source } = usePlan();
   const { entitlements: accountEntitlements } = useAccountEntitlements();
@@ -83,12 +83,32 @@ export default function SainaProfileMenu({
     accountTier: accountEntitlements.tier,
   });
   const isGuest = !isAuthenticated;
-  const displayName = resolveSainaUserDisplayName(user?.email, user?.full_name);
-  const userInitial = resolveSainaUserInitial(user?.email);
+  const displayName = resolveSainaUserDisplayName(
+    user?.email,
+    user?.full_name,
+    user?.public_display_name
+  );
+  const userInitial = resolveSainaUserInitial(
+    user?.email,
+    user?.public_display_name,
+    user?.full_name
+  );
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameSaveState, setNameSaveState] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle');
+  const [nameError, setNameError] = useState<string | null>(null);
   const planLabel = resolveSainaPlanLabel(planTier);
   const currentModel = getAnalysisModelById(analysisModelId);
   const loginHref = buildSainaAuthHref(returnUrl, 'login');
   const registerHref = buildSainaAuthHref(returnUrl, 'register');
+
+  useEffect(() => {
+    if (!open || isGuest) return;
+    setNameDraft((user?.public_display_name || user?.full_name || '').trim());
+    setNameSaveState('idle');
+    setNameError(null);
+  }, [open, isGuest, user?.public_display_name, user?.full_name]);
 
   useEffect(() => {
     setEzaPrefs(getEzaUserPreferences(ownerUserId));
@@ -127,6 +147,36 @@ export default function SainaProfileMenu({
 
   const patchEzaPref = (patch: Partial<EzaUserPreferences>) => {
     setEzaPrefs(setEzaUserPreferences(ownerUserId, patch));
+  };
+
+  const savePublicDisplayName = async () => {
+    if (!token || !user) return;
+    setNameSaveState('saving');
+    setNameError(null);
+    const { patchPublicIdentity } = await import('@/lib/eza/plan/fetchAuthMe');
+    const result = await patchPublicIdentity(nameDraft);
+    if (!result.ok) {
+      setNameSaveState('error');
+      setNameError(
+        result.code === 'display_name_looks_like_email'
+          ? 'E-posta adresi kullanılamaz.'
+          : result.code === 'display_name_too_short'
+            ? 'En az 2 karakter girin.'
+            : result.code === 'display_name_too_long'
+              ? 'En fazla 48 karakter.'
+              : result.code === 'display_name_reserved'
+                ? 'Bu ad kullanılamaz.'
+                : 'Kaydedilemedi. Tekrar deneyin.'
+      );
+      return;
+    }
+    setAuth(token, {
+      ...user,
+      public_display_name: result.public_display_name,
+      full_name: result.public_display_name,
+    });
+    setNameDraft(result.public_display_name);
+    setNameSaveState('saved');
   };
 
   return (
@@ -189,6 +239,11 @@ export default function SainaProfileMenu({
             ) : (
               <>
                 <p className="saina-profile-menu-account-name">{displayName}</p>
+                {user?.email ? (
+                  <p className="saina-profile-menu-row-note" data-testid="saina-account-email">
+                    {user.email}
+                  </p>
+                ) : null}
                 {planLabel ? (
                   <p
                     className={cn(
@@ -199,6 +254,51 @@ export default function SainaProfileMenu({
                     {planLabel}
                   </p>
                 ) : null}
+                <div
+                  className="saina-profile-menu-row saina-profile-menu-row--stack"
+                  data-testid="saina-public-name-editor"
+                >
+                  <span className="saina-profile-menu-row-title">
+                    Herkese açık ad
+                  </span>
+                  <input
+                    type="text"
+                    className="saina-profile-menu-input"
+                    value={nameDraft}
+                    maxLength={48}
+                    disabled={disabled || nameSaveState === 'saving'}
+                    onChange={(e) => {
+                      setNameDraft(e.target.value);
+                      setNameSaveState('idle');
+                      setNameError(null);
+                    }}
+                    placeholder="biligN kullanıcısı"
+                    aria-label="Herkese açık görünen ad"
+                    data-testid="saina-public-name-input"
+                  />
+                  <span className="saina-profile-menu-row-note">
+                    Başkaları profilinizde bu adı görür. E-posta asla isim olarak yayınlanmaz.
+                  </span>
+                  <button
+                    type="button"
+                    className="saina-profile-menu-auth-btn saina-profile-menu-auth-btn--primary"
+                    disabled={disabled || nameSaveState === 'saving'}
+                    onClick={() => void savePublicDisplayName()}
+                    data-testid="saina-public-name-save"
+                  >
+                    {nameSaveState === 'saving' ? 'Kaydediliyor…' : 'Kaydet'}
+                  </button>
+                  {nameSaveState === 'saved' ? (
+                    <span className="saina-profile-menu-row-note" role="status">
+                      Kaydedildi.
+                    </span>
+                  ) : null}
+                  {nameError ? (
+                    <span className="saina-profile-menu-row-note" role="alert">
+                      {nameError}
+                    </span>
+                  ) : null}
+                </div>
               </>
             )}
           </div>

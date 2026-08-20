@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +56,7 @@ from backend.services.mirror_network.impact import get_mirror_impact_stats
 from backend.services.mirror_network.service import fetch_debug_mirror_by_slug, fetch_public_mirror_by_slug
 from backend.services.mirror_network.sohbet_session import create_sohbet_session
 from backend.services.mirror_network.author_profile import (
+    list_owner_profile_yansilar,
     list_published_direct_children,
     list_published_mirrors_for_author,
 )
@@ -190,6 +191,25 @@ class AuthorPublishedYansiResponse(BaseModel):
     total: int = Field(default=0, ge=0)
 
 
+class OwnerProfileYansiItem(AuthorPublishedYansiItem):
+    visibility: Optional[str] = None
+    safetyStatus: Optional[str] = None
+    isPublicListable: Optional[bool] = None
+
+
+class OwnerProfileYansiResponse(BaseModel):
+    """GET /api/mirror-network/me/profile-yansilar — owner inventory only."""
+
+    model_config = {"extra": "forbid"}
+
+    userId: str
+    displayName: str
+    publicDisplayName: Optional[str] = None
+    items: List[OwnerProfileYansiItem] = Field(default_factory=list)
+    total: int = Field(default=0, ge=0)
+    view: str = "owner"
+
+
 class ParentChildrenYansiResponse(BaseModel):
     """Direct published child Yansılar eligible for public frozen continuation."""
 
@@ -207,6 +227,7 @@ class ParentChildrenYansiResponse(BaseModel):
 )
 async def get_author_published_yansilar(
     user_id: UUID,
+    response: Response,
     limit: int = 48,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
@@ -216,7 +237,10 @@ async def get_author_published_yansilar(
     Public author profile contract — published Yansılar only.
 
     Never exposes generating / ready / failed private Ayna panel states.
+    Phase 8.5 — displayName never email-derived; Cache-Control no-store for
+    visibility / identity freshness.
     """
+    response.headers["Cache-Control"] = "no-store"
     payload = await list_published_mirrors_for_author(
         db, user_id=user_id, limit=limit, offset=offset
     )
@@ -226,6 +250,31 @@ async def get_author_published_yansilar(
             detail={"code": "author_not_found", "message": "Author not found"},
         )
     return AuthorPublishedYansiResponse(**payload)
+
+
+@router.get(
+    "/me/profile-yansilar",
+    response_model=OwnerProfileYansiResponse,
+)
+async def get_owner_profile_yansilar(
+    response: Response,
+    limit: int = 48,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> OwnerProfileYansiResponse:
+    """Owner-only inventory including non-public Yansılar (Phase 8.5)."""
+    response.headers["Cache-Control"] = "no-store"
+    payload = await list_owner_profile_yansilar(
+        db, owner_user_id=user.id, limit=limit, offset=offset
+    )
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "author_not_found", "message": "Author not found"},
+        )
+    return OwnerProfileYansiResponse(**payload)
 
 
 @router.get(

@@ -2950,6 +2950,17 @@ html:has(.saina-page) body {
   color: var(--saina-chrome-text-muted, rgba(217, 196, 163, 0.68));
 }
 
+.saina-profile-menu-input {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(216, 177, 106, 0.22);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--saina-chrome-text, rgba(246, 244, 239, 0.94));
+  font-size: 0.875rem;
+}
+
 .saina-profile-toggle {
   position: relative;
   height: 1.5rem;

@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { PUBLIC_DISPLAY_NAME_FALLBACK } from '@/lib/eza/mirror/publicIdentity';
 
 export type AuthorPublishedYansiItem = {
   slug: string;
@@ -85,7 +86,7 @@ export async function fetchAuthorPublishedYansilar(
       displayName:
         typeof data.displayName === 'string' && data.displayName.trim()
           ? data.displayName
-          : 'Yazar',
+          : PUBLIC_DISPLAY_NAME_FALLBACK,
       items: data.items
         .map(parseItem)
         .filter((item): item is AuthorPublishedYansiItem => item !== null),
