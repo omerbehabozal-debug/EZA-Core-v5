@@ -110,7 +110,7 @@ export function migrateGuestJourneyStateToUser(input: {
   let panelArtifacts = 0;
   let generationArtifacts = 0;
 
-  for (const convId of convIds) {
+  for (const convId of Array.from(convIds)) {
     const guestState = loadJourneyConversationState(guestOwner, convId);
     if (guestState) {
       const existingUser = loadJourneyConversationState(userId, convId);
@@ -152,7 +152,7 @@ export function migrateGuestJourneyStateToUser(input: {
     }
   }
 
-  for (const convId of convIds) {
+  for (const convId of Array.from(convIds)) {
     for (const artifact of listJourneyArtifactsForConversation(guestOwner, convId)) {
       const existing = loadMirrorJourneyArtifact(
         userId,
