@@ -17,6 +17,7 @@ import {
   SAINA_AUTH_REGISTER_SUBMIT,
 } from '@/lib/eza/sainaCopy';
 import SainaAuthShell, { SainaAuthLink } from '@/components/saina/SainaAuthShell';
+import SainaSocialAuthButtons from '@/components/saina/SainaSocialAuthButtons';
 
 type SainaLoginViewProps = {
   returnPath: string | null;
@@ -101,6 +102,12 @@ export default function SainaLoginView({
           Hesabın hazır. Giriş yapabilirsin.
         </p>
       ) : null}
+
+      <SainaSocialAuthButtons
+        disabled={loading}
+        onSuccess={() => router.push(safeReturn)}
+        onError={(message) => setError(message)}
+      />
 
       <form onSubmit={handleLogin}>
         <div className="saina-auth-field">

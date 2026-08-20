@@ -17,6 +17,7 @@ import {
   SAINA_AUTH_REGISTER_TITLE,
 } from '@/lib/eza/sainaCopy';
 import SainaAuthShell, { SainaAuthLink } from '@/components/saina/SainaAuthShell';
+import SainaSocialAuthButtons from '@/components/saina/SainaSocialAuthButtons';
 
 type SainaRegisterViewProps = {
   returnPath: string | null;
@@ -119,6 +120,12 @@ export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps
 
   return (
     <SainaAuthShell title={SAINA_AUTH_REGISTER_TITLE}>
+      <SainaSocialAuthButtons
+        disabled={loading}
+        onSuccess={() => router.push(safeReturn)}
+        onError={(message) => setError(message)}
+      />
+
       <form onSubmit={handleRegister}>
         <div className="saina-auth-field">
           <label htmlFor="saina-register-name">{SAINA_AUTH_NAME_LABEL}</label>

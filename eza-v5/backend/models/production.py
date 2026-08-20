@@ -7,7 +7,7 @@ EZA Core V6 - Persistent PostgreSQL Models
 import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, JSON, Text
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, JSON, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -23,7 +23,7 @@ class User(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)  # Phase 8.7.1 — nullable for social-only users
     role = Column(String(50), nullable=False, index=True)  # admin, org_admin, user, ops, regulator, REGULATOR_READONLY, REGULATOR_AUDITOR
     is_active = Column(Boolean, nullable=False, default=True, index=True)  # User account active status
     is_internal_test_user = Column(Boolean, nullable=True, default=False)  # Internal audit/testing flag (regulator test users, etc.)
@@ -38,6 +38,39 @@ class User(Base):
     organization_users = relationship("backend.models.production.OrganizationUser", back_populates="user", cascade="all, delete-orphan")
     audit_logs = relationship("backend.models.production.AuditLog", back_populates="user")
     api_keys = relationship("backend.models.production.ApiKey", back_populates="user", cascade="all, delete-orphan")
+    auth_identities = relationship(
+        "backend.models.production.UserAuthIdentity",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+
+class UserAuthIdentity(Base):
+    """Phase 8.7.1 — durable social provider identity (Google/Apple sub)."""
+
+    __tablename__ = "user_auth_identities"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("production_users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider = Column(String(32), nullable=False, index=True)  # google | apple
+    provider_subject = Column(String(255), nullable=False)
+    email_at_link = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    user = relationship("backend.models.production.User", back_populates="auth_identities")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "provider_subject",
+            name="uq_user_auth_identities_provider_subject",
+        ),
+    )
 
 
 class Organization(Base):

@@ -221,6 +221,15 @@ export {
   type RecoverPublishedJourneyResult,
 } from './recoverPublishedJourney';
 export {
+  resolveJourneyOwnerKey,
+  guestJourneyOwnerKey,
+  isGuestJourneyOwnerKey,
+} from './journeyOwnerKey';
+export {
+  migrateGuestJourneyStateToUser,
+  type MigrateGuestJourneyStateResult,
+} from './migrateGuestJourneyState';
+export {
   resolveJourneyPublishContract,
   type JourneyPublishContractResult,
 } from './journeyPublishContract';

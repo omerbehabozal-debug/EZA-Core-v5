@@ -39,13 +39,13 @@ def normalize_email(email: str) -> str:
 async def create_user(
     db: AsyncSession,
     email: str,
-    password: str,
+    password: str | None = None,
     role: str = "user",
     is_active: bool = True,
     is_internal_test_user: bool = False,
     public_display_name: str | None = None,
 ) -> User:
-    """Create a new user"""
+    """Create a new user. password=None → social-only account (Phase 8.7.1)."""
     try:
         logger.info(f"[create_user] Step 1: Normalizing email: {email}")
         # Normalize email (lowercase and trim)
@@ -61,10 +61,13 @@ async def create_user(
             raise ValueError(f"User with email {normalized_email} already exists")
         logger.info(f"[create_user] Step 4: User does not exist, proceeding...")
         
-        # Hash password
-        logger.info(f"[create_user] Step 5: Hashing password...")
-        password_hash = hash_password(password)
-        logger.info(f"[create_user] Step 6: Password hashed. Length: {len(password_hash)}, Starts with: {password_hash[:20]}...")
+        password_hash = None
+        if password is not None and str(password):
+            logger.info(f"[create_user] Step 5: Hashing password...")
+            password_hash = hash_password(password)
+            logger.info(f"[create_user] Step 6: Password hashed. Length: {len(password_hash)}")
+        else:
+            logger.info(f"[create_user] Step 5-6: Social-only user (no password hash)")
         
         # Create user
         logger.info(f"[create_user] Step 7: Creating User object...")
@@ -84,16 +87,10 @@ async def create_user(
         await db.refresh(user)
         logger.info(f"[create_user] Step 11: User refreshed. ID: {user.id}")
         
-        # Verify the password was saved correctly
-        logger.info(f"[create_user] Step 12: Verifying password hash...")
-        test_verify = verify_password(password, user.password_hash)
-        logger.info(f"[create_user] Step 13: Password verification result: {test_verify}")
-        if not test_verify:
-            logger.error(f"[create_user] CRITICAL: Password hash verification failed immediately after user creation!")
-            logger.error(f"[create_user] Original hash: {password_hash[:50]}...")
-            logger.error(f"[create_user] Saved hash: {user.password_hash[:50] if user.password_hash else 'None'}...")
-        else:
-            logger.info(f"[create_user] Step 14: ✓ Password verification successful")
+        if password_hash and password:
+            test_verify = verify_password(password, user.password_hash or "")
+            if not test_verify:
+                logger.error(f"[create_user] CRITICAL: Password hash verification failed!")
         
         logger.info(f"[create_user] ✓ Created user: {normalized_email} with role {role}, ID: {user.id}")
         return user
@@ -137,6 +134,10 @@ async def authenticate_user(
             logger.debug(f"Authentication failed: User not found for email {normalized_email}")
             return None
         
+        if not user.password_hash:
+            logger.warning(f"[Auth] Authentication failed: social-only user has no password ({normalized_email})")
+            return None
+
         # Verify password
         logger.info(f"[Auth] Verifying password for user: {normalized_email}")
         logger.info(f"[Auth] Password hash length: {len(user.password_hash) if user.password_hash else 0}")

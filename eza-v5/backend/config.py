@@ -189,6 +189,14 @@ class Settings(BaseSettings):
     def _strict_mirror_journey_v1(cls, value: Any) -> bool:
         return parse_strict_env_bool(value, field_name="EZA_MIRROR_JOURNEY_V1")
 
+    # Phase 8.7.1 — social auth (fail closed when unset). Backend secrets only.
+    GOOGLE_OAUTH_CLIENT_ID: str = ""
+    APPLE_CLIENT_ID: str = ""  # Services ID
+    APPLE_TEAM_ID: str = ""
+    APPLE_KEY_ID: str = ""
+    APPLE_PRIVATE_KEY: str = ""  # PEM; never expose to frontend
+    APPLE_REDIRECT_URI: str = ""
+
     """Phase 7.5 Güçlü Merak live Discover ranking (default on). Env: STRONG_CURIOSITY_DISCOVER_ENABLED.
     When false, mode=strong_curiosity fail-closes (empty, not Rastlantısal/En Yeni).
     Strict parse: true/1/unset → on; false/0 → off; anything else → configuration error.

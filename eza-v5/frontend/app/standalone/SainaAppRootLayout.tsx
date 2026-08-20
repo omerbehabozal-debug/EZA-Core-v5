@@ -11,6 +11,7 @@ import { resolveSainaAppView } from '@/lib/eza/sainaRoutes';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
+import { useSainaVisualViewportInset } from '@/hooks/useSainaVisualViewportInset';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
 import SainaPersistentScene from '@/components/saina/SainaPersistentScene';
@@ -30,6 +31,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const isCompactShell = useSainaCompactShell();
+  useSainaVisualViewportInset();
 
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);

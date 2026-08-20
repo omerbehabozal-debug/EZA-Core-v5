@@ -80,6 +80,25 @@ class PublicIdentityUpdateResponse(BaseModel):
     resolved_public_display_name: str
 
 
+class SocialGoogleRequest(BaseModel):
+    id_token: str
+
+
+class SocialAppleRequest(BaseModel):
+    id_token: str
+    nonce: str | None = None
+    # First Apple authorization may include name — never email as display name.
+    full_name: str | None = None
+
+
+class SocialCapabilitiesResponse(BaseModel):
+    googleEnabled: bool
+    appleEnabled: bool
+    googleClientId: str | None = None
+    appleClientId: str | None = None
+    appleRedirectUri: str | None = None
+
+
 def _optional_explicit_public_name(raw: str | None) -> str | None:
     """Register-time optional name — invalid values are ignored (do not fail register)."""
     if raw is None or not str(raw).strip():
@@ -421,6 +440,86 @@ async def login(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_detail
         )
+
+
+@router.get("/social/capabilities", response_model=SocialCapabilitiesResponse)
+async def social_auth_capabilities() -> SocialCapabilitiesResponse:
+    """Public: which social providers are configured (client ids only, no secrets)."""
+    from backend.services.social_auth import (
+        apple_id_token_verify_configured,
+        google_oauth_configured,
+    )
+
+    settings = get_settings()
+    google_on = google_oauth_configured()
+    apple_on = apple_id_token_verify_configured()
+    return SocialCapabilitiesResponse(
+        googleEnabled=google_on,
+        appleEnabled=apple_on,
+        googleClientId=(settings.GOOGLE_OAUTH_CLIENT_ID or "").strip() or None
+        if google_on
+        else None,
+        appleClientId=(settings.APPLE_CLIENT_ID or "").strip() or None
+        if apple_on
+        else None,
+        appleRedirectUri=(settings.APPLE_REDIRECT_URI or "").strip() or None
+        if apple_on
+        else None,
+    )
+
+
+@router.post("/social/google", response_model=TokenResponse)
+async def social_google(
+    request: SocialGoogleRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Google Identity Services id_token → biligN JWT (same TokenResponse as email)."""
+    from backend.services.social_auth import (
+        SocialAuthError,
+        issue_social_token_response,
+        resolve_social_user,
+        verify_google_id_token,
+    )
+
+    try:
+        identity = await verify_google_id_token(request.id_token)
+        user = await resolve_social_user(db, identity)
+        payload = await issue_social_token_response(db, user)
+        return TokenResponse(**payload)
+    except SocialAuthError as err:
+        raise HTTPException(
+            status_code=err.http_status,
+            detail={"code": err.code, "message": err.message},
+        ) from err
+
+
+@router.post("/social/apple", response_model=TokenResponse)
+async def social_apple(
+    request: SocialAppleRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Sign in with Apple id_token → biligN JWT."""
+    from backend.services.social_auth import (
+        SocialAuthError,
+        issue_social_token_response,
+        resolve_social_user,
+        verify_apple_id_token,
+    )
+
+    try:
+        identity = await verify_apple_id_token(
+            request.id_token, nonce=request.nonce
+        )
+        user = await resolve_social_user(
+            db, identity, apple_name_hint=request.full_name
+        )
+        payload = await issue_social_token_response(db, user)
+        return TokenResponse(**payload)
+    except SocialAuthError as err:
+        raise HTTPException(
+            status_code=err.http_status,
+            detail={"code": err.code, "message": err.message},
+        ) from err
 
 
 @router.post("/logout")

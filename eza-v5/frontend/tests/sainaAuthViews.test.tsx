@@ -12,14 +12,14 @@ const registerViewSrc = readFileSync(
 );
 
 describe('SAINA auth views (V1)', () => {
-  it('hides Google OAuth button on login', () => {
-    expect(loginViewSrc).not.toContain('SainaAuthGoogleButton');
-    expect(loginViewSrc).not.toContain('SainaAuthDivider');
+  it('wires social auth buttons on login (Phase 8.7.1)', () => {
+    expect(loginViewSrc).toContain('SainaSocialAuthButtons');
+    expect(loginViewSrc).toContain('resolveSafeAuthReturnPath');
   });
 
-  it('hides Google OAuth button on register', () => {
-    expect(registerViewSrc).not.toContain('SainaAuthGoogleButton');
-    expect(registerViewSrc).not.toContain('SainaAuthDivider');
+  it('wires social auth buttons on register (Phase 8.7.1)', () => {
+    expect(registerViewSrc).toContain('SainaSocialAuthButtons');
+    expect(registerViewSrc).toContain('resolveSafeAuthReturnPath');
   });
 
   it('uses shared auth href builder for cross-links', () => {

@@ -12,7 +12,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { buildApiUrl } from '@/lib/apiUrl';
-import { isSainaAuthReturnPath, resolveSafeAuthReturnPath } from '@/lib/eza/sainaIdentity';
+import {
+  buildSainaAuthHref,
+  isSainaAuthReturnPath,
+  resolveSafeAuthReturnPath,
+} from '@/lib/eza/sainaIdentity';
 import SainaLoginView from '@/components/saina/SainaLoginView';
 
 function PlatformLoginPageContent() {
@@ -347,7 +351,10 @@ function PlatformLoginPageContent() {
             <p className="text-sm" style={{ color: '#64748B' }}>
               Hesabınız yok mu?{' '}
               <Link 
-                href="/platform/register" 
+                href={buildSainaAuthHref(
+                  resolveSafeAuthReturnPath(returnPath),
+                  'register'
+                )}
                 className="font-medium hover:underline transition-colors"
                 style={{ color: '#3B82F6' }}
               >

@@ -1,5 +1,5 @@
 /**
- * SAINA Conversation Mirror — Sprint A / A.1 styles.
+ * SAINA Conversation Mirror â Sprint A / A.1 styles.
  * Explicit CSS so dev mock renders correctly even before Tailwind JIT picks up sainaSkin tokens.
  */
 
@@ -130,7 +130,7 @@ html:has(.saina-page) body {
     0 0 40px rgba(0, 0, 0, 0.3);
 }
 
-/* Tek düzey piano-black gloss — üstten aşağı eşit sönüm, kenar şeridi yok */
+/* Tek dÃ¼zey piano-black gloss â Ã¼stten aÅaÄÄ± eÅit sÃ¶nÃ¼m, kenar Åeridi yok */
 .saina-sidebar::before {
   content: '';
   position: absolute;
@@ -1566,7 +1566,7 @@ html:has(.saina-page) body {
   background-color: #0a1218;
 }
 
-/* Keşfet / EZA — quieter architectural lock; no chat/mirror identity swap */
+/* KeÅfet / EZA â quieter architectural lock; no chat/mirror identity swap */
 .saina-canvas-bg--analysis-atmosphere {
   background-color: #0b0e12;
 }
@@ -1580,7 +1580,7 @@ html:has(.saina-page) body {
   position: absolute;
   inset: 0;
   background-image: var(--saina-default-scene, url('/saina/default-conversation-scene.png'));
-  /* Cover crop — never stretch; focal via --mirror-focal-position (default center). */
+  /* Cover crop â never stretch; focal via --mirror-focal-position (default center). */
   background-size: cover;
   background-position: var(--mirror-focal-position, center center);
   background-repeat: no-repeat;
@@ -1605,7 +1605,7 @@ html:has(.saina-page) body {
 }
 
 .saina-scene-fit__frame .saina-canvas-scene-image {
-  /* Immersive cover crop from the same canonical master — no distortion. */
+  /* Immersive cover crop from the same canonical master â no distortion. */
   background-size: cover;
   background-position: var(--mirror-focal-position, center center);
 }
@@ -1644,7 +1644,7 @@ html:has(.saina-page) body {
   object-position: var(--mirror-focal-position, center center);
 }
 
-/* Premium live atmosphere — top of scene stack, below UI chrome. */
+/* Premium live atmosphere â top of scene stack, below UI chrome. */
 .saina-scene-live {
   position: absolute;
   inset: 0;
@@ -1662,7 +1662,7 @@ html:has(.saina-page) body {
   pointer-events: none;
 }
 
-/* Pin-sized oil-lamp flicker — shares image-space frame with scene art. */
+/* Pin-sized oil-lamp flicker â shares image-space frame with scene art. */
 .saina-scene-live__lamps {
   position: absolute;
   inset: 0;
@@ -2482,7 +2482,7 @@ html:has(.saina-page) body {
   padding: 4.5rem 1rem 1rem;
 }
 
-/* Shared floating chrome — petrol glass (translucent, frosted) */
+/* Shared floating chrome â petrol glass (translucent, frosted) */
 .saina-page {
   --saina-chrome-bg: linear-gradient(
     165deg,
@@ -2509,7 +2509,7 @@ html:has(.saina-page) body {
   --saina-chrome-inset-strong: rgba(8, 20, 28, 0.48);
   --saina-chrome-blur: blur(42px) saturate(135%);
 
-  /* Selection / CTA = Giriş Yap language (readable warm gold ceramic) */
+  /* Selection / CTA = GiriÅ Yap language (readable warm gold ceramic) */
   --saina-select-bg: rgba(231, 180, 91, 0.16);
   --saina-select-bg-strong: rgba(231, 180, 91, 0.26);
   --saina-select-border: rgba(231, 180, 91, 0.38);
@@ -3268,7 +3268,7 @@ html:has(.saina-page) body {
   align-self: stretch;
 }
 
-/* Premium glass surface — AI text on panel; user gets light dark-glass strip. */
+/* Premium glass surface â AI text on panel; user gets light dark-glass strip. */
 .saina-chat-card .saina-message-list,
 .saina-chat-card .saina-message-thread {
   gap: 1.375rem;
@@ -3834,7 +3834,10 @@ html:has(.saina-page) body {
   flex-shrink: 0;
   width: 100%;
   max-width: var(--saina-chat-column-width);
-  padding: 0 0 max(0.75rem, env(safe-area-inset-bottom, 0px));
+  padding: 0 0 calc(
+    max(0.75rem, env(safe-area-inset-bottom, 0px)) + var(--saina-keyboard-inset, 0px)
+  );
+  transition: padding-bottom 120ms ease-out;
 }
 
 .saina-composer-inner {
@@ -4045,7 +4048,7 @@ html:has(.saina-page) body {
   gap: 0.5rem !important;
 }
 
-/* Mirror poster — gold glass frame on dark chrome panel */
+/* Mirror poster â gold glass frame on dark chrome panel */
 .saina-mirror-poster-glass-frame {
   position: relative;
   overflow: hidden;
@@ -4170,7 +4173,7 @@ html:has(.saina-page) body {
   font-size: 11px !important;
 }
 
-/* Empty Ayna: lift title only — CTA stays put */
+/* Empty Ayna: lift title only â CTA stays put */
 .saina-mirror-create-prompt--compact .saina-mirror-create-prompt__hero {
   width: 100%;
   transform: translateY(calc(-1 * clamp(1.75rem, 5.5vh, 3rem)));
@@ -4939,7 +4942,7 @@ html:has(.saina-page) body {
   padding: 0.75rem 1.5rem 1.5rem;
 }
 
-/* Override --full width:100% that clips Sil beside Vazgeç */
+/* Override --full width:100% that clips Sil beside VazgeÃ§ */
 .saina-delete-chat-modal__actions .saina-secondary-btn,
 .saina-delete-chat-modal__actions .saina-danger-btn {
   flex: 1 1 0;
@@ -5051,7 +5054,7 @@ html:has(.saina-page) body {
   box-shadow: inset 0 0 0 1px rgba(216, 177, 106, 0.35);
 }
 
-/* Identity / Premium gate modals — touch targets */
+/* Identity / Premium gate modals â touch targets */
 .saina-modal-close-btn {
   min-width: 44px;
   min-height: 44px;
@@ -5199,7 +5202,7 @@ html:has(.saina-page) body {
   }
 }
 
-/* Sprint B.1 — production /standalone shell adapters */
+/* Sprint B.1 â production /standalone shell adapters */
 .saina-standalone-shell .saina-standalone-sidebar-wrap {
   display: flex;
   flex-shrink: 0;
@@ -5441,7 +5444,7 @@ html:has(.saina-page) body {
   min-width: 44px;
 }
 
-/* ── Keşfet (Discover V1) ── */
+/* ââ KeÅfet (Discover V1) ââ */
 .saina-discover-shell .saina-discover-canvas-wrap {
   overflow: hidden;
 }
@@ -5875,11 +5878,13 @@ html:has(.saina-page) body {
 /* --- SAINA auth pages --- */
 .saina-auth-page {
   position: relative;
+  min-height: 100dvh;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
+  padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px));
   color: #f6f4ef;
 }
 
@@ -5956,6 +5961,12 @@ html:has(.saina-page) body {
   font-weight: 500;
 }
 
+.saina-auth-google-btn:disabled,
+.saina-auth-apple-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .saina-auth-google-btn__icon {
   display: inline-flex;
   width: 1.25rem;
@@ -5967,6 +5978,38 @@ html:has(.saina-page) body {
   color: #4285f4;
   font-size: 0.75rem;
   font-weight: 700;
+}
+
+.saina-social-auth {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-bottom: 0.25rem;
+}
+
+.saina-auth-apple-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #000;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.saina-auth-apple-btn__icon {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .saina-auth-divider {
@@ -6051,7 +6094,7 @@ html:has(.saina-page) body {
   text-decoration: underline;
 }
 
-/* Phase 3.8 � Ayna vertical Yans� reel */
+/* Phase 3.8 ï¿½ Ayna vertical Yansï¿½ reel */
 .ayna-journey-reel {
   display: flex;
   flex-direction: column;
@@ -6185,7 +6228,7 @@ html:has(.saina-page) body {
   }
 }
 
-/* �� Phase 8.5B biligN profile �� */
+/*  Phase 8.5B biligN profile  */
 .bilign-profile {
   margin: 0 auto;
   width: 100%;

@@ -41,6 +41,7 @@ import {
   syncJourneyConversationState,
   type JourneyConversationState,
   type Review8Draft,
+  resolveJourneyOwnerKey,
 } from '@/lib/eza/mirror/journey';
 import { loadJourneyConversationState } from '@/lib/eza/mirror/journey/journeyWindowStore';
 import { MIRROR_JOURNEY_CONVERSATION_CLOSED } from '@/lib/eza/mirror/copy';
@@ -229,8 +230,9 @@ export default function StandaloneChatInner() {
   const onOpenMirror = useSainaChromeStore((state) => state.onOpenMirror);
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
-  const { user, isAuthenticated } = useAuth();
-  const journeyOwnerId = user?.user_id?.trim() || '';
+  const { user } = useAuth();
+  /** Phase 8.7 — guests may draft Journey under guest:{token}; publish still auth-gated. */
+  const journeyOwnerId = resolveJourneyOwnerKey(user?.user_id);
   const [ezaPrefsTick, setEzaPrefsTick] = useState(0);
   useEffect(() => subscribeEzaUserPreferences(() => setEzaPrefsTick((n) => n + 1)), []);
   const ezaPrefs = useMemo(
@@ -261,7 +263,7 @@ export default function StandaloneChatInner() {
   );
   const journeyClosed =
     journeyV1On &&
-    isAuthenticated &&
+    Boolean(journeyOwnerId) &&
     (!canSendMoreJourneyQuestions(journeyState) ||
       !canAcceptAnotherJourneyQuestion(journeyMessages, journeyState));
   const composerDisabled = isMessageLimitReached || journeyClosed;
@@ -611,7 +613,7 @@ export default function StandaloneChatInner() {
   }, [messages, chatId, setConversationMirrorEntries]);
 
   useEffect(() => {
-    if (!journeyV1On || !isAuthenticated || !journeyOwnerId || !chatId) {
+    if (!journeyV1On || !journeyOwnerId || !chatId) {
       setJourneyState(null);
       return;
     }
@@ -665,7 +667,7 @@ export default function StandaloneChatInner() {
     } else {
       setJourneyState(next);
     }
-  }, [messages, chatId, journeyOwnerId, journeyV1On, isAuthenticated]);
+  }, [messages, chatId, journeyOwnerId, journeyV1On]);
 
   const awaitingJourneyWindow = getAwaitingDecisionWindow(journeyState);
   const generatingWindow = journeyState?.windows.find((w) => w.status === 'generating');

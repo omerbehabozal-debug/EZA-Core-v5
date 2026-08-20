@@ -94,3 +94,36 @@ export function shouldHideExperiencedDiscoverItems(mode: DiscoverMode): boolean 
 export function shouldApplyDiscoverResponse(requestId: number, currentId: number): boolean {
   return requestId === currentId;
 }
+
+/** Phase 8.7 — restore Discover scroll after /m/{slug} back navigation (same tab). */
+export const DISCOVER_SCROLL_STORAGE_KEY = 'eza_discover_scroll_v1';
+
+export function saveDiscoverScrollPosition(mode: DiscoverMode, scrollTop: number): void {
+  const ss = sessionStorageSafe();
+  if (!ss) return;
+  try {
+    ss.setItem(
+      DISCOVER_SCROLL_STORAGE_KEY,
+      JSON.stringify({ mode, scrollTop: Math.max(0, Math.round(scrollTop)) })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readDiscoverScrollPosition(mode: DiscoverMode): number | null {
+  const ss = sessionStorageSafe();
+  if (!ss) return null;
+  try {
+    const raw = ss.getItem(DISCOVER_SCROLL_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { mode?: string; scrollTop?: number };
+    if (parsed.mode !== mode) return null;
+    if (typeof parsed.scrollTop !== 'number' || !Number.isFinite(parsed.scrollTop)) {
+      return null;
+    }
+    return Math.max(0, parsed.scrollTop);
+  } catch {
+    return null;
+  }
+}

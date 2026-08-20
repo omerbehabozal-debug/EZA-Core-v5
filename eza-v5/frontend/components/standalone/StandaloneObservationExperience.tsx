@@ -89,6 +89,7 @@ import {
   hydratePublishedJourneysFromServer,
   JOURNEY_AYNA_GENERATE_EVENT,
   recoverPublishedJourneyAfterLostResponse,
+  resolveJourneyOwnerKey,
   type JourneyAynaGenerateDetail,
   type MirrorJourneySharePayload,
 } from '@/lib/eza/mirror/journey';
@@ -248,7 +249,8 @@ export default function StandaloneObservationExperience({
   const publishedLandingHydrateRef = useRef<string | null>(null);
   const mirrorExport = useMirrorCardExport();
   const { isAuthenticated, isAuthReady, user } = useAuth();
-  const shareCacheUserId = user?.user_id ?? null;
+  const shareCacheUserId = resolveJourneyOwnerKey(user?.user_id);
+  const authenticatedUserId = user?.user_id?.trim() || null;
   const { isPlus, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
 
@@ -1070,7 +1072,7 @@ export default function StandaloneObservationExperience({
 
           // Journey V1: meaning from confirmed 8-window only (fail-closed).
           if (isMirrorJourneyV1ClientEnabled()) {
-            const ownerId = user?.user_id?.trim() || '';
+            const ownerId = shareCacheUserId;
             const draft = ownerId
               ? loadActiveReview8Draft(ownerId, conversationId)
               : null;
@@ -1754,13 +1756,13 @@ export default function StandaloneObservationExperience({
 
   /** Phase 4 — recover published Yansılar from durable server after localStorage loss. */
   useEffect(() => {
-    if (!journeyV1PanelOn || !conversationId || !shareCacheUserId || !isAuthenticated) {
+    if (!journeyV1PanelOn || !conversationId || !authenticatedUserId || !isAuthenticated) {
       return;
     }
     let cancelled = false;
     void (async () => {
       const items = await hydratePublishedJourneysFromServer({
-        ownerUserId: shareCacheUserId,
+        ownerUserId: authenticatedUserId,
         conversationId,
       });
       if (!cancelled && items.length > 0) {
@@ -1770,7 +1772,7 @@ export default function StandaloneObservationExperience({
     return () => {
       cancelled = true;
     };
-  }, [journeyV1PanelOn, conversationId, shareCacheUserId, isAuthenticated]);
+  }, [journeyV1PanelOn, conversationId, authenticatedUserId, isAuthenticated]);
 
   const journeyArtifacts = useMemo(() => {
     if (!journeyV1PanelOn || !conversationId || !shareCacheUserId) return [];

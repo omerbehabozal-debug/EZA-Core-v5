@@ -28,6 +28,8 @@ import {
   discoverHrefForMode,
   getOrCreateDiscoverRandomSession,
   parseDiscoverModeFromSearch,
+  readDiscoverScrollPosition,
+  saveDiscoverScrollPosition,
   shouldApplyDiscoverResponse,
   type DiscoverMode,
 } from '@/lib/eza/mirror-network/discoverModes';
@@ -366,6 +368,26 @@ export default function SainaDiscoverPage() {
     observer.observe(target);
     return () => observer.disconnect();
   }, [hasMore, items.length, loading]);
+
+  // Phase 8.7 — persist scroll so Discover←Yansı back keeps place + randomSession.
+  useEffect(() => {
+    const root = scrollRootRef.current;
+    if (!root) return;
+    const onScroll = () => {
+      saveDiscoverScrollPosition(mode, root.scrollTop);
+    };
+    root.addEventListener('scroll', onScroll, { passive: true });
+    return () => root.removeEventListener('scroll', onScroll);
+  }, [mode]);
+
+  useEffect(() => {
+    if (loading || items.length === 0) return;
+    const root = scrollRootRef.current;
+    if (!root) return;
+    const saved = readDiscoverScrollPosition(mode);
+    if (saved == null || saved <= 0) return;
+    root.scrollTop = saved;
+  }, [loading, items.length, mode]);
 
   useEffect(() => {
     refreshArchives();

@@ -405,6 +405,8 @@ export const SAINA_AUTH_REGISTER_TITLE = 'Yeni bir merak yolculuğu başlat.';
 
 export const SAINA_AUTH_GOOGLE_CTA = 'Google ile devam et';
 
+export const SAINA_AUTH_APPLE_CTA = 'Apple ile devam et';
+
 export const SAINA_AUTH_OR_DIVIDER = 'veya';
 
 export const SAINA_AUTH_EMAIL_LABEL = 'E-posta';

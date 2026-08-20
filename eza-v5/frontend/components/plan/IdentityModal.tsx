@@ -1,12 +1,13 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { User, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { buildSainaAuthHref } from '@/lib/eza/sainaIdentity';
 import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
+import SainaSocialAuthButtons from '@/components/saina/SainaSocialAuthButtons';
 import {
   SAINA_BRAND,
   SAINA_IDENTITY_MODAL_DISMISS,
@@ -26,6 +27,7 @@ export default function IdentityModal({ open, onClose }: IdentityModalProps) {
   const registerHref = buildSainaAuthHref(returnUrl, 'register');
   const panelRef = useRef<HTMLDivElement | null>(null);
   const registerCtaRef = useRef<HTMLAnchorElement | null>(null);
+  const [socialError, setSocialError] = useState<string | null>(null);
 
   useModalFocusTrap({
     open,
@@ -38,7 +40,7 @@ export default function IdentityModal({ open, onClose }: IdentityModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[70] flex items-end justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:pb-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="saina-identity-title"
@@ -54,6 +56,7 @@ export default function IdentityModal({ open, onClose }: IdentityModalProps) {
         ref={panelRef}
         className={cn(
           'relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 p-6 text-center shadow-[0_24px_70px_-24px_rgba(0,0,0,0.65)]',
+          'max-h-[min(92dvh,40rem)] overflow-y-auto',
           'bg-[rgba(8,22,18,0.96)] text-[#f6f4ef] animate-slide-up'
         )}
       >
@@ -83,7 +86,22 @@ export default function IdentityModal({ open, onClose }: IdentityModalProps) {
           ))}
         </div>
 
-        <div className="mt-6 flex flex-col gap-2">
+        <div className="mt-6 text-left">
+          <SainaSocialAuthButtons
+            onSuccess={() => {
+              setSocialError(null);
+              onClose();
+            }}
+            onError={(message) => setSocialError(message)}
+          />
+          {socialError ? (
+            <p className="saina-auth-error mb-3 text-center text-sm" role="alert">
+              {socialError}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="mt-2 flex flex-col gap-2">
           <Link
             ref={registerCtaRef}
             href={registerHref}

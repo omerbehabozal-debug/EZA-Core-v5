@@ -11,6 +11,7 @@ import {
 } from '@/lib/eza/conversation-tree/conversationGroups';
 import { claimGuestConversationGroups } from '@/lib/eza/conversation-tree/claimGuestConversationGroups';
 import { migrateGuestEzaPrefsToUser } from '@/lib/eza/conversation-tree/migrateGuestEzaPrefs';
+import { migrateGuestJourneyStateToUser } from '@/lib/eza/mirror/journey/migrateGuestJourneyState';
 import { rotateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
 import {
   clearPendingGuestClaim,
@@ -154,6 +155,9 @@ export async function mergeGuestConversationTree(
     Boolean(pending) &&
     pending!.guestToken === guestToken &&
     pending!.userId === userId;
+
+  // Phase 8.7 — rebind guest Journey/Ayna drafts before token rotate (same-device).
+  migrateGuestJourneyStateToUser({ guestToken, userId });
 
   const claimableGuestGroups = guestGroups;
   const hasGuestChats = guestChats.length > 0;

@@ -28,6 +28,15 @@ export function resolveSafeAuthReturnPath(returnPath: string | null | undefined)
   if (returnPath.includes('\\')) return fallback;
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(returnPath.slice(1))) return fallback;
   if (returnPath.includes('://')) return fallback;
+  // Phase 8.7 — product allowlist (reject unknown relative paths).
+  const pathOnly = (returnPath.split(/[?#]/)[0] || '').trim();
+  const allowed =
+    pathOnly === '/' ||
+    pathOnly.startsWith('/standalone') ||
+    pathOnly.startsWith('/m/') ||
+    pathOnly.startsWith('/platform') ||
+    pathOnly.startsWith('/dev/');
+  if (!allowed) return fallback;
   return returnPath;
 }
 
