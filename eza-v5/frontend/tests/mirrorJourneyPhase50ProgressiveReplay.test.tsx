@@ -19,7 +19,23 @@ vi.mock('@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer', async () 
   };
 });
 
+vi.mock('@/lib/eza/mirror-network/createSohbetSession', () => ({
+  createMirrorSohbetSession: vi.fn(),
+}));
+
+vi.mock('@/lib/eza/mirror/journey/yansiExperienceAnalytics', async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import('@/lib/eza/mirror/journey/yansiExperienceAnalytics')
+  >();
+  return {
+    ...actual,
+    trackYansiExperienceStarted: vi.fn(),
+  };
+});
+
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
+import { createMirrorSohbetSession } from '@/lib/eza/mirror-network/createSohbetSession';
+import { trackYansiExperienceStarted } from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
 import {
   clearAllFrozenReplayProgressForTests,
   getNextReplayStep,
@@ -72,6 +88,8 @@ beforeEach(() => {
   clearEzaUserPreferencesForTests();
   localStorage.clear();
   vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();
+  vi.mocked(createMirrorSohbetSession).mockReset();
+  vi.mocked(trackYansiExperienceStarted).mockReset();
 });
 
 describe('Phase 5.0 session progression', () => {
@@ -210,7 +228,7 @@ describe('Phase 5.0 UI', () => {
     );
   });
 
-  it('malformed / unavailable frozen keeps legacy sohbet CTA', async () => {
+  it('malformed / unavailable frozen fails closed without live sohbet CTA (Phase 8.2)', async () => {
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(null);
     render(
       <MirrorLandingExperience
@@ -225,9 +243,15 @@ describe('Phase 5.0 UI', () => {
       />
     );
     await waitFor(() => {
-      expect(screen.getByText('Bu konudan devam et')).toBeTruthy();
+      expect(screen.getByTestId('mirror-experience-unavailable-inline')).toBeTruthy();
     });
+    expect(screen.getByText('Bu Yansı şu an deneyimlenemiyor.')).toBeTruthy();
+    expect(screen.queryByText('Bu konudan devam et')).toBeNull();
+    expect(screen.queryByRole('link', { name: /devam et/i })).toBeNull();
     expect(screen.queryByTestId('mirror-experience-start')).toBeNull();
+    expect(document.querySelector('a[href="/m/legacy/sohbet"]')).toBeNull();
+    expect(vi.mocked(trackYansiExperienceStarted)).not.toHaveBeenCalled();
+    expect(vi.mocked(createMirrorSohbetSession)).not.toHaveBeenCalled();
   });
 });
 

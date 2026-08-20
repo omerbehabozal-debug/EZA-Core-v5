@@ -84,10 +84,11 @@ describe('Phase 8.3 register auth continuity (source contract)', () => {
     expect(src).not.toContain('password replay');
   });
 
-  it('AuthContext rotates guest token on logout', () => {
+  it('AuthContext rotates guest token on logout and validates session on hydrate', () => {
     const src = readFileSync(join(process.cwd(), 'context/AuthContext.tsx'), 'utf8');
     expect(src).toContain('rotateMirrorGuestToken');
     expect(src).toContain('peekMirrorGuestToken');
+    expect(src).toContain('validateAuthSession');
   });
 
   it('rejects unsafe auth return URLs', () => {

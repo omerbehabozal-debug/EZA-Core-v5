@@ -185,6 +185,7 @@ export function trackYansiExposure(input: {
 export function lineageProofTokenForStandaloneRequest(
   origin: { lineageProofToken?: string | null } | null | undefined
 ): string | undefined {
+  // Prefer resolveLineageProofToken(chat) for full carrier fallback.
   const token = origin?.lineageProofToken?.trim();
   return token || undefined;
 }

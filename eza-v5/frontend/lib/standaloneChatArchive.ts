@@ -18,6 +18,11 @@ import {
 import {
   trackConversationCreatedInGroup,
 } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
+import {
+  type LocalIdentityScope,
+  resolveCurrentLocalIdentityScope,
+  scopeKey,
+} from '@/lib/eza/localIdentityScope';
 
 export type { ConversationSceneSource } from '@/lib/eza/conversationSceneIdentity';
 export { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
@@ -26,9 +31,16 @@ export const CHATS_UPDATED_EVENT = 'eza-standalone-archive-updated';
 /** @deprecated */
 export const ARCHIVE_UPDATED_EVENT = CHATS_UPDATED_EVENT;
 
-const STORAGE_KEY = 'eza_standalone_chat_archive';
-const ACTIVE_CHAT_ID_KEY = 'eza_standalone_active_chat_id';
+/** Legacy flat array key — migrated into scoped buckets on first read. */
+export const STORAGE_KEY = 'eza_standalone_chat_archive';
+const SCOPED_STORAGE_KEY = 'eza_standalone_chat_archive_scoped_v1';
+/** Legacy global active pointer — migrated into scoped map. */
+export const ACTIVE_CHAT_ID_KEY = 'eza_standalone_active_chat_id';
+const SCOPED_ACTIVE_CHAT_KEY = 'eza_standalone_active_chat_id_scoped_v1';
 const MAX_CHATS = 30;
+
+type ScopedChatBuckets = Record<string, ArchivedChat[]>;
+type ScopedActiveMap = Record<string, string | null>;
 
 /** Eski tek «güncel» oturum kimliği — migrasyon için */
 const LEGACY_ACTIVE_SESSION_ID = 'session-active';
@@ -101,32 +113,153 @@ function notifyChatsUpdated(): void {
   window.dispatchEvent(new CustomEvent(CHATS_UPDATED_EVENT));
 }
 
-function readAllRaw(): ArchivedChat[] {
-  if (typeof window === 'undefined') return [];
+function readScopedBuckets(): ScopedChatBuckets {
+  if (typeof window === 'undefined') return {};
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const scopedRaw = localStorage.getItem(SCOPED_STORAGE_KEY);
+    if (scopedRaw) {
+      const parsed = JSON.parse(scopedRaw) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const out: ScopedChatBuckets = {};
+        for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+          if (Array.isArray(value)) out[key] = value as ArchivedChat[];
+        }
+        return out;
+      }
+    }
+
+    // Legacy flat array → current identity bucket (guest or user).
+    const legacyRaw = localStorage.getItem(STORAGE_KEY);
+    if (!legacyRaw) return {};
+    const legacy = JSON.parse(legacyRaw);
+    if (!Array.isArray(legacy)) return {};
+    const scope = resolveCurrentLocalIdentityScope({ createGuestIfMissing: true });
+    if (!scope) return {};
+    const buckets: ScopedChatBuckets = { [scopeKey(scope)]: legacy as ArchivedChat[] };
+    localStorage.setItem(SCOPED_STORAGE_KEY, JSON.stringify(buckets));
+    localStorage.removeItem(STORAGE_KEY);
+    return buckets;
   } catch {
-    return [];
+    return {};
   }
 }
 
-function writeAll(list: ArchivedChat[]): void {
+function writeScopedBuckets(buckets: ScopedChatBuckets): void {
   if (typeof window === 'undefined') return;
   try {
-    const sorted = [...list].sort(
-      (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
-    );
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted.slice(0, MAX_CHATS)));
+    localStorage.setItem(SCOPED_STORAGE_KEY, JSON.stringify(buckets));
+    // Keep legacy key empty so old readers do not resurrect a global list.
+    localStorage.removeItem(STORAGE_KEY);
     notifyChatsUpdated();
   } catch {
     /* quota */
   }
 }
 
-function migrateLegacyList(list: ArchivedChat[]): ArchivedChat[] {
+function readActiveMap(): ScopedActiveMap {
+  if (typeof window === 'undefined') return {};
+  try {
+    const scopedRaw = localStorage.getItem(SCOPED_ACTIVE_CHAT_KEY);
+    if (scopedRaw) {
+      const parsed = JSON.parse(scopedRaw) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as ScopedActiveMap;
+      }
+    }
+    const legacy = localStorage.getItem(ACTIVE_CHAT_ID_KEY);
+    if (!legacy) return {};
+    const scope = resolveCurrentLocalIdentityScope({ createGuestIfMissing: true });
+    if (!scope) return {};
+    const map: ScopedActiveMap = { [scopeKey(scope)]: legacy };
+    localStorage.setItem(SCOPED_ACTIVE_CHAT_KEY, JSON.stringify(map));
+    localStorage.removeItem(ACTIVE_CHAT_ID_KEY);
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+function writeActiveMap(map: ScopedActiveMap): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SCOPED_ACTIVE_CHAT_KEY, JSON.stringify(map));
+    localStorage.removeItem(ACTIVE_CHAT_ID_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function requireCurrentScope(): LocalIdentityScope | null {
+  return resolveCurrentLocalIdentityScope({ createGuestIfMissing: true });
+}
+
+function readAllRawForScope(scope: LocalIdentityScope): ArchivedChat[] {
+  const buckets = readScopedBuckets();
+  const list = buckets[scopeKey(scope)];
+  return Array.isArray(list) ? list : [];
+}
+
+function writeAllForScope(scope: LocalIdentityScope, list: ArchivedChat[]): void {
+  const buckets = readScopedBuckets();
+  const sorted = [...list].sort(
+    (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
+  );
+  buckets[scopeKey(scope)] = sorted.slice(0, MAX_CHATS);
+  writeScopedBuckets(buckets);
+}
+
+function readAllRaw(): ArchivedChat[] {
+  const scope = requireCurrentScope();
+  if (!scope) return [];
+  return readAllRawForScope(scope);
+}
+
+function writeAll(list: ArchivedChat[]): void {
+  const scope = requireCurrentScope();
+  if (!scope) return;
+  writeAllForScope(scope, list);
+}
+
+/** Read archives for an explicit identity (guest→user rebind). */
+export function readChatArchivesForScope(scope: LocalIdentityScope): ArchivedChat[] {
+  return migrateLegacyListForScope(scope, readAllRawForScope(scope));
+}
+
+/** Replace archives for an explicit identity (guest→user rebind). */
+export function replaceChatArchivesForScope(
+  scope: LocalIdentityScope,
+  list: ArchivedChat[]
+): void {
+  writeAllForScope(scope, list);
+}
+
+export function readActiveChatIdForScope(scope: LocalIdentityScope): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const id = readActiveMap()[scopeKey(scope)];
+    if (!id) return null;
+    return readAllRawForScope(scope).some((c) => c.id === id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeActiveChatIdForScope(scope: LocalIdentityScope, id: string | null): void {
+  if (typeof window === 'undefined') return;
+  const map = readActiveMap();
+  const key = scopeKey(scope);
+  if (!id) {
+    delete map[key];
+  } else {
+    map[key] = id;
+  }
+  writeActiveMap(map);
+}
+
+function migrateLegacyListForScope(
+  scope: LocalIdentityScope,
+  list: ArchivedChat[]
+): ArchivedChat[] {
   let changed = false;
   const out = list.map((item) => {
     if (item.id === LEGACY_ACTIVE_SESSION_ID) {
@@ -138,8 +271,14 @@ function migrateLegacyList(list: ArchivedChat[]): ArchivedChat[] {
     }
     return item;
   });
-  if (changed) writeAll(out);
+  if (changed) writeAllForScope(scope, out);
   return out;
+}
+
+function migrateLegacyList(list: ArchivedChat[]): ArchivedChat[] {
+  const scope = requireCurrentScope();
+  if (!scope) return list;
+  return migrateLegacyListForScope(scope, list);
 }
 
 function readAll(): ArchivedChat[] {
@@ -420,23 +559,15 @@ export function getChatArchive(id: string): ArchivedChat | null {
 }
 
 export function readActiveChatId(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const id = localStorage.getItem(ACTIVE_CHAT_ID_KEY);
-    if (!id) return null;
-    return getChatArchive(id) ? id : null;
-  } catch {
-    return null;
-  }
+  const scope = requireCurrentScope();
+  if (!scope) return null;
+  return readActiveChatIdForScope(scope);
 }
 
 export function writeActiveChatId(id: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(ACTIVE_CHAT_ID_KEY, id);
-  } catch {
-    /* ignore */
-  }
+  const scope = requireCurrentScope();
+  if (!scope) return;
+  writeActiveChatIdForScope(scope, id);
 }
 
 /** Mevcut sohbeti günceller veya boş liste ile başlığı korur */
@@ -464,13 +595,8 @@ export function deleteChatArchive(id: string): void {
   const remaining = readAll().filter((a) => a.id !== normalized);
   writeAll(remaining);
   if (readActiveChatId() === normalized) {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem(ACTIVE_CHAT_ID_KEY);
-      } catch {
-        /* ignore */
-      }
-    }
+    const scope = requireCurrentScope();
+    if (scope) writeActiveChatIdForScope(scope, null);
   }
 }
 

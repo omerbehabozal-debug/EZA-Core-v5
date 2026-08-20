@@ -3,6 +3,7 @@
  */
 
 import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
+import { resolveLineageProofToken } from '@/lib/eza/mirror-network/resolveLineageProofToken';
 import { getChatArchive } from '@/lib/standaloneChatArchive';
 
 export type MirrorPublishLineage = {
@@ -18,11 +19,6 @@ function normalizeSlug(value: string | null | undefined): string | undefined {
   return trimmed || undefined;
 }
 
-function normalizeToken(value: string | null | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed || undefined;
-}
-
 export function resolveMirrorPublishLineage(input: {
   conversationId?: string | null;
   curiosityLineage?: string | null;
@@ -32,10 +28,7 @@ export function resolveMirrorPublishLineage(input: {
   const origin = chat?.mirrorOrigin;
   const tree = chat?.treeMetadata;
 
-  const lineageProofToken =
-    normalizeToken(origin?.lineageProofToken) ??
-    normalizeToken(tree?.lineageProofToken) ??
-    undefined;
+  const lineageProofToken = resolveLineageProofToken(chat);
 
   const parentSlug =
     normalizeSlug(origin?.startedFromMirrorId) ??

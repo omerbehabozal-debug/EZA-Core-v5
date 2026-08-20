@@ -110,6 +110,7 @@ import {
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { MIRROR_GUEST_CHAT_REPLY_PARAM } from '@/lib/eza/mirror-network/mirrorGuestConversation';
+import { resolveLineageProofToken } from '@/lib/eza/mirror-network/resolveLineageProofToken';
 import {
   isSainaNewChatRequest,
   SAINA_DISCOVER_ROUTE,
@@ -837,8 +838,7 @@ export default function StandaloneChatInner() {
     const chatHistory = buildChatHistoryPayload(messages);
 
     const activeChat = chatId ? getChatArchive(chatId) : null;
-    const lineageProofTokenForSend =
-      activeChat?.mirrorOrigin?.lineageProofToken?.trim() || undefined;
+    const lineageProofTokenForSend = resolveLineageProofToken(activeChat);
     const isGuestMirrorSession = Boolean(activeChat?.mirrorOrigin?.isGuestSession);
     const priorUserMessages = messages.filter((m) => m.isUser).length;
     if (isGuestMirrorSession && priorUserMessages === 1) {

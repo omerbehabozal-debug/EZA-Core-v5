@@ -1,19 +1,29 @@
 /**
  * Bind guest conversation tree to authenticated user on login/register.
  * Preserves group headings, chat IDs, chat bodies, and mirror lineage proof.
+ *
+ * Phase 8.3.1: rebind between identity-scoped localStorage buckets.
  */
 
 import {
-  listConversationGroups,
-  replaceConversationGroups,
+  listConversationGroupsForScope,
+  replaceConversationGroupsForScope,
 } from '@/lib/eza/conversation-tree/conversationGroups';
 import { claimGuestConversationGroups } from '@/lib/eza/conversation-tree/claimGuestConversationGroups';
 import { migrateGuestEzaPrefsToUser } from '@/lib/eza/conversation-tree/migrateGuestEzaPrefs';
-import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
 import { rotateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
 import {
-  readChatArchives,
-  replaceChatArchives,
+  clearPendingGuestClaim,
+  guestScope,
+  readPendingGuestClaim,
+  userScope,
+  writePendingGuestClaim,
+} from '@/lib/eza/localIdentityScope';
+import {
+  readActiveChatIdForScope,
+  readChatArchivesForScope,
+  replaceChatArchivesForScope,
+  writeActiveChatIdForScope,
   type ArchivedChat,
 } from '@/lib/standaloneChatArchive';
 
@@ -33,16 +43,12 @@ export type MergeGuestConversationTreeResult = {
   claimAttempted: boolean;
   claimOk: boolean;
   guestTokenRotated: boolean;
+  /** True when local guest work existed or pending claim marker matched. */
+  hadPendingGuestWork: boolean;
 };
 
 function normalizeTitle(title: string): string {
   return title.trim().toLocaleLowerCase('tr');
-}
-
-function groupBelongsToGuest(group: ConversationGroup, guestToken: string): boolean {
-  if (group.userId) return false;
-  if (!group.guestToken) return true;
-  return group.guestToken === guestToken;
 }
 
 function isGuestChat(chat: ArchivedChat): boolean {
@@ -106,9 +112,13 @@ function bindGuestChat(chat: ArchivedChat, groupIdRemap: Record<string, string>)
   };
 }
 
+function chatIdSet(chats: ArchivedChat[]): Set<string> {
+  return new Set(chats.map((c) => c.id));
+}
+
 /**
- * Idempotent: guest groups gain userId; duplicate titles merge into existing user groups.
- * Always attempts server claim when authToken is present (even if local empty).
+ * Idempotent: guest groups/chats move into user:{userId} scope.
+ * Server claim runs only when local guest work or a pending-claim marker exists.
  */
 export async function mergeGuestConversationTree(
   input: MergeGuestConversationTreeInput
@@ -121,6 +131,7 @@ export async function mergeGuestConversationTree(
     claimAttempted: false,
     claimOk: false,
     guestTokenRotated: false,
+    hadPendingGuestWork: false,
   };
 
   if (typeof window === 'undefined') return empty;
@@ -129,54 +140,87 @@ export async function mergeGuestConversationTree(
   const guestToken = input.guestToken?.trim();
   if (!userId || !guestToken) return empty;
 
-  const groups = listConversationGroups();
-  const guestGroups = groups.filter((g) => groupBelongsToGuest(g, guestToken));
-  const userGroups = groups.filter((g) => g.userId === userId);
-  const chats = readChatArchives();
-  const hasGuestChats = chats.some(isGuestChat);
+  const gScope = guestScope(guestToken);
+  const uScope = userScope(userId);
+
+  const guestGroups = listConversationGroupsForScope(gScope);
+  const userGroups = listConversationGroupsForScope(uScope);
+  const guestChats = readChatArchivesForScope(gScope);
+  const userChats = readChatArchivesForScope(uScope);
+  const guestActiveId = readActiveChatIdForScope(gScope);
+
+  const pending = readPendingGuestClaim();
+  const pendingMatches =
+    Boolean(pending) &&
+    pending!.guestToken === guestToken &&
+    pending!.userId === userId;
+
+  const claimableGuestGroups = guestGroups;
+  const hasGuestChats = guestChats.length > 0;
+  const hasGuestGroups = guestGroups.length > 0;
+  const hadPendingGuestWork = hasGuestChats || hasGuestGroups || pendingMatches;
+
+  if (!hadPendingGuestWork) {
+    return empty;
+  }
 
   const groupIdRemap: Record<string, string> = {};
   const groupsToRemove = new Set<string>();
   let groupsClaimed = 0;
 
-  for (const guestGroup of guestGroups) {
+  for (const guestGroup of claimableGuestGroups) {
     const existingUserGroup = userGroups.find(
       (g) => normalizeTitle(g.title) === normalizeTitle(guestGroup.title)
     );
     if (existingUserGroup) {
       groupIdRemap[guestGroup.id] = existingUserGroup.id;
       groupsToRemove.add(guestGroup.id);
-    } else if (guestGroup.userId !== userId) {
+    } else {
       groupsClaimed += 1;
     }
   }
 
-  const updatedGroups = groups
+  const reboundGuestGroups = claimableGuestGroups
     .filter((g) => !groupsToRemove.has(g.id))
-    .map((g) => {
-      if (g.userId === userId) return g;
-      if (!groupBelongsToGuest(g, guestToken) || groupsToRemove.has(g.id)) return g;
-      return { ...g, userId };
-    });
+    .map((g) => ({ ...g, userId, guestToken: null }));
+
+  const mergedGroups = [
+    ...userGroups,
+    ...reboundGuestGroups.filter((g) => !userGroups.some((u) => u.id === g.id)),
+  ];
 
   let chatsUpdated = 0;
-  const updatedChats = chats.map((chat) => {
+  const userIds = chatIdSet(userChats);
+  const reboundGuestChats = guestChats.map((chat) => {
     const bound = bindGuestChat(chat, groupIdRemap);
-    if (bound !== chat) chatsUpdated += 1;
+    if (bound !== chat || !userIds.has(chat.id)) chatsUpdated += 1;
     return bound;
   });
 
-  const groupsChanged =
-    groupsClaimed > 0 ||
-    groupsToRemove.size > 0 ||
-    updatedGroups.some((g, i) => g !== groups[i]);
+  // Additive + idempotent: keep existing user chats; add guest chats not already present.
+  const mergedChats = [
+    ...userChats,
+    ...reboundGuestChats.filter((c) => !userIds.has(c.id)),
+  ].map((chat) => {
+    // Remap group ids on already-present user chats if needed (rare).
+    if (!userIds.has(chat.id)) return chat;
+    const remapped = bindGuestChat(chat, groupIdRemap);
+    return remapped;
+  });
 
-  const localWork = groupsChanged || chatsUpdated > 0 || guestGroups.length > 0 || hasGuestChats;
+  // For chats that existed only in guest and collide by id with user — keep user copy (no dup).
+  replaceConversationGroupsForScope(uScope, mergedGroups);
+  replaceChatArchivesForScope(uScope, mergedChats);
 
-  if (groupsChanged || chatsUpdated > 0) {
-    replaceConversationGroups(updatedGroups);
-    if (chatsUpdated > 0) {
-      replaceChatArchives(updatedChats);
+  // Clear guest scope so a future guest identity cannot see prior work.
+  replaceConversationGroupsForScope(gScope, []);
+  replaceChatArchivesForScope(gScope, []);
+  writeActiveChatIdForScope(gScope, null);
+
+  if (guestActiveId && mergedChats.some((c) => c.id === guestActiveId)) {
+    const existingUserActive = readActiveChatIdForScope(uScope);
+    if (!existingUserActive) {
+      writeActiveChatIdForScope(uScope, guestActiveId);
     }
   }
 
@@ -184,13 +228,15 @@ export async function mergeGuestConversationTree(
 
   let claimAttempted = false;
   let claimOk = false;
-  if (input.authToken) {
+  if (input.authToken && hadPendingGuestWork) {
     claimAttempted = true;
     try {
       await claimGuestConversationGroups(guestToken);
       claimOk = true;
+      clearPendingGuestClaim();
     } catch {
       claimOk = false;
+      writePendingGuestClaim({ guestToken, userId });
     }
   }
 
@@ -202,12 +248,13 @@ export async function mergeGuestConversationTree(
   }
 
   return {
-    merged: localWork || claimOk,
+    merged: true,
     groupsClaimed,
     chatsUpdated,
     groupIdRemap,
     claimAttempted,
     claimOk,
     guestTokenRotated,
+    hadPendingGuestWork,
   };
 }
