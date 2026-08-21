@@ -86,9 +86,24 @@ class SocialGoogleRequest(BaseModel):
 
 class SocialAppleRequest(BaseModel):
     id_token: str
-    nonce: str | None = None
-    # First Apple authorization may include name — never email as display name.
+    state: str
+    # First Apple authorization may include name — never used as public display name (8.7.2).
     full_name: str | None = None
+
+
+class SocialAppleStartRequest(BaseModel):
+    return_path: str | None = None
+
+
+class SocialAppleStartResponse(BaseModel):
+    state: str
+    nonce: str
+    clientId: str
+    redirectUri: str
+
+
+class SocialAppleCancelRequest(BaseModel):
+    state: str
 
 
 class SocialCapabilitiesResponse(BaseModel):
@@ -487,10 +502,54 @@ async def social_google(
         payload = await issue_social_token_response(db, user)
         return TokenResponse(**payload)
     except SocialAuthError as err:
+        try:
+            from backend.observability.ops_events import emit_ops_event
+            from backend.observability import error_codes as ops_codes
+
+            code = (
+                ops_codes.ACCOUNT_LINK_REQUIRED
+                if err.code == "account_link_required"
+                else ops_codes.SOCIAL_AUTH_FAILED
+            )
+            emit_ops_event(
+                "social_auth_failed",
+                code=code,
+                outcome="failure",
+                fields={"provider": "google", "reason": err.code},
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=err.http_status,
             detail={"code": err.code, "message": err.message},
         ) from err
+async def social_apple_start(
+    request: SocialAppleStartRequest,
+    db: AsyncSession = Depends(get_db),
+) -> SocialAppleStartResponse:
+    """Create server-bound Apple auth attempt (state + nonce)."""
+    from backend.services.social_auth import SocialAuthError, create_apple_auth_attempt
+
+    try:
+        payload = await create_apple_auth_attempt(db, return_path=request.return_path)
+        return SocialAppleStartResponse(**payload)
+    except SocialAuthError as err:
+        raise HTTPException(
+            status_code=err.http_status,
+            detail={"code": err.code, "message": err.message},
+        ) from err
+
+
+@router.post("/social/apple/cancel")
+async def social_apple_cancel(
+    request: SocialAppleCancelRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Discard Apple attempt on user cancel (no session issued)."""
+    from backend.services.social_auth import discard_apple_auth_attempt
+
+    await discard_apple_auth_attempt(db, request.state)
+    return {"ok": True}
 
 
 @router.post("/social/apple", response_model=TokenResponse)
@@ -498,17 +557,19 @@ async def social_apple(
     request: SocialAppleRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    """Sign in with Apple id_token → biligN JWT."""
+    """Sign in with Apple id_token + server state → biligN JWT."""
     from backend.services.social_auth import (
         SocialAuthError,
+        consume_apple_auth_attempt,
         issue_social_token_response,
         resolve_social_user,
         verify_apple_id_token,
     )
 
     try:
+        attempt = await consume_apple_auth_attempt(db, request.state)
         identity = await verify_apple_id_token(
-            request.id_token, nonce=request.nonce
+            request.id_token, expected_nonce_hash=attempt.nonce_hash
         )
         user = await resolve_social_user(
             db, identity, apple_name_hint=request.full_name
@@ -516,6 +577,23 @@ async def social_apple(
         payload = await issue_social_token_response(db, user)
         return TokenResponse(**payload)
     except SocialAuthError as err:
+        try:
+            from backend.observability.ops_events import emit_ops_event
+            from backend.observability import error_codes as ops_codes
+
+            code = (
+                ops_codes.ACCOUNT_LINK_REQUIRED
+                if err.code == "account_link_required"
+                else ops_codes.SOCIAL_AUTH_FAILED
+            )
+            emit_ops_event(
+                "social_auth_failed",
+                code=code,
+                outcome="failure",
+                fields={"provider": "apple", "reason": err.code},
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=err.http_status,
             detail={"code": err.code, "message": err.message},

@@ -1,27 +1,31 @@
 # -*- coding: utf-8 -*-
-"""Phase 8.7.1 — Google / Apple social auth verification + user resolve.
+"""Phase 8.7.1 / 8.7.2 — Google / Apple social auth verification + user resolve.
 
-Provider `sub` is the durable identity. Email is used only for safe linking when
-the provider marks email as verified. Never trusts frontend-supplied identity.
+Provider `sub` is the durable identity. Email is never automatic ownership proof
+of an existing biligN account (Phase 8.7.2). Apple state/nonce are server-bound.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
+import secrets
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
+from uuid import uuid4
 
 import httpx
 from fastapi import HTTPException
 from jose import jwt
 from jose.exceptions import JWTError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
-from backend.models.production import User, UserAuthIdentity
+from backend.models.production import SocialAuthAttempt, User, UserAuthIdentity
 from backend.services.production_auth import (
     create_access_token,
     create_user,
@@ -35,6 +39,11 @@ ProviderName = Literal["google", "apple"]
 GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs"
 APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_ISSUER = "https://appleid.apple.com"
+
+APPLE_ATTEMPT_TTL_SECONDS = 600
+ACCOUNT_LINK_REQUIRED_MESSAGE = (
+    "Bu e-posta ile mevcut bir biligN hesabı var. Önce mevcut hesabınla giriş yap."
+)
 
 
 @dataclass(frozen=True)
@@ -59,6 +68,7 @@ def google_oauth_configured() -> bool:
 
 
 def apple_oauth_configured() -> bool:
+    """Future code-exchange readiness (not required for current id_token path)."""
     s = get_settings()
     return bool(
         (s.APPLE_CLIENT_ID or "").strip()
@@ -83,17 +93,30 @@ def _raise_http(err: SocialAuthError) -> None:
     )
 
 
-def _optional_public_name(raw: str | None) -> str | None:
-    if raw is None or not str(raw).strip():
+def resolve_safe_auth_return_path(return_path: str | None) -> str | None:
+    """Server mirror of Phase 8.7 frontend allowlist. None if invalid/absent."""
+    if not return_path or not isinstance(return_path, str):
         return None
-    try:
-        from backend.services.mirror_network.public_identity import (
-            validate_public_display_name,
-        )
-
-        return validate_public_display_name(raw)
-    except ValueError:
+    path = return_path.strip()
+    if not path.startswith("/"):
         return None
+    if path.startswith("//"):
+        return None
+    if "\\" in path:
+        return None
+    if "://" in path:
+        return None
+    path_only = (path.split("?")[0].split("#")[0] or "").strip()
+    allowed = (
+        path_only == "/"
+        or path_only.startswith("/standalone")
+        or path_only.startswith("/m/")
+        or path_only.startswith("/platform")
+        or path_only.startswith("/dev/")
+    )
+    if not allowed:
+        return None
+    return path
 
 
 _jwks_cache: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -121,6 +144,10 @@ def _rsa_key_from_jwk(jwk: dict[str, Any]) -> dict[str, Any]:
         "e": jwk.get("e"),
         "alg": jwk.get("alg"),
     }
+
+
+def hash_apple_nonce(raw_nonce: str) -> str:
+    return hashlib.sha256(raw_nonce.encode("utf-8")).hexdigest()
 
 
 async def verify_google_id_token(
@@ -199,7 +226,7 @@ async def verify_google_id_token(
 async def verify_apple_id_token(
     id_token: str,
     *,
-    nonce: str | None = None,
+    expected_nonce_hash: str,
     clock_skew_seconds: int = 60,
 ) -> VerifiedProviderIdentity:
     client_id = (get_settings().APPLE_CLIENT_ID or "").strip()
@@ -212,6 +239,10 @@ async def verify_apple_id_token(
     token = (id_token or "").strip()
     if not token:
         raise SocialAuthError("invalid_token", "Apple kimliği doğrulanamadı.")
+
+    expected = (expected_nonce_hash or "").strip()
+    if not expected:
+        raise SocialAuthError("invalid_nonce", "Apple oturumu doğrulanamadı.")
 
     try:
         headers = jwt.get_unverified_header(token)
@@ -247,12 +278,9 @@ async def verify_apple_id_token(
         logger.info("social_auth_failure provider=apple reason=invalid_token")
         raise SocialAuthError("invalid_token", "Apple kimliği doğrulanamadı.") from exc
 
-    # Apple embeds SHA-256(hex) of the client nonce in the id_token.
-    if nonce:
-        expected_nonce = hashlib.sha256(nonce.encode("utf-8")).hexdigest()
-        claim_nonce = str(claims.get("nonce") or "").strip()
-        if claim_nonce != expected_nonce:
-            raise SocialAuthError("invalid_nonce", "Apple oturumu doğrulanamadı.")
+    claim_nonce = str(claims.get("nonce") or "").strip()
+    if claim_nonce != expected:
+        raise SocialAuthError("invalid_nonce", "Apple oturumu doğrulanamadı.")
 
     sub = str(claims.get("sub") or "").strip()
     if not sub:
@@ -260,7 +288,6 @@ async def verify_apple_id_token(
 
     email_raw = claims.get("email")
     email = normalize_email(str(email_raw)) if email_raw else None
-    # Apple may omit email_verified; treat presence of email claim as verified for relay.
     email_verified = bool(claims.get("email_verified", True)) if email else False
 
     return VerifiedProviderIdentity(
@@ -268,8 +295,103 @@ async def verify_apple_id_token(
         subject=sub,
         email=email,
         email_verified=email_verified,
-        name_hint=None,  # name only via first-auth user payload
+        name_hint=None,
     )
+
+
+def _make_apple_attempt(**kwargs) -> SocialAuthAttempt:
+    """Factory — tests may mock to avoid full SQLAlchemy mapper init."""
+    return SocialAuthAttempt(**kwargs)
+
+
+async def create_apple_auth_attempt(
+    db: AsyncSession,
+    *,
+    return_path: str | None = None,
+) -> dict[str, str]:
+    """Server-authoritative Apple attempt: unpredictable state + raw nonce."""
+    if not apple_id_token_verify_configured():
+        raise SocialAuthError(
+            "apple_not_configured",
+            "Apple ile giriş şu an kullanılamıyor.",
+            http_status=503,
+        )
+    settings = get_settings()
+    state = secrets.token_urlsafe(32)
+    raw_nonce = secrets.token_urlsafe(32)
+    nonce_hash = hash_apple_nonce(raw_nonce)
+    safe_return = resolve_safe_auth_return_path(return_path)
+    now = datetime.now(timezone.utc)
+    attempt = _make_apple_attempt(
+        id=uuid4(),
+        provider="apple",
+        state=state,
+        nonce_hash=nonce_hash,
+        return_path=safe_return,
+        expires_at=now + timedelta(seconds=APPLE_ATTEMPT_TTL_SECONDS),
+        consumed_at=None,
+    )
+    db.add(attempt)
+    await db.commit()
+    return {
+        "state": state,
+        "nonce": raw_nonce,
+        "clientId": (settings.APPLE_CLIENT_ID or "").strip(),
+        "redirectUri": (settings.APPLE_REDIRECT_URI or "").strip(),
+    }
+
+
+async def consume_apple_auth_attempt(
+    db: AsyncSession,
+    state: str,
+) -> SocialAuthAttempt:
+    """Single-use consume. Rejects missing / unknown / expired / replayed state."""
+    token_state = (state or "").strip()
+    if not token_state:
+        raise SocialAuthError("invalid_state", "Apple oturumu doğrulanamadı.")
+
+    result = await db.execute(
+        select(SocialAuthAttempt).where(
+            SocialAuthAttempt.provider == "apple",
+            SocialAuthAttempt.state == token_state,
+        )
+    )
+    attempt = result.scalar_one_or_none()
+    if attempt is None:
+        raise SocialAuthError("invalid_state", "Apple oturumu doğrulanamadı.")
+
+    now = datetime.now(timezone.utc)
+    expires = attempt.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if attempt.consumed_at is not None:
+        raise SocialAuthError("invalid_state", "Apple oturumu doğrulanamadı.")
+    if expires <= now:
+        raise SocialAuthError("invalid_state", "Apple oturumu doğrulanamadı.")
+
+    attempt.consumed_at = now
+    await db.commit()
+    await db.refresh(attempt)
+    return attempt
+
+
+async def discard_apple_auth_attempt(db: AsyncSession, state: str) -> None:
+    """Cancellation: mark attempt consumed so it cannot be replayed."""
+    token_state = (state or "").strip()
+    if not token_state:
+        return
+    result = await db.execute(
+        select(SocialAuthAttempt).where(
+            SocialAuthAttempt.provider == "apple",
+            SocialAuthAttempt.state == token_state,
+        )
+    )
+    attempt = result.scalar_one_or_none()
+    if attempt is None:
+        return
+    if attempt.consumed_at is None:
+        attempt.consumed_at = datetime.now(timezone.utc)
+        await db.commit()
 
 
 async def _find_identity(
@@ -304,6 +426,7 @@ def _make_auth_identity(
         email_at_link=email_at_link,
     )
 
+
 async def resolve_social_user(
     db: AsyncSession,
     identity: VerifiedProviderIdentity,
@@ -313,13 +436,16 @@ async def resolve_social_user(
     """
     Resolve or create biligN user for a verified provider identity.
 
-    Linking policy:
-    - Existing (provider, sub) → that user.
-    - Else verified email matches existing user → link identity (safe auto-link).
-    - Else create social-only user.
-    - Never set public_display_name from email / Apple relay.
-    - Name hint applied only on create when validate_public_display_name passes.
+    Phase 8.7.2 linking policy:
+    - Existing (provider, sub) → that user (email changes ignored).
+    - Else email matches existing biligN user → account_link_required (409).
+      Never auto-link by email alone.
+    - Else create social-only user (public_display_name=NULL).
+    - IntegrityError on identity/email → rollback, re-fetch by (provider, sub),
+      idempotent success when identity now exists.
     """
+    _ = apple_name_hint  # API compat; never auto-publish provider name
+
     existing_link = await _find_identity(db, identity.provider, identity.subject)
     if existing_link:
         user = await db.get(User, existing_link.user_id)
@@ -331,47 +457,21 @@ async def resolve_social_user(
             )
         return user
 
-    linked_user: User | None = None
-    if identity.email and identity.email_verified:
-        linked_user = await _find_user_by_email(db, identity.email)
-
-    if linked_user is not None:
-        if not linked_user.is_active:
-            raise SocialAuthError(
-                "account_inactive",
-                "Hesap bulunamadı veya pasif.",
-                http_status=403,
-            )
-        # Safe link: verified provider email matches existing account email.
-        db.add(
-            _make_auth_identity(
-                user_id=linked_user.id,
-                provider=identity.provider,
-                provider_subject=identity.subject,
-                email_at_link=identity.email,
-            )
-        )
-        await db.commit()
-        await db.refresh(linked_user)
-        logger.info(
-            "social_auth_success provider=%s user_id=%s action=link",
-            identity.provider,
-            linked_user.id,
-        )
-        return linked_user
-
-    # Create social-only user. Email required for uniqueness constraint.
     email = identity.email
     if not email:
-        # Apple may omit email on later logins — without prior link we cannot create.
         raise SocialAuthError(
             "email_required",
             "Bu Apple hesabı için e-posta alınamadı. İlk girişte e-posta paylaşımı gerekir.",
             http_status=400,
         )
 
-    name_source = apple_name_hint if identity.provider == "apple" else identity.name_hint
-    public_name = _optional_public_name(name_source)
+    existing_email_user = await _find_user_by_email(db, email)
+    if existing_email_user is not None:
+        raise SocialAuthError(
+            "account_link_required",
+            ACCOUNT_LINK_REQUIRED_MESSAGE,
+            http_status=409,
+        )
 
     try:
         user = await create_user(
@@ -379,32 +479,49 @@ async def resolve_social_user(
             email=email,
             password=None,
             role="user",
-            public_display_name=public_name,
+            public_display_name=None,
+            commit=False,
         )
+        db.add(
+            _make_auth_identity(
+                user_id=user.id,
+                provider=identity.provider,
+                provider_subject=identity.subject,
+                email_at_link=email,
+            )
+        )
+        await db.commit()
+        await db.refresh(user)
+        logger.info(
+            "social_auth_success provider=%s user_id=%s action=create",
+            identity.provider,
+            user.id,
+        )
+        return user
     except ValueError:
-        # Race: email appeared — fail closed rather than takeover.
+        await db.rollback()
         raise SocialAuthError(
-            "account_conflict",
-            "Bu e-posta ile zaten bir hesap var. E-posta ile giriş yapmayı dene.",
+            "account_link_required",
+            ACCOUNT_LINK_REQUIRED_MESSAGE,
             http_status=409,
         )
-
-    db.add(
-        _make_auth_identity(
-            user_id=user.id,
-            provider=identity.provider,
-            provider_subject=identity.subject,
-            email_at_link=email,
+    except IntegrityError:
+        await db.rollback()
+        raced = await _find_identity(db, identity.provider, identity.subject)
+        if raced is not None:
+            user = await db.get(User, raced.user_id)
+            if user is not None and user.is_active:
+                logger.info(
+                    "social_auth_success provider=%s user_id=%s action=race_idempotent",
+                    identity.provider,
+                    user.id,
+                )
+                return user
+        raise SocialAuthError(
+            "account_link_required",
+            ACCOUNT_LINK_REQUIRED_MESSAGE,
+            http_status=409,
         )
-    )
-    await db.commit()
-    await db.refresh(user)
-    logger.info(
-        "social_auth_success provider=%s user_id=%s action=create",
-        identity.provider,
-        user.id,
-    )
-    return user
 
 
 async def issue_social_token_response(db: AsyncSession, user: User) -> dict[str, Any]:

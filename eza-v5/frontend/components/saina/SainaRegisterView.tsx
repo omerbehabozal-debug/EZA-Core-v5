@@ -122,6 +122,7 @@ export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps
     <SainaAuthShell title={SAINA_AUTH_REGISTER_TITLE}>
       <SainaSocialAuthButtons
         disabled={loading}
+        returnPath={safeReturn}
         onSuccess={() => router.push(safeReturn)}
         onError={(message) => setError(message)}
       />

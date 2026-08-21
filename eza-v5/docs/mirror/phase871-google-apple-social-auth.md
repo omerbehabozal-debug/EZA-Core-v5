@@ -17,40 +17,37 @@ No profile wizard. No second login. No password after social. No provider token 
 | Identity | `user_auth_identities (provider, provider_subject)` unique |
 | Continuity | Same `TokenResponse` + `AuthContext.setAuth` as email |
 
-## Account linking policy
+## Account linking policy (Phase 8.7.2)
 
-1. Existing `(provider, sub)` → that user (repeat login).
-2. Else provider **verified** email matches an existing biligN email → **link** identity (no duplicate).
-3. Else create social-only user (`password_hash` null).
-4. Race / conflict → **409** fail closed (no silent merge of two established accounts).
-5. Unverified provider email → **do not** link by email.
-6. Google + Apple on same biligN user only via step 2 (same verified email) or separate links already on that user — never merge two biligN accounts by display name.
-7. Apple Hide My Email / relay: stored as account email only; **never** `public_display_name` (Phase 8.5 fallback: `biligN kullanıcısı`).
-8. Apple name hint applied **only on create** when `validate_public_display_name` passes; never overwrites an existing explicit public name.
+1. Existing `(provider, sub)` → that user (repeat login; email changes ignored).
+2. Else email matches an existing biligN user → **`409 account_link_required`** (no auto-link).
+3. Else create social-only user (`password_hash` null, `public_display_name` null).
+4. Identity/email insert race → rollback + re-fetch by `(provider, sub)` → idempotent success when possible.
+5. Explicit link-while-authenticated UI is **deferred**.
+6. Apple Hide My Email / relay: account email only; never public display name.
 
-## CSRF / nonce
+## CSRF / nonce (Phase 8.7.2)
 
-- **Google GIS**: credential bound to configured Web Client ID + authorized origins (Google-side). Backend verifies signature/aud/iss/exp/sub.
-- **Apple**: client generates nonce; Apple returns SHA-256(hex) in id_token; backend requires match when nonce is sent. Popup `usePopup: true`; redirect URI from `APPLE_REDIRECT_URI`.
-
-## Return-to
-
-User return path uses existing `resolveSafeAuthReturnPath` allowlist (Phase 8.7). OAuth `state` is **not** used as an open redirect. Provider callback URI is config-controlled.
+- **Google GIS**: unchanged credential JWT verification (iss/aud/exp/sub).
+- **Apple**: `POST /api/auth/social/apple/start` issues server `state` + raw `nonce`; hash stored in `social_auth_attempts`; complete requires `state`; nonce optional-from-client is **removed**.
 
 ## Environment variables
 
-### Backend / Railway (secrets + config)
+### Runtime (required for live social)
 
 | Variable | Public? | Purpose |
 |----------|---------|---------|
-| `GOOGLE_OAUTH_CLIENT_ID` | Returned to client via capabilities only | GIS Web client ID; JWT audience |
-| `APPLE_CLIENT_ID` | Returned via capabilities | Services ID; JWT audience |
-| `APPLE_TEAM_ID` | **Secret / server** | Reserved for future code-exchange client secret JWT |
-| `APPLE_KEY_ID` | **Secret / server** | Same |
-| `APPLE_PRIVATE_KEY` | **Secret / server — never frontend** | PEM for Sign in with Apple key |
-| `APPLE_REDIRECT_URI` | Returned via capabilities (HTTPS URL only) | Must match Apple Services ID Return URLs |
+| `GOOGLE_OAUTH_CLIENT_ID` | Via capabilities | GIS Web client ID; JWT audience |
+| `APPLE_CLIENT_ID` | Via capabilities | Services ID; JWT audience |
+| `APPLE_REDIRECT_URI` | Via capabilities | Must match Apple Return URLs |
 
-Fail closed: missing Google client ID → Google unavailable; missing Apple client ID → Apple unavailable. Email auth unaffected.
+### Future-only (code exchange — not required for current id_token path)
+
+| Variable | Notes |
+|----------|-------|
+| `APPLE_TEAM_ID` | Reserved |
+| `APPLE_KEY_ID` | Reserved |
+| `APPLE_PRIVATE_KEY` | Never frontend |
 
 ### Frontend / Vercel
 

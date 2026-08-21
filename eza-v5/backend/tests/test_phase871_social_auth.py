@@ -68,7 +68,11 @@ def test_missing_apple_config_fail_closed():
     ):
         assert apple_id_token_verify_configured() is False
         with pytest.raises(SocialAuthError) as exc:
-            asyncio.run(verify_apple_id_token("anything"))
+            asyncio.run(
+                verify_apple_id_token(
+                    "anything", expected_nonce_hash="abc"
+                )
+            )
         assert exc.value.code == "apple_not_configured"
         assert exc.value.http_status == 503
 
@@ -167,7 +171,11 @@ def test_apple_invalid_signature_rejected():
         side_effect=JWTError("Signature verification failed."),
     ):
         with pytest.raises(SocialAuthError) as exc:
-            asyncio.run(verify_apple_id_token("token"))
+            asyncio.run(
+                verify_apple_id_token(
+                    "token", expected_nonce_hash=hashlib.sha256(b"n").hexdigest()
+                )
+            )
         assert exc.value.code == "invalid_token"
 
 
@@ -186,7 +194,11 @@ def test_apple_wrong_audience_rejected():
         side_effect=JWTError("Invalid audience"),
     ):
         with pytest.raises(SocialAuthError) as exc:
-            asyncio.run(verify_apple_id_token("token"))
+            asyncio.run(
+                verify_apple_id_token(
+                    "token", expected_nonce_hash=hashlib.sha256(b"n").hexdigest()
+                )
+            )
         assert exc.value.code == "invalid_token"
 
 
@@ -205,13 +217,18 @@ def test_apple_expired_token_rejected():
         side_effect=JWTError("Signature has expired."),
     ):
         with pytest.raises(SocialAuthError) as exc:
-            asyncio.run(verify_apple_id_token("token"))
+            asyncio.run(
+                verify_apple_id_token(
+                    "token", expected_nonce_hash=hashlib.sha256(b"n").hexdigest()
+                )
+            )
         assert exc.value.code == "invalid_token"
 
 
 def test_apple_nonce_mismatch_rejected():
     raw_nonce = "client-nonce-abc"
     wrong_hash = hashlib.sha256(b"other").hexdigest()
+    expected = hashlib.sha256(raw_nonce.encode("utf-8")).hexdigest()
     with patch(
         "backend.services.social_auth.get_settings",
         return_value=_settings(APPLE_CLIENT_ID="com.ezacore.web"),
@@ -226,7 +243,7 @@ def test_apple_nonce_mismatch_rejected():
         return_value={"sub": "apple-sub", "email": "a@privaterelay.appleid.com", "nonce": wrong_hash},
     ):
         with pytest.raises(SocialAuthError) as exc:
-            asyncio.run(verify_apple_id_token("token", nonce=raw_nonce))
+            asyncio.run(verify_apple_id_token("token", expected_nonce_hash=expected))
         assert exc.value.code == "invalid_nonce"
 
 
@@ -251,7 +268,9 @@ def test_apple_nonce_match_accepted():
             "nonce": expected,
         },
     ):
-        identity = asyncio.run(verify_apple_id_token("token", nonce=raw_nonce))
+        identity = asyncio.run(
+            verify_apple_id_token("token", expected_nonce_hash=expected)
+        )
     assert identity.provider == "apple"
     assert identity.subject == "apple-sub-1"
     assert identity.email == "relay@privaterelay.appleid.com"
@@ -270,6 +289,7 @@ def _db_for_identity_lookup(identity_row=None, user=None, email_user=None):
     mock_db.execute = AsyncMock(side_effect=results)
     mock_db.get = AsyncMock(return_value=user)
     mock_db.commit = AsyncMock()
+    mock_db.rollback = AsyncMock()
     mock_db.refresh = AsyncMock()
     mock_db.add = MagicMock()
     return mock_db
@@ -297,7 +317,8 @@ class _FakeAuthIdentity:
         self.__dict__.update(kwargs)
 
 
-def test_google_verified_email_links_existing_account():
+def test_google_verified_email_does_not_auto_link_existing_account():
+    """Phase 8.7.2 — verified email is not ownership proof of existing local account."""
     user_id = uuid4()
     existing = SimpleNamespace(
         id=user_id,
@@ -314,31 +335,24 @@ def test_google_verified_email_links_existing_account():
         email_verified=True,
         name_hint="Google Name",
     )
-    with patch(
-        "backend.services.social_auth._make_auth_identity",
-        side_effect=lambda **kw: _FakeAuthIdentity(**kw),
-    ):
-        resolved = asyncio.run(resolve_social_user(db, identity))
-    assert resolved.id == user_id
-    assert resolved.public_display_name == "Ömer"
-    db.add.assert_called_once()
-    added = db.add.call_args[0][0]
-    assert added.provider == "google"
-    assert added.provider_subject == "g-new-sub"
+    with pytest.raises(SocialAuthError) as exc:
+        asyncio.run(resolve_social_user(db, identity))
+    assert exc.value.code == "account_link_required"
+    assert exc.value.http_status == 409
+    db.add.assert_not_called()
 
 
-def test_unverified_email_does_not_link():
-    """Unsafe: provider email not verified → create path, not silent link."""
+def test_unverified_email_creates_when_no_existing_user():
     identity = VerifiedProviderIdentity(
         provider="google",
         subject="g-unverified",
-        email="omer@example.com",
+        email="newcomer@example.com",
         email_verified=False,
         name_hint=None,
     )
     created = SimpleNamespace(
         id=uuid4(),
-        email="omer@example.com",
+        email="newcomer@example.com",
         is_active=True,
         public_display_name=None,
     )
@@ -353,9 +367,7 @@ def test_unverified_email_does_not_link():
         resolved = asyncio.run(resolve_social_user(db, identity))
     assert resolved.id == created.id
     create_mock.assert_awaited_once()
-    # Email lookup skipped when not verified — only identity lookup executed once,
-    # then create (no email link). execute called once for identity miss.
-    assert db.execute.await_count == 1
+    assert db.execute.await_count == 2
 
 
 def test_account_conflict_fail_closed_on_create_race():
@@ -373,7 +385,7 @@ def test_account_conflict_fail_closed_on_create_race():
     ):
         with pytest.raises(SocialAuthError) as exc:
             asyncio.run(resolve_social_user(db, identity))
-        assert exc.value.code == "account_conflict"
+        assert exc.value.code == "account_link_required"
         assert exc.value.http_status == 409
 
 
@@ -407,12 +419,12 @@ def test_apple_relay_never_becomes_public_display_name():
     assert "xyz" not in resolve_public_display_name(user)
 
 
-def test_apple_first_name_hint_may_set_public_name_once():
+def test_apple_first_name_hint_does_not_auto_publish():
     created = SimpleNamespace(
         id=uuid4(),
         email="a@privaterelay.appleid.com",
         is_active=True,
-        public_display_name="Ayşe",
+        public_display_name=None,
     )
     db = _db_for_identity_lookup(identity_row=None, email_user=None)
     identity = VerifiedProviderIdentity(
@@ -430,7 +442,7 @@ def test_apple_first_name_hint_may_set_public_name_once():
         side_effect=lambda **kw: _FakeAuthIdentity(**kw),
     ):
         asyncio.run(resolve_social_user(db, identity, apple_name_hint="Ayşe"))
-    assert create_mock.await_args.kwargs.get("public_display_name") == "Ayşe"
+    assert create_mock.await_args.kwargs.get("public_display_name") is None
 
 
 def test_provider_subject_uniqueness_constraint_in_model():

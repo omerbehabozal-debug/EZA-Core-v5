@@ -1,6 +1,7 @@
 /**
- * Phase 8.7.1 — social auth client (Google GIS + Apple JS → biligN TokenResponse).
+ * Phase 8.7.1 / 8.7.2 — social auth client (Google GIS + Apple JS → biligN TokenResponse).
  * Provider tokens are never persisted; only biligN JWT goes through setAuth.
+ * Apple state/nonce come from server /api/auth/social/apple/start (Phase 8.7.2).
  */
 
 import { buildApiUrl } from '@/lib/apiUrl';
@@ -21,7 +22,36 @@ export type SocialCapabilities = {
   appleRedirectUri: string | null;
 };
 
+export type AppleAuthAttempt = {
+  state: string;
+  nonce: string;
+  clientId: string;
+  redirectUri: string;
+};
+
+export const SAINA_SOCIAL_ACCOUNT_LINK_REQUIRED =
+  'Bu e-posta ile mevcut bir biligN hesabı var. Önce mevcut hesabınla giriş yap.';
+
 let capabilitiesCache: SocialCapabilities | null = null;
+
+function socialErrorMessage(body: unknown, fallback: string): string {
+  const detail =
+    body && typeof body === 'object' && 'detail' in body
+      ? (body as { detail?: unknown }).detail
+      : undefined;
+  if (detail && typeof detail === 'object' && detail !== null) {
+    const code = (detail as { code?: unknown }).code;
+    const message = (detail as { message?: unknown }).message;
+    if (code === 'account_link_required') {
+      return typeof message === 'string' && message.trim()
+        ? message
+        : SAINA_SOCIAL_ACCOUNT_LINK_REQUIRED;
+    }
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  return fallback;
+}
 
 export async function fetchSocialAuthCapabilities(): Promise<SocialCapabilities> {
   if (capabilitiesCache) return capabilitiesCache;
@@ -76,13 +106,7 @@ export async function exchangeGoogleIdToken(
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const detail =
-        typeof body?.detail === 'object' && body.detail?.message
-          ? String(body.detail.message)
-          : typeof body?.detail === 'string'
-            ? body.detail
-            : 'Google ile giriş başarısız.';
-      return { ok: false, message: detail };
+      return { ok: false, message: socialErrorMessage(body, 'Google ile giriş başarısız.') };
     }
     if (!body?.access_token || !body?.user_id) {
       return { ok: false, message: 'Google ile giriş başarısız.' };
@@ -93,9 +117,53 @@ export async function exchangeGoogleIdToken(
   }
 }
 
+export async function startAppleAuthAttempt(
+  returnPath?: string | null
+): Promise<{ ok: true; data: AppleAuthAttempt } | { ok: false; message: string }> {
+  try {
+    const res = await fetch(buildApiUrl('/api/auth/social/apple/start'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        return_path: returnPath || undefined,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, message: socialErrorMessage(body, 'Apple ile giriş başlatılamadı.') };
+    }
+    if (!body?.state || !body?.nonce || !body?.clientId || !body?.redirectUri) {
+      return { ok: false, message: 'Apple ile giriş başlatılamadı.' };
+    }
+    return {
+      ok: true,
+      data: {
+        state: String(body.state),
+        nonce: String(body.nonce),
+        clientId: String(body.clientId),
+        redirectUri: String(body.redirectUri),
+      },
+    };
+  } catch {
+    return { ok: false, message: 'Bağlantı hatası. Tekrar dene.' };
+  }
+}
+
+export async function cancelAppleAuthAttempt(state: string): Promise<void> {
+  try {
+    await fetch(buildApiUrl('/api/auth/social/apple/cancel'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ state }),
+    });
+  } catch {
+    // Best-effort discard; guest state remains either way.
+  }
+}
+
 export async function exchangeAppleIdToken(input: {
   idToken: string;
-  nonce?: string | null;
+  state: string;
   fullName?: string | null;
 }): Promise<{ ok: true; data: SocialTokenResponse } | { ok: false; message: string }> {
   try {
@@ -104,19 +172,13 @@ export async function exchangeAppleIdToken(input: {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         id_token: input.idToken,
-        nonce: input.nonce || undefined,
+        state: input.state,
         full_name: input.fullName || undefined,
       }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const detail =
-        typeof body?.detail === 'object' && body.detail?.message
-          ? String(body.detail.message)
-          : typeof body?.detail === 'string'
-            ? body.detail
-            : 'Apple ile giriş başarısız.';
-      return { ok: false, message: detail };
+      return { ok: false, message: socialErrorMessage(body, 'Apple ile giriş başarısız.') };
     }
     if (!body?.access_token || !body?.user_id) {
       return { ok: false, message: 'Apple ile giriş başarısız.' };
@@ -205,19 +267,9 @@ export async function requestGoogleIdToken(clientId: string): Promise<string> {
   });
 }
 
-function randomNonce(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID().replace(/-/g, '');
-  }
-  return `n_${Date.now().toString(16)}_${Math.random().toString(16).slice(2)}`;
-}
-
-export async function requestAppleIdToken(
-  clientId: string,
-  redirectUri?: string | null
-): Promise<{
+export async function requestAppleIdToken(attempt: AppleAuthAttempt): Promise<{
   idToken: string;
-  nonce: string;
+  state: string;
   fullName: string | null;
 }> {
   await loadScript(
@@ -227,27 +279,25 @@ export async function requestAppleIdToken(
   if (!window.AppleID?.auth) {
     throw new Error('Apple Sign In yüklenemedi.');
   }
-  const nonce = randomNonce();
-  const redirectURI =
-    (redirectUri || '').trim() ||
-    (typeof window !== 'undefined' ? `${window.location.origin}/platform/login` : '');
-  if (!redirectURI) {
-    throw new Error('Apple yönlendirme adresi yapılandırılmamış.');
-  }
   window.AppleID.auth.init({
-    clientId,
+    clientId: attempt.clientId,
     scope: 'name email',
-    redirectURI,
+    redirectURI: attempt.redirectUri,
     usePopup: true,
-    nonce,
+    state: attempt.state,
+    nonce: attempt.nonce,
   });
   const result = await window.AppleID.auth.signIn();
   const idToken = result?.authorization?.id_token?.trim();
   if (!idToken) {
     throw new Error('Apple kimliği alınamadı.');
   }
+  const returnedState = result?.authorization?.state?.trim();
+  if (returnedState && returnedState !== attempt.state) {
+    throw new Error('Apple oturumu doğrulanamadı.');
+  }
   const first = result.user?.name?.firstName?.trim() || '';
   const last = result.user?.name?.lastName?.trim() || '';
   const fullName = [first, last].filter(Boolean).join(' ') || null;
-  return { idToken, nonce, fullName };
+  return { idToken, state: attempt.state, fullName };
 }

@@ -51,11 +51,17 @@ export default function MirrorLandingExperience({
       const artifact = await fetchPublicFrozenJourneyArtifact({ slug: surface.slug });
       if (!artifact) {
         setFrozenState({ status: 'unavailable' });
+        void import('@/lib/eza/opsTelemetry').then(({ reportOpsFailure }) => {
+          reportOpsFailure('frozen_replay_load_failed', 'FROZEN_ARTIFACT_INVALID');
+        });
         return;
       }
       setFrozenState({ status: 'ready', artifact });
     } catch {
       setFrozenState({ status: 'error' });
+      void import('@/lib/eza/opsTelemetry').then(({ reportOpsFailure }) => {
+        reportOpsFailure('frozen_replay_load_failed', 'FROZEN_ARTIFACT_INVALID');
+      });
     }
   }, [surface.slug]);
 

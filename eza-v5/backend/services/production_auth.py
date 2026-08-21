@@ -44,8 +44,12 @@ async def create_user(
     is_active: bool = True,
     is_internal_test_user: bool = False,
     public_display_name: str | None = None,
+    commit: bool = True,
 ) -> User:
-    """Create a new user. password=None → social-only account (Phase 8.7.1)."""
+    """Create a new user. password=None → social-only account (Phase 8.7.1).
+
+    commit=False flushes only (Phase 8.7.2 social txn with identity insert).
+    """
     try:
         logger.info(f"[create_user] Step 1: Normalizing email: {email}")
         # Normalize email (lowercase and trim)
@@ -81,13 +85,17 @@ async def create_user(
         )
         logger.info(f"[create_user] Step 8: Adding user to database session...")
         db.add(user)
-        logger.info(f"[create_user] Step 9: Committing to database...")
-        await db.commit()
-        logger.info(f"[create_user] Step 10: Refreshing user from database...")
-        await db.refresh(user)
-        logger.info(f"[create_user] Step 11: User refreshed. ID: {user.id}")
+        if commit:
+            logger.info(f"[create_user] Step 9: Committing to database...")
+            await db.commit()
+            logger.info(f"[create_user] Step 10: Refreshing user from database...")
+            await db.refresh(user)
+        else:
+            logger.info(f"[create_user] Step 9-10: Flush only (deferred commit)...")
+            await db.flush()
+        logger.info(f"[create_user] Step 11: User id: {user.id}")
         
-        if password_hash and password:
+        if commit and password_hash and password:
             test_verify = verify_password(password, user.password_hash or "")
             if not test_verify:
                 logger.error(f"[create_user] CRITICAL: Password hash verification failed!")

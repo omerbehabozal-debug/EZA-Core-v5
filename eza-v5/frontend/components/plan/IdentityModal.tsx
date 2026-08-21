@@ -88,6 +88,7 @@ export default function IdentityModal({ open, onClose }: IdentityModalProps) {
 
         <div className="mt-6 text-left">
           <SainaSocialAuthButtons
+            returnPath={returnUrl}
             onSuccess={() => {
               setSocialError(null);
               onClose();

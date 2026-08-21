@@ -73,6 +73,21 @@ class UserAuthIdentity(Base):
     )
 
 
+class SocialAuthAttempt(Base):
+    """Phase 8.7.2 — server-bound Apple auth attempt (state + nonce hash)."""
+
+    __tablename__ = "social_auth_attempts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    provider = Column(String(32), nullable=False, index=True)  # apple
+    state = Column(String(128), nullable=False, unique=True, index=True)
+    nonce_hash = Column(String(64), nullable=False)
+    return_path = Column(String(512), nullable=True)  # allowlisted relative path only
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class Organization(Base):
     """Organization model with UUID primary key"""
     __tablename__ = "production_organizations"

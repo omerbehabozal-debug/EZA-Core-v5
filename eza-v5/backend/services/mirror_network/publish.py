@@ -1140,10 +1140,20 @@ async def publish_mirror_to_network(
                 await db.refresh(node)
             except Exception:
                 await db.rollback()
+                try:
+                    from backend.observability.ops_events import emit_ops_event
+                    from backend.observability import error_codes as ops_codes
+
+                    emit_ops_event(
+                        "yansi_publish_failed",
+                        code=ops_codes.PUBLISH_FAILED,
+                        outcome="failure",
+                        fields={"reason": "freeze_persist"},
+                    )
+                except Exception:
+                    pass
                 logger.exception(
-                    "mirror_journey_freeze_commit_failed journey_id=%s slug=%s",
-                    getattr(node, "id", None),
-                    getattr(node, "slug", None),
+                    "mirror_journey_freeze_commit_failed"
                 )
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

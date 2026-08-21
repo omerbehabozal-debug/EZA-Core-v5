@@ -5,11 +5,13 @@ import '@/styles/saina-mirror.css';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import {
+  cancelAppleAuthAttempt,
   exchangeAppleIdToken,
   exchangeGoogleIdToken,
   fetchSocialAuthCapabilities,
   requestAppleIdToken,
   requestGoogleIdToken,
+  startAppleAuthAttempt,
   type SocialCapabilities,
 } from '@/lib/eza/socialAuth';
 import {
@@ -23,15 +25,18 @@ type Props = {
   onSuccess: () => void;
   onError: (message: string) => void;
   disabled?: boolean;
+  /** Optional safeReturn path bound into Apple server attempt. */
+  returnPath?: string | null;
 };
 
 /**
- * Phase 8.7.1 — Google / Apple → biligN setAuth (same continuity as email).
+ * Phase 8.7.1 / 8.7.2 — Google / Apple → biligN setAuth (same continuity as email).
  */
 export default function SainaSocialAuthButtons({
   onSuccess,
   onError,
   disabled,
+  returnPath,
 }: Props) {
   const { setAuth } = useAuth();
   const [caps, setCaps] = useState<SocialCapabilities | null>(null);
@@ -100,14 +105,18 @@ export default function SainaSocialAuthButtons({
     }
     inFlightRef.current = true;
     setBusy('apple');
+    let attemptState: string | null = null;
     try {
-      const apple = await requestAppleIdToken(
-        caps.appleClientId,
-        caps.appleRedirectUri
-      );
+      const started = await startAppleAuthAttempt(returnPath);
+      if (!started.ok) {
+        onError(started.message);
+        return;
+      }
+      attemptState = started.data.state;
+      const apple = await requestAppleIdToken(started.data);
       const result = await exchangeAppleIdToken({
         idToken: apple.idToken,
-        nonce: apple.nonce,
+        state: apple.state,
         fullName: apple.fullName,
       });
       if (!result.ok) {
@@ -116,8 +125,11 @@ export default function SainaSocialAuthButtons({
       }
       applyToken(result.data);
     } catch (err) {
+      if (attemptState) {
+        void cancelAppleAuthAttempt(attemptState);
+      }
       const msg =
-        err instanceof Error && /cancel|abort|popup/i.test(err.message)
+        err instanceof Error && /cancel|abort|popup|iptal/i.test(err.message)
           ? 'Apple girişi iptal edildi.'
           : err instanceof Error
             ? err.message

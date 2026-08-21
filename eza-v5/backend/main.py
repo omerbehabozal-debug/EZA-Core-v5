@@ -28,6 +28,7 @@ from backend.routers import (
     institution, gateway, regulator_router, btk_router, eu_ai_router,
     platform_router, corporate_router, internal_proxy, multimodal,
     test_results, monitor, monitor_ws, standalone_mirror, debug_openai, mirror_network,
+    ops_telemetry,
 )
 from backend.routers import proxy_lite_media
 from backend.core.utils.dependencies import init_db, init_redis, init_vector_db, get_db
@@ -239,6 +240,14 @@ app.add_middleware(
 from backend.middleware.organization_guard import OrganizationGuardMiddleware
 app.add_middleware(OrganizationGuardMiddleware)
 
+# Phase 8.8 — opaque request correlation (outermost = last added)
+from backend.observability.middleware import RequestIdMiddleware
+from backend.observability.request_id import REQUEST_ID_HEADER, get_request_id
+from backend.observability.ops_events import emit_ops_event
+from backend.observability import error_codes as ops_codes
+
+app.add_middleware(RequestIdMiddleware)
+
 # Exception handlers to ensure CORS headers are always sent
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
@@ -249,38 +258,58 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         cors_origin = origin
     else:
         cors_origin = allowed_origins[0] if allowed_origins else "*"
-    
+
+    request_id = getattr(request.state, "request_id", None) or get_request_id()
+    headers = {
+        "Access-Control-Allow-Origin": cors_origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+    }
+    if request_id:
+        headers[REQUEST_ID_HEADER] = request_id
+
     return JSONResponse(
         status_code=exc.status_code,
         content=normalize_public_http_error_content(exc.status_code, exc.detail),
-        headers={
-            "Access-Control-Allow-Origin": cors_origin,
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
-        }
+        headers=headers,
     )
+
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle all exceptions with CORS headers"""
-    logging.exception(f"Unhandled exception: {exc}")
+    request_id = getattr(request.state, "request_id", None) or get_request_id()
+    emit_ops_event(
+        "internal_error",
+        code=ops_codes.INTERNAL_ERROR,
+        outcome="failure",
+    )
+    # Never log exception args that may contain PII — message class only.
+    logging.exception("Unhandled exception type=%s", type(exc).__name__)
     origin = request.headers.get("origin")
     # Check if origin is in allowed list
     if origin in allowed_origins:
         cors_origin = origin
     else:
         cors_origin = allowed_origins[0] if allowed_origins else "*"
-    
+
+    content = public_internal_error_content()
+    if request_id:
+        content = {**content, "request_id": request_id}
+    headers = {
+        "Access-Control-Allow-Origin": cors_origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+    }
+    if request_id:
+        headers[REQUEST_ID_HEADER] = request_id
+
     return JSONResponse(
         status_code=500,
-        content=public_internal_error_content(),
-        headers={
-            "Access-Control-Allow-Origin": cors_origin,
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
-        }
+        content=content,
+        headers=headers,
     )
 
 # Include routers
@@ -288,6 +317,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 from backend.routers import production_auth, account_entitlements
 app.include_router(production_auth.router, prefix="/api/auth", tags=["Production Auth"])
 app.include_router(account_entitlements.router, prefix="/api/account", tags=["Account Entitlements"])
+app.include_router(ops_telemetry.router)
 
 from backend.api.routers.safemode_router import router as safemode_router
 app.include_router(safemode_router)
@@ -383,8 +413,8 @@ async def prometheus_metrics():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "ok", "version": "6.0.0", "env": settings.ENV}
+    """Minimal production health — no secrets, no dependency exception strings."""
+    return {"status": "ok"}
 
 
 @app.get("/")

@@ -247,6 +247,9 @@ export default function SainaDiscoverPage() {
         setItems([]);
         setAllExperienced(false);
         setLoading(false);
+        void import('@/lib/eza/opsTelemetry').then(({ reportOpsFailure }) => {
+          reportOpsFailure('discover_load_failed', 'DISCOVER_LOAD_FAILED');
+        });
         return;
       }
       randomSessionRef.current = result.randomSession ?? randomSessionRef.current;

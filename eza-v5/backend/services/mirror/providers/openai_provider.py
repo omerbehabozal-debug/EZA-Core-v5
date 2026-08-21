@@ -116,6 +116,18 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
                     diagnostic.get("errorType"),
                     diagnostic.get("requestId"),
                 )
+                try:
+                    from backend.observability.ops_events import emit_ops_event
+                    from backend.observability import error_codes as ops_codes
+
+                    emit_ops_event(
+                        "provider_request_failed",
+                        code=ops_codes.PROVIDER_UPSTREAM_ERROR,
+                        outcome="failure",
+                        fields={"operation": "mirror_images", "http_status": response.status_code},
+                    )
+                except Exception:
+                    pass
                 raise MirrorImageProviderError(
                     _USER_ERROR_MESSAGE,
                     source="openai",
@@ -129,6 +141,19 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
                 seed,
                 type(exc).__name__,
             )
+            try:
+                from backend.observability.ops_events import emit_ops_event
+                from backend.observability import error_codes as ops_codes
+
+                is_timeout = isinstance(exc, (httpx.TimeoutException, httpx.ConnectTimeout, httpx.ReadTimeout))
+                emit_ops_event(
+                    "provider_timeout" if is_timeout else "provider_request_failed",
+                    code=ops_codes.PROVIDER_TIMEOUT if is_timeout else ops_codes.PROVIDER_REQUEST_FAILED,
+                    outcome="failure",
+                    fields={"operation": "mirror_images", "err_type": type(exc).__name__},
+                )
+            except Exception:
+                pass
             raise MirrorImageProviderError(_USER_ERROR_MESSAGE) from exc
         finally:
             if own_client:

@@ -105,8 +105,14 @@ export default function SainaLoginView({
 
       <SainaSocialAuthButtons
         disabled={loading}
+        returnPath={safeReturn}
         onSuccess={() => router.push(safeReturn)}
-        onError={(message) => setError(message)}
+        onError={(message) => {
+          setError(message);
+          void import('@/lib/eza/opsTelemetry').then(({ reportOpsFailure }) => {
+            reportOpsFailure('social_auth_failed', 'SOCIAL_AUTH_FAILED');
+          });
+        }}
       />
 
       <form onSubmit={handleLogin}>
