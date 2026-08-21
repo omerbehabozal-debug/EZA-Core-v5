@@ -62,6 +62,7 @@ describe('Phase 8.5 public identity privacy', () => {
     );
     expect(fetchAuthor).not.toMatch(/email/i);
     expect(fetchAuthor).toContain('displayName');
+    expect(fetchAuthor).toContain('publicHonorific');
     expect(fetchAuthor).not.toContain('lineageProof');
     expect(fetchAuthor).not.toContain('ezaScore');
 

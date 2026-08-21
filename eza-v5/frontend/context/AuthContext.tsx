@@ -46,6 +46,8 @@ interface UserInfo {
   full_name?: string;
   /** Phase 8.5 — explicit public display name (owner-controlled). */
   public_display_name?: string | null;
+  /** Public honorific id: curious | bilgin. Never a plan or role. */
+  public_honorific?: string | null;
 }
 
 interface AuthState {
@@ -180,6 +182,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   result.session.public_display_name !== undefined
                     ? result.session.public_display_name
                     : user.public_display_name,
+                public_honorific:
+                  result.session.public_honorific !== undefined
+                    ? result.session.public_honorific
+                    : user.public_honorific,
               }
             : user;
 

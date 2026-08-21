@@ -48,6 +48,13 @@ _DISCOVER_FORBIDDEN_KEYS = frozenset(
         "mirrorBody",
         "private_payload",
         "behavioralSnapshot",
+        "email",
+        "account_tier",
+        "accountTier",
+        "mirror_plan",
+        "role",
+        "ezaScore",
+        "rankingEvidence",
     }
 )
 
@@ -267,6 +274,8 @@ def _to_discover_item(
     journey_version: int | None = None,
     experience_started_count: int | None = None,
     direct_child_yansi_count: int | None = None,
+    author_display_name: str | None = None,
+    public_honorific: str | None = None,
 ) -> DiscoverMirrorItem:
     payload = node.public_payload if isinstance(node.public_payload, dict) else {}
     frozen_title, frozen_summary, _ = _frozen_public_fields(node)
@@ -296,6 +305,8 @@ def _to_discover_item(
         journeyVersion=version,
         experienceStartedCount=experience_started_count,
         directChildYansiCount=direct_child_yansi_count,
+        authorDisplayName=author_display_name,
+        publicHonorific=public_honorific,
     )
 
 
@@ -432,10 +443,28 @@ async def _project_discover_page(
     except Exception:
         metrics_by_key = {}
 
+    from backend.services.mirror_network.public_identity import (
+        resolve_public_display_name,
+        resolve_public_honorific,
+    )
+
+    authors_by_id: dict[Any, Any] = {}
+    user_ids = [getattr(node, "user_id", None) for node, _ in page]
+    user_ids = [uid for uid in user_ids if uid is not None]
+    if user_ids:
+        try:
+            from backend.models.production import User
+
+            author_result = await db.execute(select(User).where(User.id.in_(set(user_ids))))
+            authors_by_id = {row.id: row for row in author_result.scalars().all()}
+        except Exception:
+            authors_by_id = {}
+
     items = []
     for node, scene_url in page:
         version = int(getattr(node, "journey_version", None) or 1)
         row = metrics_by_key.get((node.slug.strip().lower(), version))
+        author = authors_by_id.get(getattr(node, "user_id", None))
         items.append(
             _to_discover_item(
                 node,
@@ -448,6 +477,8 @@ async def _project_discover_page(
                 direct_child_yansi_count=(
                     row.get("directChildYansiCount") if row else None
                 ),
+                author_display_name=resolve_public_display_name(author),
+                public_honorific=resolve_public_honorific(author),
             )
         )
     return items
@@ -463,8 +494,20 @@ def _strong_curiosity_unavailable_response() -> DiscoverMirrorListResponse:
     )
 
 
+def _nested_keys(value: Any) -> set[str]:
+    keys: set[str] = set()
+    if isinstance(value, Mapping):
+        for key, inner in value.items():
+            keys.add(str(key))
+            keys.update(_nested_keys(inner))
+    elif isinstance(value, (list, tuple)):
+        for inner in value:
+            keys.update(_nested_keys(inner))
+    return keys
+
+
 def _privacy_check(payload: DiscoverMirrorListResponse) -> DiscoverMirrorListResponse:
-    leaked = _DISCOVER_FORBIDDEN_KEYS.intersection(payload.model_dump().keys())
+    leaked = _DISCOVER_FORBIDDEN_KEYS.intersection(_nested_keys(payload.model_dump()))
     if leaked:
         raise RuntimeError(f"discover_response_privacy_violation:{','.join(sorted(leaked))}")
     return payload

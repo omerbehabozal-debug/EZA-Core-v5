@@ -13,6 +13,7 @@ export type AuthMeResponse = {
   role: string;
   mirror_plan: PlanId;
   public_display_name?: string | null;
+  public_honorific?: string | null;
 };
 
 /** Lightweight session proof — does not require mirror_plan for validity. */
@@ -22,6 +23,7 @@ export type AuthSessionValidation = {
   role: string;
   mirror_plan?: PlanId;
   public_display_name?: string | null;
+  public_honorific?: string | null;
 };
 
 export type AuthSessionValidationResult =
@@ -36,6 +38,7 @@ export async function fetchAuthMe(): Promise<AuthMeResponse | null> {
   if (!mirrorPlan) return null;
   const publicName =
     res.public_display_name ?? res.data?.public_display_name ?? null;
+  const honorificRaw = res.public_honorific ?? res.data?.public_honorific ?? null;
   return {
     user_id: res.user_id ?? res.data?.user_id ?? '',
     email: res.email ?? res.data?.email ?? '',
@@ -43,6 +46,10 @@ export async function fetchAuthMe(): Promise<AuthMeResponse | null> {
     mirror_plan: mirrorPlan === 'plus' ? 'plus' : 'free',
     public_display_name:
       typeof publicName === 'string' && publicName.trim() ? publicName.trim() : null,
+    public_honorific:
+      typeof honorificRaw === 'string' && honorificRaw.trim()
+        ? honorificRaw.trim()
+        : null,
   };
 }
 
@@ -114,6 +121,11 @@ export async function validateAuthSession(): Promise<AuthSessionValidationResult
   const publicRaw = res.public_display_name ?? res.data?.public_display_name;
   const public_display_name =
     typeof publicRaw === 'string' && publicRaw.trim() ? publicRaw.trim() : null;
+  const honorificRaw = res.public_honorific ?? res.data?.public_honorific;
+  const public_honorific =
+    typeof honorificRaw === 'string' && honorificRaw.trim()
+      ? honorificRaw.trim()
+      : null;
   return {
     status: 'valid',
     session: {
@@ -122,6 +134,7 @@ export async function validateAuthSession(): Promise<AuthSessionValidationResult
       role: String(res.role ?? res.data?.role ?? ''),
       ...(mirror_plan ? { mirror_plan } : {}),
       public_display_name,
+      public_honorific,
     },
   };
 }

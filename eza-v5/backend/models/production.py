@@ -31,6 +31,9 @@ class User(Base):
     account_tier = Column(String(20), nullable=True, index=True)  # free, mini, standard, premium — SAINA tier SKU
     # Phase 8.5 — explicit user-chosen public name only (never email-derived).
     public_display_name = Column(String(48), nullable=True)
+    # Public honorific: curious | bilgin. NULL = curious via resolver.
+    # Not a plan, auth role, or Yansı publicTitle.
+    public_honorific = Column(String(16), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

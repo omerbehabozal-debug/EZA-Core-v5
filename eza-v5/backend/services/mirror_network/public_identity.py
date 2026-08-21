@@ -7,11 +7,14 @@ Only an explicitly chosen ``public_display_name`` is shown publicly.
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from backend.models.production import User
+
+logger = logging.getLogger(__name__)
 
 # Neutral product-safe fallback (TR). Not derived from email.
 PUBLIC_DISPLAY_NAME_FALLBACK = "biligN kullanıcısı"
@@ -82,3 +85,57 @@ def resolve_public_display_name(user: "User" | None) -> str:
     if chosen:
         return chosen
     return PUBLIC_DISPLAY_NAME_FALLBACK
+
+
+# Public honorific — social/intellectual identity. Not a plan, role, or handle.
+# Distinct from Yansı ``publicTitle`` (the curiosity sentence on a published node).
+PUBLIC_HONORIFIC_CURIOUS = "curious"
+PUBLIC_HONORIFIC_BILGIN = "bilgin"
+PUBLIC_HONORIFIC_VALUES = frozenset(
+    {PUBLIC_HONORIFIC_CURIOUS, PUBLIC_HONORIFIC_BILGIN}
+)
+PUBLIC_HONORIFIC_LABELS = {
+    PUBLIC_HONORIFIC_CURIOUS: "Meraklı",
+    PUBLIC_HONORIFIC_BILGIN: "Bilgin",
+}
+
+
+def normalize_public_honorific(raw: str | None) -> str:
+    """Unknown / empty / NULL → curious. Never derived from plan or auth role."""
+    value = (raw or "").strip().lower()
+    if value == PUBLIC_HONORIFIC_BILGIN:
+        return PUBLIC_HONORIFIC_BILGIN
+    return PUBLIC_HONORIFIC_CURIOUS
+
+
+def resolve_public_honorific(user: "User" | None) -> str:
+    """Public honorific id for DTOs. Guest/missing user → curious (display layer hides guest)."""
+    if user is None:
+        return PUBLIC_HONORIFIC_CURIOUS
+    return normalize_public_honorific(getattr(user, "public_honorific", None))
+
+
+def resolve_public_honorific_label(user: "User" | None) -> str:
+    return PUBLIC_HONORIFIC_LABELS[resolve_public_honorific(user)]
+
+
+def assign_public_honorific(user: "User", honorific: str, *, actor: str = "system") -> str:
+    """
+    System-only write path for Meraklı → Bilgin (and reverse).
+
+    Not exposed on owner PATCH / public-identity. Callers must be an operator
+    CLI or trusted admin service — never subscription, ranking, or profile-edit.
+    """
+    value = (honorific or "").strip().lower()
+    if value not in PUBLIC_HONORIFIC_VALUES:
+        raise ValueError("invalid_public_honorific")
+    previous = resolve_public_honorific(user)
+    user.public_honorific = value
+    logger.info(
+        "public_honorific_changed user_id=%s from=%s to=%s actor=%s",
+        getattr(user, "id", None),
+        previous,
+        value,
+        actor,
+    )
+    return value

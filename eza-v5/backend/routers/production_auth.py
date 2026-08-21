@@ -7,7 +7,7 @@ Register, Login, Logout endpoints
 import logging
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.utils.dependencies import get_db
@@ -69,10 +69,15 @@ class AuthMeResponse(BaseModel):
     account_tier: str | None = None
     # Phase 8.5 — owner-private identity control (not a public DTO).
     public_display_name: str | None = None
+    # Public honorific id (curious | bilgin). Not a plan/role. Owner session only.
+    public_honorific: str
 
 
 class PublicIdentityUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     public_display_name: str
+    # public_honorific / publicHonorific are forbidden extras — owner cannot self-assign.
 
 
 class PublicIdentityUpdateResponse(BaseModel):
@@ -142,6 +147,8 @@ async def get_auth_me(
             },
         )
     chosen = getattr(user, "public_display_name", None)
+    from backend.services.mirror_network.public_identity import resolve_public_honorific
+
     return AuthMeResponse(
         user_id=str(user.id),
         email=user.email,
@@ -153,6 +160,7 @@ async def get_auth_me(
             is_authenticated=True,
         ).value,
         public_display_name=(str(chosen).strip() if chosen else None) or None,
+        public_honorific=resolve_public_honorific(user),
     )
 
 
@@ -166,6 +174,7 @@ async def patch_public_identity(
     Phase 8.5 — authenticated owner sets explicit public display name.
 
     Never derives from email. Logs event without private name payloads.
+    Honorific is not writable here (system-granted Bilgin only).
     """
     from backend.services.mirror_network.public_identity import (
         resolve_public_display_name,

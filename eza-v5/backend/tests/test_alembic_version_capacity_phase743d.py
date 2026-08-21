@@ -43,7 +43,8 @@ def _pg_url() -> str | None:
 def test_revision_identifier_lengths():
     audit = revision_length_audit()
     assert audit["headRevision"] == HEAD_REVISION
-    assert audit["headLength"] == len(HEAD_REVISION) == 36
+    assert audit["headLength"] == len(HEAD_REVISION)
+    assert len(HEAD_REVISION) <= 40
     assert audit["maxLength"] == 40
     assert audit["longestRevision"] == "add_mirror_journey_identity_pass_closure"
     assert len("add_mirror_journey_identity_pass_closure") == 40

@@ -5586,6 +5586,64 @@ html:has(.saina-page) body {
   padding: 1.15rem 1.2rem 1.35rem;
 }
 
+.saina-discover-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0 0 0.45rem;
+}
+
+.saina-discover-card__identity-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: rgba(246, 244, 239, 0.9);
+}
+
+.saina-discover-card__identity-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #e8e2d7;
+}
+
+.bilign-honorific {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex-shrink: 0;
+  color: #b8b1a7;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.bilign-honorific--sm {
+  font-size: 12px;
+}
+
+.bilign-honorific--bilgin {
+  color: #c8954f;
+}
+
+.bilign-honorific__mark {
+  display: block;
+  flex-shrink: 0;
+}
+
 .saina-discover-card__title {
   margin: 0 0 0.55rem;
   font-size: 1.2rem;
@@ -6292,6 +6350,10 @@ html:has(.saina-page) body {
   line-height: 1.25;
   overflow-wrap: anywhere;
   color: rgba(246, 244, 239, 0.96);
+}
+
+.bilign-profile-honorific {
+  margin: 0;
 }
 
 .bilign-profile-edit-trigger {

@@ -5,9 +5,14 @@ import '@/styles/saina-mirror.css';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
+import {
+  resolveYansiCreatorDisplayName,
+  resolveYansiCreatorHonorific,
+} from '@/lib/eza/mirror/yansiCreatorIdentity';
 import {
   DEFAULT_MIRROR_MOBILE_CONTEXT,
   type MirrorMobileContext,
@@ -85,6 +90,16 @@ function SainaChatSurface({
 }) {
   const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
   const showMessages = !isEmpty && messages != null;
+  const { user, isAuthenticated } = useAuth();
+  const isGuest = !isAuthenticated;
+  const displayName = resolveYansiCreatorDisplayName({
+    isGuest,
+    publicDisplayName: user?.public_display_name,
+  });
+  const honorific = resolveYansiCreatorHonorific({
+    isGuest,
+    publicHonorific: user?.public_honorific,
+  });
 
   const tryOpenMirror = useCallback(() => {
     if (onRequestMirror && !onRequestMirror()) return;
@@ -131,7 +146,13 @@ function SainaChatSurface({
               className={cn('saina-main-body', isEmpty && 'saina-main-body--empty')}
               data-testid="saina-main-body"
             >
-              <SainaHeroScene title={heroTitle} />
+              <SainaHeroScene
+                title={heroTitle}
+                displayName={displayName}
+                honorificId={honorific?.id ?? null}
+                honorificLabel={honorific?.label ?? null}
+                userId={user?.user_id ?? null}
+              />
               <div
                 className={cn(
                   'saina-chat-column',

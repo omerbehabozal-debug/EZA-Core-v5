@@ -11,6 +11,7 @@ import {
 } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import { PUBLIC_DISPLAY_NAME_FALLBACK } from '@/lib/eza/mirror/publicIdentity';
 import ProfileDefaultAvatar from '@/components/mirror/ayna/ProfileDefaultAvatar';
+import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import ProfileEditSheet from '@/components/mirror/ayna/ProfileEditSheet';
 import ProfileYansiCard from '@/components/mirror/ayna/ProfileYansiCard';
 
@@ -33,6 +34,7 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
     Boolean(isAuthenticated && user?.user_id && user.user_id === userId.trim());
 
   const [displayName, setDisplayName] = useState(PUBLIC_DISPLAY_NAME_FALLBACK);
+  const [honorific, setHonorific] = useState<string | null>(null);
   const [items, setItems] = useState<AuthorPublishedYansiItem[]>([]);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<LoadStatus>('loading');
@@ -70,6 +72,7 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
         }
 
         setDisplayName(result.data.displayName);
+        setHonorific(result.data.publicHonorific ?? 'curious');
         setTotal(result.data.total);
         setItems((prev) =>
           append
@@ -140,6 +143,11 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
             >
               {displayName}
             </h1>
+            <HonorificMarker
+              honorific={honorific}
+              className="bilign-profile-honorific"
+              testId="bilign-profile-honorific"
+            />
             {isOwner ? (
               <button
                 ref={editTriggerRef}

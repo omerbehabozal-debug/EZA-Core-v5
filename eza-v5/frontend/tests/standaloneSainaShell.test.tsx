@@ -147,6 +147,9 @@ describe('SainaStandaloneShell (Sprint B.2A)', () => {
   it('uses active chat title on hero', () => {
     render(<SainaStandaloneShell {...baseProps} heroTitle="Özbekistan Sohbeti" />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Özbekistan Sohbeti');
+    expect(screen.getByTestId('saina-yansi-identity-name')).toHaveTextContent('Misafir');
+    expect(screen.queryByTestId('saina-yansi-identity-honorific')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('saina-yansi-identity-plan')).not.toBeInTheDocument();
   });
 
   it('wires new chat and archive select handlers', () => {

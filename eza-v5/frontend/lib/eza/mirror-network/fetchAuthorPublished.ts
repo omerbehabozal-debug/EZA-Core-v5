@@ -25,6 +25,7 @@ export type AuthorPublishedYansiItem = {
 export type AuthorPublishedYansiResponse = {
   userId: string;
   displayName: string;
+  publicHonorific?: string | null;
   items: AuthorPublishedYansiItem[];
   total: number;
 };
@@ -90,6 +91,8 @@ function parseListPayload(
       typeof data.displayName === 'string' && data.displayName.trim()
         ? data.displayName
         : PUBLIC_DISPLAY_NAME_FALLBACK,
+    publicHonorific:
+      typeof data.publicHonorific === 'string' ? data.publicHonorific : null,
     items: data.items
       .map(parseAuthorPublishedItem)
       .filter((item): item is AuthorPublishedYansiItem => item !== null),

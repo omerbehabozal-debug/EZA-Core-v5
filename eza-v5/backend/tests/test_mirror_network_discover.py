@@ -27,6 +27,11 @@ FORBIDDEN_DISCOVER_KEYS = {
     "conversationId",
     "mirrorBody",
     "private_payload",
+    "email",
+    "accountTier",
+    "role",
+    "ezaScore",
+    "rankingEvidence",
 }
 
 

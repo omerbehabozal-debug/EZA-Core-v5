@@ -19,6 +19,8 @@ export type MirrorPublicCardProps = {
   footer?: ReactNode;
   /** Quiet metadata row (Phase 6.2). Takes precedence over metaLabel. */
   meta?: ReactNode;
+  /** Compact creator identity (name + honorific). Display only. */
+  kicker?: ReactNode;
   /** Capture root for share PNG / export. */
   captureRef?: React.Ref<HTMLElement>;
 };
@@ -40,6 +42,7 @@ export default function MirrorPublicCard({
   expandLabel = 'Büyüt',
   footer,
   meta,
+  kicker,
   captureRef,
 }: MirrorPublicCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -92,6 +95,7 @@ export default function MirrorPublicCard({
       </div>
 
       <div className="saina-discover-card__body">
+        {kicker}
         <h2 className="saina-discover-card__title saina-serif">{title}</h2>
         {summary?.trim() ? (
           <p className="saina-discover-card__summary">{summary.trim()}</p>

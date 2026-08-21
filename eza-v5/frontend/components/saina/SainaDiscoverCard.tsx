@@ -11,6 +11,8 @@ import { buildMirrorPublicPath } from '@/lib/eza/mirror-network/mirrorPublicUrl'
 import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
 import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
 import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
+import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
+import { resolvePublicAvatarGrapheme } from '@/lib/eza/mirror/publicIdentity';
 
 export type SainaDiscoverCardProps = {
   item: DiscoverMirror;
@@ -26,10 +28,24 @@ export default function SainaDiscoverCard({
   const router = useRouter();
   const summary = item.description?.trim() || null;
   const canonical = parseYansiPublicSocialProofInput(item);
+  const authorName = item.authorDisplayName?.trim() || '';
 
   const handleOpenYansi = useCallback(() => {
     router.push(buildMirrorPublicPath(item.slug));
   }, [item.slug, router]);
+
+  const identity = authorName ? (
+    <div
+      className="saina-discover-card__identity"
+      data-testid={`saina-discover-card-identity-${item.slug}`}
+    >
+      <span className="saina-discover-card__identity-avatar" aria-hidden>
+        {resolvePublicAvatarGrapheme(authorName)}
+      </span>
+      <span className="saina-discover-card__identity-name">{authorName}</span>
+      <HonorificMarker honorific={item.publicHonorific} size="sm" />
+    </div>
+  ) : null;
 
   return (
     <YansiExposureRoot
@@ -41,6 +57,7 @@ export default function SainaDiscoverCard({
       title={item.title}
       summary={summary}
       sceneImageUrl={item.sceneImageUrl}
+      kicker={identity}
       meta={
         canonical ? (
           <YansiPublicMetricsView

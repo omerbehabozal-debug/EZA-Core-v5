@@ -1,10 +1,12 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 
 export type AynaAuthorRowProps = {
   displayName: string;
   avatarUrl?: string | null;
+  honorific?: string | null;
   onOpenProfile?: () => void;
   className?: string;
 };
@@ -15,11 +17,13 @@ export type AynaAuthorRowProps = {
 export default function AynaAuthorRow({
   displayName,
   avatarUrl,
+  honorific = null,
   onOpenProfile,
   className,
 }: AynaAuthorRowProps) {
   const initial = displayName.trim().charAt(0).toUpperCase() || 'Y';
   const interactive = typeof onOpenProfile === 'function';
+  const showHonorific = Boolean(honorific);
 
   const inner = (
     <>
@@ -37,6 +41,7 @@ export default function AynaAuthorRow({
       <span className="min-w-0 truncate text-[12px] font-medium tracking-tight text-[rgba(246,244,239,0.92)]">
         {displayName}
       </span>
+      {showHonorific ? <HonorificMarker honorific={honorific} size="sm" /> : null}
     </>
   );
 

@@ -285,6 +285,7 @@ export {
 
 export {
   resolvePublicAuthorDisplayName,
+  resolvePublicAuthorIdentity,
   clearPublicAuthorDisplayCacheForTests,
 } from './resolvePublicAuthorDisplay';
 

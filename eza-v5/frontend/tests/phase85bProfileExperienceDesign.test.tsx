@@ -98,6 +98,8 @@ describe('Phase 8.5B profile experience', () => {
     expect(screen.getByTestId('bilign-profile-display-name')).toHaveTextContent(
       'Ömer Bozal'
     );
+    expect(screen.getByTestId('bilign-profile-honorific')).toHaveTextContent('Meraklı');
+    expect(screen.queryByText('Premium')).toBeNull();
     expect(screen.getByText('Yansılar')).toBeTruthy();
     expect(screen.getByText('Şehir ışıkları')).toBeTruthy();
     expect(
@@ -117,6 +119,24 @@ describe('Phase 8.5B profile experience', () => {
     const link = screen.getByTestId('profile-yansi-link-yansi-a');
     expect(link.getAttribute('href')).toBe('/m/yansi-a');
     expect(link.getAttribute('href')).not.toContain('sohbet');
+  });
+
+  it('public profile shows assigned Bilgin without an edit control', async () => {
+    vi.mocked(fetchAuthorPublishedYansilar).mockResolvedValue({
+      ok: true,
+      data: {
+        userId: 'user-1',
+        displayName: 'Ada Lovelace',
+        publicHonorific: 'bilgin',
+        total: 0,
+        items: [],
+      },
+    });
+    render(<AuthorPublishedYansiProfile userId="user-1" />);
+    expect(await screen.findByTestId('bilign-profile-honorific')).toHaveTextContent(
+      'Bilgin'
+    );
+    expect(screen.queryByTestId('bilign-profile-edit-trigger')).toBeNull();
   });
 
   it('avatar grapheme never uses email local-part', () => {
@@ -176,6 +196,8 @@ describe('Phase 8.5B profile experience', () => {
     expect(await screen.findByTestId('bilign-profile-edit-trigger')).toHaveTextContent(
       'Profili düzenle'
     );
+    expect(screen.getByTestId('bilign-profile-honorific')).toHaveTextContent('Meraklı');
+    expect(screen.queryByText('Free')).toBeNull();
     expect(screen.getByText('Şehir ışıkları')).toBeTruthy();
     expect(screen.getByText(/Akşam yürüyüşünde/)).toBeTruthy();
     expect(screen.getByTestId('profile-visibility-chip-yansi-a')).toHaveTextContent(

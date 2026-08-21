@@ -28,6 +28,8 @@ export type DiscoverMirror = {
   journeyVersion?: number | null;
   experienceStartedCount?: number | null;
   directChildYansiCount?: number | null;
+  authorDisplayName?: string | null;
+  publicHonorific?: string | null;
 };
 
 export type DiscoverMirrorListResponse = {
@@ -52,6 +54,13 @@ const FORBIDDEN_KEYS = [
   'experienceSessionId',
   'eventId',
   'viewerUserId',
+  'email',
+  'accountTier',
+  'account_tier',
+  'mirror_plan',
+  'role',
+  'ezaScore',
+  'rankingEvidence',
 ] as const;
 
 function parseNonNegInt(value: unknown): number | null {
@@ -82,6 +91,14 @@ function parseDiscoverItem(raw: unknown): DiscoverMirror | null {
     journeyVersion: version && version >= 1 ? version : null,
     experienceStartedCount: canonical?.experienceStartedCount ?? null,
     directChildYansiCount: canonical?.directChildYansiCount ?? null,
+    authorDisplayName:
+      typeof row.authorDisplayName === 'string' && row.authorDisplayName.trim()
+        ? row.authorDisplayName.trim()
+        : null,
+    publicHonorific:
+      typeof row.publicHonorific === 'string' && row.publicHonorific.trim()
+        ? row.publicHonorific.trim()
+        : null,
   };
 }
 

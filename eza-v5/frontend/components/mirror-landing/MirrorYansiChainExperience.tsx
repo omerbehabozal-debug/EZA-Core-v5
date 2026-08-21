@@ -19,7 +19,7 @@ import {
   loadChildContinuationPlan,
   type EligibleChildContinuation,
 } from '@/lib/eza/mirror/journey/yansiChildContinuation';
-import { resolvePublicAuthorDisplayName } from '@/lib/eza/mirror/journey/resolvePublicAuthorDisplay';
+import { resolvePublicAuthorIdentity } from '@/lib/eza/mirror/journey/resolvePublicAuthorDisplay';
 import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import { YANSI_OWN_CONTINUATION_CTA, YANSI_SKIP_TO_NEXT_MERAK } from '@/lib/eza/mirror/copy';
 import {
@@ -46,6 +46,7 @@ type ReplayNodeProgress = {
 type ChainNode = {
   artifact: PublicFrozenJourneyArtifact;
   authorDisplayName: string;
+  authorHonorific: string;
   parentAuthorDisplayName: string | null;
   parentPublicTitle: string | null;
   alternatives: EligibleChildContinuation[];
@@ -58,19 +59,21 @@ async function enrichNode(
   artifact: PublicFrozenJourneyArtifact,
   alternatives: EligibleChildContinuation[] = []
 ): Promise<ChainNode> {
-  const authorDisplayName = await resolvePublicAuthorDisplayName(artifact.authorUserId);
+  const author = await resolvePublicAuthorIdentity(artifact.authorUserId);
   let parentAuthorDisplayName: string | null = null;
   let parentPublicTitle: string | null = null;
   if (artifact.parentSlug) {
     const parent = await fetchPublicFrozenJourneyArtifact({ slug: artifact.parentSlug });
     if (parent) {
       parentPublicTitle = parent.publicTitle || null;
-      parentAuthorDisplayName = await resolvePublicAuthorDisplayName(parent.authorUserId);
+      const parentAuthor = await resolvePublicAuthorIdentity(parent.authorUserId);
+      parentAuthorDisplayName = parentAuthor.displayName;
     }
   }
   return {
     artifact,
-    authorDisplayName,
+    authorDisplayName: author.displayName,
+    authorHonorific: author.publicHonorific,
     parentAuthorDisplayName,
     parentPublicTitle,
     alternatives,
@@ -370,6 +373,7 @@ export default function MirrorYansiChainExperience({
                 ) : null}
                 <AynaAuthorRow
                   displayName={node.authorDisplayName}
+                  honorific={node.authorHonorific}
                   onOpenProfile={() =>
                     router.push(authorProfilePath(node.artifact.authorUserId))
                   }

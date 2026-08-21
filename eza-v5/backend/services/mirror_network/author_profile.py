@@ -29,7 +29,10 @@ from backend.services.mirror_network.visibility_access import (
     is_children_parent_accessible,
     is_profile_listable,
 )
-from backend.services.mirror_network.public_identity import resolve_public_display_name
+from backend.services.mirror_network.public_identity import (
+    resolve_public_display_name,
+    resolve_public_honorific,
+)
 from backend.services.mirror_network.slug import build_mirror_share_url
 
 # Deterministic profile listing order (Phase 8.5B.1).
@@ -371,6 +374,7 @@ async def list_published_mirrors_for_author(
     return {
         "userId": str(user_id),
         "displayName": resolve_public_display_name(user),
+        "publicHonorific": resolve_public_honorific(user),
         "items": items,
         "total": total,
     }
@@ -412,6 +416,7 @@ async def list_owner_profile_yansilar(
         "userId": str(owner_user_id),
         "displayName": resolve_public_display_name(user),
         "publicDisplayName": getattr(user, "public_display_name", None),
+        "publicHonorific": resolve_public_honorific(user),
         "items": items,
         "total": total,
         "view": "owner",

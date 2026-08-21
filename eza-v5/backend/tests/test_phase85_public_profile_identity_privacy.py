@@ -152,6 +152,7 @@ async def test_public_profile_excludes_non_listable(monkeypatch):
     payload = await list_published_mirrors_for_author(db, user_id=owner)
     assert payload is not None
     assert payload["displayName"] == "Seçilmiş Ad"
+    assert payload["publicHonorific"] == "curious"
     assert "email" not in payload
     assert payload["total"] == 1
     assert [i["slug"] for i in payload["items"]] == ["pub"]
@@ -196,6 +197,8 @@ def test_creator_identity_not_in_ranking_inputs():
     assert sc_files
     joined = "\n".join(p.read_text(encoding="utf-8") for p in sc_files)
     assert "public_display_name" not in joined
+    assert "public_honorific" not in joined
+    assert "publicHonorific" not in joined
     assert "_public_display_name_from_email" not in joined
     assert 'split("@")' not in joined
     # Creator popularity tokens appear only inside deny / exclusion lists.

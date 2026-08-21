@@ -95,11 +95,17 @@ describe('Phase 8.8F Stage 9 isolation', () => {
   const rail = read('components/saina/SainaYansiContextRail.tsx');
   const shell = read('components/saina/SainaStandaloneShell.tsx');
 
-  it('does not invent handle, Bilgin badge, or 8-step progress', () => {
-    expect(hero).not.toContain('>Bilgin<');
+  it('does not invent handle, plan-as-identity, or 8-step progress', () => {
+    expect(hero).not.toContain('planLabel');
     expect(hero).not.toContain('kullanıcı adı');
     expect(hero).not.toContain('bilign-progress');
+    expect(hero).not.toMatch(/@[a-z0-9_]+/i);
     expect(css).not.toContain('bilign-progress');
+    expect(css).not.toContain('identity__plan');
+    expect(hero).toContain('ProfileDefaultAvatar');
+    expect(hero).toContain('honorificLabel');
+    expect(shell).toContain('resolveYansiCreatorHonorific');
+    expect(shell).not.toContain('resolveSainaSidebarFooter');
   });
 
   it('keeps Ayna reachable through the context rail', () => {
@@ -121,7 +127,9 @@ describe('Phase 8.8F Stage 9 isolation', () => {
 
   it('gates desktop visual system at 900px so Phase 8.7 mobile remains default', () => {
     expect(css).toContain('Mobile (<900px) keeps existing Phase 8.7 layout');
-    expect(css).toMatch(/\.bilign-yansi-identity__mark \{\s*display: none;/);
+    expect(css).toContain('.bilign-yansi-identity__mark');
+    expect(css).toContain('.bilign-yansi-identity__name-row');
+    expect(css).toMatch(/\.bilign-yansi-identity__name-row \{\s*display: none;/);
   });
 });
 
@@ -140,20 +148,35 @@ describe('Phase 8.8F Stage A Yansı-first composition', () => {
     expect(css).not.toContain('cream border (not bronze geometry)');
   });
 
-  it('keeps conversation below 780px without bronze/gold card geometry', () => {
-    expect(css).toContain('min(760px');
+  it('keeps conversation in the 720–780px reading column without bronze/gold card geometry', () => {
+    expect(css).toContain('min(780px');
     expect(css).not.toContain('min(820px');
     expect(css).not.toContain('rgba(231, 180, 91');
     expect(css).not.toContain('0 0 120px');
   });
 
   it('places Yansı identity in the scene and pins conversation to the lower reading zone', () => {
-    expect(css).toContain('clamp(26px, 2.05vw, 34px)');
+    expect(css).toContain('clamp(26px, 1.7vw, 30px)');
     expect(css).toContain('-webkit-line-clamp: 2');
     expect(css).toContain('margin-top: auto');
     expect(css).toContain('justify-content: flex-start');
-    expect(css).toContain('width: 56px');
-    expect(hero).not.toContain('>Bilgin<');
+    expect(css).toContain('width: 80px');
+    expect(hero).not.toContain('planLabel');
+  });
+
+  it('restores user-right / assistant-left without speaker name chrome', () => {
+    expect(css).toContain('user right, assistant left');
+    expect(css).toContain('margin-left: auto');
+    expect(css).toContain('align-self: flex-end');
+    expect(css).toContain('.saina-msg-ai-header');
+    expect(css).toContain('.saina-msg-ai-title');
+    expect(css).toContain('display: none');
+  });
+
+  it('stretches the continuation composer to the same column as the reading plane', () => {
+    expect(css).toContain('.saina-composer-inner');
+    expect(css).toContain('width: 100%');
+    expect(css).toContain('max-width: var(--saina-chat-column-width)');
   });
 
   it('lightens global scene veil so darkness stays behind text, not the whole Yansı', () => {
@@ -172,5 +195,53 @@ describe('Phase 8.8F Stage A Yansı-first composition', () => {
     expect(rail).toContain('onOpenAyna');
     expect(css).not.toContain('saina-discover-shell');
     expect(css).not.toContain('bilign-progress');
+  });
+});
+
+describe('Phase 8.8F creator identity contract', () => {
+  const css = read('styles/saina-yansi-desktop.css');
+  const hero = read('components/saina/SainaHeroScene.tsx');
+  const shell = read('components/saina/SainaStandaloneShell.tsx');
+  const profileEdit = read('components/mirror/ayna/ProfileEditSheet.tsx');
+  const profilePage = read('components/mirror/ayna/AuthorPublishedYansiProfile.tsx');
+  const discoverCard = read('components/saina/SainaDiscoverCard.tsx');
+  const aynaAuthor = read('components/mirror/ayna/AynaAuthorRow.tsx');
+  const chatInner = read('components/standalone/StandaloneChatInner.tsx');
+  const honorific = read('lib/eza/mirror/publicHonorific.ts');
+  const creator = read('lib/eza/mirror/yansiCreatorIdentity.ts');
+  const patch = read('lib/eza/plan/fetchAuthMe.ts');
+
+  it('uses public display name, honorific, and Yansı title — never plan, email, or handle', () => {
+    expect(honorific).toContain("curious: 'Meraklı'");
+    expect(honorific).toContain("bilgin: 'Bilgin'");
+    expect(creator).toContain('PUBLIC_DISPLAY_NAME_FALLBACK');
+    expect(creator).toContain('isGuest');
+    expect(creator).not.toContain('user.email');
+    expect(creator).not.toContain('split("@")');
+    expect(shell).toContain('user?.public_display_name');
+    expect(shell).toContain('heroTitle');
+    expect(shell).not.toContain('resolveSainaSidebarFooter');
+    expect(hero).not.toContain('SAINA Free');
+    expect(hero).not.toContain('SAINA Guest');
+    expect(hero).not.toContain('Premium');
+    expect(css).not.toContain('identity__plan');
+    expect(patch).toContain('body: { public_display_name: publicDisplayName }');
+    expect(patch).not.toContain('public_honorific: publicDisplayName');
+  });
+
+  it('does not let the owner edit honorific on profile, Discover, mobile, or chat inner', () => {
+    expect(profileEdit).not.toContain('public_honorific');
+    expect(profileEdit).not.toContain('Bilgin');
+    expect(profileEdit).not.toContain('Meraklı');
+    expect(profileEdit).not.toContain('HonorificMarker');
+    expect(profileEdit).not.toContain('<select');
+    expect(profilePage).toContain('HonorificMarker');
+    expect(profilePage).not.toContain('<select');
+    expect(discoverCard).toContain('HonorificMarker');
+    expect(discoverCard).not.toContain('account_tier');
+    expect(discoverCard).not.toContain('mirror_plan');
+    expect(aynaAuthor).toContain('HonorificMarker');
+    expect(chatInner).not.toContain('publicHonorific');
+    expect(chatInner).not.toContain('SainaHeroScene');
   });
 });
