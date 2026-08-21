@@ -2,6 +2,7 @@
 
 import '@/lib/eza/matchMediaPolyfill';
 import '@/styles/saina-mirror.css';
+import '@/styles/saina-yansi-desktop.css';
 import '@/styles/saina-transitions.css';
 
 import { useCallback, useLayoutEffect, useState, type ReactNode } from 'react';

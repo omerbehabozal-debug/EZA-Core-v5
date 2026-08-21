@@ -266,7 +266,7 @@ export const SAINA_HERO_SUBTITLE =
 
 
 
-export const SAINA_COMPOSER_PLACEHOLDER = "SAINA'ya bir şey sor...";
+export const SAINA_COMPOSER_PLACEHOLDER = 'Kendi merakınla devam et…';
 
 export const SAINA_COMPOSER_LIMIT_PLACEHOLDER = 'Sohbet limitine ulaştın';
 

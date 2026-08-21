@@ -3,9 +3,8 @@
 import '@/styles/saina-mirror.css';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Menu, Sparkles } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SAINA_MIRROR_EXPAND_LABEL, SAINA_MIRROR_EXPAND_TAB } from '@/lib/eza/sainaCopy';
 import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
@@ -22,6 +21,7 @@ import SainaHeroScene from './SainaHeroScene';
 import SainaMobileMirrorRail from './SainaMobileMirrorRail';
 import SainaPageTopBar from './SainaPageTopBar';
 import SainaStandaloneMirrorPanel from './SainaStandaloneMirrorPanel';
+import SainaYansiContextRail from './SainaYansiContextRail';
 
 export type SainaStandaloneShellProps = {
   heroTitle: string;
@@ -180,17 +180,12 @@ function SainaChatSurface({
           </div>
         ) : null}
 
-        {isCompactShell && mirrorCollapsed ? (
-          <button
-            type="button"
-            className="saina-mirror-expand-pill"
-            data-testid="saina-mirror-expand-pill"
-            onClick={tryOpenMirror}
-            aria-label={SAINA_MIRROR_EXPAND_LABEL}
-          >
-            <Sparkles size={18} className="saina-mirror-expand-sparkle" aria-hidden />
-            <span className="saina-mirror-expand-label">{SAINA_MIRROR_EXPAND_TAB}</span>
-          </button>
+        {isCompactShell ? (
+          <SainaYansiContextRail
+            mirrorOpen={!mirrorCollapsed}
+            onOpenAyna={tryOpenMirror}
+            onCloseAyna={() => setMirrorCollapsed(true)}
+          />
         ) : null}
       </div>
     </>

@@ -1,0 +1,561 @@
+/**
+ * Phase 8.8F Stage 1–8 — desktop Yansı conversation visual system.
+ * Scoped to `.saina-app-root.saina-standalone-shell` only.
+ * Does NOT restyle Discover / Pattern shells.
+ * Mobile (<900px) keeps existing Phase 8.7 layout.
+ */
+
+/* Stage 9 — hide desktop-only identity chrome on mobile */
+.saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  /* —— Stage 1: tokens + edge-to-edge shell —— */
+  .saina-app-root.saina-standalone-shell.saina-page {
+    --bilign-bg: #090b0b;
+    --bilign-sidebar: #101212;
+    --bilign-sidebar-lower: #0c0e0e;
+    --bilign-glass-base: #0d0f0f;
+    --bilign-text: #e8e2d7;
+    --bilign-body: #d8d2c8;
+    --bilign-secondary: #9b968d;
+    --bilign-passive: #716e68;
+    --bilign-bronze: #b78949;
+    --bilign-bronze-light: #d0a15b;
+    --bilign-bronze-dark: #765b35;
+    --bilign-bronze-active: #c8954f;
+    --bilign-select-line: #c59750;
+    --bilign-time: #77736c;
+    --bilign-label-user: #e8e2d7;
+    --bilign-label-ai: #c8954f;
+
+    --saina-sidebar-width: 280px;
+    --saina-chat-column-width: min(820px, calc(100vw - var(--saina-sidebar-width) - 3rem));
+    --saina-chat-text-measure: min(650px, 100%);
+    --saina-chat-card-height: clamp(440px, 58vh, 640px);
+    --saina-logo-gold: var(--bilign-bronze-light);
+    --saina-brand-text: var(--bilign-bronze-light);
+
+    --saina-glass-fill: rgba(19, 20, 20, 0.76);
+    --saina-glass-fill-strong: rgba(11, 13, 13, 0.7);
+    --saina-glass-read-veil: rgba(12, 14, 14, 0.28);
+    --saina-glass-text: var(--bilign-body);
+    --saina-glass-text-muted: var(--bilign-secondary);
+    --saina-glass-border: rgba(232, 226, 215, 0.14);
+    --saina-glass-highlight: rgba(232, 226, 215, 0.1);
+    --saina-glass-blur: blur(20px) saturate(75%);
+
+    --saina-cta-border: rgba(183, 137, 73, 0.45);
+    --saina-cta-bg: linear-gradient(
+      165deg,
+      rgba(183, 137, 73, 0.42) 0%,
+      rgba(118, 91, 53, 0.55) 100%
+    );
+    --saina-cta-accent: var(--bilign-bronze-light);
+    --saina-cta-bg-hover: linear-gradient(
+      165deg,
+      rgba(208, 161, 91, 0.48) 0%,
+      rgba(118, 91, 53, 0.62) 100%
+    );
+
+    padding: 0;
+    background: var(--bilign-bg);
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-app-frame {
+    border-radius: 0;
+    border: none;
+    background: var(--bilign-bg);
+    box-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-main-col {
+    background: transparent;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-shell {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+
+  /* —— Stage 2: sidebar —— */
+  .saina-app-root.saina-standalone-shell .saina-sidebar {
+    width: var(--saina-sidebar-width);
+    height: 100dvh;
+    border-radius: 0;
+    border-right: 1px solid rgba(232, 226, 215, 0.08);
+    background: linear-gradient(
+      180deg,
+      rgba(17, 19, 19, 0.97) 0%,
+      rgba(12, 14, 14, 0.98) 100%
+    );
+    box-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar::before,
+  .saina-app-root.saina-standalone-shell .saina-sidebar::after {
+    display: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-title {
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-preview,
+  .saina-app-root.saina-standalone-shell .saina-sidebar .saina-section-label,
+  .saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-time {
+    color: var(--bilign-secondary);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-conv-row--active,
+  .saina-app-root.saina-standalone-shell .saina-chat-item.is-active,
+  .saina-app-root.saina-standalone-shell .saina-chat-item[data-active='true'] {
+    background: rgba(232, 226, 215, 0.045);
+    border-radius: 10px;
+    border: none;
+    border-left: 2px solid var(--bilign-select-line);
+    box-shadow: none;
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-conv-row--quiet:hover {
+    background: rgba(232, 226, 215, 0.03);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link--active {
+    color: var(--bilign-bronze-active);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link--active .saina-sidebar-dock-icon {
+    color: var(--bilign-bronze-active);
+  }
+
+  /* —— Stage 3: Yansı atmosphere (keep focalPoint) —— */
+  .saina-app-root.saina-standalone-shell .saina-canvas-scene-image--bundled,
+  .saina-app-root.saina-standalone-shell .saina-canvas-scene-image--identity {
+    filter: saturate(0.82) contrast(0.94) brightness(0.88);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-canvas-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgba(9, 11, 11, 0.55) 0%,
+      rgba(9, 11, 11, 0.12) 42%,
+      rgba(9, 11, 11, 0.18) 58%,
+      rgba(9, 11, 11, 0.62) 100%
+    );
+  }
+
+  /* —— Stage 4: chat glass + messages —— */
+  .saina-app-root.saina-standalone-shell .saina-main-body {
+    --saina-chat-column-width: min(820px, calc(100vw - var(--saina-sidebar-width) - 3rem));
+    --saina-chat-max-height: var(--saina-chat-card-height);
+    justify-content: center;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-column,
+  .saina-app-root.saina-standalone-shell .saina-chat-float {
+    max-width: var(--saina-chat-column-width);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-hero--content {
+    max-width: var(--saina-chat-column-width);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-hero-title {
+    color: var(--bilign-text);
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card,
+  .saina-app-root.saina-standalone-shell .saina-message-panel {
+    height: var(--saina-chat-card-height);
+    max-height: var(--saina-chat-card-height);
+    border-radius: 24px;
+    border: 1px solid var(--saina-glass-border);
+    background: linear-gradient(
+      165deg,
+      rgba(19, 20, 20, 0.76) 0%,
+      rgba(11, 13, 13, 0.7) 100%
+    );
+    -webkit-backdrop-filter: var(--saina-glass-blur);
+    backdrop-filter: var(--saina-glass-blur);
+    box-shadow:
+      inset 0 1px 0 rgba(232, 226, 215, 0.1),
+      0 22px 60px rgba(0, 0, 0, 0.24);
+    padding: 1.125rem 1.35rem 1.25rem;
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .saina-app-root.saina-standalone-shell .saina-chat-card,
+    .saina-app-root.saina-standalone-shell .saina-message-panel {
+      background: rgba(12, 14, 14, 0.9);
+    }
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-standalone-messages-scroll {
+    max-height: 100%;
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-message-list,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-message-thread {
+    max-width: var(--saina-chat-text-measure);
+    margin-inline: auto;
+    width: 100%;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-label {
+    color: var(--bilign-label-ai);
+    font-weight: 500;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-row--user .saina-msg-label {
+    color: var(--bilign-label-user);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-ai,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-user,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-body,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-prose {
+    color: var(--bilign-body);
+    font-size: 16px;
+    line-height: 1.62;
+    max-width: var(--saina-chat-text-measure);
+    text-shadow: none;
+  }
+
+  /* Keep structured messages — strip bubble chrome, not semantics */
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-ai,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-user {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    padding: 0.35rem 0 0.85rem;
+    border-bottom: 1px solid rgba(232, 226, 215, 0.08);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-time {
+    color: var(--bilign-time);
+    opacity: 1;
+  }
+
+  /* —— Stage 5: composer —— */
+  .saina-app-root.saina-standalone-shell .saina-composer-zone,
+  .saina-app-root.saina-standalone-shell .saina-standalone-composer {
+    max-width: var(--saina-chat-column-width);
+    margin-top: 12px;
+    padding-bottom: calc(
+      max(0.75rem, env(safe-area-inset-bottom, 0px)) + var(--saina-keyboard-inset, 0px)
+    );
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-composer-box,
+  .saina-app-root.saina-standalone-shell .saina-composer {
+    min-height: 76px;
+    max-height: 84px;
+    border-radius: 22px;
+    border: 1px solid rgba(232, 226, 215, 0.14);
+    background: linear-gradient(
+      165deg,
+      rgba(18, 20, 20, 0.88) 0%,
+      rgba(10, 12, 12, 0.84) 100%
+    );
+    -webkit-backdrop-filter: blur(24px) saturate(70%);
+    backdrop-filter: blur(24px) saturate(70%);
+    box-shadow:
+      inset 0 1px 0 rgba(232, 226, 215, 0.08),
+      0 16px 40px rgba(0, 0, 0, 0.22);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .saina-app-root.saina-standalone-shell .saina-composer-box,
+    .saina-app-root.saina-standalone-shell .saina-composer {
+      background: rgba(12, 14, 14, 0.92);
+    }
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-composer-input {
+    color: var(--bilign-text);
+    font-size: 0.9375rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-composer-input::placeholder {
+    color: var(--bilign-passive);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-send-btn {
+    border: 1px solid rgba(183, 137, 73, 0.4);
+    background: linear-gradient(
+      165deg,
+      rgba(183, 137, 73, 0.38) 0%,
+      rgba(118, 91, 53, 0.55) 100%
+    );
+    color: var(--bilign-bronze-light);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-send-btn:hover:not(:disabled) {
+    background: linear-gradient(
+      165deg,
+      rgba(208, 161, 91, 0.45) 0%,
+      rgba(118, 91, 53, 0.62) 100%
+    );
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Optical center of usable area (after sidebar) — chat column already in main col */
+  .saina-app-root.saina-standalone-shell .saina-standalone-chat-surface,
+  .saina-app-root.saina-standalone-shell .saina-main-body {
+    width: 100%;
+  }
+
+  /* —— Stage 6: identity header (title + decorative brand orbit only) —— */
+  .saina-app-root.saina-standalone-shell .bilign-yansi-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    text-align: center;
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    display: grid;
+    place-items: center;
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit {
+    position: absolute;
+    inset: 0;
+    width: 72px;
+    height: 72px;
+    pointer-events: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--outer {
+    transform: rotate(7deg);
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--inner {
+    transform: rotate(-5deg);
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-yansi-identity__glyph {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
+      animation: bilign-orbit-settle 720ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+    }
+  }
+
+  @keyframes bilign-orbit-settle {
+    0% {
+      transform: rotate(0deg);
+    }
+    40% {
+      transform: rotate(5deg);
+    }
+    100% {
+      transform: rotate(0deg);
+    }
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--outer {
+    animation: bilign-orbit-outer 720ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--inner {
+    animation: bilign-orbit-inner 720ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+  }
+
+  @keyframes bilign-orbit-outer {
+    from {
+      transform: rotate(7deg);
+    }
+    50% {
+      transform: rotate(12deg);
+    }
+    to {
+      transform: rotate(7deg);
+    }
+  }
+
+  @keyframes bilign-orbit-inner {
+    from {
+      transform: rotate(-5deg);
+    }
+    50% {
+      transform: rotate(-8deg);
+    }
+    to {
+      transform: rotate(-5deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--outer,
+    .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--inner,
+    .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
+      animation: none;
+    }
+  }
+
+  /* —— Stage 7: context rail —— */
+  .saina-app-root.saina-standalone-shell .bilign-context-rail {
+    position: absolute;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
+    width: 62px;
+    min-height: 280px;
+    padding: 1rem 0.55rem;
+    box-sizing: border-box;
+    border-radius: 20px;
+    border: 1px solid rgba(232, 226, 215, 0.13);
+    background: linear-gradient(
+      180deg,
+      rgba(17, 18, 18, 0.66) 0%,
+      rgba(10, 12, 12, 0.58) 100%
+    );
+    -webkit-backdrop-filter: blur(18px) saturate(72%);
+    backdrop-filter: blur(18px) saturate(72%);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-context-rail__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    width: 100%;
+    min-height: 48px;
+    border: none;
+    background: transparent;
+    color: #aaa49b;
+    cursor: pointer;
+    border-radius: 12px;
+    padding: 0.35rem 0.2rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-context-rail__btn:hover:not(:disabled) {
+    color: var(--bilign-bronze-active);
+    background: rgba(232, 226, 215, 0.04);
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-context-rail__btn--active,
+  .saina-app-root.saina-standalone-shell .bilign-context-rail__btn--ayna {
+    color: var(--bilign-bronze-active);
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-context-rail__btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-context-rail__label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+  }
+
+  /* Legacy pill chrome inside rail — reset absolute positioning from old pill */
+  .saina-app-root.saina-standalone-shell .bilign-context-rail .saina-mirror-expand-pill {
+    position: static;
+    transform: none;
+    width: 100%;
+    height: auto;
+    min-height: 48px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    writing-mode: horizontal-tb;
+  }
+
+  /* —— Stage 7b: compact circular search cluster (desktop chat) —— */
+  .saina-app-root.saina-standalone-shell .saina-top-bar-inner {
+    justify-content: flex-end;
+    gap: 0.65rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-search-wrap {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    padding: 0;
+    justify-content: center;
+    overflow: hidden;
+    transition:
+      width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      min-width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-search-wrap:focus-within,
+  .saina-app-root.saina-standalone-shell .saina-search-wrap:hover {
+    width: min(280px, 36vw);
+    min-width: 180px;
+    padding: 0 0.85rem;
+    justify-content: flex-start;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-search-input,
+  .saina-app-root.saina-standalone-shell .saina-search-kbd {
+    opacity: 0;
+    width: 0;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-search-wrap:focus-within .saina-search-input,
+  .saina-app-root.saina-standalone-shell .saina-search-wrap:hover .saina-search-input {
+    opacity: 1;
+    width: auto;
+    flex: 1;
+    pointer-events: auto;
+  }
+}
+
+/* —— Stage 8: rail icon density under 1100px —— */
+@media (min-width: 900px) and (max-width: 1099px) {
+  .saina-app-root.saina-standalone-shell .bilign-context-rail {
+    width: 58px;
+    right: 16px;
+    min-height: 260px;
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-context-rail__label {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saina-app-root.saina-standalone-shell .saina-chat-card {
+    animation: none;
+  }
+}
