@@ -43,23 +43,24 @@ describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
   });
 
   it('defines Stage 3 image normalization and keeps focal CSS var path untouched in scene CSS', () => {
-    expect(css).toContain('saturate(0.82)');
-    expect(css).toContain('contrast(0.94)');
-    expect(css).toContain('brightness(0.88)');
+    expect(css).toContain('saturate(0.9)');
+    expect(css).toContain('contrast(0.97)');
+    expect(css).toContain('brightness(0.94)');
     const scene = read('styles/saina-mirror.css');
     expect(scene).toContain('--mirror-focal-position');
   });
 
-  it('defines Stage 4 chat glass measure and in-card scroll height', () => {
-    expect(css).toContain('clamp(440px, 58vh, 640px)');
-    expect(css).toContain('min(650px, 100%)');
-    expect(css).toContain('blur(20px) saturate(75%)');
+  it('defines Stage 4 editorial reading-plane measure and in-zone scroll height', () => {
+    expect(css).toContain('clamp(340px, 46vh, 540px)');
+    expect(css).toContain('min(640px, 100%)');
+    expect(css).toContain('blur(20px) saturate(70%)');
+    expect(css).toContain('mask-composite: intersect');
   });
 
-  it('defines Stage 5 denser composer glass and muted bronze send', () => {
-    expect(css).toContain('min-height: 76px');
-    expect(css).toContain('border-radius: 22px');
-    expect(css).toContain('blur(24px) saturate(70%)');
+  it('defines Stage 5 continuation composer glass and muted bronze send', () => {
+    expect(css).toContain('min-height: 68px');
+    expect(css).toContain('border-radius: 18px');
+    expect(css).toContain('blur(22px) saturate(70%)');
   });
 
   it('updates composer placeholder copy', () => {
@@ -121,5 +122,55 @@ describe('Phase 8.8F Stage 9 isolation', () => {
   it('gates desktop visual system at 900px so Phase 8.7 mobile remains default', () => {
     expect(css).toContain('Mobile (<900px) keeps existing Phase 8.7 layout');
     expect(css).toMatch(/\.bilign-yansi-identity__mark \{\s*display: none;/);
+  });
+});
+
+describe('Phase 8.8F Stage A Yansı-first composition', () => {
+  const css = read('styles/saina-yansi-desktop.css');
+  const hero = read('components/saina/SainaHeroScene.tsx');
+  const shell = read('components/saina/SainaStandaloneShell.tsx');
+  const rail = read('components/saina/SainaYansiContextRail.tsx');
+
+  it('dissolves the central chat window into a localized reading plane', () => {
+    expect(css).toContain('editorial reading plane (not a chat window)');
+    expect(css).toContain('rgba(10, 12, 12, 0.66)');
+    expect(css).toContain('mask-composite: intersect');
+    expect(css).toContain('overflow: visible');
+    expect(css).not.toContain('rgba(18, 20, 20, 0.80)');
+    expect(css).not.toContain('cream border (not bronze geometry)');
+  });
+
+  it('keeps conversation below 780px without bronze/gold card geometry', () => {
+    expect(css).toContain('min(760px');
+    expect(css).not.toContain('min(820px');
+    expect(css).not.toContain('rgba(231, 180, 91');
+    expect(css).not.toContain('0 0 120px');
+  });
+
+  it('places Yansı identity in the scene and pins conversation to the lower reading zone', () => {
+    expect(css).toContain('clamp(26px, 2.05vw, 34px)');
+    expect(css).toContain('-webkit-line-clamp: 2');
+    expect(css).toContain('margin-top: auto');
+    expect(css).toContain('justify-content: flex-start');
+    expect(css).toContain('width: 56px');
+    expect(hero).not.toContain('>Bilgin<');
+  });
+
+  it('lightens global scene veil so darkness stays behind text, not the whole Yansı', () => {
+    expect(css).toContain('transparent 42%');
+    expect(css).toContain('brightness(0.94)');
+    expect(css).not.toContain('--mirror-focal-position');
+    const scene = read('styles/saina-mirror.css');
+    expect(scene).toContain('--mirror-focal-position');
+  });
+
+  it('keeps continuation composer, Ayna wiring, sidebar, and isolation untouched in product terms', () => {
+    expect(SAINA_COMPOSER_PLACEHOLDER).toBe('Kendi merakınla devam et…');
+    expect(css).toContain('margin-top: 12px');
+    expect(css).toContain('--saina-sidebar-width: 280px');
+    expect(shell).toContain('tryOpenMirror');
+    expect(rail).toContain('onOpenAyna');
+    expect(css).not.toContain('saina-discover-shell');
+    expect(css).not.toContain('bilign-progress');
   });
 });
