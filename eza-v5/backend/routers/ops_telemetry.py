@@ -1,17 +1,23 @@
 # -*- coding: utf-8 -*-
-"""Phase 8.8 — allowlisted client operational events (no content payloads)."""
+"""Phase 8.8 / 8.8.1 — allowlisted client operational events (abuse-hardened)."""
 
 from __future__ import annotations
 
-from typing import Literal
+import json
+from typing import Literal, Optional
 
-from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Request, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from backend.observability.error_codes import EXPECTED_CODES
+from backend.observability.error_codes import CLIENT_OPS_CODES
 from backend.observability.ops_events import emit_ops_event
+from backend.security.rate_limit import rate_limit_ops_client
 
 router = APIRouter(prefix="/api/ops", tags=["ops"])
+
+# Tiny JSON only: {"event","code?","outcome"} — keep well under infra defaults.
+CLIENT_OPS_MAX_BODY_BYTES = 1024
 
 _CLIENT_EVENTS = frozenset(
     {
@@ -30,45 +36,82 @@ _CLIENT_EVENTS = frozenset(
     }
 )
 
+_INVALID = {"ok": False, "error": "invalid_ops_event"}
+_TOO_LARGE = {"ok": False, "error": "payload_too_large"}
+
 
 class ClientOpsEventRequest(BaseModel):
-    event: str = Field(max_length=64)
-    code: str | None = Field(default=None, max_length=64)
+    """Strict client ops body — no free-form keys, no content fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    event: str = Field(min_length=1, max_length=64)
+    code: Optional[str] = Field(default=None, min_length=1, max_length=64)
     outcome: Literal["failure", "success"] = "failure"
 
 
 class ClientOpsEventResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     ok: bool = True
 
 
+def _reject(status_code: int, body: dict) -> JSONResponse:
+    """Generic 4xx — never echoes submitted payload."""
+    return JSONResponse(status_code=status_code, content=body)
+
+
 @router.post("/client-event", response_model=ClientOpsEventResponse)
-async def post_client_ops_event(body: ClientOpsEventRequest) -> ClientOpsEventResponse:
+async def post_client_ops_event(
+    request: Request,
+    _: None = Depends(rate_limit_ops_client),
+) -> ClientOpsEventResponse | JSONResponse:
     """
-    Fire-and-forget client ops signal.
+    Fire-and-forget client ops signal (Phase 8.8.1 abuse-hardened).
 
-    Rejects unknown events. Never accepts free-text message / stack / URL body.
+    - Body ≤ 1024 bytes (Content-Length + measured)
+    - extra=forbid schema
+    - event + code allowlists only
+    - Quiet 4xx on abuse; no ERROR log amplification
     """
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) > CLIENT_OPS_MAX_BODY_BYTES:
+                return _reject(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, _TOO_LARGE)
+        except ValueError:
+            return _reject(status.HTTP_422_UNPROCESSABLE_ENTITY, _INVALID)
+
+    raw = await request.body()
+    if len(raw) > CLIENT_OPS_MAX_BODY_BYTES:
+        return _reject(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, _TOO_LARGE)
+
+    if not raw:
+        return _reject(status.HTTP_422_UNPROCESSABLE_ENTITY, _INVALID)
+
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+        return _reject(status.HTTP_422_UNPROCESSABLE_ENTITY, _INVALID)
+
+    if not isinstance(parsed, dict):
+        return _reject(status.HTTP_422_UNPROCESSABLE_ENTITY, _INVALID)
+
+    try:
+        body = ClientOpsEventRequest.model_validate(parsed)
+    except ValidationError:
+        return _reject(status.HTTP_422_UNPROCESSABLE_ENTITY, _INVALID)
+
     if body.event not in _CLIENT_EVENTS:
-        return ClientOpsEventResponse(ok=True)  # ignore quietly — no probing aid
+        return _reject(status.HTTP_422_UNPROCESSABLE_ENTITY, _INVALID)
 
-    code = body.code
-    if code and code not in EXPECTED_CODES and not code.isupper() and "_" not in code:
-        # Allow stable taxonomy-like codes (UPPER_SNAKE) only
-        if not all(c.isalnum() or c == "_" for c in code):
-            code = None
-        elif not code.replace("_", "").isalnum():
-            code = None
+    if body.code is not None and body.code not in CLIENT_OPS_CODES:
+        return _reject(status.HTTP_422_UNPROCESSABLE_ENTITY, _INVALID)
 
-    if code and len(code) > 64:
-        code = None
-
-    # Normalize: only accept UPPER_SNAKE-ish codes
-    if code and not all(c.isupper() or c.isdigit() or c == "_" for c in code):
-        code = None
-
+    # Single intentional log line for accepted events only.
     emit_ops_event(
         "client_ops_event",
-        code=code,
+        code=body.code,
         outcome=body.outcome,
         fields={"client_event": body.event},
     )

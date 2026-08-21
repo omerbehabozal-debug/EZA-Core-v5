@@ -43,8 +43,19 @@ Forbidden field keys: email, tokens, prompt, conversation, slug, user_id, IP, UA
 
 ## Client telemetry
 
-`POST /api/ops/client-event` — allowlisted `event` + optional UPPER_SNAKE `code` only.
+`POST /api/ops/client-event` — allowlisted `event` + optional taxonomy `code` only.
 Frontend: `lib/eza/opsTelemetry.ts` (`reportOpsFailure`).
+
+### Phase 8.8.1 abuse closure
+
+- Schema: `extra=forbid`; event enum allowlist; code ∈ `CLIENT_OPS_CODES`; outcome ∈ {failure, success}
+- Body: max **1024 bytes** (`Content-Length` + measured length) → **413**
+- Unknown event / unknown field / unknown code / invalid JSON → **422** (no payload echo, no ERROR log)
+- Rate limit: **40 / 60s** per opaque SHA-256(network) bucket via existing Redis-or-memory limiter (`rate_limit_ops_client`, `quiet=True`)
+  - Never logs IP/UA/email
+  - Redis shared when available; otherwise **per-worker** in-memory (launch-safe, not globally distributed alone)
+- Accepted request → at most one `ops_event` line
+- Frontend remains best-effort: 413/429/422/5xx/network never block product flows; no retries
 
 ## Redaction
 

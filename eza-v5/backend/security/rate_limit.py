@@ -69,7 +69,10 @@ async def rate_limit(
     request: Request,
     limit: int,
     window: int,
-    key_prefix: str = "rate_limit"
+    key_prefix: str = "rate_limit",
+    *,
+    bucket_id: Optional[str] = None,
+    quiet: bool = False,
 ) -> None:
     """
     Rate limit check using Redis or in-memory fallback
@@ -79,15 +82,17 @@ async def rate_limit(
         limit: Maximum number of requests
         window: Time window in seconds
         key_prefix: Redis key prefix
+        bucket_id: Optional opaque bucket (no raw IP). Defaults to client IP.
+        quiet: When True, do not log network source on exceed/fallback.
     
     Raises:
         RateLimitError if limit exceeded
     """
-    settings = get_settings()
     client_ip = _get_client_ip(request)
-    
+    bucket = bucket_id if bucket_id is not None else client_ip
+
     # Create rate limit key
-    key = f"{key_prefix}:{client_ip}"
+    key = f"{key_prefix}:{bucket}"
     current_time = time.time()
     
     # Try Redis first
@@ -114,13 +119,17 @@ async def rate_limit(
             count = results[1]
             
             if count >= limit:
-                logger.warning(f"Rate limit exceeded for {client_ip}: {count}/{limit} in {window}s")
+                if not quiet:
+                    logger.warning(f"Rate limit exceeded for {client_ip}: {count}/{limit} in {window}s")
                 raise RateLimitError(f"Rate limit exceeded: {limit} requests per {window} seconds")
             
             return
     
+    except RateLimitError:
+        raise
     except Exception as e:
-        logger.warning(f"Redis rate limiting failed, using in-memory fallback: {str(e)}")
+        if not quiet:
+            logger.warning(f"Redis rate limiting failed, using in-memory fallback: {str(e)}")
     
     # Fallback to in-memory rate limiting
     if key not in _in_memory_limits:
@@ -135,7 +144,8 @@ async def rate_limit(
     
     # Check limit
     if len(_in_memory_limits[key]) >= limit:
-        logger.warning(f"Rate limit exceeded (in-memory) for {client_ip}: {len(_in_memory_limits[key])}/{limit} in {window}s")
+        if not quiet:
+            logger.warning(f"Rate limit exceeded (in-memory) for {client_ip}: {len(_in_memory_limits[key])}/{limit} in {window}s")
         raise RateLimitError(f"Rate limit exceeded: {limit} requests per {window} seconds")
     
     # Add current request
@@ -175,3 +185,35 @@ async def rate_limit_ws_handshake(request: Request) -> None:
 async def rate_limit_proxy_corporate(request: Request) -> None:
     """Rate limit for EZA Proxy corporate endpoint: 5 requests / 60s (strict)"""
     await rate_limit(request, limit=5, window=60, key_prefix="proxy_corporate")
+
+
+# Phase 8.8.1 — client ops telemetry abuse bound (per opaque network bucket).
+OPS_CLIENT_RATE_LIMIT = 40
+OPS_CLIENT_RATE_WINDOW_SECONDS = 60
+
+
+async def rate_limit_ops_client(request: Request) -> None:
+    """
+    Quiet rate limit for POST /api/ops/client-event.
+
+    Bucket = SHA-256 prefix of trusted client IP (ephemeral operational key only).
+    Never logs IP, UA, email, or user id.
+    Redis when available (shared across workers); else in-process per-worker fallback.
+    """
+    import hashlib
+
+    raw = get_trusted_client_ip(request)
+    bucket = hashlib.sha256(f"ops_client:{raw}".encode("utf-8")).hexdigest()[:16]
+    await rate_limit(
+        request,
+        limit=OPS_CLIENT_RATE_LIMIT,
+        window=OPS_CLIENT_RATE_WINDOW_SECONDS,
+        key_prefix="ops_client",
+        bucket_id=bucket,
+        quiet=True,
+    )
+
+
+def reset_in_memory_rate_limits_for_tests() -> None:
+    """Test helper — clear in-memory buckets (does not touch Redis)."""
+    _in_memory_limits.clear()
