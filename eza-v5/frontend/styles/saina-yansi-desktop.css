@@ -14,6 +14,7 @@
   /* —— Stage 1: tokens + edge-to-edge shell —— */
   .saina-app-root.saina-standalone-shell.saina-page {
     --bilign-bg: #090b0b;
+    --bilign-sidebar-upper: #121414;
     --bilign-sidebar: #101212;
     --bilign-sidebar-lower: #0c0e0e;
     --bilign-glass-base: #0d0f0f;
@@ -37,8 +38,8 @@
     --saina-logo-gold: var(--bilign-bronze-light);
     --saina-brand-text: var(--bilign-bronze-light);
 
-    --saina-glass-fill: rgba(19, 20, 20, 0.76);
-    --saina-glass-fill-strong: rgba(11, 13, 13, 0.7);
+    --saina-glass-fill: rgba(19, 20, 20, 0.62);
+    --saina-glass-fill-strong: rgba(11, 13, 13, 0.56);
     --saina-glass-read-veil: rgba(12, 14, 14, 0.28);
     --saina-glass-text: var(--bilign-body);
     --saina-glass-text-muted: var(--bilign-secondary);
@@ -86,11 +87,15 @@
     height: 100dvh;
     border-radius: 0;
     border-right: 1px solid rgba(232, 226, 215, 0.08);
-    background: linear-gradient(
+    background-color: var(--bilign-sidebar);
+    background-image: linear-gradient(
       180deg,
-      rgba(17, 19, 19, 0.97) 0%,
-      rgba(12, 14, 14, 0.98) 100%
+      var(--bilign-sidebar-upper) 0%,
+      var(--bilign-sidebar) 48%,
+      var(--bilign-sidebar-lower) 100%
     );
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     box-shadow: none;
   }
 
@@ -105,8 +110,17 @@
 
   .saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-preview,
   .saina-app-root.saina-standalone-shell .saina-sidebar .saina-section-label,
-  .saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-time {
+  .saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-time,
+  .saina-app-root.saina-standalone-shell .saina-time-group-label,
+  .saina-app-root.saina-standalone-shell .saina-conv-group-header--quiet {
     color: var(--bilign-secondary);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-conv-row--quiet,
+  .saina-app-root.saina-standalone-shell .saina-conv-row--active,
+  .saina-app-root.saina-standalone-shell .saina-chat-item.is-active,
+  .saina-app-root.saina-standalone-shell .saina-chat-item[data-active='true'] {
+    border-left: 2px solid transparent;
   }
 
   .saina-app-root.saina-standalone-shell .saina-conv-row--active,
@@ -124,18 +138,102 @@
     background: rgba(232, 226, 215, 0.03);
   }
 
-  .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link--active {
-    color: var(--bilign-bronze-active);
+  .saina-app-root.saina-standalone-shell .saina-sidebar-home-link,
+  .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link {
+    color: var(--bilign-secondary);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar-home-link:hover,
+  .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link:hover {
+    color: var(--bilign-text);
   }
 
   .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link--active .saina-sidebar-dock-icon {
     color: var(--bilign-bronze-active);
   }
 
+  .saina-app-root.saina-standalone-shell .saina-sidebar-dock-icon {
+    color: var(--bilign-passive);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-brand-mark {
+    background: rgba(232, 226, 215, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(232, 226, 215, 0.1);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-brand-title {
+    color: var(--bilign-bronze-light);
+    text-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-brand-powered,
+  .saina-app-root.saina-standalone-shell .saina-brand-tagline {
+    color: var(--bilign-passive);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar .saina-section-label {
+    color: var(--bilign-passive);
+    letter-spacing: 0.12em;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-conv-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    box-shadow: none;
+    filter: saturate(0.82) brightness(0.9);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-conv-active-dot {
+    background: var(--bilign-bronze);
+    box-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-conv-list {
+    scrollbar-color: rgba(232, 226, 215, 0.16) transparent;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-action,
+  .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:not(.saina-sidebar-plan-footer-cta--full) {
+    background: transparent;
+    box-shadow: none;
+    border: 1px solid rgba(183, 137, 73, 0.42);
+    color: var(--bilign-bronze-light);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:hover .saina-sidebar-plan-footer-action,
+  .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:not(.saina-sidebar-plan-footer-cta--full):hover {
+    background: rgba(183, 137, 73, 0.1);
+    border-color: rgba(208, 161, 91, 0.55);
+  }
+
   /* —— Stage 3: Yansı atmosphere (keep focalPoint) —— */
   .saina-app-root.saina-standalone-shell .saina-canvas-scene-image--bundled,
   .saina-app-root.saina-standalone-shell .saina-canvas-scene-image--identity {
     filter: saturate(0.82) contrast(0.94) brightness(0.88);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-canvas-overlay--center,
+  .saina-app-root.saina-standalone-shell .saina-canvas-overlay--pattern-dim,
+  .saina-app-root.saina-standalone-shell .saina-scene-live {
+    display: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-canvas-overlay--left,
+  .saina-app-root.saina-standalone-shell .saina-canvas-overlay--right {
+    background: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-canvas-vignette--scene {
+    background: linear-gradient(
+      180deg,
+      rgba(9, 11, 11, 0.28) 0%,
+      transparent 28%,
+      transparent 72%,
+      rgba(9, 11, 11, 0.36) 100%
+    );
   }
 
   .saina-app-root.saina-standalone-shell .saina-canvas-bg::after {
@@ -146,10 +244,10 @@
     pointer-events: none;
     background: linear-gradient(
       180deg,
-      rgba(9, 11, 11, 0.55) 0%,
-      rgba(9, 11, 11, 0.12) 42%,
-      rgba(9, 11, 11, 0.18) 58%,
-      rgba(9, 11, 11, 0.62) 100%
+      rgba(9, 11, 11, 0.58) 0%,
+      rgba(9, 11, 11, 0.22) 38%,
+      rgba(9, 11, 11, 0.28) 58%,
+      rgba(9, 11, 11, 0.66) 100%
     );
   }
 
@@ -171,7 +269,14 @@
 
   .saina-app-root.saina-standalone-shell .saina-hero-title {
     color: var(--bilign-text);
-    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+    font-family: inherit;
+    font-weight: 500;
+    font-size: clamp(1.2rem, 1.85vw, 1.7rem);
+    letter-spacing: -0.02em;
+    text-shadow:
+      0 1px 2px rgba(9, 11, 11, 0.88),
+      0 8px 28px rgba(9, 11, 11, 0.72);
+    max-width: 22rem;
   }
 
   .saina-app-root.saina-standalone-shell .saina-chat-card,
@@ -182,8 +287,8 @@
     border: 1px solid var(--saina-glass-border);
     background: linear-gradient(
       165deg,
-      rgba(19, 20, 20, 0.76) 0%,
-      rgba(11, 13, 13, 0.7) 100%
+      rgba(19, 20, 20, 0.62) 0%,
+      rgba(11, 13, 13, 0.56) 100%
     );
     -webkit-backdrop-filter: var(--saina-glass-blur);
     backdrop-filter: var(--saina-glass-blur);
@@ -246,9 +351,53 @@
     border-bottom: 1px solid rgba(232, 226, 215, 0.08);
   }
 
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-row--user,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-row--ai {
+    align-self: stretch;
+    margin-left: 0;
+    max-width: 100%;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-row--user .saina-msg-content {
+    align-items: flex-start;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-row--user .saina-msg-meta {
+    justify-content: flex-start;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-user--standalone {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    padding: 0.35rem 0 0.85rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-chips-toggle,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-tone-pill {
+    background: rgba(232, 226, 215, 0.04);
+    border-color: rgba(232, 226, 215, 0.12);
+    color: var(--bilign-secondary);
+  }
+
   .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-time {
     color: var(--bilign-time);
     opacity: 1;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-ai-title {
+    color: var(--bilign-label-ai);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-ai-header {
+    margin-bottom: 0.35rem;
   }
 
   /* —— Stage 5: composer —— */
@@ -266,17 +415,19 @@
     min-height: 76px;
     max-height: 84px;
     border-radius: 22px;
-    border: 1px solid rgba(232, 226, 215, 0.14);
+    border: 1px solid rgba(232, 226, 215, 0.18);
     background: linear-gradient(
       165deg,
-      rgba(18, 20, 20, 0.88) 0%,
-      rgba(10, 12, 12, 0.84) 100%
+      rgba(18, 20, 20, 0.92) 0%,
+      rgba(10, 12, 12, 0.88) 100%
     );
     -webkit-backdrop-filter: blur(24px) saturate(70%);
     backdrop-filter: blur(24px) saturate(70%);
     box-shadow:
       inset 0 1px 0 rgba(232, 226, 215, 0.08),
-      0 16px 40px rgba(0, 0, 0, 0.22);
+      0 16px 40px rgba(0, 0, 0, 0.28);
+    padding: 0.7rem 1rem;
+    gap: 0.75rem;
   }
 
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -293,6 +444,18 @@
 
   .saina-app-root.saina-standalone-shell .saina-composer-input::placeholder {
     color: var(--bilign-passive);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-composer-box .saina-geometric-mark {
+    opacity: 0.72;
+    filter: saturate(0.8) brightness(0.95);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-icon-btn--composer {
+    border-color: transparent;
+    background: transparent;
+    color: var(--bilign-passive);
+    box-shadow: none;
   }
 
   .saina-app-root.saina-standalone-shell .saina-send-btn {
@@ -315,19 +478,113 @@
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
   }
 
-  /* Optical center of usable area (after sidebar) — chat column already in main col */
+  /* Optical stack: identity → glass card → composer, centered in the remaining canvas */
+  .saina-app-root.saina-standalone-shell .saina-main {
+    position: relative;
+  }
+
   .saina-app-root.saina-standalone-shell .saina-standalone-chat-surface,
   .saina-app-root.saina-standalone-shell .saina-main-body {
     width: 100%;
+    justify-content: center;
+    --saina-chat-hero-safe-offset: 0px;
+    --saina-chat-chrome-offset: 0px;
+    --saina-chat-safe-gap: 1.25rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-hero--content {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    pointer-events: none;
+    margin: 0 auto 1.15rem;
+    padding: 0;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-column,
+  .saina-app-root.saina-standalone-shell .saina-hero--content {
+    position: relative;
+    z-index: 2;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-column {
+    justify-content: center;
+    flex: 0 1 auto;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-column {
+    justify-content: center;
+    flex: 0 1 auto;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-center-wrap--mirror-collapsed .saina-main,
+  .saina-app-root.saina-standalone-shell .saina-center-wrap--mirror-collapsed .saina-main-body,
+  .saina-app-root.saina-standalone-shell .saina-center-wrap--mirror-collapsed .saina-chat-column {
+    --saina-chat-column-width: min(820px, calc(100vw - var(--saina-sidebar-width) - 3rem));
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-scroll-region {
+    flex: 0 1 auto;
+    width: 100%;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-bottom-anchor {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  /* Empty Yansı: identity sits 24px above composer, no vacant glass slot */
+  .saina-app-root.saina-standalone-shell .saina-main-body--empty {
+    justify-content: center;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-main-body--empty .saina-hero--content {
+    margin: 0 auto 1.5rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-column--empty {
+    justify-content: flex-start;
+    flex: 0 0 auto;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-chat-column--empty .saina-chat-scroll-region {
+    display: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-main-body--empty .saina-composer-zone,
+  .saina-app-root.saina-standalone-shell .saina-main-body--empty .saina-standalone-composer {
+    margin-top: 0;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-main-body--empty::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 0;
+    width: min(880px, 92%);
+    height: 280px;
+    transform: translate(-50%, -48%);
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(9, 11, 11, 0.5) 0%,
+      rgba(9, 11, 11, 0.18) 52%,
+      transparent 74%
+    );
   }
 
   /* —— Stage 6: identity header (title + decorative brand orbit only) —— */
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 0.75rem;
-    text-align: center;
+    justify-content: center;
+    gap: 0.9rem;
+    text-align: left;
+    position: relative;
+    z-index: 1;
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
@@ -336,6 +593,7 @@
     height: 72px;
     display: grid;
     place-items: center;
+    background: radial-gradient(circle, rgba(9, 11, 11, 0.55) 0%, rgba(9, 11, 11, 0.08) 68%, transparent 78%);
   }
 
   .saina-app-root.saina-standalone-shell .bilign-avatar-orbit {
@@ -429,21 +687,23 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.65rem;
+    justify-content: flex-start;
+    gap: 0.45rem;
     width: 62px;
-    min-height: 280px;
-    padding: 1rem 0.55rem;
+    height: auto;
+    min-height: 0;
+    padding: 0.75rem 0.5rem;
     box-sizing: border-box;
     border-radius: 20px;
-    border: 1px solid rgba(232, 226, 215, 0.13);
+    border: 1px solid rgba(232, 226, 215, 0.16);
     background: linear-gradient(
       180deg,
-      rgba(17, 18, 18, 0.66) 0%,
-      rgba(10, 12, 12, 0.58) 100%
+      rgba(17, 18, 18, 0.82) 0%,
+      rgba(10, 12, 12, 0.76) 100%
     );
-    -webkit-backdrop-filter: blur(18px) saturate(72%);
-    backdrop-filter: blur(18px) saturate(72%);
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+    -webkit-backdrop-filter: blur(20px) saturate(70%);
+    backdrop-filter: blur(20px) saturate(70%);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
   }
 
   .saina-app-root.saina-standalone-shell .bilign-context-rail__btn {
@@ -473,7 +733,7 @@
   }
 
   .saina-app-root.saina-standalone-shell .bilign-context-rail__btn:disabled {
-    opacity: 0.35;
+    opacity: 0.42;
     cursor: default;
   }
 
@@ -496,32 +756,76 @@
     writing-mode: horizontal-tb;
   }
 
-  /* —— Stage 7b: compact circular search cluster (desktop chat) —— */
-  .saina-app-root.saina-standalone-shell .saina-top-bar-inner {
+  /* —— Stage 7b: top-right circular chrome (search / notifications / profile) —— */
+  .saina-app-root.saina-standalone-shell .saina-top-bar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 40;
     justify-content: flex-end;
-    gap: 0.65rem;
+    padding: 1.15rem 1.35rem 0;
+    pointer-events: none;
   }
 
-  .saina-app-root.saina-standalone-shell .saina-search-wrap {
+  .saina-app-root.saina-standalone-shell .saina-top-bar-inner {
+    max-width: none;
+    width: auto;
+    margin: 0 0 0 auto;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    pointer-events: auto;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-search-wrap,
+  .saina-app-root.saina-standalone-shell .saina-icon-btn--glass,
+  .saina-app-root.saina-standalone-shell .saina-top-avatar-wrap {
     width: 44px;
     min-width: 44px;
     height: 44px;
     border-radius: 999px;
+    border: 1px solid rgba(232, 226, 215, 0.16);
+    background: linear-gradient(
+      165deg,
+      rgba(17, 18, 18, 0.84) 0%,
+      rgba(10, 12, 12, 0.76) 100%
+    );
+    -webkit-backdrop-filter: blur(16px) saturate(72%);
+    backdrop-filter: blur(16px) saturate(72%);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-search-wrap {
     padding: 0;
     justify-content: center;
     overflow: hidden;
+    flex: 0 0 auto;
+    max-width: none;
     transition:
       width 280ms cubic-bezier(0.22, 1, 0.36, 1),
       min-width 280ms cubic-bezier(0.22, 1, 0.36, 1),
       padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  .saina-app-root.saina-standalone-shell .saina-search-icon {
+    left: 50%;
+    color: #aaa49b;
+    transform: translate(-50%, -50%);
+  }
+
   .saina-app-root.saina-standalone-shell .saina-search-wrap:focus-within,
   .saina-app-root.saina-standalone-shell .saina-search-wrap:hover {
-    width: min(280px, 36vw);
+    width: min(260px, 32vw);
     min-width: 180px;
-    padding: 0 0.85rem;
+    padding: 0 0.85rem 0 2.4rem;
     justify-content: flex-start;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-search-wrap:focus-within .saina-search-icon,
+  .saina-app-root.saina-standalone-shell .saina-search-wrap:hover .saina-search-icon {
+    left: 0.9rem;
+    transform: translateY(-50%);
+    color: var(--bilign-bronze-active);
   }
 
   .saina-app-root.saina-standalone-shell .saina-search-input,
@@ -538,6 +842,317 @@
     width: auto;
     flex: 1;
     pointer-events: auto;
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-top-bar-actions {
+    margin-left: 0;
+    gap: 0.55rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-icon-btn--glass {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #aaa49b;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-top-avatar-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-profile-avatar--top {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-status-dot {
+    background: var(--bilign-bronze);
+    border-color: rgba(12, 14, 14, 0.92);
+    box-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-notifications-panel,
+  .saina-app-root.saina-standalone-shell .saina-profile-menu {
+    border: 1px solid rgba(232, 226, 215, 0.14);
+    background: rgba(12, 14, 14, 0.94);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
+    -webkit-backdrop-filter: blur(20px) saturate(70%);
+    backdrop-filter: blur(20px) saturate(70%);
+  }
+
+  /* —— Stage 10: desktop Ayna panel chrome (Journey/poster internals unchanged) —— */
+  .saina-app-root.saina-standalone-shell {
+    --saina-mirror-col-width: 360px;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-col--open {
+    flex: 0 0 var(--saina-mirror-col-width);
+    width: var(--saina-mirror-col-width);
+    padding: 1.15rem 1.15rem 1.15rem 0.35rem;
+    height: 100dvh;
+    max-height: 100dvh;
+    box-sizing: border-box;
+  }
+
+  .saina-app-root.saina-standalone-shell
+    .saina-center-wrap:not(.saina-center-wrap--mirror-collapsed)
+    .saina-main,
+  .saina-app-root.saina-standalone-shell
+    .saina-center-wrap:not(.saina-center-wrap--mirror-collapsed)
+    .saina-main-body,
+  .saina-app-root.saina-standalone-shell
+    .saina-center-wrap:not(.saina-center-wrap--mirror-collapsed)
+    .saina-chat-column {
+    --saina-chat-column-width: min(
+      820px,
+      calc(100vw - var(--saina-sidebar-width) - var(--saina-mirror-col-width) - 4rem)
+    );
+  }
+
+  .saina-app-root.saina-standalone-shell
+    .saina-center-wrap:not(.saina-center-wrap--mirror-collapsed)
+    .bilign-context-rail {
+    display: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel {
+    height: 100%;
+    max-height: none;
+    border-radius: 24px;
+    border: 1px solid rgba(232, 226, 215, 0.14);
+    background: linear-gradient(
+      165deg,
+      rgba(19, 20, 20, 0.82) 0%,
+      rgba(11, 13, 13, 0.76) 100%
+    );
+    -webkit-backdrop-filter: blur(22px) saturate(72%);
+    backdrop-filter: blur(22px) saturate(72%);
+    box-shadow:
+      inset 0 1px 0 rgba(232, 226, 215, 0.1),
+      0 22px 60px rgba(0, 0, 0, 0.28);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .saina-app-root.saina-standalone-shell .saina-mirror-panel {
+      background: rgba(12, 14, 14, 0.94);
+    }
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-inner {
+    padding: 1.05rem 1.1rem 1rem;
+    gap: 0.85rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-title {
+    font-family: inherit;
+    font-size: 1.125rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--bilign-text);
+    text-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-sparkle {
+    color: var(--bilign-bronze-active);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-subtitle {
+    color: var(--bilign-secondary);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-collapse-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid rgba(232, 226, 215, 0.16);
+    background: linear-gradient(
+      165deg,
+      rgba(17, 18, 18, 0.72) 0%,
+      rgba(10, 12, 12, 0.64) 100%
+    );
+    color: #aaa49b;
+    box-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-collapse-btn:hover {
+    color: var(--bilign-text);
+    background: rgba(232, 226, 215, 0.06);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-how--compact {
+    border-top: 1px solid rgba(232, 226, 215, 0.08);
+    padding-top: 0.75rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-how-label {
+    color: var(--bilign-passive);
+    letter-spacing: 0.12em;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .saina-checklist li {
+    color: var(--bilign-secondary);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .saina-check-icon,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .saina-btn-sparkle {
+    color: var(--bilign-bronze-light);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-dotted-card,
+  .saina-app-root.saina-standalone-shell .saina-ready-card {
+    border-color: rgba(232, 226, 215, 0.16);
+    background: rgba(12, 14, 14, 0.42);
+    box-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-empty-title,
+  .saina-app-root.saina-standalone-shell .saina-mirror-teaser-title,
+  .saina-app-root.saina-standalone-shell .saina-mirror-generating {
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-teaser-body,
+  .saina-app-root.saina-standalone-shell .saina-mirror-cta-note {
+    color: var(--bilign-secondary);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-poster-glass-frame {
+    border-color: rgba(232, 226, 215, 0.14);
+    background: linear-gradient(
+      165deg,
+      rgba(232, 226, 215, 0.06) 0%,
+      rgba(12, 14, 14, 0.28) 100%
+    );
+    box-shadow:
+      0 14px 40px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 rgba(232, 226, 215, 0.08);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-poster-glass-frame::after {
+    box-shadow: inset 0 0 0 1px rgba(232, 226, 215, 0.08);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-poster-preview-trigger:focus-visible {
+    outline-color: rgba(183, 137, 73, 0.55);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-preview-expand-hint {
+    border-color: rgba(232, 226, 215, 0.18);
+    background: rgba(12, 14, 14, 0.72);
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell
+    .saina-mirror-create-prompt--compact
+    .saina-mirror-create-prompt__hero
+    .rounded-full {
+    border-color: rgba(183, 137, 73, 0.35);
+    background: rgba(183, 137, 73, 0.1);
+    color: var(--bilign-bronze-light);
+    box-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .saina-primary-btn {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.26);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel [data-testid='ayna-empty-state'] .saina-serif {
+    font-family: inherit;
+    font-weight: 500;
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel [data-testid='ayna-empty-state'] p {
+    color: var(--bilign-secondary);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__title {
+    font-family: inherit;
+    font-weight: 500;
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__summary,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__metrics {
+    color: var(--bilign-secondary);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel [data-testid='ayna-slide-status'],
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel [data-testid='ayna-summary-toggle'] {
+    color: var(--bilign-bronze-light);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__skeleton-visual {
+    background: linear-gradient(
+      110deg,
+      rgba(232, 226, 215, 0.04) 0%,
+      rgba(183, 137, 73, 0.1) 45%,
+      rgba(232, 226, 215, 0.04) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel [data-testid='mirror-publish-btn'],
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel [data-testid='mirror-republish-btn'] {
+    border-color: rgba(183, 137, 73, 0.42);
+    background: linear-gradient(
+      165deg,
+      rgba(183, 137, 73, 0.34) 0%,
+      rgba(118, 91, 53, 0.5) 100%
+    );
+    color: var(--bilign-text);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .bg-violet-600,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .bg-violet-50\/90,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .bg-white\/80,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .bg-white\/55 {
+    background-color: transparent;
+    background-image: linear-gradient(
+      165deg,
+      rgba(18, 20, 20, 0.72) 0%,
+      rgba(10, 12, 12, 0.66) 100%
+    );
+    border-color: rgba(232, 226, 215, 0.16);
+    color: var(--bilign-body);
+    box-shadow: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .bg-violet-600 {
+    background-image: linear-gradient(
+      165deg,
+      rgba(183, 137, 73, 0.38) 0%,
+      rgba(118, 91, 53, 0.55) 100%
+    );
+    border-color: rgba(183, 137, 73, 0.42);
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .bg-emerald-50\/80 {
+    background: rgba(183, 137, 73, 0.12);
+    border-color: rgba(183, 137, 73, 0.28);
+    color: var(--bilign-bronze-light);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-stone-500,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-stone-500\/90,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-stone-500\/80,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-violet-700,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-violet-700\/85,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-violet-700\/90,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-violet-600,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-violet-800,
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-violet-900 {
+    color: var(--bilign-secondary);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .text-emerald-800\/90 {
+    color: var(--bilign-bronze-light);
   }
 }
 
@@ -546,7 +1161,7 @@
   .saina-app-root.saina-standalone-shell .bilign-context-rail {
     width: 58px;
     right: 16px;
-    min-height: 260px;
+    min-height: 0;
   }
 
   .saina-app-root.saina-standalone-shell .bilign-context-rail__label {

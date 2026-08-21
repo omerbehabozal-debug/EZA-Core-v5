@@ -37,6 +37,9 @@ describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
   it('defines Stage 2 selected conversation left bronze line without pill fill', () => {
     expect(css).toContain('rgba(232, 226, 215, 0.045)');
     expect(css).toContain('2px solid var(--bilign-select-line)');
+    expect(css).toContain('--bilign-sidebar-upper: #121414');
+    expect(css).toContain('--bilign-sidebar: #101212');
+    expect(css).toContain('--bilign-sidebar-lower: #0c0e0e');
   });
 
   it('defines Stage 3 image normalization and keeps focal CSS var path untouched in scene CSS', () => {
@@ -68,6 +71,21 @@ describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
     expect(css).toContain('bilign-context-rail');
     expect(css).toContain('max-width: 1099px');
   });
+
+  it('tightens empty-state stack and mutes leftover gold chrome', () => {
+    expect(css).toContain('saina-main-body--empty');
+    expect(css).toContain('saina-chat-column--empty');
+    expect(css).toContain('flex-direction: row');
+    expect(css).toContain('background: transparent');
+  });
+
+  it('restyles desktop Ayna panel chrome without inventing Journey UX', () => {
+    expect(css).toContain('saina-mirror-panel');
+    expect(css).toContain('--saina-mirror-col-width: 360px');
+    expect(css).toContain('saina-mirror-collapse-btn');
+    expect(css).toContain('ayna-journey-slide__title');
+    expect(css).not.toContain('bilign-progress');
+  });
 });
 
 describe('Phase 8.8F Stage 9 isolation', () => {
@@ -87,6 +105,11 @@ describe('Phase 8.8F Stage 9 isolation', () => {
     expect(rail).toContain('onOpenAyna');
     expect(shell).toContain('SainaYansiContextRail');
     expect(shell).toContain('tryOpenMirror');
+  });
+
+  it('marks empty conversation stack without inventing chat chrome', () => {
+    expect(shell).toContain("isEmpty && 'saina-main-body--empty'");
+    expect(shell).toContain("isEmpty && 'saina-chat-column--empty'");
   });
 
   it('does not restyle Discover, ranking, or profile surfaces', () => {

@@ -119,6 +119,7 @@ function SainaChatSurface({
               </div>
             ) : null}
             <SainaPageTopBar
+              className="bilign-top-cluster"
               onOpenCommandPalette={onOpenCommandPalette}
               safeOnlyMode={safeOnlyMode}
               onSafeOnlyModeChange={onSafeOnlyModeChange}
@@ -126,11 +127,15 @@ function SainaChatSurface({
               onAnalysisModelChange={onAnalysisModelChange}
               settingsDisabled={settingsDisabled}
             />
-            <div className="saina-main-body" data-testid="saina-main-body">
+            <div
+              className={cn('saina-main-body', isEmpty && 'saina-main-body--empty')}
+              data-testid="saina-main-body"
+            >
               <SainaHeroScene title={heroTitle} />
               <div
                 className={cn(
                   'saina-chat-column',
+                  isEmpty && 'saina-chat-column--empty',
                   !isCompactShell && 'saina-chat-column--mobile-rail'
                 )}
                 data-testid="saina-chat-column"
