@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.utils.dependencies import get_db
 from backend.services.production_auth import (
     create_user, authenticate_user, create_access_token, check_bootstrap_allowed,
-    hash_password, reset_user_password, normalize_email
+    hash_password, reset_user_password, normalize_email, load_user_session_row
 )
 from backend.models.production import User, production_users_safe_load
 from backend.auth.deps import get_current_user
@@ -137,8 +137,9 @@ async def get_auth_me(
     db: AsyncSession = Depends(get_db),
 ):
     """Current authenticated user profile including Mirror entitlement plan."""
-    user = await get_production_user_by_id(db, current_user["user_id"])
-    if user is None or not user.is_active:
+    row = await load_user_session_row(db, current_user["user_id"])
+    is_active = True if not row else row.get("is_active")
+    if row is None or is_active is False:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
@@ -146,21 +147,21 @@ async def get_auth_me(
                 "message": "User not found or inactive",
             },
         )
-    chosen = getattr(user, "public_display_name", None)
-    from backend.services.mirror_network.public_identity import resolve_public_honorific
+    chosen = row.get("public_display_name")
+    from backend.services.mirror_network.public_identity import normalize_public_honorific
 
     return AuthMeResponse(
-        user_id=str(user.id),
-        email=user.email,
-        role=user.role,
-        mirror_plan=normalize_mirror_plan(getattr(user, "mirror_plan", "free")),
+        user_id=str(row["id"]),
+        email=row["email"],
+        role=row["role"],
+        mirror_plan=normalize_mirror_plan(row.get("mirror_plan") or "free"),
         account_tier=resolve_user_account_tier(
-            mirror_plan=getattr(user, "mirror_plan", "free"),
-            account_tier=getattr(user, "account_tier", None),
+            mirror_plan=row.get("mirror_plan") or "free",
+            account_tier=row.get("account_tier"),
             is_authenticated=True,
         ).value,
         public_display_name=(str(chosen).strip() if chosen else None) or None,
-        public_honorific=resolve_public_honorific(user),
+        public_honorific=normalize_public_honorific(None),
     )
 
 

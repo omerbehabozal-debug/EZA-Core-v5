@@ -2,7 +2,7 @@
  * EZA Plan store — Sprint 2 server entitlement + dev mock override.
  */
 
-import { fetchAuthMe } from '@/lib/eza/plan/fetchAuthMe';
+import { validateAuthSession } from '@/lib/eza/plan/fetchAuthMe';
 
 export type PlanId = 'free' | 'plus';
 
@@ -123,13 +123,14 @@ export async function hydratePlanFromServer(): Promise<void> {
         setInternal(DEFAULT_PLAN, 'default');
       }
     } else {
-      const me = await fetchAuthMe();
-      if (me) {
-        setInternal(normalize(me.mirror_plan), 'server');
-      } else {
+      const result = await validateAuthSession();
+      if (result.status === 'valid') {
+        setInternal(normalize(result.session.mirror_plan ?? DEFAULT_PLAN), 'server');
+      } else if (result.status === 'invalid') {
         clearStaleAuth();
         setInternal(DEFAULT_PLAN, 'session_invalid');
       }
+      // 5xx / network: keep the token. Wiping it hides account-scoped chats.
     }
     applyDevMockOverride();
   } finally {

@@ -58,9 +58,9 @@ def test_free_tier_daily_mirror_limit_at_least_guest_phase82():
     assert free["dailyMirrorLimit"] >= guest["dailyMirrorLimit"]
 
 
-@patch("backend.routers.production_auth.get_production_user_by_id", new_callable=AsyncMock)
+@patch("backend.routers.production_auth.load_user_session_row", new_callable=AsyncMock)
 @patch("backend.auth.deps.get_user_from_token")
-def test_auth_me_returns_mirror_plan(mock_get_token, mock_get_user):
+def test_auth_me_returns_mirror_plan(mock_get_token, mock_get_row):
     from backend.auth.deps import get_current_user
 
     plus_user = _make_user(email="plus@test.eza.ai", mirror_plan="plus")
@@ -70,7 +70,15 @@ def test_auth_me_returns_mirror_plan(mock_get_token, mock_get_user):
         "role": plus_user.role,
         "email": plus_user.email,
     }
-    mock_get_user.return_value = plus_user
+    mock_get_row.return_value = {
+        "id": plus_user.id,
+        "email": plus_user.email,
+        "role": plus_user.role,
+        "is_active": True,
+        "mirror_plan": plus_user.mirror_plan,
+        "account_tier": None,
+        "public_display_name": None,
+    }
 
     app.dependency_overrides[get_current_user] = lambda: {
         "user_id": str(plus_user.id),

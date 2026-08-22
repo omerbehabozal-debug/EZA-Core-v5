@@ -129,14 +129,76 @@ async def load_user_for_auth(db: AsyncSession, email: str) -> Optional[User]:
     row = result.mappings().first()
     if row is None:
         return None
-    user = User(
+    # Pass id in the constructor so JWT sub is the DB id, not a new uuid4.
+    return User(
+        id=row["id"],
         email=row["email"],
         password_hash=row["password_hash"],
         role=row["role"],
         is_active=True if row["is_active"] is None else bool(row["is_active"]),
     )
-    user.id = row["id"]
-    return user
+
+
+_SESSION_USER_SQLS = (
+    text(
+        """
+        SELECT id, email, role, is_active, mirror_plan, account_tier, public_display_name
+        FROM production_users
+        WHERE id = :id
+        LIMIT 1
+        """
+    ),
+    text(
+        """
+        SELECT id, email, role, is_active, mirror_plan, public_display_name
+        FROM production_users
+        WHERE id = :id
+        LIMIT 1
+        """
+    ),
+    text(
+        """
+        SELECT id, email, role, is_active, mirror_plan
+        FROM production_users
+        WHERE id = :id
+        LIMIT 1
+        """
+    ),
+    text(
+        """
+        SELECT id, email, role, is_active
+        FROM production_users
+        WHERE id = :id
+        LIMIT 1
+        """
+    ),
+)
+
+
+async def load_user_session_row(db: AsyncSession, user_id: str) -> Optional[Dict[str, Any]]:
+    """Load /me fields without SELECT * or unmigrated columns."""
+    import uuid
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return None
+    last_error: Exception | None = None
+    for sql in _SESSION_USER_SQLS:
+        try:
+            result = await db.execute(sql, {"id": uid})
+            row = result.mappings().first()
+            return dict(row) if row else None
+        except Exception as exc:
+            last_error = exc
+            logger.warning("session_user_lookup_fallback: %s", exc)
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+    if last_error:
+        raise last_error
+    return None
 
 
 async def authenticate_user(

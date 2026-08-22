@@ -50,6 +50,19 @@ def test_user_mapper_does_not_require_unmigrated_honorific_column():
     assert "public_honorific" not in sql
     assert "load_user_for_auth" in inspect.getsource(authenticate_user)
     assert "select(User)" not in inspect.getsource(login)
+    from backend.routers.production_auth import get_auth_me
+    from backend.services.production_auth import (
+        _SESSION_USER_SQLS,
+        load_user_for_auth,
+        load_user_session_row,
+    )
+
+    assert "id=row[\"id\"]" in inspect.getsource(load_user_for_auth)
+    me_src = inspect.getsource(get_auth_me)
+    assert "load_user_session_row" in me_src
+    assert "select(User)" not in me_src
+    for sql in _SESSION_USER_SQLS:
+        assert "public_honorific" not in str(sql)
 
 
 def test_honorific_default_is_curious_without_migration_backfill():
