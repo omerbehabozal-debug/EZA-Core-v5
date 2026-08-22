@@ -40,6 +40,8 @@ describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
     expect(css).toContain('--bilign-sidebar-upper: #121414');
     expect(css).toContain('--bilign-sidebar: #101212');
     expect(css).toContain('--bilign-sidebar-lower: #0c0e0e');
+    expect(css).toContain('border-right: none');
+    expect(css).toContain('--saina-sidebar-fade-width: 160px');
   });
 
   it('defines Stage 3 image normalization and keeps focal CSS var path untouched in scene CSS', () => {
@@ -52,9 +54,9 @@ describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
 
   it('defines Stage 4 editorial reading-plane measure and in-zone scroll height', () => {
     expect(css).toContain('clamp(340px, 46vh, 540px)');
-    expect(css).toContain('min(640px, 100%)');
+    expect(css).toContain('min(650px, 100%)');
     expect(css).toContain('blur(20px) saturate(70%)');
-    expect(css).toContain('mask-composite: intersect');
+    expect(css).toContain('--saina-reading-atmosphere-width');
   });
 
   it('defines Stage 5 continuation composer glass and muted bronze send', () => {
@@ -104,7 +106,10 @@ describe('Phase 8.8F Stage 9 isolation', () => {
     expect(css).not.toContain('identity__plan');
     expect(hero).toContain('ProfileDefaultAvatar');
     expect(hero).toContain('honorificLabel');
-    expect(shell).toContain('resolveYansiCreatorHonorific');
+    expect(read('components/mirror-landing/MirrorYansiChainExperience.tsx')).toContain(
+      'AynaAuthorRow'
+    );
+    expect(shell).not.toContain('SainaHeroScene');
     expect(shell).not.toContain('resolveSainaSidebarFooter');
   });
 
@@ -142,15 +147,19 @@ describe('Phase 8.8F Stage A Yansı-first composition', () => {
   it('dissolves the central chat window into a localized reading plane', () => {
     expect(css).toContain('editorial reading plane (not a chat window)');
     expect(css).toContain('rgba(10, 12, 12, 0.66)');
-    expect(css).toContain('mask-composite: intersect');
+    expect(css).toContain('--saina-reading-atmosphere-width');
     expect(css).toContain('overflow: visible');
     expect(css).not.toContain('rgba(18, 20, 20, 0.80)');
     expect(css).not.toContain('cream border (not bronze geometry)');
   });
 
-  it('keeps conversation in the 720–780px reading column without bronze/gold card geometry', () => {
-    expect(css).toContain('min(780px');
+  it('keeps conversation in a wide reading plane without bronze/gold card geometry', () => {
+    expect(css).toMatch(/min\(\s*900px/);
+    expect(css).toContain('72vw');
+    expect(css).not.toContain('min(1480px');
     expect(css).not.toContain('min(820px');
+    expect(css).toContain('saina-canvas::after');
+    expect(css).toContain('--saina-sidebar-fade-width: 160px');
     expect(css).not.toContain('rgba(231, 180, 91');
     expect(css).not.toContain('0 0 120px');
   });
@@ -173,10 +182,11 @@ describe('Phase 8.8F Stage A Yansı-first composition', () => {
     expect(css).toContain('display: none');
   });
 
-  it('stretches the continuation composer to the same column as the reading plane', () => {
+  it('keeps the continuation composer on the conversation spine, not the full reading plane', () => {
     expect(css).toContain('.saina-composer-inner');
     expect(css).toContain('width: 100%');
-    expect(css).toContain('max-width: var(--saina-chat-column-width)');
+    expect(css).toContain('max-width: var(--saina-composer-width)');
+    expect(css).toContain('--saina-composer-width: min(680px, 100%)');
   });
 
   it('lightens global scene veil so darkness stays behind text, not the whole Yansı', () => {
@@ -218,8 +228,12 @@ describe('Phase 8.8F creator identity contract', () => {
     expect(creator).toContain('isGuest');
     expect(creator).not.toContain('user.email');
     expect(creator).not.toContain('split("@")');
-    expect(shell).toContain('user?.public_display_name');
+    expect(aynaAuthor).toContain('HonorificMarker');
+    expect(read('components/mirror-landing/MirrorYansiChainExperience.tsx')).toContain(
+      'authorHonorific'
+    );
     expect(shell).toContain('heroTitle');
+    expect(shell).not.toContain('SainaHeroScene');
     expect(shell).not.toContain('resolveSainaSidebarFooter');
     expect(hero).not.toContain('SAINA Free');
     expect(hero).not.toContain('SAINA Guest');
@@ -243,5 +257,77 @@ describe('Phase 8.8F creator identity contract', () => {
     expect(aynaAuthor).toContain('HonorificMarker');
     expect(chatInner).not.toContain('publicHonorific');
     expect(chatInner).not.toContain('SainaHeroScene');
+  });
+});
+
+describe('Phase 8.8F Stage B sidebar fade + reading plane refinement', () => {
+  const css = read('styles/saina-yansi-desktop.css');
+  const mirror = read('styles/saina-mirror.css');
+  const shell = read('components/saina/SainaStandaloneShell.tsx');
+  const rail = read('components/saina/SainaYansiContextRail.tsx');
+
+  it('paints a 160px scene overlay after the sidebar, on the Yansı image', () => {
+    expect(css).toContain('--saina-sidebar-width: 280px');
+    expect(css).toContain('--saina-sidebar-fade-width: 160px');
+    expect(css).toContain('saina-canvas::after');
+    expect(css).toContain('rgba(12, 14, 14, 0.88)');
+    expect(css).toContain('rgba(12, 14, 14, 0.72)');
+    expect(css).toContain('rgba(12, 14, 14, 0.44)');
+    expect(css).toContain('rgba(12, 14, 14, 0.16)');
+    expect(css).toContain('width: 160px');
+    expect(css).toContain('pointer-events: none');
+    expect(css).not.toContain('saina-canvas::before');
+    expect(css).not.toContain('width: 168px');
+    expect(css).not.toContain('#101212 0%');
+  });
+
+  it('does not apply the sidebar fade outside the 900px desktop band', () => {
+    const fadeBlock = css.slice(css.lastIndexOf('saina-canvas::after'));
+    expect(css).toMatch(
+      /@media \(min-width: 900px\) \{[\s\S]*\.saina-canvas::after/
+    );
+    expect(fadeBlock).not.toContain('@media (max-width: 899px)');
+  });
+
+  it('removes the sidebar hairline and does not change sidebar width', () => {
+    expect(css).toContain('border-right: none !important');
+    expect(css).toContain('--saina-sidebar-width: 280px');
+    const sidebarBlock = css.slice(
+      css.indexOf('.saina-app-root.saina-standalone-shell .saina-sidebar {'),
+      css.indexOf('.saina-app-root.saina-standalone-shell .saina-sidebar::before')
+    );
+    expect(sidebarBlock).toContain('width: var(--saina-sidebar-width)');
+    expect(sidebarBlock).not.toContain('300px');
+    expect(sidebarBlock).not.toContain('320px');
+  });
+
+  it('detaches a 1100px atmosphere from the 650px text measure with long side dissolves', () => {
+    expect(css).toContain('--saina-reading-atmosphere-width: min(1100px, 92%)');
+    expect(css).toContain('--saina-chat-text-measure: min(650px, 100%)');
+    expect(css).toContain('rgba(9, 11, 11, 0.58)');
+    expect(css).toContain('rgba(9, 11, 11, 0.1)');
+    expect(css).toContain('backdrop-filter: none !important');
+    expect(css).toContain('content: none');
+    expect(css).toContain('max-width: var(--saina-chat-text-measure)');
+    expect(css).toContain('margin-inline: auto');
+    expect(css).not.toContain('min(1480px');
+    expect(css).not.toContain('mask-composite: intersect');
+  });
+
+  it('narrows the plane on 900–1279 and leaves Discover/pattern caps in mirror CSS', () => {
+    expect(css).toContain('min-width: 900px) and (max-width: 1279px)');
+    expect(css).toContain('780px');
+    expect(mirror).toContain('.saina-discover-shell');
+    expect(mirror).toContain('min(62vw, 720px)');
+    expect(css).not.toContain('.saina-discover-shell');
+  });
+
+  it('does not restore a bronze chat card or change product wiring', () => {
+    expect(css).not.toContain('rgba(231, 180, 91');
+    expect(css).toContain('overflow: visible');
+    expect(css).toContain('border-radius: 0');
+    expect(shell).toContain('tryOpenMirror');
+    expect(rail).toContain('onOpenAyna');
+    expect(SAINA_COMPOSER_PLACEHOLDER).toBe('Kendi merakınla devam et…');
   });
 });

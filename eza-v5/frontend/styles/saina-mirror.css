@@ -2238,10 +2238,10 @@ html:has(.saina-page) body {
     width: 100%;
   }
 
-  .saina-center-wrap--mirror-collapsed .saina-main,
-  .saina-center-wrap--mirror-collapsed .saina-main-body,
-  .saina-center-wrap--mirror-collapsed .saina-chat-column {
-    --saina-chat-column-width: min(75vw, 920px);
+  .saina-standalone-shell .saina-center-wrap--mirror-collapsed .saina-main,
+  .saina-standalone-shell .saina-center-wrap--mirror-collapsed .saina-main-body,
+  .saina-standalone-shell .saina-center-wrap--mirror-collapsed .saina-chat-column {
+    --saina-chat-column-width: var(--saina-reading-plane-width, min(900px, 72vw));
   }
 }
 
@@ -4407,10 +4407,13 @@ html:has(.saina-page) body {
 }
 
 @media (min-width: 900px) and (max-width: 1279px) {
-  .saina-main,
-  .saina-main-body,
-  .saina-chat-column,
-  .saina-pattern-column {
+  .saina-discover-shell .saina-main,
+  .saina-discover-shell .saina-main-body,
+  .saina-discover-shell .saina-chat-column,
+  .saina-pattern-shell .saina-main,
+  .saina-pattern-shell .saina-main-body,
+  .saina-pattern-shell .saina-chat-column,
+  .saina-pattern-shell .saina-pattern-column {
     --saina-chat-column-width: min(62vw, 720px);
   }
 
@@ -4420,10 +4423,13 @@ html:has(.saina-page) body {
 }
 
 @media (min-width: 1280px) {
-  .saina-main,
-  .saina-main-body,
-  .saina-chat-column,
-  .saina-pattern-column {
+  .saina-discover-shell .saina-main,
+  .saina-discover-shell .saina-main-body,
+  .saina-discover-shell .saina-chat-column,
+  .saina-pattern-shell .saina-main,
+  .saina-pattern-shell .saina-main-body,
+  .saina-pattern-shell .saina-chat-column,
+  .saina-pattern-shell .saina-pattern-column {
     --saina-chat-column-width: min(68vw, 860px);
   }
 }
