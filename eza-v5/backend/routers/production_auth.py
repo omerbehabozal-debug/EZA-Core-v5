@@ -15,7 +15,7 @@ from backend.services.production_auth import (
     create_user, authenticate_user, create_access_token, check_bootstrap_allowed,
     hash_password, reset_user_password, normalize_email
 )
-from backend.models.production import User
+from backend.models.production import User, production_users_safe_load
 from backend.auth.deps import get_current_user
 from backend.auth.mirror_entitlement import get_production_user_by_id, normalize_mirror_plan
 from backend.core.account.tiers import resolve_user_account_tier
@@ -244,7 +244,7 @@ async def register(
             )
         
         # Check if user already exists
-        result = await db.execute(select(User).where(User.email == normalized_email))
+        result = await db.execute(select(User).options(production_users_safe_load()).where(User.email == normalized_email))
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
@@ -320,7 +320,7 @@ async def register(
     
     try:
         # Check if user already exists
-        result = await db.execute(select(User).where(User.email == normalized_email))
+        result = await db.execute(select(User).options(production_users_safe_load()).where(User.email == normalized_email))
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
@@ -397,30 +397,11 @@ async def login(
         normalized_email = normalize_email(request.email)
         logger.info(f"[Login] Step 1: Attempting login for email: {normalized_email} (original: {request.email})")
         
-        # Check if user exists (for better error messages)
-        logger.info(f"[Login] Step 2: Checking if user exists...")
-        result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
-        user_exists = result.scalar_one_or_none()
-        
-        if not user_exists:
-            logger.warning(f"[Login] Step 3: User not found: {normalized_email}")
-            if not is_production_runtime():
-                # Dev-only diagnostic — never sample user directory in production logs.
-                all_users_result = await db.execute(select(User.email, User.role).limit(10))
-                all_emails = [(row[0], row[1]) for row in all_users_result.all()]
-                logger.warning(f"[Login] Available users in DB (sample): {all_emails}")
-                logger.warning(f"[Login] Searched for normalized email: '{normalized_email}'")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password"
-            )
-        
-        logger.info(f"[Login] Step 3: User found, authenticating...")
-        # Authenticate
+        logger.info(f"[Login] Step 2: Authenticating...")
         user = await authenticate_user(db, request.email, request.password)
         
         if not user:
-            logger.warning(f"[Login] Step 4: Authentication failed for: {normalized_email} (user exists but password incorrect)")
+            logger.warning(f"[Login] Step 3: Authentication failed for: {normalized_email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password"
@@ -676,11 +657,11 @@ async def debug_check_email(
     normalized = normalize_email(email)
     
     # Try exact match
-    result = await db.execute(select(User).where(User.email == normalized))
+    result = await db.execute(select(User).options(production_users_safe_load()).where(User.email == normalized))
     exact_user = result.scalar_one_or_none()
     
     # Try case-insensitive
-    result = await db.execute(select(User).where(func.lower(User.email) == normalized))
+    result = await db.execute(select(User).options(production_users_safe_load()).where(func.lower(User.email) == normalized))
     case_insensitive_user = result.scalar_one_or_none()
     
     # Get all users (for debugging)
@@ -737,7 +718,7 @@ async def debug_test_login(
     logger.info(f"[Debug Login] Testing login for: {normalized_email}")
     
     # Find user
-    result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
+    result = await db.execute(select(User).options(production_users_safe_load()).where(func.lower(User.email) == normalized_email))
     user = result.scalar_one_or_none()
     
     if not user:

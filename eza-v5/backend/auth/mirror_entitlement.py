@@ -13,7 +13,7 @@ from backend.auth.jwt import get_user_from_token
 from backend.core.account.guest_identity import GUEST_TOKEN_HEADER, resolve_guest_fingerprint
 from backend.core.account.mirror_plan import MirrorPlanId, normalize_mirror_plan
 from backend.core.utils.dependencies import get_db
-from backend.models.production import User
+from backend.models.production import User, production_users_safe_load
 
 
 async def get_production_user_by_id(db: AsyncSession, user_id: str) -> User | None:
@@ -23,7 +23,9 @@ async def get_production_user_by_id(db: AsyncSession, user_id: str) -> User | No
         uid = uuid.UUID(str(user_id))
     except (ValueError, TypeError):
         return None
-    result = await db.execute(select(User).where(User.id == uid))
+    result = await db.execute(
+        select(User).options(production_users_safe_load()).where(User.id == uid)
+    )
     return result.scalar_one_or_none()
 
 

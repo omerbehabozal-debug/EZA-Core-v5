@@ -38,9 +38,18 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 def test_user_mapper_does_not_require_unmigrated_honorific_column():
     """Login/register SELECT User must not 500 when production has not migrated yet."""
-    from backend.models.production import User
+    from backend.models.production import User, production_users_safe_load
+    from backend.routers.production_auth import login
+    from backend.services.production_auth import _AUTH_USER_SQL, authenticate_user
 
     assert "public_honorific" not in {column.key for column in User.__table__.columns}
+    load_call = inspect.getsource(production_users_safe_load).split("return load_only", 1)[1]
+    assert "public_honorific" not in load_call
+    sql = str(_AUTH_USER_SQL)
+    assert "production_users" in sql
+    assert "public_honorific" not in sql
+    assert "load_user_for_auth" in inspect.getsource(authenticate_user)
+    assert "select(User)" not in inspect.getsource(login)
 
 
 def test_honorific_default_is_curious_without_migration_backfill():

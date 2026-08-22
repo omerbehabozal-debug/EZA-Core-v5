@@ -453,9 +453,13 @@ async def _project_discover_page(
     user_ids = [uid for uid in user_ids if uid is not None]
     if user_ids:
         try:
-            from backend.models.production import User
+            from backend.models.production import User, production_users_safe_load
 
-            author_result = await db.execute(select(User).where(User.id.in_(set(user_ids))))
+            author_result = await db.execute(
+                select(User)
+                .options(production_users_safe_load())
+                .where(User.id.in_(set(user_ids)))
+            )
             authors_by_id = {row.id: row for row in author_result.scalars().all()}
         except Exception:
             authors_by_id = {}

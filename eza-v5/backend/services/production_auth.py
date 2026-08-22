@@ -9,11 +9,11 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from jose import jwt
 
 from backend.config import get_settings, resolve_jwt_secret
-from backend.models.production import User, Organization, OrganizationUser
+from backend.models.production import User, Organization, OrganizationUser, production_users_safe_load
 from backend.auth.jwt import create_jwt
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,9 @@ async def create_user(
         
         # Check if user already exists
         logger.info(f"[create_user] Step 3: Checking if user already exists...")
-        result = await db.execute(select(User).where(User.email == normalized_email))
+        result = await db.execute(
+            select(User).options(production_users_safe_load()).where(User.email == normalized_email)
+        )
         existing = result.scalar_one_or_none()
         if existing:
             logger.warning(f"[create_user] User already exists: {normalized_email}")
@@ -110,6 +112,33 @@ async def create_user(
         raise
 
 
+_AUTH_USER_SQL = text(
+    """
+    SELECT id, email, password_hash, role, is_active
+    FROM production_users
+    WHERE lower(email) = :email
+    LIMIT 1
+    """
+)
+
+
+async def load_user_for_auth(db: AsyncSession, email: str) -> Optional[User]:
+    """Load login fields without SELECT * — skips unmigrated honorific."""
+    normalized_email = normalize_email(email)
+    result = await db.execute(_AUTH_USER_SQL, {"email": normalized_email})
+    row = result.mappings().first()
+    if row is None:
+        return None
+    user = User(
+        email=row["email"],
+        password_hash=row["password_hash"],
+        role=row["role"],
+        is_active=True if row["is_active"] is None else bool(row["is_active"]),
+    )
+    user.id = row["id"]
+    return user
+
+
 async def authenticate_user(
     db: AsyncSession,
     email: str,
@@ -119,24 +148,7 @@ async def authenticate_user(
     try:
         # Normalize email (lowercase and trim)
         normalized_email = normalize_email(email)
-        
-        # Try exact match first (for normalized emails)
-        result = await db.execute(select(User).where(User.email == normalized_email))
-        user = result.scalar_one_or_none()
-        
-        # If not found, try case-insensitive search (for legacy emails)
-        if not user:
-            result = await db.execute(
-                select(User).where(func.lower(User.email) == normalized_email)
-            )
-            user = result.scalar_one_or_none()
-            
-            # If found with case-insensitive, update to normalized email
-            if user:
-                logger.info(f"Found user with case-insensitive match, updating email to normalized: {normalized_email}")
-                user.email = normalized_email
-                await db.commit()
-                await db.refresh(user)
+        user = await load_user_for_auth(db, normalized_email)
         
         if not user:
             logger.debug(f"Authentication failed: User not found for email {normalized_email}")
@@ -186,7 +198,9 @@ async def get_user_by_id(db: AsyncSession, user_id: str) -> Optional[User]:
     except ValueError:
         return None
     
-    result = await db.execute(select(User).where(User.id == user_uuid))
+    result = await db.execute(
+        select(User).options(production_users_safe_load()).where(User.id == user_uuid)
+    )
     return result.scalar_one_or_none()
 
 
@@ -201,13 +215,17 @@ async def reset_user_password(
         normalized_email = normalize_email(email)
         
         # Try exact match first (for normalized emails)
-        result = await db.execute(select(User).where(User.email == normalized_email))
+        result = await db.execute(
+            select(User).options(production_users_safe_load()).where(User.email == normalized_email)
+        )
         user = result.scalar_one_or_none()
         
         # If not found, try case-insensitive search (for legacy emails)
         if not user:
             result = await db.execute(
-                select(User).where(func.lower(User.email) == normalized_email)
+                select(User)
+                .options(production_users_safe_load())
+                .where(func.lower(User.email) == normalized_email)
             )
             user = result.scalar_one_or_none()
             
@@ -255,7 +273,7 @@ async def reset_user_password(
 async def check_bootstrap_allowed(db: AsyncSession) -> bool:
     """Check if bootstrap is allowed (no users or orgs exist)"""
     # Check if any users exist
-    result = await db.execute(select(User).limit(1))
+    result = await db.execute(select(User.id).limit(1))
     has_users = result.scalar_one_or_none() is not None
     
     # Check if any organizations exist

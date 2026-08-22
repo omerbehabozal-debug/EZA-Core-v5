@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, JSON, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import load_only, relationship
 from sqlalchemy.sql import func
 from backend.core.utils.dependencies import Base
 
@@ -45,6 +45,28 @@ class User(Base):
         "backend.models.production.UserAuthIdentity",
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+
+
+def production_users_safe_load():
+    """
+    Load only columns that exist without add_user_public_honorific_v1.
+
+    `select(User)` includes every mapped column. If public_honorific is mapped
+    before the migration, login/register 500. Keep honorific off this list.
+    """
+    return load_only(
+        User.id,
+        User.email,
+        User.password_hash,
+        User.role,
+        User.is_active,
+        User.is_internal_test_user,
+        User.mirror_plan,
+        User.account_tier,
+        User.public_display_name,
+        User.created_at,
+        User.updated_at,
     )
 
 

@@ -25,7 +25,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
-from backend.models.production import SocialAuthAttempt, User, UserAuthIdentity
+from backend.models.production import SocialAuthAttempt, User, UserAuthIdentity, production_users_safe_load
 from backend.services.production_auth import (
     create_access_token,
     create_user,
@@ -407,7 +407,11 @@ async def _find_identity(
 
 
 async def _find_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(select(User).where(User.email == normalize_email(email)))
+    result = await db.execute(
+        select(User)
+        .options(production_users_safe_load())
+        .where(User.email == normalize_email(email))
+    )
     return result.scalar_one_or_none()
 
 
