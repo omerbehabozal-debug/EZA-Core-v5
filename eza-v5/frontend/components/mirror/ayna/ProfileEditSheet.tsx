@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { patchPublicIdentity } from '@/lib/eza/plan/fetchAuthMe';
+import { patchPublicIdentity, publicIdentitySaveErrorMessage } from '@/lib/eza/plan/fetchAuthMe';
+import { setMemoryAuthToken } from '@/lib/eza/authTokenStore';
 import {
   PUBLIC_DISPLAY_NAME_FALLBACK,
   PUBLIC_DISPLAY_NAME_MAX_LEN,
@@ -61,20 +62,11 @@ export default function ProfileEditSheet({
     if (!token || !user) return;
     setBusy(true);
     setError(null);
+    setMemoryAuthToken(token);
     const result = await patchPublicIdentity(draft);
     setBusy(false);
     if (!result.ok) {
-      setError(
-        result.code === 'display_name_looks_like_email'
-          ? 'E-posta adresi kullanılamaz.'
-          : result.code === 'display_name_too_short'
-            ? 'En az 2 karakter girin.'
-            : result.code === 'display_name_too_long'
-              ? 'En fazla 48 karakter.'
-              : result.code === 'display_name_reserved'
-                ? 'Bu ad kullanılamaz.'
-                : 'Kaydedilemedi. Tekrar deneyin.'
-      );
+      setError(publicIdentitySaveErrorMessage(result.code));
       return;
     }
     setAuth(token, {

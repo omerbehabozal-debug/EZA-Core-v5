@@ -201,8 +201,8 @@ async def patch_public_identity(
     updated = await update_public_display_name(db, str(row["id"]), validated)
     if not updated:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "auth_required", "message": "User not found or inactive"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "public_identity_update_failed", "message": "Public name was not saved"},
         )
     logger.info("public_profile_updated user_id=%s", row["id"])
     return PublicIdentityUpdateResponse(

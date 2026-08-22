@@ -153,21 +153,15 @@ export default function SainaProfileMenu({
     if (!token || !user) return;
     setNameSaveState('saving');
     setNameError(null);
-    const { patchPublicIdentity } = await import('@/lib/eza/plan/fetchAuthMe');
+    const { patchPublicIdentity, publicIdentitySaveErrorMessage } = await import(
+      '@/lib/eza/plan/fetchAuthMe'
+    );
+    const { setMemoryAuthToken } = await import('@/lib/eza/authTokenStore');
+    setMemoryAuthToken(token);
     const result = await patchPublicIdentity(nameDraft);
     if (!result.ok) {
       setNameSaveState('error');
-      setNameError(
-        result.code === 'display_name_looks_like_email'
-          ? 'E-posta adresi kullanılamaz.'
-          : result.code === 'display_name_too_short'
-            ? 'En az 2 karakter girin.'
-            : result.code === 'display_name_too_long'
-              ? 'En fazla 48 karakter.'
-              : result.code === 'display_name_reserved'
-                ? 'Bu ad kullanılamaz.'
-                : 'Kaydedilemedi. Tekrar deneyin.'
-      );
+      setNameError(publicIdentitySaveErrorMessage(result.code));
       return;
     }
     setAuth(token, {

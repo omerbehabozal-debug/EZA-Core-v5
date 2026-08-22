@@ -94,6 +94,17 @@ export async function patchPublicIdentity(
   };
 }
 
+export function publicIdentitySaveErrorMessage(code?: string): string {
+  if (code === 'display_name_looks_like_email') return 'E-posta adresi kullanılamaz.';
+  if (code === 'display_name_too_short') return 'En az 2 karakter girin.';
+  if (code === 'display_name_too_long') return 'En fazla 48 karakter.';
+  if (code === 'display_name_reserved') return 'Bu ad kullanılamaz.';
+  if (code === 'auth_required' || code === 'HTTP_401') {
+    return 'Oturumunuz düştü. Tekrar giriş yapıp kaydedin.';
+  }
+  return 'Kaydedilemedi. Tekrar deneyin.';
+}
+
 /**
  * Validate persisted JWT against /api/auth/me.
  * - invalid: 401 / missing user (clear auth)

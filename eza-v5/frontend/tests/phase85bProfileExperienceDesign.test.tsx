@@ -38,9 +38,15 @@ vi.mock('@/lib/eza/mirror-network/fetchAuthorPublished', async () => {
   };
 });
 
-vi.mock('@/lib/eza/plan/fetchAuthMe', () => ({
-  patchPublicIdentity: vi.fn(),
-}));
+vi.mock('@/lib/eza/plan/fetchAuthMe', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/eza/plan/fetchAuthMe')>(
+    '@/lib/eza/plan/fetchAuthMe',
+  );
+  return {
+    ...actual,
+    patchPublicIdentity: vi.fn(),
+  };
+});
 
 vi.mock('@/lib/eza/mirror-network/yansiTrustActions', () => ({
   unpublishYansi: vi.fn(async () => ({ ok: true, status: 'unpublished' })),

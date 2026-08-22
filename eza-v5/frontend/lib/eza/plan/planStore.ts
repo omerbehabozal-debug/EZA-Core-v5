@@ -3,6 +3,7 @@
  */
 
 import { validateAuthSession } from '@/lib/eza/plan/fetchAuthMe';
+import { setMemoryAuthToken } from '@/lib/eza/authTokenStore';
 
 export type PlanId = 'free' | 'plus';
 
@@ -100,6 +101,7 @@ export function getPlanServerSnapshot(): PlanId {
 function clearStaleAuth(): void {
   if (typeof window === 'undefined') return;
   try {
+    setMemoryAuthToken(null);
     window.localStorage.removeItem('eza_token');
     window.localStorage.removeItem('eza_user');
     window.localStorage.removeItem('eza_auth');

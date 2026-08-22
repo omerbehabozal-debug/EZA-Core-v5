@@ -52,10 +52,12 @@ def test_user_mapper_does_not_require_unmigrated_honorific_column():
     assert "select(User)" not in inspect.getsource(login)
     from backend.routers.production_auth import get_auth_me, patch_public_identity
     from backend.services.production_auth import (
+        _ENSURE_DISPLAY_NAME_SQL,
         _SESSION_USER_SQLS,
         _UPDATE_DISPLAY_NAME_SQL,
         load_user_for_auth,
         load_user_session_row,
+        update_public_display_name,
     )
 
     assert "id=row[\"id\"]" in inspect.getsource(load_user_for_auth)
@@ -67,7 +69,10 @@ def test_user_mapper_does_not_require_unmigrated_honorific_column():
     patch_src = inspect.getsource(patch_public_identity)
     assert "update_public_display_name" in patch_src
     assert "db.refresh" not in patch_src
+    assert "RETURNING" in str(_UPDATE_DISPLAY_NAME_SQL)
     assert "public_honorific" not in str(_UPDATE_DISPLAY_NAME_SQL)
+    assert "ADD COLUMN IF NOT EXISTS public_display_name" in str(_ENSURE_DISPLAY_NAME_SQL)
+    assert "_ENSURE_DISPLAY_NAME_SQL" in inspect.getsource(update_public_display_name)
 
 
 def test_honorific_default_is_curious_without_migration_backfill():

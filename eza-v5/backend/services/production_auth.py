@@ -201,13 +201,27 @@ async def load_user_session_row(db: AsyncSession, user_id: str) -> Optional[Dict
     return None
 
 
+_ENSURE_DISPLAY_NAME_SQL = text(
+    "ALTER TABLE production_users ADD COLUMN IF NOT EXISTS public_display_name VARCHAR(48)"
+)
+
 _UPDATE_DISPLAY_NAME_SQL = text(
     """
     UPDATE production_users
     SET public_display_name = :name
     WHERE id = :id
+    RETURNING id
     """
 )
+
+
+async def _execute_public_display_name_update(
+    db: AsyncSession, uid, name: str
+) -> bool:
+    result = await db.execute(_UPDATE_DISPLAY_NAME_SQL, {"name": name, "id": uid})
+    row = result.first()
+    await db.commit()
+    return row is not None
 
 
 async def update_public_display_name(db: AsyncSession, user_id: str, name: str) -> bool:
@@ -218,9 +232,17 @@ async def update_public_display_name(db: AsyncSession, user_id: str, name: str) 
         uid = uuid.UUID(str(user_id))
     except (ValueError, TypeError):
         return False
-    result = await db.execute(_UPDATE_DISPLAY_NAME_SQL, {"name": name, "id": uid})
-    await db.commit()
-    return bool(result.rowcount)
+    try:
+        return await _execute_public_display_name_update(db, uid, name)
+    except Exception:
+        logger.exception("public_display_name_update_retry_after_schema_ensure")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        await db.execute(_ENSURE_DISPLAY_NAME_SQL)
+        await db.commit()
+        return await _execute_public_display_name_update(db, uid, name)
 
 
 async def authenticate_user(

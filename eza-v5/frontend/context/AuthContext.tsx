@@ -24,6 +24,7 @@ import {
   USER_STORAGE_KEY,
   isJwtExpired,
 } from '@/lib/eza/localIdentityScope';
+import { setMemoryAuthToken } from '@/lib/eza/authTokenStore';
 import { CHATS_UPDATED_EVENT } from '@/lib/standaloneChatArchive';
 import { GROUPS_UPDATED_EVENT } from '@/lib/eza/conversation-tree/conversationGroups';
 
@@ -67,12 +68,14 @@ interface AuthContextType extends AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function clearAuthStorage(): void {
+  setMemoryAuthToken(null);
   localStorage.removeItem(TOKEN_STORAGE_KEY);
   localStorage.removeItem(USER_STORAGE_KEY);
   localStorage.removeItem('eza_auth');
 }
 
 function persistAuth(token: string, user: UserInfo): void {
+  setMemoryAuthToken(token);
   localStorage.setItem(TOKEN_STORAGE_KEY, token);
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
 }
@@ -207,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (token && userStr) {
               const user = JSON.parse(userStr) as UserInfo;
               if (user?.user_id) {
+                setMemoryAuthToken(token);
                 setAuthState({
                   token,
                   user,

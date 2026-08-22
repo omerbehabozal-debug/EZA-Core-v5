@@ -4,6 +4,7 @@
  */
 
 import { getApiUrl, getDirectApiBaseUrl, getWebSocketUrl } from './apiUrl';
+import { getAuthToken } from '@/lib/eza/authTokenStore';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
@@ -55,7 +56,7 @@ class ApiClient {
     if (typeof window === 'undefined') return null;
     
     // Get token from production storage (eza_token)
-    return localStorage.getItem('eza_token');
+    return getAuthToken();
   }
 
   /**
