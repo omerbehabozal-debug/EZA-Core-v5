@@ -55,7 +55,10 @@ export default function SainaLoginView({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        if (response.status === 502 || response.status === 503) {
+        if (response.status === 502 || response.status === 503 || response.status >= 500) {
+          throw new Error('SERVER_UNAVAILABLE');
+        }
+        if (errorData && errorData.error === 'internal_server_error') {
           throw new Error('SERVER_UNAVAILABLE');
         }
         const detail =

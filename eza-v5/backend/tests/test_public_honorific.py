@@ -36,6 +36,13 @@ from backend.services.mirror_network.public_identity import (
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_user_mapper_does_not_require_unmigrated_honorific_column():
+    """Login/register SELECT User must not 500 when production has not migrated yet."""
+    from backend.models.production import User
+
+    assert "public_honorific" not in {column.key for column in User.__table__.columns}
+
+
 def test_honorific_default_is_curious_without_migration_backfill():
     assert normalize_public_honorific(None) == PUBLIC_HONORIFIC_CURIOUS
     assert normalize_public_honorific("") == PUBLIC_HONORIFIC_CURIOUS

@@ -17,6 +17,7 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from backend.models.production import User
@@ -54,6 +55,13 @@ async def _run(user_id: uuid.UUID, honorific: str, *, dry_run: bool) -> dict:
                     "to": honorific,
                 }
             assigned = assign_public_honorific(user, honorific, actor="operator_cli")
+            await session.execute(
+                text(
+                    "UPDATE production_users SET public_honorific = :honorific "
+                    "WHERE id = :user_id"
+                ),
+                {"honorific": assigned, "user_id": user_id},
+            )
             await session.commit()
             return {
                 "ok": True,
