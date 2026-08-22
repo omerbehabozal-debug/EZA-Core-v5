@@ -13,11 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.utils.dependencies import get_db
 from backend.services.production_auth import (
     create_user, authenticate_user, create_access_token, check_bootstrap_allowed,
-    hash_password, reset_user_password, normalize_email, load_user_session_row
+    hash_password, reset_user_password, normalize_email, load_user_session_row,
+    update_public_display_name,
 )
 from backend.models.production import User, production_users_safe_load
 from backend.auth.deps import get_current_user
-from backend.auth.mirror_entitlement import get_production_user_by_id, normalize_mirror_plan
+from backend.auth.mirror_entitlement import normalize_mirror_plan
 from backend.core.account.tiers import resolve_user_account_tier
 from sqlalchemy import select, func
 from backend.services.production_org import create_organization
@@ -181,9 +182,10 @@ async def patch_public_identity(
         resolve_public_display_name,
         validate_public_display_name,
     )
+    from types import SimpleNamespace
 
-    user = await get_production_user_by_id(db, current_user["user_id"])
-    if user is None or not user.is_active:
+    row = await load_user_session_row(db, current_user["user_id"])
+    if row is None or row.get("is_active") is False:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "auth_required", "message": "User not found or inactive"},
@@ -196,13 +198,18 @@ async def patch_public_identity(
             detail={"code": str(exc), "message": "Invalid public display name"},
         ) from exc
 
-    user.public_display_name = validated
-    await db.commit()
-    await db.refresh(user)
-    logger.info("public_profile_updated user_id=%s", user.id)
+    updated = await update_public_display_name(db, str(row["id"]), validated)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "auth_required", "message": "User not found or inactive"},
+        )
+    logger.info("public_profile_updated user_id=%s", row["id"])
     return PublicIdentityUpdateResponse(
         public_display_name=validated,
-        resolved_public_display_name=resolve_public_display_name(user),
+        resolved_public_display_name=resolve_public_display_name(
+            SimpleNamespace(public_display_name=validated)
+        ),
     )
 
 

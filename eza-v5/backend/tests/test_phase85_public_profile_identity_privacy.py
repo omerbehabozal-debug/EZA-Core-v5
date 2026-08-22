@@ -66,6 +66,7 @@ def test_display_name_validation_matrix():
     assert validate_public_display_name("日本語名") == "日本語名"
     assert validate_public_display_name("محمد") == "محمد"
     assert validate_public_display_name("🌟 Yolcu") == "🌟 Yolcu"
+    assert validate_public_display_name("tarıkayşe") == "tarıkayşe"
 
     with pytest.raises(ValueError, match="empty_display_name"):
         validate_public_display_name("   ")

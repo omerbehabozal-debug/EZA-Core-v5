@@ -201,6 +201,28 @@ async def load_user_session_row(db: AsyncSession, user_id: str) -> Optional[Dict
     return None
 
 
+_UPDATE_DISPLAY_NAME_SQL = text(
+    """
+    UPDATE production_users
+    SET public_display_name = :name
+    WHERE id = :id
+    """
+)
+
+
+async def update_public_display_name(db: AsyncSession, user_id: str, name: str) -> bool:
+    """Persist public display name without ORM SELECT * / refresh."""
+    import uuid
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return False
+    result = await db.execute(_UPDATE_DISPLAY_NAME_SQL, {"name": name, "id": uid})
+    await db.commit()
+    return bool(result.rowcount)
+
+
 async def authenticate_user(
     db: AsyncSession,
     email: str,
