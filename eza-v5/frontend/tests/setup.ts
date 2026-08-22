@@ -86,6 +86,8 @@ Object.defineProperty(window, 'sessionStorage', {
   },
   writable: true,
 });
+const originalFetch =
+  typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : undefined;
 globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const url =
     typeof input === 'string'

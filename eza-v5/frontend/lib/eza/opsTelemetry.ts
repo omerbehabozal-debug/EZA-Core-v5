@@ -49,16 +49,23 @@ export function reportOpsFailure(
   if (typeof window === 'undefined') return;
   if (!ALLOWED.has(event)) return;
   const safeCode = isSafeCode(code) ? code : undefined;
-  void fetch(buildApiUrl('/api/ops/client-event'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      event,
-      code: safeCode,
-      outcome: 'failure',
-    }),
-    keepalive: true,
-  }).catch(() => {
+  try {
+    const pending = fetch(buildApiUrl('/api/ops/client-event'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        event,
+        code: safeCode,
+        outcome: 'failure',
+      }),
+      keepalive: true,
+    });
+    if (pending && typeof pending.catch === 'function') {
+      void pending.catch(() => {
+        /* ignore */
+      });
+    }
+  } catch {
     /* ignore */
-  });
+  }
 }

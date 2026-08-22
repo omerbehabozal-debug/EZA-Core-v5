@@ -42,6 +42,17 @@ describe('Phase 8.8.1 reportOpsFailure non-blocking', () => {
     expect(() => reportOpsFailure('frozen_replay_load_failed', 'FROZEN_ARTIFACT_INVALID')).not.toThrow();
   });
 
+  it('ignores a fetch mock that returns undefined', async () => {
+    const fetchMock = vi.fn().mockReturnValue(undefined);
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('window', {
+      location: { hostname: 'localhost', origin: 'http://localhost:3000' },
+    });
+
+    const { reportOpsFailure } = await import('@/lib/eza/opsTelemetry');
+    expect(() => reportOpsFailure('frozen_replay_load_failed', 'FROZEN_ARTIFACT_INVALID')).not.toThrow();
+  });
+
   it('never sends message/stack/url fields', () => {
     const src = read('lib/eza/opsTelemetry.ts');
     expect(src).not.toMatch(/message\s*:/);

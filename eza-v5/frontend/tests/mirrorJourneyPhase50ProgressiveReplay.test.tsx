@@ -140,15 +140,20 @@ describe('Phase 5.0 session progression', () => {
 describe('Phase 5.0 EZA display', () => {
   it('J/K/L/M. visibility gates frozen snapshot without scoring fetch', () => {
     const fetchSpy = vi.fn();
+    const prevFetch = globalThis.fetch;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).fetch = fetchSpy;
-    const snap = { assistantScore: 91, userScore: 80 };
-    setEzaUserPreferences(null, { ezaVisibilityEnabled: true });
-    expect(resolveFrozenEzaSnapshotForDisplay(snap, getEzaUserPreferences(null))).toEqual(snap);
-    setEzaUserPreferences(null, { ezaVisibilityEnabled: false });
-    expect(resolveFrozenEzaSnapshotForDisplay(snap, getEzaUserPreferences(null))).toBeNull();
-    expect(resolveFrozenEzaSnapshotForDisplay(null, getEzaUserPreferences(null))).toBeNull();
-    expect(fetchSpy).not.toHaveBeenCalled();
+    try {
+      const snap = { assistantScore: 91, userScore: 80 };
+      setEzaUserPreferences(null, { ezaVisibilityEnabled: true });
+      expect(resolveFrozenEzaSnapshotForDisplay(snap, getEzaUserPreferences(null))).toEqual(snap);
+      setEzaUserPreferences(null, { ezaVisibilityEnabled: false });
+      expect(resolveFrozenEzaSnapshotForDisplay(snap, getEzaUserPreferences(null))).toBeNull();
+      expect(resolveFrozenEzaSnapshotForDisplay(null, getEzaUserPreferences(null))).toBeNull();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = prevFetch;
+    }
   });
 
   it('N/O. processing preference does not alter frozen artifact / no profile write', () => {
