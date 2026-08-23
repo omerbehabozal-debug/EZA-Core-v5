@@ -16,6 +16,7 @@ import {
   applyGenerationFailureToArtifact,
   applyPublishFailureToArtifact,
   applyPublishSuccessToArtifact,
+  applyUnpublishToArtifact,
   artifactIdentityKey,
   buildGeneratingMirrorJourneyArtifact,
   buildReadyMirrorJourneyArtifactFromLineage,
@@ -131,6 +132,42 @@ export function listJourneyArtifactsForConversation(
 /** Alias kept for clarity in call sites. */
 export const listMirrorJourneyArtifactsForConversation =
   listJourneyArtifactsForConversation;
+
+/** Owner-scoped scan for sidebar status — does not leak other accounts. */
+export function listAllJourneyArtifactsForOwner(
+  ownerUserId: string | null | undefined
+): MirrorJourneyArtifact[] {
+  const owner = (ownerUserId || '').trim();
+  if (!owner) return [];
+  const store = readStore();
+  const prefix = `${owner}::`;
+  const out: MirrorJourneyArtifact[] = [];
+  for (const [key, value] of Object.entries(store)) {
+    if (!key.startsWith(prefix)) continue;
+    out.push(cloneMirrorJourneyArtifact(value));
+  }
+  return out;
+}
+
+/**
+ * After owner unpublish / private: demote matching published rows to reusable ready.
+ * Restricted/safety-removed rows are handled by publication authority, not this scan.
+ */
+export function demoteMirrorJourneyArtifactsByPublishedSlug(slug: string): number {
+  const needle = slug.trim().toLowerCase();
+  if (!needle) return 0;
+  const store = readStore();
+  let changed = 0;
+  for (const [key, value] of Object.entries(store)) {
+    const current = value.publish?.slug?.trim().toLowerCase();
+    if (current !== needle) continue;
+    if (value.status !== 'published') continue;
+    store[key] = applyUnpublishToArtifact(value);
+    changed += 1;
+  }
+  if (changed > 0) writeStore(store);
+  return changed;
+}
 
 /**
  * CAS persist. `artifact.stateVersion` must match stored revision (or absent).

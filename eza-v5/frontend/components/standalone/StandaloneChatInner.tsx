@@ -34,6 +34,8 @@ import {
   pairsForWindow,
   reopenJourneyWindowDecision,
   requestJourneyAynaGeneration,
+  listJourneyArtifactsForConversation,
+  shouldSkipAynaSceneGeneration,
   resolveAuthorDisplayName,
   resolveParentJourneyId,
   saveJourneyConversationState,
@@ -94,6 +96,7 @@ import {
   subscribeEzaUserPreferences,
 } from '@/lib/eza/ezaUserPrefs';
 import { useSetConversationMirrorEntries, PENDING_CONVERSATION_MIRROR_ID } from '@/components/standalone/MirrorEntriesContext';
+import { cancelYansiSpeech } from '@/lib/eza/mirror/yansiSpeech';
 import {
   clearActiveConversationLiveMessages,
   setActiveConversationLiveMessages,
@@ -235,6 +238,10 @@ export default function StandaloneChatInner() {
   const journeyOwnerId = resolveJourneyOwnerKey(user?.user_id);
   const [ezaPrefsTick, setEzaPrefsTick] = useState(0);
   useEffect(() => subscribeEzaUserPreferences(() => setEzaPrefsTick((n) => n + 1)), []);
+  useEffect(() => {
+    cancelYansiSpeech();
+    return () => cancelYansiSpeech();
+  }, []);
   const ezaPrefs = useMemo(
     () => getEzaUserPreferences(journeyOwnerId || null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tick forces re-read after settings mutate
@@ -768,11 +775,19 @@ export default function StandaloneChatInner() {
       });
       // Phase 8.6 — kick scene pipeline; Ayna reel hides legacy create CTA.
       if (chatId && draft.journeyId) {
-        requestJourneyAynaGeneration({
-          conversationId: chatId,
-          journeyId: draft.journeyId,
-          journeyVersion: draft.journeyVersion ?? 1,
-        });
+        const reusableExists =
+          Boolean(journeyOwnerId) &&
+          shouldSkipAynaSceneGeneration({
+            artifacts: listJourneyArtifactsForConversation(journeyOwnerId, chatId),
+            journeyId: draft.journeyId,
+          });
+        if (!reusableExists) {
+          requestJourneyAynaGeneration({
+            conversationId: chatId,
+            journeyId: draft.journeyId,
+            journeyVersion: draft.journeyVersion ?? 1,
+          });
+        }
       }
       setJourneyReviewOpen(false);
       setJourneyReviewWindowIndex(null);

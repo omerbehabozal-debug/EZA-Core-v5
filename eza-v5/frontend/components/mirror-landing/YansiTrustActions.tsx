@@ -14,6 +14,11 @@ import {
   YANSI_REPORT_REASONS,
   type YansiReportReason,
 } from '@/lib/eza/mirror-network/yansiTrustActions';
+import {
+  applyOwnerYansiUnpublishedLocally,
+  demoteMirrorJourneyArtifactsByPublishedSlug,
+  noteOwnerYansiSlugPublication,
+} from '@/lib/eza/mirror/journey';
 
 export type YansiTrustActionsProps = {
   slug: string;
@@ -74,6 +79,8 @@ export default function YansiTrustActions({
       );
       return;
     }
+    applyOwnerYansiUnpublishedLocally(slug);
+    demoteMirrorJourneyArtifactsByPublishedSlug(slug);
     setPanel('done');
     setMessage(
       result.status === 'already_unpublished'

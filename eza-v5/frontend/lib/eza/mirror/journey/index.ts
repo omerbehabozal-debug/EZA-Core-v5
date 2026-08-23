@@ -162,11 +162,14 @@ export {
   applyPublishSuccessToArtifact,
   applyPublishFailureToArtifact,
   applyGenerationFailureToArtifact,
+  applyUnpublishToArtifact,
 } from './mirrorJourneyArtifact';
 
 export {
   listJourneyArtifactsForConversation,
   listMirrorJourneyArtifactsForConversation,
+  listAllJourneyArtifactsForOwner,
+  demoteMirrorJourneyArtifactsByPublishedSlug,
   loadMirrorJourneyArtifact,
   saveMirrorJourneyArtifact,
   upsertMirrorJourneyArtifact,
@@ -294,3 +297,26 @@ export {
   type FrozenStepEzaSnapshotInput,
   type JourneyPublishStepWithOptionalEza,
 } from './attachEzaSnapshotsToSelectedSteps';
+
+export {
+  type ConversationYansiVisualStatus,
+  YANSI_STATUS_TOOLTIP_READY,
+  YANSI_STATUS_TOOLTIP_PUBLISHED,
+  isReusablePreparedYansiArtifact,
+  findReusablePreparedYansiArtifact,
+  shouldSkipAynaSceneGeneration,
+  resolveConversationYansiStatus,
+  buildConversationYansiStatusMap,
+  withConversationYansiStatus,
+} from './resolveConversationYansiStatus';
+
+export {
+  type OwnerYansiPublicationRecord,
+  getOwnerYansiPublicationSnapshot,
+  subscribeOwnerYansiPublicationAuthority,
+  noteOwnerYansiSlugPublication,
+  applyOwnerYansiUnpublishedLocally,
+  markOwnerYansiPublicationAuthorityReadyEmpty,
+  resetOwnerYansiPublicationAuthorityForTests,
+  hydrateOwnerYansiPublicationAuthority,
+} from './ownerYansiPublicationAuthority';

@@ -565,6 +565,24 @@ html:has(.saina-page) body {
   min-width: 0;
 }
 
+.saina-sidebar .saina-sidebar-yansi-status {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  margin-left: 0.35rem;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.saina-sidebar .saina-sidebar-yansi-status[data-yansi-status='ready'] {
+  background: #c8954f;
+}
+
+.saina-sidebar .saina-sidebar-yansi-status[data-yansi-status='published'] {
+  background: #78977a;
+}
+
 .saina-conv-time {
   flex-shrink: 0;
   font-size: 10px;

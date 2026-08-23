@@ -53,6 +53,7 @@ export type ConversationTreeChatItem = {
   thumbImageUrl?: string | null;
   savedAt: string;
   isMirrorSource: boolean;
+  yansiStatus?: 'none' | 'ready' | 'published';
 };
 
 export const UNGROUPED_CONVERSATION_GROUP_ID = '__ungrouped__';

@@ -76,12 +76,14 @@ import {
   canReuseMappedPromptForJourney,
   completeJourneyGenerationLineageSeal,
   listJourneyArtifactsForConversation,
+  shouldSkipAynaSceneGeneration,
   subscribeMirrorJourneyArtifactStore,
   resolveJourneyArtifactShareIdentity,
   buildPublishCardFromArtifact,
   markMirrorJourneyArtifactPublished,
   markMirrorJourneyArtifactPublishFailed,
   markMirrorJourneyArtifactFailed,
+  noteOwnerYansiSlugPublication,
   loadMirrorJourneyArtifact,
   resolveMirrorJourneySharePayload,
   buildShareCardFromJourneyPayload,
@@ -591,6 +593,10 @@ export default function StandaloneObservationExperience({
                   lastRawSceneUrlRef.current?.trim() ||
                   rawScene?.trim() ||
                   null,
+              });
+              noteOwnerYansiSlugPublication(result.slug, {
+                visibility: 'public',
+                safetyStatus: 'open',
               });
             }
             const publishedScene =
@@ -1524,6 +1530,18 @@ export default function StandaloneObservationExperience({
       }
       if (!canCreateVisual) {
         setDailyStatus(visualLimitStatus());
+        return;
+      }
+      if (
+        shareCacheUserId &&
+        shouldSkipAynaSceneGeneration({
+          artifacts: listJourneyArtifactsForConversation(
+            shareCacheUserId,
+            conversationId
+          ),
+          journeyId: detail.journeyId,
+        })
+      ) {
         return;
       }
       runMirrorWithReveal(entries, { isUpdate: true });

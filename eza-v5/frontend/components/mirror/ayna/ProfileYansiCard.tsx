@@ -9,6 +9,10 @@ import {
   setYansiVisibility,
   unpublishYansi,
 } from '@/lib/eza/mirror-network/yansiTrustActions';
+import {
+  applyOwnerYansiUnpublishedLocally,
+  noteOwnerYansiSlugPublication,
+} from '@/lib/eza/mirror/journey';
 import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 
 type Props = {
@@ -54,6 +58,14 @@ export default function ProfileYansiCard({
     if (!result.ok) {
       setMessage('İşlem tamamlanamadı. Biraz sonra tekrar dene.');
       return;
+    }
+    if (action === 'unpublish') {
+      applyOwnerYansiUnpublishedLocally(item.slug);
+    } else {
+      noteOwnerYansiSlugPublication(item.slug, {
+        visibility: action,
+        safetyStatus: item.safetyStatus,
+      });
     }
     setMenuOpen(false);
     onOwnerMutated?.();

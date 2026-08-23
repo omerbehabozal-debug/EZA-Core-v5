@@ -29,6 +29,10 @@ import {
 } from '@/lib/eza/conversation-tree/groupExpandedState';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { renameChat } from '@/lib/standaloneChatArchive';
+import {
+  YANSI_STATUS_TOOLTIP_PUBLISHED,
+  YANSI_STATUS_TOOLTIP_READY,
+} from '@/lib/eza/mirror/journey/resolveConversationYansiStatus';
 import SainaGeometricMark from './SainaGeometricMark';
 
 function SainaConversationThumb({
@@ -298,6 +302,7 @@ export default function SainaConversationSidebar({
       thumbGradient: string;
       thumbImageUrl?: string | null;
       isMirrorSource?: boolean;
+      yansiStatus?: 'none' | 'ready' | 'published';
     },
     nested = false
   ) => {
@@ -354,14 +359,34 @@ export default function SainaConversationSidebar({
         >
           {renderConversationThumb(item)}
           <div className="saina-conv-body saina-conv-body--stacked">
-            <p className="saina-conv-title">
-              {item.isMirrorSource ? (
-                <span className="saina-conv-mirror-mark" aria-hidden>
-                  ✦{' '}
-                </span>
+            <div className="saina-conv-title-row">
+              <p className="saina-conv-title">
+                {item.isMirrorSource ? (
+                  <span className="saina-conv-mirror-mark" aria-hidden>
+                    ✦{' '}
+                  </span>
+                ) : null}
+                {item.title}
+              </p>
+              {item.yansiStatus === 'ready' || item.yansiStatus === 'published' ? (
+                <span
+                  className="saina-sidebar-yansi-status"
+                  data-yansi-status={item.yansiStatus}
+                  data-testid={`saina-sidebar-yansi-status-${item.id}`}
+                  title={
+                    item.yansiStatus === 'published'
+                      ? YANSI_STATUS_TOOLTIP_PUBLISHED
+                      : YANSI_STATUS_TOOLTIP_READY
+                  }
+                  aria-label={
+                    item.yansiStatus === 'published'
+                      ? YANSI_STATUS_TOOLTIP_PUBLISHED
+                      : YANSI_STATUS_TOOLTIP_READY
+                  }
+                  role="img"
+                />
               ) : null}
-              {item.title}
-            </p>
+            </div>
             <div className="saina-conv-meta-row">
               <span className="saina-conv-time">{item.time}</span>
             </div>

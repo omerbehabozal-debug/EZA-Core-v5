@@ -12,6 +12,8 @@ export type SainaConversationItem = {
   savedAt?: string;
   thumbGradient: string;
   thumbImageUrl?: string | null;
+  /** Quiet Yansı cue: none/omit = no dot, ready = amber, published = green. */
+  yansiStatus?: 'none' | 'ready' | 'published';
 };
 
 export type SainaConversationTimeGroup = {

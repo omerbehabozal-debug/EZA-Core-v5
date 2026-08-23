@@ -14,6 +14,7 @@ import {
   loadMirrorJourneyArtifact,
   markMirrorJourneyArtifactPublished,
 } from './mirrorJourneyArtifactStore';
+import { hydrateOwnerYansiPublicationAuthority } from './ownerYansiPublicationAuthority';
 
 export type RecoverPublishedJourneyResult = {
   recovered: boolean;
@@ -63,6 +64,10 @@ export async function recoverPublishedJourneyAfterLostResponse(input: {
   });
 
   const artifact = loadMirrorJourneyArtifact(owner, journeyId, journeyVersion);
+  if (artifact?.status === 'published') {
+    // Visibility lives on owner profile, not the frozen-journeys list.
+    await hydrateOwnerYansiPublicationAuthority();
+  }
   return {
     recovered: Boolean(artifact?.status === 'published'),
     item,

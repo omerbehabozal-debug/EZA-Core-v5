@@ -337,3 +337,20 @@ export function applyGenerationFailureToArtifact(
     updatedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * Owner withdrew a public Yansı. Keep the prepared artifact so Ayna can reopen it.
+ * Does not delete scene, sealed lineage, or journey identity.
+ */
+export function applyUnpublishToArtifact(
+  artifact: MirrorJourneyArtifact
+): MirrorJourneyArtifact {
+  if (artifact.status === 'generating' || artifact.status === 'failed') {
+    return artifact;
+  }
+  return {
+    ...artifact,
+    status: 'ready',
+    updatedAt: new Date().toISOString(),
+  };
+}
