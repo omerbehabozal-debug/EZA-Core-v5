@@ -109,7 +109,9 @@ describe('Phase 8.8F Stage 9 isolation', () => {
     expect(read('components/mirror-landing/MirrorYansiChainExperience.tsx')).toContain(
       'AynaAuthorRow'
     );
-    expect(shell).not.toContain('SainaHeroScene');
+    expect(shell).toContain('SainaHeroScene');
+    expect(shell).toContain('resolveYansiCreatorDisplayName');
+    expect(shell).toContain('resolveYansiCreatorHonorific');
     expect(shell).not.toContain('resolveSainaSidebarFooter');
   });
 
@@ -233,7 +235,9 @@ describe('Phase 8.8F creator identity contract', () => {
       'authorHonorific'
     );
     expect(shell).toContain('heroTitle');
-    expect(shell).not.toContain('SainaHeroScene');
+    expect(shell).toContain('SainaHeroScene');
+    expect(shell).toContain('resolveYansiCreatorDisplayName');
+    expect(shell).toContain('resolveYansiCreatorHonorific');
     expect(shell).not.toContain('resolveSainaSidebarFooter');
     expect(hero).not.toContain('SAINA Free');
     expect(hero).not.toContain('SAINA Guest');
