@@ -46,8 +46,11 @@ export const MIRROR_SHARE_PUBLISH_CONSENT_CANCEL = 'Vazgeç';
 
 /** Journey V1 — 8-question window decision (user-facing; no graph language). */
 export const MIRROR_JOURNEY_DECISION_BODY = '8 soruluk bir Yansı hazır.';
-export const MIRROR_JOURNEY_DECISION_CREATE = 'Yansı oluştur ve devam et';
-export const MIRROR_JOURNEY_DECISION_SKIP = 'Yansı oluşturmadan devam et';
+export const MIRROR_JOURNEY_DECISION_CREATE = 'Yansı oluştur';
+export const MIRROR_JOURNEY_DECISION_SKIP = 'Sohbete devam et';
+export const MIRROR_PUBLISH_BUSY_LABEL = 'Yayınlanıyor…';
+export const MIRROR_PUBLISH_FAILED_LABEL = 'Yayınlanamadı · Tekrar dene';
+export const MIRROR_PUBLISH_LIVE_LABEL = '✓ Yayında';
 export const MIRROR_JOURNEY_STATUS_GENERATING = 'Hazırlanıyor';
 export const MIRROR_JOURNEY_STATUS_READY = 'Hazır';
 export const MIRROR_AYNA_STATUS_PUBLISHED = 'Yayında';

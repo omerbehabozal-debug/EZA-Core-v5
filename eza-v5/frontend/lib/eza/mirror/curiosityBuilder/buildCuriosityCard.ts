@@ -53,6 +53,66 @@ function titleWordClamp(title: string, maxWords = 8): string {
   return words.slice(0, maxWords).join(' ');
 }
 
+const PRODUCT_META_PREFIX =
+  /^(bu ayna|bu mirror|this mirror|bu yansı|this reflection|bu sohbet|this conversation)[\s,:'’\-–—]*/i;
+
+function stripProductMeta(text: string): string {
+  let out = clean(text, 280);
+  for (let i = 0; i < 3; i += 1) {
+    const next = out.replace(PRODUCT_META_PREFIX, '').trim();
+    if (next === out) break;
+    out = next;
+  }
+  return out.replace(/^(ve|ile|için|of|the)\s+/i, '').trim();
+}
+
+function looksLikeQuestion(text: string): boolean {
+  return (
+    /[?？]/.test(text) ||
+    /^(neden|niçin|nasıl|why|how)\b/i.test(text) ||
+    /\b(mi|mı|mu|mü)\b/i.test(text)
+  );
+}
+
+function asEditorialTitle(raw: string, locale: CuriosityBuilderLocale): string {
+  let phrase = stripProductMeta(raw).replace(/[?？]+$/g, '').trim();
+  phrase = phrase.replace(/(nın|nin|nun|nün)$/i, '').trim();
+  if (!phrase) {
+    return locale === 'en' ? 'What is actually at stake?' : 'Asıl gerilim nerede?';
+  }
+  phrase = `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`;
+  const clamped = titleWordClamp(phrase, 8);
+  if (looksLikeQuestion(raw) && !/[?？]$/.test(clamped)) return `${clamped}?`;
+  return clamped;
+}
+
+function asEditorialSummary(
+  intent: string,
+  criteria: string,
+  locale: CuriosityBuilderLocale
+): string {
+  const body = stripProductMeta(intent).replace(
+    /\s*—\s*ilginç tarafı,.*$/i,
+    ''
+  );
+  if (
+    body &&
+    !/düzgün bir etiket|ilginç tarafı/i.test(body) &&
+    body.split(/\s+/).length >= 6 &&
+    !/(nın|nin|nun|nün)\s+\S+/i.test(body)
+  ) {
+    return ensurePeriod(clean(body, 220));
+  }
+  if (locale === 'en') {
+    return ensurePeriod(
+      `The live question turns on ${criteria} — not a tidy category label`
+    );
+  }
+  return ensurePeriod(
+    `${criteria.charAt(0).toUpperCase()}${criteria.slice(1)} bu merakı tek bir kategoriden daha iyi anlatıyor`
+  );
+}
+
 function criteriaPhrase(criteria: string[], locale: CuriosityBuilderLocale): string {
   const list = criteria.slice(0, 3);
   if (!list.length) return locale === 'en' ? 'feel and comfort' : 'his ve konfor';
@@ -206,11 +266,13 @@ function draftFromQuestion(
   locale: CuriosityBuilderLocale,
   variant: 0 | 1
 ): Draft | null {
-  const q = clean(anchors.question || '', 72);
+  const q = stripProductMeta(clean(anchors.question || '', 72));
   if (!q) return null;
   const title = titleWordClamp(q.includes('?') ? q : `${q}?`);
   const criteria = criteriaPhrase(anchors.decisionCriteria, locale);
-  const intent = clean(anchors.userIntent || anchors.topic || '', 100);
+  const intent = stripProductMeta(
+    clean(anchors.userIntent || anchors.topic || '', 100)
+  );
 
   if (locale === 'en') {
     const summary =
@@ -259,28 +321,26 @@ function draftFromTopicOrIntent(
   locale: CuriosityBuilderLocale,
   variant: 0 | 1
 ): Draft {
-  const topic = clean(anchors.topic || interpretation?.title || '', 64);
-  const intent = clean(anchors.userIntent || interpretation?.interpretationSummary || '', 120);
+  const topic = asEditorialTitle(
+    anchors.topic || interpretation?.title || '',
+    locale
+  );
+  const intent = stripProductMeta(
+    interpretation?.interpretationSummary || anchors.userIntent || ''
+  );
   const criteria = criteriaPhrase(anchors.decisionCriteria, locale);
-  const emotion = anchors.emotion[0] || (locale === 'en' ? 'quiet' : 'sessiz');
 
   if (locale === 'en') {
-    const title = titleWordClamp(
+    const title =
       variant === 0
         ? topic
-          ? `${topic}?`
-          : `What actually settles this?`
-        : intent
-          ? `${intent.split(/\s+/).slice(0, 6).join(' ')}?`
-          : `Where does the real tension sit?`
-    );
+        : asEditorialTitle(
+            intent.split(/\s+/).slice(0, 6).join(' ') || topic,
+            locale
+          );
     return {
       publicTitle: title,
-      publicSummary: ensurePeriod(
-        intent
-          ? `${intent} — interesting because ${criteria} outweigh a tidy label`
-          : `The pull is ${emotion} stakes around ${criteria}, not a category label`
-      ),
+      publicSummary: asEditorialSummary(intent, criteria, locale),
       continuationContext: clean(
         `Continue the same curiosity: ${topic || intent || criteria}; stay human, not catalog.`,
         280
@@ -288,26 +348,45 @@ function draftFromTopicOrIntent(
     };
   }
 
-  const title = titleWordClamp(
+  const title =
     variant === 0
       ? topic
-        ? topic.includes('?')
-          ? topic
-          : `${topic}?`
-        : 'Asıl gerilim nerede?'
-      : intent
-        ? `${intent.split(/\s+/).slice(0, 6).join(' ')}?`
-        : 'Kararı ne belirliyor?'
+      : asEditorialTitle(
+          intent.split(/\s+/).slice(0, 6).join(' ') || topic,
+          locale
+        );
+  return {
+    publicTitle: title,
+    publicSummary: asEditorialSummary(intent, criteria, locale),
+    continuationContext: clean(
+      `Aynı merakı sürdür: ${topic || intent || criteria}; katalog dili değil, insanî gerilim.`,
+      280
+    ),
+  };
+}
+
+function draftHumanCuriosity(
+  anchors: MirrorSemanticAnchorsV1,
+  interpretation: BuildCuriosityCardInput['interpretation'],
+  locale: CuriosityBuilderLocale
+): Draft {
+  const criteria = criteriaPhrase(anchors.decisionCriteria, locale);
+  const question = stripProductMeta(anchors.question || '');
+  const title = question
+    ? titleWordClamp(question.includes('?') ? question : `${question}?`)
+    : asEditorialTitle(anchors.topic || interpretation?.title || '', locale);
+  const summary = asEditorialSummary(
+    interpretation?.interpretationSummary || anchors.userIntent || '',
+    criteria,
+    locale
   );
   return {
     publicTitle: title,
-    publicSummary: ensurePeriod(
-      intent
-        ? `${intent} — ilginç tarafı, ${criteria}nin düzgün bir etiketten daha ağır basması`
-        : `Çekim, kategori değil; ${emotion} bir bahiste ${criteria}`
-    ),
+    publicSummary: summary,
     continuationContext: clean(
-      `Aynı merakı sürdür: ${topic || intent || criteria}; katalog dili değil, insanî gerilim.`,
+      locale === 'en'
+        ? `Stay with ${title}; keep the question human.`
+        : `${title} sorusunda kal; insanî meraktan ayrılma.`,
       280
     ),
   };
@@ -360,14 +439,23 @@ export function buildCuriosityCard(input: BuildCuriosityCardInput): CuriosityBui
     };
   }
 
-  // Both failed — return alternate (often sharper) with failures for diagnostics.
+  const human = draftHumanCuriosity(
+    input.anchors,
+    input.interpretation,
+    resolveLocale(input.locale)
+  );
+  const humanTest = runCuriosityClickTest(human);
   return {
     contractVersion: MIRROR_CURIOSITY_BUILDER_CONTRACT_VERSION,
-    ...alternate,
+    ...human,
     variant: 1,
-    clickTestPassed: false,
+    clickTestPassed: humanTest.passed,
     clickTestFailures: Array.from(
-      new Set([...primaryTest.failures, ...altTest.failures])
+      new Set([
+        ...primaryTest.failures,
+        ...altTest.failures,
+        ...humanTest.failures,
+      ])
     ),
   };
 }

@@ -26,7 +26,7 @@ import {
   confirmJourneyWindow,
   extractQaPairs,
   getAwaitingDecisionWindow,
-  isMirrorJourneyV1ClientEnabled,
+  isSainaYansiInvitationEnabled,
   loadMirrorJourneyArtifact,
   markJourneyWindowReady,
   markJourneyWindowReviewing,
@@ -39,7 +39,7 @@ import {
   resolveAuthorDisplayName,
   resolveParentJourneyId,
   saveJourneyConversationState,
-  skipJourneyWindow,
+  dismissJourneyWindowInvitation,
   syncJourneyConversationState,
   type JourneyConversationState,
   type Review8Draft,
@@ -257,7 +257,7 @@ export default function StandaloneChatInner() {
   const isMessageLimitReached =
     messageLimit != null &&
     accountEntitlements.usage.dailyMessagesUsed >= messageLimit;
-  const journeyV1On = isMirrorJourneyV1ClientEnabled();
+  const journeyV1On = isSainaYansiInvitationEnabled();
   const journeyMessages = useMemo(
     () =>
       messages.map((m) => ({
@@ -695,7 +695,10 @@ export default function StandaloneChatInner() {
 
   const handleJourneySkip = useCallback(() => {
     if (!journeyState || awaitingJourneyWindow == null) return;
-    const next = skipJourneyWindow(journeyState, awaitingJourneyWindow.windowIndex);
+    const next = dismissJourneyWindowInvitation(
+      journeyState,
+      awaitingJourneyWindow.windowIndex
+    );
     persistJourneyMutation(next);
     setJourneyReviewOpen(false);
     setJourneyReviewWindowIndex(null);

@@ -14,6 +14,22 @@ export function isMirrorJourneyV1ClientEnabled(
   return parseMirrorJourneyV1Flag(env[MIRROR_JOURNEY_CLIENT_FLAG]);
 }
 
+/**
+ * Phase 8.8F — Saina Yansı invitation uses the canonical 8 eligible Q/A window.
+ * Publish identity remains fail-closed behind isMirrorJourneyV1ClientEnabled.
+ */
+export function isSainaYansiInvitationEnabled(
+  env: Record<string, string | undefined> = process.env as Record<
+    string,
+    string | undefined
+  >
+): boolean {
+  if (env.NEXT_PUBLIC_EZA_YANSI_INVITATION === '0' || env.NEXT_PUBLIC_EZA_YANSI_INVITATION === 'false') {
+    return false;
+  }
+  return true;
+}
+
 /** Shared true/1 semantics used by FE flag + Phase 8.6 parity tests. */
 export function parseMirrorJourneyV1Flag(raw: string | undefined | null): boolean {
   const value = (raw || '').trim().toLowerCase();

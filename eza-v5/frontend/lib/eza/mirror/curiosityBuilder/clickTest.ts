@@ -70,11 +70,14 @@ export function runCuriosityClickTest(card: {
     failures.push('title_word_count');
   }
 
-  if (FORBIDDEN_OPENINGS.test(summary)) {
+  const blob = `${title} ${summary}`.toLowerCase();
+  if (FORBIDDEN_OPENINGS.test(summary) || FORBIDDEN_OPENINGS.test(title)) {
     failures.push('ai_opening');
   }
+  if (/düzgün bir etiket|ilginç tarafı/i.test(blob)) {
+    failures.push('mechanical_template');
+  }
 
-  const blob = `${title} ${summary}`.toLowerCase();
   for (const phrase of FORBIDDEN_PHRASES) {
     if (blob.includes(phrase)) {
       failures.push(`forbidden:${phrase}`);

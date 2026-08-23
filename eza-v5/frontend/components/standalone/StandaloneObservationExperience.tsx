@@ -76,6 +76,7 @@ import {
   canReuseMappedPromptForJourney,
   completeJourneyGenerationLineageSeal,
   listJourneyArtifactsForConversation,
+  findReusablePreparedYansiArtifact,
   shouldSkipAynaSceneGeneration,
   subscribeMirrorJourneyArtifactStore,
   resolveJourneyArtifactShareIdentity,
@@ -463,8 +464,16 @@ export default function StandaloneObservationExperience({
       sceneUrl?: string | null,
       options?: { refreshScene?: boolean }
     ): Promise<boolean> => {
-      if (!isAuthReady || !isAuthenticated) return false;
-      if (!card.mirrorV3Payload && !card.mirrorFinalInterpretation) return false;
+      if (!isAuthReady || !isAuthenticated) {
+        setShareLinkError('Yayınlamak için giriş yapmalısın.');
+        return false;
+      }
+      if (!card.mirrorV3Payload && !card.mirrorFinalInterpretation) {
+        setShareLinkError(
+          'Yansı henüz yayına hazır değil. Sahneyi oluşturup tekrar dene.'
+        );
+        return false;
+      }
       if (shouldSkipShareLinkPrepare({ inFlight: shareLinkInFlightRef.current, refreshScene: options?.refreshScene })) {
         return Boolean(card.mirrorShare?.shareUrl);
       }
@@ -564,36 +573,60 @@ export default function StandaloneObservationExperience({
               landing
             );
             const lineage = card.mirrorJourneyGenerationLineage;
-            if (
-              shareCacheUserId &&
-              isPublishableJourneyGenerationLineage(lineage)
-            ) {
-              saveMirrorShareLinkForJourney({
-                userId: shareCacheUserId,
-                conversationId,
-                journeyId: lineage.journeyId,
-                journeyVersion: lineage.journeyVersion,
-                slug: result.slug,
-                shareUrl: result.shareUrl,
-                publicTitle: landing.publicTitle,
-                publicSummary: landing.publicSummary,
-              });
-              markMirrorJourneyArtifactPublished(shareCacheUserId, {
-                journeyId: lineage.journeyId,
-                journeyVersion: lineage.journeyVersion,
-                slug: result.slug,
-                shareUrl: result.shareUrl,
-                publicTitle: landing.publicTitle,
-                publicSummary: landing.publicSummary,
-                continuationContext:
-                  card.mirrorV3Payload?.curiosityBundle?.publicLanding?.continuationContext?.trim() ||
-                  null,
-                sceneImageUrl:
-                  result.publicPayload.sceneImageUrl?.trim() ||
-                  lastRawSceneUrlRef.current?.trim() ||
-                  rawScene?.trim() ||
-                  null,
-              });
+            if (shareCacheUserId && result.slug) {
+              if (isPublishableJourneyGenerationLineage(lineage)) {
+                saveMirrorShareLinkForJourney({
+                  userId: shareCacheUserId,
+                  conversationId,
+                  journeyId: lineage.journeyId,
+                  journeyVersion: lineage.journeyVersion,
+                  slug: result.slug,
+                  shareUrl: result.shareUrl,
+                  publicTitle: landing.publicTitle,
+                  publicSummary: landing.publicSummary,
+                });
+                markMirrorJourneyArtifactPublished(shareCacheUserId, {
+                  journeyId: lineage.journeyId,
+                  journeyVersion: lineage.journeyVersion,
+                  slug: result.slug,
+                  shareUrl: result.shareUrl,
+                  publicTitle: landing.publicTitle,
+                  publicSummary: landing.publicSummary,
+                  continuationContext:
+                    card.mirrorV3Payload?.curiosityBundle?.publicLanding?.continuationContext?.trim() ||
+                    null,
+                  sceneImageUrl:
+                    result.publicPayload.sceneImageUrl?.trim() ||
+                    lastRawSceneUrlRef.current?.trim() ||
+                    rawScene?.trim() ||
+                    null,
+                });
+              } else {
+                const ready = findReusablePreparedYansiArtifact(
+                  listJourneyArtifactsForConversation(
+                    shareCacheUserId,
+                    conversationId
+                  )
+                );
+                if (ready) {
+                  markMirrorJourneyArtifactPublished(shareCacheUserId, {
+                    journeyId: ready.journeyId,
+                    journeyVersion: ready.journeyVersion,
+                    slug: result.slug,
+                    shareUrl: result.shareUrl,
+                    publicTitle: landing.publicTitle,
+                    publicSummary: landing.publicSummary,
+                    continuationContext:
+                      card.mirrorV3Payload?.curiosityBundle?.publicLanding?.continuationContext?.trim() ||
+                      null,
+                    sceneImageUrl:
+                      result.publicPayload.sceneImageUrl?.trim() ||
+                      lastRawSceneUrlRef.current?.trim() ||
+                      rawScene?.trim() ||
+                      null,
+                  });
+                }
+              }
               noteOwnerYansiSlugPublication(result.slug, {
                 visibility: 'public',
                 safetyStatus: 'open',
@@ -1076,19 +1109,32 @@ export default function StandaloneObservationExperience({
           const archive = getChatArchive(conversationId);
           archiveTitle = archive?.title;
 
-          // Journey V1: meaning from confirmed 8-window only (fail-closed).
+          // Confirmed Review 8 draft scopes meaning even when the env flag is unset
+          // (Saina invitation can run independently of NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1).
+          const ownerId = shareCacheUserId;
+          const draft = ownerId
+            ? loadActiveReview8Draft(ownerId, conversationId)
+            : null;
+          const scoped = resolveScopedJourneyMeaning(draft);
           if (isMirrorJourneyV1ClientEnabled()) {
-            const ownerId = shareCacheUserId;
-            const draft = ownerId
-              ? loadActiveReview8Draft(ownerId, conversationId)
-              : null;
-            const scoped = resolveScopedJourneyMeaning(draft);
             if (!scoped.ok) {
               throw new MirrorSceneError(
                 scoped.message || 'Yansı anlam kapsamı geçersiz.',
                 scoped.code
               );
             }
+            reuseMappedPrompt =
+              reuseMappedPromptRequested &&
+              canReuseMappedPromptForJourney({
+                card: cardForScene,
+                scope: scoped.scope,
+              });
+            if (!reuseMappedPrompt) {
+              prepareMessages = scoped.messages;
+              journeySemanticScope = scoped.scope;
+              shouldPrepare = true;
+            }
+          } else if (draft && scoped.ok) {
             reuseMappedPrompt =
               reuseMappedPromptRequested &&
               canReuseMappedPromptForJourney({
@@ -1512,7 +1558,7 @@ export default function StandaloneObservationExperience({
 
   /** Phase 8.6 — Review confirm → force Ayna scene create (reel hides create CTA). */
   useEffect(() => {
-    if (!conversationId || !isMirrorJourneyV1ClientEnabled()) return;
+    if (!conversationId) return;
 
     const onJourneyAynaGenerate = (event: Event) => {
       const detail = (event as CustomEvent<JourneyAynaGenerateDetail>).detail;
@@ -1635,8 +1681,14 @@ export default function StandaloneObservationExperience({
   }, [mirrorExport]);
 
   const handlePublishOrUpdate = useCallback(async () => {
-    if (!generatedDailyCard) return;
-    if (!isAuthReady) return;
+    if (!generatedDailyCard) {
+      setShareLinkError('Yayınlanacak Yansı bulunamadı.');
+      return;
+    }
+    if (!isAuthReady) {
+      setShareLinkError('Oturum doğrulanıyor. Biraz sonra tekrar dene.');
+      return;
+    }
     if (!isAuthenticated) {
       setIdentityOpen(true);
       return;
@@ -1644,9 +1696,12 @@ export default function StandaloneObservationExperience({
     if (!requireConfirmedReview8OrOpen()) return;
     setPublishBusy(true);
     try {
-      await prepareMirrorShareLink(generatedDailyCard, sceneImageUrl, {
+      const ok = await prepareMirrorShareLink(generatedDailyCard, sceneImageUrl, {
         refreshScene: true,
       });
+      if (!ok && !shareLinkError) {
+        setShareLinkError('Yayınlanamadı. Tekrar dene.');
+      }
     } finally {
       setPublishBusy(false);
     }
@@ -1657,6 +1712,7 @@ export default function StandaloneObservationExperience({
     prepareMirrorShareLink,
     requireConfirmedReview8OrOpen,
     sceneImageUrl,
+    shareLinkError,
   ]);
 
   const handleOpenPublicLanding = useCallback(() => {
@@ -2254,6 +2310,7 @@ export default function StandaloneObservationExperience({
                 isPublished={isPublished}
                 publishBusy={publishBusy || shareLinkStatus === 'preparing'}
                 canShare={isPlus}
+                publishError={shareLinkError}
                 showNewScene={
                   isPlus && readyRefreshCta === 'current' && typeof handleNewMirrorScene === 'function'
                 }

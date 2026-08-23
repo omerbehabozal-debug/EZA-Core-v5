@@ -6,6 +6,9 @@ import {
   MIRROR_PUBLISH_LABEL,
   MIRROR_REPUBLISH_LABEL,
   MIRROR_PUBLISH_DONE_LABEL,
+  MIRROR_PUBLISH_BUSY_LABEL,
+  MIRROR_PUBLISH_FAILED_LABEL,
+  MIRROR_PUBLISH_LIVE_LABEL,
   MIRROR_SHARE_SOCIAL_LABEL,
   MIRROR_NEW_SCENE_LABEL,
   MIRROR_SCENE_GENERATING,
@@ -18,6 +21,7 @@ export type MirrorPublishShareActionsProps = {
   publishBusy?: boolean;
   shareBusy?: boolean;
   canShare?: boolean;
+  publishError?: string | null;
   showNewScene?: boolean;
   sceneImageStatus?: MirrorSceneImageStatus;
   hasProductionQuota?: boolean;
@@ -55,6 +59,7 @@ export default function MirrorPublishShareActions({
   publishBusy = false,
   shareBusy = false,
   canShare = true,
+  publishError = null,
   showNewScene = false,
   sceneImageStatus = 'idle',
   hasProductionQuota = true,
@@ -86,8 +91,30 @@ export default function MirrorPublishShareActions({
         data-testid={isPublished ? 'mirror-republish-btn' : 'mirror-publish-btn'}
       >
         {publishBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-        {isPublished ? MIRROR_REPUBLISH_LABEL : MIRROR_PUBLISH_LABEL}
+        {publishBusy
+          ? MIRROR_PUBLISH_BUSY_LABEL
+          : isPublished
+            ? MIRROR_REPUBLISH_LABEL
+            : MIRROR_PUBLISH_LABEL}
       </button>
+      {isPublished && !publishBusy ? (
+        <p
+          className="text-center text-[11px] font-medium text-[rgba(231,180,91,0.9)]"
+          data-testid="mirror-publish-live-status"
+          role="status"
+        >
+          {MIRROR_PUBLISH_LIVE_LABEL}
+        </p>
+      ) : null}
+      {publishError && !publishBusy ? (
+        <p
+          className="text-center text-[11px] text-red-300/90"
+          data-testid="mirror-publish-error"
+          role="alert"
+        >
+          {publishError || MIRROR_PUBLISH_FAILED_LABEL}
+        </p>
+      ) : null}
 
       {isPublished && onOpenPublic ? (
         <button
@@ -100,9 +127,10 @@ export default function MirrorPublishShareActions({
         </button>
       ) : null}
 
+      {isPublished ? (
       <button
         type="button"
-        className={isPublished ? quietClass : secondaryClass}
+        className={quietClass}
         onClick={onShare}
         disabled={!canShare || shareBusy || publishBusy}
         aria-busy={shareBusy}
@@ -115,6 +143,7 @@ export default function MirrorPublishShareActions({
         )}
         {MIRROR_SHARE_SOCIAL_LABEL}
       </button>
+      ) : null}
 
       {canNewScene ? (
         <button

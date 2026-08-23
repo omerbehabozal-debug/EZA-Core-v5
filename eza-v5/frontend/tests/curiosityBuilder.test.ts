@@ -111,4 +111,31 @@ describe('Curiosity Builder + Click Test', () => {
     expect(fail.passed).toBe(false);
     expect(fail.failures.join(' ')).toMatch(/blog_title|ai_opening|forbidden/);
   });
+
+  it('does not ship Bu ayna product-meta titles or mechanical etiketten summaries', () => {
+    const sleepInterpretation: MirrorInterpretationV1 = {
+      title: 'Bu ayna uykunun kalitesi ve süresinin',
+      interpretationSummary:
+        'Bu ayna uykunun kalitesi ve süresinin insanların dinlenmiş hissetmesi — ilginç tarafı, his ve konforun düzgün bir etiketten daha ağır basması',
+      rationale: 'Sleep quality versus duration.',
+      imageIntent: 'A dim bedroom at night with a quiet phone glow.',
+      visualNarrative:
+        'A still bedroom where sleep is interrupted by a faint screen in the dark.',
+      atmosphereHint: 'tired, dim, nocturnal',
+      topicCategory: 'health',
+      confidence: 0.8,
+    };
+    const landing = buildPublicMirrorLandingFromInterpretation(sleepInterpretation, {
+      evidence: [
+        { text: '8 saat uyku', epistemic: 'user_stated', kind: 'preference' },
+        { text: 'dinlenmiş uyanmak', epistemic: 'user_stated', kind: 'preference' },
+      ],
+      locale: 'tr',
+    });
+    expect(landing.publicTitle.toLowerCase()).not.toMatch(/^bu ayna/);
+    expect(landing.publicSummary.toLowerCase()).not.toMatch(/^bu ayna/);
+    expect(landing.publicSummary).not.toMatch(/düzgün bir etiket/i);
+    expect(landing.publicSummary).not.toMatch(/ilginç tarafı/i);
+    expect(landing.publicTitle.split(/\s+/).length).toBeGreaterThanOrEqual(3);
+  });
 });

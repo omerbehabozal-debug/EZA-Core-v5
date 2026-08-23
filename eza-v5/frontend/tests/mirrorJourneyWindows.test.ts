@@ -11,6 +11,8 @@ import {
   enterPrivateChatMode,
   extractQaPairs,
   getAwaitingDecisionWindow,
+  dismissJourneyWindowInvitation,
+  isSainaYansiInvitationEnabled,
   isMirrorJourneyV1ClientEnabled,
   isPrivateChatMode,
   listPublishedJourneyChain,
@@ -292,6 +294,25 @@ describe('Mirror Journey Phase 3.7 source blocks', () => {
       env: { NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1: 'false' },
     });
     expect(contract).toEqual({ ok: true, legacy: true });
+  });
+
+  it('Saina invitation stays on when Journey V1 env flag is unset', () => {
+    expect(
+      isSainaYansiInvitationEnabled({
+        NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1: undefined,
+      })
+    ).toBe(true);
+  });
+
+  it('dismissing the invitation does not enter Private Mode; next 8-pair block can invite again', () => {
+    let state = sync(buildPairs(8));
+    const awaiting = getAwaitingDecisionWindow(state);
+    expect(awaiting).not.toBeNull();
+    state = dismissJourneyWindowInvitation(state, awaiting!.windowIndex);
+    expect(isPrivateChatMode(state)).toBe(false);
+    expect(getAwaitingDecisionWindow(state)).toBeNull();
+    state = sync(buildPairs(16), state);
+    expect(getAwaitingDecisionWindow(state)?.windowIndex).toBe(1);
   });
 
   it('Private Mode: Q20 pending blocks Q21 before A20 completes', () => {

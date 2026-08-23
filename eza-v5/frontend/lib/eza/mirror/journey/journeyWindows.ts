@@ -333,6 +333,32 @@ export function skipJourneyWindow(
   return enterPrivateChatMode(state, windowIndex);
 }
 
+/**
+ * Phase 8.8F — defer this window's invitation without entering Private Mode.
+ * Conversation continues; the next full 8-pair block may invite again.
+ */
+export function dismissJourneyWindowInvitation(
+  state: JourneyConversationState,
+  windowIndex: number
+): JourneyConversationState {
+  const now = new Date().toISOString();
+  return {
+    ...state,
+    windows: state.windows.map((w) =>
+      w.windowIndex === windowIndex && w.status === 'awaiting_decision'
+        ? {
+            ...w,
+            status: 'skipped' as const,
+            decidedAt: now,
+            draftKey: null,
+            journeyId: null,
+          }
+        : w
+    ),
+    updatedAt: now,
+  };
+}
+
 export function markJourneyWindowReviewing(
   state: JourneyConversationState,
   windowIndex: number

@@ -49,6 +49,7 @@ export {
   createEmptyJourneyConversationState,
   getAwaitingDecisionWindow,
   skipJourneyWindow,
+  dismissJourneyWindowInvitation,
   enterPrivateChatMode,
   markJourneyWindowReviewing,
   reopenJourneyWindowDecision,
@@ -213,7 +214,11 @@ export {
   formatParentLineageLabel,
 } from './aynaAuthorDisplay';
 
-export { isMirrorJourneyV1ClientEnabled, parseMirrorJourneyV1Flag } from './journeyClientFlag';
+export {
+  isMirrorJourneyV1ClientEnabled,
+  parseMirrorJourneyV1Flag,
+  isSainaYansiInvitationEnabled,
+} from './journeyClientFlag';
 export {
   JOURNEY_AYNA_GENERATE_EVENT,
   requestJourneyAynaGeneration,

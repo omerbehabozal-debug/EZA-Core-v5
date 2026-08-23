@@ -3858,6 +3858,12 @@ html:has(.saina-page) body {
   transition: padding-bottom 120ms ease-out;
 }
 
+.saina-composer-zone [data-testid="journey-window-decision"] {
+  position: relative;
+  z-index: 9;
+  margin-bottom: 0.75rem;
+}
+
 .saina-composer-inner {
   width: 100%;
   margin: 0;
