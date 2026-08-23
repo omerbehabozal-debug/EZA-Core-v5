@@ -113,18 +113,22 @@ export function buildConversationYansiStatusMap(
   publicationBySlug: Map<string, OwnerYansiPublicationRecord>,
   publicationAuthorityReady: boolean
 ): Record<string, ConversationYansiVisualStatus> {
-  const byConversation = new Map<string, MirrorJourneyArtifact[]>();
-  for (const artifact of artifacts) {
-    const conversationId = artifact.sourceConversationId?.trim();
-    if (!conversationId) continue;
-    const list = byConversation.get(conversationId) ?? [];
+  const byConversation: Record<string, MirrorJourneyArtifact[]> = {};
+  for (let i = 0; i < artifacts.length; i += 1) {
+    const artifact = artifacts[i];
+    const conversationId = artifact?.sourceConversationId?.trim();
+    if (!conversationId || !artifact) continue;
+    const list = byConversation[conversationId] ?? [];
     list.push(artifact);
-    byConversation.set(conversationId, list);
+    byConversation[conversationId] = list;
   }
   const out: Record<string, ConversationYansiVisualStatus> = {};
-  for (const [conversationId, list] of byConversation) {
+  const conversationIds = Object.keys(byConversation);
+  for (let i = 0; i < conversationIds.length; i += 1) {
+    const conversationId = conversationIds[i];
+    if (!conversationId) continue;
     out[conversationId] = resolveConversationYansiStatus({
-      artifacts: list,
+      artifacts: byConversation[conversationId] ?? [],
       publicationBySlug,
       publicationAuthorityReady,
     });

@@ -41,10 +41,20 @@ function setSnapshot(next: OwnerYansiPublicationSnapshot): void {
   emit();
 }
 
+function clonePublicationBySlug(
+  source: Map<string, OwnerYansiPublicationRecord>
+): Map<string, OwnerYansiPublicationRecord> {
+  const next = new Map<string, OwnerYansiPublicationRecord>();
+  source.forEach((record, slug) => {
+    next.set(slug, record);
+  });
+  return next;
+}
+
 export function getOwnerYansiPublicationSnapshot(): OwnerYansiPublicationSnapshot {
   return {
     ready: snapshot.ready,
-    bySlug: new Map(snapshot.bySlug),
+    bySlug: clonePublicationBySlug(snapshot.bySlug),
   };
 }
 
@@ -63,7 +73,7 @@ export function noteOwnerYansiSlugPublication(
 ): void {
   const key = slug.trim().toLowerCase();
   if (!key) return;
-  const bySlug = new Map(snapshot.bySlug);
+  const bySlug = clonePublicationBySlug(snapshot.bySlug);
   bySlug.set(key, {
     slug: key,
     visibility: (record.visibility || '').trim().toLowerCase() || 'private',
