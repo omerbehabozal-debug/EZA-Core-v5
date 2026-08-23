@@ -13,6 +13,7 @@ import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSc
 import MirrorAlternateChildrenSheet from '@/components/mirror-landing/MirrorAlternateChildrenSheet';
 import AynaAuthorRow from '@/components/mirror/ayna/AynaAuthorRow';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
+import YansiExperienceShareButton from '@/components/mirror-landing/YansiExperienceShareButton';
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 import {
@@ -371,13 +372,16 @@ export default function MirrorYansiChainExperience({
                 {summary ? (
                   <p className="text-sm leading-relaxed text-[#c9bba8]">{summary}</p>
                 ) : null}
-                <AynaAuthorRow
-                  displayName={node.authorDisplayName}
-                  honorific={node.authorHonorific}
-                  onOpenProfile={() =>
-                    router.push(authorProfilePath(node.artifact.authorUserId))
-                  }
-                />
+                <div className="yansi-identity-header">
+                  <AynaAuthorRow
+                    displayName={node.authorDisplayName}
+                    honorific={node.authorHonorific}
+                    onOpenProfile={() =>
+                      router.push(authorProfilePath(node.artifact.authorUserId))
+                    }
+                  />
+                  <YansiExperienceShareButton slug={node.artifact.slug} />
+                </div>
                 {node.artifact.parentSlug ? (
                   <AynaParentLineageRow
                     parentAuthorDisplayName={node.parentAuthorDisplayName}

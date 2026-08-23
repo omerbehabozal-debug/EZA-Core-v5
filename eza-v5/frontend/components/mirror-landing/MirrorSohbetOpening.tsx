@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import MirrorThoughtCardButton from '@/components/mirror-landing/MirrorThoughtCard';
+import { cancelYansiSpeech } from '@/lib/eza/mirror/yansiSpeech';
 import { createMirrorSohbetSession } from '@/lib/eza/mirror-network/createSohbetSession';
 import {
   MIRROR_GUEST_CHAT_REPLY_PARAM,
@@ -55,6 +56,10 @@ export default function MirrorSohbetOpening({
   const [quotaDetail, setQuotaDetail] = useState<QuotaErrorDetail | null>(null);
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    cancelYansiSpeech();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +129,7 @@ export default function MirrorSohbetOpening({
       )}
       data-mirror-sohbet
       data-mirror-sohbet-slug={slug}
+      data-yansi-experience-mode="b"
     >
       <header className="flex items-center gap-3 px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <Link

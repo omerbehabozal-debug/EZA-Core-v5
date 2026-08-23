@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import ChatBubble from '@/components/standalone/ChatBubble';
 import FrozenAnswerReveal from '@/components/mirror-landing/FrozenAnswerReveal';
+import { useYansiExperienceSession } from '@/components/mirror-landing/YansiExperienceSession';
 import SainaGeometricMark from '@/components/saina/SainaGeometricMark';
 import {
   afterAnswerRevealed,
@@ -40,6 +41,7 @@ import {
   trackYansiExperienceStarted,
 } from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
 import { cn } from '@/lib/utils';
+import { cancelYansiSpeech } from '@/lib/eza/mirror/yansiSpeech';
 
 export type FrozenReplayProgressNotice = {
   slug: string;
@@ -93,10 +95,14 @@ function RevealingAssistantBubble({
   text,
   isFirst,
   onComplete,
+  charsPerTick,
+  tickMs,
 }: {
   text: string;
   isFirst: boolean;
   onComplete: () => void;
+  charsPerTick?: number;
+  tickMs?: number;
 }) {
   return (
     <article className="saina-msg-row saina-msg-row--ai" data-testid="saina-msg-ai">
@@ -109,7 +115,12 @@ function RevealingAssistantBubble({
         ) : null}
         <div className="saina-msg-ai">
           <p className="saina-msg-prose saina-msg-prose--ai whitespace-pre-wrap">
-            <FrozenAnswerReveal text={text} onComplete={onComplete} />
+            <FrozenAnswerReveal
+              text={text}
+              onComplete={onComplete}
+              charsPerTick={charsPerTick}
+              tickMs={tickMs}
+            />
           </p>
         </div>
       </div>
@@ -125,6 +136,7 @@ export default function MirrorFrozenReplay({
   continueLabel = YANSI_OWN_CONTINUATION_CTA,
   chainEmbedded = false,
 }: MirrorFrozenReplayProps) {
+  const experience = useYansiExperienceSession();
   const { user } = useAuth();
   const ownerUserId = user?.user_id?.trim() || null;
   const [prefsTick, setPrefsTick] = useState(0);
@@ -171,6 +183,11 @@ export default function MirrorFrozenReplay({
     }));
   });
 
+  useEffect(() => {
+    const last = [...turns].reverse().find((t) => !t.revealing);
+    if (last?.answer) experience?.registerRevealedAnswer(last.answer);
+  }, [turns, experience]);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
   const scrollRootRef = useRef<HTMLDivElement>(null);
@@ -209,13 +226,19 @@ export default function MirrorFrozenReplay({
     return () => root.removeEventListener('scroll', onScroll);
   }, []);
 
-  const scrollToBottom = useCallback((force = false) => {
-    if (!force && userScrolledUp.current) return;
-    const el = bottomRef.current;
-    if (el && typeof el.scrollIntoView === 'function') {
-      el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
-  }, []);
+  const scrollToBottom = useCallback(
+    (force = false) => {
+      if (!force && userScrolledUp.current) return;
+      const el = bottomRef.current;
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({
+          behavior: experience?.revealPace.scrollBehavior ?? 'smooth',
+          block: 'end',
+        });
+      }
+    },
+    [experience?.revealPace.scrollBehavior]
+  );
 
   const nextStep = getNextReplayStep(frozen, session);
 
@@ -252,14 +275,15 @@ export default function MirrorFrozenReplay({
   };
 
   const handleRevealComplete = useCallback(
-    (stepIndex: number) => {
+    (stepIndex: number, answerText: string) => {
+      experience?.notifyAnswerRevealed(answerText);
       setTurns((prev) =>
         prev.map((t) => (t.stepIndex === stepIndex ? { ...t, revealing: false } : t))
       );
       setSession((prev) => afterAnswerRevealed(prev, frozen.steps.length));
       requestAnimationFrame(() => scrollToBottom(false));
     },
-    [frozen.steps.length, scrollToBottom]
+    [experience, frozen.steps.length, scrollToBottom]
   );
 
   const continueHref = `/m/${encodeURIComponent(frozen.slug)}/sohbet`;
@@ -269,6 +293,7 @@ export default function MirrorFrozenReplay({
     <Link
       href={continueHref}
       onClick={() => {
+        cancelYansiSpeech();
         trackLandingCtaClicked(frozen.slug);
         trackSeedStart(frozen.slug);
       }}
@@ -288,6 +313,7 @@ export default function MirrorFrozenReplay({
       className={cn('flex min-h-0 w-full flex-1 flex-col', className)}
       data-testid="mirror-frozen-replay"
       data-journey-version={pinnedVersionRef.current}
+      data-yansi-rhythm={experience?.rhythm ?? 'normal'}
       aria-label="Yansı deneyimi"
     >
       <div
@@ -313,7 +339,9 @@ export default function MirrorFrozenReplay({
                 <RevealingAssistantBubble
                   text={turn.answer}
                   isFirst={index === 0}
-                  onComplete={() => handleRevealComplete(turn.stepIndex)}
+                  charsPerTick={experience?.revealPace.charsPerTick}
+                  tickMs={experience?.revealPace.tickMs}
+                  onComplete={() => handleRevealComplete(turn.stepIndex, turn.answer)}
                 />
               ) : (
                 <ChatBubble

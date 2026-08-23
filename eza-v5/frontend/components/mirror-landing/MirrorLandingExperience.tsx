@@ -10,6 +10,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Calendar, Sparkles } from 'lucide-react';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
+import YansiExperienceControls from '@/components/mirror-landing/YansiExperienceControls';
+import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
+import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
 import { MIRROR_V3_BRAND_SIGNATURE } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import type { MirrorLandingSurface } from '@/lib/eza/mirror-network/publicTypes';
@@ -40,6 +43,7 @@ export default function MirrorLandingExperience({
 }: MirrorLandingExperienceProps) {
   const [frozenState, setFrozenState] = useState<FrozenLoadState>({ status: 'loading' });
   const [replayStarted, setReplayStarted] = useState(false);
+  const isDesktop = useSainaCompactShell();
 
   useEffect(() => {
     trackLandingViewed(surface.slug);
@@ -100,6 +104,7 @@ export default function MirrorLandingExperience({
       data-mirror-landing
       data-mirror-landing-slug={surface.slug}
       data-replay-started={replayStarted ? 'true' : 'false'}
+      data-yansi-experience-mode={replayStarted ? 'a' : 'landing'}
     >
       <header className="relative z-[2] flex items-center justify-between px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.22em] text-[#c9bba8]">
@@ -186,10 +191,13 @@ export default function MirrorLandingExperience({
           />
           </YansiExposureRoot>
         ) : frozenState.status === 'ready' ? (
-          <MirrorYansiChainExperience
-            rootArtifact={frozenState.artifact}
-            className="min-h-0 flex-1"
-          />
+          <YansiExperienceSessionProvider slug={frozenState.artifact.slug}>
+            <MirrorYansiChainExperience
+              rootArtifact={frozenState.artifact}
+              className="min-h-0 flex-1"
+            />
+            {isDesktop ? <YansiExperienceControls /> : null}
+          </YansiExperienceSessionProvider>
         ) : (
           <div
             className="flex flex-1 flex-col items-center justify-center gap-3 text-center"
