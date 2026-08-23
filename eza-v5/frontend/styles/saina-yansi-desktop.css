@@ -1012,8 +1012,7 @@
     box-shadow: none;
   }
 
-  .saina-app-root.saina-standalone-shell .saina-notifications-panel,
-  .saina-app-root.saina-standalone-shell .saina-profile-menu {
+  .saina-app-root.saina-standalone-shell .saina-notifications-panel {
     border: 1px solid rgba(232, 226, 215, 0.14);
     background: rgba(12, 14, 14, 0.94);
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);

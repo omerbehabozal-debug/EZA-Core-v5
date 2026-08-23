@@ -221,7 +221,7 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     );
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
-    fireEvent.click(screen.getByTestId('saina-safe-mode-on'));
+    fireEvent.click(screen.getByTestId('saina-safe-mode-switch'));
     expect(onSafeOnlyModeChange).toHaveBeenCalledWith(true);
   });
 
