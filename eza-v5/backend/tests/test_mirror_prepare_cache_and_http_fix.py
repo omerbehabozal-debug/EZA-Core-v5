@@ -602,3 +602,14 @@ def test_18_no_d3_review_gate():
         assert "MirrorDirectorReview" not in src
         assert "requiredChanges" not in src
         assert "approve_or_revise" not in src
+
+
+def test_19_prepare_does_not_500_on_stale_cache_or_lineage_bind():
+    import backend.services.mirror.mirror_director_prepare as prepare_mod
+    import backend.routers.standalone_mirror as router_mod
+
+    prepare_src = inspect.getsource(prepare_mod.prepare_mirror_director_draft)
+    assert "prepare cache payload rejected" in prepare_src
+    router_src = inspect.getsource(router_mod.prepare_director_draft_endpoint)
+    assert "journey slug lookup failed" in router_src
+    assert "journey lineage bind failed after prepare" in router_src

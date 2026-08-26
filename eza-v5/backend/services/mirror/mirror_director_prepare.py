@@ -181,7 +181,15 @@ async def prepare_mirror_director_draft(
             interpretationVersion=contract_meta.get("interpretationVersion"),
             mapperVersion=contract_meta.get("mapperVersion"),
         )
-        return MirrorPrepareDirectorDraftResponse.model_validate({**cached, "reusedCache": True})
+        try:
+            return MirrorPrepareDirectorDraftResponse.model_validate(
+                {**cached, "reusedCache": True}
+            )
+        except Exception:
+            logger.exception(
+                "prepare cache payload rejected generationRequestId=%s — treating as miss",
+                generation_request_id[:48],
+            )
 
     emit_director_event(
         "director_cache_miss",

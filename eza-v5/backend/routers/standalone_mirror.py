@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """EZA Mirror — standalone scene image generation (provider adapter)."""
 
+import logging
+
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +38,8 @@ from backend.services.mirror.mirror_image_service import generate_mirror_scene
 from backend.services.mirror.mirror_director_prepare import prepare_mirror_director_draft
 from backend.services.mirror.mirror_director_telemetry import emit_director_event
 from backend.services.mirror.narrative_alignment_detect import detect_image_claims
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/standalone/mirror", tags=["Standalone — Mirror"])
 
@@ -250,15 +254,22 @@ async def prepare_director_draft_endpoint(
                 get_mirror_network_node_by_slug_for_user,
             )
 
-            existing_node = await get_mirror_network_node_by_slug_for_user(
-                db,
-                user_id=actor.user.id,
-                slug=journey_slug,
-            )
-            if existing_node is not None:
-                existing_published_version = int(
-                    getattr(existing_node, "journey_version", None) or 1
+            try:
+                existing_node = await get_mirror_network_node_by_slug_for_user(
+                    db,
+                    user_id=actor.user.id,
+                    slug=journey_slug,
                 )
+                if existing_node is not None:
+                    existing_published_version = int(
+                        getattr(existing_node, "journey_version", None) or 1
+                    )
+            except Exception:
+                logger.exception(
+                    "journey slug lookup failed slug=%s — continuing without published version",
+                    journey_slug[:48],
+                )
+                existing_published_version = None
 
         journey_meta = validate_journey_semantic_scope(
             journey_scope=body.journeySemanticScope.model_dump(),
@@ -302,73 +313,81 @@ async def prepare_director_draft_endpoint(
         )
         import hashlib
 
-        interp_hash = None
-        if result.finalInterpretation is not None:
-            interp_hash = interp_hash_fn(result.finalInterpretation)
-        mapped_hash = None
-        if result.mappedPrompt and result.mappedPrompt.prompt:
-            mapped_hash = hashlib.sha256(
-                result.mappedPrompt.prompt.strip().encode("utf-8")
-            ).hexdigest()
+        try:
+            interp_hash = None
+            if result.finalInterpretation is not None:
+                interp_hash = interp_hash_fn(result.finalInterpretation)
+            mapped_hash = None
+            if result.mappedPrompt and result.mappedPrompt.prompt:
+                mapped_hash = hashlib.sha256(
+                    result.mappedPrompt.prompt.strip().encode("utf-8")
+                ).hexdigest()
 
-        lineage = build_journey_generation_lineage(
-            journey_id=str(journey_meta.get("journeyId") or ""),
-            journey_version=int(journey_meta.get("journeyVersion") or 1),
-            source_conversation_id=str(
-                journey_meta.get("sourceConversationId") or body.conversationId
-            ),
-            window_index=int(journey_meta.get("windowIndex") or 0),
-            window_start=int(journey_meta.get("windowStart") or 0),
-            window_end=int(journey_meta.get("windowEnd") or 0),
-            window_hash=str(journey_meta.get("windowHash") or ""),
-            scoped_input_hash=str(journey_meta.get("scopedInputHash") or ""),
-            selected_steps_hash=str(journey_meta.get("selectedStepsHash") or ""),
-            generation_id=body.generationRequestId,
-            interpretation_hash=interp_hash,
-            mapped_prompt_hash=mapped_hash,
-            parent_journey_id=journey_meta.get("parentJourneyId"),
-            source_block_hash=str(journey_meta.get("sourceBlockHash") or "") or None,
-            selected_count=int(journey_meta.get("selectedCount") or 0) or None,
-            selected_steps=journey_meta.get("selectedSteps"),
-        )
-        from backend.services.mirror.journey_generation_record import (
-            upsert_journey_generation_record,
-        )
+            lineage = build_journey_generation_lineage(
+                journey_id=str(journey_meta.get("journeyId") or ""),
+                journey_version=int(journey_meta.get("journeyVersion") or 1),
+                source_conversation_id=str(
+                    journey_meta.get("sourceConversationId") or body.conversationId
+                ),
+                window_index=int(journey_meta.get("windowIndex") or 0),
+                window_start=int(journey_meta.get("windowStart") or 0),
+                window_end=int(journey_meta.get("windowEnd") or 0),
+                window_hash=str(journey_meta.get("windowHash") or ""),
+                scoped_input_hash=str(journey_meta.get("scopedInputHash") or ""),
+                selected_steps_hash=str(journey_meta.get("selectedStepsHash") or ""),
+                generation_id=body.generationRequestId,
+                interpretation_hash=interp_hash,
+                mapped_prompt_hash=mapped_hash,
+                parent_journey_id=journey_meta.get("parentJourneyId"),
+                source_block_hash=str(journey_meta.get("sourceBlockHash") or "") or None,
+                selected_count=int(journey_meta.get("selectedCount") or 0) or None,
+                selected_steps=journey_meta.get("selectedSteps"),
+            )
+            from backend.services.mirror.journey_generation_record import (
+                upsert_journey_generation_record,
+            )
 
-        upsert_journey_generation_record(
-            body.generationRequestId,
-            {
-                "journeyId": lineage["journeyId"],
-                "journeyVersion": lineage["journeyVersion"],
-                "sourceConversationId": lineage["sourceConversationId"],
-                "parentJourneyId": lineage.get("parentJourneyId"),
-                "windowIndex": lineage["windowIndex"],
-                "windowStart": lineage["windowStart"],
-                "windowEnd": lineage["windowEnd"],
-                "blockIndex": lineage.get("blockIndex"),
-                "blockStart": lineage.get("blockStart"),
-                "blockEnd": lineage.get("blockEnd"),
-                "windowHash": lineage["windowHash"],
-                "sourceBlockHash": lineage.get("sourceBlockHash"),
-                "scopedInputHash": lineage["scopedInputHash"],
-                "selectedStepsHash": lineage["selectedStepsHash"],
-                "selectedCount": lineage.get("selectedCount"),
-                "interpretationHash": interp_hash,
-                "mappedPromptHash": mapped_hash,
-            },
-        )
-        result = result.model_copy(
-            update={
-                "semanticScope": journey_meta.get("semanticScope"),
-                "semanticSourceJourneyId": journey_meta.get("journeyId"),
-                "semanticWindowIndex": journey_meta.get("windowIndex"),
-                "semanticWindowHash": journey_meta.get("windowHash"),
-                "scopedInputHash": journey_meta.get("scopedInputHash"),
-                "selectedStepsHash": journey_meta.get("selectedStepsHash"),
-                "journeyVersion": journey_meta.get("journeyVersion"),
-                "journeyGenerationLineage": lineage,
-            }
-        )
+            upsert_journey_generation_record(
+                body.generationRequestId,
+                {
+                    "journeyId": lineage["journeyId"],
+                    "journeyVersion": lineage["journeyVersion"],
+                    "sourceConversationId": lineage["sourceConversationId"],
+                    "parentJourneyId": lineage.get("parentJourneyId"),
+                    "windowIndex": lineage["windowIndex"],
+                    "windowStart": lineage["windowStart"],
+                    "windowEnd": lineage["windowEnd"],
+                    "blockIndex": lineage.get("blockIndex"),
+                    "blockStart": lineage.get("blockStart"),
+                    "blockEnd": lineage.get("blockEnd"),
+                    "windowHash": lineage["windowHash"],
+                    "sourceBlockHash": lineage.get("sourceBlockHash"),
+                    "scopedInputHash": lineage["scopedInputHash"],
+                    "selectedStepsHash": lineage["selectedStepsHash"],
+                    "selectedCount": lineage.get("selectedCount"),
+                    "interpretationHash": interp_hash,
+                    "mappedPromptHash": mapped_hash,
+                },
+            )
+            result = result.model_copy(
+                update={
+                    "semanticScope": journey_meta.get("semanticScope"),
+                    "semanticSourceJourneyId": journey_meta.get("journeyId"),
+                    "semanticWindowIndex": journey_meta.get("windowIndex"),
+                    "semanticWindowHash": journey_meta.get("windowHash"),
+                    "scopedInputHash": journey_meta.get("scopedInputHash"),
+                    "selectedStepsHash": journey_meta.get("selectedStepsHash"),
+                    "journeyVersion": journey_meta.get("journeyVersion"),
+                    "journeyGenerationLineage": lineage,
+                }
+            )
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception(
+                "journey lineage bind failed after prepare generationRequestId=%s",
+                body.generationRequestId[:48],
+            )
     if result.usedDirector and result.mappedPrompt:
         emit_director_event(
             "prepare_ready_for_image",

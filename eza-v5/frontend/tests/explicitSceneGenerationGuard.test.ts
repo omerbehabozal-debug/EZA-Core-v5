@@ -131,9 +131,9 @@ describe('publish happens once after scene, not in commitMirrorReady', () => {
 });
 
 describe('explicit retry and new-scene re-arm generation', () => {
-  it('retry arms allowAuto then calls generate', () => {
+  it('retry arms allowAuto then generates immediately (idle re-arm is not enough)', () => {
     expect(experienceSrc).toMatch(
-      /handleRetryMirrorScene[\s\S]*allowAutoSceneGenerationRef\.current = true[\s\S]*handleGenerateMirrorScene\(\)/
+      /handleRetryMirrorScene[\s\S]*allowAutoSceneGenerationRef\.current = true[\s\S]*setSceneImageStatus\('idle'\)[\s\S]*handleGenerateMirrorScene\(\)/
     );
   });
 
@@ -156,6 +156,30 @@ describe('Director card update does not mid-flight setState churn', () => {
     expect(generateIdx).toBeGreaterThan(-1);
     // Card React update happens after generateMirrorScene call site
     expect(setCardIdx).toBeGreaterThan(generateIdx);
+  });
+});
+
+describe('Yansı invitation generate does not send scoped prepare without Journey V1', () => {
+  it('omits journeySemanticScope assignment when the identity flag is off', () => {
+    const genIdx = experienceSrc.indexOf('const handleGenerateMirrorScene');
+    const genBlock = experienceSrc.slice(genIdx, genIdx + 14000);
+    expect(genBlock).toContain('if (isMirrorJourneyV1ClientEnabled())');
+    expect(genBlock).not.toMatch(
+      /else if \(draft && scoped\.ok\) \{[\s\S]*journeySemanticScope = scoped\.scope/
+    );
+  });
+
+  it('Review kickoff commits immediately and keeps pending until generate starts', () => {
+    expect(experienceSrc).toContain('immediate: true');
+    expect(experienceSrc).toContain(
+      'consumePendingJourneyAynaGeneration(conversationId)'
+    );
+    const kickIdx = experienceSrc.indexOf('const kickJourneyAynaGenerate');
+    const kickBlock = experienceSrc.slice(kickIdx, kickIdx + 1800);
+    expect(kickBlock).toContain('immediate: true');
+    expect(kickBlock).not.toMatch(
+      /runMirrorWithReveal\(entries, \{ isUpdate: true, immediate: true \}\);\s*consumePending/
+    );
   });
 });
 

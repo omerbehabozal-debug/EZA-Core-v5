@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import MirrorPublishShareActions from '@/components/mirror/MirrorPublishShareActions';
 import {
+  consumePendingJourneyAynaGeneration,
   dismissJourneyWindowInvitation,
   getAwaitingDecisionWindow,
   isPrivateChatMode,
   isSainaYansiInvitationEnabled,
+  readPendingJourneyAynaGeneration,
+  requestJourneyAynaGeneration,
   syncJourneyConversationState,
   type JourneyMessageLike,
 } from '@/lib/eza/mirror/journey';
@@ -131,5 +136,32 @@ describe('Phase 8.8F.3 Yansı lifecycle closure', () => {
     expect(card.publicSummary.toLowerCase()).not.toMatch(/^bu ayna/);
     expect(card.publicSummary).not.toMatch(/düzgün bir etiket/i);
     expect(card.publicSummary).not.toMatch(/ilginç tarafı/i);
+  });
+
+  it('persists Review→Ayna generate kickoff until the panel consumes it', () => {
+    sessionStorage.clear();
+    requestJourneyAynaGeneration({
+      conversationId: 'conv-1',
+      journeyId: 'journey-sleep',
+      journeyVersion: 1,
+    });
+    expect(readPendingJourneyAynaGeneration('conv-1')?.journeyId).toBe(
+      'journey-sleep'
+    );
+    expect(readPendingJourneyAynaGeneration('other')).toBeNull();
+    expect(consumePendingJourneyAynaGeneration('conv-1')?.journeyId).toBe(
+      'journey-sleep'
+    );
+    expect(readPendingJourneyAynaGeneration('conv-1')).toBeNull();
+  });
+
+  it('Review confirm opens Ayna before dispatching the generate kickoff', () => {
+    const chat = readFileSync(
+      join(process.cwd(), 'components/standalone/StandaloneChatInner.tsx'),
+      'utf8'
+    );
+    expect(chat).toMatch(
+      /onOpenMirror\?\.\(\);\s*requestJourneyAynaGeneration\(/
+    );
   });
 });

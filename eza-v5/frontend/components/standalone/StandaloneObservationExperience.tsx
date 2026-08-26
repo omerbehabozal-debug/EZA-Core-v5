@@ -91,6 +91,8 @@ import {
   publicPreviewFromJourneySharePayload,
   hydratePublishedJourneysFromServer,
   JOURNEY_AYNA_GENERATE_EVENT,
+  readPendingJourneyAynaGeneration,
+  consumePendingJourneyAynaGeneration,
   recoverPublishedJourneyAfterLostResponse,
   resolveJourneyOwnerKey,
   type JourneyAynaGenerateDetail,
@@ -243,6 +245,9 @@ export default function StandaloneObservationExperience({
   /** Last generationId successfully bound at publish — for stale/supersede checks. */
   const lastPublishedGenerationIdRef = useRef<string | null>(null);
   const sceneGenerationInFlightRef = useRef(false);
+  /** Same-instance Review→Ayna kick; resets on remount so pending can retry. */
+  const journeyAynaKickKeyRef = useRef<string | null>(null);
+  const revealTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
   /** Armed only by explicit create / update / retry / new-scene — blocks chat remount regen. */
   const allowAutoSceneGenerationRef = useRef(false);
   const lastRawSceneUrlRef = useRef<string | null>(null);
@@ -792,7 +797,7 @@ export default function StandaloneObservationExperience({
   );
 
   const runMirrorWithReveal = useCallback(
-    (sourceEntries: SavedBehavioralEntry[], options?: { isUpdate?: boolean }) => {
+    (sourceEntries: SavedBehavioralEntry[], options?: { isUpdate?: boolean; immediate?: boolean }) => {
       // Drop stale chat background + cache immediately so create/update UX
       // never shows the previous Mirror while the new one is generating.
       clearChatBackgroundScene(conversationId);
@@ -801,8 +806,8 @@ export default function StandaloneObservationExperience({
       setSceneImageUrl(null);
       setSceneImageStatus('idle');
       setSceneExtras({});
-      setDailyStatus('revealing');
-      window.setTimeout(() => {
+
+      const commit = () => {
         try {
           if (options?.isUpdate) {
             sceneAutoKeyRef.current = null;
@@ -811,16 +816,40 @@ export default function StandaloneObservationExperience({
           const ok = commitMirrorReady(sourceEntries);
           if (!ok) {
             setDailyStatus('insufficient');
-            return;
           }
         } catch {
           resetGeneratedCardState();
           setDailyStatus('error');
         }
+      };
+
+      if (revealTimeoutRef.current != null) {
+        window.clearTimeout(revealTimeoutRef.current);
+        revealTimeoutRef.current = null;
+      }
+
+      if (options?.immediate) {
+        commit();
+        return;
+      }
+
+      setDailyStatus('revealing');
+      revealTimeoutRef.current = window.setTimeout(() => {
+        revealTimeoutRef.current = null;
+        commit();
       }, MIRROR_REVEAL_DURATION_MS);
     },
     [clearChatBackgroundScene, commitMirrorReady, conversationId, resetGeneratedCardState]
   );
+
+  useEffect(() => {
+    return () => {
+      if (revealTimeoutRef.current != null) {
+        window.clearTimeout(revealTimeoutRef.current);
+        revealTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const showExistingMirrorCard = useCallback(() => {
     const mirrorEntries = conversationId
@@ -1079,6 +1108,9 @@ export default function StandaloneObservationExperience({
 
       sceneGenerationInFlightRef.current = true;
       sceneAutoKeyRef.current = autoKey;
+      if (conversationId) {
+        consumePendingJourneyAynaGeneration(conversationId);
+      }
       setSceneImageStatus('generating');
       setSceneImageUrl(null);
       setHybridTextFallback(false);
@@ -1109,8 +1141,9 @@ export default function StandaloneObservationExperience({
           const archive = getChatArchive(conversationId);
           archiveTitle = archive?.title;
 
-          // Confirmed Review 8 draft scopes meaning even when the env flag is unset
-          // (Saina invitation can run independently of NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1).
+          // Scoped prepare is fail-closed behind Journey V1 identity. Invitation
+          // can run with that flag off — use the same full-conversation prepare
+          // as the Ayna CTA so client hashes cannot 422 the scene birth.
           const ownerId = shareCacheUserId;
           const draft = ownerId
             ? loadActiveReview8Draft(ownerId, conversationId)
@@ -1123,18 +1156,6 @@ export default function StandaloneObservationExperience({
                 scoped.code
               );
             }
-            reuseMappedPrompt =
-              reuseMappedPromptRequested &&
-              canReuseMappedPromptForJourney({
-                card: cardForScene,
-                scope: scoped.scope,
-              });
-            if (!reuseMappedPrompt) {
-              prepareMessages = scoped.messages;
-              journeySemanticScope = scoped.scope;
-              shouldPrepare = true;
-            }
-          } else if (draft && scoped.ok) {
             reuseMappedPrompt =
               reuseMappedPromptRequested &&
               canReuseMappedPromptForJourney({
@@ -1170,15 +1191,55 @@ export default function StandaloneObservationExperience({
           generationPipeline: conversationId ? 'D2_V5' : 'LEGACY_V3',
           isGenerationStillActive: (id) => activeGenerationIdRef.current === id,
           prepare: async () => {
-            const prepared = await prepareDirectorDraft({
-              conversationId: conversationId!,
-              generationRequestId,
-              messages: prepareMessages,
-              // Journey V1: archive title must not alter scoped meaning.
-              ...(journeySemanticScope
-                ? { journeySemanticScope }
-                : { title: archiveTitle }),
-            });
+            const runPrepare = (scope?: typeof journeySemanticScope) =>
+              prepareDirectorDraft({
+                conversationId: conversationId!,
+                generationRequestId,
+                messages: scope ? prepareMessages : (() => {
+                  const archiveMessages = getChatArchive(conversationId!)?.messages ?? [];
+                  const live = getActiveConversationLiveMessages(conversationId!);
+                  const merged = [
+                    ...archiveMessages,
+                    ...live.filter(
+                      (m) => !archiveMessages.some((a) => a.id === m.id)
+                    ),
+                  ];
+                  return buildPrepareMessageDtos(merged);
+                })(),
+                ...(scope
+                  ? {
+                      journeySemanticScope: {
+                        semanticScope: scope.semanticScope,
+                        journeyId: scope.journeyId,
+                        journeyVersion: scope.journeyVersion,
+                        sourceConversationId: scope.sourceConversationId,
+                        parentJourneyId: scope.parentJourneyId,
+                        windowIndex: scope.windowIndex,
+                        windowStart: scope.windowStart,
+                        windowEnd: scope.windowEnd,
+                        blockIndex: scope.blockIndex,
+                        blockStart: scope.blockStart,
+                        blockEnd: scope.blockEnd,
+                        selectedSteps: scope.selectedSteps,
+                        sourceBlockSteps: scope.sourceBlockSteps,
+                      },
+                    }
+                  : { title: archiveTitle }),
+              });
+
+            let prepared;
+            try {
+              prepared = await runPrepare(journeySemanticScope);
+            } catch (err) {
+              // Invitation can run with Journey V1 identity flag off. If scoped
+              // prepare is rejected, fall back to the full conversation so a
+              // scene can still be born; publish identity stays fail-closed.
+              if (journeySemanticScope && !isMirrorJourneyV1ClientEnabled()) {
+                prepared = await runPrepare(undefined);
+              } else {
+                throw err;
+              }
+            }
             if (journeySemanticScope?.selectedSteps?.length === 8) {
               return {
                 ...prepared,
@@ -1560,24 +1621,16 @@ export default function StandaloneObservationExperience({
   useEffect(() => {
     if (!conversationId) return;
 
-    const onJourneyAynaGenerate = (event: Event) => {
-      const detail = (event as CustomEvent<JourneyAynaGenerateDetail>).detail;
+    const kickJourneyAynaGenerate = (detail: JourneyAynaGenerateDetail) => {
       if (!detail || detail.conversationId !== conversationId) return;
-      if (entries.length < MIRROR_MIN_SAMPLES) {
-        if (shareCacheUserId && detail.journeyId) {
-          markMirrorJourneyArtifactFailed(shareCacheUserId, {
-            journeyId: detail.journeyId,
-            journeyVersion: detail.journeyVersion ?? 1,
-            message: 'Yansı için sohbet henüz yeterli değil.',
-          });
-          setArtifactRevision((n) => n + 1);
-        }
-        return;
-      }
+      if (entries.length < MIRROR_MIN_SAMPLES) return;
       if (!canCreateVisual) {
+        consumePendingJourneyAynaGeneration(conversationId);
         setDailyStatus(visualLimitStatus());
         return;
       }
+      const kickKey = `${detail.conversationId}:${detail.journeyId}:${detail.journeyVersion ?? 1}`;
+      if (journeyAynaKickKeyRef.current === kickKey) return;
       if (
         shareCacheUserId &&
         shouldSkipAynaSceneGeneration({
@@ -1588,9 +1641,22 @@ export default function StandaloneObservationExperience({
           journeyId: detail.journeyId,
         })
       ) {
+        consumePendingJourneyAynaGeneration(conversationId);
         return;
       }
-      runMirrorWithReveal(entries, { isUpdate: true });
+      journeyAynaKickKeyRef.current = kickKey;
+      runMirrorWithReveal(entries, { isUpdate: true, immediate: true });
+    };
+
+    const pending = readPendingJourneyAynaGeneration(conversationId);
+    if (pending) {
+      kickJourneyAynaGenerate(pending);
+    }
+
+    const onJourneyAynaGenerate = (event: Event) => {
+      const detail = (event as CustomEvent<JourneyAynaGenerateDetail>).detail;
+      if (!detail) return;
+      kickJourneyAynaGenerate(detail);
     };
 
     window.addEventListener(JOURNEY_AYNA_GENERATE_EVENT, onJourneyAynaGenerate);
@@ -2071,11 +2137,31 @@ export default function StandaloneObservationExperience({
   ]);
 
   const handleRetryMirrorScene = useCallback(() => {
+    if (!isAuthReady) return;
+    if (!canCreateVisual) {
+      setDailyStatus(visualLimitStatus());
+      return;
+    }
+    sceneGenerationInFlightRef.current = false;
     sceneAutoKeyRef.current = null;
     allowAutoSceneGenerationRef.current = true;
     setSceneExtras({});
+    if (!generatedDailyCard?.visual) {
+      const ok = commitMirrorReady(entries);
+      if (!ok) return;
+      return;
+    }
+    setSceneImageStatus('idle');
     void handleGenerateMirrorScene();
-  }, [handleGenerateMirrorScene]);
+  }, [
+    isAuthReady,
+    canCreateVisual,
+    visualLimitStatus,
+    generatedDailyCard,
+    commitMirrorReady,
+    entries,
+    handleGenerateMirrorScene,
+  ]);
 
   const isScenePosterVisible = useMemo(
     () =>

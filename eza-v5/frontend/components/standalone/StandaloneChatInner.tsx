@@ -785,6 +785,7 @@ export default function StandaloneChatInner() {
             journeyId: draft.journeyId,
           });
         if (!reusableExists) {
+          onOpenMirror?.();
           requestJourneyAynaGeneration({
             conversationId: chatId,
             journeyId: draft.journeyId,
@@ -804,7 +805,15 @@ export default function StandaloneChatInner() {
         });
       }, 0);
     },
-    [journeyState, journeyReviewWindowIndex, persistJourneyMutation, journeyOwnerId, chatId, user]
+    [
+      journeyState,
+      journeyReviewWindowIndex,
+      persistJourneyMutation,
+      journeyOwnerId,
+      chatId,
+      user,
+      onOpenMirror,
+    ]
   );
 
   const sainaConversations = useMemo(

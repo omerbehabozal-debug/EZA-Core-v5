@@ -221,7 +221,10 @@ export {
 } from './journeyClientFlag';
 export {
   JOURNEY_AYNA_GENERATE_EVENT,
+  JOURNEY_AYNA_GENERATE_PENDING_KEY,
   requestJourneyAynaGeneration,
+  readPendingJourneyAynaGeneration,
+  consumePendingJourneyAynaGeneration,
   type JourneyAynaGenerateDetail,
 } from './journeyAynaGenerate';
 export {

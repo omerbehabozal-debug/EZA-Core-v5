@@ -110,7 +110,11 @@ def save_mirror_scene_data_url(data_url: str) -> str | None:
         return None
     try:
         return save_mirror_scene_bytes(image_bytes)
-    except ValueError:
+    except (ValueError, OSError) as exc:
+        logger.warning(
+            "mirror_scene_asset_persist_failed err=%s",
+            type(exc).__name__,
+        )
         return None
 
 

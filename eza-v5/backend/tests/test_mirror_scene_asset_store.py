@@ -65,8 +65,17 @@ def test_ensure_persistable_mirror_scene_url_passes_through_https():
     assert ensure_persistable_mirror_scene_url(raw) == raw
 
 
-def test_ensure_persistable_mirror_scene_url_rejects_blob():
-    assert ensure_persistable_mirror_scene_url("blob:https://localhost/scene") is None
+def test_ensure_persistable_mirror_scene_url_oserror_returns_none(
+    asset_dir: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def boom(*_args, **_kwargs):
+        raise OSError("read-only filesystem")
+
+    monkeypatch.setattr(
+        "backend.services.mirror.mirror_scene_asset_store.save_mirror_scene_bytes",
+        boom,
+    )
+    assert ensure_persistable_mirror_scene_url(TINY_PNG_DATA_URL) is None
 
 
 def test_resolve_scene_image_url_persists_incoming_data_url(asset_dir: Path):
