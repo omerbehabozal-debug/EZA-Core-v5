@@ -247,7 +247,7 @@ export default function StandaloneObservationExperience({
   const sceneGenerationInFlightRef = useRef(false);
   /** Same-instance Review→Ayna kick; resets on remount so pending can retry. */
   const journeyAynaKickKeyRef = useRef<string | null>(null);
-  const revealTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const revealTimeoutRef = useRef<number | null>(null);
   /** Armed only by explicit create / update / retry / new-scene — blocks chat remount regen. */
   const allowAutoSceneGenerationRef = useRef(false);
   const lastRawSceneUrlRef = useRef<string | null>(null);
