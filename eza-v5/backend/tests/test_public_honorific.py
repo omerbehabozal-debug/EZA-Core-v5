@@ -118,7 +118,10 @@ def test_system_assign_public_honorific_rejects_unknown():
 
 def test_assign_public_honorific_logs_ids_not_email(caplog):
     user = SimpleNamespace(id=uuid4(), public_honorific=None, email="secret@example.com")
-    with caplog.at_level("INFO"):
+    with caplog.at_level(
+        "INFO",
+        logger="backend.services.mirror_network.public_identity",
+    ):
         assign_public_honorific(user, "bilgin", actor="operator_cli")
     joined = " ".join(record.getMessage() for record in caplog.records)
     assert "public_honorific_changed" in joined
