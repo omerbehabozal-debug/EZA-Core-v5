@@ -608,7 +608,7 @@ html:has(.saina-page) body {
 
 .saina-brand-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.875rem;
   padding: 0 0.25rem;
 }
@@ -620,15 +620,9 @@ html:has(.saina-page) body {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  padding: 0.2rem;
-  border-radius: 0.875rem;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(231, 180, 91, 0.12), transparent 68%),
-    linear-gradient(145deg, rgba(231, 180, 91, 0.18), rgba(15, 43, 37, 0.55));
-  box-shadow:
-    0 0 0 1px rgba(231, 180, 91, 0.18),
-    0 0 24px rgba(231, 180, 91, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  padding: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .saina-brand-mark .saina-geometric-mark {
@@ -640,6 +634,13 @@ html:has(.saina-page) body {
   min-width: 0;
 }
 
+.saina-brand-wordmark {
+  font-family: ui-rounded, 'Segoe UI', system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  text-transform: none;
+}
+
 .saina-brand-title {
   font-size: 1.25rem;
   letter-spacing: -0.01em;
@@ -648,17 +649,27 @@ html:has(.saina-page) body {
   text-shadow: 0 0 18px rgba(231, 180, 91, 0.14);
 }
 
+.saina-brand-wordmark-lockup {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.saina-brand-wordmark-img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
 .saina-geometric-mark {
   display: block;
   object-fit: contain;
 }
 
-.saina-geometric-mark--light {
-  filter: brightness(1.08);
-}
-
+.saina-geometric-mark--light,
 .saina-geometric-mark--dark {
-  filter: brightness(0.72) saturate(0.85);
+  filter: none;
 }
 
 .saina-brand-tagline {
@@ -3335,9 +3346,9 @@ html:has(.saina-page) body {
 
 .saina-msg-ai-title {
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: none;
   color: var(--saina-logo-gold, #e7b45b);
   line-height: 1;
 }
@@ -5998,11 +6009,14 @@ html:has(.saina-page) body {
   margin-bottom: 1.5rem;
 }
 
+.saina-auth-page__brand .saina-geometric-mark {
+  margin-inline: auto;
+}
+
 .saina-auth-page__brand-title {
-  margin: 0.75rem 0 0.35rem;
-  font-size: 1.5rem;
-  letter-spacing: 0.08em;
-  color: #f6f4ef;
+  margin: 0.75rem 0 0.2rem;
+  display: flex;
+  justify-content: center;
 }
 
 .saina-auth-page__title {

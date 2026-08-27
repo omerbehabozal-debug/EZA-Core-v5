@@ -44,7 +44,7 @@ LOW_CONFIDENCE_THRESHOLD = 0.60
 
 ChatCompleter = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
-_SYSTEM_PROMPT = """You analyze a conversation to prepare a SAINA Mirror (visual memory cover).
+_SYSTEM_PROMPT = """You analyze a conversation to prepare a biligN Mirror (visual memory cover).
 Return ONLY valid JSON matching this schema (no markdown):
 {
   "primaryTopic": one of vehicle|travel|architecture|technology_ai|finance|health|food_culture|family|education|spiritual_reflection|general_curiosity|other,

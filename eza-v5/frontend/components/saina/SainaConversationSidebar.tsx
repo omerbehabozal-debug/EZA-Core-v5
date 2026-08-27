@@ -9,6 +9,7 @@ import {
   SAINA_CONV_DELETE,
   SAINA_CONV_MENU_LABEL,
   SAINA_CONV_RENAME,
+  SAINA_EMPTY_CHAT_PREVIEW,
   SAINA_NEW_CHAT,
   SAINA_PLAN_LOADING_BODY,
   SAINA_PLAN_LOGIN_CTA,
@@ -33,6 +34,7 @@ import {
   YANSI_STATUS_TOOLTIP_PUBLISHED,
   YANSI_STATUS_TOOLTIP_READY,
 } from '@/lib/eza/mirror/journey/resolveConversationYansiStatus';
+import SainaBrandWordmark from './SainaBrandWordmark';
 import SainaGeometricMark from './SainaGeometricMark';
 
 function SainaConversationThumb({
@@ -72,7 +74,7 @@ export const MOCK_SAINA_CONVERSATIONS: SainaConversationItem[] = [
   {
     id: 'new-chat',
     title: 'Yeni Sohbet',
-    preview: 'SAINA ile düşün, keşfet…',
+    preview: SAINA_EMPTY_CHAT_PREVIEW,
     time: 'Az önce',
     thumbGradient: 'linear-gradient(135deg, #173B45, #0F2B25, #041B17)',
   },
@@ -607,10 +609,10 @@ export default function SainaConversationSidebar({
           <div className="saina-sidebar-top">
             <div className="saina-brand-row">
               <div className="saina-brand-mark">
-                <SainaGeometricMark size={28} variant="gold" />
+                <SainaGeometricMark size={34} />
               </div>
               <div className="saina-brand-text">
-                <p className="saina-brand-title saina-serif">{SAINA_BRAND}</p>
+                <SainaBrandWordmark height={20} />
                 <p className="saina-brand-powered">{SAINA_POWERED}</p>
               </div>
               {showMobileChrome && mobileOpen ? (
@@ -695,7 +697,7 @@ export default function SainaConversationSidebar({
                 : items.map((item) => renderConversationRow(item))}
           </div>
 
-          <nav className="saina-sidebar-dock" aria-label="SAINA gezinme">
+          <nav className="saina-sidebar-dock" aria-label={`${SAINA_BRAND} gezinme`}>
             <button
               type="button"
               className={cn(

@@ -361,7 +361,7 @@ async def stream_standalone_response(
             if isinstance(e, OpenAIHTTPError)
             else create_openai_diagnostic(e)
         )
-        user_message = "SAINA şu an yanıt veremiyor. Lütfen biraz sonra tekrar dene."
+        user_message = "biligN şu an yanıt veremiyor. Lütfen biraz sonra tekrar dene."
         if diagnostic.get("errorCode") == "insufficient_quota" or "insufficient_quota" in str(e):
             user_message = (
                 "OpenAI hesap kotası veya ödeme kısıtı nedeniyle yanıt verilemiyor. "

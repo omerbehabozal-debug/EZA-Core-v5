@@ -58,8 +58,8 @@ describe('SainaHeroScene creator identity', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       "Hiç Mardin'de olmadım ama taşlarını merak ettim"
     );
-    expect(screen.queryByText('SAINA Free')).not.toBeInTheDocument();
-    expect(screen.queryByText('SAINA Premium ✦')).not.toBeInTheDocument();
+    expect(screen.queryByText('biligN Free')).not.toBeInTheDocument();
+    expect(screen.queryByText('biligN Premium ✦')).not.toBeInTheDocument();
     expect(screen.queryByText(/@mertkaraca/i)).not.toBeInTheDocument();
   });
 

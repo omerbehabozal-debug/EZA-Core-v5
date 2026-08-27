@@ -8,8 +8,8 @@ import { buildSainaAuthHref } from '@/lib/eza/sainaIdentity';
 import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 import SainaSocialAuthButtons from '@/components/saina/SainaSocialAuthButtons';
+import SainaBrandWordmark from '@/components/saina/SainaBrandWordmark';
 import {
-  SAINA_BRAND,
   SAINA_IDENTITY_MODAL_DISMISS,
   SAINA_IDENTITY_MODAL_LINES,
   SAINA_IDENTITY_MODAL_LOGIN,
@@ -76,9 +76,7 @@ export default function IdentityModal({ open, onClose }: IdentityModalProps) {
           <User className="h-5 w-5" strokeWidth={1.75} />
         </div>
 
-        <p className="saina-serif text-xs font-semibold uppercase tracking-[0.18em] text-[#d4af37]/85">
-          {SAINA_BRAND}
-        </p>
+        <SainaBrandWordmark className="mx-auto" height={16} />
 
         <div className="mt-4 space-y-2 text-sm leading-relaxed text-white/78" id="saina-identity-title">
           {SAINA_IDENTITY_MODAL_LINES.map((line) => (

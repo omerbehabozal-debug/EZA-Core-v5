@@ -1,6 +1,4 @@
-/**
- * SAINA account tier entitlements — mirrors backend/core/account/tiers.py (PR1).
- */
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 
 export type AccountTier = 'guest' | 'free' | 'mini' | 'standard' | 'premium';
 
@@ -39,11 +37,11 @@ export type AccountEntitlementsResponse = {
 };
 
 export const TIER_LABELS: Record<AccountTier, string> = {
-  guest: 'SAINA Guest',
-  free: 'SAINA Free',
-  mini: 'SAINA Mini',
-  standard: 'SAINA Standard',
-  premium: 'SAINA Premium',
+  guest: `${SAINA_BRAND} Guest`,
+  free: `${SAINA_BRAND} Free`,
+  mini: `${SAINA_BRAND} Mini`,
+  standard: `${SAINA_BRAND} Standard`,
+  premium: `${SAINA_BRAND} Premium`,
 };
 
 const PREMIUM_DAILY_MESSAGE_CAP = 5000;

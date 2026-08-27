@@ -15,7 +15,7 @@ function snapshotForAccess(
 ): AccountEntitlementsResponse {
   return {
     tier,
-    label: `SAINA ${tier}`,
+    label: `biligN ${tier}`,
     entitlements: {
       tier,
       dailyMessageLimit: 20,

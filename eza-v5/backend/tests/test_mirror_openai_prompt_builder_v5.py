@@ -82,7 +82,7 @@ def test_v5_detected_by_marker_without_contract_field():
 
 
 def test_v5_health_abstract_safe_passthrough():
-    health_prompt = """Create a premium editorial SAINA Mirror poster.
+    health_prompt = """Create a premium editorial biligN Mirror poster.
 
 TOPIC HINT:
 Thyroid health curiosity

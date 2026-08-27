@@ -6,7 +6,7 @@ const baseSnapshot = (
   overrides: Partial<AccountEntitlementsResponse> = {}
 ): AccountEntitlementsResponse => ({
   tier: 'free',
-  label: 'SAINA Free',
+  label: 'biligN Free',
   entitlements: {
     tier: 'free',
     dailyMessageLimit: 20,

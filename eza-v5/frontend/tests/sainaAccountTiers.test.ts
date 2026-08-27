@@ -8,25 +8,25 @@ import {
 
 describe('sainaAccountTiers', () => {
   it('resolves account labels for each tier', () => {
-    expect(resolveSainaAccountLabel('free')).toBe('SAINA Free');
-    expect(resolveSainaAccountLabel('mini')).toBe('SAINA Mini ✦');
-    expect(resolveSainaAccountLabel('standard')).toBe('SAINA Standard ✦');
-    expect(resolveSainaAccountLabel('premium')).toBe('SAINA Premium ✦');
+    expect(resolveSainaAccountLabel('free')).toBe('biligN Free');
+    expect(resolveSainaAccountLabel('mini')).toBe('biligN Mini ✦');
+    expect(resolveSainaAccountLabel('standard')).toBe('biligN Standard ✦');
+    expect(resolveSainaAccountLabel('premium')).toBe('biligN Premium ✦');
   });
 
   it('builds sidebar footer content per tier', () => {
     expect(resolveSainaSidebarFooter('anonymous')).toMatchObject({
-      tierLabel: 'SAINA Guest',
+      tierLabel: 'biligN Guest',
       actionLabel: 'Giriş Yap →',
       showLogin: true,
     });
     expect(resolveSainaSidebarFooter('free')).toMatchObject({
-      tierLabel: 'SAINA Free',
+      tierLabel: 'biligN Free',
       actionLabel: 'Hesabını Yükselt →',
       showUpgrade: true,
     });
     expect(resolveSainaSidebarFooter('premium')).toMatchObject({
-      tierLabel: 'SAINA Premium ✦',
+      tierLabel: 'biligN Premium ✦',
       showUpgrade: false,
     });
   });

@@ -6,6 +6,7 @@ import {
   assertMirrorLandingSurfaceClean,
   pickMirrorLandingSurface,
 } from '@/lib/eza/mirror-network/landingSurface';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 
 /** Phase 8.4.1 — trust-authoritative; withdrawn Yansı must not linger in page cache. */
 export const dynamic = 'force-dynamic';
@@ -19,11 +20,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const result = await fetchPublicMirrorBySlug(slug, { trustAuthoritative: true });
   if (!result.ok) {
-    return { title: 'Ayna bulunamadı · SAINA' };
+    return { title: `Ayna bulunamadı · ${SAINA_BRAND}` };
   }
   const surface = pickMirrorLandingSurface(result.data);
   return {
-    title: `${surface.cardTitle} · SAINA`,
+    title: `${surface.cardTitle} · ${SAINA_BRAND}`,
     description: surface.curiosityContext.slice(0, 160),
     openGraph: surface.sceneImageUrl
       ? { images: [{ url: surface.sceneImageUrl, width: 1080, height: 1350 }] }

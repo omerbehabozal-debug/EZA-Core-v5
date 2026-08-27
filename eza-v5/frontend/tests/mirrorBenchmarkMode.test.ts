@@ -64,7 +64,7 @@ describe('mirrorBenchmarkMode style lens', () => {
   it('never injects panda/human into generate prompt', () => {
     const visual: MirrorVisualPromptPayload = {
       characterId: 'saina',
-      characterName: 'SAINA',
+      characterName: 'biligN',
       personaFamilyId: 'balanced_calm',
       topicLabel: 'travel',
       atmosphereLabel: 'x',

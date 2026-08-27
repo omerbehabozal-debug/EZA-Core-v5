@@ -1,12 +1,10 @@
 /**
 
- * SAINA Conversation Mirror — static mock copy (Sprint A / A.5).
-
+ * Conversation Mirror — static mock copy (Sprint A / A.5).
+ * Product brand wordmark is biligN (lowercase + capital N). Constant names stay SAINA_*.
  */
 
-
-
-export const SAINA_BRAND = 'SAINA';
+export const SAINA_BRAND = 'biligN';
 
 export const SAINA_TAGLINE = 'Your Human-AI reflection';
 
@@ -119,9 +117,9 @@ export const SAINA_REGENERATE = 'Yeniden Oluştur';
 
 
 
-export const SAINA_FREE_TITLE = 'SAINA Free';
+export const SAINA_FREE_TITLE = `${SAINA_BRAND} Free`;
 
-export const SAINA_GUEST_TITLE = 'SAINA Guest';
+export const SAINA_GUEST_TITLE = `${SAINA_BRAND} Guest`;
 
 /** Sidebar footer — logged-in free user. @deprecated Use resolveSainaSidebarFooter */
 export const SAINA_SIDEBAR_FREE_FOOTER = `${SAINA_FREE_TITLE} · Hesabını Yükselt →`;
@@ -129,13 +127,13 @@ export const SAINA_SIDEBAR_FREE_FOOTER = `${SAINA_FREE_TITLE} · Hesabını Yük
 /** Sidebar footer — guest / anonymous user. @deprecated Use resolveSainaSidebarFooter */
 export const SAINA_SIDEBAR_GUEST_FOOTER = `${SAINA_GUEST_TITLE} · Giriş Yap →`;
 
-export const SAINA_MINI_TITLE = 'SAINA Mini ✦';
+export const SAINA_MINI_TITLE = `${SAINA_BRAND} Mini ✦`;
 
-export const SAINA_STANDARD_TITLE = 'SAINA Standard ✦';
+export const SAINA_STANDARD_TITLE = `${SAINA_BRAND} Standard ✦`;
 
-export const SAINA_PREMIUM_TITLE = 'SAINA Premium ✦';
+export const SAINA_PREMIUM_TITLE = `${SAINA_BRAND} Premium ✦`;
 
-export const SAINA_PREMIUM_ACTIVE_LABEL = 'SAINA Premium Aktif ✦';
+export const SAINA_PREMIUM_ACTIVE_LABEL = `${SAINA_BRAND} Premium Aktif ✦`;
 
 export const SAINA_PLAN_ACTIVE = 'Aktif';
 
@@ -240,7 +238,7 @@ export const SAINA_STANDALONE_MIRROR_PLACEHOLDER_TITLE =
 export const SAINA_STANDALONE_MIRROR_PLACEHOLDER_BODY =
   'Sohbet ilerledikçe Ayna bu alanda hazır olacak. Şimdilik sohbet akışına odaklanabilirsin.';
 
-export const SAINA_UPSELL_TITLE = 'SAINA Premium ile';
+export const SAINA_UPSELL_TITLE = `${SAINA_BRAND} Premium ile`;
 
 export const SAINA_UPSELL_BODY = 'Her sohbetin aynasını oluşturabilirsin.';
 
@@ -252,7 +250,7 @@ export const SAINA_HERO_PILL = 'Aktif Sohbet';
 
 export const SAINA_HERO_DEFAULT_TITLE = 'Yeni Sohbet';
 
-export const SAINA_HERO_DEFAULT_SUBTITLE = 'SAINA ile düşün, keşfet ve anlamlandır.';
+export const SAINA_HERO_DEFAULT_SUBTITLE = `${SAINA_BRAND} ile düşün, keşfet ve anlamlandır.`;
 
 export const SAINA_HERO_META_START = 'Başlangıç: Az önce';
 
@@ -295,9 +293,9 @@ export const SAINA_RELATIONSHIP_MAP_WINDOW_NOTE =
 
 export const SAINA_USER_LABEL = 'SEN';
 
-export const SAINA_ASSISTANT_LABEL = 'SAINA';
+export const SAINA_ASSISTANT_LABEL = SAINA_BRAND;
 
-export const SAINA_MENU_ACCOUNT = 'SAINA hesabın';
+export const SAINA_MENU_ACCOUNT = `${SAINA_BRAND} hesabın`;
 
 export const SAINA_MENU_SETTINGS = 'Ayarlar';
 
@@ -398,7 +396,7 @@ export const SAINA_PREMIUM_MODAL_DISMISS = SAINA_UPGRADE_MODAL_DISMISS;
 /** @deprecated Use SAINA_UPGRADE_MODAL_NOTE */
 export const SAINA_PREMIUM_MODAL_NOTE = SAINA_UPGRADE_MODAL_NOTE;
 
-/** SAINA auth pages (standalone return). */
+/** Auth pages (standalone return). */
 export const SAINA_AUTH_LOGIN_TITLE = 'Sohbetlerin seni bekliyor.';
 
 export const SAINA_AUTH_REGISTER_TITLE = 'Yeni bir merak yolculuğu başlat.';
@@ -470,7 +468,7 @@ export const SAINA_QUICK_CHIPS = [
 
 export const SAINA_FOOTER =
 
-  'SAINA, insan ile yapay zekâ arasındaki ilişkinin aynasıdır.';
+  `${SAINA_BRAND}, insan ile yapay zekâ arasındaki ilişkinin aynasıdır.`;
 
 
 
@@ -508,5 +506,8 @@ export const SAINA_CONCEPT_NEXT_TITLE = 'Sonra ne olur?';
 export const SAINA_CONCEPT_NEXT_BODY =
 
   'Sohbet ilerleyip ayna oluşturulacak seviyeye geldiğinde özel sahnen üretilecek.';
+
+/** Empty conversation row preview — never email-derived. */
+export const SAINA_EMPTY_CHAT_PREVIEW = `${SAINA_BRAND} ile düşün, keşfet…`;
 
 

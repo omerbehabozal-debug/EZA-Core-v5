@@ -93,7 +93,7 @@ describe('Share Architecture (Stage 4B Foundation)', () => {
       date: '2026-05-31',
       dayLabel: '31 Mayıs',
       headline: 'Sokak Lambaları',
-      characterName: 'SAINA',
+      characterName: 'biligN',
       personaFamilyId: 'balanced_calm',
       shortInsight: '',
       userLine: '',

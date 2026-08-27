@@ -10,10 +10,12 @@
  * SAINA Mirror Philosophy — see @/lib/eza/mirror-network/philosophy.ts
  */
 
-import { Calendar, Sparkles } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
-import { MIRROR_V3_BRAND_SIGNATURE } from '@/lib/eza/mirror/conversationMirrorV3/types';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
+import SainaBrandWordmark from '@/components/saina/SainaBrandWordmark';
+import SainaGeometricMark from '@/components/saina/SainaGeometricMark';
 import { POSTER_READABILITY_INLINE } from '@/lib/eza/mirror/posterEditorialMathematics';
 import type { PosterSkinTokens } from '@/lib/eza/mirror/posterCardSkin';
 
@@ -31,7 +33,7 @@ export default function MirrorStage0MinimalOverlay({
   skin,
   className,
 }: MirrorStage0MinimalOverlayProps) {
-  const title = card.headline?.trim() || card.dailyJourney?.trim() || 'SAINA';
+  const title = card.headline?.trim() || card.dailyJourney?.trim() || SAINA_BRAND;
 
   return (
     <div
@@ -50,10 +52,8 @@ export default function MirrorStage0MinimalOverlay({
           className={cn(skin.logoText, 'flex items-center gap-2')}
           style={POSTER_READABILITY_INLINE.masthead}
         >
-          <span className={skin.logoMark}>
-            <Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden />
-          </span>
-          {MIRROR_V3_BRAND_SIGNATURE.line1}
+          <SainaGeometricMark size={16} />
+          <SainaBrandWordmark height={12} />
         </p>
         <span className={skin.datePillGlass}>
           <span className={skin.datePill} style={POSTER_READABILITY_INLINE.masthead}>

@@ -56,7 +56,7 @@ def test_entitlements_guest_anonymous():
     assert res.status_code == 200
     data = res.json()
     assert data["tier"] == "guest"
-    assert data["label"] == "SAINA Guest"
+    assert data["label"] == "biligN Guest"
     assert data["entitlements"]["dailyMessageLimit"] == 10
     assert data["entitlements"]["relationshipMapAccess"] == "locked"
     assert data["usage"]["dailyMessagesUsed"] == 0
@@ -83,7 +83,7 @@ def test_entitlements_free_authenticated_user(mock_get_user, mock_usage):
     assert res.status_code == 200
     data = res.json()
     assert data["tier"] == "free"
-    assert data["label"] == "SAINA Free"
+    assert data["label"] == "biligN Free"
     assert data["entitlements"]["dailyMessageLimit"] == 20
     assert data["entitlements"]["dailyMirrorLimit"] == 1
     assert data["usage"]["dailyMessagesUsed"] == 5
@@ -109,7 +109,7 @@ def test_entitlements_plus_maps_to_premium(mock_get_user, mock_usage):
     assert res.status_code == 200
     data = res.json()
     assert data["tier"] == "premium"
-    assert data["label"] == "SAINA Premium"
+    assert data["label"] == "biligN Premium"
     assert data["entitlements"]["imageQuality"] == "highest"
     assert data["entitlements"]["priorityGeneration"] is True
     assert data["entitlements"]["dailyMessageLimit"] is None

@@ -17,7 +17,7 @@ import { isDentalPersonalCarePayload } from '@/lib/eza/mirror/conversationMirror
 import { formatEvidenceFusionBlock } from '@/lib/eza/mirror/conversationMirrorV3/evidenceFusionV44';
 import { resolveTopicShotMode } from '@/lib/eza/mirror/conversationMirrorV3/shotDirectorV43';
 
-const POSTER_TASK = `Create a premium cinematic SAINA Conversation Mirror poster, vertical 4:5, 1080x1350.
+const POSTER_TASK = `Create a premium cinematic biligN Conversation Mirror poster, vertical 4:5, 1080x1350.
 This is a conversation poster — NOT an emotion poster, NOT a summary card, NOT coaching UI.
 The user shares what they explored with AI today. The topic itself is the story.`;
 
@@ -56,7 +56,7 @@ Maximum 2 text zones: one title, one body. No closing line, footer quote, badges
 OpenAI owns placement and scale. System adds logo (top-left), date (top-right), signature (bottom) — do NOT render these.`;
 
 const BRAND_SAFE_ZONE_RULES = `Brand safe zones (system overlay only — do NOT render):
-Top-left: SAINA logo. Top-right: date. Bottom-center: signature band.`;
+Top-left: biligN logo. Top-right: date. Bottom-center: signature band.`;
 
 const FORBIDDEN_CONCEPTS_BLOCK = `Forbidden text/UI:
 - ${FORBIDDEN_MIRROR_PHRASES.slice(0, 8).join(', ')}.

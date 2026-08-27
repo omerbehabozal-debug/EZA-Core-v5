@@ -239,8 +239,8 @@ describe('Phase 8.8F creator identity contract', () => {
     expect(shell).toContain('resolveYansiCreatorDisplayName');
     expect(shell).toContain('resolveYansiCreatorHonorific');
     expect(shell).not.toContain('resolveSainaSidebarFooter');
-    expect(hero).not.toContain('SAINA Free');
-    expect(hero).not.toContain('SAINA Guest');
+    expect(hero).not.toContain('biligN Free');
+    expect(hero).not.toContain('biligN Guest');
     expect(hero).not.toContain('Premium');
     expect(css).not.toContain('identity__plan');
     expect(patch).toContain('body: { public_display_name: publicDisplayName }');

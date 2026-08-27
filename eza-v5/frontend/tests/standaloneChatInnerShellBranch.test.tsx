@@ -26,7 +26,7 @@ vi.mock('@/lib/eza/plan/useAccountEntitlements', () => ({
   useAccountEntitlements: vi.fn(() => ({
     entitlements: {
       tier: 'guest',
-      label: 'SAINA Guest',
+      label: 'biligN Guest',
       entitlements: {
         tier: 'guest',
         dailyMessageLimit: 10,

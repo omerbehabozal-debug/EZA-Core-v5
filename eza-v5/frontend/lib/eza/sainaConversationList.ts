@@ -2,6 +2,7 @@ import type { ArchivedChatSummary } from '@/lib/standaloneChatArchive';
 import { summarizeArchiveTitle } from '@/lib/standaloneChatArchive';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { isChatDeleted } from '@/lib/standaloneChatDelete';
+import { SAINA_EMPTY_CHAT_PREVIEW } from '@/lib/eza/sainaCopy';
 
 export type SainaConversationItem = {
   id: string;
@@ -158,7 +159,7 @@ export function mapArchivesToSainaConversations(
   return sortArchivesForSidebar(archives, activeChatId).map((item) => ({
     id: item.id,
     title: summarizeArchiveTitle(item.title) || 'Yeni sohbet',
-    preview: item.preview?.trim() || 'SAINA ile düşün, keşfet…',
+    preview: item.preview?.trim() || SAINA_EMPTY_CHAT_PREVIEW,
     time: formatSainaConversationTime(item.savedAt),
     savedAt: item.savedAt,
     thumbGradient: thumbGradientForChatId(item.id),

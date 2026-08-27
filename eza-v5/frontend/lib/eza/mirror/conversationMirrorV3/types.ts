@@ -1,8 +1,9 @@
 /**
- * SAINA Conversation Mirror V3 — final cinematic poster pipeline.
+ * Conversation Mirror V3 — final cinematic poster pipeline.
  */
 
 import type { SainaMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/types';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 import type { StoryTopicId } from '@/lib/eza/mirror/storyTopicTypes';
 import type { ConversationEvidence } from '@/lib/eza/mirror/conversationMirrorV3/conversationEvidenceLayer';
 import type { SceneComposition } from '@/lib/eza/mirror/conversationMirrorV3/sceneCompositionV4';
@@ -14,7 +15,7 @@ export const MIRROR_REFINEMENT_VERSION = '5.0' as const;
 export const MIRROR_V3_SCENE_CACHE_KEY = 'conversationMirrorV3:refinement:5.0' as const;
 
 export const MIRROR_V3_BRAND_SIGNATURE = {
-  line1: 'SAINA',
+  line1: SAINA_BRAND,
   line2: 'İlişkiyi dinler, deseni zamanla görür.',
 } as const;
 

@@ -53,7 +53,7 @@ function buildCardWithStaleArchitectureCuriosity(): DailyMirrorCardModel {
     date: '2026-07-25',
     dayLabel: '25 Temmuz',
     headline: 'Malzeme Dokusu',
-    characterName: 'SAINA',
+    characterName: 'biligN',
     personaFamilyId: 'balanced_calm',
     shortInsight: '',
     userLine: '',

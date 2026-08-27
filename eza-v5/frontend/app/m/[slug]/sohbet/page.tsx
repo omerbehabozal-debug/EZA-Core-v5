@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import MirrorSohbetOpening from '@/components/mirror-landing/MirrorSohbetOpening';
 import { fetchPublicMirrorBySlug } from '@/lib/eza/mirror-network/fetchPublicMirror';
 import { pickMirrorLandingSurface } from '@/lib/eza/mirror-network/landingSurface';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 
 /** Phase 8.4.1 — trust-authoritative sohbet entry; no stale public slug. */
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const result = await fetchPublicMirrorBySlug(slug, { trustAuthoritative: true });
   if (!result.ok) {
-    return { title: 'Sohbet · SAINA' };
+    return { title: `Sohbet · ${SAINA_BRAND}` };
   }
   const surface = pickMirrorLandingSurface(result.data);
   return {

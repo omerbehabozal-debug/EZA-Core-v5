@@ -15,7 +15,7 @@ import { EZA_AUTH_CHANGED_EVENT, getPlanSnapshot, getPlanSourceSnapshot } from '
 
 const GUEST_DEFAULT: AccountEntitlementsResponse = {
   tier: 'guest',
-  label: 'SAINA Guest',
+  label: TIER_LABELS.guest,
   entitlements: getEntitlementsForTier('guest'),
   usage: buildStubUsage(getEntitlementsForTier('guest')),
 };

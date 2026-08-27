@@ -9,21 +9,39 @@ import {
   revokePosterObjectUrl,
 } from '@/lib/eza/mirror/conversationMirrorV2/posterOverlay';
 
-const SAINA_LOGO_SRC = '/saina/saina-mark-original-sadik.svg';
+const SAINA_LOGO_SRC = '/bilign/bilign-mark.svg';
+const SAINA_WORDMARK_SRC = '/bilign/bilign-wordmark.svg';
 
 let cachedLogoImage: HTMLImageElement | null = null;
+let cachedWordmarkImage: HTMLImageElement | null = null;
 
-export async function loadSainaLogoImage(): Promise<HTMLImageElement> {
-  if (cachedLogoImage) return cachedLogoImage;
+async function loadBrandImage(
+  src: string,
+  cache: HTMLImageElement | null,
+  setCache: (img: HTMLImageElement) => void
+): Promise<HTMLImageElement> {
+  if (cache) return cache;
   const img = new Image();
   img.crossOrigin = 'anonymous';
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();
-    img.onerror = () => reject(new Error('SAINA logo asset failed to load'));
-    img.src = SAINA_LOGO_SRC;
+    img.onerror = () => reject(new Error('biligN logo asset failed to load'));
+    img.src = src;
   });
-  cachedLogoImage = img;
+  setCache(img);
   return img;
+}
+
+export async function loadSainaLogoImage(): Promise<HTMLImageElement> {
+  return loadBrandImage(SAINA_LOGO_SRC, cachedLogoImage, (img) => {
+    cachedLogoImage = img;
+  });
+}
+
+export async function loadSainaWordmarkImage(): Promise<HTMLImageElement> {
+  return loadBrandImage(SAINA_WORDMARK_SRC, cachedWordmarkImage, (img) => {
+    cachedWordmarkImage = img;
+  });
 }
 
 export function isV2MirrorCard(
@@ -40,10 +58,13 @@ export async function applyV2PosterBrandOverlayUrl(
   rawSceneImageUrl: string,
   payload: SainaMirrorPayload
 ): Promise<string> {
-  const logoImage = await loadSainaLogoImage();
+  const [logoImage, logoWordmarkImage] = await Promise.all([
+    loadSainaLogoImage(),
+    loadSainaWordmarkImage(),
+  ]);
   const blob = await applyPosterBrandOverlay(rawSceneImageUrl, payload, {
     logoImage,
-    logoText: 'SAINA',
+    logoWordmarkImage,
   });
   return URL.createObjectURL(blob);
 }

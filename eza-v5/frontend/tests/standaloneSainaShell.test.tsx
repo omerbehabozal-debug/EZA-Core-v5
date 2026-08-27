@@ -92,7 +92,7 @@ describe('SainaStandaloneShell (Sprint B.2A)', () => {
     expect(screen.getByTestId('saina-conversation-sidebar')).toBeInTheDocument();
     expect(screen.getByText(SAINA_BRAND)).toBeInTheDocument();
     expect(screen.getByText(SAINA_POWERED)).toBeInTheDocument();
-    // Pattern dock label is intentionally "EZA"; brand wordmark must stay SAINA.
+    // Pattern dock label is intentionally "EZA"; brand wordmark must stay biligN.
     expect(screen.getByTestId('saina-pattern-nav')).toHaveTextContent('EZA');
     expect(screen.queryByText('Standalone', { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByText(SAINA_TAGLINE)).not.toBeInTheDocument();
@@ -685,7 +685,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders anonymous plan footer for first-time visitors', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="anonymous" />);
 
-    expect(screen.getByText('SAINA Guest')).toBeInTheDocument();
+    expect(screen.getByText('biligN Guest')).toBeInTheDocument();
     expect(screen.getByText('Giriş Yap →')).toBeInTheDocument();
     expect(screen.queryByText('Hesabını Yükselt')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
@@ -695,7 +695,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders logged-in free plan footer when planTier is free', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="free" />);
 
-    expect(screen.getByText('SAINA Free')).toBeInTheDocument();
+    expect(screen.getByText('biligN Free')).toBeInTheDocument();
     expect(screen.getByText('Hesabını Yükselt →')).toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
@@ -705,7 +705,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
   it('renders premium plan footer when planTier is premium', () => {
     render(<SainaStandaloneShell {...shellProps} planTier="premium" />);
 
-    expect(screen.getByText('SAINA Premium ✦')).toBeInTheDocument();
+    expect(screen.getByText('biligN Premium ✦')).toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
     expect(screen.queryByText('Şu an ilişki gözlemleniyor')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
@@ -718,7 +718,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     const planCard = screen.getByTestId('saina-plan-card');
     expect(planCard).toHaveAttribute('data-plan-tier', 'loading');
     expect(within(planCard).getByText('Plan bilgisi kontrol ediliyor...')).toBeInTheDocument();
-    expect(screen.queryByText('SAINA Free')).not.toBeInTheDocument();
+    expect(screen.queryByText('biligN Free')).not.toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
   });
 
@@ -729,7 +729,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     expect(planCard).toHaveAttribute('data-plan-tier', 'session_invalid');
     expect(within(planCard).getByText('Oturum doğrulanamadı')).toBeInTheDocument();
     expect(within(planCard).getByText('Giriş yap')).toBeInTheDocument();
-    expect(screen.queryByText('SAINA Free')).not.toBeInTheDocument();
+    expect(screen.queryByText('biligN Free')).not.toBeInTheDocument();
     expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
   });
 

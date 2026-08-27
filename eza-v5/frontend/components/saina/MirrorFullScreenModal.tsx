@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { Download, Share2, Sparkles, X } from 'lucide-react';
 import {
+  SAINA_BRAND,
   SAINA_DOWNLOAD,
   SAINA_MODAL_MOCK_NOTE,
   SAINA_MODAL_TITLE,
@@ -69,7 +70,7 @@ export default function MirrorFullScreenModal({ open, onClose }: MirrorFullScree
                   &ldquo;Bazen yolun kendisi, varılacak yerden daha çok şey öğretir.&rdquo;
                 </p>
               </div>
-              <p className="saina-modal-poster-meta">9:16 · SAINA Ayna</p>
+              <p className="saina-modal-poster-meta">9:16 · {SAINA_BRAND} Ayna</p>
             </div>
           </div>
         </div>

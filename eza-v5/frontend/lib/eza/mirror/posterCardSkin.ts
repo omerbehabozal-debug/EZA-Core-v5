@@ -60,7 +60,7 @@ export const posterCardSkin = {
   logoMark:
     'flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm',
   logoText:
-    'text-[9px] font-semibold uppercase tracking-[0.14em] text-white/90 drop-shadow-sm',
+    'text-[9px] font-semibold tracking-[-0.02em] text-white/90 drop-shadow-sm',
   datePill: 'text-[8px] font-medium text-white/75',
   titleSafeZone: [
     'relative col-span-12',
@@ -171,7 +171,7 @@ export const posterCardSkinPremium = {
   logoMark:
     'flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(123,97,255,0.12)] text-[#7B61FF]',
   logoText:
-    'text-[10px] font-semibold uppercase tracking-[0.14em] text-[#172033]/88',
+    'text-[10px] font-semibold tracking-[-0.02em] text-[#172033]/88',
   datePill: 'text-[9px] font-medium text-[#172033]/65',
   titleSafeZone: [
     'relative col-span-12',
@@ -356,7 +356,7 @@ export const posterCardSkinIdentity: PosterSkinTokens = {
     POSTER_READABILITY_SHADOW.masthead,
   ].join(' '),
   logoText: [
-    'relative z-[1] text-[10px] font-medium uppercase tracking-[0.2em] text-[#FFF8F0]',
+    'relative z-[1] text-[10px] font-medium tracking-[-0.02em] text-[#FFF8F0]',
     POSTER_READABILITY_SHADOW.masthead,
   ].join(' '),
   datePillGlass: POSTER_DATE_PILL_GLASS,

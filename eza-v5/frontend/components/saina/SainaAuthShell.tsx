@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
+import { SAINA_POWERED } from '@/lib/eza/sainaCopy';
+import SainaBrandWordmark from '@/components/saina/SainaBrandWordmark';
 import SainaGeometricMark from '@/components/saina/SainaGeometricMark';
 
 type SainaAuthShellProps = {
@@ -18,8 +19,9 @@ export default function SainaAuthShell({ title, subtitle, children, footer }: Sa
       <div className="saina-auth-page__backdrop" aria-hidden />
       <div className="saina-auth-page__inner">
         <div className="saina-auth-page__brand">
-          <SainaGeometricMark size={40} variant="gold" />
-          <p className="saina-auth-page__brand-title saina-serif">{SAINA_BRAND}</p>
+          <SainaGeometricMark size={56} />
+          <SainaBrandWordmark className="saina-auth-page__brand-title" height={28} />
+          <p className="saina-brand-powered">{SAINA_POWERED}</p>
           <h1 className="saina-auth-page__title">{title}</h1>
           {subtitle ? <p className="saina-auth-page__subtitle">{subtitle}</p> : null}
         </div>

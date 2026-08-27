@@ -1,6 +1,6 @@
 /**
  * Mirror V2 — cinematic poster prompt builder (Method A: AI full poster).
- * SAINA selects topic + copy; OpenAI only renders the poster from this contract.
+ * Product copy is selected in-app; OpenAI only renders the poster from this contract.
  */
 
 import type { SainaMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/types';
@@ -15,8 +15,8 @@ import {
 
 const BRAND_SAFE_ZONE_RULES = `Brand rules:
 - Do not place any logo.
-- Do not generate the SAINA logo.
-- Leave clean empty space at the top-left for the SAINA logo.
+- Do not generate the biligN logo.
+- Leave clean empty space at the top-left for the biligN logo.
 - Leave clean empty space at the top-right for the date.
 - Do not generate any date.
 - Do not generate fake dates.
@@ -40,7 +40,7 @@ const FORBIDDEN_CONTENT = `Strictly forbidden on the poster image:
 - Productivity report or AI analytics card aesthetic.
 - Self-help app or coach dashboard look.`;
 
-const SAINA_IDENTITY_BLOCK = `SAINA identity:
+const SAINA_IDENTITY_BLOCK = `biligN identity:
 - A cinematic visual reflection of a conversation — not a report.
 - Quiet, reflective, premium, editorial.
 - Feels like an A24 movie poster, luxury magazine cover, or visual poem.
@@ -111,7 +111,7 @@ export function buildMirrorV2ImagePrompt(payload: SainaMirrorPayload): string {
     : 'No closing line — scene may end without footer text.';
 
   const blocks = [
-    'Create a premium cinematic SAINA Conversation Mirror poster.',
+    'Create a premium cinematic biligN Conversation Mirror poster.',
     '',
     'Format: Vertical 4:5 poster, 1080x1350.',
     '',

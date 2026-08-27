@@ -87,7 +87,7 @@ describe('ayna public copy regression (Faz 1)', () => {
       'utf8'
     );
     expect(shareSrc).toContain("'EZA Ayna'");
-    expect(lightboxSrc).toContain("'SAINA Ayna posteri'");
+    expect(lightboxSrc).toContain('`${SAINA_BRAND} Ayna posteri`');
     expect(sohbetSrc).toMatch(/>\s*Ayna\s*</);
     expect(sohbetSrc).not.toMatch(/>\s*Mirror\s*</);
   });

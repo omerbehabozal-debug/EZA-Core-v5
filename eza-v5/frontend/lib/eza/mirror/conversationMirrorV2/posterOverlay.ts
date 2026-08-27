@@ -5,6 +5,7 @@
 
 import type { SainaMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/types';
 import { MIRROR_V2_ASPECT } from '@/lib/eza/mirror/conversationMirrorV2/types';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 
 export const MIRROR_V2_CARD_WIDTH = MIRROR_V2_ASPECT.width;
 export const MIRROR_V2_CARD_HEIGHT = MIRROR_V2_ASPECT.height;
@@ -43,8 +44,10 @@ export type PosterBrandSignature = {
 };
 
 export type ApplyPosterOverlayOptions = {
-  /** Optional logo image (SAINA mark). When omitted, text fallback is used. */
+  /** Original biligN mark. When omitted, wordmark-only fallback is used. */
   logoImage?: CanvasImageSource | null;
+  /** Original biligN wordmark. Preferred over system-font logoText. */
+  logoWordmarkImage?: CanvasImageSource | null;
   logoText?: string;
   fontFamily?: string;
   /** V3 — bottom-center brand signature (system-rendered, not OpenAI). */
@@ -75,19 +78,36 @@ export async function applyPosterBrandOverlay(
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
   const fontFamily = options?.fontFamily ?? 'Georgia, serif';
+  const wordmark = options?.logoWordmarkImage ?? null;
+  const wordmarkHeight = 22;
+  const wordmarkWidth = wordmark
+    ? Math.round(wordmarkHeight * (520 / 169))
+    : 0;
 
   if (options?.logoImage) {
     const logoSize = 48;
     ctx.drawImage(options.logoImage, spec.logo.x, spec.logo.y, logoSize, logoSize);
-    ctx.font = `600 22px ${fontFamily}`;
-    ctx.fillStyle = spec.logo.color;
-    ctx.textBaseline = 'top';
-    ctx.fillText(options?.logoText ?? 'SAINA', spec.logo.x + logoSize + 10, spec.logo.y + 10);
+    if (wordmark) {
+      ctx.drawImage(
+        wordmark,
+        spec.logo.x + logoSize + 10,
+        spec.logo.y + 12,
+        wordmarkWidth,
+        wordmarkHeight
+      );
+    } else {
+      ctx.font = `600 22px ${fontFamily}`;
+      ctx.fillStyle = spec.logo.color;
+      ctx.textBaseline = 'top';
+      ctx.fillText(options?.logoText ?? SAINA_BRAND, spec.logo.x + logoSize + 10, spec.logo.y + 10);
+    }
+  } else if (wordmark) {
+    ctx.drawImage(wordmark, spec.logo.x, spec.logo.y + 8, wordmarkWidth, wordmarkHeight);
   } else {
     ctx.font = `600 26px ${fontFamily}`;
     ctx.fillStyle = spec.logo.color;
     ctx.textBaseline = 'top';
-    ctx.fillText(options?.logoText ?? 'SAINA', spec.logo.x, spec.logo.y);
+    ctx.fillText(options?.logoText ?? SAINA_BRAND, spec.logo.x, spec.logo.y);
   }
 
   ctx.font = `500 18px ${fontFamily}`;
@@ -101,12 +121,26 @@ export async function applyPosterBrandOverlay(
     const centerX = canvas.width / 2;
     const bottomY = canvas.height - MIRROR_V2_SAFE_MARGIN_Y;
 
+    if (wordmark) {
+      const sigHeight = 16;
+      const sigWidth = Math.round(sigHeight * (520 / 169));
+      ctx.drawImage(
+        wordmark,
+        centerX - sigWidth / 2,
+        bottomY - 22 - sigHeight,
+        sigWidth,
+        sigHeight
+      );
+    } else {
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.font = `600 14px ${fontFamily}`;
+      ctx.fillStyle = 'rgba(231, 180, 91, 0.92)';
+      ctx.fillText(sig.line1, centerX, bottomY - 18);
+    }
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.font = `600 14px ${fontFamily}`;
-    ctx.fillStyle = 'rgba(231, 180, 91, 0.92)';
-    ctx.fillText(sig.line1, centerX, bottomY - 18);
-
     ctx.font = `400 11px ${fontFamily}`;
     ctx.fillStyle = 'rgba(245, 245, 240, 0.62)';
     ctx.fillText(sig.line2, centerX, bottomY);

@@ -14,6 +14,7 @@ import {
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { isChatDeleted } from '@/lib/standaloneChatDelete';
 import { summarizeArchiveTitle, type ArchivedChatSummary } from '@/lib/standaloneChatArchive';
+import { SAINA_EMPTY_CHAT_PREVIEW } from '@/lib/eza/sainaCopy';
 
 export type ArchivedChatSummaryWithTree = ArchivedChatSummary & {
   groupId?: string | null;
@@ -24,7 +25,7 @@ function toTreeChatItem(item: ArchivedChatSummaryWithTree): ConversationTreeChat
   return {
     id: item.id,
     title: summarizeArchiveTitle(item.title) || 'Yeni sohbet',
-    preview: item.preview?.trim() || 'SAINA ile düşün, keşfet…',
+    preview: item.preview?.trim() || SAINA_EMPTY_CHAT_PREVIEW,
     time: formatSainaConversationTime(item.savedAt),
     thumbGradient: thumbGradientForChatId(item.id),
     thumbImageUrl:

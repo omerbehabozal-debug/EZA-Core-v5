@@ -16,6 +16,7 @@ import {
   buildMirrorV3SeedHint,
 } from '@/lib/eza/mirror/conversationMirrorV3/sceneCacheFingerprint';
 import { getSeasonProfile } from '@/lib/eza/mirror/conversationMirrorV2/seasonRegistry';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 
 /** Backend-accepted style preset (mirror_image_service ALLOWED_STYLE_PRESETS). */
 export const MIRROR_V3_STYLE_PRESET = 'eza_mirror_professional_v1' as const;
@@ -34,7 +35,7 @@ export function buildVisualPayloadFromMirrorV3(
 
   return {
     characterId: 'saina-mirror-v3',
-    characterName: 'SAINA Mirror',
+    characterName: SAINA_BRAND,
     personaFamilyId: options?.personaFamilyId ?? 'balanced_calm',
     topicLabel: payload.topic,
     atmosphereLabel: season.labelTr,

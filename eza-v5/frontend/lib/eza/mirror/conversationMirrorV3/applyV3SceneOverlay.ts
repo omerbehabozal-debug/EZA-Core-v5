@@ -17,6 +17,7 @@ import {
 } from '@/lib/eza/mirror/conversationMirrorV2/posterOverlay';
 import {
   loadSainaLogoImage,
+  loadSainaWordmarkImage,
 } from '@/lib/eza/mirror/conversationMirrorV2/applyV2SceneOverlay';
 
 export function isV3MirrorCard(
@@ -30,10 +31,13 @@ export async function applyV3PosterBrandOverlayUrl(
   rawSceneImageUrl: string,
   payload: SainaMirrorV3Payload
 ): Promise<string> {
-  const logoImage = await loadSainaLogoImage();
+  const [logoImage, logoWordmarkImage] = await Promise.all([
+    loadSainaLogoImage(),
+    loadSainaWordmarkImage(),
+  ]);
   const blob = await applyPosterBrandOverlay(rawSceneImageUrl, payload, {
     logoImage,
-    logoText: 'SAINA',
+    logoWordmarkImage,
     brandSignature: MIRROR_V3_BRAND_SIGNATURE,
   });
   return URL.createObjectURL(blob);

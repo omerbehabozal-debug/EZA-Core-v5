@@ -12,7 +12,7 @@ function snapshot(
 ): AccountEntitlementsResponse {
   return {
     tier: 'free',
-    label: 'SAINA Free',
+    label: 'biligN Free',
     entitlements: {
       tier: 'free',
       dailyMessageLimit: 20,

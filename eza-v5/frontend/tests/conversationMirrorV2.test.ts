@@ -198,7 +198,7 @@ describe('conversationMirrorV2', () => {
     expect(prompt).toContain(payload.mirrorTitle);
     expect(prompt.toLowerCase()).toContain('leave clean empty space at the top-left');
     expect(prompt.toLowerCase()).toContain('leave clean empty space at the top-right');
-    expect(prompt.toLowerCase()).toContain('do not generate the saina logo');
+    expect(prompt.toLowerCase()).toContain('do not generate the bilign logo');
     expect(prompt.toLowerCase()).toContain('do not generate any date');
     expect(prompt.toLowerCase()).toContain('charts');
     expect(prompt.toLowerCase()).toContain('dashboard');
@@ -320,7 +320,7 @@ describe('conversationMirrorV2', () => {
     expect(prompt).toContain(payload.mirrorTitle);
     expect(prompt.toLowerCase()).toContain('leave clean empty space at the top-left');
     expect(prompt.toLowerCase()).toContain('leave clean empty space at the top-right');
-    expect(prompt.toLowerCase()).toContain('do not generate the saina logo');
+    expect(prompt.toLowerCase()).toContain('do not generate the bilign logo');
     expect(prompt.toLowerCase()).toContain('do not generate any date');
     expect(prompt.toLowerCase()).toContain('bugün görünen desen');
     expect(prompt.toLowerCase()).toContain('coaching');

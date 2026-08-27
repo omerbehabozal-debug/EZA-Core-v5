@@ -70,7 +70,7 @@ Forbidden text elements:
 - dashboard UI
 - coaching copy
 
-Logo, date, and SAINA signature are added by system overlay — do NOT render them.`;
+Logo, date, and biligN signature are added by system overlay — do NOT render them.`;
 
 export const VISUAL_METAPHOR_TRANSLATION_V33 = `Visual metaphor translation (V3.3):
 Interpret evidence through atmosphere, light, scale and material — but keep traces recognizable.

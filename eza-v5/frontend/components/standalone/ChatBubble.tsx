@@ -7,7 +7,7 @@ import BehavioralSummary from './BehavioralSummary';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import StandaloneFeedbackChips from './StandaloneFeedbackChips';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
-import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
+import SainaBrandWordmark from '@/components/saina/SainaBrandWordmark';
 import SainaGeometricMark from '@/components/saina/SainaGeometricMark';
 import SainaMessageBody from './SainaMessageBody';
 
@@ -58,8 +58,8 @@ export default function ChatBubble({
         <div className="saina-msg-content">
           {!isUser && isFirstAssistantMessage ? (
             <div className="saina-msg-ai-header" data-testid="saina-msg-ai-header">
-              <SainaGeometricMark size={18} variant="gold" className="saina-msg-ai-mark" />
-              <span className="saina-msg-ai-title">{SAINA_BRAND}</span>
+              <SainaGeometricMark size={18} className="saina-msg-ai-mark" />
+              <SainaBrandWordmark className="saina-msg-ai-title" height={11} />
             </div>
           ) : null}
           <div className={isUser ? 'saina-msg-user saina-msg-user--standalone' : 'saina-msg-ai'}>

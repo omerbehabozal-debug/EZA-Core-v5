@@ -10,6 +10,7 @@ import {
 } from '@/lib/eza/sainaCopy';
 import { MOCK_SAINA_CONVERSATIONS } from '@/components/saina/SainaConversationSidebar';
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
+import SainaBrandWordmark from './SainaBrandWordmark';
 import SainaGeometricMark from './SainaGeometricMark';
 import SainaHeroScene from './SainaHeroScene';
 import SainaPageTopBar from './SainaPageTopBar';
@@ -27,11 +28,11 @@ export const SAINA_SAMPLE_MESSAGES: SainaMockMessage[] = [
     role: 'user',
     label: 'SEN',
     initial: 'E',
-    text: 'SAINA, bugün ne üzerine düşünelim?',
+    text: `${SAINA_BRAND}, bugün ne üzerine düşünelim?`,
   },
   {
     role: 'ai',
-    label: 'SAINA',
+    label: SAINA_BRAND,
     initial: null,
     text: 'Merhaba Ece, Bugün zihnini, fikrini veya merak ettiğin herhangi bir konuyu konuşabiliriz. Ben seni dinlemek ve anlamlandırmana eşlik etmek için buradayım.',
   },
@@ -111,12 +112,8 @@ export default function SainaConversationMain({
                         <div className="saina-msg-content">
                           {isFirstAi ? (
                             <div className="saina-msg-ai-header">
-                              <SainaGeometricMark
-                                size={18}
-                                variant="gold"
-                                className="saina-msg-ai-mark"
-                              />
-                              <span className="saina-msg-ai-title">{SAINA_BRAND}</span>
+                              <SainaGeometricMark size={18} className="saina-msg-ai-mark" />
+                              <SainaBrandWordmark className="saina-msg-ai-title" height={11} />
                             </div>
                           ) : null}
                           <div

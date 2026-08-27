@@ -18,6 +18,7 @@ import { buildVisualPayloadFromMirrorV3 } from '@/lib/eza/mirror/conversationMir
 import { buildMirrorV3SeedHint } from '@/lib/eza/mirror/conversationMirrorV3/sceneCacheFingerprint';
 import type { SainaMirrorV3Payload } from '@/lib/eza/mirror/conversationMirrorV3/types';
 import { MIRROR_PIPELINE_VERSION } from '@/lib/eza/mirror/conversationMirrorV3/types';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 import { buildMirrorCuriosityBundle } from '@/lib/eza/mirror-network/buildMirrorCuriosity';
 import { buildShareBlueprint } from '@/lib/eza/mirror-share/buildShareBlueprint';
 import type { MirrorShareIdentity } from '@/lib/eza/mirror-share/types';
@@ -65,7 +66,7 @@ function adaptPayloadToDailyCard(
     date: dateIso,
     dayLabel: formatDayLabelTr(dateIso),
     headline: payload.mirrorTitle,
-    characterName: 'SAINA',
+    characterName: SAINA_BRAND,
     personaFamilyId: 'balanced_calm',
     shortInsight: payload.mirrorText,
     userLine: '',

@@ -51,7 +51,7 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
   });
 
   it('exposes core mock copy', () => {
-    expect(SAINA_BRAND).toBe('SAINA');
+    expect(SAINA_BRAND).toBe('biligN');
     expect(SAINA_MIRROR_TITLE).toBe('Ayna');
     expect(SAINA_CREATE_MIRROR).toBe('Görseli Oluştur');
     expect(SAINA_CHIPS_TOGGLE).toBe('Öneriler →');
@@ -84,12 +84,12 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     expect(screen.queryByText(SAINA_SAMPLE_MESSAGES[0].text)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Mesaj yaz'), {
-      target: { value: 'Merhaba SAINA' },
+      target: { value: 'Merhaba biligN' },
     });
     fireEvent.click(screen.getByTestId('saina-send-btn'));
 
     expect(screen.getByTestId('saina-chat-card')).toBeInTheDocument();
-    expect(screen.getByText('Merhaba SAINA')).toBeInTheDocument();
+    expect(screen.getByText('Merhaba biligN')).toBeInTheDocument();
   });
 
   it('renders user messages on the right and SAINA on the left in sample state', () => {
@@ -107,7 +107,7 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
   it('renders dark sidebar without concept footer on page', () => {
     render(<SainaConversationSidebar interactionsDisabled />);
     expect(screen.getByText('Yeni Sohbet')).toBeInTheDocument();
-    expect(screen.getByText('SAINA Premium ✦')).toBeInTheDocument();
+    expect(screen.getByText('biligN Premium ✦')).toBeInTheDocument();
     expect(screen.queryByText(SAINA_TAGLINE)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Sohbet listesini daralt')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
@@ -136,7 +136,7 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
       />
     );
 
-    expect(screen.getByText('SAINA Guest')).toBeInTheDocument();
+    expect(screen.getByText('biligN Guest')).toBeInTheDocument();
     expect(screen.getByText('Giriş Yap →')).toBeInTheDocument();
     expect(screen.queryByText('Hesabını Yükselt →')).not.toBeInTheDocument();
   });
@@ -144,9 +144,9 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
   it('renders free plan footer without quota when planTier is free', () => {
     render(<SainaConversationSidebar planTier="free" interactionsDisabled />);
 
-    expect(screen.getByText('SAINA Free')).toBeInTheDocument();
+    expect(screen.getByText('biligN Free')).toBeInTheDocument();
     expect(screen.getByText('Hesabını Yükselt →')).toBeInTheDocument();
-    expect(screen.queryByText('SAINA Premium ✦')).not.toBeInTheDocument();
+    expect(screen.queryByText('biligN Premium ✦')).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
     expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
   });
@@ -154,7 +154,7 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
   it('renders premium plan footer without quota by default', () => {
     render(<SainaConversationSidebar interactionsDisabled />);
 
-    expect(screen.getByText('SAINA Premium ✦')).toBeInTheDocument();
+    expect(screen.getByText('biligN Premium ✦')).toBeInTheDocument();
     expect(screen.queryByText(SAINA_PREMIUM_OBSERVING)).not.toBeInTheDocument();
     expect(screen.queryByText(SAINA_PREMIUM_MIRROR_LABEL)).not.toBeInTheDocument();
     expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();

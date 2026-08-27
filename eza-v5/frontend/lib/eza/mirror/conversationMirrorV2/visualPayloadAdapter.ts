@@ -10,6 +10,7 @@ import {
   MIRROR_V2_NEGATIVE_PROMPT,
 } from '@/lib/eza/mirror/conversationMirrorV2/promptBuilder';
 import { getSeasonProfile } from '@/lib/eza/mirror/conversationMirrorV2/seasonRegistry';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 
 export function buildVisualPayloadFromMirrorV2(
   payload: SainaMirrorPayload,
@@ -24,7 +25,7 @@ export function buildVisualPayloadFromMirrorV2(
 
   return {
     characterId: 'saina-mirror-v2',
-    characterName: 'SAINA Mirror',
+    characterName: SAINA_BRAND,
     personaFamilyId: options?.personaFamilyId ?? 'balanced_calm',
     topicLabel: payload.topic,
     atmosphereLabel: season.labelTr,

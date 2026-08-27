@@ -22,7 +22,7 @@ describe('fetchAccountEntitlements', () => {
     apiGet.mockResolvedValue({
       ok: true,
       tier: 'guest',
-      label: 'SAINA Guest',
+      label: 'biligN Guest',
       entitlements: {
         tier: 'guest',
         dailyMessageLimit: 10,
@@ -57,7 +57,7 @@ describe('fetchAccountEntitlements', () => {
     apiGet.mockResolvedValue({
       ok: true,
       tier: 'free',
-      label: 'SAINA Free',
+      label: 'biligN Free',
       entitlements: {
         tier: 'free',
         dailyMessageLimit: 20,

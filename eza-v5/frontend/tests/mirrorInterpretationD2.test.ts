@@ -13,7 +13,7 @@ function baseCard(): DailyMirrorCardModel {
     date: '2026-07-19',
     dayLabel: 'Pazar',
     headline: 'Tezgâh Işığı',
-    characterName: 'SAINA',
+    characterName: 'biligN',
     personaFamilyId: 'balanced_calm',
     shortInsight: 'x',
     userLine: '',
@@ -27,7 +27,7 @@ function baseCard(): DailyMirrorCardModel {
     privacyText: '',
     visual: {
       characterId: 'saina',
-      characterName: 'SAINA',
+      characterName: 'biligN',
       personaFamilyId: 'balanced_calm',
       topicLabel: 'health',
       atmosphereLabel: 'x',

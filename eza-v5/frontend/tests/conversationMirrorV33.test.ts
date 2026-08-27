@@ -106,7 +106,7 @@ describe('conversationMirrorV4', () => {
     });
     const prompt = buildMirrorV3ImagePrompt(payload);
 
-    const posterTask = prompt.indexOf('Create a premium cinematic SAINA');
+    const posterTask = prompt.indexOf('Create a premium cinematic biligN');
     const topic = prompt.indexOf('Topic:');
     const fusion = prompt.indexOf('Evidence fusion scene');
     const posterTest = prompt.indexOf('Poster test:');

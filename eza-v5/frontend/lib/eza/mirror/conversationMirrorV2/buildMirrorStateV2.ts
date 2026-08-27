@@ -17,6 +17,7 @@ import { buildMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/buildM
 import { buildVisualPayloadFromMirrorV2 } from '@/lib/eza/mirror/conversationMirrorV2/visualPayloadAdapter';
 import type { SainaMirrorPayload } from '@/lib/eza/mirror/conversationMirrorV2/types';
 import { MIRROR_PIPELINE_VERSION } from '@/lib/eza/mirror/conversationMirrorV2/types';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 
 function sortNewestFirst(entries: SavedBehavioralEntry[]): SavedBehavioralEntry[] {
   return [...entries].sort(
@@ -49,7 +50,7 @@ function adaptPayloadToDailyCard(
     date: dateIso,
     dayLabel: formatDayLabelTr(dateIso),
     headline: payload.mirrorTitle,
-    characterName: 'SAINA Mirror',
+    characterName: SAINA_BRAND,
     personaFamilyId: 'balanced_calm',
     shortInsight: payload.mirrorText,
     userLine: '',

@@ -10,6 +10,7 @@ import Link from 'next/link';
 import ChatBubble from '@/components/standalone/ChatBubble';
 import FrozenAnswerReveal from '@/components/mirror-landing/FrozenAnswerReveal';
 import { useYansiExperienceSession } from '@/components/mirror-landing/YansiExperienceSession';
+import SainaBrandWordmark from '@/components/saina/SainaBrandWordmark';
 import SainaGeometricMark from '@/components/saina/SainaGeometricMark';
 import {
   afterAnswerRevealed,
@@ -32,7 +33,6 @@ import {
   subscribeEzaUserPreferences,
 } from '@/lib/eza/ezaUserPrefs';
 import { useAuth } from '@/context/AuthContext';
-import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 import { YANSI_OWN_CONTINUATION_CTA } from '@/lib/eza/mirror/copy';
 import { trackLandingCtaClicked } from '@/lib/eza/mirror-network/landingAnalytics';
 import { trackSeedStart } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
@@ -109,8 +109,8 @@ function RevealingAssistantBubble({
       <div className="saina-msg-content">
         {isFirst ? (
           <div className="saina-msg-ai-header" data-testid="saina-msg-ai-header">
-            <SainaGeometricMark size={18} variant="gold" className="saina-msg-ai-mark" />
-            <span className="saina-msg-ai-title">{SAINA_BRAND}</span>
+            <SainaGeometricMark size={18} className="saina-msg-ai-mark" />
+            <SainaBrandWordmark className="saina-msg-ai-title" height={11} />
           </div>
         ) : null}
         <div className="saina-msg-ai">

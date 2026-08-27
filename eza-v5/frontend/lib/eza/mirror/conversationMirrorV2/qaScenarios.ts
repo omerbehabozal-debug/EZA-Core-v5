@@ -255,7 +255,7 @@ export const MIRROR_V2_QA_SCORE_LABELS: { key: keyof MirrorV2QaScore; label: str
   { key: 'topicRecognition', label: 'Konu hissi' },
   { key: 'mirrorFeeling', label: 'Mirror hissi' },
   { key: 'shareValue', label: 'Paylaşım değeri' },
-  { key: 'sainaIdentity', label: 'SAINA kimliği' },
+  { key: 'sainaIdentity', label: 'biligN kimliği' },
 ];
 
 const QA_STORAGE_KEY = 'eza_mirror_v2_qa_scores';

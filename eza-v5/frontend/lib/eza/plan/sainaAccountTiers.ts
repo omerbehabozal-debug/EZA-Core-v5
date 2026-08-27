@@ -1,3 +1,10 @@
+import {
+  SAINA_FREE_TITLE,
+  SAINA_GUEST_TITLE,
+  SAINA_MINI_TITLE,
+  SAINA_PREMIUM_TITLE,
+  SAINA_STANDARD_TITLE,
+} from '@/lib/eza/sainaCopy';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 
 export type SainaUpgradePlanId = 'mini' | 'standard' | 'premium';
@@ -29,10 +36,10 @@ export const SAINA_UPGRADE_PLANS: readonly SainaUpgradePlanCard[] = [
 ] as const;
 
 const ACCOUNT_LABELS: Record<'free' | 'mini' | 'standard' | 'premium', string> = {
-  free: 'SAINA Free',
-  mini: 'SAINA Mini ✦',
-  standard: 'SAINA Standard ✦',
-  premium: 'SAINA Premium ✦',
+  free: SAINA_FREE_TITLE,
+  mini: SAINA_MINI_TITLE,
+  standard: SAINA_STANDARD_TITLE,
+  premium: SAINA_PREMIUM_TITLE,
 };
 
 /** Display label for profile menu and chrome. */
@@ -64,7 +71,7 @@ export function resolveSainaSidebarFooter(
   switch (planTier) {
     case 'anonymous':
       return {
-        tierLabel: 'SAINA Guest',
+        tierLabel: SAINA_GUEST_TITLE,
         actionLabel: 'Giriş Yap →',
         showUpgrade: false,
         showLogin: true,
@@ -72,7 +79,7 @@ export function resolveSainaSidebarFooter(
       };
     case 'free':
       return {
-        tierLabel: 'SAINA Free',
+        tierLabel: SAINA_FREE_TITLE,
         actionLabel: 'Hesabını Yükselt →',
         showUpgrade: true,
         showLogin: false,
@@ -80,7 +87,7 @@ export function resolveSainaSidebarFooter(
       };
     case 'mini':
       return {
-        tierLabel: 'SAINA Mini ✦',
+        tierLabel: SAINA_MINI_TITLE,
         actionLabel: 'Yükselt →',
         showUpgrade: true,
         showLogin: false,
@@ -88,7 +95,7 @@ export function resolveSainaSidebarFooter(
       };
     case 'standard':
       return {
-        tierLabel: 'SAINA Standard ✦',
+        tierLabel: SAINA_STANDARD_TITLE,
         actionLabel: 'Yükselt →',
         showUpgrade: true,
         showLogin: false,
@@ -96,7 +103,7 @@ export function resolveSainaSidebarFooter(
       };
     case 'premium':
       return {
-        tierLabel: 'SAINA Premium ✦',
+        tierLabel: SAINA_PREMIUM_TITLE,
         showUpgrade: false,
         showLogin: false,
         paidAccent: true,

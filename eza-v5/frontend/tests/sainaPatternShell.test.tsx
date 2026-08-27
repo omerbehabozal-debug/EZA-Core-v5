@@ -108,7 +108,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     });
 
     expect(screen.queryByText('Standalone')).not.toBeInTheDocument();
-    expect(screen.getByText('SAINA')).toBeInTheDocument();
+    expect(screen.getByText('biligN')).toBeInTheDocument();
   });
 
   it('marks İlişki Deseni nav as active on pattern page', async () => {

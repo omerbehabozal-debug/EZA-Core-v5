@@ -44,11 +44,11 @@ class AccountUsageSnapshot(TypedDict):
 
 
 TIER_LABELS: dict[AccountTier, str] = {
-    AccountTier.GUEST: "SAINA Guest",
-    AccountTier.FREE: "SAINA Free",
-    AccountTier.MINI: "SAINA Mini",
-    AccountTier.STANDARD: "SAINA Standard",
-    AccountTier.PREMIUM: "SAINA Premium",
+    AccountTier.GUEST: "biligN Guest",
+    AccountTier.FREE: "biligN Free",
+    AccountTier.MINI: "biligN Mini",
+    AccountTier.STANDARD: "biligN Standard",
+    AccountTier.PREMIUM: "biligN Premium",
 }
 
 # Internal caps for premium — never surfaced as "unlimited" in product copy.

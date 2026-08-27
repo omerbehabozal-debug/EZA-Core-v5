@@ -3,7 +3,7 @@ import MirrorV2QaLab from '@/components/mirror/MirrorV2QaLab';
 import { isExplicitNonProductionFrontendSurfaceAllowed } from '@/lib/eza/productionSurfaceGuard';
 
 export const metadata = {
-  title: 'Mirror V2 Lab | SAINA',
+  title: 'Mirror V2 Lab | biligN',
   robots: { index: false, follow: false },
 };
 

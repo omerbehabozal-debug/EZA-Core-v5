@@ -20,7 +20,7 @@
  * Never move contextual information back onto the card.
  */
 
-export const SAINA_MIRROR_PHILOSOPHY_MANIFESTO = `SAINA Mirror Philosophy
+export const SAINA_MIRROR_PHILOSOPHY_MANIFESTO = `biligN Mirror Philosophy
 
 A Mirror is not a conversation summary.
 A Mirror is not an insight report.
@@ -40,11 +40,11 @@ Conversation never copies.
 
 Never move contextual information back onto the card.`;
 
-export const SAINA_SHARE_ARCHITECTURE_MANIFESTO = `SAINA Share Architecture (Stage 4B)
+export const SAINA_SHARE_ARCHITECTURE_MANIFESTO = `biligN Share Architecture (Stage 4B)
 
-SAINA is not a sharing app.
-SAINA is not a chat app.
-SAINA makes the relationship between curiosity and AI visible.
+biligN is not a sharing app.
+biligN is not a chat app.
+biligN makes the relationship between curiosity and AI visible.
 
 Mirror is the trace of that relationship.
 Share is the journey of that trace.

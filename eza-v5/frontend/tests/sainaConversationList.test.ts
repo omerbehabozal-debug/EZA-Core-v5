@@ -110,6 +110,6 @@ describe('sainaConversationList', () => {
   });
 
   it('renders sidebar free footer copy constant', () => {
-    expect(SAINA_SIDEBAR_FREE_FOOTER).toBe('SAINA Free · Hesabını Yükselt →');
+    expect(SAINA_SIDEBAR_FREE_FOOTER).toBe('biligN Free · Hesabını Yükselt →');
   });
 });

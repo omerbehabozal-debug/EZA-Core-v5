@@ -16,8 +16,8 @@ describe('tierEntitlements', () => {
       'premium',
       'standard',
     ]);
-    expect(TIER_LABELS.guest).toBe('SAINA Guest');
-    expect(TIER_LABELS.premium).toBe('SAINA Premium');
+    expect(TIER_LABELS.guest).toBe('biligN Guest');
+    expect(TIER_LABELS.premium).toBe('biligN Premium');
   });
 
   it('maps legacy mirror_plan to account tier', () => {

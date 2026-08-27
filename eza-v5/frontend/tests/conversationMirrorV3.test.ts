@@ -190,7 +190,7 @@ describe('conversationMirrorV3', () => {
     expect(state.dailyMirrorCard.mirrorPipelineVersion).toBe('v3');
     expect(state.dailyMirrorCard.mirrorV3Payload?.refinementVersion).toBe(MIRROR_REFINEMENT_VERSION);
     expect(state.dailyMirrorCard.energyScore).toBeNull();
-    expect(state.dailyMirrorCard.characterName).toBe('SAINA');
+    expect(state.dailyMirrorCard.characterName).toBe('biligN');
   });
 
   it('V3 state card has no coaching energy labels', () => {
@@ -271,7 +271,7 @@ describe('conversationMirrorV3', () => {
   });
 
   it('brand signature matches spec', () => {
-    expect(MIRROR_V3_BRAND_SIGNATURE.line1).toBe('SAINA');
+    expect(MIRROR_V3_BRAND_SIGNATURE.line1).toBe('biligN');
     expect(MIRROR_V3_BRAND_SIGNATURE.line2).toBe(
       'İlişkiyi dinler, deseni zamanla görür.'
     );

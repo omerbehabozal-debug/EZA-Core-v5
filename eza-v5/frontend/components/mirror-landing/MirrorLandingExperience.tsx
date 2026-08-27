@@ -8,13 +8,14 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Calendar, Sparkles } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
 import YansiExperienceControls from '@/components/mirror-landing/YansiExperienceControls';
 import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
-import { MIRROR_V3_BRAND_SIGNATURE } from '@/lib/eza/mirror/conversationMirrorV3/types';
+import SainaBrandWordmark from '@/components/saina/SainaBrandWordmark';
+import SainaGeometricMark from '@/components/saina/SainaGeometricMark';
 import type { MirrorLandingSurface } from '@/lib/eza/mirror-network/publicTypes';
 import { trackLandingViewed } from '@/lib/eza/mirror-network/landingAnalytics';
 import {
@@ -107,9 +108,9 @@ export default function MirrorLandingExperience({
       data-yansi-experience-mode={replayStarted ? 'a' : 'landing'}
     >
       <header className="relative z-[2] flex items-center justify-between px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
-        <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.22em] text-[#c9bba8]">
-          <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
-          {MIRROR_V3_BRAND_SIGNATURE.line1}
+        <p className="flex items-center gap-2">
+          <SainaGeometricMark size={16} />
+          <SainaBrandWordmark height={13} />
         </p>
         <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-[#e8dfd0] backdrop-blur-sm">
           <Calendar className="mr-1 h-3 w-3 opacity-80" strokeWidth={1.5} aria-hidden />
