@@ -178,7 +178,7 @@ html:has(.saina-page) body {
   flex-direction: column;
   gap: 0.875rem;
   overflow: hidden;
-  padding: 1.25rem 1.125rem 1.125rem;
+  padding: 1.125rem 1.125rem 1.125rem;
 }
 
 .saina-sidebar-top {
@@ -611,13 +611,13 @@ html:has(.saina-page) body {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  min-height: 5.75rem;
-  padding: 0.35rem 0.15rem 0.15rem;
+  padding: 0 0 0.35rem 0.35rem;
 }
 
 .saina-brand-lockup {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
   flex: 1;
   min-width: 0;
   line-height: 0;
@@ -631,9 +631,9 @@ html:has(.saina-page) body {
 }
 
 .saina-brand-lockup--sidebar .saina-brand-lockup-img {
-  height: clamp(5rem, 14vw, 5.75rem);
+  height: clamp(7.5rem, 21vw, 8.625rem);
   width: auto;
-  max-width: min(100%, 16.5rem);
+  max-width: min(100%, 24.75rem);
 }
 
 .saina-brand-lockup--auth .saina-brand-lockup-img {
