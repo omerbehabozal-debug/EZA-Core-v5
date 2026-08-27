@@ -14,7 +14,6 @@ import {
   SAINA_PLAN_LOADING_BODY,
   SAINA_PLAN_LOGIN_CTA,
   SAINA_PLAN_SESSION_INVALID_BODY,
-  SAINA_POWERED,
   SAINA_RELATIONSHIP_PATTERN_TITLE,
 } from '@/lib/eza/sainaCopy';
 import { resolveSainaSidebarFooter } from '@/lib/eza/plan/sainaAccountTiers';
@@ -34,8 +33,7 @@ import {
   YANSI_STATUS_TOOLTIP_PUBLISHED,
   YANSI_STATUS_TOOLTIP_READY,
 } from '@/lib/eza/mirror/journey/resolveConversationYansiStatus';
-import SainaBrandWordmark from './SainaBrandWordmark';
-import SainaGeometricMark from './SainaGeometricMark';
+import SainaBrandLockup from './SainaBrandLockup';
 
 function SainaConversationThumb({
   thumbGradient,
@@ -608,13 +606,7 @@ export default function SainaConversationSidebar({
         <div className="saina-sidebar-inner">
           <div className="saina-sidebar-top">
             <div className="saina-brand-row">
-              <div className="saina-brand-mark">
-                <SainaGeometricMark size={34} />
-              </div>
-              <div className="saina-brand-text">
-                <SainaBrandWordmark height={20} />
-                <p className="saina-brand-powered">{SAINA_POWERED}</p>
-              </div>
+              <SainaBrandLockup className="saina-brand-lockup--sidebar" />
               {showMobileChrome && mobileOpen ? (
                 <button
                   type="button"

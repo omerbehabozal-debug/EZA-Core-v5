@@ -90,8 +90,8 @@ describe('SainaStandaloneShell (Sprint B.2A)', () => {
 
     expect(screen.getByTestId('saina-standalone-shell')).toBeInTheDocument();
     expect(screen.getByTestId('saina-conversation-sidebar')).toBeInTheDocument();
-    expect(screen.getByText(SAINA_BRAND)).toBeInTheDocument();
-    expect(screen.getByText(SAINA_POWERED)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: new RegExp(SAINA_BRAND) })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: new RegExp(SAINA_POWERED) })).toBeInTheDocument();
     // Pattern dock label is intentionally "EZA"; brand wordmark must stay biligN.
     expect(screen.getByTestId('saina-pattern-nav')).toHaveTextContent('EZA');
     expect(screen.queryByText('Standalone', { exact: true })).not.toBeInTheDocument();
