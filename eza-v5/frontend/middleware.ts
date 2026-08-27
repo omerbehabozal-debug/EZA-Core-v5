@@ -41,6 +41,8 @@ const PUBLIC_PATHS = [
   '/saina',
   /** public/mirror — onboarding önizleme PNG'leri (domain rewrite dışı) */
   '/mirror',
+  /** public/bilign — biligN mark, wordmark, lockup (domain rewrite dışı) */
+  '/bilign',
   '/api',
   '/auth',
 ];

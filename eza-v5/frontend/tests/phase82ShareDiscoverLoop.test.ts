@@ -50,4 +50,9 @@ describe('middleware contract Phase 8.2 /m routing', () => {
     expect(middlewareSrc).toContain('isPublicMirrorNetworkPath');
     expect(middlewareSrc).toContain('Phase 8.2');
   });
+
+  it('middleware preserves /bilign brand assets before domain rewrite', () => {
+    const middlewareSrc = readFileSync(join(process.cwd(), 'middleware.ts'), 'utf8');
+    expect(middlewareSrc).toContain("'/bilign'");
+  });
 });
