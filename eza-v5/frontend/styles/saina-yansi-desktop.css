@@ -240,6 +240,14 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
+
+  .saina-app-root.saina-standalone-shell .saina-discover-content-scroll {
+    padding-top: 0;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-discover-page {
+    padding-top: clamp(1rem, 3vh, 1.75rem);
+  }
 }
 
 @media (min-width: 900px) {
@@ -1266,6 +1274,15 @@
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
     -webkit-backdrop-filter: blur(20px) saturate(70%);
     backdrop-filter: blur(20px) saturate(70%);
+  }
+
+  /* —— Keşfet: clear absolute top bar, match İlişki Haritası rhythm —— */
+  .saina-app-root.saina-standalone-shell .saina-discover-content-scroll {
+    padding-top: 4.75rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-discover-page {
+    padding-top: 0.75rem;
   }
 
   /* —— Stage 10: desktop Ayna panel chrome (Journey/poster internals unchanged) —— */
