@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { SAINA_BRAND, SAINA_BRAND_BYLINE } from '@/lib/eza/sainaCopy';
+import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 
 export const BILIGN_MARK_SRC = '/bilign/bilign-mark.png';
 export const BILIGN_WORDMARK_SRC = '/bilign/bilign-wordmark.png';
@@ -12,13 +12,13 @@ type SainaBrandLockupProps = {
   className?: string;
 };
 
-/** biligN header — separate mark + wordmark assets with a quiet EZA byline. */
+/** biligN header — separate mark + wordmark assets. */
 export default function SainaBrandLockup({ className }: SainaBrandLockupProps) {
   return (
     <div
       className={cn('saina-brand-split', className)}
       data-testid="saina-brand-lockup"
-      aria-label={`${SAINA_BRAND} — ${SAINA_BRAND_BYLINE}`}
+      aria-label={SAINA_BRAND}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- original mark PNG. */}
       <img
@@ -40,7 +40,6 @@ export default function SainaBrandLockup({ className }: SainaBrandLockupProps) {
           height={BILIGN_WORDMARK_INTRINSIC.height}
           className="saina-brand-split-wordmark"
         />
-        <span className="saina-brand-eza">{SAINA_BRAND_BYLINE}</span>
       </div>
     </div>
   );
