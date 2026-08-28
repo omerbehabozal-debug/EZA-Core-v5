@@ -290,7 +290,7 @@ export const ARCHIVE_TITLE_MAX_LEN = 80;
 export function summarizeArchiveTitle(text: string, maxLen = ARCHIVE_TITLE_MAX_LEN): string {
   let t = text.trim().replace(/\s+/g, ' ');
   if (!t) return '';
-  t = t.replace(/…$/u, '').replace(/\.\.\.$/u, '').trim();
+  t = t.replace(/…$/, '').replace(/\.\.\.$/, '').trim();
   if (t.length <= maxLen) return t;
   const slice = t.slice(0, maxLen);
   const lastSpace = slice.lastIndexOf(' ');

@@ -138,8 +138,9 @@ function resolveSidebarChatTitle(item: ArchivedChatSummary): string {
   const title = item.title?.trim() ?? '';
   const preview = item.preview?.trim() ?? '';
   const legacyTruncated = title.endsWith('…') || title.endsWith('...');
+  const strippedTitle = title.replace(/…$/, '').replace(/\.\.\.$/, '');
   const source =
-    legacyTruncated && preview.length > title.replace(/[….]{1,3}$/u, '').length
+    legacyTruncated && preview.length > strippedTitle.length
       ? preview
       : title || preview;
   return summarizeArchiveTitle(source) || 'Yeni sohbet';
