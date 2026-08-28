@@ -199,25 +199,59 @@ export default function SainaProfileMenu({
   >('idle');
   const [nameError, setNameError] = useState<string | null>(null);
   const [avatarSaveState, setAvatarSaveState] = useState<
-    'idle' | 'uploading' | 'saved' | 'error'
+    'idle' | 'saving' | 'saved' | 'error'
   >('idle');
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarDraft, setAvatarDraft] = useState<
+    | { mode: 'keep' }
+    | { mode: 'replace'; file: File; previewUrl: string }
+    | { mode: 'clear' }
+  >({ mode: 'keep' });
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const persistedName = (user?.public_display_name || user?.full_name || '').trim();
+  const persistedAvatarUrl = (user?.public_avatar_url || '').trim() || null;
+  const panelAvatarUrl =
+    avatarDraft.mode === 'replace'
+      ? avatarDraft.previewUrl
+      : avatarDraft.mode === 'clear'
+        ? null
+        : persistedAvatarUrl;
+  const avatarUnchanged = avatarDraft.mode === 'keep';
   const nameUnchanged = nameDraft.trim() === persistedName;
   const quietPlanLabel = resolveQuietAccountPlanLabel(planTier);
   const currentModel = getAnalysisModelById(analysisModelId);
   const loginHref = buildSainaAuthHref(returnUrl, 'login');
   const registerHref = buildSainaAuthHref(returnUrl, 'register');
 
+  const resetAvatarDraft = () => {
+    setAvatarDraft((current) => {
+      if (current.mode === 'replace') {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return { mode: 'keep' };
+    });
+    setAvatarSaveState('idle');
+    setAvatarError(null);
+  };
+
   useEffect(() => {
     if (!open || isGuest) return;
     setNameDraft(persistedName);
     setNameSaveState('idle');
     setNameError(null);
-    setAvatarSaveState('idle');
-    setAvatarError(null);
+    resetAvatarDraft();
   }, [open, isGuest, persistedName]);
+
+  useEffect(() => {
+    return () => {
+      setAvatarDraft((current) => {
+        if (current.mode === 'replace') {
+          URL.revokeObjectURL(current.previewUrl);
+        }
+        return current;
+      });
+    };
+  }, []);
 
   useEffect(() => {
     setEzaPrefs(getEzaUserPreferences(ownerUserId));
@@ -230,8 +264,7 @@ export default function SainaProfileMenu({
     if (!open) return;
     const onDoc = (event: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
-        setModelOpen(false);
+        close();
       }
     };
     document.addEventListener('mousedown', onDoc);
@@ -250,6 +283,7 @@ export default function SainaProfileMenu({
   }, [modelOpen]);
 
   const close = () => {
+    resetAvatarDraft();
     setOpen(false);
     setModelOpen(false);
   };
@@ -282,55 +316,70 @@ export default function SainaProfileMenu({
     setNameSaveState('saved');
   };
 
-  const uploadAvatarFile = async (file: File) => {
-    if (!token || !user) return;
-    setAvatarSaveState('uploading');
+  const savePublicAvatar = async () => {
+    if (!token || !user || avatarUnchanged) return;
+    setAvatarSaveState('saving');
     setAvatarError(null);
-    const { uploadPublicAvatar, publicAvatarSaveErrorMessage } = await import(
-      '@/lib/eza/plan/fetchAuthMe'
-    );
+    const { uploadPublicAvatar, deletePublicAvatar, publicAvatarSaveErrorMessage } =
+      await import('@/lib/eza/plan/fetchAuthMe');
     const { setMemoryAuthToken } = await import('@/lib/eza/authTokenStore');
     setMemoryAuthToken(token);
-    const result = await uploadPublicAvatar(file);
-    if (!result.ok) {
-      setAvatarSaveState('error');
-      setAvatarError(publicAvatarSaveErrorMessage(result.code));
+
+    if (avatarDraft.mode === 'clear') {
+      if (!persistedAvatarUrl) {
+        resetAvatarDraft();
+        setAvatarSaveState('idle');
+        return;
+      }
+      const result = await deletePublicAvatar();
+      if (!result.ok) {
+        setAvatarSaveState('error');
+        setAvatarError(publicAvatarSaveErrorMessage(result.code));
+        return;
+      }
+      setAuth(token, { ...user, public_avatar_url: null });
+      resetAvatarDraft();
+      setAvatarSaveState('saved');
       return;
     }
-    setAuth(token, {
-      ...user,
-      public_avatar_url: result.public_avatar_url,
-    });
-    setAvatarSaveState('saved');
+
+    if (avatarDraft.mode === 'replace') {
+      const result = await uploadPublicAvatar(avatarDraft.file);
+      if (!result.ok) {
+        setAvatarSaveState('error');
+        setAvatarError(publicAvatarSaveErrorMessage(result.code));
+        return;
+      }
+      setAuth(token, { ...user, public_avatar_url: result.public_avatar_url });
+      resetAvatarDraft();
+      setAvatarSaveState('saved');
+    }
   };
 
-  const removeAvatar = async () => {
-    if (!token || !user) return;
-    setAvatarSaveState('uploading');
-    setAvatarError(null);
-    const { deletePublicAvatar, publicAvatarSaveErrorMessage } = await import(
-      '@/lib/eza/plan/fetchAuthMe'
-    );
-    const { setMemoryAuthToken } = await import('@/lib/eza/authTokenStore');
-    setMemoryAuthToken(token);
-    const result = await deletePublicAvatar();
-    if (!result.ok) {
-      setAvatarSaveState('error');
-      setAvatarError(publicAvatarSaveErrorMessage(result.code));
-      return;
-    }
-    setAuth(token, {
-      ...user,
-      public_avatar_url: null,
+  const stageAvatarRemoval = () => {
+    setAvatarDraft((current) => {
+      if (current.mode === 'replace') {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return { mode: 'clear' };
     });
-    setAvatarSaveState('saved');
+    setAvatarSaveState('idle');
+    setAvatarError(null);
   };
 
   const onAvatarInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    void uploadAvatarFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarDraft((current) => {
+      if (current.mode === 'replace') {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return { mode: 'replace', file, previewUrl };
+    });
+    setAvatarSaveState('idle');
+    setAvatarError(null);
   };
 
   return (
@@ -338,7 +387,7 @@ export default function SainaProfileMenu({
       <button
         type="button"
         className="saina-top-avatar-wrap saina-profile-menu-trigger"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => (open ? close() : setOpen(true))}
         aria-haspopup="true"
         aria-expanded={open}
         aria-label="Profil ve ayarlar"
@@ -355,7 +404,7 @@ export default function SainaProfileMenu({
           <ProfileUserAvatar
             displayName={displayName}
             userId={ownerUserId}
-            avatarUrl={user?.public_avatar_url}
+            avatarUrl={persistedAvatarUrl}
             size="top"
           />
         )}
@@ -410,9 +459,9 @@ export default function SainaProfileMenu({
                     isGuest={false}
                     displayName={displayName}
                     userId={ownerUserId}
-                    avatarUrl={user?.public_avatar_url}
+                    avatarUrl={panelAvatarUrl}
                     onAvatarPick={() => avatarInputRef.current?.click()}
-                    avatarBusy={avatarSaveState === 'uploading' || disabled}
+                    avatarBusy={avatarSaveState === 'saving' || disabled}
                   />
                   <div className="saina-profile-menu-identity-copy">
                     <p
@@ -444,7 +493,7 @@ export default function SainaProfileMenu({
                   className="sr-only"
                   data-testid="saina-profile-avatar-input"
                   onChange={onAvatarInputChange}
-                  disabled={disabled || avatarSaveState === 'uploading'}
+                  disabled={disabled || avatarSaveState === 'saving'}
                 />
 
                 <div
@@ -458,18 +507,18 @@ export default function SainaProfileMenu({
                     <button
                       type="button"
                       className="saina-profile-menu-save"
-                      disabled={disabled || avatarSaveState === 'uploading'}
+                      disabled={disabled || avatarSaveState === 'saving'}
                       onClick={() => avatarInputRef.current?.click()}
                       data-testid="saina-profile-avatar-change"
                     >
-                      {avatarSaveState === 'uploading' ? 'Yükleniyor…' : 'Fotoğrafı değiştir'}
+                      Fotoğrafı değiştir
                     </button>
-                    {user?.public_avatar_url ? (
+                    {panelAvatarUrl ? (
                       <button
                         type="button"
                         className="saina-profile-menu-avatar-remove"
-                        disabled={disabled || avatarSaveState === 'uploading'}
-                        onClick={() => void removeAvatar()}
+                        disabled={disabled || avatarSaveState === 'saving'}
+                        onClick={stageAvatarRemoval}
                         data-testid="saina-profile-avatar-remove"
                       >
                         Kaldır
@@ -479,6 +528,19 @@ export default function SainaProfileMenu({
                   <span className="saina-profile-menu-row-note">
                     JPEG, PNG veya WebP. En fazla 2 MB.
                   </span>
+                  <div className="saina-profile-menu-save-wrap">
+                    <button
+                      type="button"
+                      className="saina-profile-menu-save"
+                      disabled={
+                        disabled || avatarSaveState === 'saving' || avatarUnchanged
+                      }
+                      onClick={() => void savePublicAvatar()}
+                      data-testid="saina-profile-avatar-save"
+                    >
+                      {avatarSaveState === 'saving' ? 'Kaydediliyor…' : 'Kaydet'}
+                    </button>
+                  </div>
                   {avatarSaveState === 'saved' ? (
                     <span className="saina-profile-menu-row-note" role="status">
                       Fotoğraf güncellendi.

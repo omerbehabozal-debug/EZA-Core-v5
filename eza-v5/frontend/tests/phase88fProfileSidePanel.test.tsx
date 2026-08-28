@@ -143,6 +143,21 @@ describe('Phase 8.8F profile side panel', () => {
     vi.mocked(patchPublicIdentity).mockReset();
     vi.mocked(uploadPublicAvatar).mockReset();
     vi.mocked(deletePublicAvatar).mockReset();
+    if (typeof URL.createObjectURL !== 'function') {
+      Object.defineProperty(URL, 'createObjectURL', {
+        configurable: true,
+        writable: true,
+        value: vi.fn(() => 'blob:avatar-preview'),
+      });
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        configurable: true,
+        writable: true,
+        value: vi.fn(),
+      });
+    } else {
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:avatar-preview');
+      vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    }
   });
 
   it('uses compact desktop dimensions without a gold frame', () => {
@@ -288,7 +303,7 @@ describe('Phase 8.8F profile side panel', () => {
     expect(authState.logout).toHaveBeenCalledTimes(1);
   });
 
-  it('exposes durable avatar upload without local-only persistence', () => {
+  it('stages avatar upload until save and avoids local-only persistence', () => {
     openMenu();
     const panel = screen.getByTestId('saina-profile-menu');
     const src = read('components/saina/SainaProfileMenu.tsx');
@@ -296,15 +311,16 @@ describe('Phase 8.8F profile side panel', () => {
     expect(within(panel).getByTestId('bilign-profile-avatar')).toBeInTheDocument();
     expect(panel.querySelector('input[type="file"]')).toBeInTheDocument();
     expect(screen.getByText(/Fotoğrafı değiştir/i)).toBeInTheDocument();
-    expect(src).not.toContain('createObjectURL');
+    expect(screen.getByTestId('saina-profile-avatar-save')).toBeInTheDocument();
     expect(src).not.toContain('FileReader');
     expect(src).not.toMatch(/localStorage\.setItem\([^)]*avatar/i);
     expect(src).toContain('uploadPublicAvatar');
+    expect(src).toContain('savePublicAvatar');
     expect(src).toContain('ProfileUserAvatar');
     expect(src).toContain('saina-profile-menu-identity-orbit');
   });
 
-  it('uploads avatar through backend API and updates auth state', async () => {
+  it('uploads avatar only after save and updates auth state', async () => {
     vi.mocked(uploadPublicAvatar).mockResolvedValue({
       ok: true,
       public_avatar_url: 'https://api.example.com/api/public/profile-avatars/u.jpg',
@@ -314,6 +330,10 @@ describe('Phase 8.8F profile side panel', () => {
     const file = new File(['avatar'], 'me.jpg', { type: 'image/jpeg' });
     const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file] } });
+
+    expect(uploadPublicAvatar).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('saina-profile-avatar-save'));
 
     await waitFor(() => {
       expect(uploadPublicAvatar).toHaveBeenCalledWith(file);
@@ -326,6 +346,23 @@ describe('Phase 8.8F profile side panel', () => {
         })
       );
     });
+  });
+
+  it('discards staged avatar when the panel closes without save', async () => {
+    vi.mocked(uploadPublicAvatar).mockResolvedValue({
+      ok: true,
+      public_avatar_url: 'https://api.example.com/api/public/profile-avatars/u.jpg',
+    });
+
+    openMenu();
+    const file = new File(['avatar'], 'me.jpg', { type: 'image/jpeg' });
+    const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+
+    expect(uploadPublicAvatar).not.toHaveBeenCalled();
+    expect(authState.setAuth).not.toHaveBeenCalled();
   });
 
   it('leaves mobile dropdown metrics, public profile, Discover, and Yansı identity alone', () => {

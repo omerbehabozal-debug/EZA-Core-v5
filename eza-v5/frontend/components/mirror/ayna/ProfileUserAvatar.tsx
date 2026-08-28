@@ -26,17 +26,22 @@ export default function ProfileUserAvatar({
   const url = (avatarUrl || '').trim();
   if (url) {
     return (
-      <img
-        src={url}
-        alt={alt || displayName || 'Profil fotoğrafı'}
+      <div
         className={cn(
-          'bilign-profile-avatar bilign-profile-avatar--photo',
+          'bilign-profile-avatar bilign-profile-avatar--has-photo',
           size === 'lg' && 'bilign-profile-avatar--lg',
-          size === 'top' && 'saina-profile-avatar saina-profile-avatar--top bilign-profile-avatar--photo-top',
+          size === 'top' && 'saina-profile-avatar saina-profile-avatar--top',
           className
         )}
-        data-testid="bilign-profile-avatar-photo"
-      />
+        data-testid="bilign-profile-avatar"
+      >
+        <img
+          src={url}
+          alt={alt || displayName || 'Profil fotoğrafı'}
+          className="bilign-profile-avatar__photo"
+          data-testid="bilign-profile-avatar-photo"
+        />
+      </div>
     );
   }
 

@@ -36,13 +36,15 @@
 
 .saina-profile-menu-identity-face,
 .saina-profile-menu-identity-face.bilign-profile-avatar,
-.saina-profile-menu-identity-face.bilign-profile-avatar--lg {
+.saina-profile-menu-identity-face.bilign-profile-avatar--lg,
+.saina-profile-menu-identity-face.bilign-profile-avatar--has-photo {
   position: relative;
   z-index: 1;
   width: 64px;
   height: 64px;
   border-radius: 999px;
   box-shadow: inset 0 0 0 1px rgba(232, 226, 215, 0.14);
+  overflow: hidden;
 }
 
 .saina-profile-menu-identity-face .bilign-profile-avatar__glyph {
