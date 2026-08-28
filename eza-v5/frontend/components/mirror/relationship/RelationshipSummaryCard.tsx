@@ -25,7 +25,7 @@ export default function RelationshipSummaryCard({
   return (
     <article
       className={cn(
-        'saina-pattern-glass-side rounded-3xl p-4 sm:p-5',
+        'saina-pattern-glass-side saina-pattern-balance-card rounded-3xl p-4 sm:p-5',
         preview && 'pointer-events-none select-none opacity-45 saturate-[0.55]',
         className
       )}

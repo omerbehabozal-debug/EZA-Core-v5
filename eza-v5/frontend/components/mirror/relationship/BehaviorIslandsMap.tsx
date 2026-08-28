@@ -29,6 +29,14 @@ export type BehaviorIslandsMapProps = {
   animated?: boolean;
 };
 
+const MAP_DECOR_NODES: { l: number; t: number; quiet?: boolean }[] = [
+  { l: 18, t: 16 },
+  { l: 78, t: 22, quiet: true },
+  { l: 30, t: 80 },
+  { l: 68, t: 74, quiet: true },
+  { l: 50, t: 10 },
+];
+
 export default function BehaviorIslandsMap({
   islands,
   className,
@@ -71,16 +79,15 @@ export default function BehaviorIslandsMap({
     >
       <div className="pointer-events-none absolute inset-0 saina-pattern-map-atmosphere" aria-hidden />
 
-      {[
-        { l: 18, t: 16 },
-        { l: 78, t: 22 },
-        { l: 30, t: 80 },
-        { l: 68, t: 74 },
-        { l: 50, t: 10 },
-      ].map((s) => (
+      {MAP_DECOR_NODES.map((s) => (
         <span
           key={`${s.l}-${s.t}`}
-          className="pointer-events-none absolute h-1 w-1 rounded-full bg-[#D8B16A]/55 shadow-[0_0_6px_2px_rgba(216,177,106,0.28)]"
+          className={cn(
+            'pointer-events-none absolute h-1 w-1 rounded-full',
+            s.quiet
+              ? 'bg-[#D8B16A]/38 shadow-[0_0_6px_2px_rgba(216,177,106,0.18)]'
+              : 'bg-[#D8B16A]/44 shadow-[0_0_6px_2px_rgba(216,177,106,0.22)]'
+          )}
           style={{ left: `${s.l}%`, top: `${s.t}%` }}
           aria-hidden
         />
@@ -94,11 +101,12 @@ export default function BehaviorIslandsMap({
       >
         <defs>
           <linearGradient id="sainaOrbitStroke" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#D8B16A" stopOpacity="0.42" />
-            <stop offset="55%" stopColor="#0F3D32" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#D8B16A" stopOpacity="0.36" />
+            <stop offset="0%" stopColor="#D8B16A" stopOpacity="0.34" />
+            <stop offset="55%" stopColor="#0F3D32" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#D8B16A" stopOpacity="0.29" />
           </linearGradient>
         </defs>
+        <g className="saina-pattern-map-geometry-orbit">
         <ellipse
           cx="50"
           cy="50"
@@ -119,13 +127,29 @@ export default function BehaviorIslandsMap({
           stroke="url(#sainaOrbitStroke)"
           strokeWidth="0.2"
           strokeDasharray="0.4 3.2"
-          opacity="0.72"
+          opacity="0.58"
           vectorEffect="non-scaling-stroke"
         />
+        </g>
         {positions.map((p, i) => {
           const island = visible[i];
           if (!island?.active) return null;
           const active = selectedId === island.id;
+          const rightSide = p.left > 52;
+          const lineOpacity = active
+            ? rightSide
+              ? 0.34
+              : 0.38
+            : rightSide
+              ? 0.15
+              : 0.18;
+          const nodeOpacity = active
+            ? rightSide
+              ? 0.44
+              : 0.58
+            : rightSide
+              ? 0.22
+              : 0.3;
           return (
             <g key={`conn-${island.id}`}>
               <line
@@ -134,7 +158,7 @@ export default function BehaviorIslandsMap({
                 x2={p.left}
                 y2={p.top}
                 stroke="#D8B16A"
-                strokeOpacity={active ? 0.48 : 0.22}
+                strokeOpacity={lineOpacity}
                 strokeWidth={active ? 0.55 : 0.32}
                 strokeDasharray={active ? '0.8 2.4' : '0.5 3'}
                 vectorEffect="non-scaling-stroke"
@@ -144,7 +168,7 @@ export default function BehaviorIslandsMap({
                 cy={p.top}
                 r="0.55"
                 fill="#D8B16A"
-                fillOpacity={active ? 0.72 : 0.38}
+                fillOpacity={nodeOpacity}
               />
             </g>
           );
