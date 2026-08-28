@@ -57,12 +57,9 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
       <PlanHydrator />
       <div
       className={cn(
-        'saina-page saina-app-root',
-        view === 'chat'
-          ? 'saina-standalone-shell'
-          : view === 'discover'
-            ? 'saina-discover-shell'
-            : 'saina-pattern-shell'
+        'saina-page saina-app-root saina-standalone-shell',
+        view === 'discover' && 'saina-discover-shell',
+        view === 'pattern' && 'saina-pattern-shell'
       )}
       data-testid={
         view === 'chat'

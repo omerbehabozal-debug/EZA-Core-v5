@@ -1,7 +1,7 @@
 /**
  * Phase 8.8F Stage 1–8 + 5.1 + A — desktop Yansı-first conversation visual system.
- * Scoped to `.saina-app-root.saina-standalone-shell` only.
- * Does NOT restyle Discover / Pattern shells.
+ * Scoped to `.saina-app-root.saina-standalone-shell` (chat, Keşfet, EZA).
+ * View-specific shells keep additive classes for page content overrides.
  * Mobile (<900px) keeps existing Phase 8.7 layout.
  */
 
