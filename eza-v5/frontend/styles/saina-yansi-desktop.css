@@ -11,6 +11,21 @@
   display: none;
 }
 
+/* Logo sabit; Keşfet/Yeni sohbet yukarı — tüm viewport'larda */
+.saina-app-root.saina-standalone-shell .saina-sidebar-top {
+  gap: 0;
+}
+
+.saina-app-root.saina-standalone-shell .saina-brand-row {
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-primary-nav {
+  margin-top: -0.75rem;
+  margin-bottom: 0.75rem;
+}
+
 @media (min-width: 900px) {
   /* —— Stage 1: tokens + edge-to-edge shell —— */
   .saina-app-root.saina-standalone-shell.saina-page {
