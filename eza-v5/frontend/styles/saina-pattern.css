@@ -61,6 +61,17 @@
   flex-direction: column;
   width: 100%;
   gap: var(--saina-pattern-gap-controls-content);
+  padding-top: 0.75rem;
+}
+
+.saina-app-root.saina-standalone-shell .saina-pattern-stage {
+  padding-top: clamp(0.75rem, 2.5vh, 1.25rem);
+}
+
+@media (min-width: 900px) {
+  .saina-app-root.saina-standalone-shell .saina-pattern-stage {
+    padding-top: 4.75rem;
+  }
 }
 
 .saina-pattern-controls-wrap {
@@ -243,7 +254,7 @@
 }
 
 .saina-pattern-page-title {
-  margin: 0;
+  margin: 0 0 0.35rem;
   font-size: 1.125rem;
   font-weight: 600;
   letter-spacing: -0.02em;

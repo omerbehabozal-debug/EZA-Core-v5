@@ -91,13 +91,13 @@ describe('SainaDiscoverPage chrome actions', () => {
     expect(chrome.onUpgrade).toBeTypeOf('function');
 
     chrome.onOpenPattern?.();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/standalone/mirror/pattern', { scroll: false });
   });
 
-  it('gates pattern navigation for non-premium users on discover', async () => {
+  it('routes pattern navigation from discover chrome handler', async () => {
     render(<SainaDiscoverPage />);
     useSainaChromeStore.getState().onOpenPattern?.();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/standalone/mirror/pattern', { scroll: false });
   });
 
   it('opens identity modal from discover when guest taps login footer', async () => {

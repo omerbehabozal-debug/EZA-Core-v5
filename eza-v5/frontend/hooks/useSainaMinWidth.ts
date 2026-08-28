@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import { SAINA_COMPACT_SHELL_MIN_PX } from '@/lib/eza/sainaBreakpoints';
 
 export function useSainaMinWidth(minWidth: number) {
-  const [matches, setMatches] = useState(true);
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(`(min-width: ${minWidth}px)`).matches;
+  });
 
   useEffect(() => {
     const query = window.matchMedia(`(min-width: ${minWidth}px)`);

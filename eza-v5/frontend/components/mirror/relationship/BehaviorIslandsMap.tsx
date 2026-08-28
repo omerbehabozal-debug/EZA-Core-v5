@@ -166,7 +166,7 @@ export default function BehaviorIslandsMap({
             aria-hidden
           />
           <div
-            className="flex h-[5.5rem] w-[5.5rem] flex-col items-center justify-center rounded-full border border-[#D8B16A]/35 text-center backdrop-blur-md sm:h-24 sm:w-24"
+            className="flex h-[5.5rem] w-[5.5rem] flex-col items-center justify-center rounded-full border border-[#D8B16A]/35 px-2 pt-2 text-center backdrop-blur-md sm:h-24 sm:w-24 sm:pt-2.5"
             style={{
               background:
                 'radial-gradient(circle at 34% 26%, rgba(255,252,245,0.96), rgba(243,238,226,0.82) 58%, rgba(239,232,218,0.68) 100%)',
@@ -174,10 +174,10 @@ export default function BehaviorIslandsMap({
                 '0 16px 44px -14px rgba(15,61,50,0.22), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -10px 24px -14px rgba(216,177,106,0.22)',
             }}
           >
-            <span className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#0F3D32]/70">
+            <span className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#0F3D32]/70">
               AI İlişkin
             </span>
-            <span className="mt-0.5 text-lg font-bold tracking-tight text-[#18332D]">
+            <span className="mt-1 text-lg font-bold leading-none tracking-tight text-[#18332D]">
               {centerLabel}
             </span>
           </div>

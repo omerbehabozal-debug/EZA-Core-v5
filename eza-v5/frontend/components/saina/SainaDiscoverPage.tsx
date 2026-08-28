@@ -113,8 +113,8 @@ export default function SainaDiscoverPage() {
   const discoverLimitReached = !canStartDiscoverFromEntitlements(accountEntitlements);
   const discoverLimitMessage = resolveDiscoverLimitMessage(accountEntitlements.tier);
   const isCompactShell = useSainaCompactShell();
-  const openMobileSidebar = useSainaChromeStore((s) => s.openMobileSidebar);
-  const openCommandPalette = useSainaChromeStore((s) => s.openCommandPalette);
+  const openMobileSidebar = () => useSainaChromeStore.getState().openMobileSidebar?.();
+  const openCommandPalette = () => useSainaChromeStore.getState().openCommandPalette?.();
   const {
     handleRequestLogin,
     handleOpenUpgrade: handleUpgrade,
@@ -437,7 +437,7 @@ export default function SainaDiscoverPage() {
               type="button"
               className="saina-standalone-menu-btn"
               data-testid="saina-discover-mobile-menu-btn"
-              onClick={() => openMobileSidebar?.()}
+              onClick={openMobileSidebar}
               aria-label="Menü"
             >
               <Menu size={20} />
@@ -446,7 +446,7 @@ export default function SainaDiscoverPage() {
         ) : null}
 
         <SainaPageTopBar
-          onOpenCommandPalette={() => openCommandPalette?.()}
+          onOpenCommandPalette={openCommandPalette}
           safeOnlyMode={safeOnlyMode}
           onSafeOnlyModeChange={setSafeOnlyMode}
           analysisModelId={analysisModelId}

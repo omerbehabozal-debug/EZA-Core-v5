@@ -216,7 +216,7 @@ export default function RelationshipPatternView({
               className={sp.mapCard}
               aria-labelledby="behavior-islands-title"
             >
-              <div className="flex shrink-0 items-baseline justify-between gap-2">
+              <div className="flex shrink-0 items-baseline justify-between gap-2 pt-1">
                 <p
                   id="behavior-islands-title"
                   className="text-[11px] font-semibold uppercase tracking-[0.14em] saina-pattern-text-label"

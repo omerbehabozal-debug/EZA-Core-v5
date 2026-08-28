@@ -107,21 +107,25 @@ export default function SainaPatternShell({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const isCompactShell = useSainaCompactShell();
-  const openMobileSidebar = useSainaChromeStore((s) => s.openMobileSidebar);
-  const openCommandPaletteFromStore = useSainaChromeStore((s) => s.openCommandPalette);
 
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
 
-  useSainaCommandShortcut(embedded ? () => openCommandPaletteFromStore?.() : openCommandPalette);
+  useSainaCommandShortcut(
+    embedded ? () => useSainaChromeStore.getState().openCommandPalette?.() : openCommandPalette
+  );
 
   const patternSurface = (
     <SainaPatternSurface
       onOpenCommandPalette={
-        embedded ? () => openCommandPaletteFromStore?.() : openCommandPalette
+        embedded
+          ? () => useSainaChromeStore.getState().openCommandPalette?.()
+          : openCommandPalette
       }
       onMobileMenu={
-        embedded ? () => openMobileSidebar?.() : () => setMobileSidebarOpen(true)
+        embedded
+          ? () => useSainaChromeStore.getState().openMobileSidebar?.()
+          : () => setMobileSidebarOpen(true)
       }
       showMobileMenu={!isCompactShell}
       safeOnlyMode={safeOnlyMode}

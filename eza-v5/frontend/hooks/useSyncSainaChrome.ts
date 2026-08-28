@@ -50,6 +50,7 @@ export function useSyncSainaChrome({
   }));
 
   useLayoutEffect(() => {
+    const { openMobileSidebar, openCommandPalette } = useSainaChromeStore.getState();
     setChrome({
       activeSection,
       conversations: conversationsWithStatus,
@@ -73,6 +74,8 @@ export function useSyncSainaChrome({
       settingsDisabled,
       onOpenMirror,
       notifications,
+      openMobileSidebar,
+      openCommandPalette,
     });
   }, [
     setChrome,

@@ -244,15 +244,15 @@ export default function SainaStandaloneShell({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const isCompactShell = useSainaCompactShell();
-  const openMobileSidebar = useSainaChromeStore((s) => s.openMobileSidebar);
-  const openCommandPaletteFromStore = useSainaChromeStore((s) => s.openCommandPalette);
   const setChrome = useSainaChromeStore((s) => s.setChrome);
   const mirrorControlRef = useRef<() => void>(() => {});
 
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
 
-  useSainaCommandShortcut(embedded ? () => openCommandPaletteFromStore?.() : openCommandPalette);
+  useSainaCommandShortcut(
+    embedded ? () => useSainaChromeStore.getState().openCommandPalette?.() : openCommandPalette
+  );
 
   useLayoutEffect(() => {
     if (!embedded) return;
@@ -270,7 +270,9 @@ export default function SainaStandaloneShell({
       messages={messages}
       composer={composer}
       onOpenCommandPalette={
-        embedded ? () => openCommandPaletteFromStore?.() : openCommandPalette
+        embedded
+          ? () => useSainaChromeStore.getState().openCommandPalette?.()
+          : openCommandPalette
       }
       safeOnlyMode={safeOnlyMode}
       onSafeOnlyModeChange={onSafeOnlyModeChange}
@@ -280,7 +282,9 @@ export default function SainaStandaloneShell({
       onRequestMirror={onRequestMirror}
       mirrorMobileContext={mirrorMobileContext}
       onMobileMenu={
-        embedded ? () => openMobileSidebar?.() : () => setMobileSidebarOpen(true)
+        embedded
+          ? () => useSainaChromeStore.getState().openMobileSidebar?.()
+          : () => setMobileSidebarOpen(true)
       }
       showMobileMenu={!isCompactShell}
       isCompactShell={isCompactShell}

@@ -46,7 +46,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
       openMobileSidebar,
       openCommandPalette,
     });
-  }, [setChrome, openCommandPalette, openMobileSidebar]);
+  }, [setChrome, openCommandPalette, openMobileSidebar, pathname]);
 
   if (!view) {
     return <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">{children}</div>;

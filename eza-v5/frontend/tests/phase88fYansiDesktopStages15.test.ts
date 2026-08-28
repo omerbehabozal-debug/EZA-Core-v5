@@ -132,11 +132,12 @@ describe('Phase 8.8F Stage 9 isolation', () => {
     expect(css).not.toContain('bilign-profile');
   });
 
-  it('gates desktop visual system at 900px so Phase 8.7 mobile remains default', () => {
-    expect(css).toContain('Mobile (<900px) keeps existing Phase 8.7 layout');
+  it('gates desktop layout at 900px while sharing biligN sidebar tokens on mobile', () => {
+    expect(css).toContain('Shared biligN sidebar + tokens apply from mobile up');
     expect(css).toContain('.bilign-yansi-identity__mark');
     expect(css).toContain('.bilign-yansi-identity__name-row');
     expect(css).toMatch(/\.bilign-yansi-identity__name-row \{\s*display: none;/);
+    expect(css).toContain('@media (max-width: 899px)');
   });
 });
 
@@ -296,9 +297,10 @@ describe('Phase 8.8F Stage B sidebar fade + reading plane refinement', () => {
   it('keeps subtle sidebar hairline and fixed width without layout drift', () => {
     expect(css).toContain('border-right: 1px solid rgba(232, 226, 215, 0.045)');
     expect(css).toContain('--saina-sidebar-width: 280px');
+    const desktopSidebarIdx = css.indexOf('@media (min-width: 900px)');
     const sidebarBlock = css.slice(
-      css.indexOf('.saina-app-root.saina-standalone-shell .saina-sidebar {'),
-      css.indexOf('.saina-app-root.saina-standalone-shell .saina-sidebar::before')
+      css.indexOf('.saina-app-root.saina-standalone-shell .saina-sidebar {', desktopSidebarIdx),
+      css.indexOf('.saina-app-root.saina-standalone-shell .saina-sidebar::before', desktopSidebarIdx)
     );
     expect(sidebarBlock).toContain('width: var(--saina-sidebar-width)');
     expect(sidebarBlock).not.toContain('300px');

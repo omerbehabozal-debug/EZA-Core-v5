@@ -2,7 +2,7 @@
  * Phase 8.8F Stage 1–8 + 5.1 + A — desktop Yansı-first conversation visual system.
  * Scoped to `.saina-app-root.saina-standalone-shell` (chat, Keşfet, EZA).
  * View-specific shells keep additive classes for page content overrides.
- * Mobile (<900px) keeps existing Phase 8.7 layout.
+ * Shared biligN sidebar + tokens apply from mobile up; desktop layout rules start at 900px.
  */
 
 /* Stage 9 — hide desktop-only identity chrome on mobile */
@@ -32,6 +32,214 @@
 
 .saina-app-root.saina-standalone-shell .saina-conv-list {
   padding-top: 0;
+}
+
+/* —— biligN tokens + sidebar surface (all viewports) —— */
+.saina-app-root.saina-standalone-shell.saina-page {
+  --bilign-bg: #090b0b;
+  --bilign-sidebar-upper: #0c0d0d;
+  --bilign-sidebar: #0c0d0d;
+  --bilign-sidebar-lower: #0c0d0d;
+  --bilign-sidebar-surface: #0c0d0d;
+  --yansi-accent-rgb: 183, 137, 73;
+  --bilign-glass-base: #0d0f0f;
+  --bilign-text: #e8e2d7;
+  --bilign-body: #d8d2c8;
+  --bilign-secondary: #9b968d;
+  --bilign-passive: #716e68;
+  --bilign-bronze: #b78949;
+  --bilign-bronze-light: #d0a15b;
+  --bilign-bronze-dark: #765b35;
+  --bilign-bronze-active: #c8954f;
+  --bilign-select-line: #c59750;
+  --bilign-time: #77736c;
+  --bilign-label-user: #e8e2d7;
+  --bilign-label-ai: #c8954f;
+  --saina-logo-gold: var(--bilign-bronze-light);
+  --saina-brand-text: var(--bilign-bronze-light);
+  background: var(--bilign-bg);
+  color: var(--bilign-text);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar {
+  position: relative;
+  background: var(--bilign-sidebar-surface);
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-right: 1px solid rgba(232, 226, 215, 0.045);
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.012),
+    8px 0 24px rgba(0, 0, 0, 0.12);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar::before {
+  display: none;
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar::after {
+  display: block;
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 28px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(var(--yansi-accent-rgb), 0.025) 100%
+  );
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-title {
+  color: var(--bilign-text);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-preview,
+.saina-app-root.saina-standalone-shell .saina-sidebar .saina-section-label,
+.saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-time,
+.saina-app-root.saina-standalone-shell .saina-time-group-label,
+.saina-app-root.saina-standalone-shell .saina-conv-group-header--quiet {
+  color: var(--bilign-secondary);
+}
+
+.saina-app-root.saina-standalone-shell .saina-conv-row--quiet,
+.saina-app-root.saina-standalone-shell .saina-conv-row--active,
+.saina-app-root.saina-standalone-shell .saina-chat-item.is-active,
+.saina-app-root.saina-standalone-shell .saina-chat-item[data-active='true'] {
+  border-left: 2px solid transparent;
+}
+
+.saina-app-root.saina-standalone-shell .saina-conv-row--active,
+.saina-app-root.saina-standalone-shell .saina-chat-item.is-active,
+.saina-app-root.saina-standalone-shell .saina-chat-item[data-active='true'] {
+  background: rgba(232, 226, 215, 0.045);
+  border-radius: 10px;
+  border: none;
+  box-shadow: none;
+  color: var(--bilign-text);
+}
+
+.saina-app-root.saina-standalone-shell .saina-conv-row--quiet:hover:not(.saina-conv-row--active),
+.saina-app-root.saina-standalone-shell .saina-chat-item:hover:not(.is-active):not([data-active='true']) {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-home-link,
+.saina-app-root.saina-standalone-shell .saina-sidebar-dock-link {
+  color: var(--bilign-secondary);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-home-link:hover,
+.saina-app-root.saina-standalone-shell .saina-sidebar-dock-link:hover {
+  color: var(--bilign-text);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-dock-link--active .saina-sidebar-dock-icon {
+  color: var(--bilign-bronze-active);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-dock-icon {
+  color: var(--bilign-passive);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar .saina-section-label {
+  color: var(--bilign-passive);
+  letter-spacing: 0.12em;
+}
+
+.saina-app-root.saina-standalone-shell .saina-conv-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  box-shadow: none;
+  filter: saturate(0.82) brightness(0.9);
+}
+
+.saina-app-root.saina-standalone-shell .saina-conv-active-dot {
+  background: var(--bilign-bronze);
+  box-shadow: none;
+}
+
+.saina-app-root.saina-standalone-shell .saina-conv-list {
+  scrollbar-color: rgba(232, 226, 215, 0.16) transparent;
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-action,
+.saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:not(.saina-sidebar-plan-footer-cta--full) {
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid rgba(183, 137, 73, 0.42);
+  color: var(--bilign-bronze-light);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:hover .saina-sidebar-plan-footer-action,
+.saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:not(.saina-sidebar-plan-footer-cta--full):hover {
+  background: rgba(183, 137, 73, 0.1);
+  border-color: rgba(208, 161, 91, 0.55);
+}
+
+@media (max-width: 899px) {
+  .saina-app-root.saina-standalone-shell .saina-standalone-mobile-bar {
+    position: relative;
+    z-index: 42;
+    pointer-events: auto;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-standalone-menu-btn,
+  .saina-app-root.saina-standalone-shell .saina-sidebar-close-btn {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    border: 1px solid rgba(232, 226, 215, 0.16);
+    background: linear-gradient(
+      165deg,
+      rgba(17, 18, 18, 0.84) 0%,
+      rgba(10, 12, 12, 0.76) 100%
+    );
+    color: var(--bilign-text);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-top-bar {
+    position: relative;
+    z-index: 41;
+    pointer-events: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-top-bar-inner {
+    pointer-events: auto;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-search-wrap,
+  .saina-app-root.saina-standalone-shell .saina-icon-btn--glass,
+  .saina-app-root.saina-standalone-shell .saina-top-avatar-wrap,
+  .saina-app-root.saina-standalone-shell .saina-notifications-trigger {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    border: 1px solid rgba(232, 226, 215, 0.16);
+    background: linear-gradient(
+      165deg,
+      rgba(17, 18, 18, 0.84) 0%,
+      rgba(10, 12, 12, 0.76) 100%
+    );
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-route-transition {
+    position: relative;
+    z-index: 1;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link,
+  .saina-app-root.saina-standalone-shell .saina-sidebar-home-link {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 @media (min-width: 900px) {
