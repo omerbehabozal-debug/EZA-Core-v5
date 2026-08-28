@@ -23,7 +23,7 @@ const TREND_VIEW: Record<
     label: 'Yükselişte',
     sentence: 'Bu davranış son dönemde daha baskın hale geldi.',
     Icon: ArrowUpRight,
-    tone: 'text-emerald-600',
+    tone: 'saina-pattern-text-accent',
   },
   stable: {
     label: 'Dengede',

@@ -48,8 +48,9 @@ export default function RelationshipSummaryCard({
             {!preview ? (
               <defs>
                 <linearGradient id="balanceRing" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#D8B16A" />
-                  <stop offset="100%" stopColor="#05483a" />
+                  <stop offset="0%" stopColor="#E8E2D7" />
+                  <stop offset="55%" stopColor="#B78949" />
+                  <stop offset="100%" stopColor="#8E6B3D" />
                 </linearGradient>
               </defs>
             ) : null}

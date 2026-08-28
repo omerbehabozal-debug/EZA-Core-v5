@@ -472,12 +472,12 @@ export const standaloneSkin = {
 
   /** SAINA İlişki Haritası — premium dark glass (aligned with chat card) */
   sainaPatternPolish: {
-    levelNav: 'inline-flex rounded-full p-1 saina-pattern-glass-pill',
+    levelNav: 'inline-flex gap-0.5',
     levelTabActive:
       'saina-pattern-tab saina-pattern-tab--active px-3.5 py-1.5 text-[13px] font-medium',
     levelTabIdle:
       'saina-pattern-tab saina-pattern-tab--idle px-3.5 py-1.5 text-[13px] font-medium',
-    periodNav: 'inline-flex rounded-full p-0.5 saina-pattern-glass-pill',
+    periodNav: 'inline-flex gap-0.5',
     periodTabActive:
       'saina-pattern-tab saina-pattern-tab--active px-3 py-1.5 text-xs font-semibold',
     periodTabIdle:

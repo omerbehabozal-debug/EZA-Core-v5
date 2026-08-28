@@ -3,21 +3,27 @@
  */
 
 .saina-pattern-shell {
-  --saina-pattern-text: rgba(238, 232, 218, 0.96);
-  --saina-pattern-text-muted: rgba(208, 198, 180, 0.84);
-  --saina-pattern-text-label: rgba(196, 168, 118, 0.82);
-  --saina-pattern-text-accent: #e7b45b;
-  --saina-pattern-glass-border: rgba(216, 177, 106, 0.38);
+  --saina-pattern-text: #e8e2d7;
+  --saina-pattern-text-muted: rgba(232, 226, 215, 0.55);
+  --saina-pattern-text-label: rgba(232, 226, 215, 0.38);
+  --saina-pattern-text-accent: #b78949;
+  --saina-pattern-active-surface: rgba(183, 137, 73, 0.14);
+  --saina-pattern-active-border: rgba(183, 137, 73, 0.3);
+  --saina-pattern-glass-border: rgba(183, 137, 73, 0.22);
+  --saina-pattern-glass-border-hover: rgba(183, 137, 73, 0.34);
   --saina-pattern-glass-highlight: rgba(255, 255, 255, 0.32);
   --saina-pattern-glass-blur: blur(38px) saturate(1.18);
 }
 
 .saina-pattern-main {
-  --saina-pattern-text: var(--saina-glass-text, rgba(238, 232, 218, 0.96));
-  --saina-pattern-text-muted: var(--saina-glass-text-muted, rgba(208, 198, 180, 0.84));
-  --saina-pattern-text-label: rgba(196, 168, 118, 0.82);
-  --saina-pattern-text-accent: var(--saina-logo-gold, #e7b45b);
-  --saina-pattern-glass-border: var(--saina-glass-border, rgba(216, 177, 106, 0.38));
+  --saina-pattern-text: var(--saina-glass-text, #e8e2d7);
+  --saina-pattern-text-muted: var(--saina-glass-text-muted, rgba(232, 226, 215, 0.55));
+  --saina-pattern-text-label: rgba(232, 226, 215, 0.38);
+  --saina-pattern-text-accent: var(--saina-logo-gold, #b78949);
+  --saina-pattern-active-surface: rgba(183, 137, 73, 0.14);
+  --saina-pattern-active-border: rgba(183, 137, 73, 0.3);
+  --saina-pattern-glass-border: var(--saina-glass-border, rgba(183, 137, 73, 0.22));
+  --saina-pattern-glass-border-hover: rgba(183, 137, 73, 0.34);
   --saina-pattern-glass-highlight: var(--saina-glass-highlight, rgba(255, 255, 255, 0.32));
   --saina-pattern-glass-blur: var(--saina-glass-blur, blur(38px) saturate(1.18));
 }
@@ -246,7 +252,7 @@
 }
 
 .saina-pattern-glass-tile {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(183, 137, 73, 0.2);
   background: rgba(6, 12, 16, 0.3);
   -webkit-backdrop-filter: blur(22px) saturate(1.08);
   backdrop-filter: blur(22px) saturate(1.08);
@@ -294,8 +300,8 @@
 }
 
 .saina-pattern-controls {
-  padding: 0.5rem 0.625rem;
-  border-radius: 9999px;
+  padding: 0.45rem 0.55rem;
+  border-radius: 15px;
   border: 1px solid var(--saina-pattern-glass-border);
   background:
     linear-gradient(
@@ -311,12 +317,12 @@
   -webkit-backdrop-filter: blur(28px) saturate(1.12);
   backdrop-filter: blur(28px) saturate(1.12);
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    0 8px 22px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .saina-pattern-tab {
-  border-radius: 9999px;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
   transition:
@@ -326,20 +332,20 @@
 }
 
 .saina-pattern-tab--active {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(5, 72, 58, 0.86);
-  color: var(--saina-pattern-text);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  border-color: var(--saina-pattern-active-border);
+  background: var(--saina-pattern-active-surface);
+  color: #e8e2d7;
+  box-shadow: none;
 }
 
 .saina-pattern-tab--idle {
-  color: var(--saina-pattern-text-muted);
+  color: rgba(232, 226, 215, 0.55);
 }
 
 @media (hover: hover) {
   .saina-pattern-tab--idle:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--saina-pattern-text);
+    background: rgba(183, 137, 73, 0.08);
+    color: #e8e2d7;
   }
 }
 
@@ -347,7 +353,7 @@
   display: inline-flex;
   align-items: center;
   border-radius: 9999px;
-  border: 1px solid rgba(216, 177, 106, 0.28);
+  border: 1px solid rgba(183, 137, 73, 0.2);
   background: rgba(255, 255, 255, 0.06);
   padding: 0.25rem 0.65rem;
   font-size: 9px;
@@ -414,8 +420,8 @@
 .saina-pattern-map-atmosphere {
   background:
     radial-gradient(ellipse 72% 56% at 50% 44%, rgba(216, 177, 106, 0.18), transparent 64%),
-    radial-gradient(ellipse 48% 40% at 20% 24%, rgba(15, 61, 50, 0.12), transparent 68%),
-    radial-gradient(ellipse 52% 44% at 78% 72%, rgba(196, 122, 58, 0.08), transparent 72%);
+    radial-gradient(ellipse 48% 40% at 20% 24%, rgba(183, 137, 73, 0.08), transparent 68%),
+    radial-gradient(ellipse 52% 44% at 78% 72%, rgba(142, 107, 61, 0.08), transparent 72%);
 }
 
 .saina-pattern-connection-glow {
@@ -463,7 +469,7 @@
 }
 
 .saina-pattern-preview-shell {
-  border: 1px solid rgba(216, 177, 106, 0.2);
+  border: 1px solid rgba(183, 137, 73, 0.2);
   background: rgba(6, 12, 16, 0.28);
   -webkit-backdrop-filter: blur(20px) saturate(1.06);
   backdrop-filter: blur(20px) saturate(1.06);
@@ -481,7 +487,7 @@
       120deg,
       rgba(216, 177, 106, 0.1) 0%,
       rgba(8, 16, 14, 0.28) 58%,
-      rgba(5, 72, 58, 0.22) 100%
+      rgba(142, 107, 61, 0.16) 100%
     );
   -webkit-backdrop-filter: var(--saina-pattern-glass-blur);
   backdrop-filter: var(--saina-pattern-glass-blur);
@@ -491,14 +497,17 @@
 }
 
 .saina-pattern-upsell-cta {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(5, 72, 58, 0.9);
-  color: var(--saina-pattern-text);
-  transition: background-color 0.18s ease;
+  border: 1px solid var(--saina-pattern-active-border);
+  background: rgba(183, 137, 73, 0.16);
+  color: #e8e2d7;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease;
 }
 
 @media (hover: hover) {
   .saina-pattern-upsell-cta:hover {
-    background: rgba(5, 72, 58, 1);
+    background: rgba(183, 137, 73, 0.24);
+    border-color: var(--saina-pattern-glass-border-hover);
   }
 }

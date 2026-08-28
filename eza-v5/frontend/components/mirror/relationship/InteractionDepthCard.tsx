@@ -35,7 +35,7 @@ export default function InteractionDepthCard({
         <>
           <p className="mt-3 text-3xl font-bold tracking-tight saina-pattern-text">{metric.label}</p>
           {metric.deltaPercent != null ? (
-            <p className="mt-1 text-xs font-medium text-emerald-400/90">
+            <p className="mt-1 text-xs font-medium saina-pattern-text-accent">
               {metric.deltaPercent >= 0 ? '+' : ''}
               {metric.deltaPercent}% önceki 30 güne göre
             </p>
