@@ -10,6 +10,11 @@ import {
 } from '@/lib/eza/mirror/mirrorSceneFocal';
 import { cn } from '@/lib/utils';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
+import {
+  applyYansiAccentRgb,
+  extractYansiAccentRgb,
+  YANSI_ACCENT_RGB_DEFAULT,
+} from '@/lib/eza/yansiAccentColor';
 
 const defaultSceneUrl =
   typeof defaultSceneImage === 'string'
@@ -94,6 +99,26 @@ export default function SainaCinematicScene({
       img.onerror = null;
     };
   }, [identityUrl]);
+
+  const accentSceneUrl = activeIdentityUrl ?? bundledSceneUrl;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void extractYansiAccentRgb(accentSceneUrl).then((rgb) => {
+      if (!cancelled) applyYansiAccentRgb(rgb);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accentSceneUrl]);
+
+  useEffect(() => {
+    return () => {
+      applyYansiAccentRgb(YANSI_ACCENT_RGB_DEFAULT);
+    };
+  }, []);
 
   return (
     <div

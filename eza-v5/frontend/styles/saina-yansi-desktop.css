@@ -15,9 +15,11 @@
   /* —— Stage 1: tokens + edge-to-edge shell —— */
   .saina-app-root.saina-standalone-shell.saina-page {
     --bilign-bg: #090b0b;
-    --bilign-sidebar-upper: #121414;
-    --bilign-sidebar: #101212;
-    --bilign-sidebar-lower: #0c0e0e;
+    --bilign-sidebar-upper: #0c0d0d;
+    --bilign-sidebar: #0c0d0d;
+    --bilign-sidebar-lower: #0c0d0d;
+    --bilign-sidebar-surface: #0c0d0d;
+    --yansi-accent-rgb: 183, 137, 73;
     --bilign-glass-base: #0d0f0f;
     --bilign-text: #e8e2d7;
     --bilign-body: #d8d2c8;
@@ -96,22 +98,36 @@
     width: var(--saina-sidebar-width);
     height: 100dvh;
     border-radius: 0;
-    border-right: none;
-    background-color: var(--bilign-sidebar);
-    background-image: linear-gradient(
-      180deg,
-      var(--bilign-sidebar-upper) 0%,
-      var(--bilign-sidebar) 48%,
-      var(--bilign-sidebar-lower) 100%
-    );
+    position: relative;
+    background: var(--bilign-sidebar-surface);
+    background-image: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    box-shadow: none;
+    border-right: 1px solid rgba(232, 226, 215, 0.045);
+    box-shadow:
+      inset -1px 0 0 rgba(255, 255, 255, 0.012),
+      8px 0 24px rgba(0, 0, 0, 0.12);
   }
 
-  .saina-app-root.saina-standalone-shell .saina-sidebar::before,
-  .saina-app-root.saina-standalone-shell .saina-sidebar::after {
+  .saina-app-root.saina-standalone-shell .saina-sidebar::before {
     display: none;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar::after {
+    display: block;
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -1px;
+    width: 28px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(var(--yansi-accent-rgb), 0.025) 100%
+    );
   }
 
   .saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-title {
@@ -139,13 +155,13 @@
     background: rgba(232, 226, 215, 0.045);
     border-radius: 10px;
     border: none;
-    border-left: 2px solid var(--bilign-select-line);
     box-shadow: none;
     color: var(--bilign-text);
   }
 
-  .saina-app-root.saina-standalone-shell .saina-conv-row--quiet:hover {
-    background: rgba(232, 226, 215, 0.03);
+  .saina-app-root.saina-standalone-shell .saina-conv-row--quiet:hover:not(.saina-conv-row--active),
+  .saina-app-root.saina-standalone-shell .saina-chat-item:hover:not(.is-active):not([data-active='true']) {
+    background: rgba(255, 255, 255, 0.025);
   }
 
   .saina-app-root.saina-standalone-shell .saina-sidebar-home-link,
@@ -1325,11 +1341,6 @@
 }
 
 @media (min-width: 900px) {
-  .saina-app-root.saina-standalone-shell .saina-sidebar {
-    border-right: none !important;
-    box-shadow: none !important;
-  }
-
   .saina-app-root.saina-standalone-shell .saina-main,
   .saina-app-root.saina-standalone-shell .saina-main-body,
   .saina-app-root.saina-standalone-shell .saina-chat-column,

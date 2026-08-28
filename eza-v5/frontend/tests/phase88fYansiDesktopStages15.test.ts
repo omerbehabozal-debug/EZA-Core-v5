@@ -34,13 +34,13 @@ describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
     expect(css).toContain('--saina-sidebar-width: 280px');
   });
 
-  it('defines Stage 2 selected conversation left bronze line without pill fill', () => {
+  it('defines Stage 2 fixed sidebar surface with subtle hairline and Yansı edge bleed', () => {
     expect(css).toContain('rgba(232, 226, 215, 0.045)');
-    expect(css).toContain('2px solid var(--bilign-select-line)');
-    expect(css).toContain('--bilign-sidebar-upper: #121414');
-    expect(css).toContain('--bilign-sidebar: #101212');
-    expect(css).toContain('--bilign-sidebar-lower: #0c0e0e');
-    expect(css).toContain('border-right: none');
+    expect(css).toContain('--bilign-sidebar-surface: #0c0d0d');
+    expect(css).toContain('--yansi-accent-rgb: 183, 137, 73');
+    expect(css).toContain('border-right: 1px solid rgba(232, 226, 215, 0.045)');
+    expect(css).toContain('rgba(var(--yansi-accent-rgb), 0.025)');
+    expect(css).toContain('width: 28px');
     expect(css).toContain('--saina-sidebar-fade-width: 160px');
   });
 
@@ -293,8 +293,8 @@ describe('Phase 8.8F Stage B sidebar fade + reading plane refinement', () => {
     expect(fadeBlock).not.toContain('@media (max-width: 899px)');
   });
 
-  it('removes the sidebar hairline and does not change sidebar width', () => {
-    expect(css).toContain('border-right: none !important');
+  it('keeps subtle sidebar hairline and fixed width without layout drift', () => {
+    expect(css).toContain('border-right: 1px solid rgba(232, 226, 215, 0.045)');
     expect(css).toContain('--saina-sidebar-width: 280px');
     const sidebarBlock = css.slice(
       css.indexOf('.saina-app-root.saina-standalone-shell .saina-sidebar {'),
@@ -303,6 +303,7 @@ describe('Phase 8.8F Stage B sidebar fade + reading plane refinement', () => {
     expect(sidebarBlock).toContain('width: var(--saina-sidebar-width)');
     expect(sidebarBlock).not.toContain('300px');
     expect(sidebarBlock).not.toContain('320px');
+    expect(css).not.toContain('border-right: none !important');
   });
 
   it('detaches a 1100px atmosphere from the 650px text measure with long side dissolves', () => {
