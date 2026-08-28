@@ -1,5 +1,7 @@
-import type { ArchivedChatSummary } from '@/lib/standaloneChatArchive';
-import { summarizeArchiveTitle } from '@/lib/standaloneChatArchive';
+import {
+  summarizeArchiveTitle,
+  type ArchivedChatSummary,
+} from '@/lib/standaloneChatArchive';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { isChatDeleted } from '@/lib/standaloneChatDelete';
 import { SAINA_EMPTY_CHAT_PREVIEW } from '@/lib/eza/sainaCopy';
@@ -132,6 +134,17 @@ export function getConversationTimeBucketLabel(
   return 'Daha eski';
 }
 
+function resolveSidebarChatTitle(item: ArchivedChatSummary): string {
+  const title = item.title?.trim() ?? '';
+  const preview = item.preview?.trim() ?? '';
+  const legacyTruncated = title.endsWith('…') || title.endsWith('...');
+  const source =
+    legacyTruncated && preview.length > title.replace(/[….]{1,3}$/u, '').length
+      ? preview
+      : title || preview;
+  return summarizeArchiveTitle(source) || 'Yeni sohbet';
+}
+
 export function groupConversationsByTimeBucket(
   items: SainaConversationItem[]
 ): SainaConversationTimeGroup[] {
@@ -158,7 +171,7 @@ export function mapArchivesToSainaConversations(
 ): SainaConversationItem[] {
   return sortArchivesForSidebar(archives, activeChatId).map((item) => ({
     id: item.id,
-    title: summarizeArchiveTitle(item.title) || 'Yeni sohbet',
+    title: resolveSidebarChatTitle(item),
     preview: item.preview?.trim() || SAINA_EMPTY_CHAT_PREVIEW,
     time: formatSainaConversationTime(item.savedAt),
     savedAt: item.savedAt,

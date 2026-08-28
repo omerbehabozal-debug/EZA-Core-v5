@@ -285,16 +285,16 @@ function readAll(): ArchivedChat[] {
   return migrateLegacyList(readAllRaw());
 }
 
-export const ARCHIVE_TITLE_MAX_LEN = 32;
+export const ARCHIVE_TITLE_MAX_LEN = 80;
 
 export function summarizeArchiveTitle(text: string, maxLen = ARCHIVE_TITLE_MAX_LEN): string {
-  const t = text.trim().replace(/\s+/g, ' ');
+  let t = text.trim().replace(/\s+/g, ' ');
   if (!t) return '';
+  t = t.replace(/…$/u, '').replace(/\.\.\.$/u, '').trim();
   if (t.length <= maxLen) return t;
   const slice = t.slice(0, maxLen);
   const lastSpace = slice.lastIndexOf(' ');
-  const cut = lastSpace > 12 ? slice.slice(0, lastSpace) : slice;
-  return `${cut.trim()}…`;
+  return (lastSpace > 24 ? slice.slice(0, lastSpace) : slice).trim();
 }
 
 function isMirrorSourceChat(chat: ArchivedChat): boolean {

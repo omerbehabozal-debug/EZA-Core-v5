@@ -152,11 +152,20 @@
 }
 
 .saina-app-root.saina-standalone-shell .saina-conv-thumb {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
   box-shadow: none;
   filter: saturate(0.82) brightness(0.9);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-time {
+  color: rgba(232, 226, 215, 0.45);
+  font-size: 11px;
+}
+
+.saina-app-root.saina-standalone-shell .saina-conv-row--active .saina-conv-time {
+  color: rgba(232, 226, 215, 0.52);
 }
 
 .saina-app-root.saina-standalone-shell .saina-conv-active-dot {
@@ -443,11 +452,20 @@
   }
 
   .saina-app-root.saina-standalone-shell .saina-conv-thumb {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
     box-shadow: none;
     filter: saturate(0.82) brightness(0.9);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar .saina-conv-time {
+    color: rgba(232, 226, 215, 0.45);
+    font-size: 11px;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-conv-row--active .saina-conv-time {
+    color: rgba(232, 226, 215, 0.52);
   }
 
   .saina-app-root.saina-standalone-shell .saina-conv-active-dot {
