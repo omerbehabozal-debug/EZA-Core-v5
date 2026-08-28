@@ -1,6 +1,6 @@
 /**
  * Phase 8.8F — compact profile side panel + privacy-safe fallback avatar.
- * Avatar upload is deferred: no durable backend storage exists yet.
+ * Profile photo upload uses durable backend storage (/api/auth/me/avatar).
  */
 
 import { readFileSync } from 'node:fs';
@@ -85,11 +85,17 @@ vi.mock('@/lib/eza/plan/fetchAuthMe', async () => {
   return {
     ...actual,
     patchPublicIdentity: vi.fn(),
+    uploadPublicAvatar: vi.fn(),
+    deletePublicAvatar: vi.fn(),
   };
 });
 
 import SainaProfileMenu from '@/components/saina/SainaProfileMenu';
-import { patchPublicIdentity } from '@/lib/eza/plan/fetchAuthMe';
+import {
+  patchPublicIdentity,
+  uploadPublicAvatar,
+  deletePublicAvatar,
+} from '@/lib/eza/plan/fetchAuthMe';
 
 const root = join(process.cwd());
 function read(rel: string) {
@@ -135,6 +141,8 @@ describe('Phase 8.8F profile side panel', () => {
       role: 'user',
     };
     vi.mocked(patchPublicIdentity).mockReset();
+    vi.mocked(uploadPublicAvatar).mockReset();
+    vi.mocked(deletePublicAvatar).mockReset();
   });
 
   it('uses compact desktop dimensions without a gold frame', () => {
@@ -280,21 +288,44 @@ describe('Phase 8.8F profile side panel', () => {
     expect(authState.logout).toHaveBeenCalledTimes(1);
   });
 
-  it('does not add fake avatar upload or local-only persistence', () => {
+  it('exposes durable avatar upload without local-only persistence', () => {
     openMenu();
     const panel = screen.getByTestId('saina-profile-menu');
     const src = read('components/saina/SainaProfileMenu.tsx');
 
     expect(within(panel).getByTestId('bilign-profile-avatar')).toBeInTheDocument();
-    expect(panel.querySelector('input[type="file"]')).toBeNull();
-    expect(screen.queryByText(/Fotoğrafı değiştir/i)).toBeNull();
+    expect(panel.querySelector('input[type="file"]')).toBeInTheDocument();
+    expect(screen.getByText(/Fotoğrafı değiştir/i)).toBeInTheDocument();
     expect(src).not.toContain('createObjectURL');
     expect(src).not.toContain('FileReader');
-    expect(src).not.toContain('type="file"');
     expect(src).not.toMatch(/localStorage\.setItem\([^)]*avatar/i);
-    expect(src).not.toContain('avatar_url');
-    expect(src).toContain('ProfileDefaultAvatar');
+    expect(src).toContain('uploadPublicAvatar');
+    expect(src).toContain('ProfileUserAvatar');
     expect(src).toContain('saina-profile-menu-identity-orbit');
+  });
+
+  it('uploads avatar through backend API and updates auth state', async () => {
+    vi.mocked(uploadPublicAvatar).mockResolvedValue({
+      ok: true,
+      public_avatar_url: 'https://api.example.com/api/public/profile-avatars/u.jpg',
+    });
+
+    openMenu();
+    const file = new File(['avatar'], 'me.jpg', { type: 'image/jpeg' });
+    const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(uploadPublicAvatar).toHaveBeenCalledWith(file);
+    });
+    await waitFor(() => {
+      expect(authState.setAuth).toHaveBeenCalledWith(
+        'tok',
+        expect.objectContaining({
+          public_avatar_url: 'https://api.example.com/api/public/profile-avatars/u.jpg',
+        })
+      );
+    });
   });
 
   it('leaves mobile dropdown metrics, public profile, Discover, and Yansı identity alone', () => {

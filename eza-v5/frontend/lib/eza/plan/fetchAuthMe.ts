@@ -13,6 +13,7 @@ export type AuthMeResponse = {
   role: string;
   mirror_plan: PlanId;
   public_display_name?: string | null;
+  public_avatar_url?: string | null;
   public_honorific?: string | null;
 };
 
@@ -23,6 +24,7 @@ export type AuthSessionValidation = {
   role: string;
   mirror_plan?: PlanId;
   public_display_name?: string | null;
+  public_avatar_url?: string | null;
   public_honorific?: string | null;
 };
 
@@ -38,6 +40,7 @@ export async function fetchAuthMe(): Promise<AuthMeResponse | null> {
   if (!mirrorPlan) return null;
   const publicName =
     res.public_display_name ?? res.data?.public_display_name ?? null;
+  const avatarRaw = res.public_avatar_url ?? res.data?.public_avatar_url ?? null;
   const honorificRaw = res.public_honorific ?? res.data?.public_honorific ?? null;
   return {
     user_id: res.user_id ?? res.data?.user_id ?? '',
@@ -46,6 +49,8 @@ export async function fetchAuthMe(): Promise<AuthMeResponse | null> {
     mirror_plan: mirrorPlan === 'plus' ? 'plus' : 'free',
     public_display_name:
       typeof publicName === 'string' && publicName.trim() ? publicName.trim() : null,
+    public_avatar_url:
+      typeof avatarRaw === 'string' && avatarRaw.trim() ? avatarRaw.trim() : null,
     public_honorific:
       typeof honorificRaw === 'string' && honorificRaw.trim()
         ? honorificRaw.trim()
@@ -105,6 +110,69 @@ export function publicIdentitySaveErrorMessage(code?: string): string {
   return 'Kaydedilemedi. Tekrar deneyin.';
 }
 
+export type PublicAvatarUpdateResult =
+  | { ok: true; public_avatar_url: string }
+  | { ok: false; code?: string };
+
+export type PublicAvatarDeleteResult = { ok: true } | { ok: false; code?: string };
+
+function parseApiErrorCode(res: {
+  detail?: unknown;
+  error?: { error_code?: string; error?: string };
+}): string {
+  const detail =
+    res.detail && typeof res.detail === 'object'
+      ? (res.detail as { code?: string })
+      : null;
+  return String(res.error?.error_code || detail?.code || res.error?.error || '');
+}
+
+export async function uploadPublicAvatar(file: File): Promise<PublicAvatarUpdateResult> {
+  const { getApiUrl } = await import('@/lib/apiUrl');
+  const { getAuthToken } = await import('@/lib/eza/authTokenStore');
+  const token = getAuthToken();
+  if (!token) return { ok: false, code: 'auth_required' };
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch(`${getApiUrl()}/api/auth/me/avatar`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { ok: false, code: parseApiErrorCode({ detail: data.detail, error: data.error }) };
+    }
+    const url = String(data.public_avatar_url ?? data.data?.public_avatar_url ?? '').trim();
+    if (!url) return { ok: false, code: 'avatar_update_failed' };
+    return { ok: true, public_avatar_url: url };
+  } catch {
+    return { ok: false, code: 'NETWORK_ERROR' };
+  }
+}
+
+export async function deletePublicAvatar(): Promise<PublicAvatarDeleteResult> {
+  const res = await apiClient.delete<{ ok?: boolean }>('/api/auth/me/avatar', { auth: true });
+  if (!res.ok) {
+    return { ok: false, code: parseApiErrorCode(res) };
+  }
+  return { ok: true };
+}
+
+export function publicAvatarSaveErrorMessage(code?: string): string {
+  if (code === 'avatar_too_large') return 'Dosya çok büyük. En fazla 2 MB yükleyebilirsiniz.';
+  if (code === 'unsupported_avatar_format' || code === 'avatar_empty') {
+    return 'Geçerli bir fotoğraf seçin (JPEG, PNG veya WebP).';
+  }
+  if (code === 'auth_required' || code === 'HTTP_401') {
+    return 'Oturumunuz düştü. Tekrar giriş yapıp deneyin.';
+  }
+  return 'Fotoğraf yüklenemedi. Tekrar deneyin.';
+}
+
 /**
  * Validate persisted JWT against /api/auth/me.
  * - invalid: 401 / missing user (clear auth)
@@ -132,6 +200,9 @@ export async function validateAuthSession(): Promise<AuthSessionValidationResult
   const publicRaw = res.public_display_name ?? res.data?.public_display_name;
   const public_display_name =
     typeof publicRaw === 'string' && publicRaw.trim() ? publicRaw.trim() : null;
+  const avatarRaw = res.public_avatar_url ?? res.data?.public_avatar_url;
+  const public_avatar_url =
+    typeof avatarRaw === 'string' && avatarRaw.trim() ? avatarRaw.trim() : null;
   const honorificRaw = res.public_honorific ?? res.data?.public_honorific;
   const public_honorific =
     typeof honorificRaw === 'string' && honorificRaw.trim()
@@ -145,6 +216,7 @@ export async function validateAuthSession(): Promise<AuthSessionValidationResult
       role: String(res.role ?? res.data?.role ?? ''),
       ...(mirror_plan ? { mirror_plan } : {}),
       public_display_name,
+      public_avatar_url,
       public_honorific,
     },
   };

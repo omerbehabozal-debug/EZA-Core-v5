@@ -142,6 +142,14 @@ async def load_user_for_auth(db: AsyncSession, email: str) -> Optional[User]:
 _SESSION_USER_SQLS = (
     text(
         """
+        SELECT id, email, role, is_active, mirror_plan, account_tier, public_display_name, public_avatar_url
+        FROM production_users
+        WHERE id = :id
+        LIMIT 1
+        """
+    ),
+    text(
+        """
         SELECT id, email, role, is_active, mirror_plan, account_tier, public_display_name
         FROM production_users
         WHERE id = :id
@@ -243,6 +251,86 @@ async def update_public_display_name(db: AsyncSession, user_id: str, name: str) 
         await db.execute(_ENSURE_DISPLAY_NAME_SQL)
         await db.commit()
         return await _execute_public_display_name_update(db, uid, name)
+
+
+_ENSURE_AVATAR_URL_SQL = text(
+    "ALTER TABLE production_users ADD COLUMN IF NOT EXISTS public_avatar_url VARCHAR(512)"
+)
+
+_UPDATE_AVATAR_URL_SQL = text(
+    """
+    UPDATE production_users
+    SET public_avatar_url = :url
+    WHERE id = :id
+    RETURNING id
+    """
+)
+
+_CLEAR_AVATAR_URL_SQL = text(
+    """
+    UPDATE production_users
+    SET public_avatar_url = NULL
+    WHERE id = :id
+    RETURNING id
+    """
+)
+
+
+async def _execute_public_avatar_url_update(
+    db: AsyncSession, uid, url: str
+) -> bool:
+    result = await db.execute(_UPDATE_AVATAR_URL_SQL, {"url": url, "id": uid})
+    row = result.first()
+    await db.commit()
+    return row is not None
+
+
+async def update_public_avatar_url(db: AsyncSession, user_id: str, url: str) -> bool:
+    """Persist public avatar URL without ORM SELECT * / refresh."""
+    import uuid
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return False
+    try:
+        return await _execute_public_avatar_url_update(db, uid, url)
+    except Exception:
+        logger.exception("public_avatar_url_update_retry_after_schema_ensure")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        await db.execute(_ENSURE_AVATAR_URL_SQL)
+        await db.commit()
+        return await _execute_public_avatar_url_update(db, uid, url)
+
+
+async def clear_public_avatar_url(db: AsyncSession, user_id: str) -> bool:
+    """Remove public avatar URL from user row."""
+    import uuid
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return False
+    try:
+        result = await db.execute(_CLEAR_AVATAR_URL_SQL, {"id": uid})
+        row = result.first()
+        await db.commit()
+        return row is not None
+    except Exception:
+        logger.exception("public_avatar_url_clear_retry_after_schema_ensure")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        await db.execute(_ENSURE_AVATAR_URL_SQL)
+        await db.commit()
+        result = await db.execute(_CLEAR_AVATAR_URL_SQL, {"id": uid})
+        row = result.first()
+        await db.commit()
+        return row is not None
 
 
 async def authenticate_user(

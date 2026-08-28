@@ -57,6 +57,46 @@
   color: #d8c3a2;
 }
 
+.saina-profile-menu-identity-face-btn {
+  position: relative;
+  z-index: 1;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.saina-profile-menu-identity-face-btn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.saina-profile-menu-avatar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.saina-profile-menu-avatar-remove {
+  border: none;
+  background: transparent;
+  color: rgba(232, 226, 215, 0.72);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+}
+
+.saina-profile-menu-avatar-remove:hover:not(:disabled) {
+  color: rgba(232, 226, 215, 0.95);
+}
+
+.saina-profile-menu-avatar-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .saina-profile-menu-identity-copy {
   min-width: 0;
   display: flex;

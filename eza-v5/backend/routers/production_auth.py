@@ -6,7 +6,7 @@ Register, Login, Logout endpoints
 
 import logging
 from typing import Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from pydantic import BaseModel, ConfigDict, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,8 @@ from backend.services.production_auth import (
     create_user, authenticate_user, create_access_token, check_bootstrap_allowed,
     hash_password, reset_user_password, normalize_email, load_user_session_row,
     update_public_display_name,
+    update_public_avatar_url,
+    clear_public_avatar_url,
 )
 from backend.models.production import User, production_users_safe_load
 from backend.auth.deps import get_current_user
@@ -70,6 +72,7 @@ class AuthMeResponse(BaseModel):
     account_tier: str | None = None
     # Phase 8.5 — owner-private identity control (not a public DTO).
     public_display_name: str | None = None
+    public_avatar_url: str | None = None
     # Public honorific id (curious | bilgin). Not a plan/role. Owner session only.
     public_honorific: str
 
@@ -84,6 +87,10 @@ class PublicIdentityUpdateRequest(BaseModel):
 class PublicIdentityUpdateResponse(BaseModel):
     public_display_name: str
     resolved_public_display_name: str
+
+
+class PublicAvatarUpdateResponse(BaseModel):
+    public_avatar_url: str
 
 
 class SocialGoogleRequest(BaseModel):
@@ -162,6 +169,12 @@ async def get_auth_me(
             is_authenticated=True,
         ).value,
         public_display_name=(str(chosen).strip() if chosen else None) or None,
+        public_avatar_url=(
+            str(row["public_avatar_url"]).strip()
+            if row.get("public_avatar_url")
+            else None
+        )
+        or None,
         public_honorific=normalize_public_honorific(None),
     )
 
@@ -211,6 +224,82 @@ async def patch_public_identity(
             SimpleNamespace(public_display_name=validated)
         ),
     )
+
+
+@router.post("/me/avatar", response_model=PublicAvatarUpdateResponse)
+async def upload_public_avatar(
+    file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload or replace the authenticated user's public profile avatar."""
+    from backend.services.profile_avatar_store import (
+        MAX_PROFILE_AVATAR_BYTES,
+        save_profile_avatar_bytes,
+    )
+
+    row = await load_user_session_row(db, current_user["user_id"])
+    if row is None or row.get("is_active") is False:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "auth_required", "message": "User not found or inactive"},
+        )
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "avatar_empty", "message": "Empty file"},
+        )
+    if len(raw) > MAX_PROFILE_AVATAR_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "avatar_too_large", "message": "Avatar exceeds size limit"},
+        )
+
+    try:
+        public_url = save_profile_avatar_bytes(raw, str(row["id"]))
+    except ValueError as exc:
+        code = str(exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": code, "message": "Unsupported avatar image"},
+        ) from exc
+
+    updated = await update_public_avatar_url(db, str(row["id"]), public_url)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "avatar_update_failed", "message": "Avatar was not saved"},
+        )
+    logger.info("public_avatar_updated user_id=%s", row["id"])
+    return PublicAvatarUpdateResponse(public_avatar_url=public_url)
+
+
+@router.delete("/me/avatar")
+async def delete_public_avatar(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove the authenticated user's public profile avatar."""
+    from backend.services.profile_avatar_store import delete_profile_avatar_files
+
+    row = await load_user_session_row(db, current_user["user_id"])
+    if row is None or row.get("is_active") is False:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "auth_required", "message": "User not found or inactive"},
+        )
+
+    delete_profile_avatar_files(str(row["id"]))
+    cleared = await clear_public_avatar_url(db, str(row["id"]))
+    if not cleared:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "avatar_clear_failed", "message": "Avatar was not removed"},
+        )
+    logger.info("public_avatar_removed user_id=%s", row["id"])
+    return {"ok": True}
 
 
 @router.post("/register", response_model=TokenResponse)

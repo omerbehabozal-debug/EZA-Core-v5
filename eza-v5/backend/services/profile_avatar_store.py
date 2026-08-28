@@ -1,0 +1,121 @@
+# -*- coding: utf-8 -*-
+"""Persist user profile avatar images as durable public HTTP assets."""
+
+from __future__ import annotations
+
+import logging
+import re
+import uuid
+from pathlib import Path
+
+from backend.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+MAX_PROFILE_AVATAR_BYTES = 2 * 1024 * 1024
+_AVATAR_FILENAME_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(png|jpe?g|webp)$",
+    re.IGNORECASE,
+)
+
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+_JPEG_MAGIC = b"\xff\xd8\xff"
+
+
+def detect_image_mime(data: bytes) -> str | None:
+    if data.startswith(_PNG_MAGIC):
+        return "image/png"
+    if data.startswith(_JPEG_MAGIC):
+        return "image/jpeg"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def _mime_to_extension(mime: str) -> str:
+    if mime == "image/png":
+        return ".png"
+    if mime == "image/jpeg":
+        return ".jpg"
+    if mime == "image/webp":
+        return ".webp"
+    raise ValueError(f"unsupported mime: {mime}")
+
+
+def resolve_profile_avatar_dir() -> Path:
+    settings = get_settings()
+    configured = (getattr(settings, "EZA_PROFILE_AVATAR_DIR", None) or "").strip()
+    if configured:
+        return Path(configured)
+    backend_dir = Path(__file__).resolve().parents[1]
+    return backend_dir / "data" / "profile_avatars"
+
+
+def build_profile_avatar_public_url(filename: str) -> str:
+    settings = get_settings()
+    base = (
+        (getattr(settings, "EZA_PROFILE_AVATAR_BASE_URL", None) or "").strip()
+        or (getattr(settings, "LOADTEST_BASE_URL", None) or "").strip()
+        or "http://localhost:8000"
+    ).rstrip("/")
+    safe_name = Path(filename).name
+    return f"{base}/api/public/profile-avatars/{safe_name}"
+
+
+def resolve_profile_avatar_path(filename: str) -> Path | None:
+    safe_name = Path(filename).name
+    if not _AVATAR_FILENAME_RE.match(safe_name):
+        return None
+    path = resolve_profile_avatar_dir() / safe_name
+    if not path.is_file():
+        return None
+    return path
+
+
+def profile_avatar_response_headers(media_type: str) -> dict[str, str]:
+    return {
+        "Cache-Control": "public, max-age=3600",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Type": media_type,
+    }
+
+
+def save_profile_avatar_bytes(image_bytes: bytes, user_id: str) -> str:
+    mime = detect_image_mime(image_bytes)
+    if mime is None:
+        raise ValueError("unsupported_avatar_format")
+    if len(image_bytes) > MAX_PROFILE_AVATAR_BYTES:
+        raise ValueError("avatar_too_large")
+
+    ext = _mime_to_extension(mime)
+    filename = f"{uuid.UUID(str(user_id))}{ext}"
+    asset_dir = resolve_profile_avatar_dir()
+    asset_dir.mkdir(parents=True, exist_ok=True)
+
+    # Remove prior variants for this user (extension change).
+    uid = str(uuid.UUID(str(user_id)))
+    for existing in asset_dir.glob(f"{uid}.*"):
+        if existing.is_file():
+            try:
+                existing.unlink()
+            except OSError:
+                logger.warning("profile_avatar_cleanup_failed filename=%s", existing.name)
+
+    target = asset_dir / filename
+    target.write_bytes(image_bytes)
+    public_url = build_profile_avatar_public_url(filename)
+    logger.info("profile_avatar_saved user_id=%s bytes=%d", uid, len(image_bytes))
+    return public_url
+
+
+def delete_profile_avatar_files(user_id: str) -> None:
+    uid = str(uuid.UUID(str(user_id)))
+    asset_dir = resolve_profile_avatar_dir()
+    if not asset_dir.is_dir():
+        return
+    for existing in asset_dir.glob(f"{uid}.*"):
+        if existing.is_file():
+            try:
+                existing.unlink()
+            except OSError:
+                logger.warning("profile_avatar_delete_failed filename=%s", existing.name)
