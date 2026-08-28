@@ -614,32 +614,86 @@ html:has(.saina-page) body {
   padding: 0 0 0.35rem 0.35rem;
 }
 
-.saina-brand-lockup {
-  display: inline-flex;
+.saina-brand-split {
+  display: flex;
   align-items: center;
   justify-content: flex-start;
+  gap: 0.08rem;
   flex: 1;
   min-width: 0;
   line-height: 0;
 }
 
-.saina-brand-lockup-img {
+.saina-brand-split--sidebar .saina-brand-split-text {
+  margin-left: -1.32rem;
+}
+
+.saina-brand-split--auth .saina-brand-split-text {
+  margin-left: -1.48rem;
+}
+
+.saina-brand-split--sidebar .saina-brand-split-mark {
+  height: 2.5rem;
+}
+
+.saina-brand-split--auth .saina-brand-split-mark {
+  height: 3.25rem;
+}
+
+.saina-brand-split-mark {
   display: block;
   width: auto;
-  max-width: 100%;
+  flex-shrink: 0;
   object-fit: contain;
 }
 
-.saina-brand-lockup--sidebar .saina-brand-lockup-img {
-  height: clamp(7.5rem, 21vw, 8.625rem);
-  width: auto;
-  max-width: min(100%, 24.75rem);
+.saina-brand-split-text {
+  position: relative;
+  display: block;
+  align-self: center;
+  min-width: 0;
+  flex: 0 1 auto;
+  line-height: normal;
+  /* Measured from bilign-wordmark.png letter bounds (1024×724). */
+  --bilign-wordmark-text-end-x: 74.3%;
+  --bilign-wordmark-text-end-y: 60.2%;
 }
 
-.saina-brand-lockup--auth .saina-brand-lockup-img {
-  height: clamp(5.5rem, 22vw, 6.5rem);
+.saina-brand-split--sidebar .saina-brand-split-wordmark {
+  display: block;
+  height: 6rem;
   width: auto;
-  max-width: min(100%, 18rem);
+  max-width: none;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.saina-brand-split--auth .saina-brand-split-wordmark {
+  display: block;
+  height: 7rem;
+  width: auto;
+  max-width: none;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.saina-brand-eza {
+  position: absolute;
+  top: calc(var(--bilign-wordmark-text-end-y) - 0.45rem);
+  left: calc(var(--bilign-wordmark-text-end-x) + 0.14rem);
+  margin: 0;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  white-space: nowrap;
+  color: rgba(107, 138, 122, 0.5);
+}
+
+.saina-brand-split--auth .saina-brand-eza {
+  top: calc(var(--bilign-wordmark-text-end-y) - 0.5rem);
+  left: calc(var(--bilign-wordmark-text-end-x) + 0.16rem);
+  letter-spacing: 0.16em;
 }
 
 .saina-brand-mark {

@@ -10,6 +10,9 @@ export const SAINA_TAGLINE = 'Your Human-AI reflection';
 
 export const SAINA_POWERED = 'Powered by EZA';
 
+/** Subtle brand byline under the biligN wordmark (replaces unreadable Powered by EZA lockup text). */
+export const SAINA_BRAND_BYLINE = 'EZA';
+
 
 
 export const SAINA_CONVERSATIONS_TITLE = 'Sohbetlerim';

@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 
-export const BILIGN_MARK_SRC = '/bilign/bilign-mark.svg';
+export const BILIGN_MARK_SRC = '/bilign/bilign-mark.png';
 
 type SainaGeometricMarkProps = {
   className?: string;

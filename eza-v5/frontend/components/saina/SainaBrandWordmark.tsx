@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import { SAINA_BRAND } from '@/lib/eza/sainaCopy';
 
-export const BILIGN_WORDMARK_SRC = '/bilign/bilign-wordmark.svg';
+export const BILIGN_WORDMARK_SRC = '/bilign/bilign-wordmark.png';
 
 type SainaBrandWordmarkProps = {
   className?: string;

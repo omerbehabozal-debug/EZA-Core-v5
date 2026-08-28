@@ -606,7 +606,7 @@ export default function SainaConversationSidebar({
         <div className="saina-sidebar-inner">
           <div className="saina-sidebar-top">
             <div className="saina-brand-row">
-              <SainaBrandLockup className="saina-brand-lockup--sidebar" />
+              <SainaBrandLockup className="saina-brand-split--sidebar" />
               {showMobileChrome && mobileOpen ? (
                 <button
                   type="button"

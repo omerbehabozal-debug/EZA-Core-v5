@@ -176,6 +176,7 @@
     text-shadow: none;
   }
 
+  .saina-app-root.saina-standalone-shell .saina-brand-eza,
   .saina-app-root.saina-standalone-shell .saina-brand-powered,
   .saina-app-root.saina-standalone-shell .saina-brand-tagline {
     color: var(--bilign-passive);

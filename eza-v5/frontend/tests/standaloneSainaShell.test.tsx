@@ -49,7 +49,7 @@ import {
   SAINA_MOBILE_MIRROR_CTA_AFTER_RESPONSE,
   SAINA_MOBILE_MIRROR_CTA_EMPTY,
   SAINA_MOBILE_MIRROR_CTA_SIGNAL_READY,
-  SAINA_POWERED,
+  SAINA_BRAND_BYLINE,
   SAINA_SAFE_MODE_LABEL,
   SAINA_TAGLINE,
   SAINA_USER_LABEL,
@@ -90,8 +90,9 @@ describe('SainaStandaloneShell (Sprint B.2A)', () => {
 
     expect(screen.getByTestId('saina-standalone-shell')).toBeInTheDocument();
     expect(screen.getByTestId('saina-conversation-sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('saina-brand-lockup')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: new RegExp(SAINA_BRAND) })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: new RegExp(SAINA_POWERED) })).toBeInTheDocument();
+    expect(screen.getByTestId('saina-brand-lockup')).toHaveTextContent(SAINA_BRAND_BYLINE);
     // Pattern dock label is intentionally "EZA"; brand wordmark must stay biligN.
     expect(screen.getByTestId('saina-pattern-nav')).toHaveTextContent('EZA');
     expect(screen.queryByText('Standalone', { exact: true })).not.toBeInTheDocument();

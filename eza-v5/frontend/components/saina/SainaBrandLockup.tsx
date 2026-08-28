@@ -1,41 +1,47 @@
 import { cn } from '@/lib/utils';
-import { SAINA_BRAND, SAINA_POWERED } from '@/lib/eza/sainaCopy';
+import { SAINA_BRAND, SAINA_BRAND_BYLINE } from '@/lib/eza/sainaCopy';
 
-export const BILIGN_LOCKUP_SRC = '/bilign/bilign-lockup.png';
-export const BILIGN_LOCKUP_INTRINSIC_WIDTH = 1024;
-export const BILIGN_LOCKUP_INTRINSIC_HEIGHT = 724;
-
-/** Lockup aspect ratio from the official biligN asset (1024×724). */
-export const BILIGN_LOCKUP_ASPECT = BILIGN_LOCKUP_INTRINSIC_WIDTH / BILIGN_LOCKUP_INTRINSIC_HEIGHT;
+export const BILIGN_MARK_SRC = '/bilign/bilign-mark.png';
+export const BILIGN_WORDMARK_SRC = '/bilign/bilign-wordmark.png';
+export const BILIGN_MARK_INTRINSIC = { width: 281, height: 285 } as const;
+export const BILIGN_WORDMARK_INTRINSIC = { width: 1024, height: 724 } as const;
+export const BILIGN_WORDMARK_ASPECT =
+  BILIGN_WORDMARK_INTRINSIC.width / BILIGN_WORDMARK_INTRINSIC.height;
 
 type SainaBrandLockupProps = {
   className?: string;
-  /** Optional explicit height in px; prefer CSS size modifiers when possible. */
-  height?: number;
 };
 
-/** Full biligN lockup — mark, wordmark, and Powered by EZA in one original asset. */
-export default function SainaBrandLockup({
-  className,
-  height,
-}: SainaBrandLockupProps) {
-  const inlineSize =
-    height != null
-      ? { height, width: Math.round(height * BILIGN_LOCKUP_ASPECT) }
-      : undefined;
-
+/** biligN header — separate mark + wordmark assets with a quiet EZA byline. */
+export default function SainaBrandLockup({ className }: SainaBrandLockupProps) {
   return (
-    <span className={cn('saina-brand-lockup', className)} data-testid="saina-brand-lockup">
-      {/* eslint-disable-next-line @next/next/no-img-element -- official lockup PNG; preserves designed proportions. */}
+    <div
+      className={cn('saina-brand-split', className)}
+      data-testid="saina-brand-lockup"
+      aria-label={`${SAINA_BRAND} — ${SAINA_BRAND_BYLINE}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- original mark PNG. */}
       <img
-        src={BILIGN_LOCKUP_SRC}
-        alt={`${SAINA_BRAND} — ${SAINA_POWERED}`}
+        src={BILIGN_MARK_SRC}
+        alt=""
+        aria-hidden
         draggable={false}
-        width={BILIGN_LOCKUP_INTRINSIC_WIDTH}
-        height={BILIGN_LOCKUP_INTRINSIC_HEIGHT}
-        className="saina-brand-lockup-img"
-        style={inlineSize}
+        width={BILIGN_MARK_INTRINSIC.width}
+        height={BILIGN_MARK_INTRINSIC.height}
+        className="saina-brand-split-mark"
       />
-    </span>
+      <div className="saina-brand-split-text">
+        {/* eslint-disable-next-line @next/next/no-img-element -- original wordmark PNG. */}
+        <img
+          src={BILIGN_WORDMARK_SRC}
+          alt={SAINA_BRAND}
+          draggable={false}
+          width={BILIGN_WORDMARK_INTRINSIC.width}
+          height={BILIGN_WORDMARK_INTRINSIC.height}
+          className="saina-brand-split-wordmark"
+        />
+        <span className="saina-brand-eza">{SAINA_BRAND_BYLINE}</span>
+      </div>
+    </div>
   );
 }
