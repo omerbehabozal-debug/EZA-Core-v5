@@ -23,7 +23,15 @@
 
 .saina-app-root.saina-standalone-shell .saina-sidebar-primary-nav {
   margin-top: -0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.2rem;
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-inner {
+  gap: 0.45rem;
+}
+
+.saina-app-root.saina-standalone-shell .saina-conv-list {
+  padding-top: 0;
 }
 
 @media (min-width: 900px) {
