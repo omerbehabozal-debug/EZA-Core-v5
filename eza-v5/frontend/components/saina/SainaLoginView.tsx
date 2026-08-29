@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getDirectApiBaseUrl } from '@/lib/apiUrl';
 import {
   AUTH_LOGIN_REQUEST_TIMEOUT_MS,
+  refreshAuthUserProfile,
 } from '@/lib/eza/plan/fetchAuthMe';
 import { buildSainaAuthHref, resolveSafeAuthReturnPath } from '@/lib/eza/sainaIdentity';
 import {
@@ -90,11 +91,14 @@ export default function SainaLoginView({
         throw new Error('Invalid response from server');
       }
 
-      setAuth(data.access_token, {
+      const baseUser = {
         email: data.email,
         role: data.role,
         user_id: data.user_id,
-      });
+      };
+      setAuth(data.access_token, baseUser);
+      const hydrated = await refreshAuthUserProfile(baseUser);
+      setAuth(data.access_token, hydrated);
 
       router.push(safeReturn);
     } catch (err: unknown) {

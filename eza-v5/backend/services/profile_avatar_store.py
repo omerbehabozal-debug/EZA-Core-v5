@@ -81,7 +81,7 @@ def profile_avatar_response_headers(media_type: str) -> dict[str, str]:
 
 
 def normalize_profile_avatar_bytes(image_bytes: bytes, mime: str) -> tuple[bytes, str]:
-    """Fit image into a square canvas so circles show the full photo."""
+    """Center-crop to square and resize so circular avatars fill the frame."""
     from io import BytesIO
 
     from PIL import Image, ImageOps
@@ -95,31 +95,24 @@ def normalize_profile_avatar_bytes(image_bytes: bytes, mime: str) -> tuple[bytes
             img = img.convert("RGBA" if has_alpha else "RGB")
 
         max_edge = 512
-        fitted = img.copy()
-        fitted.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
-
-        canvas_size = max(fitted.width, fitted.height, 1)
-        bg = (12, 14, 14, 255) if fitted.mode == "RGBA" else (12, 14, 14)
-        canvas = Image.new(fitted.mode, (canvas_size, canvas_size), bg)
-        offset = (
-            (canvas_size - fitted.width) // 2,
-            (canvas_size - fitted.height) // 2,
-        )
-        if fitted.mode == "RGBA":
-            canvas.paste(fitted, offset, fitted)
-        else:
-            canvas.paste(fitted, offset)
+        width, height = img.size
+        side = min(width, height)
+        left = (width - side) // 2
+        top = (height - side) // 2
+        cropped = img.crop((left, top, left + side, top + side))
+        if cropped.width != max_edge:
+            cropped = cropped.resize((max_edge, max_edge), Image.Resampling.LANCZOS)
 
         out = BytesIO()
         if mime == "image/png":
-            canvas.save(out, format="PNG", optimize=True)
+            cropped.save(out, format="PNG", optimize=True)
             return out.getvalue(), "image/png"
         if mime == "image/webp":
-            canvas.save(out, format="WEBP", quality=88, method=4)
+            cropped.save(out, format="WEBP", quality=88, method=4)
             return out.getvalue(), "image/webp"
-        if canvas.mode == "RGBA":
-            canvas = canvas.convert("RGB")
-        canvas.save(out, format="JPEG", quality=88, optimize=True)
+        if cropped.mode == "RGBA":
+            cropped = cropped.convert("RGB")
+        cropped.save(out, format="JPEG", quality=88, optimize=True)
         return out.getvalue(), "image/jpeg"
 
 

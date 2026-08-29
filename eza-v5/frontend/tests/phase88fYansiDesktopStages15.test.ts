@@ -110,7 +110,7 @@ describe('Phase 8.8F Stage 9 isolation', () => {
       'AynaAuthorRow'
     );
     expect(shell).toContain('SainaHeroScene');
-    expect(shell).toContain('resolveYansiCreatorDisplayName');
+    expect(shell).toContain('resolveSainaUserDisplayName');
     expect(shell).toContain('resolveYansiCreatorHonorific');
     expect(shell).not.toContain('resolveSainaSidebarFooter');
   });
@@ -237,7 +237,7 @@ describe('Phase 8.8F creator identity contract', () => {
     );
     expect(shell).toContain('heroTitle');
     expect(shell).toContain('SainaHeroScene');
-    expect(shell).toContain('resolveYansiCreatorDisplayName');
+    expect(shell).toContain('resolveSainaUserDisplayName');
     expect(shell).toContain('resolveYansiCreatorHonorific');
     expect(shell).not.toContain('resolveSainaSidebarFooter');
     expect(hero).not.toContain('biligN Free');

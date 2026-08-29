@@ -11,6 +11,7 @@ export const AUTH_PLAN_REQUEST_TIMEOUT_MS = 15_000;
 export const AUTH_LOGIN_REQUEST_TIMEOUT_MS = 45_000;
 
 import { apiClient } from '@/lib/apiClient';
+import { getDirectApiBaseUrl, prefersDirectBackend } from '@/lib/apiUrl';
 import type { PlanId } from '@/lib/eza/plan/planStore';
 
 export type AuthMeResponse = {
@@ -39,8 +40,62 @@ export type AuthSessionValidationResult =
   | { status: 'invalid' }
   | { status: 'unavailable' };
 
+export type AuthUserProfileSeed = {
+  email: string;
+  role: string;
+  user_id: string;
+  full_name?: string;
+  public_display_name?: string | null;
+  public_avatar_url?: string | null;
+  public_honorific?: string | null;
+};
+
+function authMeRequestOptions() {
+  return {
+    auth: true as const,
+    timeoutMs: AUTH_PLAN_REQUEST_TIMEOUT_MS,
+    directBackend: prefersDirectBackend(),
+  };
+}
+
+/** Merge /api/auth/me session fields into a locally stored user record. */
+export function mergeAuthSessionIntoUser(
+  base: AuthUserProfileSeed,
+  session: AuthSessionValidation
+): AuthUserProfileSeed {
+  return {
+    ...base,
+    user_id: session.user_id,
+    email: session.email || base.email,
+    role: session.role || base.role,
+    public_display_name:
+      session.public_display_name !== undefined
+        ? session.public_display_name
+        : base.public_display_name,
+    public_avatar_url:
+      session.public_avatar_url !== undefined
+        ? session.public_avatar_url
+        : base.public_avatar_url,
+    public_honorific:
+      session.public_honorific !== undefined
+        ? session.public_honorific
+        : base.public_honorific,
+  };
+}
+
+/** After login/register — hydrate public name, avatar, and plan from server. */
+export async function refreshAuthUserProfile(
+  base: AuthUserProfileSeed
+): Promise<AuthUserProfileSeed> {
+  const result = await validateAuthSession();
+  if (result.status === 'valid') {
+    return mergeAuthSessionIntoUser(base, result.session);
+  }
+  return base;
+}
+
 export async function fetchAuthMe(): Promise<AuthMeResponse | null> {
-  const res = await apiClient.get<AuthMeResponse>('/api/auth/me', { auth: true });
+  const res = await apiClient.get<AuthMeResponse>('/api/auth/me', authMeRequestOptions());
   if (!res.ok) return null;
   const mirrorPlan = res.mirror_plan ?? res.data?.mirror_plan;
   if (!mirrorPlan) return null;
@@ -134,7 +189,6 @@ function parseApiErrorCode(res: {
 }
 
 export async function uploadPublicAvatar(file: File): Promise<PublicAvatarUpdateResult> {
-  const { getApiUrl } = await import('@/lib/apiUrl');
   const { getAuthToken } = await import('@/lib/eza/authTokenStore');
   const token = getAuthToken();
   if (!token) return { ok: false, code: 'auth_required' };
@@ -143,7 +197,7 @@ export async function uploadPublicAvatar(file: File): Promise<PublicAvatarUpdate
   formData.append('file', file);
 
   try {
-    const response = await fetch(`${getApiUrl()}/api/auth/me/avatar`, {
+    const response = await fetch(`${getDirectApiBaseUrl()}/api/auth/me/avatar`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
@@ -186,10 +240,7 @@ export function publicAvatarSaveErrorMessage(code?: string): string {
  * - valid: hydrate from server profile
  */
 export async function validateAuthSession(): Promise<AuthSessionValidationResult> {
-  const res = await apiClient.get<AuthMeResponse>('/api/auth/me', {
-    auth: true,
-    timeoutMs: AUTH_PLAN_REQUEST_TIMEOUT_MS,
-  });
+  const res = await apiClient.get<AuthMeResponse>('/api/auth/me', authMeRequestOptions());
   if (!res.ok) {
     const code = String(res.error?.error_code || res.error?.error || '');
     const isAuthFailure =

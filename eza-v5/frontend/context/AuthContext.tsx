@@ -176,24 +176,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        let sessionResult = result;
+        if (result.status === 'unavailable') {
+          await new Promise((resolve) => window.setTimeout(resolve, 1200));
+          if (cancelled) return;
+          const retry = await validateAuthSession();
+          if (retry.status === 'valid' || retry.status === 'invalid') {
+            sessionResult = retry;
+          }
+          if (retry.status === 'invalid') {
+            clearAuthStorage();
+            setAuthState({ token: null, user: null, role: null });
+            setIsAuthReady(true);
+            notifyAuthChanged();
+            notifyConversationVisibilityChanged();
+            return;
+          }
+        }
+
         const nextUser: UserInfo =
-          result.status === 'valid'
+          sessionResult.status === 'valid'
             ? {
                 ...user,
-                user_id: result.session.user_id,
-                email: result.session.email || user.email,
-                role: result.session.role || user.role,
+                user_id: sessionResult.session.user_id,
+                email: sessionResult.session.email || user.email,
+                role: sessionResult.session.role || user.role,
                 public_display_name:
-                  result.session.public_display_name !== undefined
-                    ? result.session.public_display_name
+                  sessionResult.session.public_display_name !== undefined
+                    ? sessionResult.session.public_display_name
                     : user.public_display_name,
                 public_avatar_url:
-                  result.session.public_avatar_url !== undefined
-                    ? result.session.public_avatar_url
+                  sessionResult.session.public_avatar_url !== undefined
+                    ? sessionResult.session.public_avatar_url
                     : user.public_avatar_url,
                 public_honorific:
-                  result.session.public_honorific !== undefined
-                    ? result.session.public_honorific
+                  sessionResult.session.public_honorific !== undefined
+                    ? sessionResult.session.public_honorific
                     : user.public_honorific,
               }
             : user;

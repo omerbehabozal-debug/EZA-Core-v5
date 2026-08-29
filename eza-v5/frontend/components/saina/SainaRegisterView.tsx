@@ -5,7 +5,8 @@ import '@/styles/saina-mirror.css';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { buildApiUrl } from '@/lib/apiUrl';
+import { getDirectApiBaseUrl } from '@/lib/apiUrl';
+import { refreshAuthUserProfile } from '@/lib/eza/plan/fetchAuthMe';
 import { buildSainaAuthHref, resolveSafeAuthReturnPath } from '@/lib/eza/sainaIdentity';
 import {
   SAINA_AUTH_EMAIL_LABEL,
@@ -71,7 +72,7 @@ export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps
     setLoading(true);
 
     try {
-      const response = await fetch(buildApiUrl('/api/auth/register'), {
+      const response = await fetch(`${getDirectApiBaseUrl()}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -97,12 +98,15 @@ export default function SainaRegisterView({ returnPath }: SainaRegisterViewProps
       // Phase 8.3 — backend already returns JWT; authenticate immediately (no second-login trap).
       // Never persist or replay the password for a silent login.
       if (data.access_token && data.user_id && data.role) {
-        setAuth(data.access_token, {
+        const baseUser = {
           email: data.email || email.trim().toLowerCase(),
           role: data.role,
           user_id: data.user_id,
           full_name: fullName.trim() || undefined,
-        });
+        };
+        setAuth(data.access_token, baseUser);
+        const hydrated = await refreshAuthUserProfile(baseUser);
+        setAuth(data.access_token, hydrated);
         router.push(safeReturn);
         return;
       }

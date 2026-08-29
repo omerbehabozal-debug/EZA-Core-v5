@@ -11,8 +11,14 @@
 /** Production Railway API — use for long-running requests (mirror scene gen). */
 export const EZA_PRODUCTION_API_ORIGIN = 'https://api.ezacore.ai';
 
-function isEzacoreFrontendHost(hostname: string): boolean {
+export function isEzacoreFrontendHost(hostname: string): boolean {
   return hostname === 'ezacore.ai' || hostname.endsWith('.ezacore.ai');
+}
+
+/** True on production Standalone hosts — auth should hit api.ezacore.ai directly. */
+export function prefersDirectBackend(): boolean {
+  if (typeof window === 'undefined') return false;
+  return isEzacoreFrontendHost(window.location.hostname);
 }
 
 /** Direct backend origin on *.ezacore.ai (bypasses Vercel /api rewrite timeout). */

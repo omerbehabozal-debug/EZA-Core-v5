@@ -479,10 +479,10 @@ describe('Phase 8.8F.2 sidebar visual contract', () => {
   it('12-16. CSS keeps thumb contract and 6px dots', () => {
     const css = readFileSync(join(process.cwd(), 'styles/saina-mirror.css'), 'utf8');
     const desktop = readFileSync(join(process.cwd(), 'styles/saina-yansi-desktop.css'), 'utf8');
-    expect(css).toMatch(/\.saina-conv-thumb\s*\{[^}]*height:\s*2\.75rem/);
-    expect(css).toMatch(/\.saina-conv-thumb\s*\{[^}]*width:\s*2\.75rem/);
-    expect(desktop).toMatch(/\.saina-conv-thumb\s*\{[^}]*width:\s*36px/);
-    expect(desktop).toMatch(/\.saina-conv-thumb\s*\{[^}]*height:\s*36px/);
+    expect(css).toMatch(/\.saina-conv-thumb\s*\{[^}]*height:\s*2\.625rem/);
+    expect(css).toMatch(/\.saina-conv-thumb\s*\{[^}]*width:\s*2\.625rem/);
+    expect(desktop).toMatch(/\.saina-conv-thumb\s*\{[^}]*width:\s*42px/);
+    expect(desktop).toMatch(/\.saina-conv-thumb\s*\{[^}]*height:\s*42px/);
     expect(css).toMatch(/\.saina-sidebar-yansi-status[^{]*\{[^}]*width:\s*6px/);
     expect(css).toMatch(/\.saina-sidebar-yansi-status[^{]*\{[^}]*height:\s*6px/);
     const statusBlock = css.split('.saina-sidebar-yansi-status')[1]?.split('}')[0] ?? '';

@@ -10,9 +10,10 @@ import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import {
-  resolveYansiCreatorDisplayName,
   resolveYansiCreatorHonorific,
 } from '@/lib/eza/mirror/yansiCreatorIdentity';
+import { resolveSainaUserDisplayName } from '@/lib/eza/sainaIdentity';
+import { SAINA_MENU_GUEST_LABEL } from '@/lib/eza/sainaCopy';
 import {
   DEFAULT_MIRROR_MOBILE_CONTEXT,
   type MirrorMobileContext,
@@ -92,10 +93,13 @@ function SainaChatSurface({
   const showMessages = !isEmpty && messages != null;
   const { user, isAuthenticated } = useAuth();
   const isGuest = !isAuthenticated;
-  const displayName = resolveYansiCreatorDisplayName({
-    isGuest,
-    publicDisplayName: user?.public_display_name,
-  });
+  const displayName = isGuest
+    ? SAINA_MENU_GUEST_LABEL
+    : resolveSainaUserDisplayName(
+        user?.email,
+        user?.full_name,
+        user?.public_display_name
+      );
   const honorific = resolveYansiCreatorHonorific({
     isGuest,
     publicHonorific: user?.public_honorific,

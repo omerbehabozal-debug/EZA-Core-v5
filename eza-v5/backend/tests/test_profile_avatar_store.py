@@ -47,8 +47,7 @@ def test_normalize_profile_avatar_fits_wide_image(tmp_path, monkeypatch):
     normalized, mime = normalize_profile_avatar_bytes(raw, "image/jpeg")
     assert mime == "image/jpeg"
     with Image.open(BytesIO(normalized)) as saved:
-        assert saved.width == saved.height
-        assert saved.width <= 512
+        assert saved.width == saved.height == 512
 
 
 def test_save_and_resolve_profile_avatar(tmp_path, monkeypatch):
