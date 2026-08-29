@@ -11,8 +11,6 @@ import {
   SAINA_DISCOVER_EMPTY_TITLE,
   SAINA_DISCOVER_ERROR,
   SAINA_DISCOVER_ERROR_RETRY,
-  SAINA_DISCOVER_EXPLAINER_BILIGN,
-  SAINA_DISCOVER_EXPLAINER_YANSI,
   SAINA_DISCOVER_HERO_LINE_1,
   SAINA_DISCOVER_HERO_LINE_2,
   SAINA_DISCOVER_HERO_LINE_3,
@@ -462,13 +460,6 @@ export default function SainaDiscoverPage() {
             {SAINA_DISCOVER_HERO_LINE_2}
             <br />
             {SAINA_DISCOVER_HERO_LINE_3}
-          </p>
-          <p
-            className="saina-discover-explainer"
-            data-testid="saina-discover-explainer"
-          >
-            {SAINA_DISCOVER_EXPLAINER_BILIGN}{' '}
-            {SAINA_DISCOVER_EXPLAINER_YANSI}
           </p>
         </header>
 

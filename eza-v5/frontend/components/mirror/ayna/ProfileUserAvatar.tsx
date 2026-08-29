@@ -1,12 +1,15 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { appendAvatarCacheBust } from '@/lib/eza/profile/avatarDisplayUrl';
 import ProfileDefaultAvatar from '@/components/mirror/ayna/ProfileDefaultAvatar';
 
 type Props = {
   displayName: string;
   userId?: string | null;
   avatarUrl?: string | null;
+  /** Bust browser cache when the same durable avatar URL is replaced. */
+  cacheBust?: number | string;
   size?: 'md' | 'lg' | 'top';
   className?: string;
   alt?: string;
@@ -19,12 +22,14 @@ export default function ProfileUserAvatar({
   displayName,
   userId,
   avatarUrl,
+  cacheBust,
   size = 'md',
   className,
   alt,
 }: Props) {
   const url = (avatarUrl || '').trim();
   if (url) {
+    const src = cacheBust != null ? appendAvatarCacheBust(url, cacheBust) : url;
     return (
       <div
         className={cn(
@@ -36,7 +41,7 @@ export default function ProfileUserAvatar({
         data-testid="bilign-profile-avatar"
       >
         <img
-          src={url}
+          src={src}
           alt={alt || displayName || 'Profil fotoğrafı'}
           className="bilign-profile-avatar__photo"
           data-testid="bilign-profile-avatar-photo"

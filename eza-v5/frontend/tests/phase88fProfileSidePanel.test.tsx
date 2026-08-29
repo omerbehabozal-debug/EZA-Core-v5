@@ -78,6 +78,11 @@ vi.mock('@/lib/eza/plan/useAccountEntitlements', () => ({
   }),
 }));
 
+vi.mock('@/lib/eza/profile/normalizeProfileAvatarFile', () => ({
+  normalizeProfileAvatarFile: vi.fn(async (file: File) => file),
+  isAcceptedProfileAvatarFile: vi.fn(() => true),
+}));
+
 vi.mock('@/lib/eza/plan/fetchAuthMe', async () => {
   const actual = await vi.importActual<typeof import('@/lib/eza/plan/fetchAuthMe')>(
     '@/lib/eza/plan/fetchAuthMe'
@@ -331,7 +336,9 @@ describe('Phase 8.8F profile side panel', () => {
     const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file] } });
 
-    expect(uploadPublicAvatar).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-profile-avatar-save')).not.toBeDisabled();
+    });
 
     fireEvent.click(screen.getByTestId('saina-profile-avatar-save'));
 

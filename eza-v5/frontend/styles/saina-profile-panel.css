@@ -45,6 +45,8 @@
   border-radius: 999px;
   box-shadow: inset 0 0 0 1px rgba(232, 226, 215, 0.14);
   overflow: hidden;
+  display: block;
+  padding: 0;
 }
 
 .saina-profile-menu-identity-face .bilign-profile-avatar__glyph {

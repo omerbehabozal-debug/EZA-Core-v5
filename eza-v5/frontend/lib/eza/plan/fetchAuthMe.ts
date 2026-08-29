@@ -196,26 +196,44 @@ export async function uploadPublicAvatar(file: File): Promise<PublicAvatarUpdate
   const formData = new FormData();
   formData.append('file', file);
 
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), AUTH_LOGIN_REQUEST_TIMEOUT_MS);
+
   try {
     const response = await fetch(`${getDirectApiBaseUrl()}/api/auth/me/avatar`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
+      signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return { ok: false, code: parseApiErrorCode({ detail: data.detail, error: data.error }) };
+      const detail =
+        data.detail && typeof data.detail === 'object'
+          ? (data.detail as { code?: string })
+          : null;
+      const code = String(detail?.code || data.error?.error_code || data.error || `HTTP_${response.status}`);
+      return { ok: false, code: code || undefined };
     }
     const url = String(data.public_avatar_url ?? data.data?.public_avatar_url ?? '').trim();
     if (!url) return { ok: false, code: 'avatar_update_failed' };
     return { ok: true, public_avatar_url: url };
-  } catch {
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return { ok: false, code: 'REQUEST_TIMEOUT' };
+    }
     return { ok: false, code: 'NETWORK_ERROR' };
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
 export async function deletePublicAvatar(): Promise<PublicAvatarDeleteResult> {
-  const res = await apiClient.delete<{ ok?: boolean }>('/api/auth/me/avatar', { auth: true });
+  const res = await apiClient.delete<{ ok?: boolean }>('/api/auth/me/avatar', {
+    auth: true,
+    directBackend: prefersDirectBackend(),
+    timeoutMs: AUTH_PLAN_REQUEST_TIMEOUT_MS,
+  });
   if (!res.ok) {
     return { ok: false, code: parseApiErrorCode(res) };
   }
@@ -229,6 +247,9 @@ export function publicAvatarSaveErrorMessage(code?: string): string {
   }
   if (code === 'auth_required' || code === 'HTTP_401') {
     return 'Oturumunuz düştü. Tekrar giriş yapıp deneyin.';
+  }
+  if (code === 'REQUEST_TIMEOUT' || code === 'NETWORK_ERROR') {
+    return 'Bağlantı zaman aşımına uğradı. Tekrar deneyin.';
   }
   return 'Fotoğraf yüklenemedi. Tekrar deneyin.';
 }

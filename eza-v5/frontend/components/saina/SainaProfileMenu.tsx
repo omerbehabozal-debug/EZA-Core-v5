@@ -16,6 +16,8 @@ import {
 import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
+import { normalizeProfileAvatarFile } from '@/lib/eza/profile/normalizeProfileAvatarFile';
+import { publicAvatarSaveErrorMessage } from '@/lib/eza/plan/fetchAuthMe';
 import {
   SAINA_ANALYSIS_MODEL_LABEL,
   SAINA_EZA_PROCESSING_LABEL,
@@ -96,6 +98,7 @@ function ProfileIdentityMark({
   displayName,
   userId,
   avatarUrl,
+  avatarCacheBust,
   onAvatarPick,
   avatarBusy,
 }: {
@@ -103,6 +106,7 @@ function ProfileIdentityMark({
   displayName: string;
   userId?: string | null;
   avatarUrl?: string | null;
+  avatarCacheBust?: number | string;
   onAvatarPick?: () => void;
   avatarBusy?: boolean;
 }) {
@@ -153,6 +157,7 @@ function ProfileIdentityMark({
             displayName={displayName}
             userId={userId}
             avatarUrl={avatarUrl}
+            cacheBust={avatarCacheBust}
             size="lg"
             className="saina-profile-menu-identity-face"
           />
@@ -202,6 +207,8 @@ export default function SainaProfileMenu({
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarCacheBust, setAvatarCacheBust] = useState<number>(() => Date.now());
+  const [avatarStaging, setAvatarStaging] = useState(false);
   const [avatarDraft, setAvatarDraft] = useState<
     | { mode: 'keep' }
     | { mode: 'replace'; file: File; previewUrl: string }
@@ -338,6 +345,7 @@ export default function SainaProfileMenu({
         return;
       }
       setAuth(token, { ...user, public_avatar_url: null });
+      setAvatarCacheBust(Date.now());
       resetAvatarDraft();
       setAvatarSaveState('saved');
       return;
@@ -351,6 +359,7 @@ export default function SainaProfileMenu({
         return;
       }
       setAuth(token, { ...user, public_avatar_url: result.public_avatar_url });
+      setAvatarCacheBust(Date.now());
       resetAvatarDraft();
       setAvatarSaveState('saved');
     }
@@ -367,19 +376,29 @@ export default function SainaProfileMenu({
     setAvatarError(null);
   };
 
-  const onAvatarInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const onAvatarInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setAvatarDraft((current) => {
-      if (current.mode === 'replace') {
-        URL.revokeObjectURL(current.previewUrl);
-      }
-      return { mode: 'replace', file, previewUrl };
-    });
-    setAvatarSaveState('idle');
+    setAvatarStaging(true);
     setAvatarError(null);
+    try {
+      const normalized = await normalizeProfileAvatarFile(file);
+      const previewUrl = URL.createObjectURL(normalized);
+      setAvatarDraft((current) => {
+        if (current.mode === 'replace') {
+          URL.revokeObjectURL(current.previewUrl);
+        }
+        return { mode: 'replace', file: normalized, previewUrl };
+      });
+      setAvatarSaveState('idle');
+    } catch (error: unknown) {
+      const code = error instanceof Error ? error.message : undefined;
+      setAvatarSaveState('error');
+      setAvatarError(publicAvatarSaveErrorMessage(code));
+    } finally {
+      setAvatarStaging(false);
+    }
   };
 
   return (
@@ -404,7 +423,8 @@ export default function SainaProfileMenu({
           <ProfileUserAvatar
             displayName={displayName}
             userId={ownerUserId}
-            avatarUrl={persistedAvatarUrl}
+            avatarUrl={panelAvatarUrl}
+            cacheBust={avatarDraft.mode === 'keep' ? avatarCacheBust : undefined}
             size="top"
           />
         )}
@@ -460,8 +480,9 @@ export default function SainaProfileMenu({
                     displayName={displayName}
                     userId={ownerUserId}
                     avatarUrl={panelAvatarUrl}
+                    avatarCacheBust={avatarDraft.mode === 'keep' ? avatarCacheBust : undefined}
                     onAvatarPick={() => avatarInputRef.current?.click()}
-                    avatarBusy={avatarSaveState === 'saving' || disabled}
+                    avatarBusy={avatarStaging || avatarSaveState === 'saving' || disabled}
                   />
                   <div className="saina-profile-menu-identity-copy">
                     <p
