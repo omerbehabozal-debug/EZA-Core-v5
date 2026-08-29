@@ -75,7 +75,7 @@
 }
 
 .saina-route-fallback {
-  background: linear-gradient(165deg, #041b17 0%, #061f1b 48%, #0b1520 100%);
+  background: #050505;
 }
 
 /* Route transition owns enter/exit — child slide-ins read as bottom-up panel motion. */

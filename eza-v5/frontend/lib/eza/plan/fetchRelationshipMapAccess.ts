@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { AUTH_PLAN_REQUEST_TIMEOUT_MS } from '@/lib/eza/plan/fetchAuthMe';
 import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
 import { GUEST_TOKEN_HEADER } from '@/lib/eza/plan/guestTokenHeader';
 import type { RelationshipMapAccess } from '@/lib/eza/plan/tierEntitlements';
@@ -30,7 +31,7 @@ export async function fetchRelationshipMapAccess(): Promise<RelationshipMapAcces
 
   const res = await apiClient.get<RelationshipMapAccessResponse>(
     '/api/account/relationship-map-access',
-    { auth: Boolean(token), headers }
+    { auth: Boolean(token), headers, timeoutMs: AUTH_PLAN_REQUEST_TIMEOUT_MS }
   );
 
   if (!res.ok) {

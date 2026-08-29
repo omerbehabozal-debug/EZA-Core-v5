@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { buildApiUrl } from '@/lib/apiUrl';
+import { AUTH_PLAN_REQUEST_TIMEOUT_MS } from '@/lib/eza/plan/fetchAuthMe';
 import { buildSainaAuthHref, resolveSafeAuthReturnPath } from '@/lib/eza/sainaIdentity';
 import {
   SAINA_AUTH_EMAIL_LABEL,
@@ -44,14 +45,25 @@ export default function SainaLoginView({
     setLoading(true);
 
     try {
-      const response = await fetch(buildApiUrl('/api/auth/login'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password,
-        }),
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(
+        () => controller.abort(),
+        AUTH_PLAN_REQUEST_TIMEOUT_MS
+      );
+      let response: Response;
+      try {
+        response = await fetch(buildApiUrl('/api/auth/login'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password,
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -88,7 +100,12 @@ export default function SainaLoginView({
         setError('Sunucu şu anda yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin.');
       } else if (message.includes('401') || message.includes('Incorrect')) {
         setError('Geçersiz e-posta veya şifre.');
-      } else if (message.includes('Network') || message.includes('fetch') || message.includes('Failed to fetch')) {
+      } else if (
+        message.includes('Network') ||
+        message.includes('fetch') ||
+        message.includes('Failed to fetch') ||
+        message.includes('abort')
+      ) {
         setError('Ağ hatası. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
       } else {
         setError(message || 'Giriş başarısız. Lütfen tekrar deneyin.');

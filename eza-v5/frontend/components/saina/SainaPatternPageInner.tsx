@@ -49,8 +49,7 @@ export default function SainaPatternPageInner() {
   const { user } = useAuth();
   const ownerUserId = user?.user_id?.trim() || null;
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
-  const { entitlements: accountEntitlements, isLoading: entitlementsLoading } =
-    useAccountEntitlements();
+  const { entitlements: accountEntitlements } = useAccountEntitlements();
   const setConversationMirrorEntries = useSetConversationMirrorEntries();
 
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
@@ -117,13 +116,11 @@ export default function SainaPatternPageInner() {
     accountTier: accountEntitlements.tier,
   });
   const {
-    isLoading: mapAccessLoading,
     mapAccess,
     cutoffIso,
   } = useRelationshipMapAccess();
   const { handleRequestLogin, handleOpenUpgrade: handleUpgrade, gateModals } =
     useSainaGateModals({ planTier, defaultUpgradeFeature: 'relationship_pattern' });
-  const planResolved = !isPlanLoading && !entitlementsLoading && !mapAccessLoading;
 
   const { entries, deviceState, systemNotifications } = usePatternDeviceSync({
     hasMapDataAccess: ezaEnabled,
@@ -235,19 +232,15 @@ export default function SainaPatternPageInner() {
         onAnalysisModelChange={setAnalysisModelId}
         embedded
       >
-        {!planResolved ? (
-          <div className="saina-route-fallback min-h-[32vh] flex-1" aria-hidden />
-        ) : (
-          <RelationshipPatternView
-            entries={displayEntries}
-            deviceState={deviceState}
-            mapAccess={mapAccess}
-            ezaEnabled={ezaEnabled}
-            onActivateEza={handleActivateEza}
-            isEzaActivating={isEzaActivating}
-            className="relative z-[1] min-h-0 flex-1"
-          />
-        )}
+        <RelationshipPatternView
+          entries={displayEntries}
+          deviceState={deviceState}
+          mapAccess={mapAccess}
+          ezaEnabled={ezaEnabled}
+          onActivateEza={handleActivateEza}
+          isEzaActivating={isEzaActivating}
+          className="relative z-[1] min-h-0 flex-1"
+        />
       </SainaPatternShell>
 
       {gateModals}

@@ -4,6 +4,9 @@
  * Phase 8.5 — public_display_name on /me.
  */
 
+/** Client timeout for auth / plan hydration (avoid infinite loading when API is down). */
+export const AUTH_PLAN_REQUEST_TIMEOUT_MS = 15_000;
+
 import { apiClient } from '@/lib/apiClient';
 import type { PlanId } from '@/lib/eza/plan/planStore';
 
@@ -180,7 +183,10 @@ export function publicAvatarSaveErrorMessage(code?: string): string {
  * - valid: hydrate from server profile
  */
 export async function validateAuthSession(): Promise<AuthSessionValidationResult> {
-  const res = await apiClient.get<AuthMeResponse>('/api/auth/me', { auth: true });
+  const res = await apiClient.get<AuthMeResponse>('/api/auth/me', {
+    auth: true,
+    timeoutMs: AUTH_PLAN_REQUEST_TIMEOUT_MS,
+  });
   if (!res.ok) {
     const code = String(res.error?.error_code || res.error?.error || '');
     const isAuthFailure =

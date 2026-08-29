@@ -259,7 +259,7 @@ export default function RelationshipPatternView({
                 ) : null}
               </div>
 
-              <div className="relative mt-1 min-h-0 flex-1">
+              <div className="saina-pattern-map-body relative mt-1 min-h-0 flex-1">
                 <BehaviorIslandsMap
                   islands={metrics.displayIslands}
                   interactive={!controlsDisabled}
@@ -270,7 +270,7 @@ export default function RelationshipPatternView({
                   }
                   centerLabel="SEN"
                   animated={animated && !inactive}
-                  className="min-h-0 flex-1"
+                  className="saina-pattern-islands-map-canvas min-h-[20rem] w-full sm:min-h-[28rem]"
                 />
                 {inactive && !isEzaActivating ? (
                   <EzaActivationCta

@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { AUTH_PLAN_REQUEST_TIMEOUT_MS } from '@/lib/eza/plan/fetchAuthMe';
 import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
 import { GUEST_TOKEN_HEADER } from '@/lib/eza/plan/guestTokenHeader';
 import type {
@@ -88,6 +89,7 @@ export async function fetchAccountEntitlements(): Promise<AccountEntitlementsRes
   const res = await apiClient.get<AccountEntitlementsResponse>('/api/account/entitlements', {
     auth: Boolean(token),
     headers,
+    timeoutMs: AUTH_PLAN_REQUEST_TIMEOUT_MS,
   });
 
   if (!res.ok) return null;

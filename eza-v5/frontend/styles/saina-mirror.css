@@ -24,7 +24,7 @@ html:has(.saina-page) body {
   inset: 0;
   width: 100%;
   overflow: hidden;
-  background: linear-gradient(165deg, #041b17 0%, #061f1b 48%, #0b1520 100%);
+  background: #050505;
   color: #f6f4ef;
   display: flex;
   flex-direction: column;
@@ -45,15 +45,15 @@ html:has(.saina-page) body {
   overflow: hidden;
   border-radius: 24px;
   border: 1px solid rgba(216, 177, 106, 0.22);
-  background: #0b1520;
+  background: #080808;
   box-shadow:
-    0 0 0 1px rgba(4, 27, 23, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
     0 28px 80px rgba(0, 0, 0, 0.48);
 }
 
 /* App root: neutral infinite body + one elevated premium object (scene stays inside). */
 .saina-app-root.saina-page {
-  background: #071018;
+  background: #050505;
   padding: 0.75rem;
 }
 
@@ -70,7 +70,7 @@ html:has(.saina-page) body {
 }
 
 .saina-app-root .saina-app-frame {
-  background: linear-gradient(165deg, #0c1620 0%, #09131c 52%, #081018 100%);
+  background: #080808;
   border: 1px solid rgba(216, 177, 106, 0.26);
   border-radius: 26px;
   box-shadow:
@@ -94,7 +94,7 @@ html:has(.saina-page) body {
 }
 
 .saina-app-root .saina-main-col {
-  background: #0a1218;
+  background: #050505;
 }
 
 .saina-shell {
@@ -1498,6 +1498,7 @@ html:has(.saina-page) body {
   min-height: 0;
   flex: 1;
   flex-direction: column;
+  align-items: center;
   overflow: hidden;
   background: transparent;
 }
@@ -1673,7 +1674,7 @@ html:has(.saina-page) body {
   flex: 1;
   flex-direction: column;
   overflow: hidden;
-  background: #0b1520;
+  background: #080808;
 }
 
 .saina-canvas {
@@ -6092,9 +6093,9 @@ html:has(.saina-page) body {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 15%, rgba(231, 180, 91, 0.08), transparent 42%),
-    radial-gradient(circle at 80% 85%, rgba(22, 94, 78, 0.18), transparent 48%),
-    linear-gradient(160deg, #041b17 0%, #0b1612 45%, #0f2b25 100%);
+    radial-gradient(circle at 20% 15%, rgba(231, 180, 91, 0.05), transparent 42%),
+    radial-gradient(circle at 80% 85%, rgba(255, 255, 255, 0.03), transparent 48%),
+    #050505;
   backdrop-filter: blur(2px);
 }
 

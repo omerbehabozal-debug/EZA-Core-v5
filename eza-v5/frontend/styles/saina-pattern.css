@@ -95,11 +95,35 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
+  align-items: center;
+  width: 100%;
   margin-top: var(--saina-pattern-gap-controls-content);
+}
+
+.saina-pattern-page-header,
+.saina-pattern-controls-wrap {
+  width: 100%;
+  max-width: 56rem;
+  margin-inline: auto;
 }
 
 .saina-pattern-card-grid {
   gap: var(--saina-pattern-gap-cards);
+  width: 100%;
+  max-width: 56rem;
+  margin-inline: auto;
+}
+
+.saina-pattern-map-body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.saina-pattern-islands-map-canvas {
+  margin-inline: auto;
 }
 
 .saina-pattern-scroll-pad-bottom {

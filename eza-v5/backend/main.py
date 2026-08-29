@@ -118,10 +118,14 @@ async def lifespan(app: FastAPI):
 
     try:
         validate_mirror_scene_asset_startup_config()
+        app.state.mirror_scene_asset_config_ok = True
         logging.info("Mirror scene asset config validated")
     except MirrorSceneAssetConfigError as e:
-        logging.error(str(e))
-        raise
+        app.state.mirror_scene_asset_config_ok = False
+        logging.error(
+            "Mirror scene asset config invalid — API stays up; mirror scene routes may fail until fixed:\n%s",
+            e,
+        )
 
     yield
     
