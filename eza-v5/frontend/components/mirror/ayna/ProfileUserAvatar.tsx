@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { appendAvatarCacheBust } from '@/lib/eza/profile/avatarDisplayUrl';
+import { buildProfileAvatarDisplaySrc } from '@/lib/eza/profile/avatarDisplayUrl';
 import ProfileDefaultAvatar from '@/components/mirror/ayna/ProfileDefaultAvatar';
 
 type Props = {
@@ -28,34 +29,42 @@ export default function ProfileUserAvatar({
   alt,
 }: Props) {
   const url = (avatarUrl || '').trim();
-  if (url) {
-    const src = cacheBust != null ? appendAvatarCacheBust(url, cacheBust) : url;
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [url, cacheBust]);
+
+  if (!url || loadFailed) {
     return (
-      <div
-        className={cn(
-          'bilign-profile-avatar bilign-profile-avatar--has-photo',
-          size === 'lg' && 'bilign-profile-avatar--lg bilign-profile-avatar--panel',
-          size === 'top' && 'saina-profile-avatar saina-profile-avatar--top',
-          className
-        )}
-        data-testid="bilign-profile-avatar"
-      >
-        <img
-          src={src}
-          alt={alt || displayName || 'Profil fotoğrafı'}
-          className="bilign-profile-avatar__photo"
-          data-testid="bilign-profile-avatar-photo"
-        />
-      </div>
+      <ProfileDefaultAvatar
+        displayName={displayName}
+        userId={userId}
+        size={size === 'top' ? 'md' : size}
+        className={cn(size === 'top' && 'saina-profile-avatar saina-profile-avatar--top', className)}
+      />
     );
   }
 
+  const src = buildProfileAvatarDisplaySrc(url, cacheBust);
+
   return (
-    <ProfileDefaultAvatar
-      displayName={displayName}
-      userId={userId}
-      size={size === 'top' ? 'md' : size}
-      className={cn(size === 'top' && 'saina-profile-avatar saina-profile-avatar--top', className)}
-    />
+    <div
+      className={cn(
+        'bilign-profile-avatar bilign-profile-avatar--has-photo',
+        size === 'lg' && 'bilign-profile-avatar--lg bilign-profile-avatar--panel',
+        size === 'top' && 'saina-profile-avatar saina-profile-avatar--top',
+        className
+      )}
+      data-testid="bilign-profile-avatar"
+    >
+      <img
+        src={src}
+        alt={alt ?? ''}
+        className="bilign-profile-avatar__photo"
+        data-testid="bilign-profile-avatar-photo"
+        onError={() => setLoadFailed(true)}
+      />
+    </div>
   );
 }

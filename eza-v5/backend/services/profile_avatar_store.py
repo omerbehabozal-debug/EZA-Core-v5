@@ -51,10 +51,22 @@ def resolve_profile_avatar_dir() -> Path:
     return backend_dir / "data" / "profile_avatars"
 
 
+def user_id_from_avatar_filename(filename: str) -> str | None:
+    safe_name = Path(filename).name
+    if not _AVATAR_FILENAME_RE.match(safe_name):
+        return None
+    stem = safe_name.rsplit(".", 1)[0]
+    try:
+        return str(uuid.UUID(stem))
+    except ValueError:
+        return None
+
+
 def build_profile_avatar_public_url(filename: str) -> str:
     settings = get_settings()
     base = (
         (getattr(settings, "EZA_PROFILE_AVATAR_BASE_URL", None) or "").strip()
+        or (getattr(settings, "EZA_MIRROR_PUBLIC_BASE_URL", None) or "").strip()
         or (getattr(settings, "LOADTEST_BASE_URL", None) or "").strip()
         or "http://localhost:8000"
     ).rstrip("/")
@@ -116,7 +128,7 @@ def normalize_profile_avatar_bytes(image_bytes: bytes, mime: str) -> tuple[bytes
         return out.getvalue(), "image/jpeg"
 
 
-def save_profile_avatar_bytes(image_bytes: bytes, user_id: str) -> str:
+def save_profile_avatar_bytes(image_bytes: bytes, user_id: str) -> tuple[str, bytes, str]:
     mime = detect_image_mime(image_bytes)
     if mime is None:
         raise ValueError("unsupported_avatar_format")
@@ -142,7 +154,11 @@ def save_profile_avatar_bytes(image_bytes: bytes, user_id: str) -> str:
                 logger.warning("profile_avatar_cleanup_failed filename=%s", existing.name)
 
     target = asset_dir / filename
-    target.write_bytes(normalized_bytes)
+    try:
+        target.write_bytes(normalized_bytes)
+    except OSError:
+        logger.warning("profile_avatar_disk_write_failed user_id=%s", uid)
+
     public_url = build_profile_avatar_public_url(filename)
     logger.info(
         "profile_avatar_saved user_id=%s bytes=%d normalized=%d",
@@ -150,7 +166,7 @@ def save_profile_avatar_bytes(image_bytes: bytes, user_id: str) -> str:
         len(image_bytes),
         len(normalized_bytes),
     )
-    return public_url
+    return public_url, normalized_bytes, normalized_mime
 
 
 def delete_profile_avatar_files(user_id: str) -> None:

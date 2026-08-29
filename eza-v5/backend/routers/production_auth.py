@@ -16,7 +16,9 @@ from backend.services.production_auth import (
     hash_password, reset_user_password, normalize_email, load_user_session_row,
     update_public_display_name,
     update_public_avatar_url,
+    update_public_avatar_blob,
     clear_public_avatar_url,
+    clear_public_avatar_blob,
 )
 from backend.models.production import User, production_users_safe_load
 from backend.auth.deps import get_current_user
@@ -258,7 +260,9 @@ async def upload_public_avatar(
         )
 
     try:
-        public_url = save_profile_avatar_bytes(raw, str(row["id"]))
+        public_url, normalized_bytes, normalized_mime = save_profile_avatar_bytes(
+            raw, str(row["id"])
+        )
     except ValueError as exc:
         code = str(exc)
         raise HTTPException(
@@ -266,8 +270,11 @@ async def upload_public_avatar(
             detail={"code": code, "message": "Unsupported avatar image"},
         ) from exc
 
+    blob_saved = await update_public_avatar_blob(
+        db, str(row["id"]), normalized_bytes, normalized_mime
+    )
     updated = await update_public_avatar_url(db, str(row["id"]), public_url)
-    if not updated:
+    if not updated or not blob_saved:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"code": "avatar_update_failed", "message": "Avatar was not saved"},
@@ -292,6 +299,7 @@ async def delete_public_avatar(
         )
 
     delete_profile_avatar_files(str(row["id"]))
+    await clear_public_avatar_blob(db, str(row["id"]))
     cleared = await clear_public_avatar_url(db, str(row["id"]))
     if not cleared:
         raise HTTPException(

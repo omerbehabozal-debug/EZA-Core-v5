@@ -333,6 +333,129 @@ async def clear_public_avatar_url(db: AsyncSession, user_id: str) -> bool:
         return row is not None
 
 
+_ENSURE_AVATAR_BLOB_DATA_SQL = text(
+    "ALTER TABLE production_users ADD COLUMN IF NOT EXISTS public_avatar_data BYTEA"
+)
+
+_ENSURE_AVATAR_BLOB_MIME_SQL = text(
+    "ALTER TABLE production_users ADD COLUMN IF NOT EXISTS public_avatar_mime VARCHAR(32)"
+)
+
+_UPDATE_AVATAR_BLOB_SQL = text(
+    """
+    UPDATE production_users
+    SET public_avatar_data = :data, public_avatar_mime = :mime
+    WHERE id = :id
+    RETURNING id
+    """
+)
+
+_CLEAR_AVATAR_BLOB_SQL = text(
+    """
+    UPDATE production_users
+    SET public_avatar_data = NULL, public_avatar_mime = NULL
+    WHERE id = :id
+    RETURNING id
+    """
+)
+
+_LOAD_AVATAR_BLOB_SQL = text(
+    """
+    SELECT public_avatar_data, public_avatar_mime
+    FROM production_users
+    WHERE id = :id
+    LIMIT 1
+    """
+)
+
+
+async def update_public_avatar_blob(
+    db: AsyncSession, user_id: str, data: bytes, mime: str
+) -> bool:
+    """Persist avatar bytes in PostgreSQL (durable across deploys)."""
+    import uuid
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return False
+    if not data:
+        return False
+    try:
+        result = await db.execute(
+            _UPDATE_AVATAR_BLOB_SQL, {"id": uid, "data": data, "mime": mime}
+        )
+        row = result.first()
+        await db.commit()
+        return row is not None
+    except Exception:
+        logger.exception("public_avatar_blob_update_retry_after_schema_ensure")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        await db.execute(_ENSURE_AVATAR_BLOB_DATA_SQL)
+        await db.execute(_ENSURE_AVATAR_BLOB_MIME_SQL)
+        await db.commit()
+        result = await db.execute(
+            _UPDATE_AVATAR_BLOB_SQL, {"id": uid, "data": data, "mime": mime}
+        )
+        row = result.first()
+        await db.commit()
+        return row is not None
+
+
+async def clear_public_avatar_blob(db: AsyncSession, user_id: str) -> bool:
+    import uuid
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return False
+    try:
+        result = await db.execute(_CLEAR_AVATAR_BLOB_SQL, {"id": uid})
+        row = result.first()
+        await db.commit()
+        return row is not None
+    except Exception:
+        logger.exception("public_avatar_blob_clear_retry_after_schema_ensure")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        await db.execute(_ENSURE_AVATAR_BLOB_DATA_SQL)
+        await db.execute(_ENSURE_AVATAR_BLOB_MIME_SQL)
+        await db.commit()
+        result = await db.execute(_CLEAR_AVATAR_BLOB_SQL, {"id": uid})
+        row = result.first()
+        await db.commit()
+        return row is not None
+
+
+async def load_public_avatar_blob(
+    db: AsyncSession, user_id: str
+) -> tuple[bytes, str] | None:
+    import uuid
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return None
+    try:
+        result = await db.execute(_LOAD_AVATAR_BLOB_SQL, {"id": uid})
+        row = result.first()
+    except Exception:
+        logger.exception("public_avatar_blob_load_failed")
+        return None
+    if row is None:
+        return None
+    data, mime = row[0], row[1]
+    if not data:
+        return None
+    media_type = str(mime or "").strip() or "image/jpeg"
+    return bytes(data), media_type
+
+
 async def authenticate_user(
     db: AsyncSession,
     email: str,

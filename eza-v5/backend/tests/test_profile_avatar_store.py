@@ -15,6 +15,7 @@ from backend.services.profile_avatar_store import (
     normalize_profile_avatar_bytes,
     resolve_profile_avatar_path,
     save_profile_avatar_bytes,
+    user_id_from_avatar_filename,
 )
 
 
@@ -50,13 +51,19 @@ def test_normalize_profile_avatar_fits_wide_image(tmp_path, monkeypatch):
         assert saved.width == saved.height == 512
 
 
+def test_user_id_from_avatar_filename():
+    uid = str(uuid.uuid4())
+    assert user_id_from_avatar_filename(f"{uid}.jpg") == uid
+    assert user_id_from_avatar_filename("bad-name.jpg") is None
+
+
 def test_save_and_resolve_profile_avatar(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "backend.services.profile_avatar_store.resolve_profile_avatar_dir",
         lambda: tmp_path,
     )
     user_id = str(uuid.uuid4())
-    url = save_profile_avatar_bytes(_PNG_BYTES, user_id)
+    url, normalized, mime = save_profile_avatar_bytes(_PNG_BYTES, user_id)
     filename = Path(url.rsplit("/", 1)[-1]).name
     assert resolve_profile_avatar_path(filename) is not None
     assert build_profile_avatar_public_url(filename).endswith(filename)
