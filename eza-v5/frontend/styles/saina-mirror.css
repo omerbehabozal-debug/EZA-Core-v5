@@ -245,21 +245,25 @@ html:has(.saina-page) body {
 
 @media (hover: hover) {
   .saina-sidebar-dock-link:hover:not(.saina-sidebar-dock-link--active) {
-    color: rgba(246, 244, 239, 0.88);
-    background: rgba(255, 255, 255, 0.045);
+    color: rgba(232, 226, 215, 0.88);
+    background: rgba(255, 255, 255, 0.025);
   }
 }
 
 .saina-sidebar-dock-link--active {
-  color: rgba(246, 244, 239, 0.94);
-  background: rgba(255, 255, 255, 0.06);
+  color: rgba(232, 226, 215, 0.92);
+  background: rgba(232, 226, 215, 0.045);
   border: none;
   box-shadow: none;
 }
 
 .saina-sidebar-dock-link--active .saina-sidebar-dock-icon {
-  color: rgba(246, 244, 239, 0.78);
+  color: rgba(232, 226, 215, 0.86);
   opacity: 1;
+}
+
+.saina-sidebar-dock-link--active[data-testid='saina-pattern-nav'] .saina-sidebar-dock-icon {
+  color: rgba(183, 137, 73, 0.72);
 }
 
 .saina-sidebar-plan-footer {
@@ -286,7 +290,7 @@ html:has(.saina-page) body {
 }
 
 .saina-sidebar-plan-footer-text--premium {
-  color: rgba(231, 180, 91, 0.82);
+  color: rgba(205, 166, 91, 0.88);
   font-weight: 500;
 }
 
@@ -369,8 +373,8 @@ html:has(.saina-page) body {
 }
 
 .saina-sidebar-plan-footer-tier--paid {
-  color: rgba(231, 180, 91, 0.88);
-  font-weight: 600;
+  color: rgba(232, 226, 215, 0.72);
+  font-weight: 500;
 }
 
 .saina-sidebar-plan-footer-action {
@@ -988,7 +992,7 @@ html:has(.saina-page) body {
 
 @media (hover: hover) {
   .saina-conv-row--quiet:hover:not(.saina-conv-row--active) {
-    background: rgba(255, 255, 255, 0.045);
+    background: rgba(255, 255, 255, 0.025);
     border: none;
   }
 }
@@ -996,7 +1000,7 @@ html:has(.saina-page) body {
 .saina-conv-row--active,
 .saina-chat-item.is-active,
 .saina-chat-item[data-active='true'] {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(232, 226, 215, 0.045);
   color: #f6f4ef;
   border: none;
   box-shadow: none;
@@ -1065,9 +1069,9 @@ html:has(.saina-page) body {
   height: 8px;
   width: 8px;
   border-radius: 50%;
-  background: #6b8a7a;
+  background: rgba(232, 226, 215, 0.38);
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(107, 138, 122, 0.45);
+  box-shadow: none;
 }
 
 .saina-conv-thumb {

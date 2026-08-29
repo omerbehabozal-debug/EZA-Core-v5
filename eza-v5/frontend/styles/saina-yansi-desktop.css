@@ -55,6 +55,12 @@
   --bilign-time: #77736c;
   --bilign-label-user: #e8e2d7;
   --bilign-label-ai: #c8954f;
+  --bilign-nav-active-text: rgba(232, 226, 215, 0.92);
+  --bilign-nav-active-icon: rgba(232, 226, 215, 0.86);
+  --bilign-nav-active-surface: rgba(232, 226, 215, 0.045);
+  --bilign-nav-hover-surface: rgba(255, 255, 255, 0.025);
+  --bilign-eza-icon: rgba(183, 137, 73, 0.72);
+  --bilign-premium-gold: rgba(205, 166, 91, 0.88);
   --saina-logo-gold: var(--bilign-bronze-light);
   --saina-brand-text: var(--bilign-bronze-light);
   background: var(--bilign-bg);
@@ -136,10 +142,22 @@
 .saina-app-root.saina-standalone-shell .saina-sidebar-home-link:hover,
 .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link:hover {
   color: var(--bilign-text);
+  background: var(--bilign-nav-hover-surface);
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-dock-link--active {
+  color: var(--bilign-nav-active-text);
+  background: var(--bilign-nav-active-surface);
 }
 
 .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link--active .saina-sidebar-dock-icon {
-  color: var(--bilign-bronze-active);
+  color: var(--bilign-nav-active-icon);
+}
+
+.saina-app-root.saina-standalone-shell
+  .saina-sidebar-dock-link--active[data-testid='saina-pattern-nav']
+  .saina-sidebar-dock-icon {
+  color: var(--bilign-eza-icon);
 }
 
 .saina-app-root.saina-standalone-shell .saina-sidebar-dock-icon {
@@ -169,7 +187,7 @@
 }
 
 .saina-app-root.saina-standalone-shell .saina-conv-active-dot {
-  background: var(--bilign-bronze);
+  background: rgba(232, 226, 215, 0.38);
   box-shadow: none;
 }
 
@@ -177,20 +195,31 @@
   scrollbar-color: rgba(232, 226, 215, 0.16) transparent;
 }
 
+.saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-text--premium {
+  color: var(--bilign-premium-gold);
+  font-weight: 500;
+}
+
+.saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-tier--paid {
+  color: rgba(232, 226, 215, 0.72);
+  font-weight: 500;
+}
+
 .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-action,
 .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:not(.saina-sidebar-plan-footer-cta--full) {
   background: transparent;
   box-shadow: none;
-  border: 1px solid rgba(183, 137, 73, 0.42);
-  color: var(--bilign-bronze-light);
+  border: 1px solid rgba(232, 226, 215, 0.14);
+  color: rgba(232, 226, 215, 0.68);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
 .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:hover .saina-sidebar-plan-footer-action,
 .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:not(.saina-sidebar-plan-footer-cta--full):hover {
-  background: rgba(183, 137, 73, 0.1);
-  border-color: rgba(208, 161, 91, 0.55);
+  background: var(--bilign-nav-hover-surface);
+  border-color: rgba(232, 226, 215, 0.2);
+  color: rgba(232, 226, 215, 0.82);
 }
 
 @media (max-width: 899px) {
@@ -309,6 +338,12 @@
     --bilign-time: #77736c;
     --bilign-label-user: #e8e2d7;
     --bilign-label-ai: #c8954f;
+    --bilign-nav-active-text: rgba(232, 226, 215, 0.92);
+    --bilign-nav-active-icon: rgba(232, 226, 215, 0.86);
+    --bilign-nav-active-surface: rgba(232, 226, 215, 0.045);
+    --bilign-nav-hover-surface: rgba(255, 255, 255, 0.025);
+    --bilign-eza-icon: rgba(183, 137, 73, 0.72);
+    --bilign-premium-gold: rgba(205, 166, 91, 0.88);
 
     --saina-sidebar-width: 280px;
     --saina-sidebar-fade-width: 160px;
@@ -448,10 +483,22 @@
   .saina-app-root.saina-standalone-shell .saina-sidebar-home-link:hover,
   .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link:hover {
     color: var(--bilign-text);
+    background: var(--bilign-nav-hover-surface);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link--active {
+    color: var(--bilign-nav-active-text);
+    background: var(--bilign-nav-active-surface);
   }
 
   .saina-app-root.saina-standalone-shell .saina-sidebar-dock-link--active .saina-sidebar-dock-icon {
-    color: var(--bilign-bronze-active);
+    color: var(--bilign-nav-active-icon);
+  }
+
+  .saina-app-root.saina-standalone-shell
+    .saina-sidebar-dock-link--active[data-testid='saina-pattern-nav']
+    .saina-sidebar-dock-icon {
+    color: var(--bilign-eza-icon);
   }
 
   .saina-app-root.saina-standalone-shell .saina-sidebar-dock-icon {
@@ -497,7 +544,7 @@
   }
 
   .saina-app-root.saina-standalone-shell .saina-conv-active-dot {
-    background: var(--bilign-bronze);
+    background: rgba(232, 226, 215, 0.38);
     box-shadow: none;
   }
 
@@ -505,20 +552,31 @@
     scrollbar-color: rgba(232, 226, 215, 0.16) transparent;
   }
 
+  .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-text--premium {
+    color: var(--bilign-premium-gold);
+    font-weight: 500;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-tier--paid {
+    color: rgba(232, 226, 215, 0.72);
+    font-weight: 500;
+  }
+
   .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-action,
   .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:not(.saina-sidebar-plan-footer-cta--full) {
     background: transparent;
     box-shadow: none;
-    border: 1px solid rgba(183, 137, 73, 0.42);
-    color: var(--bilign-bronze-light);
+    border: 1px solid rgba(232, 226, 215, 0.14);
+    color: rgba(232, 226, 215, 0.68);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
   .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:hover .saina-sidebar-plan-footer-action,
   .saina-app-root.saina-standalone-shell .saina-sidebar-plan-footer-cta:not(.saina-sidebar-plan-footer-cta--full):hover {
-    background: rgba(183, 137, 73, 0.1);
-    border-color: rgba(208, 161, 91, 0.55);
+    background: var(--bilign-nav-hover-surface);
+    border-color: rgba(232, 226, 215, 0.2);
+    color: rgba(232, 226, 215, 0.82);
   }
 
   /* —— Stage 3: Yansı atmosphere (keep focalPoint) —— */
