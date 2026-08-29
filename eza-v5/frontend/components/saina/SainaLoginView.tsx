@@ -5,8 +5,10 @@ import '@/styles/saina-mirror.css';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { buildApiUrl } from '@/lib/apiUrl';
-import { AUTH_PLAN_REQUEST_TIMEOUT_MS } from '@/lib/eza/plan/fetchAuthMe';
+import { getDirectApiBaseUrl } from '@/lib/apiUrl';
+import {
+  AUTH_LOGIN_REQUEST_TIMEOUT_MS,
+} from '@/lib/eza/plan/fetchAuthMe';
 import { buildSainaAuthHref, resolveSafeAuthReturnPath } from '@/lib/eza/sainaIdentity';
 import {
   SAINA_AUTH_EMAIL_LABEL,
@@ -48,11 +50,12 @@ export default function SainaLoginView({
       const controller = new AbortController();
       const timeoutId = window.setTimeout(
         () => controller.abort(),
-        AUTH_PLAN_REQUEST_TIMEOUT_MS
+        AUTH_LOGIN_REQUEST_TIMEOUT_MS
       );
+      const loginUrl = `${getDirectApiBaseUrl()}/api/auth/login`;
       let response: Response;
       try {
-        response = await fetch(buildApiUrl('/api/auth/login'), {
+        response = await fetch(loginUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -96,15 +99,17 @@ export default function SainaLoginView({
       router.push(safeReturn);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Giriş başarısız';
-      if (message === 'SERVER_UNAVAILABLE') {
+      const isAbort =
+        (err instanceof DOMException && err.name === 'AbortError') ||
+        message.toLowerCase().includes('abort');
+      if (message === 'SERVER_UNAVAILABLE' || isAbort) {
         setError('Sunucu şu anda yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin.');
       } else if (message.includes('401') || message.includes('Incorrect')) {
         setError('Geçersiz e-posta veya şifre.');
       } else if (
         message.includes('Network') ||
         message.includes('fetch') ||
-        message.includes('Failed to fetch') ||
-        message.includes('abort')
+        message.includes('Failed to fetch')
       ) {
         setError('Ağ hatası. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
       } else {

@@ -7,6 +7,9 @@
 /** Client timeout for auth / plan hydration (avoid infinite loading when API is down). */
 export const AUTH_PLAN_REQUEST_TIMEOUT_MS = 15_000;
 
+/** Login may wait longer on cold Railway / edge proxy before returning 5xx. */
+export const AUTH_LOGIN_REQUEST_TIMEOUT_MS = 45_000;
+
 import { apiClient } from '@/lib/apiClient';
 import type { PlanId } from '@/lib/eza/plan/planStore';
 
