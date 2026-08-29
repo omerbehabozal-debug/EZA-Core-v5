@@ -202,6 +202,58 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('saina-eza-info-trigger')).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: 'İlişki Haritası' })).toBeInTheDocument();
+      expect(screen.getByTestId('saina-eza-info-trigger')).toHaveTextContent('EZA');
+      expect(screen.getByTestId('saina-eza-info-trigger')).toHaveTextContent('ⓘ');
+    });
+  });
+
+  it('opens inline EZA info card instead of a right drawer', async () => {
+    renderPatternApp();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-eza-info-trigger')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('saina-eza-info-card')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('saina-eza-info-drawer')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('saina-eza-info-trigger'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-eza-info-card')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'EZA nedir?' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /EZA hakkında daha fazla bilgi/i })).toHaveAttribute(
+        'href',
+        'https://eza.global'
+      );
+    });
+  });
+
+  it('closes EZA info card when trigger is toggled or close is clicked', async () => {
+    renderPatternApp();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-eza-info-trigger')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('saina-eza-info-trigger'));
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-eza-info-card')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('saina-eza-info-card-close'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('saina-eza-info-card')).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('saina-eza-info-trigger'));
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-eza-info-card')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('saina-eza-info-trigger'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('saina-eza-info-card')).not.toBeInTheDocument();
     });
   });
 
@@ -219,6 +271,11 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
       expect(screen.getByTestId('saina-eza-activation-button')).toHaveTextContent(
         "EZA'yı etkinleştir"
       );
+    });
+
+    fireEvent.click(screen.getByTestId('saina-eza-info-trigger'));
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-eza-info-card')).toBeInTheDocument();
     });
   });
 });

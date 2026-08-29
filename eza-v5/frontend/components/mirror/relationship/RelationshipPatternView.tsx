@@ -33,7 +33,7 @@ import RelationshipTimelineChart from '@/components/mirror/relationship/Relation
 import ActiveTimeCard from '@/components/mirror/relationship/ActiveTimeCard';
 import InteractionDepthCard from '@/components/mirror/relationship/InteractionDepthCard';
 import EzaActivationCta from '@/components/mirror/relationship/EzaActivationCta';
-import EzaInfoDrawer from '@/components/mirror/relationship/EzaInfoDrawer';
+import EzaInfoCard from '@/components/mirror/relationship/EzaInfoCard';
 
 export type RelationshipPatternViewProps = {
   entries: SavedBehavioralEntry[];
@@ -168,23 +168,23 @@ export default function RelationshipPatternView({
       aria-label="AI İlişki Haritası"
     >
       <header className="saina-pattern-page-header shrink-0">
-        <div className="saina-pattern-page-eyebrow-row">
-          <span className="saina-pattern-page-eyebrow">EZA</span>
-          <button
-            type="button"
-            className="saina-pattern-eza-info-btn"
-            aria-label="EZA hakkında bilgi"
-            aria-expanded={infoOpen}
-            onClick={() => setInfoOpen(true)}
-            data-testid="saina-eza-info-trigger"
-          >
+        <button
+          type="button"
+          className="saina-pattern-eza-info-trigger"
+          aria-label="EZA hakkında bilgi"
+          aria-expanded={infoOpen}
+          onClick={() => setInfoOpen((open) => !open)}
+          data-testid="saina-eza-info-trigger"
+        >
+          <span className="saina-pattern-eza-info-trigger__label">EZA</span>
+          <span className="saina-pattern-eza-info-trigger__icon" aria-hidden>
             ⓘ
-          </button>
-        </div>
+          </span>
+        </button>
         <h1 className="saina-pattern-page-title">İlişki Haritası</h1>
       </header>
 
-      <EzaInfoDrawer open={infoOpen} onClose={() => setInfoOpen(false)} />
+      <EzaInfoCard open={infoOpen} onClose={() => setInfoOpen(false)} />
 
       <div
         className={cn(
