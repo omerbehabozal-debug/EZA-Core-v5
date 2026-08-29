@@ -160,6 +160,11 @@ export function shouldProcessExperienceForEzaProfile(
   return getEzaUserPreferences(prefsOrOwner).ezaDataProcessingEnabled === true;
 }
 
+/** Pattern screen active/inactive — single EZA enablement source. */
+export function isEzaEnabled(prefsOrOwner?: EzaUserPreferences | string | null): boolean {
+  return shouldProcessExperienceForEzaProfile(prefsOrOwner);
+}
+
 /**
  * Fail-closed processing gate for write paths.
  * Returns false when storage unreadable or processing disabled.

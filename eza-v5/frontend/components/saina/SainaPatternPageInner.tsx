@@ -13,7 +13,6 @@ import {
 } from '@/lib/standaloneChatArchive';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import RelationshipPatternView from '@/components/mirror/RelationshipPatternView';
-import PatternPlusUpsellBanner from '@/components/mirror/relationship/PatternPlusUpsellBanner';
 import SainaPatternShell from '@/components/saina/SainaPatternShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
@@ -33,11 +32,22 @@ import {
 import { trackRelationshipPatternViewed } from '@/lib/eza/mirror/relationshipPatternAnalytics';
 import { useSetConversationMirrorEntries } from '@/components/standalone/MirrorEntriesContext';
 import { SAINA_NEW_CHAT_ROUTE } from '@/lib/eza/sainaRoutes';
+import { useAuth } from '@/context/AuthContext';
+import {
+  getEzaUserPreferences,
+  isEzaEnabled,
+  setEzaUserPreferences,
+  subscribeEzaUserPreferences,
+  type EzaUserPreferences,
+} from '@/lib/eza/ezaUserPrefs';
 
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
+const EZA_ACTIVATION_MS = 1000;
 
 export default function SainaPatternPageInner() {
   const router = useRouter();
+  const { user } = useAuth();
+  const ownerUserId = user?.user_id?.trim() || null;
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, isLoading: entitlementsLoading } =
     useAccountEntitlements();
@@ -46,13 +56,18 @@ export default function SainaPatternPageInner() {
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
+  const [ezaPrefs, setEzaPrefs] = useState<EzaUserPreferences>(() =>
+    getEzaUserPreferences(ownerUserId)
+  );
+  const [isEzaActivating, setIsEzaActivating] = useState(false);
+
+  const ezaEnabled = isEzaEnabled(ezaPrefs);
 
   const refreshArchives = useCallback(() => {
     setArchives(listChatArchives());
   }, []);
 
   useEffect(() => {
-    // Pattern map reads global behavioral history — release conversation scope.
     setConversationMirrorEntries([], null);
   }, [setConversationMirrorEntries]);
 
@@ -88,6 +103,13 @@ export default function SainaPatternPageInner() {
     trackRelationshipPatternViewed();
   }, []);
 
+  useEffect(() => {
+    setEzaPrefs(getEzaUserPreferences(ownerUserId));
+    return subscribeEzaUserPreferences(() => {
+      setEzaPrefs(getEzaUserPreferences(ownerUserId));
+    });
+  }, [ownerUserId]);
+
   const planTier = resolveSainaPlanTier({
     isPlus,
     isLoading: isPlanLoading,
@@ -96,26 +118,34 @@ export default function SainaPatternPageInner() {
   });
   const {
     isLoading: mapAccessLoading,
-    canViewMapData,
     mapAccess,
     cutoffIso,
   } = useRelationshipMapAccess();
-  const {
-    handleRequestLogin,
-    handleOpenUpgrade: handleUpgrade,
-    gateModals,
-  } = useSainaGateModals({ planTier, defaultUpgradeFeature: 'relationship_pattern' });
+  const { handleRequestLogin, handleOpenUpgrade: handleUpgrade, gateModals } =
+    useSainaGateModals({ planTier, defaultUpgradeFeature: 'relationship_pattern' });
   const planResolved = !isPlanLoading && !entitlementsLoading && !mapAccessLoading;
 
   const { entries, deviceState, systemNotifications } = usePatternDeviceSync({
-    hasMapDataAccess: canViewMapData,
+    hasMapDataAccess: ezaEnabled,
     archives,
   });
 
   const displayEntries = useMemo(
-    () => filterEntriesForMapAccess(entries, mapAccess, cutoffIso),
-    [entries, mapAccess, cutoffIso]
+    () =>
+      ezaEnabled ? filterEntriesForMapAccess(entries, mapAccess, cutoffIso) : [],
+    [ezaEnabled, entries, mapAccess, cutoffIso]
   );
+
+  const handleActivateEza = useCallback(() => {
+    setIsEzaActivating(true);
+    setEzaPrefs(
+      setEzaUserPreferences(ownerUserId, {
+        ezaDataProcessingEnabled: true,
+        ezaVisibilityEnabled: true,
+      })
+    );
+    window.setTimeout(() => setIsEzaActivating(false), EZA_ACTIVATION_MS);
+  }, [ownerUserId]);
 
   const { conversations, conversationGroups, activeChatId } = useSainaSidebarConversations(archives);
 
@@ -124,7 +154,6 @@ export default function SainaPatternPageInner() {
     const url = getChatArchive(activeChatId)?.conversationSceneUrl;
     return url && isPersistableConversationSceneUrl(url) ? url : null;
   }, [archives, activeChatId]);
-
 
   const handleNewChat = useCallback(() => {
     router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
@@ -168,7 +197,6 @@ export default function SainaPatternPageInner() {
     /* Already on pattern route — keep sidebar card active. */
   }, []);
 
-
   useSyncSainaChrome({
     activeSection: 'pattern',
     conversations,
@@ -186,7 +214,7 @@ export default function SainaPatternPageInner() {
     onSafeOnlyModeChange: setSafeOnlyMode,
     analysisModelId,
     onAnalysisModelChange: setAnalysisModelId,
-    notifications: canViewMapData ? systemNotifications : [],
+    notifications: ezaEnabled ? systemNotifications : [],
   });
 
   return (
@@ -210,21 +238,15 @@ export default function SainaPatternPageInner() {
         {!planResolved ? (
           <div className="saina-route-fallback min-h-[32vh] flex-1" aria-hidden />
         ) : (
-          <>
-            {!canViewMapData ? (
-              <PatternPlusUpsellBanner
-                className="relative z-[1] shrink-0"
-                onCtaClick={handleUpgrade}
-              />
-            ) : null}
-            <RelationshipPatternView
-              entries={displayEntries}
-              deviceState={deviceState}
-              previewMode={!canViewMapData}
-              mapAccess={mapAccess}
-              className="relative z-[1] min-h-0 flex-1"
-            />
-          </>
+          <RelationshipPatternView
+            entries={displayEntries}
+            deviceState={deviceState}
+            mapAccess={mapAccess}
+            ezaEnabled={ezaEnabled}
+            onActivateEza={handleActivateEza}
+            isEzaActivating={isEzaActivating}
+            className="relative z-[1] min-h-0 flex-1"
+          />
         )}
       </SainaPatternShell>
 

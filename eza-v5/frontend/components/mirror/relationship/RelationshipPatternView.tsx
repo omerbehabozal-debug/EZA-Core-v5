@@ -32,27 +32,21 @@ import RelationshipBalanceBars from '@/components/mirror/relationship/Relationsh
 import RelationshipTimelineChart from '@/components/mirror/relationship/RelationshipTimelineChart';
 import ActiveTimeCard from '@/components/mirror/relationship/ActiveTimeCard';
 import InteractionDepthCard from '@/components/mirror/relationship/InteractionDepthCard';
-import PatternPreviewSectionNote from '@/components/mirror/relationship/PatternPreviewSectionNote';
-import {
-  PATTERN_PREVIEW_AI_BARS,
-  PATTERN_PREVIEW_BALANCE_BARS,
-  PATTERN_PREVIEW_BALANCE_HINT,
-  PATTERN_PREVIEW_BALANCE_LABEL,
-  PATTERN_PREVIEW_DEPTH,
-  PATTERN_PREVIEW_TIME_BUCKETS,
-  PATTERN_PREVIEW_TIMELINE,
-} from '@/components/mirror/relationship/patternPreviewContent';
+import EzaActivationCta from '@/components/mirror/relationship/EzaActivationCta';
+import EzaInfoDrawer from '@/components/mirror/relationship/EzaInfoDrawer';
 
 export type RelationshipPatternViewProps = {
   entries: SavedBehavioralEntry[];
   meta?: MirrorStateMeta;
   className?: string;
-  /** Free plan — trend/içgörü alanları silik sabit placeholder. */
-  previewMode?: boolean;
   /** Entitlement window — hides "Tümü" for last_90_days tiers. */
   mapAccess?: RelationshipMapAccess;
   /** Premium device sync — empty vs chats-without-history copy. */
   deviceState?: PatternDeviceState;
+  /** Single EZA enablement source — inactive dims the same layout. */
+  ezaEnabled?: boolean;
+  onActivateEza?: () => void;
+  isEzaActivating?: boolean;
 };
 
 type PatternLevel = 'map' | 'trends' | 'insights';
@@ -68,10 +62,13 @@ const sp = standaloneSkin.sainaPatternPolish;
 export default function RelationshipPatternView({
   entries,
   className,
-  previewMode = false,
   mapAccess = 'locked',
   deviceState = 'free',
+  ezaEnabled = true,
+  onActivateEza,
+  isEzaActivating = false,
 }: RelationshipPatternViewProps) {
+  const [infoOpen, setInfoOpen] = useState(false);
   const [period, setPeriod] = useState<RelationshipPeriodFilter>(30);
   const periodOptions = useMemo(
     () => getRelationshipPeriodOptionsForAccess(mapAccess),
@@ -99,6 +96,9 @@ export default function RelationshipPatternView({
     }
   }, [entries, effectivePeriod]);
 
+  const inactive = !ezaEnabled;
+  const controlsDisabled = inactive || isEzaActivating;
+
   const emptyMapCaption =
     deviceState === 'chats_pending_pattern'
       ? PATTERN_DEVICE_EMPTY_HINT
@@ -106,15 +106,17 @@ export default function RelationshipPatternView({
         ? PATTERN_DEVICE_DEFAULT_EMPTY_HINT
         : 'Harita henüz oluşmadı — gözlenen alanlar aşağıda.';
 
-  const balanceLabel =
-    previewMode || metrics.isEmpty
+  const balanceLabel = inactive
+    ? '—'
+    : metrics.isEmpty
       ? deviceState === 'chats_pending_pattern'
         ? PATTERN_DEVICE_EMPTY_TITLE
         : metrics.generalBalanceLabel
       : metrics.generalBalanceLabel;
 
-  const balanceHint =
-    previewMode || metrics.isEmpty
+  const balanceHint = inactive
+    ? 'EZA etkinleştirildiğinde görünür.'
+    : metrics.isEmpty
       ? deviceState === 'chats_pending_pattern'
         ? PATTERN_DEVICE_EMPTY_HINT
         : deviceState === 'empty_no_chats'
@@ -124,14 +126,14 @@ export default function RelationshipPatternView({
       : metrics.generalBalanceHint || 'Etkileşimlerin sağlıklı bir ritimde ilerliyor.';
 
   const handlePeriod = (value: RelationshipPeriodFilter) => {
-    if (value === period) return;
+    if (controlsDisabled || value === period) return;
     setPeriod(value);
     setSelectedId(null);
     setFadeKey((k) => k + 1);
   };
 
   const handleLevel = (next: PatternLevel) => {
-    if (next === level) return;
+    if (controlsDisabled || next === level) return;
     setLevel(next);
     if (next !== 'map') setSelectedId(null);
     setFadeKey((k) => k + 1);
@@ -139,9 +141,9 @@ export default function RelationshipPatternView({
 
   const animated = !reducedMotion && !shouldDisableDecorativeMotion();
   const balanceScore =
-    metrics.interactionDepth.score != null
-      ? Math.round((metrics.interactionDepth.score / 10) * 100)
-      : 68;
+    inactive || metrics.interactionDepth.score == null
+      ? 0
+      : Math.round((metrics.interactionDepth.score / 10) * 100);
 
   const selectedIsland = useMemo(
     () => metrics.displayIslands.find((i) => i.id === selectedId) ?? null,
@@ -157,12 +159,39 @@ export default function RelationshipPatternView({
 
   return (
     <section
-      className={cn('relative z-[1] flex w-full min-h-0 flex-1 flex-col', className)}
+      className={cn(
+        'relative z-[1] flex w-full min-h-0 flex-1 flex-col',
+        inactive && 'saina-pattern-eza--inactive',
+        isEzaActivating && 'saina-pattern-eza--activating',
+        className
+      )}
       aria-label="AI İlişki Haritası"
     >
-      <h1 className="saina-pattern-page-title shrink-0">İlişki Haritası</h1>
+      <header className="saina-pattern-page-header shrink-0">
+        <div className="saina-pattern-page-eyebrow-row">
+          <span className="saina-pattern-page-eyebrow">EZA</span>
+          <button
+            type="button"
+            className="saina-pattern-eza-info-btn"
+            aria-label="EZA hakkında bilgi"
+            aria-expanded={infoOpen}
+            onClick={() => setInfoOpen(true)}
+            data-testid="saina-eza-info-trigger"
+          >
+            ⓘ
+          </button>
+        </div>
+        <h1 className="saina-pattern-page-title">İlişki Haritası</h1>
+      </header>
 
-      <div className="saina-pattern-controls-wrap flex shrink-0 flex-wrap items-center justify-between gap-2 saina-pattern-controls">
+      <EzaInfoDrawer open={infoOpen} onClose={() => setInfoOpen(false)} />
+
+      <div
+        className={cn(
+          'saina-pattern-controls-wrap flex shrink-0 flex-wrap items-center justify-between gap-2 saina-pattern-controls',
+          controlsDisabled && 'saina-pattern-controls--disabled'
+        )}
+      >
         <nav
           className={sp.levelNav}
           role="tablist"
@@ -175,6 +204,7 @@ export default function RelationshipPatternView({
               role="tab"
               aria-selected={level === l.id}
               onClick={() => handleLevel(l.id)}
+              disabled={controlsDisabled}
               className={level === l.id ? sp.levelTabActive : sp.levelTabIdle}
             >
               {l.label}
@@ -190,6 +220,7 @@ export default function RelationshipPatternView({
               role="tab"
               aria-selected={effectivePeriod === p.value}
               onClick={() => handlePeriod(p.value)}
+              disabled={controlsDisabled}
               className={effectivePeriod === p.value ? sp.periodTabActive : sp.periodTabIdle}
             >
               {p.label}
@@ -213,7 +244,7 @@ export default function RelationshipPatternView({
         {level === 'map' ? (
           <div className="saina-pattern-card-grid grid min-h-0 flex-1 overflow-y-auto saina-pattern-scroll-pad-bottom min-[900px]:grid-cols-[minmax(0,1fr)_minmax(200px,240px)] min-[900px]:items-stretch">
             <section
-              className={sp.mapCard}
+              className={cn(sp.mapCard, 'relative')}
               aria-labelledby="behavior-islands-title"
             >
               <div className="flex shrink-0 items-baseline justify-between gap-2 pt-1">
@@ -223,26 +254,36 @@ export default function RelationshipPatternView({
                 >
                   Davranış Adaların
                 </p>
-                {metrics.isEmpty ? (
+                {!inactive && metrics.isEmpty ? (
                   <p className="text-[11px] saina-pattern-text-muted">{emptyMapCaption}</p>
                 ) : null}
               </div>
 
-              <BehaviorIslandsMap
-                islands={metrics.displayIslands}
-                interactive
-                selectedId={selectedId}
-                onSelectIsland={(island) =>
-                  setSelectedId((prev) => (prev === island.id ? null : island.id))
-                }
-                centerLabel="SEN"
-                animated={animated}
-                className="mt-1 min-h-0 flex-1"
-              />
+              <div className="relative mt-1 min-h-0 flex-1">
+                <BehaviorIslandsMap
+                  islands={metrics.displayIslands}
+                  interactive={!controlsDisabled}
+                  inactive={inactive}
+                  selectedId={selectedId}
+                  onSelectIsland={(island) =>
+                    setSelectedId((prev) => (prev === island.id ? null : island.id))
+                  }
+                  centerLabel="SEN"
+                  animated={animated && !inactive}
+                  className="min-h-0 flex-1"
+                />
+                {inactive && !isEzaActivating ? (
+                  <EzaActivationCta
+                    className="saina-eza-activation-cta--map"
+                    onActivate={() => onActivateEza?.()}
+                    disabled={!onActivateEza}
+                  />
+                ) : null}
+              </div>
             </section>
 
             <aside className="min-h-0">
-              {selectedIsland ? (
+              {selectedIsland && !inactive ? (
                 <IslandDetailPanel
                   island={selectedIsland}
                   active={selectedIsland.active}
@@ -250,12 +291,10 @@ export default function RelationshipPatternView({
                 />
               ) : (
                 <RelationshipSummaryCard
-                  label={previewMode ? PATTERN_PREVIEW_BALANCE_LABEL : balanceLabel}
-                  hint={
-                    previewMode ? PATTERN_PREVIEW_BALANCE_HINT : balanceHint
-                  }
+                  label={balanceLabel}
+                  hint={balanceHint}
                   scorePercent={balanceScore}
-                  preview={previewMode}
+                  inactive={inactive}
                 />
               )}
             </aside>
@@ -263,26 +302,18 @@ export default function RelationshipPatternView({
         ) : null}
 
         {level === 'trends' ? (
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5">
-            {previewMode ? (
-              <section className="pointer-events-none grid select-none gap-4 opacity-45 saturate-[0.55] md:grid-cols-2">
-                <div className={sp.trendCard}>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold saina-pattern-text-muted">
-                    <ArrowUpRight className="h-4 w-4" strokeWidth={2} aria-hidden />
-                    Büyüyen alanlar
-                  </h3>
-                  <p className="mt-3 text-sm saina-pattern-text-muted">—</p>
-                </div>
-                <div className={sp.trendCard}>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold saina-pattern-text-muted">
-                    <ArrowDownRight className="h-4 w-4" strokeWidth={2} aria-hidden />
-                    Azalan alanlar
-                  </h3>
-                  <p className="mt-3 text-sm saina-pattern-text-muted">—</p>
-                </div>
-              </section>
-            ) : metrics.isEmpty ? (
-              <p className={sp.emptyState}>Trendler için henüz yeterli etkileşim yok.</p>
+          <div
+            className={cn(
+              'min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5',
+              controlsDisabled && 'saina-pattern-panel--disabled'
+            )}
+          >
+            {inactive || metrics.isEmpty ? (
+              <p className={sp.emptyState}>
+                {inactive
+                  ? 'Trendler EZA etkinleştirildiğinde görünür.'
+                  : 'Trendler için henüz yeterli etkileşim yok.'}
+              </p>
             ) : (
               <section className="grid gap-4 md:grid-cols-2">
                 <div className={sp.trendCard}>
@@ -331,95 +362,81 @@ export default function RelationshipPatternView({
               </section>
             )}
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <RelationshipTimelineChart
-                points={previewMode ? PATTERN_PREVIEW_TIMELINE : metrics.timelinePoints}
-                preview={previewMode}
-              />
-              <RelationshipBalanceBars
-                bars={previewMode ? PATTERN_PREVIEW_BALANCE_BARS : metrics.balanceBars}
-                preview={previewMode}
-              />
-            </div>
-            {previewMode ? <PatternPreviewSectionNote /> : null}
+            {!inactive && !metrics.isEmpty ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <RelationshipTimelineChart points={metrics.timelinePoints} />
+                <RelationshipBalanceBars bars={metrics.balanceBars} />
+              </div>
+            ) : null}
           </div>
         ) : null}
 
         {level === 'insights' ? (
-          <div className="saina-pattern-insights-panel">
-            {previewMode ? (
-              <section className="saina-pattern-insights-summary saina-pattern-preview-shell pointer-events-none select-none rounded-[1.5rem] p-4 opacity-45 saturate-[0.55]">
-                <dl className="grid gap-2 sm:grid-cols-2">
-                  {[
-                    'En çok gelişen alan',
-                    'En aktif dönem',
-                    'Baskın biçim',
-                    'En dikkat çekici değişim',
-                  ].map((label) => (
-                    <div key={label} className={sp.insightTile}>
-                      <dt className="text-xs font-medium saina-pattern-text-muted">{label}</dt>
-                      <dd className="mt-0.5 text-sm font-semibold saina-pattern-text-muted opacity-50">—</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ) : metrics.isEmpty ? (
-              <p className={sp.emptyState}>İçgörüler için henüz yeterli etkileşim yok.</p>
-            ) : (
-              <section className={cn(sp.insightCard, 'saina-pattern-insights-summary')}>
-                <dl className="grid gap-2 sm:grid-cols-2">
-                  <div className={sp.insightTile}>
-                    <dt className="text-xs font-medium saina-pattern-text-muted">En çok gelişen alan</dt>
-                    <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
-                      {risingLabel ?? 'Belirgin yükseliş yok'}
-                    </dd>
-                  </div>
-                  <div className={sp.insightTile}>
-                    <dt className="text-xs font-medium saina-pattern-text-muted">En aktif dönem</dt>
-                    <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
-                      {peakActive ? `${peakActive.label} · %${peakActive.percent}` : '—'}
-                    </dd>
-                  </div>
-                  <div className={sp.insightTile}>
-                    <dt className="text-xs font-medium saina-pattern-text-muted">Baskın biçim</dt>
-                    <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
-                      {dominantLabel ?? '—'}
-                    </dd>
-                  </div>
-                  <div className={sp.insightTile}>
-                    <dt className="text-xs font-medium saina-pattern-text-muted">En dikkat çekici değişim</dt>
-                    <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
-                      {growingIslands[0]
-                        ? `${growingIslands[0].label} yükselişte`
-                        : fadingIslands[0]
-                          ? `${fadingIslands[0].label} soluyor`
-                          : 'Harita dengede'}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
+          <div
+            className={cn(
+              'saina-pattern-insights-panel',
+              controlsDisabled && 'saina-pattern-panel--disabled'
             )}
+          >
+            {inactive || metrics.isEmpty ? (
+              <p className={sp.emptyState}>
+                {inactive
+                  ? 'İçgörüler EZA etkinleştirildiğinde görünür.'
+                  : 'İçgörüler için henüz yeterli etkileşim yok.'}
+              </p>
+            ) : (
+              <>
+                <section className={cn(sp.insightCard, 'saina-pattern-insights-summary')}>
+                  <dl className="grid gap-2 sm:grid-cols-2">
+                    <div className={sp.insightTile}>
+                      <dt className="text-xs font-medium saina-pattern-text-muted">En çok gelişen alan</dt>
+                      <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
+                        {risingLabel ?? 'Belirgin yükseliş yok'}
+                      </dd>
+                    </div>
+                    <div className={sp.insightTile}>
+                      <dt className="text-xs font-medium saina-pattern-text-muted">En aktif dönem</dt>
+                      <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
+                        {peakActive ? `${peakActive.label} · %${peakActive.percent}` : '—'}
+                      </dd>
+                    </div>
+                    <div className={sp.insightTile}>
+                      <dt className="text-xs font-medium saina-pattern-text-muted">Baskın biçim</dt>
+                      <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
+                        {dominantLabel ?? '—'}
+                      </dd>
+                    </div>
+                    <div className={sp.insightTile}>
+                      <dt className="text-xs font-medium saina-pattern-text-muted">En dikkat çekici değişim</dt>
+                      <dd className="mt-0.5 text-sm font-semibold saina-pattern-text">
+                        {growingIslands[0]
+                          ? `${growingIslands[0].label} yükselişte`
+                          : fadingIslands[0]
+                            ? `${fadingIslands[0].label} soluyor`
+                            : 'Harita dengede'}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
 
-            <div className="saina-pattern-insights-cards">
-              <BehaviorToneBars
-                title="AI Davranış Haritası"
-                subtitle="AI sana en çok şu tonlarda yanıt verdi."
-                bars={previewMode ? PATTERN_PREVIEW_AI_BARS : metrics.aiBehaviorBars}
-                preview={previewMode}
-                className="saina-pattern-metric-card"
-              />
-              <ActiveTimeCard
-                buckets={previewMode ? PATTERN_PREVIEW_TIME_BUCKETS : metrics.activeTimeBuckets}
-                preview={previewMode}
-                className="saina-pattern-metric-card"
-              />
-              <InteractionDepthCard
-                metric={previewMode ? PATTERN_PREVIEW_DEPTH : metrics.interactionDepth}
-                preview={previewMode}
-                className="saina-pattern-metric-card"
-              />
-            </div>
-            {previewMode ? <PatternPreviewSectionNote /> : null}
+                <div className="saina-pattern-insights-cards">
+                  <BehaviorToneBars
+                    title="AI Davranış Haritası"
+                    subtitle="AI sana en çok şu tonlarda yanıt verdi."
+                    bars={metrics.aiBehaviorBars}
+                    className="saina-pattern-metric-card"
+                  />
+                  <ActiveTimeCard
+                    buckets={metrics.activeTimeBuckets}
+                    className="saina-pattern-metric-card"
+                  />
+                  <InteractionDepthCard
+                    metric={metrics.interactionDepth}
+                    className="saina-pattern-metric-card"
+                  />
+                </div>
+              </>
+            )}
           </div>
         ) : null}
       </div>

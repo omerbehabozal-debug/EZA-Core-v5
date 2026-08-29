@@ -9,6 +9,7 @@ export type RelationshipSummaryCardProps = {
   scorePercent?: number;
   className?: string;
   preview?: boolean;
+  inactive?: boolean;
 };
 
 export default function RelationshipSummaryCard({
@@ -17,8 +18,10 @@ export default function RelationshipSummaryCard({
   scorePercent = 72,
   className,
   preview = false,
+  inactive = false,
 }: RelationshipSummaryCardProps) {
-  const ring = preview ? 38 : Math.min(100, Math.max(24, scorePercent));
+  const showScore = !preview && !inactive;
+  const ring = showScore ? Math.min(100, Math.max(24, scorePercent)) : 0;
   const circumference = 2 * Math.PI * 28;
   const offset = circumference - (ring / 100) * circumference;
 
@@ -27,6 +30,7 @@ export default function RelationshipSummaryCard({
       className={cn(
         'saina-pattern-glass-side saina-pattern-balance-card rounded-3xl p-4 sm:p-5',
         preview && 'pointer-events-none select-none opacity-45 saturate-[0.55]',
+        inactive && 'saina-pattern-balance-card--inactive',
         className
       )}
     >
@@ -39,13 +43,13 @@ export default function RelationshipSummaryCard({
               cy="32"
               r="28"
               fill="none"
-              stroke={preview ? '#d4d4d8' : 'url(#balanceRing)'}
+              stroke={showScore ? 'url(#balanceRing)' : 'rgba(255,255,255,0.1)'}
               strokeWidth="5"
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={offset}
             />
-            {!preview ? (
+            {!preview && showScore ? (
               <defs>
                 <linearGradient id="balanceRing" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#E8E2D7" />

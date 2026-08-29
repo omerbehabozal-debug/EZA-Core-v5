@@ -168,7 +168,7 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     expect(mockPush).toHaveBeenCalledWith('/standalone?chat=chat-abc', { scroll: false });
   });
 
-  it('shows upsell banner for free users', async () => {
+  it('does not show relationship map upgrade banner for locked tiers', async () => {
     vi.mocked(usePlan).mockReturnValue({
       plan: 'free',
       isPlus: false,
@@ -189,19 +189,37 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
     renderPatternApp();
 
     await waitFor(() => {
-      expect(screen.getByText(/İlişki Haritası canlı hale gelsin/i)).toBeInTheDocument();
-    });
-  });
-
-  it('hides upsell banner for premium users', async () => {
-    renderPatternApp();
-
-    await waitFor(() => {
       expect(screen.getByTestId('saina-pattern-shell')).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: 'İlişki Haritası' })).toBeInTheDocument();
     });
 
     expect(screen.queryByText(/İlişki Haritası canlı hale gelsin/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('saina-pattern-upsell-banner')).not.toBeInTheDocument();
+  });
+
+  it('shows EZA info trigger and relationship map heading', async () => {
+    renderPatternApp();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-eza-info-trigger')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'İlişki Haritası' })).toBeInTheDocument();
+    });
+  });
+
+  it('shows activation CTA when EZA processing is disabled', async () => {
+    const { setEzaUserPreferences } = await import('@/lib/eza/ezaUserPrefs');
+    setEzaUserPreferences(null, {
+      ezaDataProcessingEnabled: false,
+      ezaVisibilityEnabled: false,
+    });
+
+    renderPatternApp();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-eza-activation-cta')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-eza-activation-button')).toHaveTextContent(
+        "EZA'yı etkinleştir"
+      );
+    });
   });
 });
 

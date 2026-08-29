@@ -23,6 +23,7 @@ export type BehaviorIslandsMapProps = {
   islands: MapDisplayIsland[];
   className?: string;
   interactive?: boolean;
+  inactive?: boolean;
   selectedId?: string | null;
   onSelectIsland?: (island: MapDisplayIsland) => void;
   centerLabel?: string;
@@ -41,6 +42,7 @@ export default function BehaviorIslandsMap({
   islands,
   className,
   interactive = false,
+  inactive = false,
   selectedId = null,
   onSelectIsland,
   centerLabel,
@@ -73,6 +75,7 @@ export default function BehaviorIslandsMap({
       ref={containerRef}
       className={cn(
         'relative min-h-[20rem] w-full overflow-hidden rounded-[2rem] sm:min-h-[28rem]',
+        inactive && 'saina-pattern-islands-map--inactive',
         className
       )}
       aria-label="AI ilişki evreni — davranış adaları"
@@ -219,7 +222,7 @@ export default function BehaviorIslandsMap({
             <BehaviorIslandBlob
               island={island}
               ghost={!island.active}
-              interactive={interactive}
+              interactive={interactive && !inactive}
               selected={selectedId === island.id}
               onSelect={() => onSelectIsland?.(island)}
               animated={animated}
