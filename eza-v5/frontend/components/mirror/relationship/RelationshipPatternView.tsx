@@ -304,7 +304,7 @@ export default function RelationshipPatternView({
         {level === 'trends' ? (
           <div
             className={cn(
-              'min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5',
+              'saina-pattern-content-panel min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5',
               controlsDisabled && 'saina-pattern-panel--disabled'
             )}
           >
@@ -374,7 +374,7 @@ export default function RelationshipPatternView({
         {level === 'insights' ? (
           <div
             className={cn(
-              'saina-pattern-insights-panel',
+              'saina-pattern-content-panel saina-pattern-insights-panel',
               controlsDisabled && 'saina-pattern-panel--disabled'
             )}
           >

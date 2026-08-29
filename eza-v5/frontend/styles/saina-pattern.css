@@ -101,7 +101,9 @@
 }
 
 .saina-pattern-page-header,
-.saina-pattern-controls-wrap {
+.saina-pattern-controls-wrap,
+.saina-pattern-card-grid,
+.saina-pattern-content-panel {
   width: 100%;
   max-width: 56rem;
   margin-inline: auto;
@@ -109,9 +111,6 @@
 
 .saina-pattern-card-grid {
   gap: var(--saina-pattern-gap-cards);
-  width: 100%;
-  max-width: 56rem;
-  margin-inline: auto;
 }
 
 .saina-pattern-map-body {

@@ -5380,6 +5380,14 @@ html:has(.saina-page) body {
 }
 
 @media (max-width: 899px) {
+  .saina-standalone-shell .saina-standalone-sidebar-wrap {
+    width: 0;
+    min-width: 0;
+    flex: 0 0 0;
+    overflow: visible;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar,
   .saina-standalone-shell .saina-sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -5390,6 +5398,7 @@ html:has(.saina-page) body {
     transition: transform 0.2s ease-out;
   }
 
+  .saina-app-root.saina-standalone-shell .saina-sidebar.saina-sidebar--mobile-open,
   .saina-standalone-shell .saina-sidebar.saina-sidebar--mobile-open {
     transform: translateX(0);
   }

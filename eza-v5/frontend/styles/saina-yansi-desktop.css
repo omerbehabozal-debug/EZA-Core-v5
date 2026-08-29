@@ -194,6 +194,34 @@
 }
 
 @media (max-width: 899px) {
+  .saina-app-root.saina-standalone-shell .saina-standalone-sidebar-wrap {
+    width: 0;
+    min-width: 0;
+    flex: 0 0 0;
+    overflow: visible;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    display: flex;
+    width: min(288px, 88vw);
+    max-width: 88vw;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-out;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-sidebar.saina-sidebar--mobile-open {
+    transform: translateX(0);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-main-col {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+
   .saina-app-root.saina-standalone-shell .saina-standalone-mobile-bar {
     position: relative;
     z-index: 42;
