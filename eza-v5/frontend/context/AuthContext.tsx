@@ -18,7 +18,10 @@ import {
   peekMirrorGuestToken,
   rotateMirrorGuestToken,
 } from '@/lib/eza/mirror-network/guestToken';
-import { validateAuthSession } from '@/lib/eza/plan/fetchAuthMe';
+import {
+  validateAuthSession,
+  type AuthSessionValidationResult,
+} from '@/lib/eza/plan/fetchAuthMe';
 import {
   TOKEN_STORAGE_KEY,
   USER_STORAGE_KEY,
@@ -176,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        let sessionResult = result;
+        let sessionResult: AuthSessionValidationResult = result;
         if (result.status === 'unavailable') {
           await new Promise((resolve) => window.setTimeout(resolve, 1200));
           if (cancelled) return;
