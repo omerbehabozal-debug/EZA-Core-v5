@@ -12,6 +12,7 @@ from backend.services.profile_avatar_store import (
     MAX_PROFILE_AVATAR_BYTES,
     build_profile_avatar_public_url,
     detect_image_mime,
+    normalize_profile_avatar_bytes,
     resolve_profile_avatar_path,
     save_profile_avatar_bytes,
 )
@@ -27,6 +28,27 @@ _PNG_BYTES = (
 
 def test_detect_image_mime_png():
     assert detect_image_mime(_PNG_BYTES) == "image/png"
+
+
+def test_normalize_profile_avatar_fits_wide_image(tmp_path, monkeypatch):
+    from PIL import Image
+    from io import BytesIO
+
+    monkeypatch.setattr(
+        "backend.services.profile_avatar_store.resolve_profile_avatar_dir",
+        lambda: tmp_path,
+    )
+
+    wide = Image.new("RGB", (800, 400), color=(40, 120, 80))
+    buf = BytesIO()
+    wide.save(buf, format="JPEG")
+    raw = buf.getvalue()
+
+    normalized, mime = normalize_profile_avatar_bytes(raw, "image/jpeg")
+    assert mime == "image/jpeg"
+    with Image.open(BytesIO(normalized)) as saved:
+        assert saved.width == saved.height
+        assert saved.width <= 512
 
 
 def test_save_and_resolve_profile_avatar(tmp_path, monkeypatch):

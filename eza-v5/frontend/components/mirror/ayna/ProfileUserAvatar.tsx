@@ -29,7 +29,7 @@ export default function ProfileUserAvatar({
       <div
         className={cn(
           'bilign-profile-avatar bilign-profile-avatar--has-photo',
-          size === 'lg' && 'bilign-profile-avatar--lg',
+          size === 'lg' && 'bilign-profile-avatar--lg bilign-profile-avatar--panel',
           size === 'top' && 'saina-profile-avatar saina-profile-avatar--top',
           className
         )}

@@ -67,6 +67,10 @@
   background: transparent;
   cursor: pointer;
   border-radius: 999px;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  flex: 0 0 64px;
 }
 
 .saina-profile-menu-identity-face-btn:disabled {

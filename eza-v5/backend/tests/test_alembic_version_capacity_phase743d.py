@@ -362,9 +362,11 @@ def test_clean_db_upgrade_head_and_phase6_from_phase42():
             for name in PHASE6_TABLES:
                 assert name in tables
             assert "yansi_reports" in tables
-            assert "public_display_name" in {
+            user_columns = {
                 c["name"] for c in sa_inspect(connection).get_columns("production_users")
             }
+            assert "public_display_name" in user_columns
+            assert "public_avatar_url" in user_columns
             capacity = inspect_alembic_version_capacity(connection)
             assert capacity["sufficient"] is True
         engine.dispose()

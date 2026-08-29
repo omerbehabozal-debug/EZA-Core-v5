@@ -80,6 +80,49 @@ def profile_avatar_response_headers(media_type: str) -> dict[str, str]:
     }
 
 
+def normalize_profile_avatar_bytes(image_bytes: bytes, mime: str) -> tuple[bytes, str]:
+    """Fit image into a square canvas so circles show the full photo."""
+    from io import BytesIO
+
+    from PIL import Image, ImageOps
+
+    with Image.open(BytesIO(image_bytes)) as raw:
+        img = ImageOps.exif_transpose(raw)
+        if img.mode not in ("RGB", "RGBA"):
+            has_alpha = img.mode in ("RGBA", "LA") or (
+                img.mode == "P" and "transparency" in img.info
+            )
+            img = img.convert("RGBA" if has_alpha else "RGB")
+
+        max_edge = 512
+        fitted = img.copy()
+        fitted.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
+
+        canvas_size = max(fitted.width, fitted.height, 1)
+        bg = (12, 14, 14, 255) if fitted.mode == "RGBA" else (12, 14, 14)
+        canvas = Image.new(fitted.mode, (canvas_size, canvas_size), bg)
+        offset = (
+            (canvas_size - fitted.width) // 2,
+            (canvas_size - fitted.height) // 2,
+        )
+        if fitted.mode == "RGBA":
+            canvas.paste(fitted, offset, fitted)
+        else:
+            canvas.paste(fitted, offset)
+
+        out = BytesIO()
+        if mime == "image/png":
+            canvas.save(out, format="PNG", optimize=True)
+            return out.getvalue(), "image/png"
+        if mime == "image/webp":
+            canvas.save(out, format="WEBP", quality=88, method=4)
+            return out.getvalue(), "image/webp"
+        if canvas.mode == "RGBA":
+            canvas = canvas.convert("RGB")
+        canvas.save(out, format="JPEG", quality=88, optimize=True)
+        return out.getvalue(), "image/jpeg"
+
+
 def save_profile_avatar_bytes(image_bytes: bytes, user_id: str) -> str:
     mime = detect_image_mime(image_bytes)
     if mime is None:
@@ -87,7 +130,11 @@ def save_profile_avatar_bytes(image_bytes: bytes, user_id: str) -> str:
     if len(image_bytes) > MAX_PROFILE_AVATAR_BYTES:
         raise ValueError("avatar_too_large")
 
-    ext = _mime_to_extension(mime)
+    normalized_bytes, normalized_mime = normalize_profile_avatar_bytes(image_bytes, mime)
+    if len(normalized_bytes) > MAX_PROFILE_AVATAR_BYTES:
+        raise ValueError("avatar_too_large")
+
+    ext = _mime_to_extension(normalized_mime)
     filename = f"{uuid.UUID(str(user_id))}{ext}"
     asset_dir = resolve_profile_avatar_dir()
     asset_dir.mkdir(parents=True, exist_ok=True)
@@ -102,9 +149,14 @@ def save_profile_avatar_bytes(image_bytes: bytes, user_id: str) -> str:
                 logger.warning("profile_avatar_cleanup_failed filename=%s", existing.name)
 
     target = asset_dir / filename
-    target.write_bytes(image_bytes)
+    target.write_bytes(normalized_bytes)
     public_url = build_profile_avatar_public_url(filename)
-    logger.info("profile_avatar_saved user_id=%s bytes=%d", uid, len(image_bytes))
+    logger.info(
+        "profile_avatar_saved user_id=%s bytes=%d normalized=%d",
+        uid,
+        len(image_bytes),
+        len(normalized_bytes),
+    )
     return public_url
 
 
