@@ -8,6 +8,7 @@
   place-items: center;
   flex: 0 0 auto;
   box-sizing: border-box;
+  overflow: visible;
 }
 
 .bilign-avatar-identity-frame__avatar {
@@ -43,16 +44,27 @@
   stroke-width: 1px;
 }
 
-/* Desktop hero — photo 84px, envelope ~96px */
+/* Desktop hero — 84px avatar slot; ~96px polygon envelope overflows visually */
 .bilign-avatar-identity-frame--hero {
-  width: 96px;
-  height: 96px;
+  width: 84px;
+  height: 84px;
+  flex: 0 0 84px;
+  overflow: visible;
 }
 
 .bilign-avatar-identity-frame--hero .bilign-avatar-identity-frame__avatar,
 .bilign-avatar-identity-frame--hero .bilign-avatar-identity-frame__avatar > * {
   width: 84px;
   height: 84px;
+}
+
+.bilign-avatar-identity-frame--hero .bilign-avatar-identity-polygons {
+  width: 96px;
+  height: 96px;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* Profile panel — photo 72px, envelope ~83px */
@@ -86,14 +98,20 @@
 
 @media (max-width: 899px) {
   .bilign-avatar-identity-frame--hero {
-    width: 76px;
-    height: 76px;
+    width: 66px;
+    height: 66px;
+    flex: 0 0 66px;
   }
 
   .bilign-avatar-identity-frame--hero .bilign-avatar-identity-frame__avatar,
   .bilign-avatar-identity-frame--hero .bilign-avatar-identity-frame__avatar > * {
     width: 66px;
     height: 66px;
+  }
+
+  .bilign-avatar-identity-frame--hero .bilign-avatar-identity-polygons {
+    width: 76px;
+    height: 76px;
   }
 
   .bilign-avatar-identity-frame--hero .bilign-avatar-identity-polygon--a,

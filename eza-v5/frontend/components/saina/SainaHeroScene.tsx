@@ -39,16 +39,20 @@ export default function SainaHeroScene({
       aria-label="Yansı kimliği"
       data-testid="saina-yansi-identity"
     >
-      <BilignAvatarIdentityFrame variant="hero" className="bilign-yansi-identity__mark">
-        <ProfileUserAvatar
-          displayName={name}
-          userId={userId}
-          avatarUrl={avatarUrl}
-          cacheBust={avatarCacheBust}
-          size="hero"
-          className="bilign-yansi-identity__face"
-        />
-      </BilignAvatarIdentityFrame>
+      <div className="bilign-yansi-identity__mark">
+        <div className="bilign-yansi-identity__avatar">
+          <BilignAvatarIdentityFrame variant="hero">
+            <ProfileUserAvatar
+              displayName={name}
+              userId={userId}
+              avatarUrl={avatarUrl}
+              cacheBust={avatarCacheBust}
+              size="hero"
+              className="bilign-yansi-identity__face"
+            />
+          </BilignAvatarIdentityFrame>
+        </div>
+      </div>
       <div className="bilign-yansi-identity__copy">
         <div className="bilign-yansi-identity__name-row">
           <p className="bilign-yansi-identity__name" data-testid="saina-yansi-identity-name">
