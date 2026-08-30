@@ -43,6 +43,10 @@ import { join } from 'path';
 import type { JourneyGenerationLineage } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 
+vi.mock('@/hooks/useResolvedProfileAvatar', () => ({
+  useResolvedProfileAvatar: () => ({ url: null, revision: undefined }),
+}));
+
 function lineage(partial: Partial<JourneyGenerationLineage> & {
   journeyId: string;
   sourceConversationId: string;

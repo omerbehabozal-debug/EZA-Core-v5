@@ -11,6 +11,10 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
+vi.mock('@/hooks/useResolvedProfileAvatar', () => ({
+  useResolvedProfileAvatar: () => ({ url: null, revision: undefined }),
+}));
+
 const root = process.cwd();
 
 function read(rel: string) {
