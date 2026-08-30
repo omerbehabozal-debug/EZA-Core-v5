@@ -15,10 +15,8 @@ from backend.services.production_auth import (
     create_user, authenticate_user, create_access_token, check_bootstrap_allowed,
     hash_password, reset_user_password, normalize_email, load_user_session_row,
     update_public_display_name,
-    update_public_avatar_url,
-    update_public_avatar_blob,
-    clear_public_avatar_url,
-    clear_public_avatar_blob,
+    save_public_avatar_authoritative,
+    clear_public_avatar_authoritative,
 )
 from backend.models.production import User, production_users_safe_load
 from backend.auth.deps import get_current_user
@@ -75,6 +73,7 @@ class AuthMeResponse(BaseModel):
     # Phase 8.5 — owner-private identity control (not a public DTO).
     public_display_name: str | None = None
     public_avatar_url: str | None = None
+    public_avatar_revision: int = 0
     # Public honorific id (curious | bilgin). Not a plan/role. Owner session only.
     public_honorific: str
 
@@ -93,6 +92,12 @@ class PublicIdentityUpdateResponse(BaseModel):
 
 class PublicAvatarUpdateResponse(BaseModel):
     public_avatar_url: str
+    public_avatar_revision: int
+
+
+class PublicAvatarDeleteResponse(BaseModel):
+    ok: bool = True
+    public_avatar_revision: int
 
 
 class SocialGoogleRequest(BaseModel):
@@ -177,6 +182,7 @@ async def get_auth_me(
             else None
         )
         or None,
+        public_avatar_revision=int(row.get("public_avatar_revision") or 0),
         public_honorific=normalize_public_honorific(None),
     )
 
@@ -270,20 +276,23 @@ async def upload_public_avatar(
             detail={"code": code, "message": "Unsupported avatar image"},
         ) from exc
 
-    blob_saved = await update_public_avatar_blob(
-        db, str(row["id"]), normalized_bytes, normalized_mime
+    blob_saved = await save_public_avatar_authoritative(
+        db, str(row["id"]), normalized_bytes, normalized_mime, public_url
     )
-    updated = await update_public_avatar_url(db, str(row["id"]), public_url)
-    if not updated or not blob_saved:
+    if not blob_saved:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"code": "avatar_update_failed", "message": "Avatar was not saved"},
         )
-    logger.info("public_avatar_updated user_id=%s", row["id"])
-    return PublicAvatarUpdateResponse(public_avatar_url=public_url)
+    saved_url, revision = blob_saved
+    logger.info("public_avatar_updated user_id=%s revision=%s", row["id"], revision)
+    return PublicAvatarUpdateResponse(
+        public_avatar_url=saved_url,
+        public_avatar_revision=revision,
+    )
 
 
-@router.delete("/me/avatar")
+@router.delete("/me/avatar", response_model=PublicAvatarDeleteResponse)
 async def delete_public_avatar(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -299,15 +308,14 @@ async def delete_public_avatar(
         )
 
     delete_profile_avatar_files(str(row["id"]))
-    await clear_public_avatar_blob(db, str(row["id"]))
-    cleared = await clear_public_avatar_url(db, str(row["id"]))
-    if not cleared:
+    revision = await clear_public_avatar_authoritative(db, str(row["id"]))
+    if revision is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"code": "avatar_clear_failed", "message": "Avatar was not removed"},
         )
-    logger.info("public_avatar_removed user_id=%s", row["id"])
-    return {"ok": True}
+    logger.info("public_avatar_removed user_id=%s revision=%s", row["id"], revision)
+    return PublicAvatarDeleteResponse(ok=True, public_avatar_revision=revision)
 
 
 @router.post("/register", response_model=TokenResponse)

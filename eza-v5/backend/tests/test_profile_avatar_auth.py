@@ -5,12 +5,17 @@ from __future__ import annotations
 
 import inspect
 
-from backend.routers.production_auth import AuthMeResponse, PublicAvatarUpdateResponse
+from backend.routers.production_auth import (
+    AuthMeResponse,
+    PublicAvatarDeleteResponse,
+    PublicAvatarUpdateResponse,
+)
 
 
 def test_auth_me_response_includes_public_avatar_url():
     fields = AuthMeResponse.model_fields
     assert "public_avatar_url" in fields
+    assert "public_avatar_revision" in fields
 
 
 def test_avatar_upload_endpoint_exists():
@@ -20,7 +25,10 @@ def test_avatar_upload_endpoint_exists():
     assert "upload_public_avatar" in src
     assert "/me/avatar" in src
     assert "save_profile_avatar_bytes" in src
-    assert PublicAvatarUpdateResponse.model_fields["public_avatar_url"].annotation is str
+    assert "save_public_avatar_authoritative" in src
+    fields = PublicAvatarUpdateResponse.model_fields
+    assert fields["public_avatar_url"].annotation is str
+    assert fields["public_avatar_revision"].annotation is int
 
 
 def test_avatar_delete_endpoint_exists():
@@ -28,5 +36,6 @@ def test_avatar_delete_endpoint_exists():
 
     src = inspect.getsource(production_auth)
     assert "delete_public_avatar" in src
-    assert "clear_public_avatar_url" in src
+    assert "clear_public_avatar_authoritative" in src
     assert "delete_profile_avatar_files" in src
+    assert PublicAvatarDeleteResponse.model_fields["public_avatar_revision"].annotation is int

@@ -333,6 +333,7 @@ describe('Phase 8.8F profile side panel', () => {
     vi.mocked(uploadPublicAvatar).mockResolvedValue({
       ok: true,
       public_avatar_url: 'https://api.example.com/api/public/profile-avatars/u.jpg',
+      public_avatar_revision: 5,
     });
 
     openMenu();
@@ -353,7 +354,7 @@ describe('Phase 8.8F profile side panel', () => {
       expect(authState.patchAuthUser).toHaveBeenCalledWith(
         expect.objectContaining({
           public_avatar_url: 'https://api.example.com/api/public/profile-avatars/u.jpg',
-          public_avatar_revision: expect.any(Number),
+          public_avatar_revision: 5,
         })
       );
     });
@@ -363,6 +364,7 @@ describe('Phase 8.8F profile side panel', () => {
     vi.mocked(uploadPublicAvatar).mockResolvedValue({
       ok: true,
       public_avatar_url: 'https://api.example.com/api/public/profile-avatars/u.jpg',
+      public_avatar_revision: 5,
     });
 
     openMenu();

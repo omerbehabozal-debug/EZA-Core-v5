@@ -22,6 +22,7 @@ import {
   validateAuthSession,
   type AuthSessionValidationResult,
 } from '@/lib/eza/plan/fetchAuthMe';
+import { mergeAvatarAuthorityFields } from '@/lib/eza/profile/authoritativeAvatar';
 import {
   TOKEN_STORAGE_KEY,
   USER_STORAGE_KEY,
@@ -52,7 +53,7 @@ interface UserInfo {
   public_display_name?: string | null;
   /** Public profile photo URL (owner-controlled). */
   public_avatar_url?: string | null;
-  /** Client cache-bust token after avatar replace (same durable URL). */
+  /** Server-authoritative monotonic avatar revision from PostgreSQL. */
   public_avatar_revision?: number;
   /** Public honorific id: curious | bilgin. Never a plan or role. */
   public_honorific?: string | null;
@@ -203,13 +204,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const nextUser: UserInfo =
           sessionResult.status === 'valid'
-            ? (() => {
-                const serverAvatarUrl =
-                  sessionResult.session.public_avatar_url !== undefined
-                    ? sessionResult.session.public_avatar_url
-                    : user.public_avatar_url;
-                const avatarChanged = serverAvatarUrl !== user.public_avatar_url;
-                return {
+            ? mergeAvatarAuthorityFields(
+                {
                   ...user,
                   user_id: sessionResult.session.user_id,
                   email: sessionResult.session.email || user.email,
@@ -218,16 +214,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     sessionResult.session.public_display_name !== undefined
                       ? sessionResult.session.public_display_name
                       : user.public_display_name,
-                  public_avatar_url: serverAvatarUrl,
-                  public_avatar_revision: avatarChanged
-                    ? Date.now()
-                    : user.public_avatar_revision,
                   public_honorific:
                     sessionResult.session.public_honorific !== undefined
                       ? sessionResult.session.public_honorific
                       : user.public_honorific,
-                };
-              })()
+                },
+                {
+                  public_avatar_url: sessionResult.session.public_avatar_url,
+                  public_avatar_revision: sessionResult.session.public_avatar_revision,
+                }
+              )
             : user;
 
         persistAuth(token, nextUser);
@@ -305,7 +301,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const patchAuthUser = (patch: Partial<UserInfo>) => {
     setAuthState((prev) => {
       if (!prev.token || !prev.user) return prev;
-      const user = { ...prev.user, ...patch };
+      const { public_avatar_url, public_avatar_revision, ...rest } = patch;
+      let user: UserInfo = { ...prev.user, ...rest };
+      if (
+        public_avatar_url !== undefined ||
+        public_avatar_revision !== undefined
+      ) {
+        user = mergeAvatarAuthorityFields(user, {
+          public_avatar_url,
+          public_avatar_revision,
+        });
+      }
       const newState = {
         ...prev,
         user,

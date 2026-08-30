@@ -12,6 +12,10 @@ export const AUTH_LOGIN_REQUEST_TIMEOUT_MS = 45_000;
 
 import { apiClient } from '@/lib/apiClient';
 import { getDirectApiBaseUrl, prefersDirectBackend } from '@/lib/apiUrl';
+import {
+  mergeAvatarAuthorityFields,
+  normalizeAvatarRevision,
+} from '@/lib/eza/profile/authoritativeAvatar';
 import type { PlanId } from '@/lib/eza/plan/planStore';
 
 export type AuthMeResponse = {
@@ -21,6 +25,7 @@ export type AuthMeResponse = {
   mirror_plan: PlanId;
   public_display_name?: string | null;
   public_avatar_url?: string | null;
+  public_avatar_revision?: number;
   public_honorific?: string | null;
 };
 
@@ -32,6 +37,7 @@ export type AuthSessionValidation = {
   mirror_plan?: PlanId;
   public_display_name?: string | null;
   public_avatar_url?: string | null;
+  public_avatar_revision?: number;
   public_honorific?: string | null;
 };
 
@@ -64,7 +70,7 @@ export function mergeAuthSessionIntoUser(
   base: AuthUserProfileSeed,
   session: AuthSessionValidation
 ): AuthUserProfileSeed {
-  return {
+  const merged: AuthUserProfileSeed = {
     ...base,
     user_id: session.user_id,
     email: session.email || base.email,
@@ -73,16 +79,15 @@ export function mergeAuthSessionIntoUser(
       session.public_display_name !== undefined
         ? session.public_display_name
         : base.public_display_name,
-    public_avatar_url:
-      session.public_avatar_url !== undefined
-        ? session.public_avatar_url
-        : base.public_avatar_url,
-    public_avatar_revision: base.public_avatar_revision,
     public_honorific:
       session.public_honorific !== undefined
         ? session.public_honorific
         : base.public_honorific,
   };
+  return mergeAvatarAuthorityFields(merged, {
+    public_avatar_url: session.public_avatar_url,
+    public_avatar_revision: session.public_avatar_revision,
+  });
 }
 
 /** After login/register — hydrate public name, avatar, and plan from server. */
@@ -104,6 +109,7 @@ export async function fetchAuthMe(): Promise<AuthMeResponse | null> {
   const publicName =
     res.public_display_name ?? res.data?.public_display_name ?? null;
   const avatarRaw = res.public_avatar_url ?? res.data?.public_avatar_url ?? null;
+  const revisionRaw = res.public_avatar_revision ?? res.data?.public_avatar_revision;
   const honorificRaw = res.public_honorific ?? res.data?.public_honorific ?? null;
   return {
     user_id: res.user_id ?? res.data?.user_id ?? '',
@@ -114,6 +120,9 @@ export async function fetchAuthMe(): Promise<AuthMeResponse | null> {
       typeof publicName === 'string' && publicName.trim() ? publicName.trim() : null,
     public_avatar_url:
       typeof avatarRaw === 'string' && avatarRaw.trim() ? avatarRaw.trim() : null,
+    public_avatar_revision: normalizeAvatarRevision(
+      typeof revisionRaw === 'number' ? revisionRaw : Number(revisionRaw)
+    ),
     public_honorific:
       typeof honorificRaw === 'string' && honorificRaw.trim()
         ? honorificRaw.trim()
@@ -174,10 +183,12 @@ export function publicIdentitySaveErrorMessage(code?: string): string {
 }
 
 export type PublicAvatarUpdateResult =
-  | { ok: true; public_avatar_url: string }
+  | { ok: true; public_avatar_url: string; public_avatar_revision: number }
   | { ok: false; code?: string };
 
-export type PublicAvatarDeleteResult = { ok: true } | { ok: false; code?: string };
+export type PublicAvatarDeleteResult =
+  | { ok: true; public_avatar_revision: number }
+  | { ok: false; code?: string };
 
 function parseApiErrorCode(res: {
   detail?: unknown;
@@ -218,8 +229,11 @@ export async function uploadPublicAvatar(file: File): Promise<PublicAvatarUpdate
       return { ok: false, code: code || undefined };
     }
     const url = String(data.public_avatar_url ?? data.data?.public_avatar_url ?? '').trim();
-    if (!url) return { ok: false, code: 'avatar_update_failed' };
-    return { ok: true, public_avatar_url: url };
+    const revision = normalizeAvatarRevision(
+      data.public_avatar_revision ?? data.data?.public_avatar_revision
+    );
+    if (!url || revision <= 0) return { ok: false, code: 'avatar_update_failed' };
+    return { ok: true, public_avatar_url: url, public_avatar_revision: revision };
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       return { ok: false, code: 'REQUEST_TIMEOUT' };
@@ -231,7 +245,10 @@ export async function uploadPublicAvatar(file: File): Promise<PublicAvatarUpdate
 }
 
 export async function deletePublicAvatar(): Promise<PublicAvatarDeleteResult> {
-  const res = await apiClient.delete<{ ok?: boolean }>('/api/auth/me/avatar', {
+  const res = await apiClient.delete<{
+    ok?: boolean;
+    public_avatar_revision?: number;
+  }>('/api/auth/me/avatar', {
     auth: true,
     directBackend: prefersDirectBackend(),
     timeoutMs: AUTH_PLAN_REQUEST_TIMEOUT_MS,
@@ -239,7 +256,11 @@ export async function deletePublicAvatar(): Promise<PublicAvatarDeleteResult> {
   if (!res.ok) {
     return { ok: false, code: parseApiErrorCode(res) };
   }
-  return { ok: true };
+  const revision = normalizeAvatarRevision(
+    res.public_avatar_revision ?? res.data?.public_avatar_revision
+  );
+  if (revision <= 0) return { ok: false, code: 'avatar_clear_failed' };
+  return { ok: true, public_avatar_revision: revision };
 }
 
 export function publicAvatarSaveErrorMessage(code?: string): string {
@@ -286,6 +307,10 @@ export async function validateAuthSession(): Promise<AuthSessionValidationResult
   const avatarRaw = res.public_avatar_url ?? res.data?.public_avatar_url;
   const public_avatar_url =
     typeof avatarRaw === 'string' && avatarRaw.trim() ? avatarRaw.trim() : null;
+  const revisionRaw = res.public_avatar_revision ?? res.data?.public_avatar_revision;
+  const public_avatar_revision = normalizeAvatarRevision(
+    typeof revisionRaw === 'number' ? revisionRaw : Number(revisionRaw)
+  );
   const honorificRaw = res.public_honorific ?? res.data?.public_honorific;
   const public_honorific =
     typeof honorificRaw === 'string' && honorificRaw.trim()
@@ -300,6 +325,7 @@ export async function validateAuthSession(): Promise<AuthSessionValidationResult
       ...(mirror_plan ? { mirror_plan } : {}),
       public_display_name,
       public_avatar_url,
+      public_avatar_revision,
       public_honorific,
     },
   };

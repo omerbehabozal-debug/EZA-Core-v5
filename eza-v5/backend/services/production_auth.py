@@ -142,6 +142,15 @@ async def load_user_for_auth(db: AsyncSession, email: str) -> Optional[User]:
 _SESSION_USER_SQLS = (
     text(
         """
+        SELECT id, email, role, is_active, mirror_plan, account_tier,
+               public_display_name, public_avatar_url, public_avatar_revision
+        FROM production_users
+        WHERE id = :id
+        LIMIT 1
+        """
+    ),
+    text(
+        """
         SELECT id, email, role, is_active, mirror_plan, account_tier, public_display_name, public_avatar_url
         FROM production_users
         WHERE id = :id
@@ -454,6 +463,106 @@ async def load_public_avatar_blob(
         return None
     media_type = str(mime or "").strip() or "image/jpeg"
     return bytes(data), media_type
+
+
+_ENSURE_AVATAR_REVISION_SQL = text(
+    "ALTER TABLE production_users ADD COLUMN IF NOT EXISTS public_avatar_revision BIGINT NOT NULL DEFAULT 0"
+)
+
+_SAVE_AVATAR_ATOMIC_SQL = text(
+    """
+    UPDATE production_users
+    SET public_avatar_data = :data,
+        public_avatar_mime = :mime,
+        public_avatar_url = :url,
+        public_avatar_revision = COALESCE(public_avatar_revision, 0) + 1
+    WHERE id = :id
+    RETURNING public_avatar_url, public_avatar_revision
+    """
+)
+
+_CLEAR_AVATAR_ATOMIC_SQL = text(
+    """
+    UPDATE production_users
+    SET public_avatar_data = NULL,
+        public_avatar_mime = NULL,
+        public_avatar_url = NULL,
+        public_avatar_revision = COALESCE(public_avatar_revision, 0) + 1
+    WHERE id = :id
+    RETURNING public_avatar_revision
+    """
+)
+
+
+async def _ensure_avatar_revision_column(db: AsyncSession) -> None:
+    await db.execute(_ENSURE_AVATAR_REVISION_SQL)
+    await db.commit()
+
+
+async def save_public_avatar_authoritative(
+    db: AsyncSession, user_id: str, data: bytes, mime: str, url: str
+) -> tuple[str, int] | None:
+    """Atomically persist avatar bytes, MIME, URL, and increment revision."""
+    import uuid
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return None
+    if not data:
+        return None
+    try:
+        result = await db.execute(
+            _SAVE_AVATAR_ATOMIC_SQL,
+            {"id": uid, "data": data, "mime": mime, "url": url},
+        )
+        row = result.first()
+        await db.commit()
+    except Exception:
+        logger.exception("public_avatar_atomic_save_retry_after_schema_ensure")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        await _ensure_avatar_revision_column(db)
+        result = await db.execute(
+            _SAVE_AVATAR_ATOMIC_SQL,
+            {"id": uid, "data": data, "mime": mime, "url": url},
+        )
+        row = result.first()
+        await db.commit()
+    if row is None:
+        return None
+    saved_url = str(row[0]).strip()
+    revision = int(row[1])
+    return saved_url, revision
+
+
+async def clear_public_avatar_authoritative(db: AsyncSession, user_id: str) -> int | None:
+    """Atomically clear avatar fields and increment revision."""
+    import uuid
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return None
+    try:
+        result = await db.execute(_CLEAR_AVATAR_ATOMIC_SQL, {"id": uid})
+        row = result.first()
+        await db.commit()
+    except Exception:
+        logger.exception("public_avatar_atomic_clear_retry_after_schema_ensure")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        await _ensure_avatar_revision_column(db)
+        result = await db.execute(_CLEAR_AVATAR_ATOMIC_SQL, {"id": uid})
+        row = result.first()
+        await db.commit()
+    if row is None:
+        return None
+    return int(row[0])
 
 
 async def authenticate_user(

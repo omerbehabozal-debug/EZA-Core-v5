@@ -3,8 +3,8 @@ import { isEzacoreFrontendHost } from '@/lib/apiUrl';
 
 export function appendAvatarCacheBust(url: string, version?: number | string): string {
   const trimmed = url.trim();
-  if (!trimmed) return trimmed;
-  const token = version ?? Date.now();
+  if (!trimmed || version == null) return trimmed;
+  const token = version;
   const sep = trimmed.includes('?') ? '&' : '?';
   return `${trimmed}${sep}v=${encodeURIComponent(String(token))}`;
 }
