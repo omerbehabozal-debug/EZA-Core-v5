@@ -1,5 +1,7 @@
 /** Bust CDN/browser cache after avatar replace (same durable filename). */
-import { isEzacoreFrontendHost } from '@/lib/apiUrl';
+import { getApiUrl, isEzacoreFrontendHost } from '@/lib/apiUrl';
+
+export const PROFILE_AVATAR_PUBLIC_PREFIX = '/api/public/profile-avatars/';
 
 export function appendAvatarCacheBust(url: string, version?: number | string): string {
   const trimmed = url.trim();
@@ -9,26 +11,58 @@ export function appendAvatarCacheBust(url: string, version?: number | string): s
   return `${trimmed}${sep}v=${encodeURIComponent(String(token))}`;
 }
 
-/** Route durable avatar assets through same-origin /api on *.ezacore.ai. */
+/** Extract canonical profile-avatar path from relative or legacy absolute locators. */
+export function extractProfileAvatarCanonicalPath(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  const pathOnly = trimmed.split('?')[0] ?? trimmed;
+  if (pathOnly.startsWith(PROFILE_AVATAR_PUBLIC_PREFIX)) {
+    return pathOnly;
+  }
+
+  try {
+    const parsed = new URL(trimmed, 'http://localhost');
+    if (!parsed.pathname.startsWith(PROFILE_AVATAR_PUBLIC_PREFIX)) {
+      return null;
+    }
+    return parsed.pathname;
+  } catch {
+    return null;
+  }
+}
+
+function extractProfileAvatarQuery(url: string): string {
+  try {
+    const parsed = new URL(url, 'http://localhost');
+    return parsed.search;
+  } catch {
+    const q = url.indexOf('?');
+    return q >= 0 ? url.slice(q) : '';
+  }
+}
+
+/**
+ * Resolve durable avatar locator for the current environment.
+ * - Hosted *.ezacore.ai → same-origin /api/public/profile-avatars/... (HTTPS via rewrite)
+ * - Local dev → configured API base (e.g. http://127.0.0.1:8000/...)
+ * Legacy localhost/api.ezacore.ai absolute URLs are canonicalized first.
+ */
 export function resolveProfileAvatarDisplayUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
 
+  const canonical = extractProfileAvatarCanonicalPath(trimmed);
+  if (!canonical) return trimmed;
+
+  const query = extractProfileAvatarQuery(trimmed);
+
   if (typeof window !== 'undefined' && isEzacoreFrontendHost(window.location.hostname)) {
-    try {
-      const parsed = new URL(trimmed, window.location.origin);
-      if (
-        (parsed.hostname === 'api.ezacore.ai' || parsed.hostname === window.location.hostname) &&
-        parsed.pathname.startsWith('/api/public/profile-avatars/')
-      ) {
-        return `${parsed.pathname}${parsed.search}`;
-      }
-    } catch {
-      /* keep original */
-    }
+    return `${canonical}${query}`;
   }
 
-  return trimmed;
+  const apiBase = getApiUrl().replace(/\/$/, '');
+  return `${apiBase}${canonical}${query}`;
 }
 
 export function buildProfileAvatarDisplaySrc(

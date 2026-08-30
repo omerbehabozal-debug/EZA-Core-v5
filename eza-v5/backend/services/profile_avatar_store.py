@@ -62,16 +62,41 @@ def user_id_from_avatar_filename(filename: str) -> str | None:
         return None
 
 
+_PROFILE_AVATAR_PUBLIC_PREFIX = "/api/public/profile-avatars/"
+
+
 def build_profile_avatar_public_url(filename: str) -> str:
-    settings = get_settings()
-    base = (
-        (getattr(settings, "EZA_PROFILE_AVATAR_BASE_URL", None) or "").strip()
-        or (getattr(settings, "EZA_MIRROR_PUBLIC_BASE_URL", None) or "").strip()
-        or (getattr(settings, "LOADTEST_BASE_URL", None) or "").strip()
-        or "http://localhost:8000"
-    ).rstrip("/")
+    """Environment-agnostic canonical locator persisted in production_users."""
     safe_name = Path(filename).name
-    return f"{base}/api/public/profile-avatars/{safe_name}"
+    return f"{_PROFILE_AVATAR_PUBLIC_PREFIX}{safe_name}"
+
+
+def normalize_profile_avatar_public_locator(url_or_path: str | None) -> str | None:
+    """Normalize legacy absolute avatar URLs to canonical /api/public/profile-avatars/{file}."""
+    if url_or_path is None:
+        return None
+    raw = str(url_or_path).strip()
+    if not raw:
+        return None
+
+    path_only = raw.split("?", 1)[0]
+    if path_only.startswith(_PROFILE_AVATAR_PUBLIC_PREFIX):
+        filename = Path(path_only).name
+        if _AVATAR_FILENAME_RE.match(filename):
+            return f"{_PROFILE_AVATAR_PUBLIC_PREFIX}{filename}"
+        return raw
+
+    from urllib.parse import urlparse
+
+    parsed = urlparse(raw if "://" in raw else f"http://local{raw}")
+    pathname = parsed.path or ""
+    if not pathname.startswith(_PROFILE_AVATAR_PUBLIC_PREFIX):
+        return raw
+
+    filename = Path(pathname).name
+    if not _AVATAR_FILENAME_RE.match(filename):
+        return raw
+    return f"{_PROFILE_AVATAR_PUBLIC_PREFIX}{filename}"
 
 
 def resolve_profile_avatar_path(filename: str) -> Path | None:

@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.utils.dependencies import get_db
+from backend.services.profile_avatar_store import normalize_profile_avatar_public_locator
 from backend.services.production_auth import (
     create_user, authenticate_user, create_access_token, check_bootstrap_allowed,
     hash_password, reset_user_password, normalize_email, load_user_session_row,
@@ -176,12 +177,7 @@ async def get_auth_me(
             is_authenticated=True,
         ).value,
         public_display_name=(str(chosen).strip() if chosen else None) or None,
-        public_avatar_url=(
-            str(row["public_avatar_url"]).strip()
-            if row.get("public_avatar_url")
-            else None
-        )
-        or None,
+        public_avatar_url=normalize_profile_avatar_public_locator(row.get("public_avatar_url")),
         public_avatar_revision=int(row.get("public_avatar_revision") or 0),
         public_honorific=normalize_public_honorific(None),
     )
@@ -285,9 +281,10 @@ async def upload_public_avatar(
             detail={"code": "avatar_update_failed", "message": "Avatar was not saved"},
         )
     saved_url, revision = blob_saved
+    canonical_url = normalize_profile_avatar_public_locator(saved_url) or saved_url
     logger.info("public_avatar_updated user_id=%s revision=%s", row["id"], revision)
     return PublicAvatarUpdateResponse(
-        public_avatar_url=saved_url,
+        public_avatar_url=canonical_url,
         public_avatar_revision=revision,
     )
 

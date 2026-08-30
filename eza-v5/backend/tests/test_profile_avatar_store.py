@@ -65,8 +65,34 @@ def test_save_and_resolve_profile_avatar(tmp_path, monkeypatch):
     user_id = str(uuid.uuid4())
     url, normalized, mime = save_profile_avatar_bytes(_PNG_BYTES, user_id)
     filename = Path(url.rsplit("/", 1)[-1]).name
+    assert url == f"/api/public/profile-avatars/{filename}"
     assert resolve_profile_avatar_path(filename) is not None
-    assert build_profile_avatar_public_url(filename).endswith(filename)
+    assert build_profile_avatar_public_url(filename) == f"/api/public/profile-avatars/{filename}"
+
+
+def test_normalize_profile_avatar_public_locator_legacy_absolute():
+    from backend.services.profile_avatar_store import normalize_profile_avatar_public_locator
+
+    uid = str(uuid.uuid4())
+    filename = f"{uid}.jpg"
+    canonical = f"/api/public/profile-avatars/{filename}"
+    assert (
+        normalize_profile_avatar_public_locator(
+            f"http://localhost:8000/api/public/profile-avatars/{filename}"
+        )
+        == canonical
+    )
+    assert (
+        normalize_profile_avatar_public_locator(
+            f"https://api.ezacore.ai/api/public/profile-avatars/{filename}"
+        )
+        == canonical
+    )
+    assert normalize_profile_avatar_public_locator(canonical) == canonical
+    assert (
+        normalize_profile_avatar_public_locator("https://cdn.example.com/other.jpg")
+        == "https://cdn.example.com/other.jpg"
+    )
 
 
 def test_save_rejects_invalid_bytes(tmp_path, monkeypatch):
