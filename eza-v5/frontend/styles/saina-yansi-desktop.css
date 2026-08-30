@@ -671,6 +671,10 @@
     word-break: break-word;
   }
 
+  .saina-app-root.saina-standalone-shell .saina-hero-title :where(span) {
+    text-shadow: inherit;
+  }
+
   /* Dissolving reading plane — no perimeter, no bronze, no card shadow */
   .saina-app-root.saina-standalone-shell .saina-chat-card,
   .saina-app-root.saina-standalone-shell .saina-chat-card.saina-chat-card--growth,
@@ -720,13 +724,11 @@
 
   .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-ai,
   .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-user,
-  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-body,
-  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-prose {
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-prose {
     color: var(--bilign-body);
     font-size: 16px;
     line-height: 1.68;
     max-width: var(--saina-chat-text-measure);
-    text-shadow: var(--saina-scene-body-shadow);
   }
 
   .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-time,
@@ -779,6 +781,21 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     padding: 0.7rem 0.95rem 0.8rem;
+  }
+
+  /* Scene body shadow — explicit glyph coverage; overrides mirror bubble resets */
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-ai,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-user,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-user--standalone,
+  .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-prose {
+    text-shadow: var(--saina-scene-body-shadow);
+  }
+
+  .saina-app-root.saina-standalone-shell
+    .saina-chat-card
+    .saina-msg-prose
+    :where(p, span, strong, em, li, a, blockquote, h1, h2, h3, h4, h5, h6) {
+    text-shadow: inherit;
   }
 
   .saina-app-root.saina-standalone-shell .saina-chat-card .saina-chips-toggle,
@@ -1160,6 +1177,10 @@
     letter-spacing: -0.03em;
     line-height: 1.1;
     text-shadow: var(--saina-scene-heading-shadow);
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-yansi-identity__name :where(span) {
+    text-shadow: inherit;
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity .bilign-honorific {

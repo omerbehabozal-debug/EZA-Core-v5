@@ -59,6 +59,8 @@ describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
     expect(css).toContain('--saina-scene-body-shadow');
     expect(css).toContain('0 5px 14px rgba(0, 0, 0, 0.35)');
     expect(css).toContain('0 2px 6px rgba(0, 0, 0, 0.42)');
+    expect(css).toContain('.saina-msg-prose');
+    expect(css).toContain('text-shadow: inherit');
     expect(css).toContain('min(650px, 100%)');
     expect(css).toContain('blur(20px) saturate(70%)');
     expect(css).toContain('--saina-reading-atmosphere-width');
