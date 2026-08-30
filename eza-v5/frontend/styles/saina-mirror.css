@@ -2951,8 +2951,8 @@ html:has(.saina-page) body {
 }
 
 .saina-profile-avatar--top {
-  height: var(--saina-topbar-control-h, 2.5rem);
-  width: var(--saina-topbar-control-h, 2.5rem);
+  height: 44px;
+  width: 44px;
   font-size: 13px;
   box-shadow:
     0 4px 14px rgba(0, 0, 0, 0.24),
@@ -6471,9 +6471,22 @@ html:has(.saina-page) body {
   flex-shrink: 0;
 }
 
-.bilign-profile-avatar--lg {
-  width: 4rem; /* 64px */
-  height: 4rem;
+.bilign-profile-avatar--lg,
+.bilign-profile-avatar--panel {
+  width: 4.5rem; /* 72px */
+  height: 4.5rem;
+}
+
+.bilign-profile-avatar--hero {
+  width: 5.25rem; /* 84px */
+  height: 5.25rem;
+}
+
+@media (max-width: 899px) {
+  .bilign-profile-avatar--hero {
+    width: 4.125rem; /* 66px */
+    height: 4.125rem;
+  }
 }
 
 .bilign-profile-avatar--sm {
@@ -6494,12 +6507,6 @@ html:has(.saina-page) body {
   border-radius: 999px;
 }
 
-@media (min-width: 768px) {
-  .bilign-profile-avatar--lg {
-    width: 4.5rem; /* 72px */
-    height: 4.5rem;
-  }
-}
 
 .bilign-profile-avatar__glyph {
   font-size: 1.15rem;
@@ -6510,8 +6517,13 @@ html:has(.saina-page) body {
   user-select: none;
 }
 
-.bilign-profile-avatar--lg .bilign-profile-avatar__glyph {
+.bilign-profile-avatar--lg .bilign-profile-avatar__glyph,
+.bilign-profile-avatar--panel .bilign-profile-avatar__glyph {
   font-size: 1.35rem;
+}
+
+.bilign-profile-avatar--hero .bilign-profile-avatar__glyph {
+  font-size: 1.5rem;
 }
 
 .bilign-profile-avatar--has-photo.saina-profile-avatar--top {

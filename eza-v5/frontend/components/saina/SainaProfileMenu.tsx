@@ -1,6 +1,7 @@
 'use client';
 
 import '@/styles/saina-profile-panel.css';
+import '@/styles/profile-avatar-crop-viewer.css';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { ChevronDown, LogOut, User } from 'lucide-react';
@@ -16,7 +17,11 @@ import {
 import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
-import { normalizeProfileAvatarFile } from '@/lib/eza/profile/normalizeProfileAvatarFile';
+import ProfileAvatarCropEditor from '@/components/mirror/ayna/ProfileAvatarCropEditor';
+import ProfileAvatarViewer from '@/components/mirror/ayna/ProfileAvatarViewer';
+import {
+  isAcceptedProfileAvatarFile,
+} from '@/lib/eza/profile/normalizeProfileAvatarFile';
 import { publicAvatarSaveErrorMessage } from '@/lib/eza/plan/fetchAuthMe';
 import { resolveAuthenticatedAvatarDisplay } from '@/lib/eza/profile/authoritativeAvatar';
 import {
@@ -100,7 +105,9 @@ function ProfileIdentityMark({
   userId,
   avatarUrl,
   avatarCacheBust,
-  onAvatarPick,
+  hasPhoto,
+  onAvatarView,
+  onAvatarAdd,
   avatarBusy,
 }: {
   isGuest: boolean;
@@ -108,7 +115,9 @@ function ProfileIdentityMark({
   userId?: string | null;
   avatarUrl?: string | null;
   avatarCacheBust?: number | string;
-  onAvatarPick?: () => void;
+  hasPhoto?: boolean;
+  onAvatarView?: () => void;
+  onAvatarAdd?: () => void;
   avatarBusy?: boolean;
 }) {
   return (
@@ -149,9 +158,9 @@ function ProfileIdentityMark({
         <button
           type="button"
           className="saina-profile-menu-identity-face-btn"
-          onClick={onAvatarPick}
+          onClick={hasPhoto ? onAvatarView : onAvatarAdd}
           disabled={avatarBusy}
-          aria-label="Profil fotoğrafını değiştir"
+          aria-label={hasPhoto ? 'Profil fotoğrafını görüntüle' : 'Profil fotoğrafı ekle'}
           data-testid="saina-profile-avatar-trigger"
         >
           <ProfileUserAvatar
@@ -159,7 +168,7 @@ function ProfileIdentityMark({
             userId={userId}
             avatarUrl={avatarUrl}
             cacheBust={avatarCacheBust}
-            size="lg"
+            size="panel"
             className="saina-profile-menu-identity-face"
           />
         </button>
@@ -208,12 +217,13 @@ export default function SainaProfileMenu({
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
   const [avatarError, setAvatarError] = useState<string | null>(null);
-  const [avatarStaging, setAvatarStaging] = useState(false);
   const [avatarDraft, setAvatarDraft] = useState<
     | { mode: 'keep' }
     | { mode: 'replace'; file: File; previewUrl: string }
     | { mode: 'clear' }
   >({ mode: 'keep' });
+  const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
+  const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const persistedName = (user?.public_display_name || user?.full_name || '').trim();
   const authoritativeAvatar = resolveAuthenticatedAvatarDisplay({
@@ -222,6 +232,13 @@ export default function SainaProfileMenu({
   });
   const panelAvatarUrl = authoritativeAvatar.url;
   const avatarCacheBust = authoritativeAvatar.revision;
+  const hasDisplayableAvatar = Boolean(panelAvatarUrl);
+  const viewerAvatarUrl =
+    avatarDraft.mode === 'replace'
+      ? avatarDraft.previewUrl
+      : panelAvatarUrl;
+  const viewerCacheBust =
+    avatarDraft.mode === 'replace' ? undefined : avatarCacheBust;
   const avatarUnchanged = avatarDraft.mode === 'keep';
   const nameUnchanged = nameDraft.trim() === persistedName;
   const quietPlanLabel = resolveQuietAccountPlanLabel(planTier);
@@ -302,6 +319,8 @@ export default function SainaProfileMenu({
   }, [modelOpen]);
 
   const close = () => {
+    setAvatarViewerOpen(false);
+    setCropSourceFile(null);
     discardAvatarDraft();
     setOpen(false);
     setModelOpen(false);
@@ -396,29 +415,33 @@ export default function SainaProfileMenu({
     setAvatarError(null);
   };
 
-  const onAvatarInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const onAvatarInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    setAvatarStaging(true);
-    setAvatarError(null);
-    try {
-      const normalized = await normalizeProfileAvatarFile(file);
-      const previewUrl = URL.createObjectURL(normalized);
-      setAvatarDraft((current) => {
-        if (current.mode === 'replace') {
-          URL.revokeObjectURL(current.previewUrl);
-        }
-        return { mode: 'replace', file: normalized, previewUrl };
-      });
-      setAvatarSaveState('idle');
-    } catch (error: unknown) {
-      const code = error instanceof Error ? error.message : undefined;
+    if (!isAcceptedProfileAvatarFile(file)) {
       setAvatarSaveState('error');
-      setAvatarError(publicAvatarSaveErrorMessage(code));
-    } finally {
-      setAvatarStaging(false);
+      setAvatarError(publicAvatarSaveErrorMessage('unsupported_avatar_format'));
+      return;
     }
+    setAvatarError(null);
+    setCropSourceFile(file);
+  };
+
+  const stageCroppedAvatar = (cropped: File) => {
+    const previewUrl = URL.createObjectURL(cropped);
+    setAvatarDraft((current) => {
+      if (current.mode === 'replace') {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return { mode: 'replace', file: cropped, previewUrl };
+    });
+    setAvatarSaveState('idle');
+    setCropSourceFile(null);
+  };
+
+  const openAvatarPicker = () => {
+    avatarInputRef.current?.click();
   };
 
   return (
@@ -501,8 +524,10 @@ export default function SainaProfileMenu({
                     userId={ownerUserId}
                     avatarUrl={panelAvatarUrl}
                     avatarCacheBust={avatarCacheBust}
-                    onAvatarPick={() => avatarInputRef.current?.click()}
-                    avatarBusy={avatarStaging || avatarSaveState === 'saving' || disabled}
+                    hasPhoto={hasDisplayableAvatar}
+                    onAvatarView={() => setAvatarViewerOpen(true)}
+                    onAvatarAdd={openAvatarPicker}
+                    avatarBusy={avatarSaveState === 'saving' || disabled}
                   />
                   <div className="saina-profile-menu-identity-copy">
                     <p
@@ -549,7 +574,7 @@ export default function SainaProfileMenu({
                       type="button"
                       className="saina-profile-menu-save"
                       disabled={disabled || avatarSaveState === 'saving'}
-                      onClick={() => avatarInputRef.current?.click()}
+                      onClick={openAvatarPicker}
                       data-testid="saina-profile-avatar-change"
                     >
                       Fotoğrafı değiştir
@@ -798,6 +823,27 @@ export default function SainaProfileMenu({
             </>
           ) : null}
         </div>
+      ) : null}
+
+      {cropSourceFile ? (
+        <ProfileAvatarCropEditor
+          file={cropSourceFile}
+          open
+          busy={avatarSaveState === 'saving'}
+          onCancel={() => setCropSourceFile(null)}
+          onApply={stageCroppedAvatar}
+        />
+      ) : null}
+
+      {avatarViewerOpen && hasDisplayableAvatar && viewerAvatarUrl ? (
+        <ProfileAvatarViewer
+          open
+          displayName={displayName}
+          avatarUrl={viewerAvatarUrl}
+          cacheBust={viewerCacheBust}
+          onClose={() => setAvatarViewerOpen(false)}
+          onChangePhoto={openAvatarPicker}
+        />
       ) : null}
     </div>
   );

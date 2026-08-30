@@ -174,7 +174,7 @@ describe('Phase 8.8F Stage A Yansı-first composition', () => {
     expect(css).toContain('-webkit-line-clamp: 2');
     expect(css).toContain('margin-top: auto');
     expect(css).toContain('justify-content: flex-start');
-    expect(css).toContain('width: 80px');
+    expect(css).toContain('width: 84px');
     expect(hero).not.toContain('planLabel');
   });
 

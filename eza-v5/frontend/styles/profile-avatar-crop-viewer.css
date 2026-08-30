@@ -1,0 +1,186 @@
+/**
+ * Avatar crop editor + viewer — biligN photographic chrome.
+ */
+
+.bilign-avatar-crop-backdrop,
+.bilign-avatar-viewer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: rgba(9, 11, 11, 0.88);
+  backdrop-filter: blur(6px);
+}
+
+.bilign-avatar-crop-dialog,
+.bilign-avatar-viewer-dialog {
+  width: min(100%, 22rem);
+  border-radius: 1rem;
+  border: 1px solid rgba(183, 137, 73, 0.22);
+  background: linear-gradient(180deg, #101212 0%, #090b0b 100%);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  padding: 1.25rem 1.25rem 1rem;
+  color: #e8e2d7;
+}
+
+.bilign-avatar-crop-title {
+  margin: 0 0 1rem;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #e8e2d7;
+}
+
+.bilign-avatar-crop-error {
+  margin: 0 0 0.75rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #c9a07a;
+}
+
+.bilign-avatar-crop-viewport {
+  position: relative;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 999px;
+  touch-action: none;
+  cursor: grab;
+  background: #090b0b;
+  box-shadow: inset 0 0 0 1px rgba(232, 226, 215, 0.08);
+}
+
+.bilign-avatar-crop-viewport:active {
+  cursor: grabbing;
+}
+
+.bilign-avatar-crop-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  user-select: none;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.bilign-avatar-crop-mask {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  box-shadow: 0 0 0 9999px rgba(9, 11, 11, 0.62);
+  pointer-events: none;
+}
+
+.bilign-avatar-crop-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 18, 18, 0.65);
+}
+
+.bilign-avatar-crop-zoom {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 1rem 0 0.25rem;
+  color: #9b968d;
+  font-size: 0.875rem;
+}
+
+.bilign-avatar-crop-zoom input[type='range'] {
+  flex: 1;
+  accent-color: #b78949;
+}
+
+.bilign-avatar-crop-actions {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.bilign-avatar-crop-btn {
+  flex: 1;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.bilign-avatar-crop-btn--ghost {
+  background: transparent;
+  border-color: rgba(155, 150, 141, 0.35);
+  color: #e8e2d7;
+}
+
+.bilign-avatar-crop-btn--primary {
+  background: rgba(183, 137, 73, 0.18);
+  border-color: rgba(183, 137, 73, 0.45);
+  color: #f0e8da;
+}
+
+.bilign-avatar-crop-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.bilign-avatar-viewer-dialog {
+  position: relative;
+  width: min(92vw, 24rem);
+  padding-top: 2.5rem;
+}
+
+.bilign-avatar-viewer-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(16, 18, 18, 0.85);
+  color: #e8e2d7;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bilign-avatar-viewer-frame {
+  width: min(72vw, 16rem);
+  height: min(72vw, 16rem);
+  margin: 0 auto;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(232, 226, 215, 0.14),
+    0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.bilign-avatar-viewer-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bilign-avatar-viewer-change {
+  display: block;
+  margin: 1rem auto 0;
+  border: none;
+  background: transparent;
+  color: #b78949;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 899px) {
+  .bilign-avatar-crop-dialog {
+    width: min(100%, calc(100vw - 1.5rem));
+  }
+}

@@ -66,6 +66,32 @@ vi.mock('@/lib/eza/conversation-tree/mergeGuestConversationTree', () => ({
   mergeGuestConversationTree: vi.fn(async () => ({ ok: true })),
 }));
 
+vi.mock('@/components/mirror/ayna/ProfileAvatarCropEditor', () => ({
+  default: ({
+    onApply,
+    onCancel,
+  }: {
+    onApply: (file: File) => void | Promise<void>;
+    onCancel: () => void;
+  }) => (
+    <div data-testid="profile-avatar-crop-editor">
+      <button
+        type="button"
+        data-testid="profile-avatar-crop-apply-mock"
+        onClick={() => {
+          const file = new File(['cropped'], 'c.jpg', { type: 'image/jpeg' });
+          void onApply(file);
+        }}
+      >
+        mock-apply
+      </button>
+      <button type="button" data-testid="profile-avatar-crop-cancel-mock" onClick={onCancel}>
+        mock-cancel
+      </button>
+    </div>
+  ),
+}));
+
 function AuthAvatarProbe() {
   const { user, patchAuthUser } = useAuth();
   useEffect(() => {
@@ -196,9 +222,10 @@ describe('profile avatar authority regression', () => {
     fireEvent.change(screen.getByTestId('saina-profile-avatar-input'), {
       target: { files: [file] },
     });
+    fireEvent.click(screen.getByTestId('profile-avatar-crop-apply-mock'));
 
     await waitFor(() => {
-      expect(readHeaderAvatarImgSrc()).toBe('blob:preview-b');
+      expect(readHeaderAvatarImgSrc()?.startsWith('blob:')).toBe(true);
     });
 
     fireEvent.click(screen.getByTestId('saina-profile-avatar-save'));
@@ -241,7 +268,11 @@ describe('profile avatar authority regression', () => {
     fireEvent.change(screen.getByTestId('saina-profile-avatar-input'), {
       target: { files: [file] },
     });
-    await waitFor(() => expect(readHeaderAvatarImgSrc()).toBe('blob:preview-b'));
+    fireEvent.click(screen.getByTestId('profile-avatar-crop-apply-mock'));
+
+    await waitFor(() => {
+      expect(readHeaderAvatarImgSrc()?.startsWith('blob:')).toBe(true);
+    });
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
 
@@ -263,11 +294,12 @@ describe('profile avatar authority regression', () => {
     fireEvent.change(screen.getByTestId('saina-profile-avatar-input'), {
       target: { files: [file] },
     });
+    fireEvent.click(screen.getByTestId('profile-avatar-crop-apply-mock'));
     fireEvent.click(screen.getByTestId('saina-profile-avatar-save'));
 
     await waitFor(() => {
       expect(readProbe().revision).toBe(4);
-      expect(readHeaderAvatarImgSrc()).toBe('blob:preview-b');
+      expect(readHeaderAvatarImgSrc()?.startsWith('blob:')).toBe(true);
     });
   });
 

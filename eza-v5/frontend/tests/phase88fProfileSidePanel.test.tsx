@@ -85,6 +85,32 @@ vi.mock('@/lib/eza/profile/normalizeProfileAvatarFile', () => ({
   isAcceptedProfileAvatarFile: vi.fn(() => true),
 }));
 
+vi.mock('@/components/mirror/ayna/ProfileAvatarCropEditor', () => ({
+  default: ({
+    onApply,
+    onCancel,
+  }: {
+    onApply: (file: File) => void | Promise<void>;
+    onCancel: () => void;
+  }) => (
+    <div data-testid="profile-avatar-crop-editor">
+      <button
+        type="button"
+        data-testid="profile-avatar-crop-apply-mock"
+        onClick={() => {
+          const file = new File(['cropped'], 'c.jpg', { type: 'image/jpeg' });
+          void onApply(file);
+        }}
+      >
+        mock-apply
+      </button>
+      <button type="button" data-testid="profile-avatar-crop-cancel-mock" onClick={onCancel}>
+        mock-cancel
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock('@/lib/eza/plan/fetchAuthMe', async () => {
   const actual = await vi.importActual<typeof import('@/lib/eza/plan/fetchAuthMe')>(
     '@/lib/eza/plan/fetchAuthMe'
@@ -340,6 +366,7 @@ describe('Phase 8.8F profile side panel', () => {
     const file = new File(['avatar'], 'me.jpg', { type: 'image/jpeg' });
     const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(screen.getByTestId('profile-avatar-crop-apply-mock'));
 
     await waitFor(() => {
       expect(screen.getByTestId('saina-profile-avatar-save')).not.toBeDisabled();
@@ -348,7 +375,7 @@ describe('Phase 8.8F profile side panel', () => {
     fireEvent.click(screen.getByTestId('saina-profile-avatar-save'));
 
     await waitFor(() => {
-      expect(uploadPublicAvatar).toHaveBeenCalledWith(file);
+      expect(uploadPublicAvatar).toHaveBeenCalled();
     });
     await waitFor(() => {
       expect(authState.patchAuthUser).toHaveBeenCalledWith(
@@ -371,6 +398,7 @@ describe('Phase 8.8F profile side panel', () => {
     const file = new File(['avatar'], 'me.jpg', { type: 'image/jpeg' });
     const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(screen.getByTestId('profile-avatar-crop-apply-mock'));
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
 
@@ -393,7 +421,9 @@ describe('Phase 8.8F profile side panel', () => {
     expect(panelCss.indexOf('@media (min-width: 900px)')).toBeGreaterThan(
       panelCss.indexOf('.saina-profile-menu-identity')
     );
-    expect(menuSrc).not.toMatch(/mobile sheet|profile-sheet/i);
+    expect(menuSrc).toContain('ProfileAvatarCropEditor');
+    expect(menuSrc).toContain('ProfileAvatarViewer');
+    expect(menuSrc).toContain('stageCroppedAvatar');
 
     expect(profile).toContain('HonorificMarker');
     expect(profile).toContain('ProfileUserAvatar');

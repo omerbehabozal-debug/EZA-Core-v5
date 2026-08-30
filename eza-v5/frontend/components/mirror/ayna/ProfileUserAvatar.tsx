@@ -11,7 +11,7 @@ type Props = {
   avatarUrl?: string | null;
   /** Bust browser cache when the same durable avatar URL is replaced. */
   cacheBust?: number | string;
-  size?: 'sm' | 'md' | 'lg' | 'top';
+  size?: 'sm' | 'md' | 'lg' | 'top' | 'panel' | 'hero';
   className?: string;
   alt?: string;
 };
@@ -40,17 +40,28 @@ export default function ProfileUserAvatar({
       <ProfileDefaultAvatar
         displayName={displayName}
         userId={userId}
-        size={size === 'lg' ? 'lg' : 'md'}
+        size={
+          size === 'panel' || size === 'hero' || size === 'lg'
+            ? 'lg'
+            : size === 'sm'
+              ? 'md'
+              : 'md'
+        }
         className={cn(
           size === 'sm' && 'bilign-profile-avatar--sm',
           size === 'top' && 'saina-profile-avatar saina-profile-avatar--top',
+          size === 'panel' && 'bilign-profile-avatar--panel',
+          size === 'hero' && 'bilign-profile-avatar--hero',
           className
         )}
       />
     );
   }
 
-  const src = buildProfileAvatarDisplaySrc(url, cacheBust);
+  const src =
+    url.startsWith('blob:') || url.startsWith('data:')
+      ? url
+      : buildProfileAvatarDisplaySrc(url, cacheBust);
 
   return (
     <div
@@ -58,6 +69,8 @@ export default function ProfileUserAvatar({
         'bilign-profile-avatar bilign-profile-avatar--has-photo',
         size === 'sm' && 'bilign-profile-avatar--sm',
         size === 'lg' && 'bilign-profile-avatar--lg bilign-profile-avatar--panel',
+        size === 'panel' && 'bilign-profile-avatar--panel',
+        size === 'hero' && 'bilign-profile-avatar--hero',
         size === 'top' && 'saina-profile-avatar saina-profile-avatar--top',
         className
       )}

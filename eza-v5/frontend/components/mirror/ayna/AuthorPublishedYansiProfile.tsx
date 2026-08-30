@@ -147,7 +147,7 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
               userId={userId}
               avatarUrl={resolvedAvatar.url}
               cacheBust={resolvedAvatar.revision}
-              size="lg"
+              size="panel"
             />
             <h1
               className="bilign-profile-name"

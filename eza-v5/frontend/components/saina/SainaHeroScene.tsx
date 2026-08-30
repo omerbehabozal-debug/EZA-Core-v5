@@ -62,7 +62,7 @@ export default function SainaHeroScene({
             userId={userId}
             avatarUrl={avatarUrl}
             cacheBust={avatarCacheBust}
-            size="lg"
+            size="hero"
             className="bilign-yansi-identity__face"
           />
         </div>
