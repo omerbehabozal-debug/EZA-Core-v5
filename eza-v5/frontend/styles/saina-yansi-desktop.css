@@ -358,9 +358,13 @@
     --saina-composer-width: min(680px, 100%);
     --saina-chat-card-height: clamp(340px, 46vh, 540px);
     --saina-identity-chat-breath: clamp(3.25rem, 6.5vh, 4.75rem);
-    --saina-scene-text-legibility-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.55),
-      0 3px 10px rgba(0, 0, 0, 0.22);
+    --saina-scene-heading-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.9),
+      0 2px 5px rgba(0, 0, 0, 0.65),
+      0 5px 14px rgba(0, 0, 0, 0.35);
+    --saina-scene-body-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.78),
+      0 2px 6px rgba(0, 0, 0, 0.42);
     --saina-logo-gold: var(--bilign-bronze-light);
     --saina-brand-text: var(--bilign-bronze-light);
 
@@ -656,7 +660,7 @@
     font-size: clamp(12px, 0.92vw, 15px);
     line-height: 1.35;
     letter-spacing: -0.02em;
-    text-shadow: var(--saina-scene-text-legibility-shadow);
+    text-shadow: var(--saina-scene-heading-shadow);
     max-width: min(36rem, 100%);
     min-width: 0;
     display: -webkit-box;
@@ -722,7 +726,7 @@
     font-size: 16px;
     line-height: 1.68;
     max-width: var(--saina-chat-text-measure);
-    text-shadow: var(--saina-scene-text-legibility-shadow);
+    text-shadow: var(--saina-scene-body-shadow);
   }
 
   .saina-app-root.saina-standalone-shell .saina-chat-card .saina-msg-time,
@@ -1155,7 +1159,7 @@
     font-weight: 600;
     letter-spacing: -0.03em;
     line-height: 1.1;
-    text-shadow: var(--saina-scene-text-legibility-shadow);
+    text-shadow: var(--saina-scene-heading-shadow);
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity .bilign-honorific {
