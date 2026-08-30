@@ -321,12 +321,14 @@ describe('Phase 8.8F Stage B sidebar fade + reading plane refinement', () => {
     expect(css).not.toContain('border-right: none !important');
   });
 
-  it('detaches a wide smoky atmosphere from the 650px text measure with soft dissolves', () => {
+  it('detaches soft radial reading smoke from the 650px text measure without card geometry', () => {
     expect(css).toContain('--saina-reading-atmosphere-width: min(960px, 94%)');
-    expect(css).toContain('--saina-reading-smoke-center');
+    expect(css).toContain('--saina-reading-smoke-peak');
     expect(css).toContain('--saina-chat-text-measure: min(650px, 100%)');
     expect(css).toContain('radial-gradient');
-    expect(css).toContain('rgba(5, 7, 7, 0.46)');
+    expect(css).toContain('rgba(5, 7, 7, 0.28)');
+    expect(css).toContain('inset: 0');
+    expect(css).not.toMatch(/saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*mask-image/);
     expect(css).toContain('backdrop-filter: none !important');
     expect(css).toContain('content: none');
     expect(css).toContain('max-width: var(--saina-chat-text-measure)');
