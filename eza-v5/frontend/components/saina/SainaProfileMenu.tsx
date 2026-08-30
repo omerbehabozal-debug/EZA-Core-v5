@@ -2,7 +2,7 @@
 
 import '@/styles/saina-profile-panel.css';
 import '@/styles/profile-avatar-crop-viewer.css';
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type RefObject } from 'react';
 import Link from 'next/link';
 import { ChevronDown, LogOut, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -109,6 +109,7 @@ function ProfileIdentityMark({
   onAvatarView,
   onAvatarAdd,
   avatarBusy,
+  avatarTriggerRef,
 }: {
   isGuest: boolean;
   displayName: string;
@@ -119,6 +120,7 @@ function ProfileIdentityMark({
   onAvatarView?: () => void;
   onAvatarAdd?: () => void;
   avatarBusy?: boolean;
+  avatarTriggerRef?: RefObject<HTMLButtonElement>;
 }) {
   return (
     <div className="saina-profile-menu-identity-mark">
@@ -156,6 +158,7 @@ function ProfileIdentityMark({
         </div>
       ) : (
         <button
+          ref={avatarTriggerRef}
           type="button"
           className="saina-profile-menu-identity-face-btn"
           onClick={hasPhoto ? onAvatarView : onAvatarAdd}
@@ -225,6 +228,8 @@ export default function SainaProfileMenu({
   const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const avatarChangeRef = useRef<HTMLButtonElement>(null);
+  const avatarTriggerRef = useRef<HTMLButtonElement>(null);
   const persistedName = (user?.public_display_name || user?.full_name || '').trim();
   const authoritativeAvatar = resolveAuthenticatedAvatarDisplay({
     draft: avatarDraft,
@@ -528,6 +533,7 @@ export default function SainaProfileMenu({
                     onAvatarView={() => setAvatarViewerOpen(true)}
                     onAvatarAdd={openAvatarPicker}
                     avatarBusy={avatarSaveState === 'saving' || disabled}
+                    avatarTriggerRef={avatarTriggerRef}
                   />
                   <div className="saina-profile-menu-identity-copy">
                     <p
@@ -571,6 +577,7 @@ export default function SainaProfileMenu({
                   </span>
                   <div className="saina-profile-menu-avatar-actions">
                     <button
+                      ref={avatarChangeRef}
                       type="button"
                       className="saina-profile-menu-save"
                       disabled={disabled || avatarSaveState === 'saving'}
@@ -832,6 +839,7 @@ export default function SainaProfileMenu({
           busy={avatarSaveState === 'saving'}
           onCancel={() => setCropSourceFile(null)}
           onApply={stageCroppedAvatar}
+          returnFocusRef={avatarChangeRef}
         />
       ) : null}
 
@@ -843,6 +851,7 @@ export default function SainaProfileMenu({
           cacheBust={viewerCacheBust}
           onClose={() => setAvatarViewerOpen(false)}
           onChangePhoto={openAvatarPicker}
+          returnFocusRef={avatarTriggerRef}
         />
       ) : null}
     </div>

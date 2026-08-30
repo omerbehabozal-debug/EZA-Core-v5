@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useCallback, useEffect, useId, useRef, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 import { buildProfileAvatarDisplaySrc } from '@/lib/eza/profile/avatarDisplayUrl';
 
 export type ProfileAvatarViewerProps = {
@@ -11,6 +12,7 @@ export type ProfileAvatarViewerProps = {
   cacheBust?: number | string;
   onClose: () => void;
   onChangePhoto?: () => void;
+  returnFocusRef?: RefObject<HTMLElement | null>;
 };
 
 export default function ProfileAvatarViewer({
@@ -20,31 +22,36 @@ export default function ProfileAvatarViewer({
   cacheBust,
   onClose,
   onChangePhoto,
+  returnFocusRef,
 }: ProfileAvatarViewerProps) {
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const src =
     avatarUrl.startsWith('blob:') || avatarUrl.startsWith('data:')
       ? avatarUrl
       : buildProfileAvatarDisplaySrc(avatarUrl, cacheBust);
 
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  useModalFocusTrap({
+    open,
+    onClose: handleClose,
+    containerRef: dialogRef,
+    initialFocusRef: closeRef,
+    returnFocusRef,
+  });
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    closeRef.current?.focus();
     return () => {
-      document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open || typeof document === 'undefined') return null;
 
@@ -53,10 +60,11 @@ export default function ProfileAvatarViewer({
       className="bilign-avatar-viewer-backdrop"
       data-testid="profile-avatar-viewer-backdrop"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) handleClose();
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -70,7 +78,7 @@ export default function ProfileAvatarViewer({
           className="bilign-avatar-viewer-close"
           aria-label="Kapat"
           data-testid="profile-avatar-viewer-close"
-          onClick={onClose}
+          onClick={handleClose}
         >
           ×
         </button>
@@ -91,7 +99,7 @@ export default function ProfileAvatarViewer({
             className="bilign-avatar-viewer-change"
             data-testid="profile-avatar-viewer-change"
             onClick={() => {
-              onClose();
+              handleClose();
               onChangePhoto();
             }}
           >

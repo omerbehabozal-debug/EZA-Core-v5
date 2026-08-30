@@ -7,8 +7,10 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 import {
   AVATAR_CROP_VIEWPORT_PX,
   AVATAR_CROP_ZOOM_MAX,
@@ -18,10 +20,19 @@ import {
   getAvatarCropImageStyle,
   createOrientedAvatarPreviewUrl,
   loadOrientedAvatarImage,
+  releaseOrientedAvatarImage,
   renderAvatarCropToFile,
   type AvatarCropState,
   type OrientedAvatarImage,
 } from '@/lib/eza/profile/avatarCrop';
+import {
+  avatarCropGesturePointerCancel,
+  avatarCropGesturePointerDown,
+  avatarCropGesturePointerMove,
+  avatarCropGesturePointerUp,
+  createAvatarCropGestureState,
+  type AvatarCropGestureState,
+} from '@/lib/eza/profile/avatarCropGesture';
 
 export type ProfileAvatarCropEditorProps = {
   file: File;
@@ -29,6 +40,7 @@ export type ProfileAvatarCropEditorProps = {
   busy?: boolean;
   onCancel: () => void;
   onApply: (file: File) => void | Promise<void>;
+  returnFocusRef?: RefObject<HTMLElement | null>;
 };
 
 export default function ProfileAvatarCropEditor({
@@ -37,37 +49,53 @@ export default function ProfileAvatarCropEditor({
   busy = false,
   onCancel,
   onApply,
+  returnFocusRef,
 }: ProfileAvatarCropEditorProps) {
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const cancelRef = useRef<HTMLButtonElement | null>(null);
   const [image, setImage] = useState<OrientedAvatarImage | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [crop, setCrop] = useState<AvatarCropState>(defaultAvatarCropState);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
-  const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(
-    null
-  );
-  const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
+  const [viewportPx, setViewportPx] = useState(AVATAR_CROP_VIEWPORT_PX);
+  const gestureRef = useRef<AvatarCropGestureState>(createAvatarCropGestureState());
+  const cropRef = useRef(crop);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+
+  cropRef.current = crop;
+
+  const resetGesture = useCallback(() => {
+    gestureRef.current = createAvatarCropGestureState();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoadError(null);
     setCrop(defaultAvatarCropState());
+    resetGesture();
     void loadOrientedAvatarImage(file)
       .then(async (loaded) => {
-        if (cancelled) return;
+        if (cancelled) {
+          releaseOrientedAvatarImage(loaded);
+          return;
+        }
         const orientedUrl = await createOrientedAvatarPreviewUrl(loaded);
         if (cancelled) {
           URL.revokeObjectURL(orientedUrl);
+          releaseOrientedAvatarImage(loaded);
           return;
         }
         setPreviewUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return orientedUrl;
         });
-        setImage(loaded);
+        setImage((prev) => {
+          releaseOrientedAvatarImage(prev);
+          return loaded;
+        });
       })
       .catch(() => {
         if (!cancelled) setLoadError('Fotoğraf açılamadı.');
@@ -78,62 +106,117 @@ export default function ProfileAvatarCropEditor({
         if (prev) URL.revokeObjectURL(prev);
         return null;
       });
-      setImage(null);
+      setImage((prev) => {
+        releaseOrientedAvatarImage(prev);
+        return null;
+      });
+      resetGesture();
     };
-  }, [open, file]);
+  }, [open, file, resetGesture]);
+
+  useEffect(() => {
+    if (!open || !viewportRef.current) return;
+    const el = viewportRef.current;
+    const sync = () => {
+      const size = Math.round(el.clientWidth);
+      if (size > 0) setViewportPx(size);
+    };
+    sync();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [open, image]);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !busy && !applying) {
-        event.preventDefault();
-        onCancel();
-      }
-    };
-    document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, busy, applying, onCancel]);
+  }, [open]);
+
+  const handleClose = useCallback(() => {
+    if (busy || applying) return;
+    onCancel();
+  }, [busy, applying, onCancel]);
+
+  useModalFocusTrap({
+    open,
+    onClose: handleClose,
+    containerRef: dialogRef,
+    initialFocusRef: cancelRef,
+    returnFocusRef,
+  });
 
   const updateCrop = useCallback(
     (next: AvatarCropState) => {
       if (!image) return;
-      setCrop(clampAvatarCropPan(image.width, image.height, next));
+      setCrop(clampAvatarCropPan(image.width, image.height, next, viewportPx));
     },
-    [image]
+    [image, viewportPx]
   );
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!image || busy || applying) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      offsetX: crop.offsetX,
-      offsetY: crop.offsetY,
-    };
+    if (typeof event.currentTarget.setPointerCapture === 'function') {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    gestureRef.current = avatarCropGesturePointerDown(
+      gestureRef.current,
+      event.pointerId,
+      event.clientX,
+      event.clientY,
+      cropRef.current
+    );
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current || !image) return;
-    const dx = event.clientX - dragRef.current.x;
-    const dy = event.clientY - dragRef.current.y;
-    updateCrop({
-      ...crop,
-      offsetX: dragRef.current.offsetX + dx,
-      offsetY: dragRef.current.offsetY + dy,
-    });
+    if (!image) return;
+    const result = avatarCropGesturePointerMove(
+      gestureRef.current,
+      event.pointerId,
+      event.clientX,
+      event.clientY
+    );
+    gestureRef.current = result.state;
+    if (result.offsetX != null && result.offsetY != null) {
+      updateCrop({
+        ...cropRef.current,
+        offsetX: result.offsetX,
+        offsetY: result.offsetY,
+      });
+    } else if (result.zoom != null) {
+      updateCrop({
+        ...cropRef.current,
+        zoom: Math.min(AVATAR_CROP_ZOOM_MAX, Math.max(AVATAR_CROP_ZOOM_MIN, result.zoom)),
+      });
+    }
   };
 
-  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      dragRef.current = null;
+  const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    if (
+      typeof target.hasPointerCapture === 'function' &&
+      typeof target.releasePointerCapture === 'function' &&
+      target.hasPointerCapture(event.pointerId)
+    ) {
+      target.releasePointerCapture(event.pointerId);
     }
+    gestureRef.current = avatarCropGesturePointerUp(gestureRef.current, event.pointerId);
+  };
+
+  const onPointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    if (
+      typeof target.hasPointerCapture === 'function' &&
+      typeof target.releasePointerCapture === 'function' &&
+      target.hasPointerCapture(event.pointerId)
+    ) {
+      target.releasePointerCapture(event.pointerId);
+    }
+    gestureRef.current = avatarCropGesturePointerCancel(gestureRef.current, event.pointerId);
   };
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
@@ -142,42 +225,19 @@ export default function ProfileAvatarCropEditor({
     event.stopPropagation();
     const delta = event.deltaY > 0 ? -0.06 : 0.06;
     updateCrop({
-      ...crop,
-      zoom: Math.min(AVATAR_CROP_ZOOM_MAX, Math.max(AVATAR_CROP_ZOOM_MIN, crop.zoom + delta)),
-    });
-  };
-
-  const onTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (!image || event.touches.length !== 2) return;
-    const [a, b] = [event.touches[0]!, event.touches[1]!];
-    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    pinchRef.current = { distance, zoom: crop.zoom };
-  };
-
-  const onTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (!image || !pinchRef.current || event.touches.length !== 2) return;
-    event.preventDefault();
-    const [a, b] = [event.touches[0]!, event.touches[1]!];
-    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const ratio = distance / pinchRef.current.distance;
-    updateCrop({
-      ...crop,
+      ...cropRef.current,
       zoom: Math.min(
         AVATAR_CROP_ZOOM_MAX,
-        Math.max(AVATAR_CROP_ZOOM_MIN, pinchRef.current.zoom * ratio)
+        Math.max(AVATAR_CROP_ZOOM_MIN, cropRef.current.zoom + delta)
       ),
     });
-  };
-
-  const onTouchEnd = () => {
-    pinchRef.current = null;
   };
 
   const handleApply = async () => {
     if (!image || busy || applying) return;
     setApplying(true);
     try {
-      const cropped = await renderAvatarCropToFile(image, crop, file.name);
+      const cropped = await renderAvatarCropToFile(image, crop, file.name, viewportPx);
       await onApply(cropped);
     } catch {
       setLoadError('Kırpılmış fotoğraf oluşturulamadı.');
@@ -189,17 +249,18 @@ export default function ProfileAvatarCropEditor({
   if (!open || typeof document === 'undefined') return null;
 
   const imageStyle =
-    image != null ? getAvatarCropImageStyle(image.width, image.height, crop) : null;
+    image != null ? getAvatarCropImageStyle(image.width, image.height, crop, viewportPx) : null;
 
   return createPortal(
     <div
       className="bilign-avatar-crop-backdrop"
       data-testid="profile-avatar-crop-backdrop"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !busy && !applying) onCancel();
+        if (event.target === event.currentTarget && !busy && !applying) handleClose();
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -221,15 +282,11 @@ export default function ProfileAvatarCropEditor({
           ref={viewportRef}
           className="bilign-avatar-crop-viewport"
           data-testid="profile-avatar-crop-viewport"
-          style={{ width: AVATAR_CROP_VIEWPORT_PX, height: AVATAR_CROP_VIEWPORT_PX }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerUp={endPointer}
+          onPointerCancel={onPointerCancel}
           onWheel={onWheel}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
         >
           {image && imageStyle && previewUrl ? (
             <img
@@ -262,7 +319,7 @@ export default function ProfileAvatarCropEditor({
             aria-label="Yakınlaştırma"
             data-testid="profile-avatar-crop-zoom"
             onChange={(event) =>
-              updateCrop({ ...crop, zoom: Number(event.target.value) })
+              updateCrop({ ...cropRef.current, zoom: Number(event.target.value) })
             }
           />
           <span aria-hidden>+</span>
@@ -270,10 +327,11 @@ export default function ProfileAvatarCropEditor({
 
         <div className="bilign-avatar-crop-actions">
           <button
+            ref={cancelRef}
             type="button"
             className="bilign-avatar-crop-btn bilign-avatar-crop-btn--ghost"
             disabled={busy || applying}
-            onClick={onCancel}
+            onClick={handleClose}
             data-testid="profile-avatar-crop-cancel"
           >
             Vazgeç

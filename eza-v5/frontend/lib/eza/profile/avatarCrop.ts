@@ -78,12 +78,24 @@ export function clampAvatarCropPan(
   };
 }
 
+export function releaseOrientedAvatarImage(image: OrientedAvatarImage | null | undefined): void {
+  if (!image?.bitmap) return;
+  if (typeof image.bitmap.close === 'function') {
+    image.bitmap.close();
+  }
+}
+
 export async function loadOrientedAvatarImage(file: File): Promise<OrientedAvatarImage> {
   if (!isAcceptedProfileAvatarFile(file)) {
     throw new Error('unsupported_avatar_format');
   }
-  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  return { bitmap, width: bitmap.width, height: bitmap.height };
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    return { bitmap, width: bitmap.width, height: bitmap.height };
+  } catch {
+    const bitmap = await createImageBitmap(file);
+    return { bitmap, width: bitmap.width, height: bitmap.height };
+  }
 }
 
 export async function createOrientedAvatarPreviewUrl(
@@ -130,9 +142,10 @@ export async function renderAvatarCropToCanvas(
 export async function renderAvatarCropToFile(
   image: OrientedAvatarImage,
   crop: AvatarCropState,
-  originalName: string
+  originalName: string,
+  cropViewportPx: number = AVATAR_CROP_VIEWPORT_PX
 ): Promise<File> {
-  const canvas = await renderAvatarCropToCanvas(image, crop);
+  const canvas = await renderAvatarCropToCanvas(image, crop, PROFILE_AVATAR_OUTPUT_SIZE, cropViewportPx);
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob(resolve, 'image/jpeg', PROFILE_AVATAR_JPEG_QUALITY);
   });

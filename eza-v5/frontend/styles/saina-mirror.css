@@ -6527,8 +6527,8 @@ html:has(.saina-page) body {
 }
 
 .bilign-profile-avatar--has-photo.saina-profile-avatar--top {
-  width: var(--saina-topbar-control-h, 2.5rem);
-  height: var(--saina-topbar-control-h, 2.5rem);
+  width: 44px;
+  height: 44px;
   padding: 0;
   overflow: hidden;
   display: block;
