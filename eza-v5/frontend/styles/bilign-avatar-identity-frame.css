@@ -1,0 +1,103 @@
+/**
+ * Overlapping double-polygon avatar identity frame — presentation only.
+ */
+
+.bilign-avatar-identity-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+}
+
+.bilign-avatar-identity-frame__avatar {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+}
+
+.bilign-avatar-identity-polygons {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.bilign-avatar-identity-polygon {
+  fill: none;
+  stroke: #b78949;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.bilign-avatar-identity-polygon--a {
+  stroke-width: 1px;
+}
+
+.bilign-avatar-identity-polygon--b {
+  stroke-width: 1px;
+}
+
+/* Desktop hero — photo 84px, envelope ~96px */
+.bilign-avatar-identity-frame--hero {
+  width: 96px;
+  height: 96px;
+}
+
+.bilign-avatar-identity-frame--hero .bilign-avatar-identity-frame__avatar,
+.bilign-avatar-identity-frame--hero .bilign-avatar-identity-frame__avatar > * {
+  width: 84px;
+  height: 84px;
+}
+
+/* Profile panel — photo 72px, envelope ~83px */
+.bilign-avatar-identity-frame--profile {
+  width: 83px;
+  height: 83px;
+}
+
+.bilign-avatar-identity-frame--profile .bilign-avatar-identity-frame__avatar,
+.bilign-avatar-identity-frame--profile .bilign-avatar-identity-frame__avatar > * {
+  width: 72px;
+  height: 72px;
+}
+
+/* Mobile major identity — photo 66px, envelope ~76px */
+.bilign-avatar-identity-frame--mobile {
+  width: 76px;
+  height: 76px;
+}
+
+.bilign-avatar-identity-frame--mobile .bilign-avatar-identity-frame__avatar,
+.bilign-avatar-identity-frame--mobile .bilign-avatar-identity-frame__avatar > * {
+  width: 66px;
+  height: 66px;
+}
+
+.bilign-avatar-identity-frame--mobile .bilign-avatar-identity-polygon--a,
+.bilign-avatar-identity-frame--mobile .bilign-avatar-identity-polygon--b {
+  stroke-width: 1.05px;
+}
+
+@media (max-width: 899px) {
+  .bilign-avatar-identity-frame--hero {
+    width: 76px;
+    height: 76px;
+  }
+
+  .bilign-avatar-identity-frame--hero .bilign-avatar-identity-frame__avatar,
+  .bilign-avatar-identity-frame--hero .bilign-avatar-identity-frame__avatar > * {
+    width: 66px;
+    height: 66px;
+  }
+
+  .bilign-avatar-identity-frame--hero .bilign-avatar-identity-polygon--a,
+  .bilign-avatar-identity-frame--hero .bilign-avatar-identity-polygon--b {
+    stroke-width: 1.05px;
+  }
+}

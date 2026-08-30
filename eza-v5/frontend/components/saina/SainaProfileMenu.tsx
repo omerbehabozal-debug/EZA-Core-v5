@@ -2,6 +2,7 @@
 
 import '@/styles/saina-profile-panel.css';
 import '@/styles/profile-avatar-crop-viewer.css';
+import '@/styles/bilign-avatar-identity-frame.css';
 import { useEffect, useRef, useState, type ChangeEvent, type RefObject } from 'react';
 import Link from 'next/link';
 import { ChevronDown, LogOut, User } from 'lucide-react';
@@ -17,6 +18,7 @@ import {
 import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
+import BilignAvatarIdentityFrame from '@/components/mirror/ayna/BilignAvatarIdentityFrame';
 import ProfileAvatarCropEditor from '@/components/mirror/ayna/ProfileAvatarCropEditor';
 import ProfileAvatarViewer from '@/components/mirror/ayna/ProfileAvatarViewer';
 import {
@@ -123,35 +125,7 @@ function ProfileIdentityMark({
   avatarTriggerRef?: RefObject<HTMLButtonElement>;
 }) {
   return (
-    <div className="saina-profile-menu-identity-mark">
-      <svg
-        className="saina-profile-menu-identity-orbit saina-profile-menu-identity-orbit--outer"
-        viewBox="0 0 72 72"
-        fill="none"
-        aria-hidden
-      >
-        <path
-          d="M36 6 L54.5 13.5 L65.5 29.5 L62 48.5 L46.5 62 L27.5 64.5 L12 52.5 L7.5 33.5 L18 15.5 Z"
-          stroke="rgba(183,137,73,0.48)"
-          strokeWidth="0.9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <svg
-        className="saina-profile-menu-identity-orbit saina-profile-menu-identity-orbit--inner"
-        viewBox="0 0 72 72"
-        fill="none"
-        aria-hidden
-      >
-        <path
-          d="M36 10 L51 16.5 L60 30 L57 46 L44 57 L28 58.5 L16 48 L13 32.5 L22.5 18 Z"
-          stroke="rgba(208,161,91,0.72)"
-          strokeWidth="0.85"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+    <BilignAvatarIdentityFrame variant="profile" className="saina-profile-menu-identity-mark">
       {isGuest ? (
         <div className="saina-profile-menu-identity-face saina-profile-menu-identity-face--guest">
           <User size={22} />
@@ -176,7 +150,7 @@ function ProfileIdentityMark({
           />
         </button>
       )}
-    </div>
+    </BilignAvatarIdentityFrame>
   );
 }
 

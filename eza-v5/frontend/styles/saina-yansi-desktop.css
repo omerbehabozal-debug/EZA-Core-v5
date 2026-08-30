@@ -1037,29 +1037,11 @@
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
-    position: relative;
     flex: 0 0 auto;
-    width: 100px;
-    height: 100px;
-    display: grid;
-    place-items: center;
     background: radial-gradient(circle, rgba(9, 11, 11, 0.42) 0%, rgba(9, 11, 11, 0.06) 68%, transparent 78%);
   }
 
-  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit {
-    position: absolute;
-    inset: 0;
-    width: 100px;
-    height: 100px;
-    pointer-events: none;
-  }
-
-  .saina-app-root.saina-standalone-shell .bilign-yansi-identity__avatar,
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__face {
-    position: relative;
-    z-index: 1;
-    width: 84px;
-    height: 84px;
     border-radius: 999px;
     box-shadow: inset 0 0 0 1px rgba(232, 226, 215, 0.16);
   }
@@ -1101,77 +1083,11 @@
     height: 14px;
   }
 
-  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--outer {
-    transform: rotate(7deg);
-  }
-
-  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--inner {
-    transform: rotate(-5deg);
-  }
-
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__glyph {
     position: relative;
     z-index: 1;
     display: grid;
     place-items: center;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
-      animation: bilign-orbit-settle 720ms cubic-bezier(0.22, 1, 0.36, 1) 1;
-    }
-  }
-
-  @keyframes bilign-orbit-settle {
-    0% {
-      transform: rotate(0deg);
-    }
-    40% {
-      transform: rotate(5deg);
-    }
-    100% {
-      transform: rotate(0deg);
-    }
-  }
-
-  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--outer {
-    animation: bilign-orbit-outer 720ms cubic-bezier(0.22, 1, 0.36, 1) 1;
-  }
-
-  .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--inner {
-    animation: bilign-orbit-inner 720ms cubic-bezier(0.22, 1, 0.36, 1) 1;
-  }
-
-  @keyframes bilign-orbit-outer {
-    from {
-      transform: rotate(7deg);
-    }
-    50% {
-      transform: rotate(12deg);
-    }
-    to {
-      transform: rotate(7deg);
-    }
-  }
-
-  @keyframes bilign-orbit-inner {
-    from {
-      transform: rotate(-5deg);
-    }
-    50% {
-      transform: rotate(-8deg);
-    }
-    to {
-      transform: rotate(-5deg);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--outer,
-    .saina-app-root.saina-standalone-shell .bilign-avatar-orbit--inner,
-    .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
-      animation: none;
-    }
   }
 
   /* —— Stage 7: context rail —— */

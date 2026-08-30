@@ -352,7 +352,7 @@ describe('Phase 8.8F profile side panel', () => {
     expect(src).toContain('uploadPublicAvatar');
     expect(src).toContain('savePublicAvatar');
     expect(src).toContain('ProfileUserAvatar');
-    expect(src).toContain('saina-profile-menu-identity-orbit');
+    expect(src).toContain('BilignAvatarIdentityFrame');
   });
 
   it('uploads avatar only after save and updates auth state', async () => {

@@ -10,28 +10,7 @@
 }
 
 .saina-profile-menu-identity-mark {
-  position: relative;
   flex: 0 0 auto;
-  width: 88px;
-  height: 88px;
-  display: grid;
-  place-items: center;
-}
-
-.saina-profile-menu-identity-orbit {
-  position: absolute;
-  inset: 0;
-  width: 88px;
-  height: 88px;
-  pointer-events: none;
-}
-
-.saina-profile-menu-identity-orbit--outer {
-  transform: rotate(7deg);
-}
-
-.saina-profile-menu-identity-orbit--inner {
-  transform: rotate(-5deg);
 }
 
 .saina-profile-menu-identity-face,
@@ -140,13 +119,6 @@
   margin: 0;
   border: 0;
   background: rgba(232, 226, 215, 0.1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .saina-profile-menu-identity-orbit--outer,
-  .saina-profile-menu-identity-orbit--inner {
-    animation: none;
-  }
 }
 
 @media (min-width: 900px) {
