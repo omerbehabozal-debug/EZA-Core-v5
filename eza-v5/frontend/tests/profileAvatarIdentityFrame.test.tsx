@@ -10,6 +10,7 @@ import {
   AVATAR_IDENTITY_POLYGON_A,
   AVATAR_IDENTITY_POLYGON_B,
   AVATAR_IDENTITY_POLYGON_VERTEX_COUNT,
+  countAvatarIdentityPolygonCrossingRegions,
 } from '@/lib/eza/profile/avatarIdentityFrameGeometry';
 
 vi.mock('@/hooks/useResolvedProfileAvatar', () => ({
@@ -26,9 +27,10 @@ describe('avatarIdentityFrameGeometry', () => {
   });
 
   it('keeps polygon B slightly larger and counter-rotated for weave', () => {
-    expect(AVATAR_IDENTITY_POLYGON_A.rotationDeg).toBe(-1);
-    expect(AVATAR_IDENTITY_POLYGON_B.rotationDeg).toBe(1);
+    expect(AVATAR_IDENTITY_POLYGON_A.rotationDeg).toBe(-1.75);
+    expect(AVATAR_IDENTITY_POLYGON_B.rotationDeg).toBe(1.75);
     expect(AVATAR_IDENTITY_POLYGON_B.scale).toBeGreaterThan(AVATAR_IDENTITY_POLYGON_A.scale);
+    expect(countAvatarIdentityPolygonCrossingRegions()).toBeGreaterThanOrEqual(6);
   });
 });
 

@@ -41,7 +41,7 @@
 }
 
 .bilign-avatar-identity-polygon--b {
-  stroke-width: 1px;
+  stroke-width: 0.95px;
 }
 
 /* Desktop hero — 84px avatar slot; ~96px polygon envelope overflows visually */
