@@ -17,7 +17,7 @@ import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import { normalizeProfileAvatarFile } from '@/lib/eza/profile/normalizeProfileAvatarFile';
-import { publicAvatarSaveErrorMessage } from '@/lib/eza/plan/fetchAuthMe';
+import { publicAvatarSaveErrorMessage, refreshAuthUserProfile } from '@/lib/eza/plan/fetchAuthMe';
 import {
   SAINA_ANALYSIS_MODEL_LABEL,
   SAINA_EZA_PROCESSING_LABEL,
@@ -182,7 +182,7 @@ export default function SainaProfileMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
   const returnUrl = useSainaAuthReturnUrl();
-  const { isAuthenticated, user, logout, isAuthReady, setAuth, token } = useAuth();
+  const { isAuthenticated, user, logout, isAuthReady, setAuth, patchAuthUser, token } = useAuth();
   const ownerUserId = user?.user_id?.trim() || null;
   const { isPlus, isLoading, source } = usePlan();
   const { entitlements: accountEntitlements } = useAccountEntitlements();
@@ -207,22 +207,23 @@ export default function SainaProfileMenu({
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
   const [avatarError, setAvatarError] = useState<string | null>(null);
-  const [avatarCacheBust, setAvatarCacheBust] = useState<number>(() => Date.now());
   const [avatarStaging, setAvatarStaging] = useState(false);
   const [avatarDraft, setAvatarDraft] = useState<
     | { mode: 'keep' }
     | { mode: 'replace'; file: File; previewUrl: string }
     | { mode: 'clear' }
   >({ mode: 'keep' });
+  const [displayAvatarUrl, setDisplayAvatarUrl] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const persistedName = (user?.public_display_name || user?.full_name || '').trim();
   const persistedAvatarUrl = (user?.public_avatar_url || '').trim() || null;
+  const avatarCacheBust = user?.public_avatar_revision;
   const panelAvatarUrl =
     avatarDraft.mode === 'replace'
       ? avatarDraft.previewUrl
       : avatarDraft.mode === 'clear'
         ? null
-        : persistedAvatarUrl;
+        : displayAvatarUrl ?? persistedAvatarUrl;
   const avatarUnchanged = avatarDraft.mode === 'keep';
   const nameUnchanged = nameDraft.trim() === persistedName;
   const quietPlanLabel = resolveQuietAccountPlanLabel(planTier);
@@ -230,7 +231,7 @@ export default function SainaProfileMenu({
   const loginHref = buildSainaAuthHref(returnUrl, 'login');
   const registerHref = buildSainaAuthHref(returnUrl, 'register');
 
-  const resetAvatarDraft = () => {
+  const discardAvatarDraft = () => {
     setAvatarDraft((current) => {
       if (current.mode === 'replace') {
         URL.revokeObjectURL(current.previewUrl);
@@ -241,13 +242,31 @@ export default function SainaProfileMenu({
     setAvatarError(null);
   };
 
+  const commitAvatarDraft = (nextUrl: string | null) => {
+    setDisplayAvatarUrl(nextUrl);
+    setAvatarDraft((current) => {
+      if (current.mode === 'replace') {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return { mode: 'keep' };
+    });
+  };
+
+  useEffect(() => {
+    setDisplayAvatarUrl(persistedAvatarUrl);
+  }, [persistedAvatarUrl]);
+
   useEffect(() => {
     if (!open || isGuest) return;
     setNameDraft(persistedName);
     setNameSaveState('idle');
     setNameError(null);
-    resetAvatarDraft();
   }, [open, isGuest, persistedName]);
+
+  useEffect(() => {
+    if (!open || isGuest) return;
+    discardAvatarDraft();
+  }, [open, isGuest]);
 
   useEffect(() => {
     return () => {
@@ -290,7 +309,7 @@ export default function SainaProfileMenu({
   }, [modelOpen]);
 
   const close = () => {
-    resetAvatarDraft();
+    discardAvatarDraft();
     setOpen(false);
     setModelOpen(false);
   };
@@ -332,9 +351,35 @@ export default function SainaProfileMenu({
     const { setMemoryAuthToken } = await import('@/lib/eza/authTokenStore');
     setMemoryAuthToken(token);
 
+    const applyAvatarSession = async (
+      publicAvatarUrl: string | null,
+      revision: number
+    ) => {
+      patchAuthUser({
+        public_avatar_url: publicAvatarUrl,
+        public_avatar_revision: revision,
+      });
+      const hydrated = await refreshAuthUserProfile({
+        email: user.email,
+        role: user.role,
+        user_id: user.user_id,
+        full_name: user.full_name,
+        public_display_name: user.public_display_name,
+        public_avatar_url: publicAvatarUrl,
+        public_avatar_revision: revision,
+        public_honorific: user.public_honorific,
+      });
+      patchAuthUser({
+        public_display_name: hydrated.public_display_name,
+        public_honorific: hydrated.public_honorific,
+        public_avatar_url: publicAvatarUrl,
+        public_avatar_revision: revision,
+      });
+    };
+
     if (avatarDraft.mode === 'clear') {
       if (!persistedAvatarUrl) {
-        resetAvatarDraft();
+        discardAvatarDraft();
         setAvatarSaveState('idle');
         return;
       }
@@ -344,9 +389,8 @@ export default function SainaProfileMenu({
         setAvatarError(publicAvatarSaveErrorMessage(result.code));
         return;
       }
-      setAuth(token, { ...user, public_avatar_url: null });
-      setAvatarCacheBust(Date.now());
-      resetAvatarDraft();
+      await applyAvatarSession(null, Date.now());
+      commitAvatarDraft(null);
       setAvatarSaveState('saved');
       return;
     }
@@ -358,9 +402,9 @@ export default function SainaProfileMenu({
         setAvatarError(publicAvatarSaveErrorMessage(result.code));
         return;
       }
-      setAuth(token, { ...user, public_avatar_url: result.public_avatar_url });
-      setAvatarCacheBust(Date.now());
-      resetAvatarDraft();
+      const revision = Date.now();
+      await applyAvatarSession(result.public_avatar_url, revision);
+      commitAvatarDraft(result.public_avatar_url);
       setAvatarSaveState('saved');
     }
   };

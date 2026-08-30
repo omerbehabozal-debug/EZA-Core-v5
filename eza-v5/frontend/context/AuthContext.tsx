@@ -52,6 +52,8 @@ interface UserInfo {
   public_display_name?: string | null;
   /** Public profile photo URL (owner-controlled). */
   public_avatar_url?: string | null;
+  /** Client cache-bust token after avatar replace (same durable URL). */
+  public_avatar_revision?: number;
   /** Public honorific id: curious | bilgin. Never a plan or role. */
   public_honorific?: string | null;
 }
@@ -64,6 +66,8 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   setAuth: (token: string, user: UserInfo) => void;
+  /** Merge partial profile fields into the persisted session user. */
+  patchAuthUser: (patch: Partial<UserInfo>) => void;
   logout: () => void;
   isAuthenticated: boolean;
   /** False until localStorage auth has been read and validated (avoids pre-hydration API calls / login flash). */
@@ -199,24 +203,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const nextUser: UserInfo =
           sessionResult.status === 'valid'
-            ? {
-                ...user,
-                user_id: sessionResult.session.user_id,
-                email: sessionResult.session.email || user.email,
-                role: sessionResult.session.role || user.role,
-                public_display_name:
-                  sessionResult.session.public_display_name !== undefined
-                    ? sessionResult.session.public_display_name
-                    : user.public_display_name,
-                public_avatar_url:
+            ? (() => {
+                const serverAvatarUrl =
                   sessionResult.session.public_avatar_url !== undefined
                     ? sessionResult.session.public_avatar_url
-                    : user.public_avatar_url,
-                public_honorific:
-                  sessionResult.session.public_honorific !== undefined
-                    ? sessionResult.session.public_honorific
-                    : user.public_honorific,
-              }
+                    : user.public_avatar_url;
+                const avatarChanged = serverAvatarUrl !== user.public_avatar_url;
+                return {
+                  ...user,
+                  user_id: sessionResult.session.user_id,
+                  email: sessionResult.session.email || user.email,
+                  role: sessionResult.session.role || user.role,
+                  public_display_name:
+                    sessionResult.session.public_display_name !== undefined
+                      ? sessionResult.session.public_display_name
+                      : user.public_display_name,
+                  public_avatar_url: serverAvatarUrl,
+                  public_avatar_revision: avatarChanged
+                    ? Date.now()
+                    : user.public_avatar_revision,
+                  public_honorific:
+                    sessionResult.session.public_honorific !== undefined
+                      ? sessionResult.session.public_honorific
+                      : user.public_honorific,
+                };
+              })()
             : user;
 
         persistAuth(token, nextUser);
@@ -291,6 +302,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const patchAuthUser = (patch: Partial<UserInfo>) => {
+    setAuthState((prev) => {
+      if (!prev.token || !prev.user) return prev;
+      const user = { ...prev.user, ...patch };
+      const newState = {
+        ...prev,
+        user,
+        role: (user.role as UserRole) || null,
+      };
+      if (typeof window !== 'undefined') {
+        try {
+          persistAuth(prev.token, user);
+        } catch (error) {
+          console.error('Failed to save auth to localStorage:', error);
+        }
+        notifyAuthChanged();
+        notifyConversationVisibilityChanged();
+      }
+      return newState;
+    });
+    guestMergeRanRef.current = true;
+  };
+
   const logout = () => {
     setAuthState({ token: null, user: null, role: null });
     guestMergeRanRef.current = false;
@@ -312,6 +346,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextType = {
     ...authState,
     setAuth,
+    patchAuthUser,
     logout,
     isAuthenticated: !!authState.token,
     isAuthReady,

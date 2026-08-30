@@ -23,6 +23,7 @@ const authState = vi.hoisted(() => ({
   token: 'tok' as string | null,
   logout: vi.fn(),
   setAuth: vi.fn(),
+  patchAuthUser: vi.fn(),
   user: {
     user_id: 'user-88f',
     email: 'owner@example.com',
@@ -54,6 +55,7 @@ vi.mock('@/context/AuthContext', () => ({
     user: authState.user,
     logout: authState.logout,
     setAuth: authState.setAuth,
+    patchAuthUser: authState.patchAuthUser,
     role: authState.user?.role ?? null,
   }),
 }));
@@ -92,6 +94,7 @@ vi.mock('@/lib/eza/plan/fetchAuthMe', async () => {
     patchPublicIdentity: vi.fn(),
     uploadPublicAvatar: vi.fn(),
     deletePublicAvatar: vi.fn(),
+    refreshAuthUserProfile: vi.fn(async (base) => base),
   };
 });
 
@@ -137,6 +140,7 @@ describe('Phase 8.8F profile side panel', () => {
     authState.token = 'tok';
     authState.logout.mockReset();
     authState.setAuth.mockReset();
+    authState.patchAuthUser.mockReset();
     authState.user = {
       user_id: 'user-88f',
       email: 'owner@example.com',
@@ -346,10 +350,10 @@ describe('Phase 8.8F profile side panel', () => {
       expect(uploadPublicAvatar).toHaveBeenCalledWith(file);
     });
     await waitFor(() => {
-      expect(authState.setAuth).toHaveBeenCalledWith(
-        'tok',
+      expect(authState.patchAuthUser).toHaveBeenCalledWith(
         expect.objectContaining({
           public_avatar_url: 'https://api.example.com/api/public/profile-avatars/u.jpg',
+          public_avatar_revision: expect.any(Number),
         })
       );
     });
@@ -369,7 +373,7 @@ describe('Phase 8.8F profile side panel', () => {
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
 
     expect(uploadPublicAvatar).not.toHaveBeenCalled();
-    expect(authState.setAuth).not.toHaveBeenCalled();
+    expect(authState.patchAuthUser).not.toHaveBeenCalled();
   });
 
   it('leaves mobile dropdown metrics, public profile, Discover, and Yansı identity alone', () => {

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Public read-only profile avatar delivery."""
 
+import hashlib
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +17,11 @@ from backend.services.profile_avatar_store import (
 )
 
 router = APIRouter()
+
+
+def _avatar_etag(data: bytes) -> str:
+    digest = hashlib.sha256(data).hexdigest()[:32]
+    return f'"{digest}"'
 
 
 @router.get(
@@ -33,7 +40,7 @@ async def get_profile_avatar(
             return Response(
                 content=data,
                 media_type=media_type,
-                headers=profile_avatar_response_headers(media_type),
+                headers=profile_avatar_response_headers(media_type, etag=_avatar_etag(data)),
             )
 
     path = resolve_profile_avatar_path(asset_filename)
@@ -45,5 +52,5 @@ async def get_profile_avatar(
     return FileResponse(
         path,
         media_type=media_type,
-        headers=profile_avatar_response_headers(media_type),
+        headers=profile_avatar_response_headers(media_type, etag=_avatar_etag(data)),
     )

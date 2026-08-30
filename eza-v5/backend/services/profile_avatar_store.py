@@ -84,12 +84,15 @@ def resolve_profile_avatar_path(filename: str) -> Path | None:
     return path
 
 
-def profile_avatar_response_headers(media_type: str) -> dict[str, str]:
-    return {
-        "Cache-Control": "public, max-age=3600",
+def profile_avatar_response_headers(media_type: str, *, etag: str | None = None) -> dict[str, str]:
+    headers: dict[str, str] = {
+        "Cache-Control": "private, max-age=0, must-revalidate",
         "X-Content-Type-Options": "nosniff",
         "Content-Type": media_type,
     }
+    if etag:
+        headers["ETag"] = etag
+    return headers
 
 
 def normalize_profile_avatar_bytes(image_bytes: bytes, mime: str) -> tuple[bytes, str]:

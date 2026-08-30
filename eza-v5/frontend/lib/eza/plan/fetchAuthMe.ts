@@ -47,6 +47,7 @@ export type AuthUserProfileSeed = {
   full_name?: string;
   public_display_name?: string | null;
   public_avatar_url?: string | null;
+  public_avatar_revision?: number;
   public_honorific?: string | null;
 };
 
@@ -76,6 +77,7 @@ export function mergeAuthSessionIntoUser(
       session.public_avatar_url !== undefined
         ? session.public_avatar_url
         : base.public_avatar_url,
+    public_avatar_revision: base.public_avatar_revision,
     public_honorific:
       session.public_honorific !== undefined
         ? session.public_honorific
