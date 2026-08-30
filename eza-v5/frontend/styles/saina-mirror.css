@@ -6476,6 +6476,24 @@ html:has(.saina-page) body {
   height: 4rem;
 }
 
+.bilign-profile-avatar--sm {
+  width: 1.75rem; /* 28px — Ayna author row */
+  height: 1.75rem;
+  border-width: 1px;
+}
+
+.bilign-profile-avatar--sm .bilign-profile-avatar__glyph {
+  font-size: 0.6875rem;
+}
+
+.ayna-author-row__avatar.bilign-profile-avatar--sm {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.ayna-author-row__avatar .bilign-profile-avatar__photo {
+  border-radius: 999px;
+}
+
 @media (min-width: 768px) {
   .bilign-profile-avatar--lg {
     width: 4.5rem; /* 72px */

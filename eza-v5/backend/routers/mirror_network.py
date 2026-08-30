@@ -217,6 +217,8 @@ class AuthorPublishedYansiResponse(BaseModel):
     userId: str
     displayName: str
     publicHonorific: str = "curious"
+    publicAvatarUrl: Optional[str] = None
+    publicAvatarRevision: int = 0
     items: List[AuthorPublishedYansiItem] = Field(default_factory=list)
     total: int = Field(default=0, ge=0)
 
@@ -236,6 +238,8 @@ class OwnerProfileYansiResponse(BaseModel):
     displayName: str
     publicDisplayName: Optional[str] = None
     publicHonorific: str = "curious"
+    publicAvatarUrl: Optional[str] = None
+    publicAvatarRevision: int = 0
     items: List[OwnerProfileYansiItem] = Field(default_factory=list)
     total: int = Field(default=0, ge=0)
     view: str = "owner"

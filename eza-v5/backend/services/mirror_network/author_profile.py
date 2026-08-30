@@ -33,6 +33,7 @@ from backend.services.mirror_network.public_identity import (
     resolve_public_display_name,
     resolve_public_honorific,
 )
+from backend.services.profile_avatar_store import normalize_profile_avatar_public_locator
 from backend.services.mirror_network.slug import build_mirror_share_url
 
 # Deterministic profile listing order (Phase 8.5B.1).
@@ -375,6 +376,10 @@ async def list_published_mirrors_for_author(
         "userId": str(user_id),
         "displayName": resolve_public_display_name(user),
         "publicHonorific": resolve_public_honorific(user),
+        "publicAvatarUrl": normalize_profile_avatar_public_locator(
+            getattr(user, "public_avatar_url", None)
+        ),
+        "publicAvatarRevision": int(getattr(user, "public_avatar_revision", None) or 0),
         "items": items,
         "total": total,
     }
@@ -417,6 +422,10 @@ async def list_owner_profile_yansilar(
         "displayName": resolve_public_display_name(user),
         "publicDisplayName": getattr(user, "public_display_name", None),
         "publicHonorific": resolve_public_honorific(user),
+        "publicAvatarUrl": normalize_profile_avatar_public_locator(
+            getattr(user, "public_avatar_url", None)
+        ),
+        "publicAvatarRevision": int(getattr(user, "public_avatar_revision", None) or 0),
         "items": items,
         "total": total,
         "view": "owner",

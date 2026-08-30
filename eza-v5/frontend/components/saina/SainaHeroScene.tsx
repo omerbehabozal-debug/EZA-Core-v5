@@ -1,7 +1,7 @@
 'use client';
 
 import { SAINA_HERO_DEFAULT_TITLE, SAINA_MENU_GUEST_LABEL } from '@/lib/eza/sainaCopy';
-import ProfileDefaultAvatar from '@/components/mirror/ayna/ProfileDefaultAvatar';
+import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import type { PublicHonorificId } from '@/lib/eza/mirror/publicHonorific';
 
@@ -11,6 +11,8 @@ type SainaHeroSceneProps = {
   honorificId?: PublicHonorificId | null;
   honorificLabel?: string | null;
   userId?: string | null;
+  avatarUrl?: string | null;
+  avatarCacheBust?: number | string;
 };
 
 /**
@@ -23,6 +25,8 @@ export default function SainaHeroScene({
   honorificId = null,
   honorificLabel = null,
   userId = null,
+  avatarUrl = null,
+  avatarCacheBust,
 }: SainaHeroSceneProps) {
   const name = displayName?.trim() || SAINA_MENU_GUEST_LABEL;
   const showHonorific = Boolean(honorificLabel);
@@ -31,6 +35,7 @@ export default function SainaHeroScene({
     <section
       className="saina-hero saina-hero--content bilign-yansi-identity"
       aria-label="Yansı kimliği"
+      data-testid="saina-yansi-identity"
     >
       <div className="bilign-yansi-identity__mark" aria-hidden>
         <svg className="bilign-avatar-orbit bilign-avatar-orbit--outer" viewBox="0 0 72 72" fill="none">
@@ -52,9 +57,11 @@ export default function SainaHeroScene({
           />
         </svg>
         <div className="bilign-yansi-identity__avatar">
-          <ProfileDefaultAvatar
+          <ProfileUserAvatar
             displayName={name}
             userId={userId}
+            avatarUrl={avatarUrl}
+            cacheBust={avatarCacheBust}
             size="lg"
             className="bilign-yansi-identity__face"
           />

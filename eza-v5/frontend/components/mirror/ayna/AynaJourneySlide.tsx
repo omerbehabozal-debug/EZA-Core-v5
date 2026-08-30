@@ -142,6 +142,7 @@ export default function AynaJourneySlide({
           <div className="ayna-journey-slide__meta">
             <AynaAuthorRow
               displayName={authorName}
+              authorUserId={artifact.authorUserId}
               avatarUrl={artifact.authorAvatarUrl}
               onOpenProfile={() => actions.onOpenAuthorProfile(artifact)}
             />

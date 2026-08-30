@@ -12,6 +12,18 @@ export function appendAvatarCacheBust(url: string, version?: number | string): s
 }
 
 /** Extract canonical profile-avatar path from relative or legacy absolute locators. */
+const PROFILE_AVATAR_FILENAME_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(png|jpe?g|webp)$/i;
+
+/** Extract user id from a canonical profile-avatar path or URL. */
+export function extractUserIdFromProfileAvatarPath(url: string): string | null {
+  const canonical = extractProfileAvatarCanonicalPath(url);
+  if (!canonical) return null;
+  const filename = canonical.slice(PROFILE_AVATAR_PUBLIC_PREFIX.length);
+  if (!PROFILE_AVATAR_FILENAME_RE.test(filename)) return null;
+  return filename.replace(/\.[^.]+$/, '').toLowerCase();
+}
+
 export function extractProfileAvatarCanonicalPath(url: string): string | null {
   const trimmed = url.trim();
   if (!trimmed) return null;

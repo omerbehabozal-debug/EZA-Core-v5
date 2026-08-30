@@ -26,6 +26,8 @@ export type AuthorPublishedYansiResponse = {
   userId: string;
   displayName: string;
   publicHonorific?: string | null;
+  publicAvatarUrl?: string | null;
+  publicAvatarRevision?: number | null;
   items: AuthorPublishedYansiItem[];
   total: number;
 };
@@ -93,6 +95,15 @@ function parseListPayload(
         : PUBLIC_DISPLAY_NAME_FALLBACK,
     publicHonorific:
       typeof data.publicHonorific === 'string' ? data.publicHonorific : null,
+    publicAvatarUrl:
+      typeof data.publicAvatarUrl === 'string' && data.publicAvatarUrl.trim()
+        ? data.publicAvatarUrl.trim()
+        : null,
+    publicAvatarRevision:
+      typeof data.publicAvatarRevision === 'number' &&
+      Number.isFinite(data.publicAvatarRevision)
+        ? Math.max(0, Math.floor(data.publicAvatarRevision))
+        : null,
     items: data.items
       .map(parseAuthorPublishedItem)
       .filter((item): item is AuthorPublishedYansiItem => item !== null),

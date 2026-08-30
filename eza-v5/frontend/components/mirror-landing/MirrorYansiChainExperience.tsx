@@ -48,6 +48,8 @@ type ChainNode = {
   artifact: PublicFrozenJourneyArtifact;
   authorDisplayName: string;
   authorHonorific: string;
+  authorAvatarUrl: string | null;
+  authorAvatarRevision: number | null;
   parentAuthorDisplayName: string | null;
   parentPublicTitle: string | null;
   alternatives: EligibleChildContinuation[];
@@ -75,6 +77,9 @@ async function enrichNode(
     artifact,
     authorDisplayName: author.displayName,
     authorHonorific: author.publicHonorific,
+    authorAvatarUrl: author.publicAvatarUrl?.trim() || null,
+    authorAvatarRevision:
+      typeof author.publicAvatarRevision === 'number' ? author.publicAvatarRevision : null,
     parentAuthorDisplayName,
     parentPublicTitle,
     alternatives,
@@ -375,6 +380,9 @@ export default function MirrorYansiChainExperience({
                 <div className="yansi-identity-header">
                   <AynaAuthorRow
                     displayName={node.authorDisplayName}
+                    authorUserId={node.artifact.authorUserId}
+                    publicAvatarUrl={node.authorAvatarUrl}
+                    publicAvatarRevision={node.authorAvatarRevision}
                     honorific={node.authorHonorific}
                     onOpenProfile={() =>
                       router.push(authorProfilePath(node.artifact.authorUserId))

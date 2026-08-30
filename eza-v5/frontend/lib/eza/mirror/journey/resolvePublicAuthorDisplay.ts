@@ -9,6 +9,8 @@ import { resolveAuthorDisplayName } from './aynaAuthorDisplay';
 export type PublicAuthorIdentity = {
   displayName: string;
   publicHonorific: PublicHonorificId;
+  publicAvatarUrl?: string | null;
+  publicAvatarRevision?: number | null;
 };
 
 const cache = new Map<string, PublicAuthorIdentity>();
@@ -31,6 +33,8 @@ export async function resolvePublicAuthorIdentity(
     const identity: PublicAuthorIdentity = {
       displayName: result.data.displayName.trim(),
       publicHonorific: resolvePublicHonorificId(result.data.publicHonorific),
+      publicAvatarUrl: result.data.publicAvatarUrl ?? null,
+      publicAvatarRevision: result.data.publicAvatarRevision ?? null,
     };
     cache.set(id, identity);
     return identity;

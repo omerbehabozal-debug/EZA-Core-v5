@@ -2,10 +2,18 @@
 
 import { cn } from '@/lib/utils';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
+import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
+import { useResolvedProfileAvatar } from '@/hooks/useResolvedProfileAvatar';
 
 export type AynaAuthorRowProps = {
   displayName: string;
+  authorUserId?: string | null;
+  /** Legacy conversation/Yansı snapshot — overridden for current self at render. */
   avatarUrl?: string | null;
+  avatarRevision?: number | string | null;
+  /** Server public profile authority (author profile API). */
+  publicAvatarUrl?: string | null;
+  publicAvatarRevision?: number | string | null;
   honorific?: string | null;
   onOpenProfile?: () => void;
   className?: string;
@@ -16,28 +24,35 @@ export type AynaAuthorRowProps = {
  */
 export default function AynaAuthorRow({
   displayName,
+  authorUserId = null,
   avatarUrl,
+  avatarRevision,
+  publicAvatarUrl,
+  publicAvatarRevision,
   honorific = null,
   onOpenProfile,
   className,
 }: AynaAuthorRowProps) {
-  const initial = displayName.trim().charAt(0).toUpperCase() || 'Y';
+  const resolved = useResolvedProfileAvatar({
+    subjectUserId: authorUserId,
+    snapshotUrl: avatarUrl,
+    snapshotRevision: avatarRevision,
+    publicAvatarUrl,
+    publicAvatarRevision,
+  });
   const interactive = typeof onOpenProfile === 'function';
   const showHonorific = Boolean(honorific);
 
   const inner = (
     <>
-      <span
-        className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/[0.08] text-[11px] font-semibold text-[rgba(246,244,239,0.9)]"
-        aria-hidden
-      >
-        {avatarUrl?.trim() ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          initial
-        )}
-      </span>
+      <ProfileUserAvatar
+        displayName={displayName}
+        userId={authorUserId}
+        avatarUrl={resolved.url}
+        cacheBust={resolved.revision}
+        size="sm"
+        className="ayna-author-row__avatar"
+      />
       <span className="min-w-0 truncate text-[12px] font-medium tracking-tight text-[rgba(246,244,239,0.92)]">
         {displayName}
       </span>

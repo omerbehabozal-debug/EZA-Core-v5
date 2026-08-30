@@ -104,7 +104,8 @@ describe('Phase 8.8F Stage 9 isolation', () => {
     expect(hero).not.toMatch(/@[a-z0-9_]+/i);
     expect(css).not.toContain('bilign-progress');
     expect(css).not.toContain('identity__plan');
-    expect(hero).toContain('ProfileDefaultAvatar');
+    expect(hero).toContain('ProfileUserAvatar');
+    expect(hero).toContain('avatarUrl');
     expect(hero).toContain('honorificLabel');
     expect(read('components/mirror-landing/MirrorYansiChainExperience.tsx')).toContain(
       'AynaAuthorRow'
@@ -112,6 +113,7 @@ describe('Phase 8.8F Stage 9 isolation', () => {
     expect(shell).toContain('SainaHeroScene');
     expect(shell).toContain('resolveSainaUserDisplayName');
     expect(shell).toContain('resolveYansiCreatorHonorific');
+    expect(shell).toContain('resolveSelfProfileAvatar');
     expect(shell).not.toContain('resolveSainaSidebarFooter');
   });
 

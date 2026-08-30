@@ -10,10 +10,11 @@ import {
   type AuthorPublishedYansiItem,
 } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import { PUBLIC_DISPLAY_NAME_FALLBACK } from '@/lib/eza/mirror/publicIdentity';
-import ProfileDefaultAvatar from '@/components/mirror/ayna/ProfileDefaultAvatar';
+import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import ProfileEditSheet from '@/components/mirror/ayna/ProfileEditSheet';
 import ProfileYansiCard from '@/components/mirror/ayna/ProfileYansiCard';
+import { useResolvedProfileAvatar } from '@/hooks/useResolvedProfileAvatar';
 
 type Props = {
   userId: string;
@@ -35,6 +36,8 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
 
   const [displayName, setDisplayName] = useState(PUBLIC_DISPLAY_NAME_FALLBACK);
   const [honorific, setHonorific] = useState<string | null>(null);
+  const [publicAvatarUrl, setPublicAvatarUrl] = useState<string | null>(null);
+  const [publicAvatarRevision, setPublicAvatarRevision] = useState<number | null>(null);
   const [items, setItems] = useState<AuthorPublishedYansiItem[]>([]);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<LoadStatus>('loading');
@@ -73,6 +76,8 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
 
         setDisplayName(result.data.displayName);
         setHonorific(result.data.publicHonorific ?? 'curious');
+        setPublicAvatarUrl(result.data.publicAvatarUrl ?? null);
+        setPublicAvatarRevision(result.data.publicAvatarRevision ?? null);
         setTotal(result.data.total);
         setItems((prev) =>
           append
@@ -108,6 +113,11 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
 
   const hasMore = items.length < total;
   const showEmpty = status === 'empty' || (status === 'ready' && items.length === 0);
+  const resolvedAvatar = useResolvedProfileAvatar({
+    subjectUserId: userId,
+    publicAvatarUrl,
+    publicAvatarRevision,
+  });
 
   return (
     <main
@@ -132,9 +142,11 @@ export default function AuthorPublishedYansiProfile({ userId }: Props) {
       {ownershipResolved && status !== 'loading' ? (
         <>
           <header className="bilign-profile-header">
-            <ProfileDefaultAvatar
+            <ProfileUserAvatar
               displayName={displayName}
               userId={userId}
+              avatarUrl={resolvedAvatar.url}
+              cacheBust={resolvedAvatar.revision}
               size="lg"
             />
             <h1

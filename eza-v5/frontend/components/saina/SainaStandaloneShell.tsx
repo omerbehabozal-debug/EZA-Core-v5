@@ -14,6 +14,7 @@ import {
 } from '@/lib/eza/mirror/yansiCreatorIdentity';
 import { resolveSainaUserDisplayName } from '@/lib/eza/sainaIdentity';
 import { SAINA_MENU_GUEST_LABEL } from '@/lib/eza/sainaCopy';
+import { resolveSelfProfileAvatar } from '@/lib/eza/profile/resolveConsumerProfileAvatar';
 import {
   DEFAULT_MIRROR_MOBILE_CONTEXT,
   type MirrorMobileContext,
@@ -104,6 +105,7 @@ function SainaChatSurface({
     isGuest,
     publicHonorific: user?.public_honorific,
   });
+  const heroAvatar = resolveSelfProfileAvatar(isGuest ? null : user);
 
   const tryOpenMirror = useCallback(() => {
     if (onRequestMirror && !onRequestMirror()) return;
@@ -156,6 +158,8 @@ function SainaChatSurface({
                 honorificId={honorific?.id ?? null}
                 honorificLabel={honorific?.label ?? null}
                 userId={user?.user_id ?? null}
+                avatarUrl={heroAvatar.url}
+                avatarCacheBust={heroAvatar.revision}
               />
               <div
                 className={cn(

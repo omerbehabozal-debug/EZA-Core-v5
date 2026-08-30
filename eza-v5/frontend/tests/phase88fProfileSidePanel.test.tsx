@@ -396,12 +396,15 @@ describe('Phase 8.8F profile side panel', () => {
     expect(menuSrc).not.toMatch(/mobile sheet|profile-sheet/i);
 
     expect(profile).toContain('HonorificMarker');
-    expect(profile).toContain('ProfileDefaultAvatar');
+    expect(profile).toContain('ProfileUserAvatar');
+    expect(profile).toContain('useResolvedProfileAvatar');
     expect(discover).toContain('HonorificMarker');
     expect(yansi).toContain('saina-yansi-identity-name');
     expect(yansi).toContain('HonorificMarker');
+    expect(yansi).toContain('ProfileUserAvatar');
     expect(fetchAuthor).toContain('displayName');
     expect(fetchAuthor).toContain('publicHonorific');
+    expect(fetchAuthor).toContain('publicAvatarUrl');
     expect(fetchAuthor.toLowerCase()).not.toContain('author.email');
   });
 });
