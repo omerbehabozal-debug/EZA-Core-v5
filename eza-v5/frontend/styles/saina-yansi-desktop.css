@@ -968,6 +968,13 @@
     overflow: visible;
   }
 
+  /* Pull first message block closer to identity — composer anchor unchanged */
+  .saina-app-root.saina-standalone-shell
+    .saina-main-body:not(.saina-main-body--empty)
+    .saina-chat-scroll-region {
+    margin-top: -4.375rem;
+  }
+
   .saina-app-root.saina-standalone-shell .saina-chat-bottom-anchor,
   .saina-app-root.saina-standalone-shell .saina-composer-zone,
   .saina-app-root.saina-standalone-shell .saina-standalone-composer {
@@ -1029,7 +1036,7 @@
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
-    gap: 18px;
+    gap: 17px;
     text-align: left;
     position: relative;
     z-index: 1;
@@ -1039,8 +1046,8 @@
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
     position: relative;
     flex: 0 0 auto;
-    width: 84px;
-    height: 84px;
+    width: 62px;
+    height: 62px;
     display: grid;
     place-items: center;
     overflow: visible;
@@ -1051,11 +1058,38 @@
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__face {
     position: relative;
     z-index: 1;
-    width: 84px;
-    height: 84px;
+    width: 62px;
+    height: 62px;
     overflow: visible;
-    border-radius: 999px;
+    border-radius: 50%;
     box-shadow: inset 0 0 0 1px rgba(232, 226, 215, 0.16);
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark .bilign-avatar-identity-frame--hero {
+    width: 62px;
+    height: 62px;
+    flex: 0 0 62px;
+  }
+
+  .saina-app-root.saina-standalone-shell
+    .bilign-yansi-identity__mark
+    .bilign-avatar-identity-frame--hero
+    .bilign-avatar-identity-frame__avatar,
+  .saina-app-root.saina-standalone-shell
+    .bilign-yansi-identity__mark
+    .bilign-avatar-identity-frame--hero
+    .bilign-avatar-identity-frame__avatar
+    > * {
+    width: 62px;
+    height: 62px;
+  }
+
+  .saina-app-root.saina-standalone-shell
+    .bilign-yansi-identity__mark
+    .bilign-avatar-identity-frame--hero
+    .bilign-avatar-identity-polygons {
+    width: 71px;
+    height: 71px;
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__copy {
@@ -1071,14 +1105,14 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.55rem;
+    gap: 0.5625rem;
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__name {
     margin: 0;
     color: #e8e2d7;
-    font-size: clamp(26px, 1.7vw, 30px);
-    font-weight: 500;
+    font-size: clamp(25px, 1.6vw, 27px);
+    font-weight: 600;
     letter-spacing: -0.03em;
     line-height: 1.1;
     text-shadow:
@@ -1087,12 +1121,19 @@
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity .bilign-honorific {
-    font-size: 13px;
+    font-size: 12px;
+    font-weight: 450;
+    color: var(--bilign-passive);
+  }
+
+  .saina-app-root.saina-standalone-shell .bilign-yansi-identity .bilign-honorific--bilgin {
+    color: rgba(200, 149, 79, 0.68);
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity .bilign-honorific__mark {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
+    opacity: 0.82;
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__glyph {
