@@ -54,6 +54,7 @@ describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
 
   it('defines Stage 4 editorial reading-plane measure and in-zone scroll height', () => {
     expect(css).toContain('clamp(340px, 46vh, 540px)');
+    expect(css).toContain('--saina-identity-chat-breath');
     expect(css).toContain('min(650px, 100%)');
     expect(css).toContain('blur(20px) saturate(70%)');
     expect(css).toContain('--saina-reading-atmosphere-width');
