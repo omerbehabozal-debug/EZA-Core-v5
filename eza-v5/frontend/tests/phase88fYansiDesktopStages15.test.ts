@@ -179,11 +179,11 @@ describe('Phase 8.8F Stage A Yansı-first composition', () => {
 
   it('places Yansı identity in the scene and pins conversation to the lower reading zone', () => {
     const frameCss = read('styles/bilign-avatar-identity-frame.css');
-    expect(css).toContain('clamp(1.55rem, 1.65vw, 1.7rem)');
-    expect(css).toContain('clamp(1.35rem, 1.6vw, 1.75rem)');
+    expect(css).toContain('--saina-hero-identity-scale: 1.484');
+    expect(css).toContain('clamp(28px, 1.87vw, 33px)');
+    expect(css).toContain('clamp(18px, 1.37vw, 22px)');
     expect(css).toContain('bilign-yansi-identity__meta');
-    expect(css).toContain('width: 92px');
-    expect(css).toContain('width: 105px');
+    expect(css).toContain('calc(62px * var(--saina-hero-identity-scale))');
     expect(css).toContain('-webkit-line-clamp: 2');
     expect(css).toContain('margin-top: auto');
     expect(css).toContain('justify-content: flex-start');

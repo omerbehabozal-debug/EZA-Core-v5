@@ -119,9 +119,10 @@ describe('identity frame sizing tokens', () => {
     );
     expect(css).toMatch(/\.bilign-avatar-identity-frame--profile[\s\S]*width:\s*83px/);
     expect(css).toMatch(/\.bilign-avatar-identity-frame--mobile[\s\S]*width:\s*76px/);
-    expect(desktop).toMatch(/\.bilign-yansi-identity__mark[\s\S]*width:\s*92px/);
+    expect(desktop).toMatch(/\.bilign-yansi-identity__mark[\s\S]*--saina-hero-identity-scale/);
+    expect(desktop).toMatch(/calc\(62px \* var\(--saina-hero-identity-scale\)\)/);
     expect(desktop).toMatch(
-      /\.bilign-avatar-identity-polygons[\s\S]*width:\s*105px/
+      /calc\(71px \* var\(--saina-hero-identity-scale\)\)/
     );
     expect(desktop).toMatch(/\.bilign-yansi-identity__mark[\s\S]*display:\s*grid/);
     expect(css).not.toContain('bilign-avatar-orbit');
