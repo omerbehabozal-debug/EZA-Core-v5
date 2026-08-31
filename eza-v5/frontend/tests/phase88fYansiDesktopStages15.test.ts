@@ -145,7 +145,8 @@ describe('Phase 8.8F Stage 9 isolation', () => {
     expect(css).toContain('Shared biligN sidebar + tokens apply from mobile up');
     expect(css).toContain('.bilign-yansi-identity__mark');
     expect(css).toContain('.bilign-yansi-identity__name-row');
-    expect(css).toMatch(/\.bilign-yansi-identity__name-row \{\s*display: none;/);
+    expect(css).toContain('.bilign-yansi-identity__meta');
+    expect(css).toMatch(/bilign-yansi-identity__name-row[\s\S]*bilign-yansi-identity__meta[\s\S]*display:\s*none;/);
     expect(css).toContain('@media (max-width: 899px)');
   });
 });
@@ -178,14 +179,17 @@ describe('Phase 8.8F Stage A Yansı-first composition', () => {
 
   it('places Yansı identity in the scene and pins conversation to the lower reading zone', () => {
     const frameCss = read('styles/bilign-avatar-identity-frame.css');
-    expect(css).toContain('clamp(19px, 1.26vw, 22px)');
-    expect(css).toContain('clamp(12px, 0.92vw, 15px)');
-    expect(css).toContain('width: 62px');
+    expect(css).toContain('clamp(1.55rem, 1.65vw, 1.7rem)');
+    expect(css).toContain('clamp(1.35rem, 1.6vw, 1.75rem)');
+    expect(css).toContain('bilign-yansi-identity__meta');
+    expect(css).toContain('width: 92px');
+    expect(css).toContain('width: 105px');
     expect(css).toContain('-webkit-line-clamp: 2');
     expect(css).toContain('margin-top: auto');
     expect(css).toContain('justify-content: flex-start');
     expect(frameCss).toContain('width: 84px');
     expect(hero).toContain('BilignAvatarIdentityFrame');
+    expect(hero).toContain('bilign-yansi-identity__meta');
     expect(hero).not.toContain('planLabel');
   });
 
@@ -326,7 +330,7 @@ describe('Phase 8.8F Stage B sidebar fade + reading plane refinement', () => {
     expect(css).toContain('--saina-reading-smoke-peak');
     expect(css).toContain('--saina-chat-text-measure: min(650px, 100%)');
     expect(css).toContain('radial-gradient');
-    expect(css).toContain('rgba(5, 7, 7, 0.28)');
+    expect(css).toContain('rgba(5, 7, 7, 0.34)');
     expect(css).toContain('inset: 0');
     expect(css).not.toMatch(/saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*mask-image/);
     expect(css).toContain('backdrop-filter: none !important');

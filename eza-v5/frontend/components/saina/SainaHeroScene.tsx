@@ -15,6 +15,10 @@ type SainaHeroSceneProps = {
   userId?: string | null;
   avatarUrl?: string | null;
   avatarCacheBust?: number | string;
+  /** Compact time label for hero metadata row (server-known timestamp). */
+  metaTimeLabel?: string | null;
+  /** Product-authoritative content type (e.g. Yeni sohbet, Yansı). */
+  metaTypeLabel?: string | null;
 };
 
 /**
@@ -29,9 +33,14 @@ export default function SainaHeroScene({
   userId = null,
   avatarUrl = null,
   avatarCacheBust,
+  metaTimeLabel = null,
+  metaTypeLabel = null,
 }: SainaHeroSceneProps) {
   const name = displayName?.trim() || SAINA_MENU_GUEST_LABEL;
   const showHonorific = Boolean(honorificLabel);
+  const timeLabel = metaTimeLabel?.trim() || '';
+  const typeLabel = metaTypeLabel?.trim() || '';
+  const showMeta = Boolean(timeLabel || typeLabel);
 
   return (
     <section
@@ -65,6 +74,22 @@ export default function SainaHeroScene({
             />
           ) : null}
         </div>
+        {showMeta ? (
+          <p className="bilign-yansi-identity__meta" data-testid="saina-yansi-identity-meta">
+            {timeLabel ? (
+              <span data-testid="saina-yansi-identity-meta-time">{timeLabel}</span>
+            ) : null}
+            {timeLabel && typeLabel ? (
+              <span className="bilign-yansi-identity__meta-sep" aria-hidden="true">
+                {' '}
+                ·{' '}
+              </span>
+            ) : null}
+            {typeLabel ? (
+              <span data-testid="saina-yansi-identity-meta-type">{typeLabel}</span>
+            ) : null}
+          </p>
+        ) : null}
         <h1 className="saina-hero-title">{title}</h1>
       </div>
     </section>

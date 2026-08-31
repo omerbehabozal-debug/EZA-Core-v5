@@ -21,6 +21,7 @@ import {
 } from '@/lib/eza/mirrorMobileState';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
+import type { YansiHeroMeta } from '@/lib/eza/mirror/yansiHeroMeta';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCommandPalette from './SainaCommandPalette';
 import SainaCinematicScene from './SainaCinematicScene';
@@ -32,6 +33,7 @@ import SainaYansiContextRail from './SainaYansiContextRail';
 
 export type SainaStandaloneShellProps = {
   heroTitle: string;
+  heroMeta?: YansiHeroMeta | null;
   isEmpty: boolean;
   messages: ReactNode;
   composer: ReactNode;
@@ -57,6 +59,7 @@ export type SainaStandaloneShellProps = {
 
 function SainaChatSurface({
   heroTitle,
+  heroMeta,
   isEmpty,
   messages,
   composer,
@@ -74,6 +77,7 @@ function SainaChatSurface({
   mirrorMobileContext,
 }: {
   heroTitle: string;
+  heroMeta?: YansiHeroMeta | null;
   isEmpty: boolean;
   messages: ReactNode;
   composer: ReactNode;
@@ -154,6 +158,8 @@ function SainaChatSurface({
             >
               <SainaHeroScene
                 title={heroTitle}
+                metaTimeLabel={heroMeta?.timeLabel}
+                metaTypeLabel={heroMeta?.typeLabel}
                 displayName={displayName}
                 honorificId={honorific?.id ?? null}
                 honorificLabel={honorific?.label ?? null}
@@ -228,6 +234,7 @@ function SainaChatSurface({
 
 export default function SainaStandaloneShell({
   heroTitle,
+  heroMeta,
   isEmpty,
   messages,
   composer,
@@ -274,6 +281,7 @@ export default function SainaStandaloneShell({
   const chatSurface = (
     <SainaChatSurface
       heroTitle={heroTitle}
+      heroMeta={heroMeta}
       isEmpty={isEmpty}
       messages={messages}
       composer={composer}

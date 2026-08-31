@@ -64,6 +64,8 @@ import { rememberActiveGroupExpanded } from '@/lib/eza/conversation-tree/groupEx
 import { trackConversationGroupCreated } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
 import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
+import { resolveYansiHeroMeta } from '@/lib/eza/mirror/yansiHeroMeta';
+import { useConversationYansiStatusMap } from '@/hooks/useConversationYansiStatusMap';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
 import {
@@ -233,9 +235,13 @@ export default function StandaloneChatInner() {
   const onOpenMirror = useSainaChromeStore((state) => state.onOpenMirror);
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   /** Phase 8.7 — guests may draft Journey under guest:{token}; publish still auth-gated. */
   const journeyOwnerId = resolveJourneyOwnerKey(user?.user_id);
+  const yansiStatusByConversationId = useConversationYansiStatusMap(journeyOwnerId, {
+    isAuthenticated,
+    isAuthReady: ready,
+  });
   const [ezaPrefsTick, setEzaPrefsTick] = useState(0);
   useEffect(() => subscribeEzaUserPreferences(() => setEzaPrefsTick((n) => n + 1)), []);
   useEffect(() => {
@@ -1488,6 +1494,16 @@ export default function StandaloneChatInner() {
     return title || SAINA_HERO_DEFAULT_TITLE;
   }, [chatId, messages]);
 
+  const heroMeta = useMemo(() => {
+    if (!chatId) return null;
+    const archived = getChatArchive(chatId);
+    if (!archived?.savedAt) return null;
+    return resolveYansiHeroMeta({
+      savedAt: archived.savedAt,
+      yansiStatus: yansiStatusByConversationId[chatId] ?? 'none',
+    });
+  }, [chatId, messages, yansiStatusByConversationId]);
+
   const mirrorMobileContext = useMemo<MirrorMobileContext>(() => {
     const hasAssistantResponse = messages.some((message) => !message.isUser);
     const hasMirrorSignal = messages.some(
@@ -1578,6 +1594,7 @@ export default function StandaloneChatInner() {
       />
       <SainaStandaloneShell
         heroTitle={heroTitle}
+        heroMeta={heroMeta}
         isEmpty={isEmpty}
         messages={messageList}
         composer={composer}

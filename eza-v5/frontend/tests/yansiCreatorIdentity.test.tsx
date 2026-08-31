@@ -39,7 +39,7 @@ describe('Yansı creator identity resolvers', () => {
 });
 
 describe('SainaHeroScene creator identity', () => {
-  it('renders name, Meraklı, and curiosity without plan or handle', () => {
+  it('renders name, Meraklı, metadata, and curiosity without plan or handle', () => {
     render(
       <SainaHeroScene
         title="Hiç Mardin'de olmadım ama taşlarını merak ettim"
@@ -47,6 +47,8 @@ describe('SainaHeroScene creator identity', () => {
         honorificId="curious"
         honorificLabel="Meraklı"
         userId="user-1"
+        metaTimeLabel="14:32"
+        metaTypeLabel="Yeni sohbet"
       />
     );
     expect(screen.getByTestId('saina-yansi-identity-name')).toHaveTextContent(
@@ -54,6 +56,10 @@ describe('SainaHeroScene creator identity', () => {
     );
     expect(screen.getByTestId('saina-yansi-identity-honorific')).toHaveTextContent(
       'Meraklı'
+    );
+    expect(screen.getByTestId('saina-yansi-identity-meta')).toHaveTextContent('14:32');
+    expect(screen.getByTestId('saina-yansi-identity-meta-type')).toHaveTextContent(
+      'Yeni sohbet'
     );
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       "Hiç Mardin'de olmadım ama taşlarını merak ettim"
@@ -85,5 +91,20 @@ describe('SainaHeroScene creator identity', () => {
     );
     expect(screen.getByTestId('saina-yansi-identity-name')).toHaveTextContent('Misafir');
     expect(screen.queryByTestId('saina-yansi-identity-honorific')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('saina-yansi-identity-meta')).not.toBeInTheDocument();
+  });
+
+  it('renders published Yansı metadata when labels are provided', () => {
+    render(
+      <SainaHeroScene
+        title="Taş evler"
+        displayName="Tarık Ayşe"
+        honorificId="curious"
+        honorificLabel="Meraklı"
+        metaTimeLabel="Dün 21:08"
+        metaTypeLabel="Yansı"
+      />
+    );
+    expect(screen.getByTestId('saina-yansi-identity-meta-type')).toHaveTextContent('Yansı');
   });
 });
