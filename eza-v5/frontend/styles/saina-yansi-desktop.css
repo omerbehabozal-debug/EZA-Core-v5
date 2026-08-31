@@ -1082,6 +1082,10 @@
   /* —— Stage 6 / A: Yansı identity — uniform scale from 62px baseline (×1.484 → 92px) —— */
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity {
     --saina-hero-identity-scale: 1.484;
+    /* Typography stays at pre-scale caption sizes — avatar grows, name does not. */
+    --saina-hero-name-size: clamp(20px, 1.28vw, 23px);
+    --saina-hero-honorific-size: 12px;
+    --saina-hero-honorific-mark: 13px;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -1161,7 +1165,7 @@
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__name {
     margin: 0;
     color: #e8e2d7;
-    font-size: clamp(28px, 1.87vw, 33px);
+    font-size: var(--saina-hero-name-size);
     font-weight: 600;
     letter-spacing: -0.03em;
     line-height: 1.1;
@@ -1194,7 +1198,7 @@
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity .bilign-honorific {
-    font-size: calc(12px * var(--saina-hero-identity-scale));
+    font-size: var(--saina-hero-honorific-size);
     font-weight: 500;
     color: rgba(216, 210, 200, 0.9);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -1205,8 +1209,8 @@
   }
 
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity .bilign-honorific__mark {
-    width: calc(13px * var(--saina-hero-identity-scale));
-    height: calc(13px * var(--saina-hero-identity-scale));
+    width: var(--saina-hero-honorific-mark);
+    height: var(--saina-hero-honorific-mark);
     opacity: 1;
   }
 
