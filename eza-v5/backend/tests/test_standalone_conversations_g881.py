@@ -251,7 +251,7 @@ async def test_list_order_last_message_at(db_session):
 
 
 @pytest.mark.asyncio
-async def test_title_patch_archive_delete(db_session):
+async def test_title_patch_archive_restore_and_delete(db_session):
     user_id = await _seed_user_id()
     created = await upsert_standalone_conversation(
         db_session,
@@ -283,6 +283,20 @@ async def test_title_patch_archive_delete(db_session):
             db_session, user_id=user_id, conversation_id=conv_id
         )
 
+    restored = await patch_standalone_conversation(
+        db_session,
+        user_id=user_id,
+        conversation_id=conv_id,
+        body=StandaloneConversationPatch(archived=False),
+    )
+    assert restored.archived is False
+    listed = await list_standalone_conversations(db_session, user_id=user_id)
+    assert len(listed) == 1
+    detail = await get_standalone_conversation_detail(
+        db_session, user_id=user_id, conversation_id=conv_id
+    )
+    assert detail.id == created.id
+
     await delete_standalone_conversation(
         db_session, user_id=user_id, conversation_id=conv_id
     )
@@ -291,7 +305,7 @@ async def test_title_patch_archive_delete(db_session):
             db_session,
             user_id=user_id,
             conversation_id=conv_id,
-            body=StandaloneConversationPatch(title="X"),
+            body=StandaloneConversationPatch(archived=False),
         )
 
 
@@ -306,7 +320,7 @@ async def test_continuation_lineage_fields_persisted_without_proof(db_session):
             conversationType="continuation",
             sourceYansiSlug="Published-Yansi",
             parentClientConversationId="parent-client-id",
-            treeMetadata={"sourceType": "mirror", "lineageProofToken": "must-not-authorize"},
+            treeMetadata={"sourceType": "mirror", "branchTitle": "Yerel kafeler"},
         ),
     )
     assert created.conversationType == "continuation"

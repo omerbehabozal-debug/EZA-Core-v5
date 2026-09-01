@@ -7,6 +7,7 @@ import uuid
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -46,7 +47,7 @@ class StandaloneConversation(Base):
 
     __tablename__ = "standalone_conversations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(
         UUID(as_uuid=True),
         ForeignKey("production_users.id", ondelete="CASCADE"),
@@ -80,6 +81,10 @@ class StandaloneConversation(Base):
             "client_conversation_id",
             name="uq_standalone_conv_user_client",
         ),
+        CheckConstraint(
+            "conversation_type IN ('direct', 'mirror', 'mirror_branch', 'continuation')",
+            name="ck_standalone_conversations_type",
+        ),
         Index("ix_standalone_conv_user_last_msg", "user_id", "last_message_at"),
         Index("ix_standalone_conv_user_updated", "user_id", "updated_at"),
     )
@@ -90,7 +95,7 @@ class StandaloneConversationMessage(Base):
 
     __tablename__ = "standalone_conversation_messages"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     conversation_id = Column(
         UUID(as_uuid=True),
         ForeignKey("standalone_conversations.id", ondelete="CASCADE"),
@@ -114,5 +119,9 @@ class StandaloneConversationMessage(Base):
             "conversation_id",
             "client_message_id",
             name="uq_standalone_msg_conv_client",
+        ),
+        CheckConstraint(
+            "role IN ('user', 'assistant')",
+            name="ck_standalone_conversation_messages_role",
         ),
     )

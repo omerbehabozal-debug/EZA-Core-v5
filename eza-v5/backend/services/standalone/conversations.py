@@ -26,6 +26,8 @@ from backend.models.standalone_conversations import (
     StandaloneConversation,
     StandaloneConversationMessage,
 )
+from backend.services.standalone.metadata_security import reject_forbidden_metadata
+from backend.services.standalone.persistence_limits import validate_bounded_json
 
 
 class StandaloneConversationNotFoundError(Exception):
@@ -160,6 +162,9 @@ async def upsert_standalone_conversation(
     if body.conversationType not in CONVERSATION_TYPES:
         raise HTTPException(status_code=422, detail="invalid_conversation_type")
 
+    reject_forbidden_metadata(body.treeMetadata, field_name="tree_metadata")
+    validate_bounded_json(body.treeMetadata, field_name="tree_metadata")
+
     client_id = body.clientConversationId.strip()
     if not client_id:
         raise HTTPException(status_code=400, detail="client_conversation_id_required")
@@ -229,9 +234,8 @@ async def patch_standalone_conversation(
     conversation_id: UUID,
     body: StandaloneConversationPatch,
 ) -> StandaloneConversationListItem:
+    # Owned + non-deleted lookup allows archive restore (archived=false).
     conv = await _get_owned_conversation(db, user_id=user_id, conversation_id=conversation_id)
-    if conv.archived_at is not None and body.archived is not True:
-        raise StandaloneConversationNotFoundError()
 
     now = _utcnow()
     if body.title is not None:
@@ -255,6 +259,7 @@ async def delete_standalone_conversation(
     user_id: UUID,
     conversation_id: UUID,
 ) -> None:
+    """Soft-delete tombstone. Future 8.8G-3 import must not resurrect deleted rows."""
     conv = await _get_owned_conversation(db, user_id=user_id, conversation_id=conversation_id)
     now = _utcnow()
     conv.deleted_at = now
@@ -271,6 +276,9 @@ async def append_standalone_message(
 ) -> StandaloneConversationMessageDTO:
     if body.role not in MESSAGE_ROLES:
         raise HTTPException(status_code=422, detail="invalid_message_role")
+
+    reject_forbidden_metadata(body.metadata, field_name="message_metadata")
+    validate_bounded_json(body.metadata, field_name="message_metadata")
 
     client_message_id = body.clientMessageId.strip()
     if not client_message_id:
