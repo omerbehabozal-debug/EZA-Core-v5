@@ -141,13 +141,17 @@ describe('Phase 8.8F Stage 9 isolation', () => {
     expect(css).not.toContain('bilign-profile');
   });
 
-  it('gates desktop layout at 900px while sharing biligN sidebar tokens on mobile', () => {
+  it('gates desktop layout at 900px while applying mobile scene-first parity below breakpoint', () => {
     expect(css).toContain('Shared biligN sidebar + tokens apply from mobile up');
+    expect(css).toContain('Phase 8.8F-M: mobile scene-first Yansı parity');
     expect(css).toContain('.bilign-yansi-identity__mark');
     expect(css).toContain('.bilign-yansi-identity__name-row');
     expect(css).toContain('.bilign-yansi-identity__meta');
-    expect(css).toMatch(/bilign-yansi-identity__name-row[\s\S]*bilign-yansi-identity__meta[\s\S]*display:\s*none;/);
+    expect(css).toMatch(
+      /@media \(max-width: 899px\)[\s\S]*\.bilign-yansi-identity__name-row[\s\S]*display:\s*flex/
+    );
     expect(css).toContain('@media (max-width: 899px)');
+    expect(css).toContain('@media (min-width: 900px)');
   });
 });
 
