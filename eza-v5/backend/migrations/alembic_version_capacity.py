@@ -23,7 +23,7 @@ ALEMBIC_VERSION_TABLE = "alembic_version"
 ALEMBIC_VERSION_COLUMN = "version_num"
 ALEMBIC_VERSION_NUM_LENGTH = 128
 ALEMBIC_DEFAULT_VERSION_NUM_LENGTH = 32
-HEAD_REVISION = "add_user_public_avatar_revision_v1"
+HEAD_REVISION = "add_standalone_conversations_g8811_v1"
 PHASE6_TABLES = (
     "yansi_experience_events",
     "yansi_exposure_events",
