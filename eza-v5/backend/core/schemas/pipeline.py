@@ -65,6 +65,21 @@ class StandaloneRequest(BaseModel):
         max_length=64,
         description="Optional verified continuation proof; measurement only, never required for chat.",
     )
+    serverConversationId: Optional[str] = Field(
+        None,
+        max_length=36,
+        description="Authenticated durable conversation UUID (Phase 8.8G-2).",
+    )
+    clientUserMessageId: Optional[str] = Field(
+        None,
+        max_length=64,
+        description="Idempotent client key for the user turn being generated.",
+    )
+    clientAssistantMessageId: Optional[str] = Field(
+        None,
+        max_length=64,
+        description="Idempotent client key for the assistant turn to persist on completion.",
+    )
     
     @model_validator(mode='before')
     @classmethod

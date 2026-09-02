@@ -295,8 +295,17 @@ async def append_standalone_message(
             )
         except IntegrityError:
             await db.rollback()
+            dup_retry = await db.execute(
+                select(StandaloneConversationMessage).where(
+                    StandaloneConversationMessage.conversation_id == conversation_id,
+                    StandaloneConversationMessage.client_message_id == client_message_id,
+                )
+            )
+            existing = dup_retry.scalar_one_or_none()
+            if existing is not None:
+                return _message_to_dto(existing)
             if attempt >= 2:
-                raise
+                break
     raise HTTPException(status_code=409, detail="message_append_conflict")
 
 

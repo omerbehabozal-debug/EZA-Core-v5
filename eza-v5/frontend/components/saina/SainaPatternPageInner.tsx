@@ -24,6 +24,8 @@ import { useRelationshipMapAccess } from '@/lib/eza/plan/useRelationshipMapAcces
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
 import { usePlan } from '@/lib/eza/plan/usePlan';
+import { useAuthenticatedConversationBootstrap } from '@/hooks/useAuthenticatedConversationBootstrap';
+import { deleteServerBackedConversation } from '@/lib/eza/serverConversationStore';
 import {
   DEFAULT_ANALYSIS_MODEL_ID,
   readStoredAnalysisModel,
@@ -59,12 +61,17 @@ export default function SainaPatternPageInner() {
     getEzaUserPreferences(ownerUserId)
   );
   const [isEzaActivating, setIsEzaActivating] = useState(false);
+  const { isServerBacked, serverSummaries } = useAuthenticatedConversationBootstrap();
 
   const ezaEnabled = isEzaEnabled(ezaPrefs);
 
   const refreshArchives = useCallback(() => {
-    setArchives(listChatArchives());
-  }, []);
+    if (isServerBacked) {
+      setArchives(serverSummaries);
+    } else {
+      setArchives(listChatArchives());
+    }
+  }, [isServerBacked, serverSummaries]);
 
   useEffect(() => {
     setConversationMirrorEntries([], null);
@@ -166,16 +173,25 @@ export default function SainaPatternPageInner() {
   const executeDeleteChat = useCallback(
     (id: string) => {
       const archive = getChatArchive(id);
-      if (!archive) return;
+      if (!archive && !isServerBacked) return;
 
       const wasActive = readActiveChatId() === id;
-      deleteChatArchive(id);
+      if (isServerBacked) {
+        void deleteServerBackedConversation(id).finally(() => {
+          deleteChatArchive(id);
+          if (wasActive) {
+            router.push(resolveChatRouteAfterDelete(), { scroll: false });
+          }
+        });
+        return;
+      }
 
+      deleteChatArchive(id);
       if (wasActive) {
         router.push(resolveChatRouteAfterDelete(), { scroll: false });
       }
     },
-    [router]
+    [router, isServerBacked]
   );
 
   const { requestDelete, deleteModal } = useSainaDeleteChatModal({
@@ -184,7 +200,7 @@ export default function SainaPatternPageInner() {
 
   const handleDeleteChat = useCallback(
     (id: string) => {
-      if (!getChatArchive(id)) return;
+      if (!getChatArchive(id) && !isServerBacked) return;
       requestDelete(id);
     },
     [requestDelete]

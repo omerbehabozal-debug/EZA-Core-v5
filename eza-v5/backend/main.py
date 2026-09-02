@@ -42,6 +42,12 @@ from backend.services.mirror.mirror_scene_asset_config import (
 )
 from backend.api.pipeline_runner import run_full_pipeline
 from backend.api.streaming import stream_standalone_response
+from backend.services.standalone.generation_persistence import (
+    GenerationPersistenceContext,
+    persist_assistant_turn_after_generation,
+    persist_user_turn_before_generation,
+    try_resolve_generation_persistence,
+)
 from backend.core.schemas.pipeline import (
     PipelineResponse, StandaloneRequest, ProxyRequest, ProxyLiteRequest
 )
@@ -477,6 +483,14 @@ async def standalone_endpoint(
         credentials=credentials,
     )
 
+    persistence = try_resolve_generation_persistence(request, credentials)
+    if persistence is not None:
+        await persist_user_turn_before_generation(
+            db,
+            persistence,
+            content=request.query_value,
+        )
+
     chat_history = (
         [{"role": h.role, "content": h.content} for h in request.history]
         if request.history
@@ -490,6 +504,28 @@ async def standalone_endpoint(
         analysis_model=request.model,
         chat_history=chat_history,
     )
+
+    if persistence is not None and result.ok:
+        assistant_text = ""
+        if result.data:
+            assistant_text = (
+                result.data.get("safe_answer")
+                or result.data.get("assistant_answer")
+                or ""
+            )
+        if isinstance(assistant_text, str) and assistant_text.strip():
+            persisted = await persist_assistant_turn_after_generation(
+                db,
+                persistence,
+                content=assistant_text,
+            )
+            if persisted is not None and result.data is not None:
+                result.data["conversationPersistence"] = {
+                    "userMessageId": persistence.client_user_message_id,
+                    "assistantMessageId": persistence.client_assistant_message_id,
+                    "assistantSequence": persisted.sequence,
+                }
+
     return result
 
 
@@ -534,6 +570,14 @@ async def standalone_stream_endpoint(
         credentials=credentials,
     )
 
+    persistence = try_resolve_generation_persistence(request, credentials)
+    if persistence is not None:
+        await persist_user_turn_before_generation(
+            db,
+            persistence,
+            content=request.query_value,
+        )
+
     chat_history = (
         [{"role": h.role, "content": h.content} for h in request.history]
         if request.history
@@ -551,6 +595,7 @@ async def standalone_stream_endpoint(
             db_session=db,
             analysis_model=request.model,
             chat_history=chat_history,
+            persistence=persistence,
         ),
         media_type="text/event-stream",
         headers={

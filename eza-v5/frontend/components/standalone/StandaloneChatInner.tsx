@@ -113,6 +113,7 @@ import {
   pruneEmptyChats,
   resolveChatRouteAfterDelete,
   saveStandaloneChat,
+  upsertChatArchive,
   writeActiveChatId,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
@@ -176,6 +177,13 @@ import {
 } from '@/lib/standaloneModels';
 import { buildChatHistoryPayload } from '@/lib/standaloneChatHistory';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
+import { useAuthenticatedConversationBootstrap } from '@/hooks/useAuthenticatedConversationBootstrap';
+import {
+  buildGenerationPersistencePayload,
+  deleteServerBackedConversation,
+  ensureServerConversation,
+  fetchServerConversationDetail,
+} from '@/lib/eza/serverConversationStore';
 import type { MirrorMobileContext } from '@/lib/eza/mirrorMobileState';
 
 interface Message {
@@ -236,6 +244,7 @@ export default function StandaloneChatInner() {
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
   const { user, isAuthenticated } = useAuth();
+  const { isServerBacked, serverSummaries } = useAuthenticatedConversationBootstrap();
   /** Phase 8.7 — guests may draft Journey under guest:{token}; publish still auth-gated. */
   const journeyOwnerId = resolveJourneyOwnerKey(user?.user_id);
   const yansiStatusByConversationId = useConversationYansiStatusMap(journeyOwnerId, {
@@ -321,8 +330,16 @@ export default function StandaloneChatInner() {
   }, [cancelPendingAutosave, resetStream, setConversationMirrorEntries]);
 
   const loadChatIntoState = useCallback(
-    (id: string) => {
-      const chat = getChatArchive(id);
+    async (id: string) => {
+      let chat = getChatArchive(id);
+      if (isServerBacked) {
+        try {
+          const serverChat = await fetchServerConversationDetail(id);
+          if (serverChat) chat = serverChat;
+        } catch {
+          /* fall back to local cache if server fetch fails */
+        }
+      }
       if (!chat) return false;
       skipAutosaveRef.current = true;
       resetStream();
@@ -336,7 +353,7 @@ export default function StandaloneChatInner() {
       }, 0);
       return true;
     },
-    [resetStream]
+    [resetStream, isServerBacked]
   );
 
   /**
@@ -386,11 +403,15 @@ export default function StandaloneChatInner() {
       }, 0);
     };
 
-    if (chatIdFromUrl && getChatArchive(chatIdFromUrl)) {
+    if (chatIdFromUrl && (getChatArchive(chatIdFromUrl) || isServerBacked)) {
       pruneEmptyChats(chatIdFromUrl);
-      loadChatIntoState(chatIdFromUrl);
-      setReady(true);
-      enableUrlSync();
+      void loadChatIntoState(chatIdFromUrl).then((loaded) => {
+        if (!loaded && !isServerBacked) {
+          router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
+        }
+        setReady(true);
+        enableUrlSync();
+      });
       return;
     }
 
@@ -414,7 +435,7 @@ export default function StandaloneChatInner() {
     router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
     setReady(true);
     enableUrlSync();
-  }, [ready, chatIdFromUrl, router, loadChatIntoState, startDraft, searchParams]);
+  }, [ready, chatIdFromUrl, router, loadChatIntoState, startDraft, searchParams, isServerBacked]);
 
   useEffect(() => {
     if (!ready || !urlSyncEnabledRef.current || !chatIdFromUrl) return;
@@ -425,10 +446,11 @@ export default function StandaloneChatInner() {
       flushSave(prevId, messagesRef.current);
     }
 
-    if (loadChatIntoState(chatIdFromUrl)) return;
-
-    // Arşivde olmayan (silinmiş/eski) ?chat= → Keşfet home.
-    router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
+    void loadChatIntoState(chatIdFromUrl).then((loaded) => {
+      if (!loaded) {
+        router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
+      }
+    });
   }, [chatIdFromUrl, chatId, ready, flushSave, loadChatIntoState, router]);
 
   useEffect(() => {
@@ -463,9 +485,13 @@ export default function StandaloneChatInner() {
   }, [resetStream]);
 
   const refreshArchives = useCallback(() => {
-    setArchives(listChatArchives());
+    if (isServerBacked) {
+      setArchives(serverSummaries);
+    } else {
+      setArchives(listChatArchives());
+    }
     setConversationGroups(listConversationGroups());
-  }, []);
+  }, [isServerBacked, serverSummaries]);
 
   useEffect(() => {
     refreshArchives();
@@ -519,12 +545,23 @@ export default function StandaloneChatInner() {
   const executeDeleteChat = useCallback(
     (id: string) => {
       const archive = getChatArchive(id);
-      if (!archive) return;
+      if (!archive && !isServerBacked) return;
 
       const wasActive = chatId === id;
       if (wasActive) {
         cancelPendingAutosave();
         skipAutosaveRef.current = true;
+      }
+
+      if (isServerBacked) {
+        void deleteServerBackedConversation(id).finally(() => {
+          deleteChatArchive(id);
+          if (wasActive) {
+            resetStateAfterActiveDelete();
+            router.push(resolveChatRouteAfterDelete(), { scroll: false });
+          }
+        });
+        return;
       }
 
       deleteChatArchive(id);
@@ -539,6 +576,7 @@ export default function StandaloneChatInner() {
       router,
       cancelPendingAutosave,
       resetStateAfterActiveDelete,
+      isServerBacked,
     ]
   );
 
@@ -844,8 +882,24 @@ export default function StandaloneChatInner() {
 
   const handleSend = async (text: string) => {
     // Lazy creation: ilk mesajda arşiv kaydını burada oluştur.
-    if (!chatId) {
+    let activeChatId = chatId;
+    if (!activeChatId) {
       const newId = createStandaloneChat();
+      if (isServerBacked) {
+        try {
+          const server = await ensureServerConversation({
+            clientConversationId: newId,
+            conversationType: 'direct',
+          });
+          const existing = getChatArchive(newId);
+          if (existing) {
+            upsertChatArchive({ ...existing, serverConversationId: server.id });
+          }
+        } catch {
+          /* local cache remains; persistence will retry on next send */
+        }
+      }
+      activeChatId = newId;
       skipAutosaveRef.current = false;
       setChatId(newId);
       router.replace(`/standalone?chat=${newId}`, { scroll: false });
@@ -879,9 +933,27 @@ export default function StandaloneChatInner() {
       return;
     }
 
-    const chatHistory = buildChatHistoryPayload(messages);
+    const resolvedChatId = activeChatId ?? chatId;
+    const activeChat = resolvedChatId ? getChatArchive(resolvedChatId) : null;
 
-    const activeChat = chatId ? getChatArchive(chatId) : null;
+    if (isServerBacked && resolvedChatId && !activeChat?.serverConversationId) {
+      try {
+        const server = await ensureServerConversation({
+          clientConversationId: resolvedChatId,
+          conversationType: activeChat?.mirrorOrigin ? 'continuation' : 'direct',
+          sourceYansiSlug: activeChat?.mirrorOrigin?.startedFromMirrorId,
+          groupId: activeChat?.groupId ?? undefined,
+        });
+        const existing = getChatArchive(resolvedChatId);
+        if (existing) {
+          upsertChatArchive({ ...existing, serverConversationId: server.id });
+        }
+      } catch {
+        /* persistence retried on next send */
+      }
+    }
+
+    const chatHistory = buildChatHistoryPayload(messages);
     const lineageProofTokenForSend = resolveLineageProofToken(activeChat);
     const isGuestMirrorSession = Boolean(activeChat?.mirrorOrigin?.isGuestSession);
     const priorUserMessages = messages.filter((m) => m.isUser).length;
@@ -942,6 +1014,16 @@ export default function StandaloneChatInner() {
         }
         if (chatHistory.length > 0) {
           streamBody.history = chatHistory;
+        }
+        if (isServerBacked && resolvedChatId) {
+          const persistence = buildGenerationPersistencePayload(
+            resolvedChatId,
+            userMessageId,
+            assistantMessageId
+          );
+          if (persistence) {
+            Object.assign(streamBody, persistence);
+          }
         }
         const result = await startStream('/api/standalone/stream', streamBody,
           {
@@ -1098,6 +1180,23 @@ export default function StandaloneChatInner() {
         
         // Use normal endpoint
         const { apiClient } = await import('@/lib/apiClient');
+        const fallbackBody: Record<string, unknown> = {
+          query: text,
+          safe_only: safeOnlyMode,
+          model: analysisModelId,
+          ...(chatHistory.length > 0 ? { history: chatHistory } : {}),
+          ...(lineageProofTokenForSend ? { lineageProofToken: lineageProofTokenForSend } : {}),
+        };
+        if (isServerBacked && resolvedChatId) {
+          const persistence = buildGenerationPersistencePayload(
+            resolvedChatId,
+            userMessageId,
+            assistantMessageId
+          );
+          if (persistence) {
+            Object.assign(fallbackBody, persistence);
+          }
+        }
         const response = await apiClient.post<{
           assistant_answer?: string;
           user_score?: number;
@@ -1106,13 +1205,7 @@ export default function StandaloneChatInner() {
           mode?: string;
           safety?: string;
         }>('/api/standalone', {
-          body: {
-            query: text,
-            safe_only: safeOnlyMode,
-            model: analysisModelId,
-            ...(chatHistory.length > 0 ? { history: chatHistory } : {}),
-            ...(lineageProofTokenForSend ? { lineageProofToken: lineageProofTokenForSend } : {}),
-          },
+          body: fallbackBody,
           auth: hasSainaAuthToken(),
           headers: quotaHeaders,
         });

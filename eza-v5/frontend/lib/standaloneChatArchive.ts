@@ -72,6 +72,8 @@ export interface MirrorConversationOrigin {
 
 export interface ArchivedChat {
   id: string;
+  /** Server UUID when conversation is authenticated + durable (Phase 8.8G-2). */
+  serverConversationId?: string;
   title: string;
   preview: string;
   savedAt: string;
@@ -94,6 +96,7 @@ export interface ArchivedChat {
 export type ArchivedChatSummary = Pick<
   ArchivedChat,
   | 'id'
+  | 'serverConversationId'
   | 'title'
   | 'preview'
   | 'savedAt'
@@ -324,6 +327,7 @@ function resolveTreeMetadata(chat: ArchivedChat): ConversationTreeMetadata | und
 function toSummary(chat: ArchivedChat): ArchivedChatSummary {
   return {
     id: chat.id,
+    serverConversationId: chat.serverConversationId,
     title: chat.title,
     preview: chat.preview,
     savedAt: chat.savedAt,
@@ -377,6 +381,9 @@ function buildChatEntry(id: string, messages: ArchivedChatMessage[]): ArchivedCh
 
   return {
     id,
+    ...(existing?.serverConversationId
+      ? { serverConversationId: existing.serverConversationId }
+      : {}),
     title,
     preview,
     savedAt: new Date().toISOString(),
@@ -443,6 +450,7 @@ export type CreateStandaloneChatOptions = {
   treeMetadata?: ConversationTreeMetadata;
   title?: string;
   idPrefix?: string;
+  serverConversationId?: string;
 };
 
 export function createStandaloneChat(options?: CreateStandaloneChatOptions): string {
@@ -450,6 +458,9 @@ export function createStandaloneChat(options?: CreateStandaloneChatOptions): str
   const groupId = options?.groupId ?? options?.treeMetadata?.groupId ?? null;
   const entry: ArchivedChat = {
     id,
+    ...(options?.serverConversationId
+      ? { serverConversationId: options.serverConversationId }
+      : {}),
     title: options?.title?.trim() || 'Yeni sohbet',
     preview: '',
     savedAt: new Date().toISOString(),
@@ -552,6 +563,15 @@ export function renameChat(id: string, title: string): void {
   if (idx === -1) return;
   list[idx] = { ...list[idx], title: trimmed, titlePinned: true };
   writeAll(list);
+  if (typeof window !== 'undefined') {
+    void import('@/lib/eza/serverConversationStore').then(
+      ({ getServerIdForClientChat, renameServerBackedConversation }) => {
+        if (getServerIdForClientChat(id)) {
+          void renameServerBackedConversation(id, trimmed);
+        }
+      }
+    );
+  }
 }
 
 export function getChatArchive(id: string): ArchivedChat | null {
