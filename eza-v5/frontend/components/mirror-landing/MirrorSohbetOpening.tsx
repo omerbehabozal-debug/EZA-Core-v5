@@ -124,7 +124,7 @@ export default function MirrorSohbetOpening({
   return (
     <div
       className={cn(
-        'mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col bg-[#0c0b0a] text-[#f4f0e8]',
+        'mx-0 flex min-h-[100dvh] w-full max-w-none flex-col bg-[#090b0b] text-[#f4f0e8] min-[900px]:mx-auto min-[900px]:max-w-lg',
         className
       )}
       data-mirror-sohbet

@@ -1,0 +1,39 @@
+/**
+ * Phase 8.8F-M.1 — public mirror (/m/*) mobile scene-first parity.
+ * Scoped to mirror landing + sohbet opening; does not affect standalone shell.
+ */
+
+@media (max-width: 899px) {
+  [data-mirror-landing-layout] {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    min-height: 100dvh;
+    background: #090b0b;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  [data-mirror-landing],
+  [data-mirror-sohbet] {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    min-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #090b0b;
+  }
+}
+
+@media (min-width: 900px) {
+  [data-mirror-landing],
+  [data-mirror-sohbet] {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 32rem;
+  }
+}
