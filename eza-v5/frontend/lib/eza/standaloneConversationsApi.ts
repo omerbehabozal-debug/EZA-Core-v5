@@ -127,6 +127,7 @@ export type LegacyMigrationStatus =
   | 'already_server_authoritative'
   | 'tombstoned'
   | 'rejected_invalid'
+  | 'empty_transcript'
   | 'failed_retryable';
 
 export type LegacyMigrationMessagePayload = {

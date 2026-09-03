@@ -25,6 +25,7 @@ LegacyMigrationStatus = Literal[
     "already_server_authoritative",
     "tombstoned",
     "rejected_invalid",
+    "empty_transcript",
     "failed_retryable",
 ]
 

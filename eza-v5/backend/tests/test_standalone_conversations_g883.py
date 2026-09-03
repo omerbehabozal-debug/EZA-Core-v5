@@ -427,3 +427,208 @@ def test_oversized_batch_rejected_http(authenticated_api_client):
         headers=headers,
     )
     assert res.status_code == 422
+
+@pytest.mark.asyncio
+async def test_duplicate_explicit_client_message_id_rejected(db_session):
+    user_id = uuid.uuid4()
+    conv = LegacyMigrationConversation(
+        clientConversationId='chat-dup-id',
+        title='Dup',
+        messages=[
+            LegacyMigrationMessage(
+                clientMessageId='same-id',
+                role='user',
+                content='A',
+                ordinal=0,
+            ),
+            LegacyMigrationMessage(
+                clientMessageId='same-id',
+                role='assistant',
+                content='B',
+                ordinal=1,
+            ),
+        ],
+    )
+    res = await migrate_legacy_conversations(
+        db_session,
+        user_id=user_id,
+        request=LegacyMigrationRequest(conversations=[conv]),
+    )
+    assert res.results[0].status == 'rejected_invalid'
+    assert res.results[0].reason == 'duplicate_client_message_id'
+    rows = await db_session.execute(select(StandaloneConversation))
+    assert rows.scalars().all() == []
+    msgs = await db_session.execute(select(StandaloneConversationMessage))
+    assert msgs.scalars().all() == []
+
+
+@pytest.mark.asyncio
+async def test_duplicate_same_content_explicit_id_rejected(db_session):
+    user_id = uuid.uuid4()
+    conv = LegacyMigrationConversation(
+        clientConversationId='chat-dup-same',
+        title='DupSame',
+        messages=[
+            LegacyMigrationMessage(
+                clientMessageId='same-id',
+                role='user',
+                content='A',
+                ordinal=0,
+            ),
+            LegacyMigrationMessage(
+                clientMessageId='same-id',
+                role='user',
+                content='A',
+                ordinal=1,
+            ),
+        ],
+    )
+    res = await migrate_legacy_conversations(
+        db_session,
+        user_id=user_id,
+        request=LegacyMigrationRequest(conversations=[conv]),
+    )
+    assert res.results[0].status == 'rejected_invalid'
+    assert res.results[0].reason == 'duplicate_client_message_id'
+
+
+@pytest.mark.asyncio
+async def test_server_wins_before_local_duplicate_invalid(db_session):
+    user_id = uuid.uuid4()
+    created = await upsert_standalone_conversation(
+        db_session,
+        user_id=user_id,
+        body=StandaloneConversationCreate(
+            clientConversationId='chat-server-first',
+            title='Server OK',
+        ),
+    )
+    await append_standalone_message(
+        db_session,
+        user_id=user_id,
+        conversation_id=uuid.UUID(created.id),
+        body=StandaloneConversationMessageCreate(
+            clientMessageId='srv-u1',
+            role='user',
+            content='Server only',
+        ),
+    )
+    conv = LegacyMigrationConversation(
+        clientConversationId='chat-server-first',
+        title='Local bad',
+        messages=[
+            LegacyMigrationMessage(
+                clientMessageId='dup',
+                role='user',
+                content='A',
+                ordinal=0,
+            ),
+            LegacyMigrationMessage(
+                clientMessageId='dup',
+                role='assistant',
+                content='B',
+                ordinal=1,
+            ),
+        ],
+    )
+    res = await migrate_legacy_conversations(
+        db_session,
+        user_id=user_id,
+        request=LegacyMigrationRequest(conversations=[conv]),
+    )
+    assert res.results[0].status == 'already_server_authoritative'
+    detail = await get_standalone_conversation_detail(
+        db_session, user_id=user_id, conversation_id=uuid.UUID(created.id)
+    )
+    assert detail.title == 'Server OK'
+    assert len(detail.messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_tombstone_wins_over_local_duplicate_invalid(db_session):
+    user_id = uuid.uuid4()
+    created = await upsert_standalone_conversation(
+        db_session,
+        user_id=user_id,
+        body=StandaloneConversationCreate(clientConversationId='chat-tomb-dup'),
+    )
+    await delete_standalone_conversation(
+        db_session, user_id=user_id, conversation_id=uuid.UUID(created.id)
+    )
+    conv = LegacyMigrationConversation(
+        clientConversationId='chat-tomb-dup',
+        messages=[
+            LegacyMigrationMessage(
+                clientMessageId='x',
+                role='user',
+                content='A',
+                ordinal=0,
+            ),
+            LegacyMigrationMessage(
+                clientMessageId='x',
+                role='assistant',
+                content='B',
+                ordinal=1,
+            ),
+        ],
+    )
+    res = await migrate_legacy_conversations(
+        db_session,
+        user_id=user_id,
+        request=LegacyMigrationRequest(conversations=[conv]),
+    )
+    assert res.results[0].status == 'tombstoned'
+
+
+@pytest.mark.asyncio
+async def test_all_whitespace_messages_empty_transcript(db_session):
+    user_id = uuid.uuid4()
+    conv = LegacyMigrationConversation(
+        clientConversationId='chat-ws',
+        title='Whitespace',
+        messages=[
+            LegacyMigrationMessage(role='user', content='   ', ordinal=0),
+            LegacyMigrationMessage(role='assistant', content='\n\t', ordinal=1),
+        ],
+    )
+    res = await migrate_legacy_conversations(
+        db_session,
+        user_id=user_id,
+        request=LegacyMigrationRequest(conversations=[conv]),
+    )
+    assert res.results[0].status == 'empty_transcript'
+    rows = await db_session.execute(select(StandaloneConversation))
+    assert rows.scalars().all() == []
+
+
+@pytest.mark.asyncio
+async def test_mixed_empty_preserves_original_ordinal_in_ids(db_session):
+    user_id = uuid.uuid4()
+    conv = LegacyMigrationConversation(
+        clientConversationId='chat-mixed-empty',
+        title='Mixed',
+        messages=[
+            LegacyMigrationMessage(role='user', content='Hello', ordinal=0),
+            LegacyMigrationMessage(role='assistant', content='   ', ordinal=1),
+            LegacyMigrationMessage(role='user', content='Question', ordinal=2),
+        ],
+    )
+    res = await migrate_legacy_conversations(
+        db_session,
+        user_id=user_id,
+        request=LegacyMigrationRequest(conversations=[conv]),
+    )
+    assert res.results[0].status == 'migrated'
+    detail = await get_standalone_conversation_detail(
+        db_session,
+        user_id=user_id,
+        conversation_id=uuid.UUID(res.results[0].serverConversationId),
+    )
+    assert [m.content for m in detail.messages] == ['Hello', 'Question']
+    assert [m.sequence for m in detail.messages] == [1, 2]
+    assert detail.messages[0].clientMessageId == deterministic_legacy_message_id(
+        'chat-mixed-empty', 0, 'user', 'Hello'
+    )
+    assert detail.messages[1].clientMessageId == deterministic_legacy_message_id(
+        'chat-mixed-empty', 2, 'user', 'Question'
+    )

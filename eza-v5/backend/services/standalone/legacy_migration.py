@@ -174,11 +174,21 @@ def _result(
 def _build_normalized_messages(
     client_id: str,
     body: LegacyMigrationConversation,
-) -> tuple[Optional[list[tuple[str, str, str, Optional[datetime]]]], Optional[str]]:
+) -> tuple[
+    Optional[list[tuple[str, str, str, Optional[datetime]]]],
+    Optional[str],
+]:
+    """
+    Returns (normalized_messages, error_reason).
+
+    Empty usable transcript returns ([], None) — caller maps to empty_transcript.
+    Duplicate explicit / resolved clientMessageId → error (never silent drop).
+    """
     if len(body.messages) > MAX_LEGACY_MESSAGES_PER_CONVERSATION:
         return None, "message_count_exceeded"
 
     seen_ordinals: set[int] = set()
+    seen_explicit_ids: set[str] = set()
     for msg in body.messages:
         if msg.role not in MESSAGE_ROLES:
             return None, "invalid_message_role"
@@ -188,6 +198,11 @@ def _build_normalized_messages(
         content = (msg.content or "").strip()
         if content and len(content) > MAX_MESSAGE_CONTENT_LENGTH:
             return None, "message_content_exceeded"
+        explicit = (msg.clientMessageId or "").strip()
+        if explicit:
+            if explicit in seen_explicit_ids:
+                return None, "duplicate_client_message_id"
+            seen_explicit_ids.add(explicit)
 
     ordered = sorted(body.messages, key=lambda m: m.ordinal)
     normalized: list[tuple[str, str, str, Optional[datetime]]] = []
@@ -204,7 +219,8 @@ def _build_normalized_messages(
             content=content,
         )
         if mid in seen_ids:
-            continue
+            # Collision after deterministic fallback, or residual ID clash.
+            return None, "duplicate_client_message_id"
         seen_ids.add(mid)
         normalized.append(
             (mid, msg.role, content, _parse_optional_created_at(msg.createdAt))
@@ -260,6 +276,8 @@ async def _migrate_one_conversation(
     if err is not None:
         return _result(client_id, "rejected_invalid", reason=err)
     assert normalized is not None
+    if len(normalized) == 0:
+        return _result(client_id, "empty_transcript", reason="empty_transcript")
 
     title, title_pinned = _sanitize_title(body.title, title_pinned=body.titlePinned)
     scene_url = _safe_scene_url(body.conversationSceneUrl)
