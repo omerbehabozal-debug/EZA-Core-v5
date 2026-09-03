@@ -178,6 +178,12 @@ import {
 import { buildChatHistoryPayload } from '@/lib/standaloneChatHistory';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
 import { generateMessageClientId } from '@/lib/eza/clientStableIds';
+import {
+  canApplySessionBoundResult,
+  canPersistOwnerBoundAutosave,
+  resolveAuthOwnerKey,
+  shouldInvalidateAuthenticatedChatSession,
+} from '@/lib/eza/authenticatedChatOwnerGuard';
 import { useAuthenticatedConversationBootstrap } from '@/hooks/useAuthenticatedConversationBootstrap';
 import {
   applyPersistenceStatus,
@@ -249,7 +255,7 @@ export default function StandaloneChatInner() {
   const onOpenMirror = useSainaChromeStore((state) => state.onOpenMirror);
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isAuthReady } = useAuth();
   const { isServerBacked, serverSummaries } = useAuthenticatedConversationBootstrap();
   /** Phase 8.7 — guests may draft Journey under guest:{token}; publish still auth-gated. */
   const journeyOwnerId = resolveJourneyOwnerKey(user?.user_id);
@@ -309,6 +315,15 @@ export default function StandaloneChatInner() {
   const chatIdRef = useRef(chatId);
   const chatLoadGenerationRef = useRef(0);
   const activeLoadTargetRef = useRef<string | null>(null);
+  const previousAuthOwnerRef = useRef<string | null | undefined>(undefined);
+  const persistBoundOwnerRef = useRef<string | null | undefined>(undefined);
+  const persistEpochRef = useRef(0);
+  const sessionGenerationRef = useRef(0);
+  const authOwnerKey = resolveAuthOwnerKey({
+    isAuthReady,
+    isAuthenticated,
+    userId: user?.user_id,
+  });
   messagesRef.current = messages;
   chatIdRef.current = chatId;
 
@@ -320,7 +335,22 @@ export default function StandaloneChatInner() {
   }, []);
 
   const flushSave = useCallback((id: string, msgs: Message[]) => {
+    const persistEpochAtStart = persistEpochRef.current;
+    const boundOwner = persistBoundOwnerRef.current;
+    if (
+      !canPersistOwnerBoundAutosave({
+        skipAutosave: skipAutosaveRef.current,
+        persistEpochAtSchedule: persistEpochAtStart,
+        persistEpochNow: persistEpochRef.current,
+        boundOwner,
+        ownerNow: persistBoundOwnerRef.current,
+      })
+    ) {
+      return;
+    }
     if (isChatDeleted(id)) return;
+    if (persistEpochAtStart !== persistEpochRef.current) return;
+    if (boundOwner !== persistBoundOwnerRef.current) return;
     saveStandaloneChat(id, toArchivedMessages(msgs));
   }, []);
 
@@ -344,20 +374,65 @@ export default function StandaloneChatInner() {
     setConversationMirrorEntries([], PENDING_CONVERSATION_MIRROR_ID);
   }, [cancelPendingAutosave, resetStream, setConversationMirrorEntries]);
 
+  useEffect(() => {
+    const previous = previousAuthOwnerRef.current;
+    const next = authOwnerKey;
+    if (!shouldInvalidateAuthenticatedChatSession(previous, next)) {
+      if (next !== undefined) {
+        previousAuthOwnerRef.current = next;
+        persistBoundOwnerRef.current = next;
+      }
+      return;
+    }
+
+    skipAutosaveRef.current = true;
+    persistEpochRef.current += 1;
+    sessionGenerationRef.current += 1;
+    chatLoadGenerationRef.current += 1;
+    activeLoadTargetRef.current = null;
+    persistBoundOwnerRef.current = next;
+    previousAuthOwnerRef.current = next;
+    cancelPendingAutosave();
+    if (assistantScoreTimeoutRef.current) {
+      clearTimeout(assistantScoreTimeoutRef.current);
+      assistantScoreTimeoutRef.current = null;
+    }
+    currentAssistantMessageRef.current = null;
+    resetStream();
+
+    setChatId(null);
+    setMessages([]);
+    setIsLoading(false);
+    setIsTyping(false);
+    setBranchSuggestionVisible(false);
+    setMirrorBirthVisible(false);
+    setConversationMirrorEntries([], PENDING_CONVERSATION_MIRROR_ID);
+  }, [authOwnerKey, cancelPendingAutosave, resetStream, setConversationMirrorEntries]);
+
   const loadChatIntoState = useCallback(
     async (id: string) => {
       const generation = ++chatLoadGenerationRef.current;
+      const loadSessionGeneration = sessionGenerationRef.current;
       activeLoadTargetRef.current = id;
 
       let chat = getChatArchive(id);
       if (isServerBacked) {
         try {
           const serverChat = await fetchServerConversationDetail(id);
+          if (!canApplySessionBoundResult(loadSessionGeneration, sessionGenerationRef.current)) {
+            return false;
+          }
           if (!isLoadTargetCurrent(id, generation)) return false;
           if (serverChat) chat = serverChat;
         } catch {
+          if (!canApplySessionBoundResult(loadSessionGeneration, sessionGenerationRef.current)) {
+            return false;
+          }
           if (!isLoadTargetCurrent(id, generation)) return false;
         }
+      }
+      if (!canApplySessionBoundResult(loadSessionGeneration, sessionGenerationRef.current)) {
+        return false;
       }
       if (!chat || !isLoadTargetCurrent(id, generation)) return false;
       skipAutosaveRef.current = true;
@@ -474,9 +549,22 @@ export default function StandaloneChatInner() {
 
   useEffect(() => {
     if (skipAutosaveRef.current || !chatId || isChatDeleted(chatId)) return;
+    const persistEpochAtSchedule = persistEpochRef.current;
+    const boundOwner = persistBoundOwnerRef.current;
     cancelPendingAutosave();
     autosaveTimerRef.current = window.setTimeout(() => {
       autosaveTimerRef.current = null;
+      if (
+        !canPersistOwnerBoundAutosave({
+          skipAutosave: skipAutosaveRef.current,
+          persistEpochAtSchedule,
+          persistEpochNow: persistEpochRef.current,
+          boundOwner,
+          ownerNow: persistBoundOwnerRef.current,
+        })
+      ) {
+        return;
+      }
       flushSave(chatId, messages);
     }, 400);
     return () => {
@@ -487,7 +575,20 @@ export default function StandaloneChatInner() {
   useEffect(() => {
     return () => {
       const id = chatIdRef.current;
-      if (id && !skipAutosaveRef.current && !isChatDeleted(id)) {
+      const persistEpochAtSchedule = persistEpochRef.current;
+      const boundOwner = persistBoundOwnerRef.current;
+      if (
+        !canPersistOwnerBoundAutosave({
+          skipAutosave: skipAutosaveRef.current,
+          persistEpochAtSchedule,
+          persistEpochNow: persistEpochRef.current,
+          boundOwner,
+          ownerNow: persistBoundOwnerRef.current,
+        })
+      ) {
+        return;
+      }
+      if (id && !isChatDeleted(id)) {
         flushSave(id, messagesRef.current);
       }
     };
@@ -900,6 +1001,10 @@ export default function StandaloneChatInner() {
   }, [accountEntitlements.tier]);
 
   const handleSend = async (text: string) => {
+    const sendSessionGeneration = sessionGenerationRef.current;
+    const isSendSessionActive = () =>
+      canApplySessionBoundResult(sendSessionGeneration, sessionGenerationRef.current);
+
     // Lazy creation: ilk mesajda arşiv kaydını burada oluştur.
     let activeChatId = chatId;
     if (!activeChatId) {
@@ -910,19 +1015,24 @@ export default function StandaloneChatInner() {
             clientConversationId: newId,
             conversationType: 'direct',
           });
+          if (!isSendSessionActive()) return;
           const existing = getChatArchive(newId);
           if (existing) {
             upsertChatArchive({ ...existing, serverConversationId: server.id });
           }
         } catch {
+          if (!isSendSessionActive()) return;
           markConversationUnsynced(newId);
         }
       }
+      if (!isSendSessionActive()) return;
       activeChatId = newId;
       skipAutosaveRef.current = false;
       setChatId(newId);
       router.replace(`/standalone?chat=${newId}`, { scroll: false });
     }
+
+    if (!isSendSessionActive()) return;
 
     if (isMessageLimitReached) {
       showChatLimitMessage();
@@ -963,14 +1073,18 @@ export default function StandaloneChatInner() {
           sourceYansiSlug: activeChat?.mirrorOrigin?.startedFromMirrorId,
           groupId: activeChat?.groupId ?? undefined,
         });
+        if (!isSendSessionActive()) return;
         const existing = getChatArchive(resolvedChatId);
         if (existing) {
           upsertChatArchive({ ...existing, serverConversationId: server.id });
         }
       } catch {
+        if (!isSendSessionActive()) return;
         markConversationUnsynced(resolvedChatId);
       }
     }
+
+    if (!isSendSessionActive()) return;
 
     const chatHistory = buildChatHistoryPayload(messages);
     const lineageProofTokenForSend = resolveLineageProofToken(activeChat);
@@ -1048,6 +1162,7 @@ export default function StandaloneChatInner() {
           {
             headers: quotaHeaders,
             onToken: (token: string) => {
+              if (!isSendSessionActive()) return;
               // Update assistant message with streaming text
               setMessages((prev) =>
                 prev.map((msg) =>
@@ -1062,6 +1177,7 @@ export default function StandaloneChatInner() {
               }
             },
             onDone: (data: any) => {
+              if (!isSendSessionActive()) return;
               setIsTyping(false);
               setIsLoading(false);
 
@@ -1199,12 +1315,14 @@ export default function StandaloneChatInner() {
           throw new Error('empty_stream');
         }
       } catch {
+        if (!isSendSessionActive()) return;
         setIsTyping(false);
         useNormalEndpoint = true;
       }
 
       // Fallback to normal endpoint if streaming failed
       if (useNormalEndpoint) {
+        if (!isSendSessionActive()) return;
         // Remove placeholder assistant message
         setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId));
         
@@ -1239,6 +1357,8 @@ export default function StandaloneChatInner() {
           auth: hasSainaAuthToken(),
           headers: quotaHeaders,
         });
+
+        if (!isSendSessionActive()) return;
 
         if (!response.ok) {
           const detail =
@@ -1394,6 +1514,7 @@ export default function StandaloneChatInner() {
       }
 
     } catch (error: any) {
+      if (!isSendSessionActive()) return;
       // Error already handled in fallback logic above
       setIsTyping(false);
       setIsLoading(false);

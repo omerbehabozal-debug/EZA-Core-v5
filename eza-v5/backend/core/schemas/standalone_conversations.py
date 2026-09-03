@@ -38,6 +38,7 @@ class StandaloneConversationPatch(BaseModel):
     titlePinned: Optional[bool] = None
     pinned: Optional[bool] = None
     archived: Optional[bool] = None
+    initializeTitleOnly: bool = False
 
 
 class StandaloneConversationMessageCreate(BaseModel):

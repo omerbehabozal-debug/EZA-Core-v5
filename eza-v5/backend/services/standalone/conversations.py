@@ -8,7 +8,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,9 @@ from backend.services.standalone.persistence_limits import validate_bounded_json
 
 class StandaloneConversationNotFoundError(Exception):
     """Raised when a conversation is absent or not owned by the caller."""
+
+
+DEFAULT_UNINITIALIZED_TITLE = "Yeni sohbet"
 
 
 def _utcnow() -> datetime:
@@ -234,10 +237,39 @@ async def patch_standalone_conversation(
     conversation_id: UUID,
     body: StandaloneConversationPatch,
 ) -> StandaloneConversationListItem:
+    now = _utcnow()
+
+    if body.initializeTitleOnly:
+        derived = (body.title or "").strip()
+        if not derived:
+            raise HTTPException(status_code=422, detail="title_required")
+        if body.titlePinned is not None or body.pinned is not None or body.archived is not None:
+            raise HTTPException(status_code=422, detail="initialize_title_only_exclusive")
+
+        await db.execute(
+            update(StandaloneConversation)
+            .where(
+                StandaloneConversation.id == conversation_id,
+                StandaloneConversation.user_id == user_id,
+                StandaloneConversation.deleted_at.is_(None),
+                StandaloneConversation.title_pinned.is_(False),
+                or_(
+                    StandaloneConversation.title.is_(None),
+                    StandaloneConversation.title == "",
+                    StandaloneConversation.title == DEFAULT_UNINITIALIZED_TITLE,
+                ),
+            )
+            .values(title=derived, updated_at=now)
+        )
+        await db.commit()
+        conv = await _get_owned_conversation(
+            db, user_id=user_id, conversation_id=conversation_id
+        )
+        return _conversation_to_list_item(conv)
+
     # Owned + non-deleted lookup allows archive restore (archived=false).
     conv = await _get_owned_conversation(db, user_id=user_id, conversation_id=conversation_id)
 
-    now = _utcnow()
     if body.title is not None:
         conv.title = body.title.strip() or None
     if body.titlePinned is not None:

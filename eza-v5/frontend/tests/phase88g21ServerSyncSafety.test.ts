@@ -147,6 +147,7 @@ describe('Phase 8.8G-2.1 server sync safety', () => {
 
     expect(apiMocks.patchServerConversation).toHaveBeenCalledWith('srv-a', {
       title: 'Merhaba dünya nasılsın?',
+      initializeTitleOnly: true,
     });
     expect(getServerConversationSummaries()[0]?.title).toBe('Merhaba dünya nasılsın?');
   });

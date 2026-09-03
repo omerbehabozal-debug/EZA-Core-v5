@@ -318,7 +318,10 @@ export async function persistServerConversationTitleIfNeeded(
   const serverId = getServerIdForClientChat(clientConversationId);
   if (!serverId) return;
 
-  const updated = await patchServerConversation(serverId, { title: derived });
+  const updated = await patchServerConversation(serverId, {
+    title: derived,
+    initializeTitleOnly: true,
+  });
   if (!isAuthorityValid(ownerAtStart, epochAtStart)) return;
   const nextSummary = mapListItemToSummary(updated);
   const idx = state.summaries.findIndex((s) => s.id === clientConversationId);
@@ -327,7 +330,11 @@ export async function persistServerConversationTitleIfNeeded(
   }
   const cached = state.detailCache[clientConversationId];
   if (cached) {
-    state.detailCache[clientConversationId] = { ...cached, title: derived };
+    state.detailCache[clientConversationId] = {
+      ...cached,
+      title: nextSummary.title,
+      titlePinned: nextSummary.titlePinned,
+    };
   }
   emit();
 }

@@ -94,7 +94,13 @@ export async function createServerConversation(
 
 export async function patchServerConversation(
   serverConversationId: string,
-  patch: { title?: string; titlePinned?: boolean; pinned?: boolean; archived?: boolean }
+  patch: {
+    title?: string;
+    titlePinned?: boolean;
+    pinned?: boolean;
+    archived?: boolean;
+    initializeTitleOnly?: boolean;
+  }
 ): Promise<ServerConversationListItem> {
   const res = await apiClient.patch<ServerConversationListItem>(
     `/api/standalone/conversations/${serverConversationId}`,
