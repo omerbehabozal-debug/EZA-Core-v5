@@ -3,6 +3,7 @@
  * Arşiv sayfası yok; yan menüden sekmeye dönünce kaldığın yerden devam.
  */
 
+import { generateChatClientId } from '@/lib/eza/clientStableIds';
 import { touchConversationGroup } from '@/lib/eza/conversation-tree/conversationGroups';
 import type { ConversationTreeMetadata } from '@/lib/eza/conversation-tree/types';
 import {
@@ -454,7 +455,7 @@ export type CreateStandaloneChatOptions = {
 };
 
 export function createStandaloneChat(options?: CreateStandaloneChatOptions): string {
-  const id = `${options?.idPrefix ?? 'chat'}-${Date.now()}`;
+  const id = generateChatClientId(options?.idPrefix ?? 'chat');
   const groupId = options?.groupId ?? options?.treeMetadata?.groupId ?? null;
   const entry: ArchivedChat = {
     id,

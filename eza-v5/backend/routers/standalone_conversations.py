@@ -129,6 +129,11 @@ async def append_message(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ) -> StandaloneConversationMessageDTO:
+    if body.role == "assistant":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="assistant_append_not_allowed",
+        )
     try:
         return await append_standalone_message(
             db,

@@ -44,6 +44,7 @@ from backend.api.pipeline_runner import run_full_pipeline
 from backend.api.streaming import stream_standalone_response
 from backend.services.standalone.generation_persistence import (
     GenerationPersistenceContext,
+    build_completion_persistence_status,
     persist_assistant_turn_after_generation,
     persist_user_turn_before_generation,
     try_resolve_generation_persistence,
@@ -505,26 +506,35 @@ async def standalone_endpoint(
         chat_history=chat_history,
     )
 
-    if persistence is not None and result.ok:
-        assistant_text = ""
-        if result.data:
-            assistant_text = (
-                result.data.get("safe_answer")
-                or result.data.get("assistant_answer")
-                or ""
-            )
+    if persistence is not None and result.ok and result.data is not None:
+        assistant_persisted = False
+        assistant_text = (
+            result.data.get("safe_answer")
+            or result.data.get("assistant_answer")
+            or ""
+        )
         if isinstance(assistant_text, str) and assistant_text.strip():
-            persisted = await persist_assistant_turn_after_generation(
-                db,
-                persistence,
-                content=assistant_text,
-            )
-            if persisted is not None and result.data is not None:
-                result.data["conversationPersistence"] = {
-                    "userMessageId": persistence.client_user_message_id,
-                    "assistantMessageId": persistence.client_assistant_message_id,
-                    "assistantSequence": persisted.sequence,
-                }
+            try:
+                persisted = await persist_assistant_turn_after_generation(
+                    db,
+                    persistence,
+                    content=assistant_text,
+                )
+                if persisted is not None:
+                    assistant_persisted = True
+                    result.data["conversationPersistence"] = {
+                        "userMessageId": persistence.client_user_message_id,
+                        "assistantMessageId": persistence.client_assistant_message_id,
+                        "assistantSequence": persisted.sequence,
+                    }
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "Failed to persist non-stream assistant turn"
+                )
+        result.data["persistence"] = build_completion_persistence_status(
+            user_persisted=True,
+            assistant_persisted=assistant_persisted,
+        )
 
     return result
 

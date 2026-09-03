@@ -62,7 +62,7 @@ import {
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { useAuthenticatedConversationBootstrap } from '@/hooks/useAuthenticatedConversationBootstrap';
-import { deleteServerBackedConversation } from '@/lib/eza/serverConversationStore';
+import { deleteServerBackedConversation, hasServerBackedConversation } from '@/lib/eza/serverConversationStore';
 import {
   DEFAULT_ANALYSIS_MODEL_ID,
   readStoredAnalysisModel,
@@ -147,19 +147,18 @@ export default function SainaDiscoverPage() {
   );
 
   const executeDeleteChat = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const archive = getChatArchive(id);
-      if (!archive && !isServerBacked) return;
+      const serverBacked = isServerBacked && hasServerBackedConversation(id);
+      if (!archive && !serverBacked) return;
 
       const wasActive = readActiveChatId() === id;
-      if (isServerBacked) {
-        void deleteServerBackedConversation(id).finally(() => {
-          deleteChatArchive(id);
-          if (wasActive) {
-            router.push(resolveChatRouteAfterDelete(), { scroll: false });
-          }
-        });
-        return;
+      if (serverBacked) {
+        try {
+          await deleteServerBackedConversation(id);
+        } catch {
+          return;
+        }
       }
 
       deleteChatArchive(id);
@@ -176,10 +175,12 @@ export default function SainaDiscoverPage() {
 
   const handleDeleteChat = useCallback(
     (id: string) => {
-      if (!getChatArchive(id) && !isServerBacked) return;
+      if (!getChatArchive(id) && !(isServerBacked && hasServerBackedConversation(id))) {
+        return;
+      }
       requestDelete(id);
     },
-    [requestDelete]
+    [requestDelete, isServerBacked]
   );
 
   const handleOpenDiscoverUpgrade = useCallback(() => {

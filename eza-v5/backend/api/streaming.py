@@ -253,25 +253,36 @@ async def stream_standalone_response(
                     from backend.core.events.event_pipeline_hook import build_governance_meta
 
                     completion_data["governance"] = build_governance_meta(None)
-            if persistence is not None and db_session is not None and safe_answer and safe_answer.strip():
-                try:
-                    from backend.services.standalone.generation_persistence import (
-                        persist_assistant_turn_after_generation,
-                    )
+            if persistence is not None:
+                assistant_persisted = False
+                if db_session is not None and safe_answer and safe_answer.strip():
+                    try:
+                        from backend.services.standalone.generation_persistence import (
+                            persist_assistant_turn_after_generation,
+                        )
 
-                    persisted = await persist_assistant_turn_after_generation(
-                        db_session,
-                        persistence,
-                        content=safe_answer,
-                    )
-                    if persisted is not None:
-                        completion_data["conversationPersistence"] = {
-                            "userMessageId": persistence.client_user_message_id,
-                            "assistantMessageId": persistence.client_assistant_message_id,
-                            "assistantSequence": persisted.sequence,
-                        }
-                except Exception:
-                    logger.exception("Failed to persist safe-only assistant turn")
+                        persisted = await persist_assistant_turn_after_generation(
+                            db_session,
+                            persistence,
+                            content=safe_answer,
+                        )
+                        if persisted is not None:
+                            assistant_persisted = True
+                            completion_data["conversationPersistence"] = {
+                                "userMessageId": persistence.client_user_message_id,
+                                "assistantMessageId": persistence.client_assistant_message_id,
+                                "assistantSequence": persisted.sequence,
+                            }
+                    except Exception:
+                        logger.exception("Failed to persist safe-only assistant turn")
+                from backend.services.standalone.generation_persistence import (
+                    build_completion_persistence_status,
+                )
+
+                completion_data["persistence"] = build_completion_persistence_status(
+                    user_persisted=True,
+                    assistant_persisted=assistant_persisted,
+                )
             yield f'data: {json.dumps(completion_data)}\n\n'
         else:
             # Score mode: Stream raw LLM tokens directly and accumulate for scoring
@@ -372,25 +383,36 @@ async def stream_standalone_response(
 
                     completion_data["governance"] = build_governance_meta(None)
 
-            if persistence is not None and db_session is not None and clean_text:
-                try:
-                    from backend.services.standalone.generation_persistence import (
-                        persist_assistant_turn_after_generation,
-                    )
+            if persistence is not None:
+                assistant_persisted = False
+                if db_session is not None and clean_text:
+                    try:
+                        from backend.services.standalone.generation_persistence import (
+                            persist_assistant_turn_after_generation,
+                        )
 
-                    persisted = await persist_assistant_turn_after_generation(
-                        db_session,
-                        persistence,
-                        content=clean_text,
-                    )
-                    if persisted is not None:
-                        completion_data["conversationPersistence"] = {
-                            "userMessageId": persistence.client_user_message_id,
-                            "assistantMessageId": persistence.client_assistant_message_id,
-                            "assistantSequence": persisted.sequence,
-                        }
-                except Exception:
-                    logger.exception("Failed to persist score-mode assistant turn")
+                        persisted = await persist_assistant_turn_after_generation(
+                            db_session,
+                            persistence,
+                            content=clean_text,
+                        )
+                        if persisted is not None:
+                            assistant_persisted = True
+                            completion_data["conversationPersistence"] = {
+                                "userMessageId": persistence.client_user_message_id,
+                                "assistantMessageId": persistence.client_assistant_message_id,
+                                "assistantSequence": persisted.sequence,
+                            }
+                    except Exception:
+                        logger.exception("Failed to persist score-mode assistant turn")
+                from backend.services.standalone.generation_persistence import (
+                    build_completion_persistence_status,
+                )
+
+                completion_data["persistence"] = build_completion_persistence_status(
+                    user_persisted=True,
+                    assistant_persisted=assistant_persisted,
+                )
 
             # Send completion with scores
             yield f'data: {json.dumps(completion_data)}\n\n'

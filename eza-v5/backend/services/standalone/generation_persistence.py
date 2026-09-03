@@ -67,6 +67,17 @@ def try_resolve_generation_persistence(
     )
 
 
+def build_completion_persistence_status(
+    *,
+    user_persisted: bool,
+    assistant_persisted: bool,
+) -> dict[str, bool]:
+    return {
+        "conversationPersisted": user_persisted,
+        "assistantPersisted": assistant_persisted,
+    }
+
+
 async def persist_user_turn_before_generation(
     db: AsyncSession,
     ctx: GenerationPersistenceContext,

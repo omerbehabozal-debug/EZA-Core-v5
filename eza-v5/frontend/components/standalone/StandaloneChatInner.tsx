@@ -177,12 +177,18 @@ import {
 } from '@/lib/standaloneModels';
 import { buildChatHistoryPayload } from '@/lib/standaloneChatHistory';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
+import { generateMessageClientId } from '@/lib/eza/clientStableIds';
 import { useAuthenticatedConversationBootstrap } from '@/hooks/useAuthenticatedConversationBootstrap';
 import {
+  applyPersistenceStatus,
   buildGenerationPersistencePayload,
   deleteServerBackedConversation,
   ensureServerConversation,
   fetchServerConversationDetail,
+  hasServerBackedConversation,
+  markConversationUnsynced,
+  parseApiPersistenceStatus,
+  persistServerConversationTitleIfNeeded,
 } from '@/lib/eza/serverConversationStore';
 import type { MirrorMobileContext } from '@/lib/eza/mirrorMobileState';
 
@@ -301,8 +307,17 @@ export default function StandaloneChatInner() {
   const autosaveTimerRef = useRef<number | null>(null);
   const messagesRef = useRef(messages);
   const chatIdRef = useRef(chatId);
+  const chatLoadGenerationRef = useRef(0);
+  const activeLoadTargetRef = useRef<string | null>(null);
   messagesRef.current = messages;
   chatIdRef.current = chatId;
+
+  const isLoadTargetCurrent = useCallback((id: string, generation: number) => {
+    return (
+      chatLoadGenerationRef.current === generation &&
+      activeLoadTargetRef.current === id
+    );
+  }, []);
 
   const flushSave = useCallback((id: string, msgs: Message[]) => {
     if (isChatDeleted(id)) return;
@@ -331,16 +346,20 @@ export default function StandaloneChatInner() {
 
   const loadChatIntoState = useCallback(
     async (id: string) => {
+      const generation = ++chatLoadGenerationRef.current;
+      activeLoadTargetRef.current = id;
+
       let chat = getChatArchive(id);
       if (isServerBacked) {
         try {
           const serverChat = await fetchServerConversationDetail(id);
+          if (!isLoadTargetCurrent(id, generation)) return false;
           if (serverChat) chat = serverChat;
         } catch {
-          /* fall back to local cache if server fetch fails */
+          if (!isLoadTargetCurrent(id, generation)) return false;
         }
       }
-      if (!chat) return false;
+      if (!chat || !isLoadTargetCurrent(id, generation)) return false;
       skipAutosaveRef.current = true;
       resetStream();
       setChatId(id);
@@ -353,7 +372,7 @@ export default function StandaloneChatInner() {
       }, 0);
       return true;
     },
-    [resetStream, isServerBacked]
+    [resetStream, isServerBacked, isLoadTargetCurrent]
   );
 
   /**
@@ -543,9 +562,10 @@ export default function StandaloneChatInner() {
   );
 
   const executeDeleteChat = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const archive = getChatArchive(id);
-      if (!archive && !isServerBacked) return;
+      const serverBacked = isServerBacked && hasServerBackedConversation(id);
+      if (!archive && !serverBacked) return;
 
       const wasActive = chatId === id;
       if (wasActive) {
@@ -553,15 +573,12 @@ export default function StandaloneChatInner() {
         skipAutosaveRef.current = true;
       }
 
-      if (isServerBacked) {
-        void deleteServerBackedConversation(id).finally(() => {
-          deleteChatArchive(id);
-          if (wasActive) {
-            resetStateAfterActiveDelete();
-            router.push(resolveChatRouteAfterDelete(), { scroll: false });
-          }
-        });
-        return;
+      if (serverBacked) {
+        try {
+          await deleteServerBackedConversation(id);
+        } catch {
+          return;
+        }
       }
 
       deleteChatArchive(id);
@@ -586,10 +603,12 @@ export default function StandaloneChatInner() {
 
   const handleDeleteChat = useCallback(
     (id: string) => {
-      if (!getChatArchive(id)) return;
+      if (!getChatArchive(id) && !(isServerBacked && hasServerBackedConversation(id))) {
+        return;
+      }
       requestDelete(id);
     },
-    [requestDelete]
+    [requestDelete, isServerBacked]
   );
 
   useEffect(() => {
@@ -896,7 +915,7 @@ export default function StandaloneChatInner() {
             upsertChatArchive({ ...existing, serverConversationId: server.id });
           }
         } catch {
-          /* local cache remains; persistence will retry on next send */
+          markConversationUnsynced(newId);
         }
       }
       activeChatId = newId;
@@ -949,7 +968,7 @@ export default function StandaloneChatInner() {
           upsertChatArchive({ ...existing, serverConversationId: server.id });
         }
       } catch {
-        /* persistence retried on next send */
+        markConversationUnsynced(resolvedChatId);
       }
     }
 
@@ -965,7 +984,7 @@ export default function StandaloneChatInner() {
     }
 
     // Add user message immediately with placeholder score (gray badge)
-    const userMessageId = `user-${Date.now()}`;
+    const userMessageId = generateMessageClientId('user');
     const userMessage: Message = {
       id: userMessageId,
       text,
@@ -982,7 +1001,7 @@ export default function StandaloneChatInner() {
     setIsTyping(true);
 
     // Create assistant message placeholder for streaming
-    const assistantMessageId = `eza-${Date.now()}`;
+    const assistantMessageId = generateMessageClientId('eza');
     const assistantMessage: Message = {
         id: assistantMessageId,
         text: '',
@@ -1157,6 +1176,17 @@ export default function StandaloneChatInner() {
               }
 
               void refreshEntitlements();
+
+              if (isServerBacked && resolvedChatId) {
+                const persistenceStatus = parseApiPersistenceStatus(data);
+                applyPersistenceStatus(resolvedChatId, persistenceStatus);
+                if (
+                  persistenceStatus?.conversationPersisted &&
+                  persistenceStatus?.assistantPersisted
+                ) {
+                  void persistServerConversationTitleIfNeeded(resolvedChatId, text);
+                }
+              }
             }
           }
         );
@@ -1283,6 +1313,19 @@ export default function StandaloneChatInner() {
         }
 
         void refreshEntitlements();
+
+        if (isServerBacked && resolvedChatId) {
+          const persistenceStatus = parseApiPersistenceStatus(
+            data as Record<string, unknown>
+          );
+          applyPersistenceStatus(resolvedChatId, persistenceStatus);
+          if (
+            persistenceStatus?.conversationPersisted &&
+            persistenceStatus?.assistantPersisted
+          ) {
+            void persistServerConversationTitleIfNeeded(resolvedChatId, text);
+          }
+        }
 
         // Handle response based on mode
         if (safeOnlyMode && (data as any).mode === 'safe-only') {
