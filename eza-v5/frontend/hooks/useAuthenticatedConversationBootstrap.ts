@@ -1,23 +1,37 @@
 'use client';
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import {
   bootstrapServerConversations,
   clearServerConversationState,
   getServerConversationSummaries,
+  getUnsyncedClientIds,
   subscribeServerConversations,
 } from '@/lib/eza/serverConversationStore';
-import { runLegacyConversationMigration } from '@/lib/eza/legacyConversationMigration';
+import {
+  getLegacyMigrationMarker,
+  runLegacyConversationMigration,
+} from '@/lib/eza/legacyConversationMigration';
+import { reconcileAuthenticatedConversationSidebar } from '@/lib/eza/reconcileAuthenticatedConversationSidebar';
+import {
+  CHATS_UPDATED_EVENT,
+  readChatArchivesForScope,
+} from '@/lib/standaloneChatArchive';
+import { userScope } from '@/lib/eza/localIdentityScope';
 
 /**
  * After auth identity resolves, bootstrap server conversation list,
  * then run Phase 8.8G-3 legacy migration when eligible.
  * Clears in-memory server state immediately on logout / account switch.
+ *
+ * Phase 8.8G-3.2 — returns reconciled sidebar summaries (server + safe
+ * owner-local fallbacks), not raw server-only rows.
  */
 export function useAuthenticatedConversationBootstrap() {
   const { isAuthenticated, isAuthReady, user } = useAuth();
   const userId = user?.user_id ?? null;
+  const [archiveEpoch, setArchiveEpoch] = useState(0);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -40,11 +54,47 @@ export function useAuthenticatedConversationBootstrap() {
     };
   }, [isAuthReady, isAuthenticated, userId]);
 
-  const serverSummaries = useSyncExternalStore(
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const bump = () => setArchiveEpoch((n) => n + 1);
+    window.addEventListener(CHATS_UPDATED_EVENT, bump);
+    return () => window.removeEventListener(CHATS_UPDATED_EVENT, bump);
+  }, []);
+
+  const serverOnlySummaries = useSyncExternalStore(
     subscribeServerConversations,
     getServerConversationSummaries,
     () => []
   );
+
+  const serverSummaries = useMemo(() => {
+    if (!isAuthReady || !isAuthenticated || !userId) {
+      return [];
+    }
+    const marker = getLegacyMigrationMarker(userId);
+    const tombstonedClientIds: string[] = [];
+    if (marker?.conversations) {
+      for (const [id, state] of Object.entries(marker.conversations)) {
+        if (state?.status === 'tombstoned') tombstonedClientIds.push(id);
+      }
+    }
+    return reconcileAuthenticatedConversationSidebar({
+      ownerId: userId,
+      serverSummaries: serverOnlySummaries,
+      ownerLocalArchives: readChatArchivesForScope(userScope(userId)),
+      migrationMarker: marker,
+      tombstonedClientIds,
+      unsyncedClientIds: getUnsyncedClientIds(),
+    });
+    // archiveEpoch forces recompute when local archives change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isAuthReady,
+    isAuthenticated,
+    userId,
+    serverOnlySummaries,
+    archiveEpoch,
+  ]);
 
   return {
     isServerBacked: isAuthReady && isAuthenticated && Boolean(userId),

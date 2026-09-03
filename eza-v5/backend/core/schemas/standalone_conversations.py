@@ -18,6 +18,15 @@ from backend.services.standalone.persistence_limits import (
     MAX_TITLE_LENGTH,
 )
 
+# Phase 8.8G-3 / 8.8G-3.2
+MAX_LEGACY_CONVERSATIONS_PER_REQUEST = 30
+MAX_LEGACY_MESSAGES_PER_CONVERSATION = 500
+
+# Phase 8.8G-3.2 — authenticated conversation list pagination
+DEFAULT_CONVERSATION_LIST_LIMIT = 100
+MAX_CONVERSATION_LIST_LIMIT = 100
+MAX_CONVERSATION_LIST_OFFSET = 100_000
+
 ConversationType = Literal["direct", "mirror", "mirror_branch", "continuation"]
 MessageRole = Literal["user", "assistant"]
 LegacyMigrationStatus = Literal[
@@ -100,6 +109,8 @@ class StandaloneConversationListItem(BaseModel):
     conversationSceneUrl: Optional[str] = None
     conversationSceneSource: Optional[str] = None
     conversationSceneSlug: Optional[str] = None
+    hasReadyYansi: bool = False
+    publishedYansiSlug: Optional[str] = None
 
 
 class StandaloneConversationDetail(StandaloneConversationListItem):
@@ -107,9 +118,6 @@ class StandaloneConversationDetail(StandaloneConversationListItem):
 
 
 # --- Phase 8.8G-3 legacy migration ---
-
-MAX_LEGACY_CONVERSATIONS_PER_REQUEST = 30
-MAX_LEGACY_MESSAGES_PER_CONVERSATION = 500
 
 
 class LegacyMigrationMessage(BaseModel):
@@ -165,3 +173,90 @@ class LegacyMigrationConversationResult(BaseModel):
 
 class LegacyMigrationResponse(BaseModel):
     results: list[LegacyMigrationConversationResult]
+
+
+class StandaloneConversationListPage(BaseModel):
+    """Phase 8.8G-3.2 — bounded paginated conversation list."""
+
+    items: list[StandaloneConversationListItem] = Field(default_factory=list)
+    limit: int
+    offset: int
+    total: int
+    hasMore: bool
+
+
+# --- Phase 8.8G-4 unpublished Yansı preparation ---
+
+YansiPreparationStatus = Literal["ready"]
+
+
+class YansiPreparationSelectedStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    stepIndex: int = Field(ge=0, le=32)
+    sourceOrder: int = Field(ge=0, le=500)
+    sourceUserMessageId: str = Field(min_length=1, max_length=MAX_CLIENT_ID_LENGTH)
+    sourceAssistantMessageId: str = Field(min_length=1, max_length=MAX_CLIENT_ID_LENGTH)
+    publicQuestion: str = Field(min_length=1, max_length=4_000)
+    publicAnswer: str = Field(min_length=1, max_length=4_000)
+
+
+class YansiPreparationUpsert(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    journeyId: str = Field(min_length=1, max_length=64)
+    journeyVersion: int = Field(ge=1, le=10_000)
+    windowIndex: int = Field(ge=0, le=500)
+    windowHash: str = Field(min_length=1, max_length=128)
+    selectedStepsHash: str = Field(min_length=1, max_length=128)
+    sourceBlockHash: Optional[str] = Field(default=None, max_length=128)
+    generationId: str = Field(min_length=1, max_length=128)
+    publicTitle: str = Field(min_length=1, max_length=MAX_TITLE_LENGTH)
+    publicSummary: str = Field(min_length=1, max_length=2000)
+    continuationContext: Optional[str] = Field(default=None, max_length=2000)
+    sceneImageUrl: str = Field(min_length=1, max_length=MAX_SCENE_URL_LENGTH)
+    sceneAssetId: Optional[str] = Field(default=None, max_length=128)
+    sceneFocalX: Optional[float] = Field(default=None, ge=0, le=1)
+    sceneFocalY: Optional[float] = Field(default=None, ge=0, le=1)
+    sealedLineage: dict[str, Any]
+    sealedPublicLanding: Optional[dict[str, Any]] = None
+    sourceIdentity: Optional[str] = Field(default=None, max_length=160)
+
+
+class YansiPreparationPublicationLink(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str = Field(min_length=1, max_length=MAX_SOURCE_YANSI_SLUG_LENGTH)
+    journeyId: Optional[str] = Field(default=None, max_length=64)
+    journeyVersion: Optional[int] = Field(default=None, ge=1, le=10_000)
+
+
+class YansiPreparationDTO(BaseModel):
+    id: str
+    conversationId: str
+    sourceIdentity: str
+    journeyId: str
+    journeyVersion: int
+    windowIndex: int
+    windowHash: str
+    selectedStepsHash: str
+    sourceBlockHash: Optional[str] = None
+    generationId: str
+    status: YansiPreparationStatus
+    publicTitle: str
+    publicSummary: str
+    continuationContext: Optional[str] = None
+    sceneImageUrl: str
+    sceneAssetId: Optional[str] = None
+    sceneFocalX: Optional[float] = None
+    sceneFocalY: Optional[float] = None
+    sealedLineage: dict[str, Any]
+    sealedPublicLanding: Optional[dict[str, Any]] = None
+    publishedSlug: Optional[str] = None
+    createdAt: str
+    updatedAt: Optional[str] = None
+
+
+class YansiPreparationListResponse(BaseModel):
+    items: list[YansiPreparationDTO] = Field(default_factory=list)
+

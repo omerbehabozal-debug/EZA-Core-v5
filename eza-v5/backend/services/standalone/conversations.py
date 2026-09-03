@@ -8,14 +8,18 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.standalone_conversations import (
+    DEFAULT_CONVERSATION_LIST_LIMIT,
+    MAX_CONVERSATION_LIST_LIMIT,
+    MAX_CONVERSATION_LIST_OFFSET,
     StandaloneConversationCreate,
     StandaloneConversationDetail,
     StandaloneConversationListItem,
+    StandaloneConversationListPage,
     StandaloneConversationMessageCreate,
     StandaloneConversationMessageDTO,
     StandaloneConversationPatch,
@@ -28,6 +32,10 @@ from backend.models.standalone_conversations import (
 )
 from backend.services.standalone.metadata_security import reject_forbidden_metadata
 from backend.services.standalone.persistence_limits import validate_bounded_json
+from backend.services.standalone.yansi_preparations import (
+    preparation_flags_for_conversations,
+    soft_delete_preparations_for_conversation,
+)
 
 
 class StandaloneConversationNotFoundError(Exception):
@@ -47,7 +55,12 @@ def _iso(dt: Optional[datetime]) -> Optional[str]:
     return dt.isoformat()
 
 
-def _conversation_to_list_item(row: StandaloneConversation) -> StandaloneConversationListItem:
+def _conversation_to_list_item(
+    row: StandaloneConversation,
+    *,
+    has_ready_yansi: bool = False,
+    published_yansi_slug: Optional[str] = None,
+) -> StandaloneConversationListItem:
     return StandaloneConversationListItem(
         id=str(row.id),
         clientConversationId=row.client_conversation_id,
@@ -66,6 +79,8 @@ def _conversation_to_list_item(row: StandaloneConversation) -> StandaloneConvers
         conversationSceneUrl=row.conversation_scene_url,
         conversationSceneSource=row.conversation_scene_source,
         conversationSceneSlug=row.conversation_scene_slug,
+        hasReadyYansi=has_ready_yansi,
+        publishedYansiSlug=published_yansi_slug,
     )
 
 
@@ -118,22 +133,56 @@ async def list_standalone_conversations(
     db: AsyncSession,
     *,
     user_id: UUID,
-    limit: int = 100,
-) -> List[StandaloneConversationListItem]:
+    limit: int = DEFAULT_CONVERSATION_LIST_LIMIT,
+    offset: int = 0,
+) -> StandaloneConversationListPage:
+    if limit < 1 or limit > MAX_CONVERSATION_LIST_LIMIT:
+        raise HTTPException(status_code=422, detail="invalid_list_limit")
+    if offset < 0 or offset > MAX_CONVERSATION_LIST_OFFSET:
+        raise HTTPException(status_code=422, detail="invalid_list_offset")
+
+    filters = _active_conversation_filters(user_id)
+    total_result = await db.execute(
+        select(func.count()).select_from(StandaloneConversation).where(*filters)
+    )
+    total = int(total_result.scalar_one() or 0)
+
     query = (
         select(StandaloneConversation)
-        .where(*_active_conversation_filters(user_id))
+        .where(*filters)
         .order_by(
             StandaloneConversation.last_message_at.desc().nullslast(),
             StandaloneConversation.updated_at.desc().nullslast(),
             StandaloneConversation.created_at.desc(),
             StandaloneConversation.id.desc(),
         )
+        .offset(offset)
         .limit(limit)
     )
     result = await db.execute(query)
     rows = list(result.scalars().all())
-    return [_conversation_to_list_item(row) for row in rows]
+    flags = await preparation_flags_for_conversations(
+        db,
+        user_id=user_id,
+        conversation_ids=[row.id for row in rows],
+    )
+    items: List[StandaloneConversationListItem] = []
+    for row in rows:
+        has_ready, published_slug = flags.get(row.id, (False, None))
+        items.append(
+            _conversation_to_list_item(
+                row,
+                has_ready_yansi=has_ready,
+                published_yansi_slug=published_slug,
+            )
+        )
+    return StandaloneConversationListPage(
+        items=items,
+        limit=limit,
+        offset=offset,
+        total=total,
+        hasMore=(offset + len(items)) < total,
+    )
 
 
 async def get_standalone_conversation_detail(
@@ -152,7 +201,17 @@ async def get_standalone_conversation_detail(
         .order_by(StandaloneConversationMessage.sequence.asc())
     )
     messages = [_message_to_dto(row) for row in msg_result.scalars().all()]
-    detail = _conversation_to_list_item(conv)
+    flags = await preparation_flags_for_conversations(
+        db,
+        user_id=user_id,
+        conversation_ids=[conv.id],
+    )
+    has_ready, published_slug = flags.get(conv.id, (False, None))
+    detail = _conversation_to_list_item(
+        conv,
+        has_ready_yansi=has_ready,
+        published_yansi_slug=published_slug,
+    )
     return StandaloneConversationDetail(**detail.model_dump(), messages=messages)
 
 
@@ -296,6 +355,12 @@ async def delete_standalone_conversation(
     now = _utcnow()
     conv.deleted_at = now
     conv.updated_at = now
+    await soft_delete_preparations_for_conversation(
+        db,
+        user_id=user_id,
+        conversation_id=conversation_id,
+        deleted_at=now,
+    )
     await db.commit()
 
 

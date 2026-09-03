@@ -66,6 +66,8 @@ import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { resolveYansiHeroMeta } from '@/lib/eza/mirror/yansiHeroMeta';
 import { useConversationYansiStatusMap } from '@/hooks/useConversationYansiStatusMap';
+import { hydrateYansiPreparationsFromServer } from '@/lib/eza/mirror/journey/hydrateYansiPreparationsFromServer';
+import { getServerConversationAuthority } from '@/lib/eza/serverConversationStore';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
 import {
@@ -942,19 +944,44 @@ export default function StandaloneChatInner() {
       });
       // Phase 8.6 — kick scene pipeline; Ayna reel hides legacy create CTA.
       if (chatId && draft.journeyId) {
-        const reusableExists =
+        const conversationIdForKick = chatId;
+        const journeyIdForKick = draft.journeyId;
+        const kickIfNeeded = (reusableExists: boolean) => {
+          if (!reusableExists) {
+            onOpenMirror?.();
+            requestJourneyAynaGeneration({
+              conversationId: conversationIdForKick,
+              journeyId: journeyIdForKick,
+              journeyVersion: draft.journeyVersion ?? 1,
+            });
+          }
+        };
+        const localReusable =
           Boolean(journeyOwnerId) &&
           shouldSkipAynaSceneGeneration({
-            artifacts: listJourneyArtifactsForConversation(journeyOwnerId, chatId),
-            journeyId: draft.journeyId,
+            artifacts: listJourneyArtifactsForConversation(journeyOwnerId, conversationIdForKick),
+            journeyId: journeyIdForKick,
           });
-        if (!reusableExists) {
-          onOpenMirror?.();
-          requestJourneyAynaGeneration({
-            conversationId: chatId,
-            journeyId: draft.journeyId,
-            journeyVersion: draft.journeyVersion ?? 1,
+        if (localReusable) {
+          kickIfNeeded(true);
+        } else if (isAuthenticated && user?.user_id) {
+          const authority = getServerConversationAuthority();
+          void hydrateYansiPreparationsFromServer({
+            ownerUserId: user.user_id,
+            clientConversationId: conversationIdForKick,
+            ownerAtStart: authority.ownerKey,
+            epochAtStart: authority.epoch,
+          }).then(() => {
+            const reusable =
+              Boolean(journeyOwnerId) &&
+              shouldSkipAynaSceneGeneration({
+                artifacts: listJourneyArtifactsForConversation(journeyOwnerId, conversationIdForKick),
+                journeyId: journeyIdForKick,
+              });
+            kickIfNeeded(reusable);
           });
+        } else {
+          kickIfNeeded(false);
         }
       }
       setJourneyReviewOpen(false);

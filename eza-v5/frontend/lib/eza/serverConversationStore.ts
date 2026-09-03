@@ -117,6 +117,10 @@ export function markConversationSynced(clientId: string): void {
   emit();
 }
 
+export function getUnsyncedClientIds(): ReadonlySet<string> {
+  return state.unsyncedClientIds;
+}
+
 export function applyPersistenceStatus(
   clientId: string,
   status: ConversationPersistenceStatus | null | undefined
@@ -169,6 +173,8 @@ function mapListItemToSummary(item: ServerConversationListItem): ArchivedChatSum
     conversationSceneSource: (item.conversationSceneSource as ConversationSceneSource | null) ?? null,
     conversationSceneSlug: item.conversationSceneSlug ?? null,
     serverConversationId: item.id,
+    hasReadyYansi: Boolean(item.hasReadyYansi),
+    publishedYansiSlug: item.publishedYansiSlug ?? null,
   };
 }
 
@@ -247,6 +253,39 @@ export function isServerConversationAuthorityValid(
   epochAtStart: number
 ): boolean {
   return isAuthorityValid(ownerAtStart, epochAtStart);
+}
+
+export function noteServerYansiReady(clientConversationId: string): void {
+  const id = clientConversationId.trim();
+  if (!id) return;
+  const idx = state.summaries.findIndex((row) => row.id === id);
+  if (idx < 0) return;
+  const current = state.summaries[idx];
+  if (!current) return;
+  state.summaries[idx] = {
+    ...current,
+    hasReadyYansi: true,
+  };
+  emit();
+}
+
+export function noteServerYansiPublished(
+  clientConversationId: string,
+  slug: string
+): void {
+  const id = clientConversationId.trim();
+  const published = slug.trim().toLowerCase();
+  if (!id || !published) return;
+  const idx = state.summaries.findIndex((row) => row.id === id);
+  if (idx < 0) return;
+  const current = state.summaries[idx];
+  if (!current) return;
+  state.summaries[idx] = {
+    ...current,
+    hasReadyYansi: false,
+    publishedYansiSlug: published,
+  };
+  emit();
 }
 
 export async function ensureServerConversation(

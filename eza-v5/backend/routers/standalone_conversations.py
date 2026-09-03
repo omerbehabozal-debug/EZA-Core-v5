@@ -3,22 +3,30 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth.deps import get_current_user
 from backend.core.schemas.standalone_conversations import (
+    DEFAULT_CONVERSATION_LIST_LIMIT,
+    MAX_CONVERSATION_LIST_LIMIT,
+    MAX_CONVERSATION_LIST_OFFSET,
     StandaloneConversationCreate,
     StandaloneConversationDetail,
     StandaloneConversationListItem,
+    StandaloneConversationListPage,
     StandaloneConversationMessageCreate,
     StandaloneConversationMessageDTO,
     StandaloneConversationPatch,
     LegacyMigrationRequest,
     LegacyMigrationResponse,
+    YansiPreparationDTO,
+    YansiPreparationListResponse,
+    YansiPreparationPublicationLink,
+    YansiPreparationUpsert,
 )
 from backend.core.utils.dependencies import get_db
 from backend.services.standalone.conversations import (
@@ -31,6 +39,12 @@ from backend.services.standalone.conversations import (
     upsert_standalone_conversation,
 )
 from backend.services.standalone.legacy_migration import migrate_legacy_conversations
+from backend.services.standalone.yansi_preparations import (
+    YansiPreparationNotFoundError,
+    link_preparation_publication,
+    list_owned_preparations,
+    upsert_ready_preparation,
+)
 
 router = APIRouter(
     prefix="/api/standalone/conversations",
@@ -49,12 +63,19 @@ def _not_found() -> HTTPException:
     )
 
 
-@router.get("", response_model=List[StandaloneConversationListItem])
+@router.get("", response_model=StandaloneConversationListPage)
 async def list_conversations(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
-) -> List[StandaloneConversationListItem]:
-    return await list_standalone_conversations(db, user_id=_owner_user_id(current_user))
+    limit: int = Query(DEFAULT_CONVERSATION_LIST_LIMIT, ge=1, le=MAX_CONVERSATION_LIST_LIMIT),
+    offset: int = Query(0, ge=0, le=MAX_CONVERSATION_LIST_OFFSET),
+) -> StandaloneConversationListPage:
+    return await list_standalone_conversations(
+        db,
+        user_id=_owner_user_id(current_user),
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post(
@@ -166,4 +187,60 @@ async def append_message(
             body=body,
         )
     except StandaloneConversationNotFoundError as exc:
+        raise _not_found() from exc
+
+
+@router.get("/{conversation_id}/yansi-preparation", response_model=YansiPreparationListResponse)
+async def get_yansi_preparation(
+    conversation_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> YansiPreparationListResponse:
+    try:
+        items = await list_owned_preparations(
+            db,
+            user_id=_owner_user_id(current_user),
+            conversation_id=conversation_id,
+        )
+    except YansiPreparationNotFoundError as exc:
+        raise _not_found() from exc
+    return YansiPreparationListResponse(items=items)
+
+
+@router.put("/{conversation_id}/yansi-preparation", response_model=YansiPreparationDTO)
+async def put_yansi_preparation(
+    conversation_id: UUID,
+    body: YansiPreparationUpsert,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> YansiPreparationDTO:
+    try:
+        return await upsert_ready_preparation(
+            db,
+            user_id=_owner_user_id(current_user),
+            conversation_id=conversation_id,
+            body=body,
+        )
+    except YansiPreparationNotFoundError as exc:
+        raise _not_found() from exc
+
+
+@router.post(
+    "/{conversation_id}/yansi-preparation/publication-link",
+    response_model=YansiPreparationDTO,
+)
+async def post_yansi_preparation_publication_link(
+    conversation_id: UUID,
+    body: YansiPreparationPublicationLink,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> YansiPreparationDTO:
+    try:
+        return await link_preparation_publication(
+            db,
+            user_id=_owner_user_id(current_user),
+            conversation_id=conversation_id,
+            body=body,
+        )
+    except YansiPreparationNotFoundError as exc:
         raise _not_found() from exc

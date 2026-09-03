@@ -99,6 +99,14 @@ import {
   type MirrorJourneySharePayload,
 } from '@/lib/eza/mirror/journey';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
+import { persistAuthenticatedReadyYansi, captureYansiPreparationAuthority } from '@/lib/eza/mirror/journey/persistAuthenticatedReadyYansi';
+import { hydrateYansiPreparationsFromServer } from '@/lib/eza/mirror/journey/hydrateYansiPreparationsFromServer';
+import {
+  getServerConversationAuthority,
+  getServerIdForClientChat,
+  noteServerYansiPublished,
+} from '@/lib/eza/serverConversationStore';
+import { linkServerYansiPreparationPublication } from '@/lib/eza/standaloneConversationsApi';
 import AynaJourneyReel from '@/components/mirror/ayna/AynaJourneyReel';
 import {
   authorProfilePath,
@@ -636,6 +644,28 @@ export default function StandaloneObservationExperience({
                 visibility: 'public',
                 safetyStatus: 'open',
               });
+              const serverConvId = getServerIdForClientChat(conversationId);
+              if (serverConvId) {
+                const journeyId =
+                  (isPublishableJourneyGenerationLineage(lineage)
+                    ? lineage.journeyId
+                    : null) ||
+                  findReusablePreparedYansiArtifact(
+                    listJourneyArtifactsForConversation(shareCacheUserId, conversationId)
+                  )?.journeyId;
+                void linkServerYansiPreparationPublication(serverConvId, {
+                  slug: result.slug,
+                  ...(journeyId
+                    ? {
+                        journeyId,
+                        journeyVersion: isPublishableJourneyGenerationLineage(lineage)
+                          ? lineage.journeyVersion
+                          : 1,
+                      }
+                    : {}),
+                }).catch(() => undefined);
+                noteServerYansiPublished(conversationId, result.slug);
+              }
             }
             const publishedScene =
               result.publicPayload.sceneImageUrl?.trim() ||
@@ -1105,6 +1135,8 @@ export default function StandaloneObservationExperience({
       const generationRequestId = createSceneGenerationId();
       sceneRequestIdByAutoKeyRef.current.set(autoKey, generationRequestId);
       activeGenerationIdRef.current = generationRequestId;
+      const boundOwnerAtStart = shareCacheUserId;
+      const boundPersist = captureYansiPreparationAuthority(authenticatedUserId);
 
       sceneGenerationInFlightRef.current = true;
       sceneAutoKeyRef.current = autoKey;
@@ -1272,6 +1304,9 @@ export default function StandaloneObservationExperience({
         if (activeGenerationIdRef.current !== generationRequestId) {
           throw new MirrorSceneError('Stale generation ignored.', 'stale_generation');
         }
+        if (resolveJourneyOwnerKey(user?.user_id) !== boundOwnerAtStart) {
+          throw new MirrorSceneError('Stale generation ignored.', 'stale_generation');
+        }
 
         cardForScene = outcome.card;
         const result = outcome.result;
@@ -1281,8 +1316,37 @@ export default function StandaloneObservationExperience({
           card: cardForScene,
           sceneImageUrl: result.sceneImageUrl,
           generationId: generationRequestId,
-          ownerUserId: user?.user_id ?? null,
+          ownerUserId: boundOwnerAtStart,
         });
+
+        if (resolveJourneyOwnerKey(user?.user_id) !== boundOwnerAtStart) {
+          throw new MirrorSceneError('Stale generation ignored.', 'stale_generation');
+        }
+
+        const sealedLineage = cardForScene.mirrorJourneyGenerationLineage;
+        const sealedArtifact =
+          sealedLineage?.journeyId
+            ? loadMirrorJourneyArtifact(
+                boundOwnerAtStart,
+                sealedLineage.journeyId,
+                sealedLineage.journeyVersion ?? 1
+              )
+            : null;
+        if (
+          sealedArtifact &&
+          conversationId &&
+          isAuthenticated &&
+          authenticatedUserId
+        ) {
+          void persistAuthenticatedReadyYansi({
+            artifact: sealedArtifact,
+            clientConversationId: conversationId,
+            bound: boundPersist,
+            ownerNow: user?.user_id,
+            sceneFocalX: typeof result.focalX === 'number' ? result.focalX : null,
+            sceneFocalY: typeof result.focalY === 'number' ? result.focalY : null,
+          });
+        }
 
         lastRawSceneUrlRef.current = result.sceneImageUrl;
         const displayUrl = await resolveSceneDisplayUrl(
@@ -1416,6 +1480,10 @@ export default function StandaloneObservationExperience({
       sceneImageStatus,
       styleLensSession,
       refreshEntitlements,
+      shareCacheUserId,
+      authenticatedUserId,
+      isAuthenticated,
+      user?.user_id,
     ]
   );
 
@@ -1621,7 +1689,7 @@ export default function StandaloneObservationExperience({
   useEffect(() => {
     if (!conversationId) return;
 
-    const kickJourneyAynaGenerate = (detail: JourneyAynaGenerateDetail) => {
+      const kickJourneyAynaGenerate = (detail: JourneyAynaGenerateDetail) => {
       if (!detail || detail.conversationId !== conversationId) return;
       if (entries.length < MIRROR_MIN_SAMPLES) return;
       if (!canCreateVisual) {
@@ -1631,21 +1699,47 @@ export default function StandaloneObservationExperience({
       }
       const kickKey = `${detail.conversationId}:${detail.journeyId}:${detail.journeyVersion ?? 1}`;
       if (journeyAynaKickKeyRef.current === kickKey) return;
-      if (
-        shareCacheUserId &&
+      const authority = getServerConversationAuthority();
+      const tryKick = (reusableNow: boolean) => {
+        if (reusableNow) {
+          consumePendingJourneyAynaGeneration(conversationId);
+          return;
+        }
+        journeyAynaKickKeyRef.current = kickKey;
+        runMirrorWithReveal(entries, { isUpdate: true, immediate: true });
+      };
+      const localReusable =
+        Boolean(shareCacheUserId) &&
         shouldSkipAynaSceneGeneration({
           artifacts: listJourneyArtifactsForConversation(
             shareCacheUserId,
             conversationId
           ),
           journeyId: detail.journeyId,
-        })
-      ) {
-        consumePendingJourneyAynaGeneration(conversationId);
+        });
+      if (localReusable) {
+        tryKick(true);
         return;
       }
-      journeyAynaKickKeyRef.current = kickKey;
-      runMirrorWithReveal(entries, { isUpdate: true, immediate: true });
+      if (isAuthenticated && authenticatedUserId) {
+        void hydrateYansiPreparationsFromServer({
+          ownerUserId: authenticatedUserId,
+          clientConversationId: conversationId,
+          ownerAtStart: authority.ownerKey,
+          epochAtStart: authority.epoch,
+        }).then((rows) => {
+          const skip = shouldSkipAynaSceneGeneration({
+            artifacts:
+              rows.length > 0
+                ? listJourneyArtifactsForConversation(shareCacheUserId, conversationId)
+                : listJourneyArtifactsForConversation(shareCacheUserId, conversationId),
+            journeyId: detail.journeyId,
+          });
+          tryKick(skip);
+        });
+        return;
+      }
+      tryKick(false);
     };
 
     const pending = readPendingJourneyAynaGeneration(conversationId);
@@ -1669,6 +1763,8 @@ export default function StandaloneObservationExperience({
     visualLimitStatus,
     runMirrorWithReveal,
     shareCacheUserId,
+    isAuthenticated,
+    authenticatedUserId,
   ]);
 
   const handleMirrorRefresh = useCallback(() => {
@@ -1901,11 +1997,18 @@ export default function StandaloneObservationExperience({
     }
     let cancelled = false;
     void (async () => {
+      const authority = getServerConversationAuthority();
+      const readyRows = await hydrateYansiPreparationsFromServer({
+        ownerUserId: authenticatedUserId,
+        clientConversationId: conversationId,
+        ownerAtStart: authority.ownerKey,
+        epochAtStart: authority.epoch,
+      });
       const items = await hydratePublishedJourneysFromServer({
         ownerUserId: authenticatedUserId,
         conversationId,
       });
-      if (!cancelled && items.length > 0) {
+      if (!cancelled && (readyRows.length > 0 || items.length > 0)) {
         setArtifactRevision((n) => n + 1);
       }
     })();

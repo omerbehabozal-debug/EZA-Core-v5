@@ -30,6 +30,7 @@ from backend.models.user import LegacyUser  # noqa: F401
 from backend.models.standalone_conversations import (
     StandaloneConversation,
     StandaloneConversationMessage,
+    StandaloneYansiPreparation,
 )
 from backend.services.production_auth import create_access_token
 from backend.services.standalone.conversations import (
@@ -89,6 +90,7 @@ async def db_engine():
         await conn.execute(text("PRAGMA foreign_keys=OFF"))
         await conn.run_sync(StandaloneConversation.__table__.create)
         await conn.run_sync(StandaloneConversationMessage.__table__.create)
+        await conn.run_sync(StandaloneYansiPreparation.__table__.create)
     yield engine
     await engine.dispose()
 
@@ -145,7 +147,7 @@ async def test_archive_restore_cycle(db_session):
         conversation_id=conv_id,
         body=StandaloneConversationPatch(archived=True),
     )
-    assert await list_standalone_conversations(db_session, user_id=user_id) == []
+    assert (await list_standalone_conversations(db_session, user_id=user_id)).items == []
     with pytest.raises(StandaloneConversationNotFoundError):
         await get_standalone_conversation_detail(db_session, user_id=user_id, conversation_id=conv_id)
 
@@ -156,7 +158,7 @@ async def test_archive_restore_cycle(db_session):
         body=StandaloneConversationPatch(archived=False),
     )
     assert restored.archived is False
-    assert len(await list_standalone_conversations(db_session, user_id=user_id)) == 1
+    assert len((await list_standalone_conversations(db_session, user_id=user_id)).items) == 1
     detail = await get_standalone_conversation_detail(db_session, user_id=user_id, conversation_id=conv_id)
     assert detail.clientConversationId == "archive-restore"
 
@@ -228,7 +230,10 @@ def test_http_archive_restore_flow(authenticated_api_client):
     )
     assert archived.status_code == 200
     assert archived.json()["archived"] is True
-    assert api_client.get("/api/standalone/conversations", headers=headers).json() == []
+    assert (
+        api_client.get("/api/standalone/conversations", headers=headers).json()["items"]
+        == []
+    )
     assert api_client.get(f"/api/standalone/conversations/{conv_id}", headers=headers).status_code == 404
 
     restored = api_client.patch(
@@ -238,7 +243,14 @@ def test_http_archive_restore_flow(authenticated_api_client):
     )
     assert restored.status_code == 200
     assert restored.json()["archived"] is False
-    assert len(api_client.get("/api/standalone/conversations", headers=headers).json()) == 1
+    assert (
+        len(
+            api_client.get("/api/standalone/conversations", headers=headers).json()[
+                "items"
+            ]
+        )
+        == 1
+    )
     assert api_client.get(f"/api/standalone/conversations/{conv_id}", headers=headers).status_code == 200
 
 

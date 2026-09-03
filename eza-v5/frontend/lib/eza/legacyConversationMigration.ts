@@ -1,5 +1,6 @@
 /**
  * Phase 8.8G-3 — migrate account-scoped legacy local chats to server authority.
+ * Phase 8.8G-3.2 — deterministic batch drain + entire-bucket completion marker.
  *
  * Only inspects user:{userId}. Never guest buckets.
  * Does not delete local source transcripts.
@@ -28,7 +29,10 @@ import {
 import { userScope } from '@/lib/eza/localIdentityScope';
 
 export const LEGACY_MIGRATION_VERSION = 'standalone-conversations-v1';
+export const LEGACY_MIGRATION_BATCH_SIZE = 30;
 const MARKER_STORAGE_KEY = 'eza_standalone_legacy_migration_v1';
+/** Defensive cap — 30/request ⇒ room for very large buckets without infinite loop. */
+const MAX_MIGRATION_BATCHES = 500;
 
 const TERMINAL_STATUSES = new Set<LegacyMigrationStatus>([
   'migrated',
@@ -145,11 +149,28 @@ export function isLegacyMigrationComplete(userId: string): boolean {
   return Boolean(marker?.completedAt);
 }
 
-function updateMarker(
+function safeSavedAtMs(value: string | null | undefined): number {
+  if (!value || typeof value !== 'string') return 0;
+  const t = Date.parse(value);
+  return Number.isFinite(t) ? t : 0;
+}
+
+/** Deterministic archive order: savedAt desc, clientConversationId asc tie-break. */
+export function sortLegacyMigrationCandidates(chats: ArchivedChat[]): ArchivedChat[] {
+  return [...chats].sort((a, b) => {
+    const tb = safeSavedAtMs(b.savedAt);
+    const ta = safeSavedAtMs(a.savedAt);
+    if (tb !== ta) return tb - ta;
+    const idA = a.id || '';
+    const idB = b.id || '';
+    return idA < idB ? -1 : idA > idB ? 1 : 0;
+  });
+}
+
+function applyMarkerResults(
   userId: string,
-  results: LegacyMigrationConversationResult[],
-  eligibleIds: string[]
-): void {
+  results: LegacyMigrationConversationResult[]
+): UserMigrationMarker {
   const store = readMarkerStore();
   const prev = store[userId] ?? {
     version: LEGACY_MIGRATION_VERSION,
@@ -163,23 +184,65 @@ function updateMarker(
       reason: result.reason,
     };
   }
+  const next: UserMigrationMarker = {
+    version: LEGACY_MIGRATION_VERSION,
+    conversations,
+  };
+  // completedAt is owned exclusively by entire-bucket rescan.
+  if (prev.completedAt) {
+    next.completedAt = prev.completedAt;
+  }
+  store[userId] = next;
+  writeMarkerStore(store);
+  return next;
+}
 
-  const allTerminal = eligibleIds.every((id) => {
-    const st = conversations[id]?.status;
-    return st != null && TERMINAL_STATUSES.has(st);
-  });
+/**
+ * completedAt means: every migration-responsibility record in the current
+ * account-scoped bucket has a terminal outcome. Not "last batch was ok".
+ */
+export function rescanAndWriteCompletionMarker(userId: string): boolean {
+  const store = readMarkerStore();
+  const prev = store[userId] ?? {
+    version: LEGACY_MIGRATION_VERSION,
+    conversations: {},
+  };
+  const archives = readChatArchivesForScope(userScope(userId));
+  const conversations = { ...prev.conversations };
+
+  for (const chat of archives) {
+    if (!chat.id) continue;
+    const serverId = chat.serverConversationId || getServerIdForClientChat(chat.id);
+    if (serverId) {
+      const prevStatus = conversations[chat.id]?.status;
+      if (!prevStatus || !TERMINAL_STATUSES.has(prevStatus)) {
+        conversations[chat.id] = {
+          status: 'already_server_authoritative',
+          serverConversationId: serverId,
+        };
+      }
+      continue;
+    }
+    const st = conversations[chat.id]?.status;
+    if (!st || !TERMINAL_STATUSES.has(st)) {
+      const next: UserMigrationMarker = {
+        version: LEGACY_MIGRATION_VERSION,
+        conversations,
+      };
+      store[userId] = next;
+      writeMarkerStore(store);
+      return false;
+    }
+  }
 
   const next: UserMigrationMarker = {
     version: LEGACY_MIGRATION_VERSION,
     conversations,
-    ...(allTerminal ? { completedAt: new Date().toISOString() } : {}),
+    completedAt: new Date().toISOString(),
   };
-  // Never keep completedAt if any retryable remains
-  if (!allTerminal) {
-    delete next.completedAt;
-  }
   store[userId] = next;
   writeMarkerStore(store);
+  return true;
 }
 
 function mapConversationType(chat: ArchivedChat): string {
@@ -257,7 +320,7 @@ export function isEmptyLegacyTranscript(chat: ArchivedChat): boolean {
  */
 export function collectLegacyMigrationCandidates(userId: string): ArchivedChat[] {
   const scope = userScope(userId);
-  const archives = readChatArchivesForScope(scope);
+  const archives = sortLegacyMigrationCandidates(readChatArchivesForScope(scope));
   const marker = getLegacyMigrationMarker(userId);
   return archives.filter((chat) => {
     if (!chat.id) return false;
@@ -290,8 +353,7 @@ function markAlreadyServerBackedLocals(userId: string): void {
     });
   }
   if (synthetic.length === 0) return;
-  const allChatIds = archives.map((c) => c.id).filter(Boolean);
-  updateMarker(userId, synthetic, allChatIds);
+  applyMarkerResults(userId, synthetic);
 }
 
 /**
@@ -307,7 +369,7 @@ export function classifyLegacyMigrationCandidates(candidates: ArchivedChat[]): {
   const payloads: LegacyMigrationConversationPayload[] = [];
   const candidateIds: string[] = [];
 
-  for (const chat of candidates) {
+  for (const chat of sortLegacyMigrationCandidates(candidates)) {
     if (!chat.id) continue;
     candidateIds.push(chat.id);
     if (isEmptyLegacyTranscript(chat)) {
@@ -320,7 +382,6 @@ export function classifyLegacyMigrationCandidates(candidates: ArchivedChat[]): {
     }
     const payload = buildPayload(chat);
     if (!payload) {
-      // Non-empty array that somehow failed to build usable payload.
       localTerminal.push({
         clientConversationId: chat.id,
         status: 'empty_transcript',
@@ -353,12 +414,34 @@ function annotateLocalArchives(
     }
     if (chat.serverConversationId === result.serverConversationId) return chat;
     changed = true;
-    // Preserve full transcript — only annotate server id.
     return { ...chat, serverConversationId: result.serverConversationId };
   });
   if (changed) {
     replaceChatArchivesForScope(scope, next);
   }
+}
+
+function accountBatchResults(
+  submittedIds: string[],
+  responseResults: LegacyMigrationConversationResult[]
+): LegacyMigrationConversationResult[] {
+  const byId = new Map(
+    responseResults.map((r) => [r.clientConversationId, r] as const)
+  );
+  const out: LegacyMigrationConversationResult[] = [];
+  for (const id of submittedIds) {
+    const got = byId.get(id);
+    if (got) {
+      out.push(got);
+    } else {
+      out.push({
+        clientConversationId: id,
+        status: 'failed_retryable',
+        reason: 'response_omission',
+      });
+    }
+  }
+  return out;
 }
 
 export type LegacyMigrationRunResult = {
@@ -369,16 +452,15 @@ export type LegacyMigrationRunResult = {
 
 /**
  * After successful server bootstrap for `userId`, migrate eligible local-only chats.
+ *
+ * completedAt must NOT strand later unsynced current chats: we still inspect
+ * the bucket for new non-terminal candidates even when a prior completedAt exists.
  */
 export async function runLegacyConversationMigration(
   userId: string
 ): Promise<LegacyMigrationRunResult> {
   const authority = getServerConversationAuthority();
-  if (
-    !authority.bootstrapOk ||
-    authority.ownerKey !== userId ||
-    isLegacyMigrationComplete(userId)
-  ) {
+  if (!authority.bootstrapOk || authority.ownerKey !== userId) {
     return { ran: false, refreshed: false, results: [] };
   }
 
@@ -388,61 +470,97 @@ export async function runLegacyConversationMigration(
   markAlreadyServerBackedLocals(userId);
 
   const candidates = collectLegacyMigrationCandidates(userId);
-  const { localTerminal, payloads, candidateIds } =
-    classifyLegacyMigrationCandidates(candidates);
+  if (candidates.length === 0) {
+    if (!isServerConversationAuthorityValid(ownerAtStart, epochAtStart)) {
+      return { ran: false, refreshed: false, results: [] };
+    }
+    rescanAndWriteCompletionMarker(userId);
+    return { ran: false, refreshed: false, results: [] };
+  }
 
-  // Always account local terminals first (empty / filtered), even when no payloads.
+  const { localTerminal, payloads } = classifyLegacyMigrationCandidates(candidates);
+
+  const allResults: LegacyMigrationConversationResult[] = [...localTerminal];
+
   if (localTerminal.length > 0) {
     if (!isServerConversationAuthorityValid(ownerAtStart, epochAtStart)) {
       return { ran: false, refreshed: false, results: [] };
     }
-    updateMarker(userId, localTerminal, candidateIds);
+    applyMarkerResults(userId, localTerminal);
   }
 
-  if (payloads.length === 0) {
-    // Reconcile completion against full user archive after local terminals.
-    if (!isServerConversationAuthorityValid(ownerAtStart, epochAtStart)) {
-      return { ran: false, refreshed: false, results: localTerminal };
-    }
-    const scope = userScope(userId);
-    const archives = readChatArchivesForScope(scope);
-    const allIds = archives.map((c) => c.id).filter(Boolean);
-    updateMarker(userId, localTerminal, allIds.length > 0 ? allIds : candidateIds);
-    return {
-      ran: localTerminal.length > 0,
-      refreshed: false,
-      results: localTerminal,
-    };
-  }
+  let stopForRetryable = false;
+  let changedServer = false;
 
-  let response;
-  try {
-    response = await migrateLegacyServerConversations(payloads);
-  } catch {
+  for (
+    let offset = 0, batchIndex = 0;
+    offset < payloads.length && batchIndex < MAX_MIGRATION_BATCHES;
+    offset += LEGACY_MIGRATION_BATCH_SIZE, batchIndex += 1
+  ) {
     if (!isServerConversationAuthorityValid(ownerAtStart, epochAtStart)) {
       return { ran: false, refreshed: false, results: [] };
     }
-    const failed: LegacyMigrationConversationResult[] = payloads.map((p) => ({
-      clientConversationId: p.clientConversationId,
-      status: 'failed_retryable',
-      reason: 'network_or_server_error',
-    }));
-    const merged = [...localTerminal, ...failed];
-    updateMarker(userId, merged, candidateIds);
-    return { ran: true, refreshed: false, results: merged };
+
+    const batch = payloads.slice(offset, offset + LEGACY_MIGRATION_BATCH_SIZE);
+    const submittedIds = batch.map((p) => p.clientConversationId);
+
+    let batchResults: LegacyMigrationConversationResult[];
+    try {
+      const response = await migrateLegacyServerConversations(batch);
+      if (!isServerConversationAuthorityValid(ownerAtStart, epochAtStart)) {
+        return { ran: false, refreshed: false, results: [] };
+      }
+      batchResults = accountBatchResults(submittedIds, response.results ?? []);
+    } catch {
+      if (!isServerConversationAuthorityValid(ownerAtStart, epochAtStart)) {
+        return { ran: false, refreshed: false, results: [] };
+      }
+      // Batch N failed — mark this batch retryable; leave remaining unprocessed.
+      batchResults = submittedIds.map((id) => ({
+        clientConversationId: id,
+        status: 'failed_retryable' as const,
+        reason: 'network_or_server_error',
+      }));
+      applyMarkerResults(userId, batchResults);
+      allResults.push(...batchResults);
+      stopForRetryable = true;
+      break;
+    }
+
+    applyMarkerResults(userId, batchResults);
+    annotateLocalArchives(userId, batchResults);
+    allResults.push(...batchResults);
+
+    if (
+      batchResults.some(
+        (r) => r.status === 'migrated' || r.status === 'already_server_authoritative'
+      )
+    ) {
+      changedServer = true;
+    }
+
+    if (batchResults.some((r) => r.status === 'failed_retryable')) {
+      stopForRetryable = true;
+      break;
+    }
   }
 
   if (!isServerConversationAuthorityValid(ownerAtStart, epochAtStart)) {
     return { ran: false, refreshed: false, results: [] };
   }
 
-  const merged = [...localTerminal, ...response.results];
-  updateMarker(userId, merged, candidateIds);
-  annotateLocalArchives(userId, response.results);
-
-  const changedServer = response.results.some(
-    (r) => r.status === 'migrated' || r.status === 'already_server_authoritative'
-  );
+  if (!stopForRetryable) {
+    rescanAndWriteCompletionMarker(userId);
+  } else {
+    // Ensure completedAt stays absent while responsibility remains.
+    const store = readMarkerStore();
+    const entry = store[userId];
+    if (entry?.completedAt) {
+      delete entry.completedAt;
+      store[userId] = entry;
+      writeMarkerStore(store);
+    }
+  }
 
   let refreshed = false;
   if (changedServer) {
@@ -450,7 +568,11 @@ export async function runLegacyConversationMigration(
     refreshed = ok && isServerConversationAuthorityValid(ownerAtStart, epochAtStart);
   }
 
-  return { ran: true, refreshed, results: merged };
+  return {
+    ran: allResults.length > 0 || payloads.length > 0,
+    refreshed,
+    results: allResults,
+  };
 }
 
 /** Test helper — clear migration markers. */

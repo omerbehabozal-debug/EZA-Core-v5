@@ -28,6 +28,8 @@ export type ServerConversationListItem = {
   conversationSceneUrl?: string | null;
   conversationSceneSource?: string | null;
   conversationSceneSlug?: string | null;
+  hasReadyYansi?: boolean;
+  publishedYansiSlug?: string | null;
 };
 
 export type ServerConversationMessage = {
@@ -55,15 +57,54 @@ export type CreateServerConversationInput = {
   pinned?: boolean;
 };
 
-export async function listServerConversations(): Promise<ServerConversationListItem[]> {
-  const res = await apiClient.get<ServerConversationListItem[]>(
-    '/api/standalone/conversations',
+export type ServerConversationListPage = {
+  items: ServerConversationListItem[];
+  limit: number;
+  offset: number;
+  total: number;
+  hasMore: boolean;
+};
+
+export const SERVER_CONVERSATION_PAGE_SIZE = 100;
+export const SERVER_CONVERSATION_MAX_PAGES = 200;
+
+export async function listServerConversationsPage(input?: {
+  limit?: number;
+  offset?: number;
+}): Promise<ServerConversationListPage> {
+  const limit = input?.limit ?? SERVER_CONVERSATION_PAGE_SIZE;
+  const offset = input?.offset ?? 0;
+  const res = await apiClient.get<ServerConversationListPage>(
+    `/api/standalone/conversations?limit=${limit}&offset=${offset}`,
     { auth: true }
   );
-  if (!res.ok || !Array.isArray(res.data)) {
+  if (!res.ok || !res.data || !Array.isArray(res.data.items)) {
     throw new Error('server_conversation_list_failed');
   }
   return res.data;
+}
+
+/** Drain all pages. Fails closed if any page fails (no partial install). */
+export async function listServerConversations(): Promise<ServerConversationListItem[]> {
+  const out: ServerConversationListItem[] = [];
+  const seen = new Set<string>();
+  let offset = 0;
+  for (let page = 0; page < SERVER_CONVERSATION_MAX_PAGES; page += 1) {
+    const batch = await listServerConversationsPage({
+      limit: SERVER_CONVERSATION_PAGE_SIZE,
+      offset,
+    });
+    for (const item of batch.items) {
+      if (!item?.id || seen.has(item.id)) continue;
+      seen.add(item.id);
+      out.push(item);
+    }
+    if (!batch.hasMore || batch.items.length === 0) {
+      return out;
+    }
+    offset += batch.limit;
+  }
+  throw new Error('server_conversation_list_page_cap');
 }
 
 export async function getServerConversation(
@@ -175,6 +216,92 @@ export async function migrateLegacyServerConversations(
   );
   if (!res.ok || !res.data?.results) {
     throw new Error('server_legacy_migration_failed');
+  }
+  return res.data;
+}
+
+export type ServerYansiPreparation = {
+  id: string;
+  conversationId: string;
+  sourceIdentity: string;
+  journeyId: string;
+  journeyVersion: number;
+  windowIndex: number;
+  windowHash: string;
+  selectedStepsHash: string;
+  sourceBlockHash?: string | null;
+  generationId: string;
+  status: 'ready';
+  publicTitle: string;
+  publicSummary: string;
+  continuationContext?: string | null;
+  sceneImageUrl: string;
+  sceneAssetId?: string | null;
+  sceneFocalX?: number | null;
+  sceneFocalY?: number | null;
+  sealedLineage: Record<string, unknown>;
+  sealedPublicLanding?: Record<string, unknown> | null;
+  publishedSlug?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+};
+
+export type ServerYansiPreparationUpsert = {
+  journeyId: string;
+  journeyVersion: number;
+  windowIndex: number;
+  windowHash: string;
+  selectedStepsHash: string;
+  sourceBlockHash?: string | null;
+  generationId: string;
+  publicTitle: string;
+  publicSummary: string;
+  continuationContext?: string | null;
+  sceneImageUrl: string;
+  sceneAssetId?: string | null;
+  sceneFocalX?: number | null;
+  sceneFocalY?: number | null;
+  sealedLineage: Record<string, unknown>;
+  sealedPublicLanding?: Record<string, unknown> | null;
+};
+
+export async function getServerYansiPreparations(
+  serverConversationId: string
+): Promise<ServerYansiPreparation[]> {
+  const res = await apiClient.get<{ items: ServerYansiPreparation[] }>(
+    `/api/standalone/conversations/${serverConversationId}/yansi-preparation`,
+    { auth: true }
+  );
+  if (!res.ok || !res.data || !Array.isArray(res.data.items)) {
+    throw new Error('server_yansi_preparation_get_failed');
+  }
+  return res.data.items;
+}
+
+export async function putServerYansiPreparation(
+  serverConversationId: string,
+  body: ServerYansiPreparationUpsert
+): Promise<ServerYansiPreparation> {
+  const res = await apiClient.put<ServerYansiPreparation>(
+    `/api/standalone/conversations/${serverConversationId}/yansi-preparation`,
+    { body, auth: true }
+  );
+  if (!res.ok || !res.data) {
+    throw new Error('server_yansi_preparation_put_failed');
+  }
+  return res.data;
+}
+
+export async function linkServerYansiPreparationPublication(
+  serverConversationId: string,
+  body: { slug: string; journeyId?: string; journeyVersion?: number }
+): Promise<ServerYansiPreparation> {
+  const res = await apiClient.post<ServerYansiPreparation>(
+    `/api/standalone/conversations/${serverConversationId}/yansi-preparation/publication-link`,
+    { body, auth: true }
+  );
+  if (!res.ok || !res.data) {
+    throw new Error('server_yansi_preparation_link_failed');
   }
   return res.data;
 }

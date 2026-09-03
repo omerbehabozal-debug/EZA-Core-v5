@@ -24,6 +24,7 @@ from backend.models.user import LegacyUser  # noqa: F401
 from backend.models.standalone_conversations import (
     StandaloneConversation,
     StandaloneConversationMessage,
+    StandaloneYansiPreparation,
 )
 from backend.services.production_auth import create_access_token
 from backend.services.standalone.conversations import (
@@ -79,6 +80,7 @@ async def db_engine():
         await conn.execute(text("PRAGMA foreign_keys=OFF"))
         await conn.run_sync(StandaloneConversation.__table__.create)
         await conn.run_sync(StandaloneConversationMessage.__table__.create)
+        await conn.run_sync(StandaloneYansiPreparation.__table__.create)
     yield engine
     await engine.dispose()
 
@@ -140,7 +142,7 @@ async def test_create_list_detail_and_message_flow(db_session):
     assert created.clientConversationId == "client-chat-1"
     assert created.messageCount == 0
 
-    listed = await list_standalone_conversations(db_session, user_id=user_id)
+    listed = (await list_standalone_conversations(db_session, user_id=user_id)).items
     assert len(listed) == 1
     assert listed[0].id == created.id
 
@@ -184,7 +186,7 @@ async def test_idempotent_conversation_create(db_session):
     first = await upsert_standalone_conversation(db_session, user_id=user_id, body=body)
     second = await upsert_standalone_conversation(db_session, user_id=user_id, body=body)
     assert first.id == second.id
-    listed = await list_standalone_conversations(db_session, user_id=user_id)
+    listed = (await list_standalone_conversations(db_session, user_id=user_id)).items
     assert len(listed) == 1
 
 
@@ -245,7 +247,7 @@ async def test_list_order_last_message_at(db_session):
             clientMessageId="n1", role="user", content="yeni"
         ),
     )
-    listed = await list_standalone_conversations(db_session, user_id=user_id)
+    listed = (await list_standalone_conversations(db_session, user_id=user_id)).items
     assert listed[0].clientConversationId == "newer"
     assert listed[1].clientConversationId == "older"
 
@@ -276,7 +278,7 @@ async def test_title_patch_archive_restore_and_delete(db_session):
         body=StandaloneConversationPatch(archived=True),
     )
     assert archived.archived is True
-    assert await list_standalone_conversations(db_session, user_id=user_id) == []
+    assert (await list_standalone_conversations(db_session, user_id=user_id)).items == []
 
     with pytest.raises(StandaloneConversationNotFoundError):
         await get_standalone_conversation_detail(
@@ -290,7 +292,7 @@ async def test_title_patch_archive_restore_and_delete(db_session):
         body=StandaloneConversationPatch(archived=False),
     )
     assert restored.archived is False
-    listed = await list_standalone_conversations(db_session, user_id=user_id)
+    listed = (await list_standalone_conversations(db_session, user_id=user_id)).items
     assert len(listed) == 1
     detail = await get_standalone_conversation_detail(
         db_session, user_id=user_id, conversation_id=conv_id
@@ -456,7 +458,7 @@ def test_http_create_list_get_append_patch_delete(authenticated_api_client):
 
     listed = api_client.get("/api/standalone/conversations", headers=headers)
     assert listed.status_code == 200
-    assert len(listed.json()) == 1
+    assert len(listed.json()["items"]) == 1
 
     conv_id = conv["id"]
     msg = api_client.post(

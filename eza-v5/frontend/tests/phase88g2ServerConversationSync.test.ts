@@ -54,9 +54,10 @@ describe('Phase 8.8G-2 server conversation sync', () => {
   });
 
   it('local 30 cap remains client-only', () => {
-    expect(archive).toContain('MAX_CHATS = 30');
-    expect(store).not.toContain('MAX_CHATS');
-    expect(store).not.toContain('slice(0, MAX_CHATS)');
+    expect(archive).toContain('GUEST_MAX_CHATS = 30');
+    expect(archive).toContain("scope.kind === 'guest' ? sorted.slice(0, GUEST_MAX_CHATS)");
+    expect(store).not.toContain('GUEST_MAX_CHATS');
+    expect(store).not.toContain('slice(0, GUEST_MAX_CHATS)');
   });
 });
 

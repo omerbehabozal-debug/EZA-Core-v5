@@ -16,6 +16,10 @@ import {
   subscribeMirrorJourneyArtifactStore,
 } from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
 import { isGuestJourneyOwnerKey } from '@/lib/eza/mirror/journey/journeyOwnerKey';
+import {
+  getServerConversationSummaries,
+  subscribeServerConversations,
+} from '@/lib/eza/serverConversationStore';
 
 export function useConversationYansiStatusMap(
   ownerUserId: string | null | undefined,
@@ -23,6 +27,7 @@ export function useConversationYansiStatusMap(
 ): Record<string, ConversationYansiVisualStatus> {
   const [artifactTick, setArtifactTick] = useState(0);
   const [publication, setPublication] = useState(getOwnerYansiPublicationSnapshot);
+  const [serverTick, setServerTick] = useState(0);
 
   useEffect(() => {
     return subscribeMirrorJourneyArtifactStore(() => {
@@ -33,6 +38,12 @@ export function useConversationYansiStatusMap(
   useEffect(() => {
     return subscribeOwnerYansiPublicationAuthority(() => {
       setPublication(getOwnerYansiPublicationSnapshot());
+    });
+  }, []);
+
+  useEffect(() => {
+    return subscribeServerConversations(() => {
+      setServerTick((n) => n + 1);
     });
   }, []);
 
@@ -51,11 +62,29 @@ export function useConversationYansiStatusMap(
 
   return useMemo(() => {
     void artifactTick;
+    void serverTick;
     const artifacts = listAllJourneyArtifactsForOwner(owner);
+    const summaries = canFetchAuthority ? getServerConversationSummaries() : [];
+    const serverReadyByConversationId: Record<string, boolean> = {};
+    const serverPublishedSlugByConversationId: Record<string, string | null> = {};
+    const extraConversationIds: string[] = [];
+    for (let i = 0; i < summaries.length; i += 1) {
+      const row = summaries[i];
+      if (!row?.id) continue;
+      extraConversationIds.push(row.id);
+      serverReadyByConversationId[row.id] = Boolean(row.hasReadyYansi);
+      serverPublishedSlugByConversationId[row.id] = row.publishedYansiSlug ?? null;
+    }
     return buildConversationYansiStatusMap(
       artifacts,
       publication.bySlug,
-      publication.ready
+      publication.ready,
+      {
+        serverPreparationAuthorityReady: canFetchAuthority,
+        serverReadyByConversationId,
+        serverPublishedSlugByConversationId,
+        extraConversationIds,
+      }
     );
-  }, [artifactTick, owner, publication]);
+  }, [artifactTick, owner, publication, serverTick, canFetchAuthority]);
 }

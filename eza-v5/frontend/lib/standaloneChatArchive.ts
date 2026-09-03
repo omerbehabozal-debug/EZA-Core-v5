@@ -38,7 +38,10 @@ const SCOPED_STORAGE_KEY = 'eza_standalone_chat_archive_scoped_v1';
 /** Legacy global active pointer — migrated into scoped map. */
 export const ACTIVE_CHAT_ID_KEY = 'eza_standalone_active_chat_id';
 const SCOPED_ACTIVE_CHAT_KEY = 'eza_standalone_active_chat_id_scoped_v1';
-const MAX_CHATS = 30;
+/** Guest cache only — authenticated user buckets must never silently truncate. */
+export const GUEST_MAX_CHATS = 30;
+/** @deprecated Phase 8.8G-3.2 — auth buckets no longer use this destructive cap. */
+const MAX_CHATS = GUEST_MAX_CHATS;
 
 type ScopedChatBuckets = Record<string, ArchivedChat[]>;
 type ScopedActiveMap = Record<string, string | null>;
@@ -92,6 +95,9 @@ export interface ArchivedChat {
   conversationSceneUrl?: string | null;
   conversationSceneSource?: ConversationSceneSource | null;
   conversationSceneSlug?: string | null;
+  /** Phase 8.8G-4 — server-backed unpublished ready Yansı. */
+  hasReadyYansi?: boolean;
+  publishedYansiSlug?: string | null;
 }
 
 export type ArchivedChatSummary = Pick<
@@ -108,6 +114,8 @@ export type ArchivedChatSummary = Pick<
   | 'conversationSceneUrl'
   | 'conversationSceneSource'
   | 'conversationSceneSlug'
+  | 'hasReadyYansi'
+  | 'publishedYansiSlug'
 > & {
   isMirrorSource?: boolean;
 };
@@ -148,15 +156,17 @@ function readScopedBuckets(): ScopedChatBuckets {
   }
 }
 
-function writeScopedBuckets(buckets: ScopedChatBuckets): void {
-  if (typeof window === 'undefined') return;
+function writeScopedBuckets(buckets: ScopedChatBuckets): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     localStorage.setItem(SCOPED_STORAGE_KEY, JSON.stringify(buckets));
     // Keep legacy key empty so old readers do not resurrect a global list.
     localStorage.removeItem(STORAGE_KEY);
     notifyChatsUpdated();
+    return true;
   } catch {
-    /* quota */
+    /* quota — do not replace existing storage with a truncated subset */
+    return false;
   }
 }
 
@@ -208,7 +218,11 @@ function writeAllForScope(scope: LocalIdentityScope, list: ArchivedChat[]): void
   const sorted = [...list].sort(
     (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
   );
-  buckets[scopeKey(scope)] = sorted.slice(0, MAX_CHATS);
+  // Phase 8.8G-3.2 — authenticated buckets preserve all chats (migration source).
+  // Guest cache may remain bounded; never silently discard account history.
+  const nextList =
+    scope.kind === 'guest' ? sorted.slice(0, GUEST_MAX_CHATS) : sorted;
+  buckets[scopeKey(scope)] = nextList;
   writeScopedBuckets(buckets);
 }
 

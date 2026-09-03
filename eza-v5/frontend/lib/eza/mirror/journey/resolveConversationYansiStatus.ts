@@ -77,12 +77,43 @@ export function resolveConversationYansiStatus(input: {
   artifacts: MirrorJourneyArtifact[];
   publicationBySlug: Map<string, OwnerYansiPublicationRecord>;
   publicationAuthorityReady: boolean;
+  serverPreparationAuthorityReady?: boolean;
+  serverReady?: boolean;
+  serverPublishedSlug?: string | null;
 }): ConversationYansiVisualStatus {
   const reusable = input.artifacts.filter(isReusablePreparedYansiArtifact);
-  if (reusable.length === 0) return 'none';
-
   const slugOf = (row: MirrorJourneyArtifact) =>
     row.publish?.slug?.trim().toLowerCase() || '';
+  const serverSlug = (input.serverPublishedSlug || '').trim().toLowerCase();
+
+  const publicationSlugHits: string[] = [];
+  if (serverSlug) publicationSlugHits.push(serverSlug);
+  for (let i = 0; i < reusable.length; i += 1) {
+    const slug = slugOf(reusable[i]!);
+    if (slug) publicationSlugHits.push(slug);
+  }
+
+  if (input.publicationAuthorityReady) {
+    const publicHit = publicationSlugHits.some((slug) =>
+      isCurrentlyPublicPublication(input.publicationBySlug.get(slug))
+    );
+    if (publicHit) return 'published';
+
+    const restrictedHits = publicationSlugHits.filter((slug) =>
+      isRestrictedPublication(input.publicationBySlug.get(slug))
+    );
+    if (restrictedHits.length > 0 && restrictedHits.length === publicationSlugHits.length) {
+      return 'none';
+    }
+  }
+
+  if (input.serverReady) return 'ready';
+
+  if (input.serverPreparationAuthorityReady) {
+    return 'none';
+  }
+
+  if (reusable.length === 0) return 'none';
 
   if (input.publicationAuthorityReady) {
     const publicHit = reusable.some((row) => {
@@ -111,7 +142,13 @@ export function resolveConversationYansiStatus(input: {
 export function buildConversationYansiStatusMap(
   artifacts: MirrorJourneyArtifact[],
   publicationBySlug: Map<string, OwnerYansiPublicationRecord>,
-  publicationAuthorityReady: boolean
+  publicationAuthorityReady: boolean,
+  options?: {
+    serverPreparationAuthorityReady?: boolean;
+    serverReadyByConversationId?: Record<string, boolean>;
+    serverPublishedSlugByConversationId?: Record<string, string | null>;
+    extraConversationIds?: string[];
+  }
 ): Record<string, ConversationYansiVisualStatus> {
   const byConversation: Record<string, MirrorJourneyArtifact[]> = {};
   for (let i = 0; i < artifacts.length; i += 1) {
@@ -122,6 +159,19 @@ export function buildConversationYansiStatusMap(
     list.push(artifact);
     byConversation[conversationId] = list;
   }
+  const extra = options?.extraConversationIds ?? [];
+  for (let i = 0; i < extra.length; i += 1) {
+    const id = extra[i]?.trim();
+    if (id && !byConversation[id]) byConversation[id] = [];
+  }
+  const serverReady = options?.serverReadyByConversationId ?? {};
+  const serverPublished = options?.serverPublishedSlugByConversationId ?? {};
+  for (const id of Object.keys(serverReady)) {
+    if (id && !byConversation[id]) byConversation[id] = [];
+  }
+  for (const id of Object.keys(serverPublished)) {
+    if (id && !byConversation[id]) byConversation[id] = [];
+  }
   const out: Record<string, ConversationYansiVisualStatus> = {};
   const conversationIds = Object.keys(byConversation);
   for (let i = 0; i < conversationIds.length; i += 1) {
@@ -131,6 +181,9 @@ export function buildConversationYansiStatusMap(
       artifacts: byConversation[conversationId] ?? [],
       publicationBySlug,
       publicationAuthorityReady,
+      serverPreparationAuthorityReady: options?.serverPreparationAuthorityReady,
+      serverReady: Boolean(serverReady[conversationId]),
+      serverPublishedSlug: serverPublished[conversationId] ?? null,
     });
   }
   return out;

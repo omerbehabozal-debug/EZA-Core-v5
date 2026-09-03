@@ -23,6 +23,7 @@ from backend.main import app
 from backend.models.standalone_conversations import (
     StandaloneConversation,
     StandaloneConversationMessage,
+    StandaloneYansiPreparation,
 )
 from backend.services.production_auth import create_access_token
 from backend.services.standalone.conversations import (
@@ -65,6 +66,7 @@ async def db_engine():
         await conn.execute(text("PRAGMA foreign_keys=OFF"))
         await conn.run_sync(StandaloneConversation.__table__.create)
         await conn.run_sync(StandaloneConversationMessage.__table__.create)
+        await conn.run_sync(StandaloneYansiPreparation.__table__.create)
     yield engine
     await engine.dispose()
 
