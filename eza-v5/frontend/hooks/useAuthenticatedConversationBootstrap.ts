@@ -8,9 +8,11 @@ import {
   getServerConversationSummaries,
   subscribeServerConversations,
 } from '@/lib/eza/serverConversationStore';
+import { runLegacyConversationMigration } from '@/lib/eza/legacyConversationMigration';
 
 /**
- * After auth identity resolves, bootstrap server conversation list.
+ * After auth identity resolves, bootstrap server conversation list,
+ * then run Phase 8.8G-3 legacy migration when eligible.
  * Clears in-memory server state immediately on logout / account switch.
  */
 export function useAuthenticatedConversationBootstrap() {
@@ -23,7 +25,19 @@ export function useAuthenticatedConversationBootstrap() {
       clearServerConversationState();
       return;
     }
-    void bootstrapServerConversations(userId);
+
+    let cancelled = false;
+
+    const run = async () => {
+      const ok = await bootstrapServerConversations(userId);
+      if (cancelled || !ok) return;
+      await runLegacyConversationMigration(userId);
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthReady, isAuthenticated, userId]);
 
   const serverSummaries = useSyncExternalStore(

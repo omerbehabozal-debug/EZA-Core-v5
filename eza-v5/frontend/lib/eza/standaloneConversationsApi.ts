@@ -121,3 +121,59 @@ export async function deleteServerConversation(serverConversationId: string): Pr
     throw new Error('server_conversation_delete_failed');
   }
 }
+
+export type LegacyMigrationStatus =
+  | 'migrated'
+  | 'already_server_authoritative'
+  | 'tombstoned'
+  | 'rejected_invalid'
+  | 'failed_retryable';
+
+export type LegacyMigrationMessagePayload = {
+  clientMessageId?: string;
+  role: 'user' | 'assistant';
+  content: string;
+  ordinal: number;
+  createdAt?: string;
+};
+
+export type LegacyMigrationConversationPayload = {
+  clientConversationId: string;
+  title?: string;
+  titlePinned?: boolean;
+  pinned?: boolean;
+  conversationType?: string;
+  parentClientConversationId?: string;
+  sourceYansiSlug?: string;
+  groupId?: string;
+  treeMetadata?: Record<string, unknown>;
+  conversationSceneUrl?: string;
+  conversationSceneSource?: string;
+  conversationSceneSlug?: string;
+  messages: LegacyMigrationMessagePayload[];
+};
+
+export type LegacyMigrationConversationResult = {
+  clientConversationId: string;
+  status: LegacyMigrationStatus;
+  serverConversationId?: string | null;
+  reason?: string | null;
+  messageCount?: number | null;
+};
+
+export type LegacyMigrationResponse = {
+  results: LegacyMigrationConversationResult[];
+};
+
+export async function migrateLegacyServerConversations(
+  conversations: LegacyMigrationConversationPayload[]
+): Promise<LegacyMigrationResponse> {
+  const res = await apiClient.post<LegacyMigrationResponse>(
+    '/api/standalone/conversations/migrate-legacy',
+    { body: { conversations }, auth: true }
+  );
+  if (!res.ok || !res.data?.results) {
+    throw new Error('server_legacy_migration_failed');
+  }
+  return res.data;
+}

@@ -202,7 +202,7 @@ function mapDetailToArchivedChat(detail: ServerConversationDetail): ArchivedChat
   };
 }
 
-export async function bootstrapServerConversations(userId: string): Promise<void> {
+export async function bootstrapServerConversations(userId: string): Promise<boolean> {
   beginAccountSession(userId);
   const { ownerAtStart, epochAtStart } = captureAuthority();
   state.loading = true;
@@ -210,19 +210,43 @@ export async function bootstrapServerConversations(userId: string): Promise<void
   emit();
   try {
     const items = await listServerConversations();
-    if (!isAuthorityValid(ownerAtStart, epochAtStart)) return;
+    if (!isAuthorityValid(ownerAtStart, epochAtStart)) return false;
     state.serverIdByClientId = {};
     state.summaries = items.map(mapListItemToSummary);
     state.loading = false;
     state.error = null;
   } catch {
-    if (!isAuthorityValid(ownerAtStart, epochAtStart)) return;
+    if (!isAuthorityValid(ownerAtStart, epochAtStart)) return false;
     state.loading = false;
     state.error = 'bootstrap_failed';
+    emit();
+    return false;
   }
   if (isAuthorityValid(ownerAtStart, epochAtStart)) {
     emit();
+    return true;
   }
+  return false;
+}
+
+/** Snapshot for owner/epoch-bound follow-up work (e.g. 8.8G-3 migration). */
+export function getServerConversationAuthority(): {
+  ownerKey: string | null;
+  epoch: number;
+  bootstrapOk: boolean;
+} {
+  return {
+    ownerKey: activeOwnerKey,
+    epoch: bootstrapEpoch,
+    bootstrapOk: !state.loading && state.error == null && activeOwnerKey != null,
+  };
+}
+
+export function isServerConversationAuthorityValid(
+  ownerAtStart: string | null,
+  epochAtStart: number
+): boolean {
+  return isAuthorityValid(ownerAtStart, epochAtStart);
 }
 
 export async function ensureServerConversation(

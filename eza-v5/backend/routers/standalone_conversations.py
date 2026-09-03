@@ -17,6 +17,8 @@ from backend.core.schemas.standalone_conversations import (
     StandaloneConversationMessageCreate,
     StandaloneConversationMessageDTO,
     StandaloneConversationPatch,
+    LegacyMigrationRequest,
+    LegacyMigrationResponse,
 )
 from backend.core.utils.dependencies import get_db
 from backend.services.standalone.conversations import (
@@ -28,6 +30,7 @@ from backend.services.standalone.conversations import (
     patch_standalone_conversation,
     upsert_standalone_conversation,
 )
+from backend.services.standalone.legacy_migration import migrate_legacy_conversations
 
 router = APIRouter(
     prefix="/api/standalone/conversations",
@@ -52,6 +55,27 @@ async def list_conversations(
     current_user: dict = Depends(get_current_user),
 ) -> List[StandaloneConversationListItem]:
     return await list_standalone_conversations(db, user_id=_owner_user_id(current_user))
+
+
+@router.post(
+    "/migrate-legacy",
+    response_model=LegacyMigrationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def migrate_legacy(
+    body: LegacyMigrationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> LegacyMigrationResponse:
+    """
+    Phase 8.8G-3 — dedicated historical import.
+    Owner is derived from JWT only. Does not weaken live assistant append.
+    """
+    return await migrate_legacy_conversations(
+        db,
+        user_id=_owner_user_id(current_user),
+        request=body,
+    )
 
 
 @router.get("/{conversation_id}", response_model=StandaloneConversationDetail)
