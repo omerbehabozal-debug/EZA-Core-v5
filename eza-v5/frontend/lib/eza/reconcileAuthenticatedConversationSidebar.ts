@@ -28,6 +28,8 @@ export type MigrationMarkerSnapshot = {
   conversations: Record<string, MigrationMarkerConversationState>;
 } | null;
 
+export type ReconcileAuthorityMode = 'authoritative' | 'degraded';
+
 export type ReconcileAuthenticatedConversationSidebarInput = {
   ownerId: string;
   serverSummaries: ArchivedChatSummary[];
@@ -39,6 +41,12 @@ export type ReconcileAuthenticatedConversationSidebarInput = {
   deletedClientIds?: Iterable<string>;
   /** Current unsynced authenticated chats (server create/retry pending). */
   unsyncedClientIds?: Iterable<string>;
+  /**
+   * authoritative — full successful server list installed (G8832 rules).
+   * degraded — server authority unavailable/loading without last-good snapshot;
+   *            show current-user scoped locals minus known tombstone/delete.
+   */
+  mode?: ReconcileAuthorityMode;
 };
 
 function safeSavedAtMs(value: string | null | undefined): number {
@@ -47,7 +55,10 @@ function safeSavedAtMs(value: string | null | undefined): number {
   return Number.isFinite(t) ? t : 0;
 }
 
-function toSummary(chat: ArchivedChat): ArchivedChatSummary {
+function toSummary(
+  chat: ArchivedChat,
+  opts?: { preserveMappedServerId?: boolean }
+): ArchivedChatSummary {
   return {
     id: chat.id,
     title: chat.title || 'Yeni sohbet',
@@ -60,8 +71,10 @@ function toSummary(chat: ArchivedChat): ArchivedChatSummary {
     conversationSceneUrl: chat.conversationSceneUrl ?? null,
     conversationSceneSource: chat.conversationSceneSource ?? null,
     conversationSceneSlug: chat.conversationSceneSlug ?? null,
-    // Never fabricate a server id for fallback rows.
-    serverConversationId: undefined,
+    // Never fabricate a server id. Degraded mode may retain an existing mapping.
+    serverConversationId: opts?.preserveMappedServerId
+      ? chat.serverConversationId
+      : undefined,
     hasReadyYansi: Boolean(chat.hasReadyYansi),
     publishedYansiSlug: chat.publishedYansiSlug ?? null,
   };
@@ -81,10 +94,13 @@ function sortSidebarSummaries(rows: ArchivedChatSummary[]): ArchivedChatSummary[
 /**
  * Merge server-authoritative summaries with conservative owner-local fallbacks.
  *
- * Precedence:
+ * Precedence (authoritative):
  * SERVER ACTIVE > LOCAL FALLBACK
  * SERVER TOMBSTONE/DELETE > HIDE LOCAL
  * GUEST / OTHER ACCOUNT > NEVER (caller must pass only current-user bucket)
+ *
+ * Degraded (Phase 8.8G-3.2.2): when server authority is unavailable, mapped
+ * current-user locals may remain visible until a successful complete list arrives.
  */
 export function reconcileAuthenticatedConversationSidebar(
   input: ReconcileAuthenticatedConversationSidebarInput
@@ -92,6 +108,7 @@ export function reconcileAuthenticatedConversationSidebar(
   const ownerId = (input.ownerId || '').trim();
   if (!ownerId) return [];
 
+  const mode: ReconcileAuthorityMode = input.mode ?? 'authoritative';
   const serverSummaries = Array.isArray(input.serverSummaries) ? input.serverSummaries : [];
   const ownerLocalArchives = Array.isArray(input.ownerLocalArchives)
     ? input.ownerLocalArchives
@@ -130,13 +147,21 @@ export function reconcileAuthenticatedConversationSidebar(
 
     // Active server row wins — never duplicate.
     if (serverClientIds.has(id)) continue;
+
+    if (tombstoned.has(id)) continue;
+    if (deleted.has(id) || isChatDeleted(id)) continue;
+
+    if (mode === 'degraded') {
+      // Availability fallback: keep mapped/migrated locals visible while authority
+      // is unavailable. Still never invent ownership or clear tombstones.
+      fallbacks.push(toSummary(chat, { preserveMappedServerId: true }));
+      continue;
+    }
+
     if (chat.serverConversationId) {
       // Previously mapped / deleted on server: do not resurrect from local.
       continue;
     }
-
-    if (tombstoned.has(id)) continue;
-    if (deleted.has(id) || isChatDeleted(id)) continue;
 
     const status = marker?.conversations[id]?.status;
     const eligible =

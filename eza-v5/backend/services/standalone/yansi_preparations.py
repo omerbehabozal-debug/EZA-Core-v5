@@ -8,10 +8,11 @@ from typing import Any, Optional
 from urllib.parse import urlparse
 from uuid import UUID
 import asyncio
+import logging
 
 from fastapi import HTTPException
 from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.standalone_conversations import (
@@ -152,26 +153,49 @@ def _row_to_dto(row: StandaloneYansiPreparation) -> YansiPreparationDTO:
     )
 
 
+logger = logging.getLogger(__name__)
+
+
 async def preparation_flags_for_conversations(
     db: AsyncSession,
     *,
     user_id: UUID,
     conversation_ids: list[UUID],
 ) -> dict[UUID, tuple[bool, Optional[str]]]:
-    """Return (has_unpublished_ready, published_slug) per conversation."""
+    """Return (has_unpublished_ready, published_slug) per conversation.
+
+    Phase 8.8G-3.2.2 — optional decoration. Failures (missing table, etc.)
+    must not destroy base conversation list availability. Conservative:
+    has_ready=False, published=None.
+    """
     flags: dict[UUID, tuple[bool, Optional[str]]] = {
         cid: (False, None) for cid in conversation_ids
     }
     if not conversation_ids:
         return flags
-    result = await db.execute(
-        select(StandaloneYansiPreparation).where(
-            StandaloneYansiPreparation.user_id == user_id,
-            StandaloneYansiPreparation.conversation_id.in_(conversation_ids),
-            StandaloneYansiPreparation.deleted_at.is_(None),
-            StandaloneYansiPreparation.status == YANSI_PREPARATION_STATUS_READY,
+    try:
+        result = await db.execute(
+            select(StandaloneYansiPreparation).where(
+                StandaloneYansiPreparation.user_id == user_id,
+                StandaloneYansiPreparation.conversation_id.in_(conversation_ids),
+                StandaloneYansiPreparation.deleted_at.is_(None),
+                StandaloneYansiPreparation.status == YANSI_PREPARATION_STATUS_READY,
+            )
         )
-    )
+    except (ProgrammingError, OperationalError) as exc:
+        logger.warning(
+            "yansi_preparation_flags_unavailable count=%s err=%s",
+            len(conversation_ids),
+            type(exc).__name__,
+        )
+        return flags
+    except Exception as exc:  # noqa: BLE001 — keep conversation list available
+        logger.warning(
+            "yansi_preparation_flags_failed count=%s err=%s",
+            len(conversation_ids),
+            type(exc).__name__,
+        )
+        return flags
     for row in result.scalars().all():
         cid = row.conversation_id
         has_ready, published = flags.get(cid, (False, None))

@@ -144,19 +144,20 @@ describe('SainaPatternPageInner (Sprint C.2)', () => {
   });
 
   it('navigates chat selection to /standalone?chat=...', async () => {
-    localStorage.setItem(
-      'eza_standalone_chat_archive',
-      JSON.stringify([
-        {
-          id: 'chat-abc',
-          title: 'Test sohbet',
-          preview: 'merhaba',
-          savedAt: new Date().toISOString(),
-          messageCount: 1,
-          messages: [{ id: 'm1', text: 'merhaba', isUser: true }],
-        },
-      ])
-    );
+    const { replaceChatArchivesForScope } = await import('@/lib/standaloneChatArchive');
+    const { guestScope } = await import('@/lib/eza/localIdentityScope');
+    const { getOrCreateMirrorGuestToken } = await import('@/lib/eza/mirror-network/guestToken');
+    const guestToken = getOrCreateMirrorGuestToken();
+    replaceChatArchivesForScope(guestScope(guestToken), [
+      {
+        id: 'chat-abc',
+        title: 'Test sohbet',
+        preview: 'merhaba',
+        savedAt: new Date().toISOString(),
+        messageCount: 1,
+        messages: [{ id: 'm1', text: 'merhaba', isUser: true }],
+      },
+    ]);
 
     renderPatternApp();
 

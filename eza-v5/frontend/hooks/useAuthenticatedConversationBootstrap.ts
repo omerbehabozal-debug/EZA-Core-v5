@@ -5,7 +5,9 @@ import { useAuth } from '@/context/AuthContext';
 import {
   bootstrapServerConversations,
   clearServerConversationState,
+  getServerAuthorityPhase,
   getServerConversationSummaries,
+  getSidebarAuthorityMode,
   getUnsyncedClientIds,
   subscribeServerConversations,
 } from '@/lib/eza/serverConversationStore';
@@ -27,6 +29,10 @@ import { userScope } from '@/lib/eza/localIdentityScope';
  *
  * Phase 8.8G-3.2 — returns reconciled sidebar summaries (server + safe
  * owner-local fallbacks), not raw server-only rows.
+ *
+ * Phase 8.8G-3.2.2 — while server authority is loading/failed without a
+ * complete snapshot, use degraded current-user local visibility so FAILED
+ * is never treated as SUCCESS_EMPTY.
  */
 export function useAuthenticatedConversationBootstrap() {
   const { isAuthenticated, isAuthReady, user } = useAuth();
@@ -67,6 +73,12 @@ export function useAuthenticatedConversationBootstrap() {
     () => []
   );
 
+  const authorityPhase = useSyncExternalStore(
+    subscribeServerConversations,
+    getServerAuthorityPhase,
+    () => 'none' as const
+  );
+
   const serverSummaries = useMemo(() => {
     if (!isAuthReady || !isAuthenticated || !userId) {
       return [];
@@ -78,6 +90,7 @@ export function useAuthenticatedConversationBootstrap() {
         if (state?.status === 'tombstoned') tombstonedClientIds.push(id);
       }
     }
+    const mode = getSidebarAuthorityMode();
     return reconcileAuthenticatedConversationSidebar({
       ownerId: userId,
       serverSummaries: serverOnlySummaries,
@@ -85,8 +98,9 @@ export function useAuthenticatedConversationBootstrap() {
       migrationMarker: marker,
       tombstonedClientIds,
       unsyncedClientIds: getUnsyncedClientIds(),
+      mode,
     });
-    // archiveEpoch forces recompute when local archives change.
+    // archiveEpoch / authorityPhase force recompute on local or authority flips.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isAuthReady,
@@ -94,6 +108,7 @@ export function useAuthenticatedConversationBootstrap() {
     userId,
     serverOnlySummaries,
     archiveEpoch,
+    authorityPhase,
   ]);
 
   return {

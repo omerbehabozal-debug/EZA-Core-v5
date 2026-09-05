@@ -12,7 +12,14 @@ import {
 } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import type { ArchivedChat } from '@/lib/standaloneChatArchive';
-import { getChatArchive } from '@/lib/standaloneChatArchive';
+import { getChatArchive, replaceChatArchivesForScope } from '@/lib/standaloneChatArchive';
+import { guestScope } from '@/lib/eza/localIdentityScope';
+import { getOrCreateMirrorGuestToken } from '@/lib/eza/mirror-network/guestToken';
+
+function seedCurrentGuestArchive(chats: ArchivedChat[]) {
+  const token = getOrCreateMirrorGuestToken();
+  replaceChatArchivesForScope(guestScope(token), chats);
+}
 
 const GUEST_SESSION: MirrorSohbetSession = {
   sessionId: 'sess-1',
@@ -70,7 +77,7 @@ describe('discoverExperiencedMirrors', () => {
     expect(hasCompletedMirrorVisual(chat)).toBe(false);
     expect(resolveExperiencedSlugFromChat(chat)).toBeNull();
 
-    localStorage.setItem('eza_standalone_chat_archive', JSON.stringify([chat]));
+    seedCurrentGuestArchive([chat]);
     syncDiscoverExperiencedFromArchive();
     expect(localStorage.getItem('eza_discover_experienced_mirror_slugs')).toBeNull();
 
@@ -94,7 +101,7 @@ describe('discoverExperiencedMirrors', () => {
     expect(hasCompletedMirrorVisual(chat)).toBe(true);
     expect(resolveExperiencedSlugFromChat(chat)).toBe('bmw-sport');
 
-    localStorage.setItem('eza_standalone_chat_archive', JSON.stringify([chat]));
+    seedCurrentGuestArchive([chat]);
     const visible = filterDiscoverMirrorsForViewer(sampleItems);
     expect(visible.map((item) => item.slug)).toEqual(['japan-kyoto', 'space-orbit']);
   });
@@ -164,7 +171,7 @@ describe('discoverExperiencedMirrors', () => {
         rootMirrorId: 'japan-kyoto',
       },
     } as ArchivedChat;
-    localStorage.setItem('eza_standalone_chat_archive', JSON.stringify([chat]));
+    seedCurrentGuestArchive([chat]);
 
     markDiscoverMirrorCompletedForConversation('chat-3');
 

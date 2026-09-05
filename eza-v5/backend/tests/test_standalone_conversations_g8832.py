@@ -348,3 +348,46 @@ async def test_yansi_flags_survive_pagination_without_filtering_no_yansi_rows(db
     assert all_items["conversation-003"].hasReadyYansi is False
     assert all_items["conversation-003"].publishedYansiSlug == "published-d"
     assert first.total == second.total == 4
+
+
+@pytest.mark.asyncio
+async def test_optional_yansi_flag_failure_returns_conservative_defaults(
+    db_session, monkeypatch
+):
+    """Phase 8.8G-3.2.2 — flag query failure must not raise; conservative false flags."""
+    from sqlalchemy.exc import ProgrammingError
+    from backend.services.standalone.yansi_preparations import (
+        preparation_flags_for_conversations,
+    )
+
+    user_id = uuid.uuid4()
+    cid = uuid.uuid4()
+
+    async def boom_execute(*_args, **_kwargs):
+        raise ProgrammingError("stmt", {}, Exception("no such table"))
+
+    monkeypatch.setattr(db_session, "execute", boom_execute)
+    flags = await preparation_flags_for_conversations(
+        db_session, user_id=user_id, conversation_ids=[cid]
+    )
+    assert flags == {cid: (False, None)}
+
+
+@pytest.mark.asyncio
+async def test_list_survives_when_preparation_flags_soft_fail(db_session, monkeypatch):
+    """Base conversation rows remain available if optional flag decoration fails soft."""
+    from backend.services.standalone import conversations as conv_mod
+
+    user_id = uuid.uuid4()
+    db_session.add(_conversation(user_id, 0))
+    await db_session.commit()
+
+    async def soft_fail(db, *, user_id, conversation_ids):
+        return {cid: (False, None) for cid in conversation_ids}
+
+    monkeypatch.setattr(conv_mod, "preparation_flags_for_conversations", soft_fail)
+    page = await list_standalone_conversations(db_session, user_id=user_id, limit=10, offset=0)
+    assert len(page.items) == 1
+    assert page.items[0].clientConversationId == "conversation-000"
+    assert page.items[0].hasReadyYansi is False
+    assert page.items[0].publishedYansiSlug is None

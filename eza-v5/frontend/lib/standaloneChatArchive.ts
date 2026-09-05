@@ -140,17 +140,10 @@ function readScopedBuckets(): ScopedChatBuckets {
       }
     }
 
-    // Legacy flat array → current identity bucket (guest or user).
-    const legacyRaw = localStorage.getItem(STORAGE_KEY);
-    if (!legacyRaw) return {};
-    const legacy = JSON.parse(legacyRaw);
-    if (!Array.isArray(legacy)) return {};
-    const scope = resolveCurrentLocalIdentityScope({ createGuestIfMissing: true });
-    if (!scope) return {};
-    const buckets: ScopedChatBuckets = { [scopeKey(scope)]: legacy as ArchivedChat[] };
-    localStorage.setItem(SCOPED_STORAGE_KEY, JSON.stringify(buckets));
-    localStorage.removeItem(STORAGE_KEY);
-    return buckets;
+    // Phase 8.8G-3.2.1 — historical flat archive has UNKNOWN ownership.
+    // Never auto-claim into user:{id} or guest:{token} from current session.
+    // Leave eza_standalone_chat_archive intact for future explicit recovery.
+    return {};
   } catch {
     return {};
   }
@@ -160,8 +153,7 @@ function writeScopedBuckets(buckets: ScopedChatBuckets): boolean {
   if (typeof window === 'undefined') return false;
   try {
     localStorage.setItem(SCOPED_STORAGE_KEY, JSON.stringify(buckets));
-    // Keep legacy key empty so old readers do not resurrect a global list.
-    localStorage.removeItem(STORAGE_KEY);
+    // Do not removeItem(STORAGE_KEY): ambiguous flat data must remain preserved.
     notifyChatsUpdated();
     return true;
   } catch {

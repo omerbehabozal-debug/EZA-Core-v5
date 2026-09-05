@@ -34,6 +34,16 @@ type ServerConversationState = {
   loading: boolean;
   error: string | null;
   unsyncedClientIds: Set<string>;
+  /**
+   * Phase 8.8G-3.2.2 — authority readiness.
+   * none: no owner / cleared
+   * loading: fetch in flight (FAILED != empty)
+   * ready: complete successful list installed (may be empty)
+   * failed: last fetch failed (may still hold last-good snapshot)
+   */
+  authorityPhase: 'none' | 'loading' | 'ready' | 'failed';
+  /** True after at least one complete successful list for the current owner. */
+  hasCompleteSnapshot: boolean;
 };
 
 const state: ServerConversationState = {
@@ -43,6 +53,8 @@ const state: ServerConversationState = {
   loading: false,
   error: null,
   unsyncedClientIds: new Set(),
+  authorityPhase: 'none',
+  hasCompleteSnapshot: false,
 };
 
 let activeOwnerKey: string | null = null;
@@ -75,6 +87,8 @@ function resetMutableState(): void {
   state.loading = false;
   state.error = null;
   state.unsyncedClientIds = new Set();
+  state.authorityPhase = 'none';
+  state.hasCompleteSnapshot = false;
 }
 
 export function subscribeServerConversations(listener: () => void): () => void {
@@ -119,6 +133,29 @@ export function markConversationSynced(clientId: string): void {
 
 export function getUnsyncedClientIds(): ReadonlySet<string> {
   return state.unsyncedClientIds;
+}
+
+/** Phase 8.8G-3.2.2 — LOADING | READY | FAILED | NONE (not inferred from length). */
+export function getServerAuthorityPhase():
+  | 'none'
+  | 'loading'
+  | 'ready'
+  | 'failed' {
+  return state.authorityPhase;
+}
+
+export function hasCompleteServerAuthoritySnapshot(): boolean {
+  return state.hasCompleteSnapshot;
+}
+
+/**
+ * Sidebar reconcile mode for the current owner.
+ * Complete snapshot (even if empty) ⇒ authoritative.
+ * Otherwise loading/failed without snapshot ⇒ degraded local visibility.
+ */
+export function getSidebarAuthorityMode(): 'authoritative' | 'degraded' {
+  if (state.hasCompleteSnapshot) return 'authoritative';
+  return 'degraded';
 }
 
 export function applyPersistenceStatus(
@@ -213,6 +250,8 @@ export async function bootstrapServerConversations(userId: string): Promise<bool
   const { ownerAtStart, epochAtStart } = captureAuthority();
   state.loading = true;
   state.error = null;
+  state.authorityPhase = 'loading';
+  // Do NOT clear last-good summaries on same-owner refresh.
   emit();
   try {
     const items = await listServerConversations();
@@ -221,10 +260,14 @@ export async function bootstrapServerConversations(userId: string): Promise<bool
     state.summaries = items.map(mapListItemToSummary);
     state.loading = false;
     state.error = null;
+    state.authorityPhase = 'ready';
+    state.hasCompleteSnapshot = true;
   } catch {
     if (!isAuthorityValid(ownerAtStart, epochAtStart)) return false;
     state.loading = false;
     state.error = 'bootstrap_failed';
+    state.authorityPhase = 'failed';
+    // Preserve last-good complete snapshot when present; never install [].
     emit();
     return false;
   }
@@ -244,7 +287,13 @@ export function getServerConversationAuthority(): {
   return {
     ownerKey: activeOwnerKey,
     epoch: bootstrapEpoch,
-    bootstrapOk: !state.loading && state.error == null && activeOwnerKey != null,
+    // Only a successful complete install authorizes migration.
+    bootstrapOk:
+      state.authorityPhase === 'ready' &&
+      state.hasCompleteSnapshot &&
+      !state.loading &&
+      state.error == null &&
+      activeOwnerKey != null,
   };
 }
 
