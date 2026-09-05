@@ -2,13 +2,14 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
 import { createStandaloneChat, listChatArchives } from '@/lib/standaloneChatArchive';
+import { shouldUseConversationTreeMode } from '@/lib/eza/conversation-tree/groupTree';
 
 describe('useSainaSidebarConversations', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('builds conversation tree groups instead of flat time buckets', () => {
+  it('builds conversation tree groups including synthetic ungrouped', () => {
     createStandaloneChat({ title: 'İtalya gezisi' });
     createStandaloneChat({ title: 'Japonya yolculuğu' });
 
@@ -19,5 +20,7 @@ describe('useSainaSidebarConversations', () => {
     expect(result.current.conversations.length).toBeGreaterThanOrEqual(2);
     expect(result.current.conversationGroups.length).toBeGreaterThan(0);
     expect(result.current.conversationGroups[0]?.title).toBe('Diğer');
+    // Sidebar must not treat synthetic-only tree as tree mode (8.8G-5 / 1.2).
+    expect(shouldUseConversationTreeMode(result.current.conversationGroups)).toBe(false);
   });
 });

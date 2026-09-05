@@ -23,6 +23,7 @@ import type { SainaAppView } from '@/lib/eza/sainaRoutes';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import { groupConversationsByTimeBucket } from '@/lib/eza/sainaConversationList';
 import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
+import { shouldUseConversationTreeMode } from '@/lib/eza/conversation-tree/groupTree';
 import {
   readGroupExpanded,
   writeGroupExpanded,
@@ -178,7 +179,7 @@ export default function SainaConversationSidebar({
   const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
   const isMock = conversations == null && conversationGroups == null;
   const disabled = interactionsDisabled || isMock;
-  const useTree = Boolean(conversationGroups && conversationGroups.length > 0);
+  const useTree = shouldUseConversationTreeMode(conversationGroups);
   const timeGroups = useMemo(
     () => (useTree ? null : groupConversationsByTimeBucket(items)),
     [useTree, items]

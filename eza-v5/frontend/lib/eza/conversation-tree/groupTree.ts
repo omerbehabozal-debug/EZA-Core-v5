@@ -103,6 +103,24 @@ export function buildConversationTree(
   return nodes;
 }
 
+/**
+ * Phase 8.8G-5 / 1.2 — tree mode requires at least one real user group.
+ * The synthetic ungrouped node alone must not activate tree mode.
+ */
+export function hasRealConversationTreeGroups(
+  groups: ConversationTreeGroupNode[] | null | undefined
+): boolean {
+  if (!groups || groups.length === 0) return false;
+  return groups.some((g) => g.id !== UNGROUPED_CONVERSATION_GROUP_ID);
+}
+
+/** Prefer date buckets when only the synthetic ungrouped node exists. */
+export function shouldUseConversationTreeMode(
+  groups: ConversationTreeGroupNode[] | null | undefined
+): boolean {
+  return hasRealConversationTreeGroups(groups);
+}
+
 export function flattenConversationTree(nodes: ConversationTreeGroupNode[]): ConversationTreeChatItem[] {
   return nodes.flatMap((n) => n.conversations);
 }
