@@ -1,8 +1,21 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
 import { createStandaloneChat, listChatArchives } from '@/lib/standaloneChatArchive';
 import { shouldUseConversationTreeMode } from '@/lib/eza/conversation-tree/groupTree';
+
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    isAuthenticated: false,
+    isAuthReady: true,
+    user: null,
+    token: null,
+    role: null,
+    setAuth: () => undefined,
+    patchAuthUser: () => undefined,
+    logout: () => undefined,
+  }),
+}));
 
 describe('useSainaSidebarConversations', () => {
   beforeEach(() => {

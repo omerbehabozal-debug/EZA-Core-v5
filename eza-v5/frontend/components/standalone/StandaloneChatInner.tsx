@@ -59,6 +59,10 @@ import {
   listConversationGroups,
   GROUPS_UPDATED_EVENT,
 } from '@/lib/eza/conversation-tree/conversationGroups';
+import {
+  createAuthenticatedConversationGroup,
+  getGroupsForAuthenticatedSidebar,
+} from '@/lib/eza/serverConversationGroupStore';
 import { buildConversationTree } from '@/lib/eza/conversation-tree/groupTree';
 import { rememberActiveGroupExpanded } from '@/lib/eza/conversation-tree/groupExpandedState';
 import { trackConversationGroupCreated } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
@@ -258,7 +262,7 @@ export default function StandaloneChatInner() {
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
   const { user, isAuthenticated, isAuthReady } = useAuth();
-  const { isServerBacked, serverSummaries } = useAuthenticatedConversationBootstrap();
+  const { isServerBacked, serverSummaries, userId } = useAuthenticatedConversationBootstrap();
   /** Phase 8.7 — guests may draft Journey under guest:{token}; publish still auth-gated. */
   const journeyOwnerId = resolveJourneyOwnerKey(user?.user_id);
   const yansiStatusByConversationId = useConversationYansiStatusMap(journeyOwnerId, {
@@ -609,11 +613,12 @@ export default function StandaloneChatInner() {
   const refreshArchives = useCallback(() => {
     if (isServerBacked) {
       setArchives(serverSummaries);
+      setConversationGroups(getGroupsForAuthenticatedSidebar(userId));
     } else {
       setArchives(listChatArchives());
+      setConversationGroups(listConversationGroups());
     }
-    setConversationGroups(listConversationGroups());
-  }, [isServerBacked, serverSummaries]);
+  }, [isServerBacked, serverSummaries, userId]);
 
   useEffect(() => {
     refreshArchives();
@@ -649,12 +654,18 @@ export default function StandaloneChatInner() {
   }, [chatId, messages, flushSave]);
 
   const handleCreateGroupAndChat = useCallback(
-    (title: string) => {
-      const group = createConversationGroup({ title, source: 'manual' });
-      trackConversationGroupCreated(group.id);
-      openChatInGroup(group.id);
+    async (title: string) => {
+      try {
+        const group = isServerBacked
+          ? await createAuthenticatedConversationGroup({ title, source: 'manual' })
+          : createConversationGroup({ title, source: 'manual' });
+        trackConversationGroupCreated(group.id);
+        openChatInGroup(group.id);
+      } catch {
+        // Keep picker open; do not invent a local group-* as auth authority.
+      }
     },
-    [openChatInGroup]
+    [isServerBacked, openChatInGroup]
   );
 
   const handleSelectChat = useCallback(

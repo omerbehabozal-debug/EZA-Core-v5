@@ -11,6 +11,7 @@ import {
   resolveCurrentLocalIdentityScope,
   scopeKey,
 } from '@/lib/eza/localIdentityScope';
+import { clearChatMembershipsForGroup } from '@/lib/standaloneChatArchive';
 
 export const GROUPS_UPDATED_EVENT = 'eza-conversation-groups-updated';
 /** Legacy flat array — migrated into scoped buckets on first read. */
@@ -25,7 +26,7 @@ function notifyGroupsUpdated(): void {
   window.dispatchEvent(new CustomEvent(GROUPS_UPDATED_EVENT));
 }
 
-function readScopedBuckets(): ScopedGroupBuckets {
+function readScopedBuckets(opts?: { claimFlat?: boolean }): ScopedGroupBuckets {
   if (typeof window === 'undefined') return {};
   try {
     const scopedRaw = localStorage.getItem(SCOPED_STORAGE_KEY);
@@ -38,6 +39,11 @@ function readScopedBuckets(): ScopedGroupBuckets {
         }
         return out;
       }
+    }
+
+    // Phase 8.8G-5.3.2 — auth authority paths must not auto-claim flat groups.
+    if (opts?.claimFlat === false) {
+      return {};
     }
 
     const legacyRaw = localStorage.getItem(GROUPS_STORAGE_KEY);
@@ -81,6 +87,15 @@ function sortGroups(list: ConversationGroup[]): ConversationGroup[] {
 
 function readAllRawForScope(scope: LocalIdentityScope): ConversationGroup[] {
   const buckets = readScopedBuckets();
+  const list = buckets[scopeKey(scope)];
+  return Array.isArray(list) ? list : [];
+}
+
+/** Scoped read that never auto-claims flat legacy groups (auth degraded path). */
+export function peekScopedConversationGroupsForScope(
+  scope: LocalIdentityScope
+): ConversationGroup[] {
+  const buckets = readScopedBuckets({ claimFlat: false });
   const list = buckets[scopeKey(scope)];
   return Array.isArray(list) ? list : [];
 }
@@ -185,6 +200,8 @@ export function renameConversationGroup(id: string, title: string): void {
 
 export function deleteConversationGroup(id: string): void {
   writeAll(readAllRaw().filter((g) => g.id !== id));
+  // Guest/local: keep chats visible as ungrouped.
+  clearChatMembershipsForGroup(id);
 }
 
 /** Replace full group list for the current identity (login merge / migration). */

@@ -530,6 +530,27 @@ export function assignChatToGroup(chatId: string, groupId: string): void {
   trackConversationCreatedInGroup(chatId, groupId);
 }
 
+/** Clear membership so chats stay visible as ungrouped after group delete. */
+export function clearChatMembershipsForGroup(groupId: string): void {
+  const id = groupId.trim();
+  if (!id) return;
+  const list = readAll();
+  let changed = false;
+  const next = list.map((chat) => {
+    const gid = chat.groupId ?? chat.treeMetadata?.groupId ?? null;
+    if (gid !== id) return chat;
+    changed = true;
+    return {
+      ...chat,
+      groupId: null,
+      treeMetadata: chat.treeMetadata
+        ? { ...chat.treeMetadata, groupId: null }
+        : { sourceType: 'direct' as const, groupId: null },
+    };
+  });
+  if (changed) writeAll(next);
+}
+
 export function listChatArchives(): ArchivedChatSummary[] {
   return readAll().map(toSummary);
 }

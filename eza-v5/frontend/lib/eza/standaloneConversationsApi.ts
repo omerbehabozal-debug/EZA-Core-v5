@@ -150,6 +150,7 @@ export async function patchServerConversation(
     pinned?: boolean;
     archived?: boolean;
     initializeTitleOnly?: boolean;
+    groupId?: string | null;
   }
 ): Promise<ServerConversationListItem> {
   const res = await apiClient.patch<ServerConversationListItem>(

@@ -14,6 +14,8 @@ export type ConversationGroup = {
   createdAt: string;
   updatedAt: string;
   sortOrder?: number;
+  /** Local group-* mapping when synced from server (G5.3.1+). */
+  clientGroupId?: string | null;
 };
 
 export type ConversationSourceType = 'direct' | 'mirror' | 'mirror_branch';

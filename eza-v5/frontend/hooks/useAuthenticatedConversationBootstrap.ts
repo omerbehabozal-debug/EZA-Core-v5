@@ -12,6 +12,10 @@ import {
   subscribeServerConversations,
 } from '@/lib/eza/serverConversationStore';
 import {
+  bootstrapServerConversationGroups,
+  clearServerConversationGroupState,
+} from '@/lib/eza/serverConversationGroupStore';
+import {
   getLegacyMigrationMarker,
   runLegacyConversationMigration,
 } from '@/lib/eza/legacyConversationMigration';
@@ -33,6 +37,8 @@ import { userScope } from '@/lib/eza/localIdentityScope';
  * Phase 8.8G-3.2.2 — while server authority is loading/failed without a
  * complete snapshot, use degraded current-user local visibility so FAILED
  * is never treated as SUCCESS_EMPTY.
+ *
+ * Phase 8.8G-5.3.2 — also bootstrap authenticated conversation groups.
  */
 export function useAuthenticatedConversationBootstrap() {
   const { isAuthenticated, isAuthReady, user } = useAuth();
@@ -43,6 +49,7 @@ export function useAuthenticatedConversationBootstrap() {
     if (!isAuthReady) return;
     if (!isAuthenticated || !userId) {
       clearServerConversationState();
+      clearServerConversationGroupState();
       return;
     }
 
@@ -50,6 +57,8 @@ export function useAuthenticatedConversationBootstrap() {
 
     const run = async () => {
       const ok = await bootstrapServerConversations(userId);
+      if (cancelled) return;
+      await bootstrapServerConversationGroups(userId);
       if (cancelled || !ok) return;
       await runLegacyConversationMigration(userId);
     };

@@ -73,6 +73,15 @@ export function buildConversationTree(
     byGroup.set(groupId, bucket);
   }
 
+  const knownGroupIds = new Set(groups.map((g) => g.id));
+  // Unknown / orphan group membership → visible ungrouped (not hidden).
+  for (const [gid, chats] of Array.from(byGroup.entries())) {
+    if (!knownGroupIds.has(gid)) {
+      ungrouped.push(...chats);
+      byGroup.delete(gid);
+    }
+  }
+
   const nodes: ConversationTreeGroupNode[] = groups
     .filter((g) => byGroup.has(g.id))
     .map((g) => ({

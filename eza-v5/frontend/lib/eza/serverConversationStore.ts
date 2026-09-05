@@ -194,6 +194,14 @@ export function resetServerConversationStoreForTests(): void {
   listeners.clear();
 }
 
+/** Test helper — map client conversation id → server UUID for assign mutations. */
+export function seedServerConversationIdForTests(
+  clientConversationId: string,
+  serverConversationId: string
+): void {
+  state.serverIdByClientId[clientConversationId] = serverConversationId;
+}
+
 function mapListItemToSummary(item: ServerConversationListItem): ArchivedChatSummary {
   const savedAt = item.lastMessageAt || item.updatedAt || item.createdAt;
   state.serverIdByClientId[item.clientConversationId] = item.id;
@@ -302,6 +310,32 @@ export function isServerConversationAuthorityValid(
   epochAtStart: number
 ): boolean {
   return isAuthorityValid(ownerAtStart, epochAtStart);
+}
+
+export function noteServerConversationGroupCleared(groupId: string): void {
+  const id = groupId.trim();
+  if (!id) return;
+  let changed = false;
+  state.summaries = state.summaries.map((row) => {
+    if (row.groupId !== id) return row;
+    changed = true;
+    return { ...row, groupId: null };
+  });
+  if (changed) emit();
+}
+
+export function noteServerConversationGroupAssigned(
+  clientConversationId: string,
+  groupId: string | null
+): void {
+  const id = clientConversationId.trim();
+  if (!id) return;
+  const idx = state.summaries.findIndex((row) => row.id === id);
+  if (idx < 0) return;
+  const current = state.summaries[idx];
+  if (!current) return;
+  state.summaries[idx] = { ...current, groupId };
+  emit();
 }
 
 export function noteServerYansiReady(clientConversationId: string): void {
