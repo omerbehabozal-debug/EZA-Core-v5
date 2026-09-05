@@ -30,6 +30,7 @@ from backend.models.standalone_conversations import (
     StandaloneConversation,
     StandaloneConversationMessage,
 )
+from backend.services.standalone.group_id import parse_optional_group_uuid
 from backend.services.standalone.metadata_security import reject_forbidden_metadata
 from backend.services.standalone.persistence_limits import validate_bounded_json
 from backend.services.standalone.yansi_preparations import (
@@ -242,12 +243,8 @@ async def upsert_standalone_conversation(
     if found is not None:
         return _conversation_to_list_item(found)
 
-    group_uuid: Optional[UUID] = None
-    if body.groupId:
-        try:
-            group_uuid = UUID(body.groupId)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail="invalid_group_id") from exc
+    # Phase 8.8G-5 / 2.2 — optional group metadata must not block create.
+    group_uuid, _group_sanitized = parse_optional_group_uuid(body.groupId)
 
     now = _utcnow()
     row = StandaloneConversation(

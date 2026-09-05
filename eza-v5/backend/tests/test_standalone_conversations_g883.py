@@ -23,6 +23,9 @@ from backend.core.schemas.standalone_conversations import (
 )
 from backend.core.utils.dependencies import get_db
 from backend.main import app
+from backend.models.institution import Institution  # noqa: F401
+from backend.models.role import Role  # noqa: F401
+from backend.models.user import LegacyUser  # noqa: F401
 from backend.models.standalone_conversations import (
     StandaloneConversation,
     StandaloneConversationMessage,
@@ -634,3 +637,112 @@ async def test_mixed_empty_preserves_original_ordinal_in_ids(db_session):
     assert detail.messages[1].clientMessageId == deterministic_legacy_message_id(
         'chat-mixed-empty', 2, 'user', 'Question'
     )
+
+
+@pytest.mark.asyncio
+async def test_legacy_invalid_group_id_sanitized_creates_ungrouped(db_session):
+    """Phase 8.8G-5 / 2.2 — optional bad groupId must not reject conversation."""
+    user_id = uuid.uuid4()
+    conv = LegacyMigrationConversation(
+        clientConversationId='chat-bad-group',
+        title='Eski sohbet',
+        titlePinned=False,
+        conversationType='direct',
+        groupId='group-1710000000-abc123',
+        messages=[
+            LegacyMigrationMessage(
+                clientMessageId='user-0',
+                role='user',
+                content='Merhaba geçmiş',
+                ordinal=0,
+            ),
+            LegacyMigrationMessage(
+                clientMessageId='assistant-1',
+                role='assistant',
+                content='Merhaba, nasıl yardımcı olayım?',
+                ordinal=1,
+            ),
+        ],
+    )
+    res = await migrate_legacy_conversations(
+        db_session,
+        user_id=user_id,
+        request=LegacyMigrationRequest(conversations=[conv]),
+    )
+    assert res.results[0].status == 'migrated'
+    assert res.results[0].reason == 'group_id_sanitized'
+    assert res.results[0].serverConversationId
+
+    detail = await get_standalone_conversation_detail(
+        db_session,
+        user_id=user_id,
+        conversation_id=uuid.UUID(res.results[0].serverConversationId),
+    )
+    assert detail.groupId is None
+
+    # Idempotent retry
+    again = await migrate_legacy_conversations(
+        db_session,
+        user_id=user_id,
+        request=LegacyMigrationRequest(conversations=[conv]),
+    )
+    assert again.results[0].status == 'already_server_authoritative'
+    assert again.results[0].serverConversationId == res.results[0].serverConversationId
+
+
+@pytest.mark.asyncio
+async def test_legacy_valid_uuid_group_id_preserved(db_session):
+    user_id = uuid.uuid4()
+    gid = str(uuid.uuid4())
+    conv = LegacyMigrationConversation(
+        clientConversationId='chat-good-group',
+        title='Eski sohbet',
+        titlePinned=False,
+        conversationType='direct',
+        groupId=gid,
+        messages=[
+            LegacyMigrationMessage(
+                clientMessageId='user-0',
+                role='user',
+                content='Merhaba geçmiş',
+                ordinal=0,
+            ),
+            LegacyMigrationMessage(
+                clientMessageId='assistant-1',
+                role='assistant',
+                content='Merhaba, nasıl yardımcı olayım?',
+                ordinal=1,
+            ),
+        ],
+    )
+    res = await migrate_legacy_conversations(
+        db_session,
+        user_id=user_id,
+        request=LegacyMigrationRequest(conversations=[conv]),
+    )
+    assert res.results[0].status == 'migrated'
+    assert res.results[0].reason is None
+    detail = await get_standalone_conversation_detail(
+        db_session,
+        user_id=user_id,
+        conversation_id=uuid.UUID(res.results[0].serverConversationId),
+    )
+    assert detail.groupId == gid
+
+
+@pytest.mark.asyncio
+async def test_create_conversation_invalid_group_id_soft_dropped(db_session):
+    """Normal create path: invalid optional groupId must not 422."""
+    user_id = uuid.uuid4()
+    created = await upsert_standalone_conversation(
+        db_session,
+        user_id=user_id,
+        body=StandaloneConversationCreate(
+            clientConversationId='chat-create-bad-group',
+            title='Yeni',
+            conversationType='direct',
+            groupId='group-local-not-uuid',
+        ),
+    )
+    assert created.id
+    assert created.groupId is None

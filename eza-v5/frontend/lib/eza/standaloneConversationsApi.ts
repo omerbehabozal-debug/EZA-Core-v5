@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { sanitizeOptionalServerGroupId } from '@/lib/eza/serverGroupId';
 
 export type ServerConversationType =
   | 'direct'
@@ -123,9 +124,17 @@ export async function getServerConversation(
 export async function createServerConversation(
   input: CreateServerConversationInput
 ): Promise<ServerConversationListItem> {
+  const groupId = sanitizeOptionalServerGroupId(input.groupId);
+  const body: CreateServerConversationInput = groupId
+    ? { ...input, groupId }
+    : { ...input, groupId: undefined };
+  // Ensure invalid legacy group-* ids are never POSTed.
+  if (!groupId) {
+    delete (body as { groupId?: string }).groupId;
+  }
   const res = await apiClient.post<ServerConversationListItem>(
     '/api/standalone/conversations',
-    { body: input, auth: true }
+    { body, auth: true }
   );
   if (!res.ok || !res.data) {
     throw new Error('server_conversation_create_failed');

@@ -27,12 +27,17 @@ import {
   replaceChatArchivesForScope,
 } from '@/lib/standaloneChatArchive';
 import { userScope } from '@/lib/eza/localIdentityScope';
+import { sanitizeOptionalServerGroupId } from '@/lib/eza/serverGroupId';
+import { isChatDeleted } from '@/lib/standaloneChatDelete';
 
 export const LEGACY_MIGRATION_VERSION = 'standalone-conversations-v1';
 export const LEGACY_MIGRATION_BATCH_SIZE = 30;
 const MARKER_STORAGE_KEY = 'eza_standalone_legacy_migration_v1';
 /** Defensive cap — 30/request ⇒ room for very large buckets without infinite loop. */
 const MAX_MIGRATION_BATCHES = 500;
+
+/** Exact terminal reason that must be reopened for content recovery (8.8G-5 / 2.2). */
+export const INVALID_GROUP_ID_REJECTION_REASON = 'invalid_group_id';
 
 const TERMINAL_STATUSES = new Set<LegacyMigrationStatus>([
   'migrated',
@@ -53,6 +58,28 @@ type MarkerConversationState = {
   serverConversationId?: string | null;
   reason?: string | null;
 };
+
+/**
+ * Only rejected_invalid + invalid_group_id is reopenable — not arbitrary rejections.
+ */
+export function isReopenableInvalidGroupIdRejection(
+  state: MarkerConversationState | null | undefined
+): boolean {
+  if (!state) return false;
+  return (
+    state.status === 'rejected_invalid' &&
+    (state.reason || '').trim() === INVALID_GROUP_ID_REJECTION_REASON
+  );
+}
+
+/** Blocking terminal = terminal AND not the exact invalid_group_id reopen case. */
+export function isBlockingTerminalMigrationState(
+  state: MarkerConversationState | null | undefined
+): boolean {
+  if (!state?.status || !TERMINAL_STATUSES.has(state.status)) return false;
+  if (isReopenableInvalidGroupIdRejection(state)) return false;
+  return true;
+}
 
 type UserMigrationMarker = {
   version: string;
@@ -215,7 +242,7 @@ export function rescanAndWriteCompletionMarker(userId: string): boolean {
     const serverId = chat.serverConversationId || getServerIdForClientChat(chat.id);
     if (serverId) {
       const prevStatus = conversations[chat.id]?.status;
-      if (!prevStatus || !TERMINAL_STATUSES.has(prevStatus)) {
+      if (!prevStatus || !isBlockingTerminalMigrationState(conversations[chat.id])) {
         conversations[chat.id] = {
           status: 'already_server_authoritative',
           serverConversationId: serverId,
@@ -223,8 +250,8 @@ export function rescanAndWriteCompletionMarker(userId: string): boolean {
       }
       continue;
     }
-    const st = conversations[chat.id]?.status;
-    if (!st || !TERMINAL_STATUSES.has(st)) {
+    const st = conversations[chat.id];
+    if (!isBlockingTerminalMigrationState(st)) {
       const next: UserMigrationMarker = {
         version: LEGACY_MIGRATION_VERSION,
         conversations,
@@ -298,7 +325,10 @@ function buildPayload(chat: ArchivedChat): LegacyMigrationConversationPayload | 
     conversationType: mapConversationType(chat),
     parentClientConversationId: parent || undefined,
     sourceYansiSlug: sourceSlug || undefined,
-    groupId: chat.groupId || chat.treeMetadata?.groupId || undefined,
+    // Payload only — do not mutate local archive groupId (Chrome tree UX).
+    groupId: sanitizeOptionalServerGroupId(
+      chat.groupId || chat.treeMetadata?.groupId || undefined
+    ),
     treeMetadata,
     conversationSceneUrl: sceneUrl,
     conversationSceneSource: sceneUrl ? chat.conversationSceneSource || undefined : undefined,
@@ -315,7 +345,8 @@ export function isEmptyLegacyTranscript(chat: ArchivedChat): boolean {
 
 /**
  * Eligible = current user bucket, not already linked to server,
- * and not already terminal in marker (retryable may re-run).
+ * and not already a blocking terminal in marker (retryable may re-run).
+ * Phase 8.8G-5 / 2.2 — rejected_invalid + invalid_group_id is reopenable.
  * Includes zero-message / empty-transcript chats for terminal accounting.
  */
 export function collectLegacyMigrationCandidates(userId: string): ArchivedChat[] {
@@ -324,11 +355,12 @@ export function collectLegacyMigrationCandidates(userId: string): ArchivedChat[]
   const marker = getLegacyMigrationMarker(userId);
   return archives.filter((chat) => {
     if (!chat.id) return false;
+    if (isChatDeleted(chat.id)) return false;
     if (chat.serverConversationId || getServerIdForClientChat(chat.id)) {
       return false;
     }
-    const status = marker?.conversations[chat.id]?.status;
-    if (status && TERMINAL_STATUSES.has(status)) {
+    const state = marker?.conversations[chat.id];
+    if (isBlockingTerminalMigrationState(state)) {
       return false;
     }
     return true;
@@ -344,8 +376,8 @@ function markAlreadyServerBackedLocals(userId: string): void {
     if (!chat.id) continue;
     const serverId = chat.serverConversationId || getServerIdForClientChat(chat.id);
     if (!serverId) continue;
-    const prev = marker?.conversations[chat.id]?.status;
-    if (prev && TERMINAL_STATUSES.has(prev)) continue;
+    const prev = marker?.conversations[chat.id];
+    if (isBlockingTerminalMigrationState(prev)) continue;
     synthetic.push({
       clientConversationId: chat.id,
       status: 'already_server_authoritative',
