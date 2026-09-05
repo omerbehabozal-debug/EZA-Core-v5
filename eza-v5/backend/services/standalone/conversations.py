@@ -30,12 +30,19 @@ from backend.models.standalone_conversations import (
     StandaloneConversation,
     StandaloneConversationMessage,
 )
-from backend.services.standalone.group_id import parse_optional_group_uuid
+from backend.services.standalone.group_id import (
+    parse_optional_group_uuid,
+    resolve_optional_owned_group_id,
+)
 from backend.services.standalone.metadata_security import reject_forbidden_metadata
 from backend.services.standalone.persistence_limits import validate_bounded_json
 from backend.services.standalone.yansi_preparations import (
     preparation_flags_for_conversations,
     soft_delete_preparations_for_conversation,
+)
+from backend.services.conversation_tree.groups import (
+    ConversationGroupNotFoundError,
+    get_owned_conversation_group,
 )
 
 
@@ -243,8 +250,11 @@ async def upsert_standalone_conversation(
     if found is not None:
         return _conversation_to_list_item(found)
 
-    # Phase 8.8G-5 / 2.2 — optional group metadata must not block create.
-    group_uuid, _group_sanitized = parse_optional_group_uuid(body.groupId)
+    # Phase 8.8G-5.2 / 5.3.1 — optional group metadata must not block create.
+    # Malformed or non-owned UUID → null (no existence leak).
+    group_uuid, _outcome = await resolve_optional_owned_group_id(
+        db, user_id=user_id, raw=body.groupId
+    )
 
     now = _utcnow()
     row = StandaloneConversation(
@@ -299,7 +309,12 @@ async def patch_standalone_conversation(
         derived = (body.title or "").strip()
         if not derived:
             raise HTTPException(status_code=422, detail="title_required")
-        if body.titlePinned is not None or body.pinned is not None or body.archived is not None:
+        if (
+            body.titlePinned is not None
+            or body.pinned is not None
+            or body.archived is not None
+            or "groupId" in body.model_fields_set
+        ):
             raise HTTPException(status_code=422, detail="initialize_title_only_exclusive")
 
         await db.execute(
@@ -334,6 +349,27 @@ async def patch_standalone_conversation(
         conv.pinned = body.pinned
     if body.archived is not None:
         conv.archived_at = now if body.archived else None
+
+    # Explicit group membership mutation (omit = unchanged).
+    if "groupId" in body.model_fields_set:
+        raw = body.groupId
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            conv.group_id = None
+        else:
+            parsed, malformed = parse_optional_group_uuid(raw)
+            if malformed or parsed is None:
+                raise HTTPException(status_code=422, detail="invalid_group_id")
+            try:
+                await get_owned_conversation_group(
+                    db, user_id=user_id, group_id=parsed
+                )
+            except ConversationGroupNotFoundError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "conversation_group_not_found"},
+                ) from exc
+            conv.group_id = parsed
+
     conv.updated_at = now
 
     await db.commit()

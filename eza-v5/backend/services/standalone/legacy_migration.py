@@ -32,7 +32,7 @@ from backend.services.standalone.conversations import (
     DEFAULT_UNINITIALIZED_TITLE,
     _utcnow,
 )
-from backend.services.standalone.group_id import parse_optional_group_uuid
+from backend.services.standalone.group_id import resolve_optional_owned_group_id
 from backend.services.standalone.metadata_security import (
     find_forbidden_metadata_key,
     reject_forbidden_metadata,
@@ -288,9 +288,15 @@ async def _migrate_one_conversation(
         scene_source = None
         scene_slug = None
 
-    # Phase 8.8G-5 / 2.2 — optional group metadata: drop invalid ids; never
-    # reject an otherwise-valid conversation solely for legacy local group-*.
-    group_uuid, group_id_sanitized = parse_optional_group_uuid(body.groupId)
+    # Phase 8.8G-5.2 / 5.3.1 — optional group metadata: drop malformed or
+    # non-owned UUIDs; never reject an otherwise-valid conversation.
+    group_uuid, group_outcome = await resolve_optional_owned_group_id(
+        db, user_id=user_id, raw=body.groupId
+    )
+    group_id_sanitized = group_outcome in (
+        "malformed_dropped",
+        "unauthorized_dropped",
+    )
 
     parent_client = (body.parentClientConversationId or "").strip() or None
     source_slug = (body.sourceYansiSlug or "").strip().lower() or None

@@ -71,6 +71,8 @@ class StandaloneConversationPatch(BaseModel):
     pinned: Optional[bool] = None
     archived: Optional[bool] = None
     initializeTitleOnly: bool = False
+    # Optional membership: omit = no change; null = ungroup; UUID = assign (owned).
+    groupId: Optional[str] = Field(default=None, max_length=36)
 
 
 class StandaloneConversationMessageCreate(BaseModel):

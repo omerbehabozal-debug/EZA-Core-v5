@@ -26,6 +26,7 @@ def _fake_row(**kwargs):
         id=kwargs.get("id", uuid4()),
         user_id=kwargs.get("user_id"),
         guest_token=kwargs.get("guest_token", "fp123"),
+        client_group_id=kwargs.get("client_group_id"),
         title=kwargs.get("title", "Japonya"),
         source=kwargs.get("source", "mirror"),
         parent_group_id=kwargs.get("parent_group_id"),

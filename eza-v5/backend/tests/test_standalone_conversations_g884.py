@@ -185,7 +185,7 @@ def test_migration_head_and_model_parity():
     src = MIGRATION_PATH.read_text(encoding="utf-8")
     assert 'revision: str = "add_standalone_yansi_prep_g884_v1"' in src
     assert 'down_revision: Union[str, None] = "add_standalone_conversations_g8811_v1"' in src
-    assert HEAD_REVISION == "add_standalone_yansi_prep_g884_v1"
+    assert HEAD_REVISION == "add_conv_groups_g8531_v1"
     assert "standalone_yansi_preparations" in src
     assert "uq_standalone_yansi_prep_source" in src
     assert "ck_standalone_yansi_prep_status" in src

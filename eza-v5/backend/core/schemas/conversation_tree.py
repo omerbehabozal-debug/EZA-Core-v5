@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 ConversationGroupSource = Literal["manual", "inferred", "mirror", "imported"]
 ConversationSourceType = Literal["direct", "mirror", "mirror_branch"]
 
+MAX_CLIENT_GROUP_ID_LENGTH = 64
+
 
 class ConversationTreeMetadata(BaseModel):
     groupId: Optional[str] = None
@@ -31,6 +33,13 @@ class ConversationGroupCreate(BaseModel):
     source: ConversationGroupSource = "manual"
     guestToken: Optional[str] = None
     parentGroupId: Optional[str] = None
+    # Authenticated migration/idempotent upsert key (local group-* ids).
+    clientGroupId: Optional[str] = Field(default=None, max_length=MAX_CLIENT_GROUP_ID_LENGTH)
+
+
+class ConversationGroupPatch(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    sortOrder: Optional[int] = None
 
 
 class ConversationGroupResponse(BaseModel):
@@ -41,6 +50,7 @@ class ConversationGroupResponse(BaseModel):
     sortOrder: int = 0
     createdAt: str
     updatedAt: str
+    clientGroupId: Optional[str] = None
 
 
 class ClaimGuestConversationGroupsRequest(BaseModel):

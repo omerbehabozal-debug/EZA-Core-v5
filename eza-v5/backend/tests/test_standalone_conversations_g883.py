@@ -31,6 +31,7 @@ from backend.models.standalone_conversations import (
     StandaloneConversationMessage,
     StandaloneYansiPreparation,
 )
+from backend.models.conversation_groups import ConversationGroup
 from backend.services.production_auth import create_access_token
 from backend.services.standalone.conversations import (
     append_standalone_message,
@@ -43,6 +44,8 @@ from backend.services.standalone.legacy_migration import (
     deterministic_legacy_message_id,
     migrate_legacy_conversations,
 )
+from backend.services.conversation_tree.groups import persist_conversation_group
+from backend.core.schemas.conversation_tree import ConversationGroupCreate
 
 
 @compiles(PGUUID, "sqlite")
@@ -71,6 +74,7 @@ async def db_engine():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as conn:
         await conn.execute(text("PRAGMA foreign_keys=OFF"))
+        await conn.run_sync(ConversationGroup.__table__.create)
         await conn.run_sync(StandaloneConversation.__table__.create)
         await conn.run_sync(StandaloneConversationMessage.__table__.create)
         await conn.run_sync(StandaloneYansiPreparation.__table__.create)
@@ -693,7 +697,12 @@ async def test_legacy_invalid_group_id_sanitized_creates_ungrouped(db_session):
 @pytest.mark.asyncio
 async def test_legacy_valid_uuid_group_id_preserved(db_session):
     user_id = uuid.uuid4()
-    gid = str(uuid.uuid4())
+    owned = await persist_conversation_group(
+        db_session,
+        ConversationGroupCreate(title="Owned"),
+        user_id=user_id,
+    )
+    gid = str(owned.id)
     conv = LegacyMigrationConversation(
         clientConversationId='chat-good-group',
         title='Eski sohbet',

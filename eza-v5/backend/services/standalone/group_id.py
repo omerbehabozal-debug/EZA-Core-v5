@@ -1,14 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Optional conversation groupId parsing — Phase 8.8G-5 / 2.2.
+"""Optional conversation groupId parsing + ownership — Phase 8.8G-5.2 / 5.3.1.
 
 Invalid/non-UUID optional group metadata must be dropped, not reject the
-conversation. Ownership and transcript validation remain strict elsewhere.
+conversation. Valid UUIDs must be ownership-checked before storage.
 """
 
 from __future__ import annotations
 
 from typing import Optional, Tuple
 from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.models.conversation_groups import ConversationGroup
 
 
 def parse_optional_group_uuid(raw: Optional[str]) -> Tuple[Optional[UUID], bool]:
@@ -27,3 +32,36 @@ def parse_optional_group_uuid(raw: Optional[str]) -> Tuple[Optional[UUID], bool]
         return UUID(text), False
     except ValueError:
         return None, True
+
+
+async def resolve_optional_owned_group_id(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    raw: Optional[str],
+) -> Tuple[Optional[UUID], str]:
+    """
+    Soft-resolve optional group metadata for create/migrate.
+
+    Returns (group_id_or_none, outcome) where outcome is one of:
+      none | owned | malformed_dropped | unauthorized_dropped
+
+    Never raises. Never leaks whether a cross-owner UUID exists.
+    Unauthorized / missing rows → null (same as malformed soft-drop).
+    """
+    parsed, malformed = parse_optional_group_uuid(raw)
+    if malformed:
+        return None, "malformed_dropped"
+    if parsed is None:
+        return None, "none"
+
+    result = await db.execute(
+        select(ConversationGroup.id).where(
+            ConversationGroup.id == parsed,
+            ConversationGroup.user_id == user_id,
+        )
+    )
+    owned = result.scalar_one_or_none()
+    if owned is None:
+        return None, "unauthorized_dropped"
+    return parsed, "owned"
