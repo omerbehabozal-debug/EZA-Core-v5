@@ -195,7 +195,7 @@ describe('mirror viral loop QA (programmatic)', () => {
       'Sohbetlerim',
       'Bu konudan devam et',
       'Bu merak burada güzel bir yere geldi.',
-      'Bu sohbet hangi başlığın altında ilerlesin?',
+      'Bu sohbet nerede ilerlesin?',
       'Japonya',
       'Gönder',
     ];

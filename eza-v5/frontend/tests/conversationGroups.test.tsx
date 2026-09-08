@@ -43,9 +43,10 @@ describe('conversation groups (Stage 3 commit 1)', () => {
     expect(chat?.groupId).toBe(group.id);
   });
 
-  it('builds grouped sidebar tree under Sohbetlerim headings', () => {
+  it('builds grouped sidebar tree under Sohbetlerim headings including empty groups', () => {
     const japan = createConversationGroup({ title: 'Japonya', source: 'manual' });
     const cars = createConversationGroup({ title: 'Otomobiller', source: 'manual' });
+    const empty = createConversationGroup({ title: 'Boş', source: 'manual' });
     createStandaloneChat({ groupId: japan.id, title: 'Kyoto Akşamları' });
     createStandaloneChat({ groupId: cars.id, title: 'Mercedes W124' });
 
@@ -53,7 +54,9 @@ describe('conversation groups (Stage 3 commit 1)', () => {
     const titles = tree.map((g) => g.title);
     expect(titles).toContain('Japonya');
     expect(titles).toContain('Otomobiller');
+    expect(titles).toContain('Boş');
     expect(tree.find((g) => g.title === 'Japonya')?.conversations.length).toBe(1);
+    expect(tree.find((g) => g.id === empty.id)?.conversations.length).toBe(0);
   });
 
   it('infers mirror group title without seed UI language', () => {
@@ -78,10 +81,11 @@ describe('conversation groups (Stage 3 commit 1)', () => {
     expect(summary.isMirrorSource).toBe(true);
   });
 
-  it('new chat group picker offers create and existing headings', () => {
+  it('new chat group picker offers search, create, and ungrouped', () => {
     const group = createConversationGroup({ title: 'Mimarlık', source: 'manual' });
     const onSelect = vi.fn();
     const onCreate = vi.fn();
+    const onUngrouped = vi.fn();
 
     render(
       <NewChatGroupPicker
@@ -90,20 +94,23 @@ describe('conversation groups (Stage 3 commit 1)', () => {
         onClose={() => {}}
         onSelectExisting={onSelect}
         onCreateNew={onCreate}
+        onContinueUngrouped={onUngrouped}
       />
     );
 
-    expect(screen.getByText(/hangi başlığın altında/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bu sohbet nerede ilerlesin/i)).toBeInTheDocument();
     expect(screen.queryByText(/Araştırmalarım/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('new-chat-group-existing-' + group.id));
     expect(onSelect).toHaveBeenCalledWith(group.id);
 
-    fireEvent.click(screen.getByTestId('new-chat-group-create'));
-    fireEvent.change(screen.getByTestId('new-chat-group-title-input'), {
+    fireEvent.change(screen.getByTestId('new-chat-group-search-input'), {
       target: { value: 'Otomobiller' },
     });
-    fireEvent.click(screen.getByTestId('new-chat-group-submit'));
+    fireEvent.click(screen.getByTestId('new-chat-group-create-submit'));
     expect(onCreate).toHaveBeenCalledWith('Otomobiller');
+
+    fireEvent.click(screen.getByTestId('new-chat-group-ungrouped'));
+    expect(onUngrouped).toHaveBeenCalled();
   });
 });

@@ -59,6 +59,7 @@ import {
   listConversationGroups,
   GROUPS_UPDATED_EVENT,
 } from '@/lib/eza/conversation-tree/conversationGroups';
+import { sanitizeOptionalServerGroupId } from '@/lib/eza/serverGroupId';
 import {
   createAuthenticatedConversationGroup,
   getGroupsForAuthenticatedSidebar,
@@ -253,6 +254,11 @@ export default function StandaloneChatInner() {
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [conversationGroups, setConversationGroups] = useState<ConversationGroup[]>([]);
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const [draftGroupId, setDraftGroupId] = useState<string | null>(null);
+  const [groupCreating, setGroupCreating] = useState(false);
+  const [groupCreateError, setGroupCreateError] = useState<string | null>(null);
+  const draftGroupIdRef = useRef<string | null>(null);
+  draftGroupIdRef.current = draftGroupId;
   const [branchSuggestionVisible, setBranchSuggestionVisible] = useState(false);
   const [branchCards, setBranchCards] = useState<string[]>([]);
   const [mirrorBirthVisible, setMirrorBirthVisible] = useState(false);
@@ -459,14 +465,17 @@ export default function StandaloneChatInner() {
   /**
    * Boş bir taslak başlatır: henüz arşive yazılmaz (lazy creation).
    * Gerçek arşiv kaydı ilk mesaj gönderildiğinde `handleSend` içinde oluşur.
+   * groupId: draft membership until first durable message (may be null = ungrouped).
    */
-  const startDraft = useCallback(() => {
+  const startDraft = useCallback((groupId: string | null = null) => {
     skipAutosaveRef.current = true;
     resetStream();
     setChatId(null);
     setMessages([]);
     setIsLoading(false);
     setIsTyping(false);
+    setDraftGroupId(groupId);
+    setGroupCreateError(null);
     window.setTimeout(() => {
       skipAutosaveRef.current = false;
     }, 0);
@@ -505,6 +514,7 @@ export default function StandaloneChatInner() {
 
     if (chatIdFromUrl && (getChatArchive(chatIdFromUrl) || isServerBacked)) {
       pruneEmptyChats(chatIdFromUrl);
+      setDraftGroupId(null);
       void loadChatIntoState(chatIdFromUrl).then((loaded) => {
         if (!loaded && !isServerBacked) {
           router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
@@ -526,7 +536,8 @@ export default function StandaloneChatInner() {
     }
 
     if (isSainaNewChatRequest(searchParams?.toString() ?? null)) {
-      startDraft();
+      startDraft(null);
+      setGroupPickerOpen(true);
       setReady(true);
       enableUrlSync();
       return;
@@ -632,40 +643,48 @@ export default function StandaloneChatInner() {
     };
   }, [refreshArchives]);
 
-  const openChatInGroup = useCallback(
-    (groupId: string) => {
+  const openDraftInGroup = useCallback(
+    (groupId: string | null) => {
       if (chatId && !skipAutosaveRef.current && toArchivedMessages(messages).length > 0) {
         flushSave(chatId, messages);
       }
-      const newId = createStandaloneChat({ groupId });
-      rememberActiveGroupExpanded(groupId);
+      // Draft only — no archive until first message. Empty groups stay durable on server.
+      startDraft(groupId);
+      if (groupId) rememberActiveGroupExpanded(groupId);
       setGroupPickerOpen(false);
-      router.push(`/standalone?chat=${newId}`, { scroll: false });
-      loadChatIntoState(newId);
+      setGroupCreateError(null);
+      router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
     },
-    [chatId, messages, flushSave, router, loadChatIntoState]
+    [chatId, messages, flushSave, router, startDraft]
   );
 
   const handleNewChat = useCallback(() => {
     if (chatId && !skipAutosaveRef.current && toArchivedMessages(messages).length > 0) {
       flushSave(chatId, messages);
     }
+    startDraft(null);
+    setGroupCreateError(null);
     setGroupPickerOpen(true);
-  }, [chatId, messages, flushSave]);
+    router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
+  }, [chatId, messages, flushSave, router, startDraft]);
 
   const handleCreateGroupAndChat = useCallback(
     async (title: string) => {
+      setGroupCreating(true);
+      setGroupCreateError(null);
       try {
         const group = isServerBacked
           ? await createAuthenticatedConversationGroup({ title, source: 'manual' })
           : createConversationGroup({ title, source: 'manual' });
         trackConversationGroupCreated(group.id);
-        openChatInGroup(group.id);
+        openDraftInGroup(group.id);
       } catch {
-        // Keep picker open; do not invent a local group-* as auth authority.
+        setGroupCreateError('Grup oluşturulamadı. Tekrar deneyebilirsin.');
+      } finally {
+        setGroupCreating(false);
       }
     },
-    [isServerBacked, openChatInGroup]
+    [isServerBacked, openDraftInGroup]
   );
 
   const handleSelectChat = useCallback(
@@ -1046,17 +1065,26 @@ export default function StandaloneChatInner() {
     // Lazy creation: ilk mesajda arşiv kaydını burada oluştur.
     let activeChatId = chatId;
     if (!activeChatId) {
-      const newId = createStandaloneChat();
+      const pendingGroupId = draftGroupIdRef.current;
+      const newId = createStandaloneChat(
+        pendingGroupId ? { groupId: pendingGroupId } : undefined
+      );
       if (isServerBacked) {
         try {
+          const serverGroupId = sanitizeOptionalServerGroupId(pendingGroupId);
           const server = await ensureServerConversation({
             clientConversationId: newId,
             conversationType: 'direct',
+            ...(serverGroupId ? { groupId: serverGroupId } : {}),
           });
           if (!isSendSessionActive()) return;
           const existing = getChatArchive(newId);
           if (existing) {
-            upsertChatArchive({ ...existing, serverConversationId: server.id });
+            upsertChatArchive({
+              ...existing,
+              serverConversationId: server.id,
+              groupId: pendingGroupId ?? existing.groupId ?? null,
+            });
           }
         } catch {
           if (!isSendSessionActive()) return;
@@ -1066,6 +1094,7 @@ export default function StandaloneChatInner() {
       if (!isSendSessionActive()) return;
       activeChatId = newId;
       skipAutosaveRef.current = false;
+      setDraftGroupId(null);
       setChatId(newId);
       router.replace(`/standalone?chat=${newId}`, { scroll: false });
     }
@@ -1883,9 +1912,16 @@ export default function StandaloneChatInner() {
       <NewChatGroupPicker
         open={groupPickerOpen}
         groups={conversationGroups}
-        onClose={() => setGroupPickerOpen(false)}
-        onSelectExisting={openChatInGroup}
+        onClose={() => {
+          if (groupCreating) return;
+          setGroupPickerOpen(false);
+          setGroupCreateError(null);
+        }}
+        onSelectExisting={(groupId) => openDraftInGroup(groupId)}
         onCreateNew={handleCreateGroupAndChat}
+        onContinueUngrouped={() => openDraftInGroup(null)}
+        creating={groupCreating}
+        error={groupCreateError}
       />
       <SainaStandaloneShell
         heroTitle={heroTitle}

@@ -82,8 +82,8 @@ export function buildConversationTree(
     }
   }
 
+  // Real named groups render even with zero conversations (empty groups are valid).
   const nodes: ConversationTreeGroupNode[] = groups
-    .filter((g) => byGroup.has(g.id))
     .map((g) => ({
       id: g.id,
       title: g.title,
