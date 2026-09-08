@@ -5,6 +5,11 @@
 
 export type ConversationSceneSource = 'mirror_local' | 'mirror_network' | 'mirror_guest';
 
+/** Same-origin durable Yansı / mirror scene asset path (server-authoritative). */
+export function isDurablePublicMirrorScenePath(url: string): boolean {
+  return url.trim().startsWith('/api/public/mirror-scene-assets/');
+}
+
 /** HTTP(S) only — rejects data:, blob:, and non-URL strings. Production requires HTTPS. */
 export function isPersistableConversationSceneUrl(url: string): boolean {
   const trimmed = url.trim();
@@ -21,6 +26,14 @@ export function isPersistableConversationSceneUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Sidebar / chrome display — absolute persistable URLs or durable public asset paths. */
+export function isConversationSceneDisplayUrl(url: string | null | undefined): boolean {
+  const trimmed = (url || '').trim();
+  if (!trimmed) return false;
+  if (isDurablePublicMirrorScenePath(trimmed)) return true;
+  return isPersistableConversationSceneUrl(trimmed);
 }
 
 export function normalizeConversationSceneSlug(slug?: string | null): string | null {

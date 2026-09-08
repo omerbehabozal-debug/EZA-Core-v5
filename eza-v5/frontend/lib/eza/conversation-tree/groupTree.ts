@@ -11,7 +11,7 @@ import {
   formatSainaConversationTime,
   thumbGradientForChatId,
 } from '@/lib/eza/sainaConversationList';
-import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
+import { isConversationSceneDisplayUrl } from '@/lib/eza/conversationSceneIdentity';
 import { isChatDeleted } from '@/lib/standaloneChatDelete';
 import { summarizeArchiveTitle, type ArchivedChatSummary } from '@/lib/standaloneChatArchive';
 import { SAINA_EMPTY_CHAT_PREVIEW } from '@/lib/eza/sainaCopy';
@@ -29,8 +29,7 @@ function toTreeChatItem(item: ArchivedChatSummaryWithTree): ConversationTreeChat
     time: formatSainaConversationTime(item.savedAt),
     thumbGradient: thumbGradientForChatId(item.id),
     thumbImageUrl:
-      item.conversationSceneUrl &&
-      isPersistableConversationSceneUrl(item.conversationSceneUrl)
+      item.conversationSceneUrl && isConversationSceneDisplayUrl(item.conversationSceneUrl)
         ? item.conversationSceneUrl
         : null,
     savedAt: item.savedAt,

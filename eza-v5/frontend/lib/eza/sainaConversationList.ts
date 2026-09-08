@@ -2,7 +2,8 @@ import {
   summarizeArchiveTitle,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
-import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
+import { isConversationSceneDisplayUrl } from '@/lib/eza/conversationSceneIdentity';
+import { resolveDisplayConversationTitle } from '@/lib/eza/conversationTitle';
 import { isChatDeleted } from '@/lib/standaloneChatDelete';
 import { SAINA_EMPTY_CHAT_PREVIEW } from '@/lib/eza/sainaCopy';
 
@@ -135,15 +136,21 @@ export function getConversationTimeBucketLabel(
 }
 
 function resolveSidebarChatTitle(item: ArchivedChatSummary): string {
+  const resolved = resolveDisplayConversationTitle({
+    title: item.title,
+    titlePinned: item.titlePinned,
+  });
+  if (resolved !== 'Yeni sohbet') return resolved;
+
+  // Legacy fallback: truncated title may be shorter than preview seed.
   const title = item.title?.trim() ?? '';
   const preview = item.preview?.trim() ?? '';
   const legacyTruncated = title.endsWith('…') || title.endsWith('...');
   const strippedTitle = title.replace(/…$/, '').replace(/\.\.\.$/, '');
-  const source =
-    legacyTruncated && preview.length > strippedTitle.length
-      ? preview
-      : title || preview;
-  return summarizeArchiveTitle(source) || 'Yeni sohbet';
+  if (legacyTruncated && preview.length > strippedTitle.length) {
+    return summarizeArchiveTitle(preview) || 'Yeni sohbet';
+  }
+  return resolved;
 }
 
 export function groupConversationsByTimeBucket(
@@ -178,8 +185,7 @@ export function mapArchivesToSainaConversations(
     savedAt: item.savedAt,
     thumbGradient: thumbGradientForChatId(item.id),
     thumbImageUrl:
-      item.conversationSceneUrl &&
-      isPersistableConversationSceneUrl(item.conversationSceneUrl)
+      item.conversationSceneUrl && isConversationSceneDisplayUrl(item.conversationSceneUrl)
         ? item.conversationSceneUrl
         : null,
   }));

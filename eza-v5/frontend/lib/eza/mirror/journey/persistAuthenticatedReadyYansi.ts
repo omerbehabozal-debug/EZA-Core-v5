@@ -11,6 +11,7 @@ import {
   getServerIdForClientChat,
   isServerConversationAuthorityValid,
   noteServerYansiReady,
+  promoteServerConversationIdentityFromYansi,
 } from '@/lib/eza/serverConversationStore';
 import {
   putServerYansiPreparation,
@@ -109,5 +110,13 @@ export async function persistAuthenticatedReadyYansi(input: {
     return null;
   }
   noteServerYansiReady(input.clientConversationId);
+  // Stage 2 — promote Yansı title/visual onto conversation identity (durable).
+  await promoteServerConversationIdentityFromYansi({
+    clientConversationId: input.clientConversationId,
+    title,
+    conversationSceneUrl: scene,
+    conversationSceneSource: 'mirror_local',
+    conversationSceneSlug: null,
+  });
   return result;
 }

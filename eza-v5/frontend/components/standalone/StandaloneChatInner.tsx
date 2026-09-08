@@ -74,6 +74,10 @@ import { useConversationYansiStatusMap } from '@/hooks/useConversationYansiStatu
 import { hydrateYansiPreparationsFromServer } from '@/lib/eza/mirror/journey/hydrateYansiPreparationsFromServer';
 import { getServerConversationAuthority } from '@/lib/eza/serverConversationStore';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
+import {
+  deriveConversationTitle,
+  resolveDisplayConversationTitle,
+} from '@/lib/eza/conversationTitle';
 import { SAINA_HERO_DEFAULT_TITLE } from '@/lib/eza/sainaCopy';
 import {
   canViewRelationshipMapData,
@@ -1066,15 +1070,18 @@ export default function StandaloneChatInner() {
     let activeChatId = chatId;
     if (!activeChatId) {
       const pendingGroupId = draftGroupIdRef.current;
-      const newId = createStandaloneChat(
-        pendingGroupId ? { groupId: pendingGroupId } : undefined
-      );
+      const derivedTitle = deriveConversationTitle(text);
+      const newId = createStandaloneChat({
+        ...(pendingGroupId ? { groupId: pendingGroupId } : {}),
+        ...(derivedTitle ? { title: derivedTitle } : {}),
+      });
       if (isServerBacked) {
         try {
           const serverGroupId = sanitizeOptionalServerGroupId(pendingGroupId);
           const server = await ensureServerConversation({
             clientConversationId: newId,
             conversationType: 'direct',
+            ...(derivedTitle ? { title: derivedTitle } : {}),
             ...(serverGroupId ? { groupId: serverGroupId } : {}),
           });
           if (!isSendSessionActive()) return;
@@ -1083,8 +1090,12 @@ export default function StandaloneChatInner() {
             upsertChatArchive({
               ...existing,
               serverConversationId: server.id,
+              title: server.title?.trim() || derivedTitle || existing.title,
               groupId: pendingGroupId ?? existing.groupId ?? null,
             });
+          }
+          if (derivedTitle) {
+            void persistServerConversationTitleIfNeeded(newId, text);
           }
         } catch {
           if (!isSendSessionActive()) return;
@@ -1134,16 +1145,31 @@ export default function StandaloneChatInner() {
 
     if (isServerBacked && resolvedChatId && !activeChat?.serverConversationId) {
       try {
+        const derivedTitle = deriveConversationTitle(text);
         const server = await ensureServerConversation({
           clientConversationId: resolvedChatId,
           conversationType: activeChat?.mirrorOrigin ? 'continuation' : 'direct',
           sourceYansiSlug: activeChat?.mirrorOrigin?.startedFromMirrorId,
           groupId: activeChat?.groupId ?? undefined,
+          ...(derivedTitle &&
+          (!activeChat?.title || activeChat.title === 'Yeni sohbet') &&
+          !activeChat?.titlePinned
+            ? { title: derivedTitle }
+            : {}),
         });
         if (!isSendSessionActive()) return;
         const existing = getChatArchive(resolvedChatId);
         if (existing) {
-          upsertChatArchive({ ...existing, serverConversationId: server.id });
+          upsertChatArchive({
+            ...existing,
+            serverConversationId: server.id,
+            ...(derivedTitle && !existing.titlePinned
+              ? { title: server.title?.trim() || derivedTitle }
+              : {}),
+          });
+        }
+        if (derivedTitle) {
+          void persistServerConversationTitleIfNeeded(resolvedChatId, text);
         }
       } catch {
         if (!isSendSessionActive()) return;
@@ -1152,6 +1178,25 @@ export default function StandaloneChatInner() {
     }
 
     if (!isSendSessionActive()) return;
+
+    // First meaningful user message → durable short title (auth + guest local).
+    const isFirstUserMessage = messages.filter((m) => m.isUser).length === 0;
+    if (resolvedChatId && isFirstUserMessage) {
+      const derivedTitle = deriveConversationTitle(text);
+      if (derivedTitle) {
+        const existing = getChatArchive(resolvedChatId);
+        if (
+          existing &&
+          !existing.titlePinned &&
+          (!existing.title?.trim() || existing.title.trim() === 'Yeni sohbet')
+        ) {
+          upsertChatArchive({ ...existing, title: derivedTitle });
+        }
+        if (isServerBacked) {
+          void persistServerConversationTitleIfNeeded(resolvedChatId, text);
+        }
+      }
+    }
 
     const chatHistory = buildChatHistoryPayload(messages);
     const lineageProofTokenForSend = resolveLineageProofToken(activeChat);
@@ -1814,9 +1859,12 @@ export default function StandaloneChatInner() {
   const heroTitle = useMemo(() => {
     if (!chatId) return SAINA_HERO_DEFAULT_TITLE;
     const archived = getChatArchive(chatId);
-    const title = archived?.title?.trim();
-    return title || SAINA_HERO_DEFAULT_TITLE;
-  }, [chatId, messages]);
+    const summary = archives.find((a) => a.id === chatId);
+    return resolveDisplayConversationTitle({
+      title: summary?.title ?? archived?.title,
+      titlePinned: summary?.titlePinned ?? archived?.titlePinned,
+    });
+  }, [chatId, messages, archives]);
 
   const heroMeta = useMemo(() => {
     if (!chatId) return null;

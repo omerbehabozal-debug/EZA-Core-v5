@@ -1,4 +1,4 @@
-import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
+import { isConversationSceneDisplayUrl } from '@/lib/eza/conversationSceneIdentity';
 import { getChatArchive } from '@/lib/standaloneChatArchive';
 
 /**
@@ -12,11 +12,11 @@ export function resolveChromeConversationSceneUrl(
 ): string | null {
   if (activeChatId) {
     const archiveUrl = getChatArchive(activeChatId)?.conversationSceneUrl;
-    return archiveUrl && isPersistableConversationSceneUrl(archiveUrl)
+    return archiveUrl && isConversationSceneDisplayUrl(archiveUrl)
       ? archiveUrl
       : null;
   }
-  return conversationSceneUrl && isPersistableConversationSceneUrl(conversationSceneUrl)
+  return conversationSceneUrl && isConversationSceneDisplayUrl(conversationSceneUrl)
     ? conversationSceneUrl
     : null;
 }

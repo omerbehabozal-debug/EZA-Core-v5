@@ -270,3 +270,33 @@ def test_http_initialize_title_only_exclusive_and_owned(authenticated_api_client
         headers=other_headers,
     )
     assert denied.status_code == 404
+
+
+def test_http_patch_conversation_scene_identity(authenticated_api_client):
+    """Yansı visual promotion may PATCH conversation scene fields."""
+    api_client, headers = authenticated_api_client
+    created = api_client.post(
+        "/api/standalone/conversations",
+        json={"clientConversationId": "chat-scene-1", "title": "Ön başlık"},
+        headers=headers,
+    )
+    assert created.status_code == 200
+    conv_id = created.json()["id"]
+
+    scene = "https://api.ezacore.ai/api/public/mirror-scene-assets/promo.png"
+    patched = api_client.patch(
+        f"/api/standalone/conversations/{conv_id}",
+        json={
+            "title": "Yansı Başlığı",
+            "titlePinned": True,
+            "conversationSceneUrl": scene,
+            "conversationSceneSource": "mirror_local",
+        },
+        headers=headers,
+    )
+    assert patched.status_code == 200
+    body = patched.json()
+    assert body["title"] == "Yansı Başlığı"
+    assert body["titlePinned"] is True
+    assert body["conversationSceneUrl"] == scene
+    assert body["conversationSceneSource"] == "mirror_local"

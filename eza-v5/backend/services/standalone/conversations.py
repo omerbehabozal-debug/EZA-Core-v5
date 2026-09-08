@@ -314,6 +314,9 @@ async def patch_standalone_conversation(
             or body.pinned is not None
             or body.archived is not None
             or "groupId" in body.model_fields_set
+            or "conversationSceneUrl" in body.model_fields_set
+            or "conversationSceneSource" in body.model_fields_set
+            or "conversationSceneSlug" in body.model_fields_set
         ):
             raise HTTPException(status_code=422, detail="initialize_title_only_exclusive")
 
@@ -349,6 +352,16 @@ async def patch_standalone_conversation(
         conv.pinned = body.pinned
     if body.archived is not None:
         conv.archived_at = now if body.archived else None
+
+    if "conversationSceneUrl" in body.model_fields_set:
+        raw_url = body.conversationSceneUrl
+        conv.conversation_scene_url = (raw_url or "").strip() or None
+    if "conversationSceneSource" in body.model_fields_set:
+        raw_src = body.conversationSceneSource
+        conv.conversation_scene_source = (raw_src or "").strip() or None
+    if "conversationSceneSlug" in body.model_fields_set:
+        raw_slug = body.conversationSceneSlug
+        conv.conversation_scene_slug = (raw_slug or "").strip().lower() or None
 
     # Explicit group membership mutation (omit = unchanged).
     if "groupId" in body.model_fields_set:

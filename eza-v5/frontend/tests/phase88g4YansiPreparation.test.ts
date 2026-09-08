@@ -136,6 +136,12 @@ beforeEach(() => {
   apiMocks.listServerConversations.mockResolvedValue([listA]);
   apiMocks.putServerYansiPreparation.mockResolvedValue(serverPrep());
   apiMocks.getServerYansiPreparations.mockResolvedValue([serverPrep()]);
+  apiMocks.patchServerConversation.mockImplementation(async (_id, patch) => ({
+    ...listA,
+    ...patch,
+    titlePinned: Boolean(patch.titlePinned),
+    hasReadyYansi: true,
+  }));
 });
 
 describe('Phase 8.8G-4 ready/unpublished Yansı persistence', () => {
@@ -158,6 +164,16 @@ describe('Phase 8.8G-4 ready/unpublished Yansı persistence', () => {
     expect(apiMocks.putServerYansiPreparation).toHaveBeenCalledTimes(1);
     expect(saved?.publicTitle).toBe('Hazır başlık');
     expect(getServerConversationSummaries()[0]?.hasReadyYansi).toBe(true);
+    expect(apiMocks.patchServerConversation).toHaveBeenCalledWith(
+      'srv-a',
+      expect.objectContaining({
+        title: 'Hazır başlık',
+        titlePinned: true,
+        conversationSceneUrl: 'https://api.ezacore.ai/api/public/mirror-scene-assets/x.png',
+      })
+    );
+    expect(getServerConversationSummaries()[0]?.title).toBe('Hazır başlık');
+    expect(getServerConversationSummaries()[0]?.titlePinned).toBe(true);
   });
 
   it('B. Device B empty localStorage reconstructs amber from server', async () => {

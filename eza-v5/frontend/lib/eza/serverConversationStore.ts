@@ -14,8 +14,13 @@ import {
 } from '@/lib/eza/standaloneConversationsApi';
 import type { ConversationSceneSource } from '@/lib/eza/conversationSceneIdentity';
 import {
+  deriveConversationTitle,
+  isDefaultConversationTitle,
+  DEFAULT_CONVERSATION_TITLE,
+} from '@/lib/eza/conversationTitle';
+import {
   CHATS_UPDATED_EVENT,
-  summarizeArchiveTitle,
+  getChatArchive,
   type ArchivedChat,
   type ArchivedChatMessage,
   type ArchivedChatSummary,
@@ -352,6 +357,102 @@ export function noteServerYansiReady(clientConversationId: string): void {
   emit();
 }
 
+/**
+ * Stage 2 — promote Yansı title + visual onto the same conversation identity.
+ * Uses titlePinned so late initializeTitleOnly cannot downgrade.
+ */
+export async function promoteServerConversationIdentityFromYansi(input: {
+  clientConversationId: string;
+  title: string;
+  conversationSceneUrl?: string | null;
+  conversationSceneSource?: ConversationSceneSource | null;
+  conversationSceneSlug?: string | null;
+}): Promise<void> {
+  const { ownerAtStart, epochAtStart } = captureAuthority();
+  const id = input.clientConversationId.trim();
+  const title = input.title.trim();
+  if (!id || !title) return;
+
+  const serverId = getServerIdForClientChat(id);
+  if (!serverId) return;
+
+  const sceneUrl = (input.conversationSceneUrl || '').trim() || undefined;
+  const patch: Parameters<typeof patchServerConversation>[1] = {
+    title,
+    titlePinned: true,
+  };
+  if (sceneUrl) {
+    patch.conversationSceneUrl = sceneUrl;
+    if (input.conversationSceneSource) {
+      patch.conversationSceneSource = input.conversationSceneSource;
+    }
+    if (input.conversationSceneSlug !== undefined) {
+      patch.conversationSceneSlug = input.conversationSceneSlug;
+    }
+  }
+
+  try {
+    const updated = await patchServerConversation(serverId, patch);
+    if (!isAuthorityValid(ownerAtStart, epochAtStart)) return;
+    const summary = mapListItemToSummary(updated);
+    summary.hasReadyYansi = true;
+    const idx = state.summaries.findIndex((s) => s.id === id);
+    if (idx >= 0) {
+      state.summaries[idx] = summary;
+    } else {
+      state.summaries = [summary, ...state.summaries];
+    }
+    const cached = state.detailCache[id];
+    if (cached) {
+      state.detailCache[id] = {
+        ...cached,
+        title: summary.title,
+        titlePinned: true,
+        conversationSceneUrl: summary.conversationSceneUrl ?? cached.conversationSceneUrl,
+        conversationSceneSource:
+          summary.conversationSceneSource ?? cached.conversationSceneSource,
+        conversationSceneSlug: summary.conversationSceneSlug ?? cached.conversationSceneSlug,
+      };
+    }
+    const local = getChatArchive(id);
+    if (local) {
+      upsertChatArchive({
+        ...local,
+        title: summary.title,
+        titlePinned: true,
+        conversationSceneUrl: summary.conversationSceneUrl ?? local.conversationSceneUrl,
+        conversationSceneSource:
+          summary.conversationSceneSource ?? local.conversationSceneSource,
+        conversationSceneSlug: summary.conversationSceneSlug ?? local.conversationSceneSlug,
+      });
+    }
+    emit();
+  } catch {
+    // Non-blocking: local scene may already be set by ObservationExperience.
+    const idx = state.summaries.findIndex((s) => s.id === id);
+    if (idx >= 0) {
+      const current = state.summaries[idx];
+      state.summaries[idx] = {
+        ...current,
+        title,
+        titlePinned: true,
+        hasReadyYansi: true,
+        ...(sceneUrl
+          ? {
+              conversationSceneUrl: sceneUrl,
+              conversationSceneSource: input.conversationSceneSource ?? current.conversationSceneSource,
+              conversationSceneSlug:
+                input.conversationSceneSlug !== undefined
+                  ? input.conversationSceneSlug
+                  : current.conversationSceneSlug,
+            }
+          : {}),
+      };
+      emit();
+    }
+  }
+}
+
 export function noteServerYansiPublished(
   clientConversationId: string,
   slug: string
@@ -447,7 +548,45 @@ export async function renameServerBackedConversation(
   emit();
 }
 
-const DEFAULT_SERVER_TITLE = 'Yeni sohbet';
+const DEFAULT_SERVER_TITLE = DEFAULT_CONVERSATION_TITLE;
+
+function applyTitleToLocalAndStore(
+  clientConversationId: string,
+  title: string,
+  titlePinned: boolean
+): void {
+  const idx = state.summaries.findIndex((s) => s.id === clientConversationId);
+  if (idx >= 0) {
+    const current = state.summaries[idx];
+    state.summaries[idx] = {
+      ...current,
+      title,
+      titlePinned,
+    };
+  }
+  const cached = state.detailCache[clientConversationId];
+  if (cached) {
+    state.detailCache[clientConversationId] = {
+      ...cached,
+      title,
+      titlePinned,
+    };
+  }
+  const local = getChatArchive(clientConversationId);
+  if (local && !local.titlePinned) {
+    upsertChatArchive({
+      ...local,
+      title,
+      ...(titlePinned ? { titlePinned: true } : {}),
+    });
+  } else if (local && titlePinned) {
+    upsertChatArchive({
+      ...local,
+      title,
+      titlePinned: true,
+    });
+  }
+}
 
 export async function persistServerConversationTitleIfNeeded(
   clientConversationId: string,
@@ -456,33 +595,55 @@ export async function persistServerConversationTitleIfNeeded(
   const { ownerAtStart, epochAtStart } = captureAuthority();
   const summary = state.summaries.find((s) => s.id === clientConversationId);
   if (summary?.titlePinned) return;
-  const derived = summarizeArchiveTitle(firstUserText);
+  const local = getChatArchive(clientConversationId);
+  if (local?.titlePinned) return;
+
+  const derived = deriveConversationTitle(firstUserText);
   if (!derived) return;
-  const currentTitle = summary?.title?.trim() || DEFAULT_SERVER_TITLE;
-  if (currentTitle !== DEFAULT_SERVER_TITLE) return;
+  const currentTitle = summary?.title?.trim() || local?.title?.trim() || DEFAULT_SERVER_TITLE;
+  if (!isDefaultConversationTitle(currentTitle)) return;
+
+  // Optimistic: sidebar + header share store/local before PATCH round-trip.
+  applyTitleToLocalAndStore(clientConversationId, derived, false);
+  emit();
 
   const serverId = getServerIdForClientChat(clientConversationId);
   if (!serverId) return;
 
-  const updated = await patchServerConversation(serverId, {
-    title: derived,
-    initializeTitleOnly: true,
-  });
-  if (!isAuthorityValid(ownerAtStart, epochAtStart)) return;
-  const nextSummary = mapListItemToSummary(updated);
-  const idx = state.summaries.findIndex((s) => s.id === clientConversationId);
-  if (idx >= 0) {
-    state.summaries[idx] = nextSummary;
+  try {
+    const updated = await patchServerConversation(serverId, {
+      title: derived,
+      initializeTitleOnly: true,
+    });
+    if (!isAuthorityValid(ownerAtStart, epochAtStart)) return;
+    const nextSummary = mapListItemToSummary(updated);
+    // If CAS no-op returned a newer/pinned title, prefer server authority.
+    const idx = state.summaries.findIndex((s) => s.id === clientConversationId);
+    if (idx >= 0) {
+      state.summaries[idx] = nextSummary;
+    }
+    const cached = state.detailCache[clientConversationId];
+    if (cached) {
+      state.detailCache[clientConversationId] = {
+        ...cached,
+        title: nextSummary.title,
+        titlePinned: nextSummary.titlePinned,
+      };
+    }
+    const archive = getChatArchive(clientConversationId);
+    if (archive) {
+      if (nextSummary.titlePinned || !archive.titlePinned) {
+        upsertChatArchive({
+          ...archive,
+          title: nextSummary.title,
+          ...(nextSummary.titlePinned ? { titlePinned: true } : {}),
+        });
+      }
+    }
+    emit();
+  } catch {
+    // Keep optimistic local title; do not block conversation.
   }
-  const cached = state.detailCache[clientConversationId];
-  if (cached) {
-    state.detailCache[clientConversationId] = {
-      ...cached,
-      title: nextSummary.title,
-      titlePinned: nextSummary.titlePinned,
-    };
-  }
-  emit();
 }
 
 export function buildGenerationPersistencePayload(

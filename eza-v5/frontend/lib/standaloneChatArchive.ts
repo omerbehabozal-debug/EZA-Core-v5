@@ -16,6 +16,7 @@ import {
   type ConversationSceneIdentityInput,
   type ConversationSceneSource,
 } from '@/lib/eza/conversationSceneIdentity';
+import { deriveConversationTitle } from '@/lib/eza/conversationTitle';
 import {
   trackConversationCreatedInGroup,
 } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
@@ -367,7 +368,7 @@ function pickConversationSceneFields(chat?: ArchivedChat | null): Partial<Archiv
 function buildTitle(messages: ArchivedChatMessage[]): string {
   const firstUser = messages.find((m) => m.isUser && m.text.trim());
   if (!firstUser) return 'Yeni sohbet';
-  return summarizeArchiveTitle(firstUser.text) || 'Yeni sohbet';
+  return deriveConversationTitle(firstUser.text) || 'Yeni sohbet';
 }
 
 function buildChatEntry(id: string, messages: ArchivedChatMessage[]): ArchivedChat {

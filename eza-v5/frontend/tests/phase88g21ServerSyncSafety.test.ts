@@ -140,16 +140,16 @@ describe('Phase 8.8G-2.1 server sync safety', () => {
     await bootstrapServerConversations(userA);
     apiMocks.patchServerConversation.mockResolvedValue({
       ...summaryA,
-      title: 'Merhaba dünya nasılsın?',
+      title: 'Merhaba dünya nasılsın',
     });
 
     await persistServerConversationTitleIfNeeded('chat-a', 'Merhaba dünya nasılsın?');
 
     expect(apiMocks.patchServerConversation).toHaveBeenCalledWith('srv-a', {
-      title: 'Merhaba dünya nasılsın?',
+      title: 'Merhaba dünya nasılsın',
       initializeTitleOnly: true,
     });
-    expect(getServerConversationSummaries()[0]?.title).toBe('Merhaba dünya nasılsın?');
+    expect(getServerConversationSummaries()[0]?.title).toBe('Merhaba dünya nasılsın');
   });
 
   it('F: pinned/manual title is not overwritten on later sends', async () => {

@@ -73,6 +73,11 @@ class StandaloneConversationPatch(BaseModel):
     initializeTitleOnly: bool = False
     # Optional membership: omit = no change; null = ungroup; UUID = assign (owned).
     groupId: Optional[str] = Field(default=None, max_length=36)
+    conversationSceneUrl: Optional[str] = Field(default=None, max_length=MAX_SCENE_URL_LENGTH)
+    conversationSceneSource: Optional[str] = Field(
+        default=None, max_length=MAX_SCENE_SOURCE_LENGTH
+    )
+    conversationSceneSlug: Optional[str] = Field(default=None, max_length=MAX_SCENE_SLUG_LENGTH)
 
 
 class StandaloneConversationMessageCreate(BaseModel):
