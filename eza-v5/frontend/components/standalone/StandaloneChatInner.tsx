@@ -123,7 +123,7 @@ import {
   getChatArchive,
   listChatArchives,
   pruneEmptyChats,
-  resolveChatRouteAfterDelete,
+  readActiveChatId,
   saveStandaloneChat,
   upsertChatArchive,
   writeActiveChatId,
@@ -140,6 +140,7 @@ import {
   DELETED_CHAT_IDS_STORAGE_KEY,
   isChatDeleted,
 } from '@/lib/standaloneChatDelete';
+import { isConversationActiveForDelete } from '@/lib/eza/activeConversationDelete';
 import { trackSecondUserMessageSent } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import MirrorBranchSuggestion from '@/components/standalone/MirrorBranchSuggestion';
 import MirrorBirthSuggestion from '@/components/standalone/MirrorBirthSuggestion';
@@ -378,17 +379,32 @@ export default function StandaloneChatInner() {
     }
   }, []);
 
-  const resetStateAfterActiveDelete = useCallback(() => {
+  /**
+   * Leave active conversation after delete — same canvas clears as startDraft/handleNewChat,
+   * plus invalidate in-flight loads so a stale hydrate cannot resurrect the deleted chat.
+   */
+  const leaveActiveConversationAfterDelete = useCallback(() => {
     cancelPendingAutosave();
     skipAutosaveRef.current = true;
+    chatLoadGenerationRef.current += 1;
+    activeLoadTargetRef.current = null;
     resetStream();
     setChatId(null);
     setMessages([]);
     setIsLoading(false);
     setIsTyping(false);
+    setDraftGroupId(null);
+    setGroupCreateError(null);
     setBranchSuggestionVisible(false);
     setMirrorBirthVisible(false);
+    setJourneyState(null);
+    setJourneyReviewOpen(false);
+    setJourneyReviewWindowIndex(null);
     setConversationMirrorEntries([], PENDING_CONVERSATION_MIRROR_ID);
+    setGroupPickerOpen(true);
+    window.setTimeout(() => {
+      skipAutosaveRef.current = false;
+    }, 0);
   }, [cancelPendingAutosave, resetStream, setConversationMirrorEntries]);
 
   useEffect(() => {
@@ -428,6 +444,10 @@ export default function StandaloneChatInner() {
 
   const loadChatIntoState = useCallback(
     async (id: string) => {
+      if (isChatDeleted(id)) {
+        return false;
+      }
+
       const generation = ++chatLoadGenerationRef.current;
       const loadSessionGeneration = sessionGenerationRef.current;
       activeLoadTargetRef.current = id;
@@ -440,6 +460,7 @@ export default function StandaloneChatInner() {
             return false;
           }
           if (!isLoadTargetCurrent(id, generation)) return false;
+          if (isChatDeleted(id)) return false;
           if (serverChat) chat = serverChat;
         } catch {
           if (!canApplySessionBoundResult(loadSessionGeneration, sessionGenerationRef.current)) {
@@ -451,6 +472,7 @@ export default function StandaloneChatInner() {
       if (!canApplySessionBoundResult(loadSessionGeneration, sessionGenerationRef.current)) {
         return false;
       }
+      if (isChatDeleted(id)) return false;
       if (!chat || !isLoadTargetCurrent(id, generation)) return false;
       skipAutosaveRef.current = true;
       resetStream();
@@ -517,6 +539,14 @@ export default function StandaloneChatInner() {
       }, 0);
     };
 
+    if (chatIdFromUrl && isChatDeleted(chatIdFromUrl)) {
+      leaveActiveConversationAfterDelete();
+      router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
+      setReady(true);
+      enableUrlSync();
+      return;
+    }
+
     if (chatIdFromUrl && (getChatArchive(chatIdFromUrl) || isServerBacked)) {
       pruneEmptyChats(chatIdFromUrl);
       setDraftGroupId(null);
@@ -551,10 +581,26 @@ export default function StandaloneChatInner() {
     router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
     setReady(true);
     enableUrlSync();
-  }, [ready, chatIdFromUrl, router, loadChatIntoState, startDraft, searchParams, isServerBacked]);
+  }, [
+    ready,
+    chatIdFromUrl,
+    router,
+    loadChatIntoState,
+    startDraft,
+    searchParams,
+    isServerBacked,
+    leaveActiveConversationAfterDelete,
+  ]);
 
   useEffect(() => {
     if (!ready || !urlSyncEnabledRef.current || !chatIdFromUrl) return;
+
+    if (isChatDeleted(chatIdFromUrl)) {
+      leaveActiveConversationAfterDelete();
+      router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
+      return;
+    }
+
     if (chatIdFromUrl === chatId) return;
 
     const prevId = chatIdRef.current;
@@ -567,7 +613,15 @@ export default function StandaloneChatInner() {
         router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
       }
     });
-  }, [chatIdFromUrl, chatId, ready, flushSave, loadChatIntoState, router]);
+  }, [
+    chatIdFromUrl,
+    chatId,
+    ready,
+    flushSave,
+    loadChatIntoState,
+    router,
+    leaveActiveConversationAfterDelete,
+  ]);
 
   useEffect(() => {
     if (skipAutosaveRef.current || !chatId || isChatDeleted(chatId)) return;
@@ -705,10 +759,18 @@ export default function StandaloneChatInner() {
       const serverBacked = isServerBacked && hasServerBackedConversation(id);
       if (!archive && !serverBacked) return;
 
-      const wasActive = chatId === id;
+      const wasActive = isConversationActiveForDelete({
+        targetId: id,
+        chatId,
+        chatIdFromUrl,
+        activeChatId: readActiveChatId(),
+      });
       if (wasActive) {
         cancelPendingAutosave();
         skipAutosaveRef.current = true;
+        // Invalidate any in-flight hydrate before awaiting server delete.
+        chatLoadGenerationRef.current += 1;
+        activeLoadTargetRef.current = null;
       }
 
       if (serverBacked) {
@@ -722,15 +784,16 @@ export default function StandaloneChatInner() {
       deleteChatArchive(id);
 
       if (wasActive) {
-        resetStateAfterActiveDelete();
-        router.push(resolveChatRouteAfterDelete(), { scroll: false });
+        leaveActiveConversationAfterDelete();
+        router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
       }
     },
     [
       chatId,
+      chatIdFromUrl,
       router,
       cancelPendingAutosave,
-      resetStateAfterActiveDelete,
+      leaveActiveConversationAfterDelete,
       isServerBacked,
     ]
   );
@@ -753,17 +816,21 @@ export default function StandaloneChatInner() {
     const onStorage = (event: StorageEvent) => {
       if (event.key !== DELETED_CHAT_IDS_STORAGE_KEY) return;
       const currentId = chatIdRef.current;
-      if (!currentId || !isChatDeleted(currentId)) return;
+      const urlId = chatIdFromUrl;
+      const activeId = readActiveChatId();
+      const deletedActive =
+        (currentId && isChatDeleted(currentId)) ||
+        (urlId && isChatDeleted(urlId)) ||
+        (activeId && isChatDeleted(activeId));
+      if (!deletedActive) return;
 
-      cancelPendingAutosave();
-      skipAutosaveRef.current = true;
-      resetStateAfterActiveDelete();
-      router.push(resolveChatRouteAfterDelete(), { scroll: false });
+      leaveActiveConversationAfterDelete();
+      router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
     };
 
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, [cancelPendingAutosave, resetStateAfterActiveDelete, router]);
+  }, [leaveActiveConversationAfterDelete, router, chatIdFromUrl]);
 
   const planTier = resolveSainaPlanTier({
     isPlus,
