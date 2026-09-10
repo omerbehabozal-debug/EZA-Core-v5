@@ -40,12 +40,14 @@ const GROUP_CHAT_B = {
 function groupNode(
   id: string,
   title: string,
-  conversations: ConversationTreeGroupNode['conversations']
+  conversations: ConversationTreeGroupNode['conversations'],
+  opts: Partial<Pick<ConversationTreeGroupNode, 'clientGroupId' | 'source'>> = {}
 ): ConversationTreeGroupNode {
   return {
     id,
     title,
-    source: 'manual',
+    source: opts.source ?? 'manual',
+    clientGroupId: opts.clientGroupId ?? null,
     updatedAt: '2026-01-03T00:00:00.000Z',
     sortOrder: 1,
     conversations,
@@ -389,6 +391,29 @@ describe('saina sidebar row actions', () => {
       const onDeleteGroup = vi.fn();
       render(
         <SainaConversationSidebar
+          conversationGroups={[
+            groupNode('group-empty', 'Boş Grup', [], { clientGroupId: 'group-empty' }),
+          ]}
+          onDeleteGroup={onDeleteGroup}
+        />
+      );
+
+      await openGroupMenu('group-empty');
+      fireEvent.click(screen.getByTestId('saina-conv-group-delete-group-empty'));
+
+      expect(onDeleteGroup).toHaveBeenCalledWith({
+        id: 'group-empty',
+        title: 'Boş Grup',
+        source: 'manual',
+        clientGroupId: 'group-empty',
+        conversationCount: 0,
+      });
+    });
+
+    it('keeps the empty group visible and shows an error when delete rejects', async () => {
+      const onDeleteGroup = vi.fn().mockRejectedValue(new Error('delete failed'));
+      render(
+        <SainaConversationSidebar
           conversationGroups={[groupNode('group-empty', 'Boş Grup', [])]}
           onDeleteGroup={onDeleteGroup}
         />
@@ -397,7 +422,12 @@ describe('saina sidebar row actions', () => {
       await openGroupMenu('group-empty');
       fireEvent.click(screen.getByTestId('saina-conv-group-delete-group-empty'));
 
-      expect(onDeleteGroup).toHaveBeenCalledWith('group-empty');
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('saina-conv-group-delete-error-group-empty')
+        ).toBeInTheDocument();
+      });
+      expect(screen.getByTestId('saina-conv-group-group-empty')).toBeInTheDocument();
     });
 
     it('renames non-empty groups through the group callback', async () => {

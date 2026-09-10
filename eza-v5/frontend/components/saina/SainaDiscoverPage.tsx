@@ -46,10 +46,9 @@ import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
 import { SAINA_NEW_CHAT_ROUTE } from '@/lib/eza/sainaRoutes';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
-import {
-  deleteConversationGroup,
-  renameConversationGroup,
-} from '@/lib/eza/conversation-tree/conversationGroups';
+import { renameConversationGroup } from '@/lib/eza/conversation-tree/conversationGroups';
+import { deleteRenderedConversationGroup } from '@/lib/eza/conversation-tree/deleteRenderedConversationGroup';
+import type { ConversationTreeGroupDeleteRequest } from '@/lib/eza/conversation-tree/types';
 import { canStartDiscoverFromEntitlements } from '@/lib/eza/plan/sainaDiscoverQuota';
 import { resolveDiscoverLimitMessage } from '@/lib/eza/plan/sainaQuotaMessages';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
@@ -71,7 +70,6 @@ import {
   hasServerBackedConversation,
 } from '@/lib/eza/serverConversationStore';
 import {
-  deleteAuthenticatedConversationGroup,
   renameAuthenticatedConversationGroup,
 } from '@/lib/eza/serverConversationGroupStore';
 import {
@@ -209,17 +207,12 @@ export default function SainaDiscoverPage() {
   );
 
   const handleDeleteGroup = useCallback(
-    async (groupId: string) => {
-      const group = conversationGroups.find((item) => item.id === groupId);
-      if (!group || group.conversations.length !== 0) return;
-      if (isServerBacked) {
-        await deleteAuthenticatedConversationGroup(groupId);
-      } else {
-        deleteConversationGroup(groupId);
-      }
+    async (group: ConversationTreeGroupDeleteRequest) => {
+      const result = await deleteRenderedConversationGroup(group);
+      if (result === 'blocked_non_empty') return;
       refreshArchives();
     },
-    [conversationGroups, isServerBacked, refreshArchives]
+    [refreshArchives]
   );
 
   const handleOpenDiscoverUpgrade = useCallback(() => {

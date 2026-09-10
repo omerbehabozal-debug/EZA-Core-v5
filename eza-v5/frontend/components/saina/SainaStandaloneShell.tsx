@@ -20,7 +20,10 @@ import {
   type MirrorMobileContext,
 } from '@/lib/eza/mirrorMobileState';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
-import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
+import type {
+  ConversationTreeGroupDeleteRequest,
+  ConversationTreeGroupNode,
+} from '@/lib/eza/conversation-tree/types';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import type { YansiHeroMeta } from '@/lib/eza/mirror/yansiHeroMeta';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
@@ -45,7 +48,7 @@ export type SainaStandaloneShellProps = {
   onSelectChat?: (id: string) => void;
   onDeleteChat?: (id: string) => void;
   onRenameGroup?: (id: string, title: string) => void | Promise<void>;
-  onDeleteGroup?: (id: string) => void | Promise<void>;
+  onDeleteGroup?: (group: ConversationTreeGroupDeleteRequest) => void | Promise<void>;
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;

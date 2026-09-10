@@ -153,6 +153,12 @@ export function getServerAuthorityGroups(): ConversationGroup[] {
   return state.groups;
 }
 
+export function isServerAuthorityConversationGroup(groupId: string): boolean {
+  const id = groupId.trim();
+  if (!id || !activeOwnerKey) return false;
+  return state.groups.some((group) => group.id === id);
+}
+
 /**
  * Groups for authenticated sidebar tree.
  * ready (incl. empty) → server snapshot only.

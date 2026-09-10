@@ -42,9 +42,18 @@ export type ConversationTreeGroupNode = {
   id: string;
   title: string;
   source?: ConversationGroupSource;
+  clientGroupId?: string | null;
   updatedAt: string;
   sortOrder: number;
   conversations: ConversationTreeChatItem[];
+};
+
+export type ConversationTreeGroupDeleteRequest = {
+  id: string;
+  title: string;
+  source?: ConversationGroupSource;
+  clientGroupId?: string | null;
+  conversationCount: number;
 };
 
 export type ConversationTreeChatItem = {

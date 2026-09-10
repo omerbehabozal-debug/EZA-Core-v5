@@ -16,10 +16,9 @@ import RelationshipPatternView from '@/components/mirror/RelationshipPatternView
 import SainaPatternShell from '@/components/saina/SainaPatternShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
-import {
-  deleteConversationGroup,
-  renameConversationGroup,
-} from '@/lib/eza/conversation-tree/conversationGroups';
+import { renameConversationGroup } from '@/lib/eza/conversation-tree/conversationGroups';
+import { deleteRenderedConversationGroup } from '@/lib/eza/conversation-tree/deleteRenderedConversationGroup';
+import type { ConversationTreeGroupDeleteRequest } from '@/lib/eza/conversation-tree/types';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
@@ -34,7 +33,6 @@ import {
   hasServerBackedConversation,
 } from '@/lib/eza/serverConversationStore';
 import {
-  deleteAuthenticatedConversationGroup,
   renameAuthenticatedConversationGroup,
 } from '@/lib/eza/serverConversationGroupStore';
 import {
@@ -233,17 +231,12 @@ export default function SainaPatternPageInner() {
   );
 
   const handleDeleteGroup = useCallback(
-    async (groupId: string) => {
-      const group = conversationGroups.find((item) => item.id === groupId);
-      if (!group || group.conversations.length !== 0) return;
-      if (isServerBacked) {
-        await deleteAuthenticatedConversationGroup(groupId);
-      } else {
-        deleteConversationGroup(groupId);
-      }
+    async (group: ConversationTreeGroupDeleteRequest) => {
+      const result = await deleteRenderedConversationGroup(group);
+      if (result === 'blocked_non_empty') return;
       refreshArchives();
     },
-    [conversationGroups, isServerBacked, refreshArchives]
+    [refreshArchives]
   );
 
   const handleOpenPattern = useCallback(() => {

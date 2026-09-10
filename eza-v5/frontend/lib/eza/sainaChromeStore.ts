@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
-import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
+import type {
+  ConversationTreeGroupDeleteRequest,
+  ConversationTreeGroupNode,
+} from '@/lib/eza/conversation-tree/types';
 import type { SainaNotificationItem } from '@/components/saina/SainaNotificationsDropdown';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { DEFAULT_ANALYSIS_MODEL_ID } from '@/lib/standaloneModels';
@@ -20,7 +23,7 @@ export type SainaChromeState = {
   onSelectChat?: (id: string) => void;
   onDeleteChat?: (id: string) => void;
   onRenameGroup?: (id: string, title: string) => void | Promise<void>;
-  onDeleteGroup?: (id: string) => void | Promise<void>;
+  onDeleteGroup?: (group: ConversationTreeGroupDeleteRequest) => void | Promise<void>;
   onOpenPattern?: () => void;
   onUpgrade?: () => void;
   onRequestLogin?: () => void;

@@ -22,7 +22,10 @@ import { SAINA_DISCOVER_ROUTE } from '@/lib/eza/sainaRoutes';
 import type { SainaAppView } from '@/lib/eza/sainaRoutes';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import { groupConversationsByTimeBucket } from '@/lib/eza/sainaConversationList';
-import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
+import type {
+  ConversationTreeGroupDeleteRequest,
+  ConversationTreeGroupNode,
+} from '@/lib/eza/conversation-tree/types';
 import { shouldUseConversationTreeMode } from '@/lib/eza/conversation-tree/groupTree';
 import {
   readGroupExpanded,
@@ -145,7 +148,7 @@ type SainaConversationSidebarProps = {
   onSelectChat?: (id: string) => void;
   onDeleteChat?: (id: string) => void;
   onRenameGroup?: (id: string, title: string) => void | Promise<void>;
-  onDeleteGroup?: (id: string) => void | Promise<void>;
+  onDeleteGroup?: (group: ConversationTreeGroupDeleteRequest) => void | Promise<void>;
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;
@@ -196,6 +199,7 @@ export default function SainaConversationSidebar({
   const [editTitle, setEditTitle] = useState('');
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupTitle, setEditGroupTitle] = useState('');
+  const [groupDeleteErrorId, setGroupDeleteErrorId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
   const groupRenameInputRef = useRef<HTMLInputElement | null>(null);
   const openMenuBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -312,9 +316,21 @@ export default function SainaConversationSidebar({
   );
 
   const requestDeleteEmptyGroup = useCallback(
-    (group: ConversationTreeGroupNode) => {
+    async (group: ConversationTreeGroupNode) => {
       if (group.conversations.length !== 0) return;
-      void onDeleteGroup?.(group.id);
+      const request: ConversationTreeGroupDeleteRequest = {
+        id: group.id,
+        title: group.title,
+        source: group.source,
+        clientGroupId: group.clientGroupId ?? null,
+        conversationCount: group.conversations.length,
+      };
+      setGroupDeleteErrorId(null);
+      try {
+        await onDeleteGroup?.(request);
+      } catch {
+        setGroupDeleteErrorId(group.id);
+      }
     },
     [onDeleteGroup]
   );
@@ -798,7 +814,7 @@ export default function SainaConversationSidebar({
                                         e.preventDefault();
                                         e.stopPropagation();
                                         closeMenu();
-                                        requestDeleteEmptyGroup(group);
+                                        void requestDeleteEmptyGroup(group);
                                       }}
                                     >
                                       <Trash2 size={14} aria-hidden />
@@ -832,6 +848,14 @@ export default function SainaConversationSidebar({
                         <div className="saina-conv-group-children">
                           {group.conversations.map((item) => renderConversationRow(item, true))}
                         </div>
+                      ) : null}
+                      {groupDeleteErrorId === group.id ? (
+                        <p
+                          className="saina-conv-group-error"
+                          data-testid={`saina-conv-group-delete-error-${group.id}`}
+                        >
+                          Grup silinemedi. Tekrar deneyebilirsin.
+                        </p>
                       ) : null}
                     </div>
                   );

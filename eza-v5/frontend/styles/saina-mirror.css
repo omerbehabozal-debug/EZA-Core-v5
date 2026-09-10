@@ -1071,6 +1071,13 @@ html:has(.saina-page) body {
   margin: 0.1rem 0.5rem;
 }
 
+.saina-conv-group-error {
+  margin: -0.35rem 0.5rem 0;
+  color: rgba(244, 129, 129, 0.88);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
 .saina-conv-group-children {
   display: flex;
   flex-direction: column;

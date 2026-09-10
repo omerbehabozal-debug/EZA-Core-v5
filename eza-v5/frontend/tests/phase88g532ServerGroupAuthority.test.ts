@@ -30,6 +30,10 @@ import {
   buildConversationTree,
   shouldUseConversationTreeMode,
 } from '@/lib/eza/conversation-tree/groupTree';
+import {
+  deleteRenderedConversationGroup,
+  resolveRenderedGroupDeleteAuthority,
+} from '@/lib/eza/conversation-tree/deleteRenderedConversationGroup';
 import { UNGROUPED_CONVERSATION_GROUP_ID } from '@/lib/eza/conversation-tree/types';
 import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
 import {
@@ -439,5 +443,116 @@ describe('Phase 8.8G-5.3.2 server group authority', () => {
     deleteConversationGroup(g.id);
     expect(listConversationGroups().find((x) => x.id === g.id)).toBeUndefined();
     expect(getChatArchive(chatId)?.groupId).toBeNull();
+  });
+
+  it('rendered empty local group deletes locally even when authenticated bootstrap is degraded', async () => {
+    replaceConversationGroupsForScope(userScope(userA), [
+      namedGroup('group-local-empty', 'Local Empty'),
+    ]);
+    apiClientGet.mockResolvedValue({ ok: false, status: 500 });
+    await bootstrapServerConversationGroups(userA);
+
+    const result = await deleteRenderedConversationGroup({
+      id: 'group-local-empty',
+      title: 'Local Empty',
+      source: 'manual',
+      clientGroupId: null,
+      conversationCount: 0,
+    });
+
+    expect(result).toBe('deleted_local');
+    expect(apiClientDelete).not.toHaveBeenCalled();
+    expect(peekScopedConversationGroupsForScope(userScope(userA))).toEqual([]);
+  });
+
+  it('rendered empty server authority group deletes through authenticated server path', async () => {
+    installGroupAuthorityForTests(
+      userA,
+      [namedGroup(groupUuidMardin, 'Server Empty')],
+      'ready'
+    );
+    apiClientDelete.mockResolvedValue({ ok: true });
+
+    const result = await deleteRenderedConversationGroup({
+      id: groupUuidMardin,
+      title: 'Server Empty',
+      source: 'manual',
+      clientGroupId: null,
+      conversationCount: 0,
+    });
+
+    expect(result).toBe('deleted_server');
+    expect(apiClientDelete).toHaveBeenCalledWith(
+      `/api/conversation-groups/${groupUuidMardin}`,
+      { auth: true }
+    );
+    expect(getGroupsForAuthenticatedSidebar(userA)).toEqual([]);
+  });
+
+  it('rendered server delete failure remains observable and does not mutate state', async () => {
+    installGroupAuthorityForTests(
+      userA,
+      [namedGroup(groupUuidMardin, 'Server Empty')],
+      'ready'
+    );
+    apiClientDelete.mockResolvedValue({ ok: false, status: 500 });
+
+    await expect(
+      deleteRenderedConversationGroup({
+        id: groupUuidMardin,
+        title: 'Server Empty',
+        source: 'manual',
+        clientGroupId: null,
+        conversationCount: 0,
+      })
+    ).rejects.toThrow();
+
+    expect(getGroupsForAuthenticatedSidebar(userA)[0]?.id).toBe(groupUuidMardin);
+  });
+
+  it('rendered server-looking group with unresolved authority does not fall back to local delete', async () => {
+    replaceConversationGroupsForScope(userScope(userA), [
+      namedGroup(groupUuidMardin, 'Unresolved UUID'),
+    ]);
+
+    const request = {
+      id: groupUuidMardin,
+      title: 'Unresolved UUID',
+      source: 'manual' as const,
+      clientGroupId: null,
+      conversationCount: 0,
+    };
+
+    expect(resolveRenderedGroupDeleteAuthority(request)).toBe('unknown');
+    await expect(deleteRenderedConversationGroup(request)).rejects.toThrow(
+      'conversation_group_delete_authority_unknown'
+    );
+    expect(apiClientDelete).not.toHaveBeenCalled();
+    expect(peekScopedConversationGroupsForScope(userScope(userA))[0]?.id).toBe(
+      groupUuidMardin
+    );
+  });
+
+  it('rendered non-empty group delete is guarded before local or server mutation', async () => {
+    installGroupAuthorityForTests(
+      userA,
+      [namedGroup(groupUuidMardin, 'Server Non-empty')],
+      'ready'
+    );
+
+    const request = {
+      id: groupUuidMardin,
+      title: 'Server Non-empty',
+      source: 'manual' as const,
+      clientGroupId: null,
+      conversationCount: 1,
+    };
+
+    expect(resolveRenderedGroupDeleteAuthority(request)).toBe('blocked_non_empty');
+    await expect(deleteRenderedConversationGroup(request)).resolves.toBe(
+      'blocked_non_empty'
+    );
+    expect(apiClientDelete).not.toHaveBeenCalled();
+    expect(getGroupsForAuthenticatedSidebar(userA)[0]?.id).toBe(groupUuidMardin);
   });
 });

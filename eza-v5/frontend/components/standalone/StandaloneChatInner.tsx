@@ -58,22 +58,24 @@ import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import NewChatGroupPicker from '@/components/saina/NewChatGroupPicker';
 import {
   createConversationGroup,
-  deleteConversationGroup,
   listConversationGroups,
   GROUPS_UPDATED_EVENT,
   renameConversationGroup,
 } from '@/lib/eza/conversation-tree/conversationGroups';
+import { deleteRenderedConversationGroup } from '@/lib/eza/conversation-tree/deleteRenderedConversationGroup';
 import { sanitizeOptionalServerGroupId } from '@/lib/eza/serverGroupId';
 import {
   createAuthenticatedConversationGroup,
-  deleteAuthenticatedConversationGroup,
   getGroupsForAuthenticatedSidebar,
   renameAuthenticatedConversationGroup,
 } from '@/lib/eza/serverConversationGroupStore';
 import { buildConversationTree } from '@/lib/eza/conversation-tree/groupTree';
 import { rememberActiveGroupExpanded } from '@/lib/eza/conversation-tree/groupExpandedState';
 import { trackConversationGroupCreated } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
-import type { ConversationGroup } from '@/lib/eza/conversation-tree/types';
+import type {
+  ConversationGroup,
+  ConversationTreeGroupDeleteRequest,
+} from '@/lib/eza/conversation-tree/types';
 import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { resolveYansiHeroMeta } from '@/lib/eza/mirror/yansiHeroMeta';
 import { useConversationYansiStatusMap } from '@/hooks/useConversationYansiStatusMap';
@@ -1223,17 +1225,12 @@ export default function StandaloneChatInner() {
   );
 
   const handleDeleteGroup = useCallback(
-    async (groupId: string) => {
-      const group = sainaConversationGroups.find((item) => item.id === groupId);
-      if (!group || group.conversations.length !== 0) return;
-      if (isServerBacked) {
-        await deleteAuthenticatedConversationGroup(groupId);
-      } else {
-        deleteConversationGroup(groupId);
-      }
+    async (group: ConversationTreeGroupDeleteRequest) => {
+      const result = await deleteRenderedConversationGroup(group);
+      if (result === 'blocked_non_empty') return;
       refreshArchives();
     },
-    [isServerBacked, refreshArchives, sainaConversationGroups]
+    [refreshArchives]
   );
 
   const showChatLimitMessage = useCallback(() => {

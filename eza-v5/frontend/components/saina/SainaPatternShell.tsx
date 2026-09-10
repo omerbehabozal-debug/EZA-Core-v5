@@ -9,7 +9,10 @@ import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
-import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
+import type {
+  ConversationTreeGroupDeleteRequest,
+  ConversationTreeGroupNode,
+} from '@/lib/eza/conversation-tree/types';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
@@ -25,7 +28,7 @@ export type SainaPatternShellProps = {
   onSelectChat?: (id: string) => void;
   onDeleteChat?: (id: string) => void;
   onRenameGroup?: (id: string, title: string) => void | Promise<void>;
-  onDeleteGroup?: (id: string) => void | Promise<void>;
+  onDeleteGroup?: (group: ConversationTreeGroupDeleteRequest) => void | Promise<void>;
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;

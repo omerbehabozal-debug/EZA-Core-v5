@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { resolveJourneyOwnerKey } from '@/lib/eza/mirror/journey/journeyOwnerKey';
 import { withConversationYansiStatus } from '@/lib/eza/mirror/journey/resolveConversationYansiStatus';
 import { useConversationYansiStatusMap } from '@/hooks/useConversationYansiStatusMap';
+import type { ConversationTreeGroupDeleteRequest } from '@/lib/eza/conversation-tree/types';
 
 /** Parent may omit callbacks; stable wrappers read the latest via ref. */
 type ChromeCallbacks = Partial<
@@ -122,6 +123,7 @@ export function useSyncSainaChrome({
               g.updatedAt,
               g.sortOrder,
               g.source ?? '',
+              g.clientGroupId ?? '',
               g.conversations.length,
               conversationsSignature(g.conversations),
             ].join(':')
@@ -169,8 +171,8 @@ export function useSyncSainaChrome({
   const stableOnRenameGroup = useCallback((id: string, title: string) => {
     void callbacksRef.current.onRenameGroup?.(id, title);
   }, []);
-  const stableOnDeleteGroup = useCallback((id: string) => {
-    void callbacksRef.current.onDeleteGroup?.(id);
+  const stableOnDeleteGroup = useCallback((group: ConversationTreeGroupDeleteRequest) => {
+    void callbacksRef.current.onDeleteGroup?.(group);
   }, []);
   const stableOnOpenPattern = useCallback(() => {
     callbacksRef.current.onOpenPattern?.();
