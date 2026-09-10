@@ -300,6 +300,9 @@ def _ensure_stub_fk_parents(database_url: str) -> None:
     Stamp does not create schema. Phase 8.4+ migrations add FKs to
     production_users / mirror_network_nodes, so a phase42-stamped empty DB
     needs minimal parent tables before upgrade-to-head can succeed.
+
+    Phase 8.8G-5.3.1 ALTERs conversation_groups (created before phase42), so
+    the stamped path also needs a minimal pre-G5.3.1 conversation_groups stub.
     """
     engine = create_engine(database_url)
     with engine.begin() as connection:
@@ -317,6 +320,24 @@ def _ensure_stub_fk_parents(database_url: str) -> None:
                 """
                 CREATE TABLE IF NOT EXISTS mirror_network_nodes (
                     id UUID PRIMARY KEY
+                )
+                """
+            )
+        )
+        # Pre-phase42 table; G5.3.1 adds client_group_id + indexes/unique.
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS conversation_groups (
+                    id UUID PRIMARY KEY,
+                    user_id UUID REFERENCES production_users(id) ON DELETE CASCADE,
+                    guest_token VARCHAR(128),
+                    title VARCHAR(120) NOT NULL,
+                    source VARCHAR(20) NOT NULL DEFAULT 'manual',
+                    parent_group_id UUID,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ
                 )
                 """
             )
