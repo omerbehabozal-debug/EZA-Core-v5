@@ -225,6 +225,7 @@ function mapListItemToSummary(item: ServerConversationListItem): ArchivedChatSum
     serverConversationId: item.id,
     hasReadyYansi: Boolean(item.hasReadyYansi),
     publishedYansiSlug: item.publishedYansiSlug ?? null,
+    yansiIdentityGenerationId: item.yansiIdentityGenerationId ?? null,
   };
 }
 
@@ -255,6 +256,9 @@ function mapDetailToArchivedChat(detail: ServerConversationDetail): ArchivedChat
     conversationSceneSource:
       (detail.conversationSceneSource as ConversationSceneSource | null) ?? null,
     conversationSceneSlug: detail.conversationSceneSlug ?? null,
+    hasReadyYansi: Boolean(detail.hasReadyYansi),
+    publishedYansiSlug: detail.publishedYansiSlug ?? null,
+    yansiIdentityGenerationId: detail.yansiIdentityGenerationId ?? null,
   };
 }
 
@@ -359,27 +363,50 @@ export function noteServerYansiReady(clientConversationId: string): void {
 
 /**
  * Stage 2 — promote Yansı title + visual onto the same conversation identity.
- * Uses titlePinned so late initializeTitleOnly cannot downgrade.
+ * Server CAS via yansiIdentityGenerationId / expectedYansiIdentityGenerationId.
+ * Only mutates local/store after a successful authoritative server response.
+ * Never fakes durability on PATCH failure.
  */
+export type YansiIdentityPromotionResult =
+  | 'applied'
+  | 'noop_stale'
+  | 'failed'
+  | 'skipped';
+
 export async function promoteServerConversationIdentityFromYansi(input: {
   clientConversationId: string;
   title: string;
+  generationId: string;
   conversationSceneUrl?: string | null;
   conversationSceneSource?: ConversationSceneSource | null;
   conversationSceneSlug?: string | null;
-}): Promise<void> {
+}): Promise<YansiIdentityPromotionResult> {
   const { ownerAtStart, epochAtStart } = captureAuthority();
   const id = input.clientConversationId.trim();
   const title = input.title.trim();
-  if (!id || !title) return;
+  const generationId = input.generationId.trim();
+  if (!id || !title || !generationId) return 'skipped';
 
   const serverId = getServerIdForClientChat(id);
-  if (!serverId) return;
+  if (!serverId) return 'skipped';
+
+  const summary = state.summaries.find((s) => s.id === id);
+  const expected =
+    (summary?.yansiIdentityGenerationId || '').trim() ||
+    (getChatArchive(id)?.yansiIdentityGenerationId || '').trim() ||
+    null;
+
+  // Idempotent: already committed this generation.
+  if (expected === generationId) {
+    return 'applied';
+  }
 
   const sceneUrl = (input.conversationSceneUrl || '').trim() || undefined;
   const patch: Parameters<typeof patchServerConversation>[1] = {
     title,
     titlePinned: true,
+    yansiIdentityGenerationId: generationId,
+    expectedYansiIdentityGenerationId: expected,
   };
   if (sceneUrl) {
     patch.conversationSceneUrl = sceneUrl;
@@ -393,63 +420,52 @@ export async function promoteServerConversationIdentityFromYansi(input: {
 
   try {
     const updated = await patchServerConversation(serverId, patch);
-    if (!isAuthorityValid(ownerAtStart, epochAtStart)) return;
-    const summary = mapListItemToSummary(updated);
-    summary.hasReadyYansi = true;
+    if (!isAuthorityValid(ownerAtStart, epochAtStart)) return 'failed';
+
+    const nextSummary = mapListItemToSummary(updated);
+    nextSummary.hasReadyYansi = true;
+    const committedGen = (nextSummary.yansiIdentityGenerationId || '').trim();
+    const applied = committedGen === generationId;
+
     const idx = state.summaries.findIndex((s) => s.id === id);
     if (idx >= 0) {
-      state.summaries[idx] = summary;
+      state.summaries[idx] = nextSummary;
     } else {
-      state.summaries = [summary, ...state.summaries];
+      state.summaries = [nextSummary, ...state.summaries];
     }
     const cached = state.detailCache[id];
     if (cached) {
       state.detailCache[id] = {
         ...cached,
-        title: summary.title,
-        titlePinned: true,
-        conversationSceneUrl: summary.conversationSceneUrl ?? cached.conversationSceneUrl,
+        title: nextSummary.title,
+        titlePinned: nextSummary.titlePinned,
+        conversationSceneUrl: nextSummary.conversationSceneUrl ?? cached.conversationSceneUrl,
         conversationSceneSource:
-          summary.conversationSceneSource ?? cached.conversationSceneSource,
-        conversationSceneSlug: summary.conversationSceneSlug ?? cached.conversationSceneSlug,
+          nextSummary.conversationSceneSource ?? cached.conversationSceneSource,
+        conversationSceneSlug: nextSummary.conversationSceneSlug ?? cached.conversationSceneSlug,
+        yansiIdentityGenerationId: nextSummary.yansiIdentityGenerationId,
       };
     }
+    // Only write identity into local archive when server accepted this (or returned
+    // the already-committed newer identity — still authoritative truth).
     const local = getChatArchive(id);
     if (local) {
       upsertChatArchive({
         ...local,
-        title: summary.title,
-        titlePinned: true,
-        conversationSceneUrl: summary.conversationSceneUrl ?? local.conversationSceneUrl,
+        title: nextSummary.title,
+        titlePinned: Boolean(nextSummary.titlePinned),
+        conversationSceneUrl: nextSummary.conversationSceneUrl ?? local.conversationSceneUrl,
         conversationSceneSource:
-          summary.conversationSceneSource ?? local.conversationSceneSource,
-        conversationSceneSlug: summary.conversationSceneSlug ?? local.conversationSceneSlug,
+          nextSummary.conversationSceneSource ?? local.conversationSceneSource,
+        conversationSceneSlug: nextSummary.conversationSceneSlug ?? local.conversationSceneSlug,
+        yansiIdentityGenerationId: nextSummary.yansiIdentityGenerationId,
       });
     }
     emit();
+    return applied ? 'applied' : 'noop_stale';
   } catch {
-    // Non-blocking: local scene may already be set by ObservationExperience.
-    const idx = state.summaries.findIndex((s) => s.id === id);
-    if (idx >= 0) {
-      const current = state.summaries[idx];
-      state.summaries[idx] = {
-        ...current,
-        title,
-        titlePinned: true,
-        hasReadyYansi: true,
-        ...(sceneUrl
-          ? {
-              conversationSceneUrl: sceneUrl,
-              conversationSceneSource: input.conversationSceneSource ?? current.conversationSceneSource,
-              conversationSceneSlug:
-                input.conversationSceneSlug !== undefined
-                  ? input.conversationSceneSlug
-                  : current.conversationSceneSlug,
-            }
-          : {}),
-      };
-      emit();
-    }
+    // Do NOT mutate title/scene — keep committed identity durable.
+    return 'failed';
   }
 }
 

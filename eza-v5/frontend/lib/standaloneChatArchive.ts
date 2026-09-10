@@ -99,6 +99,8 @@ export interface ArchivedChat {
   /** Phase 8.8G-4 — server-backed unpublished ready Yansı. */
   hasReadyYansi?: boolean;
   publishedYansiSlug?: string | null;
+  /** Committed Yansı generation id — CAS token for identity promotion. */
+  yansiIdentityGenerationId?: string | null;
 }
 
 export type ArchivedChatSummary = Pick<
@@ -117,6 +119,7 @@ export type ArchivedChatSummary = Pick<
   | 'conversationSceneSlug'
   | 'hasReadyYansi'
   | 'publishedYansiSlug'
+  | 'yansiIdentityGenerationId'
 > & {
   isMirrorSource?: boolean;
 };

@@ -31,6 +31,7 @@ export type ServerConversationListItem = {
   conversationSceneSlug?: string | null;
   hasReadyYansi?: boolean;
   publishedYansiSlug?: string | null;
+  yansiIdentityGenerationId?: string | null;
 };
 
 export type ServerConversationMessage = {
@@ -154,6 +155,8 @@ export async function patchServerConversation(
     conversationSceneUrl?: string;
     conversationSceneSource?: string;
     conversationSceneSlug?: string | null;
+    yansiIdentityGenerationId?: string;
+    expectedYansiIdentityGenerationId?: string | null;
   }
 ): Promise<ServerConversationListItem> {
   const res = await apiClient.patch<ServerConversationListItem>(

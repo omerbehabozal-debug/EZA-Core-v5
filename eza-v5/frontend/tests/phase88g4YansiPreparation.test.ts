@@ -139,8 +139,10 @@ beforeEach(() => {
   apiMocks.patchServerConversation.mockImplementation(async (_id, patch) => ({
     ...listA,
     ...patch,
-    titlePinned: Boolean(patch.titlePinned),
+    titlePinned: Boolean(patch.titlePinned ?? listA.titlePinned),
     hasReadyYansi: true,
+    yansiIdentityGenerationId:
+      patch.yansiIdentityGenerationId ?? listA.yansiIdentityGenerationId ?? null,
   }));
 });
 
@@ -162,7 +164,8 @@ describe('Phase 8.8G-4 ready/unpublished Yansı persistence', () => {
       ownerNow: userA,
     });
     expect(apiMocks.putServerYansiPreparation).toHaveBeenCalledTimes(1);
-    expect(saved?.publicTitle).toBe('Hazır başlık');
+    expect(saved?.preparation.publicTitle).toBe('Hazır başlık');
+    expect(saved?.identityPromotion).toBe('applied');
     expect(getServerConversationSummaries()[0]?.hasReadyYansi).toBe(true);
     expect(apiMocks.patchServerConversation).toHaveBeenCalledWith(
       'srv-a',
@@ -170,10 +173,13 @@ describe('Phase 8.8G-4 ready/unpublished Yansı persistence', () => {
         title: 'Hazır başlık',
         titlePinned: true,
         conversationSceneUrl: 'https://api.ezacore.ai/api/public/mirror-scene-assets/x.png',
+        yansiIdentityGenerationId: 'gen-alpha',
+        expectedYansiIdentityGenerationId: null,
       })
     );
     expect(getServerConversationSummaries()[0]?.title).toBe('Hazır başlık');
     expect(getServerConversationSummaries()[0]?.titlePinned).toBe(true);
+    expect(getServerConversationSummaries()[0]?.yansiIdentityGenerationId).toBe('gen-alpha');
   });
 
   it('B. Device B empty localStorage reconstructs amber from server', async () => {

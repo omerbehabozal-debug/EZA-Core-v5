@@ -69,6 +69,8 @@ class StandaloneConversation(Base):
     conversation_scene_url = Column(Text, nullable=True)
     conversation_scene_source = Column(String(32), nullable=True)
     conversation_scene_slug = Column(String(120), nullable=True)
+    # Committed Yansı identity generation — CAS token for promotion ordering.
+    yansi_identity_generation_id = Column(String(128), nullable=True)
     message_count = Column(Integer, nullable=False, default=0, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

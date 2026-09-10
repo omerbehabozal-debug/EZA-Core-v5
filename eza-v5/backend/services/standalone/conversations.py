@@ -89,6 +89,7 @@ def _conversation_to_list_item(
         conversationSceneSlug=row.conversation_scene_slug,
         hasReadyYansi=has_ready_yansi,
         publishedYansiSlug=published_yansi_slug,
+        yansiIdentityGenerationId=row.yansi_identity_generation_id,
     )
 
 
@@ -305,6 +306,12 @@ async def patch_standalone_conversation(
 ) -> StandaloneConversationListItem:
     now = _utcnow()
 
+    yansi_gen_in_set = "yansiIdentityGenerationId" in body.model_fields_set
+    expected_in_set = "expectedYansiIdentityGenerationId" in body.model_fields_set
+    new_yansi_gen = (
+        (body.yansiIdentityGenerationId or "").strip() if yansi_gen_in_set else ""
+    )
+
     if body.initializeTitleOnly:
         derived = (body.title or "").strip()
         if not derived:
@@ -317,6 +324,8 @@ async def patch_standalone_conversation(
             or "conversationSceneUrl" in body.model_fields_set
             or "conversationSceneSource" in body.model_fields_set
             or "conversationSceneSlug" in body.model_fields_set
+            or yansi_gen_in_set
+            or expected_in_set
         ):
             raise HTTPException(status_code=422, detail="initialize_title_only_exclusive")
 
@@ -339,6 +348,51 @@ async def patch_standalone_conversation(
         conv = await _get_owned_conversation(
             db, user_id=user_id, conversation_id=conversation_id
         )
+        return _conversation_to_list_item(conv)
+
+    # --- Yansı identity promotion CAS (server-authoritative ordering) ---
+    if yansi_gen_in_set:
+        if not new_yansi_gen:
+            raise HTTPException(status_code=422, detail="yansi_identity_generation_required")
+        if body.pinned is not None or body.archived is not None or "groupId" in body.model_fields_set:
+            raise HTTPException(status_code=422, detail="yansi_identity_promotion_exclusive")
+        title = (body.title or "").strip()
+        if not title:
+            raise HTTPException(status_code=422, detail="title_required")
+
+        conv = await _get_owned_conversation(
+            db, user_id=user_id, conversation_id=conversation_id, for_update=True
+        )
+        current_gen = (conv.yansi_identity_generation_id or "").strip() or None
+        expected_gen = None
+        if expected_in_set:
+            raw_expected = body.expectedYansiIdentityGenerationId
+            expected_gen = (raw_expected or "").strip() or None
+        else:
+            # Omitted expected = claim "no committed identity yet".
+            expected_gen = None
+
+        if current_gen != expected_gen:
+            # Stale promotion — return committed identity unchanged.
+            await db.commit()
+            return _conversation_to_list_item(conv)
+
+        # Idempotent retry of same generation — refresh identity fields.
+        conv.title = title
+        conv.title_pinned = True
+        if "conversationSceneUrl" in body.model_fields_set:
+            raw_url = body.conversationSceneUrl
+            conv.conversation_scene_url = (raw_url or "").strip() or None
+        if "conversationSceneSource" in body.model_fields_set:
+            raw_src = body.conversationSceneSource
+            conv.conversation_scene_source = (raw_src or "").strip() or None
+        if "conversationSceneSlug" in body.model_fields_set:
+            raw_slug = body.conversationSceneSlug
+            conv.conversation_scene_slug = (raw_slug or "").strip().lower() or None
+        conv.yansi_identity_generation_id = new_yansi_gen
+        conv.updated_at = now
+        await db.commit()
+        await db.refresh(conv)
         return _conversation_to_list_item(conv)
 
     # Owned + non-deleted lookup allows archive restore (archived=false).

@@ -78,6 +78,10 @@ class StandaloneConversationPatch(BaseModel):
         default=None, max_length=MAX_SCENE_SOURCE_LENGTH
     )
     conversationSceneSlug: Optional[str] = Field(default=None, max_length=MAX_SCENE_SLUG_LENGTH)
+    # Yansı identity promotion CAS (exclusive with initializeTitleOnly).
+    yansiIdentityGenerationId: Optional[str] = Field(default=None, max_length=128)
+    # null / omitted-as-null = expect no committed Yansı identity yet.
+    expectedYansiIdentityGenerationId: Optional[str] = Field(default=None, max_length=128)
 
 
 class StandaloneConversationMessageCreate(BaseModel):
@@ -118,6 +122,7 @@ class StandaloneConversationListItem(BaseModel):
     conversationSceneSlug: Optional[str] = None
     hasReadyYansi: bool = False
     publishedYansiSlug: Optional[str] = None
+    yansiIdentityGenerationId: Optional[str] = None
 
 
 class StandaloneConversationDetail(StandaloneConversationListItem):

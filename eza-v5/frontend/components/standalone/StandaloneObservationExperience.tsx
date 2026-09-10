@@ -172,9 +172,10 @@ import { fetchPublicMirrorBySlug } from '@/lib/eza/mirror-network/fetchPublicMir
 import { shouldSkipShareLinkPrepare } from '@/lib/eza/mirror-share/shareLinkPrepareIntent';
 import type { MirrorShareLinkStatus } from '@/components/mirror/MirrorShareExperience';
 import { markDiscoverMirrorCompletedForConversation } from '@/lib/eza/mirror-network/discoverExperiencedMirrors';
-import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
 import {
-  clearConversationSceneIdentity,
+  isPersistableConversationSceneUrl,
+} from '@/lib/eza/conversationSceneIdentity';
+import {
   setConversationSceneIdentity,
 } from '@/lib/standaloneChatArchive';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
@@ -328,11 +329,9 @@ export default function StandaloneObservationExperience({
   );
 
   const clearChatBackgroundScene = useCallback((id: string | null | undefined) => {
-    if (!id?.trim()) return;
-    clearConversationSceneIdentity(id);
-    // Chrome store drives SainaPersistentScene; clear immediately so create UX
-    // does not keep showing the previous Mirror while the new one generates.
-    useSainaChromeStore.getState().setChrome({ conversationSceneUrl: null });
+    // Candidate generation must NOT destroy committed conversation identity (title/scene).
+    // In-experience candidate visuals use local sceneImageUrl state only.
+    void id;
   }, []);
 
   const hydrateSceneFromCache = useCallback(
@@ -1332,13 +1331,14 @@ export default function StandaloneObservationExperience({
                 sealedLineage.journeyVersion ?? 1
               )
             : null;
+        let authIdentityPromoted = false;
         if (
           sealedArtifact &&
           conversationId &&
           isAuthenticated &&
           authenticatedUserId
         ) {
-          void persistAuthenticatedReadyYansi({
+          const persisted = await persistAuthenticatedReadyYansi({
             artifact: sealedArtifact,
             clientConversationId: conversationId,
             bound: boundPersist,
@@ -1346,6 +1346,7 @@ export default function StandaloneObservationExperience({
             sceneFocalX: typeof result.focalX === 'number' ? result.focalX : null,
             sceneFocalY: typeof result.focalY === 'number' ? result.focalY : null,
           });
+          authIdentityPromoted = persisted?.identityPromotion === 'applied';
         }
 
         lastRawSceneUrlRef.current = result.sceneImageUrl;
@@ -1378,7 +1379,12 @@ export default function StandaloneObservationExperience({
           saveConversationMirrorSnapshot(conversationId, entries, cardForScene.date);
         }
         sceneAutoKeyRef.current = `${autoKey}:complete`;
-        if (conversationId && isPersistableConversationSceneUrl(result.sceneImageUrl)) {
+        // Durable conversation visual: guest always; auth only after identity promotion CAS.
+        const mayCommitConversationScene =
+          Boolean(conversationId) &&
+          isPersistableConversationSceneUrl(result.sceneImageUrl) &&
+          (!isAuthenticated || authIdentityPromoted);
+        if (mayCommitConversationScene && conversationId) {
           setConversationSceneIdentity(conversationId, {
             url: result.sceneImageUrl,
             source: 'mirror_local',

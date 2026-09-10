@@ -102,12 +102,20 @@ describe('remount / mobile panel hydrate without regen', () => {
 });
 
 describe('explicit create clears previous chat background', () => {
-  it('runMirrorWithReveal clears conversation scene identity and cache before reveal', () => {
+  it('runMirrorWithReveal keeps committed conversation scene identity during candidate generation', () => {
+    // Committed X must survive candidate Y start (identity lifecycle hardening).
     expect(experienceSrc).toContain('clearChatBackgroundScene');
-    expect(experienceSrc).toContain('clearConversationSceneIdentity');
+    expect(experienceSrc).toMatch(
+      /clearChatBackgroundScene[\s\S]*Candidate generation must NOT destroy committed/
+    );
     expect(experienceSrc).toMatch(
       /runMirrorWithReveal[\s\S]*clearChatBackgroundScene\(conversationId\)[\s\S]*clearMirrorSceneCacheForScope\(conversationId\)/
     );
+    const clearFn = experienceSrc.slice(
+      experienceSrc.indexOf('const clearChatBackgroundScene'),
+      experienceSrc.indexOf('const clearChatBackgroundScene') + 500
+    );
+    expect(clearFn).not.toContain('clearConversationSceneIdentity(id)');
   });
 });
 
@@ -121,7 +129,7 @@ describe('publish happens once after scene, not in commitMirrorReady', () => {
 
   it('successful generate-scene path does not auto-publish (Yayınla is explicit)', () => {
     const genIdx = experienceSrc.indexOf('const handleGenerateMirrorScene');
-    const genBlock = experienceSrc.slice(genIdx, genIdx + 12000);
+    const genBlock = experienceSrc.slice(genIdx, genIdx + 18000);
     expect(genBlock).toContain('generateMirrorScene(visualForApi');
     expect(genBlock).toContain('Yayınla is explicit');
     expect(genBlock).not.toMatch(

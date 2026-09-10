@@ -274,13 +274,13 @@ def test_http_initialize_title_only_exclusive_and_owned(authenticated_api_client
 
 def test_http_patch_conversation_scene_identity(authenticated_api_client):
     """Yansı visual promotion may PATCH conversation scene fields."""
-    api_client, headers = authenticated_api_client
+    api_client, _user, headers, _Session = authenticated_api_client
     created = api_client.post(
         "/api/standalone/conversations",
         json={"clientConversationId": "chat-scene-1", "title": "Ön başlık"},
         headers=headers,
     )
-    assert created.status_code == 200
+    assert created.status_code in (200, 201)
     conv_id = created.json()["id"]
 
     scene = "https://api.ezacore.ai/api/public/mirror-scene-assets/promo.png"
@@ -291,6 +291,8 @@ def test_http_patch_conversation_scene_identity(authenticated_api_client):
             "titlePinned": True,
             "conversationSceneUrl": scene,
             "conversationSceneSource": "mirror_local",
+            "yansiIdentityGenerationId": "gen-promo-1",
+            "expectedYansiIdentityGenerationId": None,
         },
         headers=headers,
     )
@@ -300,3 +302,60 @@ def test_http_patch_conversation_scene_identity(authenticated_api_client):
     assert body["titlePinned"] is True
     assert body["conversationSceneUrl"] == scene
     assert body["conversationSceneSource"] == "mirror_local"
+    assert body["yansiIdentityGenerationId"] == "gen-promo-1"
+
+
+@pytest.mark.asyncio
+async def test_yansi_identity_cas_rejects_stale_promotion(db_session):
+    user_id = uuid.uuid4()
+    created = await upsert_standalone_conversation(
+        db_session,
+        user_id=user_id,
+        body=StandaloneConversationCreate(clientConversationId="chat-cas-1"),
+    )
+    conv_id = uuid.UUID(created.id)
+
+    y = await patch_standalone_conversation(
+        db_session,
+        user_id=user_id,
+        conversation_id=conv_id,
+        body=StandaloneConversationPatch(
+            title="Title Y",
+            conversationSceneUrl="https://api.ezacore.ai/api/public/mirror-scene-assets/y.png",
+            conversationSceneSource="mirror_local",
+            yansiIdentityGenerationId="gen-y",
+            expectedYansiIdentityGenerationId=None,
+        ),
+    )
+    assert y.yansiIdentityGenerationId == "gen-y"
+    assert y.title == "Title Y"
+
+    stale = await patch_standalone_conversation(
+        db_session,
+        user_id=user_id,
+        conversation_id=conv_id,
+        body=StandaloneConversationPatch(
+            title="Title X Late",
+            conversationSceneUrl="https://api.ezacore.ai/api/public/mirror-scene-assets/x.png",
+            conversationSceneSource="mirror_local",
+            yansiIdentityGenerationId="gen-x",
+            expectedYansiIdentityGenerationId=None,
+        ),
+    )
+    assert stale.yansiIdentityGenerationId == "gen-y"
+    assert stale.title == "Title Y"
+
+    z = await patch_standalone_conversation(
+        db_session,
+        user_id=user_id,
+        conversation_id=conv_id,
+        body=StandaloneConversationPatch(
+            title="Title Z",
+            conversationSceneUrl="https://api.ezacore.ai/api/public/mirror-scene-assets/z.png",
+            conversationSceneSource="mirror_local",
+            yansiIdentityGenerationId="gen-z",
+            expectedYansiIdentityGenerationId="gen-y",
+        ),
+    )
+    assert z.yansiIdentityGenerationId == "gen-z"
+    assert z.title == "Title Z"

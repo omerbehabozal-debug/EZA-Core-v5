@@ -445,7 +445,7 @@ async def test_legacy_migrate_owned_group_preserved(db_session):
 
 
 def test_migration_head_is_g8531():
-    assert HEAD_REVISION == "add_conv_groups_g8531_v1"
+    assert HEAD_REVISION == "add_yansi_identity_gen_g885_v1"
     from pathlib import Path
 
     mig = (

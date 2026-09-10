@@ -3,6 +3,9 @@
  *
  * Local artifacts remain a cache. Authenticated READY_UNPUBLISHED authority is the server.
  * Guest paths must not call this.
+ *
+ * Conversation identity promotion is separate and only applied after a successful
+ * server CAS PATCH (never faked on failure).
  */
 
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
@@ -12,6 +15,7 @@ import {
   isServerConversationAuthorityValid,
   noteServerYansiReady,
   promoteServerConversationIdentityFromYansi,
+  type YansiIdentityPromotionResult,
 } from '@/lib/eza/serverConversationStore';
 import {
   putServerYansiPreparation,
@@ -23,6 +27,11 @@ import { isPublishableJourneyGenerationLineage } from '@/lib/eza/mirror/journey/
 export type PersistYansiPreparationAuthority = {
   ownerUserId: string;
   epoch: number;
+};
+
+export type PersistAuthenticatedReadyYansiResult = {
+  preparation: ServerYansiPreparation;
+  identityPromotion: YansiIdentityPromotionResult;
 };
 
 export function captureYansiPreparationAuthority(
@@ -63,7 +72,7 @@ export async function persistAuthenticatedReadyYansi(input: {
   ownerNow: string | null | undefined;
   sceneFocalX?: number | null;
   sceneFocalY?: number | null;
-}): Promise<ServerYansiPreparation | null> {
+}): Promise<PersistAuthenticatedReadyYansiResult | null> {
   if (!isYansiPreparationAuthorityCurrent(input.bound, input.ownerNow)) {
     return null;
   }
@@ -84,6 +93,9 @@ export async function persistAuthenticatedReadyYansi(input: {
   const serverId = getServerIdForClientChat(input.clientConversationId);
   if (!serverId) return null;
 
+  const generationId = lineage.generationId.trim();
+  if (!generationId) return null;
+
   const result = await putServerYansiPreparation(serverId, {
     journeyId: lineage.journeyId,
     journeyVersion: lineage.journeyVersion,
@@ -91,7 +103,7 @@ export async function persistAuthenticatedReadyYansi(input: {
     windowHash: lineage.windowHash,
     selectedStepsHash: lineage.selectedStepsHash,
     sourceBlockHash: lineage.sourceBlockHash ?? null,
-    generationId: lineage.generationId,
+    generationId,
     publicTitle: title,
     publicSummary: summary,
     continuationContext: input.artifact.continuationContext ?? null,
@@ -110,13 +122,19 @@ export async function persistAuthenticatedReadyYansi(input: {
     return null;
   }
   noteServerYansiReady(input.clientConversationId);
-  // Stage 2 — promote Yansı title/visual onto conversation identity (durable).
-  await promoteServerConversationIdentityFromYansi({
+
+  const identityPromotion = await promoteServerConversationIdentityFromYansi({
     clientConversationId: input.clientConversationId,
     title,
+    generationId,
     conversationSceneUrl: scene,
     conversationSceneSource: 'mirror_local',
     conversationSceneSlug: null,
   });
-  return result;
+
+  if (!isYansiPreparationAuthorityCurrent(input.bound, getServerConversationAuthority().ownerKey)) {
+    return null;
+  }
+
+  return { preparation: result, identityPromotion };
 }

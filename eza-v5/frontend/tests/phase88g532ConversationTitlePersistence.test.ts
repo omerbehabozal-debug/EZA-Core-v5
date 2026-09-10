@@ -209,11 +209,13 @@ describe('Yansı title/visual promotion', () => {
       hasReadyYansi: true,
       conversationSceneUrl: scene,
       conversationSceneSource: 'mirror_local',
+      yansiIdentityGenerationId: 'gen-yansi-1',
     });
 
     await promoteServerConversationIdentityFromYansi({
       clientConversationId: 'chat-a',
       title: 'Mardin Terası',
+      generationId: 'gen-yansi-1',
       conversationSceneUrl: scene,
       conversationSceneSource: 'mirror_local',
     });
@@ -224,6 +226,8 @@ describe('Yansı title/visual promotion', () => {
         title: 'Mardin Terası',
         titlePinned: true,
         conversationSceneUrl: scene,
+        yansiIdentityGenerationId: 'gen-yansi-1',
+        expectedYansiIdentityGenerationId: null,
       })
     );
     const summary = getServerConversationSummaries()[0];
