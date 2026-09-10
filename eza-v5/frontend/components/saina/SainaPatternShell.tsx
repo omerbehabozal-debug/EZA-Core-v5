@@ -9,6 +9,7 @@ import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
+import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
@@ -18,10 +19,13 @@ import SainaPageTopBar from '@/components/saina/SainaPageTopBar';
 export type SainaPatternShellProps = {
   children: React.ReactNode;
   conversations: SainaConversationItem[];
+  conversationGroups?: ConversationTreeGroupNode[];
   activeChatId?: string | null;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
   onDeleteChat?: (id: string) => void;
+  onRenameGroup?: (id: string, title: string) => void | Promise<void>;
+  onDeleteGroup?: (id: string) => void | Promise<void>;
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;
@@ -90,10 +94,13 @@ function SainaPatternSurface({
 export default function SainaPatternShell({
   children,
   conversations,
+  conversationGroups,
   activeChatId = null,
   onNewChat,
   onSelectChat,
   onDeleteChat,
+  onRenameGroup,
+  onDeleteGroup,
   onOpenPattern,
   planTier,
   onUpgrade,
@@ -148,11 +155,14 @@ export default function SainaPatternShell({
           <div className="saina-standalone-sidebar-wrap">
             <SainaConversationSidebar
               conversations={conversations}
+              conversationGroups={conversationGroups}
               activeChatId={activeChatId}
               activeSection="pattern"
               onNewChat={onNewChat}
               onSelectChat={onSelectChat}
               onDeleteChat={onDeleteChat}
+              onRenameGroup={onRenameGroup}
+              onDeleteGroup={onDeleteGroup}
               onOpenPattern={onOpenPattern}
               planTier={planTier}
               onUpgrade={onUpgrade}

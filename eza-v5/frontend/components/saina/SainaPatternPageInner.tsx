@@ -16,6 +16,10 @@ import RelationshipPatternView from '@/components/mirror/RelationshipPatternView
 import SainaPatternShell from '@/components/saina/SainaPatternShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
+import {
+  deleteConversationGroup,
+  renameConversationGroup,
+} from '@/lib/eza/conversation-tree/conversationGroups';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
@@ -25,7 +29,14 @@ import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { useAccountEntitlements } from '@/lib/eza/plan/useAccountEntitlements';
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import { useAuthenticatedConversationBootstrap } from '@/hooks/useAuthenticatedConversationBootstrap';
-import { deleteServerBackedConversation, hasServerBackedConversation } from '@/lib/eza/serverConversationStore';
+import {
+  deleteServerBackedConversation,
+  hasServerBackedConversation,
+} from '@/lib/eza/serverConversationStore';
+import {
+  deleteAuthenticatedConversationGroup,
+  renameAuthenticatedConversationGroup,
+} from '@/lib/eza/serverConversationGroupStore';
 import {
   DEFAULT_ANALYSIS_MODEL_ID,
   readStoredAnalysisModel,
@@ -207,6 +218,34 @@ export default function SainaPatternPageInner() {
     [requestDelete, isServerBacked]
   );
 
+  const handleRenameGroup = useCallback(
+    async (groupId: string, title: string) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      if (isServerBacked) {
+        await renameAuthenticatedConversationGroup(groupId, trimmed);
+      } else {
+        renameConversationGroup(groupId, trimmed);
+      }
+      refreshArchives();
+    },
+    [isServerBacked, refreshArchives]
+  );
+
+  const handleDeleteGroup = useCallback(
+    async (groupId: string) => {
+      const group = conversationGroups.find((item) => item.id === groupId);
+      if (!group || group.conversations.length !== 0) return;
+      if (isServerBacked) {
+        await deleteAuthenticatedConversationGroup(groupId);
+      } else {
+        deleteConversationGroup(groupId);
+      }
+      refreshArchives();
+    },
+    [conversationGroups, isServerBacked, refreshArchives]
+  );
+
   const handleOpenPattern = useCallback(() => {
     /* Already on pattern route — keep sidebar card active. */
   }, []);
@@ -221,6 +260,8 @@ export default function SainaPatternPageInner() {
     onNewChat: handleNewChat,
     onSelectChat: handleSelectChat,
     onDeleteChat: handleDeleteChat,
+    onRenameGroup: handleRenameGroup,
+    onDeleteGroup: handleDeleteGroup,
     onOpenPattern: handleOpenPattern,
     onUpgrade: handleUpgrade,
     onRequestLogin: handleRequestLogin,
@@ -235,10 +276,13 @@ export default function SainaPatternPageInner() {
     <>
       <SainaPatternShell
         conversations={conversations}
+        conversationGroups={conversationGroups}
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
         onDeleteChat={handleDeleteChat}
+        onRenameGroup={handleRenameGroup}
+        onDeleteGroup={handleDeleteGroup}
         onOpenPattern={handleOpenPattern}
         planTier={planTier}
         onUpgrade={handleUpgrade}

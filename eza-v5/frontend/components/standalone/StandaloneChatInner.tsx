@@ -58,13 +58,17 @@ import { useSainaGateModals } from '@/hooks/useSainaGateModals';
 import NewChatGroupPicker from '@/components/saina/NewChatGroupPicker';
 import {
   createConversationGroup,
+  deleteConversationGroup,
   listConversationGroups,
   GROUPS_UPDATED_EVENT,
+  renameConversationGroup,
 } from '@/lib/eza/conversation-tree/conversationGroups';
 import { sanitizeOptionalServerGroupId } from '@/lib/eza/serverGroupId';
 import {
   createAuthenticatedConversationGroup,
+  deleteAuthenticatedConversationGroup,
   getGroupsForAuthenticatedSidebar,
+  renameAuthenticatedConversationGroup,
 } from '@/lib/eza/serverConversationGroupStore';
 import { buildConversationTree } from '@/lib/eza/conversation-tree/groupTree';
 import { rememberActiveGroupExpanded } from '@/lib/eza/conversation-tree/groupExpandedState';
@@ -244,6 +248,26 @@ function readChatStateFromUrl(chatIdFromUrl: string | null): {
   const chat = getChatArchive(chatIdFromUrl);
   if (!chat) return { chatId: null, messages: [] };
   return { chatId: chatIdFromUrl, messages: fromArchivedMessages(chat.messages) };
+}
+
+function sameConversationGroupsForSidebar(
+  a: ConversationGroup[],
+  b: ConversationGroup[]
+): boolean {
+  return (
+    a.length === b.length &&
+    a.every((row, i) => {
+      const next = b[i];
+      if (!next) return false;
+      return (
+        row.id === next.id &&
+        row.title === next.title &&
+        row.updatedAt === next.updatedAt &&
+        (row.sortOrder ?? 0) === (next.sortOrder ?? 0) &&
+        row.source === next.source
+      );
+    })
+  );
 }
 
 export default function StandaloneChatInner() {
@@ -700,10 +724,7 @@ export default function StandaloneChatInner() {
       });
       const nextGroups = listConversationGroups();
       setConversationGroups((prev) => {
-        if (
-          prev.length === nextGroups.length &&
-          prev.every((row, i) => row.id === nextGroups[i]?.id)
-        ) {
+        if (sameConversationGroupsForSidebar(prev, nextGroups)) {
           return prev;
         }
         return nextGroups;
@@ -1185,6 +1206,34 @@ export default function StandaloneChatInner() {
   const sainaConversationGroups = useMemo(
     () => buildConversationTree(archives, conversationGroups, chatId),
     [archives, conversationGroups, chatId]
+  );
+
+  const handleRenameGroup = useCallback(
+    async (groupId: string, title: string) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      if (isServerBacked) {
+        await renameAuthenticatedConversationGroup(groupId, trimmed);
+      } else {
+        renameConversationGroup(groupId, trimmed);
+      }
+      refreshArchives();
+    },
+    [isServerBacked, refreshArchives]
+  );
+
+  const handleDeleteGroup = useCallback(
+    async (groupId: string) => {
+      const group = sainaConversationGroups.find((item) => item.id === groupId);
+      if (!group || group.conversations.length !== 0) return;
+      if (isServerBacked) {
+        await deleteAuthenticatedConversationGroup(groupId);
+      } else {
+        deleteConversationGroup(groupId);
+      }
+      refreshArchives();
+    },
+    [isServerBacked, refreshArchives, sainaConversationGroups]
   );
 
   const showChatLimitMessage = useCallback(() => {
@@ -2094,6 +2143,8 @@ export default function StandaloneChatInner() {
     onNewChat: handleNewChat,
     onSelectChat: handleSelectChat,
     onDeleteChat: handleDeleteChat,
+    onRenameGroup: handleRenameGroup,
+    onDeleteGroup: handleDeleteGroup,
     onOpenPattern: handleOpenPattern,
     onUpgrade: handleOpenUpgrade,
     onRequestLogin: handleRequestLogin,
@@ -2132,10 +2183,13 @@ export default function StandaloneChatInner() {
         messages={messageList}
         composer={composer}
         conversations={sainaConversations}
+        conversationGroups={sainaConversationGroups}
         activeChatId={chatId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
         onDeleteChat={handleDeleteChat}
+        onRenameGroup={handleRenameGroup}
+        onDeleteGroup={handleDeleteGroup}
         onOpenPattern={handleOpenPattern}
         planTier={planTier}
         onUpgrade={handleOpenUpgrade}

@@ -15,6 +15,8 @@ type ChromeCallbacks = Partial<
     | 'onNewChat'
     | 'onSelectChat'
     | 'onDeleteChat'
+    | 'onRenameGroup'
+    | 'onDeleteGroup'
     | 'onOpenPattern'
     | 'onUpgrade'
     | 'onRequestLogin'
@@ -29,7 +31,19 @@ function conversationsSignature(
 ): string {
   if (!items?.length) return '';
   return items
-    .map((c) => `${c.id}:${c.title}:${(c as { yansiStatus?: string }).yansiStatus ?? ''}`)
+    .map((c) =>
+      [
+        c.id,
+        c.title,
+        c.preview,
+        c.time,
+        (c as { savedAt?: string }).savedAt ?? '',
+        (c as { groupId?: string | null }).groupId ?? '',
+        (c as { yansiStatus?: string }).yansiStatus ?? '',
+        c.thumbImageUrl ?? '',
+        (c as { conversationSceneUrl?: string | null }).conversationSceneUrl ?? '',
+      ].join(':')
+    )
     .join('|');
 }
 
@@ -44,6 +58,8 @@ export function useSyncSainaChrome({
   onNewChat,
   onSelectChat,
   onDeleteChat,
+  onRenameGroup,
+  onDeleteGroup,
   onOpenPattern,
   onUpgrade,
   onRequestLogin,
@@ -100,7 +116,15 @@ export function useSyncSainaChrome({
       (conversationGroupsWithStatus ?? [])
         .map(
           (g) =>
-            `${g.id}:${conversationsSignature(g.conversations)}`
+            [
+              g.id,
+              g.title,
+              g.updatedAt,
+              g.sortOrder,
+              g.source ?? '',
+              g.conversations.length,
+              conversationsSignature(g.conversations),
+            ].join(':')
         )
         .join('||'),
     [conversationGroupsWithStatus]
@@ -123,6 +147,8 @@ export function useSyncSainaChrome({
     onNewChat,
     onSelectChat,
     onDeleteChat,
+    onRenameGroup,
+    onDeleteGroup,
     onOpenPattern,
     onUpgrade,
     onRequestLogin,
@@ -139,6 +165,12 @@ export function useSyncSainaChrome({
   }, []);
   const stableOnDeleteChat = useCallback((id: string) => {
     callbacksRef.current.onDeleteChat?.(id);
+  }, []);
+  const stableOnRenameGroup = useCallback((id: string, title: string) => {
+    void callbacksRef.current.onRenameGroup?.(id, title);
+  }, []);
+  const stableOnDeleteGroup = useCallback((id: string) => {
+    void callbacksRef.current.onDeleteGroup?.(id);
   }, []);
   const stableOnOpenPattern = useCallback(() => {
     callbacksRef.current.onOpenPattern?.();
@@ -179,6 +211,8 @@ export function useSyncSainaChrome({
       current.onNewChat === stableOnNewChat &&
       current.onSelectChat === stableOnSelectChat &&
       current.onDeleteChat === stableOnDeleteChat &&
+      current.onRenameGroup === stableOnRenameGroup &&
+      current.onDeleteGroup === stableOnDeleteGroup &&
       current.onOpenPattern === stableOnOpenPattern &&
       current.onUpgrade === stableOnUpgrade &&
       current.onRequestLogin === stableOnRequestLogin &&
@@ -197,6 +231,8 @@ export function useSyncSainaChrome({
       onNewChat: stableOnNewChat,
       onSelectChat: stableOnSelectChat,
       onDeleteChat: stableOnDeleteChat,
+      onRenameGroup: stableOnRenameGroup,
+      onDeleteGroup: stableOnDeleteGroup,
       onOpenPattern: stableOnOpenPattern,
       onUpgrade: stableOnUpgrade,
       onRequestLogin: stableOnRequestLogin,
@@ -225,6 +261,8 @@ export function useSyncSainaChrome({
     stableOnNewChat,
     stableOnSelectChat,
     stableOnDeleteChat,
+    stableOnRenameGroup,
+    stableOnDeleteGroup,
     stableOnOpenPattern,
     stableOnUpgrade,
     stableOnRequestLogin,

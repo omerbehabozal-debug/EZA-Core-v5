@@ -144,6 +144,8 @@ type SainaConversationSidebarProps = {
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
   onDeleteChat?: (id: string) => void;
+  onRenameGroup?: (id: string, title: string) => void | Promise<void>;
+  onDeleteGroup?: (id: string) => void | Promise<void>;
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;
@@ -165,6 +167,8 @@ export default function SainaConversationSidebar({
   onNewChat,
   onSelectChat,
   onDeleteChat,
+  onRenameGroup,
+  onDeleteGroup,
   onOpenPattern,
   planTier = 'premium',
   onUpgrade,
@@ -190,10 +194,14 @@ export default function SainaConversationSidebar({
   const [menuPlacement, setMenuPlacement] = useState<'above' | 'below'>('below');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editGroupTitle, setEditGroupTitle] = useState('');
   const renameInputRef = useRef<HTMLInputElement | null>(null);
+  const groupRenameInputRef = useRef<HTMLInputElement | null>(null);
   const openMenuBtnRef = useRef<HTMLButtonElement | null>(null);
   const firstMenuItemRef = useRef<HTMLButtonElement | null>(null);
   const skipRenameBlurCommitRef = useRef(false);
+  const skipGroupRenameBlurCommitRef = useRef(false);
 
   const closeMenu = useCallback(() => {
     setOpenMenuId(null);
@@ -246,6 +254,12 @@ export default function SainaConversationSidebar({
     renameInputRef.current?.select();
   }, [editingId]);
 
+  useEffect(() => {
+    if (!editingGroupId) return;
+    groupRenameInputRef.current?.focus();
+    groupRenameInputRef.current?.select();
+  }, [editingGroupId]);
+
   const commitRename = useCallback((id: string, title: string) => {
     const next = title.trim();
     if (next) renameChat(id, next);
@@ -268,6 +282,41 @@ export default function SainaConversationSidebar({
       commitRename(id, title);
     },
     [commitRename]
+  );
+
+  const commitGroupRename = useCallback(
+    (id: string, title: string) => {
+      const next = title.trim();
+      if (next) void onRenameGroup?.(id, next);
+      setEditingGroupId(null);
+      setEditGroupTitle('');
+    },
+    [onRenameGroup]
+  );
+
+  const cancelGroupRename = useCallback(() => {
+    skipGroupRenameBlurCommitRef.current = true;
+    setEditingGroupId(null);
+    setEditGroupTitle('');
+  }, []);
+
+  const handleGroupRenameBlur = useCallback(
+    (id: string, title: string) => {
+      if (skipGroupRenameBlurCommitRef.current) {
+        skipGroupRenameBlurCommitRef.current = false;
+        return;
+      }
+      commitGroupRename(id, title);
+    },
+    [commitGroupRename]
+  );
+
+  const requestDeleteEmptyGroup = useCallback(
+    (group: ConversationTreeGroupNode) => {
+      if (group.conversations.length !== 0) return;
+      void onDeleteGroup?.(group.id);
+    },
+    [onDeleteGroup]
   );
 
   const isGroupExpanded = useCallback(
@@ -659,19 +708,126 @@ export default function SainaConversationSidebar({
             {useTree && conversationGroups
               ? conversationGroups.map((group) => {
                   const expanded = isGroupExpanded(group.id);
+                  const groupMenuId = `group:${group.id}`;
+                  const isEmptyGroup = group.conversations.length === 0;
+                  const canManageGroup =
+                    !disabled && Boolean(isEmptyGroup ? onDeleteGroup : onRenameGroup);
                   return (
                     <div key={group.id} className="saina-conv-group" data-testid={`saina-conv-group-${group.id}`}>
-                      <button
-                        type="button"
-                        className="saina-conv-group-header saina-conv-group-header--quiet"
-                        onClick={() => toggleGroup(group.id)}
-                        aria-expanded={expanded}
-                      >
-                        <span className="saina-conv-group-chevron" aria-hidden>
-                          {expanded ? '▾' : '▸'}
-                        </span>
-                        <span className="saina-conv-group-title">{group.title}</span>
-                      </button>
+                      {editingGroupId === group.id ? (
+                        <div className="saina-conv-group-top">
+                          <input
+                            ref={groupRenameInputRef}
+                            type="text"
+                            className="saina-conv-rename-input saina-conv-group-rename-input"
+                            value={editGroupTitle}
+                            aria-label={`${group.title} grup adını değiştir`}
+                            onChange={(e) => setEditGroupTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                commitGroupRename(group.id, editGroupTitle);
+                              } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                cancelGroupRename();
+                              }
+                            }}
+                            onBlur={() => handleGroupRenameBlur(group.id, editGroupTitle)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="saina-conv-group-top">
+                          <button
+                            type="button"
+                            className="saina-conv-group-header saina-conv-group-header--quiet"
+                            onClick={() => toggleGroup(group.id)}
+                            aria-expanded={expanded}
+                          >
+                            <span className="saina-conv-group-chevron" aria-hidden>
+                              {expanded ? '▾' : '▸'}
+                            </span>
+                            <span className="saina-conv-group-title">{group.title}</span>
+                          </button>
+                          {canManageGroup ? (
+                            <div
+                              className="saina-conv-menu saina-conv-group-menu"
+                              data-conv-menu-root={groupMenuId}
+                              onBlurCapture={(event) => {
+                                const root = event.currentTarget;
+                                if (!root.contains(event.relatedTarget as Node | null)) {
+                                  closeMenu();
+                                }
+                              }}
+                            >
+                              <button
+                                type="button"
+                                ref={openMenuId === groupMenuId ? openMenuBtnRef : undefined}
+                                className="saina-conv-menu-btn"
+                                data-testid={`saina-conv-group-menu-${group.id}`}
+                                aria-label={`${group.title} — ${SAINA_CONV_MENU_LABEL}`}
+                                aria-haspopup="true"
+                                aria-expanded={openMenuId === groupMenuId}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setOpenMenuId((current) =>
+                                    current === groupMenuId ? null : groupMenuId
+                                  );
+                                }}
+                              >
+                                <MoreHorizontal size={16} aria-hidden />
+                              </button>
+                              {openMenuId === groupMenuId ? (
+                                <div
+                                  className={cn(
+                                    'saina-conv-menu-dropdown',
+                                    menuPlacement === 'above'
+                                      ? 'saina-conv-menu-dropdown--above'
+                                      : 'saina-conv-menu-dropdown--below'
+                                  )}
+                                  data-testid={`saina-conv-group-menu-dropdown-${group.id}`}
+                                  data-placement={menuPlacement}
+                                >
+                                  {isEmptyGroup ? (
+                                    <button
+                                      type="button"
+                                      ref={firstMenuItemRef}
+                                      className="saina-conv-menu-item saina-conv-menu-item--danger"
+                                      data-testid={`saina-conv-group-delete-${group.id}`}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        closeMenu();
+                                        requestDeleteEmptyGroup(group);
+                                      }}
+                                    >
+                                      <Trash2 size={14} aria-hidden />
+                                      Grubu sil
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      ref={firstMenuItemRef}
+                                      className="saina-conv-menu-item"
+                                      data-testid={`saina-conv-group-rename-${group.id}`}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        closeMenu();
+                                        setEditingGroupId(group.id);
+                                        setEditGroupTitle(group.title);
+                                      }}
+                                    >
+                                      <Pencil size={14} aria-hidden />
+                                      {SAINA_CONV_RENAME}
+                                    </button>
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                       {expanded ? (
                         <div className="saina-conv-group-children">
                           {group.conversations.map((item) => renderConversationRow(item, true))}

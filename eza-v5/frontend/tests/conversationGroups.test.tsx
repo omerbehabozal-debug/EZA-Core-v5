@@ -10,6 +10,7 @@ import { inferMirrorGroupTitle } from '@/lib/eza/conversation-tree/inferMirrorGr
 import type { MirrorSohbetSession } from '@/lib/eza/mirror-network/sohbetTypes';
 import {
   createStandaloneChat,
+  deleteChatArchive,
   listChatArchives,
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
@@ -57,6 +58,18 @@ describe('conversation groups (Stage 3 commit 1)', () => {
     expect(titles).toContain('Boş');
     expect(tree.find((g) => g.title === 'Japonya')?.conversations.length).toBe(1);
     expect(tree.find((g) => g.id === empty.id)?.conversations.length).toBe(0);
+  });
+
+  it('keeps a group entity visible as empty after its last conversation is deleted', () => {
+    const group = createConversationGroup({ title: 'Kalacak Grup', source: 'manual' });
+    const chatId = createStandaloneChat({ groupId: group.id, title: 'Tek sohbet' });
+
+    deleteChatArchive(chatId);
+
+    const tree = buildConversationTree(listChatArchives(), listConversationGroups());
+    const node = tree.find((g) => g.id === group.id);
+    expect(node?.title).toBe('Kalacak Grup');
+    expect(node?.conversations).toEqual([]);
   });
 
   it('infers mirror group title without seed UI language', () => {

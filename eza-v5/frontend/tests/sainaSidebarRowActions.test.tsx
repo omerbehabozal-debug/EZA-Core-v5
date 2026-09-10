@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
+import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
 import * as archive from '@/lib/standaloneChatArchive';
 import {
   createStandaloneChat,
@@ -18,6 +19,38 @@ const SAMPLE_CONV: SainaConversationItem = {
   time: 'Az önce',
   thumbGradient: 'linear-gradient(135deg, #173B45, #0F2B25)',
 };
+
+const GROUP_CHAT_A = {
+  id: 'chat-a',
+  title: 'Kyoto Akşamları',
+  preview: 'İpek Yolu…',
+  time: 'Az önce',
+  thumbGradient: 'linear-gradient(135deg, #173B45, #0F2B25)',
+  savedAt: '2026-01-01T00:00:00.000Z',
+  isMirrorSource: false,
+};
+
+const GROUP_CHAT_B = {
+  ...GROUP_CHAT_A,
+  id: 'chat-b',
+  title: 'Osaka Sabahı',
+  savedAt: '2026-01-02T00:00:00.000Z',
+};
+
+function groupNode(
+  id: string,
+  title: string,
+  conversations: ConversationTreeGroupNode['conversations']
+): ConversationTreeGroupNode {
+  return {
+    id,
+    title,
+    source: 'manual',
+    updatedAt: '2026-01-03T00:00:00.000Z',
+    sortOrder: 1,
+    conversations,
+  };
+}
 
 function renderSidebar(
   props: Partial<ComponentProps<typeof SainaConversationSidebar>> = {}
@@ -39,6 +72,13 @@ async function openMenu(chatId = 'chat-a') {
   fireEvent.click(screen.getByTestId(`saina-conv-menu-${chatId}`));
   await waitFor(() => {
     expect(screen.getByTestId(`saina-conv-menu-dropdown-${chatId}`)).toBeInTheDocument();
+  });
+}
+
+async function openGroupMenu(groupId: string) {
+  fireEvent.click(screen.getByTestId(`saina-conv-group-menu-${groupId}`));
+  await waitFor(() => {
+    expect(screen.getByTestId(`saina-conv-group-menu-dropdown-${groupId}`)).toBeInTheDocument();
   });
 }
 
@@ -306,6 +346,84 @@ describe('saina sidebar row actions', () => {
       );
 
       expect(screen.getByText('Osaka Geceleri')).toBeInTheDocument();
+    });
+  });
+
+  describe('group lifecycle menu', () => {
+    it('shows only rename for non-empty groups', async () => {
+      const onRenameGroup = vi.fn();
+      const onDeleteGroup = vi.fn();
+      render(
+        <SainaConversationSidebar
+          conversationGroups={[groupNode('group-a', 'Japonya', [GROUP_CHAT_A, GROUP_CHAT_B])]}
+          onRenameGroup={onRenameGroup}
+          onDeleteGroup={onDeleteGroup}
+        />
+      );
+
+      await openGroupMenu('group-a');
+
+      expect(screen.getByTestId('saina-conv-group-rename-group-a')).toBeInTheDocument();
+      expect(screen.queryByTestId('saina-conv-group-delete-group-a')).not.toBeInTheDocument();
+    });
+
+    it('keeps an emptied group visible and shows only delete', async () => {
+      const onRenameGroup = vi.fn();
+      const onDeleteGroup = vi.fn();
+      render(
+        <SainaConversationSidebar
+          conversationGroups={[groupNode('group-empty', 'Boş Grup', [])]}
+          onRenameGroup={onRenameGroup}
+          onDeleteGroup={onDeleteGroup}
+        />
+      );
+
+      expect(screen.getByTestId('saina-conv-group-group-empty')).toBeInTheDocument();
+      await openGroupMenu('group-empty');
+
+      expect(screen.getByTestId('saina-conv-group-delete-group-empty')).toBeInTheDocument();
+      expect(screen.queryByTestId('saina-conv-group-rename-group-empty')).not.toBeInTheDocument();
+    });
+
+    it('deletes empty groups through the guarded callback', async () => {
+      const onDeleteGroup = vi.fn();
+      render(
+        <SainaConversationSidebar
+          conversationGroups={[groupNode('group-empty', 'Boş Grup', [])]}
+          onDeleteGroup={onDeleteGroup}
+        />
+      );
+
+      await openGroupMenu('group-empty');
+      fireEvent.click(screen.getByTestId('saina-conv-group-delete-group-empty'));
+
+      expect(onDeleteGroup).toHaveBeenCalledWith('group-empty');
+    });
+
+    it('renames non-empty groups through the group callback', async () => {
+      const onRenameGroup = vi.fn();
+      const { rerender } = render(
+        <SainaConversationSidebar
+          conversationGroups={[groupNode('group-a', 'Japonya', [GROUP_CHAT_A])]}
+          onRenameGroup={onRenameGroup}
+        />
+      );
+
+      await openGroupMenu('group-a');
+      fireEvent.click(screen.getByTestId('saina-conv-group-rename-group-a'));
+      const input = screen.getByLabelText(/Japonya grup adını değiştir/i);
+      fireEvent.change(input, { target: { value: 'Yeni Japonya' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+
+      expect(onRenameGroup).toHaveBeenCalledWith('group-a', 'Yeni Japonya');
+
+      rerender(
+        <SainaConversationSidebar
+          conversationGroups={[groupNode('group-a', 'Yeni Japonya', [GROUP_CHAT_A])]}
+          onRenameGroup={onRenameGroup}
+        />
+      );
+      expect(screen.getByText('Yeni Japonya')).toBeInTheDocument();
     });
   });
 

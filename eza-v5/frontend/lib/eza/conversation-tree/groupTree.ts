@@ -86,6 +86,7 @@ export function buildConversationTree(
     .map((g) => ({
       id: g.id,
       title: g.title,
+      source: g.source,
       updatedAt: g.updatedAt,
       sortOrder: g.sortOrder ?? 0,
       conversations: sortChats(byGroup.get(g.id) ?? [], activeChatId),

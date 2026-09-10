@@ -1018,9 +1018,18 @@ html:has(.saina-page) body {
   margin-bottom: 0.35rem;
 }
 
-.saina-conv-group-header {
+.saina-conv-group-top {
+  position: relative;
   display: flex;
   width: 100%;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.saina-conv-group-header {
+  display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 0.4rem;
   border: none;
@@ -1046,6 +1055,20 @@ html:has(.saina-page) body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.saina-conv-group-menu {
+  align-items: center;
+}
+
+.saina-conv-group-menu .saina-conv-menu-btn {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0.25rem;
+}
+
+.saina-conv-group-rename-input {
+  margin: 0.1rem 0.5rem;
 }
 
 .saina-conv-group-children {

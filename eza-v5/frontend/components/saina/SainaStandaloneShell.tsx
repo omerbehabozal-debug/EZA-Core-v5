@@ -20,6 +20,7 @@ import {
   type MirrorMobileContext,
 } from '@/lib/eza/mirrorMobileState';
 import type { SainaConversationItem } from '@/components/saina/SainaConversationSidebar';
+import type { ConversationTreeGroupNode } from '@/lib/eza/conversation-tree/types';
 import type { SainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import type { YansiHeroMeta } from '@/lib/eza/mirror/yansiHeroMeta';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
@@ -38,10 +39,13 @@ export type SainaStandaloneShellProps = {
   messages: ReactNode;
   composer: ReactNode;
   conversations: SainaConversationItem[];
+  conversationGroups?: ConversationTreeGroupNode[];
   activeChatId: string | null;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
   onDeleteChat?: (id: string) => void;
+  onRenameGroup?: (id: string, title: string) => void | Promise<void>;
+  onDeleteGroup?: (id: string) => void | Promise<void>;
   onOpenPattern?: () => void;
   planTier?: SainaPlanTier;
   onUpgrade?: () => void;
@@ -239,10 +243,13 @@ export default function SainaStandaloneShell({
   messages,
   composer,
   conversations,
+  conversationGroups,
   activeChatId,
   onNewChat,
   onSelectChat,
   onDeleteChat,
+  onRenameGroup,
+  onDeleteGroup,
   onOpenPattern,
   planTier,
   onUpgrade,
@@ -321,10 +328,13 @@ export default function SainaStandaloneShell({
           <div className="saina-standalone-sidebar-wrap">
             <SainaConversationSidebar
               conversations={conversations}
+              conversationGroups={conversationGroups}
               activeChatId={activeChatId}
               onNewChat={onNewChat}
               onSelectChat={onSelectChat}
               onDeleteChat={onDeleteChat}
+              onRenameGroup={onRenameGroup}
+              onDeleteGroup={onDeleteGroup}
               onOpenPattern={onOpenPattern}
               planTier={planTier}
               onUpgrade={onUpgrade}

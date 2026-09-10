@@ -81,6 +81,8 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               onNewChat={chrome.onNewChat}
               onSelectChat={chrome.onSelectChat}
               onDeleteChat={chrome.onDeleteChat}
+              onRenameGroup={chrome.onRenameGroup}
+              onDeleteGroup={chrome.onDeleteGroup}
               onOpenPattern={chrome.onOpenPattern}
               planTier={chrome.planTier}
               onUpgrade={chrome.onUpgrade}

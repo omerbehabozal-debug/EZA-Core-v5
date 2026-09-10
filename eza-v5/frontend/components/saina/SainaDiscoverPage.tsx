@@ -46,6 +46,10 @@ import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
 import { SAINA_NEW_CHAT_ROUTE } from '@/lib/eza/sainaRoutes';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
+import {
+  deleteConversationGroup,
+  renameConversationGroup,
+} from '@/lib/eza/conversation-tree/conversationGroups';
 import { canStartDiscoverFromEntitlements } from '@/lib/eza/plan/sainaDiscoverQuota';
 import { resolveDiscoverLimitMessage } from '@/lib/eza/plan/sainaQuotaMessages';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
@@ -62,7 +66,14 @@ import {
   type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { useAuthenticatedConversationBootstrap } from '@/hooks/useAuthenticatedConversationBootstrap';
-import { deleteServerBackedConversation, hasServerBackedConversation } from '@/lib/eza/serverConversationStore';
+import {
+  deleteServerBackedConversation,
+  hasServerBackedConversation,
+} from '@/lib/eza/serverConversationStore';
+import {
+  deleteAuthenticatedConversationGroup,
+  renameAuthenticatedConversationGroup,
+} from '@/lib/eza/serverConversationGroupStore';
 import {
   DEFAULT_ANALYSIS_MODEL_ID,
   readStoredAnalysisModel,
@@ -183,6 +194,34 @@ export default function SainaDiscoverPage() {
     [requestDelete, isServerBacked]
   );
 
+  const handleRenameGroup = useCallback(
+    async (groupId: string, title: string) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      if (isServerBacked) {
+        await renameAuthenticatedConversationGroup(groupId, trimmed);
+      } else {
+        renameConversationGroup(groupId, trimmed);
+      }
+      refreshArchives();
+    },
+    [isServerBacked, refreshArchives]
+  );
+
+  const handleDeleteGroup = useCallback(
+    async (groupId: string) => {
+      const group = conversationGroups.find((item) => item.id === groupId);
+      if (!group || group.conversations.length !== 0) return;
+      if (isServerBacked) {
+        await deleteAuthenticatedConversationGroup(groupId);
+      } else {
+        deleteConversationGroup(groupId);
+      }
+      refreshArchives();
+    },
+    [conversationGroups, isServerBacked, refreshArchives]
+  );
+
   const handleOpenDiscoverUpgrade = useCallback(() => {
     handleUpgrade('saina_discover');
   }, [handleUpgrade]);
@@ -202,6 +241,8 @@ export default function SainaDiscoverPage() {
     onNewChat: handleNewChat,
     onSelectChat: handleSelectChat,
     onDeleteChat: handleDeleteChat,
+    onRenameGroup: handleRenameGroup,
+    onDeleteGroup: handleDeleteGroup,
     onOpenPattern: handleOpenPattern,
     onUpgrade: handleUpgrade,
     onRequestLogin: handleRequestLogin,

@@ -41,6 +41,7 @@ export type ConversationTreeMetadata = {
 export type ConversationTreeGroupNode = {
   id: string;
   title: string;
+  source?: ConversationGroupSource;
   updatedAt: string;
   sortOrder: number;
   conversations: ConversationTreeChatItem[];
