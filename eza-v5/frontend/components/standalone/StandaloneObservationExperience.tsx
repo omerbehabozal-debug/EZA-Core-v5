@@ -95,6 +95,8 @@ import {
   consumePendingJourneyAynaGeneration,
   recoverPublishedJourneyAfterLostResponse,
   resolveJourneyOwnerKey,
+  requiresAuthenticatedJourneyYansiGate,
+  hasJourneyBackedYansiArtifact,
   type JourneyAynaGenerateDetail,
   type MirrorJourneySharePayload,
 } from '@/lib/eza/mirror/journey';
@@ -268,6 +270,12 @@ export default function StandaloneObservationExperience({
   const { isAuthenticated, isAuthReady, user } = useAuth();
   const shareCacheUserId = resolveJourneyOwnerKey(user?.user_id);
   const authenticatedUserId = user?.user_id?.trim() || null;
+  const journeyYansiGateOn = requiresAuthenticatedJourneyYansiGate({
+    isAuthenticated,
+    conversationId,
+  });
+  /** True only after Review8 → journey kick arms runMirrorWithReveal on this mount. */
+  const [journeyAuthorizedReveal, setJourneyAuthorizedReveal] = useState(false);
   const { isPlus, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements, refreshEntitlements } = useAccountEntitlements();
 
@@ -370,7 +378,16 @@ export default function StandaloneObservationExperience({
   const panelOnboardingTitle = embedded ? mirrorPanelCopy?.emptyTitle : undefined;
   const panelOnboardingBody = embedded ? mirrorPanelCopy?.emptyBody : undefined;
   const panelGeneratingHeadline = embedded ? mirrorPanelCopy?.generating : undefined;
-  const panelReadyHeadline = embedded ? mirrorPanelCopy?.ready : undefined;
+  const panelReadyHeadline =
+    embedded &&
+    (!journeyYansiGateOn ||
+      journeyAuthorizedReveal ||
+      hasJourneyBackedYansiArtifact({
+        ownerUserId: shareCacheUserId,
+        conversationId,
+      }))
+      ? mirrorPanelCopy?.ready
+      : undefined;
   const isConversationScope = Boolean(conversationId);
   const conversationTexts = useMemo(() => {
     if (!conversationId) return undefined;
@@ -423,6 +440,7 @@ export default function StandaloneObservationExperience({
     hydratedFromSnapshotRef.current = false;
     sceneAutoKeyRef.current = null;
     allowAutoSceneGenerationRef.current = false;
+    setJourneyAuthorizedReveal(false);
     setMirrorRevision(0);
     clearStyleLensSession();
     setStyleLensSession(createDefaultStyleLensSession({ date: '', visual: undefined }));
@@ -881,6 +899,19 @@ export default function StandaloneObservationExperience({
   }, []);
 
   const showExistingMirrorCard = useCallback(() => {
+    if (
+      requiresAuthenticatedJourneyYansiGate({
+        isAuthenticated,
+        conversationId,
+      }) &&
+      !hasJourneyBackedYansiArtifact({
+        ownerUserId: shareCacheUserId,
+        conversationId,
+      })
+    ) {
+      return false;
+    }
+
     const mirrorEntries = conversationId
       ? entriesForDisplayedConversationMirror(entries, conversationSnapshot)
       : entriesForDisplayedMirror(entries, todaysSnapshot);
@@ -932,12 +963,25 @@ export default function StandaloneObservationExperience({
     mirrorBuildOptions,
     shareCacheUserId,
     todaysSnapshot,
+    isAuthenticated,
   ]);
 
   /** Sayfa yenileme — bugünkü snapshot ile kartı sessizce göster; aynı veride sahne üretme. */
   useEffect(() => {
     if (hydratedFromSnapshotRef.current || generatedDailyCard) return;
     if (dailyStatus !== 'idle') return;
+    if (
+      requiresAuthenticatedJourneyYansiGate({
+        isAuthenticated,
+        conversationId,
+      }) &&
+      !hasJourneyBackedYansiArtifact({
+        ownerUserId: shareCacheUserId,
+        conversationId,
+      })
+    ) {
+      return;
+    }
     const persisted =
       Boolean(conversationId) && hasPersistedConversationMirror(conversationId!);
     // Keşfet → sohbet: snapshot may lag; archive/cache still counts as existing Mirror.
@@ -1007,6 +1051,7 @@ export default function StandaloneObservationExperience({
     hydrateSceneFromCache,
     mirrorBuildOptions,
     shareCacheUserId,
+    isAuthenticated,
   ]);
 
   /** current + idle fallback — force hydrate if the silent effect missed a remount race. */
@@ -1601,6 +1646,16 @@ export default function StandaloneObservationExperience({
   }, [accountEntitlements.usage.nextVisualAvailableAt]);
 
   const handleGenerateDailyMirror = useCallback(() => {
+    // Authenticated Saina conversation: real Yansı only via Review8 → journey kick.
+    if (
+      requiresAuthenticatedJourneyYansiGate({
+        isAuthenticated,
+        conversationId,
+      })
+    ) {
+      return;
+    }
+
     if (entries.length < MIRROR_MIN_SAMPLES) {
       resetGeneratedCardState();
       setDailyStatus('insufficient');
@@ -1676,6 +1731,7 @@ export default function StandaloneObservationExperience({
     resetGeneratedCardState,
     runMirrorWithReveal,
     showExistingMirrorCard,
+    isAuthenticated,
   ]);
 
   useEffect(() => {
@@ -1684,12 +1740,20 @@ export default function StandaloneObservationExperience({
     const onMirrorBirthGenerate = (event: Event) => {
       const detail = (event as CustomEvent<{ conversationId?: string }>).detail;
       if (detail?.conversationId !== conversationId) return;
+      if (
+        requiresAuthenticatedJourneyYansiGate({
+          isAuthenticated,
+          conversationId,
+        })
+      ) {
+        return;
+      }
       handleGenerateDailyMirror();
     };
 
     window.addEventListener(MIRROR_BIRTH_GENERATE_EVENT, onMirrorBirthGenerate);
     return () => window.removeEventListener(MIRROR_BIRTH_GENERATE_EVENT, onMirrorBirthGenerate);
-  }, [conversationId, handleGenerateDailyMirror]);
+  }, [conversationId, handleGenerateDailyMirror, isAuthenticated]);
 
   /** Phase 8.6 — Review confirm → force Ayna scene create (reel hides create CTA). */
   useEffect(() => {
@@ -1712,6 +1776,7 @@ export default function StandaloneObservationExperience({
           return;
         }
         journeyAynaKickKeyRef.current = kickKey;
+        setJourneyAuthorizedReveal(true);
         runMirrorWithReveal(entries, { isUpdate: true, immediate: true });
       };
       const localReusable =
@@ -1774,6 +1839,15 @@ export default function StandaloneObservationExperience({
   ]);
 
   const handleMirrorRefresh = useCallback(() => {
+    if (
+      requiresAuthenticatedJourneyYansiGate({
+        isAuthenticated,
+        conversationId,
+      })
+    ) {
+      return;
+    }
+
     if (conversationId) {
       const snap = readConversationSnapshot(conversationId);
       if (!snap || !hasNewDataSinceConversationSnapshot(entries, snap)) return;
@@ -1808,7 +1882,15 @@ export default function StandaloneObservationExperience({
 
     if (entries.length < MIRROR_MIN_SAMPLES) return;
     runMirrorWithReveal(entries, { isUpdate: true });
-  }, [conversationId, entries, isPlus, canCreateVisual, visualLimitStatus, runMirrorWithReveal]);
+  }, [
+    conversationId,
+    entries,
+    isPlus,
+    canCreateVisual,
+    visualLimitStatus,
+    runMirrorWithReveal,
+    isAuthenticated,
+  ]);
 
   const handleForceBmwMercedes = useCallback(() => {
     const boosted = withDevVehicleCueHints(entries);
@@ -2548,6 +2630,17 @@ export default function StandaloneObservationExperience({
     }
 
     if (refreshCta === 'current' && dailyStatus === 'idle') {
+      if (journeyYansiGateOn) {
+        return (
+          <div
+            className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center"
+            data-testid="ayna-journey-gated-empty"
+          >
+            <p className="saina-serif text-sm text-stone-700">{MIRROR_AYNA_EMPTY_TITLE}</p>
+            <p className="text-[11px] leading-relaxed text-stone-500">{MIRROR_AYNA_EMPTY_BODY}</p>
+          </div>
+        );
+      }
       return (
         <div className={ms.dailyReadyStack}>
           <DailyMirrorRefreshActions
@@ -2568,6 +2661,17 @@ export default function StandaloneObservationExperience({
           : 'idle';
 
     if (refreshCta === 'update' && dailyStatus === 'idle') {
+      if (journeyYansiGateOn) {
+        return (
+          <div
+            className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center"
+            data-testid="ayna-journey-gated-empty"
+          >
+            <p className="saina-serif text-sm text-stone-700">{MIRROR_AYNA_EMPTY_TITLE}</p>
+            <p className="text-[11px] leading-relaxed text-stone-500">{MIRROR_AYNA_EMPTY_BODY}</p>
+          </div>
+        );
+      }
       return (
         <div className={ms.dailyReadyStack}>
           <DailyMirrorRefreshActions
@@ -2576,6 +2680,18 @@ export default function StandaloneObservationExperience({
             hasProductionQuota={hasProductionQuota}
             onUpdate={handleMirrorRefresh}
           />
+        </div>
+      );
+    }
+
+    if (journeyYansiGateOn) {
+      return (
+        <div
+          className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center"
+          data-testid="ayna-journey-gated-empty"
+        >
+          <p className="saina-serif text-sm text-stone-700">{MIRROR_AYNA_EMPTY_TITLE}</p>
+          <p className="text-[11px] leading-relaxed text-stone-500">{MIRROR_AYNA_EMPTY_BODY}</p>
         </div>
       );
     }

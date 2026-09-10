@@ -219,6 +219,7 @@ export {
   parseMirrorJourneyV1Flag,
   isSainaYansiInvitationEnabled,
 } from './journeyClientFlag';
+export { requiresAuthenticatedJourneyYansiGate, hasJourneyBackedYansiArtifact } from './authenticatedJourneyYansiGate';
 export {
   JOURNEY_AYNA_GENERATE_EVENT,
   JOURNEY_AYNA_GENERATE_PENDING_KEY,

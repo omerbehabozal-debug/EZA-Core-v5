@@ -35,6 +35,7 @@ import {
   reopenJourneyWindowDecision,
   requestJourneyAynaGeneration,
   listJourneyArtifactsForConversation,
+  requiresAuthenticatedJourneyYansiGate,
   shouldSkipAynaSceneGeneration,
   resolveAuthorDisplayName,
   resolveParentJourneyId,
@@ -1764,6 +1765,16 @@ export default function StandaloneChatInner() {
       return;
     }
 
+    if (
+      requiresAuthenticatedJourneyYansiGate({
+        isAuthenticated,
+        conversationId: chatId,
+      })
+    ) {
+      setMirrorBirthVisible(false);
+      return;
+    }
+
     const entries = buildConversationMirrorEntries(messages);
     const baseInput = {
       messages,
@@ -1806,10 +1817,18 @@ export default function StandaloneChatInner() {
     const interval = window.setInterval(tick, 1000);
     tick();
     return () => window.clearInterval(interval);
-  }, [chatId, ready, messages, assistantIsDone, isLoading, isTyping]);
+  }, [chatId, ready, messages, assistantIsDone, isLoading, isTyping, isAuthenticated]);
 
   const handleMirrorBirthAccept = useCallback(() => {
     if (!chatId) return;
+    if (
+      requiresAuthenticatedJourneyYansiGate({
+        isAuthenticated,
+        conversationId: chatId,
+      })
+    ) {
+      return;
+    }
     trackMirrorBirthAccepted(chatId);
     setMirrorBirthVisible(false);
     if (!handleRequestMirror()) return;
@@ -1822,7 +1841,7 @@ export default function StandaloneChatInner() {
     );
     onOpenMirror?.();
     requestMirrorBirthGeneration(chatId);
-  }, [chatId, handleRequestMirror, onOpenMirror, cancelPendingAutosave, flushSave]);
+  }, [chatId, handleRequestMirror, onOpenMirror, cancelPendingAutosave, flushSave, isAuthenticated]);
 
   const handleMirrorBirthDismiss = useCallback(() => {
     if (!chatId) return;
