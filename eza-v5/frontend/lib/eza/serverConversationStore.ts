@@ -185,6 +185,9 @@ export function beginAccountSession(userId: string): void {
 }
 
 export function clearServerConversationState(): void {
+  if (activeOwnerKey == null && state.summaries.length === 0 && state.authorityPhase === 'none') {
+    return;
+  }
   bootstrapEpoch += 1;
   activeOwnerKey = null;
   resetMutableState();

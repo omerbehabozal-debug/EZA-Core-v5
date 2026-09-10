@@ -23,8 +23,11 @@ import { reconcileAuthenticatedConversationSidebar } from '@/lib/eza/reconcileAu
 import {
   CHATS_UPDATED_EVENT,
   readChatArchivesForScope,
+  type ArchivedChatSummary,
 } from '@/lib/standaloneChatArchive';
 import { userScope } from '@/lib/eza/localIdentityScope';
+
+const EMPTY_SERVER_SUMMARIES: ArchivedChatSummary[] = [];
 
 /**
  * After auth identity resolves, bootstrap server conversation list,
@@ -79,7 +82,7 @@ export function useAuthenticatedConversationBootstrap() {
   const serverOnlySummaries = useSyncExternalStore(
     subscribeServerConversations,
     getServerConversationSummaries,
-    () => []
+    () => EMPTY_SERVER_SUMMARIES
   );
 
   const authorityPhase = useSyncExternalStore(
@@ -90,7 +93,7 @@ export function useAuthenticatedConversationBootstrap() {
 
   const serverSummaries = useMemo(() => {
     if (!isAuthReady || !isAuthenticated || !userId) {
-      return [];
+      return EMPTY_SERVER_SUMMARIES;
     }
     const marker = getLegacyMigrationMarker(userId);
     const tombstonedClientIds: string[] = [];

@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
 import SainaComposer from '@/components/saina/SainaComposer';
+import type { SainaNotificationItem } from '@/components/saina/SainaNotificationsDropdown';
 import JourneyWindowDecisionBanner from '@/components/mirror/JourneyWindowDecisionBanner';
 import JourneyGenerationStatus from '@/components/mirror/JourneyGenerationStatus';
 import Review8Screen from '@/components/mirror/Review8Screen';
@@ -140,7 +141,7 @@ import {
   DELETED_CHAT_IDS_STORAGE_KEY,
   isChatDeleted,
 } from '@/lib/standaloneChatDelete';
-import { isConversationActiveForDelete } from '@/lib/eza/activeConversationDelete';
+import { isConversationActiveForDelete, isRenderedConversationAuthoritativelyGone } from '@/lib/eza/activeConversationDelete';
 import { trackSecondUserMessageSent } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import MirrorBranchSuggestion from '@/components/standalone/MirrorBranchSuggestion';
 import MirrorBirthSuggestion from '@/components/standalone/MirrorBirthSuggestion';
@@ -208,6 +209,7 @@ import {
   markConversationUnsynced,
   parseApiPersistenceStatus,
   persistServerConversationTitleIfNeeded,
+  subscribeServerConversations,
 } from '@/lib/eza/serverConversationStore';
 import type { MirrorMobileContext } from '@/lib/eza/mirrorMobileState';
 
@@ -229,6 +231,7 @@ interface Message {
 
 // localStorage keys
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
+const EMPTY_SAINA_NOTIFICATIONS: SainaNotificationItem[] = [];
 
 /** Hydrate chat from ?chat= on first paint — avoids empty Ayna flash after Keşfet remount. */
 function readChatStateFromUrl(chatIdFromUrl: string | null): {
@@ -682,11 +685,29 @@ export default function StandaloneChatInner() {
 
   const refreshArchives = useCallback(() => {
     if (isServerBacked) {
-      setArchives(serverSummaries);
+      setArchives((prev) => (prev === serverSummaries ? prev : serverSummaries));
       setConversationGroups(getGroupsForAuthenticatedSidebar(userId));
     } else {
-      setArchives(listChatArchives());
-      setConversationGroups(listConversationGroups());
+      const next = listChatArchives();
+      setArchives((prev) => {
+        if (
+          prev.length === next.length &&
+          prev.every((row, i) => row.id === next[i]?.id && row.savedAt === next[i]?.savedAt)
+        ) {
+          return prev;
+        }
+        return next;
+      });
+      const nextGroups = listConversationGroups();
+      setConversationGroups((prev) => {
+        if (
+          prev.length === nextGroups.length &&
+          prev.every((row, i) => row.id === nextGroups[i]?.id)
+        ) {
+          return prev;
+        }
+        return nextGroups;
+      });
     }
   }, [isServerBacked, serverSummaries, userId]);
 
@@ -832,6 +853,53 @@ export default function StandaloneChatInner() {
     return () => window.removeEventListener('storage', onStorage);
   }, [leaveActiveConversationAfterDelete, router, chatIdFromUrl]);
 
+  // Render-owner deletion invariant — do not rely solely on wasActive in the
+  // sidebar callback. Same-tab archive/server store updates must leave too.
+  useEffect(() => {
+    if (!ready) return;
+
+    const leaveIfRenderedGone = () => {
+      const renderedId = chatIdRef.current;
+      const urlId = (chatIdFromUrl || '').trim() || null;
+      const renderedGone = isRenderedConversationAuthoritativelyGone({
+        renderedChatId: renderedId,
+        isServerBacked,
+      });
+      const urlGone = isRenderedConversationAuthoritativelyGone({
+        renderedChatId: urlId,
+        isServerBacked,
+      });
+      if (!renderedGone && !urlGone) return;
+      leaveActiveConversationAfterDelete();
+      router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
+    };
+
+    leaveIfRenderedGone();
+    window.addEventListener(CHATS_UPDATED_EVENT, leaveIfRenderedGone);
+    const unsubServer = isServerBacked
+      ? subscribeServerConversations(leaveIfRenderedGone)
+      : () => {};
+    return () => {
+      window.removeEventListener(CHATS_UPDATED_EVENT, leaveIfRenderedGone);
+      unsubServer();
+    };
+  }, [
+    ready,
+    chatIdFromUrl,
+    isServerBacked,
+    leaveActiveConversationAfterDelete,
+    router,
+  ]);
+
+  // Mounted ?new=1 invariant — soft-nav to new-chat must clear a live instance.
+  useEffect(() => {
+    if (!ready || !urlSyncEnabledRef.current) return;
+    if (!isSainaNewChatRequest(searchParams?.toString() ?? null)) return;
+    if (!chatId && messages.length === 0) return;
+    startDraft(null);
+    setGroupPickerOpen(true);
+  }, [ready, searchParams, chatId, messages.length, startDraft]);
+
   const planTier = resolveSainaPlanTier({
     isPlus,
     isLoading: isPlanLoading,
@@ -939,9 +1007,9 @@ export default function StandaloneChatInner() {
       JSON.stringify(prev.windows) !== JSON.stringify(next.windows);
     if (changed) {
       persist(next);
-    } else {
-      setJourneyState(next);
     }
+    // When unchanged, do not setJourneyState(next) — a new object identity would
+    // re-render every effect pass and can OOM under jsdom mount tests.
   }, [messages, chatId, journeyOwnerId, journeyV1On]);
 
   const awaitingJourneyWindow = getAwaitingDecisionWindow(journeyState);
@@ -2034,7 +2102,7 @@ export default function StandaloneChatInner() {
     analysisModelId,
     onAnalysisModelChange: setAnalysisModelId,
     settingsDisabled: isLoading,
-    notifications: canViewMapData ? systemNotifications : [],
+    notifications: canViewMapData ? systemNotifications : EMPTY_SAINA_NOTIFICATIONS,
   });
 
   if (!ready) {

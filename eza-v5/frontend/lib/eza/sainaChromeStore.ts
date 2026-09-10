@@ -51,7 +51,13 @@ const initialChrome: SainaChromeState = {
   onAnalysisModelChange: () => {},
 };
 
-export const useSainaChromeStore = create<SainaChromeStore>((set) => ({
+export const useSainaChromeStore = create<SainaChromeStore>((set, get) => ({
   ...initialChrome,
-  setChrome: (patch) => set((state) => ({ ...state, ...patch })),
+  setChrome: (patch) => {
+    const current = get();
+    const keys = Object.keys(patch) as Array<keyof SainaChromeState>;
+    const changed = keys.some((key) => current[key] !== patch[key]);
+    if (!changed) return;
+    set((state) => ({ ...state, ...patch }));
+  },
 }));
