@@ -117,6 +117,18 @@ function writeOwnerCache(ownerId: string, groups: ConversationGroup[]): void {
   replaceConversationGroupsForScope(userScope(ownerId), groups);
 }
 
+/**
+ * Single reconciliation path after server DELETE 204 or idempotent absence.
+ * Prunes authority + owner cache + membership bookkeeping and notifies UI.
+ */
+function reconcileGroupRemovedFromAuthority(userId: string, groupId: string): void {
+  state.groups = state.groups.filter((g) => g.id !== groupId);
+  writeOwnerCache(userId, state.groups);
+  clearChatMembershipsForGroup(groupId);
+  noteServerConversationGroupCleared(groupId);
+  emit();
+}
+
 export function beginGroupAccountSession(userId: string): void {
   if (activeOwnerKey !== userId) {
     bootstrapEpoch += 1;
@@ -264,15 +276,12 @@ export async function deleteAuthenticatedConversationGroup(groupId: string): Pro
   const userId = activeOwnerKey;
   if (!userId) throw new Error('conversation_group_no_owner');
   const { ownerAtStart, epochAtStart } = captureAuthority();
+  // Resolves on 204 or 404+conversation_group_not_found (idempotent absence).
   await deleteServerConversationGroup(groupId);
   if (!isAuthorityValid(ownerAtStart, epochAtStart)) {
     throw new Error('conversation_group_stale_authority');
   }
-  state.groups = state.groups.filter((g) => g.id !== groupId);
-  writeOwnerCache(userId, state.groups);
-  clearChatMembershipsForGroup(groupId);
-  noteServerConversationGroupCleared(groupId);
-  emit();
+  reconcileGroupRemovedFromAuthority(userId, groupId);
 }
 
 export async function assignAuthenticatedConversationGroup(

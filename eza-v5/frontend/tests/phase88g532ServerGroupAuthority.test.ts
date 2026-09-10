@@ -20,6 +20,7 @@ vi.mock('@/lib/apiClient', () => ({
 
 import {
   GROUPS_STORAGE_KEY,
+  GROUPS_UPDATED_EVENT,
   createConversationGroup,
   deleteConversationGroup,
   listConversationGroups,
@@ -54,6 +55,7 @@ import {
   installGroupAuthorityForTests,
   renameAuthenticatedConversationGroup,
   resetServerConversationGroupStoreForTests,
+  subscribeServerConversationGroups,
 } from '@/lib/eza/serverConversationGroupStore';
 import {
   resetServerConversationStoreForTests,
@@ -554,5 +556,178 @@ describe('Phase 8.8G-5.3.2 server group authority', () => {
     );
     expect(apiClientDelete).not.toHaveBeenCalled();
     expect(getGroupsForAuthenticatedSidebar(userA)[0]?.id).toBe(groupUuidMardin);
+  });
+
+  describe('DELETE idempotent absence (404 conversation_group_not_found)', () => {
+    const staleUuid = 'd155c865-aa37-4f6e-bf67-64801cbf5f2e';
+
+    function notFoundDeleteResponse() {
+      return {
+        ok: false,
+        status: 404,
+        detail: { code: 'conversation_group_not_found' },
+        error: {
+          error_code: 'conversation_group_not_found',
+          error_message: 'Request failed',
+          message: 'Request failed',
+        },
+      };
+    }
+
+    it('A: DELETE 204 prunes empty server authority group', async () => {
+      installGroupAuthorityForTests(
+        userA,
+        [namedGroup(staleUuid, 'Live Empty')],
+        'ready'
+      );
+      apiClientDelete.mockResolvedValue({ ok: true, status: 204 });
+
+      await expect(
+        deleteAuthenticatedConversationGroup(staleUuid)
+      ).resolves.toBeUndefined();
+
+      expect(getServerAuthorityGroups().find((g) => g.id === staleUuid)).toBeUndefined();
+      expect(getGroupsForAuthenticatedSidebar(userA)).toEqual([]);
+      expect(peekScopedConversationGroupsForScope(userScope(userA))).toEqual([]);
+    });
+
+    it('B: DELETE 404 conversation_group_not_found prunes stale ghost (production)', async () => {
+      installGroupAuthorityForTests(
+        userA,
+        [namedGroup(staleUuid, 'Ghost Empty')],
+        'ready'
+      );
+      const emitted: string[] = [];
+      const onGroups = () => emitted.push('groups');
+      const onStore = () => emitted.push('store');
+      window.addEventListener(GROUPS_UPDATED_EVENT, onGroups);
+      const unsub = subscribeServerConversationGroups(onStore);
+
+      apiClientDelete.mockResolvedValue(notFoundDeleteResponse());
+
+      await expect(
+        deleteRenderedConversationGroup({
+          id: staleUuid,
+          title: 'Ghost Empty',
+          source: 'manual',
+          clientGroupId: null,
+          conversationCount: 0,
+        })
+      ).resolves.toBe('deleted_server');
+
+      expect(apiClientDelete).toHaveBeenCalledWith(
+        `/api/conversation-groups/${staleUuid}`,
+        { auth: true }
+      );
+      expect(getServerAuthorityGroups().find((g) => g.id === staleUuid)).toBeUndefined();
+      expect(getGroupsForAuthenticatedSidebar(userA)).toEqual([]);
+      expect(peekScopedConversationGroupsForScope(userScope(userA))).toEqual([]);
+      expect(emitted).toContain('groups');
+      expect(emitted).toContain('store');
+
+      window.removeEventListener(GROUPS_UPDATED_EVENT, onGroups);
+      unsub();
+    });
+
+    it('C: DELETE 404 with unrelated body does not prune', async () => {
+      installGroupAuthorityForTests(
+        userA,
+        [namedGroup(staleUuid, 'Keep')],
+        'ready'
+      );
+      apiClientDelete.mockResolvedValue({
+        ok: false,
+        status: 404,
+        detail: { code: 'something_else' },
+        error: {
+          error_code: 'something_else',
+          error_message: 'nope',
+          message: 'nope',
+        },
+      });
+
+      await expect(deleteAuthenticatedConversationGroup(staleUuid)).rejects.toThrow(
+        'conversation_group_delete_failed'
+      );
+      expect(getGroupsForAuthenticatedSidebar(userA)[0]?.id).toBe(staleUuid);
+    });
+
+    it('D: DELETE 500 does not prune', async () => {
+      installGroupAuthorityForTests(
+        userA,
+        [namedGroup(staleUuid, 'Keep')],
+        'ready'
+      );
+      apiClientDelete.mockResolvedValue({
+        ok: false,
+        status: 500,
+        error: { error_code: 'HTTP_500', error_message: 'boom', message: 'boom' },
+      });
+
+      await expect(deleteAuthenticatedConversationGroup(staleUuid)).rejects.toThrow(
+        'conversation_group_delete_failed'
+      );
+      expect(getGroupsForAuthenticatedSidebar(userA)[0]?.id).toBe(staleUuid);
+    });
+
+    it('E: DELETE 401 does not prune', async () => {
+      installGroupAuthorityForTests(
+        userA,
+        [namedGroup(staleUuid, 'Keep')],
+        'ready'
+      );
+      apiClientDelete.mockResolvedValue({
+        ok: false,
+        status: 401,
+        error: {
+          error_code: 'auth_required',
+          error_message: 'Authentication required',
+          message: 'Authentication required',
+        },
+      });
+
+      await expect(deleteAuthenticatedConversationGroup(staleUuid)).rejects.toThrow(
+        'conversation_group_delete_failed'
+      );
+      expect(getGroupsForAuthenticatedSidebar(userA)[0]?.id).toBe(staleUuid);
+    });
+
+    it('F: local degraded empty group still deletes locally (no server DELETE)', async () => {
+      replaceConversationGroupsForScope(userScope(userA), [
+        namedGroup('group-local-empty-2', 'Local Empty 2'),
+      ]);
+      apiClientGet.mockResolvedValue({ ok: false, status: 500 });
+      await bootstrapServerConversationGroups(userA);
+
+      const result = await deleteRenderedConversationGroup({
+        id: 'group-local-empty-2',
+        title: 'Local Empty 2',
+        source: 'manual',
+        clientGroupId: null,
+        conversationCount: 0,
+      });
+
+      expect(result).toBe('deleted_local');
+      expect(apiClientDelete).not.toHaveBeenCalled();
+    });
+
+    it('G: non-empty group remains blocked', async () => {
+      installGroupAuthorityForTests(
+        userA,
+        [namedGroup(staleUuid, 'Non-empty')],
+        'ready'
+      );
+      await expect(
+        deleteRenderedConversationGroup({
+          id: staleUuid,
+          title: 'Non-empty',
+          source: 'manual',
+          clientGroupId: null,
+          conversationCount: 2,
+        })
+      ).resolves.toBe('blocked_non_empty');
+      expect(apiClientDelete).not.toHaveBeenCalled();
+      expect(getGroupsForAuthenticatedSidebar(userA)[0]?.id).toBe(staleUuid);
+    });
   });
 });
