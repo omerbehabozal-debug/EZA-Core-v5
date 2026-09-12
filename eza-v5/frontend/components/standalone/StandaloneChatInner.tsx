@@ -98,6 +98,9 @@ import {
   isQuotaLimitReason,
   resolveChatLimitMessage,
 } from '@/lib/eza/plan/sainaQuotaMessages';
+import {
+  resolveChatSendFailureDisplay,
+} from '@/lib/eza/chatSendFailureDisplay';
 import { buildSainaQuotaHeaders, hasSainaAuthToken } from '@/lib/eza/plan/sainaQuotaHeaders';
 import { resolveSainaPlanTier } from '@/lib/eza/plan/sainaPlanTier';
 import { useStreamResponse } from '@/hooks/useStreamResponse';
@@ -143,6 +146,10 @@ import {
   SAINA_DISCOVER_ROUTE,
   SAINA_NEW_CHAT_ROUTE,
 } from '@/lib/eza/sainaRoutes';
+import {
+  shouldAllowNewChatGroupPicker,
+  shouldClearLiveConversationOnNewChatUrl,
+} from '@/lib/eza/newChatGroupPickerIntent';
 import {
   DELETED_CHAT_IDS_STORAGE_KEY,
   isChatDeleted,
@@ -284,11 +291,19 @@ export default function StandaloneChatInner() {
   const [messages, setMessages] = useState<Message[]>(initialChat.messages);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  /** Transport/API failures — UI only; never appended to messages / autosave. */
+  const [sendRequestError, setSendRequestError] = useState<string | null>(null);
   const [safeOnlyMode, setSafeOnlyMode] = useState(false);
   const [analysisModelId, setAnalysisModelId] = useState(DEFAULT_ANALYSIS_MODEL_ID);
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
   const [conversationGroups, setConversationGroups] = useState<ConversationGroup[]>([]);
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  /**
+   * One-shot authenticated New Chat intent. Picker opens only while this is true.
+   * Consumed on group/title selection (or dismiss). Never set by message send /
+   * hydration / missing group metadata.
+   */
+  const authenticatedNewChatPickerIntentRef = useRef(false);
   const [draftGroupId, setDraftGroupId] = useState<string | null>(null);
   const [groupCreating, setGroupCreating] = useState(false);
   const [groupCreateError, setGroupCreateError] = useState<string | null>(null);
@@ -408,6 +423,23 @@ export default function StandaloneChatInner() {
     }
   }, []);
 
+  /** Explicit Yeni Sohbet / leave→new — opens picker once for authenticated users only. */
+  const beginAuthenticatedNewChatPickerIntent = useCallback(() => {
+    if (!shouldAllowNewChatGroupPicker(isServerBacked)) {
+      authenticatedNewChatPickerIntentRef.current = false;
+      setGroupPickerOpen(false);
+      return;
+    }
+    authenticatedNewChatPickerIntentRef.current = true;
+    setGroupPickerOpen(true);
+  }, [isServerBacked]);
+
+  /** Group/title chosen or picker dismissed — consume one-shot intent. */
+  const consumeAuthenticatedNewChatPickerIntent = useCallback(() => {
+    authenticatedNewChatPickerIntentRef.current = false;
+    setGroupPickerOpen(false);
+  }, []);
+
   /**
    * Leave active conversation after delete — same canvas clears as startDraft/handleNewChat,
    * plus invalidate in-flight loads so a stale hydrate cannot resurrect the deleted chat.
@@ -430,11 +462,17 @@ export default function StandaloneChatInner() {
     setJourneyReviewOpen(false);
     setJourneyReviewWindowIndex(null);
     setConversationMirrorEntries([], PENDING_CONVERSATION_MIRROR_ID);
-    setGroupPickerOpen(true);
+    setSendRequestError(null);
+    beginAuthenticatedNewChatPickerIntent();
     window.setTimeout(() => {
       skipAutosaveRef.current = false;
     }, 0);
-  }, [cancelPendingAutosave, resetStream, setConversationMirrorEntries]);
+  }, [
+    beginAuthenticatedNewChatPickerIntent,
+    cancelPendingAutosave,
+    resetStream,
+    setConversationMirrorEntries,
+  ]);
 
   useEffect(() => {
     const previous = previousAuthOwnerRef.current;
@@ -532,6 +570,7 @@ export default function StandaloneChatInner() {
     setIsTyping(false);
     setDraftGroupId(groupId);
     setGroupCreateError(null);
+    setSendRequestError(null);
     window.setTimeout(() => {
       skipAutosaveRef.current = false;
     }, 0);
@@ -600,8 +639,10 @@ export default function StandaloneChatInner() {
     }
 
     if (isSainaNewChatRequest(searchParams?.toString() ?? null)) {
+      // Wait for auth so guests never flash the picker and authed users still get it.
+      if (!isAuthReady) return;
       startDraft(null);
-      setGroupPickerOpen(true);
+      beginAuthenticatedNewChatPickerIntent();
       setReady(true);
       enableUrlSync();
       return;
@@ -618,7 +659,9 @@ export default function StandaloneChatInner() {
     startDraft,
     searchParams,
     isServerBacked,
+    isAuthReady,
     leaveActiveConversationAfterDelete,
+    beginAuthenticatedNewChatPickerIntent,
   ]);
 
   useEffect(() => {
@@ -754,11 +797,11 @@ export default function StandaloneChatInner() {
       // Draft only — no archive until first message. Empty groups stay durable on server.
       startDraft(groupId);
       if (groupId) rememberActiveGroupExpanded(groupId);
-      setGroupPickerOpen(false);
+      consumeAuthenticatedNewChatPickerIntent();
       setGroupCreateError(null);
       router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
     },
-    [chatId, messages, flushSave, router, startDraft]
+    [chatId, messages, flushSave, router, startDraft, consumeAuthenticatedNewChatPickerIntent]
   );
 
   const handleNewChat = useCallback(() => {
@@ -767,9 +810,16 @@ export default function StandaloneChatInner() {
     }
     startDraft(null);
     setGroupCreateError(null);
-    setGroupPickerOpen(true);
+    beginAuthenticatedNewChatPickerIntent();
     router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
-  }, [chatId, messages, flushSave, router, startDraft]);
+  }, [
+    chatId,
+    messages,
+    flushSave,
+    router,
+    startDraft,
+    beginAuthenticatedNewChatPickerIntent,
+  ]);
 
   const handleCreateGroupAndChat = useCallback(
     async (title: string) => {
@@ -914,12 +964,25 @@ export default function StandaloneChatInner() {
     router,
   ]);
 
-  // Mounted ?new=1 invariant — soft-nav to new-chat must clear a live instance.
+  // Mounted ?new=1 invariant — soft-nav to new-chat may clear a leftover live
+  // canvas only while authenticated New Chat intent is still pending.
+  // After group/title selection (intent consumed), first-message promotion may
+  // briefly keep ?new=1 while chatId exists — never wipe or reopen the picker.
   useEffect(() => {
     if (!ready || !urlSyncEnabledRef.current) return;
-    if (!isSainaNewChatRequest(searchParams?.toString() ?? null)) return;
-    if (!chatId && messages.length === 0) return;
+    const isNewChatRequest = isSainaNewChatRequest(searchParams?.toString() ?? null);
+    const hasLiveConversation = Boolean(chatId) || messages.length > 0;
+    if (
+      !shouldClearLiveConversationOnNewChatUrl({
+        isNewChatRequest,
+        hasLiveConversation,
+        hasPendingNewChatIntent: authenticatedNewChatPickerIntentRef.current,
+      })
+    ) {
+      return;
+    }
     startDraft(null);
+    // Intent still pending — keep picker open (do not re-begin; already open).
     setGroupPickerOpen(true);
   }, [ready, searchParams, chatId, messages.length, startDraft]);
 
@@ -1247,6 +1310,8 @@ export default function StandaloneChatInner() {
     const sendSessionGeneration = sessionGenerationRef.current;
     const isSendSessionActive = () =>
       canApplySessionBoundResult(sendSessionGeneration, sessionGenerationRef.current);
+
+    setSendRequestError(null);
 
     // Lazy creation: ilk mesajda arşiv kaydını burada oluştur.
     let activeChatId = chatId;
@@ -1812,46 +1877,31 @@ export default function StandaloneChatInner() {
       // Error already handled in fallback logic above
       setIsTyping(false);
       setIsLoading(false);
-      
-      // Remove placeholder assistant message
+
+      // Remove placeholder assistant message — keep the user's sent message.
       setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId));
-      
-      // Show error message
-      let errorText = 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.';
-      const quotaDetail = extractQuotaDetail(error);
-      if (quotaDetail?.reason && isQuotaLimitReason(quotaDetail.reason)) {
-        errorText = resolveChatLimitMessage(
-          quotaDetail.currentTier ?? accountEntitlements.tier
-        );
-        void refreshEntitlements();
-      } else {
-        const errorCode = error?.code || error?.response?.data?.error;
 
-        if (errorCode === 'DEMO_TOKEN_LIMIT_REACHED') {
-          errorText =
-            'Günlük Demo Limiti Doldu\n\nBu sayfa, EZA\'nın herkese açık demo ortamıdır. Sistem stabilitesi ve adil kullanım için günlük bir kapasite ile çalışır.\n\nLütfen daha sonra tekrar deneyin.';
-        } else if (errorCode === 'DEMO_TEXT_LIMIT_EXCEEDED') {
-          errorText =
-            'Demo ortamında uzun metin analizi sınırlıdır. Daha kapsamlı analizler kurumsal kullanım için sunulmaktadır.';
-        } else if (error.message) {
-          if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-            errorText = 'Backend bağlantı hatası. Backend çalışıyor mu kontrol edin.';
-          } else if (error.message.includes('404') || error.message.includes('bulunamadı')) {
-            errorText = 'Backend endpoint bulunamadı. Lütfen backend\'in çalıştığından emin olun.';
-          } else {
-            errorText = error.message;
-          }
+      const display = resolveChatSendFailureDisplay(error, accountEntitlements.tier);
+      if (display.mode === 'domain_message') {
+        // Product quota/demo copy — system-style message (limit- ids are not autosaved).
+        const quotaDetail = extractQuotaDetail(error);
+        if (quotaDetail?.reason && isQuotaLimitReason(quotaDetail.reason)) {
+          void refreshEntitlements();
         }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `limit-${Date.now()}`,
+            text: display.text,
+            isUser: false,
+            timestamp: new Date(),
+          },
+        ]);
+        return;
       }
-      
-      const errorMessage: Message = {
-        id: `error-${Date.now()}`,
-        text: errorText,
-        isUser: false,
-        timestamp: new Date(),
-      };
 
-      setMessages((prev) => [...prev, errorMessage]);
+      // Transport / API failures: transient UI only — never assistant chat content.
+      setSendRequestError(display.text);
     } finally {
       setIsTyping(false);
       setIsLoading(false);
@@ -2107,6 +2157,15 @@ export default function StandaloneChatInner() {
           onDismiss={handleBranchDismiss}
         />
       ) : null}
+      {sendRequestError ? (
+        <div
+          role="alert"
+          data-testid="chat-send-request-error"
+          className="mb-2 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-[#f4f0e8]"
+        >
+          {sendRequestError}
+        </div>
+      ) : null}
       <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={composerDisabled} />
     </>
   );
@@ -2164,7 +2223,7 @@ export default function StandaloneChatInner() {
         groups={conversationGroups}
         onClose={() => {
           if (groupCreating) return;
-          setGroupPickerOpen(false);
+          consumeAuthenticatedNewChatPickerIntent();
           setGroupCreateError(null);
         }}
         onSelectExisting={(groupId) => openDraftInGroup(groupId)}
