@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import {
   allocateDraftKey,
   allocateJourneyId,
@@ -396,5 +396,19 @@ describe('isMirrorJourneyV1ClientEnabled', () => {
     expect(isMirrorJourneyV1ClientEnabled({ NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1: 'true' })).toBe(
       true
     );
+    expect(isMirrorJourneyV1ClientEnabled({ NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1: '1' })).toBe(true);
+    expect(isMirrorJourneyV1ClientEnabled({ NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1: 'false' })).toBe(
+      false
+    );
+  });
+
+  it('no-arg path reads static NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1', () => {
+    vi.stubEnv('NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1', 'true');
+    expect(isMirrorJourneyV1ClientEnabled()).toBe(true);
+    vi.stubEnv('NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1', 'false');
+    expect(isMirrorJourneyV1ClientEnabled()).toBe(false);
+    vi.stubEnv('NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1', '');
+    expect(isMirrorJourneyV1ClientEnabled()).toBe(false);
+    vi.unstubAllEnvs();
   });
 });
