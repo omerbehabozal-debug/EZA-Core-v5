@@ -21,6 +21,8 @@ interface RequestOptions {
 
 interface ApiResponse<T = any> {
   ok: boolean;
+  /** HTTP status when a response was received; undefined for pre-flight/network failures. */
+  status?: number;
   data?: T;
   error?: {
     error_code?: string;
@@ -29,6 +31,13 @@ interface ApiResponse<T = any> {
     error?: string; // Also include error code in error field for compatibility
   };
   [key: string]: any; // Allow other response fields
+}
+
+/** True for application/json and charset variants (e.g. application/json; charset=utf-8). */
+function isJsonContentType(contentType: string | null): boolean {
+  if (!contentType) return false;
+  const mime = contentType.split(';')[0]?.trim().toLowerCase() ?? '';
+  return mime === 'application/json' || mime.endsWith('+json');
 }
 
 class ApiClient {
@@ -125,14 +134,16 @@ class ApiClient {
       console.log('API Request:', { method, url, body: body ? JSON.stringify(body).substring(0, 100) : null });
       
       const response = await fetch(url, config);
-      
-      // Check if response is JSON
+      const httpStatus = response.status;
+
+      // Check if response is JSON (accept charset / +json; reject text/html)
       const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
+      if (!isJsonContentType(contentType)) {
         const text = await response.text();
         console.error('Non-JSON response:', text.substring(0, 200));
         return {
           ok: false,
+          status: httpStatus,
           error: {
             error_code: 'INVALID_RESPONSE',
             error_message: 'Server returned non-JSON response',
@@ -142,7 +153,7 @@ class ApiClient {
       }
       
       const data = await response.json();
-      console.log('API Response:', { status: response.status, data });
+      console.log('API Response:', { status: httpStatus, data });
 
       // Handle HTTP errors
       if (!response.ok) {
@@ -157,25 +168,26 @@ class ApiClient {
         } else if (typeof data.detail === 'string') {
           errorMessage = data.detail;
         } else {
-          errorCode = data.error?.error_code || data.error || `HTTP_${response.status}`;
+          errorCode = data.error?.error_code || data.error || `HTTP_${httpStatus}`;
           errorMessage = data.error?.error_message || data.error?.message || data.detail || data.message || 'Request failed';
         }
 
-        if (response.status === 401 && !errorCode) {
+        if (httpStatus === 401 && !errorCode) {
           errorCode = 'auth_required';
         }
-        if (response.status === 502 && !errorCode) {
+        if (httpStatus === 502 && !errorCode) {
           errorCode = 'generation_failed';
         }
-        if (response.status === 402 && !errorCode) {
+        if (httpStatus === 402 && !errorCode) {
           errorCode = 'openai_insufficient_quota';
         }
         
         return {
           ok: false,
+          status: httpStatus,
           detail: data.detail,
           error: {
-            error_code: errorCode || `HTTP_${response.status}`,
+            error_code: errorCode || `HTTP_${httpStatus}`,
             error_message: errorMessage,
             message: errorMessage,
             error: errorCode,
@@ -196,6 +208,7 @@ class ApiClient {
       return {
         ok: true,
         ...data, // Spread all fields (mode, eza_score, director fields, etc.)
+        status: httpStatus,
         data: payload,
       };
     } catch (error: any) {

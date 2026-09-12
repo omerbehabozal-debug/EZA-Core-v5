@@ -128,6 +128,15 @@ export async function deleteServerConversationGroup(
   });
   if (res.ok) return 'deleted';
 
+  // Temporary runtime diagnostic — remove after production shape is confirmed.
+  console.warn('[conversation-group-delete]', {
+    groupId,
+    status: res.status,
+    errorCode: res.error?.error_code,
+    error: res.error?.error,
+    detail: res.detail,
+  });
+
   const status = typeof res.status === 'number' ? res.status : undefined;
   const code = readConversationGroupErrorCode(res);
 
