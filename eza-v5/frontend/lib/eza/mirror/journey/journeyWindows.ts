@@ -290,6 +290,84 @@ export function getAwaitingDecisionWindow(
 }
 
 /**
+ * When the current source block has 6–7 eligible pairs (not yet a full 8),
+ * authenticated users may open Review early. Full 8-pair blocks use
+ * {@link getAwaitingDecisionWindow} instead.
+ */
+export function getEarlyYansiReviewWindowIndex(
+  state: JourneyConversationState | null
+): number | null {
+  if (!state || state.journeyMode === 'private_chat_mode') return null;
+  if (getAwaitingDecisionWindow(state)) return null;
+  if (state.windows.some((w) => w.status === 'reviewing')) return null;
+  const eligible = state.eligiblePairCount;
+  if (eligible < JOURNEY_SELECTED_MIN) return null;
+  const windowIndex = Math.floor((eligible - 1) / JOURNEY_WINDOW_SIZE);
+  const pairsInWindow = eligible - windowIndex * JOURNEY_WINDOW_SIZE;
+  if (pairsInWindow < JOURNEY_SELECTED_MIN) return null;
+  if (pairsInWindow >= JOURNEY_WINDOW_SIZE) return null;
+  const rec = state.windows.find((w) => w.windowIndex === windowIndex);
+  if (
+    rec &&
+    (rec.status === 'confirmed' ||
+      rec.status === 'skipped' ||
+      rec.status === 'generating' ||
+      rec.status === 'ready' ||
+      rec.status === 'failed')
+  ) {
+    return null;
+  }
+  return windowIndex;
+}
+
+/** Ensure a window record exists so early Review can mark it reviewing. */
+export function ensureJourneyWindowRecord(
+  state: JourneyConversationState,
+  windowIndex: number
+): JourneyConversationState {
+  if (state.windows.some((w) => w.windowIndex === windowIndex)) return state;
+  const now = new Date().toISOString();
+  return {
+    ...state,
+    windows: [
+      ...state.windows,
+      {
+        ...emptyWindow(windowIndex),
+        draftKey: allocateWindowDraftKey(state.sourceConversationId, windowIndex),
+      },
+    ].sort((a, b) => a.windowIndex - b.windowIndex),
+    updatedAt: now,
+  };
+}
+
+/**
+ * Cancel Review: full 8-pair windows return to awaiting_decision;
+ * early (6–7) windows return to pending so skip is not forced early.
+ */
+export function cancelJourneyWindowReview(
+  state: JourneyConversationState,
+  windowIndex: number,
+  eligiblePairCount: number
+): JourneyConversationState {
+  const pairsInWindow = Math.min(
+    JOURNEY_WINDOW_SIZE,
+    Math.max(0, eligiblePairCount - windowIndex * JOURNEY_WINDOW_SIZE)
+  );
+  const nextStatus: JourneyWindowStatus =
+    pairsInWindow >= JOURNEY_WINDOW_SIZE ? 'awaiting_decision' : 'pending';
+  const now = new Date().toISOString();
+  return {
+    ...state,
+    windows: state.windows.map((w) =>
+      w.windowIndex === windowIndex && w.status === 'reviewing'
+        ? { ...w, status: nextStatus }
+        : w
+    ),
+    updatedAt: now,
+  };
+}
+
+/**
  * Explicit PRIVATE_CONTINUE — permanent Private Mode for this conversation.
  * Review cancel must NOT call this.
  */

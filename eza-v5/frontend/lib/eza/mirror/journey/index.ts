@@ -48,6 +48,9 @@ export {
   syncJourneyConversationState,
   createEmptyJourneyConversationState,
   getAwaitingDecisionWindow,
+  getEarlyYansiReviewWindowIndex,
+  ensureJourneyWindowRecord,
+  cancelJourneyWindowReview,
   skipJourneyWindow,
   dismissJourneyWindowInvitation,
   enterPrivateChatMode,
@@ -219,7 +222,11 @@ export {
   parseMirrorJourneyV1Flag,
   isSainaYansiInvitationEnabled,
 } from './journeyClientFlag';
-export { requiresAuthenticatedJourneyYansiGate, hasJourneyBackedYansiArtifact } from './authenticatedJourneyYansiGate';
+export {
+  requiresAuthenticatedJourneyYansiGate,
+  hasJourneyBackedYansiArtifact,
+  canAuthorizeAuthenticatedJourneyMirrorReveal,
+} from './authenticatedJourneyYansiGate';
 export {
   JOURNEY_AYNA_GENERATE_EVENT,
   JOURNEY_AYNA_GENERATE_PENDING_KEY,

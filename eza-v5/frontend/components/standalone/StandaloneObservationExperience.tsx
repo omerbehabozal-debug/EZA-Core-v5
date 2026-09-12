@@ -97,6 +97,7 @@ import {
   resolveJourneyOwnerKey,
   requiresAuthenticatedJourneyYansiGate,
   hasJourneyBackedYansiArtifact,
+  canAuthorizeAuthenticatedJourneyMirrorReveal,
   type JourneyAynaGenerateDetail,
   type MirrorJourneySharePayload,
 } from '@/lib/eza/mirror/journey';
@@ -845,6 +846,18 @@ export default function StandaloneObservationExperience({
 
   const runMirrorWithReveal = useCallback(
     (sourceEntries: SavedBehavioralEntry[], options?: { isUpdate?: boolean; immediate?: boolean }) => {
+      // Authenticated Journey gate: generation is impossible without Review8 authorization.
+      if (
+        !canAuthorizeAuthenticatedJourneyMirrorReveal({
+          isAuthenticated,
+          conversationId,
+          ownerUserId: shareCacheUserId,
+          journeyAuthorizedReveal,
+        })
+      ) {
+        return;
+      }
+
       // Drop stale chat background + cache immediately so create/update UX
       // never shows the previous Mirror while the new one is generating.
       clearChatBackgroundScene(conversationId);
@@ -886,7 +899,15 @@ export default function StandaloneObservationExperience({
         commit();
       }, MIRROR_REVEAL_DURATION_MS);
     },
-    [clearChatBackgroundScene, commitMirrorReady, conversationId, resetGeneratedCardState]
+    [
+      clearChatBackgroundScene,
+      commitMirrorReady,
+      conversationId,
+      isAuthenticated,
+      journeyAuthorizedReveal,
+      resetGeneratedCardState,
+      shareCacheUserId,
+    ]
   );
 
   useEffect(() => {

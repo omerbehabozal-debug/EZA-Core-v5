@@ -24,16 +24,19 @@ import Review8Screen from '@/components/mirror/Review8Screen';
 import {
   canAcceptAnotherJourneyQuestion,
   canSendMoreJourneyQuestions,
+  cancelJourneyWindowReview,
   confirmJourneyWindow,
+  dismissJourneyWindowInvitation,
+  ensureJourneyWindowRecord,
   extractQaPairs,
   getAwaitingDecisionWindow,
+  getEarlyYansiReviewWindowIndex,
   isSainaYansiInvitationEnabled,
   loadMirrorJourneyArtifact,
   markJourneyWindowReady,
   markJourneyWindowReviewing,
   markMirrorJourneyArtifactGenerating,
   pairsForWindow,
-  reopenJourneyWindowDecision,
   requestJourneyAynaGeneration,
   listJourneyArtifactsForConversation,
   requiresAuthenticatedJourneyYansiGate,
@@ -41,7 +44,6 @@ import {
   resolveAuthorDisplayName,
   resolveParentJourneyId,
   saveJourneyConversationState,
-  dismissJourneyWindowInvitation,
   syncJourneyConversationState,
   type JourneyConversationState,
   type Review8Draft,
@@ -1142,6 +1144,7 @@ export default function StandaloneChatInner() {
   }, [messages, chatId, journeyOwnerId, journeyV1On]);
 
   const awaitingJourneyWindow = getAwaitingDecisionWindow(journeyState);
+  const earlyYansiReviewWindowIndex = getEarlyYansiReviewWindowIndex(journeyState);
   const generatingWindow = journeyState?.windows.find((w) => w.status === 'generating');
   const readyWindow = journeyState?.windows.find((w) => w.status === 'ready');
 
@@ -1179,6 +1182,19 @@ export default function StandaloneChatInner() {
     setJourneyReviewWindowIndex(awaitingJourneyWindow.windowIndex);
     setJourneyReviewOpen(true);
   }, [journeyState, awaitingJourneyWindow, persistJourneyMutation]);
+
+  /** 6–7 eligible pairs: open Review without the 8-pair skip decision. */
+  const handleEarlyYansiCreate = useCallback(() => {
+    if (!journeyState || earlyYansiReviewWindowIndex == null) return;
+    const ensured = ensureJourneyWindowRecord(
+      journeyState,
+      earlyYansiReviewWindowIndex
+    );
+    const next = markJourneyWindowReviewing(ensured, earlyYansiReviewWindowIndex);
+    persistJourneyMutation(next);
+    setJourneyReviewWindowIndex(earlyYansiReviewWindowIndex);
+    setJourneyReviewOpen(true);
+  }, [journeyState, earlyYansiReviewWindowIndex, persistJourneyMutation]);
 
   const handleJourneyReviewConfirmed = useCallback(
     (draft: Review8Draft) => {
@@ -2194,6 +2210,16 @@ export default function StandaloneChatInner() {
         <JourneyWindowDecisionBanner
           onCreate={handleJourneyCreate}
           onSkip={handleJourneySkip}
+          showSkip
+        />
+      ) : null}
+      {journeyV1On &&
+      earlyYansiReviewWindowIndex != null &&
+      !awaitingJourneyWindow &&
+      !journeyReviewOpen ? (
+        <JourneyWindowDecisionBanner
+          onCreate={handleEarlyYansiCreate}
+          showSkip={false}
         />
       ) : null}
       {branchSuggestionVisible && branchCards.length > 0 ? (
@@ -2338,9 +2364,10 @@ export default function StandaloneChatInner() {
           onConfirmed={handleJourneyReviewConfirmed}
           onCancel={() => {
             if (journeyState && journeyReviewWindowIndex != null) {
-              const next = reopenJourneyWindowDecision(
+              const next = cancelJourneyWindowReview(
                 journeyState,
-                journeyReviewWindowIndex
+                journeyReviewWindowIndex,
+                journeyState.eligiblePairCount
               );
               const saved = saveJourneyConversationState(next);
               setJourneyState(saved.ok ? saved.state : saved.current);

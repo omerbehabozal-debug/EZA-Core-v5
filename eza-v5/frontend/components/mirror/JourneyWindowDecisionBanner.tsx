@@ -9,16 +9,20 @@ import {
 
 export type JourneyWindowDecisionBannerProps = {
   onCreate: () => void;
-  onSkip: () => void;
+  onSkip?: () => void;
+  /** When false, only the create CTA is shown (early 6–7 path). Default true. */
+  showSkip?: boolean;
   className?: string;
 };
 
 /**
  * Lightweight post-A8 decision — must not block the chat composer.
+ * Early (6–7) path may hide skip so "continue" is not forced before the 8-pair decision.
  */
 export default function JourneyWindowDecisionBanner({
   onCreate,
   onSkip,
+  showSkip = true,
   className,
 }: JourneyWindowDecisionBannerProps) {
   return (
@@ -41,14 +45,16 @@ export default function JourneyWindowDecisionBanner({
         >
           {MIRROR_JOURNEY_DECISION_CREATE}
         </button>
-        <button
-          type="button"
-          className="inline-flex flex-1 items-center justify-center rounded-full border border-white/10 px-3 py-2 text-xs font-medium text-[rgba(217,196,163,0.88)]"
-          onClick={onSkip}
-          data-testid="journey-window-skip"
-        >
-          {MIRROR_JOURNEY_DECISION_SKIP}
-        </button>
+        {showSkip && onSkip ? (
+          <button
+            type="button"
+            className="inline-flex flex-1 items-center justify-center rounded-full border border-white/10 px-3 py-2 text-xs font-medium text-[rgba(217,196,163,0.88)]"
+            onClick={onSkip}
+            data-testid="journey-window-skip"
+          >
+            {MIRROR_JOURNEY_DECISION_SKIP}
+          </button>
+        ) : null}
       </div>
     </div>
   );

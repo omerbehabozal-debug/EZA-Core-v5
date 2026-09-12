@@ -149,9 +149,12 @@ export function buildReview8DraftFromWindow(input: {
   if (!ownerUserId) {
     throw new Error('Review draft requires ownerUserId');
   }
-  if (input.pairs.length !== JOURNEY_CANDIDATE_COUNT) {
+  if (
+    input.pairs.length < JOURNEY_SELECTED_MIN ||
+    input.pairs.length > JOURNEY_CANDIDATE_COUNT
+  ) {
     throw new Error(
-      `Source block requires exactly ${JOURNEY_CANDIDATE_COUNT} pairs`
+      `Source block requires ${JOURNEY_SELECTED_MIN}–${JOURNEY_CANDIDATE_COUNT} pairs`
     );
   }
   const now = new Date().toISOString();

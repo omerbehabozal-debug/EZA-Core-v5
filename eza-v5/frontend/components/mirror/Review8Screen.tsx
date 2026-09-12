@@ -17,7 +17,7 @@ import {
 export type Review8ScreenProps = {
   ownerUserId: string;
   sourceConversationId: string;
-  /** Exact chronological source-block pairs (length 8). */
+  /** Chronological source-block pairs (6–8). Full blocks are 8; early create may be 6–7. */
   windowPairs: EligibleQaPair[];
   windowIndex: number;
   draftKey: string;
@@ -29,9 +29,13 @@ export type Review8ScreenProps = {
   className?: string;
 };
 
+function isValidCandidateCount(n: number): boolean {
+  return n >= JOURNEY_SELECTED_MIN && n <= JOURNEY_CANDIDATE_COUNT;
+}
+
 /**
  * Review — publication/privacy consent for one source block.
- * Starts with all 8 selected; user may deselect up to 2 (min 6).
+ * Full block: 8 candidates, select 6–8. Early block: 6–7 candidates, select ≥6.
  */
 export default function Review8Screen({
   ownerUserId,
@@ -46,19 +50,21 @@ export default function Review8Screen({
   onCancel,
   className,
 }: Review8ScreenProps) {
+  const candidateCountValid = isValidCandidateCount(windowPairs.length);
+
   const [draft, setDraft] = useState<Review8Draft | null>(() => {
     if (
       initialDraft?.ownerUserId === ownerUserId &&
       initialDraft.draftKey === draftKey &&
-      (initialDraft.sourceBlockSteps?.length === JOURNEY_CANDIDATE_COUNT ||
-        initialDraft.selectedSteps?.length === JOURNEY_CANDIDATE_COUNT)
+      ((initialDraft.sourceBlockSteps?.length ?? 0) >= JOURNEY_SELECTED_MIN ||
+        (initialDraft.selectedSteps?.length ?? 0) >= JOURNEY_SELECTED_MIN)
     ) {
       return {
         ...initialDraft,
         status: 'reviewing',
         snapshotHash: null,
         sourceBlockSteps:
-          initialDraft.sourceBlockSteps?.length === JOURNEY_CANDIDATE_COUNT
+          (initialDraft.sourceBlockSteps?.length ?? 0) >= JOURNEY_SELECTED_MIN
             ? initialDraft.sourceBlockSteps
             : windowPairs,
         selectedSourceOrders:
@@ -67,7 +73,7 @@ export default function Review8Screen({
             : initialDraft.selectedSteps.map((s) => s.sourceOrder),
       };
     }
-    if (windowPairs.length !== JOURNEY_CANDIDATE_COUNT) return null;
+    if (!candidateCountValid) return null;
     return buildReview8DraftFromWindow({
       ownerUserId,
       sourceConversationId,
@@ -83,7 +89,7 @@ export default function Review8Screen({
   /** Phase 8.6 — sync guard: double-click must not allocate two journeyIds. */
   const confirmInFlightRef = useRef(false);
 
-  if (!draft || windowPairs.length !== JOURNEY_CANDIDATE_COUNT) {
+  if (!draft || !candidateCountValid) {
     return (
       <div
         className={cn(
@@ -95,11 +101,14 @@ export default function Review8Screen({
         data-testid="review8-invalid-window"
       >
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141210] p-5 text-[#f4f0e8]">
-          <p className="text-sm">Bu Yansı henüz 8 geçerli adım içermiyor.</p>
+          <p className="text-sm">
+            Bu Yansı henüz en az {JOURNEY_SELECTED_MIN} geçerli adım içermiyor.
+          </p>
           <button
             type="button"
             className="mt-4 w-full rounded-full border border-white/10 py-2.5 text-xs"
             onClick={onCancel}
+            data-testid="review8-invalid-close"
           >
             Kapat
           </button>
@@ -118,6 +127,7 @@ export default function Review8Screen({
   );
   const selectedCount = selectedSet.size;
   const belowMinimum = selectedCount < JOURNEY_SELECTED_MIN;
+  const poolSize = block.length;
 
   const handleToggle = (sourceOrder: number) => {
     setConfirmError(null);
@@ -165,14 +175,15 @@ export default function Review8Screen({
             Yansı sorularını gözden geçir
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-[rgba(246,244,239,0.65)]">
-            Bu kaynak bloktaki 8 soru-cevaptan 6–8 tanesini seçebilirsin. En fazla 2
-            soruyu çıkarabilirsin; seçilmeyenler özel sohbette kalır.
+            Bu bloktaki {poolSize} soru-cevaptan {JOURNEY_SELECTED_MIN}–
+            {JOURNEY_CANDIDATE_COUNT} tanesini seçebilirsin. İstemediğin
+            değişimleri çıkarabilirsin; seçilmeyenler özel sohbette kalır.
           </p>
           <p
             className="mt-2 text-[11px] text-[rgba(231,180,91,0.9)]"
             data-testid="review8-selected-count"
           >
-            Seçili: {selectedCount} / 8
+            Seçili: {selectedCount} / {poolSize}
           </p>
         </header>
 

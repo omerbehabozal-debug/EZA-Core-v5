@@ -10,7 +10,9 @@ import {
   clearAllMirrorJourneyArtifactsForTests,
   clearAllReview8Drafts,
   confirmReview8Draft,
+  canAuthorizeAuthenticatedJourneyMirrorReveal,
   getAwaitingDecisionWindow,
+  getEarlyYansiReviewWindowIndex,
   hasJourneyBackedYansiArtifact,
   JOURNEY_AYNA_GENERATE_EVENT,
   markMirrorJourneyArtifactGenerating,
@@ -174,11 +176,25 @@ describe('Authenticated Journey Yansı gate', () => {
     }));
   });
 
-  it('gate is on only for authenticated conversation + invitation', () => {
+  it('gate is on for authenticated + invitation (including pending chat)', () => {
     expect(
       requiresAuthenticatedJourneyYansiGate({
         isAuthenticated: true,
         conversationId: 'chat-1',
+        invitationEnabled: true,
+      })
+    ).toBe(true);
+    expect(
+      requiresAuthenticatedJourneyYansiGate({
+        isAuthenticated: true,
+        conversationId: '',
+        invitationEnabled: true,
+      })
+    ).toBe(true);
+    expect(
+      requiresAuthenticatedJourneyYansiGate({
+        isAuthenticated: true,
+        conversationId: null,
         invitationEnabled: true,
       })
     ).toBe(true);
@@ -192,21 +208,14 @@ describe('Authenticated Journey Yansı gate', () => {
     expect(
       requiresAuthenticatedJourneyYansiGate({
         isAuthenticated: true,
-        conversationId: '',
-        invitationEnabled: true,
-      })
-    ).toBe(false);
-    expect(
-      requiresAuthenticatedJourneyYansiGate({
-        isAuthenticated: true,
         conversationId: 'chat-1',
         invitationEnabled: false,
       })
     ).toBe(false);
   });
 
-  it('A: 3–4 eligible Q/A do not open awaiting_decision / Review8 window', () => {
-    for (const n of [3, 4]) {
+  it('A: 1–5 eligible Q/A do not open awaiting_decision or early Review', () => {
+    for (const n of [1, 2, 3, 4, 5]) {
       const state = syncJourneyConversationState({
         state: null,
         ownerUserId: 'user-1',
@@ -215,18 +224,34 @@ describe('Authenticated Journey Yansı gate', () => {
       });
       expect(state.eligiblePairCount).toBe(n);
       expect(getAwaitingDecisionWindow(state)).toBeNull();
+      expect(getEarlyYansiReviewWindowIndex(state)).toBeNull();
     }
   });
 
-  it('B: 8 eligible Q/A produce awaiting_decision (banner input)', () => {
+  it('B2: Review draft accepts 6-pair early source block', () => {
+    const pairs = eligiblePairs(6);
+    const draft = buildReview8DraftFromWindow({
+      ownerUserId: 'user-1',
+      sourceConversationId: 'chat-auth',
+      windowIndex: 0,
+      pairs,
+      draftKey: 'early-6',
+    });
+    expect(draft.sourceBlockSteps).toHaveLength(6);
+    expect(draft.selectedSteps).toHaveLength(6);
+    expect(confirmReview8Draft(draft).ok).toBe(true);
+  });
+
+  it('B: 6 eligible Q/A enable early Yansı Review (no generation yet)', () => {
     const state = syncJourneyConversationState({
       state: null,
       ownerUserId: 'user-1',
       sourceConversationId: 'chat-auth',
-      messages: pairMessages(8),
+      messages: pairMessages(6),
     });
-    expect(state.eligiblePairCount).toBe(8);
-    expect(getAwaitingDecisionWindow(state)?.status).toBe('awaiting_decision');
+    expect(state.eligiblePairCount).toBe(6);
+    expect(getAwaitingDecisionWindow(state)).toBeNull();
+    expect(getEarlyYansiReviewWindowIndex(state)).toBe(0);
   });
 
   it('C: Review8 confirm requires 6–8 selections (5 blocked)', () => {
@@ -258,6 +283,70 @@ describe('Authenticated Journey Yansı gate', () => {
       pairs,
     });
     expect(confirmReview8Draft(draft).ok).toBe(true);
+  });
+
+  it('E: excluded exchange is absent from confirmed generation payload', () => {
+    const pairs = eligiblePairs(8);
+    let draft = buildReview8DraftFromWindow({
+      ownerUserId: 'user-1',
+      sourceConversationId: 'chat-auth',
+      windowIndex: 0,
+      pairs,
+    });
+    // Exclude sourceOrder 2 (bad exchange)
+    draft = {
+      ...draft,
+      selectedSourceOrders: [0, 1, 3, 4, 5, 6],
+      selectedSteps: [pairs[0], pairs[1], pairs[3], pairs[4], pairs[5], pairs[6]],
+    };
+    const confirmed = confirmReview8Draft(draft);
+    expect(confirmed.ok).toBe(true);
+    if (!confirmed.ok) return;
+    const orders = confirmed.draft.selectedSteps.map((s) => s.sourceOrder);
+    expect(orders).toEqual([0, 1, 3, 4, 5, 6]);
+    expect(orders).not.toContain(2);
+  });
+
+  it('F: 8 eligible Q/A produce awaiting_decision (create + continue)', () => {
+    const state = syncJourneyConversationState({
+      state: null,
+      ownerUserId: 'user-1',
+      sourceConversationId: 'chat-auth',
+      messages: pairMessages(8),
+    });
+    expect(state.eligiblePairCount).toBe(8);
+    expect(getAwaitingDecisionWindow(state)?.status).toBe('awaiting_decision');
+    expect(getEarlyYansiReviewWindowIndex(state)).toBeNull();
+  });
+
+  it('G: legacy reveal unauthorized without Review kick for authenticated', () => {
+    expect(
+      canAuthorizeAuthenticatedJourneyMirrorReveal({
+        isAuthenticated: true,
+        conversationId: 'chat-auth',
+        ownerUserId: 'user-1',
+        journeyAuthorizedReveal: false,
+        invitationEnabled: true,
+      })
+    ).toBe(false);
+    expect(
+      canAuthorizeAuthenticatedJourneyMirrorReveal({
+        isAuthenticated: true,
+        conversationId: 'chat-auth',
+        ownerUserId: 'user-1',
+        journeyAuthorizedReveal: true,
+        invitationEnabled: true,
+      })
+    ).toBe(true);
+    expect(
+      canAuthorizeAuthenticatedJourneyMirrorReveal({
+        isAuthenticated: false,
+        conversationId: 'chat-guest',
+        ownerUserId: null,
+        journeyAuthorizedReveal: false,
+        invitationEnabled: true,
+      })
+    ).toBe(true);
   });
 
   it('D: confirm → requestJourneyAynaGeneration; sealed ready → persist + promote', async () => {
@@ -406,6 +495,7 @@ describe('Authenticated Journey Yansı gate', () => {
   it('source: ObservationExperience blocks legacy create/birth and arms journey kick', () => {
     const obs = obsSrc();
     expect(obs).toContain('requiresAuthenticatedJourneyYansiGate');
+    expect(obs).toContain('canAuthorizeAuthenticatedJourneyMirrorReveal');
     expect(obs).toContain('setJourneyAuthorizedReveal(true)');
     expect(obs).toContain('ayna-journey-gated-empty');
     expect(obs).toContain('hasJourneyBackedYansiArtifact');
@@ -416,11 +506,14 @@ describe('Authenticated Journey Yansı gate', () => {
     expect(birthHandleIdx).toBeGreaterThan(birthGateIdx);
   });
 
-  it('source: ChatInner suppresses Mirror Birth on authenticated invitation path', () => {
+  it('source: ChatInner suppresses Mirror Birth; early+8 decision open Review', () => {
     const chat = chatSrc();
     expect(chat).toContain('requiresAuthenticatedJourneyYansiGate');
     expect(chat).toContain('requestJourneyAynaGeneration');
     expect(chat).toContain('JourneyWindowDecisionBanner');
+    expect(chat).toContain('getEarlyYansiReviewWindowIndex');
+    expect(chat).toContain('handleEarlyYansiCreate');
+    expect(chat).toContain('showSkip={false}');
   });
 
   it('source: ready headline gated; persist path unchanged', () => {
