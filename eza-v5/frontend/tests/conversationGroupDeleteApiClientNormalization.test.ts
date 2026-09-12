@@ -197,4 +197,27 @@ describe('apiClient DELETE normalization → group delete reconcile', () => {
     expect(logged).not.toHaveProperty('Authorization');
     expect(logged).not.toHaveProperty('headers');
   });
+
+  it('DELETE 204 empty body (FastAPI No Content) → ok + already reconciles as deleted', async () => {
+    installGroupAuthorityForTests(userA, [namedGroup(staleUuid, 'Empty')], 'ready');
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(null, {
+          status: 204,
+          // FastAPI Response() often omits Content-Type for empty body
+          headers: {},
+        })
+      )
+    );
+
+    const normalized = await apiClient.delete(deletePath, { auth: true });
+    expect(normalized.ok).toBe(true);
+    expect(normalized.status).toBe(204);
+
+    await expect(deleteServerConversationGroup(staleUuid)).resolves.toBe('deleted');
+    await deleteAuthenticatedConversationGroup(staleUuid);
+
+    expect(getServerAuthorityGroups().find((g) => g.id === staleUuid)).toBeUndefined();
+    expect(getGroupsForAuthenticatedSidebar(userA)).toEqual([]);
+  });
 });

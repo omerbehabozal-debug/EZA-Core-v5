@@ -140,6 +140,19 @@ class ApiClient {
       const contentType = response.headers.get('content-type');
       if (!isJsonContentType(contentType)) {
         const text = await response.text();
+        // FastAPI DELETE returns 204 No Content with empty body / no Content-Type.
+        // Treat successful empty responses as ok — otherwise store reconcile never runs
+        // and same-tab UI stays stale until full page refresh.
+        if (
+          response.ok &&
+          (httpStatus === 204 || httpStatus === 205 || text.trim().length === 0)
+        ) {
+          return {
+            ok: true,
+            status: httpStatus,
+            data: undefined,
+          };
+        }
         console.error('Non-JSON response:', text.substring(0, 200));
         return {
           ok: false,
