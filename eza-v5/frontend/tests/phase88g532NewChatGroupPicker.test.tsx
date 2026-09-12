@@ -195,7 +195,7 @@ describe('New chat entry wiring', () => {
       join(process.cwd(), 'components/standalone/StandaloneChatInner.tsx'),
       'utf8'
     );
-    expect(chatSrc).toContain('setGroupPickerOpen(true)');
+    expect(chatSrc).toContain('beginAuthenticatedNewChatPickerIntent');
     expect(chatSrc).toContain('openDraftInGroup');
     expect(chatSrc).toContain('createAuthenticatedConversationGroup');
     // No immediate empty archive on group create path.

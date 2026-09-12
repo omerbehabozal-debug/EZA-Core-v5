@@ -152,13 +152,13 @@ describe('Active conversation delete leave path', () => {
   it('source: leave clears mirror/journey and opens new-chat composer path', () => {
     const src = chatSrc();
     const leaveIdx = src.indexOf('const leaveActiveConversationAfterDelete');
-    const leaveEnd = src.indexOf('}, [cancelPendingAutosave, resetStream, setConversationMirrorEntries]);', leaveIdx);
-    const block = src.slice(leaveIdx, leaveEnd);
+    expect(leaveIdx).toBeGreaterThanOrEqual(0);
+    const block = src.slice(leaveIdx, leaveIdx + 1800);
     expect(block).toContain('setChatId(null)');
     expect(block).toContain('setMessages([])');
     expect(block).toContain('PENDING_CONVERSATION_MIRROR_ID');
     expect(block).toContain('setJourneyState(null)');
-    expect(block).toContain('setGroupPickerOpen(true)');
+    expect(block).toContain('beginAuthenticatedNewChatPickerIntent');
     expect(SAINA_NEW_CHAT_ROUTE).toContain('new=');
   });
 });

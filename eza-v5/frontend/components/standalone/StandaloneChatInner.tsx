@@ -147,8 +147,13 @@ import {
   SAINA_NEW_CHAT_ROUTE,
 } from '@/lib/eza/sainaRoutes';
 import {
+  readStoredNewChatDraftGroupId,
+  readStoredNewChatPickerIntent,
   shouldAllowNewChatGroupPicker,
   shouldClearLiveConversationOnNewChatUrl,
+  shouldOpenPickerOnNewChatMount,
+  writeStoredNewChatDraftGroupId,
+  writeStoredNewChatPickerIntent,
 } from '@/lib/eza/newChatGroupPickerIntent';
 import {
   DELETED_CHAT_IDS_STORAGE_KEY,
@@ -427,18 +432,27 @@ export default function StandaloneChatInner() {
   const beginAuthenticatedNewChatPickerIntent = useCallback(() => {
     if (!shouldAllowNewChatGroupPicker(isServerBacked)) {
       authenticatedNewChatPickerIntentRef.current = false;
+      writeStoredNewChatPickerIntent(null);
+      writeStoredNewChatDraftGroupId(null);
       setGroupPickerOpen(false);
       return;
     }
     authenticatedNewChatPickerIntentRef.current = true;
+    writeStoredNewChatPickerIntent('pending');
+    writeStoredNewChatDraftGroupId(null);
     setGroupPickerOpen(true);
   }, [isServerBacked]);
 
   /** Group/title chosen or picker dismissed — consume one-shot intent. */
-  const consumeAuthenticatedNewChatPickerIntent = useCallback(() => {
-    authenticatedNewChatPickerIntentRef.current = false;
-    setGroupPickerOpen(false);
-  }, []);
+  const consumeAuthenticatedNewChatPickerIntent = useCallback(
+    (draftGroupId: string | null = null) => {
+      authenticatedNewChatPickerIntentRef.current = false;
+      writeStoredNewChatPickerIntent('consumed');
+      writeStoredNewChatDraftGroupId(draftGroupId);
+      setGroupPickerOpen(false);
+    },
+    []
+  );
 
   /**
    * Leave active conversation after delete — same canvas clears as startDraft/handleNewChat,
@@ -618,6 +632,11 @@ export default function StandaloneChatInner() {
     if (chatIdFromUrl && (getChatArchive(chatIdFromUrl) || isServerBacked)) {
       pruneEmptyChats(chatIdFromUrl);
       setDraftGroupId(null);
+      // Active conversation hydrate — never reopen group picker from leftover new-chat intent.
+      authenticatedNewChatPickerIntentRef.current = false;
+      writeStoredNewChatPickerIntent(null);
+      writeStoredNewChatDraftGroupId(null);
+      setGroupPickerOpen(false);
       void loadChatIntoState(chatIdFromUrl).then((loaded) => {
         if (!loaded && !isServerBacked) {
           router.replace(SAINA_DISCOVER_ROUTE, { scroll: false });
@@ -641,8 +660,22 @@ export default function StandaloneChatInner() {
     if (isSainaNewChatRequest(searchParams?.toString() ?? null)) {
       // Wait for auth so guests never flash the picker and authed users still get it.
       if (!isAuthReady) return;
-      startDraft(null);
-      beginAuthenticatedNewChatPickerIntent();
+      const storedIntent = readStoredNewChatPickerIntent();
+      const restoreGroupId = readStoredNewChatDraftGroupId();
+      if (
+        shouldOpenPickerOnNewChatMount({
+          isServerBacked,
+          storedIntent,
+        })
+      ) {
+        startDraft(null);
+        beginAuthenticatedNewChatPickerIntent();
+      } else {
+        // Intent already consumed (group/title chosen) — remount must not reopen picker.
+        authenticatedNewChatPickerIntentRef.current = false;
+        startDraft(restoreGroupId);
+        setGroupPickerOpen(false);
+      }
       setReady(true);
       enableUrlSync();
       return;
@@ -797,8 +830,10 @@ export default function StandaloneChatInner() {
       // Draft only — no archive until first message. Empty groups stay durable on server.
       startDraft(groupId);
       if (groupId) rememberActiveGroupExpanded(groupId);
-      consumeAuthenticatedNewChatPickerIntent();
+      consumeAuthenticatedNewChatPickerIntent(groupId);
       setGroupCreateError(null);
+      // Stay on ?new=1 so bare /standalone does not bounce to Keşfet; consumed
+      // session intent prevents remount from reopening the picker.
       router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
     },
     [chatId, messages, flushSave, router, startDraft, consumeAuthenticatedNewChatPickerIntent]
@@ -972,11 +1007,19 @@ export default function StandaloneChatInner() {
     if (!ready || !urlSyncEnabledRef.current) return;
     const isNewChatRequest = isSainaNewChatRequest(searchParams?.toString() ?? null);
     const hasLiveConversation = Boolean(chatId) || messages.length > 0;
+    const storedIntent = readStoredNewChatPickerIntent();
+    const hasPendingNewChatIntent =
+      authenticatedNewChatPickerIntentRef.current || storedIntent === 'pending';
+    // Consumed intent under ?new=1 (post title/group choice): never reopen.
+    if (storedIntent === 'consumed') {
+      authenticatedNewChatPickerIntentRef.current = false;
+      return;
+    }
     if (
       !shouldClearLiveConversationOnNewChatUrl({
         isNewChatRequest,
         hasLiveConversation,
-        hasPendingNewChatIntent: authenticatedNewChatPickerIntentRef.current,
+        hasPendingNewChatIntent,
       })
     ) {
       return;
@@ -1353,6 +1396,9 @@ export default function StandaloneChatInner() {
       activeChatId = newId;
       skipAutosaveRef.current = false;
       setDraftGroupId(null);
+      writeStoredNewChatPickerIntent(null);
+      writeStoredNewChatDraftGroupId(null);
+      authenticatedNewChatPickerIntentRef.current = false;
       setChatId(newId);
       router.replace(`/standalone?chat=${newId}`, { scroll: false });
     }
@@ -2223,7 +2269,7 @@ export default function StandaloneChatInner() {
         groups={conversationGroups}
         onClose={() => {
           if (groupCreating) return;
-          consumeAuthenticatedNewChatPickerIntent();
+          consumeAuthenticatedNewChatPickerIntent(null);
           setGroupCreateError(null);
         }}
         onSelectExisting={(groupId) => openDraftInGroup(groupId)}
