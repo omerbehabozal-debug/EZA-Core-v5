@@ -33,6 +33,18 @@ function isValidCandidateCount(n: number): boolean {
   return n >= JOURNEY_SELECTED_MIN && n <= JOURNEY_CANDIDATE_COUNT;
 }
 
+/** Dynamic select range for UI copy only — does not change validation. */
+export function review8SelectionRangeCopy(poolSize: number): string {
+  const maxSelectable = Math.min(
+    Math.max(poolSize, JOURNEY_SELECTED_MIN),
+    JOURNEY_CANDIDATE_COUNT
+  );
+  if (maxSelectable <= JOURNEY_SELECTED_MIN) {
+    return String(JOURNEY_SELECTED_MIN);
+  }
+  return `${JOURNEY_SELECTED_MIN}–${maxSelectable}`;
+}
+
 /**
  * Review — publication/privacy consent for one source block.
  * Full block: 8 candidates, select 6–8. Early block: 6–7 candidates, select ≥6.
@@ -175,9 +187,10 @@ export default function Review8Screen({
             Yansı sorularını gözden geçir
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-[rgba(246,244,239,0.65)]">
-            Bu bloktaki {poolSize} soru-cevaptan {JOURNEY_SELECTED_MIN}–
-            {JOURNEY_CANDIDATE_COUNT} tanesini seçebilirsin. İstemediğin
-            değişimleri çıkarabilirsin; seçilmeyenler özel sohbette kalır.
+            Bu bloktaki {poolSize} soru-cevaptan{' '}
+            {review8SelectionRangeCopy(poolSize)} tanesini seçebilirsin.
+            İstemediğin değişimleri çıkarabilirsin; seçilmeyenler özel sohbette
+            kalır.
           </p>
           <p
             className="mt-2 text-[11px] text-[rgba(231,180,91,0.9)]"

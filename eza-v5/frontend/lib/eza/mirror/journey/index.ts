@@ -198,6 +198,14 @@ export {
 export { completeJourneyGenerationLineageSeal } from './completeJourneyGenerationLineageSeal';
 
 export {
+  promoteJourneyWindowFromArtifact,
+  JOURNEY_WINDOW_STATUS_EVENT,
+  type JourneyWindowStatusDetail,
+} from './promoteJourneyWindowFromArtifact';
+
+export { reconcileGeneratingJourneyWindowsWithArtifacts } from './reconcileGeneratingJourneyWindowsWithArtifacts';
+
+export {
   buildPublishCardFromArtifact,
   artifactMatchesLiveCard,
 } from './buildPublishCardFromArtifact';

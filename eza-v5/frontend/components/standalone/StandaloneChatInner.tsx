@@ -33,12 +33,14 @@ import {
   getEarlyYansiReviewWindowIndex,
   isSainaYansiInvitationEnabled,
   loadMirrorJourneyArtifact,
-  markJourneyWindowReady,
   markJourneyWindowReviewing,
   markMirrorJourneyArtifactGenerating,
   pairsForWindow,
   requestJourneyAynaGeneration,
   listJourneyArtifactsForConversation,
+  promoteJourneyWindowFromArtifact,
+  JOURNEY_WINDOW_STATUS_EVENT,
+  reconcileGeneratingJourneyWindowsWithArtifacts,
   requiresAuthenticatedJourneyYansiGate,
   shouldSkipAynaSceneGeneration,
   resolveAuthorDisplayName,
@@ -46,6 +48,7 @@ import {
   saveJourneyConversationState,
   syncJourneyConversationState,
   type JourneyConversationState,
+  type JourneyWindowStatusDetail,
   type Review8Draft,
   resolveJourneyOwnerKey,
 } from '@/lib/eza/mirror/journey';
@@ -1138,10 +1141,36 @@ export default function StandaloneChatInner() {
       JSON.stringify(prev.windows) !== JSON.stringify(next.windows);
     if (changed) {
       persist(next);
+    } else if (prev) {
+      // Seed React state from storage once; avoid identity churn when already set.
+      setJourneyState((current) => current ?? prev);
+    }
+    // Catch generating → ready/failed when a sealed artifact already exists (hydrate).
+    const reconciled = reconcileGeneratingJourneyWindowsWithArtifacts({
+      ownerUserId: journeyOwnerId,
+      sourceConversationId: chatId,
+    });
+    if (reconciled) {
+      setJourneyState(reconciled);
     }
     // When unchanged, do not setJourneyState(next) — a new object identity would
     // re-render every effect pass and can OOM under jsdom mount tests.
   }, [messages, chatId, journeyOwnerId, journeyV1On]);
+
+  useEffect(() => {
+    if (!journeyV1On || !journeyOwnerId || !chatId) return;
+    const onWindowStatus = (event: Event) => {
+      const detail = (event as CustomEvent<JourneyWindowStatusDetail>).detail;
+      if (!detail) return;
+      if (detail.ownerUserId !== journeyOwnerId) return;
+      if (detail.sourceConversationId !== chatId) return;
+      const loaded = loadJourneyConversationState(journeyOwnerId, chatId);
+      if (loaded) setJourneyState(loaded);
+    };
+    window.addEventListener(JOURNEY_WINDOW_STATUS_EVENT, onWindowStatus);
+    return () =>
+      window.removeEventListener(JOURNEY_WINDOW_STATUS_EVENT, onWindowStatus);
+  }, [journeyV1On, journeyOwnerId, chatId]);
 
   const awaitingJourneyWindow = getAwaitingDecisionWindow(journeyState);
   const earlyYansiReviewWindowIndex = getEarlyYansiReviewWindowIndex(journeyState);
@@ -1258,18 +1287,30 @@ export default function StandaloneChatInner() {
         parentPublicTitle,
       });
       // Phase 8.6 — kick scene pipeline; Ayna reel hides legacy create CTA.
+      // Window stays generating until sealed artifact (or reusable ready) promotes it.
       if (chatId && draft.journeyId) {
         const conversationIdForKick = chatId;
         const journeyIdForKick = draft.journeyId;
+        const markReadyIfReusable = () => {
+          const promoted = promoteJourneyWindowFromArtifact({
+            ownerUserId: journeyOwnerId,
+            sourceConversationId: conversationIdForKick,
+            journeyId: journeyIdForKick,
+            status: 'ready',
+          });
+          if (promoted) setJourneyState(promoted);
+        };
         const kickIfNeeded = (reusableExists: boolean) => {
-          if (!reusableExists) {
-            onOpenMirror?.();
-            requestJourneyAynaGeneration({
-              conversationId: conversationIdForKick,
-              journeyId: journeyIdForKick,
-              journeyVersion: draft.journeyVersion ?? 1,
-            });
+          if (reusableExists) {
+            markReadyIfReusable();
+            return;
           }
+          onOpenMirror?.();
+          requestJourneyAynaGeneration({
+            conversationId: conversationIdForKick,
+            journeyId: journeyIdForKick,
+            journeyVersion: draft.journeyVersion ?? 1,
+          });
         };
         const localReusable =
           Boolean(journeyOwnerId) &&
@@ -1301,15 +1342,6 @@ export default function StandaloneChatInner() {
       }
       setJourneyReviewOpen(false);
       setJourneyReviewWindowIndex(null);
-      // Phase 3 will run meaning pipeline; keep chat free — flip to ready async.
-      window.setTimeout(() => {
-        setJourneyState((prev) => {
-          if (!prev) return prev;
-          const ready = markJourneyWindowReady(prev, windowIndex);
-          const saved = saveJourneyConversationState(ready);
-          return saved.ok ? saved.state : saved.current;
-        });
-      }, 0);
     },
     [
       journeyState,
@@ -1319,6 +1351,7 @@ export default function StandaloneChatInner() {
       chatId,
       user,
       onOpenMirror,
+      isAuthenticated,
     ]
   );
 

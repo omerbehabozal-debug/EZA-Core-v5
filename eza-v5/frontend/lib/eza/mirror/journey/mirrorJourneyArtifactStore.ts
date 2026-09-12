@@ -26,6 +26,7 @@ import {
 } from './mirrorJourneyArtifact';
 import type { JourneyGenerationLineage } from './journeyGenerationLineage';
 import { isPublishableJourneyGenerationLineage } from './journeyGenerationLineage';
+import { promoteJourneyWindowFromArtifact } from './promoteJourneyWindowFromArtifact';
 
 export const MIRROR_JOURNEY_ARTIFACT_PANEL_STORAGE_KEY =
   'eza_mirror_journey_panel_artifacts_v1';
@@ -323,7 +324,16 @@ export function markMirrorJourneyArtifactReadyFromLineage(
     existing,
   });
   if (!ready) return null;
-  return upsertMirrorJourneyArtifact(ownerUserId, ready);
+  const saved = upsertMirrorJourneyArtifact(ownerUserId, ready);
+  if (saved) {
+    promoteJourneyWindowFromArtifact({
+      ownerUserId,
+      sourceConversationId: saved.sourceConversationId,
+      journeyId: saved.journeyId,
+      status: 'ready',
+    });
+  }
+  return saved;
 }
 
 export function markMirrorJourneyArtifactPublished(
@@ -386,7 +396,16 @@ export function markMirrorJourneyArtifactFailed(
   );
   if (!existing) return null;
   const next = applyGenerationFailureToArtifact(existing, input.message);
-  return upsertMirrorJourneyArtifact(ownerUserId, next);
+  const saved = upsertMirrorJourneyArtifact(ownerUserId, next);
+  if (saved) {
+    promoteJourneyWindowFromArtifact({
+      ownerUserId,
+      sourceConversationId: saved.sourceConversationId,
+      journeyId: saved.journeyId,
+      status: 'failed',
+    });
+  }
+  return saved;
 }
 
 export function patchMirrorJourneyArtifactMetrics(

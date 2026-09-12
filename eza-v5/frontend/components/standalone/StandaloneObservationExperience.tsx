@@ -98,6 +98,7 @@ import {
   requiresAuthenticatedJourneyYansiGate,
   hasJourneyBackedYansiArtifact,
   canAuthorizeAuthenticatedJourneyMirrorReveal,
+  promoteJourneyWindowFromArtifact,
   type JourneyAynaGenerateDetail,
   type MirrorJourneySharePayload,
 } from '@/lib/eza/mirror/journey';
@@ -1493,6 +1494,23 @@ export default function StandaloneObservationExperience({
         }
         setSceneImageUrl(null);
         setSceneImageStatus('error');
+        const failLineage = cardForScene.mirrorJourneyGenerationLineage;
+        const failJourneyId =
+          (typeof failLineage?.journeyId === 'string' && failLineage.journeyId.trim()) ||
+          readPendingJourneyAynaGeneration(conversationId || '')?.journeyId ||
+          '';
+        if (failJourneyId && boundOwnerAtStart) {
+          markMirrorJourneyArtifactFailed(boundOwnerAtStart, {
+            journeyId: failJourneyId,
+            journeyVersion:
+              typeof failLineage?.journeyVersion === 'number' &&
+              failLineage.journeyVersion >= 1
+                ? failLineage.journeyVersion
+                : 1,
+            message:
+              err instanceof Error ? err.message : 'generation_failed',
+          });
+        }
         const visual = cardForScene.visual;
         if (err instanceof MirrorSceneError) {
           if (err.code === 'auth_required') {
@@ -1794,6 +1812,12 @@ export default function StandaloneObservationExperience({
       const tryKick = (reusableNow: boolean) => {
         if (reusableNow) {
           consumePendingJourneyAynaGeneration(conversationId);
+          promoteJourneyWindowFromArtifact({
+            ownerUserId: shareCacheUserId,
+            sourceConversationId: conversationId,
+            journeyId: detail.journeyId,
+            status: 'ready',
+          });
           return;
         }
         journeyAynaKickKeyRef.current = kickKey;
