@@ -99,6 +99,7 @@ import {
   hasJourneyBackedYansiArtifact,
   canAuthorizeAuthenticatedJourneyMirrorReveal,
   promoteJourneyWindowFromArtifact,
+  restoreRemountCardLandingFromJourneyArtifacts,
   type JourneyAynaGenerateDetail,
   type MirrorJourneySharePayload,
 } from '@/lib/eza/mirror/journey';
@@ -947,7 +948,24 @@ export default function StandaloneObservationExperience({
       conversationId && shareCacheUserId
         ? readMirrorShareLink(conversationId, shareCacheUserId)
         : null;
-    const card = mergeCachedShareLinkIntoCard(state.dailyMirrorCard, cachedLink);
+    const cardWithShare = mergeCachedShareLinkIntoCard(
+      state.dailyMirrorCard,
+      cachedLink
+    );
+    const sceneCache = readMirrorSceneCacheForScope(conversationId, cardWithShare);
+    const archiveUrl = conversationId
+      ? getChatArchive(conversationId)?.conversationSceneUrl?.trim() || null
+      : null;
+    const archiveScene =
+      archiveUrl && isPersistableConversationSceneUrl(archiveUrl) ? archiveUrl : null;
+    const existingScene = sceneCache?.sceneImageUrl ?? archiveScene;
+    // Overlay sealed READY/published Journey landing before public preview.
+    const card = restoreRemountCardLandingFromJourneyArtifacts({
+      card: cardWithShare,
+      ownerUserId: shareCacheUserId,
+      conversationId,
+      sceneImageUrl: existingScene,
+    });
     setGeneratedDailyCard(card);
     setGeneratedDailyMeta(state.meta);
     setStyleLensSession(resolveStyleLensSessionForCard(card));
@@ -957,14 +975,6 @@ export default function StandaloneObservationExperience({
     } else {
       setShareLinkStatus('idle');
     }
-
-    const sceneCache = readMirrorSceneCacheForScope(conversationId, card);
-    const archiveUrl = conversationId
-      ? getChatArchive(conversationId)?.conversationSceneUrl?.trim() || null
-      : null;
-    const archiveScene =
-      archiveUrl && isPersistableConversationSceneUrl(archiveUrl) ? archiveUrl : null;
-    const existingScene = sceneCache?.sceneImageUrl ?? archiveScene;
 
     if (existingScene) {
       allowAutoSceneGenerationRef.current = false;
@@ -1022,7 +1032,24 @@ export default function StandaloneObservationExperience({
       conversationId && shareCacheUserId
         ? readMirrorShareLink(conversationId, shareCacheUserId)
         : null;
-    const card = mergeCachedShareLinkIntoCard(state.dailyMirrorCard, cachedLink);
+    const cardWithShare = mergeCachedShareLinkIntoCard(
+      state.dailyMirrorCard,
+      cachedLink
+    );
+    const sceneCache = readMirrorSceneCacheForScope(conversationId, cardWithShare);
+    const archiveUrl = conversationId
+      ? getChatArchive(conversationId)?.conversationSceneUrl?.trim() || null
+      : null;
+    const archiveScene =
+      archiveUrl && isPersistableConversationSceneUrl(archiveUrl) ? archiveUrl : null;
+    const existingScene = sceneCache?.sceneImageUrl ?? archiveScene;
+    // Overlay sealed READY/published Journey landing before public preview.
+    const card = restoreRemountCardLandingFromJourneyArtifacts({
+      card: cardWithShare,
+      ownerUserId: shareCacheUserId,
+      conversationId,
+      sceneImageUrl: existingScene,
+    });
     setGeneratedDailyCard(card);
     setGeneratedDailyMeta(state.meta);
     setStyleLensSession(resolveStyleLensSessionForCard(card));
@@ -1032,14 +1059,6 @@ export default function StandaloneObservationExperience({
     } else {
       setShareLinkStatus('idle');
     }
-
-    const sceneCache = readMirrorSceneCacheForScope(conversationId, card);
-    const archiveUrl = conversationId
-      ? getChatArchive(conversationId)?.conversationSceneUrl?.trim() || null
-      : null;
-    const archiveScene =
-      archiveUrl && isPersistableConversationSceneUrl(archiveUrl) ? archiveUrl : null;
-    const existingScene = sceneCache?.sceneImageUrl ?? archiveScene;
 
     if (
       existingScene &&
@@ -2143,6 +2162,16 @@ export default function StandaloneObservationExperience({
       });
       if (!cancelled && (readyRows.length > 0 || items.length > 0)) {
         setArtifactRevision((n) => n + 1);
+        // Local artifact store now has sealed titles — overlay onto thin remounted card.
+        setGeneratedDailyCard((prev) => {
+          if (!prev) return prev;
+          return restoreRemountCardLandingFromJourneyArtifacts({
+            card: prev,
+            ownerUserId: authenticatedUserId,
+            conversationId,
+            sceneImageUrl: prev.visual?.sceneImageUrl ?? null,
+          });
+        });
       }
     })();
     return () => {

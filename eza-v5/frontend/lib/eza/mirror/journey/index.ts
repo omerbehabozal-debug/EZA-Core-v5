@@ -211,6 +211,14 @@ export {
 } from './buildPublishCardFromArtifact';
 
 export {
+  artifactHasCanonicalLanding,
+  landingFromCanonicalJourneyArtifact,
+  selectJourneyArtifactForRemountLanding,
+  restoreJourneyLandingOntoCard,
+  restoreRemountCardLandingFromJourneyArtifacts,
+} from './restoreJourneyLandingOntoCard';
+
+export {
   type MirrorJourneySharePayload,
   resolveMirrorJourneySharePayload,
   withJourneySharePublishIdentity,
