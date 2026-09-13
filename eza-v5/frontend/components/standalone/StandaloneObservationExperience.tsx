@@ -1398,14 +1398,14 @@ export default function StandaloneObservationExperience({
                 sealedLineage.journeyVersion ?? 1
               )
             : null;
-        let authIdentityPromoted = false;
+        // Server durability / title identity CAS — independent of live chrome apply.
         if (
           sealedArtifact &&
           conversationId &&
           isAuthenticated &&
           authenticatedUserId
         ) {
-          const persisted = await persistAuthenticatedReadyYansi({
+          await persistAuthenticatedReadyYansi({
             artifact: sealedArtifact,
             clientConversationId: conversationId,
             bound: boundPersist,
@@ -1413,7 +1413,6 @@ export default function StandaloneObservationExperience({
             sceneFocalX: typeof result.focalX === 'number' ? result.focalX : null,
             sceneFocalY: typeof result.focalY === 'number' ? result.focalY : null,
           });
-          authIdentityPromoted = persisted?.identityPromotion === 'applied';
         }
 
         lastRawSceneUrlRef.current = result.sceneImageUrl;
@@ -1446,11 +1445,12 @@ export default function StandaloneObservationExperience({
           saveConversationMirrorSnapshot(conversationId, entries, cardForScene.date);
         }
         sceneAutoKeyRef.current = `${autoKey}:complete`;
-        // Durable conversation visual: guest always; auth only after identity promotion CAS.
+        // Live conversation background: apply on successful generation with a persistable
+        // scene URL. Do NOT gate on authenticated identity-promotion CAS — archive+chrome
+        // must update so resolveChromeConversationSceneUrl / SainaCinematicScene crossfade.
         const mayCommitConversationScene =
           Boolean(conversationId) &&
-          isPersistableConversationSceneUrl(result.sceneImageUrl) &&
-          (!isAuthenticated || authIdentityPromoted);
+          isPersistableConversationSceneUrl(result.sceneImageUrl);
         if (mayCommitConversationScene && conversationId) {
           setConversationSceneIdentity(conversationId, {
             url: result.sceneImageUrl,
