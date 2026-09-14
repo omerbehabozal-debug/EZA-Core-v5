@@ -189,12 +189,29 @@ export function buildConversationYansiStatusMap(
   return out;
 }
 
-export function withConversationYansiStatus<T extends { id: string }>(
+export function withConversationYansiStatus<
+  T extends {
+    id: string;
+    kind?: string;
+    yansiStatus?: ConversationYansiVisualStatus;
+    sourceConversationId?: string;
+  }
+>(
   items: T[],
   statusByConversationId: Record<string, ConversationYansiVisualStatus>
 ): Array<T & { yansiStatus: ConversationYansiVisualStatus }> {
-  return items.map((item) => ({
-    ...item,
-    yansiStatus: statusByConversationId[item.id] ?? 'none',
-  }));
+  return items.map((item) => {
+    if (item.kind === 'yansi') {
+      const existing = item.yansiStatus;
+      return {
+        ...item,
+        yansiStatus:
+          existing === 'ready' || existing === 'published' ? existing : 'ready',
+      };
+    }
+    return {
+      ...item,
+      yansiStatus: statusByConversationId[item.id] ?? 'none',
+    };
+  });
 }

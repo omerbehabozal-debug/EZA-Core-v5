@@ -6,6 +6,11 @@ import AynaJourneySlide, {
   type AynaJourneySlideActions,
 } from '@/components/mirror/ayna/AynaJourneySlide';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
+import {
+  artifactMatchesYansiIdentity,
+  buildYansiSourceIdentity,
+  type YansiArtifactIdentity,
+} from '@/lib/eza/mirror/journey/yansiSidebarIdentity';
 
 export type AynaJourneyReelProps = {
   artifacts: MirrorJourneyArtifact[];
@@ -15,6 +20,8 @@ export type AynaJourneyReelProps = {
   canShare?: boolean;
   emptyState?: React.ReactNode;
   className?: string;
+  /** Explicit selection from sidebar/route — not IntersectionObserver-only. */
+  selectedArtifactIdentity?: YansiArtifactIdentity | null;
   /** Called when the visible slide changes — presentation only, not identity authority. */
   onVisibleArtifactChange?: (artifact: MirrorJourneyArtifact | null) => void;
 };
@@ -31,15 +38,49 @@ export default function AynaJourneyReel({
   canShare = true,
   emptyState = null,
   className,
+  selectedArtifactIdentity = null,
   onVisibleArtifactChange,
 }: AynaJourneyReelProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [visibleKey, setVisibleKey] = useState<string | null>(null);
 
   const keyOf = useCallback(
-    (a: MirrorJourneyArtifact) => `${a.journeyId}::v${a.journeyVersion}`,
+    (a: MirrorJourneyArtifact) =>
+      buildYansiSourceIdentity(a.journeyId, a.journeyVersion) ||
+      `${a.journeyId}::v${a.journeyVersion}`,
     []
   );
+
+  const selectedKey = selectedArtifactIdentity
+    ? buildYansiSourceIdentity(
+        selectedArtifactIdentity.journeyId,
+        selectedArtifactIdentity.journeyVersion
+      )
+    : null;
+
+  // Explicit selection: scroll into view and mark visible.
+  useEffect(() => {
+    if (!selectedKey || !rootRef.current || artifacts.length === 0) return;
+    const match = artifacts.find((a) =>
+      artifactMatchesYansiIdentity(a, selectedArtifactIdentity)
+    );
+    if (!match) return;
+    const key = keyOf(match);
+    setVisibleKey(key);
+    onVisibleArtifactChange?.(match);
+    const el = rootRef.current.querySelector<HTMLElement>(
+      `[data-journey-id="${match.journeyId}"][data-journey-version="${match.journeyVersion}"]`
+    );
+    if (el) {
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [
+    selectedKey,
+    selectedArtifactIdentity,
+    artifacts,
+    keyOf,
+    onVisibleArtifactChange,
+  ]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -55,6 +96,8 @@ export default function AynaJourneyReel({
 
     const observer = new IntersectionObserver(
       (entries) => {
+        // When an explicit selection is active, do not let IO steal focus away
+        // until the user scrolls (IO still updates after scroll).
         const best = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
@@ -90,11 +133,14 @@ export default function AynaJourneyReel({
     );
   }
 
+  const activeKey = selectedKey || visibleKey;
+
   return (
     <div
       ref={rootRef}
       className={cn('ayna-journey-reel', className)}
       data-testid="ayna-journey-reel"
+      data-selected-yansi={selectedKey || undefined}
       role="feed"
       aria-label="Bu sohbetten oluşan Yansılar"
     >
@@ -109,9 +155,7 @@ export default function AynaJourneyReel({
             shareBusy={shareBusyJourneyId === artifact.journeyId}
             canShare={canShare}
             positionLabel={`${index + 1} / ${artifacts.length}`}
-            className={cn(
-              visibleKey === key && 'ayna-journey-slide--visible'
-            )}
+            className={cn(activeKey === key && 'ayna-journey-slide--visible')}
           />
         );
       })}

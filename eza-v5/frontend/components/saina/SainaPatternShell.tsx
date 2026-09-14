@@ -26,6 +26,7 @@ export type SainaPatternShellProps = {
   activeChatId?: string | null;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
+  onSelectYansi?: (item: SainaConversationItem) => void;
   onDeleteChat?: (id: string) => void;
   onRenameGroup?: (id: string, title: string) => void | Promise<void>;
   onDeleteGroup?: (group: ConversationTreeGroupDeleteRequest) => void | Promise<void>;
@@ -101,6 +102,7 @@ export default function SainaPatternShell({
   activeChatId = null,
   onNewChat,
   onSelectChat,
+  onSelectYansi,
   onDeleteChat,
   onRenameGroup,
   onDeleteGroup,
@@ -163,6 +165,7 @@ export default function SainaPatternShell({
               activeSection="pattern"
               onNewChat={onNewChat}
               onSelectChat={onSelectChat}
+              onSelectYansi={onSelectYansi}
               onDeleteChat={onDeleteChat}
               onRenameGroup={onRenameGroup}
               onDeleteGroup={onDeleteGroup}

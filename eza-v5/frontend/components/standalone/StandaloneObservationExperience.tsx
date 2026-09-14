@@ -126,6 +126,13 @@ import UpgradeModal from '@/components/plan/UpgradeModal';
 import IdentityModal from '@/components/plan/IdentityModal';
 import type { MirrorPanelCopy } from '@/lib/eza/mirror/resolveMirrorPanelCopy';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import {
+  artifactMatchesYansiIdentity,
+  parseYansiRouteParam,
+  YANSI_ROUTE_PARAM,
+  type YansiArtifactIdentity,
+} from '@/lib/eza/mirror/journey/yansiSidebarIdentity';
 import { MIRROR_PUBLISHED_STATUS, MIRROR_SHARE_PUBLISH_CONSENT, MIRROR_SHARE_PUBLISH_CONSENT_CANCEL, MIRROR_SHARE_PUBLISH_CONSENT_CONFIRM } from '@/lib/eza/mirror/copy';
 import { resolveMirrorPublicPreview } from '@/lib/eza/mirror-share/resolveMirrorPublicPreview';
 import {
@@ -221,6 +228,14 @@ export default function StandaloneObservationExperience({
   conversationId,
 }: StandaloneObservationExperienceProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedArtifactIdentity = useMemo((): YansiArtifactIdentity | null => {
+    try {
+      return parseYansiRouteParam(searchParams?.get(YANSI_ROUTE_PARAM));
+    } catch {
+      return null;
+    }
+  }, [searchParams]);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinkStatus, setShareLinkStatus] = useState<MirrorShareLinkStatus>('idle');
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
@@ -2814,6 +2829,14 @@ export default function StandaloneObservationExperience({
             publishBusyJourneyId={publishBusyJourneyId}
             shareBusyJourneyId={shareBusyJourneyId}
             canShare={isPlus}
+            selectedArtifactIdentity={
+              selectedArtifactIdentity &&
+              journeyArtifacts.some((a) =>
+                artifactMatchesYansiIdentity(a, selectedArtifactIdentity)
+              )
+                ? selectedArtifactIdentity
+                : null
+            }
             emptyState={
               <div
                 className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center"

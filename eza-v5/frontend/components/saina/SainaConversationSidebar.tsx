@@ -142,10 +142,13 @@ type SainaConversationSidebarProps = {
   conversations?: SainaConversationItem[];
   conversationGroups?: ConversationTreeGroupNode[];
   activeChatId?: string | null;
+  /** `{journeyId}::v{version}` when a Yansı row is selected. */
+  activeYansiIdentity?: string | null;
   /** Highlights section nav when on discover / pattern routes. */
   activeSection?: SainaAppView;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
+  onSelectYansi?: (item: SainaConversationItem) => void;
   onDeleteChat?: (id: string) => void;
   onRenameGroup?: (id: string, title: string) => void | Promise<void>;
   onDeleteGroup?: (group: ConversationTreeGroupDeleteRequest) => void | Promise<void>;
@@ -166,9 +169,11 @@ export default function SainaConversationSidebar({
   conversations,
   conversationGroups,
   activeChatId = null,
+  activeYansiIdentity = null,
   activeSection = 'chat',
   onNewChat,
   onSelectChat,
+  onSelectYansi,
   onDeleteChat,
   onRenameGroup,
   onDeleteGroup,
@@ -317,13 +322,17 @@ export default function SainaConversationSidebar({
 
   const requestDeleteEmptyGroup = useCallback(
     async (group: ConversationTreeGroupNode) => {
-      if (group.conversations.length !== 0) return;
+      // Yansı rows inherit group placement but are not conversations for delete rules.
+      const conversationOnlyCount = group.conversations.filter(
+        (row) => (row.kind ?? 'conversation') !== 'yansi'
+      ).length;
+      if (conversationOnlyCount !== 0) return;
       const request: ConversationTreeGroupDeleteRequest = {
         id: group.id,
         title: group.title,
         source: group.source,
         clientGroupId: group.clientGroupId ?? null,
-        conversationCount: group.conversations.length,
+        conversationCount: conversationOnlyCount,
       };
       setGroupDeleteErrorId(null);
       try {
@@ -362,6 +371,11 @@ export default function SainaConversationSidebar({
   const renderConversationRow = (
     item: {
       id: string;
+      kind?: 'conversation' | 'yansi';
+      sourceConversationId?: string;
+      journeyId?: string;
+      journeyVersion?: number;
+      yansiSourceIdentity?: string;
       title: string;
       preview: string;
       time: string;
@@ -372,10 +386,23 @@ export default function SainaConversationSidebar({
     },
     nested = false
   ) => {
-    const active = activeChatId != null && item.id === activeChatId;
-    const canManage = Boolean(onDeleteChat) && !disabled;
+    const isYansi = item.kind === 'yansi';
+    const yansiKey = item.yansiSourceIdentity?.trim() || null;
+    const active = isYansi
+      ? Boolean(
+          activeYansiIdentity &&
+            yansiKey &&
+            activeYansiIdentity === yansiKey &&
+            activeChatId != null &&
+            (item.sourceConversationId === activeChatId || !item.sourceConversationId)
+        )
+      : activeChatId != null &&
+        item.id === activeChatId &&
+        !activeYansiIdentity;
+    // Yansı rows never expose conversation rename/delete.
+    const canManage = Boolean(onDeleteChat) && !disabled && !isYansi;
 
-    if (editingId === item.id) {
+    if (!isYansi && editingId === item.id) {
       return (
         <div
           key={item.id}
@@ -409,17 +436,26 @@ export default function SainaConversationSidebar({
         key={item.id}
         className={cn(
           'saina-conv-row',
+          isYansi && 'saina-conv-row--yansi',
           active ? 'saina-conv-row--active' : 'saina-conv-row--quiet',
           nested && 'saina-conv-row--nested'
         )}
-        data-testid={`saina-conv-row-${item.id}`}
+        data-testid={
+          isYansi ? `saina-yansi-row-${item.id}` : `saina-conv-row-${item.id}`
+        }
+        data-sidebar-kind={isYansi ? 'yansi' : 'conversation'}
+        data-yansi-identity={yansiKey || undefined}
       >
         <button
           type="button"
-          disabled={disabled && !onSelectChat}
+          disabled={disabled && !(isYansi ? onSelectYansi || onSelectChat : onSelectChat)}
           className="saina-conv-row-main"
           onClick={() => {
-            onSelectChat?.(item.id);
+            if (isYansi) {
+              onSelectYansi?.(item as SainaConversationItem);
+            } else {
+              onSelectChat?.(item.id);
+            }
             onMobileClose?.();
           }}
         >
@@ -725,7 +761,10 @@ export default function SainaConversationSidebar({
               ? conversationGroups.map((group) => {
                   const expanded = isGroupExpanded(group.id);
                   const groupMenuId = `group:${group.id}`;
-                  const isEmptyGroup = group.conversations.length === 0;
+                  const conversationOnlyCount = group.conversations.filter(
+                    (row) => (row.kind ?? 'conversation') !== 'yansi'
+                  ).length;
+                  const isEmptyGroup = conversationOnlyCount === 0;
                   const canManageGroup =
                     !disabled && Boolean(isEmptyGroup ? onDeleteGroup : onRenameGroup);
                   return (

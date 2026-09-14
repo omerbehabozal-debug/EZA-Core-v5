@@ -219,6 +219,28 @@ export {
 } from './restoreJourneyLandingOntoCard';
 
 export {
+  YANSI_ROUTE_PARAM,
+  YANSI_SIDEBAR_ID_PREFIX,
+  buildYansiSourceIdentity,
+  parseYansiSourceIdentity,
+  buildYansiSidebarItemId,
+  parseYansiSidebarItemId,
+  encodeYansiRouteParam,
+  parseYansiRouteParam,
+  buildStandaloneYansiHref,
+  artifactMatchesYansiIdentity,
+  type YansiArtifactIdentity,
+  type YansiSidebarIdentity,
+} from './yansiSidebarIdentity';
+
+export {
+  sortArtifactsForSidebarProjection,
+  projectReadyYansiSidebarItems,
+  mergeFlatSidebarWithYansiItems,
+  injectYansiItemsIntoConversationTree,
+} from './projectYansiSidebarItems';
+
+export {
   type MirrorJourneySharePayload,
   resolveMirrorJourneySharePayload,
   withJourneySharePublishIdentity,

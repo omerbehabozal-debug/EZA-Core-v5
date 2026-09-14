@@ -57,6 +57,13 @@ import { MIRROR_JOURNEY_CONVERSATION_CLOSED } from '@/lib/eza/mirror/copy';
 import { useAuth } from '@/context/AuthContext';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
+import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
+import {
+  buildStandaloneYansiHref,
+  parseYansiRouteParam,
+  YANSI_ROUTE_PARAM,
+} from '@/lib/eza/mirror/journey/yansiSidebarIdentity';
+import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
@@ -74,14 +81,12 @@ import {
   getGroupsForAuthenticatedSidebar,
   renameAuthenticatedConversationGroup,
 } from '@/lib/eza/serverConversationGroupStore';
-import { buildConversationTree } from '@/lib/eza/conversation-tree/groupTree';
 import { rememberActiveGroupExpanded } from '@/lib/eza/conversation-tree/groupExpandedState';
 import { trackConversationGroupCreated } from '@/lib/eza/conversation-tree/conversationTreeAnalytics';
 import type {
   ConversationGroup,
   ConversationTreeGroupDeleteRequest,
 } from '@/lib/eza/conversation-tree/types';
-import { mapArchivesToSainaConversations } from '@/lib/eza/sainaConversationList';
 import { resolveYansiHeroMeta } from '@/lib/eza/mirror/yansiHeroMeta';
 import { useConversationYansiStatusMap } from '@/hooks/useConversationYansiStatusMap';
 import { hydrateYansiPreparationsFromServer } from '@/lib/eza/mirror/journey/hydrateYansiPreparationsFromServer';
@@ -294,6 +299,10 @@ export default function StandaloneChatInner() {
   const searchParams = useSearchParams();
   const chatIdFromUrl = searchParams?.get('chat') ?? null;
   const mirrorReplyFromUrl = searchParams?.get(MIRROR_GUEST_CHAT_REPLY_PARAM) === '1';
+  const yansiFromUrl = parseYansiRouteParam(searchParams?.get(YANSI_ROUTE_PARAM));
+  const activeYansiIdentity = yansiFromUrl
+    ? `${yansiFromUrl.journeyId}::v${yansiFromUrl.journeyVersion}`
+    : null;
 
   const initialChat = readChatStateFromUrl(chatIdFromUrl);
   const [chatId, setChatId] = useState<string | null>(initialChat.chatId);
@@ -882,9 +891,31 @@ export default function StandaloneChatInner() {
 
   const handleSelectChat = useCallback(
     (id: string) => {
-      router.push(`/standalone?chat=${id}`, { scroll: false });
+      router.push(`/standalone?chat=${encodeURIComponent(id)}`, { scroll: false });
     },
     [router]
+  );
+
+  const handleSelectYansi = useCallback(
+    (item: SainaConversationItem) => {
+      const conv = (item.sourceConversationId || '').trim();
+      const journeyId = (item.journeyId || '').trim();
+      const version = Number(item.journeyVersion);
+      if (!conv || !journeyId || !Number.isFinite(version) || version < 1) {
+        if (conv) router.push(`/standalone?chat=${encodeURIComponent(conv)}`, { scroll: false });
+        return;
+      }
+      router.push(
+        buildStandaloneYansiHref({
+          sourceConversationId: conv,
+          journeyId,
+          journeyVersion: version,
+        }),
+        { scroll: false }
+      );
+      onOpenMirror?.();
+    },
+    [router, onOpenMirror]
   );
 
   const executeDeleteChat = useCallback(
@@ -1355,15 +1386,8 @@ export default function StandaloneChatInner() {
     ]
   );
 
-  const sainaConversations = useMemo(
-    () => mapArchivesToSainaConversations(archives, chatId),
-    [archives, chatId]
-  );
-
-  const sainaConversationGroups = useMemo(
-    () => buildConversationTree(archives, conversationGroups, chatId),
-    [archives, conversationGroups, chatId]
-  );
+  const { conversations: sainaConversations, conversationGroups: sainaConversationGroups } =
+    useSainaSidebarConversations(archives, chatId);
 
   const handleRenameGroup = useCallback(
     async (groupId: string, title: string) => {
@@ -2299,10 +2323,12 @@ export default function StandaloneChatInner() {
     conversations: sainaConversations,
     conversationGroups: sainaConversationGroups,
     activeChatId: chatId,
+    activeYansiIdentity,
     conversationSceneUrl,
     planTier,
     onNewChat: handleNewChat,
     onSelectChat: handleSelectChat,
+    onSelectYansi: handleSelectYansi,
     onDeleteChat: handleDeleteChat,
     onRenameGroup: handleRenameGroup,
     onDeleteGroup: handleDeleteGroup,
@@ -2346,8 +2372,10 @@ export default function StandaloneChatInner() {
         conversations={sainaConversations}
         conversationGroups={sainaConversationGroups}
         activeChatId={chatId}
+        activeYansiIdentity={activeYansiIdentity}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
+        onSelectYansi={handleSelectYansi}
         onDeleteChat={handleDeleteChat}
         onRenameGroup={handleRenameGroup}
         onDeleteGroup={handleDeleteGroup}

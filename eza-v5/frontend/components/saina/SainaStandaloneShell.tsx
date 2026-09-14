@@ -44,8 +44,10 @@ export type SainaStandaloneShellProps = {
   conversations: SainaConversationItem[];
   conversationGroups?: ConversationTreeGroupNode[];
   activeChatId: string | null;
+  activeYansiIdentity?: string | null;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
+  onSelectYansi?: (item: SainaConversationItem) => void;
   onDeleteChat?: (id: string) => void;
   onRenameGroup?: (id: string, title: string) => void | Promise<void>;
   onDeleteGroup?: (group: ConversationTreeGroupDeleteRequest) => void | Promise<void>;
@@ -248,8 +250,10 @@ export default function SainaStandaloneShell({
   conversations,
   conversationGroups,
   activeChatId,
+  activeYansiIdentity = null,
   onNewChat,
   onSelectChat,
+  onSelectYansi,
   onDeleteChat,
   onRenameGroup,
   onDeleteGroup,
@@ -288,6 +292,13 @@ export default function SainaStandaloneShell({
     mirrorControlRef.current();
   }, []);
 
+  // Deep-link / sidebar Yansı: open Ayna so selectedArtifactIdentity can apply.
+  useEffect(() => {
+    if (!activeYansiIdentity) return;
+    // Control may already be registered (sidebar click while chat open).
+    mirrorControlRef.current();
+  }, [activeYansiIdentity]);
+
   const chatSurface = (
     <SainaChatSurface
       heroTitle={heroTitle}
@@ -316,6 +327,7 @@ export default function SainaStandaloneShell({
       isCompactShell={isCompactShell}
       onMirrorControlReady={(openMirror) => {
         mirrorControlRef.current = openMirror;
+        if (activeYansiIdentity) openMirror();
       }}
     />
   );
@@ -333,8 +345,10 @@ export default function SainaStandaloneShell({
               conversations={conversations}
               conversationGroups={conversationGroups}
               activeChatId={activeChatId}
+              activeYansiIdentity={activeYansiIdentity}
               onNewChat={onNewChat}
               onSelectChat={onSelectChat}
+              onSelectYansi={onSelectYansi}
               onDeleteChat={onDeleteChat}
               onRenameGroup={onRenameGroup}
               onDeleteGroup={onDeleteGroup}

@@ -46,6 +46,8 @@ import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
 import { SAINA_NEW_CHAT_ROUTE } from '@/lib/eza/sainaRoutes';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
+import { buildStandaloneYansiHref } from '@/lib/eza/mirror/journey/yansiSidebarIdentity';
+import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import { renameConversationGroup } from '@/lib/eza/conversation-tree/conversationGroups';
 import { deleteRenderedConversationGroup } from '@/lib/eza/conversation-tree/deleteRenderedConversationGroup';
 import type { ConversationTreeGroupDeleteRequest } from '@/lib/eza/conversation-tree/types';
@@ -150,7 +152,30 @@ export default function SainaDiscoverPage() {
 
   const handleSelectChat = useCallback(
     (id: string) => {
-      router.push(`/standalone?chat=${id}`, { scroll: false });
+      router.push(`/standalone?chat=${encodeURIComponent(id)}`, { scroll: false });
+    },
+    [router]
+  );
+
+  const handleSelectYansi = useCallback(
+    (item: SainaConversationItem) => {
+      const conv = (item.sourceConversationId || '').trim();
+      const journeyId = (item.journeyId || '').trim();
+      const version = Number(item.journeyVersion);
+      if (!conv || !journeyId || !Number.isFinite(version) || version < 1) {
+        if (conv) {
+          router.push(`/standalone?chat=${encodeURIComponent(conv)}`, { scroll: false });
+        }
+        return;
+      }
+      router.push(
+        buildStandaloneYansiHref({
+          sourceConversationId: conv,
+          journeyId,
+          journeyVersion: version,
+        }),
+        { scroll: false }
+      );
     },
     [router]
   );
@@ -233,6 +258,7 @@ export default function SainaDiscoverPage() {
     planTier,
     onNewChat: handleNewChat,
     onSelectChat: handleSelectChat,
+    onSelectYansi: handleSelectYansi,
     onDeleteChat: handleDeleteChat,
     onRenameGroup: handleRenameGroup,
     onDeleteGroup: handleDeleteGroup,

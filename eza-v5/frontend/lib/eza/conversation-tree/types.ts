@@ -58,6 +58,12 @@ export type ConversationTreeGroupDeleteRequest = {
 
 export type ConversationTreeChatItem = {
   id: string;
+  /** Defaults to conversation when omitted. */
+  kind?: 'conversation' | 'yansi';
+  sourceConversationId?: string;
+  journeyId?: string;
+  journeyVersion?: number;
+  yansiSourceIdentity?: string;
   title: string;
   preview: string;
   time: string;

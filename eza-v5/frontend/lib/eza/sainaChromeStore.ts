@@ -14,6 +14,8 @@ export type SainaChromeState = {
   conversations: SainaConversationItem[];
   conversationGroups?: ConversationTreeGroupNode[];
   activeChatId: string | null;
+  /** `{journeyId}::v{version}` when a Yansı sidebar row is active. */
+  activeYansiIdentity?: string | null;
   conversationSceneUrl?: string | null;
   /** Optional crop focal (0–1); omitted → CSS center. */
   conversationSceneFocalX?: number | null;
@@ -21,6 +23,8 @@ export type SainaChromeState = {
   planTier?: SainaPlanTier;
   onNewChat?: () => void;
   onSelectChat?: (id: string) => void;
+  /** Navigate to source conversation + specific Yansı artifact. */
+  onSelectYansi?: (item: SainaConversationItem) => void;
   onDeleteChat?: (id: string) => void;
   onRenameGroup?: (id: string, title: string) => void | Promise<void>;
   onDeleteGroup?: (group: ConversationTreeGroupDeleteRequest) => void | Promise<void>;
@@ -47,6 +51,7 @@ const initialChrome: SainaChromeState = {
   activeSection: 'chat',
   conversations: [],
   activeChatId: null,
+  activeYansiIdentity: null,
   conversationSceneUrl: null,
   conversationSceneFocalX: null,
   conversationSceneFocalY: null,

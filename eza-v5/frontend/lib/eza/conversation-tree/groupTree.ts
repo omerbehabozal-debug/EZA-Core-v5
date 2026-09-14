@@ -24,6 +24,7 @@ export type ArchivedChatSummaryWithTree = ArchivedChatSummary & {
 function toTreeChatItem(item: ArchivedChatSummaryWithTree): ConversationTreeChatItem {
   return {
     id: item.id,
+    kind: 'conversation',
     title: summarizeArchiveTitle(item.title) || 'Yeni sohbet',
     preview: item.preview?.trim() || SAINA_EMPTY_CHAT_PREVIEW,
     time: formatSainaConversationTime(item.savedAt),

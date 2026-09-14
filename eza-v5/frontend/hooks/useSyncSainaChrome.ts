@@ -15,6 +15,7 @@ type ChromeCallbacks = Partial<
     SainaChromeState,
     | 'onNewChat'
     | 'onSelectChat'
+    | 'onSelectYansi'
     | 'onDeleteChat'
     | 'onRenameGroup'
     | 'onDeleteGroup'
@@ -35,6 +36,7 @@ function conversationsSignature(
     .map((c) =>
       [
         c.id,
+        c.kind ?? 'conversation',
         c.title,
         c.preview,
         c.time,
@@ -42,6 +44,7 @@ function conversationsSignature(
         (c as { groupId?: string | null }).groupId ?? '',
         (c as { yansiStatus?: string }).yansiStatus ?? '',
         c.thumbImageUrl ?? '',
+        c.yansiSourceIdentity ?? '',
         (c as { conversationSceneUrl?: string | null }).conversationSceneUrl ?? '',
       ].join(':')
     )
@@ -54,10 +57,12 @@ export function useSyncSainaChrome({
   conversations,
   conversationGroups,
   activeChatId,
+  activeYansiIdentity,
   conversationSceneUrl,
   planTier,
   onNewChat,
   onSelectChat,
+  onSelectYansi,
   onDeleteChat,
   onRenameGroup,
   onDeleteGroup,
@@ -148,6 +153,7 @@ export function useSyncSainaChrome({
   callbacksRef.current = {
     onNewChat,
     onSelectChat,
+    onSelectYansi,
     onDeleteChat,
     onRenameGroup,
     onDeleteGroup,
@@ -164,6 +170,9 @@ export function useSyncSainaChrome({
   }, []);
   const stableOnSelectChat = useCallback((id: string) => {
     callbacksRef.current.onSelectChat?.(id);
+  }, []);
+  const stableOnSelectYansi = useCallback((item: SainaChromeState['conversations'][number]) => {
+    callbacksRef.current.onSelectYansi?.(item);
   }, []);
   const stableOnDeleteChat = useCallback((id: string) => {
     callbacksRef.current.onDeleteChat?.(id);
@@ -199,11 +208,13 @@ export function useSyncSainaChrome({
       activeChatId,
       conversationSceneUrl
     );
+    const nextYansi = activeYansiIdentity ?? null;
     const unchanged =
       current.activeSection === activeSection &&
       current.conversations === stableConversations &&
       current.conversationGroups === stableGroups &&
       current.activeChatId === activeChatId &&
+      current.activeYansiIdentity === nextYansi &&
       current.conversationSceneUrl === nextSceneUrl &&
       current.planTier === planTier &&
       current.safeOnlyMode === safeOnlyMode &&
@@ -212,6 +223,7 @@ export function useSyncSainaChrome({
       current.notifications === notifications &&
       current.onNewChat === stableOnNewChat &&
       current.onSelectChat === stableOnSelectChat &&
+      current.onSelectYansi === stableOnSelectYansi &&
       current.onDeleteChat === stableOnDeleteChat &&
       current.onRenameGroup === stableOnRenameGroup &&
       current.onDeleteGroup === stableOnDeleteGroup &&
@@ -228,10 +240,12 @@ export function useSyncSainaChrome({
       conversations: stableConversations,
       conversationGroups: stableGroups,
       activeChatId,
+      activeYansiIdentity: nextYansi,
       conversationSceneUrl: nextSceneUrl,
       planTier,
       onNewChat: stableOnNewChat,
       onSelectChat: stableOnSelectChat,
+      onSelectYansi: stableOnSelectYansi,
       onDeleteChat: stableOnDeleteChat,
       onRenameGroup: stableOnRenameGroup,
       onDeleteGroup: stableOnDeleteGroup,
@@ -254,6 +268,7 @@ export function useSyncSainaChrome({
     stableConversations,
     stableGroups,
     activeChatId,
+    activeYansiIdentity,
     conversationSceneUrl,
     planTier,
     safeOnlyMode,
@@ -262,6 +277,7 @@ export function useSyncSainaChrome({
     notifications,
     stableOnNewChat,
     stableOnSelectChat,
+    stableOnSelectYansi,
     stableOnDeleteChat,
     stableOnRenameGroup,
     stableOnDeleteGroup,

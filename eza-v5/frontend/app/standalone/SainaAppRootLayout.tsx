@@ -77,9 +77,11 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               conversations={chrome.conversations}
               conversationGroups={chrome.conversationGroups}
               activeChatId={chrome.activeChatId}
+              activeYansiIdentity={chrome.activeYansiIdentity}
               activeSection={view === 'pattern' ? 'pattern' : view === 'discover' ? 'discover' : 'chat'}
               onNewChat={chrome.onNewChat}
               onSelectChat={chrome.onSelectChat}
+              onSelectYansi={chrome.onSelectYansi}
               onDeleteChat={chrome.onDeleteChat}
               onRenameGroup={chrome.onRenameGroup}
               onDeleteGroup={chrome.onDeleteGroup}

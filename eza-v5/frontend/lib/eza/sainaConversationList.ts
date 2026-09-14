@@ -7,8 +7,18 @@ import { resolveDisplayConversationTitle } from '@/lib/eza/conversationTitle';
 import { isChatDeleted } from '@/lib/standaloneChatDelete';
 import { SAINA_EMPTY_CHAT_PREVIEW } from '@/lib/eza/sainaCopy';
 
+export type SainaSidebarItemKind = 'conversation' | 'yansi';
+
 export type SainaConversationItem = {
   id: string;
+  /** Defaults to conversation when omitted (legacy callers). */
+  kind?: SainaSidebarItemKind;
+  /** Present when kind === 'yansi'. */
+  sourceConversationId?: string;
+  journeyId?: string;
+  journeyVersion?: number;
+  /** `{journeyId}::v{version}` — matches ?yansi= and server source_identity. */
+  yansiSourceIdentity?: string;
   title: string;
   preview: string;
   time: string;
@@ -18,6 +28,7 @@ export type SainaConversationItem = {
   thumbImageUrl?: string | null;
   /** Quiet Yansı cue: none/omit = no dot, ready = amber, published = green. */
   yansiStatus?: 'none' | 'ready' | 'published';
+  isMirrorSource?: boolean;
 };
 
 export type SainaConversationTimeGroup = {
@@ -179,6 +190,7 @@ export function mapArchivesToSainaConversations(
 ): SainaConversationItem[] {
   return sortArchivesForSidebar(archives, activeChatId).map((item) => ({
     id: item.id,
+    kind: 'conversation' as const,
     title: resolveSidebarChatTitle(item),
     preview: item.preview?.trim() || SAINA_EMPTY_CHAT_PREVIEW,
     time: formatSainaConversationTime(item.savedAt),
