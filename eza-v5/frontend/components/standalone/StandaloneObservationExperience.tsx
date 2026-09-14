@@ -979,6 +979,8 @@ export default function StandaloneObservationExperience({
       card: cardWithShare,
       ownerUserId: shareCacheUserId,
       conversationId,
+      preferredJourneyId: selectedArtifactIdentity?.journeyId,
+      preferredJourneyVersion: selectedArtifactIdentity?.journeyVersion,
       sceneImageUrl: existingScene,
     });
     setGeneratedDailyCard(card);
@@ -1011,6 +1013,7 @@ export default function StandaloneObservationExperience({
     shareCacheUserId,
     todaysSnapshot,
     isAuthenticated,
+    selectedArtifactIdentity,
   ]);
 
   /** Sayfa yenileme — bugünkü snapshot ile kartı sessizce göster; aynı veride sahne üretme. */
@@ -1063,6 +1066,8 @@ export default function StandaloneObservationExperience({
       card: cardWithShare,
       ownerUserId: shareCacheUserId,
       conversationId,
+      preferredJourneyId: selectedArtifactIdentity?.journeyId,
+      preferredJourneyVersion: selectedArtifactIdentity?.journeyVersion,
       sceneImageUrl: existingScene,
     });
     setGeneratedDailyCard(card);
@@ -1108,6 +1113,7 @@ export default function StandaloneObservationExperience({
     mirrorBuildOptions,
     shareCacheUserId,
     isAuthenticated,
+    selectedArtifactIdentity,
   ]);
 
   /** current + idle fallback — force hydrate if the silent effect missed a remount race. */
@@ -2184,6 +2190,8 @@ export default function StandaloneObservationExperience({
             card: prev,
             ownerUserId: authenticatedUserId,
             conversationId,
+            preferredJourneyId: selectedArtifactIdentity?.journeyId,
+            preferredJourneyVersion: selectedArtifactIdentity?.journeyVersion,
             sceneImageUrl: prev.visual?.sceneImageUrl ?? null,
           });
         });
@@ -2192,13 +2200,45 @@ export default function StandaloneObservationExperience({
     return () => {
       cancelled = true;
     };
-  }, [journeyV1PanelOn, conversationId, authenticatedUserId, isAuthenticated]);
+  }, [
+    journeyV1PanelOn,
+    conversationId,
+    authenticatedUserId,
+    isAuthenticated,
+    selectedArtifactIdentity,
+  ]);
 
   const journeyArtifacts = useMemo(() => {
     if (!journeyV1PanelOn || !conversationId || !shareCacheUserId) return [];
     void artifactRevision;
     return listJourneyArtifactsForConversation(shareCacheUserId, conversationId);
   }, [journeyV1PanelOn, conversationId, shareCacheUserId, artifactRevision]);
+
+  // Keep legacy remounted card landing aligned with explicit ?yansi= selection (A→B).
+  const hasRemountCard = Boolean(generatedDailyCard);
+  useEffect(() => {
+    if (!hasRemountCard || !conversationId || !shareCacheUserId) return;
+    setGeneratedDailyCard((prev) => {
+      if (!prev) return prev;
+      return restoreRemountCardLandingFromJourneyArtifacts({
+        card: prev,
+        ownerUserId: shareCacheUserId,
+        conversationId,
+        preferredJourneyId: selectedArtifactIdentity?.journeyId,
+        preferredJourneyVersion: selectedArtifactIdentity?.journeyVersion,
+        sceneImageUrl: prev.visual?.sceneImageUrl ?? null,
+        artifacts: journeyArtifacts,
+      });
+    });
+  }, [
+    hasRemountCard,
+    selectedArtifactIdentity?.journeyId,
+    selectedArtifactIdentity?.journeyVersion,
+    conversationId,
+    shareCacheUserId,
+    artifactRevision,
+    journeyArtifacts,
+  ]);
 
   const useAynaJourneyReel =
     journeyV1PanelOn && Boolean(conversationId) && Boolean(shareCacheUserId);

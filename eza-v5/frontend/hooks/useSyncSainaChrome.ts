@@ -58,6 +58,7 @@ export function useSyncSainaChrome({
   conversationGroups,
   activeChatId,
   activeYansiIdentity,
+  selectedYansiSceneUrl,
   conversationSceneUrl,
   planTier,
   onNewChat,
@@ -209,12 +210,14 @@ export function useSyncSainaChrome({
       conversationSceneUrl
     );
     const nextYansi = activeYansiIdentity ?? null;
+    const nextYansiScene = selectedYansiSceneUrl ?? null;
     const unchanged =
       current.activeSection === activeSection &&
       current.conversations === stableConversations &&
       current.conversationGroups === stableGroups &&
       current.activeChatId === activeChatId &&
       current.activeYansiIdentity === nextYansi &&
+      current.selectedYansiSceneUrl === nextYansiScene &&
       current.conversationSceneUrl === nextSceneUrl &&
       current.planTier === planTier &&
       current.safeOnlyMode === safeOnlyMode &&
@@ -241,6 +244,7 @@ export function useSyncSainaChrome({
       conversationGroups: stableGroups,
       activeChatId,
       activeYansiIdentity: nextYansi,
+      selectedYansiSceneUrl: nextYansiScene,
       conversationSceneUrl: nextSceneUrl,
       planTier,
       onNewChat: stableOnNewChat,
@@ -269,6 +273,7 @@ export function useSyncSainaChrome({
     stableGroups,
     activeChatId,
     activeYansiIdentity,
+    selectedYansiSceneUrl,
     conversationSceneUrl,
     planTier,
     safeOnlyMode,

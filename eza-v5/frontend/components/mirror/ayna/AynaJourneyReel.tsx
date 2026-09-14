@@ -96,8 +96,8 @@ export default function AynaJourneyReel({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // When an explicit selection is active, do not let IO steal focus away
-        // until the user scrolls (IO still updates after scroll).
+        // Explicit URL/sidebar selection owns active identity — do not let IO steal it.
+        if (selectedKey) return;
         const best = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
@@ -120,7 +120,7 @@ export default function AynaJourneyReel({
 
     slides.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [artifacts, onVisibleArtifactChange]);
+  }, [artifacts, onVisibleArtifactChange, selectedKey]);
 
   if (artifacts.length === 0) {
     return (

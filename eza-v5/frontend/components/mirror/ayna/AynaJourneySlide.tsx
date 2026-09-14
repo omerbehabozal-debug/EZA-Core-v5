@@ -63,8 +63,12 @@ export default function AynaJourneySlide({
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const title =
     artifact.publicTitle?.trim() ||
+    artifact.sealedPublicLanding?.publicTitle?.trim() ||
     (artifact.status === 'generating' ? 'Yansı hazırlanıyor' : 'Yansı');
-  const summary = artifact.publicSummary?.trim() || null;
+  const summary =
+    artifact.publicSummary?.trim() ||
+    artifact.sealedPublicLanding?.publicSummary?.trim() ||
+    null;
   const authorName = artifact.authorDisplayName?.trim() || 'Yazar';
   const showParent = Boolean(
     artifact.parentJourneyId || artifact.parentSlug || artifact.parentAuthorDisplayName

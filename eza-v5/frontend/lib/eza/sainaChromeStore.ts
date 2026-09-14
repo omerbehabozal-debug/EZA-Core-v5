@@ -16,6 +16,11 @@ export type SainaChromeState = {
   activeChatId: string | null;
   /** `{journeyId}::v{version}` when a Yansı sidebar row is active. */
   activeYansiIdentity?: string | null;
+  /**
+   * Display-only scene from the explicitly selected Yansı artifact.
+   * Never written to archive / conversationSceneUrl.
+   */
+  selectedYansiSceneUrl?: string | null;
   conversationSceneUrl?: string | null;
   /** Optional crop focal (0–1); omitted → CSS center. */
   conversationSceneFocalX?: number | null;
@@ -52,6 +57,7 @@ const initialChrome: SainaChromeState = {
   conversations: [],
   activeChatId: null,
   activeYansiIdentity: null,
+  selectedYansiSceneUrl: null,
   conversationSceneUrl: null,
   conversationSceneFocalX: null,
   conversationSceneFocalY: null,

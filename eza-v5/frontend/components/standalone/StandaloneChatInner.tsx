@@ -63,6 +63,8 @@ import {
   parseYansiRouteParam,
   YANSI_ROUTE_PARAM,
 } from '@/lib/eza/mirror/journey/yansiSidebarIdentity';
+import { resolveSelectedYansiDisplaySceneUrl } from '@/lib/eza/mirror/journey/resolveSelectedYansiDisplayScene';
+import { subscribeMirrorJourneyArtifactStore } from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import { useSainaDeleteChatModal } from '@/hooks/useSainaDeleteChatModal';
 import { usePatternDeviceSync } from '@/hooks/usePatternDeviceSync';
@@ -340,6 +342,20 @@ export default function StandaloneChatInner() {
   const { isServerBacked, serverSummaries, userId } = useAuthenticatedConversationBootstrap();
   /** Phase 8.7 — guests may draft Journey under guest:{token}; publish still auth-gated. */
   const journeyOwnerId = resolveJourneyOwnerKey(user?.user_id);
+  const [artifactDisplayTick, setArtifactDisplayTick] = useState(0);
+  useEffect(() => {
+    return subscribeMirrorJourneyArtifactStore(() => {
+      setArtifactDisplayTick((n) => n + 1);
+    });
+  }, []);
+  const selectedYansiSceneUrl = useMemo(() => {
+    void artifactDisplayTick;
+    return resolveSelectedYansiDisplaySceneUrl({
+      ownerUserId: journeyOwnerId,
+      sourceConversationId: chatId,
+      identity: yansiFromUrl,
+    });
+  }, [artifactDisplayTick, journeyOwnerId, chatId, yansiFromUrl]);
   const yansiStatusByConversationId = useConversationYansiStatusMap(journeyOwnerId, {
     isAuthenticated,
     isAuthReady: ready,
@@ -2324,6 +2340,7 @@ export default function StandaloneChatInner() {
     conversationGroups: sainaConversationGroups,
     activeChatId: chatId,
     activeYansiIdentity,
+    selectedYansiSceneUrl,
     conversationSceneUrl,
     planTier,
     onNewChat: handleNewChat,

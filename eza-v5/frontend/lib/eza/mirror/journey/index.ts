@@ -241,6 +241,12 @@ export {
 } from './projectYansiSidebarItems';
 
 export {
+  resolveSelectedYansiArtifact,
+  resolveSelectedYansiDisplaySceneUrl,
+  resolveChromeDisplaySceneUrl,
+} from './resolveSelectedYansiDisplayScene';
+
+export {
   type MirrorJourneySharePayload,
   resolveMirrorJourneySharePayload,
   withJourneySharePublishIdentity,
