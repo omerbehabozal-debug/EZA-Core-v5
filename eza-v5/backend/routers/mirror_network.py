@@ -172,12 +172,13 @@ async def get_mirror_network_discover(
     _: None = Depends(rate_limit_standalone),
 ) -> DiscoverMirrorListResponse:
     """
-    Public discover list — root Aynalar only.
+    Public discover list — eligible public Yansı (independent products).
 
     Modes: random (default / Rastlantısal), newest (En Yeni), strong_curiosity (Güçlü Merak).
     Güçlü Merak uses the frozen Phase 7.4.2 policy when STRONG_CURIOSITY_DISCOVER_ENABLED.
     May include public authorDisplayName + publicHonorific (display only).
     Never returns userId, email, guest tokens, raw conversation, or private payload.
+    parent_slug does not exclude a card from Discover.
     """
     try:
         return await list_discover_mirrors(

@@ -155,7 +155,7 @@ class MirrorNetworkPublishRequest(BaseModel):
 
 
 class DiscoverMirrorItem(BaseModel):
-    """Public discover card — root Ayna only.
+    """Public discover card — any eligible public Yansı.
 
     yansiCount is a legacy Discover child aggregate (public/open/safety-pass).
     Deprecated for UI: do not label it as “deneyim” or as Phase 5.1.1 Yansı.

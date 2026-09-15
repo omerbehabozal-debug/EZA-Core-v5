@@ -333,19 +333,25 @@ async def test_random_is_not_limited_to_newest_250():
 
 
 @pytest.mark.asyncio
-async def test_eligibility_excludes_private_unsafe_unpublished_unfrozen_child():
+async def test_eligibility_excludes_private_unsafe_unpublished_unfrozen_keeps_linked():
     public = _root("keep-me")
     private = _root("no-private", visibility="private")
     unsafe = _root("no-unsafe", safety="restricted")
     unpublished = _root("no-pub", published=False)
     unfrozen = _root("no-freeze", freeze_status="non_frozen")
     legacy = _root("no-legacy", artifact_kind="legacy_landing")
-    child = _root("no-child", parent_slug="keep-me")
+    child = _root("linked-ok", parent_slug="keep-me")
     db = _db([public, private, unsafe, unpublished, unfrozen, legacy, child])
     with _ready():
         response = await list_discover_mirrors(db, mode="newest", limit=20)
-    assert [item.slug for item in response.items] == ["keep-me"]
-    assert response.total == 1
+    slugs = {item.slug for item in response.items}
+    assert slugs == {"keep-me", "linked-ok"}
+    assert response.total == 2
+    assert "no-private" not in slugs
+    assert "no-unsafe" not in slugs
+    assert "no-pub" not in slugs
+    assert "no-freeze" not in slugs
+    assert "no-legacy" not in slugs
 
 
 @pytest.mark.asyncio
@@ -482,13 +488,14 @@ async def test_strong_curiosity_disabled_fail_closes_not_legacy_ranking():
     assert "seed_strong_curiosity" not in inspect.getsource(discover_mod)
 
 
-def test_root_only_sql_gate_present():
-    src = inspect.getsource(discover_mod.load_discover_eligible_roots)
-    assert "parent_slug.is_(None)" in src
+def test_discover_sql_gate_is_not_root_only():
+    src = inspect.getsource(discover_mod.load_discover_eligible_nodes)
+    assert "parent_slug.is_(None)" not in src
     assert "published_at.isnot(None)" in src
     assert "ARTIFACT_KIND_JOURNEY_V1" in src
     assert "FREEZE_STATUS_FROZEN" in src
     assert "is_replay_ready_from_loaded_child" in src
+    assert discover_mod.load_discover_eligible_roots is discover_mod.load_discover_eligible_nodes
 
 
 def test_discover_router_has_no_per_card_metrics_or_signal_imports():

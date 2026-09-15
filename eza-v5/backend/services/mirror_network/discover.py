@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Public Discover list — root Aynalar only.
+Public Discover list — eligible public Yansı (independent products).
 
 Phase 7.1–7.5: one pipeline, three modes (random / strong_curiosity / newest).
 Default = random (Rastlantısal). Rastlantısal and En Yeni must not use yansiCount,
 Phase 6 signals, or the Strong Curiosity policy.
 Güçlü Merak uses the frozen Phase 7.4.2 layered policy when enabled.
+
+parent_slug relationship metadata does NOT exclude a Yansı from Discover.
 """
 
 from __future__ import annotations
@@ -215,14 +217,13 @@ def _frozen_public_fields(node: MirrorNetworkNode) -> tuple[Optional[str], Optio
         return None, None, None
 
 
-def is_canonical_discover_root_structure(node: MirrorNetworkNode) -> bool:
+def is_canonical_discover_node_structure(node: MirrorNetworkNode) -> bool:
     """
-    Discover pool structural gates — aligned with Phase 5 frozen Journey,
-    plus root-only. replayReady is verified separately with the same helper
-    used by GET …/frozen (is_replay_ready_from_loaded_child).
+    Discover pool structural gates — aligned with Phase 5 frozen Journey.
+    parent_slug is relationship metadata only; it does not affect eligibility.
+    replayReady is verified separately with the same helper used by GET …/frozen
+    (is_replay_ready_from_loaded_child).
     """
-    if (getattr(node, "parent_slug", None) or "").strip():
-        return False
     if getattr(node, "published_at", None) is None:
         return False
     if (getattr(node, "visibility", None) or "").lower() != "public":
@@ -237,6 +238,10 @@ def is_canonical_discover_root_structure(node: MirrorNetworkNode) -> bool:
     if not evaluate_mirror_network_safety(node).passed:
         return False
     return True
+
+
+# Backward-compatible alias (Discover is no longer root-only).
+is_canonical_discover_root_structure = is_canonical_discover_node_structure
 
 
 def discover_scene_url_for_card(node: MirrorNetworkNode) -> Optional[str]:
@@ -378,19 +383,21 @@ def _order_eligible(
     return eligible
 
 
-async def load_discover_eligible_roots(
+async def load_discover_eligible_nodes(
     db: AsyncSession,
 ) -> list[tuple[MirrorNetworkNode, str]]:
     """
-    Canonical Phase 7.1 Discover pool (root, public, frozen, replayReady, scene).
-    Unordered load; callers apply mode-specific ordering. Not a ranking helper.
+    Canonical Discover pool (public, frozen, replayReady, scene).
+
+    Linked Yansı (parent_slug set) are independently eligible when they pass
+    the same product/safety gates as roots. Unordered load; callers apply
+    mode-specific ordering. Not a ranking helper.
     """
     result = await db.execute(
         select(MirrorNetworkNode)
         .where(
             MirrorNetworkNode.visibility == "public",
             MirrorNetworkNode.safety_status == "open",
-            MirrorNetworkNode.parent_slug.is_(None),
             MirrorNetworkNode.published_at.isnot(None),
             MirrorNetworkNode.artifact_kind == ARTIFACT_KIND_JOURNEY_V1,
             MirrorNetworkNode.freeze_status == FREEZE_STATUS_FROZEN,
@@ -401,7 +408,7 @@ async def load_discover_eligible_roots(
     structural = [
         node
         for node in result.scalars().all()
-        if is_canonical_discover_root_structure(node)
+        if is_canonical_discover_node_structure(node)
     ]
     steps_by_key = await _load_steps_by_slug_version(db, structural)
     eligible: list[tuple[MirrorNetworkNode, str]] = []
@@ -415,6 +422,10 @@ async def load_discover_eligible_roots(
             continue
         eligible.append((node, scene_url))
     return eligible
+
+
+# Backward-compatible alias — Discover is no longer root-only.
+load_discover_eligible_roots = load_discover_eligible_nodes
 
 
 async def _project_discover_page(
