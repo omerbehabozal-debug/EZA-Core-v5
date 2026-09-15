@@ -81,6 +81,9 @@ import {
   subscribeMirrorJourneyArtifactStore,
   resolveJourneyArtifactShareIdentity,
   buildPublishCardFromArtifact,
+  captureExactYansiPublishIdentity,
+  exactIdentityMatchesCardLineage,
+  resolvePostPublishArtifactMarkTarget,
   markMirrorJourneyArtifactPublished,
   markMirrorJourneyArtifactPublishFailed,
   markMirrorJourneyArtifactFailed,
@@ -105,6 +108,7 @@ import {
   EARLY_YANSI_UI_SYNC_EVENT,
   loadJourneyConversationState,
   syncJourneyConversationState,
+  type ExactYansiPublishIdentity,
   type JourneyAynaGenerateDetail,
   type MirrorJourneySharePayload,
   type EarlyYansiUiSyncDetail,
@@ -517,7 +521,11 @@ export default function StandaloneObservationExperience({
     async (
       card: DailyMirrorCardModel,
       sceneUrl?: string | null,
-      options?: { refreshScene?: boolean }
+      options?: {
+        refreshScene?: boolean;
+        /** Captured BEFORE await — exact Ayna reel artifact only. */
+        exactPublishIdentity?: ExactYansiPublishIdentity | null;
+      }
     ): Promise<boolean> => {
       if (!isAuthReady || !isAuthenticated) {
         setShareLinkError('Yayınlamak için giriş yapmalısın.');
@@ -539,14 +547,30 @@ export default function StandaloneObservationExperience({
         return true;
       }
 
+      const exactPublishIdentity = options?.exactPublishIdentity ?? null;
+      if (
+        exactPublishIdentity &&
+        !exactIdentityMatchesCardLineage(
+          exactPublishIdentity,
+          card.mirrorJourneyGenerationLineage
+        )
+      ) {
+        setShareLinkError(
+          'Seçili Yansı kimliği yayın için doğrulanamadı. Başka bir Yansı ile değiştirilmedi.'
+        );
+        setShareLinkStatus('failed');
+        return false;
+      }
+
       shareLinkInFlightRef.current = true;
       setShareLinkStatus('preparing');
       setShareLinkError(null);
 
       const rawScene =
-        sceneUrl ??
-        lastRawSceneUrlRef.current ??
-        readMirrorSceneCacheForScope(conversationId, card)?.sceneImageUrl ??
+        exactPublishIdentity?.sceneImageUrl?.trim() ||
+        sceneUrl ||
+        lastRawSceneUrlRef.current ||
+        readMirrorSceneCacheForScope(conversationId, card)?.sceneImageUrl ||
         null;
 
       try {
@@ -556,10 +580,18 @@ export default function StandaloneObservationExperience({
           conversationId,
           ownerUserId: user?.user_id ?? null,
           sceneImageUrl: rawScene,
-          generationId: activeGenerationIdRef.current ?? undefined,
+          journeyId: exactPublishIdentity?.journeyId,
+          journeyVersion: exactPublishIdentity?.journeyVersion,
+          parentSlug: exactPublishIdentity?.parentJourneyId || undefined,
+          generationId:
+            exactPublishIdentity?.generationId ||
+            activeGenerationIdRef.current ||
+            undefined,
           generationAcceptedAt: Date.now(),
           forceRepublish: Boolean(options?.refreshScene),
+          forbidReviewDraftFallback: Boolean(exactPublishIdentity),
           replacesGenerationId:
+            !exactPublishIdentity &&
             lastPublishedGenerationIdRef.current &&
             activeGenerationIdRef.current &&
             lastPublishedGenerationIdRef.current !== activeGenerationIdRef.current
@@ -571,7 +603,9 @@ export default function StandaloneObservationExperience({
                 regenerateScene: createAlignmentSceneRegenerator({
                   card,
                   conversationId,
-                  generationId: activeGenerationIdRef.current,
+                  generationId:
+                    exactPublishIdentity?.generationId ||
+                    activeGenerationIdRef.current,
                   variationIndex,
                   onSceneReady: async (sceneImageUrl) => {
                     lastRawSceneUrlRef.current = sceneImageUrl;
@@ -594,7 +628,9 @@ export default function StandaloneObservationExperience({
         });
 
         if (result.ok) {
-          if (activeGenerationIdRef.current) {
+          if (exactPublishIdentity?.generationId) {
+            lastPublishedGenerationIdRef.current = exactPublishIdentity.generationId;
+          } else if (activeGenerationIdRef.current) {
             lastPublishedGenerationIdRef.current = activeGenerationIdRef.current;
           }
           // Prefer gate-accepted scene (may be retry URL).
@@ -629,20 +665,46 @@ export default function StandaloneObservationExperience({
             );
             const lineage = card.mirrorJourneyGenerationLineage;
             if (shareCacheUserId && result.slug) {
-              if (isPublishableJourneyGenerationLineage(lineage)) {
-                saveMirrorShareLinkForJourney({
-                  userId: shareCacheUserId,
-                  conversationId,
-                  journeyId: lineage.journeyId,
-                  journeyVersion: lineage.journeyVersion,
-                  slug: result.slug,
-                  shareUrl: result.shareUrl,
-                  publicTitle: landing.publicTitle,
-                  publicSummary: landing.publicSummary,
-                });
+              const conversationArtifacts = listJourneyArtifactsForConversation(
+                shareCacheUserId,
+                conversationId
+              );
+              const markTarget = resolvePostPublishArtifactMarkTarget({
+                cardLineage: lineage,
+                exact: exactPublishIdentity,
+                conversationArtifacts,
+              });
+              // Legacy path only: no exact identity and no sealed lineage on card.
+              const legacyReuse =
+                !exactPublishIdentity &&
+                !isPublishableJourneyGenerationLineage(lineage)
+                  ? findReusablePreparedYansiArtifact(conversationArtifacts)
+                  : null;
+              const resolvedMark = markTarget
+                ? markTarget
+                : legacyReuse
+                  ? {
+                      journeyId: legacyReuse.journeyId,
+                      journeyVersion: legacyReuse.journeyVersion,
+                    }
+                  : null;
+
+              if (resolvedMark) {
+                if (isPublishableJourneyGenerationLineage(lineage)) {
+                  saveMirrorShareLinkForJourney({
+                    userId: shareCacheUserId,
+                    conversationId,
+                    journeyId: resolvedMark.journeyId,
+                    journeyVersion: resolvedMark.journeyVersion,
+                    slug: result.slug,
+                    shareUrl: result.shareUrl,
+                    publicTitle: landing.publicTitle,
+                    publicSummary: landing.publicSummary,
+                  });
+                }
                 markMirrorJourneyArtifactPublished(shareCacheUserId, {
-                  journeyId: lineage.journeyId,
-                  journeyVersion: lineage.journeyVersion,
+                  journeyId: resolvedMark.journeyId,
+                  journeyVersion: resolvedMark.journeyVersion,
                   slug: result.slug,
                   shareUrl: result.shareUrl,
                   publicTitle: landing.publicTitle,
@@ -656,31 +718,6 @@ export default function StandaloneObservationExperience({
                     rawScene?.trim() ||
                     null,
                 });
-              } else {
-                const ready = findReusablePreparedYansiArtifact(
-                  listJourneyArtifactsForConversation(
-                    shareCacheUserId,
-                    conversationId
-                  )
-                );
-                if (ready) {
-                  markMirrorJourneyArtifactPublished(shareCacheUserId, {
-                    journeyId: ready.journeyId,
-                    journeyVersion: ready.journeyVersion,
-                    slug: result.slug,
-                    shareUrl: result.shareUrl,
-                    publicTitle: landing.publicTitle,
-                    publicSummary: landing.publicSummary,
-                    continuationContext:
-                      card.mirrorV3Payload?.curiosityBundle?.publicLanding?.continuationContext?.trim() ||
-                      null,
-                    sceneImageUrl:
-                      result.publicPayload.sceneImageUrl?.trim() ||
-                      lastRawSceneUrlRef.current?.trim() ||
-                      rawScene?.trim() ||
-                      null,
-                  });
-                }
               }
               noteOwnerYansiSlugPublication(result.slug, {
                 visibility: 'public',
@@ -688,21 +725,12 @@ export default function StandaloneObservationExperience({
               });
               const serverConvId = getServerIdForClientChat(conversationId);
               if (serverConvId) {
-                const journeyId =
-                  (isPublishableJourneyGenerationLineage(lineage)
-                    ? lineage.journeyId
-                    : null) ||
-                  findReusablePreparedYansiArtifact(
-                    listJourneyArtifactsForConversation(shareCacheUserId, conversationId)
-                  )?.journeyId;
                 void linkServerYansiPreparationPublication(serverConvId, {
                   slug: result.slug,
-                  ...(journeyId
+                  ...(resolvedMark
                     ? {
-                        journeyId,
-                        journeyVersion: isPublishableJourneyGenerationLineage(lineage)
-                          ? lineage.journeyVersion
-                          : 1,
+                        journeyId: resolvedMark.journeyId,
+                        journeyVersion: resolvedMark.journeyVersion,
                       }
                     : {}),
                 }).catch(() => undefined);
@@ -735,16 +763,27 @@ export default function StandaloneObservationExperience({
         // Phase 8.6 — never treat prior local shareUrl as publish success after a failed attempt.
         // Lost HTTP response: recover from durable owner published-journeys.
         const failedLineage = card.mirrorJourneyGenerationLineage;
+        const failedJourneyId =
+          exactPublishIdentity?.journeyId ||
+          (isPublishableJourneyGenerationLineage(failedLineage)
+            ? failedLineage.journeyId
+            : null);
+        const failedJourneyVersion =
+          exactPublishIdentity?.journeyVersion ||
+          (isPublishableJourneyGenerationLineage(failedLineage)
+            ? failedLineage.journeyVersion
+            : null);
         if (
           shareCacheUserId &&
           conversationId &&
-          isPublishableJourneyGenerationLineage(failedLineage)
+          failedJourneyId &&
+          typeof failedJourneyVersion === 'number'
         ) {
           const recovered = await recoverPublishedJourneyAfterLostResponse({
             ownerUserId: shareCacheUserId,
             conversationId,
-            journeyId: failedLineage.journeyId,
-            journeyVersion: failedLineage.journeyVersion,
+            journeyId: failedJourneyId,
+            journeyVersion: failedJourneyVersion,
           });
           if (recovered.recovered && recovered.item?.slug) {
             const shareUrl =
@@ -775,8 +814,8 @@ export default function StandaloneObservationExperience({
             return true;
           }
           markMirrorJourneyArtifactPublishFailed(shareCacheUserId, {
-            journeyId: failedLineage.journeyId,
-            journeyVersion: failedLineage.journeyVersion,
+            journeyId: failedJourneyId,
+            journeyVersion: failedJourneyVersion,
             message: result.message || 'publish_failed',
           });
         }
@@ -2319,31 +2358,50 @@ export default function StandaloneObservationExperience({
         setIdentityOpen(true);
         return false;
       }
+      // Capture BEFORE any await — B becoming READY mid-flight must not retarget A.
+      const exactPublishIdentity = captureExactYansiPublishIdentity(artifact);
+      if (!exactPublishIdentity) {
+        setShareLinkError(
+          'Bu Yansı için yayınlanabilir mühürlü kimlik bulunamadı. Başka bir Yansı seçilmedi.'
+        );
+        setShareLinkStatus('failed');
+        return false;
+      }
       // Never borrow a foreign live card for this artifact's publish body.
       const card = buildPublishCardFromArtifact({
         artifact,
         liveCard: generatedDailyCard,
       });
-      if (!card) {
+      if (
+        !card ||
+        !exactIdentityMatchesCardLineage(
+          exactPublishIdentity,
+          card.mirrorJourneyGenerationLineage
+        )
+      ) {
         setShareLinkError(
           'Bu Yansı için yayınlanabilir içerik henüz hazır değil.'
         );
+        setShareLinkStatus('failed');
         return false;
       }
-      setPublishBusyJourneyId(artifact.journeyId);
+      setPublishBusyJourneyId(exactPublishIdentity.journeyId);
       setPublishBusy(true);
       try {
         const ok = await prepareMirrorShareLink(
           card,
-          artifact.sceneImageUrl || null,
-          { refreshScene: options?.refreshScene }
+          exactPublishIdentity.sceneImageUrl,
+          {
+            refreshScene: options?.refreshScene,
+            exactPublishIdentity,
+          }
         );
         if (ok) {
           const updated =
             loadMirrorJourneyArtifact(
               shareCacheUserId,
-              artifact.journeyId,
-              artifact.journeyVersion
+              exactPublishIdentity.journeyId,
+              exactPublishIdentity.journeyVersion
             ) || artifact;
           const payload = freezeArtifactShareSession(updated);
           if (options?.openShareAfter) {

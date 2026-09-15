@@ -81,6 +81,11 @@ export function resolveJourneyPublishContract(input: {
   /** Optional lookup key when card lineage missing but artifact store has it. */
   journeyId?: string | null;
   journeyVersion?: number | null;
+  /**
+   * Exact-artifact publish: never fall back to the conversation's active Review draft
+   * (which may belong to a newer window / different journeyId).
+   */
+  forbidReviewDraftFallback?: boolean;
   env?: Record<string, string | undefined>;
 }): JourneyPublishContractResult | { ok: true; legacy: true } {
   if (!isMirrorJourneyV1ClientEnabled(input.env)) {
@@ -122,6 +127,14 @@ export function resolveJourneyPublishContract(input: {
         message: 'Generation lineage conversation does not match this chat.',
       };
     }
+    const wantedJourneyId = (input.journeyId || '').trim().toLowerCase();
+    if (wantedJourneyId && lineage.journeyId.trim().toLowerCase() !== wantedJourneyId) {
+      return {
+        ok: false,
+        code: 'lineage_stale',
+        message: 'Generation lineage does not match the selected Yansı.',
+      };
+    }
     return {
       ok: true,
       journeyId: lineage.journeyId,
@@ -132,6 +145,15 @@ export function resolveJourneyPublishContract(input: {
       parentJourneyId: lineage.parentJourneyId ?? null,
       generationLineage: lineage,
       source: 'generation_lineage',
+    };
+  }
+
+  if (input.forbidReviewDraftFallback) {
+    return {
+      ok: false,
+      code: 'lineage_required',
+      message:
+        'Selected Yansı must publish from its sealed generation lineage. Another Review draft cannot be substituted.',
     };
   }
 

@@ -55,11 +55,18 @@ export type PublishMirrorToNetworkInput = {
   ownerUserId?: string | null;
   /** Phase 2: when journey flag on + Review 8 confirmed, publish identity is this slug. */
   journeyId?: string;
+  /** Exact artifact version — used with journeyId for sealed-lineage store lookup. */
+  journeyVersion?: number;
   /** Child journey lineage — maps to network parentSlug. */
   parentSlug?: string;
   windowIndex?: number;
   windowStart?: number;
   windowEnd?: number;
+  /**
+   * Exact-artifact publish from Ayna reel: never substitute the conversation's
+   * active Review draft when sealed lineage is missing.
+   */
+  forbidReviewDraftFallback?: boolean;
   selectedSteps?: Array<{
     stepIndex: number;
     sourceOrder: number;
@@ -507,11 +514,13 @@ export async function publishMirrorToNetwork(
       conversationId: input.conversationId,
       generationLineage: card.mirrorJourneyGenerationLineage,
       journeyId: input.journeyId,
-      journeyVersion: isPublishableJourneyGenerationLineage(
-        card.mirrorJourneyGenerationLineage
-      )
-        ? card.mirrorJourneyGenerationLineage.journeyVersion
-        : undefined,
+      journeyVersion:
+        typeof input.journeyVersion === 'number' && input.journeyVersion >= 1
+          ? input.journeyVersion
+          : isPublishableJourneyGenerationLineage(card.mirrorJourneyGenerationLineage)
+            ? card.mirrorJourneyGenerationLineage.journeyVersion
+            : undefined,
+      forbidReviewDraftFallback: input.forbidReviewDraftFallback === true,
     });
     if (!('legacy' in journeyContract) && !journeyContract.ok) {
       return {

@@ -381,6 +381,13 @@ export {
 } from './resolveConversationYansiStatus';
 
 export {
+  type ExactYansiPublishIdentity,
+  captureExactYansiPublishIdentity,
+  exactIdentityMatchesCardLineage,
+  resolvePostPublishArtifactMarkTarget,
+} from './exactYansiPublishIdentity';
+
+export {
   type OwnerYansiPublicationRecord,
   getOwnerYansiPublicationSnapshot,
   subscribeOwnerYansiPublicationAuthority,
