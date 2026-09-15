@@ -82,8 +82,10 @@ jobs:
           tests/mirrorJourneyPhase431Closure.test.tsx
           tests/mirrorJourneyPhase50ProgressiveReplay.test.tsx
           tests/mirrorJourneyPhase51ContinuousChildScroll.test.tsx
-          tests/mirrorJourneyPhase511NoAutoScroll.test.tsx
           tests/mirrorJourneyPhase512ReplaySkipResume.test.tsx
+          tests/yansiDiscoverVerticalNav.test.tsx
+          tests/yansiContinuationHorizontalNav.test.tsx
+          tests/yansiDiscoverySession.test.ts
           tests/mirrorJourneyPhase52ChildCreation.test.ts
           tests/mirrorJourneyPhase60ExperienceIngest.test.tsx
           tests/yansiPublicMetricsPhase61.test.ts

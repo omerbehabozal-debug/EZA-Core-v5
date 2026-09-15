@@ -182,7 +182,7 @@ async def test_seed_idempotency_cleanup_eligibility_and_coverage(db: AsyncSessio
     eligible = await load_discover_eligible_roots(db)
     assert len(eligible) >= 50
     for node, scene in eligible:
-        assert node.parent_slug is None
+        # parent_slug is relationship metadata only — linked Yansı stay Discover-eligible.
         assert node.visibility == "public"
         assert node.safety_status == "open"
         assert node.freeze_status == "frozen"

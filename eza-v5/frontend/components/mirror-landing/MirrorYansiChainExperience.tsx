@@ -178,6 +178,7 @@ export default function MirrorYansiChainExperience({
    */
   useEffect(() => {
     if (!activeSlug || typeof window === 'undefined') return;
+    if (typeof router.replace !== 'function') return;
     const desired = publicPathForSlug(activeSlug);
     const current = `${window.location.pathname}${window.location.search}`;
     if (current === desired || window.location.pathname === desired) return;
