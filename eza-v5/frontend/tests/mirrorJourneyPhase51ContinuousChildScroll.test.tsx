@@ -247,16 +247,10 @@ describe('Phase 5.1 replay isolation', () => {
 });
 
 describe('Phase 5.1 continuous chain UI', () => {
-  it('G/H/I + 5.1.1: complete A prepares B without auto-scroll/activation', async () => {
+  it('completed A stays active alone: no child preload, CTA=/m/A, Discover DOWN available', async () => {
     const a = makeArtifact('yansi-a', {
       authorUserId: 'author-a',
       sceneImageUrl: 'https://cdn.example/yansi-a.jpg',
-    });
-    const b = makeArtifact('yansi-b', {
-      parentSlug: 'yansi-a',
-      authorUserId: 'author-b',
-      publicTitle: 'Title yansi-b',
-      sceneImageUrl: 'https://cdn.example/yansi-b.jpg',
     });
 
     vi.mocked(fetchPublishedChildren).mockResolvedValue({
@@ -269,7 +263,6 @@ describe('Phase 5.1 continuous chain UI', () => {
     });
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) => {
       if (slug === 'yansi-a') return a;
-      if (slug === 'yansi-b') return b;
       return null;
     });
 
@@ -289,11 +282,15 @@ describe('Phase 5.1 continuous chain UI', () => {
     render(<MirrorYansiChainExperience rootArtifact={a} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-section-yansi-b')).toBeTruthy();
+      expect(screen.getByTestId('mirror-yansi-section-yansi-a')).toBeTruthy();
     });
 
-    // Preload only — no automatic viewport move
+    // Vertical Discover: no lineage preload / no auto-scroll / children unused
     expect(scrollSpy).not.toHaveBeenCalled();
+    expect(fetchPublishedChildren).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('mirror-yansi-section-yansi-b')).toBeNull();
+    expect(screen.queryByTestId('mirror-other-paths')).toBeNull();
+    expect(screen.queryByTestId('mirror-continuation-cue')).toBeNull();
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
       'data-active-slug',
       'yansi-a'
@@ -305,81 +302,12 @@ describe('Phase 5.1 continuous chain UI', () => {
       '/m/yansi-a/sohbet'
     );
     expect(within(sectionA).getByText('Bu Yansı burada tamamlandı.')).toBeTruthy();
-    expect(screen.getByTestId('mirror-continuation-cue')).toHaveTextContent(
-      '1 Yansı buradan devam etti'
-    );
+    expect(screen.getByTestId('mirror-skip-to-next')).toBeTruthy();
 
-    // Scene identity remains A while A is active
     expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
       'src',
       'https://cdn.example/yansi-a.jpg'
     );
-
-    const sectionB = screen.getByTestId('mirror-yansi-section-yansi-b');
-    expect(within(sectionB).getByText('Title yansi-b')).toBeTruthy();
-    expect(within(sectionB).getByTestId('mirror-frozen-replay-next-question')).toHaveTextContent(
-      'yansi-b Soru 1?'
-    );
-    // B not started
-    expect(loadFrozenReplayProgress('yansi-b', 1)).toBeNull();
-
-    expect(vi.mocked(fetchPublishedChildren)).toHaveBeenCalledWith('yansi-a');
-  });
-
-  it('M/O. Diğer yollar opens alternate and selecting C loads C artifact', async () => {
-    const a = makeArtifact('yansi-a');
-    const b = makeArtifact('yansi-b', { parentSlug: 'yansi-a', authorUserId: 'author-b' });
-    const c = makeArtifact('yansi-c', { parentSlug: 'yansi-a', authorUserId: 'author-c' });
-
-    vi.mocked(fetchPublishedChildren).mockResolvedValue({
-      ok: true,
-      data: {
-        parentSlug: 'yansi-a',
-        items: [childMeta('yansi-b', 'yansi-a'), childMeta('yansi-c', 'yansi-a')],
-        total: 2,
-      },
-    });
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) => {
-      if (slug === 'yansi-b') return b;
-      if (slug === 'yansi-c') return c;
-      if (slug === 'yansi-a') return a;
-      return null;
-    });
-
-    localStorage.setItem(
-      `eza_frozen_replay_progress_v1:yansi-a:v1`,
-      JSON.stringify({
-        slug: 'yansi-a',
-        journeyVersion: 1,
-        completedStepCount: 6,
-        replayCompleted: true,
-      })
-    );
-
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-other-paths')).toHaveTextContent('Diğer 1 yol');
-    });
-
-    fireEvent.click(screen.getByTestId('mirror-other-paths'));
-    expect(screen.getByTestId('mirror-alternate-children-sheet')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('mirror-alternate-child-yansi-c'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-section-yansi-c')).toBeTruthy();
-    });
-    const sectionC = screen.getByTestId('mirror-yansi-section-yansi-c');
-    expect(within(sectionC).getByText('Title yansi-c')).toBeTruthy();
-    expect(within(sectionC).getByTestId('mirror-frozen-replay-next-question')).toHaveTextContent(
-      'yansi-c Soru 1?'
-    );
-    // B still present and unmixed
-    expect(
-      within(screen.getByTestId('mirror-yansi-section-yansi-b')).getByTestId(
-        'mirror-frozen-replay-next-question'
-      )
-    ).toHaveTextContent('yansi-b Soru 1?');
   });
 
   it('10. no children → no fake continuation section', async () => {

@@ -1,9 +1,10 @@
 /**
- * Phase 5.1.2 — leave a Yansı before all frozen steps; resume; active parent CTA.
+ * Phase 5.1.2 — leave a Yansı before all frozen steps; resume via Discover ↑/↓.
+ * Slice 3: vertical nav is Discover session (not /children IO activation).
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
@@ -34,11 +35,22 @@ vi.mock('@/lib/eza/mirror-network/fetchAuthorPublished', async () => {
   };
 });
 
+vi.mock('@/lib/eza/mirror-network/fetchDiscoverMirrors', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/eza/mirror-network/fetchDiscoverMirrors')
+  >('@/lib/eza/mirror-network/fetchDiscoverMirrors');
+  return {
+    ...actual,
+    fetchDiscoverMirrors: vi.fn(),
+  };
+});
+
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 import {
   fetchPublishedChildren,
   fetchAuthorPublishedYansilar,
 } from '@/lib/eza/mirror-network/fetchAuthorPublished';
+import { fetchDiscoverMirrors } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import {
   clearAllFrozenReplayProgressForTests,
   loadFrozenReplayProgress,
@@ -57,13 +69,6 @@ import {
 } from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
 import { YANSI_SKIP_TO_NEXT_MERAK } from '@/lib/eza/mirror/copy';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
-
-type Observed = {
-  cb: IntersectionObserverCallback;
-  elements: Set<Element>;
-};
-
-const observers: Observed[] = [];
 
 function makeArtifact(
   slug: string,
@@ -91,63 +96,42 @@ function makeArtifact(
   })!;
 }
 
-function childMeta(slug: string, parentSlug: string) {
+function discoverItem(slug: string) {
   return {
     slug,
-    shareUrl: `/m/${slug}`,
-    publicTitle: `Title ${slug}`,
-    publicSummary: `Summary ${slug}`,
+    title: `Title ${slug}`,
     sceneImageUrl: `https://cdn.example/${slug}.jpg`,
-    publishedAt: '2026-08-01T00:00:00Z',
-    parentSlug,
+    yansiCount: 0,
   };
 }
 
-function mockAbChain() {
+function mockDiscoverNext(slug: string) {
+  vi.mocked(fetchDiscoverMirrors).mockResolvedValue({
+    ok: true,
+    data: {
+      items: [discoverItem(slug)],
+      total: 10,
+      mode: 'random',
+      randomSession: 'session-phase512',
+      strongCuriosityReady: false,
+    },
+  });
+}
+
+function mockAxDiscover() {
   const a = makeArtifact('yansi-a', { stepCount: 8 });
-  const b = makeArtifact('yansi-b', { parentSlug: 'yansi-a', stepCount: 6 });
-  vi.mocked(fetchPublishedChildren).mockImplementation(async (slug) => {
-    if (slug === 'yansi-a') {
-      return {
-        ok: true,
-        data: {
-          parentSlug: 'yansi-a',
-          items: [childMeta('yansi-b', 'yansi-a')],
-          total: 1,
-        },
-      };
-    }
-    return { ok: true, data: { parentSlug: slug, items: [], total: 0 } };
+  const x = makeArtifact('yansi-x', { stepCount: 6 });
+  mockDiscoverNext('yansi-x');
+  vi.mocked(fetchPublishedChildren).mockResolvedValue({
+    ok: true,
+    data: { parentSlug: 'yansi-a', items: [], total: 0 },
   });
   vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) => {
     if (slug === 'yansi-a') return a;
-    if (slug === 'yansi-b') return b;
+    if (slug === 'yansi-x') return x;
     return null;
   });
-  return { a, b };
-}
-
-function activateYansiSection(slug: string) {
-  const el = document.querySelector(`[data-yansi-slug="${slug}"]`);
-  if (!el) throw new Error(`missing section ${slug}`);
-  act(() => {
-    for (const obs of observers) {
-      obs.cb(
-        [
-          {
-            target: el,
-            isIntersecting: true,
-            intersectionRatio: 0.7,
-            boundingClientRect: {} as DOMRectReadOnly,
-            intersectionRect: {} as DOMRectReadOnly,
-            rootBounds: null,
-            time: 0,
-          },
-        ],
-        obs as unknown as IntersectionObserver
-      );
-    }
-  });
+  return { a, x };
 }
 
 async function askNextInSection(slug: string) {
@@ -158,40 +142,41 @@ async function askNextInSection(slug: string) {
   });
 }
 
+async function goDiscoverDownTo(slug: string) {
+  fireEvent.click(screen.getByTestId('mirror-skip-to-next'));
+  await waitFor(() => {
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
+      'data-active-slug',
+      slug
+    );
+  });
+}
+
 beforeEach(() => {
-  observers.length = 0;
   clearAllFrozenReplayProgressForTests();
   clearEzaUserPreferencesForTests();
   clearPublicAuthorDisplayCacheForTests();
   localStorage.clear();
   vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();
   vi.mocked(fetchPublishedChildren).mockReset();
+  vi.mocked(fetchDiscoverMirrors).mockReset();
   vi.mocked(fetchAuthorPublishedYansilar).mockReset();
   vi.mocked(fetchAuthorPublishedYansilar).mockImplementation(async (userId) => ({
     ok: true,
     data: {
       userId,
       displayName: userId.replace('author-', 'Name '),
+      publicHonorific: 'Meraklı',
+      publicAvatarUrl: null,
+      publicAvatarRevision: 0,
       items: [],
       total: 0,
     },
   }));
   class IO {
-    elements = new Set<Element>();
-    cb: IntersectionObserverCallback;
-    constructor(cb: IntersectionObserverCallback) {
-      this.cb = cb;
-      observers.push(this);
-    }
-    observe(el: Element) {
-      this.elements.add(el);
-    }
-    unobserve(el: Element) {
-      this.elements.delete(el);
-    }
-    disconnect() {
-      this.elements.clear();
-    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
     takeRecords() {
       return [];
     }
@@ -243,26 +228,17 @@ describe('Phase 5.1.2 skip semantics (pure)', () => {
   });
 });
 
-describe('Phase 5.1.2 partial skip + resume', () => {
-  it('Q1–Q3 then enter B: A stays 3/8 incomplete, B starts at Q1', async () => {
-    const { a } = mockAbChain();
-    const prevFetch = globalThis.fetch;
-    const fetchSpy = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      return prevFetch(input as RequestInfo, init);
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).fetch = fetchSpy;
-
-    try {
+describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
+  it('Q1–Q3 then Discover DOWN: A stays 3/8 incomplete, X starts at Q1', async () => {
+    const { a } = mockAxDiscover();
     render(<MirrorYansiChainExperience rootArtifact={a} />);
     await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-section-yansi-b')).toBeTruthy();
+      expect(screen.getByTestId('mirror-skip-to-next')).toHaveTextContent(
+        YANSI_SKIP_TO_NEXT_MERAK
+      );
     });
 
     const sectionA = screen.getByTestId('mirror-yansi-section-yansi-a');
-    expect(within(sectionA).getByTestId('mirror-skip-to-next')).toHaveTextContent(
-      YANSI_SKIP_TO_NEXT_MERAK
-    );
     expect(within(sectionA).getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
       'href',
       '/m/yansi-a/sohbet'
@@ -276,13 +252,8 @@ describe('Phase 5.1.2 partial skip + resume', () => {
       '4'
     );
 
-    activateYansiSection('yansi-b');
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
-        'data-active-slug',
-        'yansi-b'
-      );
-    });
+    await goDiscoverDownTo('yansi-x');
+    expect(fetchPublishedChildren).not.toHaveBeenCalled();
 
     expect(loadFrozenReplayProgress('yansi-a', 1)).toEqual({
       slug: 'yansi-a',
@@ -290,47 +261,30 @@ describe('Phase 5.1.2 partial skip + resume', () => {
       completedStepCount: 3,
       replayCompleted: false,
     });
-    expect(loadFrozenReplayProgress('yansi-b', 1)).toBeNull();
-    const sectionB = screen.getByTestId('mirror-yansi-section-yansi-b');
-    expect(within(sectionB).getByTestId('mirror-frozen-replay-next-question')).toHaveTextContent(
-      'yansi-b Soru 1?'
+    expect(loadFrozenReplayProgress('yansi-x', 1)).toBeNull();
+    const sectionX = screen.getByTestId('mirror-yansi-section-yansi-x');
+    expect(within(sectionX).getByTestId('mirror-frozen-replay-next-question')).toHaveTextContent(
+      'yansi-x Soru 1?'
     );
-    expect(within(sectionB).getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
+    expect(within(sectionX).getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
       'href',
-      '/m/yansi-b/sohbet'
+      '/m/yansi-x/sohbet'
     );
     expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
       'src',
-      'https://cdn.example/yansi-b.jpg'
+      'https://cdn.example/yansi-x.jpg'
     );
-    expect(
-      fetchSpy.mock.calls.filter(([url]) => {
-        const u = String(url);
-        return !u.includes('/experience-events') && !u.includes('/metrics');
-      })
-    ).toHaveLength(0);
-    } finally {
-      (globalThis as typeof globalThis).fetch = prevFetch;
-    }
   });
 
-  it('return to A resumes at Q4 — does not restart or complete', async () => {
-    const { a } = mockAbChain();
+  it('return to A via ↑ resumes at Q4 — does not restart or complete', async () => {
+    const { a } = mockAxDiscover();
     render(<MirrorYansiChainExperience rootArtifact={a} />);
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-section-yansi-b')).toBeTruthy();
-    });
+    await waitFor(() => screen.getByTestId('mirror-skip-to-next'));
     await askNextInSection('yansi-a');
     await askNextInSection('yansi-a');
     await askNextInSection('yansi-a');
-    activateYansiSection('yansi-b');
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
-        'data-active-slug',
-        'yansi-b'
-      );
-    });
-    activateYansiSection('yansi-a');
+    await goDiscoverDownTo('yansi-x');
+    fireEvent.click(screen.getByTestId('mirror-discover-up'));
     await waitFor(() => {
       expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
         'data-active-slug',
@@ -349,7 +303,7 @@ describe('Phase 5.1.2 partial skip + resume', () => {
     expect(loadFrozenReplayProgress('yansi-a', 1)?.completedStepCount).toBe(3);
   });
 
-  it('partial A → B fires skip, not completed; complete A → B is not skip', async () => {
+  it('partial A → X fires skip, not completed; complete A → X is not skip', async () => {
     const skipped: string[] = [];
     const completed: string[] = [];
     const onSkip = (e: Event) => {
@@ -363,15 +317,13 @@ describe('Phase 5.1.2 partial skip + resume', () => {
     window.addEventListener(YANSI_EXPERIENCE_SKIPPED_EVENT, onSkip);
     window.addEventListener(YANSI_EXPERIENCE_COMPLETED_EVENT, onCompleted);
 
-    const { a } = mockAbChain();
+    const { a } = mockAxDiscover();
     render(<MirrorYansiChainExperience rootArtifact={a} />);
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-section-yansi-b')).toBeTruthy();
-    });
+    await waitFor(() => screen.getByTestId('mirror-skip-to-next'));
     await askNextInSection('yansi-a');
     await askNextInSection('yansi-a');
     await askNextInSection('yansi-a');
-    activateYansiSection('yansi-b');
+    await goDiscoverDownTo('yansi-x');
     await waitFor(
       () => {
         expect(skipped).toContain('yansi-a');
@@ -383,7 +335,7 @@ describe('Phase 5.1.2 partial skip + resume', () => {
     window.removeEventListener(YANSI_EXPERIENCE_COMPLETED_EVENT, onCompleted);
   });
 
-  it('completed A → B does not fire skip; completed event already happened', async () => {
+  it('completed A → X does not fire skip', async () => {
     const skipped: string[] = [];
     const onSkip = (e: Event) => {
       const detail = (e as CustomEvent).detail as { mirrorSlug?: string };
@@ -391,7 +343,7 @@ describe('Phase 5.1.2 partial skip + resume', () => {
     };
     window.addEventListener(YANSI_EXPERIENCE_SKIPPED_EVENT, onSkip);
 
-    const { a } = mockAbChain();
+    const { a } = mockAxDiscover();
     localStorage.setItem(
       'eza_frozen_replay_progress_v1:yansi-a:v1',
       JSON.stringify({
@@ -402,23 +354,14 @@ describe('Phase 5.1.2 partial skip + resume', () => {
       })
     );
     render(<MirrorYansiChainExperience rootArtifact={a} />);
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-section-yansi-b')).toBeTruthy();
-    });
-    expect(screen.queryByTestId('mirror-skip-to-next')).toBeNull();
-    activateYansiSection('yansi-b');
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
-        'data-active-slug',
-        'yansi-b'
-      );
-    });
+    await waitFor(() => screen.getByTestId('mirror-skip-to-next'));
+    await goDiscoverDownTo('yansi-x');
     await new Promise((r) => setTimeout(r, 450));
     expect(skipped).toEqual([]);
     window.removeEventListener(YANSI_EXPERIENCE_SKIPPED_EVENT, onSkip);
   });
 
-  it('preload of B does not start or complete B', async () => {
+  it('mount alone does not start or complete next Discover candidate', async () => {
     const started: string[] = [];
     const completed: string[] = [];
     const onStarted = (e: Event) => {
@@ -432,25 +375,25 @@ describe('Phase 5.1.2 partial skip + resume', () => {
     window.addEventListener(YANSI_EXPERIENCE_STARTED_EVENT, onStarted);
     window.addEventListener(YANSI_EXPERIENCE_COMPLETED_EVENT, onCompleted);
 
-    const { a } = mockAbChain();
+    const { a } = mockAxDiscover();
     render(<MirrorYansiChainExperience rootArtifact={a} />);
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-section-yansi-b')).toBeTruthy();
-    });
-    expect(started.filter((s) => s === 'yansi-b')).toHaveLength(0);
-    expect(completed.filter((s) => s === 'yansi-b')).toHaveLength(0);
-    expect(loadFrozenReplayProgress('yansi-b', 1)).toBeNull();
+    await waitFor(() => screen.getByTestId('mirror-yansi-section-yansi-a'));
+    expect(screen.queryByTestId('mirror-yansi-section-yansi-x')).toBeNull();
+    expect(started.filter((s) => s === 'yansi-x')).toHaveLength(0);
+    expect(completed.filter((s) => s === 'yansi-x')).toHaveLength(0);
+    expect(loadFrozenReplayProgress('yansi-x', 1)).toBeNull();
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
       'data-active-slug',
       'yansi-a'
     );
+    expect(fetchDiscoverMirrors).not.toHaveBeenCalled();
 
     window.removeEventListener(YANSI_EXPERIENCE_STARTED_EVENT, onStarted);
     window.removeEventListener(YANSI_EXPERIENCE_COMPLETED_EVENT, onCompleted);
   });
 
-  it('skip affordance scrolls toward B but is not required; no auto-scroll on preload', async () => {
-    const { a } = mockAbChain();
+  it('Discover DOWN activates next without requiring scrollIntoView', async () => {
+    const { a } = mockAxDiscover();
     const scrollSpy = vi.fn();
     Element.prototype.scrollIntoView = scrollSpy;
     render(<MirrorYansiChainExperience rootArtifact={a} />);
@@ -458,26 +401,26 @@ describe('Phase 5.1.2 partial skip + resume', () => {
       expect(screen.getByTestId('mirror-skip-to-next')).toBeTruthy();
     });
     expect(scrollSpy).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId('mirror-skip-to-next'));
-    expect(scrollSpy).toHaveBeenCalled();
+    await goDiscoverDownTo('yansi-x');
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
       'data-active-slug',
-      'yansi-a'
+      'yansi-x'
     );
   });
 
-  it('no eligible child: no skip affordance; replay and own continuation remain', async () => {
+  it('Discover DOWN remains available; replay and own continuation remain', async () => {
     const a = makeArtifact('yansi-solo', { stepCount: 8 });
-    vi.mocked(fetchPublishedChildren).mockResolvedValue({
-      ok: true,
-      data: { parentSlug: 'yansi-solo', items: [], total: 0 },
+    mockDiscoverNext('yansi-x');
+    vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) => {
+      if (slug === 'yansi-solo') return a;
+      if (slug === 'yansi-x') return makeArtifact('yansi-x', { stepCount: 6 });
+      return null;
     });
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(a);
     render(<MirrorYansiChainExperience rootArtifact={a} />);
     await waitFor(() => {
       expect(screen.getByTestId('mirror-frozen-replay-next-question')).toBeTruthy();
     });
-    expect(screen.queryByTestId('mirror-skip-to-next')).toBeNull();
+    expect(screen.getByTestId('mirror-skip-to-next')).toBeTruthy();
     expect(screen.getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
       'href',
       '/m/yansi-solo/sohbet'
@@ -489,15 +432,21 @@ describe('Phase 5.1.2 partial skip + resume', () => {
     );
   });
 
-  it('child load failure keeps A usable with no fake skip', async () => {
+  it('Discover fetch failure keeps A usable with no fake next Yansı', async () => {
     const a = makeArtifact('yansi-a', { stepCount: 8 });
-    vi.mocked(fetchPublishedChildren).mockResolvedValue({ ok: false });
+    vi.mocked(fetchDiscoverMirrors).mockResolvedValue({ ok: false, status: 500 });
+    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(a);
     render(<MirrorYansiChainExperience rootArtifact={a} />);
     await waitFor(() => {
       expect(screen.getByTestId('mirror-frozen-replay-next-question')).toBeTruthy();
     });
-    expect(screen.queryByTestId('mirror-skip-to-next')).toBeNull();
-    expect(screen.queryByTestId('mirror-yansi-section-yansi-b')).toBeNull();
+    fireEvent.click(screen.getByTestId('mirror-skip-to-next'));
+    await waitFor(() => expect(fetchDiscoverMirrors).toHaveBeenCalled());
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
+      'data-active-slug',
+      'yansi-a'
+    );
+    expect(screen.queryByTestId('mirror-yansi-section-yansi-x')).toBeNull();
     expect(screen.getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
       'href',
       '/m/yansi-a/sohbet'

@@ -6,6 +6,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+}));
+
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ user: null, isAuthenticated: false }),
 }));
@@ -31,11 +35,22 @@ vi.mock('@/lib/eza/mirror-network/fetchAuthorPublished', async () => {
   };
 });
 
+vi.mock('@/lib/eza/mirror-network/fetchDiscoverMirrors', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/eza/mirror-network/fetchDiscoverMirrors')
+  >('@/lib/eza/mirror-network/fetchDiscoverMirrors');
+  return {
+    ...actual,
+    fetchDiscoverMirrors: vi.fn(),
+  };
+});
+
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 import {
   fetchPublishedChildren,
   fetchAuthorPublishedYansilar,
 } from '@/lib/eza/mirror-network/fetchAuthorPublished';
+import { fetchDiscoverMirrors } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import {
   clearAllFrozenReplayProgressForTests,
 } from '@/lib/eza/mirror/journey/frozenReplaySession';
@@ -106,14 +121,33 @@ beforeEach(() => {
   localStorage.clear();
   vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();
   vi.mocked(fetchPublishedChildren).mockReset();
+  vi.mocked(fetchDiscoverMirrors).mockReset();
   vi.mocked(fetchAuthorPublishedYansilar).mockReset();
   vi.mocked(fetchAuthorPublishedYansilar).mockResolvedValue({
     ok: true,
-    data: { userId: 'author-a', displayName: 'Name A', items: [], total: 0 },
+    data: {
+      userId: 'author-a',
+      displayName: 'Name A',
+      publicHonorific: 'Meraklı',
+      publicAvatarUrl: null,
+      publicAvatarRevision: 0,
+      items: [],
+      total: 0,
+    },
   });
   vi.mocked(fetchPublishedChildren).mockResolvedValue({
     ok: true,
     data: { parentSlug: 'root-a', items: [], total: 0 },
+  });
+  vi.mocked(fetchDiscoverMirrors).mockResolvedValue({
+    ok: true,
+    data: {
+      items: [],
+      total: 0,
+      mode: 'random',
+      randomSession: 'session-phase60',
+      strongCuriosityReady: false,
+    },
   });
   class IO {
     elements = new Set<Element>();
@@ -198,36 +232,30 @@ describe('Phase 6.0 start semantics', () => {
     window.removeEventListener(YANSI_EXPERIENCE_STARTED_EVENT, started);
   });
 
-  it('W/Y. child preload / IO visibility alone does not fire STARTED', async () => {
+  it('W/Y. mount alone does not fire STARTED for entry or next candidate', async () => {
     const root = makeArtifact('yansi-a', 8);
-    const child = makeArtifact('yansi-b', 6, { parentSlug: 'yansi-a' });
+    const next = makeArtifact('yansi-x', 6);
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) => {
       if (slug === 'yansi-a') return root;
-      if (slug === 'yansi-b') return child;
+      if (slug === 'yansi-x') return next;
       return null;
     });
-    vi.mocked(fetchPublishedChildren).mockImplementation(async (slug) => {
-      if (slug === 'yansi-a') {
-        return {
-          ok: true,
-          data: {
-            parentSlug: 'yansi-a',
-            items: [
-              {
-                slug: 'yansi-b',
-                shareUrl: '/m/yansi-b',
-                publicTitle: 'Title yansi-b',
-                publicSummary: 'Summary yansi-b',
-                sceneImageUrl: 'https://cdn.example/yansi-b.jpg',
-                publishedAt: '2026-08-01T00:00:00Z',
-                parentSlug: 'yansi-a',
-              },
-            ],
-            total: 1,
+    vi.mocked(fetchDiscoverMirrors).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          {
+            slug: 'yansi-x',
+            title: 'X',
+            sceneImageUrl: 'https://cdn.example/yansi-x.jpg',
+            yansiCount: 0,
           },
-        };
-      }
-      return { ok: true, data: { parentSlug: slug, items: [], total: 0 } };
+        ],
+        total: 2,
+        mode: 'random',
+        randomSession: 'session-phase60',
+        strongCuriosityReady: false,
+      },
     });
     const startedSlugs: string[] = [];
     window.addEventListener(YANSI_EXPERIENCE_STARTED_EVENT, (ev) => {
@@ -235,26 +263,9 @@ describe('Phase 6.0 start semantics', () => {
     });
     render(<MirrorYansiChainExperience rootArtifact={root} />);
     await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-section-yansi-b')).toBeTruthy();
+      expect(screen.getByTestId('mirror-yansi-section-yansi-a')).toBeTruthy();
     });
-    const el = document.querySelector('[data-yansi-slug="yansi-b"]');
-    expect(el).toBeTruthy();
-    observers.forEach((obs) => {
-      obs.cb(
-        [
-          {
-            target: el as Element,
-            isIntersecting: true,
-            intersectionRatio: 0.7,
-            boundingClientRect: {} as DOMRectReadOnly,
-            intersectionRect: {} as DOMRectReadOnly,
-            rootBounds: null,
-            time: 0,
-          },
-        ],
-        obs as unknown as IntersectionObserver
-      );
-    });
+    expect(screen.queryByTestId('mirror-yansi-section-yansi-x')).toBeNull();
     expect(startedSlugs).toEqual([]);
   });
 });

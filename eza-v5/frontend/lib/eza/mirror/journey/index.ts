@@ -357,6 +357,29 @@ export {
 } from './yansiChildContinuation';
 
 export {
+  type YansiDiscoverySession,
+  normalizeDiscoverSlug,
+  createDiscoverRandomSession,
+  createYansiDiscoverySession,
+  activeDiscoverSlug,
+  canDiscoverGoUp,
+  canDiscoverGoDownInHistory,
+  needsDiscoverFetchForDown,
+  discoverGoUp,
+  discoverGoDownInHistory,
+  discoverAppendAndActivate,
+  discoverMarkPoolExhausted,
+  discoverWithNextOffset,
+  discoverExcludeSet,
+} from './yansiDiscoverySession';
+
+export {
+  fetchNextDiscoverCandidate,
+  MAX_DISCOVER_CANDIDATE_PAGES,
+  type NextDiscoverCandidateResult,
+} from './fetchNextDiscoverCandidate';
+
+export {
   resolvePublicAuthorDisplayName,
   resolvePublicAuthorIdentity,
   clearPublicAuthorDisplayCacheForTests,

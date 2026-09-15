@@ -68,6 +68,10 @@ export const YANSI_OWN_CONTINUATION_CTA = 'Kendi merakımla devam et';
 
 /** Phase 5.1.2 — quiet skip into the next eligible child. Not a primary CTA. */
 export const YANSI_SKIP_TO_NEXT_MERAK = 'Sonraki meraka geç ↓';
+/** Vertical Discover session — previous visited Yansı in this browsing stack. */
+export const YANSI_PREVIOUS_MERAK = 'Önceki meraka dön ↑';
+/** Quiet end-of-pool cue when no more Discover candidates are available. */
+export const YANSI_DISCOVER_END_OF_POOL = 'Şimdilik başka Yansı bulunamadı';
 
 /** Phase 6.2 — compact public social proof (STARTED sessions · direct children). */
 export const YANSI_PUBLIC_METRIC_EXPERIENCE = 'deneyim';
