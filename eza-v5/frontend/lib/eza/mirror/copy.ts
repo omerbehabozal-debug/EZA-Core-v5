@@ -73,6 +73,10 @@ export const YANSI_PREVIOUS_MERAK = 'Önceki meraka dön ↑';
 /** Quiet end-of-pool cue when no more Discover candidates are available. */
 export const YANSI_DISCOVER_END_OF_POOL = 'Şimdilik başka Yansı bulunamadı';
 
+/** Slice 4 — true continuation (same curiosity), not Discover. */
+export const YANSI_CONTINUATION_NEXT = 'Derinleş →';
+export const YANSI_CONTINUATION_PREVIOUS = '← Önceki derinleşme';
+
 /** Phase 6.2 — compact public social proof (STARTED sessions · direct children). */
 export const YANSI_PUBLIC_METRIC_EXPERIENCE = 'deneyim';
 export const YANSI_PUBLIC_METRIC_CHILD = 'Yansı';

@@ -13,6 +13,7 @@ import {
   discoverGoDownInHistory,
   discoverGoUp,
   discoverMarkPoolExhausted,
+  discoverReplaceActiveAndTruncate,
   needsDiscoverFetchForDown,
 } from '@/lib/eza/mirror/journey/yansiDiscoverySession';
 import { fetchNextDiscoverCandidate } from '@/lib/eza/mirror/journey/fetchNextDiscoverCandidate';
@@ -67,6 +68,26 @@ describe('yansiDiscoverySession', () => {
     let session = createYansiDiscoverySession('b')!;
     session = discoverMarkPoolExhausted(session);
     expect(needsDiscoverFetchForDown(session)).toBe(false);
+  });
+
+  it('horizontal replace truncates forward Discover history', () => {
+    let session = createYansiDiscoverySession('a')!;
+    session = discoverAppendAndActivate(session, 'x')!;
+    session = discoverAppendAndActivate(session, 'y')!;
+    session = discoverGoUp(session)!;
+    expect(activeDiscoverSlug(session)).toBe('x');
+    session = discoverReplaceActiveAndTruncate(session, 'x2')!;
+    expect(session.history).toEqual(['a', 'x2']);
+    expect(activeDiscoverSlug(session)).toBe('x2');
+    expect(needsDiscoverFetchForDown(session)).toBe(true);
+  });
+
+  it('horizontal replace at newest end swaps active entry', () => {
+    let session = createYansiDiscoverySession('x')!;
+    session = discoverAppendAndActivate(session, 'a')!;
+    session = discoverReplaceActiveAndTruncate(session, 'b')!;
+    expect(session.history).toEqual(['x', 'b']);
+    expect(activeDiscoverSlug(session)).toBe('b');
   });
 });
 

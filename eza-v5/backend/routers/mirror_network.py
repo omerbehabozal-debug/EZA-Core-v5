@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
 from backend.core.schemas.mirror_network import (
+    ContinuationNeighborsResponse,
     DiscoverMirrorListResponse,
     MirrorNetworkDebugReport,
     MirrorNetworkImpactStats,
@@ -63,6 +64,10 @@ from backend.services.mirror_network.author_profile import (
 from backend.services.mirror_network.frozen_journey_artifact import (
     get_public_frozen_journey_artifact,
     list_owner_published_journeys_for_conversation,
+)
+from backend.services.mirror_network.continuation_neighbors import (
+    ContinuationNeighborsError,
+    get_continuation_neighbors,
 )
 from backend.services.mirror_network.yansi_experience_events import (
     YansiExperienceIngestError,
@@ -384,6 +389,32 @@ async def get_frozen_published_journey(
             },
         )
     return PublicFrozenJourneyArtifact.model_validate(public)
+
+
+@router.get("/{slug}/continuation-neighbors", response_model=ContinuationNeighborsResponse)
+async def get_mirror_network_continuation_neighbors(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+) -> ContinuationNeighborsResponse:
+    """
+    Slice 4 — exact previous/next true continuation neighbors.
+
+    Authority: same owner + same conversation + adjacent Journey window.
+    parent_slug and /children are not continuation authority.
+    Gaps fail closed without leaking private windows.
+    """
+    try:
+        payload = await get_continuation_neighbors(db, slug=slug)
+    except ContinuationNeighborsError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={
+                "code": exc.reason,
+                "message": "Frozen published Journey not found or not replay-ready",
+            },
+        ) from exc
+    return ContinuationNeighborsResponse.model_validate(payload)
 
 
 @router.get("/{slug}/metrics", response_model=YansiPublicMetrics)

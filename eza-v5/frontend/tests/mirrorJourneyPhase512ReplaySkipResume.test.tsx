@@ -45,6 +45,13 @@ vi.mock('@/lib/eza/mirror-network/fetchDiscoverMirrors', async () => {
   };
 });
 
+vi.mock('@/lib/eza/mirror-network/fetchContinuationNeighbors', () => ({
+  fetchContinuationNeighbors: vi.fn(async (slug: string) => ({
+    ok: true as const,
+    data: { slug, journeyVersion: 1, previous: null, next: null },
+  })),
+}));
+
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 import {
   fetchPublishedChildren,

@@ -118,3 +118,35 @@ export function discoverWithNextOffset(
 export function discoverExcludeSet(session: YansiDiscoverySession): Set<string> {
   return new Set(session.history.map(normalizeDiscoverSlug).filter(Boolean));
 }
+
+/**
+ * Slice 4 — horizontal continuation replaces the active Discover history entry
+ * and truncates any stale forward vertical history (branch semantics).
+ *
+ * Example: [A, X, Y] active=X → replace with X2 → [A, X2]
+ */
+export function discoverReplaceActiveAndTruncate(
+  session: YansiDiscoverySession,
+  nextSlug: string
+): YansiDiscoverySession | null {
+  const slug = normalizeDiscoverSlug(nextSlug);
+  if (!slug) return null;
+  const idx = session.activeIndex;
+  if (idx < 0 || idx >= session.history.length) return null;
+  const kept = session.history.slice(0, idx);
+  // Avoid duplicate consecutive entries if somehow same slug.
+  if (kept[kept.length - 1] === slug) {
+    return {
+      ...session,
+      history: [...kept],
+      activeIndex: kept.length - 1,
+      poolExhausted: false,
+    };
+  }
+  return {
+    ...session,
+    history: [...kept, slug],
+    activeIndex: kept.length,
+    poolExhausted: false,
+  };
+}

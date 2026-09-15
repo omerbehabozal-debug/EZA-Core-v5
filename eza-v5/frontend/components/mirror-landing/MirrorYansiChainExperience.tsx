@@ -1,12 +1,14 @@
 'use client';
 
 /**
- * Slice 3 — vertical Discover session on /m/{slug}.
+ * Slice 3 + Slice 4 — public /m navigation.
  *
  * ↓ = next Discover product (or forward session history)
- * ↑ = previous visited product in THIS session
+ * ↑ = previous visited product in THIS Discover session
+ * → = next true continuation (same curiosity)
+ * ← = previous true continuation
  *
- * Not /children lineage. Not horizontal continuation.
+ * Not /children lineage. Not parent_slug authority.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,6 +23,8 @@ import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publi
 import { resolvePublicAuthorIdentity } from '@/lib/eza/mirror/journey/resolvePublicAuthorDisplay';
 import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import {
+  YANSI_CONTINUATION_NEXT,
+  YANSI_CONTINUATION_PREVIOUS,
   YANSI_DISCOVER_END_OF_POOL,
   YANSI_OWN_CONTINUATION_CTA,
   YANSI_PREVIOUS_MERAK,
@@ -41,11 +45,16 @@ import {
   discoverGoDownInHistory,
   discoverGoUp,
   discoverMarkPoolExhausted,
+  discoverReplaceActiveAndTruncate,
   discoverWithNextOffset,
   needsDiscoverFetchForDown,
   type YansiDiscoverySession,
 } from '@/lib/eza/mirror/journey/yansiDiscoverySession';
 import { fetchNextDiscoverCandidate } from '@/lib/eza/mirror/journey/fetchNextDiscoverCandidate';
+import {
+  fetchContinuationNeighbors,
+  type PublicContinuationNeighbor,
+} from '@/lib/eza/mirror-network/fetchContinuationNeighbors';
 import { cn } from '@/lib/utils';
 import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
 import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
@@ -126,12 +135,17 @@ export default function MirrorYansiChainExperience({
   const [bootstrapped, setBootstrapped] = useState(false);
   const [navBusy, setNavBusy] = useState(false);
   const [poolEndVisible, setPoolEndVisible] = useState(false);
+  const [continuationPrevious, setContinuationPrevious] =
+    useState<PublicContinuationNeighbor | null>(null);
+  const [continuationNext, setContinuationNext] =
+    useState<PublicContinuationNeighbor | null>(null);
   const [replayProgress, setReplayProgress] = useState<Record<string, ReplayNodeProgress>>(
     {}
   );
   const previousActiveSlugRef = useRef(entrySlug);
   const skipFiredRef = useRef<Set<string>>(new Set());
   const navInFlightRef = useRef(false);
+  const neighborsRequestIdRef = useRef(0);
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const replayProgressRef = useRef(replayProgress);
@@ -213,6 +227,29 @@ export default function MirrorYansiChainExperience({
       });
     }, 350);
     return () => window.clearTimeout(timer);
+  }, [activeSlug]);
+
+  // Load continuation neighbors for the active product (slug-scoped; ignore stale).
+  useEffect(() => {
+    if (!activeSlug) return;
+    const requestId = ++neighborsRequestIdRef.current;
+    setContinuationPrevious(null);
+    setContinuationNext(null);
+    let cancelled = false;
+    void fetchContinuationNeighbors(activeSlug)
+      .then((result) => {
+        if (cancelled || requestId !== neighborsRequestIdRef.current) return;
+        if (!result.ok) return;
+        if (result.data.slug !== activeSlug) return;
+        setContinuationPrevious(result.data.previous);
+        setContinuationNext(result.data.next);
+      })
+      .catch(() => {
+        /* keep current product; no fake neighbors */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [activeSlug]);
 
   const ensureArtifactLoaded = useCallback(async (slug: string): Promise<ExperienceNode | null> => {
@@ -333,6 +370,33 @@ export default function MirrorYansiChainExperience({
     }
   }, [ensureArtifactLoaded]);
 
+  const goHorizontal = useCallback(
+    async (direction: 'previous' | 'next') => {
+      const current = sessionRef.current;
+      if (!current || navInFlightRef.current) return;
+      const target =
+        direction === 'next' ? continuationNext : continuationPrevious;
+      if (!target?.slug) return;
+      const fromSlug = activeDiscoverSlug(current);
+      navInFlightRef.current = true;
+      setNavBusy(true);
+      try {
+        const loaded = await ensureArtifactLoaded(target.slug);
+        const live = sessionRef.current;
+        if (!live || activeDiscoverSlug(live) !== fromSlug) return;
+        if (!loaded) return;
+        const replaced = discoverReplaceActiveAndTruncate(live, target.slug);
+        if (!replaced) return;
+        setPoolEndVisible(false);
+        setSession(replaced);
+      } finally {
+        navInFlightRef.current = false;
+        setNavBusy(false);
+      }
+    },
+    [continuationNext, continuationPrevious, ensureArtifactLoaded]
+  );
+
   if (!bootstrapped || !session || !activeNode) {
     return (
       <div
@@ -428,6 +492,42 @@ export default function MirrorYansiChainExperience({
               className="mt-4 flex flex-col items-center gap-2"
               data-testid="mirror-discover-nav"
             >
+              <div
+                className="flex w-full max-w-md items-center justify-between gap-3"
+                data-testid="mirror-continuation-nav"
+              >
+                {continuationPrevious ? (
+                  <button
+                    type="button"
+                    className="px-2 py-1 text-left text-[11px] font-medium tracking-wide text-[#a89880] underline-offset-4 hover:text-[#c9bba8] hover:underline disabled:opacity-40"
+                    onClick={() => void goHorizontal('previous')}
+                    disabled={navBusy}
+                    data-testid="mirror-continuation-prev"
+                  >
+                    {YANSI_CONTINUATION_PREVIOUS}
+                  </button>
+                ) : (
+                  <span className="px-2 py-1 text-[11px] opacity-0" aria-hidden>
+                    .
+                  </span>
+                )}
+                {continuationNext ? (
+                  <button
+                    type="button"
+                    className="px-2 py-1 text-right text-[11px] font-medium tracking-wide text-[#a89880] underline-offset-4 hover:text-[#c9bba8] hover:underline disabled:opacity-40"
+                    onClick={() => void goHorizontal('next')}
+                    disabled={navBusy}
+                    data-testid="mirror-continuation-next"
+                  >
+                    {YANSI_CONTINUATION_NEXT}
+                  </button>
+                ) : (
+                  <span className="px-2 py-1 text-[11px] opacity-0" aria-hidden>
+                    .
+                  </span>
+                )}
+              </div>
+
               {showUp ? (
                 <button
                   type="button"

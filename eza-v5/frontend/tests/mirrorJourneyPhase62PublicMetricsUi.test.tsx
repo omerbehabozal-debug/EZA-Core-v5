@@ -44,6 +44,13 @@ vi.mock('@/lib/eza/mirror-network/fetchDiscoverMirrors', async () => {
   };
 });
 
+vi.mock('@/lib/eza/mirror-network/fetchContinuationNeighbors', () => ({
+  fetchContinuationNeighbors: vi.fn(async (slug: string) => ({
+    ok: true as const,
+    data: { slug, journeyVersion: 1, previous: null, next: null },
+  })),
+}));
+
 vi.mock('@/lib/eza/mirror-network/yansiPublicMetrics', async () => {
   const actual = await vi.importActual<
     typeof import('@/lib/eza/mirror-network/yansiPublicMetrics')

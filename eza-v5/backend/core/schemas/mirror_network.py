@@ -275,6 +275,26 @@ class PublicFrozenJourneyArtifact(BaseModel):
     replayReady: bool = True
 
 
+class PublicContinuationNeighbor(BaseModel):
+    """Minimal public continuation target — no conversation/owner internals."""
+
+    model_config = {"extra": "forbid"}
+
+    slug: str
+    journeyVersion: int = Field(ge=1)
+
+
+class ContinuationNeighborsResponse(BaseModel):
+    """GET /api/mirror-network/{slug}/continuation-neighbors — Slice 4."""
+
+    model_config = {"extra": "forbid"}
+
+    slug: str
+    journeyVersion: int = Field(ge=1)
+    previous: Optional[PublicContinuationNeighbor] = None
+    next: Optional[PublicContinuationNeighbor] = None
+
+
 # Backward-compatible aliases (Phase 4 names → Phase 4.1 public DTOs).
 FrozenJourneyPublicStep = PublicFrozenJourneyStep
 FrozenJourneyArtifactPublicResponse = PublicFrozenJourneyArtifact

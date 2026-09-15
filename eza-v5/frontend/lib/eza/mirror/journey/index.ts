@@ -371,6 +371,7 @@ export {
   discoverMarkPoolExhausted,
   discoverWithNextOffset,
   discoverExcludeSet,
+  discoverReplaceActiveAndTruncate,
 } from './yansiDiscoverySession';
 
 export {
