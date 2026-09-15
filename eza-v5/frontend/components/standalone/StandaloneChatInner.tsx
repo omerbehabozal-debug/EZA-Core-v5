@@ -37,6 +37,10 @@ import {
   markMirrorJourneyArtifactGenerating,
   pairsForWindow,
   requestJourneyAynaGeneration,
+  EARLY_YANSI_REVIEW_REQUEST_EVENT,
+  notifyEarlyYansiUiSync,
+  canShowAynaEarlyYansiCreateCta,
+  type EarlyYansiReviewRequestDetail,
   listJourneyArtifactsForConversation,
   promoteJourneyWindowFromArtifact,
   JOURNEY_WINDOW_STATUS_EVENT,
@@ -1223,6 +1227,15 @@ export default function StandaloneChatInner() {
   const earlyYansiReviewWindowIndex = getEarlyYansiReviewWindowIndex(journeyState);
   const generatingWindow = journeyState?.windows.find((w) => w.status === 'generating');
   const readyWindow = journeyState?.windows.find((w) => w.status === 'ready');
+  /** Silent 6–7 opportunity — never auto-opens Ayna; collapsed control may hint. */
+  const earlyYansiOpportunityAvailable = Boolean(
+    journeyV1On &&
+      canShowAynaEarlyYansiCreateCta({
+        isAuthenticated,
+        conversationId: chatId,
+        journeyState,
+      })
+  );
 
   const persistJourneyMutation = useCallback(
     (candidate: JourneyConversationState) => {
@@ -1246,7 +1259,8 @@ export default function StandaloneChatInner() {
     persistJourneyMutation(next);
     setJourneyReviewOpen(false);
     setJourneyReviewWindowIndex(null);
-  }, [journeyState, awaitingJourneyWindow, persistJourneyMutation]);
+    if (chatId) notifyEarlyYansiUiSync(chatId);
+  }, [journeyState, awaitingJourneyWindow, persistJourneyMutation, chatId]);
 
   const handleJourneyCreate = useCallback(() => {
     if (!journeyState || awaitingJourneyWindow == null) return;
@@ -1257,7 +1271,8 @@ export default function StandaloneChatInner() {
     persistJourneyMutation(next);
     setJourneyReviewWindowIndex(awaitingJourneyWindow.windowIndex);
     setJourneyReviewOpen(true);
-  }, [journeyState, awaitingJourneyWindow, persistJourneyMutation]);
+    if (chatId) notifyEarlyYansiUiSync(chatId);
+  }, [journeyState, awaitingJourneyWindow, persistJourneyMutation, chatId]);
 
   /** 6–7 eligible pairs: open Review without the 8-pair skip decision. */
   const handleEarlyYansiCreate = useCallback(() => {
@@ -1270,7 +1285,21 @@ export default function StandaloneChatInner() {
     persistJourneyMutation(next);
     setJourneyReviewWindowIndex(earlyYansiReviewWindowIndex);
     setJourneyReviewOpen(true);
-  }, [journeyState, earlyYansiReviewWindowIndex, persistJourneyMutation]);
+    if (chatId) notifyEarlyYansiUiSync(chatId);
+  }, [journeyState, earlyYansiReviewWindowIndex, persistJourneyMutation, chatId]);
+
+  // Ayna early CTA → same Review lifecycle (no direct generation).
+  useEffect(() => {
+    if (!journeyV1On || !chatId) return;
+    const onEarlyRequest = (event: Event) => {
+      const detail = (event as CustomEvent<EarlyYansiReviewRequestDetail>).detail;
+      if (!detail || detail.conversationId !== chatId) return;
+      handleEarlyYansiCreate();
+    };
+    window.addEventListener(EARLY_YANSI_REVIEW_REQUEST_EVENT, onEarlyRequest);
+    return () =>
+      window.removeEventListener(EARLY_YANSI_REVIEW_REQUEST_EVENT, onEarlyRequest);
+  }, [journeyV1On, chatId, handleEarlyYansiCreate]);
 
   const handleJourneyReviewConfirmed = useCallback(
     (draft: Review8Draft) => {
@@ -2286,15 +2315,6 @@ export default function StandaloneChatInner() {
           showSkip
         />
       ) : null}
-      {journeyV1On &&
-      earlyYansiReviewWindowIndex != null &&
-      !awaitingJourneyWindow &&
-      !journeyReviewOpen ? (
-        <JourneyWindowDecisionBanner
-          onCreate={handleEarlyYansiCreate}
-          showSkip={false}
-        />
-      ) : null}
       {branchSuggestionVisible && branchCards.length > 0 ? (
         <MirrorBranchSuggestion
           cards={branchCards}
@@ -2402,6 +2422,7 @@ export default function StandaloneChatInner() {
         onRequestLogin={handleRequestLogin}
         onRequestMirror={handleRequestMirror}
         mirrorMobileContext={mirrorMobileContext}
+        earlyYansiOpportunityAvailable={earlyYansiOpportunityAvailable}
         safeOnlyMode={safeOnlyMode}
         onSafeOnlyModeChange={setSafeOnlyMode}
         analysisModelId={analysisModelId}
@@ -2452,6 +2473,7 @@ export default function StandaloneChatInner() {
             }
             setJourneyReviewOpen(false);
             setJourneyReviewWindowIndex(null);
+            if (chatId) notifyEarlyYansiUiSync(chatId);
           }}
         />
       ) : null}

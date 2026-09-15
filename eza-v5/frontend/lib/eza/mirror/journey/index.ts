@@ -280,6 +280,16 @@ export {
   type JourneyAynaGenerateDetail,
 } from './journeyAynaGenerate';
 export {
+  EARLY_YANSI_REVIEW_REQUEST_EVENT,
+  EARLY_YANSI_UI_SYNC_EVENT,
+  requestEarlyYansiReview,
+  notifyEarlyYansiUiSync,
+  type EarlyYansiReviewRequestDetail,
+  type EarlyYansiUiSyncDetail,
+} from './earlyYansiReviewRequest';
+export { canShowAynaEarlyYansiCreateCta } from './canShowAynaEarlyYansiCreateCta';
+export { showCollapsedAynaOpportunityIndicator } from './showCollapsedAynaOpportunityIndicator';
+export {
   recoverPublishedJourneyAfterLostResponse,
   type RecoverPublishedJourneyResult,
 } from './recoverPublishedJourney';

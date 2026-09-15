@@ -100,8 +100,14 @@ import {
   canAuthorizeAuthenticatedJourneyMirrorReveal,
   promoteJourneyWindowFromArtifact,
   restoreRemountCardLandingFromJourneyArtifacts,
+  canShowAynaEarlyYansiCreateCta,
+  requestEarlyYansiReview,
+  EARLY_YANSI_UI_SYNC_EVENT,
+  loadJourneyConversationState,
+  syncJourneyConversationState,
   type JourneyAynaGenerateDetail,
   type MirrorJourneySharePayload,
+  type EarlyYansiUiSyncDetail,
 } from '@/lib/eza/mirror/journey';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
 import { persistAuthenticatedReadyYansi, captureYansiPreparationAuthority } from '@/lib/eza/mirror/journey/persistAuthenticatedReadyYansi';
@@ -113,6 +119,7 @@ import {
 } from '@/lib/eza/serverConversationStore';
 import { linkServerYansiPreparationPublication } from '@/lib/eza/standaloneConversationsApi';
 import AynaJourneyReel from '@/components/mirror/ayna/AynaJourneyReel';
+import AynaEarlyYansiCreateCta from '@/components/mirror/ayna/AynaEarlyYansiCreateCta';
 import {
   authorProfilePath,
   parentChildrenPath,
@@ -2214,6 +2221,66 @@ export default function StandaloneObservationExperience({
     return listJourneyArtifactsForConversation(shareCacheUserId, conversationId);
   }, [journeyV1PanelOn, conversationId, shareCacheUserId, artifactRevision]);
 
+  /** Bumps when ChatInner mutates Journey windows (early Review open/cancel). */
+  const [earlyYansiUiTick, setEarlyYansiUiTick] = useState(0);
+
+  useEffect(() => {
+    if (!journeyV1PanelOn || !conversationId) return;
+    const onSync = (event: Event) => {
+      const detail = (event as CustomEvent<EarlyYansiUiSyncDetail>).detail;
+      if (!detail || detail.conversationId !== conversationId) return;
+      setEarlyYansiUiTick((n) => n + 1);
+    };
+    window.addEventListener(EARLY_YANSI_UI_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(EARLY_YANSI_UI_SYNC_EVENT, onSync);
+  }, [journeyV1PanelOn, conversationId]);
+
+  const showAynaEarlyYansiCreate = useMemo(() => {
+    if (!journeyV1PanelOn || !journeyYansiGateOn || !conversationId || !authenticatedUserId) {
+      return false;
+    }
+    void earlyYansiUiTick;
+    void entries.length;
+    void artifactRevision;
+    const archive = getChatArchive(conversationId);
+    const prev = loadJourneyConversationState(authenticatedUserId, conversationId);
+    const originatingParentJourneyId =
+      archive?.mirrorOrigin?.startedFromMirrorId?.trim() ||
+      archive?.treeMetadata?.startedFromMirrorId?.trim() ||
+      null;
+    const messages = (archive?.messages ?? []).map((m) => ({
+      id: m.id,
+      text: m.text,
+      isUser: m.isUser,
+    }));
+    const state = syncJourneyConversationState({
+      state: prev,
+      ownerUserId: authenticatedUserId,
+      sourceConversationId: conversationId,
+      messages,
+      originatingParentJourneyId,
+    });
+    return canShowAynaEarlyYansiCreateCta({
+      isAuthenticated,
+      conversationId,
+      journeyState: state,
+    });
+  }, [
+    journeyV1PanelOn,
+    journeyYansiGateOn,
+    conversationId,
+    authenticatedUserId,
+    isAuthenticated,
+    earlyYansiUiTick,
+    entries.length,
+    artifactRevision,
+  ]);
+
+  const handleAynaEarlyYansiCreate = useCallback(() => {
+    if (!conversationId) return;
+    requestEarlyYansiReview(conversationId);
+  }, [conversationId]);
+
   // Keep legacy remounted card landing aligned with explicit ?yansi= selection (A→B).
   const hasRemountCard = Boolean(generatedDailyCard);
   useEffect(() => {
@@ -2863,34 +2930,51 @@ export default function StandaloneObservationExperience({
         }
       >
         {useAynaJourneyReel ? (
-          <AynaJourneyReel
-            artifacts={journeyArtifacts}
-            actions={aynaReelActions}
-            publishBusyJourneyId={publishBusyJourneyId}
-            shareBusyJourneyId={shareBusyJourneyId}
-            canShare={isPlus}
-            selectedArtifactIdentity={
-              selectedArtifactIdentity &&
-              journeyArtifacts.some((a) =>
-                artifactMatchesYansiIdentity(a, selectedArtifactIdentity)
-              )
-                ? selectedArtifactIdentity
-                : null
-            }
-            emptyState={
-              <div
-                className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center"
-                data-testid="ayna-empty-state"
-              >
-                <p className="saina-serif text-sm text-[rgba(246,244,239,0.92)]">
-                  {MIRROR_AYNA_EMPTY_TITLE}
-                </p>
-                <p className="text-[11px] leading-relaxed text-[rgba(217,196,163,0.75)]">
-                  {MIRROR_AYNA_EMPTY_BODY}
-                </p>
-              </div>
-            }
-          />
+          <>
+            {showAynaEarlyYansiCreate && journeyArtifacts.length > 0 ? (
+              <AynaEarlyYansiCreateCta
+                variant="compact"
+                showHint={false}
+                onCreate={handleAynaEarlyYansiCreate}
+              />
+            ) : null}
+            <AynaJourneyReel
+              artifacts={journeyArtifacts}
+              actions={aynaReelActions}
+              publishBusyJourneyId={publishBusyJourneyId}
+              shareBusyJourneyId={shareBusyJourneyId}
+              canShare={isPlus}
+              selectedArtifactIdentity={
+                selectedArtifactIdentity &&
+                journeyArtifacts.some((a) =>
+                  artifactMatchesYansiIdentity(a, selectedArtifactIdentity)
+                )
+                  ? selectedArtifactIdentity
+                  : null
+              }
+              emptyState={
+                <div
+                  className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center"
+                  data-testid="ayna-empty-state"
+                >
+                  <p className="saina-serif text-sm text-[rgba(246,244,239,0.92)]">
+                    {MIRROR_AYNA_EMPTY_TITLE}
+                  </p>
+                  {showAynaEarlyYansiCreate ? (
+                    <AynaEarlyYansiCreateCta
+                      variant="empty"
+                      onCreate={handleAynaEarlyYansiCreate}
+                      className="!px-0 !py-2"
+                    />
+                  ) : (
+                    <p className="text-[11px] leading-relaxed text-[rgba(217,196,163,0.75)]">
+                      {MIRROR_AYNA_EMPTY_BODY}
+                    </p>
+                  )}
+                </div>
+              }
+            />
+          </>
         ) : (
           renderDailyPanel()
         )}

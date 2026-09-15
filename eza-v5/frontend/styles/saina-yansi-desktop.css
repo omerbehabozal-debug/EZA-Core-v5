@@ -1695,9 +1695,8 @@
     line-height: 1.1;
   }
 
-  /* Legacy pill chrome inside rail — reset absolute positioning from old pill */
   .saina-app-root.saina-standalone-shell .bilign-context-rail .saina-mirror-expand-pill {
-    position: static;
+    position: relative;
     transform: none;
     width: 100%;
     height: auto;
@@ -1706,6 +1705,21 @@
     background: transparent;
     box-shadow: none;
     writing-mode: horizontal-tb;
+  }
+
+  /* Silent 6–7 early Yansı opportunity — not published-green, not error-red. */
+  .saina-app-root.saina-standalone-shell .bilign-ayna-opportunity-dot {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.4rem;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--bilign-bronze-active);
+    opacity: 0.9;
+    pointer-events: none;
+    box-shadow: none;
+    animation: none;
   }
 
   /* —— Stage 7b: top-right circular chrome (search / notifications / profile) —— */

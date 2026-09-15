@@ -8,6 +8,7 @@ import {
   resolveMirrorMobileState,
   type MirrorMobileContext,
 } from '@/lib/eza/mirrorMobileState';
+import { showCollapsedAynaOpportunityIndicator } from '@/lib/eza/mirror/journey/showCollapsedAynaOpportunityIndicator';
 import SainaStandaloneMirrorPanel from './SainaStandaloneMirrorPanel';
 
 type SainaMobileMirrorRailProps = {
@@ -15,6 +16,8 @@ type SainaMobileMirrorRailProps = {
   panelOpen: boolean;
   onOpen: () => void;
   onCollapse: () => void;
+  /** Silent 6–7 opportunity hint when CTA is collapsed. */
+  earlyYansiOpportunityAvailable?: boolean;
 };
 
 export default function SainaMobileMirrorRail({
@@ -22,6 +25,7 @@ export default function SainaMobileMirrorRail({
   panelOpen,
   onOpen,
   onCollapse,
+  earlyYansiOpportunityAvailable = false,
 }: SainaMobileMirrorRailProps) {
   const state = resolveMirrorMobileState(context, panelOpen);
 
@@ -38,6 +42,10 @@ export default function SainaMobileMirrorRail({
   }
 
   const ctaLabel = getMirrorMobileCtaLabel(state);
+  const showOpportunityDot = showCollapsedAynaOpportunityIndicator({
+    aynaClosed: true,
+    earlyCreateAvailable: earlyYansiOpportunityAvailable,
+  });
 
   return (
     <div
@@ -61,6 +69,13 @@ export default function SainaMobileMirrorRail({
           <span className="saina-mobile-mirror-cta-badge" data-testid="saina-mobile-mirror-cta-badge">
             {SAINA_MIRROR_READY_BADGE}
           </span>
+        ) : null}
+        {showOpportunityDot ? (
+          <span
+            className="bilign-ayna-opportunity-dot bilign-ayna-opportunity-dot--mobile"
+            data-testid="ayna-early-opportunity-dot"
+            aria-hidden
+          />
         ) : null}
       </button>
     </div>

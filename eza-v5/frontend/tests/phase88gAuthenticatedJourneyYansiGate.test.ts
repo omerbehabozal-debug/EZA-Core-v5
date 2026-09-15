@@ -506,14 +506,21 @@ describe('Authenticated Journey Yansı gate', () => {
     expect(birthHandleIdx).toBeGreaterThan(birthGateIdx);
   });
 
-  it('source: ChatInner suppresses Mirror Birth; early+8 decision open Review', () => {
+  it('source: ChatInner 8-pair decision opens Review; early create via Ayna bridge', () => {
     const chat = chatSrc();
     expect(chat).toContain('requiresAuthenticatedJourneyYansiGate');
     expect(chat).toContain('requestJourneyAynaGeneration');
     expect(chat).toContain('JourneyWindowDecisionBanner');
     expect(chat).toContain('getEarlyYansiReviewWindowIndex');
     expect(chat).toContain('handleEarlyYansiCreate');
-    expect(chat).toContain('showSkip={false}');
+    expect(chat).toContain('EARLY_YANSI_REVIEW_REQUEST_EVENT');
+    expect(chat).toContain('awaitingJourneyWindow');
+    // Early 6–7 must NOT render the bottom decision banner.
+    expect(chat).not.toContain('showSkip={false}');
+    const obs = obsSrc();
+    expect(obs).toContain('canShowAynaEarlyYansiCreateCta');
+    expect(obs).toContain('requestEarlyYansiReview');
+    expect(obs).toContain('AynaEarlyYansiCreateCta');
   });
 
   it('source: ready headline gated; persist path unchanged', () => {

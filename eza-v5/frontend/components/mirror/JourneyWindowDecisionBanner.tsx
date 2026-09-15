@@ -10,14 +10,14 @@ import {
 export type JourneyWindowDecisionBannerProps = {
   onCreate: () => void;
   onSkip?: () => void;
-  /** When false, only the create CTA is shown (early 6–7 path). Default true. */
+  /** When false, only the create CTA is shown. Default true (8-pair decision). */
   showSkip?: boolean;
   className?: string;
 };
 
 /**
  * Lightweight post-A8 decision — must not block the chat composer.
- * Early (6–7) path may hide skip so "continue" is not forced before the 8-pair decision.
+ * Only for completed 8-pair windows (awaiting_decision). Early 6–7 create lives in Ayna.
  */
 export default function JourneyWindowDecisionBanner({
   onCreate,

@@ -57,6 +57,11 @@ export type SainaStandaloneShellProps = {
   onRequestLogin?: () => void;
   onRequestMirror?: () => boolean;
   mirrorMobileContext?: MirrorMobileContext;
+  /**
+   * Silent 6–7 early Yansı opportunity (from canShowAynaEarlyYansiCreateCta).
+   * Collapsed Ayna may show a subtle indicator; never auto-opens the panel.
+   */
+  earlyYansiOpportunityAvailable?: boolean;
   safeOnlyMode: boolean;
   onSafeOnlyModeChange: (enabled: boolean) => void;
   analysisModelId: string;
@@ -84,6 +89,7 @@ function SainaChatSurface({
   onMirrorControlReady,
   isCompactShell,
   mirrorMobileContext,
+  earlyYansiOpportunityAvailable = false,
 }: {
   heroTitle: string;
   heroMeta?: YansiHeroMeta | null;
@@ -102,6 +108,7 @@ function SainaChatSurface({
   onMirrorControlReady?: (openMirror: () => void) => void;
   isCompactShell: boolean;
   mirrorMobileContext: MirrorMobileContext;
+  earlyYansiOpportunityAvailable?: boolean;
 }) {
   const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
   const showMessages = !isEmpty && messages != null;
@@ -209,6 +216,7 @@ function SainaChatSurface({
                       panelOpen={!mirrorCollapsed}
                       onOpen={tryOpenMirror}
                       onCollapse={() => setMirrorCollapsed(true)}
+                      earlyYansiOpportunityAvailable={earlyYansiOpportunityAvailable}
                     />
                   ) : null}
                   <div className="saina-composer-zone saina-standalone-composer">{composer}</div>
@@ -234,6 +242,7 @@ function SainaChatSurface({
             mirrorOpen={!mirrorCollapsed}
             onOpenAyna={tryOpenMirror}
             onCloseAyna={() => setMirrorCollapsed(true)}
+            earlyYansiOpportunityAvailable={earlyYansiOpportunityAvailable}
           />
         ) : null}
       </div>
@@ -263,6 +272,7 @@ export default function SainaStandaloneShell({
   onRequestLogin,
   onRequestMirror,
   mirrorMobileContext = DEFAULT_MIRROR_MOBILE_CONTEXT,
+  earlyYansiOpportunityAvailable = false,
   safeOnlyMode,
   onSafeOnlyModeChange,
   analysisModelId,
@@ -318,6 +328,7 @@ export default function SainaStandaloneShell({
       settingsDisabled={settingsDisabled}
       onRequestMirror={onRequestMirror}
       mirrorMobileContext={mirrorMobileContext}
+      earlyYansiOpportunityAvailable={earlyYansiOpportunityAvailable}
       onMobileMenu={
         embedded
           ? () => useSainaChromeStore.getState().openMobileSidebar?.()

@@ -5529,6 +5529,7 @@ html:has(.saina-page) body {
 }
 
 .saina-mobile-mirror-cta {
+  position: relative;
   display: flex;
   width: 100%;
   min-height: 44px;
@@ -5550,6 +5551,20 @@ html:has(.saina-page) body {
     transform 0.22s ease,
     border-color 0.22s ease;
   animation: saina-mobile-mirror-cta-in 0.28s ease both;
+}
+
+.bilign-ayna-opportunity-dot--mobile {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.55rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #c8954f;
+  opacity: 0.9;
+  pointer-events: none;
+  box-shadow: none;
+  animation: none;
 }
 
 .saina-mobile-mirror-cta:active {

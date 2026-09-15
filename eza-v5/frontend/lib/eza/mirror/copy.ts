@@ -47,7 +47,7 @@ export const MIRROR_SHARE_PUBLISH_CONSENT_CANCEL = 'Vazgeç';
 /** Journey V1 — 8-question window decision (user-facing; no graph language). */
 export const MIRROR_JOURNEY_DECISION_BODY = '8 soruluk bir Yansı hazır.';
 export const MIRROR_JOURNEY_DECISION_CREATE = 'Yansı oluştur';
-export const MIRROR_JOURNEY_DECISION_SKIP = 'Sohbete devam et';
+export const MIRROR_JOURNEY_DECISION_SKIP = 'Yansı oluşturmadan devam et';
 export const MIRROR_PUBLISH_BUSY_LABEL = 'Yayınlanıyor…';
 export const MIRROR_PUBLISH_FAILED_LABEL = 'Yayınlanamadı · Tekrar dene';
 export const MIRROR_PUBLISH_LIVE_LABEL = '✓ Yayında';
@@ -57,6 +57,9 @@ export const MIRROR_AYNA_STATUS_PUBLISHED = 'Yayında';
 export const MIRROR_AYNA_EMPTY_TITLE = 'Henüz Yansı yok';
 export const MIRROR_AYNA_EMPTY_BODY =
   'Bu sohbetten dünyaya açılan Yansıların burada birer birer görünecek.';
+/** Optional helper under Ayna empty title when early (6–7) create is available. */
+export const MIRROR_AYNA_EARLY_CREATE_HINT =
+  'İstersen bu sohbetten 6–8 soru seçerek bir Yansı hazırlayabilirsin.';
 export const MIRROR_JOURNEY_CONVERSATION_CLOSED =
   'Bu başlıkta sohbet sınırına ulaştınız.';
 

@@ -3,11 +3,17 @@
 import { ChevronRight, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SAINA_MIRROR_EXPAND_LABEL, SAINA_MIRROR_EXPAND_TAB } from '@/lib/eza/sainaCopy';
+import { showCollapsedAynaOpportunityIndicator } from '@/lib/eza/mirror/journey/showCollapsedAynaOpportunityIndicator';
 
 type SainaYansiContextRailProps = {
   mirrorOpen: boolean;
   onOpenAyna: () => void;
   onCloseAyna: () => void;
+  /**
+   * Silent 6–7 opportunity hint when Ayna is collapsed.
+   * Authority: canShowAynaEarlyYansiCreateCta (passed from ChatInner).
+   */
+  earlyYansiOpportunityAvailable?: boolean;
   className?: string;
 };
 
@@ -20,8 +26,14 @@ export default function SainaYansiContextRail({
   mirrorOpen,
   onOpenAyna,
   onCloseAyna,
+  earlyYansiOpportunityAvailable = false,
   className,
 }: SainaYansiContextRailProps) {
+  const showOpportunityDot = showCollapsedAynaOpportunityIndicator({
+    aynaClosed: !mirrorOpen,
+    earlyCreateAvailable: earlyYansiOpportunityAvailable,
+  });
+
   return (
     <aside
       className={cn('bilign-context-rail', mirrorOpen && 'bilign-context-rail--active', className)}
@@ -40,6 +52,13 @@ export default function SainaYansiContextRail({
           <span className="bilign-context-rail__label saina-mirror-expand-label">
             {SAINA_MIRROR_EXPAND_TAB}
           </span>
+          {showOpportunityDot ? (
+            <span
+              className="bilign-ayna-opportunity-dot"
+              data-testid="ayna-early-opportunity-dot"
+              aria-hidden
+            />
+          ) : null}
         </button>
       ) : (
         <button
