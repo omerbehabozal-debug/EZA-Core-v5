@@ -277,10 +277,12 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
       'href',
       '/m/yansi-x/sohbet'
     );
-    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
-      'src',
-      'https://cdn.example/yansi-x.jpg'
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
+        'src',
+        'https://cdn.example/yansi-x.jpg'
+      );
+    });
   });
 
   it('return to A via ↑ resumes at Q4 — does not restart or complete', async () => {

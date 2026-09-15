@@ -5,7 +5,7 @@
  * Uses two layers; never regenerates images.
  */
 
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 export type MirrorYansiSceneCrossfadeProps = {
@@ -31,7 +31,9 @@ export default function MirrorYansiSceneCrossfade({
   const [back, setBack] = useState<string | null>(null);
   const [frontOpacity, setFrontOpacity] = useState(1);
 
-  useEffect(() => {
+  // Layout effect: keep data-testid current layer aligned with active slug in the
+  // same commit as Discover ↑/↓ (useEffect left one paint on the previous scene).
+  useLayoutEffect(() => {
     if (nextUrl === front) return;
     if (prefersReducedMotion() || !front) {
       setFront(nextUrl);
