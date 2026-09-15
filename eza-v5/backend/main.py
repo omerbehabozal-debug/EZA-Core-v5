@@ -349,6 +349,7 @@ app.include_router(mirror_network.debug_router)
 from backend.routers import conversation_groups
 app.include_router(conversation_groups.router)
 app.include_router(standalone_conversations.router)
+app.include_router(standalone_conversations.owner_inventory_router)
 app.include_router(proxy.router, prefix="/api/proxy", tags=["Proxy"])
 from backend.routers import proxy_corporate, proxy_websocket, proxy_audit, proxy_pipeline, proxy_analysis, organization, policy_management, usage_analytics, billing, sla_monitoring, telemetry_websocket, alerting
 from backend.routers import rtuk_endpoints, sanayi_endpoints, finance_endpoints, health_endpoints

@@ -321,3 +321,58 @@ export async function linkServerYansiPreparationPublication(
   }
   return res.data;
 }
+
+export type ServerYansiPreparationOwnerPage = {
+  items: ServerYansiPreparation[];
+  limit: number;
+  offset: number;
+  total: number;
+  hasMore: boolean;
+};
+
+export const SERVER_YANSI_PREPARATION_PAGE_SIZE = 100;
+export const SERVER_YANSI_PREPARATION_MAX_PAGES = 200;
+
+export async function listOwnerYansiPreparationsPage(input?: {
+  limit?: number;
+  offset?: number;
+}): Promise<ServerYansiPreparationOwnerPage> {
+  const limit = input?.limit ?? SERVER_YANSI_PREPARATION_PAGE_SIZE;
+  const offset = input?.offset ?? 0;
+  const res = await apiClient.get<ServerYansiPreparationOwnerPage>(
+    `/api/standalone/yansi-preparations?limit=${limit}&offset=${offset}`,
+    { auth: true }
+  );
+  if (!res.ok || !res.data || !Array.isArray(res.data.items)) {
+    throw new Error('server_owner_yansi_preparation_list_failed');
+  }
+  return res.data;
+}
+
+/** Drain all owner-wide preparation pages. Fails closed on any page failure. */
+export async function listAllServerYansiPreparationsForOwner(): Promise<
+  ServerYansiPreparation[]
+> {
+  const out: ServerYansiPreparation[] = [];
+  const seen = new Set<string>();
+  let offset = 0;
+  for (let page = 0; page < SERVER_YANSI_PREPARATION_MAX_PAGES; page += 1) {
+    const batch = await listOwnerYansiPreparationsPage({
+      limit: SERVER_YANSI_PREPARATION_PAGE_SIZE,
+      offset,
+    });
+    for (const item of batch.items) {
+      const key = `${(item.journeyId || '').trim().toLowerCase()}::v${Number(
+        item.journeyVersion
+      )}`;
+      if (!item?.journeyId || seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    if (!batch.hasMore || batch.items.length === 0) {
+      return out;
+    }
+    offset += batch.limit;
+  }
+  throw new Error('server_owner_yansi_preparation_list_page_cap');
+}

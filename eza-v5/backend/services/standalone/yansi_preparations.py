@@ -11,12 +11,16 @@ import asyncio
 import logging
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.standalone_conversations import (
+    DEFAULT_YANSI_PREPARATION_LIST_LIMIT,
+    MAX_YANSI_PREPARATION_LIST_LIMIT,
+    MAX_YANSI_PREPARATION_LIST_OFFSET,
     YansiPreparationDTO,
+    YansiPreparationOwnerPage,
     YansiPreparationPublicationLink,
     YansiPreparationUpsert,
 )
@@ -123,10 +127,19 @@ def _validate_lineage(lineage: dict[str, Any]) -> dict[str, Any]:
     return lineage
 
 
-def _row_to_dto(row: StandaloneYansiPreparation) -> YansiPreparationDTO:
+def _row_to_dto(
+    row: StandaloneYansiPreparation,
+    *,
+    conversation_id_override: Optional[str] = None,
+) -> YansiPreparationDTO:
+    """Map DB row to DTO.
+
+    Per-conversation APIs keep conversationId as the server UUID.
+    Owner-wide inventory overrides conversationId to the client conversation id.
+    """
     return YansiPreparationDTO(
         id=str(row.id),
-        conversationId=str(row.conversation_id),
+        conversationId=conversation_id_override or str(row.conversation_id),
         sourceIdentity=row.source_identity,
         journeyId=row.journey_id,
         journeyVersion=int(row.journey_version),
@@ -240,10 +253,88 @@ async def list_owned_preparations(
             StandaloneYansiPreparation.user_id == user_id,
             StandaloneYansiPreparation.conversation_id == conversation_id,
             StandaloneYansiPreparation.deleted_at.is_(None),
+            StandaloneYansiPreparation.status == YANSI_PREPARATION_STATUS_READY,
         )
-        .order_by(StandaloneYansiPreparation.created_at.asc())
+        .order_by(
+            StandaloneYansiPreparation.window_index.asc(),
+            StandaloneYansiPreparation.journey_version.asc(),
+            StandaloneYansiPreparation.created_at.asc(),
+            StandaloneYansiPreparation.id.asc(),
+        )
     )
     return [_row_to_dto(row) for row in result.scalars().all()]
+
+
+async def list_owner_preparations(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    limit: int = DEFAULT_YANSI_PREPARATION_LIST_LIMIT,
+    offset: int = 0,
+) -> YansiPreparationOwnerPage:
+    """Owner-wide READY preparation inventory for sidebar bootstrap.
+
+    Joins live owned conversations so deleted/archived sources are omitted.
+    conversationId in each DTO is the CLIENT conversation id.
+    """
+    if limit < 1 or limit > MAX_YANSI_PREPARATION_LIST_LIMIT:
+        raise HTTPException(status_code=422, detail="invalid_list_limit")
+    if offset < 0 or offset > MAX_YANSI_PREPARATION_LIST_OFFSET:
+        raise HTTPException(status_code=422, detail="invalid_list_offset")
+
+    join_filters = (
+        StandaloneYansiPreparation.user_id == user_id,
+        StandaloneYansiPreparation.deleted_at.is_(None),
+        StandaloneYansiPreparation.status == YANSI_PREPARATION_STATUS_READY,
+        StandaloneConversation.user_id == user_id,
+        StandaloneConversation.deleted_at.is_(None),
+        StandaloneConversation.archived_at.is_(None),
+        StandaloneYansiPreparation.conversation_id == StandaloneConversation.id,
+    )
+
+    total_result = await db.execute(
+        select(func.count())
+        .select_from(StandaloneYansiPreparation)
+        .join(
+            StandaloneConversation,
+            StandaloneYansiPreparation.conversation_id == StandaloneConversation.id,
+        )
+        .where(*join_filters)
+    )
+    total = int(total_result.scalar_one() or 0)
+
+    result = await db.execute(
+        select(StandaloneYansiPreparation, StandaloneConversation.client_conversation_id)
+        .join(
+            StandaloneConversation,
+            StandaloneYansiPreparation.conversation_id == StandaloneConversation.id,
+        )
+        .where(*join_filters)
+        .order_by(
+            StandaloneConversation.client_conversation_id.asc(),
+            StandaloneYansiPreparation.window_index.asc(),
+            StandaloneYansiPreparation.journey_version.asc(),
+            StandaloneYansiPreparation.created_at.asc(),
+            StandaloneYansiPreparation.id.asc(),
+        )
+        .offset(offset)
+        .limit(limit)
+    )
+    items: list[YansiPreparationDTO] = []
+    for row, client_conversation_id in result.all():
+        client_id = (client_conversation_id or "").strip()
+        if not client_id:
+            continue
+        items.append(
+            _row_to_dto(row, conversation_id_override=client_id)
+        )
+    return YansiPreparationOwnerPage(
+        items=items,
+        limit=limit,
+        offset=offset,
+        total=total,
+        hasMore=(offset + len(items)) < total,
+    )
 
 
 async def upsert_ready_preparation(

@@ -27,6 +27,11 @@ DEFAULT_CONVERSATION_LIST_LIMIT = 100
 MAX_CONVERSATION_LIST_LIMIT = 100
 MAX_CONVERSATION_LIST_OFFSET = 100_000
 
+# Owner-wide Yansı preparation inventory pagination
+DEFAULT_YANSI_PREPARATION_LIST_LIMIT = 100
+MAX_YANSI_PREPARATION_LIST_LIMIT = 100
+MAX_YANSI_PREPARATION_LIST_OFFSET = 100_000
+
 ConversationType = Literal["direct", "mirror", "mirror_branch", "continuation"]
 MessageRole = Literal["user", "assistant"]
 LegacyMigrationStatus = Literal[
@@ -271,4 +276,14 @@ class YansiPreparationDTO(BaseModel):
 
 class YansiPreparationListResponse(BaseModel):
     items: list[YansiPreparationDTO] = Field(default_factory=list)
+
+
+class YansiPreparationOwnerPage(BaseModel):
+    """Owner-wide READY/published preparation inventory (paginated)."""
+
+    items: list[YansiPreparationDTO] = Field(default_factory=list)
+    limit: int
+    offset: int
+    total: int
+    hasMore: bool
 

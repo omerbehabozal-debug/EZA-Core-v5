@@ -6,6 +6,7 @@ import {
   bootstrapServerConversations,
   clearServerConversationState,
   getServerAuthorityPhase,
+  getServerConversationAuthority,
   getServerConversationSummaries,
   getSidebarAuthorityMode,
   getUnsyncedClientIds,
@@ -20,6 +21,7 @@ import {
   runLegacyConversationMigration,
 } from '@/lib/eza/legacyConversationMigration';
 import { reconcileAuthenticatedConversationSidebar } from '@/lib/eza/reconcileAuthenticatedConversationSidebar';
+import { hydrateOwnerYansiPreparationsFromServer } from '@/lib/eza/mirror/journey/hydrateOwnerYansiPreparationsFromServer';
 import {
   CHATS_UPDATED_EVENT,
   readChatArchivesForScope,
@@ -64,6 +66,18 @@ export function useAuthenticatedConversationBootstrap() {
       await bootstrapServerConversationGroups(userId);
       if (cancelled || !ok) return;
       await runLegacyConversationMigration(userId);
+      if (cancelled) return;
+      // Owner-wide Yansı inventory — failure must not block conversations.
+      try {
+        const authority = getServerConversationAuthority();
+        await hydrateOwnerYansiPreparationsFromServer({
+          ownerUserId: userId,
+          ownerAtStart: authority.ownerKey,
+          epochAtStart: authority.epoch,
+        });
+      } catch {
+        /* keep conversations + any local artifacts */
+      }
     };
 
     void run();

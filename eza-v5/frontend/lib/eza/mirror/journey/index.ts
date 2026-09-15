@@ -380,3 +380,7 @@ export {
   resetOwnerYansiPublicationAuthorityForTests,
   hydrateOwnerYansiPublicationAuthority,
 } from './ownerYansiPublicationAuthority';
+
+export {
+  hydrateOwnerYansiPreparationsFromServer,
+} from './hydrateOwnerYansiPreparationsFromServer';

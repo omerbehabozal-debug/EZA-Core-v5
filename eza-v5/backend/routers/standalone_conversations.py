@@ -12,8 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.auth.deps import get_current_user
 from backend.core.schemas.standalone_conversations import (
     DEFAULT_CONVERSATION_LIST_LIMIT,
+    DEFAULT_YANSI_PREPARATION_LIST_LIMIT,
     MAX_CONVERSATION_LIST_LIMIT,
     MAX_CONVERSATION_LIST_OFFSET,
+    MAX_YANSI_PREPARATION_LIST_LIMIT,
+    MAX_YANSI_PREPARATION_LIST_OFFSET,
     StandaloneConversationCreate,
     StandaloneConversationDetail,
     StandaloneConversationListItem,
@@ -25,6 +28,7 @@ from backend.core.schemas.standalone_conversations import (
     LegacyMigrationResponse,
     YansiPreparationDTO,
     YansiPreparationListResponse,
+    YansiPreparationOwnerPage,
     YansiPreparationPublicationLink,
     YansiPreparationUpsert,
 )
@@ -43,11 +47,17 @@ from backend.services.standalone.yansi_preparations import (
     YansiPreparationNotFoundError,
     link_preparation_publication,
     list_owned_preparations,
+    list_owner_preparations,
     upsert_ready_preparation,
 )
 
 router = APIRouter(
     prefix="/api/standalone/conversations",
+    tags=["Standalone Conversations"],
+)
+
+owner_inventory_router = APIRouter(
+    prefix="/api/standalone",
     tags=["Standalone Conversations"],
 )
 
@@ -244,3 +254,25 @@ async def post_yansi_preparation_publication_link(
         )
     except YansiPreparationNotFoundError as exc:
         raise _not_found() from exc
+
+@owner_inventory_router.get(
+    "/yansi-preparations",
+    response_model=YansiPreparationOwnerPage,
+)
+async def list_owner_yansi_preparations(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    limit: int = Query(
+        DEFAULT_YANSI_PREPARATION_LIST_LIMIT,
+        ge=1,
+        le=MAX_YANSI_PREPARATION_LIST_LIMIT,
+    ),
+    offset: int = Query(0, ge=0, le=MAX_YANSI_PREPARATION_LIST_OFFSET),
+) -> YansiPreparationOwnerPage:
+    """Owner-wide READY/published preparation inventory for sidebar bootstrap."""
+    return await list_owner_preparations(
+        db,
+        user_id=_owner_user_id(current_user),
+        limit=limit,
+        offset=offset,
+    )
