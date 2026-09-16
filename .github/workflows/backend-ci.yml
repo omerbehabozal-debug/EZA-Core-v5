@@ -108,6 +108,7 @@ jobs:
             tests/test_phase85_public_profile_identity_privacy.py \
             tests/test_public_honorific.py \
             tests/test_phase85b1_profile_polish.py \
+            tests/test_yansi_saves_slice5.py \
             tests/test_phase86_journey_v1_production_closure.py \
             tests/test_phase871_social_auth.py \
             tests/test_phase872_social_auth_security.py \
