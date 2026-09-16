@@ -15,6 +15,8 @@ from backend.services.mirror_network.public_identity import (
     resolve_public_display_name,
     validate_public_display_name,
 )
+from backend.models.mirror_network import ARTIFACT_KIND_JOURNEY_V1
+from backend.services.mirror_network.frozen_journey_artifact import FREEZE_STATUS_FROZEN
 from backend.services.mirror_network.visibility_access import is_profile_listable
 from backend.services.mirror_network.author_profile import (
     _public_display_name_from_email,
@@ -31,12 +33,24 @@ def _pub_node(**kwargs):
         "published_at": now,
         "user_id": uuid4(),
         "public_payload": {"publicTitle": "Open"},
-        "private_payload": {},
+        "private_payload": {
+            "frozenJourneyArtifact": {
+                "freezeStatus": FREEZE_STATUS_FROZEN,
+                "selectedCount": 8,
+                "sceneImageUrl": "https://cdn.example/scene.jpg",
+                "publicLanding": {
+                    "publicTitle": "Open",
+                    "publicSummary": "Summary",
+                },
+            }
+        },
         "card_title": "Open",
-        "scene_image_url": None,
+        "scene_image_url": "https://cdn.example/scene.jpg",
         "parent_slug": None,
         "journey_version": 1,
         "created_at": now,
+        "artifact_kind": ARTIFACT_KIND_JOURNEY_V1,
+        "freeze_status": FREEZE_STATUS_FROZEN,
     }
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)
@@ -148,6 +162,14 @@ async def test_public_profile_excludes_non_listable(monkeypatch):
     monkeypatch.setattr(
         "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
         fake_metrics,
+    )
+    monkeypatch.setattr(
+        "backend.services.mirror_network.author_profile._load_steps_for_profile_nodes",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        "backend.services.mirror_network.author_profile.is_replay_ready_from_loaded_child",
+        lambda node, steps: True,
     )
 
     payload = await list_published_mirrors_for_author(db, user_id=owner)

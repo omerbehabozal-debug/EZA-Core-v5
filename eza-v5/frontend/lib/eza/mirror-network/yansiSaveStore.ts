@@ -26,6 +26,15 @@ let snapshot: Snapshot = {
 
 let version = 0;
 
+/** Backend page size used by Meraklarım hydration (not a product inventory cap). */
+export const YANSI_SAVE_HYDRATE_PAGE_SIZE = 48;
+
+/**
+ * Defensive page ceiling — prevents infinite pagination loops.
+ * 50 × 48 = 2400 saves; not a silent 48-item product limit.
+ */
+export const YANSI_SAVE_HYDRATE_MAX_PAGES = 50;
+
 function emit(): void {
   version += 1;
   listeners.forEach((listener) => {
@@ -44,6 +53,21 @@ function cloneMap<K, V>(source: Map<K, V>): Map<K, V> {
 function setSnapshot(next: Snapshot): void {
   snapshot = next;
   emit();
+}
+
+function commitHydratedItems(items: SavedYansiListItem[]): void {
+  const savedBySlug = new Map<string, boolean>();
+  for (const item of items) {
+    const slug = item.slug.trim().toLowerCase();
+    if (!slug) continue;
+    savedBySlug.set(slug, true);
+  }
+  setSnapshot({
+    ready: true,
+    items,
+    savedBySlug,
+    pendingBySlug: new Map(),
+  });
 }
 
 export function getYansiSaveSnapshot(): Snapshot {
@@ -114,26 +138,54 @@ export function setYansiSavePending(
   setSnapshot({ ...snapshot, pendingBySlug });
 }
 
+/**
+ * Paginated Meraklarım hydrate.
+ * Continues until a short page, total exhaustion, or defensive max pages.
+ * Deduplicates by exact slug while preserving first-seen (server) order.
+ */
 export async function hydrateYansiSaveStore(): Promise<boolean> {
-  const result = await fetchMySavedYansilar({ limit: 48, offset: 0 });
-  if (!result.ok) {
-    setSnapshot({
-      ready: true,
-      items: [],
-      savedBySlug: cloneMap(snapshot.savedBySlug),
-      pendingBySlug: cloneMap(snapshot.pendingBySlug),
-    });
-    return false;
+  const pageSize = YANSI_SAVE_HYDRATE_PAGE_SIZE;
+  const merged: SavedYansiListItem[] = [];
+  const seen = new Set<string>();
+
+  for (let page = 0; page < YANSI_SAVE_HYDRATE_MAX_PAGES; page += 1) {
+    const offset = page * pageSize;
+    const result = await fetchMySavedYansilar({ limit: pageSize, offset });
+    if (!result.ok) {
+      if (page === 0) {
+        // Preserve prior optimistic savedBySlug flags; do not invent inventory.
+        setSnapshot({
+          ready: true,
+          items: [],
+          savedBySlug: cloneMap(snapshot.savedBySlug),
+          pendingBySlug: cloneMap(snapshot.pendingBySlug),
+        });
+        return false;
+      }
+      // Later page failed — keep already hydrated pages (least destructive).
+      commitHydratedItems(merged);
+      return false;
+    }
+
+    const batch = result.data.items;
+    for (let i = 0; i < batch.length; i += 1) {
+      const item = batch[i]!;
+      const slug = item.slug.trim().toLowerCase();
+      if (!slug || seen.has(slug)) continue;
+      seen.add(slug);
+      merged.push({ ...item, slug });
+    }
+
+    if (batch.length < pageSize) break;
+    if (
+      typeof result.data.total === 'number' &&
+      result.data.total >= 0 &&
+      merged.length >= result.data.total
+    ) {
+      break;
+    }
   }
-  const savedBySlug = new Map<string, boolean>();
-  for (const item of result.data.items) {
-    savedBySlug.set(item.slug.trim().toLowerCase(), true);
-  }
-  setSnapshot({
-    ready: true,
-    items: result.data.items,
-    savedBySlug,
-    pendingBySlug: new Map(),
-  });
+
+  commitHydratedItems(merged);
   return true;
 }

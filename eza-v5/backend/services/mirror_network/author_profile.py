@@ -123,8 +123,77 @@ def _item_from_node(
 
 
 def _is_public_published(node: MirrorNetworkNode) -> bool:
-    """Legacy name — profile/Discover-family public listing (excludes unlisted)."""
+    """Visibility/safety axis only — not full public-product eligibility."""
     return is_profile_listable(node)
+
+
+def is_public_profile_product_structure(node: MirrorNetworkNode) -> bool:
+    """
+    Structural gates for another user's public profile listing.
+
+    Reuses Discover's canonical structure helper (published_at, public, open,
+    journey_v1, frozen, safety). Does NOT require parent_slug / root status /
+    source conversation presence.
+    """
+    from backend.services.mirror_network.discover import (
+        is_canonical_discover_node_structure,
+    )
+
+    return is_canonical_discover_node_structure(node)
+
+
+async def _load_steps_for_profile_nodes(
+    db: AsyncSession,
+    nodes: list[MirrorNetworkNode],
+) -> dict[tuple[str, int], list[dict[str, Any]]]:
+    if not nodes:
+        return {}
+    version_conds = [
+        and_(
+            MirrorJourneyStep.journey_slug == n.slug,
+            MirrorJourneyStep.journey_version
+            == int(getattr(n, "journey_version", None) or 1),
+        )
+        for n in nodes
+        if (getattr(n, "slug", None) or "").strip()
+    ]
+    if not version_conds:
+        return {}
+    steps_result = await db.execute(select(MirrorJourneyStep).where(or_(*version_conds)))
+    step_rows = steps_result.scalars().all()
+    if not isinstance(step_rows, (list, tuple)):
+        return {}
+    steps_by_key: dict[tuple[str, int], list[MirrorJourneyStep]] = {}
+    for row in step_rows:
+        key = (str(row.journey_slug), int(row.journey_version))
+        steps_by_key.setdefault(key, []).append(row)
+    return {
+        key: _steps_as_public_dicts(rows) for key, rows in steps_by_key.items()
+    }
+
+
+async def filter_public_profile_eligible_nodes(
+    db: AsyncSession,
+    nodes: list[MirrorNetworkNode],
+) -> list[MirrorNetworkNode]:
+    """
+    Public profile must expose only consumable published Yansı products.
+
+    Same authority family as Discover / GET …/frozen:
+    structure (is_canonical_discover_node_structure) + replayReady
+    (is_replay_ready_from_loaded_child). Rejected nodes never enter the result.
+    """
+    structural = [n for n in nodes if is_public_profile_product_structure(n)]
+    if not structural:
+        return []
+    steps_by_key = await _load_steps_for_profile_nodes(db, structural)
+    eligible: list[MirrorNetworkNode] = []
+    for node in structural:
+        version = int(getattr(node, "journey_version", None) or 1)
+        steps = steps_by_key.get((str(node.slug), version), [])
+        if is_replay_ready_from_loaded_child(node, steps):
+            eligible.append(node)
+    return eligible
 
 
 def is_candidate_frozen_continuation_child(node: MirrorNetworkNode) -> bool:
@@ -326,7 +395,10 @@ async def list_published_mirrors_for_author(
     offset: int = 0,
 ) -> dict[str, Any] | None:
     """
-    Public profile contract: published/public Yansılar only.
+    Public profile contract: consumable published/public Yansılar only.
+
+    Requires published_at, public+open, journey_v1, frozen, valid frozen
+    artifact, and replayReady. Never leaks rejected-node metadata.
     Never returns generating/ready/failed private panel states.
     """
     user = await db.get(User, user_id)
@@ -338,7 +410,8 @@ async def list_published_mirrors_for_author(
         .where(MirrorNetworkNode.user_id == user_id)
         .order_by(*PROFILE_LIST_ORDER_BY)
     )
-    nodes = [n for n in result.scalars().all() if _is_public_published(n)]
+    raw_nodes = list(result.scalars().all())
+    nodes = await filter_public_profile_eligible_nodes(db, raw_nodes)
     total = len(nodes)
     page = nodes[offset : offset + max(1, min(limit, 100))]
     metrics_by_key: dict[tuple[str, int], dict[str, int]] = {}
