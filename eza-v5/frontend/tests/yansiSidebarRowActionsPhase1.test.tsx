@@ -5,6 +5,8 @@ import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe('Sidebar final IA — no own-Yansı rows', () => {

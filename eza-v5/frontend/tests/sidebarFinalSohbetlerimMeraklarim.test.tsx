@@ -35,6 +35,8 @@ import { fetchMySavedYansilar } from '@/lib/eza/mirror-network/yansiSaveApi';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/context/AuthContext', () => ({

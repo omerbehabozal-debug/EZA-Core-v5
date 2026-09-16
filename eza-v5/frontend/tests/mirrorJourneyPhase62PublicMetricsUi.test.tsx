@@ -7,6 +7,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/context/AuthContext', () => ({

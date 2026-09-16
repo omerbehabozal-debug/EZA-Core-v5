@@ -17,6 +17,8 @@ import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirro
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/lib/eza/mirror-network/startDiscoverGuestChat', () => ({
