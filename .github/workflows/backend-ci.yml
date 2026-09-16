@@ -106,6 +106,7 @@ jobs:
             tests/test_phase84_publication_visibility_trust.py \
             tests/test_phase841_trust_enforcement.py \
             tests/test_phase85_public_profile_identity_privacy.py \
+            tests/test_public_profile_eligibility_hardening.py \
             tests/test_public_honorific.py \
             tests/test_phase85b1_profile_polish.py \
             tests/test_yansi_saves_slice5.py \

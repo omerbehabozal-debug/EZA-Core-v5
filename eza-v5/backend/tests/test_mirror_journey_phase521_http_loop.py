@@ -302,14 +302,46 @@ class FakeDb:
     async def execute(self, stmt):
         """Serve ORM selects from the in-memory store without compiling SQL."""
         mentions_parent = False
+        mentions_journey_slug = False
         bind_values: list[Any] = []
         for crit in getattr(stmt, "_where_criteria", ()) or ():
             names = _clause_column_names(crit)
             if "parent_slug" in names:
                 mentions_parent = True
+            if "journey_slug" in names:
+                mentions_journey_slug = True
             bind_values.extend(_clause_bind_values(crit))
         if ARTIFACT_KIND_JOURNEY_V1 in bind_values and FREEZE_STATUS_FROZEN in bind_values:
             mentions_parent = True
+
+        # Public-profile / children batch eligibility loads MirrorJourneyStep rows.
+        if mentions_journey_slug:
+            wanted_slugs = {
+                str(v).strip().lower()
+                for v in bind_values
+                if isinstance(v, str)
+                and v
+                not in {ARTIFACT_KIND_JOURNEY_V1, FREEZE_STATUS_FROZEN, "legacy_landing"}
+            }
+            wanted_versions = {int(v) for v in bind_values if isinstance(v, int)}
+            step_rows: list[SimpleNamespace] = []
+            for (slug, version), rows in self.store.steps.items():
+                slug_key = str(slug).strip().lower()
+                if wanted_slugs and slug_key not in wanted_slugs:
+                    continue
+                if wanted_versions and int(version) not in wanted_versions:
+                    continue
+                for s in rows:
+                    step_rows.append(
+                        SimpleNamespace(
+                            journey_slug=slug_key,
+                            journey_version=int(version),
+                            step_index=int(s["stepIndex"]),
+                            public_question=s.get("publicQuestion"),
+                            public_answer=s.get("publicAnswer"),
+                        )
+                    )
+            return _Result(step_rows)
 
         if mentions_parent:
             parents = {
