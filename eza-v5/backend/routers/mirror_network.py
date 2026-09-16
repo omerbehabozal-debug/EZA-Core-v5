@@ -48,6 +48,14 @@ from backend.services.mirror_network.yansi_report import (
     YansiReportTargetError,
     create_yansi_report,
 )
+from backend.services.mirror_network.yansi_saves import (
+    YansiSaveNotAllowedError,
+    YansiSelfSaveNotAllowedError,
+    is_slug_saved_for_user,
+    list_saved_yansilar_for_user,
+    save_yansi_for_user,
+    unsave_yansi_for_user,
+)
 from backend.services.mirror_network.discover import (
     DiscoverModeError,
     list_discover_mirrors,
@@ -260,6 +268,79 @@ class ParentChildrenYansiResponse(BaseModel):
     parentTitle: Optional[str] = None
     items: List[AuthorPublishedYansiItem] = Field(default_factory=list)
     total: int = Field(default=0, ge=0)
+
+
+class YansiSaveStateResponse(BaseModel):
+    """GET /api/mirror-network/{slug}/save — current user saved flag."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    saved: bool
+
+
+class YansiSaveMutationResponse(BaseModel):
+    """POST/DELETE /api/mirror-network/{slug}/save"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    slug: str
+    saved: bool
+
+
+class SavedYansiListItem(BaseModel):
+    """Safe Meraklarım projection — never private lineage/conversation/prep."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    savedAt: str
+    availability: str
+    journeyVersion: Optional[int] = None
+    publicTitle: Optional[str] = None
+    sceneImageUrl: Optional[str] = None
+    authorUserId: Optional[str] = None
+    authorDisplayName: Optional[str] = None
+    publicHonorific: Optional[str] = None
+    publicAvatarUrl: Optional[str] = None
+
+
+class SavedYansiListResponse(BaseModel):
+    """GET /api/mirror-network/me/saved"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: List[SavedYansiListItem] = Field(default_factory=list)
+    total: int = Field(default=0, ge=0)
+    limit: int = Field(default=48, ge=1)
+    offset: int = Field(default=0, ge=0)
+
+
+@router.get(
+    "/me/saved",
+    response_model=SavedYansiListResponse,
+)
+async def get_my_saved_yansilar(
+    response: Response,
+    limit: int = 48,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> SavedYansiListResponse:
+    """Meraklarım — account-bound Save list (most recent first)."""
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        payload = await list_saved_yansilar_for_user(
+            db, user_id=user.id, limit=limit, offset=offset
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc), "message": "Geçersiz liste parametresi"},
+        ) from exc
+    return SavedYansiListResponse(**payload)
 
 
 @router.get(
@@ -627,6 +708,68 @@ class YansiSafetyRemoveResponse(BaseModel):
     slug: str
     visibility: str
     safetyStatus: str
+
+
+@router.get("/{slug}/save", response_model=YansiSaveStateResponse)
+async def get_mirror_network_yansi_save_state(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> YansiSaveStateResponse:
+    """Current-user saved flag for active /m slug (does not mutate node)."""
+    normalized = (slug or "").strip().lower()
+    saved = await is_slug_saved_for_user(db, user_id=user.id, slug=normalized)
+    return YansiSaveStateResponse(slug=normalized, saved=saved)
+
+
+@router.post("/{slug}/save", response_model=YansiSaveMutationResponse)
+async def save_mirror_network_yansi(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> YansiSaveMutationResponse:
+    """Merakıma ekle — personal bookmark only (idempotent)."""
+    try:
+        result = await save_yansi_for_user(db, user_id=user.id, slug=slug)
+    except YansiSelfSaveNotAllowedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "self_save_not_allowed",
+                "message": "Kendi Yansını Meraklarım'a ekleyemezsin",
+            },
+        ) from exc
+    except YansiSaveNotAllowedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "not_savable",
+                "message": "Bu Yansı kaydedilemiyor",
+            },
+        ) from exc
+    return YansiSaveMutationResponse(
+        status=result.status,
+        slug=result.slug,
+        saved=result.saved,
+    )
+
+
+@router.delete("/{slug}/save", response_model=YansiSaveMutationResponse)
+async def unsave_mirror_network_yansi(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> YansiSaveMutationResponse:
+    """Meraklarımdan kaldır — deletes Save relation only (idempotent)."""
+    result = await unsave_yansi_for_user(db, user_id=user.id, slug=slug)
+    return YansiSaveMutationResponse(
+        status=result.status,
+        slug=result.slug,
+        saved=result.saved,
+    )
 
 
 @router.post("/{slug}/unpublish", response_model=YansiUnpublishResponse)

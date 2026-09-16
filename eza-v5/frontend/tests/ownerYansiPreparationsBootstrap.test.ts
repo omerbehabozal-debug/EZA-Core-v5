@@ -19,7 +19,7 @@ import {
   getServerConversationAuthority,
   resetServerConversationStoreForTests,
 } from '@/lib/eza/serverConversationStore';
-import { injectYansiItemsIntoConversationTree } from '@/lib/eza/mirror/journey/projectYansiSidebarItems';
+import { projectReadyYansiSidebarItems } from '@/lib/eza/mirror/journey/projectYansiSidebarItems';
 import { buildConversationTree } from '@/lib/eza/conversation-tree/groupTree';
 import { createConversationGroup } from '@/lib/eza/conversation-tree/conversationGroups';
 import {
@@ -254,12 +254,14 @@ describe('owner-wide Yansı preparation bootstrap', () => {
     const yansi = projectReadyYansiSidebarItems(
       listAllJourneyArtifactsForOwner(OWNER_A)
     );
+    // Dormant helper still projects if called; runtime sidebar no longer injects.
+    expect(yansi.some((row) => row.kind === 'yansi')).toBe(true);
     const tree = buildConversationTree(listChatArchives(), [group], chatId);
-    const injected = injectYansiItemsIntoConversationTree(tree, yansi, {
-      [chatId]: group.id,
-    });
-    const target = injected.find((g) => g.id === group.id);
-    expect(target?.conversations.some((c) => c.kind === 'yansi')).toBe(true);
+    expect(
+      tree
+        .flatMap((g) => g.conversations)
+        .every((c) => (c.kind ?? 'conversation') !== 'yansi')
+    ).toBe(true);
   });
 
   it('E/F. local A + server A dedupe; server metadata refreshes', async () => {

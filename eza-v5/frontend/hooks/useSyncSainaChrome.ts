@@ -45,6 +45,8 @@ function conversationsSignature(
         (c as { yansiStatus?: string }).yansiStatus ?? '',
         c.thumbImageUrl ?? '',
         c.yansiSourceIdentity ?? '',
+        String((c as { additionalYansiCount?: number }).additionalYansiCount ?? ''),
+        String((c as { representativeYansiCount?: number }).representativeYansiCount ?? ''),
         (c as { conversationSceneUrl?: string | null }).conversationSceneUrl ?? '',
       ].join(':')
     )

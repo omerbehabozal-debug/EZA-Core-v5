@@ -396,6 +396,7 @@ export {
   type ConversationYansiVisualStatus,
   YANSI_STATUS_TOOLTIP_READY,
   YANSI_STATUS_TOOLTIP_PUBLISHED,
+  YANSI_STATUS_TOOLTIP_WITHDRAWN,
   isReusablePreparedYansiArtifact,
   findReusablePreparedYansiArtifact,
   shouldSkipAynaSceneGeneration,
@@ -403,6 +404,13 @@ export {
   buildConversationYansiStatusMap,
   withConversationYansiStatus,
 } from './resolveConversationYansiStatus';
+
+export {
+  resolveExactYansiSidebarStatus,
+  listReusableYansiForConversation,
+  enrichConversationItemWithYansiPresentation,
+  enrichConversationItemsWithYansiPresentation,
+} from './enrichConversationSidebarWithYansi';
 
 export {
   type ExactYansiPublishIdentity,

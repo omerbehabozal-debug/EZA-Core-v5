@@ -9,10 +9,15 @@ import type { MirrorJourneyArtifact } from './mirrorJourneyArtifact';
 import { isPublishableJourneyGenerationLineage } from './journeyGenerationLineage';
 import type { OwnerYansiPublicationRecord } from './ownerYansiPublicationAuthority';
 
-export type ConversationYansiVisualStatus = 'none' | 'ready' | 'published';
+export type ConversationYansiVisualStatus =
+  | 'none'
+  | 'ready'
+  | 'published'
+  | 'withdrawn';
 
 export const YANSI_STATUS_TOOLTIP_READY = 'Yansı yayına hazır';
 export const YANSI_STATUS_TOOLTIP_PUBLISHED = 'Yansı yayında';
+export const YANSI_STATUS_TOOLTIP_WITHDRAWN = 'Yansı yayından kaldırıldı';
 
 export function isRestrictedPublication(
   record: OwnerYansiPublicationRecord | undefined
@@ -195,6 +200,8 @@ export function withConversationYansiStatus<
     kind?: string;
     yansiStatus?: ConversationYansiVisualStatus;
     sourceConversationId?: string;
+    additionalYansiCount?: number;
+    representativeYansiCount?: number;
   }
 >(
   items: T[],
@@ -206,7 +213,20 @@ export function withConversationYansiStatus<
       return {
         ...item,
         yansiStatus:
-          existing === 'ready' || existing === 'published' ? existing : 'ready',
+          existing === 'ready' || existing === 'published' || existing === 'withdrawn'
+            ? existing
+            : 'ready',
+      };
+    }
+    // 2+ Yansı: no colored publication dot — Ayna owns per-product state.
+    if ((item.additionalYansiCount ?? 0) > 0 || (item.representativeYansiCount ?? 0) > 1) {
+      return { ...item, yansiStatus: 'none' as const };
+    }
+    // N=1 enrichment already set exact product status (incl. withdrawn).
+    if ((item.representativeYansiCount ?? 0) === 1 && item.yansiStatus) {
+      return {
+        ...item,
+        yansiStatus: item.yansiStatus,
       };
     }
     return {

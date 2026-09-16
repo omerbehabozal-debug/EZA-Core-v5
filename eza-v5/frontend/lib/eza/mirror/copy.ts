@@ -77,6 +77,16 @@ export const YANSI_DISCOVER_END_OF_POOL = 'Şimdilik başka Yansı bulunamadı';
 export const YANSI_CONTINUATION_NEXT = 'Derinleş →';
 export const YANSI_CONTINUATION_PREVIOUS = '← Önceki derinleşme';
 
+/** Slice 5 — Merakıma ekle / Meraklarım */
+export const YANSI_SAVE_ADD = 'Merakıma ekle';
+export const YANSI_SAVE_SAVED = 'Meraklarımda';
+export const YANSI_SAVE_REMOVE = 'Meraklarımdan kaldır';
+export const YANSI_SAVE_SECTION_TITLE = 'MERAKLARIM';
+export const YANSI_SAVE_UNAVAILABLE = 'Bu Yansı artık yayında değil';
+
+/** Creator sidebar system section — conversations (always visible). */
+export const YANSI_SOHBETLERIM_SECTION_TITLE = 'SOHBETLERİM';
+
 /** Phase 6.2 — compact public social proof (STARTED sessions · direct children). */
 export const YANSI_PUBLIC_METRIC_EXPERIENCE = 'deneyim';
 export const YANSI_PUBLIC_METRIC_CHILD = 'Yansı';

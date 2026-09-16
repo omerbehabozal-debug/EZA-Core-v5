@@ -180,3 +180,37 @@ class YansiReport(Base):
     reason = Column(String(32), nullable=False)
     status = Column(String(20), nullable=False, default="open", server_default="open")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class MirrorNetworkSave(Base):
+    """Slice 5 — account-bound personal Save of a public Yansı (bookmark only)."""
+
+    __tablename__ = "mirror_network_saves"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "mirror_slug",
+            name="uq_mirror_network_saves_user_slug",
+        ),
+        Index(
+            "ix_mirror_network_saves_user_created",
+            "user_id",
+            "created_at",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("production_users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    mirror_slug = Column(String(64), nullable=False, index=True)
+    mirror_node_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("mirror_network_nodes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

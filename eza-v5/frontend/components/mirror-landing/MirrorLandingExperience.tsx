@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Calendar } from 'lucide-react';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
 import YansiExperienceControls from '@/components/mirror-landing/YansiExperienceControls';
+import YansiSaveButton from '@/components/mirror-landing/YansiSaveButton';
 import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
@@ -26,6 +27,16 @@ import { cn } from '@/lib/utils';
 import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
 import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 import YansiTrustActions from '@/components/mirror-landing/YansiTrustActions';
+import IdentityModal from '@/components/plan/IdentityModal';
+import { useAuth } from '@/context/AuthContext';
+import {
+  consumePendingYansiSaveIntent,
+} from '@/lib/eza/mirror-network/yansiSavePendingIntent';
+import {
+  hydrateYansiSaveStore,
+  noteYansiSaveState,
+} from '@/lib/eza/mirror-network/yansiSaveStore';
+import { saveYansi } from '@/lib/eza/mirror-network/yansiSaveApi';
 
 export type MirrorLandingExperienceProps = {
   surface: MirrorLandingSurface;
@@ -44,11 +55,37 @@ export default function MirrorLandingExperience({
 }: MirrorLandingExperienceProps) {
   const [frozenState, setFrozenState] = useState<FrozenLoadState>({ status: 'loading' });
   const [replayStarted, setReplayStarted] = useState(false);
+  const [identityOpen, setIdentityOpen] = useState(false);
   const isDesktop = useSainaCompactShell();
+  const { isAuthenticated, isAuthReady } = useAuth();
 
   useEffect(() => {
     trackLandingViewed(surface.slug);
   }, [surface.slug]);
+
+  useEffect(() => {
+    if (!isAuthReady || !isAuthenticated) return;
+    let cancelled = false;
+    void (async () => {
+      await hydrateYansiSaveStore();
+      if (cancelled) return;
+      const pending = consumePendingYansiSaveIntent();
+      if (!pending) return;
+      // Only auto-complete if still on the intended slug surface.
+      if (pending !== surface.slug.trim().toLowerCase()) return;
+      const result = await saveYansi(pending);
+      if (cancelled) return;
+      if (result.ok) {
+        noteYansiSaveState(result.slug, true);
+        void hydrateYansiSaveStore();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthReady, isAuthenticated, surface.slug]);
+
+  const openAuth = useCallback(() => setIdentityOpen(true), []);
 
   const loadFrozen = useCallback(async () => {
     setFrozenState({ status: 'loading' });
@@ -156,11 +193,18 @@ export default function MirrorLandingExperience({
                   >
                     Bu merakı deneyimle
                   </button>
-                  <YansiTrustActions
-                    slug={surface.slug}
-                    authorUserId={frozenState.artifact.authorUserId}
-                    className="pt-1"
-                  />
+                  <div className="flex flex-col items-center gap-2 pt-1">
+                    <YansiSaveButton
+                      slug={frozenState.artifact.slug}
+                      authorUserId={frozenState.artifact.authorUserId}
+                      onRequireAuth={openAuth}
+                    />
+                    <YansiTrustActions
+                      slug={surface.slug}
+                      authorUserId={frozenState.artifact.authorUserId}
+                      className="pt-0"
+                    />
+                  </div>
                 </div>
               ) : frozenState.status === 'loading' ? (
                 <div className="mt-auto pt-10 text-center text-xs text-[#a89880]">
@@ -196,6 +240,7 @@ export default function MirrorLandingExperience({
             <MirrorYansiChainExperience
               rootArtifact={frozenState.artifact}
               className="min-h-0 flex-1"
+              onRequireAuth={openAuth}
             />
             {isDesktop ? <YansiExperienceControls /> : null}
           </YansiExperienceSessionProvider>
@@ -208,6 +253,7 @@ export default function MirrorLandingExperience({
           </div>
         )}
       </div>
+      <IdentityModal open={identityOpen} onClose={() => setIdentityOpen(false)} />
     </div>
   );
 }

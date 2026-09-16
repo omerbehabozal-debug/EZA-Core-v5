@@ -71,7 +71,9 @@ export type ConversationTreeChatItem = {
   thumbImageUrl?: string | null;
   savedAt: string;
   isMirrorSource: boolean;
-  yansiStatus?: 'none' | 'ready' | 'published';
+  yansiStatus?: 'none' | 'ready' | 'published' | 'withdrawn';
+  additionalYansiCount?: number;
+  representativeYansiCount?: number;
 };
 
 export const UNGROUPED_CONVERSATION_GROUP_ID = '__ungrouped__';

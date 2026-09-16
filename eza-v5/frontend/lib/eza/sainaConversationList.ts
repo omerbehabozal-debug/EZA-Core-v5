@@ -13,8 +13,9 @@ export type SainaConversationItem = {
   id: string;
   /** Defaults to conversation when omitted (legacy callers). */
   kind?: SainaSidebarItemKind;
-  /** Present when kind === 'yansi'. */
+  /** Present when kind === 'yansi' (legacy projection; not used for final IA rows). */
   sourceConversationId?: string;
+  /** Representative / latest Yansı identity on enriched conversation rows. */
   journeyId?: string;
   journeyVersion?: number;
   /** `{journeyId}::v{version}` — matches ?yansi= and server source_identity. */
@@ -26,8 +27,16 @@ export type SainaConversationItem = {
   savedAt?: string;
   thumbGradient: string;
   thumbImageUrl?: string | null;
-  /** Quiet Yansı cue: none/omit = no dot, ready = amber, published = green. */
-  yansiStatus?: 'none' | 'ready' | 'published';
+  /**
+   * Quiet Yansı cue for exactly-1-Yansı rows:
+   * none/omit = no dot, ready = bronze, published = green, withdrawn = red.
+   * Never set for 2+ (use additionalYansiCount instead).
+   */
+  yansiStatus?: 'none' | 'ready' | 'published' | 'withdrawn';
+  /** For N>=2: additionalYansiCount = total reusable Yansı − 1. */
+  additionalYansiCount?: number;
+  /** Total reusable Yansı for this conversation after enrichment (0/1/N). */
+  representativeYansiCount?: number;
   isMirrorSource?: boolean;
 };
 

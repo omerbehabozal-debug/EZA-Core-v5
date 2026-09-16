@@ -516,6 +516,51 @@ html:has(.saina-page) body {
   color: rgba(217, 196, 163, 0.48);
 }
 
+/* Slice 5 — Meraklarım system section (not a conversation group) */
+.saina-meraklarim {
+  flex-shrink: 0;
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.25rem 0.5rem;
+  border-top: 1px solid rgba(232, 213, 181, 0.08);
+}
+
+.saina-sohbetlerim {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.saina-sohbetlerim-title,
+.saina-meraklarim-title {
+  margin: 0;
+  padding: 0.35rem 0.35rem 0.25rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(217, 196, 163, 0.55);
+}
+
+.saina-sohbetlerim-list,
+.saina-meraklarim-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.saina-meraklarim-heart {
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0.55;
+  color: rgba(232, 213, 181, 0.75);
+}
+
+.saina-conv-row--saved-yansi .saina-conv-main:disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
 .saina-conv-group-header--quiet {
   padding: 0.35rem 0.35rem 0.2rem;
   border: none;
@@ -586,6 +631,51 @@ html:has(.saina-page) body {
 
 .saina-sidebar .saina-sidebar-yansi-status[data-yansi-status='published'] {
   background: #78977a;
+}
+
+.saina-sidebar .saina-sidebar-yansi-status[data-yansi-status='withdrawn'] {
+  background: #c45442;
+}
+
+.saina-sidebar .saina-sidebar-yansi-more {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: 0.1rem;
+  margin-right: 0.05rem;
+  min-width: 1.85rem;
+  min-height: 1.65rem;
+  padding: 0.25rem 0.4rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: rgba(217, 196, 163, 0.72);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.saina-sidebar .saina-sidebar-yansi-more:hover:not(:disabled) {
+  color: rgba(232, 226, 215, 0.92);
+  background: rgba(232, 213, 181, 0.08);
+}
+
+.saina-sidebar .saina-sidebar-yansi-more:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.saina-sidebar .saina-conv-preview {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: rgba(232, 226, 215, 0.45);
 }
 
 .saina-conv-time {

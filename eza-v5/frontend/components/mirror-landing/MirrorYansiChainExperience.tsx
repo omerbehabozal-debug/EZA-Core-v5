@@ -18,6 +18,7 @@ import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSc
 import AynaAuthorRow from '@/components/mirror/ayna/AynaAuthorRow';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
 import YansiExperienceShareButton from '@/components/mirror-landing/YansiExperienceShareButton';
+import YansiSaveButton from '@/components/mirror-landing/YansiSaveButton';
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 import { resolvePublicAuthorIdentity } from '@/lib/eza/mirror/journey/resolvePublicAuthorDisplay';
@@ -62,6 +63,8 @@ import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 export type MirrorYansiChainExperienceProps = {
   rootArtifact: PublicFrozenJourneyArtifact;
   className?: string;
+  /** Guest Save → open IdentityModal (parent owns modal). */
+  onRequireAuth?: () => void;
 };
 
 type ReplayNodeProgress = {
@@ -125,6 +128,7 @@ function publicPathForSlug(slug: string): string {
 export default function MirrorYansiChainExperience({
   rootArtifact,
   className,
+  onRequireAuth,
 }: MirrorYansiChainExperienceProps) {
   const router = useRouter();
   const entrySlug = rootArtifact.slug.trim().toLowerCase();
@@ -462,7 +466,14 @@ export default function MirrorYansiChainExperience({
                     router.push(authorProfilePath(activeNode.artifact.authorUserId))
                   }
                 />
-                <YansiExperienceShareButton slug={activeNode.artifact.slug} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <YansiSaveButton
+                    slug={activeNode.artifact.slug}
+                    authorUserId={activeNode.artifact.authorUserId}
+                    onRequireAuth={onRequireAuth}
+                  />
+                  <YansiExperienceShareButton slug={activeNode.artifact.slug} />
+                </div>
               </div>
               {activeNode.artifact.parentSlug ? (
                 <AynaParentLineageRow

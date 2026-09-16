@@ -55,6 +55,9 @@ export function useAuthenticatedConversationBootstrap() {
     if (!isAuthenticated || !userId) {
       clearServerConversationState();
       clearServerConversationGroupState();
+      void import('@/lib/eza/mirror-network/yansiSaveStore').then(({ clearYansiSaveStore }) => {
+        clearYansiSaveStore();
+      });
       return;
     }
 
@@ -77,6 +80,15 @@ export function useAuthenticatedConversationBootstrap() {
         });
       } catch {
         /* keep conversations + any local artifacts */
+      }
+      // Slice 5 — Meraklarım (failure must not block conversations).
+      try {
+        const { hydrateYansiSaveStore } = await import(
+          '@/lib/eza/mirror-network/yansiSaveStore'
+        );
+        await hydrateYansiSaveStore();
+      } catch {
+        /* ignore */
       }
     };
 
