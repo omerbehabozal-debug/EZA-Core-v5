@@ -57,8 +57,8 @@ describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
     expect(css).toContain('--saina-identity-chat-breath');
     expect(css).toContain('--saina-scene-heading-shadow');
     expect(css).toContain('--saina-scene-body-shadow');
-    expect(css).toContain('0 5px 14px rgba(0, 0, 0, 0.35)');
-    expect(css).toContain('0 2px 6px rgba(0, 0, 0, 0.42)');
+    expect(css).toContain('0 6px 20px rgba(0, 0, 0, 0.5)');
+    expect(css).toContain('0 2px 8px rgba(0, 0, 0, 0.58)');
     expect(css).toContain('.saina-msg-prose');
     expect(css).toContain('text-shadow: inherit');
     expect(css).toContain('min(650px, 100%)');
@@ -334,7 +334,7 @@ describe('Phase 8.8F Stage B sidebar fade + reading plane refinement', () => {
     expect(css).toContain('--saina-reading-smoke-peak');
     expect(css).toContain('--saina-chat-text-measure: min(650px, 100%)');
     expect(css).toContain('radial-gradient');
-    expect(css).toContain('rgba(5, 7, 7, 0.34)');
+    expect(css).toContain('rgba(5, 7, 7, 0.48)');
     expect(css).toContain('inset: 0');
     expect(css).not.toMatch(/saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*mask-image/);
     expect(css).toContain('backdrop-filter: none !important');

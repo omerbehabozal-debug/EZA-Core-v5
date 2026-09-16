@@ -37,11 +37,11 @@
 }
 
 .bilign-avatar-identity-polygon--a {
-  stroke-width: 1px;
+  stroke-width: 1.75px;
 }
 
 .bilign-avatar-identity-polygon--b {
-  stroke-width: 0.95px;
+  stroke-width: 1.6px;
 }
 
 /* Desktop hero — 84px avatar slot; ~96px polygon envelope overflows visually */
@@ -93,7 +93,7 @@
 
 .bilign-avatar-identity-frame--mobile .bilign-avatar-identity-polygon--a,
 .bilign-avatar-identity-frame--mobile .bilign-avatar-identity-polygon--b {
-  stroke-width: 1.05px;
+  stroke-width: 1.7px;
 }
 
 @media (max-width: 899px) {
@@ -116,6 +116,6 @@
 
   .bilign-avatar-identity-frame--hero .bilign-avatar-identity-polygon--a,
   .bilign-avatar-identity-frame--hero .bilign-avatar-identity-polygon--b {
-    stroke-width: 1.05px;
+    stroke-width: 1.7px;
   }
 }

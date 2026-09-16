@@ -25,13 +25,13 @@ export const AVATAR_IDENTITY_POLYGON_VERTEX_COUNT = VERTEX_COUNT;
 export const AVATAR_IDENTITY_POLYGON_A = {
   rotationDeg: -1.75,
   scale: 1.0,
-  opacity: 0.82,
+  opacity: 0.9,
 } as const;
 
 export const AVATAR_IDENTITY_POLYGON_B = {
   rotationDeg: 1.75,
   scale: 1.021,
-  opacity: 0.48,
+  opacity: 0.68,
 } as const;
 
 function buildPolygonPoints(
