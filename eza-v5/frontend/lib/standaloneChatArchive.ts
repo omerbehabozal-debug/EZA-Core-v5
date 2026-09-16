@@ -56,6 +56,9 @@ export interface ArchivedChatMessage {
   isUser: boolean;
   userScore?: number;
   assistantScore?: number;
+  /** Durable evaluation snapshot — assistant turns. */
+  behavioral?: import('@/lib/types').BehavioralSnapshot | null;
+  safety?: 'Safe' | 'Warning' | 'Blocked';
   timestamp?: string;
 }
 

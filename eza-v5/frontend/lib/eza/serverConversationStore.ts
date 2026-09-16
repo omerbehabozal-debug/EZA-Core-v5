@@ -26,6 +26,7 @@ import {
   type ArchivedChatSummary,
   upsertChatArchive,
 } from '@/lib/standaloneChatArchive';
+import { mergeArchivedMessageEvaluations } from '@/lib/standaloneChatSession';
 
 export type ConversationPersistenceStatus = {
   conversationPersisted: boolean;
@@ -237,12 +238,31 @@ function mapDetailToArchivedChat(detail: ServerConversationDetail): ArchivedChat
   state.serverIdByClientId[detail.clientConversationId] = detail.id;
   const messages: ArchivedChatMessage[] = [...detail.messages]
     .sort((a, b) => a.sequence - b.sequence)
-    .map((msg) => ({
-      id: msg.clientMessageId,
-      text: msg.content,
-      isUser: msg.role === 'user',
-      timestamp: msg.createdAt,
-    }));
+    .map((msg) => {
+      const row: ArchivedChatMessage = {
+        id: msg.clientMessageId,
+        text: msg.content,
+        isUser: msg.role === 'user',
+        timestamp: msg.createdAt,
+      };
+      if (typeof msg.userScore === 'number' && Number.isFinite(msg.userScore)) {
+        row.userScore = msg.userScore;
+      }
+      if (typeof msg.assistantScore === 'number' && Number.isFinite(msg.assistantScore)) {
+        row.assistantScore = msg.assistantScore;
+      }
+      if (msg.behavioral && typeof msg.behavioral === 'object') {
+        row.behavioral = msg.behavioral;
+      }
+      if (
+        msg.safety === 'Safe' ||
+        msg.safety === 'Warning' ||
+        msg.safety === 'Blocked'
+      ) {
+        row.safety = msg.safety;
+      }
+      return row;
+    });
 
   return {
     id: detail.clientConversationId,
@@ -519,7 +539,12 @@ export async function fetchServerConversationDetail(
   if (!serverId) return null;
   const detail = await getServerConversation(serverId);
   if (!isAuthorityValid(ownerAtStart, epochAtStart)) return null;
-  const archived = mapDetailToArchivedChat(detail);
+  const mapped = mapDetailToArchivedChat(detail);
+  const priorLocal = getChatArchive(clientConversationId);
+  const archived: ArchivedChat = {
+    ...mapped,
+    messages: mergeArchivedMessageEvaluations(mapped.messages, priorLocal?.messages),
+  };
   state.detailCache[clientConversationId] = archived;
   upsertChatArchive(archived);
   const summary = mapListItemToSummary(detail);

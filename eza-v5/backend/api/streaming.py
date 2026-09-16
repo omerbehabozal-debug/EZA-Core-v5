@@ -135,6 +135,21 @@ async def stream_standalone_response(
         user_score_raw = (1.0 - input_risk_score) * 100.0
         # Round to 1 decimal place for display, but keep precision in calculation
         user_score = max(0.0, min(100.0, round(user_score_raw, 1)))
+
+        # Attach userScore to the exact persisted user message (same client id).
+        if persistence is not None and db_session is not None:
+            try:
+                from backend.services.standalone.generation_persistence import (
+                    update_user_turn_evaluation,
+                )
+
+                await update_user_turn_evaluation(
+                    db_session,
+                    persistence,
+                    user_score=user_score,
+                )
+            except Exception:
+                logger.exception("Failed to update user-turn evaluation metadata")
         
         # Step 2: Stream LLM response
         if safe_only:
@@ -265,6 +280,9 @@ async def stream_standalone_response(
                             db_session,
                             persistence,
                             content=safe_answer,
+                            assistant_score=None,
+                            behavioral=behavioral,
+                            safety=safety,
                         )
                         if persisted is not None:
                             assistant_persisted = True
@@ -395,6 +413,9 @@ async def stream_standalone_response(
                             db_session,
                             persistence,
                             content=clean_text,
+                            assistant_score=assistant_score,
+                            behavioral=completion_data.get("behavioral"),
+                            safety=None,
                         )
                         if persisted is not None:
                             assistant_persisted = True

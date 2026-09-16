@@ -105,6 +105,10 @@ class StandaloneConversationMessageDTO(BaseModel):
     content: str
     sequence: int
     createdAt: str
+    userScore: Optional[float] = None
+    assistantScore: Optional[float] = None
+    behavioral: Optional[dict[str, Any]] = None
+    safety: Optional[str] = None
 
 
 class StandaloneConversationListItem(BaseModel):

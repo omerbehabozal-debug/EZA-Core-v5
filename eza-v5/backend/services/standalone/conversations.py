@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -94,6 +94,9 @@ def _conversation_to_list_item(
 
 
 def _message_to_dto(row: StandaloneConversationMessage) -> StandaloneConversationMessageDTO:
+    from backend.services.standalone.message_evaluation import evaluation_fields_from_metadata
+
+    eval_fields = evaluation_fields_from_metadata(row.message_metadata)
     return StandaloneConversationMessageDTO(
         id=str(row.id),
         clientMessageId=row.client_message_id,
@@ -101,7 +104,71 @@ def _message_to_dto(row: StandaloneConversationMessage) -> StandaloneConversatio
         content=row.content,
         sequence=row.sequence,
         createdAt=_iso(row.created_at) or _utcnow().isoformat(),
+        userScore=eval_fields.get("userScore"),
+        assistantScore=eval_fields.get("assistantScore"),
+        behavioral=eval_fields.get("behavioral"),
+        safety=eval_fields.get("safety"),
     )
+
+
+async def update_standalone_message_evaluation(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    conversation_id: UUID,
+    client_message_id: str,
+    evaluation: dict[str, Any] | None,
+) -> StandaloneConversationMessageDTO | None:
+    """
+    Merge whitelist evaluation fields into the exact message row
+    (conversation_id + client_message_id). No duplicate rows.
+    Fail-soft: returns None if row missing or metadata cannot be stored.
+    """
+    from backend.services.standalone.message_evaluation import (
+        merge_evaluation_into_metadata,
+        try_prepare_persisted_metadata,
+    )
+
+    client_id = (client_message_id or "").strip()
+    if not client_id or not evaluation:
+        return None
+
+    prepared = try_prepare_persisted_metadata(evaluation)
+    if not prepared:
+        return None
+
+    try:
+        conv = await _get_owned_conversation(
+            db,
+            user_id=user_id,
+            conversation_id=conversation_id,
+        )
+    except StandaloneConversationNotFoundError:
+        return None
+
+    result = await db.execute(
+        select(StandaloneConversationMessage).where(
+            StandaloneConversationMessage.conversation_id == conv.id,
+            StandaloneConversationMessage.client_message_id == client_id,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        return None
+
+    merged = merge_evaluation_into_metadata(row.message_metadata, prepared)
+    final_meta = try_prepare_persisted_metadata(merged)
+    if final_meta is None:
+        return _message_to_dto(row)
+
+    row.message_metadata = final_meta
+    try:
+        await db.commit()
+        await db.refresh(row)
+    except Exception:
+        await db.rollback()
+        return None
+    return _message_to_dto(row)
 
 
 def _active_conversation_filters(user_id: UUID, *, include_archived: bool = False):

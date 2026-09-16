@@ -4,6 +4,7 @@
 
 import { apiClient } from '@/lib/apiClient';
 import { sanitizeOptionalServerGroupId } from '@/lib/eza/serverGroupId';
+import type { BehavioralSnapshot } from '@/lib/types';
 
 export type ServerConversationType =
   | 'direct'
@@ -41,6 +42,10 @@ export type ServerConversationMessage = {
   content: string;
   sequence: number;
   createdAt: string;
+  userScore?: number | null;
+  assistantScore?: number | null;
+  behavioral?: BehavioralSnapshot | null;
+  safety?: 'Safe' | 'Warning' | 'Blocked' | null;
 };
 
 export type ServerConversationDetail = ServerConversationListItem & {

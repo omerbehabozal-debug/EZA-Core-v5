@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -19,6 +19,12 @@ from backend.core.schemas.standalone_conversations import (
 from backend.services.standalone.conversations import (
     StandaloneConversationNotFoundError,
     append_standalone_message,
+    update_standalone_message_evaluation,
+)
+from backend.services.standalone.message_evaluation import (
+    build_assistant_evaluation_metadata,
+    build_user_evaluation_metadata,
+    try_prepare_persisted_metadata,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -102,18 +108,54 @@ async def persist_user_turn_before_generation(
         ) from exc
 
 
+async def update_user_turn_evaluation(
+    db: AsyncSession,
+    ctx: GenerationPersistenceContext,
+    *,
+    user_score: Any,
+) -> Optional[StandaloneConversationMessageDTO]:
+    """
+    Attach userScore to the EXACT persisted user message
+    (conversation_id + client_user_message_id). Fail-soft.
+    """
+    patch = build_user_evaluation_metadata(user_score=user_score)
+    if not patch:
+        return None
+    try:
+        return await update_standalone_message_evaluation(
+            db,
+            user_id=ctx.user_id,
+            conversation_id=ctx.conversation_id,
+            client_message_id=ctx.client_user_message_id,
+            evaluation=patch,
+        )
+    except Exception:
+        return None
+
+
 async def persist_assistant_turn_after_generation(
     db: AsyncSession,
     ctx: GenerationPersistenceContext,
     *,
     content: str,
+    assistant_score: Any = None,
+    behavioral: Any = None,
+    safety: Any = None,
 ) -> Optional[StandaloneConversationMessageDTO]:
-    """Persist final assistant output once. No-op when content is empty (aborted stream)."""
+    """Persist final assistant output once with evaluation metadata when available."""
     text = (content or "").strip()
     if not text:
         return None
+
+    eval_meta = build_assistant_evaluation_metadata(
+        assistant_score=assistant_score,
+        behavioral=behavioral,
+        safety=safety,
+    )
+    prepared = try_prepare_persisted_metadata(eval_meta)
+
     try:
-        return await append_standalone_message(
+        dto = await append_standalone_message(
             db,
             user_id=ctx.user_id,
             conversation_id=ctx.conversation_id,
@@ -121,6 +163,7 @@ async def persist_assistant_turn_after_generation(
                 clientMessageId=ctx.client_assistant_message_id,
                 role="assistant",
                 content=text,
+                metadata=prepared,
             ),
         )
     except StandaloneConversationNotFoundError as exc:
@@ -128,3 +171,17 @@ async def persist_assistant_turn_after_generation(
             status_code=404,
             detail={"code": "conversation_not_found"},
         ) from exc
+
+    # Idempotent retry: append returns existing without applying new metadata —
+    # merge evaluation onto the exact assistant row when we have a patch.
+    if prepared:
+        updated = await update_standalone_message_evaluation(
+            db,
+            user_id=ctx.user_id,
+            conversation_id=ctx.conversation_id,
+            client_message_id=ctx.client_assistant_message_id,
+            evaluation=prepared,
+        )
+        if updated is not None:
+            return updated
+    return dto

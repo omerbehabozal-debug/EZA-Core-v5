@@ -508,10 +508,28 @@ async def standalone_endpoint(
     )
 
     if persistence is not None and result.ok and result.data is not None:
+        from backend.services.standalone.generation_persistence import (
+            update_user_turn_evaluation,
+        )
+
+        data = result.data if isinstance(result.data, dict) else {}
+        user_score = data.get("user_score")
+        if user_score is not None:
+            try:
+                await update_user_turn_evaluation(
+                    db,
+                    persistence,
+                    user_score=user_score,
+                )
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "Failed to update user-turn evaluation metadata"
+                )
+
         assistant_persisted = False
         assistant_text = (
-            result.data.get("safe_answer")
-            or result.data.get("assistant_answer")
+            data.get("safe_answer")
+            or data.get("assistant_answer")
             or ""
         )
         if isinstance(assistant_text, str) and assistant_text.strip():
@@ -520,6 +538,9 @@ async def standalone_endpoint(
                     db,
                     persistence,
                     content=assistant_text,
+                    assistant_score=data.get("assistant_score"),
+                    behavioral=getattr(result, "behavioral", None),
+                    safety=data.get("safety"),
                 )
                 if persisted is not None:
                     assistant_persisted = True
