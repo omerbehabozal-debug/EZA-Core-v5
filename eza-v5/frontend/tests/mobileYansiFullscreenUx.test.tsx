@@ -151,6 +151,13 @@ describe('Mobile Yansı fullscreen UX contracts', () => {
     expect(speech).not.toContain('getVoices');
   });
 
+  it('audio sheet open/close does not programmatically focus a chat composer', () => {
+    const audioSheet = read('components/mirror-landing/YansiMobileAudioSheet.tsx');
+    expect(audioSheet).not.toContain('SainaComposer');
+    expect(audioSheet).not.toContain('inputRef');
+    expect(audioSheet).not.toMatch(/\.focus\s*\(/);
+  });
+
   it('swipe classifier requires deliberate threshold + scroll-boundary for vertical nav', () => {
     const gesture = read('lib/eza/mirror/journey/yansiSwipeGesture.ts');
     const chain = read('components/mirror-landing/MirrorYansiChainExperience.tsx');

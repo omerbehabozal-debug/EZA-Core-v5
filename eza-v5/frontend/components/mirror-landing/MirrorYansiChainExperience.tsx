@@ -180,6 +180,18 @@ export default function MirrorYansiChainExperience({
 
   const activeSlug = session ? activeDiscoverSlug(session) : entrySlug;
   const activeNode = nodesBySlug[activeSlug] ?? null;
+  const resetAudioForActiveChange = experienceSession?.resetAudioForActiveChange;
+  const audioActiveSlugRef = useRef(activeSlug);
+
+  /**
+   * Audio belongs to the exact active Yansı. Provider slug is the entry root and
+   * does not change on Discover/continuation navigation — cancel + idle here.
+   */
+  useEffect(() => {
+    if (audioActiveSlugRef.current === activeSlug) return;
+    audioActiveSlugRef.current = activeSlug;
+    resetAudioForActiveChange?.();
+  }, [activeSlug, resetAudioForActiveChange]);
 
   // Bootstrap entry artifact into the node map.
   useEffect(() => {

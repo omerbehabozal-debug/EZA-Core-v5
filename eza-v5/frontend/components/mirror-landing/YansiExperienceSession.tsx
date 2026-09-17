@@ -33,6 +33,8 @@ type YansiExperienceSessionValue = {
   slug: string;
   audioOn: boolean;
   setAudioOn: (on: boolean) => void;
+  /** Cancel speech + idle UI when MirrorYansiChainExperience active slug changes. */
+  resetAudioForActiveChange: () => void;
   rhythm: YansiRhythmId;
   setRhythm: (next: YansiRhythmId) => void;
   speechSupported: boolean;
@@ -75,6 +77,16 @@ export function YansiExperienceSessionProvider({
     if (latest) speakYansiAnswer(latest);
   }, []);
 
+  /**
+   * Active product changed (Discover ↑/↓, continuation ←/→, replace).
+   * Speech must not continue over the new scene; do not autoplay the next Yansı.
+   */
+  const resetAudioForActiveChange = useCallback(() => {
+    cancelYansiSpeech();
+    latestAnswerRef.current = null;
+    setAudioOnState(false);
+  }, []);
+
   const setRhythm = useCallback((next: YansiRhythmId) => {
     setRhythmState(next);
     writeYansiRhythm(next);
@@ -109,6 +121,7 @@ export function YansiExperienceSessionProvider({
       slug,
       audioOn,
       setAudioOn,
+      resetAudioForActiveChange,
       rhythm,
       setRhythm,
       speechSupported,
@@ -120,6 +133,7 @@ export function YansiExperienceSessionProvider({
       slug,
       audioOn,
       setAudioOn,
+      resetAudioForActiveChange,
       rhythm,
       setRhythm,
       speechSupported,

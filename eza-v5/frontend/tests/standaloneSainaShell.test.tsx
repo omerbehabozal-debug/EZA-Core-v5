@@ -507,10 +507,16 @@ describe('SainaStandaloneShell (mobile Ayna bottom sheet)', () => {
       expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
     });
 
+    const composerInput = screen.getByLabelText('Mesaj yaz');
+    expect(document.activeElement).not.toBe(composerInput);
+
     fireEvent.click(screen.getByLabelText(SAINA_MIRROR_EXPAND_LABEL));
     expect(screen.getByTestId('saina-mobile-ayna-sheet')).toBeInTheDocument();
+    expect(document.activeElement).not.toBe(composerInput);
+
     fireEvent.click(screen.getByTestId('saina-mobile-ayna-sheet-close'));
     expect(screen.queryByTestId('saina-mobile-ayna-sheet')).not.toBeInTheDocument();
+    expect(document.activeElement).not.toBe(composerInput);
   });
 
   it('keeps composer Ayna trigger in bottom anchor with long message list', async () => {

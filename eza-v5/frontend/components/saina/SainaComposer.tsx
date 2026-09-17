@@ -23,14 +23,17 @@ export default function SainaComposer({
 }: SainaComposerProps) {
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  /** true = viewport ≥900px (desktop/tablet shell). false = mobile drawer shell. */
   const isCompactShell = useSainaCompactShell();
   const chromeOpenMirror = useSainaChromeStore((s) => s.onOpenMirror);
 
   useEffect(() => {
+    // Desktop convenience only — never programmatically open the mobile keyboard.
+    if (!isCompactShell) return;
     if (!isLoading && !disabled) {
       inputRef.current?.focus();
     }
-  }, [isLoading, disabled]);
+  }, [isCompactShell, isLoading, disabled]);
 
   const submit = (text: string) => {
     const trimmed = text.trim();
