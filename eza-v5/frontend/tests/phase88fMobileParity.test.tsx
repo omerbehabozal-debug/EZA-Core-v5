@@ -14,17 +14,18 @@ describe('Phase 8.8F-M mobile visual parity', () => {
   const frame = read('styles/bilign-avatar-identity-frame.css');
   const shell = read('components/saina/SainaStandaloneShell.tsx');
 
-  it('no longer blanket-hides hero identity on mobile', () => {
-    expect(css).not.toMatch(
-      /\.bilign-yansi-identity__mark,\s*\n\.saina-app-root\.saina-standalone-shell \.bilign-yansi-identity__name-row/
-    );
+  it('hides large hero identity on mobile when compact identity is active', () => {
     expect(css).toContain('Phase 8.8F-M: mobile scene-first Yansı parity');
+    expect(css).toContain("data-compact-mobile-identity='true'");
     expect(css).toMatch(
-      /@media \(max-width: 899px\)[\s\S]*\.bilign-yansi-identity__name-row[\s\S]*display:\s*flex/
+      /bilign-yansi-identity\[data-compact-mobile-identity='true'\][\s\S]*\.bilign-yansi-identity__mark[\s\S]*display:\s*none/
+    );
+    expect(css).toMatch(
+      /bilign-yansi-identity\[data-compact-mobile-identity='true'\][\s\S]*\.bilign-yansi-identity__name-row[\s\S]*display:\s*none/
     );
   });
 
-  it('defines mobile hero avatar at 66px with 76px polygon envelope', () => {
+  it('keeps mobile hero avatar sizing tokens for non-compact surfaces', () => {
     expect(css).toMatch(
       /@media \(max-width: 899px\)[\s\S]*\.bilign-yansi-identity__mark[\s\S]*width:\s*66px/
     );
@@ -86,10 +87,11 @@ describe('Phase 8.8F-M mobile visual parity', () => {
     );
   });
 
-  it('keeps mobile Ayna rail and drawer navigation', () => {
-    expect(shell).toContain('SainaMobileMirrorRail');
+  it('keeps mobile Ayna sheet + drawer navigation', () => {
+    expect(shell).toContain('SainaMobileAynaSheet');
+    expect(shell).toContain('SainaMobileYansiHeader');
     expect(shell).toContain('showMobileMenu');
-    expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*\.saina-mobile-mirror-cta/);
+    expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*\.saina-mobile-ayna-sheet/);
     expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*\.saina-sidebar\.saina-sidebar--mobile-open/);
   });
 
@@ -133,9 +135,9 @@ describe('Phase 8.8F-M mobile hero rendering', () => {
 describe('Phase 8.8F-M shell contracts unchanged', () => {
   const shell = read('components/saina/SainaStandaloneShell.tsx');
 
-  it('does not replace mobile mirror rail with desktop context rail', () => {
+  it('keeps desktop context rail and uses mobile Ayna sheet on phone', () => {
     expect(shell).toContain('!isCompactShell');
-    expect(shell).toContain('SainaMobileMirrorRail');
+    expect(shell).toContain('SainaMobileAynaSheet');
     expect(shell).toContain('isCompactShell ?');
     expect(shell).toContain('SainaYansiContextRail');
   });

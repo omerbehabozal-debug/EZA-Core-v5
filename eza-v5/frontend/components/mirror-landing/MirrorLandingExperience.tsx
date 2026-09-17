@@ -144,8 +144,13 @@ export default function MirrorLandingExperience({
       data-replay-started={replayStarted ? 'true' : 'false'}
       data-yansi-experience-mode={replayStarted ? 'a' : 'landing'}
     >
-      <header className="relative z-[2] flex items-center justify-between px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
-        <p className="flex items-center gap-2">
+      <header
+        className={cn(
+          'relative z-[2] flex items-center justify-between px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]',
+          replayStarted && !isDesktop && 'sr-only'
+        )}
+        data-testid="mirror-landing-brand-header"
+      >        <p className="flex items-center gap-2">
           <SainaGeometricMark size={16} />
           <SainaBrandWordmark height={13} />
         </p>

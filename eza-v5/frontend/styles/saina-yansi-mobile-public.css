@@ -27,6 +27,260 @@
     box-shadow: none;
     background: #090b0b;
   }
+
+  [data-mirror-landing][data-replay-started='true'] {
+    padding: 0;
+  }
+
+  .yansi-mobile-fullscreen {
+    min-height: 100dvh;
+    /* Allow native vertical pan; do not set touch-action:none */
+    touch-action: manipulation;
+  }
+
+  .yansi-mobile-scroll-root {
+    /* Explicit: vertical content scroll wins over browser gestures */
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+  }
+
+  .yansi-mobile-public-header {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: max(0.5rem, env(safe-area-inset-top, 0px)) 0.75rem 0.55rem;
+    background: linear-gradient(
+      180deg,
+      rgba(9, 11, 11, 0.5) 0%,
+      rgba(9, 11, 11, 0.16) 72%,
+      transparent 100%
+    );
+  }
+
+  .yansi-mobile-public-header__icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    border: 1px solid rgba(232, 226, 215, 0.1);
+    background: rgba(12, 14, 14, 0.42);
+    color: #f0e7d8;
+  }
+
+  .yansi-mobile-public-header__author {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 0.4rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+  }
+
+  .yansi-mobile-public-header__name {
+    max-width: 100%;
+    overflow: hidden;
+    color: #f0e7d8;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .yansi-mobile-public-header__overflow {
+    position: relative;
+  }
+
+  .yansi-mobile-public-header__menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    z-index: 8;
+    display: flex;
+    min-width: 11rem;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.55rem;
+    border-radius: 12px;
+    border: 1px solid rgba(232, 226, 215, 0.12);
+    background: rgba(12, 14, 14, 0.94);
+  }
+
+  .yansi-mobile-title-block {
+    background: linear-gradient(
+      180deg,
+      rgba(9, 11, 11, 0.18) 0%,
+      transparent 100%
+    );
+  }
+
+  .yansi-mobile-listen-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+    margin-top: 0.75rem;
+  }
+
+  .yansi-mobile-listen-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(232, 226, 215, 0.14);
+    background: rgba(12, 14, 14, 0.45);
+    color: #e8dfd0;
+    font-size: 0.75rem;
+  }
+
+  .yansi-mobile-minimal-player {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid rgba(232, 226, 215, 0.12);
+    background: rgba(12, 14, 14, 0.72);
+    color: #e8dfd0;
+    font-size: 0.72rem;
+  }
+
+  .yansi-mobile-minimal-player__pause,
+  .yansi-mobile-minimal-player__meta,
+  .yansi-mobile-minimal-player__close {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+  }
+
+  .yansi-mobile-audio-sheet-root {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .yansi-mobile-audio-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(5, 7, 7, 0.5);
+  }
+
+  .yansi-mobile-audio-sheet {
+    position: relative;
+    z-index: 1;
+    max-height: min(78dvh, 100%);
+    border-radius: 18px 18px 0 0;
+    border: 1px solid rgba(232, 226, 215, 0.1);
+    border-bottom: 0;
+    background: linear-gradient(180deg, rgba(16, 18, 18, 0.97), rgba(9, 11, 11, 0.98));
+    padding: 0.35rem 1rem max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .yansi-mobile-audio-sheet-handle {
+    display: flex;
+    justify-content: center;
+    padding: 0.45rem 0 0.2rem;
+  }
+
+  .yansi-mobile-audio-sheet-handle-bar {
+    width: 2.25rem;
+    height: 0.22rem;
+    border-radius: 999px;
+    background: rgba(232, 226, 215, 0.28);
+  }
+
+  .yansi-mobile-audio-sheet-chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .yansi-mobile-audio-sheet-title {
+    margin: 0;
+    color: #f0e7d8;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  .yansi-mobile-audio-sheet-close {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid rgba(232, 226, 215, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    color: #e8e2d7;
+  }
+
+  .yansi-mobile-audio-sheet-primary {
+    display: inline-flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(232, 213, 181, 0.28);
+    background: rgba(232, 213, 181, 0.12);
+    color: #f5ead8;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .yansi-mobile-audio-sheet-label {
+    margin: 0 0 0.45rem;
+    color: rgba(201, 187, 168, 0.85);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .yansi-mobile-audio-sheet-rhythm {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .yansi-mobile-audio-sheet-rhythm-btn {
+    padding: 0.45rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(232, 226, 215, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    color: #e8dfd0;
+    font-size: 0.78rem;
+  }
+
+  .yansi-mobile-audio-sheet-rhythm-btn[data-selected='true'] {
+    border-color: rgba(232, 213, 181, 0.35);
+    background: rgba(232, 213, 181, 0.14);
+  }
+
+  .yansi-mobile-audio-sheet-note {
+    margin: 0 0 1rem;
+    color: #a89880;
+    font-size: 0.8125rem;
+  }
 }
 
 @media (min-width: 900px) {

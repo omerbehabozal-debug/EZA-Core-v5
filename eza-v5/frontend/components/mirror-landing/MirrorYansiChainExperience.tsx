@@ -11,14 +11,20 @@
  * Not /children lineage. Not parent_slug authority.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { Menu, MoreHorizontal, Volume2 } from 'lucide-react';
 import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSceneCrossfade';
 import AynaAuthorRow from '@/components/mirror/ayna/AynaAuthorRow';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
+import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
+import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import YansiExperienceShareButton from '@/components/mirror-landing/YansiExperienceShareButton';
 import YansiSaveButton from '@/components/mirror-landing/YansiSaveButton';
+import YansiMobileAudioSheet from '@/components/mirror-landing/YansiMobileAudioSheet';
+import YansiMobileMinimalPlayer from '@/components/mirror-landing/YansiMobileMinimalPlayer';
+import { useYansiExperienceSession } from '@/components/mirror-landing/YansiExperienceSession';
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 import { resolvePublicAuthorIdentity } from '@/lib/eza/mirror/journey/resolvePublicAuthorDisplay';
@@ -56,6 +62,15 @@ import {
   fetchContinuationNeighbors,
   type PublicContinuationNeighbor,
 } from '@/lib/eza/mirror-network/fetchContinuationNeighbors';
+import {
+  createYansiSwipeGestureState,
+  readYansiScrollMetrics,
+  yansiSwipePointerCancel,
+  yansiSwipePointerDown,
+  yansiSwipePointerUp,
+  yansiSwipeShouldIgnoreTarget,
+} from '@/lib/eza/mirror/journey/yansiSwipeGesture';
+import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { cn } from '@/lib/utils';
 import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
 import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
@@ -131,6 +146,8 @@ export default function MirrorYansiChainExperience({
   onRequireAuth,
 }: MirrorYansiChainExperienceProps) {
   const router = useRouter();
+  const isDesktop = useSainaCompactShell();
+  const experienceSession = useYansiExperienceSession();
   const entrySlug = rootArtifact.slug.trim().toLowerCase();
   const [session, setSession] = useState<YansiDiscoverySession | null>(() =>
     createYansiDiscoverySession(entrySlug)
@@ -146,10 +163,14 @@ export default function MirrorYansiChainExperience({
   const [replayProgress, setReplayProgress] = useState<Record<string, ReplayNodeProgress>>(
     {}
   );
+  const [audioSheetOpen, setAudioSheetOpen] = useState(false);
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const previousActiveSlugRef = useRef(entrySlug);
   const skipFiredRef = useRef<Set<string>>(new Set());
   const navInFlightRef = useRef(false);
   const neighborsRequestIdRef = useRef(0);
+  const swipeRef = useRef(createYansiSwipeGestureState());
+  const scrollRootRef = useRef<HTMLDivElement | null>(null);
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const replayProgressRef = useRef(replayProgress);
@@ -402,6 +423,44 @@ export default function MirrorYansiChainExperience({
     [continuationNext, continuationPrevious, ensureArtifactLoaded]
   );
 
+  const onSwipePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (isDesktop || navInFlightRef.current) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (yansiSwipeShouldIgnoreTarget(event.target)) return;
+    swipeRef.current = yansiSwipePointerDown(
+      swipeRef.current,
+      event.pointerId,
+      event.clientX,
+      event.clientY
+    );
+  }, [isDesktop]);
+
+  const onSwipePointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (isDesktop) return;
+      // Content scroll stays native — never cancel the pointer event.
+      const scroll = readYansiScrollMetrics(scrollRootRef.current);
+      const result = yansiSwipePointerUp(
+        swipeRef.current,
+        event.pointerId,
+        event.clientX,
+        event.clientY,
+        scroll
+      );
+      swipeRef.current = result.state;
+      if (!result.direction || navInFlightRef.current) return;
+      if (result.direction === 'up') void goDown();
+      else if (result.direction === 'down') goUp();
+      else if (result.direction === 'left') void goHorizontal('next');
+      else if (result.direction === 'right') void goHorizontal('previous');
+    },
+    [goDown, goHorizontal, goUp, isDesktop]
+  );
+
+  const onSwipePointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    swipeRef.current = yansiSwipePointerCancel(swipeRef.current, event.pointerId);
+  }, []);
+
   if (!bootstrapped || !session || !activeNode) {
     return (
       <div
@@ -421,16 +480,92 @@ export default function MirrorYansiChainExperience({
 
   return (
     <div
-      className={cn('relative flex min-h-0 w-full flex-1 flex-col', className)}
+      className={cn(
+        'relative flex min-h-0 w-full flex-1 flex-col',
+        !isDesktop && 'yansi-mobile-fullscreen',
+        className
+      )}
       data-testid="mirror-yansi-chain"
       data-active-slug={activeSlug}
       data-discovery-index={session.activeIndex}
       data-discovery-length={session.history.length}
+      data-mobile-yansi={!isDesktop ? 'true' : 'false'}
+      onPointerDown={onSwipePointerDown}
+      onPointerUp={onSwipePointerUp}
+      onPointerCancel={onSwipePointerCancel}
     >
       <MirrorYansiSceneCrossfade sceneImageUrl={activeNode.artifact.sceneImageUrl} />
 
+      {!isDesktop ? (
+        <header
+          className="yansi-mobile-public-header"
+          data-testid="yansi-mobile-public-header"
+        >
+          <button
+            type="button"
+            className="yansi-mobile-public-header__icon"
+            aria-label="Keşfet'e dön"
+            data-testid="yansi-mobile-public-menu"
+            onClick={() => router.push('/standalone/discover')}
+          >
+            <Menu size={18} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="yansi-mobile-public-header__author"
+            data-testid="yansi-mobile-public-author"
+            onClick={() =>
+              router.push(authorProfilePath(activeNode.artifact.authorUserId))
+            }
+          >
+            <ProfileUserAvatar
+              displayName={activeNode.authorDisplayName}
+              userId={activeNode.artifact.authorUserId}
+              avatarUrl={activeNode.authorAvatarUrl}
+              cacheBust={activeNode.authorAvatarRevision ?? undefined}
+              size="sm"
+            />
+            <span className="yansi-mobile-public-header__name">
+              {activeNode.authorDisplayName}
+            </span>
+            {activeNode.authorHonorific ? (
+              <HonorificMarker
+                honorific={activeNode.authorHonorific}
+                testId="yansi-mobile-public-honorific"
+              />
+            ) : null}
+          </button>
+          <div className="yansi-mobile-public-header__overflow">
+            <button
+              type="button"
+              className="yansi-mobile-public-header__icon"
+              aria-label="Daha fazla"
+              data-testid="yansi-mobile-public-overflow"
+              aria-expanded={overflowOpen}
+              onClick={() => setOverflowOpen((v) => !v)}
+            >
+              <MoreHorizontal size={18} aria-hidden />
+            </button>
+            {overflowOpen ? (
+              <div
+                className="yansi-mobile-public-header__menu"
+                data-testid="yansi-mobile-public-overflow-menu"
+              >
+                <YansiSaveButton
+                  slug={activeNode.artifact.slug}
+                  authorUserId={activeNode.artifact.authorUserId}
+                  onRequireAuth={onRequireAuth}
+                />
+                <YansiExperienceShareButton slug={activeNode.artifact.slug} />
+              </div>
+            ) : null}
+          </div>
+        </header>
+      ) : null}
+
       <div
-        className="relative z-[1] flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-8"
+        ref={scrollRootRef}
+        className="relative z-[1] flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pb-8 yansi-mobile-scroll-root"
         data-testid="mirror-yansi-chain-scroll"
       >
         <YansiExposureRoot
@@ -442,40 +577,53 @@ export default function MirrorYansiChainExperience({
             data-yansi-slug={activeNode.artifact.slug}
             data-yansi-active="true"
             data-testid={`mirror-yansi-section-${activeNode.artifact.slug}`}
-            className="flex min-h-[70dvh] flex-col scroll-mt-4"
+            className={cn(
+              'flex flex-col scroll-mt-4',
+              isDesktop ? 'min-h-[70dvh]' : 'min-h-[100dvh]'
+            )}
           >
-            <header className="mb-4 space-y-2 saina-content-crossfade">
+            <header
+              className={cn(
+                'mb-4 space-y-2 saina-content-crossfade',
+                !isDesktop && 'yansi-mobile-title-block px-4 pt-1'
+              )}
+            >
               <h2
-                className="text-xl font-semibold tracking-tight text-[#f5ead8] transition-opacity duration-500"
+                className={cn(
+                  'font-semibold tracking-tight text-[#f5ead8] transition-opacity duration-500',
+                  isDesktop ? 'text-xl' : 'text-[1.35rem] leading-snug'
+                )}
                 data-testid="mirror-yansi-active-title"
                 data-slug={activeNode.artifact.slug}
               >
                 {title}
               </h2>
-              {summary ? (
+              {summary && isDesktop ? (
                 <p className="text-sm leading-relaxed text-[#c9bba8]">{summary}</p>
               ) : null}
-              <div className="yansi-identity-header">
-                <AynaAuthorRow
-                  displayName={activeNode.authorDisplayName}
-                  authorUserId={activeNode.artifact.authorUserId}
-                  publicAvatarUrl={activeNode.authorAvatarUrl}
-                  publicAvatarRevision={activeNode.authorAvatarRevision}
-                  honorific={activeNode.authorHonorific}
-                  onOpenProfile={() =>
-                    router.push(authorProfilePath(activeNode.artifact.authorUserId))
-                  }
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                  <YansiSaveButton
-                    slug={activeNode.artifact.slug}
+              {isDesktop ? (
+                <div className="yansi-identity-header">
+                  <AynaAuthorRow
+                    displayName={activeNode.authorDisplayName}
                     authorUserId={activeNode.artifact.authorUserId}
-                    onRequireAuth={onRequireAuth}
+                    publicAvatarUrl={activeNode.authorAvatarUrl}
+                    publicAvatarRevision={activeNode.authorAvatarRevision}
+                    honorific={activeNode.authorHonorific}
+                    onOpenProfile={() =>
+                      router.push(authorProfilePath(activeNode.artifact.authorUserId))
+                    }
                   />
-                  <YansiExperienceShareButton slug={activeNode.artifact.slug} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <YansiSaveButton
+                      slug={activeNode.artifact.slug}
+                      authorUserId={activeNode.artifact.authorUserId}
+                      onRequireAuth={onRequireAuth}
+                    />
+                    <YansiExperienceShareButton slug={activeNode.artifact.slug} />
+                  </div>
                 </div>
-              </div>
-              {activeNode.artifact.parentSlug ? (
+              ) : null}
+              {activeNode.artifact.parentSlug && isDesktop ? (
                 <AynaParentLineageRow
                   parentAuthorDisplayName={activeNode.parentAuthorDisplayName}
                   parentPublicTitle={activeNode.parentPublicTitle}
@@ -484,21 +632,41 @@ export default function MirrorYansiChainExperience({
                   }
                 />
               ) : null}
-              <YansiPublicMetricsLine
-                slug={activeNode.artifact.slug}
-                journeyVersion={activeNode.artifact.journeyVersion}
-                variant="section"
-              />
+              {isDesktop ? (
+                <YansiPublicMetricsLine
+                  slug={activeNode.artifact.slug}
+                  journeyVersion={activeNode.artifact.journeyVersion}
+                  variant="section"
+                />
+              ) : null}
             </header>
 
             <MirrorFrozenReplay
               key={`${activeNode.artifact.slug}:${activeNode.artifact.journeyVersion}`}
               artifact={activeNode.artifact}
-              className="min-h-0 flex-1"
+              className="min-h-0 flex-1 px-3"
               continueLabel={YANSI_OWN_CONTINUATION_CTA}
               chainEmbedded
               onReplayProgress={handleReplayProgress}
             />
+
+            {!isDesktop ? (
+              <div className="yansi-mobile-listen-row px-4">
+                {experienceSession?.speechSupported ? (
+                  <button
+                    type="button"
+                    className="yansi-mobile-listen-btn"
+                    data-testid="yansi-mobile-listen-entry"
+                    aria-label="Ses ayarları"
+                    onClick={() => setAudioSheetOpen(true)}
+                  >
+                    <Volume2 size={16} aria-hidden />
+                    Dinle
+                  </button>
+                ) : null}
+                <YansiMobileMinimalPlayer onOpenSheet={() => setAudioSheetOpen(true)} />
+              </div>
+            ) : null}
 
             <div
               className="mt-4 flex flex-col items-center gap-2"
@@ -576,6 +744,10 @@ export default function MirrorYansiChainExperience({
           </section>
         </YansiExposureRoot>
       </div>
+
+      {!isDesktop ? (
+        <YansiMobileAudioSheet open={audioSheetOpen} onClose={() => setAudioSheetOpen(false)} />
+      ) : null}
     </div>
   );
 }

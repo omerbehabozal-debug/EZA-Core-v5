@@ -19,6 +19,11 @@ type SainaHeroSceneProps = {
   metaTimeLabel?: string | null;
   /** Product-authoritative content type (e.g. Yeni sohbet, Yansı). */
   metaTypeLabel?: string | null;
+  /**
+   * Mobile Yansı chrome already shows compact author identity.
+   * When true, large avatar/name block is CSS-hidden on mobile only.
+   */
+  compactMobileIdentity?: boolean;
 };
 
 /**
@@ -35,6 +40,7 @@ export default function SainaHeroScene({
   avatarCacheBust,
   metaTimeLabel = null,
   metaTypeLabel = null,
+  compactMobileIdentity = false,
 }: SainaHeroSceneProps) {
   const name = displayName?.trim() || SAINA_MENU_GUEST_LABEL;
   const showHonorific = Boolean(honorificLabel);
@@ -47,6 +53,7 @@ export default function SainaHeroScene({
       className="saina-hero saina-hero--content bilign-yansi-identity"
       aria-label="Yansı kimliği"
       data-testid="saina-yansi-identity"
+      data-compact-mobile-identity={compactMobileIdentity ? 'true' : 'false'}
     >
       <div className="bilign-yansi-identity__mark">
         <div className="bilign-yansi-identity__avatar">

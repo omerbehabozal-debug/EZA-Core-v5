@@ -55,6 +55,7 @@ import {
 } from '@/lib/eza/sainaCopy';
 import { DEFAULT_ANALYSIS_MODEL_ID, STANDALONE_ANALYSIS_MODELS } from '@/lib/standaloneModels';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
+import SainaComposer from '@/components/saina/SainaComposer';
 import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
 import ChatBubble from '@/components/standalone/ChatBubble';
 import MessageList from '@/components/standalone/MessageList';
@@ -434,40 +435,52 @@ describe('SainaStandaloneShell (Sprint B.2C responsive sidebar)', () => {
     expect(screen.queryByTestId('saina-sidebar-close-btn')).not.toBeInTheDocument();
   });
 
-  it('shows sticky Ayna CTA above composer in mobile shell', async () => {
+  it('shows composer Ayna trigger and opens bottom sheet on mobile', async () => {
     mockSainaSidebarViewport(false);
-    render(<SainaStandaloneShell {...shellProps} />);
+    render(
+      <SainaStandaloneShell
+        {...shellProps}
+        composer={<SainaComposer onSend={() => undefined} isLoading={false} />}
+      />
+    );
 
     await waitFor(() => {
-      expect(screen.getByTestId('saina-mobile-mirror-inline')).toBeInTheDocument();
-      expect(screen.getByTestId('saina-mobile-mirror-cta')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
       expect(screen.getByTestId('saina-chat-bottom-anchor')).toBeInTheDocument();
     });
-    expect(screen.getByText(SAINA_MOBILE_MIRROR_CTA_EMPTY)).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-mobile-mirror-cta')).not.toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Mobil görünüm' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('saina-composer-ayna-trigger'));
+    expect(screen.getByTestId('saina-mobile-ayna-sheet')).toBeInTheDocument();
+    expect(screen.getByTestId('saina-standalone-mirror-panel')).toBeInTheDocument();
   });
 
-  it('opens inline mirror panel from mobile CTA without leaving chat', async () => {
+  it('opens Ayna bottom sheet from composer without leaving chat', async () => {
     mockSainaSidebarViewport(false);
-    render(<SainaStandaloneShell {...shellProps} />);
+    render(
+      <SainaStandaloneShell
+        {...shellProps}
+        composer={<SainaComposer onSend={() => undefined} isLoading={false} />}
+      />
+    );
 
     await waitFor(() => {
-      expect(screen.getByTestId('saina-mobile-mirror-cta')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByLabelText(SAINA_MIRROR_EXPAND_LABEL));
-    expect(screen.getByTestId('saina-standalone-mirror-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('saina-mobile-ayna-sheet')).toBeInTheDocument();
     expect(screen.getByTestId('saina-chat-column')).toBeInTheDocument();
-    expect(screen.queryByTestId('saina-mobile-mirror-cta')).not.toBeInTheDocument();
   });
 });
 
-describe('SainaStandaloneShell (mobile Ayna CTA states)', () => {
+describe('SainaStandaloneShell (mobile Ayna bottom sheet)', () => {
   const shellProps = {
     heroTitle: SAINA_HERO_DEFAULT_TITLE,
     isEmpty: true,
     messages: <div>messages</div>,
-    composer: <div data-testid="composer-slot">composer</div>,
+    composer: <SainaComposer onSend={() => undefined} isLoading={false} />,
     conversations: [],
     activeChatId: null as string | null,
     safeOnlyMode: false,
@@ -480,64 +493,27 @@ describe('SainaStandaloneShell (mobile Ayna CTA states)', () => {
     mockSainaSidebarViewport(false);
   });
 
-  it('shows empty CTA copy on fresh mobile chat', async () => {
+  it('shows composer Ayna trigger on mobile', async () => {
     render(<SainaStandaloneShell {...shellProps} />);
     await waitFor(() => {
-      expect(screen.getByTestId('saina-mobile-mirror-inline')).toHaveAttribute(
-        'data-mirror-mobile-state',
-        'empty'
-      );
+      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
     });
-    expect(screen.getByText(SAINA_MOBILE_MIRROR_CTA_EMPTY)).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-mobile-mirror-cta')).not.toBeInTheDocument();
   });
 
-  it('updates CTA after first assistant response', async () => {
-    render(
-      <SainaStandaloneShell
-        {...shellProps}
-        isEmpty={false}
-        mirrorMobileContext={{ hasAssistantResponse: true, hasMirrorSignal: false }}
-      />
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId('saina-mobile-mirror-inline')).toHaveAttribute(
-        'data-mirror-mobile-state',
-        'after_first_response'
-      );
-    });
-    expect(screen.getByText(SAINA_MOBILE_MIRROR_CTA_AFTER_RESPONSE)).toBeInTheDocument();
-  });
-
-  it('shows signal-ready CTA with badge when mirror signal exists', async () => {
-    render(
-      <SainaStandaloneShell
-        {...shellProps}
-        isEmpty={false}
-        mirrorMobileContext={{ hasAssistantResponse: true, hasMirrorSignal: true }}
-      />
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId('saina-mobile-mirror-inline')).toHaveAttribute(
-        'data-mirror-mobile-state',
-        'signal_ready'
-      );
-    });
-    expect(screen.getByText(SAINA_MOBILE_MIRROR_CTA_SIGNAL_READY)).toBeInTheDocument();
-    expect(screen.getByTestId('saina-mobile-mirror-cta-badge')).toBeInTheDocument();
-  });
-
-  it('restores CTA after inline panel collapse', async () => {
+  it('opens and closes Ayna bottom sheet', async () => {
     render(<SainaStandaloneShell {...shellProps} />);
     await waitFor(() => {
-      expect(screen.getByTestId('saina-mobile-mirror-cta')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByLabelText(SAINA_MIRROR_EXPAND_LABEL));
-    fireEvent.click(screen.getByRole('button', { name: SAINA_MIRROR_COLLAPSE_LABEL }));
-    expect(screen.getByTestId('saina-mobile-mirror-cta')).toBeInTheDocument();
+    expect(screen.getByTestId('saina-mobile-ayna-sheet')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('saina-mobile-ayna-sheet-close'));
+    expect(screen.queryByTestId('saina-mobile-ayna-sheet')).not.toBeInTheDocument();
   });
 
-  it('keeps CTA in bottom anchor with long message list', async () => {
+  it('keeps composer Ayna trigger in bottom anchor with long message list', async () => {
     const manyMessages = Array.from({ length: 14 }, (_, index) => ({
       id: `msg-${index}`,
       text: `Mesaj ${index + 1}`,
@@ -551,39 +527,36 @@ describe('SainaStandaloneShell (mobile Ayna CTA states)', () => {
         messages={
           <MessageList variant="saina" messages={manyMessages} isLoading={false} />
         }
-        mirrorMobileContext={{ hasAssistantResponse: true, hasMirrorSignal: false }}
       />
     );
 
     const anchor = screen.getByTestId('saina-chat-bottom-anchor');
-    expect(within(anchor).getByTestId('saina-mobile-mirror-cta')).toBeInTheDocument();
-    expect(within(anchor).getByTestId('composer-slot')).toBeInTheDocument();
+    expect(within(anchor).getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
     expect(screen.getByTestId('saina-chat-messages-scroll')).toBeInTheDocument();
   });
 
-  it('blocks mobile CTA open when onRequestMirror returns false but keeps CTA visible', async () => {
+  it('blocks Ayna open when onRequestMirror returns false', async () => {
+    render(<SainaStandaloneShell {...shellProps} onRequestMirror={() => false} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('saina-composer-ayna-trigger'));
+    expect(screen.queryByTestId('saina-mobile-ayna-sheet')).not.toBeInTheDocument();
+  });
+
+  it('hides mobile sheet trigger on compact shell and shows desktop expand pill', async () => {
+    mockSainaSidebarViewport(true);
     render(
       <SainaStandaloneShell
         {...shellProps}
-        onRequestMirror={() => false}
+        composer={<div data-testid="composer-slot">composer</div>}
       />
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('saina-mobile-mirror-cta')).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByTestId('saina-mobile-mirror-cta'));
-    expect(screen.getByTestId('saina-mobile-mirror-cta')).toBeInTheDocument();
-    expect(screen.queryByTestId('saina-standalone-mirror-panel')).not.toBeInTheDocument();
-  });
-
-  it('hides mobile CTA rail on compact shell and shows desktop expand pill', async () => {
-    mockSainaSidebarViewport(true);
-    render(<SainaStandaloneShell {...shellProps} />);
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('saina-mobile-mirror-cta')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('saina-composer-ayna-trigger')).not.toBeInTheDocument();
       expect(screen.getByTestId('saina-mirror-expand-pill')).toBeInTheDocument();
     });
   });

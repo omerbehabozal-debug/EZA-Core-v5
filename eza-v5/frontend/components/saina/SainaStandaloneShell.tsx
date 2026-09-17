@@ -3,7 +3,6 @@
 import '@/styles/saina-mirror.css';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
@@ -30,7 +29,8 @@ import SainaConversationSidebar from '@/components/saina/SainaConversationSideba
 import SainaCommandPalette from './SainaCommandPalette';
 import SainaCinematicScene from './SainaCinematicScene';
 import SainaHeroScene from './SainaHeroScene';
-import SainaMobileMirrorRail from './SainaMobileMirrorRail';
+import SainaMobileAynaSheet from './SainaMobileAynaSheet';
+import SainaMobileYansiHeader from './SainaMobileYansiHeader';
 import SainaPageTopBar from './SainaPageTopBar';
 import SainaStandaloneMirrorPanel from './SainaStandaloneMirrorPanel';
 import SainaYansiContextRail from './SainaYansiContextRail';
@@ -88,7 +88,7 @@ function SainaChatSurface({
   showMobileMenu,
   onMirrorControlReady,
   isCompactShell,
-  mirrorMobileContext,
+  mirrorMobileContext: _mirrorMobileContext,
   earlyYansiOpportunityAvailable = false,
 }: {
   heroTitle: string;
@@ -110,7 +110,7 @@ function SainaChatSurface({
   mirrorMobileContext: MirrorMobileContext;
   earlyYansiOpportunityAvailable?: boolean;
 }) {
-  const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
+  void _mirrorMobileContext;  const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
   const showMessages = !isEmpty && messages != null;
   const { user, isAuthenticated } = useAuth();
   const isGuest = !isAuthenticated;
@@ -136,6 +136,12 @@ function SainaChatSurface({
     onMirrorControlReady?.(tryOpenMirror);
   }, [onMirrorControlReady, tryOpenMirror]);
 
+  // Composer Ayna trigger (mobile) + command palette use the same open path.
+  const setChrome = useSainaChromeStore((s) => s.setChrome);
+  useLayoutEffect(() => {
+    setChrome({ onOpenMirror: tryOpenMirror });
+  }, [setChrome, tryOpenMirror]);
+
   return (
     <>
       <div
@@ -145,29 +151,28 @@ function SainaChatSurface({
         )}
       >
         <div className="saina-chat-col saina-chat-col--visible">
-          <div className="saina-main">
+          <div className="saina-main" data-saina-mobile-yansi={!isCompactShell ? 'true' : 'false'}>
             {showMobileMenu ? (
-              <div className="saina-standalone-mobile-bar">
-                <button
-                  type="button"
-                  className="saina-standalone-menu-btn"
-                  data-testid="saina-mobile-menu-btn"
-                  onClick={onMobileMenu}
-                  aria-label="Menü"
-                >
-                  <Menu size={20} />
-                </button>
-              </div>
-            ) : null}
-            <SainaPageTopBar
-              className="bilign-top-cluster"
-              onOpenCommandPalette={onOpenCommandPalette}
-              safeOnlyMode={safeOnlyMode}
-              onSafeOnlyModeChange={onSafeOnlyModeChange}
-              analysisModelId={analysisModelId}
-              onAnalysisModelChange={onAnalysisModelChange}
-              settingsDisabled={settingsDisabled}
-            />
+              <SainaMobileYansiHeader
+                displayName={displayName}
+                honorificId={honorific?.id ?? null}
+                userId={user?.user_id ?? null}
+                avatarUrl={heroAvatar.url}
+                avatarCacheBust={heroAvatar.revision}
+                onOpenMenu={onMobileMenu}
+                onOpenSearch={onOpenCommandPalette}
+              />
+            ) : (
+              <SainaPageTopBar
+                className="bilign-top-cluster"
+                onOpenCommandPalette={onOpenCommandPalette}
+                safeOnlyMode={safeOnlyMode}
+                onSafeOnlyModeChange={onSafeOnlyModeChange}
+                analysisModelId={analysisModelId}
+                onAnalysisModelChange={onAnalysisModelChange}
+                settingsDisabled={settingsDisabled}
+              />
+            )}
             <div
               className={cn('saina-main-body', isEmpty && 'saina-main-body--empty')}
               data-testid="saina-main-body"
@@ -182,6 +187,7 @@ function SainaChatSurface({
                 userId={user?.user_id ?? null}
                 avatarUrl={heroAvatar.url}
                 avatarCacheBust={heroAvatar.revision}
+                compactMobileIdentity
               />
               <div
                 className={cn(
@@ -210,21 +216,19 @@ function SainaChatSurface({
                 </div>
 
                 <div className="saina-chat-bottom-anchor" data-testid="saina-chat-bottom-anchor">
-                  {!isCompactShell ? (
-                    <SainaMobileMirrorRail
-                      context={mirrorMobileContext}
-                      panelOpen={!mirrorCollapsed}
-                      onOpen={tryOpenMirror}
-                      onCollapse={() => setMirrorCollapsed(true)}
-                      earlyYansiOpportunityAvailable={earlyYansiOpportunityAvailable}
-                    />
-                  ) : null}
                   <div className="saina-composer-zone saina-standalone-composer">{composer}</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+        {!isCompactShell ? (
+          <SainaMobileAynaSheet
+            open={!mirrorCollapsed}
+            onClose={() => setMirrorCollapsed(true)}
+          />
+        ) : null}
 
         {isCompactShell ? (
           <div
