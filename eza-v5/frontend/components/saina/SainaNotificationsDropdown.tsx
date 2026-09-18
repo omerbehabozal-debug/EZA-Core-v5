@@ -20,13 +20,26 @@ export type SainaNotificationItem = {
 export type SainaNotificationsDropdownProps = {
   notifications?: SainaNotificationItem[];
   className?: string;
+  /** Controlled open — reuses the same panel for mobile overflow. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Hide the bell trigger when another affordance owns open/close. */
+  hideTrigger?: boolean;
 };
 
 export default function SainaNotificationsDropdown({
   notifications = [],
   className,
+  open: openProp,
+  onOpenChange,
+  hideTrigger = false,
 }: SainaNotificationsDropdownProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (openProp === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,21 +63,26 @@ export default function SainaNotificationsDropdown({
   const hasItems = notifications.length > 0;
 
   return (
-    <div ref={rootRef} className={cn('saina-notifications-root', className)}>
-      <button
-        type="button"
-        className="saina-icon-btn saina-icon-btn--glass saina-notifications-trigger"
-        aria-label={hasItems ? 'Bildirimler, yeni bildirim var' : 'Bildirimler'}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        data-testid="saina-notifications-trigger"
-        onClick={() => setOpen((value) => !value)}
-      >
-        <Bell size={16} />
-        {hasItems ? (
-          <span className="saina-notifications-badge" aria-hidden data-testid="saina-notifications-badge" />
-        ) : null}
-      </button>
+    <div
+      ref={rootRef}
+      className={cn('saina-notifications-root', hideTrigger && 'saina-notifications-root--host', className)}
+    >
+      {hideTrigger ? null : (
+        <button
+          type="button"
+          className="saina-icon-btn saina-icon-btn--glass saina-notifications-trigger"
+          aria-label={hasItems ? 'Bildirimler, yeni bildirim var' : 'Bildirimler'}
+          aria-expanded={open}
+          aria-haspopup="menu"
+          data-testid="saina-notifications-trigger"
+          onClick={() => setOpen(!open)}
+        >
+          <Bell size={16} />
+          {hasItems ? (
+            <span className="saina-notifications-badge" aria-hidden data-testid="saina-notifications-badge" />
+          ) : null}
+        </button>
+      )}
 
       {open ? (
         <div

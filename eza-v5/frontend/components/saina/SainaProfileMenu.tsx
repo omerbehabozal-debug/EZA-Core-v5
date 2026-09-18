@@ -61,6 +61,13 @@ export type SainaProfileMenuProps = {
   analysisModelId: string;
   onAnalysisModelChange: (modelId: string) => void;
   disabled?: boolean;
+  /** Controlled open — mobile overflow / avatar reuse the same Hesabım panel. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Hide the top-bar avatar trigger when another affordance owns open/close. */
+  hideTrigger?: boolean;
+  /** When opening, scroll the Ayarlar section into view if present. */
+  focusSettingsOnOpen?: boolean;
 };
 
 function resolveQuietAccountPlanLabel(planTier: SainaPlanTier): string | null {
@@ -160,8 +167,18 @@ export default function SainaProfileMenu({
   analysisModelId,
   onAnalysisModelChange,
   disabled = false,
+  open: openProp,
+  onOpenChange,
+  hideTrigger = false,
+  focusSettingsOnOpen = false,
 }: SainaProfileMenuProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (openProp === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
+  const settingsSectionRef = useRef<HTMLDivElement>(null);
   const [modelOpen, setModelOpen] = useState(false);
   const [ezaPrefs, setEzaPrefs] = useState<EzaUserPreferences>(() =>
     getEzaUserPreferences(null)
@@ -305,6 +322,14 @@ export default function SainaProfileMenu({
     setModelOpen(false);
   };
 
+  useEffect(() => {
+    if (!open || !focusSettingsOnOpen) return;
+    const id = window.requestAnimationFrame(() => {
+      settingsSectionRef.current?.scrollIntoView({ block: 'nearest' });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [open, focusSettingsOnOpen]);
+
   const patchEzaPref = (patch: Partial<EzaUserPreferences>) => {
     setEzaPrefs(setEzaUserPreferences(ownerUserId, patch));
   };
@@ -424,34 +449,39 @@ export default function SainaProfileMenu({
   };
 
   return (
-    <div ref={rootRef} className="saina-profile-menu-root">
-      <button
-        type="button"
-        className="saina-top-avatar-wrap saina-profile-menu-trigger"
-        onClick={() => (open ? close() : setOpen(true))}
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-label="Profil ve ayarlar"
-        data-testid="saina-profile-menu-trigger"
-      >
-        {isGuest ? (
-          <div
-            className="saina-profile-avatar saina-profile-avatar--top saina-profile-avatar--guest"
-            aria-hidden
-          >
-            <User size={16} />
-          </div>
-        ) : (
-          <ProfileUserAvatar
-            displayName={displayName}
-            userId={ownerUserId}
-            avatarUrl={panelAvatarUrl}
-            cacheBust={avatarCacheBust}
-            size="top"
-          />
-        )}
-        <span className="saina-status-dot" aria-hidden />
-      </button>
+    <div
+      ref={rootRef}
+      className={cn('saina-profile-menu-root', hideTrigger && 'saina-profile-menu-root--host')}
+    >
+      {hideTrigger ? null : (
+        <button
+          type="button"
+          className="saina-top-avatar-wrap saina-profile-menu-trigger"
+          onClick={() => (open ? close() : setOpen(true))}
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-label="Profil ve ayarlar"
+          data-testid="saina-profile-menu-trigger"
+        >
+          {isGuest ? (
+            <div
+              className="saina-profile-avatar saina-profile-avatar--top saina-profile-avatar--guest"
+              aria-hidden
+            >
+              <User size={16} />
+            </div>
+          ) : (
+            <ProfileUserAvatar
+              displayName={displayName}
+              userId={ownerUserId}
+              avatarUrl={panelAvatarUrl}
+              cacheBust={avatarCacheBust}
+              size="top"
+            />
+          )}
+          <span className="saina-status-dot" aria-hidden />
+        </button>
+      )}
 
       {open ? (
         <div className="saina-profile-menu" data-testid="saina-profile-menu">
@@ -659,7 +689,11 @@ export default function SainaProfileMenu({
 
           <hr className="saina-profile-menu-rule" />
 
-          <div className="saina-profile-menu-section">
+          <div
+            className="saina-profile-menu-section"
+            ref={settingsSectionRef}
+            data-testid="saina-profile-settings-section"
+          >
             <p className="saina-profile-menu-section-label">{SAINA_MENU_SETTINGS}</p>
 
             <div className="saina-profile-menu-setting">

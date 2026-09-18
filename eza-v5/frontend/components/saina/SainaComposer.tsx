@@ -2,16 +2,18 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { ArrowUp, Mic } from 'lucide-react';
-import { SAINA_COMPOSER_LIMIT_PLACEHOLDER, SAINA_COMPOSER_PLACEHOLDER, SAINA_MIRROR_EXPAND_LABEL } from '@/lib/eza/sainaCopy';
+import { SAINA_COMPOSER_LIMIT_PLACEHOLDER, SAINA_COMPOSER_PLACEHOLDER } from '@/lib/eza/sainaCopy';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
-import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import SainaGeometricMark from './SainaGeometricMark';
 
 export type SainaComposerProps = {
   onSend: (message: string) => void;
   isLoading: boolean;
   disabled?: boolean;
-  /** Optional override — defaults to chrome onOpenMirror on mobile. */
+  /**
+   * @deprecated Mobile Ayna discoverability uses the explicit composer-zone pill.
+   * Kept for call-site compatibility; ignored.
+   */
   onOpenAyna?: () => void;
 };
 
@@ -19,13 +21,13 @@ export default function SainaComposer({
   onSend,
   isLoading,
   disabled = false,
-  onOpenAyna,
+  onOpenAyna: _onOpenAyna,
 }: SainaComposerProps) {
+  void _onOpenAyna;
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   /** true = viewport ≥900px (desktop/tablet shell). false = mobile drawer shell. */
   const isCompactShell = useSainaCompactShell();
-  const chromeOpenMirror = useSainaChromeStore((s) => s.onOpenMirror);
 
   useEffect(() => {
     // Desktop convenience only — never programmatically open the mobile keyboard.
@@ -50,25 +52,12 @@ export default function SainaComposer({
   };
 
   const placeholder = disabled ? SAINA_COMPOSER_LIMIT_PLACEHOLDER : SAINA_COMPOSER_PLACEHOLDER;
-  const openAyna = onOpenAyna ?? chromeOpenMirror;
-  const aynaAsTrigger = !isCompactShell && typeof openAyna === 'function';
 
   return (
     <div className="saina-composer-inner" data-testid="saina-composer">
       <div className="saina-composer-box">
-        {aynaAsTrigger ? (
-          <button
-            type="button"
-            className="saina-composer-ayna-btn"
-            data-testid="saina-composer-ayna-trigger"
-            aria-label={SAINA_MIRROR_EXPAND_LABEL}
-            onClick={() => openAyna?.()}
-          >
-            <SainaGeometricMark size={20} variant="gold" />
-          </button>
-        ) : (
-          <SainaGeometricMark size={20} variant="gold" />
-        )}
+        {/* biligN mark is branding — discoverable Ayna lives on the mobile pill. */}
+        <SainaGeometricMark size={20} variant="gold" />
         <input
           ref={inputRef}
           type="text"

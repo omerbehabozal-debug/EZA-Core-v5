@@ -435,7 +435,7 @@ describe('SainaStandaloneShell (Sprint B.2C responsive sidebar)', () => {
     expect(screen.queryByTestId('saina-sidebar-close-btn')).not.toBeInTheDocument();
   });
 
-  it('shows composer Ayna trigger and opens bottom sheet on mobile', async () => {
+  it('shows explicit Ayna pill and opens bottom sheet on mobile', async () => {
     mockSainaSidebarViewport(false);
     render(
       <SainaStandaloneShell
@@ -445,18 +445,18 @@ describe('SainaStandaloneShell (Sprint B.2C responsive sidebar)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-mobile-ayna-pill')).toBeInTheDocument();
       expect(screen.getByTestId('saina-chat-bottom-anchor')).toBeInTheDocument();
     });
     expect(screen.queryByTestId('saina-mobile-mirror-cta')).not.toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Mobil görünüm' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId('saina-composer-ayna-trigger'));
+    fireEvent.click(screen.getByTestId('saina-mobile-ayna-pill'));
     expect(screen.getByTestId('saina-mobile-ayna-sheet')).toBeInTheDocument();
     expect(screen.getByTestId('saina-standalone-mirror-panel')).toBeInTheDocument();
   });
 
-  it('opens Ayna bottom sheet from composer without leaving chat', async () => {
+  it('opens Ayna bottom sheet from pill without leaving chat', async () => {
     mockSainaSidebarViewport(false);
     render(
       <SainaStandaloneShell
@@ -466,10 +466,10 @@ describe('SainaStandaloneShell (Sprint B.2C responsive sidebar)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-mobile-ayna-pill')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByLabelText(SAINA_MIRROR_EXPAND_LABEL));
+    fireEvent.click(screen.getByLabelText(SAINA_MIRROR_EXPAND_TAB));
     expect(screen.getByTestId('saina-mobile-ayna-sheet')).toBeInTheDocument();
     expect(screen.getByTestId('saina-chat-column')).toBeInTheDocument();
   });
@@ -493,24 +493,25 @@ describe('SainaStandaloneShell (mobile Ayna bottom sheet)', () => {
     mockSainaSidebarViewport(false);
   });
 
-  it('shows composer Ayna trigger on mobile', async () => {
+  it('shows explicit Ayna pill on mobile', async () => {
     render(<SainaStandaloneShell {...shellProps} />);
     await waitFor(() => {
-      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-mobile-ayna-pill')).toBeInTheDocument();
     });
     expect(screen.queryByTestId('saina-mobile-mirror-cta')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('saina-composer-ayna-trigger')).not.toBeInTheDocument();
   });
 
   it('opens and closes Ayna bottom sheet', async () => {
     render(<SainaStandaloneShell {...shellProps} />);
     await waitFor(() => {
-      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-mobile-ayna-pill')).toBeInTheDocument();
     });
 
     const composerInput = screen.getByLabelText('Mesaj yaz');
     expect(document.activeElement).not.toBe(composerInput);
 
-    fireEvent.click(screen.getByLabelText(SAINA_MIRROR_EXPAND_LABEL));
+    fireEvent.click(screen.getByLabelText(SAINA_MIRROR_EXPAND_TAB));
     expect(screen.getByTestId('saina-mobile-ayna-sheet')).toBeInTheDocument();
     expect(document.activeElement).not.toBe(composerInput);
 
@@ -519,7 +520,7 @@ describe('SainaStandaloneShell (mobile Ayna bottom sheet)', () => {
     expect(document.activeElement).not.toBe(composerInput);
   });
 
-  it('keeps composer Ayna trigger in bottom anchor with long message list', async () => {
+  it('keeps Ayna pill in bottom anchor with long message list', async () => {
     const manyMessages = Array.from({ length: 14 }, (_, index) => ({
       id: `msg-${index}`,
       text: `Mesaj ${index + 1}`,
@@ -537,7 +538,7 @@ describe('SainaStandaloneShell (mobile Ayna bottom sheet)', () => {
     );
 
     const anchor = screen.getByTestId('saina-chat-bottom-anchor');
-    expect(within(anchor).getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
+    expect(within(anchor).getByTestId('saina-mobile-ayna-pill')).toBeInTheDocument();
     expect(screen.getByTestId('saina-chat-messages-scroll')).toBeInTheDocument();
   });
 
@@ -545,14 +546,14 @@ describe('SainaStandaloneShell (mobile Ayna bottom sheet)', () => {
     render(<SainaStandaloneShell {...shellProps} onRequestMirror={() => false} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
+      expect(screen.getByTestId('saina-mobile-ayna-pill')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByTestId('saina-composer-ayna-trigger'));
+    fireEvent.click(screen.getByTestId('saina-mobile-ayna-pill'));
     expect(screen.queryByTestId('saina-mobile-ayna-sheet')).not.toBeInTheDocument();
   });
 
-  it('hides mobile sheet trigger on compact shell and shows desktop expand pill', async () => {
+  it('hides mobile Ayna pill on compact shell and shows desktop expand pill', async () => {
     mockSainaSidebarViewport(true);
     render(
       <SainaStandaloneShell
@@ -562,7 +563,7 @@ describe('SainaStandaloneShell (mobile Ayna bottom sheet)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.queryByTestId('saina-composer-ayna-trigger')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('saina-mobile-ayna-pill')).not.toBeInTheDocument();
       expect(screen.getByTestId('saina-mirror-expand-pill')).toBeInTheDocument();
     });
   });

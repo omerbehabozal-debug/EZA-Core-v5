@@ -38,6 +38,10 @@ import {
   YANSI_SKIP_TO_NEXT_MERAK,
 } from '@/lib/eza/mirror/copy';
 import {
+  formatYansiHeroMetaTime,
+  YANSI_HERO_META_TYPE_YANSI,
+} from '@/lib/eza/mirror/yansiHeroMeta';
+import {
   shouldRecordYansiSkip,
   trackYansiExperienceSkipped,
 } from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
@@ -489,6 +493,10 @@ export default function MirrorYansiChainExperience({
   const showUp = canDiscoverGoUp(session);
   const showDown =
     canDiscoverGoDownInHistory(session) || needsDiscoverFetchForDown(session);
+  const publicMetaTime = activeNode.artifact.publishedAt
+    ? formatYansiHeroMetaTime(activeNode.artifact.publishedAt)
+    : '';
+  const publicMetaType = YANSI_HERO_META_TYPE_YANSI;
 
   return (
     <div
@@ -513,65 +521,87 @@ export default function MirrorYansiChainExperience({
           className="yansi-mobile-public-header"
           data-testid="yansi-mobile-public-header"
         >
-          <button
-            type="button"
-            className="yansi-mobile-public-header__icon"
-            aria-label="Keşfet'e dön"
-            data-testid="yansi-mobile-public-menu"
-            onClick={() => router.push('/standalone/discover')}
-          >
-            <Menu size={18} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="yansi-mobile-public-header__author"
-            data-testid="yansi-mobile-public-author"
-            onClick={() =>
-              router.push(authorProfilePath(activeNode.artifact.authorUserId))
-            }
-          >
-            <ProfileUserAvatar
-              displayName={activeNode.authorDisplayName}
-              userId={activeNode.artifact.authorUserId}
-              avatarUrl={activeNode.authorAvatarUrl}
-              cacheBust={activeNode.authorAvatarRevision ?? undefined}
-              size="sm"
-            />
-            <span className="yansi-mobile-public-header__name">
-              {activeNode.authorDisplayName}
-            </span>
-            {activeNode.authorHonorific ? (
-              <HonorificMarker
-                honorific={activeNode.authorHonorific}
-                testId="yansi-mobile-public-honorific"
-              />
-            ) : null}
-          </button>
-          <div className="yansi-mobile-public-header__overflow">
+          <div className="yansi-mobile-public-header__row">
             <button
               type="button"
               className="yansi-mobile-public-header__icon"
-              aria-label="Daha fazla"
-              data-testid="yansi-mobile-public-overflow"
-              aria-expanded={overflowOpen}
-              onClick={() => setOverflowOpen((v) => !v)}
+              aria-label="Keşfet'e dön"
+              data-testid="yansi-mobile-public-menu"
+              onClick={() => router.push('/standalone/discover')}
             >
-              <MoreHorizontal size={18} aria-hidden />
+              <Menu size={18} aria-hidden />
             </button>
-            {overflowOpen ? (
-              <div
-                className="yansi-mobile-public-header__menu"
-                data-testid="yansi-mobile-public-overflow-menu"
-              >
-                <YansiSaveButton
-                  slug={activeNode.artifact.slug}
-                  authorUserId={activeNode.artifact.authorUserId}
-                  onRequireAuth={onRequireAuth}
+            <button
+              type="button"
+              className="yansi-mobile-public-header__author"
+              data-testid="yansi-mobile-public-author"
+              onClick={() =>
+                router.push(authorProfilePath(activeNode.artifact.authorUserId))
+              }
+            >
+              <ProfileUserAvatar
+                displayName={activeNode.authorDisplayName}
+                userId={activeNode.artifact.authorUserId}
+                avatarUrl={activeNode.authorAvatarUrl}
+                cacheBust={activeNode.authorAvatarRevision ?? undefined}
+                size="sm"
+                className="yansi-mobile-public-header__avatar"
+              />
+              <span className="yansi-mobile-public-header__name">
+                {activeNode.authorDisplayName}
+              </span>
+              {activeNode.authorHonorific ? (
+                <HonorificMarker
+                  honorific={activeNode.authorHonorific}
+                  testId="yansi-mobile-public-honorific"
                 />
-                <YansiExperienceShareButton slug={activeNode.artifact.slug} />
-              </div>
-            ) : null}
+              ) : null}
+            </button>
+            <div className="yansi-mobile-public-header__overflow">
+              <button
+                type="button"
+                className="yansi-mobile-public-header__icon"
+                aria-label="Daha fazla"
+                data-testid="yansi-mobile-public-overflow"
+                aria-expanded={overflowOpen}
+                onClick={() => setOverflowOpen((v) => !v)}
+              >
+                <MoreHorizontal size={18} aria-hidden />
+              </button>
+              {overflowOpen ? (
+                <div
+                  className="yansi-mobile-public-header__menu"
+                  data-testid="yansi-mobile-public-overflow-menu"
+                >
+                  <YansiSaveButton
+                    slug={activeNode.artifact.slug}
+                    authorUserId={activeNode.artifact.authorUserId}
+                    onRequireAuth={onRequireAuth}
+                  />
+                  <YansiExperienceShareButton slug={activeNode.artifact.slug} />
+                </div>
+              ) : null}
+            </div>
           </div>
+          {publicMetaTime || publicMetaType ? (
+              <p
+                className="yansi-mobile-public-header__meta"
+                data-testid="yansi-mobile-public-meta"
+              >
+                {publicMetaTime ? (
+                  <span data-testid="yansi-mobile-public-meta-time">{publicMetaTime}</span>
+                ) : null}
+                {publicMetaTime && publicMetaType ? (
+                  <span className="yansi-mobile-public-header__meta-sep" aria-hidden="true">
+                    {' '}
+                    ·{' '}
+                  </span>
+                ) : null}
+                {publicMetaType ? (
+                  <span data-testid="yansi-mobile-public-meta-type">{publicMetaType}</span>
+                ) : null}
+              </p>
+            ) : null}
         </header>
       ) : null}
 

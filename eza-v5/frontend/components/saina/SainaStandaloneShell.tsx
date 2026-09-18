@@ -12,7 +12,7 @@ import {
   resolveYansiCreatorHonorific,
 } from '@/lib/eza/mirror/yansiCreatorIdentity';
 import { resolveSainaUserDisplayName } from '@/lib/eza/sainaIdentity';
-import { SAINA_MENU_GUEST_LABEL } from '@/lib/eza/sainaCopy';
+import { SAINA_MENU_GUEST_LABEL, SAINA_MIRROR_EXPAND_TAB } from '@/lib/eza/sainaCopy';
 import { resolveSelfProfileAvatar } from '@/lib/eza/profile/resolveConsumerProfileAvatar';
 import {
   DEFAULT_MIRROR_MOBILE_CONTEXT,
@@ -31,7 +31,9 @@ import SainaCinematicScene from './SainaCinematicScene';
 import SainaHeroScene from './SainaHeroScene';
 import SainaMobileAynaSheet from './SainaMobileAynaSheet';
 import SainaMobileYansiHeader from './SainaMobileYansiHeader';
+import SainaNotificationsDropdown from './SainaNotificationsDropdown';
 import SainaPageTopBar from './SainaPageTopBar';
+import SainaProfileMenu from './SainaProfileMenu';
 import SainaStandaloneMirrorPanel from './SainaStandaloneMirrorPanel';
 import SainaYansiContextRail from './SainaYansiContextRail';
 
@@ -110,7 +112,11 @@ function SainaChatSurface({
   mirrorMobileContext: MirrorMobileContext;
   earlyYansiOpportunityAvailable?: boolean;
 }) {
-  void _mirrorMobileContext;  const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
+  void _mirrorMobileContext;
+  const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [focusSettingsOnOpen, setFocusSettingsOnOpen] = useState(false);
   const showMessages = !isEmpty && messages != null;
   const { user, isAuthenticated } = useAuth();
   const isGuest = !isAuthenticated;
@@ -126,6 +132,11 @@ function SainaChatSurface({
     publicHonorific: user?.public_honorific,
   });
   const heroAvatar = resolveSelfProfileAvatar(isGuest ? null : user);
+  const notifications = useSainaChromeStore((s) => s.notifications ?? []);
+  const showSettings =
+    onSafeOnlyModeChange != null &&
+    onAnalysisModelChange != null &&
+    analysisModelId != null;
 
   const tryOpenMirror = useCallback(() => {
     if (onRequestMirror && !onRequestMirror()) return;
@@ -136,11 +147,22 @@ function SainaChatSurface({
     onMirrorControlReady?.(tryOpenMirror);
   }, [onMirrorControlReady, tryOpenMirror]);
 
-  // Composer Ayna trigger (mobile) + command palette use the same open path.
+  // Explicit Ayna pill + command palette use the same open path.
   const setChrome = useSainaChromeStore((s) => s.setChrome);
   useLayoutEffect(() => {
     setChrome({ onOpenMirror: tryOpenMirror });
   }, [setChrome, tryOpenMirror]);
+
+  const openProfile = useCallback((focusSettings = false) => {
+    setFocusSettingsOnOpen(focusSettings);
+    setNotificationsOpen(false);
+    setProfileOpen(true);
+  }, []);
+
+  const openNotifications = useCallback(() => {
+    setProfileOpen(false);
+    setNotificationsOpen(true);
+  }, []);
 
   return (
     <>
@@ -159,8 +181,13 @@ function SainaChatSurface({
                 userId={user?.user_id ?? null}
                 avatarUrl={heroAvatar.url}
                 avatarCacheBust={heroAvatar.revision}
+                metaTimeLabel={heroMeta?.timeLabel}
+                metaTypeLabel={heroMeta?.typeLabel}
                 onOpenMenu={onMobileMenu}
                 onOpenSearch={onOpenCommandPalette}
+                onOpenNotifications={openNotifications}
+                onOpenProfile={showSettings ? () => openProfile(false) : undefined}
+                onOpenSettings={showSettings ? () => openProfile(true) : undefined}
               />
             ) : (
               <SainaPageTopBar
@@ -216,6 +243,19 @@ function SainaChatSurface({
                 </div>
 
                 <div className="saina-chat-bottom-anchor" data-testid="saina-chat-bottom-anchor">
+                  {!isCompactShell ? (
+                    <div className="saina-mobile-ayna-pill-row">
+                      <button
+                        type="button"
+                        className="saina-mobile-ayna-pill"
+                        data-testid="saina-mobile-ayna-pill"
+                        aria-label={SAINA_MIRROR_EXPAND_TAB}
+                        onClick={tryOpenMirror}
+                      >
+                        ✦ {SAINA_MIRROR_EXPAND_TAB}
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="saina-composer-zone saina-standalone-composer">{composer}</div>
                 </div>
               </div>
@@ -228,6 +268,34 @@ function SainaChatSurface({
             open={!mirrorCollapsed}
             onClose={() => setMirrorCollapsed(true)}
           />
+        ) : null}
+
+        {!isCompactShell && showSettings ? (
+          <div
+            className="saina-mobile-utility-hosts"
+            data-testid="saina-mobile-utility-hosts"
+          >
+            <SainaNotificationsDropdown
+              notifications={notifications}
+              open={notificationsOpen}
+              onOpenChange={setNotificationsOpen}
+              hideTrigger
+            />
+            <SainaProfileMenu
+              safeOnlyMode={safeOnlyMode}
+              onSafeOnlyModeChange={onSafeOnlyModeChange}
+              analysisModelId={analysisModelId}
+              onAnalysisModelChange={onAnalysisModelChange}
+              disabled={settingsDisabled}
+              open={profileOpen}
+              onOpenChange={(next) => {
+                setProfileOpen(next);
+                if (!next) setFocusSettingsOnOpen(false);
+              }}
+              hideTrigger
+              focusSettingsOnOpen={focusSettingsOnOpen}
+            />
+          </div>
         ) : null}
 
         {isCompactShell ? (

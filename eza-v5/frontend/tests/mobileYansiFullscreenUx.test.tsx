@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SAINA_COMPACT_SHELL_MIN_PX, SAINA_MOBILE_MAX_PX } from '@/lib/eza/sainaBreakpoints';
-import { SAINA_HERO_DEFAULT_TITLE, SAINA_MIRROR_EXPAND_LABEL } from '@/lib/eza/sainaCopy';
+import { SAINA_HERO_DEFAULT_TITLE, SAINA_MIRROR_EXPAND_TAB } from '@/lib/eza/sainaCopy';
 import { DEFAULT_ANALYSIS_MODEL_ID } from '@/lib/standaloneModels';
 import {
   createYansiSwipeGestureState,
@@ -82,10 +82,11 @@ describe('Mobile Yansı fullscreen UX contracts', () => {
     expect(shell).toContain('saina-mirror-col');
   });
 
-  it('mobile composer exposes Ayna trigger', () => {
+  it('mobile shell exposes explicit Ayna pill (composer mark is branding only)', () => {
     mockSainaSidebarViewport(false);
     render(<SainaComposer onSend={() => undefined} isLoading={false} onOpenAyna={vi.fn()} />);
-    expect(screen.getByTestId('saina-composer-ayna-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-composer-ayna-trigger')).not.toBeInTheDocument();
+    expect(screen.getByTestId('saina-composer')).toBeInTheDocument();
   });
 
   it('desktop composer mark is not an Ayna button', () => {
@@ -101,7 +102,7 @@ describe('Mobile Yansı fullscreen UX contracts', () => {
     expect(screen.getByTestId('saina-notifications-trigger')).toBeInTheDocument();
   });
 
-  it('mobile shell shows minimal header and opens Ayna sheet from composer trigger path', async () => {
+  it('mobile shell shows minimal header and opens Ayna sheet from explicit pill', async () => {
     mockSainaSidebarViewport(false);
     render(
       <SainaStandaloneShell
@@ -124,10 +125,14 @@ describe('Mobile Yansı fullscreen UX contracts', () => {
     expect(screen.queryByTestId('saina-top-search-trigger')).not.toBeInTheDocument();
     expect(screen.queryByTestId('saina-notifications-trigger')).not.toBeInTheDocument();
     expect(screen.queryByTestId('saina-mobile-mirror-cta')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('saina-composer-ayna-trigger')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId('saina-composer-ayna-trigger'));
+    fireEvent.click(screen.getByTestId('saina-mobile-ayna-pill'));
     expect(screen.getByTestId('saina-mobile-ayna-sheet')).toBeInTheDocument();
-    expect(screen.getByLabelText(SAINA_MIRROR_EXPAND_LABEL)).toBeInTheDocument();
+    expect(screen.getByTestId('saina-mobile-ayna-pill')).toHaveAttribute(
+      'aria-label',
+      SAINA_MIRROR_EXPAND_TAB
+    );
   });
 
   it('public chain keeps Discover vertical + continuation horizontal authority (no /children, no parent_slug nav)', () => {

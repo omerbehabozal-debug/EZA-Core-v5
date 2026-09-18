@@ -367,8 +367,9 @@
     position: relative;
     z-index: 42;
     display: flex;
-    align-items: center;
-    gap: 0.55rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.2rem;
     padding: max(0.45rem, env(safe-area-inset-top, 0px)) 0.75rem 0.35rem;
     background: linear-gradient(
       180deg,
@@ -376,6 +377,12 @@
       rgba(9, 11, 11, 0.12) 70%,
       transparent 100%
     );
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
   }
 
   .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__menu,
@@ -399,13 +406,20 @@
     min-width: 0;
     flex: 1 1 auto;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.5rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    padding: 0;
   }
 
-  .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__avatar {
+  .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__avatar,
+  .saina-app-root.saina-standalone-shell
+    .saina-mobile-yansi-header__avatar.bilign-profile-avatar--sm {
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
+    width: 2.375rem; /* 38px — compact, not hero */
+    height: 2.375rem;
   }
 
   .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__copy {
@@ -420,13 +434,30 @@
     max-width: 100%;
     overflow: hidden;
     color: #e8e2d7;
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
     text-shadow: var(--saina-scene-heading-shadow);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__meta {
+    margin: 0 0 0 2.8rem;
+    max-width: calc(100% - 3.5rem);
+    overflow: hidden;
+    color: rgba(201, 187, 168, 0.78);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__meta-sep {
+    color: rgba(201, 187, 168, 0.45);
   }
 
   .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__overflow {
@@ -439,8 +470,11 @@
     top: calc(100% + 0.35rem);
     right: 0;
     z-index: 50;
-    min-width: 10rem;
-    padding: 0.35rem;
+    display: flex;
+    min-width: 11.5rem;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.4rem;
     border-radius: 12px;
     border: 1px solid rgba(232, 226, 215, 0.12);
     background: rgba(14, 16, 16, 0.94);
@@ -464,6 +498,56 @@
   .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__menu-item:hover,
   .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__menu-item:focus-visible {
     background: rgba(232, 226, 215, 0.08);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__menu-sep {
+    height: 1px;
+    margin: 0.25rem 0.35rem;
+    background: rgba(232, 226, 215, 0.1);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mobile-ayna-pill-row {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 0.15rem 0.35rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mobile-ayna-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.38rem 0.72rem;
+    border-radius: 999px;
+    border: 1px solid rgba(232, 213, 181, 0.22);
+    background: rgba(18, 20, 20, 0.55);
+    color: #f0e7d8;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    -webkit-backdrop-filter: blur(14px) saturate(70%);
+    backdrop-filter: blur(14px) saturate(70%);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mobile-utility-hosts {
+    position: fixed;
+    top: max(0.5rem, env(safe-area-inset-top, 0px));
+    right: 0.75rem;
+    z-index: 80;
+    width: 0;
+    height: 0;
+    overflow: visible;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mobile-utility-hosts .saina-notifications-panel,
+  .saina-app-root.saina-standalone-shell .saina-mobile-utility-hosts .saina-profile-menu {
+    position: fixed;
+    top: max(3.25rem, calc(env(safe-area-inset-top, 0px) + 2.75rem));
+    right: 0.75rem;
+    left: auto;
+    z-index: 81;
+    max-height: min(70dvh, 28rem);
+    overflow: auto;
   }
 
   /* Duplicate large author block — identity lives in overlay header */
