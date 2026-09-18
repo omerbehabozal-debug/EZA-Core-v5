@@ -92,8 +92,7 @@
     text-align: left;
   }
 
-  .yansi-mobile-public-header__avatar,
-  .yansi-mobile-public-header__avatar.bilign-profile-avatar--sm {
+  .yansi-mobile-public-header__avatar {
     flex-shrink: 0;
     width: 2.375rem;
     height: 2.375rem;

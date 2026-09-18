@@ -414,9 +414,7 @@
     padding: 0;
   }
 
-  .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__avatar,
-  .saina-app-root.saina-standalone-shell
-    .saina-mobile-yansi-header__avatar.bilign-profile-avatar--sm {
+  .saina-app-root.saina-standalone-shell .saina-mobile-yansi-header__avatar {
     flex-shrink: 0;
     width: 2.375rem; /* 38px — compact, not hero */
     height: 2.375rem;
