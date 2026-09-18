@@ -56,12 +56,15 @@ describe('Phase 8.8F-M mobile visual parity', () => {
     );
   });
 
-  it('adds soft radial reading atmosphere on mobile without card geometry', () => {
+  it('adds soft edge reading atmosphere on mobile without card geometry', () => {
     expect(css).toMatch(
       /@media \(max-width: 899px\)[\s\S]*\.saina-main-body:not\(\.saina-main-body--empty\)::after/
     );
     expect(css).toMatch(
-      /@media \(max-width: 899px\)[\s\S]*radial-gradient[\s\S]*ellipse 78%/
+      /@media \(max-width: 899px\)[\s\S]*\.saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*linear-gradient\(\s*180deg/
+    );
+    expect(css).toMatch(
+      /@media \(max-width: 899px\)[\s\S]*\.saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*linear-gradient\(\s*0deg/
     );
     expect(css).not.toMatch(
       /@media \(max-width: 899px\)[\s\S]*\.saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*mask-image/
@@ -83,7 +86,7 @@ describe('Phase 8.8F-M mobile visual parity', () => {
     );
     expect(mirror).toContain('rgba(10, 18, 24, 0.94)');
     expect(css).toMatch(
-      /@media \(max-width: 899px\)[\s\S]*\.saina-chat-bottom-anchor[\s\S]*rgba\(9, 11, 11, 0\.38\)/
+      /@media \(max-width: 899px\)[\s\S]*\.saina-chat-bottom-anchor[\s\S]*rgba\(9, 11, 11, 0\.52\)/
     );
   });
 

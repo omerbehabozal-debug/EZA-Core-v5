@@ -194,6 +194,7 @@ describe('Mobile Yansı polish — identity + overflow + Ayna', () => {
 
   it('explicit Ayna pill opens existing SainaMobileAynaSheet; composer mark is not the only path', async () => {
     expect(shell).toContain('saina-mobile-ayna-pill');
+    expect(shell).toContain('saina-mobile-ayna-float');
     expect(shell).toContain('SainaMobileAynaSheet');
     expect(composer).not.toContain('saina-composer-ayna-trigger');
     expect(composer).toContain('SainaGeometricMark');
@@ -202,6 +203,7 @@ describe('Mobile Yansı polish — identity + overflow + Ayna', () => {
     await waitFor(() => screen.getByTestId('saina-mobile-ayna-pill'));
     expect(screen.getByTestId('saina-mobile-ayna-pill')).toHaveTextContent(SAINA_MIRROR_EXPAND_TAB);
     expect(screen.queryByTestId('saina-composer-ayna-trigger')).not.toBeInTheDocument();
+    expect(screen.getByTestId('saina-mobile-ayna-float')).toBeInTheDocument();
 
     const composerInput = screen.getByLabelText('Mesaj yaz');
     expect(document.activeElement).not.toBe(composerInput);

@@ -373,8 +373,9 @@
     padding: max(0.45rem, env(safe-area-inset-top, 0px)) 0.75rem 0.35rem;
     background: linear-gradient(
       180deg,
-      rgba(9, 11, 11, 0.42) 0%,
-      rgba(9, 11, 11, 0.12) 70%,
+      rgba(9, 11, 11, 0.62) 0%,
+      rgba(9, 11, 11, 0.28) 55%,
+      rgba(9, 11, 11, 0.08) 82%,
       transparent 100%
     );
   }
@@ -504,13 +505,19 @@
     background: rgba(232, 226, 215, 0.1);
   }
 
-  .saina-app-root.saina-standalone-shell .saina-mobile-ayna-pill-row {
+  .saina-app-root.saina-standalone-shell .saina-mobile-ayna-float {
     display: flex;
     justify-content: flex-end;
-    padding: 0 0.15rem 0.35rem;
+    align-items: center;
+    margin: 0 0 0.625rem; /* ~10px above composer */
+    padding: 0 0.15rem;
+    pointer-events: none;
+    transform: translateZ(0);
+    transition: transform 200ms ease-out;
   }
 
   .saina-app-root.saina-standalone-shell .saina-mobile-ayna-pill {
+    pointer-events: auto;
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
@@ -525,6 +532,8 @@
     -webkit-backdrop-filter: blur(14px) saturate(70%);
     backdrop-filter: blur(14px) saturate(70%);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    transform: translateZ(0);
+    transition: transform 200ms ease-out, opacity 200ms ease-out;
   }
 
   .saina-app-root.saina-standalone-shell .saina-mobile-utility-hosts {
@@ -842,20 +851,21 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
+    /* Edge readability only — center of the scene stays undimmed. */
     background:
-      radial-gradient(
-        ellipse 78% 38% at 48% 34%,
-        var(--saina-reading-smoke-peak) 0%,
-        var(--saina-reading-smoke-mid) 46%,
-        var(--saina-reading-smoke-outer) 72%,
-        transparent 100%
+      linear-gradient(
+        180deg,
+        rgba(5, 7, 7, 0.58) 0%,
+        rgba(5, 7, 7, 0.32) 18%,
+        rgba(5, 7, 7, 0.12) 34%,
+        transparent 48%
       ),
-      radial-gradient(
-        ellipse 82% 44% at 50% 69%,
-        rgba(5, 7, 7, 0.42) 0%,
-        rgba(5, 7, 7, 0.26) 48%,
-        rgba(5, 7, 7, 0.12) 74%,
-        transparent 100%
+      linear-gradient(
+        0deg,
+        rgba(5, 7, 7, 0.56) 0%,
+        rgba(5, 7, 7, 0.28) 22%,
+        rgba(5, 7, 7, 0.1) 40%,
+        transparent 56%
       );
   }
 
@@ -957,8 +967,8 @@
     z-index: 8;
     background: linear-gradient(
       to top,
-      rgba(9, 11, 11, 0.38) 0%,
-      rgba(9, 11, 11, 0.14) 42%,
+      rgba(9, 11, 11, 0.52) 0%,
+      rgba(9, 11, 11, 0.22) 48%,
       transparent 100%
     );
   }
@@ -967,7 +977,7 @@
   .saina-app-root.saina-standalone-shell .saina-standalone-composer {
     width: 100%;
     max-width: var(--saina-chat-column-width);
-    margin-top: 0.5rem;
+    margin-top: 0;
     padding-bottom: calc(
       max(0.75rem, env(safe-area-inset-bottom, 0px)) + var(--saina-keyboard-inset, 0px)
     );

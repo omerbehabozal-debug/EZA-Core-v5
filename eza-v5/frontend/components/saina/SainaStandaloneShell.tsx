@@ -140,6 +140,9 @@ function SainaChatSurface({
 
   const tryOpenMirror = useCallback(() => {
     if (onRequestMirror && !onRequestMirror()) return;
+    // Dismiss soft keyboard without clearing composer draft (draft lives in SainaComposer).
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
     setMirrorCollapsed(false);
   }, [onRequestMirror]);
 
@@ -244,11 +247,15 @@ function SainaChatSurface({
 
                 <div className="saina-chat-bottom-anchor" data-testid="saina-chat-bottom-anchor">
                   {!isCompactShell ? (
-                    <div className="saina-mobile-ayna-pill-row">
+                    <div
+                      className="saina-mobile-ayna-float"
+                      data-testid="saina-mobile-ayna-float"
+                    >
                       <button
                         type="button"
                         className="saina-mobile-ayna-pill"
                         data-testid="saina-mobile-ayna-pill"
+                        data-yansi-no-swipe="true"
                         aria-label={SAINA_MIRROR_EXPAND_TAB}
                         onClick={tryOpenMirror}
                       >
