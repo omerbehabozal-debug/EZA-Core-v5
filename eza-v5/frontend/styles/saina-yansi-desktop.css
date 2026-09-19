@@ -715,29 +715,22 @@
 
   /* —— Phase 8.8F-M: mobile scene-first Yansı parity —— */
   /*
-   * Framing vs paint separation:
-   * - Shell + scene-fit stay full 100dvh (image BLEEDS under gradients — no hard crop box).
-   * - scene-fit__frame is a shorter, near-square cover reference below the identity zone.
-   * - Vignette stays dark through avatar/identity; soft photographic entrance around title.
-   * - Never size the cover box from --saina-keyboard-inset (keyboard must not reframe).
+   * Paint vs clear-stage separation (critical):
+   * - scene-fit stays full-viewport; frame PAINT height overscans past Ayna/composer.
+   * - Long vignette + bottom-anchor gradients create the shorter CLEAR photographic stage.
+   * - Never use a mid-screen short frame as a hard clip (that exposes #090b0b footer).
+   * - Never size the cover/paint box from --saina-keyboard-inset.
    */
   .saina-app-root.saina-standalone-shell {
-    /* Near-square stage (~viewport width) — less aggressive cover zoom for square art. */
-    --saina-mobile-cover-frame-height: min(100vw, 54dvh);
+    /*
+     * Physical paint / cover box — taller than the viewport so photo pixels continue
+     * under top/bottom cinematic veils and behind fixed Ayna + composer.
+     */
+    --saina-mobile-cover-frame-height: 110dvh;
     /* Identity → title editorial breath (~32–40px). */
     --saina-mobile-identity-title-breath: clamp(2rem, 5.5vw, 2.5rem);
     --saina-mobile-bottom-chrome-height: calc(
       52px + 0.625rem + 2.25rem + max(1.5rem, env(safe-area-inset-bottom, 0px)) + 0.35rem
-    );
-    /*
-     * Vertical center of the photographic stage: below identity chrome, above composer.
-     * Keeps strong photo out of the avatar band while still bleeding under the title.
-     */
-    --saina-mobile-image-stage-center-y: calc(
-      max(1.5rem, env(safe-area-inset-top, 0px) + 0.75rem)
-      + 4.5rem
-      + var(--saina-mobile-identity-title-breath)
-      + (var(--saina-mobile-cover-frame-height) * 0.42)
     );
   }
 
@@ -752,16 +745,16 @@
   }
 
   /*
-   * Virtual cover reference: composition scale only (not a visible clip box).
-   * Anchored under identity so photographic clarity begins around the title stage.
+   * Full-bleed paint frame (viewport-centered). Cover still applies inside this box;
+   * perceived square-ish stage comes from gradient veils, not from clipping this frame short.
    */
   .saina-app-root.saina-standalone-shell .saina-scene-fit__frame {
-    top: var(--saina-mobile-image-stage-center-y);
+    top: 50%;
     left: 50%;
     aspect-ratio: auto !important;
-    width: 108%;
+    width: 112%;
     height: var(--saina-mobile-cover-frame-height);
-    min-width: 108%;
+    min-width: 112%;
     min-height: var(--saina-mobile-cover-frame-height);
     transform: translate(calc(-50% - 4%), -50%);
   }

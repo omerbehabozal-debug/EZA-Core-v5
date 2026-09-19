@@ -131,7 +131,7 @@ describe('Mobile Yansı edge gradients visual polish', () => {
       /\.saina-canvas-scene-image\s*\{[^}]*background-size:\s*contain/
     );
     expect(mobileBlock).toContain(
-      '--saina-mobile-cover-frame-height: min(100vw, 54dvh)'
+      '--saina-mobile-cover-frame-height: 110dvh'
     );
     expect(mobileBlock).toContain('.saina-scene-fit__frame');
   });

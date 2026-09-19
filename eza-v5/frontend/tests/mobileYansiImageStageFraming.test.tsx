@@ -1,5 +1,5 @@
 /**
- * Mobile Yansı final geometry — fixed bottom chrome, title contrast, bleed framing.
+ * Mobile Yansı cinematic framing — full-bleed paint + gradient clear-stage.
  */
 
 import { readFileSync } from 'node:fs';
@@ -24,10 +24,8 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
     expect(mobileBlock).toMatch(/\.saina-shell[\s\S]*height:\s*100dvh/);
   });
 
-  it('uses a shorter virtual cover frame that still bleeds under edge gradients', () => {
-    expect(mobileBlock).toContain(
-      '--saina-mobile-cover-frame-height: min(100vw, 54dvh)'
-    );
+  it('paints the scene frame taller than the viewport so photo bleeds under bottom chrome', () => {
+    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height: 110dvh');
     const frameRule = mobileBlock.slice(
       mobileBlock.indexOf('.saina-app-root.saina-standalone-shell .saina-scene-fit__frame {'),
       mobileBlock.indexOf(
@@ -35,9 +33,12 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
       )
     );
     expect(frameRule).toContain('var(--saina-mobile-cover-frame-height)');
+    expect(frameRule).toMatch(/top:\s*50%/);
     expect(frameRule).toContain('aspect-ratio: auto !important');
-    expect(frameRule).toContain('var(--saina-mobile-image-stage-center-y)');
-    expect(mobileBlock).not.toContain('--saina-mobile-image-stage-top');
+    expect(frameRule).not.toContain('image-stage-center-y');
+    // Short mid-screen frames expose #090b0b as a flat footer — forbidden.
+    expect(mobileBlock).not.toContain('--saina-mobile-cover-frame-height: min(100vw, 54dvh)');
+    expect(mobileBlock).not.toContain('--saina-mobile-image-stage-center-y');
   });
 
   it('keeps scene-fit full-bleed so the image is not hard-clipped into a photo box', () => {
@@ -49,10 +50,12 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
     expect(fitRule).not.toMatch(/inset:\s*auto/);
   });
 
-  it('extends top and bottom cinematic gradients as overlays (~36dvh)', () => {
-    // Top long fade is vignette-backed; header::before stays chrome-local (title contrast).
+  it('uses gradient overlays (not frame clip) for top/bottom cinematic veil', () => {
     expect(mobileBlock).toMatch(
       /\.saina-mobile-yansi-header::before[\s\S]*height:\s*100%/
+    );
+    expect(mobileBlock).toMatch(
+      /\.saina-chat-bottom-anchor[\s\S]*position:\s*fixed[\s\S]*bottom:\s*0/
     );
     expect(mobileBlock).toMatch(
       /\.saina-chat-bottom-anchor::before[\s\S]*height:\s*36dvh/
@@ -70,6 +73,7 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
     expect(mobileBlock).toMatch(
       /\.saina-main-body[\s\S]*padding-bottom:\s*var\(--saina-mobile-bottom-chrome-height\)/
     );
+    expect(mobileBlock).toContain('.saina-mobile-ayna-float');
   });
 
   it('restores bright title contrast via primary ivory token', () => {

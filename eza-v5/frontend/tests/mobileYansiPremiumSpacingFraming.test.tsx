@@ -41,20 +41,18 @@ describe('Mobile Yansı premium spacing + framing', () => {
     expect(mobileBlock).toContain('var(--saina-keyboard-inset, 0px)');
   });
 
-  it('uses a shorter near-square cover frame anchored below identity', () => {
-    expect(mobileBlock).toContain(
-      '--saina-mobile-cover-frame-height: min(100vw, 54dvh)'
-    );
-    expect(mobileBlock).toContain('--saina-mobile-image-stage-center-y');
+  it('keeps full-bleed paint frame (not a shortened mid-screen clip)', () => {
+    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height: 110dvh');
     const frameRule = mobileBlock.slice(
       mobileBlock.indexOf('.saina-app-root.saina-standalone-shell .saina-scene-fit__frame {'),
       mobileBlock.indexOf(
         '.saina-app-root.saina-standalone-shell .saina-canvas-overlay--center'
       )
     );
-    expect(frameRule).toContain('var(--saina-mobile-image-stage-center-y)');
-    expect(frameRule).not.toMatch(/top:\s*50%/);
-    expect(mobileBlock).not.toContain('--saina-mobile-cover-frame-height: 90dvh');
+    expect(frameRule).toMatch(/top:\s*50%/);
+    expect(frameRule).toContain('var(--saina-mobile-cover-frame-height)');
+    expect(mobileBlock).not.toContain('--saina-mobile-cover-frame-height: min(100vw, 54dvh)');
+    expect(mobileBlock).not.toContain('--saina-mobile-image-stage-center-y');
   });
 
   it('keeps scene-fit full-bleed and cover + focal authority', () => {
@@ -87,6 +85,6 @@ describe('Mobile Yansı premium spacing + framing', () => {
     );
     expect(mobileBlock).toContain('.saina-mobile-ayna-float');
     expect(desktopBlock).not.toContain('--saina-mobile-identity-title-breath');
-    expect(desktopBlock).not.toContain('--saina-mobile-image-stage-center-y');
+    expect(desktopBlock).not.toContain('--saina-mobile-cover-frame-height');
   });
 });
