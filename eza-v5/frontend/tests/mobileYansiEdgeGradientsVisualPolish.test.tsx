@@ -130,7 +130,9 @@ describe('Mobile Yansı edge gradients visual polish', () => {
     expect(mirror).not.toMatch(
       /\.saina-canvas-scene-image\s*\{[^}]*background-size:\s*contain/
     );
-    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height: 90dvh');
+    expect(mobileBlock).toContain(
+      '--saina-mobile-cover-frame-height: min(100vw, 54dvh)'
+    );
     expect(mobileBlock).toContain('.saina-scene-fit__frame');
   });
 
@@ -165,7 +167,7 @@ describe('Mobile Yansı edge gradients visual polish', () => {
 
   it('vignette is edge-weighted with a clear transparent center band', () => {
     expect(mobileBlock).toMatch(
-      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 38%[\s\S]*rgba\(9, 11, 11, 0\) 62%/
+      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 42%[\s\S]*rgba\(9, 11, 11, 0\) 58%/
     );
     expect(mobileBlock).not.toContain('ellipse 78% 38% at 48% 34%');
   });
@@ -214,16 +216,19 @@ describe('Mobile Yansı edge gradients visual polish', () => {
     );
   });
 
-  it('does not increase header height tokens', () => {
+  it('does not inflate avatar chrome; keeps editorial top pad under 900px', () => {
     expect(mobileBlock).toContain('width: 2.375rem; /* 38px — compact, not hero */');
     expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header[\s\S]*padding:\s*max\(0\.45rem, env\(safe-area-inset-top, 0px\)\) 0\.75rem 0\.35rem/
+      /\.saina-mobile-yansi-header[\s\S]*padding:\s*max\(1\.5rem, calc\(env\(safe-area-inset-top, 0px\) \+ 0\.75rem\)\) 0\.75rem 0\.4rem/
     );
   });
 
-  it('reduces reserved vertical UI consumption around title/content', () => {
+  it('uses deliberate identity→title breath without bloating chat-card padding', () => {
     expect(mobileBlock).toContain(
-      '--saina-identity-chat-breath: clamp(0.55rem, 2.2vw, 0.9rem)'
+      '--saina-mobile-identity-title-breath: clamp(2rem, 5.5vw, 2.5rem)'
+    );
+    expect(mobileBlock).toContain(
+      '--saina-identity-chat-breath: clamp(0.75rem, 2.8vw, 1.1rem)'
     );
     expect(mobileBlock).toMatch(/\.saina-chat-card[\s\S]*padding:\s*0\.4rem 0 0\.3rem/);
   });

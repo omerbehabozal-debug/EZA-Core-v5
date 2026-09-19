@@ -370,7 +370,8 @@
     flex-direction: column;
     align-items: stretch;
     gap: 0.2rem;
-    padding: max(0.45rem, env(safe-area-inset-top, 0px)) 0.75rem 0.35rem;
+    /* ~24–32px content clearance below browser/status chrome. */
+    padding: max(1.5rem, calc(env(safe-area-inset-top, 0px) + 0.75rem)) 0.75rem 0.4rem;
     /* Edge readability only — no layout height; fades before photographic center. */
     background: transparent;
     isolation: isolate;
@@ -716,15 +717,27 @@
   /*
    * Framing vs paint separation:
    * - Shell + scene-fit stay full 100dvh (image BLEEDS under gradients — no hard crop box).
-   * - scene-fit__frame is a shorter virtual cover box (~square-ish) so cover zooms less.
-   * - Long cinematic vignette/header/bottom gradients mask the letterbox into continuity.
+   * - scene-fit__frame is a shorter, near-square cover reference below the identity zone.
+   * - Vignette stays dark through avatar/identity; soft photographic entrance around title.
    * - Never size the cover box from --saina-keyboard-inset (keyboard must not reframe).
    */
   .saina-app-root.saina-standalone-shell {
-    /* Shorter than 100dvh (less zoom) but tall enough to bleed under edge gradients. */
-    --saina-mobile-cover-frame-height: 90dvh;
+    /* Near-square stage (~viewport width) — less aggressive cover zoom for square art. */
+    --saina-mobile-cover-frame-height: min(100vw, 54dvh);
+    /* Identity → title editorial breath (~32–40px). */
+    --saina-mobile-identity-title-breath: clamp(2rem, 5.5vw, 2.5rem);
     --saina-mobile-bottom-chrome-height: calc(
-      52px + 0.625rem + 2.25rem + max(0.75rem, env(safe-area-inset-bottom, 0px)) + 0.5rem
+      52px + 0.625rem + 2.25rem + max(1.5rem, env(safe-area-inset-bottom, 0px)) + 0.35rem
+    );
+    /*
+     * Vertical center of the photographic stage: below identity chrome, above composer.
+     * Keeps strong photo out of the avatar band while still bleeding under the title.
+     */
+    --saina-mobile-image-stage-center-y: calc(
+      max(1.5rem, env(safe-area-inset-top, 0px) + 0.75rem)
+      + 4.5rem
+      + var(--saina-mobile-identity-title-breath)
+      + (var(--saina-mobile-cover-frame-height) * 0.42)
     );
   }
 
@@ -739,16 +752,16 @@
   }
 
   /*
-   * Virtual cover reference: composition scale only.
-   * Frame is centered inside full-bleed scene-fit so photo continues under gradients.
+   * Virtual cover reference: composition scale only (not a visible clip box).
+   * Anchored under identity so photographic clarity begins around the title stage.
    */
   .saina-app-root.saina-standalone-shell .saina-scene-fit__frame {
-    top: 50%;
+    top: var(--saina-mobile-image-stage-center-y);
     left: 50%;
     aspect-ratio: auto !important;
-    width: 118%;
+    width: 108%;
     height: var(--saina-mobile-cover-frame-height);
-    min-width: 118%;
+    min-width: 108%;
     min-height: var(--saina-mobile-cover-frame-height);
     transform: translate(calc(-50% - 4%), -50%);
   }
@@ -766,33 +779,39 @@
   }
 
   /*
-   * Long cinematic veil over full-bleed image (not a clipped photo box).
-   * Stays darker longer at edges so frame edges stay masked.
+   * Dark through identity/avatar → soft entrance around title → clear center → soft exit.
+   * Gradients are overlays; they do not hard-clip the photo.
    */
   .saina-app-root.saina-standalone-shell .saina-canvas-vignette--scene {
     background: linear-gradient(
       180deg,
-      rgba(9, 11, 11, 0.97) 0%,
-      rgba(9, 11, 11, 0.9) 8%,
-      rgba(9, 11, 11, 0.62) 18%,
-      rgba(9, 11, 11, 0.28) 28%,
-      rgba(9, 11, 11, 0) 38%,
-      rgba(9, 11, 11, 0) 62%,
-      rgba(9, 11, 11, 0.22) 72%,
-      rgba(9, 11, 11, 0.55) 82%,
-      rgba(9, 11, 11, 0.88) 92%,
-      rgba(9, 11, 11, 0.97) 100%
+      rgba(9, 11, 11, 0.99) 0%,
+      rgba(9, 11, 11, 0.97) 12%,
+      rgba(9, 11, 11, 0.9) 20%,
+      rgba(9, 11, 11, 0.55) 28%,
+      rgba(9, 11, 11, 0.22) 34%,
+      rgba(9, 11, 11, 0) 42%,
+      rgba(9, 11, 11, 0) 58%,
+      rgba(9, 11, 11, 0.2) 68%,
+      rgba(9, 11, 11, 0.55) 78%,
+      rgba(9, 11, 11, 0.9) 90%,
+      rgba(9, 11, 11, 0.98) 100%
     );
   }
 
   .saina-app-root.saina-standalone-shell .saina-main-body {
-    justify-content: flex-start;
+    /*
+     * Shared vertical content authority:
+     * - deliberate breath after identity header
+     * - safe center balances short Yansı; long content still scrolls from the start
+     */
+    justify-content: safe center;
     overflow-x: hidden;
     overflow-y: auto;
-    padding-top: max(0.2rem, env(safe-area-inset-top, 0px));
-    /* Reserve space so scrolled content clears the fixed bottom chrome. */
+    padding-top: var(--saina-mobile-identity-title-breath);
     padding-bottom: var(--saina-mobile-bottom-chrome-height);
-    --saina-identity-chat-breath: clamp(0.55rem, 2.2vw, 0.9rem);
+    /* Title → body interval (compact identity only shows the title). */
+    --saina-identity-chat-breath: clamp(0.75rem, 2.8vw, 1.1rem);
   }
 
   .saina-app-root.saina-standalone-shell .saina-hero--content {
@@ -802,11 +821,11 @@
     transform: none;
     pointer-events: auto;
     margin: 0 auto;
-    padding: 0.35rem var(--saina-topbar-safe-inline, 1rem) 0;
+    padding: 0.15rem var(--saina-topbar-safe-inline, 1rem) 0;
     max-width: var(--saina-chat-column-width);
     width: 100%;
     box-sizing: border-box;
-    /* Above main-body::after assist veil; below fixed chrome. */
+    /* Above main-body::after assist veil; below fixed chrome; above vignette. */
     z-index: 2;
   }
 
@@ -1103,7 +1122,7 @@
     max-width: var(--saina-chat-column-width);
     margin-top: 0;
     padding-bottom: calc(
-      max(0.75rem, env(safe-area-inset-bottom, 0px)) + var(--saina-keyboard-inset, 0px)
+      max(1.5rem, env(safe-area-inset-bottom, 0px)) + var(--saina-keyboard-inset, 0px)
     );
   }
 

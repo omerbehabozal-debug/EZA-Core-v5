@@ -25,7 +25,9 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
   });
 
   it('uses a shorter virtual cover frame that still bleeds under edge gradients', () => {
-    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height: 90dvh');
+    expect(mobileBlock).toContain(
+      '--saina-mobile-cover-frame-height: min(100vw, 54dvh)'
+    );
     const frameRule = mobileBlock.slice(
       mobileBlock.indexOf('.saina-app-root.saina-standalone-shell .saina-scene-fit__frame {'),
       mobileBlock.indexOf(
@@ -34,6 +36,7 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
     );
     expect(frameRule).toContain('var(--saina-mobile-cover-frame-height)');
     expect(frameRule).toContain('aspect-ratio: auto !important');
+    expect(frameRule).toContain('var(--saina-mobile-image-stage-center-y)');
     expect(mobileBlock).not.toContain('--saina-mobile-image-stage-top');
   });
 
@@ -55,7 +58,7 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
       /\.saina-chat-bottom-anchor::before[\s\S]*height:\s*36dvh/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 38%[\s\S]*rgba\(9, 11, 11, 0\) 62%/
+      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 42%[\s\S]*rgba\(9, 11, 11, 0\) 58%/
     );
   });
 

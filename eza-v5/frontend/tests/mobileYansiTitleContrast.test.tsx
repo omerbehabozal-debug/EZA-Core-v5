@@ -47,9 +47,11 @@ describe('Mobile Yansı title contrast stacking', () => {
 
   it('keeps long cinematic top fade on the vignette behind text', () => {
     expect(mobileBlock).toMatch(
-      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\.97\)/
+      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\.99\)/
     );
-    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height: 90dvh');
+    expect(mobileBlock).toContain(
+      '--saina-mobile-cover-frame-height: min(100vw, 54dvh)'
+    );
   });
 
   it('raises hero content above main-body assist veil', () => {
@@ -62,7 +64,7 @@ describe('Mobile Yansı title contrast stacking', () => {
     expect(desktopBlock).toMatch(
       /\.saina-hero-title\s*\{[^}]*color:\s*var\(--bilign-body\)/s
     );
-    expect(mobileBlock).toContain('width: 118%');
+    expect(mobileBlock).toContain('width: 108%');
     expect(mobileBlock).toMatch(
       /\.saina-chat-bottom-anchor[\s\S]*position:\s*fixed/
     );
