@@ -799,17 +799,18 @@
 
   .saina-app-root.saina-standalone-shell .saina-main-body {
     /*
-     * Shared vertical content authority:
-     * - height-responsive breath after identity header
-     * - safe center balances short Yansı; long content still scrolls from the start
+     * Vertical content authority:
+     * - flex-start keeps title under identity breath (do not center the whole stack)
+     * - chat-column flex:1 + safe center optically balances short conversation
+     * - long conversation grows the column; main-body scrolls; safe falls back to start
      */
-    justify-content: safe center;
+    justify-content: flex-start;
     overflow-x: hidden;
     overflow-y: auto;
     padding-top: var(--saina-mobile-identity-title-breath);
     padding-bottom: var(--saina-mobile-bottom-chrome-height);
-    /* Title → body interval (compact identity only shows the title). */
-    --saina-identity-chat-breath: clamp(0.7rem, 2dvh, 1.2rem);
+    /* Title → body: smaller than identity→title, still deliberate. */
+    --saina-identity-chat-breath: clamp(0.85rem, 2.4dvh, 1.35rem);
   }
 
   .saina-app-root.saina-standalone-shell .saina-hero--content {
@@ -981,9 +982,15 @@
   }
 
   .saina-app-root.saina-standalone-shell .saina-chat-column--mobile-rail {
-    justify-content: flex-start;
+    /*
+     * Fills the region between title and bottom chrome reserve.
+     * Short copy: safe center → optical balance. Long copy: safe → start + parent scroll.
+     */
+    justify-content: safe center;
     flex: 1 1 auto;
     min-height: 0;
+    width: 100%;
+    align-self: stretch;
   }
 
   .saina-app-root.saina-standalone-shell .saina-chat-scroll-region {
@@ -1137,15 +1144,31 @@
     -webkit-backdrop-filter: blur(20px) saturate(70%);
     backdrop-filter: blur(20px) saturate(70%);
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+    /* Tighter horizontal rhythm so placeholder fits narrow phones without shrinking controls. */
+    gap: 0.5rem;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-composer-box .saina-geometric-mark {
+    flex: 0 0 auto;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-composer-box .saina-icon-btn--composer,
+  .saina-app-root.saina-standalone-shell .saina-composer-box .saina-send-btn {
+    flex: 0 0 auto;
   }
 
   .saina-app-root.saina-standalone-shell .saina-composer-input {
+    flex: 1 1 auto;
+    min-width: 0;
     color: var(--bilign-body);
-    font-size: 0.875rem;
+    font-size: clamp(0.8125rem, 2.4vw, 0.875rem);
   }
 
   .saina-app-root.saina-standalone-shell .saina-composer-input::placeholder {
     color: var(--bilign-secondary);
+    font-size: inherit;
+    opacity: 1;
   }
 
   .saina-app-root.saina-standalone-shell .saina-standalone-menu-btn,

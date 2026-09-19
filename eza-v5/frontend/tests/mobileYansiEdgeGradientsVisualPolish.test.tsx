@@ -228,7 +228,7 @@ describe('Mobile Yansı edge gradients visual polish', () => {
       '--saina-mobile-identity-title-breath: clamp(1.75rem, 4.2dvh, 2.75rem)'
     );
     expect(mobileBlock).toContain(
-      '--saina-identity-chat-breath: clamp(0.7rem, 2dvh, 1.2rem)'
+      '--saina-identity-chat-breath: clamp(0.85rem, 2.4dvh, 1.35rem)'
     );
     expect(mobileBlock).toMatch(/\.saina-chat-card[\s\S]*padding:\s*0\.4rem 0 0\.3rem/);
   });

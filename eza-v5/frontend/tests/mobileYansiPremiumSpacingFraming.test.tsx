@@ -28,9 +28,15 @@ describe('Mobile Yansı premium spacing + framing', () => {
     );
   });
 
-  it('balances short content with safe center; keeps scroll for long content', () => {
-    expect(mobileBlock).toMatch(/\.saina-main-body[\s\S]*justify-content:\s*safe center/);
+  it('balances short conversation in chat-column; main-body scrolls long content', () => {
+    expect(mobileBlock).toMatch(/\.saina-main-body[\s\S]*justify-content:\s*flex-start/);
     expect(mobileBlock).toMatch(/\.saina-main-body[\s\S]*overflow-y:\s*auto/);
+    expect(mobileBlock).toMatch(
+      /\.saina-chat-column--mobile-rail[\s\S]*justify-content:\s*safe center/
+    );
+    expect(mobileBlock).toMatch(
+      /\.saina-main-body[\s\S]*padding-bottom:\s*var\(--saina-mobile-bottom-chrome-height\)/
+    );
   });
 
   it('keeps composer viewport-fixed with bottom reserve including ~24–32px safe gap', () => {
