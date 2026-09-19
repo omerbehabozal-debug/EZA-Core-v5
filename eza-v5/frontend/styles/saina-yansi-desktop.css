@@ -382,15 +382,15 @@
     left: 0;
     right: 0;
     top: 0;
-    /* Viewport-tied cinematic top zone (~28%) — not limited to header box height. */
-    height: 30dvh;
+    /* Long cinematic top veil — image must remain painted underneath. */
+    height: 36dvh;
     z-index: 0;
     pointer-events: none;
     background: linear-gradient(
       180deg,
-      rgba(9, 11, 11, 0.96) 0%,
-      rgba(9, 11, 11, 0.9) 18%,
-      rgba(9, 11, 11, 0.68) 42%,
+      rgba(9, 11, 11, 0.97) 0%,
+      rgba(9, 11, 11, 0.9) 22%,
+      rgba(9, 11, 11, 0.62) 48%,
       rgba(9, 11, 11, 0.28) 72%,
       rgba(9, 11, 11, 0) 100%
     );
@@ -719,7 +719,11 @@
    * - Never size the cover box from --saina-keyboard-inset (keyboard must not reframe).
    */
   .saina-app-root.saina-standalone-shell {
-    --saina-mobile-cover-frame-height: 70dvh;
+    /* Shorter than 100dvh (less zoom) but tall enough to bleed under edge gradients. */
+    --saina-mobile-cover-frame-height: 90dvh;
+    --saina-mobile-bottom-chrome-height: calc(
+      52px + 0.625rem + 2.25rem + max(0.75rem, env(safe-area-inset-bottom, 0px)) + 0.5rem
+    );
   }
 
   .saina-app-root.saina-standalone-shell .saina-canvas-bg--default-scene {
@@ -733,16 +737,16 @@
   }
 
   /*
-   * Virtual cover reference: shorter than 100dvh, closer to square vs phone portrait.
-   * Centered so the photo continues under top/bottom gradient zones (bleed).
+   * Virtual cover reference: composition scale only.
+   * Frame is centered inside full-bleed scene-fit so photo continues under gradients.
    */
   .saina-app-root.saina-standalone-shell .saina-scene-fit__frame {
     top: 50%;
     left: 50%;
     aspect-ratio: auto !important;
-    width: 112%;
+    width: 118%;
     height: var(--saina-mobile-cover-frame-height);
-    min-width: 112%;
+    min-width: 118%;
     min-height: var(--saina-mobile-cover-frame-height);
     transform: translate(calc(-50% - 4%), -50%);
   }
@@ -760,22 +764,22 @@
   }
 
   /*
-   * Single continuous cinematic veil (~28% top / clear center / ~28% bottom).
-   * Gradients are overlays — they do not reserve layout height or hard-clip the photo.
+   * Long cinematic veil over full-bleed image (not a clipped photo box).
+   * Stays darker longer at edges so frame edges stay masked.
    */
   .saina-app-root.saina-standalone-shell .saina-canvas-vignette--scene {
     background: linear-gradient(
       180deg,
-      rgba(9, 11, 11, 0.96) 0%,
-      rgba(9, 11, 11, 0.9) 6%,
-      rgba(9, 11, 11, 0.68) 14%,
-      rgba(9, 11, 11, 0.28) 22%,
-      rgba(9, 11, 11, 0) 30%,
-      rgba(9, 11, 11, 0) 70%,
-      rgba(9, 11, 11, 0.18) 76%,
-      rgba(9, 11, 11, 0.55) 84%,
-      rgba(9, 11, 11, 0.82) 92%,
-      rgba(9, 11, 11, 0.96) 100%
+      rgba(9, 11, 11, 0.97) 0%,
+      rgba(9, 11, 11, 0.9) 8%,
+      rgba(9, 11, 11, 0.62) 18%,
+      rgba(9, 11, 11, 0.28) 28%,
+      rgba(9, 11, 11, 0) 38%,
+      rgba(9, 11, 11, 0) 62%,
+      rgba(9, 11, 11, 0.22) 72%,
+      rgba(9, 11, 11, 0.55) 82%,
+      rgba(9, 11, 11, 0.88) 92%,
+      rgba(9, 11, 11, 0.97) 100%
     );
   }
 
@@ -784,8 +788,8 @@
     overflow-x: hidden;
     overflow-y: auto;
     padding-top: max(0.2rem, env(safe-area-inset-top, 0px));
-    padding-bottom: 0.2rem;
-    /* Compact title→content gap — UI overlays the scene; do not reserve tall dead space. */
+    /* Reserve space so scrolled content clears the fixed bottom chrome. */
+    padding-bottom: var(--saina-mobile-bottom-chrome-height);
     --saina-identity-chat-breath: clamp(0.55rem, 2.2vw, 0.9rem);
   }
 
@@ -910,7 +914,8 @@
 
   .saina-app-root.saina-standalone-shell .saina-hero-title {
     margin: 0;
-    color: var(--bilign-body);
+    /* Primary hierarchy — ivory, not muted body grey. */
+    color: var(--bilign-text);
     font-size: clamp(1.22rem, 5.2vw, 1.5rem);
     font-weight: 600;
     line-height: 1.22;
@@ -923,6 +928,9 @@
     line-clamp: 3;
     overflow: hidden;
     word-break: break-word;
+    position: relative;
+    z-index: 2;
+    opacity: 1;
   }
 
   .saina-app-root.saina-standalone-shell .saina-main-body:not(.saina-main-body--empty) .bilign-yansi-identity {
@@ -1045,12 +1053,20 @@
   }
 
   .saina-app-root.saina-standalone-shell .saina-chat-bottom-anchor {
-    position: sticky;
+    /* Viewport-level bottom chrome — content scrolls behind; does not travel with copy. */
+    position: fixed;
+    left: 0;
+    right: 0;
     bottom: 0;
-    z-index: 8;
-    /* Gradient is an absolute overlay — does not reserve scene height. */
+    z-index: 45;
+    width: 100%;
+    box-sizing: border-box;
+    padding-inline: var(--saina-topbar-safe-inline, 0.75rem);
     background: transparent;
     isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
 
   .saina-app-root.saina-standalone-shell .saina-chat-bottom-anchor::before {
@@ -1059,16 +1075,16 @@
     left: 0;
     right: 0;
     bottom: 0;
-    /* Viewport-tied cinematic bottom zone (~28–30%) — image bleeds underneath. */
-    height: 30dvh;
+    /* Long cinematic bottom veil — image continues underneath composer/Ayna. */
+    height: 36dvh;
     z-index: 0;
     pointer-events: none;
     background: linear-gradient(
       to top,
-      rgba(9, 11, 11, 0.96) 0%,
-      rgba(9, 11, 11, 0.82) 22%,
-      rgba(9, 11, 11, 0.55) 48%,
-      rgba(9, 11, 11, 0.18) 75%,
+      rgba(9, 11, 11, 0.97) 0%,
+      rgba(9, 11, 11, 0.88) 24%,
+      rgba(9, 11, 11, 0.55) 52%,
+      rgba(9, 11, 11, 0.2) 78%,
       rgba(9, 11, 11, 0) 100%
     );
   }

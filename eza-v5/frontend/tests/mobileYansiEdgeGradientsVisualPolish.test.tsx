@@ -130,8 +130,7 @@ describe('Mobile Yansı edge gradients visual polish', () => {
     expect(mirror).not.toMatch(
       /\.saina-canvas-scene-image\s*\{[^}]*background-size:\s*contain/
     );
-    // Cover runs against a shorter virtual frame; scene-fit stays full-bleed.
-    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height');
+    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height: 90dvh');
     expect(mobileBlock).toContain('.saina-scene-fit__frame');
   });
 
@@ -141,13 +140,13 @@ describe('Mobile Yansı edge gradients visual polish', () => {
       /\.saina-mobile-yansi-header::before[\s\S]*linear-gradient\(\s*180deg/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*rgba\(9, 11, 11, 0\.96\)/
+      /\.saina-mobile-yansi-header::before[\s\S]*rgba\(9, 11, 11, 0\.97\)/
     );
     expect(mobileBlock).toMatch(
       /\.saina-mobile-yansi-header::before[\s\S]*pointer-events:\s*none/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*height:\s*30dvh/
+      /\.saina-mobile-yansi-header::before[\s\S]*height:\s*36dvh/
     );
   });
 
@@ -157,19 +156,19 @@ describe('Mobile Yansı edge gradients visual polish', () => {
       /\.saina-chat-bottom-anchor::before[\s\S]*linear-gradient\(\s*to top/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-chat-bottom-anchor::before[\s\S]*rgba\(9, 11, 11, 0\.96\)/
+      /\.saina-chat-bottom-anchor::before[\s\S]*rgba\(9, 11, 11, 0\.97\)/
     );
     expect(mobileBlock).toMatch(
       /\.saina-chat-bottom-anchor::before[\s\S]*pointer-events:\s*none/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-chat-bottom-anchor::before[\s\S]*height:\s*30dvh/
+      /\.saina-chat-bottom-anchor::before[\s\S]*height:\s*36dvh/
     );
   });
 
   it('vignette is edge-weighted with a clear transparent center band', () => {
     expect(mobileBlock).toMatch(
-      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 30%[\s\S]*rgba\(9, 11, 11, 0\) 70%/
+      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 38%[\s\S]*rgba\(9, 11, 11, 0\) 62%/
     );
     expect(mobileBlock).not.toContain('ellipse 78% 38% at 48% 34%');
   });

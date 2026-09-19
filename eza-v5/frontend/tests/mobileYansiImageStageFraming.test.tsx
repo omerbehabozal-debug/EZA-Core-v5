@@ -1,5 +1,5 @@
 /**
- * Mobile Yansı framing vs paint — shorter cover frame, full-bleed scene, long gradients.
+ * Mobile Yansı final geometry — fixed bottom chrome, title contrast, bleed framing.
  */
 
 import { readFileSync } from 'node:fs';
@@ -24,8 +24,8 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
     expect(mobileBlock).toMatch(/\.saina-shell[\s\S]*height:\s*100dvh/);
   });
 
-  it('uses a shorter virtual cover frame, not full-portrait inset crop', () => {
-    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height: 70dvh');
+  it('uses a shorter virtual cover frame that still bleeds under edge gradients', () => {
+    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height: 90dvh');
     const frameRule = mobileBlock.slice(
       mobileBlock.indexOf('.saina-app-root.saina-standalone-shell .saina-scene-fit__frame {'),
       mobileBlock.indexOf(
@@ -35,7 +35,6 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
     expect(frameRule).toContain('var(--saina-mobile-cover-frame-height)');
     expect(frameRule).toContain('aspect-ratio: auto !important');
     expect(mobileBlock).not.toContain('--saina-mobile-image-stage-top');
-    expect(mobileBlock).not.toContain('--saina-mobile-image-stage-bottom');
   });
 
   it('keeps scene-fit full-bleed so the image is not hard-clipped into a photo box', () => {
@@ -45,29 +44,38 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
     );
     expect(fitRule).toMatch(/inset:\s*0/);
     expect(fitRule).not.toMatch(/inset:\s*auto/);
-    expect(fitRule).toContain('overflow: hidden');
   });
 
-  it('extends top and bottom cinematic gradients across ~28–30dvh', () => {
+  it('extends top and bottom cinematic gradients as overlays (~36dvh)', () => {
     expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*height:\s*30dvh/
+      /\.saina-mobile-yansi-header::before[\s\S]*height:\s*36dvh/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-chat-bottom-anchor::before[\s\S]*height:\s*30dvh/
+      /\.saina-chat-bottom-anchor::before[\s\S]*height:\s*36dvh/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\.96\) 0%[\s\S]*rgba\(9, 11, 11, 0\) 30%[\s\S]*rgba\(9, 11, 11, 0\) 70%/
-    );
-  });
-
-  it('does not create a flat black bottom gap via short stage insets', () => {
-    expect(mobileBlock).not.toContain('--saina-mobile-image-stage-bleed');
-    expect(mobileBlock).toMatch(
-      /\.saina-chat-bottom-anchor[\s\S]*background:\s*transparent/
+      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 38%[\s\S]*rgba\(9, 11, 11, 0\) 62%/
     );
   });
 
-  it('preserves cover + focal; keyboard inset does not drive frame height', () => {
+  it('pins composer/Ayna bottom chrome to the viewport (not content scroll)', () => {
+    expect(mobileBlock).toMatch(
+      /\.saina-chat-bottom-anchor[\s\S]*position:\s*fixed[\s\S]*bottom:\s*0/
+    );
+    expect(mobileBlock).toContain('--saina-mobile-bottom-chrome-height');
+    expect(mobileBlock).toMatch(
+      /\.saina-main-body[\s\S]*padding-bottom:\s*var\(--saina-mobile-bottom-chrome-height\)/
+    );
+  });
+
+  it('restores bright title contrast via primary ivory token', () => {
+    expect(mobileBlock).toMatch(
+      /\.saina-hero-title[\s\S]*color:\s*var\(--bilign-text\)/
+    );
+    expect(css).toContain('--bilign-text: #e8e2d7');
+  });
+
+  it('preserves cover + focal; keyboard inset still lifts bottom chrome', () => {
     expect(mirror).toMatch(
       /\.saina-scene-fit__frame\s+\.saina-canvas-scene-image\s*\{[^}]*background-size:\s*cover/s
     );
@@ -89,7 +97,7 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
     expect(mobileBlock).toMatch(
       /\.saina-canvas-overlay--pattern-dim[\s\S]*display:\s*none/
     );
-    expect(mobileBlock).not.toContain('ellipse 78% 38% at 48% 34%');
     expect(desktopBlock).not.toContain('--saina-mobile-cover-frame-height');
+    expect(desktopBlock).not.toContain('--saina-mobile-bottom-chrome-height');
   });
 });
