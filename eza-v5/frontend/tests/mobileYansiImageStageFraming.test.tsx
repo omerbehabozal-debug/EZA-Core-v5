@@ -47,8 +47,9 @@ describe('Mobile Yansı cinematic framing + bleed', () => {
   });
 
   it('extends top and bottom cinematic gradients as overlays (~36dvh)', () => {
+    // Top long fade is vignette-backed; header::before stays chrome-local (title contrast).
     expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*height:\s*36dvh/
+      /\.saina-mobile-yansi-header::before[\s\S]*height:\s*100%/
     );
     expect(mobileBlock).toMatch(
       /\.saina-chat-bottom-anchor::before[\s\S]*height:\s*36dvh/

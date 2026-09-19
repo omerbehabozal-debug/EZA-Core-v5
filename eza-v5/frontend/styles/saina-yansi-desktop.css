@@ -382,16 +382,18 @@
     left: 0;
     right: 0;
     top: 0;
-    /* Long cinematic top veil — image must remain painted underneath. */
-    height: 36dvh;
+    /*
+     * Chrome-local veil only (height: 100% of header). Long cinematic top fade
+     * lives on the vignette behind text. A 36dvh ::before here sat in z-index:42
+     * and dimmed the title in main-body (z-index:4).
+     */
+    height: 100%;
     z-index: 0;
     pointer-events: none;
     background: linear-gradient(
       180deg,
-      rgba(9, 11, 11, 0.97) 0%,
-      rgba(9, 11, 11, 0.9) 22%,
-      rgba(9, 11, 11, 0.62) 48%,
-      rgba(9, 11, 11, 0.28) 72%,
+      rgba(9, 11, 11, 0.55) 0%,
+      rgba(9, 11, 11, 0.22) 55%,
       rgba(9, 11, 11, 0) 100%
     );
   }
@@ -804,8 +806,30 @@
     max-width: var(--saina-chat-column-width);
     width: 100%;
     box-sizing: border-box;
+    /* Above main-body::after assist veil; below fixed chrome. */
+    z-index: 2;
   }
 
+  .saina-app-root.saina-standalone-shell .saina-hero-title {
+    margin: 0;
+    /* Primary hierarchy — ivory, not muted body grey. */
+    color: var(--bilign-text);
+    font-size: clamp(1.22rem, 5.2vw, 1.5rem);
+    font-weight: 600;
+    line-height: 1.22;
+    letter-spacing: -0.02em;
+    text-shadow: var(--saina-scene-heading-shadow);
+    max-width: 100%;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    word-break: break-word;
+    position: relative;
+    z-index: 2;
+    opacity: 1;
+  }
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity {
     --saina-hero-identity-scale: 1;
     --saina-hero-name-size: clamp(1.15rem, 5vw, 1.35rem);
@@ -910,27 +934,6 @@
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity .bilign-honorific__mark {
     width: var(--saina-hero-honorific-mark);
     height: var(--saina-hero-honorific-mark);
-  }
-
-  .saina-app-root.saina-standalone-shell .saina-hero-title {
-    margin: 0;
-    /* Primary hierarchy — ivory, not muted body grey. */
-    color: var(--bilign-text);
-    font-size: clamp(1.22rem, 5.2vw, 1.5rem);
-    font-weight: 600;
-    line-height: 1.22;
-    letter-spacing: -0.02em;
-    text-shadow: var(--saina-scene-heading-shadow);
-    max-width: 100%;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    overflow: hidden;
-    word-break: break-word;
-    position: relative;
-    z-index: 2;
-    opacity: 1;
   }
 
   .saina-app-root.saina-standalone-shell .saina-main-body:not(.saina-main-body--empty) .bilign-yansi-identity {

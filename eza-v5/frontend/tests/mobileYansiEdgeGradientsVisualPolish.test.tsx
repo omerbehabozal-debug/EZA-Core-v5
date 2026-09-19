@@ -136,18 +136,15 @@ describe('Mobile Yansı edge gradients visual polish', () => {
 
   it('defines edge-weighted top gradient via header overlay', () => {
     expect(mobileBlock).toContain('.saina-mobile-yansi-header::before');
-    expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*linear-gradient\(\s*180deg/
+    const headerBefore = mobileBlock.slice(
+      mobileBlock.indexOf('.saina-mobile-yansi-header::before {'),
+      mobileBlock.indexOf('.saina-mobile-yansi-header > *')
     );
-    expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*rgba\(9, 11, 11, 0\.97\)/
-    );
-    expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*pointer-events:\s*none/
-    );
-    expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*height:\s*36dvh/
-    );
+    expect(headerBefore).toMatch(/linear-gradient\(\s*180deg/);
+    // Chrome-local only — long cinematic top fade is on the vignette behind text.
+    expect(headerBefore).toMatch(/height:\s*100%/);
+    expect(headerBefore).toMatch(/pointer-events:\s*none/);
+    expect(headerBefore).not.toMatch(/height:\s*36dvh/);
   });
 
   it('defines edge-weighted bottom gradient via absolute overlay', () => {
