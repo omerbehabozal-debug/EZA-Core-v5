@@ -382,17 +382,17 @@
     left: 0;
     right: 0;
     top: 0;
-    /* Extends past the compact header into title zone without reserving layout. */
-    height: calc(100% + 4.25rem);
+    /* Viewport-tied cinematic top zone (~28%) — not limited to header box height. */
+    height: 30dvh;
     z-index: 0;
     pointer-events: none;
     background: linear-gradient(
       180deg,
-      rgba(5, 7, 7, 0.82) 0%,
-      rgba(5, 7, 7, 0.52) 28%,
-      rgba(5, 7, 7, 0.22) 58%,
-      rgba(5, 7, 7, 0.06) 82%,
-      transparent 100%
+      rgba(9, 11, 11, 0.96) 0%,
+      rgba(9, 11, 11, 0.9) 18%,
+      rgba(9, 11, 11, 0.68) 42%,
+      rgba(9, 11, 11, 0.28) 72%,
+      rgba(9, 11, 11, 0) 100%
     );
   }
 
@@ -712,32 +712,39 @@
 
   /* —— Phase 8.8F-M: mobile scene-first Yansı parity —— */
   /*
-   * Image-stage geometry (NOT an overlay trick):
-   * Shell stays 100dvh. Cover calculation runs against a vertically shorter
-   * mid-viewport stage so square/near-square Yansı art zooms less / shows more.
-   * Insets are layout tokens — never --saina-keyboard-inset (keyboard must not reframe).
+   * Framing vs paint separation:
+   * - Shell + scene-fit stay full 100dvh (image BLEEDS under gradients — no hard crop box).
+   * - scene-fit__frame is a shorter virtual cover box (~square-ish) so cover zooms less.
+   * - Long cinematic vignette/header/bottom gradients mask the letterbox into continuity.
+   * - Never size the cover box from --saina-keyboard-inset (keyboard must not reframe).
    */
   .saina-app-root.saina-standalone-shell {
-    --saina-mobile-image-stage-top: calc(
-      max(0.45rem, env(safe-area-inset-top, 0px)) + 2.75rem
-    );
-    --saina-mobile-image-stage-bottom: calc(
-      52px + 0.625rem + 2rem + max(0.75rem, env(safe-area-inset-bottom, 0px))
-    );
-    /* Slight bleed under gradients so dark zones ↔ photo have no hard seam. */
-    --saina-mobile-image-stage-bleed: 1.5rem;
+    --saina-mobile-cover-frame-height: 70dvh;
   }
 
   .saina-app-root.saina-standalone-shell .saina-canvas-bg--default-scene {
     background-color: #090b0b;
   }
 
+  /* Full-viewport paint window — do NOT inset/crop the image layer into a hard box. */
   .saina-app-root.saina-standalone-shell .saina-scene-fit {
-    inset: auto;
-    top: calc(var(--saina-mobile-image-stage-top) - var(--saina-mobile-image-stage-bleed));
-    right: 0;
-    bottom: calc(var(--saina-mobile-image-stage-bottom) - var(--saina-mobile-image-stage-bleed));
-    left: 0;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  /*
+   * Virtual cover reference: shorter than 100dvh, closer to square vs phone portrait.
+   * Centered so the photo continues under top/bottom gradient zones (bleed).
+   */
+  .saina-app-root.saina-standalone-shell .saina-scene-fit__frame {
+    top: 50%;
+    left: 50%;
+    aspect-ratio: auto !important;
+    width: 112%;
+    height: var(--saina-mobile-cover-frame-height);
+    min-width: 112%;
+    min-height: var(--saina-mobile-cover-frame-height);
+    transform: translate(calc(-50% - 4%), -50%);
   }
 
   /* Neutralize stacked canvas overlays — they were darkening the photographic center. */
@@ -752,16 +759,23 @@
     background: none;
   }
 
-  /* Edge-weighted vignette only — dark top → clear center → dark bottom. */
+  /*
+   * Single continuous cinematic veil (~28% top / clear center / ~28% bottom).
+   * Gradients are overlays — they do not reserve layout height or hard-clip the photo.
+   */
   .saina-app-root.saina-standalone-shell .saina-canvas-vignette--scene {
     background: linear-gradient(
       180deg,
-      rgba(5, 7, 7, 0.55) 0%,
-      rgba(5, 7, 7, 0.18) 12%,
-      transparent 24%,
-      transparent 74%,
-      rgba(5, 7, 7, 0.28) 88%,
-      rgba(5, 7, 7, 0.72) 100%
+      rgba(9, 11, 11, 0.96) 0%,
+      rgba(9, 11, 11, 0.9) 6%,
+      rgba(9, 11, 11, 0.68) 14%,
+      rgba(9, 11, 11, 0.28) 22%,
+      rgba(9, 11, 11, 0) 30%,
+      rgba(9, 11, 11, 0) 70%,
+      rgba(9, 11, 11, 0.18) 76%,
+      rgba(9, 11, 11, 0.55) 84%,
+      rgba(9, 11, 11, 0.82) 92%,
+      rgba(9, 11, 11, 0.96) 100%
     );
   }
 
@@ -924,19 +938,17 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
-    /* Edge readability only — fade out before center so the photo stays alive. */
+    /* Soft local assist only — cinematic veil lives on the vignette / edge overlays. */
     background:
       linear-gradient(
         180deg,
-        rgba(5, 7, 7, 0.42) 0%,
-        rgba(5, 7, 7, 0.16) 12%,
-        transparent 26%
+        rgba(9, 11, 11, 0.22) 0%,
+        transparent 18%
       ),
       linear-gradient(
         0deg,
-        rgba(5, 7, 7, 0.48) 0%,
-        rgba(5, 7, 7, 0.18) 16%,
-        transparent 30%
+        rgba(9, 11, 11, 0.2) 0%,
+        transparent 16%
       );
   }
 
@@ -1047,18 +1059,17 @@
     left: 0;
     right: 0;
     bottom: 0;
-    /* ~1.5 composer heights above the control zone + Ayna separation + safe area. */
-    height: calc(
-      52px * 1.5 + 0.625rem + 2.25rem + max(0.75rem, env(safe-area-inset-bottom, 0px))
-    );
+    /* Viewport-tied cinematic bottom zone (~28–30%) — image bleeds underneath. */
+    height: 30dvh;
     z-index: 0;
     pointer-events: none;
     background: linear-gradient(
       to top,
-      rgba(5, 7, 7, 0.88) 0%,
-      rgba(5, 7, 7, 0.55) 32%,
-      rgba(5, 7, 7, 0.22) 68%,
-      transparent 100%
+      rgba(9, 11, 11, 0.96) 0%,
+      rgba(9, 11, 11, 0.82) 22%,
+      rgba(9, 11, 11, 0.55) 48%,
+      rgba(9, 11, 11, 0.18) 75%,
+      rgba(9, 11, 11, 0) 100%
     );
   }
 

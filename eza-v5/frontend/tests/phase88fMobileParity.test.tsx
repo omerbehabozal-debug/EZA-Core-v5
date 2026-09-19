@@ -85,9 +85,9 @@ describe('Phase 8.8F-M mobile visual parity', () => {
       /@media \(max-width: 899px\)[\s\S]*\.saina-chat-bottom-anchor[\s\S]*linear-gradient/
     );
     expect(mirror).toContain('rgba(10, 18, 24, 0.94)');
-    // Standalone mobile: absolute edge overlay (not a solid toolbar strip).
+    // Standalone mobile: absolute cinematic edge overlay (~30dvh), not a solid toolbar strip.
     expect(css).toMatch(
-      /@media \(max-width: 899px\)[\s\S]*\.saina-chat-bottom-anchor::before[\s\S]*rgba\(5, 7, 7, 0\.88\)/
+      /@media \(max-width: 899px\)[\s\S]*\.saina-chat-bottom-anchor::before[\s\S]*rgba\(9, 11, 11, 0\.96\)/
     );
     expect(css).toMatch(
       /@media \(max-width: 899px\)[\s\S]*\.saina-chat-bottom-anchor[\s\S]*background:\s*transparent/

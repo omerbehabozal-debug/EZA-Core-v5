@@ -130,9 +130,9 @@ describe('Mobile Yansı edge gradients visual polish', () => {
     expect(mirror).not.toMatch(
       /\.saina-canvas-scene-image\s*\{[^}]*background-size:\s*contain/
     );
-    // Cover runs against a shorter mid-viewport stage, not inset:0 on 100dvh.
-    expect(mobileBlock).toContain('--saina-mobile-image-stage-top');
-    expect(mobileBlock).toContain('.saina-scene-fit');
+    // Cover runs against a shorter virtual frame; scene-fit stays full-bleed.
+    expect(mobileBlock).toContain('--saina-mobile-cover-frame-height');
+    expect(mobileBlock).toContain('.saina-scene-fit__frame');
   });
 
   it('defines edge-weighted top gradient via header overlay', () => {
@@ -141,13 +141,13 @@ describe('Mobile Yansı edge gradients visual polish', () => {
       /\.saina-mobile-yansi-header::before[\s\S]*linear-gradient\(\s*180deg/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*rgba\(5, 7, 7, 0\.82\)/
+      /\.saina-mobile-yansi-header::before[\s\S]*rgba\(9, 11, 11, 0\.96\)/
     );
     expect(mobileBlock).toMatch(
       /\.saina-mobile-yansi-header::before[\s\S]*pointer-events:\s*none/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-mobile-yansi-header::before[\s\S]*height:\s*calc\(100% \+ 4\.25rem\)/
+      /\.saina-mobile-yansi-header::before[\s\S]*height:\s*30dvh/
     );
   });
 
@@ -157,35 +157,34 @@ describe('Mobile Yansı edge gradients visual polish', () => {
       /\.saina-chat-bottom-anchor::before[\s\S]*linear-gradient\(\s*to top/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-chat-bottom-anchor::before[\s\S]*rgba\(5, 7, 7, 0\.88\)/
+      /\.saina-chat-bottom-anchor::before[\s\S]*rgba\(9, 11, 11, 0\.96\)/
     );
     expect(mobileBlock).toMatch(
       /\.saina-chat-bottom-anchor::before[\s\S]*pointer-events:\s*none/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-chat-bottom-anchor::before[\s\S]*52px \* 1\.5/
+      /\.saina-chat-bottom-anchor::before[\s\S]*height:\s*30dvh/
     );
   });
 
   it('vignette is edge-weighted with a clear transparent center band', () => {
     expect(mobileBlock).toMatch(
-      /\.saina-canvas-vignette--scene[\s\S]*transparent 24%[\s\S]*transparent 74%/
+      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 30%[\s\S]*rgba\(9, 11, 11, 0\) 70%/
     );
     expect(mobileBlock).not.toContain('ellipse 78% 38% at 48% 34%');
   });
 
   it('does not add a new full-screen/global dark overlay or center radial veil', () => {
-    expect(mobileBlock).toContain('Edge readability only');
+    expect(mobileBlock).toContain('Soft local assist only');
     expect(mobileBlock).not.toContain('ellipse 78% 38% at 48% 34%');
     expect(mobileBlock).not.toMatch(
       /\.saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*radial-gradient/
     );
-    // Main-body edge fades must clear before mid-viewport.
     expect(mobileBlock).toMatch(
-      /\.saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*transparent 26%/
+      /\.saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*transparent 18%/
     );
     expect(mobileBlock).toMatch(
-      /\.saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*transparent 30%/
+      /\.saina-main-body:not\(\.saina-main-body--empty\)::after[\s\S]*transparent 16%/
     );
   });
 
