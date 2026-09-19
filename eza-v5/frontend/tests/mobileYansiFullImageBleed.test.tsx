@@ -41,19 +41,19 @@ describe('Mobile Yansı full image bleed behind bottom chrome', () => {
     expect(frameRule).not.toMatch(/top:\s*var\(--saina-mobile-image-stage/);
   });
 
-  it('keeps scene-fit full-viewport with overscan width under gradients', () => {
+  it('keeps scene-fit full-viewport with near-square overscan under gradients', () => {
     const fitRule = mobileBlock.slice(
       mobileBlock.indexOf('.saina-app-root.saina-standalone-shell .saina-scene-fit {'),
       mobileBlock.indexOf('.saina-app-root.saina-standalone-shell .saina-scene-fit__frame {')
     );
     expect(fitRule).toMatch(/inset:\s*0/);
-    expect(frameRule).toMatch(/width:\s*112%/);
-    expect(frameRule).toMatch(/min-width:\s*112%/);
+    expect(mobileBlock).toContain('--saina-mobile-cover-frame-width: max(112%, 110dvh)');
+    expect(frameRule).toContain('var(--saina-mobile-cover-frame-width)');
   });
 
   it('relies on gradient veils for clear-stage edges; bottom veil sits on fixed chrome', () => {
     expect(mobileBlock).toMatch(
-      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\.99\)/
+      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\.995\)/
     );
     expect(mobileBlock).toMatch(
       /\.saina-chat-bottom-anchor::before[\s\S]*height:\s*36dvh/

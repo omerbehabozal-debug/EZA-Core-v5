@@ -19,9 +19,9 @@ describe('Mobile Yansı premium spacing + framing', () => {
   );
   const desktopBlock = css.slice(css.indexOf('@media (min-width: 900px)'));
 
-  it('gives identity → title deliberate editorial breath (~32–40px)', () => {
+  it('gives identity → title height-responsive editorial breath', () => {
     expect(mobileBlock).toContain(
-      '--saina-mobile-identity-title-breath: clamp(2rem, 5.5vw, 2.5rem)'
+      '--saina-mobile-identity-title-breath: clamp(1.75rem, 4.2dvh, 2.75rem)'
     );
     expect(mobileBlock).toMatch(
       /\.saina-main-body[\s\S]*padding-top:\s*var\(--saina-mobile-identity-title-breath\)/
@@ -41,8 +41,9 @@ describe('Mobile Yansı premium spacing + framing', () => {
     expect(mobileBlock).toContain('var(--saina-keyboard-inset, 0px)');
   });
 
-  it('keeps full-bleed paint frame (not a shortened mid-screen clip)', () => {
+  it('keeps full-bleed near-square paint frame (not a shortened mid-screen clip)', () => {
     expect(mobileBlock).toContain('--saina-mobile-cover-frame-height: 110dvh');
+    expect(mobileBlock).toContain('--saina-mobile-cover-frame-width: max(112%, 110dvh)');
     const frameRule = mobileBlock.slice(
       mobileBlock.indexOf('.saina-app-root.saina-standalone-shell .saina-scene-fit__frame {'),
       mobileBlock.indexOf(
@@ -51,6 +52,7 @@ describe('Mobile Yansı premium spacing + framing', () => {
     );
     expect(frameRule).toMatch(/top:\s*50%/);
     expect(frameRule).toContain('var(--saina-mobile-cover-frame-height)');
+    expect(frameRule).toContain('var(--saina-mobile-cover-frame-width)');
     expect(mobileBlock).not.toContain('--saina-mobile-cover-frame-height: min(100vw, 54dvh)');
     expect(mobileBlock).not.toContain('--saina-mobile-image-stage-center-y');
   });
@@ -69,7 +71,7 @@ describe('Mobile Yansı premium spacing + framing', () => {
 
   it('keeps identity zone dark; soft photographic entrance around title', () => {
     expect(mobileBlock).toMatch(
-      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\.99\) 0%[\s\S]*rgba\(9, 11, 11, 0\) 42%/
+      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\.995\) 0%[\s\S]*rgba\(9, 11, 11, 0\) 46%/
     );
     const headerBefore = mobileBlock.slice(
       mobileBlock.indexOf('.saina-mobile-yansi-header::before {'),

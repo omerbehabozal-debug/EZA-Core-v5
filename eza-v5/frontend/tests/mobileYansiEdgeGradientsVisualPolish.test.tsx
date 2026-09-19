@@ -167,7 +167,7 @@ describe('Mobile Yansı edge gradients visual polish', () => {
 
   it('vignette is edge-weighted with a clear transparent center band', () => {
     expect(mobileBlock).toMatch(
-      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 42%[\s\S]*rgba\(9, 11, 11, 0\) 58%/
+      /\.saina-canvas-vignette--scene[\s\S]*rgba\(9, 11, 11, 0\) 46%[\s\S]*rgba\(9, 11, 11, 0\) 54%/
     );
     expect(mobileBlock).not.toContain('ellipse 78% 38% at 48% 34%');
   });
@@ -225,10 +225,10 @@ describe('Mobile Yansı edge gradients visual polish', () => {
 
   it('uses deliberate identity→title breath without bloating chat-card padding', () => {
     expect(mobileBlock).toContain(
-      '--saina-mobile-identity-title-breath: clamp(2rem, 5.5vw, 2.5rem)'
+      '--saina-mobile-identity-title-breath: clamp(1.75rem, 4.2dvh, 2.75rem)'
     );
     expect(mobileBlock).toContain(
-      '--saina-identity-chat-breath: clamp(0.75rem, 2.8vw, 1.1rem)'
+      '--saina-identity-chat-breath: clamp(0.7rem, 2dvh, 1.2rem)'
     );
     expect(mobileBlock).toMatch(/\.saina-chat-card[\s\S]*padding:\s*0\.4rem 0 0\.3rem/);
   });
