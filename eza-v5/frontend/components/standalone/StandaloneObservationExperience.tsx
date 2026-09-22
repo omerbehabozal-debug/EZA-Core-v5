@@ -96,6 +96,7 @@ import {
   JOURNEY_AYNA_GENERATE_EVENT,
   readPendingJourneyAynaGeneration,
   consumePendingJourneyAynaGeneration,
+  requestJourneyAynaGeneration,
   recoverPublishedJourneyAfterLostResponse,
   resolveJourneyOwnerKey,
   requiresAuthenticatedJourneyYansiGate,
@@ -908,17 +909,26 @@ export default function StandaloneObservationExperience({
   );
 
   const runMirrorWithReveal = useCallback(
-    (sourceEntries: SavedBehavioralEntry[], options?: { isUpdate?: boolean; immediate?: boolean }) => {
+    (
+      sourceEntries: SavedBehavioralEntry[],
+      options?: {
+        isUpdate?: boolean;
+        immediate?: boolean;
+        /** Sync authorize for Review→kick (setState alone is too late for same-tick call). */
+        authorizeJourneyReveal?: boolean;
+      }
+    ) => {
       // Authenticated Journey gate: generation is impossible without Review8 authorization.
       if (
         !canAuthorizeAuthenticatedJourneyMirrorReveal({
           isAuthenticated,
           conversationId,
           ownerUserId: shareCacheUserId,
-          journeyAuthorizedReveal,
+          journeyAuthorizedReveal:
+            options?.authorizeJourneyReveal === true || journeyAuthorizedReveal,
         })
       ) {
-        return;
+        return false;
       }
 
       // Drop stale chat background + cache immediately so create/update UX
@@ -939,10 +949,13 @@ export default function StandaloneObservationExperience({
           const ok = commitMirrorReady(sourceEntries);
           if (!ok) {
             setDailyStatus('insufficient');
+            return false;
           }
+          return true;
         } catch {
           resetGeneratedCardState();
           setDailyStatus('error');
+          return false;
         }
       };
 
@@ -952,8 +965,7 @@ export default function StandaloneObservationExperience({
       }
 
       if (options?.immediate) {
-        commit();
-        return;
+        return commit();
       }
 
       setDailyStatus('revealing');
@@ -961,6 +973,7 @@ export default function StandaloneObservationExperience({
         revealTimeoutRef.current = null;
         commit();
       }, MIRROR_REVEAL_DURATION_MS);
+      return true;
     },
     [
       clearChatBackgroundScene,
@@ -1292,6 +1305,20 @@ export default function StandaloneObservationExperience({
 
       sceneGenerationInFlightRef.current = true;
       sceneAutoKeyRef.current = autoKey;
+      // Capture Journey kick identity BEFORE consume — prepare/scene errors must still
+      // be able to mark the artifact failed after pending is cleared.
+      const pendingKickAtStart = conversationId
+        ? readPendingJourneyAynaGeneration(conversationId)
+        : null;
+      const kickFailJourneyId =
+        (typeof pendingKickAtStart?.journeyId === 'string' &&
+          pendingKickAtStart.journeyId.trim()) ||
+        '';
+      const kickFailJourneyVersion =
+        typeof pendingKickAtStart?.journeyVersion === 'number' &&
+        pendingKickAtStart.journeyVersion >= 1
+          ? pendingKickAtStart.journeyVersion
+          : 1;
       if (conversationId) {
         consumePendingJourneyAynaGeneration(conversationId);
       }
@@ -1583,6 +1610,7 @@ export default function StandaloneObservationExperience({
         const failLineage = cardForScene.mirrorJourneyGenerationLineage;
         const failJourneyId =
           (typeof failLineage?.journeyId === 'string' && failLineage.journeyId.trim()) ||
+          kickFailJourneyId ||
           readPendingJourneyAynaGeneration(conversationId || '')?.journeyId ||
           '';
         if (failJourneyId && boundOwnerAtStart) {
@@ -1592,7 +1620,7 @@ export default function StandaloneObservationExperience({
               typeof failLineage?.journeyVersion === 'number' &&
               failLineage.journeyVersion >= 1
                 ? failLineage.journeyVersion
-                : 1,
+                : kickFailJourneyVersion,
             message:
               err instanceof Error ? err.message : 'generation_failed',
           });
@@ -1884,11 +1912,21 @@ export default function StandaloneObservationExperience({
   useEffect(() => {
     if (!conversationId) return;
 
-      const kickJourneyAynaGenerate = (detail: JourneyAynaGenerateDetail) => {
+    const failKickArtifact = (detail: JourneyAynaGenerateDetail, message: string) => {
+      if (!shareCacheUserId || !detail.journeyId) return;
+      markMirrorJourneyArtifactFailed(shareCacheUserId, {
+        journeyId: detail.journeyId,
+        journeyVersion: detail.journeyVersion ?? 1,
+        message,
+      });
+    };
+
+    const kickJourneyAynaGenerate = (detail: JourneyAynaGenerateDetail) => {
       if (!detail || detail.conversationId !== conversationId) return;
       if (entries.length < MIRROR_MIN_SAMPLES) return;
       if (!canCreateVisual) {
         consumePendingJourneyAynaGeneration(conversationId);
+        failKickArtifact(detail, 'visual_not_available');
         setDailyStatus(visualLimitStatus());
         return;
       }
@@ -1906,9 +1944,19 @@ export default function StandaloneObservationExperience({
           });
           return;
         }
-        journeyAynaKickKeyRef.current = kickKey;
         setJourneyAuthorizedReveal(true);
-        runMirrorWithReveal(entries, { isUpdate: true, immediate: true });
+        const started = runMirrorWithReveal(entries, {
+          isUpdate: true,
+          immediate: true,
+          authorizeJourneyReveal: true,
+        });
+        if (started) {
+          journeyAynaKickKeyRef.current = kickKey;
+        } else {
+          // Gate/insufficient — do not latch kickKey; leave terminal failure for UI.
+          failKickArtifact(detail, 'mirror_reveal_blocked');
+          consumePendingJourneyAynaGeneration(conversationId);
+        }
       };
       const localReusable =
         Boolean(shareCacheUserId) &&
@@ -1947,6 +1995,21 @@ export default function StandaloneObservationExperience({
     const pending = readPendingJourneyAynaGeneration(conversationId);
     if (pending) {
       kickJourneyAynaGenerate(pending);
+    } else if (shareCacheUserId) {
+      // Mobile sheet remount: generating artifact + consumed pending → re-arm one kick.
+      const stuckGenerating = listJourneyArtifactsForConversation(
+        shareCacheUserId,
+        conversationId
+      ).find((artifact) => artifact.status === 'generating');
+      if (stuckGenerating) {
+        requestJourneyAynaGeneration({
+          conversationId,
+          journeyId: stuckGenerating.journeyId,
+          journeyVersion: stuckGenerating.journeyVersion,
+        });
+        const rearmed = readPendingJourneyAynaGeneration(conversationId);
+        if (rearmed) kickJourneyAynaGenerate(rearmed);
+      }
     }
 
     const onJourneyAynaGenerate = (event: Event) => {
