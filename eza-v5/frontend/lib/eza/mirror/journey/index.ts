@@ -59,6 +59,7 @@ export {
   confirmJourneyWindow,
   markJourneyWindowReady,
   markJourneyWindowFailed,
+  markJourneyWindowGenerating,
   resolveParentJourneyId,
   pairsForWindow,
   isFullWindow,
@@ -200,6 +201,7 @@ export { completeJourneyGenerationLineageSeal } from './completeJourneyGeneratio
 
 export {
   promoteJourneyWindowFromArtifact,
+  rearmJourneyWindowGeneratingFromArtifact,
   JOURNEY_WINDOW_STATUS_EVENT,
   type JourneyWindowStatusDetail,
 } from './promoteJourneyWindowFromArtifact';

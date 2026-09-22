@@ -1,5 +1,5 @@
 /**
- * Hydrate/remount: catch generating windows up to durable artifact status
+ * Hydrate/remount: catch generating/failed windows up to durable artifact status
  * without regenerating.
  */
 
@@ -21,7 +21,14 @@ export function reconcileGeneratingJourneyWindowsWithArtifacts(input: {
 
   let changed = false;
   for (const w of state.windows) {
-    if (w.status !== 'generating' || !w.journeyId) continue;
+    // generating: normal in-flight catch-up
+    // failed: retry success may have left window failed while artifact is ready
+    if (
+      (w.status !== 'generating' && w.status !== 'failed') ||
+      !w.journeyId
+    ) {
+      continue;
+    }
     const artifact = loadMirrorJourneyArtifact(ownerUserId, w.journeyId, 1);
     if (!artifact) continue;
     if (artifact.status === 'ready' || artifact.status === 'published') {
@@ -35,7 +42,7 @@ export function reconcileGeneratingJourneyWindowsWithArtifacts(input: {
         state = promoted;
         changed = true;
       }
-    } else if (artifact.status === 'failed') {
+    } else if (artifact.status === 'failed' && w.status === 'generating') {
       const promoted = promoteJourneyWindowFromArtifact({
         ownerUserId,
         sourceConversationId,

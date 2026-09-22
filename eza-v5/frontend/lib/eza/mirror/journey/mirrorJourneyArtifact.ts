@@ -180,6 +180,7 @@ export function buildGeneratingMirrorJourneyArtifact(input: {
     status: 'generating',
     publish: {},
     sealedLineage: null,
+    generationError: null,
     authorUserId: input.authorUserId?.trim() || null,
     authorDisplayName: input.authorDisplayName?.trim() || null,
     authorAvatarUrl: input.authorAvatarUrl?.trim() || null,

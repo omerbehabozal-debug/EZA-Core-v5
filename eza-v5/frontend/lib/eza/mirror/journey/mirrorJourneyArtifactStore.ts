@@ -26,7 +26,10 @@ import {
 } from './mirrorJourneyArtifact';
 import type { JourneyGenerationLineage } from './journeyGenerationLineage';
 import { isPublishableJourneyGenerationLineage } from './journeyGenerationLineage';
-import { promoteJourneyWindowFromArtifact } from './promoteJourneyWindowFromArtifact';
+import {
+  promoteJourneyWindowFromArtifact,
+  rearmJourneyWindowGeneratingFromArtifact,
+} from './promoteJourneyWindowFromArtifact';
 
 export const MIRROR_JOURNEY_ARTIFACT_PANEL_STORAGE_KEY =
   'eza_mirror_journey_panel_artifacts_v1';
@@ -298,7 +301,16 @@ export function markMirrorJourneyArtifactGenerating(
     row.createdAt = existing.createdAt;
     row.stateVersion = existing.stateVersion;
   }
-  return upsertMirrorJourneyArtifact(ownerUserId, row);
+  const saved = upsertMirrorJourneyArtifact(ownerUserId, row);
+  if (saved) {
+    // Retry / confirm kick: exact window must be generating so promote→ready can land.
+    rearmJourneyWindowGeneratingFromArtifact({
+      ownerUserId,
+      sourceConversationId: saved.sourceConversationId,
+      journeyId: saved.journeyId,
+    });
+  }
+  return saved;
 }
 
 export function markMirrorJourneyArtifactReadyFromLineage(

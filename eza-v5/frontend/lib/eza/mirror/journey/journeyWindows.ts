@@ -536,7 +536,8 @@ export function markJourneyWindowReady(
   return {
     ...state,
     windows: state.windows.map((w) =>
-      w.windowIndex === windowIndex && w.status === 'generating'
+      w.windowIndex === windowIndex &&
+      (w.status === 'generating' || w.status === 'failed')
         ? { ...w, status: 'ready' as const }
         : w
     ),
@@ -556,6 +557,29 @@ export function markJourneyWindowFailed(
         ? { ...w, status: 'failed' as const }
         : w
     ),
+    updatedAt: now,
+  };
+}
+
+/**
+ * Retry / re-kick: return a failed (or already-generating) window to generating
+ * for the same journeyId. Never allocates a new window or journeyId.
+ */
+export function markJourneyWindowGenerating(
+  state: JourneyConversationState,
+  windowIndex: number
+): JourneyConversationState {
+  const now = new Date().toISOString();
+  return {
+    ...state,
+    windows: state.windows.map((w) => {
+      if (w.windowIndex !== windowIndex) return w;
+      if (w.status !== 'failed' && w.status !== 'generating') return w;
+      return {
+        ...w,
+        status: 'generating' as const,
+      };
+    }),
     updatedAt: now,
   };
 }

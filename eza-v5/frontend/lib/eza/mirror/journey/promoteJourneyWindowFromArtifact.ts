@@ -5,6 +5,7 @@
 
 import {
   markJourneyWindowFailed,
+  markJourneyWindowGenerating,
   markJourneyWindowReady,
   type JourneyConversationState,
 } from './journeyWindows';
@@ -19,7 +20,7 @@ export type JourneyWindowStatusDetail = {
   ownerUserId: string;
   sourceConversationId: string;
   journeyId: string;
-  status: 'ready' | 'failed';
+  status: 'ready' | 'failed' | 'generating';
 };
 
 function dispatchStatus(detail: JourneyWindowStatusDetail): void {
@@ -29,23 +30,25 @@ function dispatchStatus(detail: JourneyWindowStatusDetail): void {
   );
 }
 
-function findGeneratingWindowIndex(
+function findWindowIndexForJourney(
   state: JourneyConversationState,
-  journeyId: string
+  journeyId: string,
+  allowed: ReadonlyArray<'generating' | 'failed'>
 ): number | null {
   const wanted = journeyId.trim().toLowerCase();
   if (!wanted) return null;
   const hit = state.windows.find(
     (w) =>
-      w.status === 'generating' &&
+      allowed.includes(w.status as 'generating' | 'failed') &&
       (w.journeyId || '').trim().toLowerCase() === wanted
   );
   return hit ? hit.windowIndex : null;
 }
 
 /**
- * Promote a generating Journey window to ready/failed after artifact authority.
- * Persists via CAS (one stale retry) and notifies same-tab listeners.
+ * Promote a Journey window to ready/failed after artifact authority.
+ * Ready accepts generating OR failed (retry reconciliation).
+ * Failed only from generating (genuine in-flight failure).
  */
 export function promoteJourneyWindowFromArtifact(input: {
   ownerUserId: string | null | undefined;
@@ -61,11 +64,19 @@ export function promoteJourneyWindowFromArtifact(input: {
   const applyOnce = (
     base: JourneyConversationState
   ): JourneyConversationState | null => {
-    const windowIndex = findGeneratingWindowIndex(base, journeyId);
+    if (input.status === 'ready') {
+      const windowIndex = findWindowIndexForJourney(base, journeyId, [
+        'generating',
+        'failed',
+      ]);
+      if (windowIndex == null) return null;
+      return markJourneyWindowReady(base, windowIndex);
+    }
+    const windowIndex = findWindowIndexForJourney(base, journeyId, [
+      'generating',
+    ]);
     if (windowIndex == null) return null;
-    return input.status === 'ready'
-      ? markJourneyWindowReady(base, windowIndex)
-      : markJourneyWindowFailed(base, windowIndex);
+    return markJourneyWindowFailed(base, windowIndex);
   };
 
   let current =
@@ -89,6 +100,60 @@ export function promoteJourneyWindowFromArtifact(input: {
     sourceConversationId,
     journeyId,
     status: input.status,
+  });
+  return result;
+}
+
+/**
+ * Retry / remount kick: re-arm the exact JourneyWindow to generating.
+ * Preserves journeyId — never allocates a new window.
+ * No-op when already generating; no-op when no matching failed/generating window.
+ */
+export function rearmJourneyWindowGeneratingFromArtifact(input: {
+  ownerUserId: string | null | undefined;
+  sourceConversationId: string;
+  journeyId: string;
+}): JourneyConversationState | null {
+  const ownerUserId = (input.ownerUserId || '').trim();
+  const sourceConversationId = (input.sourceConversationId || '').trim();
+  const journeyId = (input.journeyId || '').trim().toLowerCase();
+  if (!ownerUserId || !sourceConversationId || !journeyId) return null;
+
+  const applyOnce = (
+    base: JourneyConversationState
+  ): JourneyConversationState | null => {
+    const windowIndex = findWindowIndexForJourney(base, journeyId, [
+      'failed',
+      'generating',
+    ]);
+    if (windowIndex == null) return null;
+    const current = base.windows.find((w) => w.windowIndex === windowIndex);
+    if (current?.status === 'generating') return base;
+    return markJourneyWindowGenerating(base, windowIndex);
+  };
+
+  let current =
+    loadJourneyConversationState(ownerUserId, sourceConversationId) || null;
+  if (!current) return null;
+
+  let next = applyOnce(current);
+  if (!next) return current;
+  if (next === current) return current;
+
+  let saved = saveJourneyConversationState(next);
+  if (!saved.ok) {
+    current = saved.current;
+    next = applyOnce(current);
+    if (!next || next === current) return current;
+    saved = saveJourneyConversationState(next);
+  }
+
+  const result = saved.ok ? saved.state : saved.current;
+  dispatchStatus({
+    ownerUserId,
+    sourceConversationId,
+    journeyId,
+    status: 'generating',
   });
   return result;
 }

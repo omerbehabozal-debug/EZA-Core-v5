@@ -105,6 +105,7 @@ import {
   hasJourneyBackedYansiArtifact,
   canAuthorizeAuthenticatedJourneyMirrorReveal,
   promoteJourneyWindowFromArtifact,
+  rearmJourneyWindowGeneratingFromArtifact,
   restoreRemountCardLandingFromJourneyArtifacts,
   canShowAynaEarlyYansiCreateCta,
   requestEarlyYansiReview,
@@ -1932,6 +1933,14 @@ export default function StandaloneObservationExperience({
     const kickJourneyAynaGenerate = (detail: JourneyAynaGenerateDetail) => {
       if (!detail || detail.conversationId !== conversationId) return;
       if (entries.length < MIRROR_MIN_SAMPLES) return;
+      // Exact window must be generating before scene success can promote → ready.
+      if (shareCacheUserId && detail.journeyId) {
+        rearmJourneyWindowGeneratingFromArtifact({
+          ownerUserId: shareCacheUserId,
+          sourceConversationId: conversationId,
+          journeyId: detail.journeyId,
+        });
+      }
       if (!canCreateVisual) {
         consumePendingJourneyAynaGeneration(conversationId);
         failKickArtifact(detail, 'visual_not_available');
