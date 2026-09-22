@@ -107,6 +107,7 @@ export {
   saveReview8Draft,
   loadReview8Draft,
   loadActiveReview8Draft,
+  loadReview8DraftForJourney,
   loadReview8DraftForConversation,
   listReview8DraftsForConversation,
   setActiveReview8DraftKey,

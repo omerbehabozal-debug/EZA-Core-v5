@@ -70,7 +70,8 @@ import MirrorPosterLightbox from '@/components/mirror/MirrorPosterLightbox';
 import MirrorShareExperience from '@/components/mirror/MirrorShareExperience';
 import {
   isMirrorJourneyV1ClientEnabled,
-  loadActiveReview8Draft,
+  loadReview8DraftForJourney,
+  setActiveReview8DraftKey,
   resolveJourneyPublishContract,
   resolveScopedJourneyMeaning,
   canReuseMappedPromptForJourney,
@@ -87,6 +88,7 @@ import {
   markMirrorJourneyArtifactPublished,
   markMirrorJourneyArtifactPublishFailed,
   markMirrorJourneyArtifactFailed,
+  markMirrorJourneyArtifactGenerating,
   noteOwnerYansiSlugPublication,
   loadMirrorJourneyArtifact,
   resolveMirrorJourneySharePayload,
@@ -1355,9 +1357,15 @@ export default function StandaloneObservationExperience({
           // Scoped prepare is fail-closed behind Journey V1 identity. Invitation
           // can run with that flag off — use the same full-conversation prepare
           // as the Ayna CTA so client hashes cannot 422 the scene birth.
+          // Authority: sealed Review8 draft for the kick journeyId — never the
+          // latest conversation window or a different Journey's active pointer.
           const ownerId = shareCacheUserId;
           const draft = ownerId
-            ? loadActiveReview8Draft(ownerId, conversationId)
+            ? loadReview8DraftForJourney(
+                ownerId,
+                conversationId,
+                kickFailJourneyId || undefined
+              )
             : null;
           const scoped = resolveScopedJourneyMeaning(draft);
           if (isMirrorJourneyV1ClientEnabled()) {
@@ -2002,6 +2010,18 @@ export default function StandaloneObservationExperience({
         conversationId
       ).find((artifact) => artifact.status === 'generating');
       if (stuckGenerating) {
+        const sealedDraft = loadReview8DraftForJourney(
+          shareCacheUserId,
+          conversationId,
+          stuckGenerating.journeyId
+        );
+        if (sealedDraft?.draftKey) {
+          setActiveReview8DraftKey(
+            shareCacheUserId,
+            conversationId,
+            sealedDraft.draftKey
+          );
+        }
         requestJourneyAynaGeneration({
           conversationId,
           journeyId: stuckGenerating.journeyId,
@@ -2503,8 +2523,54 @@ export default function StandaloneObservationExperience({
           setDailyStatus(visualLimitStatus());
           return;
         }
-        // Re-kick the same Review→scene path; do not allocate a new journeyId.
-        runMirrorWithReveal(entries, { isUpdate: true });
+        // Exact sealed artifact only — never a new journeyId / window / selectedSteps.
+        const sealedDraft = shareCacheUserId
+          ? loadReview8DraftForJourney(
+              shareCacheUserId,
+              conversationId,
+              artifact.journeyId
+            )
+          : null;
+        if (
+          !sealedDraft?.journeyId ||
+          sealedDraft.journeyId.trim().toLowerCase() !==
+            artifact.journeyId.trim().toLowerCase()
+        ) {
+          markMirrorJourneyArtifactFailed(shareCacheUserId, {
+            journeyId: artifact.journeyId,
+            journeyVersion: artifact.journeyVersion,
+            message: 'legacy_incompatible_sealed_selection',
+          });
+          return;
+        }
+        if (sealedDraft.draftKey) {
+          setActiveReview8DraftKey(
+            shareCacheUserId,
+            conversationId,
+            sealedDraft.draftKey
+          );
+        }
+        // Allow the same journeyId to be kicked again after a prior attempt.
+        journeyAynaKickKeyRef.current = null;
+        markMirrorJourneyArtifactGenerating(shareCacheUserId, {
+          journeyId: artifact.journeyId,
+          journeyVersion: artifact.journeyVersion,
+          sourceConversationId: conversationId,
+          blockIndex: artifact.blockIndex,
+          selectedCount: artifact.selectedCount,
+          authorUserId: artifact.authorUserId,
+          authorDisplayName: artifact.authorDisplayName,
+          authorAvatarUrl: artifact.authorAvatarUrl,
+          parentJourneyId: artifact.parentJourneyId,
+          parentSlug: artifact.parentSlug,
+          parentAuthorDisplayName: artifact.parentAuthorDisplayName,
+          parentPublicTitle: artifact.parentPublicTitle,
+        });
+        requestJourneyAynaGeneration({
+          conversationId,
+          journeyId: artifact.journeyId,
+          journeyVersion: artifact.journeyVersion,
+        });
       },
       onShare: (artifact) => {
         if (!isPlus) {
@@ -2580,7 +2646,7 @@ export default function StandaloneObservationExperience({
       entries,
       canCreateVisual,
       visualLimitStatus,
-      runMirrorWithReveal,
+      setDailyStatus,
     ]
   );
 

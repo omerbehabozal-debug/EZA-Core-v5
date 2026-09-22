@@ -148,6 +148,36 @@ export function loadActiveReview8Draft(
   return listed[0] ?? null;
 }
 
+/**
+ * Resolve the sealed Review8 draft for an exact journeyId.
+ * Prefer identity match over "active" pointer so retry/re-arm cannot
+ * substitute a later Journey window's selectedSteps.
+ */
+export function loadReview8DraftForJourney(
+  ownerUserId: string,
+  sourceConversationId: string,
+  journeyId: string | null | undefined
+): Review8Draft | null {
+  const wanted = (journeyId || '').trim().toLowerCase();
+  if (!wanted) {
+    return loadActiveReview8Draft(ownerUserId, sourceConversationId);
+  }
+  const listed = listReview8DraftsForConversation(
+    ownerUserId,
+    sourceConversationId
+  );
+  const exact = listed.find(
+    (d) => (d.journeyId || '').trim().toLowerCase() === wanted
+  );
+  if (exact) return exact;
+  const active = loadActiveReview8Draft(ownerUserId, sourceConversationId);
+  if (active && (active.journeyId || '').trim().toLowerCase() === wanted) {
+    return active;
+  }
+  // Fail closed: do not silently use a different journey's sealed selection.
+  return null;
+}
+
 /** @deprecated Prefer loadActiveReview8Draft — conversation-only was unsafe. */
 export function loadReview8DraftForConversation(
   sourceConversationId: string,

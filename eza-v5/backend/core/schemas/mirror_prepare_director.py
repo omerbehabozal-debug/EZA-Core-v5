@@ -43,8 +43,19 @@ class MirrorJourneySelectedStepScopeDTO(BaseModel):
     sourceOrder: int = Field(..., ge=0)
     sourceUserMessageId: str = Field(..., min_length=1, max_length=128)
     sourceAssistantMessageId: str = Field(..., min_length=1, max_length=128)
-    publicQuestion: str = Field(..., min_length=1)
-    publicAnswer: str = Field(..., min_length=1)
+    publicQuestion: str = Field(..., min_length=1, max_length=4000)
+    publicAnswer: str = Field(..., min_length=1, max_length=4000)
+
+    @field_validator("publicQuestion", "publicAnswer", mode="before")
+    @classmethod
+    def _clean_public_text(cls, value: object) -> str:
+        # Same authority as MirrorConversationMessageDTO.text — scoped messages
+        # are rebuilt from these fields; asymmetric sanitization falsely rejects
+        # sealed A1/Q1 pairs that only differ by newlines/URL/HTML collapse.
+        text = sanitize_display_text(str(value or ""), max_len=4000)
+        if not text:
+            raise ValueError("empty public text")
+        return text
 
 
 class MirrorJourneySourceBlockStepDTO(BaseModel):
@@ -55,8 +66,16 @@ class MirrorJourneySourceBlockStepDTO(BaseModel):
     sourceOrder: int = Field(..., ge=0)
     sourceUserMessageId: str = Field(..., min_length=1, max_length=128)
     sourceAssistantMessageId: str = Field(..., min_length=1, max_length=128)
-    publicQuestion: str = Field(..., min_length=1)
-    publicAnswer: str = Field(..., min_length=1)
+    publicQuestion: str = Field(..., min_length=1, max_length=4000)
+    publicAnswer: str = Field(..., min_length=1, max_length=4000)
+
+    @field_validator("publicQuestion", "publicAnswer", mode="before")
+    @classmethod
+    def _clean_public_text(cls, value: object) -> str:
+        text = sanitize_display_text(str(value or ""), max_len=4000)
+        if not text:
+            raise ValueError("empty public text")
+        return text
 
 
 class MirrorJourneySemanticScopeDTO(BaseModel):

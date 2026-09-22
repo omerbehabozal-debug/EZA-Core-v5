@@ -78,7 +78,7 @@ describe('Ayna generation lifecycle — no infinite Hazırlanıyor', () => {
 
   it('remount re-arms kick when generating artifact has no pending', () => {
     expect(obs).toMatch(
-      /stuckGenerating[\s\S]*requestJourneyAynaGeneration[\s\S]*kickJourneyAynaGenerate\(rearmed\)/
+      /stuckGenerating[\s\S]*loadReview8DraftForJourney[\s\S]*requestJourneyAynaGeneration[\s\S]*kickJourneyAynaGenerate\(rearmed\)/
     );
   });
 
