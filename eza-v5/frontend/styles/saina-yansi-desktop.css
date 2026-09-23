@@ -827,7 +827,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: rgba(231, 180, 91, 0.82);
+    color: rgba(var(--yansi-accent-rgb), 0.82);
     font-size: 0.7rem;
     font-weight: 400;
     letter-spacing: 0.01em;
