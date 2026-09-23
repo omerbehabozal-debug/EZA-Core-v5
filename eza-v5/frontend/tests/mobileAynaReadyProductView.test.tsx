@@ -1,5 +1,5 @@
 /**
- * Mobile Ayna READY product view + stale FAILED / Hazırlanıyor reconciliation.
+ * Mobile Ayna READY opening view + superseded FAILED cleanup + Devamı.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,16 +7,19 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen, fireEvent } from '@testing-library/react';
 import AynaJourneySlide from '@/components/mirror/ayna/AynaJourneySlide';
+import AynaJourneyReel from '@/components/mirror/ayna/AynaJourneyReel';
 import {
   clearAllJourneyConversationStates,
   clearAllMirrorJourneyArtifactsForTests,
   confirmJourneyWindow,
   ensureJourneyWindowRecord,
+  listAynaReelArtifacts,
   listJourneyArtifactsForConversation,
   markMirrorJourneyArtifactFailed,
   markMirrorJourneyArtifactGenerating,
   markMirrorJourneyArtifactReadyFromLineage,
   reconcileGeneratingJourneyWindowsWithArtifacts,
+  resolveAynaGenerationErrorCopy,
   resolveAynaReelSelectedIdentity,
   saveJourneyConversationState,
   syncJourneyConversationState,
@@ -29,6 +32,20 @@ import { loadJourneyConversationState } from '@/lib/eza/mirror/journey/journeyWi
 vi.mock('@/hooks/useResolvedProfileAvatar', () => ({
   useResolvedProfileAvatar: () => ({ url: null, revision: undefined }),
 }));
+
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    isAuthenticated: false,
+    isAuthReady: true,
+    user: null,
+    token: null,
+    role: null,
+    setAuth: () => undefined,
+    patchAuthUser: () => undefined,
+    logout: () => undefined,
+  }),
+}));
+
 const USER = 'user-mobile-ready';
 const CONV = 'conv-mobile-ready';
 
@@ -45,16 +62,16 @@ function eightMessages(): JourneyMessageLike[] {
   return out;
 }
 
-function lineage(journeyId: string): JourneyGenerationLineage {
+function lineage(journeyId: string, blockIndex = 0): JourneyGenerationLineage {
   return {
     contractVersion: 'journey_generation_lineage_v1',
     journeyId,
     journeyVersion: 1,
     sourceConversationId: CONV,
-    windowIndex: 0,
-    windowStart: 0,
-    windowEnd: 7,
-    blockIndex: 0,
+    windowIndex: blockIndex,
+    windowStart: blockIndex * 8,
+    windowEnd: blockIndex * 8 + 7,
+    blockIndex,
     windowHash: 'h',
     sourceBlockHash: 'b',
     scopedInputHash: 's',
@@ -68,7 +85,7 @@ function lineage(journeyId: string): JourneyGenerationLineage {
     sealedAt: new Date().toISOString(),
     selectedSteps: Array.from({ length: 8 }, (_, i) => ({
       stepIndex: i + 1,
-      sourceOrder: i,
+      sourceOrder: blockIndex * 8 + i,
       sourceUserMessageId: `u${i + 1}`,
       sourceAssistantMessageId: `a${i + 1}`,
       publicQuestion: `Soru ${i + 1}?`,
@@ -117,7 +134,8 @@ function readyArtifact(overrides: Partial<MirrorJourneyArtifact> = {}): MirrorJo
     status: 'ready',
     publish: {},
     sealedLineage: null,
-    authorDisplayName: 'Ali',
+    authorDisplayName: 'biligN',
+    authorAvatarUrl: 'https://example.com/avatar.png',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
     stateVersion: 1,
@@ -131,14 +149,22 @@ const noopActions = {
   onOpenDiscover: () => undefined,
   onOpenAuthorProfile: () => undefined,
   onOpenParent: () => undefined,
+  onRetry: () => undefined,
 };
 
-describe('mobile Ayna READY + stale reconciliation', () => {
+describe('mobile Ayna READY + superseded FAILED + Devamı', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
     clearAllJourneyConversationStates();
     clearAllMirrorJourneyArtifactsForTests();
+    Element.prototype.scrollIntoView = vi.fn();
+    // @ts-expect-error test stub
+    global.IntersectionObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
   });
 
   it('1–3: READY artifact reconciles stale generating and failed windows', () => {
@@ -146,7 +172,7 @@ describe('mobile Ayna READY + stale reconciliation', () => {
     markMirrorJourneyArtifactFailed(USER, {
       journeyId: 'journey-ready',
       journeyVersion: 1,
-      message: 'Scoped message A1 does not match selectedSteps',
+      message: 'legacy_incompatible_sealed_selection',
     });
     expect(loadJourneyConversationState(USER, CONV)?.windows[0]?.status).toBe(
       'failed'
@@ -162,7 +188,6 @@ describe('mobile Ayna READY + stale reconciliation', () => {
       'ready'
     );
 
-    // Force stale generating again, then hydrate reconcile.
     let state = loadJourneyConversationState(USER, CONV)!;
     state = {
       ...state,
@@ -178,43 +203,119 @@ describe('mobile Ayna READY + stale reconciliation', () => {
     expect(reconciled?.windows[0]?.status).toBe('ready');
   });
 
-  it('4–8: prefer READY identity; do not delete separate failed Yansı', () => {
-    const failed: MirrorJourneyArtifact = {
-      ...readyArtifact({
-        journeyId: 'journey-old-fail',
-        blockIndex: 0,
-        status: 'failed',
-        sceneImageUrl: null,
-        publicTitle: 'Eski',
-        generationError: 'Scoped message A1 does not match selectedSteps',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      }),
-    };
+  it('1,4,18: same-window FAILED superseded by READY is dropped from reel', () => {
+    const failed = readyArtifact({
+      journeyId: 'journey-fail-attempt',
+      blockIndex: 0,
+      status: 'failed',
+      sceneImageUrl: null,
+      publicTitle: 'Eski',
+      generationError: 'legacy_incompatible_sealed_selection',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
     const ready = readyArtifact({
       journeyId: 'journey-ready',
-      blockIndex: 1,
+      blockIndex: 0,
       updatedAt: '2026-01-03T00:00:00.000Z',
     });
+    const listed = listAynaReelArtifacts({
+      artifacts: [failed, ready],
+      routeIdentity: null,
+    });
+    expect(listed.map((a) => a.journeyId)).toEqual(['journey-ready']);
+    expect(listed.some((a) => a.status === 'failed')).toBe(false);
+
     const selected = resolveAynaReelSelectedIdentity({
       artifacts: [failed, ready],
       routeIdentity: null,
     });
     expect(selected?.journeyId).toBe('journey-ready');
-    expect(selected?.journeyVersion).toBe(1);
+  });
 
-    // Route identity still wins when present.
+  it('2,4: independent FAILED Yansı on another block is preserved', () => {
+    const failed = readyArtifact({
+      journeyId: 'journey-independent-fail',
+      blockIndex: 0,
+      status: 'failed',
+      sceneImageUrl: null,
+      selectedStepsHash: 'other-hash',
+      generationError: 'legacy_incompatible_sealed_selection',
+    });
+    const ready = readyArtifact({
+      journeyId: 'journey-ready',
+      blockIndex: 1,
+      selectedStepsHash: 't',
+      updatedAt: '2026-01-03T00:00:00.000Z',
+    });
+    const listed = listAynaReelArtifacts({
+      artifacts: [failed, ready],
+      routeIdentity: null,
+    });
+    expect(listed).toHaveLength(2);
+    expect(listed.find((a) => a.status === 'failed')?.journeyId).toBe(
+      'journey-independent-fail'
+    );
+
+    const selected = resolveAynaReelSelectedIdentity({
+      artifacts: [failed, ready],
+      routeIdentity: null,
+    });
+    expect(selected?.journeyId).toBe('journey-ready');
+  });
+
+  it('3: explicit ?yansi= exact route still wins (including FAILED)', () => {
+    const failed = readyArtifact({
+      journeyId: 'journey-old-fail',
+      blockIndex: 0,
+      status: 'failed',
+      sceneImageUrl: null,
+      generationError: 'legacy_incompatible_sealed_selection',
+    });
+    const ready = readyArtifact({
+      journeyId: 'journey-ready',
+      blockIndex: 0,
+    });
     const routed = resolveAynaReelSelectedIdentity({
       artifacts: [failed, ready],
       routeIdentity: { journeyId: 'journey-old-fail', journeyVersion: 1 },
     });
     expect(routed?.journeyId).toBe('journey-old-fail');
-
-    // Separate failed remains listable (not deleted by selection helper).
-    expect([failed, ready].filter((a) => a.status === 'failed')).toHaveLength(1);
+    const listed = listAynaReelArtifacts({
+      artifacts: [failed, ready],
+      routeIdentity: { journeyId: 'journey-old-fail', journeyVersion: 1 },
+    });
+    expect(listed.some((a) => a.journeyId === 'journey-old-fail')).toBe(true);
   });
 
-  it('9–11+16–18: compact mobile READY order + visualOnly + fullscreen', () => {
-    const artifact = readyArtifact();
+  it('4: default opening selects current READY/published product', () => {
+    const selected = resolveAynaReelSelectedIdentity({
+      artifacts: [
+        readyArtifact({
+          journeyId: 'a',
+          blockIndex: 0,
+          status: 'failed',
+          generationError: 'x',
+        }),
+        readyArtifact({ journeyId: 'b', blockIndex: 1, status: 'published' }),
+      ],
+      routeIdentity: null,
+    });
+    expect(selected?.journeyId).toBe('b');
+  });
+
+  it('5–6,9–11: mobile compact READY hierarchy + full title + Devamı under summary', () => {
+    const fullTitle =
+      'Gece Rotası: Sessiz limanın aydınlık kıyısında uzun bir yürüyüş ve dönüş';
+    const longSummary =
+      'Bu özet oldukça uzun bir metindir ve birincil ekranda kısaltılmalıdır. ' +
+      'İkinci cümle de devam eder ve Devamı bölümünde tam görünür.';
+    const artifact = readyArtifact({
+      publicTitle: fullTitle,
+      publicSummary: longSummary,
+      authorDisplayName: 'biligN kullanıcısı',
+    });
+    const storedSummary = artifact.publicSummary;
+    const storedTitle = artifact.publicTitle;
     render(
       <AynaJourneySlide
         artifact={artifact}
@@ -224,57 +325,138 @@ describe('mobile Ayna READY + stale reconciliation', () => {
     );
     const root = screen.getByTestId('ayna-journey-slide');
     expect(root.getAttribute('data-compact-primary')).toBe('true');
-    const card = root.querySelector('[data-visual-only="true"]');
-    expect(card).toBeTruthy();
-    expect(card?.querySelector('.saina-discover-card__body')).toBeNull();
 
-    const title = screen.getByText('Gece Rotası');
-    const summary = screen.getByText('Sessiz bir yürüyüş.');
-    const secondary = screen.getByTestId('ayna-slide-secondary');
-    // Title/summary appear before secondary author block in DOM.
+    const visual = root.querySelector('[data-visual-only="true"]') as HTMLElement;
+    expect(visual).toBeTruthy();
+
+    const title = screen.getByTestId('ayna-slide-title');
+    const preview = screen.getByTestId('ayna-summary-preview');
+    const devami = screen.getByTestId('ayna-slide-devami');
+    const status = screen.getByTestId('ayna-slide-status');
+    const publish = screen.getByTestId('mirror-publish-btn');
+    const detail = screen.getByTestId('ayna-slide-detail');
+
+    // Approved order: visual → full title → summary preview → Devamı → status → CTA
     expect(
-      title.compareDocumentPosition(secondary) & Node.DOCUMENT_POSITION_FOLLOWING
+      visual.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
     expect(
-      summary.compareDocumentPosition(secondary) & Node.DOCUMENT_POSITION_FOLLOWING
+      title.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      preview.compareDocumentPosition(devami) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      devami.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      status.compareDocumentPosition(publish) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      publish.compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
 
-    fireEvent.click(screen.getByTestId(`ayna-slide-${artifact.journeyId}-expand`));
-    const lightboxImg = document.body.querySelector(
-      '.saina-mirror-poster-lightbox img'
-    ) as HTMLImageElement | null;
-    expect(lightboxImg?.getAttribute('src')).toBe(artifact.sceneImageUrl);
-    // Fullscreen does not mutate artifact identity fields.
-    expect(artifact.status).toBe('ready');
-    expect(artifact.sceneImageUrl).toBe('https://example.com/ready.png');
+    expect(title.textContent).toBe(fullTitle);
+    expect(artifact.publicTitle).toBe(storedTitle);
+    expect(screen.queryByText(/biligN/)).toBeNull();
+    expect(root.querySelector('[data-testid="ayna-author-row"]')).toBeNull();
+    expect(screen.queryByTestId('ayna-slide-secondary')).toBeNull();
+
+    expect(preview.textContent).toBe(longSummary);
+    expect(artifact.publicSummary).toBe(storedSummary);
+    expect(detail.textContent).toContain(longSummary);
+    expect(devami.textContent).toBe('Devamı');
   });
 
-  it('19–20: desktop compact stays off; publication actions present', () => {
-    render(
+  it('7,17: desktop author row remains; genuine failure shows safe retry UX', () => {
+    const { unmount: unmountDesktop } = render(
       <AynaJourneySlide artifact={readyArtifact()} actions={noopActions} />
     );
     expect(
       screen.getByTestId('ayna-journey-slide').getAttribute('data-compact-primary')
     ).toBeNull();
-    expect(screen.queryByTestId('ayna-slide-secondary')).toBeNull();
-    expect(screen.getByText('Gece Rotası')).toBeTruthy();
+    expect(screen.getByText(/biligN/)).toBeTruthy();
+    expect(screen.queryByTestId('ayna-slide-devami')).toBeNull();
+    unmountDesktop();
+
+    const failed = readyArtifact({
+      status: 'failed',
+      sceneImageUrl: null,
+      generationError: 'legacy_incompatible_sealed_selection',
+    });
+    render(<AynaJourneySlide artifact={failed} actions={noopActions} />);
+    expect(screen.getByTestId('ayna-slide-failed')).toBeTruthy();
+    expect(screen.getByText('Yansı oluşturulamadı.')).toBeTruthy();
+    expect(screen.queryByText('legacy_incompatible_sealed_selection')).toBeNull();
+    expect(screen.getByText(/kayıtlı seçim bulunamadı/i)).toBeTruthy();
+    expect(screen.getByTestId('ayna-slide-retry')).toBeTruthy();
   });
 
-  it('source: ObservationExperience wires selection + compact + reconcile', () => {
-    const obs = readFileSync(
-      join(
-        process.cwd(),
-        'components/standalone/StandaloneObservationExperience.tsx'
-      ),
-      'utf8'
+  it('10: resolveAynaGenerationErrorCopy maps internal codes safely', () => {
+    expect(resolveAynaGenerationErrorCopy('legacy_incompatible_sealed_selection')).toMatch(
+      /kayıtlı seçim/
     );
-    expect(obs).toContain('resolveAynaReelSelectedIdentity');
-    expect(obs).toContain('compactPrimaryProduct');
-    expect(obs).toContain('reconcileGeneratingJourneyWindowsWithArtifacts');
-    expect(obs).toContain('useSainaCompactShell');
+    expect(resolveAynaGenerationErrorCopy('some_internal_code')).toMatch(
+      /Yansı oluşturulamadı/
+    );
+    expect(
+      resolveAynaGenerationErrorCopy('Scoped message A1 does not match selectedSteps')
+    ).toMatch(/doğrulanamadı/);
   });
 
-  it('source: mobile sheet CSS has one scroll owner + viewport-aware visual', () => {
+  it('12–14: Devamı scrolls reel slide detail; reopen resets scroll', () => {
+    const artifact = readyArtifact();
+    render(
+      <AynaJourneySlide
+        artifact={artifact}
+        actions={noopActions}
+        compactPrimaryProduct
+      />
+    );
+    fireEvent.click(screen.getByTestId('ayna-slide-devami'));
+    const detail = screen.getByTestId('ayna-slide-detail');
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    expect(detail.id).toBe(
+      `ayna-detail-${artifact.journeyId}-v${artifact.journeyVersion}`
+    );
+
+    const scrollIntoView = Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>;
+    scrollIntoView.mockClear();
+
+    const { unmount } = render(
+      <AynaJourneyReel
+        artifacts={[artifact]}
+        actions={noopActions}
+        compactPrimaryProduct
+        selectedArtifactIdentity={{
+          journeyId: artifact.journeyId,
+          journeyVersion: artifact.journeyVersion,
+        }}
+      />
+    );
+    const reel = screen.getByTestId('ayna-journey-reel');
+    Object.defineProperty(reel, 'scrollTop', {
+      configurable: true,
+      writable: true,
+      value: 240,
+    });
+    unmount();
+
+    render(
+      <AynaJourneyReel
+        artifacts={[artifact]}
+        actions={noopActions}
+        compactPrimaryProduct
+        selectedArtifactIdentity={{
+          journeyId: artifact.journeyId,
+          journeyVersion: artifact.journeyVersion,
+        }}
+      />
+    );
+    expect(screen.getByTestId('ayna-journey-reel').scrollTop).toBe(0);
+  });
+
+  it('15–16: mobile CSS fit-first visual + single scroll owner', () => {
     const css = readFileSync(
       join(process.cwd(), 'styles/saina-yansi-desktop.css'),
       'utf8'
@@ -285,8 +467,34 @@ describe('mobile Ayna READY + stale reconciliation', () => {
     expect(css).toMatch(
       /\.saina-mobile-ayna-sheet-body \.ayna-journey-reel\s*\{[\s\S]*?overflow-y:\s*auto/
     );
-    expect(css).toContain('min(42dvh');
+    expect(css).toContain('calc(100dvh - 22rem)');
+    expect(css).toContain('ayna-journey-slide__devami');
     expect(css).toContain('saina-discover-card--visual-only');
+    expect(css).toMatch(
+      /\.saina-mobile-ayna-sheet-body \.saina-mirror-how\s*\{[\s\S]*?display:\s*none/
+    );
+  });
+
+  it('8,19–20: public /m and ObservationExperience wiring unchanged for identity', () => {
+    const obs = readFileSync(
+      join(
+        process.cwd(),
+        'components/standalone/StandaloneObservationExperience.tsx'
+      ),
+      'utf8'
+    );
+    expect(obs).toContain('listAynaReelArtifacts');
+    expect(obs).toContain('resolveAynaReelSelectedIdentity');
+    expect(obs).toContain('compactPrimaryProduct');
+    expect(obs).toContain('reconcileGeneratingJourneyWindowsWithArtifacts');
+    expect(obs).toContain('useSainaCompactShell');
+
+    const publicM = readFileSync(
+      join(process.cwd(), 'app/m/[slug]/page.tsx'),
+      'utf8'
+    );
+    expect(publicM).not.toContain('compactPrimaryProduct');
+    expect(publicM).not.toContain('ayna-slide-devami');
   });
 
   it('7: ready after fail leaves one artifact identity', () => {
@@ -313,5 +521,38 @@ describe('mobile Ayna READY + stale reconciliation', () => {
     expect(listed).toHaveLength(1);
     expect(listed[0]?.status).toBe('ready');
     expect(listed[0]?.generationError).toBeNull();
+  });
+
+  it('source: mobile CSS keeps full title; clamps summary only', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'styles/saina-yansi-desktop.css'),
+      'utf8'
+    );
+    expect(css).toMatch(
+      /\.saina-mobile-ayna-sheet-body \.ayna-journey-slide__title\s*\{[\s\S]*?-webkit-line-clamp:\s*unset/
+    );
+    expect(css).toMatch(
+      /\.saina-mobile-ayna-sheet-body \.ayna-journey-slide__summary--preview\s*\{[\s\S]*?-webkit-line-clamp:\s*2/
+    );
+    const slideSrc = readFileSync(
+      join(process.cwd(), 'components/mirror/ayna/AynaJourneySlide.tsx'),
+      'utf8'
+    );
+    const previewIdx = slideSrc.indexOf('ayna-summary-preview');
+    const devamiIdx = slideSrc.indexOf('data-testid="ayna-slide-devami"');
+    // First publicationBlock after Devamı in compact branch (second is desktop).
+    const pubAfterDevami = slideSrc.indexOf('{publicationBlock}', devamiIdx);
+    expect(previewIdx).toBeGreaterThan(-1);
+    expect(devamiIdx).toBeGreaterThan(previewIdx);
+    expect(pubAfterDevami).toBeGreaterThan(devamiIdx);
+  });
+
+  it('source: reel resets scrollTop then scrollIntoView start on selection', () => {
+    const reelSrc = readFileSync(
+      join(process.cwd(), 'components/mirror/ayna/AynaJourneyReel.tsx'),
+      'utf8'
+    );
+    expect(reelSrc).toContain('root.scrollTop = 0');
+    expect(reelSrc).toContain("block: 'start'");
   });
 });

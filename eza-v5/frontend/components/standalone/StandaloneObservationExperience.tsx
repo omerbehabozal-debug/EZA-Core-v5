@@ -77,6 +77,7 @@ import {
   canReuseMappedPromptForJourney,
   completeJourneyGenerationLineageSeal,
   listJourneyArtifactsForConversation,
+  listAynaReelArtifacts,
   findReusablePreparedYansiArtifact,
   shouldSkipAynaSceneGeneration,
   subscribeMirrorJourneyArtifactStore,
@@ -2351,8 +2352,21 @@ export default function StandaloneObservationExperience({
   const journeyArtifacts = useMemo(() => {
     if (!journeyV1PanelOn || !conversationId || !shareCacheUserId) return [];
     void artifactRevision;
-    return listJourneyArtifactsForConversation(shareCacheUserId, conversationId);
-  }, [journeyV1PanelOn, conversationId, shareCacheUserId, artifactRevision]);
+    const all = listJourneyArtifactsForConversation(
+      shareCacheUserId,
+      conversationId
+    );
+    return listAynaReelArtifacts({
+      artifacts: all,
+      routeIdentity: selectedArtifactIdentity,
+    });
+  }, [
+    journeyV1PanelOn,
+    conversationId,
+    shareCacheUserId,
+    artifactRevision,
+    selectedArtifactIdentity,
+  ]);
 
   // Legacy hydrate: READY artifact must clear matching stale generating/failed windows.
   useEffect(() => {

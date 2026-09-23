@@ -197,7 +197,12 @@ export {
   previewFieldsFromArtifact,
 } from './resolveJourneyArtifactShareIdentity';
 
-export { resolveAynaReelSelectedIdentity } from './resolveAynaReelSelectedIdentity';
+export {
+  resolveAynaReelSelectedIdentity,
+  listAynaReelArtifacts,
+  isFailedSupersededByReady,
+  resolveAynaGenerationErrorCopy,
+} from './resolveAynaReelSelectedIdentity';
 
 export { completeJourneyGenerationLineageSeal } from './completeJourneyGenerationLineageSeal';
 

@@ -760,8 +760,12 @@
     gap: 0.4rem;
   }
 
+  /*
+   * Fit-first visual: leave room for title + summary preview + status + CTA + Devamı
+   * inside ~800–900px Ayna body. Short phones fall back to reel scroll.
+   */
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__card.saina-discover-card {
-    width: min(100%, 42dvh, 22.5rem);
+    width: min(100%, min(36svh, calc(100dvh - 22rem)), 20rem);
     max-width: 100%;
     margin-inline: auto;
   }
@@ -770,7 +774,7 @@
     .ayna-journey-slide__card
     .saina-discover-card__visual {
     aspect-ratio: 1 / 1;
-    max-height: min(42dvh, calc(100vw - 2.5rem));
+    max-height: min(36svh, calc(100dvh - 22rem), calc(100vw - 2.5rem));
   }
 
   .saina-mobile-ayna-sheet-body
@@ -784,36 +788,70 @@
     padding: 0 0.1rem;
   }
 
+  /* Full canonical title — wrap naturally; never clamp/ellipsis title text. */
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__title {
     margin: 0.05rem 0 0;
     font-size: clamp(0.88rem, 2.8vw, 1rem);
-    line-height: 1.22;
+    line-height: 1.28;
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    display: block;
   }
 
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__summary {
     font-size: clamp(0.65rem, 2.2vw, 0.72rem);
     line-height: 1.4;
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__summary--preview {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     overflow: hidden;
   }
 
-  .saina-mobile-ayna-sheet-body
-    [data-summary-expanded='true']
-    .ayna-journey-slide__summary {
-    -webkit-line-clamp: unset;
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__summary--full {
     display: block;
     overflow: visible;
+    -webkit-line-clamp: unset;
   }
 
-  .saina-mobile-ayna-sheet-body
-    .ayna-journey-slide--compact-primary
-    .ayna-journey-slide__secondary {
-    margin-top: 0.35rem;
-    padding-top: 0.35rem;
-    border-top: 1px solid rgba(232, 226, 215, 0.08);
-    opacity: 0.92;
+  /* Quiet text-level continuation under summary — not a primary CTA. */
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__devami {
+    display: inline;
+    align-self: flex-start;
+    margin: 0.05rem 0 0.35rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: rgba(231, 180, 91, 0.82);
+    font-size: 0.7rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+    cursor: pointer;
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(232, 226, 215, 0.1);
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__how {
+    margin-top: 0.25rem;
+  }
+
+  /* Panel-level how lives outside the reel scroll owner — hide on mobile sheet. */
+  .saina-mobile-ayna-sheet-body .saina-mirror-how {
+    display: none;
   }
 
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__skeleton,

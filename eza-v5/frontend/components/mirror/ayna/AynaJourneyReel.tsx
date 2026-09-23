@@ -61,7 +61,7 @@ export default function AynaJourneyReel({
       )
     : null;
 
-  // Explicit selection: scroll into view and mark visible.
+  // Explicit selection: land at the top of the selected slide (not "nearest").
   useEffect(() => {
     if (!selectedKey || !rootRef.current || artifacts.length === 0) return;
     const match = artifacts.find((a) =>
@@ -71,11 +71,17 @@ export default function AynaJourneyReel({
     const key = keyOf(match);
     setVisibleKey(key);
     onVisibleArtifactChange?.(match);
-    const el = rootRef.current.querySelector<HTMLElement>(
+    const root = rootRef.current;
+    const el = root.querySelector<HTMLElement>(
       `[data-journey-id="${match.journeyId}"][data-journey-version="${match.journeyVersion}"]`
     );
+    // Reset first so reopen always starts at the READY product, not prior detail scroll.
+    root.scrollTop = 0;
     if (el) {
-      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      // Defer so layout has applied compact heights before aligning.
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ block: 'start', behavior: 'auto' });
+      });
     }
   }, [
     selectedKey,
