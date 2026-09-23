@@ -697,13 +697,14 @@
   .saina-mobile-ayna-sheet-body {
     min-height: 0;
     flex: 1 1 auto;
-    overflow: auto;
+    /* Single scroll owner lives on the reel — avoid nested body + reel scrolls. */
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
   }
 
   .saina-mobile-ayna-sheet-body .saina-mirror-panel {
-    height: auto;
-    min-height: 100%;
+    height: 100%;
+    min-height: 0;
     border: 0;
     background: transparent;
     box-shadow: none;
@@ -711,6 +712,114 @@
 
   .saina-mobile-ayna-sheet-body .saina-mirror-header {
     display: none;
+  }
+
+  .saina-mobile-ayna-sheet-body .saina-mirror-inner {
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    gap: 0;
+  }
+
+  .saina-mobile-ayna-sheet-body .saina-mirror-panel-experience {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .saina-mobile-ayna-sheet-body .saina-mirror-embedded-stage {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* One vertical scroll owner for mobile Ayna READY / multi-slide reel. */
+  .saina-mobile-ayna-sheet-body .ayna-journey-reel {
+    height: 100%;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: y proximity;
+    padding: 0.25rem 0.75rem max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide {
+    /* Prefer fitting one READY product; allow natural height + fallback scroll. */
+    min-height: 0;
+    height: auto;
+    padding: 0.2rem 0 0.65rem;
+    scroll-snap-align: start;
+    scroll-snap-stop: normal;
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__inner {
+    min-height: 0;
+    gap: 0.4rem;
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__card.saina-discover-card {
+    width: min(100%, 42dvh, 22.5rem);
+    max-width: 100%;
+    margin-inline: auto;
+  }
+
+  .saina-mobile-ayna-sheet-body
+    .ayna-journey-slide__card
+    .saina-discover-card__visual {
+    aspect-ratio: 1 / 1;
+    max-height: min(42dvh, calc(100vw - 2.5rem));
+  }
+
+  .saina-mobile-ayna-sheet-body
+    .ayna-journey-slide__card.saina-discover-card--visual-only
+    .saina-discover-card__body {
+    display: none;
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__meta {
+    gap: 0.28rem;
+    padding: 0 0.1rem;
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__title {
+    margin: 0.05rem 0 0;
+    font-size: clamp(0.88rem, 2.8vw, 1rem);
+    line-height: 1.22;
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__summary {
+    font-size: clamp(0.65rem, 2.2vw, 0.72rem);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+
+  .saina-mobile-ayna-sheet-body
+    [data-summary-expanded='true']
+    .ayna-journey-slide__summary {
+    -webkit-line-clamp: unset;
+    display: block;
+    overflow: visible;
+  }
+
+  .saina-mobile-ayna-sheet-body
+    .ayna-journey-slide--compact-primary
+    .ayna-journey-slide__secondary {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid rgba(232, 226, 215, 0.08);
+    opacity: 0.92;
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__skeleton,
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__failed {
+    min-height: min(28dvh, 12rem);
+    flex: 0 0 auto;
   }
 
   /* —— Phase 8.8F-M: mobile scene-first Yansı parity —— */

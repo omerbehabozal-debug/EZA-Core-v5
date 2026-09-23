@@ -5,8 +5,30 @@
 
 import type { JourneyConversationState } from './journeyWindows';
 import { loadJourneyConversationState } from './journeyWindowStore';
-import { loadMirrorJourneyArtifact } from './mirrorJourneyArtifactStore';
+import {
+  listJourneyArtifactsForConversation,
+  loadMirrorJourneyArtifact,
+} from './mirrorJourneyArtifactStore';
 import { promoteJourneyWindowFromArtifact } from './promoteJourneyWindowFromArtifact';
+
+function resolveArtifactForWindow(
+  ownerUserId: string,
+  sourceConversationId: string,
+  journeyId: string
+) {
+  const listed = listJourneyArtifactsForConversation(
+    ownerUserId,
+    sourceConversationId
+  ).filter(
+    (a) => (a.journeyId || '').trim().toLowerCase() === journeyId.trim().toLowerCase()
+  );
+  const ready = listed.find(
+    (a) => a.status === 'ready' || a.status === 'published'
+  );
+  if (ready) return ready;
+  if (listed[0]) return listed[0];
+  return loadMirrorJourneyArtifact(ownerUserId, journeyId, 1);
+}
 
 export function reconcileGeneratingJourneyWindowsWithArtifacts(input: {
   ownerUserId: string | null | undefined;
@@ -29,7 +51,11 @@ export function reconcileGeneratingJourneyWindowsWithArtifacts(input: {
     ) {
       continue;
     }
-    const artifact = loadMirrorJourneyArtifact(ownerUserId, w.journeyId, 1);
+    const artifact = resolveArtifactForWindow(
+      ownerUserId,
+      sourceConversationId,
+      w.journeyId
+    );
     if (!artifact) continue;
     if (artifact.status === 'ready' || artifact.status === 'published') {
       const promoted = promoteJourneyWindowFromArtifact({

@@ -23,6 +23,11 @@ export type MirrorPublicCardProps = {
   kicker?: ReactNode;
   /** Capture root for share PNG / export. */
   captureRef?: React.Ref<HTMLElement>;
+  /**
+   * Visual-only surface (Ayna reel): omit empty title/summary body so mobile
+   * does not pay MirrorPublicCard padding when copy lives outside the card.
+   */
+  visualOnly?: boolean;
 };
 
 /**
@@ -44,19 +49,35 @@ export default function MirrorPublicCard({
   meta,
   kicker,
   captureRef,
+  visualOnly = false,
 }: MirrorPublicCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = Boolean(sceneImageUrl?.trim()) && !imageFailed;
   const articleTestId = slug
     ? `${testIdPrefix}-${slug}`
     : testIdPrefix;
+  const showBody =
+    !visualOnly &&
+    Boolean(
+      title.trim() ||
+        summary?.trim() ||
+        meta ||
+        metaLabel?.trim() ||
+        kicker ||
+        footer
+    );
 
   return (
     <article
       ref={captureRef as React.Ref<HTMLElement>}
-      className={cn('saina-discover-card saina-mirror-public-card', className)}
+      className={cn(
+        'saina-discover-card saina-mirror-public-card',
+        visualOnly && 'saina-discover-card--visual-only',
+        className
+      )}
       data-testid={articleTestId}
       data-mirror-public-card
+      data-visual-only={visualOnly ? 'true' : undefined}
     >
       <div className="saina-discover-card__visual">
         {showImage ? (
@@ -94,24 +115,28 @@ export default function MirrorPublicCard({
         ) : null}
       </div>
 
-      <div className="saina-discover-card__body">
-        {kicker}
-        <h2 className="saina-discover-card__title saina-serif">{title}</h2>
-        {summary?.trim() ? (
-          <p className="saina-discover-card__summary">{summary.trim()}</p>
-        ) : null}
-        {meta ? (
-          meta
-        ) : metaLabel?.trim() ? (
-          <p
-            className="saina-discover-card__yansi saina-mirror-public-card__meta"
-            data-testid={`${testIdPrefix}-meta`}
-          >
-            {metaLabel.trim()}
-          </p>
-        ) : null}
-        {footer}
-      </div>
+      {showBody ? (
+        <div className="saina-discover-card__body">
+          {kicker}
+          {title.trim() ? (
+            <h2 className="saina-discover-card__title saina-serif">{title}</h2>
+          ) : null}
+          {summary?.trim() ? (
+            <p className="saina-discover-card__summary">{summary.trim()}</p>
+          ) : null}
+          {meta ? (
+            meta
+          ) : metaLabel?.trim() ? (
+            <p
+              className="saina-discover-card__yansi saina-mirror-public-card__meta"
+              data-testid={`${testIdPrefix}-meta`}
+            >
+              {metaLabel.trim()}
+            </p>
+          ) : null}
+          {footer}
+        </div>
+      ) : null}
     </article>
   );
 }

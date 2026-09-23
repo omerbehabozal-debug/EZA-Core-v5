@@ -197,6 +197,8 @@ export {
   previewFieldsFromArtifact,
 } from './resolveJourneyArtifactShareIdentity';
 
+export { resolveAynaReelSelectedIdentity } from './resolveAynaReelSelectedIdentity';
+
 export { completeJourneyGenerationLineageSeal } from './completeJourneyGenerationLineageSeal';
 
 export {

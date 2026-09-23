@@ -24,6 +24,8 @@ export type AynaJourneyReelProps = {
   selectedArtifactIdentity?: YansiArtifactIdentity | null;
   /** Called when the visible slide changes — presentation only, not identity authority. */
   onVisibleArtifactChange?: (artifact: MirrorJourneyArtifact | null) => void;
+  /** Mobile Ayna sheet: compact READY product hierarchy. Desktop stays false. */
+  compactPrimaryProduct?: boolean;
 };
 
 /**
@@ -40,6 +42,7 @@ export default function AynaJourneyReel({
   className,
   selectedArtifactIdentity = null,
   onVisibleArtifactChange,
+  compactPrimaryProduct = false,
 }: AynaJourneyReelProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [visibleKey, setVisibleKey] = useState<string | null>(null);
@@ -155,6 +158,7 @@ export default function AynaJourneyReel({
             shareBusy={shareBusyJourneyId === artifact.journeyId}
             canShare={canShare}
             positionLabel={`${index + 1} / ${artifacts.length}`}
+            compactPrimaryProduct={compactPrimaryProduct}
             className={cn(activeKey === key && 'ayna-journey-slide--visible')}
           />
         );

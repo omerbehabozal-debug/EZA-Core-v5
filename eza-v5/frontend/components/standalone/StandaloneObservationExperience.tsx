@@ -106,6 +106,8 @@ import {
   canAuthorizeAuthenticatedJourneyMirrorReveal,
   promoteJourneyWindowFromArtifact,
   rearmJourneyWindowGeneratingFromArtifact,
+  reconcileGeneratingJourneyWindowsWithArtifacts,
+  resolveAynaReelSelectedIdentity,
   restoreRemountCardLandingFromJourneyArtifacts,
   canShowAynaEarlyYansiCreateCta,
   requestEarlyYansiReview,
@@ -143,7 +145,6 @@ import type { MirrorPanelCopy } from '@/lib/eza/mirror/resolveMirrorPanelCopy';
 import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import {
-  artifactMatchesYansiIdentity,
   parseYansiRouteParam,
   YANSI_ROUTE_PARAM,
   type YansiArtifactIdentity,
@@ -176,6 +177,7 @@ import {
 } from '@/lib/eza/plan/sainaQuotaMessages';
 import { useAuth } from '@/context/AuthContext';
 import { useMirrorCardExport } from '@/hooks/useMirrorCardExport';
+import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 import {
   MIRROR_BIRTH_GENERATE_EVENT,
@@ -2352,6 +2354,28 @@ export default function StandaloneObservationExperience({
     return listJourneyArtifactsForConversation(shareCacheUserId, conversationId);
   }, [journeyV1PanelOn, conversationId, shareCacheUserId, artifactRevision]);
 
+  // Legacy hydrate: READY artifact must clear matching stale generating/failed windows.
+  useEffect(() => {
+    if (!journeyV1PanelOn || !conversationId || !shareCacheUserId) return;
+    void artifactRevision;
+    reconcileGeneratingJourneyWindowsWithArtifacts({
+      ownerUserId: shareCacheUserId,
+      sourceConversationId: conversationId,
+    });
+  }, [journeyV1PanelOn, conversationId, shareCacheUserId, artifactRevision]);
+
+  const isCompactShell = useSainaCompactShell();
+  const compactPrimaryProduct = !isCompactShell;
+
+  const reelSelectedIdentity = useMemo(
+    () =>
+      resolveAynaReelSelectedIdentity({
+        artifacts: journeyArtifacts,
+        routeIdentity: selectedArtifactIdentity,
+      }),
+    [journeyArtifacts, selectedArtifactIdentity]
+  );
+
   /** Bumps when ChatInner mutates Journey windows (early Review open/cancel). */
   const [earlyYansiUiTick, setEarlyYansiUiTick] = useState(0);
 
@@ -3140,14 +3164,8 @@ export default function StandaloneObservationExperience({
               publishBusyJourneyId={publishBusyJourneyId}
               shareBusyJourneyId={shareBusyJourneyId}
               canShare={isPlus}
-              selectedArtifactIdentity={
-                selectedArtifactIdentity &&
-                journeyArtifacts.some((a) =>
-                  artifactMatchesYansiIdentity(a, selectedArtifactIdentity)
-                )
-                  ? selectedArtifactIdentity
-                  : null
-              }
+              compactPrimaryProduct={compactPrimaryProduct}
+              selectedArtifactIdentity={reelSelectedIdentity}
               emptyState={
                 <div
                   className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center"
