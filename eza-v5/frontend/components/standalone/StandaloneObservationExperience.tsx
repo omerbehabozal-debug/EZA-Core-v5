@@ -115,6 +115,7 @@ import {
   EARLY_YANSI_UI_SYNC_EVENT,
   loadJourneyConversationState,
   syncJourneyConversationState,
+  isValidJourneySelectedStepCount,
   type ExactYansiPublishIdentity,
   type JourneyAynaGenerateDetail,
   type MirrorJourneySharePayload,
@@ -1463,7 +1464,12 @@ export default function StandaloneObservationExperience({
                 throw err;
               }
             }
-            if (journeySemanticScope?.selectedSteps?.length === 8) {
+            if (
+              journeySemanticScope?.selectedSteps &&
+              isValidJourneySelectedStepCount(
+                journeySemanticScope.selectedSteps.length
+              )
+            ) {
               return {
                 ...prepared,
                 journeySelectedSteps: journeySemanticScope.selectedSteps,

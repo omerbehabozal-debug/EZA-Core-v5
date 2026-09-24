@@ -7,6 +7,15 @@ export const REVIEW8_DRAFT_STORAGE_KEY = 'eza_mirror_review8_draft_v2';
 /** Mirrors backend EZA_MIRROR_JOURNEY_V1 for client UX (default off). */
 export const MIRROR_JOURNEY_CLIENT_FLAG = 'NEXT_PUBLIC_EZA_MIRROR_JOURNEY_V1';
 
+/** Canonical Review selection validity: exactly 6–8 selected steps. */
+export function isValidJourneySelectedStepCount(count: number): boolean {
+  return (
+    Number.isInteger(count) &&
+    count >= JOURNEY_SELECTED_MIN &&
+    count <= JOURNEY_SELECTED_MAX
+  );
+}
+
 export type JourneyMessageRole =
   | 'user'
   | 'assistant'

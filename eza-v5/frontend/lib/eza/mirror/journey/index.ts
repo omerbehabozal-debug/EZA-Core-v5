@@ -21,6 +21,7 @@ export {
   JOURNEY_SELECTED_MAX,
   REVIEW8_DRAFT_STORAGE_KEY,
   MIRROR_JOURNEY_CLIENT_FLAG,
+  isValidJourneySelectedStepCount,
 } from './types';
 
 export {

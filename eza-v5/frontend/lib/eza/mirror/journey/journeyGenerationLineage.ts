@@ -3,6 +3,8 @@
  * Publish reads this snapshot only — never the live Review 8 draft.
  */
 
+import { isValidJourneySelectedStepCount } from '@/lib/eza/mirror/journey/types';
+
 export const JOURNEY_GENERATION_LINEAGE_VERSION =
   'journey_generation_lineage_v1' as const;
 
@@ -73,7 +75,12 @@ export function isPublishableJourneyGenerationLineage(
   if (!raw || typeof raw !== 'object') return false;
   const row = raw as JourneyGenerationLineagePartial;
   const steps = row.selectedSteps;
-  if (!Array.isArray(steps) || steps.length < 6 || steps.length > 8) return false;
+  if (
+    !Array.isArray(steps) ||
+    !isValidJourneySelectedStepCount(steps.length)
+  ) {
+    return false;
+  }
   return Boolean(
     asTrimmed(row.journeyId) &&
       Number(row.journeyVersion) >= 1 &&
@@ -134,12 +141,10 @@ export function sealJourneyGenerationLineage(input: {
 
   const steps =
     Array.isArray(input.selectedSteps) &&
-    input.selectedSteps.length >= 6 &&
-    input.selectedSteps.length <= 8
+    isValidJourneySelectedStepCount(input.selectedSteps.length)
       ? input.selectedSteps.map((s) => ({ ...s }))
       : Array.isArray(existing.selectedSteps) &&
-          existing.selectedSteps.length >= 6 &&
-          existing.selectedSteps.length <= 8
+          isValidJourneySelectedStepCount(existing.selectedSteps.length)
         ? existing.selectedSteps.map((s) => ({ ...s }))
         : [];
 
