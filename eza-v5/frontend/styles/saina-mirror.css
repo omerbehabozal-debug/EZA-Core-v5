@@ -5853,15 +5853,23 @@ html:has(.saina-page) body {
   backdrop-filter: blur(18px) saturate(118%);
 }
 
+/*
+ * Canonical product geometry: the visual owns the card width.
+ * Media is always full card width; never shrink independently via max-height.
+ */
 .saina-discover-card__visual {
   position: relative;
+  display: block;
+  width: 100%;
   aspect-ratio: 1 / 1;
   background: #141210;
+  overflow: hidden;
 }
 
 .saina-discover-card__image {
   position: absolute;
   inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -5874,7 +5882,16 @@ html:has(.saina-page) body {
 }
 
 .saina-discover-card__body {
+  width: 100%;
+  box-sizing: border-box;
   padding: 1.15rem 1.2rem 1.35rem;
+}
+
+.saina-discover-card--canonical-product .saina-discover-card__visual,
+.saina-discover-card--canonical-product .saina-discover-card__body,
+.saina-discover-card--canonical-product .saina-discover-card__product-core {
+  width: 100%;
+  max-width: 100%;
 }
 
 .saina-discover-card__product-core {

@@ -105,6 +105,58 @@ describe('unified Yansı product card contract', () => {
     expect(discoverSrc).toContain('resolveYansiProductFromDiscoverItem');
   });
 
+  it('canonical card geometry: visual is full product width (no side strip)', () => {
+    const mirrorCss = readFileSync(
+      join(process.cwd(), 'styles/saina-mirror.css'),
+      'utf8'
+    );
+    const yansiCss = readFileSync(
+      join(process.cwd(), 'styles/saina-yansi-desktop.css'),
+      'utf8'
+    );
+    const card = readFileSync(
+      join(process.cwd(), 'components/mirror/MirrorPublicCard.tsx'),
+      'utf8'
+    );
+
+    expect(card).toContain('saina-discover-card__visual');
+    expect(card).toContain('saina-discover-card__image');
+    expect(card).toContain('data-yansi-product-core');
+
+    expect(mirrorCss).toMatch(
+      /\.saina-discover-card__visual\s*\{[^}]*width:\s*100%/s
+    );
+    expect(mirrorCss).toMatch(
+      /\.saina-discover-card__visual\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1/s
+    );
+    expect(mirrorCss).toMatch(
+      /\.saina-discover-card__image\s*\{[^}]*width:\s*100%/s
+    );
+    expect(mirrorCss).toMatch(
+      /\.saina-discover-card__image\s*\{[^}]*object-fit:\s*cover/s
+    );
+    expect(mirrorCss).toContain(
+      '.saina-discover-card--canonical-product .saina-discover-card__visual'
+    );
+
+    // Ayna must not shrink the 1:1 visual narrower than the card via max-height.
+    expect(yansiCss).not.toMatch(
+      /\.saina-mobile-ayna-sheet-body[\s\S]*?\.saina-discover-card__visual\s*\{[^}]*max-height:\s*min\(/s
+    );
+    expect(yansiCss).toMatch(
+      /\.saina-mobile-ayna-sheet-body[\s\S]*?\.saina-discover-card__visual\s*\{[^}]*width:\s*100%/s
+    );
+    expect(yansiCss).toMatch(
+      /\.saina-mobile-ayna-sheet-body[\s\S]*?\.saina-discover-card__visual\s*\{[^}]*max-height:\s*none/s
+    );
+    expect(yansiCss).toMatch(
+      /\.saina-mirror-panel[\s\S]*?\.saina-discover-card__visual\s*\{[^}]*width:\s*100%/s
+    );
+    expect(yansiCss).toMatch(
+      /\.saina-mirror-panel[\s\S]*?\.saina-discover-card__visual\s*\{[^}]*max-height:\s*none/s
+    );
+  });
+
   it('mobile and desktop Ayna both use YansiProductCard without separate title/summary', () => {
     const longSummary =
       'Canonical public summary that must match Discover without truncation expand.'

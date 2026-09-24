@@ -761,20 +761,28 @@
   }
 
   /*
-   * Canonical Yansı product card (shared with Discover): full-width 1:1 visual
-   * + title + summary inside the card. Status + Yayınla sit outside below.
+   * Canonical Yansı geometry: visual defines the square.
+   * Constrain CARD width for viewport fit — never max-height the media alone
+   * (that shrinks a 1:1 visual narrower than the card and leaves a side strip).
    */
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__card.saina-discover-card {
-    width: 100%;
-    max-width: min(100%, 22.5rem);
+    width: min(
+      100%,
+      22.5rem,
+      42svh,
+      calc(100dvh - 18rem),
+      calc(100vw - 1.5rem)
+    );
+    max-width: 100%;
     margin-inline: auto;
   }
 
   .saina-mobile-ayna-sheet-body
     .ayna-journey-slide__card
     .saina-discover-card__visual {
+    width: 100%;
     aspect-ratio: 1 / 1;
-    max-height: min(42svh, calc(100dvh - 18rem), calc(100vw - 1.5rem));
+    max-height: none;
   }
 
   .saina-mobile-ayna-sheet-body
@@ -2707,9 +2715,18 @@
   }
 
   .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__card.saina-discover-card {
-    width: 100%;
-    max-width: min(100%, 22.5rem);
+    width: min(100%, 22.5rem);
+    max-width: 100%;
     margin-inline: auto;
+  }
+
+  .saina-app-root.saina-standalone-shell
+    .saina-mirror-panel
+    .ayna-journey-slide__card
+    .saina-discover-card__visual {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-height: none;
   }
 
   .saina-app-root.saina-standalone-shell
