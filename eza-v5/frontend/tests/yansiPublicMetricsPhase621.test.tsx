@@ -227,7 +227,7 @@ describe('Phase 6.2.1 Profile projection UI', () => {
 });
 
 describe('Phase 6.2.1 Ayna / cross-surface', () => {
-  it('Ayna slide uses canonical fields and ignores continuationStarts placeholder', () => {
+  it('Ayna slide omits network metrics; Discover keeps them', () => {
     render(
       <AynaJourneySlide
         artifact={{
@@ -258,9 +258,7 @@ describe('Phase 6.2.1 Ayna / cross-surface', () => {
         }}
       />
     );
-    expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
-      '140 deneyim · 7 Yansı'
-    );
+    expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
     expect(screen.queryByText('42 deneyim')).toBeNull();
   });
 

@@ -163,25 +163,47 @@ describe('mobile Ayna READY cleanup + complete title/summary', () => {
     expect(screen.queryAllByText('Sessiz bir yürüyüş.')).toHaveLength(1);
   });
 
-  it('desktop keeps author and may show position; no compact Devamı', () => {
+  it('desktop READY uses same canonical product; no author/position/Devamı/how', () => {
+    const longSummary =
+      'A'.repeat(80) +
+      ' canonical summary that must remain fully visible without Ayna-only expand.';
     render(
       <AynaJourneySlide
-        artifact={readyArtifact()}
+        artifact={readyArtifact({
+          authorDisplayName: 'biligN kullanıcısı',
+          publicSummary: longSummary,
+        })}
         actions={noopActions}
         positionLabel="1 / 1"
       />
     );
-    expect(screen.getByText(/biligN/)).toBeTruthy();
-    expect(screen.getByTestId('ayna-slide-position').textContent).toBe('1 / 1');
+    const root = screen.getByTestId('ayna-journey-slide');
+    expect(root.querySelector('[data-canonical-yansi-product="true"]')).toBeTruthy();
+    expect(root.querySelector('[data-yansi-product-core]')).toBeTruthy();
+    expect(
+      screen.getByTestId('ayna-slide-journey-ready-title').textContent
+    ).toBe('Gece Rotası');
+    expect(
+      screen.getByTestId('ayna-slide-journey-ready-summary').textContent
+    ).toBe(longSummary);
+    expect(screen.getByTestId('ayna-slide-status').textContent).toMatch(
+      /Yayına hazır/
+    );
+    expect(screen.getByTestId('ayna-slide-publication')).toBeTruthy();
+    expect(screen.getByTestId('mirror-publish-btn')).toBeTruthy();
+    expect(screen.queryByText(/biligN/)).toBeNull();
+    expect(screen.queryByTestId('ayna-slide-position')).toBeNull();
+    expect(screen.queryByTestId('ayna-summary-toggle')).toBeNull();
     expect(screen.queryByTestId('ayna-slide-devami')).toBeNull();
+    expect(screen.queryByText(SAINA_MIRROR_HOW_LABEL)).toBeNull();
+    expect(screen.queryAllByText(longSummary)).toHaveLength(1);
   });
 
-  it('reel omits positionLabel when compactPrimaryProduct', () => {
+  it('reel omits positionLabel on all viewports', () => {
     render(
       <AynaJourneyReel
         artifacts={[readyArtifact()]}
         actions={noopActions}
-        compactPrimaryProduct
         selectedArtifactIdentity={{ journeyId: 'journey-ready', journeyVersion: 1 }}
       />
     );

@@ -286,7 +286,9 @@ describe('mirrorJourneyPhase38AynaReel', () => {
     );
     expect(screen.getAllByText('Title journey-ready').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Summary journey-ready').length).toBeGreaterThan(0);
-    expect(screen.getByText('Ömer Bozal')).toBeTruthy();
+    // Author lives in conversation context — not duplicated on Ayna product preview.
+    expect(screen.queryByText('Ömer Bozal')).toBeNull();
+    expect(screen.getByTestId('ayna-slide-publication')).toBeTruthy();
 
     const published = applyPublishSuccessToArtifact(ready, {
       slug: 'slug-ready',
@@ -451,7 +453,7 @@ describe('mirrorJourneyPhase38AynaReel', () => {
     );
   });
 
-  it('M. METRICS — real only; undefined omitted; no fake zeros', () => {
+  it('M. METRICS — Ayna preview omits network metrics (Discover-only)', () => {
     const without = readyArtifact('m1');
     render(
       <AynaJourneySlide
@@ -466,6 +468,7 @@ describe('mirrorJourneyPhase38AynaReel', () => {
       />
     );
     expect(screen.queryByTestId('ayna-slide-metrics')).toBeNull();
+    expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
     cleanup();
     const withMetrics = readyArtifact('m2', {
       experienceCount: 42,
@@ -486,9 +489,8 @@ describe('mirrorJourneyPhase38AynaReel', () => {
         }}
       />
     );
-    expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
-      '140 deneyim · 7 Yansı'
-    );
+    // Social proof is Discover/network context — not Ayna publication preview.
+    expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
     expect(screen.queryByText('42 deneyim')).toBeNull();
     expect(screen.queryByTestId('ayna-child-count')).toBeNull();
   });
@@ -535,7 +537,7 @@ describe('mirrorJourneyPhase38AynaReel', () => {
     expect(backend).toContain('_is_public_published');
   });
 
-  it('R/S/U. ROOT vs CHILD lineage + same-author continuation', () => {
+  it('R/S/U. ROOT vs CHILD lineage helpers + Ayna preview omits creator chrome', () => {
     const root = readyArtifact('root');
     render(
       <AynaJourneySlide
@@ -550,6 +552,7 @@ describe('mirrorJourneyPhase38AynaReel', () => {
       />
     );
     expect(screen.queryByTestId('ayna-parent-lineage')).toBeNull();
+    expect(screen.queryByTestId('ayna-author-row')).toBeNull();
     cleanup();
     const child = readyArtifact('child', {
       authorDisplayName: 'Ömer Bozal',
@@ -570,28 +573,33 @@ describe('mirrorJourneyPhase38AynaReel', () => {
         }}
       />
     );
-    expect(screen.getByTestId('ayna-parent-lineage')).toBeTruthy();
+    // Publication preview keeps canonical product only — lineage UI is separate.
+    expect(screen.queryByTestId('ayna-parent-lineage')).toBeNull();
+    expect(screen.getByTestId('ayna-slide-child-title')).toBeTruthy();
   });
 
   it('T. NAVIGATION DISTINCTION — author → profile; parent → parent Yansı', () => {
     const onOpenAuthorProfile = vi.fn();
     const onOpenParent = vi.fn();
     render(
-      <AynaJourneySlide
-        artifact={readyArtifact('child', {
-          authorDisplayName: 'Ömer Bozal',
-          parentAuthorDisplayName: 'Ahmet',
-          parentSlug: 'ahmet-yansi',
-          parentJourneyId: 'parent',
-        })}
-        actions={{
-          onPublish: () => undefined,
-          onShare: () => undefined,
-          onOpenDiscover: () => undefined,
-          onOpenAuthorProfile,
-          onOpenParent,
-        }}
-      />
+      <>
+        <AynaAuthorRow
+          displayName="Ömer Bozal"
+          onOpenProfile={onOpenAuthorProfile}
+        />
+        <AynaParentLineageRow
+          parentAuthorDisplayName="Ahmet"
+          parentPublicTitle="Parent"
+          onOpenParent={() =>
+            onOpenParent(
+              readyArtifact('child', {
+                parentSlug: 'ahmet-yansi',
+                parentJourneyId: 'parent',
+              })
+            )
+          }
+        />
+      </>
     );
     fireEvent.click(screen.getByTestId('ayna-author-row'));
     expect(onOpenAuthorProfile).toHaveBeenCalled();

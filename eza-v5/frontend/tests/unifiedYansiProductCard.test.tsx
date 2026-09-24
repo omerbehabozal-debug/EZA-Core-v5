@@ -13,6 +13,7 @@ import {
   resolveYansiProductFromDiscoverItem,
 } from '@/lib/eza/mirror/yansiProductPresentation';
 import { MIRROR_JOURNEY_STATUS_READY } from '@/lib/eza/mirror/copy';
+import { SAINA_MIRROR_HOW_LABEL } from '@/lib/eza/sainaCopy';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey';
 import {
   buildCuriosityCard,
@@ -97,8 +98,60 @@ describe('unified Yansı product card contract', () => {
     );
     expect(aynaSrc).toContain('YansiProductCard');
     expect(aynaSrc).toContain('resolveYansiProductFromArtifact');
+    expect(aynaSrc).not.toContain('AynaAuthorRow');
+    expect(aynaSrc).not.toContain('ayna-summary-toggle');
+    expect(aynaSrc).not.toContain('visibleSummary');
     expect(discoverSrc).toContain('YansiProductCard');
     expect(discoverSrc).toContain('resolveYansiProductFromDiscoverItem');
+  });
+
+  it('mobile and desktop Ayna both use YansiProductCard without separate title/summary', () => {
+    const longSummary =
+      'Canonical public summary that must match Discover without truncation expand.'
+        .repeat(3)
+        .trim();
+    const a = artifactA({
+      publicSummary: longSummary,
+      authorDisplayName: 'Should Not Appear',
+    });
+
+    const { rerender } = render(
+      <AynaJourneySlide
+        artifact={a}
+        actions={noopActions}
+        compactPrimaryProduct
+        positionLabel="1 / 1"
+      />
+    );
+    expect(
+      document.querySelectorAll('[data-canonical-yansi-product="true"]').length
+    ).toBe(1);
+    expect(screen.getByTestId('ayna-slide-journey-a-title').textContent).toBe(TITLE);
+    expect(screen.getByTestId('ayna-slide-journey-a-summary').textContent).toBe(
+      longSummary
+    );
+    expect(screen.queryByText('Should Not Appear')).toBeNull();
+    expect(screen.queryByTestId('ayna-slide-position')).toBeNull();
+    expect(screen.queryByTestId('ayna-summary-toggle')).toBeNull();
+
+    rerender(
+      <AynaJourneySlide
+        artifact={a}
+        actions={noopActions}
+        positionLabel="2 / 2"
+      />
+    );
+    expect(
+      document.querySelectorAll('[data-canonical-yansi-product="true"]').length
+    ).toBe(1);
+    expect(screen.getByTestId('ayna-slide-journey-a-title').textContent).toBe(TITLE);
+    expect(screen.getByTestId('ayna-slide-journey-a-summary').textContent).toBe(
+      longSummary
+    );
+    expect(screen.queryByText('Should Not Appear')).toBeNull();
+    expect(screen.queryByTestId('ayna-slide-position')).toBeNull();
+    expect(screen.queryByTestId('ayna-summary-toggle')).toBeNull();
+    expect(screen.queryByText(SAINA_MIRROR_HOW_LABEL)).toBeNull();
   });
 
   it('same scene / title / summary for artifact ↔ Discover projection', () => {

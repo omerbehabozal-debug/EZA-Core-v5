@@ -6,13 +6,9 @@ import { cn } from '@/lib/utils';
 import MirrorPosterLightbox from '@/components/mirror/MirrorPosterLightbox';
 import MirrorPublishShareActions from '@/components/mirror/MirrorPublishShareActions';
 import YansiProductCard from '@/components/mirror/YansiProductCard';
-import AynaAuthorRow from '@/components/mirror/ayna/AynaAuthorRow';
-import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
 import { resolveAynaGenerationErrorCopy } from '@/lib/eza/mirror/journey/resolveAynaReelSelectedIdentity';
 import { resolveYansiProductFromArtifact } from '@/lib/eza/mirror/yansiProductPresentation';
-import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
-import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
 import {
   MIRROR_JOURNEY_STATUS_GENERATING,
   MIRROR_JOURNEY_STATUS_READY,
@@ -35,11 +31,12 @@ export type AynaJourneySlideProps = {
   publishBusy?: boolean;
   shareBusy?: boolean;
   canShare?: boolean;
+  /** @deprecated Reel ordinal chrome — never shown on Ayna publication preview. */
   positionLabel?: string | null;
   className?: string;
   /**
-   * Mobile Ayna sheet: publication preview of the canonical Yansı product.
-   * Author/how/Devamı/social proof omitted; status + Yayınla outside the card.
+   * Mobile sheet layout hook (sizing CSS). Product presentation is identical
+   * on mobile and desktop: canonical YansiProductCard + publication controls.
    */
   compactPrimaryProduct?: boolean;
 };
@@ -59,64 +56,28 @@ function statusLabel(artifact: MirrorJourneyArtifact): string {
   }
 }
 
+/**
+ * Ayna publication preview — mobile and desktop share one product shell with Discover.
+ * Author / metrics / how / reel ordinal stay outside the canonical Yansı.
+ */
 export default function AynaJourneySlide({
   artifact,
   actions,
   publishBusy = false,
   shareBusy = false,
   canShare = true,
-  positionLabel = null,
   className,
   compactPrimaryProduct = false,
 }: AynaJourneySlideProps) {
-  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const product = resolveYansiProductFromArtifact(artifact);
   const { title, summary, sceneImageUrl: sceneUrl } = product;
-  const authorName = artifact.authorDisplayName?.trim() || 'Yazar';
-  const showParent = Boolean(
-    artifact.parentJourneyId || artifact.parentSlug || artifact.parentAuthorDisplayName
-  );
-  const canonical = parseYansiPublicSocialProofInput(artifact);
   const isPublished = artifact.status === 'published';
   const isReady = artifact.status === 'ready';
   const isGenerating = artifact.status === 'generating';
   const isFailed = artifact.status === 'failed';
-  const longSummary = Boolean(summary && summary.length > 160);
-  /** Desktop only: optional expand. Compact/mobile shows full canonical summary. */
-  const visibleSummary =
-    compactPrimaryProduct
-      ? summary
-      : summary && longSummary && !summaryExpanded
-        ? `${summary.slice(0, 160).trim()}…`
-        : summary;
-  const canFullscreen =
-    compactPrimaryProduct && Boolean(sceneUrl) && (isReady || isPublished);
+  const canFullscreen = Boolean(sceneUrl) && (isReady || isPublished);
   const safeFailureDetail = resolveAynaGenerationErrorCopy(artifact.generationError);
-  /** Mobile compact: never show reel ordinal chrome (e.g. "1 / 1"). */
-  const showPosition = Boolean(positionLabel) && !compactPrimaryProduct;
-
-  const authorBlock = (
-    <>
-      <AynaAuthorRow
-        displayName={authorName}
-        authorUserId={artifact.authorUserId}
-        avatarUrl={artifact.authorAvatarUrl}
-        onOpenProfile={() => actions.onOpenAuthorProfile(artifact)}
-      />
-      {showParent ? (
-        <AynaParentLineageRow
-          parentAuthorDisplayName={artifact.parentAuthorDisplayName}
-          parentPublicTitle={artifact.parentPublicTitle}
-          onOpenParent={
-            artifact.parentSlug || artifact.parentJourneyId
-              ? () => actions.onOpenParent(artifact)
-              : undefined
-          }
-        />
-      ) : null}
-    </>
-  );
 
   const publicationBlock = (
     <>
@@ -127,26 +88,7 @@ export default function AynaJourneySlide({
         >
           ● {statusLabel(artifact)}
         </span>
-        {showPosition ? (
-          <span
-            className="text-[10px] text-[rgba(217,196,163,0.55)]"
-            data-testid="ayna-slide-position"
-          >
-            {positionLabel}
-          </span>
-        ) : null}
       </div>
-
-      {/* Metrics are Discover/network state — never on Ayna publication preview. */}
-      {!compactPrimaryProduct && canonical ? (
-        <YansiPublicMetricsView
-          experienceStartedCount={canonical.experienceStartedCount}
-          directChildYansiCount={canonical.directChildYansiCount}
-          slug={artifact.publish.slug ?? artifact.journeyId}
-          journeyVersion={artifact.journeyVersion}
-          className="ayna-journey-slide__metrics"
-        />
-      ) : null}
 
       {(isReady || isPublished) && (
         <MirrorPublishShareActions
@@ -216,7 +158,7 @@ export default function AynaJourneySlide({
               </button>
             ) : null}
           </div>
-        ) : compactPrimaryProduct ? (
+        ) : (
           <>
             <YansiProductCard
               title={title}
@@ -233,33 +175,6 @@ export default function AynaJourneySlide({
               className="ayna-journey-slide__publication"
               data-testid="ayna-slide-publication"
             >
-              {publicationBlock}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="ayna-journey-slide__meta ayna-journey-slide__meta--above">
-              {authorBlock}
-            </div>
-            <YansiProductCard
-              title={title}
-              summary={visibleSummary}
-              sceneImageUrl={sceneUrl}
-              testIdPrefix={`ayna-slide-${artifact.journeyId}`}
-              loadingLazy
-              className="ayna-journey-slide__card"
-            />
-            <div className="ayna-journey-slide__meta">
-              {summary && longSummary ? (
-                <button
-                  type="button"
-                  className="mt-1 self-start text-[10px] text-[rgba(231,180,91,0.85)]"
-                  onClick={() => setSummaryExpanded((v) => !v)}
-                  data-testid="ayna-summary-toggle"
-                >
-                  {summaryExpanded ? 'Kısalt' : 'Devamını gör'}
-                </button>
-              ) : null}
               {publicationBlock}
             </div>
           </>

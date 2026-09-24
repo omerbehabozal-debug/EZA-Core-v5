@@ -2706,19 +2706,38 @@
     color: var(--bilign-secondary);
   }
 
-  .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__title {
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__card.saina-discover-card {
+    width: 100%;
+    max-width: min(100%, 22.5rem);
+    margin-inline: auto;
+  }
+
+  .saina-app-root.saina-standalone-shell
+    .saina-mirror-panel
+    .ayna-journey-slide__card
+    .saina-discover-card__title {
     font-family: inherit;
     font-weight: 500;
     color: var(--bilign-text);
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
   }
 
-  .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__summary,
-  .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__metrics {
+  .saina-app-root.saina-standalone-shell
+    .saina-mirror-panel
+    .ayna-journey-slide__card
+    .saina-discover-card__summary {
     color: var(--bilign-secondary);
   }
 
-  .saina-app-root.saina-standalone-shell .saina-mirror-panel [data-testid='ayna-slide-status'],
-  .saina-app-root.saina-standalone-shell .saina-mirror-panel [data-testid='ayna-summary-toggle'] {
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel .ayna-journey-slide__publication {
+    padding: 0.15rem 0.1rem 0;
+  }
+
+  .saina-app-root.saina-standalone-shell .saina-mirror-panel [data-testid='ayna-slide-status'] {
     color: var(--bilign-bronze-light);
   }
 

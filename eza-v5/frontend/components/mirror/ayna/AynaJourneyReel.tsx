@@ -163,11 +163,7 @@ export default function AynaJourneyReel({
             publishBusy={publishBusyJourneyId === artifact.journeyId}
             shareBusy={shareBusyJourneyId === artifact.journeyId}
             canShare={canShare}
-            positionLabel={
-              compactPrimaryProduct
-                ? null
-                : `${index + 1} / ${artifacts.length}`
-            }
+            positionLabel={null}
             compactPrimaryProduct={compactPrimaryProduct}
             className={cn(activeKey === key && 'ayna-journey-slide--visible')}
           />
