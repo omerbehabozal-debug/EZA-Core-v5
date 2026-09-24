@@ -18,14 +18,18 @@ describe('Phase 8.4 trust actions', () => {
     expect(ids).toContain(sample);
   });
 
-  it('landing wires secondary trust actions without replacing primary CTA', () => {
+  it('landing wires secondary trust actions on Reel chrome', () => {
     const landing = readFileSync(
       join(process.cwd(), 'components/mirror-landing/MirrorLandingExperience.tsx'),
       'utf8'
     );
-    expect(landing).toContain('YansiTrustActions');
-    expect(landing).toContain('mirror-experience-start');
-    expect(landing).toContain('Bu merakı deneyimle');
+    const chain = readFileSync(
+      join(process.cwd(), 'components/mirror-landing/MirrorYansiChainExperience.tsx'),
+      'utf8'
+    );
+    expect(landing).toContain('MirrorYansiChainExperience');
+    expect(landing).not.toContain('mirror-experience-start');
+    expect(chain).toContain('YansiTrustActions');
   });
 
   it('trust actions keep report + owner unpublish as secondary controls', () => {
