@@ -240,11 +240,11 @@ describe('Phase 5.1.2 skip semantics (pure)', () => {
 describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
   it('Q1–Q3 then Discover DOWN: A stays 3/8 incomplete, X starts at Q1', async () => {
     const { a } = mockAxDiscover();
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
+    const { rerender } = render(
+      <MirrorYansiChainExperience rootArtifact={a} depth="chat" />
+    );
     await waitFor(() => {
-      expect(screen.getByTestId('mirror-skip-to-next')).toHaveTextContent(
-        YANSI_SKIP_TO_NEXT_MERAK
-      );
+      expect(screen.getByTestId('mirror-yansi-section-yansi-a')).toBeTruthy();
     });
 
     const sectionA = screen.getByTestId('mirror-yansi-section-yansi-a');
@@ -261,6 +261,13 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
       '4'
     );
 
+    // Vertical Reel nav is locked in chat — exit to Reel then DOWN.
+    rerender(<MirrorYansiChainExperience rootArtifact={a} depth="reel" />);
+    await waitFor(() => {
+      expect(screen.getByTestId('mirror-skip-to-next')).toHaveTextContent(
+        YANSI_SKIP_TO_NEXT_MERAK
+      );
+    });
     await goDiscoverDownTo('yansi-x');
     expect(fetchPublishedChildren).not.toHaveBeenCalled();
 
@@ -271,6 +278,8 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
       replayCompleted: false,
     });
     expect(loadFrozenReplayProgress('yansi-x', 1)).toBeNull();
+
+    rerender(<MirrorYansiChainExperience rootArtifact={a} depth="chat" />);
     const sectionX = screen.getByTestId('mirror-yansi-section-yansi-x');
     expect(within(sectionX).getByTestId('mirror-frozen-replay-next-question')).toHaveTextContent(
       'yansi-x Soru 1?'
@@ -289,11 +298,15 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
 
   it('return to A via ↑ resumes at Q4 — does not restart or complete', async () => {
     const { a } = mockAxDiscover();
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
+    const { rerender } = render(
+      <MirrorYansiChainExperience rootArtifact={a} depth="chat" />
+    );
+    await waitFor(() => screen.getByTestId('mirror-frozen-replay-next-question'));
+    await askNextInSection('yansi-a');
+    await askNextInSection('yansi-a');
+    await askNextInSection('yansi-a');
+    rerender(<MirrorYansiChainExperience rootArtifact={a} depth="reel" />);
     await waitFor(() => screen.getByTestId('mirror-skip-to-next'));
-    await askNextInSection('yansi-a');
-    await askNextInSection('yansi-a');
-    await askNextInSection('yansi-a');
     await goDiscoverDownTo('yansi-x');
     fireEvent.click(screen.getByTestId('mirror-discover-up'));
     await waitFor(() => {
@@ -302,6 +315,7 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
         'yansi-a'
       );
     });
+    rerender(<MirrorYansiChainExperience rootArtifact={a} depth="chat" />);
     const sectionA = screen.getByTestId('mirror-yansi-section-yansi-a');
     expect(within(sectionA).getByTestId('mirror-frozen-replay-next-question')).toHaveAttribute(
       'data-step-index',
@@ -329,11 +343,15 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
     window.addEventListener(YANSI_EXPERIENCE_COMPLETED_EVENT, onCompleted);
 
     const { a } = mockAxDiscover();
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
+    const { rerender } = render(
+      <MirrorYansiChainExperience rootArtifact={a} depth="chat" />
+    );
+    await waitFor(() => screen.getByTestId('mirror-frozen-replay-next-question'));
+    await askNextInSection('yansi-a');
+    await askNextInSection('yansi-a');
+    await askNextInSection('yansi-a');
+    rerender(<MirrorYansiChainExperience rootArtifact={a} depth="reel" />);
     await waitFor(() => screen.getByTestId('mirror-skip-to-next'));
-    await askNextInSection('yansi-a');
-    await askNextInSection('yansi-a');
-    await askNextInSection('yansi-a');
     await goDiscoverDownTo('yansi-x');
     await waitFor(
       () => {
@@ -427,11 +445,12 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
       if (slug === 'yansi-x') return makeArtifact('yansi-x', { stepCount: 6 });
       return null;
     });
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
+    const { rerender } = render(
+      <MirrorYansiChainExperience rootArtifact={a} depth="chat" />
+    );
     await waitFor(() => {
       expect(screen.getByTestId('mirror-frozen-replay-next-question')).toBeTruthy();
     });
-    expect(screen.getByTestId('mirror-skip-to-next')).toBeTruthy();
     expect(screen.getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
       'href',
       '/m/yansi-solo/sohbet'
@@ -441,16 +460,25 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
       'data-step-index',
       '2'
     );
+    rerender(<MirrorYansiChainExperience rootArtifact={a} depth="reel" />);
+    expect(screen.getByTestId('mirror-skip-to-next')).toBeTruthy();
   });
 
   it('Discover fetch failure keeps A usable with no fake next Yansı', async () => {
     const a = makeArtifact('yansi-a', { stepCount: 8 });
     vi.mocked(fetchDiscoverMirrors).mockResolvedValue({ ok: false, status: 500 });
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(a);
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
+    const { rerender } = render(
+      <MirrorYansiChainExperience rootArtifact={a} depth="chat" />
+    );
     await waitFor(() => {
       expect(screen.getByTestId('mirror-frozen-replay-next-question')).toBeTruthy();
     });
+    expect(screen.getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
+      'href',
+      '/m/yansi-a/sohbet'
+    );
+    rerender(<MirrorYansiChainExperience rootArtifact={a} depth="reel" />);
     fireEvent.click(screen.getByTestId('mirror-skip-to-next'));
     await waitFor(() => expect(fetchDiscoverMirrors).toHaveBeenCalled());
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
@@ -458,9 +486,5 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
       'yansi-a'
     );
     expect(screen.queryByTestId('mirror-yansi-section-yansi-x')).toBeNull();
-    expect(screen.getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
-      'href',
-      '/m/yansi-a/sohbet'
-    );
   });
 });

@@ -170,8 +170,13 @@ const landingSurface = {
 async function startPublishedExperience() {
   vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(makeArtifact());
   render(<MirrorLandingExperience surface={landingSurface} />);
-  fireEvent.click(await screen.findByTestId('mirror-experience-start'));
   await screen.findByTestId('mirror-yansi-chain');
+}
+
+/** Enter Chat depth from Reel (desktop Audio rail is Chat-only). */
+async function enterPublishedChatFromReel() {
+  fireEvent.click(await screen.findByTestId('mirror-yansi-active-title'));
+  await screen.findByTestId('yansi-chat-replay-layer');
 }
 
 beforeEach(() => {
@@ -229,11 +234,20 @@ describe('mode detection from existing product state', () => {
 });
 
 describe('published Yansı experience rail (Mode A, desktop)', () => {
-  it('shows Audio + Rhythm after experience starts, without Ayna or Share on the rail', async () => {
+  it('shows Audio + Rhythm in Chat depth only, without Ayna on the rail', async () => {
     installSpeech();
     await startPublishedExperience();
+    // Reel: contextual Audio slot empty; identity chrome still present.
+    expect(screen.queryByTestId('yansi-experience-controls')).toBeNull();
+    expect(screen.getByTestId('ayna-author-row')).toBeInTheDocument();
+    expect(screen.getByTestId('yansi-experience-share')).toHaveAttribute(
+      'aria-label',
+      "Yansı'yı paylaş"
+    );
+
+    await enterPublishedChatFromReel();
     const rail = await screen.findByTestId('yansi-experience-controls');
-    expect(rail).toBeInTheDocument();
+    expect(rail).toHaveAttribute('data-yansi-contextual-slot', 'audio');
     expect(screen.getByTestId('yansi-experience-audio')).toHaveAttribute(
       'aria-pressed',
       'false'
@@ -245,16 +259,13 @@ describe('published Yansı experience rail (Mode A, desktop)', () => {
     expect(screen.getByTestId('yansi-experience-rhythm')).toBeInTheDocument();
     expect(rail.textContent).not.toMatch(/Ayna/i);
     expect(rail.querySelector('[data-testid="yansi-experience-share"]')).toBeNull();
-    expect(screen.getByTestId('yansi-experience-share')).toHaveAttribute(
-      'aria-label',
-      "Yansı'yı paylaş"
-    );
-    expect(screen.getByTestId('ayna-author-row')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-mobile-ayna-pill')).toBeNull();
   });
 
   it('hides audio control when SpeechSynthesis is unsupported', async () => {
     stripSpeech();
     await startPublishedExperience();
+    await enterPublishedChatFromReel();
     await screen.findByTestId('yansi-experience-controls');
     expect(screen.queryByTestId('yansi-experience-audio')).not.toBeInTheDocument();
     expect(screen.getByTestId('yansi-experience-rhythm')).toBeInTheDocument();
@@ -486,7 +497,8 @@ describe('source contracts', () => {
     const sohbet = read('components/mirror-landing/MirrorSohbetOpening.tsx');
     const inner = read('components/standalone/StandaloneChatInner.tsx');
     expect(landing).toContain('YansiExperienceControls');
-    expect(landing).toContain('replayStarted');
+    expect(landing).toContain('data-yansi-public-depth');
+    expect(landing).toContain("data-yansi-experience-mode={depth === 'chat' ? 'chat' : 'reel'}");
     expect(sohbet).not.toContain('YansiExperienceControls');
     expect(sohbet).toContain('cancelYansiSpeech');
     expect(sohbet).toContain('data-yansi-experience-mode="b"');
@@ -498,6 +510,7 @@ describe('source contracts', () => {
 
   it('does not change backend files in this stage', () => {
     expect(read('app/m/layout.tsx')).toContain('yansi-experience-controls.css');
+    expect(read('app/m/layout.tsx')).toContain('yansi-reel-responsive.css');
     const css = read('styles/yansi-experience-controls.css');
     expect(css).toContain('min-width: 900px');
     expect(css).toContain('max-width: 899px');

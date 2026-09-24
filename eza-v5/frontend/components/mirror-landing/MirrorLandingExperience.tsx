@@ -1,22 +1,18 @@
 'use client';
 
 /**
- * Stage 2A / Phase 5.0–5.1 — Mirror Landing Experience
+ * Public /m consumer experience — Reel-first + Chat depth (Phase A–C).
  *
- * Progressive frozen replay + continuous published-child scroll.
- * Own continuation uses existing /sohbet path from the active Yansı.
+ * Depth: REEL_PREVIEW (default) | CHAT_REPLAY (?mode=chat).
+ * Same exact artifact/scene/session; presentation depth only.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { Calendar } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
 import YansiExperienceControls from '@/components/mirror-landing/YansiExperienceControls';
-import YansiSaveButton from '@/components/mirror-landing/YansiSaveButton';
 import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
-import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
-import SainaBrandWordmark from '@/components/saina/SainaBrandWordmark';
-import SainaGeometricMark from '@/components/saina/SainaGeometricMark';
 import type { MirrorLandingSurface } from '@/lib/eza/mirror-network/publicTypes';
 import { trackLandingViewed } from '@/lib/eza/mirror-network/landingAnalytics';
 import {
@@ -24,9 +20,6 @@ import {
   type PublicFrozenJourneyArtifact,
 } from '@/lib/eza/mirror/journey';
 import { cn } from '@/lib/utils';
-import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
-import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
-import YansiTrustActions from '@/components/mirror-landing/YansiTrustActions';
 import IdentityModal from '@/components/plan/IdentityModal';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -37,6 +30,11 @@ import {
   noteYansiSaveState,
 } from '@/lib/eza/mirror-network/yansiSaveStore';
 import { saveYansi } from '@/lib/eza/mirror-network/yansiSaveApi';
+import {
+  parsePinnedJourneyVersion,
+  parseYansiPublicDepth,
+  type YansiPublicDepth,
+} from '@/lib/eza/mirror-network/yansiPublicDepth';
 
 export type MirrorLandingExperienceProps = {
   surface: MirrorLandingSurface;
@@ -53,8 +51,34 @@ export default function MirrorLandingExperience({
   surface,
   className,
 }: MirrorLandingExperienceProps) {
+  const searchParams = useSearchParams();
+  const urlDepth = useMemo(
+    () => parseYansiPublicDepth(searchParams),
+    [searchParams]
+  );
+  const [depth, setDepth] = useState<YansiPublicDepth>(urlDepth);
+  const pinnedJourneyVersion = useMemo(
+    () => parsePinnedJourneyVersion(searchParams),
+    [searchParams]
+  );
+
+  useEffect(() => {
+    setDepth(urlDepth);
+  }, [urlDepth]);
+
+  useEffect(() => {
+    const onPop = () => {
+      setDepth(parseYansiPublicDepth(window.location.search));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const handleDepthChange = useCallback((next: YansiPublicDepth) => {
+    setDepth(next);
+  }, []);
+
   const [frozenState, setFrozenState] = useState<FrozenLoadState>({ status: 'loading' });
-  const [replayStarted, setReplayStarted] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
   const isDesktop = useSainaCompactShell();
   const { isAuthenticated, isAuthReady } = useAuth();
@@ -71,7 +95,6 @@ export default function MirrorLandingExperience({
       if (cancelled) return;
       const pending = consumePendingYansiSaveIntent();
       if (!pending) return;
-      // Only auto-complete if still on the intended slug surface.
       if (pending !== surface.slug.trim().toLowerCase()) return;
       const result = await saveYansi(pending);
       if (cancelled) return;
@@ -90,12 +113,23 @@ export default function MirrorLandingExperience({
   const loadFrozen = useCallback(async () => {
     setFrozenState({ status: 'loading' });
     try {
-      const artifact = await fetchPublicFrozenJourneyArtifact({ slug: surface.slug });
+      const artifact = await fetchPublicFrozenJourneyArtifact({
+        slug: surface.slug,
+        journeyVersion: pinnedJourneyVersion,
+      });
       if (!artifact) {
         setFrozenState({ status: 'unavailable' });
         void import('@/lib/eza/opsTelemetry').then(({ reportOpsFailure }) => {
           reportOpsFailure('frozen_replay_load_failed', 'FROZEN_ARTIFACT_INVALID');
         });
+        return;
+      }
+      // Exact node pin: reject latest substitution when URL pins a version.
+      if (
+        pinnedJourneyVersion != null &&
+        artifact.journeyVersion !== pinnedJourneyVersion
+      ) {
+        setFrozenState({ status: 'unavailable' });
         return;
       }
       setFrozenState({ status: 'ready', artifact });
@@ -105,159 +139,66 @@ export default function MirrorLandingExperience({
         reportOpsFailure('frozen_replay_load_failed', 'FROZEN_ARTIFACT_INVALID');
       });
     }
-  }, [surface.slug]);
+  }, [surface.slug, pinnedJourneyVersion]);
 
   useEffect(() => {
     void loadFrozen();
   }, [loadFrozen]);
 
-  const handleStartExperience = () => {
-    if (frozenState.status !== 'ready') return;
-    // Landing CTA only opens the replay container. STARTED fires on first
-    // frozen-question engagement inside MirrorFrozenReplay.
-    setReplayStarted(true);
-  };
-
-  const title =
-    frozenState.status === 'ready'
-      ? frozenState.artifact.publicTitle || surface.cardTitle
-      : surface.cardTitle;
-  const summary =
-    frozenState.status === 'ready'
-      ? frozenState.artifact.publicSummary ||
-        surface.curiosityContext ||
-        surface.publicSummary
-      : surface.curiosityContext || surface.publicSummary;
-  const sceneImageUrl =
-    frozenState.status === 'ready'
-      ? frozenState.artifact.sceneImageUrl || surface.sceneImageUrl
-      : surface.sceneImageUrl;
-
   return (
     <div
       className={cn(
-        'relative mx-0 flex min-h-[100dvh] w-full max-w-none flex-col bg-[#090b0b] text-[#f4f0e8] min-[900px]:mx-auto min-[900px]:max-w-lg',
+        'relative mx-0 flex min-h-[100dvh] w-full max-w-none flex-col bg-[#090b0b] text-[#f4f0e8]',
+        isDesktop && 'yansi-desktop-reel-root',
         className
       )}
       data-mirror-landing
       data-mirror-landing-slug={surface.slug}
-      data-replay-started={replayStarted ? 'true' : 'false'}
-      data-yansi-experience-mode={replayStarted ? 'a' : 'landing'}
+      data-yansi-public-depth={depth}
+      data-yansi-experience-mode={depth === 'chat' ? 'chat' : 'reel'}
+      data-yansi-reel-presentation={isDesktop ? 'desktop-stage' : 'mobile-fullscreen'}
     >
-      <header
-        className={cn(
-          'relative z-[2] flex items-center justify-between px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]',
-          replayStarted && !isDesktop && 'sr-only'
-        )}
-        data-testid="mirror-landing-brand-header"
-      >        <p className="flex items-center gap-2">
-          <SainaGeometricMark size={16} />
-          <SainaBrandWordmark height={13} />
-        </p>
-        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-[#e8dfd0] backdrop-blur-sm">
-          <Calendar className="mr-1 h-3 w-3 opacity-80" strokeWidth={1.5} aria-hidden />
-          {surface.dayLabel}
-        </span>
-      </header>
-
-      <div className="relative z-[1] flex min-h-0 flex-1 flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
-        {!replayStarted ? (
-          <YansiExposureRoot
-            slug={surface.slug}
-            journeyVersion={
-              frozenState.status === 'ready'
-                ? frozenState.artifact.journeyVersion
-                : null
-            }
-            context="landing"
-          >
-          <MirrorPublicCard
-            title={title}
-            summary={summary}
-            sceneImageUrl={sceneImageUrl}
-            slug={surface.slug}
-            testIdPrefix="mirror-landing-card"
-            className="mx-auto w-full max-w-md border-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
-            meta={
-              frozenState.status === 'ready' ? (
-                <YansiPublicMetricsLine
-                  slug={frozenState.artifact.slug}
-                  journeyVersion={frozenState.artifact.journeyVersion}
-                  variant="card"
-                />
-              ) : null
-            }
-            footer={
-              frozenState.status === 'ready' ? (
-                <div className="mt-auto space-y-3 pt-10">
-                  <button
-                    type="button"
-                    onClick={handleStartExperience}
-                    className="flex w-full items-center justify-center rounded-full border border-[#e8d5b5]/40 bg-[#e8d5b5]/15 px-6 py-3.5 text-sm font-semibold tracking-wide text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/25"
-                    data-testid="mirror-experience-start"
-                  >
-                    Bu merakı deneyimle
-                  </button>
-                  <div className="flex flex-col items-center gap-2 pt-1">
-                    <YansiSaveButton
-                      slug={frozenState.artifact.slug}
-                      authorUserId={frozenState.artifact.authorUserId}
-                      onRequireAuth={openAuth}
-                    />
-                    <YansiTrustActions
-                      slug={surface.slug}
-                      authorUserId={frozenState.artifact.authorUserId}
-                      className="pt-0"
-                    />
-                  </div>
-                </div>
-              ) : frozenState.status === 'loading' ? (
-                <div className="mt-auto pt-10 text-center text-xs text-[#a89880]">
-                  Deneyim hazırlanıyor…
-                </div>
-              ) : frozenState.status === 'error' ? (
-                <div className="mt-auto space-y-3 pt-10">
-                  <p className="text-center text-xs text-[#a89880]">
-                    Deneyim yüklenemedi.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void loadFrozen()}
-                    className="flex w-full items-center justify-center rounded-full border border-white/15 px-6 py-3 text-sm text-[#e8dfd0]"
-                    data-testid="mirror-experience-retry"
-                  >
-                    Yeniden dene
-                  </button>
-                </div>
-              ) : (
-                <p
-                  className="mt-auto pt-10 text-center text-xs text-[#a89880]"
-                  data-testid="mirror-experience-unavailable-inline"
-                >
-                  Bu Yansı şu an deneyimlenemiyor.
-                </p>
-              )
-            }
+      {frozenState.status === 'ready' ? (
+        <YansiExperienceSessionProvider slug={frozenState.artifact.slug}>
+          <MirrorYansiChainExperience
+            rootArtifact={frozenState.artifact}
+            depth={depth}
+            onDepthChange={handleDepthChange}
+            className="min-h-0 flex-1"
+            onRequireAuth={openAuth}
           />
-          </YansiExposureRoot>
-        ) : frozenState.status === 'ready' ? (
-          <YansiExperienceSessionProvider slug={frozenState.artifact.slug}>
-            <MirrorYansiChainExperience
-              rootArtifact={frozenState.artifact}
-              className="min-h-0 flex-1"
-              onRequireAuth={openAuth}
-            />
-            {isDesktop ? <YansiExperienceControls /> : null}
-          </YansiExperienceSessionProvider>
-        ) : (
-          <div
-            className="flex flex-1 flex-col items-center justify-center gap-3 text-center"
-            data-testid="mirror-experience-unavailable"
+          {isDesktop && depth === 'chat' ? <YansiExperienceControls /> : null}
+        </YansiExperienceSessionProvider>
+      ) : frozenState.status === 'loading' ? (
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-3 px-5 text-center"
+          data-testid="mirror-experience-loading"
+        >
+          <p className="text-sm text-[#a89880]">Deneyim hazırlanıyor…</p>
+        </div>
+      ) : frozenState.status === 'error' ? (
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-3 px-5 text-center"
+          data-testid="mirror-experience-error"
+        >
+          <p className="text-sm text-[#c9bba8]">Deneyim yüklenemedi.</p>
+          <button
+            type="button"
+            onClick={() => void loadFrozen()}
+            className="rounded-full border border-white/15 px-6 py-3 text-sm text-[#e8dfd0]"
+            data-testid="mirror-experience-retry"
           >
-            <p className="text-sm text-[#c9bba8]">Bu Yansı şu an deneyimlenemiyor.</p>
-          </div>
-        )}
-      </div>
+            Yeniden dene
+          </button>
+        </div>
+      ) : (
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-3 px-5 text-center"
+          data-testid="mirror-experience-unavailable"
+        >
+          <p className="text-sm text-[#c9bba8]">Bu Yansı şu an deneyimlenemiyor.</p>
+        </div>
+      )}
       <IdentityModal open={identityOpen} onClose={() => setIdentityOpen(false)} />
     </div>
   );

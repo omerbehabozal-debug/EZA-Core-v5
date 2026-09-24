@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 export type MirrorYansiSceneCrossfadeProps = {
   sceneImageUrl: string | null | undefined;
   className?: string;
+  /** mobile-fullscreen = cover; desktop-stage = contain (protect composition). */
+  presentation?: 'mobile-fullscreen' | 'desktop-stage';
 };
 
 function prefersReducedMotion(): boolean {
@@ -25,11 +27,16 @@ function prefersReducedMotion(): boolean {
 export default function MirrorYansiSceneCrossfade({
   sceneImageUrl,
   className,
+  presentation = 'mobile-fullscreen',
 }: MirrorYansiSceneCrossfadeProps) {
   const nextUrl = (sceneImageUrl || '').trim() || null;
   const [front, setFront] = useState<string | null>(nextUrl);
   const [back, setBack] = useState<string | null>(null);
   const [frontOpacity, setFrontOpacity] = useState(1);
+  const isDesktopStage = presentation === 'desktop-stage';
+  const imagePositionClass = isDesktopStage
+    ? 'yansi-desktop-scene-image object-contain'
+    : 'inset-0 h-full w-full object-cover';
 
   // Layout effect: keep data-testid current layer aligned with active slug in the
   // same commit as Discover ↑/↓ (useEffect left one paint on the previous scene).
@@ -56,8 +63,13 @@ export default function MirrorYansiSceneCrossfade({
 
   return (
     <div
-      className={cn('pointer-events-none absolute inset-0 overflow-hidden', className)}
+      className={cn(
+        'pointer-events-none absolute inset-0 overflow-hidden',
+        isDesktopStage && 'yansi-desktop-scene-canvas',
+        className
+      )}
       data-testid="mirror-yansi-scene-crossfade"
+      data-yansi-scene-presentation={presentation}
       aria-hidden
     >
       <div className="absolute inset-0 bg-[#0c0b0a]" />
@@ -67,7 +79,7 @@ export default function MirrorYansiSceneCrossfade({
           src={back}
           alt=""
           data-scene-layer="outgoing"
-          className="absolute inset-0 h-full w-full object-cover opacity-100"
+          className={cn('absolute opacity-100', imagePositionClass)}
         />
       ) : null}
       {front ? (
@@ -77,14 +89,24 @@ export default function MirrorYansiSceneCrossfade({
           alt=""
           data-scene-layer="current"
           data-testid="mirror-yansi-scene-current"
-          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ease-out"
+          className={cn(
+            'absolute transition-opacity duration-500 ease-out',
+            imagePositionClass
+          )}
           style={{ opacity: frontOpacity }}
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
         />
       ) : null}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0c0b0a]/55 via-[#0c0b0a]/35 to-[#0c0b0a]/85" />
+      <div
+        className={cn(
+          'absolute inset-0',
+          isDesktopStage
+            ? 'bg-gradient-to-b from-[#0c0b0a]/40 via-transparent to-[#0c0b0a]/75'
+            : 'bg-gradient-to-b from-[#0c0b0a]/55 via-[#0c0b0a]/35 to-[#0c0b0a]/85'
+        )}
+      />
     </div>
   );
 }

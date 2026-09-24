@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import MirrorLandingExperience from '@/components/mirror-landing/MirrorLandingExperience';
 import { fetchPublicMirrorBySlug } from '@/lib/eza/mirror-network/fetchPublicMirror';
@@ -43,5 +44,15 @@ export default async function MirrorLandingPage({ params }: PageProps) {
   const surface = pickMirrorLandingSurface(result.data);
   assertMirrorLandingSurfaceClean(surface);
 
-  return <MirrorLandingExperience surface={surface} />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[100dvh] items-center justify-center bg-[#090b0b] text-sm text-[#a89880]">
+          Deneyim hazırlanıyor…
+        </div>
+      }
+    >
+      <MirrorLandingExperience surface={surface} />
+    </Suspense>
+  );
 }

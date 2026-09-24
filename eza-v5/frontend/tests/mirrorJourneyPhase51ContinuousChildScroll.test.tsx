@@ -8,7 +8,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => '/',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams('mode=chat'),
 }));
 
 vi.mock('@/context/AuthContext', () => ({
@@ -288,7 +288,9 @@ describe('Phase 5.1 continuous chain UI', () => {
     const scrollSpy = vi.fn();
     Element.prototype.scrollIntoView = scrollSpy;
 
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
+    const { rerender } = render(
+      <MirrorYansiChainExperience rootArtifact={a} depth="chat" />
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId('mirror-yansi-section-yansi-a')).toBeTruthy();
@@ -311,6 +313,9 @@ describe('Phase 5.1 continuous chain UI', () => {
       '/m/yansi-a/sohbet'
     );
     expect(within(sectionA).getByText('Bu Yansı burada tamamlandı.')).toBeTruthy();
+    // Reel nav is quiet during chat — Discover DOWN returns with REEL_PREVIEW.
+    expect(screen.queryByTestId('mirror-skip-to-next')).toBeNull();
+    rerender(<MirrorYansiChainExperience rootArtifact={a} depth="reel" />);
     expect(screen.getByTestId('mirror-skip-to-next')).toBeTruthy();
 
     expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
@@ -334,7 +339,7 @@ describe('Phase 5.1 continuous chain UI', () => {
         replayCompleted: true,
       })
     );
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
+    render(<MirrorYansiChainExperience rootArtifact={a}  depth="chat" />);
     await waitFor(() => {
       expect(screen.getByTestId('mirror-frozen-replay-continue')).toBeTruthy();
     });
@@ -357,7 +362,7 @@ describe('Phase 5.1 continuous chain UI', () => {
         }}
       />
     );
-    fireEvent.click(await screen.findByTestId('mirror-experience-start'));
+    await screen.findByTestId('mirror-yansi-chain');
     await waitFor(() => {
       expect(screen.getByTestId('mirror-yansi-chain')).toBeTruthy();
     });

@@ -33,6 +33,12 @@ export type MirrorPublicCardProps = {
    * Context slots (kicker/meta/footer) remain surface-specific.
    */
   canonicalProduct?: boolean;
+  /**
+   * Discover → open immersive Reel. Wired to visual + title only —
+   * never kicker/meta/footer controls.
+   */
+  onActivateProduct?: () => void;
+  activateProductLabel?: string;
 };
 
 /**
@@ -56,6 +62,8 @@ export default function MirrorPublicCard({
   captureRef,
   visualOnly = false,
   canonicalProduct = false,
+  onActivateProduct,
+  activateProductLabel = 'Yansıyı aç',
 }: MirrorPublicCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = Boolean(sceneImageUrl?.trim()) && !imageFailed;
@@ -81,7 +89,44 @@ export default function MirrorPublicCard({
       data-visual-only={visualOnly ? 'true' : undefined}
     >
       <div className="saina-discover-card__visual">
-        {showImage ? (
+        {onActivateProduct ? (
+          <button
+            type="button"
+            className="saina-discover-card__visual-hit"
+            onClick={onActivateProduct}
+            aria-label={activateProductLabel}
+            data-testid={
+              slug
+                ? `${testIdPrefix}-visual-open-${slug}`
+                : `${testIdPrefix}-visual-open`
+            }
+          >
+            {showImage ? (
+              // eslint-disable-next-line @next/next/no-img-element -- dynamic scene URL
+              <img
+                src={sceneImageUrl!}
+                alt=""
+                className="saina-discover-card__image"
+                loading={loadingLazy ? 'lazy' : undefined}
+                decoding="async"
+                onError={() => setImageFailed(true)}
+                data-testid={
+                  slug ? 'saina-discover-card-image' : `${testIdPrefix}-image`
+                }
+              />
+            ) : (
+              <div
+                className="saina-discover-card__placeholder"
+                aria-hidden
+                data-testid={
+                  slug
+                    ? 'saina-discover-card-placeholder'
+                    : `${testIdPrefix}-placeholder`
+                }
+              />
+            )}
+          </button>
+        ) : showImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- dynamic scene URL
           <img
             src={sceneImageUrl!}
@@ -125,16 +170,31 @@ export default function MirrorPublicCard({
               data-yansi-product-core
             >
               {title.trim() ? (
-                <h2
-                  className="saina-discover-card__title saina-serif"
-                  data-testid={
-                    slug
-                      ? `${testIdPrefix}-title-${slug}`
-                      : `${testIdPrefix}-title`
-                  }
-                >
-                  {title}
-                </h2>
+                onActivateProduct ? (
+                  <button
+                    type="button"
+                    className="saina-discover-card__title saina-serif saina-discover-card__title-open"
+                    onClick={onActivateProduct}
+                    data-testid={
+                      slug
+                        ? `${testIdPrefix}-title-${slug}`
+                        : `${testIdPrefix}-title`
+                    }
+                  >
+                    {title}
+                  </button>
+                ) : (
+                  <h2
+                    className="saina-discover-card__title saina-serif"
+                    data-testid={
+                      slug
+                        ? `${testIdPrefix}-title-${slug}`
+                        : `${testIdPrefix}-title`
+                    }
+                  >
+                    {title}
+                  </h2>
+                )
               ) : null}
               {summary?.trim() ? (
                 <p

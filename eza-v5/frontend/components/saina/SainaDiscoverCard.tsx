@@ -30,10 +30,19 @@ export default function SainaDiscoverCard({
   const product = resolveYansiProductFromDiscoverItem(item);
   const canonical = parseYansiPublicSocialProofInput(item);
   const authorName = item.authorDisplayName?.trim() || '';
+  const journeyVersion =
+    typeof item.journeyVersion === 'number' &&
+    Number.isInteger(item.journeyVersion) &&
+    item.journeyVersion >= 1
+      ? item.journeyVersion
+      : null;
 
   const handleOpenYansi = useCallback(() => {
-    router.push(buildMirrorPublicPath(item.slug));
-  }, [item.slug, router]);
+    // PUSH — Discover → Reel depth. Pin journeyVersion when Discover provides it.
+    router.push(
+      buildMirrorPublicPath(item.slug, { journeyVersion })
+    );
+  }, [item.slug, journeyVersion, router]);
 
   const identity = authorName ? (
     <div
@@ -73,6 +82,8 @@ export default function SainaDiscoverCard({
         slug={item.slug}
         testIdPrefix="saina-discover-card"
         loadingLazy
+        onActivateProduct={handleOpenYansi}
+        activateProductLabel={`${product.title} — Yansıyı aç`}
         footer={
           <button
             type="button"

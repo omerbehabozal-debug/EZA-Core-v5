@@ -9,7 +9,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => '/',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams('mode=chat'),
 }));
 
 vi.mock('@/context/AuthContext', () => ({
@@ -216,7 +216,7 @@ describe('Phase 6.0 start semantics', () => {
         }}
       />
     );
-    fireEvent.click(await screen.findByTestId('mirror-experience-start'));
+    await screen.findByTestId('mirror-yansi-chain');
     expect(await screen.findByTestId('mirror-frozen-replay-next-question')).toBeTruthy();
     expect(started).not.toHaveBeenCalled();
     window.removeEventListener(YANSI_EXPERIENCE_STARTED_EVENT, started);

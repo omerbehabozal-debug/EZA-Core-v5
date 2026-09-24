@@ -67,6 +67,12 @@ export const MIRROR_JOURNEY_CONVERSATION_CLOSED =
 /** Phase 5.1 / 5.1.2 — own continuation from the active Yansı (complete or partial). */
 export const YANSI_OWN_CONTINUATION_CTA = 'Kendi merakımla devam et';
 
+/**
+ * Phase D — secondary end-of-replay action.
+ * Leaves Chat → SAME exact Yansı Reel (user chooses next curiosity).
+ */
+export const YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA = 'Başka bir merak keşfet';
+
 /** Phase 5.1.2 — quiet skip into the next eligible child. Not a primary CTA. */
 export const YANSI_SKIP_TO_NEXT_MERAK = 'Sonraki meraka geç ↓';
 /** Vertical Discover session — previous visited Yansı in this browsing stack. */

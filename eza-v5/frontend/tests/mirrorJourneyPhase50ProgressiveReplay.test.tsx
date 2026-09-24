@@ -214,7 +214,7 @@ describe('Phase 5.0 UI', () => {
     expect(continueLink).toHaveTextContent('Kendi merakımla devam et');
   });
 
-  it('landing start CTA appears when frozen ready', async () => {
+  it('landing opens Reel-first when frozen ready (no inset gate)', async () => {
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(makeArtifact(6));
     render(
       <MirrorLandingExperience
@@ -228,9 +228,8 @@ describe('Phase 5.0 UI', () => {
         }}
       />
     );
-    expect(await screen.findByTestId('mirror-experience-start')).toHaveTextContent(
-      'Bu merakı deneyimle'
-    );
+    expect(await screen.findByTestId('mirror-yansi-chain')).toBeTruthy();
+    expect(screen.queryByTestId('mirror-experience-start')).toBeNull();
   });
 
   it('malformed / unavailable frozen fails closed without live sohbet CTA (Phase 8.2)', async () => {
@@ -248,7 +247,7 @@ describe('Phase 5.0 UI', () => {
       />
     );
     await waitFor(() => {
-      expect(screen.getByTestId('mirror-experience-unavailable-inline')).toBeTruthy();
+      expect(screen.getByTestId('mirror-experience-unavailable')).toBeTruthy();
     });
     expect(screen.getByText('Bu Yansı şu an deneyimlenemiyor.')).toBeTruthy();
     expect(screen.queryByText('Bu konudan devam et')).toBeNull();

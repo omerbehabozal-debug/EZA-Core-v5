@@ -52,6 +52,8 @@ export default function YansiExperienceControls() {
       className="yansi-exp-rail"
       data-testid="yansi-experience-controls"
       data-yansi-experience-rail="true"
+      data-yansi-public-audio-rail="true"
+      data-yansi-contextual-slot="audio"
       aria-label="Yansı deneyim kontrolleri"
     >
       {session.speechSupported ? (

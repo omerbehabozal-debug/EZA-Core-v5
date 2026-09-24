@@ -8,11 +8,19 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => '/',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams('mode=chat'),
+}));
+
+vi.mock('@/hooks/useSainaMinWidth', () => ({
+  useSainaCompactShell: () => true,
 }));
 
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ user: null, isAuthenticated: false }),
+}));
+
+const { fetchFrozenMock } = vi.hoisted(() => ({
+  fetchFrozenMock: vi.fn(),
 }));
 
 vi.mock('@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer', async () => {
@@ -21,7 +29,17 @@ vi.mock('@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer', async () 
   >('@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer');
   return {
     ...actual,
-    fetchPublicFrozenJourneyArtifact: vi.fn(),
+    fetchPublicFrozenJourneyArtifact: (...args: unknown[]) => fetchFrozenMock(...args),
+  };
+});
+
+vi.mock('@/lib/eza/mirror/journey', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/eza/mirror/journey')>(
+    '@/lib/eza/mirror/journey'
+  );
+  return {
+    ...actual,
+    fetchPublicFrozenJourneyArtifact: (...args: unknown[]) => fetchFrozenMock(...args),
   };
 });
 
@@ -83,6 +101,9 @@ import { clearEzaUserPreferencesForTests } from '@/lib/eza/ezaUserPrefs';
 import MirrorLandingExperience from '@/components/mirror-landing/MirrorLandingExperience';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
 import { formatDiscoverYansiCount } from '@/lib/eza/mirror-network/discoverCopy';
+
+// Keep hydrate import alias wired to shared hoisted mock for existing call sites.
+void fetchPublicFrozenJourneyArtifact;
 
 type Observed = {
   cb: IntersectionObserverCallback;
@@ -153,7 +174,7 @@ beforeEach(() => {
   clearEzaUserPreferencesForTests();
   clearPublicAuthorDisplayCacheForTests();
   localStorage.clear();
-  vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();
+  fetchFrozenMock.mockReset();
   vi.mocked(fetchPublishedChildren).mockReset();
   vi.mocked(fetchDiscoverMirrors).mockReset();
   vi.mocked(fetchAuthorPublishedYansilar).mockReset();
@@ -212,7 +233,7 @@ beforeEach(() => {
 describe('Phase 6.2 public metrics UI', () => {
   it('landing: 140 deneyim · 7 Yansı from /metrics, never legacy impact/discover', async () => {
     const artifact = makeArtifact('yansi-a');
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(artifact);
+    fetchFrozenMock.mockResolvedValue(artifact);
     vi.mocked(fetchYansiPublicMetrics).mockResolvedValue({
       ok: true,
       data: dto('yansi-a', 140, 7),
@@ -231,7 +252,7 @@ describe('Phase 6.2 public metrics UI', () => {
     });
 
     render(<MirrorLandingExperience surface={landingSurface()} />);
-    expect(await screen.findByTestId('mirror-experience-start')).toBeTruthy();
+    expect(await screen.findByTestId('mirror-yansi-chain')).toBeTruthy();
     expect(await screen.findByTestId('yansi-public-metrics')).toHaveTextContent(
       '140 deneyim · 7 Yansı'
     );
@@ -247,13 +268,13 @@ describe('Phase 6.2 public metrics UI', () => {
   });
 
   it('hides the row when started=0 and children=0', async () => {
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(makeArtifact('yansi-a'));
+    fetchFrozenMock.mockResolvedValue(makeArtifact('yansi-a'));
     vi.mocked(fetchYansiPublicMetrics).mockResolvedValue({
       ok: true,
       data: dto('yansi-a', 0, 0),
     });
     render(<MirrorLandingExperience surface={landingSurface()} />);
-    await screen.findByTestId('mirror-experience-start');
+    await screen.findByTestId('mirror-yansi-chain');
     await waitFor(() => {
       expect(fetchYansiPublicMetrics).toHaveBeenCalled();
     });
@@ -262,7 +283,7 @@ describe('Phase 6.2 public metrics UI', () => {
   });
 
   it('shows 140 deneyim without · 0 Yansı', async () => {
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(makeArtifact('yansi-a'));
+    fetchFrozenMock.mockResolvedValue(makeArtifact('yansi-a'));
     vi.mocked(fetchYansiPublicMetrics).mockResolvedValue({
       ok: true,
       data: dto('yansi-a', 140, 0),
@@ -273,7 +294,7 @@ describe('Phase 6.2 public metrics UI', () => {
   });
 
   it('shows 0 deneyim · 3 Yansı when only children exist', async () => {
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(makeArtifact('yansi-a'));
+    fetchFrozenMock.mockResolvedValue(makeArtifact('yansi-a'));
     vi.mocked(fetchYansiPublicMetrics).mockResolvedValue({
       ok: true,
       data: dto('yansi-a', 0, 3),
@@ -286,7 +307,7 @@ describe('Phase 6.2 public metrics UI', () => {
 
   it('version pin: v1 replay shows v1 started count, not v2', async () => {
     const v1 = makeArtifact('yansi-a', { journeyVersion: 1 });
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(v1);
+    fetchFrozenMock.mockResolvedValue(v1);
     vi.mocked(fetchYansiPublicMetrics).mockImplementation(async (_slug, version) => {
       if (version === 1) return { ok: true, data: dto('yansi-a', 140, 7, 1) };
       return { ok: true, data: dto('yansi-a', 20, 7, 2) };
@@ -298,13 +319,13 @@ describe('Phase 6.2 public metrics UI', () => {
   });
 
   it('fail-closed on wrong slug / negative / metrics error', async () => {
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(makeArtifact('yansi-a'));
+    fetchFrozenMock.mockResolvedValue(makeArtifact('yansi-a'));
     vi.mocked(fetchYansiPublicMetrics).mockResolvedValue({
       ok: true,
       data: dto('other-slug', 140, 7),
     });
     const { unmount } = render(<MirrorLandingExperience surface={landingSurface()} />);
-    await screen.findByTestId('mirror-experience-start');
+    await screen.findByTestId('mirror-yansi-chain');
     await waitFor(() => expect(fetchYansiPublicMetrics).toHaveBeenCalled());
     expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
     unmount();
@@ -314,14 +335,14 @@ describe('Phase 6.2 public metrics UI', () => {
       data: { ...dto('yansi-a', 140, 7), experienceStartedCount: -4 },
     });
     render(<MirrorLandingExperience surface={landingSurface()} />);
-    await screen.findByTestId('mirror-experience-start');
+    await screen.findByTestId('mirror-yansi-chain');
     await waitFor(() => expect(fetchYansiPublicMetrics).toHaveBeenCalled());
     expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
     expect(screen.queryByText('-4 deneyim')).toBeNull();
   });
 
   it('metrics pending or failed does not block replay CTA / first question', async () => {
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(makeArtifact('yansi-a'));
+    fetchFrozenMock.mockResolvedValue(makeArtifact('yansi-a'));
     let resolveMetrics: (v: unknown) => void = () => undefined;
     vi.mocked(fetchYansiPublicMetrics).mockReturnValue(
       new Promise((resolve) => {
@@ -329,19 +350,17 @@ describe('Phase 6.2 public metrics UI', () => {
       }) as ReturnType<typeof fetchYansiPublicMetrics>
     );
     render(<MirrorLandingExperience surface={landingSurface()} />);
-    expect(await screen.findByTestId('mirror-experience-start')).toBeTruthy();
+    expect(await screen.findByTestId('mirror-yansi-chain')).toBeTruthy();
     expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
-    fireEvent.click(screen.getByTestId('mirror-experience-start'));
     expect(await screen.findByTestId('mirror-frozen-replay-next-question')).toBeTruthy();
     resolveMetrics({ ok: false });
   });
 
   it('error hides metrics; replay remains usable', async () => {
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(makeArtifact('yansi-a'));
+    fetchFrozenMock.mockResolvedValue(makeArtifact('yansi-a'));
     vi.mocked(fetchYansiPublicMetrics).mockResolvedValue({ ok: false });
     render(<MirrorLandingExperience surface={landingSurface()} />);
-    expect(await screen.findByTestId('mirror-experience-start')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('mirror-experience-start'));
+    expect(await screen.findByTestId('mirror-yansi-chain')).toBeTruthy();
     expect(await screen.findByTestId('mirror-frozen-replay-next-question')).toHaveTextContent(
       'yansi-a Soru 1?'
     );
@@ -370,7 +389,7 @@ describe('Phase 6.2 chain isolation', () => {
         strongCuriosityReady: false,
       },
     });
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) => {
+    fetchFrozenMock.mockImplementation(async ({ slug }) => {
       if (slug === 'yansi-a') return a;
       if (slug === 'yansi-x') return x;
       return null;
@@ -381,7 +400,9 @@ describe('Phase 6.2 chain isolation', () => {
       return { ok: false };
     });
 
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
+    const { rerender } = render(
+      <MirrorYansiChainExperience rootArtifact={a} depth="chat" />
+    );
     await waitFor(() => {
       expect(
         within(screen.getByTestId('mirror-yansi-section-yansi-a')).getByTestId(
@@ -399,7 +420,9 @@ describe('Phase 6.2 chain isolation', () => {
       ).toBeNull();
     });
 
-    fireEvent.click(screen.getByTestId('mirror-skip-to-next'));
+    // Vertical Reel nav is locked during chat depth — return to Reel then DOWN.
+    rerender(<MirrorYansiChainExperience rootArtifact={a} depth="reel" />);
+    fireEvent.click(await screen.findByTestId('mirror-skip-to-next'));
     await waitFor(() => {
       expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
         'data-active-slug',
@@ -418,12 +441,12 @@ describe('Phase 6.2 chain isolation', () => {
 
   it('answer progression does not refetch the same slug+version', async () => {
     const a = makeArtifact('demo-yansi', { stepCount: 6 });
-    vi.mocked(fetchPublicFrozenJourneyArtifact).mockResolvedValue(a);
+    fetchFrozenMock.mockResolvedValue(a);
     vi.mocked(fetchYansiPublicMetrics).mockResolvedValue({
       ok: true,
       data: dto('demo-yansi', 12, 1),
     });
-    render(<MirrorYansiChainExperience rootArtifact={a} />);
+    render(<MirrorYansiChainExperience rootArtifact={a} depth="chat" />);
     await screen.findByTestId('yansi-public-metrics');
     const before = fetchYansiPublicMetrics.mock.calls.length;
     fireEvent.click(screen.getByTestId('mirror-frozen-replay-next-question'));

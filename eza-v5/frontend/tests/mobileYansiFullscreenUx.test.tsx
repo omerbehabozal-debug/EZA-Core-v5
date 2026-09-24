@@ -172,7 +172,11 @@ describe('Mobile Yansı fullscreen UX contracts', () => {
     expect(gesture).toContain('yansiAtScrollTop');
     expect(chain).toContain('readYansiScrollMetrics');
     expect(chain).toContain('scrollRootRef');
-    expect(chain).not.toMatch(/\.preventDefault\s*\(/);
+    // Pointer swipe must keep native scroll; keyboard Escape/arrows may preventDefault.
+    expect(chain).toContain('never cancel the pointer event');
+    expect(chain).not.toMatch(
+      /onSwipePointer(?:Down|Up|Cancel)[\s\S]{0,500}?\.preventDefault\s*\(/
+    );
     expect(publicCss).toContain('touch-action: pan-y');
   });
 

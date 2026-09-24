@@ -171,7 +171,9 @@ describe('MirrorYansiChainExperience Discover vertical', () => {
       );
     });
     expect(screen.getByTestId('mirror-yansi-active-title')).toHaveTextContent('Title yansi-x');
-    expect(replaceMock).toHaveBeenCalledWith('/m/yansi-x');
+    expect(
+      window.location.pathname + window.location.search
+    ).toMatch(/\/m\/yansi-x/);
     expect(fetchPublishedChildren).not.toHaveBeenCalled();
   });
 

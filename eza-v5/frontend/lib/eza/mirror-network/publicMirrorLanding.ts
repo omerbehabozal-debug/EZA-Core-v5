@@ -203,6 +203,13 @@ export function buildPublicSummaryFromInterpretation(
   }
 
   summary = stripForbiddenPhrases(summary);
+  // Trailer contract: never ship a conclusion-as-summary from raw D2 prose.
+  if (
+    /\b(gösteriyor|ortaya koyuyor|belirlediğini)\b/i.test(summary) ||
+    /kararı\s+.+\s+belirle/i.test(summary)
+  ) {
+    return SAFE_PUBLIC_LANDING_FALLBACK_SUMMARY;
+  }
   if (summary.length < SUMMARY_MIN && interpretation.atmosphereHint?.trim()) {
     const hint = clean(interpretation.atmosphereHint, 80);
     summary = clean(`${summary} ${hint}.`, SUMMARY_MAX);

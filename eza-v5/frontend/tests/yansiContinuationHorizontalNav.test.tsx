@@ -162,7 +162,9 @@ describe('MirrorYansiChainExperience horizontal continuation', () => {
       )
     );
     expect(screen.getByTestId('mirror-yansi-active-title')).toHaveTextContent('Title yansi-b');
-    expect(replaceMock).toHaveBeenCalledWith('/m/yansi-b');
+    expect(
+      window.location.pathname + window.location.search
+    ).toMatch(/\/m\/yansi-b/);
     expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
       'src',
       'https://cdn.example/yansi-b.jpg'
@@ -184,7 +186,9 @@ describe('MirrorYansiChainExperience horizontal continuation', () => {
         'yansi-a'
       )
     );
-    expect(replaceMock).toHaveBeenCalledWith('/m/yansi-a');
+    expect(
+      window.location.pathname + window.location.search
+    ).toMatch(/\/m\/yansi-a/);
   });
 
   it('B RIGHT → C', async () => {

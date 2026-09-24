@@ -33,9 +33,16 @@ import {
   subscribeEzaUserPreferences,
 } from '@/lib/eza/ezaUserPrefs';
 import { useAuth } from '@/context/AuthContext';
-import { YANSI_OWN_CONTINUATION_CTA } from '@/lib/eza/mirror/copy';
+import {
+  YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA,
+  YANSI_OWN_CONTINUATION_CTA,
+} from '@/lib/eza/mirror/copy';
 import { trackLandingCtaClicked } from '@/lib/eza/mirror-network/landingAnalytics';
 import { trackSeedStart } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
+import {
+  buildYansiPublicHref,
+  returnToYansiReelDepth,
+} from '@/lib/eza/mirror-network/yansiPublicDepth';
 import {
   trackYansiExperienceCompleted,
   trackYansiExperienceStarted,
@@ -60,6 +67,12 @@ export type MirrorFrozenReplayProps = {
   onReplayProgress?: (notice: FrozenReplayProgressNotice) => void;
   /** Own-path CTA label (default Phase 5.1 copy). */
   continueLabel?: string;
+  /**
+   * Phase D — secondary end CTA: Chat → SAME Reel.
+   * Prefer the parent’s canonical exitChatDepth (same as Back / Escape).
+   * When omitted, uses returnToYansiReelDepth with the exact slug/version.
+   */
+  onExploreAnotherCuriosity?: () => void;
   /**
    * @deprecated Phase 6.0 — STARTED always fires on first frozen-question tap
    * for root and child. Kept so existing callers do not break; ignored.
@@ -134,6 +147,7 @@ export default function MirrorFrozenReplay({
   onReplayCompleted,
   onReplayProgress,
   continueLabel = YANSI_OWN_CONTINUATION_CTA,
+  onExploreAnotherCuriosity,
   chainEmbedded = false,
 }: MirrorFrozenReplayProps) {
   const experience = useYansiExperienceSession();
@@ -289,6 +303,21 @@ export default function MirrorFrozenReplay({
   const continueHref = `/m/${encodeURIComponent(frozen.slug)}/sohbet`;
   const replayFinished = session.phase === 'completed' || session.replayCompleted;
 
+  const handleExploreAnotherCuriosity = useCallback(() => {
+    cancelYansiSpeech();
+    if (onExploreAnotherCuriosity) {
+      onExploreAnotherCuriosity();
+      return;
+    }
+    // Standalone / deep-link safety: same canonical Chat → Reel helper.
+    returnToYansiReelDepth({
+      reelHref: buildYansiPublicHref(frozen.slug, {
+        journeyVersion: frozen.journeyVersion,
+        mode: 'reel',
+      }),
+    });
+  }, [onExploreAnotherCuriosity, frozen.slug, frozen.journeyVersion]);
+
   const continueLink = (
     <Link
       href={continueHref}
@@ -299,8 +328,8 @@ export default function MirrorFrozenReplay({
       }}
       className={
         replayFinished
-          ? 'flex w-full items-center justify-center rounded-full border border-[#e8d5b5]/40 bg-[#e8d5b5]/15 px-6 py-3.5 text-sm font-semibold tracking-wide text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/25'
-          : 'flex w-full items-center justify-center px-2 py-1.5 text-center text-[11px] font-medium text-[#c9bba8] underline-offset-4 hover:underline'
+          ? 'yansi-chat-end-cta-primary flex w-full items-center justify-center rounded-full border border-[#e8d5b5]/40 bg-[#e8d5b5]/15 px-6 py-3.5 text-sm font-semibold tracking-wide text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e8d5b5]/70'
+          : 'flex w-full items-center justify-center px-2 py-1.5 text-center text-[11px] font-medium text-[#c9bba8] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e8d5b5]/50'
       }
       data-testid="mirror-frozen-replay-continue"
     >
@@ -362,16 +391,23 @@ export default function MirrorFrozenReplay({
       <div className="shrink-0 space-y-3 pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {replayFinished ? (
           <div
-            className="flex flex-col gap-3"
+            className="yansi-chat-end-decision flex flex-col gap-3"
             data-testid="mirror-frozen-replay-complete"
+            data-yansi-end-decision="true"
           >
             <p className="text-center text-sm text-[#c9bba8]">
               Bu Yansı burada tamamlandı.
             </p>
             {continueLink}
-            <p className="text-center text-[11px] text-[#a89880]">
-              Aşağı kaydırarak diğer yolları keşfedebilirsin.
-            </p>
+            <button
+              type="button"
+              onClick={handleExploreAnotherCuriosity}
+              className="yansi-chat-end-cta-secondary flex w-full items-center justify-center rounded-full border border-[#e8d5b5]/22 bg-transparent px-6 py-3 text-sm font-medium tracking-wide text-[#c9bba8] transition-colors hover:border-[#e8d5b5]/40 hover:text-[#f5ead8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e8d5b5]/50"
+              data-testid="mirror-frozen-replay-explore-another"
+              aria-label={YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA}
+            >
+              {YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA}
+            </button>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -379,9 +415,10 @@ export default function MirrorFrozenReplay({
               <button
                 type="button"
                 onClick={handleAskNext}
-                className="flex w-full items-center justify-center rounded-2xl border border-[#e8d5b5]/35 bg-[#e8d5b5]/10 px-5 py-3.5 text-left text-sm font-medium leading-snug text-[#f5ead8] transition-colors hover:bg-[#e8d5b5]/18"
+                className="yansi-actionable-question flex w-full items-center justify-center rounded-2xl border border-[#e8d5b5]/35 bg-[#e8d5b5]/10 px-5 py-3.5 text-left text-sm font-medium leading-snug text-[#f5ead8]"
                 data-testid="mirror-frozen-replay-next-question"
                 data-step-index={nextStep.stepIndex}
+                data-yansi-actionable-question="true"
               >
                 {nextStep.publicQuestion}
               </button>

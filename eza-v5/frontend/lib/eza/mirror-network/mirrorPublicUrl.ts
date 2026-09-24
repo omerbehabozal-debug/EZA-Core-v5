@@ -5,6 +5,11 @@
  * Override via NEXT_PUBLIC_EZA_MIRROR_PUBLIC_BASE_URL when staging/custom.
  */
 
+import {
+  buildYansiPublicHref,
+  type BuildMirrorPublicPathOptions,
+} from '@/lib/eza/mirror-network/yansiPublicDepth';
+
 export const MIRROR_PUBLIC_BASE_URL_DEFAULT = 'https://standalone.ezacore.ai';
 
 export function resolveMirrorPublicBaseUrl(): string {
@@ -15,9 +20,11 @@ export function resolveMirrorPublicBaseUrl(): string {
   return MIRROR_PUBLIC_BASE_URL_DEFAULT;
 }
 
-export function buildMirrorPublicPath(slug: string): string {
-  const safe = slug.trim();
-  return `/m/${safe}`;
+export function buildMirrorPublicPath(
+  slug: string,
+  options?: BuildMirrorPublicPathOptions
+): string {
+  return buildYansiPublicHref(slug, options);
 }
 
 export function buildMirrorPublicShareUrl(slug: string): string {
