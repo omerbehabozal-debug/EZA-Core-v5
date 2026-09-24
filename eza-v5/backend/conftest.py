@@ -485,6 +485,8 @@ class TestArtifactSystem:
             
         except ImportError:
             print("[WARN] ReportLab not installed, skipping PDF report")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[WARN] PDF report generation failed: {exc}")
 
 
 # Global instance
@@ -534,5 +536,8 @@ def pytest_collection_modifyitems(session, config, items):
 def pytest_sessionfinish(session, exitstatus):
     """Called after whole test run finished"""
     print("\n[GENERATE] Generating Test Artifacts...")
-    artifact_system.generate_reports()
+    try:
+        artifact_system.generate_reports()
+    except Exception as exc:  # noqa: BLE001 — never override pytest exitstatus
+        print(f"[WARN] Test artifact generation failed: {exc}")
 
