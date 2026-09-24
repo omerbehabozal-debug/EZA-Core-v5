@@ -22,6 +22,9 @@ export type YansiProductCardProps = {
   kicker?: ReactNode;
   meta?: ReactNode;
   footer?: ReactNode;
+  /** Discover → immersive Reel (visual + title only). */
+  onActivateProduct?: () => void;
+  activateProductLabel?: string;
 };
 
 /**
@@ -43,6 +46,8 @@ export default function YansiProductCard({
   kicker,
   meta,
   footer,
+  onActivateProduct,
+  activateProductLabel,
 }: YansiProductCardProps) {
   return (
     <MirrorPublicCard
@@ -60,6 +65,8 @@ export default function YansiProductCard({
       kicker={kicker}
       meta={meta}
       footer={footer}
+      onActivateProduct={onActivateProduct}
+      activateProductLabel={activateProductLabel}
       canonicalProduct
     />
   );
