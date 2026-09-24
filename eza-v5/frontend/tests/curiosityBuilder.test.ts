@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCuriosityCard,
+  composeCompleteTitle,
   curiosityCardFingerprint,
+  endsIncompletely,
   runCuriosityClickTest,
 } from '@/lib/eza/mirror/curiosityBuilder';
 import { buildSemanticAnchors } from '@/lib/eza/mirror/semanticAnchors';
@@ -137,5 +139,52 @@ describe('Curiosity Builder + Click Test', () => {
     expect(landing.publicSummary).not.toMatch(/düzgün bir etiket/i);
     expect(landing.publicSummary).not.toMatch(/ilginç tarafı/i);
     expect(landing.publicTitle.split(/\s+/).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('refuses mechanically truncated 64-char intent as title/summary lead', () => {
+    const broken =
+      'Çocukken büyüyünce hayatımın nasıl olacağını çok farklı hayal ed';
+    expect(broken.length).toBe(64);
+    const card = buildCuriosityCard({
+      anchors: {
+        contractVersion: 'mirror-semantic-anchors-v1',
+        place: null,
+        scene: [],
+        emotion: [],
+        topic: broken,
+        userIntent: broken,
+        decisionCriteria: ['his', 'konfor'],
+        question:
+          'Çocukken büyüyünce hayatımın nasıl olacağını çok farklı hayal etmiştim; kararı ne belirliyor?',
+        anchorsHash: 'childhood',
+        evidenceCount: 1,
+      },
+      interpretation: {
+        title: broken,
+        interpretationSummary:
+          'Çocukken kurduğumuz hayaller ile bugünkü yaşam arasındaki fark, kararı his ve konforun belirlediğini gösteriyor.',
+        imageIntent: 'Reflective mood.',
+        atmosphereHint: 'soft',
+      },
+      locale: 'tr',
+    });
+    expect(card.publicTitle).not.toMatch(/çok farklı hayal$/);
+    expect(card.publicTitle).not.toMatch(/^His,\s*konfor/i);
+    expect(card.publicTitle.length).toBeLessThanOrEqual(64);
+    expect(card.publicTitle.toLowerCase()).toMatch(/hayal|yaşam|hayat|çocuk/i);
+    expect(card.publicSummary).not.toMatch(/hayal ed —/);
+  });
+
+  it('generic fallback still works when no usable semantic topic exists', () => {
+    const title = composeCompleteTitle('', 'tr', undefined, {
+      topic: '',
+      question: '',
+      userIntent: '',
+      interpretationSummary: '',
+    });
+    expect(title.length).toBeGreaterThan(0);
+    expect(title.length).toBeLessThanOrEqual(64);
+    expect(endsIncompletely(title)).toBe(false);
+    expect(title.split(/\s+/).length).toBeGreaterThanOrEqual(2);
   });
 });

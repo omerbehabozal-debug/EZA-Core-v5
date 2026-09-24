@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, PanelRightClose, Sparkles } from 'lucide-react';
 import {
   SAINA_CHECKLIST,
@@ -12,6 +12,12 @@ import { resolveMirrorPanelCopyForChat } from '@/lib/eza/mirror/resolveMirrorPan
 import { getChatArchive } from '@/lib/standaloneChatArchive';
 import { useMirrorEntries, useActiveConversationMirrorId } from '@/components/standalone/MirrorEntriesContext';
 import StandaloneObservationExperience from '@/components/standalone/StandaloneObservationExperience';
+import { useAuth } from '@/context/AuthContext';
+import {
+  listJourneyArtifactsForConversation,
+  resolveJourneyOwnerKey,
+  subscribeMirrorJourneyArtifactStore,
+} from '@/lib/eza/mirror/journey';
 
 type SainaStandaloneMirrorPanelProps = {
   showCollapse?: boolean;
@@ -25,6 +31,26 @@ export default function SainaStandaloneMirrorPanel({
 }: SainaStandaloneMirrorPanelProps) {
   const entries = useMirrorEntries();
   const conversationId = useActiveConversationMirrorId();
+  const { user, isAuthenticated } = useAuth();
+  const [artifactTick, setArtifactTick] = useState(0);
+
+  useEffect(() => {
+    return subscribeMirrorJourneyArtifactStore(() => {
+      setArtifactTick((n) => n + 1);
+    });
+  }, []);
+
+  const hasReadyOrPublishedYansi = useMemo(() => {
+    void artifactTick;
+    if (!conversationId) return false;
+    const owner = resolveJourneyOwnerKey(
+      isAuthenticated ? user?.user_id ?? null : null
+    );
+    if (!owner) return false;
+    return listJourneyArtifactsForConversation(owner, conversationId).some(
+      (a) => a.status === 'ready' || a.status === 'published'
+    );
+  }, [artifactTick, conversationId, isAuthenticated, user?.user_id]);
 
   const mirrorPanelCopy = useMemo(() => {
     const chat = conversationId ? getChatArchive(conversationId) : null;
@@ -36,6 +62,7 @@ export default function SainaStandaloneMirrorPanel({
       className="saina-mirror-panel"
       aria-label={SAINA_MIRROR_TITLE}
       data-testid="saina-standalone-mirror-panel"
+      data-ayna-empty={!hasReadyOrPublishedYansi ? 'true' : 'false'}
     >
       <div className="saina-mirror-inner">
         <header className="saina-mirror-header">
@@ -68,17 +95,23 @@ export default function SainaStandaloneMirrorPanel({
           />
         </div>
 
-        <div className="saina-mirror-how saina-mirror-how--compact">
-          <p className="saina-mirror-how-label">{SAINA_MIRROR_HOW_LABEL}</p>
-          <ul className="saina-checklist saina-checklist--elegant">
-            {SAINA_CHECKLIST.map((item) => (
-              <li key={item}>
-                <Check size={14} className="saina-check-icon" aria-hidden />
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* Empty-state education only — never alongside READY/published Yansı. */}
+        {!hasReadyOrPublishedYansi ? (
+          <div
+            className="saina-mirror-how saina-mirror-how--compact"
+            data-testid="ayna-how-empty"
+          >
+            <p className="saina-mirror-how-label">{SAINA_MIRROR_HOW_LABEL}</p>
+            <ul className="saina-checklist saina-checklist--elegant">
+              {SAINA_CHECKLIST.map((item) => (
+                <li key={item}>
+                  <Check size={14} className="saina-check-icon" aria-hidden />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

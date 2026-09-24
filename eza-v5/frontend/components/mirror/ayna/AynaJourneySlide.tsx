@@ -1,15 +1,16 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
 import MirrorPosterLightbox from '@/components/mirror/MirrorPosterLightbox';
 import MirrorPublishShareActions from '@/components/mirror/MirrorPublishShareActions';
+import YansiProductCard from '@/components/mirror/YansiProductCard';
 import AynaAuthorRow from '@/components/mirror/ayna/AynaAuthorRow';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
 import { resolveAynaGenerationErrorCopy } from '@/lib/eza/mirror/journey/resolveAynaReelSelectedIdentity';
+import { resolveYansiProductFromArtifact } from '@/lib/eza/mirror/yansiProductPresentation';
 import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
 import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
 import {
@@ -17,10 +18,6 @@ import {
   MIRROR_JOURNEY_STATUS_READY,
   MIRROR_AYNA_STATUS_PUBLISHED,
 } from '@/lib/eza/mirror/copy';
-import {
-  SAINA_CHECKLIST,
-  SAINA_MIRROR_HOW_LABEL,
-} from '@/lib/eza/sainaCopy';
 
 export type AynaJourneySlideActions = {
   onPublish: (artifact: MirrorJourneyArtifact) => void;
@@ -41,8 +38,8 @@ export type AynaJourneySlideProps = {
   positionLabel?: string | null;
   className?: string;
   /**
-   * Mobile Ayna sheet: one-screen READY product.
-   * Author row omitted; Devamı scrolls to in-slide detail.
+   * Mobile Ayna sheet: publication preview of the canonical Yansı product.
+   * Author/how/Devamı/social proof omitted; status + Yayınla outside the card.
    */
   compactPrimaryProduct?: boolean;
 };
@@ -74,15 +71,8 @@ export default function AynaJourneySlide({
 }: AynaJourneySlideProps) {
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const detailRef = useRef<HTMLDivElement | null>(null);
-  const title =
-    artifact.publicTitle?.trim() ||
-    artifact.sealedPublicLanding?.publicTitle?.trim() ||
-    (artifact.status === 'generating' ? 'Yansı hazırlanıyor' : 'Yansı');
-  const summary =
-    artifact.publicSummary?.trim() ||
-    artifact.sealedPublicLanding?.publicSummary?.trim() ||
-    null;
+  const product = resolveYansiProductFromArtifact(artifact);
+  const { title, summary, sceneImageUrl: sceneUrl } = product;
   const authorName = artifact.authorDisplayName?.trim() || 'Yazar';
   const showParent = Boolean(
     artifact.parentJourneyId || artifact.parentSlug || artifact.parentAuthorDisplayName
@@ -93,21 +83,18 @@ export default function AynaJourneySlide({
   const isGenerating = artifact.status === 'generating';
   const isFailed = artifact.status === 'failed';
   const longSummary = Boolean(summary && summary.length > 160);
-  /** Desktop expand; mobile uses Devamı + full text in detail. */
+  /** Desktop only: optional expand. Compact/mobile shows full canonical summary. */
   const visibleSummary =
     compactPrimaryProduct
       ? summary
       : summary && longSummary && !summaryExpanded
         ? `${summary.slice(0, 160).trim()}…`
         : summary;
-  const sceneUrl = artifact.sceneImageUrl?.trim() || null;
   const canFullscreen =
     compactPrimaryProduct && Boolean(sceneUrl) && (isReady || isPublished);
   const safeFailureDetail = resolveAynaGenerationErrorCopy(artifact.generationError);
-
-  const scrollToDetail = () => {
-    detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  /** Mobile compact: never show reel ordinal chrome (e.g. "1 / 1"). */
+  const showPosition = Boolean(positionLabel) && !compactPrimaryProduct;
 
   const authorBlock = (
     <>
@@ -140,7 +127,7 @@ export default function AynaJourneySlide({
         >
           ● {statusLabel(artifact)}
         </span>
-        {positionLabel ? (
+        {showPosition ? (
           <span
             className="text-[10px] text-[rgba(217,196,163,0.55)]"
             data-testid="ayna-slide-position"
@@ -150,7 +137,8 @@ export default function AynaJourneySlide({
         ) : null}
       </div>
 
-      {canonical ? (
+      {/* Metrics are Discover/network state — never on Ayna publication preview. */}
+      {!compactPrimaryProduct && canonical ? (
         <YansiPublicMetricsView
           experienceStartedCount={canonical.experienceStartedCount}
           directChildYansiCount={canonical.directChildYansiCount}
@@ -228,108 +216,54 @@ export default function AynaJourneySlide({
               </button>
             ) : null}
           </div>
+        ) : compactPrimaryProduct ? (
+          <>
+            <YansiProductCard
+              title={title}
+              summary={summary}
+              sceneImageUrl={sceneUrl}
+              testIdPrefix={`ayna-slide-${artifact.journeyId}`}
+              loadingLazy
+              onOpenFullscreen={
+                canFullscreen ? () => setLightboxOpen(true) : undefined
+              }
+              className="ayna-journey-slide__card"
+            />
+            <div
+              className="ayna-journey-slide__publication"
+              data-testid="ayna-slide-publication"
+            >
+              {publicationBlock}
+            </div>
+          </>
         ) : (
-          <MirrorPublicCard
-            title=""
-            summary={null}
-            sceneImageUrl={artifact.sceneImageUrl}
-            metaLabel={null}
-            testIdPrefix={`ayna-slide-${artifact.journeyId}`}
-            loadingLazy
-            visualOnly={compactPrimaryProduct}
-            onOpenFullscreen={
-              canFullscreen ? () => setLightboxOpen(true) : undefined
-            }
-            className="ayna-journey-slide__card"
-          />
-        )}
-
-        {!isGenerating && !isFailed ? (
-          <div className="ayna-journey-slide__meta">
-            {compactPrimaryProduct ? (
-              <>
-                <h3
-                  className="ayna-journey-slide__title saina-serif"
-                  data-testid="ayna-slide-title"
-                >
-                  {title}
-                </h3>
-                {visibleSummary ? (
-                  <p
-                    className="ayna-journey-slide__summary ayna-journey-slide__summary--preview"
-                    data-testid="ayna-summary-preview"
-                  >
-                    {visibleSummary}
-                  </p>
-                ) : null}
+          <>
+            <div className="ayna-journey-slide__meta ayna-journey-slide__meta--above">
+              {authorBlock}
+            </div>
+            <YansiProductCard
+              title={title}
+              summary={visibleSummary}
+              sceneImageUrl={sceneUrl}
+              testIdPrefix={`ayna-slide-${artifact.journeyId}`}
+              loadingLazy
+              className="ayna-journey-slide__card"
+            />
+            <div className="ayna-journey-slide__meta">
+              {summary && longSummary ? (
                 <button
                   type="button"
-                  className="ayna-journey-slide__devami"
-                  onClick={scrollToDetail}
-                  data-testid="ayna-slide-devami"
+                  className="mt-1 self-start text-[10px] text-[rgba(231,180,91,0.85)]"
+                  onClick={() => setSummaryExpanded((v) => !v)}
+                  data-testid="ayna-summary-toggle"
                 >
-                  Devamı
+                  {summaryExpanded ? 'Kısalt' : 'Devamını gör'}
                 </button>
-                {publicationBlock}
-                <div
-                  ref={detailRef}
-                  id={`ayna-detail-${artifact.journeyId}-v${artifact.journeyVersion}`}
-                  className="ayna-journey-slide__detail"
-                  data-testid="ayna-slide-detail"
-                >
-                  {summary ? (
-                    <p className="ayna-journey-slide__summary ayna-journey-slide__summary--full">
-                      {summary}
-                    </p>
-                  ) : null}
-                  {showParent ? (
-                    <AynaParentLineageRow
-                      parentAuthorDisplayName={artifact.parentAuthorDisplayName}
-                      parentPublicTitle={artifact.parentPublicTitle}
-                      onOpenParent={
-                        artifact.parentSlug || artifact.parentJourneyId
-                          ? () => actions.onOpenParent(artifact)
-                          : undefined
-                      }
-                    />
-                  ) : null}
-                  <div className="ayna-journey-slide__how">
-                    <p className="saina-mirror-how-label">{SAINA_MIRROR_HOW_LABEL}</p>
-                    <ul className="saina-checklist saina-checklist--elegant">
-                      {SAINA_CHECKLIST.map((item) => (
-                        <li key={item}>
-                          <Check size={14} className="saina-check-icon" aria-hidden />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                {authorBlock}
-                <h3 className="ayna-journey-slide__title saina-serif">{title}</h3>
-                {visibleSummary ? (
-                  <div data-summary-expanded={summaryExpanded ? 'true' : undefined}>
-                    <p className="ayna-journey-slide__summary">{visibleSummary}</p>
-                    {longSummary ? (
-                      <button
-                        type="button"
-                        className="mt-1 text-[10px] text-[rgba(231,180,91,0.85)]"
-                        onClick={() => setSummaryExpanded((v) => !v)}
-                        data-testid="ayna-summary-toggle"
-                      >
-                        {summaryExpanded ? 'Kısalt' : 'Devamını gör'}
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-                {publicationBlock}
-              </>
-            )}
-          </div>
-        ) : null}
+              ) : null}
+              {publicationBlock}
+            </div>
+          </>
+        )}
       </div>
 
       {canFullscreen ? (

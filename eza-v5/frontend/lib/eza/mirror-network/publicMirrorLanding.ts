@@ -7,6 +7,7 @@
  */
 
 import { buildCuriosityCard } from '@/lib/eza/mirror/curiosityBuilder';
+import { clampAtWordBoundary } from '@/lib/eza/mirror/curiosityBuilder/buildCuriosityCard';
 import type { MirrorInterpretationV1 } from '@/lib/eza/mirror/mirrorInterpretationTypes';
 import { interpretationHashSync, sha256Hex } from '@/lib/eza/mirror/mirrorLineageHash';
 import type { MirrorSemanticAnchorsV1 } from '@/lib/eza/mirror/semanticAnchors/types';
@@ -153,11 +154,14 @@ export function isLegacyAntiSummaryLandingCopy(text: string | null | undefined):
 }
 
 function polishTitle(raw: string): string {
-  const title = clean(raw, TITLE_MAX);
+  // Keep 64-char contract; never mid-word slice.
+  const title = clampAtWordBoundary(raw.replace(/\s+/g, ' ').trim(), TITLE_MAX);
   if (!title) return SAFE_PUBLIC_LANDING_FALLBACK_TITLE;
-  // Prefer 3–7 words when possible without inventing content.
   const words = title.split(/\s+/).filter(Boolean);
-  if (words.length > 10) return words.slice(0, 8).join(' ');
+  if (words.length > 10) {
+    const shortened = words.slice(0, 8).join(' ');
+    return clampAtWordBoundary(shortened, TITLE_MAX) || title;
+  }
   return title;
 }
 

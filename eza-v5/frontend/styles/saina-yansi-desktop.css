@@ -757,16 +757,16 @@
 
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__inner {
     min-height: 0;
-    gap: 0.4rem;
+    gap: 0.45rem;
   }
 
   /*
-   * Fit-first visual: leave room for title + summary preview + status + CTA + Devamı
-   * inside ~800–900px Ayna body. Short phones fall back to reel scroll.
+   * Canonical Yansı product card (shared with Discover): full-width 1:1 visual
+   * + title + summary inside the card. Status + Yayınla sit outside below.
    */
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__card.saina-discover-card {
-    width: min(100%, min(36svh, calc(100dvh - 22rem)), 20rem);
-    max-width: 100%;
+    width: 100%;
+    max-width: min(100%, 22.5rem);
     margin-inline: auto;
   }
 
@@ -774,13 +774,42 @@
     .ayna-journey-slide__card
     .saina-discover-card__visual {
     aspect-ratio: 1 / 1;
-    max-height: min(36svh, calc(100dvh - 22rem), calc(100vw - 2.5rem));
+    max-height: min(42svh, calc(100dvh - 18rem), calc(100vw - 1.5rem));
   }
 
   .saina-mobile-ayna-sheet-body
-    .ayna-journey-slide__card.saina-discover-card--visual-only
+    .ayna-journey-slide__card
     .saina-discover-card__body {
-    display: none;
+    padding: 0.85rem 1rem 1rem;
+  }
+
+  .saina-mobile-ayna-sheet-body
+    .ayna-journey-slide__card
+    .saina-discover-card__title {
+    margin: 0 0 0.4rem;
+    font-size: clamp(0.95rem, 3.2vw, 1.15rem);
+    line-height: 1.28;
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    display: block;
+  }
+
+  .saina-mobile-ayna-sheet-body
+    .ayna-journey-slide__card
+    .saina-discover-card__summary {
+    margin: 0;
+    font-size: clamp(0.72rem, 2.4vw, 0.84rem);
+    line-height: 1.45;
+  }
+
+  .saina-mobile-ayna-sheet-body .ayna-journey-slide__publication {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.1rem 0.15rem 0;
   }
 
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__meta {
@@ -788,7 +817,7 @@
     padding: 0 0.1rem;
   }
 
-  /* Full canonical title — wrap naturally; never clamp/ellipsis title text. */
+  /* Legacy external title/summary hooks (desktop non-compact still uses meta). */
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__title {
     margin: 0.05rem 0 0;
     font-size: clamp(0.88rem, 2.8vw, 1rem);
@@ -807,10 +836,9 @@
   }
 
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__summary--preview {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
   }
 
   .saina-mobile-ayna-sheet-body .ayna-journey-slide__summary--full {

@@ -2,13 +2,14 @@
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import MirrorPublicCard from '@/components/mirror/MirrorPublicCard';
+import YansiProductCard from '@/components/mirror/YansiProductCard';
 import {
   SAINA_DISCOVER_OPEN_CTA,
 } from '@/lib/eza/mirror-network/discoverCopy';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import { buildMirrorPublicPath } from '@/lib/eza/mirror-network/mirrorPublicUrl';
 import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
+import { resolveYansiProductFromDiscoverItem } from '@/lib/eza/mirror/yansiProductPresentation';
 import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
 import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
@@ -26,7 +27,7 @@ export default function SainaDiscoverCard({
   item,
 }: SainaDiscoverCardProps) {
   const router = useRouter();
-  const summary = item.description?.trim() || null;
+  const product = resolveYansiProductFromDiscoverItem(item);
   const canonical = parseYansiPublicSocialProofInput(item);
   const authorName = item.authorDisplayName?.trim() || '';
 
@@ -53,36 +54,36 @@ export default function SainaDiscoverCard({
       journeyVersion={item.journeyVersion ?? null}
       context="discover"
     >
-    <MirrorPublicCard
-      title={item.title}
-      summary={summary}
-      sceneImageUrl={item.sceneImageUrl}
-      kicker={identity}
-      meta={
-        canonical ? (
-          <YansiPublicMetricsView
-            experienceStartedCount={canonical.experienceStartedCount}
-            directChildYansiCount={canonical.directChildYansiCount}
-            variant="card"
-            slug={item.slug}
-            journeyVersion={item.journeyVersion ?? undefined}
-          />
-        ) : null
-      }
-      slug={item.slug}
-      testIdPrefix="saina-discover-card"
-      loadingLazy
-      footer={
-        <button
-          type="button"
-          className="saina-discover-card__cta"
-          onClick={handleOpenYansi}
-          data-testid={`saina-discover-card-cta-${item.slug}`}
-        >
-          {SAINA_DISCOVER_OPEN_CTA}
-        </button>
-      }
-    />
+      <YansiProductCard
+        title={product.title}
+        summary={product.summary}
+        sceneImageUrl={product.sceneImageUrl}
+        kicker={identity}
+        meta={
+          canonical ? (
+            <YansiPublicMetricsView
+              experienceStartedCount={canonical.experienceStartedCount}
+              directChildYansiCount={canonical.directChildYansiCount}
+              variant="card"
+              slug={item.slug}
+              journeyVersion={item.journeyVersion ?? undefined}
+            />
+          ) : null
+        }
+        slug={item.slug}
+        testIdPrefix="saina-discover-card"
+        loadingLazy
+        footer={
+          <button
+            type="button"
+            className="saina-discover-card__cta"
+            onClick={handleOpenYansi}
+            data-testid={`saina-discover-card-cta-${item.slug}`}
+          >
+            {SAINA_DISCOVER_OPEN_CTA}
+          </button>
+        }
+      />
     </YansiExposureRoot>
   );
 }

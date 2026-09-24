@@ -52,7 +52,8 @@ export const MIRROR_PUBLISH_BUSY_LABEL = 'Yayınlanıyor…';
 export const MIRROR_PUBLISH_FAILED_LABEL = 'Yayınlanamadı · Tekrar dene';
 export const MIRROR_PUBLISH_LIVE_LABEL = '✓ Yayında';
 export const MIRROR_JOURNEY_STATUS_GENERATING = 'Hazırlanıyor';
-export const MIRROR_JOURNEY_STATUS_READY = 'Hazır';
+/** Ayna READY — publication preview status (outside the canonical product card). */
+export const MIRROR_JOURNEY_STATUS_READY = 'Yayına hazır';
 export const MIRROR_AYNA_STATUS_PUBLISHED = 'Yayında';
 export const MIRROR_AYNA_EMPTY_TITLE = 'Henüz Yansı yok';
 export const MIRROR_AYNA_EMPTY_BODY =

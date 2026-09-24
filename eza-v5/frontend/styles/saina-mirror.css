@@ -5844,11 +5844,11 @@ html:has(.saina-page) body {
   max-width: 22.5rem;
   overflow: hidden;
   border-radius: 1.15rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(12, 14, 18, 0.58);
+  border: 1px solid rgba(183, 137, 73, 0.22);
+  background: rgba(10, 12, 14, 0.92);
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 16px 48px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   -webkit-backdrop-filter: blur(18px) saturate(118%);
   backdrop-filter: blur(18px) saturate(118%);
 }
@@ -5875,6 +5875,13 @@ html:has(.saina-page) body {
 
 .saina-discover-card__body {
   padding: 1.15rem 1.2rem 1.35rem;
+}
+
+.saina-discover-card__product-core {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
 }
 
 .saina-discover-card__identity {
@@ -5940,6 +5947,12 @@ html:has(.saina-page) body {
   font-size: 1.2rem;
   line-height: 1.3;
   color: #f8f4ec;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  display: block;
 }
 
 .saina-discover-card__summary {
@@ -6486,6 +6499,13 @@ html:has(.saina-page) body {
 }
 
 .ayna-journey-slide__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0 0.15rem;
+}
+
+.ayna-journey-slide__publication {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;

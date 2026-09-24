@@ -24,15 +24,20 @@ export type MirrorPublicCardProps = {
   /** Capture root for share PNG / export. */
   captureRef?: React.Ref<HTMLElement>;
   /**
-   * Visual-only surface (Ayna reel): omit empty title/summary body so mobile
-   * does not pay MirrorPublicCard padding when copy lives outside the card.
+   * Visual-only surface: omit body when copy is rendered outside the card.
+   * Prefer canonicalProduct + title/summary for Ayna/Discover product parity.
    */
   visualOnly?: boolean;
+  /**
+   * Marks the shared Ayna↔Discover product shell (visual → title → summary).
+   * Context slots (kicker/meta/footer) remain surface-specific.
+   */
+  canonicalProduct?: boolean;
 };
 
 /**
- * Single public Mirror card — preview, Discover, landing, and share surfaces.
- * Visual on top, title + summary below. Surface-specific CTAs via `footer`.
+ * Single public Mirror card — Ayna preview, Discover, landing, and share.
+ * Product core: visual → title → summary. Surface CTAs via `footer` / kicker / meta.
  */
 export default function MirrorPublicCard({
   title,
@@ -50,22 +55,16 @@ export default function MirrorPublicCard({
   kicker,
   captureRef,
   visualOnly = false,
+  canonicalProduct = false,
 }: MirrorPublicCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = Boolean(sceneImageUrl?.trim()) && !imageFailed;
   const articleTestId = slug
     ? `${testIdPrefix}-${slug}`
     : testIdPrefix;
-  const showBody =
-    !visualOnly &&
-    Boolean(
-      title.trim() ||
-        summary?.trim() ||
-        meta ||
-        metaLabel?.trim() ||
-        kicker ||
-        footer
-    );
+  const hasProductCopy = Boolean(title.trim() || summary?.trim());
+  const hasContext = Boolean(kicker || meta || metaLabel?.trim() || footer);
+  const showBody = !visualOnly && (hasProductCopy || hasContext);
 
   return (
     <article
@@ -73,10 +72,12 @@ export default function MirrorPublicCard({
       className={cn(
         'saina-discover-card saina-mirror-public-card',
         visualOnly && 'saina-discover-card--visual-only',
+        canonicalProduct && 'saina-discover-card--canonical-product',
         className
       )}
       data-testid={articleTestId}
       data-mirror-public-card
+      data-canonical-yansi-product={canonicalProduct ? 'true' : undefined}
       data-visual-only={visualOnly ? 'true' : undefined}
     >
       <div className="saina-discover-card__visual">
@@ -118,11 +119,36 @@ export default function MirrorPublicCard({
       {showBody ? (
         <div className="saina-discover-card__body">
           {kicker}
-          {title.trim() ? (
-            <h2 className="saina-discover-card__title saina-serif">{title}</h2>
-          ) : null}
-          {summary?.trim() ? (
-            <p className="saina-discover-card__summary">{summary.trim()}</p>
+          {hasProductCopy ? (
+            <div
+              className="saina-discover-card__product-core"
+              data-yansi-product-core
+            >
+              {title.trim() ? (
+                <h2
+                  className="saina-discover-card__title saina-serif"
+                  data-testid={
+                    slug
+                      ? `${testIdPrefix}-title-${slug}`
+                      : `${testIdPrefix}-title`
+                  }
+                >
+                  {title}
+                </h2>
+              ) : null}
+              {summary?.trim() ? (
+                <p
+                  className="saina-discover-card__summary"
+                  data-testid={
+                    slug
+                      ? `${testIdPrefix}-summary-${slug}`
+                      : `${testIdPrefix}-summary`
+                  }
+                >
+                  {summary.trim()}
+                </p>
+              ) : null}
+            </div>
           ) : null}
           {meta ? (
             meta
