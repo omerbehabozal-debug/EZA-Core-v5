@@ -467,6 +467,28 @@ async function buildPublishBody(
   };
 }
 
+const PUBLISH_LINEAGE_USER_MESSAGE =
+  'Yansı yayın kimliği doğrulanamadı. Hazır sahne değiştirilmedi. Biraz sonra tekrar deneyebilirsin.';
+
+export function userFacingPublishMessage(code: string, reason: string, raw: string): string {
+  const blob = `${code} ${reason} ${raw}`.toLowerCase();
+  if (
+    blob.includes('mismatch') ||
+    blob.includes('lineage') ||
+    blob.includes('generation_mismatch') ||
+    blob.includes('expired generation') ||
+    blob.includes('traceback') ||
+    blob.includes('stack')
+  ) {
+    return PUBLISH_LINEAGE_USER_MESSAGE;
+  }
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 240) {
+    return 'Paylaşım bağlantısı hazırlanamadı.';
+  }
+  return trimmed;
+}
+
 function parseApiError(error: unknown): { code: string; message: string } {
   if (!error || typeof error !== 'object') {
     return { code: 'publish_failed', message: 'Paylaşım bağlantısı hazırlanamadı.' };
@@ -476,22 +498,21 @@ function parseApiError(error: unknown): { code: string; message: string } {
   const detail = row.detail as Record<string, unknown> | string | undefined;
 
   if (detail && typeof detail === 'object') {
-    return {
-      code: String(detail.code ?? 'publish_failed'),
-      message: String(detail.message ?? 'Paylaşım bağlantısı hazırlanamadı.'),
-    };
+    const code = String(detail.code ?? 'publish_failed');
+    const reason = String(detail.reason ?? '');
+    const raw = String(detail.message ?? 'Paylaşım bağlantısı hazırlanamadı.');
+    return { code, message: userFacingPublishMessage(code, reason, raw) };
   }
 
-  return {
-    code: String(nested?.error_code ?? row.error_code ?? 'publish_failed'),
-    message: String(
-      nested?.error_message ??
-        nested?.message ??
-        row.error_message ??
-        row.message ??
-        'Paylaşım bağlantısı hazırlanamadı.'
-    ),
-  };
+  const code = String(nested?.error_code ?? row.error_code ?? 'publish_failed');
+  const raw = String(
+    nested?.error_message ??
+      nested?.message ??
+      row.error_message ??
+      row.message ??
+      'Paylaşım bağlantısı hazırlanamadı.'
+  );
+  return { code, message: userFacingPublishMessage(code, '', raw) };
 }
 
 export async function publishMirrorToNetwork(
@@ -601,6 +622,9 @@ export async function publishMirrorToNetwork(
     let alignmentObs: NarrativeAlignmentLineage | undefined;
 
     const alignmentOpts = input.narrativeAlignment;
+    const sealedReadyScene = isPublishableJourneyGenerationLineage(
+      input.card.mirrorJourneyGenerationLineage
+    );
     const shouldAlign =
       Boolean(alignmentOpts) &&
       !alignmentOpts?.skip &&
@@ -620,7 +644,9 @@ export async function publishMirrorToNetwork(
           landing,
           sceneImageUrl,
           detectClaims: alignmentOpts?.detectClaims ?? apiImageClaimDetector,
-          regenerateScene: alignmentOpts?.regenerateScene,
+          regenerateScene: sealedReadyScene
+            ? undefined
+            : alignmentOpts?.regenerateScene,
           generationId: input.generationId,
           interpretationHash: interpHash,
           publicLandingHash,

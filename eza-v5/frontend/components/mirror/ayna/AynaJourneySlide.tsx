@@ -31,6 +31,8 @@ export type AynaJourneySlideProps = {
   publishBusy?: boolean;
   shareBusy?: boolean;
   canShare?: boolean;
+  /** Surface shareLinkError from prepare/publish on the READY Yayınla control. */
+  publishError?: string | null;
   /** @deprecated Reel ordinal chrome — never shown on Ayna publication preview. */
   positionLabel?: string | null;
   className?: string;
@@ -66,6 +68,7 @@ export default function AynaJourneySlide({
   publishBusy = false,
   shareBusy = false,
   canShare = true,
+  publishError = null,
   className,
   compactPrimaryProduct = false,
 }: AynaJourneySlideProps) {
@@ -96,6 +99,7 @@ export default function AynaJourneySlide({
           publishBusy={publishBusy}
           shareBusy={shareBusy}
           canShare={canShare}
+          publishError={publishError}
           onPublish={() => actions.onPublish(artifact)}
           onShare={() => actions.onShare(artifact)}
           onOpenPublic={

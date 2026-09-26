@@ -18,6 +18,8 @@ export type AynaJourneyReelProps = {
   publishBusyJourneyId?: string | null;
   shareBusyJourneyId?: string | null;
   canShare?: boolean;
+  /** From prepareMirrorShareLink / prepareArtifactShareLink — shown on active READY slide. */
+  publishError?: string | null;
   emptyState?: React.ReactNode;
   className?: string;
   /** Explicit selection from sidebar/route — not IntersectionObserver-only. */
@@ -38,6 +40,7 @@ export default function AynaJourneyReel({
   publishBusyJourneyId = null,
   shareBusyJourneyId = null,
   canShare = true,
+  publishError = null,
   emptyState = null,
   className,
   selectedArtifactIdentity = null,
@@ -163,6 +166,12 @@ export default function AynaJourneyReel({
             publishBusy={publishBusyJourneyId === artifact.journeyId}
             shareBusy={shareBusyJourneyId === artifact.journeyId}
             canShare={canShare}
+            publishError={
+              publishBusyJourneyId === artifact.journeyId ||
+              (!publishBusyJourneyId && activeKey === key)
+                ? publishError
+                : null
+            }
             positionLabel={null}
             compactPrimaryProduct={compactPrimaryProduct}
             className={cn(activeKey === key && 'ayna-journey-slide--visible')}
