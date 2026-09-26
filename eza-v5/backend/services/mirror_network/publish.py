@@ -519,7 +519,6 @@ async def publish_mirror_to_network(
             validate_against_server_generation_record,
         )
         from backend.services.mirror.journey_generation_record import (
-            get_journey_generation_record,
             seal_public_landing_on_generation,
         )
         from backend.services.mirror.public_landing_hash import (
@@ -545,7 +544,33 @@ async def publish_mirror_to_network(
             ) from None
 
         generation_id = str(lineage_ok.get("generationId") or "").strip()
-        server_record = get_journey_generation_record(generation_id)
+        from backend.services.mirror.durable_journey_generation_proof import (
+            GenerationProofConflict,
+            resolve_generation_record_for_publish,
+        )
+
+        try:
+            server_record, _record_source = await resolve_generation_record_for_publish(
+                db,
+                user_id=user.id,
+                generation_id=generation_id,
+                client_conversation_id=conversation_id,
+            )
+        except GenerationProofConflict as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "code": "journey_publish_lineage_mismatch",
+                    "reason": (
+                        "scene_asset_mismatch"
+                        if exc.field == "sceneAssetId"
+                        else "generation_mismatch"
+                    ),
+                    "message": (
+                        "Sealed generation proof does not match the live generation record."
+                    ),
+                },
+            ) from exc
         binding = validate_against_server_generation_record(
             claimed={
                 **claimed_lineage,

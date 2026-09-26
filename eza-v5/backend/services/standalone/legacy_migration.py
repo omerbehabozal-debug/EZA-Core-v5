@@ -255,6 +255,12 @@ async def _migrate_one_conversation(
     if body.treeMetadata is not None and find_forbidden_metadata_key(body.treeMetadata):
         return _result(client_id, "rejected_invalid", reason="forbidden_tree_metadata_key")
 
+    from backend.services.mirror.durable_journey_generation_proof import (
+        strip_client_generation_proof_namespace,
+    )
+
+    safe_tree_metadata = strip_client_generation_proof_namespace(body.treeMetadata)
+
     existing = await _find_any_owned_by_client_id(
         db, user_id=user_id, client_conversation_id=client_id
     )
@@ -324,7 +330,7 @@ async def _migrate_one_conversation(
         parent_client_conversation_id=parent_client,
         source_yansi_slug=source_slug,
         group_id=group_uuid,
-        tree_metadata=body.treeMetadata,
+        tree_metadata=safe_tree_metadata,
         conversation_scene_url=scene_url,
         conversation_scene_source=scene_source,
         conversation_scene_slug=scene_slug,

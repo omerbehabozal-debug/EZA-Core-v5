@@ -360,7 +360,12 @@ async def upsert_ready_preparation(
         raise HTTPException(status_code=422, detail="source_identity_mismatch")
 
     scene_url = validate_canonical_scene_url(body.sceneImageUrl)
-    lineage = _validate_lineage(body.sealedLineage)
+    from backend.services.mirror.durable_journey_generation_proof import (
+        strip_client_proof_from_lineage,
+    )
+
+    # Client sealed_lineage must not inject durable server-proof namespace.
+    lineage = _validate_lineage(strip_client_proof_from_lineage(body.sealedLineage) or {})
     landing = body.sealedPublicLanding
     if landing is not None:
         reject_forbidden_metadata(landing, field_name="sealed_public_landing")
@@ -380,6 +385,51 @@ async def upsert_ready_preparation(
     )
     found = existing.scalar_one_or_none()
     if found is not None:
+        # Existing presentation row is immutable for client fields, but if a live
+        # generation record still exists we may seal durable SERVER proof now
+        # (e.g. prepare ran before the conversation row existed).
+        try:
+            from backend.services.mirror.durable_journey_generation_proof import (
+                persist_durable_journey_generation_proof,
+            )
+            from backend.services.mirror.journey_generation_record import (
+                get_journey_generation_record,
+            )
+
+            live = get_journey_generation_record(found.generation_id)
+            if live and live.get("interpretationHash") and live.get("mappedPromptHash"):
+                await persist_durable_journey_generation_proof(
+                    db,
+                    user_id=user_id,
+                    client_conversation_id=str(conv.client_conversation_id),
+                    fields={
+                        "generationId": found.generation_id,
+                        **{k: live.get(k) for k in (
+                            "sourceConversationId",
+                            "journeyId",
+                            "journeyVersion",
+                            "windowIndex",
+                            "windowStart",
+                            "windowEnd",
+                            "windowHash",
+                            "scopedInputHash",
+                            "selectedStepsHash",
+                            "sourceBlockHash",
+                            "interpretationHash",
+                            "mappedPromptHash",
+                            "sceneAssetId",
+                            "sceneImageUrl",
+                        )},
+                        "sceneAssetId": found.scene_asset_id or live.get("sceneAssetId"),
+                        "sceneImageUrl": found.scene_image_url or live.get("sceneImageUrl"),
+                    },
+                    commit=True,
+                )
+        except Exception:
+            logger.exception(
+                "durable_proof_stamp_on_prep_get_failed generationId=%s",
+                (found.generation_id or "")[:48],
+            )
         return _row_to_dto(found)
 
     now = _utcnow()

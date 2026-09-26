@@ -302,6 +302,12 @@ async def upsert_standalone_conversation(
 
     reject_forbidden_metadata(body.treeMetadata, field_name="tree_metadata")
     validate_bounded_json(body.treeMetadata, field_name="tree_metadata")
+    from backend.services.mirror.durable_journey_generation_proof import (
+        strip_client_generation_proof_namespace,
+    )
+
+    # Client must never forge server-authored generation proofs in tree_metadata.
+    safe_tree_metadata = strip_client_generation_proof_namespace(body.treeMetadata)
 
     client_id = body.clientConversationId.strip()
     if not client_id:
@@ -334,7 +340,7 @@ async def upsert_standalone_conversation(
         parent_client_conversation_id=body.parentClientConversationId,
         source_yansi_slug=(body.sourceYansiSlug or "").strip().lower() or None,
         group_id=group_uuid,
-        tree_metadata=body.treeMetadata,
+        tree_metadata=safe_tree_metadata,
         conversation_scene_url=body.conversationSceneUrl,
         conversation_scene_source=body.conversationSceneSource,
         conversation_scene_slug=body.conversationSceneSlug,
