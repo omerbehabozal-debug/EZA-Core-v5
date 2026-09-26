@@ -34,6 +34,80 @@ import {
 export const MIRROR_JOURNEY_ARTIFACT_PANEL_STORAGE_KEY =
   'eza_mirror_journey_panel_artifacts_v1';
 
+function sceneAssetIdFromUrl(url: string | null | undefined): string {
+  const match = (url || '').match(/mirror-scene-assets\/([^/?#]+)/i);
+  if (!match?.[1]) return '';
+  return match[1].replace(/\.[a-z0-9]+$/i, '').trim().toLowerCase();
+}
+
+/** URL asset wins over a stale explicit id so a swapped image cannot hide behind the old id. */
+export function resolvedJourneySceneAssetId(
+  sceneImageUrl: string | null | undefined,
+  sceneAssetId: string | null | undefined
+): string {
+  const fromUrl = sceneAssetIdFromUrl(sceneImageUrl);
+  if (fromUrl) return fromUrl;
+  return (sceneAssetId || '').trim().toLowerCase();
+}
+
+export function journeySceneIdentityKey(
+  sceneImageUrl: string | null | undefined,
+  sceneAssetId: string | null | undefined
+): string {
+  const asset = resolvedJourneySceneAssetId(sceneImageUrl, sceneAssetId);
+  if (asset) return `asset:${asset}`;
+  const url = (sceneImageUrl || '').trim();
+  return url ? `url:${url}` : '';
+}
+
+export function isSealedJourneySceneIdentity(
+  artifact: MirrorJourneyArtifact | null | undefined
+): boolean {
+  if (!artifact) return false;
+  if (artifact.status !== 'ready' && artifact.status !== 'published') return false;
+  if (!artifact.generationId?.trim()) return false;
+  if (!artifact.sceneImageUrl?.trim()) return false;
+  if (
+    !artifact.sealedLineage ||
+    !isPublishableJourneyGenerationLineage(artifact.sealedLineage)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * READY/PUBLISHED scene identity is immutable.
+ * A different generationId or a different canonical scene is a conflict.
+ */
+export function sealedJourneyIdentityConflicts(
+  existing: MirrorJourneyArtifact,
+  incoming: MirrorJourneyArtifact
+): boolean {
+  if (!isSealedJourneySceneIdentity(existing)) return false;
+  const nextGeneration = incoming.generationId?.trim();
+  if (nextGeneration && nextGeneration !== existing.generationId.trim()) {
+    return true;
+  }
+  const lineageGeneration = incoming.sealedLineage?.generationId?.trim();
+  if (
+    lineageGeneration &&
+    lineageGeneration !== existing.generationId.trim()
+  ) {
+    return true;
+  }
+  const nextScene = journeySceneIdentityKey(
+    incoming.sceneImageUrl,
+    incoming.sceneAssetId || incoming.sealedLineage?.sceneAssetId
+  );
+  const sealedScene = journeySceneIdentityKey(
+    existing.sceneImageUrl,
+    existing.sceneAssetId || existing.sealedLineage?.sceneAssetId
+  );
+  if (nextScene && sealedScene && nextScene !== sealedScene) return true;
+  return false;
+}
+
 type PanelStore = Record<string, MirrorJourneyArtifact>;
 
 export type SaveMirrorJourneyArtifactResult =
@@ -225,6 +299,10 @@ export function upsertMirrorJourneyArtifact(
     next.journeyId,
     next.journeyVersion
   );
+  if (existing && sealedJourneyIdentityConflicts(existing, next)) {
+    return cloneMirrorJourneyArtifact(existing);
+  }
+  const sealed = existing ? isSealedJourneySceneIdentity(existing) : false;
   const merged: MirrorJourneyArtifact = existing
     ? {
         ...next,
@@ -265,6 +343,22 @@ export function upsertMirrorJourneyArtifact(
         childYansiCount: next.childYansiCount ?? existing.childYansiCount,
       }
     : next;
+  if (existing && sealed) {
+    merged.generationId = existing.generationId;
+    merged.sceneImageUrl = existing.sceneImageUrl ?? null;
+    merged.sceneAssetId = existing.sceneAssetId ?? null;
+    merged.sealedLineage = existing.sealedLineage;
+    merged.publicTitle = existing.publicTitle?.trim()
+      ? existing.publicTitle
+      : merged.publicTitle;
+    merged.publicSummary = existing.publicSummary?.trim()
+      ? existing.publicSummary
+      : merged.publicSummary;
+    merged.status =
+      next.status === 'published' || existing.status === 'published'
+        ? 'published'
+        : 'ready';
+  }
   const saved = saveMirrorJourneyArtifact(owner, merged);
   return saved.ok ? saved.artifact : saved.current;
 }

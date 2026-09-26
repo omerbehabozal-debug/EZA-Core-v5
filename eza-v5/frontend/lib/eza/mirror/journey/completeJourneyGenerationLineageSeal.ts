@@ -13,12 +13,39 @@ import {
   type JourneyGenerationLineagePartial,
 } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
 import { saveJourneyGenerationArtifact } from '@/lib/eza/mirror/journey/journeyGenerationArtifactStore';
-import { markMirrorJourneyArtifactReadyFromLineage } from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
+import {
+  isSealedJourneySceneIdentity,
+  journeySceneIdentityKey,
+  loadMirrorJourneyArtifact,
+  markMirrorJourneyArtifactReadyFromLineage,
+  sealedJourneyIdentityConflicts,
+} from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
+import { buildReadyMirrorJourneyArtifactFromLineage } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
 
 function sceneAssetIdFromUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   const match = url.match(/mirror-scene-assets\/([^/?#]+)/i);
   return match?.[1] ?? null;
+}
+
+function sealedArtifactRejectsIncomingScene(
+  ownerUserId: string | null | undefined,
+  lineage: JourneyGenerationLineage,
+  sceneImageUrl?: string | null
+): boolean {
+  const existing = loadMirrorJourneyArtifact(
+    ownerUserId,
+    lineage.journeyId,
+    lineage.journeyVersion
+  );
+  if (!existing) return false;
+  const incoming = buildReadyMirrorJourneyArtifactFromLineage({
+    lineage,
+    sceneImageUrl,
+    existing,
+  });
+  if (!incoming) return false;
+  return sealedJourneyIdentityConflicts(existing, incoming);
 }
 
 function persistReadyPanelArtifact(
@@ -61,6 +88,45 @@ export async function completeJourneyGenerationLineageSeal(input: {
   const existing = input.card.mirrorJourneyGenerationLineage;
   if (!existing || typeof existing !== 'object') {
     return input.card;
+  }
+  const storedJourneyId =
+    typeof existing.journeyId === 'string' ? existing.journeyId : '';
+  const storedVersion =
+    typeof existing.journeyVersion === 'number' && existing.journeyVersion >= 1
+      ? existing.journeyVersion
+      : 1;
+  if (storedJourneyId && input.ownerUserId) {
+    const stored = loadMirrorJourneyArtifact(
+      input.ownerUserId,
+      storedJourneyId,
+      storedVersion
+    );
+    if (stored && isSealedJourneySceneIdentity(stored)) {
+      const incomingGeneration = (input.generationId || existing.generationId || '')
+        .toString()
+        .trim();
+      if (incomingGeneration && incomingGeneration !== stored.generationId.trim()) {
+        return input.card;
+      }
+      const incomingScene = journeySceneIdentityKey(input.sceneImageUrl, null);
+      const sealedScene = journeySceneIdentityKey(
+        stored.sceneImageUrl,
+        stored.sceneAssetId
+      );
+      if (incomingScene && sealedScene && incomingScene !== sealedScene) {
+        return input.card;
+      }
+      if (
+        isPublishableJourneyGenerationLineage(existing) &&
+        sealedArtifactRejectsIncomingScene(
+          input.ownerUserId,
+          existing,
+          input.sceneImageUrl
+        )
+      ) {
+        return input.card;
+      }
+    }
   }
   // Already fully sealed for this generation — keep immutable.
   if (

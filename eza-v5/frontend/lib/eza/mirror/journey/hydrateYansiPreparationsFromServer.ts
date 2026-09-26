@@ -10,7 +10,11 @@ import {
 } from '@/lib/eza/serverConversationStore';
 import { getServerYansiPreparations } from '@/lib/eza/standaloneConversationsApi';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
-import { upsertMirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
+import {
+  loadMirrorJourneyArtifact,
+  sealedJourneyIdentityConflicts,
+  upsertMirrorJourneyArtifact,
+} from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
 import {
   isPublishableJourneyGenerationLineage,
   type JourneyGenerationLineage,
@@ -115,6 +119,15 @@ export async function hydrateYansiPreparationsFromServer(input: {
   for (const row of items) {
     const artifact = artifactFromServerYansiPreparation(row, input.clientConversationId);
     if (!artifact) continue;
+    const local = loadMirrorJourneyArtifact(
+      owner,
+      artifact.journeyId,
+      artifact.journeyVersion
+    );
+    if (local && sealedJourneyIdentityConflicts(local, artifact)) {
+      hydrated.push(local);
+      continue;
+    }
     const saved = upsertMirrorJourneyArtifact(owner, artifact);
     if (saved) hydrated.push(saved);
   }

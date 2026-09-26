@@ -155,7 +155,7 @@ describe('explicit retry and new-scene re-arm generation', () => {
 describe('Director card update does not mid-flight setState churn', () => {
   it('defers setGeneratedDailyCard until after generate-scene succeeds', () => {
     const genIdx = experienceSrc.indexOf('const handleGenerateMirrorScene');
-    const genBlock = experienceSrc.slice(genIdx, genIdx + 12000);
+    const genBlock = experienceSrc.slice(genIdx, genIdx + 16000);
     expect(genBlock).toContain('runFailClosedMirrorSceneGeneration');
     expect(genBlock).toContain('Defer React card update until after scene completes');
     const setCardIdx = genBlock.indexOf('setGeneratedDailyCard(cardForScene)');
@@ -183,7 +183,7 @@ describe('Yansı invitation generate does not send scoped prepare without Journe
       'consumePendingJourneyAynaGeneration(conversationId)'
     );
     const kickIdx = experienceSrc.indexOf('const kickJourneyAynaGenerate');
-    const kickBlock = experienceSrc.slice(kickIdx, kickIdx + 1800);
+    const kickBlock = experienceSrc.slice(kickIdx, kickIdx + 2200);
     expect(kickBlock).toContain('immediate: true');
     expect(kickBlock).not.toMatch(
       /runMirrorWithReveal\(entries, \{ isUpdate: true, immediate: true \}\);\s*consumePending/

@@ -264,7 +264,7 @@ describe('owner-wide Yansı preparation bootstrap', () => {
     ).toBe(true);
   });
 
-  it('E/F. local A + server A dedupe; server metadata refreshes', async () => {
+  it('E/F. sealed local scene is not replaced by a conflicting server preparation', async () => {
     beginAccountSession(OWNER_A);
     const local = buildReadyMirrorJourneyArtifactFromLineage({
       lineage: lineage('a', { conv: 'chat-c' }),
@@ -292,8 +292,8 @@ describe('owner-wide Yansı preparation bootstrap', () => {
       (a) => a.journeyId === 'journey-a'
     );
     expect(all).toHaveLength(1);
-    expect(all[0]?.publicTitle).toBe('New A');
-    expect(all[0]?.sceneImageUrl).toBe('https://cdn.example.com/new-a.jpg');
+    expect(all[0]?.publicTitle).toBe('Old A');
+    expect(all[0]?.sceneImageUrl).toBe('https://cdn.example.com/old-a.jpg');
   });
 
   it('G. local published is not demoted by incoming ready', async () => {

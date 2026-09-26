@@ -125,6 +125,13 @@ import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourn
 import { persistAuthenticatedReadyYansi, captureYansiPreparationAuthority } from '@/lib/eza/mirror/journey/persistAuthenticatedReadyYansi';
 import { hydrateYansiPreparationsFromServer } from '@/lib/eza/mirror/journey/hydrateYansiPreparationsFromServer';
 import {
+  acquireJourneySceneGenerationRunner,
+  isJourneySceneGenerationRunnerActive,
+  journeySceneGenerationOwns,
+  releaseJourneySceneGeneration,
+} from '@/lib/eza/mirror/journey/journeySceneGenerationAuthority';
+import { journeySceneIdentityKey } from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
+import {
   getServerConversationAuthority,
   getServerIdForClientChat,
   noteServerYansiPublished,
@@ -608,12 +615,12 @@ export default function StandaloneObservationExperience({
           // Narrative Alignment Phase 1 — FAIL → one regenerate → recheck → publish/block.
           narrativeAlignment: rawScene
             ? {
-                regenerateScene: createAlignmentSceneRegenerator({
+                regenerateScene: exactPublishIdentity
+                  ? undefined
+                  : createAlignmentSceneRegenerator({
                   card,
                   conversationId,
-                  generationId:
-                    exactPublishIdentity?.generationId ||
-                    activeGenerationIdRef.current,
+                  generationId: activeGenerationIdRef.current,
                   variationIndex,
                   onSceneReady: async (sceneImageUrl) => {
                     lastRawSceneUrlRef.current = sceneImageUrl;
@@ -1303,15 +1310,6 @@ export default function StandaloneObservationExperience({
       const session = sessionOverride ?? styleLensSession;
       const { variationIndex } = resolveLensForGeneration(isPlus, session);
 
-      // New generationId per attempt — cancel/ignore prior in-flight by id mismatch.
-      const generationRequestId = createSceneGenerationId();
-      sceneRequestIdByAutoKeyRef.current.set(autoKey, generationRequestId);
-      activeGenerationIdRef.current = generationRequestId;
-      const boundOwnerAtStart = shareCacheUserId;
-      const boundPersist = captureYansiPreparationAuthority(authenticatedUserId);
-
-      sceneGenerationInFlightRef.current = true;
-      sceneAutoKeyRef.current = autoKey;
       // Capture Journey kick identity BEFORE consume — prepare/scene errors must still
       // be able to mark the artifact failed after pending is cleared.
       const pendingKickAtStart = conversationId
@@ -1326,6 +1324,32 @@ export default function StandaloneObservationExperience({
         pendingKickAtStart.journeyVersion >= 1
           ? pendingKickAtStart.journeyVersion
           : 1;
+      const journeyAuth =
+        conversationId && kickFailJourneyId
+          ? {
+              sourceConversationId: conversationId,
+              journeyId: kickFailJourneyId,
+              journeyVersion: kickFailJourneyVersion,
+            }
+          : null;
+      // One runner per exact Journey, including across remounts.
+      let generationRequestId = '';
+      let releaseJourneyAuth = false;
+      if (journeyAuth) {
+        const acquired = acquireJourneySceneGenerationRunner(journeyAuth);
+        if (!acquired) return;
+        generationRequestId = acquired.generationId;
+        releaseJourneyAuth = true;
+      } else {
+        generationRequestId = createSceneGenerationId();
+      }
+      sceneRequestIdByAutoKeyRef.current.set(autoKey, generationRequestId);
+      activeGenerationIdRef.current = generationRequestId;
+      const boundOwnerAtStart = shareCacheUserId;
+      const boundPersist = captureYansiPreparationAuthority(authenticatedUserId);
+
+      sceneGenerationInFlightRef.current = true;
+      sceneAutoKeyRef.current = autoKey;
       if (conversationId) {
         consumePendingJourneyAynaGeneration(conversationId);
       }
@@ -1501,6 +1525,12 @@ export default function StandaloneObservationExperience({
         if (activeGenerationIdRef.current !== generationRequestId) {
           throw new MirrorSceneError('Stale generation ignored.', 'stale_generation');
         }
+        if (
+          journeyAuth &&
+          !journeySceneGenerationOwns(journeyAuth, generationRequestId)
+        ) {
+          throw new MirrorSceneError('Stale generation ignored.', 'stale_generation');
+        }
         if (resolveJourneyOwnerKey(user?.user_id) !== boundOwnerAtStart) {
           throw new MirrorSceneError('Stale generation ignored.', 'stale_generation');
         }
@@ -1529,6 +1559,18 @@ export default function StandaloneObservationExperience({
                 sealedLineage.journeyVersion ?? 1
               )
             : null;
+        const sealedSceneKey = journeySceneIdentityKey(
+          sealedArtifact?.sceneImageUrl,
+          sealedArtifact?.sceneAssetId
+        );
+        const resultSceneKey = journeySceneIdentityKey(result.sceneImageUrl, null);
+        if (
+          sealedSceneKey &&
+          resultSceneKey &&
+          sealedSceneKey !== resultSceneKey
+        ) {
+          throw new MirrorSceneError('Stale generation ignored.', 'stale_generation');
+        }
         // Server durability / title identity CAS — independent of live chrome apply.
         if (
           sealedArtifact &&
@@ -1684,6 +1726,9 @@ export default function StandaloneObservationExperience({
           setSceneExtras({ hybridFallbackReason: 'generate_scene_api_error' });
         }
       } finally {
+        if (releaseJourneyAuth && journeyAuth) {
+          releaseJourneySceneGeneration(journeyAuth, generationRequestId);
+        }
         if (activeGenerationIdRef.current === generationRequestId) {
           sceneGenerationInFlightRef.current = false;
         }
@@ -1942,6 +1987,16 @@ export default function StandaloneObservationExperience({
     const kickJourneyAynaGenerate = (detail: JourneyAynaGenerateDetail) => {
       if (!detail || detail.conversationId !== conversationId) return;
       if (entries.length < MIRROR_MIN_SAMPLES) return;
+      if (
+        detail.journeyId &&
+        isJourneySceneGenerationRunnerActive({
+          sourceConversationId: detail.conversationId,
+          journeyId: detail.journeyId,
+          journeyVersion: detail.journeyVersion ?? 1,
+        })
+      ) {
+        return;
+      }
       // Exact window must be generating before scene success can promote → ready.
       if (shareCacheUserId && detail.journeyId) {
         rearmJourneyWindowGeneratingFromArtifact({
@@ -2028,25 +2083,32 @@ export default function StandaloneObservationExperience({
         conversationId
       ).find((artifact) => artifact.status === 'generating');
       if (stuckGenerating) {
-        const sealedDraft = loadReview8DraftForJourney(
-          shareCacheUserId,
-          conversationId,
-          stuckGenerating.journeyId
-        );
-        if (sealedDraft?.draftKey) {
-          setActiveReview8DraftKey(
-            shareCacheUserId,
-            conversationId,
-            sealedDraft.draftKey
-          );
-        }
-        requestJourneyAynaGeneration({
-          conversationId,
+        const generationStillRunning = isJourneySceneGenerationRunnerActive({
+          sourceConversationId: conversationId,
           journeyId: stuckGenerating.journeyId,
           journeyVersion: stuckGenerating.journeyVersion,
         });
-        const rearmed = readPendingJourneyAynaGeneration(conversationId);
-        if (rearmed) kickJourneyAynaGenerate(rearmed);
+        if (!generationStillRunning) {
+          const sealedDraft = loadReview8DraftForJourney(
+            shareCacheUserId,
+            conversationId,
+            stuckGenerating.journeyId
+          );
+          if (sealedDraft?.draftKey) {
+            setActiveReview8DraftKey(
+              shareCacheUserId,
+              conversationId,
+              sealedDraft.draftKey
+            );
+          }
+          requestJourneyAynaGeneration({
+            conversationId,
+            journeyId: stuckGenerating.journeyId,
+            journeyVersion: stuckGenerating.journeyVersion,
+          });
+          const rearmed = readPendingJourneyAynaGeneration(conversationId);
+          if (rearmed) kickJourneyAynaGenerate(rearmed);
+        }
       }
     }
 
@@ -2571,6 +2633,23 @@ export default function StandaloneObservationExperience({
           return;
         }
         if (!conversationId) return;
+        if (
+          artifact.status === 'generating' &&
+          isJourneySceneGenerationRunnerActive({
+            sourceConversationId: conversationId,
+            journeyId: artifact.journeyId,
+            journeyVersion: artifact.journeyVersion,
+          })
+        ) {
+          return;
+        }
+        if (artifact.status === 'failed') {
+          releaseJourneySceneGeneration({
+            sourceConversationId: conversationId,
+            journeyId: artifact.journeyId,
+            journeyVersion: artifact.journeyVersion,
+          });
+        }
         if (entries.length < MIRROR_MIN_SAMPLES) return;
         if (!canCreateVisual) {
           setDailyStatus(visualLimitStatus());
@@ -3184,6 +3263,7 @@ export default function StandaloneObservationExperience({
               publishBusyJourneyId={publishBusyJourneyId}
               shareBusyJourneyId={shareBusyJourneyId}
               canShare={isPlus}
+              publishError={shareLinkError}
               compactPrimaryProduct={compactPrimaryProduct}
               selectedArtifactIdentity={reelSelectedIdentity}
               emptyState={
