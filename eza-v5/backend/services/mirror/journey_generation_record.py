@@ -85,16 +85,88 @@ def bind_scene_asset_to_generation(
     scene_asset_id: str,
     scene_image_url: str | None = None,
 ) -> dict[str, Any] | None:
+    """
+    Bind the first canonical scene for a generationId.
+
+    Returns the canonical record on first bind and on an identical re-bind.
+    Returns None when inputs are empty, no record exists, or the generation
+    is already bound to a different asset. Never overwrites the first asset.
+    """
+    outcome, record = bind_canonical_scene_asset(
+        generation_id,
+        scene_asset_id=scene_asset_id,
+        scene_image_url=scene_image_url,
+    )
+    if outcome in ("bound", "idempotent"):
+        return record
+    return None
+
+
+def bind_canonical_scene_asset(
+    generation_id: str,
+    *,
+    scene_asset_id: str,
+    scene_image_url: str | None = None,
+) -> tuple[str, dict[str, Any] | None]:
+    """
+    Returns (outcome, canonical_record).
+
+    outcome:
+      bound — first asset written
+      idempotent — same asset already bound
+      conflict — different asset rejected; canonical record is the first bind
+      no_record — generation was never prepared in this process
+      rejected — empty ids
+    """
     gid = str(generation_id or "").strip()
-    asset = str(scene_asset_id or "").strip()
+    asset = str(scene_asset_id or "").strip().lower()
     if not gid or not asset:
-        return None
-    return upsert_journey_generation_record(
+        return "rejected", None
+    existing = get_journey_generation_record(gid)
+    if existing is None:
+        return "no_record", None
+    prior = str(existing.get("sceneAssetId") or "").strip().lower()
+    if prior and prior == asset:
+        return "idempotent", existing
+    if prior and prior != asset:
+        return "conflict", existing
+    url = (scene_image_url or "").strip() or None
+    record = upsert_journey_generation_record(
         gid,
         {
             "sceneAssetId": asset,
-            "sceneImageUrl": (scene_image_url or "").strip() or None,
+            "sceneImageUrl": url,
         },
+    )
+    return "bound", record
+
+
+def adopt_canonical_scene_binding(
+    generation_id: str,
+    *,
+    scene_asset_id: str,
+    scene_image_url: str,
+) -> dict[str, Any] | None:
+    """
+    Point this process cache at an already-sealed canonical scene.
+
+    Used only to discard a duplicate generation that diverged from durable
+    proof. The caller must pass the durable canonical asset, never a newer image.
+    """
+    gid = str(generation_id or "").strip()
+    asset = str(scene_asset_id or "").strip().lower()
+    url = str(scene_image_url or "").strip()
+    if not gid or not asset or not url:
+        return None
+    existing = get_journey_generation_record(gid)
+    if existing is None:
+        return None
+    prior = str(existing.get("sceneAssetId") or "").strip().lower()
+    if prior == asset:
+        return existing
+    return upsert_journey_generation_record(
+        gid,
+        {"sceneAssetId": asset, "sceneImageUrl": url},
     )
 
 

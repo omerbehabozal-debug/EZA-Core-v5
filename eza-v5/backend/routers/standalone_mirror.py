@@ -122,6 +122,48 @@ async def generate_mirror_scene_endpoint(
             },
         )
 
+    if body.generationRequestId:
+        from backend.services.mirror.durable_journey_generation_proof import (
+            GenerationProofConflict,
+            lookup_canonical_generated_scene,
+        )
+
+        canonical = None
+        try:
+            async with db.begin_nested():
+                canonical = await lookup_canonical_generated_scene(
+                    db,
+                    generation_id=body.generationRequestId,
+                    user_id=actor.user.id if actor.user is not None else None,
+                    client_conversation_id=body.conversationId,
+                )
+        except GenerationProofConflict as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "ok": False,
+                    "code": "scene_authority_conflict",
+                    "reason": exc.field,
+                    "message": "Bu Yansı sahnesi zaten mühürlü. İkinci sahne kabul edilmedi.",
+                },
+            ) from exc
+        except Exception:
+            # A proof-store miss must not block the first generation.
+            # Conflict is handled above and still fails closed.
+            logger.exception(
+                "canonical_scene_lookup_failed generationRequestId=%s",
+                (body.generationRequestId or "")[:48],
+            )
+            canonical = None
+        if canonical and canonical.get("sceneImageUrl"):
+            return MirrorGenerateSceneResponse(
+                sceneImageUrl=canonical["sceneImageUrl"],
+                provider="openai",
+                cached=True,
+                generatedAt="",
+                generationRequestId=body.generationRequestId,
+            )
+
     source_id = _resolve_visual_source_id(body, actor)
     entitlements = get_entitlements_for_tier(subject.tier)
 
@@ -165,10 +207,10 @@ async def generate_mirror_scene_endpoint(
             },
         )
 
-    # Phase 3.6b — bind scene asset to the same generationId used at prepare.
+    # Phase 3.6b — bind the first canonical scene. A second asset cannot replace it.
     if body.generationRequestId:
         from backend.services.mirror.journey_generation_record import (
-            bind_scene_asset_to_generation,
+            bind_canonical_scene_asset,
             get_journey_generation_record,
         )
         from backend.services.mirror.scene_asset_identity import (
@@ -177,11 +219,94 @@ async def generate_mirror_scene_endpoint(
 
         asset_id = resolve_scene_asset_id_from_url(persisted_url)
         if asset_id and get_journey_generation_record(body.generationRequestId):
-            bind_scene_asset_to_generation(
+            outcome, canonical_record = bind_canonical_scene_asset(
                 body.generationRequestId,
                 scene_asset_id=asset_id,
                 scene_image_url=persisted_url,
             )
+            if outcome == "conflict" and canonical_record:
+                canonical_url = str(canonical_record.get("sceneImageUrl") or "").strip()
+                if canonical_url:
+                    persisted_url = canonical_url
+                    asset_id = str(canonical_record.get("sceneAssetId") or asset_id)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail={
+                            "ok": False,
+                            "code": "scene_authority_conflict",
+                            "message": "Bu Yansı sahnesi zaten mühürlü. İkinci sahne kabul edilmedi.",
+                        },
+                    )
+            elif outcome == "idempotent" and canonical_record:
+                canonical_url = str(canonical_record.get("sceneImageUrl") or "").strip()
+                if canonical_url:
+                    persisted_url = canonical_url
+                    asset_id = str(canonical_record.get("sceneAssetId") or asset_id)
+        # Durable scene bind onto existing SERVER proof (or live→durable seed).
+        if asset_id and actor.user is not None:
+            try:
+                async with db.begin_nested():
+                    from backend.services.mirror.durable_journey_generation_proof import (
+                        load_durable_journey_generation_proof,
+                        persist_durable_journey_generation_proof,
+                    )
+                    from backend.services.mirror.journey_generation_record import (
+                        get_journey_generation_record as _get_live,
+                    )
+
+                    live = _get_live(body.generationRequestId)
+                    durable = await load_durable_journey_generation_proof(
+                        db,
+                        user_id=actor.user.id,
+                        generation_id=body.generationRequestId,
+                        client_conversation_id=body.conversationId,
+                    )
+                    seed = live or durable
+                    if seed and seed.get("interpretationHash") and seed.get("mappedPromptHash"):
+                        stored = await persist_durable_journey_generation_proof(
+                            db,
+                            user_id=actor.user.id,
+                            client_conversation_id=body.conversationId,
+                            fields={
+                                "generationId": body.generationRequestId,
+                                "sourceConversationId": seed.get("sourceConversationId")
+                                or body.conversationId,
+                                "journeyId": seed.get("journeyId"),
+                                "journeyVersion": seed.get("journeyVersion"),
+                                "windowIndex": seed.get("windowIndex"),
+                                "windowStart": seed.get("windowStart"),
+                                "windowEnd": seed.get("windowEnd"),
+                                "windowHash": seed.get("windowHash"),
+                                "scopedInputHash": seed.get("scopedInputHash"),
+                                "selectedStepsHash": seed.get("selectedStepsHash"),
+                                "sourceBlockHash": seed.get("sourceBlockHash"),
+                                "interpretationHash": seed.get("interpretationHash"),
+                                "mappedPromptHash": seed.get("mappedPromptHash"),
+                                "sceneAssetId": asset_id,
+                                "sceneImageUrl": persisted_url,
+                            },
+                            commit=False,
+                        )
+                        stored_asset = str((stored or {}).get("sceneAssetId") or "").strip().lower()
+                        stored_url = str((stored or {}).get("sceneImageUrl") or "").strip()
+                        if stored_asset and stored_url and stored_asset != str(asset_id or "").lower():
+                            persisted_url = stored_url
+                            asset_id = stored_asset
+                            from backend.services.mirror.journey_generation_record import (
+                                adopt_canonical_scene_binding,
+                            )
+
+                            adopt_canonical_scene_binding(
+                                body.generationRequestId,
+                                scene_asset_id=stored_asset,
+                                scene_image_url=stored_url,
+                            )
+            except Exception:
+                logger.exception(
+                    "durable_generation_proof_scene_bind_failed generationRequestId=%s",
+                    (body.generationRequestId or "")[:48],
+                )
 
     await db.commit()
 
@@ -369,6 +494,39 @@ async def prepare_director_draft_endpoint(
                     "mappedPromptHash": mapped_hash,
                 },
             )
+            # Durable SERVER-authored proof (survives TTL / restart / other workers).
+            if actor.user is not None:
+                try:
+                    from backend.services.mirror.durable_journey_generation_proof import (
+                        persist_durable_journey_generation_proof,
+                    )
+
+                    await persist_durable_journey_generation_proof(
+                        db,
+                        user_id=actor.user.id,
+                        client_conversation_id=body.conversationId,
+                        fields={
+                            "generationId": body.generationRequestId,
+                            "sourceConversationId": lineage["sourceConversationId"],
+                            "journeyId": lineage["journeyId"],
+                            "journeyVersion": lineage["journeyVersion"],
+                            "windowIndex": lineage["windowIndex"],
+                            "windowStart": lineage["windowStart"],
+                            "windowEnd": lineage["windowEnd"],
+                            "windowHash": lineage["windowHash"],
+                            "scopedInputHash": lineage["scopedInputHash"],
+                            "selectedStepsHash": lineage["selectedStepsHash"],
+                            "sourceBlockHash": lineage.get("sourceBlockHash"),
+                            "interpretationHash": interp_hash,
+                            "mappedPromptHash": mapped_hash,
+                        },
+                        commit=True,
+                    )
+                except Exception:
+                    logger.exception(
+                        "durable_generation_proof_persist_failed generationRequestId=%s",
+                        body.generationRequestId[:48],
+                    )
             result = result.model_copy(
                 update={
                     "semanticScope": journey_meta.get("semanticScope"),
