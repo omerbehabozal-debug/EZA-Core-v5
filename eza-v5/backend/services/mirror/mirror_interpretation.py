@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_INTERPRETATION_MODEL = "gpt-4o-mini"
 # Bump when the Interpretation system prompt contract changes (prepare-cache isolation).
-MIRROR_INTERPRETATION_PROMPT_VERSION = "interp-prompt-v4"
+MIRROR_INTERPRETATION_PROMPT_VERSION = "interp-prompt-v5"
 ChatCompleter = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
 _SYSTEM_PROMPT = """You are the biligN Mirror creative director.
@@ -73,6 +73,20 @@ Quality goals (not steps):
 - Respect corrections and rejected options (do not promote rejected choices).
 - Prefer a real-feeling moment over a poster or tourism collage.
 - Avoid generic stock imagery and random abstraction that loses the conversation.
+
+visualNarrative authoring:
+- Write one concrete place, moment, and visible evidence — not a mood label.
+- Night, dusk, and dramatic light are allowed. Keep the primary subject and
+  meaningful scene evidence readable; do not crush shadows or reduce the subject
+  to an unsupported silhouette.
+- Do not default the time of day or palette (no forced golden hour, sunset, or warm wash).
+- Abstract or general curiosities: make the conversation's actual tension, change,
+  or contrast visible through concrete traces unique to THIS topic. Do not fall back
+  to a thoughtful person, a figure at a window, a generic café, an anonymous silhouette,
+  a foggy lone figure, or generic emotional stock unless sealed evidence genuinely
+  supports that scene.
+- Do not prescribe camera or lens recipes. Do not impose a house visual style
+  or lighting genre.
 
 Return ONLY valid JSON:
 {

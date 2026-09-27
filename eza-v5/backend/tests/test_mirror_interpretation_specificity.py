@@ -7,7 +7,9 @@ import inspect
 
 from backend.core.schemas.mirror_interpretation import MirrorInterpretationV1
 from backend.services.mirror.mirror_draft_to_v5 import MIRROR_V5_MAX_PROMPT_CHARS
+from backend.services.mirror.mirror_image_size import MIRROR_CANONICAL_IMAGE_SIZE
 from backend.services.mirror.mirror_interpretation_to_v5 import (
+    MIRROR_BASELINE_AVOID,
     MIRROR_CONTEXTUAL_SPECIFICITY_RULE,
     MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION,
     MIRROR_ONE_SCENE_RULE,
@@ -66,8 +68,8 @@ def test_shared_rules_within_target_budget():
     assert MIRROR_ONE_SCENE_RULE in MIRROR_SHARED_RENDER_RULES
 
 
-def test_mapper_version_v8():
-    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v8"
+def test_mapper_version_v9():
+    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v9"
 
 
 def test_safe_composition_contract_budget_and_presence():
@@ -127,6 +129,9 @@ def test_four_product_obligations_present():
     assert "named place, material, and prop" in mapped.prompt
     assert "small previews" in mapped.prompt
     assert "underexposure" in mapped.prompt.lower()
+    assert "crushed blacks" in mapped.prompt.lower()
+    assert "shadow detail" in mapped.prompt.lower()
+    assert "backlight" in mapped.prompt.lower()
     assert "One coherent natural scene" in mapped.prompt
     assert "Text-free: no typography" in mapped.prompt
 
@@ -314,3 +319,64 @@ def test_title_never_in_prompt():
     )
     assert "TITLE:" not in mapped.prompt
     assert "Secret Title XYZ" not in mapped.prompt
+
+
+def test_visibility_rule_readable_exposure_without_forced_palette():
+    low = MIRROR_VISIBILITY_RULE.lower()
+    assert "small previews" in low
+    assert "readable" in low
+    assert "shadow detail" in low
+    assert "crushed blacks" in low
+    assert "underexposure" in low
+    assert "backlight" in low
+    for banned in ("golden hour", "sunset", "orange", "daylight", "warm wash"):
+        assert banned not in low
+        assert banned not in MIRROR_SHARED_RENDER_RULES.lower()
+    mapped = map_interpretation_to_v5_prompt(_interp(), title_source="interpretation_llm")
+    assert MIRROR_VISIBILITY_RULE in mapped.prompt
+    assert "night" not in MIRROR_VISIBILITY_RULE.lower()
+    assert "dusk" not in MIRROR_VISIBILITY_RULE.lower()
+
+
+def test_night_and_dusk_narratives_remain_allowed():
+    dusk = _interp(
+        visualNarrative=(
+            "A narrow lane at dusk, wet stone and wooden facades, "
+            "warm lantern light, a quiet café doorway ahead — one continuous natural moment."
+        )
+    )
+    night = _interp(
+        visualNarrative=(
+            "A night courtyard with open shadow on the stone bench and doorway, "
+            "lantern light on the clothesline — one continuous natural moment."
+        )
+    )
+    dusk_mapped = map_interpretation_to_v5_prompt(dusk, title_source="interpretation_llm")
+    night_mapped = map_interpretation_to_v5_prompt(night, title_source="interpretation_llm")
+    assert dusk_mapped.prompt.startswith("VISUAL NARRATIVE:")
+    assert night_mapped.prompt.startswith("VISUAL NARRATIVE:")
+    assert "dusk" in dusk_mapped.prompt.lower()
+    assert "night" in night_mapped.prompt.lower()
+    avoid = MIRROR_BASELINE_AVOID.lower()
+    shared = MIRROR_SHARED_RENDER_RULES.lower()
+    for banned in ("no night", "no dusk", "no people", "no human", "no silhouette"):
+        assert banned not in avoid
+        assert banned not in shared
+    assert len(dusk_mapped.prompt) <= MIRROR_V5_MAX_PROMPT_CHARS
+    assert len(night_mapped.prompt) <= MIRROR_V5_MAX_PROMPT_CHARS
+
+
+def test_baseline_avoid_discourages_unsupported_thoughtful_stock():
+    avoid = MIRROR_BASELINE_AVOID.lower()
+    assert "contemplative silhouette" in avoid
+    assert "thoughtful-person stock" in avoid or "thoughtful person" in avoid
+    assert "unsupported" in avoid
+    mapped = map_interpretation_to_v5_prompt(_interp(), title_source="interpretation_llm")
+    assert "contemplative silhouette" in mapped.prompt.lower()
+    assert "thoughtful" in mapped.prompt.lower()
+    assert mapped.prompt.startswith("VISUAL NARRATIVE:")
+    assert len(mapped.prompt) <= MIRROR_V5_MAX_PROMPT_CHARS
+
+
+def test_canonical_master_size_untouched():
+    assert MIRROR_CANONICAL_IMAGE_SIZE == "1024x1024"

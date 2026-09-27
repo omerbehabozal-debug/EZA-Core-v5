@@ -27,7 +27,7 @@ from backend.services.mirror.mirror_draft_to_v5 import (
 )
 
 # Bump when Interpretation→V5 mapping contract changes (cache isolation).
-MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v8"
+MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v9"
 
 # Shared contract: universal constraints only — style-neutral (no house genre).
 # Visual language emerges from VISUAL NARRATIVE / interpretation, not from these lines.
@@ -48,9 +48,10 @@ MIRROR_CONTEXTUAL_SPECIFICITY_RULE = (
     "No substitute geography or invented interiors."
 )
 
-# Visibility / exposure quality — not an aesthetic genre.
+# Visibility / exposure quality — not an aesthetic genre or time-of-day lock.
 MIRROR_VISIBILITY_RULE = (
-    "Key details clear in small previews — avoid underexposure/crushed blacks."
+    "Readable in small previews; keep shadow detail — "
+    "no crushed blacks/underexposure; no erasing backlight."
 )
 
 MIRROR_ONE_SCENE_RULE = "One coherent natural scene — not collage."
@@ -75,7 +76,8 @@ MIRROR_SAFE_COMPOSITION_RULE = (
 # Do not name specific cities or coat brands; keep failure-mode language only.
 MIRROR_BASELINE_AVOID = (
     "modern atrium, spiral stairwell, glass museum lobby, fashion-coat traveler hero, "
-    "airport terminal, train-station stock frame, substitute geography, collage"
+    "airport terminal, train-station stock frame, substitute geography, collage, "
+    "unsupported contemplative silhouette, anonymous thoughtful-person stock scene"
 )
 
 

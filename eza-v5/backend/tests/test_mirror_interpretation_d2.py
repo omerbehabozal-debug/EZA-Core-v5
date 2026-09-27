@@ -416,12 +416,23 @@ def test_interpretation_system_prompt_requires_place_fidelity():
         _system_prompt_for_locale,
     )
 
-    assert MIRROR_INTERPRETATION_PROMPT_VERSION == "interp-prompt-v4"
+    assert MIRROR_INTERPRETATION_PROMPT_VERSION == "interp-prompt-v5"
     low = _SYSTEM_PROMPT.lower()
     assert "place and evidence fidelity" in low
     assert "lived street-level" in low
     assert "stock tourism" in low
     assert "substitute region" in low
+    assert "visualnarrative authoring" in low
+    assert "abstract" in low and "general curiosit" in low
+    assert "thoughtful person" in low
+    assert "figure at a window" in low or "window" in low
+    assert "anonymous silhouette" in low
+    assert "night" in low and "dusk" in low
+    assert "readable" in low
+    assert "golden hour" in low
+    assert "sunset" in low
+    assert "camera or lens" in low or "camera recipes" in low
+    assert "house visual style" in low or "no house style" in low
     # No place/benchmark hardcodes in the director prompt.
     for banned in ("mardin", "trench", "panda", "cappadocia", "kyoto"):
         assert banned not in low
