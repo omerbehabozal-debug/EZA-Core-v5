@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import uuid
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -181,6 +181,16 @@ def _body(**extra) -> MirrorNetworkPublishRequest:
     return MirrorNetworkPublishRequest(**payload)
 
 
+def _publish_db() -> AsyncMock:
+    """Session double whose durable proof lookup finds no conversation row."""
+    db = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None
+    result.scalars.return_value.all.return_value = []
+    db.execute = AsyncMock(return_value=result)
+    return db
+
+
 def test_normalize_journey_id():
     assert normalize_journey_id("  My_Journey/A  ") == "my-journey-a"
     assert normalize_journey_id("") is None
@@ -190,7 +200,7 @@ def test_normalize_journey_id():
 @pytest.mark.asyncio
 async def test_flag_off_ignores_journey_id_uses_conversation_upsert():
     user = _user()
-    db = AsyncMock()
+    db = _publish_db()
     existing = SimpleNamespace(
         id=uuid.uuid4(),
         slug="existing-legacy",
@@ -245,7 +255,7 @@ async def test_flag_off_ignores_journey_id_uses_conversation_upsert():
 @pytest.mark.asyncio
 async def test_flag_on_same_conversation_two_journey_ids_create_two_nodes():
     user = _user()
-    db = AsyncMock()
+    db = _publish_db()
     created: list[SimpleNamespace] = []
 
     async def _create(_db, node, **_kwargs):
@@ -313,7 +323,7 @@ async def test_flag_on_same_conversation_two_journey_ids_create_two_nodes():
 @pytest.mark.asyncio
 async def test_flag_on_same_journey_id_updates_and_bumps_version():
     user = _user()
-    db = AsyncMock()
+    db = _publish_db()
     existing = SimpleNamespace(
         id=uuid.uuid4(),
         slug="journey-a",
@@ -379,7 +389,7 @@ async def test_flag_on_same_journey_id_updates_and_bumps_version():
 @pytest.mark.asyncio
 async def test_legacy_artifact_kind_default_on_conversation_path():
     user = _user()
-    db = AsyncMock()
+    db = _publish_db()
     created: list = []
 
     async def _create(_db, node, **_kwargs):

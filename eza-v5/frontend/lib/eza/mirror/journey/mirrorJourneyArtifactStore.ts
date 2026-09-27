@@ -354,10 +354,14 @@ export function upsertMirrorJourneyArtifact(
     merged.publicSummary = existing.publicSummary?.trim()
       ? existing.publicSummary
       : merged.publicSummary;
+    // A sealed scene keeps READY through regeneration attempts, but an
+    // explicit failure is a product decision and must still demote it.
     merged.status =
       next.status === 'published' || existing.status === 'published'
         ? 'published'
-        : 'ready';
+        : next.status === 'failed'
+          ? 'failed'
+          : 'ready';
   }
   const saved = saveMirrorJourneyArtifact(owner, merged);
   return saved.ok ? saved.artifact : saved.current;

@@ -155,6 +155,8 @@ async def test_report_duplicate_and_privacy(monkeypatch):
     from backend.models.user import LegacyUser  # noqa: F401
     from backend.models.role import Role  # noqa: F401
     from backend.models.institution import Institution  # noqa: F401
+    from backend.models.api_key import APIKey  # noqa: F401
+    from backend.models.application import Application  # noqa: F401
     from backend.models.mirror_network import YansiReport
 
     reporter = uuid4()

@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -434,10 +434,20 @@ def test_legacy_non_frozen_not_replay_ready():
     assert node_is_frozen(node) is False
 
 
+def _publish_db() -> AsyncMock:
+    """Session double whose durable proof lookup finds no conversation row."""
+    db = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None
+    result.scalars.return_value.all.return_value = []
+    db.execute = AsyncMock(return_value=result)
+    return db
+
+
 @pytest.mark.asyncio
 async def test_publish_freezes_and_ttl_expire_still_readable():
     user = _user()
-    db = AsyncMock()
+    db = _publish_db()
     created: list[SimpleNamespace] = []
     steps_store: dict[tuple[str, int], list] = {}
 
@@ -547,7 +557,7 @@ async def test_publish_freezes_and_ttl_expire_still_readable():
 @pytest.mark.asyncio
 async def test_idempotent_same_version_retry_and_conflict():
     user = _user()
-    db = AsyncMock()
+    db = _publish_db()
     steps = _steps(8)
     body1 = _body(journeyId="journey-idem", selectedSteps=steps, journeyVersion=1)
     freeze = build_durable_frozen_journey_artifact(
@@ -670,7 +680,7 @@ async def test_idempotent_same_version_retry_and_conflict():
 @pytest.mark.asyncio
 async def test_freeze_commit_failure_reports_not_success():
     user = _user()
-    db = AsyncMock()
+    db = _publish_db()
     db.commit = AsyncMock(side_effect=RuntimeError("db down"))
     db.rollback = AsyncMock()
     db.refresh = AsyncMock()
