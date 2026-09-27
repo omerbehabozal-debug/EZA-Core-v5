@@ -371,7 +371,11 @@ describe('unified Yansı product card contract', () => {
     expect(card.publicTitle.length).toBeLessThanOrEqual(64);
     expect(endsIncompletely(card.publicTitle)).toBe(false);
     expect(card.publicTitle.toLowerCase()).toMatch(/hayal|yaşam|hayat|çocuk/i);
-    expect(card.publicSummary).toContain('hayaller');
+    // Trailer: selected dimensions, not the conclusion spoiler from interpretationSummary.
+    expect(card.publicSummary.toLowerCase()).toMatch(/his|konfor/);
+    expect(card.publicSummary).not.toMatch(
+      /belirlediğini gösteriyor|kararı his ve konforun/i
+    );
   });
 
   it('public /m landing does not import YansiProductCard (frozen surface)', () => {

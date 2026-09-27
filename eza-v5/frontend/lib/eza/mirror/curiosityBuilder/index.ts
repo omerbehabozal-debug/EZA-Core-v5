@@ -7,6 +7,7 @@ export {
   buildCuriosityCard,
   curiosityCardFingerprint,
   composeCompleteTitle,
+  buildCuriosityTrailerSummary,
   clampAtWordBoundary,
   endsIncompletely,
   isCriteriaOnlyTitle,

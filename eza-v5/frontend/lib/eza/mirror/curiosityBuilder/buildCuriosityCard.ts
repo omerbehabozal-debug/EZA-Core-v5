@@ -390,19 +390,400 @@ function takeSafeSummaryLead(text: string, maxChars = 140): string | null {
   return candidate;
 }
 
+/** Semantic spoiler / conclusion disclosure — not a naive banned-word strip. */
+const CONCLUSION_DISCLOSURE =
+  /\b(gösteriyor|ortaya koyuyor|sonuç olarak|asıl neden|temel sebep|belirleyen şey|asıl sebep|the answer is|what (really )?decides|shows that|reveals that)\b/i;
+
+const CONCLUSION_TAIL =
+  /,?\s*kararı\s+.+$/i;
+
+function disclosesConclusion(text: string): boolean {
+  const t = (text || '').replace(/\s+/g, ' ').trim();
+  if (!t) return false;
+  if (CONCLUSION_DISCLOSURE.test(t)) return true;
+  if (/kararı\s+.+\s+belirle/i.test(t)) return true;
+  if (/belirlediğini\s+göster/i.test(t)) return true;
+  return false;
+}
+
+function stripConclusionClause(text: string): string {
+  return stripProductMeta(text)
+    .replace(CONCLUSION_TAIL, '')
+    .replace(/\s+[—–-]\s*(asıl merak|the interesting part|kararı|what (really )?decides).+$/i, '')
+    .replace(/\s+(gösteriyor|ortaya koyuyor)\.?$/i, '')
+    .replace(/[.!?…]+$/g, '')
+    .trim();
+}
+
+function normalizeCompareKey(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9çğıöşüâîû\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** How much of the candidate's content words already appear in the title. */
+function titleContentOverlap(title: string, candidate: string): number {
+  const stop = new Set([
+    've',
+    'ile',
+    'bir',
+    'bu',
+    'şu',
+    'the',
+    'a',
+    'an',
+    'of',
+    'or',
+    'and',
+    'mi',
+    'mı',
+    'mu',
+    'mü',
+  ]);
+  const titleTokens = new Set(
+    normalizeCompareKey(title)
+      .split(' ')
+      .filter((w) => w.length > 2 && !stop.has(w))
+  );
+  const candTokens = normalizeCompareKey(candidate)
+    .split(' ')
+    .filter((w) => w.length > 2 && !stop.has(w));
+  if (!titleTokens.size || !candTokens.length) return 0;
+  const hits = candTokens.filter((w) => titleTokens.has(w)).length;
+  return hits / candTokens.length;
+}
+
+/**
+ * Conversation dimensions for the trailer — from anchors grounded in selected Q/A.
+ * Prefer decisionCriteria + concrete scene cues; never invent themes.
+ */
+function pickConversationDimensions(
+  anchors: MirrorSemanticAnchorsV1,
+  max = 4
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: string | null | undefined) => {
+    const t = stripProductMeta((raw || '').replace(/\s+/g, ' ').trim());
+    if (!t || t.length < 2 || t.length > 42) return;
+    if (/^(vs|mü|mi|mu|mü)$/i.test(t)) return;
+    const key = t.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(t);
+  };
+  for (const c of anchors.decisionCriteria) {
+    push(c);
+    if (out.length >= max) return out;
+  }
+  for (const s of anchors.scene) {
+    push(s);
+    if (out.length >= max) return out;
+  }
+  for (const e of anchors.emotion) {
+    push(e);
+    if (out.length >= max) return out;
+  }
+  return out;
+}
+
+function formatDimensionList(
+  dims: string[],
+  locale: CuriosityBuilderLocale
+): string {
+  if (!dims.length) return '';
+  if (locale === 'en') {
+    if (dims.length === 1) return dims[0];
+    if (dims.length === 2) return `${dims[0]} and ${dims[1]}`;
+    return `${dims.slice(0, -1).join(', ')}, and ${dims[dims.length - 1]}`;
+  }
+  if (dims.length === 1) return dims[0];
+  if (dims.length === 2) return `${dims[0]} ve ${dims[1]}`;
+  return `${dims.slice(0, -1).join(', ')} ve ${dims[dims.length - 1]}`;
+}
+
+/** Ending lemma used to avoid "...X. ...X." adjacent sentence repetition. */
+function sentenceEndingLemma(sentence: string): string {
+  const last = (sentence || '')
+    .replace(/[.!?…]+$/g, '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .pop();
+  if (!last) return '';
+  return last
+    .toLowerCase()
+    .replace(/[^a-zçğıöşüâîû]/gi, '')
+    .replace(/(iyor|ıyor|uyor|üyor|mekte|makta)$/i, '')
+    .replace(/(ing|ed|es|s)$/i, '');
+}
+
+/**
+ * Tension object for the trailer — subject of the conversation, never summary strategy.
+ * Soft reframes "fark" → "mesafe" so the verb can land naturally (sorguluyor / questions).
+ */
+function curiosityTensionObject(
+  anchors: MirrorSemanticAnchorsV1,
+  title: string
+): string {
+  const candidates = [
+    stripConclusionClause((anchors.topic || '').replace(/\s+/g, ' ').trim()),
+    stripConclusionClause(
+      (anchors.question || '').replace(/[?？]+$/g, '').replace(/\s+/g, ' ').trim()
+    ),
+  ].filter(Boolean);
+
+  for (const raw of candidates) {
+    let t = raw
+      .replace(/\barasındaki\s+fark\b/gi, 'arasındaki mesafe')
+      .replace(/\bthe\s+difference\s+between\b/gi, 'the distance between');
+    if (/\bmesafe\b/i.test(t) && !/\bmesafeyi\b/i.test(t)) {
+      t = t.replace(/\bmesafe\b/i, 'mesafeyi');
+    }
+    t = clampAtWordBoundary(t, 72);
+    if (!t || endsIncompletely(t)) continue;
+    // Prefer a candidate that is not a near-verbatim title restatement.
+    if (titleContentOverlap(title, t) > 0.9 && candidates.length > 1) continue;
+    return t;
+  }
+  // Last: accept first usable even if close to title — dimensions frame the sentence.
+  for (const raw of candidates) {
+    let t = raw
+      .replace(/\barasındaki\s+fark\b/gi, 'arasındaki mesafe')
+      .replace(/\bthe\s+difference\s+between\b/gi, 'the distance between');
+    if (/\bmesafe\b/i.test(t) && !/\bmesafeyi\b/i.test(t)) {
+      t = t.replace(/\bmesafe\b/i, 'mesafeyi');
+    }
+    t = clampAtWordBoundary(t, 72);
+    if (t && !endsIncompletely(t)) return t;
+  }
+  return '';
+}
+
+function lowerFirst(text: string): string {
+  if (!text) return text;
+  return `${text.charAt(0).toLocaleLowerCase('tr-TR')}${text.slice(1)}`;
+}
+
+/**
+ * Clamp a mid-clause tension object without orphaning relational stems
+ * (e.g. "…arasındaki" without its noun).
+ */
+function clampTensionForClause(text: string, maxChars = 88): string {
+  let t = clampAtWordBoundary(text, maxChars);
+  if (/(arasındaki|arasindaki|between)$/i.test(t)) {
+    t = clampAtWordBoundary(text, maxChars + 20);
+  }
+  if (/(arasındaki|arasindaki)$/i.test(t) && /mesafe|fark/i.test(text)) {
+    t = `${t} mesafeyi`;
+  }
+  return t;
+}
+
+function openCuriosityClose(
+  anchors: MirrorSemanticAnchorsV1,
+  locale: CuriosityBuilderLocale,
+  variant: 0 | 1,
+  avoidLemma?: string
+): string {
+  if (locale === 'en') {
+    const options = [
+      'as it deepens, a more personal question comes into view',
+      'the opening tension starts to feel different from another angle',
+      'something quieter and closer begins to matter',
+    ];
+    if (anchors.place && variant === 0) {
+      return 'the local evening starts to feel more personal than scenic';
+    }
+    const picked = options[variant % options.length];
+    if (avoidLemma && sentenceEndingLemma(picked) === avoidLemma) {
+      return options[(variant + 1) % options.length];
+    }
+    return picked;
+  }
+  const options = [
+    'derinleştikçe daha kişisel bir sorunun kapısını aralıyor',
+    'başlangıçtaki gerilim başka bir açıdan yeniden beliriyor',
+    'beklenmedik bir noktaya dokunuyor',
+  ];
+  if (anchors.place && variant === 0) {
+    return 'yerel bir akşam daha kişisel bir tona kayıyor';
+  }
+  const picked = options[variant % options.length];
+  if (avoidLemma && sentenceEndingLemma(picked) === avoidLemma) {
+    return options[(variant + 1) % options.length];
+  }
+  return picked;
+}
+
+/**
+ * Editorial scrub: prose must never describe the summarizer's anti-spoiler strategy.
+ * Generation avoids these phrases; this is a safety net, not the primary control.
+ */
+function scrubMetaSummaryStrategy(text: string): string {
+  return text
+    .replace(
+      /,?\s*cevabı\s+(kilitlemeden|vermeden|açık\s+etmeden)\b/gi,
+      ''
+    )
+    .replace(
+      /,?\s*sonucu\s+(söylemeden|açıklamadan)\b/gi,
+      ''
+    )
+    .replace(/,?\s*spoiler\s+vermeden\b/gi, '')
+    .replace(/,?\s*merakı\s+koruyarak\b/gi, '')
+    .replace(/,?\s*açık\s+uç\s+bırakarak\b/gi, '')
+    .replace(
+      /\bwithout\s+(closing|locking|settling)\s+(the\s+)?(answer|it|a\s+verdict)\b/gi,
+      ''
+    )
+    .replace(/\brather\s+than\s+(delivering|locking)\s+(a\s+)?(verdict|answer)\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+,/g, ',')
+    .trim();
+}
+
+/**
+ * Curiosity trailer summary: territory + development, not the conclusion.
+ * ~2 sentences; talks about the subject/conversation — never summarization strategy.
+ */
+export function buildCuriosityTrailerSummary(input: {
+  anchors: MirrorSemanticAnchorsV1;
+  title: string;
+  interpretationSummary?: string | null;
+  locale: CuriosityBuilderLocale;
+  variant?: 0 | 1;
+}): string {
+  const locale = input.locale;
+  const variant = input.variant === 1 ? 1 : 0;
+  const dims = pickConversationDimensions(input.anchors, 4);
+  const dimPhrase = formatDimensionList(
+    dims.slice(0, Math.min(4, Math.max(2, dims.length) || dims.length)),
+    locale
+  );
+
+  const tension = curiosityTensionObject(input.anchors, input.title);
+
+  let softLead = takeSafeSummaryLead(input.interpretationSummary || '');
+  if (softLead) {
+    softLead = stripConclusionClause(softLead);
+    if (
+      !softLead ||
+      disclosesConclusion(softLead) ||
+      titleContentOverlap(input.title, softLead) > 0.72 ||
+      /cevabı\s+(kilitlemeden|vermeden)|sonucu\s+(söylemeden|açıklamadan)/i.test(
+        softLead
+      )
+    ) {
+      softLead = null;
+    }
+  }
+
+  const dimLeadTr = dimPhrase
+    ? `${dimPhrase.charAt(0).toUpperCase()}${dimPhrase.slice(1)} üzerine başlayan bu sohbet`
+    : '';
+
+  let first: string;
+  if (locale === 'en') {
+    if (dimPhrase && tension) {
+      first = `A conversation that opens around ${dimPhrase} questions ${clampTensionForClause(lowerFirst(tension))}`;
+    } else if (dimPhrase) {
+      first = `A conversation that opens around ${dimPhrase} carries a quieter personal tension`;
+    } else if (softLead) {
+      first = softLead;
+    } else if (tension) {
+      first = `The exchange turns on ${clampTensionForClause(lowerFirst(tension))}`;
+    } else {
+      first = `The conversation leans into a more personal tension`;
+    }
+  } else if (dimLeadTr && tension) {
+    first = `${dimLeadTr}, ${clampTensionForClause(lowerFirst(tension))} sorguluyor`;
+  } else if (dimLeadTr) {
+    first = `${dimLeadTr} daha kişisel bir gerilim taşıyor`;
+  } else if (softLead) {
+    first = softLead;
+  } else if (tension) {
+    first = `Bu sohbet, ${clampTensionForClause(lowerFirst(tension))} sorguluyor`;
+  } else {
+    first = `Bu sohbet daha kişisel bir gerilim taşıyor`;
+  }
+
+  first = healIncompletePhrase(
+    scrubMetaSummaryStrategy(first.replace(/[.!?…]+$/g, '').trim())
+  );
+  const close = openCuriosityClose(
+    input.anchors,
+    locale,
+    variant,
+    sentenceEndingLemma(first)
+  );
+  let combined = ensurePeriod(
+    scrubMetaSummaryStrategy(
+      `${first}. ${close.charAt(0).toUpperCase()}${close.slice(1)}`
+    )
+  );
+  combined = healIncompletePhrase(clampAtWordBoundary(combined, 300));
+  if (!combined.endsWith('.') && !combined.endsWith('!') && !combined.endsWith('?')) {
+    combined = ensurePeriod(combined);
+  }
+
+  // Prefer ~25–45 words when natural; compress via sentence-safe clamp if bloated.
+  const words = combined.split(/\s+/).filter(Boolean);
+  if (words.length > 48) {
+    const cut = healIncompletePhrase(clampAtWordBoundary(combined, 220));
+    combined = ensurePeriod(cut);
+  }
+  if (disclosesConclusion(combined)) {
+    // Last-resort trailer from dimensions only — still subject-facing, not meta.
+    const closeSafe = openCuriosityClose(input.anchors, locale, variant, 'sorgula');
+    if (locale === 'en' && dimPhrase) {
+      combined = ensurePeriod(
+        `A conversation that opens around ${dimPhrase} carries a quieter personal tension. ${closeSafe.charAt(0).toUpperCase()}${closeSafe.slice(1)}`
+      );
+    } else if (dimLeadTr) {
+      combined = ensurePeriod(
+        `${dimLeadTr} daha kişisel bir gerilim taşıyor. ${closeSafe.charAt(0).toUpperCase()}${closeSafe.slice(1)}`
+      );
+    } else {
+      combined = ensurePeriod(
+        locale === 'en'
+          ? `The conversation leans into a more personal tension. ${closeSafe.charAt(0).toUpperCase()}${closeSafe.slice(1)}`
+          : `Bu sohbet daha kişisel bir gerilim taşıyor. ${closeSafe.charAt(0).toUpperCase()}${closeSafe.slice(1)}`
+      );
+    }
+  }
+  return scrubMetaSummaryStrategy(combined);
+}
+
+/**
+ * @deprecated Prefer buildCuriosityTrailerSummary — kept for narrow internal fallbacks.
+ */
 function asEditorialSummary(
   intent: string,
   criteria: string,
-  locale: CuriosityBuilderLocale
+  locale: CuriosityBuilderLocale,
+  anchors?: MirrorSemanticAnchorsV1,
+  title?: string
 ): string {
-  const body = stripProductMeta(intent).replace(
-    /\s*—\s*ilginç tarafı,.*$/i,
-    ''
+  if (anchors) {
+    return buildCuriosityTrailerSummary({
+      anchors,
+      title: title || '',
+      interpretationSummary: intent,
+      locale,
+      variant: 0,
+    });
+  }
+  const body = stripConclusionClause(
+    stripProductMeta(intent).replace(/\s*—\s*ilginç tarafı,.*$/i, '')
   );
   const completeBody = healIncompletePhrase(clampAtWordBoundary(body, 140));
   if (
     completeBody &&
     isSafeSummaryLead(completeBody) &&
+    !disclosesConclusion(completeBody) &&
     !/düzgün bir etiket|ilginç tarafı/i.test(completeBody) &&
     !/(nın|nin|nun|nün)\s+\S+/i.test(completeBody)
   ) {
@@ -410,11 +791,11 @@ function asEditorialSummary(
   }
   if (locale === 'en') {
     return ensurePeriod(
-      `The live question turns on ${criteria} — not a tidy category label`
+      `The live question turns on ${criteria} and leans into a quieter personal tension`
     );
   }
   return ensurePeriod(
-    `${criteria.charAt(0).toUpperCase()}${criteria.slice(1)} bu merakı tek bir kategoriden daha iyi anlatıyor`
+    `${criteria.charAt(0).toUpperCase()}${criteria.slice(1)} üzerine açılan bu sohbet daha kişisel bir gerilim taşıyor`
   );
 }
 
@@ -460,7 +841,7 @@ function draftVehicleCompare(
       return {
         publicTitle: titleWordClamp('BMW X3 or Mercedes GLC?'),
         publicSummary: ensurePeriod(
-          `Between two family SUVs, the real split is ${criteria} — not the brochure numbers`
+          `Between two family SUVs, the talk keeps circling ${criteria} without crowning a winner`
         ),
         continuationContext: clean(
           `Stay with the X3 vs GLC dilemma through ${criteria}; keep asking which cabin feels calmer on a long road.`,
@@ -471,7 +852,7 @@ function draftVehicleCompare(
     return {
       publicTitle: titleWordClamp('Sporty feel or quiet ride?'),
       publicSummary: ensurePeriod(
-        `The choice turns on which cabin feels more at peace — ${criteria} over specs`
+        `The fork stays open: ${criteria} keep pulling without a neat brochure answer`
       ),
       continuationContext: clean(
         `Continue the family SUV fork: chase the quieter, more settled drive rather than a catalog duel.`,
@@ -485,7 +866,7 @@ function draftVehicleCompare(
     return {
       publicTitle: titleWordClamp('BMW X3 mü Mercedes GLC mi?'),
       publicSummary: ensurePeriod(
-        `Aile SUV’sinde asıl ayrım ${criteria}; teknik listeden çok hangi kabinin daha huzurlu hissettirdiği konuşuluyor`
+        `Aile SUV’sinde ${criteria} üzerine başlayan bu sohbet, hangi kabinin daha huzurlu hissettirdiğini sorguluyor`
       ),
       continuationContext: clean(
         `X3 ile GLC ikileminde ${criteria} üzerinden devam et; katalog düellosu yerine uzun yolda hangi kabinin daha sakin kaldığını sor.`,
@@ -496,7 +877,7 @@ function draftVehicleCompare(
   return {
     publicTitle: titleWordClamp('Sportif his mi huzurlu sürüş mü?'),
     publicSummary: ensurePeriod(
-      `Kararı motor değil his veriyor — ${criteria} hangisinde daha doğru hissediliyor`
+      `${criteria.charAt(0).toUpperCase()}${criteria.slice(1)} etrafında dönen bu seçim daha kişisel bir gerilim taşıyor`
     ),
     continuationContext: clean(
       `Aynı aile SUV ikileminde kal; sessizlik ve konfor üzerinden hangi aracın daha huzurlu sürdüğünü aç.`,
@@ -585,30 +966,15 @@ function draftFromQuestion(
   };
   const title = composeCompleteTitle(qRaw, locale, criteria, authorities);
 
-  // Prefer complete D2 prose; never interpolate a mechanically truncated intent.
-  const proseCandidates = [
-    interpretation?.interpretationSummary,
-    anchors.userIntent,
-    anchors.topic,
-  ].filter(Boolean) as string[];
-  const safeLead =
-    proseCandidates.map((p) => takeSafeSummaryLead(p)).find(Boolean) || null;
+  const summary = buildCuriosityTrailerSummary({
+    anchors,
+    title,
+    interpretationSummary: interpretation?.interpretationSummary,
+    locale,
+    variant,
+  });
 
   if (locale === 'en') {
-    const summary =
-      variant === 0
-        ? safeLead
-          ? /[.!?…]$/.test(safeLead)
-            ? ensurePeriod(safeLead)
-            : ensurePeriod(
-                `${safeLead} — the interesting part is what actually decides it: ${criteria}`
-              )
-          : ensurePeriod(
-              `The open question is what pulls you in; ${criteria} sets the stakes`
-            )
-        : ensurePeriod(
-            `Same fork, sharper stakes: ${criteria} decide more than a neat answer`
-          );
     return {
       publicTitle: title,
       publicSummary: summary,
@@ -619,18 +985,6 @@ function draftFromQuestion(
     };
   }
 
-  const summary =
-    variant === 0
-      ? safeLead
-        ? /[.!?…]$/.test(safeLead)
-          ? ensurePeriod(safeLead)
-          : ensurePeriod(
-              `${safeLead} — asıl merak, kararı neyin belirlediği: ${criteria}`
-            )
-        : ensurePeriod(`Açık soru içeri çeker; ${criteria} bahsi yükseltir`)
-      : ensurePeriod(
-          `Aynı ikilem, daha net bahis: ${criteria} düzgün bir cevaptan daha çok belirler`
-        );
   return {
     publicTitle: title,
     publicSummary: summary,
@@ -676,7 +1030,7 @@ function draftFromTopicOrIntent(
           );
     return {
       publicTitle: title,
-      publicSummary: asEditorialSummary(intent, criteria, locale),
+      publicSummary: asEditorialSummary(intent, criteria, locale, anchors, title),
       continuationContext: clean(
         `Continue the same curiosity: ${topic || intent || criteria}; stay human, not catalog.`,
         280
@@ -695,7 +1049,7 @@ function draftFromTopicOrIntent(
         );
   return {
     publicTitle: title,
-    publicSummary: asEditorialSummary(intent, criteria, locale),
+    publicSummary: asEditorialSummary(intent, criteria, locale, anchors, title),
     continuationContext: clean(
       `Aynı merakı sürdür: ${topic || intent || criteria}; katalog dili değil, insanî gerilim.`,
       280
@@ -727,7 +1081,9 @@ function draftHumanCuriosity(
   const summary = asEditorialSummary(
     interpretation?.interpretationSummary || anchors.userIntent || '',
     criteria,
-    locale
+    locale,
+    anchors,
+    title
   );
   return {
     publicTitle: title,
