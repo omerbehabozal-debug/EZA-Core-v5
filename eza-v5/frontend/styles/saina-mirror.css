@@ -5866,6 +5866,25 @@ html:has(.saina-page) body {
   overflow: hidden;
 }
 
+.saina-discover-card__visual-hit {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.saina-discover-card__visual-hit:focus-visible {
+  outline: 2px solid rgba(232, 213, 181, 0.65);
+  outline-offset: -2px;
+}
+
 .saina-discover-card__image {
   position: absolute;
   inset: 0;
@@ -5970,6 +5989,22 @@ html:has(.saina-page) body {
   -webkit-line-clamp: unset;
   line-clamp: unset;
   display: block;
+}
+
+button.saina-discover-card__title-open {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+button.saina-discover-card__title-open:focus-visible {
+  outline: 2px solid rgba(232, 213, 181, 0.65);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .saina-discover-card__summary {
