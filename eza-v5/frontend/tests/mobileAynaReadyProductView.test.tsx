@@ -2,10 +2,10 @@
  * Mobile Ayna READY cleanup + complete title/summary generation.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import AynaJourneySlide from '@/components/mirror/ayna/AynaJourneySlide';
 import AynaJourneyReel from '@/components/mirror/ayna/AynaJourneyReel';
 import {
@@ -129,6 +129,10 @@ describe('mobile Ayna READY cleanup + complete title/summary', () => {
     };
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it('READY compact: canonical product card → Yayına hazır → Yayınla; no Devamı/how/1-1/author', () => {
     render(
       <AynaJourneySlide
@@ -208,6 +212,44 @@ describe('mobile Ayna READY cleanup + complete title/summary', () => {
       />
     );
     expect(screen.queryByTestId('ayna-slide-position')).toBeNull();
+  });
+
+  it('READY Ayna surfaces publishError on Yayınla controls; stays READY', () => {
+    const err =
+      'Unknown or expired generationId — regenerate before publish';
+    render(
+      <AynaJourneySlide
+        artifact={readyArtifact()}
+        actions={noopActions}
+        compactPrimaryProduct
+        publishError={err}
+      />
+    );
+    expect(screen.getByTestId('mirror-publish-error').textContent).toBe(err);
+    expect(screen.getByTestId('ayna-slide-status').textContent).toMatch(
+      /Yayına hazır/
+    );
+    expect(screen.getByTestId('mirror-publish-btn')).toBeTruthy();
+
+    cleanup();
+    render(
+      <AynaJourneyReel
+        artifacts={[readyArtifact()]}
+        actions={noopActions}
+        publishError={err}
+        selectedArtifactIdentity={{
+          journeyId: 'journey-ready',
+          journeyVersion: 1,
+        }}
+      />
+    );
+    expect(screen.getByTestId('mirror-publish-error').textContent).toBe(err);
+
+    const obs = readFileSync(
+      join(process.cwd(), 'components/standalone/StandaloneObservationExperience.tsx'),
+      'utf8'
+    );
+    expect(obs).toMatch(/publishError=\{shareLinkError\}/);
   });
 
   it('panel how is gated to empty state in source', () => {
