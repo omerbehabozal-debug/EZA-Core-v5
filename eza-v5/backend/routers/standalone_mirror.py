@@ -85,6 +85,176 @@ def _resolve_visual_source_id(body: MirrorGenerateSceneRequest, actor: MirrorSce
         ) from exc
 
 
+def _journey_proof_unavailable_error(reason: str) -> HTTPException:
+    """Authenticated Journey scene cannot be sealed without durable proof."""
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={
+            "ok": False,
+            "code": "journey_generation_proof_unavailable",
+            "reason": reason,
+            "message": "Yansı kimliği kalıcı olarak kaydedilemedi. Lütfen tekrar dene.",
+        },
+    )
+
+
+def _is_authenticated_journey_seed(seed: dict | None) -> bool:
+    """A Journey generation is one whose server record carries Journey lineage."""
+    if not seed:
+        return False
+    return bool(
+        str(seed.get("journeyId") or "").strip()
+        and str(seed.get("interpretationHash") or "").strip()
+        and str(seed.get("mappedPromptHash") or "").strip()
+    )
+
+
+async def _settle_durable_canonical_scene(
+    db: AsyncSession,
+    *,
+    user_id,
+    generation_id: str,
+    client_conversation_id: str,
+    asset_id: str,
+    persisted_url: str,
+) -> tuple[str, str]:
+    """
+    Settle the ONE canonical scene for this generationId in durable storage.
+
+    Authenticated Journey: the bind is required and atomic. A failure raises
+    503 so the client cannot seal READY. A scene already bound by another
+    worker wins and is returned instead of this call's image.
+
+    Non-Journey scene: durable proof is not part of publication authority,
+    so a proof-store miss stays tolerated (savepoint, logged).
+
+    Transaction ownership: the endpoint owns commit. This helper flushes and
+    may roll back only its own savepoint on the tolerated path.
+    """
+    from backend.services.mirror.durable_journey_generation_proof import (
+        DurableProofUnavailable,
+        assert_durable_scene_proof_matches,
+        bind_durable_canonical_scene,
+        load_durable_journey_generation_proof,
+        persist_durable_journey_generation_proof,
+    )
+    from backend.services.mirror.journey_generation_record import (
+        adopt_canonical_scene_binding,
+        get_journey_generation_record,
+    )
+
+    live = get_journey_generation_record(generation_id)
+    durable_before = None
+    try:
+        durable_before = await load_durable_journey_generation_proof(
+            db,
+            user_id=user_id,
+            generation_id=generation_id,
+            client_conversation_id=client_conversation_id,
+        )
+    except Exception:
+        logger.exception(
+            "durable_generation_proof_preread_failed generationRequestId=%s",
+            (generation_id or "")[:48],
+        )
+        if _is_authenticated_journey_seed(live):
+            raise _journey_proof_unavailable_error("proof_read_failed") from None
+        return asset_id, persisted_url
+
+    seed = durable_before or live
+    if not _is_authenticated_journey_seed(seed):
+        # Tolerated legacy / non-Journey path — unchanged behavior.
+        try:
+            async with db.begin_nested():
+                if seed:
+                    await persist_durable_journey_generation_proof(
+                        db,
+                        user_id=user_id,
+                        client_conversation_id=client_conversation_id,
+                        fields={
+                            "generationId": generation_id,
+                            "sourceConversationId": seed.get("sourceConversationId")
+                            or client_conversation_id,
+                            "sceneAssetId": asset_id,
+                            "sceneImageUrl": persisted_url,
+                        },
+                        commit=False,
+                    )
+        except Exception:
+            logger.exception(
+                "durable_generation_proof_scene_bind_skipped generationRequestId=%s",
+                (generation_id or "")[:48],
+            )
+        return asset_id, persisted_url
+
+    # Authenticated Journey — REQUIRED atomic bind under a row lock.
+    try:
+        outcome, canonical = await bind_durable_canonical_scene(
+            db,
+            user_id=user_id,
+            client_conversation_id=client_conversation_id,
+            generation_id=generation_id,
+            scene_asset_id=asset_id,
+            scene_image_url=persisted_url,
+            seed=seed,
+        )
+    except DurableProofUnavailable as exc:
+        raise _journey_proof_unavailable_error(exc.reason) from exc
+    except Exception as exc:
+        logger.exception(
+            "durable_canonical_scene_bind_failed generationRequestId=%s",
+            (generation_id or "")[:48],
+        )
+        raise _journey_proof_unavailable_error("proof_write_failed") from exc
+
+    if outcome in ("no_conversation", "no_proof") or not canonical:
+        raise _journey_proof_unavailable_error(outcome)
+
+    canonical_asset = str(canonical.get("sceneAssetId") or "").strip().lower()
+    canonical_url = str(canonical.get("sceneImageUrl") or "").strip()
+    if not canonical_asset or not canonical_url:
+        raise _journey_proof_unavailable_error("canonical_scene_incomplete")
+
+    # The first canonical scene wins, even if this worker generated another.
+    if canonical_asset != str(asset_id or "").strip().lower():
+        adopt_canonical_scene_binding(
+            generation_id,
+            scene_asset_id=canonical_asset,
+            scene_image_url=canonical_url,
+        )
+    asset_id = canonical_asset
+    persisted_url = canonical_url
+
+    try:
+        verified = await load_durable_journey_generation_proof(
+            db,
+            user_id=user_id,
+            generation_id=generation_id,
+            client_conversation_id=client_conversation_id,
+        )
+        assert_durable_scene_proof_matches(
+            verified,
+            generation_id=generation_id,
+            user_id=user_id,
+            source_conversation_id=seed.get("sourceConversationId")
+            or client_conversation_id,
+            journey_id=seed.get("journeyId"),
+            journey_version=seed.get("journeyVersion"),
+            scene_asset_id=asset_id,
+            scene_image_url=persisted_url,
+        )
+    except DurableProofUnavailable as exc:
+        raise _journey_proof_unavailable_error(exc.reason) from exc
+    except Exception as exc:
+        logger.exception(
+            "durable_canonical_scene_verify_failed generationRequestId=%s",
+            (generation_id or "")[:48],
+        )
+        raise _journey_proof_unavailable_error("proof_verify_failed") from exc
+
+    return asset_id, persisted_url
+
+
 @router.post(
     "/generate-scene",
     response_model=MirrorGenerateSceneResponse,
@@ -243,70 +413,17 @@ async def generate_mirror_scene_endpoint(
                 if canonical_url:
                     persisted_url = canonical_url
                     asset_id = str(canonical_record.get("sceneAssetId") or asset_id)
-        # Durable scene bind onto existing SERVER proof (or live→durable seed).
+        # Durable canonical scene bind. For an authenticated Journey this is
+        # REQUIRED: without it the client must not be able to seal READY.
         if asset_id and actor.user is not None:
-            try:
-                async with db.begin_nested():
-                    from backend.services.mirror.durable_journey_generation_proof import (
-                        load_durable_journey_generation_proof,
-                        persist_durable_journey_generation_proof,
-                    )
-                    from backend.services.mirror.journey_generation_record import (
-                        get_journey_generation_record as _get_live,
-                    )
-
-                    live = _get_live(body.generationRequestId)
-                    durable = await load_durable_journey_generation_proof(
-                        db,
-                        user_id=actor.user.id,
-                        generation_id=body.generationRequestId,
-                        client_conversation_id=body.conversationId,
-                    )
-                    seed = live or durable
-                    if seed and seed.get("interpretationHash") and seed.get("mappedPromptHash"):
-                        stored = await persist_durable_journey_generation_proof(
-                            db,
-                            user_id=actor.user.id,
-                            client_conversation_id=body.conversationId,
-                            fields={
-                                "generationId": body.generationRequestId,
-                                "sourceConversationId": seed.get("sourceConversationId")
-                                or body.conversationId,
-                                "journeyId": seed.get("journeyId"),
-                                "journeyVersion": seed.get("journeyVersion"),
-                                "windowIndex": seed.get("windowIndex"),
-                                "windowStart": seed.get("windowStart"),
-                                "windowEnd": seed.get("windowEnd"),
-                                "windowHash": seed.get("windowHash"),
-                                "scopedInputHash": seed.get("scopedInputHash"),
-                                "selectedStepsHash": seed.get("selectedStepsHash"),
-                                "sourceBlockHash": seed.get("sourceBlockHash"),
-                                "interpretationHash": seed.get("interpretationHash"),
-                                "mappedPromptHash": seed.get("mappedPromptHash"),
-                                "sceneAssetId": asset_id,
-                                "sceneImageUrl": persisted_url,
-                            },
-                            commit=False,
-                        )
-                        stored_asset = str((stored or {}).get("sceneAssetId") or "").strip().lower()
-                        stored_url = str((stored or {}).get("sceneImageUrl") or "").strip()
-                        if stored_asset and stored_url and stored_asset != str(asset_id or "").lower():
-                            persisted_url = stored_url
-                            asset_id = stored_asset
-                            from backend.services.mirror.journey_generation_record import (
-                                adopt_canonical_scene_binding,
-                            )
-
-                            adopt_canonical_scene_binding(
-                                body.generationRequestId,
-                                scene_asset_id=stored_asset,
-                                scene_image_url=stored_url,
-                            )
-            except Exception:
-                logger.exception(
-                    "durable_generation_proof_scene_bind_failed generationRequestId=%s",
-                    (body.generationRequestId or "")[:48],
-                )
+            asset_id, persisted_url = await _settle_durable_canonical_scene(
+                db,
+                user_id=actor.user.id,
+                generation_id=body.generationRequestId,
+                client_conversation_id=body.conversationId,
+                asset_id=asset_id,
+                persisted_url=persisted_url,
+            )
 
     await db.commit()
 
@@ -495,13 +612,15 @@ async def prepare_director_draft_endpoint(
                 },
             )
             # Durable SERVER-authored proof (survives TTL / restart / other workers).
+            # Authenticated Journey: REQUIRED. Without it the client must not be
+            # able to seal READY, so a failure fails the preparation.
             if actor.user is not None:
                 try:
                     from backend.services.mirror.durable_journey_generation_proof import (
                         persist_durable_journey_generation_proof,
                     )
 
-                    await persist_durable_journey_generation_proof(
+                    stored_proof = await persist_durable_journey_generation_proof(
                         db,
                         user_id=actor.user.id,
                         client_conversation_id=body.conversationId,
@@ -522,11 +641,22 @@ async def prepare_director_draft_endpoint(
                         },
                         commit=True,
                     )
-                except Exception:
+                except HTTPException:
+                    raise
+                except Exception as exc:
                     logger.exception(
                         "durable_generation_proof_persist_failed generationRequestId=%s",
                         body.generationRequestId[:48],
                     )
+                    raise _journey_proof_unavailable_error("proof_write_failed") from exc
+                if stored_proof is None:
+                    # No owned conversation row can hold the proof, so this
+                    # Journey could never publish. Fail now instead of at publish.
+                    logger.warning(
+                        "durable_generation_proof_unavailable generationRequestId=%s",
+                        body.generationRequestId[:48],
+                    )
+                    raise _journey_proof_unavailable_error("conversation_not_synced")
             result = result.model_copy(
                 update={
                     "semanticScope": journey_meta.get("semanticScope"),

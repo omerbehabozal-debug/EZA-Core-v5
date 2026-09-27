@@ -35,6 +35,20 @@ class GenerationProofConflict(Exception):
         super().__init__(field)
 
 
+class DurableProofUnavailable(Exception):
+    """
+    Durable proof could not be established or verified.
+
+    An authenticated Journey must NOT reach READY without durable proof, so
+    callers turn this into an explicit generation failure instead of
+    returning a scene the client could seal.
+    """
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(reason)
+
+
 _AUTHORITY_FIELDS = (
     "journeyId",
     "journeyVersion",
@@ -173,17 +187,26 @@ async def _load_owned_conversation_by_client_id(
     *,
     user_id: UUID,
     client_conversation_id: str,
+    for_update: bool = False,
 ) -> StandaloneConversation | None:
+    """
+    Load the owned conversation row.
+
+    for_update issues SELECT ... FOR UPDATE so a read → decide → write
+    sequence on the proof namespace cannot interleave across workers. The
+    lock is held until the caller's transaction commits or rolls back.
+    """
     client_id = _norm(client_conversation_id)
     if not client_id:
         return None
-    result = await db.execute(
-        select(StandaloneConversation).where(
-            StandaloneConversation.user_id == user_id,
-            StandaloneConversation.client_conversation_id == client_id,
-            StandaloneConversation.deleted_at.is_(None),
-        )
+    stmt = select(StandaloneConversation).where(
+        StandaloneConversation.user_id == user_id,
+        StandaloneConversation.client_conversation_id == client_id,
+        StandaloneConversation.deleted_at.is_(None),
     )
+    if for_update:
+        stmt = stmt.with_for_update()
+    result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
@@ -194,12 +217,16 @@ async def persist_durable_journey_generation_proof(
     client_conversation_id: str,
     fields: Mapping[str, Any],
     commit: bool = True,
+    lock: bool = True,
 ) -> dict[str, Any] | None:
     """
     Upsert SERVER-authored proof into conversation.tree_metadata.
 
     Immutable hash fields: once set for a generationId, never overwritten with
     different values. Scene fields may bind once when previously empty.
+
+    The row is locked FOR UPDATE by default so the read-modify-write of the
+    JSON namespace cannot lose a concurrent worker's scene bind.
     """
     proof = build_server_generation_proof(
         {
@@ -212,7 +239,10 @@ async def persist_durable_journey_generation_proof(
     generation_id = proof["generationId"]
 
     conv = await _load_owned_conversation_by_client_id(
-        db, user_id=user_id, client_conversation_id=client_conversation_id
+        db,
+        user_id=user_id,
+        client_conversation_id=client_conversation_id,
+        for_update=lock,
     )
     if conv is None:
         logger.info(
@@ -290,6 +320,153 @@ async def persist_durable_journey_generation_proof(
     else:
         await db.flush()
     return proof_as_generation_record(out)
+
+
+async def bind_durable_canonical_scene(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    client_conversation_id: str,
+    generation_id: str,
+    scene_asset_id: str,
+    scene_image_url: str,
+    seed: Mapping[str, Any] | None = None,
+) -> tuple[str, dict[str, Any] | None]:
+    """
+    Atomically bind the FIRST canonical scene for one generationId.
+
+    SELECT ... FOR UPDATE on the owned conversation row covers the whole
+    read → decision → write sequence, so two workers cannot both observe
+    "unbound" and then overwrite each other. The loser sees the committed
+    first bind and returns it.
+
+    Returns (outcome, canonical_record):
+      bound          — this call wrote the first canonical scene
+      idempotent     — same asset already bound
+      conflict       — a different asset is already canonical; record is it
+      no_conversation— no owned conversation row to hold the proof
+      no_proof       — no server proof and no sufficient seed to create one
+
+    Transaction ownership: this function flushes only. The caller owns
+    commit/rollback and therefore owns lock release.
+    """
+    gid = _norm(generation_id)
+    asset = _norm(scene_asset_id).lower()
+    url = _norm(scene_image_url)
+    if not gid or not asset or not url:
+        return "no_proof", None
+
+    conv = await _load_owned_conversation_by_client_id(
+        db,
+        user_id=user_id,
+        client_conversation_id=client_conversation_id,
+        for_update=True,
+    )
+    if conv is None:
+        return "no_conversation", None
+
+    tree = dict(conv.tree_metadata) if isinstance(conv.tree_metadata, dict) else {}
+    proof_map = _read_proof_map(tree)
+    existing = proof_map.get(gid)
+
+    if _is_server_proof(existing):
+        proof = dict(existing)
+    elif seed and _norm(seed.get("interpretationHash")) and _norm(seed.get("mappedPromptHash")):
+        proof = build_server_generation_proof(
+            {
+                **seed,
+                "generationId": gid,
+                "userId": str(user_id),
+                "sourceConversationId": _norm(seed.get("sourceConversationId"))
+                or client_conversation_id,
+            }
+        )
+    else:
+        return "no_proof", None
+
+    prior_asset = _norm(proof.get("sceneAssetId")).lower()
+    if prior_asset and prior_asset != asset:
+        # First canonical scene wins. Never overwrite it with a later image.
+        logger.warning(
+            "durable_canonical_scene_conflict generationId=%s",
+            gid[:48],
+        )
+        return "conflict", proof_as_generation_record(proof)
+
+    outcome = "idempotent" if prior_asset == asset else "bound"
+    proof["sceneAssetId"] = asset
+    if outcome == "bound" or not _norm(proof.get("sceneImageUrl")):
+        proof["sceneImageUrl"] = url
+    proof.setdefault("sceneBoundAt", _utcnow_iso())
+
+    proof_map[gid] = proof
+    tree[PROOF_NAMESPACE] = proof_map
+    conv.tree_metadata = tree
+    try:
+        flag_modified(conv, "tree_metadata")
+    except Exception:
+        # Non-ORM test doubles / already-tracked JSON assignment.
+        pass
+    conv.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    # Read-after-write inside the locked transaction: re-read what was
+    # actually written rather than trusting the in-memory object.
+    try:
+        await db.refresh(conv)
+    except Exception:
+        logger.exception("durable_canonical_scene_refresh_failed generationId=%s", gid[:48])
+        raise
+    written = _read_proof_map(conv.tree_metadata).get(gid)
+    if not _is_server_proof(written):
+        raise DurableProofUnavailable("proof_missing_after_write")
+    if _norm(written.get("sceneAssetId")).lower() != asset:
+        # Someone else's asset is canonical after our write attempt.
+        return "conflict", proof_as_generation_record(written)
+    return outcome, proof_as_generation_record(written)
+
+
+def assert_durable_scene_proof_matches(
+    proof: Mapping[str, Any] | None,
+    *,
+    generation_id: str,
+    user_id: UUID,
+    source_conversation_id: str | None,
+    journey_id: str | None,
+    journey_version: Any,
+    scene_asset_id: str,
+    scene_image_url: str,
+) -> dict[str, Any]:
+    """
+    Verify a durable proof is sufficient for an authenticated READY Yansı.
+
+    Raises DurableProofUnavailable when the proof is missing or does not
+    describe exactly this generation, owner, Journey, and canonical scene.
+    """
+    if not proof:
+        raise DurableProofUnavailable("proof_missing")
+    if _norm(proof.get("generationId")) != _norm(generation_id):
+        raise DurableProofUnavailable("generation_mismatch")
+    proof_owner = _norm(proof.get("userId"))
+    if proof_owner and proof_owner != str(user_id):
+        raise DurableProofUnavailable("owner_mismatch")
+    if source_conversation_id and _norm(proof.get("sourceConversationId")) != _norm(
+        source_conversation_id
+    ):
+        raise DurableProofUnavailable("conversation_mismatch")
+    if journey_id and _norm(proof.get("journeyId")).lower() != _norm(journey_id).lower():
+        raise DurableProofUnavailable("journey_mismatch")
+    if journey_version is not None and proof.get("journeyVersion") is not None:
+        if str(proof.get("journeyVersion")) != str(journey_version):
+            raise DurableProofUnavailable("journey_version_mismatch")
+    if _norm(proof.get("sceneAssetId")).lower() != _norm(scene_asset_id).lower():
+        raise DurableProofUnavailable("scene_asset_mismatch")
+    if _norm(proof.get("sceneImageUrl")) != _norm(scene_image_url):
+        raise DurableProofUnavailable("scene_url_mismatch")
+    for key in ("windowHash", "selectedStepsHash", "interpretationHash", "mappedPromptHash"):
+        if not _norm(proof.get(key)):
+            raise DurableProofUnavailable(f"missing_{key}")
+    return dict(proof)
 
 
 async def load_durable_journey_generation_proof(
