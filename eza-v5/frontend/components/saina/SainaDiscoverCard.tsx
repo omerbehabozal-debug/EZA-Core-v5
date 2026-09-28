@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import YansiProductCard from '@/components/mirror/YansiProductCard';
 import {
   SAINA_DISCOVER_OPEN_CTA,
+  SAINA_DISCOVER_OPEN_CTA_SHORT,
 } from '@/lib/eza/mirror-network/discoverCopy';
 import type { DiscoverMirror } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import { buildMirrorPublicPath } from '@/lib/eza/mirror-network/mirrorPublicUrl';
@@ -72,6 +73,7 @@ export default function SainaDiscoverCard({
         title={product.title}
         summary={product.summary}
         sceneImageUrl={product.sceneImageUrl}
+        className="saina-discover-card--editorial"
         kicker={identity}
         meta={
           canonical ? (
@@ -96,7 +98,12 @@ export default function SainaDiscoverCard({
             onClick={handleOpenYansi}
             data-testid={`saina-discover-card-cta-${item.slug}`}
           >
-            {SAINA_DISCOVER_OPEN_CTA}
+            <span className="saina-discover-card__cta-label">
+              {SAINA_DISCOVER_OPEN_CTA}
+            </span>
+            <span className="saina-discover-card__cta-short" aria-hidden>
+              {SAINA_DISCOVER_OPEN_CTA_SHORT}
+            </span>
           </button>
         }
       />

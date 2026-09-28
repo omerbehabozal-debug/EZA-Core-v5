@@ -3,7 +3,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SainaDiscoverCard from '@/components/saina/SainaDiscoverCard';
-import { SAINA_DISCOVER_OPEN_CTA } from '@/lib/eza/mirror-network/discoverCopy';
+import {
+  SAINA_DISCOVER_MODE_NEWEST,
+  SAINA_DISCOVER_MODE_RASTLANTISAL,
+  SAINA_DISCOVER_MODE_STRONG_CURIOSITY,
+  SAINA_DISCOVER_OPEN_CTA,
+  SAINA_DISCOVER_OPEN_CTA_SHORT,
+} from '@/lib/eza/mirror-network/discoverCopy';
+import { DISCOVER_MODE_LABELS } from '@/lib/eza/mirror-network/discoverModes';
+import { SAINA_COMPACT_SHELL_MIN_PX } from '@/lib/eza/sainaBreakpoints';
 import { parseDiscoverItem } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
 import { resolvePublicAvatarGrapheme } from '@/lib/eza/mirror/publicIdentity';
 
@@ -209,5 +217,113 @@ describe('Discover public creator avatar', () => {
     expect(src).toContain('ProfileUserAvatar');
     expect(src).not.toContain('userId=');
     expect(src).not.toContain('userId');
+  });
+});
+
+describe('Discover editorial feed presentation', () => {
+  const SCENE = 'https://cdn.example/editorial-scene.png';
+  const TITLE = 'Editorial Yansı Title';
+  const SUMMARY = 'Canonical curiosity trailer that must not be rewritten.';
+
+  it('renders exact canonical scene, title, and summary', () => {
+    render(
+      <SainaDiscoverCard
+        item={{
+          slug: 'editorial-yansi',
+          title: TITLE,
+          description: SUMMARY,
+          sceneImageUrl: SCENE,
+          yansiCount: 1,
+          experienceStartedCount: 1,
+          authorDisplayName: 'Creator',
+          publicHonorific: 'curious',
+        }}
+      />
+    );
+    expect(screen.getByTestId('saina-discover-card-image').getAttribute('src')).toBe(SCENE);
+    expect(screen.getByTestId('saina-discover-card-title-editorial-yansi').textContent).toBe(TITLE);
+    expect(screen.getByTestId('saina-discover-card-summary-editorial-yansi').textContent).toBe(
+      SUMMARY
+    );
+  });
+
+  it('keeps exact slug + journeyVersion navigation', async () => {
+    render(
+      <SainaDiscoverCard
+        item={{
+          slug: 'exact-slug',
+          title: TITLE,
+          description: SUMMARY,
+          sceneImageUrl: SCENE,
+          yansiCount: 0,
+          journeyVersion: 3,
+        }}
+      />
+    );
+    fireEvent.click(screen.getByTestId('saina-discover-card-cta-exact-slug'));
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith('/m/exact-slug?journeyVersion=3');
+    });
+  });
+
+  it('applies Discover-scoped editorial modifier and keeps CTA semantics', () => {
+    render(
+      <SainaDiscoverCard
+        item={{
+          slug: 'editorial-yansi',
+          title: TITLE,
+          description: SUMMARY,
+          sceneImageUrl: SCENE,
+          yansiCount: 0,
+        }}
+      />
+    );
+    const card = screen.getByTestId('saina-discover-card-editorial-yansi');
+    expect(card.className).toContain('saina-discover-card--editorial');
+    expect(screen.getByText(SAINA_DISCOVER_OPEN_CTA)).toBeInTheDocument();
+    expect(screen.getByText(SAINA_DISCOVER_OPEN_CTA_SHORT)).toBeInTheDocument();
+  });
+
+  it('gates horizontal row layout to compact-shell width; mobile stays stacked', () => {
+    expect(SAINA_COMPACT_SHELL_MIN_PX).toBe(900);
+    const css = readFileSync(join(process.cwd(), 'styles/saina-mirror.css'), 'utf8');
+    const defaultCard = css.match(/\.saina-discover-card \{[^}]+\}/);
+    expect(defaultCard?.[0]).not.toContain('flex-direction: row');
+    expect(css).toMatch(
+      /@media \(min-width: 900px\) \{[\s\S]*?\.saina-discover-card\.saina-discover-card--editorial \{[\s\S]*?flex-direction:\s*row/
+    );
+    expect(css).toMatch(
+      /\.saina-discover-list \{[\s\S]*?flex-direction:\s*column/
+    );
+    const editorialBlock = css.slice(css.indexOf('@media (min-width: 900px)'));
+    expect(editorialBlock).toContain('-webkit-line-clamp: 3');
+    expect(editorialBlock).toContain('width: 42%');
+    expect(editorialBlock).toContain('flex: 1 1 58%');
+  });
+
+  it('does not introduce continuation-neighbor requests into Discover', () => {
+    const files = [
+      'components/saina/SainaDiscoverCard.tsx',
+      'components/saina/SainaDiscoverList.tsx',
+      'components/saina/SainaDiscoverPage.tsx',
+      'lib/eza/mirror-network/fetchDiscoverMirrors.ts',
+    ];
+    for (const rel of files) {
+      const src = readFileSync(join(process.cwd(), rel), 'utf8');
+      expect(src).not.toContain('fetchContinuationNeighbors');
+      expect(src).not.toContain('continuation-neighbors');
+    }
+  });
+
+  it('preserves individual-Yansı filter semantics', () => {
+    expect(DISCOVER_MODE_LABELS.random).toBe(SAINA_DISCOVER_MODE_RASTLANTISAL);
+    expect(DISCOVER_MODE_LABELS.strong_curiosity).toBe(SAINA_DISCOVER_MODE_STRONG_CURIOSITY);
+    expect(DISCOVER_MODE_LABELS.newest).toBe(SAINA_DISCOVER_MODE_NEWEST);
+    const cardSrc = readFileSync(
+      join(process.cwd(), 'components/saina/SainaDiscoverCard.tsx'),
+      'utf8'
+    );
+    expect(cardSrc).not.toContain('fetchContinuationNeighbors');
+    expect(cardSrc).not.toContain('DISCOVER_MODES');
   });
 });

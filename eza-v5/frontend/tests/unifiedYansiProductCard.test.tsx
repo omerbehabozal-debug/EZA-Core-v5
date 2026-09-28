@@ -103,6 +103,22 @@ describe('unified Yansı product card contract', () => {
     expect(aynaSrc).not.toContain('visibleSummary');
     expect(discoverSrc).toContain('YansiProductCard');
     expect(discoverSrc).toContain('resolveYansiProductFromDiscoverItem');
+    expect(discoverSrc).toContain('saina-discover-card--editorial');
+    expect(aynaSrc).not.toContain('saina-discover-card--editorial');
+  });
+
+  it('Ayna does not receive Discover editorial horizontal layout', () => {
+    render(
+      <AynaJourneySlide
+        artifact={artifactA()}
+        actions={noopActions}
+        compactPrimaryProduct
+      />
+    );
+    const aynaCard = document.querySelector('[data-canonical-yansi-product="true"]');
+    expect(aynaCard).toBeTruthy();
+    expect(aynaCard?.className).toContain('ayna-journey-slide__card');
+    expect(aynaCard?.className).not.toContain('saina-discover-card--editorial');
   });
 
   it('canonical card geometry: visual is full product width (no side strip)', () => {

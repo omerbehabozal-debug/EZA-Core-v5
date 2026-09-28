@@ -21,7 +21,10 @@ export type SainaDiscoverListProps = {
 
 function DiscoverSkeletonCard() {
   return (
-    <div className="saina-discover-card saina-discover-card--skeleton" aria-hidden>
+    <div
+      className="saina-discover-card saina-discover-card--editorial saina-discover-card--skeleton"
+      aria-hidden
+    >
       <div className="saina-discover-card__visual saina-discover-skeleton-block" />
       <div className="saina-discover-card__body">
         <div className="saina-discover-skeleton-line saina-discover-skeleton-line--title" />

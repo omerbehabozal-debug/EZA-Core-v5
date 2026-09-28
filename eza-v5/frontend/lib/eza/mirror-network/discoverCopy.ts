@@ -17,6 +17,9 @@ export const SAINA_DISCOVER_CTA = 'Bu konuyu ben de merak ediyorum';
 /** Discover card → canonical public landing (/m/{slug}), not live sohbet. */
 export const SAINA_DISCOVER_OPEN_CTA = 'Bu merakı deneyimle';
 
+/** Wide Discover card visual label — same action as SAINA_DISCOVER_OPEN_CTA. */
+export const SAINA_DISCOVER_OPEN_CTA_SHORT = 'Deneyimle →';
+
 export const SAINA_DISCOVER_LIMIT_CTA = 'Hesabını Yükselt →';
 
 export const SAINA_DISCOVER_EMPTY_TITLE = 'Henüz keşfedilecek Ayna yok.';
