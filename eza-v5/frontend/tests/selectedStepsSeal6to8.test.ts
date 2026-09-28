@@ -184,6 +184,7 @@ async function prepareAndSeal(
       windowHash: scoped.scope.windowHash,
       scopedInputHash: scoped.scope.scopedInputHash,
       selectedStepsHash: stepsHash,
+      sourceBlockHash: scoped.scope.sourceBlockHash,
       selectedCount,
       interpretationHash: `interp-${tag}`,
       publicLandingHash: `landing-${tag}`,
@@ -227,6 +228,7 @@ async function prepareAndSeal(
     selectedSteps.map((s) => s.stepIndex)
   );
   expect(lineage?.selectedStepsHash).toBe(stepsHash);
+  expect(lineage?.sourceBlockHash).toBe(scoped.scope.sourceBlockHash);
   expect(isPublishableJourneyGenerationLineage(lineage)).toBe(true);
 
   return { draft, scoped, selectedSteps, stepsHash, card, lineage: lineage! };

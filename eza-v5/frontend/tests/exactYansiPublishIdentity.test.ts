@@ -90,6 +90,7 @@ function lineage(input: {
     windowStart,
     windowEnd: windowStart + 7,
     windowHash: `wh-${input.journeyId}`,
+    sourceBlockHash: `sbh-${input.journeyId}`,
     scopedInputHash: `sih-${input.journeyId}`,
     selectedStepsHash: `ssh-${input.journeyId}`,
     interpretationHash: `ih-${input.journeyId}`,
@@ -334,6 +335,9 @@ describe('exactYansiPublishIdentity', () => {
     expect(body.parentSlug).toBeUndefined();
     expect(body.sceneImageUrl).toBe('https://cdn.example/a-scene.jpg');
     expect(body.cardTitle).toBe('Alpha Title');
+    const nested = body.journeyGenerationLineage as Record<string, unknown>;
+    expect(nested.sourceBlockHash).toBe('sbh-journey-a');
+    expect(body.sourceBlockHash).toBeUndefined();
     const selected = body.selectedSteps as Array<{ publicQuestion: string }>;
     expect(selected).toHaveLength(6);
     expect(selected.every((s) => s.publicQuestion.startsWith('journey-a'))).toBe(true);
@@ -387,6 +391,9 @@ describe('exactYansiPublishIdentity', () => {
     expect(body.windowIndex).toBe(1);
     expect(body.sceneImageUrl).toBe('https://cdn.example/b-scene.jpg');
     expect((body.selectedSteps as unknown[]).length).toBe(8);
+    const nested = body.journeyGenerationLineage as Record<string, unknown>;
+    expect(nested.sourceBlockHash).toBe('sbh-journey-b');
+    expect(body.sourceBlockHash).toBeUndefined();
   });
 
   it('forbidReviewDraftFallback fails closed when sealed lineage missing', () => {

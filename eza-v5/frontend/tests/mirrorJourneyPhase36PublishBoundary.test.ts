@@ -58,6 +58,7 @@ function lineageFor(
     windowStart: start,
     windowEnd: start + 7,
     windowHash: `h-window-${tag}`,
+    sourceBlockHash: `b-block-${tag}`,
     scopedInputHash: `h-scoped-${tag}`,
     selectedStepsHash: `h-steps-${tag}`,
     interpretationHash: `interp-${tag}`,
@@ -129,6 +130,7 @@ describe('mirrorJourneyPhase36PublishBoundary', () => {
     expect(contract.windowIndex).toBe(0);
     expect(contract.selectedSteps[0]?.publicQuestion).toBe('A Q1?');
     expect(contract.generationLineage?.selectedStepsHash).toBe('h-steps-A');
+    expect(contract.generationLineage?.sourceBlockHash).toBe('b-block-A');
   });
 
   it('active Journey B does not contaminate A publish', () => {

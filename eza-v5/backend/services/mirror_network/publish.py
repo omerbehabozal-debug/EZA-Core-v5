@@ -260,6 +260,7 @@ def _build_claimed_journey_generation_lineage(
         ("windowStart", getattr(body, "windowStart", None)),
         ("windowEnd", getattr(body, "windowEnd", None)),
         ("windowHash", getattr(body, "windowHash", None)),
+        ("sourceBlockHash", getattr(body, "sourceBlockHash", None)),
         ("scopedInputHash", getattr(body, "scopedInputHash", None)),
         ("selectedStepsHash", getattr(body, "selectedStepsHash", None)),
         ("interpretationHash", getattr(body, "interpretationHash", None)),
@@ -592,6 +593,7 @@ async def publish_mirror_to_network(
             record=server_record,
             actual_public_landing_hash=actual_public_landing_hash,
             actual_scene_asset_id=actual_scene_asset_id,
+            selected_steps=lineage_validation_steps,
         )
         # First verified publish seals landing onto the generation record.
         if server_record is not None and not str(

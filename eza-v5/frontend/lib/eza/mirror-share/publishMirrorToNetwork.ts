@@ -401,6 +401,7 @@ async function buildPublishBody(
           windowHash: generationLineage.windowHash,
           scopedInputHash: generationLineage.scopedInputHash,
           selectedStepsHash: generationLineage.selectedStepsHash,
+          sourceBlockHash: generationLineage.sourceBlockHash ?? null,
           interpretationHash: generationLineage.interpretationHash,
           anchorsHash: generationLineage.anchorsHash ?? null,
           publicLandingHash: generationLineage.publicLandingHash,

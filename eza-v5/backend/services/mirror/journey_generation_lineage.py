@@ -14,6 +14,7 @@ from backend.services.mirror.journey_window_hashes import (
     compute_window_hash,
 )
 from backend.services.mirror_network.journey_window_contract import (
+    JOURNEY_SOURCE_BLOCK_SIZE,
     normalize_selected_journey_steps,
     validate_journey_window_identity,
 )
@@ -373,6 +374,7 @@ def validate_against_server_generation_record(
     record: Mapping[str, Any] | None,
     actual_public_landing_hash: str,
     actual_scene_asset_id: str,
+    selected_steps: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
     generationId → server-owned JourneyGenerationRecord is the join key.
@@ -417,10 +419,21 @@ def validate_against_server_generation_record(
             "sourceBlockHash does not match server generation record",
         )
     if record_block and not claimed_block:
-        raise _lineage_mismatch(
-            "source_block_hash_mismatch",
-            "sourceBlockHash missing on lineage but present on generation record",
-        )
+        steps_list = list(selected_steps or [])
+        # Exact-8 legacy: selection IS the source block — recompute-and-compare.
+        # Never invent a block hash from a 6–7 subset, and never copy the record.
+        if len(steps_list) == JOURNEY_SOURCE_BLOCK_SIZE:
+            recomputed_block = compute_source_block_hash(steps_list)
+            if recomputed_block != record_block:
+                raise _lineage_mismatch(
+                    "source_block_hash_mismatch",
+                    "sourceBlockHash does not match server recompute from selectedSteps",
+                )
+        else:
+            raise _lineage_mismatch(
+                "source_block_hash_mismatch",
+                "sourceBlockHash missing on lineage but present on generation record",
+            )
 
     record_interp = _norm(record.get("interpretationHash"))
     claimed_interp = _norm(claimed.get("interpretationHash"))
