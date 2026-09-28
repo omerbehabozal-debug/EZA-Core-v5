@@ -528,105 +528,117 @@ export default function SainaDiscoverPage() {
           onAnalysisModelChange={setAnalysisModelId}
         />
 
-        <div className="saina-discover-content-scroll" ref={scrollRootRef}>
+        <div className="saina-discover-content-scroll">
           <div className="saina-discover-page" data-testid="saina-discover-page">
-        <header className="saina-discover-hero">
-          <p className="saina-discover-eyebrow">{SAINA_DISCOVER_TITLE}</p>
-          <h1 className="saina-discover-headline saina-serif">{SAINA_DISCOVER_HERO_LINE_1}</h1>
-          <p className="saina-discover-subhead">
-            {SAINA_DISCOVER_HERO_LINE_2}
-            <br />
-            {SAINA_DISCOVER_HERO_LINE_3}
-          </p>
-        </header>
+            <div className="saina-discover-controls" data-testid="saina-discover-controls">
+              <header className="saina-discover-hero" data-testid="saina-discover-hero">
+                <p className="saina-discover-eyebrow">{SAINA_DISCOVER_TITLE}</p>
+                <h1 className="saina-discover-headline saina-serif">{SAINA_DISCOVER_HERO_LINE_1}</h1>
+                <p className="saina-discover-subhead">
+                  {SAINA_DISCOVER_HERO_LINE_2}
+                  <br />
+                  {SAINA_DISCOVER_HERO_LINE_3}
+                </p>
+              </header>
 
-        <SainaDiscoverModeSelector mode={mode} onChange={handleModeChange} />
+              <SainaDiscoverModeSelector mode={mode} onChange={handleModeChange} />
+            </div>
 
-        {modeInvalid ? (
-          <div className="saina-discover-state saina-discover-state--error" role="alert">
-            <p className="saina-discover-state__title">{SAINA_DISCOVER_INVALID_MODE}</p>
-          </div>
-        ) : null}
-
-        {discoverLimitReached && !modeInvalid ? (
-          <div
-            className="saina-discover-state saina-discover-state--limit"
-            data-testid="saina-discover-limit-banner"
-            role="status"
-          >
-            <p className="saina-discover-state__body saina-discover-state__body--preline">
-              {discoverLimitMessage}
-            </p>
-            <button
-              type="button"
-              className="saina-discover-retry"
-              onClick={handleOpenDiscoverUpgrade}
+            <div
+              className="saina-discover-list-scroll"
+              data-testid="saina-discover-list-scroll"
+              ref={scrollRootRef}
             >
-              Hesabını Yükselt
-            </button>
-          </div>
-        ) : null}
+              {modeInvalid ? (
+                <div className="saina-discover-state saina-discover-state--error" role="alert">
+                  <p className="saina-discover-state__title">{SAINA_DISCOVER_INVALID_MODE}</p>
+                </div>
+              ) : null}
 
-        {error && !modeInvalid ? (
-          <div className="saina-discover-state saina-discover-state--error" role="alert">
-            <p className="saina-discover-state__title">{SAINA_DISCOVER_ERROR}</p>
-            <p className="saina-discover-state__body">{SAINA_DISCOVER_ERROR_RETRY}</p>
-            <button type="button" className="saina-discover-retry" onClick={() => void loadDiscover(mode)}>
-              Tekrar dene
-            </button>
-          </div>
-        ) : null}
+              {discoverLimitReached && !modeInvalid ? (
+                <div
+                  className="saina-discover-state saina-discover-state--limit"
+                  data-testid="saina-discover-limit-banner"
+                  role="status"
+                >
+                  <p className="saina-discover-state__body saina-discover-state__body--preline">
+                    {discoverLimitMessage}
+                  </p>
+                  <button
+                    type="button"
+                    className="saina-discover-retry"
+                    onClick={handleOpenDiscoverUpgrade}
+                  >
+                    Hesabını Yükselt
+                  </button>
+                </div>
+              ) : null}
 
-        {!error &&
-        !modeInvalid &&
-        !loading &&
-        mode === 'strong_curiosity' &&
-        items.length === 0 &&
-        !strongCuriosityReady ? (
-          <div
-            className="saina-discover-state"
-            data-testid="saina-discover-strong-curiosity-pending"
-            data-strong-curiosity-ready="false"
-          >
-            <p className="saina-discover-state__title">{SAINA_DISCOVER_STRONG_CURIOSITY_TITLE}</p>
-            <p className="saina-discover-state__body">{SAINA_DISCOVER_STRONG_CURIOSITY_BODY}</p>
-          </div>
-        ) : null}
+              {error && !modeInvalid ? (
+                <div className="saina-discover-state saina-discover-state--error" role="alert">
+                  <p className="saina-discover-state__title">{SAINA_DISCOVER_ERROR}</p>
+                  <p className="saina-discover-state__body">{SAINA_DISCOVER_ERROR_RETRY}</p>
+                  <button
+                    type="button"
+                    className="saina-discover-retry"
+                    onClick={() => void loadDiscover(mode)}
+                  >
+                    Tekrar dene
+                  </button>
+                </div>
+              ) : null}
 
-        {!error &&
-        !modeInvalid &&
-        items.length === 0 &&
-        !loading &&
-        (mode !== 'strong_curiosity' || strongCuriosityReady) ? (
-          <div className="saina-discover-state" data-testid="saina-discover-empty">
-            <p className="saina-discover-state__title">{SAINA_DISCOVER_EMPTY_TITLE}</p>
-            <p className="saina-discover-state__body">
-              {allExperienced
-                ? 'Şimdilik deneyebileceğin yeni merak kalmadı. Biraz sonra tekrar bak.'
-                : SAINA_DISCOVER_EMPTY_BODY}
-            </p>
-            <button
-              type="button"
-              className="saina-discover-retry"
-              onClick={() => router.push(SAINA_NEW_CHAT_ROUTE)}
-            >
-              Sohbete git
-            </button>
-          </div>
-        ) : null}
+              {!error &&
+              !modeInvalid &&
+              !loading &&
+              mode === 'strong_curiosity' &&
+              items.length === 0 &&
+              !strongCuriosityReady ? (
+                <div
+                  className="saina-discover-state"
+                  data-testid="saina-discover-strong-curiosity-pending"
+                  data-strong-curiosity-ready="false"
+                >
+                  <p className="saina-discover-state__title">{SAINA_DISCOVER_STRONG_CURIOSITY_TITLE}</p>
+                  <p className="saina-discover-state__body">{SAINA_DISCOVER_STRONG_CURIOSITY_BODY}</p>
+                </div>
+              ) : null}
 
-        {!error && !modeInvalid && (loading || items.length > 0) ? (
-          <SainaDiscoverList
-            items={items}
-            loading={loading}
-            loadingMore={loadingMore}
-            loadMoreError={loadMoreError}
-            onRetryLoadMore={() => loadNextPageRef.current()}
-            sentinelRef={sentinelRef}
-            discoverLimitReached={discoverLimitReached}
-            onDiscoverLimit={handleOpenDiscoverUpgrade}
-          />
-        ) : null}
+              {!error &&
+              !modeInvalid &&
+              items.length === 0 &&
+              !loading &&
+              (mode !== 'strong_curiosity' || strongCuriosityReady) ? (
+                <div className="saina-discover-state" data-testid="saina-discover-empty">
+                  <p className="saina-discover-state__title">{SAINA_DISCOVER_EMPTY_TITLE}</p>
+                  <p className="saina-discover-state__body">
+                    {allExperienced
+                      ? 'Şimdilik deneyebileceğin yeni merak kalmadı. Biraz sonra tekrar bak.'
+                      : SAINA_DISCOVER_EMPTY_BODY}
+                  </p>
+                  <button
+                    type="button"
+                    className="saina-discover-retry"
+                    onClick={() => router.push(SAINA_NEW_CHAT_ROUTE)}
+                  >
+                    Sohbete git
+                  </button>
+                </div>
+              ) : null}
+
+              {!error && !modeInvalid && (loading || items.length > 0) ? (
+                <SainaDiscoverList
+                  items={items}
+                  loading={loading}
+                  loadingMore={loadingMore}
+                  loadMoreError={loadMoreError}
+                  onRetryLoadMore={() => loadNextPageRef.current()}
+                  sentinelRef={sentinelRef}
+                  discoverLimitReached={discoverLimitReached}
+                  onDiscoverLimit={handleOpenDiscoverUpgrade}
+                />
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

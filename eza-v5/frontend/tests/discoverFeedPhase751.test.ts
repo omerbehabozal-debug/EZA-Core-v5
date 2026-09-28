@@ -115,8 +115,16 @@ describe('Phase 7.5.1 Discover delivery helpers', () => {
 
   it('prefetch observer uses a multi-card buffer, not scroll-event spam', () => {
     const options = discoverPrefetchObserverOptions(null);
+    expect(options.root).toBeNull();
     expect(options.rootMargin).toBe('0px 0px 8000px 0px');
     expect(options.threshold).toBe(0);
+  });
+
+  it('prefetch observer can use an explicit list scroller as root', () => {
+    const root = document.createElement('div');
+    const options = discoverPrefetchObserverOptions(root);
+    expect(options.root).toBe(root);
+    expect(options.rootMargin).toBe('0px 0px 8000px 0px');
   });
 
   it('prefetch/network is not exposure', () => {
