@@ -6168,23 +6168,23 @@ button.saina-discover-card__title-open:focus-visible {
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__identity {
     grid-column: 1 / -1;
-    margin: 0 0 0.65rem;
-    gap: 0.5rem;
+    margin: 0 0 0.8rem;
+    gap: 0.5625rem;
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__identity-avatar.bilign-profile-avatar,
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__identity-avatar.bilign-profile-avatar--sm {
-    width: 1.5625rem;
-    height: 1.5625rem;
+    width: 2.125rem;
+    height: 2.125rem;
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__identity-name {
-    font-size: 0.85rem;
+    font-size: 0.9375rem;
     font-weight: 600;
   }
 
   .saina-discover-card.saina-discover-card--editorial .bilign-honorific--sm {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: rgba(184, 177, 167, 0.78);
   }
 
