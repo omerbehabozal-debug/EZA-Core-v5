@@ -21,12 +21,10 @@ import {
   sealedJourneyIdentityConflicts,
 } from '@/lib/eza/mirror/journey/mirrorJourneyArtifactStore';
 import { buildReadyMirrorJourneyArtifactFromLineage } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
-
-function sceneAssetIdFromUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const match = url.match(/mirror-scene-assets\/([^/?#]+)/i);
-  return match?.[1] ?? null;
-}
+import {
+  canonicalMirrorSceneAssetId,
+  canonicalMirrorSceneAssetIdFromUrl,
+} from '@/lib/eza/mirror/sceneAssetIdentity';
 
 function sealedArtifactRejectsIncomingScene(
   ownerUserId: string | null | undefined,
@@ -134,18 +132,37 @@ export async function completeJourneyGenerationLineageSeal(input: {
     (!input.generationId ||
       existing.generationId === input.generationId.trim()) &&
     (!input.sceneImageUrl ||
-      existing.sceneAssetId ||
-      !sceneAssetIdFromUrl(input.sceneImageUrl))
+      canonicalMirrorSceneAssetId(existing.sceneAssetId) ||
+      !canonicalMirrorSceneAssetIdFromUrl(input.sceneImageUrl))
   ) {
+    const existingSceneAsset = canonicalMirrorSceneAssetId(existing.sceneAssetId);
+    const inputSceneAsset = canonicalMirrorSceneAssetIdFromUrl(input.sceneImageUrl);
+    if (inputSceneAsset && existingSceneAsset && inputSceneAsset !== existingSceneAsset) {
+      return input.card;
+    }
+    if (existingSceneAsset && existing.sceneAssetId !== existingSceneAsset) {
+      const withCanonicalScene: JourneyGenerationLineage = {
+        ...existing,
+        sceneAssetId: existingSceneAsset,
+      };
+      saveJourneyGenerationArtifact(input.ownerUserId, withCanonicalScene);
+      persistReadyPanelArtifact(
+        input.ownerUserId,
+        withCanonicalScene,
+        input.card,
+        input.sceneImageUrl
+      );
+      return { ...input.card, mirrorJourneyGenerationLineage: withCanonicalScene };
+    }
     // Still refresh sceneAssetId if missing.
     if (
       isPublishableJourneyGenerationLineage(existing) &&
-      !existing.sceneAssetId &&
+      !canonicalMirrorSceneAssetId(existing.sceneAssetId) &&
       input.sceneImageUrl
     ) {
       const withScene: JourneyGenerationLineage = {
         ...existing,
-        sceneAssetId: sceneAssetIdFromUrl(input.sceneImageUrl),
+        sceneAssetId: canonicalMirrorSceneAssetIdFromUrl(input.sceneImageUrl),
       };
       saveJourneyGenerationArtifact(input.ownerUserId, withScene);
       persistReadyPanelArtifact(
@@ -195,7 +212,9 @@ export async function completeJourneyGenerationLineageSeal(input: {
     mappedPromptHash: mappedHash,
     generationId: input.generationId || existing.generationId,
     sceneAssetId:
-      sceneAssetIdFromUrl(input.sceneImageUrl) || existing.sceneAssetId || null,
+      canonicalMirrorSceneAssetIdFromUrl(input.sceneImageUrl) ||
+      canonicalMirrorSceneAssetId(existing.sceneAssetId) ||
+      null,
   });
 
   if (!isPublishableJourneyGenerationLineage(sealedPartial)) {

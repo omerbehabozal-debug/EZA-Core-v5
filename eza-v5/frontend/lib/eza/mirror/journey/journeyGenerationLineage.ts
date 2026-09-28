@@ -4,6 +4,7 @@
  */
 
 import { isValidJourneySelectedStepCount } from '@/lib/eza/mirror/journey/types';
+import { canonicalMirrorSceneAssetId } from '@/lib/eza/mirror/sceneAssetIdentity';
 
 export const JOURNEY_GENERATION_LINEAGE_VERSION =
   'journey_generation_lineage_v1' as const;
@@ -214,9 +215,9 @@ export function sealJourneyGenerationLineage(input: {
       asTrimmed(existing.mappedPromptHash),
     generationId: nextGen || asTrimmed(existing.generationId),
     sceneAssetId:
-      asTrimmed(input.sceneAssetId) ||
-      asTrimmed(prep.sceneAssetId) ||
-      asTrimmed(existing.sceneAssetId) ||
+      canonicalMirrorSceneAssetId(asTrimmed(input.sceneAssetId)) ||
+      canonicalMirrorSceneAssetId(asTrimmed(prep.sceneAssetId)) ||
+      canonicalMirrorSceneAssetId(asTrimmed(existing.sceneAssetId)) ||
       null,
     selectedSteps: steps,
     sealedAt: input.sealedAt || existing.sealedAt || new Date().toISOString(),

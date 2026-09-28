@@ -23,6 +23,7 @@ import {
 } from '@/lib/eza/standaloneConversationsApi';
 import type { MirrorJourneyArtifact } from '@/lib/eza/mirror/journey/mirrorJourneyArtifact';
 import { isPublishableJourneyGenerationLineage } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
+import { resolveCanonicalMirrorSceneAssetId } from '@/lib/eza/mirror/sceneAssetIdentity';
 
 export type PersistYansiPreparationAuthority = {
   ownerUserId: string;
@@ -108,7 +109,10 @@ export async function persistAuthenticatedReadyYansi(input: {
     publicSummary: summary,
     continuationContext: input.artifact.continuationContext ?? null,
     sceneImageUrl: scene,
-    sceneAssetId: input.artifact.sceneAssetId ?? lineage.sceneAssetId ?? null,
+    sceneAssetId:
+      resolveCanonicalMirrorSceneAssetId(scene, input.artifact.sceneAssetId) ||
+      resolveCanonicalMirrorSceneAssetId(scene, lineage.sceneAssetId) ||
+      null,
     sceneFocalX: input.sceneFocalX ?? null,
     sceneFocalY: input.sceneFocalY ?? null,
     sealedLineage: lineage as unknown as Record<string, unknown>,

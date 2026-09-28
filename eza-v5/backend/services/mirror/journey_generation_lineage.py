@@ -18,6 +18,7 @@ from backend.services.mirror_network.journey_window_contract import (
     normalize_selected_journey_steps,
     validate_journey_window_identity,
 )
+from backend.services.mirror.scene_asset_identity import canonicalize_scene_asset_id
 
 JOURNEY_GENERATION_LINEAGE_VERSION = "journey_generation_lineage_v1"
 
@@ -77,7 +78,7 @@ def build_journey_generation_lineage(
         "publicLandingHash": public_landing_hash,
         "mappedPromptHash": mapped_prompt_hash,
         "generationId": str(generation_id).strip(),
-        "sceneAssetId": scene_asset_id,
+        "sceneAssetId": canonicalize_scene_asset_id(scene_asset_id),
         "sceneImageUrl": (str(scene_image_url).strip() or None)
         if scene_image_url
         else None,
@@ -319,7 +320,7 @@ def validate_publish_journey_lineage(
         "publicLandingHash": _norm(claimed.get("publicLandingHash")),
         "mappedPromptHash": _norm(claimed.get("mappedPromptHash")),
         "generationId": _norm(claimed.get("generationId")),
-        "sceneAssetId": _norm(claimed.get("sceneAssetId")) or None,
+        "sceneAssetId": canonicalize_scene_asset_id(claimed.get("sceneAssetId")),
     }
 
 
@@ -346,14 +347,14 @@ def validate_narrative_alignment_binding(
                 reason,
                 f"Narrative Alignment {key} does not match generation lineage",
             )
-    scene_a = _norm(alignment.get("sceneAssetId"))
-    scene_c = _norm(claimed_lineage.get("sceneAssetId"))
+    scene_a = canonicalize_scene_asset_id(alignment.get("sceneAssetId")) or ""
+    scene_c = canonicalize_scene_asset_id(claimed_lineage.get("sceneAssetId")) or ""
     if scene_a and scene_c and scene_a != scene_c:
         raise _lineage_mismatch(
             "scene_asset_mismatch",
             "Narrative Alignment sceneAssetId does not match generation lineage",
         )
-    actual_scene = _norm(actual_scene_asset_id)
+    actual_scene = canonicalize_scene_asset_id(actual_scene_asset_id) or ""
     if scene_a and actual_scene and scene_a != actual_scene:
         raise _lineage_mismatch(
             "scene_asset_mismatch",
@@ -474,7 +475,8 @@ def validate_against_server_generation_record(
             "Actual public landing does not match server generation record",
         )
 
-    claimed_scene = _norm(claimed.get("sceneAssetId"))
+    actual_scene_asset_id = canonicalize_scene_asset_id(actual_scene_asset_id) or ""
+    claimed_scene = canonicalize_scene_asset_id(claimed.get("sceneAssetId")) or ""
     if not actual_scene_asset_id:
         raise _lineage_mismatch(
             "scene_asset_mismatch",
@@ -485,7 +487,7 @@ def validate_against_server_generation_record(
             "scene_asset_mismatch",
             "Actual scene URL does not match lineage sceneAssetId",
         )
-    record_scene = _norm(record.get("sceneAssetId"))
+    record_scene = canonicalize_scene_asset_id(record.get("sceneAssetId")) or ""
     if record_scene and record_scene != actual_scene_asset_id:
         raise _lineage_mismatch(
             "scene_asset_mismatch",

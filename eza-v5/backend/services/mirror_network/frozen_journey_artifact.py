@@ -19,6 +19,7 @@ from backend.models.mirror_network import (
     MirrorJourneyStep,
     MirrorNetworkNode,
 )
+from backend.services.mirror.scene_asset_identity import canonicalize_scene_asset_id
 from backend.services.mirror.frozen_journey_source import build_frozen_journey_source
 
 FREEZE_STATUS_FROZEN = "frozen"
@@ -252,7 +253,9 @@ def assert_frozen_content_immutable(
                 "Frozen journeyVersion cannot change publicLandingHash",
             )
     if scene_asset_id and existing_frozen.get("sceneAssetId"):
-        if str(existing_frozen["sceneAssetId"]) != str(scene_asset_id):
+        if canonicalize_scene_asset_id(existing_frozen["sceneAssetId"]) != canonicalize_scene_asset_id(
+            scene_asset_id
+        ):
             _mismatch(
                 "scene_asset_mismatch",
                 "Frozen journeyVersion cannot change sceneAssetId",

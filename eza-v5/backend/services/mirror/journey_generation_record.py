@@ -12,6 +12,8 @@ import threading
 import time
 from typing import Any
 
+from backend.services.mirror.scene_asset_identity import canonicalize_scene_asset_id
+
 _LOCK = threading.Lock()
 _STORE: dict[str, tuple[float, dict[str, Any]]] = {}
 _TTL_SECONDS = 60 * 60  # 1 hour — cover prepare → scene → publish
@@ -119,13 +121,13 @@ def bind_canonical_scene_asset(
       rejected — empty ids
     """
     gid = str(generation_id or "").strip()
-    asset = str(scene_asset_id or "").strip().lower()
+    asset = canonicalize_scene_asset_id(scene_asset_id) or ""
     if not gid or not asset:
         return "rejected", None
     existing = get_journey_generation_record(gid)
     if existing is None:
         return "no_record", None
-    prior = str(existing.get("sceneAssetId") or "").strip().lower()
+    prior = canonicalize_scene_asset_id(existing.get("sceneAssetId")) or ""
     if prior and prior == asset:
         return "idempotent", existing
     if prior and prior != asset:
@@ -154,14 +156,14 @@ def adopt_canonical_scene_binding(
     proof. The caller must pass the durable canonical asset, never a newer image.
     """
     gid = str(generation_id or "").strip()
-    asset = str(scene_asset_id or "").strip().lower()
+    asset = canonicalize_scene_asset_id(scene_asset_id) or ""
     url = str(scene_image_url or "").strip()
     if not gid or not asset or not url:
         return None
     existing = get_journey_generation_record(gid)
     if existing is None:
         return None
-    prior = str(existing.get("sceneAssetId") or "").strip().lower()
+    prior = canonicalize_scene_asset_id(existing.get("sceneAssetId")) or ""
     if prior == asset:
         return existing
     return upsert_journey_generation_record(

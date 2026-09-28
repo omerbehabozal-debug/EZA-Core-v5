@@ -38,6 +38,7 @@ from backend.services.standalone.persistence_limits import (
     MIN_YANSI_QA_ITEMS,
     validate_bounded_json,
 )
+from backend.services.mirror.scene_asset_identity import canonicalize_scene_asset_id
 
 
 class YansiPreparationNotFoundError(Exception):
@@ -449,7 +450,7 @@ async def upsert_ready_preparation(
         public_summary=body.publicSummary.strip(),
         continuation_context=(body.continuationContext or "").strip() or None,
         scene_image_url=scene_url,
-        scene_asset_id=(body.sceneAssetId or "").strip() or None,
+        scene_asset_id=canonicalize_scene_asset_id(body.sceneAssetId),
         scene_focal_x=_validate_focal(body.sceneFocalX, "scene_focal_x"),
         scene_focal_y=_validate_focal(body.sceneFocalY, "scene_focal_y"),
         sealed_lineage=lineage,

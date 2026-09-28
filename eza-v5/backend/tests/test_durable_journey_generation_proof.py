@@ -526,6 +526,54 @@ async def test_other_worker_with_empty_memory_publishes_durable_scene():
 
 
 @pytest.mark.asyncio
+async def test_durable_proof_historical_scene_filename_publishes_as_same_asset():
+    proof = build_server_generation_proof(_base_fields(sceneAssetId=f"{SCENE}.png"))
+    conv = SimpleNamespace(
+        user_id=USER_ID,
+        client_conversation_id=CONV,
+        tree_metadata={PROOF_NAMESPACE: {GEN_A: proof}},
+        updated_at=None,
+        deleted_at=None,
+    )
+    record, source = await resolve_generation_record_for_publish(
+        _db_for(conv),
+        user_id=USER_ID,
+        generation_id=GEN_A,
+        client_conversation_id=CONV,
+    )
+    assert source == "durable"
+    assert record["sceneAssetId"] == SCENE
+    ok = validate_against_server_generation_record(
+        claimed=_claimed_from_proof(record, sceneAssetId=f"{SCENE}.png"),
+        record=record,
+        actual_public_landing_hash="landing-a",
+        actual_scene_asset_id=SCENE,
+    )
+    assert ok["sceneAssetId"] == SCENE
+
+
+@pytest.mark.asyncio
+async def test_durable_proof_different_scene_filename_still_conflicts():
+    upsert_journey_generation_record(GEN_A, _base_fields(sceneAssetId=SCENE_B, sceneImageUrl=URL_B))
+    proof = build_server_generation_proof(_base_fields(sceneAssetId=f"{SCENE}.png"))
+    conv = SimpleNamespace(
+        user_id=USER_ID,
+        client_conversation_id=CONV,
+        tree_metadata={PROOF_NAMESPACE: {GEN_A: proof}},
+        updated_at=None,
+        deleted_at=None,
+    )
+    with pytest.raises(GenerationProofConflict) as exc:
+        await resolve_generation_record_for_publish(
+            _db_for(conv),
+            user_id=USER_ID,
+            generation_id=GEN_A,
+            client_conversation_id=CONV,
+        )
+    assert exc.value.field == "sceneAssetId"
+
+
+@pytest.mark.asyncio
 async def test_ttl_expiry_still_publishes_from_durable_proof():
     upsert_journey_generation_record(GEN_A, _base_fields())
     with generation_record_module._LOCK:

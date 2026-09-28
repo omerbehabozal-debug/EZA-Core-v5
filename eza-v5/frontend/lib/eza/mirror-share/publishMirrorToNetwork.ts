@@ -47,6 +47,10 @@ import {
   type JourneyGenerationLineage,
 } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
 import { completeJourneyGenerationLineageSeal } from '@/lib/eza/mirror/journey/completeJourneyGenerationLineageSeal';
+import {
+  canonicalMirrorSceneAssetId,
+  canonicalMirrorSceneAssetIdFromUrl,
+} from '@/lib/eza/mirror/sceneAssetIdentity';
 
 export type PublishMirrorToNetworkInput = {
   card: DailyMirrorCardModel;
@@ -120,12 +124,6 @@ export type PublishMirrorToNetworkFailure = {
 export type PublishMirrorToNetworkResult =
   | PublishMirrorToNetworkSuccess
   | PublishMirrorToNetworkFailure;
-
-function sceneAssetIdFromUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const match = url.match(/mirror-scene-assets\/([^/?#]+)/i);
-  return match?.[1] ?? null;
-}
 
 function isMirrorJourneyV1NeedsLineage(
   input: PublishMirrorToNetworkInput
@@ -313,7 +311,7 @@ async function buildPublishBody(
     replacesGenerationId,
     forceRepublish,
     conversationId: conversationId?.trim() || undefined,
-    sceneAssetId: sceneAssetIdFromUrl(sceneImageUrl),
+    sceneAssetId: canonicalMirrorSceneAssetIdFromUrl(sceneImageUrl),
     contractVersion: publicLanding.contractVersion,
     ...(alignmentLineage
       ? {
@@ -329,7 +327,7 @@ async function buildPublishBody(
             generationId: alignmentLineage.generationId,
             interpretationHash: alignmentLineage.interpretationHash,
             publicLandingHash: alignmentLineage.publicLandingHash,
-            sceneAssetId: alignmentLineage.sceneAssetId,
+            sceneAssetId: canonicalMirrorSceneAssetId(alignmentLineage.sceneAssetId),
           },
         }
       : {}),
@@ -367,9 +365,9 @@ async function buildPublishBody(
       generationId: generationLineage.generationId,
       publicLandingHash: generationLineage.publicLandingHash,
       sceneAssetId:
-        alignmentLineage.sceneAssetId ||
-        generationLineage.sceneAssetId ||
-        sceneAssetIdFromUrl(sceneImageUrl),
+        canonicalMirrorSceneAssetId(alignmentLineage.sceneAssetId) ||
+        canonicalMirrorSceneAssetId(generationLineage.sceneAssetId) ||
+        canonicalMirrorSceneAssetIdFromUrl(sceneImageUrl),
     };
   }
 
@@ -386,8 +384,8 @@ async function buildPublishBody(
         mappedPromptHash: generationLineage.mappedPromptHash,
         generationId: generationLineage.generationId,
         sceneAssetId:
-          generationLineage.sceneAssetId ||
-          sceneAssetIdFromUrl(sceneImageUrl) ||
+          canonicalMirrorSceneAssetId(generationLineage.sceneAssetId) ||
+          canonicalMirrorSceneAssetIdFromUrl(sceneImageUrl) ||
           undefined,
         journeyGenerationLineage: {
           contractVersion: generationLineage.contractVersion,
@@ -408,8 +406,8 @@ async function buildPublishBody(
           mappedPromptHash: generationLineage.mappedPromptHash,
           generationId: generationLineage.generationId,
           sceneAssetId:
-            generationLineage.sceneAssetId ||
-            sceneAssetIdFromUrl(sceneImageUrl) ||
+            canonicalMirrorSceneAssetId(generationLineage.sceneAssetId) ||
+            canonicalMirrorSceneAssetIdFromUrl(sceneImageUrl) ||
             null,
         },
       }
@@ -418,7 +416,7 @@ async function buildPublishBody(
         interpretationHash: interpHash,
         mappedPromptHash: mappedHash,
         publicLandingHash,
-        sceneAssetId: sceneAssetIdFromUrl(sceneImageUrl) || undefined,
+        sceneAssetId: canonicalMirrorSceneAssetIdFromUrl(sceneImageUrl) || undefined,
       };
 
   return {
@@ -651,7 +649,7 @@ export async function publishMirrorToNetwork(
           generationId: input.generationId,
           interpretationHash: interpHash,
           publicLandingHash,
-          sceneAssetId: sceneAssetIdFromUrl(sceneImageUrl),
+          sceneAssetId: canonicalMirrorSceneAssetIdFromUrl(sceneImageUrl),
           allowDegradedPublishWhenUnavailable:
             alignmentOpts?.allowDegradedPublishWhenUnavailable === true,
         });
@@ -669,7 +667,7 @@ export async function publishMirrorToNetwork(
         if (gate.sceneAssetId) {
           alignmentObs = {
             ...alignmentObs,
-            sceneAssetId: gate.sceneAssetId,
+            sceneAssetId: canonicalMirrorSceneAssetId(gate.sceneAssetId),
           };
         }
       }

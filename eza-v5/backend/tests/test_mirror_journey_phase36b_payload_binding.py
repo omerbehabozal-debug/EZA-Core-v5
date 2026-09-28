@@ -212,6 +212,41 @@ def test_C_swap_scene_url_rejects():
     assert exc.value.detail["reason"] == "scene_asset_mismatch"
 
 
+def test_C2_historical_scene_asset_filename_claim_and_record_pass():
+    steps = _steps()
+    landing = _landing()
+    lineage, _, landing_hash, record = _seed_record(
+        generation_id="gen-a",
+        steps=steps,
+        landing=landing,
+        scene_id=f"{SCENE_A}.png",
+    )
+    claimed = {**lineage, "sceneAssetId": f"{SCENE_A}.png"}
+    binding = validate_against_server_generation_record(
+        claimed=claimed,
+        record={**record, "sceneAssetId": f"{SCENE_A}.png"},
+        actual_public_landing_hash=landing_hash,
+        actual_scene_asset_id=SCENE_A,
+    )
+    assert binding["sceneAssetId"] == SCENE_A
+
+
+def test_C3_historical_scene_asset_filename_different_uuid_rejects():
+    steps = _steps()
+    landing = _landing()
+    lineage, _, landing_hash, record = _seed_record(
+        generation_id="gen-a", steps=steps, landing=landing
+    )
+    with pytest.raises(HTTPException) as exc:
+        validate_against_server_generation_record(
+            claimed={**lineage, "sceneAssetId": f"{SCENE_B}.png"},
+            record=record,
+            actual_public_landing_hash=landing_hash,
+            actual_scene_asset_id=SCENE_A,
+        )
+    assert exc.value.detail["reason"] == "scene_asset_mismatch"
+
+
 def test_D_old_alignment_pass_new_scene_rejects():
     steps = _steps()
     landing = _landing()
@@ -228,6 +263,50 @@ def test_D_old_alignment_pass_new_scene_rejects():
                 "windowHash": lineage["windowHash"],
                 "publicLandingHash": landing_hash,
                 "sceneAssetId": SCENE_B,
+            },
+            actual_scene_asset_id=SCENE_A,
+            actual_public_landing_hash=landing_hash,
+        )
+    assert exc.value.detail["reason"] == "scene_asset_mismatch"
+
+
+def test_D2_narrative_alignment_historical_scene_asset_filename_passes():
+    steps = _steps()
+    landing = _landing()
+    lineage, _, landing_hash, _ = _seed_record(
+        generation_id="gen-a", steps=steps, landing=landing
+    )
+    validate_narrative_alignment_binding(
+        claimed_lineage={**lineage, "sceneAssetId": SCENE_A},
+        alignment={
+            "generationId": "gen-a",
+            "journeyId": "journey-a",
+            "journeyVersion": 1,
+            "windowHash": lineage["windowHash"],
+            "publicLandingHash": landing_hash,
+            "sceneAssetId": f"{SCENE_A}.png",
+        },
+        actual_scene_asset_id=SCENE_A,
+        actual_public_landing_hash=landing_hash,
+    )
+
+
+def test_D3_narrative_alignment_historical_different_uuid_rejects():
+    steps = _steps()
+    landing = _landing()
+    lineage, _, landing_hash, _ = _seed_record(
+        generation_id="gen-a", steps=steps, landing=landing
+    )
+    with pytest.raises(HTTPException) as exc:
+        validate_narrative_alignment_binding(
+            claimed_lineage={**lineage, "sceneAssetId": SCENE_A},
+            alignment={
+                "generationId": "gen-a",
+                "journeyId": "journey-a",
+                "journeyVersion": 1,
+                "windowHash": lineage["windowHash"],
+                "publicLandingHash": landing_hash,
+                "sceneAssetId": f"{SCENE_B}.png",
             },
             actual_scene_asset_id=SCENE_A,
             actual_public_landing_hash=landing_hash,

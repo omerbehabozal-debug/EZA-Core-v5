@@ -193,7 +193,7 @@ describe('Phase 0 — D2 publish meaning lineage', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.semanticSource).toBe('d2_interpretation');
-    expect(result.lineage?.sceneAssetId).toBe('a5cdb1be-12f9-40b9-bf29-9be992dea36a.png');
+    expect(result.lineage?.sceneAssetId).toBe('a5cdb1be-12f9-40b9-bf29-9be992dea36a');
     expect(result.lineage?.interpretationHash).toMatch(/^[a-f0-9]{64}$/);
     expect(result.lineage?.publishBundleHash).toMatch(/^[a-f0-9]{64}$/);
 

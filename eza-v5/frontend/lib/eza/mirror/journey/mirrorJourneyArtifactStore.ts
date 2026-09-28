@@ -30,24 +30,17 @@ import {
   promoteJourneyWindowFromArtifact,
   rearmJourneyWindowGeneratingFromArtifact,
 } from './promoteJourneyWindowFromArtifact';
+import { resolveCanonicalMirrorSceneAssetId } from '@/lib/eza/mirror/sceneAssetIdentity';
 
 export const MIRROR_JOURNEY_ARTIFACT_PANEL_STORAGE_KEY =
   'eza_mirror_journey_panel_artifacts_v1';
-
-function sceneAssetIdFromUrl(url: string | null | undefined): string {
-  const match = (url || '').match(/mirror-scene-assets\/([^/?#]+)/i);
-  if (!match?.[1]) return '';
-  return match[1].replace(/\.[a-z0-9]+$/i, '').trim().toLowerCase();
-}
 
 /** URL asset wins over a stale explicit id so a swapped image cannot hide behind the old id. */
 export function resolvedJourneySceneAssetId(
   sceneImageUrl: string | null | undefined,
   sceneAssetId: string | null | undefined
 ): string {
-  const fromUrl = sceneAssetIdFromUrl(sceneImageUrl);
-  if (fromUrl) return fromUrl;
-  return (sceneAssetId || '').trim().toLowerCase();
+  return resolveCanonicalMirrorSceneAssetId(sceneImageUrl, sceneAssetId);
 }
 
 export function journeySceneIdentityKey(

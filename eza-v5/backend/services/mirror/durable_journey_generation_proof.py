@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from backend.models.standalone_conversations import StandaloneConversation
+from backend.services.mirror.scene_asset_identity import canonicalize_scene_asset_id
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ def build_server_generation_proof(fields: Mapping[str, Any]) -> dict[str, Any]:
         "sourceBlockHash": _norm(fields.get("sourceBlockHash")) or None,
         "interpretationHash": _norm(fields.get("interpretationHash")) or None,
         "mappedPromptHash": _norm(fields.get("mappedPromptHash")) or None,
-        "sceneAssetId": _norm(fields.get("sceneAssetId")) or None,
+        "sceneAssetId": canonicalize_scene_asset_id(fields.get("sceneAssetId")),
         "sceneImageUrl": _norm(fields.get("sceneImageUrl")) or None,
         "publicLandingHash": _norm(fields.get("publicLandingHash")) or None,
         "preparedAt": _norm(fields.get("preparedAt")) or _utcnow_iso(),
@@ -157,7 +158,7 @@ def proof_as_generation_record(proof: Mapping[str, Any]) -> dict[str, Any]:
         "sourceBlockHash": _norm(proof.get("sourceBlockHash")) or None,
         "interpretationHash": _norm(proof.get("interpretationHash")),
         "mappedPromptHash": _norm(proof.get("mappedPromptHash")),
-        "sceneAssetId": _norm(proof.get("sceneAssetId")) or None,
+        "sceneAssetId": canonicalize_scene_asset_id(proof.get("sceneAssetId")),
         "sceneImageUrl": _norm(proof.get("sceneImageUrl")) or None,
         "publicLandingHash": _norm(proof.get("publicLandingHash")) or None,
     }
@@ -275,15 +276,18 @@ async def persist_durable_journey_generation_proof(
             if merged.get(key) in (None, "") and proof.get(key) not in (None, ""):
                 merged[key] = proof[key]
         # Scene bind: fill once.
-        if not _norm(merged.get("sceneAssetId")) and _norm(proof.get("sceneAssetId")):
-            merged["sceneAssetId"] = proof["sceneAssetId"]
+        if not canonicalize_scene_asset_id(merged.get("sceneAssetId")) and canonicalize_scene_asset_id(
+            proof.get("sceneAssetId")
+        ):
+            merged["sceneAssetId"] = canonicalize_scene_asset_id(proof.get("sceneAssetId"))
             if proof.get("sceneImageUrl"):
                 merged["sceneImageUrl"] = proof["sceneImageUrl"]
             merged["sceneBoundAt"] = proof.get("sceneBoundAt") or _utcnow_iso()
         elif (
-            _norm(merged.get("sceneAssetId"))
-            and _norm(proof.get("sceneAssetId"))
-            and _norm(merged.get("sceneAssetId")) != _norm(proof.get("sceneAssetId"))
+            canonicalize_scene_asset_id(merged.get("sceneAssetId"))
+            and canonicalize_scene_asset_id(proof.get("sceneAssetId"))
+            and canonicalize_scene_asset_id(merged.get("sceneAssetId"))
+            != canonicalize_scene_asset_id(proof.get("sceneAssetId"))
         ):
             logger.warning(
                 "durable_generation_proof_scene_conflict generationId=%s",
@@ -351,7 +355,7 @@ async def bind_durable_canonical_scene(
     commit/rollback and therefore owns lock release.
     """
     gid = _norm(generation_id)
-    asset = _norm(scene_asset_id).lower()
+    asset = canonicalize_scene_asset_id(scene_asset_id) or ""
     url = _norm(scene_image_url)
     if not gid or not asset or not url:
         return "no_proof", None
@@ -384,7 +388,7 @@ async def bind_durable_canonical_scene(
     else:
         return "no_proof", None
 
-    prior_asset = _norm(proof.get("sceneAssetId")).lower()
+    prior_asset = canonicalize_scene_asset_id(proof.get("sceneAssetId")) or ""
     if prior_asset and prior_asset != asset:
         # First canonical scene wins. Never overwrite it with a later image.
         logger.warning(
@@ -420,7 +424,7 @@ async def bind_durable_canonical_scene(
     written = _read_proof_map(conv.tree_metadata).get(gid)
     if not _is_server_proof(written):
         raise DurableProofUnavailable("proof_missing_after_write")
-    if _norm(written.get("sceneAssetId")).lower() != asset:
+    if (canonicalize_scene_asset_id(written.get("sceneAssetId")) or "") != asset:
         # Someone else's asset is canonical after our write attempt.
         return "conflict", proof_as_generation_record(written)
     return outcome, proof_as_generation_record(written)
@@ -459,7 +463,9 @@ def assert_durable_scene_proof_matches(
     if journey_version is not None and proof.get("journeyVersion") is not None:
         if str(proof.get("journeyVersion")) != str(journey_version):
             raise DurableProofUnavailable("journey_version_mismatch")
-    if _norm(proof.get("sceneAssetId")).lower() != _norm(scene_asset_id).lower():
+    if (canonicalize_scene_asset_id(proof.get("sceneAssetId")) or "") != (
+        canonicalize_scene_asset_id(scene_asset_id) or ""
+    ):
         raise DurableProofUnavailable("scene_asset_mismatch")
     if _norm(proof.get("sceneImageUrl")) != _norm(scene_image_url):
         raise DurableProofUnavailable("scene_url_mismatch")
@@ -625,9 +631,17 @@ async def lookup_canonical_generated_scene(
             generation_id=gid,
             client_conversation_id=client_conversation_id,
         )
-    durable_asset = _authority_value(durable, "sceneAssetId") if durable else ""
+    durable_asset = (
+        canonicalize_scene_asset_id(_authority_value(durable, "sceneAssetId"))
+        if durable
+        else ""
+    )
     durable_url = _norm(durable.get("sceneImageUrl")) if durable else ""
-    live_asset = _authority_value(live, "sceneAssetId") if live else ""
+    live_asset = (
+        canonicalize_scene_asset_id(_authority_value(live, "sceneAssetId"))
+        if live
+        else ""
+    )
     live_url = _norm(live.get("sceneImageUrl")) if live else ""
 
     if durable_asset and durable_url:

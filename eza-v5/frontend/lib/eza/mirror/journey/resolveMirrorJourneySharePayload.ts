@@ -14,6 +14,7 @@ import { buildShareVoice } from '@/lib/eza/mirror-share/buildShareVoice';
 import { buildInstagramShareCaptionFromBlueprint } from '@/lib/eza/mirror-share/builders/instagram';
 import type { MirrorCuriosityPipeline } from '@/lib/eza/mirror-network/types';
 import type { StoryTopicId } from '@/lib/eza/mirror/storyTopicTypes';
+import { resolveCanonicalMirrorSceneAssetId } from '@/lib/eza/mirror/sceneAssetIdentity';
 
 export type MirrorJourneySharePayload = {
   journeyId: string;
@@ -73,7 +74,11 @@ export function resolveMirrorJourneySharePayload(input: {
       artifact.sceneImageUrl?.trim() ||
       identity?.sceneImageUrl?.trim() ||
       null,
-    sceneAssetId: artifact.sceneAssetId?.trim() || null,
+    sceneAssetId:
+      resolveCanonicalMirrorSceneAssetId(
+        artifact.sceneImageUrl || identity?.sceneImageUrl,
+        artifact.sceneAssetId
+      ) || null,
     publicTitle: title,
     publicSummary: summary,
     continuationContext: artifact.continuationContext?.trim() || null,

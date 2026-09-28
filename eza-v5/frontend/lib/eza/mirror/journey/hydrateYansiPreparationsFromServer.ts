@@ -19,6 +19,7 @@ import {
   isPublishableJourneyGenerationLineage,
   type JourneyGenerationLineage,
 } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
+import { resolveCanonicalMirrorSceneAssetId } from '@/lib/eza/mirror/sceneAssetIdentity';
 
 function landingFromUnknown(
   raw: Record<string, unknown> | null | undefined
@@ -79,7 +80,10 @@ export function artifactFromServerYansiPreparation(
     sourceBlockHash: row.sourceBlockHash ?? lineage.sourceBlockHash ?? null,
     selectedStepsHash: row.selectedStepsHash,
     sceneImageUrl: row.sceneImageUrl,
-    sceneAssetId: row.sceneAssetId ?? lineage.sceneAssetId ?? null,
+    sceneAssetId:
+      resolveCanonicalMirrorSceneAssetId(row.sceneImageUrl, row.sceneAssetId) ||
+      resolveCanonicalMirrorSceneAssetId(row.sceneImageUrl, lineage.sceneAssetId) ||
+      null,
     publicTitle: row.publicTitle,
     publicSummary: row.publicSummary,
     continuationContext: row.continuationContext ?? null,

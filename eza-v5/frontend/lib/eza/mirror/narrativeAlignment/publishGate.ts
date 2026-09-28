@@ -16,6 +16,10 @@ import {
   NARRATIVE_ALIGNMENT_PUBLISH_ERROR,
   NARRATIVE_ALIGNMENT_UNAVAILABLE_ERROR,
 } from '@/lib/eza/mirror/narrativeAlignment/types';
+import {
+  canonicalMirrorSceneAssetId,
+  canonicalMirrorSceneAssetIdFromUrl,
+} from '@/lib/eza/mirror/sceneAssetIdentity';
 
 export type RegenerateSceneFn = () => Promise<{
   sceneImageUrl: string;
@@ -66,12 +70,6 @@ export type NarrativeAlignmentPublishGateResult =
   | NarrativeAlignmentPublishGateSuccess
   | NarrativeAlignmentPublishGateFailure;
 
-function sceneAssetIdFromUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const match = url.match(/mirror-scene-assets\/([^/?#]+)/i);
-  return match?.[1] ?? null;
-}
-
 const UNAVAILABLE_USER_MESSAGE =
   'Görsel doğrulama şu an kullanılamıyor. Yayınlama güvenli şekilde durduruldu.';
 const FAIL_USER_MESSAGE =
@@ -94,7 +92,9 @@ async function alignOnce(
     generationId: input.generationId,
     interpretationHash: input.interpretationHash,
     publicLandingHash: input.publicLandingHash,
-    sceneAssetId: sceneAssetId ?? sceneAssetIdFromUrl(sceneImageUrl),
+    sceneAssetId:
+      canonicalMirrorSceneAssetId(sceneAssetId) ||
+      canonicalMirrorSceneAssetIdFromUrl(sceneImageUrl),
     retryAttempt,
   });
 }
@@ -134,7 +134,7 @@ function degradedSuccess(
   return {
     ok: true,
     sceneImageUrl,
-    sceneAssetId,
+    sceneAssetId: canonicalMirrorSceneAssetId(sceneAssetId),
     alignment: {
       ...alignment,
       status: 'FAIL',
@@ -174,7 +174,8 @@ export async function runNarrativeAlignmentPublishGate(
     if (input.allowDegradedPublishWhenUnavailable) {
       return degradedSuccess(
         input.sceneImageUrl,
-        input.sceneAssetId ?? sceneAssetIdFromUrl(input.sceneImageUrl),
+        canonicalMirrorSceneAssetId(input.sceneAssetId) ||
+          canonicalMirrorSceneAssetIdFromUrl(input.sceneImageUrl),
         first.result,
         first.observability,
         landingSnapshot
@@ -187,7 +188,9 @@ export async function runNarrativeAlignmentPublishGate(
     return {
       ok: true,
       sceneImageUrl: input.sceneImageUrl,
-      sceneAssetId: input.sceneAssetId ?? sceneAssetIdFromUrl(input.sceneImageUrl),
+      sceneAssetId:
+        canonicalMirrorSceneAssetId(input.sceneAssetId) ||
+        canonicalMirrorSceneAssetIdFromUrl(input.sceneImageUrl),
       alignment: first.result,
       observability: first.observability,
       landingSnapshot,
@@ -233,7 +236,8 @@ export async function runNarrativeAlignmentPublishGate(
     if (input.allowDegradedPublishWhenUnavailable) {
       return degradedSuccess(
         regenerated.sceneImageUrl,
-        regenerated.sceneAssetId ?? sceneAssetIdFromUrl(regenerated.sceneImageUrl),
+        canonicalMirrorSceneAssetId(regenerated.sceneAssetId) ||
+          canonicalMirrorSceneAssetIdFromUrl(regenerated.sceneImageUrl),
         second.result,
         second.observability,
         landingSnapshot
@@ -246,7 +250,9 @@ export async function runNarrativeAlignmentPublishGate(
     return {
       ok: true,
       sceneImageUrl: regenerated.sceneImageUrl,
-      sceneAssetId: regenerated.sceneAssetId ?? sceneAssetIdFromUrl(regenerated.sceneImageUrl),
+      sceneAssetId:
+        canonicalMirrorSceneAssetId(regenerated.sceneAssetId) ||
+        canonicalMirrorSceneAssetIdFromUrl(regenerated.sceneImageUrl),
       alignment: second.result,
       observability: second.observability,
       landingSnapshot,

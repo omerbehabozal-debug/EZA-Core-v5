@@ -127,7 +127,8 @@ describe('Narrative Alignment Production Closure E2E', () => {
 
     const result = await publishMirrorToNetwork({
       card,
-      sceneImageUrl: 'https://cdn.example/mirror-scene-assets/fail.png',
+      sceneImageUrl:
+        'https://cdn.example/mirror-scene-assets/11111111-2222-4333-8444-555555555555.png',
       generationId: 'gen-1',
       narrativeAlignment: {
         detectClaims: createInjectedClaimDetector(() => {
@@ -142,8 +143,9 @@ describe('Narrative Alignment Production Closure E2E', () => {
         regenerateScene: async () => {
           regenN += 1;
           return {
-            sceneImageUrl: 'https://cdn.example/mirror-scene-assets/pass.png',
-            sceneAssetId: 'pass.png',
+            sceneImageUrl:
+              'https://cdn.example/mirror-scene-assets/22222222-3333-4444-8555-666666666666.png',
+            sceneAssetId: '22222222-3333-4444-8555-666666666666',
           };
         },
       },
@@ -165,7 +167,12 @@ describe('Narrative Alignment Production Closure E2E', () => {
       };
       curiosityBundle: { publicLanding: { publicTitle: string; publicSummary: string } };
     };
-    expect(body.sceneImageUrl).toContain('pass.png');
+    expect(body.sceneImageUrl).toBe(
+      'https://cdn.example/mirror-scene-assets/22222222-3333-4444-8555-666666666666.png'
+    );
+    expect(body.sceneImageUrl).not.toContain(
+      '11111111-2222-4333-8444-555555555555'
+    );
     expect(body.curiosityBundle.publicLanding.publicTitle).toBe(titleBefore);
     expect(body.intelligencePrivate.intelligenceBrief.mirrorLineage.narrativeAlignment)
       .toMatchObject({
@@ -221,13 +228,15 @@ describe('Narrative Alignment Production Closure E2E', () => {
 
     const a = await publishMirrorToNetwork({
       card,
-      sceneImageUrl: 'https://cdn.example/mirror-scene-assets/a.png',
+      sceneImageUrl:
+        'https://cdn.example/mirror-scene-assets/33333333-4444-4555-8666-777777777777.png',
       generationAction: 'new_scene',
       narrativeAlignment: { detectClaims: passDetect },
     });
     const b = await publishMirrorToNetwork({
       card,
-      sceneImageUrl: 'https://cdn.example/mirror-scene-assets/b.png',
+      sceneImageUrl:
+        'https://cdn.example/mirror-scene-assets/44444444-5555-4666-8777-888888888888.png',
       generationAction: 'new_scene',
       narrativeAlignment: { detectClaims: passDetect },
     });

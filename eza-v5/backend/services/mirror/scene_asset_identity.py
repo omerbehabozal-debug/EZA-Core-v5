@@ -18,6 +18,19 @@ _UUID_RE = re.compile(
 )
 
 
+def canonicalize_scene_asset_id(scene_asset_id: Any) -> str | None:
+    """Return canonical scene asset id (uuid stem) from uuid or uuid.ext representations."""
+    raw = str(scene_asset_id or "").strip()
+    if not raw:
+        return None
+    stem = raw.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    if _UUID_RE.match(stem):
+        return stem.lower()
+    if _UUID_RE.match(raw):
+        return raw.lower()
+    return raw.lower()
+
+
 def resolve_scene_asset_id_from_url(scene_image_url: str | None) -> str | None:
     """Return canonical asset id (uuid without extension) or None if not a Mirror asset URL."""
     url = (scene_image_url or "").strip()

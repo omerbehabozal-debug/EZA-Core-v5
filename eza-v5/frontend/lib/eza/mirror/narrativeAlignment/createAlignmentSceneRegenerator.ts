@@ -8,12 +8,7 @@ import { withSceneVariationSeed } from '@/lib/eza/mirror/styleLensPrompt';
 import { scenePromptHash } from '@/lib/eza/mirror/d2SceneGenerationGuard';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import type { RegenerateSceneFn } from '@/lib/eza/mirror/narrativeAlignment/publishGate';
-
-function sceneAssetIdFromUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const match = url.match(/mirror-scene-assets\/([^/?#]+)/i);
-  return match?.[1] ?? null;
-}
+import { canonicalMirrorSceneAssetIdFromUrl } from '@/lib/eza/mirror/sceneAssetIdentity';
 
 export type CreateAlignmentSceneRegeneratorInput = {
   card: DailyMirrorCardModel;
@@ -50,7 +45,7 @@ export function createAlignmentSceneRegenerator(
     await input.onSceneReady?.(result.sceneImageUrl);
     return {
       sceneImageUrl: result.sceneImageUrl,
-      sceneAssetId: sceneAssetIdFromUrl(result.sceneImageUrl),
+      sceneAssetId: canonicalMirrorSceneAssetIdFromUrl(result.sceneImageUrl),
     };
   };
 }
