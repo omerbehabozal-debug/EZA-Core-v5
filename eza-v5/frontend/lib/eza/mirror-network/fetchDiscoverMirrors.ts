@@ -30,6 +30,8 @@ export type DiscoverMirror = {
   directChildYansiCount?: number | null;
   authorDisplayName?: string | null;
   publicHonorific?: string | null;
+  publicAvatarUrl?: string | null;
+  publicAvatarRevision?: number | null;
 };
 
 export type DiscoverMirrorListResponse = {
@@ -70,7 +72,18 @@ function parseNonNegInt(value: unknown): number | null {
   return value;
 }
 
-function parseDiscoverItem(raw: unknown): DiscoverMirror | null {
+function parsePublicAvatarUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function parsePublicAvatarRevision(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.floor(value));
+}
+
+export function parseDiscoverItem(raw: unknown): DiscoverMirror | null {
   if (!raw || typeof raw !== 'object') return null;
   const row = raw as Record<string, unknown>;
   if (typeof row.slug !== 'string' || !row.slug.trim()) return null;
@@ -99,6 +112,8 @@ function parseDiscoverItem(raw: unknown): DiscoverMirror | null {
       typeof row.publicHonorific === 'string' && row.publicHonorific.trim()
         ? row.publicHonorific.trim()
         : null,
+    publicAvatarUrl: parsePublicAvatarUrl(row.publicAvatarUrl),
+    publicAvatarRevision: parsePublicAvatarRevision(row.publicAvatarRevision),
   };
 }
 

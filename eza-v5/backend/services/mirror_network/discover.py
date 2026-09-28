@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import Any, Literal, Mapping, Optional
 from urllib.parse import urlparse
 
-from sqlalchemy import select
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.mirror_network import DiscoverMirrorItem, DiscoverMirrorListResponse
@@ -36,6 +36,7 @@ from backend.services.mirror_network.author_profile import (
 )
 from backend.services.mirror_network.frozen_journey_artifact import FREEZE_STATUS_FROZEN
 from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
+from backend.services.profile_avatar_store import normalize_profile_avatar_public_locator
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +272,28 @@ def _published_iso(node: MirrorNetworkNode) -> Optional[str]:
     return None
 
 
+_PUBLIC_AVATAR_PREFIX = "/api/public/profile-avatars/"
+
+
+def _discover_public_avatar_url(author: Any) -> Optional[str]:
+    """Live public locator only. Never internal storage paths or private fields."""
+    locator = normalize_profile_avatar_public_locator(
+        getattr(author, "public_avatar_url", None) if author is not None else None
+    )
+    if not locator or not locator.startswith(_PUBLIC_AVATAR_PREFIX):
+        return None
+    return locator
+
+
+def _discover_public_avatar_revision(author: Any) -> int:
+    if author is None:
+        return 0
+    try:
+        return int(getattr(author, "public_avatar_revision", None) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _to_discover_item(
     node: MirrorNetworkNode,
     *,
@@ -281,6 +304,8 @@ def _to_discover_item(
     direct_child_yansi_count: int | None = None,
     author_display_name: str | None = None,
     public_honorific: str | None = None,
+    public_avatar_url: str | None = None,
+    public_avatar_revision: int = 0,
 ) -> DiscoverMirrorItem:
     payload = node.public_payload if isinstance(node.public_payload, dict) else {}
     frozen_title, frozen_summary, _ = _frozen_public_fields(node)
@@ -312,6 +337,8 @@ def _to_discover_item(
         directChildYansiCount=direct_child_yansi_count,
         authorDisplayName=author_display_name,
         publicHonorific=public_honorific,
+        publicAvatarUrl=public_avatar_url,
+        publicAvatarRevision=public_avatar_revision,
     )
 
 
@@ -459,27 +486,15 @@ async def _project_discover_page(
         resolve_public_honorific,
     )
 
-    authors_by_id: dict[Any, Any] = {}
     user_ids = [getattr(node, "user_id", None) for node, _ in page]
     user_ids = [uid for uid in user_ids if uid is not None]
-    if user_ids:
-        try:
-            from backend.models.production import User, production_users_safe_load
-
-            author_result = await db.execute(
-                select(User)
-                .options(production_users_safe_load())
-                .where(User.id.in_(set(user_ids)))
-            )
-            authors_by_id = {row.id: row for row in author_result.scalars().all()}
-        except Exception:
-            authors_by_id = {}
+    authors_by_id = await _load_discover_authors(db, user_ids)
 
     items = []
     for node, scene_url in page:
         version = int(getattr(node, "journey_version", None) or 1)
         row = metrics_by_key.get((node.slug.strip().lower(), version))
-        author = authors_by_id.get(getattr(node, "user_id", None))
+        author = _author_for_node(authors_by_id, getattr(node, "user_id", None))
         items.append(
             _to_discover_item(
                 node,
@@ -494,9 +509,88 @@ async def _project_discover_page(
                 ),
                 author_display_name=resolve_public_display_name(author),
                 public_honorific=resolve_public_honorific(author),
+                public_avatar_url=_discover_public_avatar_url(author),
+                public_avatar_revision=_discover_public_avatar_revision(author),
             )
         )
     return items
+
+
+def _author_for_node(authors_by_id: dict[Any, Any], user_id: Any) -> Any | None:
+    if user_id is None:
+        return None
+    author = authors_by_id.get(user_id)
+    if author is not None:
+        return author
+    wanted = str(user_id)
+    for stored_id, candidate in authors_by_id.items():
+        if str(stored_id) == wanted:
+            return candidate
+    return None
+
+
+async def _load_discover_authors(db: AsyncSession, user_ids: list[Any]) -> dict[Any, Any]:
+    """Batch-load live Users for Discover identity (name, honorific, avatar)."""
+    if not user_ids:
+        return {}
+    authors_by_id: dict[Any, Any] = {}
+    try:
+        from backend.models.production import User, production_users_safe_load
+
+        author_result = await db.execute(
+            select(User)
+            .options(production_users_safe_load())
+            .where(User.id.in_(set(user_ids)))
+        )
+        authors_by_id = {row.id: row for row in author_result.scalars().all()}
+    except Exception:
+        authors_by_id = {}
+    await _attach_unmapped_public_avatar(db, authors_by_id)
+    return authors_by_id
+
+
+async def _attach_unmapped_public_avatar(
+    db: AsyncSession, authors_by_id: dict[Any, Any]
+) -> None:
+    """Load live avatar columns onto User rows that do not map them.
+
+    production_users_safe_load omits unmapped public_avatar_* fields. Overlay
+    is skipped when the author object already carries public_avatar_url
+    (tests / mapped rows) so no extra lookup is required.
+    """
+    pending = {
+        uid: author
+        for uid, author in authors_by_id.items()
+        if author is not None and not hasattr(author, "public_avatar_url")
+    }
+    if not pending:
+        return
+    try:
+        result = await db.execute(
+            text(
+                "SELECT id, public_avatar_url, public_avatar_revision "
+                "FROM production_users WHERE id IN :ids"
+            ).bindparams(bindparam("ids", expanding=True)),
+            {"ids": list(pending.keys())},
+        )
+        rows = list(result.mappings())
+    except Exception:
+        return
+    by_id: dict[str, Any] = {}
+    for row in rows:
+        rid = row.get("id")
+        if rid is None:
+            continue
+        by_id[str(rid)] = row
+    for uid, author in pending.items():
+        row = by_id.get(str(uid))
+        if row is None:
+            continue
+        try:
+            author.public_avatar_url = row.get("public_avatar_url")
+            author.public_avatar_revision = row.get("public_avatar_revision")
+        except Exception:
+            continue
 
 
 def _strong_curiosity_unavailable_response() -> DiscoverMirrorListResponse:

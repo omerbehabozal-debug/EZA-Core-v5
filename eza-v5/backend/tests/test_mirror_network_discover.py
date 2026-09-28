@@ -14,6 +14,9 @@ from fastapi.testclient import TestClient
 from backend.main import app
 from backend.core.schemas.mirror_network import DiscoverMirrorItem, DiscoverMirrorListResponse
 from backend.services.mirror_network.discover import (
+    _attach_unmapped_public_avatar,
+    _discover_public_avatar_url,
+    _to_discover_item,
     is_canonical_discover_node_structure,
     is_public_discover_scene_url,
     is_public_discover_yansi_child,
@@ -127,6 +130,9 @@ async def test_list_discover_mirrors_preserves_yansi_count_dto():
     with patch(
         "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
         return_value=True,
+    ), patch(
+        "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
+        new=AsyncMock(return_value={}),
     ):
         response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
 
@@ -153,6 +159,9 @@ async def test_list_discover_excludes_data_scene_and_review_yansi():
     with patch(
         "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
         return_value=True,
+    ), patch(
+        "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
+        new=AsyncMock(return_value={}),
     ):
         response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
     assert response.total == 1
@@ -178,6 +187,9 @@ async def test_list_discover_excludes_restricted_includes_valid_linked():
     with patch(
         "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
         return_value=True,
+    ), patch(
+        "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
+        new=AsyncMock(return_value={}),
     ):
         response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
     slugs = {item.slug for item in response.items}
@@ -274,6 +286,9 @@ async def test_child_remains_eligible_when_parent_private():
     with patch(
         "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
         return_value=True,
+    ), patch(
+        "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
+        new=AsyncMock(return_value={}),
     ):
         response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
     assert response.total == 1
@@ -345,3 +360,243 @@ def test_discover_route_not_shadowed_by_slug():
     ):
         res = client.get("/api/mirror-network/discover")
     assert res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_discover_projects_live_public_avatar_from_user_not_node():
+    uid = uuid4()
+    avatar = f"/api/public/profile-avatars/{uid}.jpg"
+    node = _eligible_node(slug="kisilik-ve-degisim", user_id=uid)
+    assert getattr(node, "public_avatar_url", None) is None
+    author = SimpleNamespace(
+        id=uid,
+        public_display_name="Tarık Ayşe",
+        public_honorific="curious",
+        public_avatar_url=avatar,
+        public_avatar_revision=4,
+        email="hidden@example.com",
+        role="user",
+        account_tier="premium",
+        password_hash="secret-hash",
+    )
+    db = AsyncMock()
+    pool_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [node]))
+    children_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+    db.execute = AsyncMock(side_effect=[pool_result, _empty_result(), children_result])
+
+    with (
+        patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "backend.services.mirror_network.discover._load_discover_authors",
+            new=AsyncMock(return_value={uid: author}),
+        ),
+    ):
+        response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
+
+    assert len(response.items) == 1
+    dumped = response.items[0].model_dump()
+    assert dumped["authorDisplayName"] == "Tarık Ayşe"
+    assert dumped["publicAvatarUrl"] == avatar
+    assert dumped["publicAvatarRevision"] == 4
+    assert dumped["publicHonorific"] == "curious"
+    raw = json.dumps(dumped)
+    for key in FORBIDDEN_DISCOVER_KEYS:
+        assert key not in dumped
+        assert f'"{key}"' not in raw
+    assert "email" not in dumped
+    assert "user_id" not in dumped
+    assert "hidden@example.com" not in raw
+    assert "secret-hash" not in raw
+    assert "data/profile_avatars" not in raw
+    assert "password_hash" not in dumped
+
+
+@pytest.mark.asyncio
+async def test_discover_public_avatar_null_when_author_has_none():
+    uid = uuid4()
+    node = _eligible_node(slug="no-avatar-yansi", user_id=uid)
+    author = SimpleNamespace(
+        id=uid,
+        public_display_name="Tarık Ayşe",
+        public_honorific="bilgin",
+        public_avatar_url=None,
+        public_avatar_revision=0,
+        email="hidden@example.com",
+    )
+    db = AsyncMock()
+    pool_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [node]))
+    children_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+    db.execute = AsyncMock(side_effect=[pool_result, _empty_result(), children_result])
+
+    with (
+        patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "backend.services.mirror_network.discover._load_discover_authors",
+            new=AsyncMock(return_value={uid: author}),
+        ),
+    ):
+        response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
+
+    dumped = response.items[0].model_dump()
+    assert dumped["authorDisplayName"] == "Tarık Ayşe"
+    assert dumped["publicAvatarUrl"] is None
+    assert dumped["publicAvatarRevision"] == 0
+    assert "hidden@example.com" not in json.dumps(dumped)
+
+
+@pytest.mark.asyncio
+async def test_discover_omits_internal_avatar_storage_locator():
+    uid = uuid4()
+    node = _eligible_node(slug="internal-locator", user_id=uid)
+    internal = f"data/profile_avatars/{uid}.png"
+    author = SimpleNamespace(
+        id=uid,
+        public_display_name="Tarık Ayşe",
+        public_honorific="curious",
+        public_avatar_url=internal,
+        public_avatar_revision=1,
+        email="hidden@example.com",
+    )
+    db = AsyncMock()
+    pool_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [node]))
+    children_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+    db.execute = AsyncMock(side_effect=[pool_result, _empty_result(), children_result])
+
+    with (
+        patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "backend.services.mirror_network.discover._load_discover_authors",
+            new=AsyncMock(return_value={uid: author}),
+        ),
+    ):
+        response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
+
+    dumped = response.items[0].model_dump()
+    assert dumped["publicAvatarUrl"] is None
+    raw = json.dumps(dumped)
+    assert internal not in raw
+    assert "data/profile_avatars" not in raw
+    assert "hidden@example.com" not in raw
+
+
+@pytest.mark.asyncio
+async def test_discover_overlays_unmapped_user_avatar_columns():
+    """ORM User may omit public_avatar_url; live columns still project from user_id."""
+    uid = uuid4()
+    avatar = f"/api/public/profile-avatars/{uid}.jpg"
+
+    class _UnmappedUser:
+        def __init__(self):
+            self.id = uid
+            self.public_display_name = "Tarık Ayşe"
+            self.email = "hidden@example.com"
+
+    author = _UnmappedUser()
+    assert not hasattr(author, "public_avatar_url")
+    db = AsyncMock()
+    db.execute = AsyncMock(
+        return_value=SimpleNamespace(
+            mappings=lambda: [
+                {
+                    "id": uid,
+                    "public_avatar_url": avatar,
+                    "public_avatar_revision": 7,
+                }
+            ]
+        )
+    )
+    await _attach_unmapped_public_avatar(db, {uid: author})
+    assert author.public_avatar_url == avatar
+    assert author.public_avatar_revision == 7
+    assert _discover_public_avatar_url(author) == avatar
+
+    node = _eligible_node(slug="kisilik-ve-degisim", user_id=uid)
+    assert getattr(node, "public_avatar_url", None) is None
+    pool_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [node]))
+    children_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+    list_db = AsyncMock()
+    list_db.execute = AsyncMock(side_effect=[pool_result, _empty_result(), children_result])
+
+    with (
+        patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "backend.services.mirror_network.discover._load_discover_authors",
+            new=AsyncMock(return_value={uid: author}),
+        ),
+    ):
+        response = await list_discover_mirrors(list_db, limit=10, offset=0, mode="newest")
+
+    dumped = response.items[0].model_dump()
+    assert dumped["authorDisplayName"] == "Tarık Ayşe"
+    assert dumped["publicAvatarUrl"] == avatar
+    assert dumped["publicAvatarRevision"] == 7
+    assert "email" not in dumped
+    assert "userId" not in dumped
+    assert "hidden@example.com" not in json.dumps(dumped)
+
+
+def test_discover_item_ignores_client_payload_avatar():
+    uid = uuid4()
+    live = f"/api/public/profile-avatars/{uid}.jpg"
+    node = SimpleNamespace(
+        slug="kisilik-ve-degisim",
+        card_title="Kişilik ve Değişim",
+        public_payload={
+            "publicTitle": "Kişilik ve Değişim",
+            "publicAvatarUrl": "/api/public/profile-avatars/client-supplied.jpg",
+            "userId": str(uid),
+        },
+        published_at=None,
+        journey_version=1,
+    )
+    item = _to_discover_item(
+        node,
+        scene_url="https://cdn.example/a.png",
+        yansi_count=0,
+        author_display_name="Tarık Ayşe",
+        public_honorific="curious",
+        public_avatar_url=live,
+        public_avatar_revision=2,
+    )
+    dumped = item.model_dump()
+    assert dumped["publicAvatarUrl"] == live
+    assert dumped["authorDisplayName"] == "Tarık Ayşe"
+    assert "userId" not in dumped
+    assert "client-supplied" not in json.dumps(dumped)
+
+
+def test_discover_dto_avatar_contract_matches_public_profile():
+    fields = DiscoverMirrorItem.model_fields
+    assert "publicAvatarUrl" in fields
+    assert "publicAvatarRevision" in fields
+    assert "userId" not in fields
+    assert "email" not in fields
+    assert "user_id" not in fields

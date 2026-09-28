@@ -13,7 +13,7 @@ import { resolveYansiProductFromDiscoverItem } from '@/lib/eza/mirror/yansiProdu
 import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicMetricsLine';
 import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
-import { resolvePublicAvatarGrapheme } from '@/lib/eza/mirror/publicIdentity';
+import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 
 export type SainaDiscoverCardProps = {
   item: DiscoverMirror;
@@ -49,9 +49,14 @@ export default function SainaDiscoverCard({
       className="saina-discover-card__identity"
       data-testid={`saina-discover-card-identity-${item.slug}`}
     >
-      <span className="saina-discover-card__identity-avatar" aria-hidden>
-        {resolvePublicAvatarGrapheme(authorName)}
-      </span>
+      <ProfileUserAvatar
+        displayName={authorName}
+        avatarUrl={item.publicAvatarUrl}
+        cacheBust={item.publicAvatarRevision ?? undefined}
+        size="sm"
+        className="saina-discover-card__identity-avatar"
+        alt=""
+      />
       <span className="saina-discover-card__identity-name">{authorName}</span>
       <HonorificMarker honorific={item.publicHonorific} size="sm" />
     </div>

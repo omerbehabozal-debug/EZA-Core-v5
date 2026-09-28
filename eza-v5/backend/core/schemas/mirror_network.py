@@ -177,6 +177,8 @@ class DiscoverMirrorItem(BaseModel):
     # Public creator identity — display only. Never userId/email/plan/role.
     authorDisplayName: Optional[str] = None
     publicHonorific: Optional[str] = None
+    publicAvatarUrl: Optional[str] = None
+    publicAvatarRevision: int = 0
 
 
 class DiscoverMirrorListResponse(BaseModel):

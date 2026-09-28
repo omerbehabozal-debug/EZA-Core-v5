@@ -194,6 +194,8 @@ def test_discover_item_can_carry_display_honorific_without_user_id():
     dumped = item.model_dump()
     assert dumped["authorDisplayName"] == "Mert Karaca"
     assert dumped["publicHonorific"] == "bilgin"
+    assert dumped["publicAvatarUrl"] is None
+    assert dumped["publicAvatarRevision"] == 0
     assert "userId" not in dumped
     assert "email" not in dumped
     assert "account_tier" not in dumped
