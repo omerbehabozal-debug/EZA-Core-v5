@@ -479,4 +479,77 @@ describe('selectedSteps seal 6–8 into journey lineage (P1)', () => {
       expect(retryHash).toBe(stepsHash);
     }
   });
+
+  it('prefers server-canonical selectedSteps from prepare lineage over raw Review copy', async () => {
+    const { draft, scoped, selectedSteps, stepsHash } = await prepareAndSeal(
+      8,
+      'server-canon'
+    );
+    const rawAnswer = 'Satır bir.\n\nSatır iki.';
+    const canonicalAnswer = 'Satır bir. Satır iki.';
+    const rawClientSteps = selectedSteps.map((s, i) =>
+      i === 0 ? { ...s, publicAnswer: rawAnswer } : s
+    );
+    const serverCanonicalSteps = selectedSteps.map((s, i) =>
+      i === 0 ? { ...s, publicAnswer: canonicalAnswer } : s
+    );
+    const prepared = attachJourneySelectedStepsIfValid(
+      {
+        directorEnabled: true,
+        usedDirector: true,
+        applyTitle: true,
+        applyPrompt: true,
+        mappedPrompt: {
+          title: 'Title server-canon',
+          topicCategory: 'life',
+          season: 'autumn',
+          prompt: 'quiet reflective interior',
+          negativePrompt: '',
+          promptContract: 'v5',
+          titleSource: 'd2',
+          artDirectionSource: 'd2',
+        },
+        semanticScope: 'journey_window_v1' as const,
+        semanticSourceJourneyId: draft.journeyId,
+        semanticWindowIndex: 0,
+        semanticWindowHash: scoped.scope.windowHash,
+        scopedInputHash: scoped.scope.scopedInputHash,
+        selectedStepsHash: stepsHash,
+        journeyVersion: draft.journeyVersion ?? 1,
+        journeyGenerationLineage: {
+          journeyId: draft.journeyId,
+          journeyVersion: draft.journeyVersion ?? 1,
+          sourceConversationId: CONV,
+          windowIndex: 0,
+          windowStart: 0,
+          windowEnd: 7,
+          windowHash: scoped.scope.windowHash,
+          scopedInputHash: scoped.scope.scopedInputHash,
+          selectedStepsHash: stepsHash,
+          selectedCount: 8,
+          interpretationHash: 'interp-server-canon',
+          publicLandingHash: 'landing-server-canon',
+          mappedPromptHash: 'prompt-server-canon',
+          generationId: 'gen-server-canon',
+          selectedSteps: serverCanonicalSteps,
+        },
+        finalInterpretation: {
+          title: 'Title server-canon',
+          interpretationSummary: 'Summary',
+          rationale: 'r',
+          imageIntent: 'i',
+          visualNarrative: 'v',
+          atmosphereHint: 'a',
+          topicCategory: 'life',
+          confidence: 0.9,
+        },
+      },
+      rawClientSteps
+    );
+    const card = applyDirectorPrepareToCard(baseCard(), prepared);
+    expect(card.mirrorJourneyGenerationLineage?.selectedSteps?.[0]?.publicAnswer).toBe(
+      canonicalAnswer
+    );
+    expect(prepared.journeySelectedSteps?.[0]?.publicAnswer).toBe(rawAnswer);
+  });
 });

@@ -11,6 +11,44 @@ import hashlib
 import json
 from typing import Any, Mapping, Sequence
 
+from backend.core.schemas.mirror_draft import sanitize_display_text
+
+# Same max_len as MirrorJourneySelectedStepScopeDTO / MirrorConversationMessageDTO.
+JOURNEY_QA_SANITIZE_MAX_LEN = 4000
+
+
+def canonicalize_journey_qa_text(value: Any) -> str:
+    """Canonical public Q/A text for Journey window identity.
+
+    Uses the same ``sanitize_display_text`` semantics as prepare DTO validation
+    (control/HTML/URL strip, whitespace collapse, injection strip, 4000 cap).
+    """
+    return sanitize_display_text(str(value or ""), max_len=JOURNEY_QA_SANITIZE_MAX_LEN)
+
+
+def canonicalize_selected_journey_steps(
+    steps: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Copy selected steps with publicQuestion/publicAnswer canonicalized for hashing.
+
+    Does not mutate the caller's rows. Preserves stepIndex, source IDs, sourceOrder,
+    and any extra keys (questionHash, ezaSnapshot, …).
+    """
+    out: list[dict[str, Any]] = []
+    for step in steps:
+        row = dict(step)
+        row["publicQuestion"] = canonicalize_journey_qa_text(row.get("publicQuestion"))
+        row["publicAnswer"] = canonicalize_journey_qa_text(row.get("publicAnswer"))
+        out.append(row)
+    return out
+
+
+def _canonical_qa(step: Mapping[str, Any]) -> tuple[str, str]:
+    return (
+        canonicalize_journey_qa_text(step.get("publicQuestion")),
+        canonicalize_journey_qa_text(step.get("publicAnswer")),
+    )
+
 
 def _fnv1a32_hex(payload: str) -> str:
     """Match frontend computeReview8SnapshotHash (FNV-1a 32-bit)."""
@@ -57,8 +95,7 @@ def compute_window_hash(steps: Sequence[Mapping[str, Any]]) -> str:
         asst_id = (
             step.get("sourceAssistantMessageId") or step.get("assistantMessageId") or ""
         )
-        q = str(step.get("publicQuestion") or "")
-        a = str(step.get("publicAnswer") or "")
+        q, a = _canonical_qa(step)
         lines.append(f"{idx}|{user_id}|{asst_id}|{q}|{a}")
     return f"h{_fnv1a32_hex(chr(10).join(lines))}"
 
@@ -82,8 +119,7 @@ def compute_source_block_hash(steps: Sequence[Mapping[str, Any]]) -> str:
         asst_id = (
             step.get("sourceAssistantMessageId") or step.get("assistantMessageId") or ""
         )
-        q = str(step.get("publicQuestion") or "")
-        a = str(step.get("publicAnswer") or "")
+        q, a = _canonical_qa(step)
         lines.append(f"{order}|{user_id}|{asst_id}|{q}|{a}")
     return f"b{_fnv1a32_hex(chr(10).join(lines))}"
 
@@ -92,6 +128,7 @@ def compute_selected_steps_hash(steps: Sequence[Mapping[str, Any]]) -> str:
     """Canonical SHA-256 of normalized selected step public package."""
     rows = []
     for step in steps:
+        q, a = _canonical_qa(step)
         rows.append(
             {
                 "stepIndex": int(step.get("stepIndex", step.get("index") or 0)),
@@ -104,10 +141,10 @@ def compute_selected_steps_hash(steps: Sequence[Mapping[str, Any]]) -> str:
                     or step.get("assistantMessageId")
                     or ""
                 ),
-                "publicQuestion": str(step.get("publicQuestion") or ""),
-                "publicAnswer": str(step.get("publicAnswer") or ""),
-                "questionHash": compute_question_hash(str(step.get("publicQuestion") or "")),
-                "answerHash": compute_answer_hash(str(step.get("publicAnswer") or "")),
+                "publicQuestion": q,
+                "publicAnswer": a,
+                "questionHash": compute_question_hash(q),
+                "answerHash": compute_answer_hash(a),
             }
         )
     payload = json.dumps(rows, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -134,8 +171,7 @@ def compute_scoped_input_hash(
         asst_id = (
             step.get("sourceAssistantMessageId") or step.get("assistantMessageId") or ""
         )
-        q = str(step.get("publicQuestion") or "")
-        a = str(step.get("publicAnswer") or "")
+        q, a = _canonical_qa(step)
         step_lines.append(f"{idx}|{source_order}|{user_id}|{asst_id}|{q}|{a}")
     payload = "\n".join(
         [
@@ -158,8 +194,9 @@ def attach_step_content_hashes(
     out: list[dict[str, Any]] = []
     for step in steps:
         row = dict(step)
-        q = str(row.get("publicQuestion") or "")
-        a = str(row.get("publicAnswer") or "")
+        q, a = _canonical_qa(row)
+        row["publicQuestion"] = q
+        row["publicAnswer"] = a
         row["questionHash"] = compute_question_hash(q)
         row["answerHash"] = compute_answer_hash(a)
         out.append(row)

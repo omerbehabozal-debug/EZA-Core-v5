@@ -19,7 +19,11 @@ import {
 import { buildCuriosityFromInterpretation } from '@/lib/eza/mirror-network/buildCuriosityFromInterpretation';
 import { interpretationHashSync } from '@/lib/eza/mirror/mirrorLineageHash';
 import { JOURNEY_MAPPER_VERSION_V5 } from '@/lib/eza/mirror/journey/canReuseMappedPromptForJourney';
-import { sealJourneyGenerationLineage } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
+import {
+  sealJourneyGenerationLineage,
+  type JourneyGenerationLineageSelectedStep,
+} from '@/lib/eza/mirror/journey/journeyGenerationLineage';
+import { isValidJourneySelectedStepCount } from '@/lib/eza/mirror/journey/types';
 
 export type PrepareDirectorMappedPrompt = {
   title: string;
@@ -77,6 +81,51 @@ export type PrepareDirectorDraftResult = {
 
 function isSeason(value: string): value is SainaMirrorSeason {
   return (MIRROR_ART_DIRECTION_IDS as readonly string[]).includes(value);
+}
+
+function selectedStepsFromServerLineage(
+  serverLineage: Record<string, unknown> | null
+): JourneyGenerationLineageSelectedStep[] | null {
+  const raw = serverLineage?.selectedSteps;
+  if (!Array.isArray(raw) || !isValidJourneySelectedStepCount(raw.length)) {
+    return null;
+  }
+  const mapped: JourneyGenerationLineageSelectedStep[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') return null;
+    const step = row as Record<string, unknown>;
+    const publicQuestion =
+      typeof step.publicQuestion === 'string' ? step.publicQuestion : '';
+    const publicAnswer =
+      typeof step.publicAnswer === 'string' ? step.publicAnswer : '';
+    const sourceUserMessageId =
+      typeof step.sourceUserMessageId === 'string' ? step.sourceUserMessageId : '';
+    const sourceAssistantMessageId =
+      typeof step.sourceAssistantMessageId === 'string'
+        ? step.sourceAssistantMessageId
+        : '';
+    const stepIndex = Number(step.stepIndex);
+    const sourceOrder = Number(step.sourceOrder);
+    if (
+      !publicQuestion ||
+      !publicAnswer ||
+      !sourceUserMessageId ||
+      !sourceAssistantMessageId ||
+      !Number.isFinite(stepIndex) ||
+      !Number.isFinite(sourceOrder)
+    ) {
+      return null;
+    }
+    mapped.push({
+      stepIndex,
+      sourceOrder,
+      sourceUserMessageId,
+      sourceAssistantMessageId,
+      publicQuestion,
+      publicAnswer,
+    });
+  }
+  return mapped;
 }
 
 function applyD2Curiosity(
@@ -329,7 +378,10 @@ export function applyDirectorPrepareToCard(
           | undefined,
         parentJourneyId: serverLineage?.parentJourneyId as string | null | undefined,
       },
-      selectedSteps: prepared.journeySelectedSteps ?? null,
+      selectedSteps:
+        selectedStepsFromServerLineage(serverLineage) ??
+        prepared.journeySelectedSteps ??
+        null,
       interpretationHash:
         (serverLineage?.interpretationHash as string | undefined) || interpretationHash,
       mappedPromptHash: serverLineage?.mappedPromptHash as string | undefined,
