@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations"
 ALLOWED_IMAGE_SIZES = MIRROR_OPENAI_ALLOWED_IMAGE_SIZES
 REQUEST_TIMEOUT_SECONDS = 120.0
+# Explicit GPT Image fidelity. Omitting `quality` lets the API default to auto→HIGH.
+GPT_IMAGE_QUALITY = "medium"
 
 _USER_ERROR_MESSAGE = "Mirror sahnesi şu an hazırlanamadı. Daha sonra tekrar deneyebilirsin."
 
@@ -93,6 +95,8 @@ class OpenAIMirrorImageProvider(MirrorImageProvider):
         # Prefer inline base64 for frontend/export without CDN (DALL·E family).
         if self._model.startswith("dall-e"):
             payload["response_format"] = "b64_json"
+        elif self._model.startswith("gpt-image"):
+            payload["quality"] = GPT_IMAGE_QUALITY
         return payload
 
     async def _post_images(self, prompt: str, *, seed: str) -> dict[str, Any]:

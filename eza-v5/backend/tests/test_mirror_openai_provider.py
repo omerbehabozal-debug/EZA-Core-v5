@@ -228,6 +228,10 @@ async def test_openai_provider_sends_v5_minimal_prompt_without_legacy_append():
     assert "Quality:" not in payload["prompt"]
     assert "Style:" not in payload["prompt"]
     assert "eza_mirror_professional_v1" not in payload["prompt"]
+    assert payload["model"] == "gpt-image-1"
+    assert payload["size"] == provider._size
+    assert payload["n"] == 1
+    assert payload["quality"] == "medium"
 
 
 def test_factory_selects_openai_provider():
@@ -321,3 +325,46 @@ def test_endpoint_returns_openai_provider_when_mocked():
         data = res.json()
         assert data["provider"] == "openai"
         assert data["sceneImageUrl"].startswith("https://")
+
+
+def test_gpt_image_payload_pins_explicit_medium_quality():
+    """Production GPT Image must send quality=medium — omitting it bills HIGH."""
+    from backend.services.mirror.providers.openai_provider import GPT_IMAGE_QUALITY
+
+    provider = OpenAIMirrorImageProvider(
+        api_key="sk-test",
+        model="gpt-image-1",
+        size="1024x1024",
+    )
+    payload = provider._build_payload("scene prompt")
+    assert payload["model"] == "gpt-image-1"
+    assert payload["size"] == "1024x1024"
+    assert payload["n"] == 1
+    assert payload["quality"] == "medium"
+    assert payload["quality"] == GPT_IMAGE_QUALITY
+    assert payload["quality"] != "auto"
+    assert payload["quality"] != "high"
+    assert "response_format" not in payload
+
+
+def test_dalle_payload_does_not_send_gpt_image_quality():
+    provider = OpenAIMirrorImageProvider(
+        api_key="sk-test",
+        model="dall-e-3",
+        size="1024x1024",
+    )
+    payload = provider._build_payload("scene prompt")
+    assert payload["model"] == "dall-e-3"
+    assert payload["size"] == "1024x1024"
+    assert payload["n"] == 1
+    assert "quality" not in payload
+    assert payload["response_format"] == "b64_json"
+
+
+def test_gpt_image_quality_source_cannot_regress_to_omitted_auto():
+    from pathlib import Path
+
+    text = Path("services/mirror/providers/openai_provider.py").read_text(encoding="utf-8")
+    assert 'GPT_IMAGE_QUALITY = "medium"' in text
+    assert 'payload["quality"] = GPT_IMAGE_QUALITY' in text
+    assert 'elif self._model.startswith("gpt-image")' in text
