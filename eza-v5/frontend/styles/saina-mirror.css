@@ -20,6 +20,13 @@ html:has(.saina-page) body {
   --saina-brand-text: #e7b45b;
   --saina-sidebar-width: 288px;
   --saina-chat-column-width: min(68vw, 860px);
+  /* Desktop identity scale — same crop/halo family, size follows role. Mobile rules keep their own px. */
+  --bilign-avatar-primary: 88px;
+  --bilign-avatar-publisher: 56px;
+  --bilign-avatar-navigation: 40px;
+  --bilign-avatar-participant: 32px;
+  --bilign-avatar-participant-compact: 28px;
+  --bilign-avatar-halo: #b78949;
   position: fixed;
   inset: 0;
   width: 100%;
@@ -3933,8 +3940,8 @@ html:has(.saina-page) body {
 
 .saina-msg-avatar {
   display: flex;
-  height: 2rem;
-  width: 2rem;
+  height: var(--bilign-avatar-participant, 2rem);
+  width: var(--bilign-avatar-participant, 2rem);
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -6922,8 +6929,8 @@ button.saina-discover-card__title-open:focus-visible {
 }
 
 .bilign-profile-avatar--sm {
-  width: 1.75rem; /* 28px — Ayna author row */
-  height: 1.75rem;
+  width: var(--bilign-avatar-participant-compact, 28px);
+  height: var(--bilign-avatar-participant-compact, 28px);
   border-width: 1px;
 }
 

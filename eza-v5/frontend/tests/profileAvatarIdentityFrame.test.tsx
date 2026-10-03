@@ -120,9 +120,9 @@ describe('identity frame sizing tokens', () => {
     expect(css).toMatch(/\.bilign-avatar-identity-frame--profile[\s\S]*width:\s*83px/);
     expect(css).toMatch(/\.bilign-avatar-identity-frame--mobile[\s\S]*width:\s*76px/);
     expect(desktop).toMatch(/\.bilign-yansi-identity__mark[\s\S]*--saina-hero-identity-scale/);
-    expect(desktop).toMatch(/calc\(62px \* var\(--saina-hero-identity-scale\)\)/);
+    expect(desktop).toMatch(/width:\s*var\(--bilign-avatar-primary\)/);
     expect(desktop).toMatch(
-      /calc\(71px \* var\(--saina-hero-identity-scale\)\)/
+      /calc\(var\(--bilign-avatar-primary\) \* 96 \/ 84\)/
     );
     expect(desktop).toMatch(/\.bilign-yansi-identity__mark[\s\S]*display:\s*grid/);
     expect(css).not.toContain('bilign-avatar-orbit');
@@ -140,7 +140,8 @@ describe('identity frame sizing tokens', () => {
     );
     expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*width:\s*66px/);
     expect(mirror).toMatch(/height:\s*44px/);
-    expect(mirror).toMatch(/width:\s*1\.75rem;\s*\/\*\s*28px/);
+    expect(mirror).toMatch(/--bilign-avatar-participant-compact:\s*28px/);
+    expect(mirror).toMatch(/width:\s*var\(--bilign-avatar-participant-compact,\s*28px\)/);
   });
 
   it('replaces legacy octagonal orbit markup in hero scene', () => {

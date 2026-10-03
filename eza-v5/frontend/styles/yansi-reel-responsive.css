@@ -670,9 +670,11 @@
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__avatar,
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__avatar.bilign-profile-avatar--sm {
-    width: 3rem;
-    height: 3rem;
-    border-color: rgba(247, 240, 228, 0.28);
+    width: var(--bilign-avatar-publisher);
+    height: var(--bilign-avatar-publisher);
+    flex: 0 0 var(--bilign-avatar-publisher);
+    border-radius: 999px;
+    border-color: color-mix(in srgb, var(--bilign-avatar-halo) 62%, transparent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.36);
   }
 

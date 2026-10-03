@@ -483,6 +483,9 @@ describe('Phase 8.8F.2 sidebar visual contract', () => {
     expect(css).toMatch(/\.saina-conv-thumb\s*\{[^}]*width:\s*2\.625rem/);
     expect(desktop).toMatch(/\.saina-conv-thumb\s*\{[^}]*width:\s*42px/);
     expect(desktop).toMatch(/\.saina-conv-thumb\s*\{[^}]*height:\s*42px/);
+    expect(desktop).toMatch(
+      /@media \(min-width: 900px\)[\s\S]*\.saina-conv-thumb\s*\{[^}]*width:\s*var\(--bilign-avatar-navigation\)/
+    );
     expect(css).toMatch(/\.saina-sidebar-yansi-status[^{]*\{[^}]*width:\s*6px/);
     expect(css).toMatch(/\.saina-sidebar-yansi-status[^{]*\{[^}]*height:\s*6px/);
     const statusBlock = css.split('.saina-sidebar-yansi-status')[1]?.split('}')[0] ?? '';

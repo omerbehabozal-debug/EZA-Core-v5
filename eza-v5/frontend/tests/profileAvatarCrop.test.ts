@@ -181,11 +181,18 @@ describe('releaseOrientedAvatarImage', () => {
 
 describe('profileAvatarSizes', () => {
   it('documents identity scale tokens', async () => {
-    const { PROFILE_AVATAR_SIZE_PX } = await import('@/lib/eza/profile/profileAvatarSizes');
+    const { PROFILE_AVATAR_SIZE_PX, BILIGN_AVATAR_ROLE_PX } = await import(
+      '@/lib/eza/profile/profileAvatarSizes'
+    );
     expect(PROFILE_AVATAR_SIZE_PX.header).toBe(44);
     expect(PROFILE_AVATAR_SIZE_PX.panel).toBe(72);
     expect(PROFILE_AVATAR_SIZE_PX.heroDesktop).toBe(84);
     expect(PROFILE_AVATAR_SIZE_PX.heroMobile).toBe(66);
     expect(PROFILE_AVATAR_SIZE_PX.authorRow).toBe(28);
+    expect(BILIGN_AVATAR_ROLE_PX.primary).toBe(88);
+    expect(BILIGN_AVATAR_ROLE_PX.publisher).toBe(56);
+    expect(BILIGN_AVATAR_ROLE_PX.navigation).toBe(40);
+    expect(BILIGN_AVATAR_ROLE_PX.participant).toBe(32);
+    expect(BILIGN_AVATAR_ROLE_PX.participantCompact).toBe(28);
   });
 });

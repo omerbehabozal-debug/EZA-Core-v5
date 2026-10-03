@@ -536,7 +536,7 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toContain('clamp(4.75rem, 9.2vh, 5.5rem)');
     expect(css).toContain('--yansi-editorial-top-safe: 4.25rem');
     expect(css).toMatch(
-      /\.yansi-desktop-identity__avatar\.bilign-profile-avatar--sm[\s\S]*width:\s*3rem/
+      /\.yansi-desktop-identity__avatar\.bilign-profile-avatar--sm[\s\S]*width:\s*var\(--bilign-avatar-publisher\)/
     );
     expect(css).not.toContain('clamp(4.5rem, 8vh, 6.25rem)');
     expect(css).not.toMatch(

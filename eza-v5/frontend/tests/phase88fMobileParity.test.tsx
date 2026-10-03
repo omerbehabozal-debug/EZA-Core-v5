@@ -111,7 +111,7 @@ describe('Phase 8.8F-M mobile visual parity', () => {
       /@media \(min-width: 900px\)[\s\S]*--saina-hero-identity-scale:\s*1\.484/
     );
     expect(css).toMatch(
-      /@media \(min-width: 900px\)[\s\S]*calc\(62px \* var\(--saina-hero-identity-scale\)\)/
+      /@media \(min-width: 900px\)[\s\S]*width:\s*var\(--bilign-avatar-primary\)/
     );
     expect(css).toMatch(
       /@media \(min-width: 900px\)[\s\S]*\.saina-chat-card[\s\S]*border:\s*none/

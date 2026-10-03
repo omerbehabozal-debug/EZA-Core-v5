@@ -191,7 +191,7 @@ describe('Phase 8.8F Stage A Yansı-first composition', () => {
     expect(css).toContain('--saina-hero-name-size: clamp(20px, 1.28vw, 23px)');
     expect(css).toContain('clamp(18px, 1.37vw, 22px)');
     expect(css).toContain('bilign-yansi-identity__meta');
-    expect(css).toContain('calc(62px * var(--saina-hero-identity-scale))');
+    expect(css).toContain('width: var(--bilign-avatar-primary)');
     expect(css).toContain('-webkit-line-clamp: 2');
     expect(css).toContain('margin-top: auto');
     expect(css).toContain('justify-content: flex-start');
