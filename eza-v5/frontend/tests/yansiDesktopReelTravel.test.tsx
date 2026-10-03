@@ -2,11 +2,14 @@
  * Desktop Reel — vertical two-surface travel, identity lock, chat isolation.
  */
 import type { ReactElement } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
 import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
-import { YANSI_WHEEL_COMMIT_PX } from '@/lib/eza/mirror/journey/yansiDesktopWheelGesture';
+import {
+  YANSI_WHEEL_COMMIT_PX,
+  YANSI_WHEEL_LOCK_MS,
+} from '@/lib/eza/mirror/journey/yansiDesktopWheelGesture';
 import {
   YANSI_REEL_TRAVEL_MS,
   yansiReelSurfaceTransform,
@@ -97,6 +100,54 @@ function makeArtifact(
   };
 }
 
+/**
+ * One synthetic clock for wheel lock and travel timers.
+ * T0 is only a baseline. Every later reading is T0 plus a relative delta.
+ * The slide starts on the component's own 24ms fallback when rAF does not run.
+ */
+const CLOCK_ORIGIN = 5_000;
+const TRAVEL_MOTION_START_MS = 24;
+
+function installSyntheticClock() {
+  // Vitest seeds this clock at the real epoch. performance.now() is elapsed
+  // time on that same clock, which is what the wheel lock reads. Advance once
+  // so every test starts at T0 instead of 0 (lastEventAt 0 disables idle reset).
+  vi.useFakeTimers({
+    toFake: [
+      'setTimeout',
+      'clearTimeout',
+      'requestAnimationFrame',
+      'cancelAnimationFrame',
+      'performance',
+      'Date',
+    ],
+  });
+  vi.advanceTimersByTime(CLOCK_ORIGIN);
+}
+
+function syntheticNow(): number {
+  return performance.now();
+}
+
+async function flushAsync() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function advanceClock(deltaMs: number) {
+  const startedAt = syntheticNow();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(deltaMs);
+  });
+  expect(syntheticNow()).toBe(startedAt + deltaMs);
+}
+
 function wheel(target: Element, deltaY: number) {
   fireEvent.wheel(target, { deltaY, bubbles: true, cancelable: true });
 }
@@ -120,6 +171,7 @@ describe('desktop reel vertical travel', () => {
   });
 
   beforeEach(() => {
+    installSyntheticClock();
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) =>
       makeArtifact(slug)
@@ -144,14 +196,21 @@ describe('desktop reel vertical travel', () => {
     });
   });
 
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
   it('keeps A committed while B enters; never mixes title and scene', async () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
-    const chain = await screen.findByTestId('mirror-yansi-chain');
+    await flushAsync();
+    const chain = screen.getByTestId('mirror-yansi-chain');
+    expect(syntheticNow()).toBe(CLOCK_ORIGIN);
     expect(chain).toHaveAttribute('data-yansi-reel-transition', 'idle');
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
-    await waitFor(() => {
-      expect(chain).toHaveAttribute('data-yansi-reel-transition', 'down');
-    });
+    const committedAt = syntheticNow();
+    await flushAsync();
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'down');
     expect(chain).toHaveAttribute('data-active-slug', 'yansi-b');
     expect(chain).toHaveAttribute('data-yansi-incoming-slug', 'yansi-x');
     expect(chain).toHaveAttribute('data-yansi-reel-nav', 'locked');
@@ -175,20 +234,16 @@ describe('desktop reel vertical travel', () => {
       'data-yansi-scene-slug',
       'yansi-b'
     );
-    await waitFor(() => {
-      expect(outgoing).toHaveAttribute('data-yansi-traveling', 'true');
-    });
+    await advanceClock(TRAVEL_MOTION_START_MS);
+    expect(outgoing).toHaveAttribute('data-yansi-traveling', 'true');
     wheel(chain, 400);
     wheel(chain, 400);
     expect(chain).toHaveAttribute('data-active-slug', 'yansi-b');
     expect(vi.mocked(fetchDiscoverMirrors)).toHaveBeenCalledTimes(1);
 
-    await waitFor(
-      () => {
-        expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
-      },
-      { timeout: YANSI_REEL_TRAVEL_MS + 800 }
-    );
+    await advanceClock(YANSI_REEL_TRAVEL_MS - TRAVEL_MOTION_START_MS);
+    expect(syntheticNow()).toBe(committedAt + YANSI_REEL_TRAVEL_MS);
+    expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
     expect(chain).toHaveAttribute('data-yansi-reel-transition', 'idle');
     expect(screen.queryByTestId('yansi-desktop-reel-surface-outgoing')).toBeNull();
     expect(screen.getByTestId('mirror-yansi-active-title')).toHaveTextContent('Canonical yansi-x');
@@ -204,20 +259,29 @@ describe('desktop reel vertical travel', () => {
 
   it('reverse travel keeps B outgoing and A incoming', async () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
-    const chain = await screen.findByTestId('mirror-yansi-chain');
+    await flushAsync();
+    const chain = screen.getByTestId('mirror-yansi-chain');
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
-    await waitFor(
-      () => {
-        expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
-      },
-      { timeout: YANSI_REEL_TRAVEL_MS + 800 }
-    );
-    const now = vi.spyOn(performance, 'now');
-    now.mockReturnValue(20_000);
+    const committedAt = syntheticNow();
+    await flushAsync();
+    await advanceClock(YANSI_REEL_TRAVEL_MS);
+    expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'idle');
+    expect(syntheticNow()).toBe(committedAt + YANSI_REEL_TRAVEL_MS);
+    expect(syntheticNow()).toBeLessThan(committedAt + YANSI_WHEEL_LOCK_MS);
+
     wheel(chain, -(YANSI_WHEEL_COMMIT_PX + 40));
-    await waitFor(() => {
-      expect(chain).toHaveAttribute('data-yansi-reel-transition', 'up');
-    });
+    await flushAsync();
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'idle');
+    expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
+    expect(screen.queryByTestId('yansi-desktop-reel-surface-outgoing')).toBeNull();
+
+    await advanceClock(committedAt + YANSI_WHEEL_LOCK_MS - syntheticNow());
+    expect(syntheticNow()).toBe(committedAt + YANSI_WHEEL_LOCK_MS);
+
+    wheel(chain, -(YANSI_WHEEL_COMMIT_PX + 40));
+    await flushAsync();
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'up');
     expect(screen.getByTestId('yansi-desktop-reel-surface-outgoing')).toHaveAttribute(
       'data-yansi-surface-slug',
       'yansi-x'
@@ -226,32 +290,40 @@ describe('desktop reel vertical travel', () => {
       'data-yansi-surface-slug',
       'yansi-b'
     );
-    await waitFor(
-      () => {
-        expect(chain).toHaveAttribute('data-active-slug', 'yansi-b');
-      },
-      { timeout: YANSI_REEL_TRAVEL_MS + 800 }
+    expect(screen.getByTestId('mirror-yansi-active-title')).toHaveTextContent('Canonical yansi-x');
+    expect(screen.getByTestId('mirror-yansi-incoming-title')).toHaveTextContent('Canonical yansi-b');
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
+      'src',
+      'https://cdn.example/yansi-x.jpg'
     );
-    now.mockRestore();
+    expect(screen.getByTestId('mirror-yansi-scene-incoming-image')).toHaveAttribute(
+      'src',
+      'https://cdn.example/yansi-b.jpg'
+    );
+    await advanceClock(YANSI_REEL_TRAVEL_MS);
+    expect(chain).toHaveAttribute('data-active-slug', 'yansi-b');
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'idle');
+    expect(screen.queryByTestId('yansi-desktop-reel-surface-outgoing')).toBeNull();
+    expect(screen.getByTestId('mirror-yansi-active-title')).toHaveTextContent('Canonical yansi-b');
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
+      'src',
+      'https://cdn.example/yansi-b.jpg'
+    );
   });
 
   it('resets Detay as travel begins so B arrives collapsed', async () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
-    const chain = await screen.findByTestId('mirror-yansi-chain');
+    await flushAsync();
+    const chain = screen.getByTestId('mirror-yansi-chain');
     fireEvent.click(screen.getByTestId('yansi-desktop-detail-toggle'));
     expect(screen.getByTestId('yansi-desktop-summary-slot')).toHaveAttribute('data-open', 'true');
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
-    await waitFor(() => {
-      expect(chain).toHaveAttribute('data-yansi-reel-transition', 'down');
-    });
+    await flushAsync();
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'down');
     expect(screen.queryByTestId('yansi-desktop-summary-slot')).toBeNull();
     expect(screen.queryByTestId('yansi-desktop-detail-toggle')).toBeNull();
-    await waitFor(
-      () => {
-        expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
-      },
-      { timeout: YANSI_REEL_TRAVEL_MS + 800 }
-    );
+    await advanceClock(YANSI_REEL_TRAVEL_MS);
+    expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
     expect(screen.getByTestId('yansi-desktop-detail-toggle')).toHaveAttribute(
       'aria-expanded',
       'false'
@@ -261,8 +333,9 @@ describe('desktop reel vertical travel', () => {
 
   it('chat does not mount travel surfaces or consume reel wheel', async () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="chat" />);
-    const chain = await screen.findByTestId('mirror-yansi-chain');
-    await screen.findByTestId('yansi-chat-replay-layer');
+    await flushAsync();
+    const chain = screen.getByTestId('mirror-yansi-chain');
+    expect(screen.getByTestId('yansi-chat-replay-layer')).toBeTruthy();
     expect(screen.queryByTestId('yansi-desktop-reel-viewport')).toBeNull();
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
     expect(chain).toHaveAttribute('data-active-slug', 'yansi-b');

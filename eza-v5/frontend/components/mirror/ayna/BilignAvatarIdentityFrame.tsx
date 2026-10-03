@@ -9,7 +9,7 @@ import {
   AVATAR_IDENTITY_POLYGON_B,
 } from '@/lib/eza/profile/avatarIdentityFrameGeometry';
 
-export type BilignAvatarIdentityFrameVariant = 'hero' | 'profile' | 'mobile';
+export type BilignAvatarIdentityFrameVariant = 'hero' | 'profile' | 'mobile' | 'publisher';
 
 export type BilignAvatarIdentityFrameProps = {
   variant: BilignAvatarIdentityFrameVariant;

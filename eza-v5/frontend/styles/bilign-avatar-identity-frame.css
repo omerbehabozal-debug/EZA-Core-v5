@@ -96,6 +96,39 @@
   stroke-width: 1.7px;
 }
 
+/* Publisher signature — same polygon family as hero, scaled to the 56px role.
+   Photo diameter is the publisher token; the envelope keeps the 96/84 hero ratio. */
+.bilign-avatar-identity-frame--publisher {
+  width: var(--bilign-avatar-publisher, 56px);
+  height: var(--bilign-avatar-publisher, 56px);
+  flex: 0 0 var(--bilign-avatar-publisher, 56px);
+  overflow: visible;
+}
+
+.bilign-avatar-identity-frame--publisher .bilign-avatar-identity-frame__avatar,
+.bilign-avatar-identity-frame--publisher .bilign-avatar-identity-frame__avatar > * {
+  width: var(--bilign-avatar-publisher, 56px);
+  height: var(--bilign-avatar-publisher, 56px);
+  border-radius: 999px;
+}
+
+.bilign-avatar-identity-frame--publisher .bilign-avatar-identity-polygons {
+  width: calc(var(--bilign-avatar-publisher, 56px) * 96 / 84);
+  height: calc(var(--bilign-avatar-publisher, 56px) * 96 / 84);
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.bilign-avatar-identity-frame--publisher .bilign-avatar-identity-polygon--a {
+  stroke-width: 1.35px;
+}
+
+.bilign-avatar-identity-frame--publisher .bilign-avatar-identity-polygon--b {
+  stroke-width: 1.2px;
+}
+
 @media (max-width: 899px) {
   .bilign-avatar-identity-frame--hero {
     width: 66px;

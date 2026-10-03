@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
+import BilignAvatarIdentityFrame from '@/components/mirror/ayna/BilignAvatarIdentityFrame';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import YansiPublicMetricsLine from '@/components/mirror-landing/YansiPublicMetricsLine';
@@ -196,14 +197,16 @@ export default function YansiDesktopReelSurface({
             }
             onClick={() => router.push(authorProfilePath(node.artifact.authorUserId))}
           >
-            <ProfileUserAvatar
-              displayName={node.authorDisplayName}
-              userId={node.artifact.authorUserId}
-              avatarUrl={node.authorAvatarUrl}
-              cacheBust={node.authorAvatarRevision ?? undefined}
-              size="sm"
-              className="yansi-desktop-identity__avatar"
-            />
+            <BilignAvatarIdentityFrame variant="publisher">
+              <ProfileUserAvatar
+                displayName={node.authorDisplayName}
+                userId={node.artifact.authorUserId}
+                avatarUrl={node.authorAvatarUrl}
+                cacheBust={node.authorAvatarRevision ?? undefined}
+                size="sm"
+                className="yansi-desktop-identity__avatar"
+              />
+            </BilignAvatarIdentityFrame>
             <span className="yansi-desktop-identity__copy">
               <span className="yansi-desktop-identity__name-row">
                 <span className="yansi-desktop-identity__name">{node.authorDisplayName}</span>

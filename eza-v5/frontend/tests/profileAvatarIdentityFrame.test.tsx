@@ -124,6 +124,9 @@ describe('identity frame sizing tokens', () => {
     expect(desktop).toMatch(
       /calc\(var\(--bilign-avatar-primary\) \* 96 \/ 84\)/
     );
+    expect(css).toMatch(
+      /\.bilign-avatar-identity-frame--publisher[\s\S]*calc\(var\(--bilign-avatar-publisher, 56px\) \* 96 \/ 84\)/
+    );
     expect(desktop).toMatch(/\.bilign-yansi-identity__mark[\s\S]*display:\s*grid/);
     expect(css).not.toContain('bilign-avatar-orbit');
     expect(css).not.toContain('octagon');

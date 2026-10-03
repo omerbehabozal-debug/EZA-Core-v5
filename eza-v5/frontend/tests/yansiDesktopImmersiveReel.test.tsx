@@ -530,8 +530,11 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).not.toContain('content: none !important');
     expect(css).not.toContain('rgba(12, 14, 14, 0.88)');
     expect(css).not.toContain('width: 160px');
-    expect(css).toContain('clamp(2.5rem, 2.85vw, 2.625rem)');
-    expect(css).toContain('clamp(1.5rem, 1.65vw, 1.875rem)');
+    expect(css).toContain('--bilign-yansi-reel-title-size: 35px');
+    expect(css).toContain('font-size: var(--bilign-yansi-reel-title-size)');
+    expect(css).toContain('--bilign-yansi-reel-title-line-height: 1.1');
+    expect(css).toContain('--bilign-yansi-conversation-title-size: 24px');
+    expect(css).not.toContain('clamp(2.5rem, 2.85vw, 2.625rem)');
     expect(css).toContain('clamp(3.5rem, 4.15vw, 4rem)');
     expect(css).toContain('clamp(4.75rem, 9.2vh, 5.5rem)');
     expect(css).toContain('--yansi-editorial-top-safe: 4.25rem');
@@ -547,6 +550,8 @@ describe('desktop CSS + mobile freeze contracts', () => {
       'utf8'
     );
     expect(reelSurface).toContain('data-bilign-identity-role="publisher"');
+    expect(reelSurface).toContain('variant="publisher"');
+    expect(reelSurface).toContain('BilignAvatarIdentityFrame');
     expect(chain).toContain('data-bilign-identity-role="primary"');
     expect(chain).toContain('size="hero"');
     expect(chain).toContain('BilignAvatarIdentityFrame');
