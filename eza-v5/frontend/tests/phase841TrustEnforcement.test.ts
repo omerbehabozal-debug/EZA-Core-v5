@@ -46,9 +46,12 @@ describe('Phase 8.4.1 public mirror trust cache', () => {
   });
 
   it('landing and sohbet pages force dynamic / zero revalidate', () => {
-    const landing = readFileSync(join(process.cwd(), 'app/m/[slug]/page.tsx'), 'utf8');
+    const landing = readFileSync(
+      join(process.cwd(), 'app/(bilign)/m/[slug]/page.tsx'),
+      'utf8'
+    );
     const sohbet = readFileSync(
-      join(process.cwd(), 'app/m/[slug]/sohbet/page.tsx'),
+      join(process.cwd(), 'app/(bilign)/m/[slug]/sohbet/page.tsx'),
       'utf8'
     );
     expect(landing).toContain("dynamic = 'force-dynamic'");

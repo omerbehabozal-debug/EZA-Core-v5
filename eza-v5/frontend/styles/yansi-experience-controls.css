@@ -11,9 +11,9 @@
 @media (min-width: 900px) {
   .yansi-exp-rail {
     display: flex;
-    position: fixed;
-    z-index: 40;
-    right: 24px;
+    position: absolute;
+    z-index: 8;
+    right: clamp(1.15rem, 2.8vw, 2.5rem);
     top: 50%;
     transform: translateY(-50%);
     flex-direction: column;

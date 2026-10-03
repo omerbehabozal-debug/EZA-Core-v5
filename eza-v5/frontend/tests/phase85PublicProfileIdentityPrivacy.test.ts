@@ -102,7 +102,10 @@ describe('Phase 8.5 public identity privacy', () => {
   });
 
   it('27. share metadata page has no email-derived creator', () => {
-    const page = readFileSync(join(process.cwd(), 'app/m/[slug]/page.tsx'), 'utf8');
+    const page = readFileSync(
+      join(process.cwd(), 'app/(bilign)/m/[slug]/page.tsx'),
+      'utf8'
+    );
     expect(page).not.toMatch(/email/i);
     expect(page).not.toContain('split("@")');
   });

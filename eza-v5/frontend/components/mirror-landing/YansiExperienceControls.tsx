@@ -16,9 +16,11 @@ import {
 export default function YansiExperienceControls({
   actions,
   showPlaybackControls = true,
+  activeIdentity,
 }: {
   actions?: ReactNode;
   showPlaybackControls?: boolean;
+  activeIdentity?: string;
 }) {
   const session = useYansiExperienceSession();
   const [open, setOpen] = useState(false);
@@ -59,6 +61,8 @@ export default function YansiExperienceControls({
       className="yansi-exp-rail"
       data-testid="yansi-experience-controls"
       data-yansi-experience-rail="true"
+      data-yansi-rail-scope="canvas"
+      data-yansi-active-identity={activeIdentity || undefined}
       data-yansi-public-audio-rail={showPlaybackControls ? 'true' : undefined}
       data-yansi-contextual-slot={showPlaybackControls ? 'audio' : 'actions'}
       aria-label="Yansı deneyim kontrolleri"

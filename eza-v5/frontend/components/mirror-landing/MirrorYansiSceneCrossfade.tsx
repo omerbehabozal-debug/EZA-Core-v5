@@ -18,6 +18,8 @@ export type MirrorYansiSceneCrossfadeProps = {
   className?: string;
   /** mobile-fullscreen = cover; desktop-immersive = bleed + sharp plate. */
   presentation?: MirrorYansiScenePresentation;
+  /** Active Yansı identity — must match title/author/meta after navigation commit. */
+  activeIdentity?: string | null;
 };
 
 function prefersReducedMotion(): boolean {
@@ -49,7 +51,13 @@ function ScenePlate({
       {immersive ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt="" className="yansi-desktop-scene-bleed" aria-hidden />
+          <img
+            src={src}
+            alt=""
+            className="yansi-desktop-scene-bleed"
+            data-yansi-layer="atmosphere"
+            aria-hidden
+          />
           <div className="yansi-desktop-scene-bleed-dim" aria-hidden />
         </>
       ) : null}
@@ -58,6 +66,8 @@ function ScenePlate({
         src={src}
         alt=""
         data-testid={testId}
+        data-yansi-plate={immersive ? 'sharp' : undefined}
+        data-yansi-scene-src={src}
         className={
           immersive
             ? 'yansi-desktop-scene-image'
@@ -75,6 +85,7 @@ export default function MirrorYansiSceneCrossfade({
   sceneImageUrl,
   className,
   presentation = 'mobile-fullscreen',
+  activeIdentity = null,
 }: MirrorYansiSceneCrossfadeProps) {
   const nextUrl = (sceneImageUrl || '').trim() || null;
   const [front, setFront] = useState<string | null>(nextUrl);
@@ -112,6 +123,7 @@ export default function MirrorYansiSceneCrossfade({
       )}
       data-testid="mirror-yansi-scene-crossfade"
       data-yansi-scene-presentation={presentation}
+      data-yansi-scene-slug={activeIdentity || undefined}
       aria-hidden
     >
       <div className="absolute inset-0 bg-[#0c0b0a]" />

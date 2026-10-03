@@ -1,11 +1,13 @@
 /**
  * Desktop ≥900 public Yansı — immersive scene, wheel ownership, reel→chat.
  */
+import type { ReactElement } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
+import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
 import { YANSI_WHEEL_COMMIT_PX } from '@/lib/eza/mirror/journey/yansiDesktopWheelGesture';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 
@@ -104,6 +106,12 @@ function wheel(target: Element, deltaY: number) {
   fireEvent.wheel(target, { deltaY, bubbles: true, cancelable: true });
 }
 
+function renderChain(ui: ReactElement, slug = 'yansi-b') {
+  return render(
+    <YansiExperienceSessionProvider slug={slug}>{ui}</YansiExperienceSessionProvider>
+  );
+}
+
 describe('desktop immersive presentation', () => {
   beforeEach(() => {
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();
@@ -114,7 +122,7 @@ describe('desktop immersive presentation', () => {
   });
 
   it('uses immersive bleed + sharp plate, not the old contained-card stage', async () => {
-    render(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     const chain = await screen.findByTestId('mirror-yansi-chain');
     expect(chain).toHaveAttribute('data-yansi-reel-presentation', 'desktop-immersive');
     expect(chain).not.toHaveAttribute('data-yansi-reel-presentation', 'desktop-stage');
@@ -122,26 +130,39 @@ describe('desktop immersive presentation', () => {
       'data-yansi-scene-presentation',
       'desktop-immersive'
     );
+    expect(screen.getByTestId('mirror-yansi-scene-crossfade')).toHaveAttribute(
+      'data-yansi-scene-slug',
+      'yansi-b'
+    );
     const bleed = document.querySelector('.yansi-desktop-scene-bleed');
     expect(bleed).toBeTruthy();
+    expect(bleed).toHaveAttribute('data-yansi-layer', 'atmosphere');
     expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveClass(
       'yansi-desktop-scene-image'
+    );
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
+      'data-yansi-plate',
+      'sharp'
     );
     expect(screen.getByTestId('mirror-yansi-scene-current')).not.toHaveClass('object-cover');
   });
 
-  it('places avatar/author/meta above the large title', async () => {
-    render(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+  it('places identity/title as a canvas overlay, not document-flow metadata', async () => {
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     await screen.findByTestId('yansi-desktop-identity');
     const identity = screen.getByTestId('yansi-desktop-identity');
     const title = screen.getByTestId('mirror-yansi-active-title');
+    const block = screen.getByTestId('yansi-title-block');
     expect(identity.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(block).toHaveAttribute('data-yansi-copy-overlay', 'true');
+    expect(block).toHaveClass('yansi-desktop-visual-stack');
+    expect(title).toHaveClass('yansi-desktop-editorial-title');
     expect(screen.queryByText(/Merakıma ekle|Meraklarımda/)).toBeNull();
   });
 
   it('title activation stays on shared reel → chat depth without changing Yansı', async () => {
     const onDepthChange = vi.fn();
-    const { rerender } = render(
+    const { rerender } = renderChain(
       <MirrorYansiChainExperience
         rootArtifact={makeArtifact('yansi-b')}
         depth="reel"
@@ -152,11 +173,13 @@ describe('desktop immersive presentation', () => {
     fireEvent.click(screen.getByTestId('mirror-yansi-active-title'));
     expect(onDepthChange).toHaveBeenCalledWith('chat');
     rerender(
-      <MirrorYansiChainExperience
-        rootArtifact={makeArtifact('yansi-b')}
-        depth="chat"
-        onDepthChange={onDepthChange}
-      />
+      <YansiExperienceSessionProvider slug="yansi-b">
+        <MirrorYansiChainExperience
+          rootArtifact={makeArtifact('yansi-b')}
+          depth="chat"
+          onDepthChange={onDepthChange}
+        />
+      </YansiExperienceSessionProvider>
     );
     await screen.findByTestId('yansi-chat-replay-layer');
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
@@ -174,7 +197,7 @@ describe('desktop immersive presentation', () => {
   });
 
   it('returning from chat restores the same Yansı/index', async () => {
-    const { rerender } = render(
+    const { rerender } = renderChain(
       <MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="chat" />
     );
     await screen.findByTestId('mirror-yansi-chain');
@@ -183,7 +206,9 @@ describe('desktop immersive presentation', () => {
       '0'
     );
     rerender(
-      <MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />
+      <YansiExperienceSessionProvider slug="yansi-b">
+        <MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />
+      </YansiExperienceSessionProvider>
     );
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
       'data-active-slug',
@@ -227,7 +252,7 @@ describe('desktop reel wheel ownership', () => {
   });
 
   it('reel wheel down commits exactly one goDown', async () => {
-    render(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     const chain = await screen.findByTestId('mirror-yansi-chain');
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
     await waitFor(() => {
@@ -239,7 +264,7 @@ describe('desktop reel wheel ownership', () => {
   it('reel wheel up commits exactly one goUp after a prior down', async () => {
     const now = vi.spyOn(performance, 'now');
     now.mockReturnValue(10_000);
-    render(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     const chain = await screen.findByTestId('mirror-yansi-chain');
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
     await waitFor(() => {
@@ -254,7 +279,7 @@ describe('desktop reel wheel ownership', () => {
   });
 
   it('trackpad momentum cannot skip multiple Yansıs', async () => {
-    render(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     const chain = await screen.findByTestId('mirror-yansi-chain');
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
     wheel(chain, 400);
@@ -267,7 +292,7 @@ describe('desktop reel wheel ownership', () => {
   });
 
   it('chat disables Yansı wheel navigation and keeps conversation scroll marked', async () => {
-    render(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="chat" />);
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="chat" />);
     const chain = await screen.findByTestId('mirror-yansi-chain');
     await screen.findByTestId('yansi-chat-replay-layer');
     wheel(chain, 900);
@@ -279,22 +304,74 @@ describe('desktop reel wheel ownership', () => {
       'true'
     );
   });
+
+  it('after A → B commit, image + title + author + meta + rail all belong to B', async () => {
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    const chain = await screen.findByTestId('mirror-yansi-chain');
+    wheel(chain, YANSI_WHEEL_COMMIT_PX);
+    await waitFor(() => {
+      expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
+    });
+    expect(screen.getByTestId('mirror-yansi-scene-crossfade')).toHaveAttribute(
+      'data-yansi-scene-slug',
+      'yansi-x'
+    );
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
+      'src',
+      'https://cdn.example/yansi-x.jpg'
+    );
+    expect(screen.getByTestId('mirror-yansi-active-title')).toHaveAttribute(
+      'data-slug',
+      'yansi-x'
+    );
+    expect(screen.getByTestId('mirror-yansi-active-title')).toHaveTextContent(
+      'Canonical yansi-x'
+    );
+    expect(screen.getByTestId('yansi-desktop-identity')).toHaveAttribute(
+      'data-yansi-active-identity',
+      'yansi-x'
+    );
+    expect(screen.getByTestId('yansi-title-block')).toHaveAttribute(
+      'data-yansi-active-identity',
+      'yansi-x'
+    );
+    expect(screen.getByTestId('yansi-experience-controls')).toHaveAttribute(
+      'data-yansi-active-identity',
+      'yansi-x'
+    );
+    expect(screen.getByTestId('yansi-experience-controls')).toHaveAttribute(
+      'data-yansi-rail-scope',
+      'canvas'
+    );
+  });
 });
 
 describe('desktop CSS + mobile freeze contracts', () => {
   it('desktop CSS is immersive and mobile 899 block stays cover/fullscreen', () => {
     const css = readFileSync(join(process.cwd(), 'styles/yansi-reel-responsive.css'), 'utf8');
+    const railCss = readFileSync(join(process.cwd(), 'styles/yansi-experience-controls.css'), 'utf8');
     expect(css).toContain('yansi-desktop-scene-bleed');
     expect(css).toContain('yansi-desktop-visual-stack');
     expect(css).toContain('.yansi-desktop-reel-root');
     expect(css).toMatch(/\.yansi-desktop-reel-root[\s\S]*overflow:\s*hidden/);
     expect(css).toContain("[data-saina-view='yansi'] .saina-yansi-canvas-wrap");
+    expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*inset:\s*0/);
+    expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*object-fit:\s*cover/);
+    expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*object-fit:\s*contain/);
+    expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*height:\s*84%/);
+    expect(css).toMatch(/\.yansi-desktop-visual-stack[\s\S]*position:\s*absolute/);
+    expect(css).toContain('yansi-desktop-editorial-title');
     expect(css).not.toContain('html:has([data-mirror-landing-layout])');
     expect(css).not.toContain('max-width: min(920px, 100%)');
     expect(css).not.toContain('max-width: min(720px, 92vw)');
+    expect(css).not.toContain('34rem');
+    expect(css).not.toContain('68vh');
+    expect(railCss).toMatch(/\.yansi-exp-rail[\s\S]*position:\s*absolute/);
+    expect(railCss).not.toContain('position: fixed');
     const mobileBlock = css.slice(css.indexOf('@media (max-width: 899px)'));
     expect(mobileBlock).toContain('.yansi-mobile-fullscreen');
     expect(mobileBlock).toContain('.yansi-mobile-title-block');
     expect(mobileBlock).not.toContain('yansi-desktop-scene-bleed');
+    expect(mobileBlock).not.toContain('yansi-desktop-editorial-title');
   });
 });

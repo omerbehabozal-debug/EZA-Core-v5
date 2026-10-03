@@ -724,6 +724,7 @@ export default function MirrorYansiChainExperience({
       <MirrorYansiSceneCrossfade
         sceneImageUrl={activeNode.artifact.sceneImageUrl}
         presentation={isDesktop ? 'desktop-immersive' : 'mobile-fullscreen'}
+        activeIdentity={activeSlug}
       />
       {/* Readability veil — scene stays mounted; no brightness filter / no new asset. */}
       <div
@@ -848,7 +849,7 @@ export default function MirrorYansiChainExperience({
             data-testid={`mirror-yansi-section-${activeNode.artifact.slug}`}
             className={cn(
               'flex flex-col scroll-mt-4',
-              isDesktop ? 'min-h-[100dvh]' : 'min-h-[100dvh]',
+              isDesktop ? 'h-full min-h-0' : 'min-h-[100dvh]',
               showChatReplay && 'yansi-chat-section'
             )}
           >
@@ -861,9 +862,15 @@ export default function MirrorYansiChainExperience({
               )}
               data-yansi-title-position={titlePosition}
               data-testid="yansi-title-block"
+              data-yansi-copy-overlay={isDesktop ? 'true' : undefined}
+              data-yansi-active-identity={activeSlug}
             >
               {isDesktop ? (
-                <div className="yansi-desktop-identity" data-testid="yansi-desktop-identity">
+                <div
+                  className="yansi-desktop-identity"
+                  data-testid="yansi-desktop-identity"
+                  data-yansi-active-identity={activeSlug}
+                >
                   <button
                     type="button"
                     className="yansi-desktop-identity__author"
@@ -908,10 +915,13 @@ export default function MirrorYansiChainExperience({
                 <h2
                   className={cn(
                     'yansi-chat-title-heading font-semibold tracking-tight text-[#f5ead8]/90',
-                    isDesktop ? 'text-2xl leading-snug' : 'text-[1.15rem] leading-snug'
+                    isDesktop
+                      ? 'yansi-desktop-chat-title text-2xl leading-snug'
+                      : 'text-[1.15rem] leading-snug'
                   )}
                   data-testid="mirror-yansi-active-title"
                   data-slug={activeNode.artifact.slug}
+                  data-yansi-active-identity={activeSlug}
                   data-yansi-depth-role="chat-heading"
                   data-yansi-title-authority="canonical"
                 >
@@ -922,10 +932,13 @@ export default function MirrorYansiChainExperience({
                   type="button"
                   className={cn(
                     'yansi-reel-title-trigger w-full text-left font-semibold tracking-tight text-[#f5ead8]',
-                    isDesktop ? 'text-[2rem] leading-tight' : 'text-[1.35rem] leading-snug'
+                    isDesktop
+                      ? 'yansi-desktop-editorial-title text-[2rem] leading-tight'
+                      : 'text-[1.35rem] leading-snug'
                   )}
                   data-testid="mirror-yansi-active-title"
                   data-slug={activeNode.artifact.slug}
+                  data-yansi-active-identity={activeSlug}
                   data-yansi-depth-trigger="chat"
                   data-yansi-title-authority="canonical"
                   aria-label={`${title} — sohbete gir`}
@@ -1089,6 +1102,7 @@ export default function MirrorYansiChainExperience({
       {isDesktop ? (
         <YansiExperienceControls
           showPlaybackControls={showChatReplay}
+          activeIdentity={activeSlug}
           actions={
             <>
               <YansiSaveButton
