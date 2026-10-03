@@ -114,9 +114,13 @@ describe('Phase 8.8F Stage 9 isolation', () => {
     expect(hero).toContain('ProfileUserAvatar');
     expect(hero).toContain('avatarUrl');
     expect(hero).toContain('honorificLabel');
-    expect(read('components/mirror-landing/MirrorYansiChainExperience.tsx')).toContain(
-      'AynaAuthorRow'
-    );
+    const publicChain = read('components/mirror-landing/MirrorYansiChainExperience.tsx');
+    expect(publicChain).toContain('yansi-desktop-identity');
+    expect(publicChain).toContain('ProfileUserAvatar');
+    expect(publicChain).toContain('HonorificMarker');
+    expect(publicChain).toContain('authorHonorific');
+    expect(publicChain).not.toContain('planLabel');
+    expect(publicChain).not.toContain('kullanıcı adı');
     expect(shell).toContain('SainaHeroScene');
     expect(shell).toContain('resolveSainaUserDisplayName');
     expect(shell).toContain('resolveYansiCreatorHonorific');
