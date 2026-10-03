@@ -771,14 +771,9 @@ export default function MirrorYansiChainExperience({
                   ) : null}
                 </div>
               ) : null}
-              {showChatReplay ? (
+              {showChatReplay && !isDesktop ? (
                 <h2
-                  className={cn(
-                    'yansi-chat-title-heading font-semibold tracking-tight text-[#f5ead8]/90',
-                    isDesktop
-                      ? 'yansi-desktop-chat-title text-2xl leading-snug'
-                      : 'text-[1.15rem] leading-snug'
-                  )}
+                  className="yansi-chat-title-heading font-semibold tracking-tight text-[#f5ead8]/90 text-[1.15rem] leading-snug"
                   data-testid="mirror-yansi-active-title"
                   data-slug={activeNode.artifact.slug}
                   data-yansi-active-identity={activeSlug}
@@ -792,17 +787,18 @@ export default function MirrorYansiChainExperience({
                   type="button"
                   className={cn(
                     'yansi-reel-title-trigger w-full text-left font-semibold tracking-tight text-[#f5ead8]',
-                    isDesktop
-                      ? 'yansi-desktop-editorial-title text-[2rem] leading-tight'
-                      : 'text-[1.35rem] leading-snug'
+                    isDesktop && showChatReplay && 'yansi-desktop-chat-title yansi-chat-title-heading',
+                    isDesktop && !showChatReplay && 'yansi-desktop-editorial-title',
+                    !isDesktop && 'text-[1.35rem] leading-snug'
                   )}
                   data-testid="mirror-yansi-active-title"
                   data-slug={activeNode.artifact.slug}
                   data-yansi-active-identity={activeSlug}
-                  data-yansi-depth-trigger="chat"
+                  data-yansi-depth-role={showChatReplay ? 'chat-heading' : undefined}
+                  data-yansi-depth-trigger={showChatReplay ? undefined : 'chat'}
                   data-yansi-title-authority="canonical"
-                  aria-label={`${title} — sohbete gir`}
-                  onClick={openChatDepth}
+                  aria-label={showChatReplay ? title : `${title} — sohbete gir`}
+                  onClick={showChatReplay ? undefined : openChatDepth}
                 >
                   {title}
                 </button>
@@ -997,8 +993,12 @@ export default function MirrorYansiChainExperience({
 
             {showChatReplay ? (
               <div
-                className="yansi-chat-replay-layer min-h-0 flex-1"
+                className={cn(
+                  'yansi-chat-replay-layer min-h-0 flex-1',
+                  isDesktop && 'yansi-desktop-conversation-lane'
+                )}
                 data-testid="yansi-chat-replay-layer"
+                data-yansi-conversation-lane={isDesktop ? 'true' : undefined}
                 data-yansi-chat-scroll="true"
                 data-yansi-chat-reveal={chatReveal === 'idle' ? 'settled' : chatReveal}
               >

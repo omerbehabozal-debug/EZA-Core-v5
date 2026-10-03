@@ -388,7 +388,10 @@ export default function MirrorFrozenReplay({
         </div>
       </div>
 
-      <div className="shrink-0 space-y-3 pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div
+        className="yansi-chat-composer-lane shrink-0 space-y-3 pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        data-testid="yansi-chat-composer-lane"
+      >
         {replayFinished ? (
           <div
             className="yansi-chat-end-decision flex flex-col gap-3"

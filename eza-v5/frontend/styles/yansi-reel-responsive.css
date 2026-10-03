@@ -198,6 +198,20 @@
     overflow-y: auto;
   }
 
+  .yansi-desktop-cinematic-stage {
+    --yansi-scene-fit: cover;
+    --yansi-scene-pos-x: 63%;
+    --yansi-scene-pos-y: 46%;
+    --yansi-scene-pos: var(--yansi-scene-pos-x) var(--yansi-scene-pos-y);
+    --yansi-focus-x: 63%;
+    --yansi-focus-y: 46%;
+    --yansi-lane-width: min(40.625rem, 92%);
+    --yansi-lane-max: 40.625rem;
+    --yansi-title-inline: clamp(3.5rem, 4.4vw, 4.5rem);
+    --yansi-title-bottom: clamp(4.5rem, 8vh, 6.25rem);
+    --yansi-depth-ease: 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   .yansi-desktop-scene-canvas {
     position: absolute;
     inset: 0;
@@ -213,80 +227,87 @@
     height: 100%;
   }
 
-  .yansi-desktop-scene-bleed {
+  .yansi-desktop-scene-bleed,
+  .yansi-desktop-scene-image {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    filter: blur(26px) saturate(1.28);
-    transform: scale(1.16);
+    object-fit: var(--yansi-scene-fit);
+    object-position: var(--yansi-scene-pos);
+    transform: none;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .yansi-desktop-scene-bleed {
+    filter: blur(10px) saturate(1.08) brightness(1.02);
+    transition: filter var(--yansi-depth-ease);
   }
 
   .yansi-desktop-scene-bleed-dim {
     position: absolute;
     inset: 0;
-    background: rgba(9, 11, 11, 0.08);
+    background: transparent;
   }
 
   .yansi-desktop-scene-image {
-    position: absolute;
-    left: 62%;
-    top: 48%;
-    transform: translate(-50%, -50%);
-    height: 74%;
-    width: auto;
-    aspect-ratio: 1 / 1;
-    max-width: 52%;
-    object-fit: contain;
-    border: 0;
-    box-shadow: none;
-    border-radius: 0;
+    opacity: 1;
+    filter: none;
     mask-image: radial-gradient(
-      ellipse 82% 82% at 50% 50%,
-      #000 58%,
-      rgba(0, 0, 0, 0.62) 80%,
+      ellipse 92% 88% at var(--yansi-focus-x) var(--yansi-focus-y),
+      #000 0%,
+      #000 18%,
+      rgba(0, 0, 0, 0.88) 36%,
+      rgba(0, 0, 0, 0.58) 52%,
+      rgba(0, 0, 0, 0.28) 68%,
+      rgba(0, 0, 0, 0.08) 82%,
       transparent 100%
     );
     -webkit-mask-image: radial-gradient(
-      ellipse 82% 82% at 50% 50%,
-      #000 58%,
-      rgba(0, 0, 0, 0.62) 80%,
+      ellipse 92% 88% at var(--yansi-focus-x) var(--yansi-focus-y),
+      #000 0%,
+      #000 18%,
+      rgba(0, 0, 0, 0.88) 36%,
+      rgba(0, 0, 0, 0.58) 52%,
+      rgba(0, 0, 0, 0.28) 68%,
+      rgba(0, 0, 0, 0.08) 82%,
       transparent 100%
     );
+    transition:
+      opacity var(--yansi-depth-ease),
+      filter var(--yansi-depth-ease);
   }
 
   .yansi-desktop-scene-blend {
-    background:
-      radial-gradient(
-        ellipse 80% 78% at 62% 48%,
-        rgba(9, 11, 11, 0) 28%,
-        rgba(9, 11, 11, 0.06) 72%,
-        rgba(9, 11, 11, 0.14) 100%
-      ),
-      linear-gradient(
-        180deg,
-        rgba(9, 11, 11, 0.04) 0%,
-        rgba(9, 11, 11, 0.02) 48%,
-        rgba(9, 11, 11, 0.22) 100%
-      );
+    background: radial-gradient(
+      ellipse 80% 70% at 18% 82%,
+      rgba(9, 11, 11, 0.22) 0%,
+      rgba(9, 11, 11, 0) 72%
+    );
+    pointer-events: none;
+    transition: opacity var(--yansi-depth-ease);
   }
 
   [data-saina-view='yansi'] .yansi-chat-replay-layer {
-    max-width: min(45rem, 86%);
+    max-width: var(--yansi-lane-width);
   }
 
   [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-ai,
   [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-user {
     width: fit-content;
-    max-width: min(40rem, 100%);
+    font-size: 0.96875rem;
+    line-height: 1.5;
   }
 
   [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-ai {
+    max-width: 85%;
+    padding: 0.7rem 0.9rem;
     background: linear-gradient(
       160deg,
-      rgba(18, 20, 20, 0.52) 0%,
-      rgba(10, 12, 12, 0.36) 100%
+      rgba(18, 20, 20, 0.58) 0%,
+      rgba(10, 12, 12, 0.4) 100%
     );
     border-color: rgba(232, 226, 215, 0.14);
     color: #f4f0e8;
@@ -298,10 +319,13 @@
 
   [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-user,
   [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-user--standalone {
+    max-width: 75%;
+    margin-left: auto;
+    padding: 0.62rem 0.85rem;
     background: linear-gradient(
       155deg,
-      rgba(255, 252, 245, 0.82) 0%,
-      rgba(246, 236, 214, 0.68) 100%
+      rgba(255, 252, 245, 0.86) 0%,
+      rgba(246, 236, 214, 0.72) 100%
     );
     border-color: rgba(232, 213, 181, 0.28);
     color: #1a1b1c;
@@ -316,16 +340,20 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.7rem;
-    width: min(36rem, 46%);
-    max-width: 40.625rem;
+    gap: 0.55rem;
+    width: min(40rem, 70%);
+    max-width: 40rem;
     margin: 0;
     pointer-events: none;
     transition:
-      top 280ms ease-out,
-      bottom 280ms ease-out,
-      padding 280ms ease-out,
-      width 280ms ease-out;
+      top var(--yansi-depth-ease),
+      bottom var(--yansi-depth-ease),
+      left var(--yansi-depth-ease),
+      padding var(--yansi-depth-ease),
+      width var(--yansi-depth-ease),
+      max-width var(--yansi-depth-ease),
+      transform var(--yansi-depth-ease),
+      background var(--yansi-depth-ease);
   }
 
   .yansi-desktop-visual-stack > * {
@@ -334,41 +362,46 @@
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] {
     top: auto;
+    left: 0;
     bottom: 0;
+    transform: none;
     margin-top: 0;
-    padding: 4.5rem 1.5rem 2.1rem 2rem;
+    padding: 4.75rem 1.25rem var(--yansi-title-bottom) var(--yansi-title-inline);
     background: linear-gradient(
-      180deg,
-      rgba(9, 11, 11, 0) 0%,
-      rgba(9, 11, 11, 0.16) 48%,
-      rgba(9, 11, 11, 0.38) 100%
+      108deg,
+      rgba(9, 11, 11, 0.42) 0%,
+      rgba(9, 11, 11, 0.16) 46%,
+      rgba(9, 11, 11, 0) 78%
     );
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='elevated'] {
-    top: 4.75rem;
+    top: 4.2rem;
+    left: 50%;
     bottom: auto;
-    width: min(36rem, 52%);
-    max-width: 40.625rem;
+    width: var(--yansi-lane-width);
+    max-width: var(--yansi-lane-max);
+    transform: translateX(-50%);
     margin-top: 0;
-    padding: 0.45rem 1.5rem 1rem 2rem;
-    background: linear-gradient(
-      180deg,
-      rgba(9, 11, 11, 0.28) 0%,
-      rgba(9, 11, 11, 0.1) 72%,
-      rgba(9, 11, 11, 0) 100%
-    );
+    padding: 0.15rem 0.2rem 0.35rem;
+    background: transparent;
   }
 
   .yansi-desktop-editorial-title {
-    font-size: clamp(2rem, 2.4vw, 3.25rem);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
+    font-size: clamp(2.15rem, 2.55vw, 3.15rem);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    max-width: 40rem;
+    transition:
+      font-size var(--yansi-depth-ease),
+      line-height var(--yansi-depth-ease),
+      letter-spacing var(--yansi-depth-ease);
   }
 
   .yansi-desktop-chat-title {
-    font-size: clamp(1.35rem, 2vw, 1.75rem);
-    line-height: 1.2;
+    font-size: clamp(1.5rem, 1.65vw, 1.875rem);
+    line-height: 1.22;
+    letter-spacing: -0.02em;
   }
 
   .yansi-desktop-identity {
@@ -411,33 +444,137 @@
     display: none;
   }
 
-  .yansi-desktop-cinematic-stage .yansi-chat-replay-layer {
-    max-width: min(45rem, 86%);
-    padding-top: 8.25rem;
-    padding-bottom: 2rem;
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] [data-testid='mirror-yansi-chain-scroll'] {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
-  .yansi-desktop-cinematic-stage .yansi-exp-rail {
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-chat-section {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .yansi-desktop-cinematic-stage .yansi-chat-replay-layer {
+    width: var(--yansi-lane-width);
+    max-width: var(--yansi-lane-max);
+    margin-inline: auto;
+    padding-top: 10.25rem;
+    padding-bottom: 1.25rem;
+    transition:
+      opacity var(--yansi-depth-ease),
+      transform var(--yansi-depth-ease);
+  }
+
+  .yansi-desktop-cinematic-stage .yansi-chat-replay-layer[data-yansi-chat-reveal='entering'] {
+    animation-duration: 400ms;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-chat-replay-layer {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] [data-testid='mirror-frozen-replay'] {
+    min-height: 100%;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] [data-testid='mirror-frozen-replay-thread'] {
+    flex: 1 1 auto;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-chat-composer-lane {
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    width: 100%;
+    max-width: var(--yansi-lane-max);
+    margin-inline: auto;
+    padding-top: 0.85rem;
+    padding-bottom: max(1.15rem, env(safe-area-inset-bottom));
+    background: linear-gradient(
+      180deg,
+      rgba(9, 11, 11, 0) 0%,
+      rgba(9, 11, 11, 0.18) 36%,
+      rgba(9, 11, 11, 0.28) 100%
+    );
+  }
+
+  .yansi-desktop-cinematic-stage .yansi-exp-rail,
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-exp-rail {
     position: absolute;
+    left: auto;
     right: 1.25rem;
-    top: 58%;
+    top: 42%;
     transform: translateY(-50%);
     z-index: 8;
+    transition:
+      right var(--yansi-depth-ease),
+      top var(--yansi-depth-ease),
+      opacity 300ms ease;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-desktop-identity {
+    gap: 0.18rem;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-desktop-identity__name {
+    font-size: 0.84rem;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-desktop-identity__meta {
+    font-size: 0.66rem;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-desktop-scene-bleed {
+    filter: blur(14px) saturate(1.04) brightness(0.96);
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-desktop-scene-image {
+    opacity: 0.64;
+    filter: blur(2.5px) brightness(0.94) saturate(0.98);
+  }
+
+  .yansi-chat-scene-veil {
+    transition: opacity var(--yansi-depth-ease), background var(--yansi-depth-ease);
   }
 
   .yansi-chat-scene-veil--active {
-    background: linear-gradient(
-      180deg,
-      rgba(9, 11, 11, 0.35) 0%,
-      rgba(9, 11, 11, 0.48) 45%,
-      rgba(9, 11, 11, 0.78) 100%
-    );
+    background:
+      radial-gradient(
+        ellipse 42rem 92% at 50% 46%,
+        rgba(9, 11, 11, 0.38) 0%,
+        rgba(9, 11, 11, 0.18) 42%,
+        rgba(9, 11, 11, 0.05) 68%,
+        transparent 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(9, 11, 11, 0.12) 0%,
+        rgba(9, 11, 11, 0) 28%,
+        rgba(9, 11, 11, 0) 62%,
+        rgba(9, 11, 11, 0.22) 100%
+      );
   }
 
   /* Desktop public Audio occupies the right contextual utility rail (Ayna-equivalent). */
   .yansi-exp-rail[data-yansi-public-audio-rail='true'] {
     opacity: 0;
     animation: yansi-audio-slot-in 240ms ease-out 120ms both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yansi-desktop-scene-bleed,
+    .yansi-desktop-scene-image,
+    .yansi-desktop-visual-stack,
+    .yansi-chat-replay-layer {
+      transition: none !important;
+    }
   }
 }
 

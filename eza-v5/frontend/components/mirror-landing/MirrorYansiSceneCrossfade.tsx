@@ -4,8 +4,8 @@
  * Phase 5.1 — soft scene crossfade between stored Yansı backgrounds.
  * Uses two layers; never regenerates images.
  *
- * Desktop immersive: same source as atmosphere + high-detail focal region.
- * Both layers share cover framing so the plate dissolves into the scene.
+ * Desktop immersive: environment + focus field from the same cover crop.
+ * Layers stay spatially locked; chat changes depth, not composition.
  */
 
 import { useLayoutEffect, useState } from 'react';
@@ -16,7 +16,7 @@ export type MirrorYansiScenePresentation = 'mobile-fullscreen' | 'desktop-immers
 export type MirrorYansiSceneCrossfadeProps = {
   sceneImageUrl: string | null | undefined;
   className?: string;
-  /** mobile-fullscreen = cover; desktop-immersive = bleed + sharp plate. */
+  /** mobile-fullscreen = cover; desktop-immersive = shared-crop focus field. */
   presentation?: MirrorYansiScenePresentation;
   /** Active Yansı identity — must match title/author/meta after navigation commit. */
   activeIdentity?: string | null;
@@ -134,6 +134,7 @@ export default function MirrorYansiSceneCrossfade({
       )}
       data-testid="mirror-yansi-scene-crossfade"
       data-yansi-scene-presentation={presentation}
+      data-yansi-scene-crop={immersive ? 'shared-cover' : undefined}
       data-yansi-scene-slug={activeIdentity || undefined}
       aria-hidden
     >

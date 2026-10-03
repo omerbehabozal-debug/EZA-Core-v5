@@ -134,6 +134,10 @@ describe('desktop immersive presentation', () => {
       'data-yansi-scene-slug',
       'yansi-b'
     );
+    expect(screen.getByTestId('mirror-yansi-scene-crossfade')).toHaveAttribute(
+      'data-yansi-scene-crop',
+      'shared-cover'
+    );
     const bleed = document.querySelector('.yansi-desktop-scene-bleed');
     expect(bleed).toBeTruthy();
     expect(bleed).toHaveAttribute('data-yansi-layer', 'atmosphere');
@@ -195,6 +199,24 @@ describe('desktop immersive presentation', () => {
     expect(screen.getByTestId('yansi-chat-replay-layer')).toHaveAttribute(
       'data-yansi-chat-scroll',
       'true'
+    );
+    expect(screen.getByTestId('mirror-yansi-active-title')).toHaveClass(
+      'yansi-desktop-chat-title'
+    );
+    expect(screen.getByTestId('yansi-chat-composer-lane')).toBeInTheDocument();
+    expect(screen.getByTestId('yansi-chat-replay-layer')).toHaveAttribute(
+      'data-yansi-conversation-lane',
+      'true'
+    );
+    expect(screen.getByTestId('yansi-chat-replay-layer')).toHaveClass(
+      'yansi-desktop-conversation-lane'
+    );
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
+      'src',
+      'https://cdn.example/yansi-b.jpg'
+    );
+    expect(screen.getByTestId('yansi-chat-scene-veil')).toHaveClass(
+      'yansi-chat-scene-veil--active'
     );
   });
 
@@ -358,29 +380,56 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toMatch(/\.yansi-desktop-reel-root[\s\S]*overflow:\s*hidden/);
     expect(css).toContain("[data-saina-view='yansi'] .saina-yansi-canvas-wrap");
     expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*inset:\s*0/);
-    expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*object-fit:\s*cover/);
-    expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*object-fit:\s*contain/);
-    expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*height:\s*74%/);
+    expect(css).toContain('--yansi-scene-fit: cover');
+    expect(css).toContain('--yansi-scene-pos-x: 63%');
+    expect(css).toContain('--yansi-scene-pos-y: 46%');
+    expect(css).toContain('--yansi-lane-max: 40.625rem');
+    expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*object-fit:\s*var\(--yansi-scene-fit\)/);
+    expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*object-fit:\s*var\(--yansi-scene-fit\)/);
+    expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*object-position:\s*var\(--yansi-scene-pos\)/);
+    expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*object-position:\s*var\(--yansi-scene-pos\)/);
+    expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*blur\(10px\)/);
+    expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*radial-gradient/);
     expect(css).toContain("data-saina-view='yansi'] .saina-canvas");
     expect(css).toContain('position: absolute');
     expect(css).toContain('inset: 0');
     expect(css).toMatch(/\.yansi-desktop-reel-root[\s\S]*inset:\s*0/);
     expect(css).toContain('saina-canvas::after');
     expect(css).toContain("content: none !important");
-    expect(css).toContain('clamp(2rem, 2.4vw, 3.25rem)');
+    expect(css).toContain('clamp(2.15rem, 2.55vw, 3.15rem)');
+    expect(css).toContain('clamp(1.5rem, 1.65vw, 1.875rem)');
+    expect(css).toContain('clamp(3.5rem, 4.4vw, 4.5rem)');
+    expect(css).toContain('clamp(4.5rem, 8vh, 6.25rem)');
     expect(css).toMatch(/\.yansi-desktop-visual-stack[\s\S]*position:\s*absolute/);
     expect(css).toContain('yansi-desktop-editorial-title');
+    expect(css).toContain('.yansi-chat-composer-lane');
+    expect(css).toMatch(
+      /\[data-yansi-public-depth='chat'\][\s\S]*\.yansi-desktop-scene-image[\s\S]*opacity:\s*0\.64/
+    );
+    expect(css).toMatch(
+      /\[data-yansi-public-depth='chat'\][\s\S]*\.yansi-desktop-scene-image[\s\S]*blur\(2\.5px\)/
+    );
     expect(css).not.toContain('html:has([data-mirror-landing-layout])');
     expect(css).not.toContain('max-width: min(920px, 100%)');
     expect(css).not.toContain('max-width: min(720px, 92vw)');
     expect(css).not.toContain('34rem');
     expect(css).not.toContain('68vh');
+    expect(css).not.toContain('blur(26px)');
+    expect(css).not.toContain('blur(18px)');
+    expect(css).not.toContain('scale(1.1)');
+    expect(css).not.toContain('mask-composite: intersect');
+    expect(css).not.toContain('height: 74%');
     expect(railCss).toMatch(/\.yansi-exp-rail[\s\S]*position:\s*absolute/);
+    expect(railCss).toMatch(/\.yansi-exp-rail[\s\S]*right:\s*1\.25rem/);
     expect(railCss).not.toContain('position: fixed');
     const mobileBlock = css.slice(css.indexOf('@media (max-width: 899px)'));
     expect(mobileBlock).toContain('.yansi-mobile-fullscreen');
     expect(mobileBlock).toContain('.yansi-mobile-title-block');
     expect(mobileBlock).not.toContain('yansi-desktop-scene-bleed');
     expect(mobileBlock).not.toContain('yansi-desktop-editorial-title');
+    expect(mobileBlock).not.toContain('yansi-chat-composer-lane');
+    expect(mobileBlock).not.toContain('--yansi-scene-pos-x');
+    expect(mobileBlock).not.toContain('40.625rem');
+    expect(mobileBlock).not.toContain('blur(10px)');
   });
 });

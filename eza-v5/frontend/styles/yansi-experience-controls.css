@@ -14,7 +14,8 @@
     position: absolute;
     z-index: 8;
     right: 1.25rem;
-    top: 58%;
+    left: auto;
+    top: 42%;
     transform: translateY(-50%);
     flex-direction: column;
     align-items: center;
