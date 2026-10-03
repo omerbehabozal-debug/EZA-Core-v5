@@ -2175,6 +2175,16 @@
     width: 100%;
   }
 
+  .saina-app-root.saina-standalone-shell button.bilign-yansi-identity {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+  }
+
   .saina-app-root.saina-standalone-shell .bilign-yansi-identity__mark {
     position: relative;
     flex: 0 0 auto;

@@ -25,6 +25,8 @@ import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSceneCrossfade';
 import YansiDesktopReelSurface from '@/components/mirror-landing/YansiDesktopReelSurface';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
+import '@/styles/bilign-avatar-identity-frame.css';
+import BilignAvatarIdentityFrame from '@/components/mirror/ayna/BilignAvatarIdentityFrame';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import YansiExperienceShareButton from '@/components/mirror-landing/YansiExperienceShareButton';
@@ -892,33 +894,40 @@ export default function MirrorYansiChainExperience({
               data-yansi-copy-overlay={isDesktop ? 'true' : undefined}
               data-yansi-active-identity={activeSlug}
             >
-              {isDesktop ? (
+              {isDesktop && showChatReplay ? (
                 <div
-                  className="yansi-desktop-identity"
                   data-testid="yansi-desktop-identity"
                   data-yansi-active-identity={activeSlug}
                   data-yansi-author-id={activeNode.artifact.authorUserId}
                   data-yansi-avatar-authority="canonical-profile"
+                  data-bilign-identity-role="primary"
                 >
                   <button
                     type="button"
-                    className="yansi-desktop-identity__author"
+                    className="bilign-yansi-identity"
+                    data-bilign-identity-role="primary"
                     data-testid="yansi-desktop-public-author"
                     onClick={() =>
                       router.push(authorProfilePath(activeNode.artifact.authorUserId))
                     }
                   >
-                    <ProfileUserAvatar
-                      displayName={activeNode.authorDisplayName}
-                      userId={activeNode.artifact.authorUserId}
-                      avatarUrl={activeNode.authorAvatarUrl}
-                      cacheBust={activeNode.authorAvatarRevision ?? undefined}
-                      size="sm"
-                      className="yansi-desktop-identity__avatar"
-                    />
-                    <span className="yansi-desktop-identity__copy">
-                      <span className="yansi-desktop-identity__name-row">
-                        <span className="yansi-desktop-identity__name">
+                    <div className="bilign-yansi-identity__mark">
+                      <div className="bilign-yansi-identity__avatar">
+                        <BilignAvatarIdentityFrame variant="hero">
+                          <ProfileUserAvatar
+                            displayName={activeNode.authorDisplayName}
+                            userId={activeNode.artifact.authorUserId}
+                            avatarUrl={activeNode.authorAvatarUrl}
+                            cacheBust={activeNode.authorAvatarRevision ?? undefined}
+                            size="hero"
+                            className="bilign-yansi-identity__face"
+                          />
+                        </BilignAvatarIdentityFrame>
+                      </div>
+                    </div>
+                    <span className="bilign-yansi-identity__copy">
+                      <span className="bilign-yansi-identity__name-row">
+                        <span className="bilign-yansi-identity__name">
                           {activeNode.authorDisplayName}
                         </span>
                         {activeNode.authorHonorific ? (
@@ -929,12 +938,15 @@ export default function MirrorYansiChainExperience({
                         ) : null}
                       </span>
                       {publicMetaTime || publicMetaType ? (
-                        <p className="yansi-desktop-identity__meta" data-testid="yansi-desktop-public-meta">
+                        <p className="bilign-yansi-identity__meta" data-testid="yansi-desktop-public-meta">
                           {publicMetaTime ? (
                             <span data-testid="yansi-desktop-public-meta-time">{publicMetaTime}</span>
                           ) : null}
                           {publicMetaTime && publicMetaType ? (
-                            <span aria-hidden="true"> · </span>
+                            <span className="bilign-yansi-identity__meta-sep" aria-hidden="true">
+                              {' '}
+                              ·{' '}
+                            </span>
                           ) : null}
                           {publicMetaType ? (
                             <span data-testid="yansi-desktop-public-meta-type">{publicMetaType}</span>

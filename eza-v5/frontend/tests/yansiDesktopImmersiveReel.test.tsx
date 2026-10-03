@@ -530,7 +530,7 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).not.toContain('content: none !important');
     expect(css).not.toContain('rgba(12, 14, 14, 0.88)');
     expect(css).not.toContain('width: 160px');
-    expect(css).toContain('clamp(2.75rem, 3.2vw, 3.125rem)');
+    expect(css).toContain('clamp(2.5rem, 2.85vw, 2.625rem)');
     expect(css).toContain('clamp(1.5rem, 1.65vw, 1.875rem)');
     expect(css).toContain('clamp(3.5rem, 4.15vw, 4rem)');
     expect(css).toContain('clamp(4.75rem, 9.2vh, 5.5rem)');
@@ -538,6 +538,20 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toMatch(
       /\.yansi-desktop-identity__avatar\.bilign-profile-avatar--sm[\s\S]*width:\s*var\(--bilign-avatar-publisher\)/
     );
+    const reelSurface = readFileSync(
+      join(process.cwd(), 'components/mirror-landing/YansiDesktopReelSurface.tsx'),
+      'utf8'
+    );
+    const chain = readFileSync(
+      join(process.cwd(), 'components/mirror-landing/MirrorYansiChainExperience.tsx'),
+      'utf8'
+    );
+    expect(reelSurface).toContain('data-bilign-identity-role="publisher"');
+    expect(chain).toContain('data-bilign-identity-role="primary"');
+    expect(chain).toContain('size="hero"');
+    expect(chain).toContain('BilignAvatarIdentityFrame');
+    expect(css).toContain('calc(4.2rem + var(--bilign-avatar-primary) + 5.5rem)');
+    expect(css).not.toContain('font-size: 0.84rem');
     expect(css).not.toContain('clamp(4.5rem, 8vh, 6.25rem)');
     expect(css).not.toMatch(
       /\[data-yansi-detail-open='true'\][\s\S]{0,120}overflow-y:\s*auto/
@@ -634,5 +648,6 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(mobileBlock).not.toContain('--yansi-reel-meta-shadow');
     expect(mobileBlock).not.toContain('35.375rem');
     expect(mobileBlock).not.toContain('clamp(2.75rem, 3.2vw, 3.125rem)');
+    expect(mobileBlock).not.toContain('clamp(2.5rem, 2.85vw, 2.625rem)');
   });
 });

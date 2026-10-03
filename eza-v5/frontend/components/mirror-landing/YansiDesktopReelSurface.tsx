@@ -186,6 +186,7 @@ export default function YansiDesktopReelSurface({
           data-yansi-active-identity={slug}
           data-yansi-author-id={node.artifact.authorUserId}
           data-yansi-avatar-authority="canonical-profile"
+          data-bilign-identity-role="publisher"
         >
           <button
             type="button"

@@ -53,6 +53,7 @@ export default function SainaHeroScene({
       className="saina-hero saina-hero--content bilign-yansi-identity"
       aria-label="Yansı kimliği"
       data-testid="saina-yansi-identity"
+      data-bilign-identity-role="primary"
       data-compact-mobile-identity={compactMobileIdentity ? 'true' : 'false'}
     >
       <div className="bilign-yansi-identity__mark">
