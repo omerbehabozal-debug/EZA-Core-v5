@@ -143,11 +143,33 @@
     overflow: hidden;
   }
 
+  /* Same BiligN canvas::after shell edge as New Chat, at ~45% intensity.
+     Short falloff from the sidebar join only — not an image veil. */
+  .saina-app-root.saina-standalone-shell[data-saina-view='yansi'] {
+    --saina-sidebar-fade-width: 56px;
+  }
+
+  .saina-app-root.saina-standalone-shell[data-saina-view='yansi'] .saina-sidebar {
+    border-right-color: transparent;
+  }
+
   .saina-app-root.saina-standalone-shell[data-saina-view='yansi'] .saina-canvas::after {
-    display: none !important;
-    content: none !important;
-    width: 0 !important;
-    background: none !important;
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--saina-sidebar-fade-width, 56px);
+    z-index: 4;
+    pointer-events: none;
+    filter: none;
+    background: linear-gradient(
+      90deg,
+      rgba(12, 14, 14, 0.40) 0%,
+      rgba(12, 14, 14, 0.22) 28%,
+      rgba(12, 14, 14, 0.08) 52%,
+      rgba(12, 14, 14, 0) 100%
+    );
   }
 
   [data-saina-view='yansi'] .saina-yansi-shell-topbar {
@@ -467,6 +489,14 @@
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] {
+    --yansi-reel-ink-primary: rgba(247, 240, 228, 0.94);
+    --yansi-reel-ink-secondary: rgba(236, 226, 210, 0.78);
+    --yansi-reel-ink-tertiary: rgba(230, 220, 204, 0.70);
+    --yansi-reel-ink-action: rgba(238, 228, 212, 0.84);
+    --yansi-reel-ink-summary: rgba(245, 234, 216, 0.90);
+    --yansi-reel-meta-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.64),
+      0 2px 8px rgba(0, 0, 0, 0.26);
     top: auto;
     left: 0;
     bottom: 0;
@@ -482,14 +512,27 @@
   .yansi-desktop-visual-stack[data-yansi-title-position='lower']::before {
     content: '';
     position: absolute;
-    inset: -12% 4% -6% -8%;
+    inset: -4% 8% 2% 0;
     z-index: 0;
     pointer-events: none;
+    filter: none;
     background: radial-gradient(
-      ellipse 72% 68% at 24% 58%,
-      rgba(9, 11, 11, 0.34) 0%,
-      rgba(9, 11, 11, 0.14) 46%,
-      rgba(9, 11, 11, 0) 76%
+      ellipse 70% 78% at 18% 70%,
+      rgba(9, 11, 11, 0.22) 0%,
+      rgba(9, 11, 11, 0.1) 36%,
+      rgba(9, 11, 11, 0.03) 58%,
+      rgba(9, 11, 11, 0) 78%
+    );
+  }
+
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'][data-yansi-detail-open='true']::before {
+    inset: -3% 6% 2% 0;
+    background: radial-gradient(
+      ellipse 74% 84% at 20% 54%,
+      rgba(9, 11, 11, 0.2) 0%,
+      rgba(9, 11, 11, 0.09) 40%,
+      rgba(9, 11, 11, 0.03) 62%,
+      rgba(9, 11, 11, 0) 80%
     );
   }
 
@@ -521,9 +564,11 @@
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__name,
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__meta,
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity .bilign-honorific,
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-detail-toggle,
-  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] [data-testid='yansi-public-metrics'] {
-    text-shadow: 0 1px 12px rgba(9, 11, 11, 0.45);
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] [data-testid='yansi-public-metrics'],
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-canonical-summary {
+    text-shadow: var(--yansi-reel-meta-shadow);
   }
 
   .yansi-desktop-chat-title {
@@ -572,6 +617,8 @@
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__avatar.bilign-profile-avatar--sm {
     width: 2.875rem;
     height: 2.875rem;
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.32);
   }
 
   .yansi-desktop-identity__name {
@@ -581,10 +628,14 @@
     color: rgba(245, 234, 216, 0.94);
   }
 
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__name {
+    color: var(--yansi-reel-ink-primary);
+  }
+
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity .bilign-honorific {
     font-size: 0.8125rem;
     font-weight: 400;
-    color: rgba(200, 186, 166, 0.7);
+    color: var(--yansi-reel-ink-secondary);
   }
 
   .yansi-desktop-detail-cluster {
@@ -605,10 +656,15 @@
     margin: 0;
   }
 
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] [data-testid='yansi-public-metrics'] {
+    color: var(--yansi-reel-ink-tertiary);
+  }
+
   .yansi-desktop-proof-row [data-testid='yansi-public-metrics'] + .yansi-desktop-detail-toggle::before {
     content: '·';
     margin-right: 0.4rem;
-    opacity: 0.65;
+    opacity: 0.72;
+    color: var(--yansi-reel-ink-tertiary);
   }
 
   .yansi-desktop-detail-toggle {
@@ -623,9 +679,18 @@
     color: rgba(201, 187, 168, 0.58);
   }
 
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-detail-toggle {
+    color: var(--yansi-reel-ink-action);
+  }
+
   .yansi-desktop-detail-toggle:hover,
   .yansi-desktop-detail-toggle:focus-visible {
     color: rgba(232, 213, 181, 0.78);
+  }
+
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-detail-toggle:hover,
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-detail-toggle:focus-visible {
+    color: rgba(247, 240, 228, 0.94);
   }
 
   .yansi-desktop-detail-toggle:focus-visible {
@@ -673,12 +738,20 @@
     text-shadow: 0 1px 16px rgba(9, 11, 11, 0.5);
   }
 
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-canonical-summary {
+    color: var(--yansi-reel-ink-summary);
+  }
+
   .yansi-desktop-identity__meta {
     margin: 0;
     font-size: 0.8125rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: rgba(200, 186, 166, 0.72);
+  }
+
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__meta {
+    color: var(--yansi-reel-ink-secondary);
   }
 
   .yansi-desktop-cinematic-stage [data-testid='mirror-discover-nav'] {

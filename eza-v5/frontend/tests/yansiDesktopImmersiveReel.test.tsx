@@ -519,7 +519,14 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toContain('inset: 0');
     expect(css).toMatch(/\.yansi-desktop-reel-root[\s\S]*inset:\s*0/);
     expect(css).toContain('saina-canvas::after');
-    expect(css).toContain("content: none !important");
+    expect(css).toContain('--saina-sidebar-fade-width: 56px');
+    expect(css).toContain('rgba(12, 14, 14, 0.40)');
+    expect(css).toContain('rgba(12, 14, 14, 0.22)');
+    expect(css).toContain('rgba(12, 14, 14, 0.08)');
+    expect(css).toContain('border-right-color: transparent');
+    expect(css).not.toContain('content: none !important');
+    expect(css).not.toContain('rgba(12, 14, 14, 0.88)');
+    expect(css).not.toContain('width: 160px');
     expect(css).toContain('clamp(2.15rem, 2.55vw, 3.15rem)');
     expect(css).toContain('clamp(1.5rem, 1.65vw, 1.875rem)');
     expect(css).toContain('clamp(3.5rem, 4.4vw, 4.5rem)');
@@ -550,6 +557,15 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toMatch(
       /\.yansi-desktop-visual-stack\[data-yansi-title-position='lower'\]::before[\s\S]*radial-gradient/
     );
+    expect(css).toContain('--yansi-reel-ink-primary: rgba(247, 240, 228, 0.94)');
+    expect(css).toContain('--yansi-reel-ink-secondary: rgba(236, 226, 210, 0.78)');
+    expect(css).toContain('--yansi-reel-ink-tertiary: rgba(230, 220, 204, 0.70)');
+    expect(css).toContain('--yansi-reel-ink-action: rgba(238, 228, 212, 0.84)');
+    expect(css).toContain('--yansi-reel-ink-summary: rgba(245, 234, 216, 0.90)');
+    expect(css).toContain('0 1px 2px rgba(0, 0, 0, 0.64)');
+    expect(css).toContain('0 2px 8px rgba(0, 0, 0, 0.26)');
+    expect(css).toContain('--yansi-reel-meta-shadow');
+    expect(css).not.toContain('0 1px 12px rgba(9, 11, 11, 0.45)');
     expect(css).not.toContain('Sessizce');
     expect(css).toMatch(/\.yansi-desktop-visual-stack[\s\S]*position:\s*absolute/);
     expect(css).toContain('yansi-desktop-editorial-title');
@@ -592,5 +608,10 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(mobileBlock).not.toContain('translateY(-100%)');
     expect(mobileBlock).not.toContain('2.875rem');
     expect(mobileBlock).not.toContain('yansi-desktop-identity__copy');
+    expect(mobileBlock).not.toContain('--saina-sidebar-fade-width: 56px');
+    expect(mobileBlock).not.toContain('rgba(12, 14, 14, 0.40)');
+    expect(mobileBlock).not.toContain('border-right-color: transparent');
+    expect(mobileBlock).not.toContain('--yansi-reel-ink-primary');
+    expect(mobileBlock).not.toContain('--yansi-reel-meta-shadow');
   });
 });
