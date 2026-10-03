@@ -15,7 +15,12 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.models.api_key import APIKey  # noqa: F401
+from backend.models.application import Application  # noqa: F401
+from backend.models.institution import Institution  # noqa: F401
 from backend.models.mirror_network import KATKI_CONTRIBUTION_TYPES, YansiContribution
+from backend.models.role import Role  # noqa: F401
+from backend.models.user import LegacyUser  # noqa: F401
 from backend.services.mirror_network.discover import (
     _author_for_node,
     _discover_public_avatar_revision,

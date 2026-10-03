@@ -87,6 +87,15 @@ from backend.services.mirror_network.yansi_exposure import (
     ingest_yansi_exposure_event,
 )
 from backend.security.production_surface import assert_non_production_surface
+from backend.services.mirror_network.katki_moderation import (
+    KatkiModerationError,
+    owner_hide_katki,
+    owner_restore_katki,
+    report_katki,
+    trust_hide_katki,
+    trust_restore_katki,
+    withdraw_katki,
+)
 from backend.services.mirror_network.katki_read import (
     KatkiReadError,
     get_public_katki_read,
@@ -505,6 +514,178 @@ async def get_public_katki_contributions(
             },
         ) from exc
     return PublicKatkiRead.model_validate(payload)
+
+
+class KatkiMutationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    contributionId: str
+    visibility: str
+
+
+class KatkiContributionReportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(..., min_length=1, max_length=32)
+
+
+class KatkiContributionReportResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    contributionId: str
+    reason: str
+
+
+def _katki_moderation_http(exc: KatkiModerationError) -> HTTPException:
+    messages = {
+        "not_found": "Katkı bulunamadı",
+        "forbidden": "Bu Katkı için yetkin yok",
+        "already_withdrawn": "Katkı zaten geri çekildi",
+        "already_hidden": "Katkı zaten gizli",
+        "already_visible": "Katkı zaten görünür",
+        "transition_forbidden": "Bu durum geçişi yapılamaz",
+        "already_reported": "Bu Katkı zaten bildirildi",
+        "invalid_reason": "Geçersiz bildirim nedeni",
+    }
+    return HTTPException(
+        status_code=exc.status_code,
+        detail={"code": exc.code, "message": messages.get(exc.code, "Katkı işlemi yapılamadı")},
+    )
+
+
+@router.post("/contributions/{contribution_id}/withdraw", response_model=KatkiMutationResponse)
+async def withdraw_public_katki(
+    contribution_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> KatkiMutationResponse:
+    """Contributor withdraws their own Katkı. The row stays stored."""
+    try:
+        result = await withdraw_katki(
+            db, public_id=contribution_id, actor_user_id=user.id
+        )
+    except KatkiModerationError as exc:
+        raise _katki_moderation_http(exc) from exc
+    return KatkiMutationResponse(
+        status=result.status,
+        contributionId=result.contribution_id,
+        visibility=result.visibility,
+    )
+
+
+@router.post(
+    "/contributions/{contribution_id}/report",
+    response_model=KatkiContributionReportResponse,
+)
+async def report_public_katki(
+    contribution_id: UUID,
+    body: KatkiContributionReportRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> KatkiContributionReportResponse:
+    """Authenticated report. Does not hide, withdraw, or change the public count."""
+    try:
+        result = await report_katki(
+            db,
+            public_id=contribution_id,
+            reporter_user_id=user.id,
+            reason=body.reason,
+        )
+    except KatkiModerationError as exc:
+        raise _katki_moderation_http(exc) from exc
+    return KatkiContributionReportResponse(
+        status=result.status,
+        contributionId=result.contribution_id,
+        reason=result.reason,
+    )
+
+
+@router.post("/contributions/{contribution_id}/hide", response_model=KatkiMutationResponse)
+async def owner_hide_public_katki(
+    contribution_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> KatkiMutationResponse:
+    """Yansı owner hides one contribution on their exact parent."""
+    try:
+        result = await owner_hide_katki(
+            db, public_id=contribution_id, actor_user_id=user.id
+        )
+    except KatkiModerationError as exc:
+        raise _katki_moderation_http(exc) from exc
+    return KatkiMutationResponse(
+        status=result.status,
+        contributionId=result.contribution_id,
+        visibility=result.visibility,
+    )
+
+
+@router.post("/contributions/{contribution_id}/restore", response_model=KatkiMutationResponse)
+async def owner_restore_public_katki(
+    contribution_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> KatkiMutationResponse:
+    """Yansı owner restores only their own owner-hide."""
+    try:
+        result = await owner_restore_katki(
+            db, public_id=contribution_id, actor_user_id=user.id
+        )
+    except KatkiModerationError as exc:
+        raise _katki_moderation_http(exc) from exc
+    return KatkiMutationResponse(
+        status=result.status,
+        contributionId=result.contribution_id,
+        visibility=result.visibility,
+    )
+
+
+@router.post(
+    "/contributions/{contribution_id}/trust-hide",
+    response_model=KatkiMutationResponse,
+)
+async def trust_hide_public_katki(
+    contribution_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_yansi_trust_admin_dependency()),
+) -> KatkiMutationResponse:
+    """Trust admin hide. API key only. Does not assign a production user."""
+    try:
+        result = await trust_hide_katki(db, public_id=contribution_id)
+    except KatkiModerationError as exc:
+        raise _katki_moderation_http(exc) from exc
+    return KatkiMutationResponse(
+        status=result.status,
+        contributionId=result.contribution_id,
+        visibility=result.visibility,
+    )
+
+
+@router.post(
+    "/contributions/{contribution_id}/trust-restore",
+    response_model=KatkiMutationResponse,
+)
+async def trust_restore_public_katki(
+    contribution_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_yansi_trust_admin_dependency()),
+) -> KatkiMutationResponse:
+    """Trust admin restores only a trust hide."""
+    try:
+        result = await trust_restore_katki(db, public_id=contribution_id)
+    except KatkiModerationError as exc:
+        raise _katki_moderation_http(exc) from exc
+    return KatkiMutationResponse(
+        status=result.status,
+        contributionId=result.contribution_id,
+        visibility=result.visibility,
+    )
 
 
 @router.get("/{slug}/continuation-neighbors", response_model=ContinuationNeighborsResponse)
