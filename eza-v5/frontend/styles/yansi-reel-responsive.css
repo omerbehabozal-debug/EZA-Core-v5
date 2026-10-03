@@ -125,12 +125,29 @@
 
 /* Desktop immersive stage — fills BiligN main content, not the browser viewport */
 @media (min-width: 900px) {
+  .saina-app-root.saina-standalone-shell[data-saina-view='yansi'] .saina-main-col,
   [data-saina-view='yansi'] .saina-main-col,
-  [data-saina-view='yansi'] .saina-yansi-canvas-wrap {
+  [data-saina-view='yansi'] .saina-canvas,
+  [data-saina-view='yansi'] .saina-yansi-canvas-wrap,
+  [data-saina-view='yansi'] .saina-route-transition,
+  [data-saina-view='yansi'] .yansi-public-layout,
+  [data-saina-view='yansi'] [data-mirror-landing-layout],
+  [data-saina-view='yansi'] [data-mirror-landing] {
     position: relative;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
     height: 100%;
     min-height: 0;
+    margin-inline: 0;
     overflow: hidden;
+  }
+
+  .saina-app-root.saina-standalone-shell[data-saina-view='yansi'] .saina-canvas::after {
+    display: none !important;
+    content: none !important;
+    width: 0 !important;
+    background: none !important;
   }
 
   [data-saina-view='yansi'] .saina-yansi-shell-topbar {
@@ -148,32 +165,19 @@
     pointer-events: auto;
   }
 
-  [data-mirror-landing-layout],
-  .yansi-public-layout {
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .yansi-desktop-reel-root {
-    max-width: none;
-    margin: 0;
-    height: 100%;
-    min-height: 0;
-    max-height: none;
-    overflow: hidden;
-    background: #090b0b;
-  }
-
+  .yansi-desktop-reel-root,
   .yansi-desktop-cinematic-stage {
-    position: relative;
-    height: 100%;
-    min-height: 0;
-    max-height: none;
+    position: absolute;
+    inset: 0;
     width: 100%;
+    height: 100%;
     max-width: none;
+    max-height: none;
+    min-width: 0;
+    min-height: 0;
     margin: 0;
     overflow: hidden;
+    background: transparent;
   }
 
   .yansi-desktop-cinematic-stage [data-testid='mirror-yansi-chain-scroll'] {
@@ -215,25 +219,25 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: blur(32px) saturate(1.2);
-    transform: scale(1.22);
+    filter: blur(26px) saturate(1.28);
+    transform: scale(1.16);
   }
 
   .yansi-desktop-scene-bleed-dim {
     position: absolute;
     inset: 0;
-    background: rgba(9, 11, 11, 0.18);
+    background: rgba(9, 11, 11, 0.08);
   }
 
   .yansi-desktop-scene-image {
     position: absolute;
-    left: 54%;
-    top: 47%;
+    left: 62%;
+    top: 48%;
     transform: translate(-50%, -50%);
-    height: 84%;
+    height: 74%;
     width: auto;
     aspect-ratio: 1 / 1;
-    max-width: 88%;
+    max-width: 52%;
     object-fit: contain;
     border: 0;
     box-shadow: none;
@@ -255,16 +259,16 @@
   .yansi-desktop-scene-blend {
     background:
       radial-gradient(
-        ellipse 72% 70% at 54% 46%,
-        rgba(9, 11, 11, 0) 18%,
-        rgba(9, 11, 11, 0.1) 68%,
-        rgba(9, 11, 11, 0.26) 100%
+        ellipse 80% 78% at 62% 48%,
+        rgba(9, 11, 11, 0) 28%,
+        rgba(9, 11, 11, 0.06) 72%,
+        rgba(9, 11, 11, 0.14) 100%
       ),
       linear-gradient(
         180deg,
-        rgba(9, 11, 11, 0.1) 0%,
-        rgba(9, 11, 11, 0.04) 42%,
-        rgba(9, 11, 11, 0.36) 100%
+        rgba(9, 11, 11, 0.04) 0%,
+        rgba(9, 11, 11, 0.02) 48%,
+        rgba(9, 11, 11, 0.22) 100%
       );
   }
 
@@ -312,9 +316,9 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.85rem;
-    width: min(42rem, 62%);
-    max-width: min(42rem, 62%);
+    gap: 0.7rem;
+    width: min(36rem, 46%);
+    max-width: 40.625rem;
     margin: 0;
     pointer-events: none;
     transition:
@@ -332,34 +336,34 @@
     top: auto;
     bottom: 0;
     margin-top: 0;
-    padding: 6.25rem 1.75rem 2.35rem 2.15rem;
+    padding: 4.5rem 1.5rem 2.1rem 2rem;
     background: linear-gradient(
       180deg,
       rgba(9, 11, 11, 0) 0%,
-      rgba(9, 11, 11, 0.28) 42%,
-      rgba(9, 11, 11, 0.62) 100%
+      rgba(9, 11, 11, 0.16) 48%,
+      rgba(9, 11, 11, 0.38) 100%
     );
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='elevated'] {
     top: 4.75rem;
     bottom: auto;
-    width: min(44rem, 72%);
-    max-width: min(44rem, 72%);
+    width: min(36rem, 52%);
+    max-width: 40.625rem;
     margin-top: 0;
-    padding: 0.45rem 1.75rem 1rem 2.15rem;
+    padding: 0.45rem 1.5rem 1rem 2rem;
     background: linear-gradient(
       180deg,
-      rgba(9, 11, 11, 0.42) 0%,
-      rgba(9, 11, 11, 0.14) 72%,
+      rgba(9, 11, 11, 0.28) 0%,
+      rgba(9, 11, 11, 0.1) 72%,
       rgba(9, 11, 11, 0) 100%
     );
   }
 
   .yansi-desktop-editorial-title {
-    font-size: clamp(2.4rem, 3.8vw, 3.55rem);
-    line-height: 1.1;
-    letter-spacing: -0.028em;
+    font-size: clamp(2rem, 2.4vw, 3.25rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
   }
 
   .yansi-desktop-chat-title {
@@ -415,8 +419,8 @@
 
   .yansi-desktop-cinematic-stage .yansi-exp-rail {
     position: absolute;
-    right: clamp(1.15rem, 2.8vw, 2.5rem);
-    top: 50%;
+    right: 1.25rem;
+    top: 58%;
     transform: translateY(-50%);
     z-index: 8;
   }

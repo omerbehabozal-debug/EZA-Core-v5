@@ -56,6 +56,9 @@ describe('shared (bilign) route-group architecture', () => {
     expect(publicM).not.toContain('SainaAppRootLayout');
     expect(publicM).toContain('data-mirror-landing-layout');
     expect(publicM).toContain('yansi-reel-responsive.css');
+    const root = read('components/saina/SainaAppRootLayout.tsx');
+    expect(root).toContain("(view === 'pattern' || view === 'discover') && 'saina-pattern-main-col'");
+    expect(root).toContain('data-yansi-canvas-fill');
   });
 
   it('does not lock html/body overflow on desktop /m', () => {

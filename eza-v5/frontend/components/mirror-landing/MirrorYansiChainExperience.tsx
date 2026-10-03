@@ -696,6 +696,124 @@ export default function MirrorYansiChainExperience({
   const reelNavLocked = depth === 'chat';
   const titlePosition = showChatReplay ? 'elevated' : 'lower';
 
+  const renderTitleBlock = () => (
+            <header
+              className={cn(
+                'mb-4 space-y-2 saina-content-crossfade',
+                !isDesktop && 'yansi-mobile-title-block px-4 pt-1',
+                isDesktop && 'yansi-desktop-visual-stack',
+                showChatReplay && 'yansi-chat-title-quiet'
+              )}
+              data-yansi-title-position={titlePosition}
+              data-testid="yansi-title-block"
+              data-yansi-copy-overlay={isDesktop ? 'true' : undefined}
+              data-yansi-active-identity={activeSlug}
+            >
+              {isDesktop ? (
+                <div
+                  className="yansi-desktop-identity"
+                  data-testid="yansi-desktop-identity"
+                  data-yansi-active-identity={activeSlug}
+                >
+                  <button
+                    type="button"
+                    className="yansi-desktop-identity__author"
+                    data-testid="yansi-desktop-public-author"
+                    onClick={() =>
+                      router.push(authorProfilePath(activeNode.artifact.authorUserId))
+                    }
+                  >
+                    <ProfileUserAvatar
+                      displayName={activeNode.authorDisplayName}
+                      userId={activeNode.artifact.authorUserId}
+                      avatarUrl={activeNode.authorAvatarUrl}
+                      cacheBust={activeNode.authorAvatarRevision ?? undefined}
+                      size="sm"
+                    />
+                    <span className="yansi-desktop-identity__name">
+                      {activeNode.authorDisplayName}
+                    </span>
+                    {activeNode.authorHonorific ? (
+                      <HonorificMarker
+                        honorific={activeNode.authorHonorific}
+                        testId="yansi-desktop-public-honorific"
+                      />
+                    ) : null}
+                  </button>
+                  {publicMetaTime || publicMetaType ? (
+                    <p className="yansi-desktop-identity__meta" data-testid="yansi-desktop-public-meta">
+                      {publicMetaTime ? (
+                        <span data-testid="yansi-desktop-public-meta-time">{publicMetaTime}</span>
+                      ) : null}
+                      {publicMetaTime && publicMetaType ? (
+                        <span aria-hidden="true"> · </span>
+                      ) : null}
+                      {publicMetaType ? (
+                        <span data-testid="yansi-desktop-public-meta-type">{publicMetaType}</span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              {showChatReplay ? (
+                <h2
+                  className={cn(
+                    'yansi-chat-title-heading font-semibold tracking-tight text-[#f5ead8]/90',
+                    isDesktop
+                      ? 'yansi-desktop-chat-title text-2xl leading-snug'
+                      : 'text-[1.15rem] leading-snug'
+                  )}
+                  data-testid="mirror-yansi-active-title"
+                  data-slug={activeNode.artifact.slug}
+                  data-yansi-active-identity={activeSlug}
+                  data-yansi-depth-role="chat-heading"
+                  data-yansi-title-authority="canonical"
+                >
+                  {title}
+                </h2>
+              ) : (
+                <button
+                  type="button"
+                  className={cn(
+                    'yansi-reel-title-trigger w-full text-left font-semibold tracking-tight text-[#f5ead8]',
+                    isDesktop
+                      ? 'yansi-desktop-editorial-title text-[2rem] leading-tight'
+                      : 'text-[1.35rem] leading-snug'
+                  )}
+                  data-testid="mirror-yansi-active-title"
+                  data-slug={activeNode.artifact.slug}
+                  data-yansi-active-identity={activeSlug}
+                  data-yansi-depth-trigger="chat"
+                  data-yansi-title-authority="canonical"
+                  aria-label={`${title} — sohbete gir`}
+                  onClick={openChatDepth}
+                >
+                  {title}
+                </button>
+              )}
+              {activeNode.artifact.parentSlug && isDesktop && !showChatReplay ? (
+                <AynaParentLineageRow
+                  parentAuthorDisplayName={activeNode.parentAuthorDisplayName}
+                  parentPublicTitle={activeNode.parentPublicTitle}
+                  onOpenParent={() =>
+                    router.push(
+                      publicPathForSlug(activeNode.artifact.parentSlug!, {
+                        mode: 'reel',
+                      })
+                    )
+                  }
+                />
+              ) : null}
+              {isDesktop ? (
+                <YansiPublicMetricsLine
+                  slug={activeNode.artifact.slug}
+                  journeyVersion={activeNode.artifact.journeyVersion}
+                  variant="section"
+                />
+              ) : null}
+            </header>
+  );
+
   return (
     <div
       ref={chainRootRef}
@@ -735,6 +853,8 @@ export default function MirrorYansiChainExperience({
         data-testid="yansi-chat-scene-veil"
         aria-hidden
       />
+
+      {isDesktop ? renderTitleBlock() : null}
 
       {!isDesktop ? (
         <header
@@ -853,121 +973,7 @@ export default function MirrorYansiChainExperience({
               showChatReplay && 'yansi-chat-section'
             )}
           >
-            <header
-              className={cn(
-                'mb-4 space-y-2 saina-content-crossfade',
-                !isDesktop && 'yansi-mobile-title-block px-4 pt-1',
-                isDesktop && 'yansi-desktop-visual-stack',
-                showChatReplay && 'yansi-chat-title-quiet'
-              )}
-              data-yansi-title-position={titlePosition}
-              data-testid="yansi-title-block"
-              data-yansi-copy-overlay={isDesktop ? 'true' : undefined}
-              data-yansi-active-identity={activeSlug}
-            >
-              {isDesktop ? (
-                <div
-                  className="yansi-desktop-identity"
-                  data-testid="yansi-desktop-identity"
-                  data-yansi-active-identity={activeSlug}
-                >
-                  <button
-                    type="button"
-                    className="yansi-desktop-identity__author"
-                    data-testid="yansi-desktop-public-author"
-                    onClick={() =>
-                      router.push(authorProfilePath(activeNode.artifact.authorUserId))
-                    }
-                  >
-                    <ProfileUserAvatar
-                      displayName={activeNode.authorDisplayName}
-                      userId={activeNode.artifact.authorUserId}
-                      avatarUrl={activeNode.authorAvatarUrl}
-                      cacheBust={activeNode.authorAvatarRevision ?? undefined}
-                      size="sm"
-                    />
-                    <span className="yansi-desktop-identity__name">
-                      {activeNode.authorDisplayName}
-                    </span>
-                    {activeNode.authorHonorific ? (
-                      <HonorificMarker
-                        honorific={activeNode.authorHonorific}
-                        testId="yansi-desktop-public-honorific"
-                      />
-                    ) : null}
-                  </button>
-                  {publicMetaTime || publicMetaType ? (
-                    <p className="yansi-desktop-identity__meta" data-testid="yansi-desktop-public-meta">
-                      {publicMetaTime ? (
-                        <span data-testid="yansi-desktop-public-meta-time">{publicMetaTime}</span>
-                      ) : null}
-                      {publicMetaTime && publicMetaType ? (
-                        <span aria-hidden="true"> · </span>
-                      ) : null}
-                      {publicMetaType ? (
-                        <span data-testid="yansi-desktop-public-meta-type">{publicMetaType}</span>
-                      ) : null}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {showChatReplay ? (
-                <h2
-                  className={cn(
-                    'yansi-chat-title-heading font-semibold tracking-tight text-[#f5ead8]/90',
-                    isDesktop
-                      ? 'yansi-desktop-chat-title text-2xl leading-snug'
-                      : 'text-[1.15rem] leading-snug'
-                  )}
-                  data-testid="mirror-yansi-active-title"
-                  data-slug={activeNode.artifact.slug}
-                  data-yansi-active-identity={activeSlug}
-                  data-yansi-depth-role="chat-heading"
-                  data-yansi-title-authority="canonical"
-                >
-                  {title}
-                </h2>
-              ) : (
-                <button
-                  type="button"
-                  className={cn(
-                    'yansi-reel-title-trigger w-full text-left font-semibold tracking-tight text-[#f5ead8]',
-                    isDesktop
-                      ? 'yansi-desktop-editorial-title text-[2rem] leading-tight'
-                      : 'text-[1.35rem] leading-snug'
-                  )}
-                  data-testid="mirror-yansi-active-title"
-                  data-slug={activeNode.artifact.slug}
-                  data-yansi-active-identity={activeSlug}
-                  data-yansi-depth-trigger="chat"
-                  data-yansi-title-authority="canonical"
-                  aria-label={`${title} — sohbete gir`}
-                  onClick={openChatDepth}
-                >
-                  {title}
-                </button>
-              )}
-              {activeNode.artifact.parentSlug && isDesktop && !showChatReplay ? (
-                <AynaParentLineageRow
-                  parentAuthorDisplayName={activeNode.parentAuthorDisplayName}
-                  parentPublicTitle={activeNode.parentPublicTitle}
-                  onOpenParent={() =>
-                    router.push(
-                      publicPathForSlug(activeNode.artifact.parentSlug!, {
-                        mode: 'reel',
-                      })
-                    )
-                  }
-                />
-              ) : null}
-              {isDesktop ? (
-                <YansiPublicMetricsLine
-                  slug={activeNode.artifact.slug}
-                  journeyVersion={activeNode.artifact.journeyVersion}
-                  variant="section"
-                />
-              ) : null}
-            </header>
+            {!isDesktop ? renderTitleBlock() : null}
 
             {showChatReplay ? (
               <div

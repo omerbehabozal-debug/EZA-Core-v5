@@ -157,6 +157,8 @@ describe('desktop immersive presentation', () => {
     expect(block).toHaveAttribute('data-yansi-copy-overlay', 'true');
     expect(block).toHaveClass('yansi-desktop-visual-stack');
     expect(title).toHaveClass('yansi-desktop-editorial-title');
+    expect(screen.getByTestId('mirror-yansi-chain-scroll').contains(block)).toBe(false);
+    expect(screen.getByTestId('mirror-yansi-chain').contains(block)).toBe(true);
     expect(screen.queryByText(/Merakıma ekle|Meraklarımda/)).toBeNull();
   });
 
@@ -358,7 +360,14 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*inset:\s*0/);
     expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*object-fit:\s*cover/);
     expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*object-fit:\s*contain/);
-    expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*height:\s*84%/);
+    expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*height:\s*74%/);
+    expect(css).toContain("data-saina-view='yansi'] .saina-canvas");
+    expect(css).toContain('position: absolute');
+    expect(css).toContain('inset: 0');
+    expect(css).toMatch(/\.yansi-desktop-reel-root[\s\S]*inset:\s*0/);
+    expect(css).toContain('saina-canvas::after');
+    expect(css).toContain("content: none !important");
+    expect(css).toContain('clamp(2rem, 2.4vw, 3.25rem)');
     expect(css).toMatch(/\.yansi-desktop-visual-stack[\s\S]*position:\s*absolute/);
     expect(css).toContain('yansi-desktop-editorial-title');
     expect(css).not.toContain('html:has([data-mirror-landing-layout])');

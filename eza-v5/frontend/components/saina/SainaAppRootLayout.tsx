@@ -109,8 +109,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
           <div
             className={cn(
               'saina-main-col',
-              (view === 'pattern' || view === 'discover' || view === 'yansi') &&
-                'saina-pattern-main-col'
+              (view === 'pattern' || view === 'discover') && 'saina-pattern-main-col'
             )}
           >
             {view === 'yansi' ? (
@@ -131,6 +130,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
                 view === 'discover' && 'saina-discover-canvas-wrap',
                 view === 'yansi' && 'saina-yansi-canvas-wrap'
               )}
+              data-yansi-canvas-fill={view === 'yansi' ? 'true' : undefined}
             >
               {view === 'yansi' ? null : <SainaPersistentScene />}
               <SainaRouteTransition routeKey={view}>{children}</SainaRouteTransition>
