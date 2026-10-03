@@ -346,8 +346,18 @@ class PublicKatkiTypeCounts(BaseModel):
     different_perspective: int = Field(ge=0)
 
 
+class PublicKatkiContributor(BaseModel):
+    """Live public profile fields already used on a BiligN card. No account identity."""
+
+    model_config = {"extra": "forbid"}
+
+    displayName: str
+    publicAvatarUrl: Optional[str] = None
+    publicAvatarRevision: int = 0
+
+
 class PublicKatkiContribution(BaseModel):
-    """Public contribution body. No contributor, reporter, or moderation identity."""
+    """Public contribution body plus the contributor's public profile projection."""
 
     model_config = {"extra": "forbid"}
 
@@ -356,6 +366,7 @@ class PublicKatkiContribution(BaseModel):
     body: Optional[str] = None
     sourceNote: Optional[str] = None
     createdAt: str
+    contributor: PublicKatkiContributor
 
 
 class PublicKatkiRead(BaseModel):

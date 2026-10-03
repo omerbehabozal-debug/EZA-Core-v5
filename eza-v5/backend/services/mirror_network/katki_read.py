@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Katkılar Phase 2 — version-scoped public read and visible count.
+"""Katkılar public read — version-scoped visible rows and live public identity.
 
 The parent Yansı is resolved through resolve_katki_target before any
 contribution row is read. Counts are visibility='visible' only.
+Contributor identity is the existing Discover card projection, not a
+second profile system.
 """
 
 from __future__ import annotations
@@ -14,10 +16,17 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.mirror_network import KATKI_CONTRIBUTION_TYPES, YansiContribution
+from backend.services.mirror_network.discover import (
+    _author_for_node,
+    _discover_public_avatar_revision,
+    _discover_public_avatar_url,
+    _load_discover_authors,
+)
 from backend.services.mirror_network.katki_target import (
     KatkiTargetResolutionError,
     resolve_katki_target,
 )
+from backend.services.mirror_network.public_identity import resolve_public_display_name
 
 # Chronological. public_id breaks ties. Not rank, popularity, or trust.
 _CONTRIBUTIONS = YansiContribution.__table__
@@ -38,6 +47,14 @@ PUBLIC_KATKI_CONTRIBUTION_KEYS = frozenset(
         "body",
         "sourceNote",
         "createdAt",
+        "contributor",
+    }
+)
+PUBLIC_KATKI_CONTRIBUTOR_KEYS = frozenset(
+    {
+        "displayName",
+        "publicAvatarUrl",
+        "publicAvatarRevision",
     }
 )
 PUBLIC_KATKI_COUNT_KEYS = frozenset(KATKI_CONTRIBUTION_TYPES)
@@ -60,6 +77,15 @@ def _created_at_iso(value: datetime) -> str:
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone.utc)
     return value.isoformat()
+
+
+def project_public_katki_contributor(author: Any) -> dict[str, Any]:
+    """Same live name and avatar locator Discover puts on a public card."""
+    return {
+        "displayName": resolve_public_display_name(author),
+        "publicAvatarUrl": _discover_public_avatar_url(author),
+        "publicAvatarRevision": _discover_public_avatar_revision(author),
+    }
 
 
 def _visible_clause(slug: str, journey_version: int):
@@ -113,6 +139,7 @@ async def get_public_katki_read(
                 _CONTRIBUTIONS.c.body,
                 _CONTRIBUTIONS.c.source_note,
                 _CONTRIBUTIONS.c.created_at,
+                _CONTRIBUTIONS.c.contributor_user_id,
             )
             .where(*filters)
             .order_by(
@@ -122,10 +149,19 @@ async def get_public_katki_read(
         )
     ).all()
 
+    visible_rows = list(list_rows)
+    authors_by_id: dict[Any, Any] = {}
+    if visible_rows:
+        authors_by_id = await _load_discover_authors(
+            db,
+            [row[5] for row in visible_rows],
+        )
+
     contributions: list[dict[str, Any]] = []
-    for public_id, contribution_type, body, source_note, created_at in list_rows:
+    for public_id, contribution_type, body, source_note, created_at, contributor_user_id in visible_rows:
         if contribution_type not in counts:
             raise KatkiReadError("frozen_journey_not_found", status_code=404)
+        author = _author_for_node(authors_by_id, contributor_user_id)
         contributions.append(
             {
                 "contributionId": str(public_id),
@@ -133,6 +169,7 @@ async def get_public_katki_read(
                 "body": body,
                 "sourceNote": source_note,
                 "createdAt": _created_at_iso(created_at),
+                "contributor": project_public_katki_contributor(author),
             }
         )
 
