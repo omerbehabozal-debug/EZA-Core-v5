@@ -58,7 +58,8 @@ PRIVACY_FORBIDDEN_KEYS = {
     "relationshipMap",
     "relationship_map",
     "conversationId",
-    "sourceConversationId",
+    # sourceConversationId / generationId are public seal fields after freeze-seal.
+    "integrity",
     "intelligenceBrief",
     "behavioralSnapshot",
     "private_payload",
