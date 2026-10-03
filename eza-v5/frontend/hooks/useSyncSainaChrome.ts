@@ -213,10 +213,22 @@ export function useSyncSainaChrome({
     );
     const nextYansi = activeYansiIdentity ?? null;
     const nextYansiScene = selectedYansiSceneUrl ?? null;
+    const keepConversations =
+      conversations === undefined ||
+      ((stableConversations?.length ?? 0) === 0 && current.conversations.length > 0);
+    const keepGroups =
+      conversationGroups === undefined ||
+      ((stableGroups?.length ?? 0) === 0 && (current.conversationGroups?.length ?? 0) > 0);
+    const nextConversations = keepConversations
+      ? current.conversations
+      : stableConversations ?? current.conversations;
+    const nextGroups = keepGroups
+      ? current.conversationGroups
+      : stableGroups ?? current.conversationGroups;
     const unchanged =
       current.activeSection === activeSection &&
-      current.conversations === stableConversations &&
-      current.conversationGroups === stableGroups &&
+      current.conversations === nextConversations &&
+      current.conversationGroups === nextGroups &&
       current.activeChatId === activeChatId &&
       current.activeYansiIdentity === nextYansi &&
       current.selectedYansiSceneUrl === nextYansiScene &&
@@ -242,8 +254,8 @@ export function useSyncSainaChrome({
 
     setChrome({
       activeSection,
-      conversations: stableConversations,
-      conversationGroups: stableGroups,
+      conversations: nextConversations,
+      conversationGroups: nextGroups,
       activeChatId,
       activeYansiIdentity: nextYansi,
       selectedYansiSceneUrl: nextYansiScene,

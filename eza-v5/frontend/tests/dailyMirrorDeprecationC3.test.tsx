@@ -38,10 +38,10 @@ vi.mock('@/components/standalone/MirrorEntriesContext', () => ({
 }));
 
 import SainaPatternPageInner from '@/components/saina/SainaPatternPageInner';
-import StandaloneMirrorIndex from '@/app/standalone/mirror/page';
-import StandaloneMirrorDailyRedirect from '@/app/standalone/mirror/daily/page';
-import StandaloneReportsRedirect from '@/app/standalone/reports/page';
-import StandaloneInsightsRedirect from '@/app/standalone/insights/page';
+import StandaloneMirrorIndex from '@/app/(bilign)/standalone/mirror/page';
+import StandaloneMirrorDailyRedirect from '@/app/(bilign)/standalone/mirror/daily/page';
+import StandaloneReportsRedirect from '@/app/(bilign)/standalone/reports/page';
+import StandaloneInsightsRedirect from '@/app/(bilign)/standalone/insights/page';
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
 
 const patternShellSrc = readFileSync(
@@ -49,21 +49,21 @@ const patternShellSrc = readFileSync(
   'utf8'
 );
 const mirrorIndexSrc = readFileSync(
-  join(process.cwd(), 'app/standalone/mirror/page.tsx'),
+  join(process.cwd(), 'app/(bilign)/standalone/mirror/page.tsx'),
   'utf8'
 );
-const reportsSrc = readFileSync(join(process.cwd(), 'app/standalone/reports/page.tsx'), 'utf8');
-const insightsSrc = readFileSync(join(process.cwd(), 'app/standalone/insights/page.tsx'), 'utf8');
+const reportsSrc = readFileSync(join(process.cwd(), 'app/(bilign)/standalone/reports/page.tsx'), 'utf8');
+const insightsSrc = readFileSync(join(process.cwd(), 'app/(bilign)/standalone/insights/page.tsx'), 'utf8');
 const identityModalSrc = readFileSync(
   join(process.cwd(), 'components/plan/IdentityModal.tsx'),
   'utf8'
 );
 const dailyPageSrc = readFileSync(
-  join(process.cwd(), 'app/standalone/mirror/daily/page.tsx'),
+  join(process.cwd(), 'app/(bilign)/standalone/mirror/daily/page.tsx'),
   'utf8'
 );
 const layoutClientSrc = readFileSync(
-  join(process.cwd(), 'app/standalone/mirror/MirrorLayoutClient.tsx'),
+  join(process.cwd(), 'app/(bilign)/standalone/mirror/MirrorLayoutClient.tsx'),
   'utf8'
 );
 const mirrorNavSrc = readFileSync(

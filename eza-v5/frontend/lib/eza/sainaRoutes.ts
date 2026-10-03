@@ -6,10 +6,19 @@ export const SAINA_DISCOVER_ROUTE = '/standalone/discover';
 export const SAINA_NEW_CHAT_PARAM = 'new';
 export const SAINA_NEW_CHAT_ROUTE = `/standalone?${SAINA_NEW_CHAT_PARAM}=1`;
 
-export type SainaAppView = 'chat' | 'pattern' | 'discover';
+export type SainaAppView = 'chat' | 'pattern' | 'discover' | 'yansi';
+
+export function isPublicYansiExperiencePath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  const path = pathname.split('?')[0]?.split('#')[0] ?? pathname;
+  return path === '/m' || path.startsWith('/m/');
+}
 
 export function resolveSainaAppView(pathname: string | null): SainaAppView | null {
   if (!pathname) return null;
+  if (isPublicYansiExperiencePath(pathname)) {
+    return 'yansi';
+  }
   if (pathname === SAINA_DISCOVER_ROUTE || pathname.startsWith(`${SAINA_DISCOVER_ROUTE}/`)) {
     return 'discover';
   }

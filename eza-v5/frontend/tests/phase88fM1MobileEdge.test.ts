@@ -11,8 +11,8 @@ describe('Phase 8.8F-M.1 mobile edge-to-edge shell closure', () => {
   const css = read('styles/saina-yansi-desktop.css');
   const publicCss = read('styles/saina-yansi-mobile-public.css');
   const mirror = read('styles/saina-mirror.css');
-  const standaloneLayout = read('app/standalone/SainaAppRootLayout.tsx');
-  const mirrorLayout = read('app/m/layout.tsx');
+  const standaloneLayout = read('components/saina/SainaAppRootLayout.tsx');
+  const mirrorLayout = read('app/(bilign)/m/layout.tsx');
   const landing = read('components/mirror-landing/MirrorLandingExperience.tsx');
   const sohbet = read('components/mirror-landing/MirrorSohbetOpening.tsx');
 
@@ -82,7 +82,7 @@ describe('Phase 8.8F-M.1 mobile edge-to-edge shell closure', () => {
 
   it('public mirror components use 900px breakpoint for column width', () => {
     expect(landing).toContain('max-w-none');
-    expect(landing).toContain('min-[900px]:max-w-lg');
+    expect(landing).toContain('yansi-desktop-reel-root');
     expect(sohbet).toContain('max-w-none');
     expect(sohbet).toContain('min-[900px]:max-w-lg');
   });

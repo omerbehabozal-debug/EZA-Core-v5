@@ -15,6 +15,10 @@ export default function SainaPersistentScene() {
   const focalX = useSainaChromeStore((s) => s.conversationSceneFocalX);
   const focalY = useSainaChromeStore((s) => s.conversationSceneFocalY);
 
+  if (view === 'yansi') {
+    return null;
+  }
+
   if (view === 'discover' || view === 'pattern') {
     return <SainaCinematicScene atmosphere="analysis" />;
   }

@@ -288,6 +288,8 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toContain('yansi-desktop-visual-stack');
     expect(css).toContain('.yansi-desktop-reel-root');
     expect(css).toMatch(/\.yansi-desktop-reel-root[\s\S]*overflow:\s*hidden/);
+    expect(css).toContain("[data-saina-view='yansi'] .saina-yansi-canvas-wrap");
+    expect(css).not.toContain('html:has([data-mirror-landing-layout])');
     expect(css).not.toContain('max-width: min(920px, 100%)');
     expect(css).not.toContain('max-width: min(720px, 92vw)');
     const mobileBlock = css.slice(css.indexOf('@media (max-width: 899px)'));

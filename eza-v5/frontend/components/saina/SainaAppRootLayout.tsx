@@ -5,6 +5,7 @@ import '@/styles/saina-mirror.css';
 import '@/styles/saina-yansi-desktop.css';
 import '@/styles/saina-profile-panel.css';
 import '@/styles/saina-transitions.css';
+import '@/styles/yansi-reel-responsive.css';
 
 import { useCallback, useLayoutEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
@@ -16,6 +17,7 @@ import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import { useSainaVisualViewportInset } from '@/hooks/useSainaVisualViewportInset';
 import SainaConversationSidebar from '@/components/saina/SainaConversationSidebar';
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
+import SainaPageTopBar from '@/components/saina/SainaPageTopBar';
 import SainaPersistentScene from '@/components/saina/SainaPersistentScene';
 import SainaRouteTransition from '@/components/saina/SainaRouteTransition';
 import { MirrorEntriesProvider } from '@/components/standalone/MirrorEntriesContext';
@@ -59,14 +61,17 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
       className={cn(
         'saina-page saina-app-root saina-standalone-shell',
         view === 'discover' && 'saina-discover-shell',
-        view === 'pattern' && 'saina-pattern-shell'
+        view === 'pattern' && 'saina-pattern-shell',
+        view === 'yansi' && 'saina-yansi-shell'
       )}
       data-testid={
         view === 'chat'
           ? 'saina-standalone-shell'
           : view === 'discover'
             ? 'saina-discover-shell'
-            : 'saina-pattern-shell'
+            : view === 'yansi'
+              ? 'saina-yansi-shell'
+              : 'saina-pattern-shell'
       }
       data-saina-view={view}
     >
@@ -78,7 +83,13 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               conversationGroups={chrome.conversationGroups}
               activeChatId={chrome.activeChatId}
               activeYansiIdentity={chrome.activeYansiIdentity}
-              activeSection={view === 'pattern' ? 'pattern' : view === 'discover' ? 'discover' : 'chat'}
+              activeSection={
+                view === 'pattern'
+                  ? 'pattern'
+                  : view === 'discover' || view === 'yansi'
+                    ? 'discover'
+                    : 'chat'
+              }
               onNewChat={chrome.onNewChat}
               onSelectChat={chrome.onSelectChat}
               onSelectYansi={chrome.onSelectYansi}
@@ -95,9 +106,33 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
             />
           </div>
 
-          <div className={cn('saina-main-col', (view === 'pattern' || view === 'discover') && 'saina-pattern-main-col')}>
-            <div className={cn('saina-canvas', view === 'pattern' && 'saina-pattern-canvas-wrap', view === 'discover' && 'saina-discover-canvas-wrap')}>
-              <SainaPersistentScene />
+          <div
+            className={cn(
+              'saina-main-col',
+              (view === 'pattern' || view === 'discover' || view === 'yansi') &&
+                'saina-pattern-main-col'
+            )}
+          >
+            {view === 'yansi' ? (
+              <div className="saina-yansi-shell-topbar" data-testid="saina-yansi-shell-topbar">
+                <SainaPageTopBar
+                  onOpenCommandPalette={openCommandPalette}
+                  safeOnlyMode={chrome.safeOnlyMode}
+                  onSafeOnlyModeChange={chrome.onSafeOnlyModeChange}
+                  analysisModelId={chrome.analysisModelId}
+                  onAnalysisModelChange={chrome.onAnalysisModelChange}
+                />
+              </div>
+            ) : null}
+            <div
+              className={cn(
+                'saina-canvas',
+                view === 'pattern' && 'saina-pattern-canvas-wrap',
+                view === 'discover' && 'saina-discover-canvas-wrap',
+                view === 'yansi' && 'saina-yansi-canvas-wrap'
+              )}
+            >
+              {view === 'yansi' ? null : <SainaPersistentScene />}
               <SainaRouteTransition routeKey={view}>{children}</SainaRouteTransition>
             </div>
           </div>

@@ -123,26 +123,44 @@
   outline-offset: 2px;
 }
 
-/* Desktop immersive stage — Yansı is the environment, not a contained card */
+/* Desktop immersive stage — fills BiligN main content, not the browser viewport */
 @media (min-width: 900px) {
-  html:has([data-mirror-landing-layout]),
-  body:has([data-mirror-landing-layout]) {
+  [data-saina-view='yansi'] .saina-main-col,
+  [data-saina-view='yansi'] .saina-yansi-canvas-wrap {
+    position: relative;
     height: 100%;
+    min-height: 0;
     overflow: hidden;
   }
 
-  [data-mirror-landing-layout] {
-    height: 100dvh;
-    max-height: 100dvh;
+  [data-saina-view='yansi'] .saina-yansi-shell-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    pointer-events: none;
+  }
+
+  [data-saina-view='yansi'] .saina-yansi-shell-topbar .saina-top-bar,
+  [data-saina-view='yansi'] .saina-yansi-shell-topbar button,
+  [data-saina-view='yansi'] .saina-yansi-shell-topbar input {
+    pointer-events: auto;
+  }
+
+  [data-mirror-landing-layout],
+  .yansi-public-layout {
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
   }
 
   .yansi-desktop-reel-root {
     max-width: none;
     margin: 0;
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 100dvh;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
     overflow: hidden;
     background: #090b0b;
   }
@@ -150,8 +168,8 @@
   .yansi-desktop-cinematic-stage {
     position: relative;
     height: 100%;
-    min-height: 100dvh;
-    max-height: 100dvh;
+    min-height: 0;
+    max-height: none;
     width: 100%;
     max-width: none;
     margin: 0;
@@ -196,28 +214,73 @@
     left: 50%;
     top: 44%;
     transform: translate(-50%, -50%);
-    width: min(78vmin, 74dvh);
-    height: min(78vmin, 74dvh);
+    width: min(72%, 68vh, 34rem);
+    height: min(72%, 68vh, 34rem);
     object-fit: contain;
     border: 0;
     box-shadow: none;
     border-radius: 0;
+    mask-image: radial-gradient(
+      ellipse 78% 78% at 50% 50%,
+      #000 54%,
+      rgba(0, 0, 0, 0.55) 78%,
+      transparent 100%
+    );
+    -webkit-mask-image: radial-gradient(
+      ellipse 78% 78% at 50% 50%,
+      #000 54%,
+      rgba(0, 0, 0, 0.55) 78%,
+      transparent 100%
+    );
   }
 
   .yansi-desktop-scene-blend {
     background:
       radial-gradient(
-        ellipse 58% 56% at 50% 42%,
-        rgba(9, 11, 11, 0) 28%,
-        rgba(9, 11, 11, 0.22) 62%,
-        rgba(9, 11, 11, 0.52) 100%
+        ellipse 62% 60% at 50% 42%,
+        rgba(9, 11, 11, 0) 22%,
+        rgba(9, 11, 11, 0.18) 58%,
+        rgba(9, 11, 11, 0.48) 100%
       ),
       linear-gradient(
         180deg,
-        rgba(9, 11, 11, 0.22) 0%,
-        rgba(9, 11, 11, 0.08) 36%,
-        rgba(9, 11, 11, 0.55) 100%
+        rgba(9, 11, 11, 0.18) 0%,
+        rgba(9, 11, 11, 0.06) 36%,
+        rgba(9, 11, 11, 0.52) 100%
       );
+  }
+
+  [data-saina-view='yansi'] .yansi-chat-replay-layer {
+    max-width: min(32rem, 86%);
+  }
+
+  [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-ai,
+  [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-user {
+    width: fit-content;
+    max-width: min(28rem, 100%);
+  }
+
+  [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-ai {
+    background: linear-gradient(
+      160deg,
+      rgba(18, 20, 20, 0.42) 0%,
+      rgba(10, 12, 12, 0.28) 100%
+    );
+    border-color: rgba(232, 226, 215, 0.12);
+    color: #f4f0e8;
+    box-shadow: none;
+    text-shadow: none;
+  }
+
+  [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-user,
+  [data-saina-view='yansi'] .yansi-chat-replay-layer .saina-msg-user--standalone {
+    background: linear-gradient(
+      155deg,
+      rgba(255, 252, 245, 0.78) 0%,
+      rgba(246, 236, 214, 0.62) 100%
+    );
+    border-color: rgba(232, 213, 181, 0.28);
+    color: #1a1b1c;
   }
 
   .yansi-desktop-visual-stack {
@@ -307,6 +370,34 @@
   .yansi-exp-rail[data-yansi-public-audio-rail='true'] {
     opacity: 0;
     animation: yansi-audio-slot-in 240ms ease-out 120ms both;
+  }
+}
+
+/* Mobile /m — HARD FREEZE: hide BiligN desktop chrome, keep fullscreen Yansı */
+@media (max-width: 899px) {
+  [data-saina-view='yansi'] .saina-standalone-sidebar-wrap,
+  [data-saina-view='yansi'] .saina-yansi-shell-topbar {
+    display: none !important;
+  }
+
+  [data-saina-view='yansi'].saina-page,
+  [data-saina-view='yansi'] .saina-app-frame,
+  [data-saina-view='yansi'] .saina-shell,
+  [data-saina-view='yansi'] .saina-main-col,
+  [data-saina-view='yansi'] .saina-canvas,
+  [data-saina-view='yansi'] .saina-yansi-canvas-wrap,
+  [data-saina-view='yansi'] .yansi-public-layout,
+  [data-saina-view='yansi'] [data-mirror-landing-layout] {
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 100dvh;
+    height: 100dvh;
+    max-height: none;
+    overflow: hidden;
+    background: #090b0b;
   }
 }
 

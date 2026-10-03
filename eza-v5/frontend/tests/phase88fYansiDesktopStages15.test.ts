@@ -14,7 +14,7 @@ function read(rel: string) {
 
 describe('Phase 8.8F Stage 1–5 desktop Yansı styles', () => {
   const css = read('styles/saina-yansi-desktop.css');
-  const layout = read('app/standalone/SainaAppRootLayout.tsx');
+  const layout = read('components/saina/SainaAppRootLayout.tsx');
 
   it('imports scoped desktop stylesheet from app root layout', () => {
     expect(layout).toContain("import '@/styles/saina-yansi-desktop.css'");

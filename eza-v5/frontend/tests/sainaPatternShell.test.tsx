@@ -44,10 +44,10 @@ vi.mock('@/components/standalone/MirrorEntriesContext', () => ({
 import { usePlan } from '@/lib/eza/plan/usePlan';
 import { useRelationshipMapAccess } from '@/lib/eza/plan/useRelationshipMapAccess';
 import SainaPatternPageInner from '@/components/saina/SainaPatternPageInner';
-import SainaAppRootLayout from '@/app/standalone/SainaAppRootLayout';
+import SainaAppRootLayout from '@/components/saina/SainaAppRootLayout';
 
 const mirrorLayoutSrc = readFileSync(
-  join(process.cwd(), 'app/standalone/mirror/MirrorLayoutClient.tsx'),
+  join(process.cwd(), 'app/(bilign)/standalone/mirror/MirrorLayoutClient.tsx'),
   'utf8'
 );
 

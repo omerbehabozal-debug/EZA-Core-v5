@@ -513,8 +513,8 @@ describe('source contracts', () => {
   });
 
   it('does not change backend files in this stage', () => {
-    expect(read('app/m/layout.tsx')).toContain('yansi-experience-controls.css');
-    expect(read('app/m/layout.tsx')).toContain('yansi-reel-responsive.css');
+    expect(read('app/(bilign)/m/layout.tsx')).toContain('yansi-experience-controls.css');
+    expect(read('app/(bilign)/m/layout.tsx')).toContain('yansi-reel-responsive.css');
     const css = read('styles/yansi-experience-controls.css');
     expect(css).toContain('min-width: 900px');
     expect(css).toContain('max-width: 899px');

@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
-import '@/styles/saina-mirror.css';
 import '@/styles/saina-yansi-mobile-public.css';
 import '@/styles/yansi-experience-controls.css';
 import '@/styles/yansi-reel-responsive.css';
 
 /**
- * Public mirror landing — no app chrome, editorial full-bleed.
+ * Public Yansı segment — desktop chrome lives on the shared parent layout.
+ * This wrapper only carries /m styles and the mobile layout marker.
  */
 export default function MirrorLandingLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-[#090b0b] antialiased" data-mirror-landing-layout>
+    <div className="yansi-public-layout" data-mirror-landing-layout>
       {children}
     </div>
   );

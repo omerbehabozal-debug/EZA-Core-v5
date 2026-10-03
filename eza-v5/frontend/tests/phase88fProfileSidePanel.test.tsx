@@ -208,7 +208,7 @@ describe('Phase 8.8F profile side panel', () => {
     expect(css).toContain("min-width: 0");
     expect(css).toContain('max-width: 32px');
     expect(css).not.toMatch(/gold frame|#ffd700/i);
-    expect(read('app/standalone/SainaAppRootLayout.tsx')).toContain(
+    expect(read('components/saina/SainaAppRootLayout.tsx')).toContain(
       "import '@/styles/saina-profile-panel.css'"
     );
   });

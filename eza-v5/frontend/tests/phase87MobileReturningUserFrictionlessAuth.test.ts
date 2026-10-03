@@ -168,7 +168,7 @@ describe('Phase 8.7 frictionless auth + mobile continuity', () => {
     expect(hook).toContain('visualViewport');
     expect(hook).toContain('--saina-keyboard-inset');
     const layout = readFileSync(
-      join(process.cwd(), 'app/standalone/SainaAppRootLayout.tsx'),
+      join(process.cwd(), 'components/saina/SainaAppRootLayout.tsx'),
       'utf8'
     );
     expect(layout).toContain('useSainaVisualViewportInset');

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
+import PublicYansiShellChrome from '@/components/mirror-landing/PublicYansiShellChrome';
 import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
 import { useSainaCompactShell } from '@/hooks/useSainaMinWidth';
 import type { MirrorLandingSurface } from '@/lib/eza/mirror-network/publicTypes';
@@ -147,8 +148,8 @@ export default function MirrorLandingExperience({
   return (
     <div
       className={cn(
-        'relative mx-0 flex min-h-[100dvh] w-full max-w-none flex-col bg-[#090b0b] text-[#f4f0e8]',
-        isDesktop && 'yansi-desktop-reel-root',
+        'relative mx-0 flex w-full max-w-none flex-col bg-[#090b0b] text-[#f4f0e8]',
+        isDesktop ? 'yansi-desktop-reel-root h-full min-h-0' : 'min-h-[100dvh]',
         className
       )}
       data-mirror-landing
@@ -157,6 +158,7 @@ export default function MirrorLandingExperience({
       data-yansi-experience-mode={depth === 'chat' ? 'chat' : 'reel'}
       data-yansi-reel-presentation={isDesktop ? 'desktop-immersive' : 'mobile-fullscreen'}
     >
+      <PublicYansiShellChrome />
       {frozenState.status === 'ready' ? (
         <YansiExperienceSessionProvider slug={frozenState.artifact.slug}>
           <MirrorYansiChainExperience
