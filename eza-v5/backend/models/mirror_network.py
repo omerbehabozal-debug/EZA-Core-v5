@@ -22,6 +22,7 @@ from sqlalchemy import (
     Text,
     Integer,
     UniqueConstraint,
+    CheckConstraint,
     Index,
     text,
 )
@@ -213,4 +214,127 @@ class MirrorNetworkSave(Base):
         nullable=True,
         index=True,
     )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+# Katkılar v1 — one frozen Yansı experience (slug + journeyVersion). Not a step.
+KATKI_CONTRIBUTION_TYPES = (
+    "verify",
+    "correction",
+    "additional_information",
+    "different_perspective",
+)
+KATKI_VISIBILITIES = (
+    "visible",
+    "hidden_by_owner",
+    "hidden_by_trust",
+    "withdrawn",
+)
+# Same bounded reasons as YansiReport. A report does not change visibility.
+KATKI_REPORT_REASONS = (
+    "inappropriate",
+    "misleading",
+    "privacy",
+    "other",
+)
+
+
+class YansiContribution(Base):
+    """Knowledge act on one frozen Yansı version. No step or message target."""
+
+    __tablename__ = "yansi_contributions"
+    __table_args__ = (
+        CheckConstraint(
+            "contribution_type IN ('verify', 'correction', "
+            "'additional_information', 'different_perspective')",
+            name="ck_yansi_contributions_type",
+        ),
+        CheckConstraint(
+            "visibility IN ('visible', 'hidden_by_owner', 'hidden_by_trust', 'withdrawn')",
+            name="ck_yansi_contributions_visibility",
+        ),
+        Index(
+            "ix_yansi_contributions_slug_version",
+            "slug",
+            "journey_version",
+        ),
+        Index(
+            "ix_yansi_contributions_slug_version_visibility",
+            "slug",
+            "journey_version",
+            "visibility",
+        ),
+        # Withdrawn rows stay stored and do not occupy the active slot.
+        Index(
+            "uq_yansi_contributions_active_type",
+            "contributor_user_id",
+            "slug",
+            "journey_version",
+            "contribution_type",
+            unique=True,
+            postgresql_where=text("visibility <> 'withdrawn'"),
+            sqlite_where=text("visibility <> 'withdrawn'"),
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
+    slug = Column(
+        String(64),
+        ForeignKey("mirror_network_nodes.slug", ondelete="CASCADE"),
+        nullable=False,
+    )
+    journey_version = Column(Integer, nullable=False)
+    contribution_type = Column(String(32), nullable=False)
+    body = Column(Text, nullable=True)
+    source_note = Column(Text, nullable=True)
+    contributor_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("production_users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    visibility = Column(String(32), nullable=False, default="visible", server_default="visible")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    withdrawn_at = Column(DateTime(timezone=True), nullable=True)
+    hidden_at = Column(DateTime(timezone=True), nullable=True)
+    hidden_by_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("production_users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+
+class YansiContributionReport(Base):
+    """One report of one contribution. Does not change contribution visibility."""
+
+    __tablename__ = "yansi_contribution_reports"
+    __table_args__ = (
+        UniqueConstraint(
+            "contribution_id",
+            "reporter_user_id",
+            name="uq_yansi_contribution_reports_contribution_reporter",
+        ),
+        CheckConstraint(
+            "reason IN ('inappropriate', 'misleading', 'privacy', 'other')",
+            name="ck_yansi_contribution_reports_reason",
+        ),
+        Index(
+            "ix_yansi_contribution_reports_contribution",
+            "contribution_id",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contribution_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("yansi_contributions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    reporter_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("production_users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    reason = Column(String(32), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

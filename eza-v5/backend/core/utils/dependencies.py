@@ -87,7 +87,12 @@ async def init_db():
         AuditLog, TelemetryEvent, AlertEvent, Invitation,
         IntentLog, ImpactEvent
     )
-    from backend.models.mirror_network import MirrorNetworkNode, YansiReport
+    from backend.models.mirror_network import (
+        MirrorNetworkNode,
+        YansiContribution,
+        YansiContributionReport,
+        YansiReport,
+    )
     from backend.models.behavioral import (
         BehavioralLog,
         BehavioralBaseline,
