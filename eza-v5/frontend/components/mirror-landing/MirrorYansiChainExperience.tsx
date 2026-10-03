@@ -728,6 +728,9 @@ export default function MirrorYansiChainExperience({
                 showChatReplay && 'yansi-chat-title-quiet'
               )}
               data-yansi-title-position={titlePosition}
+              data-yansi-detail-open={
+                isDesktop && !showChatReplay && detailOpen ? 'true' : 'false'
+              }
               data-testid="yansi-title-block"
               data-yansi-copy-overlay={isDesktop ? 'true' : undefined}
               data-yansi-active-identity={activeSlug}
@@ -854,17 +857,24 @@ export default function MirrorYansiChainExperience({
                       </button>
                     ) : null}
                   </div>
-                  {isDesktop &&
-                  !showChatReplay &&
-                  detailOpen &&
-                  (activeNode.artifact.publicSummary || '').trim() ? (
-                    <p
-                      id="yansi-desktop-canonical-summary"
-                      className="yansi-desktop-canonical-summary"
-                      data-testid="yansi-desktop-canonical-summary"
+                  {!showChatReplay && (activeNode.artifact.publicSummary || '').trim() ? (
+                    <div
+                      className="yansi-desktop-summary-slot"
+                      data-testid="yansi-desktop-summary-slot"
+                      data-open={detailOpen ? 'true' : 'false'}
+                      aria-hidden={detailOpen ? undefined : true}
                     >
-                      {(activeNode.artifact.publicSummary || '').trim()}
-                    </p>
+                      <div className="yansi-desktop-summary-slot__inner">
+                        <p
+                          id="yansi-desktop-canonical-summary"
+                          className="yansi-desktop-canonical-summary"
+                          data-testid="yansi-desktop-canonical-summary"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {(activeNode.artifact.publicSummary || '').trim()}
+                        </p>
+                      </div>
+                    </div>
                   ) : null}
                 </div>
               ) : null}

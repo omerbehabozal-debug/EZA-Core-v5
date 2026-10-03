@@ -240,8 +240,18 @@ describe('desktop immersive presentation', () => {
     const toggle = screen.getByTestId('yansi-desktop-detail-toggle');
     expect(toggle).toHaveTextContent('Detay');
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByTestId('yansi-desktop-canonical-summary')).toBeNull();
-    expect(screen.queryByText(summary)).toBeNull();
+    expect(screen.getByTestId('yansi-title-block')).toHaveAttribute(
+      'data-yansi-detail-open',
+      'false'
+    );
+    expect(screen.getByTestId('yansi-desktop-summary-slot')).toHaveAttribute(
+      'data-open',
+      'false'
+    );
+    expect(screen.getByTestId('yansi-desktop-summary-slot')).toHaveAttribute(
+      'aria-hidden',
+      'true'
+    );
     expect(screen.queryByText(/Sessizce/i)).toBeNull();
 
     fireEvent.click(toggle);
@@ -250,18 +260,35 @@ describe('desktop immersive presentation', () => {
     expect(revealed).toHaveTextContent(summary);
     expect(toggle).toHaveTextContent('Gizle');
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('yansi-title-block')).toHaveAttribute(
+      'data-yansi-detail-open',
+      'true'
+    );
+    expect(screen.getByTestId('yansi-desktop-summary-slot')).toHaveAttribute(
+      'data-open',
+      'true'
+    );
+    expect(screen.getByTestId('yansi-desktop-summary-slot')).not.toHaveAttribute(
+      'aria-hidden'
+    );
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(title).toHaveTextContent('Canonical yansi-b');
     expect(onDepthChange).not.toHaveBeenCalled();
 
     fireEvent.click(toggle);
-    expect(screen.queryByTestId('yansi-desktop-canonical-summary')).toBeNull();
+    expect(screen.getByTestId('yansi-desktop-summary-slot')).toHaveAttribute(
+      'data-open',
+      'false'
+    );
+    expect(screen.getByTestId('yansi-desktop-summary-slot')).toHaveAttribute(
+      'aria-hidden',
+      'true'
+    );
     expect(toggle).toHaveTextContent('Detay');
     expect(onDepthChange).not.toHaveBeenCalled();
 
     fireEvent.click(title);
     expect(onDepthChange).toHaveBeenCalledWith('chat');
-    expect(screen.queryByTestId('yansi-desktop-canonical-summary')).toBeNull();
   });
 
   it('keeps Detay off the mobile reel path', async () => {
@@ -467,6 +494,12 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*object-position:\s*var\(--yansi-scene-pos\)/);
     expect(css).toMatch(/\.yansi-desktop-scene-bleed[\s\S]*blur\(10px\)/);
     expect(css).toMatch(/\.yansi-desktop-scene-image[\s\S]*radial-gradient/);
+    expect(css).toMatch(
+      /\[data-yansi-public-depth='reel'\][\s\S]*\.yansi-desktop-scene-image[\s\S]*mask-image:\s*none/
+    );
+    expect(css).toMatch(
+      /\[data-yansi-public-depth='reel'\][\s\S]*\.yansi-desktop-scene-blend[\s\S]*opacity:\s*0/
+    );
     expect(css).toContain("data-saina-view='yansi'] .saina-canvas");
     expect(css).toContain('position: absolute');
     expect(css).toContain('inset: 0');
@@ -479,10 +512,15 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toContain('clamp(4.5rem, 8vh, 6.25rem)');
     expect(css).toContain('yansi-desktop-detail-toggle');
     expect(css).toContain('yansi-desktop-canonical-summary');
+    expect(css).toContain('yansi-desktop-summary-slot');
     expect(css).toContain('max-width: 36.25rem');
-    expect(css).toContain('yansi-desktop-detail-in 300ms');
+    expect(css).toContain('grid-template-rows: 0fr');
+    expect(css).toContain('grid-template-rows: 1fr');
     expect(css).toMatch(
-      /\.yansi-desktop-visual-stack\[data-yansi-title-position='lower'\][\s\S]*radial-gradient/
+      /\.yansi-desktop-visual-stack\[data-yansi-title-position='lower'\][\s\S]*background:\s*none/
+    );
+    expect(css).toMatch(
+      /\.yansi-desktop-visual-stack\[data-yansi-title-position='lower'\]::before[\s\S]*radial-gradient/
     );
     expect(css).not.toContain('Sessizce');
     expect(css).toMatch(/\.yansi-desktop-visual-stack[\s\S]*position:\s*absolute/);
@@ -519,5 +557,7 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(mobileBlock).not.toContain('yansi-desktop-detail-toggle');
     expect(mobileBlock).not.toContain('yansi-desktop-canonical-summary');
     expect(mobileBlock).not.toContain('yansi-desktop-proof-row');
+    expect(mobileBlock).not.toContain('yansi-desktop-summary-slot');
+    expect(mobileBlock).not.toContain("mask-image: none");
   });
 });
