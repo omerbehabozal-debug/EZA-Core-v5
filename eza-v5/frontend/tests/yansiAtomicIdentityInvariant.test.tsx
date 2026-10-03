@@ -185,9 +185,12 @@ describe('A → B identity commit', () => {
     );
     const chain = await screen.findByTestId('mirror-yansi-chain');
     fireEvent.wheel(chain, { deltaY: YANSI_WHEEL_COMMIT_PX, bubbles: true, cancelable: true });
-    await waitFor(() => {
-      expect(chain).toHaveAttribute('data-active-slug', 'yansi-b');
-    });
+    await waitFor(
+      () => {
+        expect(chain).toHaveAttribute('data-active-slug', 'yansi-b');
+      },
+      { timeout: 2000 }
+    );
     expect(screen.getByTestId('mirror-yansi-active-title')).toHaveTextContent(
       'Beynin Gece Çalışması'
     );

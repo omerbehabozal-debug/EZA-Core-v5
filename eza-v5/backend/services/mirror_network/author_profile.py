@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.mirror_network import (
@@ -35,6 +35,37 @@ from backend.services.mirror_network.public_identity import (
 )
 from backend.services.profile_avatar_store import normalize_profile_avatar_public_locator
 from backend.services.mirror_network.slug import build_mirror_share_url
+
+async def _overlay_live_public_avatar(db: AsyncSession, user: Any) -> None:
+    """Load current production_users avatar columns when User ORM omits them.
+
+    Same live-user authority as Discover. Does not invent a new public field —
+    AuthorPublished already declares publicAvatarUrl / publicAvatarRevision.
+    """
+    if user is None or hasattr(user, "public_avatar_url"):
+        return
+    uid = getattr(user, "id", None)
+    if uid is None:
+        return
+    try:
+        result = await db.execute(
+            text(
+                "SELECT public_avatar_url, public_avatar_revision "
+                "FROM production_users WHERE id = :id"
+            ),
+            {"id": uid},
+        )
+        row = result.mappings().first()
+    except Exception:
+        return
+    if not row:
+        return
+    try:
+        user.public_avatar_url = row.get("public_avatar_url")
+        user.public_avatar_revision = row.get("public_avatar_revision")
+    except Exception:
+        return
+
 
 # Deterministic profile listing order (Phase 8.5B.1).
 # Popularity/metrics never participate.
@@ -404,6 +435,7 @@ async def list_published_mirrors_for_author(
     user = await db.get(User, user_id)
     if user is None or not bool(getattr(user, "is_active", True)):
         return None
+    await _overlay_live_public_avatar(db, user)
 
     result = await db.execute(
         select(MirrorNetworkNode)
@@ -474,6 +506,7 @@ async def list_owner_profile_yansilar(
     user = await db.get(User, owner_user_id)
     if user is None or not bool(getattr(user, "is_active", True)):
         return None
+    await _overlay_live_public_avatar(db, user)
 
     result = await db.execute(
         select(MirrorNetworkNode)

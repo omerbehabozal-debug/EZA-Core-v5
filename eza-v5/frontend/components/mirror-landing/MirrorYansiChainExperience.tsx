@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { Menu, MoreHorizontal, Volume2 } from 'lucide-react';
 import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSceneCrossfade';
+import YansiDesktopReelSurface from '@/components/mirror-landing/YansiDesktopReelSurface';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
@@ -98,6 +99,11 @@ import {
   resolveYansiWheelTick,
 } from '@/lib/eza/mirror/journey/yansiDesktopWheelGesture';
 import {
+  readYansiReelPrefersReducedMotion,
+  yansiReelTravelDuration,
+  type YansiReelTravelDirection,
+} from '@/lib/eza/mirror/journey/yansiDesktopReelTransition';
+import {
   buildYansiPublicHref,
   navigateBackFromYansiReel,
   pushYansiChatDepth,
@@ -136,6 +142,15 @@ type ExperienceNode = {
   authorAvatarRevision: number | null;
   parentAuthorDisplayName: string | null;
   parentPublicTitle: string | null;
+};
+
+type ReelTravel = {
+  direction: YansiReelTravelDirection;
+  outgoing: ExperienceNode;
+  incoming: ExperienceNode;
+  nextSession: YansiDiscoverySession;
+  traveling: boolean;
+  reducedMotion: boolean;
 };
 
 async function enrichNode(
@@ -210,6 +225,7 @@ export default function MirrorYansiChainExperience({
   const [audioSheetOpen, setAudioSheetOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [reelTravel, setReelTravel] = useState<ReelTravel | null>(null);
   const previousActiveSlugRef = useRef(entrySlug);
   const skipFiredRef = useRef<Set<string>>(new Set());
   const navInFlightRef = useRef(false);
@@ -224,6 +240,11 @@ export default function MirrorYansiChainExperience({
   replayProgressRef.current = replayProgress;
   const nodesBySlugRef = useRef(nodesBySlug);
   nodesBySlugRef.current = nodesBySlug;
+  const reelTravelRef = useRef<ReelTravel | null>(null);
+  reelTravelRef.current = reelTravel;
+  const reelTravelTimerRef = useRef<number | null>(null);
+  const reelTravelStartTimerRef = useRef<number | null>(null);
+  const reelTravelRafRef = useRef<number | null>(null);
 
   const activeSlug = session ? activeDiscoverSlug(session) : entrySlug;
   const activeNode = nodesBySlug[activeSlug] ?? null;
@@ -362,6 +383,67 @@ export default function MirrorYansiChainExperience({
     return node;
   }, []);
 
+  const clearReelTravelTimers = useCallback(() => {
+    if (reelTravelTimerRef.current != null) {
+      window.clearTimeout(reelTravelTimerRef.current);
+      reelTravelTimerRef.current = null;
+    }
+    if (reelTravelStartTimerRef.current != null) {
+      window.clearTimeout(reelTravelStartTimerRef.current);
+      reelTravelStartTimerRef.current = null;
+    }
+    if (reelTravelRafRef.current != null) {
+      window.cancelAnimationFrame(reelTravelRafRef.current);
+      reelTravelRafRef.current = null;
+    }
+  }, []);
+
+  const finishReelTravel = useCallback((travel: ReelTravel) => {
+    clearReelTravelTimers();
+    setSession(travel.nextSession);
+    setReelTravel(null);
+    reelTravelRef.current = null;
+    navInFlightRef.current = false;
+    setNavBusy(false);
+  }, [clearReelTravelTimers]);
+
+  const beginReelTravel = useCallback(
+    (input: Omit<ReelTravel, 'traveling' | 'reducedMotion'>) => {
+      if (!isDesktop || depth !== 'reel') {
+        setSession(input.nextSession);
+        return false;
+      }
+      setDetailOpen(false);
+      navInFlightRef.current = true;
+      setNavBusy(true);
+      const reducedMotion = readYansiReelPrefersReducedMotion();
+      const next: ReelTravel = { ...input, traveling: false, reducedMotion };
+      reelTravelRef.current = next;
+      setReelTravel(next);
+      clearReelTravelTimers();
+      const startMotion = () => {
+        setReelTravel((cur) => (cur && !cur.traveling ? { ...cur, traveling: true } : cur));
+      };
+      reelTravelRafRef.current = window.requestAnimationFrame(() => {
+        reelTravelRafRef.current = window.requestAnimationFrame(startMotion);
+      });
+      // rAF can stall in background/automation tabs; timeout still kicks the slide.
+      reelTravelStartTimerRef.current = window.setTimeout(startMotion, 24);
+      reelTravelTimerRef.current = window.setTimeout(() => {
+        finishReelTravel(next);
+      }, yansiReelTravelDuration(reducedMotion));
+      return true;
+    },
+    [clearReelTravelTimers, depth, finishReelTravel, isDesktop]
+  );
+
+  useEffect(() => () => clearReelTravelTimers(), [clearReelTravelTimers]);
+
+  useEffect(() => {
+    if (depth !== 'chat' || !reelTravelRef.current) return;
+    finishReelTravel(reelTravelRef.current);
+  }, [depth, finishReelTravel]);
+
   const handleReplayProgress = useCallback(
     (notice: {
       slug: string;
@@ -385,21 +467,37 @@ export default function MirrorYansiChainExperience({
 
   const goUp = useCallback(() => {
     const current = sessionRef.current;
-    if (!current || navInFlightRef.current) return;
+    if (!current || navInFlightRef.current || reelTravelRef.current) return;
     const next = discoverGoUp(current);
     if (!next) return;
+    const outgoing = nodesBySlugRef.current[activeDiscoverSlug(current)];
+    const incoming = nodesBySlugRef.current[activeDiscoverSlug(next)];
     setPoolEndVisible(false);
+    if (outgoing && incoming && beginReelTravel({ direction: 'up', outgoing, incoming, nextSession: next })) {
+      return;
+    }
     setSession(next);
-  }, []);
+  }, [beginReelTravel]);
 
   const goDown = useCallback(async () => {
     const current = sessionRef.current;
-    if (!current || navInFlightRef.current) return;
+    if (!current || navInFlightRef.current || reelTravelRef.current) return;
 
     if (canDiscoverGoDownInHistory(current)) {
       const next = discoverGoDownInHistory(current);
       if (!next) return;
+      const outgoing = nodesBySlugRef.current[activeDiscoverSlug(current)];
+      const incoming =
+        nodesBySlugRef.current[activeDiscoverSlug(next)] ||
+        (await ensureArtifactLoaded(activeDiscoverSlug(next)));
       setPoolEndVisible(false);
+      if (
+        outgoing &&
+        incoming &&
+        beginReelTravel({ direction: 'down', outgoing, incoming, nextSession: next })
+      ) {
+        return;
+      }
       setSession(next);
       return;
     }
@@ -411,6 +509,7 @@ export default function MirrorYansiChainExperience({
 
     navInFlightRef.current = true;
     setNavBusy(true);
+    let handedToTravel = false;
     try {
       const result = await fetchNextDiscoverCandidate({
         excludeSlugs: discoverExcludeSet(current),
@@ -425,7 +524,20 @@ export default function MirrorYansiChainExperience({
       }
       if (canDiscoverGoDownInHistory(live)) {
         const hist = discoverGoDownInHistory(live);
-        if (hist) setSession(hist);
+        if (!hist) return;
+        const outgoing = nodesBySlugRef.current[activeDiscoverSlug(live)];
+        const incoming =
+          nodesBySlugRef.current[activeDiscoverSlug(hist)] ||
+          (await ensureArtifactLoaded(activeDiscoverSlug(hist)));
+        if (
+          outgoing &&
+          incoming &&
+          beginReelTravel({ direction: 'down', outgoing, incoming, nextSession: hist })
+        ) {
+          handedToTravel = true;
+          return;
+        }
+        setSession(hist);
         return;
       }
 
@@ -461,12 +573,27 @@ export default function MirrorYansiChainExperience({
       const appended = discoverAppendAndActivate(nextSession, result.slug);
       if (!appended) return;
       setPoolEndVisible(false);
+      const outgoing = nodesBySlugRef.current[activeDiscoverSlug(live)];
+      if (
+        outgoing &&
+        beginReelTravel({
+          direction: 'down',
+          outgoing,
+          incoming: loaded,
+          nextSession: appended,
+        })
+      ) {
+        handedToTravel = true;
+        return;
+      }
       setSession(appended);
     } finally {
-      navInFlightRef.current = false;
-      setNavBusy(false);
+      if (!handedToTravel) {
+        navInFlightRef.current = false;
+        setNavBusy(false);
+      }
     }
-  }, [ensureArtifactLoaded]);
+  }, [beginReelTravel, ensureArtifactLoaded]);
 
   const goHorizontal = useCallback(
     async (direction: 'previous' | 'next') => {
@@ -655,7 +782,7 @@ export default function MirrorYansiChainExperience({
       if (!isDesktop || depth !== 'reel') return;
       event.preventDefault();
       event.stopPropagation();
-      if (navInFlightRef.current) return;
+      if (navInFlightRef.current || reelTravelRef.current) return;
       const resolved = resolveYansiWheelTick(
         wheelRef.current,
         event.deltaY,
@@ -687,6 +814,24 @@ export default function MirrorYansiChainExperience({
   }, [depth]);
 
   useEffect(() => {
+    if (!session || !isDesktop || depth !== 'reel') return;
+    const prev = session.history[session.activeIndex - 1];
+    const next = session.history[session.activeIndex + 1];
+    const currentNode = nodesBySlug[activeDiscoverSlug(session)];
+    if (currentNode) preloadSceneImage(currentNode.artifact.sceneImageUrl);
+    if (prev) {
+      void ensureArtifactLoaded(prev).then((node) => {
+        if (node) preloadSceneImage(node.artifact.sceneImageUrl);
+      });
+    }
+    if (next) {
+      void ensureArtifactLoaded(next).then((node) => {
+        if (node) preloadSceneImage(node.artifact.sceneImageUrl);
+      });
+    }
+  }, [depth, ensureArtifactLoaded, isDesktop, nodesBySlug, session]);
+
+  useEffect(() => {
     if (!activeNode) return;
     logYansiAtomicIdentity(readYansiAtomicIdentity(activeNode.artifact));
   }, [activeNode]);
@@ -716,8 +861,20 @@ export default function MirrorYansiChainExperience({
     : '';
   const publicMetaType = YANSI_HERO_META_TYPE_YANSI;
   const showChatReplay = depth === 'chat';
-  const reelNavLocked = depth === 'chat';
+  const desktopReelTravel = isDesktop && !showChatReplay;
+  const reelNavLocked = depth === 'chat' || Boolean(reelTravel);
   const titlePosition = showChatReplay ? 'elevated' : 'lower';
+  const reelActions = (
+    <>
+      <YansiSaveButton
+        slug={activeNode.artifact.slug}
+        authorUserId={activeNode.artifact.authorUserId}
+        compact
+        onRequireAuth={onRequireAuth}
+      />
+      <YansiExperienceShareButton slug={activeNode.artifact.slug} />
+    </>
+  );
 
   const renderTitleBlock = () => (
             <header
@@ -740,6 +897,8 @@ export default function MirrorYansiChainExperience({
                   className="yansi-desktop-identity"
                   data-testid="yansi-desktop-identity"
                   data-yansi-active-identity={activeSlug}
+                  data-yansi-author-id={activeNode.artifact.authorUserId}
+                  data-yansi-avatar-authority="canonical-profile"
                 >
                   <button
                     type="button"
@@ -755,30 +914,35 @@ export default function MirrorYansiChainExperience({
                       avatarUrl={activeNode.authorAvatarUrl}
                       cacheBust={activeNode.authorAvatarRevision ?? undefined}
                       size="sm"
+                      className="yansi-desktop-identity__avatar"
                     />
-                    <span className="yansi-desktop-identity__name">
-                      {activeNode.authorDisplayName}
+                    <span className="yansi-desktop-identity__copy">
+                      <span className="yansi-desktop-identity__name-row">
+                        <span className="yansi-desktop-identity__name">
+                          {activeNode.authorDisplayName}
+                        </span>
+                        {activeNode.authorHonorific ? (
+                          <HonorificMarker
+                            honorific={activeNode.authorHonorific}
+                            testId="yansi-desktop-public-honorific"
+                          />
+                        ) : null}
+                      </span>
+                      {publicMetaTime || publicMetaType ? (
+                        <p className="yansi-desktop-identity__meta" data-testid="yansi-desktop-public-meta">
+                          {publicMetaTime ? (
+                            <span data-testid="yansi-desktop-public-meta-time">{publicMetaTime}</span>
+                          ) : null}
+                          {publicMetaTime && publicMetaType ? (
+                            <span aria-hidden="true"> · </span>
+                          ) : null}
+                          {publicMetaType ? (
+                            <span data-testid="yansi-desktop-public-meta-type">{publicMetaType}</span>
+                          ) : null}
+                        </p>
+                      ) : null}
                     </span>
-                    {activeNode.authorHonorific ? (
-                      <HonorificMarker
-                        honorific={activeNode.authorHonorific}
-                        testId="yansi-desktop-public-honorific"
-                      />
-                    ) : null}
                   </button>
-                  {publicMetaTime || publicMetaType ? (
-                    <p className="yansi-desktop-identity__meta" data-testid="yansi-desktop-public-meta">
-                      {publicMetaTime ? (
-                        <span data-testid="yansi-desktop-public-meta-time">{publicMetaTime}</span>
-                      ) : null}
-                      {publicMetaTime && publicMetaType ? (
-                        <span aria-hidden="true"> · </span>
-                      ) : null}
-                      {publicMetaType ? (
-                        <span data-testid="yansi-desktop-public-meta-type">{publicMetaType}</span>
-                      ) : null}
-                    </p>
-                  ) : null}
                 </div>
               ) : null}
               {showChatReplay && !isDesktop ? (
@@ -902,6 +1066,10 @@ export default function MirrorYansiChainExperience({
       data-yansi-identity-asset={activeIdentity.imageAssetId || undefined}
       data-yansi-identity-conversation={activeIdentity.sourceConversationId || undefined}
       data-yansi-reel-nav={reelNavLocked ? 'locked' : 'open'}
+      data-yansi-reel-transition={reelTravel ? reelTravel.direction : 'idle'}
+      data-yansi-incoming-slug={
+        reelTravel ? reelTravel.incoming.artifact.slug.trim().toLowerCase() : undefined
+      }
       data-yansi-reel-presentation={isDesktop ? 'desktop-immersive' : 'mobile-fullscreen'}
       tabIndex={isDesktop ? 0 : undefined}
       onKeyDown={onDesktopKeyDown}
@@ -910,11 +1078,86 @@ export default function MirrorYansiChainExperience({
       onPointerUp={onSwipePointerUp}
       onPointerCancel={onSwipePointerCancel}
     >
-      <MirrorYansiSceneCrossfade
-        sceneImageUrl={activeNode.artifact.sceneImageUrl}
-        presentation={isDesktop ? 'desktop-immersive' : 'mobile-fullscreen'}
-        activeIdentity={activeSlug}
-      />
+      {desktopReelTravel ? (
+        <div
+          className="yansi-desktop-reel-viewport"
+          data-testid="yansi-desktop-reel-viewport"
+        >
+          <YansiDesktopReelSurface
+            key={(reelTravel ? reelTravel.outgoing : activeNode).artifact.slug}
+            node={reelTravel ? reelTravel.outgoing : activeNode}
+            role={reelTravel ? 'outgoing' : 'current'}
+            direction={reelTravel?.direction ?? null}
+            traveling={Boolean(reelTravel?.traveling)}
+            reducedMotion={Boolean(reelTravel?.reducedMotion)}
+            detailOpen={reelTravel ? false : detailOpen}
+            onDetailToggle={
+              reelTravel ? undefined : () => setDetailOpen((open) => !open)
+            }
+            onOpenChat={reelTravel ? undefined : openChatDepth}
+            rail={
+              <YansiExperienceControls
+                showPlaybackControls={false}
+                activeIdentity={
+                  reelTravel ? reelTravel.outgoing.artifact.slug : activeSlug
+                }
+                actions={
+                  reelTravel ? (
+                    <>
+                      <YansiSaveButton
+                        slug={reelTravel.outgoing.artifact.slug}
+                        authorUserId={reelTravel.outgoing.artifact.authorUserId}
+                        compact
+                        onRequireAuth={onRequireAuth}
+                      />
+                      <YansiExperienceShareButton
+                        slug={reelTravel.outgoing.artifact.slug}
+                      />
+                    </>
+                  ) : (
+                    reelActions
+                  )
+                }
+              />
+            }
+          />
+          {reelTravel ? (
+            <YansiDesktopReelSurface
+              key={reelTravel.incoming.artifact.slug}
+              node={reelTravel.incoming}
+              role="incoming"
+              direction={reelTravel.direction}
+              traveling={reelTravel.traveling}
+              reducedMotion={reelTravel.reducedMotion}
+              rail={
+                <YansiExperienceControls
+                  showPlaybackControls={false}
+                  activeIdentity={reelTravel.incoming.artifact.slug}
+                  actions={
+                    <>
+                      <YansiSaveButton
+                        slug={reelTravel.incoming.artifact.slug}
+                        authorUserId={reelTravel.incoming.artifact.authorUserId}
+                        compact
+                        onRequireAuth={onRequireAuth}
+                      />
+                      <YansiExperienceShareButton
+                        slug={reelTravel.incoming.artifact.slug}
+                      />
+                    </>
+                  }
+                />
+              }
+            />
+          ) : null}
+        </div>
+      ) : (
+        <MirrorYansiSceneCrossfade
+          sceneImageUrl={activeNode.artifact.sceneImageUrl}
+          presentation={isDesktop ? 'desktop-immersive' : 'mobile-fullscreen'}
+          activeIdentity={activeSlug}
+        />
+      )}
       {/* Readability veil — scene stays mounted; no brightness filter / no new asset. */}
       <div
         className={cn(
@@ -925,7 +1168,7 @@ export default function MirrorYansiChainExperience({
         aria-hidden
       />
 
-      {isDesktop ? renderTitleBlock() : null}
+      {isDesktop && showChatReplay ? renderTitleBlock() : null}
 
       {!isDesktop ? (
         <header
@@ -1180,21 +1423,11 @@ export default function MirrorYansiChainExperience({
         </YansiExposureRoot>
       </div>
 
-      {isDesktop ? (
+      {isDesktop && showChatReplay ? (
         <YansiExperienceControls
-          showPlaybackControls={showChatReplay}
+          showPlaybackControls
           activeIdentity={activeSlug}
-          actions={
-            <>
-              <YansiSaveButton
-                slug={activeNode.artifact.slug}
-                authorUserId={activeNode.artifact.authorUserId}
-                compact
-                onRequireAuth={onRequireAuth}
-              />
-              <YansiExperienceShareButton slug={activeNode.artifact.slug} />
-            </>
-          }
+          actions={reelActions}
         />
       ) : null}
 

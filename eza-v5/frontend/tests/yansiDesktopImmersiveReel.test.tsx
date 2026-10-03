@@ -164,6 +164,8 @@ describe('desktop immersive presentation', () => {
     const title = screen.getByTestId('mirror-yansi-active-title');
     const block = screen.getByTestId('yansi-title-block');
     expect(identity.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(identity).toHaveAttribute('data-yansi-avatar-authority', 'canonical-profile');
+    expect(identity).toHaveAttribute('data-yansi-author-id', 'user-1');
     expect(block).toHaveAttribute('data-yansi-copy-overlay', 'true');
     expect(block).toHaveClass('yansi-desktop-visual-stack');
     expect(title).toHaveClass('yansi-desktop-editorial-title');
@@ -383,9 +385,12 @@ describe('desktop reel wheel ownership', () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     const chain = await screen.findByTestId('mirror-yansi-chain');
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
-    await waitFor(() => {
-      expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
-    });
+    await waitFor(
+      () => {
+        expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
+      },
+      { timeout: 2000 }
+    );
     expect(vi.mocked(fetchDiscoverMirrors)).toHaveBeenCalledTimes(1);
   });
 
@@ -395,9 +400,12 @@ describe('desktop reel wheel ownership', () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     const chain = await screen.findByTestId('mirror-yansi-chain');
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
-    await waitFor(() => {
-      expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
-    });
+    await waitFor(
+      () => {
+        expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
+      },
+      { timeout: 2000 }
+    );
     now.mockReturnValue(10_000 + 800);
     wheel(chain, -(YANSI_WHEEL_COMMIT_PX + 40));
     await waitFor(() => {
@@ -413,9 +421,12 @@ describe('desktop reel wheel ownership', () => {
     wheel(chain, 400);
     wheel(chain, 400);
     wheel(chain, 400);
-    await waitFor(() => {
-      expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
-    });
+    await waitFor(
+      () => {
+        expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
+      },
+      { timeout: 2000 }
+    );
     expect(vi.mocked(fetchDiscoverMirrors)).toHaveBeenCalledTimes(1);
   });
 
@@ -437,9 +448,12 @@ describe('desktop reel wheel ownership', () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     const chain = await screen.findByTestId('mirror-yansi-chain');
     wheel(chain, YANSI_WHEEL_COMMIT_PX);
-    await waitFor(() => {
-      expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
-    });
+    await waitFor(
+      () => {
+        expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
+      },
+      { timeout: 2000 }
+    );
     expect(screen.getByTestId('mirror-yansi-scene-crossfade')).toHaveAttribute(
       'data-yansi-scene-slug',
       'yansi-x'
@@ -509,10 +523,24 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toContain('clamp(2.15rem, 2.55vw, 3.15rem)');
     expect(css).toContain('clamp(1.5rem, 1.65vw, 1.875rem)');
     expect(css).toContain('clamp(3.5rem, 4.4vw, 4.5rem)');
-    expect(css).toContain('clamp(4.5rem, 8vh, 6.25rem)');
+    expect(css).toContain('clamp(3.5rem, 7vh, 4.5rem)');
+    expect(css).toContain('--yansi-editorial-top-safe: 4.5rem');
+    expect(css).toContain('2.875rem');
+    expect(css).not.toContain('clamp(4.5rem, 8vh, 6.25rem)');
+    expect(css).not.toMatch(
+      /\[data-yansi-detail-open='true'\][\s\S]{0,120}overflow-y:\s*auto/
+    );
     expect(css).toContain('yansi-desktop-detail-toggle');
     expect(css).toContain('yansi-desktop-canonical-summary');
     expect(css).toContain('yansi-desktop-summary-slot');
+    expect(css).toContain('yansi-desktop-reel-viewport');
+    expect(css).toContain('yansi-desktop-reel-surface');
+    expect(css).toContain('translateY(-100%)');
+    expect(css).toContain('translateY(100%)');
+    expect(css).toContain('560ms cubic-bezier(0.22, 1, 0.36, 1)');
+    expect(css).toMatch(
+      /\[data-yansi-public-depth='reel'\][\s\S]*mirror-yansi-chain-scroll[\s\S]*pointer-events:\s*none/
+    );
     expect(css).toContain('max-width: 36.25rem');
     expect(css).toContain('grid-template-rows: 0fr');
     expect(css).toContain('grid-template-rows: 1fr');
@@ -559,5 +587,10 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(mobileBlock).not.toContain('yansi-desktop-proof-row');
     expect(mobileBlock).not.toContain('yansi-desktop-summary-slot');
     expect(mobileBlock).not.toContain("mask-image: none");
+    expect(mobileBlock).not.toContain('yansi-desktop-reel-viewport');
+    expect(mobileBlock).not.toContain('yansi-desktop-reel-surface');
+    expect(mobileBlock).not.toContain('translateY(-100%)');
+    expect(mobileBlock).not.toContain('2.875rem');
+    expect(mobileBlock).not.toContain('yansi-desktop-identity__copy');
   });
 });

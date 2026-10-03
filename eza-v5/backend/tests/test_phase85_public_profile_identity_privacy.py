@@ -19,6 +19,7 @@ from backend.models.mirror_network import ARTIFACT_KIND_JOURNEY_V1
 from backend.services.mirror_network.frozen_journey_artifact import FREEZE_STATUS_FROZEN
 from backend.services.mirror_network.visibility_access import is_profile_listable
 from backend.services.mirror_network.author_profile import (
+    _overlay_live_public_avatar,
     _public_display_name_from_email,
     list_published_mirrors_for_author,
 )
@@ -182,6 +183,28 @@ async def test_public_profile_excludes_non_listable(monkeypatch):
     serialized = str(payload)
     assert "secret@example.com" not in serialized
     assert "secret" not in payload["displayName"]
+
+
+@pytest.mark.asyncio
+async def test_author_published_overlays_live_avatar_when_orm_omits_column():
+    uid = uuid4()
+    avatar = f"/api/public/profile-avatars/{uid}.jpg"
+    user = SimpleNamespace(id=uid, email="hidden@example.com", is_active=True)
+    assert not hasattr(user, "public_avatar_url")
+    db = AsyncMock()
+    db.execute = AsyncMock(
+        return_value=SimpleNamespace(
+            mappings=lambda: SimpleNamespace(
+                first=lambda: {
+                    "public_avatar_url": avatar,
+                    "public_avatar_revision": 3,
+                }
+            )
+        )
+    )
+    await _overlay_live_public_avatar(db, user)
+    assert user.public_avatar_url == avatar
+    assert user.public_avatar_revision == 3
 
 
 def test_public_dto_forbidden_identity_keys_contract():

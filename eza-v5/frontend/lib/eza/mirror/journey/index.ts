@@ -393,6 +393,13 @@ export {
 } from './yansiDiscoverySession';
 
 export {
+  YANSI_REEL_TRAVEL_MS,
+  YANSI_REEL_REDUCED_MS,
+  yansiReelTravelDuration,
+  type YansiReelTravelDirection,
+} from './yansiDesktopReelTransition';
+
+export {
   fetchNextDiscoverCandidate,
   MAX_DISCOVER_CANDIDATE_PAGES,
   type NextDiscoverCandidateResult,

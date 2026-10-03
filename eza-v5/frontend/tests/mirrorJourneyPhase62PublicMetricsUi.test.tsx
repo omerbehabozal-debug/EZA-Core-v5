@@ -425,12 +425,15 @@ describe('Phase 6.2 chain isolation', () => {
     // Vertical Reel nav is locked during chat depth — return to Reel then DOWN.
     rerender(<MirrorYansiChainExperience rootArtifact={a} depth="reel" />);
     fireEvent.click(await screen.findByTestId('mirror-skip-to-next'));
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
-        'data-active-slug',
-        'yansi-x'
-      );
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
+          'data-active-slug',
+          'yansi-x'
+        );
+      },
+      { timeout: 2000 }
+    );
 
     expect(screen.getByTestId('yansi-public-metrics')).toHaveAttribute(
       'data-metrics-slug',
@@ -443,7 +446,9 @@ describe('Phase 6.2 chain isolation', () => {
       'data-yansi-active-identity',
       'yansi-x'
     );
-    expect(fetchYansiPublicMetrics.mock.calls.filter((c) => c[0] === 'yansi-a').length).toBe(1);
+    // Chat title surface + reel surface remount A once; travel must not refetch A again.
+    expect(fetchYansiPublicMetrics.mock.calls.filter((c) => c[0] === 'yansi-a').length).toBe(2);
+    expect(fetchYansiPublicMetrics.mock.calls.filter((c) => c[0] === 'yansi-x').length).toBe(1);
     expect(fetchPublishedChildren).not.toHaveBeenCalled();
   });
 

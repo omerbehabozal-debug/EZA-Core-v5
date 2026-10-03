@@ -192,10 +192,97 @@
 
   .yansi-desktop-cinematic-stage[data-yansi-public-depth='reel'] [data-testid='mirror-yansi-chain-scroll'] {
     overflow: hidden;
+    pointer-events: none;
   }
 
   .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] [data-testid='mirror-yansi-chain-scroll'] {
     overflow-y: auto;
+  }
+
+  .yansi-desktop-reel-viewport {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .yansi-desktop-reel-surface {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+    will-change: transform;
+    transition:
+      transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 560ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-reduced-motion='true'] {
+    transition-duration: 180ms;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-surface-role='current'] {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-travel-direction='down'][data-yansi-surface-role='outgoing'] {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-travel-direction='down'][data-yansi-surface-role='outgoing'][data-yansi-traveling='true'] {
+    transform: translateY(-100%);
+    opacity: 0.92;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-travel-direction='down'][data-yansi-surface-role='incoming'] {
+    transform: translateY(100%);
+    opacity: 0.96;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-travel-direction='down'][data-yansi-surface-role='incoming'][data-yansi-traveling='true'] {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-travel-direction='up'][data-yansi-surface-role='outgoing'] {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-travel-direction='up'][data-yansi-surface-role='outgoing'][data-yansi-traveling='true'] {
+    transform: translateY(100%);
+    opacity: 0.92;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-travel-direction='up'][data-yansi-surface-role='incoming'] {
+    transform: translateY(-100%);
+    opacity: 0.96;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-travel-direction='up'][data-yansi-surface-role='incoming'][data-yansi-traveling='true'] {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-reduced-motion='true'][data-yansi-surface-role='outgoing'][data-yansi-traveling='true'],
+  .yansi-desktop-reel-surface[data-yansi-reduced-motion='true'][data-yansi-surface-role='incoming'] {
+    transform: none;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-reduced-motion='true'][data-yansi-surface-role='outgoing'][data-yansi-traveling='true'] {
+    opacity: 0;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-reduced-motion='true'][data-yansi-surface-role='incoming'] {
+    opacity: 0.4;
+  }
+
+  .yansi-desktop-reel-surface[data-yansi-reduced-motion='true'][data-yansi-surface-role='incoming'][data-yansi-traveling='true'] {
+    opacity: 1;
   }
 
   .yansi-desktop-cinematic-stage {
@@ -208,7 +295,8 @@
     --yansi-lane-width: min(40.625rem, 92%);
     --yansi-lane-max: 40.625rem;
     --yansi-title-inline: clamp(3.5rem, 4.4vw, 4.5rem);
-    --yansi-title-bottom: clamp(4.5rem, 8vh, 6.25rem);
+    --yansi-title-bottom: clamp(3.5rem, 7vh, 4.5rem);
+    --yansi-editorial-top-safe: 4.5rem;
     --yansi-depth-ease: 400ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -385,7 +473,7 @@
     transform: none;
     margin-top: 0;
     margin-bottom: 0;
-    max-height: calc(100% - 4.5rem);
+    max-height: calc(100% - var(--yansi-editorial-top-safe));
     overflow: visible;
     padding: 1.85rem 1.5rem var(--yansi-title-bottom) var(--yansi-title-inline);
     background: none;
@@ -403,11 +491,6 @@
       rgba(9, 11, 11, 0.14) 46%,
       rgba(9, 11, 11, 0) 76%
     );
-  }
-
-  .yansi-desktop-visual-stack[data-yansi-title-position='lower'][data-yansi-detail-open='true'] {
-    overflow-x: visible;
-    overflow-y: auto;
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='elevated'] {
@@ -453,14 +536,14 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.35rem;
+    gap: 0;
     max-width: 100%;
   }
 
   .yansi-desktop-identity__author {
     display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
+    align-items: flex-start;
+    gap: 0.7rem;
     margin: 0;
     padding: 0;
     border: 0;
@@ -470,11 +553,38 @@
     text-align: left;
   }
 
+  .yansi-desktop-identity__copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.18rem;
+    min-width: 0;
+  }
+
+  .yansi-desktop-identity__name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__avatar,
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__avatar.bilign-profile-avatar--sm {
+    width: 2.875rem;
+    height: 2.875rem;
+  }
+
   .yansi-desktop-identity__name {
-    font-size: 0.92rem;
-    font-weight: 550;
+    font-size: 1.0625rem;
+    font-weight: 600;
     letter-spacing: 0.01em;
-    color: rgba(245, 234, 216, 0.92);
+    color: rgba(245, 234, 216, 0.94);
+  }
+
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity .bilign-honorific {
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: rgba(200, 186, 166, 0.7);
   }
 
   .yansi-desktop-detail-cluster {
@@ -565,7 +675,7 @@
 
   .yansi-desktop-identity__meta {
     margin: 0;
-    font-size: 0.72rem;
+    font-size: 0.8125rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: rgba(200, 186, 166, 0.72);
@@ -651,7 +761,11 @@
   }
 
   .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-desktop-identity {
-    gap: 0.18rem;
+    gap: 0;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-desktop-identity__author {
+    gap: 0.55rem;
   }
 
   .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-desktop-identity__name {
