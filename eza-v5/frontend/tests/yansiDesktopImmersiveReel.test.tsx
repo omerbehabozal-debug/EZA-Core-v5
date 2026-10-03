@@ -520,11 +520,12 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toContain('inset: 0');
     expect(css).toMatch(/\.yansi-desktop-reel-root[\s\S]*inset:\s*0/);
     expect(css).toContain('saina-canvas::after');
-    expect(css).toContain('--saina-sidebar-fade-width: 140px');
-    expect(css).toContain('rgba(8, 9, 9, 0.70)');
-    expect(css).toContain('rgba(8, 9, 9, 0.40)');
-    expect(css).toContain('rgba(8, 9, 9, 0.18)');
-    expect(css).toContain('rgba(8, 9, 9, 0.07)');
+    expect(css).toContain('--saina-sidebar-fade-width: clamp(260px, 22vw, 360px)');
+    expect(css).toContain('yansi-desktop-atmosphere');
+    expect(css).toContain('rgba(7, 8, 8, 0.96)');
+    expect(css).toContain('rgba(7, 8, 8, 0.78)');
+    expect(css).toContain('rgba(7, 8, 8, 0.52)');
+    expect(css).toContain('rgba(7, 8, 8, 0.30)');
     expect(css).toContain('border-right-color: transparent');
     expect(css).not.toContain('content: none !important');
     expect(css).not.toContain('rgba(12, 14, 14, 0.88)');
@@ -559,23 +560,23 @@ describe('desktop CSS + mobile freeze contracts', () => {
       /\.yansi-desktop-visual-stack\[data-yansi-title-position='lower'\][\s\S]*background:\s*none/
     );
     expect(css).toMatch(
-      /\.yansi-desktop-visual-stack\[data-yansi-title-position='lower'\]::before[\s\S]*radial-gradient/
+      /\.yansi-desktop-atmosphere[\s\S]*radial-gradient/
     );
+    expect(css).toContain('--yansi-editorial-field-width: clamp(47.5rem, 58vw, 56.25rem)');
+    expect(css).toContain('--yansi-editorial-field-height: clamp(26.875rem, 52vh, 32.5rem)');
+    expect(css).toContain('rgba(4, 5, 5, 0.70)');
     expect(css).toContain('--yansi-reel-ink-title: rgba(247, 240, 228, 0.98)');
     expect(css).toContain('--yansi-reel-ink-primary: rgba(247, 240, 228, 0.95)');
     expect(css).toContain('--yansi-reel-ink-honorific: rgba(236, 226, 210, 0.84)');
     expect(css).toContain('--yansi-reel-ink-meta: rgba(236, 226, 210, 0.82)');
     expect(css).toContain('--yansi-reel-ink-tertiary: rgba(232, 220, 202, 0.78)');
-    expect(css).toContain('--yansi-reel-ink-action: rgba(247, 240, 228, 0.92)');
+    expect(css).toContain('--yansi-reel-ink-action: rgba(214, 176, 118, 0.92)');
     expect(css).toContain('--yansi-reel-ink-summary: rgba(245, 234, 216, 0.90)');
     expect(css).toContain("content: ' \u2304'");
     expect(css).toContain("content: ' \u2303'");
-    expect(css).toContain('0 1px 2px rgba(0, 0, 0, 0.72)');
-    expect(css).toContain('0 2px 7px rgba(0, 0, 0, 0.32)');
+    expect(css).toContain('0 1px 1px rgba(0, 0, 0, 0.42)');
+    expect(css).toContain('0 1px 3px rgba(0, 0, 0, 0.18)');
     expect(css).toContain('--yansi-reel-meta-shadow');
-    expect(css).toContain('rgba(5, 6, 6, 0.44)');
-    expect(css).toContain('width: 41.25rem');
-    expect(css).toContain('height: 21.875rem');
     expect(css).not.toContain('0 1px 12px rgba(9, 11, 11, 0.45)');
     expect(css).not.toContain('Sessizce');
     expect(css).toMatch(/\.yansi-desktop-visual-stack[\s\S]*position:\s*absolute/);
@@ -622,8 +623,11 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(mobileBlock).not.toContain('21.875rem');
     expect(mobileBlock).not.toContain('clamp(3.5rem, 4.15vw, 4rem)');
     expect(mobileBlock).not.toContain('yansi-desktop-identity__copy');
-    expect(mobileBlock).not.toContain('--saina-sidebar-fade-width: 140px');
-    expect(mobileBlock).not.toContain('rgba(8, 9, 9, 0.70)');
+    expect(mobileBlock).not.toContain('--saina-sidebar-fade-width: clamp(260px, 22vw, 360px)');
+    expect(mobileBlock).not.toContain('rgba(7, 8, 8, 0.96)');
+    expect(mobileBlock).not.toContain('rgba(4, 5, 5, 0.70)');
+    expect(mobileBlock).not.toContain('yansi-desktop-atmosphere');
+    expect(mobileBlock).not.toContain('clamp(47.5rem, 58vw, 56.25rem)');
     expect(mobileBlock).not.toContain('border-right-color: transparent');
     expect(mobileBlock).not.toContain('--yansi-reel-ink-primary');
     expect(mobileBlock).not.toContain('--yansi-reel-ink-title');

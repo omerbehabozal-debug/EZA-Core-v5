@@ -143,10 +143,10 @@
     overflow: hidden;
   }
 
-  /* Persistent sidebar→scene fade on the Yansı canvas (not the sidebar,
-     not the traveling surface). Soft 140px dissolve of the join line. */
+  /* Sidebar chrome stays untouched. The join itself is painted on the
+     photograph (scene-canvas), under type, so a broad falloff cannot veil ink. */
   .saina-app-root.saina-standalone-shell[data-saina-view='yansi'] {
-    --saina-sidebar-fade-width: 140px;
+    --saina-sidebar-fade-width: clamp(260px, 22vw, 360px);
   }
 
   .saina-app-root.saina-standalone-shell[data-saina-view='yansi'] .saina-sidebar {
@@ -154,24 +154,7 @@
   }
 
   .saina-app-root.saina-standalone-shell[data-saina-view='yansi'] .saina-canvas::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: var(--saina-sidebar-fade-width, 140px);
-    z-index: 4;
-    pointer-events: none;
-    filter: none;
-    background: linear-gradient(
-      90deg,
-      rgba(8, 9, 9, 0.70) 0%,
-      rgba(8, 9, 9, 0.40) 16%,
-      rgba(8, 9, 9, 0.18) 38%,
-      rgba(8, 9, 9, 0.07) 62%,
-      rgba(8, 9, 9, 0.02) 82%,
-      transparent 100%
-    );
+    content: none;
   }
 
   [data-saina-view='yansi'] .saina-yansi-shell-topbar {
@@ -241,6 +224,73 @@
     transition:
       transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
       opacity 560ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* One atmosphere: sidebar falloff + editorial pocket, above the plate, under type. */
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='reel'] .yansi-desktop-atmosphere {
+    --saina-sidebar-fade-width: clamp(260px, 22vw, 360px);
+    --yansi-editorial-field-width: clamp(47.5rem, 58vw, 56.25rem);
+    --yansi-editorial-field-height: clamp(26.875rem, 52vh, 32.5rem);
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    filter: none;
+    background-image:
+      radial-gradient(
+        ellipse 72% 72% at 24% 68%,
+        rgba(4, 5, 5, 0.70) 0%,
+        rgba(4, 5, 5, 0.54) 20%,
+        rgba(4, 5, 5, 0.34) 40%,
+        rgba(4, 5, 5, 0.18) 58%,
+        rgba(4, 5, 5, 0.08) 74%,
+        rgba(4, 5, 5, 0.02) 88%,
+        transparent 100%
+      ),
+      linear-gradient(
+        90deg,
+        rgba(7, 8, 8, 0.96) 0%,
+        rgba(7, 8, 8, 0.78) 14%,
+        rgba(7, 8, 8, 0.52) 32%,
+        rgba(7, 8, 8, 0.30) 50%,
+        rgba(7, 8, 8, 0.14) 68%,
+        rgba(7, 8, 8, 0.05) 84%,
+        rgba(7, 8, 8, 0.015) 94%,
+        transparent 100%
+      );
+    background-repeat: no-repeat;
+    background-size:
+      var(--yansi-editorial-field-width) var(--yansi-editorial-field-height),
+      var(--saina-sidebar-fade-width) 100%;
+    background-position: left bottom, left top;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='reel']
+    .yansi-desktop-reel-surface:has([data-yansi-detail-open='true']) .yansi-desktop-atmosphere {
+    --yansi-editorial-field-width: clamp(49.375rem, 60vw, 58.125rem);
+    --yansi-editorial-field-height: clamp(33.75rem, 64vh, 40rem);
+    background-image:
+      radial-gradient(
+        ellipse 74% 78% at 22% 58%,
+        rgba(4, 5, 5, 0.66) 0%,
+        rgba(4, 5, 5, 0.48) 22%,
+        rgba(4, 5, 5, 0.28) 44%,
+        rgba(4, 5, 5, 0.14) 62%,
+        rgba(4, 5, 5, 0.06) 78%,
+        rgba(4, 5, 5, 0.015) 90%,
+        transparent 100%
+      ),
+      linear-gradient(
+        90deg,
+        rgba(7, 8, 8, 0.96) 0%,
+        rgba(7, 8, 8, 0.78) 14%,
+        rgba(7, 8, 8, 0.52) 32%,
+        rgba(7, 8, 8, 0.30) 50%,
+        rgba(7, 8, 8, 0.14) 68%,
+        rgba(7, 8, 8, 0.05) 84%,
+        rgba(7, 8, 8, 0.015) 94%,
+        transparent 100%
+      );
   }
 
   .yansi-desktop-reel-surface[data-yansi-reduced-motion='true'] {
@@ -327,9 +377,14 @@
   .yansi-desktop-scene-canvas {
     position: absolute;
     inset: 0;
+    z-index: 0;
     width: 100%;
     height: 100%;
     background: #0c0b0a;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='reel'] .yansi-desktop-scene-canvas::after {
+    content: none;
   }
 
   .yansi-desktop-scene-stack {
@@ -496,11 +551,11 @@
     --yansi-reel-ink-honorific: rgba(236, 226, 210, 0.84);
     --yansi-reel-ink-meta: rgba(236, 226, 210, 0.82);
     --yansi-reel-ink-tertiary: rgba(232, 220, 202, 0.78);
-    --yansi-reel-ink-action: rgba(247, 240, 228, 0.92);
+    --yansi-reel-ink-action: rgba(214, 176, 118, 0.92);
     --yansi-reel-ink-summary: rgba(245, 234, 216, 0.90);
     --yansi-reel-meta-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.72),
-      0 2px 7px rgba(0, 0, 0, 0.32);
+      0 1px 1px rgba(0, 0, 0, 0.42),
+      0 1px 3px rgba(0, 0, 0, 0.18);
     top: auto;
     left: 0;
     bottom: 0;
@@ -517,39 +572,7 @@
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower']::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 41.25rem;
-    height: 21.875rem;
-    z-index: 0;
-    pointer-events: none;
-    filter: none;
-    background: radial-gradient(
-      ellipse 68% 64% at 28% 68%,
-      rgba(5, 6, 6, 0.44) 0%,
-      rgba(5, 6, 6, 0.32) 26%,
-      rgba(5, 6, 6, 0.18) 48%,
-      rgba(5, 6, 6, 0.08) 66%,
-      rgba(5, 6, 6, 0.025) 80%,
-      transparent 92%
-    );
-  }
-
-  .yansi-desktop-visual-stack[data-yansi-title-position='lower'][data-yansi-detail-open='true']::before {
-    width: 42.5rem;
-    height: 100%;
-    min-height: 25rem;
-    background: radial-gradient(
-      ellipse 70% 72% at 26% 54%,
-      rgba(5, 6, 6, 0.40) 0%,
-      rgba(5, 6, 6, 0.28) 28%,
-      rgba(5, 6, 6, 0.15) 50%,
-      rgba(5, 6, 6, 0.06) 68%,
-      rgba(5, 6, 6, 0.02) 82%,
-      transparent 93%
-    );
+    content: none;
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='elevated'] {
@@ -572,8 +595,8 @@
     max-width: 40.625rem;
     color: var(--yansi-reel-ink-title, #f5ead8);
     text-shadow:
-      0 1px 14px rgba(9, 11, 11, 0.55),
-      0 0 28px rgba(9, 11, 11, 0.28);
+      0 1px 2px rgba(0, 0, 0, 0.38),
+      0 1px 8px rgba(0, 0, 0, 0.16);
     transition:
       font-size var(--yansi-depth-ease),
       line-height var(--yansi-depth-ease),
@@ -740,7 +763,7 @@
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-detail-toggle:hover,
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-detail-toggle:focus-visible {
-    color: rgba(247, 240, 228, 0.94);
+    color: rgba(228, 196, 142, 0.98);
   }
 
   .yansi-desktop-detail-toggle:focus-visible {

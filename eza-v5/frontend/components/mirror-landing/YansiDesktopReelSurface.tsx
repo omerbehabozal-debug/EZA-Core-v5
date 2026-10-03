@@ -170,6 +170,7 @@ export default function YansiDesktopReelSurface({
           ) : null}
         </div>
       </div>
+      <div className="yansi-desktop-atmosphere" aria-hidden data-testid="yansi-desktop-atmosphere" />
 
       <header
         className="yansi-desktop-visual-stack"
