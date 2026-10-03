@@ -300,6 +300,7 @@ def _ensure_stub_fk_parents(database_url: str) -> None:
     Stamp does not create schema. Phase 8.4+ migrations add FKs to
     production_users / mirror_network_nodes, so a phase42-stamped empty DB
     needs minimal parent tables before upgrade-to-head can succeed.
+    Katkı references mirror_network_nodes.slug, so the stub slug is unique.
 
     Phase 8.8G-5.3.1 ALTERs conversation_groups (created before phase42), so
     the stamped path also needs a minimal pre-G5.3.1 conversation_groups stub.
@@ -319,7 +320,8 @@ def _ensure_stub_fk_parents(database_url: str) -> None:
             text(
                 """
                 CREATE TABLE IF NOT EXISTS mirror_network_nodes (
-                    id UUID PRIMARY KEY
+                    id UUID PRIMARY KEY,
+                    slug VARCHAR(64) UNIQUE
                 )
                 """
             )
