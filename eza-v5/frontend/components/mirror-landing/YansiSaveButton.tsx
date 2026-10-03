@@ -28,6 +28,8 @@ export type YansiSaveButtonProps = {
   slug: string;
   authorUserId?: string | null;
   className?: string;
+  /** Icon-only for the desktop experience rail. */
+  compact?: boolean;
   /** Open IdentityModal when guest presses Save. */
   onRequireAuth?: () => void;
 };
@@ -36,6 +38,7 @@ export default function YansiSaveButton({
   slug,
   authorUserId,
   className,
+  compact = false,
   onRequireAuth,
 }: YansiSaveButtonProps) {
   const { isAuthenticated, isAuthReady, user } = useAuth();
@@ -132,7 +135,11 @@ export default function YansiSaveButton({
     <div className={cn('inline-flex flex-col items-start gap-1', className)}>
       <button
         type="button"
-        className="yansi-save-btn inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/20 px-3 py-1.5 text-xs font-medium text-[#f5ead8] transition-colors hover:bg-white/10"
+        className={
+          compact
+            ? 'yansi-exp-rail__btn'
+            : 'yansi-save-btn inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/20 px-3 py-1.5 text-xs font-medium text-[#f5ead8] transition-colors hover:bg-white/10'
+        }
         data-testid="yansi-save-button"
         data-slug={activeSlug}
         data-saved={saved ? 'true' : 'false'}
@@ -143,12 +150,12 @@ export default function YansiSaveButton({
         onClick={() => void onToggle()}
       >
         <Heart
-          size={14}
+          size={compact ? 21 : 14}
           strokeWidth={1.6}
           aria-hidden
           fill={saved ? 'currentColor' : 'none'}
         />
-        <span>{saved ? YANSI_SAVE_SAVED : YANSI_SAVE_ADD}</span>
+        {compact ? null : <span>{saved ? YANSI_SAVE_SAVED : YANSI_SAVE_ADD}</span>}
       </button>
       {error ? (
         <p className="text-[11px] text-[#c9a890]" data-testid="yansi-save-error">

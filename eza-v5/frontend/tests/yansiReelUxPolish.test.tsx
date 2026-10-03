@@ -317,7 +317,9 @@ describe('UX polish — desktop contextual Ayna → Audio', () => {
       />
     );
     await screen.findByTestId('mirror-yansi-chain');
-    expect(screen.queryByTestId('yansi-experience-controls')).toBeNull();
+    const reelRail = screen.getByTestId('yansi-experience-controls');
+    expect(reelRail).toHaveAttribute('data-yansi-experience-rail', 'true');
+    expect(reelRail.textContent).not.toMatch(/Ayna/i);
 
     fireEvent.click(screen.getByTestId('mirror-yansi-active-title'));
     const rail = await screen.findByTestId('yansi-experience-controls');
@@ -331,7 +333,7 @@ describe('UX polish — desktop contextual Ayna → Audio', () => {
       withSession(<MirrorYansiChainExperience rootArtifact={makeArtifact()} depth="reel" />)
     );
     await screen.findByTestId('yansi-reel-preview-body');
-    expect(screen.queryByTestId('yansi-experience-controls')).toBeNull();
+    expect(screen.getByTestId('yansi-experience-controls')).toBeTruthy();
   });
 });
 

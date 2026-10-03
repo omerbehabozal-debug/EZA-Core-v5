@@ -123,59 +123,170 @@
   outline-offset: 2px;
 }
 
-/* Desktop cinematic stage */
+/* Desktop immersive stage — Yansı is the environment, not a contained card */
 @media (min-width: 900px) {
+  html:has([data-mirror-landing-layout]),
+  body:has([data-mirror-landing-layout]) {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  [data-mirror-landing-layout] {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
   .yansi-desktop-reel-root {
     max-width: none;
     margin: 0;
+    height: 100dvh;
+    max-height: 100dvh;
     min-height: 100dvh;
+    overflow: hidden;
     background: #090b0b;
   }
 
   .yansi-desktop-cinematic-stage {
     position: relative;
+    height: 100%;
     min-height: 100dvh;
+    max-height: 100dvh;
     width: 100%;
-    max-width: min(920px, 100%);
-    margin-inline: auto;
+    max-width: none;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='reel'] [data-testid='mirror-yansi-chain-scroll'] {
+    overflow: hidden;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] [data-testid='mirror-yansi-chain-scroll'] {
+    overflow-y: auto;
   }
 
   .yansi-desktop-scene-canvas {
     background: #0c0b0a;
   }
 
-  .yansi-desktop-scene-image {
-    left: 50%;
-    top: 48%;
-    transform: translate(-50%, -50%);
-    width: auto;
-    height: auto;
-    max-width: min(720px, 92vw);
-    max-height: min(85dvh, 920px);
+  .yansi-desktop-scene-stack {
+    position: absolute;
+    inset: 0;
   }
 
-  .yansi-desktop-title-block {
+  .yansi-desktop-scene-bleed {
+    position: absolute;
+    inset: -18%;
+    width: 136%;
+    height: 136%;
+    object-fit: cover;
+    filter: blur(48px) saturate(1.12);
+    transform: scale(1.08);
+  }
+
+  .yansi-desktop-scene-bleed-dim {
+    position: absolute;
+    inset: 0;
+    background: rgba(9, 11, 11, 0.38);
+  }
+
+  .yansi-desktop-scene-image {
+    position: absolute;
+    left: 50%;
+    top: 44%;
+    transform: translate(-50%, -50%);
+    width: min(78vmin, 74dvh);
+    height: min(78vmin, 74dvh);
+    object-fit: contain;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .yansi-desktop-scene-blend {
+    background:
+      radial-gradient(
+        ellipse 58% 56% at 50% 42%,
+        rgba(9, 11, 11, 0) 28%,
+        rgba(9, 11, 11, 0.22) 62%,
+        rgba(9, 11, 11, 0.52) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(9, 11, 11, 0.22) 0%,
+        rgba(9, 11, 11, 0.08) 36%,
+        rgba(9, 11, 11, 0.55) 100%
+      );
+  }
+
+  .yansi-desktop-visual-stack {
     position: relative;
     z-index: 2;
-    margin-top: min(52dvh, 520px);
-    padding-inline: 1.25rem;
-    max-width: min(720px, 92vw);
-    margin-inline: auto;
-    transition: margin-top 260ms ease-out;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.85rem;
+    width: 100%;
+    max-width: min(40rem, 92vw);
+    margin-inline: 0;
+    padding-inline: 1.75rem;
+    transition:
+      margin-top 280ms ease-out,
+      padding-top 280ms ease-out,
+      padding-bottom 280ms ease-out;
   }
 
-  .yansi-desktop-title-block[data-yansi-title-position='lower'] {
-    margin-top: min(52dvh, 520px);
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] {
+    margin-top: auto;
+    padding-top: 0;
+    padding-bottom: 2.75rem;
   }
 
-  .yansi-desktop-title-block[data-yansi-title-position='elevated'] {
-    margin-top: min(16dvh, 160px);
+  .yansi-desktop-visual-stack[data-yansi-title-position='elevated'] {
+    margin-top: 0;
+    padding-top: 1.15rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .yansi-desktop-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    max-width: 100%;
+  }
+
+  .yansi-desktop-identity__author {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .yansi-desktop-identity__name {
+    font-size: 0.92rem;
+    font-weight: 550;
+    letter-spacing: 0.01em;
+    color: rgba(245, 234, 216, 0.92);
+  }
+
+  .yansi-desktop-identity__meta {
+    margin: 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(200, 186, 166, 0.72);
   }
 
   .yansi-desktop-cinematic-stage [data-testid='mirror-discover-nav'] {
-    max-width: min(720px, 92vw);
-    margin-inline: auto;
-    padding-inline: 1.25rem;
+    display: none;
   }
 
   .yansi-desktop-cinematic-stage .yansi-chat-replay-layer {
@@ -337,6 +448,7 @@
   .yansi-actionable-question,
   .yansi-mobile-title-block,
   .yansi-desktop-title-block,
+  .yansi-desktop-visual-stack,
   .yansi-chat-end-cta-primary,
   .yansi-chat-end-cta-secondary,
   .yansi-public-audio-ayna-slot__btn {

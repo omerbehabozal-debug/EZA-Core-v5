@@ -378,8 +378,11 @@ describe('Responsive contracts', () => {
     );
     expect(css).toContain('yansi-desktop-cinematic-stage');
     expect(css).toContain('yansi-desktop-scene-image');
+    expect(css).toContain('yansi-desktop-scene-bleed');
     expect(css).toContain('max-width: 899px');
     expect(css).toContain('min-width: 900px');
     expect(css).not.toContain('filter: brightness');
+    expect(css).not.toContain('max-width: min(920px, 100%)');
+    expect(css).not.toContain('max-width: min(720px, 92vw)');
   });
 });

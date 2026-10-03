@@ -237,13 +237,16 @@ describe('published Yansı experience rail (Mode A, desktop)', () => {
   it('shows Audio + Rhythm in Chat depth only, without Ayna on the rail', async () => {
     installSpeech();
     await startPublishedExperience();
-    // Reel: contextual Audio slot empty; identity chrome still present.
-    expect(screen.queryByTestId('yansi-experience-controls')).toBeNull();
-    expect(screen.getByTestId('ayna-author-row')).toBeInTheDocument();
+    // Reel: quiet rail for save/share; identity chrome; no Audio/Rhythm yet.
+    const reelRail = screen.getByTestId('yansi-experience-controls');
+    expect(reelRail).toHaveAttribute('data-yansi-contextual-slot', 'actions');
+    expect(screen.getByTestId('yansi-desktop-identity')).toBeInTheDocument();
     expect(screen.getByTestId('yansi-experience-share')).toHaveAttribute(
       'aria-label',
       "Yansı'yı paylaş"
     );
+    expect(screen.queryByTestId('yansi-experience-audio')).toBeNull();
+    expect(screen.queryByTestId('yansi-experience-rhythm')).toBeNull();
 
     await enterPublishedChatFromReel();
     const rail = await screen.findByTestId('yansi-experience-controls');
@@ -258,7 +261,7 @@ describe('published Yansı experience rail (Mode A, desktop)', () => {
     );
     expect(screen.getByTestId('yansi-experience-rhythm')).toBeInTheDocument();
     expect(rail.textContent).not.toMatch(/Ayna/i);
-    expect(rail.querySelector('[data-testid="yansi-experience-share"]')).toBeNull();
+    expect(rail.querySelector('[data-testid="yansi-experience-share"]')).toBeTruthy();
     expect(screen.queryByTestId('saina-mobile-ayna-pill')).toBeNull();
   });
 
@@ -494,9 +497,10 @@ describe('privacy / metrics / ranking / observability isolation', () => {
 describe('source contracts', () => {
   it('keeps new chat and continuation out of the Mode A rail mount', () => {
     const landing = read('components/mirror-landing/MirrorLandingExperience.tsx');
+    const chain = read('components/mirror-landing/MirrorYansiChainExperience.tsx');
     const sohbet = read('components/mirror-landing/MirrorSohbetOpening.tsx');
     const inner = read('components/standalone/StandaloneChatInner.tsx');
-    expect(landing).toContain('YansiExperienceControls');
+    expect(chain).toContain('YansiExperienceControls');
     expect(landing).toContain('data-yansi-public-depth');
     expect(landing).toContain("data-yansi-experience-mode={depth === 'chat' ? 'chat' : 'reel'}");
     expect(sohbet).not.toContain('YansiExperienceControls');

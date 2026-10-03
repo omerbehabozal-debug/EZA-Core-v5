@@ -22,8 +22,8 @@
     gap: 6px;
     width: 62px;
     min-height: 120px;
-    height: 132px;
-    max-height: 140px;
+    height: auto;
+    max-height: none;
     padding: 10px 6px;
     box-sizing: border-box;
     background: linear-gradient(180deg, rgba(17, 18, 18, 0.7), rgba(10, 12, 12, 0.62));
@@ -136,6 +136,15 @@
 
   .yansi-exp-share:hover {
     color: #d8d2c8;
+  }
+
+  .yansi-exp-rail .yansi-exp-share {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+    box-shadow: none;
   }
 
   .yansi-identity-header {

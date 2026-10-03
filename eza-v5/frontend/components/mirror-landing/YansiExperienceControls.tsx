@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Volume2, Waves } from 'lucide-react';
 import { useYansiExperienceSession } from '@/components/mirror-landing/YansiExperienceSession';
 import {
@@ -10,9 +10,16 @@ import {
 } from '@/lib/eza/mirror/yansiRhythm';
 
 /**
- * Desktop-only Yansı experience control: Audio + Rhythm. Not an app toolbar.
+ * Desktop-only Yansı experience rail. Save/share stay quiet on Reel;
+ * Audio + Rhythm occupy the same rail in Chat. Not an app toolbar.
  */
-export default function YansiExperienceControls() {
+export default function YansiExperienceControls({
+  actions,
+  showPlaybackControls = true,
+}: {
+  actions?: ReactNode;
+  showPlaybackControls?: boolean;
+}) {
   const session = useYansiExperienceSession();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -52,11 +59,12 @@ export default function YansiExperienceControls() {
       className="yansi-exp-rail"
       data-testid="yansi-experience-controls"
       data-yansi-experience-rail="true"
-      data-yansi-public-audio-rail="true"
-      data-yansi-contextual-slot="audio"
+      data-yansi-public-audio-rail={showPlaybackControls ? 'true' : undefined}
+      data-yansi-contextual-slot={showPlaybackControls ? 'audio' : 'actions'}
       aria-label="Yansı deneyim kontrolleri"
     >
-      {session.speechSupported ? (
+      {actions}
+      {showPlaybackControls && session.speechSupported ? (
         <button
           type="button"
           className="yansi-exp-rail__btn"
@@ -71,57 +79,59 @@ export default function YansiExperienceControls() {
         </button>
       ) : null}
 
-      <div className="yansi-exp-rail__rhythm-wrap" ref={wrapRef}>
-        <button
-          type="button"
-          ref={triggerRef}
-          className="yansi-exp-rail__btn"
-          data-testid="yansi-experience-rhythm"
-          data-active={open ? 'true' : 'false'}
-          aria-label={`Ritim: ${rhythmLabel}`}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          aria-controls={open ? listId : undefined}
-          title={`Ritim: ${rhythmLabel}`}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <Waves className="yansi-exp-rail__icon" size={21} strokeWidth={1.6} aria-hidden />
-        </button>
-        {open ? (
-          <div
-            id={listId}
-            className="yansi-exp-rail__popover"
-            role="listbox"
-            aria-label="Ritim"
-            data-testid="yansi-experience-rhythm-menu"
+      {showPlaybackControls ? (
+        <div className="yansi-exp-rail__rhythm-wrap" ref={wrapRef}>
+          <button
+            type="button"
+            ref={triggerRef}
+            className="yansi-exp-rail__btn"
+            data-testid="yansi-experience-rhythm"
+            data-active={open ? 'true' : 'false'}
+            aria-label={`Ritim: ${rhythmLabel}`}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            aria-controls={open ? listId : undefined}
+            title={`Ritim: ${rhythmLabel}`}
+            onClick={() => setOpen((v) => !v)}
           >
-            <p className="yansi-exp-rail__popover-title">Ritim</p>
-            {YANSI_RHYTHM_IDS.map((id: YansiRhythmId) => {
-              const selected = session.rhythm === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  className="yansi-exp-rail__option"
-                  data-testid={`yansi-experience-rhythm-${id}`}
-                  data-selected={selected ? 'true' : 'false'}
-                  onClick={() => {
-                    session.setRhythm(id);
-                    closePopover();
-                  }}
-                >
-                  <span className="yansi-exp-rail__radio" aria-hidden>
-                    {selected ? '●' : '○'}
-                  </span>
-                  {YANSI_RHYTHM_LABELS[id]}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
+            <Waves className="yansi-exp-rail__icon" size={21} strokeWidth={1.6} aria-hidden />
+          </button>
+          {open ? (
+            <div
+              id={listId}
+              className="yansi-exp-rail__popover"
+              role="listbox"
+              aria-label="Ritim"
+              data-testid="yansi-experience-rhythm-menu"
+            >
+              <p className="yansi-exp-rail__popover-title">Ritim</p>
+              {YANSI_RHYTHM_IDS.map((id: YansiRhythmId) => {
+                const selected = session.rhythm === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    className="yansi-exp-rail__option"
+                    data-testid={`yansi-experience-rhythm-${id}`}
+                    data-selected={selected ? 'true' : 'false'}
+                    onClick={() => {
+                      session.setRhythm(id);
+                      closePopover();
+                    }}
+                  >
+                    <span className="yansi-exp-rail__radio" aria-hidden>
+                      {selected ? '●' : '○'}
+                    </span>
+                    {YANSI_RHYTHM_LABELS[id]}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </aside>
   );
 }

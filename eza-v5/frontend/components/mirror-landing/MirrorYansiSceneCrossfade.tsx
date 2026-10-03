@@ -3,16 +3,21 @@
 /**
  * Phase 5.1 — soft scene crossfade between stored Yansı backgrounds.
  * Uses two layers; never regenerates images.
+ *
+ * Desktop immersive: same 1:1 asset as blurred viewport atmosphere +
+ * composition-safe sharp plate. Not unrestricted cover-crop of the original.
  */
 
 import { useLayoutEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
+export type MirrorYansiScenePresentation = 'mobile-fullscreen' | 'desktop-immersive';
+
 export type MirrorYansiSceneCrossfadeProps = {
   sceneImageUrl: string | null | undefined;
   className?: string;
-  /** mobile-fullscreen = cover; desktop-stage = contain (protect composition). */
-  presentation?: 'mobile-fullscreen' | 'desktop-stage';
+  /** mobile-fullscreen = cover; desktop-immersive = bleed + sharp plate. */
+  presentation?: MirrorYansiScenePresentation;
 };
 
 function prefersReducedMotion(): boolean {
@@ -24,6 +29,48 @@ function prefersReducedMotion(): boolean {
   }
 }
 
+function ScenePlate({
+  src,
+  layer,
+  testId,
+  presentation,
+}: {
+  src: string;
+  layer: 'outgoing' | 'current';
+  testId?: string;
+  presentation: MirrorYansiScenePresentation;
+}) {
+  const immersive = presentation === 'desktop-immersive';
+  return (
+    <div
+      className={cn('absolute inset-0', immersive && 'yansi-desktop-scene-stack')}
+      data-scene-layer={layer}
+    >
+      {immersive ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt="" className="yansi-desktop-scene-bleed" aria-hidden />
+          <div className="yansi-desktop-scene-bleed-dim" aria-hidden />
+        </>
+      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        data-testid={testId}
+        className={
+          immersive
+            ? 'yansi-desktop-scene-image'
+            : 'absolute inset-0 h-full w-full object-cover'
+        }
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    </div>
+  );
+}
+
 export default function MirrorYansiSceneCrossfade({
   sceneImageUrl,
   className,
@@ -33,13 +80,8 @@ export default function MirrorYansiSceneCrossfade({
   const [front, setFront] = useState<string | null>(nextUrl);
   const [back, setBack] = useState<string | null>(null);
   const [frontOpacity, setFrontOpacity] = useState(1);
-  const isDesktopStage = presentation === 'desktop-stage';
-  const imagePositionClass = isDesktopStage
-    ? 'yansi-desktop-scene-image object-contain'
-    : 'inset-0 h-full w-full object-cover';
+  const immersive = presentation === 'desktop-immersive';
 
-  // Layout effect: keep data-testid current layer aligned with active slug in the
-  // same commit as Discover ↑/↓ (useEffect left one paint on the previous scene).
   useLayoutEffect(() => {
     if (nextUrl === front) return;
     if (prefersReducedMotion() || !front) {
@@ -65,7 +107,7 @@ export default function MirrorYansiSceneCrossfade({
     <div
       className={cn(
         'pointer-events-none absolute inset-0 overflow-hidden',
-        isDesktopStage && 'yansi-desktop-scene-canvas',
+        immersive && 'yansi-desktop-scene-canvas',
         className
       )}
       data-testid="mirror-yansi-scene-crossfade"
@@ -74,37 +116,28 @@ export default function MirrorYansiSceneCrossfade({
     >
       <div className="absolute inset-0 bg-[#0c0b0a]" />
       {back ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={back}
-          alt=""
-          data-scene-layer="outgoing"
-          className={cn('absolute opacity-100', imagePositionClass)}
-        />
+        <ScenePlate src={back} layer="outgoing" presentation={presentation} />
       ) : null}
       {front ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={front}
-          alt=""
-          data-scene-layer="current"
-          data-testid="mirror-yansi-scene-current"
+        <div
           className={cn(
-            'absolute transition-opacity duration-500 ease-out',
-            imagePositionClass
+            'absolute inset-0 transition-opacity duration-500 ease-out',
+            immersive && 'yansi-desktop-scene-stack'
           )}
           style={{ opacity: frontOpacity }}
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = 'none';
-          }}
-        />
+        >
+          <ScenePlate
+            src={front}
+            layer="current"
+            testId="mirror-yansi-scene-current"
+            presentation={presentation}
+          />
+        </div>
       ) : null}
       <div
         className={cn(
           'absolute inset-0',
-          isDesktopStage
-            ? 'bg-gradient-to-b from-[#0c0b0a]/40 via-transparent to-[#0c0b0a]/75'
-            : 'bg-gradient-to-b from-[#0c0b0a]/55 via-[#0c0b0a]/35 to-[#0c0b0a]/85'
+          immersive ? 'yansi-desktop-scene-blend' : 'bg-gradient-to-b from-[#0c0b0a]/55 via-[#0c0b0a]/35 to-[#0c0b0a]/85'
         )}
       />
     </div>
