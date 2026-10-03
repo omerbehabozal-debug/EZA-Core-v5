@@ -4,8 +4,8 @@
  * Phase 5.1 — soft scene crossfade between stored Yansı backgrounds.
  * Uses two layers; never regenerates images.
  *
- * Desktop immersive: same 1:1 asset as blurred viewport atmosphere +
- * composition-safe sharp plate. Not unrestricted cover-crop of the original.
+ * Desktop immersive: same source as atmosphere + high-detail focal region.
+ * Both layers share cover framing so the plate dissolves into the scene.
  */
 
 import { useLayoutEffect, useState } from 'react';
@@ -88,21 +88,32 @@ export default function MirrorYansiSceneCrossfade({
   activeIdentity = null,
 }: MirrorYansiSceneCrossfadeProps) {
   const nextUrl = (sceneImageUrl || '').trim() || null;
+  const nextIdentity = (activeIdentity || '').trim().toLowerCase() || null;
   const [front, setFront] = useState<string | null>(nextUrl);
+  const [frontIdentity, setFrontIdentity] = useState<string | null>(nextIdentity);
   const [back, setBack] = useState<string | null>(null);
   const [frontOpacity, setFrontOpacity] = useState(1);
   const immersive = presentation === 'desktop-immersive';
 
   useLayoutEffect(() => {
-    if (nextUrl === front) return;
-    if (prefersReducedMotion() || !front) {
+    const identityChanged = nextIdentity !== frontIdentity;
+    if (!identityChanged && nextUrl === front) return;
+    // After an identity commit, the current plate may only show that identity's URL.
+    if (identityChanged || prefersReducedMotion() || !front) {
       setFront(nextUrl);
-      setBack(null);
+      setFrontIdentity(nextIdentity);
+      setBack(identityChanged && front && front !== nextUrl ? front : null);
       setFrontOpacity(1);
+      if (identityChanged && front && front !== nextUrl && !prefersReducedMotion()) {
+        const clear = window.setTimeout(() => setBack(null), 700);
+        return () => window.clearTimeout(clear);
+      }
+      setBack(null);
       return;
     }
     setBack(front);
     setFront(nextUrl);
+    setFrontIdentity(nextIdentity);
     setFrontOpacity(0);
     const id = window.setTimeout(() => {
       setFrontOpacity(1);
@@ -112,7 +123,7 @@ export default function MirrorYansiSceneCrossfade({
       window.clearTimeout(id);
       window.clearTimeout(clear);
     };
-  }, [nextUrl, front]);
+  }, [nextUrl, nextIdentity, front, frontIdentity]);
 
   return (
     <div

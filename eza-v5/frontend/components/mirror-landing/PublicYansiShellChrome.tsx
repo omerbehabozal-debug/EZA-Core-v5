@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSainaSidebarConversations } from '@/hooks/useSainaSidebarConversations';
 import { useSyncSainaChrome } from '@/hooks/useSyncSainaChrome';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
@@ -47,6 +47,9 @@ const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
 
 export default function PublicYansiShellChrome() {
   const router = useRouter();
+  const pathname = usePathname();
+  const publicSlug =
+    pathname?.match(/^\/m\/([^/?#]+)/)?.[1]?.trim().toLowerCase() || null;
   const { isPlus, isLoading: isPlanLoading, source } = usePlan();
   const { entitlements: accountEntitlements } = useAccountEntitlements();
   const [archives, setArchives] = useState<ArchivedChatSummary[]>([]);
@@ -79,10 +82,12 @@ export default function PublicYansiShellChrome() {
   const { conversations, conversationGroups, activeChatId } = useSainaSidebarConversations(archives);
 
   const conversationSceneUrl = useMemo(() => {
+    // Public /m must not inherit the sidebar conversation's scene.
+    if (publicSlug) return null;
     if (!activeChatId) return null;
     const url = getChatArchive(activeChatId)?.conversationSceneUrl;
     return url && isPersistableConversationSceneUrl(url) ? url : null;
-  }, [archives, activeChatId]);
+  }, [archives, activeChatId, publicSlug]);
 
   const handleNewChat = useCallback(() => {
     router.replace(SAINA_NEW_CHAT_ROUTE, { scroll: false });
@@ -185,6 +190,8 @@ export default function PublicYansiShellChrome() {
     conversations: archivesReady ? conversations : undefined,
     conversationGroups: archivesReady ? conversationGroups : undefined,
     activeChatId,
+    activeYansiIdentity: publicSlug,
+    selectedYansiSceneUrl: null,
     conversationSceneUrl,
     planTier,
     onNewChat: handleNewChat,

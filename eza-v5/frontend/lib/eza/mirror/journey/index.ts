@@ -334,6 +334,13 @@ export {
 } from './publicFrozenTypes';
 
 export {
+  readYansiAtomicIdentity,
+  assertYansiAtomicIdentity,
+  logYansiAtomicIdentity,
+  type YansiAtomicIdentityTuple,
+} from './yansiAtomicIdentity';
+
+export {
   createIdleReplaySession,
   startReplaySession,
   getNextReplayStep,

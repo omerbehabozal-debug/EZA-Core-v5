@@ -404,11 +404,13 @@ describe('Phase 6.2 chain isolation', () => {
       <MirrorYansiChainExperience rootArtifact={a} depth="chat" />
     );
     await waitFor(() => {
-      expect(
-        within(screen.getByTestId('mirror-yansi-section-yansi-a')).getByTestId(
-          'yansi-public-metrics'
-        )
-      ).toHaveTextContent('140 deneyim · 7 Yansı');
+      const metrics = screen.getByTestId('yansi-public-metrics');
+      expect(metrics).toHaveAttribute('data-metrics-slug', 'yansi-a');
+      expect(metrics).toHaveTextContent('140 deneyim · 7 Yansı');
+      expect(screen.getByTestId('yansi-title-block')).toHaveAttribute(
+        'data-yansi-active-identity',
+        'yansi-a'
+      );
     });
 
     fireEvent.click(within(screen.getByTestId('mirror-yansi-section-yansi-a')).getByTestId(
@@ -430,11 +432,17 @@ describe('Phase 6.2 chain isolation', () => {
       );
     });
 
-    expect(
-      within(screen.getByTestId('mirror-yansi-section-yansi-x')).getByTestId(
-        'yansi-public-metrics'
-      )
-    ).toHaveTextContent('18 deneyim · 2 Yansı');
+    expect(screen.getByTestId('yansi-public-metrics')).toHaveAttribute(
+      'data-metrics-slug',
+      'yansi-x'
+    );
+    expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
+      '18 deneyim · 2 Yansı'
+    );
+    expect(screen.getByTestId('yansi-title-block')).toHaveAttribute(
+      'data-yansi-active-identity',
+      'yansi-x'
+    );
     expect(fetchYansiPublicMetrics.mock.calls.filter((c) => c[0] === 'yansi-a').length).toBe(1);
     expect(fetchPublishedChildren).not.toHaveBeenCalled();
   });

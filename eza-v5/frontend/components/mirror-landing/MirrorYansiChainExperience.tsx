@@ -33,6 +33,11 @@ import YansiMobileMinimalPlayer from '@/components/mirror-landing/YansiMobileMin
 import { useYansiExperienceSession } from '@/components/mirror-landing/YansiExperienceSession';
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
+import {
+  assertYansiAtomicIdentity,
+  logYansiAtomicIdentity,
+  readYansiAtomicIdentity,
+} from '@/lib/eza/mirror/journey/yansiAtomicIdentity';
 import { resolvePublicAuthorIdentity } from '@/lib/eza/mirror/journey/resolvePublicAuthorDisplay';
 import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import {
@@ -343,6 +348,7 @@ export default function MirrorYansiChainExperience({
     if (existing) return existing;
     const artifact = await fetchPublicFrozenJourneyArtifact({ slug: key });
     if (!artifact) return null;
+    if (artifact.slug.trim().toLowerCase() !== key) return null;
     preloadSceneImage(artifact.sceneImageUrl);
     const node = await enrichNode(artifact);
     setNodesBySlug((prev) => ({ ...prev, [key]: node }));
@@ -673,6 +679,11 @@ export default function MirrorYansiChainExperience({
     }
   }, [depth]);
 
+  useEffect(() => {
+    if (!activeNode) return;
+    logYansiAtomicIdentity(readYansiAtomicIdentity(activeNode.artifact));
+  }, [activeNode]);
+
   if (!bootstrapped || !session || !activeNode) {
     return (
       <div
@@ -685,6 +696,11 @@ export default function MirrorYansiChainExperience({
   }
 
   const title = activeNode.artifact.publicTitle || 'Yansı';
+  const activeIdentity = assertYansiAtomicIdentity(activeNode.artifact, {
+    expectedSlug: activeSlug,
+    renderedTitle: activeNode.artifact.publicTitle,
+    renderedSceneUrl: activeNode.artifact.sceneImageUrl,
+  });
   const showUp = canDiscoverGoUp(session);
   const showDown =
     canDiscoverGoDownInHistory(session) || needsDiscoverFetchForDown(session);
@@ -830,6 +846,10 @@ export default function MirrorYansiChainExperience({
       data-discovery-length={session.history.length}
       data-mobile-yansi={!isDesktop ? 'true' : 'false'}
       data-yansi-public-depth={depth}
+      data-yansi-identity-slug={activeIdentity.slug}
+      data-yansi-identity-generation={activeIdentity.generationId || undefined}
+      data-yansi-identity-asset={activeIdentity.imageAssetId || undefined}
+      data-yansi-identity-conversation={activeIdentity.sourceConversationId || undefined}
       data-yansi-reel-nav={reelNavLocked ? 'locked' : 'open'}
       data-yansi-reel-presentation={isDesktop ? 'desktop-immersive' : 'mobile-fullscreen'}
       tabIndex={isDesktop ? 0 : undefined}

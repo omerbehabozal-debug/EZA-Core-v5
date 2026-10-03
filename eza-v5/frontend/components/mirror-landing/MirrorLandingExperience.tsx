@@ -124,6 +124,10 @@ export default function MirrorLandingExperience({
         });
         return;
       }
+      if (artifact.slug.trim().toLowerCase() !== surface.slug.trim().toLowerCase()) {
+        setFrozenState({ status: 'unavailable' });
+        return;
+      }
       // Exact node pin: reject latest substitution when URL pins a version.
       if (
         pinnedJourneyVersion != null &&

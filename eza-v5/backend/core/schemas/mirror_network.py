@@ -269,6 +269,10 @@ class PublicFrozenJourneyArtifact(BaseModel):
     publicSummary: Optional[str] = None
     continuationContext: Optional[str] = None
     sceneImageUrl: Optional[str] = None
+    artifactId: Optional[str] = None
+    generationId: Optional[str] = None
+    sceneAssetId: Optional[str] = None
+    sourceConversationId: Optional[str] = None
     authorUserId: str
     parentSlug: Optional[str] = None
     selectedCount: int = Field(ge=6, le=8)

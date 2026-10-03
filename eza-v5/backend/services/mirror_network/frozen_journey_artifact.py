@@ -468,6 +468,36 @@ def to_public_frozen_journey_artifact(
             else None
         )
         or None,
+        "artifactId": (
+            str(internal.get("artifactId")).strip()
+            if internal.get("artifactId") is not None
+            else None
+        )
+        or None,
+        "generationId": (
+            str(internal.get("generationId")).strip()
+            if internal.get("generationId") is not None
+            else (
+                str((_as_mapping(internal.get("integrity")).get("generationId") or "")).strip()
+                or None
+            )
+        )
+        or None,
+        "sceneAssetId": (
+            str(internal.get("sceneAssetId")).strip()
+            if internal.get("sceneAssetId") is not None
+            else (
+                str((_as_mapping(internal.get("integrity")).get("sceneAssetId") or "")).strip()
+                or None
+            )
+        )
+        or None,
+        "sourceConversationId": (
+            str(internal.get("sourceConversationId")).strip()
+            if internal.get("sourceConversationId") is not None
+            else None
+        )
+        or None,
         "authorUserId": author,
         "parentSlug": parent_slug or None,
         "selectedCount": selected_count,
@@ -513,7 +543,6 @@ def assemble_frozen_journey_artifact_from_loaded(
     if not node_is_frozen(node) and version == node_version:
         return None
 
-    public = _as_mapping(getattr(node, "public_payload", None))
     landing = _as_mapping(frozen.get("publicLanding"))
     step_rows = [dict(row) for row in steps] if steps else []
     selected_count = int(frozen.get("selectedCount") or len(step_rows) or 0)
@@ -534,8 +563,8 @@ def assemble_frozen_journey_artifact_from_loaded(
         "journeyVersion": version,
         "slug": node.slug,
         "artifactKind": ARTIFACT_KIND_JOURNEY_V1,
-        "sourceConversationId": frozen.get("sourceConversationId")
-        or getattr(node, "conversation_id", None),
+        "sourceConversationId": frozen.get("sourceConversationId") or None,
+        "generationId": frozen.get("generationId") or None,
         "authorUserId": frozen.get("authorUserId") or str(node.user_id),
         "parentSlug": frozen.get("parentSlug") or getattr(node, "parent_slug", None),
         "parentJourneyId": frozen.get("parentJourneyId")
@@ -551,17 +580,11 @@ def assemble_frozen_journey_artifact_from_loaded(
         else getattr(node, "window_end", None),
         "selectedCount": selected_count,
         "selectedSteps": step_rows if replay_ready else [],
-        "publicTitle": landing.get("publicTitle")
-        or (public.get("publicTitle") if version == node_version else None)
-        or (node.card_title if version == node_version else None),
-        "publicSummary": landing.get("publicSummary")
-        or (public.get("publicSummary") if version == node_version else None)
-        or (public.get("curiosityContext") if version == node_version else None),
-        "continuationContext": landing.get("continuationContext")
-        or (public.get("continuationContext") if version == node_version else None),
+        "publicTitle": landing.get("publicTitle") or None,
+        "publicSummary": landing.get("publicSummary") or None,
+        "continuationContext": landing.get("continuationContext") or None,
         "sceneAssetId": frozen.get("sceneAssetId"),
-        "sceneImageUrl": frozen.get("sceneImageUrl")
-        or (node.scene_image_url if version == node_version else None),
+        "sceneImageUrl": frozen.get("sceneImageUrl") or None,
         "publishedAt": frozen.get("publishedAt")
         or (node.published_at.isoformat() if node.published_at else None),
         "frozenAt": frozen.get("frozenAt")
@@ -739,14 +762,12 @@ async def list_owner_published_journeys_for_conversation(
                 "freezeStatus": getattr(node, "freeze_status", None)
                 or frozen.get("freezeStatus")
                 or FREEZE_STATUS_NON_FROZEN,
-                "publicTitle": landing.get("publicTitle")
-                or public.get("publicTitle")
-                or node.card_title,
+                "publicTitle": landing.get("publicTitle") or public.get("publicTitle"),
                 "publicSummary": landing.get("publicSummary")
                 or public.get("publicSummary"),
                 "continuationContext": landing.get("continuationContext")
                 or public.get("continuationContext"),
-                "sceneImageUrl": frozen.get("sceneImageUrl") or node.scene_image_url,
+                "sceneImageUrl": frozen.get("sceneImageUrl") or None,
                 "parentSlug": frozen.get("parentSlug") or getattr(node, "parent_slug", None),
                 "authorUserId": frozen.get("authorUserId") or str(node.user_id),
                 "selectedCount": frozen.get("selectedCount"),

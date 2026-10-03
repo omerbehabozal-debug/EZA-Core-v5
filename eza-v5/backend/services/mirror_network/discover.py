@@ -247,8 +247,12 @@ is_canonical_discover_root_structure = is_canonical_discover_node_structure
 
 def discover_scene_url_for_card(node: MirrorNetworkNode) -> Optional[str]:
     """HTTPS scene is a Discover card presentation gate, not Journey eligibility."""
-    _, _, frozen_scene = _frozen_public_fields(node)
-    return _public_discover_scene_url(frozen_scene or getattr(node, "scene_image_url", None))
+    frozen_title, _, frozen_scene = _frozen_public_fields(node)
+    if frozen_scene:
+        return _public_discover_scene_url(frozen_scene)
+    if frozen_title:
+        return None
+    return _public_discover_scene_url(getattr(node, "scene_image_url", None))
 
 
 def _batch_yansi_counts(
