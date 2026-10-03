@@ -316,9 +316,9 @@
     --yansi-focus-y: 46%;
     --yansi-lane-width: min(40.625rem, 92%);
     --yansi-lane-max: 40.625rem;
-    --yansi-title-inline: clamp(3.5rem, 4.4vw, 4.5rem);
-    --yansi-title-bottom: clamp(3.5rem, 7vh, 4.5rem);
-    --yansi-editorial-top-safe: 4.5rem;
+    --yansi-title-inline: clamp(3.25rem, 3.9vw, 3.75rem);
+    --yansi-title-bottom: clamp(4.375rem, 8.2vh, 5rem);
+    --yansi-editorial-top-safe: 4.25rem;
     --yansi-depth-ease: 400ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -462,8 +462,8 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.55rem;
-    width: min(40rem, 70%);
-    max-width: 40rem;
+    width: min(40.625rem, 72%);
+    max-width: 40.625rem;
     margin: 0;
     pointer-events: none;
     isolation: isolate;
@@ -489,10 +489,12 @@
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] {
+    --yansi-reel-ink-title: rgba(247, 240, 228, 0.98);
     --yansi-reel-ink-primary: rgba(247, 240, 228, 0.94);
-    --yansi-reel-ink-secondary: rgba(236, 226, 210, 0.78);
+    --yansi-reel-ink-honorific: rgba(236, 226, 210, 0.78);
+    --yansi-reel-ink-meta: rgba(230, 220, 204, 0.74);
     --yansi-reel-ink-tertiary: rgba(230, 220, 204, 0.70);
-    --yansi-reel-ink-action: rgba(238, 228, 212, 0.84);
+    --yansi-reel-ink-action: rgba(238, 228, 212, 0.86);
     --yansi-reel-ink-summary: rgba(245, 234, 216, 0.90);
     --yansi-reel-meta-shadow:
       0 1px 2px rgba(0, 0, 0, 0.64),
@@ -503,36 +505,43 @@
     transform: none;
     margin-top: 0;
     margin-bottom: 0;
+    gap: 0;
+    width: min(40.625rem, 72%);
+    max-width: 40.625rem;
     max-height: calc(100% - var(--yansi-editorial-top-safe));
     overflow: visible;
-    padding: 1.85rem 1.5rem var(--yansi-title-bottom) var(--yansi-title-inline);
+    padding: 1.25rem 1.25rem var(--yansi-title-bottom) var(--yansi-title-inline);
     background: none;
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower']::before {
     content: '';
     position: absolute;
-    inset: -4% 8% 2% 0;
+    left: 0;
+    bottom: 0;
+    width: min(36.5rem, 100%);
+    height: min(17.75rem, 100%);
     z-index: 0;
     pointer-events: none;
     filter: none;
     background: radial-gradient(
-      ellipse 70% 78% at 18% 70%,
-      rgba(9, 11, 11, 0.22) 0%,
-      rgba(9, 11, 11, 0.1) 36%,
-      rgba(9, 11, 11, 0.03) 58%,
-      rgba(9, 11, 11, 0) 78%
+      ellipse 78% 72% at 26% 64%,
+      rgba(9, 11, 11, 0.26) 0%,
+      rgba(9, 11, 11, 0.14) 36%,
+      rgba(9, 11, 11, 0.05) 58%,
+      rgba(9, 11, 11, 0) 80%
     );
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'][data-yansi-detail-open='true']::before {
-    inset: -3% 6% 2% 0;
+    width: min(37.5rem, 100%);
+    height: 100%;
     background: radial-gradient(
-      ellipse 74% 84% at 20% 54%,
-      rgba(9, 11, 11, 0.2) 0%,
-      rgba(9, 11, 11, 0.09) 40%,
-      rgba(9, 11, 11, 0.03) 62%,
-      rgba(9, 11, 11, 0) 80%
+      ellipse 76% 80% at 24% 48%,
+      rgba(9, 11, 11, 0.24) 0%,
+      rgba(9, 11, 11, 0.12) 38%,
+      rgba(9, 11, 11, 0.04) 60%,
+      rgba(9, 11, 11, 0) 82%
     );
   }
 
@@ -549,10 +558,12 @@
   }
 
   .yansi-desktop-editorial-title {
-    font-size: clamp(2.15rem, 2.55vw, 3.15rem);
-    line-height: 1.12;
-    letter-spacing: -0.025em;
-    max-width: 40rem;
+    font-size: clamp(2.75rem, 3.2vw, 3.125rem);
+    font-weight: 500;
+    line-height: 1.08;
+    letter-spacing: -0.028em;
+    max-width: 40.625rem;
+    color: var(--yansi-reel-ink-title, #f5ead8);
     text-shadow:
       0 1px 14px rgba(9, 11, 11, 0.55),
       0 0 28px rgba(9, 11, 11, 0.28);
@@ -560,6 +571,19 @@
       font-size var(--yansi-depth-ease),
       line-height var(--yansi-depth-ease),
       letter-spacing var(--yansi-depth-ease);
+  }
+
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity {
+    margin-bottom: 1.25rem;
+  }
+
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-editorial-title {
+    margin-bottom: 1rem;
+    color: var(--yansi-reel-ink-title);
+  }
+
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__author {
+    gap: 0.8125rem;
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__name,
@@ -635,12 +659,12 @@
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity .bilign-honorific {
     font-size: 0.8125rem;
     font-weight: 400;
-    color: var(--yansi-reel-ink-secondary);
+    color: var(--yansi-reel-ink-honorific);
   }
 
   .yansi-desktop-detail-cluster {
     position: relative;
-    width: min(36.25rem, 100%);
+    width: min(35.375rem, 100%);
     margin: 0;
   }
 
@@ -683,6 +707,17 @@
     color: var(--yansi-reel-ink-action);
   }
 
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-detail-toggle::after {
+    content: ' ⌄';
+    font-weight: 400;
+    letter-spacing: 0;
+    opacity: 0.88;
+  }
+
+  .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-detail-toggle[aria-expanded='true']::after {
+    content: ' ⌃';
+  }
+
   .yansi-desktop-detail-toggle:hover,
   .yansi-desktop-detail-toggle:focus-visible {
     color: rgba(232, 213, 181, 0.78);
@@ -701,7 +736,7 @@
   .yansi-desktop-summary-slot {
     display: grid;
     grid-template-rows: 0fr;
-    width: min(36.25rem, 100%);
+    width: min(35.375rem, 100%);
     margin: 0;
     opacity: 0;
     pointer-events: none;
@@ -726,10 +761,10 @@
   }
 
   .yansi-desktop-canonical-summary {
-    margin: 0.28rem 0 0;
-    width: min(36.25rem, 100%);
-    max-width: 36.25rem;
-    font-size: clamp(0.9375rem, 1.02vw, 1rem);
+    margin: 1.125rem 0 0;
+    width: min(35.375rem, 100%);
+    max-width: 35.375rem;
+    font-size: clamp(0.9375rem, 1.05vw, 1rem);
     line-height: 1.55;
     font-weight: 400;
     letter-spacing: 0.01em;
@@ -751,7 +786,7 @@
   }
 
   .yansi-desktop-visual-stack[data-yansi-title-position='lower'] .yansi-desktop-identity__meta {
-    color: var(--yansi-reel-ink-secondary);
+    color: var(--yansi-reel-ink-meta);
   }
 
   .yansi-desktop-cinematic-stage [data-testid='mirror-discover-nav'] {

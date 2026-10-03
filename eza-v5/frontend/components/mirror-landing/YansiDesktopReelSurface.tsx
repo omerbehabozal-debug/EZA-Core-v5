@@ -239,7 +239,7 @@ export default function YansiDesktopReelSurface({
         </div>
         <button
           type="button"
-          className="yansi-reel-title-trigger w-full text-left font-semibold tracking-tight text-[#f5ead8] yansi-desktop-editorial-title"
+          className="yansi-reel-title-trigger w-full text-left font-medium tracking-tight text-[#f5ead8] yansi-desktop-editorial-title"
           data-testid={committed ? 'mirror-yansi-active-title' : 'mirror-yansi-incoming-title'}
           data-slug={node.artifact.slug}
           data-yansi-active-identity={slug}

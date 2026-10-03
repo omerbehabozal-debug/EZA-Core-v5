@@ -169,6 +169,7 @@ describe('desktop immersive presentation', () => {
     expect(block).toHaveAttribute('data-yansi-copy-overlay', 'true');
     expect(block).toHaveClass('yansi-desktop-visual-stack');
     expect(title).toHaveClass('yansi-desktop-editorial-title');
+    expect(title).toHaveClass('font-medium');
     expect(screen.getByTestId('mirror-yansi-chain-scroll').contains(block)).toBe(false);
     expect(screen.getByTestId('mirror-yansi-chain').contains(block)).toBe(true);
     expect(screen.queryByText(/Merakıma ekle|Meraklarımda/)).toBeNull();
@@ -527,11 +528,11 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).not.toContain('content: none !important');
     expect(css).not.toContain('rgba(12, 14, 14, 0.88)');
     expect(css).not.toContain('width: 160px');
-    expect(css).toContain('clamp(2.15rem, 2.55vw, 3.15rem)');
+    expect(css).toContain('clamp(2.75rem, 3.2vw, 3.125rem)');
     expect(css).toContain('clamp(1.5rem, 1.65vw, 1.875rem)');
-    expect(css).toContain('clamp(3.5rem, 4.4vw, 4.5rem)');
-    expect(css).toContain('clamp(3.5rem, 7vh, 4.5rem)');
-    expect(css).toContain('--yansi-editorial-top-safe: 4.5rem');
+    expect(css).toContain('clamp(3.25rem, 3.9vw, 3.75rem)');
+    expect(css).toContain('clamp(4.375rem, 8.2vh, 5rem)');
+    expect(css).toContain('--yansi-editorial-top-safe: 4.25rem');
     expect(css).toContain('2.875rem');
     expect(css).not.toContain('clamp(4.5rem, 8vh, 6.25rem)');
     expect(css).not.toMatch(
@@ -548,7 +549,7 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toMatch(
       /\[data-yansi-public-depth='reel'\][\s\S]*mirror-yansi-chain-scroll[\s\S]*pointer-events:\s*none/
     );
-    expect(css).toContain('max-width: 36.25rem');
+    expect(css).toContain('max-width: 35.375rem');
     expect(css).toContain('grid-template-rows: 0fr');
     expect(css).toContain('grid-template-rows: 1fr');
     expect(css).toMatch(
@@ -557,11 +558,15 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toMatch(
       /\.yansi-desktop-visual-stack\[data-yansi-title-position='lower'\]::before[\s\S]*radial-gradient/
     );
+    expect(css).toContain('--yansi-reel-ink-title: rgba(247, 240, 228, 0.98)');
     expect(css).toContain('--yansi-reel-ink-primary: rgba(247, 240, 228, 0.94)');
-    expect(css).toContain('--yansi-reel-ink-secondary: rgba(236, 226, 210, 0.78)');
+    expect(css).toContain('--yansi-reel-ink-honorific: rgba(236, 226, 210, 0.78)');
+    expect(css).toContain('--yansi-reel-ink-meta: rgba(230, 220, 204, 0.74)');
     expect(css).toContain('--yansi-reel-ink-tertiary: rgba(230, 220, 204, 0.70)');
-    expect(css).toContain('--yansi-reel-ink-action: rgba(238, 228, 212, 0.84)');
+    expect(css).toContain('--yansi-reel-ink-action: rgba(238, 228, 212, 0.86)');
     expect(css).toContain('--yansi-reel-ink-summary: rgba(245, 234, 216, 0.90)');
+    expect(css).toContain("content: ' \u2304'");
+    expect(css).toContain("content: ' \u2303'");
     expect(css).toContain('0 1px 2px rgba(0, 0, 0, 0.64)');
     expect(css).toContain('0 2px 8px rgba(0, 0, 0, 0.26)');
     expect(css).toContain('--yansi-reel-meta-shadow');
@@ -612,6 +617,9 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(mobileBlock).not.toContain('rgba(12, 14, 14, 0.40)');
     expect(mobileBlock).not.toContain('border-right-color: transparent');
     expect(mobileBlock).not.toContain('--yansi-reel-ink-primary');
+    expect(mobileBlock).not.toContain('--yansi-reel-ink-title');
     expect(mobileBlock).not.toContain('--yansi-reel-meta-shadow');
+    expect(mobileBlock).not.toContain('35.375rem');
+    expect(mobileBlock).not.toContain('clamp(2.75rem, 3.2vw, 3.125rem)');
   });
 });
