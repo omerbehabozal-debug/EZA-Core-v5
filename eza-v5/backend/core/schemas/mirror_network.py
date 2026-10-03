@@ -333,3 +333,38 @@ class OwnerPublishedJourneysResponse(BaseModel):
     conversationId: str
     items: List[OwnerPublishedJourneyItem] = Field(default_factory=list)
     total: int = Field(default=0, ge=0)
+
+
+class PublicKatkiTypeCounts(BaseModel):
+    """Visible Katkı counts for one frozen Yansı version. Every type is present."""
+
+    model_config = {"extra": "forbid"}
+
+    verify: int = Field(ge=0)
+    correction: int = Field(ge=0)
+    additional_information: int = Field(ge=0)
+    different_perspective: int = Field(ge=0)
+
+
+class PublicKatkiContribution(BaseModel):
+    """Public contribution body. No contributor, reporter, or moderation identity."""
+
+    model_config = {"extra": "forbid"}
+
+    contributionId: str
+    type: str
+    body: Optional[str] = None
+    sourceNote: Optional[str] = None
+    createdAt: str
+
+
+class PublicKatkiRead(BaseModel):
+    """GET /api/mirror-network/{slug}/contributions?journeyVersion="""
+
+    model_config = {"extra": "forbid"}
+
+    slug: str
+    journeyVersion: int = Field(ge=1)
+    totalVisibleCount: int = Field(ge=0)
+    countsByType: PublicKatkiTypeCounts
+    contributions: List[PublicKatkiContribution] = Field(default_factory=list)

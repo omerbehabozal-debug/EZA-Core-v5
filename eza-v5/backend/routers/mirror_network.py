@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,7 @@ from backend.core.schemas.mirror_network import (
     MirrorNetworkPublishRequest,
     OwnerPublishedJourneysResponse,
     PublicFrozenJourneyArtifact,
+    PublicKatkiRead,
     YansiPublicMetrics,
 )
 from backend.core.schemas.mirror_sohbet import (
@@ -86,6 +87,10 @@ from backend.services.mirror_network.yansi_exposure import (
     ingest_yansi_exposure_event,
 )
 from backend.security.production_surface import assert_non_production_surface
+from backend.services.mirror_network.katki_read import (
+    KatkiReadError,
+    get_public_katki_read,
+)
 from backend.services.mirror_network.yansi_metrics import (
     YansiMetricsError,
     get_yansi_public_metrics,
@@ -470,6 +475,36 @@ async def get_frozen_published_journey(
             },
         )
     return PublicFrozenJourneyArtifact.model_validate(public)
+
+
+@router.get("/{slug}/contributions", response_model=PublicKatkiRead)
+async def get_public_katki_contributions(
+    slug: str,
+    journeyVersion: int = Query(..., ge=1),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+) -> PublicKatkiRead:
+    """
+    Public Katkılar for one frozen Yansı version.
+
+    journeyVersion is required. There is no slug-only or latest-version read.
+    Inaccessible parents use the same 404 as frozen replay and return no bodies.
+    """
+    try:
+        payload = await get_public_katki_read(
+            db,
+            slug=slug,
+            journey_version=journeyVersion,
+        )
+    except KatkiReadError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={
+                "code": "frozen_journey_not_found",
+                "message": "Frozen published Journey not found or not replay-ready",
+            },
+        ) from exc
+    return PublicKatkiRead.model_validate(payload)
 
 
 @router.get("/{slug}/continuation-neighbors", response_model=ContinuationNeighborsResponse)
