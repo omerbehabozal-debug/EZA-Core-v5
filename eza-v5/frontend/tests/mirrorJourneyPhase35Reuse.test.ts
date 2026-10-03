@@ -59,6 +59,10 @@ function cardWithLineage(
 }
 
 describe('canReuseMappedPromptForJourney', () => {
+  it('stamps D2 mapper version v10 for reuse lineage', () => {
+    expect(JOURNEY_MAPPER_VERSION_V5).toBe('interpretation-to-v5-v10');
+  });
+
   it('allows reuse when exact scoped lineage matches', () => {
     const s = scope();
     const card = cardWithLineage({

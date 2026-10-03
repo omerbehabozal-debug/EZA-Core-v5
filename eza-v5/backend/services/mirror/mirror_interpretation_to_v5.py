@@ -6,7 +6,7 @@ The image model is the artist — visual language emerges from VISUAL NARRATIVE.
 
 Prompt budget (Option 2 — separately budgeted composition contract):
 - VISUAL NARRATIVE first (hard reserved body ≥450)
-- Shared constraints ≤350 chars (style-neutral fidelity lock)
+- Shared constraints ≤521 chars (style-neutral fidelity lock + exposure readability)
 - Safe-composition contract ≤180 chars (universal crop protection; not a genre)
 - Optionals (intent/atmosphere/summary) are NOT sent to the image model —
   they dilute concrete narrative into editorial stock frames
@@ -27,12 +27,13 @@ from backend.services.mirror.mirror_draft_to_v5 import (
 )
 
 # Bump when Interpretation→V5 mapping contract changes (cache isolation).
-MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v9"
+MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION = "interpretation-to-v5-v10"
 
 # Shared contract: universal constraints only — style-neutral (no house genre).
 # Visual language emerges from VISUAL NARRATIVE / interpretation, not from these lines.
-MIRROR_SHARED_RULES_MAX_CHARS = 350
-# Separately budgeted crop-safe composition (not counted against shared ≤350).
+# 521 = measured shared-rules length after luminous exposure lock (350 no longer fits).
+MIRROR_SHARED_RULES_MAX_CHARS = 521
+# Separately budgeted crop-safe composition (not counted against shared cap).
 MIRROR_COMPOSITION_RULES_MAX_CHARS = 180
 # Hard floor for narrative body surviving truncation pressure.
 MIRROR_V5_RESERVED_NARRATIVE_CHARS = 450
@@ -48,10 +49,13 @@ MIRROR_CONTEXTUAL_SPECIFICITY_RULE = (
     "No substitute geography or invented interiors."
 )
 
-# Visibility / exposure quality — not an aesthetic genre or time-of-day lock.
+# Visibility / exposure quality — not a time-of-day or palette lock.
+# "Bright" means readable luminous exposure, not forced daylight.
 MIRROR_VISIBILITY_RULE = (
-    "Readable in small previews; keep shadow detail — "
-    "no crushed blacks/underexposure; no erasing backlight."
+    "Bright, luminous, premium image with balanced exposure, open shadows "
+    "and clearly visible detail. Even at night, use motivated ambient/practical "
+    "light and keep the scene inviting and legible. Avoid gloomy, dim or "
+    "crushed-black imagery; preserve natural contrast and highlights."
 )
 
 MIRROR_ONE_SCENE_RULE = "One coherent natural scene — not collage."

@@ -61,15 +61,16 @@ def _interp(**overrides) -> MirrorInterpretationV1:
 
 def test_shared_rules_within_target_budget():
     assert 250 <= len(MIRROR_SHARED_RENDER_RULES) <= MIRROR_SHARED_RULES_MAX_CHARS
-    assert MIRROR_SHARED_RULES_MAX_CHARS == 350
+    assert len(MIRROR_SHARED_RENDER_RULES) == 521
+    assert MIRROR_SHARED_RULES_MAX_CHARS == 521
     assert MIRROR_TEXT_FREE_SCENE_RULE in MIRROR_SHARED_RENDER_RULES
     assert MIRROR_CONTEXTUAL_SPECIFICITY_RULE in MIRROR_SHARED_RENDER_RULES
     assert MIRROR_VISIBILITY_RULE in MIRROR_SHARED_RENDER_RULES
     assert MIRROR_ONE_SCENE_RULE in MIRROR_SHARED_RENDER_RULES
 
 
-def test_mapper_version_v9():
-    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v9"
+def test_mapper_version_v10():
+    assert MIRROR_INTERPRETATION_TO_V5_MAPPER_VERSION == "interpretation-to-v5-v10"
 
 
 def test_safe_composition_contract_budget_and_presence():
@@ -127,11 +128,12 @@ def test_four_product_obligations_present():
     assert MIRROR_ONE_SCENE_RULE in mapped.prompt
     assert "Render ONLY the VISUAL NARRATIVE" in mapped.prompt
     assert "named place, material, and prop" in mapped.prompt
-    assert "small previews" in mapped.prompt
-    assert "underexposure" in mapped.prompt.lower()
-    assert "crushed blacks" in mapped.prompt.lower()
-    assert "shadow detail" in mapped.prompt.lower()
-    assert "backlight" in mapped.prompt.lower()
+    prompt_l = mapped.prompt.lower()
+    assert "bright" in prompt_l
+    assert "luminous" in prompt_l
+    assert "balanced exposure" in prompt_l
+    assert "open shadows" in prompt_l
+    assert "clearly visible detail" in prompt_l
     assert "One coherent natural scene" in mapped.prompt
     assert "Text-free: no typography" in mapped.prompt
 
@@ -321,21 +323,33 @@ def test_title_never_in_prompt():
     assert "Secret Title XYZ" not in mapped.prompt
 
 
-def test_visibility_rule_readable_exposure_without_forced_palette():
+def test_visibility_rule_luminous_exposure_without_forced_palette():
     low = MIRROR_VISIBILITY_RULE.lower()
-    assert "small previews" in low
-    assert "readable" in low
-    assert "shadow detail" in low
-    assert "crushed blacks" in low
-    assert "underexposure" in low
-    assert "backlight" in low
+    assert "bright" in low
+    assert "luminous" in low
+    assert "premium" in low
+    assert "balanced exposure" in low
+    assert "open shadows" in low
+    assert "clearly visible detail" in low
+    assert "even at night" in low
+    assert "inviting" in low
+    assert "legible" in low
+    assert "ambient/practical" in low
+    assert "gloomy" in low
+    assert "dim" in low
+    assert "crushed-black" in low
+    assert "preserve natural contrast and highlights" in low
+    for banned_blowout in ("blow highlight", "blown highlight", "bleach", "overexpose"):
+        assert banned_blowout not in low
     for banned in ("golden hour", "sunset", "orange", "daylight", "warm wash"):
         assert banned not in low
         assert banned not in MIRROR_SHARED_RENDER_RULES.lower()
     mapped = map_interpretation_to_v5_prompt(_interp(), title_source="interpretation_llm")
     assert MIRROR_VISIBILITY_RULE in mapped.prompt
-    assert "night" not in MIRROR_VISIBILITY_RULE.lower()
     assert "dusk" not in MIRROR_VISIBILITY_RULE.lower()
+    # Night remains allowed as subject; the lock is exposure/legibility, not "no night".
+    assert "no night" not in low
+    assert "no dusk" not in low
 
 
 def test_night_and_dusk_narratives_remain_allowed():
@@ -357,6 +371,9 @@ def test_night_and_dusk_narratives_remain_allowed():
     assert night_mapped.prompt.startswith("VISUAL NARRATIVE:")
     assert "dusk" in dusk_mapped.prompt.lower()
     assert "night" in night_mapped.prompt.lower()
+    assert MIRROR_VISIBILITY_RULE in night_mapped.prompt
+    assert "even at night" in night_mapped.prompt.lower()
+    assert "legible" in night_mapped.prompt.lower()
     avoid = MIRROR_BASELINE_AVOID.lower()
     shared = MIRROR_SHARED_RENDER_RULES.lower()
     for banned in ("no night", "no dusk", "no people", "no human", "no silhouette"):

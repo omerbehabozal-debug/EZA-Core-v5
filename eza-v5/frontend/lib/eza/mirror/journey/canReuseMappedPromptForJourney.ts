@@ -8,7 +8,7 @@ import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
 import { hasPinnedMappedMirrorPrompt } from '@/lib/eza/mirror/pinnedMappedMirrorPrompt';
 import type { JourneySemanticScopePayload } from '@/lib/eza/mirror/journey/scopedJourneyMeaning';
 
-export const JOURNEY_MAPPER_VERSION_V5 = 'interpretation-to-v5-v8';
+export const JOURNEY_MAPPER_VERSION_V5 = 'interpretation-to-v5-v10';
 
 export type MirrorJourneyPromptLineage = {
   semanticScope: 'journey_window_v1';
