@@ -953,6 +953,7 @@ def test_public_frozen_dto_extra_forbid():
     from backend.core.schemas.mirror_network import PublicFrozenJourneyArtifact
     from pydantic import ValidationError
 
+    # generationId is an allowlisted public seal field; extras like integrity stay forbidden.
     with pytest.raises(ValidationError):
         PublicFrozenJourneyArtifact.model_validate(
             {
@@ -966,6 +967,6 @@ def test_public_frozen_dto_extra_forbid():
                     for i in range(1, 9)
                 ],
                 "replayReady": True,
-                "generationId": "must-not-pass",
+                "integrity": {"generationId": "must-not-pass"},
             }
         )
