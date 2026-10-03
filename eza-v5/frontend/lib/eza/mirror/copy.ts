@@ -98,6 +98,10 @@ export const YANSI_SOHBETLERIM_SECTION_TITLE = 'SOHBETLERİM';
 export const YANSI_PUBLIC_METRIC_EXPERIENCE = 'deneyim';
 export const YANSI_PUBLIC_METRIC_CHILD = 'Yansı';
 
+/** Desktop reel — reveal the sealed canonical summary in place. */
+export const YANSI_DETAIL_OPEN = 'Detay';
+export const YANSI_DETAIL_CLOSE = 'Gizle';
+
 export const MIRROR_SHARE_DOWNLOAD_LABEL = 'Kartı İndir';
 
 /** Kısa gizlilik — tüm Mirror yüzeylerinde */

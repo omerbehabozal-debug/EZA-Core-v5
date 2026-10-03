@@ -21,8 +21,12 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/m/yansi-b',
 }));
 
+const { compactShellMock } = vi.hoisted(() => ({
+  compactShellMock: vi.fn(() => true),
+}));
+
 vi.mock('@/hooks/useSainaMinWidth', () => ({
-  useSainaCompactShell: () => true,
+  useSainaCompactShell: () => compactShellMock(),
 }));
 
 vi.mock('@/context/AuthContext', () => ({
@@ -114,6 +118,8 @@ function renderChain(ui: ReactElement, slug = 'yansi-b') {
 
 describe('desktop immersive presentation', () => {
   beforeEach(() => {
+    compactShellMock.mockReset();
+    compactShellMock.mockReturnValue(true);
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) =>
       makeArtifact(slug)
@@ -220,6 +226,75 @@ describe('desktop immersive presentation', () => {
     );
   });
 
+  it('Detay reveals the sealed canonical summary in place; title click still enters chat', async () => {
+    const onDepthChange = vi.fn();
+    const summary = 'Canonical sealed Ayna summary for this exact Yansı.';
+    renderChain(
+      <MirrorYansiChainExperience
+        rootArtifact={makeArtifact('yansi-b', { publicSummary: summary })}
+        depth="reel"
+        onDepthChange={onDepthChange}
+      />
+    );
+    const title = await screen.findByTestId('mirror-yansi-active-title');
+    const toggle = screen.getByTestId('yansi-desktop-detail-toggle');
+    expect(toggle).toHaveTextContent('Detay');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('yansi-desktop-canonical-summary')).toBeNull();
+    expect(screen.queryByText(summary)).toBeNull();
+    expect(screen.queryByText(/Sessizce/i)).toBeNull();
+
+    fireEvent.click(toggle);
+    const revealed = screen.getByTestId('yansi-desktop-canonical-summary');
+    expect(revealed.tagName).toBe('P');
+    expect(revealed).toHaveTextContent(summary);
+    expect(toggle).toHaveTextContent('Gizle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(title).toHaveTextContent('Canonical yansi-b');
+    expect(onDepthChange).not.toHaveBeenCalled();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId('yansi-desktop-canonical-summary')).toBeNull();
+    expect(toggle).toHaveTextContent('Detay');
+    expect(onDepthChange).not.toHaveBeenCalled();
+
+    fireEvent.click(title);
+    expect(onDepthChange).toHaveBeenCalledWith('chat');
+    expect(screen.queryByTestId('yansi-desktop-canonical-summary')).toBeNull();
+  });
+
+  it('keeps Detay off the mobile reel path', async () => {
+    compactShellMock.mockReturnValue(false);
+    renderChain(
+      <MirrorYansiChainExperience
+        rootArtifact={makeArtifact('yansi-b', {
+          publicSummary: 'Canonical sealed Ayna summary for this exact Yansı.',
+        })}
+        depth="reel"
+      />
+    );
+    await screen.findByTestId('mirror-yansi-active-title');
+    expect(screen.queryByTestId('yansi-desktop-detail-toggle')).toBeNull();
+    expect(screen.queryByTestId('yansi-desktop-canonical-summary')).toBeNull();
+    expect(screen.queryByText(/Sessizce/i)).toBeNull();
+  });
+
+  it('hides Detay and the sealed summary in chat depth', async () => {
+    renderChain(
+      <MirrorYansiChainExperience
+        rootArtifact={makeArtifact('yansi-b', {
+          publicSummary: 'Canonical sealed Ayna summary for this exact Yansı.',
+        })}
+        depth="chat"
+      />
+    );
+    await screen.findByTestId('yansi-chat-replay-layer');
+    expect(screen.queryByTestId('yansi-desktop-detail-toggle')).toBeNull();
+    expect(screen.queryByTestId('yansi-desktop-canonical-summary')).toBeNull();
+    expect(screen.queryByText(/Sessizce/i)).toBeNull();
+  });
+
   it('returning from chat restores the same Yansı/index', async () => {
     const { rerender } = renderChain(
       <MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="chat" />
@@ -251,6 +326,8 @@ describe('desktop immersive presentation', () => {
 
 describe('desktop reel wheel ownership', () => {
   beforeEach(() => {
+    compactShellMock.mockReset();
+    compactShellMock.mockReturnValue(true);
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) =>
       makeArtifact(slug)
@@ -400,6 +477,14 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(css).toContain('clamp(1.5rem, 1.65vw, 1.875rem)');
     expect(css).toContain('clamp(3.5rem, 4.4vw, 4.5rem)');
     expect(css).toContain('clamp(4.5rem, 8vh, 6.25rem)');
+    expect(css).toContain('yansi-desktop-detail-toggle');
+    expect(css).toContain('yansi-desktop-canonical-summary');
+    expect(css).toContain('max-width: 36.25rem');
+    expect(css).toContain('yansi-desktop-detail-in 300ms');
+    expect(css).toMatch(
+      /\.yansi-desktop-visual-stack\[data-yansi-title-position='lower'\][\s\S]*radial-gradient/
+    );
+    expect(css).not.toContain('Sessizce');
     expect(css).toMatch(/\.yansi-desktop-visual-stack[\s\S]*position:\s*absolute/);
     expect(css).toContain('yansi-desktop-editorial-title');
     expect(css).toContain('.yansi-chat-composer-lane');
@@ -431,5 +516,8 @@ describe('desktop CSS + mobile freeze contracts', () => {
     expect(mobileBlock).not.toContain('--yansi-scene-pos-x');
     expect(mobileBlock).not.toContain('40.625rem');
     expect(mobileBlock).not.toContain('blur(10px)');
+    expect(mobileBlock).not.toContain('yansi-desktop-detail-toggle');
+    expect(mobileBlock).not.toContain('yansi-desktop-canonical-summary');
+    expect(mobileBlock).not.toContain('yansi-desktop-proof-row');
   });
 });

@@ -366,12 +366,13 @@
     bottom: 0;
     transform: none;
     margin-top: 0;
-    padding: 4.75rem 1.25rem var(--yansi-title-bottom) var(--yansi-title-inline);
-    background: linear-gradient(
-      108deg,
-      rgba(9, 11, 11, 0.42) 0%,
-      rgba(9, 11, 11, 0.16) 46%,
-      rgba(9, 11, 11, 0) 78%
+    padding: 8.5rem 1.25rem var(--yansi-title-bottom) var(--yansi-title-inline);
+    background: radial-gradient(
+      ellipse 88% 72% at 24% 100%,
+      rgba(9, 11, 11, 0.26) 0%,
+      rgba(9, 11, 11, 0.12) 42%,
+      rgba(9, 11, 11, 0.04) 64%,
+      rgba(9, 11, 11, 0) 82%
     );
   }
 
@@ -430,6 +431,80 @@
     font-weight: 550;
     letter-spacing: 0.01em;
     color: rgba(245, 234, 216, 0.92);
+  }
+
+  .yansi-desktop-detail-cluster {
+    position: relative;
+    width: min(36.25rem, 100%);
+    margin: 0;
+  }
+
+  .yansi-desktop-proof-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.4rem;
+    margin: 0;
+  }
+
+  .yansi-desktop-proof-row [data-testid='yansi-public-metrics'] {
+    margin: 0;
+  }
+
+  .yansi-desktop-proof-row [data-testid='yansi-public-metrics'] + .yansi-desktop-detail-toggle::before {
+    content: '·';
+    margin-right: 0.4rem;
+    opacity: 0.65;
+  }
+
+  .yansi-desktop-detail-toggle {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: rgba(201, 187, 168, 0.58);
+  }
+
+  .yansi-desktop-detail-toggle:hover,
+  .yansi-desktop-detail-toggle:focus-visible {
+    color: rgba(232, 213, 181, 0.78);
+  }
+
+  .yansi-desktop-detail-toggle:focus-visible {
+    outline: 2px solid rgba(232, 213, 181, 0.55);
+    outline-offset: 3px;
+  }
+
+  .yansi-desktop-canonical-summary {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 0.28rem);
+    z-index: 1;
+    margin: 0;
+    width: min(36.25rem, 100%);
+    max-width: 36.25rem;
+    font-size: clamp(0.9375rem, 1.05vw, 1.0625rem);
+    line-height: 1.5;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    color: rgba(245, 234, 216, 0.74);
+    text-shadow: 0 1px 16px rgba(9, 11, 11, 0.5);
+    animation: yansi-desktop-detail-in 300ms ease both;
+  }
+
+  @keyframes yansi-desktop-detail-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   .yansi-desktop-identity__meta {

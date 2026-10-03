@@ -44,6 +44,8 @@ import {
   YANSI_CONTINUATION_NEXT,
   YANSI_CONTINUATION_PREVIOUS,
   YANSI_DISCOVER_END_OF_POOL,
+  YANSI_DETAIL_CLOSE,
+  YANSI_DETAIL_OPEN,
   YANSI_OWN_CONTINUATION_CTA,
   YANSI_PREVIOUS_MERAK,
   YANSI_SKIP_TO_NEXT_MERAK,
@@ -207,6 +209,7 @@ export default function MirrorYansiChainExperience({
   );
   const [audioSheetOpen, setAudioSheetOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const previousActiveSlugRef = useRef(entrySlug);
   const skipFiredRef = useRef<Set<string>>(new Set());
   const navInFlightRef = useRef(false);
@@ -236,6 +239,10 @@ export default function MirrorYansiChainExperience({
     audioActiveSlugRef.current = activeSlug;
     resetAudioForActiveChange?.();
   }, [activeSlug, resetAudioForActiveChange]);
+
+  useEffect(() => {
+    setDetailOpen(false);
+  }, [activeSlug, depth]);
 
   // Bootstrap entry artifact into the node map.
   useEffect(() => {
@@ -817,11 +824,49 @@ export default function MirrorYansiChainExperience({
                 />
               ) : null}
               {isDesktop ? (
-                <YansiPublicMetricsLine
-                  slug={activeNode.artifact.slug}
-                  journeyVersion={activeNode.artifact.journeyVersion}
-                  variant="section"
-                />
+                <div
+                  className="yansi-desktop-detail-cluster"
+                  data-testid="yansi-desktop-detail-cluster"
+                >
+                  <div
+                    className="yansi-desktop-proof-row"
+                    data-testid="yansi-desktop-proof-row"
+                  >
+                    <YansiPublicMetricsLine
+                      slug={activeNode.artifact.slug}
+                      journeyVersion={activeNode.artifact.journeyVersion}
+                      variant="section"
+                    />
+                    {!showChatReplay && (activeNode.artifact.publicSummary || '').trim() ? (
+                      <button
+                        type="button"
+                        className="yansi-desktop-detail-toggle"
+                        data-testid="yansi-desktop-detail-toggle"
+                        aria-expanded={detailOpen}
+                        aria-controls="yansi-desktop-canonical-summary"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setDetailOpen((open) => !open);
+                        }}
+                      >
+                        {detailOpen ? YANSI_DETAIL_CLOSE : YANSI_DETAIL_OPEN}
+                      </button>
+                    ) : null}
+                  </div>
+                  {isDesktop &&
+                  !showChatReplay &&
+                  detailOpen &&
+                  (activeNode.artifact.publicSummary || '').trim() ? (
+                    <p
+                      id="yansi-desktop-canonical-summary"
+                      className="yansi-desktop-canonical-summary"
+                      data-testid="yansi-desktop-canonical-summary"
+                    >
+                      {(activeNode.artifact.publicSummary || '').trim()}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
             </header>
   );
