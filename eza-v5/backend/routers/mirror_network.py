@@ -19,6 +19,7 @@ from backend.core.schemas.mirror_network import (
     MirrorNetworkPublishRequest,
     OwnerPublishedJourneysResponse,
     PublicFrozenJourneyArtifact,
+    PublicKatkiContribution,
     PublicKatkiRead,
     YansiPublicMetrics,
 )
@@ -87,6 +88,10 @@ from backend.services.mirror_network.yansi_exposure import (
     ingest_yansi_exposure_event,
 )
 from backend.security.production_surface import assert_non_production_surface
+from backend.services.mirror_network.katki_create import (
+    KatkiCreateError,
+    create_katki,
+)
 from backend.services.mirror_network.katki_moderation import (
     KatkiModerationError,
     owner_hide_katki,
@@ -514,6 +519,59 @@ async def get_public_katki_contributions(
             },
         ) from exc
     return PublicKatkiRead.model_validate(payload)
+
+
+class KatkiCreateRequest(BaseModel):
+    """POST /api/mirror-network/{slug}/contributions — exact version in the body."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    journeyVersion: int = Field(..., ge=1)
+    type: str = Field(..., min_length=1, max_length=32)
+    body: Optional[str] = None
+    sourceNote: Optional[str] = None
+
+
+def _katki_create_http(exc: KatkiCreateError) -> HTTPException:
+    messages = {
+        "invalid_type": "Geçersiz katkı türü",
+        "invalid_body": "Katkı metni geçersiz",
+        "invalid_source_note": "Kaynak notu geçersiz",
+        "forbidden_attachment": "Bu hedefe katkı eklenemez",
+        "frozen_journey_not_found": "Frozen published Journey not found or not replay-ready",
+        "active_contribution_exists": "Bu türde aktif bir katkın zaten var",
+        "katki_create_rate_limited": "Katkı oluşturma sınırı aşıldı",
+        "create_failed": "Katkı oluşturulamadı",
+    }
+    return HTTPException(
+        status_code=exc.status_code,
+        detail={"code": exc.code, "message": messages.get(exc.code, "Katkı oluşturulamadı")},
+    )
+
+
+@router.post("/{slug}/contributions", response_model=PublicKatkiContribution)
+async def create_public_katki(
+    slug: str,
+    body: KatkiCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_standalone),
+) -> PublicKatkiContribution:
+    """Authenticated user creates one Katkı on one exact frozen version."""
+    try:
+        payload = await create_katki(
+            db,
+            slug=slug,
+            actor_user_id=user.id,
+            journey_version=body.journeyVersion,
+            contribution_type=body.type,
+            body=body.body,
+            source_note=body.sourceNote,
+            raw_fields=body.model_dump(),
+        )
+    except KatkiCreateError as exc:
+        raise _katki_create_http(exc) from exc
+    return PublicKatkiContribution.model_validate(payload)
 
 
 class KatkiMutationResponse(BaseModel):

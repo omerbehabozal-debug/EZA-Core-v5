@@ -476,7 +476,7 @@ async def test_private_parent_stays_closed_after_moderation(db, readable_parent)
     assert "secret-body" not in str(still_closed.value)
 
 
-def test_routes_are_moderation_only_and_trust_key_is_required():
+def test_contribution_routes_and_trust_key_is_required():
     from fastapi.testclient import TestClient
 
     from backend.main import app
@@ -494,6 +494,7 @@ def test_routes_are_moderation_only_and_trust_key_is_required():
         "/api/mirror-network/contributions/{contribution_id}/restore",
         "/api/mirror-network/contributions/{contribution_id}/trust-hide",
         "/api/mirror-network/contributions/{contribution_id}/trust-restore",
+        "/api/mirror-network/{slug}/contributions",
     }
     contribution_id = str(uuid4())
     with patch(
