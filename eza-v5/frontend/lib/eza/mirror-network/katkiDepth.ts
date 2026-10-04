@@ -57,6 +57,18 @@ export function openKatkiTypeChoice(state: KatkiDepthState): KatkiDepthState {
   return { ...state, stage: 'choose' };
 }
 
+/** Reel zero-state entry. Opens type choice without passing through an empty list. */
+export function openKatkiChoose(slug: string, journeyVersion: number): KatkiDepthState {
+  return {
+    stage: 'choose',
+    slug: slug.trim().toLowerCase(),
+    journeyVersion,
+    selectedType: null,
+    body: '',
+    sourceNote: '',
+  };
+}
+
 export function selectKatkiType(
   state: KatkiDepthState,
   type: KatkiType

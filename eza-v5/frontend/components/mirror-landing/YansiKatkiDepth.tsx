@@ -15,12 +15,12 @@ import {
 import {
   KATKI_GROUP_ORDER,
   createPublicKatki,
-  fetchPublicKatki,
   groupVisibleKatki,
   katkiCreateErrorMessage,
   katkiTypeLabel,
   mergeCreatedKatki,
   validateKatkiDraft,
+  type KatkiReadStatus,
   type PublicKatkiRead,
 } from '@/lib/eza/mirror-network/katkiPublic';
 
@@ -30,6 +30,9 @@ export type YansiKatkiDepthProps = {
   slug: string;
   journeyVersion: number;
   stage: Exclude<KatkiStage, 'closed'>;
+  read: PublicKatkiRead | null;
+  readStatus: KatkiReadStatus;
+  onReadChange: (read: PublicKatkiRead) => void;
   selectedType: KatkiType | null;
   body: string;
   sourceNote: string;
@@ -56,6 +59,9 @@ export default function YansiKatkiDepth({
   slug,
   journeyVersion,
   stage,
+  read,
+  readStatus,
+  onReadChange,
   selectedType,
   body,
   sourceNote,
@@ -69,44 +75,20 @@ export default function YansiKatkiDepth({
   onRequireAuth,
 }: YansiKatkiDepthProps) {
   const { isAuthenticated, isAuthReady } = useAuth();
-  const [read, setRead] = useState<PublicKatkiRead | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const generationRef = useRef(0);
   const backRef = useRef<HTMLButtonElement | null>(null);
   const targetRef = useRef({ slug, journeyVersion });
   targetRef.current = { slug, journeyVersion };
+  const normalizedSlug = slug.trim().toLowerCase();
+  const snapshot =
+    read && read.slug === normalizedSlug && read.journeyVersion === journeyVersion ? read : null;
+  const loading = readStatus === 'loading' || (readStatus === 'ready' && !snapshot);
+  const loadFailed = readStatus === 'error';
 
   useEffect(() => {
-    const generation = ++generationRef.current;
-    const slugAt = slug;
-    const versionAt = journeyVersion;
-    setLoading(true);
-    setLoadFailed(false);
-    setRead(null);
-    setNotice(null);
-    setSubmitting(false);
-    let cancelled = false;
-    void fetchPublicKatki(slugAt, versionAt).then((result) => {
-      if (cancelled || generation !== generationRef.current) return;
-      if (
-        targetRef.current.slug !== slugAt ||
-        targetRef.current.journeyVersion !== versionAt
-      ) {
-        return;
-      }
-      if (!result.ok) {
-        setLoading(false);
-        setLoadFailed(true);
-        return;
-      }
-      setRead(result.data);
-      setLoading(false);
-    });
     return () => {
-      cancelled = true;
       generationRef.current += 1;
     };
   }, [slug, journeyVersion]);
@@ -171,11 +153,11 @@ export default function YansiKatkiDepth({
       setNotice(mapped);
       return;
     }
-    setRead((current) => mergeCreatedKatki(current, result.data, slugAt, versionAt));
+    onReadChange(mergeCreatedKatki(snapshot, result.data, slugAt, versionAt));
     onSubmitted();
   };
 
-  const groups = groupVisibleKatki(read?.contributions ?? []);
+  const groups = groupVisibleKatki(snapshot?.contributions ?? []);
   const backLabel = stage === 'list' ? 'Yansıya dön' : 'Katkılara dön';
 
   return (

@@ -99,17 +99,35 @@ export function mergeCreatedKatki(
     return base;
   }
   const contributions = sortKatkiContributions([...base.contributions, item]);
-  const countsByType = emptyCounts();
-  for (const row of contributions) {
-    if (row.type in countsByType) countsByType[row.type] += 1;
-  }
+  const countsByType = { ...base.countsByType };
+  countsByType[item.type] = (countsByType[item.type] ?? 0) + 1;
   return {
     slug,
     journeyVersion,
-    totalVisibleCount: contributions.length,
+    totalVisibleCount: base.totalVisibleCount + 1,
     countsByType,
     contributions,
   };
+}
+
+export type KatkiReadStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+export type KatkiReelSignal = 'hidden' | 'count' | 'create';
+
+/** Reel proof signal. Only a resolved totalVisibleCount may claim zero or a count. */
+export function katkiReelSignal(
+  status: KatkiReadStatus,
+  totalVisibleCount: number | null
+): KatkiReelSignal {
+  if (status !== 'ready') return 'hidden';
+  if (totalVisibleCount == null || !Number.isInteger(totalVisibleCount) || totalVisibleCount < 0) {
+    return 'hidden';
+  }
+  return totalVisibleCount === 0 ? 'create' : 'count';
+}
+
+export function formatKatkiReelCount(totalVisibleCount: number): string {
+  return `${Math.trunc(totalVisibleCount).toLocaleString('tr-TR')} katkı`;
 }
 
 export type KatkiDraftResult =
@@ -248,10 +266,11 @@ export function parsePublicKatkiRead(
     }
   }
   const total = Number(row.totalVisibleCount);
+  if (!Number.isInteger(total) || total < 0) return null;
   return {
     slug: slug.trim().toLowerCase(),
     journeyVersion,
-    totalVisibleCount: Number.isFinite(total) ? total : contributions.length,
+    totalVisibleCount: total,
     countsByType,
     contributions,
   };

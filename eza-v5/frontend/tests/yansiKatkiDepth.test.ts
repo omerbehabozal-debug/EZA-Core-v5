@@ -4,6 +4,7 @@ import {
   closedKatkiDepth,
   escapeKatki,
   katkiOwnsWheel,
+  openKatkiChoose,
   openKatkiList,
   openKatkiTypeChoice,
   returnKatkiToTypeChoice,
@@ -14,8 +15,10 @@ import {
   buildKatkiCreatePayload,
   createPublicKatki,
   fetchPublicKatki,
+  formatKatkiReelCount,
   groupVisibleKatki,
   katkiCreateErrorMessage,
+  katkiReelSignal,
   mergeCreatedKatki,
   validateKatkiDraft,
   type PublicKatkiContribution,
@@ -76,6 +79,14 @@ describe('katki depth state', () => {
     expect(escapeKatki(list).stage).toBe('closed');
   });
 
+  it('opens type choice directly for the reel zero state', () => {
+    const chosen = openKatkiChoose('Yansi-A', 4);
+    expect(chosen.stage).toBe('choose');
+    expect(chosen.slug).toBe('yansi-a');
+    expect(chosen.journeyVersion).toBe(4);
+    expect(escapeKatki(chosen).stage).toBe('list');
+  });
+
   it('clears a draft when reel travel closes the depth', () => {
     const dirty = {
       ...selectKatkiType(openKatkiTypeChoice(openKatkiList('yansi-a', 2)), 'verify'),
@@ -123,6 +134,31 @@ describe('katki read model', () => {
     const result = await fetchPublicKatki('yansi-a', 0);
     expect(result.ok).toBe(false);
     expect(apiClient.get).not.toHaveBeenCalled();
+  });
+
+  it('does not invent a count from the contribution list', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      ok: true,
+      data: {
+        slug: 'yansi-a',
+        journeyVersion: 4,
+        contributions: [{ contributionId: 'x' }],
+      },
+    });
+    const missing = await fetchPublicKatki('yansi-a', 4);
+    expect(missing.ok).toBe(false);
+
+    vi.mocked(apiClient.get).mockResolvedValue({
+      ok: true,
+      data: {
+        slug: 'yansi-a',
+        journeyVersion: 9,
+        totalVisibleCount: 7,
+        contributions: [],
+      },
+    });
+    const otherVersion = await fetchPublicKatki('yansi-a', 4);
+    expect(otherVersion.ok).toBe(false);
   });
 
   it('orders groups and omits empty ones', () => {
@@ -227,6 +263,30 @@ describe('katki create payload', () => {
       body: 'x'.repeat(20),
       sourceNote: 'kaynak',
     });
+  });
+
+  it('increments totalVisibleCount instead of recounting the local list', () => {
+    const base = mergeCreatedKatki(null, row({ contributionId: 'a', type: 'verify' }), 'yansi-a', 2);
+    const seeded = { ...base, totalVisibleCount: 7, countsByType: { ...base.countsByType, verify: 7 } };
+    const next = mergeCreatedKatki(
+      seeded,
+      row({ contributionId: 'b', type: 'correction' }),
+      'yansi-a',
+      2
+    );
+    expect(next.totalVisibleCount).toBe(8);
+    expect(next.countsByType.correction).toBe(1);
+    expect(formatKatkiReelCount(next.totalVisibleCount)).toBe('8 katkı');
+  });
+
+  it('hides the reel signal until a real total exists', () => {
+    expect(katkiReelSignal('loading', null)).toBe('hidden');
+    expect(katkiReelSignal('loading', 0)).toBe('hidden');
+    expect(katkiReelSignal('error', 0)).toBe('hidden');
+    expect(katkiReelSignal('idle', 0)).toBe('hidden');
+    expect(katkiReelSignal('ready', 0)).toBe('create');
+    expect(katkiReelSignal('ready', 7)).toBe('count');
+    expect(formatKatkiReelCount(7)).toBe('7 katkı');
   });
 
   it('maps errors without raw backend text', () => {

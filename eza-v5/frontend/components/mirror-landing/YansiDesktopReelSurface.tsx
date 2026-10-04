@@ -19,6 +19,10 @@ import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished
 import { assertYansiAtomicIdentity } from '@/lib/eza/mirror/journey/yansiAtomicIdentity';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 import { buildYansiPublicHref } from '@/lib/eza/mirror-network/yansiPublicDepth';
+import {
+  formatKatkiReelCount,
+  type KatkiReelSignal,
+} from '@/lib/eza/mirror-network/katkiPublic';
 import { cn } from '@/lib/utils';
 import {
   YANSI_REEL_EASE,
@@ -50,6 +54,9 @@ export default function YansiDesktopReelSurface({
   detailOpen = false,
   onDetailToggle,
   onOpenChat,
+  katkiSignal = 'hidden',
+  katkiCount = 0,
+  onOpenKatki,
   rail,
 }: {
   node: YansiDesktopReelSurfaceNode;
@@ -60,6 +67,9 @@ export default function YansiDesktopReelSurface({
   detailOpen?: boolean;
   onDetailToggle?: () => void;
   onOpenChat?: () => void;
+  katkiSignal?: KatkiReelSignal;
+  katkiCount?: number;
+  onOpenKatki?: () => void;
   rail?: ReactNode;
 }) {
   const router = useRouter();
@@ -273,6 +283,22 @@ export default function YansiDesktopReelSurface({
               journeyVersion={node.artifact.journeyVersion}
               variant="section"
             />
+            {role === 'current' &&
+            ((katkiSignal === 'count' && katkiCount > 0) || katkiSignal === 'create') &&
+            onOpenKatki ? (
+              <button
+                type="button"
+                className="yansi-katki-reel-signal"
+                data-testid="yansi-katki-reel-signal"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onOpenKatki();
+                }}
+              >
+                {katkiSignal === 'create' ? 'Katkı yap' : formatKatkiReelCount(katkiCount)}
+              </button>
+            ) : null}
             {summary && role === 'current' ? (
               <button
                 type="button"
