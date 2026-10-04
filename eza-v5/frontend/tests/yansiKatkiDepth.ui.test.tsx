@@ -1,0 +1,834 @@
+/**
+ * Desktop Katkılar depth. Mobile and the Reel metrics row stay frozen.
+ */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { ReactElement } from 'react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import YansiKatkiDepth from '@/components/mirror-landing/YansiKatkiDepth';
+import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
+import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
+import { apiClient } from '@/lib/apiClient';
+import { KATKI_EMPTY_COPY_FORBIDDEN } from '@/lib/eza/mirror-network/katkiPublic';
+import type { KatkiType } from '@/lib/eza/mirror-network/katkiDepth';
+import { YANSI_WHEEL_COMMIT_PX } from '@/lib/eza/mirror/journey/yansiDesktopWheelGesture';
+import { YANSI_REEL_TRAVEL_MS } from '@/lib/eza/mirror/journey/yansiDesktopReelTransition';
+import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
+
+const flags = vi.hoisted(() => ({
+  desktop: true,
+  authenticated: true,
+}));
+
+const requireAuth = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/m/yansi-b',
+}));
+
+vi.mock('@/hooks/useSainaMinWidth', () => ({
+  useSainaCompactShell: () => flags.desktop,
+}));
+
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    isAuthenticated: flags.authenticated,
+    isAuthReady: true,
+    user: flags.authenticated ? { user_id: 'viewer' } : null,
+  }),
+}));
+
+vi.mock('@/lib/apiClient', () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer')
+  >('@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer');
+  return {
+    ...actual,
+    fetchPublicFrozenJourneyArtifact: vi.fn(async ({ slug }: { slug: string }) => makeArtifact(slug)),
+  };
+});
+
+vi.mock('@/lib/eza/mirror/journey/resolvePublicAuthorDisplay', async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import('@/lib/eza/mirror/journey/resolvePublicAuthorDisplay')
+  >();
+  return {
+    ...actual,
+    resolvePublicAuthorIdentity: async () => ({
+      displayName: 'Author',
+      publicHonorific: '',
+      publicAvatarUrl: null,
+      publicAvatarRevision: null,
+    }),
+  };
+});
+
+vi.mock('@/lib/eza/mirror-network/fetchContinuationNeighbors', () => ({
+  fetchContinuationNeighbors: vi.fn(async (slug: string) => ({
+    ok: true,
+    data: { slug, journeyVersion: 2, previous: null, next: null },
+  })),
+}));
+
+vi.mock('@/lib/eza/mirror-network/fetchDiscoverMirrors', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/eza/mirror-network/fetchDiscoverMirrors')
+  >('@/lib/eza/mirror-network/fetchDiscoverMirrors');
+  return {
+    ...actual,
+    fetchDiscoverMirrors: vi.fn(),
+  };
+});
+
+import { fetchDiscoverMirrors } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
+
+function makeArtifact(slug: string): PublicFrozenJourneyArtifact {
+  return {
+    slug,
+    journeyId: slug,
+    journeyVersion: 2,
+    publicTitle: `Canonical ${slug}`,
+    publicSummary: `Sealed summary ${slug}`,
+    sceneImageUrl: `https://cdn.example/${slug}.jpg`,
+    authorUserId: 'user-b',
+    selectedCount: 4,
+    steps: [
+      { stepIndex: 1, publicQuestion: 'Q1?', publicAnswer: 'A1' },
+      { stepIndex: 2, publicQuestion: 'Q2?', publicAnswer: 'A2' },
+    ],
+    publishedAt: '2026-09-01T12:00:00.000Z',
+    replayReady: true,
+  };
+}
+
+function contribution(input: {
+  contributionId: string;
+  type: KatkiType;
+  body?: string | null;
+  sourceNote?: string | null;
+  displayName?: string;
+  createdAt?: string;
+}) {
+  return {
+    contributionId: input.contributionId,
+    type: input.type,
+    body: input.body === undefined ? 'Bu katkı metni yirmi karakteri aşıyor.' : input.body,
+    sourceNote: input.sourceNote ?? null,
+    createdAt: input.createdAt ?? '2026-10-01T09:30:00.000Z',
+    contributor: {
+      displayName: input.displayName ?? 'Ada',
+      publicAvatarUrl: '/api/public/profile-avatars/ada.png',
+      publicAvatarRevision: 2,
+    },
+  };
+}
+
+function readPayload(slug: string, journeyVersion: number, contributions: ReturnType<typeof contribution>[]) {
+  return {
+    ok: true,
+    data: {
+      slug,
+      journeyVersion,
+      totalVisibleCount: contributions.length,
+      countsByType: {
+        verify: contributions.filter((row) => row.type === 'verify').length,
+        correction: contributions.filter((row) => row.type === 'correction').length,
+        additional_information: contributions.filter((row) => row.type === 'additional_information').length,
+        different_perspective: contributions.filter((row) => row.type === 'different_perspective').length,
+      },
+      contributions,
+    },
+  };
+}
+
+function renderChain(ui: ReactElement, slug = 'yansi-b') {
+  return render(
+    <YansiExperienceSessionProvider slug={slug}>{ui}</YansiExperienceSessionProvider>
+  );
+}
+
+async function flushAsync() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+describe('katki depth ui', () => {
+  beforeEach(() => {
+    flags.desktop = true;
+    flags.authenticated = true;
+    requireAuth.mockReset();
+    vi.mocked(apiClient.get).mockReset();
+    vi.mocked(apiClient.post).mockReset();
+    vi.mocked(apiClient.get).mockImplementation(async (path: string) => {
+      if (!String(path).includes('/contributions')) return { ok: false };
+      return readPayload('yansi-a', 2, []);
+    });
+    vi.mocked(apiClient.post).mockResolvedValue({ ok: false, error: { error_code: 'create_failed' } });
+  });
+
+  it('renders groups, a bodiless verify, source note, and public identity', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue(
+      readPayload('yansi-a', 2, [
+        contribution({
+          contributionId: 'persp',
+          type: 'different_perspective',
+          displayName: 'Deniz',
+          createdAt: '2026-10-04T00:00:00.000Z',
+        }),
+        contribution({
+          contributionId: 'verify-empty',
+          type: 'verify',
+          body: null,
+          sourceNote: null,
+          displayName: 'Ada',
+          createdAt: '2026-10-01T00:00:00.000Z',
+        }),
+        contribution({
+          contributionId: 'note',
+          type: 'additional_information',
+          sourceNote: 'Arşiv notu',
+          displayName: 'Ece',
+          createdAt: '2026-10-03T00:00:00.000Z',
+        }),
+      ])
+    );
+    render(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="list"
+        selectedType={null}
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={vi.fn()}
+      />
+    );
+    expect(await screen.findByTestId('yansi-katki-group-verify')).toBeTruthy();
+    const groups = screen.getAllByRole('heading', { level: 3 }).map((node) => node.textContent);
+    expect(groups).toEqual(['Doğrulama', 'Ek Bilgi', 'Farklı Bakış']);
+    expect(screen.queryByTestId('yansi-katki-group-correction')).toBeNull();
+    const verifyRow = screen.getByTestId('yansi-katki-row-verify-empty');
+    expect(verifyRow).toHaveTextContent('Ada');
+    expect(verifyRow).toHaveTextContent('Doğrulama');
+    expect(verifyRow).not.toHaveTextContent('Bu bilgi doğrudur');
+    expect(screen.getByTestId('yansi-katki-row-note')).toHaveTextContent('Arşiv notu');
+    expect(screen.getByText('Deniz')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('verify-empty');
+  });
+
+  it('keeps an empty depth quiet', async () => {
+    render(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="list"
+        selectedType={null}
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={vi.fn()}
+      />
+    );
+    expect(await screen.findByTestId('yansi-katki-create')).toHaveTextContent('+ Katkı yap');
+    const text = screen.getByTestId('yansi-katki-depth').textContent || '';
+    for (const phrase of KATKI_EMPTY_COPY_FORBIDDEN) {
+      expect(text).not.toContain(phrase);
+    }
+  });
+
+  it('reads the list while logged out and asks for the existing sign-in on create', async () => {
+    flags.authenticated = false;
+    vi.mocked(apiClient.get).mockResolvedValue(
+      readPayload('yansi-a', 2, [
+        contribution({ contributionId: 'v1', type: 'verify', body: null, displayName: 'Ada' }),
+      ])
+    );
+    render(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="list"
+        selectedType={null}
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={vi.fn()}
+        onRequireAuth={requireAuth}
+      />
+    );
+    expect(await screen.findByText('Ada')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
+    expect(requireAuth).toHaveBeenCalledTimes(1);
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/api/mirror-network/yansi-a/contributions',
+      expect.objectContaining({ auth: false, params: { journeyVersion: '2' } })
+    );
+  });
+
+  it('submits a bodiless verify and shows the new row once', async () => {
+    const onSubmitted = vi.fn();
+    vi.mocked(apiClient.post).mockResolvedValue({
+      ok: true,
+      data: contribution({
+        contributionId: 'created-1',
+        type: 'verify',
+        body: null,
+        displayName: 'Ada',
+      }),
+    });
+    const { rerender } = render(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="compose"
+        selectedType="verify"
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={onSubmitted}
+      />
+    );
+    await screen.findByTestId('yansi-katki-composer');
+    await waitFor(() => expect(screen.queryByTestId('yansi-katki-loading')).toBeNull());
+    fireEvent.click(screen.getByTestId('yansi-katki-submit'));
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalledTimes(1));
+    const postBody = vi.mocked(apiClient.post).mock.calls[0]?.[1] as { body: Record<string, unknown> };
+    expect(postBody.body).toEqual({
+      journeyVersion: 2,
+      type: 'verify',
+      body: null,
+      sourceNote: null,
+    });
+    expect(postBody.body).not.toHaveProperty('userId');
+    rerender(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="list"
+        selectedType={null}
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={onSubmitted}
+      />
+    );
+    const rows = await screen.findAllByTestId('yansi-katki-row-created-1');
+    expect(rows).toHaveLength(1);
+  });
+
+  it('blocks a short verify body and a short required body', async () => {
+    const view = render(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="compose"
+        selectedType="verify"
+        body="kisa"
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={vi.fn()}
+      />
+    );
+    await screen.findByTestId('yansi-katki-composer');
+    fireEvent.click(screen.getByTestId('yansi-katki-submit'));
+    expect(await screen.findByTestId('yansi-katki-notice')).toHaveTextContent('20');
+    expect(apiClient.post).not.toHaveBeenCalled();
+
+    view.rerender(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="compose"
+        selectedType="correction"
+        body="kisa"
+        sourceNote={'n'.repeat(501)}
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId('yansi-katki-submit'));
+    expect(await screen.findByTestId('yansi-katki-notice')).toHaveTextContent('500');
+    expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it('shows Turkish duplicate and rate-limit copy without raw debug', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      ok: false,
+      error: {
+        error_code: 'active_contribution_exists',
+        error_message: 'duplicate key value violates constraint uq_yansi_contributions_active_type id=secret',
+      },
+    });
+    const view = render(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="compose"
+        selectedType="verify"
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={vi.fn()}
+      />
+    );
+    await screen.findByTestId('yansi-katki-composer');
+    fireEvent.click(screen.getByTestId('yansi-katki-submit'));
+    const notice = await screen.findByTestId('yansi-katki-notice');
+    expect(notice).toHaveTextContent('aktif bir katkın');
+    expect(notice.textContent).not.toContain('uq_yansi');
+    expect(notice.textContent).not.toContain('secret');
+
+    vi.mocked(apiClient.post).mockResolvedValue({
+      ok: false,
+      error: { error_code: 'katki_create_rate_limited', error_message: '{"count":11}' },
+    });
+    view.rerender(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="compose"
+        selectedType="verify"
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId('yansi-katki-submit'));
+    expect(await screen.findByTestId('yansi-katki-notice')).toHaveTextContent('sınırına');
+    expect(screen.getByTestId('yansi-katki-notice').textContent).not.toContain('count');
+  });
+
+  it('uses the existing auth path for a 401 and ignores a late response from Yansı A', async () => {
+    let resolvePost: (value: unknown) => void = () => undefined;
+    vi.mocked(apiClient.post).mockImplementation(
+      () => new Promise((resolve) => {
+        resolvePost = resolve;
+      })
+    );
+    const onRequireAuth = vi.fn();
+    const onSubmitted = vi.fn();
+    const { rerender } = render(
+      <YansiKatkiDepth
+        slug="yansi-a"
+        journeyVersion={2}
+        stage="compose"
+        selectedType="verify"
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={onSubmitted}
+        onRequireAuth={onRequireAuth}
+      />
+    );
+    await screen.findByTestId('yansi-katki-composer');
+    fireEvent.click(screen.getByTestId('yansi-katki-submit'));
+    rerender(
+      <YansiKatkiDepth
+        slug="yansi-b"
+        journeyVersion={3}
+        stage="list"
+        selectedType={null}
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={onSubmitted}
+        onRequireAuth={onRequireAuth}
+      />
+    );
+    resolvePost({
+      ok: true,
+      data: contribution({
+        contributionId: 'from-a',
+        type: 'verify',
+        body: null,
+        displayName: 'Ada From A',
+      }),
+    });
+    await flushAsync();
+    expect(onSubmitted).not.toHaveBeenCalled();
+    expect(screen.queryByText('Ada From A')).toBeNull();
+    expect(screen.getByTestId('yansi-katki-depth')).toHaveAttribute(
+      'data-yansi-katki-target',
+      'yansi-b:3'
+    );
+
+    vi.mocked(apiClient.post).mockResolvedValue({
+      ok: false,
+      error: { error_code: 'auth_required', error_message: '{"detail":"jwt"}' },
+    });
+    rerender(
+      <YansiKatkiDepth
+        slug="yansi-b"
+        journeyVersion={3}
+        stage="compose"
+        selectedType="verify"
+        body=""
+        sourceNote=""
+        onBack={vi.fn()}
+        onStartCreate={vi.fn()}
+        onChooseType={vi.fn()}
+        onChangeType={vi.fn()}
+        onBodyChange={vi.fn()}
+        onSourceChange={vi.fn()}
+        onSubmitted={onSubmitted}
+        onRequireAuth={onRequireAuth}
+      />
+    );
+    fireEvent.click(screen.getByTestId('yansi-katki-submit'));
+    await waitFor(() => expect(onRequireAuth).toHaveBeenCalled());
+    expect(screen.queryByText(/jwt/)).toBeNull();
+  });
+});
+
+describe('katki on the yansi chain', () => {
+  const CLOCK_ORIGIN = 5_000;
+
+  beforeEach(() => {
+    flags.desktop = true;
+    flags.authenticated = true;
+    vi.mocked(apiClient.get).mockReset();
+    vi.mocked(apiClient.post).mockReset();
+    vi.mocked(apiClient.get).mockImplementation(async (path: string) => {
+      const match = String(path).match(/\/api\/mirror-network\/([^/]+)\/contributions/);
+      if (!match) return { ok: false };
+      const slug = decodeURIComponent(match[1] || '');
+      return readPayload(slug, 2, []);
+    });
+    vi.mocked(fetchDiscoverMirrors).mockReset();
+    vi.mocked(fetchDiscoverMirrors).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          {
+            slug: 'yansi-x',
+            title: 'Canonical yansi-x',
+            sceneImageUrl: 'https://cdn.example/yansi-x.jpg',
+            yansiCount: 0,
+          },
+        ],
+        total: 8,
+        mode: 'random',
+        randomSession: 'session-katki',
+        strongCuriosityReady: false,
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  function installClock() {
+    vi.useFakeTimers({
+      toFake: [
+        'setTimeout',
+        'clearTimeout',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'performance',
+        'Date',
+      ],
+    });
+    vi.advanceTimersByTime(CLOCK_ORIGIN);
+  }
+
+  it('opens contributions from the test entry without leaving the reel url depth', async () => {
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    await flushAsync();
+    expect(screen.getByTestId('yansi-desktop-proof-row')).toBeTruthy();
+    expect(screen.getByTestId('yansi-desktop-proof-row').textContent).not.toMatch(/katkı/i);
+    fireEvent.click(screen.getByTestId('yansi-katki-test-entry'));
+    const depth = await screen.findByTestId('yansi-katki-depth');
+    expect(depth).toHaveAttribute('data-yansi-katki-target', 'yansi-b:2');
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute('data-yansi-public-depth', 'reel');
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute('data-yansi-katki-stage', 'list');
+    expect(screen.queryByTestId('mirror-frozen-replay')).toBeNull();
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
+    expect(screen.getByText("Bu Yansı'ya nasıl katkıda bulunmak istersin?")).toBeTruthy();
+    for (const label of ['Doğrulama', 'Düzeltme', 'Ek Bilgi', 'Farklı Bakış']) {
+      expect(screen.getByRole('button', { name: label })).toBeTruthy();
+    }
+    fireEvent.click(screen.getByTestId('yansi-katki-type-verify'));
+    expect(screen.getByTestId('yansi-katki-composer')).toBeTruthy();
+    expect(screen.getByTestId('yansi-katki-selected-type')).toHaveTextContent('Doğrulama');
+    fireEvent.click(screen.getByTestId('yansi-katki-change-type'));
+    expect(screen.getByTestId('yansi-katki-type-choice')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('yansi-katki-type-correction'));
+    fireEvent.keyDown(screen.getByTestId('yansi-katki-body'), { key: 'Escape' });
+    expect(screen.getByTestId('yansi-katki-list')).toBeTruthy();
+    expect(screen.queryByTestId('yansi-katki-composer')).toBeNull();
+    fireEvent.keyDown(screen.getByTestId('mirror-yansi-chain'), { key: 'Escape' });
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute('data-active-slug', 'yansi-b');
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute('data-yansi-katki-stage', 'closed');
+  });
+
+  it('does not let conversation and contributions coexist', async () => {
+    const onDepthChange = vi.fn();
+    renderChain(
+      <MirrorYansiChainExperience
+        rootArtifact={makeArtifact('yansi-b')}
+        depth="reel"
+        onDepthChange={onDepthChange}
+      />
+    );
+    await flushAsync();
+    fireEvent.click(screen.getByTestId('yansi-katki-test-entry'));
+    expect(await screen.findByTestId('yansi-katki-depth')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('mirror-yansi-active-title'));
+    expect(onDepthChange).toHaveBeenCalledWith('chat');
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+  });
+
+  it('lets reel wheel travel and blocks wheel inside Katkılar and the composer', async () => {
+    installClock();
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    await flushAsync();
+    const chain = screen.getByTestId('mirror-yansi-chain');
+    fireEvent.click(screen.getByTestId('yansi-katki-test-entry'));
+    await flushAsync();
+    expect(screen.getByTestId('yansi-katki-depth')).toBeTruthy();
+    fireEvent.wheel(screen.getByTestId('yansi-katki-lane'), {
+      deltaY: YANSI_WHEEL_COMMIT_PX,
+      bubbles: true,
+      cancelable: true,
+    });
+    fireEvent.wheel(chain, { deltaY: YANSI_WHEEL_COMMIT_PX, bubbles: true, cancelable: true });
+    await flushAsync();
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'idle');
+    expect(chain).toHaveAttribute('data-active-slug', 'yansi-b');
+    expect(fetchDiscoverMirrors).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
+    fireEvent.click(screen.getByTestId('yansi-katki-type-verify'));
+    fireEvent.wheel(screen.getByTestId('yansi-katki-body'), {
+      deltaY: YANSI_WHEEL_COMMIT_PX,
+      bubbles: true,
+      cancelable: true,
+    });
+    await flushAsync();
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'idle');
+    expect(fetchDiscoverMirrors).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(screen.getByTestId('yansi-katki-body'), { key: 'Escape' });
+    fireEvent.keyDown(chain, { key: 'Escape' });
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+    fireEvent.wheel(chain, { deltaY: YANSI_WHEEL_COMMIT_PX, bubbles: true, cancelable: true });
+    await flushAsync();
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'down');
+    expect(chain).toHaveAttribute('data-yansi-incoming-slug', 'yansi-x');
+  });
+
+  it('keeps conversation wheel behavior', async () => {
+    installClock();
+    renderChain(
+      <MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="chat" />
+    );
+    await flushAsync();
+    const chain = screen.getByTestId('mirror-yansi-chain');
+    expect(chain).toHaveAttribute('data-yansi-public-depth', 'chat');
+    expect(screen.queryByTestId('yansi-katki-test-entry')).toBeNull();
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+    fireEvent.wheel(chain, { deltaY: YANSI_WHEEL_COMMIT_PX, bubbles: true, cancelable: true });
+    await flushAsync();
+    expect(chain).toHaveAttribute('data-yansi-reel-transition', 'idle');
+    expect(fetchDiscoverMirrors).not.toHaveBeenCalled();
+    expect(screen.getByTestId('yansi-chat-composer-lane')).toBeTruthy();
+  });
+
+  it('drops a late Yansı A read after travel to Yansı B', async () => {
+    installClock();
+    let resolveA: (value: unknown) => void = () => undefined;
+    vi.mocked(apiClient.get).mockImplementation((path: string) => {
+      if (!String(path).includes('/contributions')) return Promise.resolve({ ok: false });
+      if (String(path).includes('yansi-b')) {
+        return new Promise((resolve) => {
+          resolveA = resolve;
+        });
+      }
+      return Promise.resolve(
+        readPayload('yansi-x', 2, [
+          contribution({ contributionId: 'b-row', type: 'verify', body: null, displayName: 'Bora' }),
+        ])
+      );
+    });
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    await flushAsync();
+    fireEvent.click(screen.getByTestId('yansi-katki-test-entry'));
+    await flushAsync();
+    expect(screen.getByTestId('yansi-katki-loading')).toBeTruthy();
+    fireEvent.keyDown(screen.getByTestId('mirror-yansi-chain'), { key: 'Escape' });
+    const chain = screen.getByTestId('mirror-yansi-chain');
+    fireEvent.wheel(chain, { deltaY: YANSI_WHEEL_COMMIT_PX, bubbles: true, cancelable: true });
+    await flushAsync();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(YANSI_REEL_TRAVEL_MS);
+    });
+    expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
+    resolveA(
+      readPayload('yansi-b', 2, [
+        contribution({ contributionId: 'a-row', type: 'verify', body: null, displayName: 'Ada From A' }),
+      ])
+    );
+    await flushAsync();
+    expect(screen.queryByText('Ada From A')).toBeNull();
+    fireEvent.click(screen.getByTestId('yansi-katki-test-entry'));
+    await flushAsync();
+    expect(screen.getByText('Bora')).toBeTruthy();
+    expect(screen.queryByText('Ada From A')).toBeNull();
+    expect(screen.getByTestId('yansi-katki-depth')).toHaveAttribute(
+      'data-yansi-katki-target',
+      'yansi-x:2'
+    );
+  });
+
+  it('resets a draft when reel travel changes the Yansı', async () => {
+    installClock();
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    await flushAsync();
+    fireEvent.click(screen.getByTestId('yansi-katki-test-entry'));
+    await flushAsync();
+    expect(screen.getByTestId('yansi-katki-depth')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
+    fireEvent.click(screen.getByTestId('yansi-katki-type-correction'));
+    fireEvent.change(screen.getByTestId('yansi-katki-body'), {
+      target: { value: 'taslak yansi a metni yeterince uzun' },
+    });
+    fireEvent.keyDown(screen.getByTestId('yansi-katki-body'), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByTestId('mirror-yansi-chain'), { key: 'Escape' });
+    const chain = screen.getByTestId('mirror-yansi-chain');
+    fireEvent.wheel(chain, { deltaY: YANSI_WHEEL_COMMIT_PX, bubbles: true, cancelable: true });
+    await flushAsync();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(YANSI_REEL_TRAVEL_MS);
+    });
+    expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
+    expect(chain).toHaveAttribute('data-yansi-katki-stage', 'closed');
+    fireEvent.click(screen.getByTestId('yansi-katki-test-entry'));
+    await flushAsync();
+    expect(screen.getByTestId('yansi-katki-list')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
+    fireEvent.click(screen.getByTestId('yansi-katki-type-correction'));
+    expect(screen.getByTestId('yansi-katki-body')).toHaveValue('');
+    expect(screen.getByTestId('yansi-katki-depth')).toHaveAttribute(
+      'data-yansi-katki-target',
+      'yansi-x:2'
+    );
+  });
+});
+
+describe('katki mobile freeze and reel contract', () => {
+  beforeEach(() => {
+    flags.desktop = false;
+    flags.authenticated = false;
+    vi.mocked(apiClient.get).mockReset();
+    vi.mocked(apiClient.get).mockResolvedValue({ ok: false });
+  });
+
+  it('does not mount Katkılar on the mobile reel', async () => {
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    await flushAsync();
+    const chain = screen.getByTestId('mirror-yansi-chain');
+    expect(chain).toHaveAttribute('data-mobile-yansi', 'true');
+    expect(chain).toHaveAttribute('data-yansi-katki-stage', 'closed');
+    expect(screen.queryByTestId('yansi-katki-test-entry')).toBeNull();
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+    expect(screen.getByTestId('yansi-mobile-public-header')).toBeTruthy();
+    expect(screen.getByTestId('mirror-yansi-active-title')).toHaveTextContent('Canonical yansi-b');
+    fireEvent.click(screen.getByTestId('mirror-yansi-active-title'));
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+  });
+
+  it('leaves the production metrics row and mobile css freeze untouched', () => {
+    const surface = readFileSync(
+      join(process.cwd(), 'components/mirror-landing/YansiDesktopReelSurface.tsx'),
+      'utf8'
+    );
+    const metrics = readFileSync(
+      join(process.cwd(), 'components/mirror-landing/YansiPublicMetricsLine.tsx'),
+      'utf8'
+    );
+    const css = readFileSync(join(process.cwd(), 'styles/yansi-reel-responsive.css'), 'utf8');
+    expect(surface).not.toMatch(/katkı/i);
+    expect(surface).not.toContain('yansi-katki');
+    expect(metrics).not.toMatch(/katkı/i);
+    expect(metrics).not.toContain('contributions');
+    const mobileBlock = css.slice(css.indexOf('@media (max-width: 899px)'));
+    expect(mobileBlock).toContain('.yansi-katki-depth');
+    expect(mobileBlock).toContain('.yansi-katki-test-entry');
+    expect(mobileBlock).toContain('display: none !important');
+    expect(css).toContain('--bilign-yansi-reel-title-size: 35px');
+  });
+});

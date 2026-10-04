@@ -24,6 +24,7 @@ import { Menu, MoreHorizontal, Volume2 } from 'lucide-react';
 import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSceneCrossfade';
 import YansiDesktopReelSurface from '@/components/mirror-landing/YansiDesktopReelSurface';
+import YansiKatkiDepth from '@/components/mirror-landing/YansiKatkiDepth';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
 import '@/styles/bilign-avatar-identity-frame.css';
 import BilignAvatarIdentityFrame from '@/components/mirror/ayna/BilignAvatarIdentityFrame';
@@ -113,6 +114,16 @@ import {
   returnToYansiReelDepth,
   type YansiPublicDepth,
 } from '@/lib/eza/mirror-network/yansiPublicDepth';
+import {
+  closedKatkiDepth,
+  escapeKatki,
+  katkiOwnsWheel,
+  openKatkiList,
+  openKatkiTypeChoice,
+  returnKatkiToTypeChoice,
+  selectKatkiType,
+  type KatkiDepthState,
+} from '@/lib/eza/mirror-network/katkiDepth';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 
 export type MirrorYansiChainExperienceProps = {
@@ -227,6 +238,9 @@ export default function MirrorYansiChainExperience({
   const [audioSheetOpen, setAudioSheetOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [katki, setKatki] = useState<KatkiDepthState>(closedKatkiDepth);
+  const katkiRef = useRef(katki);
+  katkiRef.current = katki;
   const [reelTravel, setReelTravel] = useState<ReelTravel | null>(null);
   const previousActiveSlugRef = useRef(entrySlug);
   const skipFiredRef = useRef<Set<string>>(new Set());
@@ -250,6 +264,8 @@ export default function MirrorYansiChainExperience({
 
   const activeSlug = session ? activeDiscoverSlug(session) : entrySlug;
   const activeNode = nodesBySlug[activeSlug] ?? null;
+  const presentedJourneyVersion =
+    activeNode?.artifact.journeyVersion ?? rootArtifact.journeyVersion;
   const resetAudioForActiveChange = experienceSession?.resetAudioForActiveChange;
   const audioActiveSlugRef = useRef(activeSlug);
 
@@ -266,6 +282,14 @@ export default function MirrorYansiChainExperience({
   useEffect(() => {
     setDetailOpen(false);
   }, [activeSlug, depth]);
+
+  useEffect(() => {
+    setKatki(closedKatkiDepth());
+  }, [activeSlug, presentedJourneyVersion]);
+
+  useEffect(() => {
+    if (depth === 'chat' || !isDesktop) setKatki(closedKatkiDepth());
+  }, [depth, isDesktop]);
 
   // Bootstrap entry artifact into the node map.
   useEffect(() => {
@@ -411,6 +435,7 @@ export default function MirrorYansiChainExperience({
 
   const beginReelTravel = useCallback(
     (input: Omit<ReelTravel, 'traveling' | 'reducedMotion'>) => {
+      setKatki(closedKatkiDepth());
       if (!isDesktop || depth !== 'reel') {
         setSession(input.nextSession);
         return false;
@@ -668,6 +693,7 @@ export default function MirrorYansiChainExperience({
 
   const openChatDepth = useCallback(() => {
     if (!activeSlug || depth === 'chat') return;
+    setKatki(closedKatkiDepth());
     const version =
       activeNode?.artifact.journeyVersion ?? rootArtifact.journeyVersion;
     const href = publicPathForSlug(activeSlug, {
@@ -736,8 +762,20 @@ export default function MirrorYansiChainExperience({
     hadMountedRef.current = true;
   }, [depth]);
 
+  const openKatkiDepth = useCallback(() => {
+    if (!isDesktop || depth !== 'reel' || navInFlightRef.current || !activeSlug) return;
+    if (!Number.isInteger(presentedJourneyVersion) || presentedJourneyVersion < 1) return;
+    setDetailOpen(false);
+    setKatki(openKatkiList(activeSlug, presentedJourneyVersion));
+  }, [activeSlug, depth, isDesktop, presentedJourneyVersion]);
+
   const onDesktopKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Escape' && katkiRef.current.stage !== 'closed') {
+        event.preventDefault();
+        setKatki((current) => escapeKatki(current));
+        return;
+      }
       if (navInFlightRef.current) return;
       const target = event.target as HTMLElement | null;
       if (target) {
@@ -759,8 +797,8 @@ export default function MirrorYansiChainExperience({
         return;
       }
 
-      // Reel shortcuts suspended while Chat owns reading/focus.
-      if (depth === 'chat' || !isDesktop) return;
+      // Reel shortcuts suspended while Chat or Katkılar owns reading/focus.
+      if (depth === 'chat' || !isDesktop || katkiRef.current.stage !== 'closed') return;
 
       if (event.key === 'ArrowDown') {
         event.preventDefault();
@@ -782,6 +820,15 @@ export default function MirrorYansiChainExperience({
   const onDesktopReelWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {
       if (!isDesktop || depth !== 'reel') return;
+      if (katkiOwnsWheel(katkiRef.current.stage)) {
+        const target = event.target as Node | null;
+        const depthEl = chainRootRef.current?.querySelector(
+          '[data-testid="yansi-katki-depth"]'
+        );
+        if (target && depthEl?.contains(target)) return;
+        event.preventDefault();
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       if (navInFlightRef.current || reelTravelRef.current) return;
@@ -803,6 +850,9 @@ export default function MirrorYansiChainExperience({
     if (!root || !isDesktop) return;
     const onWheel = (event: WheelEvent) => {
       if (depth !== 'reel') return;
+      const target = event.target;
+      const depthEl = root.querySelector('[data-testid="yansi-katki-depth"]');
+      if (target instanceof Node && depthEl?.contains(target)) return;
       event.preventDefault();
     };
     root.addEventListener('wheel', onWheel, { passive: false });
@@ -1073,6 +1123,7 @@ export default function MirrorYansiChainExperience({
       data-discovery-length={session.history.length}
       data-mobile-yansi={!isDesktop ? 'true' : 'false'}
       data-yansi-public-depth={depth}
+      data-yansi-katki-stage={isDesktop ? katki.stage : 'closed'}
       data-yansi-identity-slug={activeIdentity.slug}
       data-yansi-identity-generation={activeIdentity.generationId || undefined}
       data-yansi-identity-asset={activeIdentity.imageAssetId || undefined}
@@ -1102,7 +1153,7 @@ export default function MirrorYansiChainExperience({
             direction={reelTravel?.direction ?? null}
             traveling={Boolean(reelTravel?.traveling)}
             reducedMotion={Boolean(reelTravel?.reducedMotion)}
-            detailOpen={reelTravel ? false : detailOpen}
+            detailOpen={reelTravel || katki.stage !== 'closed' ? false : detailOpen}
             onDetailToggle={
               reelTravel ? undefined : () => setDetailOpen((open) => !open)
             }
@@ -1179,6 +1230,47 @@ export default function MirrorYansiChainExperience({
         data-testid="yansi-chat-scene-veil"
         aria-hidden
       />
+
+      {isDesktop && depth === 'reel' && katki.stage === 'closed' && !reelTravel ? (
+        <button
+          type="button"
+          className="yansi-katki-test-entry"
+          data-testid="yansi-katki-test-entry"
+          tabIndex={-1}
+          aria-hidden="true"
+          onClick={openKatkiDepth}
+        >
+          Katkılar
+        </button>
+      ) : null}
+
+      {isDesktop && katki.stage !== 'closed' ? (
+        <YansiKatkiDepth
+          slug={katki.slug}
+          journeyVersion={katki.journeyVersion}
+          stage={katki.stage}
+          selectedType={katki.selectedType}
+          body={katki.body}
+          sourceNote={katki.sourceNote}
+          onBack={() => setKatki((current) => escapeKatki(current))}
+          onStartCreate={() => setKatki((current) => openKatkiTypeChoice(current))}
+          onChooseType={(type) => setKatki((current) => selectKatkiType(current, type))}
+          onChangeType={() => setKatki((current) => returnKatkiToTypeChoice(current))}
+          onBodyChange={(value) => setKatki((current) => ({ ...current, body: value }))}
+          onSourceChange={(value) =>
+            setKatki((current) => ({ ...current, sourceNote: value }))
+          }
+          onSubmitted={() =>
+            setKatki((current) => ({
+              ...escapeKatki(current),
+              selectedType: null,
+              body: '',
+              sourceNote: '',
+            }))
+          }
+          onRequireAuth={onRequireAuth}
+        />
+      ) : null}
 
       {isDesktop && showChatReplay ? renderTitleBlock() : null}
 

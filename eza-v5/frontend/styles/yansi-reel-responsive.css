@@ -977,6 +977,163 @@
   }
 }
 
+/* Desktop Katkılar depth — local readability over the same scene. */
+@media (min-width: 900px) {
+  .yansi-desktop-cinematic-stage[data-yansi-katki-stage='list'] .yansi-desktop-visual-stack,
+  .yansi-desktop-cinematic-stage[data-yansi-katki-stage='choose'] .yansi-desktop-visual-stack,
+  .yansi-desktop-cinematic-stage[data-yansi-katki-stage='compose'] .yansi-desktop-visual-stack {
+    visibility: hidden;
+  }
+
+  .yansi-katki-test-entry {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .yansi-katki-depth {
+    position: absolute;
+    inset: 0;
+    z-index: 7;
+    display: flex;
+    justify-content: center;
+    pointer-events: auto;
+    background: transparent;
+    color: #f5ead8;
+  }
+
+  .yansi-katki-depth__lane {
+    width: var(--yansi-lane-width);
+    max-width: var(--yansi-lane-max);
+    margin-top: 7.5rem;
+    margin-bottom: 2rem;
+    max-height: calc(100% - 9.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.35rem 0.4rem 1.5rem;
+    background: radial-gradient(
+      ellipse 36rem 78% at 50% 42%,
+      rgba(9, 11, 11, 0.46),
+      rgba(9, 11, 11, 0.14) 58%,
+      transparent 78%
+    );
+  }
+
+  .yansi-katki-depth__header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .yansi-katki-depth__title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+  }
+
+  .yansi-katki-depth__back,
+  .yansi-katki-depth__create,
+  .yansi-katki-depth__type-choice,
+  .yansi-katki-depth__change-type,
+  .yansi-katki-depth__submit {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 12px;
+  }
+
+  .yansi-katki-depth__back,
+  .yansi-katki-depth__change-type {
+    padding: 0.35rem 0.2rem;
+    color: rgba(214, 176, 118, 0.92);
+  }
+
+  .yansi-katki-depth__create,
+  .yansi-katki-depth__type-choice,
+  .yansi-katki-depth__submit {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.7rem 0.2rem;
+  }
+
+  .yansi-katki-depth__type-choice + .yansi-katki-depth__type-choice {
+    margin-top: 0.35rem;
+  }
+
+  .yansi-katki-depth__prompt,
+  .yansi-katki-depth__selected,
+  .yansi-katki-depth__name,
+  .yansi-katki-depth__body {
+    margin: 0 0 0.65rem;
+  }
+
+  .yansi-katki-depth__group {
+    margin-bottom: 1.35rem;
+  }
+
+  .yansi-katki-depth__group-label,
+  .yansi-katki-depth__type,
+  .yansi-katki-depth__hint,
+  .yansi-katki-depth__status,
+  .yansi-katki-depth__notice,
+  .yansi-katki-depth__source {
+    margin: 0 0 0.45rem;
+    color: rgba(236, 226, 210, 0.82);
+  }
+
+  .yansi-katki-depth__rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .yansi-katki-depth__row {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .yansi-katki-depth__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0.75rem 0;
+  }
+
+  .yansi-katki-depth__field textarea {
+    width: 100%;
+    resize: vertical;
+    color: #f5ead8;
+    background: rgba(9, 11, 11, 0.28);
+    border: 1px solid rgba(232, 213, 181, 0.18);
+    border-radius: 12px;
+    padding: 0.65rem 0.75rem;
+    font: inherit;
+  }
+
+  .yansi-katki-depth__back:focus-visible,
+  .yansi-katki-depth__create:focus-visible,
+  .yansi-katki-depth__type-choice:focus-visible,
+  .yansi-katki-depth__change-type:focus-visible,
+  .yansi-katki-depth__submit:focus-visible,
+  .yansi-katki-depth__field textarea:focus-visible {
+    outline: 2px solid rgba(232, 213, 181, 0.7);
+    outline-offset: 3px;
+  }
+}
+
 /* Mobile /m — HARD FREEZE: hide BiligN desktop chrome, keep fullscreen Yansı */
 @media (max-width: 899px) {
   [data-saina-view='yansi'] .saina-standalone-sidebar-wrap,
@@ -1156,5 +1313,12 @@
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+}
+
+@media (max-width: 899px) {
+  .yansi-katki-depth,
+  .yansi-katki-test-entry {
+    display: none !important;
   }
 }
