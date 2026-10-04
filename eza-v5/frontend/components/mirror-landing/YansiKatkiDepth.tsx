@@ -9,11 +9,13 @@ import { useEffect, useRef, useState } from 'react';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import { useAuth } from '@/context/AuthContext';
 import {
+  type KatkiChooseFrom,
   type KatkiStage,
   type KatkiType,
 } from '@/lib/eza/mirror-network/katkiDepth';
 import {
-  KATKI_GROUP_ORDER,
+  KATKI_COMPOSE_PROMPTS,
+  KATKI_CREATE_ORDER,
   createPublicKatki,
   fetchPublicKatki,
   groupVisibleKatki,
@@ -37,8 +39,10 @@ export type YansiKatkiDepthProps = {
   readGeneration: number;
   onReadChange: (read: PublicKatkiRead, readGeneration: number) => void;
   selectedType: KatkiType | null;
+  chooseFrom: KatkiChooseFrom;
   body: string;
   sourceNote: string;
+  onClose: () => void;
   onBack: () => void;
   onStartCreate: () => void;
   onChooseType: (type: KatkiType) => void;
@@ -67,8 +71,10 @@ export default function YansiKatkiDepth({
   readGeneration,
   onReadChange,
   selectedType,
+  chooseFrom,
   body,
   sourceNote,
+  onClose,
   onBack,
   onStartCreate,
   onChooseType,
@@ -179,7 +185,9 @@ export default function YansiKatkiDepth({
   };
 
   const groups = groupVisibleKatki(snapshot?.contributions ?? []);
-  const backLabel = stage === 'list' ? 'Yansıya dön' : 'Katkılara dön';
+  const showBack = stage === 'compose' || (stage === 'choose' && chooseFrom === 'list');
+  const composePrompt =
+    selectedType && selectedType !== 'verify' ? KATKI_COMPOSE_PROMPTS[selectedType] : 'Katkı metni';
 
   return (
     <div
@@ -191,18 +199,35 @@ export default function YansiKatkiDepth({
         event.stopPropagation();
       }}
     >
-      <div className="yansi-katki-depth__lane" data-testid="yansi-katki-lane">
+      <div className="yansi-katki-depth__panel yansi-katki-depth__lane" data-testid="yansi-katki-lane">
         <div className="yansi-katki-depth__header">
-          <button
-            ref={backRef}
-            type="button"
-            className="yansi-katki-depth__back"
-            data-testid="yansi-katki-back"
-            onClick={onBack}
-          >
-            {backLabel}
-          </button>
+          {showBack ? (
+            <button
+              ref={backRef}
+              type="button"
+              className="yansi-katki-depth__back"
+              data-testid={stage === 'compose' ? 'yansi-katki-change-type' : 'yansi-katki-back'}
+              onClick={() => {
+                if (stage === 'compose') onChangeType();
+                else onBack();
+              }}
+            >
+              Geri
+            </button>
+          ) : (
+            <span />
+          )}
           <h2 className="yansi-katki-depth__title">Katkılar</h2>
+          <button
+            ref={showBack ? undefined : backRef}
+            type="button"
+            className="yansi-katki-depth__close"
+            data-testid="yansi-katki-close"
+            aria-label="Kapat"
+            onClick={onClose}
+          >
+            ×
+          </button>
         </div>
 
         {notice ? (
@@ -283,7 +308,7 @@ export default function YansiKatkiDepth({
           <div data-testid="yansi-katki-type-choice">
             <p className="yansi-katki-depth__prompt">{TYPE_PROMPT}</p>
             <div className="yansi-katki-depth__types" role="group" aria-label={TYPE_PROMPT}>
-              {KATKI_GROUP_ORDER.map((group) => (
+              {KATKI_CREATE_ORDER.map((group) => (
                 <button
                   key={group.type}
                   type="button"
@@ -310,16 +335,8 @@ export default function YansiKatkiDepth({
             <p className="yansi-katki-depth__selected" data-testid="yansi-katki-selected-type">
               {katkiTypeLabel(selectedType)}
             </p>
-            <button
-              type="button"
-              className="yansi-katki-depth__change-type"
-              data-testid="yansi-katki-change-type"
-              onClick={onChangeType}
-            >
-              Türü değiştir
-            </button>
             <label className="yansi-katki-depth__field" htmlFor="yansi-katki-body">
-              Katkı metni
+              {composePrompt}
               <textarea
                 id="yansi-katki-body"
                 data-testid="yansi-katki-body"
@@ -336,8 +353,8 @@ export default function YansiKatkiDepth({
             ) : (
               <p className="yansi-katki-depth__hint">En az 20 karakter.</p>
             )}
-            <label className="yansi-katki-depth__field" htmlFor="yansi-katki-source">
-              Kaynak notu
+            <label className="yansi-katki-depth__field yansi-katki-depth__field--optional" htmlFor="yansi-katki-source">
+              Kaynak ekle (isteğe bağlı)
               <textarea
                 id="yansi-katki-source"
                 data-testid="yansi-katki-source"

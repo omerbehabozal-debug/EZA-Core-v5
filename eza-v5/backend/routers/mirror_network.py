@@ -36,7 +36,10 @@ from backend.security.rate_limit import (
     rate_limit_katki_write,
     rate_limit_standalone,
 )
-from backend.auth.mirror_entitlement import require_mirror_authenticated_user
+from backend.auth.mirror_entitlement import (
+    optional_mirror_authenticated_user,
+    require_mirror_authenticated_user,
+)
 from backend.models.mirror_network import MirrorNetworkNode
 from backend.models.production import User
 from backend.services.mirror_network.fixtures import build_fixture_mirror_node
@@ -501,18 +504,21 @@ async def get_public_katki_contributions(
     journeyVersion: int = Query(..., ge=1),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit_katki_read),
+    viewer: User | None = Depends(optional_mirror_authenticated_user),
 ) -> PublicKatkiRead:
     """
     Public Katkılar for one frozen Yansı version.
 
     journeyVersion is required. There is no slug-only or latest-version read.
     Inaccessible parents use the same 404 as frozen replay and return no bodies.
+    A valid session may set viewerHasActiveVerify. Missing or invalid auth stays 200.
     """
     try:
         payload = await get_public_katki_read(
             db,
             slug=slug,
             journey_version=journeyVersion,
+            viewer_user_id=viewer.id if viewer is not None else None,
         )
     except KatkiReadError as exc:
         raise HTTPException(

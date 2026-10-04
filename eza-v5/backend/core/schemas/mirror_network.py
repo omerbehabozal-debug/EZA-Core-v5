@@ -379,3 +379,4 @@ class PublicKatkiRead(BaseModel):
     totalVisibleCount: int = Field(ge=0)
     countsByType: PublicKatkiTypeCounts
     contributions: List[PublicKatkiContribution] = Field(default_factory=list)
+    viewerHasActiveVerify: bool = False

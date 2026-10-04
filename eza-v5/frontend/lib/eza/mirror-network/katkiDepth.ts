@@ -14,6 +14,9 @@ export type KatkiType = (typeof KATKI_TYPES)[number];
 
 export type KatkiStage = 'closed' | 'list' | 'choose' | 'compose';
 
+/** Where type choice was opened. List back returns to the contribution list. */
+export type KatkiChooseFrom = 'reel' | 'list' | null;
+
 export type KatkiDepthState = {
   stage: KatkiStage;
   slug: string;
@@ -21,6 +24,7 @@ export type KatkiDepthState = {
   selectedType: KatkiType | null;
   body: string;
   sourceNote: string;
+  chooseFrom: KatkiChooseFrom;
 };
 
 export function closedKatkiDepth(): KatkiDepthState {
@@ -31,6 +35,7 @@ export function closedKatkiDepth(): KatkiDepthState {
     selectedType: null,
     body: '',
     sourceNote: '',
+    chooseFrom: null,
   };
 }
 
@@ -49,12 +54,13 @@ export function openKatkiList(
     selectedType: null,
     body: '',
     sourceNote: '',
+    chooseFrom: null,
   };
 }
 
 export function openKatkiTypeChoice(state: KatkiDepthState): KatkiDepthState {
   if (state.stage === 'closed') return state;
-  return { ...state, stage: 'choose' };
+  return { ...state, stage: 'choose', chooseFrom: 'list' };
 }
 
 /** Reel zero-state entry. Opens type choice without passing through an empty list. */
@@ -66,6 +72,7 @@ export function openKatkiChoose(slug: string, journeyVersion: number): KatkiDept
     selectedType: null,
     body: '',
     sourceNote: '',
+    chooseFrom: 'reel',
   };
 }
 
@@ -73,7 +80,7 @@ export function selectKatkiType(
   state: KatkiDepthState,
   type: KatkiType
 ): KatkiDepthState {
-  if (state.stage === 'closed') return state;
+  if (state.stage === 'closed' || type === 'verify') return state;
   const same = state.selectedType === type;
   return {
     ...state,
@@ -91,13 +98,21 @@ export function returnKatkiToTypeChoice(state: KatkiDepthState): KatkiDepthState
 }
 
 /**
- * Escape/back hierarchy:
- * composer or type choice -> Katkılar list
- * Katkılar list -> Reel
+ * Internal back:
+ * composer -> type choice
+ * type choice opened from the list -> list
+ * otherwise the panel closes
  */
 export function escapeKatki(state: KatkiDepthState): KatkiDepthState {
-  if (state.stage === 'compose' || state.stage === 'choose') {
+  if (state.stage === 'compose') {
+    return { ...state, stage: 'choose' };
+  }
+  if (state.stage === 'choose' && state.chooseFrom === 'list') {
     return { ...state, stage: 'list' };
   }
+  return closedKatkiDepth();
+}
+
+export function closeKatki(): KatkiDepthState {
   return closedKatkiDepth();
 }

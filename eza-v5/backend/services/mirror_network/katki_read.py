@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,6 +44,7 @@ PUBLIC_KATKI_RESPONSE_KEYS = frozenset(
         "totalVisibleCount",
         "countsByType",
         "contributions",
+        "viewerHasActiveVerify",
     }
 )
 PUBLIC_KATKI_CONTRIBUTION_KEYS = frozenset(
@@ -101,11 +103,43 @@ def _visible_clause(slug: str, journey_version: int):
     )
 
 
+async def viewer_has_active_verify(
+    db: AsyncSession,
+    *,
+    slug: str,
+    journey_version: int,
+    viewer_user_id: UUID | None,
+) -> bool:
+    """
+    Exact active verify for this viewer.
+
+    Hidden rows still occupy the active unique index, so they count.
+    Withdrawn rows and other targets do not. This is not the public visible set.
+    """
+    if viewer_user_id is None:
+        return False
+    row = (
+        await db.execute(
+            select(_CONTRIBUTIONS.c.public_id)
+            .where(
+                _CONTRIBUTIONS.c.slug == slug,
+                _CONTRIBUTIONS.c.journey_version == journey_version,
+                _CONTRIBUTIONS.c.contributor_user_id == viewer_user_id,
+                _CONTRIBUTIONS.c.contribution_type == "verify",
+                _CONTRIBUTIONS.c.visibility != "withdrawn",
+            )
+            .limit(1)
+        )
+    ).first()
+    return row is not None
+
+
 async def get_public_katki_read(
     db: AsyncSession,
     *,
     slug: str,
     journey_version: int | None,
+    viewer_user_id: UUID | None = None,
 ) -> dict[str, Any]:
     """
     Public Katkı list for one frozen version.
@@ -166,10 +200,17 @@ async def get_public_katki_read(
             }
         )
 
+    active_verify = await viewer_has_active_verify(
+        db,
+        slug=target.slug,
+        journey_version=target.journey_version,
+        viewer_user_id=viewer_user_id,
+    )
     return {
         "slug": target.slug,
         "journeyVersion": target.journey_version,
         "totalVisibleCount": len(contributions),
         "countsByType": counts,
         "contributions": contributions,
+        "viewerHasActiveVerify": active_verify,
     }

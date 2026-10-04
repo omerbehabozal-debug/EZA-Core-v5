@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { getAuthToken } from '@/lib/eza/authTokenStore';
 import {
   KATKI_TYPES,
   type KatkiType,
@@ -29,6 +30,7 @@ export type PublicKatkiRead = {
   totalVisibleCount: number;
   countsByType: Record<KatkiType, number>;
   contributions: PublicKatkiContribution[];
+  viewerHasActiveVerify: boolean;
 };
 
 export const KATKI_GROUP_ORDER: { type: KatkiType; label: string }[] = [
@@ -37,6 +39,17 @@ export const KATKI_GROUP_ORDER: { type: KatkiType; label: string }[] = [
   { type: 'additional_information', label: 'Ek Bilgi' },
   { type: 'different_perspective', label: 'Farklı Bakış' },
 ];
+
+/** Creation choices inside Katkı yap. Doğrula is a direct Reel action. */
+export const KATKI_CREATE_ORDER = KATKI_GROUP_ORDER.filter(
+  (group): group is { type: Exclude<KatkiType, 'verify'>; label: string } => group.type !== 'verify'
+);
+
+export const KATKI_COMPOSE_PROMPTS: Record<Exclude<KatkiType, 'verify'>, string> = {
+  correction: 'Düzeltmeni yaz',
+  additional_information: 'Eklemek istediğin bilgiyi yaz',
+  different_perspective: 'Bakış açını paylaş',
+};
 
 const BODY_MIN = 20;
 const BODY_MAX = 2000;
@@ -94,6 +107,7 @@ export function mergeCreatedKatki(
     totalVisibleCount: 0,
     countsByType: emptyCounts(),
     contributions: [],
+    viewerHasActiveVerify: false,
   };
   if (base.contributions.some((row) => row.contributionId === item.contributionId)) {
     return base;
@@ -107,6 +121,7 @@ export function mergeCreatedKatki(
     totalVisibleCount: base.totalVisibleCount + 1,
     countsByType,
     contributions,
+    viewerHasActiveVerify: base.viewerHasActiveVerify || item.type === 'verify',
   };
 }
 
@@ -273,6 +288,7 @@ export function parsePublicKatkiRead(
     totalVisibleCount: total,
     countsByType,
     contributions,
+    viewerHasActiveVerify: row.viewerHasActiveVerify === true,
   };
 }
 
@@ -287,7 +303,7 @@ export async function fetchPublicKatki(
   const response = await apiClient.get<unknown>(
     `/api/mirror-network/${encodeURIComponent(normalized)}/contributions`,
     {
-      auth: false,
+      auth: Boolean(getAuthToken()),
       timeoutMs: 15_000,
       params: { journeyVersion: String(journeyVersion) },
     }

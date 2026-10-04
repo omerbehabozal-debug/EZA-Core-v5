@@ -12,6 +12,7 @@ import {
 } from '@/lib/eza/mirror-network/katkiDepth';
 import {
   KATKI_EMPTY_COPY_FORBIDDEN,
+  KATKI_CREATE_ORDER,
   buildKatkiCreatePayload,
   createPublicKatki,
   fetchPublicKatki,
@@ -65,7 +66,7 @@ describe('katki depth state', () => {
     expect(backToChoice.stage).toBe('choose');
     expect(backToChoice.selectedType).toBe('correction');
 
-    const backToList = escapeKatki(selectKatkiType(backToChoice, 'correction'));
+    const backToList = escapeKatki(backToChoice);
     expect(backToList.stage).toBe('list');
 
     expect(escapeKatki(backToList)).toEqual(closedKatkiDepth());
@@ -84,16 +85,27 @@ describe('katki depth state', () => {
     expect(chosen.stage).toBe('choose');
     expect(chosen.slug).toBe('yansi-a');
     expect(chosen.journeyVersion).toBe(4);
-    expect(escapeKatki(chosen).stage).toBe('list');
+    expect(escapeKatki(chosen).stage).toBe('closed');
+    expect(selectKatkiType(chosen, 'verify').stage).toBe('choose');
+  });
+
+  it('returns from a text composer to type choice without closing', () => {
+    const listed = openKatkiTypeChoice(openKatkiList('yansi-a', 2));
+    const extra = selectKatkiType(listed, 'additional_information');
+    const back = escapeKatki(extra);
+    expect(back.stage).toBe('choose');
+    const other = selectKatkiType(back, 'different_perspective');
+    expect(other.stage).toBe('compose');
+    expect(other.selectedType).toBe('different_perspective');
   });
 
   it('clears a draft when reel travel closes the depth', () => {
     const dirty = {
-      ...selectKatkiType(openKatkiTypeChoice(openKatkiList('yansi-a', 2)), 'verify'),
+      ...selectKatkiType(openKatkiTypeChoice(openKatkiList('yansi-a', 2)), 'correction'),
       body: 'taslak metin burada duruyor',
       sourceNote: 'eski not',
     };
-    expect(escapeKatki(escapeKatki(dirty))).toEqual(closedKatkiDepth());
+    expect(escapeKatki(escapeKatki(escapeKatki(dirty)))).toEqual(closedKatkiDepth());
   });
 });
 
@@ -159,6 +171,52 @@ describe('katki read model', () => {
     });
     const otherVersion = await fetchPublicKatki('yansi-a', 4);
     expect(otherVersion.ok).toBe(false);
+  });
+
+  it('treats a missing verify flag as false and ignores aggregate counts', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      ok: true,
+      data: {
+        slug: 'yansi-a',
+        journeyVersion: 4,
+        totalVisibleCount: 3,
+        countsByType: {
+          verify: 3,
+          correction: 0,
+          additional_information: 0,
+          different_perspective: 0,
+        },
+        contributions: [],
+      },
+    });
+    const missing = await fetchPublicKatki('yansi-a', 4);
+    expect(missing.ok).toBe(true);
+    if (missing.ok) expect(missing.data.viewerHasActiveVerify).toBe(false);
+
+    vi.mocked(apiClient.get).mockResolvedValue({
+      ok: true,
+      data: {
+        slug: 'yansi-a',
+        journeyVersion: 4,
+        totalVisibleCount: 0,
+        countsByType: {
+          verify: 0,
+          correction: 0,
+          additional_information: 0,
+          different_perspective: 0,
+        },
+        contributions: [],
+        viewerHasActiveVerify: 'yes',
+      },
+    });
+    const invalid = await fetchPublicKatki('yansi-a', 4);
+    expect(invalid.ok).toBe(true);
+    if (invalid.ok) expect(invalid.data.viewerHasActiveVerify).toBe(false);
+    expect(KATKI_CREATE_ORDER.map((group) => group.label)).toEqual([
+      'Düzeltme',
+      'Ek Bilgi',
+      'Farklı Bakış',
+    ]);
   });
 
   it('orders groups and omits empty ones', () => {

@@ -161,16 +161,18 @@ def _row(
     created_at: datetime | None = None,
     public_id: UUID | None = None,
     internal_id: UUID | None = None,
+    slug: str = SLUG,
+    contributor=None,
 ):
     return {
         "id": internal_id or uuid4(),
         "public_id": public_id or uuid4(),
-        "slug": SLUG,
+        "slug": slug,
         "journey_version": version,
         "contribution_type": contribution_type,
         "body": body,
         "source_note": source_note,
-        "contributor_user_id": owner,
+        "contributor_user_id": owner if contributor is None else contributor,
         "visibility": visibility,
         "created_at": created_at or T0,
         "hidden_by_user_id": owner if visibility.startswith("hidden") else None,
@@ -458,9 +460,10 @@ def test_route_requires_version_and_uses_frozen_404():
     app.dependency_overrides[get_db] = _fake_db
     seen: dict = {}
 
-    async def _capture(_db, *, slug, journey_version):
+    async def _capture(_db, *, slug, journey_version, viewer_user_id=None):
         seen["slug"] = slug
         seen["journey_version"] = journey_version
+        seen["viewer_user_id"] = viewer_user_id
         return {
             "slug": SLUG,
             "journeyVersion": journey_version,
@@ -496,7 +499,16 @@ def test_route_requires_version_and_uses_frozen_404():
             assert ok.status_code == 200
             assert ok.json()["journeyVersion"] == 1
             assert ok.json()["totalVisibleCount"] == 0
-            assert seen == {"slug": SLUG, "journey_version": 1}
+            assert ok.json()["viewerHasActiveVerify"] is False
+            assert seen == {"slug": SLUG, "journey_version": 1, "viewer_user_id": None}
+            anonymous = client.get(
+                f"/api/mirror-network/{SLUG}/contributions",
+                params={"journeyVersion": 1},
+                headers={"Authorization": "Bearer not-a-valid-token"},
+            )
+            assert anonymous.status_code == 200
+            assert anonymous.json()["viewerHasActiveVerify"] is False
+            assert seen["viewer_user_id"] is None
 
         with (
             patch(
@@ -535,3 +547,116 @@ def test_resolved_target_still_has_no_attachment_identity():
         "node_id",
         "owner_user_id",
     }
+
+
+@pytest.mark.asyncio
+async def test_viewer_has_active_verify_is_exact_and_private(katki_db, katki_world):
+    viewer = katki_world["owner"]
+    other = uuid4()
+
+    none = await get_public_katki_read(katki_db, slug=SLUG, journey_version=1)
+    assert none["viewerHasActiveVerify"] is False
+    anonymous = await get_public_katki_read(
+        katki_db, slug=SLUG, journey_version=1, viewer_user_id=None
+    )
+    assert anonymous["viewerHasActiveVerify"] is False
+    signed_out_of_rows = await get_public_katki_read(
+        katki_db, slug=SLUG, journey_version=1, viewer_user_id=viewer
+    )
+    assert signed_out_of_rows["viewerHasActiveVerify"] is False
+
+    await _insert(
+        katki_db,
+        [
+            _row(owner=viewer, version=1, contribution_type="verify", body=None),
+        ],
+    )
+    visible = await get_public_katki_read(
+        katki_db, slug=SLUG, journey_version=1, viewer_user_id=viewer
+    )
+    assert visible["viewerHasActiveVerify"] is True
+    assert visible["totalVisibleCount"] == 1
+    assert _keys(visible).isdisjoint(FORBIDDEN_KEYS)
+    assert "viewerId" not in _keys(visible)
+    assert "userId" not in _keys(visible)
+    assert "isMine" not in _keys(visible)
+
+    await katki_db.execute(YansiContribution.__table__.delete())
+    await katki_db.commit()
+
+    cases = [
+        ("hidden_by_owner", True, 0),
+        ("hidden_by_trust", True, 0),
+        ("withdrawn", False, 0),
+    ]
+    for visibility, expected, visible_count in cases:
+        await katki_db.execute(YansiContribution.__table__.delete())
+        await katki_db.commit()
+        await _insert(
+            katki_db,
+            [
+                _row(
+                    owner=viewer,
+                    version=1,
+                    contribution_type="verify",
+                    visibility=visibility,
+                    body=None,
+                )
+            ],
+        )
+        payload = await get_public_katki_read(
+            katki_db, slug=SLUG, journey_version=1, viewer_user_id=viewer
+        )
+        assert payload["viewerHasActiveVerify"] is expected
+        assert payload["totalVisibleCount"] == visible_count
+
+    await katki_db.execute(YansiContribution.__table__.delete())
+    await katki_db.commit()
+    await _insert(
+        katki_db,
+        [
+            _row(
+                owner=viewer,
+                version=1,
+                contribution_type="verify",
+                contributor=other,
+                body=None,
+            ),
+            _row(
+                owner=viewer,
+                version=2,
+                contribution_type="verify",
+                body=None,
+            ),
+            _row(
+                owner=viewer,
+                version=1,
+                contribution_type="verify",
+                slug="baska-yansi",
+                body=None,
+            ),
+        ],
+    )
+    other_user = await get_public_katki_read(
+        katki_db, slug=SLUG, journey_version=1, viewer_user_id=viewer
+    )
+    assert other_user["countsByType"]["verify"] == 1
+    assert other_user["totalVisibleCount"] == 1
+    assert other_user["viewerHasActiveVerify"] is False
+    public_aggregate = await get_public_katki_read(
+        katki_db, slug=SLUG, journey_version=1, viewer_user_id=None
+    )
+    assert public_aggregate["countsByType"]["verify"] == 1
+    assert public_aggregate["viewerHasActiveVerify"] is False
+    own_other_version = await get_public_katki_read(
+        katki_db, slug=SLUG, journey_version=2, viewer_user_id=viewer
+    )
+    assert own_other_version["viewerHasActiveVerify"] is True
+    missed_version = await get_public_katki_read(
+        katki_db, slug=SLUG, journey_version=1, viewer_user_id=viewer
+    )
+    assert missed_version["viewerHasActiveVerify"] is False
+    other_reader = await get_public_katki_read(
+        katki_db, slug=SLUG, journey_version=2, viewer_user_id=other
+    )
+    assert other_reader["viewerHasActiveVerify"] is False

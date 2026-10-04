@@ -107,6 +107,26 @@ async def require_mirror_scene_actor(
     return await resolve_mirror_scene_actor(credentials, db, x_guest_token)
 
 
+async def optional_mirror_authenticated_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """
+    Public reads may notice a valid session.
+
+    Missing, invalid, or inactive credentials stay anonymous. They do not 401.
+    """
+    if credentials is None or not credentials.credentials:
+        return None
+    user_info = get_user_from_token(credentials.credentials)
+    if user_info is None:
+        return None
+    user = await get_production_user_by_id(db, user_info["user_id"])
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
 async def require_mirror_authenticated_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_db),
