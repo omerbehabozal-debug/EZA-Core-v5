@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.api_key import APIKey  # noqa: F401
@@ -123,20 +123,7 @@ async def get_public_katki_read(
         raise KatkiReadError("frozen_journey_not_found", status_code=404) from exc
 
     filters = _visible_clause(target.slug, target.journey_version)
-    count_rows = (
-        await db.execute(
-            select(_CONTRIBUTIONS.c.contribution_type, func.count())
-            .where(*filters)
-            .group_by(_CONTRIBUTIONS.c.contribution_type)
-        )
-    ).all()
-    counts = _empty_counts()
-    for contribution_type, count in count_rows:
-        if contribution_type not in counts:
-            raise KatkiReadError("frozen_journey_not_found", status_code=404)
-        counts[contribution_type] = int(count)
-
-    list_rows = (
+    visible_rows = (
         await db.execute(
             select(
                 _CONTRIBUTIONS.c.public_id,
@@ -154,7 +141,6 @@ async def get_public_katki_read(
         )
     ).all()
 
-    visible_rows = list(list_rows)
     authors_by_id: dict[Any, Any] = {}
     if visible_rows:
         authors_by_id = await _load_discover_authors(
@@ -162,10 +148,12 @@ async def get_public_katki_read(
             [row[5] for row in visible_rows],
         )
 
+    counts = _empty_counts()
     contributions: list[dict[str, Any]] = []
     for public_id, contribution_type, body, source_note, created_at, contributor_user_id in visible_rows:
         if contribution_type not in counts:
             raise KatkiReadError("frozen_journey_not_found", status_code=404)
+        counts[contribution_type] += 1
         author = _author_for_node(authors_by_id, contributor_user_id)
         contributions.append(
             {
@@ -178,14 +166,10 @@ async def get_public_katki_read(
             }
         )
 
-    total = sum(counts.values())
-    if total != len(contributions):
-        raise KatkiReadError("frozen_journey_not_found", status_code=404)
-
     return {
         "slug": target.slug,
         "journeyVersion": target.journey_version,
-        "totalVisibleCount": total,
+        "totalVisibleCount": len(contributions),
         "countsByType": counts,
         "contributions": contributions,
     }

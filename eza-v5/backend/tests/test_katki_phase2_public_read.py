@@ -304,6 +304,8 @@ async def test_only_visible_rows_are_counted_and_returned(katki_db, katki_world)
         "different_perspective": 0,
     }
     assert [item["body"] for item in payload["contributions"]] == ["shown"]
+    assert payload["totalVisibleCount"] == len(payload["contributions"])
+    assert sum(payload["countsByType"].values()) == len(payload["contributions"])
     assert hidden_note not in dumped
     assert withdrawn_body not in dumped
     assert "owner-hidden" not in dumped

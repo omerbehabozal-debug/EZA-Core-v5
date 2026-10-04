@@ -1314,7 +1314,9 @@ export default function MirrorYansiChainExperience({
           journeyVersion={katki.journeyVersion}
           read={katkiRead}
           readStatus={katkiReadStatus}
-          onReadChange={(next) => {
+          readGeneration={katkiRequestGen.current}
+          onReadChange={(next, generation) => {
+            if (generation !== katkiRequestGen.current) return;
             if (next.slug !== activeSlug || next.journeyVersion !== presentedJourneyVersion) return;
             setKatkiRead(next);
             setKatkiReadStatus('ready');

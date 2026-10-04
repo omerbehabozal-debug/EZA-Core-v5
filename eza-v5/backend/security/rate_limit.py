@@ -153,6 +153,38 @@ async def rate_limit(
 
 
 # Predefined rate limit configurations
+# Katkı abuse caps. Separate from `standalone` and from the database create quota
+# (10 successful creates / user / hour, 30 / user / day).
+# Read is sized for Reel travel: one contributions GET per Yansı, about two per
+# second, without sharing the 10/minute standalone bucket.
+# Write covers create and moderation. A legitimate create after heavy reading
+# still has a full write bucket. The user quota remains the product limit.
+KATKI_READ_LIMIT = 120
+KATKI_READ_WINDOW_SECONDS = 60
+KATKI_WRITE_LIMIT = 30
+KATKI_WRITE_WINDOW_SECONDS = 60
+
+
+async def rate_limit_katki_read(request: Request) -> None:
+    """Public Katkı GET. Key prefix `katki_read`, per client IP."""
+    await rate_limit(
+        request,
+        limit=KATKI_READ_LIMIT,
+        window=KATKI_READ_WINDOW_SECONDS,
+        key_prefix="katki_read",
+    )
+
+
+async def rate_limit_katki_write(request: Request) -> None:
+    """Katkı create and moderation. Key prefix `katki_write`, per client IP."""
+    await rate_limit(
+        request,
+        limit=KATKI_WRITE_LIMIT,
+        window=KATKI_WRITE_WINDOW_SECONDS,
+        key_prefix="katki_write",
+    )
+
+
 async def rate_limit_standalone(request: Request) -> None:
     """Rate limit for standalone: default 10 requests / 60s per IP (env: EZA_STANDALONE_RATE_PER_MIN)"""
     import os

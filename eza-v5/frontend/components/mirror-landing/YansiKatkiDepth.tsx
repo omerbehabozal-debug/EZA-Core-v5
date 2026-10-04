@@ -15,6 +15,7 @@ import {
 import {
   KATKI_GROUP_ORDER,
   createPublicKatki,
+  fetchPublicKatki,
   groupVisibleKatki,
   katkiCreateErrorMessage,
   katkiTypeLabel,
@@ -32,7 +33,9 @@ export type YansiKatkiDepthProps = {
   stage: Exclude<KatkiStage, 'closed'>;
   read: PublicKatkiRead | null;
   readStatus: KatkiReadStatus;
-  onReadChange: (read: PublicKatkiRead) => void;
+  /** Chain request generation captured for this render. Stale creates must not apply. */
+  readGeneration: number;
+  onReadChange: (read: PublicKatkiRead, readGeneration: number) => void;
   selectedType: KatkiType | null;
   body: string;
   sourceNote: string;
@@ -61,6 +64,7 @@ export default function YansiKatkiDepth({
   stage,
   read,
   readStatus,
+  readGeneration,
   onReadChange,
   selectedType,
   body,
@@ -123,7 +127,8 @@ export default function YansiKatkiDepth({
       setNotice(draft.message);
       return;
     }
-    const generation = generationRef.current;
+    const depthGeneration = generationRef.current;
+    const chainGeneration = readGeneration;
     const slugAt = slug;
     const versionAt = journeyVersion;
     setSubmitting(true);
@@ -136,7 +141,7 @@ export default function YansiKatkiDepth({
       sourceNote: draft.sourceNote,
     });
     if (
-      generation !== generationRef.current ||
+      depthGeneration !== generationRef.current ||
       targetRef.current.slug !== slugAt ||
       targetRef.current.journeyVersion !== versionAt
     ) {
@@ -153,8 +158,24 @@ export default function YansiKatkiDepth({
       setNotice(mapped);
       return;
     }
-    onReadChange(mergeCreatedKatki(snapshot, result.data, slugAt, versionAt));
+    onReadChange(mergeCreatedKatki(snapshot, result.data, slugAt, versionAt), chainGeneration);
     onSubmitted();
+    const reconciled = await fetchPublicKatki(slugAt, versionAt);
+    if (
+      depthGeneration !== generationRef.current ||
+      targetRef.current.slug !== slugAt ||
+      targetRef.current.journeyVersion !== versionAt
+    ) {
+      return;
+    }
+    if (
+      !reconciled.ok ||
+      reconciled.data.slug !== slugAt.trim().toLowerCase() ||
+      reconciled.data.journeyVersion !== versionAt
+    ) {
+      return;
+    }
+    onReadChange(reconciled.data, chainGeneration);
   };
 
   const groups = groupVisibleKatki(snapshot?.contributions ?? []);

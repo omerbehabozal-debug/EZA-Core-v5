@@ -167,16 +167,29 @@ async def _has_active_contribution(
     return result.first() is not None
 
 
+# SQLite reports the partial index by its column list, not by the index name.
+_ACTIVE_TYPE_COLUMNS = (
+    "contributor_user_id",
+    "slug",
+    "journey_version",
+    "contribution_type",
+)
+
+
 def _is_active_type_conflict(exc: IntegrityError) -> bool:
+    """True only for the active-type unique index, not for nearby column names."""
     orig = getattr(exc, "orig", None)
     diag = getattr(orig, "diag", None)
     constraint = getattr(diag, "constraint_name", None)
     if constraint == _ACTIVE_TYPE_INDEX:
         return True
-    message = str(orig or exc).lower()
+    message = str(orig or exc)
     if _ACTIVE_TYPE_INDEX in message:
         return True
-    return "contributor_user_id" in message and "contribution_type" in message
+    lowered = message.lower()
+    if "unique constraint failed" not in lowered:
+        return False
+    return all(column in lowered for column in _ACTIVE_TYPE_COLUMNS)
 
 
 async def create_katki(

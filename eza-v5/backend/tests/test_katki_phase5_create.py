@@ -14,7 +14,13 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.compiler import compiles
 
-from backend.services.mirror_network.katki_create import KatkiCreateError
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql.dml import Insert
+
+from backend.services.mirror_network.katki_create import (
+    KatkiCreateError,
+    _is_active_type_conflict,
+)
 
 
 @compiles(PGUUID, "sqlite")
@@ -510,6 +516,67 @@ async def test_concurrent_duplicate_is_conflict_without_sql_leak(db, parents, mo
     assert "uq_yansi" not in str(caught.value)
     assert "UNIQUE" not in str(caught.value)
     assert await _count(db) == 1
+
+
+def test_active_type_conflict_matches_only_the_known_index():
+    class _Diag:
+        constraint_name = "uq_yansi_contributions_active_type"
+
+    class _Orig(Exception):
+        diag = _Diag()
+
+    named = IntegrityError("INSERT", {}, _Orig("unique violation"))
+    assert _is_active_type_conflict(named) is True
+
+    textual = IntegrityError(
+        "INSERT",
+        {},
+        Exception("UNIQUE constraint failed: uq_yansi_contributions_active_type"),
+    )
+    assert _is_active_type_conflict(textual) is True
+
+    unrelated = IntegrityError(
+        "INSERT",
+        {},
+        Exception(
+            "null value in column contributor_user_id; contribution_type check failed"
+        ),
+    )
+    assert _is_active_type_conflict(unrelated) is False
+
+
+async def test_unrelated_integrity_error_stays_a_sanitized_create_failure(db, parents, monkeypatch):
+    _owner, contributor, _other = await _ready(db, parents)
+    original = db.execute
+
+    async def _raise_on_insert(statement, *args, **kwargs):
+        if isinstance(statement, Insert):
+            raise IntegrityError(
+                "INSERT INTO yansi_contributions",
+                {},
+                Exception(
+                    "null value in column contributor_user_id; contribution_type present; SQLSTATE 23502"
+                ),
+            )
+        return await original(statement, *args, **kwargs)
+
+    monkeypatch.setattr(db, "execute", _raise_on_insert)
+    with pytest.raises(KatkiCreateError) as caught:
+        await _create(db, contributor, now=T0)
+    assert caught.value.code == "create_failed"
+    assert caught.value.status_code == 500
+    rendered = str(caught.value)
+    assert "contributor_user_id" not in rendered
+    assert "SQLSTATE" not in rendered
+    assert "uq_yansi" not in rendered
+
+    from backend.routers.mirror_network import _katki_create_http
+
+    http = _katki_create_http(caught.value)
+    assert http.detail["code"] == "create_failed"
+    assert http.detail["message"] == "Katkı oluşturulamadı"
+    assert "SQL" not in http.detail["message"]
+    assert "constraint" not in http.detail["message"].lower()
 
 
 async def test_hourly_window_uses_created_rows(db, parents):

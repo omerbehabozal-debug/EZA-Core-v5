@@ -31,7 +31,11 @@ from backend.auth.deps import security
 from backend.core.account.guards import assert_can_start_discover_conversation
 from backend.core.account.quota_events import DISCOVER_CONVERSATION_STARTED
 from backend.core.account.usage_service import record_account_usage_event
-from backend.security.rate_limit import rate_limit_standalone
+from backend.security.rate_limit import (
+    rate_limit_katki_read,
+    rate_limit_katki_write,
+    rate_limit_standalone,
+)
 from backend.auth.mirror_entitlement import require_mirror_authenticated_user
 from backend.models.mirror_network import MirrorNetworkNode
 from backend.models.production import User
@@ -496,7 +500,7 @@ async def get_public_katki_contributions(
     slug: str,
     journeyVersion: int = Query(..., ge=1),
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(rate_limit_standalone),
+    _: None = Depends(rate_limit_katki_read),
 ) -> PublicKatkiRead:
     """
     Public Katkılar for one frozen Yansı version.
@@ -555,7 +559,7 @@ async def create_public_katki(
     body: KatkiCreateRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_mirror_authenticated_user),
-    _: None = Depends(rate_limit_standalone),
+    _: None = Depends(rate_limit_katki_write),
 ) -> PublicKatkiContribution:
     """Authenticated user creates one Katkı on one exact frozen version."""
     try:
@@ -618,7 +622,7 @@ async def withdraw_public_katki(
     contribution_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_mirror_authenticated_user),
-    _: None = Depends(rate_limit_standalone),
+    _: None = Depends(rate_limit_katki_write),
 ) -> KatkiMutationResponse:
     """Contributor withdraws their own Katkı. The row stays stored."""
     try:
@@ -643,7 +647,7 @@ async def report_public_katki(
     body: KatkiContributionReportRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_mirror_authenticated_user),
-    _: None = Depends(rate_limit_standalone),
+    _: None = Depends(rate_limit_katki_write),
 ) -> KatkiContributionReportResponse:
     """Authenticated report. Does not hide, withdraw, or change the public count."""
     try:
@@ -667,7 +671,7 @@ async def owner_hide_public_katki(
     contribution_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_mirror_authenticated_user),
-    _: None = Depends(rate_limit_standalone),
+    _: None = Depends(rate_limit_katki_write),
 ) -> KatkiMutationResponse:
     """Yansı owner hides one contribution on their exact parent."""
     try:
@@ -688,7 +692,7 @@ async def owner_restore_public_katki(
     contribution_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_mirror_authenticated_user),
-    _: None = Depends(rate_limit_standalone),
+    _: None = Depends(rate_limit_katki_write),
 ) -> KatkiMutationResponse:
     """Yansı owner restores only their own owner-hide."""
     try:
@@ -712,6 +716,7 @@ async def trust_hide_public_katki(
     contribution_id: UUID,
     db: AsyncSession = Depends(get_db),
     _: str = Depends(require_yansi_trust_admin_dependency()),
+    __: None = Depends(rate_limit_katki_write),
 ) -> KatkiMutationResponse:
     """Trust admin hide. API key only. Does not assign a production user."""
     try:
@@ -733,6 +738,7 @@ async def trust_restore_public_katki(
     contribution_id: UUID,
     db: AsyncSession = Depends(get_db),
     _: str = Depends(require_yansi_trust_admin_dependency()),
+    __: None = Depends(rate_limit_katki_write),
 ) -> KatkiMutationResponse:
     """Trust admin restores only a trust hide."""
     try:
