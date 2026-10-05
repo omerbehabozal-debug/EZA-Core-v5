@@ -6334,7 +6334,7 @@ button.saina-discover-card__title-open:focus-visible {
     min-width: 0;
     min-height: 0;
     max-width: 38rem;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__title {
@@ -6345,7 +6345,7 @@ button.saina-discover-card__title-open:focus-visible {
     line-clamp: 2;
     overflow: hidden;
     font-size: clamp(1.42rem, 1.35vw, 1.62rem);
-    line-height: 1.16;
+    line-height: 1.22;
     color: #f6f4ef;
     text-shadow: 0 1px 18px rgba(238, 219, 186, 0.1);
   }
