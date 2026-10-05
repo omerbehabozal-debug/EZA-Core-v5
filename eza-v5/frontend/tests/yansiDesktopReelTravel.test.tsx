@@ -290,6 +290,12 @@ describe('desktop reel vertical travel', () => {
       'aria-current',
       'true'
     );
+    expect(screen.getByTestId('yansi-reel-continuation-context-previous')).toHaveTextContent(
+      'Önceki Yansı'
+    );
+    expect(screen.getByTestId('yansi-reel-continuation-context-next')).toHaveTextContent(
+      'Sonraki Yansı'
+    );
     fireEvent.click(screen.getByTestId('mirror-continuation-next'));
     await flushAsync();
 
@@ -300,12 +306,18 @@ describe('desktop reel vertical travel', () => {
     expect(fetchPublicFrozenJourneyArtifact).toHaveBeenCalledWith({ slug: 'yansi-c' });
   });
 
-  it('uses existing vertical Reel travel from quiet right-side controls and removes the old Reel rail panel', async () => {
+  it('uses existing vertical Reel travel from the right-side control family and removes the old Reel rail panel', async () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     await flushAsync();
 
-    expect(screen.getByTestId('yansi-reel-feed-controls')).toBeTruthy();
+    const rightControls = screen.getByTestId('yansi-reel-right-controls');
+    expect(rightControls).toHaveTextContent('Önceki Merak');
+    expect(rightControls).toHaveTextContent('Sonraki Merak');
+    expect(rightControls).toHaveTextContent('Paylaş');
+    expect(rightControls).toHaveTextContent('Merakıma Kaydet');
     expect(screen.getByTestId('yansi-reel-action-cluster')).toBeTruthy();
+    expect(screen.getByTestId('yansi-experience-share')).toBeTruthy();
+    expect(screen.getByTestId('yansi-save-button')).toBeTruthy();
     expect(screen.queryByTestId('yansi-experience-controls')).toBeNull();
 
     fireEvent.click(screen.getByTestId('mirror-skip-to-next'));
@@ -323,7 +335,7 @@ describe('desktop reel vertical travel', () => {
     await flushAsync();
 
     expect(screen.queryByTestId('yansi-reel-continuation-strip')).toBeNull();
-    expect(screen.queryByTestId('yansi-reel-feed-controls')).toBeNull();
+    expect(screen.queryByTestId('yansi-reel-right-controls')).toBeNull();
     expect(screen.queryByTestId('yansi-reel-action-cluster')).toBeNull();
     expect(screen.queryByTestId('yansi-desktop-reel-viewport')).toBeNull();
   });

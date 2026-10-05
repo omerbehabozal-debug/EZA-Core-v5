@@ -1122,6 +1122,48 @@ export default function MirrorYansiChainExperience({
     current: boolean;
   }>;
 
+  const continuationPreviousScene =
+    (continuationPrevious?.slug &&
+      nodesBySlug[continuationPrevious.slug]?.artifact.sceneImageUrl) ||
+    null;
+  const continuationNextScene =
+    (continuationNext?.slug && nodesBySlug[continuationNext.slug]?.artifact.sceneImageUrl) ||
+    null;
+
+  const renderContinuationContext = (
+    direction: 'previous' | 'next',
+    neighbor: PublicContinuationNeighbor | null,
+    sceneImageUrl: string | null
+  ) => {
+    if (!neighbor) return null;
+    const label =
+      direction === 'previous' ? YANSI_CONTINUATION_PREVIOUS : YANSI_CONTINUATION_NEXT;
+    return (
+      <button
+        type="button"
+        className="yansi-reel-continuation-context"
+        data-testid={
+          direction === 'previous'
+            ? 'yansi-reel-continuation-context-previous'
+            : 'yansi-reel-continuation-context-next'
+        }
+        data-direction={direction}
+        disabled={navBusy}
+        onClick={() => void goHorizontal(direction)}
+      >
+        {direction === 'previous' ? <span>{label}</span> : null}
+        <span
+          className="yansi-reel-continuation-context__thumb"
+          data-has-image={sceneImageUrl ? 'true' : 'false'}
+          aria-hidden
+        >
+          {sceneImageUrl ? <img src={sceneImageUrl} alt="" /> : null}
+        </span>
+        {direction === 'next' ? <span>{label}</span> : null}
+      </button>
+    );
+  };
+
   const renderDesktopReelChrome = () => {
     if (!isDesktop || showChatReplay) return null;
     return (
@@ -1131,6 +1173,11 @@ export default function MirrorYansiChainExperience({
           data-testid="yansi-reel-continuation-strip"
           aria-label="Yansı devam zinciri"
         >
+          {renderContinuationContext(
+            'previous',
+            continuationPrevious,
+            continuationPreviousScene
+          )}
           <div
             className="yansi-reel-continuation-strip__track"
             data-testid="yansi-reel-continuation-track"
@@ -1183,51 +1230,66 @@ export default function MirrorYansiChainExperience({
               )
             )}
           </div>
+          {renderContinuationContext('next', continuationNext, continuationNextScene)}
         </nav>
 
-        <nav
-          className="yansi-reel-feed-controls"
-          data-testid="yansi-reel-feed-controls"
-          aria-label="Keşfet Reel gezinmesi"
-        >
+        <div className="yansi-reel-right-controls" data-testid="yansi-reel-right-controls">
           {showUp ? (
-            <button
-              type="button"
-              className="yansi-reel-feed-controls__button"
-              data-testid="mirror-discover-up"
-              data-yansi-reel-feed-control="up"
-              aria-label={YANSI_PREVIOUS_MERAK}
-              title={YANSI_PREVIOUS_MERAK}
-              disabled={navBusy}
-              onClick={goUp}
-            >
-              <ChevronUp size={21} strokeWidth={1.55} aria-hidden />
-              <span className="sr-only">{YANSI_PREVIOUS_MERAK}</span>
-            </button>
+            <div className="yansi-reel-right-controls__nav">
+              <button
+                type="button"
+                className="yansi-reel-feed-controls__button"
+                data-testid="mirror-discover-up"
+                data-yansi-reel-feed-control="up"
+                aria-label={YANSI_PREVIOUS_MERAK}
+                title={YANSI_PREVIOUS_MERAK}
+                disabled={navBusy}
+                onClick={goUp}
+              >
+                <ChevronUp size={23} strokeWidth={1.55} aria-hidden />
+                <span className="sr-only">{YANSI_PREVIOUS_MERAK}</span>
+              </button>
+              <span className="yansi-reel-right-controls__label">Önceki Merak</span>
+            </div>
           ) : null}
+          <div
+            className="yansi-reel-action-cluster"
+            data-testid="yansi-reel-action-cluster"
+            aria-label="Yansı eylemleri"
+          >
+            <div className="yansi-reel-action-cluster__item">
+              <YansiExperienceShareButton slug={activeNode.artifact.slug} />
+              <span>Paylaş</span>
+            </div>
+            <span className="yansi-reel-action-cluster__divider" aria-hidden />
+            <div className="yansi-reel-action-cluster__item">
+              <YansiSaveButton
+                slug={activeNode.artifact.slug}
+                authorUserId={activeNode.artifact.authorUserId}
+                compact
+                onRequireAuth={onRequireAuth}
+              />
+              <span>Merakıma Kaydet</span>
+            </div>
+          </div>
           {showDown ? (
-            <button
-              type="button"
-              className="yansi-reel-feed-controls__button"
-              data-testid="mirror-skip-to-next"
-              data-yansi-reel-feed-control="down"
-              aria-label={YANSI_SKIP_TO_NEXT_MERAK}
-              title={YANSI_SKIP_TO_NEXT_MERAK}
-              disabled={navBusy}
-              onClick={() => void goDown()}
-            >
-              <ChevronDown size={21} strokeWidth={1.55} aria-hidden />
-              <span className="sr-only">{YANSI_SKIP_TO_NEXT_MERAK}</span>
-            </button>
+            <div className="yansi-reel-right-controls__nav">
+              <button
+                type="button"
+                className="yansi-reel-feed-controls__button"
+                data-testid="mirror-skip-to-next"
+                data-yansi-reel-feed-control="down"
+                aria-label={YANSI_SKIP_TO_NEXT_MERAK}
+                title={YANSI_SKIP_TO_NEXT_MERAK}
+                disabled={navBusy}
+                onClick={() => void goDown()}
+              >
+                <ChevronDown size={23} strokeWidth={1.55} aria-hidden />
+                <span className="sr-only">{YANSI_SKIP_TO_NEXT_MERAK}</span>
+              </button>
+              <span className="yansi-reel-right-controls__label">Sonraki Merak</span>
+            </div>
           ) : null}
-        </nav>
-
-        <div
-          className="yansi-reel-action-cluster"
-          data-testid="yansi-reel-action-cluster"
-          aria-label="Yansı eylemleri"
-        >
-          {reelActions}
         </div>
       </>
     );
