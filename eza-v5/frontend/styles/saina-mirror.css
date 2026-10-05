@@ -6158,6 +6158,11 @@ button.saina-discover-card__title-open:focus-visible {
     gap: clamp(0.9rem, 1.25vw, 1.1rem);
   }
 
+  .saina-discover-list > [data-yansi-exposure-root='discover'] {
+    width: min(100%, 70rem);
+    max-width: 70rem;
+  }
+
   .saina-discover-controls {
     width: min(100%, 70rem);
     margin: 0 auto;
