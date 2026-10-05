@@ -6174,23 +6174,23 @@ button.saina-discover-card__title-open:focus-visible {
 
   .saina-discover-eyebrow {
     letter-spacing: 0.28em;
-    color: rgba(231, 211, 176, 0.78);
-    text-shadow: 0 0 18px rgba(214, 166, 92, 0.08);
+    color: rgba(238, 218, 181, 0.84);
+    text-shadow: 0 0 18px rgba(214, 166, 92, 0.1);
   }
 
   .saina-discover-headline {
     margin: 0.7rem 0 0.55rem;
     font-size: clamp(2rem, 2.15vw, 2.25rem);
     line-height: 1.08;
-    color: #f4f1ea;
-    text-shadow: 0 1px 24px rgba(239, 221, 190, 0.08);
+    color: #f6f4ef;
+    text-shadow: 0 1px 24px rgba(239, 221, 190, 0.11);
   }
 
   .saina-discover-subhead {
     max-width: 34rem;
     font-size: 0.98rem;
     line-height: 1.62;
-    color: rgba(225, 214, 197, 0.72);
+    color: rgba(230, 221, 205, 0.78);
   }
 
   .saina-discover-modes {
@@ -6200,11 +6200,11 @@ button.saina-discover-card__title-open:focus-visible {
     align-items: stretch;
     margin: 0 0 clamp(1.25rem, 1.8vw, 1.7rem);
     padding: 0.18rem;
-    border: 1px solid rgba(196, 151, 82, 0.18);
+    border: 1px solid rgba(205, 158, 86, 0.22);
     border-radius: 999px;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
-      rgba(11, 13, 14, 0.72);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+      rgba(9, 11, 12, 0.76);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.04),
       0 12px 34px rgba(0, 0, 0, 0.16);
@@ -6221,7 +6221,7 @@ button.saina-discover-card__title-open:focus-visible {
     font-size: 0.78rem;
     font-weight: 600;
     letter-spacing: 0.018em;
-    color: rgba(223, 211, 191, 0.66);
+    color: rgba(226, 215, 197, 0.7);
     transition:
       background 160ms ease,
       color 160ms ease,
@@ -6229,11 +6229,11 @@ button.saina-discover-card__title-open:focus-visible {
   }
 
   .saina-discover-modes__btn[aria-pressed='true'] {
-    color: #f2dfb8;
-    background: rgba(196, 142, 64, 0.13);
+    color: #f7e4bb;
+    background: rgba(205, 149, 67, 0.16);
     box-shadow:
-      inset 0 0 0 1px rgba(232, 184, 103, 0.22),
-      0 0 20px rgba(196, 142, 64, 0.08);
+      inset 0 0 0 1px rgba(238, 190, 105, 0.28),
+      0 0 20px rgba(205, 149, 67, 0.1);
   }
 
   .saina-discover-modes__btn:hover:not(:disabled) {
@@ -6249,16 +6249,16 @@ button.saina-discover-card__title-open:focus-visible {
     max-width: none;
     height: clamp(13.4rem, 12vw, 14.65rem);
     min-width: 0;
-    border-color: rgba(190, 143, 75, 0.2);
+    border-color: rgba(199, 151, 82, 0.22);
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 22%),
-      rgba(12, 14, 15, 0.94);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 22%),
+      rgba(8, 10, 11, 0.96);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     box-shadow:
-      0 18px 46px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.045),
-      inset 0 -1px 0 rgba(190, 143, 75, 0.05);
+      0 18px 46px rgba(0, 0, 0, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.052),
+      inset 0 -1px 0 rgba(199, 151, 82, 0.055);
     transition:
       border-color 180ms ease,
       box-shadow 180ms ease,
@@ -6266,12 +6266,12 @@ button.saina-discover-card__title-open:focus-visible {
   }
 
   .saina-discover-card.saina-discover-card--editorial:hover {
-    border-color: rgba(214, 164, 88, 0.34);
+    border-color: rgba(224, 173, 94, 0.38);
     transform: translateY(-1px);
     box-shadow:
-      0 20px 52px rgba(0, 0, 0, 0.34),
-      inset 0 1px 0 rgba(255, 255, 255, 0.055),
-      inset 0 -1px 0 rgba(214, 164, 88, 0.07);
+      0 20px 52px rgba(0, 0, 0, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.062),
+      inset 0 -1px 0 rgba(224, 173, 94, 0.085);
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__visual {
@@ -6291,7 +6291,7 @@ button.saina-discover-card__title-open:focus-visible {
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__image {
-    filter: brightness(1.09) contrast(1.08) saturate(1.06);
+    filter: brightness(1.13) contrast(1.1) saturate(1.08);
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__body {
@@ -6321,12 +6321,12 @@ button.saina-discover-card__title-open:focus-visible {
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__identity-name {
     font-size: 0.94rem;
     font-weight: 600;
-    color: #ebe6dc;
+    color: #f3f0ea;
   }
 
   .saina-discover-card.saina-discover-card--editorial .bilign-honorific--sm {
     font-size: 0.75rem;
-    color: rgba(198, 185, 164, 0.74);
+    color: rgba(210, 197, 176, 0.8);
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__product-core {
@@ -6339,8 +6339,8 @@ button.saina-discover-card__title-open:focus-visible {
     margin: 0 0 0.48rem;
     font-size: clamp(1.42rem, 1.35vw, 1.62rem);
     line-height: 1.16;
-    color: #f3f0e9;
-    text-shadow: 0 1px 18px rgba(238, 219, 186, 0.07);
+    color: #f6f4ef;
+    text-shadow: 0 1px 18px rgba(238, 219, 186, 0.1);
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__summary {
@@ -6353,7 +6353,7 @@ button.saina-discover-card__title-open:focus-visible {
     max-width: 37rem;
     font-size: 0.95rem;
     line-height: 1.54;
-    color: rgba(220, 207, 185, 0.78);
+    color: rgba(228, 216, 196, 0.83);
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__yansi,
@@ -6364,7 +6364,7 @@ button.saina-discover-card__title-open:focus-visible {
     margin: 0.7rem 0 0;
     font-size: 0.74rem;
     letter-spacing: 0.03em;
-    color: rgba(207, 194, 174, 0.64);
+    color: rgba(216, 203, 181, 0.7);
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__cta {
@@ -6377,20 +6377,20 @@ button.saina-discover-card__title-open:focus-visible {
     margin: 0.7rem 0 0;
     padding: 0.42rem 0.9rem;
     background: transparent;
-    border-color: rgba(231, 180, 91, 0.38);
+    border-color: rgba(238, 188, 101, 0.46);
     font-size: 0.8rem;
     font-weight: 600;
-    color: #f1d99f;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    color: #f6dea5;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__cta:hover:not(:disabled) {
-    border-color: rgba(238, 190, 105, 0.56);
-    background: rgba(231, 180, 91, 0.095);
-    color: #f8e8bd;
+    border-color: rgba(246, 199, 111, 0.62);
+    background: rgba(231, 180, 91, 0.105);
+    color: #fbe9bd;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      0 0 18px rgba(214, 164, 88, 0.08);
+      0 0 18px rgba(224, 173, 94, 0.1);
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__cta-label {
@@ -6424,31 +6424,31 @@ button.saina-discover-card__title-open:focus-visible {
 
 @media (min-width: 900px) {
   .saina-app-root.saina-standalone-shell.saina-discover-shell .saina-sidebar {
-    color: rgba(238, 232, 220, 0.9);
+    color: rgba(241, 235, 224, 0.92);
   }
 
   .saina-app-root.saina-standalone-shell.saina-discover-shell
     .saina-sidebar-dock-link--active {
     background:
-      linear-gradient(180deg, rgba(232, 181, 96, 0.12), rgba(232, 181, 96, 0.055)),
+      linear-gradient(180deg, rgba(238, 188, 101, 0.14), rgba(238, 188, 101, 0.06)),
       rgba(255, 255, 255, 0.035);
-    border-color: rgba(214, 164, 88, 0.25);
-    color: #f0e7d5;
+    border-color: rgba(224, 173, 94, 0.3);
+    color: #f4ead6;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.045),
-      0 0 22px rgba(214, 164, 88, 0.055);
+      0 0 22px rgba(224, 173, 94, 0.065);
   }
 
   .saina-app-root.saina-standalone-shell.saina-discover-shell
     .saina-sidebar-dock-link--active
     .saina-sidebar-dock-icon {
-    color: #e0b66d;
+    color: #edc171;
   }
 
   .saina-app-root.saina-standalone-shell.saina-discover-shell
     .saina-sidebar
     .saina-conv-title {
-    color: rgba(237, 231, 220, 0.88);
+    color: rgba(242, 236, 225, 0.91);
   }
 
   .saina-app-root.saina-standalone-shell.saina-discover-shell
@@ -6460,7 +6460,7 @@ button.saina-discover-card__title-open:focus-visible {
   .saina-app-root.saina-standalone-shell.saina-discover-shell
     .saina-sidebar
     .saina-conv-time {
-    color: rgba(194, 184, 166, 0.58);
+    color: rgba(202, 191, 172, 0.62);
   }
 
   .saina-discover-shell .saina-discover-canvas-wrap::after {
