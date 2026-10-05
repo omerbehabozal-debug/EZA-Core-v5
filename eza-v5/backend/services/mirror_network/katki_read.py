@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.api_key import APIKey  # noqa: F401
@@ -32,7 +32,10 @@ from backend.services.mirror_network.katki_target import (
     KatkiTargetResolutionError,
     resolve_katki_target,
 )
-from backend.services.mirror_network.public_identity import resolve_public_display_name
+from backend.services.mirror_network.public_identity import (
+    resolve_public_display_name,
+    resolve_public_honorific_label,
+)
 
 # Chronological. public_id breaks ties. Not rank, popularity, or trust.
 _CONTRIBUTIONS = YansiContribution.__table__
@@ -42,6 +45,7 @@ PUBLIC_KATKI_RESPONSE_KEYS = frozenset(
         "slug",
         "journeyVersion",
         "totalVisibleCount",
+        "contentVisibleCount",
         "countsByType",
         "contributions",
         "viewerHasActiveVerify",
@@ -62,7 +66,13 @@ PUBLIC_KATKI_CONTRIBUTOR_KEYS = frozenset(
         "displayName",
         "publicAvatarUrl",
         "publicAvatarRevision",
+        "publicHonorific",
     }
+)
+_CONTENT_KATKI_TYPES = (
+    "correction",
+    "additional_information",
+    "different_perspective",
 )
 PUBLIC_KATKI_COUNT_KEYS = frozenset(KATKI_CONTRIBUTION_TYPES)
 
@@ -87,12 +97,43 @@ def _created_at_iso(value: datetime) -> str:
 
 
 def project_public_katki_contributor(author: Any) -> dict[str, Any]:
-    """Same live name and avatar locator Discover puts on a public card."""
+    """Same live name, avatar, and public honorific Discover puts on a card."""
     return {
         "displayName": resolve_public_display_name(author),
         "publicAvatarUrl": _discover_public_avatar_url(author),
         "publicAvatarRevision": _discover_public_avatar_revision(author),
+        "publicHonorific": resolve_public_honorific_label(author),
     }
+
+
+async def attach_public_honorific(db: AsyncSession, authors_by_id: dict[UUID, Any]) -> None:
+    """Overlay the unmapped public_honorific column. Leave existing values if the column is absent."""
+    if not authors_by_id:
+        return
+    id_keys = [str(user_id).replace("-", "").lower() for user_id in authors_by_id]
+    try:
+        async with db.begin_nested():
+            result = await db.execute(
+                text(
+                    "SELECT id, public_honorific FROM production_users "
+                    "WHERE replace(lower(CAST(id AS TEXT)), '-', '') IN :ids"
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"ids": id_keys},
+            )
+            rows = result.mappings().all()
+    except Exception:
+        return
+    found = {
+        str(row["id"]).replace("-", "").lower(): row["public_honorific"] for row in rows
+    }
+    for user_id, author in authors_by_id.items():
+        key = str(user_id).replace("-", "").lower()
+        if key not in found:
+            continue
+        try:
+            setattr(author, "public_honorific", found[key])
+        except Exception:
+            continue
 
 
 def _visible_clause(slug: str, journey_version: int):
@@ -181,6 +222,7 @@ async def get_public_katki_read(
             db,
             [row[5] for row in visible_rows],
         )
+        await attach_public_honorific(db, authors_by_id)
 
     counts = _empty_counts()
     contributions: list[dict[str, Any]] = []
@@ -210,6 +252,7 @@ async def get_public_katki_read(
         "slug": target.slug,
         "journeyVersion": target.journey_version,
         "totalVisibleCount": len(contributions),
+        "contentVisibleCount": sum(counts[name] for name in _CONTENT_KATKI_TYPES),
         "countsByType": counts,
         "contributions": contributions,
         "viewerHasActiveVerify": active_verify,

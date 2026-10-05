@@ -17,6 +17,7 @@ import {
   formatYansiPublicSocialProof,
   parseYansiPublicSocialProofInput,
 } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
+import { YANSI_PUBLIC_METRIC_EXPERIENCE } from '@/lib/eza/mirror/copy';
 
 export type YansiPublicMetricsViewProps = {
   experienceStartedCount: number;
@@ -25,6 +26,8 @@ export type YansiPublicMetricsViewProps = {
   variant?: 'card' | 'section';
   slug?: string;
   journeyVersion?: number;
+  /** Desktop Reel shows a real zero. Discover and other surfaces stay quiet. */
+  includeZeroExperience?: boolean;
 };
 
 export function YansiPublicMetricsView({
@@ -34,12 +37,21 @@ export function YansiPublicMetricsView({
   variant = 'section',
   slug,
   journeyVersion,
+  includeZeroExperience = false,
 }: YansiPublicMetricsViewProps) {
   const copy = formatYansiPublicSocialProof({
     experienceStartedCount,
     directChildYansiCount,
   });
-  if (!copy) return null;
+  const resolved =
+    copy ??
+    (includeZeroExperience && experienceStartedCount === 0 && directChildYansiCount === 0
+      ? {
+          visible: `0 ${YANSI_PUBLIC_METRIC_EXPERIENCE}`,
+          sr: `0 ${YANSI_PUBLIC_METRIC_EXPERIENCE}`,
+        }
+      : null);
+  if (!resolved) return null;
 
   return (
     <p
@@ -54,9 +66,9 @@ export function YansiPublicMetricsView({
       data-metrics-version={
         typeof journeyVersion === 'number' ? String(journeyVersion) : undefined
       }
-      aria-label={copy.sr}
+      aria-label={resolved.sr}
     >
-      {copy.visible}
+      {resolved.visible}
     </p>
   );
 }
@@ -67,6 +79,7 @@ export type YansiPublicMetricsLineProps = {
   className?: string;
   /** card = landing public card; section = chain identity header */
   variant?: 'card' | 'section';
+  includeZeroExperience?: boolean;
 };
 
 export default function YansiPublicMetricsLine({
@@ -74,6 +87,7 @@ export default function YansiPublicMetricsLine({
   journeyVersion,
   className,
   variant = 'section',
+  includeZeroExperience = false,
 }: YansiPublicMetricsLineProps) {
   const [metrics, setMetrics] = useState<YansiPublicMetrics | null>(null);
 
@@ -107,6 +121,7 @@ export default function YansiPublicMetricsLine({
       variant={variant}
       slug={slug}
       journeyVersion={journeyVersion}
+      includeZeroExperience={includeZeroExperience}
     />
   );
 }

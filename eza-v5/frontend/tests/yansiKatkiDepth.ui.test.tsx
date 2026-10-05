@@ -138,20 +138,27 @@ function readPayload(
   journeyVersion: number,
   contributions: ReturnType<typeof contribution>[],
   totalVisibleCount = contributions.length,
-  viewerHasActiveVerify = false
+  viewerHasActiveVerify = false,
+  contentVisibleCount?: number
 ) {
+  const countsByType = {
+    verify: contributions.filter((row) => row.type === 'verify').length,
+    correction: contributions.filter((row) => row.type === 'correction').length,
+    additional_information: contributions.filter((row) => row.type === 'additional_information').length,
+    different_perspective: contributions.filter((row) => row.type === 'different_perspective').length,
+  };
   return {
     ok: true,
     data: {
       slug,
       journeyVersion,
       totalVisibleCount,
-      countsByType: {
-        verify: contributions.filter((row) => row.type === 'verify').length,
-        correction: contributions.filter((row) => row.type === 'correction').length,
-        additional_information: contributions.filter((row) => row.type === 'additional_information').length,
-        different_perspective: contributions.filter((row) => row.type === 'different_perspective').length,
-      },
+      contentVisibleCount:
+        contentVisibleCount ??
+        countsByType.correction +
+          countsByType.additional_information +
+          countsByType.different_perspective,
+      countsByType,
       contributions,
       viewerHasActiveVerify,
     },
@@ -256,14 +263,10 @@ describe('katki depth ui', () => {
         onSubmitted={vi.fn()}
       />
     );
-    expect(await screen.findByTestId('yansi-katki-group-verify')).toBeTruthy();
-    const groups = screen.getAllByRole('heading', { level: 3 }).map((node) => node.textContent);
-    expect(groups).toEqual(['Doğrulama', 'Ek Bilgi', 'Farklı Bakış']);
-    expect(screen.queryByTestId('yansi-katki-group-correction')).toBeNull();
-    const verifyRow = screen.getByTestId('yansi-katki-row-verify-empty');
-    expect(verifyRow).toHaveTextContent('Ada');
-    expect(verifyRow).toHaveTextContent('Doğrulama');
-    expect(verifyRow).not.toHaveTextContent('Bu bilgi doğrudur');
+    expect(screen.queryByTestId('yansi-katki-group-verify')).toBeNull();
+    expect(screen.queryByTestId('yansi-katki-row-verify-empty')).toBeNull();
+    expect(screen.getByTestId('yansi-katki-row-note')).toHaveTextContent('Ece');
+    expect(screen.getByTestId('yansi-katki-row-note')).toHaveTextContent('Ek Bilgi');
     expect(screen.getByTestId('yansi-katki-row-note')).toHaveTextContent('Arşiv notu');
     expect(screen.getByText('Deniz')).toBeTruthy();
     expect(document.body.textContent).not.toContain('verify-empty');
@@ -302,7 +305,7 @@ describe('katki depth ui', () => {
         journeyVersion={2}
         read={
           readPayload('yansi-a', 2, [
-            contribution({ contributionId: 'v1', type: 'verify', body: null, displayName: 'Ada' }),
+            contribution({ contributionId: 'v1', type: 'correction', displayName: 'Ada' }),
           ]).data
         }
         stage="list"
@@ -325,42 +328,27 @@ describe('katki depth ui', () => {
     expect(apiClient.get).not.toHaveBeenCalled();
   });
 
-  it('submits a bodiless verify and shows the new row once', async () => {
+  it('submits a text contribution and shows the new row once', async () => {
     const onSubmitted = vi.fn();
     let createdRead = readPayload('yansi-a', 2, []).data;
-    vi.mocked(apiClient.post).mockResolvedValue({
-      ok: true,
-      data: contribution({
-        contributionId: 'created-1',
-        type: 'verify',
-        body: null,
-        displayName: 'Ada',
-      }),
+    const created = contribution({
+      contributionId: 'created-1',
+      type: 'additional_information',
+      displayName: 'Ada',
     });
+    vi.mocked(apiClient.post).mockResolvedValue({ ok: true, data: created });
     vi.mocked(apiClient.get).mockImplementation(async (path: string) => {
       if (!String(path).includes('/contributions')) return { ok: false };
       if (vi.mocked(apiClient.post).mock.calls.length === 0) return readPayload('yansi-a', 2, []);
-      return readPayload(
-        'yansi-a',
-        2,
-        [
-          contribution({
-            contributionId: 'created-1',
-            type: 'verify',
-            body: null,
-            displayName: 'Server Ada',
-          }),
-        ],
-        1
-      );
+      return readPayload('yansi-a', 2, [{ ...created, contributor: { ...created.contributor, displayName: 'Server Ada' } }], 1);
     });
     const { rerender } = render(
       <Depth
         slug="yansi-a"
         journeyVersion={2}
         stage="compose"
-        selectedType="verify"
-        body=""
+        selectedType="additional_information"
+        body="Bu ek bilgi yirmi karakteri asiyor."
         sourceNote=""
         onBack={vi.fn()}
         onStartCreate={vi.fn()}
@@ -379,12 +367,7 @@ describe('katki depth ui', () => {
     await waitFor(() => expect(onSubmitted).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(createdRead.contributions[0]?.contributor.displayName).toBe('Server Ada'));
     const postBody = vi.mocked(apiClient.post).mock.calls[0]?.[1] as { body: Record<string, unknown> };
-    expect(postBody.body).toEqual({
-      journeyVersion: 2,
-      type: 'verify',
-      body: null,
-      sourceNote: null,
-    });
+    expect(postBody.body.type).toBe('additional_information');
     expect(postBody.body).not.toHaveProperty('userId');
     rerender(
       <Depth
@@ -428,7 +411,7 @@ describe('katki depth ui', () => {
     );
     await screen.findByTestId('yansi-katki-composer');
     fireEvent.click(screen.getByTestId('yansi-katki-submit'));
-    expect(await screen.findByTestId('yansi-katki-notice')).toHaveTextContent('20');
+    expect(await screen.findByTestId('yansi-katki-body-progress')).toHaveTextContent('20');
     expect(apiClient.post).not.toHaveBeenCalled();
 
     view.rerender(
@@ -669,7 +652,8 @@ describe('katki on the yansi chain', () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     await flushAsync();
     expect(screen.queryByTestId('yansi-katki-test-entry')).toBeNull();
-    expect(screen.getByTestId('yansi-desktop-proof-row')).toHaveTextContent('7 katkı');
+    expect(screen.getByTestId('yansi-desktop-proof-row')).toHaveTextContent('0 katkı');
+    expect(screen.getByTestId('yansi-desktop-proof-row')).toHaveTextContent('1 doğrulama');
     expect(apiClient.get).toHaveBeenCalledWith(
       '/api/mirror-network/yansi-b/contributions',
       expect.objectContaining({ auth: false, params: { journeyVersion: '2' } })
@@ -681,7 +665,7 @@ describe('katki on the yansi chain', () => {
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute('data-yansi-katki-stage', 'list');
     expect(screen.queryByTestId('mirror-frozen-replay')).toBeNull();
     fireEvent.click(screen.getByTestId('yansi-katki-create'));
-    expect(screen.getByText("Bu Yansı'ya nasıl katkıda bulunmak istersin?")).toBeTruthy();
+    expect(screen.getByText("Ne tür bir katkı bırakmak istersin?")).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Doğrulama' })).toBeNull();
     expect(screen.queryByTestId('yansi-katki-type-verify')).toBeNull();
     for (const label of ['Düzeltme', 'Ek Bilgi', 'Farklı Bakış']) {
@@ -713,7 +697,7 @@ describe('katki on the yansi chain', () => {
       />
     );
     await flushAsync();
-    fireEvent.click(await screen.findByTestId('yansi-katki-reel-create'));
+    fireEvent.click(await screen.findByRole('button', { name: '0 katkı' }));
     expect(screen.getByTestId('yansi-katki-depth')).toBeTruthy();
     fireEvent.click(screen.getByTestId('mirror-yansi-active-title'));
     expect(onDepthChange).toHaveBeenCalledWith('chat');
@@ -725,7 +709,8 @@ describe('katki on the yansi chain', () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     await flushAsync();
     const chain = screen.getByTestId('mirror-yansi-chain');
-    fireEvent.click(screen.getByRole('button', { name: 'Katkı yap' }));
+    fireEvent.click(screen.getByRole('button', { name: '0 katkı' }));
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
     expect(screen.getByTestId('yansi-katki-depth')).toBeTruthy();
     fireEvent.wheel(screen.getByTestId('yansi-katki-lane'), {
       deltaY: YANSI_WHEEL_COMMIT_PX,
@@ -809,20 +794,23 @@ describe('katki on the yansi chain', () => {
     await flushAsync();
     expect(screen.queryByText('9 katkı')).toBeNull();
     expect(screen.queryByText('Ada From A')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '2 katkı' }));
-    expect(screen.getByText('Bora')).toBeTruthy();
-    expect(screen.queryByText('Ada From A')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '0 katkı' }));
     expect(screen.getByTestId('yansi-katki-depth')).toHaveAttribute(
       'data-yansi-katki-target',
       'yansi-x:2'
     );
+    expect(screen.queryByText('Bora')).toBeNull();
+    fireEvent.click(screen.getByTestId('yansi-katki-verifiers'));
+    expect(screen.getByTestId('yansi-verifier-panel')).toHaveTextContent('Bora');
+    expect(screen.queryByText('Ada From A')).toBeNull();
   });
 
   it('resets a draft when reel travel changes the Yansı', async () => {
     installClock();
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     await flushAsync();
-    fireEvent.click(screen.getByRole('button', { name: 'Katkı yap' }));
+    fireEvent.click(screen.getByRole('button', { name: '0 katkı' }));
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
     expect(screen.getByTestId('yansi-katki-type-choice')).toBeTruthy();
     fireEvent.click(screen.getByTestId('yansi-katki-type-correction'));
     fireEvent.change(screen.getByTestId('yansi-katki-body'), {
@@ -838,7 +826,8 @@ describe('katki on the yansi chain', () => {
     });
     expect(chain).toHaveAttribute('data-active-slug', 'yansi-x');
     expect(chain).toHaveAttribute('data-yansi-katki-stage', 'closed');
-    fireEvent.click(screen.getByRole('button', { name: 'Katkı yap' }));
+    fireEvent.click(screen.getByRole('button', { name: '0 katkı' }));
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
     fireEvent.click(screen.getByTestId('yansi-katki-type-correction'));
     expect(screen.getByTestId('yansi-katki-body')).toHaveValue('');
     expect(screen.getByTestId('yansi-katki-depth')).toHaveAttribute(
@@ -862,7 +851,8 @@ describe('katki on the yansi chain', () => {
     expect(screen.queryByRole('button', { name: 'Katkı yap' })).toBeNull();
     expect(screen.queryByText('0 katkı')).toBeNull();
     resolveRead(readPayload('yansi-b', 2, []));
-    expect(await screen.findByRole('button', { name: 'Katkı yap' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '0 katkı' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '0 doğrulama' })).toBeTruthy();
   });
 
   it('stays quiet on the reel when the contribution read fails', async () => {
@@ -903,40 +893,56 @@ describe('katki on the yansi chain', () => {
       return readPayload('yansi-b', 2, []);
     });
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Katkı yap' }));
+    fireEvent.click(await screen.findByRole('button', { name: '0 katkı' }));
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
     expect(screen.getByTestId('yansi-katki-type-choice')).toBeTruthy();
-    expect(screen.getByText("Bu Yansı'ya nasıl katkıda bulunmak istersin?")).toBeTruthy();
-    expect(screen.queryByText('0 katkı')).toBeNull();
+    expect(screen.getByText('Ne tür bir katkı bırakmak istersin?')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '0 katkı' })).toBeTruthy();
     expect(screen.queryByText('Henüz katkı yok')).toBeNull();
     expect(screen.queryByText('İlk katkıyı sen yap')).toBeNull();
   });
 
-  it('shows 1 katkı on the reel after a bodiless verify without reload', async () => {
-    const created = contribution({
-      contributionId: 'created-reel',
-      type: 'verify',
-      body: null,
-      displayName: 'Ada',
+  it('shows 1 doğrulama after a server verify toggle', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      ok: true,
+      data: {
+        slug: 'yansi-b',
+        journeyVersion: 2,
+        viewerHasActiveVerify: true,
+        totalVisibleCount: 1,
+        contentVisibleCount: 0,
+        countsByType: {
+          verify: 1,
+          correction: 0,
+          additional_information: 0,
+          different_perspective: 0,
+        },
+      },
     });
-    vi.mocked(apiClient.post).mockResolvedValue({ ok: true, data: created });
     vi.mocked(apiClient.get).mockImplementation(async (path: string) => {
       if (!String(path).includes('/contributions')) return { ok: false };
       if (vi.mocked(apiClient.post).mock.calls.length === 0) return readPayload('yansi-b', 2, []);
-      return readPayload('yansi-b', 2, [created], 1, true);
+      return readPayload(
+        'yansi-b',
+        2,
+        [contribution({ contributionId: 'created-reel', type: 'verify', body: null, displayName: 'Ada' })],
+        1,
+        true
+      );
     });
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     fireEvent.click(await screen.findByTestId('yansi-katki-verify'));
-    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
     expect(screen.queryByTestId('yansi-katki-composer')).toBeNull();
     expect(apiClient.post).toHaveBeenCalledWith(
-      '/api/mirror-network/yansi-b/contributions',
+      '/api/mirror-network/yansi-b/contributions/verify-toggle',
       expect.objectContaining({
-        body: { journeyVersion: 2, type: 'verify', body: null, sourceNote: null },
+        body: { journeyVersion: 2 },
       })
     );
-    expect(await screen.findByRole('button', { name: '1 katkı' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '1 doğrulama' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '0 katkı' })).toBeTruthy();
     expect(screen.getByTestId('yansi-katki-verify')).toHaveAttribute('data-yansi-verify', 'active');
-    expect(screen.getByRole('button', { name: 'Katkı yap' })).toBeTruthy();
+    expect(screen.queryByTestId('yansi-katki-reel-create')).toBeNull();
   });
 
   it('replaces the optimistic total with the reconciled server total', async () => {
@@ -951,9 +957,9 @@ describe('katki on the yansi chain', () => {
     vi.mocked(apiClient.get).mockImplementation(async (path: string) => {
       if (!String(path).includes('/contributions')) return { ok: false };
       if (vi.mocked(apiClient.post).mock.calls.length === 0) {
-        return readPayload('yansi-b', 2, [], 7);
+        return readPayload('yansi-b', 2, [], 7, false, 7);
       }
-      return readPayload('yansi-b', 2, [], 9);
+      return readPayload('yansi-b', 2, [], 9, false, 9);
     });
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     fireEvent.click(await screen.findByRole('button', { name: '7 katkı' }));
@@ -981,9 +987,9 @@ describe('katki on the yansi chain', () => {
     vi.mocked(apiClient.get).mockImplementation(async (path: string) => {
       if (!String(path).includes('/contributions')) return { ok: false };
       if (vi.mocked(apiClient.post).mock.calls.length === 0) {
-        return readPayload('yansi-b', 2, [], 7);
+        return readPayload('yansi-b', 2, [], 7, false, 7);
       }
-      return readPayload('yansi-b', 2, [], 6);
+      return readPayload('yansi-b', 2, [], 6, false, 6);
     });
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     fireEvent.click(await screen.findByRole('button', { name: '7 katkı' }));
@@ -1015,8 +1021,8 @@ describe('katki on the yansi chain', () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     fireEvent.click(await screen.findByTestId('yansi-katki-verify'));
     expect(screen.queryByText(/SQL/)).toBeNull();
-    fireEvent.click(await screen.findByRole('button', { name: '1 katkı' }));
-    expect(await screen.findByTestId('yansi-katki-row-created-keep')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '1 doğrulama' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '0 katkı' })).toBeTruthy();
     expect(screen.queryByTestId('yansi-katki-notice')).toBeNull();
   });
 
@@ -1060,7 +1066,8 @@ describe('katki on the yansi chain', () => {
     resolveA(readPayload('yansi-b', 2, [], 99));
     await flushAsync();
     expect(screen.queryByRole('button', { name: '99 katkı' })).toBeNull();
-    expect(screen.getByRole('button', { name: '2 katkı' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '0 katkı' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '0 doğrulama' })).toBeTruthy();
   });
 
   it('ignores a reconciled payload for another journey version', async () => {
@@ -1081,7 +1088,8 @@ describe('katki on the yansi chain', () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     fireEvent.click(await screen.findByTestId('yansi-katki-verify'));
     expect(screen.queryByTestId('yansi-katki-composer')).toBeNull();
-    expect(await screen.findByRole('button', { name: '1 katkı' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '1 doğrulama' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '0 katkı' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: '4 katkı' })).toBeNull();
   });
 
@@ -1100,20 +1108,41 @@ describe('katki on the yansi chain', () => {
     const verify = await screen.findByTestId('yansi-katki-verify');
     expect(verify).toHaveAttribute('data-yansi-verify', 'idle');
     expect(verify).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: '4 katkı' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '0 katkı' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '1 doğrulama' })).toBeTruthy();
   });
 
-  it('does not post another verify when the viewer already has one', async () => {
+  it('toggles off an active verify through the server', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      ok: true,
+      data: {
+        slug: 'yansi-b',
+        journeyVersion: 2,
+        viewerHasActiveVerify: false,
+        totalVisibleCount: 0,
+        contentVisibleCount: 0,
+        countsByType: {
+          verify: 0,
+          correction: 0,
+          additional_information: 0,
+          different_perspective: 0,
+        },
+      },
+    });
     vi.mocked(apiClient.get).mockImplementation(async (path: string) => {
       if (!String(path).includes('/contributions')) return { ok: false };
-      return readPayload('yansi-b', 2, [], 0, true);
+      if (vi.mocked(apiClient.post).mock.calls.length === 0) {
+        return readPayload('yansi-b', 2, [], 0, true);
+      }
+      return readPayload('yansi-b', 2, []);
     });
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
     const verify = await screen.findByTestId('yansi-katki-verify');
     expect(verify).toHaveAttribute('data-yansi-verify', 'active');
     fireEvent.click(verify);
-    expect(apiClient.post).not.toHaveBeenCalled();
-    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+    expect(apiClient.post).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('yansi-katki-composer')).toBeNull();
+    expect(await screen.findByTestId('yansi-katki-verify')).toHaveAttribute('data-yansi-verify', 'idle');
   });
 
   it('blocks a second verify click while the first post is in flight', async () => {
@@ -1171,13 +1200,14 @@ describe('katki on the yansi chain', () => {
 
   it('requires a body for each text contribution and keeps the reel mounted', async () => {
     renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Katkı yap' }));
+    fireEvent.click(await screen.findByRole('button', { name: '0 katkı' }));
+    fireEvent.click(screen.getByTestId('yansi-katki-create'));
     expect(screen.getByTestId('mirror-yansi-active-title')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Doğrulama' })).toBeNull();
     for (const type of ['correction', 'additional_information', 'different_perspective'] as const) {
       fireEvent.click(screen.getByTestId(`yansi-katki-type-${type}`));
       fireEvent.click(screen.getByTestId('yansi-katki-submit'));
-      expect(await screen.findByTestId('yansi-katki-notice')).toHaveTextContent('metin');
+      expect(await screen.findByTestId('yansi-katki-body-progress')).toHaveTextContent('20');
       fireEvent.click(screen.getByTestId('yansi-katki-change-type'));
     }
     fireEvent.click(screen.getByTestId('yansi-katki-close'));
@@ -1229,8 +1259,8 @@ describe('katki mobile freeze and reel contract', () => {
     );
     const css = readFileSync(join(process.cwd(), 'styles/yansi-reel-responsive.css'), 'utf8');
     expect(surface).toContain('yansi-katki-reel-signal');
-    expect(surface).toContain('Katkı yap');
-    expect(surface).toContain('Doğrula');
+    expect(surface).toContain('formatVerifyReelCount');
+    expect(surface).not.toContain('Katkı yap');
     const discover = readFileSync(
       join(process.cwd(), 'components/saina/SainaDiscoverCard.tsx'),
       'utf8'

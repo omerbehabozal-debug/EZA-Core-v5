@@ -21,6 +21,7 @@ from backend.core.schemas.mirror_network import (
     PublicFrozenJourneyArtifact,
     PublicKatkiContribution,
     PublicKatkiRead,
+    PublicKatkiVerifyToggle,
     YansiPublicMetrics,
 )
 from backend.core.schemas.mirror_sohbet import (
@@ -98,6 +99,7 @@ from backend.security.production_surface import assert_non_production_surface
 from backend.services.mirror_network.katki_create import (
     KatkiCreateError,
     create_katki,
+    toggle_viewer_verify,
 )
 from backend.services.mirror_network.katki_moderation import (
     KatkiModerationError,
@@ -582,6 +584,40 @@ async def create_public_katki(
     except KatkiCreateError as exc:
         raise _katki_create_http(exc) from exc
     return PublicKatkiContribution.model_validate(payload)
+
+
+class KatkiVerifyToggleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    journeyVersion: int = Field(..., ge=1)
+
+
+@router.post(
+    "/{slug}/contributions/verify-toggle",
+    response_model=PublicKatkiVerifyToggle,
+)
+async def toggle_public_verify(
+    slug: str,
+    body: KatkiVerifyToggleRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_mirror_authenticated_user),
+    _: None = Depends(rate_limit_katki_write),
+) -> PublicKatkiVerifyToggle:
+    """Authenticated session toggles its own verify. The server chooses create or withdraw."""
+    try:
+        payload = await toggle_viewer_verify(
+            db,
+            slug=slug,
+            journey_version=body.journeyVersion,
+            actor_user_id=user.id,
+        )
+    except KatkiCreateError as exc:
+        raise _katki_create_http(exc) from exc
+    except KatkiModerationError as exc:
+        raise _katki_moderation_http(exc) from exc
+    except KatkiReadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.reason) from exc
+    return PublicKatkiVerifyToggle.model_validate(payload)
 
 
 class KatkiMutationResponse(BaseModel):

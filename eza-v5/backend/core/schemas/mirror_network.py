@@ -354,6 +354,7 @@ class PublicKatkiContributor(BaseModel):
     displayName: str
     publicAvatarUrl: Optional[str] = None
     publicAvatarRevision: int = 0
+    publicHonorific: str
 
 
 class PublicKatkiContribution(BaseModel):
@@ -377,6 +378,20 @@ class PublicKatkiRead(BaseModel):
     slug: str
     journeyVersion: int = Field(ge=1)
     totalVisibleCount: int = Field(ge=0)
+    contentVisibleCount: int = Field(ge=0)
     countsByType: PublicKatkiTypeCounts
     contributions: List[PublicKatkiContribution] = Field(default_factory=list)
     viewerHasActiveVerify: bool = False
+
+
+class PublicKatkiVerifyToggle(BaseModel):
+    """POST verify-toggle. Public counts only. No contribution or account identity."""
+
+    model_config = {"extra": "forbid"}
+
+    slug: str
+    journeyVersion: int = Field(ge=1)
+    viewerHasActiveVerify: bool
+    totalVisibleCount: int = Field(ge=0)
+    contentVisibleCount: int = Field(ge=0)
+    countsByType: PublicKatkiTypeCounts

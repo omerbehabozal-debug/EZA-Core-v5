@@ -14,20 +14,24 @@ import {
   type KatkiType,
 } from '@/lib/eza/mirror-network/katkiDepth';
 import {
+  KATKI_COMPOSE_PLACEHOLDERS,
   KATKI_COMPOSE_PROMPTS,
   KATKI_CREATE_ORDER,
   createPublicKatki,
   fetchPublicKatki,
-  groupVisibleKatki,
+  groupContentKatki,
+  katkiBodyProgress,
   katkiCreateErrorMessage,
   katkiTypeLabel,
   mergeCreatedKatki,
   validateKatkiDraft,
   type KatkiReadStatus,
+  type PublicKatkiContributor,
   type PublicKatkiRead,
 } from '@/lib/eza/mirror-network/katkiPublic';
 
-const TYPE_PROMPT = "Bu Yansı'ya nasıl katkıda bulunmak istersin?";
+const PANEL_EXPLANATION =
+  "Bu Yansı'daki düşünce ve bilgiler, insanların katkılarıyla daha da zenginleşiyor.";
 
 export type YansiKatkiDepthProps = {
   slug: string;
@@ -87,6 +91,8 @@ export default function YansiKatkiDepth({
   const { isAuthenticated, isAuthReady } = useAuth();
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [contentFilter, setContentFilter] = useState<'all' | Exclude<KatkiType, 'verify'>>('all');
   const generationRef = useRef(0);
   const backRef = useRef<HTMLButtonElement | null>(null);
   const targetRef = useRef({ slug, journeyVersion });
@@ -130,6 +136,13 @@ export default function YansiKatkiDepth({
     }
     const draft = validateKatkiDraft(selectedType, body, sourceNote);
     if (!draft.ok) {
+      if (
+        draft.message === 'Metin en az 20 karakter olmalı.' ||
+        draft.message === 'Bu katkı için bir metin yazmalısın.'
+      ) {
+        setNotice(null);
+        return;
+      }
       setNotice(draft.message);
       return;
     }
@@ -184,10 +197,18 @@ export default function YansiKatkiDepth({
     onReadChange(reconciled.data, chainGeneration);
   };
 
-  const groups = groupVisibleKatki(snapshot?.contributions ?? []);
+  const groups = groupContentKatki(snapshot?.contributions ?? []).filter(
+    (group) => contentFilter === 'all' || group.type === contentFilter
+  );
+  const contentCount = snapshot?.contentVisibleCount ?? 0;
   const showBack = stage === 'compose' || (stage === 'choose' && chooseFrom === 'list');
   const composePrompt =
-    selectedType && selectedType !== 'verify' ? KATKI_COMPOSE_PROMPTS[selectedType] : 'Katkı metni';
+    selectedType && selectedType !== 'verify'
+      ? KATKI_COMPOSE_PROMPTS[selectedType]
+      : "Bu Yansı'ya ne eklemek istersin?";
+  const composePlaceholder =
+    selectedType && selectedType !== 'verify' ? KATKI_COMPOSE_PLACEHOLDERS[selectedType] : '';
+  const bodyProgress = katkiBodyProgress(body);
 
   return (
     <div
@@ -212,12 +233,20 @@ export default function YansiKatkiDepth({
                 else onBack();
               }}
             >
-              Geri
+              {stage === 'compose' && selectedType && selectedType !== 'verify'
+                ? `← ${katkiTypeLabel(selectedType)}`
+                : 'Geri'}
             </button>
           ) : (
             <span />
           )}
-          <h2 className="yansi-katki-depth__title">Katkılar</h2>
+          <h2 className="yansi-katki-depth__title">
+            {stage === 'list'
+              ? `Topluluk Katkıları ${contentCount}`
+              : stage === 'choose'
+                ? 'Topluluk Katkıları'
+                : ''}
+          </h2>
           <button
             ref={showBack ? undefined : backRef}
             type="button"
@@ -238,6 +267,39 @@ export default function YansiKatkiDepth({
 
         {stage === 'list' ? (
           <div data-testid="yansi-katki-list">
+            <p className="yansi-katki-depth__explain">{PANEL_EXPLANATION}</p>
+            <button
+              type="button"
+              className="yansi-katki-depth__create"
+              data-testid="yansi-katki-create"
+              onClick={startCreate}
+            >
+              + Katkı yap
+            </button>
+            {snapshot ? (
+              <div className="yansi-katki-depth__filters" role="tablist" aria-label="Katkı türleri">
+                <button
+                  type="button"
+                  className="yansi-katki-depth__filter"
+                  data-active={contentFilter === 'all' ? 'true' : 'false'}
+                  onClick={() => setContentFilter('all')}
+                >
+                  Tümü {contentCount}
+                </button>
+                {KATKI_CREATE_ORDER.map((group) => (
+                  <button
+                    key={group.type}
+                    type="button"
+                    className="yansi-katki-depth__filter"
+                    data-testid={`yansi-katki-filter-${group.type}`}
+                    data-active={contentFilter === group.type ? 'true' : 'false'}
+                    onClick={() => setContentFilter(group.type)}
+                  >
+                    {group.label} {snapshot.countsByType[group.type]}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {loading ? (
               <p className="yansi-katki-depth__status" data-testid="yansi-katki-loading">
                 Katkılar hazırlanıyor
@@ -255,7 +317,6 @@ export default function YansiKatkiDepth({
                     className="yansi-katki-depth__group"
                     data-testid={`yansi-katki-group-${group.type}`}
                   >
-                    <h3 className="yansi-katki-depth__group-label">{group.label}</h3>
                     <ul className="yansi-katki-depth__rows">
                       {group.rows.map((row) => (
                         <li key={row.contributionId}>
@@ -272,8 +333,15 @@ export default function YansiKatkiDepth({
                             <div className="yansi-katki-depth__row-copy">
                               <p className="yansi-katki-depth__name">
                                 {row.contributor.displayName}
+                                <span className="yansi-katki-depth__type">
+                                  {katkiTypeLabel(row.type)}
+                                </span>
                               </p>
-                              <p className="yansi-katki-depth__type">{katkiTypeLabel(row.type)}</p>
+                              {row.contributor.publicHonorific ? (
+                                <p className="yansi-katki-depth__honorific">
+                                  {row.contributor.publicHonorific}
+                                </p>
+                              ) : null}
                               {row.body ? (
                                 <p className="yansi-katki-depth__body">{row.body}</p>
                               ) : null}
@@ -293,21 +361,13 @@ export default function YansiKatkiDepth({
                   </section>
                 ))
               : null}
-            <button
-              type="button"
-              className="yansi-katki-depth__create"
-              data-testid="yansi-katki-create"
-              onClick={startCreate}
-            >
-              + Katkı yap
-            </button>
           </div>
         ) : null}
 
         {stage === 'choose' ? (
           <div data-testid="yansi-katki-type-choice">
-            <p className="yansi-katki-depth__prompt">{TYPE_PROMPT}</p>
-            <div className="yansi-katki-depth__types" role="group" aria-label={TYPE_PROMPT}>
+            <p className="yansi-katki-depth__prompt">Ne tür bir katkı bırakmak istersin?</p>
+            <div className="yansi-katki-depth__types" role="group" aria-label="Ne tür bir katkı bırakmak istersin?">
               {KATKI_CREATE_ORDER.map((group) => (
                 <button
                   key={group.type}
@@ -342,28 +402,38 @@ export default function YansiKatkiDepth({
                 data-testid="yansi-katki-body"
                 value={body}
                 maxLength={2000}
-                rows={5}
+                rows={6}
+                placeholder={composePlaceholder}
                 onChange={(event) => onBodyChange(event.target.value)}
               />
             </label>
-            {selectedType === 'verify' ? (
-              <p className="yansi-katki-depth__hint">
-                Metin isteğe bağlı. Yazarsan en az 20 karakter.
+            {bodyProgress ? (
+              <p className="yansi-katki-depth__hint" data-testid="yansi-katki-body-progress">
+                {bodyProgress}
               </p>
+            ) : null}
+            {sourceOpen ? (
+              <label className="yansi-katki-depth__field yansi-katki-depth__field--optional" htmlFor="yansi-katki-source">
+                Kaynak
+                <textarea
+                  id="yansi-katki-source"
+                  data-testid="yansi-katki-source"
+                  value={sourceNote}
+                  maxLength={500}
+                  rows={2}
+                  onChange={(event) => onSourceChange(event.target.value)}
+                />
+              </label>
             ) : (
-              <p className="yansi-katki-depth__hint">En az 20 karakter.</p>
+              <button
+                type="button"
+                className="yansi-katki-depth__source-toggle"
+                data-testid="yansi-katki-source-toggle"
+                onClick={() => setSourceOpen(true)}
+              >
+                + Kaynak ekle
+              </button>
             )}
-            <label className="yansi-katki-depth__field yansi-katki-depth__field--optional" htmlFor="yansi-katki-source">
-              Kaynak ekle (isteğe bağlı)
-              <textarea
-                id="yansi-katki-source"
-                data-testid="yansi-katki-source"
-                value={sourceNote}
-                maxLength={500}
-                rows={2}
-                onChange={(event) => onSourceChange(event.target.value)}
-              />
-            </label>
             <button
               type="submit"
               className="yansi-katki-depth__submit"
@@ -374,6 +444,61 @@ export default function YansiKatkiDepth({
             </button>
           </form>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function YansiVerifierPanel({
+  count,
+  people,
+  onClose,
+}: {
+  count: number;
+  people: PublicKatkiContributor[];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="yansi-katki-depth yansi-verifier-panel"
+      data-testid="yansi-verifier-panel"
+      onWheel={(event) => event.stopPropagation()}
+    >
+      <div className="yansi-katki-depth__panel yansi-verifier-panel__panel">
+        <div className="yansi-katki-depth__header">
+          <span />
+          <h2 className="yansi-katki-depth__title">Doğrulayanlar {count}</h2>
+          <button
+            type="button"
+            className="yansi-katki-depth__close"
+            data-testid="yansi-verifier-close"
+            aria-label="Kapat"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+        <p className="yansi-katki-depth__explain">Bu Yansı&apos;yı doğrulayan kişiler</p>
+        <ul className="yansi-katki-depth__rows">
+          {people.map((person, index) => (
+            <li key={`${person.displayName}-${index}`}>
+              <article className="yansi-katki-depth__row" data-testid="yansi-verifier-person">
+                <ProfileUserAvatar
+                  displayName={person.displayName}
+                  avatarUrl={person.publicAvatarUrl}
+                  cacheBust={person.publicAvatarRevision || undefined}
+                  size="sm"
+                />
+                <div className="yansi-katki-depth__row-copy">
+                  <p className="yansi-katki-depth__name">{person.displayName}</p>
+                  {person.publicHonorific ? (
+                    <p className="yansi-katki-depth__honorific">{person.publicHonorific}</p>
+                  ) : null}
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

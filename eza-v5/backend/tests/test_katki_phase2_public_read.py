@@ -468,6 +468,7 @@ def test_route_requires_version_and_uses_frozen_404():
             "slug": SLUG,
             "journeyVersion": journey_version,
             "totalVisibleCount": 0,
+            "contentVisibleCount": 0,
             "countsByType": {name: 0 for name in KATKI_CONTRIBUTION_TYPES},
             "contributions": [],
         }
@@ -660,3 +661,49 @@ async def test_viewer_has_active_verify_is_exact_and_private(katki_db, katki_wor
         katki_db, slug=SLUG, journey_version=2, viewer_user_id=other
     )
     assert other_reader["viewerHasActiveVerify"] is False
+
+
+@pytest.mark.asyncio
+async def test_content_visible_count_excludes_verify_and_hidden(katki_db, katki_world):
+    viewer = uuid4()
+    other = uuid4()
+    await _insert(
+        katki_db,
+        [
+            _row(owner=viewer, version=1, contribution_type="verify", body=None, source_note=None),
+            _row(owner=viewer, version=1, contribution_type="correction", body="düzeltme"),
+            _row(owner=other, version=1, contribution_type="additional_information", body="ek"),
+            _row(owner=other, version=1, contribution_type="different_perspective", body="bakış"),
+            _row(
+                owner=uuid4(),
+                version=1,
+                contribution_type="verify",
+                visibility="hidden_by_owner",
+                body=None,
+                source_note=None,
+            ),
+            _row(
+                owner=uuid4(),
+                version=1,
+                contribution_type="verify",
+                visibility="hidden_by_trust",
+                body=None,
+                source_note=None,
+            ),
+            _row(
+                owner=uuid4(),
+                version=1,
+                contribution_type="correction",
+                visibility="withdrawn",
+                body="geri",
+            ),
+        ],
+    )
+    payload = await get_public_katki_read(
+        katki_db, slug=SLUG, journey_version=1, viewer_user_id=viewer
+    )
+    assert payload["countsByType"]["verify"] == 1
+    assert payload["totalVisibleCount"] == 4
+    assert payload["contentVisibleCount"] == 3
+    assert payload["viewerHasActiveVerify"] is True
+    assert set(payload) == PUBLIC_KATKI_RESPONSE_KEYS

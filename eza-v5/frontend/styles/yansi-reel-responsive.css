@@ -1084,12 +1084,110 @@
   }
 
   .yansi-katki-depth__create,
-  .yansi-katki-depth__type-choice,
-  .yansi-katki-depth__submit {
+  .yansi-katki-depth__type-choice {
     display: block;
     width: 100%;
     text-align: left;
     padding: 0.7rem 0.2rem;
+  }
+
+  .yansi-katki-depth__submit {
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 0.75rem 1rem;
+    border-radius: 999px;
+    background: rgba(228, 196, 142, 0.92);
+    color: #1a140c;
+    font-weight: 600;
+  }
+
+  .yansi-katki-depth__explain,
+  .yansi-katki-depth__honorific {
+    margin: 0 0 0.75rem;
+    color: var(--yansi-reel-ink-tertiary);
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .yansi-katki-depth__honorific {
+    margin: 0.1rem 0 0.35rem;
+  }
+
+  .yansi-katki-depth__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 0.9rem;
+  }
+
+  .yansi-katki-depth__filter,
+  .yansi-katki-depth__source-toggle {
+    border: 0;
+    background: transparent;
+    color: var(--yansi-reel-ink-tertiary);
+    cursor: pointer;
+  }
+
+  .yansi-katki-depth__filter {
+    border: 1px solid rgba(228, 196, 142, 0.22);
+    border-radius: 999px;
+    padding: 0.28rem 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .yansi-katki-depth__filter[data-active='true'] {
+    color: rgba(228, 196, 142, 0.98);
+    border-color: rgba(228, 196, 142, 0.55);
+  }
+
+  .yansi-katki-depth__source-toggle {
+    margin: 0.35rem 0 0.6rem;
+    padding: 0;
+    color: rgba(228, 196, 142, 0.86);
+    font-size: 0.82rem;
+  }
+
+  .yansi-katki-verifier-stack {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 0 0 0.35rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .yansi-katki-verifier-stack > * + * {
+    margin-left: -0.45rem;
+  }
+
+  .yansi-katki-verifier-stack__more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: #1c1914;
+    color: rgba(228, 196, 142, 0.92);
+    font-size: 0.68rem;
+  }
+
+  .yansi-verifier-panel {
+    justify-content: flex-start;
+    padding-left: 38%;
+  }
+
+  .yansi-verifier-panel__panel {
+    width: min(22rem, 100%);
+  }
+
+  .yansi-katki-depth__row .yansi-katki-depth__type {
+    margin-left: 0.45rem;
+    color: rgba(228, 196, 142, 0.78);
+    font-size: 0.72rem;
   }
 
   .yansi-katki-depth__type-choice + .yansi-katki-depth__type-choice {
@@ -1347,7 +1445,8 @@
 
 @media (max-width: 899px) {
   .yansi-katki-depth,
-  .yansi-katki-reel-signal {
+  .yansi-katki-reel-signal,
+  .yansi-katki-verifier-stack {
     display: none !important;
   }
 }

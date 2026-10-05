@@ -25,10 +25,16 @@ from backend.models.mirror_network import (
     KATKI_CONTRIBUTION_TYPES,
     YansiContribution,
 )
+from backend.services.mirror_network.katki_moderation import (
+    KatkiModerationError,
+    withdraw_katki,
+)
 from backend.services.mirror_network.katki_read import (
     _author_for_node,
     _created_at_iso,
     _load_discover_authors,
+    attach_public_honorific,
+    get_public_katki_read,
     project_public_katki_contributor,
 )
 from backend.services.mirror_network.katki_target import (
@@ -260,6 +266,7 @@ async def create_katki(
             )
         )
         authors = await _load_discover_authors(db, [actor_user_id])
+        await attach_public_honorific(db, authors)
         author = _author_for_node(authors, actor_user_id)
         payload = {
             "contributionId": str(public_id),
@@ -280,3 +287,80 @@ async def create_katki(
 
     logger.info("katki_created contribution_id=%s", public_id)
     return payload
+
+
+_VERIFY_TOGGLE_FIELDS = (
+    "slug",
+    "journeyVersion",
+    "viewerHasActiveVerify",
+    "totalVisibleCount",
+    "contentVisibleCount",
+    "countsByType",
+)
+
+
+async def toggle_viewer_verify(
+    db: AsyncSession,
+    *,
+    slug: str,
+    journey_version: int | None,
+    actor_user_id: UUID,
+) -> dict[str, Any]:
+    """Create or withdraw this session's verify on one exact frozen version.
+
+    The client does not send a contribution id. The server finds the viewer's
+    non-withdrawn verify, if any, and reuses create or withdraw.
+    """
+    try:
+        target = await resolve_katki_target(
+            db,
+            slug=slug,
+            journey_version=journey_version,
+        )
+    except KatkiTargetResolutionError as exc:
+        raise KatkiCreateError("frozen_journey_not_found", status_code=404) from exc
+
+    await _acquire_create_lock(db, actor_user_id)
+
+    active = (
+        await db.execute(
+            select(_CONTRIBUTIONS.c.public_id)
+            .where(
+                _CONTRIBUTIONS.c.slug == target.slug,
+                _CONTRIBUTIONS.c.journey_version == target.journey_version,
+                _CONTRIBUTIONS.c.contributor_user_id == actor_user_id,
+                _CONTRIBUTIONS.c.contribution_type == "verify",
+                _CONTRIBUTIONS.c.visibility != "withdrawn",
+            )
+            .limit(1)
+        )
+    ).first()
+
+    if active is not None:
+        try:
+            await withdraw_katki(db, public_id=active[0], actor_user_id=actor_user_id)
+        except KatkiModerationError as exc:
+            if exc.code != "already_withdrawn":
+                raise
+    else:
+        try:
+            await create_katki(
+                db,
+                slug=target.slug,
+                actor_user_id=actor_user_id,
+                journey_version=target.journey_version,
+                contribution_type="verify",
+                body=None,
+                source_note=None,
+            )
+        except KatkiCreateError as exc:
+            if exc.code != "active_contribution_exists":
+                raise
+
+    read = await get_public_katki_read(
+        db,
+        slug=target.slug,
+        journey_version=target.journey_version,
+        viewer_user_id=actor_user_id,
+    )
+    return {key: read[key] for key in _VERIFY_TOGGLE_FIELDS}

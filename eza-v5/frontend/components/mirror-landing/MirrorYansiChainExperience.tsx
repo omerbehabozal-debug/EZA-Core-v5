@@ -25,7 +25,9 @@ import { Menu, MoreHorizontal, Volume2 } from 'lucide-react';
 import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSceneCrossfade';
 import YansiDesktopReelSurface from '@/components/mirror-landing/YansiDesktopReelSurface';
-import YansiKatkiDepth from '@/components/mirror-landing/YansiKatkiDepth';
+import YansiKatkiDepth, {
+  YansiVerifierPanel,
+} from '@/components/mirror-landing/YansiKatkiDepth';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
 import '@/styles/bilign-avatar-identity-frame.css';
 import BilignAvatarIdentityFrame from '@/components/mirror/ayna/BilignAvatarIdentityFrame';
@@ -120,7 +122,6 @@ import {
   closeKatki,
   escapeKatki,
   katkiOwnsWheel,
-  openKatkiChoose,
   openKatkiList,
   openKatkiTypeChoice,
   returnKatkiToTypeChoice,
@@ -128,11 +129,13 @@ import {
   type KatkiDepthState,
 } from '@/lib/eza/mirror-network/katkiDepth';
 import {
-  createPublicKatki,
+  applyVerifyToggle,
   fetchPublicKatki,
   katkiCreateErrorMessage,
   katkiReelSignal,
-  mergeCreatedKatki,
+  optimisticVerifyToggle,
+  togglePublicVerify,
+  visibleVerifiers,
   type KatkiReadStatus,
   type PublicKatkiRead,
 } from '@/lib/eza/mirror-network/katkiPublic';
@@ -259,6 +262,7 @@ export default function MirrorYansiChainExperience({
   const katkiRequestGen = useRef(0);
   const verifyInFlightRef = useRef(false);
   const [verifyPending, setVerifyPending] = useState(false);
+  const [verifierOpen, setVerifierOpen] = useState(false);
   const [reelTravel, setReelTravel] = useState<ReelTravel | null>(null);
   const previousActiveSlugRef = useRef(entrySlug);
   const skipFiredRef = useRef<Set<string>>(new Set());
@@ -303,10 +307,14 @@ export default function MirrorYansiChainExperience({
 
   useEffect(() => {
     setKatki(closedKatkiDepth());
+    setVerifierOpen(false);
   }, [activeSlug, presentedJourneyVersion]);
 
   useEffect(() => {
-    if (depth === 'chat' || !isDesktop) setKatki(closedKatkiDepth());
+    if (depth === 'chat' || !isDesktop) {
+      setKatki(closedKatkiDepth());
+      setVerifierOpen(false);
+    }
   }, [depth, isDesktop]);
 
   useEffect(() => {
@@ -492,6 +500,7 @@ export default function MirrorYansiChainExperience({
   const beginReelTravel = useCallback(
     (input: Omit<ReelTravel, 'traveling' | 'reducedMotion'>) => {
       setKatki(closedKatkiDepth());
+      setVerifierOpen(false);
       katkiRequestGen.current += 1;
       setKatkiRead(null);
       setKatkiReadStatus('idle');
@@ -753,6 +762,7 @@ export default function MirrorYansiChainExperience({
   const openChatDepth = useCallback(() => {
     if (!activeSlug || depth === 'chat') return;
     setKatki(closedKatkiDepth());
+    setVerifierOpen(false);
     const version =
       activeNode?.artifact.journeyVersion ?? rootArtifact.journeyVersion;
     const href = publicPathForSlug(activeSlug, {
@@ -830,22 +840,24 @@ export default function MirrorYansiChainExperience({
 
   const openKatkiListFromReel = useCallback(() => {
     if (!isDesktop || depth !== 'reel' || navInFlightRef.current || !activeSlug) return;
-    if (!katkiSnapshot || katkiSnapshot.totalVisibleCount < 1) return;
+    if (!katkiSnapshot) return;
+    setVerifierOpen(false);
     setKatki(openKatkiList(activeSlug, presentedJourneyVersion));
   }, [activeSlug, depth, isDesktop, katkiSnapshot, presentedJourneyVersion]);
 
-  const openKatkiCreateFromReel = useCallback(() => {
+  const openVerifiersFromReel = useCallback(() => {
     if (!isDesktop || depth !== 'reel' || navInFlightRef.current || !activeSlug) return;
-    if (!katkiSnapshot) return;
-    setKatki(openKatkiChoose(activeSlug, presentedJourneyVersion));
-  }, [activeSlug, depth, isDesktop, katkiSnapshot, presentedJourneyVersion]);
+    if (!katkiSnapshot || katkiSnapshot.countsByType.verify < 1) return;
+    setKatki(closedKatkiDepth());
+    setVerifierOpen(true);
+  }, [activeSlug, depth, isDesktop, katkiSnapshot]);
 
   const submitDirectVerify = useCallback(async () => {
     if (!isDesktop || depth !== 'reel' || navInFlightRef.current || reelTravel) return;
     if (!activeSlug || !Number.isInteger(presentedJourneyVersion) || presentedJourneyVersion < 1) {
       return;
     }
-    if (!katkiSnapshot || katkiSnapshot.viewerHasActiveVerify) return;
+    if (!katkiSnapshot) return;
     if (verifyInFlightRef.current) return;
     if (!isAuthReady) return;
     if (!isAuthenticated) {
@@ -857,42 +869,38 @@ export default function MirrorYansiChainExperience({
     const generation = katkiRequestGen.current;
     verifyInFlightRef.current = true;
     setVerifyPending(true);
-    const stillCurrent = () => generation === katkiRequestGen.current;
-    const result = await createPublicKatki({
-      slug: slugAt,
-      journeyVersion: versionAt,
-      type: 'verify',
-      body: null,
-      sourceNote: null,
+    setKatkiRead((current) => {
+      if (!current || current.slug !== slugAt || current.journeyVersion !== versionAt) return current;
+      return optimisticVerifyToggle(current);
     });
+    const stillCurrent = () => generation === katkiRequestGen.current;
+    const result = await togglePublicVerify(slugAt, versionAt);
     if (!stillCurrent()) {
       verifyInFlightRef.current = false;
       setVerifyPending(false);
       return;
     }
     if (!result.ok) {
+      const reconciled = await fetchPublicKatki(slugAt, versionAt);
+      if (
+        stillCurrent() &&
+        reconciled.ok &&
+        reconciled.data.slug === slugAt &&
+        reconciled.data.journeyVersion === versionAt
+      ) {
+        setKatkiRead(reconciled.data);
+        setKatkiReadStatus('ready');
+      }
       if (katkiCreateErrorMessage(result.code) === 'auth') {
         onRequireAuth?.();
-      } else if (result.code === 'active_contribution_exists') {
-        const reconciled = await fetchPublicKatki(slugAt, versionAt);
-        if (
-          stillCurrent() &&
-          reconciled.ok &&
-          reconciled.data.slug === slugAt &&
-          reconciled.data.journeyVersion === versionAt
-        ) {
-          setKatkiRead(reconciled.data);
-          setKatkiReadStatus('ready');
-        }
       }
       verifyInFlightRef.current = false;
       setVerifyPending(false);
       return;
     }
     setKatkiRead((current) => {
-      if (generation !== katkiRequestGen.current) return current;
       if (!current || current.slug !== slugAt || current.journeyVersion !== versionAt) return current;
-      return mergeCreatedKatki(current, result.data, slugAt, versionAt);
+      return applyVerifyToggle(current, result.data);
     });
     const reconciled = await fetchPublicKatki(slugAt, versionAt);
     if (
@@ -920,9 +928,10 @@ export default function MirrorYansiChainExperience({
 
   const onDesktopKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (event.key === 'Escape' && katkiRef.current.stage !== 'closed') {
+      if (event.key === 'Escape' && (katkiRef.current.stage !== 'closed' || verifierOpen)) {
         event.preventDefault();
         setKatki(closeKatki());
+        setVerifierOpen(false);
         return;
       }
       if (navInFlightRef.current) return;
@@ -947,7 +956,9 @@ export default function MirrorYansiChainExperience({
       }
 
       // Reel shortcuts suspended while Chat or Katkılar owns reading/focus.
-      if (depth === 'chat' || !isDesktop || katkiRef.current.stage !== 'closed') return;
+      if (depth === 'chat' || !isDesktop || katkiRef.current.stage !== 'closed' || verifierOpen) {
+        return;
+      }
 
       if (event.key === 'ArrowDown') {
         event.preventDefault();
@@ -963,7 +974,7 @@ export default function MirrorYansiChainExperience({
         void goHorizontal('next');
       }
     },
-    [depth, exitChatDepth, goDown, goHorizontal, goUp, isDesktop]
+    [depth, exitChatDepth, goDown, goHorizontal, goUp, isDesktop, verifierOpen]
   );
 
   const onDesktopReelWheel = useCallback(
@@ -1315,16 +1326,18 @@ export default function MirrorYansiChainExperience({
                     katkiRead &&
                       katkiRead.slug === activeSlug &&
                       katkiRead.journeyVersion === presentedJourneyVersion
-                      ? katkiRead.totalVisibleCount
+                      ? katkiRead.contentVisibleCount
                       : null
                   )
             }
-            katkiCount={katkiSnapshot?.totalVisibleCount ?? 0}
+            katkiCount={katkiSnapshot?.contentVisibleCount ?? 0}
+            verifyCount={katkiSnapshot?.countsByType.verify ?? 0}
+            verifiers={katkiSnapshot ? visibleVerifiers(katkiSnapshot.contributions) : []}
             viewerHasActiveVerify={Boolean(katkiSnapshot?.viewerHasActiveVerify)}
             verifyPending={verifyPending}
             onVerify={reelTravel ? undefined : () => void submitDirectVerify()}
             onOpenKatkiList={reelTravel ? undefined : openKatkiListFromReel}
-            onOpenKatkiCreate={reelTravel ? undefined : openKatkiCreateFromReel}
+            onOpenVerifiers={reelTravel ? undefined : openVerifiersFromReel}
             rail={
               <YansiExperienceControls
                 showPlaybackControls={false}
@@ -1429,6 +1442,14 @@ export default function MirrorYansiChainExperience({
             setKatki((current) => openKatkiList(current.slug, current.journeyVersion))
           }
           onRequireAuth={onRequireAuth}
+        />
+      ) : null}
+
+      {isDesktop && verifierOpen && katkiSnapshot ? (
+        <YansiVerifierPanel
+          count={katkiSnapshot.countsByType.verify}
+          people={visibleVerifiers(katkiSnapshot.contributions)}
+          onClose={() => setVerifierOpen(false)}
         />
       ) : null}
 

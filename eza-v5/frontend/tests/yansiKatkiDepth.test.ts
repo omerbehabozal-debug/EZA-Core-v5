@@ -342,7 +342,7 @@ describe('katki create payload', () => {
     expect(katkiReelSignal('loading', 0)).toBe('hidden');
     expect(katkiReelSignal('error', 0)).toBe('hidden');
     expect(katkiReelSignal('idle', 0)).toBe('hidden');
-    expect(katkiReelSignal('ready', 0)).toBe('create');
+    expect(katkiReelSignal('ready', 0)).toBe('count');
     expect(katkiReelSignal('ready', 7)).toBe('count');
     expect(formatKatkiReelCount(7)).toBe('7 katkı');
   });
@@ -354,7 +354,6 @@ describe('katki create payload', () => {
     expect(katkiCreateErrorMessage('frozen_journey_not_found')).not.toContain('SQL');
     expect(katkiCreateErrorMessage('invalid_body')).not.toContain('{');
     expect(KATKI_EMPTY_COPY_FORBIDDEN).toEqual([
-      '0 katkı',
       'Henüz katkı yok',
       'İlk katkıyı sen yap',
     ]);

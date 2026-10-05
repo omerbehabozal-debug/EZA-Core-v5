@@ -495,6 +495,7 @@ def test_contribution_routes_and_trust_key_is_required():
         "/api/mirror-network/contributions/{contribution_id}/trust-hide",
         "/api/mirror-network/contributions/{contribution_id}/trust-restore",
         "/api/mirror-network/{slug}/contributions",
+        "/api/mirror-network/{slug}/contributions/verify-toggle",
     }
     contribution_id = str(uuid4())
     with patch(

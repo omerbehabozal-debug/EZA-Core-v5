@@ -35,7 +35,7 @@ from backend.models.mirror_network import (
     YansiContributionReport,
 )
 from backend.models.production import User
-from backend.services.mirror_network.katki_create import create_katki
+from backend.services.mirror_network.katki_create import create_katki, toggle_viewer_verify
 from backend.services.mirror_network.katki_moderation import (
     owner_hide_katki,
     owner_restore_katki,
@@ -65,7 +65,12 @@ PUBLIC_KEYS = {
     "createdAt",
     "contributor",
 }
-CONTRIBUTOR_KEYS = {"displayName", "publicAvatarUrl", "publicAvatarRevision"}
+CONTRIBUTOR_KEYS = {
+    "displayName",
+    "publicAvatarUrl",
+    "publicAvatarRevision",
+    "publicHonorific",
+}
 
 
 def _steps(n: int = 6) -> list[dict]:
@@ -852,6 +857,7 @@ def test_create_route_requires_auth_exact_version_and_forbids_extra_fields():
                 "displayName": "Ada",
                 "publicAvatarUrl": None,
                 "publicAvatarRevision": 0,
+                "publicHonorific": "Meraklı",
             },
         }
 
@@ -908,6 +914,247 @@ def test_create_route_requires_auth_exact_version_and_forbids_extra_fields():
             assert _same(seen["actor_user_id"], actor_id)
             assert "userId" not in seen["raw_fields"]
             assert "contributor_user_id" not in seen["raw_fields"]
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(require_mirror_authenticated_user, None)
+
+
+def _toggle_keys(payload: dict) -> None:
+    assert set(payload) == {
+        "slug",
+        "journeyVersion",
+        "viewerHasActiveVerify",
+        "totalVisibleCount",
+        "contentVisibleCount",
+        "countsByType",
+    }
+    assert "contributionId" not in payload
+    assert "userId" not in payload
+    assert "viewerId" not in payload
+
+
+@pytest.mark.asyncio
+async def test_verify_toggle_create_withdraw_and_recreate(db, parents):
+    _owner, contributor, other = await _ready(db, parents, SLUG, OTHER_SLUG)
+    idle = await toggle_viewer_verify(
+        db, slug=SLUG, journey_version=1, actor_user_id=contributor["id"]
+    )
+    _toggle_keys(idle)
+    assert idle["viewerHasActiveVerify"] is True
+    assert idle["countsByType"]["verify"] == 1
+    assert idle["totalVisibleCount"] == 1
+    assert idle["contentVisibleCount"] == 0
+
+    active = await toggle_viewer_verify(
+        db, slug=SLUG, journey_version=1, actor_user_id=contributor["id"]
+    )
+    assert active["viewerHasActiveVerify"] is False
+    assert active["countsByType"]["verify"] == 0
+    assert active["totalVisibleCount"] == 0
+
+    again = await toggle_viewer_verify(
+        db, slug=SLUG, journey_version=1, actor_user_id=contributor["id"]
+    )
+    assert again["viewerHasActiveVerify"] is True
+    assert again["countsByType"]["verify"] == 1
+    stored = (
+        await db.execute(
+            select(YansiContribution.__table__).where(
+                YansiContribution.__table__.c.contributor_user_id == contributor["id"],
+                YansiContribution.__table__.c.contribution_type == "verify",
+            )
+        )
+    ).mappings().all()
+    assert len(stored) == 2
+    assert sum(1 for row in stored if row["visibility"] != "withdrawn") == 1
+
+
+@pytest.mark.asyncio
+async def test_verify_toggle_withdraws_hidden_without_changing_public_count(db, parents):
+    owner, contributor, other = await _ready(db, parents)
+    created = await _create(db, contributor, now=T0)
+    await owner_hide_katki(
+        db,
+        public_id=UUID(created["contributionId"]),
+        actor_user_id=owner["id"],
+    )
+    hidden = await toggle_viewer_verify(
+        db, slug=SLUG, journey_version=1, actor_user_id=contributor["id"]
+    )
+    assert hidden["viewerHasActiveVerify"] is False
+    assert hidden["countsByType"]["verify"] == 0
+    assert hidden["totalVisibleCount"] == 0
+
+    trust_created = await _create(db, other, now=T0)
+    await trust_hide_katki(db, public_id=UUID(trust_created["contributionId"]))
+    before = await get_public_katki_read(db, slug=SLUG, journey_version=1, viewer_user_id=other["id"])
+    assert before["viewerHasActiveVerify"] is True
+    assert before["countsByType"]["verify"] == 0
+    trust = await toggle_viewer_verify(
+        db, slug=SLUG, journey_version=1, actor_user_id=other["id"]
+    )
+    assert trust["viewerHasActiveVerify"] is False
+    assert trust["countsByType"]["verify"] == 0
+
+
+@pytest.mark.asyncio
+async def test_verify_toggle_leaves_other_user_version_and_slug(db, parents):
+    _owner, contributor, other = await _ready(db, parents, SLUG, OTHER_SLUG)
+    await _create(db, other, now=T0)
+    await _create(db, contributor, slug=OTHER_SLUG, now=T0)
+    await _create(db, contributor, version=2, now=T0)
+    toggled = await toggle_viewer_verify(
+        db, slug=SLUG, journey_version=1, actor_user_id=contributor["id"]
+    )
+    assert toggled["viewerHasActiveVerify"] is True
+    assert toggled["countsByType"]["verify"] == 2
+    other_still = await get_public_katki_read(
+        db, slug=SLUG, journey_version=1, viewer_user_id=other["id"]
+    )
+    assert other_still["viewerHasActiveVerify"] is True
+    assert other_still["countsByType"]["verify"] == 2
+    other_slug = await get_public_katki_read(
+        db, slug=OTHER_SLUG, journey_version=1, viewer_user_id=contributor["id"]
+    )
+    assert other_slug["viewerHasActiveVerify"] is True
+    assert other_slug["countsByType"]["verify"] == 1
+    other_version = await get_public_katki_read(
+        db, slug=SLUG, journey_version=2, viewer_user_id=contributor["id"]
+    )
+    assert other_version["viewerHasActiveVerify"] is True
+    assert other_version["countsByType"]["verify"] == 1
+
+
+@pytest.mark.asyncio
+async def test_repeated_verify_toggle_stays_consistent(db, parents):
+    _owner, contributor, _other = await _ready(db, parents)
+    last = None
+    for _ in range(4):
+        last = await toggle_viewer_verify(
+            db, slug=SLUG, journey_version=1, actor_user_id=contributor["id"]
+        )
+    assert last["viewerHasActiveVerify"] is False
+    table = YansiContribution.__table__
+    active = (
+        await db.execute(
+            select(func.count())
+            .select_from(table)
+            .where(
+                table.c.contributor_user_id == contributor["id"],
+                table.c.contribution_type == "verify",
+                table.c.visibility != "withdrawn",
+            )
+        )
+    ).scalar_one()
+    assert int(active) == 0
+
+
+@pytest.mark.asyncio
+async def test_verify_toggle_withdraw_path_uses_account_lock(db, parents, monkeypatch):
+    _owner, contributor, _other = await _ready(db, parents)
+    await _create(db, contributor, now=T0)
+    lock = AsyncMock()
+    monkeypatch.setattr(
+        "backend.services.mirror_network.katki_create._acquire_create_lock",
+        lock,
+    )
+
+    toggled = await toggle_viewer_verify(
+        db, slug=SLUG, journey_version=1, actor_user_id=contributor["id"]
+    )
+
+    assert toggled["viewerHasActiveVerify"] is False
+    lock.assert_awaited_once()
+    assert lock.await_args.args[1] == contributor["id"]
+
+
+@pytest.mark.asyncio
+async def test_public_honorific_comes_from_the_user_column(db, parents):
+    from sqlalchemy import text
+
+    _owner, contributor, _other = await _ready(db, parents)
+    await db.execute(text("ALTER TABLE production_users ADD COLUMN public_honorific VARCHAR(32)"))
+    await db.execute(
+        text("UPDATE production_users SET public_honorific = 'bilgin' WHERE email = :email"),
+        {"email": "contributor@example.com"},
+    )
+    await db.commit()
+    created = await _create(db, contributor, contribution_type="correction", body=BODY_20, now=T0)
+    assert created["contributor"]["publicHonorific"] == "Bilgin"
+    visible = await get_public_katki_read(db, slug=SLUG, journey_version=1)
+    assert visible["contributions"][0]["contributor"]["publicHonorific"] == "Bilgin"
+    raw = str(visible)
+    assert "contributor@example.com" not in raw
+    assert "userId" not in visible["contributions"][0]["contributor"]
+
+
+def test_verify_toggle_route_rejects_anonymous_and_hides_identity():
+    from fastapi.testclient import TestClient
+
+    from backend.auth.mirror_entitlement import require_mirror_authenticated_user
+    from backend.core.utils.dependencies import get_db
+    from backend.main import app
+
+    actor_id = uuid4()
+
+    async def _fake_db():
+        yield AsyncMock()
+
+    async def _actor():
+        return SimpleNamespace(id=actor_id)
+
+    app.dependency_overrides[get_db] = _fake_db
+    seen: dict = {}
+
+    async def _capture(_db, **kwargs):
+        seen.update(kwargs)
+        return {
+            "slug": SLUG,
+            "journeyVersion": 1,
+            "viewerHasActiveVerify": True,
+            "totalVisibleCount": 1,
+            "contentVisibleCount": 0,
+            "countsByType": {name: 1 if name == "verify" else 0 for name in TYPES},
+        }
+
+    try:
+        client = TestClient(app)
+        anonymous = client.post(
+            f"/api/mirror-network/{SLUG}/contributions/verify-toggle",
+            json={"journeyVersion": 1},
+        )
+        assert anonymous.status_code == 401
+        assert seen == {}
+
+        app.dependency_overrides[require_mirror_authenticated_user] = _actor
+        with patch(
+            "backend.routers.mirror_network.toggle_viewer_verify",
+            new=_capture,
+        ):
+            extra = client.post(
+                f"/api/mirror-network/{SLUG}/contributions/verify-toggle",
+                json={"journeyVersion": 1, "contributionId": str(uuid4()), "userId": str(actor_id)},
+            )
+            assert extra.status_code == 422
+            ok = client.post(
+                f"/api/mirror-network/{SLUG}/contributions/verify-toggle",
+                json={"journeyVersion": 1},
+            )
+            assert ok.status_code == 200
+            body = ok.json()
+            assert set(body) == {
+                "slug",
+                "journeyVersion",
+                "viewerHasActiveVerify",
+                "totalVisibleCount",
+                "contentVisibleCount",
+                "countsByType",
+            }
+            assert seen["actor_user_id"] == actor_id
+            assert seen["journey_version"] == 1
+            assert "contribution_id" not in seen
+            assert "userId" not in seen
+            assert str(actor_id) not in ok.text
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(require_mirror_authenticated_user, None)

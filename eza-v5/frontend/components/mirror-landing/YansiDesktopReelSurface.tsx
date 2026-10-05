@@ -21,7 +21,9 @@ import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publi
 import { buildYansiPublicHref } from '@/lib/eza/mirror-network/yansiPublicDepth';
 import {
   formatKatkiReelCount,
+  formatVerifyReelCount,
   type KatkiReelSignal,
+  type PublicKatkiContributor,
 } from '@/lib/eza/mirror-network/katkiPublic';
 import { cn } from '@/lib/utils';
 import {
@@ -56,11 +58,13 @@ export default function YansiDesktopReelSurface({
   onOpenChat,
   katkiSignal = 'hidden',
   katkiCount = 0,
+  verifyCount = 0,
+  verifiers = [],
   viewerHasActiveVerify = false,
   verifyPending = false,
   onVerify,
   onOpenKatkiList,
-  onOpenKatkiCreate,
+  onOpenVerifiers,
   rail,
 }: {
   node: YansiDesktopReelSurfaceNode;
@@ -73,11 +77,13 @@ export default function YansiDesktopReelSurface({
   onOpenChat?: () => void;
   katkiSignal?: KatkiReelSignal;
   katkiCount?: number;
+  verifyCount?: number;
+  verifiers?: PublicKatkiContributor[];
   viewerHasActiveVerify?: boolean;
   verifyPending?: boolean;
   onVerify?: () => void;
   onOpenKatkiList?: () => void;
-  onOpenKatkiCreate?: () => void;
+  onOpenVerifiers?: () => void;
   rail?: ReactNode;
 }) {
   const router = useRouter();
@@ -290,6 +296,7 @@ export default function YansiDesktopReelSurface({
               slug={node.artifact.slug}
               journeyVersion={node.artifact.journeyVersion}
               variant="section"
+              includeZeroExperience
             />
             {role === 'current' && katkiSignal !== 'hidden' && onVerify ? (
               <button
@@ -298,17 +305,46 @@ export default function YansiDesktopReelSurface({
                 data-testid="yansi-katki-verify"
                 data-yansi-verify={viewerHasActiveVerify ? 'active' : 'idle'}
                 aria-pressed={viewerHasActiveVerify}
-                disabled={viewerHasActiveVerify || verifyPending}
+                disabled={verifyPending}
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
                   onVerify();
                 }}
               >
-                Doğrula
+                {formatVerifyReelCount(verifyCount)}
               </button>
             ) : null}
-            {role === 'current' && katkiSignal === 'count' && katkiCount > 0 && onOpenKatkiList ? (
+            {role === 'current' &&
+            katkiSignal !== 'hidden' &&
+            verifiers.length > 0 &&
+            onOpenVerifiers ? (
+              <button
+                type="button"
+                className="yansi-katki-verifier-stack"
+                data-testid="yansi-katki-verifiers"
+                aria-label="Doğrulayanlar"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onOpenVerifiers();
+                }}
+              >
+                {verifiers.slice(0, 3).map((person, index) => (
+                  <ProfileUserAvatar
+                    key={`${person.displayName}-${index}`}
+                    displayName={person.displayName}
+                    avatarUrl={person.publicAvatarUrl}
+                    cacheBust={person.publicAvatarRevision || undefined}
+                    size="sm"
+                  />
+                ))}
+                {verifyCount > 3 ? (
+                  <span className="yansi-katki-verifier-stack__more">+{verifyCount - 3}</span>
+                ) : null}
+              </button>
+            ) : null}
+            {role === 'current' && katkiSignal !== 'hidden' && onOpenKatkiList ? (
               <button
                 type="button"
                 className="yansi-katki-reel-signal"
@@ -320,20 +356,6 @@ export default function YansiDesktopReelSurface({
                 }}
               >
                 {formatKatkiReelCount(katkiCount)}
-              </button>
-            ) : null}
-            {role === 'current' && katkiSignal !== 'hidden' && onOpenKatkiCreate ? (
-              <button
-                type="button"
-                className="yansi-katki-reel-signal"
-                data-testid="yansi-katki-reel-create"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onOpenKatkiCreate();
-                }}
-              >
-                Katkı yap
               </button>
             ) : null}
             {summary && role === 'current' ? (

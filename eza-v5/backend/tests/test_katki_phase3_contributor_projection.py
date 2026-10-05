@@ -57,7 +57,6 @@ FORBIDDEN_KEYS = {
     "hidden_by_user_id",
     "owner_user_id",
     "node_id",
-    "publicHonorific",
     "public_honorific",
     "moderation",
     "scope",
@@ -151,11 +150,13 @@ async def test_two_contributors_keep_their_own_public_identity(katki_db, katki_w
         "displayName": "Ayşe Meraklı",
         "publicAvatarUrl": AVATAR_A,
         "publicAvatarRevision": 4,
+        "publicHonorific": "Bilgin",
     }
     assert by_body["from-tarik"] == {
         "displayName": "Tarık Ayşe",
         "publicAvatarUrl": AVATAR_B,
         "publicAvatarRevision": 7,
+        "publicHonorific": "Bilgin",
     }
     assert payload["totalVisibleCount"] == 2
     assert payload["countsByType"]["verify"] == 1
@@ -334,6 +335,7 @@ async def test_missing_and_incomplete_profiles_follow_public_card_contract(katki
         "displayName": PUBLIC_DISPLAY_NAME_FALLBACK,
         "publicAvatarUrl": None,
         "publicAvatarRevision": 0,
+        "publicHonorific": "Meraklı",
     }
     assert by_body["absent"] == by_body["unnamed"]
     assert by_body["storage"]["displayName"] == "Depo"
@@ -393,6 +395,7 @@ def test_direct_projection_matches_discover_card_helpers():
         "displayName": PUBLIC_DISPLAY_NAME_FALLBACK,
         "publicAvatarUrl": None,
         "publicAvatarRevision": 0,
+        "publicHonorific": "Meraklı",
     }
     stored = project_public_katki_contributor(
         SimpleNamespace(

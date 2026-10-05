@@ -13,6 +13,7 @@ export type PublicKatkiContributor = {
   displayName: string;
   publicAvatarUrl: string | null;
   publicAvatarRevision: number;
+  publicHonorific: string;
 };
 
 export type PublicKatkiContribution = {
@@ -28,9 +29,19 @@ export type PublicKatkiRead = {
   slug: string;
   journeyVersion: number;
   totalVisibleCount: number;
+  contentVisibleCount: number;
   countsByType: Record<KatkiType, number>;
   contributions: PublicKatkiContribution[];
   viewerHasActiveVerify: boolean;
+};
+
+export type PublicKatkiVerifyToggle = {
+  slug: string;
+  journeyVersion: number;
+  viewerHasActiveVerify: boolean;
+  totalVisibleCount: number;
+  contentVisibleCount: number;
+  countsByType: Record<KatkiType, number>;
 };
 
 export const KATKI_GROUP_ORDER: { type: KatkiType; label: string }[] = [
@@ -46,9 +57,15 @@ export const KATKI_CREATE_ORDER = KATKI_GROUP_ORDER.filter(
 );
 
 export const KATKI_COMPOSE_PROMPTS: Record<Exclude<KatkiType, 'verify'>, string> = {
-  correction: 'Düzeltmeni yaz',
-  additional_information: 'Eklemek istediğin bilgiyi yaz',
-  different_perspective: 'Bakış açını paylaş',
+  correction: "Bu Yansı'ya ne eklemek istersin?",
+  additional_information: "Bu Yansı'ya ne eklemek istersin?",
+  different_perspective: "Bu Yansı'ya ne eklemek istersin?",
+};
+
+export const KATKI_COMPOSE_PLACEHOLDERS: Record<Exclude<KatkiType, 'verify'>, string> = {
+  correction: 'Düzeltmeni buraya yaz...',
+  additional_information: 'Bilgini buraya yaz...',
+  different_perspective: 'Bakışını buraya yaz...',
 };
 
 const BODY_MIN = 20;
@@ -56,7 +73,6 @@ const BODY_MAX = 2000;
 const SOURCE_MAX = 500;
 
 export const KATKI_EMPTY_COPY_FORBIDDEN = [
-  '0 katkı',
   'Henüz katkı yok',
   'İlk katkıyı sen yap',
 ] as const;
@@ -72,6 +88,19 @@ export function groupVisibleKatki(
     ...group,
     rows: contributions.filter((row) => row.type === group.type),
   })).filter((group) => group.rows.length > 0);
+}
+
+export function groupContentKatki(
+  contributions: PublicKatkiContribution[]
+): { type: Exclude<KatkiType, 'verify'>; label: string; rows: PublicKatkiContribution[] }[] {
+  return KATKI_CREATE_ORDER.map((group) => ({
+    ...group,
+    rows: contributions.filter((row) => row.type === group.type),
+  })).filter((group) => group.rows.length > 0);
+}
+
+export function visibleVerifiers(contributions: PublicKatkiContribution[]): PublicKatkiContributor[] {
+  return contributions.filter((row) => row.type === 'verify').map((row) => row.contributor);
 }
 
 export function sortKatkiContributions(
@@ -105,6 +134,7 @@ export function mergeCreatedKatki(
     slug,
     journeyVersion,
     totalVisibleCount: 0,
+    contentVisibleCount: 0,
     countsByType: emptyCounts(),
     contributions: [],
     viewerHasActiveVerify: false,
@@ -115,10 +145,13 @@ export function mergeCreatedKatki(
   const contributions = sortKatkiContributions([...base.contributions, item]);
   const countsByType = { ...base.countsByType };
   countsByType[item.type] = (countsByType[item.type] ?? 0) + 1;
+  const content =
+    item.type === 'verify' ? base.contentVisibleCount : base.contentVisibleCount + 1;
   return {
     slug,
     journeyVersion,
     totalVisibleCount: base.totalVisibleCount + 1,
+    contentVisibleCount: content,
     countsByType,
     contributions,
     viewerHasActiveVerify: base.viewerHasActiveVerify || item.type === 'verify',
@@ -127,22 +160,36 @@ export function mergeCreatedKatki(
 
 export type KatkiReadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-export type KatkiReelSignal = 'hidden' | 'count' | 'create';
+export type KatkiReelSignal = 'hidden' | 'count';
 
-/** Reel proof signal. Only a resolved totalVisibleCount may claim zero or a count. */
+/** Reel proof signal. A resolved content count may be zero. */
 export function katkiReelSignal(
   status: KatkiReadStatus,
-  totalVisibleCount: number | null
+  contentVisibleCount: number | null
 ): KatkiReelSignal {
   if (status !== 'ready') return 'hidden';
-  if (totalVisibleCount == null || !Number.isInteger(totalVisibleCount) || totalVisibleCount < 0) {
+  if (
+    contentVisibleCount == null ||
+    !Number.isInteger(contentVisibleCount) ||
+    contentVisibleCount < 0
+  ) {
     return 'hidden';
   }
-  return totalVisibleCount === 0 ? 'create' : 'count';
+  return 'count';
 }
 
-export function formatKatkiReelCount(totalVisibleCount: number): string {
-  return `${Math.trunc(totalVisibleCount).toLocaleString('tr-TR')} katkı`;
+export function formatKatkiReelCount(contentVisibleCount: number): string {
+  return `${Math.trunc(contentVisibleCount).toLocaleString('tr-TR')} katkı`;
+}
+
+export function formatVerifyReelCount(verifyCount: number): string {
+  return `${Math.trunc(verifyCount).toLocaleString('tr-TR')} doğrulama`;
+}
+
+export function katkiBodyProgress(body: string): string | null {
+  const length = body.trim().length;
+  if (length >= BODY_MIN) return null;
+  return `En az 20 karakter · ${length}/20`;
 }
 
 export type KatkiDraftResult =
@@ -236,10 +283,12 @@ function readContributor(value: unknown): PublicKatkiContributor | null {
   if (!displayName) return null;
   const url = typeof row.publicAvatarUrl === 'string' ? row.publicAvatarUrl : null;
   const revision = Number(row.publicAvatarRevision);
+  const honorific = typeof row.publicHonorific === 'string' ? row.publicHonorific.trim() : '';
   return {
     displayName,
     publicAvatarUrl: url,
     publicAvatarRevision: Number.isFinite(revision) ? revision : 0,
+    publicHonorific: honorific,
   };
 }
 
@@ -282,10 +331,18 @@ export function parsePublicKatkiRead(
   }
   const total = Number(row.totalVisibleCount);
   if (!Number.isInteger(total) || total < 0) return null;
+  const contentRaw = Number(row.contentVisibleCount);
+  const contentFromCounts =
+    countsByType.correction +
+    countsByType.additional_information +
+    countsByType.different_perspective;
+  const contentVisibleCount =
+    Number.isInteger(contentRaw) && contentRaw >= 0 ? contentRaw : contentFromCounts;
   return {
     slug: slug.trim().toLowerCase(),
     journeyVersion,
     totalVisibleCount: total,
+    contentVisibleCount,
     countsByType,
     contributions,
     viewerHasActiveVerify: row.viewerHasActiveVerify === true,
@@ -342,5 +399,91 @@ export async function createPublicKatki(input: {
   }
   const data = readContribution(response.data);
   if (!data) return { ok: false, code: 'create_failed' };
+  return { ok: true, data };
+}
+
+function readCounts(value: unknown): Record<KatkiType, number> | null {
+  if (!value || typeof value !== 'object') return null;
+  const counts = emptyCounts();
+  for (const type of KATKI_TYPES) {
+    const count = Number((value as Record<string, unknown>)[type]);
+    if (!Number.isInteger(count) || count < 0) return null;
+    counts[type] = count;
+  }
+  return counts;
+}
+
+export function parsePublicVerifyToggle(
+  data: unknown,
+  slug: string,
+  journeyVersion: number
+): PublicKatkiVerifyToggle | null {
+  if (!data || typeof data !== 'object') return null;
+  const row = data as Record<string, unknown>;
+  if (String(row.slug || '').trim().toLowerCase() !== slug.trim().toLowerCase()) return null;
+  if (Number(row.journeyVersion) !== journeyVersion) return null;
+  const total = Number(row.totalVisibleCount);
+  const content = Number(row.contentVisibleCount);
+  const countsByType = readCounts(row.countsByType);
+  if (!Number.isInteger(total) || total < 0) return null;
+  if (!Number.isInteger(content) || content < 0) return null;
+  if (!countsByType) return null;
+  if ('userId' in row || 'contributionId' in row || 'viewerId' in row) return null;
+  return {
+    slug: slug.trim().toLowerCase(),
+    journeyVersion,
+    viewerHasActiveVerify: row.viewerHasActiveVerify === true,
+    totalVisibleCount: total,
+    contentVisibleCount: content,
+    countsByType,
+  };
+}
+
+export function applyVerifyToggle(
+  read: PublicKatkiRead,
+  toggle: PublicKatkiVerifyToggle
+): PublicKatkiRead {
+  if (read.slug !== toggle.slug || read.journeyVersion !== toggle.journeyVersion) return read;
+  return {
+    ...read,
+    viewerHasActiveVerify: toggle.viewerHasActiveVerify,
+    totalVisibleCount: toggle.totalVisibleCount,
+    contentVisibleCount: toggle.contentVisibleCount,
+    countsByType: toggle.countsByType,
+  };
+}
+
+export function optimisticVerifyToggle(read: PublicKatkiRead): PublicKatkiRead {
+  if (read.viewerHasActiveVerify) {
+    return { ...read, viewerHasActiveVerify: false };
+  }
+  return {
+    ...read,
+    viewerHasActiveVerify: true,
+    totalVisibleCount: read.totalVisibleCount + 1,
+    countsByType: { ...read.countsByType, verify: read.countsByType.verify + 1 },
+  };
+}
+
+export async function togglePublicVerify(
+  slug: string,
+  journeyVersion: number
+): Promise<
+  | { ok: true; data: PublicKatkiVerifyToggle }
+  | { ok: false; code: string }
+> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized || !Number.isInteger(journeyVersion) || journeyVersion < 1) {
+    return { ok: false, code: 'invalid_type' };
+  }
+  const response = await apiClient.post<unknown>(
+    `/api/mirror-network/${encodeURIComponent(normalized)}/contributions/verify-toggle`,
+    { auth: true, timeoutMs: 15_000, body: { journeyVersion } }
+  );
+  if (!response.ok) {
+    return { ok: false, code: response.error?.error_code || 'toggle_failed' };
+  }
+  const data = parsePublicVerifyToggle(response.data, normalized, journeyVersion);
+  if (!data) return { ok: false, code: 'toggle_failed' };
   return { ok: true, data };
 }
