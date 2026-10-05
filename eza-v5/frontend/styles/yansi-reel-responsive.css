@@ -962,6 +962,192 @@
       opacity 300ms ease;
   }
 
+  .yansi-reel-continuation-strip {
+    position: absolute;
+    top: clamp(1.1rem, 3.2vh, 2.25rem);
+    left: 50%;
+    z-index: 6;
+    width: min(24rem, 38vw);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .yansi-reel-continuation-strip__track {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(2.4rem, 1fr);
+    align-items: center;
+    gap: 0.42rem;
+    width: 100%;
+    padding: 0.35rem 0.4rem;
+  }
+
+  .yansi-reel-continuation-strip__segment {
+    display: block;
+    width: 100%;
+    height: 0.2rem;
+    min-height: 3px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(232, 220, 202, 0.28);
+    box-shadow: 0 1px 7px rgba(0, 0, 0, 0.28);
+    opacity: 0.72;
+    transition:
+      background-color 160ms ease,
+      box-shadow 160ms ease,
+      opacity 160ms ease,
+      transform 160ms ease;
+    pointer-events: auto;
+  }
+
+  button.yansi-reel-continuation-strip__segment {
+    cursor: pointer;
+  }
+
+  .yansi-reel-continuation-strip__segment[data-current='true'] {
+    height: 0.26rem;
+    min-height: 4px;
+    background: rgba(226, 177, 95, 0.96);
+    box-shadow:
+      0 0 0 1px rgba(255, 230, 184, 0.12),
+      0 0 12px rgba(226, 177, 95, 0.26);
+    opacity: 1;
+    pointer-events: none;
+  }
+
+  button.yansi-reel-continuation-strip__segment:hover,
+  button.yansi-reel-continuation-strip__segment:focus-visible {
+    background: rgba(236, 226, 210, 0.48);
+    opacity: 0.94;
+    transform: translateY(-1px);
+  }
+
+  button.yansi-reel-continuation-strip__segment:focus-visible {
+    outline: 1px solid rgba(226, 177, 95, 0.66);
+    outline-offset: 4px;
+  }
+
+  button.yansi-reel-continuation-strip__segment:disabled {
+    cursor: default;
+    opacity: 0.36;
+  }
+
+  .yansi-reel-feed-controls {
+    position: absolute;
+    right: clamp(1.15rem, 2.1vw, 2rem);
+    top: 42%;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    gap: 9rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .yansi-reel-feed-controls__button,
+  .yansi-reel-action-cluster .yansi-exp-rail__btn,
+  .yansi-reel-action-cluster .yansi-exp-share {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.65rem;
+    height: 2.65rem;
+    border: 1px solid rgba(226, 177, 95, 0.22);
+    border-radius: 999px;
+    background:
+      linear-gradient(180deg, rgba(19, 20, 19, 0.72), rgba(8, 9, 9, 0.58)),
+      rgba(7, 8, 8, 0.54);
+    color: rgba(245, 234, 216, 0.88);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 12px 28px rgba(0, 0, 0, 0.28);
+    -webkit-backdrop-filter: blur(10px) saturate(112%);
+    backdrop-filter: blur(10px) saturate(112%);
+    opacity: 0.72;
+    cursor: pointer;
+    transition:
+      opacity 160ms ease,
+      border-color 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
+    pointer-events: auto;
+  }
+
+  .yansi-reel-feed-controls__button:hover,
+  .yansi-reel-feed-controls__button:focus-visible,
+  .yansi-reel-action-cluster .yansi-exp-rail__btn:hover,
+  .yansi-reel-action-cluster .yansi-exp-rail__btn:focus-visible,
+  .yansi-reel-action-cluster .yansi-exp-share:hover,
+  .yansi-reel-action-cluster .yansi-exp-share:focus-visible {
+    opacity: 0.96;
+    border-color: rgba(226, 177, 95, 0.38);
+    background:
+      linear-gradient(180deg, rgba(31, 29, 24, 0.78), rgba(11, 11, 10, 0.66)),
+      rgba(7, 8, 8, 0.62);
+    color: rgba(255, 241, 216, 0.96);
+    transform: translateY(-1px);
+  }
+
+  .yansi-reel-feed-controls__button:focus-visible,
+  .yansi-reel-action-cluster .yansi-exp-rail__btn:focus-visible,
+  .yansi-reel-action-cluster .yansi-exp-share:focus-visible {
+    outline: 1px solid rgba(226, 177, 95, 0.58);
+    outline-offset: 3px;
+  }
+
+  .yansi-reel-feed-controls__button:disabled {
+    cursor: default;
+    opacity: 0.32;
+    transform: none;
+  }
+
+  .yansi-reel-action-cluster {
+    position: absolute;
+    right: clamp(1.15rem, 2.1vw, 2rem);
+    bottom: clamp(3rem, 8vh, 5.2rem);
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.55rem;
+    pointer-events: none;
+  }
+
+  .yansi-reel-action-cluster > * {
+    pointer-events: auto;
+  }
+
+  .yansi-reel-action-cluster .inline-flex.flex-col {
+    align-items: center;
+  }
+
+  .yansi-reel-action-cluster .yansi-exp-share,
+  .yansi-reel-action-cluster .yansi-save-btn,
+  .yansi-reel-action-cluster .yansi-exp-rail__btn {
+    padding: 0;
+  }
+
+  .yansi-reel-action-cluster [data-testid='yansi-save-error'] {
+    position: absolute;
+    right: 3.1rem;
+    bottom: 0;
+    width: max-content;
+    max-width: 12rem;
+    text-align: right;
+  }
+
+  .yansi-reel-action-cluster .yansi-exp-rail__btn[data-saved='true'] {
+    color: rgba(226, 177, 95, 0.96);
+    border-color: rgba(226, 177, 95, 0.36);
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-reel-continuation-strip,
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-reel-feed-controls,
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-reel-action-cluster {
+    display: none;
+  }
+
   .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-desktop-scene-bleed {
     filter: blur(14px) saturate(1.04) brightness(0.96);
   }

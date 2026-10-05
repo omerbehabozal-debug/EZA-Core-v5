@@ -76,6 +76,7 @@ vi.mock('@/lib/eza/mirror-network/fetchDiscoverMirrors', async () => {
 
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 import { fetchDiscoverMirrors } from '@/lib/eza/mirror-network/fetchDiscoverMirrors';
+import { fetchContinuationNeighbors } from '@/lib/eza/mirror-network/fetchContinuationNeighbors';
 
 function makeArtifact(
   slug: string,
@@ -194,6 +195,11 @@ describe('desktop reel vertical travel', () => {
         strongCuriosityReady: false,
       },
     });
+    vi.mocked(fetchContinuationNeighbors).mockReset();
+    vi.mocked(fetchContinuationNeighbors).mockImplementation(async (slug: string) => ({
+      ok: true,
+      data: { slug, journeyVersion: 2, previous: null, next: null },
+    }));
   });
 
   afterEach(() => {
@@ -255,6 +261,71 @@ describe('desktop reel vertical travel', () => {
       'aria-expanded',
       'false'
     );
+  });
+
+  it('renders premium continuation strip from existing neighbor authority and navigates through the existing handler', async () => {
+    vi.mocked(fetchContinuationNeighbors).mockImplementation(async (slug: string) => ({
+      ok: true,
+      data: {
+        slug,
+        journeyVersion: 2,
+        previous: { slug: 'yansi-a', journeyVersion: 2 },
+        next: { slug: 'yansi-c', journeyVersion: 2 },
+      },
+    }));
+
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    await flushAsync();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const strip = screen.getByTestId('yansi-reel-continuation-strip');
+    expect(strip).toBeTruthy();
+    expect(screen.getByTestId('yansi-reel-continuation-track')).toHaveAttribute(
+      'data-segment-count',
+      '3'
+    );
+    expect(screen.getByTestId('yansi-reel-continuation-segment-current')).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    fireEvent.click(screen.getByTestId('mirror-continuation-next'));
+    await flushAsync();
+
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
+      'data-active-slug',
+      'yansi-c'
+    );
+    expect(fetchPublicFrozenJourneyArtifact).toHaveBeenCalledWith({ slug: 'yansi-c' });
+  });
+
+  it('uses existing vertical Reel travel from quiet right-side controls and removes the old Reel rail panel', async () => {
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    await flushAsync();
+
+    expect(screen.getByTestId('yansi-reel-feed-controls')).toBeTruthy();
+    expect(screen.getByTestId('yansi-reel-action-cluster')).toBeTruthy();
+    expect(screen.queryByTestId('yansi-experience-controls')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('mirror-skip-to-next'));
+    await flushAsync();
+
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
+      'data-yansi-reel-transition',
+      'down'
+    );
+    expect(fetchDiscoverMirrors).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Reel-only chrome in conversation depth', async () => {
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="chat" />);
+    await flushAsync();
+
+    expect(screen.queryByTestId('yansi-reel-continuation-strip')).toBeNull();
+    expect(screen.queryByTestId('yansi-reel-feed-controls')).toBeNull();
+    expect(screen.queryByTestId('yansi-reel-action-cluster')).toBeNull();
+    expect(screen.queryByTestId('yansi-desktop-reel-viewport')).toBeNull();
   });
 
   it('reverse travel keeps B outgoing and A incoming', async () => {

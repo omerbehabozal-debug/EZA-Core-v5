@@ -239,7 +239,8 @@ describe('Phase C Reel → Chat → Reel', () => {
       'data-yansi-reel-nav',
       'open'
     );
-    expect(screen.getByTestId('mirror-discover-nav')).toBeTruthy();
+    expect(screen.queryByTestId('mirror-discover-nav')).toBeNull();
+    expect(screen.getByTestId('yansi-reel-feed-controls')).toBeTruthy();
     expect(screen.queryByTestId('yansi-chat-replay-layer')).toBeNull();
   });
 

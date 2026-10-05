@@ -478,14 +478,8 @@ describe('desktop reel wheel ownership', () => {
       'data-yansi-active-identity',
       'yansi-x'
     );
-    expect(screen.getByTestId('yansi-experience-controls')).toHaveAttribute(
-      'data-yansi-active-identity',
-      'yansi-x'
-    );
-    expect(screen.getByTestId('yansi-experience-controls')).toHaveAttribute(
-      'data-yansi-rail-scope',
-      'canvas'
-    );
+    expect(screen.queryByTestId('yansi-experience-controls')).toBeNull();
+    expect(screen.getByTestId('yansi-reel-action-cluster')).toBeTruthy();
   });
 });
 

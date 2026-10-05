@@ -21,7 +21,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Menu, MoreHorizontal, Volume2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Menu, MoreHorizontal, Volume2 } from 'lucide-react';
 import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSceneCrossfade';
 import YansiDesktopReelSurface from '@/components/mirror-landing/YansiDesktopReelSurface';
@@ -1088,6 +1088,151 @@ export default function MirrorYansiChainExperience({
     </>
   );
 
+  const continuationSegments = [
+    continuationPrevious
+      ? {
+          key: `previous:${continuationPrevious.slug}`,
+          slug: continuationPrevious.slug,
+          direction: 'previous' as const,
+          label: YANSI_CONTINUATION_PREVIOUS,
+          current: false,
+        }
+      : null,
+    {
+      key: `current:${activeSlug}`,
+      slug: activeSlug,
+      direction: null,
+      label: title,
+      current: true,
+    },
+    continuationNext
+      ? {
+          key: `next:${continuationNext.slug}`,
+          slug: continuationNext.slug,
+          direction: 'next' as const,
+          label: YANSI_CONTINUATION_NEXT,
+          current: false,
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    key: string;
+    slug: string;
+    direction: 'previous' | 'next' | null;
+    label: string;
+    current: boolean;
+  }>;
+
+  const renderDesktopReelChrome = () => {
+    if (!isDesktop || showChatReplay) return null;
+    return (
+      <>
+        <nav
+          className="yansi-reel-continuation-strip"
+          data-testid="yansi-reel-continuation-strip"
+          aria-label="Yansı devam zinciri"
+        >
+          <div
+            className="yansi-reel-continuation-strip__track"
+            data-testid="yansi-reel-continuation-track"
+            data-segment-count={continuationSegments.length}
+          >
+            {continuationSegments.map((segment) =>
+              segment.current || !segment.direction ? (
+                <span
+                  key={segment.key}
+                  className="yansi-reel-continuation-strip__segment"
+                  data-testid="yansi-reel-continuation-segment-current"
+                  data-current="true"
+                  aria-current="true"
+                  aria-label={`Şu anki Yansı: ${segment.label}`}
+                />
+              ) : (
+                <button
+                  key={segment.key}
+                  type="button"
+                  className="yansi-reel-continuation-strip__segment"
+                  data-testid={
+                    segment.direction === 'previous'
+                      ? 'mirror-continuation-prev'
+                      : 'mirror-continuation-next'
+                  }
+                  data-yansi-reel-segment={segment.direction}
+                  data-current="false"
+                  data-direction={segment.direction}
+                  aria-label={
+                    segment.direction === 'previous'
+                      ? `${YANSI_CONTINUATION_PREVIOUS}: ${segment.slug}`
+                      : `${YANSI_CONTINUATION_NEXT}: ${segment.slug}`
+                  }
+                  title={
+                    segment.direction === 'previous'
+                      ? YANSI_CONTINUATION_PREVIOUS
+                      : YANSI_CONTINUATION_NEXT
+                  }
+                  disabled={navBusy}
+                  onClick={() => {
+                    if (segment.direction) void goHorizontal(segment.direction);
+                  }}
+                >
+                  <span className="sr-only">
+                    {segment.direction === 'previous'
+                      ? YANSI_CONTINUATION_PREVIOUS
+                      : YANSI_CONTINUATION_NEXT}
+                  </span>
+                </button>
+              )
+            )}
+          </div>
+        </nav>
+
+        <nav
+          className="yansi-reel-feed-controls"
+          data-testid="yansi-reel-feed-controls"
+          aria-label="Keşfet Reel gezinmesi"
+        >
+          {showUp ? (
+            <button
+              type="button"
+              className="yansi-reel-feed-controls__button"
+              data-testid="mirror-discover-up"
+              data-yansi-reel-feed-control="up"
+              aria-label={YANSI_PREVIOUS_MERAK}
+              title={YANSI_PREVIOUS_MERAK}
+              disabled={navBusy}
+              onClick={goUp}
+            >
+              <ChevronUp size={21} strokeWidth={1.55} aria-hidden />
+              <span className="sr-only">{YANSI_PREVIOUS_MERAK}</span>
+            </button>
+          ) : null}
+          {showDown ? (
+            <button
+              type="button"
+              className="yansi-reel-feed-controls__button"
+              data-testid="mirror-skip-to-next"
+              data-yansi-reel-feed-control="down"
+              aria-label={YANSI_SKIP_TO_NEXT_MERAK}
+              title={YANSI_SKIP_TO_NEXT_MERAK}
+              disabled={navBusy}
+              onClick={() => void goDown()}
+            >
+              <ChevronDown size={21} strokeWidth={1.55} aria-hidden />
+              <span className="sr-only">{YANSI_SKIP_TO_NEXT_MERAK}</span>
+            </button>
+          ) : null}
+        </nav>
+
+        <div
+          className="yansi-reel-action-cluster"
+          data-testid="yansi-reel-action-cluster"
+          aria-label="Yansı eylemleri"
+        >
+          {reelActions}
+        </div>
+      </>
+    );
+  };
+
   const renderTitleBlock = () => (
             <header
               className={cn(
@@ -1338,31 +1483,6 @@ export default function MirrorYansiChainExperience({
             onVerify={reelTravel ? undefined : () => void submitDirectVerify()}
             onOpenKatkiList={reelTravel ? undefined : openKatkiListFromReel}
             onOpenVerifiers={reelTravel ? undefined : openVerifiersFromReel}
-            rail={
-              <YansiExperienceControls
-                showPlaybackControls={false}
-                activeIdentity={
-                  reelTravel ? reelTravel.outgoing.artifact.slug : activeSlug
-                }
-                actions={
-                  reelTravel ? (
-                    <>
-                      <YansiSaveButton
-                        slug={reelTravel.outgoing.artifact.slug}
-                        authorUserId={reelTravel.outgoing.artifact.authorUserId}
-                        compact
-                        onRequireAuth={onRequireAuth}
-                      />
-                      <YansiExperienceShareButton
-                        slug={reelTravel.outgoing.artifact.slug}
-                      />
-                    </>
-                  ) : (
-                    reelActions
-                  )
-                }
-              />
-            }
           />
           {reelTravel ? (
             <YansiDesktopReelSurface
@@ -1372,25 +1492,6 @@ export default function MirrorYansiChainExperience({
               direction={reelTravel.direction}
               traveling={reelTravel.traveling}
               reducedMotion={reelTravel.reducedMotion}
-              rail={
-                <YansiExperienceControls
-                  showPlaybackControls={false}
-                  activeIdentity={reelTravel.incoming.artifact.slug}
-                  actions={
-                    <>
-                      <YansiSaveButton
-                        slug={reelTravel.incoming.artifact.slug}
-                        authorUserId={reelTravel.incoming.artifact.authorUserId}
-                        compact
-                        onRequireAuth={onRequireAuth}
-                      />
-                      <YansiExperienceShareButton
-                        slug={reelTravel.incoming.artifact.slug}
-                      />
-                    </>
-                  }
-                />
-              }
             />
           ) : null}
         </div>
@@ -1410,6 +1511,8 @@ export default function MirrorYansiChainExperience({
         data-testid="yansi-chat-scene-veil"
         aria-hidden
       />
+
+      {renderDesktopReelChrome()}
 
       {isDesktop && katki.stage !== 'closed' ? (
         <YansiKatkiDepth
@@ -1629,7 +1732,7 @@ export default function MirrorYansiChainExperience({
               </div>
             ) : null}
 
-            {!showChatReplay ? (
+            {!showChatReplay && !isDesktop ? (
             <div
               className="mt-4 flex flex-col items-center gap-2"
               data-testid="mirror-discover-nav"

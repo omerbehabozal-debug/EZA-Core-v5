@@ -264,7 +264,8 @@ describe('Phase D CTA B → same Reel', () => {
       'src',
       'https://cdn.example/yansi-d2.jpg'
     );
-    expect(screen.getByTestId('mirror-discover-nav')).toBeTruthy();
+    expect(screen.queryByTestId('mirror-discover-nav')).toBeNull();
+    expect(screen.getByTestId('yansi-reel-feed-controls')).toBeTruthy();
     expect(screen.queryByTestId('yansi-chat-replay-layer')).toBeNull();
     expect(screen.getByTestId('yansi-chat-scene-veil')).toHaveClass(
       'yansi-chat-scene-veil--idle'
@@ -390,7 +391,7 @@ describe('Phase D mobile/desktop contracts', () => {
       'locked'
     );
     rerender(<MirrorYansiChainExperience rootArtifact={artifact} depth="reel" />);
-    await screen.findByTestId('mirror-discover-nav');
+    await screen.findByTestId('yansi-reel-feed-controls');
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute(
       'data-yansi-reel-nav',
       'open'

@@ -237,9 +237,9 @@ describe('published Yansı experience rail (Mode A, desktop)', () => {
   it('shows Audio + Rhythm in Chat depth only, without Ayna on the rail', async () => {
     installSpeech();
     await startPublishedExperience();
-    // Reel: quiet rail for save/share; identity chrome; no Audio/Rhythm yet.
-    const reelRail = screen.getByTestId('yansi-experience-controls');
-    expect(reelRail).toHaveAttribute('data-yansi-contextual-slot', 'actions');
+    // Reel: quiet save/share action cluster; identity chrome; no Audio/Rhythm yet.
+    expect(screen.queryByTestId('yansi-experience-controls')).toBeNull();
+    expect(screen.getByTestId('yansi-reel-action-cluster')).toBeInTheDocument();
     expect(screen.getByTestId('yansi-desktop-identity')).toBeInTheDocument();
     expect(screen.getByTestId('yansi-experience-share')).toHaveAttribute(
       'aria-label',
