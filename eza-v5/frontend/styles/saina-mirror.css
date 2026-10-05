@@ -6300,7 +6300,7 @@ button.saina-discover-card__title-open:focus-visible {
     max-width: none;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     column-gap: 1.15rem;
     min-width: 0;
     padding: clamp(1.05rem, 1.2vw, 1.3rem) clamp(1.25rem, 1.55vw, 1.55rem);
@@ -6332,11 +6332,18 @@ button.saina-discover-card__title-open:focus-visible {
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__product-core {
     grid-column: 1 / -1;
     min-width: 0;
+    min-height: 0;
     max-width: 38rem;
+    overflow: hidden;
   }
 
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__title {
     margin: 0 0 0.48rem;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
     font-size: clamp(1.42rem, 1.35vw, 1.62rem);
     line-height: 1.16;
     color: #f6f4ef;
