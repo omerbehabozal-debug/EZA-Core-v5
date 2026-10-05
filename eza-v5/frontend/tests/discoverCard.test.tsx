@@ -284,7 +284,7 @@ describe('Discover editorial feed presentation', () => {
     expect(screen.getByText(SAINA_DISCOVER_OPEN_CTA_SHORT)).toBeInTheDocument();
   });
 
-  it('gates horizontal row layout to compact-shell width; mobile stays stacked', () => {
+  it('gates horizontal row layout to desktop editorial width; mobile stays stacked', () => {
     expect(SAINA_COMPACT_SHELL_MIN_PX).toBe(900);
     const css = readFileSync(join(process.cwd(), 'styles/saina-mirror.css'), 'utf8');
     const defaultCard = css.match(/\.saina-discover-card \{[^}]+\}/);
@@ -297,8 +297,8 @@ describe('Discover editorial feed presentation', () => {
     );
     const editorialBlock = css.slice(css.indexOf('@media (min-width: 900px)'));
     expect(editorialBlock).toContain('-webkit-line-clamp: 3');
-    expect(editorialBlock).toContain('width: 42%');
-    expect(editorialBlock).toContain('flex: 1 1 58%');
+    expect(editorialBlock).toContain('width: 37%');
+    expect(editorialBlock).toContain('flex: 1 1 63%');
   });
 
   it('does not introduce continuation-neighbor requests into Discover', () => {
