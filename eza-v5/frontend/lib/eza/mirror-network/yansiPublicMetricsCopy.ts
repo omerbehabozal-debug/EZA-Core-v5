@@ -13,6 +13,8 @@ import {
 export type YansiPublicSocialProofInput = {
   experienceStartedCount: number;
   directChildYansiCount: number;
+  visibleVerificationCount?: number;
+  contentVisibleCount?: number;
 };
 
 export type YansiPublicSocialProofCopy = {
@@ -58,5 +60,38 @@ export function formatYansiPublicSocialProof(
   return {
     visible: `${experience} · ${yansi}`,
     sr: `${experience}, ${yansi}`,
+  };
+}
+
+export function formatYansiDiscoverSocialMetrics(
+  input: {
+    experienceStartedCount: number;
+    visibleVerificationCount: number;
+    contentVisibleCount: number;
+  }
+): YansiPublicSocialProofCopy | null {
+  const experienceStartedCount = input.experienceStartedCount;
+  const visibleVerificationCount = input.visibleVerificationCount;
+  const contentVisibleCount = input.contentVisibleCount;
+  if (
+    !Number.isInteger(experienceStartedCount) ||
+    !Number.isInteger(visibleVerificationCount) ||
+    !Number.isInteger(contentVisibleCount)
+  ) {
+    return null;
+  }
+  if (
+    experienceStartedCount < 0 ||
+    visibleVerificationCount < 0 ||
+    contentVisibleCount < 0
+  ) {
+    return null;
+  }
+  const experience = `${formatTrCount(experienceStartedCount)} ${YANSI_PUBLIC_METRIC_EXPERIENCE}`;
+  const verification = `${formatTrCount(visibleVerificationCount)} doğrulama`;
+  const contribution = `${formatTrCount(contentVisibleCount)} katkı`;
+  return {
+    visible: `${experience} · ${verification} · ${contribution}`,
+    sr: `${experience}, ${verification}, ${contribution}`,
   };
 }

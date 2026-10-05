@@ -14,6 +14,7 @@ import {
   type YansiPublicMetrics,
 } from '@/lib/eza/mirror-network/yansiPublicMetrics';
 import {
+  formatYansiDiscoverSocialMetrics,
   formatYansiPublicSocialProof,
   parseYansiPublicSocialProofInput,
 } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
@@ -22,6 +23,8 @@ import { YANSI_PUBLIC_METRIC_EXPERIENCE } from '@/lib/eza/mirror/copy';
 export type YansiPublicMetricsViewProps = {
   experienceStartedCount: number;
   directChildYansiCount: number;
+  visibleVerificationCount?: number;
+  contentVisibleCount?: number;
   className?: string;
   variant?: 'card' | 'section';
   slug?: string;
@@ -33,16 +36,27 @@ export type YansiPublicMetricsViewProps = {
 export function YansiPublicMetricsView({
   experienceStartedCount,
   directChildYansiCount,
+  visibleVerificationCount,
+  contentVisibleCount,
   className,
   variant = 'section',
   slug,
   journeyVersion,
   includeZeroExperience = false,
 }: YansiPublicMetricsViewProps) {
-  const copy = formatYansiPublicSocialProof({
-    experienceStartedCount,
-    directChildYansiCount,
-  });
+  const copy =
+    variant === 'card' &&
+    typeof visibleVerificationCount === 'number' &&
+    typeof contentVisibleCount === 'number'
+      ? formatYansiDiscoverSocialMetrics({
+          experienceStartedCount,
+          visibleVerificationCount,
+          contentVisibleCount,
+        })
+      : formatYansiPublicSocialProof({
+          experienceStartedCount,
+          directChildYansiCount,
+        });
   const resolved =
     copy ??
     (includeZeroExperience && experienceStartedCount === 0 && directChildYansiCount === 0

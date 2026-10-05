@@ -174,6 +174,8 @@ class DiscoverMirrorItem(BaseModel):
     journeyVersion: Optional[int] = Field(default=None, ge=1)
     experienceStartedCount: Optional[int] = Field(default=None, ge=0)
     directChildYansiCount: Optional[int] = Field(default=None, ge=0)
+    visibleVerificationCount: int = Field(default=0, ge=0)
+    contentVisibleCount: int = Field(default=0, ge=0)
     # Public creator identity — display only. Never userId/email/plan/role.
     authorDisplayName: Optional[str] = None
     publicHonorific: Optional[str] = None

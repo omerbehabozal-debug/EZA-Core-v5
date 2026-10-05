@@ -81,47 +81,55 @@ describe('Phase 6.2.1 Discover projection UI', () => {
     vi.mocked(fetchYansiPublicMetrics).mockReset();
   });
 
-  it('shows 140 deneyim · 7 Yansı from projected fields, never legacy 9999/99', () => {
+  it('shows Discover social metrics from projected fields, never legacy 9999/99', () => {
     render(
       <SainaDiscoverCard
-        item={canonicalItem('yansi-a', 140, 7, { yansiCount: 99 })}
+        item={canonicalItem('yansi-a', 140, 7, {
+          yansiCount: 99,
+          visibleVerificationCount: 2,
+          contentVisibleCount: 4,
+        })}
       />
     );
     expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
-      '140 deneyim · 7 Yansı'
+      '140 deneyim · 2 doğrulama · 4 katkı'
     );
     expect(screen.getByTestId('yansi-public-metrics')).toHaveAttribute(
       'aria-label',
-      '140 deneyim, 7 Yansı'
+      '140 deneyim, 2 doğrulama, 4 katkı'
     );
     expect(screen.queryByText('9999 deneyim')).toBeNull();
     expect(screen.queryByText(formatDiscoverYansiCount(99))).toBeNull();
     expect(fetchYansiPublicMetrics).not.toHaveBeenCalled();
   });
 
-  it('applies Phase 6.2 zero rules', () => {
+  it('keeps Discover zero social metrics visible for stable footer layout', () => {
     const { unmount } = render(
       <SainaDiscoverCard item={canonicalItem('z0', 0, 0)} />
     );
-    expect(screen.queryByTestId('yansi-public-metrics')).toBeNull();
+    expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
+      '0 deneyim · 0 doğrulama · 0 katkı'
+    );
     unmount();
 
     render(<SainaDiscoverCard item={canonicalItem('z1', 140, 0)} />);
-    expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent('140 deneyim');
+    expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
+      '140 deneyim · 0 doğrulama · 0 katkı'
+    );
     expect(screen.getByTestId('yansi-public-metrics').textContent).not.toContain('Yansı');
   });
 
-  it('shows 0 deneyim · 3 Yansı and 1 deneyim · 1 Yansı', () => {
+  it('does not fold direct child Yansı count into Discover social metrics', () => {
     const { unmount } = render(
       <SainaDiscoverCard item={canonicalItem('z2', 0, 3)} />
     );
     expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
-      '0 deneyim · 3 Yansı'
+      '0 deneyim · 0 doğrulama · 0 katkı'
     );
     unmount();
     render(<SainaDiscoverCard item={canonicalItem('z3', 1, 1)} />);
     expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
-      '1 deneyim · 1 Yansı'
+      '1 deneyim · 0 doğrulama · 0 katkı'
     );
   });
 

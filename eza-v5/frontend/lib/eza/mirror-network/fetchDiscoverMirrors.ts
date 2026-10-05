@@ -28,6 +28,8 @@ export type DiscoverMirror = {
   journeyVersion?: number | null;
   experienceStartedCount?: number | null;
   directChildYansiCount?: number | null;
+  visibleVerificationCount?: number;
+  contentVisibleCount?: number;
   authorDisplayName?: string | null;
   publicHonorific?: string | null;
   publicAvatarUrl?: string | null;
@@ -104,6 +106,8 @@ export function parseDiscoverItem(raw: unknown): DiscoverMirror | null {
     journeyVersion: version && version >= 1 ? version : null,
     experienceStartedCount: canonical?.experienceStartedCount ?? null,
     directChildYansiCount: canonical?.directChildYansiCount ?? null,
+    visibleVerificationCount: parseNonNegInt(row.visibleVerificationCount) ?? 0,
+    contentVisibleCount: parseNonNegInt(row.contentVisibleCount) ?? 0,
     authorDisplayName:
       typeof row.authorDisplayName === 'string' && row.authorDisplayName.trim()
         ? row.authorDisplayName.trim()

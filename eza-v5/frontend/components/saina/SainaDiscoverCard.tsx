@@ -80,6 +80,8 @@ export default function SainaDiscoverCard({
             <YansiPublicMetricsView
               experienceStartedCount={canonical.experienceStartedCount}
               directChildYansiCount={canonical.directChildYansiCount}
+              visibleVerificationCount={item.visibleVerificationCount ?? 0}
+              contentVisibleCount={item.contentVisibleCount ?? 0}
               variant="card"
               slug={item.slug}
               journeyVersion={item.journeyVersion ?? undefined}

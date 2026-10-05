@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { formatYansiPublicSocialProof, parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
+import {
+  formatYansiDiscoverSocialMetrics,
+  formatYansiPublicSocialProof,
+  parseYansiPublicSocialProofInput,
+} from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
 
 describe('Phase 6.2 public metrics copy', () => {
   it('formats 140 deneyim · 7 Yansı', () => {
@@ -86,6 +90,46 @@ describe('Phase 6.2 public metrics copy', () => {
         yansiCount: 99,
         landingViews: 9999,
         experienceCount: 42,
+      })
+    ).toBeNull();
+  });
+
+  it('formats Discover read-only social metrics with zero verification and contribution visible', () => {
+    expect(
+      formatYansiDiscoverSocialMetrics({
+        experienceStartedCount: 3,
+        visibleVerificationCount: 0,
+        contentVisibleCount: 0,
+      })
+    ).toEqual({
+      visible: '3 deneyim · 0 doğrulama · 0 katkı',
+      sr: '3 deneyim, 0 doğrulama, 0 katkı',
+    });
+  });
+
+  it('formats Discover katkı from contentVisibleCount without folding verify into katkı', () => {
+    expect(
+      formatYansiDiscoverSocialMetrics({
+        experienceStartedCount: 3,
+        visibleVerificationCount: 2,
+        contentVisibleCount: 4,
+      })?.visible
+    ).toBe('3 deneyim · 2 doğrulama · 4 katkı');
+  });
+
+  it('fail-closes Discover social metrics on negative or non-integer fields', () => {
+    expect(
+      formatYansiDiscoverSocialMetrics({
+        experienceStartedCount: 3,
+        visibleVerificationCount: -1,
+        contentVisibleCount: 4,
+      })
+    ).toBeNull();
+    expect(
+      formatYansiDiscoverSocialMetrics({
+        experienceStartedCount: 3,
+        visibleVerificationCount: 2,
+        contentVisibleCount: 4.5,
       })
     ).toBeNull();
   });

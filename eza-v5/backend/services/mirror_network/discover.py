@@ -21,14 +21,16 @@ from datetime import datetime
 from typing import Any, Literal, Mapping, Optional
 from urllib.parse import urlparse
 
-from sqlalchemy import bindparam, select, text
+from sqlalchemy import bindparam, func, select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.mirror_network import DiscoverMirrorItem, DiscoverMirrorListResponse
 from backend.models.mirror_network import (
     ARTIFACT_KIND_JOURNEY_V1,
+    KATKI_CONTRIBUTION_TYPES,
     MirrorJourneyStep,
     MirrorNetworkNode,
+    YansiContribution,
 )
 from backend.services.mirror_network.author_profile import (
     _steps_as_public_dicts,
@@ -66,6 +68,9 @@ MAX_DISCOVER_LIMIT = 48
 MAX_DISCOVER_OFFSET = 500
 # Overflow cap by stable identity (slug), never newest/popularity window.
 MAX_DISCOVER_ELIGIBLE_LOAD = 10_000
+_DISCOVER_CONTENT_KATKI_TYPES = tuple(
+    name for name in KATKI_CONTRIBUTION_TYPES if name != "verify"
+)
 
 DiscoverMode = Literal["random", "strong_curiosity", "newest"]
 
@@ -306,6 +311,8 @@ def _to_discover_item(
     journey_version: int | None = None,
     experience_started_count: int | None = None,
     direct_child_yansi_count: int | None = None,
+    visible_verification_count: int = 0,
+    content_visible_count: int = 0,
     author_display_name: str | None = None,
     public_honorific: str | None = None,
     public_avatar_url: str | None = None,
@@ -339,6 +346,8 @@ def _to_discover_item(
         journeyVersion=version,
         experienceStartedCount=experience_started_count,
         directChildYansiCount=direct_child_yansi_count,
+        visibleVerificationCount=max(0, int(visible_verification_count or 0)),
+        contentVisibleCount=max(0, int(content_visible_count or 0)),
         authorDisplayName=author_display_name,
         publicHonorific=public_honorific,
         publicAvatarUrl=public_avatar_url,
@@ -363,6 +372,66 @@ async def _fetch_children_for_parents(
         )
     )
     return list(result.scalars().all())
+
+
+async def _fetch_katki_counts_for_targets(
+    db: AsyncSession,
+    targets: list[tuple[str, int]],
+) -> dict[tuple[str, int], dict[str, int]]:
+    """
+    Batch visible Katkı counts for Discover cards.
+
+    Counts are aggregate-only and version-scoped. No contribution rows,
+    contributor identity, or viewer state are projected into Discover.
+    """
+    normalized = sorted(
+        {
+            (slug.strip().lower(), int(version))
+            for slug, version in targets
+            if slug and slug.strip() and int(version) >= 1
+        }
+    )
+    if not normalized:
+        return {}
+
+    table = YansiContribution.__table__
+    rows = (
+        await db.execute(
+            select(
+                table.c.slug,
+                table.c.journey_version,
+                table.c.contribution_type,
+                func.count(table.c.public_id).label("count"),
+            )
+            .where(
+                tuple_(table.c.slug, table.c.journey_version).in_(normalized),
+                table.c.visibility == "visible",
+                table.c.contribution_type.in_(KATKI_CONTRIBUTION_TYPES),
+            )
+            .group_by(
+                table.c.slug,
+                table.c.journey_version,
+                table.c.contribution_type,
+            )
+        )
+    ).all()
+
+    counts: dict[tuple[str, int], dict[str, int]] = {
+        key: {"visibleVerificationCount": 0, "contentVisibleCount": 0}
+        for key in normalized
+    }
+    for slug, version, contribution_type, count in rows:
+        key = (str(slug).strip().lower(), int(version))
+        bucket = counts.setdefault(
+            key,
+            {"visibleVerificationCount": 0, "contentVisibleCount": 0},
+        )
+        value = max(0, int(count or 0))
+        if contribution_type == "verify":
+            bucket["visibleVerificationCount"] += value
+        elif contribution_type in _DISCOVER_CONTENT_KATKI_TYPES:
+            bucket["contentVisibleCount"] += value
+    return counts
 
 
 async def _load_steps_by_slug_version(
@@ -470,20 +539,25 @@ async def _project_discover_page(
         )
         yansi_by_parent = _batch_yansi_counts(children)
 
+    pairs = [
+        (
+            node.slug.strip().lower(),
+            int(getattr(node, "journey_version", None) or 1),
+        )
+        for node, _ in page
+    ]
     metrics_by_key: dict[tuple[str, int], dict[str, int]] = {}
     try:
         from backend.services.mirror_network.yansi_metrics import get_yansi_public_metrics_batch
 
-        pairs = [
-            (
-                node.slug.strip().lower(),
-                int(getattr(node, "journey_version", None) or 1),
-            )
-            for node, _ in page
-        ]
         metrics_by_key = await get_yansi_public_metrics_batch(db, pairs)
     except Exception:
         metrics_by_key = {}
+
+    try:
+        katki_counts_by_key = await _fetch_katki_counts_for_targets(db, pairs)
+    except Exception:
+        katki_counts_by_key = {}
 
     from backend.services.mirror_network.public_identity import (
         resolve_public_display_name,
@@ -497,7 +571,12 @@ async def _project_discover_page(
     items = []
     for node, scene_url in page:
         version = int(getattr(node, "journey_version", None) or 1)
-        row = metrics_by_key.get((node.slug.strip().lower(), version))
+        key = (node.slug.strip().lower(), version)
+        row = metrics_by_key.get(key)
+        katki_counts = katki_counts_by_key.get(
+            key,
+            {"visibleVerificationCount": 0, "contentVisibleCount": 0},
+        )
         author = _author_for_node(authors_by_id, getattr(node, "user_id", None))
         items.append(
             _to_discover_item(
@@ -511,6 +590,10 @@ async def _project_discover_page(
                 direct_child_yansi_count=(
                     row.get("directChildYansiCount") if row else None
                 ),
+                visible_verification_count=katki_counts.get(
+                    "visibleVerificationCount", 0
+                ),
+                content_visible_count=katki_counts.get("contentVisibleCount", 0),
                 author_display_name=resolve_public_display_name(author),
                 public_honorific=resolve_public_honorific(author),
                 public_avatar_url=_discover_public_avatar_url(author),

@@ -113,6 +113,8 @@ describe('Discover public creator avatar', () => {
       publicHonorific: 'curious',
       publicAvatarUrl: AVATAR_URL,
       publicAvatarRevision: 4,
+      visibleVerificationCount: 2,
+      contentVisibleCount: 4,
       userId: 'should-not-copy',
       email: 'hidden@example.com',
     });
@@ -121,6 +123,8 @@ describe('Discover public creator avatar', () => {
     expect(parsed?.publicHonorific).toBe('curious');
     expect(parsed?.publicAvatarUrl).toBe(AVATAR_URL);
     expect(parsed?.publicAvatarRevision).toBe(4);
+    expect(parsed?.visibleVerificationCount).toBe(2);
+    expect(parsed?.contentVisibleCount).toBe(4);
     expect(parsed).not.toHaveProperty('userId');
     expect(parsed).not.toHaveProperty('email');
   });
@@ -244,6 +248,55 @@ describe('Discover editorial feed presentation', () => {
     expect(screen.getByTestId('saina-discover-card-title-editorial-yansi').textContent).toBe(TITLE);
     expect(screen.getByTestId('saina-discover-card-summary-editorial-yansi').textContent).toBe(
       SUMMARY
+    );
+  });
+
+  it('renders read-only Discover social metrics without counting verify as katkı', () => {
+    render(
+      <SainaDiscoverCard
+        item={{
+          slug: 'social-yansi',
+          title: TITLE,
+          description: SUMMARY,
+          sceneImageUrl: SCENE,
+          yansiCount: 9,
+          experienceStartedCount: 3,
+          directChildYansiCount: 5,
+          visibleVerificationCount: 2,
+          contentVisibleCount: 4,
+          authorDisplayName: 'Creator',
+          publicHonorific: 'curious',
+        }}
+      />
+    );
+
+    const metrics = screen.getByTestId('yansi-public-metrics');
+    expect(metrics).toHaveTextContent('3 deneyim · 2 doğrulama · 4 katkı');
+    expect(metrics).toHaveAttribute('aria-label', '3 deneyim, 2 doğrulama, 4 katkı');
+    expect(metrics.closest('a,button')).toBeNull();
+    expect(metrics).not.toHaveTextContent('5 Yansı');
+    expect(screen.getByTestId('saina-discover-card-cta-social-yansi')).toBeInTheDocument();
+  });
+
+  it('keeps zero verification and zero contribution visible in Discover metrics', () => {
+    render(
+      <SainaDiscoverCard
+        item={{
+          slug: 'zero-social-yansi',
+          title: TITLE,
+          description: SUMMARY,
+          sceneImageUrl: SCENE,
+          yansiCount: 0,
+          experienceStartedCount: 3,
+          directChildYansiCount: 0,
+          visibleVerificationCount: 0,
+          contentVisibleCount: 0,
+        }}
+      />
+    );
+
+    expect(screen.getByTestId('yansi-public-metrics')).toHaveTextContent(
+      '3 deneyim · 0 doğrulama · 0 katkı'
     );
   });
 

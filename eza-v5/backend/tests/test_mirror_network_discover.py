@@ -16,6 +16,7 @@ from backend.core.schemas.mirror_network import DiscoverMirrorItem, DiscoverMirr
 from backend.services.mirror_network.discover import (
     _attach_unmapped_public_avatar,
     _discover_public_avatar_url,
+    _fetch_katki_counts_for_targets,
     _to_discover_item,
     is_canonical_discover_node_structure,
     is_public_discover_scene_url,
@@ -293,6 +294,83 @@ async def test_child_remains_eligible_when_parent_private():
         response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
     assert response.total == 1
     assert response.items[0].slug == "yansi-b"
+
+
+@pytest.mark.asyncio
+async def test_discover_katki_counts_are_batch_version_scoped_and_content_only():
+    db = AsyncMock()
+    db.execute = AsyncMock(
+        return_value=SimpleNamespace(
+            all=lambda: [
+                ("root-a", 1, "verify", 2),
+                ("root-a", 1, "correction", 1),
+                ("root-a", 1, "additional_information", 1),
+                ("root-a", 1, "different_perspective", 1),
+            ]
+        )
+    )
+
+    counts = await _fetch_katki_counts_for_targets(
+        db,
+        [("root-a", 1), ("root-b", 1)],
+    )
+
+    assert db.execute.await_count == 1
+    assert counts[("root-a", 1)] == {
+        "visibleVerificationCount": 2,
+        "contentVisibleCount": 3,
+    }
+    assert counts[("root-b", 1)] == {
+        "visibleVerificationCount": 0,
+        "contentVisibleCount": 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_discover_projects_katki_counts_without_contribution_rows():
+    root = _root_node(slug="root-open")
+    db = AsyncMock()
+    pool_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [root]))
+    children_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+    db.execute = AsyncMock(side_effect=[pool_result, _empty_result(), children_result])
+
+    with (
+        patch(
+            "backend.services.mirror_network.discover.is_replay_ready_from_loaded_child",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
+            new=AsyncMock(
+                return_value={
+                    ("root-open", 1): {
+                        "experienceStartedCount": 3,
+                        "directChildYansiCount": 0,
+                    }
+                }
+            ),
+        ),
+        patch(
+            "backend.services.mirror_network.discover._fetch_katki_counts_for_targets",
+            new=AsyncMock(
+                return_value={
+                    ("root-open", 1): {
+                        "visibleVerificationCount": 2,
+                        "contentVisibleCount": 4,
+                    }
+                }
+            ),
+        ),
+    ):
+        response = await list_discover_mirrors(db, limit=10, offset=0, mode="newest")
+
+    dumped = response.items[0].model_dump()
+    assert dumped["experienceStartedCount"] == 3
+    assert dumped["visibleVerificationCount"] == 2
+    assert dumped["contentVisibleCount"] == 4
+    raw = json.dumps(dumped)
+    assert "countsByType" not in raw
+    assert "contributions" not in raw
 
 
 @pytest.mark.asyncio
