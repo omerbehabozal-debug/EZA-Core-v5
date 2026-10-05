@@ -6247,7 +6247,7 @@ button.saina-discover-card__title-open:focus-visible {
     align-items: stretch;
     width: min(100%, 70rem);
     max-width: none;
-    height: clamp(14rem, 12.5vw, 15.5rem);
+    height: clamp(14rem, 12.5vw, 16rem);
     min-width: 0;
     border-color: rgba(199, 151, 82, 0.22);
     background:
