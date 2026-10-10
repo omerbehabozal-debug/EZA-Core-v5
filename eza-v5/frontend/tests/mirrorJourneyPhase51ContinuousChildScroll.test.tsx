@@ -256,7 +256,7 @@ describe('Phase 5.1 replay isolation', () => {
 });
 
 describe('Phase 5.1 continuous chain UI', () => {
-  it('completed A stays active alone: no child preload, CTA=/m/A, Discover DOWN available', async () => {
+  it('completed A stays active alone: no child preload, explore CTA, Discover DOWN available', async () => {
     const a = makeArtifact('yansi-a', {
       authorUserId: 'author-a',
       sceneImageUrl: 'https://cdn.example/yansi-a.jpg',
@@ -308,10 +308,9 @@ describe('Phase 5.1 continuous chain UI', () => {
     );
 
     const sectionA = screen.getByTestId('mirror-yansi-section-yansi-a');
-    expect(within(sectionA).getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
-      'href',
-      '/m/yansi-a/sohbet'
-    );
+    expect(within(sectionA).getByTestId('mirror-frozen-replay-explore-another')).toBeTruthy();
+    expect(within(sectionA).queryByTestId('mirror-frozen-replay-continue')).toBeNull();
+    expect(within(sectionA).getByRole('textbox', { name: 'Mesaj yaz' })).toBeTruthy();
     expect(within(sectionA).getByText('Bu Yansı burada tamamlandı.')).toBeTruthy();
     // Reel nav is quiet during chat — Discover DOWN returns with REEL_PREVIEW.
     expect(screen.queryByTestId('mirror-skip-to-next')).toBeNull();
@@ -341,7 +340,7 @@ describe('Phase 5.1 continuous chain UI', () => {
     );
     render(<MirrorYansiChainExperience rootArtifact={a}  depth="chat" />);
     await waitFor(() => {
-      expect(screen.getByTestId('mirror-frozen-replay-continue')).toBeTruthy();
+      expect(screen.getByTestId('mirror-frozen-replay-explore-another')).toBeTruthy();
     });
     expect(screen.queryByTestId('mirror-other-paths')).toBeNull();
     expect(screen.queryByText(/0 Yansı/i)).toBeNull();
