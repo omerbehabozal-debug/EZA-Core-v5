@@ -2924,3 +2924,70 @@
     will-change: auto !important;
   }
 }
+
+/* One geometry for desktop chat and public replay. Uses the existing reading tokens. */
+@media (min-width: 900px) {
+  .saina-app-root.saina-standalone-shell .saina-main-body.saina-desktop-chat-layout {
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .saina-desktop-chat-header {
+    position: relative;
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: var(--bilign-avatar-primary);
+    margin-bottom: var(--saina-identity-chat-breath);
+  }
+  .saina-app-root.saina-standalone-shell .saina-main-body.saina-desktop-chat-layout .saina-desktop-chat-header .bilign-yansi-identity {
+    margin-bottom: 0;
+    height: var(--bilign-avatar-primary);
+  }
+  .saina-desktop-header-context {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(var(--saina-reading-plane-width), 100%);
+    padding-inline: 1.25rem;
+  }
+  .saina-app-root.saina-standalone-shell .saina-desktop-chat-layout .saina-chat-column,
+  .saina-app-root.saina-standalone-shell .saina-desktop-chat-layout .saina-chat-scroll-region,
+  .saina-app-root.saina-standalone-shell .saina-desktop-chat-layout .saina-chat-float {
+    min-height: 0;
+    overflow: hidden;
+  }
+  .saina-app-root.saina-standalone-shell .saina-main-body.saina-desktop-chat-layout .saina-chat-card.saina-chat-card--growth {
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+  .saina-desktop-chat-layout .saina-standalone-messages-scroll {
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .saina-desktop-chat-layout .saina-chat-bottom-anchor { flex: 0 0 auto; }
+  .saina-desktop-replay-action {
+    position: relative;
+    flex: 0 0 auto;
+    width: min(var(--saina-composer-width), 100%);
+    margin-inline: auto;
+    z-index: 3;
+  }
+  .saina-desktop-replay-action .yansi-actionable-question {
+    width: 100%;
+    max-height: 5.8rem;
+    overflow-y: auto;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid rgba(232, 213, 181, 0.3);
+    border-radius: 16px;
+    background: rgba(18, 20, 20, 0.94);
+    color: var(--bilign-body);
+    font: inherit;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    text-align: left;
+    cursor: pointer;
+  }
+  .saina-desktop-replay-action [role='alert'] { color: #e3ba9b; font-size: 0.8rem; }
+}

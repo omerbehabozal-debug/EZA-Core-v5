@@ -29,6 +29,7 @@ import SainaConversationSidebar from '@/components/saina/SainaConversationSideba
 import SainaCommandPalette from './SainaCommandPalette';
 import SainaCinematicScene from './SainaCinematicScene';
 import SainaHeroScene from './SainaHeroScene';
+import SainaDesktopChatLayout from './SainaDesktopChatLayout';
 import YansiPersonalSourceIdentity from '@/components/mirror-landing/YansiPersonalSourceIdentity';
 import type { PublicReplayContext } from '@/lib/eza/mirror-network/publicReplayContinuation';
 import SainaMobileAynaSheet from './SainaMobileAynaSheet';
@@ -172,6 +173,23 @@ function SainaChatSurface({
     setNotificationsOpen(true);
   }, []);
 
+  const identityHeader = (
+    <SainaHeroScene
+      secondaryAvatar={isCompactShell && publicReplayContext ? <YansiPersonalSourceIdentity context={publicReplayContext} avatarOnly /> : undefined}
+      sourceCaption={isCompactShell && publicReplayContext ? <YansiPersonalSourceIdentity context={publicReplayContext} /> : undefined}
+      title={heroTitle}
+      metaTimeLabel={heroMeta?.timeLabel}
+      metaTypeLabel={heroMeta?.typeLabel}
+      displayName={displayName}
+      honorificId={honorific?.id ?? null}
+      honorificLabel={honorific?.label ?? null}
+      userId={user?.user_id ?? null}
+      avatarUrl={heroAvatar.url}
+      avatarCacheBust={heroAvatar.revision}
+      compactMobileIdentity
+    />
+  );
+
   return (
     <>
       <div
@@ -209,24 +227,18 @@ function SainaChatSurface({
               />
             )}
             <div
-              className={cn('saina-main-body', isEmpty && 'saina-main-body--empty')}
+              className={cn('saina-main-body', isEmpty && 'saina-main-body--empty', isCompactShell && !isEmpty && 'saina-desktop-chat-layout')}
               data-testid="saina-main-body"
               data-yansi-personal-continuation={isCompactShell && publicReplayContext ? 'true' : undefined}
             >
-              <SainaHeroScene
-                secondaryAvatar={isCompactShell && publicReplayContext ? <YansiPersonalSourceIdentity context={publicReplayContext} avatarOnly /> : undefined}
-                sourceCaption={isCompactShell && publicReplayContext ? <YansiPersonalSourceIdentity context={publicReplayContext} /> : undefined}
-                title={heroTitle}
-                metaTimeLabel={heroMeta?.timeLabel}
-                metaTypeLabel={heroMeta?.typeLabel}
-                displayName={displayName}
-                honorificId={honorific?.id ?? null}
-                honorificLabel={honorific?.label ?? null}
-                userId={user?.user_id ?? null}
-                avatarUrl={heroAvatar.url}
-                avatarCacheBust={heroAvatar.revision}
-                compactMobileIdentity
-              />
+              {isCompactShell && !isEmpty ? (
+                <SainaDesktopChatLayout
+                  header={identityHeader}
+                  messages={messages}
+                  composer={composer}
+                />
+              ) : (<>
+              {identityHeader}
               <div
                 className={cn(
                   'saina-chat-column',
@@ -274,6 +286,7 @@ function SainaChatSurface({
                   <div className="saina-composer-zone saina-standalone-composer">{composer}</div>
                 </div>
               </div>
+              </>)}
             </div>
           </div>
         </div>

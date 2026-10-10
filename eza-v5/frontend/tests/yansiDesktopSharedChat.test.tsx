@@ -91,7 +91,7 @@ describe('desktop shared chat adapter', () => {
     root.scrollTop = 0; fireEvent.scroll(root);
     fireEvent.click(screen.getByTestId('mirror-frozen-replay-next-question'));
     await waitFor(() => expect(scrollTo).toHaveBeenCalledWith({ top: 1800, behavior: 'auto' }));
-    expect(root).toHaveClass('yansi-desktop-experience__scroll');
+    expect(root).toHaveClass('saina-standalone-messages-scroll');
     expect(root.contains(screen.getByTestId('saina-composer'))).toBe(false);
     expect(root.contains(screen.getByTestId('yansi-title-block'))).toBe(false);
   });

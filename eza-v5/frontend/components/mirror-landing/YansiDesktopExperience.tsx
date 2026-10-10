@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
+import SainaDesktopChatLayout from '@/components/saina/SainaDesktopChatLayout';
+import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
 import SainaHeroScene from '@/components/saina/SainaHeroScene';
 import SainaComposer from '@/components/saina/SainaComposer';
 import { resolvePublicHonorificId } from '@/lib/eza/mirror/publicHonorific';
@@ -22,13 +24,14 @@ export type DesktopYansiReplayIdentity = {
 };
 
 /** Presentation and personal-chat handoff only. Frozen replay remains parent-owned. */
-export default function YansiDesktopExperience({ slug, identity, messages, replayAction, scrollRef, metrics, replaySelection }: {
+export default function YansiDesktopExperience({ slug, identity, messages, replayAction, scrollRef, metrics, replaySelection, sceneImageUrl }: {
   slug: string;
   identity: DesktopYansiReplayIdentity;
   messages: ReactNode;
   replayAction: ReactNode;
   scrollRef: RefObject<HTMLDivElement>;
   metrics?: ReactNode;
+  sceneImageUrl?: string | null;
   replaySelection: PublicReplaySelection;
 }) {
   const router = useRouter();
@@ -66,22 +69,23 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
     }
   };
 
-  return <div className="yansi-desktop-experience" data-testid="yansi-desktop-experience">
-    <header className="yansi-desktop-experience__header" data-testid="yansi-title-block" data-yansi-title-position="elevated">
-      <div data-testid="yansi-desktop-identity" data-yansi-author-id={identity.authorUserId} data-yansi-avatar-authority="canonical-profile">
-        <SainaHeroScene title={identity.title} displayName={identity.displayName} userId={identity.authorUserId}
-          avatarUrl={identity.avatarUrl} avatarCacheBust={identity.avatarRevision ?? undefined}
-          honorificId={identity.honorific ? resolvePublicHonorificId(identity.honorific) : null} honorificLabel={identity.honorific} metaTimeLabel={identity.timeLabel} metaTypeLabel="Yansı" />
-      </div>
-      {metrics}
-    </header>
-    <div ref={scrollRef} className="yansi-desktop-experience__scroll" data-testid="mirror-frozen-replay-thread" tabIndex={0} aria-label="Yayınlanmış sohbet mesajları">
-      <div className="saina-chat-card yansi-desktop-experience__messages">{messages}</div>
-    </div>
-    <div className="yansi-desktop-experience__actions" data-testid="yansi-chat-composer-lane">
-      {replayAction}
-      {error ? <p role="alert" data-testid="yansi-personal-chat-error">{error}</p> : null}
-      <SainaComposer onSend={(message) => void continuePersonally(message)} isLoading={starting} preserveDraftOnSend />
+  return <div className="yansi-desktop-experience saina-main" data-testid="yansi-desktop-experience">
+    <SainaCinematicScene sceneImageUrl={sceneImageUrl} />
+    <div className="saina-main-body saina-desktop-chat-layout">
+      <SainaDesktopChatLayout replay scrollRef={scrollRef}
+        header={<>
+          <div data-testid="yansi-desktop-identity" data-yansi-author-id={identity.authorUserId} data-yansi-avatar-authority="canonical-profile">
+            <SainaHeroScene title={identity.title} displayName={identity.displayName} userId={identity.authorUserId}
+              avatarUrl={identity.avatarUrl} avatarCacheBust={identity.avatarRevision ?? undefined}
+              honorificId={identity.honorific ? resolvePublicHonorificId(identity.honorific) : null} honorificLabel={identity.honorific}
+              metaTimeLabel={identity.timeLabel} metaTypeLabel="Yansı" />
+          </div>
+          <div className="saina-desktop-header-context">{metrics}</div>
+        </>}
+        messages={messages}
+        action={<>{replayAction}{error ? <p role="alert" data-testid="yansi-personal-chat-error">{error}</p> : null}</>}
+        composer={<SainaComposer onSend={(message) => void continuePersonally(message)} isLoading={starting} preserveDraftOnSend />}
+      />
     </div>
   </div>;
 }
