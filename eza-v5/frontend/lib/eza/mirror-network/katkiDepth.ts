@@ -81,13 +81,13 @@ export function selectKatkiType(
   type: KatkiType
 ): KatkiDepthState {
   if (state.stage === 'closed' || type === 'verify') return state;
-  const same = state.selectedType === type;
   return {
     ...state,
     stage: 'compose',
     selectedType: type,
-    body: same ? state.body : '',
-    sourceNote: same ? state.sourceNote : '',
+    // Changing category must not silently discard a user's draft.
+    body: state.body,
+    sourceNote: state.sourceNote,
   };
 }
 

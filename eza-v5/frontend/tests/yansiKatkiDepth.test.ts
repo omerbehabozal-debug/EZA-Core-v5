@@ -99,6 +99,15 @@ describe('katki depth state', () => {
     expect(other.selectedType).toBe('different_perspective');
   });
 
+  it('retains the draft when choosing a different content category', () => {
+    const draft = { ...selectKatkiType(openKatkiTypeChoice(openKatkiList('yansi-a', 2)), 'correction'),
+      body: 'Düşüncemi kategori değişince de koru.', sourceNote: 'Kaynak notu' };
+    const changed = selectKatkiType(returnKatkiToTypeChoice(draft), 'additional_information');
+    expect(changed.selectedType).toBe('additional_information');
+    expect(changed.body).toBe(draft.body);
+    expect(changed.sourceNote).toBe(draft.sourceNote);
+  });
+
   it('clears a draft when reel travel closes the depth', () => {
     const dirty = {
       ...selectKatkiType(openKatkiTypeChoice(openKatkiList('yansi-a', 2)), 'correction'),

@@ -1358,7 +1358,7 @@
 
   .yansi-katki-depth__panel {
     pointer-events: auto;
-    width: min(540px, 100%);
+    width: min(560px, 100%);
     box-sizing: border-box;
     position: relative;
     min-width: 0;
@@ -1366,27 +1366,19 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 28px 24px 24px;
-    background: linear-gradient(155deg, rgba(47, 39, 25, 0.96), rgba(16, 16, 14, 0.97) 45%);
+    background: linear-gradient(155deg, rgba(35, 31, 23, 0.96), rgba(15, 15, 14, 0.97) 45%);
     backdrop-filter: blur(6px);
-    border: 1px solid rgba(214, 176, 118, 0.55);
-    border-radius: 22px;
+    border: 1px solid rgba(214, 176, 118, 0.38);
+    border-radius: 20px;
     box-shadow: 0 22px 48px rgba(0, 0, 0, 0.62);
-  }
-
-  .yansi-katki-depth__header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin: 18px 0 14px;
-    justify-content: center;
   }
 
   .yansi-katki-depth__title {
     flex: 1;
     margin: 0;
     font-family: Georgia, serif;
-    text-align: center;
-    font-size: clamp(24px, 2.1vw, 30px);
+    text-align: left;
+    font-size: clamp(25px, 2vw, 30px);
     font-weight: 500;
     line-height: 1.15;
     letter-spacing: 0.01em;
@@ -1520,7 +1512,7 @@
 
 
   .yansi-verifier-panel__panel {
-    width: min(420px, 100%);
+    width: min(430px, 100%);
   }
 
   .yansi-katki-depth__row .yansi-katki-depth__type {
@@ -1602,28 +1594,74 @@
     outline: 2px solid rgba(232, 213, 181, 0.7);
     outline-offset: 3px;
   }
-  .yansi-social-emblem {
-    display: grid; place-items: center; margin: 0 auto;
-    width: 64px; height: 64px; border-radius: 50%;
-    border: 1px solid rgba(214, 176, 118, 0.65); color: #dec18d;
-    background: rgba(115, 88, 44, 0.12);
-  }
-  .yansi-katki-depth__header > span:empty { display: none; }
-  .yansi-katki-depth__explain { text-align: center; color: #cfc6b7; margin-bottom: 26px; font-size: 14px; }
-  .yansi-katki-depth__filters { justify-content: center; padding-bottom: 18px; border-bottom: 1px solid rgba(232, 213, 181, 0.12); }
-  .yansi-katki-depth__filter { padding: 9px 12px; color: #ded6c9; }
+  .yansi-social-header { display: flex; gap: 18px; padding-right: 28px; margin-bottom: 24px; flex-shrink: 0; }
+  .yansi-social-header__thumbnail { width: 78px; height: 82px; flex-shrink: 0; object-fit: cover; border-radius: 14px; }
+  .yansi-social-header__copy { flex: 1; min-width: 0; }
+  .yansi-social-header__identity { margin: 0 0 10px; font-size: 10px; line-height: 1.5; letter-spacing: 0.14em; text-transform: uppercase; color: #b4a58d; overflow-wrap: anywhere; }
+  .yansi-katki-depth__explain { text-align: left; color: #cfc6b7; margin: 12px 0 0; font-size: 13px; }
+  .yansi-katki-depth__filters { justify-content: space-between; gap: 6px; padding-bottom: 18px; border-bottom: 1px solid rgba(232, 213, 181, 0.12); }
+  .yansi-katki-depth__filter { padding: 10px 13px; color: #ded6c9; }
   .yansi-katki-depth__filter[data-active='true'] { background: #e5c38b; color: #241c11; }
-  .yansi-katki-depth__create { margin-top: 22px; padding: 14px 20px; border: 1px solid #ba955b; background: linear-gradient(110deg, rgba(158, 121, 62, 0.32), rgba(88, 68, 37, 0.3)); border-radius: 999px; font-weight: 600; }
+  .yansi-katki-depth__create { display: flex; gap: 12px; align-items: center; position: sticky; bottom: 0; margin-top: 20px; padding: 10px 12px; border: 1px solid #a88a59; background: #282218; border-radius: 24px; font-weight: 500; }
+  .yansi-katki-depth__create-plus { display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; color: #21190f; background: #e5c38b; font-size: 24px; }
+  .yansi-katki-depth__create strong { white-space: nowrap; font-size: 14px; font-weight: 600; }
+  .yansi-katki-depth__create-copy { padding-left: 12px; border-left: 1px solid rgba(214, 176, 118, 0.35); font-size: 11px; line-height: 1.5; color: #cabc9f; flex: 1; }
+  .yansi-katki-depth__create > svg { flex-shrink: 0; color: #dec18d; }
   .yansi-katki-depth__row-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .yansi-katki-depth__row .bilign-profile-avatar { flex-shrink: 0; width: 44px; height: 44px; }
-  .yansi-katki-depth__name { font-size: 14px; margin-bottom: 8px; }
-  .yansi-katki-depth__body { font-size: 14px; line-height: 1.6; }
-  .yansi-katki-depth__row time { color: #afa89b; font-size: 12px; }
-  .yansi-verifier-panel__meaning { display: flex; gap: 14px; padding: 18px; margin-top: 22px; border: 1px solid rgba(183, 137, 73, 0.2); border-radius: 16px; background: rgba(143, 109, 53, 0.12); }
-  .yansi-verifier-panel__meaning > svg { flex-shrink: 0; color: #dec18d; }
-  .yansi-verifier-panel__meaning h3 { font-size: 14px; font-weight: 500; color: #dec18d; margin: 0 0 8px; }
-  .yansi-verifier-panel__meaning p { font-size: 13px; line-height: 1.6; color: #cfc6b7; margin: 0; }
+  .yansi-katki-depth__row { border-left: 2px solid rgba(214, 176, 118, 0.48); }
+  .yansi-katki-depth__row-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .yansi-katki-depth__row-heading .yansi-katki-depth__name { font-size: 14px; margin: 0; font-weight: 500; }
+  .yansi-katki-depth__row-heading .yansi-katki-depth__type { margin: 0; padding: 3px 9px; border: 1px solid rgba(214, 176, 118, 0.4); border-radius: 999px; font-size: 11px; }
+  .yansi-katki-depth__row time { margin-left: auto; color: #afa89b; font-size: 11px; }
+  .yansi-katki-depth__body { font-size: 14px; line-height: 1.6; margin-bottom: 0; white-space: pre-wrap; }
+  .yansi-katki-depth__source { margin-top: 8px; font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .yansi-verifier-panel .yansi-social-header__thumbnail { width: 64px; height: 70px; }
+  .yansi-verifier-panel .yansi-katki-depth__row { align-items: center; border-left-width: 1px; }
+  .yansi-verifier-panel .yansi-katki-depth__row-heading { margin-bottom: 0; }
+  .yansi-verifier-panel .yansi-katki-depth__honorific { margin: 0; font-size: 11px; padding: 4px 8px; border: 1px solid rgba(183, 137, 73, 0.5); border-radius: 999px; color: #d8b77e; }
+  .yansi-verifier-panel__meaning { display: flex; gap: 14px; padding: 16px; margin-top: 20px; border: 1px solid rgba(183, 137, 73, 0.16); border-radius: 16px; background: rgba(143, 109, 53, 0.07); }
+  .yansi-verifier-panel__meaning > svg { flex-shrink: 0; color: #baa079; }
+  .yansi-verifier-panel__meaning h3 { font-size: 13px; font-weight: 500; color: #c5ae86; margin: 0 0 8px; }
+  .yansi-verifier-panel__meaning p { font-size: 12px; line-height: 1.6; color: #bab4aa; margin: 0; }
   .yansi-katki-depth__panel :focus-visible { outline: 2px solid #dec18d; outline-offset: 3px; }
+  .yansi-katki-depth__panel--creating { width: min(720px, 100%); display: flex; flex-direction: column; overflow: hidden; }
+  .yansi-katki-depth__panel--creating > div:first-child { flex-shrink: 0; }
+  .yansi-katki-flow { display: grid; grid-template-columns: 142px minmax(0, 1fr); gap: 22px; border-top: 1px solid rgba(232, 213, 181, 0.12); padding-top: 18px; min-height: 0; }
+  .yansi-katki-flow__steps { list-style: none; padding: 0 16px 0 0; margin: 0; border-right: 1px solid rgba(232, 213, 181, 0.12); font-size: 11px; line-height: 1.5; }
+  .yansi-katki-flow__steps li { display: flex; gap: 10px; position: relative; align-items: flex-start; color: #a8a49c; margin-bottom: 24px; }
+  .yansi-katki-flow__steps li > span { display: grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; border: 1px solid #8b7858; border-radius: 50%; }
+  .yansi-katki-flow__steps li:not(:last-child)::after { content: ''; position: absolute; top: 26px; left: 11px; height: 22px; width: 1px; background: rgba(183, 137, 73, 0.35); }
+  .yansi-katki-flow__steps li[data-active='true'] { color: #e5c38b; }
+  .yansi-katki-flow__steps li[data-active='true'] > span { background: #e5c38b; color: #21190f; }
+  .yansi-katki-flow__steps small { display: block; font-size: 10px; color: #b3aa9a; }
+  .yansi-katki-flow__content { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 3px 4px; }
+  .yansi-katki-flow h3, .yansi-katki-exit h3, .yansi-katki-success h3 { font: 24px/1.2 Georgia, serif; margin: 0 0 10px; }
+  .yansi-katki-depth__types { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .yansi-katki-depth__type-choice { position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 16px 12px; border: 1px solid rgba(183, 137, 73, 0.32); border-radius: 14px; }
+  .yansi-katki-depth__type-choice > svg { flex-shrink: 0; color: #c5ae86; }
+  .yansi-katki-depth__type-choice strong { display: block; font: 16px/1.3 Georgia, serif; margin-bottom: 8px; }
+  .yansi-katki-depth__type-choice small { display: block; font-size: 11px; line-height: 1.5; color: #bdb7ac; }
+  .yansi-katki-depth__type-choice[data-active='true'] { border-color: #c6a263; background: rgba(183, 137, 73, 0.09); }
+  .yansi-katki-depth__type-choice + .yansi-katki-depth__type-choice { margin-top: 0; }
+  .yansi-katki-flow__selected { position: absolute; top: 6px; right: 6px; }
+  .yansi-katki-flow__actions { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin-top: 22px; padding-top: 10px; position: sticky; bottom: -3px; background: #12110f; }
+  .yansi-katki-flow__actions .yansi-katki-depth__submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: auto; min-width: 126px; margin-left: auto; font-size: 13px; padding: 10px 18px; }
+  .yansi-katki-flow__actions .yansi-katki-depth__back { font-size: 12px; padding: 10px 14px; border: 1px solid rgba(183, 137, 73, 0.25); border-radius: 999px; }
+  .yansi-katki-depth__panel button:disabled { opacity: 0.5; cursor: default; }
+  .yansi-katki-depth__counter { text-align: right; font-size: 11px; margin: -6px 0 12px; color: #afa89b; }
+  .yansi-katki-depth__field textarea { min-height: 108px; max-height: 240px; }
+  .yansi-katki-depth__field--optional textarea { min-height: 60px; }
+  .yansi-katki-success { text-align: center; padding: 16px 8px 4px; }
+  .yansi-katki-success__mark { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 22px; border: 1px solid #c6a263; border-radius: 50%; color: #e5c38b; }
+  .yansi-katki-success p { font-size: 14px; line-height: 1.6; margin: 14px 0 26px; color: #cfc6b7; }
+  .yansi-katki-exit { padding: 14px 0; }
+  .yansi-katki-exit p { color: #cfc6b7; font-size: 14px; }
+}
+@media (min-width: 900px) and (max-width: 1100px) {
+  .yansi-katki-flow { grid-template-columns: 104px minmax(0, 1fr); gap: 14px; }
+  .yansi-katki-flow__steps { padding-right: 10px; }
+  .yansi-katki-depth__panel--creating .yansi-social-header__thumbnail { width: 64px; height: 68px; }
 }
 
 /* Mobile /m — HARD FREEZE: hide BiligN desktop chrome, keep fullscreen Yansı */

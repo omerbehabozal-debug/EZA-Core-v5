@@ -68,9 +68,9 @@ export const KATKI_COMPOSE_PLACEHOLDERS: Record<Exclude<KatkiType, 'verify'>, st
   different_perspective: 'Bakışını buraya yaz...',
 };
 
-const BODY_MIN = 20;
-const BODY_MAX = 2000;
-const SOURCE_MAX = 500;
+export const KATKI_BODY_MIN = 20;
+export const KATKI_BODY_MAX = 2000;
+export const KATKI_SOURCE_MAX = 500;
 
 export const KATKI_EMPTY_COPY_FORBIDDEN = [
   'Henüz katkı yok',
@@ -188,7 +188,7 @@ export function formatVerifyReelCount(verifyCount: number): string {
 
 export function katkiBodyProgress(body: string): string | null {
   const length = body.trim().length;
-  if (length >= BODY_MIN) return null;
+  if (length >= KATKI_BODY_MIN) return null;
   return `En az 20 karakter · ${length}/20`;
 }
 
@@ -202,16 +202,16 @@ export function validateKatkiDraft(
   sourceNote: string
 ): KatkiDraftResult {
   const note = sourceNote.trim();
-  if (note.length > SOURCE_MAX) {
+  if (note.length > KATKI_SOURCE_MAX) {
     return { ok: false, message: 'Kaynak notu en fazla 500 karakter olabilir.' };
   }
   const trimmedBody = body.trim();
   if (type === 'verify') {
-    if (trimmedBody && (trimmedBody.length < BODY_MIN || trimmedBody.length > BODY_MAX)) {
+    if (trimmedBody && (trimmedBody.length < KATKI_BODY_MIN || trimmedBody.length > KATKI_BODY_MAX)) {
       return {
         ok: false,
         message:
-          trimmedBody.length < BODY_MIN
+          trimmedBody.length < KATKI_BODY_MIN
             ? 'Metin en az 20 karakter olmalı.'
             : 'Metin en fazla 2000 karakter olabilir.',
       };
@@ -221,10 +221,10 @@ export function validateKatkiDraft(
   if (!trimmedBody) {
     return { ok: false, message: 'Bu katkı için bir metin yazmalısın.' };
   }
-  if (trimmedBody.length < BODY_MIN) {
+  if (trimmedBody.length < KATKI_BODY_MIN) {
     return { ok: false, message: 'Metin en az 20 karakter olmalı.' };
   }
-  if (trimmedBody.length > BODY_MAX) {
+  if (trimmedBody.length > KATKI_BODY_MAX) {
     return { ok: false, message: 'Metin en fazla 2000 karakter olabilir.' };
   }
   return { ok: true, body: trimmedBody, sourceNote: note || null };
