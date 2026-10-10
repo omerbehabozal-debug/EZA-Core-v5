@@ -5,7 +5,9 @@
  * Read is public. Create uses the existing sign-in path.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { AnimatePresence, motion, useReducedMotion, useIsPresent } from 'framer-motion';
+import { Users, ShieldCheck } from 'lucide-react';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -64,6 +66,71 @@ function formatCreatedAt(value: string): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
+}
+
+export function YansiSocialPanelPresence({ children }: { children: ReactNode }) {
+  const reducedMotion = useReducedMotion();
+  return reducedMotion ? <>{children}</> : <AnimatePresence mode="wait">{children}</AnimatePresence>;
+}
+
+/** Shared presentation only; the chain continues to own panel state. */
+function SocialDialog({ children, label, compact = false, onClose }: {
+  children: ReactNode; label: string; compact?: boolean; onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const reducedMotion = useReducedMotion();
+  const isPresent = useIsPresent();
+  useEffect(() => {
+    if (!isPresent) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panelRef.current?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+    const outside = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || panelRef.current?.contains(target)) return;
+      // These dedicated controls already own toggle/switch behavior.
+      if (target.closest('[data-testid="yansi-katki-reel-signal"], [data-testid="yansi-katki-verifiers"]')) return;
+      closeRef.current();
+    };
+    document.addEventListener('click', outside);
+    return () => {
+      document.removeEventListener('click', outside);
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
+  }, [isPresent]);
+  return (
+    <motion.div
+      ref={panelRef}
+      className={`yansi-katki-depth__panel ${compact ? 'yansi-verifier-panel__panel' : 'yansi-katki-depth__lane'}`}
+      data-testid={compact ? undefined : 'yansi-katki-lane'}
+      role="dialog" aria-label={label} tabIndex={-1}
+      aria-hidden={!isPresent || undefined}
+      style={{ pointerEvents: isPresent ? 'auto' : 'none' }}
+      initial={{ opacity: 0, y: reducedMotion ? 0 : 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: reducedMotion ? 0 : 4 }}
+      transition={{ duration: reducedMotion ? 0 : 0.14 }}
+      onWheel={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); }
+        if (event.key !== 'Tab') return;
+        const controls = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), textarea:not(:disabled), input:not(:disabled), a[href], [tabindex="0"]'
+        ) ?? []);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }}
+    >
+      <div className="yansi-social-emblem" aria-hidden="true">
+        {compact ? <ShieldCheck size={26} strokeWidth={1.4} /> : <Users size={26} strokeWidth={1.4} />}
+      </div>
+      {children}
+    </motion.div>
+  );
 }
 
 export default function YansiKatkiDepth({
@@ -220,7 +287,7 @@ export default function YansiKatkiDepth({
         event.stopPropagation();
       }}
     >
-      <div className="yansi-katki-depth__panel yansi-katki-depth__lane" data-testid="yansi-katki-lane">
+      <SocialDialog label="Topluluk Katkıları" onClose={onClose}>
         <div className="yansi-katki-depth__header">
           {showBack ? (
             <button
@@ -268,20 +335,13 @@ export default function YansiKatkiDepth({
         {stage === 'list' ? (
           <div data-testid="yansi-katki-list">
             <p className="yansi-katki-depth__explain">{PANEL_EXPLANATION}</p>
-            <button
-              type="button"
-              className="yansi-katki-depth__create"
-              data-testid="yansi-katki-create"
-              onClick={startCreate}
-            >
-              + Katkı yap
-            </button>
             {snapshot ? (
-              <div className="yansi-katki-depth__filters" role="tablist" aria-label="Katkı türleri">
+              <div className="yansi-katki-depth__filters" role="group" aria-label="Katkı türleri">
                 <button
                   type="button"
                   className="yansi-katki-depth__filter"
                   data-active={contentFilter === 'all' ? 'true' : 'false'}
+                  aria-pressed={contentFilter === 'all'}
                   onClick={() => setContentFilter('all')}
                 >
                   Tümü {contentCount}
@@ -293,6 +353,7 @@ export default function YansiKatkiDepth({
                     className="yansi-katki-depth__filter"
                     data-testid={`yansi-katki-filter-${group.type}`}
                     data-active={contentFilter === group.type ? 'true' : 'false'}
+                    aria-pressed={contentFilter === group.type}
                     onClick={() => setContentFilter(group.type)}
                   >
                     {group.label} {snapshot.countsByType[group.type]}
@@ -361,6 +422,14 @@ export default function YansiKatkiDepth({
                   </section>
                 ))
               : null}
+            <button
+              type="button"
+              className="yansi-katki-depth__create"
+              data-testid="yansi-katki-create"
+              onClick={startCreate}
+            >
+              + Katkı yap
+            </button>
           </div>
         ) : null}
 
@@ -444,7 +513,7 @@ export default function YansiKatkiDepth({
             </button>
           </form>
         ) : null}
-      </div>
+      </SocialDialog>
     </div>
   );
 }
@@ -464,7 +533,7 @@ export function YansiVerifierPanel({
       data-testid="yansi-verifier-panel"
       onWheel={(event) => event.stopPropagation()}
     >
-      <div className="yansi-katki-depth__panel yansi-verifier-panel__panel">
+      <SocialDialog label="Doğrulayanlar" compact onClose={onClose}>
         <div className="yansi-katki-depth__header">
           <span />
           <h2 className="yansi-katki-depth__title">Doğrulayanlar {count}</h2>
@@ -499,7 +568,13 @@ export function YansiVerifierPanel({
             </li>
           ))}
         </ul>
-      </div>
+        <aside className="yansi-verifier-panel__meaning">
+          <ShieldCheck size={22} strokeWidth={1.4} aria-hidden="true" />
+          <div><h3>Doğrulama ne demek?</h3>
+            <p>Bu Yansı’ya verilen bir sosyal destek işaretidir. Kesin doğruluk veya uzmanlık puanı değildir.</p>
+          </div>
+        </aside>
+      </SocialDialog>
     </div>
   );
 }

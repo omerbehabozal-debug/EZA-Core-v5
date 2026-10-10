@@ -1340,7 +1340,7 @@
   }
 }
 
-/* Desktop Katkılar panel — opaque, above the mounted Reel. */
+/* Desktop social dialogs: centered inside the existing main-content stage. */
 @media (min-width: 900px) {
   .yansi-katki-depth {
     position: absolute;
@@ -1348,8 +1348,9 @@
     z-index: 7;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    padding: 4.5rem 6.5rem 3rem 2rem;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
     pointer-events: none;
     background: transparent;
     color: #f5ead8;
@@ -1357,14 +1358,18 @@
 
   .yansi-katki-depth__panel {
     pointer-events: auto;
-    width: min(36rem, 100%);
-    max-height: min(36rem, 78%);
+    width: min(540px, 100%);
+    box-sizing: border-box;
+    position: relative;
+    min-width: 0;
+    max-height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 1.15rem 1.25rem 1.4rem;
-    background: #12110e;
-    border: 1px solid rgba(214, 176, 118, 0.28);
-    border-radius: 16px;
+    padding: 28px 24px 24px;
+    background: linear-gradient(155deg, rgba(47, 39, 25, 0.96), rgba(16, 16, 14, 0.97) 45%);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(214, 176, 118, 0.55);
+    border-radius: 22px;
     box-shadow: 0 22px 48px rgba(0, 0, 0, 0.62);
   }
 
@@ -1372,27 +1377,33 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 1.25rem;
+    margin: 18px 0 14px;
+    justify-content: center;
   }
 
   .yansi-katki-depth__title {
     flex: 1;
     margin: 0;
-    font-size: 1.15rem;
+    font-family: Georgia, serif;
+    text-align: center;
+    font-size: clamp(24px, 2.1vw, 30px);
     font-weight: 500;
     line-height: 1.15;
     letter-spacing: 0.01em;
   }
 
   .yansi-katki-depth__close {
-    margin-left: auto;
+    position: absolute;
+    top: 14px;
+    right: 14px;
     border: 0;
     background: transparent;
     color: rgba(245, 234, 216, 0.82);
     font-size: 1.35rem;
     line-height: 1;
     cursor: pointer;
-    padding: 0.15rem 0.2rem;
+    width: 36px;
+    height: 36px;
   }
 
   .yansi-katki-depth__back,
@@ -1506,13 +1517,10 @@
     font-size: 0.68rem;
   }
 
-  .yansi-verifier-panel {
-    justify-content: flex-start;
-    padding-left: 38%;
-  }
+
 
   .yansi-verifier-panel__panel {
-    width: min(22rem, 100%);
+    width: min(420px, 100%);
   }
 
   .yansi-katki-depth__row .yansi-katki-depth__type {
@@ -1554,8 +1562,12 @@
 
   .yansi-katki-depth__row {
     display: flex;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
+    gap: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(232, 213, 181, 0.15);
+    border-radius: 16px;
+    background: rgba(8, 9, 8, 0.3);
   }
 
   .yansi-katki-depth__field {
@@ -1590,6 +1602,28 @@
     outline: 2px solid rgba(232, 213, 181, 0.7);
     outline-offset: 3px;
   }
+  .yansi-social-emblem {
+    display: grid; place-items: center; margin: 0 auto;
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 1px solid rgba(214, 176, 118, 0.65); color: #dec18d;
+    background: rgba(115, 88, 44, 0.12);
+  }
+  .yansi-katki-depth__header > span:empty { display: none; }
+  .yansi-katki-depth__explain { text-align: center; color: #cfc6b7; margin-bottom: 26px; font-size: 14px; }
+  .yansi-katki-depth__filters { justify-content: center; padding-bottom: 18px; border-bottom: 1px solid rgba(232, 213, 181, 0.12); }
+  .yansi-katki-depth__filter { padding: 9px 12px; color: #ded6c9; }
+  .yansi-katki-depth__filter[data-active='true'] { background: #e5c38b; color: #241c11; }
+  .yansi-katki-depth__create { margin-top: 22px; padding: 14px 20px; border: 1px solid #ba955b; background: linear-gradient(110deg, rgba(158, 121, 62, 0.32), rgba(88, 68, 37, 0.3)); border-radius: 999px; font-weight: 600; }
+  .yansi-katki-depth__row-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .yansi-katki-depth__row .bilign-profile-avatar { flex-shrink: 0; width: 44px; height: 44px; }
+  .yansi-katki-depth__name { font-size: 14px; margin-bottom: 8px; }
+  .yansi-katki-depth__body { font-size: 14px; line-height: 1.6; }
+  .yansi-katki-depth__row time { color: #afa89b; font-size: 12px; }
+  .yansi-verifier-panel__meaning { display: flex; gap: 14px; padding: 18px; margin-top: 22px; border: 1px solid rgba(183, 137, 73, 0.2); border-radius: 16px; background: rgba(143, 109, 53, 0.12); }
+  .yansi-verifier-panel__meaning > svg { flex-shrink: 0; color: #dec18d; }
+  .yansi-verifier-panel__meaning h3 { font-size: 14px; font-weight: 500; color: #dec18d; margin: 0 0 8px; }
+  .yansi-verifier-panel__meaning p { font-size: 13px; line-height: 1.6; color: #cfc6b7; margin: 0; }
+  .yansi-katki-depth__panel :focus-visible { outline: 2px solid #dec18d; outline-offset: 3px; }
 }
 
 /* Mobile /m — HARD FREEZE: hide BiligN desktop chrome, keep fullscreen Yansı */

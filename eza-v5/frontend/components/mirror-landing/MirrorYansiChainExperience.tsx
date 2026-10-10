@@ -27,6 +27,7 @@ import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSc
 import YansiDesktopReelSurface from '@/components/mirror-landing/YansiDesktopReelSurface';
 import YansiKatkiDepth, {
   YansiVerifierPanel,
+  YansiSocialPanelPresence,
 } from '@/components/mirror-landing/YansiKatkiDepth';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
 import '@/styles/bilign-avatar-identity-frame.css';
@@ -842,14 +843,18 @@ export default function MirrorYansiChainExperience({
     if (!isDesktop || depth !== 'reel' || navInFlightRef.current || !activeSlug) return;
     if (!katkiSnapshot) return;
     setVerifierOpen(false);
-    setKatki(openKatkiList(activeSlug, presentedJourneyVersion));
+    setKatki((current) =>
+      current.stage !== 'closed'
+        ? closeKatki()
+        : openKatkiList(activeSlug, presentedJourneyVersion)
+    );
   }, [activeSlug, depth, isDesktop, katkiSnapshot, presentedJourneyVersion]);
 
   const openVerifiersFromReel = useCallback(() => {
     if (!isDesktop || depth !== 'reel' || navInFlightRef.current || !activeSlug) return;
     if (!katkiSnapshot || katkiSnapshot.countsByType.verify < 1) return;
     setKatki(closedKatkiDepth());
-    setVerifierOpen(true);
+    setVerifierOpen((current) => !current);
   }, [activeSlug, depth, isDesktop, katkiSnapshot]);
 
   const submitDirectVerify = useCallback(async () => {
@@ -980,6 +985,10 @@ export default function MirrorYansiChainExperience({
   const onDesktopReelWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {
       if (!isDesktop || depth !== 'reel') return;
+      if (verifierOpen) {
+        event.preventDefault();
+        return;
+      }
       if (katkiOwnsWheel(katkiRef.current.stage)) {
         const target = event.target as Node | null;
         const depthEl = chainRootRef.current?.querySelector(
@@ -1002,7 +1011,7 @@ export default function MirrorYansiChainExperience({
       if (resolved.direction === 'down') void goDown();
       if (resolved.direction === 'up') goUp();
     },
-    [depth, goDown, goUp, isDesktop]
+    [depth, goDown, goUp, isDesktop, verifierOpen]
   );
 
   useEffect(() => {
@@ -1011,7 +1020,7 @@ export default function MirrorYansiChainExperience({
     const onWheel = (event: WheelEvent) => {
       if (depth !== 'reel') return;
       const target = event.target;
-      const depthEl = root.querySelector('[data-testid="yansi-katki-depth"]');
+      const depthEl = root.querySelector('[data-testid="yansi-katki-depth"], [data-testid="yansi-verifier-panel"]');
       if (target instanceof Node && depthEl?.contains(target)) return;
       event.preventDefault();
     };
@@ -1576,47 +1585,52 @@ export default function MirrorYansiChainExperience({
 
       {renderDesktopReelChrome()}
 
-      {isDesktop && katki.stage !== 'closed' ? (
-        <YansiKatkiDepth
-          slug={katki.slug}
-          journeyVersion={katki.journeyVersion}
-          read={katkiRead}
-          readStatus={katkiReadStatus}
-          readGeneration={katkiRequestGen.current}
-          onReadChange={(next, generation) => {
-            if (generation !== katkiRequestGen.current) return;
-            if (next.slug !== activeSlug || next.journeyVersion !== presentedJourneyVersion) return;
-            setKatkiRead(next);
-            setKatkiReadStatus('ready');
-          }}
-          stage={katki.stage}
-          selectedType={katki.selectedType}
-          body={katki.body}
-          sourceNote={katki.sourceNote}
-          chooseFrom={katki.chooseFrom}
-          onClose={() => setKatki(closeKatki())}
-          onBack={() => setKatki((current) => escapeKatki(current))}
-          onStartCreate={() => setKatki((current) => openKatkiTypeChoice(current))}
-          onChooseType={(type) => setKatki((current) => selectKatkiType(current, type))}
-          onChangeType={() => setKatki((current) => returnKatkiToTypeChoice(current))}
-          onBodyChange={(value) => setKatki((current) => ({ ...current, body: value }))}
-          onSourceChange={(value) =>
-            setKatki((current) => ({ ...current, sourceNote: value }))
-          }
-          onSubmitted={() =>
-            setKatki((current) => openKatkiList(current.slug, current.journeyVersion))
-          }
-          onRequireAuth={onRequireAuth}
-        />
-      ) : null}
+      <YansiSocialPanelPresence>
+        {isDesktop && katki.stage !== 'closed' ? (
+          <YansiKatkiDepth
+            key="contributions"
+            slug={katki.slug}
+            journeyVersion={katki.journeyVersion}
+            read={katkiRead}
+            readStatus={katkiReadStatus}
+            readGeneration={katkiRequestGen.current}
+            onReadChange={(next, generation) => {
+              if (generation !== katkiRequestGen.current) return;
+              if (next.slug !== activeSlug || next.journeyVersion !== presentedJourneyVersion) return;
+              setKatkiRead(next);
+              setKatkiReadStatus('ready');
+            }}
+            stage={katki.stage}
+            selectedType={katki.selectedType}
+            body={katki.body}
+            sourceNote={katki.sourceNote}
+            chooseFrom={katki.chooseFrom}
+            onClose={() => setKatki(closeKatki())}
+            onBack={() => setKatki((current) => escapeKatki(current))}
+            onStartCreate={() => setKatki((current) => openKatkiTypeChoice(current))}
+            onChooseType={(type) => setKatki((current) => selectKatkiType(current, type))}
+            onChangeType={() => setKatki((current) => returnKatkiToTypeChoice(current))}
+            onBodyChange={(value) => setKatki((current) => ({ ...current, body: value }))}
+            onSourceChange={(value) =>
+              setKatki((current) => ({ ...current, sourceNote: value }))
+            }
+            onSubmitted={() =>
+              setKatki((current) => openKatkiList(current.slug, current.journeyVersion))
+            }
+            onRequireAuth={onRequireAuth}
+          />
+        ) : null}
 
-      {isDesktop && verifierOpen && katkiSnapshot ? (
-        <YansiVerifierPanel
-          count={katkiSnapshot.countsByType.verify}
-          people={visibleVerifiers(katkiSnapshot.contributions)}
-          onClose={() => setVerifierOpen(false)}
-        />
-      ) : null}
+        {isDesktop && verifierOpen && katkiSnapshot ? (
+          <YansiVerifierPanel
+            key="verifiers"
+            count={katkiSnapshot.countsByType.verify}
+            people={visibleVerifiers(katkiSnapshot.contributions)}
+            onClose={() => setVerifierOpen(false)}
+          />
+        ) : null}
+
+      </YansiSocialPanelPresence>
 
       {isDesktop && showChatReplay ? renderTitleBlock() : null}
 

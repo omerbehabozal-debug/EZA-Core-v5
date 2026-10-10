@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import type { ComponentProps, ReactElement } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import YansiKatkiDepth from '@/components/mirror-landing/YansiKatkiDepth';
+import YansiKatkiDepth, { YansiVerifierPanel } from '@/components/mirror-landing/YansiKatkiDepth';
 import MirrorYansiChainExperience from '@/components/mirror-landing/MirrorYansiChainExperience';
 import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
 import { apiClient } from '@/lib/apiClient';
@@ -270,6 +270,57 @@ describe('katki depth ui', () => {
     expect(screen.getByTestId('yansi-katki-row-note')).toHaveTextContent('Arşiv notu');
     expect(screen.getByText('Deniz')).toBeTruthy();
     expect(document.body.textContent).not.toContain('verify-empty');
+  });
+
+  it.each([0, 1, 24])('renders %s public verifiers with natural content and support copy', (count) => {
+    const people = Array.from({ length: count }, (_, i) => ({
+      displayName: `Public person ${i}`, publicHonorific: 'Meraklı',
+      publicAvatarUrl: `/api/public/profile-avatars/person-${i}.png`, publicAvatarRevision: 2,
+    }));
+    render(<YansiVerifierPanel count={count} people={people} onClose={() => undefined} />);
+    expect(screen.getByRole('dialog', { name: 'Doğrulayanlar' })).toBeTruthy();
+    expect(screen.queryAllByTestId('yansi-verifier-person')).toHaveLength(count);
+    expect(screen.getByText(/Kesin doğruluk veya uzmanlık puanı değildir/)).toBeTruthy();
+    if (count) expect(screen.getAllByText('Meraklı')).toHaveLength(count);
+  });
+
+  it('contains verifier keyboard and wheel events, traps focus, and closes outside', () => {
+    const close = vi.fn();
+    const keyboard = vi.fn();
+    const wheel = vi.fn();
+    const view = render(<div onKeyDown={keyboard} onWheel={wheel}>
+      <button data-testid="outside">Outside</button>
+      <YansiVerifierPanel count={0} people={[]} onClose={close} />
+    </div>);
+    const dialog = screen.getByRole('dialog');
+    const button = screen.getByTestId('yansi-verifier-close');
+    expect(button).toHaveFocus();
+    fireEvent.keyDown(button, { key: 'Tab' });
+    expect(button).toHaveFocus();
+    fireEvent.keyDown(dialog, { key: 'ArrowDown' });
+    fireEvent.wheel(dialog, { deltaY: 200 });
+    expect(keyboard).not.toHaveBeenCalled();
+    expect(wheel).not.toHaveBeenCalled();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(close).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId('outside'));
+    expect(close).toHaveBeenCalledTimes(2);
+    view.unmount();
+  });
+
+  it.each([0, 1, 24])('renders %s content contributions and four filters without verify rows', (count) => {
+    const rows = Array.from({ length: count }, (_, i) => contribution({
+      contributionId: `content-${i}`, type: 'additional_information',
+    }));
+    render(<Depth slug="yansi-a" journeyVersion={2} stage="list"
+      read={readPayload('yansi-a', 2, [...rows, contribution({ contributionId: 'verify', type: 'verify', body: null })]).data}
+      selectedType={null} body="" sourceNote="" onBack={vi.fn()} onStartCreate={vi.fn()}
+      onChooseType={vi.fn()} onChangeType={vi.fn()} onBodyChange={vi.fn()}
+      onSourceChange={vi.fn()} onSubmitted={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: `Topluluk Katkıları ${count}` })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Katkı türleri' }).querySelectorAll('button')).toHaveLength(4);
+    expect(screen.queryAllByTestId(/^yansi-katki-row-content-/)).toHaveLength(count);
+    expect(screen.queryByTestId('yansi-katki-row-verify')).toBeNull();
   });
 
   it('keeps an empty depth quiet', async () => {
@@ -687,6 +738,76 @@ describe('katki on the yansi chain', () => {
     expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute('data-yansi-katki-stage', 'closed');
   });
 
+  it('toggles social controls, switches panels, and preserves close and detail behavior', async () => {
+    vi.mocked(apiClient.get).mockImplementation(async (path: string) => {
+      if (!String(path).includes('/contributions')) return { ok: false };
+      return readPayload('yansi-b', 2, [
+        contribution({ contributionId: 'person', type: 'verify', body: null }),
+      ]);
+    });
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    await flushAsync();
+    const contributions = screen.getByTestId('yansi-katki-reel-signal');
+    const people = screen.getByTestId('yansi-katki-verifiers');
+    const reads = vi.mocked(apiClient.get).mock.calls.length;
+    fireEvent.click(contributions);
+    expect(screen.getByTestId('yansi-katki-depth')).toBeTruthy();
+    fireEvent.click(contributions);
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+    fireEvent.click(people);
+    expect(screen.getByTestId('yansi-verifier-panel')).toBeTruthy();
+    fireEvent.click(people);
+    expect(screen.queryByTestId('yansi-verifier-panel')).toBeNull();
+    fireEvent.click(contributions);
+    fireEvent.click(people);
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+    expect(screen.getByTestId('yansi-verifier-panel')).toBeTruthy();
+    fireEvent.click(contributions);
+    expect(screen.queryByTestId('yansi-verifier-panel')).toBeNull();
+    expect(screen.getByTestId('yansi-katki-depth')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('yansi-katki-close'));
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+    fireEvent.click(people);
+    fireEvent.click(screen.getByTestId('yansi-verifier-close'));
+    expect(screen.queryByTestId('yansi-verifier-panel')).toBeNull();
+    fireEvent.click(people);
+    fireEvent.keyDown(screen.getByTestId('mirror-yansi-chain'), { key: 'Escape' });
+    expect(screen.queryByTestId('yansi-verifier-panel')).toBeNull();
+    const detail = screen.getByTestId('yansi-desktop-detail-toggle');
+    fireEvent.click(detail);
+    expect(detail).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(detail);
+    expect(detail).toHaveAttribute('aria-expanded', 'false');
+    expect(apiClient.get).toHaveBeenCalledTimes(reads);
+    expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it.each(['contributions', 'verifiers'])('closes active %s on Reel navigation', async (panel) => {
+    installClock();
+    vi.mocked(apiClient.get).mockImplementation(async (path: string) => {
+      if (!String(path).includes('/contributions')) return { ok: false };
+      return readPayload('yansi-b', 2, [
+        contribution({ contributionId: 'person', type: 'verify', body: null }),
+      ]);
+    });
+    renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" />);
+    await flushAsync();
+    fireEvent.click(screen.getByTestId(
+      panel === 'contributions' ? 'yansi-katki-reel-signal' : 'yansi-katki-verifiers'
+    ));
+    expect(screen.getByTestId(
+      panel === 'contributions' ? 'yansi-katki-depth' : 'yansi-verifier-panel'
+    )).toBeTruthy();
+    fireEvent.click(screen.getByTestId('mirror-skip-to-next'));
+    await flushAsync();
+    expect(screen.queryByTestId('yansi-katki-depth')).toBeNull();
+    expect(screen.queryByTestId('yansi-verifier-panel')).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(YANSI_REEL_TRAVEL_MS);
+    });
+    expect(screen.getByTestId('mirror-yansi-chain')).toHaveAttribute('data-active-slug', 'yansi-x');
+  });
+
   it('does not let conversation and contributions coexist', async () => {
     const onDepthChange = vi.fn();
     renderChain(
@@ -942,6 +1063,7 @@ describe('katki on the yansi chain', () => {
     expect(await screen.findByRole('button', { name: '1 doğrulama' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '0 katkı' })).toBeTruthy();
     expect(screen.getByTestId('yansi-katki-verify')).toHaveAttribute('data-yansi-verify', 'active');
+    expect(screen.queryByTestId('yansi-verifier-panel')).toBeNull();
     expect(screen.queryByTestId('yansi-katki-reel-create')).toBeNull();
   });
 
