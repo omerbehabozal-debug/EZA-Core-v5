@@ -112,24 +112,8 @@ def test_public_projection_allowlist_and_strips_internal():
         source_assistant_message_id="eza-msg-1",
     )
     public = project_public_frozen_step_eza(internal)
-    assert public is not None
-    assert set(public.keys()) <= {
-        "assistantScore",
-        "userScore",
-        "ezaFinal",
-        "outputHealth",
-        "inputHealth",
-        "alignmentScore",
-        "redirect",
-        "redirectBenign",
-        "intent",
-    }
-    assert public["assistantScore"] == 95
-    assert "behavioral" not in public
-    assert "asymmetry" not in public
-    assert "sourceAssistantMessageId" not in public
-    assert "deception_score" not in str(public)
-    assert "relationshipMap" not in str(public)
+    assert public is None
+    assert internal["assistantScore"] == 95
 
 
 def test_public_dto_rejects_extra_internal_fields():
@@ -167,7 +151,7 @@ def test_cross_step_binding_mismatch_rejected():
     assert exc.value.detail["code"] == "journey_eza_snapshot_mismatch"
 
 
-def test_public_steps_include_eza_and_omit_for_missing():
+def test_public_steps_omit_eza_even_when_present():
     steps = [
         {
             "stepIndex": 1,
@@ -192,7 +176,7 @@ def test_public_steps_include_eza_and_omit_for_missing():
     ]
     public_steps = project_public_frozen_steps(steps)
     assert len(public_steps) == 2
-    assert public_steps[0]["ezaSnapshot"]["assistantScore"] == 95
+    assert "ezaSnapshot" not in public_steps[0]
     assert "ezaSnapshot" not in public_steps[1]
     assert "sourceUserMessageId" not in public_steps[0]
     assert "questionHash" not in public_steps[0]
@@ -230,7 +214,7 @@ def test_deselected_secret_with_eza_not_in_public_package():
     # Public seal identity (same freeze as title/scene) — not a private hash bag.
     assert public.get("generationId") == "gen-secret"
     assert public.get("sourceConversationId") == "conv-secret"
-    assert all("ezaSnapshot" in s for s in public["steps"])
+    assert all("ezaSnapshot" not in s for s in public["steps"])
     blob = str(public)
     assert "ezaVisibilityEnabled" not in blob
     assert "ezaDataProcessingEnabled" not in blob
@@ -248,7 +232,7 @@ def test_v1_snapshot_immutable_vs_v2_new_snapshot():
     )
     assert v1["assistantScore"] == 70
     assert later["assistantScore"] == 99
-    assert project_public_frozen_step_eza(v1)["assistantScore"] == 70
+    assert project_public_frozen_step_eza(v1) is None
 
 
 def test_public_frozen_rejects_profile_fields_on_artifact_steps():
@@ -267,7 +251,7 @@ def test_public_frozen_rejects_profile_fields_on_artifact_steps():
 
 
 @pytest.mark.parametrize("n", [6, 7, 8])
-def test_public_steps_6_7_8_with_optional_eza(n):
+def test_public_steps_6_7_8_always_omit_eza(n):
     steps = []
     for i in range(1, n + 1):
         row = {
@@ -284,5 +268,5 @@ def test_public_steps_6_7_8_with_optional_eza(n):
     public = project_public_frozen_steps(steps)
     assert len(public) == n
     assert [s["stepIndex"] for s in public] == list(range(1, n + 1))
-    assert "ezaSnapshot" in public[0]
+    assert "ezaSnapshot" not in public[0]
     assert "ezaSnapshot" not in public[1]

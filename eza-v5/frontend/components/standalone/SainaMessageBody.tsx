@@ -13,7 +13,7 @@ export default function SainaMessageBody({ message, role }: SainaMessageBodyProp
 
   return (
     <div className={proseClass} data-testid="saina-msg-prose">
-      <SainaMarkdown content={message} />
+      <SainaMarkdown content={message} className="saina-markdown" />
     </div>
   );
 }

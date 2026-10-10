@@ -147,12 +147,19 @@ _INJECTION_RE = re.compile(
 )
 
 
-def sanitize_display_text(value: str, *, max_len: int) -> str:
+def sanitize_display_text(
+    value: str, *, max_len: int, preserve_markdown: bool = False
+) -> str:
     text = str(value or "")
     text = _CONTROL_CHARS_RE.sub("", text)
     text = _HTML_RE.sub("", text)
     text = _URL_RE.sub("", text)
-    text = re.sub(r"\s+", " ", text).strip()
+    if preserve_markdown:
+        # Publishing only: preserve block boundaries, indentation and hard breaks.
+        # All existing content filters and the length limit still apply.
+        text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    else:
+        text = re.sub(r"\s+", " ", text).strip()
     if _INJECTION_RE.search(text):
         text = _INJECTION_RE.sub("", text).strip()
     return text[:max_len].strip()

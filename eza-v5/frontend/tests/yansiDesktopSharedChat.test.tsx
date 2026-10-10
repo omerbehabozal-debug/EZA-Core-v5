@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import SainaMessageBody from '@/components/standalone/SainaMessageBody';
 import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import { parsePublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 import { clearAllFrozenReplayProgressForTests } from '@/lib/eza/mirror/journey/frozenReplaySession';
@@ -68,6 +69,24 @@ describe('desktop shared chat adapter', () => {
     expect(container.querySelectorAll('li')).toHaveLength(16);
     expect(screen.getByRole('textbox', { name: 'Mesaj yaz' })).toBeInTheDocument();
     expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.start).not.toHaveBeenCalled();
+  });
+
+  it('uses the identical normal-chat markdown tree for public replay without rewriting text', async () => {
+    const answer = '# Başlık\r\n\r\nUzun **kalın** paragraf.\r\n\r\n## Alt başlık\r\n\r\n1. İlk\r\n2. İkinci\r\n   - İç madde\r\n\r\n- Bir\r\n- İki\r\n\r\nSatır bir  \r\nSatır iki';
+    const publicArtifact = artifact();
+    publicArtifact.steps[0].publicAnswer = answer;
+    const { container } = render(<><div data-testid="normal-answer"><SainaMessageBody message={answer} role="ai" /></div>
+      <MirrorFrozenReplay artifact={publicArtifact} desktopIdentity={identity} /></>);
+    fireEvent.click(screen.getByTestId('mirror-frozen-replay-next-question'));
+    await waitFor(() => expect(screen.queryByTestId('frozen-answer-reveal')).not.toBeInTheDocument());
+    const normal = screen.getByTestId('normal-answer').querySelector('.saina-msg-prose')!;
+    const replay = container.querySelector('[data-testid="mirror-frozen-replay-thread"] .saina-msg-ai .saina-msg-prose')!;
+    expect(replay.outerHTML).toBe(normal.outerHTML);
+    expect(replay.querySelectorAll('ol > li')).toHaveLength(2);
+    expect(replay.querySelector('ol ul li')).toHaveTextContent('İç madde');
+    expect(replay.querySelector('br')).toBeTruthy();
+    expect(replay.querySelector('.saina-msg-prose-heading')).toHaveTextContent('Başlık');
+    expect(publicArtifact.steps[0].publicAnswer).toBe(answer);
   });
 
   it('preserves draft after failure and retries through the existing personal chain', async () => {

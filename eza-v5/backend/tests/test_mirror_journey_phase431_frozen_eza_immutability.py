@@ -203,7 +203,7 @@ def test_f_missing_eza_remains_valid():
     )
     assert public is not None
     assert "ezaSnapshot" not in public["steps"][0]
-    assert "ezaSnapshot" in public["steps"][1]
+    assert "ezaSnapshot" not in public["steps"][1]
 
 
 def test_g_absent_to_present_is_mutation():
@@ -325,6 +325,5 @@ def test_public_never_exposes_frozen_eza_hash_or_source_ids():
     assert "frozenEzaSnapshotsHash" not in blob
     assert "sourceAssistantMessageId" not in blob
     assert "ezaVisibilityEnabled" not in blob
-    assert project_public_frozen_step_eza(steps[0]["ezaSnapshot"])["assistantScore"] == pytest.approx(
-        91.01, abs=0.02
-    )
+    assert project_public_frozen_step_eza(steps[0]["ezaSnapshot"]) is None
+    assert steps[0]["ezaSnapshot"]["assistantScore"] == pytest.approx(91.01, abs=0.02)

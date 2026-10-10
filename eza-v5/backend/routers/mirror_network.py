@@ -477,6 +477,7 @@ async def get_mirror_network_children(
 @router.get("/{slug}/frozen", response_model=PublicFrozenJourneyArtifact)
 async def get_frozen_published_journey(
     slug: str,
+    response: Response,
     journeyVersion: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit_standalone),
@@ -497,6 +498,7 @@ async def get_frozen_published_journey(
                 "message": "Frozen published Journey not found or not replay-ready",
             },
         )
+    response.headers["Cache-Control"] = "no-store"
     return PublicFrozenJourneyArtifact.model_validate(public)
 
 

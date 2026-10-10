@@ -233,7 +233,7 @@ class YansiPublicMetrics(BaseModel):
 
 
 class PublicFrozenStepEzaSnapshot(BaseModel):
-    """Allowlisted interaction-level EZA for public frozen replay (Phase 4.2)."""
+    """Legacy snapshot shape; not part of any public frozen response."""
 
     model_config = {"extra": "forbid"}
 
@@ -249,14 +249,13 @@ class PublicFrozenStepEzaSnapshot(BaseModel):
 
 
 class PublicFrozenJourneyStep(BaseModel):
-    """Public replay-safe frozen Q/A (+ optional EZA snapshot)."""
+    """Public replay-safe frozen Q/A, without personal analysis."""
 
     model_config = {"extra": "forbid"}
 
     stepIndex: int = Field(ge=1, le=8)
     publicQuestion: str
     publicAnswer: str
-    ezaSnapshot: Optional[PublicFrozenStepEzaSnapshot] = None
 
 
 class PublicFrozenJourneyArtifact(BaseModel):

@@ -353,10 +353,7 @@ async def list_frozen_steps_for_versions_batch(
 def project_public_frozen_steps(
     steps: Sequence[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Allowlisted public step projection — stepIndex + public Q/A (+ EZA)."""
-    from backend.services.mirror_network.frozen_step_eza import (
-        project_public_frozen_step_eza,
-    )
+    """Public curiosity only; personal interaction evaluations stay private."""
 
     public_steps: list[dict[str, Any]] = []
     for row in sorted(steps, key=lambda s: int(s.get("stepIndex") or 0)):
@@ -369,11 +366,6 @@ def project_public_frozen_steps(
             "publicQuestion": question,
             "publicAnswer": answer,
         }
-        eza_public = project_public_frozen_step_eza(
-            row.get("ezaSnapshot") if isinstance(row.get("ezaSnapshot"), Mapping) else None
-        )
-        if eza_public:
-            step["ezaSnapshot"] = eza_public
         public_steps.append(step)
     return public_steps
 

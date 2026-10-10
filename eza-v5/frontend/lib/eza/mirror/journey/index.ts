@@ -330,7 +330,6 @@ export {
   parsePublicFrozenJourneyArtifact,
   type PublicFrozenJourneyArtifact,
   type PublicFrozenJourneyStep,
-  type PublicFrozenStepEzaSnapshot,
 } from './publicFrozenTypes';
 
 export {

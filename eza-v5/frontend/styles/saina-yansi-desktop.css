@@ -2991,3 +2991,13 @@
   }
   .saina-desktop-replay-action [role='alert'] { color: #e3ba9b; font-size: 0.8rem; }
 }
+
+/* Apply the shared prose rhythm to react-markdown's actual block wrapper. */
+@media (min-width: 900px) {
+  .saina-desktop-chat-layout .saina-msg-prose--markdown > .saina-markdown > :not(:first-child) {
+    margin-top: 1.05rem;
+  }
+  .saina-desktop-chat-layout .saina-markdown .saina-msg-prose-list--ordered {
+    list-style-type: decimal;
+  }
+}

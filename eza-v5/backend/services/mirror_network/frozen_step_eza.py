@@ -321,53 +321,11 @@ def prove_and_normalize_frozen_step_eza_snapshot(
 def project_public_frozen_step_eza(
     internal: Mapping[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Allowlisted public EZA projection for /frozen steps."""
-    if not isinstance(internal, Mapping) or not internal:
-        return None
-    for key in (
-        "relationshipMap",
-        "relationship_map",
-        "behavioralHistory",
-        "userProfile",
-        "aggregateScore",
-    ):
-        if key in internal:
-            return None
+    """Compatibility guard: personal EZA never has a public projection.
 
-    behavioral = _as_mapping(internal.get("behavioral"))
-    vector = _as_mapping(behavioral.get("vector"))
-
-    public: dict[str, Any] = {}
-    assistant = _clamp_score_0_100(internal.get("assistantScore"))
-    user = _clamp_score_0_100(internal.get("userScore"))
-    eza_final = _clamp_score_0_100(vector.get("eza_final"))
-    if assistant is not None:
-        public["assistantScore"] = assistant
-    if user is not None:
-        public["userScore"] = user
-    if eza_final is not None:
-        public["ezaFinal"] = eza_final
-    oh = _clamp_unit(vector.get("output_health"))
-    ih = _clamp_unit(vector.get("input_health"))
-    align = _clamp_unit(vector.get("alignment_score"))
-    if oh is not None:
-        public["outputHealth"] = oh
-    if ih is not None:
-        public["inputHealth"] = ih
-    if align is not None:
-        public["alignmentScore"] = align
-    if "redirect" in vector:
-        public["redirect"] = bool(vector.get("redirect"))
-    if "redirect_benign" in vector:
-        public["redirectBenign"] = bool(vector.get("redirect_benign"))
-    intent = str(vector.get("intent") or "").strip()
-    if intent:
-        public["intent"] = intent
-
-    if not public:
-        return None
-    # Strict allowlist — drop anything unexpected if callers mutate.
-    return {k: v for k, v in public.items() if k in _PUBLIC_EZA_KEYS}
+    Internal snapshot normalization, binding and immutable hashes remain intact.
+    """
+    return None
 
 
 def assert_eza_bound_to_assistant(

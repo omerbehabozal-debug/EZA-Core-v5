@@ -5,7 +5,7 @@
  * Authority: PublicFrozenJourneyArtifact only. Zero generation / EZA scoring calls.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import MessageList, { type MessageListMessage } from '@/components/standalone/MessageList';
 import SainaMessageBody from '@/components/standalone/SainaMessageBody';
@@ -27,16 +27,7 @@ import {
 } from '@/lib/eza/mirror/journey/frozenReplaySession';
 import type {
   PublicFrozenJourneyArtifact,
-  PublicFrozenJourneyStep,
-  PublicFrozenStepEzaSnapshot,
 } from '@/lib/eza/mirror/journey/publicFrozenTypes';
-import {
-  getEzaUserPreferences,
-  resolveFrozenEzaSnapshotForDisplay,
-  shouldShowEzaInExperience,
-  subscribeEzaUserPreferences,
-} from '@/lib/eza/ezaUserPrefs';
-import { useAuth } from '@/context/AuthContext';
 import {
   YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA,
   YANSI_OWN_CONTINUATION_CTA,
@@ -95,20 +86,8 @@ type RevealedTurn = {
   stepIndex: number;
   question: string;
   answer: string;
-  eza: PublicFrozenStepEzaSnapshot | null;
   revealing: boolean;
 };
-
-function assistantScoreFromEza(eza: PublicFrozenStepEzaSnapshot | null): number | undefined {
-  if (!eza) return undefined;
-  const n = eza.assistantScore ?? eza.ezaFinal;
-  return typeof n === 'number' ? n : undefined;
-}
-
-function userScoreFromEza(eza: PublicFrozenStepEzaSnapshot | null): number | undefined {
-  if (!eza) return undefined;
-  return typeof eza.userScore === 'number' ? eza.userScore : undefined;
-}
 
 function RevealingAssistantBubble({
   text,
@@ -161,16 +140,6 @@ export default function MirrorFrozenReplay({
   const desktopMode = Boolean(desktopIdentity);
   const reducedMotion = useReducedMotion();
   const revealingStepRef = useRef<number | null>(null);
-  const { user } = useAuth();
-  const ownerUserId = user?.user_id?.trim() || null;
-  const [prefsTick, setPrefsTick] = useState(0);
-  useEffect(() => subscribeEzaUserPreferences(() => setPrefsTick((n) => n + 1)), []);
-  const ezaPrefs = useMemo(
-    () => getEzaUserPreferences(ownerUserId),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ownerUserId, prefsTick]
-  );
-  const ezaVisibilityEnabled = shouldShowEzaInExperience(ezaPrefs);
   const startedTrackedRef = useRef(false);
   const completedTrackedRef = useRef(false);
   const onCompletedRef = useRef(onReplayCompleted);
@@ -202,7 +171,6 @@ export default function MirrorFrozenReplay({
       stepIndex: step.stepIndex,
       question: step.publicQuestion,
       answer: step.publicAnswer,
-      eza: resolveFrozenEzaSnapshotForDisplay(step.ezaSnapshot ?? null, ezaPrefs),
       revealing: false,
     }));
   });
@@ -275,12 +243,6 @@ export default function MirrorFrozenReplay({
 
   const nextStep = getNextReplayStep(frozen, session);
 
-  const resolveEza = useCallback(
-    (step: PublicFrozenJourneyStep) =>
-      resolveFrozenEzaSnapshotForDisplay(step.ezaSnapshot ?? null, ezaPrefs),
-    [ezaPrefs]
-  );
-
   const handleAskNext = () => {
     if (!nextStep || session.phase === 'revealing' || revealingStepRef.current !== null) return;
     const step = nextStep;
@@ -301,7 +263,6 @@ export default function MirrorFrozenReplay({
         stepIndex: step.stepIndex,
         question: step.publicQuestion,
         answer: step.publicAnswer,
-        eza: resolveEza(step),
         revealing: true,
       },
     ]);
@@ -369,8 +330,8 @@ export default function MirrorFrozenReplay({
     const messages: MessageListMessage[] = turns.flatMap((turn) => {
       const prefix = `${frozen.slug}:${pinnedVersionRef.current}:${turn.stepIndex}`;
       return [
-        { id: `${prefix}:user`, text: turn.question, isUser: true, userScore: userScoreFromEza(turn.eza) },
-        { id: `${prefix}:assistant`, text: turn.answer, isUser: false, assistantScore: assistantScoreFromEza(turn.eza) },
+        { id: `${prefix}:user`, text: turn.question, isUser: true },
+        { id: `${prefix}:assistant`, text: turn.answer, isUser: false },
       ];
     });
     const revealing = turns.find((turn) => turn.revealing);
@@ -387,7 +348,7 @@ export default function MirrorFrozenReplay({
         <YansiDesktopExperience slug={frozen.slug} sceneImageUrl={artifact.sceneImageUrl} identity={desktopIdentity} scrollRef={scrollRootRef}
           replaySelection={{ slug: frozen.slug, journeyVersion: pinnedVersionRef.current, completedStepCount: session.completedStepCount }}
         replayAction={replayAction} messages={<><MessageList messages={messages} variant="saina" autoScroll={false}
-          isLoading={false} ezaVisibilityEnabled={ezaVisibilityEnabled}
+          isLoading={false} ezaVisibilityEnabled={false}
           renderMessageBody={(message) => revealing && message.id === `${frozen.slug}:${pinnedVersionRef.current}:${revealing.stepIndex}:assistant`
             ? <FrozenAnswerReveal text={revealing.answer} charsPerTick={experience?.revealPace.charsPerTick} tickMs={experience?.revealPace.tickMs}
                 onComplete={() => handleRevealComplete(revealing.stepIndex, revealing.answer)} onProgress={followRevealGrowth}
@@ -418,8 +379,7 @@ export default function MirrorFrozenReplay({
                 message={turn.question}
                 isUser
                 variant="saina"
-                ezaVisibilityEnabled={ezaVisibilityEnabled}
-                userScore={userScoreFromEza(turn.eza)}
+                ezaVisibilityEnabled={false}
                 isFirstAssistantMessage={false}
               />
               {turn.revealing ? (
@@ -435,8 +395,7 @@ export default function MirrorFrozenReplay({
                   message={turn.answer}
                   isUser={false}
                   variant="saina"
-                  ezaVisibilityEnabled={ezaVisibilityEnabled}
-                  assistantScore={assistantScoreFromEza(turn.eza)}
+                  ezaVisibilityEnabled={false}
                   isFirstAssistantMessage={index === 0}
                 />
               )}

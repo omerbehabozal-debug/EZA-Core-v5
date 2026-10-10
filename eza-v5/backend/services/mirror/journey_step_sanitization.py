@@ -78,7 +78,7 @@ def _redact_text(text: str) -> tuple[str, list[str]]:
     if "tc_kimlik" in flags or "address" in flags:
         # Detectors exist; surgical rewrite is not supported — block for review.
         return out, flags
-    cleaned = sanitize_display_text(out, max_len=4000) or ""
+    cleaned = sanitize_display_text(out, max_len=4000, preserve_markdown=True) or ""
     return cleaned, flags
 
 
@@ -95,7 +95,10 @@ def _materially_changed(original: str, sanitized: str, flags: Sequence[str]) -> 
         return True
     # Half-content rule only for meaningfully long strings (short Q/A like "Soru 1?"
     # must not false-positive on max(8, …)).
-    if len(o) >= 16 and len(s) < max(8, int(len(o) * 0.5)):
+    # Preserved formatting must not count as retained semantic content.
+    # Keep the former flattened-length safety check while returning markdown.
+    compact = re.sub(r"\s+", " ", s).strip()
+    if len(o) >= 16 and len(compact) < max(8, int(len(o) * 0.5)):
         return True
     return False
 

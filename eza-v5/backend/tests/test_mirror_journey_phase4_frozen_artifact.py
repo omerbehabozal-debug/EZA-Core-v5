@@ -781,7 +781,7 @@ def _assert_public_frozen_privacy(payload: dict):
         "replayReady",
     }
     for step in payload.get("steps") or []:
-        allowed = {"stepIndex", "publicQuestion", "publicAnswer", "ezaSnapshot"}
+        allowed = {"stepIndex", "publicQuestion", "publicAnswer"}
         assert set(step.keys()) <= allowed
         assert "sourceUserMessageId" not in step
         assert "sourceAssistantMessageId" not in step
@@ -789,18 +789,6 @@ def _assert_public_frozen_privacy(payload: dict):
         assert "questionHash" not in step
         assert "answerHash" not in step
         assert "sanitizationFlags" not in step
-        if "ezaSnapshot" in step and step["ezaSnapshot"] is not None:
-            assert set(step["ezaSnapshot"].keys()) <= {
-                "assistantScore",
-                "userScore",
-                "ezaFinal",
-                "outputHealth",
-                "inputHealth",
-                "alignmentScore",
-                "redirect",
-                "redirectBenign",
-                "intent",
-            }
 
 
 def _internal_package(*, n: int, deselected=None, tag="P"):

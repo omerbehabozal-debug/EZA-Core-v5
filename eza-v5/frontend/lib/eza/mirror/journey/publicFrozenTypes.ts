@@ -3,23 +3,10 @@
  * Display fields plus opaque atomic-identity keys (no private conversation content).
  */
 
-export type PublicFrozenStepEzaSnapshot = {
-  assistantScore?: number | null;
-  userScore?: number | null;
-  ezaFinal?: number | null;
-  outputHealth?: number | null;
-  inputHealth?: number | null;
-  alignmentScore?: number | null;
-  redirect?: boolean | null;
-  redirectBenign?: boolean | null;
-  intent?: string | null;
-};
-
 export type PublicFrozenJourneyStep = {
   stepIndex: number;
   publicQuestion: string;
   publicAnswer: string;
-  ezaSnapshot?: PublicFrozenStepEzaSnapshot | null;
 };
 
 export type PublicFrozenJourneyArtifact = {
@@ -42,29 +29,6 @@ export type PublicFrozenJourneyArtifact = {
   replayReady: boolean;
 };
 
-function asScore(value: unknown): number | null {
-  if (typeof value !== 'number' || Number.isNaN(value)) return null;
-  return value;
-}
-
-function parseEza(raw: unknown): PublicFrozenStepEzaSnapshot | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const row = raw as Record<string, unknown>;
-  const out: PublicFrozenStepEzaSnapshot = {
-    assistantScore: asScore(row.assistantScore),
-    userScore: asScore(row.userScore),
-    ezaFinal: asScore(row.ezaFinal),
-    outputHealth: asScore(row.outputHealth),
-    inputHealth: asScore(row.inputHealth),
-    alignmentScore: asScore(row.alignmentScore),
-    redirect: typeof row.redirect === 'boolean' ? row.redirect : null,
-    redirectBenign: typeof row.redirectBenign === 'boolean' ? row.redirectBenign : null,
-    intent: typeof row.intent === 'string' ? row.intent : null,
-  };
-  const hasAny = Object.values(out).some((v) => v != null && v !== '');
-  return hasAny ? out : null;
-}
-
 function parseStep(raw: unknown): PublicFrozenJourneyStep | null {
   if (!raw || typeof raw !== 'object') return null;
   const row = raw as Record<string, unknown>;
@@ -77,7 +41,6 @@ function parseStep(raw: unknown): PublicFrozenJourneyStep | null {
     stepIndex: Math.trunc(stepIndex),
     publicQuestion,
     publicAnswer,
-    ezaSnapshot: parseEza(row.ezaSnapshot),
   };
 }
 
