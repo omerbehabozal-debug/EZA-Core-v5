@@ -16,6 +16,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
+import YansiPersonalReplayHistory from '@/components/mirror-landing/YansiPersonalReplayHistory';
+import { replaySelection } from '@/lib/eza/mirror-network/publicReplayContinuation';
 import SainaComposer from '@/components/saina/SainaComposer';
 import type { SainaNotificationItem } from '@/components/saina/SainaNotificationsDropdown';
 import JourneyWindowDecisionBanner from '@/components/mirror/JourneyWindowDecisionBanner';
@@ -1561,6 +1563,12 @@ export default function StandaloneChatInner() {
           clientConversationId: resolvedChatId,
           conversationType: activeChat?.mirrorOrigin ? 'continuation' : 'direct',
           sourceYansiSlug: activeChat?.mirrorOrigin?.startedFromMirrorId,
+          ...(activeChat?.publicReplayContext ? {
+            publicReplaySelection: replaySelection(activeChat.publicReplayContext),
+            conversationSceneUrl: activeChat.conversationSceneUrl ?? undefined,
+            conversationSceneSource: activeChat.conversationSceneSource ?? undefined,
+            conversationSceneSlug: activeChat.conversationSceneSlug ?? undefined,
+          } : {}),
           groupId: activeChat?.groupId ?? undefined,
           ...(derivedTitle &&
           (!activeChat?.title || activeChat.title === 'Yeni sohbet') &&
@@ -1663,6 +1671,7 @@ export default function StandaloneChatInner() {
           query: text,
           safe_only: safeOnlyMode,
           model: analysisModelId,
+          ...(activeChat?.publicReplayContext ? { publicReplaySelection: replaySelection(activeChat.publicReplayContext) } : {}),
         };
         const lineageProofToken = lineageProofTokenForSend;
         if (lineageProofToken) {
@@ -1855,6 +1864,7 @@ export default function StandaloneChatInner() {
           query: text,
           safe_only: safeOnlyMode,
           model: analysisModelId,
+          ...(activeChat?.publicReplayContext ? { publicReplaySelection: replaySelection(activeChat.publicReplayContext) } : {}),
           ...(chatHistory.length > 0 ? { history: chatHistory } : {}),
           ...(lineageProofTokenForSend ? { lineageProofToken: lineageProofTokenForSend } : {}),
         };
@@ -2336,8 +2346,10 @@ export default function StandaloneChatInner() {
   );
 
   const messageList =
-    !isEmpty ? (
+    !isEmpty || activeArchive?.publicReplayContext ? (
       <>
+        {activeArchive?.publicReplayContext ? <YansiPersonalReplayHistory context={activeArchive.publicReplayContext} /> : null}
+        {activeArchive?.publicReplayUnavailable ? <p role="status">Kaynak Yansı artık erişilebilir değil.</p> : null}
         <MessageList
           variant="saina"
           messages={messages}
@@ -2401,9 +2413,10 @@ export default function StandaloneChatInner() {
         error={groupCreateError}
       />
       <SainaStandaloneShell
+        publicReplayContext={activeArchive?.publicReplayContext}
         heroTitle={heroTitle}
         heroMeta={heroMeta}
-        isEmpty={isEmpty}
+        isEmpty={isEmpty && !activeArchive?.publicReplayContext}
         messages={messageList}
         composer={composer}
         conversations={sainaConversations}

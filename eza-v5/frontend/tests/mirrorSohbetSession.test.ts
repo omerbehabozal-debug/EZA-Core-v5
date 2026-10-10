@@ -3,6 +3,7 @@ import { trackSeedStart, SEED_START_EVENT } from '@/lib/eza/mirror-network/mirro
 import {
   cacheSohbetSession,
   loadCachedSohbetSession,
+  createMirrorSohbetSession,
 } from '@/lib/eza/mirror-network/createSohbetSession';
 import type { MirrorSohbetSession } from '@/lib/eza/mirror-network/sohbetTypes';
 
@@ -56,5 +57,27 @@ describe('mirror sohbet (Stage 2B)', () => {
   it('opening message does not expose seed terminology in UI copy', () => {
     expect(SAMPLE_SESSION.openingMessage.toLowerCase()).not.toContain('seed');
     expect(SAMPLE_SESSION.openingMessage).toContain('senin sorularınla devam ediyor');
+  });
+
+  it('requests the completed prefix from the server rather than reusing a generic cached session', async () => {
+    cacheSohbetSession(SAMPLE_SESSION);
+    const replaySelection = { slug: SAMPLE_SESSION.mirrorSlug, journeyVersion: 3, completedStepCount: 1 };
+    const publicReplayContext = { ...replaySelection, publicTitle: 'Public başlık', authorUserId: 'publisher',
+      steps: [{ stepIndex: 1, publicQuestion: 'Public soru?', publicAnswer: 'Public cevap.' }] };
+    const request = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ ...SAMPLE_SESSION, publicReplayContext }), { status: 201 }));
+    const result = await createMirrorSohbetSession(SAMPLE_SESSION.mirrorSlug, { replaySelection });
+    expect(result.ok).toBe(true);
+    const body = JSON.parse(request.mock.calls[0][1]?.body as string);
+    expect(body.replaySelection).toEqual(replaySelection);
+    expect(body).not.toHaveProperty('history');
+    expect(body).not.toHaveProperty('steps');
+  });
+
+  it('fails closed when an older backend omits the requested public context', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(SAMPLE_SESSION), { status: 201 }));
+    const result = await createMirrorSohbetSession(SAMPLE_SESSION.mirrorSlug, {
+      replaySelection: { slug: SAMPLE_SESSION.mirrorSlug, journeyVersion: 3, completedStepCount: 4 },
+    });
+    expect(result).toEqual({ ok: false, status: 502 });
   });
 });

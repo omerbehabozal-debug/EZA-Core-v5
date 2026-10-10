@@ -470,6 +470,10 @@ async def standalone_endpoint(
     
     Note: Public endpoint; message quota enforced per account tier.
     """
+    persistence = try_resolve_generation_persistence(request, credentials)
+    from backend.services.mirror_network.public_replay_continuation import resolve_generation_replay_history
+    chat_history = await resolve_generation_replay_history(db, request, persistence)
+
     await assert_can_send_message(
         db,
         message_text=request.query_value,
@@ -485,7 +489,6 @@ async def standalone_endpoint(
         credentials=credentials,
     )
 
-    persistence = try_resolve_generation_persistence(request, credentials)
     if persistence is not None:
         await persist_user_turn_before_generation(
             db,
@@ -493,11 +496,6 @@ async def standalone_endpoint(
             content=request.query_value,
         )
 
-    chat_history = (
-        [{"role": h.role, "content": h.content} for h in request.history]
-        if request.history
-        else None
-    )
     result = await run_full_pipeline(
         user_input=request.query_value,
         mode="standalone",
@@ -587,6 +585,10 @@ async def standalone_stream_endpoint(
     """
     from backend.api.standalone_chat_memory import serialized_history_text
 
+    persistence = try_resolve_generation_persistence(request, credentials)
+    from backend.services.mirror_network.public_replay_continuation import resolve_generation_replay_history
+    chat_history = await resolve_generation_replay_history(db, request, persistence)
+
     await assert_can_send_message(
         db,
         message_text=request.query_value,
@@ -602,7 +604,6 @@ async def standalone_stream_endpoint(
         credentials=credentials,
     )
 
-    persistence = try_resolve_generation_persistence(request, credentials)
     if persistence is not None:
         await persist_user_turn_before_generation(
             db,
@@ -610,11 +611,6 @@ async def standalone_stream_endpoint(
             content=request.query_value,
         )
 
-    chat_history = (
-        [{"role": h.role, "content": h.content} for h in request.history]
-        if request.history
-        else None
-    )
     enforce_public_demo_limits(
         request.query_value,
         estimated_output_tokens=220 if request.safe_only else 180,

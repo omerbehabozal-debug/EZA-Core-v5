@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from backend.core.schemas.mirror_sohbet import PublicReplaySelection
 
 from backend.services.standalone.persistence_limits import (
     MAX_CLIENT_ID_LENGTH,
@@ -66,6 +67,7 @@ class StandaloneConversationCreate(BaseModel):
     conversationSceneSlug: Optional[str] = Field(default=None, max_length=MAX_SCENE_SLUG_LENGTH)
     titlePinned: bool = False
     pinned: bool = False
+    publicReplaySelection: Optional[PublicReplaySelection] = None
 
 
 class StandaloneConversationPatch(BaseModel):
@@ -136,6 +138,8 @@ class StandaloneConversationListItem(BaseModel):
 
 class StandaloneConversationDetail(StandaloneConversationListItem):
     messages: list[StandaloneConversationMessageDTO] = Field(default_factory=list)
+    publicReplayContext: Optional[dict[str, Any]] = None
+    publicReplayUnavailable: bool = False
 
 
 # --- Phase 8.8G-3 legacy migration ---

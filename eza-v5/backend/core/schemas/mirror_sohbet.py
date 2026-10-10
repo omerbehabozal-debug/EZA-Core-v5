@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MirrorThoughtCard(BaseModel):
@@ -13,8 +13,17 @@ class MirrorThoughtCard(BaseModel):
     label: str
 
 
+class PublicReplaySelection(BaseModel):
+    """References only; the server supplies the public text, never the client."""
+    model_config = ConfigDict(extra="forbid")
+    slug: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    journeyVersion: int = Field(ge=1, strict=True)
+    completedStepCount: int = Field(ge=0, le=8, strict=True)
+
+
 class MirrorSohbetSessionRequest(BaseModel):
     guestToken: Optional[str] = None
+    replaySelection: Optional[PublicReplaySelection] = None
 
 
 class MirrorSohbetSessionResponse(BaseModel):
@@ -33,3 +42,4 @@ class MirrorSohbetSessionResponse(BaseModel):
     seedMood: str
     lineageProofToken: Optional[str] = None
     sceneImageUrl: Optional[str] = None
+    publicReplayContext: Optional[dict] = None

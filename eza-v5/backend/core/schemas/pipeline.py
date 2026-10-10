@@ -6,6 +6,7 @@ Unified response format for all EZA pipeline modes
 
 from pydantic import BaseModel, Field, model_validator
 from typing import Optional, Dict, Any, Literal, List
+from backend.core.schemas.mirror_sohbet import PublicReplaySelection
 
 
 class PipelineError(BaseModel):
@@ -48,6 +49,7 @@ class ChatHistoryMessage(BaseModel):
 
 class StandaloneRequest(BaseModel):
     """Request schema for standalone mode"""
+    publicReplaySelection: Optional["PublicReplaySelection"] = None
     query: Optional[str] = Field(None, description="User input query", min_length=1)
     text: Optional[str] = Field(None, description="User input text (deprecated, use query)", min_length=1)
     history: Optional[List[ChatHistoryMessage]] = Field(

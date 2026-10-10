@@ -272,6 +272,12 @@ function mapDetailToArchivedChat(detail: ServerConversationDetail): ArchivedChat
     savedAt,
     messageCount: detail.messageCount,
     messages,
+    publicReplayContext: detail.publicReplayContext ?? null,
+    publicReplayUnavailable: Boolean(detail.publicReplayUnavailable),
+    ...(detail.publicReplayContext ? { treeMetadata: {
+      sourceType: 'mirror' as const,
+      startedFromMirrorId: detail.publicReplayContext.slug,
+    } } : {}),
     pinned: detail.pinned,
     titlePinned: detail.titlePinned,
     groupId: detail.groupId ?? null,

@@ -18,7 +18,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.mirror_network import MirrorNetworkPublicPayload
-from backend.core.schemas.mirror_sohbet import MirrorSohbetSessionResponse, MirrorThoughtCard
+from backend.core.schemas.mirror_sohbet import MirrorSohbetSessionResponse, MirrorThoughtCard, PublicReplaySelection
 from backend.services.mirror_network.frozen_journey_artifact import (
     get_public_frozen_journey_artifact,
 )
@@ -247,8 +247,15 @@ async def create_sohbet_session(
     db: AsyncSession,
     slug: str,
     guest_token: str | None,
+    replay_selection: PublicReplaySelection | None = None,
 ) -> MirrorSohbetSessionResponse:
     public = await fetch_public_mirror_by_slug(db, slug)
+    replay_context = None
+    if replay_selection is not None:
+        if replay_selection.slug != public.slug:
+            raise HTTPException(422, detail={"code": "public_replay_slug_mismatch"})
+        from backend.services.mirror_network.public_replay_continuation import resolve_public_replay_context
+        replay_context = await resolve_public_replay_context(db, replay_selection)
     frozen = await get_public_frozen_journey_artifact(db, slug=slug)
     if frozen is None:
         raise HTTPException(
@@ -275,7 +282,7 @@ async def create_sohbet_session(
         session_id=session.sessionId,
         guest_token=session.guestToken,
     )
-    return session.model_copy(update={"lineageProofToken": str(proof.id)})
+    return session.model_copy(update={"lineageProofToken": str(proof.id), "publicReplayContext": replay_context})
 
 
 def guest_token_fingerprint(token: str) -> str:

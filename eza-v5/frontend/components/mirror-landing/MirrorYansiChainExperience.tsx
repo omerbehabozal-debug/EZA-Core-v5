@@ -1645,7 +1645,7 @@ export default function MirrorYansiChainExperience({
 
       </YansiSocialPanelPresence>
 
-      {isDesktop && showChatReplay ? renderTitleBlock() : null}
+      {/* Desktop replay owns its normal-flow public header. */}
 
       {!isDesktop ? (
         <header
@@ -1770,7 +1770,7 @@ export default function MirrorYansiChainExperience({
               <div
                 className={cn(
                   'yansi-chat-replay-layer min-h-0 flex-1',
-                  isDesktop && 'yansi-desktop-conversation-lane'
+                  isDesktop && 'yansi-desktop-conversation-lane yansi-desktop-experience-host'
                 )}
                 data-testid="yansi-chat-replay-layer"
                 data-yansi-conversation-lane={isDesktop ? 'true' : undefined}
@@ -1780,6 +1780,12 @@ export default function MirrorYansiChainExperience({
                 <MirrorFrozenReplay
                   key={`${activeNode.artifact.slug}:${activeNode.artifact.journeyVersion}`}
                   artifact={activeNode.artifact}
+                  desktopIdentity={isDesktop ? {
+                    title, displayName: activeNode.authorDisplayName, authorUserId: activeNode.artifact.authorUserId,
+                    avatarUrl: activeNode.authorAvatarUrl ?? null, avatarRevision: activeNode.authorAvatarRevision,
+                    honorific: activeNode.authorHonorific ?? null, timeLabel: publicMetaTime ?? null,
+                  } : undefined}
+                  desktopMetrics={isDesktop ? <YansiPublicMetricsLine slug={activeSlug} journeyVersion={presentedJourneyVersion} /> : undefined}
                   className="min-h-0 flex-1 px-3"
                   continueLabel={YANSI_OWN_CONTINUATION_CTA}
                   chainEmbedded

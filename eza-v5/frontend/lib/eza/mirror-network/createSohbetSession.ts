@@ -15,6 +15,7 @@ import {
 import { buildSainaQuotaHeaders } from '@/lib/eza/plan/sainaQuotaHeaders';
 import type { QuotaErrorDetail } from '@/lib/eza/plan/sainaQuotaMessages';
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
+import { parsePublicReplayContext } from './publicReplayContinuation';
 
 export type CreateSohbetSessionResult =
   | { ok: true; session: MirrorSohbetSession }
@@ -84,12 +85,12 @@ function buildSessionHeaders(): Record<string, string> {
 
 export async function createMirrorSohbetSession(
   slug: string,
-  options?: { guestToken?: string; forceNew?: boolean }
+  options?: { guestToken?: string; forceNew?: boolean; replaySelection?: import('./publicReplayContinuation').PublicReplaySelection }
 ): Promise<CreateSohbetSessionResult> {
   const normalized = slug.trim().toLowerCase();
   if (!normalized) return { ok: false, status: 404 };
 
-  if (!options?.forceNew) {
+  if (!options?.forceNew && !options?.replaySelection) {
     const cached = loadCachedSohbetSession(normalized);
     if (cached) {
       const eligible = await isSohbetSourceStillEligible(normalized);
@@ -109,7 +110,7 @@ export async function createMirrorSohbetSession(
     const response = await fetch(url, {
       method: 'POST',
       headers: buildSessionHeaders(),
-      body: JSON.stringify({ guestToken }),
+      body: JSON.stringify({ guestToken, ...(options?.replaySelection ? { replaySelection: options.replaySelection } : {}) }),
       cache: 'no-store',
     });
 
@@ -129,6 +130,11 @@ export async function createMirrorSohbetSession(
     }
 
     const session = (await response.json()) as MirrorSohbetSession;
+    if (options?.replaySelection) {
+      const context = parsePublicReplayContext(session.publicReplayContext, options.replaySelection);
+      if (!context) return { ok: false, status: 502 };
+      session.publicReplayContext = context;
+    }
     if (guestToken) {
       localStorage.setItem('saina_mirror_guest_token', guestToken);
     }

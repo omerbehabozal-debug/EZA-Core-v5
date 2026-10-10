@@ -11,6 +11,18 @@ MAX_HISTORY_TOTAL_CHARS = 3200
 MAX_MESSAGE_CHARS = 1200
 
 
+class PublicReplayHistory(list):
+    """Server-only marker. Public source turns are not a client/system prompt."""
+    def __init__(self, public_messages, personal_history):
+        super().__init__(personal_history)
+        self.public_messages = public_messages
+
+    def __bool__(self):
+        # The first personal question has no private history yet. Providers that
+        # gate contextual prompts on truthiness must still receive the public prefix.
+        return bool(self.public_messages) or len(self) > 0
+
+
 def _truncate_content(content: str, max_chars: int) -> str:
     text = (content or "").strip()
     if len(text) <= max_chars:
@@ -27,6 +39,16 @@ def normalize_history(
     current_query: Optional[str] = None,
 ) -> List[Dict[str, str]]:
     """Validate, dedupe current query, and truncate history oldest-first."""
+    if isinstance(history, PublicReplayHistory):
+        # The server resolver bounds the complete public prefix to 64000 chars.
+        # Preserve the source prefix independently of the personal sliding window.
+        source = normalize_history(history.public_messages, max_messages=16,
+                                   max_total_chars=64000, max_message_chars=64000)
+        personal = normalize_history(list(history), max_messages=max_messages,
+                                     max_total_chars=max_total_chars,
+                                     max_message_chars=max_message_chars,
+                                     current_query=current_query)
+        return source + personal
     if not history:
         return []
 

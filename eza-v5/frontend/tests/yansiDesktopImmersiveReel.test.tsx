@@ -209,9 +209,7 @@ describe('desktop immersive presentation', () => {
       'data-yansi-chat-scroll',
       'true'
     );
-    expect(screen.getByTestId('mirror-yansi-active-title')).toHaveClass(
-      'yansi-desktop-chat-title'
-    );
+    expect(screen.getByRole('heading', { name: 'Canonical yansi-b' })).toHaveClass('saina-hero-title');
     expect(screen.getByTestId('yansi-chat-composer-lane')).toBeInTheDocument();
     expect(screen.getByTestId('yansi-chat-replay-layer')).toHaveAttribute(
       'data-yansi-conversation-lane',

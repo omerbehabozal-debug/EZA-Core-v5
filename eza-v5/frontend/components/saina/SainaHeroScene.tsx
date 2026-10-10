@@ -6,8 +6,11 @@ import BilignAvatarIdentityFrame from '@/components/mirror/ayna/BilignAvatarIden
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import type { PublicHonorificId } from '@/lib/eza/mirror/publicHonorific';
+import type { ReactNode } from 'react';
 
 type SainaHeroSceneProps = {
+  secondaryAvatar?: ReactNode;
+  sourceCaption?: ReactNode;
   title?: string;
   displayName?: string;
   honorificId?: PublicHonorificId | null;
@@ -31,6 +34,8 @@ type SainaHeroSceneProps = {
  * No fabricated handle, plan/tier, or 8-step progress.
  */
 export default function SainaHeroScene({
+  secondaryAvatar,
+  sourceCaption,
   title = SAINA_HERO_DEFAULT_TITLE,
   displayName,
   honorificId = null,
@@ -50,7 +55,7 @@ export default function SainaHeroScene({
 
   return (
     <section
-      className="saina-hero saina-hero--content bilign-yansi-identity"
+      className={`saina-hero saina-hero--content bilign-yansi-identity${secondaryAvatar ? ' yansi-personal-dual-identity' : ''}`}
       aria-label="Yansı kimliği"
       data-testid="saina-yansi-identity"
       data-bilign-identity-role="primary"
@@ -69,6 +74,7 @@ export default function SainaHeroScene({
             />
           </BilignAvatarIdentityFrame>
         </div>
+        {secondaryAvatar}
       </div>
       <div className="bilign-yansi-identity__copy">
         <div className="bilign-yansi-identity__name-row">
@@ -99,6 +105,7 @@ export default function SainaHeroScene({
           </p>
         ) : null}
         <h1 className="saina-hero-title">{title}</h1>
+        {sourceCaption}
       </div>
     </section>
   );

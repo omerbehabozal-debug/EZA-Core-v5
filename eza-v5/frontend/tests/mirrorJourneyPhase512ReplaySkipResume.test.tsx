@@ -248,10 +248,7 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
     });
 
     const sectionA = screen.getByTestId('mirror-yansi-section-yansi-a');
-    expect(within(sectionA).getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
-      'href',
-      '/m/yansi-a/sohbet'
-    );
+    expect(within(sectionA).getByRole('textbox', { name: 'Mesaj yaz' })).toBeInTheDocument();
 
     await askNextInSection('yansi-a');
     await askNextInSection('yansi-a');
@@ -284,10 +281,7 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
     expect(within(sectionX).getByTestId('mirror-frozen-replay-next-question')).toHaveTextContent(
       'yansi-x Soru 1?'
     );
-    expect(within(sectionX).getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
-      'href',
-      '/m/yansi-x/sohbet'
-    );
+    expect(within(sectionX).getByRole('textbox', { name: 'Mesaj yaz' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute(
         'src',
@@ -451,10 +445,7 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('mirror-frozen-replay-next-question')).toBeTruthy();
     });
-    expect(screen.getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
-      'href',
-      '/m/yansi-solo/sohbet'
-    );
+    expect(screen.getByRole('textbox', { name: 'Mesaj yaz' })).toBeInTheDocument();
     await askNextInSection('yansi-solo');
     expect(screen.getByTestId('mirror-frozen-replay-next-question')).toHaveAttribute(
       'data-step-index',
@@ -474,10 +465,7 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('mirror-frozen-replay-next-question')).toBeTruthy();
     });
-    expect(screen.getByTestId('mirror-frozen-replay-continue')).toHaveAttribute(
-      'href',
-      '/m/yansi-a/sohbet'
-    );
+    expect(screen.getByRole('textbox', { name: 'Mesaj yaz' })).toBeInTheDocument();
     rerender(<MirrorYansiChainExperience rootArtifact={a} depth="reel" />);
     fireEvent.click(screen.getByTestId('mirror-skip-to-next'));
     await waitFor(() => expect(fetchDiscoverMirrors).toHaveBeenCalled());

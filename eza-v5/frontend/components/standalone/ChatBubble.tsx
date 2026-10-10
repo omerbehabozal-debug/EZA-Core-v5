@@ -2,6 +2,7 @@
  * ChatBubble — layout-system bubbles + meta rhythm
  */
 
+import type { ReactNode } from 'react';
 import SafetyBadge from './SafetyBadge';
 import BehavioralSummary from './BehavioralSummary';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
@@ -15,6 +16,8 @@ export type ChatBubbleVariant = 'legacy' | 'saina';
 
 interface ChatBubbleProps {
   message: string;
+  /** Optional presentation-only body (e.g. a public frozen reveal). */
+  renderedBody?: ReactNode;
   isUser: boolean;
   userScore?: number;
   assistantScore?: number;
@@ -33,6 +36,7 @@ interface ChatBubbleProps {
 
 export default function ChatBubble({
   message,
+  renderedBody,
   isUser,
   userScore,
   assistantScore,
@@ -63,7 +67,7 @@ export default function ChatBubble({
             </div>
           ) : null}
           <div className={isUser ? 'saina-msg-user saina-msg-user--standalone' : 'saina-msg-ai'}>
-            <SainaMessageBody message={message} role={isUser ? 'user' : 'ai'} />
+            {renderedBody ?? <SainaMessageBody message={message} role={isUser ? 'user' : 'ai'} />}
           </div>
           <div className="saina-msg-meta">
             {isUser ? (

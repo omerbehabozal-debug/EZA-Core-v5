@@ -2,14 +2,14 @@
  * MessageList — sohbet akışı
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import ChatBubble, { type ChatBubbleVariant } from './ChatBubble';
 import LoadingDots from './LoadingDots';
 import TypingIndicator from './TypingIndicator';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
-interface Message {
+export interface MessageListMessage {
   id: string;
   text: string;
   isUser: boolean;
@@ -23,7 +23,10 @@ interface Message {
 }
 
 interface MessageListProps {
-  messages: Message[];
+  messages: MessageListMessage[];
+  /** The embedding viewport may own scroll and animated body presentation. */
+  autoScroll?: boolean;
+  renderMessageBody?: (message: MessageListMessage) => ReactNode;
   isLoading: boolean;
   isTyping?: boolean;
   variant?: ChatBubbleVariant;
@@ -49,6 +52,8 @@ export default function MessageList({
   isLoading,
   isTyping = false,
   variant = 'legacy',
+  autoScroll = true,
+  renderMessageBody,
   userInitial = 'E',
   ezaVisibilityEnabled = true,
 }: MessageListProps) {
@@ -57,10 +62,10 @@ export default function MessageList({
   const isSaina = variant === 'saina';
 
   useEffect(() => {
-    if (!isEmpty) {
+    if (autoScroll && !isEmpty) {
       messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
     }
-  }, [messages, isLoading, isTyping, isEmpty]);
+  }, [messages, isLoading, isTyping, isEmpty, autoScroll]);
 
   const content = (
     <>
@@ -73,6 +78,7 @@ export default function MessageList({
           <ChatBubble
             key={message.id}
             message={message.text}
+            renderedBody={renderMessageBody?.(message)}
             isUser={message.isUser}
             userScore={message.userScore}
             assistantScore={message.assistantScore}

@@ -8,6 +8,7 @@ from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -288,7 +289,22 @@ async def get_standalone_conversation_detail(
         has_ready_yansi=has_ready,
         published_yansi_slug=published_slug,
     )
-    return StandaloneConversationDetail(**detail.model_dump(), messages=messages)
+    replay_context = None
+    replay_unavailable = False
+    selection = (conv.tree_metadata or {}).get("publicReplaySelection")
+    if selection:
+        from backend.core.schemas.mirror_sohbet import PublicReplaySelection
+        from backend.services.mirror_network.public_replay_continuation import resolve_public_replay_context
+        try:
+            replay_context = await resolve_public_replay_context(db, PublicReplaySelection.model_validate(selection))
+        except HTTPException as exc:
+            if exc.status_code not in (404, 403, 413, 422):
+                raise
+            replay_unavailable = True
+        except ValidationError:
+            replay_unavailable = True
+    return StandaloneConversationDetail(**detail.model_dump(), messages=messages,
+                                        publicReplayContext=replay_context, publicReplayUnavailable=replay_unavailable)
 
 
 async def upsert_standalone_conversation(
@@ -308,6 +324,9 @@ async def upsert_standalone_conversation(
 
     # Client must never forge server-authored generation proofs in tree_metadata.
     safe_tree_metadata = strip_client_generation_proof_namespace(body.treeMetadata)
+    safe_tree_metadata = dict(safe_tree_metadata or {})
+    # Reserved key may only be set through the validated reference contract.
+    safe_tree_metadata.pop("publicReplaySelection", None)
 
     client_id = body.clientConversationId.strip()
     if not client_id:
@@ -323,6 +342,14 @@ async def upsert_standalone_conversation(
     found = existing.scalar_one_or_none()
     if found is not None:
         return _conversation_to_list_item(found)
+
+    if body.publicReplaySelection is not None:
+        from backend.services.mirror_network.public_replay_continuation import resolve_public_replay_context
+        selection = body.publicReplaySelection
+        if body.conversationType != "continuation" or body.sourceYansiSlug != selection.slug:
+            raise HTTPException(422, detail={"code": "public_replay_source_mismatch"})
+        await resolve_public_replay_context(db, selection)
+        safe_tree_metadata["publicReplaySelection"] = selection.model_dump()
 
     # Phase 8.8G-5.2 / 5.3.1 — optional group metadata must not block create.
     # Malformed or non-owned UUID → null (no existence leak).

@@ -10,6 +10,8 @@ export type SainaComposerProps = {
   onSend: (message: string) => void;
   isLoading: boolean;
   disabled?: boolean;
+  /** A route handoff keeps the draft until the current surface unmounts. */
+  preserveDraftOnSend?: boolean;
   /**
    * @deprecated Mobile Ayna discoverability uses the explicit composer-zone pill.
    * Kept for call-site compatibility; ignored.
@@ -21,6 +23,7 @@ export default function SainaComposer({
   onSend,
   isLoading,
   disabled = false,
+  preserveDraftOnSend = false,
   onOpenAyna: _onOpenAyna,
 }: SainaComposerProps) {
   void _onOpenAyna;
@@ -41,7 +44,7 @@ export default function SainaComposer({
     const trimmed = text.trim();
     if (!trimmed || isLoading || disabled) return;
     onSend(trimmed);
-    setMessage('');
+    if (!preserveDraftOnSend) setMessage('');
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {

@@ -5,8 +5,12 @@
  * Authority: PublicFrozenJourneyArtifact only. Zero generation / EZA scoring calls.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import MessageList, { type MessageListMessage } from '@/components/standalone/MessageList';
+import SainaMessageBody from '@/components/standalone/SainaMessageBody';
+import YansiDesktopExperience, { type DesktopYansiReplayIdentity } from './YansiDesktopExperience';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import ChatBubble from '@/components/standalone/ChatBubble';
 import FrozenAnswerReveal from '@/components/mirror-landing/FrozenAnswerReveal';
 import { useYansiExperienceSession } from '@/components/mirror-landing/YansiExperienceSession';
@@ -60,6 +64,8 @@ export type FrozenReplayProgressNotice = {
 
 export type MirrorFrozenReplayProps = {
   artifact: PublicFrozenJourneyArtifact;
+  desktopIdentity?: DesktopYansiReplayIdentity;
+  desktopMetrics?: ReactNode;
   className?: string;
   /** Phase 5.1 — fired once when final frozen answer completes. */
   onReplayCompleted?: (artifact: PublicFrozenJourneyArtifact) => void;
@@ -143,6 +149,8 @@ function RevealingAssistantBubble({
 
 export default function MirrorFrozenReplay({
   artifact,
+  desktopIdentity,
+  desktopMetrics,
   className,
   onReplayCompleted,
   onReplayProgress,
@@ -151,6 +159,9 @@ export default function MirrorFrozenReplay({
   chainEmbedded = false,
 }: MirrorFrozenReplayProps) {
   const experience = useYansiExperienceSession();
+  const desktopMode = Boolean(desktopIdentity);
+  const reducedMotion = useReducedMotion();
+  const revealingStepRef = useRef<number | null>(null);
   const { user } = useAuth();
   const ownerUserId = user?.user_id?.trim() || null;
   const [prefsTick, setPrefsTick] = useState(0);
@@ -238,11 +249,20 @@ export default function MirrorFrozenReplay({
     };
     root.addEventListener('scroll', onScroll, { passive: true });
     return () => root.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [desktopMode]);
 
   const scrollToBottom = useCallback(
     (force = false) => {
       if (!force && userScrolledUp.current) return;
+      if (desktopMode) {
+        const root = scrollRootRef.current;
+        if (root) {
+          const options = { top: root.scrollHeight, behavior: reducedMotion ? 'auto' as const : experience?.revealPace.scrollBehavior ?? 'smooth' as const };
+          if (typeof root.scrollTo === 'function') root.scrollTo(options);
+          else root.scrollTop = root.scrollHeight;
+        }
+        return;
+      }
       const el = bottomRef.current;
       if (el && typeof el.scrollIntoView === 'function') {
         el.scrollIntoView({
@@ -251,7 +271,7 @@ export default function MirrorFrozenReplay({
         });
       }
     },
-    [experience?.revealPace.scrollBehavior]
+    [experience?.revealPace.scrollBehavior, desktopMode, reducedMotion]
   );
 
   const nextStep = getNextReplayStep(frozen, session);
@@ -263,8 +283,9 @@ export default function MirrorFrozenReplay({
   );
 
   const handleAskNext = () => {
-    if (!nextStep || session.phase === 'revealing') return;
+    if (!nextStep || session.phase === 'revealing' || revealingStepRef.current !== null) return;
     const step = nextStep;
+    revealingStepRef.current = step.stepIndex;
     if (!startedTrackedRef.current) {
       startedTrackedRef.current = true;
       trackYansiExperienceStarted({
@@ -290,6 +311,8 @@ export default function MirrorFrozenReplay({
 
   const handleRevealComplete = useCallback(
     (stepIndex: number, answerText: string) => {
+      if (revealingStepRef.current !== stepIndex) return;
+      revealingStepRef.current = null;
       experience?.notifyAnswerRevealed(answerText);
       setTurns((prev) =>
         prev.map((t) => (t.stepIndex === stepIndex ? { ...t, revealing: false } : t))
@@ -336,6 +359,41 @@ export default function MirrorFrozenReplay({
       {continueLabel}
     </Link>
   );
+
+  const followRevealGrowth = useCallback(() => {
+    if (!desktopMode || userScrolledUp.current) return;
+    const root = scrollRootRef.current;
+    if (root) root.scrollTop = root.scrollHeight;
+  }, [desktopMode]);
+
+  if (desktopIdentity) {
+    const messages: MessageListMessage[] = turns.flatMap((turn) => {
+      const prefix = `${frozen.slug}:${pinnedVersionRef.current}:${turn.stepIndex}`;
+      return [
+        { id: `${prefix}:user`, text: turn.question, isUser: true, userScore: userScoreFromEza(turn.eza) },
+        { id: `${prefix}:assistant`, text: turn.answer, isUser: false, assistantScore: assistantScoreFromEza(turn.eza) },
+      ];
+    });
+    const revealing = turns.find((turn) => turn.revealing);
+    const replayAction = replayFinished ? <div data-testid="mirror-frozen-replay-complete" role="status">
+      <p>Bu Yansı burada tamamlandı.</p>
+      <button type="button" className="yansi-chat-end-cta-secondary" data-testid="mirror-frozen-replay-explore-another"
+        onClick={handleExploreAnotherCuriosity}>{YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA}</button>
+    </div> : nextStep ? <button type="button" className="yansi-actionable-question" data-testid="mirror-frozen-replay-next-question"
+      data-step-index={nextStep.stepIndex} onClick={handleAskNext}>{nextStep.publicQuestion}</button>
+      : <p role="status">Yanıt açılıyor…</p>;
+    return <section className="yansi-desktop-replay" data-testid="mirror-frozen-replay" data-journey-version={pinnedVersionRef.current}
+      data-yansi-rhythm={experience?.rhythm ?? 'normal'} aria-label="Yansı deneyimi">
+        <YansiDesktopExperience slug={frozen.slug} identity={desktopIdentity} scrollRef={scrollRootRef} metrics={desktopMetrics}
+          replaySelection={{ slug: frozen.slug, journeyVersion: pinnedVersionRef.current, completedStepCount: session.completedStepCount }}
+        replayAction={replayAction} messages={<MessageList messages={messages} variant="saina" autoScroll={false}
+          isLoading={false} ezaVisibilityEnabled={ezaVisibilityEnabled}
+          renderMessageBody={(message) => revealing && message.id === `${frozen.slug}:${pinnedVersionRef.current}:${revealing.stepIndex}:assistant`
+            ? <FrozenAnswerReveal text={revealing.answer} charsPerTick={experience?.revealPace.charsPerTick} tickMs={experience?.revealPace.tickMs}
+                onComplete={() => handleRevealComplete(revealing.stepIndex, revealing.answer)} onProgress={followRevealGrowth}
+                renderText={(text) => <SainaMessageBody message={text} role="ai" />} /> : undefined} />} />
+    </section>;
+  }
 
   return (
     <section

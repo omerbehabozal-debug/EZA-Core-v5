@@ -5,11 +5,13 @@
  * Never alters content; respects prefers-reduced-motion.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export type FrozenAnswerRevealProps = {
   text: string;
   onComplete: () => void;
+  renderText?: (text: string) => ReactNode;
+  onProgress?: () => void;
   /** chars per tick when animating */
   charsPerTick?: number;
   tickMs?: number;
@@ -27,6 +29,8 @@ function prefersReducedMotion(): boolean {
 export default function FrozenAnswerReveal({
   text,
   onComplete,
+  renderText,
+  onProgress,
   charsPerTick = 4,
   tickMs = 16,
 }: FrozenAnswerRevealProps) {
@@ -57,13 +61,16 @@ export default function FrozenAnswerReveal({
     return () => window.clearTimeout(id);
   }, [visible, text, charsPerTick, tickMs]);
 
+  useEffect(() => { onProgress?.(); }, [visible, onProgress]);
+
   const done = visible >= text.length;
   const shown = text.slice(0, visible);
 
+  const Wrapper = renderText ? 'div' : 'span';
   return (
-    <span data-testid="frozen-answer-reveal" data-reveal-complete={done ? 'true' : 'false'}>
-      {shown}
+    <Wrapper data-testid="frozen-answer-reveal" data-reveal-complete={done ? 'true' : 'false'}>
+      {renderText ? renderText(shown) : shown}
       {!done ? <span className="opacity-40" aria-hidden>|</span> : null}
-    </span>
+    </Wrapper>
   );
 }

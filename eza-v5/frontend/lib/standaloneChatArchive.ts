@@ -79,6 +79,9 @@ export interface MirrorConversationOrigin {
 }
 
 export interface ArchivedChat {
+  /** Read-only public prefix, excluded from personal message/scoring storage. */
+  publicReplayContext?: import('@/lib/eza/mirror-network/publicReplayContinuation').PublicReplayContext | null;
+  publicReplayUnavailable?: boolean;
   id: string;
   /** Server UUID when conversation is authenticated + durable (Phase 8.8G-2). */
   serverConversationId?: string;
@@ -406,6 +409,8 @@ function buildChatEntry(id: string, messages: ArchivedChatMessage[]): ArchivedCh
     ...(existing?.pinned ? { pinned: true } : {}),
     ...(existing?.titlePinned ? { titlePinned: true } : {}),
     ...(existing?.mirrorOrigin ? { mirrorOrigin: existing.mirrorOrigin } : {}),
+    ...(existing?.publicReplayContext ? { publicReplayContext: existing.publicReplayContext } : {}),
+    ...(existing?.publicReplayUnavailable ? { publicReplayUnavailable: true } : {}),
     ...(existing?.groupId != null ? { groupId: existing.groupId } : {}),
     ...(existing?.treeMetadata ? { treeMetadata: existing.treeMetadata } : {}),
     ...pickConversationSceneFields(existing),

@@ -18,6 +18,7 @@ import {
   type ArchivedChatMessage,
   type MirrorConversationOrigin,
   upsertChatArchive,
+  getChatArchive,
 } from '@/lib/standaloneChatArchive';
 
 const FORBIDDEN_MIRROR_ORIGIN_KEYS = [
@@ -116,7 +117,7 @@ export function startMirrorGuestChat(
   const mirrorOrigin = buildMirrorOrigin(session);
   mirrorOrigin.pendingUserMessage = text;
 
-  const messages: ArchivedChatMessage[] = [buildOpeningMessage(session)];
+  const messages: ArchivedChatMessage[] = session.publicReplayContext ? [] : [buildOpeningMessage(session)];
 
   const sceneIdentity = buildConversationSceneIdentityFields({
     url: session.sceneImageUrl,
@@ -141,10 +142,13 @@ export function startMirrorGuestChat(
     groupId,
     treeMetadata: buildTreeMetadata(session, groupId),
     mirrorOrigin,
+    ...(session.publicReplayContext ? { publicReplayContext: session.publicReplayContext } : {}),
     ...(sceneIdentity ?? {}),
   };
 
   upsertChatArchive(entry);
+  // Source continuation must not navigate away if local persistence failed.
+  if (session.publicReplayContext && !getChatArchive(chatId)?.publicReplayContext) return null;
 
   return { chatId, groupId, mirrorOrigin };
 }

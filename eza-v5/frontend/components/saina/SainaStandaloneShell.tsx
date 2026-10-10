@@ -29,6 +29,8 @@ import SainaConversationSidebar from '@/components/saina/SainaConversationSideba
 import SainaCommandPalette from './SainaCommandPalette';
 import SainaCinematicScene from './SainaCinematicScene';
 import SainaHeroScene from './SainaHeroScene';
+import YansiPersonalSourceIdentity from '@/components/mirror-landing/YansiPersonalSourceIdentity';
+import type { PublicReplayContext } from '@/lib/eza/mirror-network/publicReplayContinuation';
 import SainaMobileAynaSheet from './SainaMobileAynaSheet';
 import SainaMobileYansiHeader from './SainaMobileYansiHeader';
 import SainaNotificationsDropdown from './SainaNotificationsDropdown';
@@ -38,6 +40,7 @@ import SainaStandaloneMirrorPanel from './SainaStandaloneMirrorPanel';
 import SainaYansiContextRail from './SainaYansiContextRail';
 
 export type SainaStandaloneShellProps = {
+  publicReplayContext?: PublicReplayContext | null;
   heroTitle: string;
   heroMeta?: YansiHeroMeta | null;
   isEmpty: boolean;
@@ -74,6 +77,7 @@ export type SainaStandaloneShellProps = {
 };
 
 function SainaChatSurface({
+  publicReplayContext,
   heroTitle,
   heroMeta,
   isEmpty,
@@ -93,6 +97,7 @@ function SainaChatSurface({
   mirrorMobileContext: _mirrorMobileContext,
   earlyYansiOpportunityAvailable = false,
 }: {
+  publicReplayContext?: PublicReplayContext | null;
   heroTitle: string;
   heroMeta?: YansiHeroMeta | null;
   isEmpty: boolean;
@@ -206,8 +211,11 @@ function SainaChatSurface({
             <div
               className={cn('saina-main-body', isEmpty && 'saina-main-body--empty')}
               data-testid="saina-main-body"
+              data-yansi-personal-continuation={isCompactShell && publicReplayContext ? 'true' : undefined}
             >
               <SainaHeroScene
+                secondaryAvatar={isCompactShell && publicReplayContext ? <YansiPersonalSourceIdentity context={publicReplayContext} avatarOnly /> : undefined}
+                sourceCaption={isCompactShell && publicReplayContext ? <YansiPersonalSourceIdentity context={publicReplayContext} /> : undefined}
                 title={heroTitle}
                 metaTimeLabel={heroMeta?.timeLabel}
                 metaTypeLabel={heroMeta?.typeLabel}
@@ -330,6 +338,7 @@ function SainaChatSurface({
 }
 
 export default function SainaStandaloneShell({
+  publicReplayContext,
   heroTitle,
   heroMeta,
   isEmpty,
@@ -390,6 +399,7 @@ export default function SainaStandaloneShell({
 
   const chatSurface = (
     <SainaChatSurface
+      publicReplayContext={publicReplayContext}
       heroTitle={heroTitle}
       heroMeta={heroMeta}
       isEmpty={isEmpty}

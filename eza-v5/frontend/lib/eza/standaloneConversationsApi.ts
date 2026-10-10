@@ -50,9 +50,15 @@ export type ServerConversationMessage = {
 
 export type ServerConversationDetail = ServerConversationListItem & {
   messages: ServerConversationMessage[];
+  publicReplayContext?: import('@/lib/eza/mirror-network/publicReplayContinuation').PublicReplayContext | null;
+  publicReplayUnavailable?: boolean;
 };
 
 export type CreateServerConversationInput = {
+  publicReplaySelection?: import('@/lib/eza/mirror-network/publicReplayContinuation').PublicReplaySelection;
+  conversationSceneUrl?: string;
+  conversationSceneSource?: string;
+  conversationSceneSlug?: string;
   clientConversationId: string;
   title?: string;
   preview?: string;

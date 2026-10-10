@@ -8,6 +8,7 @@ export type MirrorThoughtCard = {
 };
 
 export type MirrorSohbetSession = {
+  publicReplayContext?: import('./publicReplayContinuation').PublicReplayContext | null;
   sessionId: string;
   guestToken: string;
   mirrorSlug: string;

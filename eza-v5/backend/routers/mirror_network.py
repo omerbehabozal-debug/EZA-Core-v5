@@ -1266,7 +1266,10 @@ async def start_mirror_sohbet_session(
         mirror_slug=slug,
         record_on_success=False,
     )
-    result = await create_sohbet_session(db, slug, guest)
+    if body and body.replaySelection is not None:
+        result = await create_sohbet_session(db, slug, guest, replay_selection=body.replaySelection)
+    else:
+        result = await create_sohbet_session(db, slug, guest)
     await record_account_usage_event(
         db,
         event_type=DISCOVER_CONVERSATION_STARTED,
