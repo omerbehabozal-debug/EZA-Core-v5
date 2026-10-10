@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 import MessageList, { type MessageListMessage } from '@/components/standalone/MessageList';
 import SainaMessageBody from '@/components/standalone/SainaMessageBody';
 import YansiDesktopExperience, { type DesktopYansiReplayIdentity } from './YansiDesktopExperience';
@@ -342,7 +343,10 @@ export default function MirrorFrozenReplay({
             <div className="saina-msg-ai saina-msg-prose" data-testid="mirror-frozen-replay-complete" role="status">
               <p>Bu Yansı burada tamamlandı.</p>
               <button type="button" className="yansi-chat-end-cta-secondary" data-testid="mirror-frozen-replay-explore-another"
-                onClick={handleExploreAnotherCuriosity}>{YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA}</button>
+                onClick={handleExploreAnotherCuriosity}>
+                <span>{YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA}</span>
+                <ArrowUpRight size={16} strokeWidth={1.6} aria-hidden="true" />
+              </button>
             </div>
           </div>
         </div>

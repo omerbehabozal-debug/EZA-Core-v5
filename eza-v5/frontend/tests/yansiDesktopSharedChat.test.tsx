@@ -5,6 +5,10 @@ import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import FrozenAnswerReveal from '@/components/mirror-landing/FrozenAnswerReveal';
 import { parsePublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 import { clearAllFrozenReplayProgressForTests } from '@/lib/eza/mirror/journey/frozenReplaySession';
+import { returnToYansiReelDepth } from '@/lib/eza/mirror-network/yansiPublicDepth';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import postcss from 'postcss';
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), start: vi.fn(), push: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push }) }));
@@ -12,6 +16,10 @@ vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null, isAuthen
 vi.mock('@/lib/eza/mirror-network/createSohbetSession', () => ({ createMirrorSohbetSession: mocks.create }));
 vi.mock('@/lib/eza/mirror-network/mirrorGuestConversation', () => ({ startMirrorGuestChat: mocks.start, MIRROR_GUEST_CHAT_REPLY_PARAM: 'mirrorReply' }));
 vi.mock('@/lib/eza/mirror-network/mirrorSohbetAnalytics', () => ({ trackSeedStart: vi.fn(), trackGuestConversationStarted: vi.fn() }));
+vi.mock('@/lib/eza/mirror-network/yansiPublicDepth', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/eza/mirror-network/yansiPublicDepth')>(),
+  returnToYansiReelDepth: vi.fn(),
+}));
 
 const identity = { title: 'Public başlık', displayName: 'Public yayıncı', authorUserId: 'publisher', avatarUrl: null, honorific: null, timeLabel: null };
 const artifact = () => parsePublicFrozenJourneyArtifact({
@@ -32,6 +40,63 @@ function send() {
 }
 
 describe('desktop shared chat adapter', () => {
+  it.each([false, true])('keeps the completed CTA native, focusable and on existing navigation (callback=%s)', async (withCallback) => {
+    const publicArtifact = artifact();
+    publicArtifact.steps = publicArtifact.steps.slice(0, 1);
+    publicArtifact.selectedCount = 1;
+    const navigate = vi.fn();
+    render(<MirrorFrozenReplay artifact={publicArtifact} desktopIdentity={identity}
+      onExploreAnotherCuriosity={withCallback ? navigate : undefined} />);
+    expect(screen.queryByTestId('mirror-frozen-replay-explore-another')).toBeNull();
+    fireEvent.click(screen.getByTestId('mirror-frozen-replay-next-question'));
+    const cta = await screen.findByRole('button', { name: 'Başka bir merak keşfet' });
+    expect(cta).toHaveAttribute('type', 'button');
+    expect(cta.tabIndex).toBe(0);
+    expect(cta.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByTestId('mirror-frozen-replay-thread').contains(cta)).toBe(true);
+    expect(screen.getByTestId('yansi-chat-composer-lane').contains(cta)).toBe(false);
+    cta.focus();
+    expect(cta).toHaveFocus();
+    fireEvent.mouseOver(cta);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(returnToYansiReelDepth).not.toHaveBeenCalled();
+    // Native keyboard activation dispatches a click with detail=0.
+    fireEvent.click(cta, { detail: 0 });
+    if (withCallback) {
+      expect(navigate).toHaveBeenCalledTimes(1);
+      expect(returnToYansiReelDepth).not.toHaveBeenCalled();
+    } else {
+      expect(returnToYansiReelDepth).toHaveBeenCalledTimes(1);
+      expect(returnToYansiReelDepth).toHaveBeenCalledWith({ reelHref: expect.stringContaining('/m/shared-chat') });
+    }
+  });
+
+  it('scopes CTA hover/focus/active styling to desktop completion and honors reduced motion', () => {
+    const css = postcss.parse(readFileSync(resolve(process.cwd(), 'styles/yansi-reel-responsive.css'), 'utf8'));
+    const selector = '.yansi-desktop-experience .yansi-replay-completion .yansi-chat-end-cta-secondary';
+    const rules: import('postcss').Rule[] = [];
+    css.walkRules((rule) => { if (rule.selector.includes(selector)) rules.push(rule); });
+    const base = rules.find((rule) => rule.selector === selector)!;
+    const value = (rule: import('postcss').Rule, property: string) => {
+      let result: string | undefined;
+      rule.walkDecls(property, (decl) => { result = decl.value; });
+      return result;
+    };
+    expect(base.parent).toMatchObject({ name: 'media', params: '(min-width: 900px)' });
+    expect(value(base, 'transition')).toContain('180ms');
+    expect(value(base, 'position')).toBeUndefined();
+    const hover = rules.find((rule) => rule.selector.includes(':hover'))!;
+    expect(hover.selector).toContain(':focus-visible');
+    expect(value(hover, 'background')).toBe('#d8b77b');
+    expect(value(hover, 'color')).toBe('#211b12');
+    const focus = rules.find((rule) => rule.selector === `${selector}:focus-visible`)!;
+    expect(value(focus, 'outline')).toContain('2px');
+    const active = rules.filter((rule) => rule.selector === `${selector}:active`);
+    expect(value(active[0], 'transform')).toBe('translateY(1px)');
+    expect(active[1].parent).toMatchObject({ params: '(prefers-reduced-motion: reduce)' });
+    expect(value(active[1], 'transform')).toBe('none');
+    expect(css.toString()).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.yansi-chat-end-cta-secondary[\s\S]*transition: none !important/);
+  });
   it('keeps reveal prefixes and the completed answer on the same markdown renderer', async () => {
     const original = window.matchMedia;
     window.matchMedia = vi.fn((query) => ({ ...original(query), matches: false }));
