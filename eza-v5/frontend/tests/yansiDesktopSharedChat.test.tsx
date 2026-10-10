@@ -23,7 +23,7 @@ beforeEach(() => {
   localStorage.clear(); clearAllFrozenReplayProgressForTests(); vi.clearAllMocks();
   mocks.create.mockResolvedValue({ ok: false });
 });
-function mount() { return render(<MirrorFrozenReplay artifact={artifact()} desktopIdentity={identity} />); }
+function mount() { return render(<MirrorFrozenReplay artifact={artifact()} desktopIdentity={identity} desktopMetrics={<div data-testid="desktop-metrics">Metrikler</div>} />); }
 function send() {
   fireEvent.change(screen.getByRole('textbox', { name: 'Mesaj yaz' }), { target: { value: 'Kendi sorum' } });
   fireEvent.click(screen.getByTestId('saina-send-btn'));
@@ -43,15 +43,27 @@ describe('desktop shared chat adapter', () => {
   it('replays 1, 3 and 8 public pairs with shared markdown bubbles, without personal calls', async () => {
     const { container } = mount();
     expect(screen.getByText('Public yayıncı')).toBeInTheDocument();
+    expect(screen.queryByTestId('desktop-metrics')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mirror-frozen-replay-complete')).not.toBeInTheDocument();
     for (let i = 1; i <= 8; i++) {
       fireEvent.click(screen.getByTestId('mirror-frozen-replay-next-question'));
       await waitFor(() => expect(screen.getByText(`Public cevap ${i}`)).toBeInTheDocument());
+      if (i < 8) expect(screen.queryByTestId('mirror-frozen-replay-complete')).not.toBeInTheDocument();
       if (i === 1 || i === 3 || i === 8) {
         expect(container.querySelectorAll('.saina-msg-user')).toHaveLength(i);
         expect(container.querySelectorAll('.saina-msg-ai')).toHaveLength(i);
       }
     }
-    expect(screen.getByTestId('mirror-frozen-replay-complete')).toBeInTheDocument();
+    const completion = screen.getByTestId('mirror-frozen-replay-complete');
+    const root = screen.getByTestId('mirror-frozen-replay-thread');
+    expect(root.contains(completion)).toBe(true);
+    expect(root.contains(screen.getByTestId('mirror-frozen-replay-explore-another'))).toBe(true);
+    expect(root.querySelector('.saina-message-list')!.compareDocumentPosition(completion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId('yansi-chat-composer-lane').contains(completion)).toBe(false);
+    expect(completion.closest('.saina-desktop-replay-action')).toBeNull();
+    root.scrollTop = 0; fireEvent.scroll(root);
+    expect(root.scrollTop).toBe(0);
+    expect(root.contains(completion)).toBe(true);
     expect(screen.queryByTestId('mirror-frozen-replay-next-question')).not.toBeInTheDocument();
     expect(container.querySelectorAll('li')).toHaveLength(16);
     expect(screen.getByRole('textbox', { name: 'Mesaj yaz' })).toBeInTheDocument();

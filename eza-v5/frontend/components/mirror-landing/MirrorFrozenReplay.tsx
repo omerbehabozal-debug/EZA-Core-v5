@@ -150,7 +150,6 @@ function RevealingAssistantBubble({
 export default function MirrorFrozenReplay({
   artifact,
   desktopIdentity,
-  desktopMetrics,
   className,
   onReplayCompleted,
   onReplayProgress,
@@ -375,23 +374,24 @@ export default function MirrorFrozenReplay({
       ];
     });
     const revealing = turns.find((turn) => turn.revealing);
-    const replayAction = replayFinished ? <div data-testid="mirror-frozen-replay-complete" role="status">
+    const replayCompletion = replayFinished ? <div data-testid="mirror-frozen-replay-complete" role="status">
       <p>Bu Yansı burada tamamlandı.</p>
       <button type="button" className="yansi-chat-end-cta-secondary" data-testid="mirror-frozen-replay-explore-another"
         onClick={handleExploreAnotherCuriosity}>{YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA}</button>
-    </div> : nextStep ? <button type="button" className="yansi-actionable-question" data-testid="mirror-frozen-replay-next-question"
+    </div> : null;
+    const replayAction = replayFinished ? null : nextStep ? <button type="button" className="yansi-actionable-question" data-testid="mirror-frozen-replay-next-question"
       data-step-index={nextStep.stepIndex} onClick={handleAskNext}>{nextStep.publicQuestion}</button>
       : <p role="status">Yanıt açılıyor…</p>;
     return <section className="yansi-desktop-replay" data-testid="mirror-frozen-replay" data-journey-version={pinnedVersionRef.current}
       data-yansi-rhythm={experience?.rhythm ?? 'normal'} aria-label="Yansı deneyimi">
-        <YansiDesktopExperience slug={frozen.slug} sceneImageUrl={artifact.sceneImageUrl} identity={desktopIdentity} scrollRef={scrollRootRef} metrics={desktopMetrics}
+        <YansiDesktopExperience slug={frozen.slug} sceneImageUrl={artifact.sceneImageUrl} identity={desktopIdentity} scrollRef={scrollRootRef}
           replaySelection={{ slug: frozen.slug, journeyVersion: pinnedVersionRef.current, completedStepCount: session.completedStepCount }}
-        replayAction={replayAction} messages={<MessageList messages={messages} variant="saina" autoScroll={false}
+        replayAction={replayAction} messages={<><MessageList messages={messages} variant="saina" autoScroll={false}
           isLoading={false} ezaVisibilityEnabled={ezaVisibilityEnabled}
           renderMessageBody={(message) => revealing && message.id === `${frozen.slug}:${pinnedVersionRef.current}:${revealing.stepIndex}:assistant`
             ? <FrozenAnswerReveal text={revealing.answer} charsPerTick={experience?.revealPace.charsPerTick} tickMs={experience?.revealPace.tickMs}
                 onComplete={() => handleRevealComplete(revealing.stepIndex, revealing.answer)} onProgress={followRevealGrowth}
-                renderText={(text) => <SainaMessageBody message={text} role="ai" />} /> : undefined} />} />
+                renderText={(text) => <SainaMessageBody message={text} role="ai" />} /> : undefined} />{replayCompletion}</>} />
     </section>;
   }
 

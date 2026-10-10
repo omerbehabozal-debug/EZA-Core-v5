@@ -24,13 +24,12 @@ export type DesktopYansiReplayIdentity = {
 };
 
 /** Presentation and personal-chat handoff only. Frozen replay remains parent-owned. */
-export default function YansiDesktopExperience({ slug, identity, messages, replayAction, scrollRef, metrics, replaySelection, sceneImageUrl }: {
+export default function YansiDesktopExperience({ slug, identity, messages, replayAction, scrollRef, replaySelection, sceneImageUrl }: {
   slug: string;
   identity: DesktopYansiReplayIdentity;
   messages: ReactNode;
   replayAction: ReactNode;
   scrollRef: RefObject<HTMLDivElement>;
-  metrics?: ReactNode;
   sceneImageUrl?: string | null;
   replaySelection: PublicReplaySelection;
 }) {
@@ -80,7 +79,6 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
               honorificId={identity.honorific ? resolvePublicHonorificId(identity.honorific) : null} honorificLabel={identity.honorific}
               metaTimeLabel={identity.timeLabel} metaTypeLabel="Yansı" />
           </div>
-          <div className="saina-desktop-header-context">{metrics}</div>
         </>}
         messages={messages}
         action={<>{replayAction}{error ? <p role="alert" data-testid="yansi-personal-chat-error">{error}</p> : null}</>}
