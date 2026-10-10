@@ -1628,7 +1628,7 @@ export default function MirrorYansiChainExperience({
             }
             onSubmitted={() => setKatki(closeKatki())}
             onBeforeLeave={registerKatkiLeaveGuard}
-            yansiIdentity={{ publicTitle: activeNode.artifact.publicTitle, sceneImageUrl: activeNode.artifact.sceneImageUrl }}
+            yansiIdentity={{ publicTitle: activeNode.artifact.publicTitle ?? '', sceneImageUrl: activeNode.artifact.sceneImageUrl ?? null }}
             onRequireAuth={onRequireAuth}
           />
         ) : null}
@@ -1636,7 +1636,7 @@ export default function MirrorYansiChainExperience({
         {isDesktop && verifierOpen && katkiSnapshot ? (
           <YansiVerifierPanel
             key="verifiers"
-            yansiIdentity={{ publicTitle: activeNode.artifact.publicTitle, sceneImageUrl: activeNode.artifact.sceneImageUrl }}
+            yansiIdentity={{ publicTitle: activeNode.artifact.publicTitle ?? '', sceneImageUrl: activeNode.artifact.sceneImageUrl ?? null }}
             count={katkiSnapshot.countsByType.verify}
             people={visibleVerifiers(katkiSnapshot.contributions)}
             onClose={() => setVerifierOpen(false)}
