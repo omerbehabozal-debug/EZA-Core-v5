@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { DEFAULT_YANSI_READING, normalizeYansiReading, readYansiReading, writeYansiReading, type YansiReadingPreferences } from '@/lib/eza/mirror/yansiReadingPreferences';
 import {
   readYansiRhythm,
   resolveYansiRevealPace,
@@ -41,6 +42,8 @@ type YansiExperienceSessionValue = {
   revealPace: YansiRevealPace;
   notifyAnswerRevealed: (answerText: string) => void;
   registerRevealedAnswer: (answerText: string) => void;
+  reading: YansiReadingPreferences;
+  setReading: (next: YansiReadingPreferences) => void;
 };
 
 const YansiExperienceSessionContext = createContext<YansiExperienceSessionValue | null>(
@@ -60,6 +63,13 @@ export function YansiExperienceSessionProvider({
 }) {
   const reducedMotion = useReducedMotion();
   const [audioOn, setAudioOnState] = useState(false);
+  const [reading, setReadingState] = useState<YansiReadingPreferences>(DEFAULT_YANSI_READING);
+  useEffect(() => { setReadingState(readYansiReading()); }, []);
+  const setReading = useCallback((next: YansiReadingPreferences) => {
+    const valid = normalizeYansiReading(next);
+    setReadingState(valid);
+    writeYansiReading(valid);
+  }, []);
   const [rhythm, setRhythmState] = useState<YansiRhythmId>(() => readYansiRhythm());
   const speechSupported = isYansiSpeechSupported();
   const latestAnswerRef = useRef<string | null>(null);
@@ -119,6 +129,8 @@ export function YansiExperienceSessionProvider({
   const value = useMemo(
     () => ({
       slug,
+      reading,
+      setReading,
       audioOn,
       setAudioOn,
       resetAudioForActiveChange,
@@ -131,6 +143,8 @@ export function YansiExperienceSessionProvider({
     }),
     [
       slug,
+      reading,
+      setReading,
       audioOn,
       setAudioOn,
       resetAudioForActiveChange,

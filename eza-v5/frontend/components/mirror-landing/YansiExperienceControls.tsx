@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Volume2, Waves } from 'lucide-react';
 import { useYansiExperienceSession } from '@/components/mirror-landing/YansiExperienceSession';
+import YansiReadingSettings from './YansiReadingSettings';
 import {
   YANSI_RHYTHM_IDS,
   YANSI_RHYTHM_LABELS,
@@ -136,6 +137,7 @@ export default function YansiExperienceControls({
           ) : null}
         </div>
       ) : null}
+      {showPlaybackControls ? <YansiReadingSettings activeIdentity={activeIdentity} onOpen={() => setOpen(false)} /> : null}
     </aside>
   );
 }

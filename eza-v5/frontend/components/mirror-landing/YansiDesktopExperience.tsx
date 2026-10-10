@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { useYansiExperienceSession } from './YansiExperienceSession';
+import { DEFAULT_YANSI_READING } from '@/lib/eza/mirror/yansiReadingPreferences';
 import { useRouter } from 'next/navigation';
 import SainaDesktopChatLayout from '@/components/saina/SainaDesktopChatLayout';
 import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
@@ -34,6 +36,7 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
   replaySelection: PublicReplaySelection;
 }) {
   const router = useRouter();
+  const reading = useYansiExperienceSession()?.reading ?? DEFAULT_YANSI_READING;
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startingRef = useRef(false);
@@ -80,7 +83,9 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
               metaTimeLabel={identity.timeLabel} metaTypeLabel="Yansı" />
           </div>
         </>}
-        messages={messages}
+        messages={<div className="yansi-public-reading" data-testid="yansi-public-reading"
+          data-reading-mode={reading.mode} data-reading-spacing={reading.spacing}
+          style={{ '--yansi-reading-size': `${reading.fontSize}px` } as CSSProperties}>{messages}</div>}
         action={<>{replayAction}{error ? <p role="alert" data-testid="yansi-personal-chat-error">{error}</p> : null}</>}
         composer={<SainaComposer onSend={(message) => void continuePersonally(message)} isLoading={starting} preserveDraftOnSend />}
       />
