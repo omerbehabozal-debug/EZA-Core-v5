@@ -335,10 +335,18 @@ export default function MirrorFrozenReplay({
       ];
     });
     const revealing = turns.find((turn) => turn.revealing);
-    const replayCompletion = replayFinished ? <div data-testid="mirror-frozen-replay-complete" role="status">
-      <p>Bu Yansı burada tamamlandı.</p>
-      <button type="button" className="yansi-chat-end-cta-secondary" data-testid="mirror-frozen-replay-explore-another"
-        onClick={handleExploreAnotherCuriosity}>{YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA}</button>
+    const replayCompletion = replayFinished ? <div className="saina-message-list yansi-replay-completion">
+      <div className="saina-message-thread">
+        <div className="saina-msg-row saina-msg-row--ai">
+          <div className="saina-msg-content">
+            <div className="saina-msg-ai saina-msg-prose" data-testid="mirror-frozen-replay-complete" role="status">
+              <p>Bu Yansı burada tamamlandı.</p>
+              <button type="button" className="yansi-chat-end-cta-secondary" data-testid="mirror-frozen-replay-explore-another"
+                onClick={handleExploreAnotherCuriosity}>{YANSI_EXPLORE_ANOTHER_CURIOSITY_CTA}</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div> : null;
     const replayAction = replayFinished ? null : nextStep ? <button type="button" className="yansi-actionable-question" data-testid="mirror-frozen-replay-next-question"
       data-step-index={nextStep.stepIndex} onClick={handleAskNext}>{nextStep.publicQuestion}</button>

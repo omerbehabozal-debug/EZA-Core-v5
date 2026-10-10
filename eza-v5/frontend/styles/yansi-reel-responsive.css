@@ -1900,3 +1900,31 @@
     display: none !important;
   }
 }
+/* Completion shares the assistant column; the contextual rail grows with its controls. */
+@media (min-width: 900px) {
+  .yansi-desktop-experience .yansi-replay-completion {
+    margin-top: 1.125rem;
+  }
+
+  .yansi-desktop-experience .yansi-replay-completion .yansi-chat-end-cta-secondary {
+    padding-inline: 0;
+    text-align: left;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-exp-rail {
+    height: auto;
+    min-height: 0;
+    gap: 6px;
+    padding: 10px 6px;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-exp-rail > *,
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-exp-rail__btn {
+    flex-shrink: 0;
+  }
+
+  .yansi-desktop-cinematic-stage[data-yansi-public-depth='chat'] .yansi-exp-rail__rhythm-wrap {
+    display: flex;
+    align-items: center;
+  }
+}

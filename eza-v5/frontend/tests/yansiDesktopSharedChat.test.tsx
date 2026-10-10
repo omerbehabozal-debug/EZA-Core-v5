@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import SainaMessageBody from '@/components/standalone/SainaMessageBody';
 import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
+import FrozenAnswerReveal from '@/components/mirror-landing/FrozenAnswerReveal';
 import { parsePublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 import { clearAllFrozenReplayProgressForTests } from '@/lib/eza/mirror/journey/frozenReplaySession';
 
@@ -31,6 +32,33 @@ function send() {
 }
 
 describe('desktop shared chat adapter', () => {
+  it('keeps reveal prefixes and the completed answer on the same markdown renderer', async () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn((query) => ({ ...original(query), matches: false }));
+    const answer = '# Başlık\n\nİlk paragraf.\n\n1. İlk\n2. İkinci\n   - İç madde\n\nSon paragraf.';
+    const prefix = answer.slice(0, 28);
+    try {
+      const { unmount } = render(<>
+        <div data-testid="normal-prefix"><SainaMessageBody message={prefix} role="ai" /></div>
+        <div data-testid="normal-complete"><SainaMessageBody message={answer} role="ai" /></div>
+        <FrozenAnswerReveal text={answer} charsPerTick={28} tickMs={100} onComplete={() => {}}
+          renderText={(text) => <SainaMessageBody message={text} role="ai" />} />
+      </>);
+      const body = () => screen.getByTestId('frozen-answer-reveal').querySelector('.saina-msg-prose')!.outerHTML;
+      await waitFor(() => expect(body()).toBe(screen.getByTestId('normal-prefix').querySelector('.saina-msg-prose')!.outerHTML));
+      expect(screen.getByTestId('frozen-answer-reveal')).toHaveAttribute('data-reveal-complete', 'false');
+      await waitFor(() => expect(screen.getByTestId('frozen-answer-reveal')).toHaveAttribute('data-reveal-complete', 'true'));
+      expect(body()).toBe(screen.getByTestId('normal-complete').querySelector('.saina-msg-prose')!.outerHTML);
+      unmount();
+    } finally { window.matchMedia = original; }
+  });
+  it('does not invent paragraphs or lists in legacy flattened answers', () => {
+    const answer = 'Başlık Eski paragraf. 1. Birinci 2. İkinci - madde';
+    const { container } = render(<SainaMessageBody message={answer} role="ai" />);
+    expect(container.querySelectorAll('.saina-markdown > p')).toHaveLength(1);
+    expect(container.querySelector('ol, ul, h3, h4')).toBeNull();
+    expect(container).toHaveTextContent(answer);
+  });
   it.each([1, 4, 8])('submits only the completed %s-step public selection', async (count) => {
     mount();
     for (let i = 1; i <= count; i++) {
@@ -52,7 +80,7 @@ describe('desktop shared chat adapter', () => {
       if (i < 8) expect(screen.queryByTestId('mirror-frozen-replay-complete')).not.toBeInTheDocument();
       if (i === 1 || i === 3 || i === 8) {
         expect(container.querySelectorAll('.saina-msg-user')).toHaveLength(i);
-        expect(container.querySelectorAll('.saina-msg-ai')).toHaveLength(i);
+        expect(container.querySelectorAll('.saina-message-list:not(.yansi-replay-completion) .saina-msg-ai')).toHaveLength(i);
       }
     }
     const completion = screen.getByTestId('mirror-frozen-replay-complete');
@@ -62,6 +90,9 @@ describe('desktop shared chat adapter', () => {
     expect(root.querySelector('.saina-message-list')!.compareDocumentPosition(completion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId('yansi-chat-composer-lane').contains(completion)).toBe(false);
     expect(completion.closest('.saina-desktop-replay-action')).toBeNull();
+    expect(completion.closest('.saina-msg-row')).toHaveClass('saina-msg-row--ai');
+    expect(completion.parentElement).toHaveClass('saina-msg-content');
+    expect(completion.closest('.yansi-replay-completion')).toHaveClass('saina-message-list');
     root.scrollTop = 0; fireEvent.scroll(root);
     expect(root.scrollTop).toBe(0);
     expect(root.contains(completion)).toBe(true);
