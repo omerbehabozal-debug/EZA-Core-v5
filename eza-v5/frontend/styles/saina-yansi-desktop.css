@@ -2994,6 +2994,100 @@
 
 /* Apply the shared prose rhythm to react-markdown's actual block wrapper. */
 @media (min-width: 900px) {
+  .yansi-public-reading[data-reading-mode='editorial'] .yansi-editorial-question {
+    border-inline-start: 1px solid rgba(216, 183, 123, 0.65);
+    padding: 0.65rem 1rem;
+    background: rgba(18, 18, 16, 0.18);
+    font-style: italic;
+    position: relative;
+  }
+  .yansi-desktop-experience[data-reading-mode='editorial'] .saina-hero-title {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 400;
+    font-size: clamp(1.6rem, 2vw, 2rem);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .yansi-public-reading[data-reading-mode='editorial'] .yansi-editorial-question::before { content: '“'; }
+  .yansi-public-reading[data-reading-mode='editorial'] .yansi-editorial-question::after { content: '”'; }
+  .yansi-public-reading[data-reading-mode='editorial'] .yansi-editorial-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    font: inherit;
+    font-size: 1.3em;
+    line-height: 1.4;
+    margin-block: 1.5em 0.7em;
+  }
+  .yansi-public-reading[data-reading-mode='editorial'] .yansi-editorial-heading__number {
+    color: #d8b77b;
+    font-size: 0.75em;
+    padding-inline-end: 0.8rem;
+    border-inline-end: 1px solid rgba(216, 183, 123, 0.35);
+    flex-shrink: 0;
+  }
+  .yansi-public-reading[data-reading-mode='editorial'] .yansi-editorial-answer ul { list-style: disc; padding-inline-start: 1.5em; }
+  .yansi-public-reading[data-reading-mode='editorial'] .yansi-editorial-answer ol { list-style: decimal; padding-inline-start: 1.5em; }
+  .yansi-public-reading[data-reading-mode='editorial'] .yansi-editorial-answer blockquote {
+    border-inline-start: 1px solid rgba(216, 183, 123, 0.45);
+    padding-inline-start: 1em;
+    font-style: italic;
+  }
+}
+
+/* Editorial is a public desktop layout, independent of metadata readiness.
+   Keep the chat/composer plane tokens intact; only its reading contents widen. */
+@media (min-width: 900px) {
+  .saina-app-root.saina-standalone-shell .yansi-desktop-experience[data-reading-mode='editorial'] .saina-chat-card .yansi-public-reading {
+    --yansi-editorial-width: 720px;
+    --saina-chat-text-measure: 100%;
+    width: min(var(--yansi-editorial-width), calc(100% - 2rem));
+    max-width: var(--yansi-editorial-width);
+    margin-inline: auto;
+  }
+  .saina-app-root.saina-standalone-shell .yansi-desktop-experience[data-reading-mode='editorial'] .yansi-public-reading :is(.saina-message-list, .saina-message-thread, .saina-msg-row, .saina-msg-content, .saina-msg-ai, .saina-msg-user) {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-inline: 0;
+    align-self: stretch;
+    align-items: stretch;
+  }
+  .saina-app-root.saina-standalone-shell .yansi-desktop-experience[data-reading-mode='editorial'] .yansi-public-reading .saina-msg-user--standalone {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+  .saina-app-root.saina-standalone-shell .yansi-desktop-experience[data-reading-mode='editorial'] .saina-desktop-chat-header .bilign-yansi-identity {
+    width: min(720px, calc(100% - 8rem));
+    margin-inline: auto;
+    height: auto;
+    min-height: var(--bilign-avatar-primary);
+  }
+  .yansi-desktop-experience[data-reading-mode='editorial'] .yansi-editorial-question::before {
+    position: absolute;
+    top: 0.4rem;
+    left: 0.25rem;
+    color: #d8b77b;
+    font-size: 1.4em;
+  }
+  .yansi-desktop-experience[data-reading-mode='editorial'] .yansi-editorial-question::after { content: none; }
+  .yansi-desktop-experience[data-reading-mode='editorial'] .yansi-editorial-heading__number { font-size: 1em; font-weight: 400; }
+  .yansi-desktop-experience[data-reading-mode='editorial'] .yansi-editorial-answer pre {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: pre;
+    font-size: 0.8em;
+  }
+  .yansi-desktop-experience[data-reading-mode='editorial'] .yansi-replay-completion {
+    border-top: 1px solid rgba(216, 183, 123, 0.25);
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+  }
+}
+@media (min-width: 900px) {
   .saina-desktop-chat-layout .saina-msg-prose--markdown > .saina-markdown > :not(:first-child) {
     margin-top: 1.05rem;
   }

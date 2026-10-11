@@ -9,6 +9,10 @@ import { returnToYansiReelDepth } from '@/lib/eza/mirror-network/yansiPublicDept
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import postcss from 'postcss';
+import YansiDesktopExperience from '@/components/mirror-landing/YansiDesktopExperience';
+import { YansiExperienceSessionProvider } from '@/components/mirror-landing/YansiExperienceSession';
+import YansiExperienceControls from '@/components/mirror-landing/YansiExperienceControls';
+import { readYansiReading, writeYansiReading } from '@/lib/eza/mirror/yansiReadingPreferences';
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), start: vi.fn(), push: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push }) }));
@@ -40,6 +44,49 @@ function send() {
 }
 
 describe('desktop shared chat adapter', () => {
+  it.each(['standard', 'editorial'] as const)('hands off exactly once from %s without rewriting saved reading preference', async (mode) => {
+    writeYansiReading({ mode, fontSize: 24, spacing: 'roomy' });
+    let resolveRequest!: (value: unknown) => void;
+    mocks.create.mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; }));
+    mocks.start.mockReturnValue({ chatId: 'personal-id' });
+    const ui = render(<YansiExperienceSessionProvider slug="shared-chat"><MirrorFrozenReplay artifact={artifact()} desktopIdentity={identity} />
+      <YansiExperienceControls activeIdentity="shared-chat" /></YansiExperienceSessionProvider>);
+    expect(screen.getByTestId('yansi-desktop-experience')).toHaveAttribute('data-reading-mode', mode);
+    send(); fireEvent.click(screen.getByTestId('saina-send-btn'));
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    await act(async () => resolveRequest({ ok: true, session: { mirrorSlug: 'shared-chat', guestToken: 'guest' } }));
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+    expect(mocks.start).toHaveBeenCalledWith({ session: { mirrorSlug: 'shared-chat', guestToken: 'guest' }, firstUserMessage: 'Kendi sorum' });
+    expect(mocks.push).toHaveBeenCalledWith('/standalone?chat=personal-id&mirrorReply=1');
+    fireEvent.click(screen.getByTestId('saina-send-btn'));
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    ui.unmount();
+    expect(screen.queryByRole('button', { name: 'Okuma ayarları' })).toBeNull();
+    expect(readYansiReading()).toMatchObject({ mode, fontSize: 24, spacing: 'roomy' });
+  });
+
+  it.each(['slug', 'version'] as const)('ignores an old request when source %s changes without unmounting', async (change) => {
+    let oldResolve!: (value: unknown) => void;
+    let newResolve!: (value: unknown) => void;
+    mocks.create.mockImplementationOnce(() => new Promise((resolve) => { oldResolve = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { newResolve = resolve; }));
+    mocks.start.mockReturnValue({ chatId: 'new-personal-id' });
+    const view = (slug: string, journeyVersion: number) => <YansiDesktopExperience slug={slug} identity={identity}
+      messages={<div />} replayAction={null} scrollRef={{ current: null }}
+      replaySelection={{ slug, journeyVersion, completedStepCount: 3 }} />;
+    const ui = render(view('source-a', 1)); send();
+    const nextSlug = change === 'slug' ? 'source-b' : 'source-a';
+    const nextVersion = change === 'version' ? 2 : 1;
+    ui.rerender(view(nextSlug, nextVersion));
+    expect(screen.getByRole('textbox', { name: 'Mesaj yaz' })).toHaveValue('');
+    send();
+    await act(async () => oldResolve({ ok: true, session: { mirrorSlug: 'source-a', guestToken: 'old' } }));
+    expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.push).not.toHaveBeenCalled();
+    await act(async () => newResolve({ ok: true, session: { mirrorSlug: nextSlug, guestToken: 'new' } }));
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+    expect(mocks.create).toHaveBeenLastCalledWith(nextSlug, { replaySelection: { slug: nextSlug, journeyVersion: nextVersion, completedStepCount: 3 } });
+    expect(mocks.push).toHaveBeenCalledTimes(1);
+  });
   it.each([false, true])('keeps the completed CTA native, focusable and on existing navigation (callback=%s)', async (withCallback) => {
     const publicArtifact = artifact();
     publicArtifact.steps = publicArtifact.steps.slice(0, 1);
@@ -236,7 +283,7 @@ describe('desktop shared chat adapter', () => {
     try {
       const { container, unmount } = mount();
       const root = screen.getByTestId('mirror-frozen-replay-thread');
-      root.scrollTo = vi.fn();
+      root.scrollTo = vi.fn(() => {});
       Object.defineProperty(root, 'scrollHeight', { configurable: true, value: 1800 });
       Object.defineProperty(root, 'clientHeight', { configurable: true, value: 400 });
       const button = screen.getByTestId('mirror-frozen-replay-next-question');

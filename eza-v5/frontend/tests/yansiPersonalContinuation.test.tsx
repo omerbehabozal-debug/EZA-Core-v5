@@ -7,6 +7,9 @@ import { getChatArchive, saveStandaloneChat } from '@/lib/standaloneChatArchive'
 import { bootstrapServerConversations, fetchServerConversationDetail, resetServerConversationStoreForTests } from '@/lib/eza/serverConversationStore';
 import type { PublicReplayContext } from '@/lib/eza/mirror-network/publicReplayContinuation';
 import { SAINA_MENU_GUEST_LABEL } from '@/lib/eza/sainaCopy';
+import { parsePublicReplayContext, publicReplayMessages } from '@/lib/eza/mirror-network/publicReplayContinuation';
+import { readYansiReading, writeYansiReading } from '@/lib/eza/mirror/yansiReadingPreferences';
+import SainaComposer from '@/components/saina/SainaComposer';
 
 const mocks = vi.hoisted(() => ({ auth: false, compact: true, list: vi.fn(), detail: vi.fn() }));
 vi.mock('@/hooks/useSainaMinWidth', () => ({ useSainaCompactShell: () => mocks.compact }));
@@ -38,7 +41,7 @@ const shellProps = { heroTitle: 'Kendi sorum', isEmpty: false, messages: <div />
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); mocks.auth = false; mocks.compact = true; vi.clearAllMocks(); resetServerConversationStoreForTests(); });
 
 describe('personal continuation public prefix', () => {
-  it.each([1, 4, 8])('keeps %s experienced pairs separate across autosave and reopening', (count) => {
+  it.each([1, 3, 4, 8])('keeps %s experienced pairs separate across autosave and reopening', (count) => {
     const created = startMirrorGuestChat({ session: session(count), firstUserMessage: 'Kendi sorum' })!;
     expect(getChatArchive(created.chatId)?.messages).toEqual([]);
     saveStandaloneChat(created.chatId, [{ id: 'personal-u1', text: 'Kendi sorum', isUser: true }]);
@@ -52,6 +55,30 @@ describe('personal continuation public prefix', () => {
     expect(within(history).queryByText(`Kaynak soru ${count + 1}?`)).not.toBeInTheDocument();
     expect(within(history).queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.getByRole('separator')).toHaveTextContent('Buradan sonrası senin sohbetin');
+  });
+
+  it('renders normal personal layout with one composer and no editorial controls while retaining device preference', async () => {
+    writeYansiReading({ mode: 'editorial', fontSize: 24, spacing: 'roomy' });
+    render(<SainaStandaloneShell {...shellProps} embedded publicReplayContext={context(3)}
+      messages={<><YansiPersonalReplayHistory context={context(3)} /><p>Kendi sorum</p></>}
+      composer={<SainaComposer onSend={vi.fn()} isLoading={false} />} />);
+    await screen.findByTestId('yansi-personal-source-avatar');
+    expect(screen.getAllByTestId('saina-composer')).toHaveLength(1);
+    expect(screen.getByTestId('yansi-personal-public-history').querySelector('.yansi-editorial-answer')).toBeNull();
+    expect(document.querySelector('.yansi-public-reading, [data-reading-mode="editorial"], .yansi-exp-rail')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Okuma ayarları' })).toBeNull();
+    expect(readYansiReading()).toMatchObject({ mode: 'editorial', fontSize: 24 });
+    expect(screen.getByRole('separator')).toHaveTextContent('Buradan sonrası senin sohbetin');
+  });
+
+  it('drops publisher analysis, private IDs and editorial decoration from the canonical continuation prefix', () => {
+    const source = context(3);
+    const parsed = parsePublicReplayContext({ ...source, ezaSnapshot: { userScore: 92 }, editorial: { displayNumber: '01' },
+      steps: source.steps.map((step) => ({ ...step, privateMessageId: 'secret', intent: 'private', ezaSnapshot: { assistantScore: 99 } })) })!;
+    expect(parsed).toEqual(source);
+    expect(publicReplayMessages(parsed)).toHaveLength(6);
+    expect(publicReplayMessages(parsed)[0].text).toBe(source.steps[0].publicQuestion);
+    expect(JSON.stringify(parsed)).not.toMatch(/ezaSnapshot|Score|privateMessageId|intent|displayNumber/);
   });
 
   it.each([false, true])('keeps current-user primary identity and public source secondary (auth=%s)', async (authenticated) => {

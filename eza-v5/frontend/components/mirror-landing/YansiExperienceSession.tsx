@@ -44,6 +44,7 @@ type YansiExperienceSessionValue = {
   registerRevealedAnswer: (answerText: string) => void;
   reading: YansiReadingPreferences;
   setReading: (next: YansiReadingPreferences) => void;
+  registerReadingChange: (capture: () => void) => () => void;
 };
 
 const YansiExperienceSessionContext = createContext<YansiExperienceSessionValue | null>(
@@ -64,9 +65,15 @@ export function YansiExperienceSessionProvider({
   const reducedMotion = useReducedMotion();
   const [audioOn, setAudioOnState] = useState(false);
   const [reading, setReadingState] = useState<YansiReadingPreferences>(DEFAULT_YANSI_READING);
+  const readingCaptureRef = useRef<(() => void) | null>(null);
+  const registerReadingChange = useCallback((capture: () => void) => {
+    readingCaptureRef.current = capture;
+    return () => { if (readingCaptureRef.current === capture) readingCaptureRef.current = null; };
+  }, []);
   useEffect(() => { setReadingState(readYansiReading()); }, []);
   const setReading = useCallback((next: YansiReadingPreferences) => {
     const valid = normalizeYansiReading(next);
+    readingCaptureRef.current?.();
     setReadingState(valid);
     writeYansiReading(valid);
   }, []);
@@ -131,6 +138,7 @@ export function YansiExperienceSessionProvider({
       slug,
       reading,
       setReading,
+      registerReadingChange,
       audioOn,
       setAudioOn,
       resetAudioForActiveChange,
@@ -145,6 +153,7 @@ export function YansiExperienceSessionProvider({
       slug,
       reading,
       setReading,
+      registerReadingChange,
       audioOn,
       setAudioOn,
       resetAudioForActiveChange,

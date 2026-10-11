@@ -41,17 +41,29 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
   const [error, setError] = useState<string | null>(null);
   const startingRef = useRef(false);
   const mountedRef = useRef(true);
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  const sourceKey = `${slug}:${replaySelection.journeyVersion}`;
+  const sourceRef = useRef(sourceKey);
+  sourceRef.current = sourceKey;
+  const requestGenerationRef = useRef(0);
+  useEffect(() => {
+    mountedRef.current = true;
+    startingRef.current = false;
+    setStarting(false);
+    setError(null);
+    return () => { mountedRef.current = false; requestGenerationRef.current++; };
+  }, [sourceKey]);
 
   const continuePersonally = async (message: string) => {
     if (startingRef.current) return;
     startingRef.current = true;
     setStarting(true);
     setError(null);
+    const generation = requestGenerationRef.current;
+    const isCurrent = () => mountedRef.current && sourceRef.current === sourceKey && requestGenerationRef.current === generation;
     let handedOff = false;
     try {
       const result = await createMirrorSohbetSession(slug, { replaySelection });
-      if (!mountedRef.current) return;
+      if (!isCurrent()) return;
       if (!result.ok) {
         setError(result.quotaDetail ? 'Sohbet sınırına ulaştın. Kişisel sohbet şu an başlatılamadı.'
           : 'Kişisel sohbet başlatılamadı. Sorun korundu; yeniden deneyebilirsin.');
@@ -65,13 +77,13 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
       router.push(`/standalone?chat=${encodeURIComponent(created.chatId)}&${MIRROR_GUEST_CHAT_REPLY_PARAM}=1`);
       handedOff = true;
     } catch {
-      if (mountedRef.current) setError('Kişisel sohbet başlatılamadı. Sorun korundu; yeniden deneyebilirsin.');
+      if (isCurrent()) setError('Kişisel sohbet başlatılamadı. Sorun korundu; yeniden deneyebilirsin.');
     } finally {
-      if (mountedRef.current && !handedOff) { startingRef.current = false; setStarting(false); }
+      if (isCurrent() && !handedOff) { startingRef.current = false; setStarting(false); }
     }
   };
 
-  return <div className="yansi-desktop-experience saina-main" data-testid="yansi-desktop-experience">
+  return <div className="yansi-desktop-experience saina-main" data-testid="yansi-desktop-experience" data-reading-mode={reading.mode}>
     <SainaCinematicScene sceneImageUrl={sceneImageUrl} />
     <div className="saina-main-body saina-desktop-chat-layout">
       <SainaDesktopChatLayout replay scrollRef={scrollRef}
@@ -87,7 +99,7 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
           data-reading-mode={reading.mode} data-reading-spacing={reading.spacing}
           style={{ '--yansi-reading-size': `${reading.fontSize}px` } as CSSProperties}>{messages}</div>}
         action={<>{replayAction}{error ? <p role="alert" data-testid="yansi-personal-chat-error">{error}</p> : null}</>}
-        composer={<SainaComposer onSend={(message) => void continuePersonally(message)} isLoading={starting} preserveDraftOnSend />}
+        composer={<SainaComposer key={sourceKey} onSend={(message) => void continuePersonally(message)} isLoading={starting} preserveDraftOnSend />}
       />
     </div>
   </div>;

@@ -1983,7 +1983,7 @@
   }
 
   .yansi-desktop-experience .yansi-public-reading[data-reading-mode='editorial'] {
-    max-width: min(640px, var(--saina-chat-text-measure, 640px));
+    max-width: min(var(--yansi-editorial-width, 720px), calc(100% - 2rem));
     margin-inline: auto;
   }
 

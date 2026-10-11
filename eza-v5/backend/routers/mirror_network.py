@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
+from backend.core.schemas.yansi_editorial import PublicEditorialVersion
 from backend.core.schemas.mirror_network import (
     ContinuationNeighborsResponse,
     DiscoverMirrorListResponse,
@@ -472,6 +473,33 @@ async def get_mirror_network_children(
             detail={"code": "mirror_not_found", "message": "Mirror not found"},
         )
     return ParentChildrenYansiResponse(**payload)
+
+
+@router.get("/{slug}/editorial", response_model=PublicEditorialVersion)
+async def get_public_editorial(
+    slug: str,
+    response: Response,
+    journeyVersion: Optional[int] = Query(default=None, ge=1),
+    language: str = Query(default="und", pattern="^und$"),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_standalone),
+):
+    """Original public language only; und means no authoritative language tag.
+
+    Other-language requests are rejected, never silently decorated with original
+    offsets. Reading size/spacing are client preferences, not record identities.
+    """
+    from backend.services.mirror_network.editorial_version import get_editorial_version
+    from sqlalchemy.exc import SQLAlchemyError
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        payload = await get_editorial_version(db, slug=slug, journey_version=journeyVersion)
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(status_code=503, detail="editorial_unavailable")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="frozen_journey_not_found")
+    return PublicEditorialVersion.model_validate(payload)
 
 
 @router.get("/{slug}/frozen", response_model=PublicFrozenJourneyArtifact)

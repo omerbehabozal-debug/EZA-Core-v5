@@ -5,7 +5,7 @@
  * Authority: PublicFrozenJourneyArtifact only. Zero generation / EZA scoring calls.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 import MessageList, { type MessageListMessage } from '@/components/standalone/MessageList';
@@ -45,6 +45,9 @@ import {
 } from '@/lib/eza/mirror/journey/yansiExperienceAnalytics';
 import { cn } from '@/lib/utils';
 import { cancelYansiSpeech } from '@/lib/eza/mirror/yansiSpeech';
+import { fetchYansiEditorial, type EditorialVersion } from '@/lib/eza/mirror/yansiEditorial';
+import YansiEditorialBody from './YansiEditorialBody';
+import { captureReadingAnchor, restoreReadingAnchor, type ReadingAnchor } from '@/lib/eza/mirror/yansiReadingAnchor';
 
 export type FrozenReplayProgressNotice = {
   slug: string;
@@ -184,6 +187,34 @@ export default function MirrorFrozenReplay({
   const bottomRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
   const scrollRootRef = useRef<HTMLDivElement>(null);
+  const [editorial, setEditorial] = useState<EditorialVersion | null>(null);
+  const editorialSourceRef = useRef<PublicFrozenJourneyArtifact | null>(null);
+  const editorialScrollRestoreRef = useRef<ReadingAnchor | null>(null);
+  const wantsEditorial = desktopMode && experience?.reading.mode === 'editorial';
+  const registerReadingChange = experience?.registerReadingChange;
+  useEffect(() => {
+    if (!desktopMode || !registerReadingChange) return;
+    return registerReadingChange(() => { editorialScrollRestoreRef.current = captureReadingAnchor(scrollRootRef.current); });
+  }, [desktopMode, registerReadingChange]);
+  useEffect(() => {
+    if (!wantsEditorial) return;
+    let active = true;
+    void fetchYansiEditorial(frozen).then((value) => {
+      if (!active) return;
+      // Metadata changes presentation only. Preserve the real scroll owner's
+      // current position; no replay/session update and no auto-scroll effect.
+      const root = scrollRootRef.current;
+      editorialScrollRestoreRef.current = captureReadingAnchor(root);
+      editorialSourceRef.current = frozen;
+      setEditorial(value);
+    });
+    return () => { active = false; };
+  }, [wantsEditorial, frozen]);
+  useLayoutEffect(() => {
+    const restore = editorialScrollRestoreRef.current;
+    editorialScrollRestoreRef.current = null;
+    restoreReadingAnchor(restore);
+  }, [editorial, wantsEditorial, experience?.reading.fontSize, experience?.reading.spacing]);
 
   useEffect(() => {
     saveFrozenReplayProgress(session);
@@ -364,7 +395,12 @@ export default function MirrorFrozenReplay({
           renderMessageBody={(message) => revealing && message.id === `${frozen.slug}:${pinnedVersionRef.current}:${revealing.stepIndex}:assistant`
             ? <FrozenAnswerReveal text={revealing.answer} charsPerTick={experience?.revealPace.charsPerTick} tickMs={experience?.revealPace.tickMs}
                 onComplete={() => handleRevealComplete(revealing.stepIndex, revealing.answer)} onProgress={followRevealGrowth}
-                renderText={(text) => <SainaMessageBody message={text} role="ai" />} /> : undefined} />{replayCompletion}</>} />
+                renderText={(text) => wantsEditorial ? <YansiEditorialBody text={text} isUser={false} /> : <SainaMessageBody message={text} role="ai" />} /> : (() => {
+                  const stepIndex = Number(message.id.split(':').at(-2));
+                  const structure = wantsEditorial && editorialSourceRef.current === frozen && editorial?.slug === frozen.slug && editorial.journeyVersion === frozen.journeyVersion
+                    ? editorial.steps.find((step) => step.stepIndex === stepIndex) : undefined;
+                  return wantsEditorial ? <YansiEditorialBody text={message.text} isUser={message.isUser} structure={structure} /> : undefined;
+                })()} />{replayCompletion}</>} />
     </section>;
   }
 

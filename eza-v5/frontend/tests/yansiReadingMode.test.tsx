@@ -144,9 +144,9 @@ describe('desktop public reading UI', () => {
     const root = screen.getByTestId('mirror-frozen-replay-thread');
     const composer = screen.getByTestId('saina-composer');
     root.scrollTop = 0; fireEvent.scroll(root);
-    const content = root.querySelector('.saina-msg-ai .saina-msg-prose')!.outerHTML;
+    const content = root.querySelector('.saina-msg-ai .saina-markdown')!.innerHTML;
     open(); fireEvent.click(screen.getByRole('button', { name: 'Editoryal' }));
-    expect(root.querySelector('.saina-msg-ai .saina-msg-prose')!.outerHTML).toBe(content);
+    expect(root.querySelector('.saina-msg-ai .saina-markdown')!.innerHTML).toBe(content);
     expect(root.querySelector('ol, h3')).toBeNull();
     expect(screen.getByTestId('mirror-frozen-replay-thread')).toBe(root);
     expect(screen.getByTestId('saina-composer')).toBe(composer);
