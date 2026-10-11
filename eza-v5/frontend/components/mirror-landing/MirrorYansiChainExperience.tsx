@@ -1515,7 +1515,6 @@ export default function MirrorYansiChainExperience({
       data-yansi-identity-slug={activeIdentity.slug}
       data-yansi-identity-generation={activeIdentity.generationId || undefined}
       data-yansi-identity-asset={activeIdentity.imageAssetId || undefined}
-      data-yansi-identity-conversation={activeIdentity.sourceConversationId || undefined}
       data-yansi-reel-nav={reelNavLocked ? 'locked' : 'open'}
       data-yansi-reel-transition={reelTravel ? reelTravel.direction : 'idle'}
       data-yansi-incoming-slug={

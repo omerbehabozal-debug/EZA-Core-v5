@@ -484,12 +484,6 @@ def to_public_frozen_journey_artifact(
             )
         )
         or None,
-        "sourceConversationId": (
-            str(internal.get("sourceConversationId")).strip()
-            if internal.get("sourceConversationId") is not None
-            else None
-        )
-        or None,
         "authorUserId": author,
         "parentSlug": parent_slug or None,
         "selectedCount": selected_count,

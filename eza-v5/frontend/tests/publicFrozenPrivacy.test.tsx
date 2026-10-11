@@ -10,11 +10,11 @@ const snapshot = { assistantScore: 91, userScore: 80, ezaFinal: 91, inputHealth:
   behavioral: { vector: { eza_final: 91 }, nested: { userScore: 80 } } };
 function raw(version: number) {
   return { slug: 'privacy', journeyId: 'privacy', journeyVersion: version, selectedCount: 6,
-    authorUserId: 'publisher', replayReady: true, extra: { ezaSnapshot: snapshot },
+    authorUserId: 'publisher', sourceConversationId: 'private-source-id', replayReady: true, extra: { ezaSnapshot: snapshot, sourceConversationId: 'private-source-id' },
     steps: Array.from({ length: 6 }, (_, i) => ({ stepIndex: i + 1, publicQuestion: `Question ${i + 1}?`,
       publicAnswer: `Answer ${i + 1}.`, ezaSnapshot: snapshot, ...snapshot })) };
 }
-const forbidden = new Set(['ezaSnapshot', ...Object.keys(snapshot)]);
+const forbidden = new Set(['sourceConversationId', 'ezaSnapshot', ...Object.keys(snapshot)]);
 function check(value: unknown) {
   if (!value || typeof value !== 'object') return;
   for (const [key, child] of Object.entries(value)) { expect(forbidden.has(key)).toBe(false); check(child); }
@@ -24,7 +24,7 @@ describe('public frozen privacy', () => {
   it.each([1, 9])('drops old/nested analysis from version %s while retaining public content', (version) => {
     const input = raw(version); const before = JSON.stringify(input);
     const artifact = parsePublicFrozenJourneyArtifact(input)!;
-    check(artifact); expect(artifact.journeyVersion).toBe(version);
+    check(artifact); expect(JSON.stringify(artifact)).not.toContain('private-source-id'); expect(artifact.journeyVersion).toBe(version);
     expect(artifact.steps[0]).toEqual({ stepIndex: 1, publicQuestion: 'Question 1?', publicAnswer: 'Answer 1.' });
     expect(JSON.stringify(input)).toBe(before);
   });

@@ -20,7 +20,6 @@ export type PublicFrozenJourneyArtifact = {
   artifactId?: string | null;
   generationId?: string | null;
   sceneAssetId?: string | null;
-  sourceConversationId?: string | null;
   authorUserId: string;
   parentSlug?: string | null;
   selectedCount: number;
@@ -93,10 +92,6 @@ export function parsePublicFrozenJourneyArtifact(
       typeof row.generationId === 'string' ? row.generationId.trim() || null : null,
     sceneAssetId:
       typeof row.sceneAssetId === 'string' ? row.sceneAssetId.trim() || null : null,
-    sourceConversationId:
-      typeof row.sourceConversationId === 'string'
-        ? row.sourceConversationId.trim() || null
-        : null,
     authorUserId,
     parentSlug:
       typeof row.parentSlug === 'string'

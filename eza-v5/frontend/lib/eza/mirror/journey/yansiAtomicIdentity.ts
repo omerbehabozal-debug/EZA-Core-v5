@@ -1,5 +1,5 @@
 /**
- * Atomic public Yansı identity — title, image, conversation, and artifact
+ * Atomic public Yansı identity — title, image, and public artifact
  * must resolve from one sealed tuple. Never "latest" / sidebar / cache.
  */
 
@@ -14,7 +14,6 @@ export type YansiAtomicIdentityTuple = {
   generationId: string | null;
   imageAssetId: string | null;
   imageUrl: string | null;
-  sourceConversationId: string | null;
   publicTitle: string | null;
 };
 
@@ -40,7 +39,6 @@ export function readYansiAtomicIdentity(
     generationId: trimOrNull(artifact.generationId),
     imageAssetId: sealedAsset || urlAsset || null,
     imageUrl,
-    sourceConversationId: trimOrNull(artifact.sourceConversationId),
     publicTitle: trimOrNull(artifact.publicTitle),
   };
 }
@@ -105,6 +103,5 @@ export function logYansiAtomicIdentity(tuple: YansiAtomicIdentityTuple): void {
     generationId: tuple.generationId,
     imageAssetId: tuple.imageAssetId,
     imageUrl: tuple.imageUrl,
-    sourceConversationId: tuple.sourceConversationId,
   });
 }

@@ -99,7 +99,6 @@ function makeArtifact(
     artifactId: isA ? 'pub-a' : 'pub-b',
     generationId: isA ? 'gen-a' : 'gen-b',
     sceneAssetId: isA ? ASSET_A : ASSET_B,
-    sourceConversationId: isA ? 'conv-a' : 'conv-b',
     authorUserId: isA ? 'user-a' : 'user-b',
     selectedCount: 6,
     steps: Array.from({ length: 6 }, (_, index) => ({
@@ -109,6 +108,8 @@ function makeArtifact(
     })),
     publishedAt: '2026-09-01T12:00:00.000Z',
     replayReady: true,
+    // Stale runtime payload bypassing the parser must not reach DOM or public identity.
+    ...{ sourceConversationId: 'private-source-b' },
     ...overrides,
   };
 }
@@ -136,10 +137,10 @@ describe('yansi atomic identity unit', () => {
   });
 
   it('parses identity keys onto the public artifact', () => {
-    const parsed = parsePublicFrozenJourneyArtifact(makeArtifact('yansi-b'));
+    const parsed = parsePublicFrozenJourneyArtifact({ ...makeArtifact('yansi-b'), sourceConversationId: 'private-source-b' });
     expect(parsed?.generationId).toBe('gen-b');
     expect(parsed?.sceneAssetId).toBe(ASSET_B);
-    expect(parsed?.sourceConversationId).toBe('conv-b');
+    expect(parsed).not.toHaveProperty('sourceConversationId');
     const tuple = readYansiAtomicIdentity(parsed!);
     expect(tuple.imageAssetId).toBe(ASSET_B);
     expect(() =>
@@ -201,7 +202,8 @@ describe('A → B identity commit', () => {
     expect(chain).toHaveAttribute('data-yansi-identity-slug', 'yansi-b');
     expect(chain).toHaveAttribute('data-yansi-identity-generation', 'gen-b');
     expect(chain).toHaveAttribute('data-yansi-identity-asset', ASSET_B);
-    expect(chain).toHaveAttribute('data-yansi-identity-conversation', 'conv-b');
+    expect(chain).not.toHaveAttribute('data-yansi-identity-conversation');
+    expect(document.documentElement.innerHTML).not.toContain('private-source-b');
     expect(screen.queryByText('Kişilik ve Değişim')).toBeNull();
     expect(
       screen.getByTestId('mirror-yansi-scene-current').getAttribute('src')
@@ -221,7 +223,7 @@ describe('A → B identity commit', () => {
       'src',
       `https://cdn.example/mirror-scene-assets/${ASSET_B}.png`
     );
-    expect(screen.getByTestId('mirror-yansi-active-title')).toHaveTextContent(
+    expect(screen.getByTestId('yansi-desktop-identity')).toHaveTextContent(
       'Beynin Gece Çalışması'
     );
 
