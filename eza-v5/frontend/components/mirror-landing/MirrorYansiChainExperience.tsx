@@ -1311,6 +1311,15 @@ export default function MirrorYansiChainExperience({
               <span className="yansi-reel-right-controls__label">Sonraki Merak</span>
             </div>
           ) : null}
+          {poolEndVisible || session.poolExhausted ? (
+            <p
+              className="yansi-reel-right-controls__label"
+              data-testid="mirror-discover-pool-end"
+              role="status"
+            >
+              {YANSI_DISCOVER_END_OF_POOL}
+            </p>
+          ) : null}
         </div>
       </>
     );
