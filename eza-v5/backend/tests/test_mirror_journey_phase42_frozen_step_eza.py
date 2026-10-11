@@ -213,7 +213,9 @@ def test_deselected_secret_with_eza_not_in_public_package():
     assert "integrity" not in public
     # Public seal identity (same freeze as title/scene) — not a private hash bag.
     assert public.get("generationId") == "gen-secret"
-    assert public.get("sourceConversationId") == "conv-secret"
+    assert "sourceConversationId" not in public
+    assert "conv-secret" not in str(public)
+    assert package["sourceConversationId"] == "conv-secret"
     assert all("ezaSnapshot" not in s for s in public["steps"])
     blob = str(public)
     assert "ezaVisibilityEnabled" not in blob

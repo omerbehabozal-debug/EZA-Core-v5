@@ -15,6 +15,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import MetaData, String, Table, Column, create_engine, inspect as sa_inspect, text
 from sqlalchemy.engine.url import make_url
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 from backend.migrations import alembic_version_capacity as capacity_mod
 from backend.migrations.alembic_version_capacity import (
@@ -379,12 +381,17 @@ def test_clean_db_upgrade_head_and_phase6_from_phase42():
         engine = create_engine(url)
         with engine.connect() as connection:
             current = connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            assert current == HEAD_REVISION
-            assert len(current) == len(HEAD_REVISION)
+            # The capacity audit's phase-specific revision is not the current
+            # migration graph head once later Yansi migrations are added.
+            config = Config(str(BACKEND_DIR / "alembic.ini"))
+            expected_head = ScriptDirectory.from_config(config).get_current_head()
+            assert current == expected_head
+            assert len(current) == len(expected_head)
             tables = set(sa_inspect(connection).get_table_names())
             for name in PHASE6_TABLES:
                 assert name in tables
             assert "yansi_reports" in tables
+            assert "yansi_editorial_versions" in tables
             user_columns = {
                 c["name"] for c in sa_inspect(connection).get_columns("production_users")
             }
