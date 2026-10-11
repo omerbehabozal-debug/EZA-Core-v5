@@ -249,10 +249,11 @@ describe('A → B identity commit', () => {
     const onDepthChange = vi.fn();
     const ui = renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" onDepthChange={onDepthChange} />, 'yansi-b');
     const cta = await screen.findByRole('button', { name: 'Deneyime Başla' });
-    expect(cta).toBeEnabled(); expect(screen.getByText('6 adımlık deneyim')).toBeInTheDocument();
+    expect(cta).toBeEnabled(); expect(screen.getByText('6 soruluk sohbet')).toBeInTheDocument();
     cta.focus(); expect(cta).toHaveFocus();
     fireEvent.keyDown(cta, { key: 'ArrowDown' });
     expect(fetchDiscoverMirrors).not.toHaveBeenCalled();
+    fireEvent.click(cta, { detail: 0 });
     fireEvent.click(cta, { detail: 0 });
     expect(onDepthChange).toHaveBeenCalledTimes(1); expect(onDepthChange).toHaveBeenCalledWith('chat');
     expect(window.location.search).toContain('mode=chat'); expect(window.location.search).toContain('journeyVersion=2');

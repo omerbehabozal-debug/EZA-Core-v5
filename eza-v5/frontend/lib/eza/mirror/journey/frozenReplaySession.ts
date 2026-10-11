@@ -24,6 +24,8 @@ export type FrozenReplaySession = {
 };
 
 export type FrozenReplayProgress = {
+  /** Historical completion survives a subsequent partial replay. */
+  historicalCompletedStepCount?: number;
   slug: string;
   journeyVersion: number;
   completedStepCount: number;
@@ -120,11 +122,14 @@ export function loadFrozenReplayProgress(
       !parsed ||
       parsed.slug !== slug.trim().toLowerCase() ||
       parsed.journeyVersion !== journeyVersion ||
-      typeof parsed.completedStepCount !== 'number'
+      typeof parsed.completedStepCount !== 'number' || !Number.isFinite(parsed.completedStepCount)
     ) {
       return null;
     }
     return {
+      historicalCompletedStepCount: Number.isInteger(parsed.historicalCompletedStepCount) && (parsed.historicalCompletedStepCount ?? 0) > 0
+        ? parsed.historicalCompletedStepCount
+        : parsed.replayCompleted === true ? Math.trunc(parsed.completedStepCount) : undefined,
       slug: parsed.slug,
       journeyVersion: parsed.journeyVersion,
       completedStepCount: Math.max(0, Math.trunc(parsed.completedStepCount)),
@@ -142,7 +147,10 @@ export function saveFrozenReplayProgress(session: FrozenReplaySession): void {
   const ls = storage();
   if (!ls) return;
   try {
+    const previous = loadFrozenReplayProgress(session.slug, session.journeyVersion);
     const payload: FrozenReplayProgress = {
+      historicalCompletedStepCount: session.replayCompleted
+        ? session.completedStepCount : previous?.historicalCompletedStepCount,
       slug: session.slug,
       journeyVersion: session.journeyVersion,
       completedStepCount: session.completedStepCount,

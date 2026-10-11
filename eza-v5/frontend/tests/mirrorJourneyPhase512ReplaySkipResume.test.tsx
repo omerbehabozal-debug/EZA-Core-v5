@@ -290,7 +290,7 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
     });
   });
 
-  it('return to A via ↑ resumes at Q4 — does not restart or complete', async () => {
+  it('return to A via ↑ starts a fresh Q1 without restoring historical answers', async () => {
     const { a } = mockAxDiscover();
     const { rerender } = render(
       <MirrorYansiChainExperience rootArtifact={a} depth="chat" />
@@ -313,10 +313,10 @@ describe('Phase 5.1.2 partial skip + resume (Discover vertical)', () => {
     const sectionA = screen.getByTestId('mirror-yansi-section-yansi-a');
     expect(within(sectionA).getByTestId('mirror-frozen-replay-next-question')).toHaveAttribute(
       'data-step-index',
-      '4'
+      '1'
     );
     expect(within(sectionA).getByTestId('mirror-frozen-replay-next-question')).toHaveTextContent(
-      'yansi-a Soru 4?'
+      'yansi-a Soru 1?'
     );
     expect(loadFrozenReplayProgress('yansi-a', 1)?.replayCompleted).toBe(false);
     expect(loadFrozenReplayProgress('yansi-a', 1)?.completedStepCount).toBe(3);

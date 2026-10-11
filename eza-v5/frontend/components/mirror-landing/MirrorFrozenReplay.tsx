@@ -21,7 +21,6 @@ import {
   afterAnswerRevealed,
   afterQuestionTapped,
   getNextReplayStep,
-  loadFrozenReplayProgress,
   saveFrozenReplayProgress,
   startReplaySession,
   type FrozenReplaySession,
@@ -162,22 +161,15 @@ export default function MirrorFrozenReplay({
     pinnedArtifactRef.current = artifact;
   }
 
-  const [session, setSession] = useState<FrozenReplaySession>(() =>
-    startReplaySession(
-      frozen,
-      loadFrozenReplayProgress(frozen.slug, frozen.journeyVersion)
-    )
-  );
-  const [turns, setTurns] = useState<RevealedTurn[]>(() => {
-    const progress = loadFrozenReplayProgress(frozen.slug, frozen.journeyVersion);
-    const count = progress?.completedStepCount ?? 0;
-    return frozen.steps.slice(0, count).map((step) => ({
-      stepIndex: step.stepIndex,
-      question: step.publicQuestion,
-      answer: step.publicAnswer,
-      revealing: false,
-    }));
-  });
+  // Persisted progress describes past visits, never the active replay prefix.
+  // Each mount (Reel entry or direct link/refresh) starts a fresh experience.
+  const [session, setSession] = useState<FrozenReplaySession>(() => startReplaySession(frozen));
+  const [turns, setTurns] = useState<RevealedTurn[]>([]);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; revealingStepRef.current = null; };
+  }, []);
 
   useEffect(() => {
     const last = [...turns].reverse().find((t) => !t.revealing);
@@ -303,7 +295,7 @@ export default function MirrorFrozenReplay({
 
   const handleRevealComplete = useCallback(
     (stepIndex: number, answerText: string) => {
-      if (revealingStepRef.current !== stepIndex) return;
+      if (!mountedRef.current || revealingStepRef.current !== stepIndex) return;
       revealingStepRef.current = null;
       experience?.notifyAnswerRevealed(answerText);
       setTurns((prev) =>

@@ -4,7 +4,7 @@ import SainaMessageBody from '@/components/standalone/SainaMessageBody';
 import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import FrozenAnswerReveal from '@/components/mirror-landing/FrozenAnswerReveal';
 import { parsePublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
-import { clearAllFrozenReplayProgressForTests } from '@/lib/eza/mirror/journey/frozenReplaySession';
+import { saveFrozenReplayProgress, startReplaySession, clearAllFrozenReplayProgressForTests } from '@/lib/eza/mirror/journey/frozenReplaySession';
 import { returnToYansiReelDepth } from '@/lib/eza/mirror-network/yansiPublicDepth';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -170,6 +170,26 @@ describe('desktop shared chat adapter', () => {
     expect(container.querySelectorAll('.saina-markdown > p')).toHaveLength(1);
     expect(container.querySelector('ol, ul, h3, h4')).toBeNull();
     expect(container).toHaveTextContent(answer);
+  });
+  it.each([3, 8])('starts fresh after %s historical steps and continues with only the new three pairs', async (oldCount) => {
+    const value = artifact();
+    saveFrozenReplayProgress({ ...startReplaySession(value), completedStepCount: oldCount,
+      replayCompleted: oldCount === 8, phase: oldCount === 8 ? 'completed' : 'awaiting_next' });
+    let ui = mount();
+    expect(screen.getByTestId('mirror-frozen-replay-next-question')).toHaveAttribute('data-step-index', '1');
+    expect(ui.container.querySelectorAll('.saina-msg-user')).toHaveLength(0);
+    for (let i = 1; i <= 3; i++) {
+      fireEvent.click(screen.getByTestId('mirror-frozen-replay-next-question'));
+      await waitFor(() => expect(screen.getByText(`Public cevap ${i}`)).toBeInTheDocument());
+    }
+    ui.rerender(<MirrorFrozenReplay artifact={artifact()} desktopIdentity={identity} />);
+    expect(screen.getByTestId('mirror-frozen-replay-next-question')).toHaveAttribute('data-step-index', '4');
+    send(); await screen.findByRole('alert');
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.create).toHaveBeenCalledWith('shared-chat', { replaySelection: { slug: 'shared-chat', journeyVersion: 3, completedStepCount: 3 } });
+    ui.unmount(); ui = mount();
+    expect(screen.getByTestId('mirror-frozen-replay-next-question')).toHaveAttribute('data-step-index', '1');
+    expect(ui.container.querySelectorAll('.saina-msg-user')).toHaveLength(0);
   });
   it.each([1, 4, 8])('submits only the completed %s-step public selection', async (count) => {
     mount();

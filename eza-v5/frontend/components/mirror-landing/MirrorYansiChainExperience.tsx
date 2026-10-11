@@ -771,8 +771,11 @@ export default function MirrorYansiChainExperience({
     swipeRef.current = yansiSwipePointerCancel(swipeRef.current, event.pointerId);
   }, []);
 
+  const chatEntryPendingRef = useRef(false);
+  useEffect(() => { chatEntryPendingRef.current = false; }, [depth, activeSlug]);
   const openChatDepth = useCallback(() => {
-    if (!activeSlug || depth === 'chat') return;
+    if (!activeSlug || depth === 'chat' || chatEntryPendingRef.current) return;
+    chatEntryPendingRef.current = true;
     setKatki(closedKatkiDepth());
     setVerifierOpen(false);
     const version =

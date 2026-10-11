@@ -26,6 +26,17 @@ async function metadata(source: PublicFrozenJourneyArtifact): Promise<EditorialV
 beforeEach(() => { vi.stubGlobal('crypto', webcrypto); localStorage.clear(); clearAllFrozenReplayProgressForTests(); });
 afterEach(() => { vi.unstubAllGlobals(); });
 
+async function finishActiveReplay() {
+  expect(screen.getByTestId('mirror-frozen-replay-next-question')).toHaveAttribute('data-step-index', '1');
+  for (let i = 1; i <= 6; i++) {
+    fireEvent.click(screen.getByTestId('mirror-frozen-replay-next-question'));
+    await waitFor(() => {
+      if (i === 6) expect(screen.getByTestId('mirror-frozen-replay-complete')).toBeInTheDocument();
+      else expect(screen.getByTestId('mirror-frozen-replay-next-question')).toHaveAttribute('data-step-index', String(i + 1));
+    });
+  }
+}
+
 describe('persisted editorial public contract', () => {
   it('keeps editorial source and scroll completion on endpoint failure, then returns to standard without refetch', async () => {
     const source = artifact('error-layout');
@@ -37,6 +48,7 @@ describe('persisted editorial public contract', () => {
     render(<YansiExperienceSessionProvider slug={source.slug}><MirrorFrozenReplay artifact={source}
       desktopIdentity={{ title: source.publicTitle!, displayName: 'Yayıncı', authorUserId: 'publisher', avatarUrl: null, honorific: null, timeLabel: null }} />
       <YansiExperienceControls activeIdentity={source.slug} /></YansiExperienceSessionProvider>);
+    await finishActiveReplay();
     await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).includes('/editorial?'))).toBe(true));
     expect(screen.getAllByTestId('yansi-editorial-answer')).toHaveLength(6);
     expect(screen.queryByText('01')).toBeNull();
@@ -90,6 +102,7 @@ describe('persisted editorial public contract', () => {
     render(<YansiExperienceSessionProvider slug="late"><MirrorFrozenReplay artifact={source}
       desktopIdentity={{ title: source.publicTitle!, displayName: 'Yayıncı', authorUserId: 'publisher', avatarUrl: null, honorific: null, timeLabel: null }} />
       <YansiExperienceControls activeIdentity="late" /></YansiExperienceSessionProvider>);
+    await finishActiveReplay();
     await waitFor(() => expect(resolve).toBeTruthy());
     const root = screen.getByTestId('mirror-frozen-replay-thread'); root.scrollTop = 125; fireEvent.scroll(root);
     const composer = screen.getByPlaceholderText('Kendi merakınla devam et…');
