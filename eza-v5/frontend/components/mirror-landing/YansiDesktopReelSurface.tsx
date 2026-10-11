@@ -26,6 +26,7 @@ import {
   type PublicKatkiContributor,
 } from '@/lib/eza/mirror-network/katkiPublic';
 import { cn } from '@/lib/utils';
+import YansiReelExperienceInvite from './YansiReelExperienceInvite';
 import {
   YANSI_REEL_EASE,
   YANSI_REEL_REDUCED_MS,
@@ -395,6 +396,7 @@ export default function YansiDesktopReelSurface({
             </div>
           ) : null}
         </div>
+        {committed ? <YansiReelExperienceInvite artifact={node.artifact} onOpenChat={onOpenChat} /> : null}
       </header>
       {rail}
     </div>

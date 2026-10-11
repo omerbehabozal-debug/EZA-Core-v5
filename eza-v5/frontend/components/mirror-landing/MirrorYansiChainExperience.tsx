@@ -1,5 +1,7 @@
 'use client';
 
+import YansiReelExperienceInvite from './YansiReelExperienceInvite';
+
 /**
  * Slice 3 + Slice 4 — public /m navigation.
  *
@@ -1501,6 +1503,7 @@ export default function MirrorYansiChainExperience({
                   ) : null}
                 </div>
               ) : null}
+              {!showChatReplay ? <YansiReelExperienceInvite artifact={activeNode.artifact} onOpenChat={openChatDepth} /> : null}
             </header>
   );
 

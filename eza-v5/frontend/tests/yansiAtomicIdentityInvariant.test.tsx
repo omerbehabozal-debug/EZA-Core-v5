@@ -16,6 +16,7 @@ import {
 import { parsePublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 
+const viewport = vi.hoisted(() => ({ desktop: true }));
 const push = vi.fn();
 const replace = vi.fn();
 const back = vi.fn();
@@ -27,7 +28,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/hooks/useSainaMinWidth', () => ({
-  useSainaCompactShell: () => true,
+  useSainaCompactShell: () => viewport.desktop,
 }));
 
 vi.mock('@/context/AuthContext', () => ({
@@ -155,6 +156,7 @@ describe('yansi atomic identity unit', () => {
 
 describe('A → B identity commit', () => {
   beforeEach(() => {
+    viewport.desktop = true;
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockImplementation(async ({ slug }) =>
       makeArtifact(slug as 'yansi-a' | 'yansi-b')
@@ -240,6 +242,24 @@ describe('A → B identity commit', () => {
       'src',
       `https://cdn.example/mirror-scene-assets/${ASSET_B}.png`
     );
+  });
+
+  it.each([true, false])('invites into the existing pinned replay depth and disappears in chat (desktop=%s)', async (desktop) => {
+    viewport.desktop = desktop;
+    const onDepthChange = vi.fn();
+    const ui = renderChain(<MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" onDepthChange={onDepthChange} />, 'yansi-b');
+    const cta = await screen.findByRole('button', { name: 'Deneyime Başla' });
+    expect(cta).toBeEnabled(); expect(screen.getByText('6 adımlık deneyim')).toBeInTheDocument();
+    cta.focus(); expect(cta).toHaveFocus();
+    fireEvent.keyDown(cta, { key: 'ArrowDown' });
+    expect(fetchDiscoverMirrors).not.toHaveBeenCalled();
+    fireEvent.click(cta, { detail: 0 });
+    expect(onDepthChange).toHaveBeenCalledTimes(1); expect(onDepthChange).toHaveBeenCalledWith('chat');
+    expect(window.location.search).toContain('mode=chat'); expect(window.location.search).toContain('journeyVersion=2');
+    ui.rerender(<YansiExperienceSessionProvider slug="yansi-b"><MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="chat" onDepthChange={onDepthChange} /></YansiExperienceSessionProvider>);
+    expect(screen.queryByTestId('yansi-reel-experience-invite')).toBeNull();
+    ui.rerender(<YansiExperienceSessionProvider slug="yansi-b"><MirrorYansiChainExperience rootArtifact={makeArtifact('yansi-b')} depth="reel" onDepthChange={onDepthChange} /></YansiExperienceSessionProvider>);
+    expect(screen.getByRole('button', { name: 'Deneyime Başla' })).toBeEnabled();
   });
 
   it('cold-loads /m/B without selecting any A asset', async () => {
