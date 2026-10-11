@@ -16,6 +16,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
+import { useMirrorPendingReply, type MirrorPendingDelivery } from '@/components/mirror-landing/useMirrorPendingReply';
 import YansiPersonalReplayHistory from '@/components/mirror-landing/YansiPersonalReplayHistory';
 import { replaySelection } from '@/lib/eza/mirror-network/publicReplayContinuation';
 import SainaComposer from '@/components/saina/SainaComposer';
@@ -145,7 +146,6 @@ import {
 } from '@/lib/eza/mirror/activeConversationLiveMessages';
 import {
   CHATS_UPDATED_EVENT,
-  clearMirrorAutoReplyPending,
   createStandaloneChat,
   deleteChatArchive,
   getChatArchive,
@@ -306,7 +306,6 @@ export default function StandaloneChatInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const chatIdFromUrl = searchParams?.get('chat') ?? null;
-  const mirrorReplyFromUrl = searchParams?.get(MIRROR_GUEST_CHAT_REPLY_PARAM) === '1';
   const yansiFromUrl = parseYansiRouteParam(searchParams?.get(YANSI_ROUTE_PARAM));
   const activeYansiIdentity = yansiFromUrl
     ? `${yansiFromUrl.journeyId}::v${yansiFromUrl.journeyVersion}`
@@ -412,7 +411,6 @@ export default function StandaloneChatInner() {
   const skipAutosaveRef = useRef(true);
   /** İlk açılış/yenilemede URL’deki eski ?chat= ile yanlış sohbet yüklenmesin */
   const urlSyncEnabledRef = useRef(false);
-  const mirrorReplyFiredRef = useRef<string | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
   const messagesRef = useRef(messages);
   const chatIdRef = useRef(chatId);
@@ -422,6 +420,7 @@ export default function StandaloneChatInner() {
   const persistBoundOwnerRef = useRef<string | null | undefined>(undefined);
   const persistEpochRef = useRef(0);
   const sessionGenerationRef = useRef(0);
+  useEffect(() => () => { sessionGenerationRef.current += 1; }, []);
   const authOwnerKey = resolveAuthOwnerKey({
     isAuthReady,
     isAuthenticated,
@@ -649,7 +648,7 @@ export default function StandaloneChatInner() {
   // ?new=1 → bilinçli yeni taslak.
   // Aksi halde Keşfet (home) — programa giriş Keşfet’ten başlar.
   useEffect(() => {
-    if (ready) return;
+    if (ready || !isAuthReady) return;
 
     const enableUrlSync = () => {
       window.setTimeout(() => {
@@ -1469,10 +1468,15 @@ export default function StandaloneChatInner() {
     setMessages((prev) => [...prev, limitMessage]);
   }, [accountEntitlements.tier]);
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, pendingDelivery?: MirrorPendingDelivery) => {
+    if (pendingDelivery && (!isAuthReady || !ready || isLoading || isTyping ||
+        chatId !== pendingDelivery.chatId || chatIdFromUrl !== pendingDelivery.chatId)) return false;
     const sendSessionGeneration = sessionGenerationRef.current;
     const isSendSessionActive = () =>
-      canApplySessionBoundResult(sendSessionGeneration, sessionGenerationRef.current);
+      canApplySessionBoundResult(sendSessionGeneration, sessionGenerationRef.current) &&
+      (!pendingDelivery || (chatIdRef.current === pendingDelivery.chatId &&
+        getChatArchive(pendingDelivery.chatId)?.mirrorOrigin?.startedFromMirrorId === pendingDelivery.sourceSlug &&
+        getChatArchive(pendingDelivery.chatId)?.publicReplayContext?.journeyVersion === pendingDelivery.journeyVersion));
 
     setSendRequestError(null);
 
@@ -1617,7 +1621,9 @@ export default function StandaloneChatInner() {
       }
     }
 
-    const chatHistory = buildChatHistoryPayload(messages);
+    const chatHistory = buildChatHistoryPayload(pendingDelivery
+      ? messages.filter((m) => m.id !== pendingDelivery.userMessageId && m.id !== pendingDelivery.assistantMessageId)
+      : messages);
     const lineageProofTokenForSend = resolveLineageProofToken(activeChat);
     const isGuestMirrorSession = Boolean(activeChat?.mirrorOrigin?.isGuestSession);
     const priorUserMessages = messages.filter((m) => m.isUser).length;
@@ -1629,7 +1635,7 @@ export default function StandaloneChatInner() {
     }
 
     // Add user message immediately with placeholder score (gray badge)
-    const userMessageId = generateMessageClientId('user');
+    const userMessageId = pendingDelivery?.userMessageId ?? generateMessageClientId('user');
     const userMessage: Message = {
       id: userMessageId,
       text,
@@ -1638,7 +1644,7 @@ export default function StandaloneChatInner() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => prev.some((m) => m.id === userMessageId) ? prev : [...prev, userMessage]);
     lastUserMessageAtRef.current = Date.now();
     setBranchSuggestionVisible(false);
 
@@ -1646,7 +1652,7 @@ export default function StandaloneChatInner() {
     setIsTyping(true);
 
     // Create assistant message placeholder for streaming
-    const assistantMessageId = generateMessageClientId('eza');
+    const assistantMessageId = pendingDelivery?.assistantMessageId ?? generateMessageClientId('eza');
     const assistantMessage: Message = {
         id: assistantMessageId,
         text: '',
@@ -1658,10 +1664,17 @@ export default function StandaloneChatInner() {
         timestamp: new Date(),
       };
     
-    setMessages((prev) => [...prev, assistantMessage]);
+    setMessages((prev) => [...prev.filter((m) => m.id !== assistantMessageId), assistantMessage]);
+    if (pendingDelivery && resolvedChatId) {
+      // Durably record the real user turn before the first transport await.
+      saveStandaloneChat(resolvedChatId, toArchivedMessages([
+        ...messages.filter((m) => m.id !== userMessageId && m.id !== assistantMessageId), userMessage,
+      ]));
+    }
     currentAssistantMessageRef.current = assistantMessageId;
     setIsLoading(true);
 
+    let completedAssistantText = '';
     try {
       // Try streaming first, fallback to normal endpoint if it fails
       let useNormalEndpoint = false;
@@ -1846,6 +1859,7 @@ export default function StandaloneChatInner() {
         if (!result.text?.trim()) {
           throw new Error('empty_stream');
         }
+        completedAssistantText = result.text;
       } catch {
         if (!isSendSessionActive()) return;
         setIsTyping(false);
@@ -1995,6 +2009,7 @@ export default function StandaloneChatInner() {
             standaloneObservation: standaloneObservationFallback ?? undefined,
             feedback: feedbackFallback ?? undefined,
           };
+          completedAssistantText = ezaMessage.text;
           setMessages((prev) => [...prev, ezaMessage]);
         } else {
           const ezaMessage: Message = {
@@ -2040,12 +2055,23 @@ export default function StandaloneChatInner() {
             }, 400);
           }
 
+          completedAssistantText = ezaMessage.text;
           setMessages((prev) => [...prev, ezaMessage]);
         }
         
         setIsLoading(false);
       }
-
+      if (!isSendSessionActive()) return false;
+      if (pendingDelivery && resolvedChatId) {
+        const latestMessages = messagesRef.current;
+        const priorAssistant = latestMessages.find((m) => m.id === assistantMessageId);
+        saveStandaloneChat(resolvedChatId, toArchivedMessages([
+          ...latestMessages.filter((m) => m.id !== userMessageId && m.id !== assistantMessageId),
+          latestMessages.find((m) => m.id === userMessageId) ?? userMessage,
+          { ...(priorAssistant ?? assistantMessage), text: completedAssistantText, incomplete: false },
+        ]));
+      }
+      return true;
     } catch (error: any) {
       if (!isSendSessionActive()) return;
       // Error already handled in fallback logic above
@@ -2077,25 +2103,20 @@ export default function StandaloneChatInner() {
       // Transport / API failures: transient UI only — never assistant chat content.
       setSendRequestError(display.text);
     } finally {
-      setIsTyping(false);
-      setIsLoading(false);
+      if (isSendSessionActive()) {
+        setIsTyping(false);
+        setIsLoading(false);
+      }
     }
   };
 
-  // Mirror guest sohbet: pending first message → normal standalone send/stream
-  useEffect(() => {
-    if (!ready || !mirrorReplyFromUrl || !chatIdFromUrl || chatId !== chatIdFromUrl) return;
-    if (mirrorReplyFiredRef.current === chatIdFromUrl) return;
-
-    const archived = getChatArchive(chatIdFromUrl);
-    const pending = archived?.mirrorOrigin?.pendingUserMessage?.trim();
-    if (!archived?.mirrorOrigin?.autoReplyPending || !pending) return;
-
-    mirrorReplyFiredRef.current = chatIdFromUrl;
-    clearMirrorAutoReplyPending(chatIdFromUrl);
-    router.replace(`/standalone?chat=${chatIdFromUrl}`, { scroll: false });
-    void handleSend(pending);
-  }, [ready, mirrorReplyFromUrl, chatIdFromUrl, chatId, router]);
+  const pendingReply = useMirrorPendingReply({
+    chatId, routeChatId: chatIdFromUrl, ready, authReady: isAuthReady,
+    busy: isLoading || isTyping,
+    send: handleSend,
+    onDelivered: (id) => router.replace(`/standalone?chat=${id}`, { scroll: false }),
+    onFailed: () => setSendRequestError((previous) => previous || 'İlk mesaj gönderilemedi. Tekrar deneyebilirsin.'),
+  });
 
   const activeArchive = chatId ? getChatArchive(chatId) : null;
   const conversationSceneUrl = useMemo(() => {
@@ -2339,9 +2360,11 @@ export default function StandaloneChatInner() {
           className="mb-2 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-[#f4f0e8]"
         >
           {sendRequestError}
+          {pendingReply.canRetry ? <button type="button" disabled={isLoading || isTyping}
+            className="ml-2 underline" onClick={pendingReply.retry}>İlk mesajı tekrar gönder</button> : null}
         </div>
       ) : null}
-      <SainaComposer onSend={handleSend} isLoading={isLoading} disabled={composerDisabled} />
+      <SainaComposer onSend={async (text) => { await handleSend(text); }} isLoading={isLoading} disabled={composerDisabled} />
     </>
   );
 

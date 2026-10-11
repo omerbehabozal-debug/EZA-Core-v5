@@ -175,8 +175,10 @@ function SainaChatSurface({
 
   const identityHeader = (
     <SainaHeroScene
-      secondaryAvatar={isCompactShell && publicReplayContext ? <YansiPersonalSourceIdentity context={publicReplayContext} avatarOnly /> : undefined}
-      sourceCaption={isCompactShell && publicReplayContext ? <YansiPersonalSourceIdentity context={publicReplayContext} /> : undefined}
+      sourceCaption={publicReplayContext ? <div className="yansi-personal-source-group">
+        <YansiPersonalSourceIdentity context={publicReplayContext} avatarOnly />
+        <YansiPersonalSourceIdentity context={publicReplayContext} />
+      </div> : undefined}
       title={heroTitle}
       metaTimeLabel={heroMeta?.timeLabel}
       metaTypeLabel={heroMeta?.typeLabel}

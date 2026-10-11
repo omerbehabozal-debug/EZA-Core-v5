@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import YansiPersonalReplayHistory from '@/components/mirror-landing/YansiPersonalReplayHistory';
@@ -88,6 +90,8 @@ describe('personal continuation public prefix', () => {
     const secondary = await screen.findByTestId('yansi-personal-source-avatar');
     await waitFor(() => expect(within(secondary).getByTestId('bilign-profile-avatar-photo')).toHaveAttribute('src', expect.stringContaining('publisher.jpg')));
     expect(secondary).toHaveAttribute('href', '/m/source');
+    expect(secondary.closest('.bilign-yansi-identity__mark')).toBeNull();
+    expect(secondary.querySelector('.yansi-personal-source-face')).toBeTruthy();
     expect(screen.getByTestId('yansi-personal-source-link')).toHaveTextContent('Karakter değişimi · Public yayıncı');
     if (authenticated) {
       const primary = screen.getByTestId('saina-yansi-identity').querySelector('.bilign-yansi-identity__avatar')!;
@@ -95,14 +99,29 @@ describe('personal continuation public prefix', () => {
     }
   });
 
-  it('does not add the dual desktop header to mobile or normal chat', () => {
+  it('keeps a compact source group on mobile, absent on normal chat', () => {
     mocks.compact = false;
     const { rerender } = render(<SainaStandaloneShell {...shellProps} publicReplayContext={context(4)} embedded />);
-    expect(screen.queryByTestId('yansi-personal-source-avatar')).not.toBeInTheDocument();
+    expect(screen.getByTestId('yansi-personal-source-avatar').closest('.yansi-personal-source-group')).toBeInTheDocument();
     mocks.compact = true; rerender(<SainaStandaloneShell {...shellProps} embedded />);
     expect(screen.queryByTestId('yansi-personal-source-avatar')).not.toBeInTheDocument();
   });
 
+  it.each([false, true])('sizes the actual source face to 34px outside the primary avatar (desktop=%s)', async (desktop) => {
+    mocks.compact = desktop;
+    const css = readFileSync(resolve('styles/yansi-reel-responsive.css'), 'utf8');
+    const sourceCss = css.split('/* Personal continuation:')[1].split('/* Desktop replay:')[0];
+    const style = document.createElement('style'); style.textContent = '/* Personal continuation:' + sourceCss; document.head.append(style);
+    try {
+      render(<SainaStandaloneShell {...shellProps} publicReplayContext={context(3)} embedded />);
+      const source = await screen.findByTestId('yansi-personal-source-avatar');
+      const face = source.querySelector('.yansi-personal-source-face')!;
+      expect(getComputedStyle(face).width).toBe('34px'); expect(getComputedStyle(face).height).toBe('34px');
+      expect(getComputedStyle(source).position).toBe('static');
+      expect(source.closest('.bilign-yansi-identity__mark')).toBeNull();
+      expect(screen.getByTestId('yansi-personal-source-link').closest('.yansi-personal-source-group')).toBe(source.parentElement);
+    } finally { style.remove(); }
+  });
   it('restores source context from server detail after local cache loss', async () => {
     const item = { id: 'server-id', clientConversationId: 'personal', title: 'Kendi sorum', conversationType: 'continuation', sourceYansiSlug: 'source',
       messageCount: 1, createdAt: '2026-10-10T00:00:00Z', archived: false, pinned: false, titlePinned: false };

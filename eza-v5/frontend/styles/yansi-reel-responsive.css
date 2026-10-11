@@ -1664,29 +1664,14 @@
   .yansi-katki-depth__panel--creating .yansi-social-header__thumbnail { width: 64px; height: 68px; }
 }
 
+/* Personal continuation: source identity belongs beside its caption, not on the primary avatar. */
+.yansi-personal-source-group { display: flex; align-items: center; gap: 0.5rem; min-width: 0; max-width: 100%; margin-top: 0.35rem; }
+.yansi-personal-source-avatar { position: static; display: inline-flex; flex: 0 0 34px; pointer-events: auto; }
+.yansi-personal-source-group .yansi-personal-source-face { width: 34px; height: 34px; min-width: 34px; }
+.yansi-personal-source-caption { position: static; min-width: 0; overflow-wrap: anywhere; color: var(--bilign-body-muted, #b9b2a3); font-size: 0.75rem; line-height: 1.4; pointer-events: auto; }
+
 /* Desktop replay: public identity, one message viewport, separate actions. */
 @media (min-width: 900px) {
-  .saina-app-root.saina-standalone-shell .yansi-personal-dual-identity .bilign-yansi-identity__mark {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 0.65rem;
-    width: var(--bilign-avatar-primary);
-  }
-  .yansi-personal-dual-identity .bilign-yansi-identity__avatar,
-  .yansi-personal-source-avatar { flex-shrink: 0; }
-  .yansi-personal-source-avatar { position: absolute; right: -0.5rem; bottom: -0.25rem; display: inline-flex; pointer-events: auto; }
-  .yansi-personal-source-caption {
-    position: absolute;
-    top: 100%;
-    display: block;
-    margin-top: 0.35rem;
-    color: var(--bilign-body-muted, #b9b2a3);
-    font-size: 0.75rem;
-    line-height: 1.4;
-    pointer-events: auto;
-  }
   .yansi-personal-history-divider {
     margin: 1.25rem 0;
     padding-block: 0.65rem;

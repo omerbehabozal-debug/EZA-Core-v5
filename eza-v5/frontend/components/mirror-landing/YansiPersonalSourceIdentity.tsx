@@ -19,6 +19,6 @@ export default function YansiPersonalSourceIdentity({ context, avatarOnly = fals
   return <Link href={`/m/${encodeURIComponent(context.slug)}`} className={avatarOnly ? 'yansi-personal-source-avatar' : 'yansi-personal-source-caption'}
     aria-label={`Kaynak Yansı'ya dön: ${context.publicTitle}`} data-testid={avatarOnly ? 'yansi-personal-source-avatar' : 'yansi-personal-source-link'}>
     {avatarOnly ? <ProfileUserAvatar displayName={name} userId={context.authorUserId} avatarUrl={author?.publicAvatarUrl ?? null}
-      cacheBust={author?.publicAvatarRevision ?? undefined} size="sm" /> : <>Kaynak Yansı: {context.publicTitle} · {name}</>}
+      cacheBust={author?.publicAvatarRevision ?? undefined} size="sm" className="yansi-personal-source-face" /> : <>Kaynak Yansı: {context.publicTitle} · {name}</>}
   </Link>;
 }
