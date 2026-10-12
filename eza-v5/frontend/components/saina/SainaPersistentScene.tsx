@@ -19,7 +19,7 @@ export default function SainaPersistentScene() {
     return null;
   }
 
-  if (view === 'discover' || view === 'pattern') {
+  if (view === 'discover' || view === 'pattern' || view === 'my-page') {
     return <SainaCinematicScene atmosphere="analysis" />;
   }
 

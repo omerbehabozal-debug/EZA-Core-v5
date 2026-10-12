@@ -115,7 +115,7 @@ describe('Slice 5 YansiSaveButton', () => {
   });
 
   it('stale save for B does not mark X saved', async () => {
-    let resolveSave: ((value: unknown) => void) | null = null;
+    let resolveSave: () => void = () => { throw new Error('Save request not started'); };
     vi.mocked(saveYansi).mockImplementation(
       (slug: string) =>
         new Promise((resolve) => {
@@ -132,7 +132,7 @@ describe('Slice 5 YansiSaveButton', () => {
     await waitFor(() => {
       expect(screen.getByTestId('yansi-save-button')).toHaveAttribute('data-slug', 'yansi-x');
     });
-    resolveSave?.(null);
+    resolveSave();
     await waitFor(() => expect(saveYansi).toHaveBeenCalled());
     // X should remain unsaved in the button UI for current slug.
     expect(screen.getByTestId('yansi-save-button')).toHaveAttribute('data-slug', 'yansi-x');
@@ -154,126 +154,15 @@ describe('Slice 5 Meraklarım sidebar', () => {
     expect(screen.queryByTestId('saina-meraklarim-section')).toBeNull();
   });
 
-  it('shows Meraklarım with saved row outside conversation groups', async () => {
-    vi.mocked(fetchMySavedYansilar).mockResolvedValue({
-      ok: true,
-      data: {
-        items: [
-          {
-            slug: 'yansi-b',
-            savedAt: new Date().toISOString(),
-            availability: 'available',
-            publicTitle: 'Title yansi-b',
-            sceneImageUrl: 'https://cdn.example/b.jpg',
-            authorDisplayName: 'Ada',
-            authorUserId: 'author-other',
-          },
-        ],
-        total: 1,
-        limit: 48,
-        offset: 0,
-      },
-    });
-    await hydrateYansiSaveStore();
-    render(
-      <SainaConversationSidebar
-        conversations={[
-          {
-            id: 'conv-1',
-            kind: 'conversation',
-            title: 'Sohbet',
-            preview: 'p',
-            time: 'şimdi',
-            savedAt: new Date().toISOString(),
-            thumbGradient: 'g',
-          },
-        ]}
-        conversationGroups={[
-          {
-            id: 'g1',
-            title: 'Grup',
-            updatedAt: new Date().toISOString(),
-            sortOrder: 0,
-            conversations: [
-              {
-                id: 'conv-1',
-                kind: 'conversation',
-                title: 'Sohbet',
-                preview: 'p',
-                time: 'şimdi',
-                savedAt: new Date().toISOString(),
-                thumbGradient: 'g',
-                isMirrorSource: false,
-              },
-            ],
-          },
-        ]}
-        onSelectChat={() => undefined}
-      />
-    );
-    expect(screen.getByTestId('saina-meraklarim-section')).toBeTruthy();
-    expect(screen.getByTestId('saina-meraklarim-title')).toHaveTextContent(
-      YANSI_SAVE_SECTION_TITLE
-    );
-    expect(screen.getByTestId('saina-saved-yansi-row-yansi-b')).toHaveAttribute(
-      'data-sidebar-kind',
-      'saved-yansi'
-    );
-    // Not nested inside the conversation group children as a conversation.
-    expect(screen.getByTestId('saina-saved-yansi-row-yansi-b').closest('.saina-conv-group-children')).toBeNull();
-  });
-
-  it('saved menu only offers Meraklarımdan kaldır', async () => {
-    noteYansiSaveState('yansi-b', true);
-    vi.mocked(fetchMySavedYansilar).mockResolvedValue({
-      ok: true,
-      data: {
-        items: [
-          {
-            slug: 'yansi-b',
-            savedAt: new Date().toISOString(),
-            availability: 'available',
-            publicTitle: 'Title yansi-b',
-          },
-        ],
-        total: 1,
-        limit: 48,
-        offset: 0,
-      },
-    });
+  it('keeps saved collections out of the sidebar and exposes Sayfam instead', async () => {
+    vi.mocked(fetchMySavedYansilar).mockResolvedValue({ ok: true, data: { items: [{ slug: 'saved', savedAt: 'now', availability: 'available', publicTitle: 'Saved' }], total: 1, limit: 48, offset: 0 } });
     await hydrateYansiSaveStore();
     render(<SainaConversationSidebar conversations={[]} onSelectChat={() => undefined} />);
-    fireEvent.click(screen.getByTestId('saina-saved-yansi-menu-yansi-b'));
-    expect(screen.getByTestId('saina-saved-yansi-unsave-yansi-b')).toHaveTextContent(
-      YANSI_SAVE_REMOVE
-    );
-    expect(screen.queryByText('Yayından kaldır')).toBeNull();
-    expect(screen.queryByText('Sohbeti sil')).toBeNull();
+    expect(screen.queryByTestId('saina-meraklarim-section')).toBeNull();
+    expect(screen.getByTestId('saina-my-page-nav')).toHaveTextContent('Sayfam');
+    expect(screen.queryByTestId('saina-saved-yansi-row-saved')).toBeNull();
   });
 
-  it('unavailable row shows neutral copy and disables open', async () => {
-    vi.mocked(fetchMySavedYansilar).mockResolvedValue({
-      ok: true,
-      data: {
-        items: [
-          {
-            slug: 'yansi-b',
-            savedAt: new Date().toISOString(),
-            availability: 'unavailable',
-          },
-        ],
-        total: 1,
-        limit: 48,
-        offset: 0,
-      },
-    });
-    await hydrateYansiSaveStore();
-    render(<SainaConversationSidebar conversations={[]} onSelectChat={() => undefined} />);
-    expect(screen.getByTestId('saina-saved-yansi-row-yansi-b')).toHaveTextContent(
-      YANSI_SAVE_UNAVAILABLE
-    );
-    expect(screen.getByTestId('saina-saved-yansi-open-yansi-b')).toBeDisabled();
-  });
 });
 
 describe('Slice 5 source contracts', () => {

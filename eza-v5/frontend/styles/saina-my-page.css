@@ -1,0 +1,18 @@
+.saina-my-page__identity { display: flex; align-items: center; gap: 14px; }
+.saina-my-page__identity p { font-size: 18px; margin: 0; }
+.saina-my-page > header, .saina-my-page__tabs { flex-shrink: 0; }
+.saina-my-page__tabs { display: flex; gap: 8px; padding: 16px 0; border-bottom: 1px solid rgba(210, 176, 115, .18); }
+.saina-my-page__tabs button { min-height: 44px; padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(210, 176, 115, .22); color: #ddd5c5; background: rgba(8, 18, 19, .65); }
+.saina-my-page__tabs button[aria-selected="true"] { background: rgba(173, 126, 58, .18); border-color: #b78b53; color: #f5dfb7; }
+.saina-my-page__unavailable { border: 1px solid rgba(210, 176, 115, .18); border-radius: 16px; padding: 20px; }
+.saina-collection-save { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.saina-collection-save__button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; border: 1px solid rgba(210, 176, 115, .22); border-radius: 10px; padding: 8px 12px; color: #ddd5c5; background: rgba(8, 18, 19, .5); font-size: 12px; cursor: pointer; }
+.saina-collection-save__button:hover { border-color: #b78b53; color: #f5dfb7; }
+.saina-collection-save__button:disabled { opacity: .5; cursor: default; }
+.saina-collection-save__feedback { font-size: 12px; color: #c8b697; }
+.saina-my-page :is(button, a):focus-visible, .saina-collection-save__button:focus-visible { outline: 2px solid #c49a5f; outline-offset: 3px; }
+.saina-discover-card__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+@media (max-width: 899px) {
+  .saina-my-page { padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)); }
+  .saina-my-page__tabs button { flex: 1; }
+}

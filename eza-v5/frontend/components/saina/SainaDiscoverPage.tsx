@@ -38,6 +38,7 @@ import {
   discoverPrefetchObserverOptions,
   shouldAcceptDiscoverPage,
 } from '@/lib/eza/mirror-network/discoverFeed';
+import SainaMyPageContent from './SainaMyPageContent';
 import SainaDiscoverList from '@/components/saina/SainaDiscoverList';
 import SainaDiscoverModeSelector from '@/components/saina/SainaDiscoverModeSelector';
 import { useSainaGateModals } from '@/hooks/useSainaGateModals';
@@ -82,7 +83,7 @@ import {
 
 const STORAGE_KEY_SAFE_ONLY = 'eza_standalone_safe_only';
 
-export default function SainaDiscoverPage() {
+export default function SainaDiscoverPage({ collection = false }: { collection?: boolean } = {}) {
   const router = useRouter();
   const { isPlus, isLoading: isPlanLoading, source, refreshPlan } = usePlan();
   const { entitlements: accountEntitlements } = useAccountEntitlements();
@@ -250,7 +251,7 @@ export default function SainaDiscoverPage() {
 
 
   useSyncSainaChrome({
-    activeSection: 'discover',
+    activeSection: collection ? 'my-page' : 'discover',
     conversations,
     conversationGroups,
     activeChatId,
@@ -394,6 +395,7 @@ export default function SainaDiscoverPage() {
   loadNextPageRef.current = loadNextPage;
 
   const applySearchMode = useCallback(() => {
+    if (collection) return;
     const parsed = parseDiscoverModeFromSearch(
       typeof window === 'undefined' ? '' : window.location.search
     );
@@ -410,7 +412,7 @@ export default function SainaDiscoverPage() {
     setModeInvalid(false);
     setMode(parsed.mode);
     void loadDiscover(parsed.mode);
-  }, [loadDiscover]);
+  }, [loadDiscover, collection]);
 
   const handleModeChange = useCallback(
     (next: DiscoverMode) => {
@@ -478,12 +480,13 @@ export default function SainaDiscoverPage() {
   }, [refreshArchives]);
 
   useEffect(() => {
+    if (collection) return;
     const refresh = () => {
       void loadDiscover(mode);
     };
     window.addEventListener(CHATS_UPDATED_EVENT, refresh);
     return () => window.removeEventListener(CHATS_UPDATED_EVENT, refresh);
-  }, [loadDiscover, mode]);
+  }, [loadDiscover, mode, collection]);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY_SAFE_ONLY);
@@ -528,7 +531,7 @@ export default function SainaDiscoverPage() {
           onAnalysisModelChange={setAnalysisModelId}
         />
 
-        <div className="saina-discover-content-scroll">
+        {collection ? <SainaMyPageContent onRequireAuth={handleRequestLogin} /> : <div className="saina-discover-content-scroll">
           <div className="saina-discover-page" data-testid="saina-discover-page">
             <div className="saina-discover-controls" data-testid="saina-discover-controls">
               <header className="saina-discover-hero" data-testid="saina-discover-hero">
@@ -640,7 +643,7 @@ export default function SainaDiscoverPage() {
               ) : null}
             </div>
           </div>
-        </div>
+        </div>}
       </div>
 
       {gateModals}

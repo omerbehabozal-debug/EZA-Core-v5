@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Compass, GitBranch, Heart, MessageSquarePlus, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
+import { Compass, GitBranch, User, MessageSquarePlus, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   SAINA_BRAND,
@@ -18,7 +18,7 @@ import {
 } from '@/lib/eza/sainaCopy';
 import { resolveSainaSidebarFooter } from '@/lib/eza/plan/sainaAccountTiers';
 import { SAINA_DISCOVER_TITLE } from '@/lib/eza/mirror-network/discoverCopy';
-import { SAINA_DISCOVER_ROUTE } from '@/lib/eza/sainaRoutes';
+import { SAINA_DISCOVER_ROUTE, SAINA_MY_PAGE_ROUTE } from '@/lib/eza/sainaRoutes';
 import type { SainaAppView } from '@/lib/eza/sainaRoutes';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import { groupConversationsByTimeBucket, thumbGradientForChatId } from '@/lib/eza/sainaConversationList';
@@ -39,19 +39,8 @@ import {
   YANSI_STATUS_TOOLTIP_WITHDRAWN,
 } from '@/lib/eza/mirror/journey/resolveConversationYansiStatus';
 import {
-  YANSI_SAVE_REMOVE,
-  YANSI_SAVE_SECTION_TITLE,
-  YANSI_SAVE_UNAVAILABLE,
   YANSI_SOHBETLERIM_SECTION_TITLE,
 } from '@/lib/eza/mirror/copy';
-import {
-  getYansiSaveSnapshot,
-  getYansiSaveStoreVersion,
-  hydrateYansiSaveStore,
-  noteYansiSaveState,
-  subscribeYansiSaveStore,
-} from '@/lib/eza/mirror-network/yansiSaveStore';
-import { unsaveYansi } from '@/lib/eza/mirror-network/yansiSaveApi';
 import SainaBrandLockup from './SainaBrandLockup';
 
 function SainaConversationThumb({
@@ -211,16 +200,6 @@ export default function SainaConversationSidebar({
     () => (useTree ? null : groupConversationsByTimeBucket(items)),
     [useTree, items]
   );
-
-  const saveVersion = useSyncExternalStore(
-    subscribeYansiSaveStore,
-    getYansiSaveStoreVersion,
-    () => 0
-  );
-  const savedItems = useMemo(() => {
-    void saveVersion;
-    return getYansiSaveSnapshot().items;
-  }, [saveVersion]);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -798,6 +777,12 @@ export default function SainaConversationSidebar({
                 <span>{SAINA_DISCOVER_TITLE}</span>
               </button>
 
+              <button type="button" className={cn('saina-sidebar-dock-link', activeSection === 'my-page' && 'saina-sidebar-dock-link--active')}
+                onClick={() => { router.push(SAINA_MY_PAGE_ROUTE); onMobileClose?.(); }}
+                aria-current={activeSection === 'my-page' ? 'page' : undefined} data-testid="saina-my-page-nav">
+                <User size={15} className="saina-sidebar-dock-icon" aria-hidden /><span>Sayfam</span>
+              </button>
+
               <button
                 type="button"
                 className="saina-sidebar-dock-link"
@@ -977,109 +962,6 @@ export default function SainaConversationSidebar({
               </div>
             </div>
           </div>
-
-          {savedItems.length > 0 ? (
-            <div
-              className="saina-meraklarim"
-              data-testid="saina-meraklarim-section"
-              data-system-section="meraklarim"
-            >
-              <p className="saina-meraklarim-title" data-testid="saina-meraklarim-title">
-                {YANSI_SAVE_SECTION_TITLE}
-              </p>
-              <div className="saina-meraklarim-list">
-                {savedItems.map((item) => {
-                  const slug = item.slug.trim().toLowerCase();
-                  const available = item.availability === 'available';
-                  const title = available
-                    ? (item.publicTitle || 'Yansı').trim() || 'Yansı'
-                    : YANSI_SAVE_UNAVAILABLE;
-                  const menuOpen = openMenuId === `saved:${slug}`;
-                  return (
-                    <div
-                      key={slug}
-                      className="saina-conv-row saina-conv-row--saved-yansi"
-                      data-testid={`saina-saved-yansi-row-${slug}`}
-                      data-sidebar-kind="saved-yansi"
-                      data-availability={item.availability}
-                    >
-                      <button
-                        type="button"
-                        className="saina-conv-main"
-                        data-testid={`saina-saved-yansi-open-${slug}`}
-                        disabled={!available || disabled}
-                        onClick={() => {
-                          if (!available || disabled) return;
-                          router.push(`/m/${encodeURIComponent(slug)}`);
-                          onMobileClose?.();
-                        }}
-                      >
-                        <SainaConversationThumb
-                          thumbGradient={thumbGradientForChatId(slug)}
-                          thumbImageUrl={available ? item.sceneImageUrl : null}
-                        />
-                        <span className="saina-conv-text">
-                          <span className="saina-conv-title">{title}</span>
-                          {available && item.authorDisplayName ? (
-                            <span className="saina-conv-preview">{item.authorDisplayName}</span>
-                          ) : null}
-                        </span>
-                        <Heart
-                          size={12}
-                          className="saina-meraklarim-heart"
-                          fill="currentColor"
-                          aria-hidden
-                        />
-                      </button>
-                      <div className="saina-conv-menu-wrap">
-                        <button
-                          type="button"
-                          className="saina-conv-menu-btn"
-                          data-testid={`saina-saved-yansi-menu-${slug}`}
-                          aria-label={SAINA_CONV_MENU_LABEL}
-                          disabled={disabled}
-                          ref={menuOpen ? openMenuBtnRef : undefined}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setOpenMenuId(menuOpen ? null : `saved:${slug}`);
-                          }}
-                        >
-                          <MoreHorizontal size={16} aria-hidden />
-                        </button>
-                        {menuOpen ? (
-                          <div className="saina-conv-menu" data-menu-placement={menuPlacement}>
-                            <button
-                              type="button"
-                              ref={firstMenuItemRef}
-                              className="saina-conv-menu-item saina-conv-menu-item--danger"
-                              data-testid={`saina-saved-yansi-unsave-${slug}`}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                closeMenu();
-                                noteYansiSaveState(slug, false);
-                                void unsaveYansi(slug).then((result) => {
-                                  if (!result.ok) {
-                                    noteYansiSaveState(slug, true);
-                                    return;
-                                  }
-                                  void hydrateYansiSaveStore();
-                                });
-                              }}
-                            >
-                              <Trash2 size={14} aria-hidden />
-                              {YANSI_SAVE_REMOVE}
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
 
           <nav className="saina-sidebar-dock" aria-label={`${SAINA_BRAND} gezinme`}>
             <button

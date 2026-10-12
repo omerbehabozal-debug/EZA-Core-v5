@@ -60,14 +60,14 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
       <div
       className={cn(
         'saina-page saina-app-root saina-standalone-shell',
-        view === 'discover' && 'saina-discover-shell',
+        (view === 'discover' || view === 'my-page') && 'saina-discover-shell',
         view === 'pattern' && 'saina-pattern-shell',
         view === 'yansi' && 'saina-yansi-shell'
       )}
       data-testid={
         view === 'chat'
           ? 'saina-standalone-shell'
-          : view === 'discover'
+          : view === 'discover' || view === 'my-page'
             ? 'saina-discover-shell'
             : view === 'yansi'
               ? 'saina-yansi-shell'
@@ -84,7 +84,9 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               activeChatId={chrome.activeChatId}
               activeYansiIdentity={chrome.activeYansiIdentity}
               activeSection={
-                view === 'pattern'
+                view === 'my-page'
+                  ? 'my-page'
+                  : view === 'pattern'
                   ? 'pattern'
                   : view === 'discover' || view === 'yansi'
                     ? 'discover'
@@ -109,7 +111,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
           <div
             className={cn(
               'saina-main-col',
-              (view === 'pattern' || view === 'discover') && 'saina-pattern-main-col'
+              (view === 'pattern' || view === 'discover' || view === 'my-page') && 'saina-pattern-main-col'
             )}
           >
             {view === 'yansi' ? (
@@ -127,7 +129,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               className={cn(
                 'saina-canvas',
                 view === 'pattern' && 'saina-pattern-canvas-wrap',
-                view === 'discover' && 'saina-discover-canvas-wrap',
+                (view === 'discover' || view === 'my-page') && 'saina-discover-canvas-wrap',
                 view === 'yansi' && 'saina-yansi-canvas-wrap'
               )}
               data-yansi-canvas-fill={view === 'yansi' ? 'true' : undefined}

@@ -1,4 +1,5 @@
 'use client';
+import '@/styles/saina-my-page.css';
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -15,9 +16,12 @@ import { YansiPublicMetricsView } from '@/components/mirror-landing/YansiPublicM
 import YansiExposureRoot from '@/components/mirror-landing/YansiExposureRoot';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
+import SainaYansiSaveControl from './SainaYansiSaveControl';
 
 export type SainaDiscoverCardProps = {
   item: DiscoverMirror;
+  showSave?: boolean;
+  authorUserId?: string | null;
   /** @deprecated Phase 8.2 — card opens /m/{slug}; limit applies at continuation/sohbet. */
   discoverLimitReached?: boolean;
   /** @deprecated Phase 8.2 */
@@ -26,6 +30,8 @@ export type SainaDiscoverCardProps = {
 
 export default function SainaDiscoverCard({
   item,
+  showSave = true,
+  authorUserId,
 }: SainaDiscoverCardProps) {
   const router = useRouter();
   const product = resolveYansiProductFromDiscoverItem(item);
@@ -94,6 +100,7 @@ export default function SainaDiscoverCard({
         onActivateProduct={handleOpenYansi}
         activateProductLabel={`${product.title} — Yansıyı aç`}
         footer={
+          <div className="saina-discover-card__actions">
           <button
             type="button"
             className="saina-discover-card__cta"
@@ -107,6 +114,8 @@ export default function SainaDiscoverCard({
               {SAINA_DISCOVER_OPEN_CTA_SHORT}
             </span>
           </button>
+          {showSave ? <SainaYansiSaveControl slug={item.slug} authorUserId={authorUserId} /> : null}
+          </div>
         }
       />
     </YansiExposureRoot>

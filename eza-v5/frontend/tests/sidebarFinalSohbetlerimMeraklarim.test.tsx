@@ -385,7 +385,7 @@ describe('Sidebar final IA — SOHBETLERİM enrichment', () => {
     );
   });
 
-  it('N. MERAKLARIM stays separate saved-yansi only', async () => {
+  it('N. saved collections move to Sayfam without mixing into conversations', async () => {
     vi.mocked(fetchMySavedYansilar).mockResolvedValue({
       ok: true,
       data: {
@@ -422,11 +422,9 @@ describe('Sidebar final IA — SOHBETLERİM enrichment', () => {
         onSelectChat={() => undefined}
       />
     );
-    expect(screen.getByTestId('saina-meraklarim-section')).toBeTruthy();
-    expect(screen.getByTestId('saina-saved-yansi-row-yansi-a')).toHaveAttribute(
-      'data-sidebar-kind',
-      'saved-yansi'
-    );
+    expect(screen.queryByTestId('saina-meraklarim-section')).toBeNull();
+    expect(screen.getByTestId('saina-my-page-nav')).toHaveTextContent('Sayfam');
+    expect(screen.queryByTestId('saina-saved-yansi-row-yansi-a')).toBeNull();
     expect(screen.queryByTestId(/saina-yansi-row-/)).toBeNull();
   });
 

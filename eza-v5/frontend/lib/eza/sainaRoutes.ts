@@ -1,12 +1,13 @@
 import { MIRROR_PATTERN_ROUTE } from '@/lib/eza/mirror/copy';
 
 export const SAINA_DISCOVER_ROUTE = '/standalone/discover';
+export const SAINA_MY_PAGE_ROUTE = '/standalone/sayfam';
 
 /** Explicit new-chat draft — bare `/standalone` redirects to Keşfet (home). */
 export const SAINA_NEW_CHAT_PARAM = 'new';
 export const SAINA_NEW_CHAT_ROUTE = `/standalone?${SAINA_NEW_CHAT_PARAM}=1`;
 
-export type SainaAppView = 'chat' | 'pattern' | 'discover' | 'yansi';
+export type SainaAppView = 'chat' | 'pattern' | 'discover' | 'yansi' | 'my-page';
 
 export function isPublicYansiExperiencePath(pathname: string | null): boolean {
   if (!pathname) return false;
@@ -16,6 +17,7 @@ export function isPublicYansiExperiencePath(pathname: string | null): boolean {
 
 export function resolveSainaAppView(pathname: string | null): SainaAppView | null {
   if (!pathname) return null;
+  if (pathname === SAINA_MY_PAGE_ROUTE) return 'my-page';
   if (isPublicYansiExperiencePath(pathname)) {
     return 'yansi';
   }
