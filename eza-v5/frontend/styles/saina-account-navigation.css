@@ -1,0 +1,80 @@
+/* Shared account presentation. Existing profile/avatar styles remain intact. */
+.saina-profile-menu.saina-account-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 90px - env(safe-area-inset-bottom, 0px));
+}
+.saina-account-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 14px;
+  border-bottom: 1px solid rgba(232, 226, 215, 0.09);
+}
+.saina-account-panel-heading h2 {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bilign-text, #e8e2d7);
+}
+.saina-profile-menu.saina-account-panel .saina-account-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bilign-secondary, #9b968d);
+  cursor: pointer;
+}
+.saina-account-panel-content {
+  padding: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.saina-account-menu { display: grid; gap: 3px; }
+.saina-profile-menu.saina-account-panel .saina-profile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.saina-account-menu .saina-profile-menu-item > span { flex: 1; }
+.saina-account-panel :is(button, a, input):focus-visible {
+  outline: 2px solid var(--bilign-bronze-light, #d0a15b);
+  outline-offset: 2px;
+}
+.saina-profile-menu.saina-account-panel .saina-account-icon-button:hover,
+.saina-profile-menu.saina-account-panel .saina-profile-menu-item:hover { background: rgba(183, 137, 73, 0.1); }
+.saina-account-discard { display: grid; gap: 10px; color: var(--bilign-text, #e8e2d7); }
+.saina-account-panel-content .saina-profile-menu-section { margin-top: 12px; }
+.saina-mobile-profile-trigger { padding: 0; border-radius: 50%; }
+@media (max-width: 899px) {
+  .saina-profile-menu.saina-account-panel,
+  .saina-app-root.saina-standalone-shell .saina-mobile-utility-hosts .saina-profile-menu.saina-account-panel {
+    left: 0.75rem;
+    right: 0.75rem;
+    width: auto;
+    overflow: hidden;
+    top: calc(max(12px, env(safe-area-inset-top, 0px)) + 56px);
+    bottom: auto;
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-top, 0px)) - 80px - env(safe-area-inset-bottom, 0px));
+  }
+  .saina-profile-menu.saina-account-panel .saina-account-icon-button { min-width: 40px; min-height: 40px; }
+  .saina-profile-menu.saina-account-panel .saina-profile-menu-item { min-height: 44px; }
+}

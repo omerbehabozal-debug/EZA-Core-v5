@@ -15,6 +15,10 @@ import {
   SAINA_SAFE_MODE_LABEL,
 } from '@/lib/eza/sainaCopy';
 import { DEFAULT_ANALYSIS_MODEL_ID, STANDALONE_ANALYSIS_MODELS } from '@/lib/standaloneModels';
+import SainaPageTopBar from '@/components/saina/SainaPageTopBar';
+import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
+import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
+import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import { clearEzaUserPreferencesForTests } from '@/lib/eza/ezaUserPrefs';
 
 const authState = vi.hoisted(() => ({
@@ -154,6 +158,7 @@ function openMenu(
       onAnalysisModelChange={onAnalysisModelChange}
     />
   );
+  screen.getByTestId('saina-profile-menu-trigger').focus();
   fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
   return { onSafeOnlyModeChange, onAnalysisModelChange };
 }
@@ -227,6 +232,7 @@ describe('Phase 8.8F profile side panel', () => {
       'curious'
     );
     expect(within(identity).queryByText(/Premium|Free|Mini|Standard/i)).toBeNull();
+    expect(screen.getByTestId('saina-profile-plan-summary')).toHaveTextContent('Premium');
     expect(screen.queryByText(SAINA_MENU_ACCOUNT)).toBeNull();
 
     const honorific = screen.getByTestId('saina-profile-menu-honorific');
@@ -236,8 +242,11 @@ describe('Phase 8.8F profile side panel', () => {
     expect(honorific.closest('[role="listbox"]')).toBeNull();
     expect(panel.querySelector('select')).toBeNull();
 
+    expect(screen.queryByTestId('saina-public-name-input')).toBeNull();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-plan'));
     expect(screen.getByTestId('saina-profile-plan-row')).toHaveTextContent('Plan');
     expect(screen.getByTestId('saina-profile-plan-value')).toHaveTextContent('Premium');
+    fireEvent.click(screen.getByTestId('saina-profile-back'));
     expect(screen.getByTestId('saina-account-email')).toHaveTextContent('owner@example.com');
   });
 
@@ -261,6 +270,7 @@ describe('Phase 8.8F profile side panel', () => {
       resolved_public_display_name: 'Yeni Ad',
     });
     openMenu();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
 
     const save = screen.getByTestId('saina-public-name-save');
     expect(save).toBeDisabled();
@@ -297,6 +307,7 @@ describe('Phase 8.8F profile side panel', () => {
 
   it('toggles boolean settings with compact switches, not segmented controls', () => {
     const { onSafeOnlyModeChange } = openMenu();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
     const panel = screen.getByTestId('saina-profile-menu');
 
     expect(panel.querySelector('.saina-safe-mode-segmented')).toBeNull();
@@ -328,18 +339,21 @@ describe('Phase 8.8F profile side panel', () => {
   it('keeps model selection and logout working', () => {
     const nextModel = STANDALONE_ANALYSIS_MODELS[1];
     const { onAnalysisModelChange } = openMenu();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
 
     expect(screen.getByText(SAINA_ANALYSIS_MODEL_LABEL)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('saina-profile-model-trigger'));
     fireEvent.click(screen.getByTestId(`saina-profile-model-${nextModel.id}`));
     expect(onAnalysisModelChange).toHaveBeenCalledWith(nextModel.id);
 
+    fireEvent.click(screen.getByTestId('saina-profile-back'));
     fireEvent.click(screen.getByTestId('saina-profile-logout'));
     expect(authState.logout).toHaveBeenCalledTimes(1);
   });
 
   it('stages avatar upload until save and avoids local-only persistence', () => {
     openMenu();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     const panel = screen.getByTestId('saina-profile-menu');
     const src = read('components/saina/SainaProfileMenu.tsx');
 
@@ -363,6 +377,7 @@ describe('Phase 8.8F profile side panel', () => {
     });
 
     openMenu();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     const file = new File(['avatar'], 'me.jpg', { type: 'image/jpeg' });
     const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file] } });
@@ -395,12 +410,15 @@ describe('Phase 8.8F profile side panel', () => {
     });
 
     openMenu();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     const file = new File(['avatar'], 'me.jpg', { type: 'image/jpeg' });
     const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file] } });
     fireEvent.click(screen.getByTestId('profile-avatar-crop-apply-mock'));
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('saina-profile-discard'));
 
     expect(uploadPublicAvatar).not.toHaveBeenCalled();
     expect(authState.patchAuthUser).not.toHaveBeenCalled();
@@ -436,5 +454,103 @@ describe('Phase 8.8F profile side panel', () => {
     expect(fetchAuthor).toContain('publicHonorific');
     expect(fetchAuthor).toContain('publicAvatarUrl');
     expect(fetchAuthor.toLowerCase()).not.toContain('author.email');
+  });
+});
+
+
+describe('two-level account navigation', () => {
+  beforeEach(() => {
+    authState.isAuthenticated = true;
+    authState.user = { user_id: 'user-88f', email: 'owner@example.com', public_display_name: 'Ada Lovelace', public_honorific: 'curious', role: 'user' };
+    authState.token = 'tok';
+    authState.logout.mockReset();
+    useSainaChromeStore.getState().setChrome({ notifications: [], onUpgrade: undefined });
+  });
+
+  it('opens the compact menu and all four details return to it', () => {
+    openMenu();
+    expect(screen.queryByTestId('saina-public-name-input')).toBeNull();
+    expect(screen.queryByTestId('saina-safe-mode-switch')).toBeNull();
+    for (const section of ['notifications', 'profile', 'settings', 'plan']) {
+      fireEvent.click(screen.getByTestId(`saina-profile-nav-${section}`));
+      expect(screen.getByTestId('saina-profile-menu')).toHaveAttribute('data-section', section);
+      fireEvent.click(screen.getByTestId('saina-profile-back'));
+      expect(screen.getByTestId('saina-profile-menu')).toHaveAttribute('data-section', 'menu');
+    }
+  });
+
+  it('preserves actual notification content without claiming an unread count', () => {
+    useSainaChromeStore.getState().setChrome({ notifications: [{ id: 'existing', title: 'Gerçek bildirim', body: 'Mevcut senkronizasyon bilgisi' }] });
+    openMenu();
+    expect(screen.queryByTestId('saina-notifications-badge')).toBeNull();
+    expect(screen.getByTestId('saina-profile-nav-notifications')).toHaveTextContent('Bildirimler');
+    fireEvent.click(screen.getByTestId('saina-profile-nav-notifications'));
+    expect(screen.getByText('Gerçek bildirim')).toBeInTheDocument();
+    expect(screen.getByText('Mevcut senkronizasyon bilgisi')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-notifications-empty')).toBeNull();
+  });
+
+  it('retains profile drafts across Back and protects outside/Escape dismissal', () => {
+    openMenu();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
+    fireEvent.change(screen.getByTestId('saina-public-name-input'), { target: { value: 'Taslak ad' } });
+    fireEvent.click(screen.getByTestId('saina-profile-back'));
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
+    expect(screen.getByTestId('saina-public-name-input')).toHaveValue('Taslak ad');
+    fireEvent.mouseDown(document.body);
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Düzenlemeye devam et'));
+    expect(screen.getByTestId('saina-public-name-input')).toHaveValue('Taslak ad');
+    fireEvent.keyDown(screen.getByTestId('saina-public-name-input'), { key: 'Escape' });
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('saina-profile-discard'));
+    expect(screen.queryByTestId('saina-profile-menu')).toBeNull();
+    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    expect(screen.getByTestId('saina-profile-menu')).toHaveAttribute('data-section', 'menu');
+  });
+
+  it('closes a clean detail with Escape and returns keyboard focus to the avatar', () => {
+    openMenu();
+    const trigger = screen.getByTestId('saina-profile-menu-trigger');
+    trigger.focus();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
+    fireEvent.keyDown(screen.getByTestId('saina-profile-back'), { key: 'Escape' });
+    expect(screen.queryByTestId('saina-profile-menu')).toBeNull();
+    expect(trigger).toHaveFocus();
+    fireEvent.click(trigger);
+    expect(screen.getByTestId('saina-profile-menu')).toHaveAttribute('data-section', 'menu');
+  });
+
+  it('keeps Tab focus inside the account panel', () => {
+    openMenu();
+    const first = screen.getByTestId('saina-profile-close');
+    const last = screen.getByTestId('saina-profile-logout');
+    first.focus();
+    fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
+    expect(last).toHaveFocus();
+    fireEvent.keyDown(last, { key: 'Tab' });
+    expect(first).toHaveFocus();
+  });
+
+  it('renders avatar-only chrome even before settings callbacks are ready', () => {
+    const { container } = render(<SainaPageTopBar />);
+    expect(screen.getByTestId('saina-profile-menu-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-top-search-trigger')).toBeNull();
+    expect(screen.queryByTestId('saina-notifications-trigger')).toBeNull();
+    expect(container.querySelector('.saina-status-dot')).toBeNull();
+    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
+    expect(screen.getByTestId('saina-safe-mode-switch')).toBeDisabled();
+    expect(screen.getByTestId('saina-profile-model-trigger')).toBeDisabled();
+  });
+
+  it('blocks the retained palette and keyboard shortcut from all alternate callers', () => {
+    const onOpen = vi.fn();
+    function ShortcutProbe() { useSainaCommandShortcut(onOpen); return null; }
+    render(<><ShortcutProbe /><SainaCommandPalette open onClose={vi.fn()} /></>);
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    fireEvent.keyDown(window, { key: 'K', metaKey: true });
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('saina-command-palette')).toBeNull();
   });
 });

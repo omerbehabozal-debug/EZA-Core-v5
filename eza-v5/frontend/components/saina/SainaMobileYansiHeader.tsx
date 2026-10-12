@@ -5,16 +5,13 @@
  * Desktop top bar / identity block remain unchanged.
  */
 
-import { useEffect, useId, useRef, useState } from 'react';
-import { Menu, MoreHorizontal, Search, Bell, User, Settings } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import type { PublicHonorificId } from '@/lib/eza/mirror/publicHonorific';
 import {
   SAINA_MENU_GUEST_LABEL,
-  SAINA_MENU_SETTINGS,
-  SAINA_NOTIFICATIONS_TITLE,
 } from '@/lib/eza/sainaCopy';
 
 export type SainaMobileYansiHeaderProps = {
@@ -31,6 +28,7 @@ export type SainaMobileYansiHeaderProps = {
   onOpenSearch?: () => void;
   onOpenNotifications?: () => void;
   onOpenProfile?: () => void;
+  profileOpen?: boolean;
   onOpenSettings?: () => void;
   className?: string;
 };
@@ -44,36 +42,15 @@ export default function SainaMobileYansiHeader({
   metaTimeLabel = null,
   metaTypeLabel = null,
   onOpenMenu,
-  onOpenSearch,
-  onOpenNotifications,
   onOpenProfile,
-  onOpenSettings,
+  profileOpen = false,
   className,
 }: SainaMobileYansiHeaderProps) {
   const name = displayName?.trim() || SAINA_MENU_GUEST_LABEL;
   const timeLabel = metaTimeLabel?.trim() || '';
   const typeLabel = metaTypeLabel?.trim() || '';
   const showMeta = Boolean(timeLabel || typeLabel);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuId = useId();
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const identityInteractive = typeof onOpenProfile === 'function';
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onPointer = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onPointer);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onPointer);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
 
   const identityBody = (
     <>
@@ -96,7 +73,6 @@ export default function SainaMobileYansiHeader({
 
   return (
     <header
-      ref={rootRef}
       className={cn('saina-mobile-yansi-header', className)}
       data-testid="saina-mobile-yansi-header"
     >
@@ -130,98 +106,25 @@ export default function SainaMobileYansiHeader({
           </div>
         )}
 
-        <div className="saina-mobile-yansi-header__overflow">
-          <button
-            type="button"
-            className="saina-mobile-yansi-header__more"
-            data-testid="saina-mobile-yansi-overflow"
-            aria-label="Daha fazla"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-controls={menuOpen ? menuId : undefined}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <MoreHorizontal size={18} aria-hidden />
-          </button>
-          {menuOpen ? (
-            <div
-              id={menuId}
-              className="saina-mobile-yansi-header__menu-panel"
-              role="menu"
-              data-testid="saina-mobile-yansi-overflow-menu"
-            >
-              {onOpenSearch ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="saina-mobile-yansi-header__menu-item"
-                  data-testid="saina-mobile-overflow-search"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpenSearch();
-                  }}
-                >
-                  <Search size={14} aria-hidden />
-                  Ara
-                </button>
-              ) : null}
-              {onOpenNotifications ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="saina-mobile-yansi-header__menu-item"
-                  data-testid="saina-mobile-overflow-notifications"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpenNotifications();
-                  }}
-                >
-                  <Bell size={14} aria-hidden />
-                  {SAINA_NOTIFICATIONS_TITLE}
-                </button>
-              ) : null}
-              {onOpenSearch || onOpenNotifications ? (
-                onOpenProfile || onOpenSettings ? (
-                  <div
-                    className="saina-mobile-yansi-header__menu-sep"
-                    role="separator"
-                    data-testid="saina-mobile-overflow-sep"
-                  />
-                ) : null
-              ) : null}
-              {onOpenProfile ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="saina-mobile-yansi-header__menu-item"
-                  data-testid="saina-mobile-overflow-profile"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpenProfile();
-                  }}
-                >
-                  <User size={14} aria-hidden />
-                  Hesabım
-                </button>
-              ) : null}
-              {onOpenSettings ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="saina-mobile-yansi-header__menu-item"
-                  data-testid="saina-mobile-overflow-settings"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpenSettings();
-                  }}
-                >
-                  <Settings size={14} aria-hidden />
-                  {SAINA_MENU_SETTINGS}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          className="saina-mobile-yansi-header__more saina-mobile-profile-trigger"
+          data-testid="saina-mobile-profile-trigger"
+          aria-label="Profil ve ayarlar"
+          aria-haspopup="dialog"
+          aria-expanded={profileOpen}
+          onClick={onOpenProfile}
+          disabled={!onOpenProfile}
+        >
+          <ProfileUserAvatar
+            displayName={name}
+            userId={userId}
+            avatarUrl={avatarUrl}
+            cacheBust={avatarCacheBust}
+            size="sm"
+            className="saina-mobile-yansi-header__avatar"
+          />
+        </button>
       </div>
 
       {showMeta ? (

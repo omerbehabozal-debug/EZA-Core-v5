@@ -260,6 +260,7 @@ describe('SainaProfileMenu avatar interactions', () => {
       />
     );
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
     const clickSpy = vi.spyOn(input, 'click');
     fireEvent.click(screen.getByTestId('saina-profile-avatar-trigger'));
@@ -284,6 +285,7 @@ describe('SainaProfileMenu avatar interactions', () => {
       />
     );
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
     const clickSpy = vi.spyOn(input, 'click');
     fireEvent.click(screen.getByTestId('saina-profile-avatar-trigger'));
@@ -302,6 +304,7 @@ describe('SainaProfileMenu avatar interactions', () => {
     );
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
     const file = new File(['avatar-b'], 'b.jpg', { type: 'image/jpeg' });
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     const input = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
 
     fireEvent.change(input, { target: { files: [file] } });

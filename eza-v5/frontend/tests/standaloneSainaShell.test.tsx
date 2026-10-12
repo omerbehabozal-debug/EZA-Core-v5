@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/context/OrganizationContext', () => ({
   useOrganization: () => ({ currentOrganization: null }),
@@ -105,7 +105,7 @@ describe('SainaStandaloneShell (Sprint B.2A)', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Yeni Sohbet');
     expect(screen.getByTestId('composer-slot')).toBeInTheDocument();
     expect(screen.queryByTestId('saina-chat-card')).not.toBeInTheDocument();
-    expect(screen.getByRole('searchbox', { name: 'Ara' })).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox', { name: 'Ara' })).toBeNull();
   });
 
   it('starts with mirror collapsed and shows Ayna pill', () => {
@@ -221,6 +221,7 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     );
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
     fireEvent.click(screen.getByTestId('saina-safe-mode-switch'));
     expect(onSafeOnlyModeChange).toHaveBeenCalledWith(true);
   });
@@ -236,6 +237,7 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     );
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
     fireEvent.click(screen.getByTestId('saina-profile-model-trigger'));
     fireEvent.click(screen.getByTestId(`saina-profile-model-${nextModel.id}`));
     expect(onAnalysisModelChange).toHaveBeenCalledWith(nextModel.id);
@@ -784,96 +786,33 @@ describe('SainaStandaloneShell (Sprint B.2F command palette & notifications)', (
     mockSainaSidebarViewport(true);
   });
 
-  it('opens command palette when top search is clicked', () => {
+  it('has only the profile avatar in general top navigation', () => {
     render(<SainaStandaloneShell {...shellProps} />);
-
-    expect(screen.queryByTestId('saina-command-palette')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('saina-top-search-trigger'));
-    expect(screen.getByTestId('saina-command-palette')).toBeInTheDocument();
+    expect(screen.getByTestId('saina-profile-menu-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-top-search-trigger')).toBeNull();
+    expect(screen.queryByTestId('saina-notifications-trigger')).toBeNull();
   });
 
-  it('opens command palette with Ctrl+K and Meta+K', () => {
+  it('does not expose search through Ctrl+K or Meta+K', () => {
     render(<SainaStandaloneShell {...shellProps} />);
-
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    expect(screen.getByTestId('saina-command-palette')).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByTestId('saina-command-palette')).not.toBeInTheDocument();
-
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
-    expect(screen.getByTestId('saina-command-palette')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-command-palette')).toBeNull();
   });
 
-  it('closes command palette with Escape', () => {
+  it('opens the existing notification empty state through the profile menu', () => {
     render(<SainaStandaloneShell {...shellProps} />);
-
-    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    expect(screen.getByTestId('saina-command-palette')).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByTestId('saina-command-palette')).not.toBeInTheDocument();
-  });
-
-  it('filters conversations in command palette by title and preview', () => {
-    render(<SainaStandaloneShell {...shellProps} />);
-
-    fireEvent.click(screen.getByTestId('saina-top-search-trigger'));
-    const palette = screen.getByTestId('saina-command-palette');
-    fireEvent.change(screen.getByTestId('saina-command-palette-input'), {
-      target: { value: 'BMW' },
-    });
-
-    expect(within(palette).getByText('BMW iX Sohbeti')).toBeInTheDocument();
-    expect(within(palette).queryByText('Özbekistan Sohbeti')).not.toBeInTheDocument();
-  });
-
-  it('calls onNewChat from command palette quick action', () => {
-    const onNewChat = vi.fn();
-    render(<SainaStandaloneShell {...shellProps} onNewChat={onNewChat} />);
-
-    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    fireEvent.click(screen.getByTestId('saina-command-action-new-chat'));
-    expect(onNewChat).toHaveBeenCalled();
-    expect(screen.queryByTestId('saina-command-palette')).not.toBeInTheDocument();
-  });
-
-  it('opens mirror panel from command palette quick action', () => {
-    render(<SainaStandaloneShell {...shellProps} />);
-
-    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    fireEvent.click(screen.getByTestId('saina-command-action-open-mirror'));
-    expect(screen.getByTestId('saina-standalone-mirror-panel')).toBeInTheDocument();
-    expect(screen.queryByTestId('saina-mirror-expand-pill')).not.toBeInTheDocument();
-  });
-
-  it('calls onSelectChat when a conversation result is chosen', () => {
-    const onSelectChat = vi.fn();
-    render(<SainaStandaloneShell {...shellProps} onSelectChat={onSelectChat} />);
-
-    fireEvent.click(screen.getByTestId('saina-top-search-trigger'));
-    fireEvent.click(screen.getByTestId('saina-command-chat-chat-uz'));
-    expect(onSelectChat).toHaveBeenCalledWith('chat-uz');
-  });
-
-  it('opens notifications dropdown with empty state', () => {
-    render(<SainaStandaloneShell {...shellProps} />);
-
-    fireEvent.click(screen.getByTestId('saina-notifications-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-nav-notifications'));
     expect(screen.getByTestId('saina-notifications-panel')).toBeInTheDocument();
     expect(screen.getByTestId('saina-notifications-empty')).toBeInTheDocument();
     expect(screen.getByText('Henüz yeni bildirim yok.')).toBeInTheDocument();
   });
 
-  it('still opens profile menu after top bar updates', () => {
+  it('still opens the compact profile menu', () => {
     render(<SainaStandaloneShell {...shellProps} />);
-
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
-    expect(screen.getByTestId('saina-profile-menu')).toBeInTheDocument();
-  });
-
-  it('renders compact search field in top bar', () => {
-    render(<SainaStandaloneShell {...shellProps} />);
-    expect(screen.getByTestId('saina-top-search-trigger')).toBeInTheDocument();
-    expect(screen.queryByTestId('saina-mobile-search-btn')).not.toBeInTheDocument();
+    expect(screen.getByTestId('saina-profile-menu')).toHaveAttribute('data-section', 'menu');
+    expect(screen.queryByTestId('saina-safe-mode-switch')).toBeNull();
   });
 });

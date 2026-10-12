@@ -162,27 +162,17 @@ describe('Mobile Yansı polish — identity + overflow + Ayna', () => {
     expect(screen.queryByTestId('saina-notifications-trigger')).not.toBeInTheDocument();
   });
 
-  it('overflow exposes Ara, Bildirimler, Hesabım, Ayarlar via existing authorities', async () => {
+  it('mobile utility avatar opens profile and notifications within it', async () => {
     render(<SainaStandaloneShell {...shellProps()} />);
-    await waitFor(() => screen.getByTestId('saina-mobile-yansi-overflow'));
-    fireEvent.click(screen.getByTestId('saina-mobile-yansi-overflow'));
-    const menu = screen.getByTestId('saina-mobile-yansi-overflow-menu');
-    expect(within(menu).getByTestId('saina-mobile-overflow-search')).toHaveTextContent('Ara');
-    expect(within(menu).getByTestId('saina-mobile-overflow-notifications')).toHaveTextContent(
-      SAINA_NOTIFICATIONS_TITLE
-    );
-    expect(within(menu).getByTestId('saina-mobile-overflow-profile')).toHaveTextContent('Hesabım');
-    expect(within(menu).getByTestId('saina-mobile-overflow-settings')).toHaveTextContent(
-      SAINA_MENU_SETTINGS
-    );
-    expect(within(menu).getByTestId('saina-mobile-overflow-sep')).toBeInTheDocument();
-
-    fireEvent.click(within(menu).getByTestId('saina-mobile-overflow-notifications'));
+    await waitFor(() => screen.getByTestId('saina-mobile-profile-trigger'));
+    expect(screen.queryByTestId('saina-mobile-yansi-overflow')).toBeNull();
+    expect(screen.queryByTestId('saina-mobile-overflow-search')).toBeNull();
+    fireEvent.click(screen.getByTestId('saina-mobile-profile-trigger'));
+    expect(screen.getByTestId('saina-profile-menu')).toHaveAttribute('data-section', 'menu');
+    fireEvent.click(screen.getByTestId('saina-profile-nav-notifications'));
     expect(screen.getByTestId('saina-notifications-panel')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId('saina-mobile-yansi-overflow'));
-    fireEvent.click(screen.getByTestId('saina-mobile-overflow-profile'));
-    expect(screen.getByTestId('saina-profile-menu')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('saina-profile-back'));
+    expect(screen.getByTestId('saina-profile-nav-settings')).toBeInTheDocument();
   });
 
   it('avatar/identity opens existing Hesabım profile panel', async () => {
@@ -217,16 +207,17 @@ describe('Mobile Yansı polish — identity + overflow + Ayna', () => {
     expect(document.activeElement).not.toBe(composerInput);
   });
 
-  it('opening/closing overflow does not focus composer', async () => {
+  it('opening/closing profile does not focus or clear composer', async () => {
     render(<SainaStandaloneShell {...shellProps()} />);
-    await waitFor(() => screen.getByTestId('saina-mobile-yansi-overflow'));
-    const composerInput = screen.getByLabelText('Mesaj yaz');
-    expect(document.activeElement).not.toBe(composerInput);
-    fireEvent.click(screen.getByTestId('saina-mobile-yansi-overflow'));
-    expect(screen.getByTestId('saina-mobile-yansi-overflow-menu')).toBeInTheDocument();
-    expect(document.activeElement).not.toBe(composerInput);
-    fireEvent.click(screen.getByTestId('saina-mobile-yansi-overflow'));
-    expect(document.activeElement).not.toBe(composerInput);
+    await waitFor(() => screen.getByTestId('saina-mobile-profile-trigger'));
+    const input = screen.getByLabelText('Mesaj yaz');
+    fireEvent.change(input, { target: { value: 'Korunan taslak' } });
+    fireEvent.click(screen.getByTestId('saina-mobile-profile-trigger'));
+    expect(document.activeElement).not.toBe(input);
+    fireEvent.click(screen.getByTestId('saina-profile-close'));
+    expect(screen.queryByTestId('saina-profile-menu')).toBeNull();
+    expect(input).toHaveValue('Korunan taslak');
+    expect(document.activeElement).not.toBe(input);
   });
 
   it('desktop Ayna rail and autofocus authority remain intact in source', () => {

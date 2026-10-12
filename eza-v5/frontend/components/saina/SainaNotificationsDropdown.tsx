@@ -27,6 +27,26 @@ export type SainaNotificationsDropdownProps = {
   hideTrigger?: boolean;
 };
 
+export function SainaNotificationsContent({ notifications = [] }: Pick<SainaNotificationsDropdownProps, 'notifications'>) {
+  return <div data-testid="saina-notifications-content">
+          {notifications.length > 0 ? (
+            <ul className="saina-notifications-list">
+              {notifications.map((item) => (
+                <li key={item.id} className="saina-notifications-item">
+                  <p className="saina-notifications-item-title">{item.title}</p>
+                  <p className="saina-notifications-item-body">{item.body}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="saina-notifications-empty" data-testid="saina-notifications-empty">
+              <p className="saina-notifications-empty-title">{SAINA_NOTIFICATIONS_EMPTY}</p>
+              <p className="saina-notifications-empty-note">{SAINA_NOTIFICATIONS_EMPTY_NOTE}</p>
+            </div>
+          )}
+  </div>;
+}
+
 export default function SainaNotificationsDropdown({
   notifications = [],
   className,
@@ -92,21 +112,7 @@ export default function SainaNotificationsDropdown({
           data-testid="saina-notifications-panel"
         >
           <p className="saina-notifications-title">{SAINA_NOTIFICATIONS_TITLE}</p>
-          {hasItems ? (
-            <ul className="saina-notifications-list">
-              {notifications.map((item) => (
-                <li key={item.id} className="saina-notifications-item">
-                  <p className="saina-notifications-item-title">{item.title}</p>
-                  <p className="saina-notifications-item-body">{item.body}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="saina-notifications-empty" data-testid="saina-notifications-empty">
-              <p className="saina-notifications-empty-title">{SAINA_NOTIFICATIONS_EMPTY}</p>
-              <p className="saina-notifications-empty-note">{SAINA_NOTIFICATIONS_EMPTY_NOTE}</p>
-            </div>
-          )}
+          <SainaNotificationsContent notifications={notifications} />
         </div>
       ) : null}
     </div>

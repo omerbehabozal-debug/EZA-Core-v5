@@ -219,6 +219,7 @@ describe('profile avatar authority regression', () => {
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
     const file = new File(['avatar-b'], 'b.jpg', { type: 'image/jpeg' });
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     fireEvent.change(screen.getByTestId('saina-profile-avatar-input'), {
       target: { files: [file] },
     });
@@ -265,6 +266,7 @@ describe('profile avatar authority regression', () => {
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
     const file = new File(['avatar-b'], 'b.jpg', { type: 'image/jpeg' });
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     fireEvent.change(screen.getByTestId('saina-profile-avatar-input'), {
       target: { files: [file] },
     });
@@ -275,6 +277,7 @@ describe('profile avatar authority regression', () => {
     });
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-discard'));
 
     await waitFor(() => {
       expect(authMocks.uploadPublicAvatar).not.toHaveBeenCalled();
@@ -291,6 +294,7 @@ describe('profile avatar authority regression', () => {
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
     const file = new File(['avatar-b'], 'b.jpg', { type: 'image/jpeg' });
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     fireEvent.change(screen.getByTestId('saina-profile-avatar-input'), {
       target: { files: [file] },
     });
@@ -310,6 +314,7 @@ describe('profile avatar authority regression', () => {
     await waitFor(() => expect(readProbe().revision).toBe(4));
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     fireEvent.click(screen.getByTestId('saina-profile-avatar-remove'));
     fireEvent.click(screen.getByTestId('saina-profile-avatar-save'));
 

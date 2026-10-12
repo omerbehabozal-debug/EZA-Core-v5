@@ -34,7 +34,6 @@ import YansiPersonalSourceIdentity from '@/components/mirror-landing/YansiPerson
 import type { PublicReplayContext } from '@/lib/eza/mirror-network/publicReplayContinuation';
 import SainaMobileAynaSheet from './SainaMobileAynaSheet';
 import SainaMobileYansiHeader from './SainaMobileYansiHeader';
-import SainaNotificationsDropdown from './SainaNotificationsDropdown';
 import SainaPageTopBar from './SainaPageTopBar';
 import SainaProfileMenu from './SainaProfileMenu';
 import SainaStandaloneMirrorPanel from './SainaStandaloneMirrorPanel';
@@ -120,9 +119,7 @@ function SainaChatSurface({
 }) {
   void _mirrorMobileContext;
   const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [focusSettingsOnOpen, setFocusSettingsOnOpen] = useState(false);
   const showMessages = !isEmpty && messages != null;
   const { user, isAuthenticated } = useAuth();
   const isGuest = !isAuthenticated;
@@ -138,12 +135,6 @@ function SainaChatSurface({
     publicHonorific: user?.public_honorific,
   });
   const heroAvatar = resolveSelfProfileAvatar(isGuest ? null : user);
-  const notifications = useSainaChromeStore((s) => s.notifications ?? []);
-  const showSettings =
-    onSafeOnlyModeChange != null &&
-    onAnalysisModelChange != null &&
-    analysisModelId != null;
-
   const tryOpenMirror = useCallback(() => {
     if (onRequestMirror && !onRequestMirror()) return;
     // Dismiss soft keyboard without clearing composer draft (draft lives in SainaComposer).
@@ -162,16 +153,7 @@ function SainaChatSurface({
     setChrome({ onOpenMirror: tryOpenMirror });
   }, [setChrome, tryOpenMirror]);
 
-  const openProfile = useCallback((focusSettings = false) => {
-    setFocusSettingsOnOpen(focusSettings);
-    setNotificationsOpen(false);
-    setProfileOpen(true);
-  }, []);
-
-  const openNotifications = useCallback(() => {
-    setProfileOpen(false);
-    setNotificationsOpen(true);
-  }, []);
+  const openProfile = useCallback(() => setProfileOpen(true), []);
 
   const identityHeader = (
     <SainaHeroScene
@@ -212,10 +194,8 @@ function SainaChatSurface({
                 metaTimeLabel={heroMeta?.timeLabel}
                 metaTypeLabel={heroMeta?.typeLabel}
                 onOpenMenu={onMobileMenu}
-                onOpenSearch={onOpenCommandPalette}
-                onOpenNotifications={openNotifications}
-                onOpenProfile={showSettings ? () => openProfile(false) : undefined}
-                onOpenSettings={showSettings ? () => openProfile(true) : undefined}
+                onOpenProfile={openProfile}
+                profileOpen={profileOpen}
               />
             ) : (
               <SainaPageTopBar
@@ -300,17 +280,11 @@ function SainaChatSurface({
           />
         ) : null}
 
-        {!isCompactShell && showSettings ? (
+        {!isCompactShell ? (
           <div
             className="saina-mobile-utility-hosts"
             data-testid="saina-mobile-utility-hosts"
           >
-            <SainaNotificationsDropdown
-              notifications={notifications}
-              open={notificationsOpen}
-              onOpenChange={setNotificationsOpen}
-              hideTrigger
-            />
             <SainaProfileMenu
               safeOnlyMode={safeOnlyMode}
               onSafeOnlyModeChange={onSafeOnlyModeChange}
@@ -318,12 +292,8 @@ function SainaChatSurface({
               onAnalysisModelChange={onAnalysisModelChange}
               disabled={settingsDisabled}
               open={profileOpen}
-              onOpenChange={(next) => {
-                setProfileOpen(next);
-                if (!next) setFocusSettingsOnOpen(false);
-              }}
+              onOpenChange={setProfileOpen}
               hideTrigger
-              focusSettingsOnOpen={focusSettingsOnOpen}
             />
           </div>
         ) : null}

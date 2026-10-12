@@ -109,6 +109,9 @@ describe('SainaDiscoverPage chrome actions', () => {
 
   it('opens upgrade modal from discover when free user taps premium footer', async () => {
     vi.mocked(usePlan).mockReturnValue({
+      plan: 'free',
+      isFree: true,
+      setPlan: vi.fn(),
       isPlus: false,
       isLoading: false,
       source: 'server',
@@ -121,11 +124,11 @@ describe('SainaDiscoverPage chrome actions', () => {
     expect(await screen.findByTestId('upgrade-modal-stub')).toBeInTheDocument();
   });
 
-  it('renders unified top bar with search and profile on discover', async () => {
+  it('renders avatar-only top bar on discover', async () => {
     render(<SainaDiscoverPage />);
 
-    expect(screen.getByTestId('saina-top-search-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-top-search-trigger')).not.toBeInTheDocument();
     expect(screen.getByTestId('saina-profile-menu-trigger')).toBeInTheDocument();
-    expect(screen.getByTestId('saina-notifications-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-notifications-trigger')).not.toBeInTheDocument();
   });
 });

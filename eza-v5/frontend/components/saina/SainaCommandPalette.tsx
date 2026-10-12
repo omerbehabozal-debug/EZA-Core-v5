@@ -14,6 +14,7 @@ import {
 } from '@/lib/eza/sainaCopy';
 import type { SainaConversationItem } from '@/lib/eza/sainaConversationList';
 import SainaGeometricMark from './SainaGeometricMark';
+import { SAINA_SEARCH_ENABLED } from '@/lib/eza/sainaSearchAvailability';
 
 export type SainaCommandPaletteProps = {
   open: boolean;
@@ -52,7 +53,7 @@ export default function SainaCommandPalette({
   );
 
   useEffect(() => {
-    if (!open) {
+    if (!open || !SAINA_SEARCH_ENABLED) {
       setQuery('');
       return;
     }
@@ -61,7 +62,7 @@ export default function SainaCommandPalette({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !SAINA_SEARCH_ENABLED) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
@@ -69,7 +70,7 @@ export default function SainaCommandPalette({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !SAINA_SEARCH_ENABLED) return null;
 
   const runAndClose = (action?: () => void) => {
     action?.();

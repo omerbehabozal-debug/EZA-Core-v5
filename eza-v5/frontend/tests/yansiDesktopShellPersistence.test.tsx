@@ -89,6 +89,7 @@ describe('SainaAppRootLayout yansi view', () => {
           title: 'Kept conversation',
           preview: 'still here',
           time: '1 dk',
+          thumbGradient: 'linear-gradient(#172322, #0c1111)',
         },
       ],
       activeChatId: 'chat-1',
@@ -103,7 +104,9 @@ describe('SainaAppRootLayout yansi view', () => {
     );
     expect(screen.getByTestId('saina-yansi-shell')).toHaveAttribute('data-saina-view', 'yansi');
     expect(screen.getByText('Kept conversation')).toBeInTheDocument();
-    expect(screen.getAllByTestId('saina-top-search-trigger')).toHaveLength(1);
+    expect(screen.queryByTestId('saina-top-search-trigger')).toBeNull();
+    expect(screen.getAllByTestId('saina-profile-menu-trigger')).toHaveLength(1);
+    expect(screen.queryByTestId('saina-notifications-trigger')).toBeNull();
     expect(screen.getByTestId('saina-yansi-shell-topbar')).toBeInTheDocument();
     expect(screen.queryByTestId('saina-scene-live')).toBeNull();
     expect(screen.getByTestId('yansi-main-child')).toBeInTheDocument();

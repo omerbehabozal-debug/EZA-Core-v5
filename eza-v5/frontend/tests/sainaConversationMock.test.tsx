@@ -39,6 +39,11 @@ import SainaConversationMain, {
 import ConversationMirrorPanel from '@/components/saina/ConversationMirrorPanel';
 import SainaConversationMockPage from '@/app/dev/saina-conversation/page';
 
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({ isAuthenticated: false, isAuthReady: true, user: null, token: null,
+    logout: vi.fn(), setAuth: vi.fn(), patchAuthUser: vi.fn() }),
+}));
+
 describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
   it('exposes chat column width and scene glass tokens', () => {
     expect(DEFAULT_SAINA_CONVERSATION_SCENE).toBe('/saina/default-conversation-scene.png');
@@ -79,7 +84,7 @@ describe('sainaConversationMock (Sprint A / A.8 alignment)', () => {
     expect(container.querySelector('.saina-top-bar-inner')).toBeTruthy();
     expect(screen.queryByTestId('saina-chat-card')).not.toBeInTheDocument();
     expect(container.querySelector('.saina-composer-box')).toBeTruthy();
-    expect(screen.getByRole('searchbox', { name: 'Ara' })).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox', { name: 'Ara' })).toBeNull();
     expect(screen.getByTestId('saina-chips-toggle')).toHaveTextContent(SAINA_CHIPS_TOGGLE);
     expect(screen.queryByText(SAINA_SAMPLE_MESSAGES[0].text)).not.toBeInTheDocument();
 
