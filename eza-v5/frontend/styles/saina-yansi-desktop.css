@@ -1426,9 +1426,9 @@
     --saina-sidebar-width: 280px;
     --saina-sidebar-fade-width: 160px;
     --saina-reading-atmosphere-width: min(960px, 94%);
-    --saina-reading-smoke-peak: rgba(5, 7, 7, 0.48);
-    --saina-reading-smoke-mid: rgba(5, 7, 7, 0.3);
-    --saina-reading-smoke-outer: rgba(5, 7, 7, 0.14);
+    --saina-reading-smoke-peak: rgba(5, 7, 7, 0.4);
+    --saina-reading-smoke-mid: rgba(5, 7, 7, 0.25);
+    --saina-reading-smoke-outer: rgba(5, 7, 7, 0.115);
     --saina-reading-plane-width: min(
       900px,
       72vw,
@@ -1998,7 +1998,7 @@
     --saina-chat-safe-gap: 1.25rem;
   }
 
-  /* Soft local reading smoke — overlapping radials, no panel/card geometry */
+  /* Local reading smoke: lighter overlapping radials preserve scene detail. */
   .saina-app-root.saina-standalone-shell .saina-main-body:not(.saina-main-body--empty)::after {
     content: '';
     position: absolute;
@@ -2018,15 +2018,15 @@
       ),
       radial-gradient(
         ellipse 50% 44% at 48% 58%,
-        rgba(5, 7, 7, 0.44) 0%,
-        rgba(5, 7, 7, 0.28) 50%,
-        rgba(5, 7, 7, 0.12) 76%,
+        rgba(5, 7, 7, 0.36) 0%,
+        rgba(5, 7, 7, 0.23) 50%,
+        rgba(5, 7, 7, 0.1) 76%,
         transparent 100%
       ),
       radial-gradient(
         ellipse 42% 34% at 50% 80%,
-        rgba(5, 7, 7, 0.38) 0%,
-        rgba(5, 7, 7, 0.22) 48%,
+        rgba(5, 7, 7, 0.31) 0%,
+        rgba(5, 7, 7, 0.18) 48%,
         transparent 100%
       );
   }

@@ -841,3 +841,27 @@
   -webkit-backdrop-filter: blur(20px) saturate(1.06);
   backdrop-filter: blur(20px) saturate(1.06);
 }
+
+/* Desktop EZA atmosphere; Keşfet and mobile retain their existing treatment. */
+@media (min-width: 900px) {
+  .saina-pattern-main {
+    --saina-pattern-text-muted: rgba(232, 226, 215, 0.65);
+    --saina-pattern-text-label: rgba(232, 226, 215, 0.52);
+    --saina-pattern-map-border: rgba(183, 137, 73, 0.26);
+    --saina-pattern-balance-border: rgba(183, 137, 73, 0.24);
+  }
+
+  .saina-app-root.saina-standalone-shell.saina-pattern-shell .saina-canvas-bg::after {
+    background:
+      radial-gradient(ellipse 68% 60% at 58% 42%, rgba(36, 91, 94, 0.12), transparent 76%),
+      linear-gradient(
+        180deg,
+        rgba(9, 11, 11, 0.3) 0%,
+        rgba(9, 11, 11, 0.05) 26%,
+        transparent 42%,
+        transparent 58%,
+        rgba(9, 11, 11, 0.12) 78%,
+        rgba(9, 11, 11, 0.34) 100%
+      );
+  }
+}
