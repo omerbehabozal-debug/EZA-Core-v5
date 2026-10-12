@@ -255,6 +255,24 @@ describe('Phase 5.1 replay isolation', () => {
   });
 });
 
+async function completeActiveReplay() {
+  const next = await screen.findByTestId('mirror-frozen-replay-next-question');
+  expect(next).toHaveAttribute('data-step-index', '1');
+  expect(screen.queryByTestId('mirror-frozen-replay-explore-another')).toBeNull();
+  expect(screen.queryByText('Bu Yansı burada tamamlandı.')).toBeNull();
+  for (let step = 1; step <= 6; step++) {
+    fireEvent.click(screen.getByTestId('mirror-frozen-replay-next-question'));
+    await waitFor(() => {
+      if (step === 6) {
+        expect(screen.getByTestId('mirror-frozen-replay-explore-another')).toBeTruthy();
+      } else {
+        expect(screen.getByTestId('mirror-frozen-replay-next-question')).toHaveAttribute('data-step-index', String(step + 1));
+        expect(screen.queryByTestId('mirror-frozen-replay-explore-another')).toBeNull();
+      }
+    });
+  }
+}
+
 describe('Phase 5.1 continuous chain UI', () => {
   it('completed A stays active alone: no child preload, explore CTA, Discover DOWN available', async () => {
     const a = makeArtifact('yansi-a', {
@@ -307,6 +325,7 @@ describe('Phase 5.1 continuous chain UI', () => {
       'yansi-a'
     );
 
+    await completeActiveReplay();
     const sectionA = screen.getByTestId('mirror-yansi-section-yansi-a');
     expect(within(sectionA).getByTestId('mirror-frozen-replay-explore-another')).toBeTruthy();
     expect(within(sectionA).queryByTestId('mirror-frozen-replay-continue')).toBeNull();
@@ -339,9 +358,7 @@ describe('Phase 5.1 continuous chain UI', () => {
       })
     );
     render(<MirrorYansiChainExperience rootArtifact={a}  depth="chat" />);
-    await waitFor(() => {
-      expect(screen.getByTestId('mirror-frozen-replay-explore-another')).toBeTruthy();
-    });
+    await completeActiveReplay();
     expect(screen.queryByTestId('mirror-other-paths')).toBeNull();
     expect(screen.queryByText(/0 Yansı/i)).toBeNull();
   });
